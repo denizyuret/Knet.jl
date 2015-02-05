@@ -1,0 +1,6 @@
+*~
+*.out
+*.mat
+jnet_test
+jnet_test2
+libjnet.so
