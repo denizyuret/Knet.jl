@@ -85,8 +85,20 @@ Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
 }
 
 extern "C" void lfree(Layer l) {
-  CUDA(7,cudaFree(l->w));
-  if (l->b != NULL) CUDA(8,cudaFree(l->b));
+  CUDA(8,cudaFree(l->w));
+  CUDA(8,cudaFree(l->b));
+  CUDA(8,cudaFree(l->dw));
+  //CUDA(8,cudaFree(l->dw1));
+  //CUDA(8,cudaFree(l->dw2));
+  CUDA(8,cudaFree(l->db));
+  //CUDA(8,cudaFree(l->db1));
+  //CUDA(8,cudaFree(l->db2));
+  //CUDA(8,cudaFree(l->x));   // taken as input, not alloced
+  CUDA(8,cudaFree(l->y));   
+  CUDA(8,cudaFree(l->dx));
+  //CUDA(8,cudaFree(l->dy));  // taken as input, not alloced
+  //CUDA(8,cudaFree(l->xmask));
+  CUDA(8,cudaFree(l->xones));
   free(l);
 }
 
