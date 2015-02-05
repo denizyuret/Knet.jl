@@ -20,6 +20,14 @@ void forwtest(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) 
   fprintf(stderr, "%g seconds\n", (double)(t1-t0)/CLOCKS_PER_SEC);
 }
 
+void forwbacktest(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
+  fprintf(stderr, "Calling forwback... ");
+  clock_t t0 = clock();
+  forwback(net, x, y, nlayer, xcols, batch);
+  clock_t t1 = clock();
+  fprintf(stderr, "%g seconds\n", (double)(t1-t0)/CLOCKS_PER_SEC);
+}
+
 int main() {
   fprintf(stderr, "Initializing\n");
   int batch = 10000;
@@ -40,6 +48,10 @@ int main() {
   forwtest(net, x, y, 2, xcols, batch);
   forwtest(net, x, y, 2, xcols, batch);
   forwtest(net, x, y, 2, xcols, batch);
+
+  forwbacktest(net, x, y, 2, xcols, batch);
+  forwbacktest(net, x, y, 2, xcols, batch);
+  forwbacktest(net, x, y, 2, xcols, batch);
 
   lfree(net[0]);
   lfree(net[1]);
