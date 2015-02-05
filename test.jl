@@ -1,5 +1,7 @@
 ### TEST CODE
 
+include("jnet.jl")
+
 using MAT
 using CUDArt
 
