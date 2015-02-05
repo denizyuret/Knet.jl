@@ -12,8 +12,9 @@ end
 
 function test(data)
     info("Initializing...")
-    x10k = data["x"][:,1:10000]
-    y10k = data["y"][1:10000]
+    x = data["x"]
+    ylabels = vec(data["y"])
+    y = full(sparse(convert(Vector{Int},ylabels), 1:length(ylabels), ones(ylabels)))
     w1 = data["w1"][:,2:end]
     b1 = data["w1"][:,1]
     w2 = data["w2"][:,2:end]
@@ -22,10 +23,20 @@ function test(data)
     device_reset(0)
     net = [Jnet.relu(w1,b1), Jnet.soft(w2,b2)]
     info("GPU Forward 1")
-    @time y1 = Jnet.forward(net, x10k)
+    @time y1 = Jnet.forward(net, x)
     info("GPU Forward 2")
-    @time y2 = Jnet.forward(net, x10k)
+    @time y2 = Jnet.forward(net, x)
     assert(y1==y2)
+    
+    (a,b) = findmax(y1,1)
+    b = vec(b)
+    broadcast!(mod1, b, b, 3)
+    info("Accuracy=$(mean(b.==ylabels))")
+    
+    info("GPU Forwback 1")
+    @time y1 = Jnet.forwback(net, x, y)
+    info("GPU Forwback 2")
+    @time y2 = Jnet.forwback(net, x, y)
     return net
 end
 
