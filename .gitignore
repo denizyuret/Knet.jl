@@ -1,6 +1,6 @@
 *~
 *.out
 *.mat
-jnet_test
-jnet_test2
+test1
+test2
 libjnet.so
