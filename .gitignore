@@ -1,6 +1,7 @@
 *~
 *.out
 *.mat
+*.job
 test1
 test2
 libjnet.so
