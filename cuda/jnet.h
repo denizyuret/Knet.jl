@@ -11,6 +11,8 @@ int lsize(Layer l, int i);
 void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void update(Layer l);
+float *forw(Layer l, float *x, int xcols);
+float *back(Layer l, float *dy, int dx);
 
 void adagrad(Layer l, int i);
 void nesterov(Layer l, int i);
