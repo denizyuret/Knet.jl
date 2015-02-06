@@ -11,12 +11,15 @@
 %
 % Note that the first column of w is for bias.
 
-if 0 
+teststart = 2;
+
+if teststart <= 0 %%% Load data
+path('../matlab', path);
 msg('Loading dev.mat');
 tic;load dev.mat;toc;                   % 2.67s
 end
 
-if 0 %%% CPU forw
+if teststart <= 1 %%% CPU forw
 msg('Creating cpu net');
 l1=relu('w', dev.w1, 'bias',1);
 l2=soft('w', dev.w2, 'bias',1);
@@ -30,7 +33,7 @@ assert(isequal(cpu_y, cpu_y2))
 msg('CPU-dev.score maxdiff=%g', max(abs(dev.score(:)-cpu_y(:)))) % 3.05e-5
 end
 
-if 0 %%% GPU forw
+if teststart <= 2 %%% GPU forw
 msg('Creating gpu net');
 gnet = copynet(net, 'gpu');
 msg('GPU forward batch=10000');
@@ -45,3 +48,18 @@ assert(isequal(gpu_y, gpu_y3))
 msg('GPU-CPU maxdiff=%g', max(abs(gpu_y(:)-cpu_y(:)))) % 2.5e-4
 end
 
+%%% back
+%%% gradient check
+%%% dropout forw
+%%% dropout back
+%%% dropout gradient check
+%%% update
+%%% momentum
+%%% nesterov
+%%% adagrad
+%%% maxnorm
+%%% L1
+%%% L2
+%%% all with no-bias
+%%% all with cpu/gpu
+%%% compare with caffe
