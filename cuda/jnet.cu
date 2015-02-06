@@ -4,7 +4,7 @@
 // update: check L2, momentum, nesterov
 // update: implement maxnorm, L1
 // dropout
-// compare with caffe
+// compare with caffe, matlab
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,33 +18,33 @@
 typedef enum { NOOP, RELU, SOFT } LayerType;
 
 typedef struct LayerS {
-  int wrows, wcols, xcols;	// size params
+  int wrows, wcols, xcols; // size params
 
-  LayerType type; // type of activation function	
-  float *w;	// weight matrix (wrows,wcols)
-  float *b;	// bias vector (wrows)
-  float *x;	// last input (wcols,xcols)
-  float *y;	// last output (wrows,xcols)
-  float *xones;	// vector of ones for bias calculation (xcols)
-  float *xmask;	// input mask for dropout
+  LayerType type;	// type of activation function	
+  float *w;		// weight matrix (wrows,wcols)
+  float *b;		// bias vector (wrows)
+  float *x;		// last input (wcols,xcols)
+  float *y;		// last output (wrows,xcols)
+  float *xones;		// vector of ones for bias calculation (xcols)
+  float *xmask;		// input mask for dropout
 
-  float *dw;	// gradient wrt weight matrix
-  float *db;	// gradient wrt bias vector
-  float *dx;	// gradient wrt input
-  float *dy;	// gradient wrt output
+  float *dw;		// gradient wrt weight matrix
+  float *db;		// gradient wrt bias vector
+  float *dx;		// gradient wrt input
+  float *dy;		// gradient wrt output
 
-  float *dw1;	// moving average of gradients for momentum
-  float *dw2;	// sum of squared gradients for adagrad
-  float *db1;	// moving average of gradients for momentum
-  float *db2;	// sum of squared gradients for adagrad
+  float *dw1;		// moving average of gradients for momentum
+  float *dw2;		// sum of squared gradients for adagrad
+  float *db1;		// moving average of gradients for momentum
+  float *db2;		// sum of squared gradients for adagrad
 
-  bool adagrad;
-  bool nesterov;
+  bool adagrad;		// adagrad during weight updates
+  bool nesterov;	// nesterov during weight updates
   float learningRate;	// default=0, acts like 1.0
-  float momentum;
-  float dropout;
+  float momentum;	// default=0
+  float dropout;	// probability of dropping inputs, default=0
   float maxnorm;	// default=0, acts like inf
-  float L1, L2;
+  float L1, L2;		// L1,L2 regularization, default=0
 
 } *Layer;
 
