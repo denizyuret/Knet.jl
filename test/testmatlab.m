@@ -11,7 +11,7 @@
 %
 % Note that the first column of w is for bias.
 
-teststart = 2;
+teststart = 0;
 
 if teststart <= 0 %%% Load data
 path('../matlab', path);
@@ -27,6 +27,7 @@ net={l1,l2};
 msg('CPU forward fullbatch');
 tic;cpu_y = forward(net, dev.x);toc;    % 17.76s
 save cpu_y cpu_y
+disp(cpu_y(:,1));
 msg('CPU forward batch=1000');
 tic;cpu_y2 = forward(net, dev.x, 1000);toc; % 22.98s
 assert(isequal(cpu_y, cpu_y2))
