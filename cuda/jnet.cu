@@ -15,9 +15,9 @@
 #define BLK 128
 #define THR 128
 
-typedef enum { NOOP, RELU, SOFT } LayerType;
+typedef enum { NOOP=0, RELU=1, SOFT=2 } LayerType;
 
-typedef struct LayerS {
+struct LayerS {
   int wrows, wcols, xcols; // size params
 
   LayerType type;	// type of activation function	
@@ -38,320 +38,361 @@ typedef struct LayerS {
   float *db1;		// moving average of gradients for momentum
   float *db2;		// sum of squared gradients for adagrad
 
-  bool adagrad;		// adagrad during weight updates
-  bool nesterov;	// nesterov during weight updates
-  float learningRate;	// default=0, acts like 1.0
-  float momentum;	// default=0
-  float dropout;	// probability of dropping inputs, default=0
-  float maxnorm;	// default=0, acts like inf
-  float L1, L2;		// L1,L2 regularization, default=0
-
-} *Layer;
+  int adagrad;		// [0] adagrad during weight updates
+  int nesterov;		// [0] nesterov during weight updates
+  float learningRate;	// [0.01]
+  float momentum;	// [0]
+  float dropout;	// [0] probability of dropping inputs
+  float maxnorm;	// [0] default=0, acts like inf
+  float L1, L2;		// [0,0] L1,L2 regularization
+};
 
 
 Layer layer(LayerType type, int wrows, int wcols, float *w, float *b);
-float *forw(Layer l, float *x, int xcols);
-float *initforw(Layer l, float *x, int xcols);
-float *back(Layer l, float *dy, bool dx);
-float *initback(Layer l, float *dy, bool dx);
-void initupdate(Layer l);
-
-__global__ void _fill(float *y, int n, float val);
-__global__ void _reluforw(float *y, int n);
-__global__ void _reluback(float *dy, float *y, int n);
-__global__ void _softback(float *dy, float *y, int nrows, int ncols);
-
+static inline float *gpuArray(int nfloats);
+static inline float *gpuCopy(int nfloats, float *cpuArray);
+static inline float *gpuFill(int nfloats, float val);
+static inline void fforw(Layer l);
+static inline float *initforw(Layer l, float *x, int xcols);
+static inline void fback(Layer l);
+static inline float *initback(Layer l, float *dy, int dx);
+static inline void initupdate(Layer l);
+__global__ void _reluforw(int n, float *y);
+__global__ void _reluback(int n, float *y, float *dy);
+__global__ void _softback(int nrows, int ncols, float *y, float *dy);
+__global__ void _l1reg(int n, float l1, float *w, float *dw);
+__global__ void _adagrad(int n, float *dw2, float *dw);
+__global__ void _fill(int n, float val, float *x);
 
 #define CUDA(_s) assert((_s) == cudaSuccess)
-#define NOTNULL(_s) assert((_s) != NULL)
+#define CUBLAS(_s) assert(((_s), cublasGetError())==CUBLAS_STATUS_SUCCESS)
+
+#define gpuFree(x) CUDA(cudaFree(x))
+#define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+#define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+
+static inline float *gpuArray(int nfloats) {
+  float *gptr;
+  CUDA(cudaMalloc((void **) &gptr, nfloats * sizeof(float)));
+  return gptr;
+}
+
+static inline float *gpuCopy(int nfloats, float *cpuArray) {
+  float *gptr = gpuArray(nfloats);
+  CUDA(cudaMemcpy(gptr, cpuArray, nfloats * sizeof(float), cudaMemcpyHostToDevice));
+  return gptr;
+}
+
+static inline float *gpuFill(int nfloats, float val) {
+  float *gptr = gpuArray(nfloats);
+  _fill<<<BLK,THR>>>(nfloats, val, gptr);
+  return gptr;
+}
 
 
 Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
-  Layer l;
-  NOTNULL(w);
-  NOTNULL(l = (Layer) calloc(1, sizeof(struct LayerS)));
-  l = (Layer) calloc(1, sizeof(struct LayerS));
+  static int init = 0;
+  if (!init) { CUBLAS(cublasInit()); init=1; }
+  Layer l = (Layer) calloc(1, sizeof(struct LayerS));
+  assert(l != NULL);
   l->type = type;
   l->wrows = wrows;
   l->wcols = wcols;
-  int wsize = wrows*wcols*sizeof(float);
-  CUDA(cudaMalloc((void **) &l->w, wsize));
-  CUDA(cudaMemcpy(l->w, w, wsize, cudaMemcpyHostToDevice));
-  if (b != NULL) {
-    int bsize = wrows*sizeof(float);
-    CUDA(cudaMalloc((void **) &l->b, bsize));
-    CUDA(cudaMemcpy(l->b, b, bsize, cudaMemcpyHostToDevice));
-  }
+  assert(w != NULL);
+  l->w = gpuCopy(wrows*wcols, w);
+  if (b != NULL) l->b = gpuCopy(wrows, b);
   return(l);
 }
 
-extern "C" void lfree(Layer l) {
-  CUDA(cudaFree(l->w));
-  CUDA(cudaFree(l->b));
-  //CUDA(cudaFree(l->x));   // taken as input, not alloced
-  CUDA(cudaFree(l->y));   
-  CUDA(cudaFree(l->xones));
-  //CUDA(cudaFree(l->xmask));
+void lfree(Layer l) {
+  gpuFree(l->w);
+  gpuFree(l->b);
+  //gpuFree(l->x);   // taken as input, not alloced
+  gpuFree(l->y);   
+  gpuFree(l->xones);
+  //gpuFree(l->xmask);
 
-  CUDA(cudaFree(l->dw));
-  CUDA(cudaFree(l->db));
-  CUDA(cudaFree(l->dx));
-  //CUDA(cudaFree(l->dy));  // taken as input, not alloced
+  gpuFree(l->dw);
+  gpuFree(l->db);
+  gpuFree(l->dx);
+  //gpuFree(l->dy);  // taken as input, not alloced
 
-  CUDA(cudaFree(l->dw1));
-  CUDA(cudaFree(l->dw2));
-  CUDA(cudaFree(l->db1));
-  CUDA(cudaFree(l->db2));
+  gpuFree(l->dw1);
+  gpuFree(l->dw2);
+  gpuFree(l->db1);
+  gpuFree(l->db2);
   free(l);
 }
 
-extern "C" void adagrad(Layer l, int i) { l->adagrad = i; }
-extern "C" void nesterov(Layer l, int i) { l->nesterov = i; }
-extern "C" void learningRate(Layer l, float lr) { l->learningRate = lr; }
-extern "C" void momentum(Layer l, float m) { l->momentum = m; }
-extern "C" void dropout(Layer l, float d) { l->dropout = d; }
-extern "C" void maxnorm(Layer l, float m) { l->maxnorm = m; }
-extern "C" void L1(Layer l, float m) { l->L1 = m; }
-extern "C" void L2(Layer l, float m) { l->L2 = m; }
+void set_adagrad(Layer l, int i) { l->adagrad = i; }
+void set_nesterov(Layer l, int i) { l->nesterov = i; }
+void set_learningRate(Layer l, float f) { l->learningRate = f; }
+void set_momentum(Layer l, float f) { l->momentum = f; }
+void set_dropout(Layer l, float f) { l->dropout = f; }
+void set_maxnorm(Layer l, float f) { l->maxnorm = f; }
+void set_L1(Layer l, float f) { l->L1 = f; }
+void set_L2(Layer l, float f) { l->L2 = f; }
 
-extern "C" int lsize(Layer l, int i) { 
-  switch(i) {
-  case 1: return l->wrows;
-  case 2: return l->wcols;
-  default: fprintf(stderr, "size argument must be 1 or 2\n");
-    exit(EXIT_FAILURE);
-  }
+int lsize(Layer l, int i) { 
+  return (i==1 ? l->wrows : i==2 ? l->wcols : 1);
 }
 
-extern "C" Layer relu(int wrows, int wcols, float *w, float *b) {
+Layer relu(int wrows, int wcols, float *w, float *b) {
   return layer(RELU, wrows, wcols, w, b);
 }
 
-extern "C" Layer soft(int wrows, int wcols, float *w, float *b) {
+Layer soft(int wrows, int wcols, float *w, float *b) {
   return layer(SOFT, wrows, wcols, w, b);
 }
 
-extern "C" void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
-  float *xgpu;
+void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
   int xrows = net[0]->wcols;
   int yrows = net[nlayer-1]->wrows;
-  int xsize = xrows * batch * sizeof(float);
-  int ysize = yrows * batch * sizeof(float);
-  CUDA(cudaMalloc((void **) &xgpu, xsize));
+  float *xgpu = gpuArray(xrows * batch);
   for (int b = 0; b < xcols; b += batch) {
-    if (b + batch > xcols) {
-      batch = xcols - b;
-      xsize = xrows * batch * sizeof(float);
-      ysize = yrows * batch * sizeof(float);
-    }
-    CUDA(cudaMemcpy(xgpu, &x[b * xrows], xsize, cudaMemcpyHostToDevice));
-    float *ygpu = xgpu;
-    for (int l = 0; l < nlayer; l++) {
-      ygpu = forw(net[l], ygpu, batch);
-    }
-    CUDA(cudaMemcpy(&y[b * yrows], ygpu, ysize, cudaMemcpyDeviceToHost));
-  }
-  CUDA(cudaFree(xgpu));
-}
-
-extern "C" void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
-  float *xgpu, *ygpu;
-  int xrows = net[0]->wcols;
-  int yrows = net[nlayer-1]->wrows;
-  int xsize = xrows * batch * sizeof(float);
-  int ysize = yrows * batch * sizeof(float);
-  CUDA(cudaMalloc((void **) &xgpu, xsize));
-  CUDA(cudaMalloc((void **) &ygpu, ysize));
-  for (int b = 0; b < xcols; b += batch) {
-    if (b + batch > xcols) {
-      batch = xcols - b;
-      xsize = xrows * batch * sizeof(float);
-      ysize = yrows * batch * sizeof(float);
-    }
-    CUDA(cudaMemcpy(xgpu, &x[b * xrows], xsize, cudaMemcpyHostToDevice));
-    float *xptr = xgpu;
+    if (b + batch > xcols) batch = xcols - b;
+    gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
+    float *gptr = xgpu;
     for (int l = 0; l < nlayer; l++)
-      xptr = forw(net[l], xptr, batch);
-    CUDA(cudaMemcpy(ygpu, &y[b * yrows], ysize, cudaMemcpyHostToDevice));
-    float *yptr = ygpu;
-    for (int l = nlayer - 1; l >= 0; l--)
-      yptr = back(net[l], yptr, (l>0));
+      gptr = lforw(net[l], gptr, batch);
+    gpuGetMatrix(yrows, batch, gptr, &y[b*yrows]);
   }
-  CUDA(cudaFree(xgpu));
-  CUDA(cudaFree(ygpu));
+  gpuFree(xgpu);
+}
+
+void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
+  int xrows = net[0]->wcols;
+  int yrows = net[nlayer-1]->wrows;
+  float *xgpu = gpuArray(xrows * batch);
+  float *ygpu = gpuArray(yrows * batch);
+  for (int b = 0; b < xcols; b += batch) {
+    if (b + batch > xcols) batch = xcols - b;
+    gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
+    float *gptr = xgpu;
+    for (int l = 0; l < nlayer; l++)
+      gptr = lforw(net[l], gptr, batch);
+    gpuSetMatrix(yrows, batch, &y[b*yrows], ygpu);
+    gptr = ygpu;
+    for (int l = nlayer - 1; l >= 0; l--)
+      gptr = lback(net[l], gptr, (l>0));
+  }
+  gpuFree(xgpu);
+  gpuFree(ygpu);
 }
 
 
-float *forw(Layer l, float *x, int xcols) {
+float *lforw(Layer l, float *x, int xcols) {
   // We assume x is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume xrows == l->wcols and x is column-major.  
   l->x = initforw(l, x, xcols);
 
-  // l->y = l->w * l->x
+  // y = w * x
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
-  cublasSgemm('N', 'N', l->wrows, l->xcols, l->wcols, 1.0, l->w, l->wrows, l->x, l->wcols, 0.0, l->y, l->wrows);
+  CUBLAS(cublasSgemm('N', 'N', l->wrows, l->xcols, l->wcols, 1.0, l->w, l->wrows, l->x, l->wcols, 0.0, l->y, l->wrows));
 
   if (l->b != NULL) {
-    // l->y = l->y + l->b with singleton expansion
+    // y = y + b  with singleton expansion
     // ger(m,n,α,x(m),incx=1,y(n),incy=1,A(m,n),lda=m): A = α x y' + A
-    cublasSger(l->wrows, l->xcols, 1.0, l->b, 1, l->xones, 1, l->y, l->wrows);
+    CUBLAS(cublasSger(l->wrows, l->xcols, 1.0, l->b, 1, l->xones, 1, l->y, l->wrows));
   }
-  // l->y = fforw(l->y)
+  // y = f(y) where f is relu, sigm etc.
+  fforw(l);
+  return l->y;
+}
+
+static inline void fforw(Layer l) {
   switch(l->type) {
   case RELU:
-    _reluforw<<<BLK,THR>>>(l->y, l->wrows * l->xcols);
+    _reluforw<<<BLK,THR>>>(l->wrows * l->xcols, l->y);
     CUDA(cudaGetLastError());
     break;
   }
-  return(l->y);
 }
 
-float *initforw(Layer l, float *x, int xcols) {
-  // Alloc/realloc l->y and l->xones if necessary
-  // Update l->xcols
+static inline float *initforw(Layer l, float *x, int xcols) {
+  // Alloc/realloc l->y and l->xones if necessary and update l->xcols
   int yrows = l->wrows;
   int ycols = xcols;
   if ((l->y == NULL) || (l->xcols != xcols)) {
-    CUDA(cudaFree(l->y));
-    CUDA(cudaMalloc((void **) &l->y, yrows * ycols * sizeof(float)));
+    gpuFree(l->y);
+    l->y = gpuArray(yrows * ycols);
   }
   if ((l->b != NULL) && ((l->xones == NULL) || l->xcols != xcols)) {
-    CUDA(cudaFree(l->xones));
-    CUDA(cudaMalloc((void **) &l->xones, xcols * sizeof(float)));
-    _fill<<<BLK,THR>>>(l->xones, xcols, 1.0);
-    CUDA(cudaGetLastError());
+    gpuFree(l->xones);
+    l->xones = gpuFill(xcols, 1.0);
   }
   if ((l->dx != NULL) && (l->xcols != xcols)) {
-    CUDA(cudaFree(l->dx));
-    l->dx = NULL;
+    gpuFree(l->dx);
+    l->dx = NULL;	/* to be reallocated */
   }
   l->xcols = xcols;
   return x;
 }
 
-float *back(Layer l, float *dy, bool dx) {
+float *lback(Layer l, float *dy, int dx) {
   // We assume dy is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume dy has the same size as l.y: (wrows,xcols)
   l->dy = initback(l, dy, dx);
   
-  // dy = fback(dy)
-  switch(l->type) {
-  case RELU:
-    _reluback<<<BLK,THR>>>(l->dy, l->y, l->wrows * l->xcols);
-    CUDA(cudaGetLastError());
-    break;
-  case SOFT:
-    _softback<<<BLK,THR>>>(l->dy, l->y, l->wrows, l->xcols);
-    CUDA(cudaGetLastError());
-    break;
-  }
+  // dy = fback(dy) where fback is the derivative of fforw
+  fback(l);
 
   // dw = dy * x'
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
   // m = wrows; n = wcols; k = xcols
-  cublasSgemm('N', 'T', l->wrows, l->wcols, l->xcols, 1.0, l->dy, l->wrows, l->x, l->wcols, 0.0, l->dw, l->wrows);
+  CUBLAS(cublasSgemm('N', 'T', l->wrows, l->wcols, l->xcols, 1.0, l->dy, l->wrows, l->x, l->wcols, 0.0, l->dw, l->wrows));
 
   if (l->b != NULL) {
     // db = sum(dy,2) = dy * ones
     // gemv(op,m,n,α,A(m,n),lda=m,x(n),incx=1,β,y(m),incy=1): y = α op(A) x + β y
-    cublasSgemv('N', l->wrows, l->xcols, 1.0, l->dy, l->wrows, l->xones, 1, 0.0, l->db, 1);
+    CUBLAS(cublasSgemv('N', l->wrows, l->xcols, 1.0, l->dy, l->wrows, l->xones, 1, 0.0, l->db, 1));
   }
   if (dx) { // dx is optional because it is expensive and unnecessary for input layer
     // dx=w' * dy
     // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
     // m = wcols, n = xcols, k = wrows
-    cublasSgemm('T', 'N', l->wcols, l->xcols, l->wrows, 1.0, l->w, l->wrows, l->dy, l->wrows, 0.0, l->dx, l->wcols);
+    CUBLAS(cublasSgemm('T', 'N', l->wcols, l->xcols, l->wrows, 1.0, l->w, l->wrows, l->dy, l->wrows, 0.0, l->dx, l->wcols));
   }
   return l->dx;
 }
 
-float *initback(Layer l, float *dy, bool dx) {
-  if (l->dw == NULL)
-    CUDA(cudaMalloc((void **) &l->dw, l->wrows * l->wcols * sizeof(float)));
-  if ((l->b != NULL) && (l->db == NULL))
-    CUDA(cudaMalloc((void **) &l->db, l->wrows * sizeof(float)));
-  if (dx && (l->dx == NULL))
-    CUDA(cudaMalloc((void **) &l->dx, l->wcols * l->xcols * sizeof(float)));
+static inline void fback(Layer l) {
+  switch(l->type) {
+  case RELU:
+    _reluback<<<BLK,THR>>>(l->wrows * l->xcols, l->y, l->dy);
+    CUDA(cudaGetLastError());
+    break;
+  case SOFT:
+    _softback<<<BLK,THR>>>(l->wrows, l->xcols, l->y, l->dy);
+    CUDA(cudaGetLastError());
+    break;
+  }
+}
+
+static inline float *initback(Layer l, float *dy, int dx) {
+  if (l->dw == NULL) l->dw = gpuArray(l->wrows * l->wcols);
+  if ((l->b != NULL) && (l->db == NULL)) l->db = gpuArray(l->wrows);
+  if (dx && (l->dx == NULL)) l->dx = gpuArray(l->wcols * l->xcols);
   return dy;
 }
 
-extern "C" void update(Layer l) {
+void update(Layer l) {
   initupdate(l);
+  if (l->learningRate == 0) return;
   int nw = l->wcols * l->wrows;
   int nb = (l->b == NULL ? 0 : l->wrows);
+
   if (l->L1 != 0) {
-    assert(1 == 0); // TBD
+    /* L1 regularization:
+       J(w,b) = Jerr + L1 Σ|wi|
+       ∂J/∂wi = ∂Jerr/∂wi + L1 sign(wi)
+       dw contains ∂Jerr/∂wi after lback
+       we want: dw += L1 * sign(w)
+       axpy(n,α,x(n),incx=1,y(n),incy=1): y = α x + y
+    */
+    _l1reg<<<BLK,THR>>>(nw, l->L1, l->w, l->dw);
+    CUDA(cudaGetLastError());
   }
-  if (l->L2 != 0) { // dw += L2 * w
-    // axpy(n,α,x(n),incx=1,y(n),incy=1): y = α x + y
+
+  if (l->L2 != 0) { 
+    /* L2 regularization:
+       J(w,b) = Jerr + (L2/2)|w|^2
+       ∂J/∂wi = ∂Jerr/∂wi + L2 wi 
+       dw contains ∂Jerr/∂wi after lback
+       we want: dw += L2 * w
+       axpy(n,α,x(n),incx=1,y(n),incy=1): y = α x + y
+    */
     cublasSaxpy(nw, l->L2, l->w, 1, l->dw, 1);
-    // We do not apply L2 to l->b??
   }
-  if (l->adagrad) { // dw2 += dw.*dw; dw /= (epsilon + sqrt(dw2))
-    assert(1 == 0); // TBD
+  if (l->adagrad) {
+    /* ADAGRAD:
+       dw2 += dw.*dw 
+       dw /= (epsilon + sqrt(dw2))
+       and similarly for db.
+    */
+    _adagrad<<<BLK,THR>>>(nw, l->dw2, l->dw);
+    if (nb) { _adagrad<<<BLK,THR>>>(nb, l->db2, l->db); }
+    CUDA(cudaGetLastError());
   }
-  if (l->learningRate != 0) {  // dw *= learningRate
-    // scal(n,α,x(n),incx=1): x = α x
+  if (l->learningRate != 1) {
+    /* LearningRate:
+       Scale dw and db with the learning rate.
+       dw,db *= learningRate
+       scal(n,α,x(n),incx=1): x = α x
+    */
     cublasSscal(nw, l->learningRate, l->dw, 1);
     if (nb) cublasSscal(nb, l->learningRate, l->db, 1);
   }
-  if (l->momentum != 0) {  // dw1 = momentum * dw1 + dw
-    // do we apply momentum to db?
+  if (l->momentum != 0) {  
+    /* Momentum:
+       why do we apply it here?
+       do we apply it to db?
+       check the following:
+       dw1 = momentum * dw1 + dw
+       dw = dw1   :without nesterov
+       dw = momentum * dw1 + dw   :with nesterov
+    */
+    assert(1==0);	/* need to check first */
     cublasSscal(nw, l->momentum, l->dw1, 1);
     cublasSaxpy(nw, 1.0, l->dw, 1, l->dw1, 1);
-    if (l->nesterov) {	// TODO: check this!
+    if (l->nesterov) {
       cublasSaxpy(nw, l->momentum, l->dw1, 1, l->dw, 1);
     } else {
       cublasScopy(nw, l->dw1, 1, l->dw, 1);
     }
   }
-  cublasSaxpy(nw, -1.0, l->dw, 1, l->w, 1);  // w -= dw
-  if (nb) cublasSaxpy(nb, -1.0, l->db, 1, l->b, 1);  // b -= db
+  /* Finally apply gradient descent: w -= dw, b -= db */
+  cublasSaxpy(nw, -1.0, l->dw, 1, l->w, 1);
+  if (nb) cublasSaxpy(nb, -1.0, l->db, 1, l->b, 1);
+
   if (l->maxnorm != 0) {
+    /* MaxNorm:
+
+     */
     assert(1 == 0);  // TBD
   }
 }
 
-void initupdate(Layer l) {
-  if (l->adagrad && (l->dw2 == NULL)) {
-    CUDA(cudaMalloc((void **) &(l->dw2), l->wcols*l->wrows*sizeof(float)));
-    _fill<<<BLK,THR>>>(l->dw2, l->wcols*l->wrows, 0.0);
-    CUDA(cudaGetLastError());
-    if (l->b != NULL) {
-      assert(l->db2 == NULL);
-      CUDA(cudaMalloc((void **) &(l->db2), l->wrows*sizeof(float)));
-      _fill<<<BLK,THR>>>(l->db2, l->wrows, 0.0);
-      CUDA(cudaGetLastError());
-    }
+static inline void initupdate(Layer l) {
+  if (l->adagrad) {
+    if (l->dw2 == NULL) l->dw2 = gpuFill(l->wrows * l->wcols, 0.0);
+    if ((l->b != NULL) && (l->db2 == NULL)) l->db2 = gpuFill(l->wrows, 0.0);
   }
-  if ((l->momentum != 0) && (l->dw1 == NULL)) {
-    CUDA(cudaMalloc((void **) &(l->dw1), l->wcols*l->wrows*sizeof(float)));
-    _fill<<<BLK,THR>>>(l->dw1, l->wcols*l->wrows, 0.0);
-    CUDA(cudaGetLastError());
-    if (l->b != NULL) {
-      assert(l->db1 == NULL);
-      CUDA(cudaMalloc((void **) &(l->db1), l->wrows*sizeof(float)));
-      _fill<<<BLK,THR>>>(l->db1, l->wrows, 0.0);
-      CUDA(cudaGetLastError());
-    }
+  if (l->momentum != 0) {
+    if (l->dw1 == NULL) l->dw1 = gpuFill(l->wrows * l->wcols, 0.0);
+    if ((l->b != NULL) && (l->db1 == NULL)) l->db1 = gpuFill(l->wrows, 0.0);
   }
 }
 
 
-
-__global__ void _fill(float *y, int n, float val)
-{
+__global__ void _fill(int n, float val, float *x) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    y[i] = val;
+    x[i] = val;
     i += blockDim.x * gridDim.x;
   }
 }
 
-__global__ void _reluforw(float *y, int n)
-{
+__global__ void _adagrad(int n, float *dw2, float *dw) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dw2[i] += dw[i] * dw[i];
+    dw[i] /= (1e-8 + sqrt(dw2[i]));
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _l1reg(int n, float l1, float *w, float *dw) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dw[i] += (w[i] >= 0 ? l1 : -l1);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _reluforw(int n, float *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     if (y[i] < 0) y[i] = 0;
@@ -359,8 +400,7 @@ __global__ void _reluforw(float *y, int n)
   }
 }
 
-__global__ void _reluback(float *dy, float *y, int n)
-{
+__global__ void _reluback(int n, float *y, float *dy) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     if (y[i] <= 0) dy[i] = 0;
@@ -368,8 +408,7 @@ __global__ void _reluback(float *dy, float *y, int n)
   }
 }
 
-__global__ void _softback(float *dy, float *y, int nrows, int ncols)
-{
+__global__ void _softback(int nrows, int ncols, float *y, float *dy) {
   float y0, sum;
   int i0, i1;
   int col = threadIdx.x + blockIdx.x * blockDim.x;
