@@ -63,6 +63,7 @@ Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
   l->type = type;
   l->wrows = wrows;
   l->wcols = wcols;
+  l->learningRate = 0.01;
   assert(w != NULL);
   l->w = gpuCopy(wrows*wcols, w);
   if (b != NULL) l->b = gpuCopy(wrows, b);
