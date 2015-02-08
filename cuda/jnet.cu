@@ -9,20 +9,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
-#include <cublas.h>
+#include <cublas_v2.h>
 #include <assert.h>
 #include "jnet.h"
 #define BLK 128
 #define THR 128
 
-static inline float *gpuArray(int nfloats);
-static inline float *gpuCopy(int nfloats, float *cpuArray);
-static inline float *gpuFill(int nfloats, float val);
+#define CUDA(_s) assert((_s) == cudaSuccess)
+#define CUBLAS(_s) assert((_s) == CUBLAS_STATUS_SUCCESS)
+#define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+#define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+static cublasHandle_t CB;
+static float zero = 0.0;
+static float one = 1.0;
+static float minusone = -1.0;
+
 static inline void fforw(Layer l);
 static inline float *initforw(Layer l, float *x, int xcols);
 static inline void fback(Layer l);
 static inline float *initback(Layer l, float *dy, int dx);
 static inline void initupdate(Layer l);
+
 __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
 __global__ void _softback(int nrows, int ncols, float *y, float *dy);
@@ -30,35 +37,18 @@ __global__ void _l1reg(int n, float l1, float *w, float *dw);
 __global__ void _adagrad(int n, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
 
-#define CUDA(_s) assert((_s) == cudaSuccess)
-#define CUBLAS(_s) assert(((_s), cublasGetError())==CUBLAS_STATUS_SUCCESS)
-
-#define gpuFree(x) CUDA(cudaFree(x))
-#define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
-#define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
-
-static inline float *gpuArray(int nfloats) {
-  float *gptr;
-  CUDA(cudaMalloc((void **) &gptr, nfloats * sizeof(float)));
-  return gptr;
-}
-
-static inline float *gpuCopy(int nfloats, float *cpuArray) {
-  float *gptr = gpuArray(nfloats);
-  CUDA(cudaMemcpy(gptr, cpuArray, nfloats * sizeof(float), cudaMemcpyHostToDevice));
-  return gptr;
-}
-
-static inline float *gpuFill(int nfloats, float val) {
-  float *gptr = gpuArray(nfloats);
-  _fill<<<BLK,THR>>>(nfloats, val, gptr);
-  return gptr;
-}
+static inline float *gpuArray(size_t nfloats);
+static inline float *gpuCopy(size_t nfloats, float *cpuArray);
+static inline float *gpuFill(size_t nfloats, float val);
+#ifndef DBGMEM
+#define gpuFree(x) { CUDA(cudaFree(x)); (x)=NULL; }
+#else
+void gpuFree(void *x);
+#endif
 
 
 Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
-  static int init = 0;
-  if (!init) { CUBLAS(cublasInit()); init=1; }
+  if (!CB) { CUBLAS(cublasCreate(&CB)); }
   Layer l = (Layer) calloc(1, sizeof(struct LayerS));
   assert(l != NULL);
   l->type = type;
@@ -134,13 +124,15 @@ void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) 
   for (int b = 0; b < xcols; b += batch) {
     if (b + batch > xcols) batch = xcols - b;
     gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
-    float *gptr = xgpu;
-    for (int l = 0; l < nlayer; l++)
-      gptr = lforw(net[l], gptr, batch);
+    float *gptr = xgpu; 
+    for (int l = 0; l < nlayer; l++) {
+      gptr = lforw(net[l], gptr, batch); 
+    }
     gpuSetMatrix(yrows, batch, &y[b*yrows], ygpu);
-    gptr = ygpu;
-    for (int l = nlayer - 1; l >= 0; l--)
+    gptr = ygpu; 
+    for (int l = nlayer - 1; l >= 0; l--) {
       gptr = lback(net[l], gptr, (l>0));
+    }
   }
   gpuFree(xgpu);
   gpuFree(ygpu);
@@ -155,12 +147,15 @@ float *lforw(Layer l, float *x, int xcols) {
 
   // y = w * x
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
-  CUBLAS(cublasSgemm('N', 'N', l->wrows, l->xcols, l->wcols, 1.0, l->w, l->wrows, l->x, l->wcols, 0.0, l->y, l->wrows));
-
+  CUBLAS(cublasSgemm(CB, CUBLAS_OP_N, CUBLAS_OP_N, 
+		     l->wrows, l->xcols, l->wcols, 
+		     &one, l->w, l->wrows, 
+		     l->x, l->wcols, 
+		     &zero, l->y, l->wrows));
   if (l->b != NULL) {
     // y = y + b  with singleton expansion
     // ger(m,n,α,x(m),incx=1,y(n),incy=1,A(m,n),lda=m): A = α x y' + A
-    CUBLAS(cublasSger(l->wrows, l->xcols, 1.0, l->b, 1, l->xones, 1, l->y, l->wrows));
+    CUBLAS(cublasSger(CB, l->wrows, l->xcols, &one, l->b, 1, l->xones, 1, l->y, l->wrows));
   }
   // y = f(y) where f is relu, sigm etc.
   fforw(l);
@@ -180,11 +175,11 @@ static inline float *initforw(Layer l, float *x, int xcols) {
   // Alloc/realloc l->y and l->xones if necessary and update l->xcols
   int yrows = l->wrows;
   int ycols = xcols;
-  if ((l->y == NULL) || (l->xcols != xcols)) {
+  if ((l->y == NULL) || (l->acols < xcols)) {
     gpuFree(l->y);
     l->y = gpuArray(yrows * ycols);
   }
-  if ((l->b != NULL) && ((l->xones == NULL) || l->xcols != xcols)) {
+  if ((l->b != NULL) && ((l->xones == NULL) || l->acols < xcols)) {
     gpuFree(l->xones);
     l->xones = gpuFill(xcols, 1.0);
   }
@@ -193,7 +188,8 @@ static inline float *initforw(Layer l, float *x, int xcols) {
     l->dx = NULL;	/* to be reallocated */
   }
   l->xcols = xcols;
-  return x;
+  if (l->acols < xcols) l->acols = xcols;
+  return x; /* we do not copy x, just point to it */
 }
 
 float *lback(Layer l, float *dy, int dx) {
@@ -208,18 +204,18 @@ float *lback(Layer l, float *dy, int dx) {
   // dw = dy * x'
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
   // m = wrows; n = wcols; k = xcols
-  CUBLAS(cublasSgemm('N', 'T', l->wrows, l->wcols, l->xcols, 1.0, l->dy, l->wrows, l->x, l->wcols, 0.0, l->dw, l->wrows));
+  CUBLAS(cublasSgemm(CB, CUBLAS_OP_N, CUBLAS_OP_T, l->wrows, l->wcols, l->xcols, &one, l->dy, l->wrows, l->x, l->wcols, &zero, l->dw, l->wrows));
 
   if (l->b != NULL) {
     // db = sum(dy,2) = dy * ones
     // gemv(op,m,n,α,A(m,n),lda=m,x(n),incx=1,β,y(m),incy=1): y = α op(A) x + β y
-    CUBLAS(cublasSgemv('N', l->wrows, l->xcols, 1.0, l->dy, l->wrows, l->xones, 1, 0.0, l->db, 1));
+    CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, l->wrows, l->xcols, &one, l->dy, l->wrows, l->xones, 1, &zero, l->db, 1));
   }
   if (dx) { // dx is optional because it is expensive and unnecessary for input layer
     // dx=w' * dy
     // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
     // m = wcols, n = xcols, k = wrows
-    CUBLAS(cublasSgemm('T', 'N', l->wcols, l->xcols, l->wrows, 1.0, l->w, l->wrows, l->dy, l->wrows, 0.0, l->dx, l->wcols));
+    CUBLAS(cublasSgemm(CB, CUBLAS_OP_T, CUBLAS_OP_N, l->wcols, l->xcols, l->wrows, &one, l->w, l->wrows, l->dy, l->wrows, &zero, l->dx, l->wcols));
   }
   return l->dx;
 }
@@ -270,7 +266,7 @@ void update(Layer l) {
        we want: dw += L2 * w
        axpy(n,α,x(n),incx=1,y(n),incy=1): y = α x + y
     */
-    cublasSaxpy(nw, l->L2, l->w, 1, l->dw, 1);
+    CUBLAS(cublasSaxpy(CB, nw, &l->L2, l->w, 1, l->dw, 1));
   }
   if (l->adagrad) {
     /* ADAGRAD:
@@ -288,8 +284,8 @@ void update(Layer l) {
        dw,db *= learningRate
        scal(n,α,x(n),incx=1): x = α x
     */
-    cublasSscal(nw, l->learningRate, l->dw, 1);
-    if (nb) cublasSscal(nb, l->learningRate, l->db, 1);
+    CUBLAS(cublasSscal(CB, nw, &l->learningRate, l->dw, 1));
+    if (nb) CUBLAS(cublasSscal(CB, nb, &l->learningRate, l->db, 1));
   }
   if (l->momentum != 0) {  
     /* Momentum:
@@ -301,17 +297,17 @@ void update(Layer l) {
        dw = momentum * dw1 + dw   :with nesterov
     */
     assert(1==0);	/* need to check first */
-    cublasSscal(nw, l->momentum, l->dw1, 1);
-    cublasSaxpy(nw, 1.0, l->dw, 1, l->dw1, 1);
+    CUBLAS(cublasSscal(CB, nw, &l->momentum, l->dw1, 1));
+    CUBLAS(cublasSaxpy(CB, nw, &one, l->dw, 1, l->dw1, 1));
     if (l->nesterov) {
-      cublasSaxpy(nw, l->momentum, l->dw1, 1, l->dw, 1);
+      CUBLAS(cublasSaxpy(CB, nw, &l->momentum, l->dw1, 1, l->dw, 1));
     } else {
-      cublasScopy(nw, l->dw1, 1, l->dw, 1);
+      CUBLAS(cublasScopy(CB, nw, l->dw1, 1, l->dw, 1));
     }
   }
   /* Finally apply gradient descent: w -= dw, b -= db */
-  cublasSaxpy(nw, -1.0, l->dw, 1, l->w, 1);
-  if (nb) cublasSaxpy(nb, -1.0, l->db, 1, l->b, 1);
+  CUBLAS(cublasSaxpy(CB, nw, &minusone, l->dw, 1, l->w, 1));
+  if (nb) CUBLAS(cublasSaxpy(CB, nb, &minusone, l->db, 1, l->b, 1));
 
   if (l->maxnorm != 0) {
     /* MaxNorm:
@@ -401,3 +397,49 @@ __global__ void _softback(int nrows, int ncols, float *y, float *dy) {
   }
 }
 
+
+#ifndef DBGMEM
+
+static inline float *gpuArray(size_t nfloats) {
+  float *gptr;
+  CUDA(cudaMalloc((void **) &gptr, nfloats * sizeof(float)));
+  return gptr;
+}
+
+#else
+
+static inline float *gpuArray(size_t nfloats) {
+  size_t mfree1, mtotal1, mfree2, mtotal2;
+  float *gptr;
+  CUDA(cudaMemGetInfo(&mfree1, &mtotal1));
+  CUDA(cudaMalloc((void **) &gptr, nfloats * sizeof(float)));
+  CUDA(cudaMemGetInfo(&mfree2, &mtotal2));
+  assert(mtotal1 == mtotal2);
+  fprintf(stderr, "gpuArray: f%zu = %zu =? %zd = %zu - %zu (%zu)\n", 
+	  nfloats, 4*nfloats, mfree1-mfree2, mfree1, mfree2, mtotal1);
+  return gptr;
+}
+
+void gpuFree(void *x) { 
+  if (x == NULL) return;
+  size_t mfree1, mtotal1, mfree2, mtotal2;
+  CUDA(cudaMemGetInfo(&mfree1, &mtotal1));
+  CUDA(cudaFree(x)); 
+  CUDA(cudaMemGetInfo(&mfree2, &mtotal2));
+  assert(mtotal1 == mtotal2);
+  fprintf(stderr, "gpuFree: %zu = %zu - %zu (%zu)\n",
+	  mfree2-mfree1, mfree2, mfree1, mtotal1);
+}
+#endif
+
+static inline float *gpuCopy(size_t nfloats, float *cpuArray) {
+  float *gptr = gpuArray(nfloats);
+  CUDA(cudaMemcpy(gptr, cpuArray, nfloats * sizeof(float), cudaMemcpyHostToDevice));
+  return gptr;
+}
+
+static inline float *gpuFill(size_t nfloats, float val) {
+  float *gptr = gpuArray(nfloats);
+  _fill<<<BLK,THR>>>(nfloats, val, gptr);
+  return gptr;
+}

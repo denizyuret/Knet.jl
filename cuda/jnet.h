@@ -5,7 +5,8 @@ extern "C" {
 typedef enum { NOOP=0, RELU=1, SOFT=2 } LayerType;
 
 typedef struct LayerS {
-  int wrows, wcols, xcols; // size params
+  int wrows, wcols;	// size of w matrix
+  int xcols, acols;	// actual and allocated x columns
 
   LayerType type;	// type of activation function	
   float *w;		// weight matrix (wrows,wcols)

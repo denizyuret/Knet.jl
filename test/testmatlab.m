@@ -68,12 +68,14 @@ if any(testidx == 2) %%% forwback10k
     msg('GPU forwback 10k');
     tic; forwback(gnet, x10k, y10k);toc;    % 0.73s
     cnet = copynet(gnet, 'cpu');
-    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:))));
-    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:))));
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 2.68819e-05
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 4.09782e-08
     msg('Saving forwback10k.h5');
     delete('forwback10k.h5');
-    h5save('forwback10k.h5', '/dw1', cnet{1}.dw);
-    h5save('forwback10k.h5', '/dw2', cnet{2}.dw);
+    h5save('forwback10k.h5', '/dw1', cnet{1}.dw(:,2:end));
+    h5save('forwback10k.h5', '/dw2', cnet{2}.dw(:,2:end));
+    h5save('forwback10k.h5', '/db1', cnet{1}.dw(:,1));
+    h5save('forwback10k.h5', '/db2', cnet{2}.dw(:,1));
     %% clear net gnet cnet
 end
 
