@@ -250,6 +250,32 @@ static inline float *initback(Layer l, float *dy, int return_dx) {
   return dy;
 }
 
+void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
+  int xrows = net[0]->wcols;
+  int yrows = net[nlayer-1]->wrows;
+  float *xgpu = gpuArray(xrows * batch);
+  float *ygpu = gpuArray(yrows * batch);
+  for (int b = 0; b < xcols; b += batch) {
+    if (b + batch > xcols) batch = xcols - b;
+    gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
+    float *gptr = xgpu; 
+    for (int l = 0; l < nlayer; l++) {
+      gptr = lforw(net[l], gptr, batch); 
+    }
+    gpuSetMatrix(yrows, batch, &y[b*yrows], ygpu);
+    gptr = ygpu; 
+    for (int l = nlayer - 1; l >= 0; l--) {
+      gptr = lback(net[l], gptr, (l>0));
+    }
+    for (int l = 0; l < nlayer; l++) {
+      lupdate(net[l]);
+    }
+  }
+  gpuFree(xgpu);
+  gpuFree(ygpu);
+}
+
+
 void lupdate(Layer l) {
   initupdate(l);
   if (l->learningRate == 0) return;
