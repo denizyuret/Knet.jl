@@ -89,17 +89,34 @@ if any(testidx == 3) %%% gradient check
 end
 
 
+if any(testidx == 4) %%% single epoch train with batch=100
+    net = copynet(net0, 'cpu');
+    for l=1:numel(net) net{l}.learningRate=0.01; end
+    gnet = copynet(net, 'gpu');
+    msg('CPU train one epoch: batch=100 lr=0.01');
+    tic;train(net, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc;
+    msg('GPU train one epoch: batch=100 lr=0.01');
+    tic;train(gnet, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc;
+    cnet = copynet(gnet, 'cpu');
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 161.71s
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 20.27s
+    msg('Saving train01.h5');
+    delete('train01.h5');
+    h5save('train01.h5', '/dw1', cnet{1}.dw(:,2:end));
+    h5save('train01.h5', '/dw2', cnet{2}.dw(:,2:end));
+    h5save('train01.h5', '/db1', cnet{1}.dw(:,1));
+    h5save('train01.h5', '/db2', cnet{2}.dw(:,1));
+end
 
-%%% dropout forw
-%%% dropout back
-%%% dropout gradient check
-%%% update
 %%% momentum
 %%% nesterov
 %%% adagrad
 %%% maxnorm
 %%% L1
 %%% L2
+%%% dropout forw
+%%% dropout back
+%%% dropout gradient check
 %%% all with no-bias
 %%% all with cpu/gpu
 %%% compare with caffe
