@@ -20,6 +20,14 @@ function g = copynet(n, xform)
                 if (isa(fj, 'numeric') || isa(fj, 'gpuArray')) && (numel(fj) > 1)
                     g{i}.(nj) = 0.01 * randn(size(fj), 'like', fj);
                 end
+            elseif strcmp(xform, 'double')
+                if (isa(fj, 'numeric') || isa(fj, 'gpuArray'))
+                    g{i}.(nj) = double(fj);
+                end
+            elseif strcmp(xform, 'single')
+                if (isa(fj, 'numeric') || isa(fj, 'gpuArray'))
+                    g{i}.(nj) = single(fj);
+                end
             end
         end
     end
