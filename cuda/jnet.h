@@ -39,12 +39,13 @@ Layer layer(LayerType type, int wrows, int wcols, float *w, float *b);
 Layer relu(int wrows, int wcols, float *w, float *b);
 Layer soft(int wrows, int wcols, float *w, float *b);
 void lfree(Layer l);
+void lclean(Layer l);
 int lsize(Layer l, int i);
-void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
-void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
-void update(Layer l);
 float *lforw(Layer l, float *x, int xcols);
 float *lback(Layer l, float *dy, int return_dx);
+void lupdate(Layer l);
+void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
+void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 
 void set_adagrad(Layer l, int i);
 void set_nesterov(Layer l, int i);
