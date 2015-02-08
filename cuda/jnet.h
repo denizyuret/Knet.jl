@@ -46,6 +46,7 @@ float *lback(Layer l, float *dy, int return_dx);
 void lupdate(Layer l);
 void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
+void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 
 void set_adagrad(Layer l, int i);
 void set_nesterov(Layer l, int i);
