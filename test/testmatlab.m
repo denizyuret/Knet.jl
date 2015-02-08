@@ -89,17 +89,17 @@ if any(testidx == 3) %%% gradient check
 end
 
 
-if any(testidx == 4) %%% single epoch train with batch=100
+if any(testidx == 101) %%% train01: single batch of 10000
     net = copynet(net0, 'cpu');
     for l=1:numel(net) net{l}.learningRate=0.01; end
     gnet = copynet(net, 'gpu');
-    msg('CPU train one epoch: batch=100 lr=0.01');
-    tic;train(net, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc;
-    msg('GPU train one epoch: batch=100 lr=0.01');
-    tic;train(gnet, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc;
+    msg('CPU train one 10k batch lr=0.01');
+    tic;train(net, x10k, y10k, 'epochs', 1, 'batch', 10000);toc; % 6.92s
+    msg('GPU train one 10k batch lr=0.01');
+    tic;train(gnet, x10k, y10k, 'epochs', 1, 'batch', 10000);toc; % 0.77s
     cnet = copynet(gnet, 'cpu');
-    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 161.71s
-    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 20.27s
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 2.68819e-07
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 4.07454e-10
     msg('Saving train01.h5');
     delete('train01.h5');
     h5save('train01.h5', '/dw1', cnet{1}.dw(:,2:end));
@@ -108,12 +108,50 @@ if any(testidx == 4) %%% single epoch train with batch=100
     h5save('train01.h5', '/db2', cnet{2}.dw(:,1));
 end
 
-%%% momentum
-%%% nesterov
+if any(testidx == 102) %%% train02: single epoch train with batch=100
+    net = copynet(net0, 'cpu');
+    for l=1:numel(net) net{l}.learningRate=0.01; end
+    gnet = copynet(net, 'gpu');
+    msg('GPU train one epoch batch=100, lr=0.01');
+    tic;train(gnet, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc; % 18.67s
+    msg('CPU train one epoch batch=100, lr=0.01');
+    tic;train(net, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc; % 95.19s
+    cnet = copynet(gnet, 'cpu');
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 1.81899e-11
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 1.61663e-10
+    msg('Saving train02.h5');
+    delete('train02.h5');
+    h5save('train02.h5', '/dw1', cnet{1}.dw(:,2:end));
+    h5save('train02.h5', '/dw2', cnet{2}.dw(:,2:end));
+    h5save('train02.h5', '/db1', cnet{1}.dw(:,1));
+    h5save('train02.h5', '/db2', cnet{2}.dw(:,1));
+end
+
+if any(testidx == 103) %%% train03: single epoch adagrad train with batch=100
+    net = copynet(net0, 'cpu');
+    for l=1:numel(net) net{l}.learningRate=0.01; net{l}.adagrad=1; end
+    gnet = copynet(net, 'gpu');
+    msg('GPU train one epoch batch=100, lr=0.01');
+    tic;train(gnet, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc; % 29.32s
+    msg('CPU train one epoch batch=100, lr=0.01');
+    tic;train(net, dev.x, dev.ylabels, 'epochs', 1, 'batch', 100);toc; % 129.50s
+    cnet = copynet(gnet, 'cpu');
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:)))); % 0.00999973
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:)))); % 0.00122888
+    msg('Saving train03.h5');
+    delete('train03.h5');
+    h5save('train03.h5', '/dw1', cnet{1}.dw(:,2:end));
+    h5save('train03.h5', '/dw2', cnet{2}.dw(:,2:end));
+    h5save('train03.h5', '/db1', cnet{1}.dw(:,1));
+    h5save('train03.h5', '/db2', cnet{2}.dw(:,1));
+end
+
 %%% adagrad
-%%% maxnorm
 %%% L1
 %%% L2
+%%% momentum
+%%% nesterov
+%%% maxnorm
 %%% dropout forw
 %%% dropout back
 %%% dropout gradient check
