@@ -250,7 +250,7 @@ static inline float *initback(Layer l, float *dy, int return_dx) {
   return dy;
 }
 
-void update(Layer l) {
+void lupdate(Layer l) {
   initupdate(l);
   if (l->learningRate == 0) return;
   int nw = l->wcols * l->wrows;
