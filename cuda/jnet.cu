@@ -27,7 +27,7 @@ static float minusone = -1.0;
 static inline void fforw(Layer l);
 static inline float *initforw(Layer l, float *x, int xcols);
 static inline void fback(Layer l);
-static inline float *initback(Layer l, float *dy, int dx);
+static inline float *initback(Layer l, float *dy, int return_dx);
 static inline void initupdate(Layer l);
 
 __global__ void _reluforw(int n, float *y);
@@ -43,10 +43,19 @@ static inline float *gpuFill(size_t nfloats, float val);
 #ifndef DBGMEM
 #define gpuFree(x) { CUDA(cudaFree(x)); (x)=NULL; }
 #else
-void gpuFree(void *x);
+static inline void gpuFreeDBG(void *x);
+#define gpuFree(x) { gpuFreeDBG(x); (x)=NULL; }
 #endif
 
 
+/* layer() constructs a layer with a weight matrix w of size
+   (wrows,wcols).  b is a bias vector of length (wrows) or NULL if no
+   bias is to be used.  LayerType type determines the activation
+   function, e.g. relu.  A layer has alloc/free responsibility of all
+   its fields except x and dy, which it takes as input during forw and
+   back respectively.  Note that calls to layer functions may
+   overwrite their inputs x and dy.
+ */
 Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
   if (!CB) { CUBLAS(cublasCreate(&CB)); }
   Layer l = (Layer) calloc(1, sizeof(struct LayerS));
@@ -184,19 +193,18 @@ static inline float *initforw(Layer l, float *x, int xcols) {
     l->xones = gpuFill(xcols, 1.0);
   }
   if ((l->dx != NULL) && (l->xcols != xcols)) {
-    gpuFree(l->dx);
-    l->dx = NULL;	/* to be reallocated */
+    gpuFree(l->dx);    /* to be reallocated */
   }
   l->xcols = xcols;
   if (l->acols < xcols) l->acols = xcols;
   return x; /* we do not copy x, just point to it */
 }
 
-float *lback(Layer l, float *dy, int dx) {
+float *lback(Layer l, float *dy, int return_dx) {
   // We assume dy is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume dy has the same size as l.y: (wrows,xcols)
-  l->dy = initback(l, dy, dx);
+  l->dy = initback(l, dy, return_dx);
   
   // dy = fback(dy) where fback is the derivative of fforw
   fback(l);
@@ -211,13 +219,15 @@ float *lback(Layer l, float *dy, int dx) {
     // gemv(op,m,n,α,A(m,n),lda=m,x(n),incx=1,β,y(m),incy=1): y = α op(A) x + β y
     CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, l->wrows, l->xcols, &one, l->dy, l->wrows, l->xones, 1, &zero, l->db, 1));
   }
-  if (dx) { // dx is optional because it is expensive and unnecessary for input layer
+  if (return_dx) { // dx is optional because it is expensive and unnecessary for input layer
     // dx=w' * dy
     // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
     // m = wcols, n = xcols, k = wrows
     CUBLAS(cublasSgemm(CB, CUBLAS_OP_T, CUBLAS_OP_N, l->wcols, l->xcols, l->wrows, &one, l->w, l->wrows, l->dy, l->wrows, &zero, l->dx, l->wcols));
+    return l->dx;
+  } else {
+    return NULL;
   }
-  return l->dx;
 }
 
 static inline void fback(Layer l) {
@@ -233,10 +243,10 @@ static inline void fback(Layer l) {
   }
 }
 
-static inline float *initback(Layer l, float *dy, int dx) {
+static inline float *initback(Layer l, float *dy, int return_dx) {
   if (l->dw == NULL) l->dw = gpuArray(l->wrows * l->wcols);
   if ((l->b != NULL) && (l->db == NULL)) l->db = gpuArray(l->wrows);
-  if (dx && (l->dx == NULL)) l->dx = gpuArray(l->wcols * l->xcols);
+  if (return_dx && (l->dx == NULL)) l->dx = gpuArray(l->wcols * l->xcols);
   return dy;
 }
 
@@ -328,6 +338,12 @@ static inline void initupdate(Layer l) {
   }
 }
 
+void lclean(Layer l) {
+  /* Get rid of all arrays which depend on input */
+  gpuFree(l->y);
+  gpuFree(l->xones);
+  gpuFree(l->dx);
+}
 
 __global__ void _fill(int n, float val, float *x) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -371,6 +387,12 @@ __global__ void _reluback(int n, float *y, float *dy) {
 }
 
 __global__ void _softback(int nrows, int ncols, float *y, float *dy) {
+  /* y is layer output, i.e. unnormalized log probabilities.
+       On output y will contain normalized probabilities.
+       Conceptually this is a forward calculation but we do it here for efficiency.
+     dy is the label matrix: each column is a one-hot vector indicating the correct label.
+       On output dy will be the gradient of softmax loss wrt probabilities.
+   */
   float y0, sum;
   int i0, i1;
   int col = threadIdx.x + blockIdx.x * blockDim.x;
@@ -420,7 +442,7 @@ static inline float *gpuArray(size_t nfloats) {
   return gptr;
 }
 
-void gpuFree(void *x) { 
+static inline void gpuFreeDBG(void *x) { 
   if (x == NULL) return;
   size_t mfree1, mtotal1, mfree2, mtotal2;
   CUDA(cudaMemGetInfo(&mfree1, &mtotal1));
