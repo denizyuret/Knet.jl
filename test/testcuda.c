@@ -57,6 +57,7 @@ void maxdiff(const char *str, int n, float *x, float *y) {
 }
 
 int main(void) {
+  printf("Loading dev.h5\n");
   float *x, *ytest, *ygold, *yorig, *w1, *b1, *w2, *b2;
   int xcols, wrows, wcols, yrows;
   hsize_t dims[2];
@@ -76,7 +77,7 @@ int main(void) {
   h5read(file_id, "/b2", &b2, dims); 
   assert(dims[1] == yrows); assert(dims[0] == 1);
   H5Fclose(file_id);
-  print3("orig y", yorig);
+  // print3("orig y", yorig);
 
   int ysize = yrows * xcols;
   ytest = calloc(ysize, sizeof(float));
@@ -87,7 +88,7 @@ int main(void) {
   
   printf("Forward batch 10000:\n");
   forwtest(net, x, ytest, 2, xcols, 10000);
-  print3("test y", ytest);
+  // print3("test y", ytest);
   maxdiff("y", ysize, ytest, yorig);
   printf("Forward batch 1000:\n");
   forwtest(net, x, ytest, 2, xcols, 1000);
@@ -103,10 +104,10 @@ int main(void) {
   h5read(file_id, "/dw2", &dw2, dims);
   h5read(file_id, "/db1", &db1, dims);
   h5read(file_id, "/db2", &db2, dims);
-  print3("orig dw1", dw1);
-  print3("orig db1", db1); 
-  print3("orig dw2", dw2);
-  print3("orig db2", db2); 
+  // print3("orig dw1", dw1);
+  // print3("orig db1", db1); 
+  // print3("orig dw2", dw2);
+  // print3("orig db2", db2); 
 
   int fbtest = 10000;
   forwbacktest(net, x, ygold, 2, fbtest, fbtest);
@@ -116,10 +117,10 @@ int main(void) {
   gw2 = gather(net[1]->dw, yrows*wrows);
   gb1 = gather(net[0]->db, wrows);
   gb2 = gather(net[1]->db, yrows);
-  print3("test dw1", gw1);
-  print3("test db1", gb1);
-  print3("test dw2", gw2);
-  print3("test db2", gb2);
+  // print3("test dw1", gw1);
+  // print3("test db1", gb1);
+  // print3("test dw2", gw2);
+  // print3("test db2", gb2);
   maxdiff("dw1", wrows*wcols, dw1, gw1);
   maxdiff("db1", wrows, db1, gb1);
   maxdiff("dw2", yrows*wrows, dw2, gw2);
