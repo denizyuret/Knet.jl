@@ -11,46 +11,83 @@
 %
 % Note that the first column of w is for bias.
 
-teststart = 0;
+% testidx = []
 
-if teststart <= 0 %%% Load data
-path('../matlab', path);
-msg('Loading dev.mat');
-tic;load dev.mat;toc;                   % 2.67s
+if any(testidx == 0) %%% Load data
+    path('../matlab', path);
+    msg('Loading dev.h5');
+    tic;
+    dev.x = h5read('dev.h5', '/x');
+    dev.ytest = h5read('dev.h5', '/y');
+    [~,dev.ylabels] = max(h5read('dev.h5', '/ygold'));
+    dev.w1 = [h5read('dev.h5', '/b1'), h5read('dev.h5', '/w1')];
+    dev.w2 = [h5read('dev.h5', '/b2'), h5read('dev.h5', '/w2')];
+    toc;  % 2.39s
+    msg('Creating cpu net');
+    l1=relu('w', dev.w1, 'bias',1);
+    l2=soft('w', dev.w2, 'bias',1);
+    net0={l1,l2};
+    x10k=dev.x(:,1:10000);
+    y10k=dev.ylabels(:,1:10000);
+    x100=dev.x(:,1:100);
+    y100=dev.ylabels(:,1:100);
 end
 
-if teststart <= 1 %%% CPU forw
-msg('Creating cpu net');
-l1=relu('w', dev.w1, 'bias',1);
-l2=soft('w', dev.w2, 'bias',1);
-net={l1,l2};
-msg('CPU forward fullbatch');
-tic;cpu_y = forward(net, dev.x);toc;    % 17.76s
-save cpu_y cpu_y
-disp(cpu_y(:,1));
-msg('CPU forward batch=1000');
-tic;cpu_y2 = forward(net, dev.x, 1000);toc; % 22.98s
-assert(isequal(cpu_y, cpu_y2))
-msg('CPU-dev.score maxdiff=%g', max(abs(dev.score(:)-cpu_y(:)))) % 3.05e-5
+if any(testidx == 1) %%% forward
+    net = copynet(net0, 'cpu');
+    msg('CPU forward fullbatch');
+    tic;cpu_y = forward(net, dev.x);toc;    % 17.76s, -0.8778, -14.1189, 6.1067
+    disp(cpu_y(:,1));
+    msg('CPU forward batch=1000');
+    tic;cpu_y2 = forward(net, dev.x, 1000);toc; % 21.07s
+    assert(isequal(cpu_y, cpu_y2))
+    gnet = copynet(net0, 'gpu');
+    msg('GPU forward batch=10000');
+    tic;gpu_y = gather(forward(gnet, dev.x, 10000));toc; % 2.58s
+    msg('GPU forward batch=1000');
+    tic;gpu_y2 = gather(forward(gnet, dev.x, 1000));toc; % 2.43s
+    assert(isequal(gpu_y, gpu_y2))
+    msg('GPU forward batch=100');
+    tic;gpu_y3 = gather(forward(gnet, dev.x, 100));toc; % 4.32s
+    assert(isequal(gpu_y, gpu_y3))
+    msg('CPU-dev.y maxdiff=%g', max(abs(dev.ytest(:)-cpu_y(:)))) % 3.05176e-5
+    msg('GPU-dev.y maxdiff=%g', max(abs(dev.ytest(:)-gpu_y(:)))) % 2.5177e-4
+    msg('GPU-CPU maxdiff=%g', max(abs(gpu_y(:)-cpu_y(:)))) % 2.5177e-4
+    msg('Saving forward.h5');
+    delete('forward.h5');
+    h5save('forward.h5', '/cpu_y', cpu_y);
+    h5save('forward.h5', '/gpu_y', gpu_y);
+    %% clear gnet net
 end
 
-if teststart <= 2 %%% GPU forw
-msg('Creating gpu net');
-gnet = copynet(net, 'gpu');
-msg('GPU forward batch=10000');
-tic;gpu_y = forward(gnet, dev.x, 10000);toc; % 2.72s
-save gpu_y gpu_y
-msg('GPU forward batch=1000');
-tic;gpu_y2 = forward(gnet, dev.x, 1000);toc; % 2.51s
-assert(isequal(gpu_y, gpu_y2))
-msg('GPU forward batch=100');
-tic;gpu_y3 = forward(gnet, dev.x, 100);toc; % 4.32s
-assert(isequal(gpu_y, gpu_y3))
-msg('GPU-CPU maxdiff=%g', max(abs(gpu_y(:)-cpu_y(:)))) % 2.5e-4
+if any(testidx == 2) %%% forwback10k
+    net = copynet(net0, 'cpu');
+    msg('CPU forwback 10k');
+    tic; forwback(net, x10k, y10k);toc;    % 6.95s
+    gnet = copynet(net0, 'gpu');
+    msg('GPU forwback 10k');
+    tic; forwback(gnet, x10k, y10k);toc;    % 0.73s
+    cnet = copynet(gnet, 'cpu');
+    msg('dw1 maxdiff=%g', max(abs(net{1}.dw(:) - cnet{1}.dw(:))));
+    msg('dw2 maxdiff=%g', max(abs(net{2}.dw(:) - cnet{2}.dw(:))));
+    msg('Saving forwback10k.h5');
+    delete('forwback10k.h5');
+    h5save('forwback10k.h5', '/dw1', cnet{1}.dw);
+    h5save('forwback10k.h5', '/dw2', cnet{2}.dw);
+    %% clear net gnet cnet
 end
 
-%%% back
-%%% gradient check
+if any(testidx == 3) %%% gradient check
+    net = copynet(net0, 'cpu');
+    msg('CPU gradient 100');
+    tic; gradient(net, x100, y100, 100),toc;    % 19.60s, 3.1335e-10
+    gnet = copynet(net0, 'gpu');
+    msg('GPU gradient 100');
+    tic; gradient(gnet, x100, y100, 100),toc;    % 3.20s, 2.6866e-10
+end
+
+
+
 %%% dropout forw
 %%% dropout back
 %%% dropout gradient check
