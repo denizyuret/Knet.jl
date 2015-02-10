@@ -64,8 +64,7 @@ Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
   l->wrows = wrows;
   l->wcols = wcols;
   l->learningRate = 0.01;
-  assert(w != NULL);
-  l->w = gpuCopy(wrows*wcols, w);
+  if (w != NULL) l->w = gpuCopy(wrows*wcols, w);
   if (b != NULL) l->b = gpuCopy(wrows, b);
   return(l);
 }
@@ -76,7 +75,7 @@ void lfree(Layer l) {
   //gpuFree(l->x);   // taken as input, not alloced
   gpuFree(l->y);   
   gpuFree(l->xones);
-  //gpuFree(l->xmask);
+  gpuFree(l->xmask);
 
   gpuFree(l->dw);
   gpuFree(l->db);
@@ -104,10 +103,12 @@ int lsize(Layer l, int i) {
 }
 
 Layer relu(int wrows, int wcols, float *w, float *b) {
+  assert(w != NULL);
   return layer(RELU, wrows, wcols, w, b);
 }
 
 Layer soft(int wrows, int wcols, float *w, float *b) {
+  assert(w != NULL);
   return layer(SOFT, wrows, wcols, w, b);
 }
 
@@ -370,6 +371,7 @@ void lclean(Layer l) {
   gpuFree(l->y);
   gpuFree(l->xones);
   gpuFree(l->dx);
+  gpuFree(l->xmask);
 }
 
 __global__ void _fill(int n, float val, float *x) {
