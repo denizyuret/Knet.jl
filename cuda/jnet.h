@@ -1,3 +1,6 @@
+#ifndef JNET_H_
+#define JNET_H_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,4 +62,6 @@ void set_L2(Layer l, float m);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
