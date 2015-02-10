@@ -127,7 +127,7 @@ if any(testidx == 102) %%% train02: single epoch train with batch=100
     h5save('train02.h5', '/db2', cnet{2}.dw(:,1));
 end
 
-if any(testidx == 103) %%% train03: single epoch adagrad train with batch=100
+if any(testidx == 103) %%% train03: ADAGRAD single epoch with batch=100
     net = copynet(net0, 'cpu');
     for l=1:numel(net) net{l}.learningRate=0.01; net{l}.adagrad=1; end
     gnet = copynet(net, 'gpu');
@@ -146,7 +146,7 @@ if any(testidx == 103) %%% train03: single epoch adagrad train with batch=100
     h5save('train03.h5', '/db2', cnet{2}.dw(:,1));
 end
 
-%%% adagrad
+%%% compare with caffe
 %%% L1
 %%% L2
 %%% momentum
@@ -157,4 +157,3 @@ end
 %%% dropout gradient check
 %%% all with no-bias
 %%% all with cpu/gpu
-%%% compare with caffe

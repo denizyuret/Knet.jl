@@ -1,1 +1,3 @@
 split
+*.so
+predict
