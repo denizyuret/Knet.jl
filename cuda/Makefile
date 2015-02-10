@@ -12,14 +12,14 @@ libjnet.so: jnet.o
 libjnet_h5.so: jnet_h5.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lhdf5 -lhdf5_hl -o $@
 
+jnet.o: jnet.cu jnet.h
+
+jnet_h5.o: jnet_h5.cu jnet_h5.h jnet.h
+
+predict.o: predict.cu jnet_h5.h jnet.h
+
 %.o: %.cu
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -o $@
-
-# test1: test.o libjnet.so 
-# 	nvcc $(CFLAGS) $^ -L. -ljnet -o $@
-
-# test2: test.c jnet.cu jnet.h
-# 	nvcc $(CFLAGS) test.c jnet.cu -lcublas -o test2 
 
 clean:
 	-rm *.o *.so predict
