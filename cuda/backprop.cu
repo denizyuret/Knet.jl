@@ -14,7 +14,9 @@ const char *usage =
   "Usage: %s [-b batchsize] [-o output_prefix] x layer1 layer2 ... y\n"  
   "where each of x layer1 ... y is an hdf5 file\n"
   "After performing forward and backward passes for a single batch\n"
-  "the derivatives will be saved in prefix1.h5, prefix2.h5, ... etc.";
+  "the derivatives will be saved in prefix1.h5, prefix2.h5, ... etc."
+  "The batchsize defaults to the full dataset."
+  "The default prefix is backprop.out.";
 
 int main(int argc, char **argv) {
   int batch = 0;
