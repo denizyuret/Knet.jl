@@ -1,2 +1,8 @@
-testcuda
+test_*
 *.h5
+*.caffemodel
+dev.net.*
+train
+backprop
+predict
+testcuda
