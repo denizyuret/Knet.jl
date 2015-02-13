@@ -6,8 +6,8 @@ MATLAB=matlab -nosplash -nodesktop -r
 all: test_y # test_backprop test_train test_adagrad test_dropout...
 
 test_y: test_matlab_y.h5 test_cuda_y.h5 test_caffe_y.h5
-	matlab.sh "maxdiff('test_caffe_y.h5', 'test_matlab_y.h5')"
-	matlab.sh "maxdiff('test_caffe_y.h5', 'test_cuda_y.h5')"
+	h5diff test_caffe_y.h5 test_matlab_y.h5
+	h5diff test_caffe_y.h5 test_cuda_y.h5
 
 test_matlab_y.h5: predict.m devx.h5 dev1.h5 dev2.h5
 	matlab.sh "predict('devx.h5', 'dev1.h5', 'dev2.h5', 'test_matlab_y.h5')"
@@ -20,7 +20,7 @@ dev.caffemodel: import_weights.py dev.net dev1.h5 dev2.h5
 
 test_caffe_y.h5: predict.py dev.net dev.caffemodel
 	-rm $@
-	python $^ 82 $@
+	python $^ 82 $@ 2> test_caffe_y.log
 
 train: train.o $(JNET_L)
 	nvcc $(CFLAGS) $< -ljnet -ljnet_h5 -o $@
