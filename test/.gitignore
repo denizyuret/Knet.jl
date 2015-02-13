@@ -7,3 +7,5 @@ train
 backprop
 predict
 testcuda
+h5diff
+h5getinfo
