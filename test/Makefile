@@ -178,3 +178,34 @@ test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
 	@echo '==> L2 test: caffe'
 	caffe.bin train -solver l2.solver -weights rnd.caffemodel 2> test_l2_caffe.log
 
+
+### L1 TRAINING
+
+L1=1.0
+L1B=937
+L1I=82
+
+test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5
+	@echo '==> L1 comparison'
+	h5diff test_l1_caffe1.h5 test_l1_cuda1.h5
+	h5diff test_l1_caffe2.h5 test_l1_cuda2.h5
+	h5diff test_l1_caffe1.h5 test_l1_matlab1.h5
+	h5diff test_l1_caffe2.h5 test_l1_matlab2.h5
+	h5diff test_l1_cuda1.h5 test_l1_matlab1.h5
+	h5diff test_l1_cuda2.h5 test_l1_matlab2.h5
+
+test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L1 test: cuda'
+	train -1 ${L1} -b${L1B} -i${L1I} -o test_l1_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_l1_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L1 test: matlab'
+	matlab.sh "trainh5('L1', ${L1}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${L1B}, 'iters', ${L1I}, 'out', 'test_l1_matlab')"
+
+test_l1_caffe1.h5: export_weights.py dev.net test_l1_caffe_iter_${L1I}.caffemodel
+	python $^ test_l1_caffe 2>> test_l1_caffe.log
+
+test_l1_caffe_iter_${L1I}.caffemodel: l1.solver dev.net rnd.caffemodel
+	@echo '==> L1 test: caffe'
+	caffe.bin train -solver l1.solver -weights rnd.caffemodel 2> test_l1_caffe.log
+
