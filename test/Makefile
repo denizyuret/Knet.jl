@@ -9,32 +9,6 @@ ADI=2
 test: test_l2 # test_y test_bp test_tr test_ad # test_mo test_ne test_l1 test_l2 test_mn test_dr...
 
 
-### ADAGRAD TRAINING
-
-test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
-	@echo '==> Adagrad comparison'
-	h5diff test_ad_caffe1.h5 test_ad_cuda1.h5
-	h5diff test_ad_caffe2.h5 test_ad_cuda2.h5
-	h5diff test_ad_caffe1.h5 test_ad_matlab1.h5
-	h5diff test_ad_caffe2.h5 test_ad_matlab2.h5
-	h5diff test_ad_cuda1.h5 test_ad_matlab1.h5
-	h5diff test_ad_cuda2.h5 test_ad_matlab2.h5
-
-test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Adagrad test: cuda'
-	train -b${TR} -o test_ad_cuda -a -i${ADI} devx.h5 rnd1.h5 rnd2.h5 devy.h5
-
-test_ad_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Adagrad test: matlab'
-	matlab.sh "trainh5('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${TR}, 'adagrad', 1, 'out', 'test_ad_matlab', 'iters', ${ADI})"
-
-test_ad_caffe1.h5: export_weights.py dev.net test_ad_caffe_iter_${ADI}.caffemodel
-	python $^ test_ad_caffe 2>> test_ad_caffe.log
-
-test_ad_caffe_iter_${ADI}.caffemodel: ada.solver dev.net rnd.caffemodel
-	@echo '==> Adagrad test: caffe'
-	caffe.bin train -solver ada.solver -weights rnd.caffemodel 2> test_ad_caffe.log
-
 ### SIMPLE TRAINING TEST
 
 test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
@@ -148,6 +122,38 @@ h5getinfo: h5getinfo.c
 h5diff: h5diff.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
 
+
+### LEARNING RATE
+
+LR=0.01
+LRB=937
+LRI=82
+
+test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
+	@echo '==> LR comparison'
+	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
+	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
+	h5diff test_lr_caffe1.h5 test_lr_matlab1.h5
+	h5diff test_lr_caffe2.h5 test_lr_matlab2.h5
+	h5diff test_lr_cuda1.h5 test_lr_matlab1.h5
+	h5diff test_lr_cuda2.h5 test_lr_matlab2.h5
+
+test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> LR test: cuda'
+	train -l${LR} -b${LRB} -i${LRI} -o test_lr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_lr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> LR test: matlab'
+	matlab.sh "trainh5('learningRate', ${LR}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${LRB}, 'iters', ${LRI}, 'out', 'test_lr_matlab')"
+
+test_lr_caffe1.h5: export_weights.py dev.net test_lr_caffe_iter_${LRI}.caffemodel
+	python $^ test_lr_caffe 2>> test_lr_caffe.log
+
+test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
+	@echo '==> LR test: caffe'
+	caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
+
+
 ### L2 TRAINING
 
 L2=1.0
@@ -240,34 +246,37 @@ test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 	@echo '==> MO test: caffe'
 	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
 
-### LEARNING RATE
+### ADAGRAD TRAINING
+# There are more significant differences with adagrad.
+# I checked after 1 or 2 iterations.
+# The problem is small differences in dw, especially if they change the sign, are blown up by adagrad.
+# There were 6 sign changes in the second iteration dw between matlab and cuda.
+# Nothing we can do, maybe show divergence not too much starting from same dw2.
 
-LR=0.01
-LRB=937
-LRI=82
+ADB=937
+ADI=2
 
-test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
-	@echo '==> LR comparison'
-	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
-	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
-	h5diff test_lr_caffe1.h5 test_lr_matlab1.h5
-	h5diff test_lr_caffe2.h5 test_lr_matlab2.h5
-	h5diff test_lr_cuda1.h5 test_lr_matlab1.h5
-	h5diff test_lr_cuda2.h5 test_lr_matlab2.h5
+test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
+	@echo '==> Adagrad comparison'
+	h5diff test_ad_caffe1.h5 test_ad_matlab1.h5
+	h5diff test_ad_caffe2.h5 test_ad_matlab2.h5
+	h5diff test_ad_cuda1.h5 test_ad_matlab1.h5
+	h5diff test_ad_cuda2.h5 test_ad_matlab2.h5
+	h5diff test_ad_caffe1.h5 test_ad_cuda1.h5
+	h5diff test_ad_caffe2.h5 test_ad_cuda2.h5
 
-test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> LR test: cuda'
-	train -l${LR} -b${LRB} -i${LRI} -o test_lr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Adagrad test: cuda'
+	train -a -b${ADB} -i${ADI} -o test_ad_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
 
-test_lr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> LR test: matlab'
-	matlab.sh "trainh5('learningRate', ${LR}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${LRB}, 'iters', ${LRI}, 'out', 'test_lr_matlab')"
+test_ad_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Adagrad test: matlab'
+	matlab.sh "trainh5('adagrad', 1, 'batch', ${ADB}, 'iters', ${ADI}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'out', 'test_ad_matlab')"
 
-test_lr_caffe1.h5: export_weights.py dev.net test_lr_caffe_iter_${LRI}.caffemodel
-	python $^ test_lr_caffe 2>> test_lr_caffe.log
+test_ad_caffe1.h5: export_weights.py dev.net test_ad_caffe_iter_${ADI}.caffemodel
+	python $^ test_ad_caffe 2>> test_ad_caffe.log
 
-test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
-	@echo '==> LR test: caffe'
-	caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
-
+test_ad_caffe_iter_${ADI}.caffemodel: ad.solver dev.net rnd.caffemodel
+	@echo '==> Adagrad test: caffe'
+	caffe.bin train -solver ad.solver -weights rnd.caffemodel 2> test_ad_caffe.log
 

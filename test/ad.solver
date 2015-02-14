@@ -5,7 +5,6 @@ lr_policy: "fixed"
 momentum: 0
 weight_decay: 0.0
 
-#max_iter: 82
 max_iter: 2
 display: 0  # no info displayed
 
