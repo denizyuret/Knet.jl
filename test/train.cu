@@ -11,21 +11,26 @@ static clock_t t0;
 #define toc fprintf(stderr, "%g seconds\n", (double)(clock()-t0)/CLOCKS_PER_SEC)
 
 const char *usage =
-  "Usage: %s [-b batchsize] [-o output_prefix] x layer1 layer2 ... y\n"  
+  "Usage: %s [opts] x layer1 layer2 ... y\n"  
   "where each of x layer1 ... y is an hdf5 file\n"
-  "After performing training for a single epoch\n"
-  "the new layers will be saved in prefix1.h5, prefix2.h5, ... etc.\n"
-  "The batchsize defaults to the full dataset.\n"
-  "The default prefix is train.out";
+  "-b batchsize (default: size of dataset)\n"
+  "-o prefix (default: train.out)\n"
+  "   the new layers will be saved in prefix1.h5, prefix2.h5, ... etc.\n"
+  "-a (adagrad, default:false)\n"
+  "-i iters (default: until one epoch is completed)\n";
 
 int main(int argc, char **argv) {
   int batch = 0;
+  int adagrad = 0;
+  int iters = 0;
   const char *output = "train.out";
   int opt;
-  while((opt = getopt(argc, argv, "o:b:")) != -1) {
+  while((opt = getopt(argc, argv, "o:b:i:a")) != -1) {
     switch(opt) {
     case 'b': batch = atoi(optarg); break;
+    case 'i': iters = atoi(optarg); break;
     case 'o': output = optarg; break;
+    case 'a': adagrad = 1; break;
     default: fprintf(stderr, usage, argv[0]); exit(EXIT_FAILURE);
     }
   }
@@ -43,6 +48,7 @@ int main(int argc, char **argv) {
   for (int l = 0; l < nlayers; l++) {
     fprintf(stderr, "%s... ", argv[optind + l]);
     net[l] = h5read_layer(argv[optind + l]);
+    if (adagrad) net[l]->adagrad = 1;
   }
   optind += nlayers;
   toc;
@@ -54,7 +60,13 @@ int main(int argc, char **argv) {
   assert(ycols == xcols);
 
   if (batch == 0) batch = xcols;
-  fprintf(stderr, "Training a single epoch with batch=%d... ", batch);
+  if (iters > 0) { 
+    assert(xcols >= batch * iters); 
+    fprintf(stderr, "Training %d iters of %d batches... ", iters, batch);
+    xcols = batch * iters; 
+  } else {
+    fprintf(stderr, "Training a single epoch with batch=%d... ", batch);
+  }
   tic; train(net, x, y, nlayers, xcols, batch); toc;
 
   char *fname = (char *) malloc(strlen(output) + 128);

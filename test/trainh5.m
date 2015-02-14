@@ -14,10 +14,17 @@ function trainh5(varargin)
     o.net = strsplit(o.net, ',');
     for i=1:numel(o.net) net{i} = h5read_layer(o.net{i}); end
     for i=1:numel(o.net) net{i}.learningRate = o.learningRate; end
+    if isfield(o,'adagrad')
+        for i=1:numel(o.net) net{i}.adagrad = o.adagrad; end
+    end
     if gpuDeviceCount > 0
         net = copynet(net, 'gpu');
     end
     fprintf(2, 'train... ');
+    if (isfield(o,'iters'))
+        x = x(:,1:o.iters*o.batch);
+        yvec = yvec(1:o.iters*o.batch);
+    end
     tic; train(net, x, yvec, 'batch', o.batch, 'epochs', 1);
     fprintf(2, '%g seconds... saving... ', toc);
     net = copynet(net, 'cpu');

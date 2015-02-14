@@ -4,14 +4,41 @@ JNET_L=../cuda/libjnet.so ../cuda/libjnet_h5.so
 MATLAB=matlab -nosplash -nodesktop -r
 BP=937
 TR=937
+ADI=2
 
-test: test_tr # test_bp test_y # test_adagrad test_dropout...
+test: test_y test_bp test_tr test_ad # test_mo test_ne test_l1 test_l2 test_mn test_dr...
 
+
+### ADAGRAD TRAINING
+
+test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
+	@echo '==> Adagrad comparison'
+	h5diff test_ad_caffe1.h5 test_ad_cuda1.h5
+	h5diff test_ad_caffe2.h5 test_ad_cuda2.h5
+	h5diff test_ad_caffe1.h5 test_ad_matlab1.h5
+	h5diff test_ad_caffe2.h5 test_ad_matlab2.h5
+	h5diff test_ad_cuda1.h5 test_ad_matlab1.h5
+	h5diff test_ad_cuda2.h5 test_ad_matlab2.h5
+
+test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Adagrad test: cuda'
+	train -b${TR} -o test_ad_cuda -a -i${ADI} devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_ad_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Adagrad test: matlab'
+	matlab.sh "trainh5('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${TR}, 'adagrad', 1, 'out', 'test_ad_matlab', 'iters', ${ADI})"
+
+test_ad_caffe1.h5: export_weights.py dev.net test_ad_caffe_iter_${ADI}.caffemodel
+	python $^ test_ad_caffe 2>> test_ad_caffe.log
+
+test_ad_caffe_iter_${ADI}.caffemodel: ada.solver dev.net rnd.caffemodel
+	@echo '==> Adagrad test: caffe'
+	caffe.bin train -solver ada.solver -weights rnd.caffemodel 2> test_ad_caffe.log
 
 ### SIMPLE TRAINING TEST
 
 test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
-	@echo '==> Backprop comparison'
+	@echo '==> Train comparison'
 	h5diff test_tr_caffe1.h5 test_tr_cuda1.h5
 	h5diff test_tr_caffe2.h5 test_tr_cuda2.h5
 	h5diff test_tr_caffe1.h5 test_tr_matlab1.h5
@@ -109,7 +136,7 @@ train.o: train.cu $(JNET_H)
 	nvcc -c $(CFLAGS) $< -o $@
 
 clean:
-	-rm *~ *.o test_*
+	-mv *~ *.o test_* *.caffemodel *.solverstate unused
 
 testcuda: testcuda.c ../cuda/jnet.h ../cuda/jnet.cu
 	cd ../cuda; make

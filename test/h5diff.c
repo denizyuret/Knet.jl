@@ -98,10 +98,8 @@ void rdiff(const char *name, hid_t f1, hid_t f2) {
 	if (d < 0) d = -d;
 	if (d > maxdiff) maxdiff = d;
       }
-      if (maxdiff > 0) {
-	printf("max |%s[%s%s] - %s[%s%s]| = %g\n",
-	       file1, name, oname, file2, name, oname, maxdiff);
-      }
+      printf("max |%s[%s%s] - %s[%s%s]| = %g\n",
+	     file1, name, oname, file2, name, oname, maxdiff);
       free(data1); free(data2);
     }
     H5Gget_num_objs(g2, &nobj);
