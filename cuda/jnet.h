@@ -1,6 +1,9 @@
 #ifndef JNET_H_
 #define JNET_H_
 
+#define DEFAULT_LEARNING_RATE 0.01
+#define ADAGRAD_EPSILON 1e-8
+
 #ifdef __cplusplus
 extern "C" {
 #endif
