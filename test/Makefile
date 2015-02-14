@@ -181,18 +181,18 @@ test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
 
 ### L1 TRAINING
 
-L1=1.0
+L1=0.01
 L1B=937
 L1I=82
 
 test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5
 	@echo '==> L1 comparison'
-	h5diff test_l1_caffe1.h5 test_l1_cuda1.h5
-	h5diff test_l1_caffe2.h5 test_l1_cuda2.h5
 	h5diff test_l1_caffe1.h5 test_l1_matlab1.h5
 	h5diff test_l1_caffe2.h5 test_l1_matlab2.h5
 	h5diff test_l1_cuda1.h5 test_l1_matlab1.h5
 	h5diff test_l1_cuda2.h5 test_l1_matlab2.h5
+	h5diff test_l1_caffe1.h5 test_l1_cuda1.h5
+	h5diff test_l1_caffe2.h5 test_l1_cuda2.h5
 
 test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: cuda'

@@ -4,7 +4,7 @@ solver_type: SGD
 base_lr: 0.01
 lr_policy: "fixed"
 momentum: 0
-weight_decay: 1.0
+weight_decay: 0.01
 regularization_type: "L1"
 
 max_iter: 82
