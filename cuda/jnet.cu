@@ -63,7 +63,7 @@ Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
   l->type = type;
   l->wrows = wrows;
   l->wcols = wcols;
-  l->learningRate = 0.01;
+  l->learningRate = DEFAULT_LEARNING_RATE;
   if (w != NULL) l->w = gpuCopy(wrows*wcols, w);
   if (b != NULL) l->b = gpuCopy(wrows, b);
   return(l);
@@ -386,7 +386,7 @@ __global__ void _adagrad(int n, float *dw2, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     dw2[i] += dw[i] * dw[i];
-    dw[i] /= (1e-8 + sqrt(dw2[i]));
+    dw[i] /= (ADAGRAD_EPSILON + sqrt(dw2[i]));
     i += blockDim.x * gridDim.x;
   }
 }
