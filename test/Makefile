@@ -240,3 +240,34 @@ test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 	@echo '==> MO test: caffe'
 	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
 
+### LEARNING RATE
+
+LR=0.01
+LRB=937
+LRI=82
+
+test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
+	@echo '==> LR comparison'
+	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
+	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
+	h5diff test_lr_caffe1.h5 test_lr_matlab1.h5
+	h5diff test_lr_caffe2.h5 test_lr_matlab2.h5
+	h5diff test_lr_cuda1.h5 test_lr_matlab1.h5
+	h5diff test_lr_cuda2.h5 test_lr_matlab2.h5
+
+test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> LR test: cuda'
+	train -l${LR} -b${LRB} -i${LRI} -o test_lr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_lr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> LR test: matlab'
+	matlab.sh "trainh5('learningRate', ${LR}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${LRB}, 'iters', ${LRI}, 'out', 'test_lr_matlab')"
+
+test_lr_caffe1.h5: export_weights.py dev.net test_lr_caffe_iter_${LRI}.caffemodel
+	python $^ test_lr_caffe 2>> test_lr_caffe.log
+
+test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
+	@echo '==> LR test: caffe'
+	caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
+
+
