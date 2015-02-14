@@ -51,32 +51,28 @@ static inline void h5read_to_gpu(hid_t id, const char *name, int *nrows, int *nc
 
 // TODO: these will break if attr is not of the right type and size=1
 
-static inline int h5attr_int(hid_t id, const char *attr) {
-  int ans = 0;
+static inline void h5read_int(hid_t id, const char *attr, int *ptr) {
   if (H5LTfind_attribute(id, attr))
-    H5LTget_attribute_int(id, "/", attr, &ans);
-  return ans;
+    H5LTget_attribute_int(id, "/", attr, ptr);
 }
 
-static inline int h5attr_float(hid_t id, const char *attr) {
-  float ans = 0;
+static inline void h5read_float(hid_t id, const char *attr, float *ptr) {
   if (H5LTfind_attribute(id, attr))
-    H5LTget_attribute_float(id, "/", attr, &ans);
-  return ans;
+    H5LTget_attribute_float(id, "/", attr, ptr);
 }
 
 Layer h5read_layer(const char *fname) {
   Layer l = layer(NOOP, 0, 0, NULL, NULL);
   hid_t id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
-  l->type = (LayerType) h5attr_int(id, "type");
-  l->adagrad = h5attr_int(id, "adagrad");
-  l->nesterov = h5attr_int(id, "nesterov");
-  l->learningRate = h5attr_float(id, "learningRate");
-  l->momentum = h5attr_float(id, "momentum");
-  l->dropout = h5attr_float(id, "dropout");
-  l->maxnorm = h5attr_float(id, "maxnorm");
-  l->L1 = h5attr_float(id, "L1");
-  l->L2 = h5attr_float(id, "L2");
+  h5read_int(id, "type", (int*)&l->type);
+  h5read_int(id, "adagrad", &l->adagrad);
+  h5read_int(id, "nesterov", &l->nesterov);
+  h5read_float(id, "learningRate", &l->learningRate);
+  h5read_float(id, "momentum", &l->momentum);
+  h5read_float(id, "dropout", &l->dropout);
+  h5read_float(id, "maxnorm", &l->maxnorm);
+  h5read_float(id, "L1", &l->L1);
+  h5read_float(id, "L2", &l->L2);
   h5read_to_gpu(id, "/w", &l->wrows, &l->wcols, &l->w);
   h5read_to_gpu(id, "/b", &l->wrows, NULL, &l->b);
   h5read_to_gpu(id, "/dw", &l->wrows, &l->wcols, &l->dw);
@@ -90,24 +86,33 @@ Layer h5read_layer(const char *fname) {
 }
 
 static inline void h5write_from_gpu(hid_t id, const char *name, int nrows, int ncols, float *data) {
+  if (data == NULL) return;
   float *cptr = (float *) copy_to_cpu(data, nrows * ncols * sizeof(float));
   hsize_t dims[2] = { ncols, nrows };
   H5LTmake_dataset_float(id, name, 2, dims, cptr);
   free(cptr);
 }
 
+static inline void h5write_int(hid_t id, const char *name, int val, int defval) {
+  if (val != defval) H5LTset_attribute_int(id, "/", name, &val, 1);
+}
+
+static inline void h5write_float(hid_t id, const char *name, float val, float defval) {
+  if (val != defval) H5LTset_attribute_float(id, "/", name, &val, 1);
+}
+
 void h5write_layer(const char *fname, Layer l) {
   hid_t id = H5Fcreate (fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   int type = (int) l->type;
-  H5LTset_attribute_int(id, "/", "type", &type, 1);
-  H5LTset_attribute_int(id, "/", "adagrad", &l->adagrad, 1);
-  H5LTset_attribute_int(id, "/", "nesterov", &l->nesterov, 1);
-  H5LTset_attribute_float(id, "/", "learningRate", &l->learningRate, 1);
-  H5LTset_attribute_float(id, "/", "momentum", &l->momentum, 1);
-  H5LTset_attribute_float(id, "/", "dropout", &l->dropout, 1);
-  H5LTset_attribute_float(id, "/", "maxnorm", &l->maxnorm, 1);
-  H5LTset_attribute_float(id, "/", "L1", &l->L1, 1);
-  H5LTset_attribute_float(id, "/", "L2", &l->L2, 1);
+  h5write_int(id, "type", type, 0);
+  h5write_int(id, "adagrad", l->adagrad, 0);
+  h5write_int(id, "nesterov", l->nesterov, 0);
+  h5write_float(id, "learningRate", l->learningRate, DEFAULT_LEARNING_RATE);
+  h5write_float(id, "momentum", l->momentum, 0);
+  h5write_float(id, "dropout", l->dropout, 0);
+  h5write_float(id, "maxnorm", l->maxnorm, 0);
+  h5write_float(id, "L1", l->L1, 0);
+  h5write_float(id, "L2", l->L2, 0);
   h5write_from_gpu(id, "/w", l->wrows, l->wcols, l->w);
   h5write_from_gpu(id, "/b", l->wrows, 1, l->b);
   h5write_from_gpu(id, "/dw", l->wrows, l->wcols, l->dw);
