@@ -281,3 +281,34 @@ test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 	@echo '==> MO test: caffe'
 	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
 
+
+### NESTEROV TRAINING
+
+NE=0.95
+NEB=937
+NEI=82
+
+test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5
+	@echo '==> NE comparison'
+	h5diff test_ne_caffe1.h5 test_ne_matlab1.h5
+	h5diff test_ne_caffe2.h5 test_ne_matlab2.h5
+	h5diff test_ne_cuda1.h5 test_ne_matlab1.h5
+	h5diff test_ne_cuda2.h5 test_ne_matlab2.h5
+	h5diff test_ne_caffe1.h5 test_ne_cuda1.h5
+	h5diff test_ne_caffe2.h5 test_ne_cuda2.h5
+
+test_ne_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> NE test: cuda'
+	train -n -m ${NE} -b${NEB} -i${NEI} -o test_ne_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_ne_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> NE test: matlab'
+	matlab.sh "trainh5('nesterov', 1, 'momentum', ${NE}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${NEB}, 'iters', ${NEI}, 'out', 'test_ne_matlab')"
+
+test_ne_caffe1.h5: export_weights.py dev.net test_ne_caffe_iter_${NEI}.caffemodel
+	python $^ test_ne_caffe 2>> test_ne_caffe.log
+
+test_ne_caffe_iter_${NEI}.caffemodel: ne.solver dev.net rnd.caffemodel
+	@echo '==> NE test: caffe'
+	caffe.bin train -solver ne.solver -weights rnd.caffemodel 2> test_ne_caffe.log
+
