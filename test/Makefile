@@ -5,36 +5,42 @@ MATLAB=matlab -nosplash -nodesktop -r
 # BP=937
 BP=1
 
-all: test_bp # test_y test_train test_adagrad test_dropout...
+all: test_bp test_y # test_train test_adagrad test_dropout...
 
 test_bp: test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_caffe1.h5
+	echo '==> Backprop comparison'
 	h5diff test_bp_caffe1.h5 test_bp_cuda1.h5
 	h5diff test_bp_caffe2.h5 test_bp_cuda2.h5
 	h5diff test_bp_caffe1.h5 test_bp_matlab1.h5
 	h5diff test_bp_caffe2.h5 test_bp_matlab2.h5
-	h5diff test_bp_cuda1.h5 test_bp_matlab1.h5
-	h5diff test_bp_cuda2.h5 test_bp_matlab2.h5
 
 test_bp_matlab1.h5: backprop.m devx.h5 dev1.h5 dev2.h5 devy.h5
+	echo '==> Backprop test: matlab'
 	matlab.sh "backprop('x', 'devx.h5', 'y', 'devy.h5', 'net', 'dev1.h5,dev2.h5', 'batch', ${BP}, 'out', 'test_bp_matlab')"
 
 test_bp_cuda1.h5: backprop devx.h5 dev1.h5 dev2.h5 devy.h5
+	echo '==> Backprop test: cuda'
 	backprop -b${BP} -o test_bp_cuda devx.h5 dev1.h5 dev2.h5 devy.h5
 
 test_bp_caffe1.h5: backprop.py dev001.net dev.caffemodel
+	echo '==> Backprop test: caffe'
 	python $^ test_bp_caffe 2> test_bp_caffe.log
 
 test_y: test_y_matlab.h5 test_y_cuda.h5 test_y_caffe.h5
+	echo '==> Predict comparison'
 	h5diff test_y_caffe.h5 test_y_matlab.h5
 	h5diff test_y_caffe.h5 test_y_cuda.h5
 
 test_y_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
+	echo '==> Predict test: matlab'
 	matlab.sh "predict('devx.h5', 'dev1.h5', 'dev2.h5', 'test_y_matlab.h5')"
 
 test_y_cuda.h5: predict devx.h5 dev1.h5 dev2.h5
+	echo '==> Predict test: cuda'
 	predict -b128 devx.h5 dev1.h5 dev2.h5 test_y_cuda.h5
 
 test_y_caffe.h5: predict.py dev.net dev.caffemodel
+	echo '==> Predict test: caffe'
 	-rm $@
 	python $^ 82 $@ 2> test_y_caffe.log
 
@@ -60,7 +66,7 @@ train.o: train.cu $(JNET_H)
 	nvcc -c $(CFLAGS) $< -o $@
 
 clean:
-	-rm *.o test_*
+	-rm *~ *.o test_*
 
 testcuda: testcuda.c ../cuda/jnet.h ../cuda/jnet.cu
 	cd ../cuda; make
