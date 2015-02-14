@@ -334,7 +334,6 @@ void lupdate(Layer l) {
        dw = dw1   :without nesterov
        dw = momentum * dw1 + dw   :with nesterov
     */
-    assert(1==0);	/* need to check first */
     CUBLAS(cublasSscal(CB, nw, &l->momentum, l->dw1, 1));
     CUBLAS(cublasSaxpy(CB, nw, &one, l->dw, 1, l->dw1, 1));
     if (l->nesterov) {
@@ -394,7 +393,8 @@ __global__ void _adagrad(int n, float *dw2, float *dw) {
 __global__ void _l1reg(int n, float l1, float *w, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    dw[i] += (w[i] >= 0 ? l1 : -l1);
+    if (w[i] > 0) dw[i] += l1;
+    else if (w[i] < 0) dw[i] -= l1;
     i += blockDim.x * gridDim.x;
   }
 }
