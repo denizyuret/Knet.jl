@@ -5,7 +5,7 @@ function trainh5(varargin)
     assert(isfield(o,'y'));
     assert(isfield(o,'out'));
     assert(isfield(o,'net'));
-    if ~isfield(o,'learningRate') o.learningRate = DEFAULT_LEARNING_RATE;
+    if ~isfield(o,'learningRate') o.learningRate = DEFAULT_LEARNING_RATE; end
     fprintf(2, 'Reading... ');
     x = h5read(o.x, '/data');
     if ~isfield(o,'batch') o.batch = size(x,2); end
@@ -35,7 +35,9 @@ function trainh5(varargin)
     net = copynet(net, 'cpu');
     for i=1:numel(net)
         fname = sprintf('%s%d.h5', o.out, i);
-        try delete(fname); catch; end;
+        if exist(fname, 'file')
+            try delete(fname); catch; end;
+        end
         h5write_layer(fname, net{i});
     end
     fprintf(2, 'done\n');
