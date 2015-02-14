@@ -1,0 +1,3 @@
+net: "dev.net"
+max_iter: 0
+snapshot_prefix: "rnd"

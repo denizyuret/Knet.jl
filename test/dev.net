@@ -6,7 +6,7 @@ layers {
   top: "label"
   hdf5_data_param {
     source: "dev.net.trn"
-    batch_size: 937		# 82*937 41*1874
+    batch_size: 937		# 76834=82*937,41*1874
   }
   include: { phase: TRAIN }
 }
@@ -26,8 +26,8 @@ layers {
   type: INNER_PRODUCT
   bottom: "data"
   top: "fc1"
-  blobs_lr: 1
-  blobs_lr: 2
+#  blobs_lr: 1
+#  blobs_lr: 2
   weight_decay: 1
   weight_decay: 0
   inner_product_param {
@@ -53,8 +53,8 @@ layers {
   type: INNER_PRODUCT
   bottom: "fc1"
   top: "fc2"
-  blobs_lr: 1
-  blobs_lr: 2
+#  blobs_lr: 1
+#  blobs_lr: 2
   weight_decay: 1
   weight_decay: 0
   inner_product_param {
