@@ -341,6 +341,15 @@ void lupdate(Layer l) {
     } else {
       CUBLAS(cublasScopy(CB, nw, l->dw1, 1, l->dw, 1));
     }
+    if (nb) {
+      CUBLAS(cublasSscal(CB, nb, &l->momentum, l->db1, 1));
+      CUBLAS(cublasSaxpy(CB, nb, &one, l->db, 1, l->db1, 1));
+      if (l->nesterov) {
+	CUBLAS(cublasSaxpy(CB, nb, &l->momentum, l->db1, 1, l->db, 1));
+      } else {
+	CUBLAS(cublasScopy(CB, nb, l->db1, 1, l->db, 1));
+      }
+    }
   }
   /* Finally apply gradient descent: w -= dw, b -= db */
   CUBLAS(cublasSaxpy(CB, nw, &minusone, l->dw, 1, l->w, 1));
