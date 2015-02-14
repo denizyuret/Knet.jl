@@ -10,27 +10,28 @@ static clock_t t0;
 #define tic (t0 = clock())
 #define toc fprintf(stderr, "%g seconds\n", (double)(clock()-t0)/CLOCKS_PER_SEC)
 
-const char *usage =
-  "Usage: %s [opts] x layer1 layer2 ... y\n"  
-  "where each of x layer1 ... y is an hdf5 file\n"
-  "-b batchsize (default: size of dataset)\n"
-  "-o prefix (default: train.out)\n"
-  "   the new layers will be saved in prefix1.h5, prefix2.h5, ... etc.\n"
-  "-a (adagrad, default:false)\n"
-  "-i iters (default: until one epoch is completed)\n";
+const char *usage = "Usage: %s [opts] x layer1 layer2 ... y\n";
 
 int main(int argc, char **argv) {
+  Layer o = (Layer) calloc(1, sizeof(struct LayerS));
   int batch = 0;
-  int adagrad = 0;
   int iters = 0;
   const char *output = "train.out";
+  
   int opt;
-  while((opt = getopt(argc, argv, "o:b:i:a")) != -1) {
+  while((opt = getopt(argc, argv, "o:b:i:m:d:x:l:1:2:an")) != -1) {
     switch(opt) {
     case 'b': batch = atoi(optarg); break;
     case 'i': iters = atoi(optarg); break;
     case 'o': output = optarg; break;
-    case 'a': adagrad = 1; break;
+    case 'l': o->learningRate = atof(optarg); break;
+    case 'a': o->adagrad = 1; break;
+    case 'n': o->nesterov = 1; break;
+    case 'm': o->momentum = atof(optarg); break;
+    case 'd': o->dropout = atof(optarg); break;
+    case 'x': o->maxnorm = atof(optarg); break;
+    case '1': o->L1 = atof(optarg); break;
+    case '2': o->L2 = atof(optarg); break;
     default: fprintf(stderr, usage, argv[0]); exit(EXIT_FAILURE);
     }
   }
@@ -48,7 +49,14 @@ int main(int argc, char **argv) {
   for (int l = 0; l < nlayers; l++) {
     fprintf(stderr, "%s... ", argv[optind + l]);
     net[l] = h5read_layer(argv[optind + l]);
-    if (adagrad) net[l]->adagrad = 1;
+    if (o->adagrad) net[l]->adagrad = o->adagrad;
+    if (o->nesterov) net[l]->nesterov = o->nesterov;
+    if (o->learningRate) net[l]->learningRate = o->learningRate;
+    if (o->momentum) net[l]->momentum = o->momentum;
+    if (o->dropout) net[l]->dropout = o->dropout;
+    if (o->maxnorm) net[l]->maxnorm = o->maxnorm;
+    if (o->L1) net[l]->L1 = o->L1;
+    if (o->L2) net[l]->L2 = o->L2;
   }
   optind += nlayers;
   toc;

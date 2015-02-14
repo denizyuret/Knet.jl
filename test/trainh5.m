@@ -12,10 +12,15 @@ function trainh5(varargin)
     ymat = h5read(o.y, '/data');
     [~, yvec] = max(ymat);
     o.net = strsplit(o.net, ',');
-    for i=1:numel(o.net) net{i} = h5read_layer(o.net{i}); end
-    for i=1:numel(o.net) net{i}.learningRate = o.learningRate; end
-    if isfield(o,'adagrad')
-        for i=1:numel(o.net) net{i}.adagrad = o.adagrad; end
+    plist = {'learningRate','adagrad','nesterov','momentum','dropout','maxnorm','L1','L2'};
+    for i=1:numel(o.net) 
+        net{i} = h5read_layer(o.net{i}); 
+        for j=1:numel(plist)
+            p = plist{j};
+            if isfield(o, p)
+                net{i}.(p) = o.(p);
+            end
+        end
     end
     if gpuDeviceCount > 0
         net = copynet(net, 'gpu');

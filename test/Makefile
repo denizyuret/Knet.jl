@@ -6,7 +6,7 @@ BP=937
 TR=937
 ADI=2
 
-test: test_y test_bp test_tr test_ad # test_mo test_ne test_l1 test_l2 test_mn test_dr...
+test: test_l2 # test_y test_bp test_tr test_ad # test_mo test_ne test_l1 test_l2 test_mn test_dr...
 
 
 ### ADAGRAD TRAINING
@@ -147,4 +147,34 @@ h5getinfo: h5getinfo.c
 
 h5diff: h5diff.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
+
+### L2 TRAINING
+
+L2=1.0
+L2B=937
+L2I=82
+
+test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5
+	@echo '==> L2 comparison'
+	h5diff test_l2_caffe1.h5 test_l2_cuda1.h5
+	h5diff test_l2_caffe2.h5 test_l2_cuda2.h5
+	h5diff test_l2_caffe1.h5 test_l2_matlab1.h5
+	h5diff test_l2_caffe2.h5 test_l2_matlab2.h5
+	h5diff test_l2_cuda1.h5 test_l2_matlab1.h5
+	h5diff test_l2_cuda2.h5 test_l2_matlab2.h5
+
+test_l2_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L2 test: cuda'
+	train -2 ${L2} -b${L2B} -i${L2I} -o test_l2_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_l2_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L2 test: matlab'
+	matlab.sh "trainh5('L2', ${L2}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${L2B}, 'iters', ${L2I}, 'out', 'test_l2_matlab')"
+
+test_l2_caffe1.h5: export_weights.py dev.net test_l2_caffe_iter_${L2I}.caffemodel
+	python $^ test_l2_caffe 2>> test_l2_caffe.log
+
+test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
+	@echo '==> L2 test: caffe'
+	caffe.bin train -solver l2.solver -weights rnd.caffemodel 2> test_l2_caffe.log
 
