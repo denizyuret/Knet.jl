@@ -2,6 +2,7 @@ unused
 test_*
 *.h5
 *.caffemodel
+*.solverstate
 dev.net.*
 train
 backprop
