@@ -209,3 +209,34 @@ test_l1_caffe_iter_${L1I}.caffemodel: l1.solver dev.net rnd.caffemodel
 	@echo '==> L1 test: caffe'
 	caffe.bin train -solver l1.solver -weights rnd.caffemodel 2> test_l1_caffe.log
 
+
+### MOMENTUM TRAINING
+
+MO=0.95
+MOB=937
+MOI=82
+
+test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5
+	@echo '==> MO comparison'
+	h5diff test_mo_caffe1.h5 test_mo_cuda1.h5
+	h5diff test_mo_caffe2.h5 test_mo_cuda2.h5
+	h5diff test_mo_caffe1.h5 test_mo_matlab1.h5
+	h5diff test_mo_caffe2.h5 test_mo_matlab2.h5
+	h5diff test_mo_cuda1.h5 test_mo_matlab1.h5
+	h5diff test_mo_cuda2.h5 test_mo_matlab2.h5
+
+test_mo_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> MO test: cuda'
+	train -m ${MO} -b${MOB} -i${MOI} -o test_mo_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_mo_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> MO test: matlab'
+	matlab.sh "trainh5('momentum', ${MO}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${MOB}, 'iters', ${MOI}, 'out', 'test_mo_matlab')"
+
+test_mo_caffe1.h5: export_weights.py dev.net test_mo_caffe_iter_${MOI}.caffemodel
+	python $^ test_mo_caffe 2>> test_mo_caffe.log
+
+test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
+	@echo '==> MO test: caffe'
+	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
+
