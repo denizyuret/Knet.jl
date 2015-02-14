@@ -26,7 +26,7 @@ void rdiff(const char *name, hid_t f1, hid_t f2) {
       int d1, d2;
       H5LTget_attribute_ndims(f1, name, aname, &d1);
       H5LTget_attribute_ndims(f2, name, aname, &d2);
-      assert(d1 == 1 && d2 == 1);
+      assert(d1 <= 1 && d2 <= 1);
       hsize_t dims1, dims2;
       H5T_class_t t1, t2;
       size_t ts1, ts2;

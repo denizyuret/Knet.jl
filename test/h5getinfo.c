@@ -8,6 +8,7 @@
  *  illustrations.
  */
 
+#include <assert.h>
 #include "hdf5.h"
 
 #define MAX_NAME 1024
@@ -19,6 +20,7 @@ void scan_group(hid_t);
 void do_attr(hid_t);
 void scan_attrs(hid_t);
 void do_plist(hid_t);
+void do_dspace(hid_t);
 
 int
 main(int argc, char **argv)
@@ -295,6 +297,7 @@ void do_attr(hid_t aid) {
 	 * Get attribute information: dataspace, data type 
 	 */
 	aspace = H5Aget_space(aid); /* the dimensions of the attribute data */
+	do_dspace(aspace);
 
 	atype  = H5Aget_type(aid); 
 	do_dtype(atype);
@@ -305,9 +308,29 @@ void do_attr(hid_t aid) {
 	 */
 
 	  /* ... read data with H5Aread, write with H5Awrite, etc. */
+	H5Aread(aid, atype, buf);
+	switch(H5Tget_class(atype)) {
+	case H5T_INTEGER: printf("Attribute value: %d\n", *((int*)(buf))); break;
+	case H5T_FLOAT: printf("Attribute value: %g\n", *((float*)(buf))); break;
+	default: printf("Attribute has type %d\n", H5Tget_class(atype));
+	}
 
 	H5Tclose(atype);
 	H5Sclose(aspace);
+}
+
+void
+do_dspace(hid_t sid) {
+  hsize_t dims[10], maxdims[10];
+  int ndims = H5Sget_simple_extent_ndims(sid);
+  assert(ndims < 10);
+  H5Sget_simple_extent_dims(sid, dims, maxdims);
+  printf("Dims:");
+  for (int i=0; i < ndims; i++) {
+    printf(" %d", dims[i]);
+    if (maxdims[i] != dims[i]) printf("(%d)", maxdims[i]);
+  }
+  printf("\n");
 }
 
 /*
