@@ -1,0 +1,21 @@
+snapshot_prefix: "test_l2_caffe"
+net: "dev.net"
+solver_type: SGD
+base_lr: 0.01
+lr_policy: "fixed"
+momentum: 0
+weight_decay: 1.0
+regularization_type: "L2"
+
+max_iter: 82
+display: 0  # no info displayed
+
+test_iter: 82
+test_initialization: true
+test_interval: 82 # default:0
+
+
+# solver_mode: GPU # default:GPU
+# snapshot: 0 # default:0
+# snapshot_after_train: true # default:true
+# test_compute_loss: true  # default:false
