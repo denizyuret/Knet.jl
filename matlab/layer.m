@@ -93,10 +93,10 @@ classdef layer < matlab.mixin.Copyable
 
         function update(l)
             if l.L1
-                l.dw(:) = l.dw + l.L1 * sign(l.w);
+                l.dw(:,2:end) = l.dw(:,2:end) + l.L1 * sign(l.w(:,2:end));
             end
             if l.L2
-                l.dw(:) = l.dw + l.L2 * l.w;
+                l.dw(:,2:end) = l.dw(:,2:end) + l.L2 * l.w(:,2:end);
             end
             if l.adagrad
                 if ~isempty(l.dw2)
