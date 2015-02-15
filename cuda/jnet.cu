@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <curand.h>
 #include <assert.h>
 #include "jnet.h"
 #define BLK 128
@@ -17,18 +18,20 @@
 
 #define CUDA(_s) assert((_s) == cudaSuccess)
 #define CUBLAS(_s) assert((_s) == CUBLAS_STATUS_SUCCESS)
+#define CURAND(_s) assert((_s) == CURAND_STATUS_SUCCESS)
 #define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
 #define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
 static cublasHandle_t CB;
-static float zero = 0.0;
-static float one = 1.0;
-static float minusone = -1.0;
+static curandGenerator_t RNG;
+const static float zero = 0.0;
+const static float one = 1.0;
+const static float minusone = -1.0;
 
-static inline void fforw(Layer l);
-static inline float *initforw(Layer l, float *x, int xcols);
-static inline void fback(Layer l);
-static inline float *initback(Layer l, float *dy, int return_dx);
-static inline void initupdate(Layer l);
+static inline void xforw(Layer l);
+static inline void yforw(Layer l);
+static inline void xback(Layer l);
+static inline void yback(Layer l);
+static inline float *tforw(Layer l, float *x, int xcols);
 
 __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
@@ -36,6 +39,7 @@ __global__ void _softback(int nrows, int ncols, float *y, float *dy);
 __global__ void _l1reg(int n, float l1, float *w, float *dw);
 __global__ void _adagrad(int n, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
+__global__ void _drop(int n, float *x, float *xmask, float dropout, float scale);
 
 static inline float *gpuArray(size_t nfloats);
 static inline float *gpuCopy(size_t nfloats, float *cpuArray);
@@ -50,17 +54,21 @@ static inline void gpuFreeDBG(void *x);
 
 /* layer() constructs a layer with a weight matrix w of size
    (wrows,wcols).  b is a bias vector of length (wrows) or NULL if no
-   bias is to be used.  LayerType type determines the activation
-   function, e.g. relu.  A layer has alloc/free responsibility of all
-   its fields except x and dy, which it takes as input during forw and
-   back respectively.  Note that calls to layer functions may
-   overwrite their inputs x and dy.
+   bias is to be used.  Yfunc type determines the activation function,
+   e.g. relu.  Xfunc determines preprocessing, if any, e.g. dropout.
+   A layer has alloc/free responsibility of all its fields except x
+   and dy, which it takes as input during forw and back respectively.
+   Note that calls to layer functions may overwrite their inputs x and
+   dy.
  */
-Layer layer(LayerType type, int wrows, int wcols, float *w, float *b) {
-  if (!CB) { CUBLAS(cublasCreate(&CB)); }
+Layer layer(Xfunc xfunc, Yfunc yfunc, int wrows, int wcols, float *w, float *b) {
+  // Initialize CUBLAS and CURAND if necessary
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   Layer l = (Layer) calloc(1, sizeof(struct LayerS));
   assert(l != NULL);
-  l->type = type;
+  l->xfunc = xfunc;
+  l->yfunc = yfunc;
   l->wrows = wrows;
   l->wcols = wcols;
   l->learningRate = DEFAULT_LEARNING_RATE;
@@ -89,6 +97,11 @@ void lfree(Layer l) {
   free(l);
 }
 
+void set_seed(unsigned long long seed) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
+}
+
 void set_adagrad(Layer l, int i) { l->adagrad = i; }
 void set_nesterov(Layer l, int i) { l->nesterov = i; }
 void set_learningRate(Layer l, float f) { l->learningRate = f; }
@@ -104,12 +117,22 @@ int lsize(Layer l, int i) {
 
 Layer relu(int wrows, int wcols, float *w, float *b) {
   assert(w != NULL);
-  return layer(RELU, wrows, wcols, w, b);
+  return layer(DROP, RELU, wrows, wcols, w, b);
 }
 
 Layer soft(int wrows, int wcols, float *w, float *b) {
   assert(w != NULL);
-  return layer(SOFT, wrows, wcols, w, b);
+  return layer(DROP, SOFT, wrows, wcols, w, b);
+}
+
+static inline float *tforw(Layer l, float *x, int xcols) {
+  // To prevent dropout during testing
+  // Need to reconsider when other xfuncs implemented.
+  Xfunc xf_save = l->xfunc;
+  l->xfunc = NOXF;
+  float *y = lforw(l, x, xcols);
+  l->xfunc = xf_save;
+  return y;
 }
 
 void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
@@ -121,7 +144,7 @@ void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
     gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
     float *gptr = xgpu;
     for (int l = 0; l < nlayer; l++)
-      gptr = lforw(net[l], gptr, batch);
+      gptr = tforw(net[l], gptr, batch);
     gpuGetMatrix(yrows, batch, gptr, &y[b*yrows]);
   }
   gpuFree(xgpu);
@@ -154,86 +177,94 @@ float *lforw(Layer l, float *x, int xcols) {
   // We assume x is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume xrows == l->wcols and x is column-major.  
-  l->x = initforw(l, x, xcols);
+  if (l->acols < xcols) { /* reallocate if columns changed */
+    lclean(l);
+    l->acols = xcols;
+  }
+  l->x = x;			/* we point to x, we do not copy */
+  l->xcols = xcols;
 
+  // x = f(x) where f is dropout etc.
+  xforw(l);			/* dropout or other processing, overwrites x! */
   // y = w * x
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
-  CUBLAS(cublasSgemm(CB, CUBLAS_OP_N, CUBLAS_OP_N, 
-		     l->wrows, l->xcols, l->wcols, 
-		     &one, l->w, l->wrows, 
-		     l->x, l->wcols, 
-		     &zero, l->y, l->wrows));
+  if (l->y == NULL) l->y = gpuArray(l->wrows * l->acols);
+  CUBLAS(cublasSgemm(CB, CUBLAS_OP_N, CUBLAS_OP_N, l->wrows, l->xcols, l->wcols, &one, l->w, l->wrows, l->x, l->wcols, &zero, l->y, l->wrows));
+  // y = y + b  with singleton expansion
   if (l->b != NULL) {
-    // y = y + b  with singleton expansion
     // ger(m,n,α,x(m),incx=1,y(n),incy=1,A(m,n),lda=m): A = α x y' + A
+    if (l->xones == NULL) l->xones = gpuFill(l->acols, 1.0);
     CUBLAS(cublasSger(CB, l->wrows, l->xcols, &one, l->b, 1, l->xones, 1, l->y, l->wrows));
   }
   // y = f(y) where f is relu, sigm etc.
-  fforw(l);
+  yforw(l);
   return l->y;
 }
 
-static inline void fforw(Layer l) {
-  switch(l->type) {
+static inline void xforw(Layer l) {
+  switch(l->xfunc) {
+  case NOXF: break;
+  case DROP:
+    if (l->dropout > 0) {
+      if (l->xmask == NULL) l->xmask = gpuArray(l->wcols * l->acols);
+      CURAND(curandGenerateUniform(RNG, l->xmask, l->wcols * l->xcols));
+      _drop<<<BLK,THR>>>(l->wcols * l->xcols, l->x, l->xmask, l->dropout, 1/(1-l->dropout));
+      CUDA(cudaGetLastError());
+    }
+    break;
+  default: assert("xforw != DROP not implemented yet"==NULL);
+  }
+}
+
+static inline void yforw(Layer l) {
+  switch(l->yfunc) {
+  case NOYF: break;
   case RELU:
     _reluforw<<<BLK,THR>>>(l->wrows * l->xcols, l->y);
     CUDA(cudaGetLastError());
     break;
+  case SOFT: break;
+  default: assert("yforw != SOFT,RELU not implemented yet"==NULL);
   }
-}
-
-static inline float *initforw(Layer l, float *x, int xcols) {
-  // Alloc/realloc l->y and l->xones if necessary and update l->xcols
-  int yrows = l->wrows;
-  int ycols = xcols;
-  if ((l->y == NULL) || (l->acols < xcols)) {
-    gpuFree(l->y);
-    l->y = gpuArray(yrows * ycols);
-  }
-  if ((l->b != NULL) && ((l->xones == NULL) || l->acols < xcols)) {
-    gpuFree(l->xones);
-    l->xones = gpuFill(xcols, 1.0);
-  }
-  if ((l->dx != NULL) && (l->xcols != xcols)) {
-    gpuFree(l->dx);    /* to be reallocated */
-  }
-  l->xcols = xcols;
-  if (l->acols < xcols) l->acols = xcols;
-  return x; /* we do not copy x, just point to it */
 }
 
 float *lback(Layer l, float *dy, int return_dx) {
   // We assume dy is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume dy has the same size as l.y: (wrows,xcols)
-  l->dy = initback(l, dy, return_dx);
-  
-  // dy = fback(dy) where fback is the derivative of fforw
-  fback(l);
+  l->dy = dy;
+
+  // dy = yback(dy) where yback is the derivative of yforw
+  yback(l);
 
   // dw = dy * x'
   // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
   // m = wrows; n = wcols; k = xcols
+  if (l->dw == NULL) l->dw = gpuArray(l->wrows * l->wcols);
   CUBLAS(cublasSgemm(CB, CUBLAS_OP_N, CUBLAS_OP_T, l->wrows, l->wcols, l->xcols, &one, l->dy, l->wrows, l->x, l->wcols, &zero, l->dw, l->wrows));
 
   if (l->b != NULL) {
     // db = sum(dy,2) = dy * ones
     // gemv(op,m,n,α,A(m,n),lda=m,x(n),incx=1,β,y(m),incy=1): y = α op(A) x + β y
+    if (l->db == NULL) l->db = gpuArray(l->wrows);
     CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, l->wrows, l->xcols, &one, l->dy, l->wrows, l->xones, 1, &zero, l->db, 1));
   }
   if (return_dx) { // dx is optional because it is expensive and unnecessary for input layer
     // dx=w' * dy
     // gemm(opA,opB,m,n,k,α,A(m,k),lda=m,B(k,n),ldb=k,β,C(m,n),ldc=m): C = α op(A) op(B) + β C
     // m = wcols, n = xcols, k = wrows
+    if (l->dx == NULL) l->dx = gpuArray(l->wcols * l->acols);
     CUBLAS(cublasSgemm(CB, CUBLAS_OP_T, CUBLAS_OP_N, l->wcols, l->xcols, l->wrows, &one, l->w, l->wrows, l->dy, l->wrows, &zero, l->dx, l->wcols));
+    xback(l);
     return l->dx;
   } else {
     return NULL;
   }
 }
 
-static inline void fback(Layer l) {
-  switch(l->type) {
+static inline void yback(Layer l) {
+  switch(l->yfunc) {
+  case NOYF: break;
   case RELU:
     _reluback<<<BLK,THR>>>(l->wrows * l->xcols, l->y, l->dy);
     CUDA(cudaGetLastError());
@@ -242,14 +273,21 @@ static inline void fback(Layer l) {
     _softback<<<BLK,THR>>>(l->wrows, l->xcols, l->y, l->dy);
     CUDA(cudaGetLastError());
     break;
+  default: assert("yback != RELU,SOFT not implemented yet"==NULL);
   }
 }
 
-static inline float *initback(Layer l, float *dy, int return_dx) {
-  if (l->dw == NULL) l->dw = gpuArray(l->wrows * l->wcols);
-  if ((l->b != NULL) && (l->db == NULL)) l->db = gpuArray(l->wrows);
-  if (return_dx && (l->dx == NULL)) l->dx = gpuArray(l->wcols * l->xcols);
-  return dy;
+static inline void xback(Layer l) {
+  switch(l->xfunc) {
+  case NOXF: break;
+  case DROP:
+    if (l->dropout > 0) {
+      _drop<<<BLK,THR>>>(l->wcols * l->xcols, l->dx, l->xmask, l->dropout, 1/(1-l->dropout));
+      CUDA(cudaGetLastError());
+    }
+    break;
+  default: assert("xforw != DROP not implemented yet"==NULL);
+  }
 }
 
 void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
@@ -261,17 +299,14 @@ void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
     if (b + batch > xcols) batch = xcols - b;
     gpuSetMatrix(xrows, batch, &x[b*xrows], xgpu);
     float *gptr = xgpu; 
-    for (int l = 0; l < nlayer; l++) {
+    for (int l = 0; l < nlayer; l++)
       gptr = lforw(net[l], gptr, batch); 
-    }
     gpuSetMatrix(yrows, batch, &y[b*yrows], ygpu);
     gptr = ygpu; 
-    for (int l = nlayer - 1; l >= 0; l--) {
+    for (int l = nlayer - 1; l >= 0; l--)
       gptr = lback(net[l], gptr, (l>0));
-    }
-    for (int l = 0; l < nlayer; l++) {
+    for (int l = 0; l < nlayer; l++)
       lupdate(net[l]);
-    }
   }
   gpuFree(xgpu);
   gpuFree(ygpu);
@@ -279,7 +314,6 @@ void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
 
 
 void lupdate(Layer l) {
-  initupdate(l);
   if (l->learningRate == 0) return;
   int nw = l->wcols * l->wrows;
   int nb = (l->b == NULL ? 0 : l->wrows);
@@ -312,8 +346,12 @@ void lupdate(Layer l) {
        dw /= (epsilon + sqrt(dw2))
        and similarly for db.
     */
+    if (l->dw2 == NULL) l->dw2 = gpuFill(nw, 0.0);
     _adagrad<<<BLK,THR>>>(nw, l->dw2, l->dw);
-    if (nb) { _adagrad<<<BLK,THR>>>(nb, l->db2, l->db); }
+    if (nb) { 
+      if (l->db2 == NULL) l->db2 = gpuFill(nb, 0.0);
+      _adagrad<<<BLK,THR>>>(nb, l->db2, l->db); 
+    }
     CUDA(cudaGetLastError());
   }
   if (l->learningRate != 1) {
@@ -334,6 +372,7 @@ void lupdate(Layer l) {
        dw = dw1   :without nesterov
        dw = momentum * dw1 + dw   :with nesterov
     */
+    if (l->dw1 == NULL) l->dw1 = gpuFill(nw, 0.0);
     CUBLAS(cublasSscal(CB, nw, &l->momentum, l->dw1, 1));
     CUBLAS(cublasSaxpy(CB, nw, &one, l->dw, 1, l->dw1, 1));
     if (l->nesterov) {
@@ -342,6 +381,7 @@ void lupdate(Layer l) {
       CUBLAS(cublasScopy(CB, nw, l->dw1, 1, l->dw, 1));
     }
     if (nb) {
+      if (l->db1 == NULL) l->db1 = gpuFill(nb, 0.0);
       CUBLAS(cublasSscal(CB, nb, &l->momentum, l->db1, 1));
       CUBLAS(cublasSaxpy(CB, nb, &one, l->db, 1, l->db1, 1));
       if (l->nesterov) {
@@ -363,19 +403,8 @@ void lupdate(Layer l) {
   }
 }
 
-static inline void initupdate(Layer l) {
-  if (l->adagrad) {
-    if (l->dw2 == NULL) l->dw2 = gpuFill(l->wrows * l->wcols, 0.0);
-    if ((l->b != NULL) && (l->db2 == NULL)) l->db2 = gpuFill(l->wrows, 0.0);
-  }
-  if (l->momentum != 0) {
-    if (l->dw1 == NULL) l->dw1 = gpuFill(l->wrows * l->wcols, 0.0);
-    if ((l->b != NULL) && (l->db1 == NULL)) l->db1 = gpuFill(l->wrows, 0.0);
-  }
-}
-
 void lclean(Layer l) {
-  /* Get rid of all arrays which depend on input */
+  /* Get rid of all arrays which depend on input xcols */
   gpuFree(l->y);
   gpuFree(l->xones);
   gpuFree(l->dx);
@@ -386,6 +415,15 @@ __global__ void _fill(int n, float val, float *x) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     x[i] = val;
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _drop(int n, float *x, float *xmask, float dropout, float scale) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    if (xmask[i] < dropout) x[i] = 0;
+    else x[i] *= scale;
     i += blockDim.x * gridDim.x;
   }
 }

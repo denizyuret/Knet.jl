@@ -62,9 +62,10 @@ static inline void h5read_float(hid_t id, const char *attr, float *ptr) {
 }
 
 Layer h5read_layer(const char *fname) {
-  Layer l = layer(NOOP, 0, 0, NULL, NULL);
+  Layer l = layer(NOXF, NOYF, 0, 0, NULL, NULL);
   hid_t id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
-  h5read_int(id, "type", (int*)&l->type);
+  h5read_int(id, "xfunc", (int*)&l->xfunc);
+  h5read_int(id, "yfunc", (int*)&l->yfunc);
   h5read_int(id, "adagrad", &l->adagrad);
   h5read_int(id, "nesterov", &l->nesterov);
   h5read_float(id, "learningRate", &l->learningRate);
@@ -103,8 +104,10 @@ static inline void h5write_float(hid_t id, const char *name, float val, float de
 
 void h5write_layer(const char *fname, Layer l) {
   hid_t id = H5Fcreate (fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-  int type = (int) l->type;
-  h5write_int(id, "type", type, 0);
+  int xfunc = (int) l->xfunc;
+  int yfunc = (int) l->yfunc;
+  h5write_int(id, "xfunc", xfunc, 0);
+  h5write_int(id, "yfunc", yfunc, 0);
   h5write_int(id, "adagrad", l->adagrad, 0);
   h5write_int(id, "nesterov", l->nesterov, 0);
   h5write_float(id, "learningRate", l->learningRate, DEFAULT_LEARNING_RATE);

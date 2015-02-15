@@ -2,81 +2,10 @@ CFLAGS=-g -L../cuda -I../cuda
 JNET_H=../cuda/jnet.h ../cuda/jnet_h5.h
 JNET_L=../cuda/libjnet.so ../cuda/libjnet_h5.so
 MATLAB=matlab -nosplash -nodesktop -r
-BP=937
-TR=937
-ADI=2
+BATCH=937
+ITERS=82
 
-test: test_l2 # test_y test_bp test_tr test_ad # test_mo test_ne test_l1 test_l2 test_mn test_dr...
-
-
-### SIMPLE TRAINING TEST
-
-test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
-	@echo '==> Train comparison'
-	h5diff test_tr_caffe1.h5 test_tr_cuda1.h5
-	h5diff test_tr_caffe2.h5 test_tr_cuda2.h5
-	h5diff test_tr_caffe1.h5 test_tr_matlab1.h5
-	h5diff test_tr_caffe2.h5 test_tr_matlab2.h5
-	h5diff test_tr_cuda1.h5 test_tr_matlab1.h5
-	h5diff test_tr_cuda2.h5 test_tr_matlab2.h5
-
-test_tr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Train test: cuda'
-	train -b${TR} -o test_tr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
-
-test_tr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Train test: matlab'
-	matlab.sh "trainh5('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${TR}, 'out', 'test_tr_matlab')"
-
-test_tr_caffe1.h5: test_tr_caffe_iter_82.caffemodel export_weights.py
-	python export_weights.py dev.net test_tr_caffe_iter_82.caffemodel test_tr_caffe 2>> test_tr_caffe.log
-
-test_tr_caffe_iter_82.caffemodel: dev.solver dev.net rnd.caffemodel
-	@echo '==> Train test: caffe'
-	caffe.bin train -solver dev.solver -weights rnd.caffemodel 2> test_tr_caffe.log
-
-
-### BACKPROP TEST
-
-test_bp: test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_caffe1.h5
-	@echo '==> Backprop comparison'
-	h5diff test_bp_caffe1.h5 test_bp_cuda1.h5
-	h5diff test_bp_caffe2.h5 test_bp_cuda2.h5
-	h5diff test_bp_caffe1.h5 test_bp_matlab1.h5
-	h5diff test_bp_caffe2.h5 test_bp_matlab2.h5
-
-test_bp_matlab1.h5: backprop.m devx.h5 dev1.h5 dev2.h5 devy.h5
-	@echo '==> Backprop test: matlab'
-	matlab.sh "backprop('x', 'devx.h5', 'y', 'devy.h5', 'net', 'dev1.h5,dev2.h5', 'batch', ${BP}, 'out', 'test_bp_matlab')"
-
-test_bp_cuda1.h5: backprop devx.h5 dev1.h5 dev2.h5 devy.h5
-	@echo '==> Backprop test: cuda'
-	backprop -b${BP} -o test_bp_cuda devx.h5 dev1.h5 dev2.h5 devy.h5
-
-test_bp_caffe1.h5: backprop.py dev.net dev.caffemodel
-	@echo '==> Backprop test: caffe'
-	python $^ test_bp_caffe 2> test_bp_caffe.log
-
-
-### PREDICT TEST
-
-test_y: test_y_matlab.h5 test_y_cuda.h5 test_y_caffe.h5
-	@echo '==> Predict comparison'
-	h5diff test_y_caffe.h5 test_y_matlab.h5
-	h5diff test_y_caffe.h5 test_y_cuda.h5
-
-test_y_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
-	@echo '==> Predict test: matlab'
-	matlab.sh "predict('devx.h5', 'dev1.h5', 'dev2.h5', 'test_y_matlab.h5')"
-
-test_y_cuda.h5: predict devx.h5 dev1.h5 dev2.h5
-	@echo '==> Predict test: cuda'
-	predict -b128 devx.h5 dev1.h5 dev2.h5 test_y_cuda.h5
-
-test_y_caffe.h5: predict.py dev.net dev.caffemodel
-	@echo '==> Predict test: caffe'
-	-rm $@
-	python $^ 82 $@ 2> test_y_caffe.log
+test: test_fw test_bp test_tr test_lr test_l2 test_l1 test_ad test_mo test_ne test_dr
 
 
 ### COMPILATION
@@ -110,7 +39,7 @@ train.o: train.cu $(JNET_H)
 	nvcc -c $(CFLAGS) $< -o $@
 
 clean:
-	-mv *~ *.o test_* *.caffemodel *.solverstate unused
+	-mv *~ *.caffemodel *.solverstate *.o test_* unused
 
 testcuda: testcuda.c ../cuda/jnet.h ../cuda/jnet.cu
 	cd ../cuda; make
@@ -123,20 +52,102 @@ h5diff: h5diff.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
 
 
+### PREDICT TEST
+
+FWB=${BATCH}
+FWI=${ITERS}
+
+test_fw: test_fw_matlab.h5 test_fw_cuda.h5 test_fw_caffe.h5
+	@echo '==> Predict comparison'
+	h5diff test_fw_caffe.h5 test_fw_matlab.h5
+	h5diff test_fw_cuda.h5 test_fw_matlab.h5
+	h5diff test_fw_caffe.h5 test_fw_cuda.h5
+
+test_fw_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
+	@echo '==> Predict test: matlab'
+	matlab.sh "predict('devx.h5', 'dev1.h5', 'dev2.h5', 'test_fw_matlab.h5')"
+
+test_fw_cuda.h5: predict devx.h5 dev1.h5 dev2.h5
+	@echo '==> Predict test: cuda'
+	predict -b${FWB} devx.h5 dev1.h5 dev2.h5 test_fw_cuda.h5
+
+test_fw_caffe.h5: predict.py dev.net dev.caffemodel
+	@echo '==> Predict test: caffe'
+	-rm $@
+	python $^ ${FWI} $@ 2> test_fw_caffe.log
+
+
+### BACKPROP TEST
+
+BPB=${BATCH}
+BPI=${ITERS}
+
+test_bp: test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_caffe1.h5
+	@echo '==> Backprop comparison'
+	h5diff test_bp_caffe1.h5 test_bp_matlab1.h5
+	h5diff test_bp_caffe2.h5 test_bp_matlab2.h5
+	h5diff test_bp_matlab1.h5 test_bp_cuda1.h5
+	h5diff test_bp_matlab2.h5 test_bp_cuda2.h5
+	h5diff test_bp_caffe1.h5 test_bp_cuda1.h5
+	h5diff test_bp_caffe2.h5 test_bp_cuda2.h5
+
+test_bp_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Backprop test: matlab'
+	matlab.sh "backprop('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${BPB}, 'out', 'test_bp_matlab')"
+
+test_bp_cuda1.h5: backprop devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Backprop test: cuda'
+	backprop -b${BPB} -o test_bp_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_bp_caffe1.h5: backprop.py dev.net rnd.caffemodel
+	@echo '==> Backprop test: caffe'
+	python $^ test_bp_caffe 2> test_bp_caffe.log
+
+
+### SIMPLE TRAINING TEST
+
+TRB=${BATCH}
+TRI=${ITERS}
+
+test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
+	@echo '==> Train comparison'
+	h5diff test_tr_caffe1.h5 test_tr_matlab1.h5
+	h5diff test_tr_caffe2.h5 test_tr_matlab2.h5
+	h5diff test_tr_cuda1.h5 test_tr_matlab1.h5
+	h5diff test_tr_cuda2.h5 test_tr_matlab2.h5
+	h5diff test_tr_caffe1.h5 test_tr_cuda1.h5
+	h5diff test_tr_caffe2.h5 test_tr_cuda2.h5
+
+test_tr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Train test: cuda'
+	train -b${TRB} -i${TRI} -o test_tr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_tr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Train test: matlab'
+	matlab.sh "trainh5('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${TRB}, 'iters', ${TRI}, 'out', 'test_tr_matlab')"
+
+test_tr_caffe1.h5: test_tr_caffe_iter_${TRI}.caffemodel export_weights.py
+	python export_weights.py dev.net test_tr_caffe_iter_${TRI}.caffemodel test_tr_caffe 2>> test_tr_caffe.log
+
+test_tr_caffe_iter_${TRI}.caffemodel: dev.solver dev.net rnd.caffemodel
+	@echo '==> Train test: caffe'
+	caffe.bin train -solver dev.solver -weights rnd.caffemodel 2> test_tr_caffe.log
+
+
 ### LEARNING RATE
 
 LR=0.01
-LRB=937
-LRI=82
+LRB=${BATCH}
+LRI=${ITERS}
 
 test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
 	@echo '==> LR comparison'
-	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
-	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
 	h5diff test_lr_caffe1.h5 test_lr_matlab1.h5
 	h5diff test_lr_caffe2.h5 test_lr_matlab2.h5
 	h5diff test_lr_cuda1.h5 test_lr_matlab1.h5
 	h5diff test_lr_cuda2.h5 test_lr_matlab2.h5
+	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
+	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
 
 test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: cuda'
@@ -157,17 +168,17 @@ test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
 ### L2 TRAINING
 
 L2=1.0
-L2B=937
-L2I=82
+L2B=${BATCH}
+L2I=${ITERS}
 
 test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5
 	@echo '==> L2 comparison'
-	h5diff test_l2_caffe1.h5 test_l2_cuda1.h5
-	h5diff test_l2_caffe2.h5 test_l2_cuda2.h5
 	h5diff test_l2_caffe1.h5 test_l2_matlab1.h5
 	h5diff test_l2_caffe2.h5 test_l2_matlab2.h5
 	h5diff test_l2_cuda1.h5 test_l2_matlab1.h5
 	h5diff test_l2_cuda2.h5 test_l2_matlab2.h5
+	h5diff test_l2_caffe1.h5 test_l2_cuda1.h5
+	h5diff test_l2_caffe2.h5 test_l2_cuda2.h5
 
 test_l2_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L2 test: cuda'
@@ -188,8 +199,8 @@ test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
 ### L1 TRAINING
 
 L1=0.01
-L1B=937
-L1I=82
+L1B=${BATCH}
+L1I=${ITERS}
 
 test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5
 	@echo '==> L1 comparison'
@@ -223,8 +234,8 @@ test_l1_caffe_iter_${L1I}.caffemodel: l1.solver dev.net rnd.caffemodel
 # There were 6 sign changes in the second iteration dw between matlab and cuda.
 # Nothing we can do, maybe show divergence not too much starting from same dw2.
 
-ADB=937
-ADI=<2
+ADB=${BATCH}
+ADI=2
 
 test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
 	@echo '==> Adagrad comparison'
@@ -254,8 +265,8 @@ test_ad_caffe_iter_${ADI}.caffemodel: ad.solver dev.net rnd.caffemodel
 ### MOMENTUM TRAINING
 
 MO=0.95
-MOB=937
-MOI=82
+MOB=${BATCH}
+MOI=${ITERS}
 
 test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5
 	@echo '==> MO comparison'
@@ -285,8 +296,8 @@ test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 ### NESTEROV TRAINING
 
 NE=0.95
-NEB=937
-NEI=82
+NEB=${BATCH}
+NEI=${ITERS}
 
 test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5
 	@echo '==> NE comparison'
@@ -311,4 +322,35 @@ test_ne_caffe1.h5: export_weights.py dev.net test_ne_caffe_iter_${NEI}.caffemode
 test_ne_caffe_iter_${NEI}.caffemodel: ne.solver dev.net rnd.caffemodel
 	@echo '==> NE test: caffe'
 	caffe.bin train -solver ne.solver -weights rnd.caffemodel 2> test_ne_caffe.log
+
+
+### DROPOUT TRAINING
+
+DR=0.75
+DRB=${BATCH}
+DRI=${ITERS}
+
+test_dr: test_dr_caffe1.h5 test_dr_cuda1.h5 test_dr_matlab1.h5
+	@echo '==> DR comparison'
+	h5diff test_dr_caffe1.h5 test_dr_matlab1.h5
+	h5diff test_dr_caffe2.h5 test_dr_matlab2.h5
+	h5diff test_dr_cuda1.h5 test_dr_matlab1.h5
+	h5diff test_dr_cuda2.h5 test_dr_matlab2.h5
+	h5diff test_dr_caffe1.h5 test_dr_cuda1.h5
+	h5diff test_dr_caffe2.h5 test_dr_cuda2.h5
+
+test_dr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> DR test: cuda'
+	train -d ${DR} -b${DRB} -i${DRI} -o test_dr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+
+test_dr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> DR test: matlab'
+	matlab.sh "trainh5('dropout', ${DR}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${DRB}, 'iters', ${DRI}, 'out', 'test_dr_matlab')"
+
+test_dr_caffe1.h5: export_weights.py dr.net test_dr_caffe_iter_${DRI}.caffemodel
+	python $^ test_dr_caffe 2>> test_dr_caffe.log
+
+test_dr_caffe_iter_${DRI}.caffemodel: dr.solver dr.net rnd.caffemodel
+	@echo '==> DR test: caffe'
+	caffe.bin train -solver dr.solver -weights rnd.caffemodel 2> test_dr_caffe.log
 

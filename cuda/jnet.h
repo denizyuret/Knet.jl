@@ -8,13 +8,15 @@
 extern "C" {
 #endif
 
-typedef enum { NOOP=0, RELU=1, SOFT=2 } LayerType;
+typedef enum { NOYF=0, RELU=1, SOFT=2, SIGM=3 } Yfunc;
+typedef enum { NOXF=0, DROP=1 } Xfunc;
 
 typedef struct LayerS {
   int wrows, wcols;	// size of w matrix
   int xcols, acols;	// actual and allocated x columns
 
-  LayerType type;	// type of activation function	
+  Xfunc xfunc;		// type of preprocessing function, e.g. dropout
+  Yfunc yfunc;		// type of activation function, e.g. relu
   float *w;		// weight matrix (wrows,wcols)
   float *b;		// bias vector (wrows)
   float *x;		// last input (wcols,xcols)
@@ -41,7 +43,7 @@ typedef struct LayerS {
   float L1, L2;		// [0,0] L1,L2 regularization
 } *Layer;
 
-Layer layer(LayerType type, int wrows, int wcols, float *w, float *b);
+Layer layer(Xfunc xfunc, Yfunc yfunc, int wrows, int wcols, float *w, float *b);
 Layer relu(int wrows, int wcols, float *w, float *b);
 Layer soft(int wrows, int wcols, float *w, float *b);
 void lfree(Layer l);
@@ -49,11 +51,13 @@ void lclean(Layer l);
 int lsize(Layer l, int i);
 float *lforw(Layer l, float *x, int xcols);
 float *lback(Layer l, float *dy, int return_dx);
+float *ldrop(Layer l, float *x, int xcols);
 void lupdate(Layer l);
 void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 
+void set_seed(unsigned long long seed);
 void set_adagrad(Layer l, int i);
 void set_nesterov(Layer l, int i);
 void set_learningRate(Layer l, float lr);

@@ -60,6 +60,7 @@ int main(int argc, char **argv) {
   }
   optind += nlayers;
   toc;
+  if (o->dropout) set_seed(1);
 
   float *y; int yrows, ycols;
   fprintf(stderr, "Reading %s... ", argv[optind]);

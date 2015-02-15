@@ -3,7 +3,7 @@ CFLAGS=-g -L.
 all: libjnet.so libjnet_h5.so
 
 libjnet.so: jnet.o
-	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -o $@
+	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
 
 libjnet_h5.so: jnet_h5.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lhdf5 -lhdf5_hl -o $@
