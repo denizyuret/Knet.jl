@@ -91,3 +91,13 @@ int main(int argc, char **argv) {
   for (int l = 0; l < nlayers; l++) lfree(net[l]);
   free(x); free(y); free(net);
 }
+
+/* Debugging */
+
+void printn(int n, float *gptr) {
+  float *cptr = (float*) malloc(n * sizeof(float));
+  cudaMemcpy(cptr, gptr, n * sizeof(float), cudaMemcpyDeviceToHost);
+  for (int i=0; i<n; i++) printf("%g ", cptr[i]);
+  putchar('\n');
+  free(cptr);
+}
