@@ -57,11 +57,12 @@ h5diff: h5diff.c
 FWB=${BATCH}
 FWI=${ITERS}
 
-test_fw: test_fw_matlab.h5 test_fw_cuda.h5 test_fw_caffe.h5
+test_fw: test_fw_matlab.h5 test_fw_cuda.h5 test_fw_caffe.h5 test_fw_julia.h5
 	@echo '==> Predict comparison'
 	h5diff test_fw_caffe.h5 test_fw_matlab.h5
 	h5diff test_fw_cuda.h5 test_fw_matlab.h5
 	h5diff test_fw_caffe.h5 test_fw_cuda.h5
+	h5diff test_fw_caffe.h5 test_fw_julia.h5
 
 test_fw_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: matlab'
@@ -69,13 +70,16 @@ test_fw_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
 
 test_fw_cuda.h5: predict devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: cuda'
-	predict -b${FWB} devx.h5 dev1.h5 dev2.h5 test_fw_cuda.h5
+	predict -b${FWB} devx.h5 dev1.h5 dev2.h5 $@
 
 test_fw_caffe.h5: predict.py dev.net dev.caffemodel
 	@echo '==> Predict test: caffe'
 	-rm $@
 	python $^ ${FWI} $@ 2> test_fw_caffe.log
 
+test_fw_julia.h5: predict.jl devx.h5 dev1.h5 dev2.h5
+	@echo '==> Predict test: julia'
+	julia predict.jl devx.h5 dev1.h5 dev2.h5 $@
 
 ### BACKPROP TEST
 
