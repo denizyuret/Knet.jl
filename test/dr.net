@@ -22,6 +22,15 @@ layers {
   include: { phase: TEST }
 }
 layers {
+  name: "drop1"
+  type: DROPOUT
+  bottom: "data"
+  top: "data"
+  dropout_param {
+    dropout_ratio: 0.75
+  }
+}
+layers {
   name: "fc1"
   type: INNER_PRODUCT
   bottom: "data"
@@ -47,6 +56,15 @@ layers {
   type: RELU
   bottom: "fc1"
   top: "fc1"
+}
+layers {
+  name: "drop2"
+  type: DROPOUT
+  bottom: "fc1"
+  top: "fc1"
+  dropout_param {
+    dropout_ratio: 0.75
+  }
 }
 layers {
   name: "fc2"

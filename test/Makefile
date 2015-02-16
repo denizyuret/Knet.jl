@@ -238,7 +238,7 @@ ADB=${BATCH}
 ADI=2
 
 test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
-	@echo '==> Adagrad comparison'
+	@echo '==> Adagrad comparison: we have numerical unstability in w1'
 	h5diff test_ad_caffe1.h5 test_ad_matlab1.h5
 	h5diff test_ad_caffe2.h5 test_ad_matlab2.h5
 	h5diff test_ad_cuda1.h5 test_ad_matlab1.h5
@@ -331,7 +331,7 @@ DRB=${BATCH}
 DRI=${ITERS}
 
 test_dr: test_dr_caffe1.h5 test_dr_cuda1.h5 test_dr_matlab1.h5
-	@echo '==> DR comparison'
+	@echo '==> DR comparison: note matlab has different rng'
 	h5diff test_dr_caffe1.h5 test_dr_matlab1.h5
 	h5diff test_dr_caffe2.h5 test_dr_matlab2.h5
 	h5diff test_dr_cuda1.h5 test_dr_matlab1.h5
