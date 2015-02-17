@@ -6,15 +6,16 @@ function forw(l, x)
     initforw(l, x)
     l.x = l.xforw(l, x)
     @into! l.y = l.w * l.x
-    l.y = @in1! l.y .+ l.b
-    l.y = l.yforw(l, l.y)
+    @in1!  l.y .+ l.b
+    l.yforw(l, l.y)
+    l.y
 end
 
 function initforw(l, x)
     if (!isdefined(l,:y) ||
         size(l.y,1) != size(l.w,1) ||
         size(l.y,2) != size(x,2))
-        l.y = similar(l.w, size(l.w,1), size(x,2))
+        l.y = similar(l.w, (size(l.w,1), size(x,2)))
     end
 end
 
@@ -34,7 +35,6 @@ function reluforw(l, y)
             y[i] = 0
         end
     end
-    y
 end
 
 noop(l,x)=x

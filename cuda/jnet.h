@@ -57,6 +57,15 @@ void forward(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch);
 
+void reluforw(int n, float *y);
+void reluback(int n, float *y, float *dy);
+void softback(int nrows, int ncols, float *y, float *dy);
+void l1reg(int n, float l1, float *w, float *dw);
+void adagrad(int n, float *dw2, float *dw);
+void fill(int n, float val, float *x);
+void drop(int n, float *x, float *xmask, float dropout, float scale);
+void badd(int nrows, int ncols, float *y, float *b);
+
 void set_seed(unsigned long long seed);
 void set_adagrad(Layer l, int i);
 void set_nesterov(Layer l, int i);

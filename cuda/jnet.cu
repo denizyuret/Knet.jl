@@ -21,17 +21,12 @@
 #define CURAND(_s) assert((_s) == CURAND_STATUS_SUCCESS)
 #define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
 #define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+
 static cublasHandle_t CB;
 static curandGenerator_t RNG;
 const static float zero = 0.0;
 const static float one = 1.0;
 const static float minusone = -1.0;
-
-static inline void xforw(Layer l);
-static inline void yforw(Layer l);
-static inline void xback(Layer l);
-static inline void yback(Layer l);
-static inline float *tforw(Layer l, float *x, int xcols);
 
 __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
@@ -40,6 +35,23 @@ __global__ void _l1reg(int n, float l1, float *w, float *dw);
 __global__ void _adagrad(int n, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
 __global__ void _drop(int n, float *x, float *xmask, float dropout, float scale);
+__global__ void _badd(int nrows, int ncols, float *y, float *b);
+
+#define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
+void reluforw(int n, float *y) KCALL(_reluforw,n,y);
+void reluback(int n, float *y, float *dy) KCALL(_reluback,n,y,dy);
+void softback(int nrows, int ncols, float *y, float *dy) KCALL(_softback,nrows,ncols,y,dy);
+void l1reg(int n, float l1, float *w, float *dw) KCALL(_l1reg,n,l1,w,dw);
+void adagrad(int n, float *dw2, float *dw) KCALL(_adagrad,n,dw2,dw);
+void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
+void drop(int n, float *x, float *xmask, float dropout, float scale) KCALL(_drop,n,x,xmask,dropout,scale);
+void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
+
+static inline void xforw(Layer l);
+static inline void yforw(Layer l);
+static inline void xback(Layer l);
+static inline void yback(Layer l);
+static inline float *tforw(Layer l, float *x, int xcols);
 
 static inline float *gpuArray(size_t nfloats);
 static inline float *gpuCopy(size_t nfloats, float *cpuArray);
@@ -416,6 +428,17 @@ __global__ void _fill(int n, float val, float *x) {
   while (i < n) {
     x[i] = val;
     i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _badd(int nrows, int ncols, float *y, float *b) {
+  int c = threadIdx.x + blockIdx.x * blockDim.x;
+  while (c < ncols) {
+    float *yc = &y[c * nrows];
+    for (int r = 0; r < nrows; r++) {
+      yc[r] += b[r];
+    }
+    c += blockDim.x * gridDim.x;
   }
 }
 

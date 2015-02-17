@@ -79,6 +79,7 @@ test_fw_caffe.h5: predict.py dev.net dev.caffemodel
 
 test_fw_julia.h5: predict.jl devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: julia'
+	-rm $@
 	julia predict.jl devx.h5 dev1.h5 dev2.h5 $@
 
 ### BACKPROP TEST

@@ -1,5 +1,4 @@
 using HDF5
-include("../julia/kunet.jl")
 
 xforw = [ KUnet.noop, KUnet.dropforw ]
 xback = [ KUnet.noop, KUnet.dropback ]
