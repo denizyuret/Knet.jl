@@ -22,9 +22,8 @@ function predict(net, x, batch=128)
 end
 
 function backprop(net, x, dy)
-    y = x
     for l = 1:length(net)
-        y = forw(net[l], y)
+        x = forw(net[l], x)
     end
     for l = length(net):-1:1
         dy = back(net[l], dy, (l>1))

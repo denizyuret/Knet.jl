@@ -72,7 +72,7 @@ function softback(y, dy)
                 ymax = y[i,j]
             end
         end
-        ysum = 0
+        ysum = zero(ymax)
         for i=1:size(y,1)
             y[i,j] = exp(y[i,j] - ymax)
             ysum += y[i,j]

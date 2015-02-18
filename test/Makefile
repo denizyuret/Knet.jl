@@ -1,3 +1,7 @@
+# test size info:
+# w1:101MB b1:78KB x1:4MB y1:71MB
+# w2:234KB b2:144b x2:71MB y2:11KB
+
 CFLAGS=-g -L../cuda -I../cuda
 JNET_H=../cuda/jnet.h ../cuda/jnet_h5.h
 JNET_L=../cuda/libjnet.so ../cuda/libjnet_h5.so
