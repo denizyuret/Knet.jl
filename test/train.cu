@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <assert.h>
-#include "jnet.h"
-#include "jnet_h5.h"
+#include "kunet.h"
+#include "kunet_h5.h"
 
 static clock_t t0;
 #define tic (t0 = clock())

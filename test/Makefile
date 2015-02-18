@@ -3,8 +3,8 @@
 # w2:234KB b2:144b x2:71MB y2:11KB
 
 CFLAGS=-g -L../cuda -I../cuda
-JNET_H=../cuda/jnet.h ../cuda/jnet_h5.h
-JNET_L=../cuda/libjnet.so ../cuda/libjnet_h5.so
+JNET_H=../cuda/kunet.h ../cuda/kunet_h5.h
+JNET_L=../cuda/libkunet.so ../cuda/libkunet_h5.so
 MATLAB=matlab -nosplash -nodesktop -r
 BATCH=937
 ITERS=82
@@ -27,13 +27,13 @@ rnd.caffemodel: rnd.solver dev.net
 	mv rnd_iter_0.caffemodel $@
 
 train: train.o $(JNET_L)
-	nvcc $(CFLAGS) $< -ljnet -ljnet_h5 -o $@
+	nvcc $(CFLAGS) $< -lkunet -lkunet_h5 -o $@
 
 backprop: backprop.o $(JNET_L)
-	nvcc $(CFLAGS) $< -ljnet -ljnet_h5 -o $@
+	nvcc $(CFLAGS) $< -lkunet -lkunet_h5 -o $@
 
 predict: predict.o $(JNET_L)
-	nvcc $(CFLAGS) $< -ljnet -ljnet_h5 -o $@
+	nvcc $(CFLAGS) $< -lkunet -lkunet_h5 -o $@
 
 predict.o: predict.cu $(JNET_H)
 
@@ -41,21 +41,21 @@ backprop.o: backprop.cu $(JNET_H)
 
 train.o: train.cu $(JNET_H)
 
-%.o: %.cu
-	nvcc -c $(CFLAGS) $< -o $@
-
-clean:
-	-mv *~ *.caffemodel *.solverstate *.o test_* unused
-
-testcuda: testcuda.c ../cuda/jnet.h ../cuda/jnet.cu
+testcuda: testcuda.c ../cuda/kunet.h ../cuda/kunet.cu
 	cd ../cuda; make
-	gcc -g $< -L /usr/local/cuda/lib64/stubs -L ~/.local/lib64 -L../cuda -I../cuda -I/usr/local/cuda/include -lhdf5_hl -lhdf5 -ljnet -lcuda -o $@
+	gcc -g $< -L /usr/local/cuda/lib64/stubs -L ~/.local/lib64 -L../cuda -I../cuda -I/usr/local/cuda/include -lhdf5_hl -lhdf5 -lkunet -lcuda -o $@
 
 h5getinfo: h5getinfo.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
 
 h5diff: h5diff.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
+
+%.o: %.cu
+	nvcc -c $(CFLAGS) $< -o $@
+
+clean:
+	-mv train backprop predict h5getinfo h5diff *~ *.caffemodel *.solverstate *.o test_* unused
 
 
 ### PREDICT TEST

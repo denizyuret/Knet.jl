@@ -1,7 +1,7 @@
 using HDF5
 using CUDArt
 include("../julia/kunet.jl")
-const libjnet = find_library(["libjnet"], ["."])
+const libkunet = find_library(["libkunet"], ["."])
 typealias Mat CudaArray{Float32,2}
 typealias Cmat Ptr{Float32}
 
@@ -12,10 +12,10 @@ function forward!(x::Matrix{Float32}, x1::Mat, w1::Mat, b1::Mat, x2::Mat, w2::Ma
     for i=1:batch:xcols
         copy!(x1,1,x,(i-1)*xrows+1,length(x1))
         CUBLAS.gemm!('N','N',1.0f0,w1,x1,0.0f0,x2)
-        ccall((:badd,libjnet),Void,(Cint,Cint,Cmat,Cmat),size(x2,1),size(x2,2),x2,b1)
-        ccall((:reluforw,libjnet),Void,(Cint,Cmat),length(x2),x2)
+        ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(x2,1),size(x2,2),x2,b1)
+        ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(x2),x2)
         CUBLAS.gemm!('N','N',1.0f0,w2,x2,0.0f0,x3)
-        ccall((:badd,libjnet),Void,(Cint,Cint,Cmat,Cmat),size(x3,1),size(x3,2),x3,b2)
+        ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(x3,1),size(x3,2),x3,b2)
         copy!(y,(i-1)*yrows+1,x3,1,length(x3))
     end
     y
