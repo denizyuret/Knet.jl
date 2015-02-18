@@ -1,8 +1,8 @@
 using CUDArt
 
-reluforw(y::CudaArray)=ccall((:reluforw,libjnet),Void,(Cint,Cmat),length(y),y)
-reluback(y::CudaArray,dy::CudaArray)=ccall((:reluback,libjnet),Void,(Cint,Cmat,Cmat),length(y),y,dy)
-softback(y::CudaArray,dy::CudaArray)=ccall((:softback,libjnet),Void,(Cint,Cint,Cmat,Cmat),size(y,1),size(y,2),y,dy)
+reluforw(y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
+reluback(y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(y),y,dy)
+softback(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(y,1),size(y,2),y,dy)
 
 softforw(y)=y
 noop(l,x)=x

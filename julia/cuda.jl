@@ -2,9 +2,9 @@
 using CUDArt
 using CUBLAS
 typealias Cmat Ptr{Float32}
-const libjnet = find_library(["libjnet"], ["."])
+const libkunet = find_library(["libkunet"], ["."])
 import InplaceOps: mul!, badd!
-badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libjnet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
+badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
 
 import Base: ctranspose         # TODO: these don't hang high enough in the type hierarchy
 import InplaceOps: Transpose, mul!
@@ -22,7 +22,7 @@ mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(
 # promote_rule(::Type{Mat},::Type{Transpose{Mat}})=Mat
 
 import Base: sum!  # TODO: add error checking here since this is not a full implementation of sum!
-sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libjnet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
+sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
 
 # For debugging
 function gpumem()
