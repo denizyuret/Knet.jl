@@ -1,16 +1,16 @@
 CFLAGS=-g -L.
 
-all: libjnet.so libjnet_h5.so
+all: libkunet.so libkunet_h5.so
 
-libjnet.so: jnet.o
+libkunet.so: kunet.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
 
-libjnet_h5.so: jnet_h5.o
+libkunet_h5.so: kunet_h5.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lhdf5 -lhdf5_hl -o $@
 
-jnet.o: jnet.cu jnet.h
+kunet.o: kunet.cu kunet.h
 
-jnet_h5.o: jnet_h5.cu jnet_h5.h jnet.h
+kunet_h5.o: kunet_h5.cu kunet_h5.h kunet.h
 
 %.o: %.cu
 	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@

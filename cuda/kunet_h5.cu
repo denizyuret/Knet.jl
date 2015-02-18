@@ -6,8 +6,8 @@
 #include <cuda_runtime.h>
 #include <hdf5.h>
 #include <hdf5_hl.h>
-#include "jnet.h"
-#include "jnet_h5.h"
+#include "kunet.h"
+#include "kunet_h5.h"
 
 static inline void *copy_to_gpu(void *cptr, size_t n) {
   if (cptr == NULL || n == 0) return NULL;

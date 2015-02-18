@@ -1,4 +1,4 @@
-// nvcc --shared --compiler-options -fPIC -o libjnet.so jnet.cu -lcublas
+// nvcc --shared --compiler-options -fPIC -o libkunet.so kunet.cu -lcublas
 // TODO: Make dropout use xmask (renamed to xdrop) instead of modifying incoming x
 
 #include <stdio.h>
@@ -7,7 +7,7 @@
 #include <cublas_v2.h>
 #include <curand.h>
 #include <assert.h>
-#include "jnet.h"
+#include "kunet.h"
 #define BLK 128
 #define THR 128
 
