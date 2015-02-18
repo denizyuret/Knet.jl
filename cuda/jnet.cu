@@ -1,10 +1,5 @@
 // nvcc --shared --compiler-options -fPIC -o libjnet.so jnet.cu -lcublas
-// TODO:
-// train
-// update: check L2, momentum, nesterov
-// update: implement maxnorm, L1
-// dropout
-// compare with caffe, matlab
+// TODO: Make dropout use xmask (renamed to xdrop) instead of modifying incoming x
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,14 +14,24 @@
 #define CUDA(_s) assert((_s) == cudaSuccess)
 #define CUBLAS(_s) assert((_s) == CUBLAS_STATUS_SUCCESS)
 #define CURAND(_s) assert((_s) == CURAND_STATUS_SUCCESS)
-#define gpuGetMatrix(rows,cols,from,to) CUBLAS(cublasGetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
-#define gpuSetMatrix(rows,cols,from,to) CUBLAS(cublasSetMatrix(rows,cols,sizeof(float),from,rows,to,rows))
+#define gpuGetMatrix(rows,cols,from,to) (cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyDeviceToHost))
+#define gpuSetMatrix(rows,cols,from,to) (cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyHostToDevice))
 
 static cublasHandle_t CB;
 static curandGenerator_t RNG;
 const static float zero = 0.0;
 const static float one = 1.0;
 const static float minusone = -1.0;
+
+static inline float *gpuArray(size_t nfloats);
+static inline float *gpuCopy(size_t nfloats, float *cpuArray);
+static inline float *gpuFill(size_t nfloats, float val);
+#ifndef DBGMEM
+#define gpuFree(x) { CUDA(cudaFree(x)); (x)=NULL; }
+#else
+static inline void gpuFreeDBG(void *x);
+#define gpuFree(x) { gpuFreeDBG(x); (x)=NULL; }
+#endif
 
 __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
@@ -47,21 +52,23 @@ void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
 void drop(int n, float *x, float *xmask, float dropout, float scale) KCALL(_drop,n,x,xmask,dropout,scale);
 void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
 
+/*
+void badd(int nrows, int ncols, float *y, float *b) {
+  static float *ones;
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+  if (ones == NULL) {
+    ones = gpuFill(1000000, 1.0);
+  }
+  assert(ncols < 1000000);
+  CUBLAS(cublasSger(CB, nrows, ncols, &one, b, 1, ones, 1, y, nrows));
+}
+*/
+
 static inline void xforw(Layer l);
 static inline void yforw(Layer l);
 static inline void xback(Layer l);
 static inline void yback(Layer l);
 static inline float *tforw(Layer l, float *x, int xcols);
-
-static inline float *gpuArray(size_t nfloats);
-static inline float *gpuCopy(size_t nfloats, float *cpuArray);
-static inline float *gpuFill(size_t nfloats, float val);
-#ifndef DBGMEM
-#define gpuFree(x) { CUDA(cudaFree(x)); (x)=NULL; }
-#else
-static inline void gpuFreeDBG(void *x);
-#define gpuFree(x) { gpuFreeDBG(x); (x)=NULL; }
-#endif
 
 
 /* layer() constructs a layer with a weight matrix w of size
@@ -74,9 +81,6 @@ static inline void gpuFreeDBG(void *x);
    dy.
  */
 Layer layer(Xfunc xfunc, Yfunc yfunc, int wrows, int wcols, float *w, float *b) {
-  // Initialize CUBLAS and CURAND if necessary
-  if (CB == NULL) CUBLAS(cublasCreate(&CB));
-  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   Layer l = (Layer) calloc(1, sizeof(struct LayerS));
   assert(l != NULL);
   l->xfunc = xfunc;
@@ -186,6 +190,8 @@ void forwback(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) 
 
 
 float *lforw(Layer l, float *x, int xcols) {
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+
   // We assume x is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume xrows == l->wcols and x is column-major.  
@@ -205,8 +211,11 @@ float *lforw(Layer l, float *x, int xcols) {
   // y = y + b  with singleton expansion
   if (l->b != NULL) {
     // ger(m,n,α,x(m),incx=1,y(n),incy=1,A(m,n),lda=m): A = α x y' + A
+    /*
     if (l->xones == NULL) l->xones = gpuFill(l->acols, 1.0);
     CUBLAS(cublasSger(CB, l->wrows, l->xcols, &one, l->b, 1, l->xones, 1, l->y, l->wrows));
+    */
+    badd(l->wrows, l->xcols, l->y, l->b);
   }
   // y = f(y) where f is relu, sigm etc.
   yforw(l);
@@ -214,6 +223,7 @@ float *lforw(Layer l, float *x, int xcols) {
 }
 
 static inline void xforw(Layer l) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   switch(l->xfunc) {
   case NOXF: break;
   case DROP:
@@ -241,6 +251,8 @@ static inline void yforw(Layer l) {
 }
 
 float *lback(Layer l, float *dy, int return_dx) {
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+
   // We assume dy is already a device pointer.
   // Otherwise we'd have to do unnecessary copying between layers.
   // We assume dy has the same size as l.y: (wrows,xcols)
@@ -327,6 +339,7 @@ void train(Layer *net, float *x, float *y, int nlayer, int xcols, int batch) {
 
 void lupdate(Layer l) {
   if (l->learningRate == 0) return;
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
   int nw = l->wcols * l->wrows;
   int nb = (l->b == NULL ? 0 : l->wrows);
 
