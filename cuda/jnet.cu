@@ -432,13 +432,11 @@ __global__ void _fill(int n, float val, float *x) {
 }
 
 __global__ void _badd(int nrows, int ncols, float *y, float *b) {
-  int c = threadIdx.x + blockIdx.x * blockDim.x;
-  while (c < ncols) {
-    float *yc = &y[c * nrows];
-    for (int r = 0; r < nrows; r++) {
-      yc[r] += b[r];
-    }
-    c += blockDim.x * gridDim.x;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int n = nrows * ncols;
+  while (i < n) {
+    y[i] += b[i % nrows];
+    i += blockDim.x * gridDim.x;
   }
 }
 
