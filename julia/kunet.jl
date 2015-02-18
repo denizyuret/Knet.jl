@@ -1,8 +1,9 @@
 module KUnet
 
 include("layer.jl")
-include("net.jl")
-include("h5io.jl")
+include("func.jl")
 include("cuda.jl")
+include("h5io.jl")
+include("net.jl")
 
 end # module
