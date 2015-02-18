@@ -24,8 +24,11 @@ end
 
 function h5write(fname::String, l::Layer)
     f = h5open(fname, "w")
-    f["/w"] = l.w
-    f["/b"] = l.b
+    for n in names(l)
+        if (isdefined(l,n) && isa(l.(n), Array))
+            f["/$n"] = l.(n)
+        end
+    end
     attrs(f)["xfunc"] = Int32[findfirst(h5xforw, l.xforw) - 1]
     attrs(f)["yfunc"] = Int32[findfirst(h5yforw, l.yforw) - 1]
     close(f)
