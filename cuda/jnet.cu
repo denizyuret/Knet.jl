@@ -52,18 +52,6 @@ void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
 void drop(int n, float *x, float *xmask, float dropout, float scale) KCALL(_drop,n,x,xmask,dropout,scale);
 void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
 
-/*
-void badd(int nrows, int ncols, float *y, float *b) {
-  static float *ones;
-  if (CB == NULL) CUBLAS(cublasCreate(&CB));
-  if (ones == NULL) {
-    ones = gpuFill(1000000, 1.0);
-  }
-  assert(ncols < 1000000);
-  CUBLAS(cublasSger(CB, nrows, ncols, &one, b, 1, ones, 1, y, nrows));
-}
-*/
-
 static inline void xforw(Layer l);
 static inline void yforw(Layer l);
 static inline void xback(Layer l);
@@ -575,4 +563,23 @@ static inline float *gpuFill(size_t nfloats, float val) {
   float *gptr = gpuArray(nfloats);
   _fill<<<BLK,THR>>>(nfloats, val, gptr);
   return gptr;
+}
+
+
+/* Alternative cublas implementations of broadcasting and column sum */
+#define ONES 1000000
+static float *ones;
+
+void badd_cublas(int nrows, int ncols, float *y, float *b) {
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+  if (ones == NULL) ones = gpuFill(ONES, 1.0);
+  assert(ncols < ONES);
+  CUBLAS(cublasSger(CB, nrows, ncols, &one, b, 1, ones, 1, y, nrows));
+}
+
+void bsum(int nrows, int ncols, float *y, float *b) {
+  if (CB == NULL) CUBLAS(cublasCreate(&CB));
+  if (ones == NULL) ones = gpuFill(ONES, 1.0);
+  assert(ncols < ONES);
+  CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, nrows, ncols, &one, y, nrows, ones, 1, &zero, b, 1));
 }

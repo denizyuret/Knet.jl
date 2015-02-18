@@ -1,6 +1,6 @@
 # File I/O
 using HDF5
-import HDF5: h5write
+using CUDArt
 
 const h5xforw = [ noop, dropforw ]
 const h5xback = [ noop, dropback ]
@@ -22,11 +22,15 @@ function Layer(fname::String)
     l
 end
 
-function h5write(fname::String, l::Layer)
+function HDF5.h5write(fname::String, l::Layer)
     f = h5open(fname, "w")
     for n in names(l)
-        if (isdefined(l,n) && isa(l.(n), Array))
-            f["/$n"] = l.(n)
+        if (isdefined(l,n)) 
+            if (isa(l.(n), Array))
+                f["/$n"] = l.(n)
+            elseif (isa(l.(n), CudaArray))
+                f["/$n"] = to_host(l.(n))
+            end
         end
     end
     attrs(f)["xfunc"] = Int32[findfirst(h5xforw, l.xforw) - 1]

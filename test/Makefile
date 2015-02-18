@@ -98,7 +98,7 @@ test_fw_juliacpu.h5: predictcpu.jl devx.h5 dev1.h5 dev2.h5
 BPB=${BATCH}
 BPI=${ITERS}
 
-test_bp: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1.h5
+test_bp: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1.h5 test_bp_julia1.h5
 	@echo '==> Backprop comparison'
 	h5diff test_bp_caffe1.h5 test_bp_matlab1.h5
 	h5diff test_bp_caffe2.h5 test_bp_matlab2.h5
@@ -106,6 +106,8 @@ test_bp: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1
 	h5diff test_bp_caffe2.h5 test_bp_cuda2.h5
 	h5diff test_bp_caffe1.h5 test_bp_juliacpu1.h5
 	h5diff test_bp_caffe2.h5 test_bp_juliacpu2.h5
+	h5diff test_bp_caffe1.h5 test_bp_julia1.h5
+	h5diff test_bp_caffe2.h5 test_bp_julia2.h5
 
 test_bp_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: matlab'
@@ -122,6 +124,11 @@ test_bp_caffe1.h5: backprop.py dev.net rnd.caffemodel
 test_bp_juliacpu1.h5: backpropcpu.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: juliacpu'
 	julia $^ test_bp_juliacpu
+
+test_bp_julia1.h5: backprop.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> Backprop test: julia'
+	julia $^ test_bp_julia
+
 
 ### SIMPLE TRAINING TEST
 
