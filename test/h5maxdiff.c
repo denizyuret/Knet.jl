@@ -128,7 +128,7 @@ void rdiff(const char *name, hid_t f1, hid_t f2) {
 
 int main(int argc, char **argv) {
   if (argc < 3) {
-    fprintf(stderr, "Usage: h5diff file1.h5 file2.h5");
+    fprintf(stderr, "Usage: h5maxdiff file1.h5 file2.h5");
     exit(-1);
   }
   file1 = argv[1]; file2 = argv[2];

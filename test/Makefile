@@ -48,14 +48,14 @@ testcuda: testcuda.c ../cuda/kunet.h ../cuda/kunet.cu
 h5getinfo: h5getinfo.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
 
-h5diff: h5diff.c
+h5maxdiff: h5maxdiff.c
 	gcc -g -std=c99 -I ~/.local/include -L ~/.local/lib64 $< -lhdf5 -lhdf5_hl -o $@
 
 %.o: %.cu
 	nvcc -c $(CFLAGS) $< -o $@
 
 clean:
-	-mv train backprop predict h5getinfo h5diff *~ *.caffemodel *.solverstate *.o test_* unused
+	-mv train backprop predict h5getinfo h5maxdiff *~ *.caffemodel *.solverstate *.o test_* unused
 
 
 ### PREDICT TEST
@@ -65,10 +65,10 @@ FWI=${ITERS}
 
 test_fw: test_fw_caffe.h5 test_fw_matlab.h5 test_fw_cuda.h5 test_fw_julia.h5 test_fw_juliacpu.h5
 	@echo '==> Predict comparison'
-	h5diff test_fw_caffe.h5 test_fw_matlab.h5
-	h5diff test_fw_caffe.h5 test_fw_cuda.h5
-	h5diff test_fw_caffe.h5 test_fw_julia.h5
-	h5diff test_fw_caffe.h5 test_fw_juliacpu.h5
+	h5maxdiff test_fw_caffe.h5 test_fw_matlab.h5
+	h5maxdiff test_fw_caffe.h5 test_fw_cuda.h5
+	h5maxdiff test_fw_caffe.h5 test_fw_julia.h5
+	h5maxdiff test_fw_caffe.h5 test_fw_juliacpu.h5
 
 test_fw_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: matlab'
@@ -100,14 +100,14 @@ BPI=${ITERS}
 
 test_bp: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1.h5 test_bp_julia1.h5
 	@echo '==> Backprop comparison'
-	h5diff test_bp_caffe1.h5 test_bp_matlab1.h5
-	h5diff test_bp_caffe2.h5 test_bp_matlab2.h5
-	h5diff test_bp_caffe1.h5 test_bp_cuda1.h5
-	h5diff test_bp_caffe2.h5 test_bp_cuda2.h5
-	h5diff test_bp_caffe1.h5 test_bp_juliacpu1.h5
-	h5diff test_bp_caffe2.h5 test_bp_juliacpu2.h5
-	h5diff test_bp_caffe1.h5 test_bp_julia1.h5
-	h5diff test_bp_caffe2.h5 test_bp_julia2.h5
+	h5maxdiff test_bp_caffe1.h5 test_bp_matlab1.h5
+	h5maxdiff test_bp_caffe2.h5 test_bp_matlab2.h5
+	h5maxdiff test_bp_caffe1.h5 test_bp_cuda1.h5
+	h5maxdiff test_bp_caffe2.h5 test_bp_cuda2.h5
+	h5maxdiff test_bp_caffe1.h5 test_bp_juliacpu1.h5
+	h5maxdiff test_bp_caffe2.h5 test_bp_juliacpu2.h5
+	h5maxdiff test_bp_caffe1.h5 test_bp_julia1.h5
+	h5maxdiff test_bp_caffe2.h5 test_bp_julia2.h5
 
 test_bp_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: matlab'
@@ -137,12 +137,12 @@ TRI=${ITERS}
 
 test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
 	@echo '==> Train comparison'
-	h5diff test_tr_caffe1.h5 test_tr_matlab1.h5
-	h5diff test_tr_caffe2.h5 test_tr_matlab2.h5
-	h5diff test_tr_cuda1.h5 test_tr_matlab1.h5
-	h5diff test_tr_cuda2.h5 test_tr_matlab2.h5
-	h5diff test_tr_caffe1.h5 test_tr_cuda1.h5
-	h5diff test_tr_caffe2.h5 test_tr_cuda2.h5
+	h5maxdiff test_tr_caffe1.h5 test_tr_matlab1.h5
+	h5maxdiff test_tr_caffe2.h5 test_tr_matlab2.h5
+	h5maxdiff test_tr_cuda1.h5 test_tr_matlab1.h5
+	h5maxdiff test_tr_cuda2.h5 test_tr_matlab2.h5
+	h5maxdiff test_tr_caffe1.h5 test_tr_cuda1.h5
+	h5maxdiff test_tr_caffe2.h5 test_tr_cuda2.h5
 
 test_tr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Train test: cuda'
@@ -168,12 +168,12 @@ LRI=${ITERS}
 
 test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
 	@echo '==> LR comparison'
-	h5diff test_lr_caffe1.h5 test_lr_matlab1.h5
-	h5diff test_lr_caffe2.h5 test_lr_matlab2.h5
-	h5diff test_lr_cuda1.h5 test_lr_matlab1.h5
-	h5diff test_lr_cuda2.h5 test_lr_matlab2.h5
-	h5diff test_lr_caffe1.h5 test_lr_cuda1.h5
-	h5diff test_lr_caffe2.h5 test_lr_cuda2.h5
+	h5maxdiff test_lr_caffe1.h5 test_lr_matlab1.h5
+	h5maxdiff test_lr_caffe2.h5 test_lr_matlab2.h5
+	h5maxdiff test_lr_cuda1.h5 test_lr_matlab1.h5
+	h5maxdiff test_lr_cuda2.h5 test_lr_matlab2.h5
+	h5maxdiff test_lr_caffe1.h5 test_lr_cuda1.h5
+	h5maxdiff test_lr_caffe2.h5 test_lr_cuda2.h5
 
 test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: cuda'
@@ -199,12 +199,12 @@ L2I=${ITERS}
 
 test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5
 	@echo '==> L2 comparison'
-	h5diff test_l2_caffe1.h5 test_l2_matlab1.h5
-	h5diff test_l2_caffe2.h5 test_l2_matlab2.h5
-	h5diff test_l2_cuda1.h5 test_l2_matlab1.h5
-	h5diff test_l2_cuda2.h5 test_l2_matlab2.h5
-	h5diff test_l2_caffe1.h5 test_l2_cuda1.h5
-	h5diff test_l2_caffe2.h5 test_l2_cuda2.h5
+	h5maxdiff test_l2_caffe1.h5 test_l2_matlab1.h5
+	h5maxdiff test_l2_caffe2.h5 test_l2_matlab2.h5
+	h5maxdiff test_l2_cuda1.h5 test_l2_matlab1.h5
+	h5maxdiff test_l2_cuda2.h5 test_l2_matlab2.h5
+	h5maxdiff test_l2_caffe1.h5 test_l2_cuda1.h5
+	h5maxdiff test_l2_caffe2.h5 test_l2_cuda2.h5
 
 test_l2_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L2 test: cuda'
@@ -230,12 +230,12 @@ L1I=${ITERS}
 
 test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5
 	@echo '==> L1 comparison'
-	h5diff test_l1_caffe1.h5 test_l1_matlab1.h5
-	h5diff test_l1_caffe2.h5 test_l1_matlab2.h5
-	h5diff test_l1_cuda1.h5 test_l1_matlab1.h5
-	h5diff test_l1_cuda2.h5 test_l1_matlab2.h5
-	h5diff test_l1_caffe1.h5 test_l1_cuda1.h5
-	h5diff test_l1_caffe2.h5 test_l1_cuda2.h5
+	h5maxdiff test_l1_caffe1.h5 test_l1_matlab1.h5
+	h5maxdiff test_l1_caffe2.h5 test_l1_matlab2.h5
+	h5maxdiff test_l1_cuda1.h5 test_l1_matlab1.h5
+	h5maxdiff test_l1_cuda2.h5 test_l1_matlab2.h5
+	h5maxdiff test_l1_caffe1.h5 test_l1_cuda1.h5
+	h5maxdiff test_l1_caffe2.h5 test_l1_cuda2.h5
 
 test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: cuda'
@@ -265,12 +265,12 @@ ADI=2
 
 test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
 	@echo '==> Adagrad comparison: we have numerical unstability in w1'
-	h5diff test_ad_caffe1.h5 test_ad_matlab1.h5
-	h5diff test_ad_caffe2.h5 test_ad_matlab2.h5
-	h5diff test_ad_cuda1.h5 test_ad_matlab1.h5
-	h5diff test_ad_cuda2.h5 test_ad_matlab2.h5
-	h5diff test_ad_caffe1.h5 test_ad_cuda1.h5
-	h5diff test_ad_caffe2.h5 test_ad_cuda2.h5
+	h5maxdiff test_ad_caffe1.h5 test_ad_matlab1.h5
+	h5maxdiff test_ad_caffe2.h5 test_ad_matlab2.h5
+	h5maxdiff test_ad_cuda1.h5 test_ad_matlab1.h5
+	h5maxdiff test_ad_cuda2.h5 test_ad_matlab2.h5
+	h5maxdiff test_ad_caffe1.h5 test_ad_cuda1.h5
+	h5maxdiff test_ad_caffe2.h5 test_ad_cuda2.h5
 
 test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Adagrad test: cuda'
@@ -296,12 +296,12 @@ MOI=${ITERS}
 
 test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5
 	@echo '==> MO comparison'
-	h5diff test_mo_caffe1.h5 test_mo_matlab1.h5
-	h5diff test_mo_caffe2.h5 test_mo_matlab2.h5
-	h5diff test_mo_cuda1.h5 test_mo_matlab1.h5
-	h5diff test_mo_cuda2.h5 test_mo_matlab2.h5
-	h5diff test_mo_caffe1.h5 test_mo_cuda1.h5
-	h5diff test_mo_caffe2.h5 test_mo_cuda2.h5
+	h5maxdiff test_mo_caffe1.h5 test_mo_matlab1.h5
+	h5maxdiff test_mo_caffe2.h5 test_mo_matlab2.h5
+	h5maxdiff test_mo_cuda1.h5 test_mo_matlab1.h5
+	h5maxdiff test_mo_cuda2.h5 test_mo_matlab2.h5
+	h5maxdiff test_mo_caffe1.h5 test_mo_cuda1.h5
+	h5maxdiff test_mo_caffe2.h5 test_mo_cuda2.h5
 
 test_mo_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> MO test: cuda'
@@ -327,12 +327,12 @@ NEI=${ITERS}
 
 test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5
 	@echo '==> NE comparison'
-	h5diff test_ne_caffe1.h5 test_ne_matlab1.h5
-	h5diff test_ne_caffe2.h5 test_ne_matlab2.h5
-	h5diff test_ne_cuda1.h5 test_ne_matlab1.h5
-	h5diff test_ne_cuda2.h5 test_ne_matlab2.h5
-	h5diff test_ne_caffe1.h5 test_ne_cuda1.h5
-	h5diff test_ne_caffe2.h5 test_ne_cuda2.h5
+	h5maxdiff test_ne_caffe1.h5 test_ne_matlab1.h5
+	h5maxdiff test_ne_caffe2.h5 test_ne_matlab2.h5
+	h5maxdiff test_ne_cuda1.h5 test_ne_matlab1.h5
+	h5maxdiff test_ne_cuda2.h5 test_ne_matlab2.h5
+	h5maxdiff test_ne_caffe1.h5 test_ne_cuda1.h5
+	h5maxdiff test_ne_caffe2.h5 test_ne_cuda2.h5
 
 test_ne_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> NE test: cuda'
@@ -358,12 +358,12 @@ DRI=${ITERS}
 
 test_dr: test_dr_caffe1.h5 test_dr_cuda1.h5 test_dr_matlab1.h5
 	@echo '==> DR comparison: note matlab has different rng'
-	h5diff test_dr_caffe1.h5 test_dr_matlab1.h5
-	h5diff test_dr_caffe2.h5 test_dr_matlab2.h5
-	h5diff test_dr_cuda1.h5 test_dr_matlab1.h5
-	h5diff test_dr_cuda2.h5 test_dr_matlab2.h5
-	h5diff test_dr_caffe1.h5 test_dr_cuda1.h5
-	h5diff test_dr_caffe2.h5 test_dr_cuda2.h5
+	h5maxdiff test_dr_caffe1.h5 test_dr_matlab1.h5
+	h5maxdiff test_dr_caffe2.h5 test_dr_matlab2.h5
+	h5maxdiff test_dr_cuda1.h5 test_dr_matlab1.h5
+	h5maxdiff test_dr_cuda2.h5 test_dr_matlab2.h5
+	h5maxdiff test_dr_caffe1.h5 test_dr_cuda1.h5
+	h5maxdiff test_dr_caffe2.h5 test_dr_cuda2.h5
 
 test_dr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> DR test: cuda'
