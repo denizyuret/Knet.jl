@@ -8,3 +8,4 @@ test2
 libjnet.so
 *.o
 foo*
+unused
