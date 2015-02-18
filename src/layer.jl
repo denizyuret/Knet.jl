@@ -19,6 +19,7 @@ function initforw(l, x)
 end
 
 function back(l, dy, return_dx)
+    initback(l, dy, return_dx)
     l.dy = dy
     l.yback(l.y, l.dy)
     @into! l.dw = l.dy * l.x'
