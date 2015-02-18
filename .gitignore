@@ -5,7 +5,7 @@
 *.h5
 test1
 test2
-libjnet.so
+*.so
 *.o
 foo*
 unused
