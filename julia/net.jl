@@ -11,17 +11,26 @@ function predict(net, x, batch=128)
             e = xcols
             xx = similar(net[1].w, (xrows, e-b+1))
         end
-        # copy!(xx, 1, x, (b-1)*xrows+1, length(xx))
         copy!(xx, (1:xrows,1:e-b+1), x, (1:xrows,b:e))
         yy = xx
         for l = 1:length(net)
             yy = forw(net[l], yy)
         end
-        # copy!(y, (b-1)*yrows+1, yy, 1, length(yy))
         copy!(y, (1:yrows,b:e), yy, (1:yrows,1:e-b+1))
     end
     y
 end
+
+function backprop(net, x, dy)
+    y = x
+    for l = 1:length(net)
+        y = forw(net[l], y)
+    end
+    for l = length(net):-1:1
+        dy = back(net[l], dy, (l>1))
+    end
+end
+
 
 # CUDA extensions:
 import Base: copy!

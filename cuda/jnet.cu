@@ -14,8 +14,8 @@
 #define CUDA(_s) assert((_s) == cudaSuccess)
 #define CUBLAS(_s) assert((_s) == CUBLAS_STATUS_SUCCESS)
 #define CURAND(_s) assert((_s) == CURAND_STATUS_SUCCESS)
-#define gpuGetMatrix(rows,cols,from,to) (cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyDeviceToHost))
-#define gpuSetMatrix(rows,cols,from,to) (cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyHostToDevice))
+#define gpuGetMatrix(rows,cols,from,to) CUDA(cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyDeviceToHost))
+#define gpuSetMatrix(rows,cols,from,to) CUDA(cudaMemcpy((to),(from),(rows)*(cols)*sizeof(float),cudaMemcpyHostToDevice))
 
 static cublasHandle_t CB;
 static curandGenerator_t RNG;
@@ -271,6 +271,7 @@ float *lback(Layer l, float *dy, int return_dx) {
     // db = sum(dy,2) = dy * ones
     // gemv(op,m,n,α,A(m,n),lda=m,x(n),incx=1,β,y(m),incy=1): y = α op(A) x + β y
     if (l->db == NULL) l->db = gpuArray(l->wrows);
+    if (l->xones == NULL) l->xones = gpuFill(l->acols, 1.0);
     CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, l->wrows, l->xcols, &one, l->dy, l->wrows, l->xones, 1, &zero, l->db, 1));
   }
   if (return_dx) { // dx is optional because it is expensive and unnecessary for input layer
