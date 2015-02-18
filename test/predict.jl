@@ -1,10 +1,9 @@
 using CUDArt
 using HDF5
 include("../julia/kunet.jl")
-include("h5read_layer.jl")
 @time x = h5read(ARGS[1], "/data")
-@time l1 = h5read_layer(ARGS[2])
-@time l2 = h5read_layer(ARGS[3])
+@time l1 = KUnet.Layer(ARGS[2])
+@time l2 = KUnet.Layer(ARGS[3])
 l1.xforw = KUnet.noop
 l2.xforw = KUnet.noop
 l1.w = CudaArray(l1.w)
