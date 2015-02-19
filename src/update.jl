@@ -10,10 +10,8 @@ function update(l::Layer, o::TrainOpts)
         l2reg!(o.l2reg, l.w, l.dw)  # TODO: l.dw += o.l2reg * l.w
     end
     if o.adagrad > 0
-        l.dw2 += l.dw .* l.dw
-        l.db2 += l.db .* l.db
-        l.dw /= o.adagrad + sqrt(l.dw2)
-        l.db /= o.adagrad + sqrt(l.db2)
+        adagrad!(o.adagrad, l.dw2, l.dw) # l.dw2 += l.dw .* l.dw; l.dw /= o.adagrad + sqrt(l.dw2)
+        adagrad!(o.adagrad, l.db2, l.db) # l.db2 += l.db .* l.db; l.db /= o.adagrad + sqrt(l.db2)
     end
     if o.learningRate != 1.0
         @in1! l.dw .* o.learningRate
@@ -52,15 +50,24 @@ function initupdate(l, o)
     end
 end
 
-l2reg!(l2::Float32, w::Matrix, dw::Matrix)=Base.LinAlg.axpy!(length(w), l2, w, 1, dw, 1)
-l2reg!(l2::Float32, w::CudaMatrix, dw::CudaMatrix)=CUBLAS.axpy!(length(w), l2, w, 1, dw, 1)
-l1reg!(l1::Float32, w::CudaMatrix, dw::CudaMatrix)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(w),l1,w,dw)
+l2reg!(l2::Float32, w::Matrix, dw::Matrix) =    Base.LinAlg.axpy!(length(dw), l2, w, 1, dw, 1)
+l2reg!(l2::Float32, w::CudaMatrix, dw::CudaMatrix) = CUBLAS.axpy!(length(dw), l2, w, 1, dw, 1)
+
+l1reg!(l1::Float32, w::CudaMatrix, dw::CudaMatrix)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
 
 function l1reg!(l1::Float32, w::Matrix, dw::Matrix)
-    for i=1:length(w)
+    for i=1:length(dw)
         if (w[i] > 0) dw[i] += l1
         elseif (w[i] < 0) dw[i] -= l1
         end
     end
 end
 
+adagrad!(eps::Float32, dw2::CudaMatrix, dw::CudaMatrix)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
+
+function adagrad!(eps::Float32, dw2::Matrix, dw::Matrix)
+    for i=1:length(dw)
+        dw2[i] += dw[i] * dw[i];
+        dw[i] /= (eps + sqrt(dw2[i]))
+    end
+end

@@ -19,13 +19,13 @@ int main(int argc, char **argv) {
   const char *output = "train.out";
   
   int opt;
-  while((opt = getopt(argc, argv, "o:b:i:m:d:x:l:1:2:an")) != -1) {
+  while((opt = getopt(argc, argv, "o:b:i:m:d:x:l:1:2:a:n")) != -1) {
     switch(opt) {
     case 'b': batch = atoi(optarg); break;
     case 'i': iters = atoi(optarg); break;
     case 'o': output = optarg; break;
     case 'l': o->learningRate = atof(optarg); break;
-    case 'a': o->adagrad = 1; break;
+    case 'a': o->adagrad = atof(optarg); break;
     case 'n': o->nesterov = 1; break;
     case 'm': o->momentum = atof(optarg); break;
     case 'd': o->dropout = atof(optarg); break;

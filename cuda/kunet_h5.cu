@@ -66,8 +66,8 @@ Layer h5read_layer(const char *fname) {
   hid_t id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
   h5read_int(id, "xfunc", (int*)&l->xfunc);
   h5read_int(id, "yfunc", (int*)&l->yfunc);
-  h5read_int(id, "adagrad", &l->adagrad);
   h5read_int(id, "nesterov", &l->nesterov);
+  h5read_float(id, "adagrad", &l->adagrad);
   h5read_float(id, "learningRate", &l->learningRate);
   h5read_float(id, "momentum", &l->momentum);
   h5read_float(id, "dropout", &l->dropout);
@@ -108,8 +108,8 @@ void h5write_layer(const char *fname, Layer l) {
   int yfunc = (int) l->yfunc;
   h5write_int(id, "xfunc", xfunc, 0);
   h5write_int(id, "yfunc", yfunc, 0);
-  h5write_int(id, "adagrad", l->adagrad, 0);
   h5write_int(id, "nesterov", l->nesterov, 0);
+  h5write_float(id, "adagrad", l->adagrad, 0);
   h5write_float(id, "learningRate", l->learningRate, DEFAULT_LEARNING_RATE);
   h5write_float(id, "momentum", l->momentum, 0);
   h5write_float(id, "dropout", l->dropout, 0);

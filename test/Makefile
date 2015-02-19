@@ -215,6 +215,8 @@ test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5 test_l1_julia1.h5
 	h5maxdiff test_l1_caffe2.h5 test_l1_cuda2.h5
 	h5maxdiff test_l1_caffe1.h5 test_l1_julia1.h5
 	h5maxdiff test_l1_caffe2.h5 test_l1_julia2.h5
+	h5maxdiff test_l1_cuda1.h5 test_l1_julia1.h5
+	h5maxdiff test_l1_cuda2.h5 test_l1_julia2.h5
 
 test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: cuda'
@@ -243,21 +245,25 @@ test_l1_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 # There were 6 sign changes in the second iteration dw between matlab and cuda.
 # Nothing we can do, maybe show divergence not too much starting from same dw2.
 
+AD=1e-8
 ADB=${BATCH}
+#ADI=${ITERS}
 ADI=2
 
-test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5
+test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5 test_ad_julia1.h5
 	@echo '==> Adagrad comparison: we have numerical unstability in w1'
 	h5maxdiff test_ad_caffe1.h5 test_ad_matlab1.h5
 	h5maxdiff test_ad_caffe2.h5 test_ad_matlab2.h5
-	h5maxdiff test_ad_cuda1.h5 test_ad_matlab1.h5
-	h5maxdiff test_ad_cuda2.h5 test_ad_matlab2.h5
 	h5maxdiff test_ad_caffe1.h5 test_ad_cuda1.h5
 	h5maxdiff test_ad_caffe2.h5 test_ad_cuda2.h5
+	h5maxdiff test_ad_caffe1.h5 test_ad_julia1.h5
+	h5maxdiff test_ad_caffe2.h5 test_ad_julia2.h5
+	h5maxdiff test_ad_cuda1.h5 test_ad_julia1.h5
+	h5maxdiff test_ad_cuda2.h5 test_ad_julia2.h5
 
 test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Adagrad test: cuda'
-	train -a -b${ADB} -i${ADI} -o test_ad_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	train -a1e-8 -b${ADB} -i${ADI} -o test_ad_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
 
 test_ad_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Adagrad test: matlab'
@@ -268,8 +274,12 @@ test_ad_caffe1.h5: export_weights.py dev.net test_ad_caffe_iter_${ADI}.caffemode
 
 test_ad_caffe_iter_${ADI}.caffemodel: ad.solver dev.net rnd.caffemodel
 	@echo '==> Adagrad test: caffe'
+	perl -pi -e 's/max_iter: \d+/max_iter: ${ADI}/' ad.solver
 	caffe.bin train -solver ad.solver -weights rnd.caffemodel 2> test_ad_caffe.log
 
+test_ad_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> AD test: julia gpu'
+	julia train.jl --batch ${ADB} --iters ${ADI} --adagrad ${AD} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_ad_julia
 
 ### MOMENTUM TRAINING
 

@@ -34,7 +34,7 @@ typedef struct LayerS {
   float *db1;		// moving average of gradients for momentum
   float *db2;		// sum of squared gradients for adagrad
 
-  int adagrad;		// [0] adagrad during weight updates
+  float adagrad;	// [0] apply adagrad if nonzero, using value as epsilon
   int nesterov;		// [0] nesterov during weight updates
   float learningRate;	// [0.01]
   float momentum;	// [0]
@@ -61,14 +61,14 @@ void reluforw(int n, float *y);
 void reluback(int n, float *y, float *dy);
 void softback(int nrows, int ncols, float *y, float *dy);
 void l1reg(int n, float l1, float *w, float *dw);
-void adagrad(int n, float *dw2, float *dw);
+void adagrad(int n, float eps, float *dw2, float *dw);
 void fill(int n, float val, float *x);
 void drop(int n, float *x, float *xmask, float dropout, float scale);
 void badd(int nrows, int ncols, float *y, float *b);
 void bsum(int nrows, int ncols, float *y, float *b);
 
 void set_seed(unsigned long long seed);
-void set_adagrad(Layer l, int i);
+void set_adagrad(Layer l, float a);
 void set_nesterov(Layer l, int i);
 void set_learningRate(Layer l, float lr);
 void set_momentum(Layer l, float m);

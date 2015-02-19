@@ -37,7 +37,7 @@ __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
 __global__ void _softback(int nrows, int ncols, float *y, float *dy);
 __global__ void _l1reg(int n, float l1, float *w, float *dw);
-__global__ void _adagrad(int n, float *dw2, float *dw);
+__global__ void _adagrad(int n, float eps, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
 __global__ void _drop(int n, float *x, float *xmask, float dropout, float scale);
 __global__ void _badd(int nrows, int ncols, float *y, float *b);
@@ -47,7 +47,7 @@ void reluforw(int n, float *y) KCALL(_reluforw,n,y);
 void reluback(int n, float *y, float *dy) KCALL(_reluback,n,y,dy);
 void softback(int nrows, int ncols, float *y, float *dy) KCALL(_softback,nrows,ncols,y,dy);
 void l1reg(int n, float l1, float *w, float *dw) KCALL(_l1reg,n,l1,w,dw);
-void adagrad(int n, float *dw2, float *dw) KCALL(_adagrad,n,dw2,dw);
+void adagrad(int n, float eps, float *dw2, float *dw) KCALL(_adagrad,n,eps,dw2,dw);
 void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
 void drop(int n, float *x, float *xmask, float dropout, float scale) KCALL(_drop,n,x,xmask,dropout,scale);
 void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
@@ -106,7 +106,7 @@ void set_seed(unsigned long long seed) {
   CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
 }
 
-void set_adagrad(Layer l, int i) { l->adagrad = i; }
+void set_adagrad(Layer l, float a) { l->adagrad = a; }
 void set_nesterov(Layer l, int i) { l->nesterov = i; }
 void set_learningRate(Layer l, float f) { l->learningRate = f; }
 void set_momentum(Layer l, float f) { l->momentum = f; }
@@ -354,17 +354,17 @@ void lupdate(Layer l) {
     */
     CUBLAS(cublasSaxpy(CB, nw, &l->L2, l->w, 1, l->dw, 1));
   }
-  if (l->adagrad) {
+  if (l->adagrad > 0) {
     /* ADAGRAD:
        dw2 += dw.*dw 
        dw /= (epsilon + sqrt(dw2))
        and similarly for db.
     */
     if (l->dw2 == NULL) l->dw2 = gpuFill(nw, 0.0);
-    _adagrad<<<BLK,THR>>>(nw, l->dw2, l->dw);
+    _adagrad<<<BLK,THR>>>(nw, l->adagrad, l->dw2, l->dw);
     if (nb) { 
       if (l->db2 == NULL) l->db2 = gpuFill(nb, 0.0);
-      _adagrad<<<BLK,THR>>>(nb, l->db2, l->db); 
+      _adagrad<<<BLK,THR>>>(nb, l->adagrad, l->db2, l->db); 
     }
     CUDA(cudaGetLastError());
   }
@@ -451,11 +451,11 @@ __global__ void _drop(int n, float *x, float *xmask, float dropout, float scale)
   }
 }
 
-__global__ void _adagrad(int n, float *dw2, float *dw) {
+__global__ void _adagrad(int n, float eps, float *dw2, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     dw2[i] += dw[i] * dw[i];
-    dw[i] /= (ADAGRAD_EPSILON + sqrt(dw2[i]));
+    dw[i] /= (eps + sqrt(dw2[i]));
     i += blockDim.x * gridDim.x;
   }
 }
