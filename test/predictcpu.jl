@@ -1,5 +1,5 @@
 using HDF5
-include("../julia/kunet.jl")
+using KUnet
 blas_set_num_threads(20)
 @time x = h5read(ARGS[1], "/data")
 @time l1 = KUnet.Layer(ARGS[2])
