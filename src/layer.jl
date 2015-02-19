@@ -1,6 +1,6 @@
 using InplaceOps
 
-type Layer w; dw; dw1; dw2; b; db; db1; db2; x; dx; xmask; y; dy; xforw; yforw; xback; yback; Layer()=new() end
+type Layer w; dw; dw1; dw2; b; db; db1; db2; x; dx; xmask; y; dy; xforw; xback; yforw; yback; Layer()=new() end
 
 function forw(l, x)
     initforw(l, x)

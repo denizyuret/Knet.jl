@@ -5,6 +5,7 @@
 using HDF5
 using KUnet
 using ArgParse
+using CUDArt
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -60,6 +61,9 @@ function parse_commandline()
         "--nesterov"
         help = "Apply nesterov's accelerated gradient"
         action = :store_true
+        "--nogpu"
+        help = "Do not use gpu"
+        action = :store_true
     end
     args = parse_args(s)
     for (arg,val) in args
@@ -71,9 +75,15 @@ end
 
 function main()
     args = parse_commandline()
-    net = map(x->KUnet.Layer(x), split(args["net"],','))
     x = h5read(args["x"], "/data"); 
     y = h5read(args["y"], "/data"); 
+    net = map(x->KUnet.Layer(x), split(args["net"],','))
+    if (!args["nogpu"])
+        for l=1:length(net)
+            net[l].w = CudaArray(net[l].w)
+            net[l].b = CudaArray(net[l].b)
+        end
+    end
     o = KUnet.TrainOpts()
     for (a,v) in args
         sa = symbol(a)
@@ -84,7 +94,6 @@ function main()
     for l=1:length(net)
         h5write("$out$l.h5", net[l]);
     end
-    # @time KUnet.train(net, x, y, o)
 end
 
 main()

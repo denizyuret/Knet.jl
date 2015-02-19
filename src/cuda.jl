@@ -3,11 +3,9 @@ using CUDArt
 using CUBLAS
 typealias Cmat Ptr{Float32}
 const libkunet = find_library(["libkunet"], ["."])
-import InplaceOps: mul!, badd!
-badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
 
 import Base: ctranspose         # TODO: these don't hang high enough in the type hierarchy
-import InplaceOps: Transpose, mul!
+import InplaceOps: Transpose, mul!, badd!, bmul!, bsub! # TODO: non of these implementations are complete
 ctranspose(x::Matrix)=Transpose(x)  # This was overwritten in base
 ctranspose(x::CudaVecOrMat)=Transpose(x)
 mul!(O::Matrix, A::Matrix, B::Transpose) = A_mul_Bt!(O,A,B.obj)   # 3rd arg B gives type error
@@ -15,6 +13,9 @@ mul!(O::Matrix, A::Transpose, B::Matrix) = At_mul_B!(O,A.obj,B)   # 2nd arg A gi
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::CudaVecOrMat) = CUBLAS.gemm!('N','N',one(eltype(O)),A,B,zero(eltype(O)),O)  # InplaceOps.jl:53
 mul!(O::CudaVecOrMat, A::Transpose, B::CudaVecOrMat) = CUBLAS.gemm!('T','N',one(eltype(O)),A.obj,B,zero(eltype(O)),O)
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(eltype(O)),A,B.obj,zero(eltype(O)),O)
+badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
+bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = CUBLAS.scal!(length(A), x, A, 1)
+bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaMatrix) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
 
 # # I could not get this to work:
 # import Base: convert, promote_rule
