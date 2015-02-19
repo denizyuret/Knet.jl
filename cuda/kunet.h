@@ -35,7 +35,7 @@ typedef struct LayerS {
   float *db2;		// sum of squared gradients for adagrad
 
   float adagrad;	// [0] apply adagrad if nonzero, using value as epsilon
-  int nesterov;		// [0] nesterov during weight updates
+  float nesterov;	// [0] nesterov if nonzero, using value as momentum
   float learningRate;	// [0.01]
   float momentum;	// [0]
   float dropout;	// [0] probability of dropping inputs
@@ -66,10 +66,11 @@ void fill(int n, float val, float *x);
 void drop(int n, float *x, float *xmask, float dropout, float scale);
 void badd(int nrows, int ncols, float *y, float *b);
 void bsum(int nrows, int ncols, float *y, float *b);
+void randfill(int n, float *x);
+void gpuseed(unsigned long long seed);
 
-void set_seed(unsigned long long seed);
 void set_adagrad(Layer l, float a);
-void set_nesterov(Layer l, int i);
+void set_nesterov(Layer l, float n);
 void set_learningRate(Layer l, float lr);
 void set_momentum(Layer l, float m);
 void set_dropout(Layer l, float d);

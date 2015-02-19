@@ -5,7 +5,7 @@ lr_policy: "fixed"
 base_lr: 0.01
 momentum: 0.0
 weight_decay: 0.0
-random_seed: 1
+random_seed: 0
 
 max_iter: 82
 display: 0  # no info displayed

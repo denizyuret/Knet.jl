@@ -19,14 +19,14 @@ int main(int argc, char **argv) {
   const char *output = "train.out";
   
   int opt;
-  while((opt = getopt(argc, argv, "o:b:i:m:d:x:l:1:2:a:n")) != -1) {
+  while((opt = getopt(argc, argv, "o:b:i:m:d:x:l:1:2:a:n:")) != -1) {
     switch(opt) {
     case 'b': batch = atoi(optarg); break;
     case 'i': iters = atoi(optarg); break;
     case 'o': output = optarg; break;
     case 'l': o->learningRate = atof(optarg); break;
     case 'a': o->adagrad = atof(optarg); break;
-    case 'n': o->nesterov = 1; break;
+    case 'n': o->nesterov = atof(optarg); break;
     case 'm': o->momentum = atof(optarg); break;
     case 'd': o->dropout = atof(optarg); break;
     case 'x': o->maxnorm = atof(optarg); break;
@@ -53,14 +53,17 @@ int main(int argc, char **argv) {
     if (o->nesterov) net[l]->nesterov = o->nesterov;
     if (o->learningRate) net[l]->learningRate = o->learningRate;
     if (o->momentum) net[l]->momentum = o->momentum;
-    if (o->dropout) net[l]->dropout = o->dropout;
     if (o->maxnorm) net[l]->maxnorm = o->maxnorm;
     if (o->L1) net[l]->L1 = o->L1;
     if (o->L2) net[l]->L2 = o->L2;
+    if (o->dropout) {
+      net[l]->dropout = o->dropout;
+      net[l]->xfunc = DROP;
+    }
   }
   optind += nlayers;
   toc;
-  if (o->dropout) set_seed(1);
+  // if (o->dropout) set_seed(1);
 
   float *y; int yrows, ycols;
   fprintf(stderr, "Reading %s... ", argv[optind]);

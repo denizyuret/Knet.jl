@@ -23,6 +23,7 @@ const static float zero = 0.0;
 const static float one = 1.0;
 const static float minusone = -1.0;
 
+void print5(float *x);
 static inline float *gpuArray(size_t nfloats);
 static inline float *gpuCopy(size_t nfloats, float *cpuArray);
 static inline float *gpuFill(size_t nfloats, float val);
@@ -101,13 +102,8 @@ void lfree(Layer l) {
   free(l);
 }
 
-void set_seed(unsigned long long seed) {
-  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
-  CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
-}
-
 void set_adagrad(Layer l, float a) { l->adagrad = a; }
-void set_nesterov(Layer l, int i) { l->nesterov = i; }
+void set_nesterov(Layer l, float n) { l->nesterov = n; }
 void set_learningRate(Layer l, float f) { l->learningRate = f; }
 void set_momentum(Layer l, float f) { l->momentum = f; }
 void set_dropout(Layer l, float f) { l->dropout = f; }
@@ -211,15 +207,13 @@ float *lforw(Layer l, float *x, int xcols) {
 }
 
 static inline void xforw(Layer l) {
-  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   switch(l->xfunc) {
   case NOXF: break;
   case DROP:
     if (l->dropout > 0) {
       if (l->xmask == NULL) l->xmask = gpuArray(l->wcols * l->acols);
-      CURAND(curandGenerateUniform(RNG, l->xmask, l->wcols * l->xcols));
-      _drop<<<BLK,THR>>>(l->wcols * l->xcols, l->x, l->xmask, l->dropout, 1/(1-l->dropout));
-      CUDA(cudaGetLastError());
+      randfill(l->wcols * l->xcols, l->xmask);
+      KCALL(_drop,l->wcols * l->xcols, l->x, l->xmask, l->dropout, 1/(1-l->dropout));
     }
     break;
   default: assert("xforw != DROP not implemented yet"==NULL);
@@ -294,10 +288,8 @@ static inline void xback(Layer l) {
   switch(l->xfunc) {
   case NOXF: break;
   case DROP:
-    if (l->dropout > 0) {
-      _drop<<<BLK,THR>>>(l->wcols * l->xcols, l->dx, l->xmask, l->dropout, 1/(1-l->dropout));
-      CUDA(cudaGetLastError());
-    }
+    if (l->dropout > 0) 
+      KCALL(_drop, l->wcols * l->xcols, l->dx, l->xmask, l->dropout, 1/(1-l->dropout));
     break;
   default: assert("xforw != DROP not implemented yet"==NULL);
   }
@@ -377,7 +369,7 @@ void lupdate(Layer l) {
     CUBLAS(cublasSscal(CB, nw, &l->learningRate, l->dw, 1));
     if (nb) CUBLAS(cublasSscal(CB, nb, &l->learningRate, l->db, 1));
   }
-  if (l->momentum != 0) {  
+  if (l->momentum != 0 || l->nesterov != 0) {  
     /* Momentum:
        why do we apply it here?
        do we apply it to db?
@@ -385,21 +377,24 @@ void lupdate(Layer l) {
        dw1 = momentum * dw1 + dw
        dw = dw1   :without nesterov
        dw = momentum * dw1 + dw   :with nesterov
+       TODO: clean this up a bit...
     */
+    assert(l->momentum == 0 || l->nesterov == 0);
+    float m = l->momentum != 0 ? l->momentum : l->nesterov;
     if (l->dw1 == NULL) l->dw1 = gpuFill(nw, 0.0);
-    CUBLAS(cublasSscal(CB, nw, &l->momentum, l->dw1, 1));
+    CUBLAS(cublasSscal(CB, nw, &m, l->dw1, 1));
     CUBLAS(cublasSaxpy(CB, nw, &one, l->dw, 1, l->dw1, 1));
-    if (l->nesterov) {
-      CUBLAS(cublasSaxpy(CB, nw, &l->momentum, l->dw1, 1, l->dw, 1));
+    if (l->nesterov != 0) {
+      CUBLAS(cublasSaxpy(CB, nw, &m, l->dw1, 1, l->dw, 1));
     } else {
       CUBLAS(cublasScopy(CB, nw, l->dw1, 1, l->dw, 1));
     }
     if (nb) {
       if (l->db1 == NULL) l->db1 = gpuFill(nb, 0.0);
-      CUBLAS(cublasSscal(CB, nb, &l->momentum, l->db1, 1));
+      CUBLAS(cublasSscal(CB, nb, &m, l->db1, 1));
       CUBLAS(cublasSaxpy(CB, nb, &one, l->db, 1, l->db1, 1));
-      if (l->nesterov) {
-	CUBLAS(cublasSaxpy(CB, nb, &l->momentum, l->db1, 1, l->db, 1));
+      if (l->nesterov != 0) {
+	CUBLAS(cublasSaxpy(CB, nb, &m, l->db1, 1, l->db, 1));
       } else {
 	CUBLAS(cublasScopy(CB, nb, l->db1, 1, l->db, 1));
       }
@@ -565,6 +560,15 @@ static inline float *gpuFill(size_t nfloats, float val) {
   return gptr;
 }
 
+void gpuseed(unsigned long long seed) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
+}
+
+void randfill(int n, float *x) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandGenerateUniform(RNG, x, n));
+}
 
 /* Alternative cublas implementations of broadcasting and column sum */
 #define ONES 1000000
@@ -583,3 +587,13 @@ void bsum(int nrows, int ncols, float *y, float *b) {
   assert(ncols < ONES);
   CUBLAS(cublasSgemv(CB, CUBLAS_OP_N, nrows, ncols, &one, y, nrows, ones, 1, &zero, b, 1));
 }
+
+/* Debugging */
+
+void print5(float *x) {
+  float xx[5];
+  CUDA(cudaMemcpy(xx,x,5*sizeof(float),cudaMemcpyDeviceToHost));
+  for (int i=0; i<5; i++) printf("%g ", xx[i]);
+  printf("...\n");
+}
+

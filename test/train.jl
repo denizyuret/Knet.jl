@@ -85,6 +85,13 @@ function main()
             net[l].b = CudaArray(net[l].b)
         end
     end
+    if (args["dropout"] > 0)
+        for l=1:length(net)
+            net[l].xforw = KUnet.dropforw
+            net[l].xback = KUnet.dropback
+            net[l].dropout = args["dropout"]
+        end
+    end
     o = KUnet.TrainOpts()
     for (a,v) in args
         sa = symbol(a)
