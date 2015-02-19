@@ -287,7 +287,7 @@ MO=0.95
 MOB=${BATCH}
 MOI=${ITERS}
 
-test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5
+test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5 test_mo_julia1.h5
 	@echo '==> MO comparison'
 	h5maxdiff test_mo_caffe1.h5 test_mo_matlab1.h5
 	h5maxdiff test_mo_caffe2.h5 test_mo_matlab2.h5
@@ -295,6 +295,10 @@ test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5
 	h5maxdiff test_mo_cuda2.h5 test_mo_matlab2.h5
 	h5maxdiff test_mo_caffe1.h5 test_mo_cuda1.h5
 	h5maxdiff test_mo_caffe2.h5 test_mo_cuda2.h5
+	h5maxdiff test_mo_caffe1.h5 test_mo_julia1.h5
+	h5maxdiff test_mo_caffe2.h5 test_mo_julia2.h5
+	h5maxdiff test_mo_cuda1.h5 test_mo_julia1.h5
+	h5maxdiff test_mo_cuda2.h5 test_mo_julia2.h5
 
 test_mo_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> MO test: cuda'
@@ -309,8 +313,12 @@ test_mo_caffe1.h5: export_weights.py dev.net test_mo_caffe_iter_${MOI}.caffemode
 
 test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 	@echo '==> MO test: caffe'
+	perl -pi -e 's/max_iter: \S+/max_iter: ${MOI}/;s/momentum: \S+/momentum: ${MO}/' mo.solver
 	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
 
+test_mo_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> MO test: julia gpu'
+	julia train.jl --batch ${MOB} --iters ${MOI} --momentum ${MO} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_mo_julia
 
 ### NESTEROV TRAINING
 
@@ -318,7 +326,7 @@ NE=0.95
 NEB=${BATCH}
 NEI=${ITERS}
 
-test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5
+test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5 test_ne_julia1.h5
 	@echo '==> NE comparison'
 	h5maxdiff test_ne_caffe1.h5 test_ne_matlab1.h5
 	h5maxdiff test_ne_caffe2.h5 test_ne_matlab2.h5
@@ -326,6 +334,10 @@ test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5
 	h5maxdiff test_ne_cuda2.h5 test_ne_matlab2.h5
 	h5maxdiff test_ne_caffe1.h5 test_ne_cuda1.h5
 	h5maxdiff test_ne_caffe2.h5 test_ne_cuda2.h5
+	h5maxdiff test_ne_caffe1.h5 test_ne_julia1.h5
+	h5maxdiff test_ne_caffe2.h5 test_ne_julia2.h5
+	h5maxdiff test_ne_cuda1.h5 test_ne_julia1.h5
+	h5maxdiff test_ne_cuda2.h5 test_ne_julia2.h5
 
 test_ne_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> NE test: cuda'
@@ -340,8 +352,12 @@ test_ne_caffe1.h5: export_weights.py dev.net test_ne_caffe_iter_${NEI}.caffemode
 
 test_ne_caffe_iter_${NEI}.caffemodel: ne.solver dev.net rnd.caffemodel
 	@echo '==> NE test: caffe'
+	perl -pi -e 's/max_iter: \S+/max_iter: ${NEI}/;s/momentum: \S+/momentum: ${NE}/' ne.solver
 	caffe.bin train -solver ne.solver -weights rnd.caffemodel 2> test_ne_caffe.log
 
+test_ne_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> NE test: julia gpu'
+	julia train.jl --batch ${NEB} --iters ${NEI} --nesterov ${NE} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_ne_julia
 
 ### DROPOUT TRAINING
 

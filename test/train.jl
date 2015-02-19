@@ -60,7 +60,8 @@ function parse_commandline()
         default = 0f0
         "--nesterov"
         help = "Apply nesterov's accelerated gradient"
-        action = :store_true
+        arg_type = Float32
+        default = 0f0
         "--nogpu"
         help = "Do not use gpu"
         action = :store_true
