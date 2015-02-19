@@ -4,10 +4,10 @@ TrainOpts()=new(0f0,    128,   0f0,     0,     0f0,   0f0,   0.01f0,       0f0, 
 function update(l::Layer, o::TrainOpts)
     initupdate(l, o)
     if o.l1reg > 0
-        l.dw += o.l1reg * sign(w)
+        l1reg!(o.l1reg, l.w, l.dw)  # TODO: l.dw += o.l1reg * sign(l.w)
     end
     if o.l2reg > 0
-        l.dw += o.l2reg * l.w
+        l2reg!(o.l2reg, l.w, l.dw)  # TODO: l.dw += o.l2reg * l.w
     end
     if o.adagrad > 0
         l.dw2 += l.dw .* l.dw
@@ -51,3 +51,16 @@ function initupdate(l, o)
         if (!isdefined(l,:db1)) l.db1 = zeros(l.db) end
     end
 end
+
+l2reg!(l2::Float32, w::Matrix, dw::Matrix)=Base.LinAlg.axpy!(length(w), l2, w, 1, dw, 1)
+l2reg!(l2::Float32, w::CudaMatrix, dw::CudaMatrix)=CUBLAS.axpy!(length(w), l2, w, 1, dw, 1)
+l1reg!(l1::Float32, w::CudaMatrix, dw::CudaMatrix)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(w),l1,w,dw)
+
+function l1reg!(l1::Float32, w::Matrix, dw::Matrix)
+    for i=1:length(w)
+        if (w[i] > 0) dw[i] += l1
+        elseif (w[i] < 0) dw[i] -= l1
+        end
+    end
+end
+

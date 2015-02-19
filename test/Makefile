@@ -167,18 +167,18 @@ test_lr_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 
 ### L2 TRAINING
 
-L2=1.0
+L2=0.5
 L2B=${BATCH}
 L2I=${ITERS}
 
-test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5
+test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5 test_l2_juliacpu1.h5
 	@echo '==> L2 comparison'
 	h5maxdiff test_l2_caffe1.h5 test_l2_matlab1.h5
 	h5maxdiff test_l2_caffe2.h5 test_l2_matlab2.h5
-	h5maxdiff test_l2_cuda1.h5 test_l2_matlab1.h5
-	h5maxdiff test_l2_cuda2.h5 test_l2_matlab2.h5
 	h5maxdiff test_l2_caffe1.h5 test_l2_cuda1.h5
 	h5maxdiff test_l2_caffe2.h5 test_l2_cuda2.h5
+	h5maxdiff test_l2_caffe1.h5 test_l2_juliacpu1.h5
+	h5maxdiff test_l2_caffe2.h5 test_l2_juliacpu2.h5
 
 test_l2_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L2 test: cuda'
@@ -193,8 +193,12 @@ test_l2_caffe1.h5: export_weights.py dev.net test_l2_caffe_iter_${L2I}.caffemode
 
 test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
 	@echo '==> L2 test: caffe'
+	perl -pi -e 's/max_iter: \S+/max_iter: ${L2I}/;s/weight_decay: \S+/weight_decay: ${L2}/' l2.solver
 	caffe.bin train -solver l2.solver -weights rnd.caffemodel 2> test_l2_caffe.log
 
+test_l2_juliacpu1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L2 test: julia cpu'
+	julia train.jl --nogpu --batch ${L2B} --iters ${L2I} --l2reg ${L2} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_l2_juliacpu
 
 ### L1 TRAINING
 

@@ -135,8 +135,8 @@ function speedtest6()
     l1 = KUnet.Layer("rnd1.h5")
     l2 = KUnet.Layer("rnd2.h5")
     net = [l1,l2]
-    @time KUnet.train(net, x, y; batch=937, iters=1)
-    @time KUnet.train(net, x, y; batch=937, iters=1)
+    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
+    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
     net
 end
 
@@ -151,7 +151,7 @@ function speedtest7()
     l2.w = CudaArray(l2.w)
     l2.b = CudaArray(l2.b)
     net = [l1,l2]
-    @time KUnet.train(net, x, y; batch=937, iters=1)
-    @time KUnet.train(net, x, y; batch=937, iters=1)
+    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
+    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
     net
 end
