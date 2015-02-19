@@ -1,6 +1,6 @@
 using CUDArt
 using HDF5
-include("../julia/kunet.jl")
+using KUnet
 @time x = h5read(ARGS[1], "/data")
 @time l1 = KUnet.Layer(ARGS[2])
 @time l2 = KUnet.Layer(ARGS[3])
