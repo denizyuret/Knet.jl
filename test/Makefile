@@ -201,19 +201,20 @@ test_l2_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	julia train.jl --batch ${L2B} --iters ${L2I} --l2reg ${L2} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_l2_julia
 
 ### L1 TRAINING
+# Numerical stability causes w diff of 1e-4 when L1 is 1e-2
 
 L1=0.01
 L1B=${BATCH}
 L1I=${ITERS}
 
-test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5
+test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5 test_l1_julia1.h5
 	@echo '==> L1 comparison'
 	h5maxdiff test_l1_caffe1.h5 test_l1_matlab1.h5
 	h5maxdiff test_l1_caffe2.h5 test_l1_matlab2.h5
-	h5maxdiff test_l1_cuda1.h5 test_l1_matlab1.h5
-	h5maxdiff test_l1_cuda2.h5 test_l1_matlab2.h5
 	h5maxdiff test_l1_caffe1.h5 test_l1_cuda1.h5
 	h5maxdiff test_l1_caffe2.h5 test_l1_cuda2.h5
+	h5maxdiff test_l1_caffe1.h5 test_l1_julia1.h5
+	h5maxdiff test_l1_caffe2.h5 test_l1_julia2.h5
 
 test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: cuda'
@@ -228,8 +229,12 @@ test_l1_caffe1.h5: export_weights.py dev.net test_l1_caffe_iter_${L1I}.caffemode
 
 test_l1_caffe_iter_${L1I}.caffemodel: l1.solver dev.net rnd.caffemodel
 	@echo '==> L1 test: caffe'
+	perl -pi -e 's/max_iter: \S+/max_iter: ${L1I}/;s/weight_decay: \S+/weight_decay: ${L1}/' l1.solver
 	caffe.bin train -solver l1.solver -weights rnd.caffemodel 2> test_l1_caffe.log
 
+test_l1_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> L1 test: julia gpu'
+	julia train.jl --batch ${L1B} --iters ${L1I} --l1reg ${L1} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_l1_julia
 
 ### ADAGRAD TRAINING
 # There are more significant differences with adagrad.
