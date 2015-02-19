@@ -18,5 +18,7 @@ for k,v in net.params.iteritems():
         f.create_dataset('dw', data=v[0].diff.squeeze().transpose())
         f.create_dataset('db', data=v[1].diff.squeeze(axis=(1,2)))
     f.attrs['type'] = np.array([nout], dtype=np.int32)
+    f.attrs['yfunc'] = np.array([nout], dtype=np.int32)
+    f.attrs['xfunc'] = np.array([0], dtype=np.int32)
     f.close()
     nout += 1
