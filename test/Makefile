@@ -63,7 +63,7 @@ clean:
 FWB=${BATCH}
 FWI=${ITERS}
 
-test_fw: test_fw_caffe.h5 test_fw_matlab.h5 test_fw_cuda.h5 test_fw_julia.h5 test_fw_juliacpu.h5
+test_fw: test_fw_caffe.h5 test_fw_matlab.h5 test_fw_cuda.h5 test_fw_julia.h5 test_fw_juliacpu.h5 h5maxdiff
 	@echo '==> Predict comparison'
 	h5maxdiff test_fw_caffe.h5 test_fw_matlab.h5
 	h5maxdiff test_fw_caffe.h5 test_fw_cuda.h5
@@ -130,56 +130,26 @@ test_bp_julia1.h5: backprop.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	julia $^ test_bp_julia
 
 
-### SIMPLE TRAINING TEST
-
-TRB=${BATCH}
-TRI=${ITERS}
-
-test_tr: test_tr_matlab1.h5 test_tr_cuda1.h5 test_tr_caffe1.h5
-	@echo '==> Train comparison'
-	h5maxdiff test_tr_caffe1.h5 test_tr_matlab1.h5
-	h5maxdiff test_tr_caffe2.h5 test_tr_matlab2.h5
-	h5maxdiff test_tr_cuda1.h5 test_tr_matlab1.h5
-	h5maxdiff test_tr_cuda2.h5 test_tr_matlab2.h5
-	h5maxdiff test_tr_caffe1.h5 test_tr_cuda1.h5
-	h5maxdiff test_tr_caffe2.h5 test_tr_cuda2.h5
-
-test_tr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Train test: cuda'
-	train -b${TRB} -i${TRI} -o test_tr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
-
-test_tr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
-	@echo '==> Train test: matlab'
-	matlab.sh "trainh5('x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${TRB}, 'iters', ${TRI}, 'out', 'test_tr_matlab')"
-
-test_tr_caffe1.h5: test_tr_caffe_iter_${TRI}.caffemodel export_weights.py
-	python export_weights.py dev.net test_tr_caffe_iter_${TRI}.caffemodel test_tr_caffe 2>> test_tr_caffe.log
-
-test_tr_caffe_iter_${TRI}.caffemodel: dev.solver dev.net rnd.caffemodel
-	@echo '==> Train test: caffe'
-	caffe.bin train -solver dev.solver -weights rnd.caffemodel 2> test_tr_caffe.log
-
-
 ### LEARNING RATE
 
 LR=0.01
 LRB=${BATCH}
 LRI=${ITERS}
 
-test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5
+test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5 test_lr_julia1.h5
 	@echo '==> LR comparison'
 	h5maxdiff test_lr_caffe1.h5 test_lr_matlab1.h5
 	h5maxdiff test_lr_caffe2.h5 test_lr_matlab2.h5
-	h5maxdiff test_lr_cuda1.h5 test_lr_matlab1.h5
-	h5maxdiff test_lr_cuda2.h5 test_lr_matlab2.h5
 	h5maxdiff test_lr_caffe1.h5 test_lr_cuda1.h5
 	h5maxdiff test_lr_caffe2.h5 test_lr_cuda2.h5
+	h5maxdiff test_lr_caffe1.h5 test_lr_julia1.h5
+	h5maxdiff test_lr_caffe2.h5 test_lr_julia2.h5
 
 test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: cuda'
 	train -l${LR} -b${LRB} -i${LRI} -o test_lr_cuda devx.h5 rnd1.h5 rnd2.h5 devy.h5
 
-test_lr_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
+test_lr_matlab1.h5: trainh5.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: matlab'
 	matlab.sh "trainh5('learningRate', ${LR}, 'x', 'devx.h5', 'y', 'devy.h5', 'net', 'rnd1.h5,rnd2.h5', 'batch', ${LRB}, 'iters', ${LRI}, 'out', 'test_lr_matlab')"
 
@@ -188,8 +158,12 @@ test_lr_caffe1.h5: export_weights.py dev.net test_lr_caffe_iter_${LRI}.caffemode
 
 test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
 	@echo '==> LR test: caffe'
+	perl -pi -e 's/max_iter: \d+/max_iter: ${LRI}/;s/base_lr: \S+/base_lr: ${LR}/' lr.solver
 	caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
 
+test_lr_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+	@echo '==> LR test: julia'
+	julia train.jl --batch ${LRB} --iters ${LRI} --learningRate ${LR} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_lr_julia
 
 ### L2 TRAINING
 

@@ -1,6 +1,6 @@
 using HDF5
 using CUDArt
-include("../julia/kunet.jl")
+using KUnet
 const libkunet = find_library(["libkunet"], ["."])
 typealias Mat CudaArray{Float32,2}
 typealias Cmat Ptr{Float32}
@@ -127,3 +127,15 @@ function speedtest5()
     net
 end
 
+function speedtest6()
+    blas_set_num_threads(20)
+    batch = 937
+    x = h5read("devx.h5","/data")
+    y = h5read("devy.h5","/data")
+    l1 = KUnet.Layer("rnd1.h5")
+    l2 = KUnet.Layer("rnd2.h5")
+    net = [l1,l2]
+    @time KUnet.train(net, x, y; batch=937, iters=2)
+    @time KUnet.train(net, x, y; batch=937, iters=2)
+    net
+end
