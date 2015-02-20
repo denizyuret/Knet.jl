@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 #include <hdf5.h>
 #include <hdf5_hl.h>
@@ -32,12 +33,11 @@ void rdiff(const char *name, hid_t f1, hid_t f2) {
       size_t ts1, ts2;
       H5LTget_attribute_info(f1, name, aname, &dims1, &t1, &ts1);
       H5LTget_attribute_info(f2, name, aname, &dims2, &t2, &ts2);
-      assert(dims1 == 1 && dims2 == 1);
       assert(t1 == t2);
-      assert(t1 == H5T_INTEGER || t1 == H5T_FLOAT);
-      assert(ts1 == ts2);
-      assert(ts1 == 4);
+      assert(t1 == H5T_INTEGER || t1 == H5T_FLOAT || t1 == H5T_STRING);
       if (t1 == H5T_INTEGER) {
+	assert(d1==0 || (dims1 == 1 && dims2 == 1));
+	assert(ts1 == 4 && ts2 == 4);
 	int v1, v2;
 	H5LTget_attribute_int(f1, name, aname, &v1);
 	H5LTget_attribute_int(f2, name, aname, &v2);
@@ -46,11 +46,23 @@ void rdiff(const char *name, hid_t f1, hid_t f2) {
 	}
       }
       if (t1 == H5T_FLOAT) {
+	assert(d1==0 || (dims1 == 1 && dims2 == 1));
+	assert(ts1 == 4 && ts2 == 4);
 	float v1, v2;
 	H5LTget_attribute_float(f1, name, aname, &v1);
 	H5LTget_attribute_float(f2, name, aname, &v2);
 	if (v1 != v2) {
 	  printf("%s[%s%s]=%g %s[%s%s]=%g\n", file1, name, aname, v1, file2, name, aname, v2);
+	}
+      }
+      if (t1 == H5T_STRING) {
+	assert(ts1 < 256 && ts2 < 256);
+	char buf1[256];
+	char buf2[256];
+	H5LTget_attribute_string(f1, name, aname, buf1);
+	H5LTget_attribute_string(f2, name, aname, buf2);
+	if (strcmp(buf1, buf2)) {
+	  printf("%s[%s%s]=%s %s[%s%s]=%s\n", file1, name, aname, buf1, file2, name, aname, buf2);
 	}
       }
     }
