@@ -22,11 +22,12 @@ bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaMatrix) = CUBLAS.axpy
 # convert(::Type{Mat},x::Transpose{Mat})=x.obj
 # promote_rule(::Type{Mat},::Type{Transpose{Mat}})=Mat
 
-import Base: sum!, zeros, rand!  # TODO: add error checking here since this is not a full implementation of sum!
+import Base: sum!, zeros, rand!, copy!  # TODO: add error checking here since this is not a full implementation of sum!
 sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
 zeros(A::CudaMatrix)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
 function rand!(A::CudaMatrix) ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A end
 gpuseed(n::UInt64)=ccall((:gpuseed,libkunet),Void,(Culonglong,),n)
+copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=CUDArt.cudacopy!(dst, dstI, src, srcI)  # arrays.jl:297, need this so generic code works with cpu arrays
 
 # For debugging
 function gpumem()

@@ -1,7 +1,7 @@
 typealias Net Array{Layer,1}
 
 function train(net::Net, x, y, o=TrainOpts(); args...)
-    inittrain(o, args)
+    inittrain(net, x, y, o, args)
     xrows,xcols = size(x)
     yrows,ycols = size(y)
     for b = 1:o.batch:xcols
@@ -13,9 +13,18 @@ function train(net::Net, x, y, o=TrainOpts(); args...)
         end
         xtmp = copy!(xbuf, (1:xrows,1:e-b+1), x, (1:xrows,b:e))
         ytmp = copy!(ybuf, (1:yrows,1:e-b+1), y, (1:yrows,b:e))
-        for l=1:length(net)     xtmp = forw(net[l], xtmp) end
-        for l=length(net):-1:1  ytmp = back(net[l], ytmp, (l>1)) end
-        for l=1:length(net)     update(net[l], o) end
+        for l=1:length(net)     
+            if (o.dropout > 0) dropforw(net[l], xtmp, o.dropout) end
+            xtmp = forw(net[l], xtmp) 
+        end
+        for l=length(net):-1:2
+            ytmp = back(net[l], ytmp)
+            if (o.dropout > 0) dropback(net[l], ytmp, o.dropout) end
+        end
+        back(net[1], ytmp, false)
+        for l=1:length(net)
+            update(net[l], o) 
+        end
         if (o.iters > 0 && e/o.batch >= o.iters) break end
     end
 end
@@ -49,7 +58,7 @@ function backprop(net::Net, x, y)
     end
 end
 
-function inittrain(o::TrainOpts, args)
+function inittrain(net::Net, x, y, o::TrainOpts, args)
     for (a,v) in args 
         if isdefined(o,a) 
             o.(a) = v 
@@ -59,6 +68,3 @@ function inittrain(o::TrainOpts, args)
     end
 end
 
-# CUDA extensions:
-import Base: copy!
-copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=CUDArt.cudacopy!(dst, dstI, src, srcI)  # arrays.jl:297

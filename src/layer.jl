@@ -1,24 +1,26 @@
 using InplaceOps
 
-type Layer w; dw; dw1; dw2; b; db; db1; db2; x; dx; xmask; dropout; y; dy; xforw; xback; yforw; yback; Layer()=new() end
+type Layer w; b; yforw; yback; dw; db; dw1; db1; dw2; db2; x; dx; xmask; y; dy; 
+    Layer(w,b,yforw,yback)=new(w,b,yforw,yback)
+    Layer()=new() 
+end
 
 function forw(l, x)
     initforw(l, x)
-    l.x = l.xforw(l, x)
+    l.x = x
     @into! l.y = l.w * l.x
     @in1!  l.y .+ l.b
     l.y = l.yforw(l, l.y)
     return l.y
 end
 
-function back(l, dy, return_dx)
+function back(l, dy, return_dx=true)
     initback(l, dy, return_dx)
     l.dy = l.yback(l, dy)
     @into! l.dw = l.dy * l.x'
     sum!(l.db, l.dy)
     if return_dx
         @into! l.dx = l.w' * l.dy
-        l.dx = l.xback(l, l.dx)
     end
 end
 
@@ -28,7 +30,7 @@ function resize(l, f, a, dims=size(a))
     end
 end
 
-function initforw(l,x)
+function initforw(l, x)
     resize(l, :y, l.w, (size(l.w,1),size(x,2)))
 end
 

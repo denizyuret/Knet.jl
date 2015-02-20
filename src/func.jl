@@ -1,29 +1,7 @@
-using CUDArt
+relu(w,b)=Layer(w,b,reluforw,reluback)
+soft(w,b)=Layer(w,b,softforw,softback)
 
 noop(l,x)=x
-softforw(l,y)=y
-function reluforw(l,y::CudaArray)  ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y); y end
-function reluback(l,dy::CudaArray) ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),l.y,dy); dy end
-function softback(l,dy::CudaArray) ccall((:softback,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),l.y,dy); dy end
-drop(x::CudaArray, xmask::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xmask,dropout,scale)
-
-function dropforw(l, x)
-    resize(l, :xmask, x)
-    rand!(l.xmask)
-    drop(x, l.xmask, l.dropout, 1/(1-l.dropout))
-    return x
-end
-
-function dropback(l, dx)
-    drop(dx, l.xmask, l.dropout, 1/(1-l.dropout))
-    return dx
-end
-
-function drop(x, xmask, dropout, scale)
-    for i=1:length(x)
-        x[i] = (xmask[i] < dropout ? zero(x[i]) : scale * x[i])
-    end
-end
 
 function reluforw(l,y)
     for i=1:length(y)
@@ -43,6 +21,10 @@ function reluback(l, dy)
     return dy
 end
 
+function softforw(l, y)
+    return y
+end
+
 function softback(l, dy)
     # we do softmax here instead of in forw
     # overwriting y from unnormalized log probabilities to normalized probabilities
@@ -50,7 +32,7 @@ function softback(l, dy)
     # dy is a 0-1 matrix of correct answers
     # will overwrite it with the gradient
     # TODO: is this a good interface?
-    # TODO: other types of final layers, losses?
+    # TODO: other types of final layers (sigmoid), losses (hinge, squared)?
 
     y = l.y
     for j=1:size(y,2)
@@ -73,4 +55,27 @@ function softback(l, dy)
     return dy
 end
 
+function dropforw(l, x, dropout)
+    resize(l, :xmask, x)
+    rand!(l.xmask)
+    drop(x, l.xmask, dropout, 1/(1-dropout))
+    return x
+end
 
+function dropback(l, x, dropout)
+    drop(x, l.xmask, dropout, 1/(1-dropout))
+    return x
+end
+
+function drop(x, xmask, dropout, scale)
+    for i=1:length(x)
+        x[i] = (xmask[i] < dropout ? zero(x[i]) : scale * x[i])
+    end
+end
+
+# CUDA extensions
+using CUDArt
+function reluforw(l,y::CudaArray)  ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y); y end
+function reluback(l,dy::CudaArray) ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),l.y,dy); dy end
+function softback(l,dy::CudaArray) ccall((:softback,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),l.y,dy); dy end
+function drop(x::CudaArray, xmask::CudaArray, dropout, scale) ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xmask,dropout,scale) end
