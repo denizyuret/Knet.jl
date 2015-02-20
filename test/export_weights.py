@@ -17,8 +17,14 @@ for k,v in net.params.iteritems():
     if np.any(v[0].diff != 0):
         f.create_dataset('dw', data=v[0].diff.squeeze().transpose())
         f.create_dataset('db', data=v[1].diff.squeeze(axis=(1,2)))
-    f.attrs['type'] = np.array([nout], dtype=np.int32)
-    f.attrs['yfunc'] = np.array([nout], dtype=np.int32)
-    f.attrs['xfunc'] = np.array([0], dtype=np.int32)
+    f.attrs['type'] = np.int32(nout)
+    f.attrs['yfunc'] = np.int32(nout)
+    f.attrs['xfunc'] = np.int32(0)
+    if nout == 1:
+        f.attrs['yforw'] = np.string_('reluforw')
+        f.attrs['yback'] = np.string_('reluback')
+    else:
+        f.attrs['yforw'] = np.string_('softforw')
+        f.attrs['yback'] = np.string_('softback')
     f.close()
     nout += 1
