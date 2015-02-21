@@ -3,9 +3,8 @@
 # (Except for regularization which applies to w, not b)
 
 using HDF5
-using KUnet
 using ArgParse
-using CUDArt
+using KUnet
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -53,7 +52,7 @@ function parse_commandline()
         "--loss"
         help = "Loss function"
         arg_type = String
-        default = "KUnet.softmaxloss"
+        default = "softmaxloss"
         "--maxnorm"
         help = "If nonzero upper limit on weight matrix row norms"
         arg_type = Float32
@@ -82,13 +81,13 @@ function main()
     args = parse_commandline()
     x = h5read(args["x"], "/data"); 
     y = h5read(args["y"], "/data"); 
-    net = map(l->KUnet.Layer(l,gpu=!args["nogpu"]), split(args["net"],','))
+    net = map(l->Layer(l,gpu=!args["nogpu"]), split(args["net"],','))
     for (a,v) in args
         if !in(a, ["x","y","nogpu","net","batch","iters","loss","out"])
-            KUnet.setparam!(net, symbol(a), v)
+            setparam!(net, symbol(a), v)
         end
     end
-    @time KUnet.train(net, x, y; batch=args["batch"], iters=args["iters"], loss=eval(parse(args["loss"])))
+    @time train(net, x, y; batch=args["batch"], iters=args["iters"], loss=eval(parse(args["loss"])))
     out = args["out"]
     for l=1:length(net)
         h5write("$out$l.h5", net[l]);

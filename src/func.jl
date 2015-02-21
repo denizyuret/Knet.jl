@@ -1,4 +1,4 @@
-using CUDArt
+export relu, drop, softmaxloss
 
 # ACTIVATION FUNCTION INTERFACE: We use the same name for the
 # activation function (relu, sigm, etc.) and its derivative.  That way
@@ -72,6 +72,3 @@ end
 
 # TODO: This doesn't return the loss, just writes the gradient:
 softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-
-noop(l,x)=x
-noop(l,x,dx)=dx

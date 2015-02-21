@@ -1,4 +1,4 @@
-using InplaceOps
+export train, predict
 
 function backprop(net::Net, x, y, loss=softmaxloss)
     x = forw(net, x)

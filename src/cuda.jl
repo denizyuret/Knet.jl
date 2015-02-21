@@ -1,6 +1,4 @@
 # CUDA extensions:
-using CUDArt
-using CUBLAS
 typealias Cmat Ptr{Float32}
 const libkunet = find_library(["libkunet"], ["."])
 

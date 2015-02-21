@@ -3,13 +3,14 @@
 	* TODO:
 
 	- Cleanup hdf5 files.
+	- Figure out automatic testing.
 	+ Make softloss, get rid of soft layer.
 	- Add other losses
 	+ make loss a training option.
 	- Add sigmoid layer.
 	+ Make b and yforw conditional?
 	- Figure out if we have a gpu and if we are using a gpu, test code on no-gpu machine
-	- Export functions
+	+ Export functions
 	- Make layer constructors that take size and generate random matrices
 	- Make layer constructors that take arbitrary matrices, h5 files
 	- Error checking in cuda.jl, pull request for InplaceOps

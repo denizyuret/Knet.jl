@@ -1,7 +1,6 @@
-# File I/O
-using CUDArt
 using HDF5
 import HDF5: h5write, h5read
+export h5write
 const dont_save = [:y, :x, :dx, :xdrop]
 
 function Layer(fname::String; gpu=true)
