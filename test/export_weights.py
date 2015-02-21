@@ -17,14 +17,12 @@ for k,v in net.params.iteritems():
     if np.any(v[0].diff != 0):
         f.create_dataset('dw', data=v[0].diff.squeeze().transpose())
         f.create_dataset('db', data=v[1].diff.squeeze(axis=(1,2)))
-    f.attrs['type'] = np.int32(nout)
-    f.attrs['yfunc'] = np.int32(nout)
-    f.attrs['xfunc'] = np.int32(0)
     if nout == 1:
-        f.attrs['yforw'] = np.string_('reluforw')
-        f.attrs['yback'] = np.string_('reluback')
+        f.attrs['fy'] = np.string_('relu') # for julia
+        f.attrs['xfunc'] = np.int32(0)     # for cuda
+        f.attrs['yfunc'] = np.int32(1)
     else:
-        f.attrs['yforw'] = np.string_('softforw')
-        f.attrs['yback'] = np.string_('softback')
+        f.attrs['xfunc'] = np.int32(0)
+        f.attrs['yfunc'] = np.int32(2)
     f.close()
     nout += 1

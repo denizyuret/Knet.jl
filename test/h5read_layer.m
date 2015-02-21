@@ -2,12 +2,18 @@
 % TODO: Finish implementing h5write_layer
 
 function layer = h5read_layer(fname)
+    info = h5info(fname, '/');
     w = h5read(fname, '/w');
-    b = h5read(fname, '/b');
-    type = h5readatt(fname, '/', 'type');
-    if type == 1
-        layer = relu('w', [b,w], 'bias', 1);
-    elseif type == 2
+    if ismember('b', {info.Datasets.Name}) 
+        b = h5read(fname, '/b'); 
+    end
+    if (ismember('fy', {info.Attributes.Name}))
+        if (strcmp(h5readatt(fname, '/', 'fy'), 'relu'))
+            layer = relu('w', [b,w], 'bias', 1);
+        else
+            layer = soft('w', [b,w], 'bias', 1);
+        end
+    else
         layer = soft('w', [b,w], 'bias', 1);
     end
 end

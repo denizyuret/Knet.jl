@@ -63,13 +63,17 @@ clean:
 FWB=${BATCH}
 FWI=${ITERS}
 
-test_fw: test_fw_caffe.h5 test_fw_matlab.h5 test_fw_cuda.h5 test_fw_julia.h5 test_fw_juliacpu.h5 h5maxdiff
+test_fw: test_fw_caffe.h5 test_fw_julia.h5 h5maxdiff.jl
 	@echo '==> Predict comparison'
-	h5maxdiff test_fw_caffe.h5 test_fw_matlab.h5
-	h5maxdiff test_fw_caffe.h5 test_fw_cuda.h5
-	h5maxdiff test_fw_caffe.h5 test_fw_julia.h5
-	h5maxdiff test_fw_caffe.h5 test_fw_juliacpu.h5
-	h5maxdiff test_fw_cuda.h5 test_fw_julia.h5
+	h5maxdiff.jl test_fw_caffe.h5 test_fw_julia.h5
+
+test_fw5: test_fw_caffe.h5 test_fw_matlab.h5 test_fw_cuda.h5 test_fw_julia.h5 test_fw_juliacpu.h5 h5maxdiff.jl
+	@echo '==> Predict comparison'
+	h5maxdiff.jl test_fw_caffe.h5 test_fw_matlab.h5
+	h5maxdiff.jl test_fw_caffe.h5 test_fw_cuda.h5
+	h5maxdiff.jl test_fw_caffe.h5 test_fw_julia.h5
+	h5maxdiff.jl test_fw_caffe.h5 test_fw_juliacpu.h5
+	h5maxdiff.jl test_fw_cuda.h5 test_fw_julia.h5
 
 test_fw_matlab.h5: predict.m devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: matlab'
@@ -99,18 +103,25 @@ test_fw_juliacpu.h5: predictcpu.jl devx.h5 dev1.h5 dev2.h5
 BPB=${BATCH}
 BPI=${ITERS}
 
-test_bp: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1.h5 test_bp_julia1.h5
+test_bp: test_bp_caffe1.h5 test_bp_julia1.h5 test_bp_juliacpu1.h5
 	@echo '==> Backprop comparison'
-	h5maxdiff test_bp_caffe1.h5 test_bp_matlab1.h5
-	h5maxdiff test_bp_caffe2.h5 test_bp_matlab2.h5
-	h5maxdiff test_bp_caffe1.h5 test_bp_cuda1.h5
-	h5maxdiff test_bp_caffe2.h5 test_bp_cuda2.h5
-	h5maxdiff test_bp_caffe1.h5 test_bp_juliacpu1.h5
-	h5maxdiff test_bp_caffe2.h5 test_bp_juliacpu2.h5
-	h5maxdiff test_bp_caffe1.h5 test_bp_julia1.h5
-	h5maxdiff test_bp_caffe2.h5 test_bp_julia2.h5
-	h5maxdiff test_bp_cuda1.h5 test_bp_julia1.h5
-	h5maxdiff test_bp_cuda2.h5 test_bp_julia2.h5
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_julia1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_julia2.h5
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_juliacpu1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_juliacpu2.h5
+
+test_bp5: test_bp_caffe1.h5 test_bp_matlab1.h5 test_bp_cuda1.h5 test_bp_juliacpu1.h5 test_bp_julia1.h5
+	@echo '==> Backprop comparison'
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_matlab1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_matlab2.h5
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_cuda1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_cuda2.h5
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_juliacpu1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_juliacpu2.h5
+	h5maxdiff.jl test_bp_caffe1.h5 test_bp_julia1.h5
+	h5maxdiff.jl test_bp_caffe2.h5 test_bp_julia2.h5
+	h5maxdiff.jl test_bp_cuda1.h5 test_bp_julia1.h5
+	h5maxdiff.jl test_bp_cuda2.h5 test_bp_julia2.h5
 
 test_bp_matlab1.h5: backprop.m devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: matlab'
@@ -139,16 +150,23 @@ LR=0.01
 LRB=${BATCH}
 LRI=${ITERS}
 
-test_lr: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5 test_lr_julia1.h5
+test_lr: test_lr_caffe1.h5 test_lr_julia1.h5 test_lr_matlab1.h5
 	@echo '==> LR comparison'
-	h5maxdiff test_lr_caffe1.h5 test_lr_matlab1.h5
-	h5maxdiff test_lr_caffe2.h5 test_lr_matlab2.h5
-	h5maxdiff test_lr_caffe1.h5 test_lr_cuda1.h5
-	h5maxdiff test_lr_caffe2.h5 test_lr_cuda2.h5
-	h5maxdiff test_lr_caffe1.h5 test_lr_julia1.h5
-	h5maxdiff test_lr_caffe2.h5 test_lr_julia2.h5
-	h5maxdiff test_lr_cuda1.h5 test_lr_julia1.h5
-	h5maxdiff test_lr_cuda2.h5 test_lr_julia2.h5
+	h5maxdiff.jl test_lr_matlab1.h5 test_lr_julia1.h5
+	h5maxdiff.jl test_lr_matlab2.h5 test_lr_julia2.h5
+	h5maxdiff.jl test_lr_caffe1.h5 test_lr_julia1.h5
+	h5maxdiff.jl test_lr_caffe2.h5 test_lr_julia2.h5
+
+test_lr5: test_lr_caffe1.h5 test_lr_cuda1.h5 test_lr_matlab1.h5 test_lr_julia1.h5
+	@echo '==> LR comparison'
+	h5maxdiff.jl test_lr_caffe1.h5 test_lr_matlab1.h5
+	h5maxdiff.jl test_lr_caffe2.h5 test_lr_matlab2.h5
+	h5maxdiff.jl test_lr_caffe1.h5 test_lr_cuda1.h5
+	h5maxdiff.jl test_lr_caffe2.h5 test_lr_cuda2.h5
+	h5maxdiff.jl test_lr_caffe1.h5 test_lr_julia1.h5
+	h5maxdiff.jl test_lr_caffe2.h5 test_lr_julia2.h5
+	h5maxdiff.jl test_lr_cuda1.h5 test_lr_julia1.h5
+	h5maxdiff.jl test_lr_cuda2.h5 test_lr_julia2.h5
 
 test_lr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: cuda'
@@ -164,7 +182,7 @@ test_lr_caffe1.h5: export_weights.py dev.net test_lr_caffe_iter_${LRI}.caffemode
 test_lr_caffe_iter_${LRI}.caffemodel: lr.solver dev.net rnd.caffemodel
 	@echo '==> LR test: caffe'
 	perl -pi -e 's/max_iter: \d+/max_iter: ${LRI}/;s/base_lr: \S+/base_lr: ${LR}/' lr.solver
-	caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
+	time caffe.bin train -solver lr.solver -weights rnd.caffemodel 2> test_lr_caffe.log
 
 test_lr_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> LR test: julia'
@@ -176,14 +194,18 @@ L2=0.5
 L2B=${BATCH}
 L2I=${ITERS}
 
-test_l2: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5 test_l2_julia1.h5
+test_l2: test_l2_caffe1.h5 test_l2_julia1.h5
+	h5maxdiff.jl test_l2_caffe1.h5 test_l2_julia1.h5
+	h5maxdiff.jl test_l2_caffe2.h5 test_l2_julia2.h5
+
+test_l25: test_l2_caffe1.h5 test_l2_cuda1.h5 test_l2_matlab1.h5 test_l2_julia1.h5
 	@echo '==> L2 comparison'
-	h5maxdiff test_l2_caffe1.h5 test_l2_matlab1.h5
-	h5maxdiff test_l2_caffe2.h5 test_l2_matlab2.h5
-	h5maxdiff test_l2_caffe1.h5 test_l2_cuda1.h5
-	h5maxdiff test_l2_caffe2.h5 test_l2_cuda2.h5
-	h5maxdiff test_l2_caffe1.h5 test_l2_julia1.h5
-	h5maxdiff test_l2_caffe2.h5 test_l2_julia2.h5
+	h5maxdiff.jl test_l2_caffe1.h5 test_l2_matlab1.h5
+	h5maxdiff.jl test_l2_caffe2.h5 test_l2_matlab2.h5
+	h5maxdiff.jl test_l2_caffe1.h5 test_l2_cuda1.h5
+	h5maxdiff.jl test_l2_caffe2.h5 test_l2_cuda2.h5
+	h5maxdiff.jl test_l2_caffe1.h5 test_l2_julia1.h5
+	h5maxdiff.jl test_l2_caffe2.h5 test_l2_julia2.h5
 
 test_l2_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L2 test: cuda'
@@ -199,7 +221,7 @@ test_l2_caffe1.h5: export_weights.py dev.net test_l2_caffe_iter_${L2I}.caffemode
 test_l2_caffe_iter_${L2I}.caffemodel: l2.solver dev.net rnd.caffemodel
 	@echo '==> L2 test: caffe'
 	perl -pi -e 's/max_iter: \S+/max_iter: ${L2I}/;s/weight_decay: \S+/weight_decay: ${L2}/' l2.solver
-	caffe.bin train -solver l2.solver -weights rnd.caffemodel 2> test_l2_caffe.log
+	time caffe.bin train -solver l2.solver -weights rnd.caffemodel 2> test_l2_caffe.log
 
 test_l2_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L2 test: julia gpu'
@@ -212,16 +234,20 @@ L1=0.01
 L1B=${BATCH}
 L1I=${ITERS}
 
-test_l1: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5 test_l1_julia1.h5
+test_l1: test_l1_caffe1.h5 test_l1_julia1.h5
+	h5maxdiff.jl test_l1_caffe1.h5 test_l1_julia1.h5
+	h5maxdiff.jl test_l1_caffe2.h5 test_l1_julia2.h5
+
+test_l15: test_l1_caffe1.h5 test_l1_cuda1.h5 test_l1_matlab1.h5 test_l1_julia1.h5
 	@echo '==> L1 comparison'
-	h5maxdiff test_l1_caffe1.h5 test_l1_matlab1.h5
-	h5maxdiff test_l1_caffe2.h5 test_l1_matlab2.h5
-	h5maxdiff test_l1_caffe1.h5 test_l1_cuda1.h5
-	h5maxdiff test_l1_caffe2.h5 test_l1_cuda2.h5
-	h5maxdiff test_l1_caffe1.h5 test_l1_julia1.h5
-	h5maxdiff test_l1_caffe2.h5 test_l1_julia2.h5
-	h5maxdiff test_l1_cuda1.h5 test_l1_julia1.h5
-	h5maxdiff test_l1_cuda2.h5 test_l1_julia2.h5
+	h5maxdiff.jl test_l1_caffe1.h5 test_l1_matlab1.h5
+	h5maxdiff.jl test_l1_caffe2.h5 test_l1_matlab2.h5
+	h5maxdiff.jl test_l1_caffe1.h5 test_l1_cuda1.h5
+	h5maxdiff.jl test_l1_caffe2.h5 test_l1_cuda2.h5
+	h5maxdiff.jl test_l1_caffe1.h5 test_l1_julia1.h5
+	h5maxdiff.jl test_l1_caffe2.h5 test_l1_julia2.h5
+	h5maxdiff.jl test_l1_cuda1.h5 test_l1_julia1.h5
+	h5maxdiff.jl test_l1_cuda2.h5 test_l1_julia2.h5
 
 test_l1_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: cuda'
@@ -237,7 +263,7 @@ test_l1_caffe1.h5: export_weights.py dev.net test_l1_caffe_iter_${L1I}.caffemode
 test_l1_caffe_iter_${L1I}.caffemodel: l1.solver dev.net rnd.caffemodel
 	@echo '==> L1 test: caffe'
 	perl -pi -e 's/max_iter: \S+/max_iter: ${L1I}/;s/weight_decay: \S+/weight_decay: ${L1}/' l1.solver
-	caffe.bin train -solver l1.solver -weights rnd.caffemodel 2> test_l1_caffe.log
+	time caffe.bin train -solver l1.solver -weights rnd.caffemodel 2> test_l1_caffe.log
 
 test_l1_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> L1 test: julia gpu'
@@ -255,16 +281,20 @@ ADB=${BATCH}
 #ADI=${ITERS}
 ADI=2
 
-test_ad: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5 test_ad_julia1.h5
+test_ad: test_ad_caffe1.h5 test_ad_julia1.h5
+	h5maxdiff.jl test_ad_caffe1.h5 test_ad_julia1.h5
+	h5maxdiff.jl test_ad_caffe2.h5 test_ad_julia2.h5
+
+test_ad5: test_ad_matlab1.h5 test_ad_cuda1.h5 test_ad_caffe1.h5 test_ad_julia1.h5
 	@echo '==> Adagrad comparison: we have numerical unstability in w1'
-	h5maxdiff test_ad_caffe1.h5 test_ad_matlab1.h5
-	h5maxdiff test_ad_caffe2.h5 test_ad_matlab2.h5
-	h5maxdiff test_ad_caffe1.h5 test_ad_cuda1.h5
-	h5maxdiff test_ad_caffe2.h5 test_ad_cuda2.h5
-	h5maxdiff test_ad_caffe1.h5 test_ad_julia1.h5
-	h5maxdiff test_ad_caffe2.h5 test_ad_julia2.h5
-	h5maxdiff test_ad_cuda1.h5 test_ad_julia1.h5
-	h5maxdiff test_ad_cuda2.h5 test_ad_julia2.h5
+	h5maxdiff.jl test_ad_caffe1.h5 test_ad_matlab1.h5
+	h5maxdiff.jl test_ad_caffe2.h5 test_ad_matlab2.h5
+	h5maxdiff.jl test_ad_caffe1.h5 test_ad_cuda1.h5
+	h5maxdiff.jl test_ad_caffe2.h5 test_ad_cuda2.h5
+	h5maxdiff.jl test_ad_caffe1.h5 test_ad_julia1.h5
+	h5maxdiff.jl test_ad_caffe2.h5 test_ad_julia2.h5
+	h5maxdiff.jl test_ad_cuda1.h5 test_ad_julia1.h5
+	h5maxdiff.jl test_ad_cuda2.h5 test_ad_julia2.h5
 
 test_ad_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Adagrad test: cuda'
@@ -280,7 +310,7 @@ test_ad_caffe1.h5: export_weights.py dev.net test_ad_caffe_iter_${ADI}.caffemode
 test_ad_caffe_iter_${ADI}.caffemodel: ad.solver dev.net rnd.caffemodel
 	@echo '==> Adagrad test: caffe'
 	perl -pi -e 's/max_iter: \d+/max_iter: ${ADI}/' ad.solver
-	caffe.bin train -solver ad.solver -weights rnd.caffemodel 2> test_ad_caffe.log
+	time caffe.bin train -solver ad.solver -weights rnd.caffemodel 2> test_ad_caffe.log
 
 test_ad_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> AD test: julia gpu'
@@ -292,18 +322,22 @@ MO=0.95
 MOB=${BATCH}
 MOI=${ITERS}
 
-test_mo: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5 test_mo_julia1.h5
+test_mo: test_mo_caffe1.h5 test_mo_julia1.h5
+	h5maxdiff.jl test_mo_caffe1.h5 test_mo_julia1.h5
+	h5maxdiff.jl test_mo_caffe2.h5 test_mo_julia2.h5
+
+test_mo5: test_mo_caffe1.h5 test_mo_cuda1.h5 test_mo_matlab1.h5 test_mo_julia1.h5
 	@echo '==> MO comparison'
-	h5maxdiff test_mo_caffe1.h5 test_mo_matlab1.h5
-	h5maxdiff test_mo_caffe2.h5 test_mo_matlab2.h5
-	h5maxdiff test_mo_cuda1.h5 test_mo_matlab1.h5
-	h5maxdiff test_mo_cuda2.h5 test_mo_matlab2.h5
-	h5maxdiff test_mo_caffe1.h5 test_mo_cuda1.h5
-	h5maxdiff test_mo_caffe2.h5 test_mo_cuda2.h5
-	h5maxdiff test_mo_caffe1.h5 test_mo_julia1.h5
-	h5maxdiff test_mo_caffe2.h5 test_mo_julia2.h5
-	h5maxdiff test_mo_cuda1.h5 test_mo_julia1.h5
-	h5maxdiff test_mo_cuda2.h5 test_mo_julia2.h5
+	h5maxdiff.jl test_mo_caffe1.h5 test_mo_matlab1.h5
+	h5maxdiff.jl test_mo_caffe2.h5 test_mo_matlab2.h5
+	h5maxdiff.jl test_mo_cuda1.h5 test_mo_matlab1.h5
+	h5maxdiff.jl test_mo_cuda2.h5 test_mo_matlab2.h5
+	h5maxdiff.jl test_mo_caffe1.h5 test_mo_cuda1.h5
+	h5maxdiff.jl test_mo_caffe2.h5 test_mo_cuda2.h5
+	h5maxdiff.jl test_mo_caffe1.h5 test_mo_julia1.h5
+	h5maxdiff.jl test_mo_caffe2.h5 test_mo_julia2.h5
+	h5maxdiff.jl test_mo_cuda1.h5 test_mo_julia1.h5
+	h5maxdiff.jl test_mo_cuda2.h5 test_mo_julia2.h5
 
 test_mo_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> MO test: cuda'
@@ -319,7 +353,7 @@ test_mo_caffe1.h5: export_weights.py dev.net test_mo_caffe_iter_${MOI}.caffemode
 test_mo_caffe_iter_${MOI}.caffemodel: mo.solver dev.net rnd.caffemodel
 	@echo '==> MO test: caffe'
 	perl -pi -e 's/max_iter: \S+/max_iter: ${MOI}/;s/momentum: \S+/momentum: ${MO}/' mo.solver
-	caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
+	time caffe.bin train -solver mo.solver -weights rnd.caffemodel 2> test_mo_caffe.log
 
 test_mo_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> MO test: julia gpu'
@@ -331,18 +365,22 @@ NE=0.95
 NEB=${BATCH}
 NEI=${ITERS}
 
-test_ne: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5 test_ne_julia1.h5
+test_ne: test_ne_caffe1.h5 test_ne_julia1.h5
+	h5maxdiff.jl test_ne_caffe1.h5 test_ne_julia1.h5
+	h5maxdiff.jl test_ne_caffe2.h5 test_ne_julia2.h5
+
+test_ne5: test_ne_caffe1.h5 test_ne_cuda1.h5 test_ne_matlab1.h5 test_ne_julia1.h5
 	@echo '==> NE comparison'
-	h5maxdiff test_ne_caffe1.h5 test_ne_matlab1.h5
-	h5maxdiff test_ne_caffe2.h5 test_ne_matlab2.h5
-	h5maxdiff test_ne_cuda1.h5 test_ne_matlab1.h5
-	h5maxdiff test_ne_cuda2.h5 test_ne_matlab2.h5
-	h5maxdiff test_ne_caffe1.h5 test_ne_cuda1.h5
-	h5maxdiff test_ne_caffe2.h5 test_ne_cuda2.h5
-	h5maxdiff test_ne_caffe1.h5 test_ne_julia1.h5
-	h5maxdiff test_ne_caffe2.h5 test_ne_julia2.h5
-	h5maxdiff test_ne_cuda1.h5 test_ne_julia1.h5
-	h5maxdiff test_ne_cuda2.h5 test_ne_julia2.h5
+	h5maxdiff.jl test_ne_caffe1.h5 test_ne_matlab1.h5
+	h5maxdiff.jl test_ne_caffe2.h5 test_ne_matlab2.h5
+	h5maxdiff.jl test_ne_cuda1.h5 test_ne_matlab1.h5
+	h5maxdiff.jl test_ne_cuda2.h5 test_ne_matlab2.h5
+	h5maxdiff.jl test_ne_caffe1.h5 test_ne_cuda1.h5
+	h5maxdiff.jl test_ne_caffe2.h5 test_ne_cuda2.h5
+	h5maxdiff.jl test_ne_caffe1.h5 test_ne_julia1.h5
+	h5maxdiff.jl test_ne_caffe2.h5 test_ne_julia2.h5
+	h5maxdiff.jl test_ne_cuda1.h5 test_ne_julia1.h5
+	h5maxdiff.jl test_ne_cuda2.h5 test_ne_julia2.h5
 
 test_ne_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> NE test: cuda'
@@ -358,7 +396,7 @@ test_ne_caffe1.h5: export_weights.py dev.net test_ne_caffe_iter_${NEI}.caffemode
 test_ne_caffe_iter_${NEI}.caffemodel: ne.solver dev.net rnd.caffemodel
 	@echo '==> NE test: caffe'
 	perl -pi -e 's/max_iter: \S+/max_iter: ${NEI}/;s/momentum: \S+/momentum: ${NE}/' ne.solver
-	caffe.bin train -solver ne.solver -weights rnd.caffemodel 2> test_ne_caffe.log
+	time caffe.bin train -solver ne.solver -weights rnd.caffemodel 2> test_ne_caffe.log
 
 test_ne_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> NE test: julia gpu'
@@ -370,18 +408,22 @@ DR=0.75
 DRB=${BATCH}
 DRI=${ITERS}
 
-test_dr: test_dr_caffe1.h5 test_dr_cuda1.h5 test_dr_matlab1.h5 test_dr_julia1.h5
+test_dr: test_dr_caffe1.h5 test_dr_julia1.h5
+	h5maxdiff.jl test_dr_caffe1.h5 test_dr_julia1.h5
+	h5maxdiff.jl test_dr_caffe2.h5 test_dr_julia2.h5
+
+test_dr5: test_dr_caffe1.h5 test_dr_cuda1.h5 test_dr_matlab1.h5 test_dr_julia1.h5
 	@echo '==> DR comparison: note matlab has different rng'
-	h5maxdiff test_dr_caffe1.h5 test_dr_matlab1.h5
-	h5maxdiff test_dr_caffe2.h5 test_dr_matlab2.h5
-	h5maxdiff test_dr_cuda1.h5 test_dr_matlab1.h5
-	h5maxdiff test_dr_cuda2.h5 test_dr_matlab2.h5
-	h5maxdiff test_dr_caffe1.h5 test_dr_cuda1.h5
-	h5maxdiff test_dr_caffe2.h5 test_dr_cuda2.h5
-	h5maxdiff test_dr_caffe1.h5 test_dr_julia1.h5
-	h5maxdiff test_dr_caffe2.h5 test_dr_julia2.h5
-	h5maxdiff test_dr_cuda1.h5 test_dr_julia1.h5
-	h5maxdiff test_dr_cuda2.h5 test_dr_julia2.h5
+	h5maxdiff.jl test_dr_caffe1.h5 test_dr_matlab1.h5
+	h5maxdiff.jl test_dr_caffe2.h5 test_dr_matlab2.h5
+	h5maxdiff.jl test_dr_cuda1.h5 test_dr_matlab1.h5
+	h5maxdiff.jl test_dr_cuda2.h5 test_dr_matlab2.h5
+	h5maxdiff.jl test_dr_caffe1.h5 test_dr_cuda1.h5
+	h5maxdiff.jl test_dr_caffe2.h5 test_dr_cuda2.h5
+	h5maxdiff.jl test_dr_caffe1.h5 test_dr_julia1.h5
+	h5maxdiff.jl test_dr_caffe2.h5 test_dr_julia2.h5
+	h5maxdiff.jl test_dr_cuda1.h5 test_dr_julia1.h5
+	h5maxdiff.jl test_dr_cuda2.h5 test_dr_julia2.h5
 
 test_dr_cuda1.h5: train devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> DR test: cuda'
@@ -398,7 +440,7 @@ test_dr_caffe_iter_${DRI}.caffemodel: dr.solver dr.net rnd.caffemodel
 	@echo '==> DR test: caffe'
 	perl -pi -e 's/max_iter: \S+/max_iter: ${DRI}/' dr.solver
 	perl -pi -e 's/dropout_ratio: \S+/dropout_ratio: ${DR}/' dr.net
-	caffe.bin train -solver dr.solver -weights rnd.caffemodel 2> test_dr_caffe.log
+	time caffe.bin train -solver dr.solver -weights rnd.caffemodel 2> test_dr_caffe.log
 
 test_dr_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> DR test: julia gpu'

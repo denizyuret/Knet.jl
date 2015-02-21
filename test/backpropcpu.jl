@@ -3,11 +3,9 @@ using KUnet
 blas_set_num_threads(20)
 batch = 937
 x = h5read(ARGS[1], "/data")
-l1 = KUnet.Layer(ARGS[2])
-l2 = KUnet.Layer(ARGS[3])
+l1 = KUnet.Layer(ARGS[2], gpu=false)
+l2 = KUnet.Layer(ARGS[3], gpu=false)
 y = h5read(ARGS[4], "/data")
-l1.xforw = KUnet.noop
-l2.xforw = KUnet.noop
 net = [l1,l2]
 xx = x[:,1:batch]
 yy = y[:,1:batch]

@@ -1,6 +1,6 @@
+#!/bin/env julia
 # Options apply to all layers, weights and biases.
 # (Except for regularization which applies to w, not b)
-# TODO: ability to specify different learning parameters for different layers.
 
 using HDF5
 using KUnet
@@ -50,6 +50,10 @@ function parse_commandline()
         help = "Learning rate"
         arg_type = Float32
         default = 0.01f0
+        "--loss"
+        help = "Loss function"
+        arg_type = String
+        default = "KUnet.softmaxloss"
         "--maxnorm"
         help = "If nonzero upper limit on weight matrix row norms"
         arg_type = Float32
@@ -78,19 +82,13 @@ function main()
     args = parse_commandline()
     x = h5read(args["x"], "/data"); 
     y = h5read(args["y"], "/data"); 
-    net = map(x->KUnet.Layer(x), split(args["net"],','))
-    if (!args["nogpu"])
-        for l=1:length(net)
-            net[l].w = CudaArray(net[l].w)
-            net[l].b = CudaArray(net[l].b)
+    net = map(l->KUnet.Layer(l,gpu=!args["nogpu"]), split(args["net"],','))
+    for (a,v) in args
+        if !in(a, ["x","y","nogpu","net","batch","iters","loss","out"])
+            KUnet.setparam!(net, symbol(a), v)
         end
     end
-    o = KUnet.TrainOpts()
-    for (a,v) in args
-        sa = symbol(a)
-        if isdefined(o,sa) o.(sa) = v end
-    end
-    @time KUnet.train(net, x, y, o)
+    @time KUnet.train(net, x, y; batch=args["batch"], iters=args["iters"], loss=eval(parse(args["loss"])))
     out = args["out"]
     for l=1:length(net)
         h5write("$out$l.h5", net[l]);
