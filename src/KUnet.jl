@@ -1,22 +1,31 @@
 module KUnet
 using InplaceOps
-using CUDArt
 using Base.LinAlg.BLAS
+using CUDArt
 using CUBLAS
-export Layer, Net, setparam!
+export Layer, Net, UpdateParam, setparam!
 
-type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; Layer()=new() end
-typealias Net Array{Layer,1}
-type UpdateParam 
-    learningRate
-    l1reg
-    l2reg
-    maxnorm
-    adagrad;  ada
-    momentum; mom
-    nesterov; nes
-    UpdateParam()=new(0.01)
+type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; 
+    function Layer(; args...)
+        o=new()
+        for (k,v)=args
+            in(k, names(o)) ? (o.(k) = v) : warn("Layer has no field $k")
+        end
+        return o
+    end
 end
+
+type UpdateParam learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; 
+    function UpdateParam(; learningRate=0.01, args...)
+        o=new(learningRate)
+        for (k,v)=args
+            in(k, names(o)) ? (o.(k) = v) : warn("UpdateParam has no field $k")
+        end
+        return o
+    end
+end
+
+typealias Net Array{Layer,1}
 
 function setparam!(l::Layer,k,v)
     if (k == :dropout)
@@ -39,11 +48,11 @@ function setparam!(l::Layer,k,v)
 end
 
 setparam!(p::UpdateParam,k,v)=(p.(k)=v)
+
 setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
 
-include("layer.jl")
-include("net.jl")
 include("cuda.jl")
+include("net.jl")
 include("update.jl")
 include("func.jl")
 include("h5io.jl")
