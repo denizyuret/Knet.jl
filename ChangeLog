@@ -1,0 +1,120 @@
+2015-02-20  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+
+	- Cleanup hdf5 files.
+	+ Make softloss, get rid of soft layer.
+	- Add other losses
+	+ make loss a training option.
+	- Add sigmoid layer.
+	+ Make b and yforw conditional?
+	- Figure out if we have a gpu and if we are using a gpu, test code on no-gpu machine
+	- Export functions
+	- Make layer constructors that take size and generate random matrices
+	- Make layer constructors that take arbitrary matrices, h5 files
+	- Error checking in cuda.jl, pull request for InplaceOps
+	- Cleanup kernel calls in kunet.cu
+	- Have kernel softmax return loss?
+	- Cleanup hdf5 format in kunet_h5.cu, get rid of xfunc, yfunc,
+	+ make dropout a layer option.
+	+ Make train call backprop
+
+2015-02-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- Verify generic functions in cuda.jl
+	- Try to make update.jl more readable
+	+ HDF5 should store the name of the functions
+	+ Find a good way to handle dropout during training and testing.
+	x maybe xforms should be part of the trainer not the layer.
+	x caffe has it as another layer
+	x i have tried as a separate fn or as part of forw/back before.
+
+	+ implement/test dropout
+	- gpuseed not working, but random numbers start at the same place?
+	+ cuda and julia not equal?
+	x change dropout in cuda as well to use xmask for storage
+	- change / check adagrad, nesterov options in cuda
+	- implement/test maxnorm (cuda/matlab, no caffe test)
+
+	- InplaceOps has deprecated
+	- ArgParse has deprecated
+	- CUBLAS does not import/extend blas!
+
+2015-02-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DEBUG:
+	- test_fw_cuda: 2.26s
+	- test_fw_caffe: 3.82s
+	- test_fw_matlab: 3.83s
+	- test_fw_julia_cpu: 21.64s
+	- test_fw_julia_gpu: 5.39s ??? (check ger vs badd; do test with direct ccalls)
+	+ who is allocating 35MB?
+	-- elapsed time: 5.395230859 seconds (35 MB allocated, 0.06% gc time in 1 pauses with 0 full sweep)
+
+2015-02-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	Possible design changes:
+	+ Take training options out of Layer and pass them as options to layer update.
+	+ That could support independent layer options but not w vs b.
+	+ Group parameter and its diff in a blob like caffe: l->w->data, l->w->grad?
+	x Make w and b two elements of an array: l->w[0,1]->ndims,dims,data,diff,diff1,diff2?
+	x x and y have data,diff but no diff1 diff2.
+	x But x has xmask, xones; we could use tmp1 and tmp2 as common names.
+	+ Each w and b could have its own update options?
+	+ Update can take each w, b individually, i.e. blob / options.
+	x So can forward and back, take matrices instead of layers, but that's pushing it.
+	+ To simplify memory management rely on xcols being correct in forw/drop and centralize alloc changes.
+
+	+ figure out cuda rand to implement reproducible dropout.
+	+ test dropout: figure out matlab seed, caffe layer.
+
+2015-02-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	+ juliagpu implementation:
+	+ inplace or devectorize macros adapted for gpu.
+	x need to solve collections of options to c.
+	x need to solve collections of arrays to c.
+	+ there should be a generic julia implementation.
+	+ the gpu support should be activated from the main script.
+
+	- implement/test maxnorm?
+	- implement/test maxout?
+	+ speed test?
+	+ momentum kernel, shrink code.
+	- use mnist for regression testing.
+	x cpu/gpu blobs like caffe?  main goal: generic readable code.
+
+	+ implement cuda/predict.
+	+ implement cuda/backprop.
+	+ implement cuda/train.
+	+ implement data.h5 comparison.
+	+ implement matlab/predict.
+	+ compare cuda/predict to matlab.
+	+ implement layer.h5 comparison.
+	+ implement matlab/backprop.
+	+ compare cuda/backprop to matlab. 
+	+ implement matlab/train.
+	+ compare cuda/train to matlab. 
+	+ implement caffe/predict.
+	+ implement caffe/backprop.
+	+ implement caffe/train.
+	+ compare cuda/predict to caffe.
+	+ compare cuda/backprop to caffe. 
+	+ compare cuda/train to caffe. 
+
+	train options?
+	+ already in file?
+	+ take as cmd line opts?
+	x try all variations?
+	+ we'll need cmd-line opts at least for batch, epoch, etc.
+	x (or assume epoch=1 and batch=100?)
+	x yeah, simple train interface with train x l1 l2 .. y as well.
+	x these are just test scripts after all.
+	x maybe just do batch in the future.
+	+ julia version:
+	x layers fully opaque?
+	+ train options?
+	+ separate options from weights?
