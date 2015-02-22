@@ -1,11 +1,13 @@
 module MNIST
 using GZip
+using KUnet
+using CUDArt
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
-const xtrn = "train-images-idx3-ubyte.gz"
-const ytrn = "train-labels-idx1-ubyte.gz"
-const xtst = "t10k-images-idx3-ubyte.gz"
-const ytst = "t10k-labels-idx1-ubyte.gz"
+const xtrn_file = "train-images-idx3-ubyte.gz"
+const ytrn_file = "train-labels-idx1-ubyte.gz"
+const xtst_file = "t10k-images-idx3-ubyte.gz"
+const ytst_file = "t10k-labels-idx1-ubyte.gz"
 
 type Data xtrn; ytrn; xtst; ytst; end
 
@@ -18,19 +20,27 @@ function wgetzcat(gz)
 end
 
 function readlabels(gz)
-    a=wgetzcat(gz)
-    n=length(a)
-    full(sparse(convert(Vector{Int}, a[9:n]+1), 1:n-8, 1.0f0, 10, n-8))
+    a=convert(Vector{Int}, wgetzcat(gz)[9:end])
+    a[a.==0]=10
+    full(sparse(a, 1:length(a), 1.0f0))
 end
 
 function readimages(gz)
-    a=wgetzcat(gz)
-    n=length(a)
-    r=28*28
-    c=Int((n-16)/r)
-    reshape(a[17:n],r,c) ./ 255.0f0
+    a=(wgetzcat(gz)[17:end] ./ 255.0f0)
+    reshape(a, 28*28, Int(length(a)/(28*28)))
 end
 
-load()=Data(readimages(xtrn), readlabels(ytrn), readimages(xtst), readlabels(ytst))
+xtrn = readimages(xtrn_file)
+ytrn = readlabels(ytrn_file)
+xtst = readimages(xtst_file)
+ytst = readlabels(ytst_file)
+
+function train(net, epochs=10)
+    for i=1:epochs
+        KUnet.train(net, xtrn, ytrn)
+        y = KUnet.predict(net, xtst)
+        println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2]), length(keys(CUDArt.cuda_ptrs)), KUnet.gpumem()))
+    end
+end
 
 end

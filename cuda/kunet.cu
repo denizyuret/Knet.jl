@@ -42,6 +42,7 @@ __global__ void _adagrad(int n, float eps, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
 __global__ void _drop(int n, float *x, float *xmask, float dropout, float scale);
 __global__ void _badd(int nrows, int ncols, float *y, float *b);
+__global__ void _add1(int n, float val, float *x);
 
 #define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
 void reluforw(int n, float *y) KCALL(_reluforw,n,y);
@@ -50,6 +51,7 @@ void softback(int nrows, int ncols, float *y, float *dy) KCALL(_softback,nrows,n
 void l1reg(int n, float l1, float *w, float *dw) KCALL(_l1reg,n,l1,w,dw);
 void adagrad(int n, float eps, float *dw2, float *dw) KCALL(_adagrad,n,eps,dw2,dw);
 void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
+void add1(int n, float val, float *x) KCALL(_add1,n,val,x);
 void drop(int n, float *x, float *xmask, float dropout, float scale) KCALL(_drop,n,x,xmask,dropout,scale);
 void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
 
@@ -424,6 +426,14 @@ __global__ void _fill(int n, float val, float *x) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     x[i] = val;
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _add1(int n, float val, float *x) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    x[i] += val;
     i += blockDim.x * gridDim.x;
   }
 }

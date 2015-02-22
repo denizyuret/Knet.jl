@@ -9,7 +9,7 @@ using Base.LinAlg.BLAS
 @useif CUBLAS
 @useif HDF5
 
-export Layer, Net, UpdateParam, setparam!
+# export Layer, Net, UpdateParam, setparam!
 
 type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; 
     function Layer(; args...)
@@ -22,7 +22,7 @@ type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop;
 end
 
 type UpdateParam learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; 
-    function UpdateParam(; learningRate=0.01, args...)
+    function UpdateParam(; learningRate=0.01f0, args...)
         o=new(learningRate)
         for (k,v)=args
             in(k, names(o)) ? (o.(k) = v) : warn("UpdateParam has no field $k")
@@ -77,10 +77,10 @@ setparam!(p::UpdateParam,k,v)=(p.(k)=v)
 
 setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
 
+include("cuda.jl")
 include("net.jl")
 include("update.jl")
 include("func.jl")
-include("cuda.jl")
 isdefined(:HDF5) && include("h5io.jl")
 
 end # module

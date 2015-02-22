@@ -63,6 +63,7 @@ void softback(int nrows, int ncols, float *y, float *dy);
 void l1reg(int n, float l1, float *w, float *dw);
 void adagrad(int n, float eps, float *dw2, float *dw);
 void fill(int n, float val, float *x);
+void add1(int n, float val, float *x);
 void drop(int n, float *x, float *xmask, float dropout, float scale);
 void badd(int nrows, int ncols, float *y, float *b);
 void bsum(int nrows, int ncols, float *y, float *b);
