@@ -10,3 +10,4 @@ predict
 testcuda
 h5maxdiff
 h5getinfo
+*-ubyte.gz
