@@ -76,38 +76,23 @@ end
 end
 
 function speedtest3()
-    blas_set_num_threads(20)
+    # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
-    l1 = Layer("dev1.h5")
-    l2 = Layer("dev2.h5")
-    l1.xforw = KUnet.noop
-    l2.xforw = KUnet.noop
-    # l1.w = CudaArray(l1.w)
-    # l1.b = CudaArray(l1.b)
-    # l2.w = CudaArray(l2.w)
-    # l2.b = CudaArray(l2.b)
-    # xrows,xcols = size(x)
-    # yrows,ycols = size(l2.w,1), xcols
-    # y = similar(x, yrows, ycols)
-    # xx = similar(l1.w,(xrows,batch))
-    # xx = CudaArray(x[:,1:batch])
-    # l1.y = similar(l1.w,(size(l1.w,1), batch))
-    # l2.y = similar(l2.w,(size(l2.w,1), batch))
+    l1 = KUnet.Layer("dev1.h5")
+    l2 = KUnet.Layer("dev2.h5")
     net = [l1,l2]
-    @time KUnet.predict(net, x, batch)
-    @time KUnet.predict(net, x, batch)
+    @time KUnet.predict(net, x, batch=batch)
+    @time KUnet.predict(net, x, batch=batch)
 end
 
 function speedtest4()
-    blas_set_num_threads(20)
+    # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
     l1 = KUnet.Layer("dev1.h5")
     l2 = KUnet.Layer("dev2.h5")
-    l1.xforw = KUnet.noop
-    l2.xforw = KUnet.noop
     net = [l1,l2]
     xx = x[:,1:batch]
     yy = y[:,1:batch]
@@ -118,7 +103,7 @@ end
 
 if isdefined(:CUDArt)
 function speedtest5()
-    blas_set_num_threads(20)
+    # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
@@ -140,15 +125,16 @@ end
 end
 
 function speedtest6()
-    blas_set_num_threads(20)
+    # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
     l1 = KUnet.Layer("rnd1.h5")
     l2 = KUnet.Layer("rnd2.h5")
     net = [l1,l2]
-    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
-    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
+    KUnet.setparam!(net, :l2reg, 0.5f0)
+    @time KUnet.train(net, x, y; batch=937, iters=10)
+    @time KUnet.train(net, x, y; batch=937, iters=10)
     net
 end
 
