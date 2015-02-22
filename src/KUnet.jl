@@ -1,8 +1,14 @@
 module KUnet
+
+installed(pkg)=isdir(Pkg.dir(string(pkg)))
+macro useif(pkg) if installed(pkg) Expr(:using,pkg) end end
+
 using InplaceOps
 using Base.LinAlg.BLAS
-using CUDArt
-using CUBLAS
+@useif CUDArt
+@useif CUBLAS
+@useif HDF5
+
 export Layer, Net, UpdateParam, setparam!
 
 type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; 
@@ -26,6 +32,16 @@ type UpdateParam learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mo
 end
 
 typealias Net Array{Layer,1}
+
+function Net(f::Function, dims::Integer...)
+    net = Layer[]
+    for i=2:length(dims)
+        nrows,ncols = dims[i],dims[i-1]
+        l = (i < length(dims)) ? Layer(nrows, ncols; fy=f) : Layer(nrows, ncols)
+        push!(net, l)
+    end
+    return net
+end
 
 function setparam!(l::Layer,k,v)
     if (k == :dropout)
@@ -51,10 +67,10 @@ setparam!(p::UpdateParam,k,v)=(p.(k)=v)
 
 setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
 
-include("cuda.jl")
 include("net.jl")
 include("update.jl")
 include("func.jl")
-include("h5io.jl")
+include("cuda.jl")
+isdefined(:HDF5) && include("h5io.jl")
 
 end # module

@@ -1,13 +1,22 @@
-# CUDA extensions:
+# This file contains various compatibility fixes and hacks.  Hopefully
+# it will shrink down to nothing as things get fixed in the original
+# packages.
+
+# This fixes an InplaceOps bug:
+import Base: ctranspose
+import InplaceOps: Transpose, mul!
+ctranspose(x::Matrix)=Transpose(x)  # This was overwritten in base
+mul!(O::Matrix, A::Matrix, B::Transpose) = A_mul_Bt!(O,A,B.obj)   # 3rd arg B gives type error
+mul!(O::Matrix, A::Transpose, B::Matrix) = At_mul_B!(O,A.obj,B)   # 2nd arg A gives type error
+
+if isdefined(:CUDArt)   ########## CUDA extensions:
+
 typealias Cmat Ptr{Float32}
 const libkunet = find_library(["libkunet"], ["."])
 
-import Base: ctranspose         # TODO: these don't hang high enough in the type hierarchy
-import InplaceOps: Transpose, mul!, badd!, bmul!, bsub! # TODO: non of these implementations are complete
-ctranspose(x::Matrix)=Transpose(x)  # This was overwritten in base
+# TODO: these don't hang high enough in the type hierarchy
+import InplaceOps: badd!, bmul!, bsub! # TODO: non of these implementations are complete
 ctranspose(x::CudaVecOrMat)=Transpose(x)
-mul!(O::Matrix, A::Matrix, B::Transpose) = A_mul_Bt!(O,A,B.obj)   # 3rd arg B gives type error
-mul!(O::Matrix, A::Transpose, B::Matrix) = At_mul_B!(O,A.obj,B)   # 2nd arg A gives type error
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::CudaVecOrMat) = CUBLAS.gemm!('N','N',one(eltype(O)),A,B,zero(eltype(O)),O)  # InplaceOps.jl:53
 mul!(O::CudaVecOrMat, A::Transpose, B::CudaVecOrMat) = CUBLAS.gemm!('T','N',one(eltype(O)),A.obj,B,zero(eltype(O)),O)
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(eltype(O)),A,B.obj,zero(eltype(O)),O)
@@ -34,3 +43,5 @@ function gpumem()
     ccall((:cudaMemGetInfo,"libcudart.so"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
     convert(Int,mfree[1])
 end
+
+end	########## CUDA extensions

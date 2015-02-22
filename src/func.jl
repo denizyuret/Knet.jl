@@ -15,8 +15,6 @@ export relu, drop, softmaxloss
 
 relu(l,y)=for i=1:length(y) y[i]<zero(y[i])&&(y[i]=zero(y[i])) end
 relu(l,y,dy)=for i=1:length(y) y[i]==zero(y[i])&&(dy[i]=zero(dy[i])) end
-relu(l,y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
-relu(l,y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),y,dy)
 
 
 # PREPROCESSING FUNCTION INTERFACE: A preprocessing function
@@ -39,7 +37,6 @@ function drop(l, x, dx)
 end
 
 drop(x, xdrop, dropout, scale)=for i=1:length(x) x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]) end
-drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
 
 
 # LOSS INTERFACE: A loss function takes y, the network output, and dy,
@@ -70,5 +67,10 @@ function softmaxloss(y, dy)
     return loss
 end
 
-# TODO: This doesn't return the loss, just writes the gradient:
-softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
+if isdefined(:CUDArt)
+    drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
+    relu(l,y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
+    relu(l,y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),y,dy)
+    # TODO: This doesn't return the loss, just writes the gradient:
+    softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
+end

@@ -11,16 +11,15 @@ function update(w, dw, o::UpdateParam)
 end
 
 l1reg!(l1, w, dw)=(for i=1:length(dw) (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0 end)
-l1reg!(l1, w::CudaMatrix, dw::CudaMatrix)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
-
 l2reg!(l2, w, dw)=axpy!(length(dw), l2, w, 1, dw, 1)
-
 adagrad!(eps, dw2, dw)=(for i=1:length(dw) (dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i]))) end)
-adagrad!(eps, dw2::CudaMatrix, dw::CudaMatrix)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
-
 momentum!(m, dw2, dw)=(axpy!(length(dw), m, dw2, 1, dw, 1);copy!(dw2,dw))
-
 nesterov!(m, dw2, dw)=(nw=length(dw); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
+
+if isdefined(:CUDArt)
+    adagrad!(eps, dw2::CudaArray, dw::CudaArray)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
+    l1reg!(l1, w::CudaArray, dw::CudaArray)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
+end
 
 function maxnorm!(maxnorm, w)
     error("Did not debug maxnorm yet.")
