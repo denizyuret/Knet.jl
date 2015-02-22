@@ -76,6 +76,6 @@ resize(l, n, a, dims=size(a))=((!isdefined(l,n) || size(l.(n)) != dims) && (l.(n
 function inittrain(n::Net)
     for l in n
         isdefined(l,:w) && !isdefined(l,:pw) && (l.pw = UpdateParam())    
-        isdefined(l,:b) && !isdefined(l,:pb) && (l.pw = UpdateParam())
+        isdefined(l,:b) && !isdefined(l,:pb) && (l.pb = UpdateParam())
     end
 end
