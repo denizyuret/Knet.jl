@@ -1,7 +1,14 @@
+2015-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- Make InplaceOps work without patch using CUBLAS generics.
+
 2015-02-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
+	- Write blogpost/README: deep learning in 250 lines of julia (needs mnist)
+	- Write blogpost on overfitting (needs mnist)
 	- Cleanup hdf5 files.
 	- Figure out automatic testing.
 	+ Make softloss, get rid of soft layer.
@@ -13,12 +20,18 @@
 	+ Export functions
 	- Make layer constructors that take size and generate random matrices
 	- Make layer constructors that take arbitrary matrices, h5 files
-	- Error checking in cuda.jl, pull request for InplaceOps
+	- Error checking in cuda.jl
+	+ pull request for InplaceOps
+	+ pull request for CUBLAS
+	+ pull request for ArgParse
 	- Cleanup kernel calls in kunet.cu
 	- Have kernel softmax return loss?
 	- Cleanup hdf5 format in kunet_h5.cu, get rid of xfunc, yfunc,
 	+ make dropout a layer option.
 	+ Make train call backprop
+	- implement/test maxnorm?
+	- implement/test maxout?
+	- use mnist for regression testing.
 
 2015-02-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -38,20 +51,16 @@
 	- change / check adagrad, nesterov options in cuda
 	- implement/test maxnorm (cuda/matlab, no caffe test)
 
-	- InplaceOps has deprecated
-	- ArgParse has deprecated
-	- CUBLAS does not import/extend blas!
-
 2015-02-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DEBUG:
-	- test_fw_cuda: 2.26s
-	- test_fw_caffe: 3.82s
-	- test_fw_matlab: 3.83s
-	- test_fw_julia_cpu: 21.64s
-	- test_fw_julia_gpu: 5.39s ??? (check ger vs badd; do test with direct ccalls)
+	+ test_fw_cuda: 2.26s
+	+ test_fw_caffe: 3.82s
+	+ test_fw_matlab: 3.83s
+	+ test_fw_julia_cpu: 21.64s
+	+ test_fw_julia_gpu: 5.39s ??? (check ger vs badd; do test with direct ccalls)
 	+ who is allocating 35MB?
-	-- elapsed time: 5.395230859 seconds (35 MB allocated, 0.06% gc time in 1 pauses with 0 full sweep)
+	+ elapsed time: 5.395230859 seconds (35 MB allocated, 0.06% gc time in 1 pauses with 0 full sweep)
 
 2015-02-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -81,11 +90,8 @@
 	+ there should be a generic julia implementation.
 	+ the gpu support should be activated from the main script.
 
-	- implement/test maxnorm?
-	- implement/test maxout?
 	+ speed test?
 	+ momentum kernel, shrink code.
-	- use mnist for regression testing.
 	x cpu/gpu blobs like caffe?  main goal: generic readable code.
 
 	+ implement cuda/predict.
