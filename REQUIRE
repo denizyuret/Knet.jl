@@ -1,5 +1,2 @@
 julia 0.3-
-CUDArt
-CUBLAS
 InplaceOps
-HDF5
