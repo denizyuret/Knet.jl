@@ -1,10 +1,15 @@
-using HDF5
-using CUDArt
 using KUnet
+using HDF5
+
+@KUnet.useif CUDArt
+
+if isdefined(:CUDArt)
 const libkunet = find_library(["libkunet"], ["."])
 typealias Mat CudaArray{Float32,2}
 typealias Cmat Ptr{Float32}
+end
 
+if isdefined(:CUDArt)
 function forward!(x::Matrix{Float32}, x1::Mat, w1::Mat, b1::Mat, x2::Mat, w2::Mat, b2::Mat, x3::Mat, y::Matrix{Float32})
     batch = 937
     xrows,xcols = size(x)
@@ -20,7 +25,9 @@ function forward!(x::Matrix{Float32}, x1::Mat, w1::Mat, b1::Mat, x2::Mat, w2::Ma
     end
     y
 end
+end
 
+if isdefined(:CUDArt)
 function speedtest()
     x = h5read("devx.h5","/data")
     l1 = Layer("dev1.h5")
@@ -41,7 +48,9 @@ function speedtest()
     l2.y = similar(l2.w,(size(l2.w,1), batch))
     @time forward!(x, xx, l1.w, l1.b, l1.y, l2.w, l2.b, l2.y, y)
 end
+end
 
+if isdefined(:CUDArt)
 function speedtest2()
     batch = 937
     x = h5read("devx.h5","/data")
@@ -63,6 +72,7 @@ function speedtest2()
     net = [l1,l2]
     @time KUnet.predict(net, x, batch)
     @time KUnet.predict(net, x, batch)
+end
 end
 
 function speedtest3()
@@ -106,6 +116,7 @@ function speedtest4()
     net
 end
 
+if isdefined(:CUDArt)
 function speedtest5()
     blas_set_num_threads(20)
     batch = 937
@@ -126,6 +137,7 @@ function speedtest5()
     @time KUnet.backprop(net, xx, yy)
     net
 end
+end
 
 function speedtest6()
     blas_set_num_threads(20)
@@ -140,6 +152,7 @@ function speedtest6()
     net
 end
 
+if isdefined(:CUDArt)
 function speedtest7()
     batch = 937
     x = h5read("devx.h5","/data")
@@ -154,4 +167,5 @@ function speedtest7()
     @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
     @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
     net
+end
 end
