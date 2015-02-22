@@ -28,16 +28,21 @@ mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(
 badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
 bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = CUBLAS.scal!(length(A), x, A, 1)
 bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaMatrix) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
+bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = CUBLAS.axpy!(length(A), -1.0f0, CudaArray([x]), 0, A, 1)
 
 # # I could not get this to work:
 # import Base: convert, promote_rule
 # convert(::Type{Mat},x::Transpose{Mat})=x.obj
 # promote_rule(::Type{Mat},::Type{Transpose{Mat}})=Mat
 
-import Base: sum!, zeros, rand!  # TODO: add error checking here since this is not a full implementation of sum!
+import Base: sum!, zeros, rand!, fill!  
+# TODO: add error checking here since this is not a full implementation of sum!
 sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
-zeros(A::CudaMatrix)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
-function rand!(A::CudaMatrix) ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A end
+zeros(A::CudaArray)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
+rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
+fill!(A::CudaArray,x::Float32)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
+
+# TODO: This does not seem to work:
 gpuseed(n::UInt64)=ccall((:gpuseed,libkunet),Void,(Culonglong,),n)
 
 

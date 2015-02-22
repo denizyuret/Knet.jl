@@ -43,6 +43,16 @@ function Net(f::Function, dims::Integer...)
     return net
 end
 
+function Layer(nrows::Integer, ncols::Integer; args...)
+    l = Layer(; args...)
+    arr = isdefined(:CUDArt) ? CudaArray : Array
+    l.w = arr(Float32, nrows, ncols)
+    l.b = arr(Float32, nrows, 1)
+    rand!(l.w); @in1! l.w .- 0.5f0; @in1! l.w .* 0.05f0;
+    fill!(l.b, 0f0)
+    return l
+end
+
 function setparam!(l::Layer,k,v)
     if (k == :dropout)
         l.dropout = v
