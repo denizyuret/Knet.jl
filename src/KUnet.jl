@@ -14,7 +14,7 @@ usegpu(true)
 
 # export Layer, Net, UpdateParam, setparam!
 
-type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; 
+type Layer f; w; b; fx; dw; db; pw; pb; y; x; dx; dropout; xdrop;  # can we use dx for xdrop?
     function Layer(; args...)
         o=new()
         for (k,v)=args
@@ -36,11 +36,11 @@ end
 
 typealias Net Array{Layer,1}
 
-function Net(f::Function, dims::Integer...)
+function Net(fn::Function, dims::Integer...)
     net = Layer[]
     for i=2:length(dims)
         nrows,ncols = dims[i],dims[i-1]
-        l = (i < length(dims)) ? Layer(nrows, ncols; fy=f) : Layer(nrows, ncols)
+        l = (i < length(dims)) ? Layer(nrows, ncols; f=fn) : Layer(nrows, ncols)
         push!(net, l)
     end
     return net
@@ -55,6 +55,14 @@ function Layer(nrows::Integer, ncols::Integer; args...)
     fill!(l.b, 0f0)
     return l
 end
+
+# Parameters can be set at the level of weights, layers, nets, or
+# training sessions.  Here is the lowest level each parameter can be
+# set:
+# weight-specific: learningRate; l1reg; l2reg; maxnorm; adagrad; momentum; nesterov; 
+# layer-specific: dropout, apply_fx, return_dx
+# net-specific: ? 
+# train-specific: batch, iters, loss
 
 function setparam!(l::Layer,k,v)
     if (k == :dropout)

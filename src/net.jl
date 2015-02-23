@@ -58,14 +58,14 @@ function forw(l::Layer, x, apply_fx=true)
     isdefined(l,:fx) && apply_fx && l.fx(l,x)
     @into! l.y = l.w * x
     isdefined(l,:b) && (@in1! l.y .+ l.b)
-    isdefined(l,:fy) && l.fy(l,l.y)
+    isdefined(l,:f) && l.f(l,l.y)
     l.x = x
     return l.y
 end
 
 function back(l::Layer, dy, return_dx=true)
     initback(l, dy, return_dx)
-    isdefined(l,:fy) && l.fy(l,l.y,dy)
+    isdefined(l,:f) && l.f(l,l.y,dy)
     @into! l.dw = dy * l.x'
     isdefined(l,:b) && sum!(l.db, dy)
     return_dx || return
