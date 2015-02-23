@@ -7,7 +7,7 @@ import Base: copy!
 copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
 
 
-if isdefined(:CUDArt)   ########## CUDA extensions:
+if gpu   ########## CUDA extensions:
 
 typealias Cmat Ptr{Float32}
 const libkunet = find_library(["libkunet"], ["."])

@@ -9,6 +9,9 @@ using Base.LinAlg.BLAS
 @useif CUBLAS
 @useif HDF5
 
+usegpu(b::Bool)=(global gpu=(installed(:CUDArt) && b))
+usegpu(true)
+
 # export Layer, Net, UpdateParam, setparam!
 
 type Layer w; b; fx; fy; dw; db; pw; pb; y; x; dx; dropout; xdrop; 
@@ -45,7 +48,7 @@ end
 
 function Layer(nrows::Integer, ncols::Integer; args...)
     l = Layer(; args...)
-    arr = isdefined(:CUDArt) ? CudaArray : Array
+    arr = gpu ? CudaArray : Array
     l.w = arr(Float32, nrows, ncols)
     l.b = arr(Float32, nrows, 1)
     rand!(l.w); @in1! l.w .- 0.5f0; @in1! l.w .* 0.05f0;
