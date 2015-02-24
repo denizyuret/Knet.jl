@@ -12,15 +12,16 @@ if usegpu   ########## CUDA extensions:
 typealias Cmat Ptr{Float32}
 
 # TODO: these don't hang high enough in the type hierarchy
-import InplaceOps: op_ctranspose, Transpose, mul!, badd!, bmul!, bsub! # TODO: non of these implementations are complete
+# TODO: non of these implementations are complete, they are just barely sufficient to make kunet work.
+import InplaceOps: op_ctranspose, Transpose, mul!, badd!, bmul!, bsub! 
 op_ctranspose(x::CudaVecOrMat)=Transpose(x)
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::CudaVecOrMat) = CUBLAS.gemm!('N','N',one(eltype(O)),A,B,zero(eltype(O)),O)  # InplaceOps.jl:53
 mul!(O::CudaVecOrMat, A::Transpose, B::CudaVecOrMat) = CUBLAS.gemm!('T','N',one(eltype(O)),A.obj,B,zero(eltype(O)),O)
 mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(eltype(O)),A,B.obj,zero(eltype(O)),O)
-badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B) # InplaceOps.jl:83
+badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = (ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B);A) # InplaceOps.jl:83
 bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = CUBLAS.scal!(length(A), x, A, 1)
 bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaMatrix) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
-bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A)
+bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, x::Float32) = (ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A);A)
 
 # # I could not get this to work:
 # import Base: convert, promote_rule
