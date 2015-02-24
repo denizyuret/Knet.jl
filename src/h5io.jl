@@ -2,10 +2,10 @@ import HDF5: h5write, h5read
 export h5write
 const dont_save = [:y, :x, :dx, :xdrop]
 
-function Layer(fname::String; gpu=true)
+function Layer(fname::String)
     f = h5open(fname, "r")
     l = Layer()
-    h5read(f["/"], l, gpu)
+    h5read(f["/"], l)
     close(f)
     return l
 end
@@ -26,7 +26,7 @@ function h5read(g::HDF5Group, l::Union(Layer,UpdateParam))
         if in(s, names(l))
             if isa(g[n], HDF5Dataset)
                 l.(s) = read(g[n])
-                gpu && (l.(s) = CudaArray(l.(s)))
+                usegpu && (l.(s) = CudaArray(l.(s)))
             elseif isa(g[n], HDF5Group)
                 assert(isa(l, Layer))
                 l.(s) = UpdateParam()
@@ -51,7 +51,7 @@ function h5write(g::HDF5Group, l)
         if (isdefined(l,n) && !in(n, dont_save))
             if (isa(l.(n), Array))
                 g["$n"] = l.(n)
-            elseif (gpu && isa(l.(n), CudaArray))
+            elseif (isdefined(:CudaArray) && isa(l.(n), CudaArray))
                 g["$n"] = to_host(l.(n))
             elseif (isa(l.(n), Function))
                 attrs(g)[string(n)] = string(l.(n))

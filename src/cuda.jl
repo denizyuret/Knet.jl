@@ -7,10 +7,9 @@ import Base: copy!
 copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
 
 
-if gpu   ########## CUDA extensions:
+if usegpu   ########## CUDA extensions:
 
 typealias Cmat Ptr{Float32}
-const libkunet = find_library(["libkunet"], ["."])
 
 # TODO: these don't hang high enough in the type hierarchy
 import InplaceOps: op_ctranspose, Transpose, mul!, badd!, bmul!, bsub! # TODO: non of these implementations are complete
