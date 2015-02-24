@@ -1,1 +1,3 @@
-println("ok")
+cd("../cuda") do
+    run(`make`)
+end
