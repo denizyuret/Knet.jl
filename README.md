@@ -1,4 +1,4 @@
 # KUnet
 
-* [Installation](docs/installation.md)
+* [Installation](docs/install.md)
 * [Usage](docs/usage.md)
