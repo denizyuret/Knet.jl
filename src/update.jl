@@ -1,14 +1,16 @@
 function update(w, dw, o::UpdateParam)
     initupdate(w, dw, o)
-    isdefined(o,:l1reg) && (o.l1reg > zero(o.l1reg)) && l1reg!(o.l1reg, w, dw)
-    isdefined(o,:l2reg) && (o.l2reg > zero(o.l2reg)) && l2reg!(o.l2reg, w, dw)
-    isdefined(o,:adagrad) && (o.adagrad > zero(o.adagrad)) && adagrad!(o.adagrad, o.ada, dw)
-    isdefined(o,:learningRate) && (o.learningRate != one(o.learningRate)) && (@in1! dw .* o.learningRate)
-    isdefined(o,:momentum) && (o.momentum > zero(o.momentum)) && momentum!(o.momentum, o.mom, dw)
-    isdefined(o,:nesterov) && (o.nesterov > zero(o.nesterov)) && nesterov!(o.nesterov, o.nes, dw)
+    nz(o,:l1reg) && l1reg!(o.l1reg, w, dw)
+    nz(o,:l2reg) && l2reg!(o.l2reg, w, dw)
+    nz(o,:adagrad) && adagrad!(o.adagrad, o.ada, dw)
+    nz(o,:learningRate,1f0) && (@in1! dw .* o.learningRate)
+    nz(o,:momentum) && momentum!(o.momentum, o.mom, dw)
+    nz(o,:nesterov) && nesterov!(o.nesterov, o.nes, dw)
     @in1! w .- dw
-    isdefined(o,:maxnorm) && (o.maxnorm > zero(o.maxnorm)) && maxnorm!(o.maxnorm, w)
+    nz(o,:maxnorm) && maxnorm!(o.maxnorm, w)
 end
+
+nz(o,n,v=0f0)=(isdefined(o,n) && (o.(n) != v))
 
 l1reg!(l1, w, dw)=(for i=1:length(dw) (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0 end)
 l2reg!(l2, w, dw)=axpy!(length(dw), l2, w, 1, dw, 1)
