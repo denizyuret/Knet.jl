@@ -27,7 +27,7 @@ Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, 
 type UpdateParam learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; UpdateParam(lr)=new(lr); end
 
 function UpdateParam(; learningRate=0.01f0, args...)
-    o=new(learningRate)
+    o=UpdateParam(learningRate)
     for (k,v)=args
         in(k, names(o)) ? (o.(k) = v) : warn("UpdateParam has no field $k")
     end
