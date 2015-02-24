@@ -1,7 +1,16 @@
+2015-02-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- start writing documentation.
+	- try install/test on a new gpu/cpu machine.
+	- build tests based on mnist.
+	- compare with matlab/caffe if they exist.
+	- what other tests?  gradient?  store answers?
+
 2015-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/KUnet.jl:
-	- reconsider the constructors: they should only allow meaningful
+	+ reconsider the constructors: they should only allow meaningful
 	fields to be set, and they should call setparam for updateparams.
 	- implement convnet: ConvLayer <: Layer
 	- centralize memory allocation
