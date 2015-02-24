@@ -1,3 +1,12 @@
+2015-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/KUnet.jl:
+	- reconsider the constructors: they should only allow meaningful
+	fields to be set, and they should call setparam for updateparams.
+	- implement convnet: ConvLayer <: Layer
+	- centralize memory allocation
+	- hdf5 save for whole net.
+
 2015-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
