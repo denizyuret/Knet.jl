@@ -1,5 +1,3 @@
-export relu, drop, softmaxloss
-
 # ACTIVATION FUNCTION INTERFACE: We use the same name for the
 # activation function (relu, sigm, etc.) and its derivative.  That way
 # a layer can have a single function field and the user cannot pair a
