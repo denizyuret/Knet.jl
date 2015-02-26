@@ -9,8 +9,6 @@ const ytrn_file = "train-labels-idx1-ubyte.gz"
 const xtst_file = "t10k-images-idx3-ubyte.gz"
 const ytst_file = "t10k-labels-idx1-ubyte.gz"
 
-type Data xtrn; ytrn; xtst; ytst; end
-
 function wgetzcat(gz)
     isfile(gz) || run(`wget $mnisturl/$gz`)
     fh = GZip.open(gz)
