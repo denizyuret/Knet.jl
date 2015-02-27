@@ -1,7 +1,7 @@
-function backprop(net::Net, x, y, loss=softmaxloss)
-    x = forw(net, x)
-    loss(x, y)
-    back(net, y)
+function backprop(net::Net, x, dy, loss=softmaxloss)
+    y = forw(net, x) 	# y: network output
+    loss(y, dy)         # dy: desired output -> gradient
+    back(net, dy)       # calculate derivatives
 end
 
 function forw(l::Layer, x, apply_fx=true)
