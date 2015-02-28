@@ -2,6 +2,7 @@ module KUnet
 
 using InplaceOps
 using Base.LinAlg.BLAS
+using HDF5
 
 # Conditional module import
 installed(pkg)=isdir(Pkg.dir(string(pkg)))
@@ -26,10 +27,7 @@ include("cuda.jl")
 include("net.jl")
 include("update.jl")
 include("func.jl")
+include("h5io.jl")
 ###################
-
-# HDF5 file I/O support
-@useif HDF5
-isdefined(:HDF5) && include("h5io.jl")
 
 end # module
