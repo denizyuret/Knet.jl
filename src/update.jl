@@ -33,8 +33,8 @@ function maxnorm!(maxnorm, w)
 end
 
 function initupdate(w, dw, o::UpdateParam)
-    isdefined(o,:adagrad)  && (o.adagrad > zero(o.adagrad))   && resize(o, :ada, dw; fill=0f0)
-    isdefined(o,:momentum) && (o.momentum > zero(o.momentum)) && resize(o, :mom, dw; fill=0f0)
-    isdefined(o,:nesterov) && (o.nesterov > zero(o.nesterov)) && resize(o, :nes, dw; fill=0f0)
+    isdefined(o,:adagrad)  && (o.adagrad > zero(o.adagrad))   && chksize(o, :ada, dw; fill=0f0)
+    isdefined(o,:momentum) && (o.momentum > zero(o.momentum)) && chksize(o, :mom, dw; fill=0f0)
+    isdefined(o,:nesterov) && (o.nesterov > zero(o.nesterov)) && chksize(o, :nes, dw; fill=0f0)
 end
 
