@@ -8,21 +8,13 @@ julia> Pkg.clone("git@github.com:denizyuret/KUnet.jl.git")
 ```
 
 This should automatically install other required packages
-(e.g. InplaceOps) if you don't have them already.  There are also a
-number of optional packages KUnet can use if installed:
+(e.g. InplaceOps, HDF5) if you don't have them already.  
 
-To work with a GPU (optional but highly recommended), you need to have
-CUDA installed and add the following packages:
+There are also a number of optional packages KUnet can use if
+installed: To work with a GPU (optional but highly recommended), you
+need to have CUDA installed and add the following packages:
 
 ```
 julia> Pkg.add("CUDArt")
 julia> Pkg.add("CUBLAS")
 ```
-
-KUnet supports saving and loading networks in HDF5 format if you
-install this optional package:
-
-```
-julia> Pkg.add("HDF5")
-```
-
