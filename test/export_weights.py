@@ -18,7 +18,7 @@ for k,v in net.params.iteritems():
         f.create_dataset('dw', data=v[0].diff.squeeze().transpose())
         f.create_dataset('db', data=v[1].diff.squeeze(axis=(1,2)))
     if nout == 1:
-        f.attrs['fy'] = np.string_('relu') # for julia
+        f.attrs['f'] = np.string_('relu') # for julia
         f.attrs['xfunc'] = np.int32(0)     # for cuda
         f.attrs['yfunc'] = np.int32(1)
     else:
