@@ -7,8 +7,8 @@ function layer = h5read_layer(fname)
     if ismember('b', {info.Datasets.Name}) 
         b = h5read(fname, '/b'); 
     end
-    if (ismember('fy', {info.Attributes.Name}))
-        if (strcmp(h5readatt(fname, '/', 'fy'), 'relu'))
+    if (ismember('f', {info.Attributes.Name}))
+        if (strcmp(h5readatt(fname, '/', 'f'), 'relu'))
             layer = relu('w', [b,w], 'bias', 1);
         else
             layer = soft('w', [b,w], 'bias', 1);

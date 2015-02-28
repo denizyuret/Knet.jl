@@ -91,12 +91,12 @@ test_fw_caffe.h5: predict.py dev.net dev.caffemodel
 test_fw_julia.h5: predict.jl devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: julia'
 	-rm $@
-	julia predict.jl devx.h5 dev1.h5 dev2.h5 $@
+	julia predict.jl --batch ${FWB} devx.h5 dev1.h5,dev2.h5 $@
 
 test_fw_juliacpu.h5: predictcpu.jl devx.h5 dev1.h5 dev2.h5
 	@echo '==> Predict test: juliacpu'
 	-rm $@
-	julia predictcpu.jl devx.h5 dev1.h5 dev2.h5 $@
+	julia predict.jl --nogpu --batch ${FWB} devx.h5 dev1.h5,dev2.h5 $@
 
 ### BACKPROP TEST
 
@@ -135,13 +135,13 @@ test_bp_caffe1.h5: backprop.py dev.net rnd.caffemodel
 	@echo '==> Backprop test: caffe'
 	python $^ test_bp_caffe 2> test_bp_caffe.log
 
-test_bp_juliacpu1.h5: backpropcpu.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
+test_bp_juliacpu1.h5: backprop.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: juliacpu'
-	julia $^ test_bp_juliacpu
+	julia backprop.jl devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_bp_juliacpu --nogpu --batch ${BPB}
 
 test_bp_julia1.h5: backprop.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> Backprop test: julia'
-	julia $^ test_bp_julia
+	julia backprop.jl devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_bp_julia --batch ${BPB}
 
 
 ### LEARNING RATE
