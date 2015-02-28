@@ -28,7 +28,7 @@ end
 initforw(l, x)=resize(l, :y, l.w, (size(l.w,1),size(x,2)))
 initback(l, dy, return_dx)=(resize(l, :dw, l.w); resize(l, :db, l.b); return_dx && resize(l, :dx, l.x))
 forw(n::Net, x, fx=true) = (for l=n x=forw(l,x,fx) end; x)
-back(n::Net, y) = (for i=length(n):-1:1 y=back(n[i],y,i>1) end)
+back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
 
 
 function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
