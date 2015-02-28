@@ -1,11 +1,35 @@
 using HDF5
+using ArgParse
 using KUnet
-@time x = h5read(ARGS[1], "/data")
-@time l1 = KUnet.Layer(ARGS[2])
-@time l2 = KUnet.Layer(ARGS[3])
-net = [l1,l2]
-@time gc()
-@time y = KUnet.predict(net, x, batch=937)
-@time y = KUnet.predict(net, x, batch=937)
-# Profile.print()
-@time h5write(ARGS[4], "data", y)
+
+function main()
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        "x"
+        help = "HDF5 file for input"
+        required = true
+        "net"
+        help = "Comma separated list of HDF5 layer files"
+        required = true
+        "out"
+        help = "File prefix for trained output layer files"
+        required = true
+        "--nogpu"
+        help = "Do not use gpu"
+        action = :store_true
+        "--batch"
+        help = "Minibatch size"
+        arg_type = Int
+        default = 128
+    end
+    args = parse_args(s)
+    KUnet.gpu(!args["nogpu"])
+    x = h5read(args["x"], "/data")
+    net = map(l->Layer(l), split(args["net"],','))
+    gc()
+    @time y = predict(net, x, batch=args["batch"])
+    @time y = predict(net, x, batch=args["batch"])
+    h5write(args["out"], "data", y)
+end
+
+main()
