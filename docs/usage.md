@@ -66,7 +66,7 @@ possible to save layers to HDF5 files using `h5write(fname::String,
 l::Layer)` and read them using `Layer(fname::String)`.  Please see
 `types.jl` and `h5io.jl` for details.
 
-OK, now that we have a data and a network, let's proceed with training.
+OK, now that we have some data and a network, let's proceed with training.
 Here is a convenience function to measure the classification accuracy:
 ```
 julia> accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
