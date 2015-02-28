@@ -60,7 +60,7 @@ Note that the weight matrix for a Layer with 784 inputs and 64 outputs
 has size (64, 784).
 
 The bias, as well as the activation function, are optional.  Training
-parameters like the learningRate can be specified during layer
+parameters like the learningRate can be specified during net/layer
 construction, as well as afterward using setparam!.  It is also
 possible to save layers to HDF5 files using `h5write(fname::String,
 l::Layer)` and read them using `Layer(fname::String)`.  Please see
@@ -93,12 +93,12 @@ every epoch.  100 epochs take about 26 seconds with a K20 GPU:
 ```
 
 Note that for actual research we should not be looking at the test set 
-accuracy at this point.  We should instead split the training set into a training and a development portion and do all our playing around with those.  But, this is just a KUnet tutorial.
+accuracy at this point.  We should instead split the training set into a training and a development portion and do all our playing around with those.  We should also run each experiment 10 times with different random seeds and measure standard errors, etc.  But, this is just a KUnet tutorial.
 
 It seems the training set accuracy is not that great.  Maybe increasing the learning rate may help:
 ```
 julia> net = Net(relu, 784, 64, 10)
-julia> setparam!(net, :learningRate, 0.5)
+julia> setparam!(net, learningRate=0.5)
 for i=1:100
     train(net, xtrn, ytrn)
     println((i, accuracy(ytst, predict(net, xtst)), 
@@ -113,15 +113,39 @@ end
 (51,0.9793,1.0)
 ```
 
-Wow!  We got 100% training set accuracy in 50 epochs.  But the test set is still lagging behind.  This is a problem of overfitting, not optimization.  So playing with optimization parameters like adagrad, momentum, nesterov etc. probably won't help.  We should play with regularization or dropout.
+Wow!  We got 100% training set accuracy in 50 epochs.  Let's save this network for posterity:
 ```
-julia> net = Net(relu, 784, 64, 10)
-julia> setparam!(net, :learningRate, 0.5)
-julia> setparam!(net, :dropout, 0.5)
-julia> setparam!(net[1], :dropout, 0.2)
-for i=1:100
-    train(net, xtrn, ytrn)
-    println((i, accuracy(ytst, predict(net, xtst)), 
-                accuracy(ytrn, predict(net, xtrn))))
+julia> h5write("layer1.h5", net[1])
+julia> h5write("layer2.h5", net[2])
+```
+
+But the test set is still lagging behind.  What if we try increasing the number of hidden units (use the same for loop for each net below):
+```
+julia> net = Net(relu, 784, 128, 10; learningRate=0.5)  # (44,0.9808,1.0)
+julia> net = Net(relu, 784, 256, 10; learningRate=0.5)  # (37,0.9827,1.0)
+julia> net = Net(relu, 784, 512, 10; learningRate=0.5)  # (35,0.983,1.0)
+julia> net = Net(relu, 784, 1024, 10; learningRate=0.5)  # (30,0.9835,1.0)
+```
+
+This is unexpected, we were already overfitting with 64 hidden units, and common wisdom is not to increase the capacity of the network by increasing the hidden units in that situation.  Maybe we should try dropout:
+```
+julia> net = Net(relu, 784, 1024, 10; dropout=0.5, learningRate=0.5)
+julia> setparam!(net[1], dropout=0.2)   # first layer drops less
+@time for i=1:100                                                                                                   
+    train(net, xtrn, ytrn)                                                                                                 
+    println((i, accuracy(ytst, predict(net, xtst)), accuracy(ytrn, predict(net, xtrn))))                                   
 end
+...
+(100,0.988,0.9999)
+elapsed time: 70.73067047 seconds (875 MB allocated, 0.18% gc time in 40 pauses with 0 full sweep)
 ```
+
+Or bigger and bigger nets:
+```
+julia> net = Net(relu, 784, 4096, 4096, 10; dropout=0.5, learningRate=0.5)
+julia> setparam!(net[1], dropout=0.2)
+# same for loop...
+(100,0.9896,0.9998166666666667)
+elapsed time: 804.242212488 seconds (1080 MB allocated, 0.02% gc time in 49 pauses with 0 full sweep)
+```
+OK, that's enough fiddling around.  I hope this gave you enough to get your hands dirty.  We are already among the better results on the [MNIST website](http://yann.lecun.com/exdb/mnist) in the "permutation invariant, no distortion" category.  I am sure you can do better playing around with the learning rate, the momentum, adagrad and regularization, unit and layer types and counts etc.  But be careful, it is adictive :)
