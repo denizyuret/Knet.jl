@@ -51,6 +51,7 @@ function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
         end
         iters > 0 && e/batch >= iters && break
     end
+    free(buf.x); free(buf.y) # this should not be necessary now that gc() works...
 end
 
 function inittrain(net::Net, x, y, batch)
