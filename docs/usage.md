@@ -66,3 +66,62 @@ possible to save layers to HDF5 files using `h5write(fname::String,
 l::Layer)` and read them using `Layer(fname::String)`.  Please see
 `types.jl` and `h5io.jl` for details.
 
+OK, now that we have a data and a network, let's proceed with training.
+Here is a convenience function to measure the classification accuracy:
+```
+julia> accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
+```
+
+Let's do 100 epochs using default settings (learningRate=0.01, minibatch size=128):
+```
+for i=1:100
+    train(net, xtrn, ytrn)
+    println((i, accuracy(ytst, predict(net, xtst)), 
+                accuracy(ytrn, predict(net, xtrn))))
+end
+```
+
+This should print out the test set and training set accuracy at the end of
+every epoch.  100 epochs take about 26 seconds with a K20 GPU:
+```
+(1,0.3665,0.36438333333333334)
+(2,0.7304,0.7236166666666667)
+(3,0.8264,0.82115)
+...
+(99,0.9616,0.9666)
+(100,0.9619,0.9668833333333333)
+```
+
+Note that for actual research we should not be looking at the test set 
+accuracy at this point.  We should instead split the training set into a training and a development portion and do all our playing around with those.  But, this is just a KUnet tutorial.
+
+It seems the training set accuracy is not that great.  Maybe increasing the learning rate may help:
+```
+julia> net = Net(relu, 784, 64, 10)
+julia> setparam!(net, :learningRate, 0.5)
+for i=1:100
+    train(net, xtrn, ytrn)
+    println((i, accuracy(ytst, predict(net, xtst)), 
+                accuracy(ytrn, predict(net, xtrn))))
+end
+
+(1,0.9112,0.91185)
+(2,0.9441,0.9436)
+(3,0.9579,0.9598666666666666)
+...
+(50,0.9791,0.9999833333333333)
+(51,0.9793,1.0)
+```
+
+Wow!  We got 100% training set accuracy in 50 epochs.  But the test set is still lagging behind.  This is a problem of overfitting, not optimization.  So playing with optimization parameters like adagrad, momentum, nesterov etc. probably won't help.  We should play with regularization or dropout.
+```
+julia> net = Net(relu, 784, 64, 10)
+julia> setparam!(net, :learningRate, 0.5)
+julia> setparam!(net, :dropout, 0.5)
+julia> setparam!(net[1], :dropout, 0.2)
+for i=1:100
+    train(net, xtrn, ytrn)
+    println((i, accuracy(ytst, predict(net, xtst)), 
+                accuracy(ytrn, predict(net, xtrn))))
+end
+```
