@@ -24,6 +24,7 @@ function main()
     end
     args = parse_args(s)
     KUnet.gpu(!args["nogpu"])
+    args["nogpu"] && blas_set_num_threads(20)
     x = h5read(args["x"], "/data")
     net = map(l->Layer(l), split(args["net"],','))
     gc()
