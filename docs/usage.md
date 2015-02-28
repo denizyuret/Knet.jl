@@ -148,4 +148,4 @@ julia> setparam!(net[1], dropout=0.2)
 (100,0.9896,0.9998166666666667)
 elapsed time: 804.242212488 seconds (1080 MB allocated, 0.02% gc time in 49 pauses with 0 full sweep)
 ```
-OK, that's enough fiddling around.  I hope this gave you enough to get your hands dirty.  We are already among the better results on the [MNIST website](http://yann.lecun.com/exdb/mnist) in the "permutation invariant, no distortion" category.  I am sure you can do better playing around with the learning rate, the momentum, adagrad and regularization, unit and layer types and counts etc.  But be careful, it is adictive :)
+OK, that's enough fiddling around.  I hope this gave you enough to get your hands dirty.  We are already among the better results on the [MNIST website](http://yann.lecun.com/exdb/mnist) in the "permutation invariant, no distortion" category.  I am sure you can do better playing around with the learning rate, the momentum, adagrad and regularization, unit and layer types and counts etc.  But be careful, it could become addictive :)
