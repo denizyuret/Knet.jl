@@ -79,9 +79,10 @@ end
 
 function main()
     args = parse_commandline()
+    KUnet.gpu(!args["nogpu"])
     x = h5read(args["x"], "/data"); 
     y = h5read(args["y"], "/data"); 
-    net = map(l->Layer(l,gpu=!args["nogpu"]), split(args["net"],','))
+    net = map(l->Layer(l), split(args["net"],','))
     for (a,v) in args
         if !in(a, ["x","y","nogpu","net","batch","iters","loss","out"])
             setparam!(net, symbol(a), v)
