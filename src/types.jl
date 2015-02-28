@@ -7,13 +7,13 @@ Layer(w; o...) = (l=Layer(); l.w=atype(w); setparam!(l; o...); l)
 Layer(w, b; o...) = (l=Layer(w; o...); l.b=atype(b); l)
 Layer(f::Function, w; o...) = (l=Layer(w; o...); l.f=f; l)
 Layer(f::Function, w, b; o...) = (l=Layer(w,b; o...); l.f=f; l)
-Layer(r::Integer, c::Integer; bias=true, o...) = (w=float32(randn(r,c)*0.01);bias ? Layer(w,zeros(Float32, r, 1);o...) : Layer(w; o...))
-Layer(f::Function, r::Integer, c::Integer; o...) = (l=Layer(r,c;o...); l.f=f; l)
+Layer(c::Integer, r::Integer; bias=true, o...) = (w=float32(randn(r,c)*0.01);bias ? Layer(w,zeros(Float32, r, 1);o...) : Layer(w; o...))
+Layer(f::Function, c::Integer, r::Integer; o...) = (l=Layer(c,r;o...); l.f=f; l)
 
 # Net: Convenience type and constructor for an array of layers
 
 typealias Net Array{Layer,1}
-Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i],d[i-1];o...) : Layer(d[i],d[i-1];o...)); end; n)
+Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
 
 
 # UpdateParam: Parameters can be set at the level of weights, layers, nets, or
@@ -28,11 +28,13 @@ type UpdateParam learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mo
 
 function UpdateParam(; learningRate=0.01f0, args...)
     o=UpdateParam(learningRate)
-    for (k,v)=args
-        in(k, names(o)) ? (o.(k) = v) : warn("UpdateParam has no field $k")
-    end
+    setparam!(o; args...)
     return o
 end
+
+setparam!(x; args...)=(for (k,v)=args; setparam!(x,k,v); end)
+setparam!(p::UpdateParam,k,v)=(p.(k)=convert(Float32, v))
+setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
 
 function setparam!(l::Layer,k,v)
     if (k == :dropout)
@@ -53,12 +55,6 @@ function setparam!(l::Layer,k,v)
         end
     end
 end
-
-setparam!(p::UpdateParam,k,v)=(p.(k)=v)
-
-setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
-
-setparam!(x; args...)=(for (k,v)=args; setparam!(x,k,v); end)
 
 
 # Just a convenience type for training etc.
