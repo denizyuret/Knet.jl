@@ -22,7 +22,7 @@ relu(l,y,dy)=for i=1:length(y) y[i]==zero(y[i])&&(dy[i]=zero(dy[i])) end
 
 function drop(l, x)
     if l.dropout > 0
-        resize(l, :xdrop, x)
+        chksize(l, :xdrop, x)
         rand!(l.xdrop)
         drop(x, l.xdrop, l.dropout, 1/(1-l.dropout))
     end
