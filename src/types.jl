@@ -59,3 +59,8 @@ setparam!(p::UpdateParam,k,v)=(p.(k)=v)
 setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
 
 setparam!(x; args...)=(for (k,v)=args; setparam!(x,k,v); end)
+
+
+# Just a convenience type for training etc.
+type XY x; y; XY()=new(); end
+
