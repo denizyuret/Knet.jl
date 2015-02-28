@@ -45,12 +45,13 @@ function h5write(fname::String, l::Layer)
     close(f)
 end
 
+
 function h5write(g::HDF5Group, l)
     for n in names(l)
         if (isdefined(l,n) && !in(n, dont_save))
             if (isa(l.(n), Array))
                 g["$n"] = l.(n)
-            elseif (isdefined(:CudaArray) && isa(l.(n), CudaArray))
+            elseif (isdefined(:CUDArt) && isa(l.(n), CUDArt.CudaArray))
                 g["$n"] = to_host(l.(n))
             elseif (isa(l.(n), Function))
                 attrs(g)[string(n)] = string(l.(n))
@@ -65,3 +66,4 @@ function h5write(g::HDF5Group, l)
         end
     end
 end
+
