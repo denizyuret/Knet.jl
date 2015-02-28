@@ -25,8 +25,8 @@ function back(l::Layer, dy, return_dx=true)
     return l.dx
 end
 
-initforw(l, x)=resize(l, :y, l.w, (size(l.w,1),size(x,2)))
-initback(l, dy, return_dx)=(resize(l, :dw, l.w); resize(l, :db, l.b); return_dx && resize(l, :dx, l.x))
+initforw(l, x)=chksize(l, :y, l.w, (size(l.w,1),size(x,2)))
+initback(l, dy, return_dx)=(chksize(l, :dw, l.w); chksize(l, :db, l.b); return_dx && chksize(l, :dx, l.x))
 forw(n::Net, x, fx=true) = (for l=n x=forw(l,x,fx) end; x)
 back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
 
@@ -39,8 +39,8 @@ function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
         e = b + batch - 1
         if (e > xcols)
             e = xcols
-            resize(buf, :x, net[1].w, (xrows, e-b+1))
-            resize(buf, :y, net[end].w, (yrows, e-b+1))
+            chksize(buf, :x, net[1].w, (xrows, e-b+1))
+            chksize(buf, :y, net[end].w, (yrows, e-b+1))
         end
         copy!(buf.x, (1:xrows,1:e-b+1), x, (1:xrows,b:e))
         copy!(buf.y, (1:yrows,1:e-b+1), y, (1:yrows,b:e))
@@ -53,16 +53,14 @@ function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
     end
 end
 
-Type XY; x; y; XY()=new() end
-
-function inittrain(n::Net, x, y, batch)
-    for l in n
+function inittrain(net::Net, x, y, batch)
+    for l in net
         isdefined(l,:w) && !isdefined(l,:pw) && (l.pw = UpdateParam())    
         isdefined(l,:b) && !isdefined(l,:pb) && (l.pb = UpdateParam())
     end
     buf = XY()
-    resize(buf, :x, net[1].w, (size(x, 1), batch))
-    resize(buf, :y, net[end].w, (size(y, 1), batch))
+    chksize(buf, :x, net[1].w, (size(x, 1), batch))
+    chksize(buf, :y, net[end].w, (size(y, 1), batch))
     return buf
 end
 
@@ -88,7 +86,7 @@ function predict(net::Net, x; batch=0)
 end
 
 
-function resize(l, n, a, dims=size(a); fill=nothing)
+function chksize(l, n, a, dims=size(a); fill=nothing)
     if !isdefined(l,n) 
         l.(n) = similar(a, dims)
         fill != nothing && fill!(l.(n), fill)
