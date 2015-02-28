@@ -29,7 +29,7 @@ include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, ran
 include("net.jl");	export train, predict
 include("update.jl");	# implements update: helper for train
 include("func.jl");     export relu, drop, softmaxloss
-include("h5io.jl");	# implements Layer(::String), h5write(::String, ::Layer)
+include("h5io.jl");	export h5write
 #########################
 
 end # module
