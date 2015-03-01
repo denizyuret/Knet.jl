@@ -1,7 +1,12 @@
+2015-03-01  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- make number type generic, test Float64
+
 2015-02-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	- start writing documentation.
+	+ start writing documentation.
 	- try install/test on a new gpu/cpu machine.
 	- build tests based on mnist.
 	- compare with matlab/caffe if they exist.
@@ -13,7 +18,7 @@
 	+ reconsider the constructors: they should only allow meaningful
 	fields to be set, and they should call setparam for updateparams.
 	- implement convnet: ConvLayer <: Layer
-	- centralize memory allocation
+	+ centralize memory allocation
 	- hdf5 save for whole net.
 
 2015-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
@@ -25,7 +30,7 @@
 
 	* TODO:
 
-	- Write blogpost/README: deep learning in 250 lines of julia (needs mnist)
+	+ Write blogpost/README: deep learning in 250 lines of julia (needs mnist)
 	- Write blogpost on overfitting (needs mnist)
 	- Cleanup hdf5 files.
 	- Figure out automatic testing.
@@ -34,10 +39,10 @@
 	+ make loss a training option.
 	- Add sigmoid layer.
 	+ Make b and yforw conditional?
-	- Figure out if we have a gpu and if we are using a gpu, test code on no-gpu machine
+	+ Figure out if we have a gpu and if we are using a gpu, test code on no-gpu machine
 	+ Export functions
-	- Make layer constructors that take size and generate random matrices
-	- Make layer constructors that take arbitrary matrices, h5 files
+	+ Make layer constructors that take size and generate random matrices
+	+ Make layer constructors that take arbitrary matrices, h5 files
 	- Error checking in cuda.jl
 	+ pull request for InplaceOps
 	+ pull request for CUBLAS
