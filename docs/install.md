@@ -5,6 +5,7 @@ without GPUs.  You should be able to install KUnet simply with:
 
 ```
 julia> Pkg.clone("git@github.com:denizyuret/KUnet.jl.git")
+julia> Pkg.build("KUnet")
 ```
 
 This should automatically install other required packages
