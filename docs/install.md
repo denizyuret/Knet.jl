@@ -17,15 +17,5 @@ need to have CUDA installed and add the following packages:
 
 ```
 julia> Pkg.add("CUDArt")
-julia> Pkg.add("CUBLAS")
-```
-
-Unfortunately CUBLAS has some incompatibilities with the latest
-versions of Julia.  I recommend the following modifications in
-CUBLAS.jl (which will be in ~/.julia/v0.4/CUBLAS/src after
-installation):
-
-```
-typealias BlasChar Char #import Base.LinAlg.BlasChar
-importall Base.LinAlg.BLAS
+julia> Pkg.clone("git@github.com:denizyuret/CUBLAS.jl.git")
 ```
