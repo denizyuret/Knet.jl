@@ -36,7 +36,7 @@ end
 
 setparam!(x; args...)=(for (k,v)=args; setparam!(x,k,v); end)
 setparam!(p::UpdateParam,k,v)=(p.(k)=convert(Float32, v))
-setparam!(net::Net,k,v)=for l=net setparam!(l,k,v) end
+setparam!(net::Net,k,v)=for l=net; setparam!(l,k,v) end
 
 function setparam!(l::Layer,k,v)
     if (k == :dropout)

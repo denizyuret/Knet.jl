@@ -27,7 +27,7 @@ end
 
 initforw(l, x)=chksize(l, :y, l.w, (size(l.w,1),size(x,2)))
 initback(l, dy, return_dx)=(chksize(l, :dw, l.w); chksize(l, :db, l.b); return_dx && chksize(l, :dx, l.x))
-forw(n::Net, x, fx=true) = (for l=n x=forw(l,x,fx) end; x)
+forw(n::Net, x, fx=true) = (for l=n; x=forw(l,x,fx) end; x)
 back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
 
 

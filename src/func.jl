@@ -11,8 +11,8 @@
 # signature.  These functions modify their arguments in place and do
 # not return anything.  TODO: Implement sigmoid and maxout
 
-relu(l,y)=for i=1:length(y) y[i]<zero(y[i])&&(y[i]=zero(y[i])) end
-relu(l,y,dy)=for i=1:length(y) y[i]==zero(y[i])&&(dy[i]=zero(dy[i])) end
+relu(l,y)=for i=1:length(y); (y[i]<zero(y[i]))&&(y[i]=zero(y[i])) end
+relu(l,y,dy)=for i=1:length(y); (y[i]==zero(y[i]))&&(dy[i]=zero(dy[i])) end
 
 
 # PREPROCESSING FUNCTION INTERFACE: A preprocessing function
@@ -34,7 +34,7 @@ function drop(l, x, dx)
     end
 end
 
-drop(x, xdrop, dropout, scale)=for i=1:length(x) x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]) end
+drop(x, xdrop, dropout, scale)=for i=1:length(x); x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]) end
 
 
 # LOSS INTERFACE: A loss function takes y, the network output, and dy,
@@ -48,7 +48,9 @@ function softmaxloss(y, dy)
     prob = similar(y, yrows)
     for j=1:ycols
         ymax = y[1,j]
-        for i=2:yrows y[i,j] > ymax && (ymax = y[i,j]) end
+        for i=2:yrows 
+	    y[i,j] > ymax && (ymax = y[i,j]) 
+	end
         psum = zero(ymax)
         for i=1:yrows
             yij = y[i,j] - ymax

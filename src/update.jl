@@ -12,9 +12,9 @@ end
 
 nz(o,n,v=0f0)=(isdefined(o,n) && (o.(n) != v))
 
-l1reg!(l1, w, dw)=(for i=1:length(dw) (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0 end)
+l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
 l2reg!(l2, w, dw)=axpy!(length(dw), l2, w, 1, dw, 1)
-adagrad!(eps, dw2, dw)=(for i=1:length(dw) (dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i]))) end)
+adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
 momentum!(m, dw2, dw)=(axpy!(length(dw), m, dw2, 1, dw, 1);copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
