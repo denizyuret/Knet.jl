@@ -30,7 +30,7 @@ julia> xtrn, ytrn, xtst, ytst
 Let's construct a neural net with a single layer of 64 hidden units
 using the relu activation function.
 ```
-julia> net = Net(relu, 784, 64, 10);
+julia> net = newnet(relu, 784, 64, 10);
 ```
 
 We could have done the same thing constructing each layer separately.
@@ -97,7 +97,7 @@ accuracy at this point.  We should instead split the training set into a trainin
 
 It seems the training set accuracy is not that great.  Maybe increasing the learning rate may help:
 ```
-julia> net = Net(relu, 784, 64, 10)
+julia> net = newnet(relu, 784, 64, 10)
 julia> setparam!(net, learningRate=0.5)
 for i=1:100
     train(net, xtrn, ytrn)
@@ -121,15 +121,15 @@ julia> h5write("layer2.h5", net[2])
 
 But the test set is still lagging behind.  What if we try increasing the number of hidden units (use the same for loop for each net below):
 ```
-julia> net = Net(relu, 784, 128, 10; learningRate=0.5)  # (44,0.9808,1.0)
-julia> net = Net(relu, 784, 256, 10; learningRate=0.5)  # (37,0.9827,1.0)
-julia> net = Net(relu, 784, 512, 10; learningRate=0.5)  # (35,0.983,1.0)
-julia> net = Net(relu, 784, 1024, 10; learningRate=0.5)  # (30,0.9835,1.0)
+julia> net = newnet(relu, 784, 128, 10; learningRate=0.5)  # (44,0.9808,1.0)
+julia> net = newnet(relu, 784, 256, 10; learningRate=0.5)  # (37,0.9827,1.0)
+julia> net = newnet(relu, 784, 512, 10; learningRate=0.5)  # (35,0.983,1.0)
+julia> net = newnet(relu, 784, 1024, 10; learningRate=0.5)  # (30,0.9835,1.0)
 ```
 
 This is unexpected, we were already overfitting with 64 hidden units, and common wisdom is not to increase the capacity of the network by increasing the hidden units in that situation.  Maybe we should try dropout:
 ```
-julia> net = Net(relu, 784, 1024, 10; dropout=0.5, learningRate=0.5)
+julia> net = newnet(relu, 784, 1024, 10; dropout=0.5, learningRate=0.5)
 julia> setparam!(net[1], dropout=0.2)   # first layer drops less
 @time for i=1:100                                                                                                   
     train(net, xtrn, ytrn)                                                                                                 
@@ -142,7 +142,7 @@ elapsed time: 70.73067047 seconds (875 MB allocated, 0.18% gc time in 40 pauses 
 
 Or bigger and bigger nets:
 ```
-julia> net = Net(relu, 784, 4096, 4096, 10; dropout=0.5, learningRate=0.5)
+julia> net = newnet(relu, 784, 4096, 4096, 10; dropout=0.5, learningRate=0.5)
 julia> setparam!(net[1], dropout=0.2)
 # same for loop...
 (100,0.9896,0.9998166666666667)
