@@ -6,6 +6,13 @@
 import Base: copy!
 copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
 
+# when gc works these should not be necessary:
+if isdefined(:CUDArt)
+    import CUDArt: free, to_host
+end
+free(x)=x
+to_host(x)=x
+
 
 if usegpu   ########## CUDA extensions:
 
@@ -38,11 +45,6 @@ fill!(A::CudaArray,x::Float32)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),l
 # TODO: This does not seem to work:
 gpuseed(n::UInt64)=ccall((:gpuseed,libkunet),Void,(Culonglong,),n)
 
-# when gc works these should not be necessary:
-import CUDArt: free, to_host
-free(x)=x
-to_host(x)=x
-
 # For debugging
 function gpumem()
     mfree=Csize_t[1]
@@ -52,3 +54,4 @@ function gpumem()
 end
 
 end	########## CUDA extensions
+
