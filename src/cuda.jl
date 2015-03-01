@@ -43,7 +43,7 @@ rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A
 fill!(A::CudaArray,x::Float32)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
 
 # TODO: This does not seem to work:
-gpuseed(n::UInt64)=ccall((:gpuseed,libkunet),Void,(Culonglong,),n)
+gpuseed(n::Culonglong)=ccall((:gpuseed,libkunet),Void,(Culonglong,),n)
 
 # For debugging
 function gpumem()
