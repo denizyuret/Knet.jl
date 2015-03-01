@@ -13,7 +13,9 @@ Layer(f::Function, c::Integer, r::Integer; o...) = (l=Layer(c,r;o...); l.f=f; l)
 # Net: Convenience type and constructor for an array of layers
 
 typealias Net Array{Layer,1}
-Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+# Julia v0.4 allows Net as a constructor name, but v0.3 does not:
+# Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+newnet(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
 
 
 # UpdateParam: Parameters can be set at the level of weights, layers, nets, or

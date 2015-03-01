@@ -24,7 +24,7 @@ global usegpu
 gpu((libkunet != "") && isdefined(:CUDArt) && isdefined(:CUBLAS))
 
 #########################
-include("types.jl");	export Layer, Net, UpdateParam, setparam!
+include("types.jl");	export Layer, Net, UpdateParam, setparam!, newnet
 include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 include("net.jl");	export train, predict
 include("update.jl");	# implements update: helper for train
