@@ -3,6 +3,7 @@
 * [Installation](docs/install.md)
 * [Usage](docs/usage.md)
 * [Code tutorial](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html)
+* [Benchmark](docs/benchmark.md)
 
 KUnet.jl is the beginnings of a deep learning package for Julia with emphasis on conciseness, clarity and easy extendability. It started as a challenge to see how many lines of (readable) code were sufficient to express deep learning algorithms given the right language.  A secondary concern was efficiency: being able to run the same code on GPU with minimal trouble.  Currently, only the basic functionality is in place (i.e. backprop with relu, softmax, sgd, momentum, nesterov, adagrad, dropout, l1-l2 regularization etc.) but the GPU functionality is in, its speed is competitive with [Caffe](http://caffe.berkeleyvision.org/), and I think convolutional and recurrent nets can be added without too much effort.  I wrote a [blog post](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html) about the code structure and there is some basic documentation here.  You can send me suggestions for improvement (both in coding style and new functionality) using [comments](http://www.blogger.com/comment.g?blogID=8540876&postID=328231440874481473) to the [blog post](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html), or using [issues](https://github.com/denizyuret/KUnet.jl/issues) or [pull requests](https://help.github.com/articles/fork-a-repo/) on GitHub.
 
