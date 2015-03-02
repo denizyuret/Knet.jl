@@ -7,7 +7,7 @@
 
 	* TODO:
 	+ start writing documentation.
-	- try install/test on a new gpu/cpu machine.
+	+ try install/test on a new gpu/cpu machine.
 	- build tests based on mnist.
 	- compare with matlab/caffe if they exist.
 	- what other tests?  gradient?  store answers?
