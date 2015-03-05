@@ -2,6 +2,8 @@
 
 	* TODO:
 	- make number type generic, test Float64
+	- implement rmsprop, adam.
+	- implement copynet cpu/gpu.
 
 2015-02-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -19,7 +21,7 @@
 	fields to be set, and they should call setparam for updateparams.
 	- implement convnet: ConvLayer <: Layer
 	+ centralize memory allocation
-	- hdf5 save for whole net.
+	- hdf5 save for whole net: use jld?
 
 2015-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
