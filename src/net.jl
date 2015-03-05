@@ -65,22 +65,21 @@ function inittrain(net::Net, x, y, batch)
     return buf
 end
 
-function predict(net::Net, x; batch=0)
+function predict(net::Net, x, y=similar(x, size(net[end].w,1), size(x,2)); batch=0)
     xrows,xcols = size(x)
-    yrows,ycols = size(net[end].w, 1), xcols
-    y = similar(x, (yrows, ycols))
+    yrows,ycols = size(y)
     (batch == 0) && (batch = xcols)
     xx = similar(net[1].w, (xrows, batch))
     for b = 1:batch:xcols
         e = b + batch - 1
-        if (e > xcols || b == 1)
-            (e > xcols) && (e = xcols)
-            free(xx)
-            xx = similar(net[1].w, (xrows, e-b+1))
+        if e > xcols
+            e = xcols
+            batch = e-b+1
+            free(xx); xx = similar(net[1].w, (xrows, batch))
         end
-        yy = copy!(xx, (1:xrows,1:e-b+1), x, (1:xrows,b:e))
+        yy = copy!(xx, (1:xrows,1:batch), x, (1:xrows,b:e))
         yy = forw(net, yy, false)
-        copy!(y, (1:yrows,b:e), yy, (1:yrows,1:e-b+1))
+        copy!(y, (1:yrows,b:e), yy, (1:yrows,1:batch))
     end
     free(xx)
     return y
