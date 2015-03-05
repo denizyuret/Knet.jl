@@ -18,6 +18,7 @@ function gpu(b::Bool)
     libkunet == ""      && (warn("libkunet.so not found."); usegpu=false)
     !isdefined(:CUDArt) && (warn("CUDArt not installed."); usegpu=false)
     !isdefined(:CUBLAS) && (warn("CUBLAS not installed."); usegpu=false)
+    usegpu
 end
 
 global usegpu
