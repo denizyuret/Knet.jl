@@ -2,8 +2,24 @@
 
 	* TODO:
 	- make number type generic, test Float64
-	- implement rmsprop, adam.
+	- implement rmsprop: https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec6.pdf
+	- implement adam: http://arxiv.org/pdf/1412.6980v2.pdf
+	- understand adam math. what to do with g1?  what to do with g2?
+	these are not stationary and our estimates are noisy.  what to do
+	if we had perfect information?  does this correspond to newton
+	with diagonal covariance matrix?  volkan's slides to adam email.
 	- implement copynet cpu/gpu.
+	- write parameter documentation.
+	- implement hinge loss
+	- implement squared loss
+	- implement gradient clipping: pascanu and mikolov 2012.
+	- implement rnn
+	-- implement lstm
+	-- implement gru
+	-- steeper gates nips: lyu and zhu (piecewise linear)
+	- orthogonal initialization: andrew sax
+	- can we do piecewise linear approx to softmax? (hinge?)
+	- try on machine with CUDArt but no gpu.
 
 2015-02-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
