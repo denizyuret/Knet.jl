@@ -14,7 +14,7 @@ free(x)=x
 to_host(x)=x
 
 
-if usegpu   ########## CUDA extensions:
+if isdefined(:CUDArt)   ########## CUDA extensions:
 
 typealias Cmat Ptr{Float32}
 
@@ -52,6 +52,29 @@ function gpumem()
     ccall((:cudaMemGetInfo,"libcudart.so"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
     convert(Int,mfree[1])
 end
+
+import Base.copy
+
+function copy(l::Union(Layer,UpdateParam), to=nothing)
+    ll = Layer()
+    for n in names(l)
+        isdefined(l,n) || continue
+        iscnull(l.(n)) && continue
+        if ((to == :cpu) && isa(l.(n), CudaArray))
+            ll.(n) = to_host(l.(n))
+        elseif ((to == :gpu) && isa(l.(n), AbstractArray))
+            ll.(n) = CudaArray(l.(n))
+        elseif (isa(l.(n), UpdateParam))
+            ll.(n) = copy(l.(n), to)
+        else
+            ll.(n) = copy(l.(n))
+        end
+    end
+    return ll
+end
+
+copy(net::Net, to=nothing)=map(layer->copy(layer,to), net)
+iscnull(x)=(isa(x, CudaArray) && C_NULL==convert(typeof(C_NULL), x.ptr))
 
 end	########## CUDA extensions
 
