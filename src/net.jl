@@ -32,9 +32,10 @@ back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
 
 
 function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
-    buf = inittrain(net, x, y, batch)
     xrows,xcols = size(x)
     yrows,ycols = size(y)
+    (batch == 0 || batch > xcols) && (batch = xcols)
+    buf = inittrain(net, x, y, batch)
     for b = 1:batch:xcols
         e = b + batch - 1
         if (e > xcols)
@@ -68,7 +69,7 @@ end
 function predict(net::Net, x, y=similar(x, size(net[end].w,1), size(x,2)); batch=0)
     xrows,xcols = size(x)
     yrows,ycols = size(y)
-    (batch == 0) && (batch = xcols)
+    (batch == 0 || batch > xcols) && (batch = xcols)
     xx = similar(net[1].w, (xrows, batch))
     for b = 1:batch:xcols
         e = b + batch - 1
