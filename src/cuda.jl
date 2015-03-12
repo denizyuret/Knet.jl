@@ -57,7 +57,7 @@ import Base.copy
 
 function copy(l::Union(Layer,UpdateParam), to=nothing)
     ll = Layer()
-    for n in names(l)
+    for n in fieldnames(l)
         isdefined(l,n) || continue
         iscnull(l.(n)) && continue
         if ((to == :cpu) && isa(l.(n), CudaArray))
