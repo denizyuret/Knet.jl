@@ -36,6 +36,7 @@ static inline void gpuFreeDBG(void *x);
 
 __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
+__global__ void _logpforw(int nrows, int ncols, float *y);
 __global__ void _softback(int nrows, int ncols, float *y, float *dy);
 __global__ void _l1reg(int n, float l1, float *w, float *dw);
 __global__ void _adagrad(int n, float eps, float *dw2, float *dw);
@@ -47,6 +48,7 @@ __global__ void _add1(int n, float val, float *x);
 #define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
 void reluforw(int n, float *y) KCALL(_reluforw,n,y);
 void reluback(int n, float *y, float *dy) KCALL(_reluback,n,y,dy);
+void logpforw(int nrows, int ncols, float *y) KCALL(_logpforw,nrows,ncols,y);
 void softback(int nrows, int ncols, float *y, float *dy) KCALL(_softback,nrows,ncols,y,dy);
 void l1reg(int n, float l1, float *w, float *dw) KCALL(_l1reg,n,l1,w,dw);
 void adagrad(int n, float eps, float *dw2, float *dw) KCALL(_adagrad,n,eps,dw2,dw);
@@ -523,6 +525,35 @@ __global__ void _softback(int nrows, int ncols, float *y, float *dy) {
   }
 }
 
+
+__global__ void _logpforw(int nrows, int ncols, float *y) {
+  /* y is layer output, i.e. unnormalized log probabilities.
+     On output y will contain normalized probabilities.
+  */
+  float ymax, z, logz;
+  int i0, i1;
+  int col = threadIdx.x + blockIdx.x * blockDim.x;
+  while (col < ncols) {
+    i0 = col * nrows;
+    i1 = i0  + nrows;
+    ymax = -INFINITY;
+    for (int i=i0; i<i1; i++) {
+      if (y[i] > ymax) {
+	ymax = y[i];
+      }
+    }
+    z = 0;
+    for (int i=i0; i<i1; i++) {
+      y[i] -= ymax;
+      z += exp(y[i]);
+    }
+    logz = log(z);
+    for (int i=i0; i<i1; i++) {
+      y[i] -= logz;
+    }
+    col += blockDim.x * gridDim.x;
+  }
+}
 
 #ifndef DBGMEM
 

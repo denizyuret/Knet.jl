@@ -11,16 +11,37 @@
 # signature.  These functions modify their arguments in place and do
 # not return anything.  TODO: Implement sigmoid and maxout
 
-relu(l,y)=for i=1:length(y); (y[i]<zero(y[i]))&&(y[i]=zero(y[i])) end
-relu(l,y,dy)=for i=1:length(y); (y[i]==zero(y[i]))&&(dy[i]=zero(dy[i])) end
+# relu implements the rectified linear function
 
+relu(l::Layer,y)=for i=1:length(y); (y[i]<zero(y[i]))&&(y[i]=zero(y[i])) end
+relu(l::Layer,y,dy)=for i=1:length(y); (y[i]==zero(y[i]))&&(dy[i]=zero(dy[i])) end
+
+# logp treats the linear output as unnormalized log probabilities and
+# adds an offset to each column to make them into normalized log
+# probabilities:
+
+function logp(l::Layer,y)
+    yrows,ycols = size(y)
+    for j=1:ycols
+        ymax = typemin(eltype(y))
+        for i=1:yrows; y[i,j] > ymax && (ymax = y[i,j]); end
+        z = zero(eltype(y))
+        for i=1:yrows; z += exp((y[i,j] -= ymax)); end
+        logz = log(z)
+        for i=1:yrows; y[i,j] -= logz; end
+    end
+end
+
+# Going back logp does not do anything because the constant added does
+# not change the derivatives.
+logp(l::Layer,y,dy)=nothing
 
 # PREPROCESSING FUNCTION INTERFACE: A preprocessing function
 # (e.g. dropout) modifies the input x before applying the layer.
 # Again, we use the same name for the function and its derivative and
 # the helpers.
 
-function drop(l, x)
+function drop(l::Layer, x)
     if l.dropout > 0
         chksize(l, :xdrop, x)
         rand!(l.xdrop)
@@ -28,7 +49,7 @@ function drop(l, x)
     end
 end
 
-function drop(l, x, dx)
+function drop(l::Layer, x, dx)
     if l.dropout > 0
         drop(dx, l.xdrop, l.dropout, 1/(1-l.dropout))
     end
@@ -69,8 +90,9 @@ end
 
 if usegpu
     drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
-    relu(l,y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
-    relu(l,y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),y,dy)
+    relu(l::Layer,y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
+    relu(l::Layer,y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),y,dy)
     # TODO: This doesn't return the loss, just writes the gradient:
     softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
+    logp(l::Layer,y::CudaArray)=ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
 end
