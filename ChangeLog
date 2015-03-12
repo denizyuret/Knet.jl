@@ -1,3 +1,11 @@
+2015-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- In KUnet, can we avoid reallocating everything unless we need more space?
+	#    If batch gets smaller, just run the big batch through and copy part of the result?
+	#    This needs some more thinking especially for training.
+
+
 2015-03-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
