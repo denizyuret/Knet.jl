@@ -2,9 +2,9 @@
 # it will shrink down to nothing as things get fixed in the original
 # packages.
 
-# arrays.jl:297, need this so generic code works with cpu arrays
+# arrays.jl:297, need these so generic code works with cpu arrays:
 import Base: copy!
-copy!{T}(dst::DenseArray{T}, dstI::(Union(Int,Range1{Int})...), src::DenseArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
+copy!{T}(dst::AbstractArray{T}, dstI::(Union(Int,Range1{Int})...), src::AbstractArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
 
 # when gc works these should not be necessary:
 if isdefined(:CUDArt)
@@ -17,6 +17,10 @@ to_host(x)=x
 if isdefined(:CUDArt)   ########## CUDA extensions:
 
 typealias Cmat Ptr{Float32}
+
+# arrays.jl:297, need these so generic code works with SubArrays:
+copy!{T}(dst::AbstractCudaArray{T}, dstI::(Union(Int,Range1{Int})...), src::SubArray{T}, srcI::(Union(Int,Range1{Int})...))=(s=sub(src, srcI...); copy!(dst, dstI, s.parent, s.indexes))
+copy!{T}(dst::SubArray{T}, dstI::(Union(Int,Range1{Int})...), src::AbstractCudaArray{T}, srcI::(Union(Int,Range1{Int})...))=(d=sub(dst, dstI...); copy!(d.parent, d.indexes, src, srcI))
 
 # TODO: these don't hang high enough in the type hierarchy
 # TODO: non of these implementations are complete, they are just barely sufficient to make kunet work.
