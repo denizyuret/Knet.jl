@@ -60,7 +60,7 @@ end
 import Base.copy
 
 function copy(l::Union(Layer,UpdateParam), to=nothing)
-    ll = Layer()
+    ll = copy(l)
     for n in names(l)
         isdefined(l,n) || continue
         iscnull(l.(n)) && continue
