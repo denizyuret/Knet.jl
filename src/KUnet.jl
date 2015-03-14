@@ -29,7 +29,7 @@ include("types.jl");	export Layer, Net, UpdateParam, setparam!, newnet
 include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 include("net.jl");	export train, predict
 include("update.jl");	# implements update: helper for train
-include("func.jl");     export relu, drop, softmaxloss
+include("func.jl");     export relu, drop, softmaxloss, logp, logploss
 include("h5io.jl");	export h5write
 #########################
 
