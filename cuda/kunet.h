@@ -61,6 +61,7 @@ void reluforw(int n, float *y);
 void reluback(int n, float *y, float *dy);
 void logpforw(int nrows, int ncols, float *y);
 void softback(int nrows, int ncols, float *y, float *dy);
+void logploss(int nrows, int ncols, float *y, float *dy);
 void l1reg(int n, float l1, float *w, float *dw);
 void adagrad(int n, float eps, float *dw2, float *dw);
 void fill(int n, float val, float *x);

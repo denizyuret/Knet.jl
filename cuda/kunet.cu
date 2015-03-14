@@ -38,6 +38,7 @@ __global__ void _reluforw(int n, float *y);
 __global__ void _reluback(int n, float *y, float *dy);
 __global__ void _logpforw(int nrows, int ncols, float *y);
 __global__ void _softback(int nrows, int ncols, float *y, float *dy);
+__global__ void _logploss(int nrows, int ncols, float *y, float *dy);
 __global__ void _l1reg(int n, float l1, float *w, float *dw);
 __global__ void _adagrad(int n, float eps, float *dw2, float *dw);
 __global__ void _fill(int n, float val, float *x);
@@ -50,6 +51,7 @@ void reluforw(int n, float *y) KCALL(_reluforw,n,y);
 void reluback(int n, float *y, float *dy) KCALL(_reluback,n,y,dy);
 void logpforw(int nrows, int ncols, float *y) KCALL(_logpforw,nrows,ncols,y);
 void softback(int nrows, int ncols, float *y, float *dy) KCALL(_softback,nrows,ncols,y,dy);
+void logploss(int nrows, int ncols, float *y, float *dy) KCALL(_logploss,nrows,ncols,y,dy);
 void l1reg(int n, float l1, float *w, float *dw) KCALL(_l1reg,n,l1,w,dw);
 void adagrad(int n, float eps, float *dw2, float *dw) KCALL(_adagrad,n,eps,dw2,dw);
 void fill(int n, float val, float *x) KCALL(_fill,n,val,x);
@@ -525,6 +527,23 @@ __global__ void _softback(int nrows, int ncols, float *y, float *dy) {
   }
 }
 
+__global__ void _logploss(int nrows, int ncols, float *y, float *dy) {
+  /* Similar to softmaxloss, except y is assumed normalized logp and is not overwritten.
+     y is layer output, i.e. normalized log probabilities.
+     dy is the label matrix: each column is a one-hot vector indicating the correct label.
+     On output dy will be the gradient of softmax loss wrt log probabilities.
+   */
+  int col = threadIdx.x + blockIdx.x * blockDim.x;
+  int i0, i1;
+  while (col < ncols) {
+    i0 = col * nrows;
+    i1 = i0  + nrows;
+    for (int i=i0; i<i1; i++) {
+      dy[i] = (exp(y[i]) - dy[i]) / ncols;
+    }
+    col += blockDim.x * gridDim.x;
+  }
+}
 
 __global__ void _logpforw(int nrows, int ncols, float *y) {
   /* y is layer output, i.e. unnormalized log probabilities.

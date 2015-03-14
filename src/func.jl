@@ -88,11 +88,25 @@ function softmaxloss(y, dy)
     return loss
 end
 
+function logploss(y, dy)
+    # Similar to softmaxloss, except we assume y is normalized logp
+    yrows,ycols = size(y)
+    loss = zero(eltype(y))
+    for j=1:ycols
+        for i=1:yrows
+            dy[i,j] == 1 && (loss += y[i,j])
+            dy[i,j] = (exp(y[i,j]) - dy[i,j]) / ycols
+        end
+    end
+    return loss
+end
+
 if usegpu
     drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
     relu(l::Layer,y::CudaArray)=ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(y),y)
     relu(l::Layer,y::CudaArray,dy::CudaArray)=ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),y,dy)
+    logp(l::Layer,y::CudaArray)=ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
     # TODO: This doesn't return the loss, just writes the gradient:
     softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-    logp(l::Layer,y::CudaArray)=ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
+    logploss(y::CudaArray,dy::CudaArray)=ccall((:logploss,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
 end
