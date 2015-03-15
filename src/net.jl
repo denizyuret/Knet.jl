@@ -98,3 +98,5 @@ function chksize(l, n, a, dims=size(a); fill=nothing)
     end
 end
 
+clean(n::Net)=(for l in n; clean(l); end)
+clean(l::Layer)=(for f in names(l); isdefined(l,f) && istransient(l,f) && (l.(f)=similar(l.(f),(0,0))); end)

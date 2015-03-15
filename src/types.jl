@@ -9,6 +9,7 @@ Layer(f::Function, w; o...) = (l=Layer(w; o...); l.f=f; l)
 Layer(f::Function, w, b; o...) = (l=Layer(w,b; o...); l.f=f; l)
 Layer(c::Integer, r::Integer; bias=true, o...) = (w=float32(randn(r,c)*0.01);bias ? Layer(w,zeros(Float32, r, 1);o...) : Layer(w; o...))
 Layer(f::Function, c::Integer, r::Integer; o...) = (l=Layer(c,r;o...); l.f=f; l)
+istransient(l,n)=(isa(l,Layer) && in(n,(:y,:x,:dx,:xdrop)))  # no need to copy or save these
 
 # Net: Convenience type and constructor for an array of layers
 

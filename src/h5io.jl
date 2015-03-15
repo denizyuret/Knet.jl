@@ -1,5 +1,4 @@
 import HDF5: h5write, h5read
-const dont_save = [:y, :x, :dx, :xdrop]
 
 function Layer(fname::String)
     f = h5open(fname, "r")
@@ -48,7 +47,7 @@ end
 
 function h5write(g::HDF5Group, l)
     for n in names(l)
-        if (isdefined(l,n) && !in(n, dont_save))
+        if (isdefined(l,n) && !istransient(l,n))
             if (isa(l.(n), Array))
                 g["$n"] = l.(n)
             elseif (isdefined(:CUDArt) && isa(l.(n), CUDArt.CudaArray))

@@ -60,10 +60,12 @@ end
 import Base.copy
 
 function copy(l::Union(Layer,UpdateParam), to=nothing)
-    ll = copy(l)
+    ll = typeof(l)()
     for n in names(l)
         isdefined(l,n) || continue
+        istransient(l,n) && continue
         iscnull(l.(n)) && continue
+        isa(l.(n), AbstractArray) && isempty(l.(n)) && continue
         if ((to == :cpu) && isa(l.(n), CudaArray))
             ll.(n) = to_host(l.(n))
         elseif ((to == :gpu) && isa(l.(n), AbstractArray))
