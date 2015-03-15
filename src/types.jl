@@ -4,7 +4,7 @@
 type Layer w; b; f; fx; dw; db; pw; pb; y; x; dx; dropout; xdrop; Layer()=new() end
 atype(w) = (usegpu ? CudaArray(w) : w)
 Layer(w; o...) = (l=Layer(); l.w=atype(w); setparam!(l; o...); l)
-Layer(w, b; o...) = (l=Layer(w; o...); l.b=atype(b); l)
+Layer(w, b; o...) = (l=Layer(); l.w=atype(w); l.b=atype(b); setparam!(l; o...); l)
 Layer(f::Function, w; o...) = (l=Layer(w; o...); l.f=f; l)
 Layer(f::Function, w, b; o...) = (l=Layer(w,b; o...); l.f=f; l)
 Layer(c::Integer, r::Integer; bias=true, o...) = (w=float32(randn(r,c)*0.01);bias ? Layer(w,zeros(Float32, r, 1);o...) : Layer(w; o...))
