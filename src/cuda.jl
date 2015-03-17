@@ -61,7 +61,7 @@ import Base.copy
 
 function copy(l::Union(Layer,UpdateParam), to=nothing)
     ll = typeof(l)()
-    for n in names(l)
+    for n in fieldnames(l)
         isdefined(l,n) || continue
         istransient(l,n) && continue
         iscnull(l.(n)) && continue
