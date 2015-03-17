@@ -1,9 +1,10 @@
 module KUnet
 const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/cuda")])
 
+using Compat
 using InplaceOps
 using Base.LinAlg.BLAS
-using HDF5
+using HDF5, JLD
 
 # Conditional module import
 installed(pkg)=isdir(Pkg.dir(string(pkg)))
@@ -31,6 +32,7 @@ include("net.jl");	export train, predict
 include("update.jl");	# implements update: helper for train
 include("func.jl");     export relu, drop, softmaxloss, logp, logploss
 include("h5io.jl");	export h5write
+include("jldio.jl");    # extends JLD.save, newnet
 #########################
 
 end # module
