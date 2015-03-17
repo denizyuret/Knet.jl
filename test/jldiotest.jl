@@ -1,3 +1,4 @@
+using Compat
 using KUnet
 using HDF5,JLD
 typealias LUP Union(Layer,UpdateParam)
@@ -17,6 +18,7 @@ function isequal(l1::LUP, l2::LUP)
 end
 
 net=newnet(relu, 1326, 20000,10)
+setparam!(net, learningRate=0.02, dropout=0.5)
 save("foo.jld", net)
 foo=newnet("foo.jld")
 isequal(copy(net,:cpu),copy(foo,:cpu))
