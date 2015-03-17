@@ -1,25 +1,25 @@
 import JLD.save
 
-function save(filename::AbstractString, net::Net)
-    net = map(savelayer, net)
+function save(filename::String, net::Net)
+    net = map(layer2jld, net)
     save(filename, "net", net)
 end
 
-function savelayer(l::Layer)
+function layer2jld(l::Layer)
     l = copy(l,:cpu)
-    isdefined(l,:f) && (l.f = symbol(l.f))
-    isdefined(l,:fx) && (l.fx = symbol(l.fx))
+    isdefined(l,:f) && (l.f = string(l.f))
+    isdefined(l,:fx) && (l.fx = string(l.fx))
     return l
 end
 
-function newnet(filename::AbstractString)
+function newnet(filename::String)
     net = load(filename, "net")
-    map(loadlayer, net)
+    map(jld2layer, net)
 end
 
-function loadlayer(l::Layer)
-    isdefined(l,:f) && (l.f = eval(l.f))
-    isdefined(l,:fx) && (l.fx = eval(l.fx))
+function jld2layer(l::Layer)
+    isdefined(l,:f) && (l.f = eval(parse(l.f)))
+    isdefined(l,:fx) && (l.fx = eval(parse(l.fx)))
     usegpu && (l = copy(l,:gpu))
     return l
 end
