@@ -85,7 +85,7 @@ function softmaxloss(y, dy)
             dy[i,j] = (prob[i] - dy[i,j]) / ycols
         end
     end
-    return loss
+    return -loss
 end
 
 function logploss(y, dy)
