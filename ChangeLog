@@ -4,6 +4,7 @@
 	- Accept tuples for newnet and setparam to specify different
 	values for different layers.  At least modify train.jl to be more
 	similar to KUparser/test/train.jl.
+	- sizeof, print for nets?
 
 2015-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
