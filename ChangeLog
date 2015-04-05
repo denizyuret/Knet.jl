@@ -5,6 +5,10 @@
 	values for different layers.  At least modify train.jl to be more
 	similar to KUparser/test/train.jl.
 	- sizeof, print for nets?
+	- put an option for f of final layer (ffinal).
+	- add options to copy for testing (no need for training params)
+	and saving (no need for transient fields).
+	- ERROR: CUDA runtime API library cannot be found - on yunus.
 
 2015-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
