@@ -31,7 +31,8 @@ forw(n::Net, x, fx=true) = (for l=n; x=forw(l,x,fx) end; x)
 back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
 
 
-function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss)
+function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=false)
+    shuffle && shufflexy!(x,y)
     xrows,xcols = size(x)
     yrows,ycols = size(y)
     (batch == 0 || batch > xcols) && (batch = xcols)
@@ -100,3 +101,23 @@ end
 
 clean(n::Net)=(for l in n; clean(l); end)
 clean(l::Layer)=(for f in names(l); isdefined(l,f) && istransient(l,f) && (l.(f)=similar(l.(f),(0,0))); end)
+
+function shufflexy!(x, y)
+    xrows,xcols = size(x)
+    yrows,ycols = size(y)
+    @assert xcols == ycols
+    x1 = Array(eltype(x), xrows)
+    y1 = Array(eltype(y), yrows)
+    for n = xcols:-1:2
+        r = rand(1:n)
+        r == n && continue
+        nx = (n-1)*xrows+1; ny = (n-1)*yrows+1
+        rx = (r-1)*xrows+1; ry = (r-1)*yrows+1
+        copy!(x1, 1, x, nx, xrows)
+        copy!(y1, 1, y, ny, yrows)
+        copy!(x, nx, x, rx, xrows)
+        copy!(y, ny, y, ry, yrows)
+        copy!(x, rx, x1, 1, xrows)
+        copy!(y, ry, y1, 1, yrows)
+    end
+end
