@@ -45,8 +45,6 @@ sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cm
 zeros(A::CudaArray)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
 rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
 fill!(A::CudaArray,x::Float32)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
-
-# TODO: This does not seem to work:
 gpuseed(n::Integer)=ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 
 # For debugging
