@@ -10,3 +10,5 @@ test2
 *.o
 foo*
 unused
+v0.3
+v0.4
