@@ -621,7 +621,7 @@ static inline float *gpuFill(size_t nfloats, float val) {
 }
 
 void gpuseed(unsigned long long seed) {
-  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
 }
 
