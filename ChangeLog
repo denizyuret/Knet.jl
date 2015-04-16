@@ -9,6 +9,8 @@
 	- add options to copy for testing (no need for training params)
 	and saving (no need for transient fields).
 	- ERROR: CUDA runtime API library cannot be found - on yunus.
+	- train.jl: allow length(v)==2*length(net) for param spec each w,b
+
 
 2015-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
