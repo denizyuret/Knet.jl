@@ -30,14 +30,19 @@ gpu(true)
 macro useifgpu(pkg) if usegpu Expr(:using,pkg) end end
 @useifgpu CUDArt
 @useifgpu CUBLAS
-
+# TODO: currently conv layers only have gpu impl based on cudnn, we
+# need a cpu implementation and we need to make it generic so the same
+# code works whether or not cudnn / gpu is available.
+@useifgpu CUDNN  
 
 #########################
-include("types.jl");	export Layer, Net, UpdateParam, setparam!, newnet
-include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
-include("net.jl");	export train, predict
+include("net.jl");	export AbstractLayer, Net, train, predict
+include("param.jl");	export UpdateParam, setparam!
 include("update.jl");	# implements update: helper for train
+include("layer.jl");	export Layer, newnet
+include("conv.jl");	export ConvLayer
 include("func.jl");     export relu, drop, softmaxloss, logp, logploss
+include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 include("h5io.jl");	export h5write
 include("jldio.jl");    # extends JLD.save, newnet
 #########################

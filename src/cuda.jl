@@ -13,6 +13,15 @@ end
 free(x)=x
 to_host(x)=x
 
+istransient(l,n)=(isa(l,Layer) && in(n,(:y,:x,:dx,:xdrop)))  # no need to copy or save these
+clean(l::Layer)=(for f in names(l); isdefined(l,f) && istransient(l,f) && (l.(f)=similar(l.(f),(0,0))); end)
+clean(n::Net)=(for l in n; clean(l); end)
+
+# Julia v0.4 allows Net as a constructor name, but v0.3 does not:
+# Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+newnet(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+# We should deprecate this function, now that we have more than one type of layer.
+
 import Base.copy
 
 function copy(l::Union(Layer,UpdateParam), to=nothing)
