@@ -1,3 +1,32 @@
+2015-05-11    <dyuret@ku.edu.tr>
+
+	* src/conv.jl:
+	# TODO: How to transition from convolutional to fully connected layer?
+	# Does a network pass around tensors with the same number of dimensions?
+	# Can we write the code generic enough so it can deal with 2d matrices, 4d, 5d tensors?
+	# In any case fc layer is different from conv layer...
+	# n instances with c features is represented in caffe using a (1,1,C,N) tensor.
+	# i.e. a 0-D image with C channels.
+	# 2-D images are represented as (W,H,C,N).
+	# 3-D images are represented as (D,W,H,C,N).
+	# Is there any use for just (H,C,N)?
+	# What is convolution for <2D or fc for >=2D?
+	# Locality is important for convolution, i.e. dimensions other than
+	# C,N give "neighboring" pixels so we can do convolution.
+	# In a regular feature vector, there is no "neighbors" all features
+	# are equally far from each other, that is why we use C,N.  There
+	# would be no convolution operation in that case either.
+	# N = instances in general (each instance leads to one class
+	# prediction)
+	# C = features in general
+	# All other dimensions represent local neighborhoods.
+	# So more generic data structure is reverse(N,C,I1,I2,I3,...)
+	# And our regular layers are in fact 0-D, and conv can only be defined on >= 1-D.
+	# We'd need to implement all except 2-D right now.
+	# What does FC mean for >= 1-D?
+
+	# TODO: do we really need the ConvolutionDescriptor
+
 2015-03-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
