@@ -11,7 +11,7 @@ layer {
     scale: 0.00390625
   }
   data_param {
-    source: "examples/mnist/mnist_train_lmdb"
+    source: "mnist_train_lmdb"
     batch_size: 64
     backend: LMDB
   }
@@ -28,7 +28,7 @@ layer {
     scale: 0.00390625
   }
   data_param {
-    source: "examples/mnist/mnist_test_lmdb"
+    source: "mnist_test_lmdb"
     batch_size: 100
     backend: LMDB
   }
