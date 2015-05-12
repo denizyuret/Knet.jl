@@ -1,23 +1,63 @@
-# AbstractLayer: abstract type to collect together different layer
-# types and their common operations.
+# Each Layer implements three functions, here are the stubs:
 
-abstract AbstractLayer
+abstract Layer
+forw(l::Layer, x; o...)=x
+back(l::Layer, dy; o...)=dy
+update(l::Layer)=nothing
 
 # Net: Convenience type for an array of layers
 
-typealias Net Array{AbstractLayer,1}
+typealias Net Array{Layer,1}
+forw(n::Net, x; fx=true)=(for l in n; x=forw(l, x; fx=fx) end; x)
+back(n::Net, dy)=(for i=length(n):-1:1 dy=back(n[i],dy; dx=(i>1)) end)
+update(n::Net)=(for l in n; update(l); end)
 
-# Just a convenience type for training etc.
-type XY x; y; XY()=new(); end
-
-forw(n::Net, x, fx=true) = (for l=n; x=forw(l,x,fx) end; x)
-back(n::Net, dy) = (for i=length(n):-1:1 dy=back(n[i],dy,i>1) end)
+# The backprop algorithm
 
 function backprop(net::Net, x, dy, loss=softmaxloss)
     y = forw(net, x) 	# y: network output
     loss(y, dy)         # dy: desired output -> gradient
     back(net, dy)       # calculate derivatives
 end
+
+# Predict implements forw with minibatches.
+
+function predict(net::Net, x, y=nothing; batch=0)
+    ninst = size(x, ndims(x))
+    (batch == 0 || batch > ninst) && (batch = ninst)
+    xx = yy = y = nothing
+    for b = 1:batch:ninst
+        e  = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e)
+        yy = forw(net, xx; fx=false)
+        y  = b2y(y, yy, b:e, ninst)
+    end
+    free(xx)
+    return y
+end
+
+function x2b(b, x, r)
+    bs = tuple(size(x)[1:end-1]..., length(r))
+    if ((b == nothing) || (size(b) != bs))
+        b == nothing || free(b)
+        b = (usegpu ? CudaArray : Array)(eltype(x), bs)
+    end
+    bi = map(d->1:d, bs)
+    xi = tuple(bi[1:end-1]..., r)
+    copy!(b, bi, x, xi)
+end
+
+function b2y(y, b, r, n)
+    ys = tuple(size(b)[1:end-1]..., n)
+    (y == nothing) && (y = Array(eltype(b), ys))
+    @assert size(y) == ys
+    bi = map(d->1:d, size(b))
+    yi = tuple(bi[1:end-1]..., r)
+    copy!(y, yi, b, bi)
+end
+
+# Just a convenience type for training etc.
+type XY x; y; XY()=new(); end
 
 function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=false)
     shuffle && shufflexy!(x,y)
@@ -53,57 +93,5 @@ function inittrain(net::Net, x, y, batch)
     chksize(buf, :x, net[1].w, (size(x, 1), batch))
     chksize(buf, :y, net[end].w, (size(y, 1), batch))
     return buf
-end
-
-function predict(net::Net, x, y=similar(x, size(net[end].w,1), size(x,2)); batch=0)
-    xrows,xcols = size(x)
-    yrows,ycols = size(y)
-    (batch == 0 || batch > xcols) && (batch = xcols)
-    xx = similar(net[1].w, (xrows, batch))
-    for b = 1:batch:xcols
-        e = b + batch - 1
-        if e > xcols
-            e = xcols
-            batch = e-b+1
-            free(xx); xx = similar(net[1].w, (xrows, batch))
-        end
-        yy = copy!(xx, (1:xrows,1:batch), x, (1:xrows,b:e))
-        yy = forw(net, yy, false)
-        copy!(y, (1:yrows,b:e), yy, (1:yrows,1:batch))
-    end
-    free(xx)
-    return y
-end
-
-
-function chksize(l, n, a, dims=size(a); fill=nothing)
-    if !isdefined(l,n) 
-        l.(n) = similar(a, dims)
-        fill != nothing && fill!(l.(n), fill)
-    elseif size(l.(n)) != dims
-        free(l.(n))
-        l.(n) = similar(a, dims)
-        fill != nothing && fill!(l.(n), fill)
-    end
-end
-
-function shufflexy!(x, y)
-    xrows,xcols = size(x)
-    yrows,ycols = size(y)
-    @assert xcols == ycols
-    x1 = Array(eltype(x), xrows)
-    y1 = Array(eltype(y), yrows)
-    for n = xcols:-1:2
-        r = rand(1:n)
-        r == n && continue
-        nx = (n-1)*xrows+1; ny = (n-1)*yrows+1
-        rx = (r-1)*xrows+1; ry = (r-1)*yrows+1
-        copy!(x1, 1, x, nx, xrows)
-        copy!(y1, 1, y, ny, yrows)
-        copy!(x, nx, x, rx, xrows)
-        copy!(y, ny, y, ry, yrows)
-        copy!(x, rx, x1, 1, xrows)
-        copy!(y, ry, y1, 1, yrows)
-    end
 end
 

@@ -28,7 +28,7 @@ end
 function initforw(l::ConvLayer, x)
     l.x = x
     isdefined(l,:w) && !isdefined(l,:cd) && (l.cd = CUDNN.defaultConvolutionDescriptor)
-    isdefined(l,:w) && chksize(l, :y, l.w, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w; convDesc=l.cd))
+    isdefined(l,:w) && chksize(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w; convDesc=l.cd))
     isdefined(l,:b) && (@assert size(l.b) == (1,1,size(l.y,3),1))
     isdefined(l,:pd) && chksize(l, :z, l.y, cudnnGetPoolingNdForwardOutputDim(l.pd, l.y))
     wssb = cudnnGetConvolutionForwardWorkspaceSize(x, l.w, l.y; convDesc=l.cd)

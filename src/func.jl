@@ -36,28 +36,6 @@ end
 # not change the derivatives.
 logp(l::Layer,y,dy)=nothing
 
-# PREPROCESSING FUNCTION INTERFACE: A preprocessing function
-# (e.g. dropout) modifies the input x before applying the layer.
-# Again, we use the same name for the function and its derivative and
-# the helpers.
-
-function drop(l::Layer, x)
-    if l.dropout > 0
-        chksize(l, :xdrop, x)
-        rand!(l.xdrop)
-        drop(x, l.xdrop, l.dropout, 1/(1-l.dropout))
-    end
-end
-
-function drop(l::Layer, x, dx)
-    if l.dropout > 0
-        drop(dx, l.xdrop, l.dropout, 1/(1-l.dropout))
-    end
-end
-
-drop(x, xdrop, dropout, scale)=for i=1:length(x); x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]) end
-
-
 # LOSS INTERFACE: A loss function takes y, the network output, and dy,
 # the desired output.  These should have the same dimensionality, so
 # use 1-of-k encoding for classification outputs.  It overwrites dy

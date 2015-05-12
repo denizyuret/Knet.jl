@@ -24,7 +24,7 @@ newnet(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(
 
 import Base.copy
 
-function copy(l::Union(Layer,UpdateParam), to=nothing)
+function copy(l::Union(Layer,Param), to=nothing)
     ll = typeof(l)()
     for n in fieldnames(l)
         isdefined(l,n) || continue
@@ -39,7 +39,7 @@ function copy(l::Union(Layer,UpdateParam), to=nothing)
             ll.(n) = to_host(l.(n))
         elseif ((to == :gpu) && isdefined(:CUDArt) && isa(l.(n), AbstractArray))
             ll.(n) = CudaArray(l.(n))
-        elseif (isa(l.(n), UpdateParam))
+        elseif (isa(l.(n), Param))
             ll.(n) = copy(l.(n), to)
         else
             ll.(n) = copy(l.(n))
