@@ -43,6 +43,20 @@ function gpumem()
     convert(Int,mfree[1])
 end
 
+using CUDArt: ContiguousArray
+
+# CUDArt copy! doesn't work for 4D arrays, so let's make this Base interface work:
+function Base.copy!{T}(dst::ContiguousArray{T}, di::Integer, src::ContiguousArray{T}, si::Integer, n::Integer; stream=null_stream)
+    if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
+        throw(BoundsError())
+    end
+    nbytes = n * sizeof(T)
+    dptr = pointer(dst) + (di-1) * sizeof(T)
+    sptr = pointer(src) + (si-1) * sizeof(T)
+    CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
+    return dst
+end
+
 end	########## CUDA extensions
 
 
