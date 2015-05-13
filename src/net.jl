@@ -1,4 +1,4 @@
-# Each Layer implements common functions, here are the stubs:
+# Each Layer implements some common functions, here are the stubs:
 
 abstract Layer
 forw(l::Layer, x; o...)=x
@@ -18,7 +18,7 @@ setparam!(n::Net,k,v)=(for l in n; setparam!(l,k,v); end)
 
 function backprop(net::Net, x, dy, loss=softmaxloss)
     y = forw(net, x) 	# y: network output
-    loss(y, dy)         # dy: desired output -> gradient
+    loss(y, dy)         # dy: desired output -> loss gradient wrt y
     back(net, dy)       # calculate derivatives
 end
 
@@ -76,18 +76,16 @@ function x2b(b, x, r)
         b == nothing || free(b)
         b = (usegpu ? CudaArray : Array)(eltype(x), bs)
     end
-    bi = map(d->1:d, bs)
-    xi = tuple(bi[1:end-1]..., r)
-    copy!(b, bi, x, xi)
+    xi = 1 + (first(r) - 1) * stride(x, ndims(x))
+    copy!(b, 1, x, xi, length(b))
 end
 
 function b2y(y, b, r, n)
     ys = tuple(size(b)[1:end-1]..., n)
     (y == nothing) && (y = Array(eltype(b), ys))
     @assert size(y) == ys
-    bi = map(d->1:d, size(b))
-    yi = tuple(bi[1:end-1]..., r)
-    copy!(y, yi, b, bi)
+    yi = 1 + (first(r) - 1) * stride(y, ndims(y))
+    copy!(y, yi, b, 1, length(b))
 end
 
 # Just a convenience type for training etc.
