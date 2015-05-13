@@ -1,3 +1,13 @@
+2015-05-12    <dyuret@ku.edu.tr>
+
+	* design: I have a new design:
+	- split every operation, including bias and activation.
+	- basically every operation in forw becomes its own "layer".
+	- each "layer" implements forw, back, update?
+	- each "layer" overrides forw/back for arrays, cudaarrays,
+	tensors.
+	- rename AbstractLayer -> Layer
+
 2015-05-11    <dyuret@ku.edu.tr>
 
 	* src/conv.jl:
@@ -26,6 +36,9 @@
 	# What does FC mean for >= 1-D?
 
 	# TODO: do we really need the ConvolutionDescriptor
+
+	# TODO: cudnn supports both Float32 and Float64, the rest of KUnet
+	should too.
 
 2015-03-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
