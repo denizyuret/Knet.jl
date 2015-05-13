@@ -1,15 +1,17 @@
-type Param; data; diff; learningRate; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; 
+type Param; data; diff; lr; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; 
     Param(data;args...)=(p=new(paramcheck(data)); for (k,v) in args; p.(k)=v; end; p)
 end
 
 paramcheck(a)=(isa(a, CudaArray) ? (usegpu ? a : to_host(a)) : (usegpu ? CudaArray(a) : a))
+
+setparam!(p::Param,k,v)=(p.(k)=v)
 
 function update(p::Param)
     initupdate(p)
     nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
     nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
     nz(p,:adagrad) && adagrad!(p.adagrad, p.ada, p.diff)
-    nz(p,:learningRate,1f0) && (@in1! p.diff .* p.learningRate)
+    nz(p,:lr,1f0) && (@in1! p.diff .* p.lr)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
     @in1! p.data .- p.diff

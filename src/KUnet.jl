@@ -8,7 +8,7 @@ using HDF5, JLD
 # The user can turn gpu support on/off using KUnet.gpu(true/false)
 
 global usegpu
-const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/src")])
+const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/cuda")])
 const libcuda = find_library(["libcuda"])
 const libcudart = find_library(["libcudart", "cudart"])
 installed(pkg)=isdir(Pkg.dir(string(pkg)))
@@ -36,18 +36,20 @@ macro useifgpu(pkg) if usegpu Expr(:using,pkg) end end
 @useifgpu CUDNN  
 
 #########################
-include("net.jl");	export Layer, Net, train, predict, update
+include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
+include("net.jl");	export Layer, Net, train, predict, update, setparam!
 include("param.jl");	export Param
 include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
 include("relu.jl");	export Relu
 include("drop.jl");	export Drop
-include("util.jl");
+include("logp.jl");	export Logp
+include("loss.jl");	export softmaxloss, logploss
 
 # include("layer.jl");	export Layer, newnet
 # include("conv.jl");	export ConvLayer
 # include("func.jl");     export relu, drop, softmaxloss, logp, logploss
-include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
+# include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 # include("h5io.jl");	export h5write
 # include("jldio.jl");    # extends JLD.save, newnet
 #########################

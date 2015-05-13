@@ -16,25 +16,6 @@
 relu(l::Layer,y)=for i=1:length(y); (y[i]<zero(y[i]))&&(y[i]=zero(y[i])) end
 relu(l::Layer,y,dy)=for i=1:length(y); (y[i]==zero(y[i]))&&(dy[i]=zero(dy[i])) end
 
-# logp treats the linear output as unnormalized log probabilities and
-# adds an offset to each column to make them into normalized log
-# probabilities:
-
-function logp(l::Layer,y)
-    yrows,ycols = size(y)
-    for j=1:ycols
-        ymax = typemin(eltype(y))
-        for i=1:yrows; y[i,j] > ymax && (ymax = y[i,j]); end
-        z = zero(eltype(y))
-        for i=1:yrows; z += exp((y[i,j] -= ymax)); end
-        logz = log(z)
-        for i=1:yrows; y[i,j] -= logz; end
-    end
-end
-
-# Going back logp does not do anything because the constant added does
-# not change the derivatives.
-logp(l::Layer,y,dy)=nothing
 
 # LOSS INTERFACE: A loss function takes y, the network output, and dy,
 # the desired output.  These should have the same dimensionality, so

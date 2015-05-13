@@ -1,9 +1,11 @@
 type Mmul <: Layer; w::Param; x; y; dx; dy; Mmul(w)=new(w); end
 Mmul(w::Array;a...)=Mmul(Param(w;a...))
 Mmul(w::CudaArray;a...)=Mmul(Param(w;a...))
-Mmul(d::Integer...;a...)=Mmul(Param(float32(randn(d)*0.01));a...)
+# TODO: get rid of Float32
+Mmul(d::Integer...;a...)=Mmul(Param(float32(randn(d)*0.01);a...))
 
 update(l::Mmul)=update(l.w)
+setparam!(l::Mmul,k,v)=setparam!(l.w,k,v)
 
 function forw(l::Mmul, x; o...)
     initforw(l, x)
@@ -26,9 +28,8 @@ function initforw(l::Mmul, x)
     if ((ndims(x)==2) && (size(x,1)==xrows))
         l.x = x
     else
-        @assert isa(x, Tensor)
         @assert length(x)/xcols == xrows
-        l.x = reinterpret(eltype(x), x.data, (xrows, xcols))
+        l.x = reinterpret(eltype(x), x, (xrows, xcols))
     end
     chksize(l, :y, l.w.data, (wrows, xcols))
 end
