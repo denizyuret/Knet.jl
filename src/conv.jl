@@ -13,20 +13,30 @@ update(l::Conv)=update(l.w)
 setparam!(l::Conv,k,v)=setparam!(l.w,k,v)
 
 function forw(l::Conv, x::CudaArray; o...)
-    l.x = x
-    chksize(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w.data))
+    initforw(l, x)
     cudnnConvolutionForward(l.x, l.w.data, l.y)
 end
 
+function initforw(l::Conv, x::CudaArray)
+    l.x = x
+    chksize(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w.data))
+end
+
 function back(l::Conv, dy::CudaArray; dx=true, o...)
-    l.dy = dy
-    @assert size(l.dy) == size(l.y)
-    chksize(l.w, :diff, l.w.data)
+    initback(l, dy, dx)
     cudnnConvolutionBackwardFilter(l.x, l.dy, l.w.diff)
-    if dx
-        chksize(l, :dx, l.x)
-        cudnnConvolutionBackwardData(l.w.data, l.dy, l.dx)
+    dx && cudnnConvolutionBackwardData(l.w.data, l.dy, l.dx)
+end
+
+function initback(l::Conv, dy::CudaArray, dx)
+    if (size(dy) == size(l.y))
+        l.dy = dy
+    else
+        @assert length(dy) == length(l.y)
+        l.dy = reinterpret(eltype(dy), dy, size(l.y))
     end
+    chksize(l.w, :diff, l.w.data)
+    dx && chksize(l, :dx, l.x)
 end
 
 # ConvLayer: It has similar fields to a regular (fully connected)
