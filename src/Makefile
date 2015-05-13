@@ -1,7 +1,7 @@
 #CFLAGS=-g -L.
 CFLAGS=-O2
 
-libkunet.so: relu.o drop.o bias.o
+libkunet.so: relu.o drop.o bias.o logp.o loss.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
 
 %.o: %.cu kunet.h
