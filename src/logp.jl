@@ -5,7 +5,7 @@ type Logp <: Layer; end
 # probabilities:
 
 # TODO: generalize to N-D
-function forw(l::Logp,y)
+function forw(l::Logp,y; o...)
     yrows,ycols = size(y)
     for j=1:ycols
         ymax = typemin(eltype(y))
@@ -17,7 +17,7 @@ function forw(l::Logp,y)
     end
 end
 
-forw(l::Logp,y::CudaArray)=ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
+forw(l::Logp,y::CudaArray; o...)=ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
 
 # Going back logp does not do anything because the constant added does
 # not change the derivatives.  There are no parameters to update.  So

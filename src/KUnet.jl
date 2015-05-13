@@ -36,18 +36,25 @@ macro useifgpu(pkg) if usegpu Expr(:using,pkg) end end
 @useifgpu CUDNN  
 
 #########################
+# TODO: clean util.jl, minimize cuda code
 include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
-include("net.jl");	export Layer, Net, train, predict, update, setparam!
-include("param.jl");	export Param
+include("param.jl");	export Param, update, setparam!
+include("loss.jl");	export softmaxloss, logploss
+include("net.jl");	export Layer, Net, train, predict, forw, back
+
+# TODO: should work with cpu/gpu 2D/4D/5D/ND Float32/Float64
 include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
+include("conv.jl");	export Conv
+include("pool.jl");	export Pool
 include("relu.jl");	export Relu
+include("tanh.jl");	export Tanh
+include("sigm.jl");	export Sigm
 include("drop.jl");	export Drop
 include("logp.jl");	export Logp
-include("loss.jl");	export softmaxloss, logploss
 
+# TODO: fix file i/o
 # include("layer.jl");	export Layer, newnet
-# include("conv.jl");	export ConvLayer
 # include("func.jl");     export relu, drop, softmaxloss, logp, logploss
 # include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 # include("h5io.jl");	export h5write
