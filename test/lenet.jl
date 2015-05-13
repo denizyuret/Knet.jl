@@ -10,10 +10,23 @@ net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
        Mmul(500,800), Bias(500), Relu(),
        Mmul(10,500), Bias(10)]
 
-setparam!(net, :lr, 0.01)
 @show x = CudaArray(reshape(xtrn[:,1:64], 28, 28, 1, 64))
 for l in net
     @show x = KUnet.forw(l, x)
+end
+@show dy = CudaArray(ytrn[:,1:64])
+@show softmaxloss(x, dy)
+for i=length(net):-1:1
+    @show dy = KUnet.back(net[i], dy)
+end
+
+xtrn = reshape(xtrn, 28, 28, 1, size(xtrn, 2))
+xtst = reshape(xtst, 28, 28, 1, size(xtst, 2))
+setparam!(net, :lr, 0.01)
+for i=1:100
+    train(net, xtrn, ytrn)
+    println((i, accuracy(ytst, predict(net, xtst)), 
+                accuracy(ytrn, predict(net, xtrn))))
 end
 
 # lr = 0.01
