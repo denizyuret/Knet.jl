@@ -4,13 +4,17 @@
 # TODO: add ConvolutionDescriptor if needed
 # TODO: add xavier init
 
-type Conv <: Layer; w::Param; x; y; dx; dy; Conv(w)=new(w); end
-Conv(w::Array;a...)=Conv(Param(w;a...))
-Conv(w::CudaArray;a...)=Conv(Param(w;a...))
-Conv(d::Integer...;a...)=Conv(Param(float32(randn(d)*0.01);a...))
+type Conv <: Layer; w::Param; x; y; dx; dy; Conv()=new(); end
+Conv(w::Param)=(l=Conv();l.w=w;l)
+Conv(w; a...)=Conv(Param(w; a...))
+Conv(d::Integer...; a...)=Conv(Param(randn(d)*0.01; a...))
 
 update(l::Conv)=update(l.w)
 setparam!(l::Conv,k,v)=setparam!(l.w,k,v)
+forw(l::Conv, x; o...)=error("CPU conv not implemented")
+back(l::Conv, dy; o...)=error("CPU conv not implemented")
+
+if GPU
 
 function forw(l::Conv, x::CudaArray; o...)
     initforw(l, x)
@@ -33,10 +37,12 @@ function initback(l::Conv, dy::CudaArray, dx)
         l.dy = dy
     else
         @assert length(dy) == length(l.y)
-        l.dy = reinterpret(eltype(dy), dy, size(l.y))
+        l.dy = reshape(dy, size(l.y))
     end
     chksize(l.w, :diff, l.w.data)
     dx && chksize(l, :dx, l.x)
+end
+
 end
 
 # ConvLayer: It has similar fields to a regular (fully connected)

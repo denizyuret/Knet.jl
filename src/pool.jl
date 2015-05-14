@@ -1,9 +1,15 @@
-type Pool <: Layer; pd; x; y; dx; dy; 
-    Pool(d::Int)=new(PoolingDescriptor((d,d)))
-end
+type Pool <: Layer; pd; x; y; dx; dy; Pool()=new(); end
+
+Pool(pd)=error("CPU Pool not implemented.")
+forw(l::Pool, x; o...)=error("CPU Pool not implemented")
+back(l::Pool, dy; o...)=error("CPU Pool not implemented")
 
 # TODO: generalize to 3-D
 # TODO: cpu implementation
+
+if GPU
+
+Pool(d::Int)=(l=Pool();l.pd=PoolingDescriptor((d,d));l)
 
 function forw(l::Pool, x::CudaArray; o...)
     initforw(l, x)
@@ -26,7 +32,9 @@ function initback(l::Pool, dy::CudaArray)
         l.dy = dy
     else
         @assert length(dy) == length(l.y)
-        l.dy = reinterpret(eltype(dy), dy, size(l.y))
+        l.dy = reshape(dy, size(l.y))
     end
     chksize(l, :dx, l.x)
 end
+
+end # if GPU

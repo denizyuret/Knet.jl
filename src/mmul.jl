@@ -1,8 +1,7 @@
-type Mmul <: Layer; w::Param; x; y; dx; dy; Mmul(w)=new(w); end
-Mmul(w::Array;a...)=Mmul(Param(w;a...))
-Mmul(w::CudaArray;a...)=Mmul(Param(w;a...))
-# TODO: get rid of Float32
-Mmul(d::Integer...;a...)=Mmul(Param(float32(randn(d)*0.01);a...))
+type Mmul <: Layer; w; x; y; dx; dy; Mmul()=new(); end
+Mmul(w::Param)=(l=Mmul();l.w=w;l)
+Mmul(w;a...)=Mmul(Param(w;a...))
+Mmul(d::Integer...;a...)=Mmul(Param(randn(d)*0.01;a...))
 
 update(l::Mmul)=update(l.w)
 setparam!(l::Mmul,k,v)=setparam!(l.w,k,v)
@@ -23,14 +22,12 @@ function back(l::Mmul, dy; dx=true, o...)
 end
 
 function initforw(l::Mmul, x)
+    @assert ndims(l.w.data) == 2
     (wrows, wcols) = size(l.w.data)
-    (xrows, xcols) = (wcols, size(x, ndims(x)))
-    if ((ndims(x)==2) && (size(x,1)==xrows))
-        l.x = x
-    else
-        @assert length(x)/xcols == xrows
-        l.x = reinterpret(eltype(x), x, (xrows, xcols))
-    end
+    xcols = (ndims(x) == 1 ? 1 : size(x, ndims(x)))
+    xrows = div(length(x),xcols)
+    @assert xrows == wcols
+    l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
     chksize(l, :y, l.w.data, (wrows, xcols))
 end
 

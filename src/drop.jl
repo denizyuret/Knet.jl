@@ -1,11 +1,10 @@
-type Drop <: Layer; dropout; xdrop; 
-    Drop(d)=(@assert 0 <= d <= 1; new(d))
-end
+type Drop <: Layer; dropout; xdrop; Drop()=new(); end
+Drop(d)=(@assert 0 <= d <= 1; l=Drop();l.dropout=d;l)
 
-function forw(l::Drop, x; fx=true, o...)
+function forw(l::Drop, x; fx=true, xdrop=nothing, o...)
     if fx && (l.dropout > 0)
         chksize(l, :xdrop, x)
-        rand!(l.xdrop)
+        (xdrop == nothing) ? rand!(l.xdrop) : copy!(l.xdrop, xdrop)
         drop(x, l.xdrop, l.dropout, 1/(1-l.dropout))
     end
     return x
@@ -18,12 +17,12 @@ function back(l::Drop, dy; o...)
     return dy
 end
 
-function drop(x::AbstractArray, xdrop::AbstractArray, dropout::Number, scale::Number)
+function drop(x, xdrop, dropout, scale)
     for i=1:length(x)
         x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]) 
     end
 end
 
-function drop(x::CudaArray, xdrop::CudaArray, dropout::Number, scale::Number)
-    ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
+if GPU
+drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
 end

@@ -32,7 +32,7 @@ function predict(net::Net, x, y=nothing; batch=0)
         e  = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
         yy = forw(net, xx; fx=false)
-        y  = b2y(y, yy, b:e, ninst)
+        y  = b2y(y, yy, b:e, x)
     end
     free(xx)
     return y
@@ -43,8 +43,6 @@ end
 
 function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=false)
     shuffle && shufflexy!(x,y)
-    # xrows,ninst = size(x)
-    # yrows,ycols = size(y)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
@@ -59,35 +57,22 @@ function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=fal
     free(xx); free(yy)
 end
 
-# function inittrain(net::Net, x, y, batch)
-#     for l in net
-#         isdefined(l,:w) && !isdefined(l,:pw) && (l.pw = UpdateParam())    
-#         isdefined(l,:b) && !isdefined(l,:pb) && (l.pb = UpdateParam())
-#     end
-#     buf = XY()
-#     chksize(buf, :x, net[1].w, (size(x, 1), batch))
-#     chksize(buf, :y, net[end].w, (size(y, 1), batch))
-#     return buf
-# end
-
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
     if ((b == nothing) || (size(b) != bs))
         b == nothing || free(b)
-        b = (usegpu ? CudaArray : Array)(eltype(x), bs)
+        b = Atype(Ftype, bs)
     end
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))
 end
 
-function b2y(y, b, r, n)
+function b2y(y, b, r, x)
+    n = size(x, ndims(x))
     ys = tuple(size(b)[1:end-1]..., n)
-    (y == nothing) && (y = Array(eltype(b), ys))
+    (y == nothing) && (y = similar(x, ys))
     @assert size(y) == ys
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
 end
-
-# Just a convenience type for training etc.
-type XY x; y; XY()=new(); end
 

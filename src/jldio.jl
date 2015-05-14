@@ -20,6 +20,6 @@ end
 function jld2layer(l::Layer)
     isdefined(l,:f) && (l.f = eval(parse(l.f)))
     isdefined(l,:fx) && (l.fx = eval(parse(l.fx)))
-    usegpu && (l = copy(l,:gpu))
+    GPU && (l = copy(l,:gpu))
     return l
 end

@@ -2,8 +2,15 @@
 # Hopefully it will shrink down to nothing as things get fixed in the
 # original packages.
 
-if isdefined(:CUDArt)   ########## CUDA extensions:
+if GPU   ########## CUDA extensions:
 
+const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/cuda")])
+
+Base.convert{T,S}(::Type{CudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
+Base.reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
+Base.reshape(a::CudaArray, dims::Int...)=reshape(a, dims)
+
+# TODO: Float64 support
 typealias Cmat Ptr{Float32}
 
 # arrays.jl:297, need these so generic code works with SubArrays:
@@ -33,7 +40,6 @@ Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Ci
 Base.zeros(A::CudaArray)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
 Base.rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
 Base.fill!(A::CudaArray,x::Number)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
-gpuseed(n::Integer)=ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 
 # For debugging
 function gpumem()
@@ -59,6 +65,12 @@ end
 
 end	########## CUDA extensions
 
+
+# our version of srand sets both gpu and cpu
+function srandom(n::Integer)
+    srand(n)
+    GPU && ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
+end
 
 function chksize(l, n, a, dims=size(a); fill=nothing)
     if !isdefined(l,n) 
@@ -103,14 +115,15 @@ end
 free(x)=x
 to_host(x)=x
 
-# istransient(l,n)=(isa(l,Layer) && in(n,(:y,:x,:dx,:xdrop)))  # no need to copy or save these
-# clean(l::Layer)=(for f in names(l); isdefined(l,f) && istransient(l,f) && (l.(f)=similar(l.(f),(0,0))); end)
-# clean(n::Net)=(for l in n; clean(l); end)
+# TODO: We should leave these up to the layers:
+# istransient(l,n)=(isa(l,Layer) && in(n,(:x,:y,:z,:dx,:dy,:dz,:xdrop)))  # no need to copy or save these
+# # clean(l::Layer)=(for f in names(l); isdefined(l,f) && istransient(l,f) && (l.(f)=similar(l.(f),(0,0))); end)
+# # clean(n::Net)=(for l in n; clean(l); end)
 
-# # We should deprecate this function, now that we have more than one type of layer.
-# # Julia v0.4 allows Net as a constructor name, but v0.3 does not:
-# # Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
-# newnet(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+# # # We should deprecate this function, now that we have more than one type of layer.
+# # # Julia v0.4 allows Net as a constructor name, but v0.3 does not:
+# # # Net(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
+# # newnet(f::Function, d::Integer...; o...) = (n=Layer[]; for i=2:length(d); push!(n, (i<length(d)) ? Layer(f,d[i-1],d[i];o...) : Layer(d[i-1],d[i];o...)); end; n)
 
 # function Base.copy(l::Union(Layer,Param), to=nothing)
 #     ll = typeof(l)()

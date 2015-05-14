@@ -1,8 +1,5 @@
-type Param; data; diff; lr; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; 
-    Param(data;args...)=(p=new(paramcheck(data)); for (k,v) in args; p.(k)=v; end; p)
-end
-
-paramcheck(a)=(isa(a, CudaArray) ? (usegpu ? a : to_host(a)) : (usegpu ? CudaArray(a) : a))
+type Param; data; diff; lr; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
+Param(data;args...)=(p=Param();p.data=convert(Atype{Ftype},data); for (k,v) in args; p.(k)=v; end; p)
 
 setparam!(p::Param,k,v)=(p.(k)=v)
 
@@ -11,19 +8,19 @@ function update(p::Param)
     nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
     nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
     nz(p,:adagrad) && adagrad!(p.adagrad, p.ada, p.diff)
-    nz(p,:lr,1f0) && (@in1! p.diff .* p.lr)
+    nz(p,:lr,one(Ftype)) && (@in1! p.diff .* p.lr)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
     @in1! p.data .- p.diff
     nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
 end
 
-nz(p,n,v=0f0)=(isdefined(p,n) && (p.(n) != v))
+nz(p,n,v=zero(Ftype))=(isdefined(p,n) && (p.(n) != v))
 
 function initupdate(p::Param)
-    isdefined(p,:adagrad)  && (p.adagrad  > zero(p.adagrad))  && chksize(p, :ada, p.diff; fill=0f0)
-    isdefined(p,:momentum) && (p.momentum > zero(p.momentum)) && chksize(p, :mom, p.diff; fill=0f0)
-    isdefined(p,:nesterov) && (p.nesterov > zero(p.nesterov)) && chksize(p, :nes, p.diff; fill=0f0)
+    isdefined(p,:adagrad)  && (p.adagrad  > zero(p.adagrad))  && chksize(p, :ada, p.diff; fill=zero(Ftype))
+    isdefined(p,:momentum) && (p.momentum > zero(p.momentum)) && chksize(p, :mom, p.diff; fill=zero(Ftype))
+    isdefined(p,:nesterov) && (p.nesterov > zero(p.nesterov)) && chksize(p, :nes, p.diff; fill=zero(Ftype))
 end
 
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
@@ -32,7 +29,7 @@ adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (ep
 momentum!(m, dw2, dw)=(axpy!(length(dw), m, dw2, 1, dw, 1);copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
-if usegpu
+if GPU  # TODO: Float64 support
     adagrad!(eps, dw2::CudaArray, dw::CudaArray)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
     l1reg!(l1, w::CudaArray, dw::CudaArray)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
 end

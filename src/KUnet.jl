@@ -4,36 +4,34 @@ using InplaceOps
 using Base.LinAlg.BLAS
 using HDF5, JLD
 
-# GPU support is on by default if the required libraries exist.
-# The user can turn gpu support on/off using KUnet.gpu(true/false)
-
-global usegpu
-const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/cuda")])
-const libcuda = find_library(["libcuda"])
-const libcudart = find_library(["libcudart", "cudart"])
-installed(pkg)=isdir(Pkg.dir(string(pkg)))
-
-function gpu(b::Bool)
-    global usegpu = b
-    usegpu == false     && return
-    isempty(libkunet)   && (warn("libkunet not found."); usegpu=false)
-    isempty(libcuda)    && (warn("libcuda not found."); usegpu=false)
-    isempty(libcudart)  && (warn("libcudart not found."); usegpu=false)
-    !installed(:CUDArt) && (warn("CUDArt not installed."); usegpu=false)
-    !installed(:CUBLAS) && (warn("CUBLAS not installed."); usegpu=false)
-    usegpu
+# See if we have gpu support.  This determines whether gpu code is
+# loaded, not whether it is used.  The user can control gpu use by
+# changing the array type using atype.
+gpuok = true
+lpath = [Pkg.dir("KUnet/cuda")]
+for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
+    isempty(find_library([l], lpath)) && (gpuok=false)
 end
-
-gpu(true)
+for p in ("CUDArt", "CUBLAS", "CUDNN")
+    isdir(Pkg.dir(p)) || (gpuok=false)
+end
+const GPU = gpuok
+GPU || warn("GPU libraries missing, using CPU.")
 
 # Conditional module import
-macro useifgpu(pkg) if usegpu Expr(:using,pkg) end end
+macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDArt
 @useifgpu CUBLAS
-# TODO: currently conv layers only have gpu impl based on cudnn, we
-# need a cpu implementation and we need to make it generic so the same
-# code works whether or not cudnn / gpu is available.
 @useifgpu CUDNN  
+
+# Atype and Ftype are the default array and element types
+# TODO: test this on cpu-only machine
+Ftype = Float32
+Atype = (GPU ? CudaArray : Array)
+ftype()=Ftype
+atype()=Atype
+ftype(t)=(global Ftype=t)
+atype(t)=(global Atype=t)
 
 #########################
 # TODO: clean util.jl, minimize cuda code
