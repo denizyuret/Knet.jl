@@ -1,3 +1,36 @@
+2015-05-14    <dyuret@ku.edu.tr>
+
+	* TODO:
+	- gradient check
+	- prob layer and loss fns: logploss, probloss, mseloss?, softmax?
+	- float64 support for Drop and Logp
+	- conv pool cpu
+	- conv pool 5D
+	- clean up float32:
+	drop.jl:27:drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
+	logp.jl:30:    ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
+	loss.jl:49:softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
+	loss.jl:50:logploss(y::CudaArray,dy::CudaArray)=ccall((:logploss,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
+	param.jl:33:    adagrad!(eps, dw2::CudaArray, dw::CudaArray)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
+	param.jl:34:    l1reg!(l1, w::CudaArray, dw::CudaArray)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
+	relu.jl:11:#forw(l::Relu,x::CudaArray; o...)=(ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(x),x); l.y=x)
+	relu.jl:12:#back(l::Relu,dy::CudaArray; o...)=(ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),l.y,dy); dy)
+	util.jl:14:typealias Cmat Ptr{Float32}
+	util.jl:28:InplaceOps.badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = (ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B);A) # InplaceOps.jl:83
+	util.jl:29:InplaceOps.bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = CUBLAS.scal!(length(A), float32(x), A, 1)
+	util.jl:30:InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, B::CudaArray) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
+	util.jl:31:InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A);A)
+	util.jl:39:Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
+	util.jl:41:Base.rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
+	util.jl:42:Base.fill!(A::CudaArray,x::Number)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
+
+	* test/runtests.jl: use Atype and Ftype to get gpu/cpu and
+	float32/float64 behavior?
+
+	* TODO: add a prob layer that computes normalized probabilities.
+	Then rename three different softmax layers whether their input is
+	unnormalized logp, logp, or prob.
+
 2015-05-12    <dyuret@ku.edu.tr>
 
 	* design: I have a new design:
