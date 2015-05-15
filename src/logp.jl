@@ -22,17 +22,12 @@ function forw(l::Logp,y; o...)
     return y
 end
 
+# Going back logp does not do anything because the constant added does
+# not change the derivatives.  There are no parameters to update.
+back(l::Logp, dy; o...)=dy
+
 if GPU
-function forw(l::Logp,y::CudaArray; o...)
-    y2 = size(y, ndims(y))
-    y1 = div(length(y), y2)
-    ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),y1, y2, y)
-    return y
-end
+forw(l::Logp,y::CudaArray{Float32}; o...)=(ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),stride(y,ndims(y)), size(y,ndims(y)), y); y)
+forw(l::Logp,y::CudaArray{Float64}; o...)=(ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),stride(y,ndims(y)), size(y,ndims(y)), y); y)
 end # if GPU
 
-# Going back logp does not do anything because the constant added does
-# not change the derivatives.  There are no parameters to update.  So
-# we will leave these as default.
-# back(l::Logp,dy)=dy
-# update(l::Logp)=nothing
