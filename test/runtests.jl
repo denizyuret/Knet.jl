@@ -1,12 +1,11 @@
 using CUDArt
 using KUnet
 using Base.Test
-require("mnist.jl")
 
 # Uncomment this if you want lots of messages:
 Base.Test.default_handler(r::Base.Test.Success) = info("$(r.expr)")
 Base.Test.default_handler(r::Base.Test.Failure) = warn("FAIL: $(r.expr)")
-Base.Test.default_handler(r::Base.Test.Error)   = warn("ERROR: $(r.expr)")
+Base.Test.default_handler(r::Base.Test.Error)   = warn("$(r.err): $(r.expr)")
 
 epseq(x,y)=(maximum(abs(to_host(x)-to_host(y))) < 10*eps(eltype(x)))
 
@@ -23,33 +22,36 @@ ninst = 64
 KUnet.atype(Array)
 x1 = x2 = y1 = y2 = dx1 = dx2 = dy1 = dy2 = l1 = l2 = nothing
 
-for ft in (Float32,Float64) # TODO: add Float64
+# for ft in (Float32,Float64)
+for ft in (Float32,)
     KUnet.ftype(ft)
-    for dims in 1:5
-        if dims == 1
-            x1 = convert(Array{ft}, squeeze(MNIST.xtst[:,1], 2))
-        else
-            x1 = convert(Array{ft}, MNIST.xtst[:,1:ninst])
-            x1 = ((dims == 2) ? x1 :
-                  (dims == 3) ? reshape(x1, 28, 28, ninst) :
-                  (dims == 4) ? reshape(x1, 28, 14, 2, ninst) :
-                  (dims == 5) ? reshape(x1, 14, 7, 4, 2, ninst) :
-                  error("dims=$dims."))
-        end
+#    for dims in 1:5
+    for dims in 4:4
+        x1 = ((dims == 1) ? rand(ft, 784) :
+              (dims == 2) ? rand(ft, 784, ninst) :
+              (dims == 3) ? rand(ft, 28, 28, ninst) :
+              (dims == 4) ? rand(ft, 28, 14, 2, ninst) :
+              (dims == 5) ? rand(ft, 14, 7, 4, 2, ninst) :
+              error("dims=$dims."))
         xdrop = rand(ft, size(x1))
         xchan = (dims==1 ? length(x1) : size(x1, dims-1))
         xinst = (dims==1 ? 1 : size(x1, dims))
         xrows = div(length(x1), xinst)
         for l1 in (
-                   Bias(Param(rand(ft, xchan))),
-                   Conv(5,5,xchan,10),
-                   Drop(0.5),
+                   # Bias(Param(rand(ft, xchan))),
+                   # Conv(5,5,xchan,10),
+                   # Drop(0.5),
                    Logp(), 
-                   Mmul(10,xrows),
-                   Pool(2),
-                   Relu(), 
-                   Sigm(), 
-                   Tanh(),
+                   LogpLoss(),
+                   # Mmul(10,xrows),
+                   # Pool(2),
+                   QuadLoss(),
+                   # Relu(), 
+                   # Sigm(), 
+                   # Soft(),
+                   SoftLoss(),
+                   # Tanh(),
+                   XentLoss(),
                    )
             in(typeof(l1), (Conv, Pool)) && dims != 4 && continue
             @show (ft, dims, size(x1), typeof(l1))
