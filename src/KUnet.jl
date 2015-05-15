@@ -37,19 +37,24 @@ atype(t)=(global Atype=t)
 # TODO: clean util.jl, minimize cuda code
 include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 include("param.jl");	export Param, update, setparam!
-include("loss.jl");	export softmaxloss, logploss
 include("net.jl");	export Layer, Net, train, predict, forw, back
 
 # TODO: should work with cpu/gpu 2D/4D/5D/ND Float32/Float64
-include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv
-include("pool.jl");	export Pool
-include("relu.jl");	export Relu
-include("tanh.jl");	export Tanh
-include("sigm.jl");	export Sigm
 include("drop.jl");	export Drop
 include("logp.jl");	export Logp
+include("mmul.jl");     export Mmul
+include("pool.jl");	export Pool
+include("relu.jl");	export Relu
+include("sigm.jl");	export Sigm
+include("soft.jl");	export Soft
+include("tanh.jl");	export Tanh
+
+include("logploss.jl");	export LogpLoss
+include("quadloss.jl");	export QuadLoss
+include("softloss.jl");	export SoftLoss
+include("xentloss.jl");	export XentLoss
 
 # TODO: fix file i/o
 # include("layer.jl");	export Layer, newnet

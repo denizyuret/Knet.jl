@@ -1,10 +1,21 @@
 # Each Layer implements some common functions, here are the stubs:
+# forw takes input x and returns output y, possibly setting some state
+# back takes dy, the loss gradient wrt y, and returns dx, the loss gradient wrt x
+# Some layers overwrite their inputs
 
 abstract Layer
 forw(l::Layer, x; o...)=x
 back(l::Layer, dy; o...)=dy
 update(l::Layer)=nothing
 setparam!(l::Layer,k,v)=nothing
+
+# LossLayer is slightly different:
+# forw only records the outgoing y.
+# back takes z, the desired output, and overwrites it with the loss gradient wrt y
+# loss takes z, the desired output, and returns a loss value
+
+abstract LossLayer <: Layer
+loss(l::LossLayer, z)=nothing
 
 # Net: Convenience type for an array of layers
 

@@ -2,32 +2,31 @@ type Logp <: Layer; end
 
 # logp treats the linear output as unnormalized log probabilities and
 # adds an offset to each column to make them into normalized log
-# probabilities:
+# probabilities.  The normalization is across the last dimension:
+# i.e. sum(exp(y[:,...:,i]))==1 at the output.
 
 function forw(l::Logp,y; o...)
-    y = initforw(l, y)
-    yrows,ycols = size(y)
-    for j=1:ycols
+    nd = ndims(y)
+    sz = size(y, nd)
+    st = stride(y, nd)
+    for j=1:sz
+        i1=(j-1)*st+1
+        i2=j*st
         ymax = typemin(eltype(y))
-        for i=1:yrows; y[i,j] > ymax && (ymax = y[i,j]); end
+        for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
         z = zero(eltype(y))
-        for i=1:yrows; z += exp((y[i,j] -= ymax)); end
+        for i=i1:i2; z += exp(y[i] -= ymax); end
         logz = log(z)
-        for i=1:yrows; y[i,j] -= logz; end
+        for i=i1:i2; y[i] -= logz; end
     end
     return y
 end
 
-function initforw(l::Logp, y)
-    (ndims(y) == 2 ? y :
-     ndims(y) == 1 ? reshape(y, length(y), 1) :
-     reshape(y, int(length(y)/size(y, ndims(y))), size(y, ndims(y))))
-end
-
 if GPU
 function forw(l::Logp,y::CudaArray; o...)
-    y = initforw(l, y)
-    ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
+    y2 = size(y, ndims(y))
+    y1 = div(length(y), y2)
+    ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),y1, y2, y)
     return y
 end
 end # if GPU

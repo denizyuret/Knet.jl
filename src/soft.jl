@@ -40,6 +40,7 @@ function back(l::Soft,dy; dx=true, o...)
 end
 
 if GPU
+# TODO: what happened to the buggy 0.5 factor?
 forw(l::Soft,y::CudaArray; o...)=(l.y=cudnnSoftmaxForward(y))
 back(l::Soft,dy::CudaArray; dx=true, o...)=(dx && cudnnSoftmaxBackward(l.y, dy))
 end # if GPU
