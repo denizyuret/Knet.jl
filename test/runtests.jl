@@ -6,9 +6,9 @@ using Base.Test: Success, Failure, Error
 import Base.Test: default_handler
 
 # Uncomment this if you want lots of messages:
-default_handler(r::Success) = info("$(r.expr)")
-default_handler(r::Failure) = warn("FAIL: $(r.expr)")
-default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
+# default_handler(r::Success) = info("$(r.expr)")
+# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+# default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
