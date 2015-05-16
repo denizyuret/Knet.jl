@@ -1,4 +1,4 @@
-type Logp <: Layer; end
+type Logp <: Layer; y; Logp()=new(); end
 
 # logp treats the linear output as unnormalized log probabilities and
 # adds an offset to each column to make them into normalized log
@@ -17,15 +17,33 @@ function forw(l::Logp, y; o...)
         logz = log(z)
         for i=i1:i2; y[i] -= logz; end
     end
-    return y
+    return (l.y=y)
 end
 
-# Going back logp does not do anything because the constant added does
-# not change the derivatives.  There are no parameters to update.
-back(l::Logp, dy; o...)=dy
+# z = Σj exp(xj)
+# yi = xi - logz
+# dJ/dxi = Σj dJ/dyj dyj/dxi
+# dyj/dxi = [i==j] - (1/z)exp(xi) = [i==j] - exp(yi)
+# dJ/dxi = dJ/dyi - exp(yi) Σj dJ/dyj
+
+function back(l::Logp, dy; dx=true, o...)
+    @assert issimilar(dy, l.y)
+    dx || return
+    (nd,nx) = size2(dy)
+    for j=1:nx
+        i1=(j-1)*nd+1
+        i2=j*nd
+        dysum = zero(Float64)
+        for i=i1:i2; dysum += dy[i]; end
+        for i=i1:i2; dy[i] = dy[i] - exp(l.y[i])*dysum; end
+    end
+    return dy
+end
 
 if GPU
-forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); y)
-forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); y)
+forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); l.y=y)
+forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); l.y=y)
+back(l::Logp,dy::CudaArray{Float32}; o...)=dy
+back(l::Logp,dy::CudaArray{Float64}; o...)=dy
 end # if GPU
 
