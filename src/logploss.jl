@@ -5,6 +5,7 @@ type LogpLoss <: LossLayer; y; LogpLoss()=new(); end
 # p has normalized probabilities from the answer key.
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
 # Overwrites p with the gradient of the loss wrt y, i.e. exp(y)-p:
+#
 # z = sum(exp(y))   ;; normalization constant (should be 1 here)
 # q = exp(y)/z      ;; model probabilities
 # logq = y - logz   ;; model (normalized) log prob

@@ -116,6 +116,7 @@ free(x)=x
 to_host(x)=x
 
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
+issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
 
 # TODO: We should leave these up to the layers:
 # istransient(l,n)=(isa(l,Layer) && in(n,(:x,:y,:z,:dx,:dy,:dz,:xdrop)))  # no need to copy or save these

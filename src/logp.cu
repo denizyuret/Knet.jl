@@ -4,7 +4,8 @@
    On output y will contain normalized probabilities. */
 
 __global__ void _slogpforw(int nrows, int ncols, float *y) {
-  float ymax, z, logz;
+  double z;
+  float ymax, logz;
   int i0, i1;
   int col = threadIdx.x + blockIdx.x * blockDim.x;
   while (col < ncols) {

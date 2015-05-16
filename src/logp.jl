@@ -12,7 +12,7 @@ function forw(l::Logp, y; o...)
         i2=j*st
         ymax = typemin(eltype(y))
         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
-        z = zero(eltype(y))
+        z = zero(Float64)
         for i=i1:i2; z += exp(y[i] -= ymax); end
         logz = log(z)
         for i=i1:i2; y[i] -= logz; end

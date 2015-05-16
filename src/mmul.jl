@@ -32,7 +32,7 @@ function initforw(l::Mmul, x)
 end
 
 function initback(l::Mmul, dy, dx)
-    @assert size(dy) == size(l.y)
+    @assert issimilar(dy, l.y)
     l.dy = dy
     chksize(l.w, :diff, l.w.data)
     dx && chksize(l, :dx, l.x)

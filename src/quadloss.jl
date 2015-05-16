@@ -10,7 +10,7 @@ type QuadLoss <: LossLayer; y; QuadLoss()=new(); end
 forw(l::QuadLoss, x; o...)=(l.y=x)
 
 function back(l::QuadLoss, z; dx=true, o...)
-    @assert size(z) == size(l.y)
+    @assert issimilar(z,l.y)
     dx || return
     (st,nx) = size2(z)
     for i=1:length(z)
@@ -20,11 +20,11 @@ function back(l::QuadLoss, z; dx=true, o...)
 end
 
 function loss(l::QuadLoss, z)
-    @assert size(z) == size(l.y)
+    @assert issimilar(z,l.y)
     y = to_host(l.y)
     z = to_host(z)
     (st,nx) = size2(z)
-    cost = 0.0
+    cost = zero(Float64)
     for i=1:length(z)
         cost += (y[i]-z[i])^2
     end
@@ -34,7 +34,7 @@ end
 if GPU
 
 function back(l::QuadLoss, z::CudaArray; dx=true, o...)
-    @assert size(z) == size(l.y)
+    @assert issimilar(z,l.y)
     dx || return
     (st,nx) = size2(z)
     cudnnTransformTensor(1/nx, l.y, -1/nx, z)

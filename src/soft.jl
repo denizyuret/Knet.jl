@@ -13,7 +13,7 @@ function forw(l::Soft,y; o...)
         i1=(j-1)*st+1
         i2=j*st
         ymax = typemin(eltype(y))
-        ysum = zero(eltype(y))
+        ysum = zero(Float64)
         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
         for i=i1:i2; ysum += (y[i]=exp(y[i] - ymax)); end
         for i=i1:i2; y[i] /= ysum; end
@@ -22,13 +22,13 @@ function forw(l::Soft,y; o...)
 end
 
 function back(l::Soft,dy; dx=true, o...)
-    @assert size(dy)==size(l.y)
+    @assert issimilar(dy,l.y)
     dx || return
     (st,nx) = size2(y)
     for j=1:nx
         i1=(j-1)*st+1
         i2=j*st
-        sumydy = zero(eltype(dy))
+        sumydy = zero(Float64)
         for i=i1:i2; sumydy += l.y[i] * dy[i]; end
         for i=i1:i2; dy[i] = l.y[i] * (dy[i] - sumydy); end
     end
@@ -38,6 +38,6 @@ end
 if GPU
 # TODO: what happened to the buggy 0.5 factor?
 forw(l::Soft,y::CudaArray; o...)=(l.y=cudnnSoftmaxForward(y))
-back(l::Soft,dy::CudaArray; dx=true, o...)=(dx && cudnnSoftmaxBackward(l.y, dy))
+back(l::Soft,dy::CudaArray; dx=true, o...)=(dx && cudnnSoftmaxBackward(l.y, dy); dy)
 end # if GPU
 
