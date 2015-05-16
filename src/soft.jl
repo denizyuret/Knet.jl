@@ -24,7 +24,7 @@ end
 function back(l::Soft,dy; dx=true, o...)
     @assert issimilar(dy,l.y)
     dx || return
-    (st,nx) = size2(y)
+    (st,nx) = size2(dy)
     for j=1:nx
         i1=(j-1)*st+1
         i2=j*st
