@@ -27,10 +27,9 @@ setparam!(n::Net,k,v)=(for l in n; setparam!(l,k,v); end)
 
 # The backprop algorithm
 
-function backprop(net::Net, x, dy, loss=softmaxloss)
+function backprop(net::Net, x, dy)
     y = forw(net, x) 	# y: network output
-    loss(y, dy)         # dy: desired output -> loss gradient wrt y
-    back(net, dy)       # calculate derivatives
+    back(net, dy)       # calculate derivatives given desired output dy
 end
 
 # Predict implements forw with minibatches.
@@ -52,8 +51,8 @@ end
 # Train implements backprop with updates and minibatches.
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
-function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=false)
-    shuffle && shufflexy!(x,y)
+function train(net::Net, x, y; batch=128, iters=0)
+    # shuffle && shufflexy!(x,y) # did not debug this with N-D
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
@@ -61,7 +60,7 @@ function train(net::Net, x, y; batch=128, iters=0, loss=softmaxloss, shuffle=fal
         e = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
         yy = x2b(yy, y, b:e)
-        backprop(net, xx, yy, loss)
+        backprop(net, xx, yy)
         update(net)
         (iters > 0) && (e/batch >= iters) && break
     end
