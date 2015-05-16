@@ -1,10 +1,17 @@
 type Drop <: Layer; dropout; xdrop; Drop()=new(); end
 Drop(d)=(@assert 0 <= d <= 1; l=Drop();l.dropout=d;l)
 
-function forw(l::Drop, x; fx=true, xdrop=nothing, o...)
+function forw(l::Drop, x; fx=true, xdrop=nothing, seed=nothing, o...)
     if fx && (l.dropout > 0)
         chksize(l, :xdrop, x)
-        (xdrop == nothing) ? rand!(l.xdrop) : copy!(l.xdrop, xdrop)
+        if xdrop != nothing
+            copy!(l.xdrop, xdrop)
+        elseif seed != nothing
+            srand(seed)
+            copy!(l.xdrop, rand(eltype(x), size(x)))
+        else
+            rand!(l.xdrop)
+        end
         drop(x, l.xdrop, l.dropout, 1/(1-l.dropout))
     end
     return x
