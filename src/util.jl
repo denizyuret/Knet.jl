@@ -38,7 +38,8 @@ InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccal
 # TODO: add error checking here since this is not a full implementation of sum!
 Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
 Base.zeros(A::CudaArray)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
-Base.rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
+Base.rand!(A::CudaArray{Float32})=(ccall((:srandfill,libkunet),Void,(Cint,Ptr{Float32}),length(A),A); A)
+Base.rand!(A::CudaArray{Float64})=(ccall((:drandfill,libkunet),Void,(Cint,Ptr{Float64}),length(A),A); A)
 Base.fill!(A::CudaArray,x::Number)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
 
 # For debugging
