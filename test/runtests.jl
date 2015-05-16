@@ -37,11 +37,11 @@ function gradcheck(net, x1, z1, x, dx; iter=10,
         x[r] = xr2; loss2 = getloss(net, x1, z1)
         x[r] = xr0
         dxr = (loss2 - loss1) / (xr2 - xr1)
-        @show (dx[r], dxr)
+        # @show (dx[r], dxr)
         absdiff = abs(dxr - dx[r])/(abs(dxr) + abs(dx[r]))
         absdiff > maxdiff && (maxdiff = absdiff)
     end
-    @show (maxdiff, epsilon, delta)
+    # @show (maxdiff, epsilon, delta)
     return maxdiff < epsilon
 end
 
@@ -80,18 +80,6 @@ function getparam(l1::Layer)
     return w1
 end
 
-function getlayer(lt, x)
-    nd = ndims(x)
-    (x1,x2) = KUnet.size2(x)
-    nc = (nd==1 ? x1 : size(x, nd-1))
-    lt == Bias ? Bias(Param(rand(eltype(x), nc))) :
-    lt == Conv ? Conv(rand(1:size(x,1)),rand(1:size(x,2)),nc,rand(1:20)) :
-    lt == Drop ? Drop(rand()) :
-    lt == Mmul ? Mmul(rand(1:20),x1) :
-    lt == Pool ? Pool(rand(1:minimum(size(x)))) :
-    lt()
-end
-
 function gputest(cnet::Net, x, z)
     rval = true
     KUnet.GPU || (warn("GPU not available"); return false)
@@ -119,36 +107,68 @@ function gradtest(net, x, z)
     return rval
 end
 
+function getz(net, x)
+    z = rand!(forw(net, copy(x)))
+    L = typeof(net[end])
+    return (in(L, (Logp, LogpLoss)) ? forw(Logp(), z) :
+            in(L, (Soft, SoftLoss)) ? forw(Soft(), z) : z)
+end
+
+function getnet{T<:Layer}(F,S,L::Type{T})
+    nd = length(S)
+    C = (nd==1 ? S[1] : S[nd-1])
+    l = ((L == Bias) ? Bias(Param(rand(F, C))) :
+         (L == Conv) ? Conv(rand(1:S[1]),rand(1:S[2]),C,rand(1:20)) :
+         (L == Drop) ? Drop(rand()) :
+         (L == Mmul) ? Mmul(rand(1:20), div(prod(S),S[nd])) :
+         (L == Pool) ? Pool(rand(1:minimum(S))) :
+         (L == Logp) ? Logp() :
+         (L == Soft) ? Soft() : L())
+    net = Layer[l]
+    return (isa(l, Logp) ? push!(net, LogpLoss()) :
+            isa(l, Soft) ? push!(net, SoftLoss()) :
+            !isa(l, LossLayer) ? push!(net, QuadLoss()) : net)
+end
+
+function getx(F,S,L)
+    return ((L == LogpLoss) ? forw(Logp(), rand(F,S)) :
+            (L == SoftLoss) ? forw(Soft(), rand(F,S)) :
+            rand(F, S))
+end
+
+function gettest(F,S,L)
+    net = getnet(F,S,L)
+    x = getx(F,S,L)
+    z = getz(net, x)
+    return (net, x, z)
+end
+
+function main(layers)
+    KUnet.atype(Array)
+    # for F in (Float32,Float64)
+    for F in (Float64,)
+        KUnet.ftype(F)
+        #    for D in 1:5
+        for D in 1:1
+            S = tuple(rand(1:20,D)...)
+            for L in layers
+                @show (F, S, L)
+                (net, x, z) = gettest(F,S,L)
+                net==nothing && (warn("Not supported"); continue)
+                gputest(net, x, z)
+                gradtest(net, x, z)
+            end
+        end
+    end
+end
+
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
 # layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # failed64gpu = (Conv, Logp, Mmul, Pool, XentLoss)
 # passed64gpu = (Bias, Drop, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
-layers = (Sigm,)
-net = x1 = z1 = nothing
-
-KUnet.atype(Array)
-# for F in (Float32,Float64)
-for F in (Float64,)
-    KUnet.ftype(F)
-#    for D in 1:5
-    for D in 1:1
-        x1 = rand(F, tuple(rand(1:20,D)...))
-        S = size(x1)
-        for L in layers
-            @show (F, D, S, L)
-            l1 = getlayer(L, x1)
-            l1 == nothing && (warn("Not supported"); continue)
-            net = Layer[l1]
-            (L <: LossLayer) || push!(net, QuadLoss())
-            x1 = rand!(x1)
-            z1 = rand!(forw(net, copy(x1)))
-            gputest(net, x1, z1)
-            gradtest(net, x1, z1)
-        end
-    end
-end
-            
+layers = (Bias, Drop, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
+main(layers)
 
 #             qloss1 = QuadLoss()
 #             y1 = forw(l1, copy(x1); xdrop=xdrop)
