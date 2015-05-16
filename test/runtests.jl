@@ -13,11 +13,35 @@ default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                        rtol::Real=cbrt(maxeps), atol::Real=sqrt(maxeps))
-    size(x) == size(y) || return false
+    size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
     x,y = to_host(x), to_host(y)
     d = abs(x-y)
     s = abs(x)+abs(y)
+    # @show maximum(d)
+    # @show maximum(d./s)
     (maximum(d) <= atol) && (maximum(d./s) <= rtol)
+end
+
+function gradcheck(x, dx, lossfn; iter=10, 
+                   epsilon=cbrt(eps(eltype(x))), 
+                   delta=(eltype(x)==Float64) ? 1e-4 : 1e-3)
+    maxdiff = 0.0
+    for i=1:iter
+        r = rand(1:length(x))
+        xr0 = x[r]
+        # Do not cross 0 for softloss
+        xr1 = xr0 - delta; xr0>0 && xr1<0 && (xr1=0)
+        xr2 = xr0 + delta; xr0<0 && xr2>0 && (xr2=0)
+        x[r] = xr1; loss1 = lossfn()
+        x[r] = xr2; loss2 = lossfn()
+        x[r] = xr0
+        dxr = (loss2 - loss1) / (xr2 - xr1)
+        dx[r]
+        absdiff = abs(dxr - dx[r])/(abs(dxr) + abs(dx[r]))
+        absdiff > maxdiff && (maxdiff = absdiff)
+    end
+    # @show (maxdiff, epsilon, delta)
+    return maxdiff < epsilon
 end
 
 CudaLayer(l)=(isa(l, Mmul) ? Mmul(l.w.data) :
@@ -26,25 +50,6 @@ CudaLayer(l)=(isa(l, Mmul) ? Mmul(l.w.data) :
               isa(l, Drop) ? Drop(l.dropout) :
               isa(l, Pool) ? Pool(l.pd) :
               typeof(l)())
-
-function gradcheck(x, dx, lossfn; iter=10, delta=cbrt(eps(eltype(x))), epsilon=delta)
-    maxdiff = 0.0
-    for i=1:iter
-        r = rand(1:length(x))
-        xr = x[r]
-        x[r] = xr - delta
-        loss1 = lossfn()
-        x[r] = xr + delta
-        loss2 = lossfn()
-        x[r] = xr
-        dxr = (loss2 - loss1) / (2*delta)
-        dx[r]
-        absdiff = abs(dxr - dx[r])/(abs(dxr) + abs(dx[r]))
-        absdiff > maxdiff && (maxdiff = absdiff)
-    end
-    @show (maxdiff, delta, epsilon)
-    return maxdiff < epsilon
-end
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
 
@@ -57,13 +62,11 @@ for ft in (Float32,Float64)
 # for ft in (Float64,)
     KUnet.ftype(ft)
     gradeps = cbrt(eps(ft))
-#    for dims in 1:5
-     for dims in 3:5
+    for dims in 1:5
+#     for dims in 3:5
         x1 = ((dims == 1) ? rand(ft, 784) :
-              #(dims == 1) ? rand(ft, 784) :
               (dims == 2) ? rand(ft, 784, ninst) :
-              # (dims == 3) ? rand(ft, 28, 28, ninst) :
-              (dims == 3) ? rand(ft, 3, 3, 5) :
+              (dims == 3) ? rand(ft, 28, 28, ninst) :
               (dims == 4) ? rand(ft, 28, 14, 2, ninst) :
               (dims == 5) ? rand(ft, 14, 7, 4, 2, ninst) :
               error("dims=$dims."))
@@ -132,14 +135,24 @@ for ft in (Float32,Float64)
             if isa(l1, QuadLoss)
                 y1 = x1
                 z1 = rand(ft, size(y1))
+                @show (ft, dims, size(y1), typeof(l1))
             else
                 dims > 2 && continue  # cross entropy losses are accurate for a few classes
                 y1 = (dims==1 ? rand(ft, 10) : rand(ft, 10, size(x1,dims)))
-                isa(l1, LogpLoss) && forw(Logp(), y1)
-                isa(l1, SoftLoss) && forw(Soft(), y1)
                 z1 = forw(Soft(), 5*rand(ft, size(y1)))
+                @show (ft, dims, size(y1), typeof(l1))
+                nxones = ones(ft, (dims==1 ? 1 : size(x1, dims)))
+                @test isapprox(nxones, vec(sum(z1,1)))
+                if isa(l1, LogpLoss) 
+                    forw(Logp(), y1)
+                    @test isapprox(nxones, vec(sum(exp(y1),1)))
+                end
+                if isa(l1, SoftLoss)
+                    forw(Soft(), y1)
+                    @test isapprox(nxones, vec(sum(y1,1)))
+                end
             end
-            @show (ft, dims, size(y1), typeof(l1))
+
             forw(l1, y1)
             dy1 = back(l1, copy(z1))
             
@@ -154,9 +167,9 @@ for ft in (Float32,Float64)
                 KUnet.atype(Array)
             end
 
-            lossfn3=()->(y3=(isa(l1,LogpLoss) ? forw(Logp(),copy(y1)) :
-                             isa(l1,SoftLoss) ? copy(y1)./sum(y1,1) :
-                             copy(y1)); forw(l1,y3);loss(l1,z1))
+            lossfn3=()->(isa(l1,LogpLoss) ? forw(l1,forw(Logp(),copy(y1))) :
+                         isa(l1,SoftLoss) ? forw(l1,copy(y1)./sum(y1,1)) :
+                         forw(l1,y1); loss(l1,z1))
             @test gradcheck(y1, dy1, lossfn3)
 
         end # for l1 in lossfns
