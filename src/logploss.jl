@@ -17,23 +17,21 @@ forw(l::LogpLoss, x; o...)=(l.y=x)
 function back(l::LogpLoss, p; dx=true, o...)
     @assert size(p) == size(l.y)
     dx || return
-    inst = size(p, ndims(p))
-    # loss = zero(eltype(p))
+    (st,nx) = size2(p)
     for i=1:length(p)
-        # loss -= (p[i]*l.y[i])/inst
-        p[i] = (exp(l.y[i])-p[i])/inst
+        p[i] = (exp(l.y[i])-p[i])/nx
     end
     return p
 end
 
 function loss(l::LogpLoss, p)
     @assert size(p) == size(l.y)
-    inst = size(p, ndims(p))
-    loss = zero(eltype(p))
+    (st,nx) = size2(p)
+    cost = zero(eltype(p))
     for i=1:length(p)
-        loss -= (p[i]*l.y[i])
+        cost -= (p[i]*l.y[i])
     end
-    return loss/inst
+    return cost/nx
 end
 
 if GPU
