@@ -2,7 +2,7 @@
 
 __global__ void _sxentloss(int nd, int nx, float *y, float *dy) {
   double z, ymax;
-  float *qz = (float *) malloc(nd * sizeof(float));
+  // double *qz = (double *) malloc(nd * sizeof(double));
   int i0, i1;
   int ix = threadIdx.x + blockIdx.x * blockDim.x;
   while (ix < nx) {
@@ -11,16 +11,18 @@ __global__ void _sxentloss(int nd, int nx, float *y, float *dy) {
     z = 0;
     ymax = -INFINITY;
     for (int i=i0; i<i1; i++) { if (y[i] > ymax) ymax = y[i]; }
-    for (int i=i0; i<i1; i++) { z += (qz[i-i0] = exp(y[i] - ymax)); }
-    for (int i=i0; i<i1; i++) { dy[i] = (qz[i-i0]/z - dy[i])/nx; }
+    for (int i=i0; i<i1; i++) { y[i] = exp(y[i] - ymax); z+=y[i]; }
+    for (int i=i0; i<i1; i++) { y[i] /= z; dy[i] = (y[i] - dy[i])/nx; }
+    //for (int i=i0; i<i1; i++) { z += (qz[i-i0] = exp(y[i] - ymax)); }
+    //for (int i=i0; i<i1; i++) { dy[i] = (qz[i-i0]/z - dy[i])/nx; }
     ix += blockDim.x * gridDim.x;
   }
-  free(qz);
+  // free(qz);
 }
 
 __global__ void _dxentloss(int nd, int nx, double *y, double *dy) {
   double z, ymax;
-  double *qz = (double *) malloc(nd * sizeof(double));
+  // double *qz = (double *) malloc(nd * sizeof(double));
   int i0, i1;
   int ix = threadIdx.x + blockIdx.x * blockDim.x;
   while (ix < nx) {
@@ -29,11 +31,13 @@ __global__ void _dxentloss(int nd, int nx, double *y, double *dy) {
     z = 0;
     ymax = -INFINITY;
     for (int i=i0; i<i1; i++) { if (y[i] > ymax) ymax = y[i]; }
-    for (int i=i0; i<i1; i++) { z += (qz[i-i0] = exp(y[i] - ymax)); }
-    for (int i=i0; i<i1; i++) { dy[i] = (qz[i-i0]/z - dy[i])/nx; }
+    for (int i=i0; i<i1; i++) { y[i] = exp(y[i] - ymax); z+=y[i]; }
+    for (int i=i0; i<i1; i++) { y[i] /= z; dy[i] = (y[i] - dy[i])/nx; }
+    // for (int i=i0; i<i1; i++) { z += (qz[i-i0] = exp(y[i] - ymax)); }
+    // for (int i=i0; i<i1; i++) { dy[i] = (qz[i-i0]/z - dy[i])/nx; }
     ix += blockDim.x * gridDim.x;
   }
-  free(qz);
+  // free(qz);
 }
 
 extern "C" {

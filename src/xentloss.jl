@@ -24,14 +24,17 @@ function back(l::XentLoss, p; dx=true, o...)
     @assert issimilar(p, l.y)
     dx || return
     (nd,nx) = size2(p)
-    qz = similar(p, nd)
+    # cuda cannot handle allocation, we will overwrite l.y for compatibility
+    # qz = similar(p, nd)
     for j=1:nx
         i1=(j-1)*nd+1; i2=j*nd
         z = zero(Float64)
         ymax = typemin(eltype(l.y)) # subtract ymax for numerical stability
         for i=i1:i2; l.y[i] > ymax && (ymax = l.y[i]); end
-        for i=i1:i2; z += (qz[i-i1+1] = exp(l.y[i]-ymax)); end
-        for i=i1:i2; p[i] = (qz[i-i1+1]/z - p[i])/nx; end
+        for i=i1:i2; l.y[i] = exp(l.y[i]-ymax); z+=l.y[i]; end
+        for i=i1:i2; l.y[i]/=z; p[i] = (l.y[i] - p[i])/nx; end
+        #for i=i1:i2; z += (qz[i-i1+1] = exp(l.y[i]-ymax)); end
+        #for i=i1:i2; p[i] = (qz[i-i1+1]/z - p[i])/nx; end
     end
     return p
 end
