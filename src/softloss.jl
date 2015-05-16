@@ -4,7 +4,7 @@ type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
 # l.y should have normalized probabilities output by the model.
 # p has normalized probabilities from the answer key.
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
-# Overwrites p with the gradient of the loss wrt y, i.e. -p/y
+# Overwrites p with the gradient of the loss wrt y, i.e. 1-p/y
 # Loss = -sum[p log(y)]
 
 forw(l::SoftLoss, x; o...)=(l.y=x)
@@ -12,21 +12,21 @@ forw(l::SoftLoss, x; o...)=(l.y=x)
 function back(l::SoftLoss, p; dx=true, o...)
     @assert size(p) == size(l.y)
     dx || return
-    inst = size(p, ndims(p))
+    (st,nx) = size2(p)
     for i=1:length(p)
-        p[i] = -(p[i]/l.y[i])/inst
+        p[i] = ((l.y[i]-p[i])/l.y[i])/nx
     end
     return p
 end
 
 function loss(l::SoftLoss, p)
     @assert size(p) == size(l.y)
-    inst = size(p, ndims(p))
-    loss = zero(eltype(p))
+    (st,nx) = size2(p)
+    cost = zero(eltype(p))
     for i=1:length(p)
-        loss -= (p[i]*log(l.y[i]))
+        cost -= (p[i]*log(l.y[i]))
     end
-    return loss/inst
+    return cost/nx
 end
 
 if GPU
