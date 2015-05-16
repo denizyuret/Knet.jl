@@ -1,7 +1,9 @@
+using Base.Test
+using CUDArt
 using KUnet
 using CUDArt: ContiguousArray
-using Base.Test
-import Base.Test: default_handler, Success, Failure, Error
+using Base.Test: Success, Failure, Error
+import Base.Test: default_handler
 
 # Uncomment this if you want lots of messages:
 default_handler(r::Success) = info("$(r.expr)")
@@ -25,7 +27,7 @@ CudaLayer(l)=(isa(l, Mmul) ? Mmul(l.w.data) :
               isa(l, Pool) ? Pool(l.pd) :
               typeof(l)())
 
-function gradcheck(x, dx, lossfn; iter=100, delta=cbrt(eps(eltype(x))))
+function gradcheck(x, dx, lossfn; iter=10, delta=cbrt(eps(eltype(x))), epsilon=delta)
     maxdiff = 0.0
     for i=1:iter
         r = rand(1:length(x))
@@ -40,7 +42,8 @@ function gradcheck(x, dx, lossfn; iter=100, delta=cbrt(eps(eltype(x))))
         absdiff = abs(dxr - dx[r])/(abs(dxr) + abs(dx[r]))
         absdiff > maxdiff && (maxdiff = absdiff)
     end
-    return maxdiff
+    @show (maxdiff, delta, epsilon)
+    return maxdiff < epsilon
 end
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
@@ -55,7 +58,7 @@ for ft in (Float32,Float64)
     KUnet.ftype(ft)
     gradeps = cbrt(eps(ft))
 #    for dims in 1:5
-     for dims in 1:1
+     for dims in 1:2
         x1 = ((dims == 1) ? rand(ft, 784) :
               #(dims == 1) ? rand(ft, 784) :
               (dims == 2) ? rand(ft, 784, ninst) :
@@ -109,41 +112,52 @@ for ft in (Float32,Float64)
 
             # Gradient check:
             lossfn1=()->loss(qloss1,z1)
-            @show gradcheck(y1, dy1, lossfn1)
-            @test gradcheck(y1, dy1, lossfn1) < gradeps
+            @test gradcheck(y1, dy1, lossfn1)
             lossfn2=()->(forw(qloss1,forw(l1,copy(x1);xdrop=xdrop));loss(qloss1,z1))
-            @show gradcheck(x1, dx1, lossfn2)
-            @test gradcheck(x1, dx1, lossfn2) < gradeps
+            @test gradcheck(x1, dx1, lossfn2)
             w1 = nothing
             for n in names(l1); isa(l1.(n), Param) && (w1=l1.(n)); end
             if w1 != nothing
-                @show gradcheck(w1.data, w1.diff, lossfn2)
-                @test gradcheck(w1.data, w1.diff, lossfn2) < gradeps
+                @test gradcheck(w1.data, w1.diff, lossfn2)
             end  # if w1 != nothing
         end # for l1
 
         for l1 in (
-                   # LogpLoss(),
-                   # QuadLoss(),
+                   #LogpLoss(),
+                   #QuadLoss(),
                    SoftLoss(),
-                   # XentLoss(),
+                   #XentLoss(),
                    )
             if isa(l1, QuadLoss)
                 y1 = x1
                 z1 = rand(ft, size(y1))
             else
+                dims > 2 && continue  # cross entropy losses are accurate for a few classes
                 y1 = (dims==1 ? rand(ft, 10) : rand(ft, 10, size(x1,dims)))
                 isa(l1, LogpLoss) && forw(Logp(), y1)
                 isa(l1, SoftLoss) && forw(Soft(), y1)
-                z1 = forw(Soft(), 10*rand(ft, size(y1)))
+                z1 = forw(Soft(), 5*rand(ft, size(y1)))
             end
             @show (ft, dims, size(y1), typeof(l1))
             forw(l1, y1)
             dy1 = back(l1, copy(z1))
-            lossfn3=()->(y2=(isa(l1,LogpLoss)?forw(Logp(),copy(y1)):isa(l1,SoftLoss)?copy(y1)./sum(y1):y1);forw(l1,y2);loss(l1,z1))
-            @show gradcheck(y1, dy1, lossfn3)
-            @test gradcheck(y1, dy1, lossfn3) < gradeps
             
+            if KUnet.GPU
+                KUnet.atype(CudaArray)
+                l2 = CudaLayer(l1)
+                y2 = CudaArray(y1)
+                z2 = CudaArray(z1)
+                forw(l2,y2)
+                dy2 = back(l2, copy(z2))
+                @test isapprox(dy1,dy2)
+                KUnet.atype(Array)
+            end
+
+            lossfn3=()->(y3=(isa(l1,LogpLoss) ? forw(Logp(),copy(y1)) :
+                             isa(l1,SoftLoss) ? copy(y1)./sum(y1,1) :
+                             copy(y1)); forw(l1,y3);loss(l1,z1))
+            @test gradcheck(y1, dy1, lossfn3)
+
         end # for l1 in lossfns
 
         for l1 in (             # no CPU impl or gradcheck
