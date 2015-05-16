@@ -23,25 +23,27 @@ function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
     (maximum(d) <= atol) && (maximum(d./s) <= rtol)
 end
 
-function gradcheck(net, x1, z1, x, dx; iter=10, 
-                   epsilon=cbrt(eps(eltype(x))), 
-                   delta=(eltype(x)==Float64) ? 1e-4 : 1e-3)
+function gradcheck(net, x1, z1, w, dw; iter=10, 
+                   epsilon=cbrt(eps(eltype(w))), 
+                   delta=(eltype(w)==Float64) ? 1e-4 : 1e-3)
     maxdiff = 0.0
     for i=1:iter
-        r = (iter==length(x) ? i : rand(1:length(x)))
-        xr0 = x[r]
+        r = (iter==length(w) ? i : rand(1:length(w)))
+        wr0 = w[r]
+        wr1 = wr0 - delta
+        wr2 = wr0 + delta
         # Do not cross 0 for softloss
-        xr1 = xr0 - delta; xr0>0 && xr1<0 && (xr1=0)
-        xr2 = xr0 + delta; xr0<0 && xr2>0 && (xr2=0)
-        x[r] = xr1; loss1 = getloss(net, x1, z1)
-        x[r] = xr2; loss2 = getloss(net, x1, z1)
-        x[r] = xr0
-        dxr = (loss2 - loss1) / (xr2 - xr1)
-        # @show (dx[r], dxr)
-        absdiff = abs(dxr - dx[r])/(abs(dxr) + abs(dx[r]))
+        (wr0>0) && (wr1<0) && (wr1=0)
+        (wr0<0) && (wr2>0) && (wr2=0)
+        w[r] = wr1; loss1 = getloss(net, x1, z1)
+        w[r] = wr2; loss2 = getloss(net, x1, z1)
+        w[r] = wr0
+        dwr = (loss2 - loss1) / (wr2 - wr1)
+        @show (dw[r], dwr)
+        absdiff = abs(dwr - dw[r])/(abs(dwr) + abs(dw[r]))
         absdiff > maxdiff && (maxdiff = absdiff)
     end
-    # @show (maxdiff, epsilon, delta)
+    @show (maxdiff, epsilon, delta)
     return maxdiff < epsilon
 end
 
@@ -69,8 +71,11 @@ function forwlossback(net, x, z)
 end
 
 function getloss(net, x, z)
+    x = (isa(net[1],LogpLoss) ? forw(Logp(),copy(x)) :
+         isa(net[1],SoftLoss) ? (copy(x)./sum(x,1)) : copy(x))
+    @show x
     n = length(net)
-    for i=1:n; x = forw(net[i], copy(x); seed=1); end
+    for i=1:n; x = forw(net[i], x; seed=1); end
     loss(net[n], z)
 end
 
@@ -110,8 +115,8 @@ end
 function getz(net, x)
     z = rand!(forw(net, copy(x)))
     L = typeof(net[end])
-    return (in(L, (Logp, LogpLoss)) ? forw(Logp(), z) :
-            in(L, (Soft, SoftLoss)) ? forw(Soft(), z) : z)
+    return (in(L, (Logp,)) ? forw(Logp(), z) :
+            in(L, (Soft, SoftLoss, LogpLoss)) ? forw(Soft(), z) : z)
 end
 
 function getnet{T<:Layer}(F,S,L::Type{T})
@@ -143,6 +148,8 @@ function gettest(F,S,L)
     return (net, x, z)
 end
 
+net3 = x3 = z3 = nothing
+
 function main(layers)
     KUnet.atype(Array)
     # for F in (Float32,Float64)
@@ -157,6 +164,9 @@ function main(layers)
                 net==nothing && (warn("Not supported"); continue)
                 gputest(net, x, z)
                 gradtest(net, x, z)
+                global net3 = net
+                global x3 = x
+                global z3 = z
             end
         end
     end
@@ -167,7 +177,7 @@ end
 # layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # failed64gpu = (Conv, Logp, Mmul, Pool, XentLoss)
 # passed64gpu = (Bias, Drop, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
-layers = (Bias, Drop, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
+layers = (LogpLoss, )
 main(layers)
 
 #             qloss1 = QuadLoss()
