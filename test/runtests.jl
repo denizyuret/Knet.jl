@@ -17,7 +17,7 @@ function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
     x,y = to_host(x), to_host(y)
     d = abs(x-y)
     s = abs(x)+abs(y)
-    (maximum(d) <= atol) && (maximum(d/s) <= rtol)
+    (maximum(d) <= atol) && (maximum(d./s) <= rtol)
 end
 
 CudaLayer(l)=(isa(l, Mmul) ? Mmul(l.w.data) :
@@ -58,11 +58,12 @@ for ft in (Float32,Float64)
     KUnet.ftype(ft)
     gradeps = cbrt(eps(ft))
 #    for dims in 1:5
-     for dims in 1:2
+     for dims in 3:5
         x1 = ((dims == 1) ? rand(ft, 784) :
               #(dims == 1) ? rand(ft, 784) :
               (dims == 2) ? rand(ft, 784, ninst) :
-              (dims == 3) ? rand(ft, 28, 28, ninst) :
+              # (dims == 3) ? rand(ft, 28, 28, ninst) :
+              (dims == 3) ? rand(ft, 3, 3, 5) :
               (dims == 4) ? rand(ft, 28, 14, 2, ninst) :
               (dims == 5) ? rand(ft, 14, 7, 4, 2, ninst) :
               error("dims=$dims."))
@@ -123,10 +124,10 @@ for ft in (Float32,Float64)
         end # for l1
 
         for l1 in (
-                   #LogpLoss(),
-                   #QuadLoss(),
+                   LogpLoss(),
+                   QuadLoss(),
                    SoftLoss(),
-                   #XentLoss(),
+                   XentLoss(),
                    )
             if isa(l1, QuadLoss)
                 y1 = x1
