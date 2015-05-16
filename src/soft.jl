@@ -8,10 +8,8 @@ type Soft <: Layer; y; Soft()=new(); end
 
 
 function forw(l::Soft,y; o...)
-    nd = ndims(y)
-    sz = size(y, nd)
-    st = stride(y, nd)
-    for j=1:sz
+    (st,nx) = size2(y)
+    for j=1:nx
         i1=(j-1)*st+1
         i2=j*st
         ymax = typemin(eltype(y))
@@ -26,10 +24,8 @@ end
 function back(l::Soft,dy; dx=true, o...)
     @assert size(dy)==size(l.y)
     dx || return
-    nd = ndims(dy)
-    sz = size(dy, nd)
-    st = stride(dy, nd)
-    for j=1:sz
+    (st,nx) = size2(y)
+    for j=1:nx
         i1=(j-1)*st+1
         i2=j*st
         sumydy = zero(eltype(dy))

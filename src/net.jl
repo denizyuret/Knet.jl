@@ -4,8 +4,8 @@
 # Some layers overwrite their inputs
 
 abstract Layer
-forw(l::Layer, x; o...)=x
-back(l::Layer, dy; o...)=dy
+forw(l::Layer, x; o...)=nothing
+back(l::Layer, dy; o...)=nothing
 update(l::Layer)=nothing
 setparam!(l::Layer,k,v)=nothing
 

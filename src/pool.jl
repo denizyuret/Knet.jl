@@ -9,7 +9,8 @@ back(l::Pool, dy; o...)=error("CPU Pool not implemented")
 
 if GPU
 
-Pool(d::Int)=(l=Pool();l.pd=PoolingDescriptor((d,d));l)
+Pool(d::Int,nd::Int=2)=(l=Pool();l.pd=PoolingDescriptor(fill(d,nd));l)
+Pool(pd::PoolingDescriptor)=(l=Pool();l.pd=pd;l)
 
 function forw(l::Pool, x::CudaArray; o...)
     initforw(l, x)

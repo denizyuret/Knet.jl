@@ -37,7 +37,7 @@ atype(t)=(global Atype=t)
 # TODO: clean util.jl, minimize cuda code
 include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
 include("param.jl");	export Param, update, setparam!
-include("net.jl");	export Layer, Net, train, predict, forw, back
+include("net.jl");	export Layer, Net, train, predict, forw, back, loss
 
 # TODO: should work with cpu/gpu 2D/4D/5D/ND Float32/Float64
 include("bias.jl");	export Bias

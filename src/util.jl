@@ -4,7 +4,7 @@
 
 if GPU   ########## CUDA extensions:
 
-const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/cuda")])
+const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/src")])
 
 Base.convert{T,S}(::Type{CudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
 Base.reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
@@ -114,6 +114,8 @@ if isdefined(:CUDArt)
 end
 free(x)=x
 to_host(x)=x
+
+size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 
 # TODO: We should leave these up to the layers:
 # istransient(l,n)=(isa(l,Layer) && in(n,(:x,:y,:z,:dx,:dy,:dz,:xdrop)))  # no need to copy or save these
