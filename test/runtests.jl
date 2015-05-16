@@ -18,9 +18,7 @@ function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
     x,y = to_host(x), to_host(y)
     d = abs(x-y)
     s = abs(x)+abs(y)
-    # @show maximum(d)
-    # @show maximum(d./s)
-    (maximum(d) <= atol) && (maximum(d./s) <= rtol)
+    all(d .< (atol + rtol * s))
 end
 
 function gradcheck(net, x1, z1, w, dw; iter=10, 
@@ -39,11 +37,11 @@ function gradcheck(net, x1, z1, w, dw; iter=10,
         w[r] = wr2; loss2 = getloss(net, x1, z1)
         w[r] = wr0
         dwr = (loss2 - loss1) / (wr2 - wr1)
-        @show (dw[r], dwr)
+        # @show (dw[r], dwr)
         absdiff = abs(dwr - dw[r])/(abs(dwr) + abs(dw[r]))
         absdiff > maxdiff && (maxdiff = absdiff)
     end
-    @show (maxdiff, epsilon, delta)
+    # @show (maxdiff, epsilon, delta)
     return maxdiff < epsilon
 end
 
@@ -73,7 +71,7 @@ end
 function getloss(net, x, z)
     x = (isa(net[1],LogpLoss) ? forw(Logp(),copy(x)) :
          isa(net[1],SoftLoss) ? (copy(x)./sum(x,1)) : copy(x))
-    @show x
+    # @show x
     n = length(net)
     for i=1:n; x = forw(net[i], x; seed=1); end
     loss(net[n], z)
@@ -121,11 +119,12 @@ end
 
 function getnet{T<:Layer}(F,S,L::Type{T})
     nd = length(S)
+    nf = (nd==1 ? S[1] : div(prod(S),S[nd]))
     C = (nd==1 ? S[1] : S[nd-1])
     l = ((L == Bias) ? Bias(Param(rand(F, C))) :
          (L == Conv) ? Conv(rand(1:S[1]),rand(1:S[2]),C,rand(1:20)) :
          (L == Drop) ? Drop(rand()) :
-         (L == Mmul) ? Mmul(rand(1:20), div(prod(S),S[nd])) :
+         (L == Mmul) ? Mmul(rand(1:20), nf) :
          (L == Pool) ? Pool(rand(1:minimum(S))) :
          (L == Logp) ? Logp() :
          (L == Soft) ? Soft() : L())
@@ -175,9 +174,9 @@ end
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
 # layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
-# failed64gpu = (Conv, Logp, Mmul, Pool, XentLoss)
-# passed64gpu = (Bias, Drop, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
-layers = (LogpLoss, )
+# failed64gpu = (Conv, Pool, XentLoss)
+# passed64gpu = (Bias, Drop, Logp, LogpLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh)
+layers = (Mmul,)
 main(layers)
 
 #             qloss1 = QuadLoss()
