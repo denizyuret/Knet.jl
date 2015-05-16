@@ -10,9 +10,9 @@ type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
 forw(l::SoftLoss, x; o...)=(l.y=x)
 
 function back(l::SoftLoss, p; dx=true, o...)
-    @assert size(p) == size(l.y)
+    @assert issimilar(p,l.y)
     dx || return
-    (st,nx) = size2(p)
+    (nd,nx) = size2(p)
     for i=1:length(p)
         p[i] = ((l.y[i]-p[i])/l.y[i])/nx
     end
@@ -20,17 +20,31 @@ function back(l::SoftLoss, p; dx=true, o...)
 end
 
 function loss(l::SoftLoss, p)
-    @assert size(p) == size(l.y)
-    (st,nx) = size2(p)
-    cost = zero(eltype(p))
+    @assert issimilar(p,l.y)
+    p = to_host(p)
+    y = to_host(l.y)
+    (nd,nx) = size2(p)
+    cost = zero(Float64)
     for i=1:length(p)
-        cost -= (p[i]*log(l.y[i]))
+        cost -= (p[i]*log(y[i]))
     end
     return cost/nx
 end
 
 if GPU
-# TODO: float64 support, N-D arrays, return loss, probabilistic dy, check formula
-# softloss(y::CudaArray,dy::CudaArray)=ccall((:logploss,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-back(l::SoftLoss, p::CudaArray; o...)=error("softloss for gpu not implemented yet.")
+function back(l::SoftLoss, p::CudaArray{Float32}; dx=true, o...)
+    @assert issimilar(p, l.y)
+    dx || return
+    (st,nx) = size2(p)
+    ccall((:ssoftloss,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
+    return p
+end
+
+function back(l::SoftLoss, p::CudaArray{Float64}; dx=true, o...)
+    @assert issimilar(p, l.y)
+    dx || return
+    (st,nx) = size2(p)
+    ccall((:dsoftloss,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)
+    return p
+end
 end # if GPU
