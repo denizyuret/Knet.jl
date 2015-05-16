@@ -3,19 +3,19 @@ using CUDArt
 using KUnet
 using MNIST: xtrn, ytrn, xtst, ytst
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
-KUnet.gpuseed(1); srand(1)
+KUnet.srandom(1)
 
 net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
        Conv(5,5,20,50), Bias(50), Relu(), Pool(2),
        Mmul(500,800), Bias(500), Relu(),
-       Mmul(10,500), Bias(10)]
+       Mmul(10,500), Bias(10), XentLoss()]
 
 @show x = CudaArray(reshape(xtrn[:,1:64], 28, 28, 1, 64))
 for l in net
     @show x = KUnet.forw(l, x)
 end
 @show dy = CudaArray(ytrn[:,1:64])
-@show softmaxloss(x, dy)
+@show loss(net[length(net)], dy)
 for i=length(net):-1:1
     @show dy = KUnet.back(net[i], dy)
 end
