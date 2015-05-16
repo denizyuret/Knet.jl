@@ -1,23 +1,26 @@
 #include "kunet.h"
+#include <curand.h>
+#define CURAND(_s) assert((_s) == CURAND_STATUS_SUCCESS)
 
-__global__ void _add1(int n, float val, float *x) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    x[i] += val;
-    i += blockDim.x * gridDim.x;
-  }
-}
+/* TODO: These should be directly called from julia. */
 
-__global__ void _badd(int nrows, int ncols, float *y, float *b) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  int n = nrows * ncols;
-  while (i < n) {
-    y[i] += b[i % nrows];
-    i += blockDim.x * gridDim.x;
-  }
-}
+static curandGenerator_t RNG;
 
 extern "C" {
-  void add1(int n, float val, float *x) KCALL(_add1,n,val,x);
-  void badd(int nrows, int ncols, float *y, float *b) KCALL(_badd,nrows,ncols,y,b);
+
+void gpuseed(unsigned long long seed) {
+  CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
+}
+
+void srandfill(int n, float *x) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandGenerateUniform(RNG, x, n));
+}
+
+void drandfill(int n, double *x) {
+  if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
+  CURAND(curandGenerateUniformDouble(RNG, x, n));
+}
+
 }
