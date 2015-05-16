@@ -8,14 +8,19 @@ type LogpLoss <: LossLayer; y; LogpLoss()=new(); end
 # z = sum(exp(y))   ;; normalization constant (should be 1 here)
 # q = exp(y)/z      ;; model probabilities
 # logq = y - logz   ;; model (normalized) log prob
-# Loss = J = -sum[p logq] = -sum[p (y-logz)] = logz - sum[py]
 # dlogz/dy = q      
-# dJ/dy = q - p
+#
+# J = (1/N) Σ[nc] -p[nc]*logq[nc]  ;; n=1..N: instance, c=1..C: class
+#   = (1/N) Σ[nc] -p[nc]*(y[nc]-logz[n])
+#   = (1/N) ((Σ[n] logz[n]) - (Σ[nc] p[nc]*y[nc]))
+#   = (1/N) (Σ[nc] -p[nc]*y[nc])   ;; all logz are 0
+#
+# dJ/dy[md] = (1/N) (q[md] - p[md])
 
 forw(l::LogpLoss, x; o...)=(l.y=x)
 
 function back(l::LogpLoss, p; dx=true, o...)
-    @assert size(p) == size(l.y)
+    @assert issimilar(p, l.y)
     dx || return
     (st,nx) = size2(p)
     for i=1:length(p)
@@ -25,18 +30,32 @@ function back(l::LogpLoss, p; dx=true, o...)
 end
 
 function loss(l::LogpLoss, p)
-    @assert size(p) == size(l.y)
+    @assert issimilar(p, l.y)
+    p = to_host(p)
+    y = to_host(l.y)
     (st,nx) = size2(p)
-    cost = zero(eltype(p))
+    cost = zero(Float64)
     for i=1:length(p)
-        cost -= (p[i]*l.y[i])
+        cost -= (p[i]*y[i])
     end
     return cost/nx
 end
 
 if GPU
-# TODO: float64 support, N-D arrays, return loss, probabilistic dy, check formula
-# logploss(y::CudaArray,dy::CudaArray)=ccall((:logploss,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-back(l::LogpLoss, x::CudaArray; o...)=error("Not implemented")
+function back(l::LogpLoss, p::CudaArray{Float32}; dx=true, o...)
+    @assert issimilar(p, l.y)
+    dx || return
+    (st,nx) = size2(p)
+    ccall((:slogploss,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
+    return p
+end
+
+function back(l::LogpLoss, p::CudaArray{Float64}; dx=true, o...)
+    @assert issimilar(p, l.y)
+    dx || return
+    (st,nx) = size2(p)
+    ccall((:dlogploss,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)
+    return p
+end
 end # if GPU
 
