@@ -6,10 +6,10 @@ type Logp <: Layer; end
 # i.e. sum(exp(y[:,...:,i]))==1 at the output.
 
 function forw(l::Logp, y; o...)
-    (st,nx) = size2(y)
+    (nd,nx) = size2(y)
     for j=1:nx
-        i1=(j-1)*st+1
-        i2=j*st
+        i1=(j-1)*nd+1
+        i2=j*nd
         ymax = typemin(eltype(y))
         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
         z = zero(Float64)
@@ -25,7 +25,7 @@ end
 back(l::Logp, dy; o...)=dy
 
 if GPU
-forw(l::Logp,y::CudaArray{Float32}; o...)=(ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),size2(y)..., y); y)
-forw(l::Logp,y::CudaArray{Float64}; o...)=(ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),size2(y)..., y); y)
+forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); y)
+forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); y)
 end # if GPU
 
