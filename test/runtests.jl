@@ -119,6 +119,31 @@ function gradtest(net, x, z)
     return rval
 end
 
+function iseq(a,b)
+    typeof(a)==typeof(b) || return false
+    isa(a,Tuple) && return all(map(iseq, a, b))
+    isempty(names(a)) && return isequal(a,b)
+    for n in names(a)
+        in(n, names(b)) || return false
+        iseq(a.(n), b.(n)) || return false
+    end
+    return true
+end
+
+function filetest(net1)
+    KUnet.savenet("/tmp/kunet.test", net1)
+    net2 = KUnet.loadnet("/tmp/kunet.test")
+    for i=1:length(net1)
+        l1 = net1[i]
+        l2 = net2[i]
+        @assert typeof(l1)==typeof(l2)
+        for n in names(l1)
+            isdefined(l1,n) || continue
+            @assert iseq(l1.(n), l2.(n))
+        end
+    end
+end
+
 function getz(net, x)
     (net == nothing || x == nothing) && return nothing
     z = rand!(forw(net, copy(x)))
@@ -173,8 +198,9 @@ function main(layers)
                 net==nothing && continue  # combination not supported
                 net0, x0, z0 = net, x, z
                 @show (F, S, L)
-                gradtest(net, x, z)
                 KUnet.GPU && gputest(net, x, z)
+                gradtest(net, x, z)
+                filetest(net)
             end
         end
     end
