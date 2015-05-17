@@ -2,16 +2,18 @@
 
 * [Installation](docs/install.md)
 * [Usage](docs/usage.md)
-* [Code tutorial](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html)
 * [Benchmark](docs/benchmark.md)
 
-KUnet.jl is the beginnings of a deep learning package for Julia with emphasis on conciseness, clarity and easy extendability. It started as a challenge to see how many lines of (readable) code were sufficient to express deep learning algorithms given the right language.  A secondary concern was efficiency: being able to run the same code on GPU with minimal trouble.  Currently, only the basic functionality is in place (i.e. backprop with relu, softmax, sgd, momentum, nesterov, adagrad, dropout, l1-l2 regularization etc.) but the GPU functionality is in, its speed is competitive with [Caffe](http://caffe.berkeleyvision.org/) ([here is a benchmark](docs/benchmark.md)), and I think convolutional and recurrent nets can be added without too much effort.  I wrote a [blog post](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html) about the code structure and there is some basic documentation here.  You can send me suggestions for improvement (both in coding style and new functionality) using [comments](http://www.blogger.com/comment.g?blogID=8540876&postID=328231440874481473) to the [blog post](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html), or using [issues](https://github.com/denizyuret/KUnet.jl/issues) or [pull requests](https://help.github.com/articles/fork-a-repo/) on GitHub.
+KUnet.jl is the beginnings of a deep learning package for Julia with emphasis on conciseness, clarity and easy extensibility. It started as a challenge to see how many lines of (readable) code were sufficient to express deep learning algorithms given the right language.  A secondary concern was efficiency: being able to run the same code on GPU with minimal trouble.  The latest version supports backprop in feedforward nets with convolution, pooling, and inner product layers with/without bias, relu, tanh, sigmoid activations, softmax and quadratic loss, optimization with sgd, momentum, nesterov, adagrad, dropout, l1-l2 regularization, on both CPU/GPU, with Float32/Float64 arrays of 1-5 dimensions.  Its speed is competitive with [Caffe](http://caffe.berkeleyvision.org/) ([here is a benchmark](docs/benchmark.md)), and I think and recurrent and boltzmann nets can be added without too much effort.  
+
+You can send me suggestions for improvement (both in coding style and new functionality) using [issues](https://github.com/denizyuret/KUnet.jl/issues) or [pull requests](https://help.github.com/articles/fork-a-repo/) on GitHub.
 
 I tried to make the code (cpu/gpu) generic and close to how we think of these algorithms mathematically.  Getting the same code working on the GPU and the CPU in Julia proved to be a bit challenging and showed that both a more standard treatment of CPU and GPU arrays, and a standard syntax for in-place operations would be welcome additions to the language.  I'd like to thank Tim Holy ([CUDArt](https://github.com/JuliaGPU/CUDArt.jl)), Nick Henderson ([CUBLAS](https://github.com/JuliaGPU/CUBLAS.jl)), and Simon Byrne ([InplaceOps](https://github.com/simonbyrne/InplaceOps.jl)) for their generous help.
 
 ### Related Links
+* [Beginning deep learning with 500 lines of Julia](http://www.denizyuret.com/2015/02/beginning-deep-learning-with-500-lines.html): my neural net tutorial based on v0.0.1 of KUnet.
 * [Mocha.jl](https://github.com/pluskid/Mocha.jl): a deep learning framework for Julia
 * [BackpropNeuralNet.jl](https://github.com/compressed/BackpropNeuralNet.jl): another neural net implementation
-* [UFLDL](http://ufldl.stanford.edu/tutorial/): deep learning tutorial
-* [deeplearning.net](http://deeplearning.net/): resources and pointers to information about Deep Learning
-* [Some starting points for deep learning](http://www.denizyuret.com/2014/11/some-starting-points-for-deep-learning.html)
+* [UFLDL](http://ufldl.stanford.edu/tutorial): deep learning tutorial
+* [deeplearning.net](http://deeplearning.net): resources and pointers to information about Deep Learning
+* [Some starting points for deep learning](http://www.denizyuret.com/2014/11/some-starting-points-for-deep-learning.html), and [some more](http://www.denizyuret.com/2014/05/how-to-learn-about-deep-learning.html): my blog posts with links

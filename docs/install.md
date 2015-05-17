@@ -1,6 +1,6 @@
 ## Installation
 
-KUnet was tested on Julia v0.3 and v0.4 on Linux machines with and
+KUnet was tested on Julia v0.3 on Linux machines with and
 without GPUs.  You should be able to install KUnet simply with:
 
 ```
@@ -9,13 +9,14 @@ julia> Pkg.build("KUnet")
 ```
 
 This should automatically install other required packages
-(e.g. InplaceOps, HDF5) if you don't have them already.  
+(e.g. Compat, HDF5) if you don't have them already.  
 
-There are also a number of optional packages KUnet can use if
-installed: To work with a GPU (optional but highly recommended), you
+I left the GPU packages optional to allow installation on non-GPU machines.
+To work with a GPU (optional but highly recommended), you
 need to have CUDA installed and add the following packages:
 
 ```
 julia> Pkg.add("CUDArt")
-julia> Pkg.clone("git@github.com:denizyuret/CUBLAS.jl.git")
+julia> Pkg.add("CUBLAS")
+julia> Pkg.clone("git@github.com:denizyuret/CUDNN.jl.git")
 ```
