@@ -9,12 +9,9 @@ setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 function copy(p::Param; o...)
     q = Param(p.data)
     for n in names(p)
-        isdefined(p,:n) || continue
+        isdefined(p,n) || continue
         if ((isa(p.(n), Array) || isa(p.(n), CudaArray)) && !isa(p.(n), Atype{Ftype}))
             q.(n) = convert(Atype{Ftype}, p.(n))
-# We may want to allow higher precision FloatingPoint params for numerical accuracy.
-#        elseif (isa(p.(n), FloatingPoint) && !isa(p.(n), Ftype))
-#            q.(n) = convert(Ftype, p.(n))
         else
             q.(n) = copy(p.(n))
         end
