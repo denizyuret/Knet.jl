@@ -46,7 +46,6 @@ function predict(net::Net, x, y=nothing; batch=0, o...)
         yy = forw(net, xx; fx=false, o...)
         y  = b2y(y, yy, b:e, x)
     end
-    free(xx)
     return y
 end
 
@@ -66,13 +65,11 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         update(net; o...)
         (iters > 0) && (e/batch >= iters) && break
     end
-    free(xx); free(yy)
 end
 
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
     if ((b == nothing) || (size(b) != bs))
-        b == nothing || free(b)
         b = Atype(Ftype, bs)
     end
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
@@ -86,5 +83,25 @@ function b2y(y, b, r, x)
     @assert size(y) == ys
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
+end
+
+function shufflexy!(x, y)
+    xrows,xcols = size2(x)
+    yrows,ycols = size2(y)
+    @assert xcols == ycols
+    x1 = Array(eltype(x), xrows)
+    y1 = Array(eltype(y), yrows)
+    for n = xcols:-1:2
+        r = rand(1:n)
+        r == n && continue
+        nx = (n-1)*xrows+1; ny = (n-1)*yrows+1
+        rx = (r-1)*xrows+1; ry = (r-1)*yrows+1
+        copy!(x1, 1, x, nx, xrows)
+        copy!(y1, 1, y, ny, yrows)
+        copy!(x, nx, x, rx, xrows)
+        copy!(y, ny, y, ry, yrows)
+        copy!(x, rx, x1, 1, xrows)
+        copy!(y, ry, y1, 1, yrows)
+    end
 end
 
