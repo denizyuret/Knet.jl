@@ -4,6 +4,7 @@
 *.mat
 *.job
 *.h5
+*.jld
 test1
 test2
 *.so
