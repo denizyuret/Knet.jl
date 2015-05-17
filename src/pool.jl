@@ -1,8 +1,4 @@
 type Pool <: Layer; pd; x; y; dx; dy; Pool()=new(); end
-
-Pool(pd)=error("CPU Pool not implemented.")
-forw(l::Pool, x; o...)=error("CPU Pool not implemented")
-back(l::Pool, dy; o...)=error("CPU Pool not implemented")
 copy(l::Pool; o...)=Pool(l.pd)
 
 # TODO: generalize to 3-D
@@ -13,6 +9,27 @@ if GPU
 
 Pool(d::Int,nd::Int=2)=(l=Pool();l.pd=PoolingDescriptor(fill(d,nd));l)
 Pool(pd::PoolingDescriptor)=(l=Pool();l.pd=pd;l)
+
+function forw(l::Pool, x; o...)
+    # error("CPU pool not implemented")
+    a = KUnet.Atype
+    KUnet.atype(CudaArray)
+    y = forw(copy(l), CudaArray(x); o...)
+    KUnet.atype(a)
+    l.x = x
+    l.y = to_host(y)
+end
+
+function back(l::Pool, dy; o...)
+    # error("CPU pool not implemented")
+    a = KUnet.Atype
+    KUnet.atype(CudaArray)
+    ll = copy(l); ll.y = CudaArray(l.y); ll.x = CudaArray(l.x)
+    dx = back(ll, CudaArray(dy); o...)
+    KUnet.atype(a)
+    l.dy = dy
+    l.dx = to_host(dx)
+end
 
 function forw(l::Pool, x::CudaArray; o...)
     initforw(l, x)
