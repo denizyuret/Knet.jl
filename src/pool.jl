@@ -24,8 +24,9 @@ function initforw(l::Pool, x::CudaArray)
     similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x))
 end
 
-function back(l::Pool, dy::CudaArray; dx=true, o...)
-    dx || return
+function back(l::Pool, dy::CudaArray; returndx=true, o...)
+    @assert issimilar(dy, l.y)
+    returndx || return
     initback(l, dy)
     cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
 end

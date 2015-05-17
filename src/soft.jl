@@ -22,9 +22,9 @@ function forw(l::Soft,y; o...)
     return (l.y=y)
 end
 
-function back(l::Soft,dy; dx=true, o...)
+function back(l::Soft,dy; returndx=true, o...)
     @assert issimilar(dy,l.y)
-    dx || return
+    returndx || return
     (st,nx) = size2(dy)
     for j=1:nx
         i1=(j-1)*st+1
@@ -39,6 +39,6 @@ end
 if GPU
 # TODO: what happened to the buggy 0.5 factor?
 forw(l::Soft,y::CudaArray; o...)=(l.y=cudnnSoftmaxForward(y))
-back(l::Soft,dy::CudaArray; dx=true, o...)=(dx && cudnnSoftmaxBackward(l.y, dy); dy)
+back(l::Soft,dy::CudaArray; returndx=true, o...)=(@assert issimilar(dy,l.y); returndx && cudnnSoftmaxBackward(l.y, dy); dy)
 end # if GPU
 

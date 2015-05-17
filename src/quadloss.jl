@@ -10,9 +10,9 @@ copy(l::QuadLoss; o...)=QuadLoss()
 
 forw(l::QuadLoss, x; o...)=(l.y=x)
 
-function back(l::QuadLoss, z; dx=true, o...)
+function back(l::QuadLoss, z; returndx=true, o...)
     @assert issimilar(z,l.y)
-    dx || return
+    returndx || return
     (st,nx) = size2(z)
     for i=1:length(z)
         z[i] = (l.y[i]-z[i])/nx
@@ -34,9 +34,9 @@ end
 
 if GPU
 
-function back(l::QuadLoss, z::CudaArray; dx=true, o...)
+function back(l::QuadLoss, z::CudaArray; returndx=true, o...)
     @assert issimilar(z,l.y)
-    dx || return
+    returndx || return
     (st,nx) = size2(z)
     cudnnTransformTensor(1/nx, l.y, -1/nx, z)
 end

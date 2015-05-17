@@ -21,9 +21,9 @@ copy(l::XentLoss;o...)=XentLoss()
 
 forw(l::XentLoss, x; o...)=(l.y=x)
 
-function back(l::XentLoss, p; dx=true, o...)
+function back(l::XentLoss, p; returndx=true, o...)
     @assert issimilar(p, l.y)
-    dx || return
+    returndx || return
     (nd,nx) = size2(p)
     # cuda cannot handle allocation, we will overwrite l.y for compatibility
     # qz = similar(p, nd)
@@ -58,17 +58,17 @@ function loss(l::XentLoss, p)
 end
 
 if GPU
-function back(l::XentLoss, p::CudaArray{Float32}; dx=true, o...)
+function back(l::XentLoss, p::CudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
-    dx || return
+    returndx || return
     (nd,nx) = size2(p)
     ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,l.y,p)
     return p;
 end
 
-function back(l::XentLoss, p::CudaArray{Float64}; dx=true, o...)
+function back(l::XentLoss, p::CudaArray{Float64}; returndx=true, o...)
     @assert issimilar(p, l.y)
-    dx || return
+    returndx || return
     (nd,nx) = size2(p)
     ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,l.y,p)
     return p;

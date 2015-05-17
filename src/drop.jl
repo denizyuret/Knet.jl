@@ -1,8 +1,8 @@
 type Drop <: Layer; dropout; xdrop; Drop(d)=new(d); end
 copy(l::Drop;o...)=Drop(l.dropout)
 
-function forw(l::Drop, x; fx=true, xdrop=nothing, seed=nothing, o...)
-    if fx && (l.dropout > 0)
+function forw(l::Drop, x; dropout=true, xdrop=nothing, seed=nothing, o...)
+    if dropout && (l.dropout > 0)
         similar!(l, :xdrop, x)
         if xdrop != nothing
             copy!(l.xdrop, xdrop)

@@ -15,14 +15,11 @@ function forw(l::Mmul, x; o...)
     return l.y
 end
 
-function back(l::Mmul, dy; dx=true, o...)
-    initback(l, dy, dx)
+function back(l::Mmul, dy; returndx=true, o...)
+    initback(l, dy, returndx)
     (x0,x1)=(zero(eltype(l.x)), one(eltype(l.x)))
     gemm!('N','T',x1,l.dy,l.x,x0,l.w.diff) # l.w.diff = l.dy * l.x'
-    if dx
-        gemm!('T','N',x1,l.w.data,l.dy,x0,l.dx) # l.dx = l.w.data' * l.dy
-        return l.dx
-    end
+    returndx && gemm!('T','N',x1,l.w.data,l.dy,x0,l.dx) # l.dx = l.w.data' * l.dy
 end
 
 function initforw(l::Mmul, x)
@@ -35,9 +32,9 @@ function initforw(l::Mmul, x)
     similar!(l, :y, l.w.data, (wrows, xcols))
 end
 
-function initback(l::Mmul, dy, dx)
+function initback(l::Mmul, dy, returndx)
     @assert issimilar(dy, l.y)
     l.dy = dy
     similar!(l.w, :diff, l.w.data)
-    dx && similar!(l, :dx, l.x)
+    returndx && similar!(l, :dx, l.x)
 end

@@ -43,7 +43,7 @@ function predict(net::Net, x, y=nothing; batch=0, o...)
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
-        yy = forw(net, xx; fx=false, o...)
+        yy = forw(net, xx; dropout=false, o...)
         y  = b2y(y, yy, b:e, x)
     end
     return y

@@ -26,13 +26,13 @@ function initforw(l::Conv, x::CudaArray)
     similar!(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w.data))
 end
 
-function back(l::Conv, dy::CudaArray; dx=true, o...)
-    initback(l, dy, dx)
+function back(l::Conv, dy::CudaArray; returndx=true, o...)
+    initback(l, dy, returndx)
     cudnnConvolutionBackwardFilter(l.x, l.dy, l.w.diff)
-    dx && cudnnConvolutionBackwardData(l.w.data, l.dy, l.dx)
+    returndx && cudnnConvolutionBackwardData(l.w.data, l.dy, l.dx)
 end
 
-function initback(l::Conv, dy::CudaArray, dx)
+function initback(l::Conv, dy::CudaArray, returndx)
     if (size(dy) == size(l.y))
         l.dy = dy
     else
@@ -40,7 +40,7 @@ function initback(l::Conv, dy::CudaArray, dx)
         l.dy = reshape(dy, size(l.y))
     end
     similar!(l.w, :diff, l.w.data)
-    dx && similar!(l, :dx, l.x)
+    returndx && similar!(l, :dx, l.x)
 end
 
 end # if GPU

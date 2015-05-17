@@ -10,9 +10,9 @@ copy(l::SoftLoss;o...)=SoftLoss()
 
 forw(l::SoftLoss, x; o...)=(l.y=x)
 
-function back(l::SoftLoss, p; dx=true, o...)
+function back(l::SoftLoss, p; returndx=true, o...)
     @assert issimilar(p,l.y)
-    dx || return
+    returndx || return
     (nd,nx) = size2(p)
     for i=1:length(p)
         p[i] = ((l.y[i]-p[i])/l.y[i])/nx
@@ -33,17 +33,17 @@ function loss(l::SoftLoss, p)
 end
 
 if GPU
-function back(l::SoftLoss, p::CudaArray{Float32}; dx=true, o...)
+function back(l::SoftLoss, p::CudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
-    dx || return
+    returndx || return
     (st,nx) = size2(p)
     ccall((:softloss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
     return p
 end
 
-function back(l::SoftLoss, p::CudaArray{Float64}; dx=true, o...)
+function back(l::SoftLoss, p::CudaArray{Float64}; returndx=true, o...)
     @assert issimilar(p, l.y)
-    dx || return
+    returndx || return
     (st,nx) = size2(p)
     ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)
     return p
