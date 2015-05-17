@@ -22,7 +22,6 @@ macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDNN  
 
 # Atype and Ftype are the default array and element types
-# TODO: test this on cpu-only machine
 Ftype = Float32
 Atype = (GPU ? CudaArray : Array)
 ftype()=Ftype
