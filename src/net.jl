@@ -21,8 +21,8 @@ loss(l::LossLayer, z; o...)=nothing
 # Net: Convenience type for an array of layers
 
 typealias Net Array{Layer,1}
-forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...) end; x)
-back(n::Net, dy; o...)=(for i=length(n):-1:1 dy=back(n[i],dy; dx=(i>1), o...) end)
+forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
+back(n::Net, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
 copy(n::Net; o...)=Layer[map(l->copy(l; o...),n)...]  # need Layer[] otherwise type may change to e.g. Array{Relu}
 update(n::Net; o...)=(for l in n; update(l; o...); end)
 setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end)
