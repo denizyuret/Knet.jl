@@ -445,3 +445,21 @@ test_dr_caffe_iter_${DRI}.caffemodel: dr.solver dr.net rnd.caffemodel
 test_dr_julia1.h5: train.jl devx.h5 rnd1.h5 rnd2.h5 devy.h5
 	@echo '==> DR test: julia gpu'
 	julia train.jl --batch ${DRB} --iters ${DRI} --dropout ${DR} devx.h5 rnd1.h5,rnd2.h5 devy.h5 test_dr_julia
+
+
+# Compare with Lenet from caffe:
+
+# These are copied from ${CAFFE}/examples/mnist and edited:
+# lenet_solver.prototxt
+# lenet_train_test.prototxt
+
+# Maybe we should use an HDF5 layer to reduce dependence on these.
+# For now these are symbolic links into ${CAFFE}/examples/mnist.
+# mnist_train_lmdb
+# mnist_test_lmdb
+
+lenet_iter_1000.caffemodel: lenet_solver.prototxt
+	caffe.bin train --solver=lenet_solver.prototxt
+
+lenet_iter_1000.h5: caffemodel2hdf5.py lenet_train_test.prototxt lenet_iter_1000.caffemodel
+	python $^ $@
