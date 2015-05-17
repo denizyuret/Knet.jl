@@ -31,6 +31,6 @@ function drop(x, xdrop, dropout, scale)
 end
 
 if GPU
-drop(x::CudaArray{Float32}, xdrop::CudaArray{Float32}, dropout, scale)=ccall((:sdrop,libkunet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
-drop(x::CudaArray{Float64}, xdrop::CudaArray{Float64}, dropout, scale)=ccall((:ddrop,libkunet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale)
+drop(x::CudaArray{Float32}, xdrop::CudaArray{Float32}, dropout, scale)=ccall((:drop32,libkunet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
+drop(x::CudaArray{Float64}, xdrop::CudaArray{Float64}, dropout, scale)=ccall((:drop64,libkunet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale)
 end

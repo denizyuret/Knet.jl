@@ -36,7 +36,7 @@ function back(l::SoftLoss, p::CudaArray{Float32}; dx=true, o...)
     @assert issimilar(p, l.y)
     dx || return
     (st,nx) = size2(p)
-    ccall((:ssoftloss,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
+    ccall((:softloss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
     return p
 end
 
@@ -44,7 +44,7 @@ function back(l::SoftLoss, p::CudaArray{Float64}; dx=true, o...)
     @assert issimilar(p, l.y)
     dx || return
     (st,nx) = size2(p)
-    ccall((:dsoftloss,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)
+    ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)
     return p
 end
 end # if GPU

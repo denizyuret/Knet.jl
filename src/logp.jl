@@ -41,8 +41,8 @@ function back(l::Logp, dy; dx=true, o...)
 end
 
 if GPU
-forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:slogpforw,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); l.y=y)
-forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:dlogpforw,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); l.y=y)
+forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); l.y=y)
+forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); l.y=y)
 back(l::Logp,dy::CudaArray{Float32}; o...)=dy
 back(l::Logp,dy::CudaArray{Float64}; o...)=dy
 end # if GPU

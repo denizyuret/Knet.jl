@@ -61,7 +61,7 @@ function back(l::XentLoss, p::CudaArray{Float32}; dx=true, o...)
     @assert issimilar(p, l.y)
     dx || return
     (nd,nx) = size2(p)
-    ccall((:sxentloss,libkunet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,l.y,p)
+    ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,l.y,p)
     return p;
 end
 
@@ -69,7 +69,7 @@ function back(l::XentLoss, p::CudaArray{Float64}; dx=true, o...)
     @assert issimilar(p, l.y)
     dx || return
     (nd,nx) = size2(p)
-    ccall((:dxentloss,libkunet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,l.y,p)
+    ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,l.y,p)
     return p;
 end
 end # if GPU
