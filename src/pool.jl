@@ -58,4 +58,9 @@ function initback(l::Pool, dy::CudaArray)
     similar!(l, :dx, l.x)
 end
 
+else
+warn("No cpu pool")
+Pool(x)=Pool()
+forw(l::Pool,x;o...)=(l.x=l.y=x)
+back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
 end # if GPU

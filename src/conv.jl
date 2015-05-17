@@ -63,5 +63,9 @@ function initback(l::Conv, dy::CudaArray, returndx)
     returndx && similar!(l, :dx, l.x)
 end
 
+else
+warn("No cpu conv")
+forw(l::Conv,x;o...)=(l.x=l.y=x)
+back(l::Conv,dy;o...)=(l.w.diff=l.w.data; l.dx=l.dy=dy)
 end # if GPU
 

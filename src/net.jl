@@ -4,9 +4,9 @@
 # Some layers overwrite their inputs
 
 abstract Layer
-forw(l::Layer, x; o...)=nothing
-back(l::Layer, dy; o...)=nothing
-copy(l::Layer; o...)=nothing
+forw(l::Layer, x; o...)=error("$(typeof(l)) has not implemented forw")
+back(l::Layer, dy; o...)=error("$(typeof(l)) has not implemented back")
+copy(l::Layer; o...)=error("$(typeof(l)) has not implemented copy")
 update(l::Layer; o...)=nothing
 setparam!(l::Layer; o...)=nothing
 
@@ -16,7 +16,7 @@ setparam!(l::Layer; o...)=nothing
 # loss takes z, the desired output, and returns a loss value
 
 abstract LossLayer <: Layer
-loss(l::LossLayer, z; o...)=nothing
+loss(l::LossLayer, z; o...)=error("$(typeof(l)) has not implemented loss")
 
 # Net: Convenience type for an array of layers
 
