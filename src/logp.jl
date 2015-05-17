@@ -23,7 +23,7 @@ end
 
 # If the output is normalized logp connected to LogpLoss we should get
 # dy=dx since y=x+const.
-function back(l::Logp, dy; o...)=dy
+back(l::Logp, dy; o...)=dy
 
 # For general loss functions:
 # z = Σj exp(xj)
