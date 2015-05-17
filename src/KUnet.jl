@@ -39,7 +39,6 @@ include("util.jl");	# extends functions given above
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss
 
-# TODO: should work with cpu/gpu 2D/4D/5D/ND Float32/Float64
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv
 include("drop.jl");	export Drop
