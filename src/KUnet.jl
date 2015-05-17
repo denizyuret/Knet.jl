@@ -1,7 +1,5 @@
 module KUnet
 using Compat
-# using InplaceOps
-# using HDF5, JLD
 
 # See if we have gpu support.  This determines whether gpu code is
 # loaded, not whether it is used.  The user can control gpu use by
@@ -37,7 +35,7 @@ atype(t)=(global Atype=t)
 import Base: copy, copy!, rand!, fill!, convert, reshape
 include("util.jl");	# extends functions given above
 include("param.jl");	export Param, update, setparam!
-include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss
+include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv
@@ -54,13 +52,6 @@ include("logploss.jl");	export LogpLoss
 include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
-
-# TODO: fix file i/o
-# include("layer.jl");	export Layer, newnet
-# include("func.jl");     export relu, drop, softmaxloss, logp, logploss
-# include("cuda.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
-# include("h5io.jl");	export h5write
-# include("jldio.jl");    # extends JLD.save, newnet
 #########################
 
 end # module
