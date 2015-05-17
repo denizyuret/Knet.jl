@@ -129,6 +129,7 @@ function getnet{T<:Layer}(F,S,L::Type{T})
     nd = length(S)
     nf = (nd==1 ? S[1] : div(prod(S),S[nd]))
     (nf>20) && in(L,(Logp,Soft,LogpLoss,SoftLoss,XentLoss)) && return nothing
+    (nd!=4) && in(L,(Conv,Pool)) && return nothing
     C = (nd==1 ? S[1] : S[nd-1])
     l = ((L == Bias) ? Bias(Param(rand(F, C))) :
          (L == Conv) ? Conv(rand(1:S[1]),rand(1:S[2]),C,rand(1:20)) :
@@ -179,9 +180,6 @@ end
 
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
-# layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
-# failed64gpu = (Conv, Pool, )
-# passed64gpu = (Bias, Drop, Logp, LogpLoss, Mmul, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss,)
-layers = (Bias, Drop, Logp, LogpLoss, Mmul, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss,)
+layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 main(layers)
 
