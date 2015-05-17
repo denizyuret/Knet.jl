@@ -86,9 +86,11 @@ end
 function gputest(cnet::Net, x, z)
     rval = true
     KUnet.GPU || (warn("GPU not available"); return false)
+
+    # Compare loss, y, dx, dw after forw and back:
     (cl, cx, cz) = forwlossback(cnet, x, z)
     KUnet.atype(CudaArray)
-    gnet = map(CudaLayer, cnet)
+    gnet = copy(cnet)
     (gl, gx, gz) = forwlossback(gnet, CudaArray(x), CudaArray(z))
     isapprox(gl, cl) || (warn("loss mismatch in $(map(typeof,cnet))"); rval=false)
     for i=1:length(cnet)
@@ -98,6 +100,18 @@ function gputest(cnet::Net, x, z)
         cw == nothing || isapprox(cw.diff, gw.diff) || (warn("dw mismatch in $(typeof(cnet[i]))"); rval=false)
     end
     KUnet.atype(Array)
+
+    # Compare w, dw after update:
+    setparam!(cnet; lr=0.1, l1reg=0.1, l2reg=0.1, adagrad=0.1, momentum=0.1, nesterov=0.1)
+    setparam!(gnet; lr=0.1, l1reg=0.1, l2reg=0.1, adagrad=0.1, momentum=0.1, nesterov=0.1)
+    update(cnet); update(gnet)
+    for i=1:length(cnet)
+        cw = getparam(cnet[i]); gw = getparam(gnet[i])
+        cw == nothing && continue
+        isapprox(cw.diff, gw.diff) || (warn("dw mismatch after update in $(typeof(cnet[i]))"); rval=false)
+        isapprox(cw.data, gw.data) || (warn("w mismatch after update in $(typeof(cnet[i]))"); rval=false)
+    end
+
     return rval
 end
 
@@ -130,7 +144,7 @@ function getnet{T<:Layer}(F,S,L::Type{T})
          (L == Pool) ? Pool(rand(1:minimum(S))) :
          (L == Logp) ? Logp() :
          (L == Soft) ? Soft() : L())
-    net = Layer[l]
+    net = Layer[]; push!(net, l)
     return (isa(l, Logp) ? push!(net, LogpLoss()) :
             isa(l, Soft) ? push!(net, SoftLoss()) :
             !isa(l, LossLayer) ? push!(net, QuadLoss()) : net)
@@ -149,9 +163,10 @@ function gettest(F,S,L)
     return (net, x, z)
 end
 
-net3 = x3 = z3 = nothing
+net0 = x0 = z0 = nothing
 
 function main(layers)
+    global net0, x0, z0
     KUnet.atype(Array)
     for F in (Float32,Float64)
         KUnet.ftype(F)
@@ -160,12 +175,10 @@ function main(layers)
             for L in layers
                 (net, x, z) = gettest(F,S,L)
                 net==nothing && continue  # combination not supported
+                net0, x0, z0 = net, x, z
                 @show (F, S, L)
-                gputest(net, x, z)
                 gradtest(net, x, z)
-                global net3 = net
-                global x3 = x
-                global z3 = z
+                gputest(net, x, z)
             end
         end
     end
