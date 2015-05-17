@@ -1,9 +1,13 @@
-using Base.Test
-using CUDArt
 using KUnet
-using CUDArt: ContiguousArray
+using Base.Test
 using Base.Test: Success, Failure, Error
 import Base.Test: default_handler
+if KUnet.GPU
+    eval(Expr(:using,:CUDArt))
+    eval(Expr(:using,:CUDArt,:ContiguousArray))
+else
+    typealias ContiguousArray{T} Array{T}
+end
 
 # Uncomment this if you want lots of messages:
 # default_handler(r::Success) = info("$(r.expr)")
@@ -72,14 +76,12 @@ end
 
 function getparam(l1::Layer)
     w1 = nothing
-    for n in names(l1); isa(l1.(n), Param) && (w1=l1.(n); break); end
+    for n in names(l1); isdefined(l1,n) && isa(l1.(n), Param) && (w1=l1.(n); break); end
     return w1
 end
 
 function gputest(cnet::Net, x, z)
     rval = true
-    KUnet.GPU || (warn("GPU not available"); return false)
-
     # Compare loss, y, dx, dw after forw and back:
     (cl, cx, cz) = forwlossback(cnet, x, z)
     KUnet.atype(CudaArray)
@@ -172,7 +174,7 @@ function main(layers)
                 net0, x0, z0 = net, x, z
                 @show (F, S, L)
                 gradtest(net, x, z)
-                gputest(net, x, z)
+                KUnet.GPU && gputest(net, x, z)
             end
         end
     end
