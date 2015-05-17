@@ -124,8 +124,17 @@ function iseq(a,b)
     isa(a,Tuple) && return all(map(iseq, a, b))
     isempty(names(a)) && return isequal(a,b)
     for n in names(a)
-        in(n, names(b)) || return false
-        iseq(a.(n), b.(n)) || return false
+        in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
+        in(n, names(b)) || (warn("$n missing");return false)
+        isdefined(a,n) || continue
+        isdefined(b,n) || (warn("$n undefined");return false)
+        iseq(a.(n), b.(n)) || (warn("$n unequal"); return false)
+    end
+    for n in names(b)
+        in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
+        in(n, names(a)) || (warn("$n missing");return false)
+        isdefined(b,n) || continue
+        isdefined(a,n) || (warn("$n undefined");return false)
     end
     return true
 end
@@ -133,15 +142,7 @@ end
 function filetest(net1)
     KUnet.savenet("/tmp/kunet.test", net1)
     net2 = KUnet.loadnet("/tmp/kunet.test")
-    for i=1:length(net1)
-        l1 = net1[i]
-        l2 = net2[i]
-        @assert typeof(l1)==typeof(l2)
-        for n in names(l1)
-            isdefined(l1,n) || continue
-            @assert iseq(l1.(n), l2.(n))
-        end
-    end
+    @assert all(map(iseq, net1, net2))
 end
 
 function getz(net, x)
