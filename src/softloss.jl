@@ -1,4 +1,5 @@
 type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
+copy(l::SoftLoss;o...)=SoftLoss()
 
 # Cross entropy loss to use after the Soft layer.
 # l.y should have normalized probabilities output by the model.

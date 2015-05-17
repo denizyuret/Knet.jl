@@ -1,10 +1,10 @@
-type Mmul <: Layer; w; x; y; dx; dy; Mmul()=new(); end
-Mmul(w::Param)=(l=Mmul();l.w=w;l)
-Mmul(w;a...)=Mmul(Param(w;a...))
-Mmul(d::Integer...;a...)=Mmul(Param(randn(d)*0.01;a...))
+type Mmul <: Layer; w; x; y; dx; dy; Mmul(w::Param)=new(w); end
+Mmul(w;o...)=Mmul(Param(w;o...))
+Mmul(d::Integer...;o...)=Mmul(Param(randn(d)*0.01;o...))
 
-update(l::Mmul)=update(l.w)
-setparam!(l::Mmul; a...)=setparam!(l.w; a...)
+copy(l::Mmul;o...)=Mmul(copy(l.w;o...))
+update(l::Mmul;o...)=update(l.w)
+setparam!(l::Mmul; o...)=setparam!(l.w; o...)
 
 function forw(l::Mmul, x; o...)
     initforw(l, x)

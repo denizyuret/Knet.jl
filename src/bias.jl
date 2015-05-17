@@ -1,10 +1,11 @@
-type Bias <: Layer; b::Param; Bias()=new(); end
-Bias(b::Param)=(l=Bias();l.b=b;l)
-Bias(b; a...)=Bias(Param(b;a...))
-Bias(d::Integer...; a...)=Bias(Param(zeros(d); a...))
+type Bias <: Layer; b::Param; Bias(b::Param)=new(b); end
 
-update(l::Bias)=update(l.b)
-setparam!(l::Bias; a...)=setparam!(l.b; a...)
+Bias(b; o...)=Bias(Param(b;o...))
+Bias(d::Integer...; o...)=Bias(Param(zeros(d); o...))
+
+copy(l::Bias; o...)=Bias(copy(l.b; o...))
+update(l::Bias; o...)=update(l.b; o...)
+setparam!(l::Bias; o...)=setparam!(l.b; o...)
 
 # We are implementing the CUDNN_ADD_SAME_C mode of cudnn:
 # In this mode if x has dimensions (X1,X2,...,C,N) then

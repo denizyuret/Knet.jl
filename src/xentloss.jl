@@ -1,4 +1,5 @@
 type XentLoss <: LossLayer; y; XentLoss()=new(); end
+copy(l::XentLoss;o...)=XentLoss()
 
 # Cross entropy loss to use after an unnormalized layer.
 # l.y is treated as unnormalized log probabilities output by the model.

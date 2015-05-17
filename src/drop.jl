@@ -1,5 +1,5 @@
-type Drop <: Layer; dropout; xdrop; Drop()=new(); end
-Drop(d)=(@assert 0 <= d <= 1; l=Drop();l.dropout=d;l)
+type Drop <: Layer; dropout; xdrop; Drop(d)=new(d); end
+copy(l::Drop;o...)=Drop(l.dropout)
 
 function forw(l::Drop, x; fx=true, xdrop=nothing, seed=nothing, o...)
     if fx && (l.dropout > 0)

@@ -1,4 +1,5 @@
 type QuadLoss <: LossLayer; y; QuadLoss()=new(); end
+copy(l::QuadLoss; o...)=QuadLoss()
 
 # Quadratic loss:
 # l.y stores the model output.

@@ -33,6 +33,8 @@ atype()=Atype
 ftype(t)=(global Ftype=t)
 atype(t)=(global Atype=t)
 
+import Base: copy
+
 #########################
 # TODO: clean util.jl, minimize cuda code
 include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host

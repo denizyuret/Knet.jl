@@ -4,13 +4,13 @@
 # TODO: add ConvolutionDescriptor if needed
 # TODO: add xavier init
 
-type Conv <: Layer; w::Param; x; y; dx; dy; Conv()=new(); end
-Conv(w::Param)=(l=Conv();l.w=w;l)
-Conv(w; a...)=Conv(Param(w; a...))
-Conv(d::Integer...; a...)=Conv(Param(randn(d)*0.01; a...))
+type Conv <: Layer; w::Param; x; y; dx; dy; Conv(w::Param)=new(w); end
+Conv(w; o...)=Conv(Param(w; o...))
+Conv(d::Integer...; o...)=Conv(Param(randn(d)*0.01; o...))
 
-update(l::Conv)=update(l.w)
-setparam!(l::Conv; a...)=setparam!(l.w; a...)
+copy(l::Conv; o...)=Conv(copy(l.w; o...))
+update(l::Conv; o...)=update(l.w; o...)
+setparam!(l::Conv; o...)=setparam!(l.w; o...)
 forw(l::Conv, x; o...)=error("CPU conv not implemented")
 back(l::Conv, dy; o...)=error("CPU conv not implemented")
 

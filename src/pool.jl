@@ -3,9 +3,11 @@ type Pool <: Layer; pd; x; y; dx; dy; Pool()=new(); end
 Pool(pd)=error("CPU Pool not implemented.")
 forw(l::Pool, x; o...)=error("CPU Pool not implemented")
 back(l::Pool, dy; o...)=error("CPU Pool not implemented")
+copy(l::Pool; o...)=Pool(l.pd)
 
 # TODO: generalize to 3-D
 # TODO: cpu implementation
+# TODO: rethink the constructor interface
 
 if GPU
 

@@ -1,9 +1,23 @@
-type Param; data; diff; lr; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
-Param(data;args...)=(p=Param();p.data=convert(Atype{Ftype},data); for (k,v) in args; p.(k)=v; end; p)
+type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; 
+    Param(w;o...)=setparam!(new(convert(Atype{Ftype},w));o...)
+end
 
-setparam!(p::Param; a...)=(for (k,v) in a; p.(k)=v; end; p)
+setparam!(p::Param; o...)=(for (k,v) in a; p.(k)=v; end; p)
 
-function update(p::Param)
+function copy(p::Param; o...)
+    q = Param(p.data)
+    for n in names(p)
+        isdefined(p,:n) || continue
+        if ((isa(p.(n), Array) || isa(p.(n), CudaArray)) && !isa(p.(n), Atype{Ftype}))
+            q.(n) = convert(Atype{Ftype}, p.(n))
+        else
+            q.(n) = copy(p.(n))
+        end
+    end
+    return q
+end
+
+function update(p::Param; o...)
     initupdate(p)
     nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
     nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
@@ -12,7 +26,7 @@ function update(p::Param)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
     @in1! p.data .- p.diff
-    nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
+    # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
 end
 
 nz(p,n,v=zero(Ftype))=(isdefined(p,n) && (p.(n) != v))
@@ -36,12 +50,12 @@ adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64
 l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
 end
 
-function maxnorm!(maxnorm, w)
-    error("Did not debug maxnorm yet.")
-    norms = sqrt(sum(w.^2, 2))
-    if any(norms > p.maxnorm)
-        scale = min(p.maxnorm ./ norms, 1)
-        w *= scale
-    end
-end
+# function maxnorm!(maxnorm, w)
+#     error("Did not debug maxnorm yet.")
+#     norms = sqrt(sum(w.^2, 2))
+#     if any(norms > p.maxnorm)
+#         scale = min(p.maxnorm ./ norms, 1)
+#         w *= scale
+#     end
+# end
 

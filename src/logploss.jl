@@ -1,4 +1,5 @@
 type LogpLoss <: LossLayer; y; LogpLoss()=new(); end
+copy(l::LogpLoss;o...)=LogpLoss()
 
 # Cross entropy loss to use after the Logp layer.
 # l.y should be normalized log probabilities output by the model.
