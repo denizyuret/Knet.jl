@@ -1,6 +1,6 @@
 #include "kunet.h"
 
-__global__ void _sxentloss(int nd, int nx, float *y, float *dy) {
+__global__ void _xentloss32(int nd, int nx, float *y, float *dy) {
   double z, ymax;
   // double *qz = (double *) malloc(nd * sizeof(double));
   int i0, i1;
@@ -20,7 +20,7 @@ __global__ void _sxentloss(int nd, int nx, float *y, float *dy) {
   // free(qz);
 }
 
-__global__ void _dxentloss(int nd, int nx, double *y, double *dy) {
+__global__ void _xentloss64(int nd, int nx, double *y, double *dy) {
   double z, ymax;
   // double *qz = (double *) malloc(nd * sizeof(double));
   int i0, i1;
@@ -41,6 +41,6 @@ __global__ void _dxentloss(int nd, int nx, double *y, double *dy) {
 }
 
 extern "C" {
-  void sxentloss(int nd, int nx, float *y, float *dy) KCALL(_sxentloss,nd,nx,y,dy);
-  void dxentloss(int nd, int nx, double *y, double *dy) KCALL(_dxentloss,nd,nx,y,dy);
+  void xentloss32(int nd, int nx, float *y, float *dy) KCALL(_xentloss32,nd,nx,y,dy);
+  void xentloss64(int nd, int nx, double *y, double *dy) KCALL(_xentloss64,nd,nx,y,dy);
 }
