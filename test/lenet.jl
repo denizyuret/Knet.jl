@@ -22,7 +22,7 @@ end
 
 xtrn = reshape(xtrn, 28, 28, 1, size(xtrn, 2))
 xtst = reshape(xtst, 28, 28, 1, size(xtst, 2))
-setparam!(net, :lr, 0.01)
+setparam!(net; :lr=0.01)
 for i=1:100
     train(net, xtrn, ytrn)
     println((i, accuracy(ytst, predict(net, xtst)), 
