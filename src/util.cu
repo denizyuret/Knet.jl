@@ -13,12 +13,12 @@ void gpuseed(unsigned long long seed) {
   CURAND(curandSetPseudoRandomGeneratorSeed(RNG, seed));
 }
 
-void srandfill(int n, float *x) {
+void randfill32(int n, float *x) {
   if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   CURAND(curandGenerateUniform(RNG, x, n));
 }
 
-void drandfill(int n, double *x) {
+void randfill64(int n, double *x) {
   if (RNG == NULL) CURAND(curandCreateGenerator(&RNG, CURAND_RNG_PSEUDO_DEFAULT));
   CURAND(curandGenerateUniformDouble(RNG, x, n));
 }
