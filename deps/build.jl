@@ -1,5 +1,5 @@
 try success(`nvcc --version`)
-    cd("../cuda") do
+    cd("../src") do
         run(`make libkunet.so`)
     end
 catch
