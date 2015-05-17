@@ -3,7 +3,7 @@
 /* y is layer output, i.e. unnormalized log probabilities.
    On output y will contain normalized probabilities. */
 
-__global__ void _slogpforw(int nrows, int ncols, float *y) {
+__global__ void _logpforw32(int nrows, int ncols, float *y) {
   double z;
   float ymax, logz;
   int i0, i1;
@@ -21,7 +21,7 @@ __global__ void _slogpforw(int nrows, int ncols, float *y) {
   }
 }
 
-__global__ void _dlogpforw(int nrows, int ncols, double *y) {
+__global__ void _logpforw64(int nrows, int ncols, double *y) {
   double ymax, z, logz;
   int i0, i1;
   int col = threadIdx.x + blockIdx.x * blockDim.x;
@@ -39,6 +39,6 @@ __global__ void _dlogpforw(int nrows, int ncols, double *y) {
 }
 
 extern "C" {
-void slogpforw(int nrows, int ncols, float *y) KCALL(_slogpforw,nrows,ncols,y);
-void dlogpforw(int nrows, int ncols, double *y) KCALL(_dlogpforw,nrows,ncols,y);
+void logpforw32(int nrows, int ncols, float *y) KCALL(_logpforw32,nrows,ncols,y);
+void logpforw64(int nrows, int ncols, double *y) KCALL(_logpforw64,nrows,ncols,y);
 }
