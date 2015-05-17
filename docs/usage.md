@@ -28,43 +28,40 @@ julia> xtrn, ytrn, xtst, ytst
 ```
 
 Let's construct a neural net with a single layer of 64 hidden units
-using the relu activation function.
+using the relu activation function and the cross entropy loss function.
 ```
-julia> net = newnet(relu, 784, 64, 10);
-```
-
-We could have done the same thing constructing each layer separately.
-The two constructions are exactly equivalent:
-
-```
-julia> l1 = Layer(relu, 784, 64);
-julia> l2 = Layer(64, 10);
-julia> net = [l1, l2];
+julia> net = [ Mmul(64,784), Bias(64), Relu(),
+               Mmul(10,64),  Bias(10), XentLoss() ]
 ```
 
-Note that the last layer has no activation function, we just need the
-linear output for classification.
+Each element of the net array represents an operation, e.g. Mmul multiplies its input with a weight matrix, Bias adds a bias vector, Relu applies the rectified linear transformation to each element etc.
 
-By default the Layer constructor picks random weights from a Gaussian
-distribution with std=0.01 and zero bias vectors.  We could create a
-weight matrix any way we want and pass it to the Layer constructor
-instead:
+Mmul, Bias, etc. are subtypes of an abstract type called Layer.  A Net is simply a 1-D array of Layer's.  Here are the definitions from net.jl and bias.jl:  
+```
+abstract Layer
+typealias Net Array{Layer,1}
+type Bias <: Layer; b::Param; Bias(b::Param)=new(b); end
+```
+
+If you are not happy with the default Layer constructors, you can specify your own parameters.  For example, the Mmul(64,784) constructor fills a (64,784) weight matrix with random weights from a Gaussian distribution with std=0.01.  If we want a different initialization, we could create a weight matrix any way we want and pass it to the Mmul constructor instead.
+Note that the weight matrix for an Mmul layer with 784 inputs and 64 outputs has size (64, 784).
 
 ```
 julia> w1 = float32(randn(64, 784) * 0.05)
-julia> b1 = zeros(Float32, 64, 1)
-julia> l1 = Layer(relu, w1, b1)
+julia> l1 = Mmul(w1)
 ```
 
-Note that the weight matrix for a Layer with 784 inputs and 64 outputs
-has size (64, 784).
+Training parameters like the learning rate (lr) can be specified using setparam! on the whole network or on individual layers.  See param.jl for all available training parameters.
+```
+setparam!(net; lr=0.01)
+setparam!(net[2]; lr=0.01)
+```
 
-The bias, as well as the activation function, are optional.  Training
-parameters like the learningRate can be specified during net/layer
-construction, as well as afterward using setparam!.  It is also
-possible to save layers to HDF5 files using `h5write(fname::String,
-l::Layer)` and read them using `Layer(fname::String)`.  Please see
-`types.jl` and `h5io.jl` for details.
+It is also possible to save nets to [JLD](https://github.com/timholy/HDF5.jl) files using `savenet(fname::String,
+n::Net)` and read them using `loadnet(fname::String)`.
+```
+savenet("net0.jld", net)
+```
 
 OK, now that we have some data and a network, let's proceed with training.
 Here is a convenience function to measure the classification accuracy:
@@ -82,7 +79,7 @@ end
 ```
 
 This should print out the test set and training set accuracy at the end of
-every epoch.  100 epochs take about 26 seconds with a K20 GPU:
+every epoch.  100 epochs take about 35 seconds with a K20 GPU:
 ```
 (1,0.3665,0.36438333333333334)
 (2,0.7304,0.7236166666666667)
@@ -97,7 +94,7 @@ accuracy at this point.  We should instead split the training set into a trainin
 
 It seems the training set accuracy is not that great.  Maybe increasing the learning rate may help:
 ```
-julia> net = newnet(relu, 784, 64, 10)
+julia> net = loadnet("net0.jld")
 julia> setparam!(net, learningRate=0.5)
 for i=1:100
     train(net, xtrn, ytrn)
@@ -113,13 +110,7 @@ end
 (51,0.9793,1.0)
 ```
 
-Wow!  We got 100% training set accuracy in 50 epochs.  Let's save this network for posterity:
-```
-julia> h5write("layer1.h5", net[1])
-julia> h5write("layer2.h5", net[2])
-```
-
-But the test set is still lagging behind.  What if we try increasing the number of hidden units (use the same for loop for each net below):
+Wow!  We got 100% training set accuracy in 50 epochs.  But the test set is still lagging behind.  What if we try increasing the number of hidden units (use the same for loop for each net below):
 ```
 julia> net = newnet(relu, 784, 128, 10; learningRate=0.5)  # (44,0.9808,1.0)
 julia> net = newnet(relu, 784, 256, 10; learningRate=0.5)  # (37,0.9827,1.0)
