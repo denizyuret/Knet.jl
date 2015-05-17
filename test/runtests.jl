@@ -45,13 +45,6 @@ function gradcheck(net, x1, z1, w, dw; iter=10,
     return maxdiff < epsilon
 end
 
-CudaLayer(l)=(isa(l, Mmul) ? Mmul(CudaArray(l.w.data)) :
-              isa(l, Conv) ? Conv(CudaArray(l.w.data)) :
-              isa(l, Bias) ? Bias(CudaArray(l.b.data)) : 
-              isa(l, Drop) ? Drop(l.dropout) :
-              isa(l, Pool) ? Pool(l.pd) :
-              typeof(l)())
-
 function forwlossback(net, x, z)
     n = length(net)
     xx = Any[]
