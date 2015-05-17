@@ -11,10 +11,30 @@ Conv(d::Integer...; o...)=Conv(Param(randn(d)*0.01; o...))
 copy(l::Conv; o...)=Conv(copy(l.w; o...))
 update(l::Conv; o...)=update(l.w; o...)
 setparam!(l::Conv; o...)=setparam!(l.w; o...)
-forw(l::Conv, x; o...)=error("CPU conv not implemented")
-back(l::Conv, dy; o...)=error("CPU conv not implemented")
 
 if GPU
+
+function forw(l::Conv, x; o...)
+    # error("CPU conv not implemented")
+    a = KUnet.Atype
+    KUnet.atype(CudaArray)
+    y = forw(copy(l), CudaArray(x); o...)
+    KUnet.atype(a)
+    l.x = x
+    l.y = to_host(y)
+end
+
+function back(l::Conv, dy; o...)
+    # error("CPU conv not implemented")
+    a = KUnet.Atype
+    KUnet.atype(CudaArray)
+    ll = copy(l); ll.y = CudaArray(l.y); ll.x = CudaArray(l.x)
+    dx = back(ll, CudaArray(dy); o...)
+    KUnet.atype(a)
+    l.dy = dy
+    l.w.diff = to_host(ll.w.diff)
+    l.dx = to_host(dx)
+end
 
 function forw(l::Conv, x::CudaArray; o...)
     initforw(l, x)
