@@ -7,7 +7,7 @@ abstract Layer
 forw(l::Layer, x; o...)=nothing
 back(l::Layer, dy; o...)=nothing
 update(l::Layer)=nothing
-setparam!(l::Layer,k,v)=nothing
+setparam!(l::Layer; a...)=nothing
 
 # LossLayer is slightly different:
 # forw only records the outgoing y.
@@ -23,7 +23,7 @@ typealias Net Array{Layer,1}
 forw(n::Net, x; fx=true)=(for l in n; x=forw(l, x; fx=fx) end; x)
 back(n::Net, dy)=(for i=length(n):-1:1 dy=back(n[i],dy; dx=(i>1)) end)
 update(n::Net)=(for l in n; update(l); end)
-setparam!(n::Net,k,v)=(for l in n; setparam!(l,k,v); end)
+setparam!(n::Net; a...)=(for l in n; setparam!(l; a...); end)
 
 # The backprop algorithm
 

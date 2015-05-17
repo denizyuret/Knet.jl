@@ -4,7 +4,7 @@ Bias(b; a...)=Bias(Param(b;a...))
 Bias(d::Integer...; a...)=Bias(Param(zeros(d); a...))
 
 update(l::Bias)=update(l.b)
-setparam!(l::Bias,k,v)=setparam!(l.b,k,v)
+setparam!(l::Bias; a...)=setparam!(l.b; a...)
 
 # We are implementing the CUDNN_ADD_SAME_C mode of cudnn:
 # In this mode if x has dimensions (X1,X2,...,C,N) then

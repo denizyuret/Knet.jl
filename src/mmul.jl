@@ -4,7 +4,7 @@ Mmul(w;a...)=Mmul(Param(w;a...))
 Mmul(d::Integer...;a...)=Mmul(Param(randn(d)*0.01;a...))
 
 update(l::Mmul)=update(l.w)
-setparam!(l::Mmul,k,v)=setparam!(l.w,k,v)
+setparam!(l::Mmul; a...)=setparam!(l.w; a...)
 
 function forw(l::Mmul, x; o...)
     initforw(l, x)

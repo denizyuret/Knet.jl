@@ -1,7 +1,7 @@
 type Param; data; diff; lr; l1reg; l2reg; maxnorm; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
 Param(data;args...)=(p=Param();p.data=convert(Atype{Ftype},data); for (k,v) in args; p.(k)=v; end; p)
 
-setparam!(p::Param,k,v)=(p.(k)=v)
+setparam!(p::Param; a...)=(for (k,v) in a; p.(k)=v; end; p)
 
 function update(p::Param)
     initupdate(p)
@@ -29,9 +29,11 @@ adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (ep
 momentum!(m, dw2, dw)=(axpy!(length(dw), m, dw2, 1, dw, 1);copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
-if GPU  # TODO: Float64 support
-    adagrad!(eps, dw2::CudaArray, dw::CudaArray)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
-    l1reg!(l1, w::CudaArray, dw::CudaArray)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
+if GPU
+adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
+l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
+adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
+l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
 end
 
 function maxnorm!(maxnorm, w)
