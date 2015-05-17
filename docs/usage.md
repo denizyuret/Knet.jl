@@ -1,6 +1,6 @@
 ## Usage
 
-We will use the MNIST dataset to illustrate basic usage of KUnet:
+We will use the [MNIST](http://yann.lecun.com/exdb/mnist) dataset to illustrate basic usage of KUnet:
 ```
 julia> include(Pkg.dir("KUnet/test/mnist.jl"))
 ```
@@ -58,7 +58,7 @@ setparam!(net[2]; lr=0.01)
 ```
 
 It is also possible to save nets to [JLD](https://github.com/timholy/HDF5.jl) files using `savenet(fname::String,
-n::Net)` and read them using `loadnet(fname::String)`.
+n::Net)` and read them using `loadnet(fname::String)`.  Let's save our initial random network for replicatibility.
 ```
 savenet("net0.jld", net)
 ```
@@ -69,74 +69,138 @@ Here is a convenience function to measure the classification accuracy:
 julia> accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
 ```
 
-Let's do 100 epochs using default settings (learningRate=0.01, minibatch size=128):
+Let's do 100 epochs using default settings (minibatch size=128):
 ```
-for i=1:100
+@time for i=1:100
     train(net, xtrn, ytrn)
     println((i, accuracy(ytst, predict(net, xtst)), 
                 accuracy(ytrn, predict(net, xtrn))))
 end
 ```
 
-This should print out the test set and training set accuracy at the end of
-every epoch.  100 epochs take about 35 seconds with a K20 GPU:
+If you take a look at net.jl, you will see that `predict` calls `forw`
+on all layers in order.  The `forw` function takes a layer and its input,
+computes and returns its output.  The `train` function uses `backprop`
+to compute the gradient of the loss function wrt the parameters, and
+`update` to update the parameters.  Here is a slightly cleaned up definition of
+`backprop` from net.jl:
 ```
-(1,0.3665,0.36438333333333334)
-(2,0.7304,0.7236166666666667)
-(3,0.8264,0.82115)
-...
-(99,0.9616,0.9666)
-(100,0.9619,0.9668833333333333)
+backprop(net::Net, x, y)=(forw(net, x); back(net, y))
+forw(n::Net, x)=(for i=1:length(n);    x=forw(n[i], x); end)
+back(n::Net, y)=(for i=length(n):-1:1; y=back(n[i], y); end)
 ```
 
-Note that for actual research we should not be looking at the test set 
-accuracy at this point.  We should instead split the training set into a training and a development portion and do all our playing around with those.  We should also run each experiment 10 times with different random seeds and measure standard errors, etc.  But, this is just a KUnet tutorial.
+The `back` function takes a layer and the loss gradient wrt its
+output, computes and returns the loss gradient wrt its input.  You can
+take a look at individual layer definitions (e.g. in mmul.jl, bias.jl,
+relu.jl, etc.) to see how this is done for each layer.  
+
+The final layer of the network (XentLoss in our case) is a special
+type of layer, a subtype of LossLayer.  Its forw does nothing but
+record the network output.  Its back expects the desired output (not a
+gradient) and computes the loss gradient wrt the network output.  A
+LossLayer also implements the function `loss(l::LossLayer,y)` which
+returns the actual loss value given the desired output.
+
+Our training should print out the test set and training set accuracy at the end of
+every epoch.
+```
+(1,0.3386,0.3356)
+(2,0.7311,0.7226666666666667)
+(3,0.821,0.8157333333333333)
+...
+(99,0.9604,0.9658166666666667)
+(100,0.9604,0.96605)
+elapsed time: 39.738191211 seconds (1526525108 bytes allocated, 3.05% gc time)
+```
+
+Note that for actual research we should not be looking at the test set
+accuracy at this point.  We should instead split the training set into
+a training and a development portion and do all our playing around
+with those.  We should also run each experiment 10 times with
+different random seeds and measure standard errors, etc.  But, this is
+just a KUnet tutorial.
 
 It seems the training set accuracy is not that great.  Maybe increasing the learning rate may help:
 ```
-julia> net = loadnet("net0.jld")
-julia> setparam!(net, learningRate=0.5)
+net = loadnet("net0.jld")
+setparam!(net, lr=0.5)
 for i=1:100
     train(net, xtrn, ytrn)
     println((i, accuracy(ytst, predict(net, xtst)), 
                 accuracy(ytrn, predict(net, xtrn))))
 end
 
-(1,0.9112,0.91185)
-(2,0.9441,0.9436)
-(3,0.9579,0.9598666666666666)
+(1,0.9152,0.9171833333333334)
+(2,0.9431,0.9440333333333333)
+(3,0.959,0.9611666666666666)
 ...
-(50,0.9791,0.9999833333333333)
-(51,0.9793,1.0)
+(59,0.9772,0.9999833333333333)
+(60,0.9773,1.0)
+...
+(100,0.9776,1.0)
 ```
 
-Wow!  We got 100% training set accuracy in 50 epochs.  But the test set is still lagging behind.  What if we try increasing the number of hidden units (use the same for loop for each net below):
-```
-julia> net = newnet(relu, 784, 128, 10; learningRate=0.5)  # (44,0.9808,1.0)
-julia> net = newnet(relu, 784, 256, 10; learningRate=0.5)  # (37,0.9827,1.0)
-julia> net = newnet(relu, 784, 512, 10; learningRate=0.5)  # (35,0.983,1.0)
-julia> net = newnet(relu, 784, 1024, 10; learningRate=0.5)  # (30,0.9835,1.0)
-```
+Wow!  We got 100% training set accuracy in 60 epochs.  This should drive home the importance of setting a good learning rate.
 
-This is unexpected, we were already overfitting with 64 hidden units, and common wisdom is not to increase the capacity of the network by increasing the hidden units in that situation.  Maybe we should try dropout:
+But the test set is still lagging behind.  What if we try increasing the number of hidden units:
 ```
-julia> net = newnet(relu, 784, 1024, 10; dropout=0.5, learningRate=0.5)
-julia> setparam!(net[1], dropout=0.2)   # first layer drops less
-@time for i=1:100                                                                                                   
-    train(net, xtrn, ytrn)                                                                                                 
-    println((i, accuracy(ytst, predict(net, xtst)), accuracy(ytrn, predict(net, xtrn))))                                   
+for h in (128, 256, 512, 1024)
+    net = [Mmul(h,784), Bias(h), Relu(), Mmul(10,h),  Bias(10), XentLoss()]
+    setparam!(net; lr=0.5)
+    for i=1:100
+        train(net, xtrn, ytrn)
+        println((i, accuracy(ytst, predict(net, xtst)), 
+                 accuracy(ytrn, predict(net, xtrn))))
+    end
 end
+
+# Test accuracy when training accuracy reaches 1.0:
+# 128:  (43,0.9803,1.0)
+# 256:  (42,0.983,1.0)
+# 512:  (36,0.983,1.0)
+# 1024: (30,0.9833,1.0)
+```
+
+This improvement is unexpected, we were already overfitting with 64 hidden units, and common wisdom is not to increase the capacity of the network by increasing the hidden units in that situation.  Maybe we should try [dropout](http://jmlr.org/papers/v15/srivastava14a.html):
+```
+net = [Drop(0.2), Mmul(1024,784), Bias(1024), Relu(), 
+       Drop(0.5), Mmul(10,1024),  Bias(10), XentLoss()]
+
+# lr=0.5, same for loop
 ...
-(100,0.988,0.9999)
-elapsed time: 70.73067047 seconds (875 MB allocated, 0.18% gc time in 40 pauses with 0 full sweep)
+(100,0.9875,0.9998166666666667)
+elapsed time: 122.898730432 seconds (1667849932 bytes allocated, 0.96% gc time)
 ```
 
 Or bigger and bigger nets:
 ```
-julia> net = newnet(relu, 784, 4096, 4096, 10; dropout=0.5, learningRate=0.5)
-julia> setparam!(net[1], dropout=0.2)
-# same for loop...
+net = [Drop(0.2), Mmul(4096,784),  Bias(4096), Relu(), 
+       Drop(0.5), Mmul(4096,4096), Bias(4096), Relu(), 
+       Drop(0.5), Mmul(10,4096),   Bias(10), XentLoss()]
+
+# lr=0.5, same for loop
+...
 (100,0.9896,0.9998166666666667)
 elapsed time: 804.242212488 seconds (1080 MB allocated, 0.02% gc time in 49 pauses with 0 full sweep)
 ```
-OK, that's enough fiddling around.  I hope this gave you enough to get your hands dirty.  We are already among the better results on the [MNIST website](http://yann.lecun.com/exdb/mnist) in the "permutation invariant, no distortion" category.  I am sure you can do better playing around with the learning rate, the momentum, adagrad and regularization, unit and layer types and counts etc.  But be careful, it could become addictive :)
+
+Or maybe we should try convolution.  Here is an implementation of [LeNet](http://yann.lecun.com/exdb/lenet):
+```
+net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
+       Conv(5,5,20,50), Bias(50), Relu(), Pool(2),
+       Mmul(500,800), Bias(500), Relu(),
+       Mmul(10,500), Bias(10), XentLoss()]
+setparam!(net; lr=0.1)
+
+# Need to reshape the input arrays for convolution:
+xtrn2 = reshape(xtrn, 28, 28, 1, size(xtrn, 2))
+xtst2 = reshape(xtst, 28, 28, 1, size(xtst, 2))
+
+# same for loop
+...
+(100,0.9908,1.0)
+elapsed time: 360.722851006 seconds (5875158944 bytes allocated, 1.95% gc time)
+```
+
+OK, that's enough fiddling around.  I hope this gave you enough to get your hands dirty.  We are already among the better results on the [MNIST website](http://yann.lecun.com/exdb/mnist).  I am sure you can do better playing around with the learning rate, dropout probabilities, momentum, adagrad, regularization, and numbers, sizes, types of layers etc.  But be careful, it could become addictive :)
