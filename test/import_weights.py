@@ -18,7 +18,7 @@ import sys
 import h5py
 import caffe
 
-net=caffe.Net(sys.argv[1])
+net=caffe.Net(sys.argv[1], caffe.TRAIN)
 argi=2
 
 for k,v in net.params.iteritems():
