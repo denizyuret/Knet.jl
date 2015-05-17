@@ -23,7 +23,7 @@
 
 	* docs: TODO: update docs.
 
-	* src/jldio.jl: TODO: update for new version.
+	* src/jldio.jl: done: update for new version.
 
 	* src/net.jl: done: add shuffling back to train.
 
