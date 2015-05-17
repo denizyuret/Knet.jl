@@ -23,6 +23,7 @@ if GPU   ########## CUDA extensions:
 const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/src")])
 
 convert{T,S}(::Type{CudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
+convert{T,S}(::Type{Array{T}}, x::CudaArray{S})=convert(Array{T}, to_host(x))
 reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
 reshape(a::CudaArray, dims::Int...)=reshape(a, dims)
 rand!(A::CudaArray{Float32})=(ccall((:randfill32,libkunet),Void,(Cint,Ptr{Float32}),length(A),A); A)
