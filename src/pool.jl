@@ -1,14 +1,26 @@
-type Pool <: Layer; pd; x; y; dx; dy; Pool()=new(); end
-copy(l::Pool; o...)=Pool(l.pd)
+type Pool <: Layer; dims; padding; stride; mode; pd; x; y; dx; dy; Pool()=new(); end
 
 # TODO: generalize to 3-D
 # TODO: cpu implementation
-# TODO: rethink the constructor interface
 
 if GPU
 
-Pool(d::Int,nd::Int=2)=(l=Pool();l.pd=PoolingDescriptor(fill(d,nd));l)
-Pool(pd::PoolingDescriptor)=(l=Pool();l.pd=pd;l)
+function Pool(dims::(Int...);
+              padding=tuple(fill(0,length(dims))...),
+              stride=dims,
+              mode=CUDNN_POOLING_MAX)
+    l=Pool()
+    l.dims=dims
+    l.padding=padding; @assert length(padding)==length(dims)
+    l.stride=stride;   @assert length(stride)==length(dims)
+    l.mode=mode
+    Atype==CudaArray && (l.pd = PoolingDescriptor(dims, padding=padding, stride=stride, mode=mode))
+    return l
+end
+
+Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
+
+copy(l::Pool)=Pool(l.dims; padding=l.padding, stride=l.stride, mode=l.mode)
 
 function forw(l::Pool, x; o...)
     # error("CPU pool not implemented")
@@ -60,6 +72,7 @@ end
 else
 warn("No cpu pool")
 Pool(x)=Pool()
+copy(l::Pool;o...)=Pool()
 forw(l::Pool,x;o...)=(l.x=l.y=x)
 back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
 end # if GPU
