@@ -1,6 +1,7 @@
 ## Usage
 
-We will use the [MNIST](http://yann.lecun.com/exdb/mnist) dataset to illustrate basic usage of KUnet:
+We will use the [MNIST](http://yann.lecun.com/exdb/mnist) dataset to illustrate basic usage of 
+[KUnet](https://github.com/denizyuret/KUnet.jl):
 ```
 julia> include(Pkg.dir("KUnet/test/mnist.jl"))
 ```
