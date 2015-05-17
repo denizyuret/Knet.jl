@@ -1,45 +1,96 @@
+2015-05-17    <dyuret@ku.edu.tr>
+
+	* src/sigm.jl: done: make sure back returns dx.
+
+	* src/logp.jl: done: gpu impl for back. why doesn't runtests catch
+	this?  because dx=dy.
+
+	* src/KUnet.jl: done: import copy etc.
+
+	* src/net.jl:
+	? add y=x and dx=dy optional args to forw and back.
+	? the problem is do we copy if we don't modify?
+	+ rename the options: fx=>dropout, dx=>returndx
+	+ add o... options to all forw,back,copy,update,setparam!,loss
+
+	* test/runtests.jl: done: cpu-only test.
+
+	* test/runtests.jl: TODO: julia4 test.
+
+	* src/param.jl: done: find a solution to copy.
+
+2015-05-16    <dyuret@ku.edu.tr>
+
+	* docs: TODO: update docs.
+
+	* src/jldio.jl: TODO: update for new version.
+
+	* src/net.jl: done: add shuffling back to train.
+
+	* src/param.jl: done: compile cuda parts.
+
+	* test/lenet.jl: done: need xavier init? the training does
+	not take off until epoch 7 - turns out larger lr needed.
+
+	* issimilar: done: add issimilar checks to all forw/back.
+
+2015-05-15    <dyuret@ku.edu.tr>
+
+	* test/runtests.jl: passed:
+	+ bias.jl
+	? conv.jl: only gpu, only 4D, no gradcheck
+	+ drop.jl
+	+ logp.jl
+	+ logploss.jl
+	+ mmul.jl
+	? pool.jl: only gpu, only 4D, no gradcheck
+	+ quadloss.jl
+	+ relu.jl
+	+ sigm.jl
+	+ soft.jl
+	+ softloss.jl
+	+ tanh.jl
+	+ xentloss.jl
+
+	* src/xentloss.jl: Implementing loss functions as layers.  forw
+	only records the outgoing y.  back takes the desired answer and
+	overwrites it with the gradient of y wrt loss.  Note that this has
+	two problems: (1) the actual loss value is never returned, i.e. we
+	just compute gradients for training, use a separate loss function
+	for eval. (2) the semantics of back is different: a regular
+	layer's back takes dy, the loss gradient wrt output y, and returns
+	dx, the loss gradient wrt input x.  A loss layer takes p, the gold
+	answers, and returns dx, the loss gradient wrt input x.
+
 2015-05-14    <dyuret@ku.edu.tr>
 
 	* TODO:
-	- gradient check
-	- prob layer and loss fns: logploss, probloss, mseloss?, softmax?
-	- float64 support for Drop and Logp
+	+ prob layer and loss fns: logploss, probloss, mseloss?, softmax?
+	+ gradient check
+	+ float64 support for Drop and Logp
+	+ modify net.jl with the new loss convention.
+	+ loss layers in gpu
+	- conv pool gradcheck.
+	- caffe comparison
 	- conv pool cpu
 	- conv pool 5D
-	- clean up float32:
-	drop.jl:27:drop(x::CudaArray, xdrop::CudaArray, dropout, scale)=ccall((:drop,libkunet),Void,(Cint,Cmat,Cmat,Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
-	logp.jl:30:    ccall((:logpforw,libkunet),Void,(Cint,Cint,Cmat),size(y,1),size(y,2),y)
-	loss.jl:49:softmaxloss(y::CudaArray,dy::CudaArray)=ccall((:softback,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-	loss.jl:50:logploss(y::CudaArray,dy::CudaArray)=ccall((:logploss,libkunet),Cfloat,(Cint,Cint,Cmat,Cmat),size(dy,1),size(dy,2),y,dy)
-	param.jl:33:    adagrad!(eps, dw2::CudaArray, dw::CudaArray)=ccall((:adagrad,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),eps,dw2,dw)
-	param.jl:34:    l1reg!(l1, w::CudaArray, dw::CudaArray)=ccall((:l1reg,libkunet),Void,(Cint,Cfloat,Cmat,Cmat),length(dw),l1,w,dw)
-	relu.jl:11:#forw(l::Relu,x::CudaArray; o...)=(ccall((:reluforw,libkunet),Void,(Cint,Cmat),length(x),x); l.y=x)
-	relu.jl:12:#back(l::Relu,dy::CudaArray; o...)=(ccall((:reluback,libkunet),Void,(Cint,Cmat,Cmat),length(dy),l.y,dy); dy)
-	util.jl:14:typealias Cmat Ptr{Float32}
-	util.jl:28:InplaceOps.badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = (ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B);A) # InplaceOps.jl:83
-	util.jl:29:InplaceOps.bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = CUBLAS.scal!(length(A), float32(x), A, 1)
-	util.jl:30:InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, B::CudaArray) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
-	util.jl:31:InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A);A)
-	util.jl:39:Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
-	util.jl:41:Base.rand!(A::CudaArray)=(ccall((:randfill,libkunet),Void,(Cint,Cmat),length(A),A); A)
-	util.jl:42:Base.fill!(A::CudaArray,x::Number)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
+	+ clean up float32:
 
 	* test/runtests.jl: use Atype and Ftype to get gpu/cpu and
-	float32/float64 behavior?
+	float32/float64 behavior.
 
-	* TODO: add a prob layer that computes normalized probabilities.
+	* done: add a prob layer that computes normalized probabilities.
 	Then rename three different softmax layers whether their input is
 	unnormalized logp, logp, or prob.
 
 2015-05-12    <dyuret@ku.edu.tr>
 
 	* design: I have a new design:
-	- split every operation, including bias and activation.
-	- basically every operation in forw becomes its own "layer".
-	- each "layer" implements forw, back, update?
-	- each "layer" overrides forw/back for arrays, cudaarrays,
-	tensors.
-	- rename AbstractLayer -> Layer
+	+ split every operation, including bias and activation.
+	+ basically every operation in forw becomes its own "layer".
+	+ each "layer" implements forw, back, update, setparam, copy.
+	+ each "layer" overrides forw/back for arrays, cudaarrays, tensors.
+	+ rename AbstractLayer -> Layer
 
 2015-05-11    <dyuret@ku.edu.tr>
 
