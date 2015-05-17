@@ -42,7 +42,6 @@ function initforw(l::Pool, x::CudaArray)
 end
 
 function back(l::Pool, dy::CudaArray; returndx=true, o...)
-    @assert issimilar(dy, l.y)
     returndx || return
     initback(l, dy)
     cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
