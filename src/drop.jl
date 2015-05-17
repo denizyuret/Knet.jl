@@ -3,7 +3,7 @@ copy(l::Drop;o...)=Drop(l.dropout)
 
 function forw(l::Drop, x; fx=true, xdrop=nothing, seed=nothing, o...)
     if fx && (l.dropout > 0)
-        chksize(l, :xdrop, x)
+        similar!(l, :xdrop, x)
         if xdrop != nothing
             copy!(l.xdrop, xdrop)
         elseif seed != nothing

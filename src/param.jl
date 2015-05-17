@@ -1,8 +1,10 @@
+using Base.LinAlg.BLAS: axpy!, scal!
+
 type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; 
     Param(w;o...)=setparam!(new(convert(Atype{Ftype},w));o...)
 end
 
-setparam!(p::Param; o...)=(for (k,v) in a; p.(k)=v; end; p)
+setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 function copy(p::Param; o...)
     q = Param(p.data)
@@ -10,6 +12,9 @@ function copy(p::Param; o...)
         isdefined(p,:n) || continue
         if ((isa(p.(n), Array) || isa(p.(n), CudaArray)) && !isa(p.(n), Atype{Ftype}))
             q.(n) = convert(Atype{Ftype}, p.(n))
+# We may want to allow higher precision FloatingPoint params for numerical accuracy.
+#        elseif (isa(p.(n), FloatingPoint) && !isa(p.(n), Ftype))
+#            q.(n) = convert(Ftype, p.(n))
         else
             q.(n) = copy(p.(n))
         end
@@ -22,26 +27,26 @@ function update(p::Param; o...)
     nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
     nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
     nz(p,:adagrad) && adagrad!(p.adagrad, p.ada, p.diff)
-    nz(p,:lr,one(Ftype)) && (@in1! p.diff .* p.lr)
+    nz(p,:lr,1) && scal!(length(p.diff), convert(eltype(p.diff),p.lr), p.diff, 1)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
-    @in1! p.data .- p.diff
+    axpy!(length(p.data), -one(eltype(p.data)), p.diff, 1, p.data, 1)
     # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
 end
 
 nz(p,n,v=zero(Ftype))=(isdefined(p,n) && (p.(n) != v))
 
 function initupdate(p::Param)
-    isdefined(p,:adagrad)  && (p.adagrad  > zero(p.adagrad))  && chksize(p, :ada, p.diff; fill=zero(Ftype))
-    isdefined(p,:momentum) && (p.momentum > zero(p.momentum)) && chksize(p, :mom, p.diff; fill=zero(Ftype))
-    isdefined(p,:nesterov) && (p.nesterov > zero(p.nesterov)) && chksize(p, :nes, p.diff; fill=zero(Ftype))
+    isdefined(p,:adagrad)  && (p.adagrad  > zero(p.adagrad))  && similar!(p, :ada, p.diff; fill=zero(Ftype))
+    isdefined(p,:momentum) && (p.momentum > zero(p.momentum)) && similar!(p, :mom, p.diff; fill=zero(Ftype))
+    isdefined(p,:nesterov) && (p.nesterov > zero(p.nesterov)) && similar!(p, :nes, p.diff; fill=zero(Ftype))
 end
 
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
-l2reg!(l2, w, dw)=axpy!(length(dw), l2, w, 1, dw, 1)
+l2reg!(l2, w, dw)=axpy!(length(dw), convert(eltype(w),l2), w, 1, dw, 1)
 adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
-momentum!(m, dw2, dw)=(axpy!(length(dw), m, dw2, 1, dw, 1);copy!(dw2,dw))
-nesterov!(m, dw2, dw)=(nw=length(dw); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
+momentum!(m, dw2, dw)=(m=convert(eltype(dw2),m); axpy!(length(dw), m, dw2, 1, dw, 1); copy!(dw2,dw))
+nesterov!(m, dw2, dw)=(nw=length(dw); m=convert(eltype(dw2),m); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
 if GPU
 adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)

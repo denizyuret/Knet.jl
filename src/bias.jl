@@ -25,7 +25,7 @@ function forw(l::Bias, x; o...)
 end
 
 function back(l::Bias, dy; o...)
-    chksize(l.b, :diff, l.b.data)
+    similar!(l.b, :diff, l.b.data)
     db = l.b.diff
     if ndims(dy) == 1
         @assert length(db) == length(dy)
@@ -42,6 +42,6 @@ end
 
 if GPU
 forw(l::Bias, x::CudaArray; o...)=(cudnnAddTensor(l.b.data, x; mode=CUDNN_ADD_SAME_C); x)
-back(l::Bias, dy::CudaArray; o...)=(chksize(l.b, :diff, l.b.data); cudnnConvolutionBackwardBias(dy, l.b.diff); dy)
+back(l::Bias, dy::CudaArray; o...)=(similar!(l.b, :diff, l.b.data); cudnnConvolutionBackwardBias(dy, l.b.diff); dy)
 end
 

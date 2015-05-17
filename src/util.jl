@@ -6,29 +6,28 @@ if GPU   ########## CUDA extensions:
 
 const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/src")])
 
-Base.convert{T,S}(::Type{CudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
-Base.reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
-Base.reshape(a::CudaArray, dims::Int...)=reshape(a, dims)
+convert{T,S}(::Type{CudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
+reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
+reshape(a::CudaArray, dims::Int...)=reshape(a, dims)
 
-# TODO: Float64 support
-typealias Cmat Ptr{Float32}
+# typealias Cmat Ptr{Float32}
 
 # arrays.jl:297, need these so generic code works with SubArrays:
-Base.copy!{T}(dst::AbstractCudaArray{T}, dstI::(Union(Int,Range1{Int})...), src::SubArray{T}, srcI::(Union(Int,Range1{Int})...))=(s=sub(src, srcI...); copy!(dst, dstI, s.parent, s.indexes))
-Base.copy!{T}(dst::SubArray{T}, dstI::(Union(Int,Range1{Int})...), src::AbstractCudaArray{T}, srcI::(Union(Int,Range1{Int})...))=(d=sub(dst, dstI...); copy!(d.parent, d.indexes, src, srcI))
+# Base.copy!{T}(dst::AbstractCudaArray{T}, dstI::(Union(Int,Range1{Int})...), src::SubArray{T}, srcI::(Union(Int,Range1{Int})...))=(s=sub(src, srcI...); copy!(dst, dstI, s.parent, s.indexes))
+# Base.copy!{T}(dst::SubArray{T}, dstI::(Union(Int,Range1{Int})...), src::AbstractCudaArray{T}, srcI::(Union(Int,Range1{Int})...))=(d=sub(dst, dstI...); copy!(d.parent, d.indexes, src, srcI))
 
 # TODO: these don't hang high enough in the type hierarchy
 # TODO: non of these implementations are complete, they are just barely sufficient to make kunet work.
-using InplaceOps: Transpose
-InplaceOps.op_ctranspose(x::CudaVecOrMat)=Transpose(x)
-InplaceOps.mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::CudaVecOrMat) = CUBLAS.gemm!('N','N',one(eltype(O)),A,B,zero(eltype(O)),O)  # InplaceOps.jl:53
-InplaceOps.mul!(O::CudaVecOrMat, A::Transpose, B::CudaVecOrMat) = CUBLAS.gemm!('T','N',one(eltype(O)),A.obj,B,zero(eltype(O)),O)
-InplaceOps.mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(eltype(O)),A,B.obj,zero(eltype(O)),O)
-# TODO: generalize to N-D:
-InplaceOps.badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = (ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B);A) # InplaceOps.jl:83
-InplaceOps.bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = CUBLAS.scal!(length(A), float32(x), A, 1)
-InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, B::CudaArray) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
-InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A);A)
+# using InplaceOps: Transpose
+# InplaceOps.op_ctranspose(x::CudaVecOrMat)=Transpose(x)
+# InplaceOps.mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::CudaVecOrMat) = CUBLAS.gemm!('N','N',one(eltype(O)),A,B,zero(eltype(O)),O)  # InplaceOps.jl:53
+# InplaceOps.mul!(O::CudaVecOrMat, A::Transpose, B::CudaVecOrMat) = CUBLAS.gemm!('T','N',one(eltype(O)),A.obj,B,zero(eltype(O)),O)
+# InplaceOps.mul!(O::CudaVecOrMat, A::CudaVecOrMat, B::Transpose) = CUBLAS.gemm!('N','T',one(eltype(O)),A,B.obj,zero(eltype(O)),O)
+# # TODO: generalize to N-D:
+# InplaceOps.badd!(::Type{InplaceOps.Inplace{1}}, A::CudaMatrix, B::CudaVecOrMat) = (ccall((:badd,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,B);A) # InplaceOps.jl:83
+# InplaceOps.bmul!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = CUBLAS.scal!(length(A), float32(x), A, 1)
+# InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, B::CudaArray) = CUBLAS.axpy!(length(A), -1.0f0, B, 1, A, 1)
+# InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccall((:add1,libkunet),Void,(Cint,Cfloat,Cmat),length(A),-x,A);A)
 
 # # I could not get this to work:
 # import Base: convert, promote_rule
@@ -36,11 +35,11 @@ InplaceOps.bsub!(::Type{InplaceOps.Inplace{1}}, A::CudaArray, x::Number) = (ccal
 # promote_rule(::Type{Mat},::Type{Transpose{Mat}})=Mat
 
 # TODO: add error checking here since this is not a full implementation of sum!
-Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
-Base.zeros(A::CudaArray)=CUBLAS.scal!(length(A), zero(eltype(A)), copy(A), 1)
-Base.rand!(A::CudaArray{Float32})=(ccall((:randfill32,libkunet),Void,(Cint,Ptr{Float32}),length(A),A); A)
-Base.rand!(A::CudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float64}),length(A),A); A)
-Base.fill!(A::CudaArray,x::Number)=(ccall((:fill,libkunet),Void,(Cint,Cfloat,Cmat),length(A),x,A); A)
+# Base.sum!(r::CudaVecOrMat, A::CudaMatrix) = ccall((:bsum,libkunet),Void,(Cint,Cint,Cmat,Cmat),size(A,1),size(A,2),A,r) # reducedim.jl:226
+# Base.zeros(A::CudaArray)=cudnnSetTensor(copy(A), zero(eltype(A)))
+rand!(A::CudaArray{Float32})=(ccall((:randfill32,libkunet),Void,(Cint,Ptr{Float32}),length(A),A); A)
+rand!(A::CudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float64}),length(A),A); A)
+fill!(A::CudaArray,x::Number)=cudnnSetTensor(A, x)
 
 # For debugging
 function gpumem()
@@ -53,7 +52,7 @@ end
 using CUDArt: ContiguousArray
 
 # CUDArt copy! doesn't work for 4D arrays, so let's make this Base interface work:
-function Base.copy!{T}(dst::ContiguousArray{T}, di::Integer, src::ContiguousArray{T}, si::Integer, n::Integer; stream=null_stream)
+function copy!{T}(dst::ContiguousArray{T}, di::Integer, src::ContiguousArray{T}, si::Integer, n::Integer; stream=null_stream)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
@@ -73,7 +72,7 @@ function srandom(n::Integer)
     GPU && ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 end
 
-function chksize(l, n, a, dims=size(a); fill=nothing)
+function similar!(l, n, a, dims=size(a); fill=nothing)
     if !isdefined(l,n) 
         l.(n) = similar(a, dims)
         fill != nothing && fill!(l.(n), fill)
@@ -85,10 +84,9 @@ function chksize(l, n, a, dims=size(a); fill=nothing)
     return l.(n)
 end
 
-# TODO: generalize this to N-D
 function shufflexy!(x, y)
-    xrows,xcols = size(x)
-    yrows,ycols = size(y)
+    xrows,xcols = size2(x)
+    yrows,ycols = size2(y)
     @assert xcols == ycols
     x1 = Array(eltype(x), xrows)
     y1 = Array(eltype(y), yrows)
@@ -109,7 +107,6 @@ end
 # arrays.jl:297, need these so generic code works with cpu arrays:
 Base.copy!{T}(dst::AbstractArray{T}, dstI::(Union(Int,Range1{Int})...), src::AbstractArray{T}, srcI::(Union(Int,Range1{Int})...))=copy!(sub(dst, dstI...), sub(src, srcI...))
 
-# when gc works these should not be necessary:
 if isdefined(:CUDArt)
     import CUDArt: free, to_host
 end

@@ -23,7 +23,7 @@ end
 
 function initforw(l::Conv, x::CudaArray)
     l.x = x
-    chksize(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w.data))
+    similar!(l, :y, l.x, cudnnGetConvolutionNdForwardOutputDim(l.x, l.w.data))
 end
 
 function back(l::Conv, dy::CudaArray; dx=true, o...)
@@ -39,8 +39,8 @@ function initback(l::Conv, dy::CudaArray, dx)
         @assert length(dy) == length(l.y)
         l.dy = reshape(dy, size(l.y))
     end
-    chksize(l.w, :diff, l.w.data)
-    dx && chksize(l, :dx, l.x)
+    similar!(l.w, :diff, l.w.data)
+    dx && similar!(l, :dx, l.x)
 end
 
 end # if GPU

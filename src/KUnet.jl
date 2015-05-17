@@ -1,8 +1,7 @@
 module KUnet
 using Compat
-using InplaceOps
-using Base.LinAlg.BLAS
-using HDF5, JLD
+# using InplaceOps
+# using HDF5, JLD
 
 # See if we have gpu support.  This determines whether gpu code is
 # loaded, not whether it is used.  The user can control gpu use by
@@ -33,11 +32,10 @@ atype()=Atype
 ftype(t)=(global Ftype=t)
 atype(t)=(global Atype=t)
 
-import Base: copy
 
 #########################
-# TODO: clean util.jl, minimize cuda code
-include("util.jl");	# extends copy!, mul!, badd!, bmul!, bsub!, sum!, zeros, rand!, fill!, free, to_host
+import Base: copy, copy!, rand!, fill!, convert, reshape
+include("util.jl");	# extends functions given above
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss
 

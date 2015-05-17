@@ -21,7 +21,7 @@ end
 
 function initforw(l::Pool, x::CudaArray)
     l.x = x
-    chksize(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x))
+    similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x))
 end
 
 function back(l::Pool, dy::CudaArray; dx=true, o...)
@@ -37,7 +37,7 @@ function initback(l::Pool, dy::CudaArray)
         @assert length(dy) == length(l.y)
         l.dy = reshape(dy, size(l.y))
     end
-    chksize(l, :dx, l.x)
+    similar!(l, :dx, l.x)
 end
 
 end # if GPU

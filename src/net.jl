@@ -23,7 +23,7 @@ loss(l::LossLayer, z; o...)=nothing
 typealias Net Array{Layer,1}
 forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...) end; x)
 back(n::Net, dy; o...)=(for i=length(n):-1:1 dy=back(n[i],dy; dx=(i>1), o...) end)
-copy(n::Net; o...)=map(l->copy(l; o...),n)
+copy(n::Net; o...)=Layer[map(l->copy(l; o...),n)...]  # need Layer[] otherwise type may change to e.g. Array{Relu}
 update(n::Net; o...)=(for l in n; update(l; o...); end)
 setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end)
 
@@ -53,8 +53,8 @@ end
 # Train implements backprop with updates and minibatches.
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
-function train(net::Net, x, y; batch=128, iters=0, o...)
-    # shuffle && shufflexy!(x,y) # did not debug this with N-D
+function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
+    shuffle && shufflexy!(x,y)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
