@@ -105,3 +105,14 @@ function shufflexy!(x, y)
     end
 end
 
+using HDF5, JLD
+
+function savenet(filename::String, net::Net)
+    a=Atype; atype(Array); net=copy(net); atype(a)
+    save(filename, "kunet", net)
+end
+
+function loadnet(filename::String)
+    net = load(filename, "kunet")
+    Atype!=Array ? copy(net) : net
+end
