@@ -3,6 +3,3 @@ HDF5
 GZip
 ArgParse
 Compat
-CUDArt
-CUBLAS
-CUDNN
