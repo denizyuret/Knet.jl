@@ -38,8 +38,8 @@ type we want to use.  The array type determines whether KUnet uses the
 GPU, and the element type should match that of the data.
 
 ```
-julia> KUnet.atype(CudaArray)	# CudaArray or Array
-julia> KUnet.ftype(Float32)	# Float32 or Float64
+julia> KUnet.atype(CudaArray)   # CudaArray or Array
+julia> KUnet.ftype(Float32)     # Float32 or Float64
 ```
 
 Let's construct a neural net with a single layer of 64 hidden units
@@ -53,8 +53,8 @@ julia> net = [ Mmul(64,784), Bias(64), Relu(),
 Each element of the net array represents an operation, e.g. Mmul
 multiplies its input with a weight matrix, Bias adds a bias vector,
 Relu applies the rectified linear transformation to each element etc.
-They are subtypes of an abstract type called Layer.  
-The full list of Layers currently implemented are:
+They are subtypes of an abstract type called Layer.  The full list of
+Layers currently implemented are:
 [Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl),
 [Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl),
 [Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl),
@@ -96,10 +96,7 @@ julia> l1 = Mmul(w1)
 
 Training parameters like the learning rate (lr) can be specified at
 layer construction, or using setparam! on the whole network or on
-individual layers.  See
-[param.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/param.jl)
-for a description of available training parameters: lr, l1reg, l2reg,
-adagrad, momentum, nesterov.
+individual layers.
 
 ```
 julia> l1 = Mmul(64,784; lr=0.01)
@@ -134,25 +131,39 @@ Let's do 100 epochs of training:
 end
 ```
 
-If you take a look at
+If you take a look at the definition of `train` in
 [net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl),
-you will see that `predict` calls `forw` on all layers in order.  The
-`forw` function takes a layer and its input, computes and returns its
-output.  The `train` function uses `backprop` to compute the gradient
-of the loss function wrt the parameters, and `update` to update the
-parameters.  Here is a slightly cleaned up definition of `backprop`
-from
-[net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl):
+you will see that it takes a network net, the input x, and the desired
+output y, and after splitting the data into minibatches it just calls
+`backprop` and `update`.  Here is a simplified version:
 
 ```
-backprop(net::Net, x, y)=(forw(net, x); back(net, y))
-forw(n::Net, x)=(for i=1:length(n);    x=forw(n[i], x); end)
+train(net, x, y)=(backprop(net, x, y); update(net))
+```
+
+The `backprop` function calls `forw` which computes the network
+output, and `back` which computes the gradients of the network
+parameters with respect to the loss function:
+
+```
+backprop(net, x, y)=(forw(net, x); back(net, y))
+```
+
+The `forw` and `back` functions for a Net simply call the `forw` and
+`back` functions of each layer in order, feeding the output of one to
+the input of the next:
+
+```
+forw(n::Net, x)=(for i=1:length(n); x=forw(n[i], x); end)
 back(n::Net, y)=(for i=length(n):-1:1; y=back(n[i], y); end)
 ```
 
-The `back` function takes a layer and the loss gradient wrt its
-output, computes and returns the loss gradient wrt its input.  You can
-take a look at individual layer definitions (e.g. in
+The `forw` function for a layer takes the layer input x, and returns
+the layer output y.  The `back` function for a layer takes the loss
+gradient wrt its output dy and returns the loss gradient wrt its input
+dx.  If the layer has a parameter p, `back` also computes the loss
+gradient p.diff wrt its current value p.data.  You can take a look at
+individual layer definitions (e.g. in
 [mmul.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl),
 [bias.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl),
 [relu.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/relu.jl),
@@ -160,12 +171,45 @@ etc.) to see how this is done for each layer.
 
 The final layer of the network
 ([XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl)
-in our case) is a special type of layer, a subtype of LossLayer.  Its
-forw does nothing but record the network output.  Its back expects the
-desired output (not a gradient) and computes the loss gradient wrt the
-network output.  A LossLayer also implements the function
-`loss(l::LossLayer,y)` which returns the actual loss value given the
-desired output y.
+in our case) is a subtype of LossLayer.  LossLayer is a special type
+of layer: its forw does nothing but record the network output y.  Its
+back expects the desired output z (not a gradient) and computes the
+loss gradient wrt the network output dy.  A LossLayer also implements
+the function `loss(l::LossLayer,z)` which returns the actual loss
+value given the desired output z.  KUnet currently implements the
+following LossLayers:
+[LogpLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/logploss.jl),
+[QuadLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/quadloss.jl),
+[SoftLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/softloss.jl),
+[XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl).
+
+The `update` function for a net calls the `update` function for each
+of its layers, which in turn calls the `update` function on layer
+parameters:
+
+```
+update(n::Net)=(for l in n; update(l); end)
+update(l::Bias)=update(l.b)
+```
+
+The `update` function for a parameter p is used to update its values
+(p.data) given the loss gradients (p.diff).  Its behavior is
+controlled by the following parameters: lr, l1reg, l2reg, adagrad,
+momentum, nesterov.  Here is a simplified definition of `update` from
+[param.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/param.jl)
+(p.ada, p.mom, and p.nes are temporary arrays initialized to 0):
+
+```
+function update(p::Param; o...)
+    isdefined(p,:l1reg)    && (p.diff += p.l1reg * sign(p.data))
+    isdefined(p,:l2reg)    && (p.diff += p.l2reg * p.data)
+    isdefined(p,:adagrad)  && (p.ada += p.diff.^2; p.diff /= p.adagrad + sqrt(p.ada))
+    isdefined(p,:momentum) && (p.diff += p.momentum * p.mom; p.mom[:] = p.diff)
+    isdefined(p,:nesterov) && (p.nes *= p.nesterov; p.nes += p.diff; p.diff += p.nesterov * p.nes)
+    isdefined(p,:lr)       && (p.diff *= p.lr)
+    p.data -= p.diff
+end
+```
 
 Our training should print out the test set and training set accuracy
 at the end of every epoch.
