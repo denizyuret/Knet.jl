@@ -24,19 +24,19 @@ function update(p::Param; o...)
     nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
     nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
     nz(p,:adagrad) && adagrad!(p.adagrad, p.ada, p.diff)
-    nz(p,:lr,1) && scal!(length(p.diff), convert(eltype(p.diff),p.lr), p.diff, 1)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
+    nz(p,:lr,1) && scal!(length(p.diff), convert(eltype(p.diff),p.lr), p.diff, 1)
     axpy!(length(p.data), -one(eltype(p.data)), p.diff, 1, p.data, 1)
     # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
 end
 
-nz(p,n,v=zero(Ftype))=(isdefined(p,n) && (p.(n) != v))
+nz(p,n,v=0)=(isdefined(p,n) && (p.(n) != v))
 
 function initupdate(p::Param)
-    isdefined(p,:adagrad)  && (p.adagrad  > zero(p.adagrad))  && similar!(p, :ada, p.diff; fill=zero(Ftype))
-    isdefined(p,:momentum) && (p.momentum > zero(p.momentum)) && similar!(p, :mom, p.diff; fill=zero(Ftype))
-    isdefined(p,:nesterov) && (p.nesterov > zero(p.nesterov)) && similar!(p, :nes, p.diff; fill=zero(Ftype))
+    isdefined(p,:adagrad)  && (p.adagrad  > 0) && similar!(p, :ada, p.diff; fill=0)
+    isdefined(p,:momentum) && (p.momentum > 0) && similar!(p, :mom, p.diff; fill=0)
+    isdefined(p,:nesterov) && (p.nesterov > 0) && similar!(p, :nes, p.diff; fill=0)
 end
 
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
