@@ -29,9 +29,9 @@ setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end)
 
 # The backprop algorithm
 
-function backprop(net::Net, x, dy; o...)
-    y = forw(net, x; o...) 	# calculate network output y given input x
-    back(net, dy; o...)         # calculate derivatives dx,dw given desired output dy
+function backprop(net::Net, x, y; o...)
+    forw(net, x; o...) # calculate network output given input x
+    back(net, y; o...) # calculate derivatives dx,dw given desired output y
 end
 
 # Predict implements forw with minibatches.
