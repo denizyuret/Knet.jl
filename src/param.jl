@@ -10,7 +10,7 @@ function copy(p::Param; o...)
     q = Param(p.data)
     for n in names(p)
         isdefined(p,n) || continue
-        if ((isa(p.(n), Array) || isa(p.(n), CudaArray)) && !isa(p.(n), Atype{Ftype}))
+        if ((isa(p.(n), Array) || (GPU && isa(p.(n), CudaArray))) && !isa(p.(n), Atype{Ftype}))
             q.(n) = convert(Atype{Ftype}, p.(n))
         else
             q.(n) = copy(p.(n))
