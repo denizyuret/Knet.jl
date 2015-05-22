@@ -7,7 +7,6 @@ function similar!(l, n, a, dims=size(a); fill=nothing)
         l.(n) = similar(a, dims)
         fill != nothing && fill!(l.(n), fill)
     elseif size(l.(n)) != dims
-        free(l.(n))
         l.(n) = similar(a, dims)
         fill != nothing && fill!(l.(n), fill)
     end
