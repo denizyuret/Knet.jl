@@ -4,7 +4,7 @@ KUnet was tested on Julia v0.3 on Linux machines with and
 without GPUs.  You should be able to install KUnet simply with:
 
 ```
-julia> Pkg.clone("git@github.com:denizyuret/KUnet.jl.git")
+julia> Pkg.clone("git://github.com/denizyuret/KUnet.jl.git")
 julia> Pkg.build("KUnet")
 ```
 
@@ -18,5 +18,5 @@ need to have CUDA installed and add the following packages:
 ```
 julia> Pkg.add("CUDArt")
 julia> Pkg.add("CUBLAS")
-julia> Pkg.clone("git@github.com:denizyuret/CUDNN.jl.git")
+julia> Pkg.clone("git://github.com/denizyuret/CUDNN.jl.git")
 ```
