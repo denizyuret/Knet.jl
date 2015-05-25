@@ -5,12 +5,12 @@ using Compat
 # loaded, not whether it is used.  The user can control gpu use by
 # changing the array type using atype.
 gpuok = true
-lpath = [Pkg.dir("KUnet/cuda")]
+lpath = [Pkg.dir("KUnet/src")]
 for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
-    isempty(find_library([l], lpath)) && (gpuok=false)
+    isempty(find_library([l], lpath)) && (warn("Cannot find $l");gpuok=false)
 end
 for p in ("CUDArt", "CUBLAS", "CUDNN")
-    isdir(Pkg.dir(p)) || (gpuok=false)
+    isdir(Pkg.dir(p)) || (warn("Cannot find $p");gpuok=false)
 end
 const GPU = gpuok
 GPU || warn("GPU libraries missing, using CPU.")
