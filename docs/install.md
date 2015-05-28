@@ -13,10 +13,10 @@ This should automatically install other required packages
 
 I left the GPU packages optional to allow installation on non-GPU machines.
 To work with a GPU (optional but highly recommended), you
-need to have CUDA installed and add the following packages:
+need to have CUDA installed and install the following packages:
 
 ```
 julia> Pkg.add("CUDArt")
 julia> Pkg.add("CUBLAS")
-julia> Pkg.clone("git://github.com/denizyuret/CUDNN.jl.git")
+julia> Pkg.add("CUDNN")
 ```
