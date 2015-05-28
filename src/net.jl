@@ -36,7 +36,7 @@ end
 
 # Predict implements forw with minibatches.
 
-function predict(net::Net, x, y=nothing; batch=0, o...)
+function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = y = nothing
