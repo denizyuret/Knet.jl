@@ -51,6 +51,7 @@ include("logploss.jl");	export LogpLoss
 include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
+include("percloss.jl"); export PercLoss
 #########################
 
 end # module
