@@ -209,7 +209,6 @@ end
 
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
-# layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
-layers=(PercLoss,)
+layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 main(layers)
 
