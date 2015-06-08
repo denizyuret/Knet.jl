@@ -89,7 +89,7 @@ end
 function b2y(y, b, r, x)
     n = size(x, ndims(x))
     ys = tuple(size(b)[1:end-1]..., n)
-    (y == nothing) && (y = similar(x, ys))
+    (y == nothing) && (y = (isa(x, AbstractSparseArray) ? Array(eltype(x), ys) : similar(x, ys)))
     @assert size(y) == ys
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
