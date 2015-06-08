@@ -67,22 +67,23 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     end
 end
 
+# This is ugly, need to rethink array types
+# Atype was invented so data would be copied to gpu piecemeal
+# but assumes all arrays are of the same type.
+# If the input is sparse, some arrays may be dense!
+# We can force them all to be sparse, or allow more flexibility...
+
 function x2b(b, x, r)
-    bs = tuple(size(x)[1:end-1]..., length(r))
-    # This is ugly, need to rethink array types
-    # Atype was invented so data would be copied to gpu piecemeal
-    # but assumes all arrays are of the same type.
-    # If the input is sparse, some arrays may be dense!
-    # We can force them all to be sparse, or allow more flexibility...
-    if ((b == nothing) || (size(b) != bs))
-        if isa(x, AbstractSparseArray)
-            b = similar(x, bs)
-        else
+    if isa(x, AbstractSparseArray)
+        return x[:,r]
+    else
+        bs = tuple(size(x)[1:end-1]..., length(r))
+        if ((b == nothing) || (size(b) != bs))
             b = Atype(Ftype, bs)
         end
+        xi = 1 + (first(r) - 1) * stride(x, ndims(x))
+        copy!(b, 1, x, xi, length(b))
     end
-    xi = 1 + (first(r) - 1) * stride(x, ndims(x))
-    copy!(b, 1, x, xi, length(b))
 end
 
 function b2y(y, b, r, x)
