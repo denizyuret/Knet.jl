@@ -52,6 +52,9 @@ include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
 include("percloss.jl"); export PercLoss
+
+include("kernel.jl");   export Kernel
+include("poly.jl");     export Poly
 #########################
 
 end # module

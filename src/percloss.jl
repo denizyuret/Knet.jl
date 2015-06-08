@@ -27,10 +27,11 @@ forw(l::PercLoss, y; o...)=(l.y=y)
 # dx = w'*dy
 # 
 # So the perceptron update will be performed by mmul if we pass a dy
-# matrix back where in each column the correct answer is marked with
-# -1 and the predicted answer is marked with a +1.  Think of this as
-# the gradient of the loss, i.e. going in this direction will increase
-# the loss.  We will overwrite the z matrix if dy not specified.
+# matrix back where in each column we have all zeros if the predicted
+# answer is correct, otherwise the correct answer is marked with -1
+# and the predicted answer is marked with a +1.  Think of this as the
+# gradient of the loss, i.e. going in this direction will increase the
+# loss.  We will overwrite the z matrix if dy not specified.
 
 function back(l::PercLoss, z, dy=z; returndx=true, o...)
     @assert issimilar(l.y,z)

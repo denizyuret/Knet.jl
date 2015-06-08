@@ -2,9 +2,10 @@
 
 	* src/percloss.jl: Added perceptron loss.  A multiclass perceptron
 	is just Mmul followed by PercLoss.
-	* TODO: write unit test for PercLoss.
+	* DONE: write unit test for PercLoss.
 	* TODO: implement and test kernel perceptron next.
-	* TODO:	test KUnet with full/sparse matrices on cpu/gpu.
+	* TODO: test subarray and concat with full/sparse on cpu/gpu.
+	* TODO:	test KUnet with full/sparse, cpu/gpu, Float32/64
 	* TODO: test onur's 4D code.
 	* TODO: perform kuparser experiment comparing dense vs sparse features.
 
