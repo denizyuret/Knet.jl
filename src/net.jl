@@ -69,8 +69,17 @@ end
 
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
+    # This is ugly, need to rethink array types
+    # Atype was invented so data would be copied to gpu piecemeal
+    # but assumes all arrays are of the same type.
+    # If the input is sparse, some arrays may be dense!
+    # We can force them all to be sparse, or allow more flexibility...
     if ((b == nothing) || (size(b) != bs))
-        b = Atype(Ftype, bs)
+        if isa(x, AbstractSparseArray)
+            b = similar(x, bs)
+        else
+            b = Atype(Ftype, bs)
+        end
     end
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))

@@ -108,3 +108,5 @@ end
 # TODO: see about code repetition, Only forward will be different, back and update the same.
 # we can define abstract Kernel to avoid repetition.
 # if we define Kernel, we can also have the beta mult in there!
+
+# TODO: uniq sv, cotter13

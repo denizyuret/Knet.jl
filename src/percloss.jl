@@ -34,8 +34,9 @@ forw(l::PercLoss, y; o...)=(l.y=y)
 # loss.  We will overwrite the z matrix if dy not specified.
 
 function back(l::PercLoss, z, dy=z; returndx=true, o...)
-    @assert issimilar(l.y,z)
-    @assert issimilar(l.y,dy)
+#    @assert issimilar(l.y,z)
+#    @assert issimilar(l.y,dy)
+    @assert size(l.y)==size(z)==size(dy)
     returndx || return
     (nc,nx) = size2(l.y)
     for j=1:nx
