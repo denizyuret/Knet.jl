@@ -55,6 +55,13 @@ function gpuseed(n::Integer)
     GPU && ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 end
 
+# matmul.jl:116
+function (*){T}(A::CudaMatrix{T}, B::CudaMatrix{T})
+    C = similar(A,T,(size(A,1),size(B,2)))
+    gemm!('N','N',one(T),A,B,zero(T),C)
+end
+
+
 import CUDArt: to_host
 
 end	########## CUDA extensions

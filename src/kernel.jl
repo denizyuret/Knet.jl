@@ -51,7 +51,7 @@ end
 function initforw(l::Kernel, x)
     (xrows, xcols) = size2(x)
     l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
-    isdefined(l,:s) || (l.s=similar(x, xrows, 0))
+    isdefined(l,:s) || (l.s=similar(x, (xrows, 0)))
     (srows, scols) = size(l.s)
     @assert srows == xrows
     (wrows, wcols) = size(l.w)

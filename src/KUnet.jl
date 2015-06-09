@@ -53,8 +53,9 @@ include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
 include("percloss.jl"); export PercLoss
 
-include("kernel.jl");   export Kernel
+include("kernel.jl");   export Kernel, kernel
 include("poly.jl");     export Poly
+include("rbfk.jl");     export Rbfk
 #########################
 
 end # module
