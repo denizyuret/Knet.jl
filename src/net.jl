@@ -39,7 +39,7 @@ end
 function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
-    xx = yy = y = nothing
+    xx = yy = nothing
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
@@ -75,7 +75,7 @@ end
 
 function x2b(b, x, r)
     if isa(x, AbstractSparseArray)
-        return x[:,r]
+        b = x[:,r]
     else
         bs = tuple(size(x)[1:end-1]..., length(r))
         if ((b == nothing) || (size(b) != bs))
@@ -84,6 +84,7 @@ function x2b(b, x, r)
         xi = 1 + (first(r) - 1) * stride(x, ndims(x))
         copy!(b, 1, x, xi, length(b))
     end
+    return b
 end
 
 function b2y(y, b, r, x)
@@ -93,6 +94,7 @@ function b2y(y, b, r, x)
     @assert size(y) == ys
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
+    return y
 end
 
 function shufflexy!(x, y)
