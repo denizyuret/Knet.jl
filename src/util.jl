@@ -14,6 +14,7 @@ function similar!(l, n, a, dims=size(a); fill=nothing)
 end
 
 issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
+issimilar1(a,b)=((eltype(a)==eltype(b)) && (length(a)==length(b)))
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
 

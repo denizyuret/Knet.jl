@@ -22,7 +22,7 @@ copy(l::LogpLoss;o...)=LogpLoss()
 forw(l::LogpLoss, x; o...)=(l.y=x)
 
 function back(l::LogpLoss, p; returndx=true, o...)
-    @assert issimilar(p, l.y)
+    @assert issimilar1(p, l.y)
     returndx || return
     (st,nx) = size2(p)
     for i=1:length(p)
@@ -32,7 +32,7 @@ function back(l::LogpLoss, p; returndx=true, o...)
 end
 
 function loss(l::LogpLoss, p)
-    @assert issimilar(p, l.y)
+    @assert issimilar1(p, l.y)
     p = to_host(p)
     y = to_host(l.y)
     (st,nx) = size2(p)
@@ -45,7 +45,7 @@ end
 
 if GPU
 function back(l::LogpLoss, p::CudaArray{Float32}; returndx=true, o...)
-    @assert issimilar(p, l.y)
+    @assert issimilar1(p, l.y)
     returndx || return
     (st,nx) = size2(p)
     ccall((:logploss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
@@ -53,7 +53,7 @@ function back(l::LogpLoss, p::CudaArray{Float32}; returndx=true, o...)
 end
 
 function back(l::LogpLoss, p::CudaArray{Float64}; returndx=true, o...)
-    @assert issimilar(p, l.y)
+    @assert issimilar1(p, l.y)
     returndx || return
     (st,nx) = size2(p)
     ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)

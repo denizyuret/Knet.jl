@@ -18,7 +18,7 @@ function forw(l::Drop, x; dropout=true, xdrop=nothing, seed=nothing, o...)
 end
 
 function back(l::Drop, dy; o...)
-    @assert issimilar(dy, l.xdrop)
+    @assert length(dy)==length(l.xdrop)
     if l.dropout > 0
         drop(dy, l.xdrop, l.dropout, 1/(1-l.dropout))
     end
