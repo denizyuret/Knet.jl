@@ -39,7 +39,7 @@ end
 function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
-    xx = yy = y = nothing
+    xx = yy = nothing
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
