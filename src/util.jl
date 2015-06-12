@@ -29,8 +29,10 @@ rand!(A::CudaArray{Float32})=(ccall((:randfill32,libkunet),Void,(Cint,Ptr{Float3
 rand!(A::CudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float64}),length(A),A); A)
 fill!(A::CudaArray,x::Number)=cudnnSetTensor(A, x)
 
-using CUDArt: ContiguousArray
-function copy!{T}(dst::ContiguousArray{T}, di::Integer, src::ContiguousArray{T}, si::Integer, n::Integer; stream=null_stream)
+
+typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T})
+
+function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
