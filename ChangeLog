@@ -2,9 +2,9 @@
 
 	* src/kernel.jl: Poly kernels working with sparse/full arrays.
 	* DONE: Try on CudaArray: mul, xpose, hcat vs does not work.
-	* TODO: Try on SparseCudaArray (cpu sparse is 5x slower than cpu
-	full on mnist)
-	* TODO: rbf kernel
+	* DONE: Try on SparseCudaArray (cpu sparse is 5x slower than cpu
+	full on mnist) -- postponed.
+	* DONE: rbf kernel
 
 2015-06-03    <dyuret@ku.edu.tr>
 
@@ -12,10 +12,13 @@
 	is just Mmul followed by PercLoss.
 	* DONE: write unit test for PercLoss.
 	* DONE: implement and test kernel perceptron next.
-	* TODO: test subarray and concat with full/sparse on cpu/gpu.
-	* TODO:	test KUnet with full/sparse, cpu/gpu, Float32/64
+	* DONE: test subarray and concat with full/sparse on cpu/gpu.
+	* DONE:	test KUnet with full/sparse, cpu/gpu, Float32/64 -- postponed
+	* TODO: perform kuparser experiment comparing dense vs sparse
+	features.
 	* TODO: test onur's 4D code.
-	* TODO: perform kuparser experiment comparing dense vs sparse features.
+	* TODO: write doc on xent loss
+	* TODO: write doc on perceptrons
 
 2015-05-17    <dyuret@ku.edu.tr>
 
