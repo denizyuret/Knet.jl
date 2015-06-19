@@ -52,8 +52,10 @@ end
 function initforw(l::Perceptron, x, predict)
     l.x = x
     if !isdefined(l,:w0)
-        similar!(l,:w0,l.x,(size(l.x,1),l.n); fill=0)
-        similar!(l,:b0,l.x,(l.n,1); fill=0)
+        # similar!(l,:w0,l.x,(size(l.x,1),l.n); fill=0)
+        # TODO: This is to try the effect of full arrays, it does not do gpu yet:
+        l.w0 = zeros(eltype(l.x), size(l.x,1), l.n)
+        similar!(l,:b0,l.w0,(l.n,1); fill=0)
         similar!(l,:w1,l.w0; fill=0)
         similar!(l,:b1,l.b0; fill=0)
         l.w2 = nothing
