@@ -15,8 +15,8 @@ end
 function forw(l::Perceptron, x; predict=false, o...)
     initforw(l, x, predict)
     l.y = (predict ? 
-           l.w2' * l.x .+ l.b2 : # use averaged weights for prediction
-           l.w0' * l.x .+ l.b0)  # use regular weights for training
+           l.w2 * l.x .+ l.b2 : # use averaged weights for prediction
+           l.w0 * l.x .+ l.b0)  # use regular weights for training
 end
 
 function back(l::Perceptron, z; returndx=false, o...)
@@ -37,24 +37,33 @@ function update(l::Perceptron; o...)
             l.b0[cy] -= 1           # bias for model answer down
             l.b1[cz] += l.u
             l.b1[cy] -= l.u
-            # The following 4 lines are eat most of the time
-            # Keeping w same direction as x helps a bit in spite of the transpose in forw
-            # Using for loops does not help (maybe iterating over nz for sparse might)
-            l.w0[:,cz] += l.x[:,j] # weights for correct answer +x
-            l.w0[:,cy] -= l.x[:,j] # weights for model answer -x
-            l.w1[:,cz] += l.u * l.x[:,j]
-            l.w1[:,cy] -= l.u * l.x[:,j]
+            # The following 4 lines are eat most of the time, so define efficient function
+            addx!(1, l.x, j, l.w0, cz)    # l.w0[cz,:] += l.x[:,j]' # weights for correct answer +x
+            addx!(-1, l.x, j, l.w0, cy)   # l.w0[cy,:] -= l.x[:,j]' # weights for model answer -x
+            addx!(l.u, l.x, j, l.w1, cz)  # l.w1[cz,:] += l.u * l.x[:,j]'
+            addx!(-l.u, l.x, j, l.w1, cy) # l.w1[cy,:] -= l.u * l.x[:,j]'
         end
         l.u += 1            # increment counter regardless of update
     end
 end
 
+# TODO: need addx!() defined for other array types
+function addx!(a::Number, x::SparseMatrixCSC, xcol::Integer, w::AbstractArray, wrow::Integer)
+    a = convert(eltype(x), a)
+    i1 = x.colptr[xcol]
+    i2 = x.colptr[xcol+1]-1
+    for i=i1:i2
+        wcol = x.rowval[i]
+        w[wrow,wcol] += a * x.nzval[i]
+    end
+    return w
+end
+
 function initforw(l::Perceptron, x, predict)
     l.x = x
     if !isdefined(l,:w0)
-        # similar!(l,:w0,l.x,(size(l.x,1),l.n); fill=0)
-        # TODO: This is to try the effect of full arrays, it does not do gpu yet:
-        l.w0 = zeros(eltype(l.x), size(l.x,1), l.n)
+        @assert KUnet.Atype==Array "Perceptron cannot handle CudaArray yet"
+        l.w0 = zeros(eltype(l.x), l.n, size(l.x,1))
         similar!(l,:b0,l.w0,(l.n,1); fill=0)
         similar!(l,:w1,l.w0; fill=0)
         similar!(l,:b1,l.b0; fill=0)
@@ -62,7 +71,7 @@ function initforw(l::Perceptron, x, predict)
         l.b2 = nothing
         l.u = 0
     end
-    @assert size(l.x, 1) == size(l.w0, 1)
+    @assert size(l.x, 1) == size(l.w0, 2)
     if predict && (l.w2 == nothing)
         l.w2 = l.u * l.w0 - l.w1
         l.b2 = l.u * l.b0 - l.b1
