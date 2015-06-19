@@ -24,23 +24,25 @@ end
 
 function update(l::KPerceptron; o...)
     l.w2 = nothing   # make sure these are reset when w0,w1,u changes
+    wnew = zeros(eltype(l.w0),size(l.w0,1),1)
+    snew = similar(l.x, size(l.x,1), 0)
     for j=1:size(l.z,2)
         (cz,cy,ymax,zmax) = (0,0,typemin(eltype(l.y)),typemin(eltype(l.z)))
         for i=1:l.n
             l.z[i,j] > zmax && ((cz,zmax) = (i,l.z[i,j])) # find the correct answer
             l.y[i,j] > ymax && ((cy,ymax) = (i,l.y[i,j])) # find the model answer
         end
-        if cz != cy                 # if model answer is not correct
-            # l.x[:,j] becomes a new support vector
-            l.s = [l.s l.x[:,j]]          # TODO: use snew wnew to keep reallocations small
-            w = zeros(eltype(l.w0),size(l.w0,1),1)
-            w[cz] = 1; w[cy] = -1
-            l.w0 = [l.w0 w]
-            w[cz] = l.u; w[cy] = -l.u
-            l.w1 = [l.w1 w]
+        if cz != cy # if model answer is not correct l.x[:,j] becomes a new support vector
+            snew = [snew l.x[:,j]]
+            wnew[cz] = 1; wnew[cy] = -1
+            l.w0 = [l.w0 wnew]
+            wnew[cz] = l.u; wnew[cy] = -l.u
+            l.w1 = [l.w1 wnew]
+            wnew[cz] = 0; wnew[cy] = 0
         end
         l.u += 1            # increment counter regardless of update
     end
+    l.s = [l.s snew]
 end
 
 function initforw(l::KPerceptron, x, predict)
