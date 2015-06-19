@@ -14,9 +14,10 @@ abstract Kernel <: Layer
 
 # The forw function is just mmul applied to a transformed input:
 
-function forw(l::Kernel, x; o...)
+function forw(l::Kernel, x; predict=false, o...)
     initforw(l, x)
-    l.y = l.w * kernel(l)  # kernel fn is defined by subtypes of kernel and returns the kernel matrix K
+    # kernel fn is defined by subtypes of kernel and returns the kernel matrix K
+    l.y = (predict ? l.w : l.v) * kernel(l)
 end
 
 function back(l::Kernel, dy; returndx=false, o...)
@@ -40,8 +41,6 @@ function update(l::Kernel; o...)
             end
         end
     end
-    # l.v is the perceptron weights, l.w is the averaged (summed) weights
-    isdefined(l,:v) || (@assert isempty(l.w); l.v = l.w)
     l.w += l.v
     l.w = [l.w wnew]
     l.v = [l.v wnew]
@@ -56,6 +55,8 @@ function initforw(l::Kernel, x)
     @assert srows == xrows
     (wrows, wcols) = size(l.w)
     @assert scols == wcols
+    # l.v is the perceptron weights, l.w is the averaged (summed) weights
+    isdefined(l,:v) || (@assert isempty(l.w); l.v = l.w)
 end
 
 # TODO: explain back and update
