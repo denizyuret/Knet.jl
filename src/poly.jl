@@ -1,11 +1,14 @@
 # poly kernel: (s'*x+c)^d
 
 type Poly <: Kernel; s; w; v; x; y; dy; c; d;
-    function Poly(;o...)
+# TODO: remove PercLoss, integrate into kernel
+# TODO: use daume trick for kernel perceptron
+# TODO: define all in kperceptron (mirroring perceptron.jl) and have kernel fn as a field
+    function Poly(nclass;o...)
         l = setparam!(new(); o...)
-        isdefined(l,:w) || error("Poly: don't know how to initialize w")
-        isdefined(l,:c) || (l.c = zero(eltype(x)))
-        isdefined(l,:d) || (l.d = one(eltype(x)))
+        isdefined(l,:w) || (l.w = Atype(Ftype, nclass, 0))
+        isdefined(l,:c) || (l.c = zero(Ftype))
+        isdefined(l,:d) || (l.d = one(Ftype))
         return l
     end
 end
