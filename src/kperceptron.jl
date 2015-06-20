@@ -17,6 +17,33 @@ end
 kpoly(s, x, p)=((s' * x + p[1]) .^ p[2])
 krbf(s, x, p)=exp(-p[1] * broadcast(+, sum(x.^2,1), broadcast(+, sum(s.^2,1)', -2*(s' * x))))
 
+# This is 4 times slower than ((s' * x + p[1]) .^ p[2])
+function kpoly2(s::SparseMatrixCSC, x::SparseMatrixCSC, p::Vector)
+    k = Array(eltype(x), size(s, 2), size(x, 2))
+    @inbounds for j=1:size(k,2)
+        @inbounds for i=1:size(k,1)
+            # k[i,j] = (dot(s[:,i], x[:,j]) + p[1]) ^ p[2]
+            s1 = s.colptr[i]; s2 = s.colptr[i+1]
+            x1 = x.colptr[j]; x2 = x.colptr[j+1]
+            sx = zero(eltype(x))
+            while (s1<s2 && x1<x2)
+                sr = s.rowval[s1]
+                xr = x.rowval[x1]
+                if sr < xr
+                    s1 += 1
+                elseif sr > xr
+                    x1 += 1
+                else            # sr==xr
+                    sx += s.nzval[s1] * x.nzval[x1]
+                    s1 += 1; x1 += 1;
+                end
+            end
+            k[i,j] = (sx + p[1])^p[2]
+        end
+    end
+    return k
+end
+
 function forw(l::KPerceptron, x; predict=false, o...)
     initforw(l, x, predict)
     l.y = (predict ? l.w2 : l.w0) * l.k(l.s, l.x, l.p)
