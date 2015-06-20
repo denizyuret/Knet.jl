@@ -1,3 +1,39 @@
+2015-06-20    <dyuret@ku.edu.tr>
+
+	* kperceptron.jl: To move any further we need to sort out this
+	array type business.  Since we introduced sparse arrays we are no
+	longer limited to two types, Array and CudaArray.  That means the
+	atype mechanism is no longer ok.
+
+	First of all the original data comes in a cpu array.  It gets
+	copied into minibatches by train and predict.  It can be full or
+	sparse.  Nothing after the original data needs to be sparse except
+	support vectors.  The minibatches could be on cpu or gpu (if gpu
+	usage is specified).  We will keep the sparseness of the input in
+	minibatches.  The users preferences should specify the cpu/gpu and
+	the eltype that should be used internally in layer computations.
+	Do we allow ftype to be different?  If not we could eliminate
+	that and take it from the input as well?  So the input data
+	determines the ftype and sparseness of layer calculations.  GPU
+	used if present.  User has the option to turn gpu off.
+
+	Conversions take place in param.jl, net.jl (train/predict).
+	conv/pool only work with gpu arrays right now.
+	perceptron/kperceptron only works with cpu arrays right now.
+
+	So get rid of atype/ftype.  Get it from the input or during
+	initialization.  So how do we initialize an mmul layer?  By
+	specifying number of outputs.  Just like the perceptron.  The
+	weight matrix gets constructed when the first input is received in
+	initforw.  Mmul(array), Mmul(out), Mmul(out,in),
+	Mmul(ftype,out,in) could be the initializers (modeled after
+	zeros).  cpu/gpu is decided based on GPU setting (make it
+	non-constant as before).  ftype defaults to Float64 as the rest of
+	Julia (e.g. zeros(dims...), rand(dims...) etc).  So (out,in) can
+	create a matrix.  Only (out) cannot, it will have to wait.  Param
+	can play a more passive role?  Or we pass info to param?
+
+
 2015-06-09    <dyuret@ku.edu.tr>
 
 	* src/kernel.jl: Poly kernels working with sparse/full arrays.

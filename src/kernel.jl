@@ -53,6 +53,7 @@ function initforw(l::Kernel, x)
     isdefined(l,:s) || (l.s=similar(x, (xrows, 0)))
     (srows, scols) = size(l.s)
     @assert srows == xrows
+    isdefined(l,:w) || (l.w=Array(eltype(x), l.n, 0))
     (wrows, wcols) = size(l.w)
     @assert scols == wcols
     # l.v is the perceptron weights, l.w is the averaged (summed) weights

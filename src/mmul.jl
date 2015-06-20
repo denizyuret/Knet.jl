@@ -1,10 +1,11 @@
 using Base.LinAlg.BLAS: gemm!
 
-type Mmul <: Layer; w; x; y; dx; dy; Mmul(w::Param)=new(w); end
-Mmul(w;o...)=Mmul(Param(w;o...))
-Mmul(d::Integer...;o...)=Mmul(Param(randn(d)*0.01;o...))
+type Mmul <: Layer; w; x; y; dx; dy; n;
+    Mmul(d...; o...)=new(Param(d...; o...))
+    Mmul(n::Integer)=(l=new();l.n=n)
+end
 
-copy(l::Mmul;o...)=Mmul(copy(l.w;o...))
+# copy(l::Mmul;o...)=Mmul(copy(l.w;o...))
 update(l::Mmul;o...)=update(l.w)
 setparam!(l::Mmul; o...)=setparam!(l.w; o...)
 
@@ -23,14 +24,18 @@ function back(l::Mmul, dy; returndx=true, o...)
 end
 
 function initforw(l::Mmul, x)
-    @assert ndims(l.w.data) == 2
-    (wrows, wcols) = size(l.w.data)
-    xcols = (ndims(x) == 1 ? 1 : size(x, ndims(x)))
-    xrows = div(length(x),xcols)
-    @assert xrows == wcols
+    (xrows,xcols) = size2(x)
     l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
+    isdefined(l,:w) || (l.w = Param(eltype(x), l.n, xrows; init=initrand))
+    (wrows, wcols) = size2(l.w.data)
+    @assert ndims(l.w.data) == 2
+    @assert typeof(l.w.data) == typeof(l.x)
+    @assert eltype(l.w.data) == eltype(l.x)
+    @assert xrows == wcols
     similar!(l, :y, l.w.data, (wrows, xcols))
 end
+
+initrand(a)=rand!(a)  # TODO: fix this
 
 function initback(l::Mmul, dy, returndx)
     @assert issimilar(dy, l.y)

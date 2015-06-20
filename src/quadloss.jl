@@ -1,5 +1,5 @@
 type QuadLoss <: LossLayer; y; QuadLoss()=new(); end
-copy(l::QuadLoss; o...)=QuadLoss()
+# copy(l::QuadLoss; o...)=QuadLoss()
 
 # Quadratic loss:
 # l.y stores the model output.
@@ -20,10 +20,8 @@ function back(l::QuadLoss, z; returndx=true, o...)
     return z
 end
 
-function loss(l::QuadLoss, z)
-    @assert issimilar(z,l.y)
-    y = to_host(l.y)
-    z = to_host(z)
+function loss(l::QuadLoss, z, y=l.y)
+    @assert issimilar(z,y)
     (st,nx) = size2(z)
     cost = zero(Float64)
     for i=1:length(z)
@@ -33,6 +31,8 @@ function loss(l::QuadLoss, z)
 end
 
 if GPU
+
+loss(l::QuadLoss, z::CudaArray)=loss(l, to_host(z), to_host(l.y))
 
 function back(l::QuadLoss, z::CudaArray; returndx=true, o...)
     @assert issimilar(z,l.y)

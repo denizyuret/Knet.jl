@@ -1,23 +1,16 @@
 using Base.LinAlg.BLAS: axpy!, scal!
 
-type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; 
-    Param(w;o...)=setparam!(new(convert(Atype{Ftype},w));o...)
-end
+type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
 
+ParamData=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
+Param(dims::Int...; o...) = Param(Float64, dims; o...)
+Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
+Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaArray:Array)(T,dims); o...)
+Param(w::ParamData; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
-function copy(p::Param; o...)
-    q = Param(p.data)
-    for n in names(p)
-        isdefined(p,n) || continue
-        if ((isa(p.(n), Array) || (GPU && isa(p.(n), CudaArray))) && !isa(p.(n), Atype{Ftype}))
-            q.(n) = convert(Atype{Ftype}, p.(n))
-        else
-            q.(n) = copy(p.(n))
-        end
-    end
-    return q
-end
+# We probably don't need this copy, just implement cpucopy and gpucopy.
+# copy(p::Param; o...)=(q=Param(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)
 
 function update(p::Param; o...)
     initupdate(p)
@@ -50,7 +43,7 @@ adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32
 l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
 adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
 l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
-end
+end #if GPU
 
 # function maxnorm!(maxnorm, w)
 #     error("Did not debug maxnorm yet.")

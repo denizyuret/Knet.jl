@@ -1,5 +1,5 @@
 type Drop <: Layer; dropout; xdrop; Drop(d)=new(d); end
-copy(l::Drop;o...)=Drop(l.dropout)
+# copy(l::Drop;o...)=Drop(l.dropout)
 
 function forw(l::Drop, x; predict=false, xdrop=nothing, seed=nothing, o...)
     if !predict && (l.dropout > 0)

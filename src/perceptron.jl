@@ -5,12 +5,11 @@
 
 type Perceptron <: Layer; n; x; y; z; w0; b0; w1; b1; w2; b2; u; Perceptron(nclass)=new(nclass); end
 
-function copy(l::Perceptron)
-    @assert isa(l.w0, KUnet.atype()) "Perceptron cannot change array type yet"
-    c = Perceptron(l.n)
-    for n in names(c); c.(n) = copy(l.(n)); end
-    return c
-end
+# function copy(l::Perceptron)
+#     c = Perceptron(l.n)
+#     for n in names(c); c.(n) = copy(l.(n)); end
+#     return c
+# end
 
 function forw(l::Perceptron, x; predict=false, o...)
     initforw(l, x, predict)
@@ -47,8 +46,8 @@ function update(l::Perceptron; o...)
     end
 end
 
-# TODO: need addx!() defined for other array types
 function addx!(a::Number, x::SparseMatrixCSC, xcol::Integer, w::AbstractArray, wrow::Integer)
+    @assert size(x, 1) == size(w, 2)
     a = convert(eltype(x), a)
     i1 = x.colptr[xcol]
     i2 = x.colptr[xcol+1]-1
@@ -59,10 +58,18 @@ function addx!(a::Number, x::SparseMatrixCSC, xcol::Integer, w::AbstractArray, w
     return w
 end
 
+function addx!(a::Number, x::Array, xcol::Integer, w::AbstractArray, wrow::Integer)
+    @assert size(x, 1) == size(w, 2)
+    a = convert(eltype(x), a)
+    for i=1:size(x,1)
+        w[wrow,i] += a * x[i,xcol]
+    end
+    return w
+end
+
 function initforw(l::Perceptron, x, predict)
     l.x = x
     if !isdefined(l,:w0)
-        @assert KUnet.Atype==Array "Perceptron cannot handle CudaArray yet"
         l.w0 = zeros(eltype(l.x), l.n, size(l.x,1))
         similar!(l,:b0,l.w0,(l.n,1); fill=0)
         similar!(l,:w1,l.w0; fill=0)

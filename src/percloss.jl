@@ -2,7 +2,7 @@
 # using an Mmul layer followed by PercLoss.
 
 type PercLoss <: LossLayer; y; PercLoss()=new(); end
-copy(l::PercLoss;o...)=PercLoss()
+# copy(l::PercLoss;o...)=PercLoss()
 
 # Going forward Mmul computes y=w*x and PercLoss simply records the
 # output y.  size(w)=(nc,nd) where nc is the number of classes and nd
@@ -56,9 +56,7 @@ end
 # function Sum(-y[I]+y[J]) where I are the indices for the correct
 # answers, and J are the indices for predicted answers.
 
-function loss(l::PercLoss, z)
-    z = to_host(z)
-    y = to_host(l.y)
+function loss(l::PercLoss, z, y=l.y)
     @assert issimilar(z,y)
     (nc,nx) = size2(y)
     cost = zero(Float64)
@@ -75,6 +73,9 @@ function loss(l::PercLoss, z)
 end
 
 if GPU
+
+loss(l::PercLoss, z::CudaArray)=loss(l, to_host(z), to_host(l.y))
+
 function back(l::PercLoss, z::CudaArray{Float32}, dy=z; returndx=true, o...)
     @assert issimilar(z, l.y)
     returndx || return

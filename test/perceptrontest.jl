@@ -2,8 +2,7 @@ using KUnet
 using KUnet: accuracy
 @time require(Pkg.dir("KUnet/test/mnist.jl"))
 
-KUnet.atype(Array)
-KUnet.ftype(Float32)
+KUnet.gpu(false)
 xtrn = float32(255*MNIST.xtrn)
 xtst = float32(255*MNIST.xtst)
 ytrn = float32(MNIST.ytrn)
@@ -12,6 +11,7 @@ strn = sparse(xtrn)
 stst = sparse(xtst)
 
 if true
+info("Dense input")
 xnet = Layer[Perceptron(10)]
 @time for i=1:5
     train(xnet, xtrn, ytrn)
@@ -22,6 +22,7 @@ end
 end # if false
 
 if true
+info("Sparse input")
 snet = Layer[Perceptron(10)]
 @time for i=1:5
     train(snet, strn, ytrn)
@@ -42,7 +43,8 @@ getindex(::CudaArray{Float32,2}, ::Int64, ::Int64)=0
 ./(a::CudaArray{Float32,2}, ::Int64)=a
 -(a::CudaArray{Float32,2}, b::CudaArray{Float32,2})=a
 
-KUnet.atype(CudaArray)
+# KUnet.atype(CudaArray)
+KUnet.gpu(true)
 cnet = Layer[Perceptron(10)]
 @time for i=1:5
     train(cnet, xtrn, ytrn; iters=100)
@@ -50,7 +52,7 @@ cnet = Layer[Perceptron(10)]
              accuracy(ytst, predict(cnet, xtst)),
              accuracy(ytrn, predict(cnet, xtrn))))
 end
-KUnet.atype(Array)
+# KUnet.atype(Array)
 end # if false
 
 # Similar stuff needs to be defined for sparse cuda arrays.

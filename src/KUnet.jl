@@ -14,6 +14,9 @@ for p in ("CUDArt", "CUBLAS", "CUDNN")
 end
 const GPU = gpuok
 GPU || warn("GPU libraries missing, using CPU.")
+USEGPU = GPU
+gpu()=USEGPU
+gpu(b::Bool)=(b && !gpuok && error("No GPU"); global USEGPU=b)
 
 # Conditional module import
 macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
@@ -22,17 +25,17 @@ macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDNN  
 
 # Atype and Ftype are the default array and element types
-Ftype = Float32
-Atype = (GPU ? CudaArray : Array)
-ftype()=Ftype
-atype()=Atype
-ftype(t)=(global Ftype=t)
-atype(t)=(global Atype=t)
+# Ftype = Float32
+# Atype = (GPU ? CudaArray : Array)
+# ftype()=Ftype
+# atype()=Atype
+# ftype(t)=(global Ftype=t)
+# atype(t)=(global Atype=t)
 
 
 #########################
 import Base: copy, copy!, rand!, fill!, convert, reshape
-include("util.jl");	export accuracy, @date # and extends functions given above
+include("util.jl");	export accuracy, cpucopy, gpucopy, @date # and extends functions given above
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 

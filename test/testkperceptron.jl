@@ -1,11 +1,8 @@
 using CUDArt
 using KUnet
-using KUnet: accuracy
-using KUparser: @date
 require(Pkg.dir("KUnet/test/mnist.jl"))
 
-KUnet.ftype(Float32) # mnist has Float32 data
-KUnet.atype(Array)
+KUnet.gpu(false)
 xtrn = MNIST.xtrn
 xtst = MNIST.xtst
 ytrn = MNIST.ytrn
@@ -18,6 +15,7 @@ niter = 100
 nbatch = 128
 
 if true
+info("Poly+PercLoss")
 strn = sparse(MNIST.xtrn)
 stst = sparse(MNIST.xtst)
 @show snet = Layer[Poly(10;c=c0,d=d0,w=w0), PercLoss()]
@@ -29,6 +27,7 @@ for i=1:1
                    ))
 end
 
+info("KPerceptron+kpoly")
 ktrn = sparse(MNIST.xtrn)
 ktst = sparse(MNIST.xtst)
 @show knet = Layer[KPerceptron(10, KUnet.kpoly, [c0,d0])]
@@ -88,7 +87,7 @@ end
 end # if false
 
 if false # mmul, hcat, ctranspose do not work
-KUnet.atype(CudaArray)
+KUnet.gpu(true)
 cnet = Layer[Poly(c=c0,d=d0,w=CudaArray(w0)), PercLoss()]
 for i=1:1
     @time train(cnet, xtrn, ytrn; iters=niter,batch=nbatch)
@@ -96,5 +95,4 @@ for i=1:1
              accuracy(ytst, predict(cnet, xtst)),
              )) # accuracy(ytrn, predict(cnet, xtrn))))
 end
-KUnet.atype(Array)
 end # if false

@@ -1,5 +1,5 @@
 type Relu <: Layer; y; Relu()=new() end
-copy(l::Relu; o...)=Relu()
+# copy(l::Relu; o...)=Relu()
 
 function forw(l::Relu,x; o...)
     x0=zero(eltype(x)); for i=1:length(x); (x[i]<x0)&&(x[i]=x0) end; l.y=x

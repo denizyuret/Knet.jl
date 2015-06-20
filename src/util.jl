@@ -2,6 +2,10 @@
 # Hopefully it will shrink down to nothing as things get fixed in the
 # original packages.
 
+# Print date, expression and elapsed time after execution
+VERSION < v"0.4-" && eval(Expr(:using,:Dates))
+macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
+
 function similar!(l, n, a, dims=size(a); fill=nothing)
     if !isdefined(l,n) || (size(l.(n)) != dims)
         if isa(a, AbstractSparseArray)
@@ -65,10 +69,42 @@ function (*){T}(A::CudaMatrix{T}, B::CudaMatrix{T})
     gemm!('N','N',one(T),A,B,zero(T),C)
 end
 
+# without this patch, deepcopy does not work on structs with CudaArrays
+function Base.deepcopy_internal(x::CudaArray, stackdict::ObjectIdDict)
+    if haskey(stackdict, x)
+        return stackdict[x]
+    end
+    copy(x)
+end
 
-import CUDArt: to_host
 
-end	########## CUDA extensions
+cpucopy(x::CudaArray)=to_host(x)
+cpucopy(x::AbstractArray)=(isbits(eltype(x)) ? copy(x) : map(cpucopy, x))
+cpucopy(x)=mydeepcopy(x, cpucopy)
+gpucopy(x::CudaArray)=copy(x)
+gpucopy(x::AbstractArray)=(isbits(eltype(x)) ? CudaArray(x) : map(gpucopy, x))
+gpucopy(x)=mydeepcopy(x, gpucopy)
+
+# Adapted from deepcopy.jl:29 _deepcopy_t()
+function mydeepcopy(x,fn)
+    T = typeof(x)
+    if T.names===() || !T.mutable
+        return x
+    end
+    ret = ccall(:jl_new_struct_uninit, Any, (Any,), T)
+    for i in 1:length(T.names)
+        if isdefined(x,i)
+            ret.(i) = fn(x.(i))
+        end
+    end
+    return ret
+end
+
+else  # if GPU
 
 # Need this so code works without gpu
-to_host(x)=x
+cpucopy(x)=deepcopy(x)
+gpucopy(x)=error("No GPU")
+
+end   # if GPU
+

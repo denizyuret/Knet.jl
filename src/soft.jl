@@ -1,5 +1,5 @@
 type Soft <: Layer; y; Soft()=new(); end
-copy(l::Soft; o...)=Soft()
+# copy(l::Soft; o...)=Soft()
 
 # Soft treats its input y as unnormalized log probabilities and
 # applies the softmax function to overwrite it with normalized

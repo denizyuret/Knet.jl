@@ -1,12 +1,13 @@
 # Each Layer implements some common functions, stubs are given below.
-# forw takes input x and returns output y, possibly setting some state
-# back takes dy, the loss gradient wrt y, and returns dx, the loss gradient wrt x
-# Some layers overwrite their inputs
+# forw takes input x and returns output y, possibly setting some state.
+# back takes dy, the loss gradient wrt y, calculates loss gradient wrt 
+# layer parameters and optionally returns dx, the loss gradient wrt x.
+# Some layers overwrite their inputs.
 
 abstract Layer
 forw(l::Layer, x; o...)=error("$(typeof(l)) has not implemented forw")
 back(l::Layer, dy; o...)=error("$(typeof(l)) has not implemented back")
-copy(l::Layer; o...)=error("$(typeof(l)) has not implemented copy")
+# copy(l::Layer; o...)=error("$(typeof(l)) has not implemented copy")
 update(l::Layer; o...)=nothing
 setparam!(l::Layer; o...)=nothing
 
@@ -23,7 +24,7 @@ loss(l::LossLayer, z; o...)=error("$(typeof(l)) has not implemented loss")
 typealias Net Array{Layer,1}
 forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
 back(n::Net, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
-copy(n::Net; o...)=Layer[map(l->copy(l; o...),n)...]  # need Layer[] otherwise type may change to e.g. Array{Relu}
+# copy(n::Net; o...)=Layer[map(l->copy(l; o...),n)...]  # need Layer[] otherwise type may change to e.g. Array{Relu}
 update(n::Net; o...)=(for l in n; update(l; o...); end)
 setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end)
 
@@ -79,7 +80,7 @@ function x2b(b, x, r)
     else
         bs = tuple(size(x)[1:end-1]..., length(r))
         if ((b == nothing) || (size(b) != bs))
-            b = Atype(Ftype, bs)
+            b = (gpu()?CudaArray:Array)(eltype(x), bs)
         end
         xi = 1 + (first(r) - 1) * stride(x, ndims(x))
         copy!(b, 1, x, xi, length(b))
@@ -120,11 +121,11 @@ end
 using HDF5, JLD
 
 function savenet(filename::String, net::Net)
-    a=Atype; atype(Array); net=copy(net); atype(a)
+    GPU && (net = cpucopy(net))
     save(filename, "kunet", net)
 end
 
 function loadnet(filename::String)
     net = load(filename, "kunet")
-    Atype!=Array ? copy(net) : net
+    gpu() ? gpucopy(net) : net
 end

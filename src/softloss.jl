@@ -1,5 +1,5 @@
 type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
-copy(l::SoftLoss;o...)=SoftLoss()
+# copy(l::SoftLoss;o...)=SoftLoss()
 
 # Cross entropy loss to use after the Soft layer.
 # l.y should have normalized probabilities output by the model.
@@ -20,10 +20,8 @@ function back(l::SoftLoss, p; returndx=true, o...)
     return p
 end
 
-function loss(l::SoftLoss, p)
-    @assert issimilar(p,l.y)
-    p = to_host(p)
-    y = to_host(l.y)
+function loss(l::SoftLoss, p, y=l.y)
+    @assert issimilar(p,y)
     (nd,nx) = size2(p)
     cost = zero(Float64)
     for i=1:length(p)
@@ -33,6 +31,9 @@ function loss(l::SoftLoss, p)
 end
 
 if GPU
+
+loss(l::SoftLoss, p::CudaArray)=loss(l, to_host(p), to_host(l.y))
+
 function back(l::SoftLoss, p::CudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return

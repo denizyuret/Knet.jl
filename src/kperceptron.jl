@@ -72,10 +72,9 @@ function update(l::KPerceptron; o...)
     l.s = [l.s snew]
 end
 
-function initforw(l::KPerceptron, x, predict)
+function initforw(l::KPerceptron, x::AbstractArray, predict)
     l.x = x
     if !isdefined(l,:s)
-        @assert KUnet.Atype==Array "KPerceptron cannot handle CudaArray yet"
         l.s = similar(l.x, size(l.x,1), 0)  # matches l.x in sparsity and orientation
         l.w0 = zeros(eltype(l.x), l.n, 0)   # w,b always full
         l.w1 = zeros(eltype(l.x), l.n, 0)

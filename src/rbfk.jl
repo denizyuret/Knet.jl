@@ -1,15 +1,14 @@
 # rbf kernel: exp(-gamma*|u-v|^2)
 
-type Rbfk <: Kernel; s; w; v; x; y; dy; gamma;
+type Rbfk <: Kernel; n; s; w; v; x; y; dy; gamma;
     function Rbfk(nclass;o...)
-        l = setparam!(new(); o...)
-        isdefined(l,:w) || (l.w = Atype(Ftype, nclass, 0))
-        isdefined(l,:gamma) || (l.gamma = one(eltype(x)))
+        l = setparam!(new(nclass); o...)
+        isdefined(l,:gamma) || (l.gamma = 1)
         return l
     end
 end
 
-copy(l::Rbfk; o...)=Rbfk(s=copy(l.s), w=copy(l.w), v=copy(l.v), gamma=l.gamma)
+# copy(l::Rbfk; o...)=Rbfk(s=copy(l.s), w=copy(l.w), v=copy(l.v), gamma=l.gamma)
 setparam!(l::Rbfk; o...)=(for (n,v) in o; l.(n)=v; end; l)
 
 function kernel(l::Rbfk)

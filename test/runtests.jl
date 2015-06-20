@@ -18,8 +18,8 @@ function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                        rtol::Real=cbrt(maxeps), atol::Real=sqrt(maxeps))
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
-    x = to_host(x)
-    y = to_host(y)
+    KUnet.GPU && isa(x, CudaArray) && (x = to_host(x))
+    KUnet.GPU && isa(y, CudaArray) && (y = to_host(y))
     d = abs(x-y)
     s = abs(x)+abs(y)
     all(d .< (atol + rtol * s))
@@ -84,17 +84,19 @@ function gputest(cnet::Net, x, z)
     rval = true
     # Compare loss, y, dx, dw after forw and back:
     (cl, cx, cz) = forwlossback(cnet, x, z)
-    KUnet.atype(CudaArray)
-    gnet = copy(cnet)
+    gnet = Layer[gpucopy(cnet)...]
+    # @show gnet
+    # hnet = Layer[cpucopy(gnet)...]
+    # @assert isequal(cnet[1].w.data, hnet[1].w.data)
+    # @show cnet
     (gl, gx, gz) = forwlossback(gnet, CudaArray(x), CudaArray(z))
-    isapprox(gl, cl) || (warn("loss mismatch in $(map(typeof,cnet))"); rval=false)
+    isapprox(gl, cl) || (warn("loss mismatch in $(map(typeof,cnet)): $gl != $cl"); rval=false)
     for i=1:length(cnet)
         isapprox(cx[i], gx[i]) || (warn("y mismatch in $(typeof(cnet[i]))"); rval=false)
         isapprox(cz[i], gz[i]) || (warn("dx mismatch in $(typeof(cnet[i]))"); rval=false)
         cw = getparam(cnet[i]); gw = getparam(gnet[i])
         cw == nothing || isapprox(cw.diff, gw.diff) || (warn("dw mismatch in $(typeof(cnet[i]))"); rval=false)
     end
-    KUnet.atype(Array)
 
     # Compare w, dw after update:
     setparam!(cnet; lr=0.1, l1reg=0.1, l2reg=0.1, adagrad=0.1, momentum=0.1, nesterov=0.1)
@@ -145,24 +147,16 @@ function filetest(net1)
     @assert all(map(iseq, net1, net2))
 end
 
-function getz(net, x)
-    (net == nothing || x == nothing) && return nothing
-    z = rand!(forw(net, copy(x)))
-    L = typeof(net[end])
-    return (in(L, (Logp,)) ? forw(Logp(), z) :
-            in(L, (Soft, SoftLoss, LogpLoss, XentLoss)) ? forw(Soft(), z) : z)
-end
-
 function getnet{T<:Layer}(F,S,L::Type{T})
     nd = length(S)
     nf = (nd==1 ? S[1] : div(prod(S),S[nd]))
     (nf>20) && in(L,(Logp,Soft,LogpLoss,SoftLoss,XentLoss)) && return nothing
     (nd!=4) && in(L,(Conv,Pool)) && return nothing
     C = (nd==1 ? S[1] : S[nd-1])
-    l = ((L == Bias) ? Bias(Param(rand(F, C))) :
-         (L == Conv) ? Conv(rand(1:S[1]),rand(1:S[2]),C,rand(1:20)) :
+    l = ((L == Bias) ? Bias(rand(F, C)) :
+         (L == Conv) ? Conv(rand(F, rand(1:S[1]),rand(1:S[2]),C,rand(1:20))) :
          (L == Drop) ? Drop(rand()) :
-         (L == Mmul) ? Mmul(rand(1:20), nf) :
+         (L == Mmul) ? Mmul(rand(F, rand(1:20), nf)) :
          (L == Pool) ? Pool(rand(1:minimum(S))) :
          (L == Logp) ? Logp() :
          (L == Soft) ? Soft() : L())
@@ -178,6 +172,14 @@ function getx(F,S,L)
             rand(F, S))
 end
 
+function getz(net, x)
+    (net == nothing || x == nothing) && return nothing
+    z = copy(rand!(forw(net, copy(x))))
+    L = typeof(net[end])
+    return (in(L, (Logp,)) ? forw(Logp(), z) :
+            in(L, (Soft, SoftLoss, LogpLoss, XentLoss)) ? forw(Soft(), z) : z)
+end
+
 function gettest(F,S,L)
     net = getnet(F,S,L)
     x = getx(F,S,L)
@@ -189,9 +191,8 @@ net0 = x0 = z0 = nothing
 
 function main(layers)
     global net0, x0, z0
-    KUnet.atype(Array)
+    KUnet.gpu(false)
     for F in (Float32,Float64)
-        KUnet.ftype(F)
         for D in 1:5
             S = tuple(rand(1:20,D)...)
             for L in layers
@@ -209,6 +210,8 @@ end
 
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
-layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
+# layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
+# These don't have cpu versions: Conv, Pool
+layers = (Bias, Drop, Logp, LogpLoss, Mmul, PercLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 main(layers)
 

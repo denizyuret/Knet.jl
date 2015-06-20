@@ -1,5 +1,5 @@
 type Logp <: Layer; y; Logp()=new(); end
-copy(l::Logp;o...)=Logp()
+# copy(l::Logp;o...)=Logp()
 
 # logp treats the linear output as unnormalized log probabilities and
 # adds an offset to each column to make them into normalized log
