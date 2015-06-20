@@ -32,7 +32,7 @@ atype(t)=(global Atype=t)
 
 #########################
 import Base: copy, copy!, rand!, fill!, convert, reshape
-include("util.jl");	# extends functions given above
+include("util.jl");	export accuracy, @date # and extends functions given above
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
@@ -51,11 +51,13 @@ include("logploss.jl");	export LogpLoss
 include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
-include("percloss.jl"); export PercLoss
+include("percloss.jl"); export PercLoss # deprecated
 
-include("kernel.jl");   export Kernel, kernel
-include("poly.jl");     export Poly
-include("rbfk.jl");     export Rbfk
+include("kernel.jl");   export Kernel, kernel # deprecated
+include("poly.jl");     export Poly           # deprecated
+include("rbfk.jl");     export Rbfk           # deprecated
+include("perceptron.jl"); export Perceptron
+include("kperceptron.jl"); export KPerceptron
 #########################
 
 end # module
