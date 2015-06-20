@@ -1,9 +1,9 @@
 # rbf kernel: exp(-gamma*|u-v|^2)
 
 type Rbfk <: Kernel; s; w; v; x; y; dy; gamma;
-    function Rbfk(;o...)
+    function Rbfk(nclass;o...)
         l = setparam!(new(); o...)
-        isdefined(l,:w) || error("Rbfk: don't know how to initialize w")
+        isdefined(l,:w) || (l.w = Atype(Ftype, nclass, 0))
         isdefined(l,:gamma) || (l.gamma = one(eltype(x)))
         return l
     end
