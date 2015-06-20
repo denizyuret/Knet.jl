@@ -3,12 +3,14 @@
 # original packages.
 
 function similar!(l, n, a, dims=size(a); fill=nothing)
-    if !isdefined(l,n) 
-        l.(n) = similar(a, dims)
-        fill != nothing && fill!(l.(n), fill)
-    elseif size(l.(n)) != dims
-        l.(n) = similar(a, dims)
-        fill != nothing && fill!(l.(n), fill)
+    if !isdefined(l,n) || (size(l.(n)) != dims)
+        if isa(a, AbstractSparseArray)
+            l.(n) = spzeros(eltype(a), dims...)
+            fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
+        else
+            l.(n) = similar(a, dims)
+            fill != nothing && fill!(l.(n), fill)
+        end
     end
     return l.(n)
 end
