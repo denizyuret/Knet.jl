@@ -33,7 +33,6 @@ function forw(l::KPerceptron, x::KUnetArray; predict=false, o...)
 end
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
-    x = full(x)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
         wtype = gpu() ? CudaArray : Array         # w matches x in location and eltype but is dense
