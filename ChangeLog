@@ -1,3 +1,19 @@
+2015-06-21    <dyuret@ku.edu.tr>
+
+	* test/testkperceptron.jl:
+
+	Q: linear kperceptron and perceptron do not give the same result?
+	The difference is due to kperceptron not having a bias.  Removing
+	bias from perceptron makes the results equal to numerical
+	accuracy.
+
+	Q: is K sparse or dense?  sparse.  +0 makes it dense.
+
+	Q: should we add bias back to kperceptron but make it optional?
+	it helps klinear.  does it help kpoly?  why does it hurt kgauss?
+
+	Q: for loop is much slower than sparse mmul?
+
 2015-06-20    <dyuret@ku.edu.tr>
 
 	* kperceptron.jl: To move any further we need to sort out this
