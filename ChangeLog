@@ -1,3 +1,7 @@
+2015-06-22    <dyuret@ku.edu.tr>
+
+	* TODO: xavier: https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
+
 2015-06-21    <dyuret@ku.edu.tr>
 
 	* test/testkperceptron.jl:

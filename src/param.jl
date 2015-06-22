@@ -2,11 +2,10 @@ using Base.LinAlg.BLAS: axpy!, scal!
 
 type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
 
-ParamData=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 Param(dims::Int...; o...) = Param(Float64, dims; o...)
 Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
 Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaArray:Array)(T,dims); o...)
-Param(w::ParamData; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
+Param(w::KUnetArray; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.

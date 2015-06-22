@@ -7,17 +7,38 @@ xtst = MNIST.xtst
 ytrn = MNIST.ytrn
 ytst = MNIST.ytst
 w0 = similar(ytst, size(ytst,1), 0)
-d0 = 6
-c0 = 1
-g0 = 0.1
+d0 = 6f0
+c0 = 1f0
+g0 = 0.1f0
 niter = 100
 nbatch = 128
+dense = copy
+net = nothing
+nc = size(ytrn,1)
 
-if true; info("KPerceptron+klinear2")
+for kernel in ((:klinear0, []),
+               (:klinear, []),
+               (:kpoly0, [c0,d0]),
+               (:kpoly, [c0,d0]),
+               (:kgauss0, [g0]),
+               (:kgauss, [g0]))
+    for data in (dense, sparse)
+        xtrn = data(MNIST.xtrn)
+        xtst = data(MNIST.xtst)
+        net = Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])]
+        gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
+        gc(); @time println((kernel, data, size(net[1].s), 
+                             accuracy(ytst, predict(net, xtst)),
+                             # accuracy(ytrn, predict(net, xtrn)),
+                             ))
+    end
+end
+
+if false; info("KPerceptron+klinear2")
 for i=1:2
 ftrn = sparse(MNIST.xtrn)
 ftst = sparse(MNIST.xtst)
-@show fnet = Layer[KPerceptron(10, KUnet.klinear2, [0f0])]
+@show fnet = Layer[KPerceptron(10, KUnet.klinear0, [0f0])]
     gc()
     @date train(fnet, ftrn, ytrn; iters=niter,batch=nbatch)
     gc()
@@ -27,7 +48,7 @@ ftst = sparse(MNIST.xtst)
                    )) 
 end; end
 
-if true; info("KPerceptron+klinear")
+if false; info("KPerceptron+klinear")
 for i=1:2
 ltrn = sparse(MNIST.xtrn)
 ltst = sparse(MNIST.xtst)
@@ -53,7 +74,31 @@ qtst = sparse(MNIST.xtst)
              ))
 end; end
 
+if false; info("KPerceptron+kgauss0")
+for i=1:2
+qtrn = sparse(MNIST.xtrn)
+qtst = sparse(MNIST.xtst)
+@show qnet = Layer[KPerceptron(10, KUnet.kgauss0, [g0])]
+    @date train(qnet, qtrn, ytrn; iters=niter,batch=nbatch)
+    @time println((i, size(qnet[1].s), 
+                   accuracy(ytst, predict(qnet, qtst)),
+                   # accuracy(ytrn, predict(qnet, qtrn)),
+             ))
+end; end
+
 if false; info("KPerceptron+kpoly")
+for i=1:2
+ktrn = sparse(MNIST.xtrn)
+ktst = sparse(MNIST.xtst)
+@show knet = Layer[KPerceptron(10, KUnet.kpoly, [c0,d0])]
+    @date train(knet, ktrn, ytrn; iters=niter,batch=nbatch)
+    @time println((i, size(knet[1].s), 
+                   accuracy(ytst, predict(knet, ktst)),
+                   # accuracy(ytrn, predict(knet, ktrn)),
+                   )) 
+end; end
+
+if false; info("KPerceptron+kpoly0")
 for i=1:2
 ktrn = sparse(MNIST.xtrn)
 ktst = sparse(MNIST.xtst)

@@ -1,4 +1,5 @@
 using HDF5,JLD,KUnet
+KUnet.gpu(false)
 isdefined(:xtrn) || (@date @load "zn11oparse1.jld")
 
 d0 = 6f0
@@ -7,16 +8,11 @@ g0 = 10f0
 nc = size(ytrn,1)
 niters=50
 nbatch=128
+net1=net2=net3=nothing
 
-if true
+if false
 for i=1:2
 @show net1 = Layer[KPerceptron(nc, KUnet.klinear0)]
-@date train(net1, xtrn, ytrn; iters=niters, batch=nbatch)
-@show size(net1[1].s)
-end
-
-for i=1:2
-@show net1 = Layer[KPerceptron(nc, KUnet.klinear1)]
 @date train(net1, xtrn, ytrn; iters=niters, batch=nbatch)
 @show size(net1[1].s)
 end
@@ -45,6 +41,8 @@ for i=1:2
 @show size(net2[1].s)
 end
 
+end #if false
+
 for i=1:2
 @show net3 = Layer[KPerceptron(nc, KUnet.kgauss0, [g0])]
 @date train(net3, xtrn, ytrn; iters=niters, batch=nbatch)
@@ -57,4 +55,3 @@ for i=1:2
 @show map(size, (xtrn, net3[1].s))
 end
 
-end #if false

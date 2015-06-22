@@ -23,15 +23,7 @@ macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
-
-# Atype and Ftype are the default array and element types
-# Ftype = Float32
-# Atype = (GPU ? CudaArray : Array)
-# ftype()=Ftype
-# atype()=Atype
-# ftype(t)=(global Ftype=t)
-# atype(t)=(global Atype=t)
-
+KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 
 #########################
 import Base: copy, copy!, rand!, fill!, convert, reshape

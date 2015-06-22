@@ -6,10 +6,18 @@
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
 
+issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
+size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
+accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
+isongpu(a)=(GPU && isa(a, AbstractCudaArray))
+itype{Tv,Ti}(::SparseMatrixCSC{Tv,Ti})=Ti
+Base.similar{Tv,Ti}(::SparseMatrixCSC{Tv,Ti},m,n)=spzeros(Tv,Ti,m,n)
+similar!(l,n,a,d::Integer...; o...)=similar!(l,n,a,d;o...)
+
 function similar!(l, n, a, dims=size(a); fill=nothing)
     if !isdefined(l,n) || (size(l.(n)) != dims)
         if isa(a, AbstractSparseArray)
-            l.(n) = spzeros(eltype(a), dims...)
+            l.(n) = spzeros(eltype(a), itype(a), dims...)
             fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
         else
             l.(n) = similar(a, dims)
@@ -18,10 +26,6 @@ function similar!(l, n, a, dims=size(a); fill=nothing)
     end
     return l.(n)
 end
-
-issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
-size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
-accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
 
 if GPU   ########## CUDA extensions:
 
