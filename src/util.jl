@@ -11,16 +11,19 @@ size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
 isongpu(a)=(GPU && isa(a, AbstractCudaArray))
 itype{Tv,Ti}(::SparseMatrixCSC{Tv,Ti})=Ti
-Base.similar{Tv,Ti}(::SparseMatrixCSC{Tv,Ti},m,n)=spzeros(Tv,Ti,m,n)
-similar!(l,n,a,d::Integer...; o...)=similar!(l,n,a,d;o...)
+Base.similar{Tv,Ti}(::SparseMatrixCSC{Tv,Ti},m,n)=spzeros(Tv,Ti,m,n) # this is missing
 
-function similar!(l, n, a, dims=size(a); fill=nothing)
+similar!(l, n, a, T, dims::Integer...; o...) = similar!(l,n,a,T,dims; o...)
+similar!(l, n, a, dims::Integer...; o...) = similar!(l,n,a,dims; o...)
+similar!(l, n, a, dims::Dims; o...) = similar!(l,n,a,eltype(a),dims; o...)
+
+function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
     if !isdefined(l,n) || (size(l.(n)) != dims)
         if isa(a, AbstractSparseArray)
-            l.(n) = spzeros(eltype(a), itype(a), dims...)
+            l.(n) = spzeros(T, itype(a), dims...)
             fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
         else
-            l.(n) = similar(a, dims)
+            l.(n) = similar(a, T, dims)
             fill != nothing && fill!(l.(n), fill)
         end
     end
@@ -67,11 +70,12 @@ function gpuseed(n::Integer)
     GPU && ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 end
 
-# matmul.jl:116
-function (*){T}(A::CudaMatrix{T}, B::CudaMatrix{T})
-    C = similar(A,T,(size(A,1),size(B,2)))
-    gemm!('N','N',one(T),A,B,zero(T),C)
-end
+# matmul.jl: Linear algebra extended to CudaArrays (this is partial, todo in cublas)
+
+Base.Ac_mul_B{T<:Real}(A::CudaMatrix{T}, B::CudaMatrix{T}) = At_mul_B(A, B)
+Base.At_mul_B{T<:Real}(A::CudaMatrix{T}, B::CudaMatrix{T}) = At_mul_B!(similar(B,(size(A,2),size(B,2))),A, B)
+Base.At_mul_B!{T<:Real}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T}) = gemm!('T','N',one(T),A,B,zero(T),C)
+Base.full(A::CudaArray)=A
 
 # without this patch, deepcopy does not work on structs with CudaArrays
 function Base.deepcopy_internal(x::CudaArray, stackdict::ObjectIdDict)

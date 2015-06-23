@@ -1,7 +1,7 @@
+using CUDArt
 using KUnet
 require(Pkg.dir("KUnet/test/mnist.jl"))
 
-KUnet.gpu(false)
 xtrn = MNIST.xtrn
 xtst = MNIST.xtst
 ytrn = MNIST.ytrn
@@ -12,27 +12,58 @@ c0 = 1f0
 g0 = 0.1f0
 niter = 100
 nbatch = 128
-dense = copy
 net = nothing
 nc = size(ytrn,1)
 
-for kernel in ((:klinear0, []),
-               (:klinear, []),
+for kernel in (# nothing,
+               (:klinear0, nothing),
+               (:klinear, nothing),
                (:kpoly0, [c0,d0]),
                (:kpoly, [c0,d0]),
                (:kgauss0, [g0]),
-               (:kgauss, [g0]))
-    for data in (dense, sparse)
-        xtrn = data(MNIST.xtrn)
-        xtst = data(MNIST.xtst)
-        net = Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])]
-        gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
-        gc(); @time println((kernel, data, size(net[1].s), 
-                             accuracy(ytst, predict(net, xtst)),
-                             # accuracy(ytrn, predict(net, xtrn)),
-                             ))
+               (:kgauss, [g0]),
+               )
+    for loc in (:cpu, :gpu)
+        for fmt in (:dense, :sparse)
+            println("\n$kernel, $loc, $fmt")
+            KUnet.gpu(loc == :gpu)
+            xtrn = (fmt==:dense ? copy(MNIST.xtrn) : sparse(MNIST.xtrn))
+            xtst = (fmt==:dense ? copy(MNIST.xtst) : sparse(MNIST.xtst))
+            net = (kernel == nothing ? 
+                   Layer[Perceptron(nc)] : # this does not gave the same results as klinear because of bias.
+                   Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])])
+            gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
+            gc(); @time println((kernel, loc, fmt, isdefined(net[1],:s) ? size(net[1].s) : 0, 
+                                 accuracy(ytst, predict(net, xtst)),
+                                 # accuracy(ytrn, predict(net, xtrn)),
+                                 ))
+        end
     end
 end
+
+# with naive hcat!:
+
+# (:klinear0,nothing), cpu, dense
+# 2015-06-23T03:19:20 train(net,xtrn,ytrn; iters=niter,batch=nbatch)
+# elapsed time: 0.780812858 seconds (789688232 bytes allocated, 42.90% gc time)
+# ((:klinear0,nothing),:cpu,:dense,(784,2926),0.877)
+# elapsed time: 0.366831263 seconds (120308196 bytes allocated, 11.45% gc time)
+
+# (:klinear0,nothing), cpu, sparse
+# 2015-06-23T03:19:22 train(net,xtrn,ytrn; iters=niter,batch=nbatch)
+# elapsed time: 4.665061582 seconds (1148766840 bytes allocated, 10.10% gc time)
+# ((:klinear0,nothing),:cpu,:sparse,(784,2926),0.877)
+# elapsed time: 5.582400282 seconds (864266820 bytes allocated, 6.32% gc time)
+
+# with sparse hcat!:
+
+# (:klinear0,nothing), cpu, sparse
+# 2015-06-23T03:22:54 train(net,xtrn,ytrn; iters=niter,batch=nbatch)
+# elapsed time: 4.136324843 seconds (834224992 bytes allocated, 8.03% gc time)
+# ((:klinear0,nothing),:cpu,:sparse,(784,2926),0.877)
+# elapsed time: 5.153346267 seconds (864266820 bytes allocated, 6.83% gc time)
+
+
 
 if false; info("KPerceptron+klinear2")
 for i=1:2

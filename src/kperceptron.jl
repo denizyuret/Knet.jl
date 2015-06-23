@@ -17,12 +17,97 @@ type KPerceptron <: Layer
     x           # input minibatch
     k           # kernel matrix
     y           # model output
-    z           # desired output
     u           # number of training instances
     w0          # regular weights
-    w1          # u*w0-w2 (kept up to date during training)
+    w1          # w2-u*w0 (kept up to date during training)
     w2          # summed weights (computed before prediction)
+    dw0         # new weights
+    dw1         # new weights
+    dj          # indices for new support vectors
+    dn          # number of new support vectors
     KPerceptron(nclass,kernel,kparams=nothing)=new(nclass,kernel,kparams)
+end
+
+function back(l::KPerceptron, z; returndx=false, o...)
+    returndx && error("KPerceptron does not know how to return dx")
+    (y,z) = initback(l,z)
+    @inbounds for j=1:size(z,2)
+        (cz,cy,ymax,zmax) = (0,0,typemin(eltype(y)),typemin(eltype(z)))
+        @inbounds for i=1:l.nclass
+            z[i,j] > zmax && ((cz,zmax) = (i,z[i,j])) # find the correct answer
+            y[i,j] > ymax && ((cy,ymax) = (i,y[i,j])) # find the model answer
+        end
+        if cz != cy # if model answer is not correct l.x[:,j] becomes a new support vector
+            l.dn += one(l.dn)
+            l.dj[l.dn] = j
+            u = l.u + j - 1
+            l.dw1[cz,j] = -u
+            l.dw1[cy,j] = u
+            l.dw0[cz,j] = 1
+            l.dw0[cy,j] = -1
+        end
+    end
+end
+
+function initback(l::KPerceptron, z, y=l.y)
+    @assert size(z) == size(y)
+    isongpu(z) && (z = to_host(z))
+    isongpu(y) && (y = to_host(y))
+    similar!(l,:dw0,y)
+    similar!(l,:dw1,y)
+    similar!(l,:dj,y,Int32,size(z,2))
+    l.dn = zero(Int32)
+    fill!(l.dw0,zero(eltype(l.dw0)))
+    fill!(l.dw1,zero(eltype(l.dw1)))
+    return (y,z)
+end
+
+function update(l::KPerceptron; o...) # 198
+    l.w2 = nothing # make sure w2 is reset when w0,w1,u changes
+    l.u += size(l.x,2)
+    l.s = hcat!(l.s, l.x, l.dj, l.dn)
+    l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
+    l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
+end
+
+# hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
+
+hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
+
+function hcat!{Tv,Ti<:Integer}(a::SparseMatrixCSC{Tv}, b::SparseMatrixCSC{Tv}, vj::Vector{Ti}, nj::Integer)
+    # a: m, n, colptr, rowval, nzval
+    # colptr[i]: starting index (in rowval,nzval) of column i
+    # colptr[n+1]: nz+1
+    @assert size(a,1) == size(b,1)
+    @inbounds for i=1:nj
+        j = vj[i]  # concat b[:,j]
+        b0 = b.colptr[j]
+        b1 = b.colptr[j+1]-1
+        nz = b1-b0+1
+        a.colptr = push!(a.colptr, a.colptr[end]+nz)
+        if nz > 0
+            a.rowval = append!(a.rowval, b.rowval[b0:b1])
+            a.nzval = append!(a.nzval, b.nzval[b0:b1])
+        end
+    end
+    a.n += nj
+    return a
+end
+
+
+function hcat!(a::CudaMatrix, b::KUnetArray, vj::Vector, nj::Integer)
+    @assert size(a,1) == size(b,1)
+    @assert eltype(a) == eltype(b)
+    (nrows,ncols) = size(a)
+    c = CudaArray(eltype(a), nrows, ncols+nj)   # TODO: is there realloc?
+    copy!(c, 1, a, 1, length(a))
+    nc = length(a)+1
+    for i=1:nj
+        nb = (vj[i]-1)*nrows+1
+        copy!(c, nc, b, nb, nrows)
+        nc += nrows
+    end
+    return c
 end
 
 function forw(l::KPerceptron, x::KUnetArray; predict=false, o...)
@@ -51,45 +136,11 @@ function initforw(l::KPerceptron, x::KUnetArray, predict)
     similar!(l,:y,l.w0,(size(l.w0,1),size(l.x,2)))
     similar!(l,:k,l.w0,(size(l.x,2),size(l.s,2)))
     if predict && (l.w2 == nothing)
-        l.w2 = l.u * l.w0 - l.w1
-        # making sure we don't get overflow
-        @assert maximum(abs(l.w2)) < sqrt(typemax(eltype(l.w2)))
+        # l.w2 = l.u * l.w0 + l.w1
+        l.w2 = axpy!(length(l.w0), l.u, l.w0, 1, copy(l.w1), 1)
+        # making sure we don't get overflow, especially with integer types
+        # @assert maximum(abs(l.w2)) < sqrt(typemax(eltype(l.w2)))
     end
-end
-
-function update(l::KPerceptron; o...) # 198
-    l.w2 = nothing                              # make sure w2 is reset when w0,w1,u changes
-    w = zeros(eltype(l.w0),size(l.w0,1),1)      # use small arrays for faster hcat
-    w0 = similar(l.w0, size(l.w0,1), 0)         # TODO: write efficient hcat!
-    w1 = similar(l.w1, size(l.w1,1), 0)
-    s = similar(l.x, size(l.x,1), 0)
-    @inbounds for j=1:size(l.z,2)
-        (cz,cy,ymax,zmax) = (0,0,typemin(eltype(l.y)),typemin(eltype(l.z)))
-        @inbounds for i=1:l.nclass
-            l.z[i,j] > zmax && ((cz,zmax) = (i,l.z[i,j])) # find the correct answer
-            l.y[i,j] > ymax && ((cy,ymax) = (i,l.y[i,j])) # find the model answer
-        end
-        if cz != cy # if model answer is not correct l.x[:,j] becomes a new support vector
-            s = [s l.x[:,j]] # 57
-            w[cz] = 1
-            w[cy] = -1
-            w0 = [w0 w]
-            w[cz] = l.u
-            w[cy] = -l.u
-            w1 = [w1 w]
-            w[cz] = w[cy] = 0
-        end
-        l.u += one(l.u)      # 32 increment counter regardless of update
-    end
-    l.s = [l.s s]            # 40
-    l.w0 = [l.w0 w0]
-    l.w1 = [l.w1 w1]
-end
-
-function back(l::KPerceptron, z; returndx=false, o...)
-    @assert size(z) == size(l.y)
-    returndx && error("KPerceptron does not know how to return dx")
-    l.z = z   # just record the correct answers in l.z
 end
 
 # Some common kernels
