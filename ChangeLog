@@ -1,3 +1,18 @@
+2015-06-23    <dyuret@ku.edu.tr>
+
+	* src/kperceptron.jl: TODO: gpu/dense does not work with
+	kpoly/kgauss yet.  gpu/sparse needs to be written.  Define new
+	type CudaSparseMatrixCSC and test:
+	- train (x2b,b2y)
+	- initforw
+	- forw
+	- initback
+	- back
+	- update
+	- hcat!
+	- kpoly (gpu sparse/dense)
+	- kgauss (gpu sparse/dense)
+
 2015-06-22    <dyuret@ku.edu.tr>
 
 	* TODO: xavier: https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129

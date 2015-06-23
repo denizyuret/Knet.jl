@@ -35,21 +35,6 @@ function backprop(net::Net, x, y; o...)
     back(net, y; o...) # calculate derivatives dx,dw given desired output y
 end
 
-# Predict implements forw with minibatches.
-
-function predict(net::Net, x, y=nothing; batch=128, o...)
-    ninst = size(x, ndims(x))
-    (batch == 0 || batch > ninst) && (batch = ninst)
-    xx = yy = nothing
-    for b = 1:batch:ninst
-        e  = min(ninst, b + batch - 1)
-        xx = x2b(xx, x, b:e)
-        yy = forw(net, xx; predict=true, o...)
-        y  = b2y(y, yy, b:e, x)
-    end
-    return y
-end
-
 # Train implements backprop with updates and minibatches.
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
@@ -68,34 +53,61 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     end
 end
 
-# This is ugly, need to rethink array types
-# Atype was invented so data would be copied to gpu piecemeal
-# but assumes all arrays are of the same type.
-# If the input is sparse, some arrays may be dense!
-# We can force them all to be sparse, or allow more flexibility...
+# Predict implements forw with minibatches.
 
-function x2b(b, x, r)
-    if isa(x, AbstractSparseArray)
-        b = x[:,r]
-    else
-        bs = tuple(size(x)[1:end-1]..., length(r))
-        if ((b == nothing) || (size(b) != bs))
-            b = (gpu()?CudaArray:Array)(eltype(x), bs)
-        end
-        xi = 1 + (first(r) - 1) * stride(x, ndims(x))
-        copy!(b, 1, x, xi, length(b))
+function predict(net::Net, x, y=nothing; batch=128, o...)
+    ninst = size(x, ndims(x))
+    (batch == 0 || batch > ninst) && (batch = ninst)
+    xx = yy = nothing
+    for b = 1:batch:ninst
+        e  = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e)
+        yy = forw(net, xx; predict=true, o...)
+        y  = b2y(y, yy, b:e, x)
     end
-    return b
+    return y
 end
 
 function b2y(y, b, r, x)
-    n = size(x, ndims(x))
-    ys = tuple(size(b)[1:end-1]..., n)
-    (y == nothing) && (y = (isa(x, AbstractSparseArray) ? Array(eltype(x), ys) : similar(x, ys)))
+    ys = tuple(size(b)[1:end-1]..., size(x, ndims(x)))
+    (y == nothing) && (y = Array(eltype(x), ys))
     @assert size(y) == ys
+    @assert eltype(y) == eltype(b)
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
     return y
+end
+
+# function b2y_old(y, b, r, x)
+#     # The output is always dense
+#     n = size(x, ndims(x))
+#     ys = tuple(size(b)[1:end-1]..., n)
+#     (y == nothing) && (y = (isa(x, AbstractSparseArray) ? Array(eltype(x), ys) : similar(x, ys)))
+#     @assert size(y) == ys
+#     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
+#     copy!(y, yi, b, 1, length(b))
+#     return y
+# end
+
+function x2b(b, x, r)
+    bs = tuple(size(x)[1:end-1]..., length(r))
+    if ((b == nothing) || (size(b) != bs))
+        b = (gpu()?CudaArray:Array)(eltype(x), bs)
+    end
+    xi = 1 + (first(r) - 1) * stride(x, ndims(x))
+    copy!(b, 1, x, xi, length(b))
+    return b
+end
+
+function x2b(b, x::SparseMatrixCSC, r)
+    # TODO: in-place operation
+    # Figure out if b has enough storage
+    # Create a new b if not
+    # Copy columns to from x to b
+    # Copy to gpu if necessary
+    b = x[:,r]
+    gpu() && (b = gpucopy(b))
+    return b
 end
 
 function shufflexy!(x, y)

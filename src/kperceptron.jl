@@ -28,6 +28,13 @@ type KPerceptron <: Layer
     KPerceptron(nclass,kernel,kparams=nothing)=new(nclass,kernel,kparams)
 end
 
+function forw(l::KPerceptron, x; predict=false, o...)
+    initforw(l, x, predict)    
+    l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
+    w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
+    A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
+end
+
 function back(l::KPerceptron, z; returndx=false, o...)
     returndx && error("KPerceptron does not know how to return dx")
     (y,z) = initback(l,z)
@@ -49,23 +56,10 @@ function back(l::KPerceptron, z; returndx=false, o...)
     end
 end
 
-function initback(l::KPerceptron, z, y=l.y)
-    @assert size(z) == size(y)
-    isongpu(z) && (z = to_host(z))
-    isongpu(y) && (y = to_host(y))
-    similar!(l,:dw0,y)
-    similar!(l,:dw1,y)
-    similar!(l,:dj,y,Int32,size(z,2))
-    l.dn = zero(Int32)
-    fill!(l.dw0,zero(eltype(l.dw0)))
-    fill!(l.dw1,zero(eltype(l.dw1)))
-    return (y,z)
-end
-
 function update(l::KPerceptron; o...) # 198
     l.w2 = nothing # make sure w2 is reset when w0,w1,u changes
     l.u += size(l.x,2)
-    l.s = hcat!(l.s, l.x, l.dj, l.dn)
+    l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
 end
@@ -110,27 +104,20 @@ function hcat!(a::CudaMatrix, b::KUnetArray, vj::Vector, nj::Integer)
     return c
 end
 
-function forw(l::KPerceptron, x::KUnetArray; predict=false, o...)
-    initforw(l, x, predict)    
-    l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
-    w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
-    l.y = gemm!('N','T',one(eltype(w)),w,l.k,zero(eltype(w)),l.y) # l.y = w * l.k'
-end
-
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
-        wtype = gpu() ? CudaArray : Array         # w matches x in location and eltype but is dense
+        wtype = gpu() ? CudaArray : Array       # w matches x in location and eltype but is dense
         xtype = eltype(x)
-        l.w0 = wtype(xtype, l.nclass, 0)        # TODO: allocate extra space for expansion
+        l.w0 = wtype(xtype, l.nclass, 0)        # should we allocate extra space for expansion?
         l.w1 = wtype(xtype, l.nclass, 0)
         l.w2 = nothing
         l.u = zero(xtype)
     end
     l.x = x                                     # x can be cpu/gpu dense/sparse
-    @assert typeof(l.x) == typeof(l.s) "typeof:$((typeof(l.x),typeof(l.s)))"          # x and s have the same type
+    @assert typeof(l.x) == typeof(l.s)          # x and s have the same type
     @assert size(l.x, 1) == size(l.s, 1)        # and same orientation
-    @assert isongpu(l.x) == isongpu(l.w0) "isongpu:$((isongpu(l.x),isongpu(l.w0)))"       # w has the same location as x
+    @assert isongpu(l.x) == isongpu(l.w0)       # w has the same location as x
     @assert eltype(l.x) == eltype(l.w0)         # w has the same eltype as x
     @assert size(l.w0, 2) == size(l.s, 2)       # w has same number of cols as s
     similar!(l,:y,l.w0,(size(l.w0,1),size(l.x,2)))
@@ -143,12 +130,25 @@ function initforw(l::KPerceptron, x::KUnetArray, predict)
     end
 end
 
+function initback(l::KPerceptron, z, y=l.y)
+    @assert size(z) == size(y)
+    isongpu(z) && (z = cpucopy(z))
+    isongpu(y) && (y = cpucopy(y))
+    similar!(l,:dw0,y)
+    similar!(l,:dw1,y)
+    similar!(l,:dj,y,Int32,size(z,2))
+    l.dn = zero(Int32)
+    fill!(l.dw0,zero(eltype(l.dw0)))
+    fill!(l.dw1,zero(eltype(l.dw1)))
+    return (y,z)
+end
+
 # Some common kernels
 # http://crsouza.com/2010/03/kernel-functions-for-machine-learning-applications
 
-kgauss0(x, s, p, k)=exp(-p[1] * broadcast(+, sum(x.^2,1)', broadcast(+, sum(s.^2,1), -2*(x' * s))))
-kpoly0(x, s, p, k)=((x' * s + p[1]) .^ p[2])
-klinear0(x, s, p, k)=full(x' * s)
+kgauss0(x, s, p, k)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^2,1), -2*(x.' * s))))
+kpoly0(x, s, p, k)=((x.' * s + p[1]) .^ p[2])
+klinear0(x, s, p, k)=(x.' * s)
 
 # More efficient implementations:
 # using NumericExtensions # this slows kgauss down!
@@ -202,11 +202,19 @@ function kpoly1(x, s, p, k)
     return (k + p[1]).^p[2]
 end
 
-klinear(x, s, p, k)=gemm!('T','N',one(eltype(x)),x,s,zero(eltype(k)),k) # k=x'*s
+# Better would be to define this in terms of A(t?)_mul_B! so operators work
+# klinear(x, s, p, k)=gemm!('T','N',one(eltype(x)),x,s,zero(eltype(k)),k) # k=x'*s
+klinear(x, s, p, k)=At_mul_B!(k, x, s)
 
-function klinear(x::SparseMatrixCSC, s::SparseMatrixCSC, p, k) # 1607
-    @assert size(k)==(size(x,2), size(s,2))
-    x = x'                                                          # 77
+import Base: A_mul_Bt,  At_mul_B
+import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
+
+# cpu/sparse
+
+At_mul_B!(k::Matrix, x::SparseMatrixCSC, s::SparseMatrixCSC)=A_mul_B!(k,x',s)
+
+function A_mul_B!(k::Matrix, x::SparseMatrixCSC, s::SparseMatrixCSC) # 1607
+    @assert size(k)==(size(x,1), size(s,2))
     fill!(k, zero(eltype(k)))
     @inbounds @simd for scol=1:size(s,2)
         @inbounds @simd for sp=s.colptr[scol]:(s.colptr[scol+1]-1)
@@ -222,4 +230,18 @@ function klinear(x::SparseMatrixCSC, s::SparseMatrixCSC, p, k) # 1607
     end
     return k
 end
+
+# gpu/sparse: all the cpucopy items need implementing
+At_mul_B!{T}(k::CudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)
+transpose(x::CudaSparseMatrixCSC)=gpucopy(cpucopy(x)')
+A_mul_B!{T}(k::CudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=copy!(k, full(cpucopy(x)*cpucopy(s)))
+hcat!{T}(x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T},vj,nj)=gpucopy(hcat!(cpucopy(x),cpucopy(s),cpucopy(vj),nj))
+kpoly(x::CudaSparseMatrixCSC, s::CudaSparseMatrixCSC, p, k::CudaArray)=copy!(k, kpoly(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+kgauss(x::CudaSparseMatrixCSC, s::CudaSparseMatrixCSC, p, k::CudaArray)=copy!(k, kgauss(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+
+# gpu/dense
+A_mul_Bt!{T}(k::CudaMatrix{T}, x::CudaMatrix{T}, s::CudaMatrix{T})=gemm!('N','T',one(T),x,s,zero(T),k)
+At_mul_B!{T}(k::CudaMatrix{T}, x::CudaMatrix{T}, s::CudaMatrix{T})=gemm!('T','N',one(T),x,s,zero(T),k)
+kpoly(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kpoly(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+kgauss(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kgauss(cpucopy(x),cpucopy(s),p,cpucopy(k)))
 

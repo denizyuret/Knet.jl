@@ -108,6 +108,21 @@ function mydeepcopy(x,fn)
     return ret
 end
 
+type CudaSparseMatrixCSC{Tv,Ti<:Integer} <: AbstractCudaMatrix{Tv}
+    m::Int                  # Number of rows
+    n::Int                  # Number of columns
+    colptr::CudaVector{Ti}  # Column i is in colptr[i]:(colptr[i+1]-1)
+    rowval::CudaVector{Ti}  # Row values of nonzeros
+    nzval::CudaVector{Tv}   # Nonzero values
+end
+
+Base.size(S::CudaSparseMatrixCSC) = (S.m, S.n)
+Base.size(S::CudaSparseMatrixCSC, d::Integer) = (d==1 ? S.m : d==2 ? S.n : error("Invalid index"))
+
+gpucopy{Tv,Ti<:Integer}(s::SparseMatrixCSC{Tv,Ti})=CudaSparseMatrixCSC{Tv,Ti}(s.m,s.n,CudaArray(s.colptr),CudaArray(s.rowval),CudaArray(s.nzval))
+cpucopy{Tv,Ti<:Integer}(s::CudaSparseMatrixCSC{Tv,Ti})=SparseMatrixCSC{Tv,Ti}(s.m,s.n,to_host(s.colptr),to_host(s.rowval),to_host(s.nzval))
+Base.similar{Tv,Ti<:Integer}(s::CudaSparseMatrixCSC{Tv,Ti},T,dims::Dims)=gpucopy(spzeros(T,Ti,dims...))
+
 else  # if GPU
 
 # Need this so code works without gpu
