@@ -19,12 +19,18 @@ for kernel in (# nothing,
                # (:klinear0, nothing),
                (:klinear, nothing),
                # (:kpoly0, [c0,d0]),
-               (:kpoly, [c0,d0]),
+               # (:kpoly, [c0,d0]),
                # (:kgauss0, [g0]),
-               (:kgauss, [g0]),
+               # (:kgauss, [g0]),
                )
-    for loc in (:cpu, :gpu)
-        for fmt in (:dense, :sparse)
+    for loc in (
+                :cpu, 
+                :gpu,
+                )
+        for fmt in (
+                    # :dense, 
+                    :sparse,
+                    )
             # loc == :gpu && fmt == :sparse && continue
             println("\n$kernel, $loc, $fmt")
             KUnet.gpu(loc == :gpu)

@@ -6,9 +6,52 @@ d0 = 6f0
 c0 = 1f0
 g0 = 10f0
 nc = size(ytrn,1)
-niters=50
+niters=100
 nbatch=128
+ntest=10000
 net1=net2=net3=nothing
+
+KUnet.gpu(true)
+for i=1:2
+println("")
+@show net1 = Layer[KPerceptron(nc, KUnet.klinear)]
+@date train(net1, xtrn, ytrn; iters=niters, batch=nbatch)
+@show size(net1[1].s)
+@date y = predict(net1,xtst[:,1:ntest])
+@show accuracy(ytst[:,1:ntest],y)
+end
+
+
+for i=1:2
+println("")
+@show net1 = Layer[KPerceptron(nc, KUnet.klinear4)]
+@date train(net1, xtrn, ytrn; iters=niters, batch=nbatch)
+@show size(net1[1].s)
+@date y = predict(net1,xtst[:,1:ntest])
+@show accuracy(ytst[:,1:ntest],y)
+end
+
+
+if false # this shows the difference is due to the algorithm, same is observed on the cpu
+# we get cpu/gpu divergence between 16 and 17: actually it is a difference of algorithms: limit bug? 1838/1843 nsv @17.
+# turns out the data was corrupt (unsorted rowval), the algorithms are ok
+KUnet.gpu(false)
+for i=1:1
+@show net3 = Layer[KPerceptron(nc, KUnet.klinear)]
+@date train(net3, xtrn, ytrn; iters=niters, batch=nbatch) # elapsed time: 1.698705077 seconds (541901976 bytes allocated)
+@show (size(net3[1].s),accuracy(ytst[:,1:1000],predict(net3,xtst[:,1:1000]))) # size(net3[1].s) => (283246,5341)
+end
+
+KUnet.gpu(false)
+for i=1:1
+@show net4 = Layer[KPerceptron(nc, KUnet.klinear3)]
+@date train(net4, xtrn, ytrn; iters=niters, batch=nbatch) # elapsed time: 5.800463573 seconds (762111972 bytes allocated, 1.68% gc time)
+@show (size(net4[1].s),accuracy(ytst[:,1:1000],predict(net4,xtst[:,1:1000]))) # size(net4[1].s) => (283246,5341)
+end
+end
+
+if false 
+
 
 for i=1:2
 @show net1 = Layer[KPerceptron(nc, KUnet.klinear0)]
@@ -52,3 +95,4 @@ for i=1:2
 @show size(net3[1].s)                                     # (283246,5039)
 end
 
+end # if false
