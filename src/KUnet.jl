@@ -23,7 +23,7 @@ macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
-@useifgpu CUSPARSE
+# @useifgpu CUSPARSE
 KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 
 #########################
