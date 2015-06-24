@@ -23,11 +23,13 @@ macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
+@useifgpu CUSPARSE
 KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 
 #########################
-import Base: copy, copy!, rand!, fill!, convert, reshape
-include("util.jl");	export accuracy, cpucopy, gpucopy, @date # and extends functions given above
+include("util.jl");	export accuracy, cpucopy, gpucopy, @date # and extends basic functions for cuda
+include("cusparse.jl");
+
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
