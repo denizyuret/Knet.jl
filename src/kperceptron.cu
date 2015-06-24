@@ -92,7 +92,12 @@ __global__ void _kpoly64(int n, double c, double d, double *k) {
   }
 }
 
+// #define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
+
 extern "C" {
+
+void At_test(int blk,int thr,int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) {_At_mul_B_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
+void A_test(int blk,int thr,int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) {_klinear32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
 
 void At_mul_B_32(int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) KCALL(_At_mul_B_32,nx,ns,xval,xrow,xcol,sval,srow,scol,k)
 void klinear32(int mx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) KCALL(_klinear32,mx,ns,xval,xrow,xcol,sval,srow,scol,k)
