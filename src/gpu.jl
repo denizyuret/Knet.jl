@@ -43,3 +43,8 @@ function gpuseed(n::Integer)
     srand(n)
     GPU && ccall((:gpuseed,libkunet),Void,(Culonglong,),convert(Culonglong, n))
 end
+
+# This is for profiling:
+gpusync()=device_synchronize()
+# This is for production:
+#gpusync()=nothing

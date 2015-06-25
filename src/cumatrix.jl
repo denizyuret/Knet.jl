@@ -23,6 +23,7 @@ function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si:
     dptr = pointer(dst) + (di-1) * sizeof(T)
     sptr = pointer(src) + (si-1) * sizeof(T)
     CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
+    gpusync()
     return dst
 end
 
@@ -52,5 +53,6 @@ function hcat!{T}(a::CudaMatrix{T}, b::Union(CudaMatrix{T},Matrix{T}), vj::Vecto
         copy!(c, nc, b, nb, nrows)
         nc += nrows
     end
+    gpusync()
     return c
 end

@@ -30,9 +30,13 @@ end
 
 function forw(l::KPerceptron, x; predict=false, o...)
     initforw(l, x, predict)    
+    gpusync()
     l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
+    gpusync()
     w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
     A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
+    gpusync()
+    return l.y
 end
 
 function back(l::KPerceptron, z; returndx=false, o...)
@@ -47,7 +51,7 @@ function back(l::KPerceptron, z; returndx=false, o...)
         if cz != cy # if model answer is not correct l.x[:,j] becomes a new support vector
             l.dn += one(l.dn)
             l.dj[l.dn] = j
-             u = l.u + j - 1
+            u = l.u + j - 1
             l.dw1[cz,j] = -u
             l.dw1[cy,j] = u
             l.dw0[cz,j] = 1
@@ -160,6 +164,7 @@ function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32},
     ccall((:kpoly32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
+    gpusync()
     return k
 end
 
@@ -168,6 +173,7 @@ function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64},
     ccall((:kpoly64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    gpusync()
     return k
 end
 
@@ -176,6 +182,7 @@ function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}
     ccall((:kgauss32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    gpusync()
     return k
 end
 
@@ -184,6 +191,7 @@ function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}
     ccall((:kgauss64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    gpusync()
     return k
 end
 

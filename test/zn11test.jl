@@ -4,13 +4,34 @@ isdefined(:xtrn) || (@date @load "zn11oparse1.jld")
 
 d0 = 6f0
 c0 = 1f0
-g0 = 10f0
+g0 = .1f0
 nc = size(ytrn,1)
 niters=100
-nbatch=128
+nbatch=100
 ntest=10000
-net1=net2=net3=nothing
+net=net1=net2=net3=nothing
 
+for kernel in (
+               (:kgauss, [g0]),
+               # (:klinear, nothing),
+               # (:kpoly, [c0,d0]),
+               )
+    for loc in (
+                :gpu,
+                # :cpu,
+                )
+        KUnet.gpu(loc==:gpu)
+        for i=1:2
+            println("")
+            @show (loc, kernel)
+            @show net = Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])]
+            @date train(net, xtrn, ytrn; iters=niters, batch=nbatch)
+            @show size(net[1].s)
+            @date y = predict(net,xtst[:,1:ntest])
+            @show accuracy(ytst[:,1:ntest],y)
+        end
+    end
+end
 
 
 if false
