@@ -47,7 +47,7 @@ function back(l::KPerceptron, z; returndx=false, o...)
         if cz != cy # if model answer is not correct l.x[:,j] becomes a new support vector
             l.dn += one(l.dn)
             l.dj[l.dn] = j
-            u = l.u + j - 1
+             u = l.u + j - 1
             l.dw1[cz,j] = -u
             l.dw1[cy,j] = u
             l.dw0[cz,j] = 1
@@ -63,6 +63,9 @@ function update(l::KPerceptron; o...) # 198
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
 end
+
+# hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
+hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     if !isdefined(l,:s)                         # first initialization
@@ -112,7 +115,9 @@ kgauss0(x, s, p, k)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^
 
 # More efficient implementations:
 
-function klinear3(x,s,p,k)  # Too slow
+klinear(x, s, p, k)=At_mul_B!(k, x, s)          # k=x'*s
+
+function klinear3(x,s,p,k)  # Too slow on cpu, ok on gpu
     @assert size(k)==(size(x,2),size(s,2))
     @inbounds @simd for i=1:size(x,2)
         @inbounds @simd for j=1:size(s,2)
@@ -131,8 +136,6 @@ function klinear3(x,s,p,k)  # Too slow
     return k
 end
 
-klinear(x, s, p, k)=At_mul_B!(k, x, s)          # k=x'*s
-
 klinear4(x,s,p,k)=A_mul_B!(k,x.',s)
 
 function kpoly(x, s, p, k)
@@ -150,11 +153,44 @@ function kgauss(x, s, p, k)         # 2582
 end
 
 
+if GPU
 
-kpoly(x::CudaSparseMatrixCSC, s::CudaSparseMatrixCSC, p, k::CudaArray)=copy!(k, kpoly(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::CudaArray{Float32})
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kpoly32,libkunet),Void,
+          (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
+    return k
+end
+
+function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::CudaArray{Float64})
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kpoly64,libkunet),Void,
+          (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    return k
+end
+
+function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::CudaArray{Float32})
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kgauss32,libkunet),Void,
+          (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    return k
+end
+
+function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::CudaArray{Float64})
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kgauss64,libkunet),Void,
+          (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    return k
+end
 
 kpoly(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kpoly(cpucopy(x),cpucopy(s),p,cpucopy(k)))
 kgauss(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kgauss(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+
+end # if GPU
 
 
 # Failed optimization experiments:

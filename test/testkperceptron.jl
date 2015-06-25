@@ -16,20 +16,20 @@ net = nothing
 nc = size(ytrn,1)
 
 for kernel in (# nothing,
+               # (:kgauss0, [g0]),
+               (:kgauss, [g0]),
                # (:klinear0, nothing),
                (:klinear, nothing),
                # (:kpoly0, [c0,d0]),
-               # (:kpoly, [c0,d0]),
-               # (:kgauss0, [g0]),
-               # (:kgauss, [g0]),
+               (:kpoly, [c0,d0]),
                )
     for loc in (
-                :cpu, 
                 :gpu,
+                :cpu, 
                 )
         for fmt in (
-                    # :dense, 
                     :sparse,
+                    # :dense, 
                     )
             # loc == :gpu && fmt == :sparse && continue
             println("\n$kernel, $loc, $fmt")

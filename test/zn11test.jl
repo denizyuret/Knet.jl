@@ -11,6 +11,10 @@ nbatch=128
 ntest=10000
 net1=net2=net3=nothing
 
+
+
+if false
+
 KUnet.gpu(true)
 for i=1:2
 println("")
@@ -21,7 +25,6 @@ println("")
 @show accuracy(ytst[:,1:ntest],y)
 end
 
-
 for i=1:2
 println("")
 @show net1 = Layer[KPerceptron(nc, KUnet.klinear4)]
@@ -31,6 +34,7 @@ println("")
 @show accuracy(ytst[:,1:ntest],y)
 end
 
+end
 
 if false # this shows the difference is due to the algorithm, same is observed on the cpu
 # we get cpu/gpu divergence between 16 and 17: actually it is a difference of algorithms: limit bug? 1838/1843 nsv @17.
