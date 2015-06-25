@@ -34,6 +34,25 @@ similar!(l, n, a, dims::Dims; o...) = similar!(l,n,a,eltype(a),dims; o...)
 
 if GPU
 
+typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T}) # no sparse
+
+function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
+    if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
+        throw(BoundsError())
+    end
+    nbytes = n * sizeof(T)
+    dptr = pointer(dst) + (di-1) * sizeof(T)
+    sptr = pointer(src) + (si-1) * sizeof(T)
+    CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
+    gpusync()
+    return dst
+end
+
+function realloc(x::CopyableArray,n::Integer)
+    y=similar(x, (ndims(x) == 1 ? n : tuple(size(x)[1:end-1]..., n)))
+    copy!(y,1,x,1,min(length(x),length(y)))
+end
+
 # General cpu/gpu deep copy for composite types, gpu arrays etc.
 cpucopy(x::CudaArray)=to_host(x)
 cpucopy(x::AbstractArray)=(isbits(eltype(x)) ? copy(x) : map(cpucopy, x))

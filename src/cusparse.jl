@@ -52,9 +52,6 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
     return a
 end
 
-realloc{T}(x::Vector{T},n::Integer)=(y=Array(T,n);copy!(y,1,x,1,min(length(x),length(y)));y)
-realloc{T}(x::CudaVector{T},n::Integer)=(y=CudaArray(T,n);copy!(y,1,x,1,min(length(x),length(y)));y)
-
 # At_mul_B!{T}(k::CudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)
 
 function At_mul_B!(k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})

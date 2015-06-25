@@ -1,4 +1,4 @@
-import Base: convert, reshape, rand!, fill!, isempty, full, copy!
+import Base: convert, reshape, rand!, fill!, isempty, full, copy!, similar
 import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
 import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
@@ -12,20 +12,7 @@ rand!(A::CudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float6
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 isempty(A::CudaArray)=(length(A)==0)
 full(A::CudaArray)=A            # this is missing
-
-typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T}) # no sparse
-
-function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
-    if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
-        throw(BoundsError())
-    end
-    nbytes = n * sizeof(T)
-    dptr = pointer(dst) + (di-1) * sizeof(T)
-    sptr = pointer(src) + (si-1) * sizeof(T)
-    CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
-    gpusync()
-    return dst
-end
+similar(A::CudaArray, dims::Int...) = similar(A,dims)
 
 # matmul.jl: Linear algebra extended to CudaArrays (this is partial, todo in cublas)
 Ac_mul_B{T<:Real}(A::CudaMatrix{T}, B::CudaMatrix{T}) = At_mul_B(A, B)

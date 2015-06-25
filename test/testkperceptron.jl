@@ -11,7 +11,7 @@ d0 = 6f0
 c0 = 1f0
 g0 = 0.1f0
 niter = 100
-nbatch = 128
+nbatch = 100
 net = nothing
 nc = size(ytrn,1)
 
@@ -29,7 +29,7 @@ for kernel in (# nothing,
                 )
         for fmt in (
                     :sparse,
-                    # :dense, 
+                    :dense, 
                     )
             # loc == :gpu && fmt == :sparse && continue
             println("\n$kernel, $loc, $fmt")
