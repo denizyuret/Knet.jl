@@ -16,8 +16,8 @@ net = nothing
 nc = size(ytrn,1)
 
 for kernel in (
-               (:klinear, nothing),
                :perceptron,
+               (:klinear, nothing),
                (:kpoly, [c0,d0]),
                (:kgauss, [g0]),
                )
@@ -29,7 +29,7 @@ for kernel in (
                     :sparse,
                     :dense, 
                     )
-            loc == :gpu && kernel == :perceptron && continue
+            # loc == :gpu && kernel == :perceptron && continue
             println("\n$kernel, $loc, $fmt")
             KUnet.gpu(loc == :gpu)
             xtrn = (fmt==:dense ? copy(MNIST.xtrn) : sparse(MNIST.xtrn))

@@ -11,6 +11,19 @@ nbatch=100
 ntest=10000
 net=net1=net2=net3=nothing
 
+for g=-4:10
+    println("")
+    @show g0 = 2f0^-g
+    net = Layer[KPerceptron(nc, KUnet.kgauss, [g0])]
+    @date train(net, xtrn, ytrn; iters=niters, batch=nbatch)
+    @show size(net[1].s)
+    @date y = predict(net,xtst[:,1:ntest])
+    @show accuracy(ytst[:,1:ntest],y)
+end
+
+
+if false 
+
 for kernel in (
                (:kgauss, [g0]),
                # (:klinear, nothing),
@@ -33,7 +46,7 @@ for kernel in (
     end
 end
 
-
+end # if false
 if false
 
 KUnet.gpu(true)
