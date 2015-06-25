@@ -12,13 +12,14 @@ rand!(A::CudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float6
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 isempty(A::CudaArray)=(length(A)==0)
 full(A::CudaArray)=A            # this is missing
-similar(A::CudaArray, dims::Int...) = similar(A,dims)
+# similar(A::CudaArray, dims::Int...) = similar(A,dims) # this is buggy, matches similar(A)
 
 # matmul.jl: Linear algebra extended to CudaArrays (this is partial, todo in cublas)
 Ac_mul_B{T<:Real}(A::CudaMatrix{T}, B::CudaMatrix{T}) = At_mul_B(A, B)
 At_mul_B{T}(A::CudaMatrix{T}, B::CudaMatrix{T}) = At_mul_B!(similar(B,(size(A,2),size(B,2))),A, B)
 A_mul_Bt!{T}(k::CudaMatrix{T}, x::CudaMatrix{T}, s::CudaMatrix{T})=gemm!('N','T',one(T),x,s,zero(T),k)
 At_mul_B!{T}(k::CudaMatrix{T}, x::CudaMatrix{T}, s::CudaMatrix{T})=gemm!('T','N',one(T),x,s,zero(T),k)
+A_mul_B!{T}(k::CudaMatrix{T}, x::CudaMatrix{T}, s::CudaMatrix{T})=gemm!('N','N',one(T),x,s,zero(T),k)
 
 # without this patch, deepcopy does not work on structs with CudaArrays
 function Base.deepcopy_internal(x::CudaArray, stackdict::ObjectIdDict)

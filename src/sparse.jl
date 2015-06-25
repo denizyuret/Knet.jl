@@ -23,6 +23,23 @@ function A_mul_B!(k::Matrix, x::SparseMatrixCSC, s::SparseMatrixCSC) # 1607
     return k
 end
 
+function A_mul_B!(k::Matrix, x::Matrix, s::SparseMatrixCSC) # 1607
+    @assert size(k)==(size(x,1), size(s,2))
+    fill!(k, zero(eltype(k)))
+    @inbounds @simd for scol=1:size(s,2)
+        @inbounds @simd for sp=s.colptr[scol]:(s.colptr[scol+1]-1)
+            sval = s.nzval[sp]  # 133
+            srow = s.rowval[sp] # xcol
+            @inbounds @simd for xrow=1:size(x,1)
+                xval = x[xrow,srow]
+                yinc = xval * sval  # 245
+                k[xrow,scol] += yinc # 789
+            end
+        end
+    end
+    return k
+end
+
 function hcat!{Tv,Ti<:Integer}(a::SparseMatrixCSC{Tv}, b::SparseMatrixCSC{Tv}, vj::Vector{Ti}, nj::Integer)
     # a: m, n, colptr, rowval, nzval
     # colptr[i]: starting index (in rowval,nzval) of column i

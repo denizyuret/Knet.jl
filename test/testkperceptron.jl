@@ -15,13 +15,11 @@ nbatch = 100
 net = nothing
 nc = size(ytrn,1)
 
-for kernel in (# nothing,
-               # (:kgauss0, [g0]),
-               (:kgauss, [g0]),
-               # (:klinear0, nothing),
+for kernel in (
                (:klinear, nothing),
-               # (:kpoly0, [c0,d0]),
+               :perceptron,
                (:kpoly, [c0,d0]),
+               (:kgauss, [g0]),
                )
     for loc in (
                 :gpu,
@@ -31,13 +29,13 @@ for kernel in (# nothing,
                     :sparse,
                     :dense, 
                     )
-            # loc == :gpu && fmt == :sparse && continue
+            loc == :gpu && kernel == :perceptron && continue
             println("\n$kernel, $loc, $fmt")
             KUnet.gpu(loc == :gpu)
             xtrn = (fmt==:dense ? copy(MNIST.xtrn) : sparse(MNIST.xtrn))
             xtst = (fmt==:dense ? copy(MNIST.xtst) : sparse(MNIST.xtst))
-            net = (kernel == nothing ? 
-                   Layer[Perceptron(nc)] : # this does not gave the same results as klinear because of bias.
+            net = (kernel == :perceptron ? 
+                   Layer[Perceptron(nc;bias=false)] :
                    Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])])
             gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
             gc(); @time println((kernel, loc, fmt, isdefined(net[1],:s) ? size(net[1].s) : 0, 

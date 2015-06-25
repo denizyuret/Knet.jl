@@ -49,7 +49,7 @@ function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si:
 end
 
 function realloc(x::CopyableArray,n::Integer)
-    y=similar(x, (ndims(x) == 1 ? n : tuple(size(x)[1:end-1]..., n)))
+    y=similar(x, tuple(size(x)[1:end-1]..., n))
     copy!(y,1,x,1,min(length(x),length(y)))
 end
 

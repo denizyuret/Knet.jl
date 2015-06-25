@@ -117,27 +117,6 @@ kgauss0(x, s, p, k)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^
 
 klinear(x, s, p, k)=At_mul_B!(k, x, s)          # k=x'*s
 
-function klinear3(x,s,p,k)  # Too slow on cpu, ok on gpu
-    @assert size(k)==(size(x,2),size(s,2))
-    @inbounds @simd for i=1:size(x,2)
-        @inbounds @simd for j=1:size(s,2)
-            kij = zero(Float64)
-            x1 = x.colptr[i]; x2 = x.colptr[i+1]
-            s1 = s.colptr[j]; s2 = s.colptr[j+1]
-            while ((x1 < x2) && (s1 < s2))
-                xr = x.rowval[x1]; sr = s.rowval[s1]
-                (xr < sr ? x1+=1 :
-                 sr < xr ? s1+=1 :
-                 (kij += x.nzval[x1] * s.nzval[s1]; x1+=1; s1+=1))
-            end
-            k[i,j] = kij
-        end
-    end
-    return k
-end
-
-klinear4(x,s,p,k)=A_mul_B!(k,x.',s)
-
 function kpoly(x, s, p, k)
     k = klinear(x, s, p, k)                                               # 1670
     (c,d) = p
@@ -305,4 +284,25 @@ end # if GPU
 #     for i=1:length(k); k[i] = exp(-g*k[i]); end
 #     return k
 # end
+
+# function klinear3(x,s,p,k)  # Too slow on cpu, ok on gpu
+#     @assert size(k)==(size(x,2),size(s,2))
+#     @inbounds @simd for i=1:size(x,2)
+#         @inbounds @simd for j=1:size(s,2)
+#             kij = zero(Float64)
+#             x1 = x.colptr[i]; x2 = x.colptr[i+1]
+#             s1 = s.colptr[j]; s2 = s.colptr[j+1]
+#             while ((x1 < x2) && (s1 < s2))
+#                 xr = x.rowval[x1]; sr = s.rowval[s1]
+#                 (xr < sr ? x1+=1 :
+#                  sr < xr ? s1+=1 :
+#                  (kij += x.nzval[x1] * s.nzval[s1]; x1+=1; s1+=1))
+#             end
+#             k[i,j] = kij
+#         end
+#     end
+#     return k
+# end
+
+# klinear4(x,s,p,k)=A_mul_B!(k,x.',s)
 

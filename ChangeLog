@@ -1,3 +1,8 @@
+2015-06-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/perceptron.jl: TODO: keep w the same orientation as x, makes
+	easier to add.  Use w'*x like kperceptron.
+
 2015-06-23    <dyuret@ku.edu.tr>
 
 	* src/kperceptron.jl: TODO: gpu/dense does not work with
