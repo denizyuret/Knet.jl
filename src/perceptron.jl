@@ -89,7 +89,7 @@ function initforw(l::Perceptron, x, predict)
         copy!(l.w2,l.w1); axpy!(length(l.w0), l.u, l.w0, 1, l.w2, 1) # l.w2 = l.u * l.w0 + l.w1
         l.b && (copy!(l.b2,l.b1); axpy!(length(l.b0), l.u, l.b0, 1, l.b2, 1)) # l.b2 = l.u * l.b0 + l.b1
         l.u2 = l.u
-        # @assert maximum(abs(l.w2)) < sqrt(typemax(eltype(l.w2))) # does not work on gpu
+        @assert maximum(abs(l.w2)) < sqrt(typemax(eltype(l.w2))) # does not work on gpu
     end
 end
 
