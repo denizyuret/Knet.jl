@@ -1,4 +1,8 @@
 import Base: size, similar, transpose, nnz, full, sparse
+import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
+import Base: A_mul_Bt,  At_mul_B
+import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
+
 
 type CudaSparseMatrixCSC{Tv} <: AbstractCudaMatrix{Tv}
     m::Int                   # Number of rows
