@@ -30,8 +30,8 @@ function update(l::Kernel; o...)
     (yrows, ycols) = size(l.dy)
     (xrows, xcols) = size(l.x)
     @assert ycols == xcols
-    snew = similar(l.x, xrows, 0)
-    wnew = similar(l.w, yrows, 0)
+    snew = similar(l.x, (xrows, 0))
+    wnew = similar(l.w, (yrows, 0))
     for j=1:ycols
         for i=1:yrows
             if l.dy[i,j] != 0
