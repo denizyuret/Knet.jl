@@ -30,13 +30,9 @@ end
 
 function forw(l::KPerceptron, x; predict=false, o...)
     initforw(l, x, predict)    
-    gpusync()
     l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
-    gpusync()
     w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
     A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
-    gpusync()
-    return l.y
 end
 
 function back(l::KPerceptron, z; returndx=false, o...)
