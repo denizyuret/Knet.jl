@@ -6,9 +6,12 @@ include("gpu.jl");	# gpu detection
 @useifgpu CUBLAS
 @useifgpu CUDNN  
 KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
-GPU && include("cusparse.jl");
 
-include("util.jl");	export accuracy, cpucopy, gpucopy, @date # and extends basic functions for cuda
+include("sparse.jl");
+GPU && include("cusparse.jl");
+GPU && include("cumatrix.jl");
+
+include("util.jl");	export accuracy, cpucopy, gpucopy, @date
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
