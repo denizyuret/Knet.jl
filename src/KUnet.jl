@@ -1,35 +1,14 @@
 module KUnet
 using Compat
 
-# See if we have gpu support.  This determines whether gpu code is
-# loaded, not whether it is used.  The user can control gpu use by
-# changing the array type using atype.
-gpuok = true
-lpath = [Pkg.dir("KUnet/src")]
-for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
-    isempty(find_library([l], lpath)) && (warn("Cannot find $l");gpuok=false)
-end
-for p in ("CUDArt", "CUBLAS", "CUDNN")
-    isdir(Pkg.dir(p)) || (warn("Cannot find $p");gpuok=false)
-end
-const GPU = gpuok
-GPU || warn("GPU libraries missing, using CPU.")
-USEGPU = GPU
-gpu()=USEGPU
-gpu(b::Bool)=(b && !gpuok && error("No GPU"); global USEGPU=b)
-
-# Conditional module import
-macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
+include("gpu.jl");	# gpu detection
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
-# @useifgpu CUSPARSE
 KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
+GPU && include("cusparse.jl");
 
-#########################
 include("util.jl");	export accuracy, cpucopy, gpucopy, @date # and extends basic functions for cuda
-include("cusparse.jl");
-
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
