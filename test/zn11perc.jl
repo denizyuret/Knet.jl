@@ -6,14 +6,17 @@ KUnet.gpu(false) # we don't have full gpu impl for perceptron yet
 # xtrn1=xtrn[:,1:100000]
 # ytrn1=ytrn[:,1:100000]
 
-net = Layer[Perceptron(size(ytrn,1))]
-for epoch=1:1000
-    @show epoch
-    @date train(net, xtrn, ytrn)
-    gc()
-    @date ztrn = predict(net,xtrn)
-    @date zdev = predict(net,xdev)
-    @date ztst = predict(net,xtst)
-    @show (epoch, accuracy(ytrn,ztrn), accuracy(ydev,zdev), accuracy(ytst,ztst))
+for seed=1:10
+    srand(seed)
+    net = Layer[Perceptron(size(ytrn,1))]
+    for epoch=1:20
+        @show epoch
+        @date train(net, xtrn, ytrn; shuffle=true)
+        @date ztrn = predict(net,xtrn)
+        @date zdev = predict(net,xdev)
+        @date ztst = predict(net,xtst)
+        @show (seed, epoch, accuracy(ytrn,ztrn), accuracy(ydev,zdev), accuracy(ytst,ztst))
+    end
 end
+
 
