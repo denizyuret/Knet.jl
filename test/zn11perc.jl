@@ -11,8 +11,9 @@ for epoch=1:1000
     @show epoch
     @date train(net, xtrn, ytrn)
     gc()
+    @date ztrn = predict(net,xtrn)
     @date zdev = predict(net,xdev)
     @date ztst = predict(net,xtst)
-    @show (epoch, accuracy(ydev,zdev), accuracy(ytst,ztst))
+    @show (epoch, accuracy(ytrn,ztrn), accuracy(ydev,zdev), accuracy(ytst,ztst))
 end
 

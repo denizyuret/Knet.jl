@@ -25,6 +25,7 @@ type KPerceptron <: Layer
     dw1         # new weights
     dj          # indices for new support vectors
     dn          # number of new support vectors
+    tmp
     KPerceptron(nclass,kernel,kparams=nothing)=new(nclass,kernel,kparams)
 end
 
@@ -62,6 +63,9 @@ function update(l::KPerceptron; o...) # 198
     l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
+    isdefined(l,:tmp)||(l.tmp=0)
+    l.u > l.tmp && (println((int(l.u),size(l.s,2),gpumem(),gc(),gpumem()));l.tmp=l.u+10000)
+    gc()
 end
 
 # hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]

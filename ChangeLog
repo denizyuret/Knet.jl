@@ -1,3 +1,37 @@
+2015-06-25  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* 12464157:
+	trn1: elapsed time: 3405.547185297 seconds (10105037976 bytes allocated, 9.32% gc time)
+	dev1: elapsed time: 231.487048972 seconds (40981980 bytes allocated)
+	tst1: elapsed time: 328.463520519 seconds (48170864 bytes allocated, 0.01% gc time)
+	(1,(338122,124946),0.9608506650701513,0.9600224810201223)
+
+	trn2: elapsed time: 6740.557072649 seconds (15279129024 bytes allocated, 4.77% gc time)
+	dev2: elapsed time: 300.152283337 seconds (34083240 bytes allocated)
+	tst2: elapsed time: 426.0930742 seconds (48177472 bytes allocated, 0.01% gc time)
+	(2,(338122,162316),0.9627899107166098,0.9627404732070465)
+
+	* test/zn11test.pbs.o12463546: kperceptron gives out of memory in
+	epoch 2 with 125K sv while reallocating l.k.  (128*125K*4=64MB).
+	gc problem?  sv prealloc too aggressive?  stop reallocating l.k?
+	upload x and don't have sv?  sv costs ncols+2*nnz.
+	4*(125K+2*39*125K)=40MB.  Even double the size would be 80MB.
+	What is causing the error?  Do we need to call gc() during
+	training?  Preallocate a huge sv, so we never alloc again?  Upload
+	x would cost (2*nnz+1)*ncol*4=(2*39+1)*1.8M*4=569MB.  Would have to
+	rewrite kernel.  Kernel caching would be easy using x indices.
+	Shuffling would mess that up.  x could be indices too!  train
+	could not handle it.  or train can just pass indices for x.  one
+	hash (idx*idx->kval) plus a big x matrix in gpu memory for all the
+	kernel calc.  what does a kernel cache hold again?  values or
+	whole columns?
+	- It turns out gc() after every update fixes the problem.
+
+	* test/zn11perc.pbs.o12463690: without shuffling, regular
+	perceptron on the original zn11 feature set converges in 10 epochs
+	to: (10,0.983861168363737,0.9627768956451571,0.9632195769145722)
+	and stays there.
+
 2015-06-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/perceptron.jl: TODO: keep w the same orientation as x, makes
