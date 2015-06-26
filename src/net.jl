@@ -39,7 +39,7 @@ end
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
 function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
-    shuffle && shufflexy!(x,y)
+    shuffle && ((x,y)=shufflexy!(x,y))
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
@@ -110,25 +110,35 @@ function x2b(b, x::SparseMatrixCSC, r)
     return b
 end
 
-function shufflexy!(x, y)
-    xrows,xcols = size2(x)
-    yrows,ycols = size2(y)
-    @assert xcols == ycols
-    x1 = Array(eltype(x), xrows)
-    y1 = Array(eltype(y), yrows)
-    for n = xcols:-1:2
-        r = rand(1:n)
-        r == n && continue
-        nx = (n-1)*xrows+1; ny = (n-1)*yrows+1
-        rx = (r-1)*xrows+1; ry = (r-1)*yrows+1
-        copy!(x1, 1, x, nx, xrows)
-        copy!(y1, 1, y, ny, yrows)
-        copy!(x, nx, x, rx, xrows)
-        copy!(y, ny, y, ry, yrows)
-        copy!(x, rx, x1, 1, xrows)
-        copy!(y, ry, y1, 1, yrows)
-    end
+function shufflexy!(x,y)
+    nx = size(x, ndims(x))
+    ny = size(y, ndims(y))
+    @assert nx == ny
+    r = randperm(nx)
+    x = x[map(n->1:n,size(x)[1:end-1])...,r]
+    y = y[map(n->1:n,size(y)[1:end-1])...,r]
+    return (x,y)
 end
+
+# function shufflexy_old!(x, y) # does not work well for sparse
+#     xrows,xcols = size2(x)
+#     yrows,ycols = size2(y)
+#     @assert xcols == ycols
+#     x1 = Array(eltype(x), xrows)
+#     y1 = Array(eltype(y), yrows)
+#     for n = xcols:-1:2
+#         r = rand(1:n)
+#         r == n && continue
+#         nx = (n-1)*xrows+1; ny = (n-1)*yrows+1
+#         rx = (r-1)*xrows+1; ry = (r-1)*yrows+1
+#         copy!(x1, 1, x, nx, xrows)
+#         copy!(y1, 1, y, ny, yrows)
+#         copy!(x, nx, x, rx, xrows)
+#         copy!(y, ny, y, ry, yrows)
+#         copy!(x, rx, x1, 1, xrows)
+#         copy!(y, ry, y1, 1, yrows)
+#     end
+# end
 
 using HDF5, JLD
 
