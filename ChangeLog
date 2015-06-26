@@ -1,6 +1,8 @@
 2015-06-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* 12464157:
+	* dbg/test/zn11perc.jl: multi-seed shuffling version. @@12470963
+
+	* dev/test/zn11test.jl: kperceptron.  @@12464157
 	trn1: elapsed time: 3405.547185297 seconds (10105037976 bytes allocated, 9.32% gc time)
 	dev1: elapsed time: 231.487048972 seconds (40981980 bytes allocated)
 	tst1: elapsed time: 328.463520519 seconds (48170864 bytes allocated, 0.01% gc time)
