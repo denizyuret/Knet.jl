@@ -1,17 +1,15 @@
 using HDF5,JLD,KUnet
-isdefined(:xtrn) || (@date @load "zn11oparse.jld")
-for y in (:ytrn, :ydev, :ytst); @eval $y=full($y); end # This speeds up the accuracy fn
 KUnet.gpu(false) # we don't have full gpu impl for perceptron yet
+isdefined(:xtrn) || (@date @load "zn11oparse.jld")
+for y in (:ytrn, :ydev, :ytst); @eval $y=full(float64($y)); end # This speeds up the accuracy fn
+for x in (:xtrn, :xdev, :xtst); @eval $x=float64($x); end # This prevents early convergence
 
-# xtrn1=xtrn[:,1:100000]
-# ytrn1=ytrn[:,1:100000]
-
-for seed=1:10
+for seed=0:10
     srand(seed)
     net = Layer[Perceptron(size(ytrn,1))]
     for epoch=1:20
         @show epoch
-        @date train(net, xtrn, ytrn; shuffle=true)
+        @date train(net, xtrn, ytrn; shuffle=(seed>0))
         @date ztrn = predict(net,xtrn)
         @date zdev = predict(net,xdev)
         @date ztst = predict(net,xtst)

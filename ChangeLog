@@ -1,45 +1,110 @@
-2015-06-27  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-06-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* test/zn11test2.jl (net): kperceptron on zn11orig feature set.
+	* test/zn11perc64.jl: early convergence of regular perceptron is
+	probably due to numerical accuracy.  Trying with Float64.  Fixed
+	it.  Also added the (seed>0) condition to see unshuffled results.
+
+	* TODO: run zn11orig with kperc and zn11single with perc as well.
+
+	06261347-julia_zn11perc64_jl.out: perc+zn11orig
+	- does not converge in 20 epochs but dev peaks.
+	- does worse than Float32?
+	best trn: (0,20,0.990577853561211,0.9628940312882318,0.9628049679369057)
+	best dev: (0,12,0.9864501711719235,0.9629200614311373,0.9633301393086166)
+	best tst: (0,13,0.9871840790335269,0.9627118202878934,0.9634038475713127)
+
+	06261523-julia_zn11perc64b_jl.out: perc+zn11single
+	- does much worse but does not peak in 20.
+	best trn: (0,20,0.9607095614570927,0.9493974021917381,0.9487543303604334)
+	best dev: (0,18,0.9596867048415946,0.9494234323346435,0.9485792732365298)
+	best tst: (0,20,0.9607095614570927,0.9493974021917381,0.9487543303604334)
+
+	06261407-zn11test.pbs.o12464157: kperceptron+zn11single.  kgauss,gamma=0.12.
+	(1,(338122,124946),0.9608506650701513,0.9600224810201223)	trn=0.9313631349731266	time=3405
+	(2,(338122,162316),0.9627899107166098,0.9627404732070465)	trn=0.9794714544999099	time=6740
+	(3,(338122,180291),0.963336543717625,0.9635604776295422)	trn=0.9901257531344897	time=7920
+	(4,(338122,191068),0.9638701616471874,0.9638921648116754)	trn=0.9940798465385478	time=8540
+	(5,(338122,198841),0.9641174480047896,0.9640487948699049)	trn=0.995730040562692	time=8941
+	(6,(338122,204862),0.9640784027904313,0.964076435468416)	trn=0.996692470632699	time=9242
+	(7,(338122,209836),0.9640133274331676,0.9638000294833051)	trn=0.9972676214793297	time=9480
+	(8,(338122,214092),0.9641304630762423,0.9638184565489791)	trn=0.9976620420217184	time=9679
+	(9,(338122,217855),0.9641695082906006,0.9639013783445124)	trn=0.9979328628119658	time=9850
+
+	06271100-julia_zn11test2_jl.out: kperceptron+zn11orig. kgauss,gamma=0.05.
+	(1,(5123080,115857),0.9610589062133951,0.960206751676863)	trn=0.9363560156274033	time=5981
+	(2,(5123080,146889),0.9629981518598537,0.9627957544040687)	trn=0.982953122184672	time=11998
+	(3,(5123080,159776),0.9637009657183018,0.9636341858922385)	trn=0.992920755529578	time=13849
+	(4,(5123080,167105),0.964195538433506,0.9639750866072087) 	trn=0.995973944073584	time=14723
+	(5,(5123080,172184),0.9646250357914465,0.9640211542713938)	trn=0.997209941594997	time=15260
+	(6,(5123080,176178),0.9645339302912773,0.964076435468416) 	trn=0.997805967066434	time=15659
 
 2015-06-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* 12464157:
-	trn1: elapsed time: 3405.547185297 seconds (10105037976 bytes allocated, 9.32% gc time)
-	dev1: elapsed time: 231.487048972 seconds (40981980 bytes allocated)
-	tst1: elapsed time: 328.463520519 seconds (48170864 bytes allocated, 0.01% gc time)
-	(1,(338122,124946),0.9608506650701513,0.9600224810201223)
-
-	trn2: elapsed time: 6740.557072649 seconds (15279129024 bytes allocated, 4.77% gc time)
-	dev2: elapsed time: 300.152283337 seconds (34083240 bytes allocated)
-	tst2: elapsed time: 426.0930742 seconds (48177472 bytes allocated, 0.01% gc time)
-	(2,(338122,162316),0.9627899107166098,0.9627404732070465)
-
-	* test/zn11test.pbs.o12463546: kperceptron gives out of memory in
-	epoch 2 with 125K sv while reallocating l.k.  (128*125K*4=64MB).
-	gc problem?  sv prealloc too aggressive?  stop reallocating l.k?
-	upload x and don't have sv?  sv costs ncols+2*nnz.
-	4*(125K+2*39*125K)=40MB.  Even double the size would be 80MB.
-	What is causing the error?  Do we need to call gc() during
-	training?  Preallocate a huge sv, so we never alloc again?  Upload
-	x would cost (2*nnz+1)*ncol*4=(2*39+1)*1.8M*4=569MB.  Would have to
+	* test/zn11test.pbs.o12463546: kperceptron on the zn11single
+	feature set gives out of memory in epoch 2 with 125K sv while
+	reallocating l.k.  (128*125K*4=64MB).  gc problem?  sv prealloc
+	too aggressive?  stop reallocating l.k?  upload x and don't have
+	sv?  sv costs ncols+2*nnz.  4*(125K+2*39*125K)=40MB.  Even double
+	the size would be 80MB.  What is causing the error?  Do we need to
+	call gc() during training?  Preallocate a huge sv, so we never
+	alloc again?  Upload x would
+	cost (2*nnz+1)*ncol*4=(2*39+1)*1.8M*4=569MB.  Would have to
 	rewrite kernel.  Kernel caching would be easy using x indices.
 	Shuffling would mess that up.  x could be indices too!  train
 	could not handle it.  or train can just pass indices for x.  one
 	hash (idx*idx->kval) plus a big x matrix in gpu memory for all the
 	kernel calc.  what does a kernel cache hold again?  values or
-	whole columns?
-	- It turns out gc() after every update fixes the problem.
+	whole columns?  - It turns out gc() after every update fixes the
+	problem.
+
+	I calculated trn error looking at the number of sv added, and
+	using the fact that nx=1820392.
+
+	trn1: elapsed time: 3405.547185297 seconds (10105037976 bytes allocated, 9.32% gc time)
+	dev1: elapsed time: 231.487048972 seconds (40981980 bytes allocated)
+	tst1: elapsed time: 328.463520519 seconds (48170864 bytes allocated, 0.01% gc time)
+
+	trn2: elapsed time: 6740.557072649 seconds (15279129024 bytes allocated, 4.77% gc time)
+	dev2: elapsed time: 300.152283337 seconds (34083240 bytes allocated)
+	tst2: elapsed time: 426.0930742 seconds (48177472 bytes allocated, 0.01% gc time)
+
+	trn3: elapsed time: 7920.053201062 seconds (15272350808 bytes allocated, 4.07% gc time)
+	dev3: elapsed time: 333.014117544 seconds (34072312 bytes allocated)
+	tst3: elapsed time: 472.73413071 seconds (48172960 bytes allocated, 0.01% gc time)
+
 
 	* test/zn11perc.pbs.o12463690: without shuffling, regular
 	perceptron on the original zn11 feature set converges in 10 epochs
 	to: (10,0.983861168363737,0.9627768956451571,0.9632195769145722)
-	and stays there.
+	epoch,trn,dev,tst and stays there.
+
+	* dbg/test/zn11perc.pbs.o12470963: zn11perc.jl: multi-seed
+	shuffling version. The different seeds converge to slightly
+	different solutions, but strangely each run converges and stops
+	moving in exactly 10 epochs?  Other than that little funny
+	coincidence the results are fairly consistent around:
+	trn=9865 dev=9640 tst=9638
+
+	These results are with Float32 and converge early.  Rerun with Float64.
+	(seed,epoch,accuracy(ytrn,ztrn),accuracy(ydev,zdev),accuracy(ytst,ztst))
+	(1,10,0.9866094775191278,0.9642606137907697,0.9638553106803273)
+	(2,10,0.9866836373704125,0.9640784027904313,0.9637447482862829)
+	(3,10,0.9865391629934651,0.9637139807897546,0.9638276700818161)
+	(4,10,0.9865957442133343,0.9639742822188094,0.9639198054101865)
+	(5,10,0.9865688269339791,0.9642606137907697,0.9638276700818161)
+	(6,10,0.9865523469670269,0.9641174480047896,0.9639013783445124)
+	(7,10,0.98665122676874,0.9638181013613765,0.9636526129579126)
+	(8,10,0.986530923009989,0.964091417861884,0.9638553106803273)
+	(9,10,0.9865122457141099,0.9636489054324908,0.9638276700818161)
+	(10,10,0.9865122457141099,0.9638441315042819,0.9638368836146533)
+
 
 2015-06-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/perceptron.jl: TODO: keep w the same orientation as x, makes
-	easier to add.  Use w'*x like kperceptron.
+	* src/perceptron.jl: keep w the same orientation as x, makes
+	easier to add.  Use w'*x like kperceptron.  Decided otherwise;
+	wrong on both counts: w is dense, so not easier to add in either
+	direction, and kperceptron holds it in w*k(x) position.
 
 2015-06-23    <dyuret@ku.edu.tr>
 
