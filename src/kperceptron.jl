@@ -25,7 +25,6 @@ type KPerceptron <: Layer
     dw1         # new weights
     dj          # indices for new support vectors
     dn          # number of new support vectors
-    tmp
     KPerceptron(nclass,kernel,kparams=nothing)=new(nclass,kernel,kparams)
 end
 
@@ -63,9 +62,6 @@ function update(l::KPerceptron; o...) # 198
     l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
-    isdefined(l,:tmp)||(l.tmp=0) #DBG
-    l.u > l.tmp && (println((int(l.u),size(l.s,2),gpumem(),gc(),gpumem()));l.tmp=l.u+10000) #DBG
-    gc() #DBG: do this in net.jl
 end
 
 # hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
@@ -123,10 +119,11 @@ klinear(x, s, p, k)=At_mul_B!(k, x, s)          # k=x'*s
 
 function kpoly(x, s, p, k)
     k = klinear(x, s, p, k)                                               # 1670
-    (c,d) = p
-    @inbounds @simd for i=1:length(k); k[i] = (k[i] + c).^d; end  # 1413
+    kpolymap(k, p[1], p[2])
     return k
 end
+
+kpolymap(k, c, d)=(@inbounds @simd for i=1:length(k); k[i] = (k[i] + c).^d; end; k)
 
 function kgauss(x, s, p, k)         # 2582
     k = klinear(x, s, p, k) # 1741
@@ -137,6 +134,9 @@ end
 
 
 if GPU
+
+kpolymap(k::CudaArray{Float32}, c::Float32, d::Float32)=(ccall((:kpolymap32,libkunet),Void,(Cint,Ptr{Cfloat},Cfloat,Cfloat),length(k),k,c,d); k)
+kpolymap(k::CudaArray{Float64}, c::Float64, d::Float64)=(ccall((:kpolymap64,libkunet),Void,(Cint,Ptr{Cdouble},Cdouble,Cdouble),length(k),k,c,d); k)
 
 function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::CudaArray{Float32})
     @assert size(k)==(size(x,2),size(s,2))
@@ -174,7 +174,6 @@ function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}
     return k
 end
 
-kpoly(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kpoly(cpucopy(x),cpucopy(s),p,cpucopy(k)))
 kgauss(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kgauss(cpucopy(x),cpucopy(s),p,cpucopy(k)))
 
 end # if GPU
