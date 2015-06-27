@@ -1,3 +1,7 @@
+2015-06-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/zn11test2.jl (net): kperceptron on zn11orig feature set.
+
 2015-06-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* 12464157:
