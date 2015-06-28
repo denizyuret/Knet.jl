@@ -1,3 +1,13 @@
+2015-06-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/zn11pvc.jl (net): Determining optimal gamma for pvc
+	experiments (8 subsets of postag, wvec, cvec).
+
+	zn11n: 0.4
+	zn11p: 0.17
+
+	* TODO: do learning rate experiments (one-hot vs dense)
+
 2015-06-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/zn11perc64.jl: early convergence of regular perceptron is
