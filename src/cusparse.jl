@@ -91,7 +91,8 @@ function A_mul_B!(k::CudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::Cu
 end
 
 
-transpose(x::CudaSparseMatrixCSC)=(t=gpucopy(cpucopy(x).');gpusync();t)
+# transpose(x::CudaSparseMatrixCSC)=(t=gpucopy(cpucopy(x).');gpusync();t)
+transpose(x::CudaSparseMatrixCSC)=error("not implemented")
 
 # 100ksv: (128,128) and (512,512) work best for At_test (1.78)
 # 10ksv: (9,10), (10,10), (11,8+), (12,7+) (1.44)

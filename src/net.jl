@@ -43,6 +43,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
+    gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
@@ -50,7 +51,6 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         backprop(net, xx, yy; o...)
         update(net; o...)
         (iters > 0) && (e/batch >= iters) && break
-        gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     end
 end
 

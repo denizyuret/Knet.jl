@@ -200,7 +200,26 @@ __global__ void _kpoly64(int nx, int ns, double *xval, int *xrow, int *xcol, dou
   }
 }
 
+__global__ void _kpolymap32(int n, float *k, float c, float d) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    k[i] = pow(k[i] + c, d);
+    i += blockDim.x * gridDim.x;
+  }  
+}
+
+__global__ void _kpolymap64(int n, double *k, double c, double d) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    k[i] = pow(k[i] + c, d);
+    i += blockDim.x * gridDim.x;
+  }  
+}
+
 extern "C" {
+
+  void kpolymap32(int n, float *k, float c, float d) KCALL(_kpolymap32,n,k,c,d)
+  void kpolymap64(int n, double *k, double c, double d) KCALL(_kpolymap64,n,k,c,d)
 
   void kpoly32(int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k, float c, float d) KCALL(_kpoly32,nx,ns,xval,xrow,xcol,sval,srow,scol,k,c,d);
   void kpoly64(int nx, int ns, double *xval, int *xrow, int *xcol, double *sval, int *srow, int *scol, double *k, double c, double d) KCALL(_kpoly64,nx,ns,xval,xrow,xcol,sval,srow,scol,k,c,d);

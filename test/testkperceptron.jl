@@ -16,18 +16,18 @@ net = nothing
 nc = size(ytrn,1)
 
 for kernel in (
-               :perceptron,
                (:klinear, nothing),
                (:kpoly, [c0,d0]),
                (:kgauss, [g0]),
+               :perceptron,
                )
-    for loc in (
-                :gpu,
-                :cpu, 
+    for fmt in (
+                :dense, 
+                :sparse,
                 )
-        for fmt in (
-                    :sparse,
-                    :dense, 
+        for loc in (
+                    :gpu,
+                    :cpu, 
                     )
             # loc == :gpu && kernel == :perceptron && continue
             println("\n$kernel, $loc, $fmt")

@@ -16,10 +16,13 @@ isongpu(a)=(GPU && isa(a, AbstractCudaArray))
 
 # We use this function to confirm/create an array element of the right type/size
 function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
-    if !isdefined(l,n) || (size(l.(n)) != dims)
+    if !isdefined(l,n) || (eltype(l.(n)) != T) || (size(l.(n)) != dims)
         if isa(a, AbstractSparseArray)
             l.(n) = spzeros(T, itype(a), dims...)
             fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
+        elseif isa(a, DataType)
+            l.(n) = a(T, dims)
+            fill != nothing && fill!(l.(n), fill)
         else
             l.(n) = similar(a, T, dims)
             fill != nothing && fill!(l.(n), fill)
@@ -34,7 +37,7 @@ similar!(l, n, a, dims::Dims; o...) = similar!(l,n,a,eltype(a),dims; o...)
 
 if GPU
 
-typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T}) # no sparse
+typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T},CudaDynArray{T}) # no sparse
 
 function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
@@ -54,10 +57,10 @@ function realloc(x::CopyableArray,n::Integer)
 end
 
 # General cpu/gpu deep copy for composite types, gpu arrays etc.
-cpucopy(x::CudaArray)=to_host(x)
+cpucopy(x::AbstractCudaArray)=to_host(x)
 cpucopy(x::AbstractArray)=(isbits(eltype(x)) ? copy(x) : map(cpucopy, x))
 cpucopy(x)=mydeepcopy(x, cpucopy)
-gpucopy(x::CudaArray)=copy(x)
+gpucopy(x::AbstractCudaArray)=copy(x)
 gpucopy(x::AbstractArray)=(isbits(eltype(x)) ? CudaArray(x) : map(gpucopy, x))
 gpucopy(x)=mydeepcopy(x, gpucopy)
 
