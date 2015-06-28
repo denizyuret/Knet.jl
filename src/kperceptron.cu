@@ -216,50 +216,66 @@ __global__ void _kpolymap64(int n, double *k, double c, double d) {
   }  
 }
 
-__global__ void _kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) {
-  int i, j, n, xj, sj;
-  double d, dd;
+__global__ void _kgauss32map(int nx, int ns, float *x2, float *s2, float *k, float g) {
+  int i, n, xi, si;
   i = threadIdx.x + blockIdx.x * blockDim.x;
   n = nx*ns;
   while (i < n) {
-    xj = (i % nx)*nd;
-    sj = (i / nx)*nd;
-    dd = 0;
-    for (j = 0; j < nd; j++) {
-      d = x[xj++]-s[sj++];
-      dd += d*d;
-    }
-    k[i] = exp(-g * dd);
+    xi = (i % nx);
+    si = (i / nx);
+    k[i] = exp(-g * (x2[xi] + s2[si] - 2*k[i]));
     i += blockDim.x * gridDim.x;
   }
 }
 
-__global__ void _kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) {
-  int i, j, n, xj, sj;
-  double d, dd;
+__global__ void _kgauss64map(int nx, int ns, double *x2, double *s2, double *k, double g) {
+  int i, n, xi, si;
   i = threadIdx.x + blockIdx.x * blockDim.x;
   n = nx*ns;
   while (i < n) {
-    xj = (i % nx)*nd;
-    sj = (i / nx)*nd;
-    dd = 0;
-    for (j = 0; j < nd; j++) {
-      d = x[xj++]-s[sj++];
-      dd += d*d;
-    }
-    k[i] = exp(-g * dd);
+    xi = (i % nx);
+    si = (i / nx);
+    k[i] = exp(-g * (x2[xi] + s2[si] - 2*k[i]));
     i += blockDim.x * gridDim.x;
   }
 }
 
+__global__ void _kgauss32sum(int xrows, int xcols, float *x, float *xx) {
+  int i, j, x0, x1;
+  double sum;
+  j = threadIdx.x + blockIdx.x * blockDim.x;
+  while (j < xcols) {
+    x0 = j*xrows; x1 = x0+xrows;
+    sum = 0;
+    for (i=x0; i<x1; i++) sum += x[i]*x[i];
+    xx[j] = sum;
+    j += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _kgauss64sum(int xrows, int xcols, double *x, double *xx) {
+  int i, j, x0, x1;
+  double sum;
+  j = threadIdx.x + blockIdx.x * blockDim.x;
+  while (j < xcols) {
+    x0 = j*xrows; x1 = x0+xrows;
+    sum = 0;
+    for (i=x0; i<x1; i++) sum += x[i]*x[i];
+    xx[j] = sum;
+    j += blockDim.x * gridDim.x;
+  }
+}
 
 extern "C" {
 
-  void kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) KCALL(_kgauss32d,nx,ns,nd,x,s,k,g)
-  void kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) KCALL(_kgauss64d,nx,ns,nd,x,s,k,g)
+  void kgauss32map(int nx, int ns, float *x2, float *s2, float *k, float g) KCALL(_kgauss32map,nx,ns,x2,s2,k,g);
+  void kgauss32sum(int xrows, int xcols, float *x, float *x2) KCALL(_kgauss32sum,xrows,xcols,x,x2);
 
-  void kpolymap32(int n, float *k, float c, float d) KCALL(_kpolymap32,n,k,c,d)
-  void kpolymap64(int n, double *k, double c, double d) KCALL(_kpolymap64,n,k,c,d)
+  void kgauss64map(int nx, int ns, double *x2, double *s2, double *k, double g) KCALL(_kgauss64map,nx,ns,x2,s2,k,g);
+  void kgauss64sum(int xrows, int xcols, double *x, double *x2) KCALL(_kgauss64sum,xrows,xcols,x,x2);
+
+  void kpolymap32(int n, float *k, float c, float d) KCALL(_kpolymap32,n,k,c,d);
+  void kpolymap64(int n, double *k, double c, double d) KCALL(_kpolymap64,n,k,c,d);
 
   void kpoly32(int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k, float c, float d) KCALL(_kpoly32,nx,ns,xval,xrow,xcol,sval,srow,scol,k,c,d);
   void kpoly64(int nx, int ns, double *xval, int *xrow, int *xcol, double *sval, int *srow, int *scol, double *k, double c, double d) KCALL(_kpoly64,nx,ns,xval,xrow,xcol,sval,srow,scol,k,c,d);
@@ -393,5 +409,44 @@ extern "C" {
     KCALL(_kgauss32,mx,ns,xval,xrow,xcol,sval,srow,scol,g,k)
   }
 }
+
+__global__ void _kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) {
+  int i, j, n, xj, sj;
+  double d, dd;
+  i = threadIdx.x + blockIdx.x * blockDim.x;
+  n = nx*ns;
+  while (i < n) {
+    xj = (i % nx)*nd;
+    sj = (i / nx)*nd;
+    dd = 0;
+    for (j = 0; j < nd; j++) {
+      d = x[xj++]-s[sj++];
+      dd += d*d;
+    }
+    k[i] = exp(-g * dd);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) {
+  int i, j, n, xj, sj;
+  double d, dd;
+  i = threadIdx.x + blockIdx.x * blockDim.x;
+  n = nx*ns;
+  while (i < n) {
+    xj = (i % nx)*nd;
+    sj = (i / nx)*nd;
+    dd = 0;
+    for (j = 0; j < nd; j++) {
+      d = x[xj++]-s[sj++];
+      dd += d*d;
+    }
+    k[i] = exp(-g * dd);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+  void kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) KCALL(_kgauss32d,nx,ns,nd,x,s,k,g);
+  void kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) KCALL(_kgauss64d,nx,ns,nd,x,s,k,g);
 
 */

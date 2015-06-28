@@ -1,3 +1,4 @@
+using Base.Test
 using CUDArt
 using KUnet
 require(Pkg.dir("KUnet/test/mnist.jl"))
@@ -7,44 +8,55 @@ xtst = MNIST.xtst
 ytrn = MNIST.ytrn
 ytst = MNIST.ytst
 w0 = similar(ytst, size(ytst,1), 0)
-d0 = 6f0
-c0 = 1f0
-g0 = 0.1f0
+d0 = 6.0
+c0 = 1.0
+g0 = 0.1
 niter = 100
 nbatch = 100
 net = nothing
 nc = size(ytrn,1)
 
-for kernel in (
-               (:kgauss, [g0]),
-               (:klinear, nothing),
-               (:kpoly, [c0,d0]),
-               :perceptron,
-               )
-    for fmt in (
-                :dense, 
-                :sparse,
+for ker in (
+            (:kpoly, [c0,d0]),
+            (:kgauss, [g0]),
+            (:klinear, nothing),
+            (:perceptron, nothing),
+            )
+    aa = ss = nothing
+    for prc in (
+                :double,
+                :single,
                 )
-        for loc in (
-                    :gpu,
-                    :cpu, 
+        for fmt in (
+                    :sparse,
+                    :dense, 
                     )
-            # loc == :gpu && kernel == :perceptron && continue
-            println("\n$kernel, $loc, $fmt")
-            KUnet.gpu(loc == :gpu)
-            xtrn = (fmt==:dense ? copy(MNIST.xtrn) : sparse(MNIST.xtrn))
-            xtst = (fmt==:dense ? copy(MNIST.xtst) : sparse(MNIST.xtst))
-            net = (kernel == :perceptron ? 
-                   Layer[Perceptron(nc;bias=false)] :
-                   Layer[KPerceptron(nc, KUnet.(kernel[1]), kernel[2])])
-            gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
-            gc(); @time println((kernel, loc, fmt, isdefined(net[1],:s) ? size(net[1].s) : 0, 
-                                 accuracy(ytst, predict(net, xtst)),
-                                 # accuracy(ytrn, predict(net, xtrn)),
-                                 ))
+            for loc in (
+                        :gpu,
+                        :cpu, 
+                        )
+                loc == :gpu && ker[1] == :perceptron && continue
+                println("\n$ker, $prc, $fmt, $loc")
+                KUnet.gpu(loc == :gpu)
+                for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=copy(MNIST.$p); end
+                prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=float64($p); end)
+                fmt == :sparse && (for p in (:xtrn, :xtst); @eval $p=sparse($p); end)
+                net = (ker[1] == :perceptron ? 
+                       Layer[Perceptron(nc;bias=false)] :
+                       Layer[KPerceptron(nc, KUnet.(ker[1]), ker[2])])
+                gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
+                @date a = accuracy(ytst, predict(net, xtst))
+                s = isdefined(net[1],:s) ? size(net[1].s) : 0
+                @show (s,a)
+                aa == nothing && (aa=a)
+                ss == nothing && (ss=s)
+                @test aa == a
+                @test ss == s
+            end
         end
     end
 end
+
 
 # with naive hcat!:
 
