@@ -140,7 +140,25 @@ end
 
 if GPU
 
-kgauss(x::CudaArray, s::CudaArray, p, k::CudaArray)=gpucopy(kgauss(cpucopy(x),cpucopy(s),p,cpucopy(k)))
+function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p, k::CudaArray{Float32})
+    @assert size(x,1)==size(s,1)
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kgauss32d,libkunet),Void,
+          (Cint,Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
+          size(x,2),size(s,2),size(x,1),x,s,k,p[1])
+    gpusync()
+    return k
+end
+
+function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p, k::CudaArray{Float64})
+    @assert size(x,1)==size(s,1)
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kgauss64d,libkunet),Void,
+          (Cint,Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Cdouble),
+          size(x,2),size(s,2),size(x,1),x,s,k,p[1])
+    gpusync()
+    return k
+end
 
 function kpolymap(k::CudaArray{Float32}, c::Float32, d::Float32)
     ccall((:kpolymap32,libkunet),Void,

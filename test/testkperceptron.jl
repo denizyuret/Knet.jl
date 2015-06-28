@@ -16,9 +16,9 @@ net = nothing
 nc = size(ytrn,1)
 
 for kernel in (
+               (:kgauss, [g0]),
                (:klinear, nothing),
                (:kpoly, [c0,d0]),
-               (:kgauss, [g0]),
                :perceptron,
                )
     for fmt in (

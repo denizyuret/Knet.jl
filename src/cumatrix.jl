@@ -4,6 +4,7 @@ import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
 import Base.LinAlg.BLAS: gemm!, axpy!
 import CUDArt: malloc, free, pitchedptr, rt
+import Compat: unsafe_convert
 
 convert{T,S}(::Type{AbstractCudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
 convert{T,S}(::Type{Array{T}}, x::AbstractCudaArray{S})=convert(Array{T}, to_host(x))
@@ -59,6 +60,7 @@ similar(a::CudaDynArray,T,dims::Dims)=CudaDynArray(T,dims)
 similar(a::CudaDynArray)=CudaDynArray(eltype(a), size(a))
 stride(a::CudaDynArray, dim::Integer) = prod(size(a)[1:dim-1])
 pitchedptr{T}(a::CudaDynArray{T,2})=rt.cudaPitchedPtr(pointer(a), size(a,1)*sizeof(T), size(a,1), size(a,2))
+unsafe_convert{T}(::Type{Ptr{T}}, g::CudaDynArray) = unsafe_convert(Ptr{T}, pointer(g))
 
 function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T}), vj::Vector, nj::Integer)
     @assert size(a,1) == size(b,1)

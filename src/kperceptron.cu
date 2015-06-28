@@ -216,7 +216,47 @@ __global__ void _kpolymap64(int n, double *k, double c, double d) {
   }  
 }
 
+__global__ void _kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) {
+  int i, j, n, xj, sj;
+  double d, dd;
+  i = threadIdx.x + blockIdx.x * blockDim.x;
+  n = nx*ns;
+  while (i < n) {
+    xj = (i % nx)*nd;
+    sj = (i / nx)*nd;
+    dd = 0;
+    for (j = 0; j < nd; j++) {
+      d = x[xj++]-s[sj++];
+      dd += d*d;
+    }
+    k[i] = exp(-g * dd);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) {
+  int i, j, n, xj, sj;
+  double d, dd;
+  i = threadIdx.x + blockIdx.x * blockDim.x;
+  n = nx*ns;
+  while (i < n) {
+    xj = (i % nx)*nd;
+    sj = (i / nx)*nd;
+    dd = 0;
+    for (j = 0; j < nd; j++) {
+      d = x[xj++]-s[sj++];
+      dd += d*d;
+    }
+    k[i] = exp(-g * dd);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+
 extern "C" {
+
+  void kgauss32d(int nx, int ns, int nd, float *x, float *s, float *k, float g) KCALL(_kgauss32d,nx,ns,nd,x,s,k,g)
+  void kgauss64d(int nx, int ns, int nd, double *x, double *s, double *k, double g) KCALL(_kgauss64d,nx,ns,nd,x,s,k,g)
 
   void kpolymap32(int n, float *k, float c, float d) KCALL(_kpolymap32,n,k,c,d)
   void kpolymap64(int n, double *k, double c, double d) KCALL(_kpolymap64,n,k,c,d)
@@ -237,7 +277,7 @@ extern "C" {
 }
 
 
-/*
+/* DEAD CODE...
 // no need for kback on gpu?
 
 __global__ void _kback32(int nc, int nx, float *z, float *y, float *dw0, float *dw1, int *dj, float u) {
