@@ -1,9 +1,33 @@
+2015-06-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* out-of-mem: gpu/dense gave out-of-memory error.
+	- find out why
+	- try 1.33x realloc (the 4th realloc can use space from 1+2)
+	- try prealloc
+	- try uniq
+	- try sv id
+
+	sv:
+	zn11n:   165 x 788607  = 130m (epoch 1)
+	zn11p:   705 x 648569  = 457m (epoch 7)
+	zn11v:  1365 x 288501  = 394m (epoch 6)
+	zn11c:  1365 x 232284  = 317m (epoch 1)
+	zn11pv: 1905 x 304644  = 580m (epoch 10)
+	zn11cp: 1905 x 306482  = 584m (epoch 6)
+	zn11cv: 2565 x 119377  = 306m (epoch 1)
+	zn11cpv: 3105 x 108499 = 337m (epoch 1)
+
+	zn11n probably explodes because of k size: 128 (xbatch) x 788607.
+
+	* TODO: check speed of gpumem()
+
 2015-06-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/zn11pvc.jl (net): Determining optimal gamma for pvc
 	experiments (8 subsets of postag, wvec, cvec).  The datasets were
 	generated using acl11features.jl.
 
+	gamma:
 	zn11n: 0.40
 	zn11p: 0.17
 	zn11v: 0.25
@@ -13,7 +37,7 @@
 	zn11cv: 0.16
 	zn11cpv: 0.12
 
-	* TODO: profiling?
+	* DONE: profiling?
 	* TODO: do learning rate experiments (one-hot vs dense)
 
 2015-06-26  Deniz Yuret  <dyuret@ku.edu.tr>

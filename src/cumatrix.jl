@@ -62,11 +62,35 @@ stride(a::CudaDynArray, dim::Integer) = prod(size(a)[1:dim-1])
 pitchedptr{T}(a::CudaDynArray{T,2})=rt.cudaPitchedPtr(pointer(a), size(a,1)*sizeof(T), size(a,1), size(a,2))
 unsafe_convert{T}(::Type{Ptr{T}}, g::CudaDynArray) = unsafe_convert(Ptr{T}, pointer(g))
 
+# size!: resize if necessary without copy.  
+function size!(a::CudaDynArray, n::Integer)
+    n <= a.cap && return a      # We never shrink the array.
+    a.cap = int(1.33*n+1)       # 1.33 ensures a3 can be written where a0+a1 used to be
+    free(a.ptr)
+    a.ptr = malloc(eltype(a), a.cap)
+    return a
+end
+
+size!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=size!(a,prod(d)); a.dims=d; a))
+
+# resize!: resize if necessary with copy
+function resize!{T}(a::CudaDynArray{T}, n::Integer)
+    n <= a.cap && return a      # We never shrink the array.
+    a.cap = int(1.33*n+1)       # 1.33 ensures a3 can be written where a0+a1 used to be
+    b = CudaArray(a.ptr, a.dims, a.dev) # save old contents for copy
+    a.ptr = malloc(eltype(a), a.cap)
+    copy!(a, 1, b, 1, min(n, prod(a.dims)))
+    free(b.ptr)                 # free comes after malloc/copy
+    return a
+end
+
+resize!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=resize!(a,prod(d)); a.dims=d; a))
+
 function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDynArray{T,2}), vj::Vector, nj::Integer)
     @assert size(a,1) == size(b,1)
     (nrows,ncols) = size(a)
     newlen = length(a) + nj * nrows
-    newlen > a.cap && (a = realloc(a, 2*newlen))
+    newlen > a.cap && (a = resize!(a, newlen))
     na = length(a) + 1
     a.dims = (nrows, ncols + nj)
     for i=1:nj
@@ -78,19 +102,3 @@ function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDyn
     return a
 end
 
-function realloc{T}(a::CudaDynArray{T}, d::Dims)
-    n = prod(d)
-    n > a.cap && (a = realloc(a, 2*n))
-    a.dims = d
-    return a
-end
-
-function realloc{T}(a::CudaDynArray{T}, n::Integer)
-    na = prod(a.dims)
-    # a1 = CudaArray{T,1}(a.ptr, (na,), a.dev)
-    b = CudaArray(T, n)
-    copy!(b, 1, a, 1, min(na, n))
-    a.ptr = b.ptr
-    a.cap = n
-    return a
-end

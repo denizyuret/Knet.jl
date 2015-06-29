@@ -51,11 +51,6 @@ function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si:
     return dst
 end
 
-function realloc(x::CopyableArray,n::Integer)
-    y=similar(x, tuple(size(x)[1:end-1]..., n))
-    copy!(y,1,x,1,min(length(x),length(y)))
-end
-
 # General cpu/gpu deep copy for composite types, gpu arrays etc.
 cpucopy(x::AbstractCudaArray)=to_host(x)
 cpucopy(x::AbstractArray)=(isbits(eltype(x)) ? copy(x) : map(cpucopy, x))

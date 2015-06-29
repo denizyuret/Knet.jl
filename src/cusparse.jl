@@ -33,9 +33,9 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
         aj=a.n+i                # will become aj'th column of a
         nz=bptr[bj+1]-bptr[bj]  # with nz nonzero values
         nna = na+nz             # making this the new na
-        length(aptr) > aj || (aptr = realloc(aptr,2*(aj+1)))
-        length(a.nzval) >= nna || (a.nzval = realloc(a.nzval,(2*nna)))
-        length(a.rowval) >= nna || (a.rowval = realloc(a.rowval,(2*nna)))
+        length(aptr) > aj || (aptr = grow!(aptr,aj+1))
+        length(a.nzval) >= nna || (a.nzval = grow!(a.nzval,nna))
+        length(a.rowval) >= nna || (a.rowval = grow!(a.rowval,nna))
         aptr[aj+1] = aptr[aj]+nz
         copy!(a.nzval,na+1,b.nzval,bptr[bj],nz)
         copy!(a.rowval,na+1,b.rowval,bptr[bj],nz)
@@ -50,6 +50,14 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
     a.n += nj
     gpusync()
     return a
+end
+
+function grow!(a::KUnetArray, n::Integer)
+    n <= length(a) && return a      # We never shrink the array.
+    b = similar(a, (int(1.33*n+1),))   # 1.33 ensures a3 can be written where a0+a1 used to be
+    copy!(b, 1, a, 1, min(length(a), length(b)))
+    isa(a,CudaArray) && free(a)
+    return b
 end
 
 # At_mul_B!{T}(k::AbstractCudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)

@@ -63,12 +63,11 @@ function update(l::KPerceptron; o...) # 198
     l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
-    l.k  = realloc(l.k, (size(l.k,1),size(l.s,2)))
+    l.k  = size!(l.k, (size(l.k,1),size(l.s,2)))
 end
 
-# hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
 hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
-realloc{T}(a::Matrix{T}, d::Dims)=(b=Array(T,d);copy!(b,1,a,1,min(length(a),length(b)));b)
+size!(a::Array, d::Dims)=(size(a)==d ? a : Array(eltype(a),d))
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     ytype = gpu() ? CudaArray : Array
