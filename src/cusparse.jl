@@ -52,9 +52,9 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
     return a
 end
 
-# At_mul_B!{T}(k::CudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)
+# At_mul_B!{T}(k::AbstractCudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)
 
-function At_mul_B!(k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
+function At_mul_B!(k::AbstractCudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:At_mul_B_32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -63,7 +63,7 @@ function At_mul_B!(k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::C
     return k
 end
 
-function At_mul_B!(k::CudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64})
+function At_mul_B!(k::AbstractCudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:At_mul_B_64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -72,7 +72,7 @@ function At_mul_B!(k::CudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::C
     return k
 end
 
-function A_mul_B!(k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
+function A_mul_B!(k::AbstractCudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
     @assert size(k)==(size(x,1),size(s,2))
     ccall((:A_mul_B_32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -81,7 +81,7 @@ function A_mul_B!(k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::Cu
     return k
 end
 
-function A_mul_B!(k::CudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64})
+function A_mul_B!(k::AbstractCudaMatrix{Float64}, x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64})
     @assert size(k)==(size(x,1),size(s,2))
     ccall((:A_mul_B_64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -96,7 +96,7 @@ transpose(x::CudaSparseMatrixCSC)=error("not implemented")
 
 # 100ksv: (128,128) and (512,512) work best for At_test (1.78)
 # 10ksv: (9,10), (10,10), (11,8+), (12,7+) (1.44)
-function At_test(blk,thr,k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
+function At_test(blk,thr,k::AbstractCudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:At_test,libkunet),Void,
           (Cint,Cint,Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -107,7 +107,7 @@ end
 
 # 100ksv: (64,128) and *(128,64)* and (512,32) work best for A_test (1.25)
 # 10ksv: 1<<(6,8), (7,8), (8,8), (9,8), (10,8) work best for A_test (1.28)
-function A_test(blk,thr,k::CudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
+function A_test(blk,thr,k::AbstractCudaMatrix{Float32}, x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32})
     @assert size(k)==(size(x,1),size(s,2))
     ccall((:A_test,libkunet),Void,
           (Cint,Cint,Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
