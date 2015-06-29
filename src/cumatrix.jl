@@ -102,3 +102,32 @@ function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDyn
     return a
 end
 
+function uniq!(ss::CudaDynArray, uu::CudaDynArray, vv::CudaDynArray)
+    (s,u,v)=map(cpucopy,(ss,uu,vv))
+    d = Dict{Any,Int}()
+    n = 0
+    for j=1:size(s,2)
+        jj = get!(d, s[:,j], n+1)
+        if jj <= n
+            @assert n == length(d) < j
+            u[:,jj] += u[:,j]
+            v[:,jj] += v[:,j]
+        else
+            @assert jj == n+1 == length(d) <= j
+            n = n+1
+            if jj != j
+                s[:,jj] = s[:,j]
+                u[:,jj] = u[:,j]
+                v[:,jj] = v[:,j]
+            end
+        end
+    end
+    @assert n == length(d)
+    ss = size!(ss, (size(s,1),n))
+    uu = size!(uu, (size(u,1),n))
+    vv = size!(vv, (size(v,1),n))
+    copy!(ss, 1, s, 1, size(s,1)*n)
+    copy!(uu, 1, u, 1, size(u,1)*n)
+    copy!(vv, 1, v, 1, size(v,1)*n)
+    return (ss,uu,vv)
+end

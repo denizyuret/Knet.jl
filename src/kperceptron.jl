@@ -69,6 +69,8 @@ end
 hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
 size!(a::Array, d::Dims)=(size(a)==d ? a : Array(eltype(a),d))
 
+uniq!(l::KPerceptron)=(l.w2=nothing;(l.s,l.w0,l.w1)=uniq!(l.s,l.w0,l.w1))
+
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     ytype = gpu() ? CudaArray : Array
     wtype = gpu() ? CudaDynArray : Array    
