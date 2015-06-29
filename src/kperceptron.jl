@@ -33,6 +33,7 @@ function forw(l::KPerceptron, x; predict=false, o...)
     l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
     w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
     A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
+    return l.y
 end
 
 function back(l::KPerceptron, z; returndx=false, o...)
@@ -62,6 +63,7 @@ function update(l::KPerceptron; o...) # 198
     l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
     l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
     l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
+    l.k  = realloc(l.k, (size(l.k,1),size(l.s,2)))
 end
 
 # hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
@@ -69,12 +71,12 @@ hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     ytype = gpu() ? CudaArray : Array
+    wtype = gpu() ? CudaDynArray : Array    
     xtype = eltype(x)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
         gpu() && isa(l.s, CudaArray) && (l.s = CudaDynArray(l.s))
-        wtype = gpu() ? CudaDynArray : Array    # w matches x in location and eltype but is dense
-        l.w0 = wtype(xtype, l.nclass, 0)        # should we allocate extra space for expansion?
+        l.w0 = wtype(xtype, l.nclass, 0)        # w matches x in location and eltype but is dense
         l.w1 = wtype(xtype, l.nclass, 0)
         l.w2 = nothing
         l.u = zero(xtype)
@@ -84,7 +86,7 @@ function initforw(l::KPerceptron, x::KUnetArray, predict)
     @assert eltype(l.x) == eltype(l.s) == eltype(l.w0)
     @assert size(l.s) == (size(l.x,1), size(l.w0,2))
     similar!(l,:y,ytype,xtype,(size(l.w0,1),size(l.x,2)))
-    similar!(l,:k,ytype,xtype,(size(l.x,2),size(l.s,2)))
+    similar!(l,:k,wtype,xtype,(size(l.x,2),size(l.s,2)))
     if predict && (l.w2 == nothing)
         # l.w2 = l.u * l.w0 + l.w1
         l.w2 = axpy!(length(l.w0), l.u, l.w0, 1, copy(l.w1), 1)
@@ -140,7 +142,7 @@ end
 
 if GPU
 
-function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p, k::CudaArray{Float32})
+function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p, k::AbstractCudaArray{Float32})
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
     k = klinear(x, s, p, k)
@@ -155,7 +157,7 @@ function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p,
     return k
 end
 
-function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p, k::CudaArray{Float64})
+function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p, k::AbstractCudaArray{Float64})
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
     k = klinear(x, s, p, k)
@@ -170,7 +172,7 @@ function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p,
     return k
 end
 
-function kpolymap(k::CudaArray{Float32}, c, d)
+function kpolymap(k::AbstractCudaArray{Float32}, c, d)
     ccall((:kpolymap32,libkunet),Void,
           (Cint,Ptr{Cfloat},Cfloat,Cfloat),
           length(k),k,c,d)
@@ -178,7 +180,7 @@ function kpolymap(k::CudaArray{Float32}, c, d)
     return k
 end
 
-function kpolymap(k::CudaArray{Float64}, c, d)
+function kpolymap(k::AbstractCudaArray{Float64}, c, d)
     ccall((:kpolymap64,libkunet),Void,
           (Cint,Ptr{Cdouble},Cdouble,Cdouble),
           length(k),k,c,d)
@@ -186,7 +188,7 @@ function kpolymap(k::CudaArray{Float64}, c, d)
     return k
 end
 
-function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::CudaArray{Float32})
+function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::AbstractCudaArray{Float32})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
@@ -195,7 +197,7 @@ function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32},
     return k
 end
 
-function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::CudaArray{Float64})
+function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::AbstractCudaArray{Float64})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
@@ -204,7 +206,7 @@ function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64},
     return k
 end
 
-function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::CudaArray{Float32})
+function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::AbstractCudaArray{Float32})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
@@ -213,7 +215,7 @@ function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}
     return k
 end
 
-function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::CudaArray{Float64})
+function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::AbstractCudaArray{Float64})
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
@@ -286,7 +288,7 @@ end # if GPU
 # end
 
 # buggy for the same reason
-# function kgauss1(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p::Vector{Float32}, k::CudaArray{Float32})
+# function kgauss1(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p::Vector{Float32}, k::AbstractCudaArray{Float32})
 #     t = x' # do this somewhere else?
 #     @assert size(k)==(size(t,1), size(s,2))
 #     isempty(k) && return k

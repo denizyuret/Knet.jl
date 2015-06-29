@@ -45,6 +45,6 @@ function gpuseed(n::Integer)
 end
 
 # This is for profiling:
-gpusync()=device_synchronize()
+#gpusync()=device_synchronize()
 # This is for production:
-#gpusync()=nothing
+gpusync()=nothing

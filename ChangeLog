@@ -1,11 +1,19 @@
 2015-06-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/zn11pvc.jl (net): Determining optimal gamma for pvc
-	experiments (8 subsets of postag, wvec, cvec).
+	experiments (8 subsets of postag, wvec, cvec).  The datasets were
+	generated using acl11features.jl.
 
-	zn11n: 0.4
+	zn11n: 0.40
 	zn11p: 0.17
+	zn11v: 0.25
+	zn11c: 0.30
+	zn11pv: 0.14
+	zn11cp: 0.18
+	zn11cv: 0.16
+	zn11cpv: 0.12
 
+	* TODO: profiling?
 	* TODO: do learning rate experiments (one-hot vs dense)
 
 2015-06-26  Deniz Yuret  <dyuret@ku.edu.tr>

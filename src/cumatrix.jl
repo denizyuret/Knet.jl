@@ -23,8 +23,8 @@ At_mul_B{T}(A::AbstractCudaMatrix{T}, B::AbstractCudaMatrix{T}) = At_mul_B!(simi
 A_mul_Bt!{T}(C::AbstractCudaMatrix{T}, A::AbstractCudaMatrix{T}, B::AbstractCudaMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
 At_mul_B!{T}(C::AbstractCudaMatrix{T}, A::AbstractCudaMatrix{T}, B::AbstractCudaMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
 A_mul_B!{T}(C::AbstractCudaMatrix{T}, A::AbstractCudaMatrix{T}, B::AbstractCudaMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
-gemm!{T}(transA::Char,transB::Char,alpha::T,A::AbstractCudaArray{T},B::AbstractCudaArray{T},beta::T,C::AbstractCudaArray{T})=gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C))
-axpy!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer,y::AbstractCudaArray{T},incy::Integer)=axpy!(n,alpha,convert(CudaArray,x),incx,convert(CudaArray,y),incy)
+gemm!{T}(transA::Char,transB::Char,alpha::T,A::AbstractCudaArray{T},B::AbstractCudaArray{T},beta::T,C::AbstractCudaArray{T})=(gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C));C)
+axpy!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer,y::AbstractCudaArray{T},incy::Integer)=(axpy!(n,alpha,convert(CudaArray,x),incx,convert(CudaArray,y),incy);y)
 
 # without this patch, deepcopy does not work on structs with CudaArrays
 function Base.deepcopy_internal(x::AbstractCudaArray, stackdict::ObjectIdDict)
@@ -62,7 +62,7 @@ stride(a::CudaDynArray, dim::Integer) = prod(size(a)[1:dim-1])
 pitchedptr{T}(a::CudaDynArray{T,2})=rt.cudaPitchedPtr(pointer(a), size(a,1)*sizeof(T), size(a,1), size(a,2))
 unsafe_convert{T}(::Type{Ptr{T}}, g::CudaDynArray) = unsafe_convert(Ptr{T}, pointer(g))
 
-function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T}), vj::Vector, nj::Integer)
+function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDynArray{T,2}), vj::Vector, nj::Integer)
     @assert size(a,1) == size(b,1)
     (nrows,ncols) = size(a)
     newlen = length(a) + nj * nrows
@@ -75,6 +75,13 @@ function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T}), vj::V
         na += nrows
     end
     gpusync()
+    return a
+end
+
+function realloc{T}(a::CudaDynArray{T}, d::Dims)
+    n = prod(d)
+    n > a.cap && (a = realloc(a, 2*n))
+    a.dims = d
     return a
 end
 
