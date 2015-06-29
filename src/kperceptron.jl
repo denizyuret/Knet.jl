@@ -152,8 +152,8 @@ function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p,
     ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(s,1),size(s,2),s,s2)
     ccall((:kgauss32map,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
           size(x,2),size(s,2),x2,s2,k,p[1])
-    free(x2); free(s2)
     gpusync()
+    free(x2); free(s2)
     return k
 end
 
