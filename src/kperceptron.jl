@@ -68,6 +68,7 @@ end
 
 # hcat!(a,b,vj,nj)=[a b[:,vj[1:nj]]]
 hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
+realloc{T}(a::Matrix{T}, d::Dims)=(b=Array(T,d);copy!(b,1,a,1,min(length(a),length(b)));b)
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
     ytype = gpu() ? CudaArray : Array
