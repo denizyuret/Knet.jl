@@ -7,7 +7,7 @@ g0 = eval(parse(ARGS[2]))
 net = Layer[KPerceptron(size(ytrn,1), KUnet.kgauss, [g0])]
 for epoch=1:20
     @show epoch
-    @date train(net, xtrn, ytrn; iters=1000)
+    @date train(net, xtrn, ytrn)
     @date zdev = predict(net,xdev)
     @date ztst = predict(net,xtst)
     @show (epoch, size(net[1].s), accuracy(ydev,zdev), accuracy(ytst,ztst))

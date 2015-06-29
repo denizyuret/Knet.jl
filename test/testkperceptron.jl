@@ -17,10 +17,10 @@ net = nothing
 nc = size(ytrn,1)
 
 for ker in (
-            (:kpoly, [c0,d0]),
-            (:kgauss, [g0]),
             (:klinear, nothing),
             (:perceptron, nothing),
+            (:kpoly, [c0,d0]),
+            (:kgauss, [g0]),
             )
     aa = ss = nothing
     for prc in (
