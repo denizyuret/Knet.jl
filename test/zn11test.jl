@@ -10,7 +10,9 @@ nbatch=100
 ntest=10000
 net=net1=net2=net3=nothing
 KUnet.gpu(true)
-for y in (:ytrn, :ydev, :ytst); @eval $y=full($y); end # This speeds up the accuracy fn
+for y in (:ytrn, :ydev, :ytst)
+    @eval $y=full($y)
+end # This speeds up the accuracy fn
 #xtrn1=xtrn[:,1:100000]
 #ytrn1=ytrn[:,1:100000]
 
