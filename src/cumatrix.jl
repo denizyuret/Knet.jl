@@ -65,7 +65,7 @@ unsafe_convert{T}(::Type{Ptr{T}}, g::CudaDynArray) = unsafe_convert(Ptr{T}, poin
 # size!: resize if necessary without copy.  
 function size!(a::CudaDynArray, n::Integer)
     n <= a.cap && return a      # We never shrink the array.
-    a.cap = int(1.33*n+1)       # 1.33 ensures a3 can be written where a0+a1 used to be
+    a.cap = int(1.3*n+1)        # 1.3 ensures a3 can be written where a0+a1 used to be
     free(a.ptr)
     a.ptr = malloc(eltype(a), a.cap)
     return a
@@ -76,7 +76,7 @@ size!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=size!(a,prod(d)); a.dims=d;
 # resize!: resize if necessary with copy
 function resize!{T}(a::CudaDynArray{T}, n::Integer)
     n <= a.cap && return a      # We never shrink the array.
-    a.cap = int(1.33*n+1)       # 1.33 ensures a3 can be written where a0+a1 used to be
+    a.cap = int(1.3*n+1)        # 1.3 ensures a3 can be written where a0+a1 used to be
     b = CudaArray(a.ptr, a.dims, a.dev) # save old contents for copy
     a.ptr = malloc(eltype(a), a.cap)
     copy!(a, 1, b, 1, min(n, prod(a.dims)))

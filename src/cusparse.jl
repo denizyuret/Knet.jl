@@ -54,7 +54,7 @@ end
 
 function grow!(a::KUnetArray, n::Integer)
     n <= length(a) && return a      # We never shrink the array.
-    b = similar(a, (int(1.33*n+1),))   # 1.33 ensures a3 can be written where a0+a1 used to be
+    b = similar(a, (int(1.3*n+1),))   # 1.3 ensures a3 can be written where a0+a1 used to be
     copy!(b, 1, a, 1, min(length(a), length(b)))
     isa(a,CudaArray) && free(a)
     return b
