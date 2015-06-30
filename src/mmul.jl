@@ -1,6 +1,6 @@
 type Mmul <: Layer; w; x; y; dx; dy; n;
     Mmul(d...; init=initgaussian, o...)=new(Param(d...; init=init, o...))
-    Mmul(n::Integer)=(l=new();l.n=n)
+    Mmul(n::Integer)=(l=new();l.n=n;l)
 end
 
 # copy(l::Mmul;o...)=Mmul(copy(l.w;o...))
