@@ -1,4 +1,4 @@
-import Base: convert, reshape, rand!, fill!, isempty, full, copy!, similar, stride
+import Base: convert, reshape, fill!, isempty, full, copy!, similar, stride
 import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
 import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
@@ -10,8 +10,6 @@ convert{T,S}(::Type{AbstractCudaArray{T}}, x::Array{S})=CudaArray(convert(Array{
 convert{T,S}(::Type{Array{T}}, x::AbstractCudaArray{S})=convert(Array{T}, to_host(x))
 reshape(a::AbstractCudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
 reshape(a::AbstractCudaArray, dims::Int...)=reshape(a, dims)
-rand!(A::AbstractCudaArray{Float32})=(ccall((:randfill32,libkunet),Void,(Cint,Ptr{Float32}),length(A),A); A)
-rand!(A::AbstractCudaArray{Float64})=(ccall((:randfill64,libkunet),Void,(Cint,Ptr{Float64}),length(A),A); A)
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 isempty(A::AbstractCudaArray)=(length(A)==0)
 full(A::AbstractCudaArray)=A            # this is missing
