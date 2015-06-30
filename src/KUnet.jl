@@ -10,6 +10,7 @@ KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 include("sparse.jl");
 GPU && include("cusparse.jl");
 GPU && include("cumatrix.jl");
+GPU && include("curand.jl");
 
 include("util.jl");	export accuracy, cpucopy, gpucopy, @date
 include("param.jl");	export Param, update, setparam!

@@ -5,7 +5,7 @@ type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov;
 Param(dims::Int...; o...) = Param(Float64, dims; o...)
 Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
 Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaArray:Array)(T,dims); o...)
-Param(w::KUnetArray; init=initgaussian!, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
+Param(w::KUnetArray; init=initgaussian, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.
@@ -37,16 +37,15 @@ adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (ep
 momentum!(m, dw2, dw)=(m=convert(eltype(dw2),m); axpy!(length(dw), m, dw2, 1, dw, 1); copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); m=convert(eltype(dw2),m); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
-initgaussian!(a::Array, std=0.01, mean=0.0)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
+initzero(a)=fill!(a,zero(eltype(a)))
+initgaussian(a, std=0.01, mean=0.0)=randn!(a,std,mean)
+randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
 
 if GPU
 adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
 adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
 l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
 l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
-
-initgaussian!(a::CudaArray{Float32}, std=0.01f0, mean=0f0)=ccall((:initgaussian32,libkunet),Void,(Ptr{Cfloat},Cint,Cfloat,Cfloat),a,length(a),mean,std)
-initgaussian!(a::CudaArray{Float64}, std=0.01, mean=0.0)=ccall((:initgaussian64,libkunet),Void,(Ptr{Cdouble},Cint,Cdouble,Cdouble),a,length(a),mean,std)
 end #if GPU
 
 # function maxnorm!(maxnorm, w)

@@ -1,5 +1,5 @@
 type Mmul <: Layer; w; x; y; dx; dy; n;
-    Mmul(d...; init=initgaussian!, o...)=new(Param(d...; init=init, o...))
+    Mmul(d...; init=initgaussian, o...)=new(Param(d...; init=init, o...))
     Mmul(n::Integer)=(l=new();l.n=n)
 end
 
@@ -24,7 +24,7 @@ end
 function initforw(l::Mmul, x)
     (xrows,xcols) = size2(x)
     l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
-    isdefined(l,:w) || (l.w = Param(eltype(x), l.n, xrows; init=initgaussian!))
+    isdefined(l,:w) || (l.w = Param(eltype(x), l.n, xrows; init=initgaussian))
     (wrows, wcols) = size2(l.w.data)
     @assert ndims(l.w.data) == 2
     @assert typeof(l.w.data) == typeof(l.x)

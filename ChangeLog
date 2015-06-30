@@ -1,3 +1,7 @@
+2015-06-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: param.jl: add initxavier for conv.jl
+
 2015-06-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* out-of-mem: gpu/dense gave out-of-memory error.
