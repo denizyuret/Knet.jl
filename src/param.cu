@@ -37,8 +37,10 @@ __global__ void _l1reg64(int n, double l1, double *w, double *dw) {
 }
 
 extern "C" {
-void l1reg32(int n, float l1, float *w, float *dw) KCALL(_l1reg32,n,l1,w,dw);
-void adagrad32(int n, float eps, float *dw2, float *dw) KCALL(_adagrad32,n,eps,dw2,dw);
-void l1reg64(int n, double l1, double *w, double *dw) KCALL(_l1reg64,n,l1,w,dw);
-void adagrad64(int n, double eps, double *dw2, double *dw) KCALL(_adagrad64,n,eps,dw2,dw);
+  void l1reg32(int n, float l1, float *w, float *dw) KCALL(_l1reg32,n,l1,w,dw);
+  void l1reg64(int n, double l1, double *w, double *dw) KCALL(_l1reg64,n,l1,w,dw);
+  void adagrad32(int n, float eps, float *dw2, float *dw) KCALL(_adagrad32,n,eps,dw2,dw);
+  void adagrad64(int n, double eps, double *dw2, double *dw) KCALL(_adagrad64,n,eps,dw2,dw);
+  void initgaussian32(float *x, int n, float mean, float std) CURAND(curandGenerateNormal(RNG, x, n, mean, std));
+  void initgaussian64(double *x, int n, double mean, double std) CURAND(curandGenerateNormalDouble(RNG, x, n, mean, std));
 }
