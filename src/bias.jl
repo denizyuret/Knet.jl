@@ -1,5 +1,5 @@
 type Bias <: Layer; b; 
-    Bias(d...; o...)=new(Param(d...; o...))
+    Bias(d...; init=initzero, o...)=new(Param(d...; init=init, o...))
     Bias()=new()
 end
 
@@ -32,8 +32,6 @@ function initforw(l::Bias, x, y)
     @assert eltype(b) == eltype(x)
     return (b,c)
 end
-
-initzero(a)=fill!(a,0)
 
 function back(l::Bias, dy; o...)
     (db, c) = initback(l, dy)
