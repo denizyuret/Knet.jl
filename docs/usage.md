@@ -5,7 +5,7 @@ illustrate basic usage of
 [KUnet](https://github.com/denizyuret/KUnet.jl):
 
 ```
-julia> include(Pkg.dir("KUnet/test/mnist.jl"))
+julia> require(Pkg.dir("KUnet/test/mnist.jl"))
 ```
 
 This may take a bit the first time you run to download the data.
@@ -33,21 +33,12 @@ julia> xtrn, ytrn, xtst, ytst
 )
 ```
 
-Before using KUnet, we should specify the array type and the element
-type we want to use.  The array type determines whether KUnet uses the
-GPU, and the element type should match that of the data.
-
-```
-julia> KUnet.atype(CudaArray)   # CudaArray or Array
-julia> KUnet.ftype(Float32)     # Float32 or Float64
-```
-
 Let's construct a neural net with a single layer of 64 hidden units
 using the relu activation function and the cross entropy loss function.
 
 ```
-julia> net = [ Mmul(64,784), Bias(64), Relu(),
-               Mmul(10,64),  Bias(10), XentLoss() ]
+julia> net = [ Mmul(64), Bias(), Relu(),
+               Mmul(10),  Bias(), XentLoss() ]
 ```
 
 Each element of the net array represents an operation, e.g. Mmul
@@ -77,20 +68,20 @@ A Net is simply a 1-D array of Layers.  Here are the definitions from
 ```
 abstract Layer
 typealias Net Array{Layer,1}
-type Bias <: Layer; b::Param; Bias(b::Param)=new(b); end
+type Bias <: Layer; b; Bias()=new(Param(0)); end
 ```
-
 
 If you are not happy with the default Layer constructors, you can
-specify your own parameters.  For example, the Mmul(64,784)
+specify your own parameters.  For example, the default Mmul(64)
 constructor fills a (64,784) weight matrix with random weights from a
-Gaussian distribution with std=0.01.  If we want a different
-initialization, we could create a weight matrix any way we want and
-pass it to the Mmul constructor instead.  Note that the weight matrix
-for an Mmul layer with 784 inputs and 64 outputs has size (64, 784).
+Gaussian distribution with mean=0 and std=0.01.  If we want a
+different initialization, we could create a weight matrix any way we
+want and pass it to the Mmul constructor instead.  Note that the
+weight matrix for an Mmul layer with 784 inputs and 64 outputs has
+size (64, 784).
 
 ```
-julia> w1 = randn(64, 784) * 0.05
+julia> w1 = float32(randn(64, 784) * 0.05)
 julia> l1 = Mmul(w1)
 ```
 
@@ -99,7 +90,7 @@ layer construction, or using setparam! on the whole network or on
 individual layers.
 
 ```
-julia> l1 = Mmul(64,784; lr=0.01)
+julia> l1 = Mmul(64; lr=0.01)
 julia> setparam!(l1; lr=0.01)
 julia> setparam!(net; lr=0.01)
 ```
@@ -115,13 +106,6 @@ julia> savenet("net0.jld", net)
 ```
 
 OK, now that we have some data and a network, let's proceed with training.
-Here is a convenience function to measure the classification accuracy:
-
-```
-julia> accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
-```
-
-Let's do 100 epochs of training:
 
 ```
 @time for i=1:100
@@ -134,8 +118,9 @@ end
 If you take a look at the definition of `train` in
 [net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl),
 you will see that it takes a network net, the input x, and the desired
-output y, and after splitting the data into minibatches it just calls
-`backprop` and `update`.  Here is a simplified version:
+output y, and after splitting the data into minibatches of size
+`batch`, it just calls `backprop` and `update`.  Here is a simplified
+version:
 
 ```
 train(net, x, y)=(backprop(net, x, y); update(net))
@@ -258,7 +243,7 @@ the number of hidden units:
 
 ```
 for h in (128, 256, 512, 1024)
-    net = [Mmul(h,784), Bias(h), Relu(), Mmul(10,h),  Bias(10), XentLoss()]
+    net = [Mmul(h), Bias(), Relu(), Mmul(10),  Bias(), XentLoss()]
     setparam!(net; lr=0.5)
     for i=1:100
         train(net, xtrn, ytrn; batch=128)
@@ -280,8 +265,8 @@ network by increasing the hidden units in that situation.  Maybe we
 should try [dropout](http://jmlr.org/papers/v15/srivastava14a.html):
 
 ```
-net = [Drop(0.2), Mmul(1024,784), Bias(1024), Relu(), 
-       Drop(0.5), Mmul(10,1024),  Bias(10), XentLoss()]
+net = [Drop(0.2), Mmul(1024), Bias(), Relu(), 
+       Drop(0.5), Mmul(10),  Bias(), XentLoss()]
 
 # lr=0.5, same for loop
 ...
@@ -292,9 +277,9 @@ elapsed time: 122.898730432 seconds (1667849932 bytes allocated, 0.96% gc time)
 Or bigger and bigger nets:
 
 ```
-net = [Drop(0.2), Mmul(4096,784),  Bias(4096), Relu(), 
-       Drop(0.5), Mmul(4096,4096), Bias(4096), Relu(), 
-       Drop(0.5), Mmul(10,4096),   Bias(10), XentLoss()]
+net = [Drop(0.2), Mmul(4096),  Bias(), Relu(), 
+       Drop(0.5), Mmul(4096), Bias(), Relu(), 
+       Drop(0.5), Mmul(10),   Bias(), XentLoss()]
 
 # lr=0.5, same for loop
 ...
@@ -306,10 +291,10 @@ Or maybe we should try convolution.  Here is an implementation of
 [LeNet](http://yann.lecun.com/exdb/lenet):
 
 ```
-net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
-       Conv(5,5,20,50), Bias(50), Relu(), Pool(2),
-       Mmul(500,800), Bias(500), Relu(),
-       Mmul(10,500), Bias(10), XentLoss()]
+net = [Conv(5,5,1,20), Bias(), Relu(), Pool(2),
+       Conv(5,5,20,50), Bias(), Relu(), Pool(2),
+       Mmul(500), Bias(), Relu(),
+       Mmul(10), Bias(), XentLoss()]
 setparam!(net; lr=0.1)
 
 # Need to reshape the input arrays for convolution:
