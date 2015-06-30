@@ -1,6 +1,6 @@
-type Mmul <: Layer; w; x; y; dx; dy; n;
+type Mmul <: Layer; w; x; y; dx; dy;
     Mmul(d...; init=initgaussian, o...)=new(Param(d...; init=init, o...))
-    Mmul(n::Integer)=(l=new();l.n=n;l)
+    Mmul(n::Integer)=new(Param(n,0))
 end
 
 # copy(l::Mmul;o...)=Mmul(copy(l.w;o...))
@@ -24,8 +24,8 @@ end
 function initforw(l::Mmul, x)
     (xrows,xcols) = size2(x)
     l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
-    isdefined(l,:w) || (l.w = Param(eltype(x), l.n, xrows; init=initgaussian))
     (wrows, wcols) = size2(l.w.data)
+    wcols==0 && (wcols=xrows; l.w.data = initgaussian((gpu()?CudaArray:Array)(eltype(x),wrows,wcols)))
     @assert ndims(l.w.data) == 2
     @assert typeof(l.w.data) == typeof(l.x)
     @assert eltype(l.w.data) == eltype(l.x)

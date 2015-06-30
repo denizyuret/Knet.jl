@@ -1,13 +1,9 @@
-include(Pkg.dir("KUnet/test/mnist.jl"))
+require(Pkg.dir("KUnet/test/mnist.jl"))
 using KUnet
 using MNIST: xtrn, ytrn, xtst, ytst
-using KUnet: accuracy
 
-if false
-end # if false
-
-net = [Mmul(64,784), Bias(64), Relu(),
-       Mmul(10,64),  Bias(10), XentLoss()]
+net = [Mmul(64), Bias(), Relu(),
+       Mmul(10),  Bias(), XentLoss()]
 setparam!(net; lr=0.01)
 
 savenet("net0.jld", net)
@@ -29,7 +25,7 @@ end
 
 for h in (128, 256, 512, 1024)
     @show h
-    net = [Mmul(h,784), Bias(h), Relu(), Mmul(10,h),  Bias(10), XentLoss()]
+    net = [Mmul(h), Bias(), Relu(), Mmul(10),  Bias(), XentLoss()]
     setparam!(net; lr=0.5)
     @time for i=1:100
         train(net, xtrn, ytrn)
@@ -38,8 +34,8 @@ for h in (128, 256, 512, 1024)
     end
 end
 
-net = [Drop(0.2), Mmul(1024,784), Bias(1024), Relu(), 
-       Drop(0.5), Mmul(10,1024),  Bias(10), XentLoss()]
+net = [Drop(0.2), Mmul(1024), Bias(), Relu(), 
+       Drop(0.5), Mmul(10),  Bias(), XentLoss()]
 setparam!(net; lr=0.5)
 
 @time for i=1:100
@@ -48,9 +44,9 @@ setparam!(net; lr=0.5)
              accuracy(ytrn, predict(net, xtrn))))
 end
 
-net = [Drop(0.2), Mmul(4096,784),  Bias(4096), Relu(), 
-       Drop(0.5), Mmul(4096,4096), Bias(4096), Relu(), 
-       Drop(0.5), Mmul(10,4096),   Bias(10), XentLoss()]
+net = [Drop(0.2), Mmul(4096),  Bias(), Relu(), 
+       Drop(0.5), Mmul(4096), Bias(), Relu(), 
+       Drop(0.5), Mmul(10),   Bias(), XentLoss()]
 setparam!(net; lr=0.5)
 
 @time for i=1:100
@@ -59,10 +55,10 @@ setparam!(net; lr=0.5)
              accuracy(ytrn, predict(net, xtrn))))
 end
 
-net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
-       Conv(5,5,20,50), Bias(50), Relu(), Pool(2),
-       Mmul(500,800), Bias(500), Relu(),
-       Mmul(10,500), Bias(10), XentLoss()]
+net = [Conv(5,5,1,20), Bias(), Relu(), Pool(2),
+       Conv(5,5,20,50), Bias(), Relu(), Pool(2),
+       Mmul(500), Bias(), Relu(),
+       Mmul(10), Bias(), XentLoss()]
 setparam!(net; lr=0.1)
 
 xtrn2 = reshape(xtrn, 28, 28, 1, size(xtrn, 2))

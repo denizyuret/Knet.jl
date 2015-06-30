@@ -1,6 +1,6 @@
 type Bias <: Layer; b; 
     Bias(d...; init=initzero, o...)=new(Param(d...; init=init, o...))
-    Bias()=new()
+    Bias()=new(Param(0))
 end
 
 # copy(l::Bias; o...)=Bias(copy(l.b; o...))
@@ -26,8 +26,8 @@ function initforw(l::Bias, x, y)
     y===x || copy!(y,x)
     c = ndims(x)-1
     nb = size(x, c==0 ? 1 : c)
-    isdefined(l,:b) || (l.b = Param(eltype(x), nb; init=initzero))
     b = l.b.data
+    isempty(b) && (b = l.b.data = initzero((gpu()?CudaArray:Array)(eltype(x), nb)))
     @assert length(b) == nb
     @assert eltype(b) == eltype(x)
     return (b,c)

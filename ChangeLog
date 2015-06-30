@@ -1,6 +1,10 @@
 2015-06-30  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO: param.jl: add initxavier for conv.jl
+	* cusparse.jl: TODO: implement uniq! for sparse perceptron.
+
+	* perceptron.jl: TODO: implement addx! for gpu perceptron.
+
+	* param.jl: TODO: add initxavier for conv.jl
 
 2015-06-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
