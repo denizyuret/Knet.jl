@@ -2,8 +2,6 @@
 # Hopefully it will shrink down to nothing as things get fixed in the
 # original packages.
 
-import Base: copy, copy!, rand!, fill!, convert, reshape, isempty
-
 # Print date, expression and elapsed time after execution
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
@@ -39,7 +37,7 @@ if GPU
 
 typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T},CudaDynArray{T}) # no sparse
 
-function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
+function Base.copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
