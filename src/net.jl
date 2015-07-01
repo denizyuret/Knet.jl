@@ -51,7 +51,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         backprop(net, xx, yy; o...)
         update(net; o...)
         (iters > 0) && (e/batch >= iters) && break
-        gpu() && gpumem() < (1<<30) && gc()
+        gpu() && (gpumem() < (1<<30)) && gc()
     end
     gpu() && gc()
 end
@@ -78,6 +78,7 @@ function b2y(y, b, r, x)
     @assert eltype(y) == eltype(b)
     yi = 1 + (first(r) - 1) * stride(y, ndims(y))
     copy!(y, yi, b, 1, length(b))
+    gpu() && gpusync()
     return y
 end
 
@@ -99,6 +100,7 @@ function x2b(b, x, r)
     end
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))
+    gpu() && gpusync()
     return b
 end
 
@@ -109,7 +111,7 @@ function x2b(b, x::SparseMatrixCSC, r)
     # Copy columns to from x to b
     # Copy to gpu if necessary
     b = x[:,r]
-    gpu() && (b = gpucopy(b))
+    gpu() && (b = gpucopy(b); gpusync())
     return b
 end
 
