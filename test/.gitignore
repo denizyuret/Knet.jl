@@ -1,3 +1,4 @@
+*.jld4
 log
 unused
 test_*
