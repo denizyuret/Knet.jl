@@ -1,22 +1,22 @@
-type Bias <: Layer; b; 
+type Bias <: Layer; w; 
     Bias(d...; init=initzero, o...)=new(Param(d...; init=init, o...))
     Bias()=new(Param(0))
 end
 
-# copy(l::Bias; o...)=Bias(copy(l.b; o...))
-update(l::Bias; o...)=update(l.b; o...)
-setparam!(l::Bias; o...)=setparam!(l.b; o...)
+# copy(l::Bias; o...)=Bias(copy(l.w; o...))
+update(l::Bias; o...)=update(l.w; o...)
+setparam!(l::Bias; o...)=setparam!(l.w; o...)
 
 # We are implementing the CUDNN_ADD_SAME_C mode of cudnn:
 # In this mode if x has dimensions (X1,X2,...,C,N) then
 # bias has length=C.
 
 function forw(l::Bias, x, y=x; o...)
-    (b,c) = initforw(l,x,y)
+    (w,c) = initforw(l,x,y)
     if ndims(x) == 1
-        for i=1:length(x); y[i] = x[i] + b[i]; end
+        for i=1:length(x); y[i] = x[i] + w[i]; end
     else
-        for i=1:length(x); y[i] = x[i] + b[ind2sub(size(x),i)[c]]; end
+        for i=1:length(x); y[i] = x[i] + w[ind2sub(size(x),i)[c]]; end
     end
     return y
 end
@@ -26,16 +26,16 @@ function initforw(l::Bias, x, y)
     y===x || copy!(y,x)
     c = ndims(x)-1
     nb = size(x, c==0 ? 1 : c)
-    b = l.b.data
-    isempty(b) && (b = l.b.data = initzero((gpu()?CudaArray:Array)(eltype(x), nb)))
-    @assert length(b) == nb
-    @assert eltype(b) == eltype(x)
-    return (b,c)
+    w = l.w.data
+    isempty(w) && (w = l.w.data = initzero((gpu()?CudaArray:Array)(eltype(x), nb)))
+    @assert length(w) == nb
+    @assert eltype(w) == eltype(x)
+    return (w,c)
 end
 
 function back(l::Bias, dy; o...)
     (db, c) = initback(l, dy)
-    # sum!(l.b.diff, dy)
+    # sum!(l.w.diff, dy)
     if ndims(dy) == 1
         for i=1:length(dy); db[i]=dy[i]; end
     else
@@ -46,8 +46,8 @@ function back(l::Bias, dy; o...)
 end
 
 function initback(l::Bias, dy)
-    similar!(l.b, :diff, l.b.data)
-    db = l.b.diff
+    similar!(l.w, :diff, l.w.data)
+    db = l.w.diff
     c = ndims(dy)-1
     nb = size(dy, c==0 ? 1 : c)
     @assert length(db) == nb
@@ -56,7 +56,7 @@ function initback(l::Bias, dy)
 end
 
 if GPU
-forw(l::Bias, x::CudaArray, y=x; o...)=(initforw(l,x,y); cudnnAddTensor(l.b.data, y; mode=CUDNN_ADD_SAME_C); y)
-back(l::Bias, dy::CudaArray; o...)=(initback(l,dy); cudnnConvolutionBackwardBias(dy, l.b.diff); dy)
+forw(l::Bias, x::CudaArray, y=x; o...)=(initforw(l,x,y); cudnnAddTensor(l.w.data, y; mode=CUDNN_ADD_SAME_C); y)
+back(l::Bias, dy::CudaArray; o...)=(initback(l,dy); cudnnConvolutionBackwardBias(dy, l.w.diff); dy)
 end
 
