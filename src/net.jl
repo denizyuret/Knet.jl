@@ -53,6 +53,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         (iters > 0) && (e/batch >= iters) && break
         gpu() && (gpumem() < (1<<30)) && gc()
     end
+    strip!(net)
     gpu() && gc()
 end
 
