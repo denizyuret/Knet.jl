@@ -14,7 +14,7 @@ isongpu(a)=(GPU && isa(a, AbstractCudaArray))
 
 # We use this function to confirm/create an array element of the right type/size
 function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
-    if !isdefined(l,n) || (eltype(l.(n)) != T) || (size(l.(n)) != dims)
+    if !isdefined(l,n) || (l.(n) == nothing) || (eltype(l.(n)) != T) || (size(l.(n)) != dims)
         if isa(a, AbstractSparseArray)
             l.(n) = spzeros(T, itype(a), dims...)
             fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
@@ -53,12 +53,15 @@ end
 cpucopy(x)=_cpucopy(x,ObjectIdDict())
 gpucopy(x)=_gpucopy(x,ObjectIdDict())
 
+# Need the dictionary to prevent double copying
 _cpucopy(x::AbstractCudaArray,d)=(haskey(d,x) ? d[x] : (d[x]=to_host(x)))
-_cpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? copy(x) : map(y->_cpucopy(y,d), x))))
+# we need convert(typeof(x),...) to prevent Layer[] from turning into LogpLoss[]
+_cpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? copy(x) : convert(typeof(x), map(y->_cpucopy(y,d), x)))))
 _cpucopy(x,d)=(haskey(d,x) ? d[x] : (d[x]=mydeepcopy(x, d, _cpucopy)))
 _gpucopy(x::AbstractCudaArray,d)=(haskey(d,x) ? d[x] : (d[x]=copy(x)))
-_gpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? CudaArray(x) : map(y->_gpucopy(y,d), x))))
+_gpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? CudaArray(x) : convert(typeof(x), map(y->_gpucopy(y,d), x)))))
 _gpucopy(x,d)=(haskey(d,x) ? d[x] : (d[x]=mydeepcopy(x, d, _gpucopy)))
+
 
 # Adapted from deepcopy.jl:29 _deepcopy_t()
 function mydeepcopy(x,d,cp)

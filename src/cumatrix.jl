@@ -102,25 +102,8 @@ end
 
 function uniq!(ss::CudaDynArray, uu::CudaDynArray, vv::CudaDynArray)
     (s,u,v)=map(cpucopy,(ss,uu,vv))
-    d = Dict{Any,Int}()
-    n = 0
-    for j=1:size(s,2)
-        jj = get!(d, s[:,j], n+1)
-        if jj <= n
-            @assert n == length(d) < j
-            u[:,jj] += u[:,j]
-            v[:,jj] += v[:,j]
-        else
-            @assert jj == n+1 == length(d) <= j
-            n = n+1
-            if jj != j
-                s[:,jj] = s[:,j]
-                u[:,jj] = u[:,j]
-                v[:,jj] = v[:,j]
-            end
-        end
-    end
-    @assert n == length(d)
+    (s,u,v)=uniq!(s,u,v)
+    n = size(s,2)
     ss = size!(ss, (size(s,1),n))
     uu = size!(uu, (size(u,1),n))
     vv = size!(vv, (size(v,1),n))
@@ -128,4 +111,30 @@ function uniq!(ss::CudaDynArray, uu::CudaDynArray, vv::CudaDynArray)
     copy!(uu, 1, u, 1, size(u,1)*n)
     copy!(vv, 1, v, 1, size(v,1)*n)
     return (ss,uu,vv)
+end
+
+function uniq!(s::AbstractArray, u::AbstractArray, v::AbstractArray)
+    ds = Dict{Any,Int}()        # dictionary of support vectors
+    ns = 0                      # number of unique support vectors
+    for j=1:size(s,2)
+        jj = get!(ds, s[:,j], ns+1)
+        if jj <= ns
+            @assert ns == length(ds) < j
+            u[:,jj] += u[:,j]
+            v[:,jj] += v[:,j]
+        else
+            @assert jj == ns+1 == length(ds) <= j
+            ns = ns+1
+            if jj != j
+                s[:,jj] = s[:,j]
+                u[:,jj] = u[:,j]
+                v[:,jj] = v[:,j]
+            end
+        end
+    end
+    @assert ns == length(ds)
+    s = size!(s, (size(s,1),ns))
+    u = size!(u, (size(u,1),ns))
+    v = size!(v, (size(v,1),ns))
+    return (s,u,v)
 end

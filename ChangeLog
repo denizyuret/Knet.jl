@@ -1,3 +1,16 @@
+2015-07-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/cumatrix.jl: TODO: is it better to split code by function
+	rather than datatype?  more similarity.
+
+	* src/sparse.jl: TODO: better interface for hcat!, last two args
+	should be optional.
+
+	* test/runtests.jl: TODO: test different cpu/gpu sparse/dense
+	float32/float64 combos.
+
+	* src/util.jl: TODO: use CudaDynArray everywhere and minimize the realloc.
+
 2015-07-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* acl11: check postag difference with acl11.

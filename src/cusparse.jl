@@ -127,31 +127,13 @@ end
 
 function uniq!(ss::CudaSparseMatrixCSC, uu::AbstractCudaArray, vv::AbstractCudaArray)
     (s,u,v)=map(cpucopy,(ss,uu,vv))
-    d = Dict{Any,Int}()
-    n = 0
-    s0 = spzeros(eltype(s), Int32, size(s,1), n)
-    for j=1:size(s,2)
-        jj = get!(d, s[:,j], n+1)
-        if jj <= n
-            @assert n == length(d) < j
-            u[:,jj] += u[:,j]
-            v[:,jj] += v[:,j]
-        else
-            @assert jj == n+1 == length(d) <= j
-            n = n+1
-            hcat!(s0, s, [j], 1)
-            if jj != j
-                u[:,jj] = u[:,j]
-                v[:,jj] = v[:,j]
-            end
-        end
-    end
-    @assert n == length(d) == size(s0,2)
+    (s,u,v)=uniq!(s,u,v)
+    n = size(s,2)
     uu = size!(uu, (size(u,1),n))
     vv = size!(vv, (size(v,1),n))
     copy!(uu, 1, u, 1, size(u,1)*n)
     copy!(vv, 1, v, 1, size(v,1)*n)
-    (ss.m, ss.n, ss.colptr, ss.rowval, ss.nzval) = (s0.m, s0.n, gpucopy(s0.colptr), gpucopy(s0.rowval), gpucopy(s0.nzval))
+    (ss.m, ss.n, ss.colptr, ss.rowval, ss.nzval) = (s.m, s.n, gpucopy(s.colptr), gpucopy(s.rowval), gpucopy(s.nzval))
     return (ss,uu,vv)
 end
 

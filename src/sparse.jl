@@ -59,3 +59,30 @@ function hcat!{Tv,Ti<:Integer}(a::SparseMatrixCSC{Tv}, b::SparseMatrixCSC{Tv}, v
     a.n += nj
     return a
 end
+
+function uniq!(s::SparseMatrixCSC, u::AbstractArray, v::AbstractArray)
+    ds = Dict{Any,Int}()        # dictionary of support vectors
+    ns = 0                      # number of support vectors
+    s0 = spzeros(eltype(s), Int32, size(s,1), ns) # new sv matrix
+    for j=1:size(s,2)
+        jj = get!(ds, s[:,j], ns+1)
+        if jj <= ns             # s[:,j] already in s0[:,jj]
+            @assert ns == length(ds) < j
+            u[:,jj] += u[:,j]
+            v[:,jj] += v[:,j]
+        else                    # s[:,j] to be added to s0
+            @assert jj == ns+1 == length(ds) <= j
+            ns = ns+1
+            hcat!(s0, s, [j], 1)
+            if jj != j
+                u[:,jj] = u[:,j]
+                v[:,jj] = v[:,j]
+            end
+        end
+    end
+    @assert ns == length(ds) == size(s0,2)
+    u = size!(u, (size(u,1),ns))
+    v = size!(v, (size(v,1),ns))
+    for f in names(s); s.(f) = s0.(f); end
+    return (s,u,v)
+end

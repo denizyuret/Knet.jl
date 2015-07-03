@@ -4,7 +4,7 @@ type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov;
 
 Param(dims::Int...; o...) = Param(Float64, dims; o...)
 Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
-Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaArray:Array)(T,dims); o...)
+Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaDynArray:Array)(T,dims); o...)
 Param(w::KUnetArray; init=initgaussian, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
