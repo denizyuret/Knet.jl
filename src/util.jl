@@ -50,15 +50,19 @@ function Base.copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}
 end
 
 # General cpu/gpu deep copy for composite types, gpu arrays etc.
-cpucopy(x::AbstractCudaArray)=to_host(x)
-cpucopy(x::AbstractArray)=(isbits(eltype(x)) ? copy(x) : map(cpucopy, x))
-cpucopy(x)=mydeepcopy(x, cpucopy)
-gpucopy(x::AbstractCudaArray)=copy(x)
-gpucopy(x::AbstractArray)=(isbits(eltype(x)) ? CudaArray(x) : map(gpucopy, x))
-gpucopy(x)=mydeepcopy(x, gpucopy)
+cpucopy(x)=_cpucopy(x,ObjectIdDict())
+gpucopy(x)=_gpucopy(x,ObjectIdDict())
+
+_cpucopy(x::AbstractCudaArray,d)=(haskey(d,x) ? d[x] : (d[x]=to_host(x)))
+_cpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? copy(x) : map(y->_cpucopy(y,d), x))))
+_cpucopy(x,d)=(haskey(d,x) ? d[x] : (d[x]=mydeepcopy(x, d, _cpucopy)))
+_gpucopy(x::AbstractCudaArray,d)=(haskey(d,x) ? d[x] : (d[x]=copy(x)))
+_gpucopy(x::AbstractArray,d)=(haskey(d,x) ? d[x] : (d[x] = (isbits(eltype(x)) ? CudaArray(x) : map(y->_gpucopy(y,d), x))))
+_gpucopy(x,d)=(haskey(d,x) ? d[x] : (d[x]=mydeepcopy(x, d, _gpucopy)))
 
 # Adapted from deepcopy.jl:29 _deepcopy_t()
-function mydeepcopy(x,fn)
+function mydeepcopy(x,d,cp)
+    haskey(d,x) && return d[x]
     T = typeof(x)
     if T.names===() || !T.mutable || (T==Function)
         return x
@@ -66,10 +70,10 @@ function mydeepcopy(x,fn)
     ret = ccall(:jl_new_struct_uninit, Any, (Any,), T)
     for i in 1:length(T.names)
         if isdefined(x,i)
-            ret.(i) = fn(x.(i))
+            ret.(i) = cp(x.(i),d)
         end
     end
-    return ret
+    return (d[x]=ret)
 end
 
 else  # if GPU
