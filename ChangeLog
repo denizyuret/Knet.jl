@@ -1,27 +1,38 @@
 2015-07-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* zn11pvcnet.jl: @@pvc nnet experiments using 16K hidden and 0.01562
+	* acl11: check postag difference with acl11.
+	It seems devi/devo, testi/testo, and train have predicted postags.
+	devr and testr have gold postags.
+
+	[dy_052@hpc3007 data]$ for i in acl11 cw hlbl glove mikolov random yatbaz mikolov300; do echo $i; julia compare-jld4.jl bansal.trn.jld4 $i.trn.jld4; done
+	acl11
+	a["deprel"] == b["deprel"] => true
+	a["postag"] == b["postag"] => true
+	aform == bform => false
+	apostag == bpostag => false
+	ahead == bhead => true
+	adeprel == bdeprel => true
+	awvec == bwvec => false
+
+
+	* bansal-zn11pv.jld:
+	- embeddings.sh, uses conll7jld.jl, creates jld4 files.
+	- julia getfeatures.jl bansal zn11pv
+
+	* kunet: embeddings.sh converted to jld4.
+
+	* shell: embeddings copied from balina.
+
+	* @@parser: TODO: memory and time problems with bparser for the
+	final parsing experiments.
+
+	* train.jl: TODO:
+	- check for early stop.
+	- removed dropout, what is the effect?
+	- repeat feature selection experiments.
+
+	* zn11pvcnet.jl: pvc nnet experiments using 16K hidden and 0.01562
 	lr.  single hidden layer.  no dropout.
-	zn11c.jld
-	12514296.hpc-pbs.hpcc.usc.edu
-	zn11cp.jld
-	12514297.hpc-pbs.hpcc.usc.edu
-	zn11cpv.jld
-	12514298.hpc-pbs.hpcc.usc.edu
-	zn11cv.jld
-	12514299.hpc-pbs.hpcc.usc.edu
-	zn11n.jld
-	12514300.hpc-pbs.hpcc.usc.edu
-	zn11oparse1.jld
-	12514301.hpc-pbs.hpcc.usc.edu
-	zn11oparse.jld
-	12514302.hpc-pbs.hpcc.usc.edu
-	zn11p.jld
-	12514303.hpc-pbs.hpcc.usc.edu
-	zn11pv.jld
-	12514304.hpc-pbs.hpcc.usc.edu
-	zn11v.jld
-	12514305.hpc-pbs.hpcc.usc.edu
 
 	* datafiles:
 	- dense:
@@ -41,6 +52,7 @@
 2015-06-30  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* 06302022-julia_zn11nnet4_jl_zn11cpv_jld.out: trying cpv.
+	+ 07011657-julia_zn11nnet5_jl_zn11cpv_jld.out
 	data	hidden	best-lr	best-dev
 	cpv	128	0.12500 0.9598
 	cpv	256	0.06250	0.9618
@@ -51,12 +63,10 @@
 	cpv	8192	0.01562	0.9653
 	cpv	16384	0.01562	0.9658
 	cpv	32768	0.00781	0.9655
-	$ ssh hpc3006 grep accuracy /var/spool/torque/spool/*.OU
-	cpv	16384	@@12514243@hpc3006
-	cpv	32768
-	cpv	65536
+	cpv	65536	0.00781	0.9657
 
 	* 06302014-julia_zn11nnet4_jl_zn11cv_jld.out: trying cv.
+	+ 07011608-julia_zn11nnet5_jl_zn11cv_jld.out
 	data	hidden	best-lr	best-dev
 	cv	128	0.06250	0.9522
 	cv	256	0.06250	0.9555
@@ -68,10 +78,6 @@
 	cv	16384	0.01562	0.9607
 	cv	32768	0.01562	0.9609
 	cv	65536	0.01562	0.9609
-	$ ssh hpc3005 grep accuracy /var/spool/torque/spool/*.OU
-	cv	16384	@@12514242@hpc3005
-	cv	32768	
-	cv	65536	
 
 	* 06302002-julia_zn11nnet3_jl_zn11pv_jld.out: dropout with single 16K hidden layer.
 	data	hidden	best-lr	best-dev
@@ -101,8 +107,11 @@
 	pv	32768	0.01562	0.9632
 	pv	65536	0.01562	0.9635
 
+	* acl11trn.jld4: TODO: separate wvec and cvec into two features.
+
 	* conv.jl: TODO: conv fails tutorial.jl code.  fix
-	initialization.
+	initialization: should figure out input size/type from first x
+	like bias/mmul.
 
 	* cusparse.jl: TODO: implement uniq! for sparse perceptron.
 
