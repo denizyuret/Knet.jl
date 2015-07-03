@@ -25,8 +25,8 @@ typealias Net Array{Layer,1}
 forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
 back(n::Net, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
 # copy(n::Net; o...)=Layer[map(l->copy(l; o...),n)...]  # need Layer[] otherwise type may change to e.g. Array{Relu}
-update(n::Net; o...)=(for l in n; update(l; o...); end)
-setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end)
+update(n::Net; o...)=(for l in n; update(l; o...); end; n)
+setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end; n)
 
 # The backprop algorithm
 
@@ -148,11 +148,25 @@ end
 using HDF5, JLD
 
 function savenet(filename::String, net::Net)
+    net = strip!(net)
     GPU && (net = cpucopy(net))
     save(filename, "kunet", net)
 end
 
 function loadnet(filename::String)
     net = load(filename, "kunet")
+    net = strip!(net)
     gpu() ? gpucopy(net) : net
 end
+
+function strip!(l::Layer)
+    for f in names(l)
+        isdefined(l,f) || continue
+        isa(l.(f), Param) && strip!(l.(f))
+        in(f, (:x, :y, :dx, :dy)) && (l.(f)=nothing)
+    end
+    return l
+end
+
+strip!(p::Param)=(p.diff=nothing;p)
+strip!(n::Net)=(for l in n; strip!(l); end; gc(); n)
