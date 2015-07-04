@@ -10,9 +10,10 @@ drop2 = eval(parse(ARGS[argn+=1]))
 
 net = Layer[]
 while argn <= length(ARGS)
+    argn += 1
     d = isempty(net) ? drop1 : drop2
     d > 0 && (net = push!(net, Drop(d)))
-    h = (argn < length(ARGS)) ? eval(parse(ARGS[argn+=1])) : size(ytrn, 1)
+    h = (argn <= length(ARGS)) ? eval(parse(ARGS[argn])) : size(ytrn, 1)
     net = append!(net, [Mmul(h), Bias(), Relu()])
 end
 setparam!(net, adagrad=1e-8, lr=lr)
