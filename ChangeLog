@@ -1,4 +1,36 @@
+2015-07-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	TODO: tune feature set
+	TODO: profile parsers
+	TODO: run gparser?
+	TODO: use multi-machine parallel for bparser
+
+	* test/zn11nnet.jl: tune nnet for 20 epoch runs:
+	lr, drop1, drop2, hidden1, hidden2...
+
+	0.01562 0 0 11585
+	0.01562 0 0 16384
+	0.01562 0 0 23170
+
+	0.03125 .2 .5 16384
+	0.01562 .2 .5 16384
+	0.00781 .2 .5 16384
+
+	0.01562 0 0 8192 8192
+	0.01562 0 0 4096 4096
+	0.01562 0 0 2048 2048
+
+	0.01562 .2 .5 8192 8192
+	0.01562 .2 .5 4096 4096
+	0.01562 .2 .5 2048 2048
+
+
 2015-07-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/simpleIPC/fooipc.cu (main): seems like the only choices are
+	using lightweight threads or memcopy.  a memory handle seems
+	sharable by only one other process?
 
 	* src/cumatrix.jl: TODO: is it better to split code by function
 	rather than datatype?  more similarity.
