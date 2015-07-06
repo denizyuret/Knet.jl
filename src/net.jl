@@ -39,6 +39,7 @@ end
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
 function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
+    @assert isa(net[end], LossLayer)
     shuffle && ((x,y)=shufflexy!(x,y))
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
@@ -51,7 +52,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         backprop(net, xx, yy; o...)
         update(net; o...)
         (iters > 0) && (e/batch >= iters) && break
-        gpu() && (gpumem() < (1<<30)) && gc()
+        gpu() && (gpumem() < (1<<28)) && gc()
     end
     strip!(net)
     gpu() && gc()
