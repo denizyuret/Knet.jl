@@ -57,9 +57,9 @@ end
 
 if GPU
 
-loss(l::XentLoss, p::CudaArray)=loss(l, to_host(p), to_host(l.y))
+loss(l::XentLoss, p::AbstractCudaArray)=loss(l, to_host(p), to_host(l.y))
 
-function back(l::XentLoss, p::CudaArray{Float32}; returndx=true, o...)
+function back(l::XentLoss, p::AbstractCudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (nd,nx) = size2(p)
@@ -67,7 +67,7 @@ function back(l::XentLoss, p::CudaArray{Float32}; returndx=true, o...)
     return p;
 end
 
-function back(l::XentLoss, p::CudaArray{Float64}; returndx=true, o...)
+function back(l::XentLoss, p::AbstractCudaArray{Float64}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (nd,nx) = size2(p)

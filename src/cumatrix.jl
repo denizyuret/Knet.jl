@@ -3,14 +3,13 @@ import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
 import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
 import Base.LinAlg.BLAS: gemm!, axpy!
-import CUDArt: malloc, free, pitchedptr, rt
+import CUDArt: malloc, free, pitchedptr, rt, to_host
 import Compat: unsafe_convert
 
-convert{T,S}(::Type{AbstractCudaArray{T}}, x::Array{S})=CudaArray(convert(Array{T}, x))
+convert{T,S}(::Type{AbstractCudaArray{T}}, x::Array{S})=CudaDynArray(convert(Array{T}, x))
 convert{T,S}(::Type{Array{T}}, x::AbstractCudaArray{S})=convert(Array{T}, to_host(x))
 reshape(a::AbstractCudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
 reshape(a::AbstractCudaArray, dims::Int...)=reshape(a, dims)
-fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 isempty(A::AbstractCudaArray)=(length(A)==0)
 full(A::AbstractCudaArray)=A            # this is missing
 # similar(A::AbstractCudaArray, dims::Int...) = similar(A,dims) # this is buggy, matches similar(A)
@@ -50,6 +49,8 @@ end
 
 CudaDynArray(T::Type, dims::Integer...) = CudaDynArray(T, dims)
 CudaDynArray(a::CudaArray)=CudaDynArray(a.ptr, a.dims, a.dev, prod(a.dims))
+CudaDynArray(a::Array)=CudaDynArray(CudaArray(a))
+to_host(a::CudaDynArray)=to_host(convert(CudaArray,a))
 
 free(a::CudaDynArray)=free(pointer(a))
 #CudaArray(a::CudaDynArray)=CudaArray(a.ptr, a.dims, a.dev)
@@ -70,6 +71,10 @@ function size!(a::CudaDynArray, n::Integer)
 end
 
 size!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=size!(a,prod(d)); a.dims=d; a))
+
+size!(a::CudaArray, d::Dims)=(size(a)==d ? a : size!(CudaDynArray(a), d))
+
+size!(a::DenseArray, d::Dims)=(size(a)==d ? a : copy!(similar(a, d), 1, a, 1, min(length(a), prod(d))))
 
 # resize!: resize if necessary with copy
 function resize!{T}(a::CudaDynArray{T}, n::Integer)
@@ -138,3 +143,8 @@ function uniq!(s::AbstractArray, u::AbstractArray, v::AbstractArray)
     v = size!(v, (size(v,1),ns))
     return (s,u,v)
 end
+
+# This one has to be defined like this because of a conflict with the CUDArt version:
+#fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
+fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
+fill!(A::CudaDynArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)

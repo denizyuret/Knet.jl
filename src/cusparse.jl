@@ -17,7 +17,7 @@ size(S::CudaSparseMatrixCSC, d::Integer) = (d==1 ? S.m : d==2 ? S.n : error("Inv
 nnz(S::CudaSparseMatrixCSC) = (to_host(S.colptr)[S.n+1]-1)
 
 # cusparse can only handle Int32 indices
-gpucopy(s::SparseMatrixCSC)=(t=CudaSparseMatrixCSC(s.m,s.n,CudaArray(int32(s.colptr)),CudaArray(int32(s.rowval)),CudaArray(s.nzval));gpusync();t)
+gpucopy(s::SparseMatrixCSC)=(t=CudaSparseMatrixCSC(s.m,s.n,CudaDynArray(int32(s.colptr)),CudaDynArray(int32(s.rowval)),CudaDynArray(s.nzval));gpusync();t)
 cpucopy(s::CudaSparseMatrixCSC)=SparseMatrixCSC(s.m,s.n,to_host(s.colptr),to_host(s.rowval),to_host(s.nzval))
 similar(s::CudaSparseMatrixCSC,T,dims::Dims)=gpucopy(spzeros(T,Cint,dims...))
 
@@ -33,16 +33,16 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
         aj=a.n+i                # will become aj'th column of a
         nz=bptr[bj+1]-bptr[bj]  # with nz nonzero values
         nna = na+nz             # making this the new na
-        length(aptr) > aj || (aptr = grow!(aptr,aj+1))
-        length(a.nzval) >= nna || (a.nzval = grow!(a.nzval,nna))
-        length(a.rowval) >= nna || (a.rowval = grow!(a.rowval,nna))
+        length(aptr) > aj || (aptr = size!(aptr,aj+1))
+        length(a.nzval) >= nna || (a.nzval = size!(a.nzval,nna))
+        length(a.rowval) >= nna || (a.rowval = size!(a.rowval,nna))
         aptr[aj+1] = aptr[aj]+nz
         copy!(a.nzval,na+1,b.nzval,bptr[bj],nz)
         copy!(a.rowval,na+1,b.rowval,bptr[bj],nz)
         na = nna
     end
     if length(a.colptr) < length(aptr)
-        a.colptr = CudaArray(eltype(aptr), length(aptr))
+        a.colptr = CudaDynArray(eltype(aptr), length(aptr))
         copy!(a.colptr, 1, aptr, 1, a.n+nj+1)
     else
         copy!(a.colptr, a.n+2, aptr, a.n+2, nj)
@@ -52,13 +52,13 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
     return a
 end
 
-function grow!(a::KUnetArray, n::Integer)
-    n <= length(a) && return a      # We never shrink the array.
-    b = similar(a, (int(1.3*n+1),))   # 1.3 ensures a3 can be written where a0+a1 used to be
-    copy!(b, 1, a, 1, min(length(a), length(b)))
-    isa(a,CudaArray) && free(a)
-    return b
-end
+# function grow!(a::KUnetArray, n::Integer)
+#     n <= length(a) && return a      # We never shrink the array.
+#     b = similar(a, (int(1.3*n+1),))   # 1.3 ensures a3 can be written where a0+a1 used to be
+#     copy!(b, 1, a, 1, min(length(a), length(b)))
+#     isa(a,CudaDynArray) && free(a)
+#     return b
+# end
 
 # At_mul_B!{T}(k::AbstractCudaMatrix{T}, x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T})=A_mul_B!(k,x.',s)
 
@@ -141,7 +141,7 @@ end
 
 # function transpose1(x::CudaSparseMatrixCSC{Float32})  # this is buggy ???
 #     (xrows,xcols) = size(x); nz = nnz(x)
-#     y = CudaSparseMatrixCSC(xcols, xrows, CudaArray(zeros(Int32, xrows+1)), CudaArray(zeros(Int32, nz)), CudaArray(zeros(Float32, nz)))
+#     y = CudaSparseMatrixCSC(xcols, xrows, CudaDynArray(zeros(Int32, xrows+1)), CudaDynArray(zeros(Int32, nz)), CudaDynArray(zeros(Float32, nz)))
 #     cusparseScsr2csc(cusparseHandle, xrows, xcols, nz, x.nzval, x.colptr, x.rowval, y.nzval, y.rowval, y.colptr, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ONE)
 #     return y
 # end
@@ -150,22 +150,22 @@ end
 
 # function sparse(x::CudaMatrix{Float32})
 #     (xrows, xcols) = size(x)
-#     nzarray = CudaArray(Int32, xcols)
+#     nzarray = CudaDynArray(Int32, xcols)
 #     nzcount = Int32[0]
 #     cusparseSnnz(cusparseHandle, CUSPARSE_DIRECTION_COLUMN, xrows, xcols, cusparseMatDescrDefault, x, xrows, nzarray, nzcount)
 #     nz = int(nzcount[1])
-#     y = CudaSparseMatrixCSC(xrows, xcols, CudaArray(Cint, xcols+1), CudaArray(Cint, nz), CudaArray(Float32, nz))
+#     y = CudaSparseMatrixCSC(xrows, xcols, CudaDynArray(Cint, xcols+1), CudaDynArray(Cint, nz), CudaDynArray(Float32, nz))
 #     cusparseSdense2csc(cusparseHandle, xrows, xcols, cusparseMatDescrDefault, x, xrows, nzarray, y.nzval, y.rowval, y.colptr)
 #     return y
 # end
 
 # function sparse(x::CudaMatrix{Float64})
 #     (xrows, xcols) = size(x)
-#     nzarray = CudaArray(Int32, xcols)
+#     nzarray = CudaDynArray(Int32, xcols)
 #     nzcount = Int32[0]
 #     cusparseDnnz(cusparseHandle, CUSPARSE_DIRECTION_COLUMN, xrows, xcols, cusparseMatDescrDefault, x, xrows, nzarray, nzcount)
 #     nz = int(nzcount[1])
-#     y = CudaSparseMatrixCSC(xrows, xcols, CudaArray(Cint, xcols+1), CudaArray(Cint, nz), CudaArray(Float64, nz))
+#     y = CudaSparseMatrixCSC(xrows, xcols, CudaDynArray(Cint, xcols+1), CudaDynArray(Cint, nz), CudaDynArray(Float64, nz))
 #     cusparseDdense2csc(cusparseHandle, xrows, xcols, cusparseMatDescrDefault, x, xrows, nzarray, y.nzval, y.rowval, y.colptr)
 #     return y
 # end

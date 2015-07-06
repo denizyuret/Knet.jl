@@ -32,9 +32,9 @@ end
 
 if GPU
 
-loss(l::QuadLoss, z::CudaArray)=loss(l, to_host(z), to_host(l.y))
+loss(l::QuadLoss, z::AbstractCudaArray)=loss(l, to_host(z), to_host(l.y))
 
-function back(l::QuadLoss, z::CudaArray; returndx=true, o...)
+function back(l::QuadLoss, z::AbstractCudaArray; returndx=true, o...)
     @assert issimilar(z,l.y)
     returndx || return
     (st,nx) = size2(z)

@@ -27,7 +27,7 @@ function initforw(l::Bias, x, y)
     c = ndims(x)-1
     nb = size(x, c==0 ? 1 : c)
     w = l.w.data
-    isempty(w) && (w = l.w.data = initzero((gpu()?CudaArray:Array)(eltype(x), nb)))
+    isempty(w) && (w = l.w.data = initzero((gpu()?CudaDynArray:Array)(eltype(x), nb)))
     @assert length(w) == nb
     @assert eltype(w) == eltype(x)
     return (w,c)
@@ -56,7 +56,7 @@ function initback(l::Bias, dy)
 end
 
 if GPU
-forw(l::Bias, x::CudaArray, y=x; o...)=(initforw(l,x,y); cudnnAddTensor(l.w.data, y; mode=CUDNN_ADD_SAME_C); y)
-back(l::Bias, dy::CudaArray; o...)=(initback(l,dy); cudnnConvolutionBackwardBias(dy, l.w.diff); dy)
+forw(l::Bias, x::AbstractCudaArray, y=x; o...)=(initforw(l,x,y); cudnnAddTensor(l.w.data, y; mode=CUDNN_ADD_SAME_C); y)
+back(l::Bias, dy::AbstractCudaArray; o...)=(initback(l,dy); cudnnConvolutionBackwardBias(dy, l.w.diff); dy)
 end
 

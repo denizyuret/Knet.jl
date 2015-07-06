@@ -25,9 +25,9 @@ function initforw(l::Mmul, x)
     (xrows,xcols) = size2(x)
     l.x = (size(x)==(xrows,xcols) ? x : reshape(x, xrows, xcols))
     (wrows, wcols) = size2(l.w.data)
-    wcols==0 && (wcols=xrows; l.w.data = initgaussian((gpu()?CudaArray:Array)(eltype(x),wrows,wcols)))
+    wcols==0 && (wcols=xrows; l.w.data = initgaussian((gpu()?CudaDynArray:Array)(eltype(x),wrows,wcols)))
     @assert ndims(l.w.data) == 2
-    @assert typeof(l.w.data) == typeof(l.x)
+    @assert typeof(l.w.data) == typeof(l.x) "typeof(l.w.data)=$(typeof(l.w.data)) typeof(l.x)=$(typeof(l.x))"
     @assert eltype(l.w.data) == eltype(l.x)
     @assert xrows == wcols
     similar!(l, :y, l.w.data, (wrows, xcols))

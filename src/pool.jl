@@ -31,23 +31,23 @@ Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 
 # copy(l::Pool)=Pool(l.dims; padding=l.padding, stride=l.stride, mode=l.mode)
 
-function forw(l::Pool, x::CudaArray; o...)
+function forw(l::Pool, x::AbstractCudaArray; o...)
     initforw(l, x)
     cudnnPoolingForward(l.pd, l.x, l.y)
 end
 
-function initforw(l::Pool, x::CudaArray)
+function initforw(l::Pool, x::AbstractCudaArray)
     l.x = x
     similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x))
 end
 
-function back(l::Pool, dy::CudaArray; returndx=true, o...)
+function back(l::Pool, dy::AbstractCudaArray; returndx=true, o...)
     returndx || return
     initback(l, dy)
     cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
 end
 
-function initback(l::Pool, dy::CudaArray)
+function initback(l::Pool, dy::AbstractCudaArray)
     l.dy = ((size(dy) == size(l.y)) ? dy : reshape(dy, size(l.y)))
     similar!(l, :dx, l.x)
 end
@@ -55,8 +55,8 @@ end
 # function forw(l::Pool, x; o...)
 #     # error("CPU pool not implemented")
 #     a = KUnet.Atype
-#     KUnet.atype(CudaArray)
-#     y = forw(copy(l), CudaArray(x); o...)
+#     KUnet.atype(CudaDynArray)
+#     y = forw(copy(l), CudaDynArray(x); o...)
 #     KUnet.atype(a)
 #     l.x = x
 #     l.y = to_host(y)
@@ -65,9 +65,9 @@ end
 # function back(l::Pool, dy; o...)
 #     # error("CPU pool not implemented")
 #     a = KUnet.Atype
-#     KUnet.atype(CudaArray)
-#     ll = copy(l); ll.y = CudaArray(l.y); ll.x = CudaArray(l.x)
-#     dx = back(ll, CudaArray(dy); o...)
+#     KUnet.atype(CudaDynArray)
+#     ll = copy(l); ll.y = CudaDynArray(l.y); ll.x = CudaDynArray(l.x)
+#     dx = back(ll, CudaDynArray(dy); o...)
 #     KUnet.atype(a)
 #     l.dy = dy
 #     l.dx = to_host(dx)

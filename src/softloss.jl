@@ -32,9 +32,9 @@ end
 
 if GPU
 
-loss(l::SoftLoss, p::CudaArray)=loss(l, to_host(p), to_host(l.y))
+loss(l::SoftLoss, p::AbstractCudaArray)=loss(l, to_host(p), to_host(l.y))
 
-function back(l::SoftLoss, p::CudaArray{Float32}; returndx=true, o...)
+function back(l::SoftLoss, p::AbstractCudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (st,nx) = size2(p)
@@ -42,7 +42,7 @@ function back(l::SoftLoss, p::CudaArray{Float32}; returndx=true, o...)
     return p
 end
 
-function back(l::SoftLoss, p::CudaArray{Float64}; returndx=true, o...)
+function back(l::SoftLoss, p::AbstractCudaArray{Float64}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (st,nx) = size2(p)

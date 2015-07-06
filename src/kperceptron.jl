@@ -79,12 +79,12 @@ function strip!(l::KPerceptron)
 end
 
 function initforw(l::KPerceptron, x::KUnetArray, predict)
-    ytype = gpu() ? CudaArray : Array
+    ytype = gpu() ? CudaDynArray : Array
     wtype = gpu() ? CudaDynArray : Array    
     xtype = eltype(x)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
-        gpu() && isa(l.s, CudaArray) && (l.s = CudaDynArray(l.s))
+        gpu() && isa(l.s, CudaDynArray) && (l.s = CudaDynArray(l.s))
         l.w0 = wtype(xtype, l.nclass, 0)        # w matches x in location and eltype but is dense
         l.w1 = wtype(xtype, l.nclass, 0)
         l.w2 = nothing
@@ -155,8 +155,8 @@ function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p,
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
     k = klinear(x, s, p, k)
-    x2 = CudaArray(Float32, size(x,2))
-    s2 = CudaArray(Float32, size(s,2))
+    x2 = CudaDynArray(Float32, size(x,2))
+    s2 = CudaDynArray(Float32, size(s,2))
     ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(x,1),size(x,2),x,x2)
     ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(s,1),size(s,2),s,s2)
     ccall((:kgauss32map,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
@@ -170,8 +170,8 @@ function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p,
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
     k = klinear(x, s, p, k)
-    x2 = CudaArray(Float64, size(x,2))
-    s2 = CudaArray(Float64, size(s,2))
+    x2 = CudaDynArray(Float64, size(x,2))
+    s2 = CudaDynArray(Float64, size(s,2))
     ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(x,1),size(x,2),x,x2)
     ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(s,1),size(s,2),s,s2)
     ccall((:kgauss64map,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Cdouble),

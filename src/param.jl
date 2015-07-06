@@ -4,8 +4,8 @@ type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov;
 
 Param(dims::Int...; o...) = Param(Float64, dims; o...)
 Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
-Param(T::Type, dims::Dims; o...)=Param((gpu()?CudaDynArray:Array)(T,dims); o...)
-Param(w::KUnetArray; init=initgaussian, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
+Param(T::Type, dims::Dims; init=initgaussian, o...)=Param((gpu()?CudaDynArray:Array)(T,dims); init=init, o...)
+Param(w::KUnetArray; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.
@@ -42,10 +42,10 @@ initgaussian(a, std=0.01, mean=0.0)=randn!(a,std,mean)
 randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
 
 if GPU
-adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
-adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
-l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
-l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
+adagrad!(eps, dw2::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
+adagrad!(eps, dw2::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
+l1reg!(l1, w::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
+l1reg!(l1, w::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
 end #if GPU
 
 # function maxnorm!(maxnorm, w)

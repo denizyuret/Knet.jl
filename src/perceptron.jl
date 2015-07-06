@@ -72,7 +72,7 @@ function initforw(l::Perceptron, x, predict)
     l.x = x
     if !isdefined(l,:u)
         l.u = l.u2 = zero(eltype(l.x))
-        l.y = (isongpu(x)?CudaArray:Array)(eltype(x),l.n,size(x,2))
+        l.y = (isongpu(x)?CudaDynArray:Array)(eltype(x),l.n,size(x,2))
         similar!(l,:w0,l.y,l.n,size(l.x,1); fill=0)
         similar!(l,:w1,l.w0; fill=0)
         similar!(l,:w2,l.w0; fill=0)

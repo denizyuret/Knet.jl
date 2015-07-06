@@ -14,6 +14,6 @@ function back(l::Relu,dy; returndx=true, o...)
 end
 
 if GPU
-forw(l::Relu,x::CudaArray; o...)=(l.y=cudnnActivationForward(x; mode=CUDNN_ACTIVATION_RELU))
-back(l::Relu,dy::CudaArray; returndx=true, o...)=(@assert issimilar(dy, l.y); returndx && cudnnActivationBackward(l.y, dy; mode=CUDNN_ACTIVATION_RELU); dy)
+forw(l::Relu,x::AbstractCudaArray; o...)=(l.y=cudnnActivationForward(x; mode=CUDNN_ACTIVATION_RELU))
+back(l::Relu,dy::AbstractCudaArray; returndx=true, o...)=(@assert issimilar(dy, l.y); returndx && cudnnActivationBackward(l.y, dy; mode=CUDNN_ACTIVATION_RELU); dy)
 end # if GPU

@@ -350,7 +350,7 @@ void drop64(int n, double *x, double *xmask, double dropout, double scale) KCALL
 
 if GPU
 
-function kback(l::KPerceptron, z::CudaArray{Float32})
+function kback(l::KPerceptron, z::AbstractCudaArray{Float32})
     nptr = Cint[l.dn]; uptr = Cfloat[l.du]
     ccall((:kback32,libkunet), Void,
           (Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -358,7 +358,7 @@ function kback(l::KPerceptron, z::CudaArray{Float32})
     l.dn = nptr[1]; l.du = uptr[1]
 end
 
-function kback(l::KPerceptron, z::CudaArray{Float64})
+function kback(l::KPerceptron, z::AbstractCudaArray{Float64})
     nptr = Cint[l.dn]; uptr = Cdouble[l.du]
     ccall((:kback64,libkunet), Void,
           (Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),

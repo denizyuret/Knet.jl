@@ -97,7 +97,7 @@ end
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
     if ((b == nothing) || (size(b) != bs))
-        b = (gpu()?CudaArray:Array)(eltype(x), bs)
+        b = (gpu()?CudaDynArray:Array)(eltype(x), bs)
     end
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))
@@ -164,7 +164,7 @@ function strip!(l::Layer)
     for f in names(l)
         isdefined(l,f) || continue
         isa(l.(f), Param) && strip!(l.(f))
-        in(f, (:x, :y, :dx, :dy)) && (l.(f)=nothing)
+        in(f, (:x, :y, :dx, :dy, :xdrop)) && (l.(f)=nothing)
     end
     return l
 end

@@ -1,3 +1,78 @@
+2015-07-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/zn11nnet.jl: tune nnet for 20 epoch runs:
+	lr, drop1, drop2, hidden1, hidden2...
+
+	log/*-julia_zn11nnet_jl_zn11cpv_jld_*.out
+
+	.9678	0.01562 0 0 2048 2048
+	.9674	0.01562 0 0 4096 4096
+	.9678	0.01562 0 0 8192 8192
+
+	.9692	0.01562 0 0 11585
+	.9691	0.01562 0 0 16384
+	.9694	0.01562 0 0 23170
+
+	.9695	0.03125 .2 .5 16384
+	.9698	0.01562 .2 .5 16384
+	.9700	0.00781 .2 .5 16384
+
+	.9704	0.01562 .2 .5 2048 2048
+	.9708	0.01562 .2 .5 8192 8192
+
+	.9708	0.00390625 .2 .5 4096 4096
+	.9707	0.005 .2 .5 4096 4096
+	.9709	0.00781 .2 .5 4096 4096
+	.9710	0.01 .2 .5 4096 4096	*****
+	.9704	0.01562 .2 .5 4096 4096
+	.9704	0.03125 .2 .5 4096 4096
+	.9695	0.06250 .2 .5 4096 4096
+
+	.9717	0.01 .1 .5 4096 4096	*****
+	.9704	0.01 .3 .5 4096 4096
+	.9710	0.01 .2 .5 4096 4096
+	.9705	0.01 .2 .3 4096 4096
+	.9696	0.01 .2 .7 4096 4096
+
+	0.01 0 .5 4096 4096
+	0.01 .1 .3 4096 4096
+	.9717	0.01 .1 .5 4096 4096	*****
+	0.01 .1 .7 4096 4096
+
+	* src/util.jl: TODO: use size! instead of realloc in similar!
+	look at size! vs resize! again
+	make sure regular arrays will work
+	similar! does not match array type?  reconsider its semantics.
+
+	* net.jl: profiling kunet.  nothing much to do.
+
+	# train: most time spent copying data to gpu
+	gpu() && gc()  # L46: 76
+	for b = 1:batch:ninst # L47: 1
+        e = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e) # L49: 25641
+        yy = x2b(yy, y, b:e) # L50: 39
+        backprop(net, xx, yy; o...) # L51: 516
+        update(net; o...) # L52: 160
+        (iters > 0) && (e/batch >= iters) && break
+        gpu() && (gpumem() < (1<<30)) && gc() # L54: 32
+	end
+	strip!(net)
+	gpu() && gc()
+
+	# predict: most time spent on copying back from gpu.
+	ninst = size(x, ndims(x))
+	(batch == 0 || batch > ninst) && (batch = ninst)
+	xx = yy = nothing
+	for b = 1:batch:ninst
+        e  = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e)  # L68: 382
+        yy = forw(net, xx; predict=true, o...) # L69: 150
+        y  = b2y(y, yy, b:e, x) # L70: 4150
+	end
+	return y
+
+
 2015-07-04  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
@@ -5,25 +80,6 @@
 	TODO: profile parsers
 	TODO: run gparser?
 	TODO: use multi-machine parallel for bparser
-
-	* test/zn11nnet.jl: tune nnet for 20 epoch runs:
-	lr, drop1, drop2, hidden1, hidden2...
-
-	0.01562 0 0 11585
-	0.01562 0 0 16384
-	0.01562 0 0 23170
-
-	0.03125 .2 .5 16384
-	0.01562 .2 .5 16384
-	0.00781 .2 .5 16384
-
-	0.01562 0 0 8192 8192
-	0.01562 0 0 4096 4096
-	0.01562 0 0 2048 2048
-
-	0.01562 .2 .5 8192 8192
-	0.01562 .2 .5 4096 4096
-	0.01562 .2 .5 2048 2048
 
 
 2015-07-03  Deniz Yuret  <dyuret@ku.edu.tr>
