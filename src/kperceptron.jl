@@ -9,7 +9,7 @@
 # Averaging optimization trick with w0/w1/w2 based on:
 # http://ciml.info/dl/v0_9/ciml-v0_9-ch03.pdf.
 
-type KPerceptron <: Layer
+type KPerceptron <: LossLayer
     nclass	# number of output classes
     kernel      # kernel function
     p           # kernel parameter tuple
