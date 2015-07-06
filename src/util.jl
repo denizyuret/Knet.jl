@@ -25,12 +25,12 @@ function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
             l.(n) = similar(a, T, dims)
             fill != nothing && fill!(l.(n), fill)
         end
-        @show (:alloc, n, size(l.(n)), length(l.(n)))
+        # @show (:alloc, n, size(l.(n)), length(l.(n)))
     elseif (size(l.(n)) != dims)
-        p1 = pointer(l.(n))
+        # p1 = pointer(l.(n))
         l.(n) = size!(l.(n), dims)
-        op = (p1==pointer(l.(n)) ? :size! : :realloc)
-        @show (op, n, size(l.(n)), length(l.(n)))
+        # op = (p1==pointer(l.(n)) ? :size! : :realloc)
+        # @show (op, n, size(l.(n)), length(l.(n)))
     end
     return l.(n)
 end
