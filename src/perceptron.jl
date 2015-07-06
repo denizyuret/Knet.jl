@@ -3,7 +3,7 @@
 # perceptron algorithm as described in:
 # http://ciml.info/dl/v0_9/ciml-v0_9-ch03.pdf.
 
-type Perceptron <: Layer; n; b; x; y; z; w0; b0; w1; b1; w2; b2; u; u2;
+type Perceptron <: LossLayer; n; b; x; y; z; w0; b0; w1; b1; w2; b2; u; u2;
     Perceptron(nclass;bias=true)=new(nclass,bias)
 end
 
