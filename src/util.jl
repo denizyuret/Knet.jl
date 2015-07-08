@@ -30,7 +30,7 @@ function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
         # p1 = pointer(l.(n))
         l.(n) = size!(l.(n), dims)
         # op = (p1==pointer(l.(n)) ? :size! : :realloc)
-        # @show (op, n, size(l.(n)), length(l.(n)))
+        # op==:realloc && (@show (op, n, size(l.(n)), length(l.(n))))
     end
     return l.(n)
 end
