@@ -12,7 +12,7 @@ GPU && include("cusparse.jl");
 GPU && include("cumatrix.jl");
 GPU && include("curand.jl");
 
-include("util.jl");	export accuracy, cpucopy, gpucopy, @date
+include("util.jl");	export accuracy, cpucopy, gpucopy, gpumem, @date
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
