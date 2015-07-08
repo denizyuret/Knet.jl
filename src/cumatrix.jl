@@ -2,7 +2,7 @@ import Base: convert, reshape, fill!, isempty, full, copy!, similar, stride
 import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
 import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
-import Base.LinAlg.BLAS: gemm!, axpy!
+import Base.LinAlg.BLAS: gemm!, axpy!, scal!
 import CUDArt: malloc, free, pitchedptr, rt, to_host
 import Compat: unsafe_convert
 
@@ -22,6 +22,7 @@ At_mul_B!{T}(C::AbstractCudaMatrix{T}, A::AbstractCudaMatrix{T}, B::AbstractCuda
 A_mul_B!{T}(C::AbstractCudaMatrix{T}, A::AbstractCudaMatrix{T}, B::AbstractCudaMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
 gemm!{T}(transA::Char,transB::Char,alpha::T,A::AbstractCudaArray{T},B::AbstractCudaArray{T},beta::T,C::AbstractCudaArray{T})=(gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C));C)
 axpy!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer,y::AbstractCudaArray{T},incy::Integer)=(axpy!(n,alpha,convert(CudaArray,x),incx,convert(CudaArray,y),incy);y)
+scal!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer)=(scal!(n,alpha,convert(CudaArray,x),incx);x)
 
 # without this patch, deepcopy does not work on structs with CudaArrays
 function Base.deepcopy_internal(x::AbstractCudaArray, stackdict::ObjectIdDict)
