@@ -1,3 +1,36 @@
+2015-07-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: automatic spawn of worker machines in qsub.  From JonMay:
+	Once a job starts you will have the environment variable
+	PBS_NODEFILE and this will contain a list of machines, one per
+	line.
+
+	e.g. (sorry, it happened to be a one-node job and i didn’t want to
+	wait for my 2-node demo to start)
+
+	[jonmay@hpc1457 quake]$ echo $PBS_NODEFILE
+	/var/spool/torque/aux//12554804.hpc-pbs.hpcc.usc.edu
+	[jonmay@hpc1457 quake]$ cat
+	/var/spool/torque/aux//12554804.hpc-pbs.hpcc.usc.edu
+	hpc1457
+
+2015-07-08  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/zn11nnet.jl: The 2015-07-05 experiments were done on gold
+	tags.  Replicating for predicted tags:
+
+	.9708	.01 .1 .5 4096 4096	log/07072207-julia_zn11nnet_jl_yatbazp_zn11cpv_jld_01_1_5_4096_4096.out
+
+	* test/zn11nnet.jl: Replacing nnet results with better nnet.
+	Let's also fix the postag problem and use gold postags (yatbaz-*)
+	for these experiments.  yatbazp-* have predicted postags.  The
+	original experiments with zn11* came from acl11.zip and had mixed
+	postags, predicted for train, gold for dev/test.  Let's use
+	predicted for everything, or gold for machine learning, predicted
+	for parsing?  We'd need to recreate sparse data as well.
+	@@psub julia zn11nnet.jl zn11pv.jld .01 .1 .5 4096 4096
+	@@psub julia zn11nnet.jl zn11cpv.jld .01 .1 .5 4096 4096
+
 2015-07-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/zn11nnet.jl: tune nnet for 20 epoch runs:
