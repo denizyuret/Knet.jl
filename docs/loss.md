@@ -34,11 +34,12 @@ to avoid normalization during forward computation and implement it
 during the backward step of training.  To give users some flexibility,
 KUnet implements three different cross entropy loss layers:
 
-* SoftLoss: assumes the network outputs are normalized probabilities,
-  computing the loss and the gradients without performing softmax.
-  Should only be used after the Soft final layer, which applies
-  softmax to the network output.  If q is the (normalized) network
-  output and p is the desired probability vector:
+* [SoftLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/softloss.jl):
+  assumes the network outputs are normalized probabilities, computing
+  the loss and the gradients without performing softmax.  Should only
+  be used after the Soft final layer, which applies softmax to the
+  network output.  If q is the (normalized) network output and p is
+  the desired probability vector:
 
         J(q) = -Σ pi log qi
              = -Σ pi log (qi/Σqj)    ;; should make normalization explicit
@@ -48,11 +49,11 @@ KUnet implements three different cross entropy loss layers:
         ∂J/∂qk = -pk/qk + (1/Σ qj)
                = -pk/qk + 1
 
-* XentLoss: assumes the network outputs are raw (unnormalized log
-  probabilities) and performs softmax before computing the loss and
-  its gradients.  Can be used after any final layer.  If y is the
-  network output, q is softmax applied to y, and p is the desired
-  probability vector:
+* [XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl):
+  assumes the network outputs are raw (unnormalized log probabilities)
+  and performs softmax before computing the loss and its gradients.
+  Can be used after any final layer.  If y is the network output, q is
+  softmax applied to y, and p is the desired probability vector:
 
         J(y) = -Σ pi log qi
              = -Σ pi log ((exp yi) / (Σ exp yj))
@@ -62,12 +63,13 @@ KUnet implements three different cross entropy loss layers:
         ∂J/∂yk = -pk + (exp yk) / (Σ exp yj)
                = -pk + qk
 
-* LogpLoss: assumes the network outputs are normalized log
-  probabilities and computes the loss and the gradients accordingly.
-  Log probability outputs are sometimes useful when computing log
-  likelihoods.  Should only be used after the Logp final layer, which
-  applies log-softmax to the network output.  The loss and the
-  gradient are identical to XentLoss except Σ exp yj = 1 is assumed.
+* [LogpLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/logploss.jl):
+  assumes the network outputs are normalized log probabilities and
+  computes the loss and the gradients accordingly.  Log probability
+  outputs are sometimes useful when computing log likelihoods.  Should
+  only be used after the Logp final layer, which applies log-softmax
+  to the network output.  The loss and the gradient are identical to
+  XentLoss except Σ exp yj = 1 is assumed.
 
 Note that Net+XentLoss, Net+Soft+SoftLoss, Net+Logp+LogpLoss
 essentially implement the same network for training purposes.  They
@@ -76,15 +78,17 @@ output.
 
 Other loss layers implemented are:
 
-* QuadLoss: quadratic loss layer, can be used after any final layer.
+* [QuadLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/quadloss.jl):
+  quadratic loss layer, can be used after any final layer.
 
         J(y) = (1/2) Σ (yi-zi)^2
         ∂J/∂yk = yk - zk.
 
-* PercLoss: implements the perceptron loss function.  A multiclass
-  perceptron can be constructed using an Mmul layer followed by
-  PercLoss and using a learning rate of 1.  If i is the correct answer
-  and j is the predicted answer, the perceptron loss is:
+* [PercLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/percloss.jl):
+  implements the perceptron loss function.  A multiclass perceptron
+  can be constructed using an Mmul layer followed by PercLoss and
+  using a learning rate of 1.  If i is the correct answer and j is the
+  predicted answer, the perceptron loss is:
 
         J(y) = -yi + yj
         ∂J/∂yk = -(k=i) + (k=j)
