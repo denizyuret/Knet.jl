@@ -45,21 +45,7 @@ Each element of the net array represents an operation, e.g. Mmul
 multiplies its input with a weight matrix, Bias adds a bias vector,
 Relu applies the rectified linear transformation to each element etc.
 They are subtypes of an abstract type called Layer.  The full list of
-Layers currently implemented are:
-[Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl),
-[Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl),
-[Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl),
-[Logp](https://github.com/denizyuret/KUnet.jl/blob/master/src/logp.jl),
-[Mmul](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl),
-[Pool](https://github.com/denizyuret/KUnet.jl/blob/master/src/pool.jl),
-[Relu](https://github.com/denizyuret/KUnet.jl/blob/master/src/relu.jl),
-[Sigm](https://github.com/denizyuret/KUnet.jl/blob/master/src/sigm.jl),
-[Soft](https://github.com/denizyuret/KUnet.jl/blob/master/src/soft.jl),
-[Tanh](https://github.com/denizyuret/KUnet.jl/blob/master/src/tanh.jl),
-[LogpLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/logploss.jl),
-[QuadLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/quadloss.jl),
-[SoftLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/softloss.jl),
-[XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl).
+Layers currently implemented are described in [Layers](layers.md).
 
 A Net is simply a 1-D array of Layers.  Here are the definitions from
 [net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl) and 
@@ -146,8 +132,8 @@ back(n::Net, y)=(for i=length(n):-1:1; y=back(n[i], y); end)
 The `forw` function for a layer takes the layer input x, and returns
 the layer output y.  The `back` function for a layer takes the loss
 gradient wrt its output dy and returns the loss gradient wrt its input
-dx.  If the layer has a parameter p, `back` also computes the loss
-gradient p.diff wrt its current value p.data.  You can take a look at
+dx.  If the layer has a parameter w, `back` also computes the loss
+gradient w.diff wrt its current value w.data.  You can take a look at
 individual layer definitions (e.g. in
 [mmul.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl),
 [bias.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl),
@@ -161,12 +147,8 @@ of layer: its forw does nothing but record the network output y.  Its
 back expects the desired output z (not a gradient) and computes the
 loss gradient wrt the network output dy.  A LossLayer also implements
 the function `loss(l::LossLayer,z)` which returns the actual loss
-value given the desired output z.  KUnet currently implements the
-following LossLayers:
-[LogpLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/logploss.jl),
-[QuadLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/quadloss.jl),
-[SoftLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/softloss.jl),
-[XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl).
+value given the desired output z.  See [Loss Layers](loss.md) for a
+complete list of loss layers implemented in KUnet.
 
 The `update` function for a net calls the `update` function for each
 of its layers, which in turn calls the `update` function on layer

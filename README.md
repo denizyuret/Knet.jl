@@ -3,6 +3,9 @@
 * [Installation](docs/install.md)
 * [Usage](docs/usage.md)
 * [Benchmark](docs/benchmark.md)
+* [Layers](docs/layers.md)
+* [Loss Layers](docs/loss.md)
+* [Perceptrons and Kernel Perceptrons](docs/perceptron.md)
 
 KUnet.jl is the beginnings of a deep learning package for Julia with emphasis on conciseness, clarity and easy extensibility. It started as a challenge to see how many lines of (readable) code were sufficient to express deep learning algorithms given the right language.  A secondary concern was efficiency: being able to run the same code on GPU with minimal trouble.  The latest version is less than 1000 lines of code and supports backprop in feedforward nets with convolution, pooling, and inner product layers with/without bias, relu, tanh, sigmoid activations, softmax and quadratic loss, optimization with sgd, momentum, nesterov, adagrad, dropout, L1-L2 regularization, on both CPU/GPU, with Float32/Float64 arrays of 1-5 dimensions.  Its speed is competitive with [Caffe](http://caffe.berkeleyvision.org/) ([here is a benchmark](docs/benchmark.md)), and I think recurrent and boltzmann nets can be added without too much effort.  
 
