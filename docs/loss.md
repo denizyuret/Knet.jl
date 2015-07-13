@@ -52,7 +52,9 @@ output.
 Other loss layers implemented are:
 
 * QuadLoss: quadratic loss layer, can be used after any final layer.
+
     J(y) = (1/2) Σ (yi-zi)^2
+
     ∂J/∂yk = yk - zk.
 
 * PercLoss: implements the perceptron loss function.  A multiclass
