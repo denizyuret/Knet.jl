@@ -273,8 +273,8 @@ Or maybe we should try convolution.  Here is an implementation of
 [LeNet](http://yann.lecun.com/exdb/lenet):
 
 ```
-net = [Conv(5,5,1,20), Bias(), Relu(), Pool(2),
-       Conv(5,5,20,50), Bias(), Relu(), Pool(2),
+net = [Conv(20,5), Bias(), Relu(), Pool(2),
+       Conv(50,5), Bias(), Relu(), Pool(2),
        Mmul(500), Bias(), Relu(),
        Mmul(10), Bias(), XentLoss()]
 setparam!(net; lr=0.1)
