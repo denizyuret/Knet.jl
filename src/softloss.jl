@@ -6,7 +6,27 @@ type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
 # p has normalized probabilities from the answer key.
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
 # Overwrites p with the gradient of the loss wrt y, i.e. 1-p/y
-# Loss = -sum[p log(y)]
+
+# Math:
+#
+# J = -Σ pi log yi		;; loss function
+#   = -Σ pi log (yi/Σyj)	;; should make normalization explicit
+#   = (-Σ pi log yi) + Σ pi log Σ yj
+#   = (-Σ pi log yi) + log Σ yj
+#
+# ∂J/∂yk = -pk/yk + (1/Σ yj)
+#        = -pk/yk + 1
+#
+# z = wx			;; z is the input to the soft layer
+# yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
+# ∂yi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
+#         = (i=k) yi - yi yk
+# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input z
+#        = Σ (1-pi/yi)((i=k) yi - yi yk)
+#        = Σ ((i=k) yi - yi yk - (i=k) pi + pi yk)
+#        = yk - pk - yk Σ (yi - pi)
+#        = yk - pk
+
 
 forw(l::SoftLoss, x; o...)=(l.y=x)
 
