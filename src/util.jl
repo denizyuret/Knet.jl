@@ -7,10 +7,13 @@ VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
 
 # Utilities
-issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
-size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
+
+size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 isongpu(a)=(GPU && isa(a, AbstractCudaArray))
+issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
+issimilar1(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (length(a)==length(b)))
+issimilar2(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (size2(a)==size2(b)))
 
 # We use this function to confirm/create an array element of the right type/size
 function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)

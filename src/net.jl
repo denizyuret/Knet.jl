@@ -165,7 +165,7 @@ function strip!(l::Layer)
     for f in names(l)
         isdefined(l,f) || continue
         isa(l.(f), Param) && strip!(l.(f))
-        in(f, (:x, :y, :dx, :dy, :xdrop)) && (l.(f)=nothing)
+        in(f, (:x, :x2, :y, :dx, :dy, :xdrop)) && (l.(f)=nothing)
     end
     return l
 end

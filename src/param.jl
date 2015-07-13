@@ -39,7 +39,7 @@ nesterov!(m, dw2, dw)=(nw=length(dw); m=convert(eltype(dw2),m); scal!(nw, m, dw2
 
 initzero(a)=fill!(a,zero(eltype(a)))
 initgaussian(a, std=0.01, mean=0.0)=randn!(a,std,mean)
-randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
+initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
 
 if GPU
 adagrad!(eps, dw2::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)

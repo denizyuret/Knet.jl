@@ -14,63 +14,7 @@
 	/var/spool/torque/aux//12554804.hpc-pbs.hpcc.usc.edu
 	hpc1457
 
-2015-07-08  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* test/zn11nnet.jl: The 2015-07-05 experiments were done on gold
-	tags.  Replicating for predicted tags:
-
-	.9708	.01 .1 .5 4096 4096	log/07072207-julia_zn11nnet_jl_yatbazp_zn11cpv_jld_01_1_5_4096_4096.out
-
-	* test/zn11nnet.jl: Replacing nnet results with better nnet.
-	Let's also fix the postag problem and use gold postags (yatbaz-*)
-	for these experiments.  yatbazp-* have predicted postags.  The
-	original experiments with zn11* came from acl11.zip and had mixed
-	postags, predicted for train, gold for dev/test.  Let's use
-	predicted for everything, or gold for machine learning, predicted
-	for parsing?  We'd need to recreate sparse data as well.
-	@@psub julia zn11nnet.jl zn11pv.jld .01 .1 .5 4096 4096
-	@@psub julia zn11nnet.jl zn11cpv.jld .01 .1 .5 4096 4096
-
 2015-07-05  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* test/zn11nnet.jl: tune nnet for 20 epoch runs:
-	lr, drop1, drop2, hidden1, hidden2...
-
-	log/*-julia_zn11nnet_jl_zn11cpv_jld_*.out
-
-	.9678	0.01562 0 0 2048 2048
-	.9674	0.01562 0 0 4096 4096
-	.9678	0.01562 0 0 8192 8192
-
-	.9692	0.01562 0 0 11585
-	.9691	0.01562 0 0 16384
-	.9694	0.01562 0 0 23170
-
-	.9695	0.03125 .2 .5 16384
-	.9698	0.01562 .2 .5 16384
-	.9700	0.00781 .2 .5 16384
-
-	.9704	0.01562 .2 .5 2048 2048
-	.9708	0.01562 .2 .5 8192 8192
-
-	.9708	0.00390625 .2 .5 4096 4096
-	.9707	0.005 .2 .5 4096 4096
-	.9709	0.00781 .2 .5 4096 4096
-	.9710	0.01 .2 .5 4096 4096	*****
-	.9704	0.01562 .2 .5 4096 4096
-	.9704	0.03125 .2 .5 4096 4096
-	.9695	0.06250 .2 .5 4096 4096
-
-	.9717	0.01 .1 .5 4096 4096	*****
-	.9704	0.01 .3 .5 4096 4096
-	.9710	0.01 .2 .5 4096 4096
-	.9705	0.01 .2 .3 4096 4096
-	.9696	0.01 .2 .7 4096 4096
-
-	.9715	0.01 0 .5 4096 4096
-	.9704	0.01 .1 .3 4096 4096
-	.9717	0.01 .1 .5 4096 4096	*****
-	.9698	0.01 .1 .7 4096 4096
 
 	* src/util.jl: TODO: use size! instead of realloc in similar!
 	look at size! vs resize! again
@@ -106,15 +50,6 @@
 	return y
 
 
-2015-07-04  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* TODO:
-	TODO: tune feature set
-	TODO: profile parsers
-	TODO: run gparser?
-	TODO: use multi-machine parallel for bparser
-
-
 2015-07-03  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/simpleIPC/fooipc.cu (main): seems like the only choices are
@@ -132,117 +67,6 @@
 
 	* src/util.jl: TODO: use CudaDynArray everywhere and minimize the realloc.
 
-2015-07-01  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* acl11: check postag difference with acl11.
-	It seems devi/devo, testi/testo, and train have predicted postags.
-	devr and testr have gold postags.
-
-	[dy_052@hpc3007 data]$ for i in acl11 cw hlbl glove mikolov random yatbaz mikolov300; do echo $i; julia compare-jld4.jl bansal.trn.jld4 $i.trn.jld4; done
-	acl11
-	a["deprel"] == b["deprel"] => true
-	a["postag"] == b["postag"] => true
-	aform == bform => false
-	apostag == bpostag => false
-	ahead == bhead => true
-	adeprel == bdeprel => true
-	awvec == bwvec => false
-
-
-	* bansal-zn11pv.jld:
-	- embeddings.sh, uses conll7jld.jl, creates jld4 files.
-	- julia getfeatures.jl bansal zn11pv
-
-	* kunet: embeddings.sh converted to jld4.
-
-	* shell: embeddings copied from balina.
-
-	* @@parser: TODO: memory and time problems with bparser for the
-	final parsing experiments.
-
-	* train.jl: TODO:
-	- check for early stop.
-	- removed dropout, what is the effect?
-	- repeat feature selection experiments.
-
-	* zn11pvcnet.jl: pvc nnet experiments using 16K hidden and 0.01562
-	lr.  single hidden layer.  no dropout.
-
-	* datafiles:
-	- dense:
-	zn11c.jld
-	zn11cp.jld
-	zn11cpv.jld
-	zn11cv.jld
-	zn11n.jld
-	zn11p.jld
-	zn11pv.jld
-	zn11v.jld
-	- sparse:
-	zn11oparse1.jld: zn11single (39) feature set
-	zn11oparse.jld: zn11orig (72) feature set
-
-
-2015-06-30  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* 06302022-julia_zn11nnet4_jl_zn11cpv_jld.out: trying cpv.
-	+ 07011657-julia_zn11nnet5_jl_zn11cpv_jld.out
-	data	hidden	best-lr	best-dev
-	cpv	128	0.12500 0.9598
-	cpv	256	0.06250	0.9618
-	cpv	512	0.06250	0.9631
-	cpv	1024	0.03125	0.9640
-	cpv	2048	0.03125	0.9648
-	cpv	4096	0.03125	0.9651
-	cpv	8192	0.01562	0.9653
-	cpv	16384	0.01562	0.9658
-	cpv	32768	0.00781	0.9655
-	cpv	65536	0.00781	0.9657
-
-	* 06302014-julia_zn11nnet4_jl_zn11cv_jld.out: trying cv.
-	+ 07011608-julia_zn11nnet5_jl_zn11cv_jld.out
-	data	hidden	best-lr	best-dev
-	cv	128	0.06250	0.9522
-	cv	256	0.06250	0.9555
-	cv	512	0.03125	0.9568
-	cv	1024	0.06250	0.9584
-	cv	2048	0.03125	0.9590
-	cv	4096	0.03125	0.9604
-	cv	8192	0.01562	0.9607
-	cv	16384	0.01562	0.9607
-	cv	32768	0.01562	0.9609
-	cv	65536	0.01562	0.9609
-
-	* 06302002-julia_zn11nnet3_jl_zn11pv_jld.out: dropout with single 16K hidden layer.
-	data	hidden	best-lr	best-dev
-	pv	16384	0.03125	0.9597
-	pv	16384	0.01562	0.9597
-
-	* 06302159-julia_zn11nnet2_jl_zn11pv_jld.out: 2-hidden-layers
-	data	2hidden	best-lr	best-dev
-	pv	128	0.06250	0.9576
-	pv	256	0.06250	0.9593
-	pv	512	0.03125	0.9616
-	pv	1024	0.03125	0.9617
-	pv	2048	0.01562	0.9631
-	pv	4096	0.01562	0.9629
-	pv	8192	0.00781	0.9635
-
-	* 07010942-julia_zn11nnet_jl_zn11pv_jld.out: optimizing lr and hidden with 1-epoch training.
-	data	hidden	best-lr	best-dev
-	pv	128	0.06250	0.9578
-	pv	256	0.06250	0.9600
-	pv	512	0.06250	0.9607
-	pv	1024	0.03125	0.9622
-	pv	2048	0.03125	0.9622
-	pv	4096	0.03125	0.9628
-	pv	8192	0.01562	0.9629
-	pv	16384	0.01562	0.9635
-	pv	32768	0.01562	0.9632
-	pv	65536	0.01562	0.9635
-
-	* acl11trn.jld4: TODO: separate wvec and cvec into two features.
-
 	* conv.jl: TODO: conv fails tutorial.jl code.  fix
 	initialization: should figure out input size/type from first x
 	like bias/mmul.
@@ -259,175 +83,10 @@
 
 	* param.jl: TODO: fix adagrad initialization.
 
-	* test/zn11pvc.jl: TODO: rerun using nnets.
-
 	* src/kperceptron.jl: TODO: make uniq! part of training somehow.
 
 	* net.jl: profile train to see if gpumem hurts: it doesn't.  most
 	of the time is spent during x2b.
-
-	* test/zn11pvc.jl: collected results to spreadsheet and archived.
-
-2015-06-29  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* out-of-mem: gpu/dense gave out-of-memory error.
-	- find out why
-	- try 1.33x realloc (the 4th realloc can use space from 1+2)
-	- try prealloc
-	- try uniq
-	- try sv id
-
-	sv:
-	zn11n:   165 x 788607  = 130m (epoch 1)
-	zn11p:   705 x 648569  = 457m (epoch 7)
-	zn11v:  1365 x 288501  = 394m (epoch 6)
-	zn11c:  1365 x 232284  = 317m (epoch 1)
-	zn11pv: 1905 x 304644  = 580m (epoch 10)
-	zn11cp: 1905 x 306482  = 584m (epoch 6)
-	zn11cv: 2565 x 119377  = 306m (epoch 1)
-	zn11cpv: 3105 x 108499 = 337m (epoch 1)
-
-	zn11n probably explodes because of k size: 128 (xbatch) x 788607.
-
-	* TODO: check speed of gpumem()
-
-2015-06-28  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* test/zn11pvc.jl (net): Determining optimal gamma for pvc
-	experiments (8 subsets of postag, wvec, cvec).  The datasets were
-	generated using acl11features.jl.
-
-	gamma:
-	zn11n: 0.40
-	zn11p: 0.17
-	zn11v: 0.25
-	zn11c: 0.30
-	zn11pv: 0.14
-	zn11cp: 0.18
-	zn11cv: 0.16
-	zn11cpv: 0.12
-
-	* DONE: profiling?
-	* TODO: do learning rate experiments (one-hot vs dense)
-
-2015-06-26  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* test/zn11perc64.jl: early convergence of regular perceptron is
-	probably due to numerical accuracy.  Trying with Float64.  Fixed
-	it.  Also added the (seed>0) condition to see unshuffled results.
-
-	* TODO: run zn11orig with kperc and zn11single with perc as well.
-
-	06261347-julia_zn11perc64_jl.out: perc+zn11orig
-	- does not converge in 20 epochs but dev peaks.
-	- does worse than Float32?
-	best trn: (0,20,0.990577853561211,0.9628940312882318,0.9628049679369057)
-	best dev: (0,12,0.9864501711719235,0.9629200614311373,0.9633301393086166)
-	best tst: (0,13,0.9871840790335269,0.9627118202878934,0.9634038475713127)
-
-	06261523-julia_zn11perc64b_jl.out: perc+zn11single
-	- does much worse but does not peak in 20.
-	best trn: (0,20,0.9607095614570927,0.9493974021917381,0.9487543303604334)
-	best dev: (0,18,0.9596867048415946,0.9494234323346435,0.9485792732365298)
-	best tst: (0,20,0.9607095614570927,0.9493974021917381,0.9487543303604334)
-
-	06261407-zn11test.pbs.o12464157: kperceptron+zn11single. (sparse)
-	kgauss,gamma=0.12.
-	(1,(338122,124946),0.9608506650701513,0.9600224810201223)	trn=0.9313631349731266	time=3405
-	(2,(338122,162316),0.9627899107166098,0.9627404732070465)	trn=0.9794714544999099	time=6740
-	(3,(338122,180291),0.963336543717625,0.9635604776295422)	trn=0.9901257531344897	time=7920
-	(4,(338122,191068),0.9638701616471874,0.9638921648116754)	trn=0.9940798465385478	time=8540
-	(5,(338122,198841),0.9641174480047896,0.9640487948699049)	trn=0.995730040562692	time=8941
-	(6,(338122,204862),0.9640784027904313,0.964076435468416)	trn=0.996692470632699	time=9242
-	(7,(338122,209836),0.9640133274331676,0.9638000294833051)	trn=0.9972676214793297	time=9480
-	(8,(338122,214092),0.9641304630762423,0.9638184565489791)	trn=0.9976620420217184	time=9679
-	(9,(338122,217855),0.9641695082906006,0.9639013783445124)	trn=0.9979328628119658	time=9850
-
-	@@12501844@hpc3013 rerunning for epoch >= 10
-	0.931363134973127	0.9608506650701513	0.9600224810201223
-	0.97947145449991	0.9627899107166098	0.9627404732070465
-	0.99012575313449	0.963336543717625	0.9635604776295422
-	0.994079846538548	0.9638701616471874	0.9638921648116754
-	0.995730040562692	0.9641174480047896	0.9640487948699049
-	0.996692470632699	0.9640784027904313	0.964076435468416
-	0.99726762147933	0.9640133274331676	0.9638000294833051
-	0.997662042021718	0.9641304630762423	0.9638184565489791
-	0.997932862811966	0.9641695082906006	0.9639013783445124
-	0.998116889109598	0.9642215685764115	0.9639566595415346
-	0.998195443618737	0.9642085535049587	0.9639566595415346
-	0.99829102742706	0.9642736288622225	0.9640487948699049
-	0.998389357896541	0.9644167946482026	0.96409486253409
-	0.998423965827141	0.9645209152198245	0.9641501437311123
-	0.998500323007352	0.9644167946482026	0.964085649001253
-	0.998617330772713	0.9644688549340136	0.9640487948699049
-
-	06271100-julia_zn11test2_jl.out: kperceptron+zn11orig. kgauss,gamma=0.05.
-	(1,(5123080,115857),0.9610589062133951,0.960206751676863)	trn=0.9363560156274033	time=5981
-	(2,(5123080,146889),0.9629981518598537,0.9627957544040687)	trn=0.982953122184672	time=11998
-	(3,(5123080,159776),0.9637009657183018,0.9636341858922385)	trn=0.992920755529578	time=13849
-	(4,(5123080,167105),0.964195538433506,0.9639750866072087) 	trn=0.995973944073584	time=14723
-	(5,(5123080,172184),0.9646250357914465,0.9640211542713938)	trn=0.997209941594997	time=15260
-	(6,(5123080,176178),0.9645339302912773,0.964076435468416) 	trn=0.997805967066434	time=15659
-
-2015-06-25  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* test/zn11test.pbs.o12463546: kperceptron on the zn11single
-	feature set gives out of memory in epoch 2 with 125K sv while
-	reallocating l.k.  (128*125K*4=64MB).  gc problem?  sv prealloc
-	too aggressive?  stop reallocating l.k?  upload x and don't have
-	sv?  sv costs ncols+2*nnz.  4*(125K+2*39*125K)=40MB.  Even double
-	the size would be 80MB.  What is causing the error?  Do we need to
-	call gc() during training?  Preallocate a huge sv, so we never
-	alloc again?  Upload x would
-	cost (2*nnz+1)*ncol*4=(2*39+1)*1.8M*4=569MB.  Would have to
-	rewrite kernel.  Kernel caching would be easy using x indices.
-	Shuffling would mess that up.  x could be indices too!  train
-	could not handle it.  or train can just pass indices for x.  one
-	hash (idx*idx->kval) plus a big x matrix in gpu memory for all the
-	kernel calc.  what does a kernel cache hold again?  values or
-	whole columns?  - It turns out gc() after every update fixes the
-	problem.
-
-	I calculated trn error looking at the number of sv added, and
-	using the fact that nx=1820392.
-
-	trn1: elapsed time: 3405.547185297 seconds (10105037976 bytes allocated, 9.32% gc time)
-	dev1: elapsed time: 231.487048972 seconds (40981980 bytes allocated)
-	tst1: elapsed time: 328.463520519 seconds (48170864 bytes allocated, 0.01% gc time)
-
-	trn2: elapsed time: 6740.557072649 seconds (15279129024 bytes allocated, 4.77% gc time)
-	dev2: elapsed time: 300.152283337 seconds (34083240 bytes allocated)
-	tst2: elapsed time: 426.0930742 seconds (48177472 bytes allocated, 0.01% gc time)
-
-	trn3: elapsed time: 7920.053201062 seconds (15272350808 bytes allocated, 4.07% gc time)
-	dev3: elapsed time: 333.014117544 seconds (34072312 bytes allocated)
-	tst3: elapsed time: 472.73413071 seconds (48172960 bytes allocated, 0.01% gc time)
-
-
-	* test/zn11perc.pbs.o12463690: without shuffling, regular
-	perceptron on the original zn11 feature set converges in 10 epochs
-	to: (10,0.983861168363737,0.9627768956451571,0.9632195769145722)
-	epoch,trn,dev,tst and stays there.
-
-	* dbg/test/zn11perc.pbs.o12470963: zn11perc.jl: multi-seed
-	shuffling version. The different seeds converge to slightly
-	different solutions, but strangely each run converges and stops
-	moving in exactly 10 epochs?  Other than that little funny
-	coincidence the results are fairly consistent around:
-	trn=9865 dev=9640 tst=9638
-
-	These results are with Float32 and converge early.  Rerun with Float64.
-	(seed,epoch,accuracy(ytrn,ztrn),accuracy(ydev,zdev),accuracy(ytst,ztst))
-	(1,10,0.9866094775191278,0.9642606137907697,0.9638553106803273)
-	(2,10,0.9866836373704125,0.9640784027904313,0.9637447482862829)
-	(3,10,0.9865391629934651,0.9637139807897546,0.9638276700818161)
-	(4,10,0.9865957442133343,0.9639742822188094,0.9639198054101865)
-	(5,10,0.9865688269339791,0.9642606137907697,0.9638276700818161)
-	(6,10,0.9865523469670269,0.9641174480047896,0.9639013783445124)
-	(7,10,0.98665122676874,0.9638181013613765,0.9636526129579126)
-	(8,10,0.986530923009989,0.964091417861884,0.9638553106803273)
-	(9,10,0.9865122457141099,0.9636489054324908,0.9638276700818161)
-	(10,10,0.9865122457141099,0.9638441315042819,0.9638368836146533)
 
 
 2015-06-24  Deniz Yuret  <dyuret@ku.edu.tr>
@@ -766,7 +425,8 @@
 	x i have tried as a separate fn or as part of forw/back before.
 
 	+ implement/test dropout
-	- gpuseed not working, but random numbers start at the same place?
+	+ gpuseed not working, but random numbers start at the same place?
+	  need to recreate RNG.
 	+ cuda and julia not equal?
 	x change dropout in cuda as well to use xmask for storage
 	- change / check adagrad, nesterov options in cuda

@@ -1,15 +1,11 @@
 # TODO: generalize to N-D
 # TODO: cpu implementation
-# DONE: get rid of Float32
-# DONE: add ConvolutionDescriptor if needed
-# TODO: add xavier init
 
 type Conv <: Layer; w; x; y; dx; dy; n;
-    Conv(d...; o...)=new(Param(d...; o...))
-    Conv(n::Integer)=(l=new();l.n=n)
+    Conv(d...; init=initxavier, o...)=new(Param(d...; init=init, o...))
+    Conv(nout::Integer, width::Integer)=new(Param(width, width, 0, nout))
 end
 
-# copy(l::Conv; o...)=Conv(copy(l.w; o...))
 update(l::Conv; o...)=update(l.w; o...)
 setparam!(l::Conv; o...)=setparam!(l.w; o...)
 
@@ -21,10 +17,16 @@ function forw(l::Conv, x::AbstractCudaArray; o...)
 end
 
 function initforw(l::Conv, x::AbstractCudaArray)
-    isdefined(l,:w) || (l.w = Param(eltype(x), tuple(fill(l.n,ndims(x))...); init=initrand))
+    xchannels = size(x)[end-1]  # x dims are (x1, x2, ..., channels, images)
     w = l.w.data
-    @assert eltype(x) == eltype(w)
+    wsize = [size(w)...]
+    if isempty(w)
+        wsize[end-1]=xchannels
+        w = l.w.data = initxavier((gpu()?CudaDynArray:Array)(eltype(x), wsize...))
+    end
+    @assert eltype(x) == eltype(w) "$(eltype(x)) != $(eltype(w))"
     @assert ndims(x) == ndims(w)
+    @assert xchannels == wsize[end-1]
     similar!(l, :y, x, cudnnGetConvolutionNdForwardOutputDim(x, w))
     l.x = x
 end

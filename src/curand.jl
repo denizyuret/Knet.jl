@@ -44,3 +44,6 @@ function randn!(a::AbstractCudaArray{Float64},stddev=1f0,mean=0f0)
     end
     return a
 end
+
+randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
+rand!(a::KUnetArray, x0, x1)=(rand!(a); axpb!(length(a), (x1-x0), x0, a); a)

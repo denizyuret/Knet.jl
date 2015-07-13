@@ -24,6 +24,11 @@ gemm!{T}(transA::Char,transB::Char,alpha::T,A::AbstractCudaArray{T},B::AbstractC
 axpy!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer,y::AbstractCudaArray{T},incy::Integer)=(axpy!(n,alpha,convert(CudaArray,x),incx,convert(CudaArray,y),incy);y)
 scal!{T}(n::Integer,alpha::T,x::AbstractCudaArray{T},incx::Integer)=(scal!(n,alpha,convert(CudaArray,x),incx);x)
 
+# This is a function blas does not have but frequently needed:
+axpb!(n,a,b,x::AbstractCudaArray{Float32})=(ccall((:axpb32,libkunet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),n,a,b,x); x)
+axpb!(n,a,b,x::AbstractCudaArray{Float64})=(ccall((:axpb64,libkunet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),n,a,b,x); x)
+axpb!(n,a,b,x::AbstractArray)=(for i=1:length(x); x[i] = a*x[i]+b; end; x)
+
 # without this patch, deepcopy does not work on structs with CudaArrays
 function Base.deepcopy_internal(x::AbstractCudaArray, stackdict::ObjectIdDict)
     if haskey(stackdict, x)
@@ -61,6 +66,14 @@ similar(a::CudaDynArray)=CudaDynArray(eltype(a), size(a))
 stride(a::CudaDynArray, dim::Integer) = prod(size(a)[1:dim-1])
 pitchedptr{T}(a::CudaDynArray{T,2})=rt.cudaPitchedPtr(pointer(a), size(a,1)*sizeof(T), size(a,1), size(a,2))
 unsafe_convert{T}(::Type{Ptr{T}}, g::CudaDynArray) = unsafe_convert(Ptr{T}, pointer(g))
+
+function reinterpret{T}(::Type{T}, a::CudaDynArray, dims::Dims)
+    oldbytes = a.cap * sizeof(eltype(a))
+    newbytes = prod(dims) * sizeof(T)
+    @assert newbytes <= oldbytes
+    newcap = div(oldbytes, sizeof(T))
+    CudaDynArray{T,length(dims)}(a.ptr, dims, a.dev, newcap)
+end
 
 # size!: resize if necessary without copy.  
 function size!(a::CudaDynArray, n::Integer)
@@ -149,3 +162,4 @@ end
 #fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 fill!(A::CudaDynArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
+
