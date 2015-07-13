@@ -5,7 +5,8 @@ network.  It does not change the output of the network: its forw
 function does nothing except record the network output y.  Its back
 function takes z, the desired output, and overwrites it with the loss
 gradient wrt y.  It also provides a loss function loss(z), which takes
-the desired output, and returns a loss value.
+the desired output, and returns a loss value.  Unless otherwise
+specified their constructor takes no arguments, e.g. QuadLoss().
 
 In the following discussion y and z are used for model and desired
 outputs, q and p are used for model and desired probabilities when the
