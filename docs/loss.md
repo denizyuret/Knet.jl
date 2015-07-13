@@ -4,8 +4,8 @@ A LossLayer is typically the final layer of a feed forward neural
 network.  It does not change the output of the network: its forw
 function does nothing except record the network output y.  Its back
 function takes z, the desired output, and overwrites it with the loss
-gradient wrt y.  Its loss function takes z, the desired output, and
-returns a loss value.
+gradient wrt y.  It also provides a loss function loss(z), which takes
+the desired output, and returns a loss value.
 
 In the following discussion y and z are used for model and desired
 outputs, q and p are used for model and desired probabilities when the
@@ -17,8 +17,8 @@ the loss gradient wrt y.  We sometimes use just dy as a short form for
 
 Cross entropy is a commonly used loss function for classification
 problems.  Assume q is the class probabilities output by the model and
-p is the actual probabilities (p is typically a one-hot vector when we
-know the class for sure, but does not have to be).  Then the
+p is the desired probability vector (p is typically a one-hot vector
+when we know the class for sure, but does not have to be).  Then the
 cross-entropy loss is defined as:
 
     J(q) = -Σ pi log qi
@@ -28,7 +28,7 @@ one uses the softmax function:
 
     qi = (exp yi) / (Σ exp yj)
 
-This is an expensive function and it is often not needed during
+This is an expensive operation and it is often not needed during
 prediction (argmax qi = argmax yi).  In those cases it would be better
 to avoid normalization during forward computation and implement it
 during the backward step of training.  To give users some flexibility,
@@ -36,8 +36,9 @@ KUnet implements three different cross entropy loss layers:
 
 * SoftLoss: assumes the network outputs are normalized probabilities,
   computing the loss and the gradients without performing softmax.
-  Should only be used after the Soft final layer.  If q is the
-  (normalized) network output and p is the desired probability vector:
+  Should only be used after the Soft final layer, which applies
+  softmax to the network output.  If q is the (normalized) network
+  output and p is the desired probability vector:
 
         J(q) = -Σ pi log qi
              = -Σ pi log (qi/Σqj)    ;; should make normalization explicit
@@ -53,7 +54,8 @@ KUnet implements three different cross entropy loss layers:
   network output, q is softmax applied to y, and p is the desired
   probability vector:
 
-        J(y) = -Σ pi log ((exp yi) / (Σ exp yj))
+        J(y) = -Σ pi log qi
+             = -Σ pi log ((exp yi) / (Σ exp yj))
              = -(Σ pi yi) + (Σ pi log Σ exp yj)
              = -(Σ pi yi) + (log Σ exp yj)
 
@@ -63,9 +65,9 @@ KUnet implements three different cross entropy loss layers:
 * LogpLoss: assumes the network outputs are normalized log
   probabilities and computes the loss and the gradients accordingly.
   Log probability outputs are sometimes useful when computing log
-  likelihoods.  Should only be used after the Logp final layer.  The
-  loss and the gradient are identical to XentLoss except Σ exp yj = 1
-  is assumed.
+  likelihoods.  Should only be used after the Logp final layer, which
+  applies log-softmax to the network output.  The loss and the
+  gradient are identical to XentLoss except Σ exp yj = 1 is assumed.
 
 Note that Net+XentLoss, Net+Soft+SoftLoss, Net+Logp+LogpLoss
 essentially implement the same network for training purposes.  They
@@ -81,17 +83,17 @@ Other loss layers implemented are:
 
 * PercLoss: implements the perceptron loss function.  A multiclass
   perceptron can be constructed using an Mmul layer followed by
-  PercLoss.  If i is the correct answer and j is the predicted answer,
-  the perceptron loss is:
+  PercLoss and using a learning rate of 1.  If i is the correct answer
+  and j is the predicted answer, the perceptron loss is:
 
         J(y) = -yi + yj
         ∂J/∂yk = -(k=i) + (k=j)
 
-    For a given column with input x, if cz is the correct answer and
-    cy is the predicted answer, the multiclass perceptron update rule
+    Here is why Mmul+PercLoss is identical to a perceptron: For a
+    given column with input x, the multiclass perceptron update rule
     is:
 
-        w[cz,:] += x;  w[cy,:] -= x
+        w[i,:] += x;  w[j,:] -= x
 
     Note that there is no update if cz==cy.  The Mmul updates are:
 
