@@ -1,4 +1,5 @@
 using KUnet
+using KUnet: KUnetArray, CudaDynArray
 using Base.Test
 using Base.Test: Success, Failure, Error
 import Base.Test: default_handler
@@ -9,17 +10,19 @@ else
     typealias ContiguousArray{T} Array{T}
 end
 
+gnet0 = net0 = x0 = z0 = nothing
+
 # Uncomment this if you want lots of messages:
 # default_handler(r::Success) = info("$(r.expr)")
 # default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
-function Base.isapprox(x::ContiguousArray,y::ContiguousArray;
+function Base.isapprox(x::KUnetArray,y::KUnetArray;
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                        rtol::Real=cbrt(maxeps), atol::Real=sqrt(maxeps))
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
-    KUnet.GPU && isa(x, CudaArray) && (x = to_host(x))
-    KUnet.GPU && isa(y, CudaArray) && (y = to_host(y))
+    KUnet.GPU && isa(x, AbstractCudaArray) && (x = to_host(x))
+    KUnet.GPU && isa(y, AbstractCudaArray) && (y = to_host(y))
     d = abs(x-y)
     s = abs(x)+abs(y)
     all(d .< (atol + rtol * s))
@@ -81,15 +84,16 @@ function getparam(l1::Layer)
 end
 
 function gputest(cnet::Net, x, z)
+    global gnet0
     rval = true
     # Compare loss, y, dx, dw after forw and back:
     (cl, cx, cz) = forwlossback(cnet, x, z)
-    gnet = Layer[gpucopy(cnet)...]
+    gnet0 = gnet = Layer[gpucopy(cnet)...]
     # @show gnet
     # hnet = Layer[cpucopy(gnet)...]
     # @assert isequal(cnet[1].w.data, hnet[1].w.data)
     # @show cnet
-    (gl, gx, gz) = forwlossback(gnet, CudaArray(x), CudaArray(z))
+    (gl, gx, gz) = forwlossback(gnet, CudaDynArray(x), CudaDynArray(z))
     isapprox(gl, cl) || (warn("loss mismatch in $(map(typeof,cnet)): $gl != $cl"); rval=false)
     for i=1:length(cnet)
         isapprox(cx[i], gx[i]) || (warn("y mismatch in $(typeof(cnet[i]))"); rval=false)
@@ -153,13 +157,10 @@ function getnet{T<:Layer}(F,S,L::Type{T})
     (nf>20) && in(L,(Logp,Soft,LogpLoss,SoftLoss,XentLoss)) && return nothing
     (nd!=4) && in(L,(Conv,Pool)) && return nothing
     C = (nd==1 ? S[1] : S[nd-1])
-    l = ((L == Bias) ? Bias(rand(F, C)) :
-         (L == Conv) ? Conv(rand(F, rand(1:S[1]),rand(1:S[2]),C,rand(1:20))) :
+    l = ((L == Conv) ? Conv(rand(1:20), rand(1:min(S[1],S[2]))) :
          (L == Drop) ? Drop(rand()) :
-         (L == Mmul) ? Mmul(rand(F, rand(1:20), nf)) :
-         (L == Pool) ? Pool(rand(1:minimum(S))) :
-         (L == Logp) ? Logp() :
-         (L == Soft) ? Soft() : L())
+         (L == Mmul) ? Mmul(rand(1:20)) :
+         (L == Pool) ? Pool(rand(1:minimum(S))) : L())
     net = Layer[]; push!(net, l)
     return (isa(l, Logp) ? push!(net, LogpLoss()) :
             isa(l, Soft) ? push!(net, SoftLoss()) :
@@ -186,8 +187,6 @@ function gettest(F,S,L)
     z = getz(net, x)
     return (net, x, z)
 end
-
-net0 = x0 = z0 = nothing
 
 function main(layers)
     global net0, x0, z0

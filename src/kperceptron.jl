@@ -66,7 +66,7 @@ function update(l::KPerceptron; o...) # 198
     l.k  = size!(l.k, (size(l.k,1),size(l.s,2)))
 end
 
-hcat!{Tv,Ti<:Integer}(a::Matrix{Tv}, b::Matrix{Tv}, vj::Vector{Ti}, nj::Integer)=[a b[:,vj[1:nj]]]
+hcat!{T}(a::Matrix{T}, b::Matrix{T}, vj=(1:size(b,2)), nj=length(vj))=[a b[:,vj[1:nj]]]
 size!(a::Array, d::Dims)=(size(a)==d ? a : Array(eltype(a),d))
 
 # To preserve the behavior and minimize the space, get rid of everything except:
@@ -84,7 +84,7 @@ function initforw(l::KPerceptron, x::KUnetArray, predict)
     xtype = eltype(x)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
-        gpu() && isa(l.s, CudaDynArray) && (l.s = CudaDynArray(l.s))
+        gpu() && isa(l.s, CudaArray) && (l.s = CudaDynArray(l.s))
         l.w0 = wtype(xtype, l.nclass, 0)        # w matches x in location and eltype but is dense
         l.w1 = wtype(xtype, l.nclass, 0)
         l.w2 = nothing

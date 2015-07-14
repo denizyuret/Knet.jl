@@ -59,7 +59,7 @@
 	* src/cumatrix.jl: TODO: is it better to split code by function
 	rather than datatype?  more similarity.
 
-	* src/sparse.jl: TODO: better interface for hcat!, last two args
+	* src/sparse.jl: DONE: better interface for hcat!, last two args
 	should be optional.
 
 	* test/runtests.jl: TODO: test different cpu/gpu sparse/dense
@@ -79,7 +79,7 @@
 
 	* usage.md: TODO: write perceptron documentation.
 
-	* param.jl: TODO: add initxavier for conv.jl
+	* param.jl: DONE: add initxavier for conv.jl
 
 	* param.jl: TODO: fix adagrad initialization.
 
@@ -113,7 +113,7 @@
 
 2015-06-22    <dyuret@ku.edu.tr>
 
-	* TODO: xavier: https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
+	* DONE: xavier: https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
 
 2015-06-21    <dyuret@ku.edu.tr>
 

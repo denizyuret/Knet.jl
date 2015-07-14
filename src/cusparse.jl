@@ -7,9 +7,9 @@ import Base: A_mul_Bt!, At_mul_B!, A_mul_B!
 type CudaSparseMatrixCSC{Tv} <: AbstractCudaMatrix{Tv}
     m::Int                   # Number of rows
     n::Int                   # Number of columns
-    colptr::CudaVector{Cint} # Column i is in colptr[i]+1:colptr[i+1], note that this is 0 based on cusparse
-    rowval::CudaVector{Cint} # Row values of nonzeros
-    nzval::CudaVector{Tv}    # Nonzero values
+    colptr::AbstractCudaVector{Cint} # Column i is in colptr[i]+1:colptr[i+1], note that this is 0 based on cusparse
+    rowval::AbstractCudaVector{Cint} # Row values of nonzeros
+    nzval::AbstractCudaVector{Tv}    # Nonzero values
 end
 
 size(S::CudaSparseMatrixCSC) = (S.m, S.n)
@@ -23,8 +23,9 @@ similar(s::CudaSparseMatrixCSC,T,dims::Dims)=gpucopy(spzeros(T,Cint,dims...))
 
 # hcat!{T}(x::CudaSparseMatrixCSC{T}, s::CudaSparseMatrixCSC{T},vj,nj)=(y=gpucopy(hcat!(cpucopy(x),cpucopy(s),cpucopy(vj),nj));gpusync();y)
 
-# concat nj selected columns with indices vj from b to a
-function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCSC{Tv}, vj::Vector{Ti}, nj::Integer)
+# concat nj selected columns with indices vj[1:nj] from b to a
+function hcat!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T}, 
+                  vj=(1:size(b,2)), nj=length(vj))
     aptr = to_host(a.colptr)
     bptr = to_host(b.colptr)
     na = aptr[a.n+1]-1          # nonzero entries in a
@@ -33,20 +34,17 @@ function hcat!{Tv,Ti<:Integer}(a::CudaSparseMatrixCSC{Tv}, b::CudaSparseMatrixCS
         aj=a.n+i                # will become aj'th column of a
         nz=bptr[bj+1]-bptr[bj]  # with nz nonzero values
         nna = na+nz             # making this the new na
-        length(aptr) > aj || (aptr = size!(aptr,aj+1))
-        length(a.nzval) >= nna || (a.nzval = size!(a.nzval,nna))
-        length(a.rowval) >= nna || (a.rowval = size!(a.rowval,nna))
-        aptr[aj+1] = aptr[aj]+nz
+        length(a.nzval)  >= nna || (a.nzval = size!(a.nzval,nna; copy=true))
+        length(a.rowval) >= nna || (a.rowval = size!(a.rowval,nna; copy=true))
+        @assert length(aptr) == aj
+        push!(aptr, aptr[aj]+nz) # aptr[aj+1] = aptr[aj]+nz
         copy!(a.nzval,na+1,b.nzval,bptr[bj],nz)
         copy!(a.rowval,na+1,b.rowval,bptr[bj],nz)
         na = nna
     end
-    if length(a.colptr) < length(aptr)
-        a.colptr = CudaDynArray(eltype(aptr), length(aptr))
-        copy!(a.colptr, 1, aptr, 1, a.n+nj+1)
-    else
-        copy!(a.colptr, a.n+2, aptr, a.n+2, nj)
-    end
+    @assert length(aptr) == a.n + nj + 1
+    size!(a.colptr, length(aptr); copy=true)
+    copy!(a.colptr, a.n+2, aptr, a.n+2, nj)
     a.n += nj
     gpusync()
     return a

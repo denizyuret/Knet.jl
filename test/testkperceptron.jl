@@ -28,12 +28,12 @@ for ker in (
                 :single,
                 )
         for fmt in (
-                    :dense, 
                     :sparse,
+                    :dense, 
                     )
             for loc in (
-                        :cpu, 
                         :gpu,
+                        :cpu, 
                         )
                 loc == :gpu && ker[1] == :perceptron && continue
                 println("\n$ker, $prc, $fmt, $loc")

@@ -44,9 +44,11 @@ similar!(l, n, a, dims::Dims; o...) = similar!(l,n,a,eltype(a),dims; o...)
 
 if GPU
 
+import Base: copy!, copy
+
 typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T},CudaDynArray{T}) # no sparse
 
-function Base.copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
+function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
@@ -57,6 +59,10 @@ function Base.copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}
     gpusync()
     return dst
 end
+
+# This doesn't work from CUDArt for some reason:
+copy!{T}(A::CopyableArray{T}, B::CopyableArray{T})=(@assert length(A)==length(B); copy!(A,1,B,1,length(A)); A)
+copy{T}(A::CopyableArray{T})=copy!(similar(A),A)
 
 # General cpu/gpu deep copy for composite types, gpu arrays etc.
 cpucopy(x)=_cpucopy(x,ObjectIdDict())

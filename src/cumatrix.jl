@@ -75,39 +75,37 @@ function reinterpret{T}(::Type{T}, a::CudaDynArray, dims::Dims)
     CudaDynArray{T,length(dims)}(a.ptr, dims, a.dev, newcap)
 end
 
-# size!: resize if necessary without copy.  
-function size!(a::CudaDynArray, n::Integer)
+# Adjust cap with optional copy
+function cap!(a::CudaDynArray, n::Integer; copy=false)
     n <= a.cap && return a      # We never shrink the array.
     a.cap = int(1.3*n+1)        # 1.3 ensures a3 can be written where a0+a1 used to be
-    free(a.ptr)
-    a.ptr = malloc(eltype(a), a.cap)
+    if copy
+        b = CudaArray(a.ptr, a.dims, a.dev) # save old contents for copy
+        a.ptr = malloc(eltype(a), a.cap)
+        copy!(a, 1, b, 1, min(n, prod(a.dims)))
+        free(b.ptr)
+    else
+        free(a.ptr)
+        a.ptr = malloc(eltype(a), a.cap)
+    end
     return a
 end
 
-size!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=size!(a,prod(d)); a.dims=d; a))
+# size! sets size with optional copy
+size!(a::CudaDynArray, d::Dims; copy=false)=(size(a)==d ? a : (a=cap!(a,prod(d); copy=copy); a.dims=d; a))
+size!(a::CudaArray, d::Dims; copy=false)=(size(a)==d ? a : size!(CudaDynArray(a), d; copy=copy))
+size!(a::DenseArray, d::Dims; copy=false)=(size(a)==d ? a : (b=similar(a,d); copy && copy!(b,1,a,1,min(length(a),prod(d))); b))
 
-size!(a::CudaArray, d::Dims)=(size(a)==d ? a : size!(CudaDynArray(a), d))
+size!(a::CudaDynArray, d::Integer...; o...)=size!(a,d; o...)
+size!(a::CudaArray, d::Integer...; o...)=size!(a,d; o...)
+size!(a::DenseArray, d::Integer...; o...)=size!(a,d; o...)
 
-size!(a::DenseArray, d::Dims)=(size(a)==d ? a : copy!(similar(a, d), 1, a, 1, min(length(a), prod(d))))
-
-# resize!: resize if necessary with copy
-function resize!{T}(a::CudaDynArray{T}, n::Integer)
-    n <= a.cap && return a      # We never shrink the array.
-    a.cap = int(1.3*n+1)        # 1.3 ensures a3 can be written where a0+a1 used to be
-    b = CudaArray(a.ptr, a.dims, a.dev) # save old contents for copy
-    a.ptr = malloc(eltype(a), a.cap)
-    copy!(a, 1, b, 1, min(n, prod(a.dims)))
-    free(b.ptr)                 # free comes after malloc/copy
-    return a
-end
-
-resize!(a::CudaDynArray, d::Dims)=(size(a)==d ? a : (a=resize!(a,prod(d)); a.dims=d; a))
-
-function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDynArray{T,2}), vj::Vector, nj::Integer)
+function hcat!{T}(a::CudaDynArray{T,2}, b::Union(CudaMatrix{T},Matrix{T},CudaDynArray{T,2}), 
+                  vj=(1:size(b,2)), nj=length(vj))
     @assert size(a,1) == size(b,1)
     (nrows,ncols) = size(a)
     newlen = length(a) + nj * nrows
-    newlen > a.cap && (a = resize!(a, newlen))
+    newlen > a.cap && (a = cap!(a, newlen; copy=true))
     na = length(a) + 1
     a.dims = (nrows, ncols + nj)
     for i=1:nj

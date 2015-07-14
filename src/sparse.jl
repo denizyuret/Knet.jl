@@ -40,7 +40,7 @@ function A_mul_B!(k::Matrix, x::Matrix, s::SparseMatrixCSC) # 1607
     return k
 end
 
-function hcat!{Tv,Ti<:Integer}(a::SparseMatrixCSC{Tv}, b::SparseMatrixCSC{Tv}, vj::Vector{Ti}, nj::Integer)
+function hcat!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, vj=(1:size(b,2)), nj=length(vj))
     # a: m, n, colptr, rowval, nzval
     # colptr[i]: starting index (in rowval,nzval) of column i
     # colptr[n+1]: nz+1
