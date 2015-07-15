@@ -100,7 +100,7 @@ end
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
     (b == nothing) && (b = (gpu()?CudaDynArray:Array)(eltype(x), bs))
-    (size(b) != bs) && size!(b, bs)
+    (size(b) != bs) && (b=size!(b, bs))
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))
     gpu() && gpusync()
