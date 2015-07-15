@@ -1,5 +1,5 @@
 type XentLoss <: LossLayer; y; XentLoss()=new(); end
-copy(l::XentLoss;o...)=XentLoss()
+# copy(l::XentLoss;o...)=XentLoss()
 
 # Cross entropy loss to use after an unnormalized layer.
 # l.y is treated as unnormalized log probabilities output by the model.
@@ -40,10 +40,8 @@ function back(l::XentLoss, p; returndx=true, o...)
     return p
 end
 
-function loss(l::XentLoss, p)
-    @assert issimilar(p,l.y)
-    p = to_host(p)
-    y = to_host(l.y)
+function loss(l::XentLoss, p, y=l.y)
+    @assert issimilar(p,y)
     cost = zero(Float64)
     (nd,nx) = size2(p)
     for j=1:nx
@@ -58,7 +56,10 @@ function loss(l::XentLoss, p)
 end
 
 if GPU
-function back(l::XentLoss, p::CudaArray{Float32}; returndx=true, o...)
+
+loss(l::XentLoss, p::AbstractCudaArray)=loss(l, to_host(p), to_host(l.y))
+
+function back(l::XentLoss, p::AbstractCudaArray{Float32}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (nd,nx) = size2(p)
@@ -66,7 +67,7 @@ function back(l::XentLoss, p::CudaArray{Float32}; returndx=true, o...)
     return p;
 end
 
-function back(l::XentLoss, p::CudaArray{Float64}; returndx=true, o...)
+function back(l::XentLoss, p::AbstractCudaArray{Float64}; returndx=true, o...)
     @assert issimilar(p, l.y)
     returndx || return
     (nd,nx) = size2(p)

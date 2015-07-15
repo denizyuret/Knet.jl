@@ -1,5 +1,5 @@
 type Logp <: Layer; y; Logp()=new(); end
-copy(l::Logp;o...)=Logp()
+# copy(l::Logp;o...)=Logp()
 
 # logp treats the linear output as unnormalized log probabilities and
 # adds an offset to each column to make them into normalized log
@@ -47,7 +47,7 @@ back(l::Logp, dy; o...)=dy
 # end
 
 if GPU
-forw(l::Logp,y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); l.y=y)
-forw(l::Logp,y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); l.y=y)
+forw(l::Logp,y::AbstractCudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y); l.y=y)
+forw(l::Logp,y::AbstractCudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y); l.y=y)
 end # if GPU
 

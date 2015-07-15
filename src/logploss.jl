@@ -1,5 +1,5 @@
 type LogpLoss <: LossLayer; y; LogpLoss()=new(); end
-copy(l::LogpLoss;o...)=LogpLoss()
+# copy(l::LogpLoss;o...)=LogpLoss()
 
 # Cross entropy loss to use after the Logp layer.
 # l.y should be normalized log probabilities output by the model.
@@ -31,10 +31,8 @@ function back(l::LogpLoss, p; returndx=true, o...)
     return p
 end
 
-function loss(l::LogpLoss, p)
-    @assert issimilar1(p, l.y)
-    p = to_host(p)
-    y = to_host(l.y)
+function loss(l::LogpLoss, p, y=l.y)
+    @assert issimilar(p, y)
     (st,nx) = size2(p)
     cost = zero(Float64)
     for i=1:length(p)
@@ -43,17 +41,21 @@ function loss(l::LogpLoss, p)
     return cost/nx
 end
 
+
 if GPU
-function back(l::LogpLoss, p::CudaArray{Float32}; returndx=true, o...)
-    @assert issimilar1(p, l.y)
+
+loss(l::LogpLoss, p::AbstractCudaArray)=loss(l, to_host(p), to_host(l.y))
+
+function back(l::LogpLoss, p::AbstractCudaArray{Float32}; returndx=true, o...)
+    @assert issimilar(p, l.y)
     returndx || return
     (st,nx) = size2(p)
     ccall((:logploss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y,p)
     return p
 end
 
-function back(l::LogpLoss, p::CudaArray{Float64}; returndx=true, o...)
-    @assert issimilar1(p, l.y)
+function back(l::LogpLoss, p::AbstractCudaArray{Float64}; returndx=true, o...)
+    @assert issimilar(p, l.y)
     returndx || return
     (st,nx) = size2(p)
     ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y,p)

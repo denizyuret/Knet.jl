@@ -1,38 +1,18 @@
 module KUnet
 using Compat
 
-# See if we have gpu support.  This determines whether gpu code is
-# loaded, not whether it is used.  The user can control gpu use by
-# changing the array type using atype.
-gpuok = true
-lpath = [Pkg.dir("KUnet/src")]
-for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
-    isempty(find_library([l], lpath)) && (warn("Cannot find $l");gpuok=false)
-end
-for p in ("CUDArt", "CUBLAS", "CUDNN")
-    isdir(Pkg.dir(p)) || (warn("Cannot find $p");gpuok=false)
-end
-const GPU = gpuok
-GPU || warn("GPU libraries missing, using CPU.")
-
-# Conditional module import
-macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
+include("gpu.jl");	# gpu detection
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
+KUnetArray=(GPU ? Union(AbstractArray,AbstractCudaArray) : AbstractArray)
 
-# Atype and Ftype are the default array and element types
-Ftype = Float32
-Atype = (GPU ? CudaArray : Array)
-ftype()=Ftype
-atype()=Atype
-ftype(t)=(global Ftype=t)
-atype(t)=(global Atype=t)
+include("sparse.jl");
+GPU && include("cusparse.jl");
+GPU && include("cumatrix.jl");
+GPU && include("curand.jl");
 
-
-#########################
-import Base: copy, copy!, rand!, fill!, convert, reshape
-include("util.jl");	# extends functions given above
+include("util.jl");	export accuracy, cpucopy, gpucopy, gpumem, @date
 include("param.jl");	export Param, update, setparam!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 
@@ -51,6 +31,13 @@ include("logploss.jl");	export LogpLoss
 include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
+include("percloss.jl"); export PercLoss # deprecated
+
+include("kernel.jl");   export Kernel, kernel # deprecated
+include("poly.jl");     export Poly           # deprecated
+include("rbfk.jl");     export Rbfk           # deprecated
+include("perceptron.jl"); export Perceptron
+include("kperceptron.jl"); export KPerceptron
 #########################
 
 end # module

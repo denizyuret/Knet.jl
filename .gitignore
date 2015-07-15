@@ -13,3 +13,6 @@ foo*
 unused
 v0.3
 v0.4
+*.pbs.*
+*.pbs
+.cache

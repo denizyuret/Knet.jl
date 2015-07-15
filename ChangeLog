@@ -1,3 +1,209 @@
+2015-07-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: organize code around operations (array.jl, linalg.jl) or
+	data types (sparse, cusparse)?
+
+	* TODO: release perceptron.
+	- finish documentation.
+	- implement structured perceptron? just a difft training rule?
+	- test mmul+percloss, need averaging, implement ASGD.
+
+	* TODO: nvidia bug check: cudnnSoftmaxBackward off by a factor of
+	2? came back saying there is no bug.  also report the cusparse
+	transpose problem.
+
+
+2015-07-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: automatic spawn of worker machines in qsub.  From JonMay:
+	Once a job starts you will have the environment variable
+	PBS_NODEFILE and this will contain a list of machines, one per
+	line.
+
+	e.g. (sorry, it happened to be a one-node job and i didn’t want to
+	wait for my 2-node demo to start)
+
+	[jonmay@hpc1457 quake]$ echo $PBS_NODEFILE
+	/var/spool/torque/aux//12554804.hpc-pbs.hpcc.usc.edu
+	[jonmay@hpc1457 quake]$ cat
+	/var/spool/torque/aux//12554804.hpc-pbs.hpcc.usc.edu
+	hpc1457
+
+2015-07-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/util.jl: TODO: use size! instead of realloc in similar!
+	look at size! vs resize! again
+	make sure regular arrays will work
+	similar! does not match array type?  reconsider its semantics.
+
+	* net.jl: profiling kunet.  nothing much to do.
+
+	# train: most time spent copying data to gpu
+	gpu() && gc()  # L46: 76
+	for b = 1:batch:ninst # L47: 1
+        e = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e) # L49: 25641
+        yy = x2b(yy, y, b:e) # L50: 39
+        backprop(net, xx, yy; o...) # L51: 516
+        update(net; o...) # L52: 160
+        (iters > 0) && (e/batch >= iters) && break
+        gpu() && (gpumem() < (1<<30)) && gc() # L54: 32
+	end
+	strip!(net)
+	gpu() && gc()
+
+	# predict: most time spent on copying back from gpu.
+	ninst = size(x, ndims(x))
+	(batch == 0 || batch > ninst) && (batch = ninst)
+	xx = yy = nothing
+	for b = 1:batch:ninst
+        e  = min(ninst, b + batch - 1)
+        xx = x2b(xx, x, b:e)  # L68: 382
+        yy = forw(net, xx; predict=true, o...) # L69: 150
+        y  = b2y(y, yy, b:e, x) # L70: 4150
+	end
+	return y
+
+
+2015-07-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/simpleIPC/fooipc.cu (main): seems like the only choices are
+	using lightweight threads or memcopy.  a memory handle seems
+	sharable by only one other process?
+
+	* src/cumatrix.jl: TODO: is it better to split code by function
+	rather than datatype?  more similarity.
+
+	* src/sparse.jl: DONE: better interface for hcat!, last two args
+	should be optional.
+
+	* test/runtests.jl: TODO: test different cpu/gpu sparse/dense
+	float32/float64 combos.
+
+	* src/util.jl: TODO: use CudaDynArray everywhere and minimize the realloc.
+
+	* conv.jl: TODO: conv fails tutorial.jl code.  fix
+	initialization: should figure out input size/type from first x
+	like bias/mmul.
+
+	* cusparse.jl: TODO: implement uniq! for sparse perceptron.
+
+	* perceptron.jl: TODO: implement addx! for gpu perceptron.
+
+	* usage.md: TODO: write loss documentation.
+
+	* usage.md: TODO: write perceptron documentation.
+
+	* param.jl: DONE: add initxavier for conv.jl
+
+	* param.jl: TODO: fix adagrad initialization.
+
+	* src/kperceptron.jl: TODO: make uniq! part of training somehow.
+
+	* net.jl: profile train to see if gpumem hurts: it doesn't.  most
+	of the time is spent during x2b.
+
+
+2015-06-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/perceptron.jl: keep w the same orientation as x, makes
+	easier to add.  Use w'*x like kperceptron.  Decided otherwise;
+	wrong on both counts: w is dense, so not easier to add in either
+	direction, and kperceptron holds it in w*k(x) position.
+
+2015-06-23    <dyuret@ku.edu.tr>
+
+	* src/kperceptron.jl: TODO: gpu/dense does not work with
+	kpoly/kgauss yet.  gpu/sparse needs to be written.  Define new
+	type CudaSparseMatrixCSC and test:
+	- train (x2b,b2y)
+	- initforw
+	- forw
+	- initback
+	- back
+	- update
+	- hcat!
+	- kpoly (gpu sparse/dense)
+	- kgauss (gpu sparse/dense)
+
+2015-06-22    <dyuret@ku.edu.tr>
+
+	* DONE: xavier: https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
+
+2015-06-21    <dyuret@ku.edu.tr>
+
+	* test/testkperceptron.jl:
+
+	Q: linear kperceptron and perceptron do not give the same result?
+	The difference is due to kperceptron not having a bias.  Removing
+	bias from perceptron makes the results equal to numerical
+	accuracy.
+
+	Q: is K sparse or dense?  sparse.  +0 makes it dense.
+
+	Q: should we add bias back to kperceptron but make it optional?
+	it helps klinear.  does it help kpoly?  why does it hurt kgauss?
+
+	Q: for loop is much slower than sparse mmul?
+
+2015-06-20    <dyuret@ku.edu.tr>
+
+	* kperceptron.jl: To move any further we need to sort out this
+	array type business.  Since we introduced sparse arrays we are no
+	longer limited to two types, Array and CudaArray.  That means the
+	atype mechanism is no longer ok.
+
+	First of all the original data comes in a cpu array.  It gets
+	copied into minibatches by train and predict.  It can be full or
+	sparse.  Nothing after the original data needs to be sparse except
+	support vectors.  The minibatches could be on cpu or gpu (if gpu
+	usage is specified).  We will keep the sparseness of the input in
+	minibatches.  The users preferences should specify the cpu/gpu and
+	the eltype that should be used internally in layer computations.
+	Do we allow ftype to be different?  If not we could eliminate
+	that and take it from the input as well?  So the input data
+	determines the ftype and sparseness of layer calculations.  GPU
+	used if present.  User has the option to turn gpu off.
+
+	Conversions take place in param.jl, net.jl (train/predict).
+	conv/pool only work with gpu arrays right now.
+	perceptron/kperceptron only works with cpu arrays right now.
+
+	So get rid of atype/ftype.  Get it from the input or during
+	initialization.  So how do we initialize an mmul layer?  By
+	specifying number of outputs.  Just like the perceptron.  The
+	weight matrix gets constructed when the first input is received in
+	initforw.  Mmul(array), Mmul(out), Mmul(out,in),
+	Mmul(ftype,out,in) could be the initializers (modeled after
+	zeros).  cpu/gpu is decided based on GPU setting (make it
+	non-constant as before).  ftype defaults to Float64 as the rest of
+	Julia (e.g. zeros(dims...), rand(dims...) etc).  So (out,in) can
+	create a matrix.  Only (out) cannot, it will have to wait.  Param
+	can play a more passive role?  Or we pass info to param?
+
+
+2015-06-09    <dyuret@ku.edu.tr>
+
+	* src/kernel.jl: Poly kernels working with sparse/full arrays.
+	* DONE: Try on CudaArray: mul, xpose, hcat vs does not work.
+	* DONE: Try on SparseCudaArray (cpu sparse is 5x slower than cpu
+	full on mnist) -- postponed.
+	* DONE: rbf kernel
+
+2015-06-03    <dyuret@ku.edu.tr>
+
+	* src/percloss.jl: Added perceptron loss.  A multiclass perceptron
+	is just Mmul followed by PercLoss.
+	* DONE: write unit test for PercLoss.
+	* DONE: implement and test kernel perceptron next.
+	* DONE: test subarray and concat with full/sparse on cpu/gpu.
+	* DONE:	test KUnet with full/sparse, cpu/gpu, Float32/64 -- postponed
+	* TODO: perform kuparser experiment comparing dense vs sparse
+	features.
+	* TODO: test onur's 4D code.
+	* TODO: write doc on xent loss
+	* TODO: write doc on perceptrons
+
 2015-05-17    <dyuret@ku.edu.tr>
 
 	* src/sigm.jl: done: make sure back returns dx.
@@ -234,7 +440,8 @@
 	x i have tried as a separate fn or as part of forw/back before.
 
 	+ implement/test dropout
-	- gpuseed not working, but random numbers start at the same place?
+	+ gpuseed not working, but random numbers start at the same place?
+	  need to recreate RNG.
 	+ cuda and julia not equal?
 	x change dropout in cuda as well to use xmask for storage
 	- change / check adagrad, nesterov options in cuda

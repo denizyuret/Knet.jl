@@ -1,3 +1,5 @@
+*.jld4
+log
 unused
 test_*
 *.h5

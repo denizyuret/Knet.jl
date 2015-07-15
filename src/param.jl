@@ -1,23 +1,15 @@
 using Base.LinAlg.BLAS: axpy!, scal!
 
-type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; 
-    Param(w;o...)=setparam!(new(convert(Atype{Ftype},w));o...)
-end
+type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
 
+Param(dims::Int...; o...) = Param(Float64, dims; o...)
+Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
+Param(T::Type, dims::Dims; init=initgaussian, o...)=Param((gpu()?CudaDynArray:Array)(T,dims); init=init, o...)
+Param(w::KUnetArray; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
 setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
-function copy(p::Param; o...)
-    q = Param(p.data)
-    for n in names(p)
-        isdefined(p,n) || continue
-        if ((isa(p.(n), Array) || (GPU && isa(p.(n), CudaArray))) && !isa(p.(n), Atype{Ftype}))
-            q.(n) = convert(Atype{Ftype}, p.(n))
-        else
-            q.(n) = copy(p.(n))
-        end
-    end
-    return q
-end
+# We probably don't need this copy, just implement cpucopy and gpucopy.
+# copy(p::Param; o...)=(q=Param(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)
 
 function update(p::Param; o...)
     initupdate(p)
@@ -45,12 +37,16 @@ adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (ep
 momentum!(m, dw2, dw)=(m=convert(eltype(dw2),m); axpy!(length(dw), m, dw2, 1, dw, 1); copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); m=convert(eltype(dw2),m); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
+initzero(a)=fill!(a,zero(eltype(a)))
+initgaussian(a, std=0.01, mean=0.0)=randn!(a,std,mean)
+initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
+
 if GPU
-adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
-l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
-adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
-l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
-end
+adagrad!(eps, dw2::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
+adagrad!(eps, dw2::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
+l1reg!(l1, w::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
+l1reg!(l1, w::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
+end #if GPU
 
 # function maxnorm!(maxnorm, w)
 #     error("Did not debug maxnorm yet.")
