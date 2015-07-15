@@ -1,3 +1,8 @@
+2015-07-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: organize code around operations (array.jl, linalg.jl) or
+	data types (sparse, cusparse)?
+
 2015-07-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO: automatic spawn of worker machines in qsub.  From JonMay:

@@ -39,9 +39,10 @@ end
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
 function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
-    @assert isa(net[end], LossLayer)
+    # @assert isa(net[end], LossLayer)
     shuffle && ((x,y)=shufflexy!(x,y))
     ninst = size(x, ndims(x))
+    ninst==0 && (return warn("No instances"))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
     gpu() && gc()  # need this until julia triggers gc() when gpumem is low
@@ -64,6 +65,7 @@ function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     xx = yy = nothing
+    gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = x2b(xx, x, b:e)
@@ -97,9 +99,8 @@ end
 
 function x2b(b, x, r)
     bs = tuple(size(x)[1:end-1]..., length(r))
-    if ((b == nothing) || (size(b) != bs))
-        b = (gpu()?CudaDynArray:Array)(eltype(x), bs)
-    end
+    (b == nothing) && (b = (gpu()?CudaDynArray:Array)(eltype(x), bs))
+    (size(b) != bs) && size!(b, bs)
     xi = 1 + (first(r) - 1) * stride(x, ndims(x))
     copy!(b, 1, x, xi, length(b))
     gpu() && gpusync()
