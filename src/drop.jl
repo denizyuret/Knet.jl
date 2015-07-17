@@ -1,5 +1,4 @@
 type Drop <: Layer; dropout; xdrop; Drop(d)=new(d); end
-# copy(l::Drop;o...)=Drop(l.dropout)
 
 function forw(l::Drop, x; predict=false, xdrop=nothing, seed=nothing, o...)
     if !predict && (l.dropout > 0)
@@ -19,9 +18,7 @@ end
 
 function back(l::Drop, dy; o...)
     @assert issimilar(dy, l.xdrop) "$(summary(dy)) !~ $(summary(l.xdrop))"
-    if l.dropout > 0
-        drop(dy, l.xdrop, l.dropout, 1/(1-l.dropout))
-    end
+    l.dropout > 0 && drop(dy, l.xdrop, l.dropout, 1/(1-l.dropout))
     return dy
 end
 
@@ -32,6 +29,6 @@ function drop(x, xdrop, dropout, scale)
 end
 
 if GPU
-drop(x::AbstractCudaArray{Float32}, xdrop::AbstractCudaArray{Float32}, dropout, scale)=ccall((:drop32,libkunet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cfloat,Cfloat),length(x),x,xdrop,dropout,scale)
-drop(x::AbstractCudaArray{Float64}, xdrop::AbstractCudaArray{Float64}, dropout, scale)=ccall((:drop64,libkunet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale)
+drop(x::KUdense{CudaArray,Float32}, xdrop::KUdense{CudaArray,Float32}, dropout, scale)=ccall((:drop32,libkunet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cfloat,Cfloat),length(x),x.arr,xdrop.arr,dropout,scale)
+drop(x::KUdense{CudaArray,Float64}, xdrop::KUdense{CudaArray,Float64}, dropout, scale)=ccall((:drop64,libkunet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x.arr,xdrop.arr,dropout,scale)
 end

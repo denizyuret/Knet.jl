@@ -9,56 +9,12 @@ macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x
 # Utilities
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
 
-size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd))))
 isongpu(a)=(GPU && isa(a, AbstractCudaArray))
-issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
-issimilar1(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (length(a)==length(b)))
-issimilar2(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (size2(a)==size2(b)))
-
-# We use this function to confirm/create an array element of the right type/size
-function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
-    if !isdefined(l,n) || (l.(n) == nothing) || (eltype(l.(n)) != T)
-        if isa(a, AbstractSparseArray)
-            l.(n) = spzeros(T, itype(a), dims...)
-            fill != nothing && fill != 0 && error("Cannot fill sparse with $fill")
-        elseif isa(a, DataType)
-            l.(n) = a(T, dims)
-            fill != nothing && fill!(l.(n), fill)
-        else
-            l.(n) = similar(a, T, dims)
-            fill != nothing && fill!(l.(n), fill)
-        end
-        # @show (:alloc, n, size(l.(n)), length(l.(n)))
-    elseif (size(l.(n)) != dims)
-        # p1 = pointer(l.(n))
-        l.(n) = size!(l.(n), dims)
-        # op = (p1==pointer(l.(n)) ? :size! : :realloc)
-        # op==:realloc && (@show (op, n, size(l.(n)), length(l.(n))))
-    end
-    return l.(n)
-end
-
-similar!(l, n, a, T, dims::Integer...; o...) = similar!(l,n,a,T,dims; o...)
-similar!(l, n, a, dims::Integer...; o...) = similar!(l,n,a,dims; o...)
-similar!(l, n, a, dims::Dims; o...) = similar!(l,n,a,eltype(a),dims; o...)
-
 if GPU
 
 import Base: copy!, copy
 
 typealias CopyableArray{T} Union(Array{T},SubArray{T},HostArray{T},CudaArray{T},CudaDynArray{T}) # no sparse
-
-function copy!{T}(dst::CopyableArray{T}, di::Integer, src::CopyableArray{T}, si::Integer, n::Integer; stream=null_stream)
-    if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
-        throw(BoundsError())
-    end
-    nbytes = n * sizeof(T)
-    dptr = pointer(dst) + (di-1) * sizeof(T)
-    sptr = pointer(src) + (si-1) * sizeof(T)
-    CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
-    gpusync()
-    return dst
-end
 
 # This doesn't work from CUDArt for some reason:
 copy!{T}(A::CopyableArray{T}, B::CopyableArray{T})=(@assert length(A)==length(B); copy!(A,1,B,1,length(A)); A)

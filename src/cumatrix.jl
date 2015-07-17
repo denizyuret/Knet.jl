@@ -1,4 +1,4 @@
-import Base: convert, reshape, fill!, isempty, full, copy!, similar, stride
+import Base: convert, reshape, fill!, isempty, full, copy!, similar, stride, reinterpret
 import Base: Ac_mul_B, A_mul_Bc, Ac_mul_Bc
 import Base: A_mul_Bt,  At_mul_B
 import Base: A_mul_Bt!, At_mul_B!, A_mul_B!

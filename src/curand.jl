@@ -21,11 +21,11 @@ function gpuseed(n::Integer)
     srand(n)
 end
 
-rand!(a::AbstractCudaArray{Float32})=(@assert 0==ccall((:curandGenerateUniform,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint),rng(),a,length(a)); a)
-rand!(a::AbstractCudaArray{Float64})=(@assert 0==ccall((:curandGenerateUniformDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint),rng(),a,length(a)); a)
+rand!(a::CudaArray{Float32})=(@assert 0==ccall((:curandGenerateUniform,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint),rng(),a,length(a)); a)
+rand!(a::CudaArray{Float64})=(@assert 0==ccall((:curandGenerateUniformDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint),rng(),a,length(a)); a)
 
 # These are a pain, curand insists that array length should be even!
-function randn!(a::AbstractCudaArray{Float32},stddev=1f0,mean=0f0)
+function randn!(a::CudaArray{Float32},stddev=1f0,mean=0f0)
     if length(a) % 2 == 0
         @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint,Cfloat,Cfloat),rng(),a,length(a),mean,stddev)
     else
@@ -35,7 +35,7 @@ function randn!(a::AbstractCudaArray{Float32},stddev=1f0,mean=0f0)
     return a
 end
 
-function randn!(a::AbstractCudaArray{Float64},stddev=1f0,mean=0f0)
+function randn!(a::CudaArray{Float64},stddev=1f0,mean=0f0)
     if length(a) % 2 == 0
         @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint,Cdouble,Cdouble),rng(),a,length(a),mean,stddev)
     else
@@ -46,4 +46,5 @@ function randn!(a::AbstractCudaArray{Float64},stddev=1f0,mean=0f0)
 end
 
 randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
-rand!(a::KUnetArray, x0, x1)=(rand!(a); axpb!(length(a), (x1-x0), x0, a); a)
+# rand!(a::KUnetArray, x0, x1)=(rand!(a); axpb!(length(a), (x1-x0), x0, a); a)
+

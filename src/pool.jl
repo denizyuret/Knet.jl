@@ -3,16 +3,7 @@
 
 type Pool <: Layer; dims; padding; stride; mode; pd; x; y; dx; dy; Pool()=new(); end
 
-if !GPU
-
-warn("No cpu pool")
-# Let these give error?
-# Pool(x)=Pool()
-# copy(l::Pool;o...)=Pool()
-# forw(l::Pool,x;o...)=(l.x=l.y=x)
-# back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
-
-else
+if GPU
 
 function Pool(dims::(Int...);
               padding=tuple(fill(0,length(dims))...),
@@ -31,24 +22,27 @@ Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 
 # copy(l::Pool)=Pool(l.dims; padding=l.padding, stride=l.stride, mode=l.mode)
 
-function forw(l::Pool, x::AbstractCudaArray; o...)
+function forw(l::Pool, x::KUdense{CudaArray}; o...)
     initforw(l, x)
-    cudnnPoolingForward(l.pd, l.x, l.y)
+    cudnnPoolingForward(l.pd, l.x.arr, l.y.arr)
+    return l.y
 end
 
-function initforw(l::Pool, x::AbstractCudaArray)
+function initforw(l::Pool, x::KUdense{CudaArray})
     l.x = x
-    similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x))
+    similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x.arr))
 end
 
-function back(l::Pool, dy::AbstractCudaArray; returndx=true, o...)
+function back(l::Pool, dy::KUdense{CudaArray}; returndx=true, o...)
     returndx || return
     initback(l, dy)
-    cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
+    cudnnPoolingBackward(l.pd, l.y.arr, l.dy.arr, l.x.arr, l.dx.arr)
+    return l.dx
 end
 
-function initback(l::Pool, dy::AbstractCudaArray)
-    l.dy = ((size(dy) == size(l.y)) ? dy : reshape(dy, size(l.y)))
+function initback(l::Pool, dy::KUdense{CudaArray})
+    @assert issimilar(dy, l.y)
+    # l.dy = ((size(dy) == size(l.y)) ? dy : reshape(dy, size(l.y)))
     similar!(l, :dx, l.x)
 end
 
@@ -72,5 +66,14 @@ end
 #     l.dy = dy
 #     l.dx = to_host(dx)
 # end
+
+else
+
+warn("No cpu pool")
+# Let these give error?
+# Pool(x)=Pool()
+# copy(l::Pool;o...)=Pool()
+# forw(l::Pool,x;o...)=(l.x=l.y=x)
+# back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
 
 end # if GPU

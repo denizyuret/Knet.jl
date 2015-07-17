@@ -1,31 +1,31 @@
 using Base.LinAlg.BLAS: axpy!, scal!
 
-type Param; data; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; Param()=new(); end
+type KUparam{A,T,N}; arr; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; KUparam()=new(); end
 
-Param(dims::Int...; o...) = Param(Float64, dims; o...)
-Param(T::Type, dims::Int...; o...) = Param(T, dims; o...)
-Param(T::Type, dims::Dims; init=initgaussian, o...)=Param((gpu()?CudaDynArray:Array)(T,dims); init=init, o...)
-Param(w::KUnetArray; init=nothing, o...)=(init==nothing||init(w); setparam!(Param(); data=w, o...))
-setparam!(p::Param; o...)=(for (n,v) in o; p.(n)=v; end; p)
+setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
+KUparam(w; init=nothing, o...)=setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=(init==nothing?w:init(w)), o...)
+KUparam(A::Type, T::Type, d::Dims; o...)=KUparam(A(T,d); o...)
+KUparam(T::Type, d::Dims; o...)=KUparam((gpu()?CudaArray:Array)(T,d); o...)
+KUparam(d1::Int,d::Int...; o...)=KUparam(Float64,tuple(d1,d...); o...)
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.
-# copy(p::Param; o...)=(q=Param(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)
+# copy(p::KUparam; o...)=(q=KUparam(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)
 
-function update(p::Param; o...)
+function update(p::KUparam; o...)
     initupdate(p)
-    nz(p,:l1reg) && l1reg!(p.l1reg, p.data, p.diff)
-    nz(p,:l2reg) && l2reg!(p.l2reg, p.data, p.diff)
+    nz(p,:l1reg) && l1reg!(p.l1reg, p.arr, p.diff)
+    nz(p,:l2reg) && l2reg!(p.l2reg, p.arr, p.diff)
     nz(p,:adagrad) && adagrad!(p.adagrad, p.ada, p.diff)
     nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
     nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
     nz(p,:lr,1) && scal!(length(p.diff), convert(eltype(p.diff),p.lr), p.diff, 1)
-    axpy!(length(p.data), -one(eltype(p.data)), p.diff, 1, p.data, 1)
-    # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.data)
+    axpy!(length(p.arr), -one(eltype(p.arr)), p.diff, 1, p.arr, 1)
+    # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.arr)
 end
 
 nz(p,n,v=0)=(isdefined(p,n) && (p.(n) != v))
 
-function initupdate(p::Param)
+function initupdate(p::KUparam)
     isdefined(p,:adagrad)  && (p.adagrad  > 0) && similar!(p, :ada, p.diff; fill=0)
     isdefined(p,:momentum) && (p.momentum > 0) && similar!(p, :mom, p.diff; fill=0)
     isdefined(p,:nesterov) && (p.nesterov > 0) && similar!(p, :nes, p.diff; fill=0)
@@ -37,16 +37,54 @@ adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (ep
 momentum!(m, dw2, dw)=(m=convert(eltype(dw2),m); axpy!(length(dw), m, dw2, 1, dw, 1); copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(nw=length(dw); m=convert(eltype(dw2),m); scal!(nw, m, dw2, 1); axpy!(nw, one(eltype(dw)), dw, 1, dw2, 1); axpy!(nw, m, dw2, 1, dw, 1))
 
-initzero(a)=fill!(a,zero(eltype(a)))
-initgaussian(a, std=0.01, mean=0.0)=randn!(a,std,mean)
+initzero(a)=(fill!(a,zero(eltype(a))); a)
+initgaussian(a, std=0.01, mean=0.0)=(randn!(a,std,mean); a)
 initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
 
 if GPU
-adagrad!(eps, dw2::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
-adagrad!(eps, dw2::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
-l1reg!(l1, w::AbstractCudaArray{Float32}, dw::AbstractCudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
-l1reg!(l1, w::AbstractCudaArray{Float64}, dw::AbstractCudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
+adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
+adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
+l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
+l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
 end #if GPU
+
+# BASIC ARRAY OPS:
+
+for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty)
+    @eval (Base.$fname)(a::KUparam)=$fname(a.arr)
+end
+
+for fname in (:size, :stride)
+    @eval (Base.$fname)(a::KUparam,n)=$fname(a.arr,n)
+end
+
+atype{A}(::KUparam{A})=A
+diff(a::KUparam)=a.diff
+
+update(::Nothing;o...)=nothing
+setparam!(::Nothing;o...)=nothing
+initdiff(w::KUparam;o...)=similar!(w, :diff, w.arr)
+
+# We need to fix cpu/gpu copy so the type changes appropriately:
+function cpucopy_internal{T,N}(x::KUparam{CudaArray,T,N},d::ObjectIdDict)
+    haskey(d,x) && return d[x]
+    y = KUparam{Array,T,N}()
+    for n in names(x)
+        isdefined(x,n) || continue
+        y.(n) = cpucopy_internal(x.(n),d)
+    end
+    d[x] = y
+end
+
+function gpucopy_internal{T,N}(x::KUparam{Array,T,N},d::ObjectIdDict)
+    haskey(d,x) && return d[x]
+    y = KUparam{CudaArray,T,N}()
+    for n in names(x)
+        isdefined(x,n) || continue
+        y.(n) = gpucopy_internal(x.(n),d)
+    end
+    d[x] = y
+end
 
 # function maxnorm!(maxnorm, w)
 #     error("Did not debug maxnorm yet.")

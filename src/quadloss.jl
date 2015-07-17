@@ -11,7 +11,7 @@ type QuadLoss <: LossLayer; y; QuadLoss()=new(); end
 forw(l::QuadLoss, x; o...)=(l.y=x)
 
 function back(l::QuadLoss, z; returndx=true, o...)
-    @assert issimilar1(z,l.y)
+    @assert issimilar(z,l.y) "$(summary(z)) != $(summary(l.y))"
     returndx || return
     (st,nx) = size2(z)
     for i=1:length(z)
@@ -21,7 +21,7 @@ function back(l::QuadLoss, z; returndx=true, o...)
 end
 
 function loss(l::QuadLoss, z, y=l.y)
-    @assert issimilar(z,y)
+    @assert issimilar(z,y) "$(summary(z)) != $(summary(l.y))"
     (st,nx) = size2(z)
     cost = zero(Float64)
     for i=1:length(z)
@@ -30,15 +30,18 @@ function loss(l::QuadLoss, z, y=l.y)
     return 0.5*cost/nx
 end
 
+loss(l::QuadLoss, z::KUdense{Array})=loss(l, z.arr, l.y.arr)
+
 if GPU
 
-loss(l::QuadLoss, z::AbstractCudaArray)=loss(l, to_host(z), to_host(l.y))
+loss(l::QuadLoss, z::KUdense{CudaArray})=loss(l, to_host(z.arr), to_host(l.y.arr))
 
-function back(l::QuadLoss, z::AbstractCudaArray; returndx=true, o...)
+function back(l::QuadLoss, z::KUdense{CudaArray}; returndx=true, o...)
     @assert issimilar(z,l.y)
     returndx || return
     (st,nx) = size2(z)
-    cudnnTransformTensor(1/nx, l.y, -1/nx, z)
+    cudnnTransformTensor(1/nx, l.y.arr, -1/nx, z.arr)
+    return z
 end
 
 end # if GPU
