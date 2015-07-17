@@ -122,8 +122,8 @@ gpucopy_internal(x::KUdense{CudaArray},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KU
 
 import Base: rand!, randn!
 randn!(a::KUdense, std, mean)=(randn!(a.arr, std, mean); a)
-rand!(a::KUdense, x0, x1)=(rand!(a.arr); axpb!(length(a), (x1-x0), x0, a.arr); a)
 rand!(a::KUdense)=(rand!(a.arr); a)
+# rand!(a::KUdense, x0, x1)=(rand!(a.arr); axpb!(length(a), (x1-x0), x0, a.arr); a)
 
 
 
