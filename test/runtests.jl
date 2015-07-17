@@ -1,5 +1,4 @@
 using KUnet
-using KUnet: KUnetArray, CudaDynArray
 using Base.Test
 using Base.Test: Success, Failure, Error
 import Base.Test: default_handler
@@ -17,7 +16,11 @@ gnet0 = net0 = x0 = z0 = nothing
 # default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
-function Base.isapprox(x::KUnetArray,y::KUnetArray;
+import Base: isapprox
+
+isapprox(x::KUdense, y::KUdense)=isapprox(x.arr, y.arr)
+
+function isapprox(x::Union(Array,CudaArray), y::Union(Array,CudaArray);
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                        rtol::Real=cbrt(maxeps), atol::Real=sqrt(maxeps))
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
@@ -79,7 +82,7 @@ end
 
 function getparam(l1::Layer)
     w1 = nothing
-    for n in names(l1); isdefined(l1,n) && isa(l1.(n), Param) && (w1=l1.(n); break); end
+    for n in names(l1); isdefined(l1,n) && isa(l1.(n), KUparam) && (w1=l1.(n); break); end
     return w1
 end
 
@@ -87,14 +90,26 @@ function gputest(cnet::Net, x, z)
     global gnet0
     rval = true
     # Compare loss, y, dx, dw after forw and back:
+    # info("gputest 1")
+    # display(shownet(cnet));println("")
     (cl, cx, cz) = forwlossback(cnet, x, z)
+    # info("gputest 2")
+    # display(shownet(cnet));println("")
     gnet0 = gnet = Layer[gpucopy(cnet)...]
+    # info("gputest 3")
+    # display(shownet(gnet));println("")
     # @show gnet
     # hnet = Layer[cpucopy(gnet)...]
-    # @assert isequal(cnet[1].w.data, hnet[1].w.data)
+    # @show hnet
+    # @assert isequal(cnet[1].w.arr, hnet[1].w.arr)
     # @show cnet
-    (gl, gx, gz) = forwlossback(gnet, CudaDynArray(x), CudaDynArray(z))
+    xx,zz = gpucopy(x),gpucopy(z)
+    # @show (xx,zz)
+    (gl, gx, gz) = forwlossback(gnet, xx, zz)
+    # info("gputest 4")
+    # display(shownet(gnet));println("")
     isapprox(gl, cl) || (warn("loss mismatch in $(map(typeof,cnet)): $gl != $cl"); rval=false)
+    # info("gputest 5")
     for i=1:length(cnet)
         isapprox(cx[i], gx[i]) || (warn("y mismatch in $(typeof(cnet[i]))"); rval=false)
         isapprox(cz[i], gz[i]) || (warn("dx mismatch in $(typeof(cnet[i]))"); rval=false)
@@ -103,15 +118,22 @@ function gputest(cnet::Net, x, z)
     end
 
     # Compare w, dw after update:
+    # info("gputest 6")
     setparam!(cnet; lr=0.1, l1reg=0.1, l2reg=0.1, adagrad=0.1, momentum=0.1, nesterov=0.1)
+    # info("gputest 7")
     setparam!(gnet; lr=0.1, l1reg=0.1, l2reg=0.1, adagrad=0.1, momentum=0.1, nesterov=0.1)
-    update(cnet); update(gnet)
+    # info("gputest 8")
+    update(cnet)
+    # info("gputest 9")
+    update(gnet)
+    # info("gputest 10")
     for i=1:length(cnet)
         cw = getparam(cnet[i]); gw = getparam(gnet[i])
         cw == nothing && continue
         isapprox(cw.diff, gw.diff) || (warn("dw mismatch after update in $(typeof(cnet[i]))"); rval=false)
-        isapprox(cw.data, gw.data) || (warn("w mismatch after update in $(typeof(cnet[i]))"); rval=false)
+        isapprox(cw.arr, gw.arr) || (warn("w mismatch after update in $(typeof(cnet[i]))"); rval=false)
     end
+    # info("gputest 11")
 
     return rval
 end
@@ -121,7 +143,7 @@ function gradtest(net, x, z)
     (ll, yy, dx) = forwlossback(net, x, z)
     gradcheck(net, x, z, x, dx[1]) || (warn("gradtest failed for dx in $(typeof(net[1]))"); rval=false)
     w1 = getparam(net[1])
-    w1 == nothing || gradcheck(net, x, z, w1.data, w1.diff) || (warn("gradtest failed for dw in $(typeof(net[1]))"); rval=false)
+    w1 == nothing || gradcheck(net, x, z, w1.arr, w1.diff) || (warn("gradtest failed for dw in $(typeof(net[1]))"); rval=false)
     return rval
 end
 
@@ -168,9 +190,9 @@ function getnet{T<:Layer}(F,S,L::Type{T})
 end
 
 function getx(F,S,L)
-    return ((L == LogpLoss) ? forw(Logp(), rand(F,S)) :
-            (L == SoftLoss) ? forw(Soft(), rand(F,S)) :
-            rand(F, S))
+    return KUdense((L == LogpLoss) ? forw(Logp(), rand(F,S)) :
+                   (L == SoftLoss) ? forw(Soft(), rand(F,S)) :
+                   rand(F, S))
 end
 
 function getz(net, x)
@@ -199,18 +221,43 @@ function main(layers)
                 net==nothing && continue  # combination not supported
                 net0, x0, z0 = net, x, z
                 @show (F, S, L)
+                # info("gputest 0")
                 KUnet.GPU && gputest(net, x, z)
+                # info("gradtest 0")
                 gradtest(net, x, z)
+                # info("passed 0")
                 filetest(net)
             end
         end
     end
 end
 
+function shownet(n::Net)
+    map(showlayer, n)
+end
+
+function showlayer(l::Layer)
+    ans = Any[]
+    push!(ans,typeof(l))
+    for n in names(l)
+        isdefined(l,n) || continue
+        f = l.(n)
+        push!(ans,n)
+        # push!(ans,typeof(f))
+        if isa(f, KUdense)
+            # @assert pointer(f) === pointer(f.arr) === pointer(f.ptr)
+            push!(ans, pointer(f.arr))
+        elseif isa(f, KUparam)
+            push!(ans, pointer(f.arr))
+        end
+    end
+    ans
+end
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
 # layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # These don't have cpu versions: Conv, Pool
-layers = (Bias, Drop, Logp, LogpLoss, Mmul, PercLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
+# layers = (Bias, Drop, Logp, LogpLoss, Mmul, PercLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
+layers = (Mmul, Bias, Relu, XentLoss)
 main(layers)
 
