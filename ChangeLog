@@ -1,9 +1,103 @@
+2015-07-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* BUGS:
+	+ cpucopy/gpucopy: fixed
+	- load/save: doubles the storage.
+	- savenet is failing.
+	- reshape is missing.
+	- cpucopy leaves KUparam{CudaArray}
+	- cpucopy does not work with net
+	- savenet causes seg fault
+
+	* src/dense.jl: ok, we have three types of arrays: sparse, dense,
+	param.  These have different members, so they can't just be
+	parametrizations of a common type.  However each of these has
+	array type, element type and dimensions as parameters.
+
+	* src/bias.jl: should rename param for consistency.  data->arr.
+	Define GPUparam and CPUparam?
+
+	* src/mmul.jl: where do we need extensible arrays?  x, y,
+	dataflow.  Train batches.  Not w params.  Except kernel perceptron
+	support vectors and weights.  If we used regular arrays for
+	params, load/save problem would go away.  Do we replace each l.x
+	with l.x.arr?  Or do we define ops that work on KUarrays?  Then we
+	need to consider mixtures.  Best to just work with your own arrays...
+
+	OK, best of both worlds: we have two types of arrays, Param and
+	Data arrays.  They have different requirements.  Just define the
+	necessary functions for each.  Data arrays are resizeable whereas
+	Param arrays have derivatives and associated update parameters.
+
 2015-07-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* ARRAYS:
+	We want to support cpu/gpu, sparse/dense, float32/64, 2D/4D dynamic
+	(efficiently extendible) array types in KUnet.  The relevant part of
+	the current array hierarchy in Julia is as follows:
+
+	AbstractArray
+	  DenseArray
+	    Array
+	  AbstractSparseArray
+	    SparseMatrixCSC
+	  SubArray
+
+	The CUDArt hierarchy is disconnected:
+
+	AbstractCudaArray
+	  CudaArray
+	  CudaPitchedArray
+	AbstractArray
+	  HostArray
+
+	CUDArt also defines two convenience types:
+
+	typealias CdArray{T} Union(DenseArray{T},HostArray{T},AbstractCudaArray{T})
+	typealias ContiguousArray{T} Union(Array{T},HostArray{T},CudaArray{T})
+
+	Notes:
+
+	So far I have added CudaDynArray and CudaSparseMatrixCSC to this
+	list.
+
+	CPU Arrays currently do not handle resize and hcat efficiently.
+	They probably need a special type as well.  We might as well
+	define all 4 types.
+
+	Sparse arrays are needed only as inputs and possibly support vector
+	matrices.  Things quickly turn dense after that.
+
+	-- Layers Should Adapt to Their Inputs --
+	Declaring a model with specific input output array types, vs
+	declaring an abstract model which then takes the appropriate shape
+	when first batch of data is seen.  Certainly the abstract
+	declaration has an ease of use advantage, the constructions are
+	more readable.  The more abstract the model code the better.
+	However this means a lot of low level initialization code goes
+	into layer definitions (initforw etc.).  What if input type
+	changes during the lifetime of the model?  We adapt to size
+	changes, why not type changes? eltype changes?  Device, sparsity,
+	array implementation (there could be more than one sparse array
+	type), eltype, ndims: layers should adapt to their input and be
+	able to change (maybe with a warning) midstream.  The output types
+	(both y and dx) should match the input types (except y may not
+	match x in ndims.)
+
+	Operations to be supported:
+	train: shufflexy!, size, ndims, x2b
+	predict: b2y
+	layers: similar! (for changing type), resize (for changing size)
+	kperceptron: hcat! (bparse also needs this)
+	mmul: A_mul_B! A_mul_Bt!
+
+	Each layer should document which array types supported.
 
 	* TODO: organize code around operations (array.jl, linalg.jl) or
 	data types (sparse, cusparse)?
 
 	* TODO: release perceptron.
+	+ do a pre-release
 	- finish documentation.
 	- implement structured perceptron? just a difft training rule?
 	- test mmul+percloss, need averaging, implement ASGD.
