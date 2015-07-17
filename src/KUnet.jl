@@ -5,25 +5,22 @@ using Compat
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
 
-include("gpu.jl");	export gpumem, gpusync
+include("util/gpu.jl");	export gpumem, gpusync
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
-GPU && include("cudart.jl");
-GPU && include("curand.jl");
+GPU && include("util/cudart.jl");
+GPU && include("util/curand.jl");
 
-include("deepcopy.jl");	export cpucopy, gpucopy
-include("array.jl");	export accuracy
-include("dense.jl");	export KUdense, cslice!, ccopy!, ccat!
-include("param.jl");	export KUparam, update, setparam!
-# include("sparse.jl");
-include("linalg.jl");
-
-### GPU && include("cusparse.jl");
-### GPU && include("cumatrix.jl");
-### include("util.jl");	export accuracy, cpucopy, gpucopy, gpumem, @date
+include("util/deepcopy.jl");	export cpucopy, gpucopy
+include("util/array.jl");	export accuracy
+include("util/dense.jl");	export KUdense, cslice!, ccopy!, ccat!
+include("util/param.jl");	export KUparam, update, setparam!
+# include("util/sparse.jl");
+include("util/linalg.jl");
 
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
+include("update.jl");	export update
 
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv
