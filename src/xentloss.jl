@@ -19,28 +19,27 @@ type XentLoss <: LossLayer; y; XentLoss()=new(); end
 
 
 forw(l::XentLoss, x; o...)=(l.y=x)
+back(l::XentLoss, p::KUdense; returndx=true, o...)=(@assert issimilar(p,l.y); returndx && (xentlossback(l.y.arr,p.arr); p))
+loss(l::XentLoss, p::KUdense)=(@assert issimilar(p,l.y); xentlossloss(l.y.arr,p.arr))
 
-function back(l::XentLoss, p; returndx=true, o...)
-    @assert issimilar(p, l.y)
-    returndx || return
+function xentlossback(y::Array, p::Array)
     (nd,nx) = size2(p)
-    # cuda cannot handle allocation, we will overwrite l.y for compatibility
+    # cuda cannot handle allocation, we will overwrite y for compatibility
     # qz = similar(p, nd)
     for j=1:nx
         i1=(j-1)*nd+1; i2=j*nd
         z = zero(Float64)
-        ymax = typemin(eltype(l.y)) # subtract ymax for numerical stability
-        for i=i1:i2; l.y[i] > ymax && (ymax = l.y[i]); end
-        for i=i1:i2; l.y[i] = exp(l.y[i]-ymax); z+=l.y[i]; end
-        for i=i1:i2; l.y[i]/=z; p[i] = (l.y[i] - p[i])/nx; end
-        #for i=i1:i2; z += (qz[i-i1+1] = exp(l.y[i]-ymax)); end
+        ymax = typemin(eltype(y)) # subtract ymax for numerical stability
+        for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
+        for i=i1:i2; y[i] = exp(y[i]-ymax); z+=y[i]; end
+        for i=i1:i2; y[i]/=z; p[i] = (y[i] - p[i])/nx; end
+        #for i=i1:i2; z += (qz[i-i1+1] = exp(y[i]-ymax)); end
         #for i=i1:i2; p[i] = (qz[i-i1+1]/z - p[i])/nx; end
     end
     return p
 end
 
-function loss(l::XentLoss, p, y=l.y)
-    @assert issimilar(p,y)
+function xentlossloss(y::Array, p::Array)
     cost = zero(Float64)
     (nd,nx) = size2(p)
     for j=1:nx
@@ -54,26 +53,10 @@ function loss(l::XentLoss, p, y=l.y)
     return cost/nx
 end
 
-loss(l::XentLoss, p::KUdense{Array})=loss(l, p.arr, l.y.arr)
-
 if GPU
 
-    loss(l::XentLoss, p::KUdense{CudaArray})=loss(l, to_host(p.arr), to_host(l.y.arr))
-
-    function back(l::XentLoss, p::KUdense{CudaArray,Float32}; returndx=true, o...)
-        @assert issimilar(p, l.y)
-        returndx || return
-        (nd,nx) = size2(p)
-        ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,l.y.arr,p.arr)
-        return p;
-    end
-
-    function back(l::XentLoss, p::KUdense{CudaArray,Float64}; returndx=true, o...)
-        @assert issimilar(p, l.y)
-        returndx || return
-        (nd,nx) = size2(p)
-        ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,l.y.arr,p.arr)
-        return p;
-    end
+xentlossloss(y::CudaArray, p::CudaArray)=xentlossloss(to_host(y), to_host(p))
+xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=((nd,nx)=size2(p);ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p))
+xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size2(p);ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p))
 
 end # if GPU

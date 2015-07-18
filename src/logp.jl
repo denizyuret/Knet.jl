@@ -5,7 +5,13 @@ type Logp <: Layer; y; Logp()=new(); end
 # probabilities.  The normalization is across the last dimension:
 # i.e. sum(exp(y[:,...:,i]))==1 at the output.
 
-function forw(l::Logp, y; o...)
+forw(l::Logp, y::KUdense; o...)=(logpforw(y.arr); l.y=y)
+
+# If the output is normalized logp connected to LogpLoss we should get
+# dy=dx since y=x+const.
+back(l::Logp, dy; o...)=dy
+
+function logpforw(y::Array)
     (nd,nx) = size2(y)
     for j=1:nx
         i1=(j-1)*nd+1
@@ -17,16 +23,11 @@ function forw(l::Logp, y; o...)
         logz = log(z)
         for i=i1:i2; y[i] -= logz; end
     end
-    return (l.y=y)
 end
 
-# If the output is normalized logp connected to LogpLoss we should get
-# dy=dx since y=x+const.
-back(l::Logp, dy; o...)=dy
-
 if GPU
-forw(l::Logp,y::KUdense{CudaArray,Float32}; o...)=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y.arr); l.y=y)
-forw(l::Logp,y::KUdense{CudaArray,Float64}; o...)=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y.arr); l.y=y)
+logpforw(y::CudaArray{Float32}; o...)=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y))
+logpforw(y::CudaArray{Float64}; o...)=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y))
 end # if GPU
 
 

@@ -1,12 +1,12 @@
 type Sigm <: Layer; y; Sigm()=new() end
 
-forw(l::Sigm,x; o...)=(l.y = sigmforw(x))
-back(l::Sigm,dy; returndx=true, o...)=(returndx && sigmback(l.y, reshape(dy, size(l.y))))
+forw(l::Sigm,y::KUdense; o...)=(sigmforw(y.arr); l.y=y)
+back(l::Sigm,dy::KUdense; returndx=true, o...)=(@assert issimilar(dy,l.y); returndx && (sigmback(l.y.arr, dy.arr); dy))
 
-sigmforw(x)=(x1=one(eltype(x)); for i=1:length(x); x[i]=(x1/(x1+exp(-x[i]))); end; x)
-sigmback(y,dy)=(y1=one(eltype(y)); for i=1:length(dy); dy[i]*=y[i]*(y1-y[i]); end; dy)
+sigmforw(y::Array)=(y1=one(eltype(y)); for i=1:length(y); y[i]=(y1/(y1+exp(-y[i]))); end)
+sigmback(y::Array,dy::Array)=(y1=one(eltype(y)); for i=1:length(dy); dy[i]*=y[i]*(y1-y[i]); end)
 
 if GPU
-forw(l::Sigm,x::KUdense{CudaArray}; o...)=(cudnnActivationForward(x.arr; mode=CUDNN_ACTIVATION_SIGMOID); l.y=x)
-back(l::Sigm,dy::KUdense{CudaArray}; returndx=true, o...)=(@assert issimilar(dy, l.y); returndx||return; cudnnActivationBackward(l.y.arr, dy.arr; mode=CUDNN_ACTIVATION_SIGMOID); dy)
+sigmforw(y::CudaArray)=cudnnActivationForward(y; mode=CUDNN_ACTIVATION_SIGMOID)
+sigmback(y::CudaArray,dy::CudaArray)=cudnnActivationBackward(y, dy; mode=CUDNN_ACTIVATION_SIGMOID)
 end # if GPU

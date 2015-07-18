@@ -5,7 +5,7 @@ using Compat
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
 
-include("util/gpu.jl");	export gpumem, gpusync
+include("util/gpu.jl");	export gpumem, gpusync, setseed
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUDNN  
@@ -15,12 +15,12 @@ GPU && include("util/curand.jl");
 include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/array.jl");	export accuracy
 include("util/dense.jl");	export KUdense, cslice!, ccopy!, ccat!
-include("util/param.jl");	export KUparam, update, setparam!
+include("util/param.jl");	export KUparam
 # include("util/sparse.jl");
 include("util/linalg.jl");
 
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
-include("update.jl");	export update
+include("update.jl");	export update, setparam!
 
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv

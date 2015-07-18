@@ -1,6 +1,6 @@
 #include "kunet.h"
 
-__global__ void _adagrad32(int n, float eps, float *dw2, float *dw) {
+__global__ void _adagrad32(int n, double eps, float *dw2, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     dw2[i] += dw[i] * dw[i];
@@ -9,7 +9,7 @@ __global__ void _adagrad32(int n, float eps, float *dw2, float *dw) {
   }
 }
 
-__global__ void _l1reg32(int n, float l1, float *w, float *dw) {
+__global__ void _l1reg32(int n, double l1, float *w, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     if (w[i] > 0) dw[i] += l1;
@@ -37,8 +37,8 @@ __global__ void _l1reg64(int n, double l1, double *w, double *dw) {
 }
 
 extern "C" {
-  void l1reg32(int n, float l1, float *w, float *dw) KCALL(_l1reg32,n,l1,w,dw);
+  void l1reg32(int n, double l1, float *w, float *dw) KCALL(_l1reg32,n,l1,w,dw);
   void l1reg64(int n, double l1, double *w, double *dw) KCALL(_l1reg64,n,l1,w,dw);
-  void adagrad32(int n, float eps, float *dw2, float *dw) KCALL(_adagrad32,n,eps,dw2,dw);
+  void adagrad32(int n, double eps, float *dw2, float *dw) KCALL(_adagrad32,n,eps,dw2,dw);
   void adagrad64(int n, double eps, double *dw2, double *dw) KCALL(_adagrad64,n,eps,dw2,dw);
 }

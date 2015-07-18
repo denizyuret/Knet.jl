@@ -1,4 +1,4 @@
-2015-07-16  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-07-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* BUGS:
 	+ cpucopy/gpucopy: fixed
@@ -8,6 +8,20 @@
 	- cpucopy leaves KUparam{CudaArray}
 	- cpucopy does not work with net
 	- savenet causes seg fault
+	- test for cpu only machine
+	- introduce update_list and skip_list
+	+ turn all cu params into double
+
+	* layers: TODO: Layers are functions.  They should be generic.
+	Their output types should match their input types.  Internally
+	they can do whatever they want.  If the input type does not match
+	the parameters the parameters should be moved?  We should support
+	regular arrays not just KUarray's for input/output.  KUarray's
+	just make certain operations faster, so train/predict can use them
+	during minibatching.  We should specify the array types supported
+	by each layer.
+
+2015-07-16  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/dense.jl: ok, we have three types of arrays: sparse, dense,
 	param.  These have different members, so they can't just be

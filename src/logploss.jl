@@ -19,46 +19,17 @@ type LogpLoss <: LossLayer; y; LogpLoss()=new(); end
 # dJ/dy[md] = (1/N) (q[md] - p[md])
 
 forw(l::LogpLoss, x; o...)=(l.y=x)
+back(l::LogpLoss, p::KUdense; returndx=true, o...)=(@assert issimilar(p,l.y); returndx && (logplossback(l.y.arr,p.arr); p))
+loss(l::LogpLoss, p::KUdense)=(@assert issimilar(p,l.y); logplossloss(l.y.arr,p.arr))
 
-function back(l::LogpLoss, p; returndx=true, o...)
-    @assert issimilar1(p, l.y)
-    returndx || return
-    (st,nx) = size2(p)
-    for i=1:length(p)
-        p[i] = (exp(l.y[i])-p[i])/nx
-    end
-    return p
-end
-
-function loss(l::LogpLoss, p, y=l.y)
-    @assert issimilar(p, y)
-    (st,nx) = size2(p)
-    cost = zero(Float64)
-    for i=1:length(p)
-        cost -= (p[i]*y[i])
-    end
-    return cost/nx
-end
-
+logplossback(y::Array, p::Array)=(nx = ccount(p); for i=1:length(p); p[i] = (exp(y[i])-p[i])/nx; end)
+logplossloss(y::Array, p::Array)=(nx = ccount(p); cost = zero(Float64); for i=1:length(p); cost -= (p[i]*y[i]); end; cost/nx)
 
 if GPU
 
-loss(l::LogpLoss, p::KUdense{CudaArray})=loss(l, to_host(p.arr), to_host(l.y.arr))
+logplossloss(y::CudaArray, p::CudaArray)=logplossloss(to_host(y), to_host(p))
+logplossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:logploss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p)
+logplossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p)
 
-function back(l::LogpLoss, p::KUdense{CudaArray,Float32}; returndx=true, o...)
-    @assert issimilar(p, l.y)
-    returndx || return
-    (st,nx) = size2(p)
-    ccall((:logploss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y.arr,p.arr)
-    return p
-end
-
-function back(l::LogpLoss, p::KUdense{CudaArray,Float64}; returndx=true, o...)
-    @assert issimilar(p, l.y)
-    returndx || return
-    (st,nx) = size2(p)
-    ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y.arr,p.arr)
-    return p
-end
 end # if GPU
 

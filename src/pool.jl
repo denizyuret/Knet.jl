@@ -20,8 +20,6 @@ end
 
 Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 
-# copy(l::Pool)=Pool(l.dims; padding=l.padding, stride=l.stride, mode=l.mode)
-
 function forw(l::Pool, x::KUdense{CudaArray}; o...)
     initforw(l, x)
     cudnnPoolingForward(l.pd, l.x.arr, l.y.arr)
@@ -46,6 +44,18 @@ function initback(l::Pool, dy::KUdense{CudaArray})
     similar!(l, :dx, l.x)
 end
 
+else
+
+warn("No cpu pool")
+
+end # if GPU
+
+# Let these give error?
+# Pool(x)=Pool()
+# copy(l::Pool;o...)=Pool()
+# forw(l::Pool,x;o...)=(l.x=l.y=x)
+# back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
+
 # function forw(l::Pool, x; o...)
 #     # error("CPU pool not implemented")
 #     a = KUnet.Atype
@@ -67,13 +77,3 @@ end
 #     l.dx = to_host(dx)
 # end
 
-else
-
-warn("No cpu pool")
-# Let these give error?
-# Pool(x)=Pool()
-# copy(l::Pool;o...)=Pool()
-# forw(l::Pool,x;o...)=(l.x=l.y=x)
-# back(l::Pool,dy;o...)=(l.dx=l.dy=dy)
-
-end # if GPU

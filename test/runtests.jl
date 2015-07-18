@@ -21,8 +21,8 @@ import Base: isapprox
 isapprox(x::KUdense, y::KUdense)=isapprox(x.arr, y.arr)
 
 function isapprox(x::Union(Array,CudaArray), y::Union(Array,CudaArray);
-                       maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
-                       rtol::Real=cbrt(maxeps), atol::Real=sqrt(maxeps))
+                  maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
+                  rtol::Real=maxeps^(1/4), atol::Real=maxeps^(1/2))
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
     KUnet.GPU && isa(x, AbstractCudaArray) && (x = to_host(x))
     KUnet.GPU && isa(y, AbstractCudaArray) && (y = to_host(y))
@@ -32,27 +32,27 @@ function isapprox(x::Union(Array,CudaArray), y::Union(Array,CudaArray);
 end
 
 function gradcheck(net, x1, z1, w, dw; iter=10, 
-                   epsilon=cbrt(eps(eltype(w))), 
+                   epsilon=eps(eltype(w))^(1/4), 
                    delta=(eltype(w)==Float64) ? 1e-4 : 1e-3)
-    maxdiff = 0.0
     for i=1:iter
         r = (iter==length(w) ? i : rand(1:length(w)))
         wr0 = w[r]
         wr1 = wr0 - delta
         wr2 = wr0 + delta
         # Do not cross 0 for softloss
-        (wr0>0) && (wr1<0) && (wr1=0)
+        (wr0>=0) && (wr1<0) && (wr1=0)
         (wr0<0) && (wr2>0) && (wr2=0)
         w[r] = wr1; loss1 = getloss(net, x1, z1)
         w[r] = wr2; loss2 = getloss(net, x1, z1)
         w[r] = wr0
         dwr = (loss2 - loss1) / (wr2 - wr1)
         # @show (dw[r], dwr)
-        absdiff = abs(dwr - dw[r])/(abs(dwr) + abs(dw[r]))
-        absdiff > maxdiff && (maxdiff = absdiff)
+        if !isapprox(dw[r], dwr; rtol=0.1)
+            @show (:gradcheck, dw[r], dwr)
+            return false
+        end
     end
-    # @show (maxdiff, epsilon, delta)
-    return maxdiff < epsilon
+    return true
 end
 
 function forwlossback(net, x, z)
@@ -60,23 +60,26 @@ function forwlossback(net, x, z)
     xx = Any[]
     for i=1:n
         x = forw(net[i], copy(x); seed=1)
+        @assert isa(x, KUdense)
         push!(xx, x)
     end
     ll = (isa(net[n], LossLayer) ? loss(net[n],z) : 0)
     zz = Any[]
     for i=n:-1:1
         z = back(net[i], copy(z))
+        @assert isa(z, KUdense)
         unshift!(zz, z)
     end
     return (ll, xx, zz)
 end
 
 function getloss(net, x, z)
-    x = (isa(net[1],LogpLoss) ? forw(Logp(),copy(x)) :
-         isa(net[1],SoftLoss) ? (copy(x)./sum(x,1)) : copy(x))
+    x = copy(x)
+    isa(net[1],LogpLoss) && (x=forw(Logp(),x))
+    isa(net[1],SoftLoss) && (x=KUdense(x.arr ./ sum(x.arr,1)))
     # @show x
     n = length(net)
-    for i=1:n; x = forw(net[i], x; seed=1); end
+    for i=1:n; x = forw(net[i], x; seed=1); @assert isa(x, KUdense); end
     loss(net[n], z)
 end
 
@@ -170,7 +173,7 @@ end
 function filetest(net1)
     KUnet.savenet("/tmp/kunet.test", net1)
     net2 = KUnet.loadnet("/tmp/kunet.test")
-    @assert all(map(iseq, net1, net2))
+    return all(map(iseq, net1, net2))
 end
 
 function getnet{T<:Layer}(F,S,L::Type{T})
@@ -190,14 +193,15 @@ function getnet{T<:Layer}(F,S,L::Type{T})
 end
 
 function getx(F,S,L)
-    return KUdense((L == LogpLoss) ? forw(Logp(), rand(F,S)) :
-                   (L == SoftLoss) ? forw(Soft(), rand(F,S)) :
-                   rand(F, S))
+    x = KUdense(rand(F,S))
+    return ((L == LogpLoss) ? forw(Logp(), x) :
+            (L == SoftLoss) ? forw(Soft(), x) : x)
 end
 
 function getz(net, x)
     (net == nothing || x == nothing) && return nothing
     z = copy(rand!(forw(net, copy(x))))
+    @assert isa(z, KUdense)
     L = typeof(net[end])
     return (in(L, (Logp,)) ? forw(Logp(), z) :
             in(L, (Soft, SoftLoss, LogpLoss, XentLoss)) ? forw(Soft(), z) : z)
@@ -208,28 +212,6 @@ function gettest(F,S,L)
     x = getx(F,S,L)
     z = getz(net, x)
     return (net, x, z)
-end
-
-function main(layers)
-    global net0, x0, z0
-    KUnet.gpu(false)
-    for F in (Float32,Float64)
-        for D in 1:5
-            S = tuple(rand(1:20,D)...)
-            for L in layers
-                (net, x, z) = gettest(F,S,L)
-                net==nothing && continue  # combination not supported
-                net0, x0, z0 = net, x, z
-                @show (F, S, L)
-                # info("gputest 0")
-                KUnet.GPU && gputest(net, x, z)
-                # info("gradtest 0")
-                gradtest(net, x, z)
-                # info("passed 0")
-                filetest(net)
-            end
-        end
-    end
 end
 
 function shownet(n::Net)
@@ -254,10 +236,33 @@ function showlayer(l::Layer)
     ans
 end
 
+function main(layers)
+    global net0, x0, z0
+    KUnet.gpu(false)
+    for F in (Float32,Float64)
+        for D in 1:5
+            S = tuple(rand(1:20,D)...)
+            for L in layers
+                (net, x, z) = gettest(F,S,L)
+                net==nothing && continue  # combination not supported
+                net0, x0, z0 = net, x, z
+                @show (F, S, L)
+                # info("gputest 0")
+                if KUnet.GPU 
+                    @test gputest(net, x, z)
+                end
+                # info("gradtest 0")
+                gradtest(net, x, z)
+                # info("passed 0")
+                @test filetest(net)
+            end
+        end
+    end
+end
+
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
 # layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # These don't have cpu versions: Conv, Pool
-# layers = (Bias, Drop, Logp, LogpLoss, Mmul, PercLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
-layers = (Mmul, Bias, Relu, XentLoss)
+layers = (Bias, Drop, Logp, LogpLoss, Mmul, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 main(layers)
 

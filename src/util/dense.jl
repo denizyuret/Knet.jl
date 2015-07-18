@@ -102,6 +102,13 @@ function copy!(a::KUdense, b::KUdense)
     return a
 end
 
+function copy!(a::KUdense, b::Union(Array,CudaArray))
+    @assert eltype(a)==eltype(b)
+    @assert size(a)==size(b)
+    copy!(a.arr, 1, b, 1, length(b))
+    return a
+end
+
 copy(a::KUdense)=copy!(similar(a), a)
 similar(a::KUdense)=KUdense(atype(a), eltype(a), size(a))
 

@@ -15,7 +15,7 @@ function rng(init=false)
 end
 
 # our version of srand sets both gpu and cpu
-function gpuseed(n::Integer)
+function setseed(n::Integer)
     # need to regenerate RNG for the seed to take effect for some reason
     @assert 0==ccall((:curandSetPseudoRandomGeneratorSeed,libcurand),Cint,(Ptr{Void},Culonglong),rng(true),n)
     srand(n)

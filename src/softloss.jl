@@ -28,44 +28,16 @@ type SoftLoss <: LossLayer; y; SoftLoss()=new(); end
 
 
 forw(l::SoftLoss, x; o...)=(l.y=x)
+back(l::SoftLoss, p::KUdense; returndx=true, o...)=(@assert issimilar(p,l.y); returndx && (softlossback(l.y.arr,p.arr); p))
+loss(l::SoftLoss, p::KUdense)=(@assert issimilar(p,l.y); softlossloss(l.y.arr,p.arr))
 
-function back(l::SoftLoss, p; returndx=true, o...)
-    @assert issimilar(p,l.y)
-    returndx || return
-    (nd,nx) = size2(p)
-    for i=1:length(p)
-        p[i] = ((l.y[i]-p[i])/l.y[i])/nx
-    end
-    return p
-end
-
-function loss(l::SoftLoss, p, y=l.y)
-    @assert issimilar(p,y)
-    (nd,nx) = size2(p)
-    cost = zero(Float64)
-    for i=1:length(p)
-        cost -= (p[i]*log(y[i]))
-    end
-    return cost/nx
-end
+softlossback(y::Array,p::Array)=(nx=ccount(p); for i=1:length(p); p[i] = ((y[i]-p[i])/y[i])/nx; end)
+softlossloss(y::Array,p::Array)=(cost=zero(Float64); for i=1:length(p); cost -= (p[i]*log(y[i])); end; cost/ccount(p))
 
 if GPU
 
-loss(l::SoftLoss, p::KUdense{CudaArray})=loss(l, to_host(p.arr), to_host(l.y.arr))
+softlossloss(y::CudaArray, p::CudaArray)=softlossloss(to_host(y), to_host(p))
+softlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p)
+softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p)
 
-function back(l::SoftLoss, p::KUdense{CudaArray,Float32}; returndx=true, o...)
-    @assert issimilar(p, l.y)
-    returndx || return
-    (st,nx) = size2(p)
-    ccall((:softloss32,libkunet),Void,(Cint,Cfloat,Ptr{Float32},Ptr{Float32}),length(p),1/nx,l.y.arr,p.arr)
-    return p
-end
-
-function back(l::SoftLoss, p::KUdense{CudaArray,Float64}; returndx=true, o...)
-    @assert issimilar(p, l.y)
-    returndx || return
-    (st,nx) = size2(p)
-    ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(p),1/nx,l.y.arr,p.arr)
-    return p
-end
 end # if GPU
