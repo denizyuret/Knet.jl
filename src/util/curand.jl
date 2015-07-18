@@ -21,15 +21,17 @@ function setseed(n::Integer)
     srand(n)
 end
 
-rand!(a::CudaArray{Float32})=(@assert 0==ccall((:curandGenerateUniform,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint),rng(),a,length(a)); a)
-rand!(a::CudaArray{Float64})=(@assert 0==ccall((:curandGenerateUniformDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint),rng(),a,length(a)); a)
+rand!(a::CudaArray{Float32})=(@assert 0==ccall((:curandGenerateUniform,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
+rand!(a::CudaArray{Float64})=(@assert 0==ccall((:curandGenerateUniformDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
+rand!(a::Union(CudaArray{Uint32},CudaArray{Int32}))=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,length(a)); a)
+rand!(a::Union(CudaArray{Uint64},CudaArray{Int64}))=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,2*length(a)); a)
 
 # These are a pain, curand insists that array length should be even!
 function randn!(a::CudaArray{Float32},stddev=1f0,mean=0f0)
     if length(a) % 2 == 0
-        @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint,Cfloat,Cfloat),rng(),a,length(a),mean,stddev)
+        @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t,Cfloat,Cfloat),rng(),a,length(a),mean,stddev)
     else
-        @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Cint,Cfloat,Cfloat),rng(),a,length(a)-1,mean,stddev)
+        @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t,Cfloat,Cfloat),rng(),a,length(a)-1,mean,stddev)
         copy!(a,length(a),Float32[randn()*stddev+mean],1,1)
     end
     return a
@@ -37,14 +39,14 @@ end
 
 function randn!(a::CudaArray{Float64},stddev=1f0,mean=0f0)
     if length(a) % 2 == 0
-        @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint,Cdouble,Cdouble),rng(),a,length(a),mean,stddev)
+        @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t,Cdouble,Cdouble),rng(),a,length(a),mean,stddev)
     else
-        @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Cint,Cdouble,Cdouble),rng(),a,length(a)-1,mean,stddev)
+        @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t,Cdouble,Cdouble),rng(),a,length(a)-1,mean,stddev)
         copy!(a,length(a),Float64[randn()*stddev+mean],1,1)
     end
     return a
 end
 
-randn!(a::Array, std, mean)=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
+randn!{T}(a::Array{T}, std=one(T), mean=zero(T))=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
 # rand!(a::KUnetArray, x0, x1)=(rand!(a); axpb!(length(a), (x1-x0), x0, a); a)
 

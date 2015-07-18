@@ -13,11 +13,12 @@ GPU && include("util/cudart.jl");
 GPU && include("util/curand.jl");
 
 include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/array.jl");	export accuracy
-include("util/dense.jl");	export KUdense, cslice!, ccopy!, ccat!
+include("util/array.jl");	export accuracy, atype, csize, ccount, clength
+include("util/dense.jl");	export KUdense
 include("util/param.jl");	export KUparam
-# include("util/sparse.jl");
+include("util/sparse.jl");	export KUsparse
 include("util/linalg.jl");
+include("util/colops.jl");	export cslice!, ccopy!, ccat!
 
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 include("update.jl");	export update, setparam!
@@ -38,12 +39,13 @@ include("quadloss.jl");	export QuadLoss
 include("softloss.jl");	export SoftLoss
 include("xentloss.jl");	export XentLoss
 
+# include("perceptron.jl"); export Perceptron
+# include("kperceptron.jl"); export KPerceptron
+
 # include("percloss.jl"); export PercLoss # deprecated
 # include("kernel.jl");   export Kernel, kernel # deprecated
 # include("poly.jl");     export Poly           # deprecated
 # include("rbfk.jl");     export Rbfk           # deprecated
-# include("perceptron.jl"); export Perceptron
-# include("kperceptron.jl"); export KPerceptron
 #########################
 
 end # module

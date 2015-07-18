@@ -2,11 +2,22 @@
 
 using CUDArt
 
-import Base: reshape
+import Base: (==), convert, reshape, resize!, copy!, isempty, fill!
+import CUDArt: to_host
+
+atype(::CudaArray)=CudaArray
+
+to_host(x)=x                    # so we can use it in general
+
+function (==)(A::CudaArray,B::CudaArray)
+    issimilar(A,B) && (to_host(A)==to_host(B))
+end
+
+convert{T}(::Type{CudaArray{T}}, a::Array{T})=CudaArray(a)
+
 reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
 reshape(a::CudaArray, dims::Int...)=reshape(a, dims)
 
-import Base: resize!
 function resize!(a::CudaVector, n::Integer)
     if n < length(a)
         a.dims = (n,)
@@ -23,7 +34,6 @@ end
 # Generalizing low level copy using linear indexing to/from gpu
 # arrays:
 
-import Base: copy!
 function copy!(dst::Union(Array,CudaArray), di::Integer, 
                src::Union(Array,CudaArray), si::Integer, 
                n::Integer; stream=null_stream)
@@ -40,13 +50,9 @@ function copy!(dst::Union(Array,CudaArray), di::Integer,
     return dst
 end
 
-import Base: isempty
 isempty(a::CudaArray)=(length(a)==0)
 
 # This one has to be defined like this because of a conflict with the CUDArt version:
 #fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
-import Base: fill!
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
-
-atype(::CudaArray)=CudaArray
 

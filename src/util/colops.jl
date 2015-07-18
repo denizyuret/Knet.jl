@@ -23,6 +23,8 @@ function cslice!{A,T}(a::KUdense{A,T}, b::Union(Array{T},CudaArray{T}), r::UnitR
     return a
 end
 
+# TODO: what to do with Int64
+
 function cslice!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32}, r::UnitRange)
     nz = 0; for i in r; nz += b.colptr[i+1]-b.colptr[i]; end
     a.m = b.m
@@ -106,4 +108,46 @@ function ccat!(a::KUsparse, b::KUsparse, cols=(1:ccount(b)), ncols=length(cols))
     a.n += ncols
     return a
 end
+
+### UNIQ! leaves unique columns?
+# TODO: fix array types
+
+# function uniq!(s::SparseMatrixCSC, u::AbstractArray, v::AbstractArray)
+#     ds = Dict{Any,Int}()        # dictionary of support vectors
+#     ns = 0                      # number of support vectors
+#     s0 = spzeros(eltype(s), Int32, size(s,1), ns) # new sv matrix
+#     for j=1:size(s,2)
+#         jj = get!(ds, s[:,j], ns+1)
+#         if jj <= ns             # s[:,j] already in s0[:,jj]
+#             @assert ns == length(ds) < j
+#             u[:,jj] += u[:,j]
+#             v[:,jj] += v[:,j]
+#         else                    # s[:,j] to be added to s0
+#             @assert jj == ns+1 == length(ds) <= j
+#             ns = ns+1
+#             hcat!(s0, s, [j], 1)
+#             if jj != j
+#                 u[:,jj] = u[:,j]
+#                 v[:,jj] = v[:,j]
+#             end
+#         end
+#     end
+#     @assert ns == length(ds) == size(s0,2)
+#     u = size!(u, (size(u,1),ns))
+#     v = size!(v, (size(v,1),ns))
+#     for f in names(s); s.(f) = s0.(f); end
+#     return (s,u,v)
+# end
+
+# function uniq!(ss::CudaSparseMatrixCSC, uu::AbstractCudaArray, vv::AbstractCudaArray)
+#     (s,u,v)=map(cpucopy,(ss,uu,vv))
+#     (s,u,v)=uniq!(s,u,v)
+#     n = size(s,2)
+#     uu = size!(uu, (size(u,1),n))
+#     vv = size!(vv, (size(v,1),n))
+#     copy!(uu, 1, u, 1, size(u,1)*n)
+#     copy!(vv, 1, v, 1, size(v,1)*n)
+#     (ss.m, ss.n, ss.colptr, ss.rowval, ss.nzval) = (s.m, s.n, gpucopy(s.colptr), gpucopy(s.rowval), gpucopy(s.nzval))
+#     return (ss,uu,vv)
+# end
 

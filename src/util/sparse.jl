@@ -1,88 +1,40 @@
-import Base: At_mul_B!, A_mul_B!, similar
+# Replicate SparseMatrixCSC but use KUdense for resizeable storage.
 
-itype{Tv,Ti}(::SparseMatrixCSC{Tv,Ti})=Ti
-similar{Tv,Ti}(::SparseMatrixCSC{Tv,Ti},m,n)=spzeros(Tv,Ti,m,n) # this is missing
-
-At_mul_B!(k::Matrix, x::SparseMatrixCSC, s::SparseMatrixCSC)=A_mul_B!(k,x',s)
-
-function A_mul_B!(k::Matrix, x::SparseMatrixCSC, s::SparseMatrixCSC) # 1607
-    @assert size(k)==(size(x,1), size(s,2))
-    fill!(k, zero(eltype(k)))
-    @inbounds @simd for scol=1:size(s,2)
-        @inbounds @simd for sp=s.colptr[scol]:(s.colptr[scol+1]-1)
-            srow = s.rowval[sp]
-            sval = s.nzval[sp]  # 133
-            @inbounds @simd for xp=x.colptr[srow]:(x.colptr[srow+1]-1)
-                xrow = x.rowval[xp] # 63
-                xval = x.nzval[xp]  # 217
-                yinc = xval * sval  # 245
-                k[xrow,scol] += yinc # 789
-            end
-        end
-    end
-    return k
+type KUsparse{A,T}
+    m::Int                      # Number of rows
+    n::Int                      # Number of columns
+    colptr::KUdense{A,Int32,1}  # Column i is in colptr[i]+1:colptr[i+1], note that this is 0 based on cusparse
+    rowval::KUdense{A,Int32,1}  # Row values of nonzeros
+    nzval::KUdense{A,T,1}       # Nonzero values
 end
 
-function A_mul_B!(k::Matrix, x::Matrix, s::SparseMatrixCSC) # 1607
-    @assert size(k)==(size(x,1), size(s,2))
-    fill!(k, zero(eltype(k)))
-    @inbounds @simd for scol=1:size(s,2)
-        @inbounds @simd for sp=s.colptr[scol]:(s.colptr[scol+1]-1)
-            sval = s.nzval[sp]  # 133
-            srow = s.rowval[sp] # xcol
-            @inbounds @simd for xrow=1:size(x,1)
-                xval = x[xrow,srow]
-                yinc = xval * sval  # 245
-                k[xrow,scol] += yinc # 789
-            end
-        end
-    end
-    return k
-end
+KUsparse{T}(A::Type, S::SparseMatrixCSC{T})=
+    KUsparse{A,T}(s.m, s.n, 
+                  KUdense(convert(A{Int32},s.colptr)),
+                  KUdense(convert(A{Int32},s.rowval)),
+                  KUdense(convert(A{T},s.nzval)))
 
-function hcat!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, vj=(1:size(b,2)), nj=length(vj))
-    # a: m, n, colptr, rowval, nzval
-    # colptr[i]: starting index (in rowval,nzval) of column i
-    # colptr[n+1]: nz+1
-    @assert size(a,1) == size(b,1)
-    @inbounds for i=1:nj
-        j = vj[i]  # concat b[:,j]
-        b0 = b.colptr[j]
-        b1 = b.colptr[j+1]-1
-        nz = b1-b0+1
-        a.colptr = push!(a.colptr, a.colptr[end]+nz)
-        if nz > 0
-            a.rowval = append!(a.rowval, b.rowval[b0:b1])
-            a.nzval = append!(a.nzval, b.nzval[b0:b1])
-        end
-    end
-    a.n += nj
-    return a
-end
+KUsparse(S::SparseMatrixCSC)=KUsparse(gpu()?CudaArray:Array, S)
+KUsparse(A::Type, T::Type, m::Integer, n::Integer)=KUsparse(A,spzeros(T,Int32,m,n))
+KUsparse(A::Type, T::Type, d::NTuple{2,Int})=KUsparse(A,T,d...)
+Base.similar{A}(s::KUsparse{A}, T, m, n)=KUsparse(A,T,m,n)
 
-function uniq!(s::SparseMatrixCSC, u::AbstractArray, v::AbstractArray)
-    ds = Dict{Any,Int}()        # dictionary of support vectors
-    ns = 0                      # number of support vectors
-    s0 = spzeros(eltype(s), Int32, size(s,1), ns) # new sv matrix
-    for j=1:size(s,2)
-        jj = get!(ds, s[:,j], ns+1)
-        if jj <= ns             # s[:,j] already in s0[:,jj]
-            @assert ns == length(ds) < j
-            u[:,jj] += u[:,j]
-            v[:,jj] += v[:,j]
-        else                    # s[:,j] to be added to s0
-            @assert jj == ns+1 == length(ds) <= j
-            ns = ns+1
-            hcat!(s0, s, [j], 1)
-            if jj != j
-                u[:,jj] = u[:,j]
-                v[:,jj] = v[:,j]
-            end
-        end
-    end
-    @assert ns == length(ds) == size(s0,2)
-    u = size!(u, (size(u,1),ns))
-    v = size!(v, (size(v,1),ns))
-    for f in names(s); s.(f) = s0.(f); end
-    return (s,u,v)
-end
+### BASIC ARRAY OPS
+
+atype{A}(::KUsparse{A})=A
+Base.eltype{A,T}(::KUsparse{A,T})=T
+Base.length(s::KUsparse)=(s.m*s.n)
+Base.ndims(::KUsparse)=2
+Base.size(s::KUsparse)=(s.m,s.n)
+Base.size(s::KUsparse,i)=(i==1?s.m:i==2?s.n:error("Bad dimension"))
+Base.isempty(s::KUsparse)=(length(s)==0)
+clength(s::KUsparse)=s.m
+
+# We need to fix cpu/gpu copy so the type changes appropriately:
+cpucopy_internal{T}(s::KUsparse{CudaArray,T},d::ObjectIdDict)=
+    KUsparse{Array,T}(s.m,s.n,to_host(s.colptr),to_host(s.rowval),to_host(nzval))
+
+gpucopy_internal{T}(s::KUsparse{Array,T},d::ObjectIdDict)=
+    KUsparse{CudaArray,T}(s.m,s.n,CudaArray(s.colptr),CudaArray(s.rowval),CudaArray(nzval))
+
+
