@@ -50,11 +50,16 @@ convert{A,T,I}(::Type{KUsparse}, s::Sparse{A,T,I})=
 convert{A,T,I}(::Type{Sparse}, s::KUsparse{A,T,I})=
     Sparse{A,T,I}(s.m,s.n,convert(A,s.colptr),convert(A,s.rowval),convert(A,s.nzval))
 
-convert{T,I}(::Type{KUsparse}, s::SparseMatrixCSC{T,I})=
-    KUsparse{Array,T,I}(s.m,s.n,convert(KUdense,s.colptr),convert(KUdense,s.rowval),convert(KUdense,s.nzval))
-
-convert{T,I}(::Type{SparseMatrixCSC}, s::KUsparse{Array,T,I})=
+convert{A,T,I}(::Type{SparseMatrixCSC}, s::KUsparse{A,T,I})=
     SparseMatrixCSC(s.m,s.n,convert(Array,s.colptr),convert(Array,s.rowval),convert(Array,s.nzval))
+
+convert{A,T,I}(::Type{KUsparse{A}}, s::SparseMatrixCSC{T,I})=
+    KUsparse{A,T,I}(s.m,s.n,
+                    convert(KUdense{A},s.colptr),
+                    convert(KUdense{A},s.rowval),
+                    convert(KUdense{A},s.nzval))
+
+convert{T,I}(::Type{KUsparse}, s::SparseMatrixCSC{T,I})=convert(KUsparse{Array}, s)
 
 ### BASIC COPY
 

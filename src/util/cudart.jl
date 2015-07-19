@@ -56,3 +56,5 @@ fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 
 pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 
+convert(::Type{CudaArray}, a::Array)=CudaArray(a)
+convert(::Type{Array}, a::CudaArray)=to_host(a)

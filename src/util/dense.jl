@@ -9,14 +9,13 @@ type KUdense{A,T,N}; arr; ptr; end
 
 ### CONSTRUCTORS
 
-KUdense(a::BaseArray)=KUdense{atype(a),eltype(a),ndims(a)}(a, reshape(a, length(a)))
+KUdense(a)=KUdense{atype(a),eltype(a),ndims(a)}(a, reshape(a, length(a)))
 KUdense{A,T}(::Type{A}, ::Type{T}, d::Dims)=KUdense(A(T,d))
 KUdense{A,T}(::Type{A}, ::Type{T}, d::Int...)=KUdense(A,T,d)
 
-convert(::Type{Array}, a::KUdense{Array})=a.arr
-convert(::Type{CudaArray}, a::KUdense{CudaArray})=a.arr
-convert(::Type{KUdense}, a::Array)=KUdense(a)
-convert(::Type{KUdense}, a::CudaArray)=KUdense(a)
+convert(::Type{KUdense}, a)=KUdense(a)
+convert{A,B}(::Type{KUdense{B}}, a::A)=KUdense(convert(B, a))
+convert{A<:BaseArray}(::Type{A}, a::KUdense)=convert(A, a.arr)
 
 similar{A,T}(a::KUdense{A}, ::Type{T}, d::Dims)=KUdense(A,T,d)
 similar{A,T}(a::KUdense{A,T})=KUdense(A,T,size(a))
