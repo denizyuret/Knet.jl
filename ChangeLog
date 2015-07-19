@@ -1,8 +1,14 @@
+2015-07-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/util/linalg.jl: TODO:
+	- add linalg tests to dense and sparse.
+
 2015-07-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* test/testsparse.jl (density): TODO: implement full
+	* test/testsparse.jl (density): TODO: 
+	- implement full
 	+ type cannot be constructed: use ::Type{T} notation.
-	- implement uniq! for KUsparse
+	+ implement uniq! for KUsparse
 
 	* src/util/colops.jl: TODO: unit test cadd!
 
@@ -26,11 +32,12 @@
 	* layers: TODO: Layers are functions.  They should be generic.
 	Their output types should match their input types.  Internally
 	they can do whatever they want.  If the input type does not match
-	the parameters the parameters should be moved?  We should support
-	regular arrays not just KUarray's for input/output.  KUarray's
-	just make certain operations faster, so train/predict can use them
-	during minibatching.  We should specify the array types supported
-	by each layer.
+	the parameters the parameters should be moved?  No, better if only
+	flexible at init.  We should support regular arrays not just
+	KUarray's for input/output.  KUarray's just make certain
+	operations faster, so train/predict can use them during
+	minibatching.  We should specify the array types supported by each
+	layer.
 
 2015-07-16  Deniz Yuret  <dyuret@ku.edu.tr>
 

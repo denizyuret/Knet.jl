@@ -13,7 +13,8 @@ for A in (CudaArray, Array)
         n = rand(1:20)
         @show (A,T,m,n)
         a = sprand(m,n,density,rand,T)
-        s = KUsparse(A,copy(a))
+        s = convert(KUsparse, copy(a))
+        A==CudaArray && (s=gpucopy(s))
 
         @test atype(s)==A
         @test iseq(s,a)

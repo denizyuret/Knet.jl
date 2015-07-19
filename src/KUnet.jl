@@ -13,14 +13,14 @@ GPU && include("util/cudart.jl");
 GPU && include("util/curand.jl");
 
 include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/array.jl");	export BaseArray, accuracy, atype, csize, ccount, clength
-include("util/dense.jl");	export KUdense
-include("util/sparse.jl");	export KUsparse
+include("util/array.jl");	export BaseArray, csize, ccount, clength
+include("util/dense.jl");	export KUdense, atype
+include("util/sparse.jl");	export KUsparse, Sparse
 include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
 
-include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
+include("net.jl");	export Layer, LossLayer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet
 include("update.jl");	export update, setparam!
 
 include("bias.jl");	export Bias

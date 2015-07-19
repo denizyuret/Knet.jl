@@ -5,8 +5,6 @@ using CUDArt
 import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer
 import CUDArt: to_host
 
-atype(::CudaArray)=CudaArray
-
 to_host(x)=x                    # so we can use it in general
 
 function (==)(A::CudaArray,B::CudaArray)
@@ -57,3 +55,4 @@ isempty(a::CudaArray)=(length(a)==0)
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 
 pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
+

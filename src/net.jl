@@ -73,6 +73,8 @@ function predict(net::Net, x, y=nothing; batch=128, o...)
     return y
 end
 
+accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
+
 function shufflexy!(x,y)
     nx = size(x, ndims(x))
     ny = size(y, ndims(y))
