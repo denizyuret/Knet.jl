@@ -25,31 +25,31 @@ function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
     return a
 end
 
-# TODO: what to do with Int64 SparseMatrixCSC?
-
-function cslice!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32}, r::UnitRange)
+function cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange)
     nz = 0; for i in r; nz += b.colptr[i+1]-b.colptr[i]; end
     a.m = b.m
     a.n = length(r)
     resize!(a.nzval, nz)
     resize!(a.rowval, nz)
-    resize!(a.colptr, 1+a.n)
-    a.colptr[1] = a1 = aj = 1
+    aptr = Array(I, a.n+1)
+    aptr[1] = a1 = aj = 1
     for bj in r                 # copy column b[:,bj] to a[:,aj]
         b1 = b.colptr[bj]
         nz = b.colptr[bj+1]-b1
-        copy!(a.nzval, a1, b.nzval, b1, nz)
-        copy!(a.rowval, a1, b.rowval, b1, nz)
+        copy!(a.nzval.arr, a1, b.nzval, b1, nz)
+        copy!(a.rowval.arr, a1, b.rowval, b1, nz)
         a1 += nz
-        a.colptr[aj+=1] = a1
+        aptr[aj+=1] = a1
     end
     @assert aj == a.n+1
+    copy!(a.colptr, aptr)
     return a
 end
 
 
 # CCOPY! Copy n columns from src starting at column si, into dst
-# starting at column di.  Used by predict to construct output.
+# starting at column di.  Used by predict to construct output.  
+# Don't need the sparse version, output always dense.
 
 ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=ccopy!(dst,di,src.arr,si,n)
 
@@ -63,7 +63,8 @@ function ccopy!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccoun
 end
 
 # CADD! Add n columns from src starting at column si, into dst
-# starting at column di.  Used by uniq!
+# starting at column di.  Used by uniq!  Don't need sparse version,
+# weights always dense.
 
 using Base.LinAlg.BLAS: axpy!
 
@@ -112,13 +113,12 @@ function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)), nc
     # colptr[i]: starting index (in rowval,nzval) of column i
     # colptr[n+1]: nz+1
     @assert size(a,1) == size(b,1)
-    aptr = to_host(a.colptr)
-    bptr = to_host(b.colptr)
+    aptr = to_host(a.colptr.arr)
+    bptr = to_host(b.colptr.arr)
     na = aptr[a.n+1]-1          # count new nonzero entries in a
     for i in cols; na += bptr[i+1]-bptr[i]; end
     resize!(a.nzval, na)
     resize!(a.rowval, na)
-    resize!(a.colptr, a.n + ncols + 1)
     na = aptr[a.n+1]-1          # restart the count
     for i=1:ncols
         bj=cols[i]              # bj'th column of b
@@ -126,12 +126,13 @@ function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)), nc
         nz=bptr[bj+1]-bptr[bj]  # with nz nonzero values
         @assert length(aptr) == aj
         push!(aptr, aptr[aj]+nz) # aptr[aj+1] = aptr[aj]+nz
-        copy!(a.nzval,na+1,b.nzval,bptr[bj],nz)
-        copy!(a.rowval,na+1,b.rowval,bptr[bj],nz)
+        copy!(a.nzval.arr,na+1,b.nzval.arr,bptr[bj],nz)
+        copy!(a.rowval.arr,na+1,b.rowval.arr,bptr[bj],nz)
         na = na+nz
     end
     @assert length(aptr) == a.n + ncols + 1
-    copy!(a.colptr, a.n+2, aptr, a.n+2, ncols)
+    resize!(a.colptr, a.n + ncols + 1)
+    copy!(a.colptr.arr, a.n+2, aptr, a.n+2, ncols)
     a.n += ncols
     return a
 end
@@ -146,7 +147,7 @@ function uniq!(s::KUdense{Array}, ww::KUdense...)
     ds = Dict{Any,Int}()                                        # support vector => new index
     newn = 0                                                    # number of new support vectors
     for oldj=1:oldn
-        newj = get!(ds, getcol(s,oldj), newn+1)
+        newj = get!(ds, _colkey(s,oldj), newn+1)
         if newj <= newn                                         # s[:,oldj] already in s[:,newj]
             @assert newj <= newn == length(ds) < oldj
             for w in ww; cadd!(w,newj,w,oldj,1); end
@@ -165,18 +166,74 @@ function uniq!(s::KUdense{Array}, ww::KUdense...)
     return (s, ww...)
 end
 
+# TODO: Fix this...
+
+function uniq!(s::KUsparse{Array}, ww::KUdense...)
+    oldn = ccount(s)                                            # number of original support vectors
+    for w in ww; @assert ccount(ww) == oldn; end 
+    ds = Dict{Any,Int}()                                        # support vector => new index
+    newn = 0                                                    # number of new support vectors
+    newnz = 1
+    @assert s.colptr.arr[1]==1
+    for oldj=1:oldn
+        newj = get!(ds, _colkey(s,oldj), newn+1)
+        if newj <= newn                                         # s[:,oldj] already in s[:,newj]
+            @assert newj <= newn == length(ds) < oldj
+            for w in ww; cadd!(w,newj,w,oldj,1); end
+        else                                                    # s[:,oldj] to be copied to s[:,newj]                    
+            @assert newj == newn+1 == length(ds) <= oldj	
+            newn += 1
+            if newj != oldj
+                from = s.colptr.arr[oldj]
+                nval = s.colptr.arr[oldj+1] - from
+                copy!(s.rowval.arr, newnz, s.rowval.arr, from, nval)
+                copy!(s.nzval.arr, newnz, s.nzval.arr, from, nval)
+                newnz += nval
+                s.colptr.arr[newn+1] = newnz
+                for w in ww; ccopy!(w,newj,w,oldj,1); end
+            end
+        end
+    end
+    @assert newn == length(ds)
+    s.n = newn
+    resize!(s.colptr, newn+1)
+    resize!(s.rowval, newnz)
+    resize!(s.nzval,  newnz)
+    for w in ww; resize!(w, csize(w, newn)); end
+    return (s, ww...)
+end
+
+_colkey(s::KUdense{Array},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
+
+function _colkey(s::KUsparse{Array},j)
+    a=s.colptr.arr[j]
+    b=s.colptr.arr[j+1]
+    r=sub(s.rowval.arr, a:b)
+    v=sub(s.nzval.arr, a:b)
+    (r,v)
+end
+
+# Getting columns one at a time is expensive, just copy the whole array
+# CudaArray does not support sub, even if it did we would not be able to hash it
+# getcol{T}(s::KUdense{CudaArray,T}, j)=(n=clength(s);copy!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
+
+# we need to look at the columns, might as well copy
+
 function uniq!(s::KUdense{CudaArray}, ww::KUdense...)
-    ss = cpucopy(s)                                             # we need to look at the columns, might as well copy
+    ss = cpucopy(s)
     uniq!(ss, ww...)
     cslice!(s, ss, 1:ccount(ss))
     return (s, ww...)
 end
 
-getcol(s::KUdense{Array},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
+function uniq!(s::KUsparse{CudaArray}, ww::KUdense...)
+    ss = cpucopy(s)
+    uniq!(ss, ww...)
+    cslice!(s, ss, 1:ccount(ss))
+    return (s, ww...)
+end
 
-# Getting columns one at a time is expensive, just copy the whole array
-# CudaArray does not support sub, even if it did we would not be able to hash it
-# getcol{T}(s::KUdense{CudaArray,T}, j)=(n=clength(s);copy!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
+
 
 # TODO: fix array types
 

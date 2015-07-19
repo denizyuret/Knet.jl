@@ -1,4 +1,7 @@
 using CUDArt
+import Base: similar, copy, copy!, resize!, rand!, randn!
+import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!
+import CUDArt: to_host
 
 ### KUdense parametrized by array type, element type, and ndims:
 
@@ -7,11 +10,10 @@ type KUdense{A,T,N}; arr; ptr; end
 ### CONSTRUCTORS
 
 KUdense(a)=KUdense{atype(a),eltype(a),ndims(a)}(a, reshape(a, length(a)))
-KUdense(A::Type, T::Type, d::Dims)=KUdense(A(T,d))
-KUdense(A::Type, T::Type, d::Int...)=KUdense(A,T,d)
+KUdense{A,T}(::Type{A}, ::Type{T}, d::Dims)=KUdense(A(T,d))
+KUdense{A,T}(::Type{A}, ::Type{T}, d::Int...)=KUdense(A,T,d)
 
-import Base: similar
-similar{A}(a::KUdense{A}, T, d::Dims)=KUdense(A,T,d)
+similar{A,T}(a::KUdense{A}, ::Type{T}, d::Dims)=KUdense(A,T,d)
 similar{A,T}(a::KUdense{A,T})=KUdense(A,T,size(a))
 
 arr(a::Vector,d::Dims)=pointer_to_array(pointer(a), d)
@@ -22,20 +24,19 @@ arr(a::CudaVector,d::Dims)=CudaArray(a.ptr, d, a.dev)
 atype{A}(::KUdense{A})=A
 
 for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty)
-    @eval (Base.$fname)(a::KUdense)=$fname(a.arr)
+    @eval $fname(a::KUdense)=$fname(a.arr)
 end
 
 for fname in (:size, :stride)
-    @eval (Base.$fname)(a::KUdense,n)=$fname(a.arr,n)
+    @eval $fname(a::KUdense,n)=$fname(a.arr,n)
 end
 
 for fname in (:getindex, :setindex!)
-    @eval (Base.$fname)(a::KUdense,n...)=$fname(a.arr,n...)
+    @eval $fname(a::KUdense,n...)=$fname(a.arr,n...)
 end
 
 ### BASIC COPY
 
-import Base: copy!, copy
 copy!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T})=(resize!(a, size(b)); copy!(a.arr, 1, b.arr, 1, length(b)); a)
 copy!{A,T}(a::KUdense{A,T}, b::Union(Array{T},CudaArray{T}))=(resize!(a, size(b)); copy!(a.arr, 1, b, 1, length(b)); a)
 copy(a::KUdense)=copy!(similar(a), a)
@@ -44,8 +45,6 @@ copy(a::KUdense)=copy!(similar(a), a)
 
 # Resize factor: 1.3 ensures a3 can be written where a0+a1 used to be
 resizefactor(::Type{KUdense})=1.3
-
-import Base: resize!
 
 function resize!(a::KUdense, d::Dims)
     size(a)==d && return a
@@ -64,8 +63,7 @@ cpucopy_internal(x::KUdense{CudaArray},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KU
 gpucopy_internal(x::KUdense{Array},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(CudaArray(x.arr)))
 gpucopy_internal(x::KUdense{CudaArray},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(copy(x.arr)))
 
-import Base: rand!, randn!
 randn!{A,T}(a::KUdense{A,T}, std=one(T), mean=zero(T))=(randn!(a.arr, std, mean); a)
 rand!(a::KUdense)=(rand!(a.arr); a)
 
-CUDArt.to_host(a::KUdense{CudaArray})=cpucopy(a)
+to_host(a::KUdense{CudaArray})=cpucopy(a)

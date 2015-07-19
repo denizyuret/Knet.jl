@@ -1,9 +1,12 @@
 2015-07-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/net.jl: TODO: replace ccopy in predict with ccat.  No need
-	for ccopy.
+	* test/testsparse.jl (density): TODO: implement full
+	+ type cannot be constructed: use ::Type{T} notation.
+	- implement uniq! for KUsparse
 
-	* test/testdense.jl: TODO: add colops and linalg? tests.  Write
+	* src/util/colops.jl: TODO: unit test cadd!
+
+	* test/testdense.jl: DONE: add colops and linalg? tests.  Write
 	testsparse.
 
 2015-07-17  Deniz Yuret  <dyuret@ku.edu.tr>

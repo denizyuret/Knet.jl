@@ -13,10 +13,10 @@ GPU && include("util/cudart.jl");
 GPU && include("util/curand.jl");
 
 include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/array.jl");	export accuracy, atype, csize, ccount, clength
+include("util/array.jl");	export BaseArray, accuracy, atype, csize, ccount, clength
 include("util/dense.jl");	export KUdense
-include("util/param.jl");	export KUparam
 include("util/sparse.jl");	export KUsparse
+include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
 

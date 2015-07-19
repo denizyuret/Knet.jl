@@ -4,8 +4,8 @@ type KUparam{A,T,N}; arr; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; n
 
 setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 KUparam(w; init=nothing, o...)=setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=(init==nothing?w:init(w)), o...)
-KUparam(A::Type, T::Type, d::Dims; o...)=KUparam(A(T,d); o...)
-KUparam(T::Type, d::Dims; o...)=KUparam((gpu()?CudaArray:Array)(T,d); o...)
+KUparam{A,T}(::Type{A}, ::Type{T}, d::Dims; o...)=KUparam(A(T,d); o...)
+KUparam{T}(::Type{T}, d::Dims; o...)=KUparam((gpu()?CudaArray:Array)(T,d); o...)
 KUparam(d1::Int,d::Int...; o...)=KUparam(Float64,tuple(d1,d...); o...)
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.
