@@ -46,6 +46,27 @@ function cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRang
     return a
 end
 
+function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::KUsparse{B,T,I}, r::UnitRange)
+    bptr = to_host(b.colptr.arr)
+    nz = 0; for i in r; nz += bptr[i+1]-bptr[i]; end
+    a.m = b.m
+    a.n = length(r)
+    resize!(a.nzval, nz)
+    resize!(a.rowval, nz)
+    aptr = Array(I, a.n+1)
+    aptr[1] = a1 = aj = 1
+    for bj in r                 # copy column b[:,bj] to a[:,aj]
+        b1 = bptr[bj]
+        nz = bptr[bj+1]-b1
+        copy!(a.nzval.arr, a1, b.nzval.arr, b1, nz)
+        copy!(a.rowval.arr, a1, b.rowval.arr, b1, nz)
+        a1 += nz
+        aptr[aj+=1] = a1
+    end
+    @assert aj == a.n+1
+    copy!(a.colptr, aptr)
+    return a
+end
 
 # CCOPY! Copy n columns from src starting at column si, into dst
 # starting at column di.  Used by predict to construct output.  
@@ -172,34 +193,38 @@ function uniq!(s::KUsparse{Array}, ww::KUdense...)
     oldn = ccount(s)                                            # number of original support vectors
     for w in ww; @assert ccount(ww) == oldn; end 
     ds = Dict{Any,Int}()                                        # support vector => new index
-    newn = 0                                                    # number of new support vectors
-    newnz = 1
     @assert s.colptr.arr[1]==1
+    ncol = 0
+    nnz = 0
     for oldj=1:oldn
-        newj = get!(ds, _colkey(s,oldj), newn+1)
-        if newj <= newn                                         # s[:,oldj] already in s[:,newj]
-            @assert newj <= newn == length(ds) < oldj
+        newj = get!(ds, _colkey(s,oldj), ncol+1)
+        if newj <= ncol                                          # s[:,oldj] already in s[:,newj]
+            @assert newj <= length(ds) == ncol < oldj
             for w in ww; cadd!(w,newj,w,oldj,1); end
         else                                                    # s[:,oldj] to be copied to s[:,newj]                    
-            @assert newj == newn+1 == length(ds) <= oldj	
-            newn += 1
+            @assert newj == ncol+1 == length(ds) <= oldj	
+            from = s.colptr.arr[oldj]
+            nval = s.colptr.arr[oldj+1] - from
+            to = nnz+1
+            ncol += 1
+            nnz += nval
             if newj != oldj
-                from = s.colptr.arr[oldj]
-                nval = s.colptr.arr[oldj+1] - from
-                copy!(s.rowval.arr, newnz, s.rowval.arr, from, nval)
-                copy!(s.nzval.arr, newnz, s.nzval.arr, from, nval)
-                newnz += nval
-                s.colptr.arr[newn+1] = newnz
+                copy!(s.rowval.arr, to, s.rowval.arr, from, nval)
+                copy!(s.nzval.arr, to, s.nzval.arr, from, nval)
+                s.colptr.arr[ncol+1] = nnz+1
                 for w in ww; ccopy!(w,newj,w,oldj,1); end
+            else 
+                @assert to == from
+                @assert s.colptr.arr[ncol+1] == nnz+1
             end
         end
     end
-    @assert newn == length(ds)
-    s.n = newn
-    resize!(s.colptr, newn+1)
-    resize!(s.rowval, newnz)
-    resize!(s.nzval,  newnz)
-    for w in ww; resize!(w, csize(w, newn)); end
+    @assert length(ds) == ncol
+    s.n = ncol
+    resize!(s.colptr, ncol+1)
+    resize!(s.rowval, nnz)
+    resize!(s.nzval,  nnz)
+    for w in ww; resize!(w, csize(w, s.n)); end
     return (s, ww...)
 end
 
@@ -207,7 +232,7 @@ _colkey(s::KUdense{Array},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()
 
 function _colkey(s::KUsparse{Array},j)
     a=s.colptr.arr[j]
-    b=s.colptr.arr[j+1]
+    b=s.colptr.arr[j+1]-1
     r=sub(s.rowval.arr, a:b)
     v=sub(s.nzval.arr, a:b)
     (r,v)
