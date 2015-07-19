@@ -6,8 +6,20 @@ import CUDArt: to_host
 # So instead of SparseMatrixCSC{T,I} we use the equivalent Sparse{Array,T,I}:
 
 type Sparse{A,T,I<:Integer}; m; n; colptr; rowval; nzval; end
-convert{T,I}(::Type{Sparse}, s::SparseMatrixCSC{T,I})=Sparse{Array,T,I}(s.m,s.n,s.colptr,s.rowval,s.nzval)
-convert{T,I}(::Type{SparseMatrixCSC}, s::Sparse{Array,T,I})=SparseMatrixCSC(s.m,s.n,s.colptr,s.rowval,s.nzval)
+
+convert{T,I}(::Type{Sparse}, s::SparseMatrixCSC{T,I})=convert(Sparse{Array}, s)
+
+convert{A,T,I}(::Type{Sparse{A}}, s::SparseMatrixCSC{T,I})=
+    Sparse{A,T,I}(s.m,s.n,
+                  convert(A, s.colptr),
+                  convert(A, s.rowval),
+                  convert(A, s.nzval))
+
+convert{A,T,I}(::Type{SparseMatrixCSC}, s::Sparse{A,T,I})=
+    SparseMatrixCSC(s.m,s.n,
+                    convert(Array, s.colptr),
+                    convert(Array, s.rowval),
+                    convert(Array, s.nzval))
 
 # Now we can construct a Sparse{CudaArray,T,I} using gpucopy:
 
