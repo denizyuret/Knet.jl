@@ -1,16 +1,20 @@
 2015-07-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/util/linalg.jl: TODO:
-	- add linalg tests to dense and sparse.
+	* TODO:
+	- test mmul with dense and sparse
+	- fix kperceptron, perceptron
+	- make layers generic
+	- unit test cadd!
+
+	* src/util/linalg.jl: DONE:
+	+ add linalg tests to dense and sparse.
 
 2015-07-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* test/testsparse.jl (density): TODO: 
-	- implement full
+	* test/testsparse.jl (density): DONE:
+	+ implement full
 	+ type cannot be constructed: use ::Type{T} notation.
 	+ implement uniq! for KUsparse
-
-	* src/util/colops.jl: TODO: unit test cadd!
 
 	* test/testdense.jl: DONE: add colops and linalg? tests.  Write
 	testsparse.
