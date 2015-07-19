@@ -2,7 +2,7 @@
 
 using CUDArt
 
-import Base: (==), convert, reshape, resize!, copy!, isempty, fill!
+import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer
 import CUDArt: to_host
 
 atype(::CudaArray)=CudaArray
@@ -56,3 +56,4 @@ isempty(a::CudaArray)=(length(a)==0)
 #fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 
+pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)

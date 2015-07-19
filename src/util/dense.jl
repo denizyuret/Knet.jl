@@ -67,3 +67,5 @@ gpucopy_internal(x::KUdense{CudaArray},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KU
 import Base: rand!, randn!
 randn!{A,T}(a::KUdense{A,T}, std=one(T), mean=zero(T))=(randn!(a.arr, std, mean); a)
 rand!(a::KUdense)=(rand!(a.arr); a)
+
+CUDArt.to_host(a::KUdense{CudaArray})=cpucopy(a)

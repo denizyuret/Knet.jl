@@ -18,7 +18,7 @@ include("util/dense.jl");	export KUdense
 include("util/param.jl");	export KUparam
 include("util/sparse.jl");	export KUsparse
 include("util/linalg.jl");
-include("util/colops.jl");	export cslice!, ccopy!, ccat!
+include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
 
 include("net.jl");	export Layer, LossLayer, Net, train, predict, forw, back, loss, loadnet, savenet
 include("update.jl");	export update, setparam!
