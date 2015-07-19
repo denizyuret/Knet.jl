@@ -9,7 +9,7 @@ for N in 1:5
             @show (A,T,S)
             a = convert(A{T}, rand(T,S))
             b = convert(A{T}, rand(T,csize(a,rand(1:20))))
-            d = KUdense(a)
+            d = KUdense(copy(a))
             @test atype(d)==A
             @test d.arr == a
             @test pointer(d) == pointer(d.arr) == pointer(d.ptr)
@@ -64,6 +64,39 @@ for N in 1:5
             @test cd.arr == ca
             ga = gpucopy(a)
             @test gd.arr == ga
+
+            # cslice!
+            a1 = ndims(a)>1 ? a : reshape(a,length(a),1)
+            r1 = rand(1:ccount(a1))
+            r2 = rand(1:ccount(a1))
+            r1 <= r2 || ((r1,r2)=(r2,r1))
+            cslice!(d, a1, r1:r2)
+            rr = UnitRange[map(x->(1:x),size(a1)[1:end-1])..., (r1:r2)]
+            @test to_host(d.arr) == to_host(a1)[rr...]
+
+            # ccopy!
+            a2 = copy(a1)
+            d2 = copy(d)
+            rand!(d2)
+            ccopy!(a2,r1,d2)
+            b2 = to_host(d2.arr)
+            rr1 = UnitRange[map(x->(1:x),size(a1)[1:end-1])..., (1:r1-1)]
+            !isempty(to_host(a1)[rr1...]) && (b2 = cat(ndims(b2), to_host(a1)[rr1...], b2))
+            rr2 = UnitRange[map(x->(1:x),size(a1)[1:end-1])..., (r2+1:ccount(a1))]
+            !isempty(to_host(a1)[rr2...]) && (b2 = cat(ndims(b2), b2, to_host(a1)[rr2...]))
+            @test to_host(a2) == b2
+
+            # ccat!
+            da = KUdense(copy(a1))
+            db = KUdense(copy(b))
+            ccat!(da, db)
+            @test to_host(da.arr) == cat(ndims(a1), to_host(a1), to_host(b))
+
+            # uniq!
+            for i=1:5; ccat!(da, db); end
+            ua = unique(to_host(da.arr), ndims(da))
+            uniq!(da)
+            @test to_host(da.arr) == ua
         end
     end
 end
