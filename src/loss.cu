@@ -1,5 +1,47 @@
 #include "kunet.h"
 
+__global__ void _softloss32(int n, double scale, float *y, float *dy) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dy[i] = scale*(y[i] - dy[i])/y[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _softloss64(int n, double scale, double *y, double *dy) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dy[i] = scale*(y[i] - dy[i])/y[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void softloss32(int n, double s, float *y, float *dy) KCALL(_softloss32,n,s,y,dy);
+  void softloss64(int n, double s, double *y, double *dy) KCALL(_softloss64,n,s,y,dy);
+}
+
+__global__ void _logploss32(int n, double scale, float *y, float *dy) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dy[i] = scale*(exp(y[i]) - dy[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _logploss64(int n, double scale, double *y, double *dy) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dy[i] = scale*(exp(y[i]) - dy[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void logploss32(int n, double s, float *y, float *dy) KCALL(_logploss32,n,s,y,dy);
+  void logploss64(int n, double s, double *y, double *dy) KCALL(_logploss64,n,s,y,dy);
+}
+
 __global__ void _xentloss32(int nd, int nx, float *y, float *dy) {
   double z, ymax;
   // double *qz = (double *) malloc(nd * sizeof(double));
