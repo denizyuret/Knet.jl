@@ -23,21 +23,14 @@ include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
 include("net.jl");	export Layer, LossLayer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet
 include("update.jl");	export update, setparam!
 
+include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
 include("conv.jl");	export Conv
-include("drop.jl");	export Drop
-include("logp.jl");	export Logp
-include("mmul.jl");     export Mmul
 include("pool.jl");	export Pool
-include("relu.jl");	export Relu
-include("sigm.jl");	export Sigm
-include("soft.jl");	export Soft
-include("tanh.jl");	export Tanh
+include("drop.jl");	export Drop
 
-include("logploss.jl");	export LogpLoss
-include("quadloss.jl");	export QuadLoss
-include("softloss.jl");	export SoftLoss
-include("xentloss.jl");	export XentLoss
+include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
+include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss
 
 # include("perceptron.jl"); export Perceptron
 # include("kperceptron.jl"); export KPerceptron
