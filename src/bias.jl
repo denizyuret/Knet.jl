@@ -1,19 +1,31 @@
 type Bias <: Layer; b; Bias(b::KUparam)=new(b); end
 
 param(l::Bias)=l.b
-default_init(::Type{Bias})=initzero
 
-Bias(d...; init=default_init(Bias), o...)=Bias(KUparam(d...; init=init, o...))
-Bias()=Bias(KUparam(0)) # cannot specify init here
+Bias(d1, d...; o...)=Bias(KUparam(d1, d...; o...))
+Bias(; o...)=Bias(KUparam(0; o...))
 
-forw(l::Bias, x; o...)=(initforw(l,x); biasforw(l.b, x); x)
-back(l::Bias, dy; returndx=true, o...)=(initback(l,dy); biasback(diff(l.b), dy); returndx && dy)
+function forw(l::Bias, x; o...)
+    (b,x)=initforw(l,x;o...)
+    biasforw(b,x)
+    return x
+end
 
-function initforw(l::Bias, x)
+function back(l::Bias, dy; returndx=true, o...)
+    (db,dy)=initback(l,dy)
+    biasback(db,dy)
+    returndx && (return dy)
+end
+
+function initforw(l::Bias, x; predict=false, o...)
     nb = size(x, ndims(x)==1 ? 1 : ndims(x)-1)
-    isempty(l.b) && (l.b=KUparam(eltype(x), (nb,); init=default_init(Bias)))
+    if isempty(l.b) 
+        isdefined(l.b,:init) || (l.b.init = initzero)
+        init(l.b, eltype(x), (nb,))
+    end
     @assert length(l.b) == nb
     @assert eltype(l.b) == eltype(x)
+    return ((predict && l.b.average) ? (l.b.avg, x) : (l.b.arr, x))
 end
 
 function initback(l::Bias, dy)
@@ -21,6 +33,7 @@ function initback(l::Bias, dy)
     nb = size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1)
     @assert length(l.b) == nb
     @assert eltype(l.b) == eltype(dy)
+    return (l.b.diff, dy)
 end
 
 # We are implementing the CUDNN_ADD_SAME_C mode of cudnn:
@@ -33,8 +46,7 @@ biasback(db::Vector, dy::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
 biasforw(b::Vector, x::Array)=(c=ndims(x)-1; for i=1:length(x); x[i] = x[i] + b[ind2sub(size(x),i)[c]]; end)
 biasback(db::Vector, dy::Array)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
 
-biasforw(b::KUparam, x::KUdense)=biasforw(b.arr,x.arr)
-biasforw(b::KUdense, x::KUdense)=biasforw(b.arr,x.arr)
+biasforw(b, x::KUdense)=biasforw(b,x.arr)
 biasback(db, dy::KUdense)=biasback(db, dy.arr)
 
 GPU && (biasforw(b::CudaArray, x::CudaArray)=cudnnAddTensor(b, x; mode=CUDNN_ADD_SAME_C))

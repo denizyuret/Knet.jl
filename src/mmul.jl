@@ -1,37 +1,51 @@
 type Mmul <: Layer; w; x; y; dx; dy; Mmul(p::KUparam)=new(p); end
-param(l::Mmul)=l.w
-default_init(::Type{Mmul})=initgaussian
 
-Mmul(d...; init=default_init(Mmul), o...)=Mmul(KUparam(d...; init=init, o...))
-Mmul(n::Integer)=Mmul(KUparam(n,0)) # cannot specify init here
+Mmul(d...; o...)=Mmul(KUparam(d...; o...))
+Mmul(n::Integer; o...)=Mmul(n, 0; o...)
+
+param(l::Mmul)=l.w
 
 function forw(l::Mmul, x; o...)
-    initforw(l, x)
-    A_mul_B!(l.y, l.w, l.x) # l.y = l.w * l.x
-    return l.y
+    (y, w, x) = initforw(l, x; o...)
+    A_mul_B!(y, w, x) # y = w * x
+    return y
 end
 
 function back(l::Mmul, dy; returndx=true, o...)
-    initback(l, dy, returndx)
-    A_mul_Bt!(diff(l.w), l.dy, l.x)                # l.dw = l.dy * l.x'
-    returndx && (At_mul_B!(l.dx, l.w, l.dy); l.dx) # l.dx = l.w' * l.dy
+    (dw, dy, x) = initback(l, dy)
+    A_mul_Bt!(dw, dy, x)        # dw = dy * x'
+    if returndx
+        (dx, w, dy) = initbackx(l, dy)
+        At_mul_B!(dx, w, dy)    # dx = w' * dy
+    end
 end
 
-function initforw(l::Mmul, x)
+function initforw(l::Mmul, x; predict=false, o...)
     l.x = x
     (xrows, xcols) = size2(l.x)
     (wrows, wcols) = size(l.w)
-    isempty(l.w) && (wcols=xrows; l.w=KUparam(eltype(x), (wrows, wcols); init=default_init(Mmul)))
+    if isempty(l.w) 
+        isdefined(l.w,:init) || (l.w.init = initgaussian)
+        wcols=xrows
+        init(l.w, eltype(x), (wrows, wcols))
+    end
     @assert ndims(l.w) == 2
     @assert eltype(l.w) == eltype(x)
     @assert xrows == wcols
     dsimilar!(l, :y, l.x, (wrows, xcols))
+    return ((predict && l.w.average) ?
+            (l.y, l.w.avg, l.x) :
+            (l.y, l.w.arr, l.x))
 end
 
-function initback(l::Mmul, dy, returndx)
+function initback(l::Mmul, dy)
     @assert issimilar(dy, l.y)
     l.dy = dy
-    initdiff(l.w)
-    returndx && similar!(l, :dx, l.x)
+    similar!(l.w, :diff, l.w.arr)
+    return (l.w.diff, dy, l.x)
 end
 
+function initbackx(l::Mmul, dy)
+    similar!(l, :dx, l.x)
+    return (l.dx, l.w.arr, dy)
+end

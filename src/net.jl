@@ -106,7 +106,7 @@ function dsimilar!(l, n, x, dims)
         (eltype(l.(n)) != eltype(x)))
         l.(n) = dsimilar(x, dims)
     elseif (size(l.(n)) != dims)
-        resize!(l.(n), dims)
+        l.(n) = resize!(l.(n), dims)
     end
     return l.(n)
 end
@@ -130,7 +130,7 @@ function strip!(l::Layer)
     return l
 end
 
-strip!(p::KUparam)=(p.diff=nothing;p)
+strip!(p::KUparam)=(p.init=p.diff=nothing;p)
 strip!(n::Net)=(for l in n; strip!(l); end; gc(); n)
 
 using HDF5, JLD

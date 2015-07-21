@@ -2,11 +2,11 @@
 # TODO: cpu implementation
 
 type Conv <: Layer; w; x; y; dx; dy; n; Conv(p::KUparam)=new(p); end
-param(l::Conv)=l.w
-default_init(::Type{Conv})=initxavier
-Conv(d...; init=default_init(Conv), o...)=Conv(KUparam(d...; init=init, o...))
-Conv(nout::Integer, width::Integer)=Conv(KUparam(width, width, 0, nout))
 
+Conv(d...; o...)=Conv(KUparam(d...; o...))
+Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, width, 0, nout; o...))
+
+param(l::Conv)=l.w
 
 if GPU
 
@@ -19,7 +19,11 @@ end
 function initforw(l::Conv, x::KUdense{CudaArray})
     xchannels = size(x)[end-1]  # x dims are (x1, x2, ..., channels, images)
     wsize = [size(l.w)...]
-    isempty(l.w) && (wsize[end-1]=xchannels; l.w=KUparam(eltype(x), tuple(wsize...); init=default_init(Conv)))
+    if isempty(l.w) 
+        isdefined(l.w,:init) || (l.w.init = initxavier)
+        wsize[end-1]=xchannels
+        init(l.w, tuple(wsize...))
+    end
     @assert eltype(x) == eltype(l.w) "$(eltype(x)) != $(eltype(l.w))"
     @assert ndims(x) == ndims(l.w)
     @assert xchannels == wsize[end-1]

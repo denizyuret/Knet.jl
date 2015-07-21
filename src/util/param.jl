@@ -1,13 +1,21 @@
 import Base: convert
 
-type KUparam{A,T,N}; arr; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; KUparam()=new(); end
+type KUparam{A,T,N}; arr; diff; init; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; KUparam()=new(); end
 
-setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
-KUparam(w; init=nothing, o...)=setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=(init==nothing?w:init(w)), o...)
+KUparam(w; o...)=init(setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=w, o...))
 KUparam{A,T}(::Type{A}, ::Type{T}, d::Dims; o...)=KUparam(A(T,d); o...)
-KUparam{T}(::Type{T}, d::Dims; o...)=KUparam((gpu()?CudaArray:Array)(T,d); o...)
-KUparam{T}(::Type{T}, d::Int...; o...)=KUparam(T,d; o...)
-KUparam(d1::Int,d::Int...; o...)=KUparam(Float64,tuple(d1,d...); o...)
+KUparam{A,T}(::Type{A}, ::Type{T}, d1::Int, d::Int...; o...)=KUparam(A,T,tuple(d1,d...); o...)
+KUparam{T}(::Type{T}, d::Dims; o...)=KUparam((gpu()?CudaArray:Array),T,d; o...)
+KUparam{T}(::Type{T}, d::Int...; o...)=KUparam(T, d; o...)
+KUparam(d::Int...; o...)=KUparam(Float64, d; o...)
+setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
+
+function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
+    (size(p.arr)==d && eltype(p.arr)==T) || (p.arr = similar(p.arr, T, d))
+    initfn = (isdefined(p,:init) ? p.init : initzero)
+    initfn(p.arr)
+    return p
+end
 
 # We probably don't need this copy, just implement cpucopy and gpucopy.
 # copy(p::KUparam; o...)=(q=KUparam(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)

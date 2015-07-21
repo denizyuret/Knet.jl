@@ -12,7 +12,7 @@ scale!{T}(a,x::CudaArray{T})=(scal!(n,convert(T,a),x,1); x)
 # This is not a complete implementation.  The goal is to support KUnet
 # operations for sparse/dense matrices on cpu/gpu.  The operations needed:
 #
-# mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu: kudense, kuparam, kusparse
+# mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu: kudense, array, kusparse
 # mmul back: A_mul_Bt!(dw, dy, x)	A_mul_Bst!(dw, dy, x): cpu/gpu: array, kudense, kusparse
 # mmul back: At_mul_B!(dx, w, dy)	no dx: only initial input can be sparse
 # kper forw: At_mul_B!(k, s, x)		Ast_mul_Bs!(k, s, x): cpu/gpu: kudense, kusparse, kusparse
@@ -35,21 +35,21 @@ At_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(At_mul_B!(mat
 A_mul_Bt!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
 
 # KUdense mixed with other types:
-A_mul_B!{S,T}(C::KUdense{S,T}, A::KUparam{S,T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
-At_mul_B!{S,T}(C::KUdense{S,T}, A::KUparam{S,T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
+A_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); C)
+At_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); C)
 A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C), mat2d(A.arr), mat2d(B.arr)); C)
 
 ### SPARSE: A_mul_Bs!(y, w, x)
 
-function A_mul_B!(y::KUdense{Array}, w::KUparam{Array}, x::KUsparse{Array})
+function A_mul_B!(y::KUdense{Array}, w::Array, x::KUsparse{Array})
     @assert size(y)==(size(w,1), size(x,2))
-    A_mul_B!(convert(Array, y), convert(Array, w), convert(Sparse, x))
+    A_mul_B!(convert(Array, y), w, convert(Sparse, x))
     return y
 end
 
-function A_mul_B!(y::KUdense{CudaArray}, w::KUparam{CudaArray}, x::KUsparse{CudaArray})
+function A_mul_B!(y::KUdense{CudaArray}, w::CudaArray, x::KUsparse{CudaArray})
     @assert size(y)==(size(w,1), size(x,2))
-    A_mul_B!(convert(CudaArray, y), convert(CudaArray, w), convert(Sparse, x))
+    A_mul_B!(convert(CudaArray, y), w, convert(Sparse, x))
     return y
 end
 
