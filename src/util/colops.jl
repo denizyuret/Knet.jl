@@ -87,7 +87,7 @@ end
 # starting at column di.  Used by uniq!  Don't need sparse version,
 # weights always dense.
 
-using Base.LinAlg.BLAS: axpy!
+using Base.LinAlg: axpy!
 
 cadd!{A,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=cadd!(dst.arr,di,src.arr,si,n)
 

@@ -13,10 +13,10 @@ GPU && include("util/cudart.jl");
 GPU && include("util/curand.jl");
 
 include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/array.jl");	export BaseArray, csize, ccount, clength
-include("util/dense.jl");	export KUdense, atype
+include("util/array.jl");	export BaseArray, csize, ccount, clength, atype
+include("util/dense.jl");	export KUdense
 include("util/sparse.jl");	export KUsparse, Sparse
-include("util/param.jl");	export KUparam
+include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
 
@@ -32,7 +32,7 @@ include("drop.jl");	export Drop
 include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss
 
-# include("perceptron.jl"); export Perceptron
+include("perceptron.jl"); export Perceptron
 # include("kperceptron.jl"); export KPerceptron
 
 # include("percloss.jl"); export PercLoss # deprecated

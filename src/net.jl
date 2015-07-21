@@ -11,14 +11,6 @@ param(l::Layer)=nothing
 update(l::Layer; o...)=update(param(l); o...)
 setparam!(l::Layer; o...)=setparam!(param(l); o...)
 
-# LossLayer is slightly different:
-# forw only records the outgoing y.
-# back takes z, the desired output, and overwrites it with the loss gradient wrt y
-# loss takes z, the desired output, and returns a loss value
-
-abstract LossLayer <: Layer
-loss(l::LossLayer, z; o...)=error("$(typeof(l)) has not implemented loss")
-
 # Net: Convenience type for an array of layers
 
 typealias Net Array{Layer,1}
@@ -42,7 +34,8 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     ninst = ccount(x)
     ninst==0 && (return warn("No instances"))
     (batch == 0 || batch > ninst) && (batch = ninst)
-    (xx,yy) = (initbatch(x, batch), initbatch(y, batch))
+    (xx,yy) = (xbatch(x, batch), ybatch(y, batch))
+    @show map(summary, (xx,yy))
     gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e = min(ninst, b + batch - 1)
@@ -61,19 +54,62 @@ end
 function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
-    (xx,yy) = (initbatch(x, batch), nothing)
+    (xx,yy) = (xbatch(x, batch), nothing)
     gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = cslice!(xx, x, b:e)
         yy = forw(net, xx; predict=true, o...)
-        (y == nothing) && (y = Array(eltype(x), csize(yy, ccount(x))))
+        (y == nothing) && (y = dsimilar(x, (clength(yy), ccount(x))))
         y = ccopy!(y, b, yy)
     end
     return y
 end
 
-accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
+accuracy(y,z)=mean(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
+
+# Minibatches get created on GPU if gpu() is true:
+
+barray()=(gpu()?CudaArray:Array)
+
+# X batches preserve the sparsity of the input, they use the KU
+# versions for resizeability (cslice!).
+
+xbatch(x,b)=(issparse(x) ?
+             KUsparse(barray(), eltype(x), itype(x), csize(x,b)) : 
+             KUdense(barray(), eltype(x), csize(x,b)))
+
+# Y batches are always dense, because Y should be always dense.  We
+# use KUdense for resizeability (cslice!):
+
+ybatch(y,b)=KUdense(barray(), eltype(y), csize(y,b))
+
+# The final prediction output y should match the input x as closely as
+# possible except for being dense.
+
+dsimilar(x,d)=(isa(x, SparseMatrixCSC) ? Array(eltype(x), d) :
+               isa(x, Sparse) ? atype(x)(eltype(x), d) :
+               isa(x, KUsparse) ? KUdense(atype(x), eltype(x), d) :
+               isa(x, KUdense) ? KUdense(atype(x), eltype(x), d) :
+               similar(x, d))
+
+dtype(x)=(isa(x, SparseMatrixCSC) ? Array :
+          isa(x, Sparse) ? atype(x) :
+          isa(x, KUsparse) ? KUdense{atype(x)} :
+          isa(x, KUdense) ? KUdense{atype(x)} :
+          atype(x))
+
+function dsimilar!(l, n, x, dims)
+    if (!isdefined(l,n) || 
+        !isa(l.(n), dtype(x)) || 
+        (atype(l.(n)) != atype(x)) || 
+        (eltype(l.(n)) != eltype(x)))
+        l.(n) = dsimilar(x, dims)
+    elseif (size(l.(n)) != dims)
+        resize!(l.(n), dims)
+    end
+    return l.(n)
+end
 
 function shufflexy!(x,y)
     nx = size(x, ndims(x))
@@ -96,9 +132,6 @@ end
 
 strip!(p::KUparam)=(p.diff=nothing;p)
 strip!(n::Net)=(for l in n; strip!(l); end; gc(); n)
-
-initbatch(x::DenseArray, batch::Integer)=KUdense(gpu()?CudaArray:Array, eltype(x), csize(x, batch))
-initbatch(x::AbstractSparseArray, batch::Integer)=KUsparse(gpu()?CudaArray:Array,eltype(x), csize(x, batch))
 
 using HDF5, JLD
 

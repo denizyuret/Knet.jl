@@ -1,6 +1,6 @@
-using Base.LinAlg.BLAS: axpy!, scal!
+import Base: convert
 
-type KUparam{A,T,N}; arr; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; KUparam()=new(); end
+type KUparam{A,T,N}; arr; diff; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; KUparam()=new(); end
 
 setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 KUparam(w; init=nothing, o...)=setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=(init==nothing?w:init(w)), o...)
@@ -28,6 +28,10 @@ update(::Nothing;o...)=nothing
 setparam!(::Nothing;o...)=nothing
 initdiff(w::KUparam;o...)=similar!(w, :diff, w.arr)
 
+initzero(a)=(fill!(a,zero(eltype(a))); a)
+initgaussian(a, std=0.01, mean=0.0)=(randn!(a,std,mean); a)
+initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
+
 # We need to fix cpu/gpu copy so the type changes appropriately:
 function cpucopy_internal{T,N}(x::KUparam{CudaArray,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
@@ -49,3 +53,5 @@ function gpucopy_internal{T,N}(x::KUparam{Array,T,N},d::ObjectIdDict)
     d[x] = y
 end
 
+convert{A<:BaseArray}(::Type{A}, a::KUparam)=convert(A, a.arr)
+convert{A<:BaseArray}(::Type{KUparam}, a::A)=KUparam(a)

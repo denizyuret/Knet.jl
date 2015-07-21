@@ -1,5 +1,4 @@
 using CUDArt, KUnet
-import KUnet: ytype
 @time require(Pkg.dir("KUnet/test/mnist.jl"))
 
 ytype(X::DataType)=
@@ -9,34 +8,35 @@ ytype(X::DataType)=
      X <: Sparse{CudaArray} ? CudaArray :
      X <: SparseMatrixCSC ? Array : X)
 
+net=nothing
+xtrn=xtst=nothing
+ytrn=ytst=nothing
+
 for X in (
+          SparseMatrixCSC{Float32,Int32},
           Array, 
           CudaArray,
-          SparseMatrixCSC,
           KUdense{Array},
           KUdense{CudaArray},
-          KUsparse{Array},
-          KUsparse{CudaArray},
-          Sparse{Array},
-          Sparse{CudaArray},
+          KUsparse{Array,Float32,Int32},
+          KUsparse{CudaArray,Float32,Int32},
+          Sparse{Array,Float32,Int32},
+          Sparse{CudaArray,Float32,Int32},
           )
     Y = ytype(X)
     @show (X,Y)
-    # These two nets should behave the same:
-    net0 = [Perceptron(10; bias=true, average=false), PercLoss()]
-    net1 = [Mmul(10; init=initzero), Bias(), PercLoss()]
+    net = [Mmul(10; init=initzero, average=true), 
+           Bias(; init=initzero, average=true), 
+           PercLoss()]
     xtrn = convert(X, copy(MNIST.xtrn))
     xtst = convert(X, copy(MNIST.xtst))
     ytrn = convert(Y, copy(MNIST.ytrn))
     ytst = convert(Y, copy(MNIST.ytst))
     @show map(summary, (xtrn, ytrn, xtst, ytst))
-    for i=1:10
-        train(net0, xtrn, ytrn)
-        train(net1, xtrn, ytrn)
-        @show accuracy(ytst, predict(net0, xtst))
-        @show accuracy(ytst, predict(net1, xtst))
-        @show accuracy(ytrn, predict(net0, xtrn))
-        @show accuracy(ytrn, predict(net1, xtrn))
+    for i=1:5
+        train(net, xtrn, ytrn)
+        println((i, accuracy(ytst, predict(net, xtst)), 
+                 accuracy(ytrn, predict(net, xtrn))))
     end
 end # for X
 

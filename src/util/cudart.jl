@@ -2,10 +2,11 @@
 
 using CUDArt
 
-import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer
+import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse
 import CUDArt: to_host
 
 to_host(x)=x                    # so we can use it in general
+issparse(::CudaArray)=false
 
 function (==)(A::CudaArray,B::CudaArray)
     issimilar(A,B) && (to_host(A)==to_host(B))
@@ -58,3 +59,4 @@ pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 
 convert(::Type{CudaArray}, a::Array)=CudaArray(a)
 convert(::Type{Array}, a::CudaArray)=to_host(a)
+convert{T,N}(::Type{Array{T,N}}, a::CudaArray{T,N})=to_host(a)

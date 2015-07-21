@@ -3,7 +3,7 @@ param(l::Mmul)=l.w
 default_init(::Type{Mmul})=initgaussian
 
 Mmul(d...; init=default_init(Mmul), o...)=Mmul(KUparam(d...; init=init, o...))
-Mmul(n::Integer)=Mmul(KUparam(n,0))
+Mmul(n::Integer; o...)=Mmul(KUparam(n,0;o...))
 
 function forw(l::Mmul, x; o...)
     initforw(l, x)
@@ -25,7 +25,7 @@ function initforw(l::Mmul, x)
     @assert ndims(l.w) == 2
     @assert eltype(l.w) == eltype(x)
     @assert xrows == wcols
-    similar!(l, :y, l.x, (wrows, xcols))
+    dsimilar!(l, :y, l.x, (wrows, xcols))
 end
 
 function initback(l::Mmul, dy, returndx)

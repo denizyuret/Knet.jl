@@ -1,6 +1,7 @@
 using CUDArt
-import Base: similar, convert, copy, copy!, resize!, rand!, randn!
+import Base: similar, convert, copy, copy!, resize!
 import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!
+import Base: rand!, randn!, fill!
 import CUDArt: to_host
 
 ### KUdense parametrized by array type, element type, and ndims:
@@ -10,15 +11,16 @@ type KUdense{A,T,N}; arr; ptr; end
 ### CONSTRUCTORS
 
 KUdense(a)=KUdense{atype(a),eltype(a),ndims(a)}(a, reshape(a, length(a)))
-KUdense{A,T}(::Type{A}, ::Type{T}, d::Int...)=KUdense(A,T,d)
-KUdense{T}(::Type{CudaArray}, ::Type{T}, d::Dims)=KUdense(CudaArray(T,d))
+
 KUdense{T}(::Type{Array}, ::Type{T}, d::Dims)=KUdense(Array(T,d))
+KUdense{T}(::Type{CudaArray}, ::Type{T}, d::Dims)=KUdense(CudaArray(T,d))
 
 convert(::Type{KUdense}, a)=KUdense(a)
-convert{A,B}(::Type{KUdense{B}}, a::A)=KUdense(convert(B, a))
 convert{A<:BaseArray}(::Type{A}, a::KUdense)=convert(A, a.arr)
+convert{A,B}(::Type{KUdense{B}}, a::A)=KUdense(convert(B, a))
 
 similar{A,T}(a::KUdense{A}, ::Type{T}, d::Dims)=KUdense(A,T,d)
+similar{A,T}(a::KUdense{A,T}, d::Dims)=KUdense(A,T,d)
 similar{A,T}(a::KUdense{A,T})=KUdense(A,T,size(a))
 
 arr(a::Vector,d::Dims)=pointer_to_array(pointer(a), d)
@@ -73,5 +75,6 @@ gpucopy_internal(x::KUdense{CudaArray},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KU
 
 randn!{A,T}(a::KUdense{A,T}, std=one(T), mean=zero(T))=(randn!(a.arr, std, mean); a)
 rand!(a::KUdense)=(rand!(a.arr); a)
+fill!{A,T}(a::KUdense{A,T},x)=(fill!(a.arr,convert(T,x)); a)
 
 to_host(a::KUdense{CudaArray})=cpucopy(a)

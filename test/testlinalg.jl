@@ -1,6 +1,12 @@
 using KUnet, CUDArt, Base.Test
 import Base: isapprox
 
+# Operations needed:
+# mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu
+# mmul back: A_mul_Bt!(dw, dy, x)	A_mul_Bst!(dw, dy, x): cpu/gpu
+# mmul back: At_mul_B!(dx, w, dy)	no dx: only initial input can be sparse
+# kper forw: At_mul_B!(k, s, x)		Ast_mul_Bs!(k, s, x): cpu/gpu
+
 function isapprox(x, y;
                   maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                   rtol::Real=maxeps^(1/3), atol::Real=maxeps^(1/2))
@@ -62,65 +68,71 @@ c4r = copy(c2)
 @test isapprox(atb, At_mul_B!(c4, a4p, b4))
 @test isapprox(abt, A_mul_Bt!(c4r, a4, b4))
 
-info("Sparse{Array}")
+info("Sparse{Array} Sparse{Array}")
 a5 = convert(Sparse, copy(a0))
 b5 = convert(Sparse, copy(b0))
 c5 = copy(c1)
-@test isapprox(ab,   A_mul_B!(c5, a5, b5))
-# @test isapprox(atb, At_mul_B!(c5, a5, b5))
+# @test isapprox(ab,   A_mul_B!(c5, a5, b5))
+@test isapprox(atb, At_mul_B!(c5, a5, b5))
 # @test isapprox(abt, A_mul_Bt!(c5, a5, b5))
 
+info("Array Sparse{Array}")
 a6 = copy(a1)
 b6 = convert(Sparse, copy(b0))
 c6 = copy(c1)
 @test isapprox(ab,   A_mul_B!(c6, a6, b6))
 # @test isapprox(atb, At_mul_B!(c6, a6, b6))
-# @test isapprox(abt, A_mul_Bt!(c6, a6, b6))
+@test isapprox(abt, A_mul_Bt!(c6, a6, b6))
 
-info("Sparse{CudaArray}")
+info("Sparse{CudaArray} Sparse{CudaArray}")
 a7 = convert(Sparse{CudaArray}, copy(a0))
 b7 = convert(Sparse{CudaArray}, copy(b0))
 c7 = convert(CudaArray, copy(c1))
-@test isapprox(ab,   A_mul_B!(c7, a7, b7))
+# @test isapprox(ab,   A_mul_B!(c7, a7, b7))
 @test isapprox(atb, At_mul_B!(c7, a7, b7))
 # @test isapprox(abt, A_mul_Bt!(c7, a7, b7))
 
-# This is missing, do we need it?
-# a8 = convert(CudaArray, copy(a1))
-# b8 = convert(Sparse{CudaArray}, copy(b0))
-# c8 = convert(CudaArray, copy(c1))
-# @test isapprox(ab,   A_mul_B!(c8, a8, b8))
+info("CudaArray Sparse{CudaArray}")
+a8 = convert(CudaArray, copy(a1))
+b8 = convert(Sparse{CudaArray}, copy(b0))
+c8 = convert(CudaArray, copy(c1))
+@test isapprox(ab,   A_mul_B!(c8, a8, b8))
 # @test isapprox(atb, At_mul_B!(c8, a8, b8))
-# @test isapprox(abt, A_mul_Bt!(c8, a8, b8))
+@test isapprox(abt, A_mul_Bt!(c8, a8, b8))
 
-info("KUsparse{Array}")
+info("KUsparse{Array} KUsparse{Array}")
 a15 = convert(KUsparse, copy(a0))
 b15 = convert(KUsparse, copy(b0))
 c15 = convert(KUdense, copy(c1))
-@test isapprox(ab,   A_mul_B!(c15, a15, b15))
-# @test isapprox(atb, At_mul_B!(c15, a15, b15))
+# @test isapprox(ab,   A_mul_B!(c15, a15, b15))
+@test isapprox(atb, At_mul_B!(c15, a15, b15))
 # @test isapprox(abt, A_mul_Bt!(c15, a15, b15))
 
+info("KUdense{Array} KUsparse{Array}")
 a16 = convert(KUdense, copy(a1))
+a16p = convert(KUparam, copy(a1))
 b16 = convert(KUsparse, copy(b0))
 c16 = convert(KUdense, copy(c1))
-@test isapprox(ab,   A_mul_B!(c16, a16, b16))
+c16a = copy(c1)
+@test isapprox(ab,   A_mul_B!(c16, a16p, b16))
 # @test isapprox(atb, At_mul_B!(c16, a16, b16))
-# @test isapprox(abt, A_mul_Bt!(c16, a16, b16))
+@test isapprox(abt, A_mul_Bt!(c16a, a16, b16))
 
-info("KUsparse{CudaArray}")
+info("KUsparse{CudaArray} KUsparse{CudaArray}")
 a17 = convert(KUsparse{CudaArray}, copy(a0))
 b17 = convert(KUsparse{CudaArray}, copy(b0))
 c17 = convert(KUdense{CudaArray}, copy(c1))
-@test isapprox(ab,   A_mul_B!(c17, a17, b17))
+# @test isapprox(ab,   A_mul_B!(c17, a17, b17))
 @test isapprox(atb, At_mul_B!(c17, a17, b17))
 # @test isapprox(abt, A_mul_Bt!(c17, a17, b17))
 
-# This is missing, do we need it?
-# a18 = convert(CudaArray, copy(a1))
-# b18 = convert(KUsparse{CudaArray}, copy(b0))
-# c18 = convert(CudaArray, copy(c1))
-# @test isapprox(ab,   A_mul_B!(c18, a18, b18))
+info("KUdense{CudaArray} KUsparse{CudaArray}")
+a18 = convert(KUdense{CudaArray}, copy(a1))
+a18p = convert(KUparam, CudaArray(a1))
+b18 = convert(KUsparse{CudaArray}, copy(b0))
+c18 = convert(KUdense{CudaArray}, copy(c1))
+c18a = convert(CudaArray, c1)
+@test isapprox(ab,   A_mul_B!(c18, a18p, b18))
 # @test isapprox(atb, At_mul_B!(c18, a18, b18))
-# @test isapprox(abt, A_mul_Bt!(c18, a18, b18))
+@test isapprox(abt, A_mul_Bt!(c18a, a18, b18))
 

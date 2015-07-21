@@ -1,5 +1,5 @@
 using CUDArt
-import Base: convert, similar, copy, copy!, eltype, length, ndims, size, isempty
+import Base: convert, similar, copy, copy!, eltype, length, ndims, size, isempty, issparse, stride, strides
 import CUDArt: to_host
 
 # I want to make the base array explicit in the type signature of sparse arrays:
@@ -47,14 +47,13 @@ type KUsparse{A,T,I<:Integer}
     nzval::KUdense{A,T,1}       # Nonzero values
 end
 
-KUsparse{A,T,I}(::Type{A}, ::Type{T}, ::Type{I}, m::Integer, n::Integer)=
-    (A <: Array ? spzeros(T,I,m,n) :
-     A <: CudaArray ? gpucopy(spzeros(T,I,m,n)) :
-     error("$A is not a valid base array"))
+KUsparse{A,T,I}(::Type{A}, ::Type{T}, ::Type{I}, m::Integer, n::Integer)=convert(KUsparse{A}, spzeros(T,I,m,n))
 
 KUsparse{A,T,I}(::Type{A}, ::Type{T}, ::Type{I}, d::NTuple{2,Int})=KUsparse(A,T,I,d...)
 
 similar{A,T,I}(s::KUsparse{A}, ::Type{T}, ::Type{I}, m::Integer, n::Integer)=KUsparse(A,T,I,m,n)
+
+similar{A,T,I,U}(s::KUsparse{A,T,I}, ::Type{U}, d::NTuple{2,Int})=KUsparse(A,U,I,d...)
 
 convert{A,T,I}(::Type{KUsparse}, s::Sparse{A,T,I})=
     KUsparse{A,T,I}(s.m,s.n,convert(KUdense,s.colptr),convert(KUdense,s.rowval),convert(KUdense,s.nzval))
@@ -72,6 +71,8 @@ convert{A,T,I}(::Type{KUsparse{A}}, s::SparseMatrixCSC{T,I})=
                     convert(KUdense{A},s.nzval))
 
 convert{T,I}(::Type{KUsparse}, s::SparseMatrixCSC{T,I})=convert(KUsparse{Array}, s)
+
+convert(::Type{SparseMatrixCSC}, a::Array)=sparse(a)
 
 ### BASIC COPY
 
@@ -106,18 +107,20 @@ for S in (:KUsparse, :Sparse)
     @eval begin
         atype{A}(::$S{A})=A
         itype{A,T,I}(::$S{A,T,I})=I
-        clength(s::$S)=s.m
         eltype{A,T}(::$S{A,T})=T
         length(s::$S)=(s.m*s.n)
         ndims(::$S)=2
         size(s::$S)=(s.m,s.n)
         size(s::$S,i)=(i==1?s.m:i==2?s.n:error("Bad dimension"))
+        strides(s::$S)=(1,s.m)
+        stride(s::$S,i)=(i==1?1:i==2?s.m:error("Bad dimension"))
         isempty(s::$S)=(length(s)==0)
         to_host(s::$S{CudaArray})=cpucopy(s)
-        full(s::$S)=convert(KUdense, full(convert(SparseMatrixCSC, s)))
+        issparse(::$S)=true
     end
 end
 
 atype(::SparseMatrixCSC)=Array
 itype{T,I}(::SparseMatrixCSC{T,I})=I
-clength(s::SparseMatrixCSC)=s.m
+full(s::KUsparse)=convert(KUdense, full(convert(SparseMatrixCSC, s)))
+full{A}(s::Sparse{A})=convert(A, full(convert(SparseMatrixCSC, s)))
