@@ -3,7 +3,7 @@ param(l::Mmul)=l.w
 default_init(::Type{Mmul})=initgaussian
 
 Mmul(d...; init=default_init(Mmul), o...)=Mmul(KUparam(d...; init=init, o...))
-Mmul(n::Integer; o...)=Mmul(KUparam(n,0;o...))
+Mmul(n::Integer)=Mmul(KUparam(n,0)) # cannot specify init here
 
 function forw(l::Mmul, x; o...)
     initforw(l, x)

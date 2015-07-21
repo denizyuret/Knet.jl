@@ -4,7 +4,7 @@ param(l::Bias)=l.b
 default_init(::Type{Bias})=initzero
 
 Bias(d...; init=default_init(Bias), o...)=Bias(KUparam(d...; init=init, o...))
-Bias(;o...)=Bias(KUparam(0;o...))
+Bias()=Bias(KUparam(0)) # cannot specify init here
 
 forw(l::Bias, x; o...)=(initforw(l,x); biasforw(l.b, x); x)
 back(l::Bias, dy; returndx=true, o...)=(initback(l,dy); biasback(diff(l.b), dy); returndx && dy)
