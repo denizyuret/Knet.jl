@@ -25,9 +25,8 @@ for X in (
           )
     Y = ytype(X)
     @show (X,Y)
-    net = [Mmul(10; init=initzero, average=true), 
-           Bias(; init=initzero, average=true), 
-           PercLoss()]
+    net = [Mmul(10), Bias(), PercLoss()]
+    setparam!(net, average=true, init=initzero)
     xtrn = convert(X, copy(MNIST.xtrn))
     xtst = convert(X, copy(MNIST.xtst))
     ytrn = convert(Y, copy(MNIST.ytrn))
