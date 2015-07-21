@@ -1,5 +1,5 @@
 using CUDArt
-import Base: similar, convert, copy, copy!, resize!
+import Base: similar, convert, copy, copy!, resize!, issparse
 import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!
 import Base: rand!, randn!, fill!
 import CUDArt: to_host
@@ -78,3 +78,4 @@ rand!(a::KUdense)=(rand!(a.arr); a)
 fill!{A,T}(a::KUdense{A,T},x)=(fill!(a.arr,convert(T,x)); a)
 
 to_host(a::KUdense{CudaArray})=cpucopy(a)
+issparse(a::KUdense)=false

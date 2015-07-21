@@ -13,15 +13,15 @@ xtrn=xtst=nothing
 ytrn=ytst=nothing
 
 for X in (
-          SparseMatrixCSC{Float32,Int32},
           Array, 
           CudaArray,
           KUdense{Array},
           KUdense{CudaArray},
-          KUsparse{Array,Float32,Int32},
-          KUsparse{CudaArray,Float32,Int32},
-          Sparse{Array,Float32,Int32},
-          Sparse{CudaArray,Float32,Int32},
+          SparseMatrixCSC{Float32,Int32},
+          Sparse{Array},
+          KUsparse{Array},
+          Sparse{CudaArray},
+          KUsparse{CudaArray},
           )
     Y = ytype(X)
     @show (X,Y)
@@ -32,7 +32,7 @@ for X in (
     xtst = convert(X, copy(MNIST.xtst))
     ytrn = convert(Y, copy(MNIST.ytrn))
     ytst = convert(Y, copy(MNIST.ytst))
-    @show map(summary, (xtrn, ytrn, xtst, ytst))
+    # @show map(summary, (xtrn, ytrn, xtst, ytst))
     for i=1:5
         train(net, xtrn, ytrn)
         println((i, accuracy(ytst, predict(net, xtst)), 

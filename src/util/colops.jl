@@ -25,29 +25,8 @@ function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
     return a
 end
 
-function cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange)
-    nz = 0; for i in r; nz += b.colptr[i+1]-b.colptr[i]; end
-    a.m = b.m
-    a.n = length(r)
-    resize!(a.nzval, nz)
-    resize!(a.rowval, nz)
-    aptr = Array(I, a.n+1)
-    aptr[1] = a1 = aj = 1
-    for bj in r                 # copy column b[:,bj] to a[:,aj]
-        b1 = b.colptr[bj]
-        nz = b.colptr[bj+1]-b1
-        copy!(a.nzval.arr, a1, b.nzval, b1, nz)
-        copy!(a.rowval.arr, a1, b.rowval, b1, nz)
-        a1 += nz
-        aptr[aj+=1] = a1
-    end
-    @assert aj == a.n+1
-    copy!(a.colptr, aptr)
-    return a
-end
-
-function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::KUsparse{B,T,I}, r::UnitRange)
-    bptr = to_host(b.colptr.arr)
+function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::Sparse{B,T,I}, r::UnitRange)
+    bptr = to_host(b.colptr)
     nz = 0; for i in r; nz += bptr[i+1]-bptr[i]; end
     a.m = b.m
     a.n = length(r)
@@ -58,8 +37,8 @@ function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::KUsparse{B,T,I}, r::UnitRange)
     for bj in r                 # copy column b[:,bj] to a[:,aj]
         b1 = bptr[bj]
         nz = bptr[bj+1]-b1
-        copy!(a.nzval.arr, a1, b.nzval.arr, b1, nz)
-        copy!(a.rowval.arr, a1, b.rowval.arr, b1, nz)
+        copy!(a.nzval.arr, a1, b.nzval, b1, nz)
+        copy!(a.rowval.arr, a1, b.rowval, b1, nz)
         a1 += nz
         aptr[aj+=1] = a1
     end
@@ -68,11 +47,18 @@ function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::KUsparse{B,T,I}, r::UnitRange)
     return a
 end
 
+cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::KUsparse{B,T,I}, r::UnitRange)=
+    cslice!(a, convert(Sparse, b), r)
+
+cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange)=
+    cslice!(a, convert(Sparse, b), r)
+
 # CCOPY! Copy n columns from src starting at column si, into dst
 # starting at column di.  Used by predict to construct output.  
 # Don't need the sparse version, output always dense.
 
-ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=ccopy!(dst,di,src.arr,si,n)
+ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst,di,src.arr,si,n); dst)
+ccopy!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst.arr,di,src.arr,si,n); dst)
 
 function ccopy!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
     @assert csize(dst)==csize(src)
@@ -324,5 +310,26 @@ end
 #     copy!(vv, 1, v, 1, size(v,1)*n)
 #     (ss.m, ss.n, ss.colptr, ss.rowval, ss.nzval) = (s.m, s.n, gpucopy(s.colptr), gpucopy(s.rowval), gpucopy(s.nzval))
 #     return (ss,uu,vv)
+# end
+
+# function cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange)
+#     nz = 0; for i in r; nz += b.colptr[i+1]-b.colptr[i]; end
+#     a.m = b.m
+#     a.n = length(r)
+#     resize!(a.nzval, nz)
+#     resize!(a.rowval, nz)
+#     aptr = Array(I, a.n+1)
+#     aptr[1] = a1 = aj = 1
+#     for bj in r                 # copy column b[:,bj] to a[:,aj]
+#         b1 = b.colptr[bj]
+#         nz = b.colptr[bj+1]-b1
+#         copy!(a.nzval.arr, a1, b.nzval, b1, nz)
+#         copy!(a.rowval.arr, a1, b.rowval, b1, nz)
+#         a1 += nz
+#         aptr[aj+=1] = a1
+#     end
+#     @assert aj == a.n+1
+#     copy!(a.colptr, aptr)
+#     return a
 # end
 

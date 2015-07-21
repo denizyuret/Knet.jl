@@ -21,6 +21,15 @@ convert{A,T,I}(::Type{SparseMatrixCSC}, s::Sparse{A,T,I})=
                     convert(Array, s.rowval),
                     convert(Array, s.nzval))
 
+convert{T}(::Type{Sparse}, a::Array{T,2})=convert(Sparse{Array}, a)
+convert{T}(::Type{Sparse}, a::CudaArray{T,2})=convert(Sparse{CudaArray}, a)
+
+convert{T}(::Type{Sparse{Array}}, a::BaseArray{T,2})=
+    convert(Sparse, convert(SparseMatrixCSC{T,Int32}, sparse(convert(Array, a))))
+
+convert{T}(::Type{Sparse{CudaArray}}, a::BaseArray{T,2})=
+    gpucopy(convert(Sparse{Array}, a))
+
 # Now we can construct a Sparse{CudaArray,T,I} using gpucopy:
 
 cpucopy_internal{T,I}(s::Sparse{CudaArray,T,I},d::ObjectIdDict)=
@@ -73,6 +82,15 @@ convert{A,T,I}(::Type{KUsparse{A}}, s::SparseMatrixCSC{T,I})=
 convert{T,I}(::Type{KUsparse}, s::SparseMatrixCSC{T,I})=convert(KUsparse{Array}, s)
 
 convert(::Type{SparseMatrixCSC}, a::Array)=sparse(a)
+
+convert{T}(::Type{KUsparse}, a::Array{T,2})=convert(KUsparse{Array}, a)
+convert{T}(::Type{KUsparse}, a::CudaArray{T,2})=convert(KUsparse{CudaArray}, a)
+
+convert{T}(::Type{KUsparse{Array}}, a::BaseArray{T,2})=
+    convert(KUsparse, convert(SparseMatrixCSC{T,Int32}, sparse(convert(Array, a))))
+
+convert{T}(::Type{KUsparse{CudaArray}}, a::BaseArray{T,2})=
+    gpucopy(convert(KUsparse{Array}, a))
 
 ### BASIC COPY
 

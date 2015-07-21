@@ -35,7 +35,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     ninst==0 && (return warn("No instances"))
     (batch == 0 || batch > ninst) && (batch = ninst)
     (xx,yy) = (xbatch(x, batch), ybatch(y, batch))
-    @show map(summary, (xx,yy))
+    # @show map(summary, (xx,yy))
     gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e = min(ninst, b + batch - 1)
