@@ -150,6 +150,7 @@ convert{A<:Array,B,T,I}(::Type{A}, s::KUsparse{B,T,I})=convert(Array, convert(Sp
 convert{A<:CudaArray,B,T,I}(::Type{A}, s::KUsparse{B,T,I})=convert(CudaArray, convert(SparseMatrixCSC, s))
 
 # These two already defined in sparsematrix.jl:
-# convert{A<:Array,T,I}(::Type{A}, s::SparseMatrixCSC{T,I})=full(s)
-# sparse(a)=convert{A<:SparseMatrixCSC,T,N}(::Type{A}, a::Array{T,N})
-
+# convert(::Type{Matrix}, S::SparseMatrixCSC) = full(S)
+# sparse{Tv}(A::Matrix{Tv}) = convert(SparseMatrixCSC{Tv,Int}, A)
+# But they don't cover general array conversion:
+convert(::Type{Array}, S::SparseMatrixCSC) = full(S)

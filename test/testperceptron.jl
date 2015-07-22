@@ -15,15 +15,15 @@ ytrn=ytst=nothing
 w0 = w1 = b0 = b1 = nothing
 
 for X in (
-          Array, 
-          CudaArray,
-          KUdense{Array},
-          KUdense{CudaArray},
           SparseMatrixCSC{Float32,Int32},
           Sparse{Array},
           KUsparse{Array},
           Sparse{CudaArray},
           KUsparse{CudaArray},
+          Array, 
+          CudaArray,
+          KUdense{Array},
+          KUdense{CudaArray},
           )
     Y = ytype(X)
     @show (X,Y)

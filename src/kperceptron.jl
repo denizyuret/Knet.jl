@@ -17,7 +17,8 @@ type KPerceptron <: LossLayer
     x           # input minibatch
     k           # kernel matrix
     y           # model output
-    u           # number of training instances
+    u           # number of training updates
+    u2          # the last time w2 was calculated
     w0          # regular weights
     w1          # w2-u*w0 (kept up to date during training)
     w2          # summed weights (computed before prediction)
@@ -30,7 +31,7 @@ end
 
 function forw(l::KPerceptron, x; predict=false, o...)
     initforw(l, x, predict)    
-    l.k = l.kernel(l.x, l.s, l.p, l.k)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
+    l.k = l.kernel(l.k, l.x, l.s, l.p)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
     w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
     A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
     return l.y
@@ -58,105 +59,120 @@ function back(l::KPerceptron, z; returndx=false, o...)
 end
 
 function update(l::KPerceptron; o...) # 198
-    l.w2 = nothing # make sure w2 is reset when w0,w1,u changes
     l.u += size(l.x,2)
-    l.s  = hcat!(l.s,  l.x,   l.dj, l.dn)
-    l.w0 = hcat!(l.w0, l.dw0, l.dj, l.dn)
-    l.w1 = hcat!(l.w1, l.dw1, l.dj, l.dn)
-    l.k  = size!(l.k, (size(l.k,1),size(l.s,2)))
+    dj = sub(l.dj, 1:l.dn)
+    l.s  = ccat!(l.s,  l.x,   dj)
+    l.w0 = ccat!(l.w0, l.dw0, dj)
+    l.w1 = ccat!(l.w1, l.dw1, dj)
+    l.k  = resize!(l.k, (size(l.k,1),size(l.s,2)))
 end
 
-hcat!{T}(a::Matrix{T}, b::Matrix{T}, vj=(1:size(b,2)), nj=length(vj))=[a b[:,vj[1:nj]]]
-size!(a::Array, d::Dims)=(size(a)==d ? a : Array(eltype(a),d))
+# hcat!{T}(a::Matrix{T}, b::Matrix{T}, vj=(1:size(b,2)), nj=length(vj))=[a b[:,vj[1:nj]]]
+# size!(a::Array, d::Dims)=(size(a)==d ? a : Array(eltype(a),d))
 
 # To preserve the behavior and minimize the space, get rid of everything except:
 # nclass, kernel, p, s, u, w0, w1
 # Also filter the support vectors to keep only the unique ones.
 function strip!(l::KPerceptron)
-    l.x=l.k=l.y=l.w2=l.dw0=l.dw1=l.dj=l.dn=nothing
+    l.x=l.k=l.y=l.dw0=l.dw1=l.dj=l.dn=nothing
     (l.s,l.w0,l.w1)=uniq!(l.s,l.w0,l.w1)
     return l
 end
 
-function initforw(l::KPerceptron, x::KUnetArray, predict)
-    ytype = gpu() ? CudaDynArray : Array
-    wtype = gpu() ? CudaDynArray : Array    
-    xtype = eltype(x)
+# We only support KUsparse/KUdense for x, s; KUdense for all else.
+
+function initforw(l::KPerceptron, x, predict)
+    @assert isa(x, KUsparse) || isa(x, KUdense)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
-        gpu() && isa(l.s, CudaArray) && (l.s = CudaDynArray(l.s))
-        l.w0 = wtype(xtype, l.nclass, 0)        # w matches x in location and eltype but is dense
-        l.w1 = wtype(xtype, l.nclass, 0)
-        l.w2 = nothing
-        l.u = zero(xtype)
+        l.w0 = KUdense(atype(x),eltype(x),(l.nclass, 0)) # w matches x in location and eltype but is dense
+        l.w1 = copy(l.w0)
+        l.w2 = copy(l.w0)
+        l.u = l.u2 = 0
     end
     l.x = x                                     # x can be cpu/gpu dense/sparse
-    @assert isongpu(l.x) == isongpu(l.s) == isongpu(l.w0)
+    @assert typeof(l.x) == typeof(l.s) 
+    @assert atype(l.x) == atype(l.w0)
     @assert eltype(l.x) == eltype(l.s) == eltype(l.w0)
     @assert size(l.s) == (size(l.x,1), size(l.w0,2))
-    similar!(l,:y,ytype,xtype,(size(l.w0,1),size(l.x,2)))
-    similar!(l,:k,wtype,xtype,(size(l.x,2),size(l.s,2)))
-    if predict && (l.w2 == nothing)
-        # l.w2 = l.u * l.w0 + l.w1
-        l.w2 = axpy!(length(l.w0), l.u, l.w0, 1, copy(l.w1), 1)
-        # making sure we don't get overflow, especially with integer types
-        # @assert maximum(abs(l.w2)) < sqrt(typemax(eltype(l.w2)))
+    similar!(l,:y,l.w0,(size(l.w0,1),size(l.x,2)))
+    similar!(l,:k,l.w0,(size(l.x,2),size(l.s,2)))
+    if predict && (l.u2 != l.u)
+        copy!(l.w2, l.w1)
+        axpy!(l.u, l.w0, l.w2)
+        l.u2 = l.u
     end
 end
 
-function initback(l::KPerceptron, z, y=l.y)
+function initback(l::KPerceptron, z::KUdense, y::KUdense=l.y)
     @assert size(z) == size(y)
-    isongpu(z) && (z = cpucopy(z))
-    isongpu(y) && (y = cpucopy(y))
+    z = to_host(z.arr)
+    y = to_host(y.arr)
     similar!(l,:dw0,y)
     similar!(l,:dw1,y)
-    similar!(l,:dj,y,Int32,size(z,2))
-    l.dn = zero(Int32)
-    fill!(l.dw0,zero(eltype(l.dw0)))
-    fill!(l.dw1,zero(eltype(l.dw1)))
+    similar!(l,:dj,y,Int32,size(y,2))
+    l.dn = 0
+    fill!(l.dw0,0)
+    fill!(l.dw1,0)
     return (y,z)
 end
 
 # Some common kernels
 # http://crsouza.com/2010/03/kernel-functions-for-machine-learning-applications
 
-klinear0(x, s, p, k)=(x.' * s)
-kpoly0(x, s, p, k)=((x.' * s + p[1]) .^ p[2])
-kgauss0(x, s, p, k)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^2,1), -2*(x.' * s))))
+klinear0(k, x, s, p)=(x.' * s)
+kpoly0(k, x, s, p)=((x.' * s + p[1]) .^ p[2])
+kgauss0(k, x, s, p)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^2,1), -2*(x.' * s))))
 
 # More efficient implementations:
 
-klinear(x, s, p, k)=At_mul_B!(k, x, s)          # k=x'*s
+klinear(k, x, s, p)=At_mul_B!(k, x, s)          # k=x'*s
 
-function kpoly(x, s, p, k)
-    k = klinear(x, s, p, k)                                               # 1670
+function kpoly(k, x, s, p)
+    k = klinear(k, x, s, p)                                               # 1670
     kpolymap(k, p[1], p[2])
     return k
 end
 
-function kpolymap(k, c, d)
+function kpolymap(k::Array, c, d)
     @inbounds @simd for i=1:length(k)
         k[i] = (k[i] + c).^d
     end
     return k
 end
 
-function kgauss(x, s, p, k)         # 2582
-    k = klinear(x, s, p, k) # 1741
+kpolymap(k::KUdense, c, d)=(kpolymap(k.arr, c, d); k)
+
+# This is a more efficient implementation that covers kpoly + kpolymap
+# Do we need gpu kpolymap if we use this?
+kpoly{A<:CudaArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kpoly(k.arr, convert(Sparse,x), convert(Sparse,s), p); k)
+
+kgauss(k::KUdense, x::KUdense, s::KUdense, p)=(kgauss(k.arr, x.arr, s.arr, p); k)
+kgauss{A<:BaseArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kgauss(k.arr, convert(Sparse, x), convert(Sparse, s), p); k)
+kgauss(k::Array, x::Sparse{Array}, s::Sparse{Array}, p)=(kgauss(k, convert(SparseMatrixCSC,x), convert(SparseMatrixCSC,s), p); k)
+
+function kgauss(k::AbstractArray, x::AbstractArray, s::AbstractArray, p)         # 2582
+    k = klinear(k, x, s, p) # 1741
     xx = sum(x.^2,1) # 10
     ss = sum(s.^2,1) # 419 Can be cached
-    return exp(-p[1] * broadcast!(+, k, xx', broadcast!(+, k, ss, -2*k)))
+    # return exp(-p[1] * broadcast!(+, k, xx', broadcast!(+, k, ss, -2*k)))
+    k1,k2 = size(k); p1 = p[1]
+    @inbounds @simd for i=1:k1
+        @inbounds @simd for j=1:k2
+            k[i,j] = exp(-p1 * (xx[i] + ss[j] - 2*k[i,j]))
+        end
+    end
+    return k
 end
-
 
 if GPU
 
-function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p, k::AbstractCudaArray{Float32})
+function kgauss(k::CudaArray{Float32}, x::CudaArray{Float32}, s::CudaArray{Float32}, p)
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
-    k = klinear(x, s, p, k)
-    x2 = CudaDynArray(Float32, size(x,2))
-    s2 = CudaDynArray(Float32, size(s,2))
+    k = klinear(k, x, s, p)
+    x2 = CudaArray(Float32, size(x,2))
+    s2 = CudaArray(Float32, size(s,2))
     ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(x,1),size(x,2),x,x2)
     ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(s,1),size(s,2),s,s2)
     ccall((:kgauss32map,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
@@ -166,12 +182,12 @@ function kgauss(x::AbstractCudaArray{Float32}, s::AbstractCudaArray{Float32}, p,
     return k
 end
 
-function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p, k::AbstractCudaArray{Float64})
+function kgauss(k::CudaArray{Float64}, x::CudaArray{Float64}, s::CudaArray{Float64}, p)
     @assert size(x,1)==size(s,1)
     @assert size(k)==(size(x,2),size(s,2))
-    k = klinear(x, s, p, k)
-    x2 = CudaDynArray(Float64, size(x,2))
-    s2 = CudaDynArray(Float64, size(s,2))
+    k = klinear(k, x, s, p)
+    x2 = CudaArray(Float64, size(x,2))
+    s2 = CudaArray(Float64, size(s,2))
     ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(x,1),size(x,2),x,x2)
     ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(s,1),size(s,2),s,s2)
     ccall((:kgauss64map,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Cdouble),
@@ -181,41 +197,7 @@ function kgauss(x::AbstractCudaArray{Float64}, s::AbstractCudaArray{Float64}, p,
     return k
 end
 
-function kpolymap(k::AbstractCudaArray{Float32}, c, d)
-    ccall((:kpolymap32,libkunet),Void,
-          (Cint,Ptr{Cfloat},Cfloat,Cfloat),
-          length(k),k,c,d)
-    gpusync()
-    return k
-end
-
-function kpolymap(k::AbstractCudaArray{Float64}, c, d)
-    ccall((:kpolymap64,libkunet),Void,
-          (Cint,Ptr{Cdouble},Cdouble,Cdouble),
-          length(k),k,c,d)
-    gpusync()
-    return k
-end
-
-function kpoly(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::AbstractCudaArray{Float32})
-    @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kpoly32,libkunet),Void,
-          (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
-          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
-    gpusync()
-    return k
-end
-
-function kpoly(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::AbstractCudaArray{Float64})
-    @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kpoly64,libkunet),Void,
-          (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
-          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
-    gpusync()
-    return k
-end
-
-function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p, k::AbstractCudaArray{Float32})
+function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{CudaArray,Float32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
@@ -224,11 +206,45 @@ function kgauss(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}
     return k
 end
 
-function kgauss(x::CudaSparseMatrixCSC{Float64}, s::CudaSparseMatrixCSC{Float64}, p, k::AbstractCudaArray{Float64})
+function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64}, s::Sparse{CudaArray,Float64}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
+    gpusync()
+    return k
+end
+
+function kpolymap(k::CudaArray{Float32}, c, d)
+    ccall((:kpolymap32,libkunet),Void,
+          (Cint,Ptr{Cfloat},Cfloat,Cfloat),
+          length(k),k,c,d)
+    gpusync()
+    return k
+end
+
+function kpolymap(k::CudaArray{Float64}, c, d)
+    ccall((:kpolymap64,libkunet),Void,
+          (Cint,Ptr{Cdouble},Cdouble,Cdouble),
+          length(k),k,c,d)
+    gpusync()
+    return k
+end
+
+function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{CudaArray,Float32}, p)
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kpoly32,libkunet),Void,
+          (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
+    gpusync()
+    return k
+end
+
+function kpoly(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64}, s::Sparse{CudaArray,Float64}, p)
+    @assert size(k)==(size(x,2),size(s,2))
+    ccall((:kpoly64,libkunet),Void,
+          (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
+          size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
     gpusync()
     return k
 end
@@ -242,13 +258,13 @@ end # if GPU
 # using InplaceOps # maybe later for more readable code...
 
 # # Why is kpoly slower than kgauss?  This is not faster either:
-# function kpoly1(x, s, p, k)
-#     k = klinear(x, s, p, k)
+# function kpoly1(k, x, s, p)
+#     k = klinear(k, x, s, p)
 #     return (k + p[1]).^p[2]
 # end
 
 # function kgauss2(x::SparseMatrixCSC, s::SparseMatrixCSC, p, k)         # 2582
-#     k = klinear(x, s, p, k) # 1741
+#     k = klinear(k, x, s, p) # 1741
 #     xx = sum(x.^2,1) # 10
 #     ss = sum(s.^2,1) # 419 Can be cached
 #     k = broadcast!(+, k, xx', broadcast!(+, k, ss, -2*k))
@@ -260,7 +276,7 @@ end # if GPU
 # # This is much slower than kgauss and kgauss0
 
 # function kgauss1(x::SparseMatrixCSC, s::SparseMatrixCSC, p, k)
-#     k = klinear(x, s, p, k) # 1741
+#     k = klinear(k, x, s, p) # 1741
 #     xx = sum(x.^2,1) # 10
 #     ss = sum(s.^2,1) # 419 Can be cached
 #     # return exp(-p[1] * broadcast(+, xx', broadcast(+, ss, -2*k))) # 412
@@ -273,7 +289,7 @@ end # if GPU
 #     return k
 # end
 
-# function kgauss2(x, s, p, k)                    # buggy: does not take into account cells where one matrix is 0
+# function kgauss2(k, x, s, p)                    # buggy: does not take into account cells where one matrix is 0
 #     k2 = kgauss(x, s, p, copy(k))
 #     x = x'
 #     @assert size(k)==(size(x,1), size(s,2))
@@ -297,7 +313,7 @@ end # if GPU
 # end
 
 # buggy for the same reason
-# function kgauss1(x::CudaSparseMatrixCSC{Float32}, s::CudaSparseMatrixCSC{Float32}, p::Vector{Float32}, k::AbstractCudaArray{Float32})
+# function kgauss1(x::Sparse{CudaArray,Float32}, s::Sparse{CudaArray,Float32}, p::Vector{Float32}, k::CudaArray{Float32})
 #     t = x' # do this somewhere else?
 #     @assert size(k)==(size(t,1), size(s,2))
 #     isempty(k) && return k

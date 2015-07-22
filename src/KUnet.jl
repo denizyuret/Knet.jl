@@ -19,7 +19,7 @@ include("util/dense.jl");	export KUdense
 include("util/sparse.jl");	export KUsparse, Sparse
 include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
 include("util/linalg.jl");
-include("util/colops.jl");	export cslice!, ccopy!, ccat!, uniq!
+include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
 include("net.jl");	export Layer, LossLayer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet
 include("update.jl");	export update, setparam!
@@ -33,7 +33,7 @@ include("drop.jl");	export Drop
 include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss
 
-# include("kperceptron.jl"); export KPerceptron
+include("kperceptron.jl"); export KPerceptron
 
 # include("perceptron.jl"); export Perceptron # deprecated
 # include("percloss.jl"); export PercLoss # deprecated

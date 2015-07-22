@@ -41,19 +41,19 @@ A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat
 
 ### SPARSE: A_mul_Bs!(y, w, x)
 
-function A_mul_B!(y::KUdense{Array}, w::Array, x::KUsparse{Array})
+function A_mul_B!{A<:Array,B<:Array}(y::KUdense{A}, w::Array, x::KUsparse{B})
     @assert size(y)==(size(w,1), size(x,2))
     A_mul_B!(convert(Array, y), w, convert(Sparse, x))
     return y
 end
 
-function A_mul_B!(y::KUdense{CudaArray}, w::CudaArray, x::KUsparse{CudaArray})
+function A_mul_B!{A<:CudaArray,B<:CudaArray}(y::KUdense{A}, w::CudaArray, x::KUsparse{B})
     @assert size(y)==(size(w,1), size(x,2))
     A_mul_B!(convert(CudaArray, y), w, convert(Sparse, x))
     return y
 end
 
-function A_mul_B!(y::Matrix, w::Matrix, x::Sparse{Array}) # 1607
+function A_mul_B!{A<:Array}(y::Matrix, w::Matrix, x::Sparse{A}) # 1607
     @assert size(y)==(size(w,1), size(x,2))
     # eltype's do not have to match.
     fill!(y, zero(eltype(y)))
@@ -71,7 +71,7 @@ function A_mul_B!(y::Matrix, w::Matrix, x::Sparse{Array}) # 1607
     return y
 end
 
-function A_mul_B!(y::CudaArray{Float32,2}, w::CudaArray{Float32,2}, x::Sparse{CudaArray,Float32,Int32})
+function A_mul_B!{A<:CudaArray}(y::CudaArray{Float32,2}, w::CudaArray{Float32,2}, x::Sparse{A,Float32,Int32})
     @assert size(y)==(size(w,1),size(x,2))
     ccall((:A_mul_Bs_32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -79,7 +79,7 @@ function A_mul_B!(y::CudaArray{Float32,2}, w::CudaArray{Float32,2}, x::Sparse{Cu
     return y
 end
 
-function A_mul_B!(y::CudaArray{Float64,2}, w::CudaArray{Float64,2}, x::Sparse{CudaArray,Float64,Int32})
+function A_mul_B!{A<:CudaArray}(y::CudaArray{Float64,2}, w::CudaArray{Float64,2}, x::Sparse{A,Float64,Int32})
     @assert size(y)==(size(w,1),size(x,2))
     ccall((:A_mul_Bs_64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -89,19 +89,19 @@ end
 
 ### SPARSE: A_mul_Bst!(dw, dy, x)
 
-function A_mul_Bt!(dw::Array, dy::KUdense{Array}, x::KUsparse{Array})
+function A_mul_Bt!{A<:Array,B<:Array}(dw::Array, dy::KUdense{A}, x::KUsparse{B})
     @assert size(dw)==(size(dy,1), size(x,1))
     A_mul_Bt!(dw, convert(Array, dy), convert(Sparse,x))
     return dw
 end
 
-function A_mul_Bt!(dw::CudaArray, dy::KUdense{CudaArray}, x::KUsparse{CudaArray})
+function A_mul_Bt!{A<:CudaArray,B<:CudaArray}(dw::CudaArray, dy::KUdense{A}, x::KUsparse{B})
     @assert size(dw)==(size(dy,1), size(x,1))
     A_mul_Bt!(dw, convert(CudaArray, dy), convert(Sparse,x))
     return dw
 end
 
-function A_mul_Bt!(dw::Matrix, dy::Matrix, x::Sparse{Array})
+function A_mul_Bt!{A<:Array}(dw::Matrix, dy::Matrix, x::Sparse{A})
     @assert size(dw)==(size(dy,1), size(x,1))
     fill!(dw, zero(eltype(dw)))
     @inbounds for xcol=1:size(x,2)                      # xcol = ycol
@@ -119,7 +119,7 @@ function A_mul_Bt!(dw::Matrix, dy::Matrix, x::Sparse{Array})
     return dw
 end
 
-function A_mul_Bt!(dw::CudaArray{Float32,2}, dy::CudaArray{Float32,2}, x::Sparse{CudaArray,Float32,Int32})
+function A_mul_Bt!{A<:CudaArray}(dw::CudaArray{Float32,2}, dy::CudaArray{Float32,2}, x::Sparse{A,Float32,Int32})
     @assert size(dw)==(size(dy,1),size(x,1))
     ccall((:A_mul_Bst_32,libkunet),Void,
           (Cint,Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -127,7 +127,7 @@ function A_mul_Bt!(dw::CudaArray{Float32,2}, dy::CudaArray{Float32,2}, x::Sparse
     return dw
 end
 
-function A_mul_Bt!(dw::CudaArray{Float64,2}, dy::CudaArray{Float64,2}, x::Sparse{CudaArray,Float64,Int32})
+function A_mul_Bt!{A<:CudaArray}(dw::CudaArray{Float64,2}, dy::CudaArray{Float64,2}, x::Sparse{A,Float64,Int32})
     @assert size(dw)==(size(dy,1),size(x,1))
     ccall((:A_mul_Bst_64,libkunet),Void,
           (Cint,Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -144,26 +144,12 @@ function At_mul_B!{A}(k::KUdense{A}, s::KUsparse{A}, x::KUsparse{A})
     return k
 end
 
-function At_mul_B!(k::Matrix, s::Sparse{Array}, x::Sparse{Array})
-    @assert size(k)==(size(s,2),size(x,2))
-    fill!(k, zero(eltype(k)))
-    @inbounds for xcol=1:size(x,2)
-        @inbounds for scol=1:size(s,2)
-            x1=x.colptr[xcol]; x2=x.colptr[xcol+1]
-            s1=s.colptr[scol]; s2=s.colptr[scol+1]
-            while((x1 < x2) && (s1 < s2))
-                xrow=x.rowval[x1]; srow=s.rowval[s1]
-                if (xrow < srow) x1 += 1
-                elseif (srow < xrow) s1 += 1
-                else k[scol,xcol] += x.nzval[x1] * s.nzval[s1]; x1+=1; s1+=1
-                end
-            end
-        end
-    end
-    return k
-end
+At_mul_B!{A<:Array}(k::Matrix, s::Sparse{A}, x::Sparse{A})=
+    At_mul_B!(k, convert(SparseMatrixCSC,s), convert(SparseMatrixCSC,x))
 
-function At_mul_B!(k::CudaArray{Float32,2}, s::Sparse{CudaArray,Float32,Int32}, x::Sparse{CudaArray,Float32,Int32})
+At_mul_B!(k::Matrix, s::SparseMatrixCSC, x::SparseMatrixCSC)=copy!(k, s' * x)
+
+function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float32,2}, s::Sparse{A,Float32,Int32}, x::Sparse{B,Float32,Int32})
     @assert size(k)==(size(s,2),size(x,2))
     ccall((:Ast_mul_Bs_32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -171,7 +157,7 @@ function At_mul_B!(k::CudaArray{Float32,2}, s::Sparse{CudaArray,Float32,Int32}, 
     return k
 end
 
-function At_mul_B!(k::CudaArray{Float64,2}, s::Sparse{CudaArray,Float64,Int32}, x::Sparse{CudaArray,Float64,Int32})
+function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float64,2}, s::Sparse{A,Float64,Int32}, x::Sparse{B,Float64,Int32})
     @assert size(k)==(size(s,2),size(x,2))
     ccall((:Ast_mul_Bs_64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -208,3 +194,22 @@ end
 #     return k
 # end
 
+# This is too slow:
+# function At_mul_B!{A<:Array,B<:Array}(k::Matrix, s::Sparse{A}, x::Sparse{B})
+#     @assert size(k)==(size(s,2),size(x,2))
+#     fill!(k, 0)
+#     for xcol=1:size(x,2)
+#         for scol=1:size(s,2)
+#             x1=x.colptr[xcol]; x2=x.colptr[xcol+1]
+#             s1=s.colptr[scol]; s2=s.colptr[scol+1]
+#             while((x1 < x2) && (s1 < s2))
+#                 xrow=x.rowval[x1]; srow=s.rowval[s1]
+#                 if (xrow < srow) x1 += 1
+#                 elseif (srow < xrow) s1 += 1
+#                 else k[scol,xcol] += x.nzval[x1] * s.nzval[s1]; x1+=1; s1+=1
+#                 end
+#             end
+#         end
+#     end
+#     return k
+# end

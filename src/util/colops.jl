@@ -149,7 +149,7 @@ end
 ### corresponding columns in the remaining arguments.  Used by
 ### kperceptron in merging identical support vectors.
 
-function uniq!(s::KUdense{Array}, ww::KUdense...)
+function uniq!{A<:Array}(s::KUdense{A}, ww::KUdense...)
     oldn = ccount(s)                                            # number of original support vectors
     for w in ww; @assert ccount(w) == oldn; end 
     ds = Dict{Any,Int}()                                        # support vector => new index
@@ -174,9 +174,7 @@ function uniq!(s::KUdense{Array}, ww::KUdense...)
     return tuple(s, ww...)
 end
 
-# TODO: Fix this...
-
-function uniq!(s::KUsparse{Array}, ww::KUdense...)
+function uniq!{A<:Array}(s::KUsparse{A}, ww::KUdense...)
     oldn = ccount(s)                                            # number of original support vectors
     for w in ww; @assert ccount(w) == oldn; end 
     ds = Dict{Any,Int}()                                        # support vector => new index
@@ -215,9 +213,9 @@ function uniq!(s::KUsparse{Array}, ww::KUdense...)
     return tuple(s, ww...)
 end
 
-_colkey(s::KUdense{Array},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
+_colkey{A<:Array}(s::KUdense{A},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
 
-function _colkey(s::KUsparse{Array},j)
+function _colkey{A<:Array}(s::KUsparse{A},j)
     a=s.colptr.arr[j]
     b=s.colptr.arr[j+1]-1
     r=sub(s.rowval.arr, a:b)
@@ -231,14 +229,14 @@ end
 
 # we need to look at the columns, might as well copy
 
-function uniq!(s::KUdense{CudaArray}, ww::KUdense...)
+function uniq!{A<:CudaArray}(s::KUdense{A}, ww::KUdense...)
     ss = cpucopy(s)
     uniq!(ss, ww...)
     cslice!(s, ss, 1:ccount(ss))
     return tuple(s, ww...)
 end
 
-function uniq!(s::KUsparse{CudaArray}, ww::KUdense...)
+function uniq!{A<:CudaArray}(s::KUsparse{A}, ww::KUdense...)
     ss = cpucopy(s)
     uniq!(ss, ww...)
     cslice!(s, ss, 1:ccount(ss))

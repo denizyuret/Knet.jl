@@ -42,7 +42,7 @@ initgaussian(a, std=0.01, mean=0.0)=(randn!(a,std,mean); a)
 initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
-function cpucopy_internal{T,N}(x::KUparam{CudaArray,T,N},d::ObjectIdDict)
+function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
     y = KUparam{Array,T,N}()
     for n in names(x)
@@ -52,7 +52,7 @@ function cpucopy_internal{T,N}(x::KUparam{CudaArray,T,N},d::ObjectIdDict)
     d[x] = y
 end
 
-function gpucopy_internal{T,N}(x::KUparam{Array,T,N},d::ObjectIdDict)
+function gpucopy_internal{A<:Array,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
     y = KUparam{CudaArray,T,N}()
     for n in names(x)

@@ -136,16 +136,16 @@ function gradtest(net, x, z)
     return rval
 end
 
-function iseq(a,b)
+function iseq03(a,b)
     typeof(a)==typeof(b) || return false
-    isa(a,Tuple) && return all(map(iseq, a, b))
+    isa(a,Tuple) && return all(map(iseq03, a, b))
     isempty(names(a)) && return isequal(a,b)
     for n in names(a)
         in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
         in(n, names(b)) || (warn("$n missing");return false)
         isdefined(a,n) || continue
         isdefined(b,n) || (warn("$n undefined");return false)
-        iseq(a.(n), b.(n)) || (warn("$n unequal"); return false)
+        iseq03(a.(n), b.(n)) || (warn("$n unequal"); return false)
     end
     for n in names(b)
         in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
@@ -159,7 +159,7 @@ end
 function filetest(net1)
     KUnet.savenet("/tmp/kunet.test", net1)
     net2 = KUnet.loadnet("/tmp/kunet.test")
-    return all(map(iseq, net1, net2))
+    return all(map(iseq03, net1, net2))
 end
 
 function getnet{T<:Layer}(F,S,L::Type{T})

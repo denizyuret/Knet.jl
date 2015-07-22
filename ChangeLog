@@ -1,3 +1,15 @@
+2015-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/kperceptron.jl:
+	- klinear != perceptron, averaging difference?
+	+ klinear,single,sparse,cpu gets stuck: changed slow algorithm.
+
+	* src/util/sparse.jl: Frequent problem I have been having is due
+	to the following: when a function parameter has a parametrized
+	type like KUsparse{Array}, that is parametrized by another type,
+	it is better to make the inner type a variable.  i.e. instead of
+	foo(a::KUsparse{Array}) use foo{A<:Array}(a::KUsparse{A})
+
 2015-07-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/util/linalg.cu (_A_mul_Bs_32): TODO: Test this.
