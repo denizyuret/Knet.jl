@@ -12,16 +12,16 @@ type KUdense{A,T,N}; arr; ptr; end
 
 KUdense(a)=KUdense{atype(a),eltype(a),ndims(a)}(a, reshape(a, length(a)))
 
-KUdense{T}(::Type{Array}, ::Type{T}, d::Dims)=KUdense(Array(T,d))
-KUdense{T}(::Type{CudaArray}, ::Type{T}, d::Dims)=KUdense(CudaArray(T,d))
+KUdense{A<:Array,T,N}(::Type{A}, ::Type{T}, d::NTuple{N,Int})=KUdense(Array(T,d))
+KUdense{A<:CudaArray,T,N}(::Type{A}, ::Type{T}, d::NTuple{N,Int})=KUdense(CudaArray(T,d))
 
 convert(::Type{KUdense}, a)=KUdense(a)
 convert{A<:BaseArray}(::Type{A}, a::KUdense)=convert(A, a.arr)
 convert{A,B}(::Type{KUdense{B}}, a::A)=KUdense(convert(B, a))
 
-similar{A,T}(a::KUdense{A}, ::Type{T}, d::Dims)=KUdense(A,T,d)
-similar{A,T}(a::KUdense{A,T}, d::Dims)=KUdense(A,T,d)
-similar{A,T}(a::KUdense{A,T})=KUdense(A,T,size(a))
+similar{A,T,N}(a::KUdense{A}, ::Type{T}, d::NTuple{N,Int})=KUdense(A,T,d)
+similar{A,T,N}(a::KUdense{A,T}, d::NTuple{N,Int})=KUdense(A,T,d)
+similar{A,T,N}(a::KUdense{A,T,N})=KUdense(A,T,size(a))
 
 arr(a::Vector,d::Dims)=pointer_to_array(pointer(a), d)
 arr(a::CudaVector,d::Dims)=CudaArray(a.ptr, d, a.dev)
@@ -49,7 +49,7 @@ end
 
 copy!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T})=(resize!(a, size(b)); copy!(a.arr, 1, b.arr, 1, length(b)); a)
 copy!{A,T}(a::KUdense{A,T}, b::Union(Array{T},CudaArray{T}))=(resize!(a, size(b)); copy!(a.arr, 1, b, 1, length(b)); a)
-copy(a::KUdense)=copy!(similar(a), a)
+copy{A,T,N}(a::KUdense{A,T,N})=copy!(similar(a), a)
 
 ### EFFICIENT RESIZE
 

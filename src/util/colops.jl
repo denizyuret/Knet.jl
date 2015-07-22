@@ -75,24 +75,18 @@ end
 
 using Base.LinAlg: axpy!
 
-cadd!{A,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=cadd!(dst.arr,di,src.arr,si,n)
+cadd!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst,di,src.arr,si,n); dst)
+cadd!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst.arr,di,src.arr,si,n); dst)
 
-function cadd!{T,N}(dst::CudaArray{T,N}, di, src::CudaArray{T,N}, si=1, n=ccount(src)-si+1)
+function cadd!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
     @assert csize(dst)==csize(src)
+    @assert ccount(dst) >= di+n-1
+    @assert ccount(src) >= si+n-1
     clen = clength(src)
     d1 = 1 + clen * (di - 1)
     s1 = 1 + clen * (si - 1)
-    axpy!(clen * n, one(T), pointer(src, si), 1, pointer(dst, di), 1)
-    return dst
-end
-
-function cadd!{T,N}(dst::Array{T,N}, di, src::Array{T,N}, si=1, n=ccount(src)-si+1)
-    @assert csize(dst)==csize(src)
-    clen = clength(src)
-    d0 = clen * (di - 1)
-    s0 = clen * (si - 1)
-    n0 = clen * n
-    for i=1:n0; dst[d0+i] += src[s0+i]; end
+    n1 = clen * n
+    axpy!(n1, one(T), pointer(src, s1), 1, pointer(dst, d1), 1)
     return dst
 end
 
@@ -100,22 +94,28 @@ end
 # ability to specify particular columns to append.  Used in
 # kperceptron to add support vectors.
 
-function ccat!{A,B,T,N}(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b)), ncols=length(cols))
+ccat!{A,B,T,N}(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b)))=ccat!(a,b.arr,cols)
+
+function ccat!{A,T,N}(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b)))
     @assert csize(a)==csize(b)
     alen = length(a)
     clen = clength(a)
+    ncols = length(cols)
     n = alen + ncols * clen
     length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
     for i=1:ncols
         bidx = (cols[i]-1)*clen + 1
-        copy!(a.ptr, alen+1, b.ptr, bidx, clen)
+        copy!(a.ptr, alen+1, b, bidx, clen)
         alen += clen
     end
     a.arr = arr(a.ptr, csize(a, ccount(a) + ncols))
     return a
 end
 
-function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)), ncols=length(cols))
+ccat!{A,B,T}(a::KUsparse{A,T}, b::Sparse{B,T}, cols=(1:ccount(b)))=ccat!(a,convert(KUsparse,b),cols)
+ccat!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T}, cols=(1:ccount(b)))=ccat!(a,convert(KUsparse,b),cols)
+
+function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)))
     # a: m, n, colptr, rowval, nzval
     # colptr[i]: starting index (in rowval,nzval) of column i
     # colptr[n+1]: nz+1
@@ -123,6 +123,7 @@ function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)), nc
     aptr = to_host(a.colptr.arr)
     bptr = to_host(b.colptr.arr)
     na = aptr[a.n+1]-1          # count new nonzero entries in a
+    ncols = length(cols)
     for i in cols; na += bptr[i+1]-bptr[i]; end
     resize!(a.nzval, na)
     resize!(a.rowval, na)
@@ -150,7 +151,7 @@ end
 
 function uniq!(s::KUdense{Array}, ww::KUdense...)
     oldn = ccount(s)                                            # number of original support vectors
-    for w in ww; @assert ccount(ww) == oldn; end 
+    for w in ww; @assert ccount(w) == oldn; end 
     ds = Dict{Any,Int}()                                        # support vector => new index
     newn = 0                                                    # number of new support vectors
     for oldj=1:oldn
@@ -170,14 +171,14 @@ function uniq!(s::KUdense{Array}, ww::KUdense...)
     @assert newn == length(ds)
     resize!(s, csize(s, newn))
     for w in ww; resize!(w, csize(w, newn)); end
-    return (s, ww...)
+    return tuple(s, ww...)
 end
 
 # TODO: Fix this...
 
 function uniq!(s::KUsparse{Array}, ww::KUdense...)
     oldn = ccount(s)                                            # number of original support vectors
-    for w in ww; @assert ccount(ww) == oldn; end 
+    for w in ww; @assert ccount(w) == oldn; end 
     ds = Dict{Any,Int}()                                        # support vector => new index
     @assert s.colptr.arr[1]==1
     ncol = 0
@@ -211,7 +212,7 @@ function uniq!(s::KUsparse{Array}, ww::KUdense...)
     resize!(s.rowval, nnz)
     resize!(s.nzval,  nnz)
     for w in ww; resize!(w, csize(w, s.n)); end
-    return (s, ww...)
+    return tuple(s, ww...)
 end
 
 _colkey(s::KUdense{Array},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
@@ -234,14 +235,14 @@ function uniq!(s::KUdense{CudaArray}, ww::KUdense...)
     ss = cpucopy(s)
     uniq!(ss, ww...)
     cslice!(s, ss, 1:ccount(ss))
-    return (s, ww...)
+    return tuple(s, ww...)
 end
 
 function uniq!(s::KUsparse{CudaArray}, ww::KUdense...)
     ss = cpucopy(s)
     uniq!(ss, ww...)
     cslice!(s, ss, 1:ccount(ss))
-    return (s, ww...)
+    return tuple(s, ww...)
 end
 
 

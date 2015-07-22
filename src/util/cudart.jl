@@ -12,7 +12,7 @@ function (==)(A::CudaArray,B::CudaArray)
     issimilar(A,B) && (to_host(A)==to_host(B))
 end
 
-convert{T}(::Type{CudaArray{T}}, a::Array{T})=CudaArray(a)
+convert{A<:CudaArray,T,N}(::Type{A}, a::Array{T,N})=CudaArray(a)
 
 reshape(a::CudaArray, dims::Dims)=reinterpret(eltype(a), a, dims)
 reshape(a::CudaArray, dims::Int...)=reshape(a, dims)

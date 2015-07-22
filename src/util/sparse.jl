@@ -1,5 +1,5 @@
 using CUDArt
-import Base: convert, similar, copy, copy!, eltype, length, ndims, size, isempty, issparse, stride, strides
+import Base: convert, similar, copy, copy!, eltype, length, ndims, size, isempty, issparse, stride, strides, full
 import CUDArt: to_host
 
 # I want to make the base array explicit in the type signature of sparse arrays:
@@ -105,14 +105,14 @@ copy(a::KUsparse)=KUsparse(a.m,a.n,copy(a.colptr),copy(a.rowval),copy(a.nzval))
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
 
-cpucopy_internal{T,I}(s::KUsparse{CudaArray,T,I},d::ObjectIdDict)=
+cpucopy_internal{A<:CudaArray,T,I}(s::KUsparse{A,T,I},d::ObjectIdDict)=
     (haskey(d,s) ? d[s] :
      KUsparse{Array,T,I}(s.m,s.n,
                          cpucopy_internal(s.colptr, d),
                          cpucopy_internal(s.rowval, d),
                          cpucopy_internal(s.nzval, d)))
 
-gpucopy_internal{T,I}(s::KUsparse{Array,T,I},d::ObjectIdDict)=
+gpucopy_internal{A<:Array,T,I}(s::KUsparse{A,T,I},d::ObjectIdDict)=
     (haskey(d,s) ? d[s] : 
      KUsparse{CudaArray,T,I}(s.m,s.n,
                              gpucopy_internal(s.colptr, d),
@@ -142,3 +142,9 @@ atype(::SparseMatrixCSC)=Array
 itype{T,I}(::SparseMatrixCSC{T,I})=I
 full(s::KUsparse)=convert(KUdense, full(convert(SparseMatrixCSC, s)))
 full{A}(s::Sparse{A})=convert(A, full(convert(SparseMatrixCSC, s)))
+
+convert{A<:Array,T,I}(::Type{A}, s::SparseMatrixCSC{T,I})=full(s)
+convert{A<:CudaArray,T,I}(::Type{A}, s::SparseMatrixCSC{T,I})=CudaArray(full(s))
+convert{A,T,I}(::Type{Array}, s::KUsparse{A,T,I})=convert(Array, convert(SparseMatrixCSC, s))
+convert{A,T,I}(::Type{CudaArray}, s::KUsparse{A,T,I})=convert(CudaArray, convert(SparseMatrixCSC, s))
+
