@@ -12,7 +12,7 @@ setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     (size(p.arr)==d && eltype(p.arr)==T) || (p.arr = similar(p.arr, T, d))
-    initfn = (isdefined(p,:init) ? p.init : initzero)
+    initfn = (nz(p,:init,nothing) ? p.init : initzero)
     initfn(p.arr)
     return p
 end

@@ -20,7 +20,7 @@ function initforw(l::Conv, x::KUdense{CudaArray})
     xchannels = size(x)[end-1]  # x dims are (x1, x2, ..., channels, images)
     wsize = [size(l.w)...]
     if isempty(l.w) 
-        isdefined(l.w,:init) || (l.w.init = initxavier)
+        nz(l.w,:init,nothing) || (l.w.init = initxavier)
         wsize[end-1]=xchannels
         init(l.w, tuple(wsize...))
     end

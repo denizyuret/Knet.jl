@@ -20,12 +20,12 @@ end
 function initforw(l::Bias, x; predict=false, o...)
     nb = size(x, ndims(x)==1 ? 1 : ndims(x)-1)
     if isempty(l.b) 
-        isdefined(l.b,:init) || (l.b.init = initzero)
+        nz(l.b,:init,nothing) || (l.b.init = initzero)
         init(l.b, eltype(x), (nb,))
     end
     @assert length(l.b) == nb
     @assert eltype(l.b) == eltype(x)
-    return ((predict && l.b.average) ? (l.b.avg, x) : (l.b.arr, x))
+    return ((predict && nz(l.b, :average, false)) ? (l.b.avg, x) : (l.b.arr, x))
 end
 
 function initback(l::Bias, dy)

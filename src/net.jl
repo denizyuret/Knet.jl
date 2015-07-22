@@ -88,7 +88,8 @@ ybatch(y,b)=KUdense(barray(), eltype(y), csize(y,b))
 # possible except for being dense.
 
 dsimilar(x,d)=(isa(x, SparseMatrixCSC) ? Array(eltype(x), d) :
-               isa(x, Sparse) ? atype(x)(eltype(x), d) :
+               isa(x, Sparse{Array}) ? Array(eltype(x), d) :
+               isa(x, Sparse{CudaArray}) ? CudaArray(eltype(x), d) :
                isa(x, KUsparse) ? KUdense(atype(x), eltype(x), d) :
                isa(x, KUdense) ? KUdense(atype(x), eltype(x), d) :
                similar(x, d))

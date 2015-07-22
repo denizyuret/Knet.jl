@@ -1,4 +1,5 @@
-using CUDArt, KUnet
+using CUDArt, KUnet, Base.Test
+require("isapprox.jl")
 @time require(Pkg.dir("KUnet/test/mnist.jl"))
 
 ytype(X::DataType)=
@@ -11,6 +12,7 @@ ytype(X::DataType)=
 net=nothing
 xtrn=xtst=nothing
 ytrn=ytst=nothing
+w0 = w1 = b0 = b1 = nothing
 
 for X in (
           Array, 
@@ -27,15 +29,27 @@ for X in (
     @show (X,Y)
     net = [Mmul(10), Bias(), PercLoss()]
     setparam!(net, average=true, init=initzero)
-    xtrn = convert(X, copy(MNIST.xtrn))
+    # xtrn = convert(X, copy(MNIST.xtrn))
     xtst = convert(X, copy(MNIST.xtst))
-    ytrn = convert(Y, copy(MNIST.ytrn))
+    # ytrn = convert(Y, copy(MNIST.ytrn))
     ytst = convert(Y, copy(MNIST.ytst))
     # @show map(summary, (xtrn, ytrn, xtst, ytst))
-    for i=1:5
-        train(net, xtrn, ytrn)
+    for i=1:3
+        # train(net, xtrn, ytrn)
+        train(net, xtst, ytst)
         println((i, accuracy(ytst, predict(net, xtst)), 
-                 accuracy(ytrn, predict(net, xtrn))))
+                 )) # accuracy(ytrn, predict(net, xtrn))))
+    end
+    if w0 == nothing
+        w0 = convert(Array, net[1].w.arr)
+        w1 = convert(Array, net[1].w.avg)
+        b0 = convert(Array, net[2].b.arr)
+        b1 = convert(Array, net[2].b.avg)
+    else
+        @test isapprox(w0, net[1].w.arr)
+        @test isapprox(w1, net[1].w.avg)
+        @test isapprox(b0, net[2].b.arr)
+        @test isapprox(b1, net[2].b.avg)
     end
 end # for X
 

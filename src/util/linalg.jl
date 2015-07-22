@@ -6,7 +6,7 @@ import Base.LinAlg: axpy!, scale!
 axpy!{S,T}(a,x::KUdense{S,T},y::KUdense{S,T})=(axpy!(convert(T,a),x.arr,y.arr); y)
 axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); @assert n==length(y); axpy!(n,convert(T,a),x,1,y,1); y)
 scale!{S,T}(a,x::KUdense{S,T})=(scale!(convert(T,a),x.arr); x)
-scale!{T}(a,x::CudaArray{T})=(scal!(n,convert(T,a),x,1); x)
+scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
 
 ### MMUL
 # This is not a complete implementation.  The goal is to support KUnet

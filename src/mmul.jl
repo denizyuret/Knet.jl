@@ -25,7 +25,7 @@ function initforw(l::Mmul, x; predict=false, o...)
     (xrows, xcols) = size2(l.x)
     (wrows, wcols) = size(l.w)
     if isempty(l.w) 
-        isdefined(l.w,:init) || (l.w.init = initgaussian)
+        nz(l.w,:init,nothing) || (l.w.init = initgaussian)
         wcols=xrows
         init(l.w, eltype(x), (wrows, wcols))
     end
@@ -33,7 +33,7 @@ function initforw(l::Mmul, x; predict=false, o...)
     @assert eltype(l.w) == eltype(x)
     @assert xrows == wcols
     dsimilar!(l, :y, l.x, (wrows, xcols))
-    return ((predict && l.w.average) ?
+    return ((predict && nz(l.w, :average, false)) ?
             (l.y, l.w.avg, l.x) :
             (l.y, l.w.arr, l.x))
 end

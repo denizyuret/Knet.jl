@@ -4,6 +4,7 @@ using Compat
 # Print date, expression and elapsed time after execution
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
+export @date
 
 include("util/gpu.jl");	export gpumem, gpusync, setseed
 @useifgpu CUDArt
@@ -32,9 +33,9 @@ include("drop.jl");	export Drop
 include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss
 
-include("perceptron.jl"); export Perceptron
 # include("kperceptron.jl"); export KPerceptron
 
+# include("perceptron.jl"); export Perceptron # deprecated
 # include("percloss.jl"); export PercLoss # deprecated
 # include("kernel.jl");   export Kernel, kernel # deprecated
 # include("poly.jl");     export Poly           # deprecated

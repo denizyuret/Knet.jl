@@ -1,24 +1,11 @@
 using KUnet, CUDArt, Base.Test
-import Base: isapprox
+require("isapprox.jl")
 
 # Operations needed:
 # mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu
 # mmul back: A_mul_Bt!(dw, dy, x)	A_mul_Bst!(dw, dy, x): cpu/gpu
 # mmul back: At_mul_B!(dx, w, dy)	no dx: only initial input can be sparse
 # kper forw: At_mul_B!(k, s, x)		Ast_mul_Bs!(k, s, x): cpu/gpu
-
-function isapprox(x, y;
-                  maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
-                  rtol::Real=maxeps^(1/3), atol::Real=maxeps^(1/2))
-    size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
-    isa(x, KUdense) && (x = x.arr)
-    isa(y, KUdense) && (y = y.arr)
-    KUnet.GPU && isa(x, CudaArray) && (x = to_host(x))
-    KUnet.GPU && isa(y, CudaArray) && (y = to_host(y))
-    d = abs(x-y)
-    s = abs(x)+abs(y)
-    all(d .< (atol + rtol * s))
-end
 
 sprand32(m,n,r)=convert(SparseMatrixCSC{Float64,Int32},sprand(m,n,r))
 
@@ -52,7 +39,7 @@ info("KUdense{Array}")
 a3 = KUdense(copy(a1))
 b3 = KUdense(copy(b1))
 c3 = KUdense(copy(c1))
-a3p = KUparam(copy(a1))
+a3p = copy(a1)
 c3r = copy(c1)
 @test isapprox(ab, A_mul_B!(c3, a3p, b3))
 @test isapprox(atb, At_mul_B!(c3, a3p, b3))
@@ -62,7 +49,7 @@ info("KUdense{CudaArray}")
 a4 = KUdense(copy(a2))
 b4 = KUdense(copy(b2))
 c4 = KUdense(copy(c2))
-a4p = KUparam(copy(a2))
+a4p = copy(a2)
 c4r = copy(c2)
 @test isapprox(ab, A_mul_B!(c4, a4p, b4))
 @test isapprox(atb, At_mul_B!(c4, a4p, b4))
@@ -110,7 +97,7 @@ c15 = convert(KUdense, copy(c1))
 
 info("KUdense{Array} KUsparse{Array}")
 a16 = convert(KUdense, copy(a1))
-a16p = convert(KUparam, copy(a1))
+a16p = copy(a1)
 b16 = convert(KUsparse, copy(b0))
 c16 = convert(KUdense, copy(c1))
 c16a = copy(c1)
@@ -128,10 +115,10 @@ c17 = convert(KUdense{CudaArray}, copy(c1))
 
 info("KUdense{CudaArray} KUsparse{CudaArray}")
 a18 = convert(KUdense{CudaArray}, copy(a1))
-a18p = convert(KUparam, CudaArray(a1))
+a18p = copy(a2)
 b18 = convert(KUsparse{CudaArray}, copy(b0))
 c18 = convert(KUdense{CudaArray}, copy(c1))
-c18a = convert(CudaArray, c1)
+c18a = copy(c2)
 @test isapprox(ab,   A_mul_B!(c18, a18p, b18))
 # @test isapprox(atb, At_mul_B!(c18, a18, b18))
 @test isapprox(abt, A_mul_Bt!(c18a, a18, b18))

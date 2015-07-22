@@ -2,24 +2,24 @@ using Base.LinAlg: axpy!, scale!
 
 function update(p::KUparam; o...)
     initupdate(p)
-    nz(p,:l1reg) && l1reg!(p.l1reg, p.arr, p.diff)
-    nz(p,:l2reg) && l2reg!(p.l2reg, p.arr, p.diff)
+    nz(p,:l1reg,0) && l1reg!(p.l1reg, p.arr, p.diff)
+    nz(p,:l2reg,0) && l2reg!(p.l2reg, p.arr, p.diff)
     nz(p,:adagrad,false) && adagrad!(1e-8, p.ada, p.diff)
-    nz(p,:momentum) && momentum!(p.momentum, p.mom, p.diff)
-    nz(p,:nesterov) && nesterov!(p.nesterov, p.nes, p.diff)
+    nz(p,:momentum,0) && momentum!(p.momentum, p.mom, p.diff)
+    nz(p,:nesterov,0) && nesterov!(p.nesterov, p.nes, p.diff)
     nz(p,:lr,1) && scale!(p.lr, p.diff)
     axpy!(-1, p.diff, p.arr)
     nz(p,:average,false) && axpy!(1,p.arr,p.avg)
-    # nz(p,:maxnorm) && maxnorm!(p.maxnorm, p.arr)
+    # nz(p,:maxnorm,0) && maxnorm!(p.maxnorm, p.arr)
 end
 
-nz(p,n,v=0)=(isdefined(p,n) && (p.(n) != v))
+nz(p,n,v)=(isdefined(p,n) && (p.(n) != v))
 
 function initupdate(p::KUparam)
-    isdefined(p,:average)  && p.average && similar!(p, :avg, p.arr; fill=0)
-    isdefined(p,:adagrad)  && p.adagrad && similar!(p, :ada, p.diff; fill=0)
-    isdefined(p,:momentum) && (p.momentum > 0) && similar!(p, :mom, p.diff; fill=0)
-    isdefined(p,:nesterov) && (p.nesterov > 0) && similar!(p, :nes, p.diff; fill=0)
+    nz(p,:average,false) && similar!(p, :avg, p.arr; fill=0)
+    nz(p,:adagrad,false) && similar!(p, :ada, p.diff; fill=0)
+    nz(p,:momentum,0) && similar!(p, :mom, p.diff; fill=0)
+    nz(p,:nesterov,0) && similar!(p, :nes, p.diff; fill=0)
 end
 
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
