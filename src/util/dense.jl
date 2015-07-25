@@ -27,6 +27,7 @@ arr(a::Vector,d::Dims)=pointer_to_array(pointer(a), d)
 arr(a::CudaVector,d::Dims)=CudaArray(a.ptr, d, a.dev)
 
 atype(::Array)=Array
+atype(::SubArray)=Array
 atype(::CudaArray)=CudaArray
 
 ### BASIC ARRAY OPS

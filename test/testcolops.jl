@@ -3,6 +3,7 @@ using KUnet, CUDArt, Base.Test
 iseq02(a,b)=(convert(Array,a)==convert(Array,b))
 
 for B in (
+          SubArray,
           SparseMatrixCSC,
           Sparse{Array},
           KUsparse{Array},
@@ -14,7 +15,9 @@ for B in (
           KUdense{CudaArray},
           )
     b0 = sprand(10,100,.1)
-    b = convert(B, copy(b0))
+    b = (B==SubArray ? 
+         sub(full(b0),:,:) :
+         convert(B, copy(b0)))
     for A in (
               CudaArray,
               Array,

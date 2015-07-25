@@ -33,8 +33,10 @@ end
 # Generalizing low level copy using linear indexing to/from gpu
 # arrays:
 
-function copy!(dst::Union(Array,CudaArray), di::Integer, 
-               src::Union(Array,CudaArray), si::Integer, 
+typealias BaseArray{T,N} Union(Array{T,N},SubArray{T,N},CudaArray{T,N})
+
+function copy!(dst::BaseArray, di::Integer, 
+               src::BaseArray, si::Integer, 
                n::Integer; stream=null_stream)
     @assert eltype(src) <: eltype(dst) "$(eltype(dst)) != $(eltype(src))"
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1

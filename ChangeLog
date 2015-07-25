@@ -12,12 +12,12 @@
 
 2015-07-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/util/linalg.cu (_A_mul_Bs_32): TODO: Test this.
+	* src/util/linalg.cu (_A_mul_Bs_32): DONE: Test this.
 
-	* src/mmul.jl: TODO:
-	- not using averaging for prediction.
-	- cudaarray is not giving the same answer as array
-	- sparse does not work
+	* src/mmul.jl: DONE:
+	+ not using averaging for prediction.
+	+ cudaarray is not giving the same answer as array
+	+ sparse does not work
 
 	* src/net.jl: conversions in train and predict: do we end up with
 	the same array type we started with?
@@ -26,12 +26,12 @@
 
 	* test/tutorial.jl: profile, did it get slower?
 
-	* TODO:
-	- test mmul with dense and sparse
-	- fix kperceptron, perceptron
-	- make layers generic, support regular arrays, if possible
+	* DONE:
+	+ test mmul with dense and sparse
+	+ fix kperceptron, perceptron
+	+ make layers generic, support regular arrays, if possible
 	in-place sparse arrays.
-	- unit test cadd!
+	+ unit test cadd!
 
 	* src/util/linalg.jl: DONE:
 	+ add linalg tests to dense and sparse.
