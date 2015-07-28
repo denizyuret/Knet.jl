@@ -1,6 +1,6 @@
 using CUDArt
 import Base: similar, convert, copy, copy!, resize!, issparse
-import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!
+import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!, sub
 import Base: rand!, randn!, fill!
 import CUDArt: to_host
 
@@ -42,7 +42,7 @@ for fname in (:size, :stride)
     @eval $fname(a::KUdense,n)=$fname(a.arr,n)
 end
 
-for fname in (:getindex, :setindex!)
+for fname in (:getindex, :setindex!, :sub)
     @eval $fname(a::KUdense,n...)=$fname(a.arr,n...)
 end
 
