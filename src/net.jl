@@ -35,18 +35,15 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
     ninst==0 && (return warn("No instances"))
     (batch == 0 || batch > ninst) && (batch = ninst)
     (xx,yy) = (xbatch(x, batch), ybatch(y, batch))
-    # @show map(summary, (xx,yy))
-    gpu() && gc()  # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e = min(ninst, b + batch - 1)
         (xx,yy) = (cslice!(xx, x, b:e), cslice!(yy, y, b:e))
         backprop(net, xx, yy; o...)
         update(net; o...)
         (iters > 0) && (e/batch >= iters) && break
-        gpu() && (gpumem() < (1<<28)) && gc()
+        gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
     end
     strip!(net)
-    gpu() && gc()
 end
 
 # Predict implements forw with minibatches.
@@ -55,11 +52,11 @@ function predict(net::Net, x, y=nothing; batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     (xx,yy) = (xbatch(x, batch), nothing)
-    gpu() && gc()  # need this until julia triggers gc() when gpumem is low
+    gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
-        xx = cslice!(xx, x, b:e)
-        yy = forw(net, xx; predict=true, o...)
+        xx = cslice!(xx, x, b:e) # 1114
+        yy = forw(net, xx; predict=true, o...) # 11587
         (y == nothing) && (y = dsimilar(x, (clength(yy), ccount(x))))
         y = ccopy!(y, b, yy)
     end
