@@ -69,7 +69,7 @@ GPU && (quadlossback(y::CudaArray, z::CudaArray)=cudnnTransformTensor(1/ccount(y
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
-softloss(y::Array,p::Array)=(cost=zero(Float64); for i=1:length(p); cost -= (p[i]*log(y[i])); end; cost/ccount(p))
+softloss(y::Array,p::Array)=(cost=zero(Float64); for i=1:length(p); p[i]>0 && (cost -= (p[i]*log(y[i]))); end; cost/ccount(p))
 softlossback(y::Array,p::Array)=(nx=ccount(p); for i=1:length(p); p[i] = ((y[i]-p[i])/y[i])/nx; end)
 GPU && (softlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
 GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
