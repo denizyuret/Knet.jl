@@ -47,7 +47,6 @@ function copy!(dst::BaseArray, di::Integer,
     dptr = pointer(dst) + (di-1) * esize
     sptr = pointer(src) + (si-1) * esize
     CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
-    gpusync()
     return dst
 end
 
