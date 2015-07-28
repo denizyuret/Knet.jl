@@ -18,13 +18,14 @@ for (ltype, lback, lloss) in (
         type $ltype <: LossLayer; y; $ltype()=new(); end
         forw(l::$ltype, y; o...)=(l.y=y)
         back(l::$ltype, z; returndx=true, o...)=(@assert issimilar(z,l.y); returndx && ($lback(l.y,z); z))
-        loss(l::$ltype, z)=(@assert issimilar(z,l.y); $lloss(l.y,z))
+        loss(l::$ltype, z, y=l.y)=(@assert issimilar(z,y); $lloss(y,z))
         $lback(y::KUdense, z::KUdense)=$lback(y.arr, z.arr)
         $lloss(y::KUdense, z::KUdense)=$lloss(y.arr, z.arr)
         $lloss(y::CudaArray, z::CudaArray)=$lloss(to_host(y), to_host(z))
     end
 end
 
+loss(net::Net, z, y=net[end].y)=loss(net[end], z, y)
 
 ### QUADLOSS:
 
