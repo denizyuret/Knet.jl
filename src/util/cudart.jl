@@ -35,10 +35,11 @@ end
 
 typealias BaseArray{T,N} Union(Array{T,N},SubArray{T,N},CudaArray{T,N})
 
-function copy!(dst::BaseArray, di::Integer, 
-               src::BaseArray, si::Integer, 
-               n::Integer; stream=null_stream)
+function copy!{T<:Real}(dst::BaseArray{T}, di::Integer, 
+                        src::BaseArray{T}, si::Integer, 
+                        n::Integer; stream=null_stream)
     @assert eltype(src) <: eltype(dst) "$(eltype(dst)) != $(eltype(src))"
+    @assert isbits(T)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
