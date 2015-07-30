@@ -51,6 +51,7 @@ end
 copy!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T})=(resize!(a, size(b)); copy!(a.arr, 1, b.arr, 1, length(b)); a)
 copy!{A,T}(a::KUdense{A,T}, b::Union(Array{T},CudaArray{T}))=(resize!(a, size(b)); copy!(a.arr, 1, b, 1, length(b)); a)
 copy{A,T,N}(a::KUdense{A,T,N})=copy!(similar(a), a)
+copy!{A,B,T}(a::KUdense{A,T}, ai::Integer, b::KUdense{B,T}, bi::Integer, n::Integer)=(copy!(a.arr, ai, b.arr, bi, n); a)
 
 ### EFFICIENT RESIZE
 
