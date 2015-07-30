@@ -31,7 +31,7 @@ include("pool.jl");	export Pool
 include("drop.jl");	export Drop
 
 include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
-include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss
+include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
 include("kperceptron.jl"); export KPerceptron
 

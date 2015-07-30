@@ -13,6 +13,7 @@ for (ltype, lback, lloss) in (
                               (:LogpLoss, :logplossback, :logploss),
                               (:XentLoss, :xentlossback, :xentloss),
                               (:PercLoss, :perclossback, :percloss),
+                              (:ScalLoss, :scallossback, :scalloss),
                               )
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
@@ -215,9 +216,23 @@ function perclossback{T}(y::Array{T}, z::Array{T})
             z[i] > zmax && ((cz,zmax) = (i,z[i]))
             z[i] = zero(T)
         end
-        (cz != cy) && (z[cz] = -one(T); z[cy] = one(T))
+        # TODO: these should be scaled 1/nx, why isn't our gradient check complaining?
+        (cz != cy) && (z[cz] = -1; z[cy] = 1)
     end
 end
 
 GPU && (perclossback(y::CudaArray{Float32}, z::CudaArray{Float32})=((nd,nx)=size2(z);ccall((:percloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,z)))
 GPU && (perclossback(y::CudaArray{Float64}, z::CudaArray{Float64})=((nd,nx)=size2(z);ccall((:percloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,z)))
+
+
+### SCALLOSS
+#
+# When we do structured training, gradients rather than answers come
+# back.  We should scale them using training batch size so the
+# learning rate is independent of batch size.  TODO: find a better
+# interface.  can't pass back target probabilities because network
+# output is not locally normalized.  can we pass back anything so one
+# of the existing loss functions would work?
+
+scalloss(y,dy)=error("Not implemented")
+scallossback(y,dy)=scale!(1/ccount(dy), dy)
