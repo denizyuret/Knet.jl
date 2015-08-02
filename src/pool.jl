@@ -5,7 +5,7 @@ type Pool <: Layer; dims; padding; stride; mode; pd; x; y; dx; dy; Pool()=new();
 
 if GPU
 
-function Pool(dims::(Int...);
+function Pool(dims::Dims;
               padding=tuple(fill(0,length(dims))...),
               stride=dims,
               mode=CUDNN_POOLING_MAX)
