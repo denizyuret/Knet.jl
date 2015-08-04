@@ -3,7 +3,7 @@ using CUDArt
 using KUnet
 density = 0.4
 
-iseq01(a::KUsparse,b::SparseMatrixCSC)=(for f in names(a); iseq01(a.(f),b.(f)) || (warn("$f mismatch:\n$(a.(f))\n$(b.(f))"); return false); end; return true)
+iseq01(a::KUsparse,b::SparseMatrixCSC)=(for f in fieldnames(a); iseq01(a.(f),b.(f)) || (warn("$f mismatch:\n$(a.(f))\n$(b.(f))"); return false); end; return true)
 iseq01(a::KUdense,b::BaseArray)=(to_host(a.arr)==to_host(b))
 iseq01(a,b)=(a==b)
 

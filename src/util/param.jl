@@ -45,7 +45,7 @@ initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand
 function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
     y = KUparam{Array,T,N}()
-    for n in names(x)
+    for n in fieldnames(x)
         isdefined(x,n) || continue
         y.(n) = cpucopy_internal(x.(n),d)
     end
@@ -55,7 +55,7 @@ end
 function gpucopy_internal{A<:Array,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
     y = KUparam{CudaArray,T,N}()
-    for n in names(x)
+    for n in fieldnames(x)
         isdefined(x,n) || continue
         y.(n) = gpucopy_internal(x.(n),d)
     end

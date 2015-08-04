@@ -4,7 +4,7 @@
 GPU = true
 lpath = [Pkg.dir("KUnet/src")]
 for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
-    isempty(find_library([l], lpath)) && (warn("Cannot find $l");GPU=false)
+    isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");GPU=false)
 end
 for p in ("CUDArt", "CUBLAS", "CUDNN")
     isdir(Pkg.dir(p)) || (warn("Cannot find $p");GPU=false)
@@ -28,7 +28,7 @@ gpu(b::Bool)=(b && !GPU && error("No GPU"); global USEGPU=b)
 macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 
 # Additional cuda code
-const libkunet = find_library(["libkunet"], [Pkg.dir("KUnet/src")])
+const libkunet = Libdl.find_library(["libkunet"], [Pkg.dir("KUnet/src")])
 
 # For debugging
 function gpumem()

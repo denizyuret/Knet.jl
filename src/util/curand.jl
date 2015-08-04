@@ -1,6 +1,6 @@
 import Base: rand!, randn!
 
-const libcurand = find_library(["libcurand"], [])
+const libcurand = Libdl.find_library(["libcurand"], [])
 RNG=0
 
 function rng(init=false)

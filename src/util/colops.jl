@@ -102,7 +102,7 @@ function ccat!{A,T,N}(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b)))
     clen = clength(a)
     ncols = length(cols)
     n = alen + ncols * clen
-    length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+    length(a.ptr) >= n || resize!(a.ptr, round(Int,resizefactor(KUdense)*n+1))
     for i=1:ncols
         bidx = (cols[i]-1)*clen + 1
         copy!(a.ptr, alen+1, b, bidx, clen)

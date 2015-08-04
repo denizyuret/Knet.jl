@@ -61,7 +61,7 @@ resizefactor(::Type{KUdense})=1.3
 function resize!(a::KUdense, d::Dims)
     size(a)==d && return a
     n = prod(d)
-    n > length(a.ptr) && resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+    n > length(a.ptr) && resize!(a.ptr, round(Int,resizefactor(KUdense)*n+1))
     a.arr = arr(a.ptr, d)
     return a
 end

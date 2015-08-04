@@ -120,7 +120,7 @@ function shufflexy!(x,y)
 end
 
 function strip!(l::Layer)
-    for f in names(l)
+    for f in fieldnames(l)
         isdefined(l,f) || continue
         isa(l.(f), KUparam) && strip!(l.(f))
         in(f, (:x, :x2, :y, :dx, :dy, :xdrop)) && (l.(f)=nothing)

@@ -1,3 +1,7 @@
+2015-08-02  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/bias.jl: Create a @gpu macro.  Work on non-gpu compatibility.
+
 2015-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/kperceptron.jl:

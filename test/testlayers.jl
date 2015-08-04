@@ -71,7 +71,7 @@ end
 
 function getparam(l1::Layer)
     w1 = nothing
-    for n in names(l1); isdefined(l1,n) && isa(l1.(n), KUparam) && (w1=l1.(n); break); end
+    for n in fieldnames(l1); isdefined(l1,n) && isa(l1.(n), KUparam) && (w1=l1.(n); break); end
     return w1
 end
 
@@ -139,17 +139,17 @@ end
 function iseq03(a,b)
     typeof(a)==typeof(b) || return false
     isa(a,Tuple) && return all(map(iseq03, a, b))
-    isempty(names(a)) && return isequal(a,b)
-    for n in names(a)
+    isempty(fieldnames(a)) && return isequal(a,b)
+    for n in fieldnames(a)
         in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
-        in(n, names(b)) || (warn("$n missing");return false)
+        in(n, fieldnames(b)) || (warn("$n missing");return false)
         isdefined(a,n) || continue
         isdefined(b,n) || (warn("$n undefined");return false)
         iseq03(a.(n), b.(n)) || (warn("$n unequal"); return false)
     end
-    for n in names(b)
+    for n in fieldnames(b)
         in(n, (:x,:y,:dx,:dy,:xdrop)) && continue
-        in(n, names(a)) || (warn("$n missing");return false)
+        in(n, fieldnames(a)) || (warn("$n missing");return false)
         isdefined(b,n) || continue
         isdefined(a,n) || (warn("$n undefined");return false)
     end
@@ -207,7 +207,7 @@ end
 function showlayer(l::Layer)
     ans = Any[]
     push!(ans,typeof(l))
-    for n in names(l)
+    for n in fieldnames(l)
         isdefined(l,n) || continue
         f = l.(n)
         push!(ans,n)

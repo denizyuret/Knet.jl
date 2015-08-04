@@ -41,7 +41,7 @@ for ker in (
                 println("\n$ker, $prc, $fmt, $loc")
                 KUnet.gpu(loc == :gpu)
                 for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=copy(MNIST.$p); end
-                prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=float64($p); end)
+                prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=map(Float64,$p); end)
                 fmt == :sparse && (for p in (:xtrn, :xtst); @eval $p=sparse32($p); end)
 
                 xtrn,ytrn=xtst,ytst # DBG: For quick results
