@@ -26,7 +26,7 @@ function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
 end
 
 function cslice!{A,B,T,I}(a::KUsparse{A,T,I}, b::Sparse{B,T,I}, r::UnitRange)
-    bptr = to_host(b.colptr)
+    bptr = cpucopy(b.colptr)
     nz = 0; for i in r; nz += bptr[i+1]-bptr[i]; end
     a.m = b.m
     a.n = length(r)
@@ -120,8 +120,8 @@ function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)))
     # colptr[i]: starting index (in rowval,nzval) of column i
     # colptr[n+1]: nz+1
     @assert size(a,1) == size(b,1)
-    aptr = to_host(a.colptr.arr)
-    bptr = to_host(b.colptr.arr)
+    aptr = cpucopy(a.colptr.arr)
+    bptr = cpucopy(b.colptr.arr)
     na = aptr[a.n+1]-1          # count new nonzero entries in a
     ncols = length(cols)
     for i in cols; na += bptr[i+1]-bptr[i]; end
