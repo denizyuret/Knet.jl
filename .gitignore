@@ -16,3 +16,4 @@ v0.4
 *.pbs.*
 *.pbs
 .cache
+setup.sh
