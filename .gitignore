@@ -17,3 +17,4 @@ v0.4
 *.pbs
 .cache
 setup.sh
+.julia
