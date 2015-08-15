@@ -1,6 +1,39 @@
+2015-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* RNN:
+	- an rnn is still a vector of micro-layers.
+	- we need two new layers, adder and elementwise multiplier for lstm?
+	- each layer (except the adder) has a single input
+	- the input is specified by two indices:
+	-- index into rnn (absolute?), index into time (relative)
+	- the adder can have a list of indices. (should we allow all to
+	have this?)
+	- x, y become a vector of matrices rather than a single matrix
+	- we may want to use different variables for backward
+	compatibility: xlist ylist?
+	- dx, dy?
+	- resetting the vectors?
+	- feeding the input?
+	- backprop?
+
+2015-08-14  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: implement alternatives to adagrad: adam, rmsprop,
+	adadelta. test on bparser.
+
+	* TODO: impement RNNs.
+
+	* TODO: implement maxnorm, norm clipping etc.
+
+	* TODO: doc before release:
+	- Perceptron.
+	- Layers.
+	- Update (including averaging etc.)
+	- ScalLoss?
+
 2015-08-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/bias.jl: Create a @gpu macro.  Work on non-gpu compatibility.
+	* src/bias.jl: TODO: Create a @gpu macro.  Work on non-gpu compatibility.
 
 2015-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
