@@ -6,7 +6,7 @@ function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
         l.(n) = similar(a, T, dims)
         fill != nothing && fill!(l.(n), fill)
     elseif (size(l.(n)) != dims)
-        resize!(l.(n), dims)
+        l.(n) = resize!(l.(n), dims)
     end
     return l.(n)
 end
@@ -28,3 +28,4 @@ clength(a)=(ndims(a)==1 ? length(a) : stride(a,ndims(a)))
 ccount(a)=(ndims(a)==1 ? 1 : size(a,ndims(a)))
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) # size as a matrix
 
+Base.resize!(a::Array, d::Dims)=similar(a, d)

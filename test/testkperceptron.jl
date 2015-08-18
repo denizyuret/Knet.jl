@@ -13,7 +13,7 @@ d0 = 6.0
 c0 = 1.0
 g0 = 0.1
 niter = 100
-nbatch = 100
+nbatch = 128
 net = nothing
 nc = size(ytrn,1)
 
