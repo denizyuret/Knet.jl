@@ -1,3 +1,9 @@
+2015-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* BUG: /home/nlg-02/data07/eng/google-ngram/CompoundWords.dbg:
+	julia my_train_and_random_test.3.jl train.data.part test.data.1
+	gives illegal memory access error.
+
 2015-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* RNN:
