@@ -197,7 +197,7 @@ function kgauss(k::CudaArray{Float64}, x::CudaArray{Float64}, s::CudaArray{Float
     return k
 end
 
-function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{CudaArray,Float32}, p)
+function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
@@ -206,7 +206,7 @@ function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{C
     return k
 end
 
-function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64}, s::Sparse{CudaArray,Float64}, p)
+function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
@@ -231,7 +231,7 @@ function kpolymap(k::CudaArray{Float64}, c, d)
     return k
 end
 
-function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{CudaArray,Float32}, p)
+function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
@@ -240,7 +240,7 @@ function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32}, s::Sparse{Cu
     return k
 end
 
-function kpoly(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64}, s::Sparse{CudaArray,Float64}, p)
+function kpoly(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
