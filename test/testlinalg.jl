@@ -1,5 +1,5 @@
 using KUnet, CUDArt, Base.Test
-require("isapprox.jl")
+include("isapprox.jl")
 
 # Operations needed:
 # mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu
@@ -23,9 +23,9 @@ atb = a1' * b1
 abt = a1 * b1'
 
 info("SparseMatrixCSC")
-@test ab == full(a0 * b0)
-@test atb == full(a0' * b0)
-@test abt == full(a0 * b0')
+@test isapprox(ab, full(a0 * b0))
+@test isapprox(atb, full(a0' * b0))
+@test isapprox(abt, full(a0 * b0'))
 
 info("CudaArray")
 a2 = gpucopy(a1)

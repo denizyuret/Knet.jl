@@ -1,3 +1,4 @@
+using Compat
 using KUnet
 @date include("testdense.jl")
 @date include("testsparse.jl")

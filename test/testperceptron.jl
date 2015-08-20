@@ -1,6 +1,6 @@
 using CUDArt, KUnet, Base.Test
-require("isapprox.jl")
-@time require(Pkg.dir("KUnet/test/mnist.jl"))
+include("isapprox.jl")
+@time include(Pkg.dir("KUnet/test/mnist.jl"))
 
 ytype(X::DataType)=
     (X <: KUsparse{Array} ? KUdense{Array} :

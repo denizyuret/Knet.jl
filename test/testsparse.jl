@@ -1,3 +1,4 @@
+using Compat
 using Base.Test
 using CUDArt
 using KUnet

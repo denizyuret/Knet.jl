@@ -10,14 +10,14 @@ VERSION < v"0.4-" && (nfields(a)=length(names(a)))
 cpucopy(x) = cpucopy_internal(x, ObjectIdDict())
 
 cpucopy_internal(x::Union(Symbol,LambdaStaticData,TopNode,QuoteNode,DataType,UnionType,Task), stackdict::ObjectIdDict) = x
-cpucopy_internal(x::Tuple, stackdict::ObjectIdDict) = ntuple(length(x), i->cpucopy_internal(x[i], stackdict))
+cpucopy_internal(x::Tuple, stackdict::ObjectIdDict) = ntuple(i->cpucopy_internal(x[i], stackdict), length(x))
 cpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("cpucopy of Modules not supported")
 
 function cpucopy_internal(x::Function, stackdict::ObjectIdDict)
     if isa(x.env, Union(MethodTable, Symbol)) || x.env === ()
         return x
     end
-    invoke(cpucopy_internal, Tuple{Any, ObjectIdDict}, x, stackdict)
+    invoke(cpucopy_internal, @compat Tuple{Any, ObjectIdDict}, x, stackdict)
 end
 
 function cpucopy_internal(x, stackdict::ObjectIdDict)
@@ -78,14 +78,14 @@ end
 gpucopy(x) = gpucopy_internal(x, ObjectIdDict())
 
 gpucopy_internal(x::Union(Symbol,LambdaStaticData,TopNode,QuoteNode,DataType,UnionType,Task), stackdict::ObjectIdDict) = x
-gpucopy_internal(x::Tuple, stackdict::ObjectIdDict) = ntuple(length(x), i->gpucopy_internal(x[i], stackdict))
+gpucopy_internal(x::Tuple, stackdict::ObjectIdDict) = ntuple(i->gpucopy_internal(x[i], stackdict), length(x))
 gpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("gpucopy of Modules not supported")
 
 function gpucopy_internal(x::Function, stackdict::ObjectIdDict)
     if isa(x.env, Union(MethodTable, Symbol)) || x.env === ()
         return x
     end
-    invoke(gpucopy_internal, Tuple{Any, ObjectIdDict}, x, stackdict)
+    invoke(gpucopy_internal, @compat Tuple{Any, ObjectIdDict}, x, stackdict)
 end
 
 function gpucopy_internal(x, stackdict::ObjectIdDict)

@@ -165,6 +165,16 @@ function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float64,2}, s::Sparse
     return k
 end
 
+
+### axpb! useful scale and shift transformation: x -> ax+b
+
+axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)
+axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libkunet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x);x)
+axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libkunet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x);x)
+
+
+
+
 ### DEAD CODE:
 
 ### KUSPARSE

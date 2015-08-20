@@ -1,7 +1,7 @@
 using Base.Test
 using CUDArt
 using KUnet
-require(Pkg.dir("KUnet/test/mnist.jl"))
+include(Pkg.dir("KUnet/test/mnist.jl"))
 sparse32{T}(a::Array{T})=convert(SparseMatrixCSC{T,Int32}, a)
 
 xtrn = MNIST.xtrn
@@ -26,8 +26,8 @@ for ker in (
             )
     aa = ss = nothing
     for prc in (
-                :single,
                 :double,
+                :single,
                 )
         for fmt in (
                     :sparse,
@@ -41,7 +41,7 @@ for ker in (
                 println("\n$ker, $prc, $fmt, $loc")
                 KUnet.gpu(loc == :gpu)
                 for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=copy(MNIST.$p); end
-                prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=map(Float64,$p); end)
+                prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=convert(Array{Float64},$p); end)
                 fmt == :sparse && (for p in (:xtrn, :xtst); @eval $p=sparse32($p); end)
 
                 xtrn,ytrn=xtst,ytst # DBG: For quick results

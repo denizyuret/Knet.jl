@@ -187,6 +187,22 @@ __global__ void _A_mul_Bst_64(int my, int xc, double *dy, double *xval, int *xro
   }
 }
 
+__global__ void _axpb32(int n, float a, float b, float *x) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    x[i] = a * x[i] + b;
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _axpb64(int n, double a, double b, double *x) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    x[i] = a * x[i] + b;
+    i += blockDim.x * gridDim.x;
+  }
+}
+
 extern "C" {
 
   void A_mul_Bs_32(int mx, int ns,  float *x,  float *sval, int *srow, int *scol,  float *k) KCALL(_A_mul_Bs_32,mx,ns,x,sval,srow,scol,k);
@@ -220,5 +236,10 @@ extern "C" {
   // #define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
   void At_test(int blk,int thr,int nx, int ns,  float *xval, int *xrow, int *xcol,  float *sval, int *srow, int *scol, float *k) {_Ast_mul_Bs_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
   void A_test(int blk,int thr,int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) {_As_mul_Bs_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
+
+
+  void axpb32(int n, float a, float b, float *x) KCALL(_axpb32,n,a,b,x);
+  void axpb64(int n, double a, double b, double *x) KCALL(_axpb64,n,a,b,x);
+
 }
 

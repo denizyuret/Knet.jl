@@ -3,7 +3,6 @@
 
 type Pool <: Layer; dims; padding; stride; mode; pd; x; y; dx; dy; Pool()=new(); end
 
-if GPU
 
 function Pool(dims::Dims;
               padding=tuple(fill(0,length(dims))...),
@@ -20,35 +19,53 @@ end
 
 Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 
-function forw(l::Pool, x::KUdense{CudaArray}; o...)
+function forw(l::Pool, x; o...)
     initforw(l, x)
-    cudnnPoolingForward(l.pd, l.x.arr, l.y.arr)
+    cudnnPoolingForward(l.pd, l.x, l.y)
     return l.y
 end
 
-function initforw(l::Pool, x::KUdense{CudaArray})
+function initforw(l::Pool, x)
     l.x = x
-    similar!(l, :y, l.x, cudnnGetPoolingNdForwardOutputDim(l.pd, l.x.arr))
+    similar!(l, :y, x, cudnnGetPoolingNdForwardOutputDim(l.pd, x))
 end
 
-function back(l::Pool, dy::KUdense{CudaArray}; returndx=true, o...)
+function back(l::Pool, dy; returndx=true, o...)
     returndx || return
     initback(l, dy)
-    cudnnPoolingBackward(l.pd, l.y.arr, l.dy.arr, l.x.arr, l.dx.arr)
+    cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
     return l.dx
 end
 
-function initback(l::Pool, dy::KUdense{CudaArray})
+function initback(l::Pool, dy)
     @assert issimilar(dy, l.y)
     # l.dy = ((size(dy) == size(l.y)) ? dy : reshape(dy, size(l.y)))
+    l.dy = dy
     similar!(l, :dx, l.x)
 end
 
-else
 
-warn("No cpu pool")
+# Make things work with KUdense
 
-end # if GPU
+CUDNN.cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, x::KUdense)=cudnnGetPoolingNdForwardOutputDim(pd, x.arr)
+CUDNN.cudnnPoolingForward(pd::PoolingDescriptor, x::KUdense, y::KUdense)=(cudnnPoolingForward(pd, x.arr, y.arr);y)
+CUDNN.cudnnPoolingBackward(pd::PoolingDescriptor, y::KUdense, dy::KUdense, x::KUdense, dx::KUdense)=(cudnnPoolingBackward(pd, y.arr, dy.arr, x.arr, dx.arr);dx)
+
+
+# Make things work with CPU (for now)
+
+CUDNN.cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, x::Array)=cudnnGetPoolingNdForwardOutputDim(pd, CudaArray(x))
+CUDNN.cudnnPoolingForward(pd::PoolingDescriptor, x::Array, y::Array)=(y1=CudaArray(y);cudnnPoolingForward(pd, CudaArray(x), y1); copy!(y,1,y1,1,length(y)))
+CUDNN.cudnnPoolingBackward(pd::PoolingDescriptor, y::Array, dy::Array, x::Array, dx::Array)=(dx1=CudaArray(dx);cudnnPoolingBackward(pd, CudaArray(y), CudaArray(dy), CudaArray(x), dx1); copy!(dx,1,dx1,1,length(dx)))
+
+
+### DEAD CODE
+
+# else
+
+# warn("No cpu pool")
+
+# end # if GPU
 
 # Let these give error?
 # Pool(x)=Pool()
