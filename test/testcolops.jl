@@ -5,9 +5,7 @@ iseq02(a,b)=(convert(Array,a)==convert(Array,b))
 for B in (
           SubArray,
           SparseMatrixCSC,
-          Sparse{Array},
           KUsparse{Array},
-          Sparse{CudaArray},
           KUsparse{CudaArray},
           Array, 
           CudaArray,

@@ -5,8 +5,6 @@ include("isapprox.jl")
 ytype(X::DataType)=
     (X <: KUsparse{Array} ? KUdense{Array} :
      X <: KUsparse{CudaArray} ? KUdense{CudaArray} :
-     X <: Sparse{Array} ? Array :
-     X <: Sparse{CudaArray} ? CudaArray :
      X <: SparseMatrixCSC ? Array : X)
 
 net=nothing
@@ -16,9 +14,7 @@ w0 = w1 = b0 = b1 = nothing
 
 for X in (
           SparseMatrixCSC{Float32,Int32},
-          Sparse{Array},
           KUsparse{Array},
-          Sparse{CudaArray},
           KUsparse{CudaArray},
           Array, 
           CudaArray,

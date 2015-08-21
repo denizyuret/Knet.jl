@@ -26,49 +26,16 @@ k=convert(Array,j)
 
 aa=sprand(3,5,.5)
 
-info("Sparse")
-bb=convert(Sparse,aa)
-cc=convert(SparseMatrixCSC,bb)
-@test aa==cc
-
 info("KUsparse")
 dd=convert(KUsparse,aa)
 ee=convert(SparseMatrixCSC,dd)
 @test aa==ee
-
-info("Sparse + KUsparse")
-ff=convert(KUsparse, bb)
-gg=convert(SparseMatrixCSC,ff)
-@test aa==gg
-
-info("KUsparse + Sparse")
-hh=convert(Sparse, dd)
-ii=convert(SparseMatrixCSC,hh)
-@test ii==aa
-
-info("Sparse + GPU")
-jj=gpucopy(bb)
-kk=cpucopy(jj)
-ll=convert(SparseMatrixCSC,kk)
-@test ll==aa
 
 info("KUsparse + GPU")
 mm=gpucopy(dd)
 nn=cpucopy(mm)
 oo=convert(SparseMatrixCSC,nn)
 @test oo==aa
-
-info("Sparse + KUsparse + GPU")
-pp=gpucopy(ff)
-qq=cpucopy(pp)
-rr=convert(SparseMatrixCSC,qq)
-@test rr==aa
-
-info("KUsparse + Sparse + GPU")
-ss=gpucopy(hh)
-tt=cpucopy(ss)
-uu=convert(SparseMatrixCSC,tt)
-@test uu==aa
 
 # info("No GPU only conversion")
 

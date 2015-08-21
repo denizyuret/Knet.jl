@@ -73,7 +73,7 @@ barray()=(gpu()?CudaArray:Array)
 # versions for resizeability (cslice!).
 
 xbatch(x,b)=(issparse(x) ?
-             KUsparse(barray(), eltype(x), itype(x), csize(x,b)) : 
+             KUsparse(barray(), eltype(x), csize(x,b)) : 
              KUdense(barray(), eltype(x), csize(x,b)))
 
 # Y batches are always dense, because Y should be always dense.  We
@@ -85,14 +85,11 @@ ybatch(y,b)=KUdense(barray(), eltype(y), csize(y,b))
 # possible except for being dense.
 
 dsimilar(x,d)=(isa(x, SparseMatrixCSC) ? Array(eltype(x), d) :
-               isa(x, Sparse{Array}) ? Array(eltype(x), d) :
-               isa(x, Sparse{CudaArray}) ? CudaArray(eltype(x), d) :
                isa(x, KUsparse) ? KUdense(atype(x), eltype(x), d) :
                isa(x, KUdense) ? KUdense(atype(x), eltype(x), d) :
                similar(x, d))
 
 dtype(x)=(isa(x, SparseMatrixCSC) ? Array :
-          isa(x, Sparse) ? atype(x) :
           isa(x, KUsparse) ? KUdense{atype(x)} :
           isa(x, KUdense) ? KUdense{atype(x)} :
           atype(x))

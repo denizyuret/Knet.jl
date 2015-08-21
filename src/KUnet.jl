@@ -16,7 +16,7 @@ GPU && include("util/curand.jl");
 include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/array.jl");	export BaseArray, csize, ccount, clength, atype
 include("util/dense.jl");	export KUdense
-include("util/sparse.jl");	export KUsparse, Sparse
+include("util/sparse.jl");	export KUsparse
 include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!

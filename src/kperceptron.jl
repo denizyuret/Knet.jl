@@ -145,11 +145,11 @@ kpolymap(k::KUdense, c, d)=(kpolymap(k.arr, c, d); k)
 
 # This is a more efficient implementation that covers kpoly + kpolymap
 # Do we need gpu kpolymap if we use this?
-kpoly{A<:CudaArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kpoly(k.arr, convert(Sparse,x), convert(Sparse,s), p); k)
+kpoly{A<:CudaArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kpoly(k.arr, convert(KUsparse,x), convert(KUsparse,s), p); k)
 
 kgauss(k::KUdense, x::KUdense, s::KUdense, p)=(kgauss(k.arr, x.arr, s.arr, p); k)
-kgauss{A<:BaseArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kgauss(k.arr, convert(Sparse, x), convert(Sparse, s), p); k)
-kgauss(k::Array, x::Sparse{Array}, s::Sparse{Array}, p)=(kgauss(k, convert(SparseMatrixCSC,x), convert(SparseMatrixCSC,s), p); k)
+kgauss{A<:BaseArray}(k::KUdense{A}, x::KUsparse{A}, s::KUsparse{A}, p)=(kgauss(k.arr, convert(KUsparse, x), convert(KUsparse, s), p); k)
+kgauss(k::Array, x::KUsparse{Array}, s::KUsparse{Array}, p)=(kgauss(k, convert(SparseMatrixCSC,x), convert(SparseMatrixCSC,s), p); k)
 
 function kgauss(k::AbstractArray, x::AbstractArray, s::AbstractArray, p)         # 2582
     k = klinear(k, x, s, p) # 1741
@@ -197,7 +197,7 @@ function kgauss(k::CudaArray{Float64}, x::CudaArray{Float64}, s::CudaArray{Float
     return k
 end
 
-function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
+function kgauss(k::CudaArray{Float32}, x::KUsparse{CudaArray,Float32}, s::KUsparse{CudaArray,Float32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
@@ -206,7 +206,7 @@ function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sp
     return k
 end
 
-function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
+function kgauss(k::CudaArray{Float64}, x::KUsparse{CudaArray,Float64}, s::KUsparse{CudaArray,Float64}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kgauss64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
@@ -231,7 +231,7 @@ function kpolymap(k::CudaArray{Float64}, c, d)
     return k
 end
 
-function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
+function kpoly(k::CudaArray{Float32}, x::KUsparse{CudaArray,Float32}, s::KUsparse{CudaArray,Float32}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly32,libkunet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
@@ -240,7 +240,7 @@ function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Spa
     return k
 end
 
-function kpoly(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
+function kpoly(k::CudaArray{Float64}, x::KUsparse{CudaArray,Float64}, s::KUsparse{CudaArray,Float64}, p)
     @assert size(k)==(size(x,2),size(s,2))
     ccall((:kpoly64,libkunet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),

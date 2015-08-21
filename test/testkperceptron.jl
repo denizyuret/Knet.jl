@@ -19,8 +19,8 @@ nc = size(ytrn,1)
 
 
 for ker in (
-            (:kgauss, [g0]),
             (:kpoly, [c0,d0]),
+            (:kgauss, [g0]),
             (:klinear, nothing),
             (:perceptron, nothing),
             )
@@ -34,8 +34,8 @@ for ker in (
                     :dense, 
                     )
             for loc in (
-                        :gpu,
                         :cpu, 
+                        :gpu,
                         )
                 # loc == :gpu && ker[1] == :perceptron && continue
                 println("\n$ker, $prc, $fmt, $loc")
