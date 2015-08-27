@@ -1,21 +1,28 @@
 ## Layers
 
-To be written...
+A layer represents a primitive operation (e.g. matrix multiplication,
+activation function) in KUnet.  One design decision in KUnet has been
+to define layers as fine grained as possible (e.g. separate mmul,
+bias, relu into their own layers) to reduce the number of
+configuration options an facilitate code reuse.  Here is a list of
+layers implemented:
 
-* [Mmul](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl)
-* [Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl)
+* [Mmul](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl): matrix multiplication.
+* [Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl): adds a bias vector.
 
-* [Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl)
-* [Pool](https://github.com/denizyuret/KUnet.jl/blob/master/src/pool.jl)
+* [Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl): convolution.
+* [Pool](https://github.com/denizyuret/KUnet.jl/blob/master/src/pool.jl): pooling.
 
-* [Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl)
+* [Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl): dropout.
 
-* [Logp](https://github.com/denizyuret/KUnet.jl/blob/master/src/logp.jl)
-* [Relu](https://github.com/denizyuret/KUnet.jl/blob/master/src/relu.jl)
-* [Sigm](https://github.com/denizyuret/KUnet.jl/blob/master/src/sigm.jl)
-* [Soft](https://github.com/denizyuret/KUnet.jl/blob/master/src/soft.jl)
-* [Tanh](https://github.com/denizyuret/KUnet.jl/blob/master/src/tanh.jl)
+* [Activation Functions](actf.md) e.g. sigmoid, tanh and relu)
+* [Loss Layers](loss.md) e.g. cross entropy, quadratic
+* [Perceptrons](perceptron.md) perceptrons and kernel perceptrons.
 
-See [Loss Layers](loss.md) for layers implementing loss functions and
-[Perceptrons](perceptron.md) for stand-alone layers implementing
-perceptrons and kernel perceptrons.
+Feed forward, convolutional, recurrent nets and perceptrons are
+constructed by gluing together layers.  For the glue to work, each
+layer has to follow a common interface.  For efficiency, parts of this
+interface has to be flexible (e.g. some layers allocate their outputs,
+others overwrite their inputs to minimize memory usage).  We specify
+the defaults and the exceptions below.
+
