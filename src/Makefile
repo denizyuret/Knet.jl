@@ -1,5 +1,5 @@
 #CFLAGS=-g -L.
-CFLAGS=-O2
+CFLAGS=-O3
 
 libkunet.so: drop.o actf.o loss.o update.o kperceptron.o util/linalg.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
