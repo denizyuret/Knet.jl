@@ -150,6 +150,13 @@ axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libkunet),Voi
 axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libkunet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x);x)
 
 
+### mul2 element-wise multiplication:
+
+mul2!(c::KUdense,a::KUdense,b::KUdense)=(mul2!(c.arr,a.arr,b.arr);c)
+mul2!(c::Array,a::Array,b::Array)=(for i=1:length(c); c[i] = a[i]*b[i]; end; c)
+mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libkunet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c);c)
+mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libkunet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c);c)
+
 
 
 ### DEAD CODE:

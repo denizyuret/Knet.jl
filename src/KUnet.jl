@@ -21,7 +21,8 @@ include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("net.jl");	export Layer, LossLayer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet
+include("net.jl");	export Layer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y
+include("rnn.jl");	export RNN
 include("update.jl");	export update, setparam!
 
 include("mmul.jl");     export Mmul
@@ -29,9 +30,11 @@ include("bias.jl");	export Bias
 include("conv.jl");	export Conv
 include("pool.jl");	export Pool
 include("drop.jl");	export Drop
+include("add2.jl");	export Add2
+include("mul2.jl");	export Mul2
 
-include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
-include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
+include("actf.jl");	export ActfLayer, Logp, Relu, Sigm, Soft, Tanh
+include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
 include("kperceptron.jl"); export KPerceptron
 

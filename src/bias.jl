@@ -5,16 +5,14 @@ param(l::Bias)=l.b
 Bias(d1, d...; o...)=Bias(KUparam(d1, d...; o...))
 Bias(; o...)=Bias(KUparam(0; o...))
 
+overwrites(l::Bias)=true
+back_reads_x(l::Bias)=false
+back_reads_y(l::Bias)=false
+
 function forw(l::Bias, x; o...)
     (b,x)=initforw(l,x;o...)
     biasforw(b,x)
     return x
-end
-
-function back(l::Bias, dy; returndx=true, o...)
-    (db,dy)=initback(l,dy)
-    biasback(db,dy)
-    returndx && (return dy)
 end
 
 function initforw(l::Bias, x; predict=false, o...)
@@ -28,12 +26,25 @@ function initforw(l::Bias, x; predict=false, o...)
     return ((predict && nz(l.b, :average, false)) ? (l.b.avg, x) : (l.b.arr, x))
 end
 
-function initback(l::Bias, dy)
-    initdiff(l.b)
+function back(l::Bias, dy; incr=false, returndx=true, o...)
+    initback(l, dy, incr)
+    if incr
+        biasback(l.b.inc, dy)
+        axpy!(1, l.b.inc, l.b.diff)
+    else
+        biasback(l.b.diff, dy)
+    end
+    if returndx
+        return dy
+    end
+end
+
+function initback(l::Bias, dy, incr)
     nb = size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1)
     @assert length(l.b) == nb
     @assert eltype(l.b) == eltype(dy)
-    return (l.b.diff, dy)
+    similar!(l.b, :diff, l.b.arr)
+    incr && similar!(l.b, :inc, l.b.arr)
 end
 
 # We are implementing the CUDNN_ADD_SAME_C mode of cudnn:

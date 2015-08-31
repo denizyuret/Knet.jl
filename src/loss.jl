@@ -2,6 +2,10 @@
 
 abstract LossLayer <: Layer
 
+overwrites(l::LossLayer)=true
+back_reads_x(l::LossLayer)=false
+back_reads_y(l::LossLayer)=true
+
 # LossLayer has slightly different input/output behavior compared to regular layers:
 # forw only records the outgoing y.
 # back takes z, the desired output, and overwrites it with the loss gradient wrt y
@@ -17,8 +21,8 @@ for (ltype, lback, lloss) in (
                               )
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
-        forw(l::$ltype, y; o...)=(l.y=y)
-        back(l::$ltype, z; returndx=true, o...)=(@assert issimilar(z,l.y); returndx && ($lback(l.y,z); z))
+        forw(l::$ltype, x; o...)=(l.y=x)
+        back(l::$ltype, z; y=l.y, returndx=true, o...)=(@assert issimilar(z,y); returndx && ($lback(y,z); z))
         loss(l::$ltype, z, y=l.y)=(@assert issimilar(z,y); $lloss(y,z))
         $lback(y::KUdense, z::KUdense)=$lback(y.arr, z.arr)
         $lloss(y::KUdense, z::KUdense)=$lloss(y.arr, z.arr)

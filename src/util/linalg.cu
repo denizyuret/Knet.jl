@@ -203,6 +203,22 @@ __global__ void _axpb64(int n, double a, double b, double *x) {
   }
 }
 
+__global__ void _mul2_32(int n, float *x, float *y, float *z) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    z[i] = y[i] * x[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _mul2_64(int n, double *x, double *y, double *z) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    z[i] = y[i] * x[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
 extern "C" {
 
   void A_mul_Bs_32(int mx, int ns,  float *x,  float *sval, int *srow, int *scol,  float *k) KCALL(_A_mul_Bs_32,mx,ns,x,sval,srow,scol,k);
@@ -241,5 +257,6 @@ extern "C" {
   void axpb32(int n, float a, float b, float *x) KCALL(_axpb32,n,a,b,x);
   void axpb64(int n, double a, double b, double *x) KCALL(_axpb64,n,a,b,x);
 
+  void mul2_32(int n, float  *x, float  *y,  float *z) KCALL(_mul2_32,n,x,y,z);
+  void mul2_64(int n, double *x, double *y, double *z) KCALL(_mul2_64,n,x,y,z);
 }
-

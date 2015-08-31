@@ -1,5 +1,12 @@
 type Drop <: Layer; dropout; xdrop; Drop(d)=new(d); end
 
+# TODO: implement Dropout using Mul2
+# TODO: be careful about corrupting the xdrop matrix in RNN
+
+overwrites(l::Drop)=true
+back_reads_x(l::Drop)=false
+back_reads_y(l::Drop)=false
+
 function forw(l::Drop, x; predict=false, xdrop=nothing, seed=nothing, o...)
     if !predict && (l.dropout > 0)
         similar!(l, :xdrop, x)

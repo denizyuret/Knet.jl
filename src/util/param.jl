@@ -1,6 +1,6 @@
 import Base: convert
 
-type KUparam{A,T,N}; arr; diff; init; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; KUparam()=new(); end
+type KUparam{A,T,N}; arr; diff; init; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; inc; KUparam()=new(); end
 
 KUparam(w; o...)=init(setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=w, o...))
 KUparam{A,T}(::Type{A}, ::Type{T}, d::Dims; o...)=KUparam(A(T,d); o...)
@@ -35,7 +35,7 @@ diff(a::KUparam)=a.diff
 
 update(::Nothing;o...)=nothing
 setparam!(::Nothing;o...)=nothing
-initdiff(w::KUparam;o...)=similar!(w, :diff, w.arr)
+initdiff(w::KUparam; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
 
 initzero(a)=(fill!(a,zero(eltype(a))); a)
 initgaussian(a, std=0.01, mean=0.0)=(randn!(a,std,mean); a)

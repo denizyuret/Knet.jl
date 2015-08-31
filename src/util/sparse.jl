@@ -80,6 +80,29 @@ copy{A<:BaseArray,T}(a::KUsparse{A,T})=KUsparse{A,T}(a.m,a.n,copy(a.colptr),copy
 copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32})=(a.m=b.m;a.n=b.n;copy!(a.colptr,b.colptr);copy!(a.rowval,b.rowval);copy!(a.nzval,b.nzval);a)
 copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int64})=copy!(a, convert(SparseMatrixCSC{T,Int32},b))
 
+
+# The final prediction output y should match the input x as closely as
+# possible except for being dense.  These functions support obtaining
+# the dense version of x.
+
+dtype(x)=typeof(x)
+dtype{T}(x::SparseMatrixCSC{T})=Array{T}
+dtype{A,T}(x::KUsparse{A,T})=KUdense{A,T}
+dtype{A,T}(x::KUdense{A,T})=KUdense{A,T}  # this is necessary, otherwise 1-dim x does not match 2-dim y.
+
+dsimilar(x,d::Dims)=similar(x,d)
+dsimilar{T}(x::SparseMatrixCSC{T},d::Dims)=Array(T,d)
+dsimilar{A,T}(x::KUsparse{A,T},d::Dims)=KUdense(A,T,d)
+
+function dsimilar!(l, n, x, dims=size(x))
+    if (!isdefined(l,n) || !isa(l.(n), dtype(x)))
+        l.(n) = dsimilar(x, dims)
+    elseif (size(l.(n)) != dims)
+        l.(n) = resize!(l.(n), dims)
+    end
+    return l.(n)
+end
+
 # type Sparse{A,T,I<:Integer}; m; n; colptr; rowval; nzval; end
 
 # convert{T,I}(::Type{Sparse}, s::SparseMatrixCSC{T,I})=convert(Sparse{Array}, s)

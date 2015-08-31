@@ -3,6 +3,9 @@
 
 type Pool <: Layer; dims; padding; stride; mode; pd; x; y; dx; dy; Pool()=new(); end
 
+overwrites(l::Pool)=false
+back_reads_x(l::Pool)=true
+back_reads_y(l::Pool)=true
 
 function Pool(dims::Dims;
               padding=tuple(fill(0,length(dims))...),
@@ -19,31 +22,25 @@ end
 
 Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 
-function forw(l::Pool, x; o...)
-    initforw(l, x)
+function forw(l::Pool, x; y=nothing, o...)
+    initforw(l, x, y)
     cudnnPoolingForward(l.pd, l.x, l.y)
     return l.y
 end
 
-function initforw(l::Pool, x)
+function initforw(l::Pool, x, y)
     l.x = x
+    y != nothing && (l.y=y)
     similar!(l, :y, x, cudnnGetPoolingNdForwardOutputDim(l.pd, x))
 end
 
-function back(l::Pool, dy; returndx=true, o...)
+function back(l::Pool, dy; x=l.x, y=l.y, returndx=true, o...)
+    @assert issimilar(dy, y)
     returndx || return
-    initback(l, dy)
-    cudnnPoolingBackward(l.pd, l.y, l.dy, l.x, l.dx)
+    similar!(l, :dx, l.x)
+    cudnnPoolingBackward(l.pd, y, dy, x, l.dx)
     return l.dx
 end
-
-function initback(l::Pool, dy)
-    @assert issimilar(dy, l.y)
-    # l.dy = ((size(dy) == size(l.y)) ? dy : reshape(dy, size(l.y)))
-    l.dy = dy
-    similar!(l, :dx, l.x)
-end
-
 
 # Make things work with KUdense
 

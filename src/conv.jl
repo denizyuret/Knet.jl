@@ -1,20 +1,23 @@
 # TODO: generalize to N-D
 # TODO: cpu implementation
 
-type Conv <: Layer; w; x; y; dx; dy; Conv(p::KUparam)=new(p); end
+type Conv <: Layer; w; x; y; dx; Conv(p::KUparam)=new(p); end
 
 Conv(d...; o...)=Conv(KUparam(d...; o...))
 Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, width, 0, nout; o...))
 
 param(l::Conv)=l.w
+overwrites(l::Conv)=false
+back_reads_x(l::Conv)=true
+back_reads_y(l::Conv)=false
 
-function forw(l::Conv, x; o...)
-    initforw(l,x)
+function forw(l::Conv, x; y=nothing, o...)
+    initforw(l,x,y)
     cudnnConvolutionForward(l.x, l.w, l.y)
     return l.y
 end
 
-function initforw(l::Conv, x)
+function initforw(l::Conv, x, y)
     xchannels = size(x)[end-1]  # x dims are (x1, x2, ..., channels, images)
     wsize = [size(l.w)...]
     if isempty(l.w) 
@@ -25,22 +28,28 @@ function initforw(l::Conv, x)
     @assert eltype(x) == eltype(l.w) "$(eltype(x)) != $(eltype(l.w))"
     @assert ndims(x) == ndims(l.w)
     @assert xchannels == wsize[end-1]
+    y != nothing && (l.y = y)
     similar!(l, :y, x, cudnnGetConvolutionNdForwardOutputDim(x, l.w))
     l.x = x
 end
 
-function back(l::Conv, dy; returndx=true, o...)
-    initback(l, dy, returndx)
-    cudnnConvolutionBackwardFilter(l.x, l.dy, l.w)
-    returndx && cudnnConvolutionBackwardData(l.w, l.dy, l.dx)
+function back(l::Conv, dy; x=l.x, incr=false, returndx=true, o...)
+    @assert issimilar(dy, l.y)
+    initback(l, incr, returndx)
+    if incr
+        cudnnConvolutionBackwardFilter(x, dy, l.w.inc)
+        axpy!(1, l.w.inc, l.w.diff)
+    else
+        cudnnConvolutionBackwardFilter(x, dy, l.w.diff)
+    end
+    if returndx
+        cudnnConvolutionBackwardData(l.w, dy, l.dx)
+    end
 end
 
-function initback(l::Conv, dy, returndx)
-    @assert issimilar(dy, l.y)
-    # @assert eltype(dy) == eltype(l.y)
-    # l.dy = (size(dy) == size(l.y) ? dy : reshape(dy, size(l.y)))
-    l.dy = dy
-    initdiff(l.w)
+function initback(l::Conv, incr, returndx)
+    similar!(l.w, :diff, l.w.arr)
+    incr && similar!(l.w, :inc, l.w.arr)
     returndx && similar!(l, :dx, l.x)
 end
 
@@ -49,7 +58,7 @@ end
 
 CUDNN.cudnnGetConvolutionNdForwardOutputDim(x::KUdense, w::KUparam)=cudnnGetConvolutionNdForwardOutputDim(x.arr, w.arr)
 CUDNN.cudnnConvolutionForward(x::KUdense, w::KUparam, y::KUdense)=(cudnnConvolutionForward(x.arr, w.arr, y.arr);y)
-CUDNN.cudnnConvolutionBackwardFilter(x::KUdense, dy::KUdense, w::KUparam)=(cudnnConvolutionBackwardFilter(x.arr, dy.arr, w.diff);w)
+CUDNN.cudnnConvolutionBackwardFilter(x::KUdense, dy::KUdense, w::BaseArray)=(cudnnConvolutionBackwardFilter(x.arr, dy.arr, w);w)
 CUDNN.cudnnConvolutionBackwardData(w::KUparam, dy::KUdense, dx::KUdense)=(cudnnConvolutionBackwardData(w.arr, dy.arr, dx.arr);dx)
 
 # Make things work with CPU (for now)

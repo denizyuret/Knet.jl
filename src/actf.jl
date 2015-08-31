@@ -1,5 +1,11 @@
 # Activation function layers:
 
+abstract ActfLayer <: Layer
+
+overwrites(l::ActfLayer)=true
+back_reads_x(l::ActfLayer)=false
+back_reads_y(l::ActfLayer)=true
+
 ### Common Definitions
 
 for (ltype,lforw,lback) in ((:Sigm, :sigmforw, :sigmback),
@@ -8,9 +14,9 @@ for (ltype,lforw,lback) in ((:Sigm, :sigmforw, :sigmback),
                             (:Soft, :softforw, :softback),
                             (:Logp, :logpforw, :logpback))
     @eval begin
-        type $ltype <: Layer; y; $ltype()=new(); end
-        forw(l::$ltype, y; o...)=($lforw(y); l.y=y)
-        back(l::$ltype, dy; returndx=true, o...)=(@assert issimilar(dy,l.y); returndx && ($lback(l.y, dy); dy))
+        type $ltype <: ActfLayer; y; $ltype()=new(); end
+        forw(l::$ltype, x; o...)=($lforw(x); l.y=x)
+        back(l::$ltype, dy; y=l.y, returndx=true, o...)=(@assert issimilar(dy,y); returndx && ($lback(y, dy); dy))
         $lforw(y::KUdense)=$lforw(y.arr)
         $lback(y::KUdense, dy::KUdense)=$lback(y.arr, dy.arr)
     end
