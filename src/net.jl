@@ -107,7 +107,7 @@ end
 strip!(p::KUparam)=(p.init=p.diff=nothing;p)
 strip!(n::Net)=(for l in n; strip!(l); end; gc(); n)
 
-using HDF5, JLD
+using JLD
 
 function savenet(filename::String, net::Net)
     net = strip!(net)
