@@ -9,13 +9,13 @@ overwrites(l::Bias)=true
 back_reads_x(l::Bias)=false
 back_reads_y(l::Bias)=false
 
-function forw(l::Bias, x; o...)
-    (b,x)=initforw(l,x;o...)
-    biasforw(b,x)
-    return x
+function forw(l::Bias, x; y=x, o...)
+    (b,x,y)=initforw(l,x,y;o...)
+    biasforw(b,x,y)
+    return y
 end
 
-function initforw(l::Bias, x; predict=false, o...)
+function initforw(l::Bias, x, y; predict=false, o...)
     nb = size(x, ndims(x)==1 ? 1 : ndims(x)-1)
     if isempty(l.b) 
         nz(l.b,:init,nothing) || (l.b.init = initzero)
@@ -23,10 +23,10 @@ function initforw(l::Bias, x; predict=false, o...)
     end
     @assert length(l.b) == nb
     @assert eltype(l.b) == eltype(x)
-    return ((predict && nz(l.b, :average, false)) ? (l.b.avg, x) : (l.b.arr, x))
+    return ((predict && nz(l.b, :average, false)) ? (l.b.avg, x, y) : (l.b.arr, x, y))
 end
 
-function back(l::Bias, dy; incr=false, returndx=true, o...)
+function back(l::Bias, dy; dx=dy, incr=false, returndx=true, o...)
     initback(l, dy, incr)
     if incr
         biasback(l.b.inc, dy)
@@ -35,7 +35,7 @@ function back(l::Bias, dy; incr=false, returndx=true, o...)
         biasback(l.b.diff, dy)
     end
     if returndx
-        return dy
+        return (dx===dy ? dx : copy!(dx,dy))
     end
 end
 
@@ -51,14 +51,14 @@ end
 # In this mode if x has dimensions (X1,X2,...,C,N) then
 # bias has length=C.
 
-biasforw(b::Vector, x::Vector)=(for i=1:length(x); x[i] = x[i] + b[i]; end)
+biasforw(b::Vector, x::Vector, y::Vector=x)=(for i=1:length(y); y[i] = x[i] + b[i]; end; y)
 biasback(db::Vector, dy::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
 
-biasforw(b::Vector, x::Array)=(c=ndims(x)-1; for i=1:length(x); x[i] = x[i] + b[ind2sub(size(x),i)[c]]; end)
+biasforw(b::Vector, x::Array, y::Array=x)=(c=ndims(x)-1; for i=1:length(y); y[i] = x[i] + b[ind2sub(size(x),i)[c]]; end; y)
 biasback(db::Vector, dy::Array)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
 
-biasforw(b, x::KUdense)=biasforw(b,x.arr)
+biasforw(b, x::KUdense, y::KUdense=x)=(biasforw(b,x.arr,y.arr); y)
 biasback(db, dy::KUdense)=biasback(db, dy.arr)
 
-GPU && (biasforw(b::CudaArray, x::CudaArray)=cudnnAddTensor(b, x; mode=CUDNN_ADD_SAME_C))
+GPU && (biasforw(b::CudaArray, x::CudaArray, y::CudaArray=x)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C)))
 GPU && (biasback(db::CudaArray, dy::CudaArray)=cudnnConvolutionBackwardBias(dy, db))
