@@ -29,13 +29,13 @@ function initforw(l::Conv, x, y)
     @assert ndims(x) == ndims(l.w)
     @assert xchannels == wsize[end-1]
     y != nothing && (l.y = y)
-    similar!(l, :y, x, cudnnGetConvolutionNdForwardOutputDim(x, l.w))
+    similar!(l, :y, x, cudnnGetConvolutionNdForwardOutputDim(x, l.w)) # TODO: this may end up not using user supplied y!
     l.x = x
 end
 
-function back(l::Conv, dy; x=l.x, incr=false, returndx=true, o...)
+function back(l::Conv, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
     @assert issimilar(dy, l.y)
-    initback(l, incr, returndx)
+    initback(l, incr, returndx, dx)
     if incr
         cudnnConvolutionBackwardFilter(x, dy, l.w.inc)
         axpy!(1, l.w.inc, l.w.diff)
@@ -47,9 +47,10 @@ function back(l::Conv, dy; x=l.x, incr=false, returndx=true, o...)
     end
 end
 
-function initback(l::Conv, incr, returndx)
+function initback(l::Conv, incr, returndx, dx)
     similar!(l.w, :diff, l.w.arr)
     incr && similar!(l.w, :inc, l.w.arr)
+    dx != nothing && (l.dx=dx)
     returndx && similar!(l, :dx, l.x)
 end
 
