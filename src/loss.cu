@@ -39,7 +39,7 @@ __global__ void _logploss64(int n, double scale, double *y, double *dy, double *
 
 extern "C" {
   void logploss32(int n, double s, float *y, float *dy, float *dx) KCALL(_logploss32,n,s,y,dy,dx);
-  void logploss64(int n, double s, double *y, double *dy, float *dx) KCALL(_logploss64,n,s,y,dy,dx);
+  void logploss64(int n, double s, double *y, double *dy, double *dx) KCALL(_logploss64,n,s,y,dy,dx);
 }
 
 __global__ void _xentloss32(int nd, int nx, float *y, float *p, float *dx) {

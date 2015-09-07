@@ -21,7 +21,7 @@ for (ltype, lback, lloss) in (
                               )
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
-        $lback(y::KUdense, dy::KUdense)=$lback(y.arr, dy.arr)
+        $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
         $lloss(y::KUdense, dy::KUdense)=$lloss(y.arr, dy.arr)
         $lloss(y::CudaArray, dy::CudaArray)=$lloss(to_host(y), to_host(dy))
         forw(l::$ltype, x; y=x, o...)=(l.y = (y===x ? y : copy!(y,x)))

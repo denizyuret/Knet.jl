@@ -15,8 +15,8 @@ for (ltype,lforw,lback) in ((:Sigm, :sigmforw, :sigmback),
                             (:Logp, :logpforw, :logpback))
     @eval begin
         type $ltype <: ActfLayer; y; $ltype()=new(); end
-        $lforw(y::KUdense)=$lforw(y.arr)
-        $lback(y::KUdense, dy::KUdense)=$lback(y.arr, dy.arr)
+        $lforw(x::KUdense, y::KUdense=x)=($lforw(x.arr,y.arr);y)
+        $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr);dx)
         forw(l::$ltype, x; y=x, o...)=
             (issimilar(x,y)||error("x/y");l.y=$lforw(x,y))
         back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
@@ -37,7 +37,7 @@ GPU && (tanhforw(x::CudaArray,y::CudaArray=x)=cudnnActivationForward(x,y; mode=C
 GPU && (tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray=dy)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH))
 
 reluforw(x::Array,y::Array=x)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
-reluback(y::Array,dy::Array,dx::Array=dy)=(for i=1:length(dx); dx[i]=(y[i]==0 ? : dy[i]) end; dx)
+reluback(y::Array,dy::Array,dx::Array=dy)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
 GPU && (reluforw(x::CudaArray,y::CudaArray=x)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU))
 GPU && (reluback(y::CudaArray,dy::CudaArray,dx::CudaArray=dy)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU))
 
