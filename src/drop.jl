@@ -29,11 +29,11 @@ function forw(l::Drop, x; y=x, predict=false, xdrop=nothing, seed=nothing, o...)
     return y
 end
 
-function back(l::Drop, dy; returndx=true, o...)
+function back(l::Drop, dy; dx=dy, returndx=true, o...)
     @assert issimilar(dy, l.xdrop) "$(summary(dy)) !~ $(summary(l.xdrop)) $(size(l.xdrop))"
     returndx || return
-    l.dropout > 0 && drop(dy, l.xdrop, l.dropout, 1/(1-l.dropout))
-    return dy
+    l.dropout > 0 && drop(dy, dx, l.xdrop, l.dropout, 1/(1-l.dropout))
+    return dx
 end
 
 drop(x::Array, y::Array, xdrop::Array, dropout::Number, scale::Number)=(for i=1:length(y); y[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]); end; y)
