@@ -10,11 +10,11 @@ back_reads_y(l::Mmul)=false
 
 
 function forw(l::Mmul, x; y=nothing, o...)
-    x == nothing && (return nothing)
     (y, w, x) = initforw(l, x, y; o...)
     A_mul_B!(y, w, x) # y = w * x
-    return y
 end
+
+forw(l::Mmul, ::Void; o...)=nothing
 
 function initforw(l::Mmul, x, y; predict=false, o...)
     l.x = x
@@ -32,15 +32,15 @@ function initforw(l::Mmul, x, y; predict=false, o...)
     # otherwise try l.y which is the array from the previous call
     # if the size is wrong try resizing the array
     y != nothing && (l.y = y)
-    dsimilar!(l, :y, l.x, (wrows, xcols))
+    dsimilar!(l, :y, l.x, (wrows, xcols)) # TODO: this may end up not using user supplied y!
     return ((predict && nz(l.w, :average, false)) ?
             (l.y, l.w.avg, l.x) :
             (l.y, l.w.arr, l.x))
 end
 
-function back(l::Mmul, dy; x=l.x, incr=false, returndx=true, o...)
+function back(l::Mmul, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
     @assert issimilar(dy, l.y)
-    initback(l, incr, returndx)
+    initback(l, incr, returndx, dx)
     if incr
         A_mul_Bt!(l.w.inc, dy, x)
         axpy!(1, l.w.inc, l.w.diff)
@@ -52,9 +52,10 @@ function back(l::Mmul, dy; x=l.x, incr=false, returndx=true, o...)
     end
 end
 
-function initback(l::Mmul, incr, returndx)
+function initback(l::Mmul, incr, returndx, dx)
     similar!(l.w, :diff, l.w.arr)
     incr && similar!(l.w, :inc, l.w.arr)
+    dx != nothing && (l.dx=dx)
     returndx && similar!(l, :dx, l.x)
 end
 
