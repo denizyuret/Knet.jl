@@ -8,8 +8,8 @@ back_reads_y(l::LossLayer)=true
 
 # LossLayer has slightly different input/output behavior compared to regular layers:
 # forw only records the outgoing y.
-# back takes z, the desired output, and overwrites it with the loss gradient wrt y
-# loss takes z, the desired output, and returns a loss value
+# back takes dy, the desired output, and overwrites it with the loss gradient wrt y
+# loss takes dy, the desired output, and returns a loss value
 
 for (ltype, lback, lloss) in (
                               (:QuadLoss, :quadlossback, :quadloss),
@@ -21,29 +21,31 @@ for (ltype, lback, lloss) in (
                               )
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
-        forw(l::$ltype, x; o...)=(l.y=x)
-        back(l::$ltype, z; y=l.y, returndx=true, o...)=(@assert issimilar(z,y); returndx && ($lback(y,z); z))
-        loss(l::$ltype, z, y=l.y)=(@assert issimilar(z,y); $lloss(y,z))
-        $lback(y::KUdense, z::KUdense)=$lback(y.arr, z.arr)
-        $lloss(y::KUdense, z::KUdense)=$lloss(y.arr, z.arr)
-        $lloss(y::CudaArray, z::CudaArray)=$lloss(to_host(y), to_host(z))
+        $lback(y::KUdense, dy::KUdense)=$lback(y.arr, dy.arr)
+        $lloss(y::KUdense, dy::KUdense)=$lloss(y.arr, dy.arr)
+        $lloss(y::CudaArray, dy::CudaArray)=$lloss(to_host(y), to_host(dy))
+        forw(l::$ltype, x; y=x, o...)=(l.y = (y===x ? y : copy!(y,x)))
+        loss(l::$ltype, dy; y=l.y)=(issimilar(dy,y)||error("dy/y"); $lloss(y,dy))
+        back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
+            (issimilar(dy,y)||error("dy/y");returndx && $lback(y,dy,dx))
     end
 end
 
-loss(net::Net, z, y=net[end].y)=loss(net[end], z, y)
+loss(net::Net, dy, y=net[end].y)=loss(net[end], dy, y)
 
 ### QUADLOSS:
 
 # Quadratic loss:
 # l.y stores the model output.
-# z is the desired output.
-# Overwrites z with the gradient of quadratic loss wrt y, i.e. y-z
+# dy is the desired output.
+# Overwrites dy with the gradient of quadratic loss wrt y, i.e. y-dy
 # J = 0.5*sum((yi-zi)^2)
-# dJ/dy = y-z
+# dJ/dy = y-dy
 
-quadloss(y::Array, z::Array)=(cost=zero(Float64); for i=1:length(z); cost += (y[i]-z[i])^2; end; 0.5*cost/ccount(z))
-quadlossback(y::Array, z::Array)=(nx=ccount(z); for i=1:length(z); z[i] = (y[i]-z[i])/nx; end)
-GPU && (quadlossback(y::CudaArray, z::CudaArray)=cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), z))
+quadloss(y::Array, dy::Array)=(cost=zero(Float64); for i=1:length(dy); cost += (y[i]-dy[i])^2; end; 0.5*cost/ccount(dy))
+quadlossback(y::Array, dy::Array, dx::Array=dy)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
+GPU && (quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy)=
+        (dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx))
 
 
 ### SOFTLOSS: 
@@ -64,20 +66,20 @@ GPU && (quadlossback(y::CudaArray, z::CudaArray)=cudnnTransformTensor(1/ccount(y
 # ∂J/∂yk = -pk/yk + (1/Σ yj)
 #        = -pk/yk + 1
 #
-# z = wx			;; z is the input to the soft layer
+# dy = wx			;; dy is the input to the soft layer
 # yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
 # ∂yi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
 #         = (i=k) yi - yi yk
-# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input z
+# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input dy
 #        = Σ (1-pi/yi)((i=k) yi - yi yk)
 #        = Σ ((i=k) yi - yi yk - (i=k) pi + pi yk)
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
-softloss(y::Array,p::Array)=(cost=zero(Float64); for i=1:length(p); p[i]>0 && (cost -= (p[i]*log(y[i]))); end; cost/ccount(p))
-softlossback(y::Array,p::Array)=(nx=ccount(p); for i=1:length(p); p[i] = ((y[i]-p[i])/y[i])/nx; end)
-GPU && (softlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
-GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
+softloss(y::Array,dy::Array)=(cost=zero(Float64); for i=1:length(dy); dy[i]>0 && (cost -= (dy[i]*log(y[i]))); end; cost/ccount(dy))
+softlossback(y::Array,dy::Array,dx::Array=dy)=(nx=ccount(dx); for i=1:length(dx); dx[i] = ((y[i]-dy[i])/y[i])/nx; end; dx)
+GPU && (softlossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=(ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),1/ccount(dy),y,dy,dx);dx))
+GPU && (softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=(ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),1/ccount(dy),y,dy,dx);dx))
 
 
 ### LOGPLOSS:
@@ -88,8 +90,8 @@ GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softl
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
 # Overwrites p with the gradient of the loss wrt y, i.e. exp(y)-p:
 #
-# z = sum(exp(y))   ;; normalization constant (should be 1 here)
-# q = exp(y)/z      ;; model probabilities
+# dy = sum(exp(y))   ;; normalization constant (should be 1 here)
+# q = exp(y)/dy      ;; model probabilities
 # logq = y - logz   ;; model (normalized) log prob
 # dlogz/dy = q      
 #
@@ -100,10 +102,14 @@ GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softl
 #
 # dJ/dy[md] = (1/N) (q[md] - p[md])
 
-logploss(y::Array, p::Array)=(nx = ccount(p); cost = zero(Float64); for i=1:length(p); cost -= (p[i]*y[i]); end; cost/nx)
-logplossback(y::Array, p::Array)=(nx = ccount(p); for i=1:length(p); p[i] = (exp(y[i])-p[i])/nx; end)
-GPU && (logplossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:logploss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
-GPU && (logplossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
+logploss(y::Array, dy::Array)=(nx = ccount(dy); cost = zero(Float64); for i=1:length(dy); cost -= (dy[i]*y[i]); end; cost/nx)
+logplossback(y::Array, dy::Array, dx::Array=dy)=(nx = ccount(dx); for i=1:length(dx); dx[i] = (exp(y[i])-dy[i])/nx; end; dx)
+GPU && (logplossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=
+        (ccall((:logploss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
+               length(dy),1/ccount(dy),y,dy,dx); dx))
+GPU && (logplossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=
+        (ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),
+               length(dy),1/ccount(dy),y,dy,dx); dx))
 
 
 ### XENTLOSS:
@@ -114,9 +120,9 @@ GPU && (logplossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:logpl
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
 # Overwrites p with the gradient of the loss wrt y, i.e. q-p:
 #
-# z = sum(exp(y))   ;; normalization constant
-# q = exp(y)/z      ;; model probabilities
-# logq = y - logz   ;; model (normalized) log prob
+# z = sum(exp(y))    ;; normalization constant
+# q = exp(y)/z       ;; model probabilities
+# logq = y - logz    ;; model (normalized) log prob
 # dlogz/dy = q      
 #
 # J = (1/N) Σ[nc] -p[nc]*logq[nc]  ;; n=1..N: instance, c=1..C: class
@@ -139,25 +145,23 @@ function xentloss(y::Array, p::Array)
     return cost/nx
 end
 
-function xentlossback(y::Array, p::Array)
+function xentlossback(y::Array, p::Array, dx::Array=p)
     (nd,nx) = size2(p)
-    # cuda cannot handle allocation, we will overwrite y for compatibility
-    # qz = similar(p, nd)
     for j=1:nx
         i1=(j-1)*nd+1; i2=j*nd
         z = zero(Float64)
         ymax = typemin(eltype(y)) # subtract ymax for numerical stability
         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
-        for i=i1:i2; y[i] = exp(y[i]-ymax); z+=y[i]; end
-        for i=i1:i2; y[i]/=z; p[i] = (y[i] - p[i])/nx; end
-        #for i=i1:i2; z += (qz[i-i1+1] = exp(y[i]-ymax)); end
-        #for i=i1:i2; p[i] = (qz[i-i1+1]/z - p[i])/nx; end
+        for i=i1:i2; z += exp(y[i]-ymax); end
+        for i=i1:i2; yi = exp(y[i]-ymax)/z; dx[i] = (yi - p[i])/nx; end
     end
-    return p
+    return dx
 end
 
-GPU && (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=((nd,nx)=size2(p);ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p)))
-GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size2(p);ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p)))
+GPU && (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32}=p)=
+        ((nd,nx)=size2(p);ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
+GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64}=p)=
+        ((nd,nx)=size2(p);ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
 
 
 ### PERCLOSS
@@ -171,7 +175,7 @@ GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size
 # gives us size(y)=(nc,nx) where the highest entry in each column of y
 # indicates the predicted class.
 
-# Going back we get a z matrix with size(z)=(nc,nx) where the correct
+# Going back we get a dy matrix with size(dy)=(nc,nx) where the correct
 # answer is marked with the maximum entry in each column.
 # For a given column with input x, if cz is the correct answer and cy
 # is the predicted answer, the multiclass perceptron update rule is:
@@ -189,13 +193,13 @@ GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size
 # is correct, otherwise the correct answer is marked with -1 and the
 # predicted answer is marked with a +1.  The signs might be confusing,
 # this is the gradient of the loss, i.e. going in this direction will
-# increase the loss.  We will overwrite the z matrix.
+# increase the loss.  We will overwrite the dy matrix.
 
 # This update can be seen as the gradient of a perceptron loss
 # function Sum(-y[I]+y[J]) where I are the indices for the correct
 # answers, and J are the indices for predicted answers.
 
-function percloss{T}(y::Array{T}, z::Array{T})
+function percloss{T}(y::Array{T}, dy::Array{T})
     (nc,nx) = size2(y)
     cost = zero(Float64)
     for j=1:nx
@@ -203,30 +207,31 @@ function percloss{T}(y::Array{T}, z::Array{T})
         i1=(j-1)*nc+1; i2=j*nc
         for i=i1:i2
             y[i] > ymax && ((cy,ymax) = (i,y[i]))
-            z[i] > zmax && ((cz,zmax) = (i,z[i]))
+            dy[i] > zmax && ((cz,zmax) = (i,dy[i]))
         end
         (cz != cy) && (cost += y[cy]; cost -= y[cz])
     end
     return cost/nx
 end
 
-function perclossback{T}(y::Array{T}, z::Array{T})
+function perclossback{T}(y::Array{T}, dy::Array{T}, dx::Array{T}=dy)
     (nc,nx) = size2(y)
     for j=1:nx
         (cz,cy,ymax,zmax) = (0,0,typemin(T),typemin(T))
         i1=(j-1)*nc+1; i2=j*nc
         for i=i1:i2
             y[i] > ymax && ((cy,ymax) = (i,y[i]))
-            z[i] > zmax && ((cz,zmax) = (i,z[i]))
-            z[i] = zero(T)
+            dy[i] > zmax && ((cz,zmax) = (i,dy[i]))
+            dx[i] = zero(T)
         end
         # TODO: these should be scaled 1/nx, why isn't our gradient check complaining?
-        (cz != cy) && (z[cz] = -1; z[cy] = 1)
+        (cz != cy) && (dx[cz] = -1; dx[cy] = 1)
     end
+    return dx
 end
 
-GPU && (perclossback(y::CudaArray{Float32}, z::CudaArray{Float32})=((nd,nx)=size2(z);ccall((:percloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,z)))
-GPU && (perclossback(y::CudaArray{Float64}, z::CudaArray{Float64})=((nd,nx)=size2(z);ccall((:percloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,z)))
+GPU && (perclossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=((nd,nx)=size2(dy);ccall((:percloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,dy,dx);dx))
+GPU && (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=((nd,nx)=size2(dy);ccall((:percloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,dy,dx);dx))
 
 
 ### SCALLOSS
@@ -239,4 +244,4 @@ GPU && (perclossback(y::CudaArray{Float64}, z::CudaArray{Float64})=((nd,nx)=size
 # of the existing loss functions would work?
 
 scalloss(y,dy)=error("Not implemented")
-scallossback(y,dy)=scale!(1/ccount(dy), dy)
+scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
