@@ -31,12 +31,13 @@ end
 function initforw(l::Pool, x, y)
     l.x = x
     y != nothing && (l.y=y)
-    similar!(l, :y, x, cudnnGetPoolingNdForwardOutputDim(l.pd, x))
+    similar!(l, :y, x, cudnnGetPoolingNdForwardOutputDim(l.pd, x)) # TODO: this may end up not using user supplied y!
 end
 
-function back(l::Pool, dy; x=l.x, y=l.y, returndx=true, o...)
+function back(l::Pool, dy; dx=nothing, x=l.x, y=l.y, returndx=true, o...)
     @assert issimilar(dy, y)
     returndx || return
+    dx != nothing && (l.dx = dx)
     similar!(l, :dx, l.x)
     cudnnPoolingBackward(l.pd, y, dy, x, l.dx)
     return l.dx
