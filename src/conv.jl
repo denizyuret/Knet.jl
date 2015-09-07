@@ -50,8 +50,10 @@ end
 function initback(l::Conv, incr, returndx, dx)
     similar!(l.w, :diff, l.w.arr)
     incr && similar!(l.w, :inc, l.w.arr)
-    dx != nothing && (l.dx=dx)
-    returndx && similar!(l, :dx, l.x)
+    if returndx
+        dx != nothing && (l.dx=dx)
+        similar!(l, :dx, l.x)
+    end
 end
 
 
