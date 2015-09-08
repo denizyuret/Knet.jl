@@ -1,4 +1,4 @@
-type Mmul <: Layer; w; x; y; dx; Mmul(p::KUparam)=new(p); end
+type Mmul <: Layer; w; x; ybuf; dx; Mmul(p::KUparam)=new(p); end
 
 Mmul(d...; o...)=Mmul(KUparam(d...; o...))
 Mmul(n::Integer; o...)=Mmul(n, 0; o...)
@@ -10,14 +10,14 @@ back_reads_y(l::Mmul)=false
 
 
 function forw(l::Mmul, x; y=nothing, o...)
+    l.x = x
     (y, w, x) = initforw(l, x, y; o...)
     A_mul_B!(y, w, x) # y = w * x
 end
 
 forw(l::Mmul, ::Void; o...)=nothing
 
-function initforw(l::Mmul, x, y; predict=false, o...)
-    l.x = x
+function initforw(l::Mmul, x, y; train=true, o...)
     (xrows, xcols) = size2(l.x)
     (wrows, wcols) = size(l.w)
     if isempty(l.w) 
@@ -25,40 +25,51 @@ function initforw(l::Mmul, x, y; predict=false, o...)
         wcols=xrows
         init(l.w, eltype(x), (wrows, wcols))
     end
-    @assert ndims(l.w) == 2
-    @assert eltype(l.w) == eltype(x)
-    @assert xrows == wcols
-    # if a y keyword argument has been specified, try using that
-    # otherwise try l.y which is the array from the previous call
-    # if the size is wrong try resizing the array
-    y != nothing && (l.y = y)
-    dsimilar!(l, :y, l.x, (wrows, xcols)) # TODO: this may end up not using user supplied y!
-    return ((predict && nz(l.w, :average, false)) ?
-            (l.y, l.w.avg, l.x) :
-            (l.y, l.w.arr, l.x))
+    ndims(l.w) == 2 || error("ndims(w)!=2")
+    eltype(l.w) == eltype(x) || error("eltype mismatch")
+    xrows == wcols || error("xrows!=wcols")
+    y == nothing && (y = dsimilar!(l, :ybuf, x, (wrows, xcols)))
+    atype(x) == atype(y) || error("atype mismatch")
+    eltype(x) == eltype(y) || error("eltype mismatch")
+    size(y) == (wrows, xcols) || error("ysize mismatch")
+    return ((!train && nz(l.w, :average, false)) ?
+            (y, l.w.avg, x) :
+            (y, l.w.arr, x))
 end
 
 function back(l::Mmul, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
-    @assert issimilar(dy, l.y)
-    initback(l, incr, returndx, dx)
+    initback(l, dy, x, incr)
     if incr
         A_mul_Bt!(l.w.inc, dy, x)
         axpy!(1, l.w.inc, l.w.diff)
     else
-        A_mul_Bt!(l.w.diff, dy, x)        # dw = dy * x'
+        A_mul_Bt!(l.w.diff, dy, x)    # dw = dy * x'
     end
     if returndx
-        At_mul_B!(l.dx, l.w.arr, dy)    # dx = w' * dy
+        dx = initbackx(l,x,dx)
+        At_mul_B!(dx, l.w.arr, dy)    # dx = w' * dy
     end
 end
 
-function initback(l::Mmul, incr, returndx, dx)
+function initback(l::Mmul, dy, x, incr)
+    atype(dy) == atype(x) || error("atype mismatch")
+    eltype(dy) == eltype(x) || error("eltype mismatch")
+    size(dy) == ysize(l,x) || error("ysize mismatch")
     similar!(l.w, :diff, l.w.arr)
     incr && similar!(l.w, :inc, l.w.arr)
-    if returndx
-        dx != nothing && (l.dx=dx)
-        similar!(l, :dx, l.x)
-    end
+end
+
+function initbackx(l::Mmul, x, dx)
+    dx == nothing && (dx = similar!(l, :dx, l.x))
+    issimilar(dx,x) || error("Gradient mismatch")
+    return dx
+end
+
+function ysize(l::Mmul,x)
+    (xrows,xcols) = size2(x)
+    (wrows,wcols) = size(l.w)
+    wcols==0 || wcols==xrows || error("Bad input size")
+    return (wrows,xcols)
 end
 
 # function initback(l::Mmul, dy, x, incr)
