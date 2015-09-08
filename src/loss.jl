@@ -27,7 +27,7 @@ for (ltype, lback, lloss) in (
         forw(l::$ltype, x; y=x, o...)=(l.y = (y===x ? y : copy!(y,x)))
         loss(l::$ltype, dy; y=l.y)=(issimilar(dy,y)||error("dy/y"); $lloss(y,dy))
         back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
-            (issimilar(dy,y)||error("dy/y");returndx && $lback(y,dy,dx))
+            (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("Mismatch"); $lback(y,dy,dx))
     end
 end
 
