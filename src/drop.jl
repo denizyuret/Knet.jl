@@ -8,8 +8,9 @@ overwrites(l::Drop)=true
 back_reads_x(l::Drop)=false
 back_reads_y(l::Drop)=false
 
-function forw(l::Drop, x; y=x, predict=false, xdrop=nothing, seed=nothing, o...)
-    if !predict && (l.dropout > 0)
+function forw(l::Drop, x; y=x, train=true, xdrop=nothing, seed=nothing, o...)
+    issimilar(x,y) || error("Input mismatch")
+    if train && (l.dropout > 0)
         similar!(l, :xdrop, y)
         if xdrop != nothing
             copy!(l.xdrop, xdrop)
