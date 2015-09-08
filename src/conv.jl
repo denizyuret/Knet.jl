@@ -1,41 +1,25 @@
 # TODO: generalize to N-D
 # TODO: cpu implementation
 
-type Conv <: Layer; w; x; y; dx; Conv(p::KUparam)=new(p); end
+type Conv <: Layer; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
 
 Conv(d...; o...)=Conv(KUparam(d...; o...))
-Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, width, 0, nout; o...))
+Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, 0, nout; o...))
 
 param(l::Conv)=l.w
 overwrites(l::Conv)=false
 back_reads_x(l::Conv)=true
 back_reads_y(l::Conv)=false
+ysize(l::Conv, x)=(isempty(l.w) && initforw(l,x); cudnnGetConvolutionNdForwardOutputDim(x,l.w))
 
 function forw(l::Conv, x; y=nothing, o...)
-    initforw(l,x,y)
-    cudnnConvolutionForward(l.x, l.w, l.y)
-    return l.y
-end
-
-function initforw(l::Conv, x, y)
-    xchannels = size(x)[end-1]  # x dims are (x1, x2, ..., channels, images)
-    wsize = [size(l.w)...]
-    if isempty(l.w) 
-        nz(l.w,:init,nothing) || (l.w.init = initxavier)
-        wsize[end-1]=xchannels
-        init(l.w, eltype(x), tuple(wsize...))
-    end
-    @assert eltype(x) == eltype(l.w) "$(eltype(x)) != $(eltype(l.w))"
-    @assert ndims(x) == ndims(l.w)
-    @assert xchannels == wsize[end-1]
-    y != nothing && (l.y = y)
-    similar!(l, :y, x, cudnnGetConvolutionNdForwardOutputDim(x, l.w)) # TODO: this may end up not using user supplied y!
     l.x = x
+    y = initforw(l,x,y)
+    cudnnConvolutionForward(x, l.w, y)
 end
 
 function back(l::Conv, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
-    @assert issimilar(dy, l.y)
-    initback(l, incr, returndx, dx)
+    initback(l, dy, x, incr)
     if incr
         cudnnConvolutionBackwardFilter(x, dy, l.w.inc)
         axpy!(1, l.w.inc, l.w.diff)
@@ -43,63 +27,59 @@ function back(l::Conv, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
         cudnnConvolutionBackwardFilter(x, dy, l.w.diff)
     end
     if returndx
-        cudnnConvolutionBackwardData(l.w, dy, l.dx)
+        dx = initbackx(l,x,dx)
+        cudnnConvolutionBackwardData(l.w, dy, dx)
     end
 end
 
-function initback(l::Conv, incr, returndx, dx)
+function initback(l::Conv, dy, x, incr)
+    @assert issimilar(dy, l.y)
+    atype(dy) == atype(x) || error("atype mismatch")
+    eltype(dy) == eltype(x) || error("eltype mismatch")
+    size(dy) == ysize(l,x) || error("ysize mismatch")
     similar!(l.w, :diff, l.w.arr)
     incr && similar!(l.w, :inc, l.w.arr)
-    if returndx
-        dx != nothing && (l.dx=dx)
-        similar!(l, :dx, l.x)
-    end
 end
 
+function initbackx(l::Conv, x, dx)
+    dx == nothing && (dx = similar!(l, :dx, x))
+    issimilar(dx,x) || error("Gradient mismatch")
+    return dx
+end
+
+function initforw(l::Conv, x)
+    n = ndims(x)
+    c = size(x)[n-1]  # x dims are (x1, x2, ..., channels, images)
+    if isempty(l.w) 
+        nz(l.w,:init,nothing) || (l.w.init = initxavier)
+        r = size(l.w, 1)
+        o = size(l.w, ndims(l.w))
+        wsize = ntuple(i->(i<n-1 ? r : i==n-1 ? c : o), n)
+        init(l.w, eltype(x), wsize)
+    end
+    eltype(x) == eltype(l.w) || "$(eltype(x)) != $(eltype(l.w))"
+    n == ndims(l.w) || error("ndims mismatch")
+    c == size(l.w)[n-1] || error("channel mismatch")
+    ys = ysize(l,x)
+    y == nothing && (y = similar!(l, :ybuf, x, ys))
+    typeof(y) == typeof(x) || error("Type mismatch")
+    size(y) == ys || error("Size mismatch")
+    return y
+end
 
 # Make things work with KUdense
 
-CUDNN.cudnnGetConvolutionNdForwardOutputDim(x::KUdense, w::KUparam)=cudnnGetConvolutionNdForwardOutputDim(x.arr, w.arr)
-CUDNN.cudnnConvolutionForward(x::KUdense, w::KUparam, y::KUdense)=(cudnnConvolutionForward(x.arr, w.arr, y.arr);y)
-CUDNN.cudnnConvolutionBackwardFilter(x::KUdense, dy::KUdense, w::BaseArray)=(cudnnConvolutionBackwardFilter(x.arr, dy.arr, w);w)
-CUDNN.cudnnConvolutionBackwardData(w::KUparam, dy::KUdense, dx::KUdense)=(cudnnConvolutionBackwardData(w.arr, dy.arr, dx.arr);dx)
+import CUDNN: cudnnGetConvolutionNdForwardOutputDim, cudnnConvolutionForward, cudnnConvolutionBackwardFilter, cudnnConvolutionBackwardData
+
+cudnnGetConvolutionNdForwardOutputDim(x::KUdense, w::KUparam)=cudnnGetConvolutionNdForwardOutputDim(x.arr, w.arr)
+cudnnConvolutionForward(x::KUdense, w::KUparam, y::KUdense)=(cudnnConvolutionForward(x.arr, w.arr, y.arr);y)
+cudnnConvolutionBackwardFilter(x::KUdense, dy::KUdense, w::BaseArray)=(cudnnConvolutionBackwardFilter(x.arr, dy.arr, w);w)
+cudnnConvolutionBackwardData(w::KUparam, dy::KUdense, dx::KUdense)=(cudnnConvolutionBackwardData(w.arr, dy.arr, dx.arr);dx)
 
 # Make things work with CPU (for now)
 
-CUDNN.cudnnGetConvolutionNdForwardOutputDim(x::Array, w::Array)=cudnnGetConvolutionNdForwardOutputDim(CudaArray(x),CudaArray(w))
-CUDNN.cudnnConvolutionForward(x::Array, w::Array, y::Array)=(y1=CudaArray(y);cudnnConvolutionForward(CudaArray(x), CudaArray(w), y1);copy!(y,1,y1,1,length(y)))
-CUDNN.cudnnConvolutionBackwardFilter(x::Array, dy::Array, w::Array)=(w1=CudaArray(w);cudnnConvolutionBackwardFilter(CudaArray(x), CudaArray(dy), w1); copy!(w,1,w1,1,length(w)))
-CUDNN.cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArray(dx);cudnnConvolutionBackwardData(CudaArray(w), CudaArray(dy), dx1); copy!(dx,1,dx1,1,length(dx)))
-
-
-
-# DEAD CODE:
-
-# function forw(l::Conv, x; o...)
-#     # a = KUnet.Atype
-#     # KUnet.atype(CudaDynArray)
-#     y = forw(copy(l), CudaDynArray(x); o...)
-#     # KUnet.atype(a)
-#     l.x = x
-#     l.y = to_host(y)
-# end
-
-# function back(l::Conv, dy; o...)
-#     # error("CPU conv not implemented")
-#     a = KUnet.Atype
-#     KUnet.atype(CudaDynArray)
-#     ll = copy(l); ll.y = CudaDynArray(l.y); ll.x = CudaDynArray(l.x)
-#     dx = back(ll, CudaDynArray(dy); o...)
-#     KUnet.atype(a)
-#     l.dy = dy
-#     l.w.diff = to_host(ll.w.diff)
-#     l.dx = to_host(dx)
-# end
-
-# else # if GPU
-# warn("No cpu conv")
-# # Use the default behavior (error):
-# ## forw(l::Conv,x;o...)=(l.x=l.y=x)
-# ## back(l::Conv,dy;o...)=(l.w.diff=l.w.arr; l.dx=l.dy=dy)
-# end # if GPU
+cudnnGetConvolutionNdForwardOutputDim(x::Array, w::Array)=cudnnGetConvolutionNdForwardOutputDim(CudaArray(x),CudaArray(w))
+cudnnConvolutionForward(x::Array, w::Array, y::Array)=(y1=CudaArray(y);cudnnConvolutionForward(CudaArray(x), CudaArray(w), y1);copy!(y,1,y1,1,length(y)))
+cudnnConvolutionBackwardFilter(x::Array, dy::Array, w::Array)=(w1=CudaArray(w);cudnnConvolutionBackwardFilter(CudaArray(x), CudaArray(dy), w1); copy!(w,1,w1,1,length(w)))
+cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArray(dx);cudnnConvolutionBackwardData(CudaArray(w), CudaArray(dy), dx1); copy!(dx,1,dx1,1,length(dx)))
 
