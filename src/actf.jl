@@ -14,13 +14,12 @@ for (ltype,lforw,lback) in ((:Sigm, :sigmforw, :sigmback),
                             (:Soft, :softforw, :softback),
                             (:Logp, :logpforw, :logpback))
     @eval begin
-        type $ltype <: ActfLayer; y; $ltype()=new(); end
+        type $ltype <: ActfLayer; y; dx; $ltype()=new(); end
         $lforw(x::KUdense, y::KUdense=x)=($lforw(x.arr,y.arr);y)
         $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr);dx)
-        forw(l::$ltype, x; y=x, o...)=
-            (issimilar(x,y)||error("x/y");l.y=$lforw(x,y))
+        forw(l::$ltype, x; y=x, o...)=(issimilar(x,y)||error("x/y"); l.y = $lforw(x,y))
         back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
-            (issimilar(dy,y)||error("y/dy");returndx && $lback(y, dy, dx))
+            (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("Mismatch"); $lback(y,dy,dx))
     end
 end
 
