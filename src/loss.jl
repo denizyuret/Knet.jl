@@ -24,8 +24,8 @@ for (ltype, lback, lloss) in (
         $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
         $lloss(y::KUdense, dy::KUdense)=$lloss(y.arr, dy.arr)
         $lloss(y::CudaArray, dy::CudaArray)=$lloss(to_host(y), to_host(dy))
-        forw(l::$ltype, x; y=x, o...)=(l.y = (y===x ? y : copy!(y,x)))
         loss(l::$ltype, dy; y=l.y)=(issimilar(dy,y)||error("dy/y"); $lloss(y,dy))
+        forw(l::$ltype, x; y=x, o...)=(issimilar(x,y)||error("x/y"); l.y = (y===x ? y : copy!(y,x)))
         back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
             (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("Mismatch"); $lback(y,dy,dx))
     end
