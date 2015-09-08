@@ -15,15 +15,18 @@ function forw(l::Bias, x; y=x, o...)
     return y
 end
 
-function initforw(l::Bias, x, y; predict=false, o...)
+function initforw(l::Bias, x, y; train=true, o...)
+    issimilar(x,y) || error("Output mismatch")
     nb = size(x, ndims(x)==1 ? 1 : ndims(x)-1)
     if isempty(l.b) 
         nz(l.b,:init,nothing) || (l.b.init = initzero)
         init(l.b, eltype(x), (nb,))
     end
-    @assert length(l.b) == nb
-    @assert eltype(l.b) == eltype(x)
-    return ((predict && nz(l.b, :average, false)) ? (l.b.avg, x, y) : (l.b.arr, x, y))
+    length(l.b) == nb || error("length mismatch")
+    eltype(l.b) == eltype(x) || error("eltype mismatch")
+    return ((!train && nz(l.b, :average, false)) ? 
+            (l.b.avg, x, y) : 
+            (l.b.arr, x, y))
 end
 
 function back(l::Bias, dy; dx=dy, incr=false, returndx=true, o...)
@@ -35,14 +38,15 @@ function back(l::Bias, dy; dx=dy, incr=false, returndx=true, o...)
         biasback(l.b.diff, dy)
     end
     if returndx
-        return (dx===dy ? dx : copy!(dx,dy))
+        issimilar(dx,dy) || error("Gradient mismatch")
+        (dx===dy ? dx : copy!(dx,dy))
     end
 end
 
 function initback(l::Bias, dy, incr)
     nb = size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1)
-    @assert length(l.b) == nb
-    @assert eltype(l.b) == eltype(dy)
+    length(l.b) == nb || error("length mismatch")
+    eltype(l.b) == eltype(dy) || error("eltype mismatch")
     similar!(l.b, :diff, l.b.arr)
     incr && similar!(l.b, :inc, l.b.arr)
 end
