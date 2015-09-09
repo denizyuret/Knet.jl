@@ -14,10 +14,10 @@ abstract Kernel <: Layer
 
 # The forw function is just mmul applied to a transformed input:
 
-function forw(l::Kernel, x; predict=false, o...)
+function forw(l::Kernel, x; train=true, o...)
     initforw(l, x)
     # kernel fn is defined by subtypes of kernel and returns the kernel matrix K
-    l.y = (predict ? l.w : l.v) * kernel(l)
+    l.y = (train ? l.v : l.w) * kernel(l)
 end
 
 function back(l::Kernel, dy; returndx=false, o...)
