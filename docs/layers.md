@@ -7,22 +7,24 @@ bias, relu into their own layers) to reduce the number of
 configuration options an facilitate code reuse.  Here is a list of
 layers implemented:
 
-* [Mmul](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl), [Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl) matrix multiplication and bias for feed forward nets.
-* [Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl), [Pool](https://github.com/denizyuret/KUnet.jl/blob/master/src/pool.jl) convolution and pooling for convolutional nets.
-* [Add2](https://github.com/denizyuret/KUnet.jl/blob/master/src/add2.jl), [Mul2](https://github.com/denizyuret/KUnet.jl/blob/master/src/mul2.jl) elementwise addition and multiplication for recurrent nets.
-* [Activation Layers](actf.md) layers implementing activation functions, e.g. sigmoid, tanh and relu.
-* [Loss Layers](loss.md) layers implementing loss functions, e.g. cross entropy and quadratic loss.
-* [Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl) dropout layer.
+* [Mmul](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl), [Bias](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl): matrix multiplication and bias for feed forward nets.
+* [Conv](https://github.com/denizyuret/KUnet.jl/blob/master/src/conv.jl), [Pool](https://github.com/denizyuret/KUnet.jl/blob/master/src/pool.jl): convolution and pooling for convolutional nets.
+* [Add2](https://github.com/denizyuret/KUnet.jl/blob/master/src/add2.jl), [Mul2](https://github.com/denizyuret/KUnet.jl/blob/master/src/mul2.jl): elementwise addition and multiplication for recurrent nets.
+* [Activation Layers](actf.md) implement activation functions, e.g. sigmoid, tanh and relu.
+* [Loss Layers](loss.md) implement loss functions, e.g. cross entropy and quadratic loss.
+* [Drop](https://github.com/denizyuret/KUnet.jl/blob/master/src/drop.jl): dropout layer.
 * [Perceptrons](perceptron.md) describes layers for perceptrons and kernel perceptrons.
 
 Feed forward, convolutional, recurrent nets and perceptrons are
 constructed by gluing together layers.  For the glue to work, each
-layer has to follow a common interface.  For efficiency, parts of this
-interface have to be flexible (e.g. some layers allocate their
-outputs, others overwrite their inputs to minimize memory usage).  The
-functions of the interface and their behavior is described below.
+layer has to follow a common interface.  This document describes this
+common Layer interface.
 
-### forw
+### Storage
+
+
+
+### Forward calculation
 
 `forw(l::Layer, x)` takes input x and returns output y, possibly reading and/or writing some internal state.  
 For layers with more than one input (e.g. Add2, Mul2), use `forw(l, x1, x2)`.  `ninputs(l::Layer)` will tell you how many inputs a layer takes.
@@ -46,7 +48,7 @@ To conserve memory several strategies have been implemented:
   - If the y under consideration has the right type but wrong size, it is resized.
   - If all else fails a new y of the right type and size is allocated.
 
-### back
+### Backward calculation
 
 `back(l::Layer, dy)` Let x be the forward input, y the forward output, and w layer weights, if any.
 Let dx, dy, dw stand for the loss gradient with respect to x, y, w.
@@ -78,6 +80,10 @@ calculation.
 <!---
 
 # DEAD TEXT
+
+TODO: rename layer -> op
+
+TODO: mention keyword args forw/y and back/dx.
 
 TODO: consider allocating layers rather than matrices for the RNN.
 Have to figure out weight sharing for Mmul, Conv, and Bias.

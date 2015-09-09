@@ -21,8 +21,8 @@ include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("net.jl");	export Layer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y
-include("rnn.jl");	export RNN
+include("net.jl");	export Layer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize
+# include("rnn.jl");	export RNN
 include("update.jl");	export update, setparam!
 
 include("mmul.jl");     export Mmul

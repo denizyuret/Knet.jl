@@ -173,12 +173,6 @@ Difference 3: rnn's wait until the end of the sequence before "back".
 ;; any back path that does not lead to a bias/conv/mmul can be stopped.
 ;; any forw path that does not lead to an output can be stopped.
 
-
-### Can we have a recursive Net type?
-
-; need to consolidate the types RNN, Net, and Layer.
-; do we append or list when merging?
-
 ### Can we have reversible RNNs?
 
 ;;;; can the x's be recalculated using a reverse forw function?
@@ -189,4 +183,345 @@ Difference 3: rnn's wait until the end of the sequence before "back".
 ;;;; bias is reversible.
 ;;;; tanh/sigm reversible, relu loses information.
 ;;;; i think it is worth thinking about reversible rnn's.
+
+### Input format:
+
+with rnn's we have the option to present forw with:
+1. contiguous input (xdim, minibatch, time)
+2. vs array input (vector of (xdim, minibatch))
+since I am not keeping the other layer outputs contiguous #2 seems better.
+barrett claimed #1 is more efficient but my copy! tests dont show much difference.
+; if we consolidate rnn and fnn types we may need to have two different forw functions
+; that interpret the input as a sequence of minibatches vs as a minibatch.
+;; we could determine that from the type, i.e. Vector of Arrays vs a single Array.
+; the rnn forw function further splits into predict vs train mode.
+
+we dont want a low level forw function that takes the whole sequence?
+it would take less memory to feed in each time step.
+in other words we should take the t=1:T for loop outside the forw.
+in predict mode, don't need to set/read r.h, so no need for time index.
+in train mode we could keep an internal timer.
+however we do need to keep input x[1:T] for back calculations.  
+so preserve using r.x, this also solves the problem of layers that overwrite their input.
+and forw/back never take sequences!
+back can simply accept dy=nothing for some time steps?
+we need to feed x forwards and dy backwards in train.
+no need to use subarrays for r.h.
+but we need to reset t=0 at the start of each sequence
+; actually that will automatically happen if back subtracts from r.t
+should we still keep r.x separate from r.h?
+
+
+### Can we have a recursive Net type?
+
+; need to consolidate the types RNN, Net, and Layer.
+; do we append or list when merging?
+; say we use list
+
+Have an abstract type Net.  It supports:
+forw(nn,x)->y
+back(nn,dy)->dx
+
+We can put multiple nn's together, the resulting thing should also be an Net.
+We should be able to use it as a primitive.
+
+As soon as we have recurrent connections, we need to keep history.
+
+This should work for all r::Net:
+for n=1:N; r.y[n] = forw(r.f[n], r.y[r.inputs[n]]...; o...); end
+
+Except primitive ops, which just implement their own forw.
+; which will just work, due to type overriding.
+Except when reset (x=nothing?) when we should set all r.y[:]=nothing.
+; that is easy to implement
+; for primitives we used nothing as zero matrix so not a good idea.
+; have a reset function instead for rnns.
+Except skip input ffnn's which have to be careful with overwriting layers.
+; when freads > 1 and the first child overwrites, second will have the wrong input.
+Except rnn's which have to store some history for back.
+; does this work for embedded RNNs?
+
+A Layer is a Net.
+A RNN is a Net.
+RNN consists of a list of Nets, and their input specs.
+
+Net : RNN | Layer
+RNN : List<Net>, Inputs
+
+We don't need three types, we only need two:
+
+Layer : Net | Mmul | ...
+Net   : List<Layer>, Inputs
+
+Layer is a bad name, Atom? Func? Node? Op? Fn? Primitive?
+Caffe calls them Layer, Theano calls them Op.  Go with Op:
+
+### Recursive Net type, Try 2:
+
+Op : Net | Mmul | ...
+Net: List<Op>, Inputs
+
+Each Op supports:
+forw(op,x)  -> y
+back(op,dy) -> dx
+
+Storage for y and dx:
+- Either x and dy are overwritten
+- Or internal storage resized and used (in which case it is overwritten next call)
+- overwrites(op) tells us which.
+- overwrites(net) has to figure it out from its components.
+- in case of net, both overwriting and internal storage may be used, PrimOps use one or the other.
+- PrimOps always overwrite dy? or only when x is overwritten?
+;; seems the second: mmul,mul2,conv,pool allocate; bias,add2,actf,loss,drop overwrite (or pass without overwriting, which should be marked as overwrite)
+;; when is dy used more than once?  only when there is more than one input: mul2 and add2.
+;; so it is ok to assume dy always overwritten.
+- overwrites(net) is true if any of its ops with input=0 overwrites.
+- supporting multi-input Ops is tricky, add2 only overwrites its second argument.
+;; we could just not overwrite, but it also passes dy back twice?  we pass dy and a copy of dy.
+;; mul2 allocates dx1 and dx2, we could similarly use dy for one of them.
+
+Overwriting is important in forw(net)
+- if an r.y[i] is going to be overwritten but it is going to be used again, it needs to be copied to r.y[n].
+- so if we just don't overwrite in add2, all will be simplified and forw is done.
+
+Back:
+- in ffnn's and PrimOps there is a forw and back after every input.
+- in rnn's there is multiple forw followed by an equal number of back.
+- we could also run multiple forw in ffnn's as long as we remember stuff for back.
+- can we make PrimOps smarter to keep multiple x's or y's for training?
+;; PrimOps that support multiple forw followed by multiple backs: that way Net does not have to remember anything.
+;; there is two types of forw: predict and train.
+;; for predict we don't have to remember anything, there is no back.
+;; for train each Op can keep track of the stuff it needs for back.
+;; should we copy or point?  always copy, everything can be overwritten?
+;; each PrimOp that keeps state needs a timer t.  forw(train) increments, back decrements 
+;; forw(predict) does not touch timer t (do we need reset?)
+;; back_reads_x: conv, pool, mmul, mul2
+;; back_reads_y: actf, loss, pool
+
+Can we really simplify RNNs?
+forw simply calls forw of each op.
+back simply calls back of each op in reverse.
+everybody keeps track of t.
+we don't need back_reads_x and back_reads_y.
+do we have to have overwrites? can't we assume we always overwrite?
+we could copy any x with multiple forwreads.
+
+Can we use this for non-RNNs?
+t would only be 1.
+layers would store what they will need.
+any unnecessary copying?
+have to store y -> others may write on it.
+possible extra storage of x -> if interm layer it was going to get overwritten, if first layer it is the original input, somebody else may read and overwrite.
+
+Problem:
+same input will be stored multiple times by different Ops.
+Example: 
+- lstm needs x, h for mmul.x for 4 different mmul pairs.
+- it needs i, f, o, c1, c, c2 for mul2.x.
+- it needs i, f, o, c1, c2 for actf.y.
+So the union is 8 cells.  If each unit copies we have 19.  We have shared references.
+
+Can we keep reference counts?  Ops never copy, they always point, the increment reference count.
+We don't overwrite if refcount > 0.
+However this does not result in reuse?
+It also does not solve the forw problem, i.e. future forw reads.
+
+Forget it, Net has to keep track of stuff for back and present it to back(op) with specific x,y.
+In which case we are using back(op) as a function, i.e. all inputs specified. Though output still allocated.
+
+Since cells can be shared among ops, we can't rely on ops to do memory management.
+
+
+### Recursive Net type, Try 3:
+
+Op: Mmul | ...
+Net: List<Op>, Inputs
+
+Each Op supports:
+forw(op,x,y)   -> y
+back(op,dy,dx) -> dx
+
+Ops do not allocate outputs or keep record of past inputs, they are memoryless functions.
+
+However if Net is an Op and it needs memory for RNN!
+
+What happens when a Net has a member that is a Net?  Who keeps the memory?
+
+This argues for Nets not to be Ops, when a Net is a member of another, it should be spliced by the constructor.
+
+There should be only one memory manager: implemented inside Net.
+
+We can't have embedded Nets.  Nets cannot be Ops.  However they can be passed to constructors for other nets, which should splice them, so the resulting net is a simple sequence again.
+
+Call them OP and NN?
+
+Net constructor is basically a compiler.
+
+So we are back to having r.y, r.Y, r.dy, etc.  Except the constructor should accept other nets and splice them.
+
+The basic constructor should just do the splicing, fixing the indices.
+
+Compiler should do memory allocation after receiving the first input (initforw)?
+
+r.y should have the minimum number of required arrays, with sharing where possible.
+
+r.y[n] should be passed as an option to forw.  can be shared where appropriate.
+
+Remove all memory management from layers?
+
+r.dy[i] will have to be allocated as well (initback), again with sharing where possible.
+
+We will still keep stepwise forw and stepwise back.
+
+NO: We need allocy(op,x) and forw(op,x;y=allocy(op,x)) or forw(op,x;y=x) supported for each op.  
+;; no need if we use resize
+NO: forget about keeping and reusing l.y.
+;; We can still have y=nothing as a keyword arg and use y=x or y=l.y if not specified.
+
+We won't know the sizes unless we do a trial run, which we can after the first x.
+OK: Or we can just assign size-0 KUdense everywhere and have layers resize as appropriate?
+OK: We also need to resize appropriately?  should rnn do this or the ops? ops can do it.
+In which case we don't need allocy except internally to an Op.  
+
+TODO: after testing:
+RENAME: KUdense -> KUarray
+RENAME: Net -> delete
+RENAME: RNN -> Net
+RENAME: Layer -> Op
+RENAME: predict=false -> train=true
+
+During construction and compilation we will know N but we wont know T.
+So things with T dimensions: r.x, r.h need to be dynamically resized.
+We can use KUarrays for those as well.
+
+As we are growing r.h adding another column, we need to keep the same
+pattern of shared arrays from the previous column.
+rnn only takes care of sharing: we can keep track of yarray[n] and harray[n] indices.
+or we can keep an example h to be concatenated.
+
+r.t only kept track of by Net.
+during train forw increments, back decrements.
+during predict forw increments (so we know if we are in the beginning and don't use r.y from previous sentence).
+
+what about r.x, do we need it?  do we copy?  
+treat it like another Op.
+since we are modifying the list during Net construction why not add a data Op.
+no input, (just like Rand ops), x output: point or copy?
+just like other layers.
+look at forwreads and backreads.
+0 means no input, 1 means data input.
+we'll have to perform index transformations anyway.
+
+Net constructor: how to splice:
+Initialize the net with the input layer (i.e. op=nothing, inputs=(0,))
+If there is another net member remember it also has an empty input layer.
+we need an index translation table.
+what the user meant by j was the output of the j'th element of his list.
+what the user meant by 0 was the input to the Net.
+we need to turn j into the output index of the j'th element.
+j'th element can be an Op or a Net.
+j could be in the future.
+can we first compute the translation table?
+
+# allocate optimize output registers
+# allocate optimize history registers
+The following should be the code for forw:
+r.output[n] = forw(r.op[n], r.inputs[n]...; y=r.output[n], o...)
+But there is the issue of back pointers at t=1, represented by "nothing" inputs
+We may have to keep the netinputs function.
+(need two names, one for index transformation one for actual input gathering.)
+
+Assumption: A Net cannot have multiple inputs.
+In that case we cannot express LSTM easily, it has four multipliers.
+Think again...
+New design: inputs indicated by 0, -1 etc.
+We use the wrap around convention, i.e. 0 means end-0, -1 means end-1
+;; Alternatively just add to the end of list: 0 means n+1+0, -1 means n+1+1 etc.
+;; when we concatenate the indices 0, -1 etc. point to the last few outputs
+;; add2 and mul2 commutative so I guess it doesn't matter which convention for now.
+so we can store the inputs at the end of h and y
+and we can keep the convention y[n] is the output of op[n].
+and we can get rid of the Data() layer.
+We allow Net's to have multiple inputs as well.
+Can we have the following convention:
+- The first Op in a Net determines the number of inputs: ?
+- The last Op in a Net determines the output: OK.
+
+naming problems:
+opin
+opout
+netin
+netout
+index vs array
+
+We have problems with the nothings.
+
+
+# Implement back
+# test mnist
+
+# back: state of r when back is called:
+# time = T
+# buffer[n] = last output of op[n]
+# stack[n][1..T] = outputs of op[n] for t=1..T
+# back gets dy (desired value of output[N])
+# for n=N:-1:1
+## find output and inputs of op[n] at time T
+## some may be from T-1, look these up from stack
+
+## stack for inputs separated?
+## no stack read/write for direct forw/back?
+## inputs and output contain register ids?
+## build things around get/set registers?
+## have a set of registers that is a subset of ops
+## make some of these registers keep history
+## use push/pop?
+## do we ever need access to reg[n][t] and reg[n][t-1]?
+# op[5][t] has inputs from op[3][t] and op[7][t-1]
+# we are going back so op[7][t] has been processed, it is ok to pop
+# push(r,n) will save the current value of reg[n] on stack
+# pop(r,n) will pop the previous value of reg[n] from stack
+# reg(r,n) returns the current contents of register n
+# we never need to access the stack directly?
+# does pop(r,n) copy to reg[n] or does reg[n] point to stack?
+# is reg[n] a pointer to the top of the stack or actual storage?
+# how do we deal with saving the inputs?
+
+# all real storage is on the stack, there is no buffer
+# when time increases some registers are pushed others overwritten
+# so we need pushable registers with real storage
+# reg(r,n) is just the top of stack(r,n)
+# initially we have real space, i.e. stack is never empty
+# when we push, stack increments its pointer
+# net does not need to keep track of time, individual registers do
+
+# can we have a single stack for all the registers?
+# nobody keeps track of time, we hope push/pops balance
+# where is the real storage?  still should be on stack and regs should just point.
+# so we are pointing to and changing more than the top of the stack.
+# where are the input registers pointing to?
+# registers are all pointers!  none have real storage.
+# input registers originally point to the last input.
+
+net specifies which registers each op is going to use as input and output.
+so before we do forw, we should point the input registers to the net input.
+then we don't have to do anything special in forwinputs.
+
+function forwinput(r::RNN, x, n)
+    map(r.inputs[n]) do i               # return the input matrix or tuple of input matrices to produce r.output[n]
+        i <= 0     ? x[1-i] :           # i <= 0 is used to indicate input x[1-i]
+        i < n      ? r.output[i] :      # 0 < i < n are outputs from the current time slice
+        r.time > 1 ? r.output[i] :	# i >= n are from the previous time slice if r.time > 1
+        nothing                         # nothing represents zero matrix from r.time=0
+    end
+end
+
+if we initialize registers to nothing, and copy the inputs, all will be fine and there will be no need for forwinput.
+
+On the one hand we want reg[i]=nothing for uninitialized inputs
+On the other hand we want reg[o]!=nothing for storage
+Note that o==i is possible in which case we definitely want reg[o]==nothing initially
+On the third hand we want to use the same storage for reg[o] from last minibatch
+Keep an initial storage for each register?
 
