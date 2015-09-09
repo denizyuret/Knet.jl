@@ -28,4 +28,5 @@ clength(a)=(ndims(a)==1 ? length(a) : stride(a,ndims(a)))
 ccount(a)=(ndims(a)==1 ? 1 : size(a,ndims(a)))
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) # size as a matrix
 
-Base.resize!(a::Array, d::Dims)=similar(a, d)
+# This does not work in place!
+# Base.resize!(a::Array, d::Dims)=similar(a, d)
