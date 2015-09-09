@@ -18,6 +18,9 @@ end
 forw(l::Mul2, ::Void, ::Void; o...)=nothing
 forw(l::Mul2, x1, ::Void; o...)=nothing
 forw(l::Mul2, ::Void, x2; o...)=nothing
+ysize(l::Mul2, ::Void, ::Void)=nothing
+ysize(l::Mul2, x1, ::Void)=nothing
+ysize(l::Mul2, ::Void, x2)=nothing
 
 function initforw(l::Mul2, x1, x2, y)
     issimilar(x1,x2) || error("Input mismatch")
