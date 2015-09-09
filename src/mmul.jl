@@ -8,6 +8,8 @@ overwrites(l::Mmul)=false
 back_reads_x(l::Mmul)=true
 back_reads_y(l::Mmul)=false
 
+# TODO: consolidate part of this code in common with conv.jl
+# TODO: upgrade conv.jl, pool.jl, CUDNN.jl to the new CUDNN library
 
 function forw(l::Mmul, x; y=nothing, o...)
     l.x = x
@@ -18,7 +20,7 @@ end
 forw(l::Mmul, ::Void; o...)=nothing
 
 function initforw(l::Mmul, x, y; train=true, o...)
-    (xrows, xcols) = size2(l.x)
+    (xrows, xcols) = size2(x)
     (wrows, wcols) = size(l.w)
     if isempty(l.w) 
         nz(l.w,:init,nothing) || (l.w.init = initgaussian)
@@ -60,7 +62,7 @@ function initback(l::Mmul, dy, x, incr)
 end
 
 function initbackx(l::Mmul, x, dx)
-    dx == nothing && (dx = similar!(l, :dx, l.x))
+    dx == nothing && (dx = similar!(l, :dx, x))
     issimilar(dx,x) || error("Gradient mismatch")
     return dx
 end
@@ -72,24 +74,3 @@ function ysize(l::Mmul,x)
     return (wrows,xcols)
 end
 
-# function initback(l::Mmul, dy, x, incr)
-#     @assert issimilar(dy, l.y)
-#     x != nothing && (l.x = x)
-#     if !incr
-#         initdiff(l.w)
-#         return (l.w.diff, dy, l.x)
-#     else
-#     end
-# end
-
-# function initbackx(l::Mmul, dy, dx)
-#     dx != nothing && (l.dx = dx)
-#     similar!(l, :dx, l.x)
-#     return (l.dx, l.w.arr, dy)
-# end
-
-    # if a y keyword argument has been specified, try using that
-    # otherwise try l.y which is the array from the previous call
-    # if the size is wrong try resizing the array
-    # y != nothing && (l.y = y)
-    

@@ -33,7 +33,6 @@ function back(l::Conv, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
 end
 
 function initback(l::Conv, dy, x, incr)
-    @assert issimilar(dy, l.y)
     atype(dy) == atype(x) || error("atype mismatch")
     eltype(dy) == eltype(x) || error("eltype mismatch")
     size(dy) == ysize(l,x) || error("ysize mismatch")
@@ -47,7 +46,7 @@ function initbackx(l::Conv, x, dx)
     return dx
 end
 
-function initforw(l::Conv, x)
+function initforw(l::Conv, x, y)
     n = ndims(x)
     c = size(x)[n-1]  # x dims are (x1, x2, ..., channels, images)
     if isempty(l.w) 
