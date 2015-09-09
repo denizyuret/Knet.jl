@@ -19,8 +19,9 @@ end
 
 forw(l::Add2, ::Void, ::Void; o...)=nothing
 forw(l::Add2, x1, ::Void; y=nothing, o...)=(y==nothing ? x1 : y===x1 ? x1 : copy!(y,x1))
-forw(l::Add2, ::Void, x2; y=nothing, o...)=(y==nothing ? x2 : y===x2 ? x2 : copy!(y,x2))
-
+forw(l::Add2, ::Void, x2)=forw(l,x2,nothing)
+ysize(l::Add2, ::Void, ::Void)=nothing
+ysize(l::Add2, ::Void, x2)=ysize(l,x2,nothing)
 
 function back(l::Add2, dy; dx=nothing, returndx=true, o...)
     returndx || return
