@@ -8,10 +8,11 @@ abstract Layer
 forw(l::Layer, x...; o...)=error("$(typeof(l)) has not implemented forw")
 back(l::Layer, dy; o...)=error("$(typeof(l)) has not implemented back")
 param(l::Layer)=nothing
+ysize(l::Layer, x...)=size(x[1])
 update(l::Layer; o...)=update(param(l); o...)
 setparam!(l::Layer; o...)=setparam!(param(l); o...)
 ninputs(l::Layer)=1
-overwrites(l::Layer)=error("$(typeof(l)) has not implemented this")
+overwrites(l::Layer,i=1)=error("$(typeof(l)) has not implemented this")
 back_reads_x(l::Layer)=error("$(typeof(l)) has not implemented this")
 back_reads_y(l::Layer)=error("$(typeof(l)) has not implemented this")
 
@@ -40,7 +41,7 @@ function predict(net::Net, x; y=nothing, batch=128, o...)
     for b = 1:batch:ninst
         e  = min(ninst, b + batch - 1)
         xx = cslice!(xx, x, b:e) # 1114
-        yy = forw(net, xx; predict=true, o...) # 11587
+        yy = forw(net, xx; train=false, o...) # 11587
         (y == nothing) && (y = dsimilar(x, (clength(yy), ccount(x))))
         y = ccopy!(y, b, yy)
     end
