@@ -29,10 +29,10 @@ type KPerceptron <: LossLayer
     KPerceptron(nclass,kernel,kparams=nothing)=new(nclass,kernel,kparams)
 end
 
-function forw(l::KPerceptron, x; predict=false, o...)
-    initforw(l, x, predict)    
+function forw(l::KPerceptron, x; train=true, o...)
+    initforw(l, x, train)    
     l.k = l.kernel(l.k, l.x, l.s, l.p)          # l.s generally larger, so we will transpose l.x, e.g. k=x'*s
-    w = (predict ? l.w2 : l.w0)                 # w2 averaged, w0 regular weights
+    w = (train ? l.w0 : l.w2)                   # w2 averaged, w0 regular weights
     A_mul_Bt!(l.y, w, l.k)                      # l.y = w * l.k'
     return l.y
 end
@@ -81,7 +81,7 @@ end
 
 # We only support KUsparse/KUdense for x, s; KUdense for all else.
 
-function initforw(l::KPerceptron, x, predict)
+function initforw(l::KPerceptron, x, train)
     @assert isa(x, KUsparse) || isa(x, KUdense)
     if !isdefined(l,:s)                         # first initialization
         similar!(l,:s,x,size(x,1),0)      	# s matches x in location, sparseness, eltype, orientation
@@ -97,7 +97,7 @@ function initforw(l::KPerceptron, x, predict)
     @assert size(l.s) == (size(l.x,1), size(l.w0,2))
     similar!(l,:y,l.w0,(size(l.w0,1),size(l.x,2)))
     similar!(l,:k,l.w0,(size(l.x,2),size(l.s,2)))
-    if predict && (l.u2 != l.u)
+    if !train && (l.u2 != l.u)
         copy!(l.w2, l.w1)
         axpy!(l.u, l.w0, l.w2)
         l.u2 = l.u
