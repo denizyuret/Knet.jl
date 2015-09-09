@@ -74,3 +74,4 @@ function ysize(l::Mmul,x)
     return (wrows,xcols)
 end
 
+ysize(l::Mmul, ::Void)=nothing
