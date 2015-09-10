@@ -20,13 +20,13 @@ function forw(r::RNN, inputs...; train=true, a...)
     for i = 1:ninputs(r)
         train && pushinput(r,i)
         setinput(r,i,inputs[i])
-        println("in[$i]=$(map(ptr16,inputs)) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("in[$i]=$(map(idx1,inputs)) st=$(map(idx1,r.stack[1:r.sp]))")
     end
     initforw(r)
     for n = 1:nops(r)
-        train && pushy(r,n)
+        train && pushy(r,n)             # TODO: this ends up using a lot of nothing pushes first minibatch
         sety(r,n,forw(op(r,n), getx(r,n)...; y=getybuf(r,n), a...))
-        println("op[$n]:$((typeof(op(r,n)),map(ptr16,getx(r,n))...,ptr16(gety(r,n)))) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("op[$n]:$((typeof(op(r,n)),map(idx1,getx(r,n))...,idx1(gety(r,n)))) st=$(map(idx1,r.stack[1:r.sp]))")
     end
     gety(r,nops(r))
 end
@@ -34,7 +34,7 @@ end
 
 function back(r::RNN, dy; a...)
     setdy(r,nops(r),dy)
-    println("back:dy=$((ptr16(getdy(r,nops(r))),))")
+    println("back:dy=$((idx1(getdy(r,nops(r))),))")
     initback(r)
     for n = nops(r):-1:1
         if getdy(r,n) != nothing        # 'nothing' represents 0 loss gradient
@@ -44,14 +44,14 @@ function back(r::RNN, dy; a...)
             # TODO: zero out the dw
             back(op(r,n), getdy(r,n); incr=true, x=get1x(r,n), y=gety(r,n), dx=get1dxbuf(r,n), a...)
         end
-        println("op[$n]:$((typeof(op(r,n)),:x,map(ptr16,getx(r,n))...,:y,ptr16(gety(r,n)),:dy,ptr16(getdy(r,n)),:dx,map(ptr16,getdxbuf(r,n))...)) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("op[$n]:$((typeof(op(r,n)),:x,map(idx1,getx(r,n))...,:y,idx1(gety(r,n)),:dy,idx1(getdy(r,n)),:dx,map(idx1,getdxbuf(r,n))...)) st=$(map(idx1,r.stack[1:r.sp]))")
         popy(r,n)
-        println("pop[$n]:y=$((ptr16(gety(r,n)),)) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("pop[$n]:y=$((idx1(gety(r,n)),)) st=$(map(idx1,r.stack[1:r.sp]))")
     end
     for i = ninputs(r):-1:1
-        println("in[$i]=$(map(ptr16,(getinput(r,i),))) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("in[$i]=$(map(idx1,(getinput(r,i),))) st=$(map(idx1,r.stack[1:r.sp]))")
         popinput(r,i)
-        println("in[$i]=$(map(ptr16,(getinput(r,i),))) st=$(map(ptr16,r.stack[1:r.sp]))")
+        println("in[$i]=$(map(idx1,(getinput(r,i),))) st=$(map(idx1,r.stack[1:r.sp]))")
     end
 end
 
@@ -82,7 +82,7 @@ getinput(r::RNN,n::Int)=r.reg[r.y[n+nops(r)]]
 pushy(r::RNN,n::Int)=(r.save[n] && pushreg(r,r.y[n]))
 popy(r::RNN,n::Int)=(r.save[n] ? popreg(r,r.y[n]) : r.reg[r.y[n]])
 pushinput(r::RNN,n::Int)=(r.save[n+nops(r)] && pushreg(r,r.y[n+nops(r)]))
-popinput(r::RNN,n::Int)=(r.save[n+nops(r)] ? popreg(r,r.y[n+nops(r)]) : error("Input $n not saved"))
+popinput(r::RNN,n::Int)=(r.save[n+nops(r)] && popreg(r,r.y[n+nops(r)]))
 
 function pushreg(r::RNN,i::Int)
     length(r.stack) <  r.sp && error("Stack error")
@@ -109,7 +109,7 @@ function popreg(r::RNN,i::Int)
     if r.reg[i] == nothing
         r.stack[r.sp] == nothing || warn("popping array over nothing")
     elseif r.stack[r.sp] == nothing
-        warn("popping nothing over array")
+        # warn("popping nothing over array")
     elseif size(r.reg[i]) != size(r.stack[r.sp])
         warn("resizing during pop")
     end
@@ -331,6 +331,7 @@ end
 
 ptr16(x)=(x==nothing ? UInt16(0) : UInt16(Int(pointer(x)) % 65521))
 ptr8(x)=(x==nothing ? UInt8(0) : UInt8(Int(pointer(x)) % 251))
+idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
 
 function initback(r::RNN)
     initdiff(r)
