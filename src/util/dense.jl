@@ -5,6 +5,7 @@ import Base: rand!, randn!, fill!
 import CUDArt: to_host
 
 ### KUdense parametrized by array type, element type, and ndims:
+# TODO: we should get rid of N, because it may change during a resize!
 
 type KUdense{A,T,N}; arr; ptr; end
 
