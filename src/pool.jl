@@ -26,7 +26,9 @@ Pool(d::Int, nd::Int=2; o...)=Pool(tuple(fill(d,nd)...); o...)
 function forw(l::Pool, x; y=nothing, o...)
     l.x = x
     y = initforw(l, x, y)
-    l.y = cudnnPoolingForward(l.pd, x, y)
+    cudnnPoolingForward(l.pd, x, y)
+    similar!(l,:y,y); copy!(l.y,y)
+    return y
 end
 
 function initforw(l::Pool, x, y)
