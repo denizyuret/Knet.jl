@@ -1,5 +1,6 @@
 # TODO: generalize to N-D
 # TODO: cpu implementation
+# TODO: upgrade to new cudnn version
 
 type Conv <: Layer; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
 
@@ -10,7 +11,9 @@ param(l::Conv)=l.w
 overwrites(l::Conv)=false
 back_reads_x(l::Conv)=true
 back_reads_y(l::Conv)=false
-ysize(l::Conv, x)=(isempty(l.w) && initforw(l,x); cudnnGetConvolutionNdForwardOutputDim(x,l.w))
+
+# TODO: this unnecessarily allocates w and y
+ysize(l::Conv, x)=(isempty(l.w) && initforw(l,x,nothing); cudnnGetConvolutionNdForwardOutputDim(x,l.w))
 
 function forw(l::Conv, x; y=nothing, o...)
     l.x = x
@@ -45,6 +48,8 @@ function initbackx(l::Conv, x, dx)
     issimilar(dx,x) || error("Gradient mismatch")
     return dx
 end
+
+# TODO: We should split up the w and y parts and share with Mmul
 
 function initforw(l::Conv, x, y)
     n = ndims(x)
