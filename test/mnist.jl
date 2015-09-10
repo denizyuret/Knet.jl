@@ -28,10 +28,13 @@ function readimages(gz)
     reshape(a, 28*28, convert(Int, length(a)/(28*28)))
 end
 
-xtrn = readimages(xtrn_file)
-ytrn = readlabels(ytrn_file)
-xtst = readimages(xtst_file)
-ytst = readlabels(ytst_file)
+function loadmnist()
+    global xtrn, ytrn, xtst, ytst
+    xtrn = readimages(xtrn_file)
+    ytrn = readlabels(ytrn_file)
+    xtst = readimages(xtst_file)
+    ytst = readlabels(ytst_file)
+end
 
 function train(net, epochs=10)
     for i=1:epochs
@@ -41,5 +44,7 @@ function train(net, epochs=10)
         println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2])))
     end
 end
+
+@date loadmnist()
 
 end
