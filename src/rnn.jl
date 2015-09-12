@@ -1,144 +1,125 @@
 # TODO
-# - try the adding problem with irnn
-# - gradient analysis with adding, should fail
-# - add incremental update of dy and confirm gradient testing is now ok
-# - let forw and back write the input to their own registers
+# + try the adding problem with irnn
+# + gradient analysis with adding, should fail
+# + add incremental update of dy and confirm gradient testing is now ok
+# + let forw and back write the input to their own registers
+# x ops with forw=nothing should accept back=nothing input
+# + minibatching
+# x rethink the 'nothing' optimization, removed from dif but not out?
+# - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
+# - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 # - add gradient clipping
-# - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
 # - performance: do better register optimization
-# - performance: figure out when no back needed
-# - ops with forw=nothing should accept back=nothing input
-# - minibatching
+# - if an op is using an external array, it should not store it.
 
-type RNN; op; inputs; ninputs; save; out; grad; incr; reg; buf; stack; sp;
-    function RNN(a...)
+type RNN; op; inputs; ninputs; save; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
+    function RNN(a...; o...)
         r = new()
         initop(r, a...)
         initinputs(r, a...)
         @assert length(r.op)==length(r.inputs)
         initninputs(r)
-        initreg(r)
         initsave(r)
+        initmulti(r)
         initout(r)
-        initgrad(r)
-        initinc(r)
+        initdif(r)
         initstack(r)
-        initbuf(r)
+        r.dbg = false
+        setparam!(r; o...)
         return r
-    end
-end
-
-setparam!(r::RNN; o...)=(for l in r.op; setparam!(l; o...); end; r)
-update(r::RNN; o...)=(for l in r.op; update(l; o...); end; r)
-loss(r::RNN,y)=(y==nothing ? 0 : loss(r.op[end],y)) # TODO do we need the y==nothing here or in loss.jl?
-init(r::RNN)=fill!(r.reg,nothing)
-
-function forw(r::RNN, inputs...; train=true, a...)
-    length(inputs) == ninputs(r) || error("Wrong number of inputs")
-    for i = 1:ninputs(r)
-        train && pushinput(r,i)
-        setinput(r,i,inputs[i])
-        # println("in[$i]=$(map(idx1,inputs)) st=$(map(idx1,r.stack[1:r.sp]))")
-    end
-    initforw(r)
-    for n = 1:nops(r)
-        train && pushy(r,n)             # TODO: this ends up using a lot of nothing pushes first minibatch
-        sety(r,n,forw(op(r,n), getx(r,n)...; y=getybuf(r,n), a...))
-        # println("op[$n]:$((typeof(op(r,n)),map(idx1,getx(r,n))...,idx1(gety(r,n)))) st=$(map(idx1,r.stack[1:r.sp]))")
-    end
-    gety(r,nops(r))
-end
-
-
-function back(r::RNN, dy; a...)
-    setdy(r,nops(r),dy)
-    # println("back:dy=$((idx1(getdy(r,nops(r))),))")
-    initback(r)
-    for n = nops(r):-1:1
-        if getdy(r,n) != nothing        # 'nothing' represents 0 loss gradient
-            # TODO: returndx=false when we reach network input
-            # DONE: buf gets the result but reg is still nothing? no need for buf/reg distinction in back
-            # DONE: zero out the dw
-            back(op(r,n), getdy(r,n); incr=true, x=get1x(r,n), y=gety(r,n), dx=get1dxbuf(r,n), a...)
-            # TODO: incremental updates
-            for i in r.inputs[n]
-                r.incr[i] > 0 && axpy!(1, r.reg[r.incr[i]], r.reg[r.grad[i]])
-            end
-            r.incr[n] > 0 && fill!(r.reg[r.grad[n]], 0)
-        end
-        # println("op[$n]:$((typeof(op(r,n)),:x,map(idx1,getx(r,n))...,:y,idx1(gety(r,n)),:dy,idx1(getdy(r,n)),:dx,map(idx1,getdxbuf(r,n))...)) st=$(map(idx1,r.stack[1:r.sp]))")
-        popy(r,n)
-        # println("pop[$n]:y=$((idx1(gety(r,n)),)) st=$(map(idx1,r.stack[1:r.sp]))")
-    end
-    for i = ninputs(r):-1:1
-        # println("in[$i]=$(map(idx1,(getinput(r,i),))) st=$(map(idx1,r.stack[1:r.sp]))")
-        popinput(r,i)
-        # println("in[$i]=$(map(idx1,(getinput(r,i),))) st=$(map(idx1,r.stack[1:r.sp]))")
     end
 end
 
 ninputs(r::RNN)=r.ninputs
 nops(r::RNN)=length(r.op)
-op(r::RNN,n::Int)=r.op[n]
-
-gety(r::RNN,n::Int)=r.reg[r.out[n]]
-getdy(r::RNN,n::Int)=r.reg[r.grad[n]]
-getx(r::RNN,n::Int)=r.reg[r.out[r.inputs[n]]]
-getdx(r::RNN,n::Int)=r.reg[r.grad[r.inputs[n]]]
-
-getbuf(r::RNN,i::Int)=(r.reg[i]!=nothing?r.reg[i]:r.buf[i])
-getybuf(r::RNN,n::Int)=getbuf(r,r.out[n])
-getdybuf(r::RNN,n::Int)=getbuf(r,r.grad[n])
-getxbuf(r::RNN,n::Int)=map(i->getybuf(r,i),r.inputs[n])
-getdxbuf(r::RNN,n::Int)=map(i->getdybuf(r,i),r.inputs[n])
-
+setparam!(r::RNN; o...)=(for l in r.op; setparam!(l; o...); end; r)
+update(r::RNN; o...)=(for l in r.op; update(l; o...); end; r)
+loss(r::RNN,dy)=(dy==nothing ? 0 : loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)])))
 get1(x)=(length(x)==1?x[1]:x)
-get1x(r::RNN,n::Int)=get1(getx(r,n))
-get1dxbuf(r::RNN,n::Int)=get1(getdxbuf(r,n))
 
-sety(r::RNN,n::Int,x)=(r.reg[r.out[n]]=x)
-setdy(r::RNN,n::Int,x)=(r.reg[r.grad[n]]=x)
-setinput(r::RNN,n::Int,x)=(r.reg[r.out[n+nops(r)]]=x)
-getinput(r::RNN,n::Int)=r.reg[r.out[n+nops(r)]]
+function forw(r::RNN, inputs...; train=true, a...)
+    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+    for i = 1:ninputs(r)
+        n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
+        train && r.save[n] && push(r,n)         # t:140 save old input if necessary
+        r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
+    end
+    for n = 1:nops(r)
+        train && r.save[n] && push(r,n)         # t:327
+        r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], a...)     # ;dbg(r,:out,n) # t:2300
+    end
+    r.out[nops(r)]
+end
 
-pushy(r::RNN,n::Int)=(r.save[n] && pushreg(r,r.out[n]))
-popy(r::RNN,n::Int)=(r.save[n] ? popreg(r,r.out[n]) : r.reg[r.out[n]])
-pushinput(r::RNN,n::Int)=(r.save[n+nops(r)] && pushreg(r,r.out[n+nops(r)]))
-popinput(r::RNN,n::Int)=(r.save[n+nops(r)] && popreg(r,r.out[n+nops(r)]))
+function back(r::RNN, dy; a...)
+    n = nops(r)
+    if dy == nothing
+        r.multi[n] || (r.dif[n] = nothing)
+    elseif r.multi[n]
+        copy!(r.dif1[n], dy)
+        r.dif[n] = axpy!(1,r.dif1[n],r.dif0[n])
+    else
+        r.dif[n] = copy!(r.dif0[n], dy)
+    end
+    for n = nops(r):-1:1
+        if r.dif[n] == nothing
+            for i in r.inputs[n]
+                r.multi[i] || (r.dif[i] = nothing)
+            end
+        else
+            dx = Any[]
+            for i in r.inputs[n]
+                push!(dx, r.multi[i] ? r.dif1[i] : r.dif0[i])
+            end
+            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dx), a...)                        ; dbg(r,:dif,n) # t:2164
+            for i in r.inputs[n]
+                r.multi[i] && axpy!(1, r.dif1[i], r.dif0[i])            ; r.multi[i]&&dbg(r,:dif1,i)
+                r.dif[i] = r.dif0[i]                                    ; dbg(r,:dif,i)
+            end
+            r.multi[n] && fill!(r.dif[n],0)                           ; r.multi[n]&&dbg(r,:dif,n) # t:157
+        end
+        r.save[n] && pop(r,n)                                    ; r.save[n]&&dbg(r,:out,n)
+    end
+    for i = ninputs(r):-1:1
+        n = i+nops(r)
+        r.save[n] && pop(r,n)                                    ; r.save[n] && dbg(r,:out,n)
+    end
+    # TODO: return dx for inputs if asked, do not compute it if not: need for chained nets
+end
 
-function pushreg(r::RNN,i::Int)
+function push(r::RNN,n::Int)
     length(r.stack) <  r.sp && error("Stack error")
     length(r.stack) == r.sp && push!(r.stack, :newcell)
     r.sp += 1
-    if r.reg[i] == nothing
-        r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing")
+    if r.out[n] == nothing                             # TODO: (minor) remove these checks once code is tested
+        r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing over array")
         r.stack[r.sp] = nothing
     elseif r.stack[r.sp] == nothing
-        warn("copying over nothing")
-        r.stack[r.sp] = copy(r.reg[i])
+        warn("pushing array over nothing")
+        r.stack[r.sp] = copy(r.out[n])
     elseif r.stack[r.sp] == :newcell
-        r.stack[r.sp] = copy(r.reg[i])
-    elseif size(r.reg[i]) != size(r.stack[r.sp])
-        warn("resizing during push")
-        copy!(r.stack[r.sp], r.reg[i])
+        r.stack[r.sp] = copy(r.out[n])
+    elseif size(r.out[n]) != size(r.stack[r.sp])
+        warn("pushing array of different size")
+        resize!(r.stack[r.sp], size(r.out[n]))
+        copy!(r.stack[r.sp], r.out[n])
     else
-        copy!(r.stack[r.sp], r.reg[i])
+        copy!(r.stack[r.sp], r.out[n])
     end
 end
 
-function popreg(r::RNN,i::Int)
+function pop(r::RNN,n::Int)
     r.sp > 0 || error("Stack error")
-    if r.reg[i] == nothing
+    if r.out[n] == nothing
         r.stack[r.sp] == nothing || warn("popping array over nothing")
     elseif r.stack[r.sp] == nothing
         # warn("popping nothing over array")
-    elseif size(r.reg[i]) != size(r.stack[r.sp])
-        warn("resizing during pop")
+    elseif size(r.out[n]) != size(r.stack[r.sp])
+        warn("popping different sized array")
     end
-    r.reg[i] = r.stack[r.sp]
+    r.out[n] = r.stack[r.sp]
     r.sp -= 1
-    return r.reg[i]
 end
 
 ### Net initialization
@@ -219,24 +200,30 @@ function initsave(r::RNN)
     end
 end
 
-# r.reg[i] is the i'th register of the Net
-# Each register points to an array allocated elsewhere 
-# or is set to 'nothing' representing the zero matrix
-# These registers are used for network inputs, op outputs, op gradients.
-# initreg(r) just creates an empty array of registers r.reg
-# other init functions below add registers as needed to r.reg
+# r.multi[n] is true if out[n] has fanout > 1.
+# In which case its dif should be incrementally updated.
 
-function initreg(r::RNN)
-    r.reg = Any[]
+function initmulti(r::RNN)
+    nout = zeros(Int, nops(r)+ninputs(r))
+    nout[nops(r)] = 1  # count network output
+    for n=1:nops(r)
+        for i in r.inputs[n]
+            nout[i] += 1
+        end
+    end
+    r.multi = (nout .> 1)
 end
 
-# r.out[n] is the index of the register that holds the output of op[n] (for n<=nops(r))
+# r.out[n] is the array that holds the output of op[n] (for n<=nops(r))
 # or the network input n-nops(r) (for n>nops(r))
-# we optimize register use by overwriting existing ones when we can
+# r.out0[n] holds the actual array, allowing r.out[n]==nothing when necessary
+# we optimize memory use by sharing arrays when we can
+# arrays are initialized empty at this point: 
+# waiting for the first input to decide their final type and size
 
 function initout(r::RNN)
-    r.out = zeros(Int,nops(r)+ninputs(r))
-    index = zeros(Int,nops(r))
+    nout = nops(r)+ninputs(r)
+    index = zeros(Int,nops(r))          # index==0 represents need for new register
     for n=1:nops(r)
         r.save[n] && continue           # a saved register should only be written by op[n]
         if overwrites(r.op[n])
@@ -256,81 +243,57 @@ function initout(r::RNN)
         # Should look for existing regs no longer used
         # this is nontrivial because the sizes are unknown
     end
-    for n=1:ninputs(r)                  # use the first registers for network inputs
-        push!(r.reg,nothing)
-        r.out[n+nops(r)] = length(r.reg)
-    end
+
+    r.out0 = cell(nout)
     for n=1:nops(r)
-        index[n]==0 || continue         # index==0 represents need for new register
-        push!(r.reg,nothing)
-        r.out[n] = length(r.reg)
+        index[n]==0 && (r.out0[n] = Any[])
     end
     for n=1:nops(r)                     # other ops will overwrite existing registers
         index[n]==0 && continue
         k = index[n]
         while index[k]!=0; k=index[k]; end
-        r.out[n] = r.out[k]
+        r.out0[n] = r.out0[k]
     end
+    for n=1:ninputs(r)                  # use the last registers for network inputs
+        r.out0[n+nops(r)] = Any[]
+    end
+    r.out = fill!(cell(nout), nothing)
 end
 
-# r.grad[n] is the index of the register that holds the loss gradient of the last output of op[n] (for n<=nops(r))
-# TODO: this is not optimal for add: no need for two copies of dy when neither input is overwriting.
+# r.dif[n] is the loss gradient of the last output of op[n] (for n<=nops(r))
+# or the network input n-nops(r) (for n>nops(r))
+# r.dif0[n] holds the actual array, r.dif[n] can point to this or be 'nothing' representing zero matrix
+# r.dif1[n] is an extra array for incremental updates if r.multi[n]
 
-function initgrad(r::RNN)
-    ny = nops(r)+ninputs(r)             # 1..nops(r) for op outputs, nops(r)+1..nops(r)+ninputs(r) for network inputs
-    r.grad = zeros(Int,ny)
-    noutputs = zeros(Int,ny)
-    noutputs[nops(r)] = 1               # for the network output
-    for n=1:nops(r)
-        for i in r.inputs[n]
-            noutputs[i] += 1
-        end
-    end
-    index = zeros(Int,ny)
-    for n=1:nops(r)                     # should back(op[n]) overwrite dy[n]?
+function initdif(r::RNN)
+    # TODO: this is not optimal for add: no need for two copies of dy when neither input is overwriting.
+    nout = nops(r)+ninputs(r)           # 1..nops(r) for op outputs, nops(r)+1..nops(r)+ninputs(r) for network inputs
+    index = zeros(Int,nout)             # index==0 represents need for new register
+    for n=1:nops(r)                     # find out if back(op[n]) can overwrite dif[n]
         overwrites(r.op[n]) || continue # overwrites means potentially both forw x<-y and back dy<-dx
-        noutputs[n] > 1 && continue     # don't share dy[n] with multi-output
+        r.multi[n] && continue           # don't share dif[n] with multi-output
         for i in r.inputs[n]
-            noutputs[i] > 1 && continue # don't share dy[n] with multi-output
+            r.multi[i] && continue       # don't share dif[n] with multi-output
             index[i]==0 || error("should not happen")
-            index[i]=n; break           # op[n] will overwrite dy[n] to get dy[i]
+            index[i]=n; break           # op[n] will overwrite dif[n] to get dif[i]
         end
     end
-    for n=1:ny
-        if index[n]==0                  # index==0 represents need for new register
-            push!(r.reg,nothing)
-            r.grad[n] = length(r.reg)
-        end
+    r.dif0 = cell(nout)
+    for n=1:nout
+        index[n]==0 && (r.dif0[n] = Any[])
     end
-    for n=1:ny
+    for n=1:nout
         if index[n] > 0
             k = index[n]
             while index[k]!=0; k=index[k]; end
-            r.grad[n] = r.grad[k]
+            r.dif0[n] = r.dif0[k]
         end
     end
-end
-
-# r.incr[n] is the index of the register that holds the incremental loss gradient of op[n]
-# This is only necessary for op[n] with multiple outputs
-# r.incr[n] = 0 for all other ops
-
-function initinc(r::RNN)
-    ny = nops(r)+ninputs(r)             # 1..nops(r) for op outputs, nops(r)+1..nops(r)+ninputs(r) for network inputs
-    r.incr = zeros(Int,ny)
-    noutputs = zeros(Int,ny)            # TODO: this is also in initgrad, consolidate.
-    noutputs[nops(r)] = 1               # for the network output
-    for n=1:nops(r)
-        for i in r.inputs[n]
-            noutputs[i] += 1
-        end
+    r.dif1 = cell(nout)
+    for n=1:length(r.dif1)
+        r.dif1[n] = r.multi[n] ? Any[] : nothing
     end
-    for n=1:ny
-        if noutputs[n] > 1
-            push!(r.reg,nothing)        # TODO: some of these incr registers may be shared?
-            r.incr[n] = length(r.reg)
-        end
-    end
+    r.dif = fill!(cell(nout), nothing)
 end
 
 function initstack(r::RNN)
@@ -338,45 +301,38 @@ function initstack(r::RNN)
     r.sp = 0
 end
 
-function initbuf(r::RNN)
-    r.buf = copy(r.reg) # array of nothings, initialized at initforw
-end
+# This is run by train/predict before the start of a new sequence of forw's and back's
+# inputs should be the input that will be fed to forw
+# subsequent inputs to forw should have the same size, shape
 
-function initforw(r::RNN)
-    for n = 1:nops(r)
-        xx = getxbuf(r,n)
-        s = ysize(op(r,n), xx...)
-        s == nothing && continue
-        x = xx[1]
-        i = r.out[n]
-        y = getybuf(r,n)
-        if y == nothing
-            y = r.buf[i] = similar(x, s)
-        end
-        if size(y) != s
-            warn("Resizing $(size(y))->$s")
-            y = r.buf[i] = resize!(y,s)
-        end
-        r.reg[i] == y || r.reg[i] == nothing || error("reg mismatch")
-        atype(y) == atype(x) || error("atype mismatch")
-        eltype(y) == eltype(x) || error("eltype mismatch")
+function init(r::RNN, inputs...)
+    r.sp == 0 || error("Stack corruption")
+    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+    fill!(r.out,nothing)
+    for i = 1:ninputs(r)
+        n = i+nops(r)
+        r.out[n] = initarray(r.out0, n, inputs[i])
     end
-end
-
-function initback(r::RNN)
-    initwdif(r)
-    for n = nops(r):-1:1
-        getdy(r,n) == nothing && continue
-        for i in r.inputs[n]
-            y = gety(r,i)
-            y == nothing && error("Lost y")
-            initregi(r, r.grad[i], y)
-            r.incr[i] > 0 && initregi(r, r.incr[i], y)
+    while findfirst(r.out,nothing) > 0
+        nalloc = 0
+        for n = 1:nops(r)
+            r.out[n] == nothing || continue
+            s = ysize(r.op[n], r.out[r.inputs[n]]...)
+            s == nothing && continue        # may happen with recurrent connections
+            r.out[n] = initarray(r.out0, n, r.out[r.inputs[n]][1], s)
+            p = param(r.op[n])
+            p != nothing && isempty(p) && forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n]) # initializes w
+            nalloc += 1
+        end
+        nalloc == 0 && error("Cannot determine size of array")
+    end
+    for n=1:length(r.dif0)
+        initarray(r.dif0, n, r.out[n])
+        if r.multi[n]
+            fill!(r.dif0[n], 0)
+            initarray(r.dif1, n, r.out[n])
         end
     end
-end
-
-function initwdif(r::RNN)
     for l in r.op
         w = param(l)
         w == nothing && continue
@@ -384,27 +340,47 @@ function initwdif(r::RNN)
         similar!(w, :inc, w.arr)
         fill!(w.diff, 0)
     end
+    fill!(r.out,nothing)
+    fill!(r.dif,nothing)
 end
 
-function initregi(r::RNN, i::Int, y, dims=size(y))
-    dy = r.reg[i]
-    dy == nothing && (dy = r.buf[i])
-    if dy == nothing
-        dy = r.buf[i] = similar(y, dims)
+function initarray(a, i, x, dims=size(x))
+    if isempty(a[i])
+        oldai = a[i]
+        at = (gpu()?CudaArray:Array)
+        xt = eltype(x)
+        a[i] = (issparse(x) ? KUsparse(at,xt,dims) : KUdense(at, xt, dims))
+        for j=1:length(a); a[j]===oldai && (a[j]=a[i]); end # preserve array sharing
+    elseif eltype(a[i]) != eltype(x)
+        error("Element type mismatch")
+    elseif size(a[i]) != dims
+        warn("Resizing $(size(a[i]))->$dims")
+        resize!(a[i], dims)
     end
-    if size(dy) != dims
-        warn("Resizing $(size(dy))->$dims")
-        dy = r.buf[i] = resize!(dy,dims)
-    end
-    r.reg[i] == dy || r.reg[i] == nothing || error("reg $i mismatch")
-    atype(dy) == atype(y) || error("atype mismatch")
-    eltype(dy) == eltype(y) || error("eltype mismatch")
-    r.reg[i] = dy
+    return a[i]
 end
 
-ptr16(x)=(x==nothing ? UInt16(0) : UInt16(Int(pointer(x)) % 65521))
-ptr8(x)=(x==nothing ? UInt8(0) : UInt8(Int(pointer(x)) % 251))
+
+ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
+ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
 idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
+
+function dbg(r,f,n)
+    r.dbg || return
+    a = r.(f)[n]
+    print("\n==> $f[$n]($(ptr16(a))) stack:")
+    println(map(ptr16, r.stack[1:r.sp]))
+    a != nothing && display(convert(Array,a))
+    if n <= nops(r) && param(r.op[n]) != nothing
+        p = param(r.op[n])
+        println("\nw[$n]($(ptr16(p.arr)))")
+        display(convert(Array,p.arr))
+        if isdefined(p,:diff)
+            println("\ndw[$n]($(ptr16(p.diff)))")
+            display(convert(Array,p.diff))
+        end
+    end
+end
 
 ### DEAD CODE
 
@@ -788,3 +764,112 @@ idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array
 
 # regbuf(r,n)=(r.reg[r.out[n]]!=nothing ? r.reg[r.out[n]] : r.buf[r.out[n]])
 
+# # r.reg[i] is the i'th register of the Net
+# # Each register points to an array allocated elsewhere 
+# # or is set to 'nothing' representing the zero matrix
+# # These registers are used for network inputs, op outputs, op gradients.
+# # initreg(r) just creates an empty array of registers r.reg
+# # other init functions below add registers as needed to r.reg
+
+# function initreg(r::RNN)
+#     r.reg = Any[]
+# end
+
+# function initbuf(r::RNN)
+#     r.buf = copy(r.reg) # array of nothings, initialized at initforw
+# end
+
+# function initregi(r::RNN, i::Int, y, dims=size(y))
+#     dy = r.reg[i]
+#     dy == nothing && (dy = r.buf[i])
+#     if dy == nothing
+#         dy = r.buf[i] = similar(y, dims)
+#     end
+#     if size(dy) != dims
+#         warn("Resizing $(size(dy))->$dims")
+#         dy = r.buf[i] = resize!(dy,dims)
+#     end
+#     r.reg[i] == dy || r.reg[i] == nothing || error("reg $i mismatch")
+#     atype(dy) == atype(y) || error("atype mismatch")
+#     eltype(dy) == eltype(y) || error("eltype mismatch")
+#     r.reg[i] = dy
+# end
+
+        # x = xx[1]
+        # i = r.out[n]
+        # y = getybuf(r,n)
+        # if y == nothing
+        #     y = r.buf[i] = similar(x, s)
+        # end
+        # if size(y) != s
+        #     warn("Resizing $(size(y))->$s")
+        #     y = r.buf[i] = resize!(y,s)
+        # end
+        # r.reg[i] == y || r.reg[i] == nothing || error("reg mismatch")
+        # atype(y) == atype(x) || error("atype mismatch")
+        # eltype(y) == eltype(x) || error("eltype mismatch")
+            # DONE: (back) buf gets the result but reg is still nothing? no need for buf/reg distinction in back
+            # DONE: (back) zero out the dw
+# op(r::RNN,n::Int)=r.op[n]
+
+# gety(r::RNN,n::Int)=r.reg[r.out[n]]
+# getdy(r::RNN,n::Int)=r.reg[r.dif[n]]
+# getx(r::RNN,n::Int)=r.reg[r.out[r.inputs[n]]]
+# getdx(r::RNN,n::Int)=r.reg[r.dif[r.inputs[n]]]
+
+# getbuf(r::RNN,i::Int)=(r.reg[i]!=nothing?r.reg[i]:r.buf[i])
+# getybuf(r::RNN,n::Int)=getbuf(r,r.out[n])
+# getdybuf(r::RNN,n::Int)=getbuf(r,r.dif[n])
+# getxbuf(r::RNN,n::Int)=map(i->getybuf(r,i),r.inputs[n])
+# getdxbuf(r::RNN,n::Int)=map(i->getdybuf(r,i),r.inputs[n])
+
+# get1x(r::RNN,n::Int)=get1(getx(r,n))
+# get1dxbuf(r::RNN,n::Int)=get1(getdxbuf(r,n))
+
+# sety(r::RNN,n::Int,x)=(r.reg[r.out[n]]=x)
+# setdy(r::RNN,n::Int,x)=(r.reg[r.dif[n]]=x)
+# setinput(r::RNN,n::Int,x)=(r.reg[r.out[n+nops(r)]]=x)
+# getinput(r::RNN,n::Int)=r.reg[r.out[n+nops(r)]]
+
+# pushy(r::RNN,n::Int)=(r.save[n] && pushreg(r,r.out[n]))
+# popy(r::RNN,n::Int)=(r.save[n] ? popreg(r,r.out[n]) : r.reg[r.out[n]])
+# pushinput(r::RNN,n::Int)=(r.save[n+nops(r)] && pushreg(r,r.out[n+nops(r)]))
+# popinput(r::RNN,n::Int)=(r.save[n+nops(r)] && popreg(r,r.out[n+nops(r)]))
+
+# function pushreg(r::RNN,i::Int)
+#     length(r.stack) <  r.sp && error("Stack error")
+#     length(r.stack) == r.sp && push!(r.stack, :newcell)
+#     r.sp += 1
+#     if r.reg[i] == nothing
+#         r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing")
+#         r.stack[r.sp] = nothing
+#     elseif r.stack[r.sp] == nothing
+#         warn("copying over nothing")
+#         r.stack[r.sp] = copy(r.reg[i])
+#     elseif r.stack[r.sp] == :newcell
+#         r.stack[r.sp] = copy(r.reg[i])
+#     elseif size(r.reg[i]) != size(r.stack[r.sp])
+#         warn("resizing during push")
+#         copy!(r.stack[r.sp], r.reg[i])
+#     else
+#         copy!(r.stack[r.sp], r.reg[i])
+#     end
+# end
+
+# function popreg(r::RNN,i::Int)
+#     r.sp > 0 || error("Stack error")
+#     if r.reg[i] == nothing
+#         r.stack[r.sp] == nothing || warn("popping array over nothing")
+#     elseif r.stack[r.sp] == nothing
+#         # warn("popping nothing over array")
+#     elseif size(r.reg[i]) != size(r.stack[r.sp])
+#         warn("resizing during pop")
+#     end
+#     r.reg[i] = r.stack[r.sp]
+#     r.sp -= 1
+#     return r.reg[i]
+# end
+
+# DONE: incremental updates
+ # DONE: forw: do we really need inputs to be tuple here? YES, have the option of multi-input nets like multi-input ops.
+# DONE: forw: (minor) this ends up using a lot of nothing pushes first minibatch, that's ok, 'nothing' is a legit value.
