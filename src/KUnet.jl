@@ -17,12 +17,11 @@ include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/array.jl");	export BaseArray, csize, ccount, clength, atype
 include("util/dense.jl");	export KUdense
 include("util/sparse.jl");	export KUsparse
-include("util/param.jl");	export KUparam, initzero, initgaussian, initxavier
+include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("net.jl");	export Layer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize
-# include("rnn.jl");	export RNN
+include("net.jl");	export Layer, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
 include("update.jl");	export update, setparam!
 
 include("mmul.jl");     export Mmul
@@ -35,6 +34,10 @@ include("mul2.jl");	export Mul2
 
 include("actf.jl");	export ActfLayer, Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
+
+include("rnn.jl");	export RNN, init, nops
+include("arch.jl");	export lstm, irnn
+# include("train.jl");	export train, test, batch, gradcheck
 
 include("kperceptron.jl"); export KPerceptron
 

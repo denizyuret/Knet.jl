@@ -23,7 +23,7 @@ function initforw(l::Mmul, x, y; train=true, o...)
     (xrows, xcols) = size2(x)
     (wrows, wcols) = size(l.w)
     if isempty(l.w) 
-        nz(l.w,:init,nothing) || (l.w.init = initgaussian)
+        nz(l.w,:init,nothing) || (l.w.init = randn!; l.w.initp = (0,0.01))
         wcols=xrows
         init(l.w, eltype(x), (wrows, wcols))
     end
@@ -40,6 +40,7 @@ function initforw(l::Mmul, x, y; train=true, o...)
 end
 
 function back(l::Mmul, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
+    (dy == nothing || x == nothing) && (return nothing) # TODO: are we sure about x?
     initback(l, dy, x, incr)
     if incr
         A_mul_Bt!(l.w.inc, dy, x)

@@ -76,7 +76,7 @@ cpucopy_internal{A<:CudaArray}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x
 gpucopy_internal{A<:Array}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(CudaArray(x.arr)))
 gpucopy_internal{A<:CudaArray}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(copy(x.arr)))
 
-randn!{A,T}(a::KUdense{A,T}, std=one(T), mean=zero(T))=(randn!(a.arr, std, mean); a)
+randn!{A,T}(a::KUdense{A,T}, mean=zero(T), std=one(T))=(randn!(a.arr, mean, std); a)
 rand!(a::KUdense)=(rand!(a.arr); a)
 fill!{A,T}(a::KUdense{A,T},x)=(fill!(a.arr,convert(T,x)); a)
 

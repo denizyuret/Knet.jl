@@ -19,7 +19,7 @@ function initforw(l::Bias, x, y; train=true, o...)
     issimilar(x,y) || error("Output mismatch")
     nb = size(x, ndims(x)==1 ? 1 : ndims(x)-1)
     if isempty(l.b) 
-        nz(l.b,:init,nothing) || (l.b.init = initzero)
+        nz(l.b,:init,nothing) || (l.b.init = fill!; l.b.initp = 0)
         init(l.b, eltype(x), (nb,))
     end
     length(l.b) == nb || error("length mismatch")

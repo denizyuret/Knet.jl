@@ -55,7 +55,7 @@ function initforw(l::Conv, x, y)
     n = ndims(x)
     c = size(x)[n-1]  # x dims are (x1, x2, ..., channels, images)
     if isempty(l.w) 
-        nz(l.w,:init,nothing) || (l.w.init = initxavier)
+        nz(l.w,:init,nothing) || (l.w.init = xavier!)
         r = size(l.w, 1)
         o = size(l.w, ndims(l.w))
         wsize = ntuple(i->(i<n-1 ? r : i==n-1 ? c : o), n)
@@ -70,6 +70,8 @@ function initforw(l::Conv, x, y)
     size(y) == ys || error("Size mismatch")
     return y
 end
+
+xavier!(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
 
 # Make things work with KUdense
 

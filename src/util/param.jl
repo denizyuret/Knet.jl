@@ -1,6 +1,6 @@
 import Base: convert
 
-type KUparam{A,T,N}; arr; diff; init; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; inc; KUparam()=new(); end
+type KUparam{A,T,N}; arr; diff; init; initp; lr; gc; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; inc; KUparam()=new(); end
 
 KUparam(w; o...)=init(setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=w, o...))
 KUparam{A,T}(::Type{A}, ::Type{T}, d::Dims; o...)=KUparam(A(T,d); o...)
@@ -13,7 +13,12 @@ setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     (size(p.arr)==d && eltype(p.arr)==T) || (p.arr = similar(p.arr, T, d))
     # we want no init if params given in matrix
-    nz(p,:init,nothing) && p.init(p.arr)
+    if nz(p,:init,nothing)
+        initp = (!isdefined(p,:initp) ? () :
+                 isa(p.initp,Tuple) ? p.initp :
+                 (p.initp,))
+        p.init(p.arr, initp...)
+    end
     return p
 end
 
@@ -36,10 +41,6 @@ diff(a::KUparam)=a.diff
 update(::Nothing;o...)=nothing
 setparam!(::Nothing;o...)=nothing
 initdiff(w::KUparam; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
-
-initzero(a)=(fill!(a,zero(eltype(a))); a)
-initgaussian(a, std=0.01, mean=0.0)=(randn!(a,std,mean); a)
-initxavier(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a, -scale, scale); a)
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
 function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)

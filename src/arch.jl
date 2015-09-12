@@ -7,7 +7,11 @@ lstm(n)=RNN((add2(n),0,13), Sigm(),     # 1-2. input
             (Mul2(),2,8), (Mul2(),4,11), Add2(), # 9-11. c = i*cc + f*c[t-1]
             Tanh(), (Mul2(),6,12))      # 12-13. h = o * tanh(c)
 
-irnn(n)=RNN(Mmul(n), (Mmul(n; init=initeye), 5), Add2(), Bias(), Relu())
+eye!(a)=copy!(a, eye(eltype(a), size(a)...)) # TODO: don't alloc
+
+irnn(n)=RNN(Mmul(n; init=randn!, initp=(0,0.001)), 
+            (Mmul(n; init=eye!), 5), 
+            Add2(), Bias(), Relu())
 
 for (layer, op) in 
     ((:sigmlayer, :Sigm),
@@ -22,5 +26,8 @@ for (layer, op) in
      (:perclosslayer, :PercLoss),
      (:scallosslayer, :ScalLoss),
      )
-    @eval $layer(n)=RNN(Mmul(n), Bias(), $op())
+    @eval begin
+        $layer(n)=RNN(Mmul(n), Bias(), $op())
+        export $layer
+    end
 end
