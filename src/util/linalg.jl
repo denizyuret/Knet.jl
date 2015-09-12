@@ -1,12 +1,13 @@
-using Base.LinAlg.BLAS: gemm!, scal!
-import Base: A_mul_B!, A_mul_Bt!, At_mul_B!
+using Base.LinAlg.BLAS: gemm!, scal!, nrm2
+import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm
 import Base.LinAlg: axpy!, scale!
 
-### AXPY! and SCALE!
+### VEC functions
 axpy!{S,T}(a,x::KUdense{S,T},y::KUdense{S,T})=(axpy!(convert(T,a),x.arr,y.arr); y)
 axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); @assert n==length(y); axpy!(n,convert(T,a),x,1,y,1); y)
 scale!{S,T}(a,x::KUdense{S,T})=(scale!(convert(T,a),x.arr); x)
 scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
+vecnorm(x::CudaArray)=nrm2(x)
 
 ### MMUL
 # This is not a complete implementation.  The goal is to support KUnet
