@@ -56,11 +56,20 @@ op(r::RNN2,n)=(n1=nops(r.net1); n<=n1 ? r.net1.op[n] : r.net2.op[n-n1])
 # TODO: create a super class for RNN and RNN2, this gradcheck applies to both
 # think about the common interface for ops, nets, and other arch models.
 
-function forwback(r::RNN2,x,y; returnloss=false)
+function forwback(r::RNN2,x,y; getloss=false)
     forw(r, x; train=true)
-    returnloss && (l0 = loss(r, y))
+    getloss && (l0 = loss(r, y))
     back(r, y)
-    returnloss && return l0
+    getloss && return l0
+end
+
+function train(r::RNN2,x,y; getloss=false, getnorm=false)
+    rval = Any[]
+    l = forwback(r,x,y; getloss=getloss)
+    getloss && push!(rval, l)
+    getnorm && push!(rval, maxnorm(r)...)
+    update(r)
+    return tuple(rval...)
 end
 
 function loss(r::RNN2, x, y)
@@ -69,7 +78,7 @@ function loss(r::RNN2, x, y)
 end
 
 function gradcheck(r::RNN2, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
-    l0 = forwback(r, x, y; returnloss=true)
+    l0 = forwback(r, x, y; getloss=true)
     dw = cell(nops(r))
     for n=1:length(dw)
         p = param(op(r,n))
