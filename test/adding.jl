@@ -88,17 +88,16 @@ function gendata(ni, nt)
     return (x,y)
 end
 
-function maxgrad(rr::RNN...)
-    mg = 0
-    for r in rr
-        for o in r.op
-            p = param(o)
-            p == nothing && continue
-            v = vecnorm(p.diff)
-            v > mg && (mg = v)
-        end
+function maxnorm(r::RNN, mw=0, mg=0)
+    for o in r.op
+        p = param(o)
+        p == nothing && continue
+        w = vecnorm(p.arr)
+        w > mw && (mw = w)
+        g = vecnorm(p.diff)
+        g > mg && (mg = g)
     end
-    return mg
+    return (mw, mg)
 end
 
 args = parse_commandline()
@@ -131,13 +130,14 @@ nt = args["length"]
 (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
 
 @time for epoch=1:args["epochs"]
-    trnloss = tstloss = maxg = 0
+    trnloss = tstloss = maxg = maxw = 0
     for i=1:length(xtrn)
         (xi,yi) = (xtrn[i], ytrn[i][end])
         forw2(net1, net2, xi, yi)
         trnloss += loss(net2, yi) # loss = sqerr/2
         back2(net1, net2, xi, yi)
-        g = maxgrad(net1, net2); g > maxg && (maxg = g)
+        (maxw,maxg) = maxnorm(net1, maxw, maxg)
+        (maxw,maxg) = maxnorm(net2, maxw, maxg)
         update(net1)
         update(net2)
     end
@@ -148,7 +148,8 @@ nt = args["length"]
         tstloss += loss(net2, yi)
     end
     tstmse = 2*tstloss/length(xtst)
-    println(tuple(epoch,trnmse,tstmse,maxg))
+    println(tuple(epoch,trnmse,tstmse,maxw,maxg))
+    flush(STDOUT)
 end
 
 
