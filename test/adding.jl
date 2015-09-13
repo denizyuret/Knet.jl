@@ -2,21 +2,19 @@
 # G. E. (2015). A Simple Way to Initialize Recurrent Networks of
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
-# TODO:
-# + minibatching (16)
-# + dif = nothing, dif0 = array
-# + profiling
-# x separate into two networks
-# + xfer train/predict to kunet (tforw? figure out right interface)
-# - gradient clipping (1/10/100)
-# - adadelta (not this paper)
+# len	hidden	lr	mse<0.1
+# 2	1	0.3	4000
+# 3	2	0.2	4000
+# 5	2	0.1	8000
+# 10	5	0.05	28000
+# 20	10	0.03	80000
+# 40	30	0.01	220000
+# 60	40	0.01	440000	gc=10
+# 100	50	0.01	gc=10 failed
 
 using CUDArt
 using KUnet
 using ArgParse
-# using Base.Test
-# using KUnet: forwback1, forwback2, param, train2
-include("../src/train.jl")
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -24,19 +22,27 @@ function parse_commandline()
         "--train"
         help = "number of training examples"
         arg_type = Int
-        default = 100000
+        default = 2000
         "--test"
         help = "number of testing examples"
         arg_type = Int
-        default = 10000
+        default = 2000
         "--length"
         help = "length of the input sequence"
         arg_type = Int
-        default = 100
+        default = 10
         "--hidden"
         help = "number of hidden units"
         arg_type = Int
-        default = 100
+        default = 5
+        "--lr"
+        help = "learning rate"
+        arg_type = Float64
+        default =  0.05
+        "--gc"
+        help = "gradient clip"
+        arg_type = Float64
+        default =  10.0
         "--batch"
         help = "minibatch size"
         arg_type = Int
@@ -44,14 +50,6 @@ function parse_commandline()
         "--type"
         help = "type of network"
         default = "irnn" # "lstm"
-        "--lr"
-        help = "learning rate"
-        arg_type = Float64
-        default =  0.01
-        "--gc"
-        help = "gradient clip"
-        arg_type = Float64
-        default =  100.0
         "--fb"
         help = "forget gate bias"
         arg_type = Float64
@@ -59,7 +57,7 @@ function parse_commandline()
         "--epochs"
         help = "Number of epochs to train"
         arg_type = Int
-        default = 100
+        default = 30
         "--seed"
         help = "Random seed"
         arg_type = Int
@@ -88,19 +86,38 @@ function gendata(ni, nt)
     return (x,y)
 end
 
-function maxnorm(r::RNN, mw=0, mg=0)
-    for o in r.op
-        p = param(o)
-        p == nothing && continue
-        w = vecnorm(p.arr)
-        w > mw && (mw = w)
-        g = vecnorm(p.diff)
-        g > mg && (mg = g)
+function batch(x, y, nb)
+    isempty(x) && return (x,y)
+    xx = Any[]
+    yy = Any[]
+    ni = length(x)    # assume x and y are same length
+    nt = length(x[1]) # assume all x[i] are same length
+    for i1=1:nb:ni
+        i2=min(ni,i1+nb-1)
+        xi = Any[]
+        yi = Any[]
+        for t=1:nt
+            xit = x[i1][t]
+            xt = similar(xit, tuple(size(xit)..., i2-i1+1))
+            for i=i1:i2; xt[:,i-i1+1] = x[i][t]; end
+            push!(xi, xt)
+            yit = y[i1][t]
+            if yit == nothing
+                yt = nothing # assumes yit=nothing for all i
+            else
+                yt = similar(yit, tuple(size(yit)..., i2-i1+1))
+                for i=i1:i2; yt[:,i-i1+1] = y[i][t]; end
+            end
+            push!(yi, yt)
+        end
+        push!(xx, xi)
+        push!(yy, yi)
     end
-    return (mw, mg)
+    return(xx, yy)
 end
 
 args = parse_commandline()
+println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
 nx = 2
@@ -112,14 +129,13 @@ nh = args["hidden"]
 net1 = (args["type"] == "irnn" ? irnn(nh) :
         args["type"] == "lstm" ? lstm(nh) : 
         error("Unknown network type "*args["type"]))
-net2 = quadlosslayer(ny)
-
-# setparam!(net0; lr=args["lr"], gc=args["gc"])
-setparam!(net1; lr=args["lr"], gc=args["gc"])
-setparam!(net2; lr=args["lr"], gc=args["gc"])
-setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
-# args["type"] == "lstm" && setparam!(net0.op[9]; init=fill!, initp=args["fb"])
 args["type"] == "lstm" && setparam!(net1.op[9]; init=fill!, initp=args["fb"])
+
+net2 = quadlosslayer(ny)
+setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
+
+net = RNN2(net1, net2)
+setparam!(net; lr=args["lr"], gc=args["gc"])
 
 ntrn = args["train"]
 ntst = args["test"]
@@ -130,28 +146,30 @@ nt = args["length"]
 (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
 
 @time for epoch=1:args["epochs"]
+    (xtrn1,ytrn1) = gendata(ntrn, nt)
+    (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
+    gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
     trnloss = tstloss = maxg = maxw = 0
     for i=1:length(xtrn)
         (xi,yi) = (xtrn[i], ytrn[i][end])
-        forw2(net1, net2, xi, yi)
-        trnloss += loss(net2, yi) # loss = sqerr/2
-        back2(net1, net2, xi, yi)
-        (maxw,maxg) = maxnorm(net1, maxw, maxg)
-        (maxw,maxg) = maxnorm(net2, maxw, maxg)
-        update(net1)
-        update(net2)
+        forw(net, xi; train=true)
+        trnloss += loss(net, yi) # loss = sqerr/2
+        back(net, yi)
+        (maxw,maxg) = maxnorm(net, maxw, maxg)
+        update(net)
     end
     trnmse = 2*trnloss/length(xtrn)
     for i=1:length(xtst)
         (xi,yi) = (xtst[i], ytst[i][end])
-        forw2(net1, net2, xi, yi; train=false)
-        tstloss += loss(net2, yi)
+        forw(net, xi; train=false)
+        tstloss += loss(net, yi)
     end
     tstmse = 2*tstloss/length(xtst)
-    println(tuple(epoch,trnmse,tstmse,maxw,maxg))
+    println(tuple(epoch*ntrn,trnmse,tstmse,maxw,maxg))
     flush(STDOUT)
 end
 
+:ok
 
 ### DEAD CODE:
 
@@ -240,4 +258,18 @@ end
     # @test isapprox(maxg, maxg0; atol=1e-2)
     # tsterr = test(net1, xtst, ytst)
     # println(tuple(epoch,sqrt(2trnerr),sqrt(2tsterr),maxgnorm))
+
+# TODO:
+# + minibatching (16)
+# + dif = nothing, dif0 = array
+# + profiling
+# x separate into two networks
+# + xfer train/predict to kunet (tforw? figure out right interface)
+# + gradient clipping (1/10/100)
+# x adadelta (not this paper)
+
+# setparam!(net0; lr=args["lr"], gc=args["gc"])
+# setparam!(net1; lr=args["lr"], gc=args["gc"])
+# setparam!(net2; lr=args["lr"], gc=args["gc"])
+# args["type"] == "lstm" && setparam!(net0.op[9]; init=fill!, initp=args["fb"])
 
