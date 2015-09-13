@@ -6,12 +6,14 @@
 # x ops with forw=nothing should accept back=nothing input
 # + minibatching
 # x rethink the 'nothing' optimization, removed from dif but not out?
+# + return value for back, returndx option: no need, return if dx specified.
 # - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
 # - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 # - add gradient clipping
 # - performance: do better register optimization
 # - if an op is using an external array, it should not store it.
+# - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
 
 type RNN; op; inputs; ninputs; save; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
     function RNN(a...; o...)
@@ -33,15 +35,17 @@ end
 
 ninputs(r::RNN)=r.ninputs
 nops(r::RNN)=length(r.op)
+op(r::RNN,n)=r.op[n]
 setparam!(r::RNN; o...)=(for l in r.op; setparam!(l; o...); end; r)
 update(r::RNN; o...)=(for l in r.op; update(l; o...); end; r)
 loss(r::RNN,dy)=(dy==nothing ? 0 : loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)])))
 get1(x)=(length(x)==1?x[1]:x)
 
-function forw(r::RNN, inputs...; train=true, a...)
+function forw(r::RNN, inputs...; train=false, y=nothing, a...)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
+        eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch")
         train && r.save[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
@@ -49,19 +53,42 @@ function forw(r::RNN, inputs...; train=true, a...)
         train && r.save[n] && push(r,n)         # t:327
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], a...)     # ;dbg(r,:out,n) # t:2300
     end
-    r.out[nops(r)]
+    y != nothing && copy!(y, r.out[nops(r)])
+    return y
 end
 
-function back(r::RNN, dy; a...)
+function forw(r::RNN, x::Vector; y=nothing, a...)
+    init(r, x)
+    for i=1:length(x)
+        yi = (y == nothing ? nothing : y[i])
+        forw(r, x[i]; y=yi, a...)
+    end
+    return y
+end
+
+forw{T<:Number}(r::RNN,  x::Vector{T}; a...)=forw(r, reshape(x,  length(x),  1); a...)
+back{T<:Number}(r::RNN, dy::Vector{T}; a...)=back(r, reshape(dy, length(dy), 1); a...)
+
+function back(r::RNN, dy::Vector; dx=nothing, a...)
+    for i=length(dy):-1:1
+        dxi = (dx == nothing ? nothing : dx[i])
+        back(r, dy[i]; dx=dxi, a...)
+    end
+end
+
+function back(r::RNN, dy; dx=nothing, a...)
+    dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     n = nops(r)
     if dy == nothing
         r.multi[n] || (r.dif[n] = nothing)
+    elseif eltype(dy) != eltype(r.dif0[n])
+        error("Element type mismatch")
     elseif r.multi[n]
         copy!(r.dif1[n], dy)
         r.dif[n] = axpy!(1,r.dif1[n],r.dif0[n])
     else
         r.dif[n] = copy!(r.dif0[n], dy)
-    end
+    end										; dbg(r,:dif,n) 
     for n = nops(r):-1:1
         if r.dif[n] == nothing
             for i in r.inputs[n]
@@ -72,7 +99,7 @@ function back(r::RNN, dy; a...)
             for i in r.inputs[n]
                 push!(dx, r.multi[i] ? r.dif1[i] : r.dif0[i])
             end
-            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dx), a...)                        ; dbg(r,:dif,n) # t:2164
+            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dx), a...) # t:2164
             for i in r.inputs[n]
                 r.multi[i] && axpy!(1, r.dif1[i], r.dif0[i])            ; r.multi[i]&&dbg(r,:dif1,i)
                 r.dif[i] = r.dif0[i]                                    ; dbg(r,:dif,i)
@@ -84,8 +111,9 @@ function back(r::RNN, dy; a...)
     for i = ninputs(r):-1:1
         n = i+nops(r)
         r.save[n] && pop(r,n)                                    ; r.save[n] && dbg(r,:out,n)
+        dx == nothing || copy!(dx[i], r.dif[n])
     end
-    # TODO: return dx for inputs if asked, do not compute it if not: need for chained nets
+    return dx
 end
 
 function push(r::RNN,n::Int)
@@ -342,6 +370,22 @@ function init(r::RNN, inputs...)
     end
     fill!(r.out,nothing)
     fill!(r.dif,nothing)
+end
+
+# The input x::Vector can be x[i][t][d...,b] or x[t][d...,b]
+# where i:instance, t:time, d:dims, b:batch
+# We only want to init if x[t][d...,b]
+# In that case x[1] will be a numeric array 
+# or a tuple of numeric arrays (to support multiple inputs)
+
+function init(r::RNN, x::Vector)
+    if isempty(x) || x[1] == nothing
+        error("Got nothing as input")
+    elseif isa(x[1], Tuple)
+        init(r, x[1]...)
+    elseif isbits(eltype(x[1]))
+        init(r, x[1])
+    end
 end
 
 function initarray(a, i, x, dims=size(x))
@@ -873,3 +917,4 @@ end
 # DONE: incremental updates
  # DONE: forw: do we really need inputs to be tuple here? YES, have the option of multi-input nets like multi-input ops.
 # DONE: forw: (minor) this ends up using a lot of nothing pushes first minibatch, that's ok, 'nothing' is a legit value.
+
