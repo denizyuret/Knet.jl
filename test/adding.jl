@@ -6,7 +6,7 @@
 # 2	1	0.3	4000
 # 3	2	0.2	4000
 # 5	2	0.1	8000
-# 10	5	0.05	28000
+# 10	5	0.05	26000
 # 20	10	0.03	80000
 # 40	30	0.01	220000
 # 60	40	0.01	440000	gc=10
@@ -19,10 +19,14 @@ using ArgParse
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table s begin
+        "--epochs"
+        help = "Number of epochs to train"
+        arg_type = Int
+        default = 100
         "--train"
         help = "number of training examples"
         arg_type = Int
-        default = 2000
+        default = 10000 # 2000
         "--test"
         help = "number of testing examples"
         arg_type = Int
@@ -30,15 +34,15 @@ function parse_commandline()
         "--length"
         help = "length of the input sequence"
         arg_type = Int
-        default = 10
+        default = 100 # 10
         "--hidden"
         help = "number of hidden units"
         arg_type = Int
-        default = 5
+        default = 100 # 5
         "--lr"
         help = "learning rate"
         arg_type = Float64
-        default =  0.05
+        default =  0.01 # 0.05
         "--gc"
         help = "gradient clip"
         arg_type = Float64
@@ -54,10 +58,6 @@ function parse_commandline()
         help = "forget gate bias"
         arg_type = Float64
         default =  1.0
-        "--epochs"
-        help = "Number of epochs to train"
-        arg_type = Int
-        default = 30
         "--seed"
         help = "Random seed"
         arg_type = Int
@@ -86,6 +86,7 @@ function gendata(ni, nt)
     return (x,y)
 end
 
+# TODO: fix this so y[i] is not a sequence
 function batch(x, y, nb)
     isempty(x) && return (x,y)
     xx = Any[]
@@ -149,22 +150,18 @@ nt = args["length"]
     (xtrn1,ytrn1) = gendata(ntrn, nt)
     (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
     gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
-    trnloss = tstloss = maxg = maxw = 0
+    trnmse = tstmse = maxg = maxw = 0
     for i=1:length(xtrn)
-        (xi,yi) = (xtrn[i], ytrn[i][end])
-        forw(net, xi; train=true)
-        trnloss += loss(net, yi) # loss = sqerr/2
-        back(net, yi)
-        (maxw,maxg) = maxnorm(net, maxw, maxg)
-        update(net)
+        (l,w,g) = train(net, xtrn[i], ytrn[i][end]; getloss=true, getnorm=true)
+        trnmse += l
+        w > maxw && (maxw = w)
+        g > maxg && (maxg = g)
     end
-    trnmse = 2*trnloss/length(xtrn)
     for i=1:length(xtst)
-        (xi,yi) = (xtst[i], ytst[i][end])
-        forw(net, xi; train=false)
-        tstloss += loss(net, yi)
+        tstmse += loss(net, xtst[i], ytst[i][end])
     end
-    tstmse = 2*tstloss/length(xtst)
+    trnmse = 2*trnmse/length(xtrn)
+    tstmse = 2*tstmse/length(xtst)
     println(tuple(epoch*ntrn,trnmse,tstmse,maxw,maxg))
     flush(STDOUT)
 end
