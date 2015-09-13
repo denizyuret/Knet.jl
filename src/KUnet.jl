@@ -35,9 +35,9 @@ include("mul2.jl");	export Mul2
 include("actf.jl");	export ActfLayer, Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
-include("rnn.jl");	export RNN, init, nops
-include("arch.jl");	export lstm, irnn
-# include("train.jl");	export train, test, batch, gradcheck
+include("rnn.jl");	export RNN, init, nops, op
+include("arch.jl");	export lstm, irnn, RNN2, gradcheck
+# include("train.jl");	export train, test, batch, 
 
 include("kperceptron.jl"); export KPerceptron
 

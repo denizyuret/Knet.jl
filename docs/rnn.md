@@ -525,3 +525,75 @@ Note that o==i is possible in which case we definitely want reg[o]==nothing init
 On the third hand we want to use the same storage for reg[o] from last minibatch
 Keep an initial storage for each register?
 
+
+###############
+### I/O
+###############
+
+We need a good interface for models and data.  First data:
+
+Earlier notes:
+# Organization of the training set and training batches:
+# D:dimensionality, I:instance, B:batch-instance, T:time
+# In FFNN size(xtrain)=(D,I), size(xbatch)=(D,B) where D fastest
+# In RNN size(xtrain)=(D,T,I) or xtrain=[(D,T1),(D,T2),...]
+# i.e. we want each instance to be contiguous.
+# In RNN size(xbatch)=(D,B,T) or xbatch=[(D,B1),(D,B2),...]
+# i.e. we want each time-step to be contiguous.
+# train->batch will need to do some shuffling
+
+x[i][t][d1,d2,...] each instance and each token separate, default for rnn
+x[d1,d2,...,i] this is the default minibatch for fnn
+x[d...,i,t] possible minibatch for rnn?
+x[d...,t,i] possible training set for rnn?
+
+lowest level forw expects a single token: x[d...]
+could also be a token-batch: x[d...,i]
+this means if we have isbits(eltype(x)) we interpret it as a single token-batch.
+this is consistent with fnn convention.
+the time dimension is never embedded in a bits array.
+
+if we are given x[t][d...,i] we interpret the first index as time.
+
+if we are given x[i][t][d...,b] we interpret the first index as instance, second as time.
+
+we can pull this off if fnn always sticks to bits arrays.
+
+how do we test this:
+
+(isbits(eltype(x))    ? first-type :
+ isbits(eltype(x[1])) ? second-type :
+ isbits(eltype(x[1][1])) ? third-type :
+ error)
+
+A = Union(Array{T<:Number}, Void)
+B = Vector{A}
+C = Vector{B}
+
+We can distinguish Vector{Any} from the rest.
+Specifying the bits arrays is more difficult there are too many types.
+Low level forw can have a sanity check for eltype.
+We can rename tforw -> forw(r,x::Vector{Any})
+
+For forw(r,x[t][d...,i]) what is the expected output?
+Loss: ok if training and y is provided but does not help predict.
+also cannot compute loss after the fact unless we have access to outy array.
+outy array: internal registers get overwritten, copying is expensive.
+ask for external storage?
+overwrite gold y and return loss?
+return pointers to stack?
+
+Low level forw(r,x) does not expect y, does not compute loss, returns internal storage.
+For sequence forw we could be forgiven if we return internal storage since forw is
+only supposed to be used internally and needs to be efficient.
+This means we have to use the stack and construct a return Vector{Any} y array from internal storage.
+- we don't know where in the stack stuff is stored.
+- compiler may decide not to store the final out in stack.
+- especially if train=false!
+
+We copy external stuff in from input.  Makes sense if internal stuff got copied out.
+Accept external storage with a keyword y parameter and overwrite if specified.
+Predict works.
+tforw works and passes the individual arrays to forw.
+Do we return loss?  No, it is inefficient, not always necessary, and can be computed from the out y.
+Do not return anything unless a y has been specified.
