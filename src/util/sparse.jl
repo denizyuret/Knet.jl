@@ -44,19 +44,14 @@ convert{A<:CudaArray}(::Type{A}, s::KUsparse)=convert(CudaArray, convert(SparseM
 
 # Now we can construct a KUsparse{CudaArray,T} using gpucopy:
 
+copy(a::KUsparse)=deepcopy(a)
+# copy{A<:BaseArray,T}(a::KUsparse{A,T})=KUsparse{A,T}(a.m,a.n,copy(a.colptr),copy(a.rowval),copy(a.nzval))
+
 cpucopy_internal{A<:CudaArray,T}(s::KUsparse{A,T},d::ObjectIdDict)=
-    (haskey(d,s) ? d[s] : 
-     KUsparse{Array,T}(s.m, s.n,
-                       cpucopy_internal(s.colptr,d),
-                       cpucopy_internal(s.rowval,d),
-                       cpucopy_internal(s.nzval,d)))
+    (haskey(d,s)||(d[s] = KUsparse{Array,T}(s.m, s.n, cpucopy_internal(s.colptr,d), cpucopy_internal(s.rowval,d), cpucopy_internal(s.nzval,d))); d[s])
                        
 gpucopy_internal{A<:Array,T}(s::KUsparse{A,T},d::ObjectIdDict)=
-    (haskey(d,s) ? d[s] : 
-     KUsparse{CudaArray,T}(s.m,s.n,
-                           gpucopy_internal(s.colptr,d),
-                           gpucopy_internal(s.rowval,d),
-                           gpucopy_internal(s.nzval,d)))
+    (haskey(d,s)||(d[s] = KUsparse{CudaArray,T}(s.m, s.n, gpucopy_internal(s.colptr,d), gpucopy_internal(s.rowval,d), gpucopy_internal(s.nzval,d))); d[s])
 
 atype{A}(::KUsparse{A})=A
 itype(::KUsparse)=Int32
@@ -71,12 +66,11 @@ isempty(s::KUsparse)=(length(s)==0)
 to_host(s::KUsparse{CudaArray})=cpucopy(s)
 issparse(::KUsparse)=true
 # This won't work with CudaArray
-# nnz(s::KUsparse)=s.colptr[s.n+1]-1
+# nnz(s::KUsparse)=s.colptr[s.n+1]-1  # TODO: shall we keep colptr in RAM?
 
 atype(::SparseMatrixCSC)=Array
 itype{T,I}(::SparseMatrixCSC{T,I})=I
 full(s::KUsparse)=convert(KUdense, full(convert(SparseMatrixCSC, s)))
-copy{A<:BaseArray,T}(a::KUsparse{A,T})=KUsparse{A,T}(a.m,a.n,copy(a.colptr),copy(a.rowval),copy(a.nzval))
 copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32})=(a.m=b.m;a.n=b.n;copy!(a.colptr,b.colptr);copy!(a.rowval,b.rowval);copy!(a.nzval,b.nzval);a)
 copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int64})=copy!(a, convert(SparseMatrixCSC{T,Int32},b))
 

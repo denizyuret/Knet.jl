@@ -70,11 +70,14 @@ end
 resize!(a::KUdense, d::Int...)=resize!(a,d)
 
 # Need to fix deepcopy so it does not create two arrays for arr and ptr:
+# And atype changes correctly.
 
-cpucopy_internal{A<:Array}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(copy(x.arr)))
-cpucopy_internal{A<:CudaArray}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(to_host(x.arr)))
-gpucopy_internal{A<:Array}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(CudaArray(x.arr)))
-gpucopy_internal{A<:CudaArray}(x::KUdense{A},d::ObjectIdDict)=(haskey(d,x) ? d[x] : KUdense(copy(x.arr)))
+deepcopy_internal(x::KUdense,s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+cpucopy_internal(x::KUdense,s::ObjectIdDict)=deepcopy_internal(x,s)
+gpucopy_internal(x::KUdense,s::ObjectIdDict)=deepcopy_internal(x,s)
+
+cpucopy_internal{A<:CudaArray}(x::KUdense{A},s::ObjectIdDict)=(haskey(s,x)||(s[x]=KUdense(to_host(x.arr)));s[x])
+gpucopy_internal{A<:Array}(x::KUdense{A},s::ObjectIdDict)=(haskey(s,x)||(s[x]=KUdense(CudaArray(x.arr)));s[x])
 
 randn!{A,T}(a::KUdense{A,T}, mean=zero(T), std=one(T))=(randn!(a.arr, mean, std); a)
 rand!(a::KUdense)=(rand!(a.arr); a)

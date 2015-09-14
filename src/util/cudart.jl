@@ -2,7 +2,7 @@
 
 using CUDArt
 
-import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse
+import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse, deepcopy_internal
 import CUDArt: to_host
 
 to_host(x)=x                    # so we can use it in general
@@ -61,3 +61,8 @@ pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 
 convert{A<:CudaArray}(::Type{A}, a::Array)=CudaArray(a)
 convert{A<:Array}(::Type{A}, a::CudaArray)=to_host(a)
+
+deepcopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+cpucopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])
+gpucopy_internal(x::CudaArray, s::ObjectIdDict)=deepcopy_internal(s,x)
+gpucopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaArray(x));s[x])

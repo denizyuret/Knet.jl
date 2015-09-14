@@ -22,8 +22,6 @@ function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     return p
 end
 
-# We probably don't need this copy, just implement cpucopy and gpucopy.
-# copy(p::KUparam; o...)=(q=KUparam(); for n in names(p); isdefined(p,n) && q.(n)=copy(p.(n)); end; q)
 
 # BASIC ARRAY OPS:
 
@@ -43,6 +41,9 @@ setparam!(::Nothing;o...)=nothing
 initdiff(w::KUparam; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
+
+copy(x::KUparam)=deepcopy(x)
+
 function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     haskey(d,x) && return d[x]
     y = KUparam{Array,T,N}()
