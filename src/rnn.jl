@@ -15,14 +15,14 @@
 # - if an op is using an external array, it should not store it.
 # - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
 
-type RNN; op; inputs; ninputs; save; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
+type RNN; op; inputs; ninputs; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
     function RNN(a...; o...)
         r = new()
         initop(r, a...)
         initinputs(r, a...)
         @assert length(r.op)==length(r.inputs)
         initninputs(r)
-        initsave(r)
+        initpush(r)
         initmulti(r)
         initout(r)
         initdif(r)
@@ -46,11 +46,11 @@ function forw(r::RNN, inputs...; train=false, y=nothing, a...)
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch")
-        train && r.save[n] && push(r,n)         # t:140 save old input if necessary
+        train && r.push[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
     for n = 1:nops(r)
-        train && r.save[n] && push(r,n)         # t:327
+        train && r.push[n] && push(r,n)         # t:327
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], a...)     # ;dbg(r,:out,n) # t:2300
     end
     y != nothing && copy!(y, r.out[nops(r)])
@@ -106,11 +106,11 @@ function back(r::RNN, dy; dx=nothing, a...)
             end
             r.multi[n] && fill!(r.dif[n],0)                           ; r.multi[n]&&dbg(r,:dif,n) # t:157
         end
-        r.save[n] && pop(r,n)                                    ; r.save[n]&&dbg(r,:out,n)
+        r.push[n] && pop(r,n)                                    ; r.push[n]&&dbg(r,:out,n)
     end
     for i = ninputs(r):-1:1
         n = i+nops(r)
-        r.save[n] && pop(r,n)                                    ; r.save[n] && dbg(r,:out,n)
+        r.push[n] && pop(r,n)                                    ; r.push[n] && dbg(r,:out,n)
         dx == nothing || copy!(dx[i], r.dif[n])
     end
     return dx
@@ -212,17 +212,17 @@ function initninputs(r::RNN)
     r.ninputs = n
 end
 
-# r.save[n] is true if the result of op[n] (for n <= nops(r))
+# r.push[n] is true if the result of op[n] (for n <= nops(r))
 # or the network input n-nops(r) (for n > nops(r))
 # should be saved for back calculation
 
-function initsave(r::RNN)
-    r.save = falses(nops(r)+ninputs(r))
+function initpush(r::RNN)
+    r.push = falses(nops(r)+ninputs(r))
     for n=1:nops(r)
-        back_reads_y(r.op[n]) && (r.save[n] = true)
+        back_reads_y(r.op[n]) && (r.push[n] = true)
         if back_reads_x(r.op[n])
             for i in r.inputs[n]
-                r.save[i] = true
+                r.push[i] = true
             end
         end
     end
@@ -253,10 +253,10 @@ function initout(r::RNN)
     nout = nops(r)+ninputs(r)
     index = zeros(Int,nops(r))          # index==0 represents need for new register
     for n=1:nops(r)
-        r.save[n] && continue           # a saved register should only be written by op[n]
+        r.push[n] && continue           # a saved register should only be written by op[n]
         if overwrites(r.op[n])
             i = r.inputs[n][1]          # see if we can overwrite the first input
-            r.save[i] && continue       # do not overwrite if you are going to save for back
+            r.push[i] && continue       # do not overwrite if you are going to save for back
             ow = true
             k = n
             while true # see if anybody else uses i before its next update
@@ -425,6 +425,38 @@ function dbg(r,f,n)
         end
     end
 end
+
+import Base: isequal
+
+function isequal(a::RNN, b::RNN)
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
+
+# Do not copy inputs to gpu:
+
+function gpucopy_internal(x::RNN, stackdict::ObjectIdDict)
+    if haskey(stackdict, x)
+        return stackdict[x]
+    end
+    y = ccall(:jl_new_struct_uninit, Any, (Any,), RNN)
+    stackdict[x] = y
+    for i in fieldnames(x)
+        if isdefined(x,i)
+            y.(i) = (i == :inputs ?
+                     cpucopy_internal(x.(i), stackdict) :
+                     gpucopy_internal(x.(i), stackdict))
+        end
+    end
+    return y
+end
+
 
 ### DEAD CODE
 

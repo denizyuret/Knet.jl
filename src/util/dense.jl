@@ -1,5 +1,5 @@
 using CUDArt
-import Base: similar, convert, copy, copy!, resize!, issparse
+import Base: isequal, similar, convert, copy, copy!, resize!, issparse
 import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!, sub
 import Base: rand!, randn!, fill!
 import CUDArt: to_host
@@ -30,6 +30,8 @@ arr(a::CudaVector,d::Dims)=CudaArray(a.ptr, d, a.dev)
 atype(::Array)=Array
 atype(::SubArray)=Array
 atype(::CudaArray)=CudaArray
+
+isequal(a::KUdense,b::KUdense)=((typeof(a)==typeof(b)) && (sizeof(a)==sizeof(b)) && isequal(a.arr,b.arr))
 
 ### BASIC ARRAY OPS
 

@@ -1,5 +1,5 @@
 using CUDArt
-import Base: convert, similar, copy, copy!, eltype, length, ndims, size, isempty, issparse, stride, strides, full
+import Base: isequal, convert, similar, copy, copy!, eltype, length, ndims, size, isempty, issparse, stride, strides, full
 import CUDArt: to_host
 
 # I want to make the base array explicit in the type signature of
@@ -23,6 +23,8 @@ KUsparse{A<:CudaArray,T}(::Type{A}, ::Type{T}, m::Integer, n::Integer)=KUsparse{
 KUsparse{A,T}(::Type{A}, ::Type{T}, d::NTuple{2,Int})=KUsparse(A,T,d...)
 similar{A,T}(s::KUsparse{A}, ::Type{T}, m::Integer, n::Integer)=KUsparse(A,T,m,n)
 similar{A,T}(s::KUsparse{A}, ::Type{T}, d::NTuple{2,Int})=KUsparse(A,T,d...)
+
+isequal(a::KUsparse,b::KUsparse)=((typeof(a)==typeof(b)) && (sizeof(a)==sizeof(b)) && isequal(a.colptr,b.colptr) && isequal(a.rowval,b.rowval) && isequal(a.nzval,b.nzval))
 
 # convert to KUsparse
 convert{A<:Array,T}(::Type{KUsparse{A,T}}, s::SparseMatrixCSC{T,Int32})=KUsparse{Array,T}(s.m,s.n,s.colptr,s.rowval,s.nzval)

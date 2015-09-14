@@ -2,15 +2,13 @@
 
 using CUDArt
 
-import Base: (==), convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse, deepcopy_internal
+import Base: isequal, convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse, deepcopy_internal
 import CUDArt: to_host
 
 to_host(x)=x                    # so we can use it in general
 issparse(::CudaArray)=false
 
-function (==)(A::CudaArray,B::CudaArray)
-    issimilar(A,B) && (to_host(A)==to_host(B))
-end
+isequal(A::CudaArray,B::CudaArray) = (typeof(A)==typeof(B) && size(A)==size(B) && isequal(to_host(A),to_host(B)))
 
 convert{A<:CudaArray,T,N}(::Type{A}, a::Array{T,N})=CudaArray(a)
 
@@ -64,5 +62,5 @@ convert{A<:Array}(::Type{A}, a::CudaArray)=to_host(a)
 
 deepcopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
 cpucopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])
-gpucopy_internal(x::CudaArray, s::ObjectIdDict)=deepcopy_internal(s,x)
+gpucopy_internal(x::CudaArray, s::ObjectIdDict)=deepcopy_internal(x,s)
 gpucopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaArray(x));s[x])

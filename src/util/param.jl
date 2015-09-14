@@ -1,4 +1,4 @@
-import Base: convert
+import Base: isequal, convert
 
 type KUparam{A,T,N}; arr; diff; init; initp; lr; gc; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; inc; KUparam()=new(); end
 
@@ -22,6 +22,18 @@ function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     return p
 end
 
+function isequal(a::KUparam,b::KUparam)
+    typeof(a) == typeof(b) || return false
+    size(a) == size(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
 
 # BASIC ARRAY OPS:
 

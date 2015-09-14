@@ -124,3 +124,16 @@ end
 
 accuracy(y,z)=mean(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
 
+import Base: isequal
+
+function isequal(a::Layer,b::Layer)
+    typeof(a)==typeof(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
