@@ -30,3 +30,7 @@ size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) #
 
 # This does not work in place!
 # Base.resize!(a::Array, d::Dims)=similar(a, d)
+
+# Fix bug with deepcopy, where a shared bits array is copied multiple times:
+
+Base.deepcopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
