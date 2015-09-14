@@ -1,24 +1,24 @@
-# Each Layer implements some common functions, stubs are given below.
+# Each Op implements some common functions, stubs are given below.
 # forw takes input x and returns output y, possibly setting some state.
 # back takes dy, the loss gradient wrt y, calculates loss gradient wrt 
 # layer parameters and optionally returns dx, the loss gradient wrt x.
 # Some layers overwrite their inputs.
 
-abstract Layer
-forw(l::Layer, x...; o...)=error("$(typeof(l)) has not implemented forw")
-back(l::Layer, dy; o...)=error("$(typeof(l)) has not implemented back")
-param(l::Layer)=nothing
-ysize(l::Layer, x...)=size(x[1])
-update(l::Layer; o...)=update(param(l); o...)
-setparam!(l::Layer; o...)=setparam!(param(l); o...)
-ninputs(l::Layer)=1
-overwrites(l::Layer,i=1)=error("$(typeof(l)) has not implemented this")
-back_reads_x(l::Layer)=error("$(typeof(l)) has not implemented this")
-back_reads_y(l::Layer)=error("$(typeof(l)) has not implemented this")
+abstract Op
+forw(l::Op, x...; o...)=error("$(typeof(l)) has not implemented forw")
+back(l::Op, dy; o...)=error("$(typeof(l)) has not implemented back")
+param(l::Op)=nothing
+ysize(l::Op, x...)=size(x[1])
+update(l::Op; o...)=update(param(l); o...)
+setparam!(l::Op; o...)=setparam!(param(l); o...)
+ninputs(l::Op)=1
+overwrites(l::Op,i=1)=error("$(typeof(l)) has not implemented this")
+back_reads_x(l::Op)=error("$(typeof(l)) has not implemented this")
+back_reads_y(l::Op)=error("$(typeof(l)) has not implemented this")
 
 # Net: Convenience type for an array of layers
 
-typealias Net Array{Layer,1}
+typealias Net Array{Op,1}
 forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
 back(n::Net, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
 update(n::Net; o...)=(for l in n; update(l; o...); end; n)
@@ -96,7 +96,7 @@ ybatch(y,b)=KUdense(barray(), eltype(y), csize(y,b))
 
 barray()=(gpu()?CudaArray:Array)
 
-function strip!(l::Layer)
+function strip!(l::Op)
     for f in fieldnames(l)
         isdefined(l,f) || continue
         isa(l.(f), KUparam) && strip!(l.(f))
@@ -126,7 +126,7 @@ accuracy(y,z)=mean(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1
 
 import Base: isequal
 
-function isequal(a::Layer,b::Layer)
+function isequal(a::Op,b::Op)
     typeof(a)==typeof(b) || return false
     for n in fieldnames(a)
         if isdefined(a,n) && isdefined(b,n)

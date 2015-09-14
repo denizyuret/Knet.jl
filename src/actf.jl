@@ -1,6 +1,6 @@
 # Activation function layers:
 
-abstract ActfLayer <: Layer
+abstract ActfLayer <: Op
 
 overwrites(l::ActfLayer)=true
 back_reads_x(l::ActfLayer)=false

@@ -1,4 +1,4 @@
-type Mul2 <: Layer; ybuf; x1; x2; dx1; dx2; Mul2()=new(); end
+type Mul2 <: Op; ybuf; x1; x2; dx1; dx2; Mul2()=new(); end
 
 ninputs(::Mul2)=2
 overwrites(l::Mul2)=false

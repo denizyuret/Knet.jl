@@ -1,4 +1,4 @@
-type Mmul <: Layer; w; x; ybuf; dx; Mmul(p::KUparam)=new(p); end
+type Mmul <: Op; w; x; ybuf; dx; Mmul(p::KUparam)=new(p); end
 
 Mmul(d...; o...)=Mmul(KUparam(d...; o...))
 Mmul(n::Integer; o...)=Mmul(n, 0; o...)

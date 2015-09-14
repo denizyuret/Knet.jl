@@ -127,7 +127,7 @@ end
 info("TEST 3")
 
 x = KUdense(gpucopy(rand(784,10)))
-net = Layer[Mmul(10),QuadLoss()]
+net = Op[Mmul(10),QuadLoss()]
 @date y1 = forw(net, copy(x))
 rnn = RNN(gpucopy(net)...)
 @date y2 = forw(rnn, copy(x))

@@ -70,7 +70,7 @@ function getloss(net, x, z)
     loss(net[n], z)
 end
 
-function getparam(l1::Layer)
+function getparam(l1::Op)
     w1 = nothing
     for n in fieldnames(l1); isdefined(l1,n) && isa(l1.(n), KUparam) && (w1=l1.(n); break); end
     return w1
@@ -85,11 +85,11 @@ function gputest(cnet::Net, x, z)
     (cl, cx, cz) = forwlossback(cnet, x, z)
     # info("gputest 2")
     # display(shownet(cnet));println("")
-    gnet0 = gnet = Layer[gpucopy(cnet)...]
+    gnet0 = gnet = Op[gpucopy(cnet)...]
     # info("gputest 3")
     # display(shownet(gnet));println("")
     # @show gnet
-    # hnet = Layer[cpucopy(gnet)...]
+    # hnet = Op[cpucopy(gnet)...]
     # @show hnet
     # @assert isequal(cnet[1].w.arr, hnet[1].w.arr)
     # @show cnet
@@ -164,7 +164,7 @@ function filetest(net1)
     return all(map(iseq03, net1, net2))
 end
 
-function getnet{T<:Layer}(F,S,L::Type{T})
+function getnet{T<:Op}(F,S,L::Type{T})
     nd = length(S)
     nf = (nd==1 ? S[1] : div(prod(S),S[nd]))
     (nf>20) && in(L,(Logp,Soft,LogpLoss,SoftLoss,XentLoss)) && return nothing
@@ -174,7 +174,7 @@ function getnet{T<:Layer}(F,S,L::Type{T})
          (L == Drop) ? Drop(rand()) :
          (L == Mmul) ? Mmul(rand(1:20)) :
          (L == Pool) ? Pool(rand(1:minimum(S))) : L())
-    net = Layer[]; push!(net, l)
+    net = Op[]; push!(net, l)
     return (isa(l, Logp) ? push!(net, LogpLoss()) :
             isa(l, Soft) ? push!(net, SoftLoss()) :
             !isa(l, LossLayer) ? push!(net, QuadLoss()) : net)
@@ -206,7 +206,7 @@ function shownet(n::Net)
     map(showlayer, n)
 end
 
-function showlayer(l::Layer)
+function showlayer(l::Op)
     ans = Any[]
     push!(ans,typeof(l))
     for n in fieldnames(l)

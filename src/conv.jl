@@ -2,7 +2,7 @@
 # TODO: cpu implementation
 # TODO: upgrade to new cudnn version
 
-type Conv <: Layer; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
+type Conv <: Op; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
 
 Conv(d...; o...)=Conv(KUparam(d...; o...))
 Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, 0, nout; o...))

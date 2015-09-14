@@ -1,6 +1,6 @@
 # Loss Layers
 
-abstract LossLayer <: Layer
+abstract LossLayer <: Op
 
 overwrites(l::LossLayer)=true
 back_reads_x(l::LossLayer)=false

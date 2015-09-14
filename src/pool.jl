@@ -1,7 +1,7 @@
 # TODO: generalize to 3-D
 # TODO: cpu implementation
 
-type Pool <: Layer; dims; padding; stride; mode; pd; x; y; ybuf; dx; Pool()=new(); end
+type Pool <: Op; dims; padding; stride; mode; pd; x; y; ybuf; dx; Pool()=new(); end
 
 overwrites(l::Pool)=false
 back_reads_x(l::Pool)=true

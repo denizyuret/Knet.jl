@@ -66,7 +66,7 @@ end # for X
 
 # if true
 # info("Dense input")
-# xnet = Layer[Perceptron(10)]
+# xnet = Op[Perceptron(10)]
 # @time for i=1:5
 #     train(xnet, xtrn, ytrn)
 #     println((i,
@@ -77,7 +77,7 @@ end # for X
 
 # if true
 # info("Sparse input")
-# snet = Layer[Perceptron(10)]
+# snet = Op[Perceptron(10)]
 # @time for i=1:5
 #     train(snet, strn, ytrn)
 #     println((i,
@@ -99,7 +99,7 @@ end # for X
 
 # # KUnet.atype(CudaArray)
 # KUnet.gpu(true)
-# cnet = Layer[Perceptron(10)]
+# cnet = Op[Perceptron(10)]
 # @time for i=1:5
 #     train(cnet, xtrn, ytrn; iters=100)
 #     println((i,

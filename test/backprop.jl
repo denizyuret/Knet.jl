@@ -38,7 +38,7 @@ function main()
         xx = CudaArray(xx)
         yy = CudaArray(yy)
     end
-    net = map(l->Layer(l), split(args["net"],','))
+    net = map(l->Op(l), split(args["net"],','))
     gc()
     @time KUnet.backprop(net, xx, yy)
     h5write("$(args["out"])1.h5", net[1])

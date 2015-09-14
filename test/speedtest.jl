@@ -30,8 +30,8 @@ end
 if isdefined(:CUDArt)
 function speedtest()
     x = h5read("devx.h5","/data")
-    l1 = Layer("dev1.h5")
-    l2 = Layer("dev2.h5")
+    l1 = Op("dev1.h5")
+    l2 = Op("dev2.h5")
     l1.xforw = KUnet.noop
     l2.xforw = KUnet.noop
     l1.w = CudaArray(l1.w)
@@ -54,8 +54,8 @@ if isdefined(:CUDArt)
 function speedtest2()
     batch = 937
     x = h5read("devx.h5","/data")
-    l1 = Layer("dev1.h5")
-    l2 = Layer("dev2.h5")
+    l1 = Op("dev1.h5")
+    l2 = Op("dev2.h5")
     l1.xforw = KUnet.noop
     l2.xforw = KUnet.noop
     l1.w = CudaArray(l1.w)
@@ -79,8 +79,8 @@ function speedtest3()
     # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
+    l1 = KUnet.Op("dev1.h5")
+    l2 = KUnet.Op("dev2.h5")
     net = [l1,l2]
     @time KUnet.predict(net, x, batch=batch)
     @time KUnet.predict(net, x, batch=batch)
@@ -91,8 +91,8 @@ function speedtest4()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
+    l1 = KUnet.Op("dev1.h5")
+    l2 = KUnet.Op("dev2.h5")
     net = [l1,l2]
     xx = x[:,1:batch]
     yy = y[:,1:batch]
@@ -107,8 +107,8 @@ function speedtest5()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
+    l1 = KUnet.Op("dev1.h5")
+    l2 = KUnet.Op("dev2.h5")
     l1.xforw = KUnet.noop
     l2.xforw = KUnet.noop
     l1.w = CudaArray(l1.w)
@@ -129,8 +129,8 @@ function speedtest6()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("rnd1.h5")
-    l2 = KUnet.Layer("rnd2.h5")
+    l1 = KUnet.Op("rnd1.h5")
+    l2 = KUnet.Op("rnd2.h5")
     net = [l1,l2]
     KUnet.setparam!(net, :l2reg, 0.5f0)
     @time KUnet.train(net, x, y; batch=937, iters=10)
@@ -143,8 +143,8 @@ function speedtest7()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("rnd1.h5")
-    l2 = KUnet.Layer("rnd2.h5")
+    l1 = KUnet.Op("rnd1.h5")
+    l2 = KUnet.Op("rnd2.h5")
     l1.w = CudaArray(l1.w)
     l1.b = CudaArray(l1.b)
     l2.w = CudaArray(l2.w)

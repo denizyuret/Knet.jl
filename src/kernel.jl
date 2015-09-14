@@ -1,4 +1,4 @@
-# Kernel Layer
+# Kernel Op
 # Input: x[nd,nx]
 # Support vector matrix: s[nd,ns]
 # Kernel function: K[ns,nx] = kernel(s,x)  -- a new representation for x
@@ -10,7 +10,7 @@
 # Functions: kernel
 # Initialize: w[nc,0]
 
-abstract Kernel <: Layer
+abstract Kernel <: Op
 
 # The forw function is just mmul applied to a transformed input:
 

@@ -157,10 +157,10 @@ end
 # If an argument is another Net, its operations are spliced in
 
 function initop(r::RNN, a...)
-    r.op = Layer[]
+    r.op = Op[]
     for ai in a
         isa(ai,Tuple) && (ai=ai[1])
-        isa(ai,Layer) ?  push!(r.op, ai) :
+        isa(ai,Op) ?  push!(r.op, ai) :
         isa(ai,RNN)   ?  append!(r.op, ai.op) :
         error("Bad op: $ai")
     end
@@ -180,7 +180,7 @@ function initinputs(r::RNN, a...)
     lastindex = 0
     for i=1:length(a)
         ai = isa(a[i],Tuple) ? a[i][1] : a[i]
-        lastindex += (isa(ai,Layer) ? 1 : length(ai.op))
+        lastindex += (isa(ai,Op) ? 1 : length(ai.op))
         newindex[i] = lastindex
     end
     r.inputs = Any[]
@@ -188,7 +188,7 @@ function initinputs(r::RNN, a...)
         ai = isa(a[i],Tuple) ? a[i][1] : a[i]
         bi = isa(a[i],Tuple) ? a[i][2:end] : ((i-ninputs(ai)):(i-1))
         length(bi) == ninputs(ai) || error("Wrong number of inputs for $i:$(typeof(ai))")
-        if isa(ai, Layer)
+        if isa(ai, Op)
             push!(r.inputs, map(j->(j>0 ? newindex[j] : nops(r)+1-j), Int[bi...]))
         else
             j0 = length(r.inputs)

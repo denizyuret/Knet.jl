@@ -83,7 +83,7 @@ function main()
     args["nogpu"] && blas_set_num_threads(20)
     x = h5read(args["x"], "/data"); 
     y = h5read(args["y"], "/data"); 
-    net = map(l->Layer(l), split(args["net"],','))
+    net = map(l->Op(l), split(args["net"],','))
     for (a,v) in args
         if !in(a, ["x","y","nogpu","net","batch","iters","loss","out"])
             setparam!(net, symbol(a), v)

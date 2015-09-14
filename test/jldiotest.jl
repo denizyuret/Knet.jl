@@ -1,7 +1,7 @@
 using Compat
 using KUnet
 using HDF5,JLD
-typealias LUP Union(Layer,UpdateParam)
+typealias LUP Union(Op,UpdateParam)
 import Base.isequal
 
 function isequal(l1::LUP, l2::LUP)

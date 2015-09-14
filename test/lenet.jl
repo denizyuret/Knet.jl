@@ -62,7 +62,7 @@ end
 # @show x3=KUnet.forw(conv2,x2)
 
 # dims3 = (500,800)
-# ip3 = Layer(w=CudaArray(float32(randn(dims3)*0.01)),
+# ip3 = Op(w=CudaArray(float32(randn(dims3)*0.01)),
 #             b=CudaArray(zeros(Float32, dims3[1], 1)),
 #             f=relu,
 #             pw=UpdateParam(learningRate=lr),
@@ -74,7 +74,7 @@ end
 # @show x4=KUnet.forw(ip3,x3)
 
 # dims4 = (10,500)
-# ip4 = Layer(w=CudaArray(float32(randn(dims4)*0.01)),
+# ip4 = Op(w=CudaArray(float32(randn(dims4)*0.01)),
 #             b=CudaArray(zeros(Float32, dims4[1], 1)),
 #             f=relu,
 #             pw=UpdateParam(learningRate=lr),

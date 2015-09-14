@@ -1,4 +1,4 @@
-type Add2 <: Layer; Add2()=new(); dx1; dx2; end
+type Add2 <: Op; Add2()=new(); dx1; dx2; end
 
 ninputs(::Add2)=2
 overwrites(l::Add2)=true

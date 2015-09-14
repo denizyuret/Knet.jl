@@ -1,4 +1,4 @@
-type Bias <: Layer; b; Bias(b::KUparam)=new(b); end
+type Bias <: Op; b; Bias(b::KUparam)=new(b); end
 
 param(l::Bias)=l.b
 

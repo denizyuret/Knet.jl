@@ -1,4 +1,4 @@
-type Drop <: Layer; dropout; xdrop; y; Drop(d)=new(d); end
+type Drop <: Op; dropout; xdrop; y; Drop(d)=new(d); end
 
 # TODO: implement Dropout using Mul2: however forw conditional on predict?
 ## maybe we can make rand conditional and mul2 treat nothing as identity?

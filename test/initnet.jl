@@ -2,7 +2,7 @@ using KUnet, HDF5, JLD, ArgParse, Compat
 
 function initnet()
     args = parse_commandline()
-    net = Layer[]
+    net = Op[]
     !isempty(args["dropout"]) && push!(net, Drop(args["dropout"][1]))
     for h in args["hidden"]
         append!(net, [Mmul(h), Bias(), Relu()])
