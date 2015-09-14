@@ -139,7 +139,7 @@ args["type"] == "lstm" && setparam!(net1.op[9]; init=fill!, initp=args["fb"])
 net2 = quadlosslayer(ny)
 setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
 
-net = RNN2(net1, net2)
+net = S2C(net1, net2)
 # setparam!(net; lr=args["lr"], gc=args["gc"])  # do a global gclip instead of per parameter
 setparam!(net; lr=args["lr"])
 
