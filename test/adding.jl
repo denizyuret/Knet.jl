@@ -12,21 +12,23 @@
 # 60	40	0.01	440000	gc=10
 # 100	50	0.01	gc=10 failed
 
+# TODO: move batch somewhere else
+
 using CUDArt
 using KUnet
 using ArgParse
 
-function parse_commandline()
+function parse_commandline(a=ARGS)
     s = ArgParseSettings()
     @add_arg_table s begin
         "--epochs"
         help = "Number of epochs to train"
         arg_type = Int
-        default = 100
+        default = 20 # 100
         "--train"
         help = "number of training examples"
         arg_type = Int
-        default = 10000 # 2000
+        default = 2000 # 10000
         "--test"
         help = "number of testing examples"
         arg_type = Int
@@ -34,19 +36,19 @@ function parse_commandline()
         "--length"
         help = "length of the input sequence"
         arg_type = Int
-        default = 100 # 10
+        default = 10 # 100
         "--hidden"
         help = "number of hidden units"
         arg_type = Int
-        default = 100 # 5
+        default = 5 # 100
         "--lr"
         help = "learning rate"
         arg_type = Float64
-        default =  0.01 # 0.05
+        default =  0.05 # 0.01
         "--gc"
         help = "gradient clip"
         arg_type = Float64
-        default =  10.0
+        default =  100.0 # 1.0
         "--batch"
         help = "minibatch size"
         arg_type = Int
@@ -63,7 +65,7 @@ function parse_commandline()
         arg_type = Int
         default = 1001
     end
-    parse_args(s)
+    parse_args(a,s)
 end
 
 function gendata(ni, nt)
@@ -118,6 +120,8 @@ function batch(x, y, nb)
 end
 
 args = parse_commandline()
+# args = parse_commandline(split("--train 2000 --test 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20"))
+# args = parse_commandline(split("--train 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
@@ -136,7 +140,8 @@ net2 = quadlosslayer(ny)
 setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
 
 net = RNN2(net1, net2)
-setparam!(net; lr=args["lr"], gc=args["gc"])
+# setparam!(net; lr=args["lr"], gc=args["gc"])  # do a global gclip instead of per parameter
+setparam!(net; lr=args["lr"])
 
 ntrn = args["train"]
 ntst = args["test"]
@@ -149,20 +154,21 @@ nt = args["length"]
 @time for epoch=1:args["epochs"]
     (xtrn1,ytrn1) = gendata(ntrn, nt)
     (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
-    gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
     trnmse = tstmse = maxg = maxw = 0
     for i=1:length(xtrn)
-        (l,w,g) = train(net, xtrn[i], ytrn[i][end]; getloss=true, getnorm=true)
+        (l,w,g) = train(net, xtrn[i], ytrn[i][end]; getloss=true, getnorm=true, gclip=args["gc"])
         trnmse += l
         w > maxw && (maxw = w)
         g > maxg && (maxg = g)
     end
     for i=1:length(xtst)
-        tstmse += loss(net, xtst[i], ytst[i][end])
+        tstmse += test(net, xtst[i], ytst[i][end])
     end
     trnmse = 2*trnmse/length(xtrn)
     tstmse = 2*tstmse/length(xtst)
     println(tuple(epoch*ntrn,trnmse,tstmse,maxw,maxg))
+    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
+    gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
     flush(STDOUT)
 end
 
