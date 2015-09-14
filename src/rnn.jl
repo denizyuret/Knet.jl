@@ -57,8 +57,8 @@ function forw(r::RNN, inputs...; train=false, y=nothing, a...)
     return y
 end
 
-function forw(r::RNN, x::Vector; y=nothing, a...)
-    init(r, x)
+function forw(r::RNN, x::Vector;y=nothing, a...)
+    init(r, x; a...)
     for i=1:length(x)
         yi = (y == nothing ? nothing : y[i])
         forw(r, x[i]; y=yi, a...)
@@ -329,13 +329,30 @@ function initstack(r::RNN)
     r.sp = 0
 end
 
-# This is run by train/predict before the start of a new sequence of forw's and back's
-# inputs should be the input that will be fed to forw
-# subsequent inputs to forw should have the same size, shape
+# The input x::Vector can be x[i][t][d...,b] or x[t][d...,b]
+# where i:instance, t:time, d:dims, b:batch
+# We only want to init if x[t][d...,b]
+# In that case x[1] will be a numeric array 
+# or a tuple of numeric arrays (to support multiple inputs)
 
-function init(r::RNN, inputs...)
+function init(r::RNN, x::Vector; a...)
+    if isempty(x) || x[1] == nothing
+        error("Got nothing as input")
+    elseif isa(x[1], Tuple)
+        init(r, x[1]...; a...)
+    elseif isbits(eltype(x[1]))
+        init(r, x[1]; a...)
+    end
+end
+
+function init(r::RNN, inputs...; train=false)
     r.sp == 0 || error("Stack corruption")
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
+    initout0(r, inputs...)
+    train && initdif0(r)
+end
+    
+function initout0(r::RNN, inputs...)
     fill!(r.out,nothing)
     for i = 1:ninputs(r)
         n = i+nops(r)
@@ -354,11 +371,15 @@ function init(r::RNN, inputs...)
         end
         nalloc == 0 && error("Cannot determine size of array")
     end
+    fill!(r.out,nothing)
+end
+
+function initdif0(r::RNN)
     for n=1:length(r.dif0)
-        initarray(r.dif0, n, r.out[n])
+        initarray(r.dif0, n, r.out0[n])
         if r.multi[n]
             fill!(r.dif0[n], 0)
-            initarray(r.dif1, n, r.out[n])
+            initarray(r.dif1, n, r.out0[n])
         end
     end
     for l in r.op
@@ -368,24 +389,7 @@ function init(r::RNN, inputs...)
         similar!(w, :inc, w.arr)
         fill!(w.diff, 0)
     end
-    fill!(r.out,nothing)
     fill!(r.dif,nothing)
-end
-
-# The input x::Vector can be x[i][t][d...,b] or x[t][d...,b]
-# where i:instance, t:time, d:dims, b:batch
-# We only want to init if x[t][d...,b]
-# In that case x[1] will be a numeric array 
-# or a tuple of numeric arrays (to support multiple inputs)
-
-function init(r::RNN, x::Vector)
-    if isempty(x) || x[1] == nothing
-        error("Got nothing as input")
-    elseif isa(x[1], Tuple)
-        init(r, x[1]...)
-    elseif isbits(eltype(x[1]))
-        init(r, x[1])
-    end
 end
 
 function initarray(a, i, x, dims=size(x))
