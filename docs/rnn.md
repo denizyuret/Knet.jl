@@ -384,12 +384,12 @@ OK: Or we can just assign size-0 KUdense everywhere and have layers resize as ap
 OK: We also need to resize appropriately?  should rnn do this or the ops? ops can do it.
 In which case we don't need allocy except internally to an Op.  
 
-TODO: after testing:
+TODO: renames after testing:
 RENAME: KUdense -> KUarray
-RENAME: Net -> FNN
+DONE: Net -> MLP
 RENAME: RNN -> Net
-RENAME: Layer -> Op
-RENAME: predict=false -> train=true
+DONE: Layer -> Op
+DONE: predict=false -> train=true
 RENAME: RNN2 -> S2C
 
 During construction and compilation we will know N but we wont know T.

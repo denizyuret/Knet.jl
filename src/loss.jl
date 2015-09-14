@@ -31,7 +31,7 @@ for (ltype, lback, lloss) in (
     end
 end
 
-loss(net::Net, dy, y=net[end].y)=loss(net[end], dy, y)
+loss(net::MLP, dy, y=net[end].y)=loss(net[end], dy, y)
 
 ### QUADLOSS:
 

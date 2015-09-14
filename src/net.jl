@@ -16,24 +16,24 @@ overwrites(l::Op,i=1)=error("$(typeof(l)) has not implemented this")
 back_reads_x(l::Op)=error("$(typeof(l)) has not implemented this")
 back_reads_y(l::Op)=error("$(typeof(l)) has not implemented this")
 
-# Net: Convenience type for an array of layers
+# MLP: Convenience type for an array of layers
 
-typealias Net Array{Op,1}
-forw(n::Net, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
-back(n::Net, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
-update(n::Net; o...)=(for l in n; update(l; o...); end; n)
-setparam!(n::Net; o...)=(for l in n; setparam!(l; o...); end; n)
+typealias MLP Array{Op,1}
+forw(n::MLP, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
+back(n::MLP, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
+update(n::MLP; o...)=(for l in n; update(l; o...); end; n)
+setparam!(n::MLP; o...)=(for l in n; setparam!(l; o...); end; n)
 
 # The backprop algorithm
 
-function backprop(net::Net, x, y; o...)
+function backprop(net::MLP, x, y; o...)
     forw(net, x; o...) # calculate network output given input x
     back(net, y; o...) # calculate derivatives dx,dw given desired output y
 end
 
 # Predict implements forw with minibatches.
 
-function predict(net::Net, x; y=nothing, batch=128, o...)
+function predict(net::MLP, x; y=nothing, batch=128, o...)
     ninst = size(x, ndims(x))
     (batch == 0 || batch > ninst) && (batch = ninst)
     (xx,yy) = (xbatch(x, batch), nothing)
@@ -51,7 +51,7 @@ end
 # Train implements backprop with updates and minibatches.
 # It runs for one epoch by default, iters can be specified to stop earlier.
 
-function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
+function train(net::MLP, x, y; batch=128, shuffle=false, iters=0, o...)
     shuffle && ((x,y)=shufflexy!(x,y))
     ninst = ccount(x)
     ninst==0 && (return warn("No instances"))
@@ -106,11 +106,11 @@ function strip!(l::Op)
 end
 
 strip!(p::KUparam)=(p.init=p.diff=nothing;p)
-strip!(n::Net)=(for l in n; strip!(l); end; gc(); n)
+strip!(n::MLP)=(for l in n; strip!(l); end; gc(); n)
 
 using JLD
 
-function savenet(filename::String, net::Net)
+function savenet(filename::String, net::MLP)
     net = strip!(net)
     GPU && (net = cpucopy(net))
     save(filename, "kunet", net)

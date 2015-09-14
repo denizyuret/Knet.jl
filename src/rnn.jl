@@ -150,11 +150,11 @@ function pop(r::RNN,n::Int)
     r.sp -= 1
 end
 
-### Net initialization
+### MLP initialization
 
 # r.op[n] is the n'th operation in the net
-# The user specifies the operations in the Net constructor arguments
-# If an argument is another Net, its operations are spliced in
+# The user specifies the operations in the MLP constructor arguments
+# If an argument is another MLP, its operations are spliced in
 
 function initop(r::RNN, a...)
     r.op = Op[]
@@ -199,7 +199,7 @@ function initinputs(r::RNN, a...)
     end
 end
 
-# r.ninputs is the number of inputs the whole Net expects
+# r.ninputs is the number of inputs the whole MLP expects
 # indices i>nops(r) in r.inputs refer to network inputs
 
 function initninputs(r::RNN)
@@ -551,9 +551,9 @@ end
 # end
 
 # # r.stack[n<=N][t] is a copy of the output of r.op[n] at r.time=t
-# # r.stack[n>N][t] is a copy of the n-N'th Net input at r.time=t
+# # r.stack[n>N][t] is a copy of the n-N'th MLP input at r.time=t
 # # - where N is the number of op
-# # - remember Net inputs are indicated by 0,-1,-2 etc. in r.inputs
+# # - remember MLP inputs are indicated by 0,-1,-2 etc. in r.inputs
 # # We only keep the copies necessary for the back calculation
 # # - initstack initializes necessary r.stack[n] with empty arrays
 # #   the other elements in r.stack are left unassigned
@@ -844,7 +844,7 @@ end
 
 # regbuf(r,n)=(r.reg[r.out[n]]!=nothing ? r.reg[r.out[n]] : r.buf[r.out[n]])
 
-# # r.reg[i] is the i'th register of the Net
+# # r.reg[i] is the i'th register of the MLP
 # # Each register points to an array allocated elsewhere 
 # # or is set to 'nothing' representing the zero matrix
 # # These registers are used for network inputs, op outputs, op gradients.

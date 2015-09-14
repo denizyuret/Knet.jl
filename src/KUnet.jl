@@ -21,7 +21,7 @@ include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("net.jl");	export Op, Net, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
+include("net.jl");	export Op, MLP, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
 include("update.jl");	export update, setparam!
 include("model.jl");	export Model, train, predict, test, gradcheck, setparam!
 

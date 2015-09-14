@@ -76,7 +76,7 @@ function getparam(l1::Op)
     return w1
 end
 
-function gputest(cnet::Net, x, z)
+function gputest(cnet::MLP, x, z)
     global gnet0
     rval = true
     # Compare loss, y, dx, dw after forw and back:
@@ -202,7 +202,7 @@ function gettest(F,S,L)
     return (net, x, z)
 end
 
-function shownet(n::Net)
+function shownet(n::MLP)
     map(showlayer, n)
 end
 
