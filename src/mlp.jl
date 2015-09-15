@@ -1,28 +1,26 @@
-# Each Op implements some common functions, stubs are given below.
-# forw takes input x and returns output y, possibly setting some state.
-# back takes dy, the loss gradient wrt y, calculates loss gradient wrt 
-# layer parameters and optionally returns dx, the loss gradient wrt x.
-# Some layers overwrite their inputs.
-
-abstract Op
-forw(l::Op, x...; o...)=error("$(typeof(l)) has not implemented forw")
-back(l::Op, dy; o...)=error("$(typeof(l)) has not implemented back")
-param(l::Op)=nothing
-ysize(l::Op, x...)=size(x[1])
-update(l::Op; o...)=update(param(l); o...)
-setparam!(l::Op; o...)=setparam!(param(l); o...)
-ninputs(l::Op)=1
-overwrites(l::Op,i=1)=error("$(typeof(l)) has not implemented this")
-back_reads_x(l::Op)=error("$(typeof(l)) has not implemented this")
-back_reads_y(l::Op)=error("$(typeof(l)) has not implemented this")
-
 # MLP: Convenience type for an array of layers
+# This is deprecated, please use the new Net().
 
-typealias MLP Array{Op,1}
+typealias MLP Vector{Op}
+
 forw(n::MLP, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
 back(n::MLP, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
-update(n::MLP; o...)=(for l in n; update(l; o...); end; n)
-setparam!(n::MLP; o...)=(for l in n; setparam!(l; o...); end; n)
+loss(n::MLP, dy; y=n[end].y)=loss(n[end], dy; y=y)
+
+function params(r::MLP)
+    p = Any[]
+    for o in r.op
+        append!(p, params(o))
+    end
+    return p
+end
+
+# All of this should be inherited from Model() and/or implemented with the new Net():
+# TODO: batching needs to be done outside?
+# TODO: predict with y=nothing
+# TODO: train with shuffle, iters
+# TODO: strip, savenet, loadnet implement for the new Net().
+# TODO: accuracy needs to go somewhere
 
 # The backprop algorithm
 
@@ -124,16 +122,3 @@ end
 
 accuracy(y,z)=mean(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
 
-import Base: isequal
-
-function isequal(a::Op,b::Op)
-    typeof(a)==typeof(b) || return false
-    for n in fieldnames(a)
-        if isdefined(a,n) && isdefined(b,n)
-            isequal(a.(n), b.(n)) || return false
-        elseif isdefined(a,n) || isdefined(b,n)
-            return false
-        end
-    end
-    return true
-end

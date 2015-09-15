@@ -1,9 +1,11 @@
 type Mul2 <: Op; ybuf; x1; x2; dx1; dx2; Mul2()=new(); end
 
+params(::Mul2)=Any[]
 ninputs(::Mul2)=2
-overwrites(l::Mul2)=false
-back_reads_x(l::Mul2)=true
-back_reads_y(l::Mul2)=false
+ysize(::Mul2,x1,x2)=size(x1)
+overwrites(::Mul2)=false
+back_reads_x(::Mul2)=true
+back_reads_y(::Mul2)=false
 
 # x1,x2 is a pair of similarly sized input matrices
 

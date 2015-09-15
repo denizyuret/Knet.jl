@@ -4,19 +4,27 @@ Model is an abstract type whose subtypes should provide the following:
 * `forw(m,x)`
 * `back(m,y)`
 * `loss(m,y)`
-* `update(m)`
-* `nops(m)`
-* `op(m,n)`
+* `params(m)`
 
 Using these low level methods, Model defines the following:
 
 * `train(m,x,y)`
-* `predict(m,x,y)`
 * `test(m,x,y)`    
+* `predict(m,x,y)`
 * `gradcheck(m,x,y)`
-* `setparam!(m;p...)`
+
+and extends the following to apply to each parameter of the model:
+
+* `setparam!(m; o...)`
+* `update(m; o...)`
 """
 abstract Model
+
+setparam!(m::Model; o...)=(for p in params(m); setparam!(p; o...); end)
+update(m::Model; o...)=(for p in params(m); update(p; o...); end) # TODO: rename to update!
+gscale!(m::Model, s)=(for p in params(m); scale!(s, p.diff); end)
+wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
+gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 
 # TODO: do we need to unfold x in a loop?
 
@@ -29,8 +37,8 @@ end
 
 function train(m::Model, x, y; getloss=false, getnorm=false, gclip=0)
     l = backprop(m,x,y; getloss=getloss)
-    (getnorm || gclip>0) && ((w,g)=sumnorm(m))
-    g > gclip > 0 && gscale!(m, gclip/g)
+    (getnorm || gclip>0) && (w=wnorm(m); g=gnorm(m))
+    g > gclip > 0 && gscale!(m, gclip/g) # TODO: make this an update option
     update(m)
     return (getloss && getnorm ? (l,w,g) : getloss ? l : getnorm ? (w,g) : nothing)
 end
@@ -46,15 +54,11 @@ end
 
 function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
     l0 = backprop(m, x, y; getloss=true)
-    dw = cell(nops(m))
+    pp = params(m)
+    dw = map(p->convert(Array,p.diff), pp)
     for n=1:length(dw)
-        p = param(op(m,n))
-        dw[n] = (p == nothing ? nothing : convert(Array, p.diff))
-    end
-    for n=1:length(dw)
-        dw[n] == nothing && continue
-        p = param(op(m,n))
-        pcopy = copy(p.arr)
+        p = pp[n]
+        pcopy = copy(p.arr)     # TODO: do we need pcopy?
         w = convert(Array, p.arr)
         wlen = length(w)
         irange = (wlen <= ncheck ? (1:wlen) : rand(1:wlen, ncheck))
@@ -71,28 +75,5 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
     end
 end
 
-function sumnorm(m::Model, w=0, g=0)
-    for n=1:nops(m)
-        p = param(op(m,n))
-        p == nothing && continue
-        w += vecnorm(p.arr)
-        g += vecnorm(p.diff)
-    end
-    return (w, g)
-end
-
-function gscale!(m::Model, s)
-    for n=1:nops(m)
-        p = param(op(m,n))
-        p == nothing && continue
-        scale!(s, p.diff)
-    end
-end
-
-function setparam!(m::Model; o...)
-    for n=1:nops(m)
-        p = param(op(m,n))
-        p == nothing && continue
-        setparam!(p; o...)
-    end
-end
+# This will not work for MLP!  extra parameterless ops do not effect equality.
+# Base.isequal(a::Model,b::Model)=(typeof(a)==typeof(b) && isequal(params(a),params(b)))

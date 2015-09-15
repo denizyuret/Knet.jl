@@ -2,6 +2,9 @@
 
 abstract ActfLayer <: Op
 
+params(l::ActfLayer)=Any[]
+ninputs(l::ActfLayer)=1
+ysize(l::ActfLayer,x)=size(x)
 overwrites(l::ActfLayer)=true
 back_reads_x(l::ActfLayer)=false
 back_reads_y(l::ActfLayer)=true

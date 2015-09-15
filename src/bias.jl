@@ -1,13 +1,14 @@
 type Bias <: Op; b; Bias(b::KUparam)=new(b); end
 
-param(l::Bias)=l.b
-
 Bias(d1, d...; o...)=Bias(KUparam(d1, d...; o...))
 Bias(; o...)=Bias(KUparam(0; o...))
 
-overwrites(l::Bias)=true
-back_reads_x(l::Bias)=false
-back_reads_y(l::Bias)=false
+params(l::Bias)=Any[l.b]
+ninputs(::Bias)=1
+ysize(::Bias,x)=size(x)
+overwrites(::Bias)=true
+back_reads_x(::Bias)=false
+back_reads_y(::Bias)=false
 
 function forw(l::Bias, x; y=x, o...)
     (b,x,y)=initforw(l,x,y;o...)

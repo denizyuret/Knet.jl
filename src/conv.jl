@@ -7,10 +7,11 @@ type Conv <: Op; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
 Conv(d...; o...)=Conv(KUparam(d...; o...))
 Conv(nout::Integer, width::Integer; o...)=Conv(KUparam(width, 0, nout; o...))
 
-param(l::Conv)=l.w
-overwrites(l::Conv)=false
-back_reads_x(l::Conv)=true
-back_reads_y(l::Conv)=false
+params(l::Conv)=Any[l.w]
+ninputs(::Conv)=1
+overwrites(::Conv)=false
+back_reads_x(::Conv)=true
+back_reads_y(::Conv)=false
 
 # TODO: this unnecessarily allocates w and y
 ysize(l::Conv, x)=(isempty(l.w) && initforw(l,x,nothing); cudnnGetConvolutionNdForwardOutputDim(x,l.w))

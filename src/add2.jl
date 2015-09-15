@@ -1,6 +1,8 @@
 type Add2 <: Op; Add2()=new(); dx1; dx2; end
 
+params(::Add2)=Any[]
 ninputs(::Add2)=2
+ysize(::Add2,x1,x2)=size(x1)
 overwrites(l::Add2)=true
 back_reads_x(l::Add2)=false
 back_reads_y(l::Add2)=false

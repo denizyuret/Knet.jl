@@ -3,7 +3,8 @@ type Mmul <: Op; w; x; ybuf; dx; Mmul(p::KUparam)=new(p); end
 Mmul(d...; o...)=Mmul(KUparam(d...; o...))
 Mmul(n::Integer; o...)=Mmul(n, 0; o...)
 
-param(l::Mmul)=l.w
+params(l::Mmul)=Any[l.w]
+ninputs(l::Mmul)=1
 overwrites(l::Mmul)=false
 back_reads_x(l::Mmul)=true
 back_reads_y(l::Mmul)=false

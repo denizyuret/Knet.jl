@@ -1,10 +1,14 @@
 # Loss Layers
+# TODO: rename LossLayer -> Loss
 
 abstract LossLayer <: Op
 
-overwrites(l::LossLayer)=true
-back_reads_x(l::LossLayer)=false
-back_reads_y(l::LossLayer)=true
+params(::LossLayer)=Any[]
+ninputs(::LossLayer)=1
+ysize(::LossLayer,x)=size(x)
+overwrites(::LossLayer)=true
+back_reads_x(::LossLayer)=false
+back_reads_y(::LossLayer)=true
 
 # LossLayer has slightly different input/output behavior compared to regular layers:
 # forw only records the outgoing y.
@@ -30,8 +34,6 @@ for (ltype, lback, lloss) in (
             (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("$y\n$dy\n$dx"); $lback(y,dy,dx))
     end
 end
-
-loss(net::MLP, dy, y=net[end].y)=loss(net[end], dy, y)
 
 ### QUADLOSS:
 

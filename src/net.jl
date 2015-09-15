@@ -15,13 +15,15 @@
 # - if an op is using an external array, it should not store it.
 # - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
 
-type Net; op; inputs; ninputs; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
+type Net <: Model
+    op; inputs; ninputs; params; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
     function Net(a...; o...)
         r = new()
         initop(r, a...)
         initinputs(r, a...)
         @assert length(r.op)==length(r.inputs)
         initninputs(r)
+        initparams(r)
         initpush(r)
         initmulti(r)
         initout(r)
@@ -33,13 +35,13 @@ type Net; op; inputs; ninputs; push; multi; out; out0; dif; dif0; dif1; stack; s
     end
 end
 
+params(r::Net)=r.params
 ninputs(r::Net)=r.ninputs
+loss(r::Net,dy)=(dy==nothing ? 0 : loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)])))
+
+get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
-setparam!(r::Net; o...)=(for l in r.op; setparam!(l; o...); end; r)
-update(r::Net; o...)=(for l in r.op; update(l; o...); end; r)
-loss(r::Net,dy)=(dy==nothing ? 0 : loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)])))
-get1(x)=(length(x)==1?x[1]:x)
 
 function forw(r::Net, inputs...; train=false, y=nothing, a...)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
@@ -212,6 +214,15 @@ function initninputs(r::Net)
     r.ninputs = n
 end
 
+# r.params points to all op parameters
+
+function initparams(r::Net)
+    r.params = Any[]
+    for o in r.op
+        append!(r.params, params(o))
+    end
+end
+
 # r.push[n] is true if the result of op[n] (for n <= nops(r))
 # or the network input n-nops(r) (for n > nops(r))
 # should be saved for back calculation
@@ -365,8 +376,8 @@ function initout0(r::Net, inputs...)
             s = ysize(r.op[n], r.out[r.inputs[n]]...)
             s == nothing && continue        # may happen with recurrent connections
             r.out[n] = initarray(r.out0, n, r.out[r.inputs[n]][1], s)
-            p = param(r.op[n])
-            p != nothing && isempty(p) && forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n]) # initializes w
+            p = params(r.op[n])
+            !isempty(p) && findfirst(isempty,p)>0 && forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n]) # initializes w
             nalloc += 1
         end
         nalloc == 0 && error("Cannot determine size of array")
@@ -382,9 +393,7 @@ function initdif0(r::Net)
             initarray(r.dif1, n, r.out0[n])
         end
     end
-    for l in r.op
-        w = param(l)
-        w == nothing && continue
+    for w in params(r)
         similar!(w, :diff, w.arr)
         similar!(w, :inc, w.arr)
         fill!(w.diff, 0)
@@ -419,8 +428,8 @@ function dbg(r,f,n)
     print("\n==> $f[$n]($(ptr16(a))) stack:")
     println(map(ptr16, r.stack[1:r.sp]))
     a != nothing && display(convert(Array,a))
-    if n <= nops(r) && param(r.op[n]) != nothing
-        p = param(r.op[n])
+    if n <= nops(r) && !isempty(params(r.op[n]))
+        p = params(r.op[n])[1]
         println("\nw[$n]($(ptr16(p.arr)))")
         display(convert(Array,p.arr))
         if isdefined(p,:diff)

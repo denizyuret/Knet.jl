@@ -1,9 +1,10 @@
 using Base.Test
 using CUDArt
 using KUnet
-import KUnet: forw, back, ninputs, param, similar!, gpu, initforw, initback, push, pop, get1
 
-# include("../src/rnn.jl")
+# import KUnet: forw, back, ninputs, param, similar!, gpu, initforw, initback, push, pop, get1
+# include("../src/net.jl")
+
 include("isapprox.jl")
 
 info("TEST 5")
@@ -80,9 +81,10 @@ for n = nops(r):-1:1
         dytest1 = isapprox(dybuf1[n], dybuf2[n])
         @test dytest1
         dytest2 = (dybuf1[n] == dybuf2[n])
-        dwtest1 = (param(rnn.op[n]) == nothing ? nothing : isapprox(param(net[n]).diff, param(rnn.op[n]).diff))
-        dwtest1 == nothing || (@test dwtest1)
-        dwtest2 = (param(rnn.op[n]) == nothing ? nothing : (to_host(param(net[n]).diff) == to_host(param(rnn.op[n]).diff)))
+        p1 = map(p->p.diff, params(rnn.op[n]))
+        p2 = map(p->p.diff, params(net[n]))
+        @test dwtest1 = all(map(isapprox, p1, p2))
+        dwtest2 = all(map(isequal, p1, p2))
         println((n, typeof(rnn.op[n]), dytest1, dytest2, dwtest1, dwtest2))
 ###
 
@@ -119,9 +121,11 @@ y = KUdense(gpucopy(MNIST.ytrn[:,1:nb]))
 @date back(net, copy(y))
 @date back(rnn, copy(y))
 for i=nops(rnn):-1:1
-    param(rnn.op[i]) == nothing && continue
-    print("$i "); @test @show isapprox(param(net[i]).diff, param(rnn.op[i]).diff)
-    print("$i "); @show to_host(param(net[i]).diff)==to_host(param(rnn.op[i]).diff) # 1,2,5 only approx
+    isempty(params(net[i])) && continue
+    p1 = map(p->p.diff, params(rnn.op[i]))
+    p2 = map(p->p.diff, params(net[i]))
+    print("$i "); @test @show all(map(isapprox, p1, p2))
+    print("$i "); @show all(map(isequal, p1, p2)) # 1,2,5 only approx
 end
 
 info("TEST 3")
@@ -136,9 +140,10 @@ dy = rand!(copy(y1))
 back(net, copy(dy))
 back(rnn, copy(dy))
 for i=1:nops(rnn)
-    param(rnn.op[i]) == nothing && continue
-    print("$i ")
-    @test @show to_host(param(net[i]).diff)==to_host(param(rnn.op[i]).diff)
+    isempty(params(net[i])) && continue
+    p1 = map(p->p.diff, params(rnn.op[i]))
+    p2 = map(p->p.diff, params(net[i]))
+    print("$i "); @test @show all(map(isequal, p1, p2)) # 1,2,5 only approx
 end
 
 info("TEST 2")
@@ -161,9 +166,10 @@ y = KUdense(gpucopy(MNIST.ytrn[:,1:nb]))
 back(net, copy(y))
 back(rnn, copy(y))
 for i=1:nops(rnn)
-    param(rnn.op[i]) == nothing && continue
-    print("$i ")
-    @test @show to_host(param(net[i]).diff)==to_host(param(rnn.op[i]).diff)
+    isempty(params(net[i])) && continue
+    p1 = map(p->p.diff, params(rnn.op[i]))
+    p2 = map(p->p.diff, params(net[i]))
+    print("$i "); @test @show all(map(isequal, p1, p2)) # 1,2,5 only approx
 end
 
 info("TEST 1")
@@ -228,67 +234,5 @@ cops = [Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Si
 @test c.sp == 0
 
 :ok
-
-
-
-# x = KUdense{CudaArray}(rand(3,5))
-# y = forw(net, x)
-# :ok
-
-            
-
-# mbr(nh)=Net(Mmul(nh),Bias(),Relu())
-# mbr2(n1,n2)=Net(mbr(n1),mbr(n2))
-# foo1(nh,ny)=Net(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias())
-# foo2(nh)=Net(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Sigm())
-# foo3(nh)=Net(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Tanh())
-# foo9(nh)=Net((foo2(nh),0,9), (foo2(nh),0,9), (foo2(nh),0,9), (foo3(nh),0,9),
-#              (Mul2(),1,4), (Mul2(),2,7), Add2(), Tanh(), (Mul2(),3,8))
-
-# nh = 3
-# ny = 2
-# rnn = Net(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias(), XentLoss())
-# # x = [KUdense{CudaArray}(rand(2)) for t=1:5]
-# # y = forw(rnn, x)
-
-# # @show size(rnn.h),length(rnn.h),length(unique(rnn.h))
-
-# lstm = Net((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 input gate
-#            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 6-10 forget gate
-#            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 11-15 output gate
-#            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Tanh(), # 16-20 new memory cell c_tilde
-#            (Mul2(),5,20), (Mul2(),10,23), Add2(), Tanh(),       # 21-24 final memory cell c_t
-#            (Mul2(),15,24),                                      # 25 output h_t
-#            # Mmul(ny), Bias(), XentLoss(),                      # 26-28 loss layers
-#            )
-          
-# # y = forw(lstm, x)
-
-# # @show size(lstm.h),length(lstm.h),length(unique(lstm.h))
-
-# # gru = Net((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 reset gate r[j,t]
-# #           (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 6-10 update gate z[j,t]
-# #           (Mul2(),5,25), Mmul(nh), (Mmul(nh),0), Add2(), Bias(), Tanh(), # 11-16 candidate activation h_tilde[j,t]
-# # need to compute 1-z for gru
-
-# for n=nops(r):-1:1
-#     getdy(r,n) == nothing && continue
-#     dy = back(op(r,n), getdy(r,n); incr=true, x=get1x(r,n), y=gety(r,n), dx=get1dxbuf(r,n))
-#     dybuf2[n] = cpucopy(dy.arr)
-#     dytest1 = isapprox(dybuf1[n], dybuf2[n])
-#     @test dytest1
-#     dytest2 = (dybuf1[n] == dybuf2[n])
-#     dwtest1 = (param(rnn.op[n]) == nothing ? nothing : isapprox(param(net[n]).diff, param(rnn.op[n]).diff))
-#     dwtest1 == nothing || (@test dwtest1)
-#     dwtest2 = (param(rnn.op[n]) == nothing ? nothing : (to_host(param(net[n]).diff) == to_host(param(rnn.op[n]).diff)))
-#     println((n, typeof(rnn.op[n]), dytest1, dytest2, dwtest1, dwtest2))
-# end
-
-
-# for i=nops(rnn):-1:1
-#     param(rnn.op[i]) == nothing && continue
-#     print("$i "); @test @show isapprox(param(net[i]).diff, param(rnn.op[i]).diff)
-#     print("$i "); @show to_host(param(net[i]).diff)==to_host(param(rnn.op[i]).diff)
-# end
 
 end # if false

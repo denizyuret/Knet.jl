@@ -4,9 +4,12 @@ type Drop <: Op; dropout; xdrop; y; Drop(d)=new(d); end
 ## maybe we can make rand conditional and mul2 treat nothing as identity?
 # TODO: be careful about corrupting the xdrop matrix in Net
 
-overwrites(l::Drop)=true
-back_reads_x(l::Drop)=false
-back_reads_y(l::Drop)=false
+params(::Drop)=Any[]
+ninputs(::Drop)=1
+ysize(::Drop,x)=size(x)
+overwrites(::Drop)=true
+back_reads_x(::Drop)=false
+back_reads_y(::Drop)=false
 
 function forw(l::Drop, x; y=x, train=true, xdrop=nothing, seed=nothing, o...)
     issimilar(x,y) || error("Input mismatch")

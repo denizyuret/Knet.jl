@@ -17,13 +17,14 @@ include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/array.jl");	export BaseArray, csize, ccount, clength, atype
 include("util/dense.jl");	export KUdense
 include("util/sparse.jl");	export KUsparse
-include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("mlp.jl");	export Op, MLP, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
-include("update.jl");	export update, setparam!
-include("model.jl");	export Model, train, predict, test, gradcheck, setparam!
+include("util/param.jl");	export KUparam, setparam! # TODO: move this up to src
+include("update.jl");	export update
+include("model.jl");	export Model, train, predict, test, gradcheck
+include("op.jl");	export Op, forw, back, loss, params, ninputs, ysize, overwrites, back_reads_x, back_reads_y
+include("net.jl");	export Net, init, nops, op  # TODO: do we still need nops and op after params?
 
 include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
@@ -36,8 +37,9 @@ include("mul2.jl");	export Mul2
 include("actf.jl");	export ActfLayer, Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
-include("net.jl");	export Net, init, nops, op
-include("arch.jl");	export lstm, irnn, S2C, gradcheck
+include("arch.jl");	export lstm, irnn, S2C
+include("mlp.jl");	export MLP, accuracy, loadnet, savenet
+
 # include("train.jl");	export train, test, batch, 
 
 include("kperceptron.jl"); export KPerceptron

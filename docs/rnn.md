@@ -387,10 +387,10 @@ In which case we don't need allocy except internally to an Op.
 TODO: renames after testing:
 RENAME: KUdense -> KUarray
 DONE: Net -> MLP
-RENAME: RNN -> Net
+DONE: RNN -> Net
 DONE: Layer -> Op
 DONE: predict=false -> train=true
-RENAME: RNN2 -> S2C
+DONE: RNN2 -> S2C
 
 During construction and compilation we will know N but we wont know T.
 So things with T dimensions: r.x, r.h need to be dynamically resized.

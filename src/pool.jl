@@ -3,10 +3,12 @@
 
 type Pool <: Op; dims; padding; stride; mode; pd; x; y; ybuf; dx; Pool()=new(); end
 
-overwrites(l::Pool)=false
-back_reads_x(l::Pool)=true
-back_reads_y(l::Pool)=true
+params(::Pool)=Any[]
+ninputs(::Pool)=1
 ysize(l::Pool, x)=cudnnGetPoolingNdForwardOutputDim(l.pd, x)
+overwrites(::Pool)=false
+back_reads_x(::Pool)=true
+back_reads_y(::Pool)=true
 
 function Pool(dims::Dims;
               padding=tuple(fill(0,length(dims))...),
