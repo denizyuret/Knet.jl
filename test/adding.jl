@@ -75,7 +75,7 @@ function gendata(ni, nt)
         x[i] = cell(nt)
         y[i] = cell(nt)
         for t=1:nt
-            x[i][t] = Float64[rand(), 0]
+            x[i][t] = Float32[rand(), 0]
             y[i][t] = nothing
         end
         t1 = rand(1:nt)
@@ -83,7 +83,7 @@ function gendata(ni, nt)
         while t1==t2; t2 = rand(1:nt); end
         x[i][t1][2] = 1
         x[i][t2][2] = 1
-        y[i][nt] = Float64[x[i][t1][1]+x[i][t2][1]]
+        y[i][nt] = Float32[x[i][t1][1]+x[i][t2][1]]
     end
     return (x,y)
 end
@@ -167,8 +167,9 @@ nt = args["length"]
     trnmse = 2*trnmse/length(xtrn)
     tstmse = 2*tstmse/length(xtst)
     println(tuple(epoch*ntrn,trnmse,tstmse,maxw,maxg))
+    gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=100, rtol=.01, atol=.01)
     # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
-    gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
+    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
     flush(STDOUT)
 end
 
