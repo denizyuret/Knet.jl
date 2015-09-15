@@ -40,15 +40,8 @@ include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, Pe
 include("arch.jl");	export lstm, irnn, S2C
 include("mlp.jl");	export MLP, accuracy, loadnet, savenet
 
-# include("train.jl");	export train, test, batch, 
-
 include("kperceptron.jl"); export KPerceptron
 
-# include("perceptron.jl"); export Perceptron # deprecated
-# include("percloss.jl"); export PercLoss # deprecated
-# include("kernel.jl");   export Kernel, kernel # deprecated
-# include("poly.jl");     export Poly           # deprecated
-# include("rbfk.jl");     export Rbfk           # deprecated
 #########################
 
 end # module
