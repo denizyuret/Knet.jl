@@ -43,11 +43,11 @@ get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
 
-function forw(r::Net, inputs...; train=false, y=nothing, a...)
+function forw(r::Net, inputs...; train=true, y=nothing, a...)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
-        eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch")
+        eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
         train && r.push[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
@@ -84,7 +84,7 @@ function back(r::Net, dy; dx=nothing, a...)
     if dy == nothing
         r.multi[n] || (r.dif[n] = nothing)
     elseif eltype(dy) != eltype(r.dif0[n])
-        error("Element type mismatch")
+        error("Element type mismatch $n")
     elseif r.multi[n]
         copy!(r.dif1[n], dy)
         r.dif[n] = axpy!(1,r.dif1[n],r.dif0[n])
@@ -97,11 +97,11 @@ function back(r::Net, dy; dx=nothing, a...)
                 r.multi[i] || (r.dif[i] = nothing)
             end
         else
-            dx = Any[]
+            dxn = Any[]
             for i in r.inputs[n]
-                push!(dx, r.multi[i] ? r.dif1[i] : r.dif0[i])
+                push!(dxn, r.multi[i] ? r.dif1[i] : r.dif0[i])
             end
-            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dx), a...) # t:2164
+            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
             for i in r.inputs[n]
                 r.multi[i] && axpy!(1, r.dif1[i], r.dif0[i])            ; r.multi[i]&&dbg(r,:dif1,i)
                 r.dif[i] = r.dif0[i]                                    ; dbg(r,:dif,i)
@@ -356,7 +356,7 @@ function init(r::Net, x::Vector; a...)
     end
 end
 
-function init(r::Net, inputs...; train=false)
+function init(r::Net, inputs...; train=true)
     r.sp == 0 || error("Stack corruption")
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     initout0(r, inputs...)
