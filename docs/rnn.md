@@ -598,3 +598,43 @@ Predict works.
 tforw works and passes the individual arrays to forw.
 Do we return loss?  No, it is inefficient, not always necessary, and can be computed from the out y.
 Do not return anything unless a y has been specified.
+
+
+- train needs batching 
+- predict needs batching
+- sequence of batches need to be distinguished from sequence of instances
+- currently train calls forw, back and update, i.e. one minibatch.
+- updating loss and norm is going to be a problem.
+- gclip needs to go to update.
+- if x is a vector it is assumed to be a time sequence.
+
+- sequence training data comes in x[i][t][d...]
+- batch turns it into x[i][t][d...,b]
+- adding feeds into train x[i], i.e. x[t][d...,b]
+- train passes this to forw, back 
+- forw takes it as a time sequence, runs init and passes x[d...,b] to forw1.
+
+- mlp training data comes in as a block x[d...,i]
+- old train batches this into x[i][d...,b]
+- passes into forw/back x[d...,b]
+
+- do we ever call train with x[i][d...]
+- we might, expecting it to minibatch it like sequence.
+
+- do we ever call train with x[t][d...]
+- that is a single instance, probably not
+- but x[t][d...,b] can be a batch?
+
+- Array3 is always sequence data.
+- Array1 is always block data. (if it is 1D it may be a single instance).
+- Array2 is ambiguous.
+- if x[i][d...] we need to batch into x[i/b][d...,b]
+- if x[t][d...] it is a single instance. let's assume we don't call train with a single instance.
+- if x[t][d...,i] we have already batched data, unlikely from the user.
+- Disallow Array2?  Or interpret as x[i][d...]?  Or as x[i][d...,b]?
+
+		block		sequence
+instance	x[d...]		x[t][d...]
+minibatch	x[d...,b]	x[t][d...,b]
+dataset		x[d...,i]	x[i][t][d...]
+dataset2	x[i][d...]

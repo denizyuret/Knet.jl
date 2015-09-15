@@ -8,15 +8,10 @@ Model is an abstract type whose subtypes should provide the following:
 
 Using these low level methods, Model defines the following:
 
-* `train(m,x,y)`
-* `test(m,x,y)`    
-* `predict(m,x,y)`
-* `gradcheck(m,x,y)`
-
-and extends the following to apply to each parameter of the model:
-
-* `setparam!(m; o...)`
-* `update(m; o...)`
+* `train(model,data)`
+* `test(model,data)`
+* `predict(model,data)`
+* `setparam!(model; o...)`
 """
 abstract Model
 
@@ -26,33 +21,42 @@ gscale!(m::Model, s)=(for p in params(m); scale!(s, p.diff); end)
 wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 
-# TODO: do we need to unfold x in a loop?
-
-function backprop(m::Model,x,y; getloss=false)
+function backprop(m::Model, x, y; getloss=true)
     forw(m, x; train=true)
-    rval = (getloss ? loss(m, y) : nothing)
+    loss1 = getloss ? loss(m, y) : nothing
     back(m, y)
-    return rval
+    return loss1
 end
 
-function train(m::Model, x, y; getloss=false, getnorm=false, gclip=0)
-    l = backprop(m,x,y; getloss=getloss)
-    (getnorm || gclip>0) && (w=wnorm(m); g=gnorm(m))
-    g > gclip > 0 && gscale!(m, gclip/g) # TODO: make this an update option
-    update(m)
-    return (getloss && getnorm ? (l,w,g) : getloss ? l : getnorm ? (w,g) : nothing)
+function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true)
+    sumloss = maxwnorm = maxgnorm = w = g = 0
+    for (x,y) in d
+        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck); gcheck=0)
+        l = backprop(m,x,y; getloss=getloss)
+        getloss && (sumloss += l)
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+        update(m; gclip=(g > gclip > 0 ? gclip/g : 0))
+    end
+    return (sumloss, maxwnorm, maxgnorm)
 end
 
-function test(m::Model, x, y)
-    forw(m, x; train=false)
-    loss(m, y)
+function test(m::Model, d::Data)
+    sumloss = 0
+    for (x,y) in d
+        forw(m, x; train=false)
+        sumloss += loss(m, y)
+    end
+    return sumloss
 end
 
-function predict(m::Model, x, y)
-    forw(m, x; y=y, train=false)
+function predict(m::Model, d::Data)
+    for (x,y) in d
+        forw(m, x; y=y, train=false)
+    end
 end
 
-function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
+function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10)
     l0 = backprop(m, x, y; getloss=true)
     pp = params(m)
     dw = map(p->convert(Array,p.diff), pp)
@@ -61,7 +65,7 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
         pcopy = copy(p.arr)     # TODO: do we need pcopy?
         w = convert(Array, p.arr)
         wlen = length(w)
-        irange = (wlen <= ncheck ? (1:wlen) : rand(1:wlen, ncheck))
+        irange = (wlen <= gcheck ? (1:wlen) : rand(1:wlen, gcheck))
         for i in irange
             wi0 = w[i]; wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             w[i] = wi1; copy!(p.arr, w); w[i] = wi0

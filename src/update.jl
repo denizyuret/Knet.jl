@@ -1,8 +1,8 @@
 using Base.LinAlg: axpy!, scale!
 
-function update(p::KUparam; o...)
+function update(p::KUparam; gclip=0, o...)
     initupdate(p)
-    nz(p,:gc,0) && gradclip!(p.gc, p.diff)
+    gclip > 0 && scale!(gclip, p.diff) # this is not a per-parameter deal, we need the gnorm for the whole model
     nz(p,:l1reg,0) && l1reg!(p.l1reg, p.arr, p.diff)
     nz(p,:l2reg,0) && l2reg!(p.l2reg, p.arr, p.diff)
     nz(p,:adagrad,false) && adagrad!(1e-8, p.ada, p.diff)
@@ -28,7 +28,6 @@ l2reg!(l2, w, dw)=axpy!(l2, w, dw)
 adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
 momentum!(m, dw2, dw)=(axpy!(m, dw2, dw); copy!(dw2,dw))
 nesterov!(m, dw2, dw)=(scale!(m, dw2); axpy!(1, dw, dw2); axpy!(m, dw2, dw))
-gradclip!(g, dw)=(v = vecnorm(dw); v > g && scale!(g/v, dw))
 
 if GPU
 adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libkunet),Void,(Cint,Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
