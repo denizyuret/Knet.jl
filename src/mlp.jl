@@ -1,0 +1,139 @@
+# Each Op implements some common functions, stubs are given below.
+# forw takes input x and returns output y, possibly setting some state.
+# back takes dy, the loss gradient wrt y, calculates loss gradient wrt 
+# layer parameters and optionally returns dx, the loss gradient wrt x.
+# Some layers overwrite their inputs.
+
+abstract Op
+forw(l::Op, x...; o...)=error("$(typeof(l)) has not implemented forw")
+back(l::Op, dy; o...)=error("$(typeof(l)) has not implemented back")
+param(l::Op)=nothing
+ysize(l::Op, x...)=size(x[1])
+update(l::Op; o...)=update(param(l); o...)
+setparam!(l::Op; o...)=setparam!(param(l); o...)
+ninputs(l::Op)=1
+overwrites(l::Op,i=1)=error("$(typeof(l)) has not implemented this")
+back_reads_x(l::Op)=error("$(typeof(l)) has not implemented this")
+back_reads_y(l::Op)=error("$(typeof(l)) has not implemented this")
+
+# MLP: Convenience type for an array of layers
+
+typealias MLP Array{Op,1}
+forw(n::MLP, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
+back(n::MLP, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
+update(n::MLP; o...)=(for l in n; update(l; o...); end; n)
+setparam!(n::MLP; o...)=(for l in n; setparam!(l; o...); end; n)
+
+# The backprop algorithm
+
+function backprop(net::MLP, x, y; o...)
+    forw(net, x; o...) # calculate network output given input x
+    back(net, y; o...) # calculate derivatives dx,dw given desired output y
+end
+
+# Predict implements forw with minibatches.
+
+function predict(net::MLP, x; y=nothing, batch=128, o...)
+    ninst = size(x, ndims(x))
+    (batch == 0 || batch > ninst) && (batch = ninst)
+    (xx,yy) = (xbatch(x, batch), nothing)
+    gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
+    for b = 1:batch:ninst
+        e  = min(ninst, b + batch - 1)
+        xx = cslice!(xx, x, b:e) # 1114
+        yy = forw(net, xx; train=false, o...) # 11587
+        (y == nothing) && (y = dsimilar(x, (clength(yy), ccount(x))))
+        y = ccopy!(y, b, yy)
+    end
+    return y
+end
+
+# Train implements backprop with updates and minibatches.
+# It runs for one epoch by default, iters can be specified to stop earlier.
+
+function train(net::MLP, x, y; batch=128, shuffle=false, iters=0, o...)
+    shuffle && ((x,y)=shufflexy!(x,y))
+    ninst = ccount(x)
+    ninst==0 && (return warn("No instances"))
+    (batch == 0 || batch > ninst) && (batch = ninst)
+    (xx,yy) = (xbatch(x, batch), ybatch(y, batch))
+    for b = 1:batch:ninst
+        e = min(ninst, b + batch - 1)
+        (xx,yy) = (cslice!(xx, x, b:e), cslice!(yy, y, b:e))
+        backprop(net, xx, yy; o...)
+        update(net; o...)
+        (iters > 0) && (e/batch >= iters) && break
+        gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
+    end
+    strip!(net)
+end
+
+# To shuffle data before each epoch:
+
+function shufflexy!(x,y)
+    nx = size(x, ndims(x))
+    ny = size(y, ndims(y))
+    @assert nx == ny
+    r = randperm(nx)
+    x = x[map(n->1:n,size(x)[1:end-1])...,r]
+    y = y[map(n->1:n,size(y)[1:end-1])...,r]
+    return (x,y)
+end
+
+# X batches preserve the sparsity of the input, they use the KU
+# versions for resizeability (cslice!).
+
+xbatch(x,b)=(issparse(x) ?
+             KUsparse(barray(), eltype(x), csize(x,b)) : 
+             KUdense(barray(), eltype(x), csize(x,b)))
+
+# Y batches are always dense, because Y should be always dense.  We
+# use KUdense for resizeability (cslice!):
+
+ybatch(y,b)=KUdense(barray(), eltype(y), csize(y,b))
+
+# Minibatches get created on GPU if gpu() is true:
+
+barray()=(gpu()?CudaArray:Array)
+
+function strip!(l::Op)
+    for f in fieldnames(l)
+        isdefined(l,f) || continue
+        isa(l.(f), KUparam) && strip!(l.(f))
+        in(f, (:x, :x2, :y, :dx, :dy, :xdrop)) && (l.(f)=nothing)
+    end
+    return l
+end
+
+strip!(p::KUparam)=(p.init=p.diff=nothing;p)
+strip!(n::MLP)=(for l in n; strip!(l); end; gc(); n)
+
+using JLD
+
+function savenet(filename::String, net::MLP)
+    net = strip!(net)
+    GPU && (net = cpucopy(net))
+    save(filename, "kunet", net)
+end
+
+function loadnet(filename::String)
+    net = load(filename, "kunet")
+    net = strip!(net)
+    gpu() ? gpucopy(net) : net
+end
+
+accuracy(y,z)=mean(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
+
+import Base: isequal
+
+function isequal(a::Op,b::Op)
+    typeof(a)==typeof(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end

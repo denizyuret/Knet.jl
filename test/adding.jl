@@ -128,8 +128,8 @@ args["seed"] > 0 && setseed(args["seed"])
 nx = 2
 ny = 1
 nh = args["hidden"]
-# net0 = (args["type"] == "irnn" ? RNN(irnn(nh),quadlosslayer(ny)) :
-#         args["type"] == "lstm" ? RNN(lstm(nh),quadlosslayer(ny)) : 
+# net0 = (args["type"] == "irnn" ? Net(irnn(nh),quadlosslayer(ny)) :
+#         args["type"] == "lstm" ? Net(lstm(nh),quadlosslayer(ny)) : 
 #         error("Unknown network type "*args["type"]))
 net1 = (args["type"] == "irnn" ? irnn(nh) :
         args["type"] == "lstm" ? lstm(nh) : 
@@ -220,9 +220,9 @@ end
 # Organization of the training set and training batches:
 # D:dimensionality, I:instance, B:batch-instance, T:time
 # In FFNN size(xtrain)=(D,I), size(xbatch)=(D,B) where D fastest
-# In RNN size(xtrain)=(D,T,I) or xtrain=[(D,T1),(D,T2),...]
+# In Net size(xtrain)=(D,T,I) or xtrain=[(D,T1),(D,T2),...]
 # i.e. we want each instance to be contiguous.
-# In RNN size(xbatch)=(D,B,T) or xbatch=[(D,B1),(D,B2),...]
+# In Net size(xbatch)=(D,B,T) or xbatch=[(D,B1),(D,B2),...]
 # i.e. we want each time-step to be contiguous.
 # train->batch will need to do some shuffling
 

@@ -17,7 +17,7 @@ net = [Drop(0.5), Conv(20,5), Bias(), Relu(), Pool(2),
 nb = 128
 x = KUdense(gpucopy(reshape(MNIST.xtrn[:,1:nb],28,28,1,nb)))
 forw(net, copy(x))   # initializes the weights
-rnn = RNN(gpucopy(net)...)
+rnn = Net(gpucopy(net)...)
 
 setseed(42)
 # @date y1 = forw(net, copy(x))
@@ -111,7 +111,7 @@ net = [Conv(20,5), Bias(), Relu(), Pool(2),
 nb = 128
 x = KUdense(gpucopy(reshape(MNIST.xtrn[:,1:nb],28,28,1,nb)))
 @date y1 = forw(net, copy(x))   # also initializes the weights
-rnn = RNN(gpucopy(net)...)
+rnn = Net(gpucopy(net)...)
 @date y2 = forw(rnn, copy(x))
 @test @show to_host(y1.arr)==to_host(y2.arr)
 
@@ -129,7 +129,7 @@ info("TEST 3")
 x = KUdense(gpucopy(rand(784,10)))
 net = Op[Mmul(10),QuadLoss()]
 @date y1 = forw(net, copy(x))
-rnn = RNN(gpucopy(net)...)
+rnn = Net(gpucopy(net)...)
 @date y2 = forw(rnn, copy(x))
 @test @show to_host(y1.arr)==to_host(y2.arr)
 dy = rand!(copy(y1))
@@ -151,7 +151,7 @@ net = [Mmul(64), Bias(), Relu(),
        Mmul(10), Bias(), XentLoss()]
 @date y1 = forw(net, copy(x))
 
-rnn = RNN(gpucopy(net)...)
+rnn = Net(gpucopy(net)...)
 @date y2 = forw(rnn, copy(x))
 
 # @show isapprox(y1,y2)
@@ -167,10 +167,10 @@ for i=1:nops(rnn)
 end
 
 info("TEST 1")
-# irnn(h)=RNN(Mmul(h), (Mmul(h),5), Add2(), Bias(), Relu())
-# add1(h)=RNN(Mmul(h), (Mmul(h),-1), Add2(), Bias(), Sigm())
-# add2(h)=RNN(Mmul(h), (Mmul(h),-1), Add2(), Bias(), Tanh())
-# lstm(h)=RNN((add1(h),0,9),      # 1. i
+# irnn(h)=Net(Mmul(h), (Mmul(h),5), Add2(), Bias(), Relu())
+# add1(h)=Net(Mmul(h), (Mmul(h),-1), Add2(), Bias(), Sigm())
+# add2(h)=Net(Mmul(h), (Mmul(h),-1), Add2(), Bias(), Tanh())
+# lstm(h)=Net((add1(h),0,9),      # 1. i
 #             (add1(h),0,9),      # 2. f
 #             (add1(h),0,9),      # 3. o
 #             (add2(h),0,9),      # 4. cc
@@ -201,7 +201,7 @@ aops = [Mmul, Mmul, Add2, Bias, Relu]
 @test a.stack == Any[]
 @test a.sp == 0
 
-b = RNN(irnn(10),irnn(10))
+b = Net(irnn(10),irnn(10))
 bops = vcat(aops,aops)
 @test testops(b, bops)
 @test b.inputs == Any[[11],[5],[1,2],[3],[4],[5],[10],[6,7],[8],[9]]
@@ -237,23 +237,23 @@ cops = [Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Si
 
             
 
-# mbr(nh)=RNN(Mmul(nh),Bias(),Relu())
-# mbr2(n1,n2)=RNN(mbr(n1),mbr(n2))
-# foo1(nh,ny)=RNN(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias())
-# foo2(nh)=RNN(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Sigm())
-# foo3(nh)=RNN(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Tanh())
-# foo9(nh)=RNN((foo2(nh),0,9), (foo2(nh),0,9), (foo2(nh),0,9), (foo3(nh),0,9),
+# mbr(nh)=Net(Mmul(nh),Bias(),Relu())
+# mbr2(n1,n2)=Net(mbr(n1),mbr(n2))
+# foo1(nh,ny)=Net(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias())
+# foo2(nh)=Net(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Sigm())
+# foo3(nh)=Net(Mmul(nh), (Mmul(nh),-1), Add2(), Bias(), Tanh())
+# foo9(nh)=Net((foo2(nh),0,9), (foo2(nh),0,9), (foo2(nh),0,9), (foo3(nh),0,9),
 #              (Mul2(),1,4), (Mul2(),2,7), Add2(), Tanh(), (Mul2(),3,8))
 
 # nh = 3
 # ny = 2
-# rnn = RNN(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias(), XentLoss())
+# rnn = Net(Mmul(nh), (Mmul(nh),5), Add2(), Bias(), Relu(), Mmul(ny), Bias(), XentLoss())
 # # x = [KUdense{CudaArray}(rand(2)) for t=1:5]
 # # y = forw(rnn, x)
 
 # # @show size(rnn.h),length(rnn.h),length(unique(rnn.h))
 
-# lstm = RNN((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 input gate
+# lstm = Net((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 input gate
 #            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 6-10 forget gate
 #            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 11-15 output gate
 #            (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Tanh(), # 16-20 new memory cell c_tilde
@@ -266,7 +266,7 @@ cops = [Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Sigm,Mmul,Mmul,Add2,Bias,Si
 
 # # @show size(lstm.h),length(lstm.h),length(unique(lstm.h))
 
-# # gru = RNN((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 reset gate r[j,t]
+# # gru = Net((Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 1-5 reset gate r[j,t]
 # #           (Mmul(nh),0), (Mmul(nh),25), Add2(), Bias(), Sigm(), # 6-10 update gate z[j,t]
 # #           (Mul2(),5,25), Mmul(nh), (Mmul(nh),0), Add2(), Bias(), Tanh(), # 11-16 candidate activation h_tilde[j,t]
 # # need to compute 1-z for gru

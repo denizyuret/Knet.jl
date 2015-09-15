@@ -2,7 +2,7 @@ type Drop <: Op; dropout; xdrop; y; Drop(d)=new(d); end
 
 # TODO: implement Dropout using Mul2: however forw conditional on predict?
 ## maybe we can make rand conditional and mul2 treat nothing as identity?
-# TODO: be careful about corrupting the xdrop matrix in RNN
+# TODO: be careful about corrupting the xdrop matrix in Net
 
 overwrites(l::Drop)=true
 back_reads_x(l::Drop)=false

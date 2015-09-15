@@ -21,7 +21,7 @@ include("util/param.jl");	export KUparam
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("net.jl");	export Op, MLP, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
+include("mlp.jl");	export Op, MLP, train, predict, accuracy, forw, back, loss, loadnet, savenet, ninputs, overwrites, back_reads_x, back_reads_y, ysize, param
 include("update.jl");	export update, setparam!
 include("model.jl");	export Model, train, predict, test, gradcheck, setparam!
 
@@ -36,7 +36,7 @@ include("mul2.jl");	export Mul2
 include("actf.jl");	export ActfLayer, Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
-include("rnn.jl");	export RNN, init, nops, op
+include("net.jl");	export Net, init, nops, op
 include("arch.jl");	export lstm, irnn, S2C, gradcheck
 # include("train.jl");	export train, test, batch, 
 

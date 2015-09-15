@@ -8,7 +8,7 @@
 # - how do we handle non-sequence inputs?
 # - how do we handle contiguous inputs?
 
-function train(r::RNN, x, y)
+function train(r::Net, x, y)
     err = 0
     for i=1:length(x)
         err += backprop(r, x[i], y[i])
@@ -17,7 +17,7 @@ function train(r::RNN, x, y)
     return err/length(x)
 end
     
-function test(r::RNN, x, y)
+function test(r::Net, x, y)
     err = 0
     for i=1:length(x)
         err += tforw(r, x[i], y[i]; train=false)
@@ -25,13 +25,13 @@ function test(r::RNN, x, y)
     return err/length(x)
 end
 
-function backprop(r::RNN, xi, yi) # t:5680
+function backprop(r::Net, xi, yi) # t:5680
     err = tforw(r, xi, yi; train=true) # t:2952
     tback(r, yi) # t:2648
     return err
 end
 
-function tforw(r::RNN, xi, yi; train=true)
+function tforw(r::Net, xi, yi; train=true)
     err = 0
     init(r, xi[1]) # t:61
     for t=1:length(xi)
@@ -41,13 +41,13 @@ function tforw(r::RNN, xi, yi; train=true)
     return err
 end
 
-function tback(r::RNN, yi)
+function tback(r::Net, yi)
     for t=length(yi):-1:1
         back(r, yi[t]) # t:2648 TODO: if we take xi as a parameter here maybe the net would not have to remember it?
     end
 end
 
-function gradcheck(r::RNN, xi, yi; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
+function gradcheck(r::Net, xi, yi; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
     backprop(r, xi, yi)
     dw = cell(nops(r))
     for n=1:nops(r)
@@ -79,7 +79,7 @@ function gradcheck(r::RNN, xi, yi; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
     end
 end
 
-function train2(r::RNN, x, y)
+function train2(r::Net, x, y)
     err = 0
     gnorm = zeros(nops(r))
     for i=1:length(x)
@@ -99,26 +99,26 @@ end
 # More efficient training for rnn's that have a single output with a final output net
 # x is a sequence of tokens, y is the desired final output
 # TODO: make this into a model type and have a common model interface
-function forwback2(r::RNN, o::RNN, x, y)
+function forwback2(r::Net, o::Net, x, y)
     forw2(r, o, x; train=true)
     err = loss(o, y)
     back2(r, o, y, length(x))
     return err
 end
 
-function back2(r::RNN, o::RNN, y, nt)
+function back2(r::Net, o::Net, y, nt)
     back(o, y)
     back(r, o.dif[nops(o)+1])
     for t=1:nt-1; back(r, nothing); end
 end
 
-function forw2(r::RNN, o::RNN, x; a...)
+function forw2(r::Net, o::Net, x; a...)
     n = nops(r)
     forw(r, x; a...)
     forw(o, r.out[n:n]; a...)   # passing a vector for x forces init
 end
 
-function back2a(r::RNN, o::RNN, xi, yi)
+function back2a(r::Net, o::Net, xi, yi)
     nt = length(xi)
     dy = back(o, yi) # TODO: this doesn't work because back does not return anything yet
     dy = o.dif[nops(o)+1]
@@ -126,7 +126,7 @@ function back2a(r::RNN, o::RNN, xi, yi)
     for t=nt-1:-1:1; back(r, nothing); end
 end
 
-function forw2a(r::RNN, o::RNN, xi, yi; a...)
+function forw2a(r::Net, o::Net, xi, yi; a...)
     init(r, xi[1])
     nt = length(xi)
     for t=1:nt; forw(r, xi[t]; a...); end
@@ -135,7 +135,7 @@ function forw2a(r::RNN, o::RNN, xi, yi; a...)
     forw(o, ry; a...)
 end
 
-function forwback1(r::RNN, xi, yi; a...)
+function forwback1(r::Net, xi, yi; a...)
     init(r, xi[1])
     nt = length(xi)
     for t=1:nt; forw(r, xi[t]; a...); end
@@ -145,12 +145,12 @@ function forwback1(r::RNN, xi, yi; a...)
     return er
 end
 
-function loss2(r::RNN, o::RNN, x, y)
+function loss2(r::Net, o::Net, x, y)
     forw2(r, o, x; train=false)
     loss(o, y)
 end
 
-function grad2(r::RNN, o::RNN, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
+function grad2(r::Net, o::Net, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), ncheck=10)
     forwback2(r, o, x, y)
     dw = cell(nops(r)+nops(o))
     for n=1:length(dw)

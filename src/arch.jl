@@ -12,14 +12,14 @@ for (layer, opname) in
      (:scallosslayer, :ScalLoss),
      )
     @eval begin
-        $layer(n)=RNN(Mmul(n), Bias(), $opname())
+        $layer(n)=Net(Mmul(n), Bias(), $opname())
         export $layer
     end
 end
 
-add2(n)=RNN(Mmul(n), (Mmul(n),-1), Add2(), Bias())
+add2(n)=Net(Mmul(n), (Mmul(n),-1), Add2(), Bias())
 
-lstm(n)=RNN((add2(n),0,13), Sigm(),     # 1-2. input
+lstm(n)=Net((add2(n),0,13), Sigm(),     # 1-2. input
             (add2(n),0,13), Sigm(),     # 3-4. forget
             (add2(n),0,13), Sigm(),     # 5-6. output
             (add2(n),0,13), Tanh(),     # 7-8. cc
@@ -28,7 +28,7 @@ lstm(n)=RNN((add2(n),0,13), Sigm(),     # 1-2. input
 
 eye!(a)=copy!(a, eye(eltype(a), size(a)...)) # TODO: don't alloc
 
-irnn(n)=RNN(Mmul(n; init=randn!, initp=(0,0.001)), 
+irnn(n)=Net(Mmul(n; init=randn!, initp=(0,0.001)), 
             (Mmul(n; init=eye!), 5), 
             Add2(), Bias(), Relu())
 
@@ -55,7 +55,7 @@ Base.isequal(a::S2C,b::S2C)=isequal(a.net1,b.net1)&&isequal(a.net2,b.net2)
 
 ### DEAD CODE:
 
-# DONE: create a super class for RNN and S2C, this gradcheck applies to both
+# DONE: create a super class for Net and S2C, this gradcheck applies to both
 # think about the common interface for ops, nets, and other arch models.
 
 # function forwback(r::S2C,x,y; getloss=false)
