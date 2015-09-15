@@ -13,7 +13,7 @@ for i=1:2
     @show z'
     @show forw(net, x)'
     @show back(net, z)
-    update(net)
+    update!(net)
     @show net[1].w.data
     @show net[1].w.diff
 end

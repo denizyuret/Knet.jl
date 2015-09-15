@@ -49,7 +49,7 @@ atype{A}(::KUparam{A})=A
 diff(a::KUparam)=a.diff
 
 # DEPRECATED:
-# update(::Nothing;o...)=nothing
+# update!(::Nothing;o...)=nothing
 # setparam!(::Nothing;o...)=nothing
 # initdiff(w::KUparam; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
 

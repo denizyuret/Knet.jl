@@ -26,7 +26,7 @@ function back(l::Kernel, dy; returndx=false, o...)
     returndx && error("Kernel layers do not know how to return dx")
 end
 
-function update(l::Kernel; o...)
+function update!(l::Kernel; o...)
     (yrows, ycols) = size(l.dy)
     (xrows, xcols) = size(l.x)
     @assert ycols == xcols
@@ -86,7 +86,7 @@ end
 
     # back: Kmul passes back its own dy, nonzero columns indicate mistakes
     # We do nothing here except record it
-    # Actual creation of support vectors done in update()
+    # Actual creation of support vectors done in update!()
     # TODO: we could compute dx like we do in mmul?
 
 # TODO: back

@@ -1,6 +1,6 @@
 using Base.LinAlg: axpy!, scale!
 
-function update(p::KUparam; gclip=0, o...)
+function update!(p::KUparam; gclip=0, o...)
     initupdate(p)
     gclip > 0 && scale!(gclip, p.diff) # this is not a per-parameter deal, we need the gnorm for the whole model
     nz(p,:l1reg,0) && l1reg!(p.l1reg, p.arr, p.diff)

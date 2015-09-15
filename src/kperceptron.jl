@@ -58,7 +58,7 @@ function back(l::KPerceptron, z; returndx=false, o...)
     end
 end
 
-function update(l::KPerceptron; o...) # 198
+function update!(l::KPerceptron; o...) # 198
     l.u += size(l.x,2)
     dj = sub(l.dj, 1:l.dn)
     l.s  = ccat!(l.s,  l.x,   dj)

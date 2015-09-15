@@ -16,7 +16,7 @@ Using these low level methods, Model defines the following:
 abstract Model
 
 setparam!(m::Model; o...)=(for p in params(m); setparam!(p; o...); end)
-update(m::Model; o...)=(for p in params(m); update(p; o...); end) # TODO: rename to update!
+update!(m::Model; o...)=(for p in params(m); update!(p; o...); end) # TODO: rename to update!
 gscale!(m::Model, s)=(for p in params(m); scale!(s, p.diff); end)
 wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
@@ -36,7 +36,7 @@ function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true)
         getloss && (sumloss += l)
         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-        update(m; gclip=(g > gclip > 0 ? gclip/g : 0))
+        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
     end
     return (sumloss, maxwnorm, maxgnorm)
 end

@@ -59,7 +59,7 @@ function train(net::MLP, x, y; batch=128, shuffle=false, iters=0, o...)
         e = min(ninst, b + batch - 1)
         (xx,yy) = (cslice!(xx, x, b:e), cslice!(yy, y, b:e))
         backprop(net, xx, yy; o...)
-        update(net; o...)
+        update!(net; o...)
         (iters > 0) && (e/batch >= iters) && break
         gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
     end
