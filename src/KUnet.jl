@@ -22,6 +22,7 @@ include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
 include("util/param.jl");	export KUparam, setparam! # TODO: move this up to src
 include("update.jl");	export update
+include("data.jl");	export Data, ItemTensor
 include("model.jl");	export Model, train, predict, test, gradcheck
 include("op.jl");	export Op, forw, back, loss, params, ninputs, ysize, overwrites, back_reads_x, back_reads_y
 include("net.jl");	export Net, init, nops, op  # TODO: do we still need nops and op after params?
