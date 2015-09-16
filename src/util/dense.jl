@@ -1,3 +1,7 @@
+# TODO: put all this into a new DynamicArray library.
+# what is wrong with DynamicDenseCPU and DynamicDenseGPU?
+# prevent resize from changing ndims
+
 using CUDArt
 import Base: isequal, similar, convert, copy, copy!, resize!, issparse
 import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!, sub
@@ -19,6 +23,8 @@ KUdense{A<:CudaArray,T,N}(::Type{A}, ::Type{T}, d::NTuple{N,Int})=KUdense(CudaAr
 convert(::Type{KUdense}, a)=KUdense(a)
 convert{A<:BaseArray}(::Type{A}, a::KUdense)=convert(A, a.arr)
 convert{A,B}(::Type{KUdense{B}}, a::A)=KUdense(convert(B, a))
+convert{A<:Array,B<:CudaArray,T,N}(::Type{KUdense{A,T,N}}, a::KUdense{B,T,N})=cpucopy(a)
+convert{A<:CudaArray,B<:Array,T,N}(::Type{KUdense{A,T,N}}, a::KUdense{B,T,N})=gpucopy(a)
 
 similar{A,T,N}(a::KUdense{A}, ::Type{T}, d::NTuple{N,Int})=KUdense(A,T,d)
 similar{A,T,N}(a::KUdense{A,T}, d::NTuple{N,Int})=KUdense(A,T,d)
