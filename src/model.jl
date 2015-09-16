@@ -1,19 +1,23 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x)`
+* `forw(m,x;y,trn)`
 * `back(m,y)`
 * `loss(m,y)`
 * `params(m)`
 
 Using these low level methods, Model defines the following:
 
-* `train(model, data)`
+* `train(model, data; gclip, gcheck, getloss, getnorm)`
 * `test(model, data)`
 * `predict(model, data)`
 * `setparam!(model; param...)`
 """
 abstract Model
+
+# TODO: make the model interface more functional:
+# back and loss rely on hidden state info.  
+# forw has to allocate.
 
 setparam!(m::Model; o...)=(for p in params(m); setparam!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)
@@ -22,14 +26,14 @@ gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 
 function predict(m::Model, d::Data)
     for (x,y) in d
-        forw(m, x; y=y, train=false)
+        forw(m, x; y=y, trn=false)
     end
 end
 
 function test(m::Model, d::Data)
     sumloss = 0
     for (x,y) in d
-        forw(m, x; train=false)
+        forw(m, x; trn=false)
         sumloss += loss(m, y)
     end
     return sumloss
@@ -49,7 +53,7 @@ function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true)
 end
 
 function backprop(m::Model, x, y; getloss=true)
-    forw(m, x; train=true)
+    forw(m, x; trn=true)
     loss1 = getloss ? loss(m, y) : nothing
     back(m, y)
     return loss1
@@ -70,7 +74,7 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
         for i in irange
             wi0 = w[i]; wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             w[i] = wi1; copy!(p.arr, w); w[i] = wi0
-            forw(m, x; train=false)
+            forw(m, x; trn=false)
             l1 = loss(m, y)
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(dw[n][i], dwi; rtol=rtol, atol=atol)
@@ -87,6 +91,6 @@ end
 # function inittrain(m::Model, d::Data)
 #     isempty(params(m)[1]) || return
 #     (x,n) = next(d,start(d))
-#     init(m, x[1]; train=true)
+#     init(m, x[1]; trn=true)
 # end
 
