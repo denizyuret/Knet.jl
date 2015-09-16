@@ -6,10 +6,11 @@ typealias MLP Vector{Op}
 forw(n::MLP, x; o...)=(for l in n; x=forw(l, x; o...); end; x)
 back(n::MLP, dy; returndx=false, o...)=(for i=length(n):-1:1; dy=back(n[i],dy; returndx=(i>1||returndx), o...); end; dy)
 loss(n::MLP, dy; y=n[end].y)=loss(n[end], dy; y=y)
+update!(n::MLP; o...)=(for l in n; update!(l; o...); end)
 
 function params(r::MLP)
     p = Any[]
-    for o in r.op
+    for o in r
         append!(p, params(o))
     end
     return p
@@ -63,7 +64,7 @@ function train(net::MLP, x, y; batch=128, shuffle=false, iters=0, o...)
         (iters > 0) && (e/batch >= iters) && break
         gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
     end
-    strip!(net)
+    # strip!(net) # this is only for one epoch, why do I strip here?
 end
 
 # To shuffle data before each epoch:
