@@ -2,18 +2,21 @@
 # G. E. (2015). A Simple Way to Initialize Recurrent Networks of
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
-# len	hidden	lr	mse<0.1
-# 2	1	0.3	4000
-# 3	2	0.2	4000
-# 5	2	0.1	8000
-# 10	5	0.05	26000
-# 20	10	0.03	80000
-# 40	30	0.01	220000
-# 60	40	0.01	440000	gc=10
-# 100	100	0.01	870000  gc=1
-# 100	100	0.01	960000  gc=10
+# len	hidden	lr	gc	mse<0.1
+# 2	1	0.3		4000
+# 3	2	0.2		4000
+# 5	2	0.1		8000
+# 10	5	0.05		26000
+# 20	10	0.03		80000
+# 40	30	0.01		220000
+# 60	40	0.01	10	440000
+# 100	100	0.01	1	870000
+# 100	100	0.01	10	960000
+# 150	100	0.01	1	1390000
+# 200	100	0.01	1	2080000
+# 300	100	0.01	1	3860000
+# 400	100	0.01	1	speed=400k/h
 
-# TODO: move batch somewhere else
 
 using CUDArt
 using KUnet
@@ -26,14 +29,14 @@ function parse_commandline(a=ARGS)
         help = "Number of epochs to train"
         arg_type = Int
         default = 20 # 100
-        "--train"
-        help = "number of training examples"
+        "--epochsize"
+        help = "number of training examples per epoch"
         arg_type = Int
         default = 2000 # 10000
-        "--test"
-        help = "number of testing examples"
+        "--batchsize"
+        help = "minibatch size"
         arg_type = Int
-        default = 2000
+        default = 16
         "--length"
         help = "length of the input sequence"
         arg_type = Int
@@ -49,11 +52,7 @@ function parse_commandline(a=ARGS)
         "--gc"
         help = "gradient clip"
         arg_type = Float64
-        default =  100.0 # 1.0
-        "--batch"
-        help = "minibatch size"
-        arg_type = Int
-        default = 16
+        default = 0.0 # 1.0
         "--type"
         help = "type of network"
         default = "irnn" # "lstm"
@@ -69,69 +68,42 @@ function parse_commandline(a=ARGS)
     parse_args(a,s)
 end
 
-function gendata(ni, nt)
-    x = cell(ni)
-    y = cell(ni)
-    for i=1:ni
-        x[i] = cell(nt)
-        y[i] = cell(nt)
-        for t=1:nt
-            x[i][t] = Float32[rand(), 0]
-            y[i][t] = nothing
-        end
-        t1 = rand(1:nt)
-        t2 = rand(1:nt)
-        while t1==t2; t2 = rand(1:nt); end
-        x[i][t1][2] = 1
-        x[i][t2][2] = 1
-        y[i][nt] = Float32[x[i][t1][1]+x[i][t2][1]]
-    end
-    return (x,y)
+import Base: start, done, next
+
+type Adding <: Data; len; batchsize; epochsize; rng;
+    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
 end
 
-# TODO: fix this so y[i] is not a sequence
-function batch(x, y, nb)
-    isempty(x) && return (x,y)
-    xx = Any[]
-    yy = Any[]
-    ni = length(x)    # assume x and y are same length
-    nt = length(x[1]) # assume all x[i] are same length
-    for i1=1:nb:ni
-        i2=min(ni,i1+nb-1)
-        xi = Any[]
-        yi = Any[]
-        for t=1:nt
-            xit = x[i1][t]
-            xt = similar(xit, tuple(size(xit)..., i2-i1+1))
-            for i=i1:i2; xt[:,i-i1+1] = x[i][t]; end
-            push!(xi, xt)
-            yit = y[i1][t]
-            if yit == nothing
-                yt = nothing # assumes yit=nothing for all i
-            else
-                yt = similar(yit, tuple(size(yit)..., i2-i1+1))
-                for i=i1:i2; yt[:,i-i1+1] = y[i][t]; end
-            end
-            push!(yi, yt)
+start(a::Adding)=0
+
+done(a::Adding,n)=(n >= a.epochsize)
+
+function next(a::Adding, n)
+    nb = min(a.batchsize, a.epochsize-n)
+    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
+    y = Array(Float32,1,nb)
+    t1 = rand(a.rng,1:a.len,nb)
+    t2 = rand(a.rng,1:a.len,nb)
+    for b=1:nb
+        while t2[b]==t1[b]
+            t2[b]=rand(a.rng,1:a.len)
         end
-        push!(xx, xi)
-        push!(yy, yi)
+        x[t1[b]][2,b]=1
+        x[t2[b]][2,b]=1
+        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
     end
-    return(xx, yy)
+    return ((x,y), n+nb)
 end
 
 args = parse_commandline()
-# args = parse_commandline(split("--train 2000 --test 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20"))
-# args = parse_commandline(split("--train 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
+# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
+# args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
 nx = 2
 ny = 1
 nh = args["hidden"]
-# net0 = (args["type"] == "irnn" ? Net(irnn(nh),quadlosslayer(ny)) :
-#         args["type"] == "lstm" ? Net(lstm(nh),quadlosslayer(ny)) : 
-#         error("Unknown network type "*args["type"]))
 net1 = (args["type"] == "irnn" ? irnn(nh) :
         args["type"] == "lstm" ? lstm(nh) : 
         error("Unknown network type "*args["type"]))
@@ -141,36 +113,13 @@ net2 = quadlosslayer(ny)
 setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
 
 net = S2C(net1, net2)
-# setparam!(net; lr=args["lr"], gc=args["gc"])  # do a global gclip instead of per parameter
 setparam!(net; lr=args["lr"])
-
-ntrn = args["train"]
-ntst = args["test"]
-nt = args["length"]
-(xtst1,ytst1) = gendata(ntst, nt)
-(xtst,ytst) = batch(xtst1, ytst1, args["batch"])
-(xtrn1,ytrn1) = gendata(ntrn, nt)
-(xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
+data = Adding(args["length"], args["batchsize"], args["epochsize"])
 
 @time for epoch=1:args["epochs"]
-    (xtrn1,ytrn1) = gendata(ntrn, nt)
-    (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
-    trnmse = tstmse = maxg = maxw = 0
-    for i=1:length(xtrn)
-        (l,w,g) = train(net, xtrn[i], ytrn[i][end]; getloss=true, getnorm=true, gclip=args["gc"])
-        trnmse += l
-        w > maxw && (maxw = w)
-        g > maxg && (maxg = g)
-    end
-    for i=1:length(xtst)
-        tstmse += test(net, xtst[i], ytst[i][end])
-    end
-    trnmse = 2*trnmse/length(xtrn)
-    tstmse = 2*tstmse/length(xtst)
-    println(tuple(epoch*ntrn,trnmse,tstmse,maxw,maxg))
-    gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=100, rtol=.01, atol=.01)
-    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
-    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
+    (l,maxw,maxg) = train(net, data; gclip=args["gc"], gcheck=10)
+    mse = 2*l*data.batchsize/data.epochsize
+    println(tuple(epoch*data.epochsize,mse,maxw,maxg))
     flush(STDOUT)
 end
 
@@ -277,4 +226,87 @@ end
 # setparam!(net1; lr=args["lr"], gc=args["gc"])
 # setparam!(net2; lr=args["lr"], gc=args["gc"])
 # args["type"] == "lstm" && setparam!(net0.op[9]; init=fill!, initp=args["fb"])
+
+# function gendata(ni, nt)
+#     x = cell(ni)
+#     y = cell(ni)
+#     for i=1:ni
+#         x[i] = cell(nt)
+#         y[i] = cell(nt)
+#         for t=1:nt
+#             x[i][t] = Float32[rand(), 0]
+#             y[i][t] = nothing
+#         end
+#         t1 = rand(1:nt)
+#         t2 = rand(1:nt)
+#         while t1==t2; t2 = rand(1:nt); end
+#         x[i][t1][2] = 1
+#         x[i][t2][2] = 1
+#         y[i][nt] = Float32[x[i][t1][1]+x[i][t2][1]]
+#     end
+#     return (x,y)
+# end
+
+# # TODO: fix this so y[i] is not a sequence
+# function batch(x, y, nb)
+#     isempty(x) && return (x,y)
+#     xx = Any[]
+#     yy = Any[]
+#     ni = length(x)    # assume x and y are same length
+#     nt = length(x[1]) # assume all x[i] are same length
+#     for i1=1:nb:ni
+#         i2=min(ni,i1+nb-1)
+#         xi = Any[]
+#         yi = Any[]
+#         for t=1:nt
+#             xit = x[i1][t]
+#             xt = similar(xit, tuple(size(xit)..., i2-i1+1))
+#             for i=i1:i2; xt[:,i-i1+1] = x[i][t]; end
+#             push!(xi, xt)
+#             yit = y[i1][t]
+#             if yit == nothing
+#                 yt = nothing # assumes yit=nothing for all i
+#             else
+#                 yt = similar(yit, tuple(size(yit)..., i2-i1+1))
+#                 for i=i1:i2; yt[:,i-i1+1] = y[i][t]; end
+#             end
+#             push!(yi, yt)
+#         end
+#         push!(xx, xi)
+#         push!(yy, yi)
+#     end
+#     return(xx, yy)
+# end
+# net0 = (args["type"] == "irnn" ? Net(irnn(nh),quadlosslayer(ny)) :
+#         args["type"] == "lstm" ? Net(lstm(nh),quadlosslayer(ny)) : 
+#         error("Unknown network type "*args["type"]))
+# setparam!(net; lr=args["lr"], gc=args["gc"])  # do a global gclip instead of per parameter
+        # "--test"
+        # help = "number of testing examples"
+        # arg_type = Int
+        # default = 2000
+    # trnmse = tstmse = maxg = maxw = 0
+    # for i=1:length(xtrn)
+    #     (l,w,g) = train(net, xtrn[i], ytrn[i][end]; getloss=true, getnorm=true, gclip=args["gc"])
+    #     trnmse += l
+    #     w > maxw && (maxw = w)
+    #     g > maxg && (maxg = g)
+    # end
+    # for i=1:length(xtst)
+    #     tstmse += test(net, xtst[i], ytst[i][end])
+    # end
+    # trnmse = 2*trnmse/length(xtrn)
+    # tstmse = 2*tstmse/length(xtst)
+# ntrn = args["train"]
+# ntst = args["test"]
+# nt = args["length"]
+# (xtst1,ytst1) = gendata(ntst, nt)
+# (xtst,ytst) = batch(xtst1, ytst1, args["batch"])
+# (xtrn1,ytrn1) = gendata(ntrn, nt)
+# (xtrn,ytrn) = batch(xtrn1, ytrn1, args["batch"])
+
+# gradcheck(net, xtrn[1], ytrn[1][end]; ncheck=100, rtol=.01, atol=.01)
+    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=10, rtol=.01, atol=.01)
+    # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
+# DONE: move batch somewhere else
 
