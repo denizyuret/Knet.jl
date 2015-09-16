@@ -37,7 +37,7 @@ end
 
 # BASIC ARRAY OPS:
 
-for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty)
+for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty, :vecnorm)
     @eval (Base.$fname)(a::KUparam)=$fname(a.arr)
 end
 
@@ -47,6 +47,7 @@ end
 
 atype{A}(::KUparam{A})=A
 diff(a::KUparam)=a.diff
+difnorm(a::KUparam)=(isdefined(a,:diff) ? vecnorm(a.diff) : 0)
 
 # DEPRECATED:
 # update!(::Nothing;o...)=nothing
