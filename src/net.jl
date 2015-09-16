@@ -9,11 +9,13 @@
 # + return value for back, returndx option: no need, return if dx specified.
 # + add gradient clipping
 # - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
+# -- we need to solve predict() and accuracy() problems first: use MLP for now?
 # - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 # - performance: do better register optimization
 # - if an op is using an external array, it should not store it.
 # - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
+# - rename train->trn for ops
 
 type Net <: Model
     op; inputs; ninputs; params; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
@@ -44,17 +46,17 @@ get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
 
-function forw(r::Net, inputs...; y=nothing, train=true, a...) # TODO: rename train->trn
-    initbatch(r, inputs...; train=train, a...)
+function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
+    initbatch(r, inputs...; trn=trn, seq=seq, a...)
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
-        train && r.push[n] && push(r,n)         # t:140 save old input if necessary
+        trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
     for n = 1:nops(r)
-        train && r.push[n] && push(r,n)         # t:327
-        r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], a...)     # ;dbg(r,:out,n) # t:2300
+        trn && r.push[n] && push(r,n)         # t:327
+        r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], train=trn, a...)     # ;dbg(r,:out,n) # t:2300
     end
     y != nothing && copy!(y, r.out[nops(r)])
     return y
@@ -74,11 +76,11 @@ end
 function back(r::Net, dy::Vector; dx=nothing, a...)
     for i=length(dy):-1:1
         dxi = (dx == nothing ? nothing : dx[i])
-        back(r, dy[i]; dx=dxi, a...)
+        back(r, dy[i]; seq=true, dx=dxi, a...)
     end
 end
 
-function back(r::Net, dy; dx=nothing, seq=true, a...)
+function back(r::Net, dy; dx=nothing, seq=false, a...)
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     n = nops(r)
     if dy == nothing
@@ -340,12 +342,12 @@ function initstack(r::Net)
     r.sp = 0
 end
 
-function initsequence(r::Net, x::Vector; train=true, a...)
+function initsequence(r::Net, x::Vector; trn=false, a...)
     r.sp == 0 || error("Stack corruption")
     inputs = isa(x[1],Tuple) ? x[1] : (x[1],)
-    initbatch(r, inputs...; train=train, seq=true, a...)
+    initbatch(r, inputs...; trn=trn, seq=true, a...)
     fill!(r.out, nothing)                               # to represent zero matrices at t=0
-    if train
+    if trn
         fill!(r.dif, nothing)                           # why? (TODO)
         for n=1:length(r.dif0)
             r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
@@ -356,10 +358,10 @@ function initsequence(r::Net, x::Vector; train=true, a...)
     end
 end
 
-function initbatch(r::Net, inputs...; train=true, seq=true)
+function initbatch(r::Net, inputs...; trn=false, seq=false)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     initout0(r, inputs...)
-    if train
+    if trn
         initparams(r, inputs...; seq=seq)
         initdif0(r)
     end
@@ -393,7 +395,7 @@ function initout0(r::Net, inputs...)
     end
 end
 
-function initparams(r::Net, inputs...; seq=true)
+function initparams(r::Net, inputs...; seq=false)
     for n = 1:nops(r)
         p = params(r.op[n])
         !isempty(p) && findfirst(isempty,p)>0 && forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
