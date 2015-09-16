@@ -15,8 +15,10 @@
 # 150	100	0.01	1	1390000
 # 200	100	0.01	1	2080000
 # 300	100	0.01	1	3860000
-# 400	100	0.01	1	speed=400k/h
+# 400	100	0.01	1	7400000 speed=400k/h, unstable
 
+# TODO: check out unstability of 400.
+# TODO: share results with authors.
 
 using CUDArt
 using KUnet
