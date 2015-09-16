@@ -1,34 +1,73 @@
+using Base.Test
 using KUnet
-include("mnist.jl")
-using MNIST: xtrn, ytrn, xtst, ytst
-ztrn,ztst = similar(ytrn),similar(ytst)
+include("isapprox.jl")
+isdefined(:MNIST) || include("mnist.jl")
 setseed(42)
+nbatch=100
+
+x0 = copy(MNIST.xtrn)
+y0 = copy(MNIST.ytrn)
 
 info("Testing simple ffnn")
 net = Net(Mmul(64), Bias(), Relu(), 
           Mmul(10), Bias(), XentLoss())
 setparam!(net, lr=0.5)
-@time for i=1:10
-    train(net, xtrn, ytrn)
-    println((i, accuracy(ytst, predict(net, xtst, ztst)),
-                accuracy(ytrn, predict(net, xtrn, ztrn))))
+
+data = ItemTensor(MNIST.xtrn, MNIST.ytrn; batchsize=nbatch) # TODO: try other batch sizes
+
+test(net, data)                 # to init weights
+mlp = deepcopy(net.op)
+
+@time for i=1:3
+    println(train(net, data))
+    train(mlp, MNIST.xtrn, MNIST.ytrn; batch=nbatch)
+    @test all(map(isequal, params(net), params(mlp)))
+    println((i, accuracy(MNIST.ytst, predict(mlp, MNIST.xtst)),
+                accuracy(MNIST.ytrn, predict(mlp, MNIST.xtrn))))
 end
+
+@test isequal(x0,MNIST.xtrn)
+@test isequal(y0,MNIST.ytrn)
 
 info("Testing lenet")
-lenet = [Conv(20,5), Bias(), Relu(), Pool(2),
-         Conv(50,5), Bias(), Relu(), Pool(2),
-         Mmul(500), Bias(), Relu(),
-         Mmul(10), Bias(), XentLoss()]
-
+lenet = Net(Conv(20,5), Bias(), Relu(), Pool(2),
+            Conv(50,5), Bias(), Relu(), Pool(2),
+            Mmul(500), Bias(), Relu(),
+            Mmul(10), Bias(), XentLoss())
 setparam!(lenet; lr=0.1)
-xtrn2 = reshape(xtrn, 28, 28, 1, size(xtrn, 2))
-xtst2 = reshape(xtst, 28, 28, 1, size(xtst, 2))
-@time for i=1:3
-    train(lenet, xtrn2, ytrn)
-    println((i, accuracy(ytst, predict(lenet, xtst2)), 
-             accuracy(ytrn, predict(lenet, xtrn2))))
+xtrn2 = reshape(MNIST.xtrn, 28, 28, 1, size(MNIST.xtrn, 2))
+xtst2 = reshape(MNIST.xtst, 28, 28, 1, size(MNIST.xtst, 2))
+ytrn2 = MNIST.ytrn
+ytst2 = MNIST.ytst
+
+for a in (:xtrn2,:xtst2,:ytrn2,:ytst2) @eval $a=KUnet.cget($a,1:100); end
+
+data2 = ItemTensor(xtrn2,ytrn2; batchsize=nbatch)
+test(lenet, data2)
+lenet0 = deepcopy(lenet)
+lemlp = deepcopy(lenet.op)
+
+# @show (0,0,map(vecnorm,params(lenet)),map(difnorm,params(lenet)))
+# @show (0,0,map(vecnorm,params(lemlp)),map(difnorm,params(lemlp)))
+@show map(isequal, params(lenet), params(lemlp))
+
+@time for i=1:1
+    println(train(lenet, data2))
+    train(lemlp, xtrn2, ytrn2; batch=nbatch)
+
+    # @show (i,1,map(vecnorm,params(lenet)),map(difnorm,params(lenet)))
+    # @show (i,1,map(vecnorm,params(lemlp)),map(difnorm,params(lemlp)))
+    @show map(isequal, params(lenet), params(lemlp))
+    @show map(isapprox, params(lenet), params(lemlp))
+    # @test all(map(isequal, params(lenet), params(lemlp)))
+    println((i, accuracy(ytst2, predict(lemlp, xtst2)), 
+                accuracy(ytrn2, predict(lemlp, xtrn2))))
 end
 
+@test isequal(x0,MNIST.xtrn)
+@test isequal(y0,MNIST.ytrn)
+
+# TODO: test with dropout
 
 ### DEAD CODE
 
