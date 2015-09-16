@@ -26,6 +26,8 @@ csize(a)=(ndims(a)==1 ? size(a) : size(a)[1:end-1])
 csize(a,n)=tuple(csize(a)..., n) # size if you had n columns
 clength(a)=(ndims(a)==1 ? length(a) : stride(a,ndims(a)))
 ccount(a)=(ndims(a)==1 ? 1 : size(a,ndims(a)))
+csub(a,i)=(ndims(a)==1 ? error() : sub(a, ntuple(i->(:), ndims(a)-1)..., i))
+cget(a,i)=(ndims(a)==1 ? error() : getindex(a, ntuple(i->(:), ndims(a)-1)..., i))
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) # size as a matrix
 
 # This does not work in place!
