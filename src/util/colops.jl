@@ -25,6 +25,23 @@ function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
     return a
 end
 
+# For non-contiguous columns:
+function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, cols)
+    ncols = length(cols)
+    clen = clength(b)
+    n = clen * ncols
+    length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+    alen = 0
+    for i=1:ncols
+        bidx = (cols[i]-1)*clen + 1
+        copy!(a.ptr, alen+1, b, bidx, clen)
+        alen += clen
+    end
+    a.arr = arr(a.ptr, csize(b, ncols))
+    return a
+end
+
+# TODO: write the non-contiguous sparse version
 function cslice!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, r::UnitRange)
     bptr = cpucopy(b.colptr)
     nz = 0; for i in r; nz += bptr[i+1]-bptr[i]; end
