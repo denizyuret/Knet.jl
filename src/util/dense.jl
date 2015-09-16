@@ -4,7 +4,6 @@
 
 using CUDArt
 import Base: isequal, similar, convert, copy, copy!, resize!, issparse
-import Base: eltype, length, ndims, size, strides, stride, pointer, isempty, getindex, setindex!, sub
 import Base: rand!, randn!, fill!
 import CUDArt: to_host
 
@@ -43,16 +42,16 @@ isequal(a::KUdense,b::KUdense)=((typeof(a)==typeof(b)) && (sizeof(a)==sizeof(b))
 
 atype{A}(::KUdense{A})=A
 
-for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty)
-    @eval $fname(a::KUdense)=$fname(a.arr)
+for fname in (:eltype, :length, :ndims, :size, :strides, :pointer, :isempty, :vecnorm)
+    @eval (Base.$fname)(a::KUdense)=$fname(a.arr)
 end
 
 for fname in (:size, :stride)
-    @eval $fname(a::KUdense,n)=$fname(a.arr,n)
+    @eval (Base.$fname)(a::KUdense,n)=$fname(a.arr,n)
 end
 
 for fname in (:getindex, :setindex!, :sub)
-    @eval $fname(a::KUdense,n...)=$fname(a.arr,n...)
+    @eval (Base.$fname)(a::KUdense,n...)=$fname(a.arr,n...)
 end
 
 ### BASIC COPY
