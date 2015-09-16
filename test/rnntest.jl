@@ -20,7 +20,6 @@ nb = 128
 x = KUdense(gpucopy(reshape(MNIST.xtrn[:,1:nb],28,28,1,nb)))
 forw(net, copy(x))   # initializes the weights
 rnn = Net(gpucopy(net)...)
-init(rnn, copy(x))
 
 setseed(42)
 # @date y1 = forw(net, copy(x))
@@ -33,29 +32,31 @@ end
 y1 = y
     
 setseed(42)
-init(rnn, copy(x))
 ybuf2 = Array(Any, length(net))
 y = copy(x)
-inputs = Any[y]
-train1 = true
 a = ()
 r = rnn
-using KUnet: push, pop, dbg, forw, back, get1
+inputs = Any[y]
+trn = true
+seq = false
+using KUnet: push, pop, dbg, forw, back, get1, initbatch
 
+    initbatch(r, inputs...; trn=trn, seq=seq, a...)
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
-        train1 && r.push[n] && push(r,n)         # t:140 save old input if necessary
+        trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
     for n = 1:nops(r)
-        train1 && r.push[n] && push(r,n)         # t:327
+        trn && r.push[n] && push(r,n)         # t:327
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], a...)     # ;dbg(r,:out,n) # t:2300
         ybuf2[n] = cpucopy(r.out[n].arr)
     end
     
 y2 = r.out[nops(r)]
 
+@show map(isequal, ybuf1, ybuf2)
 @test @show to_host(y1.arr)==to_host(y2.arr)
 
 y = KUdense(gpucopy(MNIST.ytrn[:,1:nb]))
@@ -68,12 +69,13 @@ for n=length(net):-1:1
     # @show (n, to_host(dy)[1])
     dybuf1[n] = cpucopy(dy.arr)
 end
-@show length(dybuf1)
+# @show length(dybuf1)
 
 # @date back(rnn, copy(y))
 r = rnn
 dy = copy(y)
 dx = nothing
+seq = false
 dybuf2 = Array(Any, nops(r))
 
 
@@ -98,9 +100,9 @@ dybuf2 = Array(Any, nops(r))
             for i in r.inputs[n]
                 push!(dxn, r.multi[i] ? r.dif1[i] : r.dif0[i])
             end
-            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
+            back(r.op[n], r.dif[n]; incr=seq, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
 
-### back gives eq for layers 18..8, approxeq for layers 7..1
+### back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
         dybuf2[n] = cpucopy(get1(dxn).arr)
         dytest1 = isapprox(dybuf1[n], dybuf2[n])
         @test dytest1
