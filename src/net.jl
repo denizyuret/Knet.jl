@@ -7,10 +7,10 @@
 # + minibatching
 # x rethink the 'nothing' optimization, removed from dif but not out?
 # + return value for back, returndx option: no need, return if dx specified.
+# + add gradient clipping
 # - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
 # - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
-# - add gradient clipping
 # - performance: do better register optimization
 # - if an op is using an external array, it should not store it.
 # - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
@@ -37,14 +37,15 @@ end
 
 params(r::Net)=r.params
 ninputs(r::Net)=r.ninputs
-loss(r::Net,dy)=(dy==nothing ? 0 : loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)])))
+loss(r::Net,dy)=loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)]))
+loss(r::Net,::Void)=0
 
 get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
 
-function forw(r::Net, inputs...; train=true, y=nothing, a...)
-    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+function forw(r::Net, inputs...; y=nothing, train=true, a...) # TODO: rename train->trn
+    initbatch(r, inputs...; train=train, a...)
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
@@ -59,17 +60,16 @@ function forw(r::Net, inputs...; train=true, y=nothing, a...)
     return y
 end
 
-function forw(r::Net, x::Vector;y=nothing, a...)
-    init(r, x; a...)
+function forw(r::Net, x::Vector; y=nothing, a...)
+    initsequence(r, x; a...)
     for i=1:length(x)
         yi = (y == nothing ? nothing : y[i])
-        forw(r, x[i]; y=yi, a...)
+        isa(x[i], Tuple) ?
+        forw(r, x[i]...; y=yi, seq=true, a...) :
+        forw(r, x[i]; y=yi, seq=true, a...)
     end
     return y
 end
-
-forw{T<:Number}(r::Net,  x::Vector{T}; a...)=forw(r, reshape(x,  length(x),  1); a...)
-back{T<:Number}(r::Net, dy::Vector{T}; a...)=back(r, reshape(dy, length(dy), 1); a...)
 
 function back(r::Net, dy::Vector; dx=nothing, a...)
     for i=length(dy):-1:1
@@ -78,7 +78,7 @@ function back(r::Net, dy::Vector; dx=nothing, a...)
     end
 end
 
-function back(r::Net, dy; dx=nothing, a...)
+function back(r::Net, dy; dx=nothing, seq=true, a...)
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     n = nops(r)
     if dy == nothing
@@ -101,7 +101,7 @@ function back(r::Net, dy; dx=nothing, a...)
             for i in r.inputs[n]
                 push!(dxn, r.multi[i] ? r.dif1[i] : r.dif0[i])
             end
-            back(r.op[n], r.dif[n]; incr=true, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
+            back(r.op[n], r.dif[n]; incr=seq, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
             for i in r.inputs[n]
                 r.multi[i] && axpy!(1, r.dif1[i], r.dif0[i])            ; r.multi[i]&&dbg(r,:dif1,i)
                 r.dif[i] = r.dif0[i]                                    ; dbg(r,:dif,i)
@@ -340,65 +340,68 @@ function initstack(r::Net)
     r.sp = 0
 end
 
-# The input x::Vector can be x[i][t][d...,b] or x[t][d...,b]
-# where i:instance, t:time, d:dims, b:batch
-# We only want to init if x[t][d...,b]
-# In that case x[1] will be a numeric array 
-# or a tuple of numeric arrays (to support multiple inputs)
-
-function init(r::Net, x::Vector; a...)
-    if isempty(x) || x[1] == nothing
-        error("Got nothing as input")
-    elseif isa(x[1], Tuple)
-        init(r, x[1]...; a...)
-    elseif isbits(eltype(x[1]))
-        init(r, x[1]; a...)
+function initsequence(r::Net, x::Vector; train=true, a...)
+    r.sp == 0 || error("Stack corruption")
+    inputs = isa(x[1],Tuple) ? x[1] : (x[1],)
+    initbatch(r, inputs...; train=train, seq=true, a...)
+    fill!(r.out, nothing)                               # to represent zero matrices at t=0
+    if train
+        fill!(r.dif, nothing)                           # why? (TODO)
+        for n=1:length(r.dif0)
+            r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+        end
+        for w in params(r)
+            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+        end
     end
 end
 
-function init(r::Net, inputs...; train=true)
-    r.sp == 0 || error("Stack corruption")
+function initbatch(r::Net, inputs...; train=true, seq=true)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     initout0(r, inputs...)
-    train && initdif0(r)
+    if train
+        initparams(r, inputs...; seq=seq)
+        initdif0(r)
+    end
 end
     
-function initout0(r::Net, inputs...)
-    fill!(r.out,nothing)
-    for i = 1:ninputs(r)
-        n = i+nops(r)
-        r.out[n] = initarray(r.out0, n, inputs[i])
-    end
-    while findfirst(r.out,nothing) > 0
-        nalloc = 0
-        for n = 1:nops(r)
-            r.out[n] == nothing || continue
-            s = ysize(r.op[n], r.out[r.inputs[n]]...)
-            s == nothing && continue        # may happen with recurrent connections
-            r.out[n] = initarray(r.out0, n, r.out[r.inputs[n]][1], s)
-            p = params(r.op[n])
-            !isempty(p) && findfirst(isempty,p)>0 && forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n]) # initializes w
-            nalloc += 1
-        end
-        nalloc == 0 && error("Cannot determine size of array")
-    end
-    fill!(r.out,nothing)
-end
-
 function initdif0(r::Net)
     for n=1:length(r.dif0)
         initarray(r.dif0, n, r.out0[n])
         if r.multi[n]
-            fill!(r.dif0[n], 0)
             initarray(r.dif1, n, r.out0[n])
         end
     end
+end
+
+function initout0(r::Net, inputs...)
+    out = fill!(cell(length(r.out0)), nothing)          # TODO: get rid of alloc
+    for i = 1:ninputs(r)
+        n = i+nops(r)
+        out[n] = initarray(r.out0, n, inputs[i])
+    end
+    while findfirst(out,nothing) > 0
+        nalloc = 0
+        for n = 1:nops(r)
+            out[n] == nothing || continue
+            s = ysize(r.op[n], out[r.inputs[n]]...)
+            s == nothing && continue        # may happen with recurrent connections
+            out[n] = initarray(r.out0, n, out[r.inputs[n]][1], s)
+            nalloc += 1
+        end
+        nalloc == 0 && error("Cannot determine size of array")
+    end
+end
+
+function initparams(r::Net, inputs...; seq=true)
+    for n = 1:nops(r)
+        p = params(r.op[n])
+        !isempty(p) && findfirst(isempty,p)>0 && forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
+    end
     for w in params(r)
         similar!(w, :diff, w.arr)
-        similar!(w, :inc, w.arr)
-        fill!(w.diff, 0)
+        seq && similar!(w, :inc, w.arr)
     end
-    fill!(r.dif,nothing)
 end
 
 function initarray(a, i, x, dims=size(x))
@@ -470,6 +473,9 @@ function gpucopy_internal(x::Net, stackdict::ObjectIdDict)
     return y
 end
 
+
+forw{T<:Number}(r::Net,  x::Vector{T}; a...)=error("forw expects a minibatch") # forw(r, reshape(x,  length(x),  1); a...)
+back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") # back(r, reshape(dy, length(dy), 1); a...)
 
 ### DEAD CODE
 
@@ -962,4 +968,57 @@ end
 # DONE: incremental updates
  # DONE: forw: do we really need inputs to be tuple here? YES, have the option of multi-input nets like multi-input ops.
 # DONE: forw: (minor) this ends up using a lot of nothing pushes first minibatch, that's ok, 'nothing' is a legit value.
+
+# Terminology:
+# An instance is an item or a sequence.
+# An item is a contiguous feature array: x[d...]
+# A sequence is a sequence of items in time: x[t][d...]
+# An item batch is a contiguous array with an extra dimension: x[d...,i]
+# inputs[i] should be an item batch.
+
+# function initbatch(r::Net, inputs...)
+    
+# end
+
+# function init(r::Net, x::Vector; a...)
+#     if isempty(x) || x[1] == nothing
+#         error("Got nothing as input")
+#     elseif isa(x[1], Tuple)
+#         init(r, x[1]...; seq=true, a...)
+#     elseif isbits(eltype(x[1]))
+#         init(r, x[1]; seq=true, a...)
+#     end
+# end
+
+### initforw:
+
+# We have a batch or a sequence of batches as input.
+# The batch could be for an FNN or an RNN.
+# Before each forw-batch we make sure out0 has the right size.
+# Before each back-batch we make sure dif0 has the right size.
+# dw needs to be zeroed only at the beginning of a sequence.
+# dw does not need incr if not part of a sequence.
+# out and dif registers need to be nothinged only at the beginning of a sequence.
+# we need to preserve their content from one rnn-batch to the next.
+# dy for multi ops are zeroed during back so init should not worry.
+# so we need to know if we are in a sequence or not: add a keyword arg to forw and back.
+
+# The input x::Vector can be x[i][t][d...,b] or x[t][d...,b]
+# where i:instance, t:time, d:dims, b:batch
+# We only want to init if x[t][d...,b]
+# In that case x[1] will be a numeric array 
+# or a tuple of numeric arrays (to support multiple inputs)
+
+# init before a sequence zeroes out everything:
+# out[:] is set to nothing to represent zero matrices at t=0
+# dif[:] is set to nothing why?  (TODO)
+# dif0[n] is set to zero for r.multi[n]
+# but first we need to allocate using the batch init
+# the input is x[t][d...,i] for single input
+# or x[t][input][d...,i] for multiple inputs
+
+# at the beginning of a sequence:
+# we want out[:]=nothing, dif[:]=nothing, dw=0, dif0[i] for multi.
+# before every itembatch:
+# we just want to fix the sizes.
 
