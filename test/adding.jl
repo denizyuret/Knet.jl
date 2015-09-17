@@ -2,27 +2,8 @@
 # G. E. (2015). A Simple Way to Initialize Recurrent Networks of
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
-# len	hidden	lr	gc	mse<0.1
-# 2	1	0.3		4000
-# 3	2	0.2		4000
-# 5	2	0.1		8000
-# 10	5	0.05		26000
-# 20	10	0.03		80000
-# 40	30	0.01		220000
-# 60	40	0.01	10	440000
-# 100	100	0.01	1	870000
-# 100	100	0.01	10	960000
-# 150	100	0.01	1	1390000
-# 200	100	0.01	1	2080000
-# 300	100	0.01	1	3860000
-# 400	100	0.01	1	7400000 speed=400k/h, unstable
-
-# TODO: check out unstability of 400.
-# TODO: share results with authors.
-
-using CUDArt
-using KUnet
 using ArgParse
+using KUnet
 
 function parse_commandline(a=ARGS)
     s = ArgParseSettings()
@@ -51,10 +32,14 @@ function parse_commandline(a=ARGS)
         help = "learning rate"
         arg_type = Float64
         default =  0.05 # 0.01
-        "--gc"
+        "--gclip"
         help = "gradient clip"
         arg_type = Float64
-        default = 0.0 # 1.0
+        default = 1.0 # 1.0
+        "--gcheck"
+        help = "gradient check"
+        arg_type = Int
+        default = 10 # 1.0
         "--type"
         help = "type of network"
         default = "irnn" # "lstm"
@@ -76,24 +61,24 @@ args = parse_commandline()
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
-data = AddingData(args["length"], args["batchsize"], args["epochsize"])
+data = Adding(args["length"], args["batchsize"], args["epochsize"])
 
 nx = 2
 ny = 1
 nh = args["hidden"]
-net1 = (args["type"] == "irnn" ? irnn(nh) :
-        args["type"] == "lstm" ? lstm(nh) : 
+net1 = (args["type"] == "irnn" ? IRNN(nh) :
+        args["type"] == "lstm" ? LSTM(nh) : 
         error("Unknown network type "*args["type"]))
 args["type"] == "lstm" && setparam!(net1.op[9]; init=fill!, initp=args["fb"])
 
-net2 = quadlosslayer(ny)
-setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
+net2 = Net(Mmul(ny), Bias(), QuadLoss())
+# setparam!(net2.op[1]; init=randn!, initp=(0,0.001)) # TODO: paper uses 0.001, does it make a difference?
 
 net = S2C(net1, net2)
 setparam!(net; lr=args["lr"])
 
 @time for epoch=1:args["epochs"]
-    (l,maxw,maxg) = train(net, data; gclip=args["gc"], gcheck=100)
+    (l,maxw,maxg) = train(net, data; gclip=args["gclip"], gcheck=args["gcheck"])
     mse = 2*l
     println(tuple(epoch*data.epochsize,mse,maxw,maxg))
     flush(STDOUT)
@@ -316,3 +301,26 @@ end
 # (40000,0.05559959733567962,6.150661f0,7.046003f0)
 #  12.254361 seconds (24.96 M allocations: 1.034 GB, 2.07% gc time)
 # :ok
+
+# len	hidden	lr	gc	mse<0.1
+# 2	1	0.3		4000
+# 3	2	0.2		4000
+# 5	2	0.1		8000
+# 10	5	0.05		26000
+# 20	10	0.03		80000
+# 40	30	0.01		220000
+# 60	40	0.01	10	440000
+# 100	100	0.01	1	870000
+# 100	100	0.01	10	960000
+# 150	100	0.01	1	1390000
+# 200	100	0.01	1	2080000
+# 300	100	0.01	1	3860000
+# 400	100	0.01	1	7400000 speed=400k/h, unstable
+
+# TODO: check out unstability of 400.
+# TODO: share results with authors.
+
+# DONE: lstm does not work with 10x5 find out why: much larger --lr=1.0, also large --fb >= 1 helps.
+# The following settings solve 10x5 in 12000 iterations:
+# "hidden"=>5,"lr"=>0.7,"batchsize"=>16,"length"=>10,"gclip"=>1.0,"fb"=>100.0,"gcheck"=>10,"epochs"=>10,"seed"=>1003,"epochsize"=>2000,"type"=>"lstm")
+

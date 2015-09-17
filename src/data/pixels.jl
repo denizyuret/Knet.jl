@@ -1,4 +1,3 @@
-using KUnet: Data, nextidx
 import Base: start, next, done
 
 """

@@ -1,3 +1,5 @@
+import Base: start, next, done
+
 """
 This is the data generator for the adding problem from: Le, Q. V.,
 Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize

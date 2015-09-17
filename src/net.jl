@@ -8,8 +8,8 @@
 # x rethink the 'nothing' optimization, removed from dif but not out?
 # + return value for back, returndx option: no need, return if dx specified.
 # + add gradient clipping
-# - implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
-# -- we need to solve predict() and accuracy() problems first: use MLP for now?
+# + implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
+# + we need to solve predict() and accuracy() problems first: use MLP for now?
 # - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 # - performance: do better register optimization

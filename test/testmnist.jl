@@ -1,15 +1,14 @@
 using Base.Test
 using KUnet
-using KUnet: MNIST
-include("isapprox.jl")
+using KUnet: params
+include("isapprox.jl")          # TODO: isapprox should be part of array.jl
 setseed(42)
 nbatch=100
 
-dtrn = TrainMNIST(batch=nbatch)
-dtst = TestMNIST(batch=nbatch)
+(dtrn,dtst) = MNIST(batch=nbatch)
 
-x0 = copy(MNIST.xtrn)
-y0 = copy(MNIST.ytrn)
+x0 = copy(dtrn.x[1])            # TODO: should rename x a more descriptive data
+y0 = copy(dtrn.x[2])
 
 info("Testing simple mlp")
 net = Net(Mmul(64), Bias(), Relu(), 
@@ -23,14 +22,14 @@ mlp = deepcopy(net.op)
     @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true)
     @show (test(net, dtrn), accuracy(net, dtrn))
     @show (test(net, dtst), accuracy(net, dtst))
-    train(mlp, MNIST.xtrn, MNIST.ytrn; batch=nbatch)
+    train(mlp, dtrn.x[1], dtrn.x[2]; batch=nbatch)
     @test all(map(isequal, params(net), params(mlp)))
-    println((i, accuracy(MNIST.ytst, predict(mlp, MNIST.xtst)),
-                accuracy(MNIST.ytrn, predict(mlp, MNIST.xtrn))))
+    println((i, accuracy(dtst.x[2], predict(mlp, dtst.x[1])),
+                accuracy(dtrn.x[2], predict(mlp, dtrn.x[1]))))
 end
 
-@test isequal(x0,MNIST.xtrn)
-@test isequal(y0,MNIST.ytrn)
+@test isequal(x0,dtrn.x[1])
+@test isequal(y0,dtrn.x[2])
 
 info("Testing lenet")
 lenet = Net(Conv(20,5), Bias(), Relu(), Pool(2),
@@ -39,10 +38,10 @@ lenet = Net(Conv(20,5), Bias(), Relu(), Pool(2),
             Mmul(10), Bias(), XentLoss())
 setparam!(lenet; lr=0.1)
 
-# single epoch training
-dtrn1 = TrainMNIST(batch=nbatch,epoch=nbatch)
+# single batch for training
+(dtrn1,dtst1) = MNIST(batch=nbatch,epoch=nbatch)
 
-test(lenet, dtst) # to initialize weights
+test(lenet, dtrn1) # to initialize weights
 lenet0 = deepcopy(lenet)
 lemlp = deepcopy(lenet.op)
 
@@ -52,19 +51,19 @@ lemlp = deepcopy(lenet.op)
 
 @time for i=1:1
     println(train(lenet, dtrn1))
-    train(lemlp, csub(MNIST.xtrn,1:100), csub(MNIST.ytrn,1:100); batch=nbatch)
+    train(lemlp, csub(dtrn.x[1],1:100), csub(dtrn.x[2],1:100); batch=nbatch)
 
     # @show (i,1,map(vecnorm,params(lenet)),map(difnorm,params(lenet)))
     # @show (i,1,map(vecnorm,params(lemlp)),map(difnorm,params(lemlp)))
     @show map(isequal, params(lenet), params(lemlp))
     @show map(isapprox, params(lenet), params(lemlp))
     # @test all(map(isequal, params(lenet), params(lemlp)))
-    println((i, accuracy(MNIST.ytst, predict(lemlp, MNIST.xtst)),
-                accuracy(MNIST.ytrn, predict(lemlp, MNIST.xtrn))))
+    println((i, accuracy(dtrn.x[2], predict(lemlp, dtrn.x[1])),
+                accuracy(dtrn.x[2], predict(lemlp, dtrn.x[1]))))
 end
 
-@test isequal(x0,MNIST.xtrn)
-@test isequal(y0,MNIST.ytrn)
+@test isequal(x0,dtrn1.x[1])
+@test isequal(y0,dtrn1.x[2])
 
 # TODO: test with dropout
 

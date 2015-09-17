@@ -19,8 +19,8 @@ VERSION < v"0.4-" && (nfields(a)=length(names(a)))
 cpucopy(x) = cpucopy_internal(x, ObjectIdDict())
 
 cpucopy_internal(x::Union{Symbol,LambdaStaticData,TopNode,GlobalRef,
-                           DataType,Union,Task},
-                  stackdict::ObjectIdDict) = x
+                 DataType,Union,Task},
+                 stackdict::ObjectIdDict) = x
 cpucopy_internal(x::Tuple, stackdict::ObjectIdDict) =
     ntuple(i->cpucopy_internal(x[i], stackdict), length(x))
 cpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("cpucopy of Modules not supported")
@@ -81,9 +81,9 @@ end
 
 gpucopy(x) = gpucopy_internal(x, ObjectIdDict())
 
-gpucopy_internal(x::Union{Symbol,LambdaStaticData,TopNode,GlobalRef,
-                           DataType,Union,Task},
-                  stackdict::ObjectIdDict) = x
+gpucopy_internal(x::Union{Symbol,LambdaStaticData,TopNode, # GlobalRef,
+                            DataType,Union,Task},
+                   stackdict::ObjectIdDict) = x
 gpucopy_internal(x::Tuple, stackdict::ObjectIdDict) =
     ntuple(i->gpucopy_internal(x[i], stackdict), length(x))
 gpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("gpucopy of Modules not supported")
