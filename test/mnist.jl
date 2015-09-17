@@ -1,3 +1,5 @@
+# DEPRECATED! use the TrainMNIST and TestMNIST data generators instead.
+
 module MNIST
 using GZip
 using KUnet
@@ -29,6 +31,7 @@ function readimages(gz)
 end
 
 function loadmnist()
+    warn("# DEPRECATED! use the TrainMNIST and TestMNIST data generators instead.")
     global xtrn, ytrn, xtst, ytst
     xtrn = readimages(xtrn_file)
     ytrn = readlabels(ytrn_file)
