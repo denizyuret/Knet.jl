@@ -70,38 +70,13 @@ function parse_commandline(a=ARGS)
     parse_args(a,s)
 end
 
-import Base: start, done, next
-
-type Adding <: Data; len; batchsize; epochsize; rng;
-    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
-end
-
-start(a::Adding)=0
-
-done(a::Adding,n)=(n >= a.epochsize)
-
-function next(a::Adding, n)
-    nb = min(a.batchsize, a.epochsize-n)
-    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
-    y = Array(Float32,1,nb)
-    t1 = rand(a.rng,1:a.len,nb)
-    t2 = rand(a.rng,1:a.len,nb)
-    for b=1:nb
-        while t2[b]==t1[b]
-            t2[b]=rand(a.rng,1:a.len)
-        end
-        x[t1[b]][2,b]=1
-        x[t2[b]][2,b]=1
-        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
-    end
-    return ((x,y), n+nb)
-end
-
-# args = parse_commandline()
-args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
+args = parse_commandline()
+# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
 # args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
+
+data = AddingData(args["length"], args["batchsize"], args["epochsize"])
 
 nx = 2
 ny = 1
@@ -116,12 +91,10 @@ setparam!(net2.op[1]; init=randn!, initp=(0,0.001))
 
 net = S2C(net1, net2)
 setparam!(net; lr=args["lr"])
-data = Adding(args["length"], args["batchsize"], args["epochsize"])
 
 @time for epoch=1:args["epochs"]
-    (l,maxw,maxg) = train(net, data; gclip=args["gc"], gcheck=10)
-    #DBG (l,maxw,maxg) = train(net, data)
-    mse = 2*l # *data.batchsize/data.epochsize
+    (l,maxw,maxg) = train(net, data; gclip=args["gc"], gcheck=100)
+    mse = 2*l
     println(tuple(epoch*data.epochsize,mse,maxw,maxg))
     flush(STDOUT)
 end
@@ -313,3 +286,33 @@ end
     # gradcheck(deepcopy(net), xtrn[1], ytrn[1][end]; ncheck=typemax(Int), rtol=.01, atol=0.001)
 # DONE: move batch somewhere else
 
+# Sample run for debugging:
+# include("adding.jl")
+# Dict{AbstractString,Any}("epochs"=>20,"length"=>10,"hidden"=>5,"lr"=>0.05,"gc"=>0.0,"seed"=>1003,"epochsize"=>2000,"type"=>"irnn","batchsize"=>16,"fb"=>1.0)
+# (2000,0.2367687518065747,3.4275942f0,3.3859315f0)
+# (4000,0.15307395973077917,3.464923f0,4.7202573f0)
+# (6000,0.14563310024940243,3.6585462f0,5.872257f0)
+# (8000,0.13914305934002114,3.8016677f0,3.1696885f0)
+# (10000,0.14323858796367964,3.8592012f0,3.2897224f0)
+# (12000,0.1367174871237112,3.985711f0,3.6923754f0)
+# (14000,0.13409161991421098,4.122253f0,3.546906f0)
+# (16000,0.14308425651714993,4.29228f0,4.408668f0)
+# (18000,0.13665285526663074,4.4640274f0,4.3833494f0)
+# (20000,0.13405299006340385,4.6561775f0,5.563099f0)
+# (:gc,1,1,-0.014068735f0,-0.012999516911804303)
+# (:gc,3,2,1.0189252f0,1.0168674634770678)
+# (22000,0.11635054438228343,4.6980543f0,4.930481f0)
+# (:gc,3,1,-0.017460648f0,-0.014846227713860662)
+# (24000,0.13276363812079117,4.8182077f0,6.6221495f0)
+# (26000,0.11608889580161318,5.0058174f0,4.4876924f0)
+# (28000,0.09768098581235139,5.2528496f0,3.7506382f0)
+# (30000,0.08683158848625311,5.476772f0,5.6964407f0)
+# (32000,0.07696116060071267,5.66774f0,4.3827868f0)
+# (34000,0.06580346676474488,5.834197f0,3.7996128f0)
+# (36000,0.0653655101321814,5.957285f0,4.3073344f0)
+# (38000,0.059040538369345454,6.0668435f0,4.8617268f0)
+# (:gc,1,1,-0.04241219f0,-0.03291861048638019)
+# (:gc,3,1,-0.04151296f0,-0.040597419683763535)
+# (40000,0.05559959733567962,6.150661f0,7.046003f0)
+#  12.254361 seconds (24.96 M allocations: 1.034 GB, 2.07% gc time)
+# :ok
