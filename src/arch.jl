@@ -1,3 +1,5 @@
+# TODO: upcase lstm and irnn
+
 for (layer, opname) in 
     ((:sigmlayer, :Sigm),
      (:tanhlayer, :Tanh),
@@ -55,5 +57,17 @@ function back(r::S2C, y)
     back(r.net2, y)
     back(r.net1, r.net2.dif[nops(r.net2)+1]; seq=true)
     while r.net1.sp > 0; back(r.net1, nothing; seq=true); end
+end
+
+function accuracy(m::S2C, d::Data)
+    numcorr = numinst = 0
+    z = nothing
+    for (x,y) in d
+        issimilar(y,z) || (z = similar(y))
+        forw(m, x; y=z, trn=false)
+        numinst += ccount(y)
+        numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
+    end
+    return numcorr/numinst
 end
 

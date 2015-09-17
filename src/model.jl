@@ -38,18 +38,6 @@ function test(m::Model, d::Data)
     return sumloss/numloss
 end
 
-function accuracy(m::Model, d::Data)
-    numcorr = numinst = 0
-    z = nothing
-    for (x,y) in d
-        issimilar(y,z) || (z = similar(y))
-        forw(m, x; y=z, trn=false)
-        numinst += ccount(x)
-        numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
-    end
-    return numcorr/numinst
-end
-
 function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true) # TODO: (minor) this should probably be named train!
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for (x,y) in d
