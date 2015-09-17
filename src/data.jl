@@ -9,8 +9,9 @@ Its subtypes implement the Iterator interface:
 
 Implemented subtypes:
 
-* ItemTensor
-* AddingData    
+* `ItemTensor`
+* `TrainMNIST`,`TestMNIST`
+* `AddingData`
 """
 abstract Data
 
