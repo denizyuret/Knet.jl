@@ -11,45 +11,56 @@ Using these low level methods, Model defines the following:
 * `train(model, data; gclip, gcheck, getloss, getnorm)`
 * `test(model, data)`
 * `predict(model, data)`
+* `accuracy(model, data)`
 * `setparam!(model; param...)`
 """
 abstract Model
-
-# TODO: make the model interface more functional:
-# back and loss rely on hidden state info.  
-# forw has to allocate.
 
 setparam!(m::Model; o...)=(for p in params(m); setparam!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)
 wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 
-function predict(m::Model, d::Data)
-    for (x,y) in d
-        forw(m, x; y=y, trn=false)
-    end
-end
+# TODO: this does not work, cannot write back on data
+# function predict(m::Model, d::Data)
+#     for (x,y) in d
+#         forw(m, x; y=y, trn=false)
+#     end
+# end
 
 function test(m::Model, d::Data)
-    sumloss = 0
+    sumloss = numloss = 0
     for (x,y) in d
         forw(m, x; trn=false)
         sumloss += loss(m, y)
+        numloss += 1
     end
-    return sumloss
+    return sumloss/numloss
 end
 
-function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true)
-    sumloss = maxwnorm = maxgnorm = w = g = 0
+function accuracy(m::Model, d::Data)
+    numcorr = numinst = 0
+    z = nothing
+    for (x,y) in d
+        issimilar(y,z) || (z = similar(y))
+        forw(m, x; y=z, trn=false)
+        numinst += ccount(x)
+        numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
+    end
+    return numcorr/numinst
+end
+
+function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true) # TODO: (minor) this should probably be named train!
+    numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for (x,y) in d
         gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck); gcheck=0)
         l = backprop(m,x,y; getloss=getloss)
-        getloss && (sumloss += l)
+        getloss && (sumloss += l; numloss += 1)
         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
         update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
     end
-    return (sumloss, maxwnorm, maxgnorm)
+    return (sumloss/numloss, maxwnorm, maxgnorm)
 end
 
 function backprop(m::Model, x, y; getloss=true)
@@ -94,3 +105,12 @@ end
 #     init(m, x[1]; trn=true)
 # end
 
+# NO: make the model interface more functional:
+# back and loss rely on hidden state info.  
+# forw has to allocate.
+# purely functional models are impossible.
+# forw needs to compute intermediate values.
+# but from user's perspective forw is functional.
+# loss/back is not: relying on history.
+# we could give them x/y but they would still need internal state.
+# if they are going to use internal state they may as well use the one set by forw.

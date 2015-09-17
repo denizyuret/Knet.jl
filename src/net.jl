@@ -64,6 +64,17 @@ end
 
 function forw(r::Net, x::Vector; y=nothing, a...)
     initsequence(r, x; a...)
+
+    # info("Testing initsequence: $a")
+    # for p in params(r)
+    #     @assert all(convert(Array,p.diff) .== 0)
+    # end
+    # @assert all(r.out .== nothing)
+    # @assert all(r.dif .== nothing)
+    # for n=1:length(r.dif0)
+    #     @assert !r.multi[n] || all(convert(Array,r.dif0[n]) .== 0)
+    # end
+
     for i=1:length(x)
         yi = (y == nothing ? nothing : y[i])
         isa(x[i], Tuple) ?
@@ -361,9 +372,19 @@ end
 function initbatch(r::Net, inputs...; trn=false, seq=false)
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     initout0(r, inputs...)
+    !seq && fill!(r.out, nothing)
     if trn
         initparams(r, inputs...; seq=seq)
         initdif0(r)
+        if !seq
+            fill!(r.dif, nothing)                           # why? (TODO)
+            for n=1:length(r.dif0)
+                r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+            end
+            for w in params(r)
+                fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+            end
+        end
     end
 end
     
@@ -398,7 +419,9 @@ end
 function initparams(r::Net, inputs...; seq=false)
     for n = 1:nops(r)
         p = params(r.op[n])
-        !isempty(p) && findfirst(isempty,p)>0 && forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
+        if !isempty(p) && findfirst(isempty,p)>0
+            forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
+        end
     end
     for w in params(r)
         similar!(w, :diff, w.arr)

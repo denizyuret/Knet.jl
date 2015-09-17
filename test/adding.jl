@@ -65,7 +65,7 @@ function parse_commandline(a=ARGS)
         "--seed"
         help = "Random seed"
         arg_type = Int
-        default = 1001
+        default = 1003
     end
     parse_args(a,s)
 end
@@ -97,8 +97,8 @@ function next(a::Adding, n)
     return ((x,y), n+nb)
 end
 
-args = parse_commandline()
-# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
+# args = parse_commandline()
+args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
 # args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
@@ -120,7 +120,8 @@ data = Adding(args["length"], args["batchsize"], args["epochsize"])
 
 @time for epoch=1:args["epochs"]
     (l,maxw,maxg) = train(net, data; gclip=args["gc"], gcheck=10)
-    mse = 2*l*data.batchsize/data.epochsize
+    #DBG (l,maxw,maxg) = train(net, data)
+    mse = 2*l # *data.batchsize/data.epochsize
     println(tuple(epoch*data.epochsize,mse,maxw,maxg))
     flush(STDOUT)
 end

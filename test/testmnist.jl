@@ -13,13 +13,16 @@ net = Net(Mmul(64), Bias(), Relu(),
           Mmul(10), Bias(), XentLoss())
 setparam!(net, lr=0.5)
 
-data = ItemTensor(MNIST.xtrn, MNIST.ytrn; batchsize=nbatch) # TODO: try other batch sizes
+dtrn = ItemTensor(MNIST.xtrn, MNIST.ytrn; batchsize=nbatch) # TODO: try other batch sizes
+dtst = ItemTensor(MNIST.xtst, MNIST.ytst; batchsize=nbatch)
 
-test(net, data)                 # to init weights
+test(net, dtst)                 # to init weights
 mlp = deepcopy(net.op)
 
 @time for i=1:3
-    println(train(net, data))
+    @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true)
+    @show (test(net, dtrn), accuracy(net, dtrn))
+    @show (test(net, dtst), accuracy(net, dtst))
     train(mlp, MNIST.xtrn, MNIST.ytrn; batch=nbatch)
     @test all(map(isequal, params(net), params(mlp)))
     println((i, accuracy(MNIST.ytst, predict(mlp, MNIST.xtst)),
@@ -42,8 +45,8 @@ ytst2 = MNIST.ytst
 
 for a in (:xtrn2,:xtst2,:ytrn2,:ytst2) @eval $a=KUnet.cget($a,1:100); end
 
-data2 = ItemTensor(xtrn2,ytrn2; batchsize=nbatch)
-test(lenet, data2)
+dtrn2 = ItemTensor(xtrn2,ytrn2; batchsize=nbatch)
+test(lenet, dtrn2)
 lenet0 = deepcopy(lenet)
 lemlp = deepcopy(lenet.op)
 
@@ -52,7 +55,7 @@ lemlp = deepcopy(lenet.op)
 @show map(isequal, params(lenet), params(lemlp))
 
 @time for i=1:1
-    println(train(lenet, data2))
+    println(train(lenet, dtrn2))
     train(lemlp, xtrn2, ytrn2; batch=nbatch)
 
     # @show (i,1,map(vecnorm,params(lenet)),map(difnorm,params(lenet)))

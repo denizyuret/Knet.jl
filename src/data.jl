@@ -37,13 +37,13 @@ function next(d::ItemTensor, n)
     if d.bootstrap
         ix = rand(d.rng, 1:nx, nb)
     else
-        error("This is not working yet")
         i1 = mod1(n+1, nx)
         i2 = mod1(n+nb, nx)
         if d.shuffle == nothing
             ix = (i1 < i2 ? (i1:i2) : [i1:nx; 1:i2])
             # nb>nx?
         else
+            error("This is not working yet")
             # i1==1?
         end
     end
