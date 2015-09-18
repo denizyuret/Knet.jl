@@ -80,3 +80,7 @@ end
 
 convert{A<:BaseArray}(::Type{A}, a::KUparam)=convert(A, a.arr)
 convert{A<:BaseArray}(::Type{KUparam}, a::A)=KUparam(a)
+
+# TODO: both weights and training parameters are called param; setparam! vs params is confusing
+# Probably should rename this back to Param after moving others to DynamicArray.
+# How does caffe deal with this problem?
