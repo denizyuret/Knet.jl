@@ -28,25 +28,29 @@ function parse_commandline(a=ARGS)
         help = "number of hidden units"
         arg_type = Int
         default = 5 # 100
-        "--lr"
+        "--lrate"
         help = "learning rate"
         arg_type = Float64
-        default =  0.05 # 0.01
+        default = 0.05 # 0.01
         "--gclip"
         help = "gradient clip"
         arg_type = Float64
-        default = 1.0 # 1.0
+        default = 0.0 # 1.0
         "--gcheck"
         help = "gradient check"
         arg_type = Int
-        default = 10 # 1.0
+        default = 10
         "--type"
         help = "type of network"
         default = "irnn" # "lstm"
-        "--fb"
-        help = "forget gate bias"
+        "--fbias"
+        help = "forget gate bias (for lstm)"
         arg_type = Float64
-        default =  1.0
+        default = 1.0
+        "--std"
+        help = "stdev for weight initialization (for irnn)"
+        arg_type = Float64
+        default =  0.01 # 0.001
         "--seed"
         help = "Random seed"
         arg_type = Int
@@ -55,9 +59,10 @@ function parse_commandline(a=ARGS)
     parse_args(a,s)
 end
 
-args = parse_commandline()
-# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lr 0.05 --gc 0 --epochs 20 --seed 1003"))
-# args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lr 0.01 --gc 1.0 --epochs 100"))
+args = parse_commandline(isdefined(:myargs) ? split(myargs) : ARGS)
+# args = parse_commandline()
+# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lrate 0.05 --gc 0 --epochs 20 --seed 1003"))
+# args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lrate 0.01 --gc 1.0 --epochs 100"))
 println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
@@ -66,16 +71,12 @@ data = Adding(args["length"], args["batchsize"], args["epochsize"])
 nx = 2
 ny = 1
 nh = args["hidden"]
-net1 = (args["type"] == "irnn" ? IRNN(nh) :
-        args["type"] == "lstm" ? LSTM(nh) : 
+net1 = (args["type"] == "irnn" ? IRNN(nh; std=args["std"]) :
+        args["type"] == "lstm" ? LSTM(nh; fbias=args["fbias"]) : 
         error("Unknown network type "*args["type"]))
-args["type"] == "lstm" && setparam!(net1.op[9]; init=fill!, initp=args["fb"])
-
-net2 = Net(Mmul(ny), Bias(), QuadLoss())
-# setparam!(net2.op[1]; init=randn!, initp=(0,0.001)) # TODO: paper uses 0.001, does it make a difference?
-
+net2 = Net(Mmul(ny; init=randn!, initp=(0,args["std"])), Bias(), QuadLoss())
 net = S2C(net1, net2)
-setparam!(net; lr=args["lr"])
+setparam!(net; lr=args["lrate"])
 
 @time for epoch=1:args["epochs"]
     (l,maxw,maxg) = train(net, data; gclip=args["gclip"], gcheck=args["gcheck"])
@@ -272,34 +273,37 @@ end
 # DONE: move batch somewhere else
 
 # Sample run for debugging:
-# include("adding.jl")
-# Dict{AbstractString,Any}("epochs"=>20,"length"=>10,"hidden"=>5,"lr"=>0.05,"gc"=>0.0,"seed"=>1003,"epochsize"=>2000,"type"=>"irnn","batchsize"=>16,"fb"=>1.0)
-# (2000,0.2367687518065747,3.4275942f0,3.3859315f0)
-# (4000,0.15307395973077917,3.464923f0,4.7202573f0)
-# (6000,0.14563310024940243,3.6585462f0,5.872257f0)
-# (8000,0.13914305934002114,3.8016677f0,3.1696885f0)
-# (10000,0.14323858796367964,3.8592012f0,3.2897224f0)
-# (12000,0.1367174871237112,3.985711f0,3.6923754f0)
-# (14000,0.13409161991421098,4.122253f0,3.546906f0)
-# (16000,0.14308425651714993,4.29228f0,4.408668f0)
-# (18000,0.13665285526663074,4.4640274f0,4.3833494f0)
-# (20000,0.13405299006340385,4.6561775f0,5.563099f0)
-# (:gc,1,1,-0.014068735f0,-0.012999516911804303)
-# (:gc,3,2,1.0189252f0,1.0168674634770678)
-# (22000,0.11635054438228343,4.6980543f0,4.930481f0)
-# (:gc,3,1,-0.017460648f0,-0.014846227713860662)
-# (24000,0.13276363812079117,4.8182077f0,6.6221495f0)
-# (26000,0.11608889580161318,5.0058174f0,4.4876924f0)
-# (28000,0.09768098581235139,5.2528496f0,3.7506382f0)
-# (30000,0.08683158848625311,5.476772f0,5.6964407f0)
-# (32000,0.07696116060071267,5.66774f0,4.3827868f0)
-# (34000,0.06580346676474488,5.834197f0,3.7996128f0)
-# (36000,0.0653655101321814,5.957285f0,4.3073344f0)
-# (38000,0.059040538369345454,6.0668435f0,4.8617268f0)
-# (:gc,1,1,-0.04241219f0,-0.03291861048638019)
-# (:gc,3,1,-0.04151296f0,-0.040597419683763535)
-# (40000,0.05559959733567962,6.150661f0,7.046003f0)
-#  12.254361 seconds (24.96 M allocations: 1.034 GB, 2.07% gc time)
+# julia> include("adding.jl")
+# Dict{AbstractString,Any}("hidden"=>5,"batchsize"=>16,"lrate"=>0.05,"length"=>10,"gclip"=>0.0,"std"=>0.01,"gcheck"=>10,"fbias"=>1.0,"epochs"=>20,"seed"=>1003,"epochsize"=>2000,"type"=>"irnn")
+# (2000,0.22126971078821514,3.401929f0,5.9513392f0)
+# (4000,0.15322119775290655,3.428556f0,4.774887f0)
+# (6000,0.14666901898846646,3.5303187f0,5.8686156f0)
+# (8000,0.1410364930989558,3.6803625f0,3.3791587f0)
+# (10000,0.14484541128223494,3.730668f0,3.6132479f0)
+# (:gc,3,1,-0.008531229f0,-0.0073469345807098295)
+# (12000,0.13800603687082819,3.8211298f0,3.4911914f0)
+# (14000,0.13632891371942893,3.8948088f0,3.0174415f0)
+# (:gc,3,5,0.08060618f0,0.07355656634899832)
+# (16000,0.1453244475960048,4.0158386f0,4.1214657f0)
+# (:gc,3,1,-0.07339329f0,-0.07550548616563685)
+# (18000,0.13509626036176464,4.1566772f0,3.2232072f0)
+# (20000,0.1267472031369284,4.329744f0,3.4179578f0)
+# (:gc,1,5,0.072262116f0,0.07338319164773356)
+# (22000,0.10952723081752598,4.54435f0,6.0535564f0)
+# (24000,0.10662533053077042,4.769523f0,3.0753422f0)
+# (26000,0.09111188449872992,4.863088f0,3.6007364f0)
+# (28000,0.08520665419544599,4.994016f0,5.3230906f0)
+# (30000,0.07867394052687623,5.157688f0,6.0482206f0)
+# (:gc,3,5,-0.09625465f0,-0.10007152013714596)
+# (32000,0.07547986407922849,5.239566f0,4.534141f0)
+# (:gc,3,2,0.12882976f0,0.1279206117033168)
+# (34000,0.06994342621574566,5.2877007f0,5.1183004f0)
+# (:gc,3,2,0.4618018f0,0.460615519841718)
+# (:gc,3,5,0.10286887f0,0.09136574590230435)
+# (36000,0.059941143911885625,5.384079f0,4.1663117f0)
+# (38000,0.06648293199506522,5.5462112f0,5.588353f0)
+# (40000,0.048857121442293316,5.6036315f0,3.805253f0)
+#  13.332866 seconds (23.97 M allocations: 1017.019 MB, 2.08% gc time)
 # :ok
 
 # len	hidden	lr	gc	mse<0.1
