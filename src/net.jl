@@ -46,8 +46,23 @@ get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
 
+
+function forw(r::Net, x::Vector; y=nothing, a...)
+    isa(x[1], Tuple) ? 
+    initforw(r, x[1]...; a...) :
+    initforw(r, x[1]; a...)
+    for i=1:length(x)
+        yi = (y == nothing ? nothing : y[i])
+        isa(x[i], Tuple) ?
+        forw(r, x[i]...; y=yi, seq=true, a...) :
+        forw(r, x[i]; y=yi, seq=true, a...)
+    end
+    return y
+end
+
 function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
-    initbatch(r, inputs...; trn=trn, seq=seq, a...)
+    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+    seq || initforw(r, inputs...; a...)
     for i = 1:ninputs(r)
         n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
@@ -62,18 +77,31 @@ function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
     return y
 end
 
-function forw(r::Net, x::Vector; y=nothing, a...)
-    initsequence(r, x; a...)
-    for i=1:length(x)
-        yi = (y == nothing ? nothing : y[i])
-        isa(x[i], Tuple) ?
-        forw(r, x[i]...; y=yi, seq=true, a...) :
-        forw(r, x[i]; y=yi, seq=true, a...)
+function initforw(r::Net, x...; keepstate=false, a...)
+    r.sp == 0 || error("Stack corruption")
+    initout0(r, x...)
+    keepstate ? copy!(r.out, r.out0) : fill!(r.out, nothing)
+end
+
+function initback(r::Net; seq=false)
+    fill!(r.dif, nothing)                           # why? (TODO)
+    initdif0(r)
+    for n=1:length(r.dif0)
+        r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
     end
-    return y
+    for w in params(r)
+        similar!(w, :diff, w.arr)
+    end
+    if seq
+        for w in params(r)
+            similar!(w, :inc, w.arr)
+            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+        end
+    end
 end
 
 function back(r::Net, dy::Vector; dx=nothing, a...)
+    initback(r; seq=true, a...)
     for i=length(dy):-1:1
         dxi = (dx == nothing ? nothing : dx[i])
         back(r, dy[i]; seq=true, dx=dxi, a...)
@@ -82,11 +110,12 @@ end
 
 function back(r::Net, dy; dx=nothing, seq=false, a...)
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
+    seq || initback(r; seq=false, a...)
     n = nops(r)
     if dy == nothing
         r.multi[n] || (r.dif[n] = nothing)
     elseif eltype(dy) != eltype(r.dif0[n])
-        error("Element type mismatch $n")
+        error("Element type mismatch dy:$(eltype(dy)) dif0[$n]:$(eltype(r.dif0[n]))")
     elseif r.multi[n]
         copy!(r.dif1[n], dy)
         r.dif[n] = axpy!(1,r.dif1[n],r.dif0[n])
@@ -342,41 +371,6 @@ function initstack(r::Net)
     r.sp = 0
 end
 
-function initsequence(r::Net, x::Vector; trn=false, a...)
-    r.sp == 0 || error("Stack corruption")
-    inputs = isa(x[1],Tuple) ? x[1] : (x[1],)
-    initbatch(r, inputs...; trn=trn, seq=true, a...)
-    fill!(r.out, nothing)                               # to represent zero matrices at t=0
-    if trn
-        fill!(r.dif, nothing)                           # why? (TODO)
-        for n=1:length(r.dif0)
-            r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
-        end
-        for w in params(r)
-            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
-        end
-    end
-end
-
-function initbatch(r::Net, inputs...; trn=false, seq=false)
-    length(inputs) == ninputs(r) || error("Wrong number of inputs")
-    initout0(r, inputs...)
-    !seq && fill!(r.out, nothing)
-    if trn
-        initparams(r, inputs...; seq=seq)
-        initdif0(r)
-        if !seq
-            fill!(r.dif, nothing)                           # why? (TODO)
-            for n=1:length(r.dif0)
-                r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
-            end
-            for w in params(r)
-                fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
-            end
-        end
-    end
-end
-    
 function initdif0(r::Net)
     for n=1:length(r.dif0)
         initarray(r.dif0, n, r.out0[n])
@@ -402,19 +396,6 @@ function initout0(r::Net, inputs...)
             nalloc += 1
         end
         nalloc == 0 && error("Cannot determine size of array")
-    end
-end
-
-function initparams(r::Net, inputs...; seq=false)
-    for n = 1:nops(r)
-        p = params(r.op[n])
-        if !isempty(p) && findfirst(isempty,p)>0
-            forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
-        end
-    end
-    for w in params(r)
-        similar!(w, :diff, w.arr)
-        seq && similar!(w, :inc, w.arr)
     end
 end
 
@@ -521,6 +502,19 @@ back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") #
 #                 fill!(r.dh[n], 0)               # if n has multiple outputs, reset dh[n]
 #             end
 #         end
+#     end
+# end
+
+# function initparams(r::Net, inputs...; seq=false)
+#     for n = 1:nops(r)
+#         p = params(r.op[n])
+#         if !isempty(p) && findfirst(isempty,p)>0
+#             forw(r.op[n], r.out0[r.inputs[n]]...; y=r.out0[n])
+#         end
+#     end
+#     for w in params(r)
+#         similar!(w, :diff, w.arr)
+#         seq && similar!(w, :inc, w.arr)
 #     end
 # end
 
@@ -979,6 +973,41 @@ back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") #
 #     return r.reg[i]
 # end
 
+# function initsequence(r::Net, x::Vector; trn=false, a...)
+#     r.sp == 0 || error("Stack corruption")
+#     inputs = isa(x[1],Tuple) ? x[1] : (x[1],)
+#     initbatch(r, inputs...; trn=trn, seq=true, a...)
+#     fill!(r.out, nothing)                               # to represent zero matrices at t=0
+#     if trn
+#         fill!(r.dif, nothing)                           # why? (TODO)
+#         for n=1:length(r.dif0)
+#             r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+#         end
+#         for w in params(r)
+#             fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#         end
+#     end
+# end
+
+# function initbatch(r::Net, inputs...; trn=false, seq=false)
+#     length(inputs) == ninputs(r) || error("Wrong number of inputs")
+#     initout0(r, inputs...)
+#     !seq && fill!(r.out, nothing)
+#     if trn
+#         initparams(r, inputs...; seq=seq)
+#         initdif0(r)
+#         if !seq
+#             fill!(r.dif, nothing)                           # why? (TODO)
+#             for n=1:length(r.dif0)
+#                 r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+#             end
+#             for w in params(r)
+#                 fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#             end
+#         end
+#     end
+# end
+    
 # DONE: incremental updates
  # DONE: forw: do we really need inputs to be tuple here? YES, have the option of multi-input nets like multi-input ops.
 # DONE: forw: (minor) this ends up using a lot of nothing pushes first minibatch, that's ok, 'nothing' is a legit value.
