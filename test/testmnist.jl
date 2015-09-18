@@ -93,3 +93,30 @@ end
 #     println((i, accuracy(ytst, predict(lenet, xtst2)), 
 #              accuracy(ytrn, predict(lenet, xtrn2))))
 # end
+
+# Sample output for debugging
+# 
+# julia> include("testmnist.jl")
+# 2015-09-17T22:16:11 Mnist.loadmnist()
+#   5.259275 seconds (278 allocations: 341.711 MB, 0.43% gc time)
+# INFO: Testing simple mlp
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true) = (0.37387508385417867,18.511799f0,2.8433785f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.2128802452521576,0.9327666666666666)
+# (test(net,dtst),accuracy(net,dtst)) = (0.21484583209718836,0.9289)
+# (1,0.9289,0.9327666666666666)
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true) = (0.14995989820465647,22.269361f0,3.9932754f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.13567314451007031,0.9573833333333334)
+# (test(net,dtst),accuracy(net,dtst)) = (0.14322141718030262,0.9546)
+# (2,0.9546,0.9573833333333334)
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true) = (0.10627590653816053,24.866186f0,3.5134714f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.09992506751797955,0.9681666666666666)
+# (test(net,dtst),accuracy(net,dtst)) = (0.11481796347526563,0.9641)
+# (3,0.9641,0.9681666666666666)
+#   9.562936 seconds (7.64 M allocations: 376.545 MB, 1.18% gc time)
+# INFO: Testing lenet
+# map(isequal,params(lenet),params(lemlp)) = Bool[true,true,true,true,true,true,true,true]
+# (2.3023564319728838,18.433212f0,0.5835169f0)
+# map(isequal,params(lenet),params(lemlp)) = Bool[false,false,false,true,true,true,true,true]
+# map(isapprox,params(lenet),params(lemlp)) = Bool[true,true,true,true,true,true,true,true]
+# (1,0.12938333333333332,0.12938333333333332)
+#   3.408162 seconds (2.68 M allocations: 152.783 MB, 1.59% gc time)
