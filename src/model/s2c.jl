@@ -21,6 +21,7 @@ end
 
 function back(r::S2C, y)
     back(r.net2, y)
+    initback(r.net1; seq=true)
     back(r.net1, r.net2.dif[nops(r.net2)+1]; seq=true)
     while r.net1.sp > 0; back(r.net1, nothing; seq=true); end
 end
