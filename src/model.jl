@@ -50,11 +50,11 @@ function accuracy(m::Model, d::Data) # TODO: this only works if y is a single it
     return numcorr/numinst
 end
 
-function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true) # TODO: (minor) this should probably be named train!
+function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for (x,y) in d
-        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck); gcheck=0)
-        l = backprop(m,x,y; getloss=getloss)
+        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)
+        l = backprop(m,x,y; getloss=getloss, a...)
         getloss && (sumloss += l; numloss += 1)
         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
@@ -63,7 +63,7 @@ function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true)
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
 
-function backprop(m::Model, x, y; getloss=true)
+function backprop(m::Model, x, y; getloss=true, a...)
     forw(m, x; trn=true)
     loss1 = getloss ? loss(m, y) : nothing
     back(m, y)
@@ -72,7 +72,7 @@ end
 
 const gradcheck_rng = MersenneTwister()
 
-function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10)
+function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, a...)
     l0 = backprop(m, x, y; getloss=true)
     pp = params(m)
     dw = map(p->convert(Array,p.diff), pp)
