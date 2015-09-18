@@ -64,17 +64,6 @@ end
 
 function forw(r::Net, x::Vector; y=nothing, a...)
     initsequence(r, x; a...)
-
-    # info("Testing initsequence: $a")
-    # for p in params(r)
-    #     @assert all(convert(Array,p.diff) .== 0)
-    # end
-    # @assert all(r.out .== nothing)
-    # @assert all(r.dif .== nothing)
-    # for n=1:length(r.dif0)
-    #     @assert !r.multi[n] || all(convert(Array,r.dif0[n]) .== 0)
-    # end
-
     for i=1:length(x)
         yi = (y == nothing ? nothing : y[i])
         isa(x[i], Tuple) ?
@@ -165,7 +154,7 @@ function pop(r::Net,n::Int)
     r.sp -= 1
 end
 
-### MLP initialization
+### Net initialization
 
 # r.op[n] is the n'th operation in the net
 # The user specifies the operations in the MLP constructor arguments
@@ -1047,3 +1036,23 @@ back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") #
 # before every itembatch:
 # we just want to fix the sizes.
 
+"""
+Life cycle of registers: 
+	
+		out	out0	dif	dif0	dif1	dw	stack	calls
+Net		-	-	-	-	-	-	-	initout,initdif
+initout		n	[]	-	-	-	-	-	
+initdif		-	-	n	[]	[]+m	-	-	
+ forwseq	-	-	-	-	-	-	-	initseq,forw+s*
+  initseq	n	-	n+t	0+t+m	-	0+t	-	initbat
+ forw		wr	w	-	-	-	-	w	initbat,seq passed to initbat
+  initbat	n-s	-	n+t-s	0+t-s+m	-	0+t-s	-	initpar2(trn),initdif0(trn),initout0,seq passed to initpar2
+   initout0	-	a	-	-	-	-	-	
+   initpar2	-	r	-	-	-	a	-	
+   initdif0	-	r	-	a	a+m	-	-
+ backseq	-	-	-	-	-	-	-	back+s*
+  back		rw(pop)	-	nwr0	w	w	-	r	seq passed as incr to op.back
+ loss		r	-	-	-	-	-	-	
+
+(+m:multi, +s:seq, +t:trn, r:read, w:write, a:alloc, 0:zero-out, n:fill-nothing)
+"""
