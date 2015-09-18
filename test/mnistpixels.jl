@@ -28,7 +28,7 @@ function parse_commandline(a=ARGS)
         "--lrate"
         help = "learning rate"
         arg_type = Float64
-        default = 1e-3          # TODO: paper says 1e-8, should we use doubles?
+        default = 0.005          # paper says 1e-8? 
         "--gclip"
         help = "gradient clip"
         arg_type = Float64
@@ -44,6 +44,10 @@ function parse_commandline(a=ARGS)
         help = "forget gate bias for lstm"
         arg_type = Float64
         default =  1.0
+        "--std"
+        help = "stdev for weight initialization (for irnn)"
+        arg_type = Float64
+        default =  0.01
         "--rtol"
         help = "rtol parameter for gradient checks"
         arg_type = Float64
@@ -82,7 +86,7 @@ tst = Pixels(dtst.x[1], dtst.x[2]; batch=args["batchsize"])
 nx = 1
 ny = 10
 nh = args["hidden"]
-net1 = (args["type"] == "irnn" ? IRNN(nh) :
+net1 = (args["type"] == "irnn" ? IRNN(nh; std=args["std"]) :
         args["type"] == "lstm" ? LSTM(nh; fbias=args["fbias"]) : 
         error("Unknown network type "*args["type"]))
 
@@ -103,3 +107,18 @@ end
 
 # batchsize=16 is too slow.  I got good progress with the following:
 # Dict{AbstractString,Any}("hidden"=>100,"rtol"=>0.01,"batchsize"=>200,"lrate"=>0.001,"train"=>10000,"gclip"=>1.0,"acc"=>10,"gcheck"=>0,"fbias"=>1.0,"epochs"=>100,"atol"=>0.01,"seed"=>1003,"type"=>"irnn")
+
+# Sample output for debugging:
+# julia> include("mnistpixels.jl")
+# Dict{AbstractString,Any}("hidden"=>100,"rtol"=>0.01,"batchsize"=>200,"lrate"=>0.005,"train"=>10000,"gclip"=>1.0,"acc"=>10,"gcheck"=>0,"fbias"=>1.0,"epochs"=>100,"atol"=>0.01,"seed"=>1003,"type"=>"irnn","std"=>0.01)
+# (:trn,10000,2.261733271443444,10.417845f0,537.297f0)
+# (:trn,20000,2.3187815377575203,10.421104f0,5327.3f0)
+# (:trn,30000,2.509523073669509,10.423339f0,10088.415f0)
+# (:trn,40000,2.412966892292024,10.425221f0,9402.696f0)
+# (:trn,50000,2.3695122707481397,10.4281435f0,13412.184f0)
+# (:trn,60000,2.268378955795277,10.4292965f0,5621.7524f0)
+# (:trn,70000,2.1479991531190734,10.431348f0,2633.2693f0)
+# (:trn,80000,2.1210844235681883,10.433363f0,1978.7836f0)
+# (:trn,90000,2.153266387169849,10.435466f0,3289.0789f0)
+# (:trn,100000,2.1011612425016724,10.437336f0,3303.134f0)
+# (:tst,100000,0.1735)
