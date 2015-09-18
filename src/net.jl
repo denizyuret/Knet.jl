@@ -1,15 +1,4 @@
 # TODO
-# + try the adding problem with irnn
-# + gradient analysis with adding, should fail
-# + add incremental update of dy and confirm gradient testing is now ok
-# + let forw and back write the input to their own registers
-# x ops with forw=nothing should accept back=nothing input
-# + minibatching
-# x rethink the 'nothing' optimization, removed from dif but not out?
-# + return value for back, returndx option: no need, return if dx specified.
-# + add gradient clipping
-# + implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
-# + we need to solve predict() and accuracy() problems first: use MLP for now?
 # - performance: figure out when no back needed, no returndx needed
 # - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 # - performance: do better register optimization
@@ -17,37 +6,25 @@
 # - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
 # - rename train->trn for ops
 
-type Net <: Model
-    op; inputs; ninputs; params; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg;
-    function Net(a...; o...)
-        r = new()
-        initop(r, a...)
-        initinputs(r, a...)
-        @assert length(r.op)==length(r.inputs)
-        initninputs(r)
-        initparams(r)
-        initpush(r)
-        initmulti(r)
-        initout(r)
-        initdif(r)
-        initstack(r)
-        r.dbg = false
-        setparam!(r; o...)
-        return r
-    end
-end
+type Net <: Model; op; inputs; ninputs; params; push; multi; out; out0; dif; dif0; dif1; stack; sp; dbg; Net()=new(); end
+
+### Net functions: params, ninputs, nops, op, loss, forw, back
 
 params(r::Net)=r.params
 ninputs(r::Net)=r.ninputs
-loss(r::Net,dy)=loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)]))
-loss(r::Net,::Void)=0
-
-get1(x)=(length(x)==1?x[1]:x)
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
+loss(r::Net,dy; a...)=loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)]), a...)
+loss(r::Net,::Void; a...)=0
 
+# forw(r::Net,x::Vector) for sequence.
+# x can be a Vector of Arrays representing items.
+# x can be a Vector of Tuples representing multiple inputs.
+# x cannot be a Vector of scalars (TODO:think this over)
 
 function forw(r::Net, x::Vector; y=nothing, a...)
+    # display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    isbits(eltype(x)) && error("forw expects a minibatch")
     isa(x[1], Tuple) ? 
     initforw(r, x[1]...; a...) :
     initforw(r, x[1]; a...)
@@ -57,10 +34,15 @@ function forw(r::Net, x::Vector; y=nothing, a...)
         forw(r, x[i]...; y=yi, seq=true, a...) :
         forw(r, x[i]; y=yi, seq=true, a...)
     end
+    # display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     return y
 end
 
+# forw(r::Net,x...) for individual items that may or may not be part
+# of a sequence.
+
 function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
+    # display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     seq || initforw(r, inputs...; a...)
     for i = 1:ninputs(r)
@@ -74,41 +56,61 @@ function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], train=trn, a...)     # ;dbg(r,:out,n) # t:2300
     end
     y != nothing && copy!(y, r.out[nops(r)])
+    # display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     return y
 end
 
-function initforw(r::Net, x...; keepstate=false, a...)
+# initforw(r::Net,x...) is called at the beginning of a sequence or
+# before processing a stand-alone item.  It is not called between
+# elements of a sequence.
+
+function initforw(r::Net, inputs...; keepstate=false, a...)
+    # display((:initforw0,keepstate,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     r.sp == 0 || error("Stack corruption")
-    initout0(r, x...)
+    # We allocate and/or resize r.out0
+    out = fill!(cell(length(r.out0)), nothing)          # TODO: can we get rid of alloc
+    for i = 1:ninputs(r)
+        n = i+nops(r)
+        out[n] = initarray(r.out0, n, inputs[i])
+    end
+    while findfirst(out,nothing) > 0
+        nalloc = 0
+        for n = 1:nops(r)
+            out[n] == nothing || continue
+            s = ysize(r.op[n], out[r.inputs[n]]...)
+            s == nothing && continue        # may happen with recurrent connections
+            out[n] = initarray(r.out0, n, out[r.inputs[n]][1], s)
+            nalloc += 1
+        end
+        nalloc == 0 && error("Cannot determine size of array")
+    end
+    # We recover or reset r.out:
     keepstate ? copy!(r.out, r.out0) : fill!(r.out, nothing)
+    # display((:initforw1,keepstate,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
 end
 
-function initback(r::Net; seq=false)
-    fill!(r.dif, nothing)                           # why? (TODO)
-    initdif0(r)
-    for n=1:length(r.dif0)
-        r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
-    end
-    for w in params(r)
-        similar!(w, :diff, w.arr)
-    end
-    if seq
-        for w in params(r)
-            similar!(w, :inc, w.arr)
-            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
-        end
-    end
-end
+# back(r::Net,dy::Vector) for a sequence
+# TODO: truncated bptt
+# - go forward k1 steps, run back for k2, update, recover state
+# - if k1==k2 we just need the keepstate option to forw
+# - if k1>k2 the stack won't be cleared
+# - if k1<k2 the stack will be overdrawn
 
 function back(r::Net, dy::Vector; dx=nothing, a...)
+    # display((:backseq0,length(dy),vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     initback(r; seq=true, a...)
     for i=length(dy):-1:1
         dxi = (dx == nothing ? nothing : dx[i])
         back(r, dy[i]; seq=true, dx=dxi, a...)
     end
+    # display((:backseq1,length(dy),vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
 
+# back(r::Net,dy) for individual items that may or may not be elements
+# of a sequence.
+
 function back(r::Net, dy; dx=nothing, seq=false, a...)
+    # display((:back0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     seq || initback(r; seq=false, a...)
     n = nops(r)
@@ -146,8 +148,38 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
         r.push[n] && pop(r,n)                                    ; r.push[n] && dbg(r,:out,n)
         dx == nothing || copy!(dx[i], r.dif[n])
     end
+    # display((:back1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     return dx
 end
+
+# initback(r::Net) called at the beginning of a sequence or a
+# stand-alone item, never between elements of a sequence.
+
+function initback(r::Net; seq=false, a...)
+    # display((:initback0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    fill!(r.dif, nothing)                           # why? (TODO)
+    for n=1:length(r.dif0)
+        initarray(r.dif0, n, r.out0[n])
+        if r.multi[n]
+            initarray(r.dif1, n, r.out0[n])
+        end
+    end
+    for n=1:length(r.dif0)
+        r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+    end
+    for w in params(r)
+        similar!(w, :diff, w.arr)
+    end
+    if seq
+        for w in params(r)
+            similar!(w, :inc, w.arr)
+            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+        end
+    end
+    # display((:initback1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+end
+
+### Stack functions: push, pop
 
 function push(r::Net,n::Int)
     length(r.stack) <  r.sp && error("Stack error")
@@ -183,7 +215,24 @@ function pop(r::Net,n::Int)
     r.sp -= 1
 end
 
-### Net initialization
+### Net compiler
+
+function Net(a...; o...)
+    r = Net()
+    initop(r, a...)
+    initinputs(r, a...)
+    @assert length(r.op)==length(r.inputs)
+    initninputs(r)
+    initparams(r)
+    initpush(r)
+    initmulti(r)
+    initout(r)
+    initdif(r)
+    initstack(r)
+    r.dbg = false
+    setparam!(r; o...)
+    return r
+end
 
 # r.op[n] is the n'th operation in the net
 # The user specifies the operations in the MLP constructor arguments
@@ -371,70 +420,23 @@ function initstack(r::Net)
     r.sp = 0
 end
 
-function initdif0(r::Net)
-    for n=1:length(r.dif0)
-        initarray(r.dif0, n, r.out0[n])
-        if r.multi[n]
-            initarray(r.dif1, n, r.out0[n])
-        end
-    end
-end
 
-function initout0(r::Net, inputs...)
-    out = fill!(cell(length(r.out0)), nothing)          # TODO: get rid of alloc
-    for i = 1:ninputs(r)
-        n = i+nops(r)
-        out[n] = initarray(r.out0, n, inputs[i])
-    end
-    while findfirst(out,nothing) > 0
-        nalloc = 0
-        for n = 1:nops(r)
-            out[n] == nothing || continue
-            s = ysize(r.op[n], out[r.inputs[n]]...)
-            s == nothing && continue        # may happen with recurrent connections
-            out[n] = initarray(r.out0, n, out[r.inputs[n]][1], s)
-            nalloc += 1
-        end
-        nalloc == 0 && error("Cannot determine size of array")
-    end
-end
+### General utilities:
 
 function initarray(a, i, x, dims=size(x))
     if isempty(a[i])
         oldai = a[i]
         at = (gpu()?CudaArray:Array)
         xt = eltype(x)
-        a[i] = (issparse(x) ? KUsparse(at,xt,dims) : KUdense(at, xt, dims))
+        a[i] = (issparse(x) ? KUsparse(at,xt,dims) : fill!(KUdense(at, xt, dims),0))
         for j=1:length(a); a[j]===oldai && (a[j]=a[i]); end # preserve array sharing
     elseif eltype(a[i]) != eltype(x)
         error("Element type mismatch")
     elseif size(a[i]) != dims
         warn("Resizing $(size(a[i]))->$dims")
-        resize!(a[i], dims)
+        fill!(resize!(a[i], dims), 0)
     end
     return a[i]
-end
-
-
-ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
-ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
-idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
-
-function dbg(r,f,n)
-    r.dbg || return
-    a = r.(f)[n]
-    print("\n==> $f[$n]($(ptr16(a))) stack:")
-    println(map(ptr16, r.stack[1:r.sp]))
-    a != nothing && display(convert(Array,a))
-    if n <= nops(r) && !isempty(params(r.op[n]))
-        p = params(r.op[n])[1]
-        println("\nw[$n]($(ptr16(p.arr)))")
-        display(convert(Array,p.arr))
-        if isdefined(p,:diff)
-            println("\ndw[$n]($(ptr16(p.diff)))")
-            display(convert(Array,p.diff))
-        end
-    end
 end
 
 import Base: isequal
@@ -468,11 +470,37 @@ function gpucopy_internal(x::Net, stackdict::ObjectIdDict)
     return y
 end
 
+get1(x)=(length(x)==1?x[1]:x)
 
-forw{T<:Number}(r::Net,  x::Vector{T}; a...)=error("forw expects a minibatch") # forw(r, reshape(x,  length(x),  1); a...)
-back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") # back(r, reshape(dy, length(dy), 1); a...)
+### DEBUGGING
+
+ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
+ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
+idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
+vecnorm0(x)=map(xi->(xi==nothing ? 0 : floor(1e4*vecnorm(xi))/1e4),x)
+# TODO: look into julia nullables to make this nothing=zero matrix thing better
+
+function dbg(r,f,n)
+    r.dbg || return
+    a = r.(f)[n]
+    print("\n==> $f[$n]($(ptr16(a))) stack:")
+    println(map(ptr16, r.stack[1:r.sp]))
+    a != nothing && display(convert(Array,a))
+    if n <= nops(r) && !isempty(params(r.op[n]))
+        p = params(r.op[n])[1]
+        println("\nw[$n]($(ptr16(p.arr)))")
+        display(convert(Array,p.arr))
+        if isdefined(p,:diff)
+            println("\ndw[$n]($(ptr16(p.diff)))")
+            display(convert(Array,p.diff))
+        end
+    end
+end
 
 ### DEAD CODE
+
+# forw{T<:Number}(r::Net,  x::Vector{T}; a...)=error("forw expects a minibatch") # forw(r, reshape(x,  length(x),  1); a...)
+# back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") # back(r, reshape(dy, length(dy), 1); a...)
 
 # function back(r::Net, dy; o...)                 # dy[1:T] loss gradients for output y
 #     (N,T) = (length(r.net), length(dy))
@@ -1032,6 +1060,19 @@ back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") #
 #         init(r, x[1]; seq=true, a...)
 #     end
 # end
+
+# DONE:
+# + try the adding problem with irnn
+# + gradient analysis with adding, should fail
+# + add incremental update of dy and confirm gradient testing is now ok
+# + let forw and back write the input to their own registers
+# x ops with forw=nothing should accept back=nothing input
+# + minibatching
+# x rethink the 'nothing' optimization, removed from dif but not out?
+# + return value for back, returndx option: no need, return if dx specified.
+# + add gradient clipping
+# + implement train/predict and try ffnn mnist experiments: how do we treat sequences and minibatches?
+# + we need to solve predict() and accuracy() problems first: use MLP for now?
 
 ### initforw:
 

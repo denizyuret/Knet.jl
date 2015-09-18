@@ -64,9 +64,9 @@ function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true,
 end
 
 function backprop(m::Model, x, y; getloss=true, a...)
-    forw(m, x; trn=true)
-    loss1 = getloss ? loss(m, y) : nothing
-    back(m, y)
+    forw(m, x; trn=true, a...)
+    loss1 = getloss ? loss(m, y; a...) : nothing
+    back(m, y; a...)
     return loss1
 end
 

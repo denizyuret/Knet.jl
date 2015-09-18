@@ -59,7 +59,7 @@ function parse_commandline(a=ARGS)
     parse_args(a,s)
 end
 
-args = parse_commandline(isdefined(:myargs) ? split(myargs) : ARGS)
+args = parse_commandline(isdefined(:myargs) && (myargs != nothing) ? split(myargs) : ARGS)
 # args = parse_commandline()
 # args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lrate 0.05 --gc 0 --epochs 20 --seed 1003"))
 # args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lrate 0.01 --gc 1.0 --epochs 100"))
