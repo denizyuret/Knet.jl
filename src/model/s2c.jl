@@ -8,12 +8,15 @@ end
 
 params(r::S2C)=r.params
 
-loss(r::S2C,y; a...)=loss(r.net2,y; a...)
+# loss(r::S2C,y; a...)=loss(r.net2,y; a...)
 
-function forw(r::S2C, x::Vector; y=nothing, a...)
-    n = nops(r.net1)            
+function forw(r::S2C, x::Vector; yout=nothing, ygold=nothing, a...)
+    n1 = nops(r.net1)            
     forw(r.net1, x; a...)
-    forw(r.net2, r.net1.out[n]; y=y, a...)
+    forw(r.net2, r.net1.out[n1]; yout=yout, a...)
+    n2 = nops(r.net2)
+    ygold == nothing && return 0.0
+    loss(r.net2.op[n2], ygold; y=convert(typeof(ygold), r.net2.out[n2]))
     # TODO: implement lastout or direct write from net1 out to net2 input
     # You can do the latter if net2 is initialized first or just overwrite its buf0
     # and check for === before copy

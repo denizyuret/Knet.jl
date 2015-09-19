@@ -1,3 +1,7 @@
+2015-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/param.jl: TODO: rename to Param.
+
 2015-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* FIXED: /home/nlg-02/data07/eng/google-ngram/CompoundWords.dbg:

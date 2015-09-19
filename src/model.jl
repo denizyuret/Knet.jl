@@ -1,9 +1,8 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x;y,trn)`
+* `forw(m,x;yout,ygold,trn)`
 * `back(m,y)`
-* `loss(m,y)`
 * `params(m)`
 
 Using these low level methods, Model defines the following:
@@ -28,11 +27,10 @@ gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 #     end
 # end
 
-function test(m::Model, d)
+function test(m::Model, d; o...)
     sumloss = numloss = 0
     for (x,y) in d
-        forw(m, x; trn=false)
-        sumloss += loss(m, y)
+        sumloss += forw(m, x; trn=false, ygold=y, o...)
         numloss += 1
     end
     return sumloss/numloss
@@ -43,7 +41,7 @@ function accuracy(m::Model, d) # TODO: this only works if y is a single item
     z = nothing
     for (x,y) in d
         issimilar(y,z) || (z = similar(y))
-        forw(m, x; y=z, trn=false)
+        forw(m, x; trn=false, yout=z)
         numinst += ccount(y)
         numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
     end
@@ -64,8 +62,7 @@ function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...)
 end
 
 function backprop(m::Model, x, y; getloss=true, a...)
-    forw(m, x; trn=true, a...)
-    loss1 = getloss ? loss(m, y; a...) : nothing
+    loss1 = forw(m, x; trn=true, ygold=(getloss ? y : nothing), a...)
     back(m, y; a...)
     return loss1
 end
@@ -85,8 +82,7 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
         for i in irange
             wi0 = w[i]; wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             w[i] = wi1; copy!(p.arr, w); w[i] = wi0
-            forw(m, x; trn=false)
-            l1 = loss(m, y)
+            l1 = forw(m, x; trn=false, ygold=y)
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(dw[n][i], dwi; rtol=rtol, atol=atol)
                 println(tuple(:gc, n, i, dw[n][i], dwi))

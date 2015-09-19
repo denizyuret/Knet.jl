@@ -14,34 +14,32 @@ params(r::Net)=r.params
 ninputs(r::Net)=r.ninputs
 nops(r::Net)=length(r.op)
 op(r::Net,n)=r.op[n]
-loss(r::Net,dy; a...)=loss(r.op[nops(r)], dy; y=convert(typeof(dy), r.out[nops(r)]), a...)
-loss(r::Net,::Void; a...)=0
 
 # forw(r::Net,x::Vector) for sequence.
 # x can be a Vector of Arrays representing items.
 # x can be a Vector of Tuples representing multiple inputs.
 # x cannot be a Vector of scalars (TODO:think this over)
 
-function forw(r::Net, x::Vector; y=nothing, a...)
+function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
     # display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     isbits(eltype(x)) && error("forw expects a minibatch")
-    isa(x[1], Tuple) ? 
-    initforw(r, x[1]...; a...) :
-    initforw(r, x[1]; a...)
+    x1 = (isa(x[1], Tuple) ? x[1] : (x[1],))
+    initforw(r, x1...; a...)
+    loss1 = 0.0
     for i=1:length(x)
-        yi = (y == nothing ? nothing : y[i])
-        isa(x[i], Tuple) ?
-        forw(r, x[i]...; y=yi, seq=true, a...) :
-        forw(r, x[i]; y=yi, seq=true, a...)
+        xi = (isa(x[i], Tuple) ? x[i] : (x[i],))
+        yi = (yout == nothing ? nothing : yout[i])
+        yg = (ygold == nothing ? nothing : ygold[i])
+        loss1 += forw(r, xi...; seq=true, yout=yi, ygold=yg, a...)
     end
     # display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    return y
+    return loss1
 end
 
 # forw(r::Net,x...) for individual items that may or may not be part
 # of a sequence.
 
-function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
+function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=false, a...)
     # display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     seq || initforw(r, inputs...; a...)
@@ -53,11 +51,13 @@ function forw(r::Net, inputs...; y=nothing, seq=false, trn=false, a...)
     end
     for n = 1:nops(r)
         trn && r.push[n] && push(r,n)         # t:327
+        # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], train=trn, a...)     # ;dbg(r,:out,n) # t:2300
     end
-    y != nothing && copy!(y, r.out[nops(r)])
     # display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    return y
+    yout != nothing && copy!(yout, r.out[nops(r)])
+    ygold == nothing && return 0.0
+    loss(r.op[nops(r)], ygold; y=convert(typeof(ygold), r.out[nops(r)]))
 end
 
 # initforw(r::Net,x...) is called at the beginning of a sequence or
@@ -178,6 +178,7 @@ function initback(r::Net; seq=false, a...)
     end
     # display((:initback1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
+
 
 ### Stack functions: push, pop
 
