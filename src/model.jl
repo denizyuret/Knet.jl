@@ -22,13 +22,13 @@ wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 
 # TODO: this does not work, cannot write back on data
-# function predict(m::Model, d::Data)
+# function predict(m::Model, d)
 #     for (x,y) in d
 #         forw(m, x; y=y, trn=false)
 #     end
 # end
 
-function test(m::Model, d::Data)
+function test(m::Model, d)
     sumloss = numloss = 0
     for (x,y) in d
         forw(m, x; trn=false)
@@ -38,7 +38,7 @@ function test(m::Model, d::Data)
     return sumloss/numloss
 end
 
-function accuracy(m::Model, d::Data) # TODO: this only works if y is a single item
+function accuracy(m::Model, d) # TODO: this only works if y is a single item
     numcorr = numinst = 0
     z = nothing
     for (x,y) in d
@@ -50,7 +50,7 @@ function accuracy(m::Model, d::Data) # TODO: this only works if y is a single it
     return numcorr/numinst
 end
 
-function train(m::Model, d::Data; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
+function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for (x,y) in d
         gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)
@@ -99,7 +99,7 @@ end
 # This will not work for MLP!  extra parameterless ops do not effect equality.
 # Base.isequal(a::Model,b::Model)=(typeof(a)==typeof(b) && isequal(params(a),params(b)))
 
-# function inittrain(m::Model, d::Data)
+# function inittrain(m::Model, d)
 #     isempty(params(m)[1]) || return
 #     (x,n) = next(d,start(d))
 #     init(m, x[1]; trn=true)
