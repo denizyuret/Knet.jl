@@ -79,7 +79,7 @@ function initforw(r::Net, inputs...; keepstate=false, a...)
             out[n] == nothing || continue
             s = ysize(r.op[n], out[r.inputs[n]]...)
             s == nothing && continue        # may happen with recurrent connections
-            out[n] = initarray(r.out0, n, out[r.inputs[n]][1], s)
+            out[n] = initarray(r.out0, n, out[r.inputs[n]][1], s; dense=true)
             nalloc += 1
         end
         nalloc == 0 && error("Cannot determine size of array")
@@ -423,12 +423,12 @@ end
 
 ### General utilities:
 
-function initarray(a, i, x, dims=size(x))
+function initarray(a, i, x, dims=size(x); dense=false)
     if isempty(a[i])
         oldai = a[i]
         at = (gpu()?CudaArray:Array)
         xt = eltype(x)
-        a[i] = (issparse(x) ? KUsparse(at,xt,dims) : fill!(KUdense(at, xt, dims),0))
+        a[i] = (!dense && issparse(x) ? KUsparse(at,xt,dims) : fill!(KUdense(at, xt, dims),0))
         for j=1:length(a); a[j]===oldai && (a[j]=a[i]); end # preserve array sharing
     elseif eltype(a[i]) != eltype(x)
         error("Element type mismatch")
