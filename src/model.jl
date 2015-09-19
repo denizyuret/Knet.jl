@@ -1,8 +1,8 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x;yout,ygold,trn)`
-* `back(m,y)`
+* `forw(m,x;trn,yout,ygold)`
+* `back(m,dy)`
 * `params(m)`
 
 Using these low level methods, Model defines the following:
@@ -23,7 +23,7 @@ gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
 # TODO: this does not work, cannot write back on data
 # function predict(m::Model, d)
 #     for (x,y) in d
-#         forw(m, x; y=y, trn=false)
+#         forw(m, x; yout=y, trn=false)
 #     end
 # end
 

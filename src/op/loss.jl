@@ -26,9 +26,8 @@ for (ltype, lback, lloss) in (
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
         $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
-        $lloss(y::KUdense, dy::KUdense)=$lloss(y.arr, dy.arr)
-        $lloss(y::CudaArray, dy::CudaArray)=$lloss(to_host(y), to_host(dy))
-        loss(l::$ltype, dy; y=l.y, o...)=(issimilar(dy,y)||error(map(summary,(y,dy))); $lloss(y,dy))
+        $lloss(y,dy)=$lloss(convert(Array,y), convert(Array,dy))  # TODO: handle sparse arrays
+        loss(l::$ltype, dy; y=l.y, o...)=$lloss(y,dy) # (issimilar(dy,y)||error(map(summary,(y,dy))); $lloss(y,dy))
         forw(l::$ltype, x; y=x, o...)=(issimilar(x,y)||error("x/y"); l.y = (y===x ? y : copy!(y,x)))
         back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
             (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("$y\n$dy\n$dx"); $lback(y,dy,dx))

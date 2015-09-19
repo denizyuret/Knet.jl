@@ -25,15 +25,15 @@ function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
     isbits(eltype(x)) && error("forw expects a minibatch")
     x1 = (isa(x[1], Tuple) ? x[1] : (x[1],))
     initforw(r, x1...; a...)
-    loss1 = 0.0
+    loss = 0.0
     for i=1:length(x)
         xi = (isa(x[i], Tuple) ? x[i] : (x[i],))
         yi = (yout == nothing ? nothing : yout[i])
         yg = (ygold == nothing ? nothing : ygold[i])
-        loss1 += forw(r, xi...; seq=true, yout=yi, ygold=yg, a...)
+        loss += forw(r, xi...; seq=true, yout=yi, ygold=yg, a...)
     end
     # display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    return loss1
+    return loss
 end
 
 # forw(r::Net,x...) for individual items that may or may not be part
@@ -43,21 +43,22 @@ function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=fal
     # display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     length(inputs) == ninputs(r) || error("Wrong number of inputs")
     seq || initforw(r, inputs...; a...)
+    N = nops(r)
     for i = 1:ninputs(r)
-        n = i+nops(r)                           # input[i] goes into out[i+nops(r)]
+        n = i+N                           # input[i] goes into out[i+N]
         eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
         trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
         r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
     end
-    for n = 1:nops(r)
+    for n = 1:N
         trn && r.push[n] && push(r,n)         # t:327
         # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
         r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], train=trn, a...)     # ;dbg(r,:out,n) # t:2300
     end
     # display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    yout != nothing && copy!(yout, r.out[nops(r)])
+    yout != nothing && copy!(yout, r.out[N])
     ygold == nothing && return 0.0
-    loss(r.op[nops(r)], ygold; y=convert(typeof(ygold), r.out[nops(r)]))
+    loss(r.op[N], ygold; y=r.out[N])
 end
 
 # initforw(r::Net,x...) is called at the beginning of a sequence or
@@ -113,18 +114,18 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
     # display((:back0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     seq || initback(r; seq=false, a...)
-    n = nops(r)
+    N = nops(r)
     if dy == nothing
-        r.multi[n] || (r.dif[n] = nothing)
-    elseif eltype(dy) != eltype(r.dif0[n])
-        error("Element type mismatch dy:$(eltype(dy)) dif0[$n]:$(eltype(r.dif0[n]))")
-    elseif r.multi[n]
-        copy!(r.dif1[n], dy)
-        r.dif[n] = axpy!(1,r.dif1[n],r.dif0[n])
+        r.multi[N] || (r.dif[N] = nothing)
+    elseif eltype(dy) != eltype(r.dif0[N])
+        error("Element type mismatch dy:$(eltype(dy)) dif0[$N]:$(eltype(r.dif0[N]))")
+    elseif r.multi[N]
+        copy!(r.dif1[N], dy)
+        r.dif[N] = axpy!(1,r.dif1[N],r.dif0[N])
     else
-        r.dif[n] = copy!(r.dif0[n], dy)
-    end										; dbg(r,:dif,n) 
-    for n = nops(r):-1:1
+        r.dif[N] = copy!(r.dif0[N], dy)
+    end										; dbg(r,:dif,N) 
+    for n = N:-1:1
         if r.dif[n] == nothing
             for i in r.inputs[n]
                 r.multi[i] || (r.dif[i] = nothing)
@@ -144,7 +145,7 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
         r.push[n] && pop(r,n)                                    ; r.push[n]&&dbg(r,:out,n)
     end
     for i = ninputs(r):-1:1
-        n = i+nops(r)
+        n = i+N
         r.push[n] && pop(r,n)                                    ; r.push[n] && dbg(r,:out,n)
         dx == nothing || copy!(dx[i], r.dif[n])
     end
