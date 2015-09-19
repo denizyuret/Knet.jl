@@ -1,5 +1,3 @@
-using KUnet
-
 """
 This is the IRNN model, a recurrent net with relu activations whose
 recurrent weights are initialized with the identity matrix.  From: Le,
