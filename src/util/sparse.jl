@@ -73,9 +73,17 @@ issparse(::KUsparse)=true
 atype(::SparseMatrixCSC)=Array
 itype{T,I}(::SparseMatrixCSC{T,I})=I
 full(s::KUsparse)=convert(KUdense, full(convert(SparseMatrixCSC, s)))
-copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32})=(a.m=b.m;a.n=b.n;copy!(a.colptr,b.colptr);copy!(a.rowval,b.rowval);copy!(a.nzval,b.nzval);a)
 copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int64})=copy!(a, convert(SparseMatrixCSC{T,Int32},b))
 
+function copy!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T,Int32})
+    a.m=b.m
+    a.n=b.n
+    for n in (:colptr, :rowval, :nzval)
+        length(a.(n)) != length(b.(n)) && resize!(a.(n), length(b.(n)))
+        copy!(a.(n), b.(n))
+    end
+    return a
+end
 
 # The final prediction output y should match the input x as closely as
 # possible except for being dense.  These functions support obtaining
