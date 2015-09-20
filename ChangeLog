@@ -1,8 +1,162 @@
+2015-09-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* test/cusparse.jl:
+
+	# nh = 1000
+	# nd = 100000
+	# nb = 100
+	1. GPU forw using csrmm2!(x',w,y')+transpose 0.05ms
+	2. GPU back (all sparse) using gemm!(x,dy',dw') 2.13ms
+	3. GPU back (all sparse) using gemm!(dy,x',dw) 7.26ms
+
+	For the first we copy sparse minibatch x to x' in gpu,
+	which is a direct copy since gpu is csr.  w already right shape.
+	Need to transpose y before going further, needs extra space. (THINK)
+	There is really no alternative to #1 because sparse x has to come first.
+
+	For the second we get regular dy which we need to transpose, same
+	problem as the first.  Now we also need to transpose x and dw.
+	Maybe I can get away with dw by setting a transpose bit since I
+	have to write w+=dw kernel anyway.  (TODO: check update and
+	gradient clip).  Transposing x is a pain (THINK).
+
+	The third one is slower but we already have dy, x', and dw comes
+	out right.  In fact with other shapes (nh=1500, nd=10000, nb=20)
+	third one is faster, so we go with it.
+
+	TODO:
+	- write w+=dw kernel for update.
+	- update ops should be compatible with sparse dw.
+	- get rid of KUsparse, all code uses CUSPARSE.
+	- write in-place transpose for dy or decide on extra space.
+	- fix loss to deal with sparse dw.
+	- assume user provides all arrays in cpu.
+	- test sparse mnist.
+	- complete lm.
+	- write new assembler.
+
 2015-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- new assembly language: (1,Mmul(50),2), (3,Mul2(),4,5)
+
+	subroutine convention: takes input from 0,-1 etc. leaves output at
+	last register.  no stack.  could allow symbols, variables? no
+	need.  consecutive numbers enforced? makes them redundant.
+	allowing symbols makes sense: (:a,Mmul(50),:b,:c).  But then what
+	are the inputs?  We could use the Julia parser to get fancy
+	:(a=Mmul(50,b)).  Who needs 26 variable names (lstm), numbers are
+	just fine for now.  We could have (1,Input()), (2,Input()) to
+	prevent arbitrary 0,-1 etc. numbering.  Good.  Eliminate the need
+	for empty parens, i.e. (3,Mul2,4,5).  Detect type and create
+	object.  Good.  Ops no longer manage input output storage, why not
+	take params out as well: (1,Input), (2,Param), (3,Mmul,1,2).  We
+	already have a Param type!  Only mmul,bias,conv currently use
+	params.  They specify sizes differently, Bias(), Mmul(50),
+	Conv(5,20).  Param can init an empty array using same args: Bias
+	creates (0,)->(n,), Mmul creates (m,0)->(m,n), Conv creates
+	:(x,0,o)->(x,x,i,o).  We can totally do the same!  Param creates
+	empty array by adding one more zero dimension than supplied
+	:(modify the constructor).  No actually compiler should take care
+	of this, just like it adds an evaluation to Mul2.  But that's only
+	possible if we use quoted expressions.  Explicitly marking params is cool.
+	Increases the number of lines (but there is not bias without
+	param!). Ops have no internal memory is cool.  (x's and y's are in
+	registers).  (dx's are in registers).  Difference between x's and
+	w's?  x's are ephemeral, w's stay.  The Param's are never used by
+	anything but the associated op.  Unless we have Param sharing!?
+	e.g. each word in the window (represented by one-hot) gets
+	multiplied by the same embedding matrix!  ok.  sold.  Nothing
+	except Param needs size args, most ops can be written without
+	parens, except when we need keyword arguments.  but those argument
+	are always passed to param!  Param lines do not create registers,
+	other lines do (or we can call them param registers that are more
+	permanent and have associated update options).  Or do create
+	registers for them, just don't zero them out!  No need for diff,
+	inc, they use the same mechanism as other registers.  Same multi
+	detection etc?  Or rather keep them separate as (1) they are not
+	zeroed in initforw, (2) they are not zeroed (dif) for incremental
+	every back step.  But that's fine.  We'll just have conditions.
+	So Input and Param will have to be ops to preserve the op/register
+	alignment.  How to keep train options? (TODO: change setparam to
+	setoption and call them options).  Have a separate option array
+	for them?  We are distributing related info in different locations
+	rather than one param object.  setoption will have to be provided
+	an optional number? (need to remember the original numbers or keep
+	them consecutive).  (but there is number xform when we compile
+	high level units).  setoption cannot be specified per parameter
+	after construction.  global setoption is still possible.  that's
+	fine.  what about splitting dropout?  need rand layer. need to
+	figure out trn/tst difference.  then just mul2.  Example prog:
+	a=:[(1,Input),(2,Param(50)),(3,Mmul,1,2),(4,Param),(5,Bias,3,4),(6,Relu,5)]
+	Composition? will change all the numbers.  so we could in
+	principle not make param an op.  input is an op that produces
+	something.  most likely executed by the net.  but param does not
+	produce anything at least anything different every iteration.
+	should it crowd the op list even if it is a noop?  Alternative is
+	to push them to the end of the list like we do now?  Keep a
+	separate set of param registers?  and difparam registers?  naah.
+	Param is an op that outputs a constant.  With Input and Rand these
+	ops produce an output without reading other registers.
+	ok next: compiling from expressions is good, but what about
+	composition?  Do we want LSTM to be a symbol as well?  No, LSTM is
+	another expression.  That can be embedded: (3,LSTM,5) etc.  Cannot
+	be, LSTM has to be a function that takes a size
+	parameter. (3,LSTM(10),5).  Could be a constructor.  Compiler will
+	have to evaluate and get an expression.  Then can be merged.
+	foo(h)=:[(1,Param($h))] works.  If it is not an op, it should be a
+	function that returns a net expression.  Nets cannot be composed,
+	expressions can be composed.  But what if the LSTM expression have
+	embedded expressions.  We got that compilation for free if LSTM
+	was a net.  If numbers don't have to be consecutive, merging is
+	easy, just renumber, match inputs and outputs.
+merge mul2 and drop -> mul
+	merge add2 and bias -> add
+	mmul -> gemm
+	conv, pool
+	actf, loss
+	define higher levels out of these
+	sigm(n)= par(n) gemm par() add sigm
+	sigm2(n) = par(n) gemm par(n) gemm add par() add sigm
+	drop(p) = rand(p) mul
+	can we define gru?
+	(1-z) h1 + z h2
+	either represent 1-z as a separate op axpy?
+	or have an option in mul?
+	axpy is par mul par add, except pars are scalar and constant
+	(lr=0)
+	we need mul and add to be very smart broadcasters.
+	and par have some smart init options (ndims?)
+	par(5,0) par(0) par(5,5,0,10) always use 0 for unk dimension.
+	this way a scalar is par(1). and conv for difft dims is possible.
+	add2 : par(0,0), bias: par(0), mul2: par(0,0), rnd(0,0) vs rnd(0)
+	no implicit zeros!  dims always clear.
+	how do we init par to a known value?  give an array? par([1]).
+	par(a) where a is a variable?  compiler passes to eval?
+	averaging, adagrad, dropout difft trn tst behavior.  test=false
+	option?  test=average option?  all par/rnd options.
+	Consider allowing both integers and variables.
+
+
+	- sparse operations: lm needs:
+	: efficient forw w:dense x:sparse => y:dense
+	- compare my implementation against cusparse: cusparse a lot faster.
+	- cusparse produces transposed output: need temp space to transpose.
+	- use something like dif1?
+	- for in-place transpose:
+	http://dl.acm.org/citation.cfm?id=2555253
+	https://github.com/BryanCatanzaro/inplace: still needs some space,
+	probably not worth it.
+	: efficient loss y:dense + dy:sparse => dx:dense: write your own
+	: efficient back dy:dense x':sparse => dw:sparse?
+	: efficient update w:dense + dw:sparse =>  w:dense: write your own, same as loss.
+
+	- test cusparse again.
+	- update to cudnn v3.
 
 	* src/op/loss.jl: TODO: accept sparse target.
 
-	* src/param.jl: TODO: rename to Param.
+	* src/param.jl: TODO: rename to Param. actually wait for the new assembler, probably end up with par.
 
 2015-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -34,7 +34,7 @@ function initforw(l::Mmul, x, y; train=true, o...)
     y == nothing && (y = dsimilar!(l, :ybuf, x, (wrows, xcols)))
     atype(x) == atype(y) || error("atype mismatch")
     eltype(x) == eltype(y) || error("eltype mismatch")
-    size(y) == (wrows, xcols) || error("ysize mismatch")
+    size(y) == (wrows, xcols) || error("ysize mismatch: $(size(y)) $((wrows,xcols))")
     return ((!train && nz(l.w, :average, false)) ?
             (y, l.w.avg, x) :
             (y, l.w.arr, x))

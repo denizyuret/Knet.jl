@@ -93,3 +93,26 @@ fill!{A,T}(a::KUdense{A,T},x)=(fill!(a.arr,convert(T,x)); a)
 
 to_host{A<:CudaArray}(a::KUdense{A})=cpucopy(a)
 issparse(a::KUdense)=false
+
+# The final prediction output y should match the input x as closely as
+# possible except for being dense.  These functions support obtaining
+# the dense version of x.
+
+dtype(x)=typeof(x)
+dtype{T}(x::SparseMatrixCSC{T})=Array{T}
+dtype{T}(x::CudaSparseMatrixCSR{T})=KUdense{CudaArray,T} # TODO: should this be CudaArray?
+dtype{A,T}(x::KUdense{A,T})=KUdense{A,T}  # this is necessary, otherwise 1-dim x does not match 2-dim y.
+
+dsimilar(x,d::Dims)=similar(x,d)
+dsimilar{T}(x::SparseMatrixCSC{T},d::Dims)=Array(T,d)
+dsimilar{T}(x::CudaSparseMatrixCSR{T},d::Dims)=KUdense(CudaArray,T,d)
+
+function dsimilar!(l, n, x, dims=size(x))
+    if (!isdefined(l,n) || !isa(l.(n), dtype(x)))
+        l.(n) = dsimilar(x, dims)
+    elseif (size(l.(n)) != dims)
+        l.(n) = resize!(l.(n), dims)
+    end
+    return l.(n)
+end
+

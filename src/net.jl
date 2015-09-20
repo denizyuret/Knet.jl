@@ -428,9 +428,12 @@ end
 function initarray(a, i, x, dims=size(x); dense=false)
     if isempty(a[i])
         oldai = a[i]
-        at = (gpu()?CudaArray:Array)
-        xt = eltype(x)
-        a[i] = (!dense && issparse(x) ? KUsparse(at,xt,dims) : fill!(KUdense(at, xt, dims),0))
+        if !dense && issparse(x)
+            a[i] = spzeros(eltype(x), dims...)
+            gpu() && (a[i] = cpucsc2gpucsr(a[i]))
+        else
+            a[i] = fill!(KUdense(gpu()?CudaArray:Array, eltype(x), dims), 0)
+        end
         for j=1:length(a); a[j]===oldai && (a[j]=a[i]); end # preserve array sharing
     elseif eltype(a[i]) != eltype(x)
         error("Element type mismatch")

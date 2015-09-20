@@ -1,3 +1,5 @@
+# TODO: deprecate KUsparse -> CudaSparseMatrixCSR
+
 # (c) Deniz Yuret, June 19, 2015
 # This is a standalone (single layer) implementation of the averaged
 # kernel perceptron algorithm.

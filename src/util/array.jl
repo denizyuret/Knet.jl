@@ -19,8 +19,10 @@ issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
 # issimilar1(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (length(a)==length(b)))
 # issimilar2(a,b)=((eltype(a)==eltype(b)) && (isongpu(a)==isongpu(b)) && (size2(a)==size2(b)))
 
+
 # Here are some convenience functions for generalized columns:
 # We consider a 1-D array a single column:
+# TODO: these should move to colops.jl
 
 csize(a)=(ndims(a)==1 ? size(a) : size(a)[1:end-1])
 csize(a,n)=tuple(csize(a)..., n) # size if you had n columns
