@@ -1,9 +1,5 @@
-# DEPRECATED! use the TrainMNIST and TestMNIST data generators instead.
-
 module MNIST
 using GZip
-using KUnet
-# using CUDArt
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
 const xtrn_file = "train-images-idx3-ubyte.gz"
@@ -27,11 +23,10 @@ end
 
 function readimages(gz)
     a=(wgetzcat(gz)[17:end] ./ 255.0f0)
-    reshape(a, 28*28, convert(Int, length(a)/(28*28)))
+    reshape(a, 28*28, div(length(a),(28*28)))
 end
 
 function loadmnist()
-    warn("# DEPRECATED! use the TrainMNIST and TestMNIST data generators instead.")
     global xtrn, ytrn, xtst, ytst
     xtrn = readimages(xtrn_file)
     ytrn = readlabels(ytrn_file)
@@ -39,15 +34,7 @@ function loadmnist()
     ytst = readlabels(ytst_file)
 end
 
-function train(net, epochs=10)
-    for i=1:epochs
-        KUnet.train(net, xtrn, ytrn)
-        y = KUnet.predict(net, xtst)
-        # println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2]), length(keys(CUDArt.cuda_ptrs)), KUnet.gpumem()))
-        println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2])))
-    end
-end
+info("Loading MNIST...")
+@time loadmnist()
 
-@date loadmnist()
-
-end
+end # module

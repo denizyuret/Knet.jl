@@ -73,8 +73,8 @@ println(args)
 args["seed"] > 0 && setseed(args["seed"])
 
 (dtrn,dtst)=MNIST()
-trn = Pixels(dtrn.x[1], dtrn.x[2]; batch=args["batchsize"], epoch=args["train"], bootstrap=true)
-tst = Pixels(dtst.x[1], dtst.x[2]; batch=args["batchsize"])
+trn = Pixels(dtrn.data[1], dtrn.data[2]; batch=args["batchsize"], epoch=args["train"], bootstrap=true)
+tst = Pixels(dtst.data[1], dtst.data[2]; batch=args["batchsize"])
 
 # TODO: reconsider the data interface.
 # we should make the model interface not insist on Data, any iterable should do, in fact remove the Data type.
