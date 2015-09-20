@@ -41,6 +41,28 @@ function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, cols)
     return a
 end
 
+
+function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
+    bptr = b.colptr
+    nz = 0; for i in cols; nz += bptr[i+1]-bptr[i]; end
+    a.m = b.m
+    a.n = length(cols)
+    resize!(a.nzval, nz)
+    resize!(a.rowval, nz)
+    resize!(a.colptr, a.n+1)
+    a.colptr[1] = a1 = aj = 1
+    for bj in cols                 # copy column b[:,bj] to a[:,aj]
+        b1 = bptr[bj]
+        nz = bptr[bj+1]-b1
+        copy!(a.nzval, a1, b.nzval, b1, nz)
+        copy!(a.rowval, a1, b.rowval, b1, nz)
+        a1 += nz
+        a.colptr[aj+=1] = a1
+    end
+    @assert aj == a.n+1
+    return a
+end
+
 # TODO: write the non-contiguous sparse version
 # function cslice!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, r::UnitRange)
 #     bptr = cpucopy(b.colptr)

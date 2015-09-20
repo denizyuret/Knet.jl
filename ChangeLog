@@ -1,5 +1,10 @@
 2015-09-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* test/testmnist.jl: collect data and code in one place.
+
+	* src/net.jl: TODO: eventually get rid of all similar, similar!,
+	issimilar, dsimilar, dtype, dsimilar! etc.
+
 	* test/cusparse.jl:
 
 	# nh = 1000

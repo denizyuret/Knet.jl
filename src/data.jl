@@ -3,47 +3,41 @@
 import Base: start, next, done
 
 """
-Data is an abstract type for generating data in minibatches.
-
-Its subtypes implement the Iterator interface:
+Data generators should implement the Iterator interface to produce minibatches:
 
 * `start(iter) => state`
 * `next(iter,state) => (item,state)`
 * `done(iter,state) => Bool`
-"""
-abstract Data
 
+ItemTensor is a data generator that is constructed from a tuple of
+arrays (x[d...,i], y[d...,i],...) where the last dimension is
+interpreted as the item index.  Produces tuples of minibatches. For
+non-sequential data.
 
 """
-ItemTensor is a Data subtype that is constructed from a single
-array x[d...,i] where the last dimension is interpreted as the
-item index.  For non-sequential data.    
-"""
-type ItemTensor <: Data; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
+type ItemTensor; data; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
     function ItemTensor(x...; rng=MersenneTwister(), epoch=ccount(x[1]), batch=128, bootstrap=false, shuffle=false)
         nx = ccount(x[1])
         all(xi->ccount(xi)==nx, x) || error("Item count mismatch")
         idx = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
-        buf = map(xi->KUdense(similar(xi, csize(xi,batch))), x)
+        buf = map(xi->itembatch(xi,batch), x)
         new(x, rng, nx, epoch, batch, bootstrap, idx, buf)
     end
 end
 
+start(d::ItemTensor)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
+
+done(d::ItemTensor, n)=(n >= d.epochsize)
+
 function next(d::ItemTensor, n)
     idx = nextidx(d,n)
-    for i=1:length(d.x)
-        cslice!(d.batch[i], d.x[i], idx)
+    for i=1:length(d.data)
+        cslice!(d.batch[i], d.data[i], idx)
     end
     (d.batch, n+length(idx))
 end
 
-# The following can be inherited by other generators:
-
-start(d::Data)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
-
-done(d::Data, n)=(n >= d.epochsize)
-
-function nextidx(d::Data, n)
+function nextidx(d, n)
     nx = d.datasize
     nb = min(d.batchsize, d.epochsize-n)
     if d.bootstrap
@@ -69,3 +63,6 @@ function nextidx(d::Data, n)
     length(ix) == nb || error()
     return ix
 end
+
+itembatch(x,n)=(issparse(x)?SparseArrayCPU:DynamicArrayCPU)(eltype(x),csize(x,n))
+

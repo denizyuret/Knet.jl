@@ -430,7 +430,7 @@ function initarray(a, i, x, dims=size(x); dense=false)
         oldai = a[i]
         if !dense && issparse(x)
             a[i] = spzeros(eltype(x), dims...)
-            gpu() && (a[i] = cpucsc2gpucsr(a[i]))
+            gpu() && (a[i] = csc2csr(a[i]))
         else
             a[i] = fill!(KUdense(gpu()?CudaArray:Array, eltype(x), dims), 0)
         end
@@ -443,6 +443,9 @@ function initarray(a, i, x, dims=size(x); dense=false)
     end
     return a[i]
 end
+
+# Direct copy from cpu/csc to gpu/csr, ends up transposing the matrix
+csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
 
 import Base: isequal
 
