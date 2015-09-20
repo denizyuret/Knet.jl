@@ -4,6 +4,7 @@
 
 using ArgParse
 using KUnet
+import Base: start, next, done
 
 function parse_commandline(a=ARGS)
     s = ArgParseSettings()
@@ -57,6 +58,31 @@ function parse_commandline(a=ARGS)
         default = 1003
     end
     parse_args(a,s)
+end
+
+type Adding; len; batchsize; epochsize; rng;
+    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+end
+
+start(a::Adding)=0
+
+done(a::Adding,n)=(n >= a.epochsize)
+
+function next(a::Adding, n)
+    nb = min(a.batchsize, a.epochsize-n)
+    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
+    y = Array(Float32,1,nb)
+    t1 = rand(a.rng,1:a.len,nb)
+    t2 = rand(a.rng,1:a.len,nb)
+    for b=1:nb
+        while t2[b]==t1[b]
+            t2[b]=rand(a.rng,1:a.len)
+        end
+        x[t1[b]][2,b]=1
+        x[t2[b]][2,b]=1
+        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
+    end
+    return ((x,y), n+nb)
 end
 
 args = parse_commandline(isdefined(:myargs) && (myargs != nothing) ? split(myargs) : ARGS)
