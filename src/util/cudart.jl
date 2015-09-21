@@ -53,7 +53,7 @@ isempty(a::CudaArray)=(length(a)==0)
 
 # This one has to be defined like this because of a conflict with the CUDArt version:
 #fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
-fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
+#fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
 
 pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 

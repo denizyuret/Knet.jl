@@ -168,13 +168,9 @@ function initback(r::Net; seq=false, a...)
     for n=1:length(r.dif0)
         r.multi[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
     end
-    for w in params(r)
-        similar!(w, :diff, w.arr)
-    end
     if seq
-        for w in params(r)
-            similar!(w, :inc, w.arr)
-            fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+        for w in params(r)       # zeroed only once at the beginning of the sequence
+            isdefined(w,:diff) && isdefined(w,:inc) && fill!(w.diff,0)
         end
     end
     # display((:initback1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
@@ -430,7 +426,7 @@ function initarray(a, i, x, dims=size(x); dense=false)
         oldai = a[i]
         if !dense && issparse(x)
             a[i] = spzeros(eltype(x), dims...)
-            gpu() && (a[i] = csc2csr(a[i]))
+            gpu() && (a[i] = CudaSparseMatrixCSC(a[i]))
         else
             a[i] = fill!(KUdense(gpu()?CudaArray:Array, eltype(x), dims), 0)
         end
@@ -439,13 +435,10 @@ function initarray(a, i, x, dims=size(x); dense=false)
         error("Element type mismatch")
     elseif size(a[i]) != dims
         warn("Resizing $(size(a[i]))->$dims")
-        fill!(resize!(a[i], dims), 0)
+        fill!(resize!(a[i], dims), 0) # TODO: this does not work for sparse
     end
     return a[i]
 end
-
-# Direct copy from cpu/csc to gpu/csr, ends up transposing the matrix
-csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
 
 import Base: isequal
 
@@ -1134,3 +1127,20 @@ initdif		-	-	n	[]	[]+m	-	-
 
 (+m:multi, +s:seq, +t:trn, r:read, w:write, a:alloc, 0:zero-out, n:fill-nothing)
 """
+
+# Not init w here any more...
+    # for w in params(r)
+    #     if !isdefined(w,:diff)
+    #         if issparse(x)      # TODO: is this the right thing for all ops?
+    #             w.diff = CudaSparseMatrixCSR(spzeros(eltype(x), size(w)...))
+    #         else
+    #             w.diff = similar(w.arr)
+    #         end
+    #     end
+    # end
+    # if seq
+    #     for w in params(r)
+    #         similar!(w, :inc, w.diff)
+    #         fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+    #     end
+    # end

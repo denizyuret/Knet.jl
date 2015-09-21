@@ -22,11 +22,6 @@ include("util/dense.jl");	export KUdense
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-DynamicArrayCPU{T}(::Type{T}, d::Dims)=KUdense(Array,T,d)
-DynamicArrayGPU{T}(::Type{T}, d::Dims)=KUdense(CudaArray,T,d)
-SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
-SparseArrayGPU{T}(::Type{T}, d::Dims)=CudaSparseMatrixCSR(spzeros(T,d...))
-
 include("param.jl");		export KUparam, setparam! # TODO: move this up to src
 include("update.jl");		export update!
 include("data.jl");		export Data, ItemTensor

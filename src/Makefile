@@ -7,4 +7,4 @@ libkunet.so: op/drop.o op/actf.o op/loss.o update.o model/kperceptron.o util/lin
 	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@
 
 clean:
-	-rm *.o libkunet.so
+	-rm *.o */*.o libkunet.so

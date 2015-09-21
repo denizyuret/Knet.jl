@@ -40,6 +40,58 @@ A_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(A_mul_B!(mat2d
 At_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); C)
 A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C), mat2d(A.arr), mat2d(B.arr)); C)
 
+# CudaSparseMatrixCSC
+# y = w * xS
+function A_mul_B!{T}(C::KUdense{CudaArray,T,2}, A::CudaArray{T,2}, B::CudaSparseMatrixCSC{T})
+    # cusparse only supports mul with csr x dense.
+    bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
+    cT = similar(C.arr, reverse(size(C)))
+    # TODO: avoid alloc by using inplace:
+    # cT = CudaArray{T,2}(C.arr.ptr, reverse(size(C)), C.arr.dev)
+    CUSPARSE.csrmm2!('N','T',one(T),bT,A,zero(T),cT,'O') # yT = xT * w'
+    CUBLAS.geam!('T','T',one(T),cT,zero(T),cT,C.arr)
+    free(cT)
+    return C
+end
+
+# dw = dy * x'
+function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::KUdense{CudaArray,T,2},B::CudaSparseMatrixCSC{T})
+    bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
+    a = sparse(A.arr)           # gives CudaSparseMatrixCSR
+    CUSPARSE.gemm!('N','N',a,bT,C,'O')
+    free(a)
+    return C
+end
+
+# TODO: the sparsity pattern should be identical here, could make this much faster:
+# iw = dy * x'  : we have the same x, and dy is always dense
+# if that is the case we just do axpy!(1,x.nzVal,y.nzVal)
+function axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T})
+    z = CUSPARSE.geam(convert(T,a), x, one(T), y, 'O', 'O', 'O')
+    free(y)
+    y.rowPtr = z.rowPtr
+    y.colVal = z.colVal
+    y.nzVal = z.nzVal
+    y.nnz = z.nnz
+    return y
+end
+
+axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:axpy32csr,libkunet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
+axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:axpy64csr,libkunet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
+
+
+CUDArt.free(x::CudaSparseMatrixCSR)=(free(x.rowPtr);free(x.colVal);free(x.nzVal))
+
+function Base.fill!(x::CudaSparseMatrixCSR,n)
+    n == 0 || error("Only 0 fill for sparse")
+    fill!(x.rowPtr,1)
+    resize!(x.colVal,0)
+    resize!(x.nzVal,0)
+    x.nnz = 0
+    return x
+end
+
+
 ### axpb! useful scale and shift transformation: x -> ax+b
 
 axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)

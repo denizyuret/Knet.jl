@@ -1,4 +1,4 @@
-# TODO: deprecate KUsparse -> CudaSparseMatrixCSR
+# TODO: deprecate KUsparse -> CudaSparseMatrixCSC
 
 # (c) Deniz Yuret, June 19, 2015
 # This is a standalone (single layer) implementation of the averaged

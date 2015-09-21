@@ -1,3 +1,16 @@
+2015-09-21  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/mnistsparse.jl: TODO:
+	axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
+
+2015-09-20  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/mnistsparse.jl: TODO: fix sparse arrays.  Rename
+	KUdense -> DynamicArrayCPU/GPU.  SparseArrayCPU/GPU.
+
+	* examples: TODO: consolidate options in one file.  fix train and
+	predict.  turn libsvm2sparse into a data generator.
+
 2015-09-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/testmnist.jl: collect data and code in one place.

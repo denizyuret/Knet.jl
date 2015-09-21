@@ -83,7 +83,8 @@ end
 # versions for resizeability (cslice!).
 
 xbatch(x,b)=(issparse(x) ?
-             (gpu() ? csc2csr(spzeros(eltype(x), size(x)...)) : spzeros(eltype(x), size(x)...)) :
+             (gpu() ? CudaSparseMatrixCSC(spzeros(eltype(x), size(x)...)) : 
+              spzeros(eltype(x), size(x)...)) :
              KUdense(barray(), eltype(x), csize(x,b)))
 
 # Y batches are always dense, because Y should be always dense.  We

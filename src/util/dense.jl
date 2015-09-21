@@ -100,12 +100,12 @@ issparse(a::KUdense)=false
 
 dtype(x)=typeof(x)
 dtype{T}(x::SparseMatrixCSC{T})=Array{T}
-dtype{T}(x::CudaSparseMatrixCSR{T})=KUdense{CudaArray,T} # TODO: should this be CudaArray?
+dtype{T}(x::CudaSparseMatrixCSC{T})=KUdense{CudaArray,T} # TODO: should this be CudaArray?
 dtype{A,T}(x::KUdense{A,T})=KUdense{A,T}  # this is necessary, otherwise 1-dim x does not match 2-dim y.
 
 dsimilar(x,d::Dims)=similar(x,d)
 dsimilar{T}(x::SparseMatrixCSC{T},d::Dims)=Array(T,d)
-dsimilar{T}(x::CudaSparseMatrixCSR{T},d::Dims)=KUdense(CudaArray,T,d)
+dsimilar{T}(x::CudaSparseMatrixCSC{T},d::Dims)=KUdense(CudaArray,T,d)
 
 function dsimilar!(l, n, x, dims=size(x))
     if (!isdefined(l,n) || !isa(l.(n), dtype(x)))

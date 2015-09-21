@@ -64,5 +64,12 @@ function nextidx(d, n)
     return ix
 end
 
+# DynamicArrayCPU{T}(::Type{T}, d::Dims)=KUdense(Array,T,d)
+# DynamicArrayGPU{T}(::Type{T}, d::Dims)=KUdense(CudaArray,T,d)
+# SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
+# SparseArrayGPU{T}(::Type{T}, d::Dims)=CudaSparseMatrixCSR(spzeros(T,d...))
+
+SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
+DynamicArrayCPU{T}(::Type{T}, d::Dims)=KUdense(Array,T,d)
 itembatch(x,n)=(issparse(x)?SparseArrayCPU:DynamicArrayCPU)(eltype(x),csize(x,n))
 

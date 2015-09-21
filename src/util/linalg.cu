@@ -219,7 +219,43 @@ __global__ void _mul2_64(int n, double *x, double *y, double *z) {
   }
 }
 
+__global__ void _axpy32csr(int m, int n, float alpha,
+			   int nnzA,
+			   const float *csrValA,
+			   const int *csrRowPtrA,
+			   const int *csrColIndA,
+			   float *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  while (nz < nnzA) {
+    float val = alpha * csrValA[nz];
+    int col = csrColIndA[nz]-1;
+    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    B[col * m + row] += val;
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+__global__ void _axpy64csr(int m, int n, double alpha,
+			   int nnzA,
+			   const double *csrValA,
+			   const int *csrRowPtrA,
+			   const int *csrColIndA,
+			   double *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  while (nz < nnzA) {
+    double val = alpha * csrValA[nz];
+    int col = csrColIndA[nz]-1;
+    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    B[col * m + row] += val;
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
 extern "C" {
+
+  void axpy32csr(int m, int n, float alpha, int nnzA, const float *csrValA, const int *csrRowPtrA, const int *csrColIndA, float *B) KCALL(_axpy32csr,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void axpy64csr(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_axpy64csr,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+
 
   void A_mul_Bs_32(int mx, int ns,  float *x,  float *sval, int *srow, int *scol,  float *k) KCALL(_A_mul_Bs_32,mx,ns,x,sval,srow,scol,k);
   void A_mul_Bs_64(int mx, int ns, double *x, double *sval, int *srow, int *scol, double *k) KCALL(_A_mul_Bs_64,mx,ns,x,sval,srow,scol,k);

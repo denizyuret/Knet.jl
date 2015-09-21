@@ -1,5 +1,16 @@
-using KUnet, CUDArt, Base.Test
+using KUnet, CUDArt, CUSPARSE, Base.Test
 include("isapprox.jl")
+
+# function A_mul_B!{T}(C::KUdense{CudaArray,T,2}, A::CudaArray{T,2}, B::CudaSparseMatrixCSC{T})
+a = rand(3,5)
+b = sprand(5,2,.5)
+c = a*b
+A = CudaArray(a)
+B = CudaSparseMatrixCSC(b)
+C = KUdense(CudaArray(similar(c)))
+A_mul_B!(C,A,B)
+@test @show c == convert(Array,C)
+error("ok")
 
 # Operations needed:
 # mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu

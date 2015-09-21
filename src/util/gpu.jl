@@ -27,6 +27,10 @@ gpu(b::Bool)=(b && !GPU && error("No GPU"); global USEGPU=b)
 # Conditionally import gpulibs
 macro useifgpu(pkg) if GPU Expr(:using,pkg) end end
 
+# Load kernels from CUDArt
+@useifgpu CUDArt
+GPU && CUDArt.init!([CUDArt.CuModule(),], [CUDArt.device(),])
+
 # Additional cuda code
 const libkunet = Libdl.find_library(["libkunet"], [Pkg.dir("KUnet/src")])
 
