@@ -13,7 +13,7 @@ setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     (size(p.arr)==d && eltype(p.arr)==T) || (p.arr = similar(p.arr, T, d))
     # we want no init if params given in matrix
-    if nz(p,:init,nothing)
+    if !isempty(p.arr) && nz(p,:init,nothing)
         initp = (!isdefined(p,:initp) ? () :
                  isa(p.initp,Tuple) ? p.initp :
                  (p.initp,))
