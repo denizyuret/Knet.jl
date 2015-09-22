@@ -166,3 +166,4 @@ end
 # (:tst,100000,0.1735)
 
 # TODO: why isn't this giving the same results?
+# Could be softloss vs xentloss.
