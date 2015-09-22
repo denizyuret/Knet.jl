@@ -123,7 +123,7 @@ net1 = (args["type"] == "irnn" ? IRNN(nh; std=args["std"]) :
         args["type"] == "lstm" ? LSTM(nh; fbias=args["fbias"]) : 
         error("Unknown network type "*args["type"]))
 
-net2 = Net(Mmul(ny), Bias(), XentLoss())
+net2 = Net(Mmul(ny), Bias(), Soft(), SoftLoss())
 
 net = S2C(net1, net2)
 setparam!(net; lr=args["lrate"])
@@ -164,3 +164,5 @@ end
 # (:trn,90000,2.153266387169849,10.435466f0,3289.0789f0)
 # (:trn,100000,2.1011612425016724,10.437336f0,3303.134f0)
 # (:tst,100000,0.1735)
+
+# TODO: why isn't this giving the same results?
