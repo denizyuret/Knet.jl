@@ -34,9 +34,13 @@ function forw(l::Drop, x; y=x, train=true, xdrop=nothing, seed=nothing, o...)
 end
 
 function back(l::Drop, dy; dx=dy, returndx=true, o...)
-    @assert issimilar(dy, l.xdrop) "$(summary(dy)) !~ $(summary(l.xdrop)) $(size(l.xdrop))"
     returndx || return
-    l.dropout > 0 && drop(dy, dx, l.xdrop, l.dropout, 1/(1-l.dropout))
+    if l.dropout > 0
+        @assert issimilar(dy, l.xdrop) "$(summary(dy)) !~ $(summary(l.xdrop)) $(size(l.xdrop))"
+        drop(dy, dx, l.xdrop, l.dropout, 1/(1-l.dropout))
+    else
+        dx===dy || copy!(dx,dy)
+    end
     return dx
 end
 
