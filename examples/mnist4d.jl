@@ -3,9 +3,8 @@
 
 using Base.Test
 using KUnet
-using KUnet: params
+using KUnet: params, isapprox2
 isdefined(:MNIST) || include("mnist.jl")
-include("isapprox.jl")
 setseed(42)
 nbatch=100
 
@@ -19,7 +18,7 @@ info("Testing lenet")
 lenet = Net(Conv(20,5), Bias(), Relu(), Pool(2),
             Conv(50,5), Bias(), Relu(), Pool(2),
             Mmul(500), Bias(), Relu(),
-            Mmul(10), Bias(), XentLoss())
+            Mmul(10), Bias(), Soft(), SoftLoss())
 setparam!(lenet; lr=0.1)
 
 # single batch for training for quick debug

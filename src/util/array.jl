@@ -38,3 +38,20 @@ size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) #
 # Fix bug with deepcopy, where a shared bits array is copied multiple times:
 
 Base.deepcopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+
+function Base.isapprox(x, y; 
+                       maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
+                       rtol::Real=maxeps^(1/3), atol::Real=maxeps^(1/2))
+    size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
+    x = convert(Array, x)
+    y = convert(Array, y)
+    @inbounds for i=1:length(x)
+        isapprox(x[i],y[i]; rtol=rtol, atol=atol) || return false
+    end
+    return true
+    # d = abs(x-y)
+    # s = abs(x)+abs(y)
+    # all(d .< (atol + rtol * s))
+end
+
+Base.convert{T,I}(::Type{Array{T,2}}, a::SparseMatrixCSC{T,I})=full(a)

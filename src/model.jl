@@ -40,7 +40,7 @@ function accuracy(m::Model, d) # TODO: this only works if y is a single item
     numcorr = numinst = 0
     z = nothing
     for (x,y) in d
-        issimilar(y,z) || (z = similar(y))
+        z == nothing && (z = KUdense(Array(eltype(y), 0)))
         forw(m, x; trn=false, yout=z)
         numinst += ccount(y)
         numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
@@ -72,23 +72,25 @@ const gradcheck_rng = MersenneTwister()
 function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, a...)
     l0 = backprop(m, x, y; getloss=true)
     pp = params(m)
-    dw = map(p->convert(Array,p.diff), pp)
-    for n=1:length(dw)
+    for n=1:length(pp)
         p = pp[n]
-        pcopy = copy(p.arr)     # TODO: do we need pcopy?
-        w = convert(Array, p.arr)
-        wlen = length(w)
+        psave = p.arr
+        p.arr = copy(p.arr)
+        pdiff = convert(Array, p.diff)
+        wlen = length(p.arr)
         irange = (wlen <= gcheck ? (1:wlen) : rand(gradcheck_rng, 1:wlen, gcheck))
         for i in irange
-            wi0 = w[i]; wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
-            w[i] = wi1; copy!(p.arr, w); w[i] = wi0
+            wi0 = p.arr[i]
+            wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
+            p.arr[i] = wi1
             l1 = forw(m, x; trn=false, ygold=y)
+            p.arr[i] = wi0
             dwi = (l1 - l0) / (wi1 - wi0)
-            if !isapprox(dw[n][i], dwi; rtol=rtol, atol=atol)
-                println(tuple(:gc, n, i, dw[n][i], dwi))
+            if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)
+                println(tuple(:gc, n, i, pdiff[i], dwi))
             end
         end
-        copy!(p.arr, pcopy)         # make sure we recover the original
+        p.arr = psave
     end
 end
 

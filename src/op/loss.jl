@@ -1,3 +1,5 @@
+# TODO: ALL THESE NEED TESTING
+
 # Loss Layers
 # TODO: rename LossLayer -> Loss
 
@@ -12,7 +14,7 @@ back_reads_y(::LossLayer)=true
 
 # LossLayer has slightly different input/output behavior compared to regular layers:
 # forw only records the outgoing y.
-# back takes dy, the desired output, and overwrites it with the loss gradient wrt y
+# back takes dy, the desired output, and returns the loss gradient wrt y
 # loss takes dy, the desired output, and returns a loss value
 
 for (ltype, lback, lloss) in (
@@ -25,29 +27,27 @@ for (ltype, lback, lloss) in (
                               )
     @eval begin
         type $ltype <: LossLayer; y; $ltype()=new(); end
-        $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
-        $lloss(y,dy)=$lloss(convert(Array,y), convert(Array,dy))  # TODO: handle sparse arrays
-        loss(l::$ltype, dy; y=l.y, o...)=$lloss(y,dy) # (issimilar(dy,y)||error(map(summary,(y,dy))); $lloss(y,dy))
-        forw(l::$ltype, x; y=x, o...)=(issimilar(x,y)||error("x/y"); l.y = (y===x ? y : copy!(y,x)))
-        back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...)=
-            (returndx||return; (issimilar(dy,y) && issimilar(dx,y))||error("$y\n$dy\n$dx"); $lback(y,dy,dx))
+
+        function forw(l::$ltype, x; y=x, o...) # TODO: is the y option necessary?
+            issimilar(x,y) || error(map(summary,(x,y)))
+            l.y = (y===x ? y : copy!(y,x)) # TODO: is this copy necessary?
+        end
+
+        function back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...) # TODO: get rid of l.y for memoryless?
+            issimilar(dx,y) || error(map(summary,(dx,y))) # TODO: calling interface: always require x/y?
+            size(y)==size(dy) || error(map(summary,(dy,y)))
+            if returndx
+                $lback(y,dy,dx; o...)
+            end
+        end
+
+        function loss(l::$ltype, dy; y=l.y, o...)
+            size(y)==size(dy) || error(map(summary,(y,dy)))
+            $lloss(y,dy; o...)
+        end
+
     end
 end
-
-### QUADLOSS:
-
-# Quadratic loss:
-# l.y stores the model output.
-# dy is the desired output.
-# Overwrites dy with the gradient of quadratic loss wrt y, i.e. y-dy
-# J = 0.5*sum((yi-zi)^2)
-# dJ/dy = y-dy
-
-quadloss(y::Array, dy::Array)=(cost=zero(Float64); for i=1:length(dy); cost += (y[i]-dy[i])^2; end; 0.5*cost/ccount(dy))
-quadlossback(y::Array, dy::Array, dx::Array=dy)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
-GPU && (quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy)=
-        (dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx))
-
 
 ### SOFTLOSS: 
 
@@ -77,11 +77,118 @@ GPU && (quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy)=
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
-softloss(y::Array,dy::Array)=(cost=zero(Float64); for i=1:length(dy); dy[i]>0 && (cost -= (dy[i]*log(y[i]))); end; cost/ccount(dy))
-softlossback(y::Array,dy::Array,dx::Array=dy)=(nx=ccount(dx); for i=1:length(dx); dx[i] = ((y[i]-dy[i])/y[i])/nx; end; dx)
-GPU && (softlossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=(ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),1/ccount(dy),y,dy,dx);dx))
-GPU && (softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=(ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),1/ccount(dy),y,dy,dx);dx))
 
+function softloss(y::Array, dy::Array; o...)
+    cost=zero(Float64)
+    for i=1:length(dy)
+        dy[i]>0 && (cost -= (dy[i]*log(y[i])))
+    end
+    return cost/ccount(dy)
+end
+
+@gpu function softloss(y::CudaArray{Float32}, dy::CudaArray{Float32}; tmp=nothing, o...)
+    ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
+    ccall((:softloss32,libkunet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),y,dy,ly)
+    loss = CUBLAS.asum(ly)/ccount(dy)
+    tmp == nothing && free(ly)
+    return loss
+end
+
+@gpu function softloss(y::CudaArray{Float64}, dy::CudaArray{Float64}; tmp=nothing, o...)
+    ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
+    ccall((:softloss64,libkunet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),y,dy,ly)
+    loss = CUBLAS.asum(ly)/ccount(dy)
+    tmp == nothing && free(ly)
+    return loss
+end
+
+function softloss(y::Array, dy::SparseMatrixCSC; o...)
+    cost=zero(Float64)
+    for nz = 1:nnz(dy)
+        dyi = dy.nzval[nz]
+        row = dy.rowval[nz]
+        col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
+        while nz > dy.colptr[col+1]-1; col += 1; end
+        i = (col-1) * size(y,1) + row
+        cost -= (dyi * log(y[i]))
+    end
+    return cost/ccount(dy)
+end
+
+@gpu function softloss(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}; tmp=nothing, o...)
+    ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
+    length(ly) >= nnz(dy) || error("not enough temp space")
+    ccall((:softloss32csc,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
+          size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,ly)
+    loss = CUBLAS.asum(nnz(dy),ly,1)/ccount(dy)
+    tmp == nothing && free(ly)
+    return loss
+end
+
+@gpu function softloss(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}; tmp=nothing, o...)
+    ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
+    length(ly) >= nnz(dy) || error("not enough temp space")
+    ccall((:softloss64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
+          size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,ly)
+    loss = CUBLAS.asum(nnz(dy),ly,1)/ccount(dy)
+    tmp == nothing && free(ly)
+    return loss
+end
+
+function softlossback(y::Array, dy::Array, dx::Array; o...)
+    nx=ccount(dx)
+    for i=1:length(dx)
+        dx[i] = ((y[i]-dy[i])/y[i])/nx
+    end
+    return dx
+end
+
+@gpu softlossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(dy),1/ccount(dy),y,dy,dx);dx)
+@gpu softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),1/ccount(dy),y,dy,dx);dx)
+
+function softlossback(y::Array, dy::SparseMatrixCSC, dx::Array; o...)
+    fill!(dx, 1/size(dy,2))
+    for nz = 1:nnz(dy)
+        dyi = dy.nzval[nz]
+        row = dy.rowval[nz]
+        col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
+        while nz > dy.colptr[col+1]-1; col += 1; end
+        i = (col-1) * size(y,1) + row
+        dx[i] *= (1-dyi/y[i])
+    end
+    return dx
+end
+
+@gpu softlossback(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libkunet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
+@gpu softlossback(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
+
+
+### QUADLOSS:
+
+# Quadratic loss:
+# l.y stores the model output.
+# dy is the desired output.
+# Overwrites dy with the gradient of quadratic loss wrt y, i.e. y-dy
+# J = 0.5*sum((yi-zi)^2)
+# dJ/dy = y-dy
+
+function quadloss(y::Array, dy::Array; o...)
+    cost=zero(Float64)
+    for i=1:length(dy) 
+        cost += (y[i]-dy[i])^2
+    end
+    0.5*cost/ccount(dy)
+end
+
+@gpu function quadloss(y::CudaArray, dy::CudaArray; tmp=nothing, o...)
+    tmp == nothing && (tmp = similar(y))
+    copy!(tmp, y)
+    axpy!(-1, dy, tmp)
+    vecnorm(tmp)^2/(2*ccount(y))
+end
+
+quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
+@gpu quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy; o...)=(dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx)
 
 ### LOGPLOSS:
 
@@ -105,11 +212,11 @@ GPU && (softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArra
 
 logploss(y::Array, dy::Array)=(nx = ccount(dy); cost = zero(Float64); for i=1:length(dy); cost -= (dy[i]*y[i]); end; cost/nx)
 logplossback(y::Array, dy::Array, dx::Array=dy)=(nx = ccount(dx); for i=1:length(dx); dx[i] = (exp(y[i])-dy[i])/nx; end; dx)
-GPU && (logplossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=
-        (ccall((:logploss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
+@gpu (logplossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=
+        (ccall((:logplossback32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
                length(dy),1/ccount(dy),y,dy,dx); dx))
-GPU && (logplossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=
-        (ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),
+@gpu (logplossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=
+        (ccall((:logplossback64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),
                length(dy),1/ccount(dy),y,dy,dx); dx))
 
 
@@ -159,10 +266,10 @@ function xentlossback(y::Array, p::Array, dx::Array=p)
     return dx
 end
 
-GPU && (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32}=p)=
-        ((nd,nx)=size2(p);ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
-GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64}=p)=
-        ((nd,nx)=size2(p);ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
+@gpu (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32}=p)=
+        ((nd,nx)=size2(p);ccall((:xentlossback32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
+@gpu (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64}=p)=
+        ((nd,nx)=size2(p);ccall((:xentlossback64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
 
 
 ### PERCLOSS
@@ -231,8 +338,8 @@ function perclossback{T}(y::Array{T}, dy::Array{T}, dx::Array{T}=dy)
     return dx
 end
 
-GPU && (perclossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=((nd,nx)=size2(dy);ccall((:percloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,dy,dx);dx))
-GPU && (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=((nd,nx)=size2(dy);ccall((:percloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,dy,dx);dx))
+@gpu (perclossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=((nd,nx)=size2(dy);ccall((:perclossback32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,dy,dx);dx))
+@gpu (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=((nd,nx)=size2(dy);ccall((:perclossback64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,dy,dx);dx))
 
 
 ### SCALLOSS
@@ -246,3 +353,23 @@ GPU && (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArra
 
 scalloss(y,dy)=error("Not implemented")
 scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
+
+
+### DEAD CODE:
+
+        # TODO: can we take these out and make them apply to LossLayer?
+        # $lloss(y::KUdense{Array}, dy::KUdense{Array}; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
+        # $lloss(y::KUdense{Array}, dy::Array; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
+        # $lloss(y::KUdense{Array}, dy::KUdense{Array}; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
+        # $lloss(y::KUdense{Array}, dy::SparseMatrixCSC; o...)=$lloss(convert(Array,y), dy; o...)
+        # @gpu $lloss{T}(y::KUdense{CudaArray,T},dy::Array{T}; o...)=$lloss(convert(CudaArray,y), convert(CudaArray,dy); o...)
+        # @gpu $lloss{T}(y::KUdense{CudaArray,T},dy::KUdense{Array,T}; o...)=$lloss(convert(CudaArray,y), convert(CudaArray,dy); o...)
+        # @gpu $lloss{T}(y::KUdense{CudaArray,T},dy::SparseMatrixCSC{T}; o...)=$lloss(convert(CudaArray,y), convert(CudaSparseMatrixCSC,dy); o...)
+
+        # $lback(y::KUdense{Array}, dy::KUdense{Array}, dx::KUdense{Array};o...)=($lback(convert(Array,y), convert(Array,dy), convert(Array, dx);o...); dx)
+        # $lback(y::KUdense{Array}, dy::SparseMatrixCSC, dx::KUdense{Array};o...)=($lback(convert(Array,y), dy, convert(Array, dx);o...); dx)
+        # @gpu $lback(y::KUdense{CudaArray}, dy::KUdense{CudaArray}, dx::KUdense{CudaArray};o...)=($lback(convert(CudaArray,y), convert(CudaArray,dy), convert(CudaArray, dx);o...); dx)
+        # @gpu $lback(y::KUdense{CudaArray}, dy::CudaSparseMatrixCSC, dx::KUdense{CudaArray};o...)=($lback(convert(CudaArray,y), dy, convert(CudaArray, dx);o...); dx)
+
+        # $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
+        # $lloss(y,dy)=$lloss(convert(Array,y), convert(Array,dy))  # TODO: handle sparse arrays, implement gpu

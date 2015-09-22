@@ -4,74 +4,74 @@
 using Base.Test
 using KUnet
 using KUnet: params
-setseed(42)
-nbatch=100
-
-### fixes
-
-using CUDArt
-using CUSPARSE
-
-Base.isempty(a::CudaSparseMatrix) = (length(a) == 0)
-Base.issparse(a::CudaSparseMatrix) = true
-Base.vecnorm(a::CudaSparseMatrix) = vecnorm(a.nzVal)
-Base.scale!(c,a::CudaSparseMatrix) = (scale!(c,a.nzVal); a)
-Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host(a))
-
-function resizecopy!{T}(a::CudaVector{T}, b::Vector{T})
-    resize!(a, length(b))
-    copy!(a, b)
-end
-
-function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
-    a.dims = (b.m,b.n)
-    a.nnz = convert(Cint, length(b.nzval))
-    resizecopy!(a.colPtr, convert(Vector{Cint},b.colptr))
-    resizecopy!(a.rowVal, convert(Vector{Cint},b.rowval))
-    resizecopy!(a.nzVal, b.nzval)
-    return a
-end
-
-using Base: dims2string
-Base.summary(a::Union(KUdense,KUparam,CudaArray,CudaSparseMatrixCSC)) = string(dims2string(size(a)), " ", typeof(a))
-
-### 
 
 isdefined(:MNIST) || include("mnist.jl")
-dtrn = ItemTensor(sparse(MNIST.xtrn), MNIST.ytrn; batch=nbatch)
-dtst = ItemTensor(sparse(MNIST.xtst), MNIST.ytst; batch=nbatch)
-# dtrn1 = ItemTensor(MNIST.xtrn, MNIST.ytrn; batch=nbatch, epoch=nbatch)
-# dtst1 = ItemTensor(MNIST.xtst, MNIST.ytst; batch=nbatch, epoch=nbatch)
-# dtrn = ItemTensor(sparse(MNIST.xtrn), sparse(MNIST.ytrn); batch=nbatch)
-# dtst = ItemTensor(sparse(MNIST.xtst), sparse(MNIST.ytst); batch=nbatch)
-# dtrn = ItemTensor(sprand(784,60000,0.2),sprand(10,60000,0.1); batch=nbatch)
-# dtst = ItemTensor(sprand(784,10000,0.2),sprand(10,10000,0.1); batch=nbatch)
-# dtrn = ItemTensor(sprand(784,6000,0.2),full(sprand(10,6000,0.1)); batch=nbatch)
-# dtst = ItemTensor(sprand(784,1000,0.2),full(sprand(10,1000,0.1)); batch=nbatch)
+nbatch=100
 
-x0 = copy(dtrn.data[1])
-y0 = copy(dtrn.data[2])
+atol = 0.01
+rtol = 0.01
+gcheck = 10
+isapprox1(x,y)=isapprox(x.arr,y.arr;atol=atol,rtol=rtol)&&isapprox(x.diff,y.diff;atol=atol,rtol=rtol)
 
-info("Testing simple mlp with sparse arrays.")
-net = Net(Mmul(64), Bias(), Relu(), Mmul(10), Bias(), XentLoss())
-setparam!(net, lr=0.5)
+adense(x)=x
+net = cell(4)
+dtrn = cell(4)
+dtst = cell(4)
+iter = 0
 
-# test(net, dtst)                 # to init weights
-# net.out0[end]=Any[]
-# net1 = deepcopy(net)
-
-@time for i=1:3
-    # TODO: gcheck does not work 
-    @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=0, getloss=true, getnorm=true)
-    @show (test(net, dtrn), accuracy(net, dtrn))
-    @show (test(net, dtst), accuracy(net, dtst))
-    # @show (l,w,g) = train(net1, dtrn1; gclip=0, gcheck=0, getloss=true, getnorm=true)
-    # train(mlp, dtrn.data[1], dtrn.data[2]; batch=nbatch)
-    # @test all(map(isequal, params(net), params(mlp)))
-    # println((i, accuracy(dtst.data[2], predict(mlp, dtst.data[1])),
-    #             accuracy(dtrn.data[2], predict(mlp, dtrn.data[1]))))
+for (fx,fy) in ((adense,adense), (adense,sparse), (sparse,adense), (sparse,sparse))
+    iter += 1
+    net[iter] = Net(Mmul(64), Bias(), Relu(), Mmul(10), Bias(), Soft(), SoftLoss())
+    setparam!(net[iter], lr=0.5)
+    dtrn[iter] = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
+    dtst[iter] = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
+    setseed(42)
+    l=w=g=ltrn=atrn=ltst=atst=0
+    @time for epoch=1:3
+        # TODO: gcheck does not work 
+        (l,w,g) = train(net[iter], dtrn[iter]; gclip=0, gcheck=gcheck, getloss=true, getnorm=true, atol=atol, rtol=rtol)
+        (ltrn,atrn,ltst,atst) = (test(net[iter], dtrn[iter]), 
+                                 accuracy(net[iter], dtrn[iter]), 
+                                 test(net[iter], dtst[iter]), 
+                                 accuracy(net[iter], dtst[iter]))
+    end
+    @show (fx,fy,l,w,g,ltrn,atrn,ltst,atst)
+    @show map(isapprox1, params(net[1]), params(net[iter]))
 end
 
-@test isequal(x0,dtrn.data[1])
-@test isequal(y0,dtrn.data[2])
 
+# Reference output for debugging.  The last two results with sparse input are not stable.
+
+# [dy_052@hpc3001 examples]$ julia mnistsparse.jl 
+# INFO: Loading MNIST...
+#   5.478525 seconds (366.45 k allocations: 503.265 MB, 1.74% gc time)
+#   8.876875 seconds (9.64 M allocations: 427.910 MB, 2.03% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (adense,adense,0.10628127f0,24.865437f0,3.5134742f0,0.100041345f0,0.9681833333333333,0.114785746f0,0.9641)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]
+#   8.316890 seconds (5.36 M allocations: 251.544 MB, 0.93% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (adense,sparse,0.1062698f0,24.866688f0,3.5134742f0,0.100718f0,0.9679333333333333,0.1149149f0,0.9642)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]
+#  12.682341 seconds (5.63 M allocations: 629.662 MB, 1.61% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (sparse,adense,0.10628127f0,24.865438f0,3.5134711f0,0.100041375f0,0.9681833333333333,0.11478577f0,0.9641)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]
+#  14.437739 seconds (5.15 M allocations: 622.468 MB, 1.36% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (sparse,sparse,0.106173664f0,24.870913f0,3.5582156f0,0.10027795f0,0.9682,0.11406385f0,0.9646)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[false,false,false,true]
+
+# Here is another run showing the unstability:
+
+# [dy_052@hpc3001 examples]$ julia mnistsparse.jl 
+# INFO: Loading MNIST...
+#   5.480183 seconds (366.45 k allocations: 503.265 MB, 1.72% gc time)
+#   8.797816 seconds (9.64 M allocations: 427.910 MB, 2.05% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (adense,adense,0.10628127f0,24.865437f0,3.5134742f0,0.100041345f0,0.9681833333333333,0.114785746f0,0.9641)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]
+#   7.973043 seconds (5.35 M allocations: 251.381 MB, 0.88% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (adense,sparse,0.1062698f0,24.866688f0,3.5134742f0,0.100718f0,0.9679333333333333,0.1149149f0,0.9642)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]
+#  11.925001 seconds (5.64 M allocations: 629.857 MB, 1.22% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (sparse,adense,0.1061508f0,24.87466f0,3.5049448f0,0.09875954f0,0.9686833333333333,0.11317172f0,0.9654)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[false,true,false,true]
+#  14.341379 seconds (5.15 M allocations: 621.469 MB, 1.00% gc time)
+# (fx,fy,l,w,g,ltrn,atrn,ltst,atst) = (sparse,sparse,0.10627592f0,24.866186f0,3.5134723f0,0.09992511f0,0.9681666666666666,0.114817984f0,0.9641)
+# map(isapprox1,params(net[1]),params(net[iter])) = Bool[true,true,true,true]

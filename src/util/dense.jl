@@ -31,6 +31,7 @@ similar{A,T,N}(a::KUdense{A,T,N})=KUdense(A,T,size(a))
 
 arr(a::Vector,d::Dims)=pointer_to_array(pointer(a), d)
 arr(a::CudaVector,d::Dims)=CudaArray(a.ptr, d, a.dev)
+arr(a)=(isa(a,KUdense) ? a.arr : a)
 
 atype(::Array)=Array
 atype(::SubArray)=Array

@@ -53,12 +53,20 @@ function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=fal
     for n = 1:N
         trn && r.push[n] && push(r,n)         # t:327
         # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
-        r.out[n] = forw(r.op[n], r.out[r.inputs[n]]...; y=r.out0[n], train=trn, a...)     # ;dbg(r,:out,n) # t:2300
+        # Only use KUdense in net.jl, ops operate on regular arrays.
+        x = map(arr, r.out[r.inputs[n]])
+        y = arr(r.out0[n])
+        r.out[n] = forw(r.op[n], x...; y=y, train=trn, a...)     # ;dbg(r,:out,n) # t:2300
     end
     # display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     yout != nothing && copy!(yout, r.out[N])
-    ygold == nothing && return 0.0
-    loss(r.op[N], ygold; y=r.out[N])
+    if ygold != nothing
+        initarray(r.dif0, N, ygold)
+        r.dif[N] = copy!(r.dif0[N], ygold)
+        return loss(r.op[N], arr(r.dif[N]); y=arr(r.out[N]))
+    else
+        return 0.0
+    end
 end
 
 # initforw(r::Net,x...) is called at the beginning of a sequence or
@@ -99,7 +107,7 @@ end
 
 function back(r::Net, dy::Vector; dx=nothing, a...)
     # display((:backseq0,length(dy),vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
-    initback(r; seq=true, a...)
+    initback(r,dy[end]; seq=true, a...)
     for i=length(dy):-1:1
         dxi = (dx == nothing ? nothing : dx[i])
         back(r, dy[i]; seq=true, dx=dxi, a...)
@@ -113,7 +121,7 @@ end
 function back(r::Net, dy; dx=nothing, seq=false, a...)
     # display((:back0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
-    seq || initback(r; seq=false, a...)
+    seq || initback(r,dy; seq=false, a...)
     N = nops(r)
     if dy == nothing
         r.multi[N] || (r.dif[N] = nothing)
@@ -132,10 +140,13 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
             end
         else
             dxn = Any[]
+            xn = Any[]
             for i in r.inputs[n]
-                push!(dxn, r.multi[i] ? r.dif1[i] : r.dif0[i])
+                push!(dxn, r.multi[i] ? arr(r.dif1[i]) : arr(r.dif0[i])) # TODO: use dx=nothing instead of returndx=false, that way we can choose which dx to return for multi-input case.
+                push!(xn, arr(r.out[i])) # TODO: use path analysis to stop back/dx calculation for any path that does not lead to a parameter.
             end
-            back(r.op[n], r.dif[n]; incr=seq, x=get1(r.out[r.inputs[n]]), y=r.out[n], dx=get1(dxn), a...) # t:2164
+            dxn = get1(dxn); xn = get1(xn); yn = arr(r.out[n]); dyn = arr(r.dif[n])
+            back(r.op[n], dyn; incr=seq, x=xn, y=yn, dx=dxn, a...) # t:2164
             for i in r.inputs[n]
                 r.multi[i] && axpy!(1, r.dif1[i], r.dif0[i])            ; r.multi[i]&&dbg(r,:dif1,i)
                 r.dif[i] = r.dif0[i]                                    ; dbg(r,:dif,i)
@@ -153,16 +164,17 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
     return dx
 end
 
-# initback(r::Net) called at the beginning of a sequence or a
+# initback(r::Net, dy) called at the beginning of a sequence or a
 # stand-alone item, never between elements of a sequence.
 
-function initback(r::Net; seq=false, a...)
-    # display((:initback0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+function initback(r::Net, dy; seq=false, a...)
+    # display((:initback0,summary(r.dif0[7]),summary(dy),seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])));println()
     fill!(r.dif, nothing)                           # why? (TODO)
     for n=1:length(r.dif0)
-        initarray(r.dif0, n, r.out0[n])
+        y = (n==nops(r) && dy!=nothing ? dy : r.out0[n])
+        initarray(r.dif0, n, y; dense=true) # x and dw may be sparse, dx and w always dense
         if r.multi[n]
-            initarray(r.dif1, n, r.out0[n])
+            initarray(r.dif1, n, r.dif0[n])
         end
     end
     for n=1:length(r.dif0)
@@ -173,7 +185,7 @@ function initback(r::Net; seq=false, a...)
             isdefined(w,:diff) && isdefined(w,:inc) && fill!(w.diff,0)
         end
     end
-    # display((:initback1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    # display((:initback1,summary(r.dif0[7]),summary(dy),seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])));println()
 end
 
 
@@ -389,6 +401,7 @@ function initdif(r::Net)
     for n=1:nops(r)                     # find out if back(op[n]) can overwrite dif[n]
         overwrites(r.op[n]) || continue # overwrites means potentially both forw x<-y and back dy<-dx
         r.multi[n] && continue           # don't share dif[n] with multi-output
+        n == nops(r) && continue         # don't share last output, dy may come in sparse
         for i in r.inputs[n]
             r.multi[i] && continue       # don't share dif[n] with multi-output
             index[i]==0 || error("should not happen")
@@ -422,6 +435,7 @@ end
 ### General utilities:
 
 function initarray(a, i, x, dims=size(x); dense=false)
+    # i==7 && (display((:initarray0,summary(a[i]),i,summary(x),dims,dense,summary(a)));println())
     if isempty(a[i])
         oldai = a[i]
         if !dense && issparse(x)
@@ -437,6 +451,7 @@ function initarray(a, i, x, dims=size(x); dense=false)
         warn("Resizing $(size(a[i]))->$dims")
         fill!(resize!(a[i], dims), 0) # TODO: this does not work for sparse
     end
+    # i==7 && (display((:initarray1,summary(a[i]),i,summary(x),dims,dense,summary(a)));println())
     return a[i]
 end
 

@@ -1,3 +1,16 @@
+2015-09-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	*  (bash): TODO: deprecate KUdense in most places.
+
+	* examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns
+	for increment (not being used in mnist).
+
+	* src/op/mmul.jl: TODO: adding.jl complains about issparse(void), why is
+	x void?
+
+	* examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp
+	diff has grown.  Debug/implement other losses.
+
 2015-09-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* examples/mnistsparse.jl: TODO:

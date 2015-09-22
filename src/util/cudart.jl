@@ -19,7 +19,7 @@ function resize!(a::CudaVector, n::Integer)
     if n < length(a)
         a.dims = (n,)
     elseif n > length(a)
-        b = CudaArray(eltype(a), n)
+        b = CudaArray(eltype(a), convert(Int,n))
         copy!(b, 1, a, 1, min(n, length(a)))
         free(a.ptr)
         a.ptr = b.ptr
@@ -58,9 +58,16 @@ isempty(a::CudaArray)=(length(a)==0)
 pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 
 convert{A<:CudaArray}(::Type{A}, a::Array)=CudaArray(a)
+convert{A<:CudaArray}(::Type{A}, a::SparseMatrixCSC)=CudaArray(full(a))
 convert{A<:Array}(::Type{A}, a::CudaArray)=to_host(a)
 
 deepcopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
 cpucopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])
 gpucopy_internal(x::CudaArray, s::ObjectIdDict)=deepcopy_internal(x,s)
 gpucopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaArray(x));s[x])
+
+# AbstractArray methods:
+
+Base.getindex{T}(x::CudaArray{T}, i::Integer)=copy!(T[0], 1, x, i, 1)[1]
+Base.setindex!{T}(x::CudaArray{T}, v, i::Integer)=copy!(x, i, T[convert(T,v)], 1, 1)
+Base.endof(x::CudaArray)=length(x)

@@ -1,3 +1,5 @@
+# TODO: deprecate KUdense in this file.
+
 using Base.LinAlg.BLAS: gemm!, scal!, nrm2
 import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm
 import Base.LinAlg: axpy!, scale!
@@ -42,23 +44,23 @@ A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat
 
 # CudaSparseMatrixCSC
 # y = w * xS
-function A_mul_B!{T}(C::KUdense{CudaArray,T,2}, A::CudaArray{T,2}, B::CudaSparseMatrixCSC{T})
+function A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T})
     # cusparse only supports mul with csr x dense.
     bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
-    cT = similar(C.arr, reverse(size(C)))
+    cT = similar(C, reverse(size(C)))
     # TODO: avoid alloc by using inplace:
-    # cT = CudaArray{T,2}(C.arr.ptr, reverse(size(C)), C.arr.dev)
+    # cT = CudaArray{T,2}(C.ptr, reverse(size(C)), C.dev)
     CUSPARSE.csrmm2!('N','T',one(T),bT,A,zero(T),cT,'O') # yT = xT * w'
-    CUBLAS.geam!('T','T',one(T),cT,zero(T),cT,C.arr)
+    CUBLAS.geam!('T','T',one(T),cT,zero(T),cT,C)
     free(cT)
     return C
 end
 
 # dw = dy * x'
-function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::KUdense{CudaArray,T,2},B::CudaSparseMatrixCSC{T})
+function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::CudaMatrix{T},B::CudaSparseMatrixCSC{T})
     bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
-    a = sparse(A.arr)           # gives CudaSparseMatrixCSR
-    CUSPARSE.gemm!('N','N',a,bT,C,'O')
+    a = sparse(A)           # gives CudaSparseMatrixCSR
+    gemm!('N','N',a,bT,C)
     free(a)
     return C
 end

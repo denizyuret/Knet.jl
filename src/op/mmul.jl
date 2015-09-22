@@ -45,14 +45,14 @@ end
 # dx = w' * dy
 function back(l::Mmul, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
     if !isdefined(l.w,:diff)
-        if issparse(x)
+        if x != nothing && issparse(x)
             l.w.diff = CudaSparseMatrixCSR(spzeros(eltype(x), size(l.w)...))
         else
             l.w.diff = fill!(similar(l.w.arr),0)
         end
     end
     if dy == nothing || x == nothing
-        fill!(l.w.diff,0)
+        !incr && fill!(l.w.diff,0)
     elseif incr
         !isdefined(l.w,:inc) && (l.w.inc = similar(l.w.diff))
         A_mul_Bt!(l.w.inc, dy, x)
@@ -61,9 +61,13 @@ function back(l::Mmul, dy; dx=nothing, x=l.x, incr=false, returndx=true, o...)
         A_mul_Bt!(l.w.diff, dy, x)
     end
     if returndx
-        issparse(x) && return   # TODO
-        dx == nothing && (dx = similar!(l, :dx, x))
-        At_mul_B!(dx, l.w.arr, dy)    
+        if dy == nothing
+            error()
+        else
+            dx == nothing && (dx = similar!(l, :dx, dy, size(x))) # x can be sparse, dy/dx always dense
+            At_mul_B!(dx, l.w.arr, dy)
+        end
+        return dx
     end
 end
 

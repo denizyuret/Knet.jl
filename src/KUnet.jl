@@ -11,8 +11,9 @@ include("util/gpu.jl");	export gpumem, gpusync, setseed
 @useifgpu CUBLAS
 @useifgpu CUSPARSE
 @useifgpu CUDNN  
-GPU && include("util/cudart.jl");
-GPU && include("util/curand.jl");
+@gpu include("util/cudart.jl");
+@gpu include("util/curand.jl");
+@gpu include("util/cusparse.jl");
 
 # TODO: minimize exports
 
