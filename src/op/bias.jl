@@ -31,7 +31,9 @@ function initforw(l::Bias, x, y; train=true, o...)
 end
 
 function back(l::Bias, dy; dx=dy, incr=false, returndx=true, o...)
+    # display((:back00,incr,vecnorm0(dy),vecnorm0(params(l))))
     initback(l, dy, incr)
+    # display((:back01,incr,vecnorm0(dy),vecnorm0(params(l))))
     if incr
         biasback(l.b.inc, dy)
         axpy!(1, l.b.inc, l.b.diff)
@@ -42,13 +44,14 @@ function back(l::Bias, dy; dx=dy, incr=false, returndx=true, o...)
         issimilar(dx,dy) || error("Gradient mismatch")
         (dx===dy ? dx : copy!(dx,dy))
     end
+    # display((:back02,incr,vecnorm0(dy),vecnorm0(params(l))))
 end
 
 function initback(l::Bias, dy, incr)
     nb = size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1)
     length(l.b) == nb || error("length mismatch")
     eltype(l.b) == eltype(dy) || error("eltype mismatch")
-    similar!(l.b, :diff, l.b.arr)
+    similar!(l.b, :diff, l.b.arr; fill=0)
     incr && similar!(l.b, :inc, l.b.arr)
 end
 
