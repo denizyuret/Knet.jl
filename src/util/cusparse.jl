@@ -14,6 +14,7 @@ Base.stride(g::CudaSparseMatrix,i)=(i==1 ? 1 : i==2 ? g.dims[1] : length(g))
 Base.strides(g::CudaSparseMatrix)=(1,g.dims[1])
 Base.summary(a::CudaSparseMatrix) = string(Base.dims2string(size(a)), " ", typeof(a))
 Base.vecnorm(a::CudaSparseMatrix) = vecnorm(a.nzVal)
+Base.LinAlg.BLAS.nrm2(a::CudaSparseMatrix) = Base.LinAlg.BLAS.nrm2(a.nzVal)
 
 function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
     a.dims = (b.m,b.n)
@@ -24,7 +25,21 @@ function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
     return a
 end
 
+function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T})
+    a.dims = b.dims
+    a.nnz = b.nnz
+    resizecopy!(a.colPtr, convert(Vector{Cint},b.colPtr))
+    resizecopy!(a.rowVal, convert(Vector{Cint},b.rowVal))
+    resizecopy!(a.nzVal, b.nzVal)
+    return a
+end
+
 function resizecopy!{T}(a::CudaVector{T}, b::Vector{T})
+    resize!(a, length(b))       # TODO: is this efficient?
+    copy!(a, b)
+end
+
+function resizecopy!{T}(a::CudaVector{T}, b::CudaVector{T})
     resize!(a, length(b))       # TODO: is this efficient?
     copy!(a, b)
 end
