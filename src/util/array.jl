@@ -7,6 +7,7 @@ function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
         fill != nothing && fill!(l.(n), fill)
     elseif (size(l.(n)) != dims)
         l.(n) = resize!(l.(n), dims)
+        fill != nothing && fill!(l.(n), fill)
     end
     return l.(n)
 end
