@@ -94,7 +94,7 @@ function initforw(r::Net, inputs...; keepstate=false, a...)
         nalloc == 0 && error("Cannot determine size of array")
     end
     # We recover or reset r.out:
-    keepstate ? copy!(r.out, r.out0) : fill!(r.out, nothing)
+    keepstate ? copy!(r.out, r.out0) : fill!(r.out, nothing) # TODO: r.out[i] = arr(r.out0[i]) elsewhere..
     # display((:initforw1,keepstate,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
 end
 
@@ -106,20 +106,20 @@ end
 # - if k1<k2 the stack will be overdrawn
 
 function back(r::Net, dy::Vector; dx=nothing, a...)
-    # display((:backseq0,length(dy),vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    # display((:backseq0,length(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     initback(r,dy[end]; seq=true, a...)
     for i=length(dy):-1:1
         dxi = (dx == nothing ? nothing : dx[i])
         back(r, dy[i]; seq=true, dx=dxi, a...)
     end
-    # display((:backseq1,length(dy),vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    # display((:backseq1,length(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
 
 # back(r::Net,dy) for individual items that may or may not be elements
 # of a sequence.
 
 function back(r::Net, dy; dx=nothing, seq=false, a...)
-    # display((:back0,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    # display((:back0,seq,summary(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     dx == nothing || length(dx) == ninputs(r) || error("Wrong number of inputs")
     seq || initback(r,dy; seq=false, a...)
     N = nops(r)
@@ -160,7 +160,7 @@ function back(r::Net, dy; dx=nothing, seq=false, a...)
         r.push[n] && pop(r,n)                                    ; r.push[n] && dbg(r,:out,n)
         dx == nothing || copy!(dx[i], r.dif[n])
     end
-    # display((:back1,seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
+    # display((:back1,seq,summary(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     return dx
 end
 
@@ -168,7 +168,7 @@ end
 # stand-alone item, never between elements of a sequence.
 
 function initback(r::Net, dy; seq=false, a...)
-    # display((:initback0,summary(r.dif0[7]),summary(dy),seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])));println()
+    # display((:initback0,seq,summary(dy),vecnorm0(params(r))))  # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     fill!(r.dif, nothing)                           # why? (TODO)
     for n=1:length(r.dif0)
         y = (n==nops(r) && dy!=nothing ? dy : r.out0[n])
@@ -185,7 +185,7 @@ function initback(r::Net, dy; seq=false, a...)
             isdefined(w,:diff) && isdefined(w,:inc) && fill!(w.diff,0)
         end
     end
-    # display((:initback1,summary(r.dif0[7]),summary(dy),seq,vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])));println()
+    # display((:initback1,seq,summary(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
 
 
@@ -493,7 +493,14 @@ get1(x)=(length(x)==1?x[1]:x)
 ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
 ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
 idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
-vecnorm0(x)=map(xi->(xi==nothing ? 0 : floor(1e4*vecnorm(xi))/1e4),x)
+
+vecnorm0(x::Vector)=map(vecnorm0,x)
+vecnorm0(x::Tuple)=map(vecnorm0,x)
+vecnorm0(x::KUparam)= ((isdefined(x,:arr) ? vecnorm0(x.arr) : 0),
+                       (isdefined(x,:diff)? vecnorm0(x.diff) : 0))
+vecnorm0(::Void)=0
+vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
+
 # TODO: look into julia nullables to make this nothing=zero matrix thing better
 
 function dbg(r,f,n)
