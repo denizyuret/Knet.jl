@@ -638,3 +638,57 @@ instance	x[d...]		x[t][d...]
 minibatch	x[d...,b]	x[t][d...,b]
 dataset		x[d...,i]	x[i][t][d...]
 dataset2	x[i][d...]
+
+
+New language:
+
+	* src/model/lstm2.jl: compiler args vs constructor args:
+	lstm(10),x1,x2,y
+	lstm(10),y,x1,x2
+	y,lstm(10),x1,x2
+	y=lstm(10)(x1,x2)
+	y=lstm(x1,x2;h=10)
+	Using the last convention with par the only exception.
+
+# convention: subroutine constructors only take keyword args.
+call these options to distinguish from parameters of the network.
+# in machine code regular args are for the compiler, keyword args for constructor.
+# par/rnd is the only exception, it has no regular input so dims can be regular args for readability.
+par(n,0): convention: put 0 where the dimension is to be inferred from input.
+# parameters, constants, and rand: all no-input ops
+should we have par/rnd/con or should it all be options for par, i.e:
+con is par with lr=0
+rnd is par with rnd=f
+how to specify an explicit value: val=array option?
+if they were separate:
+const: only sensible option is externally specified value: const([1]), const(1)
+const will allow us to define things like 1-x, 0.5*x etc. without extra ops, using add, mul with smart broadcasting.
+rnd: needs dimension, distribution and parameters, all except dimension can be keyword args.
+it also needs test=false option.
+subroutine constructors return quoted expressions.
+these need to be compiled at some point maybe:
+@net begin ... end: is a compiler: here is linear regression:
+
+@net begin
+    x = input()
+    w = par(10,0)
+    y = dot(w,x)
+    b = par(0)
+    z = add(b,y)
+    r = qloss(z)	# use xloss/closs for cross-entropy loss?  should we make r optional here?
+end
+
+Do we need soft and softloss separately, can we combine them?  (soft is never used with any other loss and vice-versa)
+We need to be careful and distinguish between ops that expect a gradient back vs ops that expect gold answers back.
+
+Update is the part of the code that should be configurable.
+Implement call-backs?
+
+Where do we keep the matrices for adagrad, momentum etc?
+forw/back don't care, these are for update only...
+inside par, as usual?
+is par going to write to registers out and dif?
+we want to add a tmp register (replacing inc) but that is for transient values.
+
+These are some big changes.  We need a plan, testing every step of the way.
+

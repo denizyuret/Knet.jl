@@ -1,3 +1,16 @@
+2015-09-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: big plan
+	- book: find markdown viewer, code pretty printer, latex code formatter?
+	- rnnlm
+	- new compiler
+	- profiler
+	- debugging
+	- code todo
+
+	* docs/rnn.md (rnd): TODO: Profile and stop useless dx calc and
+	expensive sparse axpy.
+
 2015-09-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	*  (bash): TODO: deprecate KUdense in most places.

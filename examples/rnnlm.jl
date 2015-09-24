@@ -1,75 +1,93 @@
+# Parameters from the Zaremba implementation:
+batch_size=20
+seq_length=20
+layers=2
+decay=2
+rnn_size=200
+dropout=0
+init_weight=0.1
+lr=1
+vocab_size=10000
+max_epoch=4
+max_max_epoch=13
+max_grad_norm=5
+
 import Base: start, next, done
 
-type LMData; data; dict; batchsize; seqlen; epochsize; xbatch; ybatch; end
+type LMData; data; dict; batchsize; seqlength; batch; end
 
-function LMData(fname::String; epoch=0, batch=20, seqlen=20, dict=Dict{Any,Int32}())
+function LMData(fname::String; batch=batch_size, seqlen=seq_length, dict=Dict{Any,Int32}())
     data = Int32[]
     f = open(fname)
     for l in eachline(f)
         for w in split(l)
             push!(data, get!(dict, w, 1+length(dict)))
         end
-        push!(data, get!(dict, "", 1+length(dict)))
+        push!(data, get!(dict, "<eos>", 1+length(dict))) # end-of-sentence
     end
-    # Compute an epoch size that is <= length(data) and an exact multiple of batch*seqlen
-    ep = epoch
-    (ep == 0 || ep > length(data)) && (ep = length(data))
-    ep -= ep % (batch*seqlen)   # TODO: epoch should be number of sequences, or batch should be number of words
-    ep != epoch && warn("Adjusting epoch size to $ep")
-    x = [ speye(Float32, length(dict), batch) for i=1:seqlen ] # TODO: Ti=Int32
-    y = [ speye(Float32, length(dict), batch) for i=1:seqlen ] # TODO: no need to alloc separate x/y, use same arrays
-    LMData(data, dict, batch, seqlen, ep, x, y)
+    x = [ speye(Float64, length(dict), batch) for i=1:seqlen+1 ]
+    info("Read $fname: $(length(data)) words, $(length(dict)) vocab.")
+    LMData(data, dict, batch, seqlen, x)
 end
 
-function next(d::LMData,n)                              # d.data is the whole corpus represented as a sequence of Int32's
+function start(d::LMData)
+    mx = size(d.batch[1], 1)
+    nd = length(d.dict)
+    if nd > mx                  # if dict size increases, adjust batch arrays
+        for x in d.batch; x.m = nd; end
+    elseif nd  < mx
+        error("Dictionary shrinkage")
+    end
+    return 0
+end
+
+function done(d::LMData,nword)
+    # nword is the number of sequences served
+    # stop if there is not enough data for another batch
+    nword + d.batchsize * d.seqlength > length(d.data)
+end
+
+function next(d::LMData,nword)                              # d.data is the whole corpus represented as a sequence of Int32's
     segsize = div(length(d.data), d.batchsize)          # we split it into d.batchsize roughly equal sized segments
-    offset = div(n, d.batchsize)                        # this is how many words have been served so far from each segment
+    offset = div(nword, d.batchsize) # this is how many words have been served so far from each segment
     for b = 1:d.batchsize
-        idata = (b-1)*segsize + offset                  # the start of segment b is at 1+(b-1)*segsize
-        for t = 1:d.seqlen
-            d.ybatch[t].rowval[b] = d.data[idata+t]
-            d.xbatch[t].rowval[b] = (idata+t == 1 ? d.dict[""] : d.data[idata+t-1])
+        idata = (b-1)*segsize + offset                  # start producing words in segment b at x=data[idata], y=data[idata+1]
+        for t = 1:d.seqlength+1
+            d.batch[t].rowval[b] = d.data[idata+t]
         end
     end
-    ((d.xbatch, d.ybatch), n + d.batchsize * d.seqlen)	# each call to next will deliver d.seqlen words from each of the d.batchsize segments
+    xbatch = d.batch[1:d.seqlength]
+    ybatch = d.batch[2:d.seqlength+1]
+    ((xbatch, ybatch), nword + d.seqlength * d.batchsize)	# each call to next will deliver d.seqlength words from each of the d.batchsize segments
 end
 
-start(d::LMData)=(checkbatchsize(d); 0)
-done(d::LMData,n)=(n>=d.epochsize)
 
-function checkbatchsize(d::LMData) # dict length may increase if we are using shared dicts
-    mx = size(d.xbatch[1], 1)
-    nd = length(d.dict)
-    nd == mx && return
-    nd  < mx && error("Dictionary shrinkage")
-    for x in d.xbatch; x.m = nd; end
-    for y in d.ybatch; y.m = nd; end
-end
-
-dir = "simple-examples/data"
+dir = "data"
 trn = LMData("$dir/ptb.train.txt")
 dev = LMData("$dir/ptb.valid.txt"; dict=trn.dict)
 tst = LMData("$dir/ptb.test.txt"; dict=trn.dict)
 
-using KUnet, CUDArt
-using KUnet: params
+vocab_size = length(trn.dict)   #DBG
+@assert length(trn.dict) == vocab_size "$((length(trn.dict), vocab_size))"
 
-nh = 200
-nw = length(dev.dict)
-lr = 1.0
-net = Net(Mmul(nh),LSTM(nh),LSTM(nh),Mmul(nw),Bias(),Soft(),SoftLoss())
-setparam!(net, lr=lr)
+using KUnet
+
+lstms = Any[]
+for i=1:layers; push!(lstms, LSTM(rnn_size; dropout=dropout)); end
+net = Net(Mmul(rnn_size), lstms..., Mmul(vocab_size), Bias(), Soft(), SoftLoss())
+setparam!(net, lr=lr, init=rand!, initp=(-init_weight, init_weight))
 setseed(42)
 
-for ep=1:13
-    ep > 4 && (lr /= 2; setparam!(net, lr=lr))
-    @time (ltrn,w,g) = train(net, trn; gclip=10.0, keepstate=true)
-    ptrn = exp(ltrn/trn.seqlen)
-    @time ldev = test(net, dev)
-    pdev = exp(ldev/dev.seqlen)
-    @show (ep, pdev, ptrn, w, g)
+for ep=1:max_max_epoch
+    ep > max_epoch && (lr /= decay; setparam!(net, lr=lr))
+    @time (ltrn,w,g) = train(net, trn; gclip=max_grad_norm, keepstate=true)
+    ptrn = exp(ltrn/trn.seqlength)
+    @time ldev = test(net, dev; keepstate=true)
+    pdev = exp(ldev/dev.seqlength)
+    @time ltst = test(net, tst; keepstate=true)
+    ptst = exp(ltst/tst.seqlength)
+    @show (ep, ptrn, pdev, ptst, w, g)
 end
-
 
 ### DEAD CODE:
 # The input is a text file with word tokens, single sentence per line.
