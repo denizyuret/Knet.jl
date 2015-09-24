@@ -46,32 +46,28 @@ function checkbatchsize(d::LMData) # dict length may increase if we are using sh
     for y in d.ybatch; y.m = nd; end
 end
 
-batchsize=20
-seqlength=20
-
-# TODO: figure out where to put the data
 dir = "simple-examples/data"
-# TODO: epochsize is in words, batchsize is in segments
-# trn = LMData("$dir/ptb.train.txt")
-# dev = LMData("$dir/ptb.valid.txt"; dict=trn.dict)
-# tst = LMData("$dir/ptb.test.txt"; dict=trn.dict)
+trn = LMData("$dir/ptb.train.txt")
+dev = LMData("$dir/ptb.valid.txt"; dict=trn.dict)
+tst = LMData("$dir/ptb.test.txt"; dict=trn.dict)
 
 using KUnet, CUDArt
 using KUnet: params
 
-dev = LMData("$dir/ptb.valid.txt"; batch=batchsize, seqlen=seqlength)
-nh = 100
+nh = 200
 nw = length(dev.dict)
-net = Net(Mmul(nh),LSTM(nh),Mmul(nw),Bias(),Soft(),SoftLoss())
-setparam!(net, lr=1.0)
+lr = 1.0
+net = Net(Mmul(nh),LSTM(nh),LSTM(nh),Mmul(nw),Bias(),Soft(),SoftLoss())
+setparam!(net, lr=lr)
 setseed(42)
 
-for ep=1:20
-    (l,w,g) = train(net, dev; gclip=10.0, keepstate=true)
-    p1 = exp(l/dev.seqlen)
-    ltst = test(net, dev)
-    p2 = exp(ltst/dev.seqlen)
-    @show (ep, p1, w, g, p2)
+for ep=1:13
+    ep > 4 && (lr /= 2; setparam!(net, lr=lr))
+    @time (ltrn,w,g) = train(net, trn; gclip=10.0, keepstate=true)
+    ptrn = exp(ltrn/trn.seqlen)
+    @time ldev = test(net, dev)
+    pdev = exp(ldev/dev.seqlen)
+    @show (ep, pdev, ptrn, w, g)
 end
 
 
