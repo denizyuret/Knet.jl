@@ -10,6 +10,7 @@ KUparam{T}(::Type{T}, d::Int...; o...)=KUparam(T, d; o...)
 KUparam(d::Int...; o...)=KUparam(Float64, d; o...)
 setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
+# TODO: create an rgen type: makes things serializable
 function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
     (size(p.arr)==d && eltype(p.arr)==T) || (p.arr = similar(p.arr, T, d))
     # we want no init if params given in matrix

@@ -1,12 +1,57 @@
 # This is the adding problem from: Le, Q. V., Jaitly, N., & Hinton,
 # G. E. (2015). A Simple Way to Initialize Recurrent Networks of
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
+# Usage: julia adding.jl [opts], use --help for a full list of opts.
 
 using ArgParse
 using KUnet
 import Base: start, next, done
 
-function parse_commandline(a=ARGS)
+type Adding; len; batchsize; epochsize; rng;
+    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+end
+
+start(a::Adding)=0
+
+done(a::Adding,n)=(n >= a.epochsize)
+
+function next(a::Adding, n)
+    nb = min(a.batchsize, a.epochsize-n)
+    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
+    y = Array(Float32,1,nb)
+    t1 = rand(a.rng,1:a.len,nb)
+    t2 = rand(a.rng,1:a.len,nb)
+    for b=1:nb
+        while t2[b]==t1[b]
+            t2[b]=rand(a.rng,1:a.len)
+        end
+        x[t1[b]][2,b]=1
+        x[t2[b]][2,b]=1
+        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
+    end
+    return ((x,y), n+nb)
+end
+
+function main(args=ARGS)
+    opts = parse_commandline(args)
+    println(opts)
+    opts["seed"] > 0 && setseed(opts["seed"])
+    data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
+    net1 = (opts["type"] == "irnn" ? IRNN(opts["hidden"]; std=opts["std"]) :
+            opts["type"] == "lstm" ? LSTM(opts["hidden"]; fbias=opts["fbias"]) : 
+            error("Unknown network type "*opts["type"]))
+    net2 = Net(Mmul(1; init=randn!, initp=(0,opts["std"])), Bias(), QuadLoss())
+    net = S2C(net1, net2)
+    setparam!(net; lr=opts["lrate"])
+    @time for epoch=1:opts["epochs"]
+        (l,maxw,maxg) = train(net, data; gclip=opts["gclip"], gcheck=opts["gcheck"])
+        mse = 2*l
+        println(tuple(epoch*data.epochsize,mse,maxw,maxg))
+        flush(STDOUT)
+    end
+end
+
+function parse_commandline(args)
     s = ArgParseSettings()
     @add_arg_table s begin
         "--epochs"
@@ -57,61 +102,10 @@ function parse_commandline(a=ARGS)
         arg_type = Int
         default = 1003
     end
-    parse_args(a,s)
+    parse_args(args,s)
 end
 
-type Adding; len; batchsize; epochsize; rng;
-    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
-end
-
-start(a::Adding)=0
-
-done(a::Adding,n)=(n >= a.epochsize)
-
-function next(a::Adding, n)
-    nb = min(a.batchsize, a.epochsize-n)
-    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
-    y = Array(Float32,1,nb)
-    t1 = rand(a.rng,1:a.len,nb)
-    t2 = rand(a.rng,1:a.len,nb)
-    for b=1:nb
-        while t2[b]==t1[b]
-            t2[b]=rand(a.rng,1:a.len)
-        end
-        x[t1[b]][2,b]=1
-        x[t2[b]][2,b]=1
-        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
-    end
-    return ((x,y), n+nb)
-end
-
-args = parse_commandline(isdefined(:myargs) && (myargs != nothing) ? split(myargs) : ARGS)
-# args = parse_commandline()
-# args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lrate 0.05 --gc 0 --epochs 20 --seed 1003"))
-# args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lrate 0.01 --gc 1.0 --epochs 100"))
-println(args)
-args["seed"] > 0 && setseed(args["seed"])
-
-data = Adding(args["length"], args["batchsize"], args["epochsize"])
-
-nx = 2
-ny = 1
-nh = args["hidden"]
-net1 = (args["type"] == "irnn" ? IRNN(nh; std=args["std"]) :
-        args["type"] == "lstm" ? LSTM(nh; fbias=args["fbias"]) : 
-        error("Unknown network type "*args["type"]))
-net2 = Net(Mmul(ny; init=randn!, initp=(0,args["std"])), Bias(), QuadLoss())
-net = S2C(net1, net2)
-setparam!(net; lr=args["lrate"])
-
-@time for epoch=1:args["epochs"]
-    (l,maxw,maxg) = train(net, data; gclip=args["gclip"], gcheck=args["gcheck"])
-    mse = 2*l
-    println(tuple(epoch*data.epochsize,mse,maxw,maxg))
-    flush(STDOUT)
-end
-
-:ok
+main()
 
 ### DEAD CODE:
 
@@ -354,3 +348,6 @@ end
 # The following settings solve 10x5 in 12000 iterations:
 # "hidden"=>5,"lr"=>0.7,"batchsize"=>16,"length"=>10,"gclip"=>1.0,"fb"=>100.0,"gcheck"=>10,"epochs"=>10,"seed"=>1003,"epochsize"=>2000,"type"=>"lstm")
 
+    # args = parse_commandline()
+    # args = parse_commandline(split("--epochsize 2000 --length 10 --hidden 5 --lrate 0.05 --gc 0 --epochs 20 --seed 1003"))
+    # args = parse_commandline(split("--epochsize 10000 --test 2000 --length 100 --hidden 100 --lrate 0.01 --gc 1.0 --epochs 100"))
