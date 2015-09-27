@@ -9,6 +9,7 @@ immutable Net <: Model
     tosave::Vector{Bool} 
     toincr::Vector{Bool}
     toback::Vector{Bool}
+    tozero::Vector{Bool}
     out::Vector
     out0::Vector
     dif::Vector
@@ -30,6 +31,7 @@ function Net(a::Expr)
         tosave(op, inputs),
         toincr(op, inputs),
         toback(op, inputs),
+        tozero(op, inputs),
         cell(N), cell(N), cell(N), cell(N), cell(N),
         Any[], 0)
 end
@@ -199,3 +201,20 @@ function toback(op, inputs)
     return toback
 end
 
+"""
+tozero(op, inputs) returns a boolean vector which is true if out0[n] should be
+zeroed out before the forw calculation.  This is only necessary if it is read
+before it is written.
+"""
+function tozero(op, inputs)
+    N = length(op)
+    tozero = falses(N)
+    for n=1:N
+        for i in inputs[n]
+            if i > n
+                tozero[i] = true
+            end
+        end
+    end
+    return tozero
+end
