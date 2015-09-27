@@ -23,8 +23,8 @@ end
 
 rand!(a::CudaArray{Float32})=(@assert 0==ccall((:curandGenerateUniform,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
 rand!(a::CudaArray{Float64})=(@assert 0==ccall((:curandGenerateUniformDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
-rand!(a::Union(CudaArray{Uint32},CudaArray{Int32}))=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,length(a)); a)
-rand!(a::Union(CudaArray{Uint64},CudaArray{Int64}))=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,2*length(a)); a)
+rand!(a::Union{CudaArray{UInt32},CudaArray{Int32}})=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,length(a)); a)
+rand!(a::Union{CudaArray{UInt64},CudaArray{Int64}})=(@assert 0==ccall((:curandGenerate,libcurand),Cint,(Ptr{Void},Ptr{Cuint},Csize_t),rng(),a,2*length(a)); a)
 
 # These are a pain, curand insists that array length should be even!
 function randn!(a::CudaArray{Float32},mean=0f0,stddev=1f0)
@@ -47,6 +47,6 @@ function randn!(a::CudaArray{Float64},mean=0e0,stddev=1e0)
     return a
 end
 
-randn!{T}(a::Array{T}, mean=zero(T), std=one(T))=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
-rand!(a::BaseArray, x0, x1)=(rand!(a); axpb!(x1-x0, x0, a); a)
+# randn!{T}(a::Array{T}, mean=zero(T), std=one(T))=(for i=1:length(a); a[i] = mean + std * randn(); end; a)
+# rand!(a::BaseArray, x0, x1)=(rand!(a); axpb!(x1-x0, x0, a); a)
 

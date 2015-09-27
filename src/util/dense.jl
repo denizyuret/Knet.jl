@@ -58,8 +58,8 @@ end
 ### BASIC COPY
 
 copy!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T})=(resize!(a, size(b)); copy!(a.arr, 1, b.arr, 1, length(b)); a)
-copy!{A,T}(a::KUdense{A,T}, b::Union(Array{T},CudaArray{T}))=(resize!(a, size(b)); copy!(a.arr, 1, b, 1, length(b)); a)
-copy!{A,T}(a::Union(Array{T},CudaArray{T}), b::KUdense{A,T})=(size(a)==size(b)||error(); copy!(a, 1, b.arr, 1, length(b)); a)
+copy!{A,T}(a::KUdense{A,T}, b::Union{Array{T},CudaArray{T}})=(resize!(a, size(b)); copy!(a.arr, 1, b, 1, length(b)); a)
+copy!{A,T}(a::Union{Array{T},CudaArray{T}}, b::KUdense{A,T})=(size(a)==size(b)||error(); copy!(a, 1, b.arr, 1, length(b)); a)
 copy!{A,B,T}(a::KUdense{A,T}, ai::Integer, b::KUdense{B,T}, bi::Integer, n::Integer)=(copy!(a.arr, ai, b.arr, bi, n); a)
 copy{A,T,N}(a::KUdense{A,T,N})=copy!(similar(a), a)
 

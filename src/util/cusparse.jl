@@ -2,6 +2,7 @@
 
 using CUDArt
 using CUSPARSE
+using CUSPARSE: CudaSparseMatrix
 
 Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
 Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host(a))
@@ -12,7 +13,7 @@ Base.nnz(x::CudaSparseMatrix)=x.nnz
 Base.scale!(c,a::CudaSparseMatrix) = (scale!(c,a.nzVal); a)
 Base.stride(g::CudaSparseMatrix,i)=(i==1 ? 1 : i==2 ? g.dims[1] : length(g))
 Base.strides(g::CudaSparseMatrix)=(1,g.dims[1])
-Base.summary(a::CudaSparseMatrix) = string(Base.dims2string(size(a)), " ", typeof(a))
+# Base.summary(a::CudaSparseMatrix) = string(Base.dims2string(size(a)), " ", typeof(a))
 Base.vecnorm(a::CudaSparseMatrix) = vecnorm(a.nzVal)
 Base.LinAlg.BLAS.nrm2(a::CudaSparseMatrix) = Base.LinAlg.BLAS.nrm2(a.nzVal)
 

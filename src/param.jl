@@ -2,13 +2,13 @@ import Base: isequal, convert
 
 type KUparam{A,T,N}; arr; diff; init; initp; lr; gc; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; inc; KUparam()=new(); end
 
-KUparam(w; o...)=init(setparam!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=w, o...))
+KUparam(w; o...)=init(setopt!(KUparam{atype(w),eltype(w),ndims(w)}(); arr=w, o...))
 KUparam{A,T}(::Type{A}, ::Type{T}, d::Dims; o...)=KUparam(A(T,d); o...)
 KUparam{A,T}(::Type{A}, ::Type{T}, d1::Int, d::Int...; o...)=KUparam(A,T,tuple(d1,d...); o...)
 KUparam{T}(::Type{T}, d::Dims; o...)=KUparam((gpu()?CudaArray:Array),T,d; o...)
 KUparam{T}(::Type{T}, d::Int...; o...)=KUparam(T, d; o...)
 KUparam(d::Int...; o...)=KUparam(Float64, d; o...)
-setparam!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
+setopt!(p::KUparam; o...)=(for (n,v) in o; p.(n)=v; end; p)
 
 # TODO: create an rgen type: makes things serializable
 function init(p::KUparam, T::DataType=eltype(p), d::Dims=size(p.arr))
@@ -52,7 +52,7 @@ difnorm(a::KUparam)=(isdefined(a,:diff) ? vecnorm(a.diff) : 0)
 
 # DEPRECATED:
 # update!(::Nothing;o...)=nothing
-# setparam!(::Nothing;o...)=nothing
+# setopt!(::Nothing;o...)=nothing
 # initdiff(w::KUparam; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
@@ -82,6 +82,6 @@ end
 convert{A<:BaseArray}(::Type{A}, a::KUparam)=convert(A, a.arr)
 convert{A<:BaseArray}(::Type{KUparam}, a::A)=KUparam(a)
 
-# TODO: both weights and training parameters are called param; setparam! vs params is confusing
+# TODO: both weights and training parameters are called param; setopt! vs params is confusing
 # Probably should rename this back to Param after moving others to DynamicArray.
 # How does caffe deal with this problem?

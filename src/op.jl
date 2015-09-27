@@ -1,21 +1,22 @@
-# Each Op implements some common methods, stubs are given below.
-# forw takes input x and returns output y, possibly setting some state.
-# back takes dy, the loss gradient wrt y, calculates loss gradient wrt
-# parameters and optionally returns dx, the loss gradient wrt x.
-# Some layers overwrite their inputs.
+# Each op must provide the following:
+# back_reads_y (tosave)
+# back_reads_x (tosave)
+# ninputs (netcomp1)
+# infersize (used by netinit)
+# overwrites (not used any more?)
 
 abstract Op <: Model
 
-forw(l::Op, x...; o...) = error("$(typeof(l)) has not implemented forw")
-back(l::Op, dy; o...)   = error("$(typeof(l)) has not implemented back")
-loss(l::Op, dy; o...)   = error("$(typeof(l)) has not implemented loss")
-params(l::Op)           = error("$(typeof(l)) has not implemented params")
+forw(l::Op, y, x...; o...) = error("$(typeof(l)) has not implemented forw")
+back(l::Op, dy, dx...; o...)   = error("$(typeof(l)) has not implemented back")
+loss(l::Op, dy, y; o...)   = error("$(typeof(l)) has not implemented loss")
 
 ninputs(l::Op)          = error("$(typeof(l)) has not implemented ninputs")
 ysize(l::Op, x...)      = error("$(typeof(l)) has not implemented ysize")
 overwrites(l::Op)       = error("$(typeof(l)) has not implemented overwrites")
 back_reads_x(l::Op)     = error("$(typeof(l)) has not implemented back_reads_x")
 back_reads_y(l::Op)     = error("$(typeof(l)) has not implemented back_reads_y")
+# Base.eltype(::Op) = nothing
 
 function Base.isequal(a::Op,b::Op)
     typeof(a)==typeof(b) || return false
@@ -28,3 +29,11 @@ function Base.isequal(a::Op,b::Op)
     end
     return true
 end
+
+### DEAD CODE
+# Each Op implements some common methods, stubs are given below.
+# forw takes input x and returns output y, possibly setting some state.
+# back takes dy, the loss gradient wrt y, calculates loss gradient wrt
+# parameters and optionally returns dx, the loss gradient wrt x.
+# Some layers overwrite their inputs.
+

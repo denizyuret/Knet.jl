@@ -23,27 +23,30 @@ include("util/dense.jl");	export KUdense
 include("util/linalg.jl");
 include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
 
-include("param.jl");		export KUparam, setparam! # TODO: move this up to src
+include("param.jl");		export KUparam, setopt! # TODO: move this up to src
 include("update.jl");		export update!
 include("data.jl");		export Data, ItemTensor
 include("model.jl");		export Model, train, test, accuracy # TODO: add predict, load, save
 include("op.jl");		export Op  # , forw, back, loss, params, ninputs, ysize, overwrites, back_reads_x, back_reads_y
-include("net.jl");		export Net # , init, nops, op  # TODO: do we still need nops and op after params?
-include("mlp.jl");		export MLP, predict # , accuracy, loadnet, savenet
 
-include("op/mmul.jl");     	export Mmul
-include("op/bias.jl");		export Bias
-include("op/conv.jl");		export Conv
-include("op/pool.jl");		export Pool
-include("op/drop.jl");		export Drop
-include("op/add2.jl");		export Add2
-include("op/mul2.jl");		export Mul2
-include("op/actf.jl");		export ActfLayer, Logp, Relu, Sigm, Soft, Tanh # TODO: rename -> Actf
-include("op/loss.jl");		export LossLayer, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss # TODO: rename -> Loss
+# include("op/mmul.jl");     	export Mmul
+# include("op/bias.jl");		export Bias
+# include("op/conv.jl");		export Conv
+# include("op/pool.jl");		export Pool
+# include("op/drop.jl");		export Drop
+# include("op/add2.jl");		export Add2
+# include("op/mul2.jl");		export Mul2
+# include("op/actf.jl");		export Actf, Logp, Relu, Sigm, Soft, Tanh # TODO: rename -> Actf
+# include("op/loss.jl");		export Loss, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss # TODO: rename -> Loss
 
-include("model/irnn.jl");	export IRNN
-include("model/lstm.jl");	export LSTM
-include("model/s2c.jl");	export S2C
+# include("netcomp.jl");		export Net
+# include("compiler.jl")
+# include("net.jl");		export Net # , init, nops, op  # TODO: do we still need nops and op after params?
+# include("mlp.jl");		export MLP, predict # , accuracy, loadnet, savenet
+
+# include("model/irnn.jl");	export IRNN
+# include("model/lstm.jl");	export LSTM
+# include("model/s2c.jl");	export S2C
 # include("model/kperceptron.jl"); export KPerceptron # TODO: get KUsparse fixed
 
 # include("data/adding.jl");	export Adding

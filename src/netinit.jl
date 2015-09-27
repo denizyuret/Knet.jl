@@ -98,7 +98,7 @@ end
 # net already initialized, just check the sizes
 function initforw1(r::Net, inputs...)
     N = length(r.op)
-    lastinput = 1
+    lastinput = 0
     for n=1:N
         isa(r.op[n], Input) || continue
         i = inputs[lastinput += 1]

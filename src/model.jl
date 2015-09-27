@@ -11,11 +11,11 @@ Using these low level methods, Model defines the following:
 * `test(model, data)`
 * `predict(model, data)`
 * `accuracy(model, data)`
-* `setparam!(model; param...)`
+* `setopt!(model; param...)`
 """
 abstract Model
 
-setparam!(m::Model; o...)=(for p in params(m); setparam!(p; o...); end)
+setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)
 wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)

@@ -1,3 +1,49 @@
+2015-09-26  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/netcomp.jl: TODO: convert all asserts to meaningful error messages.
+
+	* src/netforw.jl:
+	# TODO
+	# - performance: figure out when no back needed, no returndx needed
+	# - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
+	# - performance: do better register optimization
+	# - if an op is using an external array, it should not store it.
+	# - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
+	# - rename train->trn for ops
+	# - rename compiler->net, net->netfunc?
+	# TODO: change calling convention to forw(y,x...)
+	# TODO: figure out par resizing.
+
+
+2015-09-25  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/net.jl: netforw.jl, netback.jl, netinit.jl/netcomp.jl/net.jl?
+	(psize): work on size/type inference for both initforw and the compiler.
+
+	* nothing: TODO: nothings are a pain.  we use them to prevent
+	unnecessary allocation and copying of zero arrays.  there has to
+	be a better way.  maybe constrain them only inside net and don't
+	have ops deal with them?
+
+	* src/op/par.jl: OK, this is too much too fast, things will be
+	broken for too long.  Better to transition gradually.  Use
+	existing calling conventions, existing ops.  First make things up
+	and running with the new compiler, then think of consolidating the
+	code.
+
+
+	* examples/zaremba14.jl: TODO: did not get good results on the
+	large experiment, debug.
+
+2015-09-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/zaremba14.jl: @@hpc
+	13311883.hpc-pbs.hpcc.  dy_052      isi      rnnlm1            52076     1      1    --   24:00:00 R  00:09:11   hpc3004/0
+	13311993.hpc-pbs.hpcc.  dy_052      isi      zaremba1              0     1      1    --   24:00:00 R  00:05:53   hpc3005/0
+	13311994.hpc-pbs.hpcc.  dy_052      isi      zaremba2              0     1      1    --   48:00:00 R  00:05:53   hpc3007/0
+	13312198.hpc-pbs.hpcc.  dy_052      isi      rnnlm2              --      1      1    --   48:00:00 Q       --     -- 
+
+
 2015-09-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO: big plan

@@ -692,3 +692,157 @@ we want to add a tmp register (replacing inc) but that is for transient values.
 
 These are some big changes.  We need a plan, testing every step of the way.
 
+### forw/back interface:
+currently we have forw(l,x...;y=y)
+we want to make y mandatory, get rid of on internal memory.
+we can't have forw(l,x...,y)
+option 1: forw(l,y,x...)
+          back(l,dy,dx...)
+if we are going to support a variable number of inputs, this seems to be the only way.
+some dx may be nothing in which case they do not need computing.
+back may need x/y or neither, these can be options?
+option 2: forw(l,x,y) where x is a tuple, NO
+option 3: forw(l,x1,x2,y) for two inputs, forw(l,x,y) for one, forw(l,y) for zero.
+who initializes the weight matrices?  forw(par,y) does not know the size.
+the user ops have to: forw(dot,x1,x2) during runtime.
+but dot does not know which one if any is coming from par.
+dot should also assume pre-initialized, and net should initialize before calling forw.
+
+do we ever allow forw without y?  NO.
+keyword args for back: x is a tuple?  when necessary.
+
+option 2: forw(l,xy...) where the last of xy is picked up as the output.
+          back(l,dy,dx...) 
+
+does forw/back return anything?
+what if they need to set their output to nothing?
+not possible with this setup.  they can fill output with zeros.
+
+what is the cudnn calling convention?
+alpha,src,beta,dest
+bias,src
+src,dest
+usually destination at the end.
+that is also the convention in blas.
+axpy(alpha,x,y)
+opposite of julia
+A_mul_B!(C,A,B)
+we'll just go with option 1.
+
+
+## Size Inference:
+
+par starts life as an (n,0) array.  initforw should have enough
+information to figure out what should replace 0.  we should not leave
+size inference and par init to ops, take care of it in the net.  this
+is similar to broadcasting inference.  inferrer needs to know the op
+that will use the par and the other inputs to that op.  similar size
+inference can help compiler reuse registers more effectively.
+
+## rethinking initout:
+
+we still want to overwrite input where we can but we also want to
+reuse earlier arrays if possible.  initout is also responsible for
+initializing the par arrays.  par arrays can come in as
+(1) size with zeros
+(2) complete size
+(3) actual array
+par types store their own arr, diff, or do we use ones stored in the
+net?  if both, then the net ones should be pointers.  but probably no
+need.  
+
+ok, just use net.out and net.dif for par as well.  during comp just
+store the dims, do not alloc.  accept actual array as well as rand
+generator for init option (or have separate option).  during init we
+alloc the actual array for par.  dif has to be sparse if input is
+sparse.  actual dims depend on the operation for zero sizes.  eltype
+is fixed throughout once given by the input.  if conflict with actual
+par init array the input eltype wins.
+
+infer eltype: easy, inputs win, single eltype throughout.
+infer size: can do depending on op.
+infer sparsity: also depends on input type and op.
+infer sharing: can do after sizes are inferred.
+
+do we do out/dif/tmp together?
+
+can we have empty inputs and still init?
+possibly, if pars are specified.
+
+rnd does not come with an eltype, but par and con might.
+
+sharing pattern is not the same for forw vs back?
+
+initialization with arrays of par and con.
+
+par(10,0) vs par(w) or par(init=w)
+we have par(10,0; init=Gaussian(0,0.01))
+
+call it p.out?  p.arr?  => p.arr or maybe p.init
+
+par(x::Integer...; o...)=par(; dims=x, o...)
+par(w::AbstractArray; o...)=par(; init=w, o...) vs par(; arr=w, o...)
+all can set fields of par.
+distinguish rand from init?  no.  init(par) can take care of both.
+
+normal init should write to p.dims.
+
+### size inference:
+inputs are determined
+par sizes are partly determined (with some zeros)
+dot should be able to infer from x1=(n,0), x2=(a,b)
+overwriters should copy their input sizes if fully determined
+add/mul have to take into account broadcasting
+who calls par.init?
+
+
+dot,mul,add can do size inference with incomplete input sizes
+dot => obvious
+mul => scale vs elementwise
+add => scale vs bias vs elementwise
+let incomplete sizes be written to dims, then fixed.
+
+in general do not change the ops when inferring size/type etc.
+just create the registers with the correct size/type.
+
+ISSUE:
+who calls netinit?  is x enough?  cannot tell if y is sparse.
+cannot complete infersparse for dif.
+separate initforw and initback?
+
+
+### calling convention
+forw(op, y, x...): 
+- should we keep y optional?  
+- overwriting ops?
+- calling convention for net?
+back(op, dy, dx...)
+- what if we want dx to point to dy?
+- instead of copying?
+loss(op, y, dy) or loss(op, dy, y)?
+
+forw copying when no change?
+back copying when no need?
+
+change to forw(op, x..., y)
+we can make y optional if we want to.
+
+
+### sharing inference:
+single tmp per size sufficient (necessary?)
+forw_uses_tmp, back_uses_tmp?
+each out0 has a read and write time.
+first see if an input can be overwritten
+next see if there is an array in garbage?
+we know what each op reads and writes
+we know what will be saved for back
+overwrite the last read of possible
+keep a stack of reads
+every time something needs to be written go over the reads backwards
+check whether each is available
+size has to be write
+not saved
+not ever read again: until when?
+not multi?
+alloc if nothing available.
+careful about read-before-write

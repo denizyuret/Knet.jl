@@ -50,7 +50,7 @@ function forwlossback(net, x, z)
         @assert isa(x, KUdense)
         push!(xx, x)
     end
-    ll = (isa(net[n], LossLayer) ? loss(net[n],z) : 0)
+    ll = (isa(net[n], Loss) ? loss(net[n],z) : 0)
     zz = Any[]
     for i=n:-1:1
         z = back(net[i], copy(z))
@@ -177,7 +177,7 @@ function getnet{T<:Op}(F,S,L::Type{T})
     net = Op[]; push!(net, l)
     return (isa(l, Logp) ? push!(net, LogpLoss()) :
             isa(l, Soft) ? push!(net, SoftLoss()) :
-            !isa(l, LossLayer) ? push!(net, QuadLoss()) : net)
+            !isa(l, Loss) ? push!(net, QuadLoss()) : net)
 end
 
 function getx(F,S,L)

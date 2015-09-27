@@ -31,7 +31,7 @@ end
 # Generalizing low level copy using linear indexing to/from gpu
 # arrays:
 
-typealias BaseArray{T,N} Union(Array{T,N},SubArray{T,N},CudaArray{T,N})
+typealias BaseArray{T,N} Union{Array{T,N},SubArray{T,N},CudaArray{T,N}}
 
 function copy!{T<:Real}(dst::BaseArray{T}, di::Integer, 
                         src::BaseArray{T}, si::Integer, 
@@ -105,7 +105,7 @@ function _getbytes(x,d)
             isdefined(x, fieldName) || continue
             f = x.(fieldName)
             fieldBytes = _getbytes(f,d)
-            fieldSize = (isa(f, Union(AbstractArray,CudaArray)) ? (eltype(f),size(f)) : ())
+            fieldSize = (isa(f, Union{AbstractArray,CudaArray}) ? (eltype(f),size(f)) : ())
             # @show (typeof(x), fieldName, fieldSize, fieldBytes)
             total += fieldBytes
         end

@@ -1,47 +1,44 @@
 # TODO: ALL THESE NEED TESTING
 
 # Loss Layers
-# TODO: rename LossLayer -> Loss
+# TODO: get rid of l.y in documentation
 
-abstract LossLayer <: Op
+abstract Loss <: Op
 
-params(::LossLayer)=Any[]
-ninputs(::LossLayer)=1
-ysize(::LossLayer,x)=size(x)
-overwrites(::LossLayer)=true
-back_reads_x(::LossLayer)=false
-back_reads_y(::LossLayer)=true
+ninputs(::Loss)=1
+infersize(::Loss,dims)=(dims==nothing ? nothing : (dims,dims))
+back_reads_x(::Loss)=false
+back_reads_y(::Loss)=true
 
-# LossLayer has slightly different input/output behavior compared to regular layers:
+# Loss has slightly different input/output behavior compared to regular layers:
 # forw only records the outgoing y.
 # back takes dy, the desired output, and returns the loss gradient wrt y
 # loss takes dy, the desired output, and returns a loss value
 
-for (ltype, lback, lloss) in (
-                              (:QuadLoss, :quadlossback, :quadloss),
-                              (:SoftLoss, :softlossback, :softloss),
-                              (:LogpLoss, :logplossback, :logploss),
-                              (:XentLoss, :xentlossback, :xentloss),
-                              (:PercLoss, :perclossback, :percloss),
-                              (:ScalLoss, :scallossback, :scalloss),
-                              )
+for (ltype, lback, lloss, lname) in 
+    ((:QuadLoss, :quadlossback, :quadloss, :qloss),
+     (:SoftLoss, :softlossback, :softloss, :sloss),
+     (:LogpLoss, :logplossback, :logploss, :lloss),
+     (:XentLoss, :xentlossback, :xentloss, :xloss),
+     (:PercLoss, :perclossback, :percloss, :ploss),
+     (:ScalLoss, :scallossback, :scalloss, :closs))
     @eval begin
-        type $ltype <: LossLayer; y; $ltype()=new(); end
+        type $ltype <: Loss; end
 
-        function forw(l::$ltype, x; y=x, o...) # TODO: is the y option necessary?
+        $lname() = $ltype()
+
+        function forw(l::$ltype, x, y; o...)
             issimilar(x,y) || error(map(summary,(x,y)))
-            l.y = (y===x ? y : copy!(y,x)) # TODO: is this copy necessary?
+            (y===x ? y : copy!(y,x)) # TODO: is this copy necessary?
         end
 
-        function back(l::$ltype, dy; dx=dy, y=l.y, returndx=true, o...) # TODO: get rid of l.y for memoryless?
-            issimilar(dx,y) || error(map(summary,(dx,y))) # TODO: calling interface: always require x/y?
+        function back(l::$ltype, dy, dx; y=nothing, o...)
+            issimilar(dx,y) || error(map(summary,(dx,y)))
             size(y)==size(dy) || error(map(summary,(dy,y)))
-            if returndx
-                $lback(y,dy,dx; o...)
-            end
+            dx != nothing && $lback(y,dy,dx; o...)
         end
 
-        function loss(l::$ltype, dy; y=l.y, o...)
+        function loss(l::$ltype, y, dy; o...)
             size(y)==size(dy) || error(map(summary,(y,dy)))
             $lloss(y,dy; o...)
         end
@@ -357,7 +354,7 @@ scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
 
 ### DEAD CODE:
 
-        # TODO: can we take these out and make them apply to LossLayer?
+        # TODO: can we take these out and make them apply to Loss?
         # $lloss(y::KUdense{Array}, dy::KUdense{Array}; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
         # $lloss(y::KUdense{Array}, dy::Array; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
         # $lloss(y::KUdense{Array}, dy::KUdense{Array}; o...)=$lloss(convert(Array,y), convert(Array,dy); o...)
@@ -373,3 +370,6 @@ scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
 
         # $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr); dx)
         # $lloss(y,dy)=$lloss(convert(Array,y), convert(Array,dy))  # TODO: handle sparse arrays, implement gpu
+
+# params(::Loss)=Any[]
+# overwrites(::Loss)=true
