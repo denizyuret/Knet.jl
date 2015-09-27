@@ -15,38 +15,33 @@ function initforw0(r::Net, inputs...)
     atype = gpu() ? CudaArray : Array
     xtype = infertype(r, inputs...)
     sizes = infersize(r, inputs...)
-    stack = Any[]
     for n=1:length(r.op)
-        allocout0(r, n, atype, xtype, sizes, stack)
+        r.out0[n] = allocout0(r, n, atype, xtype, sizes)
     end
     # TODO: figure out sharing and tmp and sparse
 end
 
-function allocout0(r::Net, n, atype, xtype, sizes, stack)
-    append!(stack, r.inputs[n])
-    if r.tosave[n]
-        r.out0[n] = atype(xtype, sizes[n])              # saved regs should not overwrite or be overwritten
-        return
-    end
-    N = length(r.op)
-    checked = falses(N)
-    free = 0
-    for sp=length(stack):-1:1                           # check candidates last read first
-        i = stack[sp]                                   # considering overwriting i with n
-        checked[i] ? continue : checked[i]=true
-        isassigned(r.out0, i) || continue
+function allocout0(r::Net, n, atype, xtype, sizes)
+    r.tosave[n] && return atype(xtype, sizes[n])        # saved regs and pars should not overwrite or be overwritten
+    isa(r.op[n], Par) && return atype(xtype, sizes[n])  # TODO: how about rnd and con?
+    free = nothing
+    for i = n-1:-1:1                                    # considering overwriting i with n
         r.tosave[i] && continue
+        isa(r.op[i], Par) && continue
         size(r.out0[i]) == sizes[n] || continue
         willberead = false                              # is anybody going to read i before it is written again?
         k = n
         while true
-            k = mod1(k+1, N)
-            in(i, r.inputs[k]) && (willberead=true; break)
-            k == i && break
+            k = mod1(k+1, length(r.op))
+            for j in r.inputs[k]
+                isassigned(r.out0, j) && r.out0[j] === r.out0[i] && (willberead = true; break)
+            end
+            willberead && break
+            isassigned(r.out0,k) && r.out0[k] === r.out0[i] && break
         end
-        willberead || (free = i; break)
+        !willberead && (free = r.out0[i]; break)
     end
-    r.out0[n] = (free > 0 ? r.out0[free] : atype(xtype, sizes[n]))
+    return (free != nothing ? free : atype(xtype, sizes[n]))
 end
 
 function infersize(r::Net, inputs...)
