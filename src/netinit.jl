@@ -12,23 +12,36 @@ end
 
 # first init: infer and alloc
 function initforw0(r::Net, inputs...)
-    atype = gpu() ? CudaArray : Array
     xtype = infertype(r, inputs...)
     sizes = infersize(r, inputs...)
+    lastinput = 0
     for n=1:length(r.op)
-        r.out0[n] = allocout0(r, n, atype, xtype, sizes)
+        nsparse = isa(r.op[n], Input) && issparse(inputs[lastinput += 1])
+        r.out0[n] = findfree(r, n, sizes, nsparse)
+        if r.out0[n] == nothing
+            r.out0[n] = newarray(gpu(), nsparse, xtype, sizes[n])
+            atype = gpu() ? CudaArray : Array
+        end
     end
-    # TODO: figure out sharing and tmp and sparse
+    # TODO: figure out tmp
 end
 
-function allocout0(r::Net, n, atype, xtype, sizes)
-    r.tosave[n] && return atype(xtype, sizes[n])        # saved regs and pars should not overwrite or be overwritten
-    isa(r.op[n], Par) && return atype(xtype, sizes[n])  # TODO: how about rnd and con?
-    free = nothing
+function newarray(ongpu, nsparse, xtype, dims)
+    ongpu && nsparse   ? CudaSparseMatrixCSC(spzeros(xtype, dims...)) :
+    ongpu && !nsparse  ? CudaArray(xtype, dims) :
+    !ongpu && nsparse  ? spzeros(xtype, dims...) :
+    !ongpu && !nsparse ? Array(xtype, dims) : error()
+end
+
+function findfree(r::Net, n, sizes, nsparse)
+    r.tosave[n] && return        # saved regs and pars should not overwrite or be overwritten
+    isa(r.op[n], Par) && return  # TODO: how about rnd and con?
+    free = nothing               # search most recent written first
     for i = n-1:-1:1                                    # considering overwriting i with n
         r.tosave[i] && continue
         isa(r.op[i], Par) && continue
         size(r.out0[i]) == sizes[n] || continue
+        issparse(r.out0[i]) == nsparse || continue
         willberead = false                              # is anybody going to read i before it is written again?
         k = n
         while true
@@ -41,7 +54,7 @@ function allocout0(r::Net, n, atype, xtype, sizes)
         end
         !willberead && (free = r.out0[i]; break)
     end
-    return (free != nothing ? free : atype(xtype, sizes[n]))
+    return free
 end
 
 function infersize(r::Net, inputs...)
@@ -92,6 +105,7 @@ function initforw1(r::Net, inputs...)
         o = r.out[n]
         @assert eltype(i) == eltype(o)
         @assert size(i) == size(o)
+        @assert issparse(i) == issparse(o)
     end
     # TODO: implement batch size changes
 end
