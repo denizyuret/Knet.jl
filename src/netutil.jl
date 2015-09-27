@@ -81,8 +81,8 @@ idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array
 
 vecnorm0(x::Vector)=map(vecnorm0,x)
 vecnorm0(x::Tuple)=map(vecnorm0,x)
-vecnorm0(x::KUparam)= ((isdefined(x,:arr) ? vecnorm0(x.arr) : 0),
-                       (isdefined(x,:diff)? vecnorm0(x.diff) : 0))
+# vecnorm0(x::KUparam)= ((isdefined(x,:arr) ? vecnorm0(x.arr) : 0),
+#                        (isdefined(x,:diff)? vecnorm0(x.diff) : 0))
 vecnorm0(::Void)=0
 vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
 

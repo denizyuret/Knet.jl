@@ -1,4 +1,5 @@
 # TODO: deprecate KUsparse -> CudaSparseMatrixCSC
+# TODO: reimplement kperceptron in new net language
 
 # (c) Deniz Yuret, June 19, 2015
 # This is a standalone (single layer) implementation of the averaged

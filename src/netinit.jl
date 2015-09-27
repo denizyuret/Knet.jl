@@ -6,7 +6,7 @@ function initforw(r::Net, inputs...; keepstate=false, o...)
     isassigned(r.out0, 1) ? 
     initforw1(r, inputs...) :
     initforw0(r, inputs...)
-    keepstate || initforw2(r)
+    keepstate || zeroout(r)
     copy!(r.out, r.out0)
 end
 
@@ -111,7 +111,7 @@ function initforw1(r::Net, inputs...)
 end
 
 # zero out arrays that are read before written
-function initforw2(r::Net)
+function zeroout(r::Net)
     for n=1:length(r.op)
         r.tozero[n] && fill!(r.out0[n], 0)
     end

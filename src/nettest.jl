@@ -1,7 +1,15 @@
-using KUnet, CUDArt, CUSPARSE, CUDNN
-import KUnet: forw, back, loss, ninputs, overwrites, back_reads_x, back_reads_y, gpu, axpb!, @gpu, issimilar, mul2!
-using Base.LinAlg: axpy!, scale!
+using CUDArt, CUSPARSE, CUDNN, CUBLAS
+#using KUnet, 
+#import KUnet: forw, back, loss, ninputs, overwrites, back_reads_x, back_reads_y, gpu, axpb!, @gpu, issimilar, mul2!
+#using Base.LinAlg: axpy!, scale!
 
+include("util/gpu.jl")
+include("util/cudart.jl")
+include("util/curand.jl")
+include("util/cusparse.jl")
+include("util/linalg.jl")
+include("model.jl")
+include("op.jl")
 include("op/actf.jl");
 include("op/add.jl");
 include("op/dot.jl");
@@ -25,9 +33,9 @@ prog = quote
     r = relu(y)
     z = qloss(r)
 end
-# net1 = Net(prog)
+net1 = Net(prog)
 x = rand(3,5)
-# forw(net1, x)
+forw(net1, x)
 
 function lstm2(; n=1)
     quote
@@ -63,6 +71,11 @@ end
 net = Net(lstm2(n=10))
 forw(net, x)
 forw(net, x)
+
+s = sprand(3,5,.5)
+snet = Net(lstm2(n=10))
+forw(snet, s)
+forw(snet, s)
 
 # (1,Input)		7e00 	(3,5)	tosave,toincr,!toback
 # (2,Par)               8000 	(10,3)	

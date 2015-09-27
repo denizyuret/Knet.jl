@@ -1,3 +1,43 @@
+2015-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	./KUnet.jl
+	./data.jl
+	./model.jl
+	./model/*: update -> examples
+	./model/irnn.jl: update -> examples
+	./model/kperceptron.jl: replace
+	./model/lstm.jl: update -> examples
+	./model/s2c.jl: update -> examples
+	./netback.jl: REWRITE
+	./netcomp.jl: done
+	./netforw.jl: done
+	./netinit.jl: complete back
+	./nettest.jl: deprecate
+	./netutil.jl: done
+	./op.jl: done
+	./op/actf.jl: test
+	./op/add.jl: test
+	./op/conv.jl: update
+	./op/dot.jl: test
+	./op/drop.jl: replace
+	./op/input.jl: done
+	./op/loss.jl: test
+	./op/mul.jl: test
+	./op/par.jl: opts, averaging, adagrad etc.
+	./op/pool.jl: update
+	./update.jl: REWRITE -> par?
+	./util/*: check usage
+	./util/array.jl: check usage
+	./util/colops.jl: check usage
+	./util/cudart.jl
+	./util/curand.jl
+	./util/cusparse.jl
+	./util/deepcopy.jl
+	./util/dense.jl: deprecate?
+	./util/gpu.jl
+	./util/linalg.jl
+
 2015-09-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/netcomp.jl: TODO: convert all asserts to meaningful error messages.

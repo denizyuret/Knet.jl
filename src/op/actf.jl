@@ -18,7 +18,7 @@ for (ltype,lforw,lback,lname) in
     @eval begin
         type $ltype <: Actf; end
         $lname()=$ltype()
-        forw(l::$ltype, x, y; o...)=(issimilar(x,y)||error("x/y"); $lforw(x,y))
+        forw(l::$ltype, x, y; o...)=$lforw(x,y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
     end
 end

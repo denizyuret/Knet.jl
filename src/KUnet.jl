@@ -15,18 +15,16 @@ include("util/gpu.jl");	export gpumem, gpusync, setseed
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
 
-# TODO: minimize exports
-
 include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/array.jl");	export BaseArray, csize, ccount, clength, atype, csub, cget, size2 # TODO: move these to colops
+include("util/array.jl");	export BaseArray
 include("util/dense.jl");	export KUdense
-include("util/linalg.jl");
-include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!
+include("util/linalg.jl");	export axpb!, mul2!
+include("util/colops.jl");	export cslice!, ccopy!, cadd!, ccat!, uniq!, csize, ccount, clength, csub, cget, size2
 
-include("param.jl");		export KUparam, setopt! # TODO: move this up to src
+# include("param.jl");		export KUparam, setopt! # deprecated
 include("update.jl");		export update!
 include("data.jl");		export Data, ItemTensor
-include("model.jl");		export Model, train, test, accuracy # TODO: add predict, load, save
+include("model.jl");		export Model, train, test, accuracy 
 include("op.jl");		export Op  # , forw, back, loss, params, ninputs, ysize, overwrites, back_reads_x, back_reads_y
 
 # include("op/mmul.jl");     	export Mmul
@@ -36,18 +34,18 @@ include("op.jl");		export Op  # , forw, back, loss, params, ninputs, ysize, over
 # include("op/drop.jl");		export Drop
 # include("op/add2.jl");		export Add2
 # include("op/mul2.jl");		export Mul2
-# include("op/actf.jl");		export Actf, Logp, Relu, Sigm, Soft, Tanh # TODO: rename -> Actf
-# include("op/loss.jl");		export Loss, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss # TODO: rename -> Loss
+# include("op/actf.jl");		export Actf, Logp, Relu, Sigm, Soft, Tanh
+# include("op/loss.jl");		export Loss, QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
 
 # include("netcomp.jl");		export Net
 # include("compiler.jl")
-# include("net.jl");		export Net # , init, nops, op  # TODO: do we still need nops and op after params?
+# include("net.jl");		export Net
 # include("mlp.jl");		export MLP, predict # , accuracy, loadnet, savenet
 
 # include("model/irnn.jl");	export IRNN
 # include("model/lstm.jl");	export LSTM
 # include("model/s2c.jl");	export S2C
-# include("model/kperceptron.jl"); export KPerceptron # TODO: get KUsparse fixed
+# include("model/kperceptron.jl"); export KPerceptron
 
 # include("data/adding.jl");	export Adding
 # include("data/mnist.jl");	export MNIST

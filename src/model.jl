@@ -1,3 +1,5 @@
+# TODO: add predict, load, save
+
 """
 Model is an abstract type whose subtypes should provide the following:
 

@@ -18,7 +18,7 @@ back_reads_y(::Loss)=true
 for (ltype, lback, lloss, lname) in 
     ((:QuadLoss, :quadlossback, :quadloss, :qloss),
      (:SoftLoss, :softlossback, :softloss, :sloss),
-     (:LogpLoss, :logplossback, :logploss, :lloss),
+     (:LogpLoss, :logplossback, :logploss, :zloss),
      (:XentLoss, :xentlossback, :xentloss, :xloss),
      (:PercLoss, :perclossback, :percloss, :ploss),
      (:ScalLoss, :scallossback, :scalloss, :closs))
@@ -28,17 +28,17 @@ for (ltype, lback, lloss, lname) in
         $lname() = $ltype()
 
         function forw(l::$ltype, x, y; o...)
-            issimilar(x,y) || error(map(summary,(x,y)))
+            size(x) == size(y) || error(map(summary,(x,y)))
             (y===x ? y : copy!(y,x)) # TODO: is this copy necessary?
         end
 
         function back(l::$ltype, dy, dx; y=nothing, o...)
-            issimilar(dx,y) || error(map(summary,(dx,y)))
+            size(y)==size(dx) || error(map(summary,(dx,y)))
             size(y)==size(dy) || error(map(summary,(dy,y)))
             dx != nothing && $lback(y,dy,dx; o...)
         end
 
-        function loss(l::$ltype, y, dy; o...)
+        function loss(l::$ltype, dy, y; o...)
             size(y)==size(dy) || error(map(summary,(y,dy)))
             $lloss(y,dy; o...)
         end

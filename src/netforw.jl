@@ -1,5 +1,5 @@
 """
-forw(r::Net,x::Vector) for sequence.
+forw(r::Net,x::Vector) for sequences.
 x can be a Vector of Arrays representing items.
 x can be a Vector of Tuples representing multiple inputs.
 x cannot be a Vector of scalars (TODO:think this over)
@@ -42,7 +42,7 @@ function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=fal
     if ygold != nothing
         initarray(r.dif0, N, ygold)
         r.dif[N] = copy!(r.dif0[N], ygold)
-        return loss(r.op[N], r.dif[N]; y=r.out[N])
+        return loss(r.op[N], r.dif[N], r.out[N])
     else
         return 0.0
     end

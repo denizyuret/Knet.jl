@@ -1,5 +1,3 @@
-# TODO: get rid of the Data abstract type, allow user to use regular arrays as iterables.
-
 import Base: start, next, done
 
 """
