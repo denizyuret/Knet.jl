@@ -1,4 +1,36 @@
 """
+forw(r::Net,x...) for individual items (or item tuples) that may or
+may not be part of a sequence.
+TODO: make yout optional last argument to match the op interface?
+"""
+function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=false, a...)
+    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+    seq || initforw(r, inputs...; ygold=ygold, seq=false, a...)
+    DBG && display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    N = nops(r)
+    lastinput = 0
+    for n = 1:N
+        trn && seq && r.tosave[n] && push(r,n) # t:327
+        x = r.out[r.inputs[n]]
+        if isa(r.op[n], Input)                       # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
+            r.out[n] = copy!(r.out0[n], inputs[lastinput += 1])
+        elseif in(nothing, x)
+            r.out[n] = forwnothing(r.op[n], x..., r.out0[n])
+        else
+            r.out[n] = forw(r.op[n], x..., r.out0[n]; train=trn, a...) # ;dbg(r,:out,n) # t:2300
+        end
+    end
+    yout != nothing && copy!(yout, r.out[N])
+    loss1 = 0.0
+    if ygold != nothing
+        r.dif[N] = copy!(r.dif0[N], ygold)
+        loss1 = loss(r.op[N], r.dif[N], r.out[N])
+    end
+    DBG && display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    return loss1
+end
+
+"""
 forw(r::Net,x::Vector) for sequences.
 x can be a Vector of Arrays representing items.
 x can be a Vector of Tuples representing multiple inputs.
@@ -20,30 +52,16 @@ function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
     return loss
 end
 
-# forw(r::Net,x...) for individual items (or item tuples) that may or
-# may not be part of a sequence.
-
-function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=false, a...)
-    length(inputs) == ninputs(r) || error("Wrong number of inputs")
-    seq || initforw(r, inputs...; a...)
-    DBG && display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    N = nops(r)
-    lastinput = 0
-    for n = 1:N
-        trn && r.tosave[n] && push(r,n)         # t:327
-        if isa(r.op[n], Input)                       # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
-            r.out[n] = copy!(r.out0[n], inputs[lastinput += 1])
-        else
-            r.out[n] = forw(r.op[n], r.out[r.inputs[n]]..., r.out0[n]; train=trn, a...) # ;dbg(r,:out,n) # t:2300
-        end
-    end
-    DBG && display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
-    yout != nothing && copy!(yout, r.out[N])
-    if ygold != nothing
-        initarray(r.dif0, N, ygold)
-        r.dif[N] = copy!(r.dif0[N], ygold)
-        return loss(r.op[N], r.dif[N], r.out[N])
-    else
-        return 0.0
-    end
+"""
+forwnothing: treat nothing as identity element, i.e. if one input is
+nothing and the other has the same size as the output return that one.
+"""
+function forwnothing(op::Op, x1, x2, out0)
+    x1==x2==nothing && return nothing
+    x = (x1 == nothing ? x2 :
+         x2 == nothing ? x1 : error())
+    size(x) != size(out0) && return nothing
+    x === out0 ? out0 : copy!(out0, x)
 end
+
+forwnothing(op::Op, ::Void, out0)=nothing

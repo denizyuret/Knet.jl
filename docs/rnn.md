@@ -846,3 +846,87 @@ not ever read again: until when?
 not multi?
 alloc if nothing available.
 careful about read-before-write
+
+
+### back sharing
+
+1 --- a --- b --- N
+considering overwriting b with a
+b was read and possibly zeroed (if incr) 
+b is read only once
+b may be written on in:
+
+bw: 1..a-1, a, a+1..b-1, b, b+1..N
+
+a is going to be read once (now)
+a may be written in:
+
+aw: 1..a-1, a, a+1..b-1, b, b+1..N
+
+thinking as a cycle, b is free between read at b and first write
+a is busy between first write (going back from the read) and (only) read
+it is ok to share if aw1...ar is contained in br...bw1 cyclically going back
+
+example: regular mlp, bw1=b+1, br=b, so b is free everywhere
+
+also additional sharing (may be used in other than b)
+
+can a or b write themselves?  if it is its own input.  in which case
+read comes first, the write.  
+nowhere free or everywhere free?  nowhere free!
+
+busy between first write and only read (going back)
+
+
+"""
+- do we need dif0?
+- is the calling convention ok?
+- tmp initialization
+- no more params(r)
+- do we ever want dx from the net? (for s2c type combos)
++ assume no dif0
+- dy comes in, may be nothing, gets copied into dif[N]
+- there is always a single output, a single dy
+- other dif's are allocated but uninitialized
+- computation always goes from dy[n] to dy[inputs[n]]
+- could we ever have an uninitialized dy?
+-- only if y[n] has not been an input for any y[n+k]
+-- can be if y[n] has never been read or read by y[n-k]
+-- if read by y[n-k] it will have dy set from prev iter except at t=T where dy=0
+-- we can selectively zero those who need (unread and incr)
++ another reason for dif0 could be if we want dif to point to other things, i.e. add-back
+- todo: back for scalar add, mul, check others
++ figure out dif sharing
+- dif[n] is read once at iteration n, and dif[inputs[n]] are written to.
+- dif[n] is free between the read and the first write.
+- dif[n] is busy between the first write and the read.
++ todo: figure out sparse dw
+- don't we need overwrites as well?  not all ops can overwrite! there is no point in sharing no-overwrite.
+- can-overwrite: actf, add (to input 2), drop?, loss, 
+- no-overwrite: conv, dot, mul, pool
+- n/a: input, par
+- mul: can overwrite input 2 going forward in element-wise or scaled
+-- going back we need both x[1] and x[2] so really no-forw-overwrite
+-- back could possibly overwrite dy with dx2 but not worth the trouble
+- add: can overwrite 1 or 2 going forw element-wise
+-- only input 2 if bias or scalar add but the size will tell us
+-- back does not read anything so no problem either way
+- is overwrites == !back_reads_x?  yes, except for par and input for
+which the question is invalid.  this may not be always true, sizes
+have to match etc etc.
+- is forw.overwrites == back.overwrites?
+-- ow=true: actf:yes add=yes drop=? loss=yes
+-- ow=fals: conv, dot, pool change size so no question, mul cannot.
+-- most importantly we forgot: overwriting is good if it avoids
+copying.
+"""
+
+## Interface issues:
+
+op interface:
+forw(op, x..., y)
+back(op, dy, dx...; x, y)
+
+net interface:
+forw(net, x...; yout, ygold)
+back(net, dy; dx)

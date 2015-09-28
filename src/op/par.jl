@@ -1,5 +1,6 @@
 # TODO: back
 # TODO: update
+# TODO: going back we should not zero the incremental dif!
 
 type Par <: Op; dims; init; initialized; arr; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; Par()=new(); end
 
@@ -18,6 +19,8 @@ abstract Rgen
 type Gaussian <: Rgen; mean; std; end
 type Uniform <: Rgen; min; max; end
 type Constant <: Rgen; val; end
+
+back(p::Par; o...)=nothing      # TODO: should we do updating here?
 
 function forw(p::Par, y; o...)
     if p.initialized

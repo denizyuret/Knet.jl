@@ -45,6 +45,26 @@ function resizecopy!{T}(a::CudaVector{T}, b::CudaVector{T})
     copy!(a, b)
 end
 
+CUDArt.free(x::CudaSparseMatrixCSR)=(free(x.rowPtr);free(x.colVal);free(x.nzVal))
+
+function Base.fill!(x::CudaSparseMatrixCSR,n)
+    n == 0 || error("Only 0 fill for sparse")
+    fill!(x.rowPtr,1)
+    resize!(x.colVal,0)
+    resize!(x.nzVal,0)
+    x.nnz = 0
+    return x
+end
+
+function Base.fill!(x::CudaSparseMatrixCSC,n)
+    n == 0 || error("Only 0 fill for sparse")
+    fill!(x.colPtr,1)
+    resize!(x.rowVal,0)
+    resize!(x.nzVal,0)
+    x.nnz = 0
+    return x
+end
+
 import Base.LinAlg.BLAS: gemm!
 using CUSPARSE: SparseChar, cusparseop, cusparseindex,
     cusparseMatDescr_t, CUSPARSE_MATRIX_TYPE_GENERAL, CUSPARSE_FILL_MODE_LOWER, CUSPARSE_DIAG_TYPE_NON_UNIT,

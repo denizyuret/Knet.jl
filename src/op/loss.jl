@@ -7,6 +7,7 @@ abstract Loss <: Op
 
 ninputs(::Loss)=1
 infersize(::Loss,dims)=(dims==nothing ? nothing : (dims,dims))
+overwrites(::Loss)=true
 back_reads_x(::Loss)=false
 back_reads_y(::Loss)=true
 
@@ -33,9 +34,10 @@ for (ltype, lback, lloss, lname) in
         end
 
         function back(l::$ltype, dy, dx; y=nothing, o...)
-            size(y)==size(dx) || error(map(summary,(dx,y)))
             size(y)==size(dy) || error(map(summary,(dy,y)))
-            dx != nothing && $lback(y,dy,dx; o...)
+            dx == nothing && return
+            size(y)==size(dx) || error(map(summary,(dx,y)))
+            $lback(y,dy,dx; o...)
         end
 
         function loss(l::$ltype, dy, y; o...)

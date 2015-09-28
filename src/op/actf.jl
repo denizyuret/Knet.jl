@@ -4,6 +4,7 @@ abstract Actf <: Op
 
 ninputs(::Actf)=1
 infersize(::Actf,dims)=(dims==nothing ? nothing : (dims,dims))
+overwrites(::Actf)=true
 back_reads_x(::Actf)=false
 back_reads_y(::Actf)=true
 

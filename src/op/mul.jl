@@ -2,6 +2,7 @@ type Mul <: Op; Mul()=new(); end
 
 mul()=Mul()
 ninputs(::Mul)=2
+overwrites(::Mul)=false
 back_reads_x(::Mul)=true
 back_reads_y(::Mul)=false
 
@@ -20,8 +21,20 @@ function forw(l::Mul, x1, x2, y; o...)
 end
 
 function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
-    dx1 != nothing && mul2!(dx1,dy,x[2]) # TODO: back for scalar mul?
-    dx2 != nothing && mul2!(dx2,dy,x[1])
+    if dx2 != nothing
+        @assert size(dx2) == size(dy) == size(x[1])
+        mul2!(dx2, dy, x[1])
+    end
+    if dx1 == nothing
+        # done
+    elseif size(dx1) == size(dy)
+        @assert size(x[2]) == size(dy)
+        mul2!(dx1, dy, x[2])
+    elseif length(dx1) == 1
+        error("not implemented") # TODO
+    else
+        error()
+    end
 end
 
 function infersize(::Mul, x1, x2)

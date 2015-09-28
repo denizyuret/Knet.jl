@@ -6,10 +6,10 @@ immutable Net <: Model
     inputs::Vector{Vector{Int}}
     netinputs::Int
     params::Vector{Par}
+    multi::Vector{Bool}
     tosave::Vector{Bool} 
-    toincr::Vector{Bool}
     toback::Vector{Bool}
-    tozero::Vector{Bool}
+    toincr::Vector{Bool}
     out::Vector
     out0::Vector
     dif::Vector
@@ -28,10 +28,10 @@ function Net(a::Expr)
     Net(op, inputs,
         count(x->isa(x,Input), op),
         filter(x->isa(x,Par), op),
+        multi(op, inputs),
         tosave(op, inputs),
-        toincr(op, inputs),
         toback(op, inputs),
-        tozero(op, inputs),
+        falses(N),
         cell(N), cell(N), cell(N), cell(N), cell(N),
         Any[], 0)
 end
@@ -161,10 +161,10 @@ function tosave(op, inputs)
 end
 
 """
-toincr(op, inputs) returns a bool vector which is true if op[n] has 
+multi(op, inputs) returns a bool vector which is true if op[n] has 
 fanout > 1, in which case its dif should be incrementally updated.
 """
-function toincr(op, inputs)
+function multi(op, inputs)
     N = length(op)
     nout = zeros(Int, N)
     nout[N] = 1  # count network output as a read
@@ -187,36 +187,37 @@ function toback(op, inputs)
     for n=1:N
         isa(op[n], Par) && (toback[n] = true)
     end
-    updates = 1
-    while updates > 0
-        updates = 0
+    nback = sum(toback)
+    while true
         for n=1:N
             toback[n] && continue
             for i in inputs[n]
                 toback[i] || continue
                 toback[n] = true
-                updates += 1
                 break
             end
         end
+        nb = sum(toback)
+        nb == nback ? break : nback = nb
     end
     return toback
 end
 
-"""
-tozero(op, inputs) returns a boolean vector which is true if out0[n] should be
-zeroed out before the forw calculation.  This is only necessary if it is read
-before it is written.
-"""
-function tozero(op, inputs)
-    N = length(op)
-    tozero = falses(N)
-    for n=1:N
-        for i in inputs[n]
-            if i > n
-                tozero[i] = true
-            end
-        end
-    end
-    return tozero
-end
+# DEPRECATED: going back to initializing with nothings
+# """
+# tozero(op, inputs) returns a boolean vector which is true if out0[n] should be
+# zeroed out before the forw calculation.  This is only necessary if it is read
+# before it is written.
+# """
+# function tozero(op, inputs)
+#     N = length(op)
+#     tozero = falses(N)
+#     for n=1:N
+#         for i in inputs[n]
+#             if i > n
+#                 tozero[i] = true
+#             end
+#         end
+#     end
+#     return tozero
+# end

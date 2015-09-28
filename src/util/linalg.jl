@@ -82,18 +82,6 @@ axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:axpy32c
 axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:axpy64csr,libkunet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
 
 
-CUDArt.free(x::CudaSparseMatrixCSR)=(free(x.rowPtr);free(x.colVal);free(x.nzVal))
-
-function Base.fill!(x::CudaSparseMatrixCSR,n)
-    n == 0 || error("Only 0 fill for sparse")
-    fill!(x.rowPtr,1)
-    resize!(x.colVal,0)
-    resize!(x.nzVal,0)
-    x.nnz = 0
-    return x
-end
-
-
 ### axpb! useful scale and shift transformation: x -> ax+b
 
 axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)

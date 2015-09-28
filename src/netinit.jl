@@ -1,122 +1,86 @@
-# TODO: initback
-
-function initforw(r::Net, inputs...; keepstate=false, o...)
-    @assert length(inputs) == ninputs(r)
-    @assert r.sp == 0
-    isassigned(r.out0, 1) ? 
-    initforw1(r, inputs...) :
-    initforw0(r, inputs...)
-    keepstate || zeroout(r)
-    copy!(r.out, r.out0)
-end
-
-# first init: infer and alloc
-function initforw0(r::Net, inputs...)
-    xtype = infertype(r, inputs...)
-    sizes = infersize(r, inputs...)
-    lastinput = 0
-    for n=1:length(r.op)
-        nsparse = isa(r.op[n], Input) && issparse(inputs[lastinput += 1])
-        r.out0[n] = findfree(r, n, sizes, nsparse)
-        if r.out0[n] == nothing
-            r.out0[n] = newarray(gpu(), nsparse, xtype, sizes[n])
-            atype = gpu() ? CudaArray : Array
-        end
-    end
-    # TODO: figure out tmp
-end
-
-function newarray(ongpu, nsparse, xtype, dims)
-    ongpu && nsparse   ? CudaSparseMatrixCSC(spzeros(xtype, dims...)) :
-    ongpu && !nsparse  ? CudaArray(xtype, dims) :
-    !ongpu && nsparse  ? spzeros(xtype, dims...) :
-    !ongpu && !nsparse ? Array(xtype, dims) : error()
-end
-
-function findfree(r::Net, n, sizes, nsparse)
-    r.tosave[n] && return        # saved regs and pars should not overwrite or be overwritten
-    isa(r.op[n], Par) && return  # TODO: how about rnd and con?
-    free = nothing               # search most recent written first
-    for i = n-1:-1:1                                    # considering overwriting i with n
-        r.tosave[i] && continue
-        isa(r.op[i], Par) && continue
-        size(r.out0[i]) == sizes[n] || continue
-        issparse(r.out0[i]) == nsparse || continue
-        willberead = false                              # is anybody going to read i before it is written again?
-        k = n
-        while true
-            k = mod1(k+1, length(r.op))
-            for j in r.inputs[k]
-                isassigned(r.out0, j) && r.out0[j] === r.out0[i] && (willberead = true; break)
+# TODO: make sure this is safe
+# multiple sharing?  other writes before reads?
+function finddif(r::Net, n, nsparse)
+    dif0 = nothing
+    if (!isa(r.op[n], Par) && 
+        !r.toincr[n])
+        for i=n+1:length(r.op)
+            if (isassigned(r.dif0, i) &&
+                in(n, r.inputs[i]) &&
+                overwrites(r.op[i]) &&
+                !r.toincr[i])
+                dif0 = r.dif0[i]
+                break
             end
-            willberead && break
-            isassigned(r.out0,k) && r.out0[k] === r.out0[i] && break
         end
-        !willberead && (free = r.out0[i]; break)
     end
-    return free
+    if dif0 == nothing
+        dif0 = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+    end
+    return dif0
 end
 
-function infersize(r::Net, inputs...)
+function findtmp(r::Net, n, nsparse)
+    tmp = nothing
+    for i=n+1:length(r.op)
+        if (isassigned(r.tmp, i) &&
+            size(r.tmp[i]) == size(r.dif0[i]) &&
+            issparse(r.tmp[i]) == nsparse)
+            tmp = r.tmp[i]
+            break
+        end
+    end
+    if tmp == nothing
+        tmp = newarray(gpu(), nsparse, eltype(r.dif0[n]), size(r.dif0[n]))
+    end
+    return tmp
+end
+
+function initback(r::Net, dy, dx...; seq=false, a...)
+    @assert dx == () || length(dx) == ninputs(r)
     N = length(r.op)
-    dims = fill!(cell(N), nothing)
-    lastinput = 0
-    notfound = N
-    while notfound > 0
+    for n=1:N; r.toincr[n] = (r.multi[n] || (seq && isa(r.op[n], Par))); end
+    isassigned(r.dif0, 1) || initback0(r, dy, dx...; a...)
+    fill!(r.dif, nothing)
+    for n=1:length(r.op)                                # TODO-OPTIMIZATION
+        isassigned(r.dif0, i) && fill!(r.dif0[i], 0)
+    end
+end
+
+function initback0(r::Net, dy, dx...; a...)
+    N = length(r.op)
+    dxback = falses(N)
+    if !isempty(dx)                                     # TODO: what if this changes after net init?
+        lastinput = 0
         for n=1:N
-            if isa(r.op[n], Input)
-                dims[n] == nothing && (dims[n] = size(inputs[lastinput += 1]))
-            else
-                d = infersize(r.op[n], dims[r.inputs[n]]...)
-                d == nothing && continue
-                dims[n] = d[end]
-                dims[r.inputs[n]] = [d[1:end-1]...]
-            end
-        end
-        nf = count(x->(x==nothing || prod(x)==0), dims)
-        nf == notfound && error("Cannot infer sizes: $dims")
-        notfound = nf
-    end
-    return dims
-end
-
-function infertype(r::Net, inputs...)
-    it = nothing
-    for i in inputs
-        t = eltype(i)
-        if it == nothing
-            it = t
-        elseif t != it
-            error("Conflicting input eltypes")
+            isa(r.op[n], Input) || continue
+            dx[lastinput += 1] == nothing || (dxback[n] = true)
         end
     end
-    it == nothing && error("Cannot infer eltype")
-    return it
-    # TODO: deal with inputless networks:
-end
-
-# net already initialized, just check the sizes
-function initforw1(r::Net, inputs...)
-    N = length(r.op)
-    lastinput = 0
-    for n=1:N
-        isa(r.op[n], Input) || continue
-        i = inputs[lastinput += 1]
-        o = r.out[n]
-        @assert eltype(i) == eltype(o)
-        @assert size(i) == size(o)
-        @assert issparse(i) == issparse(o)
-    end
-    # TODO: implement batch size changes
-end
-
-# zero out arrays that are read before written
-function zeroout(r::Net)
-    for n=1:length(r.op)
-        r.tozero[n] && fill!(r.out0[n], 0)
+    for n=N:-1:1
+        nsparse = difsparse(r, dy, n)
+        r.toback[n] || dxback[n] || continue
+        # r.dif0[n] = finddif(r, n, nsparse)  # TODO-OPTIMIZATION
+        r.dif0[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+        if r.toincr[n]    # TODO: what if this changes after init?
+            # r.tmp[n] = findtmp(r, n, nsparse) # TODO-OPTIMIZATION
+            r.tmp[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+        end
     end
 end
 
+function difsparse(r::Net, dy, n)                       # TODO: test this, compare with old initback
+    r.toincr[n] && return false
+    n == length(r.op) && return issparse(dy)
+    for i=1:length(r.op)
+        if (isa(r.op[i], Dot) &&
+            n == r.inputs[i][1] &&
+            issparse(r.out0[r.inputs[i][2]]))
+            return true
+        end
+    end
+    return false
+end
 
 
 ### DEAD CODE
@@ -423,4 +387,66 @@ end
 #             #     end
 #             # end
 #             # # input, par, dot, add, mul, actf, loss, conv, pool
+
+# function initback0(r::Net, dy; a...)
+#     N = length(r.op)
+#     firstwrite = zeros(Int, N)                          # dif[n] is read at t=n, find out when it is first written.
+#     # TODO: dif[N] is special!
+#     for n=N:-1:1
+#         r.toback[n] || continue
+#         k = n
+#         while true
+#             in(n, r.inputs[k]) && (firstwrite[n] = k; break)
+#             k = mod1(k-1, N)
+#         end
+#     end
+#     return firstwrite
+#     for n=N:-1:1
+#         nsparse = false # TODO
+#         r.toback[n] || continue
+#         r.dif[n] = finddif(r, n, nsparse)
+#         r.toincr[n] && (r.tmp[n] = findtmp(r, n, nsparse))
+#     end
+# end
+
+# function finddif(r::Net, n, nsparse)
+#     isa(r.op[n], Par) && return                         # par difs should persist across iterations
+#     N = length(r.op)
+#     k = n; nw1 = 0                                      # dif[n] is read at t=n, find out when it is first written.
+#     while true
+#         in(n, r.inputs[k]) && (nw1 = k; break)          # it could potentially be written at t=n right after reading
+#         k = mod1(k-1, N)
+#     end
+#     @assert nw1 > 0                                     # dif[n] will be busy from nw1 to n going back cyclical
+#     free = nothing                                      # we need dif[i] that is free during this period
+#     for i = n+1:N                                       # note that dif[i] may already be shared to some dif[j]
+#         isa(r.op[i], Par) && return
+#         size(r.dif[i]) == size(r.out0[n]) || continue
+#         issparse(r.dif[i]) == nsparse || continue
+        
+#     end
+#     return free
+# end
+
+# initback(r::Net, dy) called at the beginning of a sequence or a
+# stand-alone item, never between elements of a sequence.
+
+# function initback1(r::Net, dy; seq=false, a...)
+#     fill!(r.dif, nothing)                           # why? (TODO)
+#     for n=1:length(r.dif0)
+#         y = (n==nops(r) && dy!=nothing ? dy : r.out0[n])
+#         initarray(r.dif0, n, y; dense=true) # x and dw may be sparse, dx and w always dense
+#         if r.toincr[n]
+#             initarray(r.tmp, n, r.dif0[n])
+#         end
+#     end
+#     for n=1:length(r.dif0)
+#         r.toincr[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+#     end
+#     if seq
+#         for w in params(r)       # zeroed only once at the beginning of the sequence
+#             isdefined(w,:diff) && isdefined(w,:inc) && fill!(w.diff,0)
+#         end
+#     end
+# end
 

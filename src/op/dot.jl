@@ -5,6 +5,7 @@ type Dot <: Op; end
 
 dot()=Dot()
 ninputs(::Dot)=2
+overwrites(::Dot)=false
 back_reads_x(::Dot)=true
 back_reads_y(::Dot)=false
 

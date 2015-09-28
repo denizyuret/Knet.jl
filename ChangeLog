@@ -1,5 +1,67 @@
 2015-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* src/netcomp.jl: for special par ops do we have valid flags?
+	tosave: false, never necessary since we do not change between iterations
+	toincr: always true if seq, true when multi otherwise
+	toback: always true
+	tozero: not necessary for anyone with nothings
+
+	for regular ops during non-seq runs:
+	tosave: always false, no need for stack
+	toincr: multi should be true
+	toback: true if par descendent. cycles? handled.
+	tozero: deprecated
+
+	following should work:
+	tosave: !par & seq & back_needs_it: netcomp sets !par &
+	        back_needs_it, use seq as extra condition for push/pop. ok.
+	toincr: multi || (par & seq): netcomp gives multi,
+	        we need to handle par & seq
+	toback: par or descendent (fixed): netcomp sets it.
+
+	* TODO: toincr is a problem:
+	- netinit:33 difsparse says no if toincr, why?
+	- paramaters are incrementally updated in a sequence.
+	- however we want to use sparse dw to go with sparse x.
+	- we have to do this (hoping sparsity pattern stays the same)
+	- finddif also uses it to not pick multi ops for sharing (also
+	excludes par).
+	- netback:9  toincr[N] is it possible for output to be a par?
+	- this also effects which tmp are created.
+	- should we take this out of net and make it a keyword arg?
+	- we can forbit seq to switch from call to call.
+	  just like we dont allow sparsity or element types change.
+	- seq vs no seq effects tosave/stack, toincr, thus tmp.
+
+	* src/op/pool.jl: TODO: rewrite.
+
+	* src/op/input.jl: TODO: try replacing methods with nothing. we
+	should not be using these?
+
+	* src/op/drop.jl: TODO: rewrite using rnd and mul.
+
+	* src/op/conv.jl: TODO: rewrite.
+
+	* src/netback.jl: 
+	# DONE: use dx=nothing instead of returndx=false, that way we can choose which dx to return for multi-input case.
+	# DONE: use path analysis to stop back/dx calculation for any path that does not lead to a parameter.
+
+	* docs/rnn.md (example): TODO:
+	## Interface issues:
+
+	op interface:
+	forw(op, x..., y)
+	back(op, dy, dx...; x, y)
+
+	net interface:
+	forw(net, x...; yout, ygold)
+	back(net, dy; dx)
+
+
+	* src/netinit.jl: I should test with unoptimized version where all
+	arrays are distinct and all are zeroed at the beginning, slowly
+	introducing optimizations.
+
 	* TODO:
 	./KUnet.jl
 	./data.jl
