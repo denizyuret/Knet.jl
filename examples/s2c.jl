@@ -10,18 +10,18 @@ params(r::S2C)=r.params
 
 # loss(r::S2C,y; a...)=loss(r.net2,y; a...)
 
-function forw(r::S2C, x::Vector; yout=nothing, ygold=nothing, a...)
-    n1 = nops(r.net1)            
+function forw(r::S2C, x::Vector, yout=nothing; ygold=nothing, a...)
     forw(r.net1, x; a...)
-    forw(r.net2, r.net1.out[n1]; yout=yout, ygold=ygold, a...)
+    forw(r.net2, r.net1.out[end], yout; ygold=ygold, a...)
     # TODO: implement lastout or direct write from net1 out to net2 input
     # You can do the latter if net2 is initialized first or just overwrite its buf0
     # and check for === before copy
 end
 
 function back(r::S2C, y; a...)
-    back(r.net2, y; a...)
-    dy = r.net2.dif[nops(r.net2)+1]
+    dy = similar(r.net1.out[end])
+    back(r.net2, y, dy; a...)
+    # dy = r.net2.dif[nops(r.net2)+1]
     initback(r.net1, dy; seq=true, a...)
     back(r.net1, dy; seq=true, a...)
     while r.net1.sp > 0; back(r.net1, nothing; seq=true, a...); end

@@ -21,6 +21,7 @@ abstract Rgen
 type Gaussian <: Rgen; mean; std; end
 type Uniform  <: Rgen; min; max; end
 type Constant <: Rgen; val; end
+type Identity <: Rgen; val; Identity(x=1)=new(x); end
 
 function back(p::Par, dy; y=nothing, o...)
     isdefined(p, :dif) || (p.dif = dy)
@@ -34,12 +35,14 @@ function forw(p::Par, y; o...)
         return y
     else
         p.initialized = true
-        p.out = (isdefined(p, :out0)   ? copy!(y, p.out0) :
-                 !isdefined(p, :init)  ? scale!(0.01, randn!(y)) :
-                 isa(p.init, Constant) ? fill!(y, p.init.val) :
-                 isa(p.init, Uniform)  ? (rand!(y); axpb!(p.init.max - p.init.min, p.init.min, y)) :
-                 isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
-                 error())
+        p.out = 
+        (isdefined(p, :out0)   ? copy!(y, p.out0) :
+         !isdefined(p, :init)  ? scale!(0.01, randn!(y)) :
+         isa(p.init, Constant) ? fill!(y, p.init.val) :
+         isa(p.init, Uniform)  ? (rand!(y); axpb!(p.init.max - p.init.min, p.init.min, y)) :
+         isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
+         isa(p.init, Identity) ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
+         error())
     end
 end
 

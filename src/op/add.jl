@@ -41,10 +41,10 @@ function back(::Add, dy, dx1, dx2; o...)
         # done
     elseif size(dx1) == size(dy)
         dx1 === dy || copy!(dx1, dy)
-    elseif length(dx1) == 1
-        error("not implemented") # TODO
     elseif size(dx1) == biassize(dy)
         biasback(dy, dx1)
+    elseif length(dx1) == 1
+        error("not implemented") # TODO
     else
         error("Don't know how to add $(size(dy))=$(size(dx1))+$(size(dx2))")
     end

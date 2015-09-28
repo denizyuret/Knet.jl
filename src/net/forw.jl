@@ -44,7 +44,7 @@ x can be a Vector of Tuples representing multiple inputs.
 x cannot be a Vector of scalars (TODO:think this over)
 """
 function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
-    DBG && display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    # display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     isbits(eltype(x)) && error("forw expects a minibatch")
     x1 = (isa(x[1], Tuple) ? x[1] : (x[1],))
     initforw(r, x1...; a...)
@@ -55,7 +55,7 @@ function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
         yg = (ygold == nothing ? nothing : ygold[i])
         loss += forw(r, xi...; seq=true, yout=yi, ygold=yg, a...)
     end
-    DBG && display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    # display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     return loss
 end
 

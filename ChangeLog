@@ -1,5 +1,11 @@
 2015-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* src/KUnet.jl: TODO: figure out the namespace issue.  compiler
+	does not work when inside the module.
+
+	* examples/adding.jl: TODO: make sure back does not call ops with
+	nothing.
+
 	* examples/mnist2d.jl (net): TODO: find out where the slight
 	difference comes from.
 

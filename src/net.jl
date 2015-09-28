@@ -1,7 +1,7 @@
 """
 Neural network.
 """
-immutable Net <: Model
+type Net <: Model
     op::Vector{Op}
     inputs::Vector{Vector{Int}}
     outputs::Vector{Vector{Int}}

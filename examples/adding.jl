@@ -6,6 +6,8 @@
 using ArgParse
 using KUnet
 import Base: start, next, done
+include("irnn.jl")
+include("s2c.jl")
 
 type Adding; len; batchsize; epochsize; rng;
     Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
@@ -32,17 +34,27 @@ function next(a::Adding, n)
     return ((x,y), n+nb)
 end
 
+qlayer(;std=0.01) = quote
+    x = input()
+    w = par(1,0; init=Gaussian(0,$std))
+    y = dot(w,x)
+    b = par(0)
+    z = add(b,y)
+    l = quadloss(z)
+end
+
+
 function main(args=ARGS)
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    net1 = (opts["type"] == "irnn" ? IRNN(opts["hidden"]; std=opts["std"]) :
-            opts["type"] == "lstm" ? LSTM(opts["hidden"]; fbias=opts["fbias"]) : 
-            error("Unknown network type "*opts["type"]))
-    net2 = Net(Mmul(1; init=randn!, initp=(0,opts["std"])), Bias(), QuadLoss())
-    net = S2C(net1, net2)
-    setparam!(net; lr=opts["lrate"])
+    p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
+          opts["type"] == "lstm" ? LSTM(n=opts["hidden"], fbias=opts["fbias"]) : 
+          error("Unknown network type "*opts["type"]))
+    p2 = qlayer(std=opts["std"])
+    net = S2C(Net(p1), Net(p2))
+    setopt!(net; lr=opts["lrate"])
     @time for epoch=1:opts["epochs"]
         (l,maxw,maxg) = train(net, data; gclip=opts["gclip"], gcheck=opts["gcheck"])
         mse = 2*l
