@@ -1,3 +1,5 @@
+.julia
+setup.sh
 *~
 *_dbg.jl
 *.out
