@@ -1,14 +1,13 @@
-# back(r::Net,dy) for individual items that may or may not be elements
-# of a sequence.
-
+"""
+back(r::Net,dy,dx...) for individual items that may or may not be elements
+of a sequence.
+"""
 function back(r::Net, dy, dx...; seq=false, a...)
-    DBG && display((:back0,seq,summary(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
-    seq || initback(r, dy, dx...; seq=false, a...)
     N = nops(r)
+    seq || initback(r, dy, dx...; seq=false, a...)
+    @assert dy == nothing || issimilar2(dy, r.dif0[N])
     if dy == nothing
         r.toincr[N] || (r.dif[N] = nothing) # otherwise we pretend we add 0
-    elseif eltype(dy) != eltype(r.dif0[N])
-        error("Element type mismatch dy:$(eltype(dy)) dif0[$N]:$(eltype(r.dif0[N]))")
     elseif r.toincr[N]
         copy!(r.tmp[N], dy)
         r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
@@ -17,7 +16,7 @@ function back(r::Net, dy, dx...; seq=false, a...)
     end										# ; dbg(r,:dif,N) 
     for n = N:-1:1
         if isempty(r.inputs[n])
-            # par etc.
+            # par etc. have no inputs to propagate
         elseif r.dif[n] == nothing
             for i in r.inputs[n]
                 r.toincr[i] || (r.dif[i] = nothing)
@@ -29,8 +28,8 @@ function back(r::Net, dy, dx...; seq=false, a...)
                 push!(dxn, !r.toback[i] ? nothing : r.toincr[i] ? r.tmp[i] : r.dif0[i])
                 push!(xn, r.out[i]) 
             end
-            dxn = get1(dxn); xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
-            back(r.op[n], dyn, dxn...; incr=seq, x=xn, y=yn, a...) # t:2164  TODO:deprecate toincr here!
+            xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
+            back(r.op[n], dyn, dxn...; x=xn, y=yn, a...) # t:2164
             for i in r.inputs[n]
                 if r.toback[i]
                     r.toincr[i] && axpy!(1, r.tmp[i], r.dif0[i])            # ; r.toincr[i]&&dbg(r,:tmp,i)
@@ -39,23 +38,20 @@ function back(r::Net, dy, dx...; seq=false, a...)
                     r.dif[i] = nothing
                 end
             end
-            r.toincr[n] && fill!(r.dif[n],0)                           # ; r.toincr[n]&&dbg(r,:dif,n) # t:157
+            r.toincr[n] && fill!(r.dif[n],0)  # does not apply to Par which was caught by first if # ; r.toincr[n]&&dbg(r,:dif,n) # t:157
         end
         seq && r.tosave[n] && pop(r,n)                                    # ; r.tosave[n]&&dbg(r,:out,n)
     end
-    DBG && display((:back1,seq,summary(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
 
 # back(r::Net,dy::Vector) for a sequence
 function back(r::Net, dy::Vector, dx...; a...)
-    DBG && display((:backseq0,length(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
     dxi = map(x->(x==nothing ? x : x[end]), dx)
     initback(r, dy[end], dxi...; seq=true, a...)
     for i=length(dy):-1:1
         dxi = map(x->(x==nothing ? x : x[i]), dx)
         back(r, dy[i], dxi...; seq=true, a...)
     end
-    DBG && display((:backseq1,length(dy),vecnorm0(params(r)))) # vecnorm0(r.dif),vecnorm0(r.stack[1:r.sp])))
 end
 
 # TODO: truncated bptt

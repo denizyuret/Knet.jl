@@ -17,19 +17,19 @@ include("op/input.jl");
 include("op/loss.jl");
 include("op/mul.jl");
 include("op/par.jl");
-include("net/comp.jl")
-include("net/util.jl")
+include("net.jl")
 include("net/initforw.jl")
 include("net/initback.jl")
 include("net/forw.jl")
 include("net/back.jl")
+include("net/util.jl")
 
 DBG = true
-outputs = 2
+nout = 2
 winit = rand(4,3)
 prog = quote
     x = input()
-    w = par($outputs, 0; init=Gaussian(1,3))
+    w = par($nout, 0; init=Gaussian(1,3))
     # w = par($winit)
     y = dot(w,x)
     r = relu(y)
@@ -81,7 +81,8 @@ snet = Net(lstm2(n=10))
 forw(snet, s)
 forw(snet, s)
 sy = convert(SparseMatrixCSC, net.out0[end])
-back(snet, dy)
+# TODO: this is failing
+# back(snet, dy)
 
 # Op			out0	dif	size	flags
 

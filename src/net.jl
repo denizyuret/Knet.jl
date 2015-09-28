@@ -4,9 +4,9 @@ Neural network.
 immutable Net <: Model
     op::Vector{Op}
     inputs::Vector{Vector{Int}}
+    outputs::Vector{Vector{Int}}
     netinputs::Int
     params::Vector{Par}
-    multi::Vector{Bool}
     tosave::Vector{Bool} 
     toback::Vector{Bool}
     toincr::Vector{Bool}
@@ -25,13 +25,12 @@ Net(::Expr) compiles a quoted block of net language to a Net object
 function Net(a::Expr)
     (op, inputs) = netcomp(a)
     N = length(op)
-    Net(op, inputs,
+    Net(op, inputs, outputs(inputs),
         count(x->isa(x,Input), op),
         filter(x->isa(x,Par), op),
-        multi(op, inputs),
         tosave(op, inputs),
-        falses(N), # toback
-        falses(N), # toincr
+        falses(N), # toback: depends on dx
+        falses(N), # toincr: depends on seq
         cell(N), cell(N), cell(N), cell(N), cell(N),
         Any[], 0)
 end
@@ -141,13 +140,15 @@ function netstmt(stmt::Expr, dict::Dict{Symbol,Symbol})
 end
 
 """
-tosave(op, inputs) returns a Bool vector which is true if the result of 
-op[n] should be saved for back calculation.
+tosave(op, inputs) returns tosave[n] which is true if the result of 
+op[n] would be needed for back calculation.  We find this out using 
+back_reads_x and back_reads_y on each op.  Note that Par registers 
+are persistent and do not need to be saved.
 """
 function tosave(op, inputs)
     N = length(op)
     tosave = falses(N)
-    for n=1:N
+    for n=1:length(op)
         back_reads_y(op[n]) && (tosave[n] = true)
         if back_reads_x(op[n])
             for i in inputs[n]
@@ -161,63 +162,38 @@ function tosave(op, inputs)
 end
 
 """
-multi(op, inputs) returns a bool vector which is true if op[n] has 
-fanout > 1, in which case its dif should be incrementally updated.
+outputs(inputs) returns an array of output indices for each register.
+Note that the final register is the network output, so it could be 
+read externally even if outputs[N] is empty.
 """
-function multi(op, inputs)
-    N = length(op)
-    nout = zeros(Int, N)
-    nout[N] = 1  # count network output as a read
+function outputs(inputs)
+    N = length(inputs)
+    outputs = [ Int[] for n=1:N ]
     for n=1:N
         for i in inputs[n]
-            nout[i] += 1
+            push!(outputs[i], n)
         end
     end
-    return (nout .> 1)
+    push!(outputs[N], 0)        # for network output
+    return outputs
 end
 
-"""
-toback(op, inputs) returns a boolean vector which is true if dif[n] should be
-calculated for op[n] during back calculation.  This is only needed if 
-op[n] is a par node or a par node descendent.
-"""
-function toback(op, inputs)
-    N = length(op)
-    toback = falses(N)
-    for n=1:N
-        isa(op[n], Par) && (toback[n] = true)
-    end
-    nback = sum(toback)
-    while true
-        for n=1:N
-            toback[n] && continue
-            for i in inputs[n]
-                toback[i] || continue
-                toback[n] = true
-                break
-            end
-        end
-        nb = sum(toback)
-        nb == nback ? break : nback = nb
-    end
-    return toback
-end
 
-# DEPRECATED: going back to initializing with nothings
+### DEAD CODE
+
 # """
-# tozero(op, inputs) returns a boolean vector which is true if out0[n] should be
-# zeroed out before the forw calculation.  This is only necessary if it is read
-# before it is written.
+# multi(op, inputs) returns a bool vector which is true if op[n] has 
+# fanout > 1, in which case its dif should be incrementally updated.
 # """
-# function tozero(op, inputs)
+# function multi(op, inputs)
 #     N = length(op)
-#     tozero = falses(N)
+#     nout = zeros(Int, N)
+#     nout[N] = 1  # count network output as a read
 #     for n=1:N
 #         for i in inputs[n]
-#             if i > n
-#                 tozero[i] = true
-#             end
+#             nout[i] += 1
 #         end
 #     end
-#     return tozero
+#     return (nout .> 1)
 # end
+

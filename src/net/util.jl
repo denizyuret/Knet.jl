@@ -73,6 +73,16 @@ end
 
 get1(x)=(length(x)==1?x[1]:x)
 
+function newarray(ongpu, nsparse, xtype, dims)
+    ongpu && nsparse   ? CudaSparseMatrixCSC(spzeros(xtype, dims...)) :
+    ongpu && !nsparse  ? fill!(CudaArray(xtype, dims), 0) :
+    !ongpu && nsparse  ? spzeros(xtype, dims...) :
+    !ongpu && !nsparse ? zeros(xtype, dims) : error()
+end
+
+issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))
+issimilar3(i,o)=(eltype(i) == eltype(o) && size(i) == size(o) && issparse(i) == issparse(o))
+
 # ### DEBUGGING
 
 ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)

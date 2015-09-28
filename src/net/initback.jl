@@ -1,6 +1,86 @@
+"""
+initback initializes the fields used by Net.back:
+- dif, dif0, tmp: allocated or size checked.
+- toincr: depends on seq.
+- toback: depends on which dx args specified.
+- tosave: read-only, used for popping only if seq.
+"""
+function initback(r::Net, dy, dx...; seq=false, a...)
+    @assert dx == () || length(dx) == ninputs(r)
+    set_toback(r, dx...)
+    set_toincr(r, seq)
+    for n=length(r.op):-1:1
+        r.toback[n] || continue
+        nsparse = difsparse(r, dy, n)
+        if isassigned(r.dif0, n)
+            @assert (issimilar2(r.dif0[n], r.out0[n]) && issparse(r.dif0[n])==nsparse) # TODO: implement batch size change
+        else
+            r.dif0[n] = finddif(r, n, nsparse)
+        end
+        if r.toincr[n]
+            if isassigned(r.tmp, n)
+                @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==nsparse)
+            else
+                r.tmp[n] = findtmp(r, n, nsparse)
+            end
+        end
+    end
+    fill!(r.dif, nothing)
+    for n=1:length(r.op)                                # TODO-OPTIMIZATION
+        isassigned(r.dif0, n) && fill!(r.dif0[n], 0)
+    end
+end
+
+
+"""
+set_toback(r::Net) sets r.toback[n] which is true if dif[n] should be
+calculated for op[n] during back calculation.  This is only needed if 
+op[n] is a par node or a par node descendent.  Or if the caller asked
+for dx for network inputs, those and their descendents.
+"""
+function set_toback(r::Net, dx...)
+    fill!(r.toback, false)
+    N = length(r.op)
+    lastinput = 0
+    for n=1:N
+        isa(r.op[n], Par) && (r.toback[n] = true)
+        isa(r.op[n], Input) && dx != () && dx[lastinput += 1] != nothing && (r.toback[n] = true)
+    end
+    nback = sum(r.toback)
+    while true
+        for n=1:N
+            r.toback[n] && continue
+            for i in r.inputs[n]
+                if r.toback[i]
+                    r.toback[n] = true
+                    break
+                end
+            end
+        end
+        nb = sum(r.toback)
+        nb == nback ? break : nback = nb
+    end
+end
+
+
+"""
+set_toincr(r::Net) sets r.toincr[n] which is true if dif[n] should be
+incrementally updated.  This is necessary if op[n] has multiple
+outputs, or it is a Par and we are processing a sequence.
+"""
+function set_toincr(r::Net, seq)
+    fill!(r.toincr, false)
+    for n=1:length(r.op)
+        length(r.outputs[n]) > 1 && (r.toincr[n] = true)
+        seq && isa(r.op[n], Par) && (r.toincr[n] = true)
+    end
+end
+
+
 # TODO: make sure this is safe
 # multiple sharing?  other writes before reads?
 function finddif(r::Net, n, nsparse)
+    return newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))  # TODO: OPTIMIZATION
     dif0 = nothing
     if (!isa(r.op[n], Par) && 
         !r.toincr[n])
@@ -21,6 +101,7 @@ function finddif(r::Net, n, nsparse)
 end
 
 function findtmp(r::Net, n, nsparse)
+    return newarray(gpu(), nsparse, eltype(r.dif0[n]), size(r.dif0[n])) # TODO: OPTIMIZATION
     tmp = nothing
     for i=n+1:length(r.op)
         if (isassigned(r.tmp, i) &&
@@ -36,48 +117,11 @@ function findtmp(r::Net, n, nsparse)
     return tmp
 end
 
-function initback(r::Net, dy, dx...; seq=false, a...)
-    @assert dx == () || length(dx) == ninputs(r)
-    N = length(r.op)
-    for n=1:N; r.toincr[n] = (r.multi[n] || (seq && isa(r.op[n], Par))); end
-    isassigned(r.dif0, 1) || initback0(r, dy, dx...; a...)
-    fill!(r.dif, nothing)
-    for n=1:length(r.op)                                # TODO-OPTIMIZATION
-        isassigned(r.dif0, i) && fill!(r.dif0[i], 0)
-    end
-end
-
-function initback0(r::Net, dy, dx...; a...)
-    N = length(r.op)
-    dxback = falses(N)
-    if !isempty(dx)                                     # TODO: what if this changes after net init?
-        lastinput = 0
-        for n=1:N
-            isa(r.op[n], Input) || continue
-            dx[lastinput += 1] == nothing || (dxback[n] = true)
-        end
-    end
-    for n=N:-1:1
-        nsparse = difsparse(r, dy, n)
-        r.toback[n] || dxback[n] || continue
-        # r.dif0[n] = finddif(r, n, nsparse)  # TODO-OPTIMIZATION
-        r.dif0[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
-        if r.toincr[n]    # TODO: what if this changes after init?
-            # r.tmp[n] = findtmp(r, n, nsparse) # TODO-OPTIMIZATION
-            r.tmp[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
-        end
-    end
-end
-
 function difsparse(r::Net, dy, n)                       # TODO: test this, compare with old initback
-    r.toincr[n] && return false
-    n == length(r.op) && return issparse(dy)
-    for i=1:length(r.op)
-        if (isa(r.op[i], Dot) &&
-            n == r.inputs[i][1] &&
-            issparse(r.out0[r.inputs[i][2]]))
-            return true
-        end
+    N = length(r.op)
+    n == N && length(r.outputs[n]) == 1 && issparse(dy) && return true
+    for i=1:N
+        isa(r.op[i], Dot) && n == r.inputs[i][1] && issparse(r.out0[r.inputs[i][2]]) && return true
     end
     return false
 end
@@ -450,3 +494,24 @@ end
 #     end
 # end
 
+# function initback0(r::Net, dy, dx...; a...)
+#     N = length(r.op)
+#     dxback = falses(N)
+#     if !isempty(dx)                                     # TODO: what if this changes after net init?
+#         lastinput = 0
+#         for n=1:N
+#             isa(r.op[n], Input) || continue
+#             dx[lastinput += 1] == nothing || (dxback[n] = true)
+#         end
+#     end
+#     for n=N:-1:1
+#         nsparse = difsparse(r, dy, n)
+#         r.toback[n] || dxback[n] || continue
+#         # r.dif0[n] = finddif(r, n, nsparse)  # TODO-OPTIMIZATION
+#         r.dif0[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+#         if r.toincr[n]    # TODO: what if this changes after init?
+#             # r.tmp[n] = findtmp(r, n, nsparse) # TODO-OPTIMIZATION
+#             r.tmp[n] = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+#         end
+#     end
+# end

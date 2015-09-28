@@ -60,6 +60,7 @@ pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 convert{A<:CudaArray}(::Type{A}, a::Array)=CudaArray(a)
 convert{A<:CudaArray}(::Type{A}, a::SparseMatrixCSC)=CudaArray(full(a))
 convert{A<:Array}(::Type{A}, a::CudaArray)=to_host(a)
+convert{A<:SparseMatrixCSC}(::Type{A}, a::CudaArray)=sparse(to_host(a))
 
 deepcopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
 cpucopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])

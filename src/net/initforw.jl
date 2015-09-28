@@ -31,7 +31,7 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
         @assert all(r.out .== nothing)
         keepstate && copy!(r.out, r.out0)
     else
-        @assert all(r.out .== nothing) || all(r.out .== r.out0)
+        @assert all((r.out .== nothing) | (r.out .== r.out0))
         @assert !keepstate "meaningless keepstate in non-sequence run"
         fill!(r.out, nothing)
     end
@@ -117,14 +117,4 @@ function infertype(r::Net, inputs...)
     return it
     # TODO: deal with inputless networks:
 end
-
-function newarray(ongpu, nsparse, xtype, dims)
-    ongpu && nsparse   ? CudaSparseMatrixCSC(spzeros(xtype, dims...)) :
-    ongpu && !nsparse  ? fill!(CudaArray(xtype, dims), 0) :
-    !ongpu && nsparse  ? spzeros(xtype, dims...) :
-    !ongpu && !nsparse ? zeros(xtype, dims) : error()
-end
-
-issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))
-issimilar3(i,o)=(eltype(i) == eltype(o) && size(i) == size(o) && issparse(i) == issparse(o))
 
