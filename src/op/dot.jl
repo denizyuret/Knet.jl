@@ -10,12 +10,15 @@ back_reads_x(::Dot)=true
 back_reads_y(::Dot)=false
 
 function forw(::Dot, x1, x2, y; o...)
+    if x1 == nothing || x2 == nothing
+        return nothing
+    end
     A_mul_B!(y, x1, x2)
 end
 
 function back(::Dot, dy, dx1, dx2; x=nothing, o...)
-    dx1 != nothing && A_mul_Bt!(dx1, dy, x[2])
-    dx2 != nothing && At_mul_B!(dx2, x[1], dy)
+    dx1 != nothing && (x[2] != nothing ? A_mul_Bt!(dx1, dy, x[2]) : fill!(dx1, 0))
+    dx2 != nothing && (x[1] != nothing ? At_mul_B!(dx2, x[1], dy) : fill!(dx2, 0))
 end
 
 function infersize(::Dot,a,b)

@@ -21,8 +21,6 @@ function forw(r::Net, inputs...; ygold=nothing, seq=false, mode=:test, a...)
         x = r.out[r.inputs[n]]
         if isa(r.op[n], Input)
             r.out[n] = copy!(r.out0[n], inputs[lastinput += 1])
-        elseif in(nothing, x)
-            r.out[n] = forwnothing(r.op[n], x..., r.out0[n])
         else
             r.out[n] = forw(r.op[n], x..., r.out0[n]; mode=mode, a...) # ;dbg(r,:out,n) # t:2300
         end
@@ -59,16 +57,21 @@ function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
     return loss
 end
 
-"""
-forwnothing: treat nothing as identity element, i.e. if one input is
-nothing and the other has the same size as the output return that one.
-"""
-function forwnothing(op::Op, x1, x2, out0)
-    x1==x2==nothing && return nothing
-    x = (x1 == nothing ? x2 :
-         x2 == nothing ? x1 : error())
-    size(x) != size(out0) && return nothing
-    x === out0 ? out0 : copy!(out0, x)
-end
+# Unfortunately this should be op specific
 
-forwnothing(op::Op, ::Void, out0)=nothing
+        # elseif in(nothing, x)
+        #     r.out[n] = forwnothing(r.op[n], x..., r.out0[n])
+
+# """
+# forwnothing: treat nothing as identity element, i.e. if one input is
+# nothing and the other has the same size as the output return that one.
+# """
+# function forwnothing(op::Op, x1, x2, out0)
+#     x1==x2==nothing && return nothing
+#     x = (x1 == nothing ? x2 :
+#          x2 == nothing ? x1 : error())
+#     size(x) != size(out0) && return nothing
+#     x === out0 ? out0 : copy!(out0, x)
+# end
+
+# forwnothing(op::Op, ::Void, out0)=nothing

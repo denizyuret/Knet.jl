@@ -13,8 +13,15 @@ back_reads_x(::Add)=false
 back_reads_y(::Add)=false
 
 function forw(::Add, x1, x2, y; o...)
-    @assert size(y) == size(x2)
-    if size(x1) == size(x2)
+    @assert x2 == nothing || size(y) == size(x2)
+    if x1==x2==nothing
+        nothing
+    elseif x1==nothing
+        y===x2 ? y : copy!(y, x2)
+    elseif x2==nothing
+        size(y) != size(x1) ? nothing :
+        y===x1 ? y : copy!(y, x1)
+    elseif size(x1) == size(x2)
         y===x2 ? axpy!(1,x1,y) :
         y===x1 ? axpy!(1,x2,y) :
         (copy!(y,x2); axpy!(1,x1,y))

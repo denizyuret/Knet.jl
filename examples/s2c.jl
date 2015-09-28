@@ -1,14 +1,12 @@
 # S2C: sequence to class model
 
-import KUnet: params, loss, forw, back
+import KUnet: params, forw, back
 
 immutable S2C <: Model; net1; net2; params;
     S2C(a,b)=new(a,b,vcat(params(a),params(b)))
 end
 
 params(r::S2C)=r.params
-
-# loss(r::S2C,y; a...)=loss(r.net2,y; a...)
 
 function forw(r::S2C, x::Vector, yout=nothing; ygold=nothing, a...)
     forw(r.net1, x; a...)
@@ -21,7 +19,6 @@ end
 function back(r::S2C, y; a...)
     dy = similar(r.net1.out[end])
     back(r.net2, y, dy; a...)
-    # dy = r.net2.dif[nops(r.net2)+1]
     initback(r.net1, dy; seq=true, a...)
     back(r.net1, dy; seq=true, a...)
     while r.net1.sp > 0; back(r.net1, nothing; seq=true, a...); end

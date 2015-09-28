@@ -13,7 +13,7 @@ irnn(;n=1,std=0.01) = quote
     w6 = par($n,0; init=Identity())
     x3 = dot(w6,x6)
     x4 = add(x2,x3)
-    w4 = par(0)
+    w4 = par(0; init=Constant(0))
     x5 = add(w4,x4)
     x6 = relu(x5)
 end

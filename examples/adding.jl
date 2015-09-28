@@ -38,7 +38,7 @@ qlayer(;std=0.01) = quote
     x = input()
     w = par(1,0; init=Gaussian(0,$std))
     y = dot(w,x)
-    b = par(0)
+    b = par(0; init=Constant(0))
     z = add(b,y)
     l = quadloss(z)
 end

@@ -16,7 +16,7 @@ include("util/gpu.jl");		export setseed
 @gpu include("util/cusparse.jl");
 include("util/linalg.jl");	
 
-# include("util/dense.jl");	# deprecate?
+isdefined(:KUdense) || include("util/dense.jl");	# deprecate?
 include("util/colops.jl");	# 
 include("data.jl");		export ItemTensor
 

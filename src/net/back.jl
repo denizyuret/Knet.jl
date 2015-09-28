@@ -40,6 +40,13 @@ function back(r::Net, dy, dx...; seq=false, a...)
         end
         seq && r.tosave[n] && pop(r,n)                                    # ; r.tosave[n]&&dbg(r,:out,n)
     end
+    if dx != ()
+        lastinput = 0
+        for n = 1:N
+            isa(r.op[n], Input) || continue
+            copy!(dx[lastinput += 1], r.dif[n])
+        end
+    end
 end
 
 # back(r::Net,dy::Vector) for a sequence

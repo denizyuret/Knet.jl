@@ -91,8 +91,8 @@ idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array
 
 vecnorm0(x::Vector)=map(vecnorm0,x)
 vecnorm0(x::Tuple)=map(vecnorm0,x)
-# vecnorm0(x::KUparam)= ((isdefined(x,:arr) ? vecnorm0(x.arr) : 0),
-#                        (isdefined(x,:diff)? vecnorm0(x.diff) : 0))
+vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
+                   (isdefined(x,:dif)? vecnorm0(x.dif) : 0))
 vecnorm0(::Void)=0
 vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
 
@@ -724,48 +724,48 @@ vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
 # before every itembatch:
 # we just want to fix the sizes.
 
-"""
-Life cycle of registers: 
+# """
+# Life cycle of registers: 
 	
-		out	out0	dif	dif0	tmp	dw	stack	calls
-Net		-	-	-	-	-	-	-	initout,initdif
-initout		n	[]	-	-	-	-	-	
-initdif		-	-	n	[]	[]+m	-	-	
- forwseq	-	-	-	-	-	-	-	initseq,forw+s*
-  initseq	n	-	n+t	0+t+m	-	0+t	-	initbat
- forw		wr	w	-	-	-	-	w	initbat,seq passed to initbat
-  initbat	n-s	-	n+t-s	0+t-s+m	-	0+t-s	-	initpar2(trn),initdif0(trn),initout0,seq passed to initpar2
-   initout0	-	a	-	-	-	-	-	
-   initpar2	-	r	-	-	-	a	-	
-   initdif0	-	r	-	a	a+m	-	-
- backseq	-	-	-	-	-	-	-	back+s*
-  back		rw(pop)	-	nwr0	w	w	-	r	seq passed as incr to op.back
- loss		r	-	-	-	-	-	-	
+# 		out	out0	dif	dif0	tmp	dw	stack	calls
+# Net		-	-	-	-	-	-	-	initout,initdif
+# initout		n	[]	-	-	-	-	-	
+# initdif		-	-	n	[]	[]+m	-	-	
+#  forwseq	-	-	-	-	-	-	-	initseq,forw+s*
+#   initseq	n	-	n+t	0+t+m	-	0+t	-	initbat
+#  forw		wr	w	-	-	-	-	w	initbat,seq passed to initbat
+#   initbat	n-s	-	n+t-s	0+t-s+m	-	0+t-s	-	initpar2(trn),initdif0(trn),initout0,seq passed to initpar2
+#    initout0	-	a	-	-	-	-	-	
+#    initpar2	-	r	-	-	-	a	-	
+#    initdif0	-	r	-	a	a+m	-	-
+#  backseq	-	-	-	-	-	-	-	back+s*
+#   back		rw(pop)	-	nwr0	w	w	-	r	seq passed as incr to op.back
+#  loss		r	-	-	-	-	-	-	
 
-(+m:multi, +s:seq, +t:trn, r:read, w:write, a:alloc, 0:zero-out, n:fill-nothing)
-"""
+# (+m:multi, +s:seq, +t:trn, r:read, w:write, a:alloc, 0:zero-out, n:fill-nothing)
+# """
 
-# Not init w here any more...
-    # for w in params(r)
-    #     if !isdefined(w,:diff)
-    #         if issparse(x)      # TODO: is this the right thing for all ops?
-    #             w.diff = CudaSparseMatrixCSR(spzeros(eltype(x), size(w)...))
-    #         else
-    #             w.diff = similar(w.arr)
-    #         end
-    #     end
-    # end
-    # if seq
-    #     for w in params(r)
-    #         similar!(w, :inc, w.diff)
-    #         fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
-    #     end
-    # end
+# # Not init w here any more...
+#     # for w in params(r)
+#     #     if !isdefined(w,:diff)
+#     #         if issparse(x)      # TODO: is this the right thing for all ops?
+#     #             w.diff = CudaSparseMatrixCSR(spzeros(eltype(x), size(w)...))
+#     #         else
+#     #             w.diff = similar(w.arr)
+#     #         end
+#     #     end
+#     # end
+#     # if seq
+#     #     for w in params(r)
+#     #         similar!(w, :inc, w.diff)
+#     #         fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#     #     end
+#     # end
 
 
-    # for i = 1:ninputs(r)
-    #     n = i+N                           # input[i] goes into out[i+N]
-    #     eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
-    #     trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
-    #     r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
-    # end
+#     # for i = 1:ninputs(r)
+#     #     n = i+N                           # input[i] goes into out[i+N]
+#     #     eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
+#     #     trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
+#     #     r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
+#     # end
