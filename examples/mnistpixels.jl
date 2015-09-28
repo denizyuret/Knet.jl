@@ -1,14 +1,82 @@
-# This is the MNIST Classification from a Sequence of Pixels problem
-# from: Le, Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to
-# Initialize Recurrent Networks of Rectified Linear Units. arXiv
-# preprint arXiv:1504.00941.
+# This is the pixel-by-pixel MNIST problem from: Le, Q. V., Jaitly,
+# N., & Hinton, G. E. (2015). A Simple Way to Initialize Recurrent
+# Networks of Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
 using KUnet
 using KUnet: nextidx
+import Base: start, next, done
 using ArgParse
+include("irnn.jl")
+include("s2c.jl")
 isdefined(:MNIST) || include("mnist.jl")
 
-function parse_commandline(a=ARGS)
+function main(args=ARGS)
+    opts = parse_commandline(args)
+    println(opts)
+    opts["seed"] > 0 && setseed(opts["seed"])
+
+    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=opts["batchsize"], epoch=opts["train"], bootstrap=true)
+    tst = Pixels(MNIST.xtst, MNIST.ytst; batch=opts["batchsize"])
+
+    nx = 1
+    ny = 10
+    p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
+          opts["type"] == "lstm" ? lstm(n=opts["hidden"], fbias=opts["fbias"]) : 
+          error("Unknown network type "*opts["type"]))
+    p2 = softlayer(n=10, std=opts["std"])
+    net = S2C(Net(p1), Net(p2))
+    setopt!(net; lr=opts["lrate"])
+    @time for epoch=1:opts["epochs"]
+        (l,maxw,maxg) = train(net, trn; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
+        println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
+        if epoch % opts["acc"] == 0
+            acc = accuracy(net, tst)
+            println(tuple(:tst,epoch*trn.epochsize,acc))
+        end
+        flush(STDOUT)
+    end
+end
+
+softlayer(;n=1,std=0.01) = quote
+    x = input()
+    w = par($n,0; init=Gaussian(0,$std))
+    y = dot(w,x)
+    b = par(0; init=Constant(0))
+    z = add(b,y)
+    l = softmax(z)
+end
+
+type Pixels; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
+    function Pixels(x...; rng=MersenneTwister(), epoch=ccount(x[1]), batch=16, bootstrap=false, shuffle=false)
+        nx = ccount(x[1])
+        all(xi->ccount(xi)==nx, x) || error("Item count mismatch")
+        idx = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
+        xbatch = [ similar(x[1], (1,batch)) for i=(1:clength(x[1])) ]
+        ybatch = similar(x[2], (clength(x[2]),batch))
+        new(x, rng, nx, epoch, batch, bootstrap, idx, (xbatch,ybatch))
+    end
+end
+
+start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
+
+done(d::Pixels, n)=(n >= d.epochsize)
+
+function next(d::Pixels, n)
+    idx = nextidx(d,n)
+    nb = length(idx)
+    nt = clength(d.x[1])
+    for b=1:nb
+        i=idx[b]
+        t0 = (i-1)*nt
+        @inbounds for t=1:nt
+            d.batch[1][t][b] = d.x[1][t0 + t]
+        end
+        d.batch[2][:,b] = d.x[2][:,i]
+    end
+    (d.batch, n+nb)
+end
+
+function parse_commandline(args)
     s = ArgParseSettings()
     @add_arg_table s begin
         "--train"
@@ -67,76 +135,10 @@ function parse_commandline(a=ARGS)
         arg_type = Int
         default = 100
     end
-    parse_args(a,s)
+    parse_args(args,s)
 end
 
-import Base: start, next, done
-
-"""
-This is the data generator for the pixel-by-pixel MNIST problem from:
-Le, Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to
-Initialize Recurrent Networks of Rectified Linear Units. arXiv
-preprint arXiv:1504.00941.
-"""
-type Pixels; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
-    function Pixels(x...; rng=MersenneTwister(), epoch=ccount(x[1]), batch=16, bootstrap=false, shuffle=false)
-        nx = ccount(x[1])
-        all(xi->ccount(xi)==nx, x) || error("Item count mismatch")
-        idx = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
-        xbatch = [ similar(x[1], (1,batch)) for i=(1:clength(x[1])) ]
-        ybatch = similar(x[2], (clength(x[2]),batch))
-        new(x, rng, nx, epoch, batch, bootstrap, idx, (xbatch,ybatch))
-    end
-end
-
-start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
-
-done(d::Pixels, n)=(n >= d.epochsize)
-
-function next(d::Pixels, n)
-    idx = nextidx(d,n)
-    nb = length(idx)
-    nt = clength(d.x[1])
-    for b=1:nb
-        i=idx[b]
-        t0 = (i-1)*nt
-        @inbounds for t=1:nt
-            d.batch[1][t][b] = d.x[1][t0 + t]
-        end
-        d.batch[2][:,b] = d.x[2][:,i]
-    end
-    (d.batch, n+nb)
-end
-
-
-args = parse_commandline(isdefined(:myargs) ? split(myargs) : ARGS)
-println(args)
-args["seed"] > 0 && setseed(args["seed"])
-
-trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=args["batchsize"], epoch=args["train"], bootstrap=true)
-tst = Pixels(MNIST.xtst, MNIST.ytst; batch=args["batchsize"])
-
-nx = 1
-ny = 10
-nh = args["hidden"]
-net1 = (args["type"] == "irnn" ? IRNN(nh; std=args["std"]) :
-        args["type"] == "lstm" ? LSTM(nh; fbias=args["fbias"]) : 
-        error("Unknown network type "*args["type"]))
-
-net2 = Net(Mmul(ny), Bias(), Soft(), SoftLoss())
-
-net = S2C(net1, net2)
-setparam!(net; lr=args["lrate"])
-
-@time for epoch=1:args["epochs"]
-    (l,maxw,maxg) = train(net, trn; gclip=args["gclip"], gcheck=args["gcheck"], rtol=args["rtol"], atol=args["atol"])
-    println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
-    if epoch % args["acc"] == 0
-        acc = accuracy(net, tst)
-        println(tuple(:tst,epoch*trn.epochsize,acc))
-    end
-    flush(STDOUT)
-end
+main()
 
 # NOTES:
 
@@ -166,4 +168,22 @@ end
 # (:tst,100000,0.1735)
 
 # TODO: why isn't this giving the same results?
-# Could be softloss vs xentloss.
+# Could be softloss vs xentloss or Float32 vs Float64.
+
+# Here is the new sample output:
+# julia> include("mnistpixels.jl")
+# INFO: Loading MNIST...
+#   5.863069 seconds (279.54 k allocations: 498.444 MB, 1.61% gc time)
+# Dict{AbstractString,Any}("hidden"=>100,"rtol"=>0.01,"batchsize"=>200,"lrate"=>0.005,"train"=>10000,"gclip"=>1.0,"acc"=>10,"std"=>0.01,"gcheck"=>0,"fbias"=>1.0,"epochs"=>100,"atol"=>0.01,"seed"=>1003,"type"=>"irnn")
+# (:trn,10000,2.262306f0,10.417742f0,537.452f0)
+# (:trn,20000,2.277638f0,10.4206705f0,2240.0566f0)
+# (:trn,30000,2.45132f0,10.423019f0,11971.223f0)
+# (:trn,40000,2.2885273f0,10.424828f0,7045.522f0)
+# (:trn,50000,2.3827329f0,10.427834f0,12723.293f0)
+# (:trn,60000,2.2246392f0,10.429581f0,3678.2678f0)
+# (:trn,70000,2.157727f0,10.431644f0,2867.3608f0)
+# (:trn,80000,2.1695452f0,10.434076f0,4772.0884f0)
+# (:trn,90000,2.2076025f0,10.435675f0,13315.624f0)
+# (:trn,100000,2.174602f0,10.437442f0,7863.392f0)
+# (:tst,100000,0.2939)
+

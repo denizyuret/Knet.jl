@@ -162,6 +162,14 @@ end
 @gpu softlossback(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
 
 
+# Convenience op combining soft and softloss:
+
+softmax()=quote
+    x = input()
+    y = soft(x)
+    z = softloss(y)
+end
+
 ### QUADLOSS:
 
 # Quadratic loss:
