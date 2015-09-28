@@ -10,7 +10,7 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
     N = length(r.op)
     lastinput = 0
     for n=1:N
-        if !keepstate # TODO-OPTIMIZATION: && r.tozero[n] -- deprecated, never need to zero with nothings (except toincr?)
+        if !keepstate && !isa(r.op[n], Par)   # TODO-OPTIMIZATION: && r.tozero[n] -- deprecated, never need to zero with nothings (except toincr?)
             fill!(r.out0[n], 0)
         end
         if isa(r.op[n], Input)

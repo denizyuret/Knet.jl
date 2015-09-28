@@ -19,20 +19,13 @@ abstract Model
 
 setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)
-wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.arr); end; w)
-gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.diff); end; g)
-
-# TODO: this does not work, cannot write back on data
-# function predict(m::Model, d)
-#     for (x,y) in d
-#         forw(m, x; yout=y, trn=false)
-#     end
-# end
+wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)
+gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)
 
 function test(m::Model, d; o...)
     sumloss = numloss = 0
     for (x,y) in d
-        sumloss += forw(m, x; trn=false, ygold=y, o...)
+        sumloss += forw(m, x; mode=:test, ygold=y, o...)
         numloss += 1
     end
     return sumloss/numloss
@@ -43,7 +36,7 @@ function accuracy(m::Model, d) # TODO: this only works if y is a single item
     z = nothing
     for (x,y) in d
         z == nothing && (z = KUdense(Array(eltype(y), 0)))
-        forw(m, x; trn=false, yout=z)
+        forw(m, x, z; mode=:test)
         numinst += ccount(y)
         numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
     end
@@ -54,7 +47,8 @@ function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...)
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for (x,y) in d
         gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)
-        l = backprop(m,x,y; getloss=getloss, a...)
+        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)
+        back(m, y; a...)
         getloss && (sumloss += l; numloss += 1)
         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
@@ -63,36 +57,30 @@ function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...)
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
 
-function backprop(m::Model, x, y; getloss=true, a...)
-    loss1 = forw(m, x; trn=true, ygold=(getloss ? y : nothing), a...)
-    back(m, y; a...)
-    return loss1
-end
-
 const gradcheck_rng = MersenneTwister()
 
 function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, a...)
-    l0 = backprop(m, x, y; getloss=true)
+    l0 = forw(m, x; mode=:train, ygold=y, a...)
+    back(m, y; a...)
     pp = params(m)
     for n=1:length(pp)
         p = pp[n]
-        psave = p.arr
-        p.arr = copy(p.arr)
-        pdiff = convert(Array, p.diff)
-        wlen = length(p.arr)
+        psave = copy(p.out)
+        pdiff = convert(Array, p.dif)
+        wlen = length(p.out)
         irange = (wlen <= gcheck ? (1:wlen) : rand(gradcheck_rng, 1:wlen, gcheck))
         for i in irange
-            wi0 = p.arr[i]
+            wi0 = p.out[i]
             wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
-            p.arr[i] = wi1
+            p.out[i] = wi1
             l1 = forw(m, x; trn=false, ygold=y)
-            p.arr[i] = wi0
+            p.out[i] = wi0
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)
                 println(tuple(:gc, n, i, pdiff[i], dwi))
             end
         end
-        p.arr = psave
+        @assert isequal(p.out, psave)
     end
 end
 
@@ -114,3 +102,17 @@ end
 # loss/back is not: relying on history.
 # we could give them x/y but they would still need internal state.
 # if they are going to use internal state they may as well use the one set by forw.
+
+# TODO: this does not work, cannot write back on data
+# function predict(m::Model, d)
+#     for (x,y) in d
+#         forw(m, x; yout=y, trn=false)
+#     end
+# end
+
+# function backprop(m::Model, x, y; getloss=true, a...)
+#     loss1 = forw(m, x; trn=true, ygold=(getloss ? y : nothing), a...)
+#     back(m, y; a...)
+#     return loss1
+# end
+

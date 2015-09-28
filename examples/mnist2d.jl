@@ -2,7 +2,6 @@
 
 using Base.Test
 using KUnet
-using KUnet: params
 isdefined(:MNIST) || include("mnist.jl")
 setseed(42)
 nbatch=100
@@ -10,43 +9,49 @@ nbatch=100
 dtrn = ItemTensor(MNIST.xtrn, MNIST.ytrn; batch=nbatch)
 dtst = ItemTensor(MNIST.xtst, MNIST.ytst; batch=nbatch)
 
-x0 = copy(dtrn.data[1])            # TODO: should rename x a more descriptive data
+x0 = copy(dtrn.data[1])
 y0 = copy(dtrn.data[2])
 
 info("Testing simple mlp")
 
-macro net(a) a end
-type input <: Op; end
-type par <: Op; end
-type dot <: Op; end
-type add <: Op; end
-type relu <: Op; end
-type soft <: Op; end
+softmax() = quote
+    x1 = input()
+    x2 = soft(x1)
+    x3 = softloss(x2)
+end
 
-# Net(Mmul(64), Bias(), Relu(), Mmul(10), Bias(), Soft(), SoftLoss())
-
-axpb(;n=1) = quote
+layer(;n=1,f=nothing) = quote
     x1 = input()
     w1 = par($n,0)
     x2 = dot(w1,x1)
     b2 = par(0)
     x3 = add(b2,x2)
+    y3 = $(symbol(f))(x3)
 end
 
-net = quote
-    x1 = input()
-    x2 = axpb(x1; n=64)
-    x3 = relu(x2)
-    x4 = axpb(x3; n=10)
-    x5 = soft(x4)
+function mlp(loss, actf, hidden...)
+    prog = quote
+        x0 = input()
+    end
+    N = length(hidden)
+    for n=1:N
+        x1 = symbol("x$(n-1)")
+        x2 = symbol("x$n")
+        push!(prog.args, :($x2 = layer($x1; n=$(hidden[n]), f=$(n<N ? actf : loss))))
+    end
+    return prog
 end
 
-# setparam!(net, lr=0.5)
-# @time for i=1:3
-#     @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.01)
-#     @show (test(net, dtrn), accuracy(net, dtrn))
-#     @show (test(net, dtst), accuracy(net, dtst))
-# end
+prog = mlp(softmax, relu, 64, 10)
 
-# @test isequal(x0,dtrn.data[1])
-# @test isequal(y0,dtrn.data[2])
+net = Net(prog)
+
+setopt!(net, lr=0.5)
+@time for i=1:3
+    @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001)
+    @show (test(net, dtrn), accuracy(net, dtrn))
+    @show (test(net, dtst), accuracy(net, dtst))
+end
+
+@test isequal(x0,dtrn.data[1])
+@test isequal(y0,dtrn.data[2])

@@ -15,9 +15,7 @@ function back(r::Net, dy, dx...; seq=false, a...)
         r.dif[N] = copy!(r.dif0[N], dy)
     end										# ; dbg(r,:dif,N) 
     for n = N:-1:1
-        if isempty(r.inputs[n])
-            # par etc. have no inputs to propagate
-        elseif r.dif[n] == nothing
+        if r.dif[n] == nothing
             for i in r.inputs[n]
                 r.toincr[i] || (r.dif[i] = nothing)
             end
@@ -38,7 +36,7 @@ function back(r::Net, dy, dx...; seq=false, a...)
                     r.dif[i] = nothing
                 end
             end
-            r.toincr[n] && fill!(r.dif[n],0)  # does not apply to Par which was caught by first if # ; r.toincr[n]&&dbg(r,:dif,n) # t:157
+            r.toincr[n] && !isa(r.op[n], Par) && fill!(r.dif[n],0)
         end
         seq && r.tosave[n] && pop(r,n)                                    # ; r.tosave[n]&&dbg(r,:out,n)
     end

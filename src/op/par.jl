@@ -1,13 +1,15 @@
-# TODO: back
 # TODO: update
-# TODO: going back we should not zero the incremental dif!
+# TODO: averaging
 
-type Par <: Op; dims; init; initialized; arr; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; Par()=new(); end
+type Par <: Op; dims; init; initialized; out0; out; dif;
+    lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
+    Par()=new(); 
+end
 
 setopt!(p::Par; o...)=(for (n,v) in o; p.(n)=v; end; p)
 par(; o...)=setopt!(Par(); initialized=false, o...)
 par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
-par(w::AbstractArray; o...)=par(; arr=w, dims=size(w), o...)
+par(w::AbstractArray; o...)=par(; out0=w, dims=size(w), o...)
 
 infersize(p::Par)=(isdefined(p,:dims) ? (p.dims,) : nothing)
 ninputs(::Par)=0
@@ -17,28 +19,27 @@ back_reads_y(::Par)=false
 
 abstract Rgen
 type Gaussian <: Rgen; mean; std; end
-type Uniform <: Rgen; min; max; end
+type Uniform  <: Rgen; min; max; end
 type Constant <: Rgen; val; end
 
-back(p::Par; o...)=nothing      # TODO: should we do updating here?
+function back(p::Par, dy; y=nothing, o...)
+    isdefined(p, :dif) || (p.dif = dy)
+    @assert dy === p.dif
+    @assert y === p.out
+end
 
 function forw(p::Par, y; o...)
     if p.initialized
-        y
-    elseif isdefined(p, :arr)
-        copy!(y, p.arr)
-    elseif !isdefined(p, :init)
-        scale!(0.01, randn!(y))
-    elseif isa(p.init, Constant)
-        fill!(y, p.init.val)
-    elseif isa(p.init, Uniform)
-        rand!(y)
-        axpb!(p.init.max - p.init.min, p.init.min, y)
-    elseif isa(p.init, Gaussian)
-        randn!(y)
-        axpb!(p.init.std, p.init.mean, y)
+        @assert p.out === y "p.out=$(p.out) y=$y"
+        return y
     else
-        error()
+        p.initialized = true
+        p.out = (isdefined(p, :out0)   ? copy!(y, p.out0) :
+                 !isdefined(p, :init)  ? scale!(0.01, randn!(y)) :
+                 isa(p.init, Constant) ? fill!(y, p.init.val) :
+                 isa(p.init, Uniform)  ? (rand!(y); axpb!(p.init.max - p.init.min, p.init.min, y)) :
+                 isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
+                 error())
     end
 end
 
@@ -130,3 +131,6 @@ end
 # Base.isequal:
     # typeof(a) == typeof(b) || return false
     # size(a) == size(b) || return false
+
+# DONE: back
+# DONE: going back we should not zero the incremental dif!

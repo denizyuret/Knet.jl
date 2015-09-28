@@ -17,12 +17,12 @@ back_reads_y(::Loss)=true
 # loss takes dy, the desired output, and returns a loss value
 
 for (ltype, lback, lloss, lname) in 
-    ((:QuadLoss, :quadlossback, :quadloss, :qloss),
-     (:SoftLoss, :softlossback, :softloss, :sloss),
-     (:LogpLoss, :logplossback, :logploss, :zloss),
-     (:XentLoss, :xentlossback, :xentloss, :xloss),
-     (:PercLoss, :perclossback, :percloss, :ploss),
-     (:ScalLoss, :scallossback, :scalloss, :closs))
+    ((:QuadLoss, :quadlossback, :quadlossloss, :quadloss),
+     (:SoftLoss, :softlossback, :softlossloss, :softloss),
+     (:LogpLoss, :logplossback, :logplossloss, :logploss),
+     (:XentLoss, :xentlossback, :xentlossloss, :xentloss),
+     (:PercLoss, :perclossback, :perclossloss, :percloss),
+     (:ScalLoss, :scallossback, :scallossloss, :scalloss))
     @eval begin
         type $ltype <: Loss; end
 
@@ -77,7 +77,7 @@ end
 #        = yk - pk
 
 
-function softloss(y::Array, dy::Array; o...)
+function softlossloss(y::Array, dy::Array; o...)
     cost=zero(Float64)
     for i=1:length(dy)
         dy[i]>0 && (cost -= (dy[i]*log(y[i])))
@@ -85,7 +85,7 @@ function softloss(y::Array, dy::Array; o...)
     return cost/ccount(dy)
 end
 
-@gpu function softloss(y::CudaArray{Float32}, dy::CudaArray{Float32}; tmp=nothing, o...)
+@gpu function softlossloss(y::CudaArray{Float32}, dy::CudaArray{Float32}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
     ccall((:softloss32,libkunet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),y,dy,ly)
     loss = CUBLAS.asum(ly)/ccount(dy)
@@ -93,7 +93,7 @@ end
     return loss
 end
 
-@gpu function softloss(y::CudaArray{Float64}, dy::CudaArray{Float64}; tmp=nothing, o...)
+@gpu function softlossloss(y::CudaArray{Float64}, dy::CudaArray{Float64}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
     ccall((:softloss64,libkunet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),y,dy,ly)
     loss = CUBLAS.asum(ly)/ccount(dy)
@@ -101,7 +101,7 @@ end
     return loss
 end
 
-function softloss(y::Array, dy::SparseMatrixCSC; o...)
+function softlossloss(y::Array, dy::SparseMatrixCSC; o...)
     cost=zero(Float64)
     for nz = 1:nnz(dy)
         dyi = dy.nzval[nz]
@@ -114,7 +114,7 @@ function softloss(y::Array, dy::SparseMatrixCSC; o...)
     return cost/ccount(dy)
 end
 
-@gpu function softloss(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}; tmp=nothing, o...)
+@gpu function softlossloss(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(dy) || error("not enough temp space")
     ccall((:softloss32csc,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
@@ -124,7 +124,7 @@ end
     return loss
 end
 
-@gpu function softloss(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}; tmp=nothing, o...)
+@gpu function softlossloss(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(dy) || error("not enough temp space")
     ccall((:softloss64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
@@ -171,7 +171,7 @@ end
 # J = 0.5*sum((yi-zi)^2)
 # dJ/dy = y-dy
 
-function quadloss(y::Array, dy::Array; o...)
+function quadlossloss(y::Array, dy::Array; o...)
     cost=zero(Float64)
     for i=1:length(dy) 
         cost += (y[i]-dy[i])^2
@@ -179,7 +179,7 @@ function quadloss(y::Array, dy::Array; o...)
     0.5*cost/ccount(dy)
 end
 
-@gpu function quadloss(y::CudaArray, dy::CudaArray; tmp=nothing, o...)
+@gpu function quadlossloss(y::CudaArray, dy::CudaArray; tmp=nothing, o...)
     tmp == nothing && (tmp = similar(y))
     copy!(tmp, y)
     axpy!(-1, dy, tmp)
@@ -209,7 +209,7 @@ quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:le
 #
 # dJ/dy[md] = (1/N) (q[md] - p[md])
 
-logploss(y::Array, dy::Array)=(nx = ccount(dy); cost = zero(Float64); for i=1:length(dy); cost -= (dy[i]*y[i]); end; cost/nx)
+logplossloss(y::Array, dy::Array)=(nx = ccount(dy); cost = zero(Float64); for i=1:length(dy); cost -= (dy[i]*y[i]); end; cost/nx)
 logplossback(y::Array, dy::Array, dx::Array=dy)=(nx = ccount(dx); for i=1:length(dx); dx[i] = (exp(y[i])-dy[i])/nx; end; dx)
 @gpu (logplossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=
         (ccall((:logplossback32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
@@ -238,7 +238,7 @@ logplossback(y::Array, dy::Array, dx::Array=dy)=(nx = ccount(dx); for i=1:length
 #
 # dJ/dy[md] = (1/N) (q[md] - p[md])
 
-function xentloss(y::Array, p::Array)
+function xentlossloss(y::Array, p::Array)
     cost = zero(Float64)
     (nd,nx) = size2(p)
     for j=1:nx
@@ -350,7 +350,7 @@ end
 # output is not locally normalized.  can we pass back anything so one
 # of the existing loss functions would work?
 
-scalloss(y,dy)=error("Not implemented")
+scallossloss(y,dy)=error("Not implemented")
 scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
 
 

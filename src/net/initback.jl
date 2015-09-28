@@ -28,6 +28,7 @@ function initback(r::Net, dy, dx...; seq=false, a...)
     fill!(r.dif, nothing)
     for n=1:length(r.op)                                # TODO-OPTIMIZATION
         isassigned(r.dif0, n) && fill!(r.dif0[n], 0)
+        isassigned(r.tmp, n) && fill!(r.dmp[n], 0)
     end
 end
 

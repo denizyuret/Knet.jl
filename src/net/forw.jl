@@ -3,21 +3,28 @@ forw(r::Net,x...) for individual items (or item tuples) that may or
 may not be part of a sequence.
 TODO: make yout optional last argument to match the op interface?
 """
-function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=false, a...)
-    length(inputs) == ninputs(r) || error("Wrong number of inputs")
+function forw(r::Net, inputs...; ygold=nothing, seq=false, mode=:test, a...)
+    if length(inputs) == ninputs(r)
+        yout = nothing
+    elseif length(inputs) == 1+ninputs(r)
+        yout = inputs[end]
+        inputs = inputs[1:end-1]
+    else
+        error("Wrong number of inputs")
+    end
     seq || initforw(r, inputs...; ygold=ygold, seq=false, a...)
-    DBG && display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    # display((:forw0,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     N = nops(r)
     lastinput = 0
     for n = 1:N
-        trn && seq && r.tosave[n] && push(r,n) # t:327
+        mode==:train && seq && r.tosave[n] && push(r,n) # t:327
         x = r.out[r.inputs[n]]
-        if isa(r.op[n], Input)                       # TODO: forw.op interface differences: returning y, train/trn, y/yout, ...
+        if isa(r.op[n], Input)
             r.out[n] = copy!(r.out0[n], inputs[lastinput += 1])
         elseif in(nothing, x)
             r.out[n] = forwnothing(r.op[n], x..., r.out0[n])
         else
-            r.out[n] = forw(r.op[n], x..., r.out0[n]; train=trn, a...) # ;dbg(r,:out,n) # t:2300
+            r.out[n] = forw(r.op[n], x..., r.out0[n]; mode=mode, a...) # ;dbg(r,:out,n) # t:2300
         end
     end
     yout != nothing && copy!(yout, r.out[N])
@@ -26,7 +33,7 @@ function forw(r::Net, inputs...; yout=nothing, ygold=nothing, seq=false, trn=fal
         r.dif[N] = copy!(r.dif0[N], ygold)
         loss1 = loss(r.op[N], r.dif[N], r.out[N])
     end
-    DBG && display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
+    # display((:forw1,seq,vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     return loss1
 end
 

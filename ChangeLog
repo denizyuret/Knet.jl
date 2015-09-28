@@ -1,5 +1,8 @@
 2015-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* examples/mnist2d.jl (net): TODO: find out where the slight
+	difference comes from.
+
 	* src/netcomp.jl: for special par ops do we have valid flags?
 	tosave: false, never necessary since we do not change between iterations
 	toincr: always true if seq, true when multi otherwise
@@ -19,7 +22,7 @@
 	        we need to handle par & seq
 	toback: par or descendent (fixed): netcomp sets it.
 
-	* TODO: toincr is a problem:
+	* DONE: toincr is a problem:
 	- netinit:33 difsparse says no if toincr, why?
 	- paramaters are incrementally updated in a sequence.
 	- however we want to use sparse dw to go with sparse x.

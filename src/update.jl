@@ -1,26 +1,26 @@
 using Base.LinAlg: axpy!, scale!
 
-function update!(p::KUparam; gclip=0, o...)
+function update!(p::Par; gclip=0, o...)
     initupdate(p)
-    gclip > 0 && scale!(gclip, p.diff) # this is not a per-parameter deal, we need the gnorm for the whole model
-    nz(p,:l1reg,0) && l1reg!(p.l1reg, p.arr, p.diff)
-    nz(p,:l2reg,0) && l2reg!(p.l2reg, p.arr, p.diff)
-    nz(p,:adagrad,false) && adagrad!(1e-8, p.ada, p.diff)
-    nz(p,:momentum,0) && momentum!(p.momentum, p.mom, p.diff)
-    nz(p,:nesterov,0) && nesterov!(p.nesterov, p.nes, p.diff)
-    nz(p,:lr,1) && scale!(p.lr, p.diff)
-    axpy!(-1, p.diff, p.arr)
-    nz(p,:average,false) && axpy!(1,p.arr,p.avg)
-    # nz(p,:maxnorm,0) && maxnorm!(p.maxnorm, p.arr)
+    gclip > 0 && scale!(gclip, p.dif) # this is not a per-parameter deal, we need the gnorm for the whole model
+    nz(p,:l1reg,0) && l1reg!(p.l1reg, p.out, p.dif)
+    nz(p,:l2reg,0) && l2reg!(p.l2reg, p.out, p.dif)
+    nz(p,:adagrad,false) && adagrad!(1e-8, p.ada, p.dif)
+    nz(p,:momentum,0) && momentum!(p.momentum, p.mom, p.dif)
+    nz(p,:nesterov,0) && nesterov!(p.nesterov, p.nes, p.dif)
+    nz(p,:lr,1) && scale!(p.lr, p.dif)
+    axpy!(-1, p.dif, p.out)
+    nz(p,:average,false) && axpy!(1,p.out,p.avg)
+    # nz(p,:maxnorm,0) && maxnorm!(p.maxnorm, p.out)
 end
 
 nz(p,n,v)=(isdefined(p,n) && (p.(n) != v))
 
-function initupdate(p::KUparam)
-    nz(p,:average,false) && similar!(p, :avg, p.arr; fill=0)
-    nz(p,:adagrad,false) && similar!(p, :ada, p.diff; fill=0)
-    nz(p,:momentum,0) && similar!(p, :mom, p.diff; fill=0)
-    nz(p,:nesterov,0) && similar!(p, :nes, p.diff; fill=0)
+function initupdate(p::Par)
+    nz(p,:average,false) && similar!(p, :avg, p.out; fill=0)
+    nz(p,:adagrad,false) && similar!(p, :ada, p.dif; fill=0)
+    nz(p,:momentum,0) && similar!(p, :mom, p.dif; fill=0)
+    nz(p,:nesterov,0) && similar!(p, :nes, p.dif; fill=0)
 end
 
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
