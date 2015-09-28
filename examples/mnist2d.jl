@@ -33,3 +33,21 @@ end
 @test isequal(x0,dtrn.data[1])
 @test isequal(y0,dtrn.data[2])
 
+### SAMPLE RUN:
+
+# INFO: Loading MNIST...
+#   6.342732 seconds (366.14 k allocations: 502.132 MB, 1.66% gc time)
+# INFO: Testing simple mlp
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true,atol=0.01,rtol=0.01) = (0.37387532f0,18.511799f0,2.8433793f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.21288027f0,0.9327666666666666)
+# (test(net,dtst),accuracy(net,dtst)) = (0.2148458f0,0.9289)
+# (1,0.9289,0.9327666666666666)
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true,atol=0.01,rtol=0.01) = (0.14995994f0,22.26936f0,3.9932733f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.13567321f0,0.9574)
+# (test(net,dtst),accuracy(net,dtst)) = (0.14322147f0,0.9546)
+# (2,0.9546,0.9574)
+# (l,w,g) = train(net,dtrn; gclip=0,gcheck=100,getloss=true,getnorm=true,atol=0.01,rtol=0.01) = (0.10628127f0,24.865437f0,3.5134742f0)
+# (test(net,dtrn),accuracy(net,dtrn)) = (0.100041345f0,0.9681833333333333)
+# (test(net,dtst),accuracy(net,dtst)) = (0.114785746f0,0.9641)
+# (3,0.9641,0.9681833333333333)
+#  10.178136 seconds (11.31 M allocations: 516.861 MB, 1.27% gc time)
