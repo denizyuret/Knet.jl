@@ -2,6 +2,7 @@
 
 using CUDArt
 using CUSPARSE
+using CUSPARSE: CudaSparseMatrix
 
 Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
 Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host(a))
