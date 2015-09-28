@@ -7,6 +7,7 @@ using ArgParse
 using KUnet
 import Base: start, next, done
 include("irnn.jl")
+include("lstm.jl")
 include("s2c.jl")
 
 function main(args=ARGS)
@@ -15,7 +16,7 @@ function main(args=ARGS)
     opts["seed"] > 0 && setseed(opts["seed"])
     data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
     p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
-          opts["type"] == "lstm" ? LSTM(n=opts["hidden"], fbias=opts["fbias"]) : 
+          opts["type"] == "lstm" ? lstm(n=opts["hidden"], fbias=opts["fbias"]) : 
           error("Unknown network type "*opts["type"]))
     p2 = qlayer(std=opts["std"])
     net = S2C(Net(p1), Net(p2))

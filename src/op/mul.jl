@@ -9,12 +9,14 @@ back_reads_y(::Mul)=false
 # x1,x2 is a pair of similarly sized input matrices
 
 function forw(l::Mul, x1, x2, y; o...)
-    @assert size(x2) == size(y)
-    if length(x1) == 1
-        y === x2 || copy!(y,x2)
-        scale!(x1[1], y)
+    @assert x2 == nothing || size(x2) == size(y)
+    if x1==nothing || x2==nothing # nothing represents zero
+        nothing
     elseif size(x1) == size(x2)
         mul2!(y,x1,x2)          # TODO: (minor) change order to x1,x2,y
+    elseif length(x1) == 1
+        y === x2 || copy!(y,x2)
+        scale!(x1[1], y)
     else
         error()
     end
@@ -22,16 +24,27 @@ end
 
 function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
     if dx2 != nothing
-        @assert size(dx2) == size(dy) == size(x[1])
-        mul2!(dx2, dy, x[1])
+        @assert size(dx2) == size(dy)
+        if x[1] == nothing      # representing zero
+            fill!(dx2, 0)
+        elseif size(x[1]) == size(dy)
+            mul2!(dx2, dy, x[1])
+        else
+            error("TODO: implement scaling diff")
+        end
     end
     if dx1 == nothing
         # done
     elseif size(dx1) == size(dy)
-        @assert size(x[2]) == size(dy)
-        mul2!(dx1, dy, x[2])
+        if x[2] == nothing      # representing zero
+            fill!(dx1, 0)
+        elseif size(x[2]) == size(dy)
+            mul2!(dx1, dy, x[2])
+        else
+            error("x2 and y should have the same size in mul")
+        end
     elseif length(dx1) == 1
-        error("not implemented") # TODO
+        error("TODO: implement scaling diff")
     else
         error()
     end
