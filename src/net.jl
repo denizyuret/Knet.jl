@@ -30,8 +30,8 @@ function Net(a::Expr)
         filter(x->isa(x,Par), op),
         multi(op, inputs),
         tosave(op, inputs),
-        toback(op, inputs),
-        falses(N),
+        falses(N), # toback
+        falses(N), # toincr
         cell(N), cell(N), cell(N), cell(N), cell(N),
         Any[], 0)
 end
