@@ -11,17 +11,17 @@ function initback(r::Net, dy, dx...; seq=false, a...)
     set_toincr(r, seq)
     for n=length(r.op):-1:1
         r.toback[n] || continue
-        nsparse = difsparse(r, dy, n)
+        st = difsparse(r, dy, n)
         if isassigned(r.dif0, n)
-            @assert (issimilar2(r.dif0[n], r.out0[n]) && issparse(r.dif0[n])==nsparse) # TODO: implement batch size change
+            @assert (issimilar2(r.dif0[n], r.out0[n]) && stype(r.dif0[n])==st) # TODO: implement batch size change
         else
-            r.dif0[n] = finddif(r, n, nsparse)
+            r.dif0[n] = finddif(r, n, st)
         end
         if r.toincr[n]
             if isassigned(r.tmp, n)
-                @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==nsparse)
+                @assert (issimilar2(r.tmp[n], r.out0[n]) && stype(r.tmp[n])==st)
             else
-                r.tmp[n] = findtmp(r, n, nsparse)
+                r.tmp[n] = findtmp(r, n, st)
             end
         end
     end
@@ -80,8 +80,8 @@ end
 
 # TODO: make sure this is safe
 # multiple sharing?  other writes before reads?
-function finddif(r::Net, n, nsparse)
-    return newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))  # TODO: OPTIMIZATION
+function finddif(r::Net, n, stype)
+    return newarray(gpu(), stype, eltype(r.out0[n]), size(r.out0[n]))  # TODO: OPTIMIZATION
     dif0 = nothing
     if (!isa(r.op[n], Par) && 
         !r.toincr[n])
@@ -96,35 +96,36 @@ function finddif(r::Net, n, nsparse)
         end
     end
     if dif0 == nothing
-        dif0 = newarray(gpu(), nsparse, eltype(r.out0[n]), size(r.out0[n]))
+        dif0 = newarray(gpu(), stype, eltype(r.out0[n]), size(r.out0[n]))
     end
     return dif0
 end
 
-function findtmp(r::Net, n, nsparse)
-    return newarray(gpu(), nsparse, eltype(r.dif0[n]), size(r.dif0[n])) # TODO: OPTIMIZATION
+function findtmp(r::Net, n, st)
+    return newarray(gpu(), st, eltype(r.dif0[n]), size(r.dif0[n])) # TODO: OPTIMIZATION
     tmp = nothing
     for i=n+1:length(r.op)
         if (isassigned(r.tmp, i) &&
             size(r.tmp[i]) == size(r.dif0[i]) &&
-            issparse(r.tmp[i]) == nsparse)
+            stype(r.tmp[i]) == st)
             tmp = r.tmp[i]
             break
         end
     end
     if tmp == nothing
-        tmp = newarray(gpu(), nsparse, eltype(r.dif0[n]), size(r.dif0[n]))
+        tmp = newarray(gpu(), st, eltype(r.dif0[n]), size(r.dif0[n]))
     end
     return tmp
 end
 
 function difsparse(r::Net, dy, n)                       # TODO: test this, compare with old initback
     N = length(r.op)
-    n == N && length(r.outputs[n]) == 1 && issparse(dy) && return true
+    n == N && length(r.outputs[n]) == 1 && return stype(dy)
     for i=1:N
-        isa(r.op[i], Dot) && n == r.inputs[i][1] && issparse(r.out0[r.inputs[i][2]]) && return true
+        # The sparse operation dw = dy * x' is implemented for dw:csr, dy:arr, x:csc.
+        isa(r.op[i], Dot) && n == r.inputs[i][1] && stype(r.out0[r.inputs[i][2]])==:csc && return :csr
     end
-    return false
+    return nothing
 end
 
 

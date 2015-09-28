@@ -24,7 +24,7 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
         if isassigned(r.dif0, N)
             @assert issimilar3(ygold, r.dif0[N])
         else
-            r.dif0[N] = newarray(gpu(), issparse(ygold), eltype(ygold), size(ygold))
+            r.dif0[N] = newarray(gpu(), stype(ygold), eltype(ygold), size(ygold))
         end
     end
     if seq
@@ -44,12 +44,12 @@ function initforw0(r::Net, inputs...)
     sizes = infersize(r, inputs...)
     lastinput = 0
     for n=1:length(r.op)
-        nsparse = isa(r.op[n], Input) && issparse(inputs[lastinput += 1])
-        # r.out0[n] = findout(r, n, sizes, nsparse)
+        st = (isa(r.op[n], Input) ? stype(inputs[lastinput += 1]) : nothing)
+        # r.out0[n] = findout(r, n, sizes, st)
         # if r.out0[n] == nothing
-        #     r.out0[n] = newarray(gpu(), nsparse, xtype, sizes[n])
+        #     r.out0[n] = newarray(gpu(), st, xtype, sizes[n])
         # end
-        r.out0[n] = newarray(gpu(), nsparse, xtype, sizes[n]) # TODO-OPTIMIZATION
+        r.out0[n] = newarray(gpu(), st, xtype, sizes[n]) # TODO-OPTIMIZATION
     end
     fill!(r.out, nothing)
     # TODO: figure out tmp

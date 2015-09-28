@@ -73,11 +73,24 @@ end
 
 get1(x)=(length(x)==1?x[1]:x)
 
-function newarray(ongpu, nsparse, xtype, dims)
-    ongpu && nsparse   ? CudaSparseMatrixCSC(spzeros(xtype, dims...)) :
-    ongpu && !nsparse  ? fill!(CudaArray(xtype, dims), 0) :
-    !ongpu && nsparse  ? spzeros(xtype, dims...) :
-    !ongpu && !nsparse ? zeros(xtype, dims) : error()
+cpucsc(xtype, dims)=spzeros(xtype, dims...)
+cpuarr(xtype, dims)=zeros(xtype, dims)
+gpucsc(xtype, dims)=CudaSparseMatrixCSC(spzeros(xtype, dims...))
+gpucsr(xtype, dims)=CudaSparseMatrixCSR(spzeros(xtype, dims...))
+gpuarr(xtype, dims)=fill!(CudaArray(xtype, dims), 0)
+
+stype(a)=nothing
+stype(a::SparseMatrixCSC)=:csc
+stype(a::CudaSparseMatrixCSC)=:csc
+stype(a::CudaSparseMatrixCSR)=:csr
+
+function newarray(ongpu, stype, xtype, dims)
+    (ongpu ?
+     (stype==:csc ? gpucsc(xtype, dims) :
+      stype==:csr ? gpucsr(xtype, dims) :
+      stype==nothing ? gpuarr(xtype, dims) : error()) :
+     (stype==:csc ? cpucsc(xtype, dims) :
+      stype==nothing ? cpuarr(xtype, dims) : error()))
 end
 
 issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))

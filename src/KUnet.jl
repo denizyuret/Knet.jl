@@ -17,6 +17,7 @@ include("util/gpu.jl");		export setseed
 include("util/linalg.jl");	
 
 isdefined(:KUdense) || include("util/dense.jl");	# deprecate?
+include("util/array.jl");	export isapprox
 include("util/colops.jl");	# 
 include("data.jl");		export ItemTensor
 

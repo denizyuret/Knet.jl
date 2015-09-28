@@ -3,7 +3,7 @@
 
 using Base.Test
 using KUnet
-using KUnet: params
+include("mlp.jl")
 
 isdefined(:MNIST) || include("mnist.jl")
 nbatch=100
@@ -11,24 +11,25 @@ nbatch=100
 atol = 0.01
 rtol = 0.01
 gcheck = 10
-isapprox1(x,y)=isapprox(x.arr,y.arr;atol=atol,rtol=rtol)&&isapprox(x.diff,y.diff;atol=atol,rtol=rtol)
+isapprox1(x::Par,y::Par)=isapprox(x.out,y.out;atol=atol,rtol=rtol)&&isapprox(x.dif,y.dif;atol=atol,rtol=rtol)
 
 adense(x)=x
 net = cell(4)
 dtrn = cell(4)
 dtst = cell(4)
 iter = 0
+prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
 
 for (fx,fy) in ((adense,adense), (adense,sparse), (sparse,adense), (sparse,sparse))
     iter += 1
-    net[iter] = Net(Mmul(64), Bias(), Relu(), Mmul(10), Bias(), Soft(), SoftLoss())
-    setparam!(net[iter], lr=0.5)
+    net[iter] = Net(prog)
+    setopt!(net[iter], lr=0.5)
     dtrn[iter] = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
     dtst[iter] = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
     setseed(42)
     l=w=g=ltrn=atrn=ltst=atst=0
     @time for epoch=1:3
-        # TODO: gcheck does not work 
+        # TODO: gcheck does not work ?
         (l,w,g) = train(net[iter], dtrn[iter]; gclip=0, gcheck=gcheck, getloss=true, getnorm=true, atol=atol, rtol=rtol)
         (ltrn,atrn,ltst,atst) = (test(net[iter], dtrn[iter]), 
                                  accuracy(net[iter], dtrn[iter]), 
