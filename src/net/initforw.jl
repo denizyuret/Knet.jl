@@ -28,7 +28,7 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
         end
     end
     if seq
-        @assert all(r.out .== nothing)
+        @assert keepstate || all((r.out .== nothing) | (r.out .== r.out0))
         keepstate && copy!(r.out, r.out0)
     else
         @assert all((r.out .== nothing) | (r.out .== r.out0))

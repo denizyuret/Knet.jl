@@ -3,8 +3,8 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x;trn,yout,ygold)`
-* `back(m,dy)`
+* `forw(m,x,[y];mode,ygold)`
+* `back(m,dy,[dx])`
 * `params(m)`
 
 Using these low level methods, Model defines the following:

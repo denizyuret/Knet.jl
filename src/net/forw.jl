@@ -41,37 +41,20 @@ x can be a Vector of Arrays representing items.
 x can be a Vector of Tuples representing multiple inputs.
 x cannot be a Vector of scalars (TODO:think this over)
 """
-function forw(r::Net, x::Vector; yout=nothing, ygold=nothing, a...)
+function forw(r::Net, x::Vector, yout=nothing; ygold=nothing, a...)
     # display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     isbits(eltype(x)) && error("forw expects a minibatch")
     x1 = (isa(x[1], Tuple) ? x[1] : (x[1],))
-    initforw(r, x1...; a...)
+    y1 = (ygold == nothing ? nothing : ygold[1])
+    initforw(r, x1...; seq=true, ygold=y1, a...)
     loss = 0.0
     for i=1:length(x)
         xi = (isa(x[i], Tuple) ? x[i] : (x[i],))
         yi = (yout == nothing ? nothing : yout[i])
         yg = (ygold == nothing ? nothing : ygold[i])
-        loss += forw(r, xi...; seq=true, yout=yi, ygold=yg, a...)
+        loss += forw(r, xi..., yi; seq=true, ygold=yg, a...)
     end
     # display((:forwseq1,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))
     return loss
 end
 
-# Unfortunately this should be op specific
-
-        # elseif in(nothing, x)
-        #     r.out[n] = forwnothing(r.op[n], x..., r.out0[n])
-
-# """
-# forwnothing: treat nothing as identity element, i.e. if one input is
-# nothing and the other has the same size as the output return that one.
-# """
-# function forwnothing(op::Op, x1, x2, out0)
-#     x1==x2==nothing && return nothing
-#     x = (x1 == nothing ? x2 :
-#          x2 == nothing ? x1 : error())
-#     size(x) != size(out0) && return nothing
-#     x === out0 ? out0 : copy!(out0, x)
-# end
-
-# forwnothing(op::Op, ::Void, out0)=nothing

@@ -2,27 +2,30 @@
 # Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural
 # network regularization." arXiv preprint arXiv:1409.2329 (2014).
 #
-# Usage: julia zaremba14.jl ptb.train.txt ptb.valid.txt ptb.test.txt
-# Type julia zaremba14.jl --help for more options
+# Usage: julia rnnlm.jl ptb.train.txt ptb.valid.txt ptb.test.txt
+# Type julia rnnlm.jl --help for more options
 
 using KUnet, ArgParse
 import Base: start, next, done
+include("lstm.jl")
 
 function main(args=ARGS)
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
+    opts["dropout"] > 0 && error("TODO: implement dropout")
     dict = Dict{Any,Int32}()
     data = Any[]
     for f in opts["datafiles"]
         push!(data, LMData(f;  batch=opts["batch_size"], seqlen=opts["seq_length"], dict=dict))
     end
     vocab_size = length(dict)
-    lstms = Any[]
-    for i=1:opts["layers"]; push!(lstms, LSTM(opts["rnn_size"]; dropout=opts["dropout"])); end
-    net = Net(Mmul(opts["rnn_size"]), lstms..., Mmul(vocab_size), Bias(), Soft(), SoftLoss())
+    prog = rnnlm(layers = opts["layers"],
+                 rnn_size = opts["rnn_size"],
+                 vocab_size = vocab_size)
+    net = Net(prog)
     lr = opts["lr"]
-    setparam!(net, lr=lr, init=rand!, initp=(-opts["init_weight"], opts["init_weight"]))
+    setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
     perp = zeros(length(data))
     wmax = gmax = 0
     for ep=1:opts["max_max_epoch"]
@@ -36,6 +39,36 @@ function main(args=ARGS)
         @show (ep, perp..., wmax, gmax, lr)
     end
 end
+
+
+function rnnlm(;
+               layers = 0,
+               rnn_size = 0,
+               vocab_size = 0,
+               )
+    prog = quote                # TODO: do we need the prefix?  lstm will do a dot?
+        i0 = input()
+        w0 = par($rnn_size,0)
+        x0 = dot(w0,i0)
+    end
+    s0 = s1 = :x0
+    for n=1:layers
+        s0 = s1
+        s1 = symbol("x$n")
+        op = :($s1 = lstm($s0; n=$rnn_size))
+        push!(prog.args, op)
+    end
+    prog2 = quote
+        w1 = par($vocab_size,0)
+        y1 = dot(w1,$s1)
+        b1 = par(0)
+        z1 = add(b1,y1)
+        l1 = softmax(z1)
+    end
+    append!(prog.args, prog2.args)
+    return prog
+end
+
 
 type LMData; data; dict; batchsize; seqlength; batch; end
 
@@ -184,11 +217,12 @@ function parse_commandline(args)
     return opts
 end
 
-main()
+isinteractive() || main()
 
 
-### SAMPLE RUN:
-# julia zaremba14.jl --preset 1 data/ptb.valid.txt data/ptb.test.txt 
+### SAMPLE RUN: results may vary because of sparse matrix multiplications.
+#
+# julia rnnlm.jl --preset 1 ptb.valid.txt ptb.test.txt 
 # WARNING: requiring "Options" did not define a corresponding module.
 # Dict{AbstractString,Any}("rnn_size"=>200,"lr"=>1,"decay"=>2,"batch_size"=>20,"dropout"=>0,"max_grad_norm"=>5,"preset"=>1,"max_epoch"=>4,"init_weight"=>0.1,"gcheck"=>0,"layers"=>2,"vocab_size"=>10000,"seq_length"=>20,"seed"=>42,"max_max_epoch"=>13,"datafiles"=>Any["data/ptb.valid.txt","data/ptb.test.txt"])
 # INFO: Read data/ptb.valid.txt: 73760 words, 6022 vocab.
