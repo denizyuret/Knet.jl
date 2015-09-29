@@ -123,14 +123,14 @@ function netstmt(stmt::Expr, dict::Dict{Symbol,Symbol})
         gensym(target) 
     end
     @assert expr.head == :call
+    func = expr.args[1]
     args = Any[]
     pars = Any[]
-    for a in expr.args
+    for a in expr.args[2:end]
         isa(a, Symbol) ?
         push!(args, a) :
         push!(pars, a)
     end
-    func = shift!(args)
     for i=1:length(args)
         args[i] = get!(dict, args[i]) do
             gensym(args[i]) 
