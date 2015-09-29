@@ -73,7 +73,7 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
             wi0 = p.out[i]
             wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             p.out[i] = wi1
-            l1 = forw(m, x; trn=false, ygold=y)
+            l1 = forw(m, x; mode=:test, ygold=y)
             p.out[i] = wi0
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)
