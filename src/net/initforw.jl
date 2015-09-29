@@ -27,12 +27,14 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
             r.dif0[N] = newarray(gpu(), stype(ygold), eltype(ygold), size(ygold))
         end
     end
-    if seq
-        @assert keepstate || all((r.out .== nothing) | (r.out .== r.out0))
-        keepstate && copy!(r.out, r.out0)
-    else
+    if !seq
         @assert all((r.out .== nothing) | (r.out .== r.out0))
         @assert !keepstate "meaningless keepstate in non-sequence run"
+        fill!(r.out, nothing)
+    elseif keepstate
+        copy!(r.out, r.out0)
+    else
+        @assert all((r.out .== nothing) | (r.out .== r.out0))
         fill!(r.out, nothing)
     end
     # TODO: implement batch size changes
