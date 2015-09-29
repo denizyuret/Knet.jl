@@ -194,8 +194,10 @@ end
     vecnorm(tmp)^2/(2*ccount(y))
 end
 
-quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
-@gpu quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy; o...)=(dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx)
+# quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
+# @gpu quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy; o...)=(dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx)  ## cudnnTransformTensor is buggy
+
+quadlossback(y, dy, dx=dy; o...)=(dx===dy||copy!(dx,dy); scale!(-1/ccount(y), dx); axpy!(1/ccount(y), y, dx); dx)
 
 ### LOGPLOSS:
 
