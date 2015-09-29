@@ -3,6 +3,7 @@ import Base: conv
 # TODO: generalize to N-D
 # TODO: cpu implementation
 # TODO: upgrade to new cudnn version
+# TODO: upgrade to new kunet interface
 
 type Conv <: Op; w; x; ybuf; dx; Conv(p::KUparam)=new(p); end
 
