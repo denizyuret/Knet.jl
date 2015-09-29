@@ -11,7 +11,7 @@ nbatch=100
 atol = 0.01
 rtol = 0.01
 gcheck = 10
-isapprox1(x::Par,y::Par)=isapprox(x.out,y.out;atol=atol,rtol=rtol)&&isapprox(x.dif,y.dif;atol=atol,rtol=rtol)
+isapprox1(x,y)=isapprox(x.out,y.out;atol=atol,rtol=rtol)&&isapprox(x.dif,y.dif;atol=atol,rtol=rtol)
 
 adense(x)=x
 net = cell(4)

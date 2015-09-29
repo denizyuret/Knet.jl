@@ -3,15 +3,15 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x,[y];mode,ygold)`
-* `back(m,dy,[dx])`
+* `forw(m,x...,y; mode,ygold)`
+* `back(m,dy,dx...)`
 * `params(m)`
 
 Using these low level methods, Model defines the following:
 
 * `train(model, data; gclip, gcheck, getloss, getnorm)`
 * `test(model, data)`
-* `predict(model, data)`
+* `predict(model, data)` (TODO)
 * `accuracy(model, data)`
 * `setopt!(model; param...)`
 """

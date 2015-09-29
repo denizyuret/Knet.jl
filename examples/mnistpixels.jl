@@ -7,6 +7,7 @@ using KUnet: nextidx
 import Base: start, next, done
 using ArgParse
 include("irnn.jl")
+include("lstm.jl")
 include("s2c.jl")
 isdefined(:MNIST) || include("mnist.jl")
 
@@ -187,3 +188,14 @@ main()
 # (:trn,100000,2.174602f0,10.437442f0,7863.392f0)
 # (:tst,100000,0.2939)
 
+# sample output for lstm:
+#
+# [dy_052@hpc3013 examples]$ julia mnistpixels.jl --type lstm
+# WARNING: requiring "Options" in module "Main" did not define a corresponding module.
+# INFO: Loading MNIST...
+#   6.725308 seconds (363.19 k allocations: 358.143 MB, 0.62% gc time)
+# Dict{AbstractString,Any}("hidden"=>100,"rtol"=>0.01,"batchsize"=>200,"lrate"=>0.005,"train"=>10000,"gclip"=>1.0,"acc"=>10,"std"=>0.01,"gcheck"=>0,"fbias"=>1.0,"epochs"=>100,"atol"=>0.01,"seed"=>1003,"type"=>"lstm")
+# (:trn,10000,2.3025522f0,14.711951f0,0.1208294f0)
+# (:trn,20000,2.3024626f0,14.717022f0,0.12132876f0)
+# (:trn,30000,2.3024027f0,14.721309f0,0.10962964f0)
+# (:trn,40000,2.3023393f0,14.725827f0,0.14956589f0)

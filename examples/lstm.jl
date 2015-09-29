@@ -1,10 +1,10 @@
 lstm(; n=0, fbias=0) = 
 quote
     x  = input()
-    i  = add2(x,h;n=$n,f=:sigm)
-    f  = add2(x,h;n=$n,f=:sigm,b=$fbias)
-    o  = add2(x,h;n=$n,f=:sigm)
-    g  = add2(x,h;n=$n,f=:tanh)
+    i  = add2(x,h;n=$n,f=sigm)
+    f  = add2(x,h;n=$n,f=sigm,b=$fbias)
+    o  = add2(x,h;n=$n,f=sigm)
+    g  = add2(x,h;n=$n,f=tanh)
     ig = mul(i,g)
     fc = mul(f,c)
     c  = add(ig,fc)
@@ -12,7 +12,7 @@ quote
     h  = mul(tc,o)
 end
 
-add2(; n=1,f=:sigm,b=0) = 
+add2(; n=1,f=sigm,b=0) = 
 quote
     x1 = input()
     w1 = par($n,0)
