@@ -1,3 +1,5 @@
+import Base: dot
+
 # TODO: Who implements averaging?  -- net should
 # TODO: handle or don't use nothings? -- don't use
 

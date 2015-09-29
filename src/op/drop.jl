@@ -1,3 +1,5 @@
+import Base: drop
+
 type Drop <: Op; dropout; xdrop; y; Drop(d)=new(d); end
 
 # TODO: implement Dropout using Mul2: however forw conditional on predict?

@@ -1,4 +1,4 @@
-# module KUnet
+module KUnet
 using Compat
 
 # Print date, expression and elapsed time after execution
@@ -21,15 +21,15 @@ include("util/array.jl");	export isapprox
 include("util/colops.jl");	# 
 include("data.jl");		export ItemTensor
 
-include("model.jl");		export train, test, accuracy, setopt!
+include("model.jl");		export Model, train, test, accuracy, setopt!
 include("op.jl");		
 include("op/add.jl");		export add
-include("op/dot.jl");		export dot
+include("op/dot.jl");		# export dot # this already has a definition in base
 include("op/mul.jl");		export mul
 include("op/input.jl");		export input
-include("op/par.jl");           export par
-include("op/loss.jl");		export quadloss, softloss
-include("op/actf.jl");		export sigm, tanh, relu, soft, logp
+include("op/par.jl");           export par, Gaussian, Uniform, Constant, Identity
+include("op/loss.jl");		export quadloss, softmax
+include("op/actf.jl");		export sigm, tanh, relu
 include("update.jl");		
 
 include("net.jl");              export Net
@@ -39,7 +39,7 @@ include("net/forw.jl")
 include("net/back.jl")
 include("net/util.jl")
 
-# end # module
+end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias

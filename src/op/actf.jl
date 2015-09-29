@@ -1,3 +1,5 @@
+import Base: tanh
+
 # Activation function layers:
 
 abstract Actf <: Op

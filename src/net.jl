@@ -66,7 +66,7 @@ function netcomp1(block::Expr)
         isa(stmt, LineNumberNode) && continue
         @assert isa(stmt, Expr)
         (opoutput, func, opinputs, params) = netstmt(stmt, dict)
-        ev = eval(Expr(:call, func, params...))
+        ev = eval(current_module(), Expr(:call, func, params...))
         if isa(ev, Op)
             @assert length(opinputs) == ninputs(ev)
             push!(ops, ev)
