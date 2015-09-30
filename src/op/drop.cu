@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 __global__ void _drop32(int n, float *x, float *y, float *xmask, double dropout, double scale) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

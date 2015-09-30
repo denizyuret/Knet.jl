@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 __global__ void _adagrad32(int n, double eps, float *dw2, float *dw) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

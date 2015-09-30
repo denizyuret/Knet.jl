@@ -87,7 +87,7 @@ end
 
 @gpu function softlossloss(y::CudaArray{Float32}, dy::CudaArray{Float32}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
-    ccall((:softloss32,libkunet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),y,dy,ly)
+    ccall((:softloss32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(dy),y,dy,ly)
     loss = CUBLAS.asum(ly)/ccount(dy)
     tmp == nothing && free(ly)
     return loss
@@ -95,7 +95,7 @@ end
 
 @gpu function softlossloss(y::CudaArray{Float64}, dy::CudaArray{Float64}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(y) : tmp) # TODO: get rid of alloc
-    ccall((:softloss64,libkunet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),y,dy,ly)
+    ccall((:softloss64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),y,dy,ly)
     loss = CUBLAS.asum(ly)/ccount(dy)
     tmp == nothing && free(ly)
     return loss
@@ -117,7 +117,7 @@ end
 @gpu function softlossloss(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(dy) || error("not enough temp space")
-    ccall((:softloss32csc,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
+    ccall((:softloss32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
           size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,ly)
     loss = CUBLAS.asum(nnz(dy),ly,1)/ccount(dy)
     tmp == nothing && free(ly)
@@ -127,7 +127,7 @@ end
 @gpu function softlossloss(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(dy.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(dy) || error("not enough temp space")
-    ccall((:softloss64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
+    ccall((:softloss64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
           size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,ly)
     loss = CUBLAS.asum(nnz(dy),ly,1)/ccount(dy)
     tmp == nothing && free(ly)
@@ -142,8 +142,8 @@ function softlossback(y::Array, dy::Array, dx::Array; o...)
     return dx
 end
 
-@gpu softlossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(dy),1/ccount(dy),y,dy,dx);dx)
-@gpu softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),1/ccount(dy),y,dy,dx);dx)
+@gpu softlossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(dy),1/ccount(dy),y,dy,dx);dx)
+@gpu softlossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(dy),1/ccount(dy),y,dy,dx);dx)
 
 function softlossback(y::Array, dy::SparseMatrixCSC, dx::Array; o...)
     fill!(dx, 1/size(dy,2))
@@ -158,8 +158,8 @@ function softlossback(y::Array, dy::SparseMatrixCSC, dx::Array; o...)
     return dx
 end
 
-@gpu softlossback(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libkunet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
-@gpu softlossback(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
+@gpu softlossback(y::CudaArray{Float32}, dy::CudaSparseMatrixCSC{Float32}, dx::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
+@gpu softlossback(y::CudaArray{Float64}, dy::CudaSparseMatrixCSC{Float64}, dx::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(dy,1),size(dy,2),y,dy.nnz,dy.nzVal,dy.rowVal,dy.colPtr,dx);dx)
 
 
 # Convenience op combining soft and softloss:
@@ -222,10 +222,10 @@ quadlossback(y, dy, dx=dy; o...)=(dx===dy||copy!(dx,dy); scale!(-1/ccount(y), dx
 logplossloss(y::Array, dy::Array)=(nx = ccount(dy); cost = zero(Float64); for i=1:length(dy); cost -= (dy[i]*y[i]); end; cost/nx)
 logplossback(y::Array, dy::Array, dx::Array=dy)=(nx = ccount(dx); for i=1:length(dx); dx[i] = (exp(y[i])-dy[i])/nx; end; dx)
 @gpu (logplossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=
-        (ccall((:logplossback32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
+        (ccall((:logplossback32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),
                length(dy),1/ccount(dy),y,dy,dx); dx))
 @gpu (logplossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=
-        (ccall((:logplossback64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),
+        (ccall((:logplossback64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),
                length(dy),1/ccount(dy),y,dy,dx); dx))
 
 
@@ -276,9 +276,9 @@ function xentlossback(y::Array, p::Array, dx::Array=p)
 end
 
 @gpu (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32}=p)=
-        ((nd,nx)=size2(p);ccall((:xentlossback32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
+        ((nd,nx)=size2(p);ccall((:xentlossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
 @gpu (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64}=p)=
-        ((nd,nx)=size2(p);ccall((:xentlossback64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
+        ((nd,nx)=size2(p);ccall((:xentlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
 
 
 ### PERCLOSS
@@ -347,8 +347,8 @@ function perclossback{T}(y::Array{T}, dy::Array{T}, dx::Array{T}=dy)
     return dx
 end
 
-@gpu (perclossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=((nd,nx)=size2(dy);ccall((:perclossback32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,dy,dx);dx))
-@gpu (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=((nd,nx)=size2(dy);ccall((:perclossback64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,dy,dx);dx))
+@gpu (perclossback(y::CudaArray{Float32}, dy::CudaArray{Float32}, dx::CudaArray{Float32}=dy)=((nd,nx)=size2(dy);ccall((:perclossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,dy,dx);dx))
+@gpu (perclossback(y::CudaArray{Float64}, dy::CudaArray{Float64}, dx::CudaArray{Float64}=dy)=((nd,nx)=size2(dy);ccall((:perclossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,dy,dx);dx))
 
 
 ### SCALLOSS

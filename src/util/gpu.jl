@@ -3,7 +3,7 @@
 # using the gpu() function.
 GPU = true
 lpath = [Pkg.dir("Knet/src")]
-for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
+for l in ("libknet", "libcuda", "libcudart", "libcublas", "libcudnn")
     isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");GPU=false)
 end
 for p in ("CUDArt", "CUBLAS", "CUDNN")
@@ -35,7 +35,7 @@ macro gpu(_ex); if GPU; esc(_ex); end; end
 GPU && CUDArt.init!([CUDArt.CuModule(),], [CUDArt.device(),])
 
 # Additional cuda code
-const libkunet = Libdl.find_library(["libkunet"], [Pkg.dir("Knet/src")])
+const libknet = Libdl.find_library(["libknet"], [Pkg.dir("Knet/src")])
 
 # For debugging
 function gpumem()

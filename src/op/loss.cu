@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 __global__ void _fill32(int n, float x, float *a) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

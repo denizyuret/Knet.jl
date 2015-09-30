@@ -92,9 +92,9 @@ end
 logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
 
 @gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=
-        ((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); y))
+        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); y))
 @gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=
-        ((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); y))
+        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); y))
 
 
 ### DEAD CODE

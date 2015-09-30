@@ -281,7 +281,7 @@ main()
 # + dif = nothing, dif0 = array
 # + profiling
 # x separate into two networks
-# + xfer train/predict to kunet (tforw? figure out right interface)
+# + xfer train/predict to knet (tforw? figure out right interface)
 # + gradient clipping (1/10/100)
 # x adadelta (not this paper)
 

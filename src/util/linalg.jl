@@ -78,23 +78,23 @@ function axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T})
     return y
 end
 
-axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:axpy32csr,libkunet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
-axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:axpy64csr,libkunet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
+axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
+axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:axpy64csr,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
 
 
 ### axpb! useful scale and shift transformation: x -> ax+b
 
 axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)
-axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libkunet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x);x)
-axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libkunet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x);x)
+axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libknet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x);x)
+axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x);x)
 
 
 ### mul2 element-wise multiplication:
 
 # mul2!(c::KUdense,a::KUdense,b::KUdense)=(mul2!(c.arr,a.arr,b.arr);c)
 mul2!(c::Array,a::Array,b::Array)=(for i=1:length(c); c[i] = a[i]*b[i]; end; c)
-mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libkunet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c);c)
-mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libkunet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c);c)
+mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c);c)
+mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c);c)
 
 
 
@@ -126,7 +126,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_B!{A<:CudaArray}(y::CudaArray{Float32,2}, w::CudaArray{Float32,2}, x::KUsparse{A,Float32})
 #     @assert size(y)==(size(w,1),size(x,2))
-#     ccall((:A_mul_Bs_32,libkunet),Void,
+#     ccall((:A_mul_Bs_32,libknet),Void,
 #           (Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
 #           size(w,1),size(x,2),w,x.nzval,x.rowval,x.colptr,y)
 #     return y
@@ -134,7 +134,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_B!{A<:CudaArray}(y::CudaArray{Float64,2}, w::CudaArray{Float64,2}, x::KUsparse{A,Float64})
 #     @assert size(y)==(size(w,1),size(x,2))
-#     ccall((:A_mul_Bs_64,libkunet),Void,
+#     ccall((:A_mul_Bs_64,libknet),Void,
 #           (Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
 #           size(w,1),size(x,2),w,x.nzval,x.rowval,x.colptr,y)
 #     return y
@@ -165,7 +165,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_Bt!{A<:CudaArray}(dw::CudaArray{Float32,2}, dy::CudaArray{Float32,2}, x::KUsparse{A,Float32})
 #     @assert size(dw)==(size(dy,1),size(x,1))
-#     ccall((:A_mul_Bst_32,libkunet),Void,
+#     ccall((:A_mul_Bst_32,libknet),Void,
 #           (Cint,Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
 #           size(dy,1),size(dy,2),size(x,1),dy,x.nzval,x.rowval,x.colptr,dw)
 #     return dw
@@ -173,7 +173,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_Bt!{A<:CudaArray}(dw::CudaArray{Float64,2}, dy::CudaArray{Float64,2}, x::KUsparse{A,Float64})
 #     @assert size(dw)==(size(dy,1),size(x,1))
-#     ccall((:A_mul_Bst_64,libkunet),Void,
+#     ccall((:A_mul_Bst_64,libknet),Void,
 #           (Cint,Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
 #           size(dy,1),size(dy,2),size(x,1),dy,x.nzval,x.rowval,x.colptr,dw)
 #     return dw
@@ -190,7 +190,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float32,2}, s::KUsparse{A,Float32}, x::KUsparse{B,Float32})
 #     @assert size(k)==(size(s,2),size(x,2))
-#     ccall((:Ast_mul_Bs_32,libkunet),Void,
+#     ccall((:Ast_mul_Bs_32,libknet),Void,
 #           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
 #           size(s,2),size(x,2),s.nzval,s.rowval,s.colptr,x.nzval,x.rowval,x.colptr,k)
 #     return k
@@ -198,7 +198,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float64,2}, s::KUsparse{A,Float64}, x::KUsparse{B,Float64})
 #     @assert size(k)==(size(s,2),size(x,2))
-#     ccall((:Ast_mul_Bs_64,libkunet),Void,
+#     ccall((:Ast_mul_Bs_64,libknet),Void,
 #           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
 #           size(s,2),size(x,2),s.nzval,s.rowval,s.colptr,x.nzval,x.rowval,x.colptr,k)
 #     return k
@@ -219,7 +219,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_B!(k::CudaArray{Float32,2}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32})
 #     @assert size(k)==(size(x,1),size(s,2))
-#     ccall((:As_mul_Bs_32,libkunet),Void,
+#     ccall((:As_mul_Bs_32,libknet),Void,
 #           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
 #           size(x,1),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k)
 #     return k
@@ -227,7 +227,7 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 # function A_mul_B!(k::CudaArray{Float64,2}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32})
 #     @assert size(k)==(size(x,1),size(s,2))
-#     ccall((:As_mul_Bs_64,libkunet),Void,
+#     ccall((:As_mul_Bs_64,libknet),Void,
 #           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
 #           size(x,1),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k)
 #     return k
