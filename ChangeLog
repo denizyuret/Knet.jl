@@ -1,3 +1,9 @@
+2015-09-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/model.jl: 
+	# TODO: add predict, load, save
+	# TODO: handle the case where the data has tuples of length 1 or more than 2.
+
 2015-09-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO: fix conv/pool. solve compiler namespace problem.
