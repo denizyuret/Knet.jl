@@ -5,7 +5,7 @@
 # Usage: julia rnnlm.jl ptb.train.txt ptb.valid.txt ptb.test.txt
 # Type julia rnnlm.jl --help for more options
 
-using KUnet, ArgParse
+using Knet, ArgParse
 import Base: start, next, done
 include("lstm.jl")
 

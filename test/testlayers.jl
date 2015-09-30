@@ -1,10 +1,10 @@
 using Compat
-using KUnet
+using Knet
 using Base.Test
 using Base.Test: Success, Failure, Error
 import Base.Test: default_handler
 include("isapprox.jl")
-if KUnet.GPU
+if Knet.GPU
     eval(Expr(:using,:CUDArt))
     eval(Expr(:using,:CUDArt,:ContiguousArray))
 else
@@ -159,8 +159,8 @@ end
 
 function filetest(net1)
     isa(net1[1], Pool) && (warn("Pooling layers cannot be saved to file yet"); return true)
-    KUnet.savenet("/tmp/kunet.test", net1)
-    net2 = KUnet.loadnet("/tmp/kunet.test")
+    Knet.savenet("/tmp/kunet.test", net1)
+    net2 = Knet.loadnet("/tmp/kunet.test")
     return all(map(iseq03, net1, net2))
 end
 
@@ -226,7 +226,7 @@ end
 
 function main(layers)
     global net0, x0, z0
-    KUnet.gpu(false)
+    Knet.gpu(false)
     for F in (Float32,Float64)
         for D in 1:5
             S = tuple(rand(1:20,D)...)
@@ -235,7 +235,7 @@ function main(layers)
                 net==nothing && continue  # combination not supported
                 net0, x0, z0 = net, x, z
                 @show (F, S, L)
-                KUnet.GPU && (@test gputest(net, x, z))
+                Knet.GPU && (@test gputest(net, x, z))
                 gradtest(net, x, z)
                 @test filetest(net)
             end

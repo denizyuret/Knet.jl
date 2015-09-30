@@ -29,7 +29,7 @@ end
 
 ### DEAD CODE
 
-# using KUnet
+# using Knet
 
 # function LSTM(n; fbias=0, dropout=0)
 #     Net(

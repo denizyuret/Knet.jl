@@ -1,4 +1,4 @@
-using KUnet
+using Knet
 
 # Simple linear regression.
 

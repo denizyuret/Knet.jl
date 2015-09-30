@@ -1,7 +1,7 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
 using Base.Test
-using KUnet
+using Knet
 isdefined(:MNIST) || include("mnist.jl")
 include("mlp.jl")
 setseed(42)

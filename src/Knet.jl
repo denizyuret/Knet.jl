@@ -1,4 +1,4 @@
-module KUnet
+module Knet
 using Compat
 
 # Print date, expression and elapsed time after execution

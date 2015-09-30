@@ -2,8 +2,8 @@
 # N., & Hinton, G. E. (2015). A Simple Way to Initialize Recurrent
 # Networks of Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
-using KUnet
-using KUnet: nextidx
+using Knet
+using Knet: nextidx
 import Base: start, next, done
 using ArgParse
 include("irnn.jl")

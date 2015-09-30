@@ -12,7 +12,7 @@ scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
 vecnorm(x::CudaArray)=nrm2(x)
 
 ### MMUL
-# This is not a complete implementation.  The goal is to support KUnet
+# This is not a complete implementation.  The goal is to support Knet
 # operations for sparse/dense matrices on cpu/gpu.  The operations needed:
 #
 # mmul forw: A_mul_B!(y, w, x)		A_mul_Bs!(y, w, x): cpu/gpu: kudense, array, sparse

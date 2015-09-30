@@ -2,8 +2,8 @@
 # 4-D convolution test
 
 using Base.Test
-using KUnet
-using KUnet: params, isapprox2
+using Knet
+using Knet: params, isapprox2
 isdefined(:MNIST) || include("mnist.jl")
 setseed(42)
 nbatch=100

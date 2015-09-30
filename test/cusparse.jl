@@ -1,4 +1,4 @@
-using CUDArt,CUBLAS,CUSPARSE,KUnet,Base.Test
+using CUDArt,CUBLAS,CUSPARSE,Knet,Base.Test
 include("isapprox.jl")
 
 csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())

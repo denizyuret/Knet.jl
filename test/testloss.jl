@@ -1,5 +1,5 @@
-using KUnet, CUDArt, CUSPARSE
-using KUnet: loss, back
+using Knet, CUDArt, CUSPARSE
+using Knet: loss, back
 
 m = 10
 n = 1000

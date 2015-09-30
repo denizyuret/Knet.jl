@@ -2,7 +2,7 @@
 # Testing sparse arrays.
 
 using Base.Test
-using KUnet
+using Knet
 include("mlp.jl")
 
 isdefined(:MNIST) || include("mnist.jl")

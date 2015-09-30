@@ -4,7 +4,7 @@
 # Usage: julia adding.jl [opts], use --help for a full list of opts.
 
 using ArgParse
-using KUnet
+using Knet
 import Base: start, next, done
 include("irnn.jl")
 include("lstm.jl")
@@ -244,8 +244,8 @@ main()
 # this way forw calculation by the last three layers are wasted
 # but this way we are testing the general input/output
 
-# import KUnet: forw, back, ninputs, param, similar!, gpu, initforw, initback, setparam!, update, loss, axpy! # push, pop, get1
-# import KUnet: backprop, train, predict, nz
+# import Knet: forw, back, ninputs, param, similar!, gpu, initforw, initback, setparam!, update, loss, axpy! # push, pop, get1
+# import Knet: backprop, train, predict, nz
 # include("../src/rnn.jl")
 
 # setparam!(net1; nesterov=0.01)

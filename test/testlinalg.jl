@@ -1,4 +1,4 @@
-using KUnet, CUDArt, CUSPARSE, Base.Test
+using Knet, CUDArt, CUSPARSE, Base.Test
 include("isapprox.jl")
 
 # function A_mul_B!{T}(C::KUdense{CudaArray,T,2}, A::CudaArray{T,2}, B::CudaSparseMatrixCSC{T})

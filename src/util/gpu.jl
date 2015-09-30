@@ -2,7 +2,7 @@
 # loaded, not whether it is used.  The user can control gpu use by
 # using the gpu() function.
 GPU = true
-lpath = [Pkg.dir("KUnet/src")]
+lpath = [Pkg.dir("Knet/src")]
 for l in ("libkunet", "libcuda", "libcudart", "libcublas", "libcudnn")
     isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");GPU=false)
 end
@@ -35,7 +35,7 @@ macro gpu(_ex); if GPU; esc(_ex); end; end
 GPU && CUDArt.init!([CUDArt.CuModule(),], [CUDArt.device(),])
 
 # Additional cuda code
-const libkunet = Libdl.find_library(["libkunet"], [Pkg.dir("KUnet/src")])
+const libkunet = Libdl.find_library(["libkunet"], [Pkg.dir("Knet/src")])
 
 # For debugging
 function gpumem()

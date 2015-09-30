@@ -1,4 +1,4 @@
-using CUDArt, KUnet
+using CUDArt, Knet
 import Base: isapprox
 
 function isapprox(x, y; 

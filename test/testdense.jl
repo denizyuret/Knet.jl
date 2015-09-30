@@ -1,6 +1,6 @@
 using Base.Test
 using CUDArt
-using KUnet
+using Knet
 
 for N in 1:5
     for A in (CudaArray, Array)

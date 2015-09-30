@@ -1,5 +1,5 @@
 using Compat
-using KUnet
+using Knet
 @date include("testdense.jl")
 @date include("testsparse.jl")
 @date include("testconvert.jl")

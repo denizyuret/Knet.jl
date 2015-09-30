@@ -1,8 +1,8 @@
 using Base.Test
 using CUDArt
-using KUnet
+using Knet
 
-# import KUnet: forw, back, ninputs, param, similar!, gpu, initforw, initback, push, pop, get1
+# import Knet: forw, back, ninputs, param, similar!, gpu, initforw, initback, push, pop, get1
 # include("../src/net.jl")
 
 include("isapprox.jl")
@@ -39,7 +39,7 @@ r = rnn
 inputs = Any[y]
 trn = true
 seq = false
-using KUnet: push, pop, dbg, forw, back, get1, initbatch
+using Knet: push, pop, dbg, forw, back, get1, initbatch
 
     initbatch(r, inputs...; trn=trn, seq=seq, a...)
     for i = 1:ninputs(r)
