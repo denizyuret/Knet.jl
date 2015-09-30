@@ -1,4 +1,8 @@
 Compat
+CUDArt
+CUBLAS
+CUSPARSE
+CUDNN
 JLD
 GZip
 ArgParse
