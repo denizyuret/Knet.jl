@@ -4,30 +4,36 @@ using Base.Test
 using Knet
 isdefined(:MNIST) || include("mnist.jl")
 include("mlp.jl")
-setseed(42)
-nbatch=100
 
-dtrn = ItemTensor(MNIST.xtrn, MNIST.ytrn; batch=nbatch)
-dtst = ItemTensor(MNIST.xtst, MNIST.ytst; batch=nbatch)
+function mnist2d(args=ARGS)
+    setseed(42)
+    nbatch=100
 
-x0 = copy(dtrn.data[1])
-y0 = copy(dtrn.data[2])
+    dtrn = ItemTensor(MNIST.xtrn, MNIST.ytrn; batch=nbatch)
+    dtst = ItemTensor(MNIST.xtst, MNIST.ytst; batch=nbatch)
 
-info("Testing simple mlp")
+    x0 = copy(dtrn.data[1])
+    y0 = copy(dtrn.data[2])
 
-prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
-net = Net(prog)
+    info("Testing simple mlp on MNIST")
 
-setopt!(net, lr=0.5)
-@time for i=1:3
-    @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001)
-    @show (test(net, dtrn), accuracy(net, dtrn))
-    @show (test(net, dtst), accuracy(net, dtst))
+    prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
+    net = Net(prog)
+
+    setopt!(net, lr=0.5)
+    l=w=g=0
+    @time for i=1:3
+        @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001)
+        @show (test(net, dtrn), accuracy(net, dtrn))
+        @show (test(net, dtst), accuracy(net, dtst))
+    end
+
+    @test isequal(x0,dtrn.data[1])
+    @test isequal(y0,dtrn.data[2])
+    return (l,w,g)
 end
 
-@test isequal(x0,dtrn.data[1])
-@test isequal(y0,dtrn.data[2])
-
+!isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
 
 ### SAMPLE RUN
 

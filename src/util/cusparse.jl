@@ -4,8 +4,23 @@ using CUDArt
 using CUSPARSE
 using CUSPARSE: CudaSparseMatrix
 
+# This is buggy in master:util.jl:75, submitted pull request:
+function to_host2{T}(Mat::CudaSparseMatrixCSR{T})
+    rowPtr = to_host(Mat.rowPtr)
+    colVal = to_host(Mat.colVal)
+    nzVal = to_host(Mat.nzVal)
+    #construct Is
+    I = similar(colVal)
+    counter = 1
+    for row = 1 : size(Mat)[1], k = rowPtr[row] : (rowPtr[row+1]-1)
+        I[counter] = row
+        counter += 1
+    end
+    return sparse(I,colVal,nzVal,Mat.dims[1],Mat.dims[2])
+end
+
 Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
-Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host(a))
+Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host2(a))
 Base.isempty(a::CudaSparseMatrix) = (length(a) == 0)
 Base.issparse(a::CudaSparseMatrix) = true
 Base.ndims(::CudaSparseMatrix) = 2

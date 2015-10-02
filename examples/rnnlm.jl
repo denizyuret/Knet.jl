@@ -9,7 +9,9 @@ using Knet, ArgParse
 import Base: start, next, done
 include("lstm.jl")
 
-function main(args=ARGS)
+function rnnlm(args=ARGS)
+    info("RNN language model example from Zaremba et al. 2014.")
+    isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
@@ -20,9 +22,9 @@ function main(args=ARGS)
         push!(data, LMData(f;  batch=opts["batch_size"], seqlen=opts["seq_length"], dict=dict))
     end
     vocab_size = length(dict)
-    prog = rnnlm(layers = opts["layers"],
-                 rnn_size = opts["rnn_size"],
-                 vocab_size = vocab_size)
+    prog = rnnlmModel(layers = opts["layers"],
+                      rnn_size = opts["rnn_size"],
+                      vocab_size = vocab_size)
     net = Net(prog)
     lr = opts["lr"]
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
@@ -38,14 +40,15 @@ function main(args=ARGS)
         end
         @show (ep, perp..., wmax, gmax, lr)
     end
+    return (perp..., wmax, gmax)
 end
 
 
-function rnnlm(;
-               layers = 0,
-               rnn_size = 0,
-               vocab_size = 0,
-               )
+function rnnlmModel(;
+                    layers = 0,
+                    rnn_size = 0,
+                    vocab_size = 0,
+                    )
     prog = quote                # TODO: do we need the prefix?  lstm will do a dot?
         i0 = input()
         w0 = par($rnn_size,0)
@@ -72,7 +75,7 @@ end
 
 type LMData; data; dict; batchsize; seqlength; batch; end
 
-function LMData(fname::String; batch=batch_size, seqlen=seq_length, dict=Dict{Any,Int32}())
+function LMData(fname::AbstractString; batch=batch_size, seqlen=seq_length, dict=Dict{Any,Int32}())
     data = Int32[]
     f = open(fname)
     for l in eachline(f)
@@ -131,7 +134,7 @@ function parse_commandline(args)
         "--layers"
         help = "number of lstm layers"
         arg_type = Int
-        default = 2
+        default = 1
         "--decay"
         help = "divide learning rate by this every epoch after max_epoch"
         arg_type = Float64
@@ -159,11 +162,11 @@ function parse_commandline(args)
         "--max_epoch"
         help = "number of epochs at initial lr"
         arg_type = Int
-        default = 4
+        default = 1 # 4
         "--max_max_epoch"
         help = "number of epochs to train"
         arg_type = Int
-        default = 13
+        default = 1 # 13
         "--max_grad_norm"
         help = "gradient clip"
         arg_type = Float64
@@ -217,7 +220,7 @@ function parse_commandline(args)
     return opts
 end
 
-isinteractive() || main()
+!isinteractive() && !isdefined(:load_only) && rnnlm(ARGS)
 
 
 ### SAMPLE RUN: results may vary because of sparse matrix multiplications.

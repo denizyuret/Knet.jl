@@ -11,12 +11,14 @@ include("lstm.jl")
 include("s2c.jl")
 isdefined(:MNIST) || include("mnist.jl")
 
-function main(args=ARGS)
+function mnistpixels(args=ARGS)
+    isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
+    info("Pixel-by-pixel MNIST problem from Le et al. 2015.")
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
 
-    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=opts["batchsize"], epoch=opts["train"], bootstrap=true)
+    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=opts["batchsize"], epoch=opts["epochsize"], bootstrap=true)
     tst = Pixels(MNIST.xtst, MNIST.ytst; batch=opts["batchsize"])
 
     nx = 1
@@ -27,6 +29,7 @@ function main(args=ARGS)
     p2 = softlayer(n=10, std=opts["std"])
     net = S2C(Net(p1), Net(p2))
     setopt!(net; lr=opts["lrate"])
+    l = maxw = maxg = acc = 0
     @time for epoch=1:opts["epochs"]
         (l,maxw,maxg) = train(net, trn; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
         println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
@@ -36,6 +39,7 @@ function main(args=ARGS)
         end
         flush(STDOUT)
     end
+    return (acc, l, maxw, maxg)
 end
 
 softlayer(;n=1,std=0.01) = quote
@@ -80,14 +84,14 @@ end
 function parse_commandline(args)
     s = ArgParseSettings()
     @add_arg_table s begin
-        "--train"
+        "--epochsize"
         help = "number of training examples per epoch"
         arg_type = Int
-        default = 10000
+        default = 1000 # 10000
         "--acc"
         help = "Compute test accuracy every acc epochs"
         arg_type = Int
-        default = 10
+        default = 1 # 10
         "--batchsize"
         help = "minibatch size"
         arg_type = Int
@@ -134,12 +138,12 @@ function parse_commandline(args)
         "--epochs"
         help = "Number of epochs to train"
         arg_type = Int
-        default = 100
+        default = 1
     end
     parse_args(args,s)
 end
 
-main()
+!isinteractive() && !isdefined(:load_only) && mnistpixels(ARGS)
 
 # NOTES:
 

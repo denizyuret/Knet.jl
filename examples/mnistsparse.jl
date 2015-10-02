@@ -3,42 +3,49 @@
 
 using Base.Test
 using Knet
-include("mlp.jl")
-
 isdefined(:MNIST) || include("mnist.jl")
-nbatch=100
-
-atol = 0.01
-rtol = 0.01
-gcheck = 10
-isapprox1(x,y)=isapprox(x.out,y.out;atol=atol,rtol=rtol)&&isapprox(x.dif,y.dif;atol=atol,rtol=rtol)
-
+include("mlp.jl")
+atol2 = 0.01
+rtol2 = 0.01
+isapprox2(x,y)=isapprox(x.out,y.out;atol=atol2,rtol=rtol2)&&isapprox(x.dif,y.dif;atol=atol2,rtol=rtol2)
 adense(x)=x
-net = cell(4)
-dtrn = cell(4)
-dtst = cell(4)
-iter = 0
-prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
 
-for (fx,fy) in ((adense,adense), (adense,sparse), (sparse,adense), (sparse,sparse))
-    iter += 1
-    net[iter] = Net(prog)
-    setopt!(net[iter], lr=0.5)
-    dtrn[iter] = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
-    dtst[iter] = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
-    setseed(42)
-    l=w=g=ltrn=atrn=ltst=atst=0
-    @time for epoch=1:3
-        # TODO: gcheck does not work ?
-        (l,w,g) = train(net[iter], dtrn[iter]; gclip=0, gcheck=gcheck, getloss=true, getnorm=true, atol=atol, rtol=rtol)
-        (ltrn,atrn,ltst,atst) = (test(net[iter], dtrn[iter]), 
-                                 accuracy(net[iter], dtrn[iter]), 
-                                 test(net[iter], dtst[iter]), 
-                                 accuracy(net[iter], dtst[iter]))
+function mnistsparse(args=ARGS)
+    info("Testing MNIST mlp with sparse arrays.")
+    nbatch=100
+
+    gcheck = 10
+    net = cell(4)
+    dtrn = cell(4)
+    dtst = cell(4)
+    iter = 0
+    prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
+    results = Any[]
+
+    for (fx,fy) in ((adense,adense), (adense,sparse), (sparse,adense), (sparse,sparse))
+        iter += 1
+        net[iter] = Net(prog)
+        setopt!(net[iter], lr=0.5)
+        dtrn[iter] = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
+        dtst[iter] = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
+        setseed(42)
+        l=w=g=ltrn=atrn=ltst=atst=0
+        @time for epoch=1:3
+            # TODO: gcheck does not work ?
+            (l,w,g) = train(net[iter], dtrn[iter]; gclip=0, gcheck=gcheck, getloss=true, getnorm=true, atol=atol2, rtol=rtol2)
+            (ltrn,atrn,ltst,atst) = (test(net[iter], dtrn[iter]), 
+                                     accuracy(net[iter], dtrn[iter]), 
+                                     test(net[iter], dtst[iter]), 
+                                     accuracy(net[iter], dtst[iter]))
+        end
+        @show (fx,fy,l,w,g,ltrn,atrn,ltst,atst)
+        @show map(isapprox2, params(net[1]), params(net[iter]))
+        push!(results, (fx,fy,l,w,g,ltrn,atrn,ltst,atst))
     end
-    @show (fx,fy,l,w,g,ltrn,atrn,ltst,atst)
-    @show map(isapprox1, params(net[1]), params(net[iter]))
+    return results
 end
+
+!isinteractive() && !isdefined(:load_only) && mnistsparse(ARGS)
 
 
 # Reference output for debugging.  The last two results with sparse input are not stable.
