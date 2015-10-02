@@ -24,17 +24,25 @@ function back(::Dot, dy, dx1, dx2; x=nothing, o...)
 end
 
 function infersize(::Dot,a,b)
-    ma = na = mb = nb = 0
-    if a != nothing
+    # a,b may have more than 2 dims (convolution tensors etc.),
+    # in which case we group the first n-1 into a super-column
+    # a,b can also be nothing
+    if a==b==nothing
+        return nothing
+    elseif a==nothing
+        return (a, b, (0,b[end]))
+    elseif b==nothing
+        return (a, b, (prod(a[1:end-1]),0))
+    else
+        a = [a...]
+        b = [b...]
         ma = prod(a[1:end-1])
         na = a[end]
-    end
-    if b != nothing
         mb = prod(b[1:end-1])
         nb = b[end]
+        na == 0 && (na = a[end] = mb)
+        mb == 0 && length(b) == 2 && (mb = b[1] = na)
+        @assert na == 0 || mb == 0 || na == mb
+        (tuple(a...), tuple(b...), (ma,nb))
     end
-    na == 0 && (na = mb)
-    mb == 0 && (mb = na)
-    @assert na == mb
-    ((ma,na), (mb,nb), (ma,nb))
 end

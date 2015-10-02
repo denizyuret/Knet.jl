@@ -21,18 +21,26 @@ vecnorm(x::CudaArray)=nrm2(x)
 # kper forw: At_mul_B!(k, s, x)		Ast_mul_Bs!(k, s, x): cpu/gpu: kudense, kusparse, sparse
 
 
-### CUDAARRAY (Array versions already defined)
+### CudaMatrix (Matrix versions already defined)
 
-A_mul_B!{T}(C::CudaArray{T,2}, A::CudaArray{T,2}, B::CudaArray{T,2})=gemm!('N','N',one(T),A,B,zero(T),C)
-A_mul_Bt!{T}(C::CudaArray{T,2}, A::CudaArray{T,2}, B::CudaArray{T,2})=gemm!('N','T',one(T),A,B,zero(T),C)
-At_mul_B!{T}(C::CudaArray{T,2}, A::CudaArray{T,2}, B::CudaArray{T,2})=gemm!('T','N',one(T),A,B,zero(T),C)
+A_mul_B!{T}( C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
+A_mul_Bt!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
+At_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
+
+### Add the ability to multiply arrays with other than 2 dimensions
+mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))
+A_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_Bt!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+At_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
 
 ### KUDENSE
 
 # The input could be a tensor or a vector.  In which case perform
 # internal calculations in 2D.
 
-mat2d(x)=(ndims(x)==2 ? x : reshape(x, size2(x)))
 # A_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
 # At_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
 # A_mul_Bt!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)

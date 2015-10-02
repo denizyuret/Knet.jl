@@ -1,6 +1,34 @@
+2015-10-01  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/op/pool.jl: TODO: #
+	CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding
+	> # 0 or else I have no idea what it is doing.
+	# function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray)
+	check if added to the library.
+
+	* src/op/conv.jl: TODO: implement xavier in par.jl.
+	TODO: make conv accept all cudnn options.
+
+	* ai-mtg: TODO: feedback from today's meeting:
+	- Copy instruction for going back two time steps.
+	- Being able to access arrays with original variable names.
+	- We need a predict function.
+	- Onur and Ozan's bidirectional model.
+	- kernels and perceptrons.
+
+2015-09-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* handout-mtg: TODO: feedback from today's meeting:
+	- Take loss out of the model, make it a train/test option.
+	- Replace 0's with ? or _ in dimensions.
+	- Avoid variables by allowing embedded expressions.
+	- Also conv/pool/rnd/con in the handout have not yet been
+	implemented.
+	- The array sharing optimizations are currently turned off.
+
 2015-09-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/model.jl: 
+	* src/model.jl:
 	# TODO: add predict, load, save
 	# TODO: handle the case where the data has tuples of length 1 or more than 2.
 

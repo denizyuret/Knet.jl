@@ -13,6 +13,7 @@ include("util/gpu.jl");		export setseed
 @useifgpu CUDNN  
 @gpu include("util/cudart.jl");
 @gpu include("util/curand.jl");
+@gpu include("util/cudnn.jl");
 @gpu include("util/cusparse.jl");
 include("util/linalg.jl");	
 
@@ -30,6 +31,8 @@ include("op/input.jl");		export input
 include("op/par.jl");           export par, Par, Gaussian, Uniform, Constant, Identity
 include("op/loss.jl");		export quadloss, softloss, softmax # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp
+include("op/conv.jl");		# export conv # this already has a definition in base
+include("op/pool.jl");		export pool
 include("update.jl");		
 
 include("net.jl");              export Net, params, forw, back
@@ -43,8 +46,6 @@ end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias
-# include("op/conv.jl");		# export Conv
-# include("op/pool.jl");		# export Pool
 # include("op/drop.jl");		# export Drop
 # include("op/add2.jl");		# export Add2
 # include("op/mul2.jl");		# export Mul2

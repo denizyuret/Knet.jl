@@ -93,8 +93,6 @@ function cudnnPoolingForward_v4(src, dest;
                                 window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, 
                                 handle=cudnnHandle, alpha=1.0, beta=0.0)
     pd = cudnnPoolingDescriptor_v4(ndims(src)-2, window, padding, stride, mode)
-    @show map(size, (src, dest))
-    @show cudnnGetPoolingNdDescriptor_v4(pd, ndims(src)-2)
     cudnnPoolingForward(handle, pd, 
                         cptr(alpha,src), TD(src), src,
                         cptr(beta,dest), TD(dest), dest)
