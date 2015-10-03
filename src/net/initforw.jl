@@ -28,13 +28,13 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
         end
     end
     if !seq
-        @assert all((r.out .== nothing) | (r.out .== r.out0)) # t:110/244
+        # @assert all((r.out .== nothing) | (r.out .== r.out0)) # t:110/244
         @assert !keepstate "meaningless keepstate in non-sequence run"
         fill!(r.out, nothing)
     elseif keepstate
         copy!(r.out, r.out0)
     else
-        @assert all((r.out .== nothing) | (r.out .== r.out0))
+        # @assert all((r.out .== nothing) | (r.out .== r.out0))
         fill!(r.out, nothing)
     end
     # TODO: implement batch size changes
