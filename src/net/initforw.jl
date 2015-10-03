@@ -10,9 +10,6 @@ function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, 
     N = length(r.op)
     lastinput = 0
     for n=1:N
-        # if !keepstate && !isa(r.op[n], Par)   # TODO-OPTIMIZATION: && r.tozero[n] -- deprecated, never need to zero with nothings (except toincr?)
-        #     fill!(r.out0[n], 0)               # t:118/244
-        # end
         if isa(r.op[n], Input)
             i = inputs[lastinput += 1]
             o = r.out0[n]
@@ -46,12 +43,12 @@ function initforw0(r::Net, inputs...)
     sizes = infersize(r, inputs...)
     lastinput = 0
     for n=1:length(r.op)
+        ### REGISTER SHARING OPTIMIZATION:
         st = (isa(r.op[n], Input) ? stype(inputs[lastinput += 1]) : nothing)
-        # r.out0[n] = findout(r, n, sizes, st)
-        # if r.out0[n] == nothing
-        #     r.out0[n] = newarray(gpu(), st, xtype, sizes[n])
-        # end
-        r.out0[n] = newarray(gpu(), st, xtype, sizes[n]) # TODO-OPTIMIZATION
+        r.out0[n] = findout(r, n, sizes, st)
+        if r.out0[n] == nothing
+            r.out0[n] = newarray(gpu(), st, xtype, sizes[n])
+        end
     end
     fill!(r.out, nothing)
     # TODO: figure out tmp
@@ -60,8 +57,8 @@ end
 function findout(r::Net, n, sizes, nsparse)
     r.tosave[n] && return        # saved regs and pars should not overwrite or be overwritten
     isa(r.op[n], Par) && return  # TODO: how about rnd and con?
-    free = nothing               # search most recent written first
-    for i = n-1:-1:1                                    # considering overwriting i with n
+    free = nothing               # search most recent written first to avoid copying in overwriting ops
+    for i = n-1:-1:1             # considering overwriting i with n
         r.tosave[i] && continue
         isa(r.op[i], Par) && continue
         size(r.out0[i]) == sizes[n] || continue
