@@ -59,7 +59,7 @@ function back(r::Net, dy::Vector, dx...; a...)
     end
 end
 
-# TODO: truncated bptt
+# DONE: truncated bptt
 # - go forward k1 steps, run back for k2, update, recover state
 # - if k1==k2 we just need the keepstate option to forw
 # - if k1>k2 the stack won't be cleared
