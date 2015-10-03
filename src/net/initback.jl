@@ -78,35 +78,33 @@ function set_toincr(r::Net, seq)
 end
 
 
-# TODO: make sure this is safe
-# multiple sharing?  other writes before reads?
-function finddif(r::Net, n, stype)
-    return newarray(gpu(), stype, eltype(r.out0[n]), size(r.out0[n]))  # TODO: OPTIMIZATION
+function finddif(r::Net, n, st)
     dif0 = nothing
     if (!isa(r.op[n], Par) && 
         !r.toincr[n])
         for i=n+1:length(r.op)
-            if (isassigned(r.dif0, i) &&
-                in(n, r.inputs[i]) &&
-                overwrites(r.op[i]) &&
-                !r.toincr[i])
+            if (isassigned(r.dif0, i)
+                && size(r.dif0[i]) == size(r.out0[n])
+                && stype(r.dif0[i]) == st
+                && in(n, r.inputs[i])
+                && overwrites(r.op[i])
+                && !r.toincr[i])
                 dif0 = r.dif0[i]
                 break
             end
         end
     end
     if dif0 == nothing
-        dif0 = newarray(gpu(), stype, eltype(r.out0[n]), size(r.out0[n]))
+        dif0 = newarray(gpu(), st, eltype(r.out0[n]), size(r.out0[n]))
     end
     return dif0
 end
 
 function findtmp(r::Net, n, st)
-    return newarray(gpu(), st, eltype(r.dif0[n]), size(r.dif0[n])) # TODO: OPTIMIZATION
     tmp = nothing
     for i=n+1:length(r.op)
         if (isassigned(r.tmp, i) &&
-            size(r.tmp[i]) == size(r.dif0[i]) &&
+            size(r.tmp[i]) == size(r.dif0[n]) &&
             stype(r.tmp[i]) == st)
             tmp = r.tmp[i]
             break

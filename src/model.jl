@@ -16,9 +16,9 @@ Using these low level methods, Model defines the following:
 abstract Model
 
 setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
-update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)
-wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)
-gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)
+update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)             # t:19
+wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)           # t:317
+gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)           # t:332
 
 function test(m::Model, d; o...)
     sumloss = numloss = 0
@@ -43,14 +43,14 @@ end
 
 function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    for (x,y) in d
-        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)
-        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)
-        back(m, y; a...)
+    for (x,y) in d                                                              # t:88/1676
+        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)         # t:161/1676
+        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)        # t:493/1676
+        back(m, y; a...)                                                        # t:233/1676
         getloss && (sumloss += l; numloss += 1)
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))               # t:318/1676
+        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) 	# t:332/1676
+        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))                         # t:50/1676
     end
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
@@ -71,7 +71,7 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
             wi0 = p.out[i]
             wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             p.out[i] = wi1
-            l1 = forw(m, x; mode=:test, ygold=y)
+            l1 = forw(m, x; mode=:test, ygold=y)                                # t:135
             p.out[i] = wi0
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)

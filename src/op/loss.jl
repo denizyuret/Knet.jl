@@ -188,10 +188,10 @@ function quadlossloss(y::Array, dy::Array; o...)
 end
 
 @gpu function quadlossloss(y::CudaArray, dy::CudaArray; tmp=nothing, o...)
-    tmp == nothing && (tmp = similar(y))
-    copy!(tmp, y)
-    axpy!(-1, dy, tmp)
-    vecnorm(tmp)^2/(2*ccount(y))
+    tmp == nothing && (tmp = similar(y)) # t:87/472
+    copy!(tmp, y)                        # t:29/472
+    axpy!(-1, dy, tmp)                   # t:24/472
+    vecnorm(tmp)^2/(2*ccount(y))         # t:330/472
 end
 
 # quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)

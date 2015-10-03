@@ -1,3 +1,4 @@
+*.prof
 *.gz
 *.txt
 *-dbg.jl
