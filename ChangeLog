@@ -1,66 +1,80 @@
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/op/conv.jl: TODO: fix old versions to run comparison test.
-
 	* TODO:
-	- do we need 2 forw?  1 forw may make the predict interface easier.
-	we could have a keepstate like option for sequences.
-	- take loss out: that way there is no need for accuracy vs test
-	difference.
-	- embedded expr: do we really need to?  abstraction takes care of
-	most variable hiding.
+	0100 ashish nce model
+	0100 find out why profiling does not work.
+	0100 handout-mtg The array sharing optimizations are currently turned off.
+	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
+	1000 ai-mtg: Being able to access arrays with original variable names.
+	1000 ai-mtg: Copy instruction for going back two time steps.
+	1000 ai-mtg: Onur and Ozan's bidirectional model.
+	1000 ai-mtg: We need a predict function.
+	1000 ai-mtg: kernels and perceptrons.
+	1000 barett s2s test (copying english?)
+	1000 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
+	1000 embedded expr: do we really need to?  abstraction takes care of most variable hiding.
+	1000 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
+	1000 handout-mtg Avoid variables by allowing embedded expressions.
+	1000 handout-mtg Replace 0's with ? or _ in dimensions.
+	1000 handout-mtg Take loss out of the model, make it a train/test option.
+	1000 model.jl: add predict, load, save -- get rid of sequence forw?
+	1000 model.jl: handle the case where the data has tuples of length 1 or more than 2.
+	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
+	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
+	1000 put optimizations back.
+	1000 src/op/conv.jl: fix old versions to run comparison test.
+	1000 src/op/conv.jl: implement xavier in par.jl.
+	1000 src/op/drop.jl: implement dropout using rnd and mul.
+	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
+	1000 take loss out: that way there is no need for accuracy vs test difference.  implement zeroone, perceptron, etc.
+	1000 update.jl: add norm clipping and other Google tricks.
+	1000 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
+	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
+	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
+	1000 minibatch resizing
+	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
+	1000 expensive sparse axpy: check if sparsity pattern remains the same, and do elementwise on nzval when you can. examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns for increment (not being used in mnist).  examples/mnistsparse.jl: axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
+	1000 deprecate KUdense?
+	1000 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
+	1000 examples: TODO: consolidate options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
+	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
+	1000 write in-place transpose for dy or decide on extra space for ops that need temp space.
+	1000 implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	1000 implement maxnorm activation function.
+	1000 Work on non-gpu compatibility.
+	1000 kperceptron.jl: reimplement within the new framework.
+	1000 perceptron and structured perceptron examples.
+	1000 reimplement averaging.
+	1000 nvidia bug check: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
+	1000 examples/adding.jl: check out unstability of 400. share results with authors.
+	1000 examples/mnist4d.jl: test with dropout
+	1000 examples/mnistpixels.jl: gcheck gives terrible results, check.
+	1000 examples/mnistsparse.jl: gcheck does not work?
+	1000 examples/rnnlm.jl: loss per sequence or loss per token?
+	1000 examples/s2c.jl: find better way to stitch networks together without exposing guts.
+	1000 examples: reimplement predict, train, and tutorial.jl.
+	1000 src/?
+	1000 test/?
+
+	* DONE:
 	+ fix pdf
-	- setup test harness.
-	- put optimizations back.
-
-2015-10-01  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* src/op/pool.jl: TODO: #
-	CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding
-	> # 0 or else I have no idea what it is doing.
-	# function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray)
-	check if added to the library.
-
-	* src/op/conv.jl: TODO: implement xavier in par.jl.
-	TODO: make conv accept all cudnn options.
-
-	* ai-mtg: TODO: feedback from today's meeting:
-	- Copy instruction for going back two time steps.
-	- Being able to access arrays with original variable names.
-	- We need a predict function.
-	- Onur and Ozan's bidirectional model.
-	- kernels and perceptrons.
-
-2015-09-30  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* handout-mtg: TODO: feedback from today's meeting:
-	- Take loss out of the model, make it a train/test option.
-	- Replace 0's with ? or _ in dimensions.
-	- Avoid variables by allowing embedded expressions.
-	- Also conv/pool/rnd/con in the handout have not yet been
-	implemented.
-	- The array sharing optimizations are currently turned off.
-
-2015-09-29  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* src/model.jl:
-	# TODO: add predict, load, save
-	# TODO: handle the case where the data has tuples of length 1 or more than 2.
+	+ setup test harness.
+	+ make conv accept all cudnn options.
 
 2015-09-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO: fix conv/pool. solve compiler namespace problem.
+	* DONE: fix conv/pool. solve compiler namespace problem.
 
 2015-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/KUnet.jl: TODO: figure out the namespace issue.  compiler
+	* src/KUnet.jl: DONE: figure out the namespace issue.  compiler
 	does not work when inside the module.
 
-	* examples/adding.jl: TODO: make sure back does not call ops with
+	* examples/adding.jl: DONE: make sure back does not call ops with
 	nothing.
 
-	* examples/mnist2d.jl (net): TODO: find out where the slight
-	difference comes from.
+	* examples/mnist2d.jl (net): DONE: find out where the slight
+	difference comes from. bias=0.
 
 	* src/netcomp.jl: for special par ops do we have valid flags?
 	tosave: false, never necessary since we do not change between iterations
@@ -95,20 +109,15 @@
 	  just like we dont allow sparsity or element types change.
 	- seq vs no seq effects tosave/stack, toincr, thus tmp.
 
-	* src/op/pool.jl: TODO: rewrite.
+	* src/op/pool.jl: DONE: rewrite.
 
-	* src/op/input.jl: TODO: try replacing methods with nothing. we
-	should not be using these?
+	* src/op/conv.jl: DONE: rewrite.
 
-	* src/op/drop.jl: TODO: rewrite using rnd and mul.
-
-	* src/op/conv.jl: TODO: rewrite.
-
-	* src/netback.jl: 
+	* src/netback.jl:
 	# DONE: use dx=nothing instead of returndx=false, that way we can choose which dx to return for multi-input case.
 	# DONE: use path analysis to stop back/dx calculation for any path that does not lead to a parameter.
 
-	* docs/rnn.md (example): TODO:
+	* docs/rnn.md (example): DONE:
 	## Interface issues:
 
 	op interface:
@@ -119,12 +128,11 @@
 	forw(net, x...; yout, ygold)
 	back(net, dy; dx)
 
-
 	* src/netinit.jl: I should test with unoptimized version where all
 	arrays are distinct and all are zeroed at the beginning, slowly
 	introducing optimizations.
 
-	* TODO:
+	* DONE:
 	./KUnet.jl
 	./data.jl
 	./model.jl
@@ -164,30 +172,27 @@
 
 2015-09-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/netcomp.jl: TODO: convert all asserts to meaningful error messages.
-
 	* src/netforw.jl:
-	# TODO
-	# - performance: figure out when no back needed, no returndx needed
-	# - testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
-	# - performance: do better register optimization
-	# - if an op is using an external array, it should not store it.
-	# - if we take xi/yi as a parameter for back maybe the net would not have to remember it?
-	# - rename train->trn for ops
-	# - rename compiler->net, net->netfunc?
-	# TODO: change calling convention to forw(y,x...)
-	# TODO: figure out par resizing.
-
+	# DONE
+	# + performance: figure out when no back needed, no returndx needed
+	# + performance: do better register optimization
+	# + if an op is using an external array, it should not store it.
+	# + if we take xi/yi as a parameter for back maybe the net would not have to remember it?
+	# x rename train->trn for ops: decided mode=:train
+	# x rename compiler->net, net->netfunc?
+	# + change calling convention to forw(y,x...)
+	# + figure out par resizing.
 
 2015-09-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* src/net.jl: netforw.jl, netback.jl, netinit.jl/netcomp.jl/net.jl?
 	(psize): work on size/type inference for both initforw and the compiler.
 
-	* nothing: TODO: nothings are a pain.  we use them to prevent
+	* nothing: DONE: nothings are a pain.  we use them to prevent
 	unnecessary allocation and copying of zero arrays.  there has to
 	be a better way.  maybe constrain them only inside net and don't
 	have ops deal with them?
+	- nothings are back.  without them there is too many unnecessary zeroing, copying, pushing, popping etc.
 
 	* src/op/par.jl: OK, this is too much too fast, things will be
 	broken for too long.  Better to transition gradually.  Use
@@ -195,22 +200,18 @@
 	and running with the new compiler, then think of consolidating the
 	code.
 
-
-	* examples/zaremba14.jl: TODO: did not get good results on the
-	large experiment, debug.
-
 2015-09-24  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* examples/zaremba14.jl: @@hpc
 	13311883.hpc-pbs.hpcc.  dy_052      isi      rnnlm1            52076     1      1    --   24:00:00 R  00:09:11   hpc3004/0
 	13311993.hpc-pbs.hpcc.  dy_052      isi      zaremba1              0     1      1    --   24:00:00 R  00:05:53   hpc3005/0
 	13311994.hpc-pbs.hpcc.  dy_052      isi      zaremba2              0     1      1    --   48:00:00 R  00:05:53   hpc3007/0
-	13312198.hpc-pbs.hpcc.  dy_052      isi      rnnlm2              --      1      1    --   48:00:00 Q       --     -- 
+	13312198.hpc-pbs.hpcc.  dy_052      isi      rnnlm2              --      1      1    --   48:00:00 Q       --     --
 
 
 2015-09-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO: big plan
+	* DONE: big plan
 	- book: find markdown viewer, code pretty printer, latex code formatter?
 	- rnnlm
 	- new compiler
@@ -218,41 +219,24 @@
 	- debugging
 	- code todo
 
-	* docs/rnn.md (rnd): TODO: Profile and stop useless dx calc and
-	expensive sparse axpy.
+	* docs/rnn.md (rnd): DONE: Profile and stop useless dx calc
 
 2015-09-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	*  (bash): TODO: deprecate KUdense in most places.
-
-	* examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns
-	for increment (not being used in mnist).
-
-	* src/op/mmul.jl: TODO: adding.jl complains about issparse(void), why is
+	* src/op/mmul.jl: DONE: adding.jl complains about issparse(void), why is
 	x void?
-
-	* examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp
-	diff has grown.  Debug/implement other losses.
 
 2015-09-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* examples/mnistsparse.jl: TODO:
-	axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
-
 2015-09-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* examples/mnistsparse.jl: TODO: fix sparse arrays.  Rename
-	KUdense -> DynamicArrayCPU/GPU.  SparseArrayCPU/GPU.
-
-	* examples: TODO: consolidate options in one file.  fix train and
-	predict.  turn libsvm2sparse into a data generator.
+	* examples/mnistsparse.jl: NO: fix sparse arrays.  Rename KUdense
+	-> DynamicArrayCPU/GPU.  SparseArrayCPU/GPU.  Decided to retire
+	them instead.
 
 2015-09-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* test/testmnist.jl: collect data and code in one place.
-
-	* src/net.jl: TODO: eventually get rid of all similar, similar!,
-	issimilar, dsimilar, dtype, dsimilar! etc.
 
 	* test/cusparse.jl:
 
@@ -271,18 +255,17 @@
 	For the second we get regular dy which we need to transpose, same
 	problem as the first.  Now we also need to transpose x and dw.
 	Maybe I can get away with dw by setting a transpose bit since I
-	have to write w+=dw kernel anyway.  (TODO: check update and
+	have to write w+=dw kernel anyway.  (Cancelled: check update and
 	gradient clip).  Transposing x is a pain (THINK).
 
 	The third one is slower but we already have dy, x', and dw comes
 	out right.  In fact with other shapes (nh=1500, nd=10000, nb=20)
 	third one is faster, so we go with it.
 
-	TODO:
+	DONE:
 	- write w+=dw kernel for update.
 	- update ops should be compatible with sparse dw.
 	- get rid of KUsparse, all code uses CUSPARSE.
-	- write in-place transpose for dy or decide on extra space.
 	- fix loss to deal with sparse dw.
 	- assume user provides all arrays in cpu.
 	- test sparse mnist.
@@ -291,7 +274,7 @@
 
 2015-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* DONE:
 	- new assembly language: (1,Mmul(50),2), (3,Mul2(),4,5)
 
 	subroutine convention: takes input from 0,-1 etc. leaves output at
@@ -408,9 +391,9 @@ merge mul2 and drop -> mul
 	- test cusparse again.
 	- update to cudnn v3.
 
-	* src/op/loss.jl: TODO: accept sparse target.
+	* src/op/loss.jl: DONE: accept sparse target.
 
-	* src/param.jl: TODO: rename to Param. actually wait for the new assembler, probably end up with par.
+	* src/param.jl: DONE: rename to Param. actually wait for the new assembler, probably end up with par.
 
 2015-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -439,14 +422,9 @@ merge mul2 and drop -> mul
 
 2015-08-14  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO: implement alternatives to adagrad: adam, rmsprop,
-	adadelta. test on bparser.
+	* DONE: impement RNNs.
 
-	* TODO: impement RNNs.
-
-	* TODO: implement maxnorm, norm clipping etc.
-
-	* TODO: doc before release:
+	* DONE: doc before release:
 	- Perceptron.
 	- Layers.
 	- Update (including averaging etc.)
@@ -454,7 +432,7 @@ merge mul2 and drop -> mul
 
 2015-08-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/bias.jl: TODO: Create a @gpu macro.  Work on non-gpu compatibility.
+	* src/bias.jl: DONE: Create a @gpu macro.
 
 2015-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -518,7 +496,7 @@ merge mul2 and drop -> mul
 	- introduce update_list and skip_list
 	+ turn all cu params into double
 
-	* layers: TODO: Layers are functions.  They should be generic.
+	* layers: DONE: Layers are functions.  They should be generic.
 	Their output types should match their input types.  Internally
 	they can do whatever they want.  If the input type does not match
 	the parameters the parameters should be moved?  No, better if only
@@ -614,23 +592,18 @@ merge mul2 and drop -> mul
 
 	Each layer should document which array types supported.
 
-	* TODO: organize code around operations (array.jl, linalg.jl) or
+	* DONE: organize code around operations (array.jl, linalg.jl) or
 	data types (sparse, cusparse)?
 
-	* TODO: release perceptron.
+	* DONE: release perceptron.
 	+ do a pre-release
 	- finish documentation.
 	- implement structured perceptron? just a difft training rule?
 	- test mmul+percloss, need averaging, implement ASGD.
 
-	* TODO: nvidia bug check: cudnnSoftmaxBackward off by a factor of
-	2? came back saying there is no bug.  also report the cusparse
-	transpose problem.
-
-
 2015-07-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO: automatic spawn of worker machines in qsub.  From JonMay:
+	* qsub: automatic spawn of worker machines in qsub.  From JonMay:
 	Once a job starts you will have the environment variable
 	PBS_NODEFILE and this will contain a list of machines, one per
 	line.
@@ -646,7 +619,7 @@ merge mul2 and drop -> mul
 
 2015-07-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/util.jl: TODO: use size! instead of realloc in similar!
+	* src/util.jl: DONE: use size! instead of realloc in similar!
 	look at size! vs resize! again
 	make sure regular arrays will work
 	similar! does not match array type?  reconsider its semantics.
@@ -686,18 +659,18 @@ merge mul2 and drop -> mul
 	using lightweight threads or memcopy.  a memory handle seems
 	sharable by only one other process?
 
-	* src/cumatrix.jl: TODO: is it better to split code by function
+	* src/cumatrix.jl: DONE: is it better to split code by function
 	rather than datatype?  more similarity.
 
 	* src/sparse.jl: DONE: better interface for hcat!, last two args
 	should be optional.
 
-	* test/runtests.jl: TODO: test different cpu/gpu sparse/dense
+	* test/runtests.jl: DONE: test different cpu/gpu sparse/dense
 	float32/float64 combos.
 
-	* src/util.jl: TODO: use CudaDynArray everywhere and minimize the realloc.
+	* src/util.jl: DONE: use CudaDynArray everywhere and minimize the realloc.
 
-	* conv.jl: TODO: conv fails tutorial.jl code.  fix
+	* conv.jl: DONE: conv fails tutorial.jl code.  fix
 	initialization: should figure out input size/type from first x
 	like bias/mmul.
 
@@ -995,9 +968,9 @@ merge mul2 and drop -> mul
 	* TODO:
 	+ start writing documentation.
 	+ try install/test on a new gpu/cpu machine.
-	- build tests based on mnist.
-	- compare with matlab/caffe if they exist.
-	- what other tests?  gradient?  store answers?
+	+ build tests based on mnist.
+	x compare with matlab/caffe if they exist.
+	x what other tests?  gradient?  store answers?
 
 2015-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -1010,42 +983,42 @@ merge mul2 and drop -> mul
 
 2015-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
-	- Make InplaceOps work without patch using CUBLAS generics.
+	* DONE:
+	x Make InplaceOps work without patch using CUBLAS generics.
 
 2015-02-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	+ Write blogpost/README: deep learning in 250 lines of julia (needs mnist)
+	- implement/test maxout?
 	- Write blogpost on overfitting (needs mnist)
-	- Cleanup hdf5 files.
-	- Figure out automatic testing.
+	+ Write blogpost/README: deep learning in 250 lines of julia (needs mnist)
+	+ Cleanup hdf5 files.
+	+ Figure out automatic testing.
 	+ Make softloss, get rid of soft layer.
-	- Add other losses
+	+ Add other losses
 	+ make loss a training option.
-	- Add sigmoid layer.
+	+ Add sigmoid layer.
 	+ Make b and yforw conditional?
 	+ Figure out if we have a gpu and if we are using a gpu, test code on no-gpu machine
 	+ Export functions
 	+ Make layer constructors that take size and generate random matrices
 	+ Make layer constructors that take arbitrary matrices, h5 files
-	- Error checking in cuda.jl
+	x Error checking in cuda.jl
 	+ pull request for InplaceOps
 	+ pull request for CUBLAS
 	+ pull request for ArgParse
-	- Cleanup kernel calls in kunet.cu
-	- Have kernel softmax return loss?
-	- Cleanup hdf5 format in kunet_h5.cu, get rid of xfunc, yfunc,
+	x Cleanup kernel calls in kunet.cu
+	x Have kernel softmax return loss?
+	x Cleanup hdf5 format in kunet_h5.cu, get rid of xfunc, yfunc,
 	+ make dropout a layer option.
 	+ Make train call backprop
-	- implement/test maxnorm?
-	- implement/test maxout?
-	- use mnist for regression testing.
+	x implement/test maxnorm?
+	+ use mnist for regression testing.
 
 2015-02-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* DONE:
 	- Verify generic functions in cuda.jl
 	- Try to make update.jl more readable
 	+ HDF5 should store the name of the functions
@@ -1075,7 +1048,7 @@ merge mul2 and drop -> mul
 
 2015-02-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* DONE:
 	Possible design changes:
 	+ Take training options out of Layer and pass them as options to layer update.
 	+ That could support independent layer options but not w vs b.
@@ -1093,7 +1066,7 @@ merge mul2 and drop -> mul
 
 2015-02-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* DONE:
 	+ juliagpu implementation:
 	+ inplace or devectorize macros adapted for gpu.
 	x need to solve collections of options to c.

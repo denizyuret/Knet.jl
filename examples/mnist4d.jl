@@ -82,7 +82,6 @@ end
 #@show map(isequal, params(lenet), params(lemlp))
 #@show map(isapprox, params(lenet), params(lemlp))
 
-# TODO: test with dropout
     # @show (i,1,map(vecnorm,params(lenet)),map(difnorm,params(lenet)))
     # @show (i,1,map(vecnorm,params(lemlp)),map(difnorm,params(lemlp)))
     # @test all(map(isequal, params(lenet), params(lemlp)))

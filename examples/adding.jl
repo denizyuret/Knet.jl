@@ -279,7 +279,7 @@ end
     # tsterr = test(net1, xtst, ytst)
     # println(tuple(epoch,sqrt(2trnerr),sqrt(2tsterr),maxgnorm))
 
-# TODO:
+# DONE:
 # + minibatching (16)
 # + dif = nothing, dif0 = array
 # + profiling
@@ -313,7 +313,7 @@ end
 #     return (x,y)
 # end
 
-# # TODO: fix this so y[i] is not a sequence
+# # DONE: fix this so y[i] is not a sequence
 # function batch(x, y, nb)
 #     isempty(x) && return (x,y)
 #     xx = Any[]
@@ -424,9 +424,6 @@ end
 # 200	100	0.01	1	2080000
 # 300	100	0.01	1	3860000
 # 400	100	0.01	1	7400000 speed=400k/h, unstable
-
-# TODO: check out unstability of 400.
-# TODO: share results with authors.
 
 # DONE: lstm does not work with 10x5 find out why: much larger --lr=1.0, also large --fb >= 1 helps.
 # The following settings solve 10x5 in 12000 iterations:

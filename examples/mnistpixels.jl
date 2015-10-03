@@ -172,7 +172,7 @@ end
 # (:trn,100000,2.1011612425016724,10.437336f0,3303.134f0)
 # (:tst,100000,0.1735)
 
-# TODO: why isn't this giving the same results?
+# why isn't this giving the same results?
 # Could be softloss vs xentloss or Float32 vs Float64.
 
 # Here is the new sample output:

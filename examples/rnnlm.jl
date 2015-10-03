@@ -49,7 +49,7 @@ function rnnlmModel(;
                     rnn_size = 0,
                     vocab_size = 0,
                     )
-    prog = quote                # TODO: do we need the prefix?  lstm will do a dot?
+    prog = quote                # do we need the prefix?  lstm will do a dot?  yes if you want the same embedding going into each gate.
         i0 = input()
         w0 = par($rnn_size,0)
         x0 = dot(w0,i0)
