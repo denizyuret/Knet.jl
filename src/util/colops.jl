@@ -25,33 +25,47 @@ size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) #
 # necessary.  This is used in train and predict to get data from a raw
 # array into a KUarray for minibatching.
 
-cslice!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T}, r::UnitRange)=cslice!(a,b.arr,r)
+# cslice!{A,B,T}(a::KUdense{A,T}, b::KUdense{B,T}, r::UnitRange)=cslice!(a,b.arr,r)
 
-function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
-    n  = clength(b) * length(r)
-    length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
-    b1 = 1 + clength(b) * (first(r) - 1)
-    copy!(a.ptr, 1, b, b1, n)
-    a.arr = arr(a.ptr, csize(b, length(r)))
-    return a
-end
+# function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, r::UnitRange)
+#     n  = clength(b) * length(r)
+#     length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+#     b1 = 1 + clength(b) * (first(r) - 1)
+#     copy!(a.ptr, 1, b, b1, n)
+#     a.arr = arr(a.ptr, csize(b, length(r)))
+#     return a
+# end
 
-# For non-contiguous columns:
-function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, cols)
+# # For non-contiguous columns:
+# function cslice!{A,T}(a::KUdense{A,T}, b::BaseArray{T}, cols)
+#     ncols = length(cols)
+#     clen = clength(b)
+#     n = clen * ncols
+#     length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+#     alen = 0
+#     for i=1:ncols
+#         bidx = (cols[i]-1)*clen + 1
+#         copy!(a.ptr, alen+1, b, bidx, clen)
+#         alen += clen
+#     end
+#     a.arr = arr(a.ptr, csize(b, ncols))
+#     return a
+# end
+
+
+function cslice!{A,T}(a::BaseArray{T}, b::BaseArray{T}, cols)
     ncols = length(cols)
     clen = clength(b)
     n = clen * ncols
-    length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
+    size(a) == csize(b, ncols) || error("Size mismatch")
     alen = 0
     for i=1:ncols
         bidx = (cols[i]-1)*clen + 1
-        copy!(a.ptr, alen+1, b, bidx, clen)
+        copy!(a, alen+1, b, bidx, clen)
         alen += clen
     end
-    a.arr = arr(a.ptr, csize(b, ncols))
     return a
 end
-
 
 function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
     bptr = b.colptr
@@ -103,8 +117,8 @@ end
 # starting at column di.  Used by predict to construct output.  
 # Don't need the sparse version, output always dense.
 
-ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst,di,src.arr,si,n); dst)
-ccopy!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst.arr,di,src.arr,si,n); dst)
+# ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst,di,src.arr,si,n); dst)
+# ccopy!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst.arr,di,src.arr,si,n); dst)
 
 function ccopy!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
     @assert csize(dst)==csize(src)
@@ -121,8 +135,8 @@ end
 
 using Base.LinAlg: axpy!
 
-cadd!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst,di,src.arr,si,n); dst)
-cadd!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst.arr,di,src.arr,si,n); dst)
+# cadd!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst,di,src.arr,si,n); dst)
+# cadd!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst.arr,di,src.arr,si,n); dst)
 
 function cadd!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
     @assert csize(dst)==csize(src)
@@ -140,23 +154,23 @@ end
 # ability to specify particular columns to append.  Used in
 # kperceptron to add support vectors.
 
-ccat!{A,B,T,N}(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b)))=ccat!(a,b.arr,cols)
+# ccat!{A,B,T,N}(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b)))=ccat!(a,b.arr,cols)
 
-function ccat!{A,T,N}(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b)))
-    @assert csize(a)==csize(b)
-    alen = length(a)
-    clen = clength(a)
-    ncols = length(cols)
-    n = alen + ncols * clen
-    length(a.ptr) >= n || resize!(a.ptr, round(Int,resizefactor(KUdense)*n+1))
-    for i=1:ncols
-        bidx = (cols[i]-1)*clen + 1
-        copy!(a.ptr, alen+1, b, bidx, clen)
-        alen += clen
-    end
-    a.arr = arr(a.ptr, csize(a, ccount(a) + ncols))
-    return a
-end
+# function ccat!{A,T,N}(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b)))
+#     @assert csize(a)==csize(b)
+#     alen = length(a)
+#     clen = clength(a)
+#     ncols = length(cols)
+#     n = alen + ncols * clen
+#     length(a.ptr) >= n || resize!(a.ptr, round(Int,resizefactor(KUdense)*n+1))
+#     for i=1:ncols
+#         bidx = (cols[i]-1)*clen + 1
+#         copy!(a.ptr, alen+1, b, bidx, clen)
+#         alen += clen
+#     end
+#     a.arr = arr(a.ptr, csize(a, ccount(a) + ncols))
+#     return a
+# end
 
 # ccat!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T}, cols=(1:ccount(b)))=ccat!(a,convert(KUsparse,b),cols)
 
@@ -194,30 +208,30 @@ end
 ### corresponding columns in the remaining arguments.  Used by
 ### kperceptron in merging identical support vectors.
 
-function uniq!{A<:Array}(s::KUdense{A}, ww::KUdense...)
-    oldn = ccount(s)                                            # number of original support vectors
-    for w in ww; @assert ccount(w) == oldn; end 
-    ds = Dict{Any,Int}()                                        # support vector => new index
-    newn = 0                                                    # number of new support vectors
-    for oldj=1:oldn
-        newj = get!(ds, _colkey(s,oldj), newn+1)
-        if newj <= newn                                         # s[:,oldj] already in s[:,newj]
-            @assert newj <= newn == length(ds) < oldj
-            for w in ww; cadd!(w,newj,w,oldj,1); end
-        else                                                    # s[:,oldj] to be copied to s[:,newj]                    
-            @assert newj == newn+1 == length(ds) <= oldj	
-            newn += 1
-            if newj != oldj
-                ccopy!(s,newj,s,oldj,1)
-                for w in ww; ccopy!(w,newj,w,oldj,1); end
-            end
-        end
-    end
-    @assert newn == length(ds)
-    resize!(s, csize(s, newn))
-    for w in ww; resize!(w, csize(w, newn)); end
-    return tuple(s, ww...)
-end
+# function uniq!{A<:Array}(s::KUdense{A}, ww::KUdense...)
+#     oldn = ccount(s)                                            # number of original support vectors
+#     for w in ww; @assert ccount(w) == oldn; end 
+#     ds = Dict{Any,Int}()                                        # support vector => new index
+#     newn = 0                                                    # number of new support vectors
+#     for oldj=1:oldn
+#         newj = get!(ds, _colkey(s,oldj), newn+1)
+#         if newj <= newn                                         # s[:,oldj] already in s[:,newj]
+#             @assert newj <= newn == length(ds) < oldj
+#             for w in ww; cadd!(w,newj,w,oldj,1); end
+#         else                                                    # s[:,oldj] to be copied to s[:,newj]                    
+#             @assert newj == newn+1 == length(ds) <= oldj	
+#             newn += 1
+#             if newj != oldj
+#                 ccopy!(s,newj,s,oldj,1)
+#                 for w in ww; ccopy!(w,newj,w,oldj,1); end
+#             end
+#         end
+#     end
+#     @assert newn == length(ds)
+#     resize!(s, csize(s, newn))
+#     for w in ww; resize!(w, csize(w, newn)); end
+#     return tuple(s, ww...)
+# end
 
 # function uniq!{A<:Array}(s::KUsparse{A}, ww::KUdense...)
 #     oldn = ccount(s)                                            # number of original support vectors
@@ -258,7 +272,7 @@ end
 #     return tuple(s, ww...)
 # end
 
-_colkey{A<:Array}(s::KUdense{A},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
+# _colkey{A<:Array}(s::KUdense{A},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
 
 # function _colkey{A<:Array}(s::KUsparse{A},j)
 #     a=s.colptr[j]
@@ -274,12 +288,12 @@ _colkey{A<:Array}(s::KUdense{A},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : C
 
 # we need to look at the columns, might as well copy
 
-function uniq!{A<:CudaArray}(s::KUdense{A}, ww::KUdense...)
-    ss = cpucopy(s)
-    uniq!(ss, ww...)
-    cslice!(s, ss, 1:ccount(ss))
-    return tuple(s, ww...)
-end
+# function uniq!{A<:CudaArray}(s::KUdense{A}, ww::KUdense...)
+#     ss = cpucopy(s)
+#     uniq!(ss, ww...)
+#     cslice!(s, ss, 1:ccount(ss))
+#     return tuple(s, ww...)
+# end
 
 # function uniq!{A<:CudaArray}(s::KUsparse{A}, ww::KUdense...)
 #     ss = cpucopy(s)
