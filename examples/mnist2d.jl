@@ -30,10 +30,13 @@ function mnist2d(args=ARGS)
     setopt!(net, lr=0.5)
 
     l=w=g=0
-    for i=1:epochs
-        @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001)
-        @show (test(net, dtrn), accuracy(net, dtrn))
-        @show (test(net, dtst), accuracy(net, dtst))
+    for epoch=1:epochs
+        (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001) # t:3053
+        ltrn = test(net, dtrn)  # t:815
+        atrn = accuracy(net, dtrn) # t:877
+        ltst = 0 # test(net, dtst)
+        atst = 0 # accuracy(net, dtst)
+        @show (epoch,l,w,g,ltrn,atrn,ltst,atst)
     end
     return (l,w,g)
 end

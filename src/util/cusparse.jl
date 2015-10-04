@@ -105,7 +105,7 @@ for (fname,elty) in ((:cusparseScsrgemm, :Float32),
             end
             nnzC = Array(Cint,1)
             resize!(C.rowPtr, m+1)
-            statuscheck(ccall((:cusparseXcsrgemmNnz,libcusparse), cusparseStatus_t,
+            statuscheck(ccall((:cusparseXcsrgemmNnz,libcusparse), cusparseStatus_t, # t:186/868
                               (cusparseHandle_t, cusparseOperation_t,
                                cusparseOperation_t, Cint, Cint, Cint,
                                Ptr{cusparseMatDescr_t}, Cint, Ptr{Cint},
@@ -119,7 +119,7 @@ for (fname,elty) in ((:cusparseScsrgemm, :Float32),
             C.dims = (m,n)
             resize!(C.nzVal, C.nnz)
             resize!(C.colVal, C.nnz)
-            statuscheck(ccall(($(string(fname)),libcusparse), cusparseStatus_t,
+            statuscheck(ccall(($(string(fname)),libcusparse), cusparseStatus_t, # t:659/868
                               (cusparseHandle_t, cusparseOperation_t,
                                cusparseOperation_t, Cint, Cint, Cint,
                                Ptr{cusparseMatDescr_t}, Cint, Ptr{$elty},

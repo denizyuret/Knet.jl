@@ -30,7 +30,7 @@ done(d::ItemTensor, n)=(n + d.batchsize > d.epochsize)
 function next(d::ItemTensor, n)
     idx = nextidx(d,n)
     for i=1:length(d.data)
-        cslice!(d.batch[i], d.data[i], idx)
+        cslice!(d.batch[i], d.data[i], idx) # 549/556
     end
     (d.batch, n+length(idx))
 end

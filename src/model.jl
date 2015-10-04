@@ -43,14 +43,14 @@ end
 
 function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    for (x,y) in d                                                              # t:88/1676
-        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)         # t:161/1676
-        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)        # t:493/1676
-        back(m, y; a...)                                                        # t:233/1676
+    for (x,y) in d                                                              # t:556/3053
+        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)         # t:189/3053
+        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)        # t:463/3053
+        back(m, y; a...)                                                        # t:1513/3053 ?
         getloss && (sumloss += l; numloss += 1)
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))               # t:318/1676
-        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) 	# t:332/1676
-        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))                         # t:50/1676
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))               # t:171/3053
+        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) 	# t:115/3053
+        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))                         # t:46/3053
     end
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end

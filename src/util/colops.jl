@@ -61,7 +61,7 @@ function cslice!{T}(a::BaseArray{T}, b::BaseArray{T}, cols)
     alen = 0
     for i=1:ncols
         bidx = (cols[i]-1)*clen + 1
-        copy!(a, alen+1, b, bidx, clen)
+        copy!(a, alen+1, b, bidx, clen) # t:134
         alen += clen
     end
     return a
@@ -79,8 +79,8 @@ function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
     for bj in cols                 # copy column b[:,bj] to a[:,aj]
         b1 = bptr[bj]
         nz = bptr[bj+1]-b1
-        copy!(a.nzval, a1, b.nzval, b1, nz)
-        copy!(a.rowval, a1, b.rowval, b1, nz)
+        copy!(a.nzval, a1, b.nzval, b1, nz) # t:217
+        copy!(a.rowval, a1, b.rowval, b1, nz) # t:191
         a1 += nz
         a.colptr[aj+=1] = a1
     end

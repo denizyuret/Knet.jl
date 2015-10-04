@@ -67,9 +67,9 @@ end
 # dw = dy * x'
 function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::CudaMatrix{T},B::CudaSparseMatrixCSC{T})
     bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
-    a = sparse(A)           # gives CudaSparseMatrixCSR
-    gemm!('N','N',a,bT,C)
-    free(a)
+    a = sparse(A)               # t:337 gives CudaSparseMatrixCSR
+    gemm!('N','N',a,bT,C)       # t:868
+    free(a)                     # t:96
     return C
 end
 
