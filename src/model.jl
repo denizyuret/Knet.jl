@@ -33,7 +33,7 @@ function accuracy(m::Model, d) # TODO: this only works if y is a single item
     numcorr = numinst = 0
     z = nothing
     for (x,y) in d
-        z == nothing && (z = similar(y))
+        z == nothing && (z = Array(eltype(y), size(y)))
         forw(m, x, z; mode=:test)
         numinst += ccount(y)
         numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
