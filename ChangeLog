@@ -1,6 +1,7 @@
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	0010 profile rnnlm and check out the number of registers in lstm.
 	0100 ashish nce model
 	0200 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0200 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
