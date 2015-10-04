@@ -53,7 +53,7 @@ size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) #
 # end
 
 
-function cslice!{A,T}(a::BaseArray{T}, b::BaseArray{T}, cols)
+function cslice!{T}(a::BaseArray{T}, b::BaseArray{T}, cols)
     ncols = length(cols)
     clen = clength(b)
     n = clen * ncols
