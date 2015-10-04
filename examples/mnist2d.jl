@@ -1,35 +1,40 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
-using Base.Test
-using Knet
+using Knet,ArgParse,Base.Test
 isdefined(:MNIST) || include("mnist.jl")
 include("mlp.jl")
 
 function mnist2d(args=ARGS)
-    setseed(42)
-    nbatch=100
-
-    dtrn = ItemTensor(MNIST.xtrn, MNIST.ytrn; batch=nbatch)
-    dtst = ItemTensor(MNIST.xtst, MNIST.ytst; batch=nbatch)
-
-    x0 = copy(dtrn.data[1])
-    y0 = copy(dtrn.data[2])
-
     info("Testing simple mlp on MNIST")
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=42)
+        ("--nbatch"; arg_type=Int; default=100)
+        ("--epochs"; arg_type=Int; default=3)
+        ("--xsparse"; action=:store_true)
+        ("--ysparse"; action=:store_true)
+    end
+    isa(args, AbstractString) && (args=split(args))
+    opts = parse_args(args,s)
+    println(opts)
+    for (k,v) in opts; @eval ($(symbol(k))=$v); end
+    seed > 0 && setseed(seed)
+
+    fx = (xsparse ? sparse : identity)
+    fy = (ysparse ? sparse : identity)
+    dtrn = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
+    dtst = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
 
     prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
     net = Net(prog)
-
     setopt!(net, lr=0.5)
+
     l=w=g=0
-    @time for i=1:3
+    for i=1:epochs
         @show (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001)
         @show (test(net, dtrn), accuracy(net, dtrn))
         @show (test(net, dtst), accuracy(net, dtst))
     end
-
-    @test isequal(x0,dtrn.data[1])
-    @test isequal(y0,dtrn.data[2])
     return (l,w,g)
 end
 

@@ -1,8 +1,6 @@
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0100 find out why profiling does not work.
-	0100 handout-mtg: initforw/initback: The array sharing optimizations are currently turned off.
 	0100 ashish nce model
 	0200 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0200 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
@@ -39,7 +37,6 @@
 	1000 minibatch resizing
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
 	1000 expensive sparse axpy: check if sparsity pattern remains the same, and do elementwise on nzval when you can. examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns for increment (not being used in mnist).  examples/mnistsparse.jl: axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
-	1000 deprecate/fix KUdense?  edit colops and linalg to fit.
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
@@ -70,6 +67,9 @@
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 src/net.jl: handle con and rnd in tosave.
 	1000 par and loss should probably get out of op.
+	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+	DONE handout-mtg: initforw/initback: The array sharing optimizations are currently turned off.
+	DONE deprecate/fix KUdense?  edit colops and linalg to fit.
 
 	* DONE:
 	+ fix pdf

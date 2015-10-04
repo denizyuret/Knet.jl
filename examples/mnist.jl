@@ -35,6 +35,6 @@ function loadmnist()
 end
 
 info("Loading MNIST...")
-@time loadmnist()
+loadmnist()
 
 end # module

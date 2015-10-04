@@ -32,10 +32,10 @@ function rnnlm(args=ARGS)
     wmax = gmax = 0
     for ep=1:opts["max_max_epoch"]
         ep > opts["max_epoch"] && (lr /= opts["decay"]; setparam!(net, lr=lr))
-        @date (ltrn,wmax,gmax) = train(net, data[1]; gclip=opts["max_grad_norm"], gcheck=opts["gcheck"], keepstate=true)
+        (ltrn,wmax,gmax) = train(net, data[1]; gclip=opts["max_grad_norm"], gcheck=opts["gcheck"], keepstate=true)
         perp[1] = exp(ltrn/data[1].seqlength)
         for idata = 2:length(data)
-            @date ldev = test(net, data[idata]; keepstate=true)
+            ldev = test(net, data[idata]; keepstate=true)
             perp[idata] = exp(ldev/data[idata].seqlength) # TODO: look into reporting loss per sequence rather than per token
         end
         @show (ep, perp..., wmax, gmax, lr)

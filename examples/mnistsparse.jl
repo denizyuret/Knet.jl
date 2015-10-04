@@ -30,7 +30,7 @@ function mnistsparse(args=ARGS)
         dtst[iter] = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
         setseed(42)
         l=w=g=ltrn=atrn=ltst=atst=0
-        @time for epoch=1:3
+        for epoch=1:3
             # TODO: gcheck does not work ?
             (l,w,g) = train(net[iter], dtrn[iter]; gclip=0, gcheck=gcheck, getloss=true, getnorm=true, atol=atol2, rtol=rtol2)
             (ltrn,atrn,ltst,atst) = (test(net[iter], dtrn[iter]), 

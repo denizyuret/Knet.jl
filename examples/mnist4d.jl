@@ -12,9 +12,6 @@ function mnist4d(args=ARGS)
     dtrn = ItemTensor(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn; batch=nbatch)
     dtst = ItemTensor(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst; batch=nbatch)
 
-    x0 = copy(dtrn.data[1])
-    y0 = copy(dtrn.data[2])
-
     info("Testing lenet (convolutional net) on MNIST")
     prog = quote
         x  = input()
@@ -46,12 +43,10 @@ function mnist4d(args=ARGS)
     lwg = nothing
     for epoch=1:3
         lwg = train(lenet, dtrn)
-        @date @show (epoch, lwg...)
-        @date @show accuracy(lenet,dtrn)
-        @date @show accuracy(lenet,dtst)
+        @show (epoch, lwg...)
+        @show accuracy(lenet,dtrn)
+        @show accuracy(lenet,dtst)
     end
-    @test isequal(x0,dtrn.data[1])
-    @test isequal(y0,dtrn.data[2])
     return lwg
 end
 

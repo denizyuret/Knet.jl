@@ -12,6 +12,7 @@ include("s2c.jl")
 
 function adding(args=ARGS)
     info("Adding problem from Le et al. 2015.")
+    isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
@@ -23,7 +24,7 @@ function adding(args=ARGS)
     net = S2C(Net(p1), Net(p2))
     setopt!(net; lr=opts["lrate"])
     mse = maxw = maxg = 0
-    @time for epoch=1:opts["epochs"]
+    for epoch=1:opts["epochs"]
         (l,maxw,maxg) = train(net, data; gclip=opts["gclip"], gcheck=opts["gcheck"])
         mse = 2*l
         println(tuple(epoch*data.epochsize,mse,maxw,maxg))

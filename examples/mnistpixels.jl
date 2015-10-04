@@ -30,7 +30,7 @@ function mnistpixels(args=ARGS)
     net = S2C(Net(p1), Net(p2))
     setopt!(net; lr=opts["lrate"])
     l = maxw = maxg = acc = 0
-    @time for epoch=1:opts["epochs"]
+    for epoch=1:opts["epochs"]
         (l,maxw,maxg) = train(net, trn; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
         println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
         if epoch % opts["acc"] == 0
