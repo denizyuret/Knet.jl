@@ -25,7 +25,7 @@ end
 
 start(d::ItemTensor)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
 
-done(d::ItemTensor, n)=(n >= d.epochsize)
+done(d::ItemTensor, n)=(n + d.batchsize > d.epochsize)
 
 function next(d::ItemTensor, n)
     idx = nextidx(d,n)
@@ -67,7 +67,8 @@ end
 # SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
 # SparseArrayGPU{T}(::Type{T}, d::Dims)=CudaSparseMatrixCSR(spzeros(T,d...))
 
-SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
-DynamicArrayCPU{T}(::Type{T}, d::Dims)=KUdense(Array,T,d)
-itembatch(x,n)=(issparse(x)?SparseArrayCPU:DynamicArrayCPU)(eltype(x),csize(x,n))
+# SparseArrayCPU{T}(::Type{T}, d::Dims)=spzeros(T,d...)
+# DynamicArrayCPU{T}(::Type{T}, d::Dims)=KUdense(Array,T,d)
+# itembatch(x,n)=(issparse(x)?SparseArrayCPU:DynamicArrayCPU)(eltype(x),csize(x,n))
 
+itembatch(x,n)=(issparse(x) ? spzeros(eltype(x),csize(x,n)...) : Array(eltype(x),csize(x,n)))

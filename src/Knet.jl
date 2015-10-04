@@ -17,10 +17,9 @@ include("util/gpu.jl");		export setseed
 @gpu include("util/cusparse.jl");
 include("util/linalg.jl");	
 
-isdefined(:KUdense) || include("util/dense.jl");	# deprecate?
 include("util/array.jl");	export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
-include("data.jl");		export ItemTensor
+include("data.jl");		export ItemTensor  # uses KUdense
 
 include("model.jl");		export Model, train, test, accuracy, setopt!
 include("op.jl");		
@@ -70,3 +69,4 @@ end # module
 # include("util/array.jl");	# export BaseArray
 
 # # include("param.jl");		# export KUparam, setopt! # deprecated
+# isdefined(:KUdense) || include("util/dense.jl");	# deprecate?
