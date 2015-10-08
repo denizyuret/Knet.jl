@@ -62,7 +62,7 @@ function findout(r::Net, n, sizes, nsparse)
         r.tosave[i] && continue
         isa(r.op[i], Par) && continue
         size(r.out0[i]) == sizes[n] || continue
-        issparse(r.out0[i]) == nsparse || continue
+        stype(r.out0[i]) == nsparse || continue
         !overwrites(r.op[n]) && in(i, r.inputs[n]) && continue
         willberead = false                              # is anybody going to read i before it is written again?
         k = n
