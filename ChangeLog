@@ -1,14 +1,28 @@
+2015-10-08  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* linreg-profile:
+	1676	train
+	88	train.next
+	161	train.gradcheck
+	493	train.forw
+	233	train.back
+	318	train.wnorm
+	332	train.gnorm
+	50	train.update!
+
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0010 profile rnnlm and check out the number of registers in lstm.
+	0010 profile rnnlm and check out the number of registers in lstm: come up with steps and time spent on each step for various models.
 	0100 ashish nce model
+	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0200 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0200 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
+	0300 need better net combo
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
+	1000 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
-	1000 ai-mtg: Onur and Ozan's bidirectional model.
 	1000 ai-mtg: We need a predict function.
 	1000 ai-mtg: kernels and perceptrons.
 	1000 barett s2s test (copying english?)
@@ -23,7 +37,6 @@
 	1000 model.jl: handle the case where the data has tuples of length 1 or more than 2.
 	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
-	1000 put optimizations back.
 	1000 src/op/conv.jl: fix old versions to run comparison test.
 	1000 src/op/conv.jl: implement xavier in par.jl.
 	1000 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
@@ -68,9 +81,11 @@
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 src/net.jl: handle con and rnd in tosave.
 	1000 par and loss should probably get out of op.
+	1000 ntm
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	DONE handout-mtg: initforw/initback: The array sharing optimizations are currently turned off.
 	DONE deprecate/fix KUdense?  edit colops and linalg to fit.
+	DONE put optimizations back.
 
 	* DONE:
 	+ fix pdf
