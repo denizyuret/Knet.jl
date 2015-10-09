@@ -26,9 +26,8 @@ function initback(r::Net, dy, dx...; seq=false, a...)
         end
     end
     fill!(r.dif, nothing)
-    for n=1:length(r.op)        # This makes a difference for rnn, do not delete!
-        isassigned(r.dif0, n) && fill!(r.dif0[n], 0)
-        isassigned(r.tmp, n) && fill!(r.tmp[n], 0)
+    for n=1:length(r.op)
+        isassigned(r.dif0, n) && r.toincr[n] && fill!(r.dif0[n], 0)
     end
 end
 
