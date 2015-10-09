@@ -9,7 +9,13 @@ import Base.LinAlg: axpy!, scale!
 axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); @assert n==length(y); axpy!(n,convert(T,a),x,1,y,1); y)
 # scale!{S,T}(a,x::KUdense{S,T})=(scale!(convert(T,a),x.arr); x)
 scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
-vecnorm(x::CudaArray)=nrm2(x)
+
+# CUBLAS is twice as slow as Barret's custom kernel in my experiments:
+# vecnorm(x::CudaArray)=nrm2(x)
+vecnorm(x::CudaArray{Float32})=ccall((:vecnorm32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+vecnorm(x::CudaArray{Float64})=ccall((:vecnorm64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+
+# (ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
 
 ### MMUL
 # This is not a complete implementation.  The goal is to support Knet
