@@ -18,10 +18,10 @@ function forw(r::Net, inputs...; ygold=nothing, seq=false, mode=:test, a...)
     lastinput = 0
     for n = 1:N
         mode==:train && seq && r.tosave[n] && push(r,n)
-        x = r.out[r.inputs[n]]                                                  # t:13/628
         if isa(r.op[n], Input)
             r.out[n] = copy!(r.out0[n], inputs[lastinput += 1])                 # t:55/628
         else
+            x = r.out[r.inputs[n]]  # t:13/628
             r.out[n] = forw(r.op[n], x..., r.out0[n]; mode=mode, a...)          # t:110/628
         end
     end
