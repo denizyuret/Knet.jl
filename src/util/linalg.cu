@@ -1,5 +1,109 @@
 #include "../knet.h"
 
+/* CUBLAS nrm2 is extremely slow.  The following is a substitute from Barret Zoph.
+   Based on: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
+*/
+
+//for optimizing warps
+//volatile must be used as register optimization will lead to wrong answers
+template<typename dType>
+__device__ 
+void warpReduceSum(volatile dType* sdata, int tid) {
+	sdata[tid] += sdata[tid + 32];
+	sdata[tid] += sdata[tid + 16];
+	sdata[tid] += sdata[tid + 8];
+	sdata[tid] += sdata[tid + 4];
+	sdata[tid] += sdata[tid + 2];
+	sdata[tid] += sdata[tid + 1];
+}
+
+#define NORM_THREADS 256
+template<typename dType>
+__global__
+void basic_compute_norm_p1(dType *d_gradient,int size,dType *result) {
+	__shared__ dType buffer[NORM_THREADS];
+	int i_start = threadIdx.x+blockIdx.x*blockDim.x; //start at the thread index
+	int i_end = size; //end at dim
+	int i_step = blockDim.x*gridDim.x; //the block dimension (aka the number of threads in the block) is the step
+	int tid = threadIdx.x;
+
+
+	buffer[tid] = 0;
+	for(int i= i_start; i<i_end; i+=i_step) {
+		buffer[tid]+=(d_gradient[i]*d_gradient[i]);
+	}
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		result[blockIdx.x]=buffer[0];
+	}
+}
+
+
+template<typename dType>
+__global__
+void basic_compute_norm_p2(dType *temp_result,dType *final_result) {
+	__shared__ dType buffer[NORM_THREADS];
+
+	int tid = threadIdx.x;
+	buffer[tid] = temp_result[tid];
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		final_result[0]=buffer[0];
+	}
+}
+
+extern "C" {
+  float vecnorm32(float *d_array,int size) {
+    float norm;
+    static float *d_temp_result;
+    static float *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(float));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(float));
+    basic_compute_norm_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_norm_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(float),cudaMemcpyDeviceToHost);
+    return sqrt(norm);
+  }
+
+  double vecnorm64(double *d_array,int size) {
+    double norm;
+    static double *d_temp_result;
+    static double *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(double));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(double));
+    basic_compute_norm_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_norm_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(double),cudaMemcpyDeviceToHost);
+    return sqrt(norm);
+  }
+}
+
 /*
   The following functions multiply two sparse matrices into a dense matrix.
   The sparse matrices are in 1-based csc format.
