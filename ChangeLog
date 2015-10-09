@@ -1,19 +1,46 @@
 2015-10-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* linreg-profile:
-	1676	train
-	88	train.next
-	161	train.gradcheck
-	493	train.forw
-	233	train.back
-	318	train.wnorm
-	332	train.gnorm
-	50	train.update!
+	1. before the vecnorm optimization
+	2. after the vecnorm optimization
+
+	ratio1	msec1	ratio2	msec2
+	1.0000	1676	1.0000	1303	train
+	0.0525	88	0.0660	86	train.next
+	0.0961	161	0.1105	144	train.gradcheck
+	0.2942	493	0.3231	421	train.forw
+	0.0066	11	0.0138	18	train.forw.initforw
+	0.0066	11	0.0069	9	train.forw.x
+	0.0292	49	0.0284	37	train.forw.copy
+	0.0525	88	0.0698	91	train.forw.forw
+	0.0280	47	0.0261	34	train.forw.forw.dot
+	0.0227	38	0.0215	28	train.forw.forw.dot.gemm!
+	0.0119	20	0.0246	32	train.forw.forw.loss
+	0.0119	20	0.0230	30	train.forw.forw.loss.copy! ??? why do we copy here? will change when we take losslayer out of model.
+	0.1957	328	0.1865	243	train.forw.quadlossloss
+	0.0209	35	0.0545	71	train.forw.quadlossloss.similar
+	0.0131	22	0.0246	32	train.forw.quadlossloss.copy!
+	0.0125	21	0.0200	26	train.forw.quadlossloss.axpy!
+>>	0.1492	250	0.0844	110	train.forw.quadlossloss.vecnorm
+	0.1390	233	0.2571	335	train.back
+	0.0507	85	0.1167	152	train.back.initback
+	0.0442	74	0.0944	123	train.back.initback.fill!.dif0
+	0.0107	18	0.0161	21	train.back.copy!.dif0.dy
+	0.0686	115	0.0975	127	train.back.back
+	0.0215	36	0.0361	47	train.back.back.dot
+	0.0322	54	0.0384	50	train.back.back.quadloss
+>>	0.1897	318	0.0913	119	train.wnorm
+>>	0.1981	332	0.0867	113	train.gnorm
+	0.0298	50	0.0637	83	train.update!
 
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 	0010 profile rnnlm and check out the number of registers in lstm: come up with steps and time spent on each step for various models.
+	0100 need train/test switch for nce and dropout.
+	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
+	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
+	0100 src/net.jl: handle con and rnd in tosave.
 	0100 ashish nce model
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0200 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
@@ -27,7 +54,6 @@
 	1000 ai-mtg: kernels and perceptrons.
 	1000 barett s2s test (copying english?)
 	1000 embedded expr: do we really need to?  abstraction takes care of most variable hiding.
-	1000 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
 	1000 handout-mtg Avoid variables by allowing embedded expressions.
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
 	1000 mul2: change order to x1,x2,y
@@ -39,7 +65,6 @@
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
 	1000 src/op/conv.jl: fix old versions to run comparison test.
 	1000 src/op/conv.jl: implement xavier in par.jl.
-	1000 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	1000 src/net/forw.jl: make yout optional last argument to match the op interface?
 	1000 implement gru using con.
 	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
@@ -79,7 +104,6 @@
 	1000 examples/rnnlm.jl: loss per sequence or loss per token?
 	1000 examples/s2c.jl: find better way to stitch networks together without exposing guts.
 	1000 examples: reimplement predict, train, and tutorial.jl.
-	1000 src/net.jl: handle con and rnd in tosave.
 	1000 par and loss should probably get out of op.
 	1000 ntm
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.

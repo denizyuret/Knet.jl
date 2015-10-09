@@ -26,7 +26,7 @@ function initback(r::Net, dy, dx...; seq=false, a...)
         end
     end
     fill!(r.dif, nothing)
-    for n=1:length(r.op)                                # TODO-OPTIMIZATION
+    for n=1:length(r.op)        # This makes a difference for rnn, do not delete!
         isassigned(r.dif0, n) && fill!(r.dif0[n], 0)
         isassigned(r.tmp, n) && fill!(r.tmp[n], 0)
     end
@@ -80,18 +80,29 @@ end
 
 function finddif(r::Net, n, st)
     dif0 = nothing
-    if (!isa(r.op[n], Par) && 
-        !r.toincr[n])
-        for i=n+1:length(r.op)
-            if (isassigned(r.dif0, i)
-                && size(r.dif0[i]) == size(r.out0[n])
-                && stype(r.dif0[i]) == st
-                && in(n, r.inputs[i])
-                && overwrites(r.op[i])
-                && !r.toincr[i])
-                dif0 = r.dif0[i]
-                break
-            end
+    if !r.toincr[n]
+        @assert length(r.outputs[n]) == 1 # otherwise toincr would be true
+        o = r.outputs[n][1]     # first try overwriting the output dif
+        if (!r.toincr[o]
+            && overwrites(r.op[o])
+            && isassigned(r.dif0, o)
+            && size(r.dif0[o]) == size(r.out0[n])
+            && stype(r.dif0[o]) == st)
+            dif0 = r.dif0[o]
+        # else                    # otherwise find one with matching size
+        #     for k=o+1:length(r.op)
+        #         if (!r.toincr[k]
+        #             && isassigned(r.dif0, k)
+        #             && size(r.dif0[k]) == size(r.out0[n])
+        #             && stype(r.dif0[k]) == st
+        #             && r.outputs[k][1] > k)
+        #             dif0 = r.dif0[k]
+        #             # TODO: However we need to check and see if this has been used between n..o
+        #             # Also we don't know whether o > n for sure
+        #             # This all needs more thinking
+        #             break
+        #         end
+        #     end
         end
     end
     if dif0 == nothing

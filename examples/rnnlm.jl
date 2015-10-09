@@ -239,3 +239,12 @@ end
 #  32.433211 seconds (24.07 M allocations: 2.306 GB, 1.39% gc time)
 #   9.759406 seconds (11.05 M allocations: 496.439 MB, 1.30% gc time)
 # (ep,perp...,wmax,gmax,lr) = (3,390.1504382596744,435.37182169855157,390.84524322483344,30.692745370555468,1)
+
+### Compilation results:
+# op(46): input,par,dot; 4xadd2(8); mul,mul,add,tanh,mul; par,dot,par,add,soft,softloss
+# tosave(11): 1,3,11,19,27,35,38,39,40,45,46
+# toincr(18): 15 par + 3 multi
+# toback(45): all except 1
+# tmp(6/18): 18 toincr, 6 unique sizes
+# out(29/46): 15 par + 11 tosave + 3 tmp
+# dif(28/45):
