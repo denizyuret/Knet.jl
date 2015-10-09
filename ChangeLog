@@ -1,8 +1,11 @@
+2015-10-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
 	* TODO:
 	0010 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
 	0015 ai-mtg: We need a predict function: new forw can return out, back return dx for net stitching?
 	0020 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
-	0030 performance improvements based on rnnlm profile: need better A_mul_Bst->sparse and axpy
+	0030 performance improvements based on rnnlm profile: need better sparse back: A_mul_Bst->sparse and axpy
+	0050 saman: local contrast normalization.
 	0100 need train/test switch for nce and dropout.
 	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
@@ -10,6 +13,7 @@
 	0100 ashish nce model
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0300 need better net combo
+	1000 get rid of input() and use constructor arguments instead?
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	1000 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	1000 ai-mtg: Being able to access arrays with original variable names.
@@ -71,6 +75,7 @@
 	1000 ntm
 	1000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+	DONE initback: minimize array zeroing.
 
 2015-10-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
