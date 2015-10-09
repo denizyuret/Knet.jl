@@ -1,5 +1,49 @@
 2015-10-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* rnnlm-profile:
+
+	msec	ratio	where
+	5515	1.0000	model.train
+	1620	0.2937	 forw.sforw:48
+	10	0.0018	  forw.sforw.initforw:49
+	1610	0.2919	  forw.sforw.forw:55
+	205	0.0372	    forw.push:20
+	800	0.1451	    forw.opforw:25
+	119	0.0216	     actf
+	7	0.0013	     softmax
+	47	0.0085	     add
+	127	0.0230	     bias
+	243	0.0441	     dot
+	117	0.0212	      dense.dot.dense
+	102	0.0185	      dense.dot.sparse (y=w*xS)
+	11	0.0020	     loss.copy
+	24	0.0044	     mul
+	13	0.0024	     par.init
+	512	0.0928	    forw.oploss:32
+	66	0.0120	     soft.similar (fix tmp?)
+	31	0.0056	     soft.softloss64csc
+>>>	403	0.0731	     soft.asum (rewrite asum: did not speed up)
+	3808	0.6905	 train.back:49
+	46	0.0083	  back.initback:55
+	3762	0.6821	  back.back:58
+	2606	0.4725	   back.opback:30
+	75	0.0136	    sigmback
+	41	0.0074	    softback
+	78	0.0141	    tanhback
+	116	0.0210	    biasback
+	1909	0.3461	    dot.A_mul_Bt
+	154	0.0279	     dense.dense->dense
+>>>	1256	0.2277	     dense.sparse->sparse:79+3 (sparsify?, write kernel? /home/nlg-05/dy_052/julia/latest/base/sparse/linalg.jl:110)
+	457	0.0829	     dense.sparse->sparse:80 (gemm!)
+	123	0.0223	    dot.At_mul_B
+	1007	0.1826	   back.axpy:33
+	183	0.0332	    axpy.dense
+>>>	562	0.1019	    axpy.sparse.geam:89 (could just add nzVal?)
+	251	0.0455	    axpy.sparse.free:90
+	30	0.0054	 train.wnorm:51
+	28	0.0051	 train.gnorm:52
+	26	0.0047	 train.update!:53
+
 	* linreg-profile:
 	1. before the vecnorm optimization
 	2. after the vecnorm optimization
@@ -36,15 +80,14 @@
 2015-10-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0010 profile rnnlm and check out the number of registers in lstm: come up with steps and time spent on each step for various models.
+	0010 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
+	0020 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0100 need train/test switch for nce and dropout.
 	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
 	0100 src/net.jl: handle con and rnd in tosave.
 	0100 ashish nce model
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
-	0200 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
-	0200 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
 	0300 need better net combo
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	1000 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
@@ -106,10 +149,12 @@
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 par and loss should probably get out of op.
 	1000 ntm
+	1000 performance improvements based on rnnlm profile: need better A_mul_Bst->sparse and axpy
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	DONE handout-mtg: initforw/initback: The array sharing optimizations are currently turned off.
 	DONE deprecate/fix KUdense?  edit colops and linalg to fit.
 	DONE put optimizations back.
+	DONE profile rnnlm and check out the number of registers in lstm: come up with steps and time spent on each step for various models.
 
 	* DONE:
 	+ fix pdf

@@ -12,8 +12,11 @@ scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
 
 # CUBLAS is twice as slow as Barret's custom kernel in my experiments:
 # vecnorm(x::CudaArray)=nrm2(x)
-vecnorm(x::CudaArray{Float32})=ccall((:vecnorm32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
-vecnorm(x::CudaArray{Float64})=ccall((:vecnorm64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+vecnorm2(x::CudaArray{Float32})=ccall((:vecnorm2_32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+vecnorm2(x::CudaArray{Float64})=ccall((:vecnorm2_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+vecnorm1(x::CudaArray{Float32})=ccall((:vecnorm1_32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+vecnorm1(x::CudaArray{Float64})=ccall((:vecnorm1_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+vecnorm(x::CudaArray,p=2)=(p==2 ? vecnorm2(x) : p==1 ? vecnorm1(x) : error("Undefined"))
 
 # (ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
 

@@ -247,4 +247,4 @@ end
 # toback(45): all except 1
 # tmp(6/18): 18 toincr, 6 unique sizes
 # out(29/46): 15 par + 11 tosave + 3 tmp
-# dif(28/45):
+# dif(26/45):
