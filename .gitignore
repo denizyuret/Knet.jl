@@ -1,5 +1,6 @@
 *~
 *_dbg.jl
+*-dbg.jl
 *.out
 *.mat
 *.job
