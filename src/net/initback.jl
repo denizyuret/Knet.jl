@@ -12,7 +12,7 @@ function initback(r::Net, ygold, getdx...; seq=false, a...)
     set_toincr(r, seq)
     for n=length(r.op):-1:1
         r.toback[n] || continue
-        st = difsparse(r, ygold, n)
+        st = difsparse(r, n)
         # we mix initback and initback0 here because if getdx or seq changes
         # we may need to alloc new arrays.
         if isassigned(r.dif0,n)
@@ -134,9 +134,10 @@ function findtmp(r::Net, n, st)
     return tmp
 end
 
-function difsparse(r::Net, dy, n)                       # TODO: test this, compare with old initback
+function difsparse(r::Net, n)
     N = length(r.op)
-    n == N && length(r.outputs[n]) == 1 && return stype(dy)
+    # We no longer need this, or ygold, the loss fn always gives a dense dy. TODO: cleanup
+    # n == N && length(r.outputs[n]) == 1 && return stype(ygold)
     for i=1:N
         # The sparse operation dw = dy * x' is implemented for dw:csr, dy:arr, x:csc.
         # TODO: this operation is extremely slow, write custom kernel.
