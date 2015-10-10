@@ -10,10 +10,10 @@ bias(; binit=Constant(0), o...) = quote
     y = add(b,x)
 end
 
-wbf(; out=0, f=relu, o...) = quote
+wbf(; out=0, f=relu, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
     x = input()
-    y = wdot(x; out=$out, $o...)
-    z = bias(y; $o...)
+    y = wdot(x; out=$out, winit=$winit, $o...)
+    z = bias(y; binit=$binit, $o...)
     a = $f(z)
 end
 
