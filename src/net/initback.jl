@@ -5,32 +5,38 @@ initback initializes the fields used by Net.back:
 - toback: depends on which dx args specified.
 - tosave: read-only, used for popping only if seq.
 """
-function initback(r::Net, dy, dx...; seq=false, a...)
-    @assert dx == () || length(dx) == ninputs(r)
-    set_toback(r, dx...)
+function initback(r::Net, ygold, getdx...; seq=false, a...)
+    @assert getdx == () || length(getdx) == ninputs(r)
+    @assert ygold == nothing || issimilar2(ygold, r.out0[end])
+    set_toback(r, getdx...)
     set_toincr(r, seq)
     for n=length(r.op):-1:1
         r.toback[n] || continue
-        st = difsparse(r, dy, n)
-        if isassigned(r.dif0, n)
+        st = difsparse(r, ygold, n)
+        # we mix initback and initback0 here because if getdx or seq changes
+        # we may need to alloc new arrays.
+        if isassigned(r.dif0,n)
             @assert (issimilar2(r.dif0[n], r.out0[n]) && stype(r.dif0[n])==st) # TODO: implement batch size change
         else
             r.dif0[n] = finddif(r, n, st)
+            r.dif[n] = nothing
         end
         if r.toincr[n]
             if isassigned(r.tmp, n)
                 @assert (issimilar2(r.tmp[n], r.out0[n]) && stype(r.tmp[n])==st)
             else
                 r.tmp[n] = findtmp(r, n, st)
+                fill!(r.dif0[n], 0)
             end
         end
     end
-    fill!(r.dif, nothing)
-    for n=1:length(r.op)
-        isassigned(r.dif0, n) && r.toincr[n] && fill!(r.dif0[n], 0)
-    end
 end
 
+# should be part of reset:
+    # fill!(r.dif, nothing)
+    # for n=1:length(r.op)
+    #     isassigned(r.dif0, n) && r.toincr[n] && fill!(r.dif0[n], 0)
+    # end
 
 """
 set_toback(r::Net) sets r.toback[n] which is true if dif[n] should be
@@ -38,13 +44,13 @@ calculated for op[n] during back calculation.  This is only needed if
 op[n] is a par node or a par node descendent.  Or if the caller asked
 for dx for network inputs, those and their descendents.
 """
-function set_toback(r::Net, dx...)
+function set_toback(r::Net, getdx...; a...)
     fill!(r.toback, false)
     N = length(r.op)
     lastinput = 0
     for n=1:N
         isa(r.op[n], Par) && (r.toback[n] = true)
-        isa(r.op[n], Input) && dx != () && dx[lastinput += 1] != nothing && (r.toback[n] = true)
+        isa(r.op[n], Input) && getdx != () && getdx[lastinput += 1] && (r.toback[n] = true)
     end
     nback = sum(r.toback)
     while true
@@ -66,7 +72,8 @@ end
 """
 set_toincr(r::Net) sets r.toincr[n] which is true if dif[n] should be
 incrementally updated.  This is necessary if op[n] has multiple
-outputs, or it is a Par and we are processing a sequence.
+outputs, or it is a Par and we are processing a sequence.  This is the
+one place we can't seem to get rid of the seq flag.
 """
 function set_toincr(r::Net, seq)
     fill!(r.toincr, false)
@@ -82,7 +89,8 @@ function finddif(r::Net, n, st)
     if !r.toincr[n]
         @assert length(r.outputs[n]) == 1 # otherwise toincr would be true
         o = r.outputs[n][1]     # first try overwriting the output dif
-        if (!r.toincr[o]
+        if (o > n
+            && !r.toincr[o]
             && overwrites(r.op[o])
             && isassigned(r.dif0, o)
             && size(r.dif0[o]) == size(r.out0[n])
@@ -131,6 +139,7 @@ function difsparse(r::Net, dy, n)                       # TODO: test this, compa
     n == N && length(r.outputs[n]) == 1 && return stype(dy)
     for i=1:N
         # The sparse operation dw = dy * x' is implemented for dw:csr, dy:arr, x:csc.
+        # TODO: this operation is extremely slow, write custom kernel.
         isa(r.op[i], Dot) && n == r.inputs[i][1] && stype(r.out0[r.inputs[i][2]])==:csc && return :csr
     end
     return nothing

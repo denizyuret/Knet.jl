@@ -26,7 +26,7 @@ for (ltype, lback, lloss, lname) in
     @eval begin
         type $ltype <: Loss; end
 
-        $lname() = $ltype()
+        # $lname() = $ltype()
 
         function forw(l::$ltype, x, y; o...)
             size(x) == size(y) || error(map(summary,(x,y)))
@@ -51,10 +51,10 @@ end
 ### SOFTLOSS: 
 
 # Cross entropy loss to use after the Soft layer.
-# l.y should have normalized probabilities output by the model.
+# y should have normalized probabilities output by the model.
 # p has normalized probabilities from the answer key.
 # Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
-# Overwrites p with the gradient of the loss wrt y, i.e. 1-p/y
+# Calculates the gradient of the loss wrt y, i.e. 1-p/y
 
 # Math:
 #
@@ -76,6 +76,17 @@ end
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
+
+function softloss(y::Array, ygold::Array, ygrad::Array)
+    @assert size(y)==size(ygold)==size(ygrad)
+    ycols=ccount(ygrad)
+    cost=zero(Float64)
+    for i=1:length(ygrad)
+        ygrad[i] = ((y[i]-ygold[i])/y[i])/ycols
+        ygold[i] > 0 && (cost += (ygold[i]*log(y[i])))
+    end
+    return -cost/ycols
+end
 
 function softlossloss(y::Array, dy::Array; o...)
     cost=zero(Float64)
@@ -173,11 +184,30 @@ end
 ### QUADLOSS:
 
 # Quadratic loss:
-# l.y stores the model output.
-# dy is the desired output.
-# Overwrites dy with the gradient of quadratic loss wrt y, i.e. y-dy
-# J = 0.5*sum((yi-zi)^2)
-# dJ/dy = y-dy
+# y stores the model output.
+# ygold is the desired output.
+# Overwrites ygrad with the gradient of quadratic loss wrt y, i.e. y-ygold
+# J = (1/2)*sum((y-ygold)^2)
+# dJ/dy = y-ygold
+
+# This is cpu/gpu generic, the rest is dead code:
+
+function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray)
+    @assert size(y)==size(ygold)==size(ygrad)
+    ycols = ccount(y)
+    ygrad === ygold || copy!(ygrad, ygold) # TODO: avoid copy if possible
+    scale!(-1/ycols, ygrad)
+    axpy!(1/ycols, y, ygrad)
+end
+
+function quadloss(y::BaseArray, ygold::BaseArray)
+    ytemp = similar(y)         # TODO: avoid alloc
+    copy!(ytemp, ygold)
+    axpy!(-1, y, ytemp)
+    qloss = vecnorm(ytemp)^2/(2*ccount(y))
+    free(ytemp)
+    return qloss
+end
 
 function quadlossloss(y::Array, dy::Array; o...)
     cost=zero(Float64)

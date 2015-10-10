@@ -1,40 +1,21 @@
 """
-initforw sets r.tosave, r.out, r.out0 used by forw.
-possibly r.dif0[N] (if loss calculated).
-r.tosave is read-only, used if seq.
+initforw allocates r.out0 if uninitialized and checks the size/type of
+inputs.  It does not zero r.out0 or set r.out.
 """
-function initforw(r::Net, inputs...; keepstate=false, ygold=nothing, seq=false, o...)
+function initforw(r::Net, inputs...; o...)
     @assert length(inputs) == ninputs(r)
     @assert r.sp == 0
     isassigned(r.out0, 1) || initforw0(r, inputs...)
-    N = length(r.op)
     lastinput = 0
-    for n=1:N
+    for n=1:length(r.op)
         if isa(r.op[n], Input)
             i = inputs[lastinput += 1]
             o = r.out0[n]
             @assert issimilar3(i, o)
         end
     end
-    if ygold != nothing
-        @assert issimilar2(ygold, r.out0[N])
-        if isassigned(r.dif0, N)
-            @assert issimilar3(ygold, r.dif0[N])
-        else
-            r.dif0[N] = newarray(gpu(), stype(ygold), eltype(ygold), size(ygold))
-        end
-    end
-    if !seq
-        # @assert all((r.out .== nothing) | (r.out .== r.out0)) # t:110/244
-        @assert !keepstate "meaningless keepstate in non-sequence run"
-        fill!(r.out, nothing)
-    elseif keepstate
-        copy!(r.out, r.out0)
-    else
-        # @assert all((r.out .== nothing) | (r.out .== r.out0))
-        fill!(r.out, nothing)
-    end
     # TODO: implement batch size changes
+    # TODO: we need a reset for r.out.
 end
 
 # first init: infer and alloc
@@ -117,3 +98,28 @@ function infertype(r::Net, inputs...)
     # TODO: deal with inputless networks:
 end
 
+
+### DEAD CODE:
+
+    # if ygold != nothing
+    #     @assert issimilar2(ygold, r.out0[N])
+    #     if isassigned(r.dif0, N)
+    #         @assert issimilar3(ygold, r.dif0[N])
+    #     else
+    #         r.dif0[N] = newarray(gpu(), stype(ygold), eltype(ygold), size(ygold))
+    #     end
+    # end
+
+
+    # if !seq
+    #     # @assert all((r.out .== nothing) | (r.out .== r.out0)) # t:110/244
+    #     @assert !keepstate "meaningless keepstate in non-sequence run"
+    #     fill!(r.out, nothing)
+    # elseif keepstate
+    #     copy!(r.out, r.out0)
+    # else
+    #     # @assert all((r.out .== nothing) | (r.out .== r.out0))
+    #     fill!(r.out, nothing)
+    # end
+
+# keepstate=false, seq=false

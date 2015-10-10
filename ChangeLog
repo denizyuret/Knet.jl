@@ -74,8 +74,133 @@
 	1000 par and loss should probably get out of op.
 	1000 ntm
 	1000 compiler improvements: find more register sharing for dif in initback.
+	5000 rename train->train! ??
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	DONE initback: minimize array zeroing.
+
+	* forw-loss-back: What is the best interface?
+	forw(m,x) => y
+	loss(m,ygold) => ygrad
+	back(m,ygrad) => xgrad
+
+	There is no point in making loss and back functional by providing
+	the output y.  The output y along with a number of internal
+	outputs have to be remembered by the network.  Even if we made it
+	functional, giving back a different y would not work because the
+	internal outputs would be not consistent with it.
+
+	Pre-allocating arrays outside (y for forw, ygrad for loss, xgrad
+	for back) results in unnecessary copying.  Instead we resign to
+	the fact that the model shares internal arrays and copy them if
+	necessary.  What about loss vs grad calculation?  We can use two
+	functions:
+
+	loss(m,ygold) => loss value
+	grad(m,ygold) => ygrad array
+
+	Or use a single function that has lots of options.  We need to be
+	able to choose from a number of loss functions.  These could be
+	keyword arguments, or we could have quadloss(m,ygold),
+	softloss(m,ygold) etc.  The sequence of events is:
+
+	train: x->forw->y, ygold->grad->ygrad, ygrad->back->xgrad.
+
+	No need for loss value unless asked for.  y, ygrad, xgrad are
+	internally allocated, x and ygold come from outside.  We are
+	losing the ability to state which xgrad we want from
+	back.
+
+	test: x->forw->y, ygold->loss->lossval
+	predict: x->forw->y, there is no ygold
+
+	hcat: x->forw1->y1, y1->forw2->y2 (no need to alloc/copy y1 if it
+	is already on gpu).  ygold2->grad2->ygrad2, ygrad2->back2->ygrad1,
+	ygrad1->back1->xgrad1.  (again should not have two copies of
+	ygrad1).
+
+	Ability to use different loss functions:
+
+	test: x->forw->y, ygold->loss->lossval (loss should be an arg to test).
+	train: x->forw->y, ygold->grad->ygrad (grad should be an arg to train).
+
+	Low level loss fn is defined as loss(y,ygold)->lossval
+	Low level grad fn is defined as grad(y,ygold,ygrad)->ygrad
+
+	Defining a single loss function signature:
+	loss(y,ygold) -> computes loss
+	loss(y,ygold,ygrad) -> computes loss and grad
+	loss(y,ygold,ygrad; getloss=false) -> computes grad
+
+	Is there any advantage of merging loss and grad together.  For
+	softloss the calculations are independent:
+	loss = -sum(ygold * log(y))
+	grad = 1 - ygold/y
+
+	quadloss not so; grad is necessary for loss.
+	grad = y-ygold
+	loss = (1/2)*sum((y-ygold)^2)
+
+	xentloss: both need ynorm at some point
+	loss = -sum(ygold * log(ynorm)) where ynorm is normalized exp(y)/z
+	grad = ynorm - ygold
+
+	Mainly we want to be able to:
+	test(model,data; loss=quadloss)
+	test(model,data; loss=percloss)
+	test(model,data; loss=xentloss)
+	train(model,data; loss=softloss)
+	train(model,data; loss=quadloss)
+
+	We don't want to have to compute lossval unless asked for.
+
+	function train(model,data; lossfn=quadloss)
+	    for (x,ygold) in data
+	        y = forw(model,x)
+	        l = loss(model,ygold; lossfn=lossfn) # optional
+	        ygrad = grad(model,ygold; lossfn=lossfn)
+	        xgrad = back(model,ygrad)
+	        update!(model)
+	    end
+	end
+
+	Do we need to pass around ygrad?  grad(model,ygold) sets dif[N].
+	Just like forw sets out[N].  We don't pass out[N] to back, why
+	should we pass dif[N]?
+
+	Or should we do back(model,ygold; lossfn=lossfn)?  That would make
+	more sense and mirror forw.  No need for extra grad fn.  This is
+	getting close to having our own loss layer.  But loss layer wasn't
+	doing anything in forw pass anyway.  And it was doing something
+	unusual in the back pass (not treating the input as gradient).  So
+	treating it as a special fn is ok.
+
+	Two questions: (1) the xgrad problem and (2) lossval problem.
+	lossval (2.1) needs extra space and (2.2) sometimes shares
+	computation with grad.  lossval needs y (on gpu) and ygold (on
+	cpu).  We could choose to do it on cpu like we used to.  In any
+	case the two arg version of lossfn should take care of this.  If
+	we do cpu we won't need temp space, if we do gpu we will.  We
+	should look at relative speed etc.  (3) what does back call for
+	initial gradient?  the three argument version of loss?  (4) how
+	does train get its lossval?  through separate call? or getloss
+	option to back? (1) how do we tell back we want xgrad?  getgrad
+	option? (TODO)  effects the value of toback.  instead of passing
+	arrays, pass booleans for dx.
+
+	xloss(y,ygold) -> lossval
+	xloss(y,ygold,ygrad) -> overwrites ygrad
+
+	train, test, and back take loss keyword arg.
+
+	(5) sequence vs item training: train needs to know how often to
+	run back.  every iteration?  wait until end of sequence
+	(item==nothing)?  every n iterations?  split these into separate
+	training functions?  how much code in common?  how about
+	keepstate?
+
+	seq flag: cannot get rid of it in train (when to run back), and in
+	set_toincr (parameters only need incremental updating for seq
+	input).  So might as well make it a precondition for push/pop.
 
 2015-10-08  Deniz Yuret  <dyuret@ku.edu.tr>
 

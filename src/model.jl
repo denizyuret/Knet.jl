@@ -1,8 +1,9 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `forw(m,x...,y; mode,ygold)`
-* `back(m,dy,dx...)`
+* `y=forw(m,x...; trn)`		# returns internal y
+* `l=loss(m,y,ygold,ygrad)`	# overwrites ygrad and returns loss
+* `back(m,ygrad,dx...)`		# overwrites dx if != nothing
 * `params(m)`
 
 Using these low level methods, Model defines the following:
@@ -15,51 +16,45 @@ Using these low level methods, Model defines the following:
 """
 abstract Model
 
-setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
-update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)             # t:19
-wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)           # t:317
-gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)           # t:332
-
-function test(m::Model, d; o...)
-    sumloss = numloss = 0
-    for (x,y) in d
-        sumloss += forw(m, x; mode=:test, ygold=y, o...)
-        numloss += 1
-    end
-    return sumloss/numloss
-end
-
-function accuracy(m::Model, d) # TODO: this only works if y is a single item
-    numcorr = numinst = 0
-    z = nothing
-    for (x,y) in d
-        z == nothing && (z = Array(eltype(y), size(y)))
-        forw(m, x, z; mode=:test)
-        numinst += ccount(y)
-        numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
-    end
-    return numcorr/numinst
-end
-
-function train(m::Model, d; gclip=0, gcheck=0, getloss=true, getnorm=true, a...) # TODO: (minor) this should probably be named train!
+function train(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, seq=false, a...)
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    for (x,y) in d                                                              # t:556/3053
-        gcheck > 0 && (gradcheck(m,x,y; gcheck=gcheck, a...); gcheck=0)         # t:189/3053
-        l = forw(m, x; mode=:train, ygold=(getloss ? y : nothing), a...)        # t:463/3053
-        back(m, y; a...)                                                        # t:1513/3053 ?
-        getloss && (sumloss += l; numloss += 1)
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))               # t:171/3053
-        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) 	# t:115/3053
-        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))                         # t:46/3053
+    for item in data # TODO: implement nothing and reset for rnn
+        (x,ygold) = item2xy(item)
+        ypred = forw(m, x...; trn=true, seq=seq, a...)
+        back(m, ygold; loss=loss, seq=seq, a...)
+
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+        getloss && (sumloss += loss(ypred, ygold); numloss += 1)
+        gcheck > 0 && (gradcheck(m,ygold,x...; gcheck=gcheck, loss=loss, seq=seq, a...); gcheck=0) # when to do this in seq
+
+        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
     end
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
 
+function test(m::Model, data; loss=quadloss, a...)
+    sumloss = numloss = 0
+    for item in data
+        (x,ygold) = item2xy(item)
+        ypred = forw(m, x...; trn=false, seq=false, a...)
+        sumloss += loss(ypred, ygold); numloss += 1
+    end
+    sumloss / numloss
+end
+
+setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
+update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)             # t:19
+wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)           # t:317
+gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)           # t:332
+item2xy(item)=(isa(item, Tuple) ? (item[1:end-1],item[end]) : item==nothing ? (nothing,nothing) : ((),item))
+
 const gradcheck_rng = MersenneTwister()
 
-function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, a...)
-    l0 = forw(m, x; mode=:train, ygold=y, a...)
-    back(m, y; a...)
+function gradcheck(m::Model, ygold, x...; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, loss=quadloss, seq=false, a...)
+    ypred = forw(m, x...; trn=true, seq=seq, a...)
+    l0 = loss(ypred, ygold)
+    back(m, ygold; loss=loss, seq=seq, a...)
     pp = params(m)
     for n=1:length(pp)
         p = pp[n]
@@ -71,7 +66,8 @@ function gradcheck(m::Model, x, y; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps
             wi0 = p.out[i]
             wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             p.out[i] = wi1
-            l1 = forw(m, x; mode=:test, ygold=y)                                # t:135
+            ypred = forw(m, x...; trn=false, seq=seq, a...)
+            l1 = loss(ypred, ygold)
             p.out[i] = wi0
             dwi = (l1 - l0) / (wi1 - wi0)
             if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)
@@ -112,5 +108,44 @@ end
 #     loss1 = forw(m, x; trn=true, ygold=(getloss ? y : nothing), a...)
 #     back(m, y; a...)
 #     return loss1
+# end
+
+# Use test with percloss instead:
+# 
+# function accuracy(m::Model, d) # TODO: this only works if y is a single item
+#     numcorr = numinst = 0
+#     z = nothing
+#     for (x,y) in d
+#         z == nothing && (z = Array(eltype(y), size(y)))
+#         forw(m, x, z; mode=:test)
+#         numinst += ccount(y)
+#         numcorr += sum(findmax(convert(Array,y),1)[2] .== findmax(convert(Array,z),1)[2])
+#     end
+#     return numcorr/numinst
+# end
+
+
+# function train1(m::Model, data; loss=quadloss, getloss=true, getnorm=true, gclip=0, gcheck=0, seq=false, a...)
+#     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
+#     for item in data
+#         (x,ygold) = item2xy(item)
+#         ypred = forw(m, x...; trn=true, seq=false, a...)
+#         l = getloss ? loss(ypred, ygold) : 0
+#         sumloss += l; numloss += 1
+#         back(m, ygold; loss=loss, seq=false, a...)
+#         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+#         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+#         update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
+#     end
+#     return (sumloss/numloss, maxwnorm, maxgnorm)
+# end
+
+# function test(m::Model, d; o...)
+#     sumloss = numloss = 0
+#     for (x,y) in d
+#         sumloss += forw(m, x; mode=:test, ygold=y, o...)
+#         numloss += 1
+#     end
+#     return sumloss/numloss
 # end
 

@@ -39,7 +39,7 @@ LinRegModel(n) = quote
     x = input()
     w = par($n,0)
     y = dot(w,x)
-    z = quadloss(y)
+#    z = quadloss(y)
 end
 
 # Data generator:
