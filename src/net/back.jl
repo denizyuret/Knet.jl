@@ -49,7 +49,7 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...
         end
         seq && r.tosave[n] && pop(r,n)
     end
-    getdx==() || r.dif[find(o->isa(o,Input), r.op)]
+    getdx && get1(r.dif[find(o->isa(o,Input), r.op)])
 end
 
 copyloss(ypred,ygold,ygrad)=copy!(ygrad,ygold)
