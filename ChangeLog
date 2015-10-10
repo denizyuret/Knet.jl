@@ -1,6 +1,5 @@
 2015-10-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
-
 	* TODO:
 	0010 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
 	0015 ai-mtg: We need a predict function: new forw can return out, back return dx for net stitching?
@@ -13,6 +12,7 @@
 	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
 	0100 src/net.jl: handle con and rnd in tosave.
 	0100 ashish nce model
+	0150 examples/adding.jl: figure out why the new data generator did not work.
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0300 need better net combo
 	1000 src/op/loss.jl: cleanup

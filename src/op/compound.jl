@@ -37,13 +37,13 @@ convpool(; out=0, f=relu, cwindow=0, pwindow=0, o...) = quote
     p = pool(r; window=$pwindow, $o...)
 end
 
-add2(; out=0, f=sigm, o...) = quote
+add2(; out=0, f=sigm, binit=Constant(0), o...) = quote
     x1 = input()
     y1 = wdot(x1; out=$out, $o...)
     x2 = input()
     y2 = wdot(x2; out=$out, $o...)
     x3 = add(y1,y2)
-    y3 = bias(x3; $o...)
+    y3 = bias(x3; binit=$binit, $o...)
     ou = $f(y3)
 end
 

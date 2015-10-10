@@ -7,7 +7,6 @@
 
 using Knet, ArgParse
 import Base: start, next, done
-include("lstm.jl")
 
 function rnnlm(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -25,22 +24,22 @@ function rnnlm(args=ARGS)
     prog = rnnlmModel(layers = opts["layers"],
                       rnn_size = opts["rnn_size"],
                       vocab_size = vocab_size)
-    net = Net(prog)
+    net = RNN(prog)
     lr = opts["lr"]
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
     perp = zeros(length(data))
     wmax = gmax = 0
     for ep=1:opts["max_max_epoch"]
-        ep > opts["max_epoch"] && (lr /= opts["decay"]; setparam!(net, lr=lr))
-        (ltrn,wmax,gmax) = train(net, data[1]; gclip=opts["max_grad_norm"], gcheck=opts["gcheck"], keepstate=true)
-        perp[1] = exp(ltrn/data[1].seqlength)
+        ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net, lr=lr))
+        (ltrn,wmax,gmax) = train(net, data[1], softloss; gclip=opts["max_grad_norm"], gcheck=opts["gcheck"], keepstate=true)
+        perp[1] = exp(ltrn)
         for idata = 2:length(data)
-            ldev = test(net, data[idata]; keepstate=true)
-            perp[idata] = exp(ldev/data[idata].seqlength) # TODO: look into reporting loss per sequence rather than per token
+            ldev = test(net, data[idata], softloss; keepstate=true)
+            perp[idata] = exp(ldev) # TODO: look into reporting loss per sequence rather than per token
         end
         @show (ep, perp..., wmax, gmax, lr)
     end
-    return (perp..., wmax, gmax)
+    return (net, perp..., wmax, gmax)
 end
 
 
@@ -51,31 +50,26 @@ function rnnlmModel(;
                     )
     prog = quote                # do we need the prefix?  lstm will do a dot?  yes if you want the same embedding going into each gate.
         i0 = input()
-        w0 = par($rnn_size,0)
-        x0 = dot(w0,i0)
+        x0 = wdot(i0; out=$rnn_size)
     end
     s0 = s1 = :x0
     for n=1:layers
         s0 = s1
         s1 = symbol("x$n")
-        op = :($s1 = lstm($s0; n=$rnn_size))
+        op = :($s1 = lstm($s0; out=$rnn_size))
         push!(prog.args, op)
     end
     prog2 = quote
-        w1 = par($vocab_size,0)
-        y1 = dot(w1,$s1)
-        b1 = par(0)
-        z1 = add(b1,y1)
-        l1 = softmax(z1)
+        ou = wbf($s1; out=$vocab_size, f=soft)
     end
     append!(prog.args, prog2.args)
     return prog
 end
 
 
-type LMData; data; dict; batchsize; seqlength; batch; end
+type LMData; data; dict; batchsize; seqlength; x; y; end
 
-function LMData(fname::AbstractString; batch=batch_size, seqlen=seq_length, dict=Dict{Any,Int32}())
+function LMData(fname::AbstractString; batch=20, seqlen=20, dict=Dict{Any,Int32}())
     data = Int32[]
     f = open(fname)
     for l in eachline(f)
@@ -84,40 +78,44 @@ function LMData(fname::AbstractString; batch=batch_size, seqlen=seq_length, dict
         end
         push!(data, get!(dict, "<eos>", 1+length(dict))) # end-of-sentence
     end
-    x = [ speye(Float64, length(dict), batch) for i=1:seqlen+1 ]
+    x = speye(Float64, length(dict), batch)
+    y = speye(Float64, length(dict), batch)
     info("Read $fname: $(length(data)) words, $(length(dict)) vocab.")
-    LMData(data, dict, batch, seqlen, x)
+    LMData(data, dict, batch, seqlen, x, y)
 end
 
+function next(d::LMData,state)                              	# d.data is the whole corpus represented as a sequence of Int32's
+    (nword, eos) = state                                        # eos is true if last output was nothing
+    if !eos && (nword % d.batchsize * d.seqlength == 0)
+        return (nothing, (nword, true))                         # output nothing indicating end of sequence
+    end
+    segsize = div(length(d.data), d.batchsize)                  # we split it into d.batchsize roughly equal sized segments
+    offset = div(nword, d.batchsize)                            # this is how many words have been served so far from each segment
+    for b = 1:d.batchsize
+        idata = (b-1)*segsize + offset
+        d.x.rowval[b] = d.data[idata+1]
+        d.y.rowval[b] = d.data[idata+2]
+    end
+    ((d.x, d.y), (nword + d.batchsize, false))	# each call to next will deliver a single word from each of the d.batchsize segments
+end
+
+# The state indicates number of words served, and whether the last output was end-of-sequence nothing
 function start(d::LMData)
-    mx = size(d.batch[1], 1)
+    mx = size(d.x, 1)
     nd = length(d.dict)
     if nd > mx                  # if dict size increases, adjust batch arrays
-        for x in d.batch; x.m = nd; end
+        d.x.m = d.y.m = nd
     elseif nd  < mx
         error("Dictionary shrinkage")
     end
-    return 0
+    return (0, true)
 end
 
-function done(d::LMData,nword)
+function done(d::LMData,state)
     # nword is the number of sequences served
-    # stop if there is not enough data for another batch
-    nword + d.batchsize * d.seqlength > length(d.data)
-end
-
-function next(d::LMData,nword)                              # d.data is the whole corpus represented as a sequence of Int32's
-    segsize = div(length(d.data), d.batchsize)          # we split it into d.batchsize roughly equal sized segments
-    offset = div(nword, d.batchsize) # this is how many words have been served so far from each segment
-    for b = 1:d.batchsize
-        idata = (b-1)*segsize + offset                  # start producing words in segment b at x=data[idata], y=data[idata+1]
-        for t = 1:d.seqlength+1
-            d.batch[t].rowval[b] = d.data[idata+t]
-        end
-    end
-    xbatch = d.batch[1:d.seqlength]
-    ybatch = d.batch[2:d.seqlength+1]
-    ((xbatch, ybatch), nword + d.seqlength * d.batchsize)	# each call to next will deliver d.seqlength words from each of the d.batchsize segments
+    # stop if there is not enough data for another full sequence
+    (nword, eos) = state
+    eos && nword + d.batchsize * d.seqlength > length(d.data)
 end
 
 function parse_commandline(args)

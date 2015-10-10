@@ -37,30 +37,6 @@ const gradcheck_rng = MersenneTwister()
 #     return (sumloss/numloss, maxwnorm, maxgnorm)
 # end
 
-# function train2(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
-#     gcheck == 0 || error("gradcheck for sequences not implemented yet")
-#     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-#     ystack = Any[]              # TODO: where do we add gradcheck?
-#     for item in data
-#         if item != nothing
-#             (x,ygold) = item2xy(item)
-#             ypred = forw(m, x...; trn=true, seq=seq, a...)
-#             getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-#             push!(ystack, ygold)
-#         else                    # end of sequence
-#             while !isempty(ystack)
-#                 ygold = pop!(ystack)
-#                 back(m, ygold; loss=loss, seq=seq, a...)
-#             end
-#             (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-#             update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
-#             getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-#             reset(m; a...)
-#         end
-#     end
-#     return (sumloss/numloss, maxwnorm, maxgnorm)
-# end
-
 # This will not work for MLP!  extra parameterless ops do not effect equality.
 # Base.isequal(a::Model,b::Model)=(typeof(a)==typeof(b) && isequal(params(a),params(b)))
 
