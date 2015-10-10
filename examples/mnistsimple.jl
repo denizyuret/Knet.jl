@@ -33,7 +33,7 @@ prog = quote
     z2 = dot(w2,x2)
     b2 = par(0)
     y2 = add(b2,z2)
-    ou = softmax(y2)
+    ou = soft(y2)
 end
 
 model = Net(prog)
@@ -42,8 +42,8 @@ model = Net(prog)
 
 setopt!(model, lr=0.5)
 for epoch=1:10
-    (l,w,g) = train(model, dtrn)
-    (l1,a1) = (test(model, dtrn), accuracy(model, dtrn))
-    (l2,a2) = (test(model, dtst), accuracy(model, dtst))
+    (l,w,g) = train(model, dtrn; loss=softloss)
+    (l1,a1) = (test(model, dtrn; loss=softloss), 1-test(model, dtrn; loss=zeroone))
+    (l2,a2) = (test(model, dtst; lost=softloss), 1-test(model, dtst; loss=zeroone))
     println("epoch=$epoch tstacc=$a2 trnacc=$a1 tstloss=$l2 trnloss=$l1 wnorm=$w gnorm=$g")
 end
