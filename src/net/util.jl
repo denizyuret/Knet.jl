@@ -4,7 +4,8 @@ nops(r::Net)=length(r.op)
 
 ### Cleanup at the end of sequence
 
-function reset(r::Net; keepstate=false, a...)
+function reset!(r::Net; keepstate=false, a...)
+    @assert r.sp == 0
     if keepstate
         copy!(r.out, r.out0)
     else

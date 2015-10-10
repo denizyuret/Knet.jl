@@ -4,7 +4,6 @@ inputs.  It does not zero r.out0 or set r.out.
 """
 function initforw(r::Net, inputs...; o...)
     @assert length(inputs) == ninputs(r)
-    @assert r.sp == 0
     isassigned(r.out0, 1) || initforw0(r, inputs...)
     lastinput = 0
     for n=1:length(r.op)
