@@ -1,4 +1,5 @@
-2015-10-09  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-10  Deniz Yuret  <dyuret@ku.edu.tr>
+
 
 	* TODO:
 	0010 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
@@ -6,6 +7,7 @@
 	0020 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0030 performance improvements based on rnnlm profile: need better sparse back: A_mul_Bst->sparse and axpy
 	0050 saman: local contrast normalization.
+	0100 src/model/fnn.jl: predict has not been tested
 	0100 need train/test switch for nce and dropout.
 	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
@@ -13,7 +15,6 @@
 	0100 ashish nce model
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0300 need better net combo
-	1000 src/op2: start a collection of compound ops: wdot, bias, lstm, wbf...
 	1000 src/op/loss.jl: cleanup
 	1000 get rid of input() and use constructor arguments instead?
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
@@ -74,11 +75,42 @@
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 par and loss should probably get out of op.
 	1000 ntm
-	1000 compiler improvements: find more register sharing for dif in initback.
+	5000 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
+	1000 gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
+	5000 compiler improvements: find more register sharing for dif in initback.
 	5000 rename train->train! ??
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* examples/mnistpixels.jl: How does s2c work in the new interface?
+	[1] The sequence proceeds with x=pixel, y=nothing.  At the end we
+	could have x=nothing, y=class.  That could be the sign to run
+	net2.  [2] Conceptually simpler might be to always have net1/net2
+	in a stack.  Maybe the compiler figures out net2 is not necessary
+	to run as long as y=nothing.  With the last pixel we would have
+	y=class.  Either that could trigger backprop or an extra
+	item=nothing after the last pixel.  How much of this is
+	generalizable to s2s?  There we definitely need item=nothing to
+	signal end of sequence.  We could imagine stacking net1 and net2
+	there as well?  No, because during decoding input is directly fed
+	into net2.  So we will have to have different train routines?
+	That ruins our original train(model,data) interface.  Unless we go
+	back to data elements possibly being sequences, is there any way
+	to salvage that?  It seems we are moving complexity from forw/back
+	into train/test.  New itembased picture.  Models only input/output
+	individual items, not sequences.  Data only generates individual
+	items, not sequences.  Then if we are doing different things with
+	different items, train/test has to deal with it?  I should look at
+	NTM and the attention models now so I don't regret design
+	decisions later.  But right now it looks like model.jl is
+	deprecated, each model type will have to have its own
+	data/train/test.  There is not common interface.
+
+2015-10-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
 	DONE initback: minimize array zeroing.
 	DONE src/op/conv.jl: implement xavier in par.jl.
+	DONE src/op2: start a collection of compound ops: wdot, bias, lstm, wbf...
 
 	* forw-loss-back: What is the best interface?
 	forw(m,x) => y

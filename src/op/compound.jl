@@ -61,11 +61,11 @@ Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize
 Recurrent Networks of Rectified Linear Units. arXiv preprint
 arXiv:1504.00941.
 """
-irnn(; out=0, o...) = quote
+irnn(; out=0, scale=1, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
     x1 = input()
-    x2 = wdot(x1; out=$out, $o...)
-    x3 = wdot(re; out=$out, winit=Identity(), $o...)
+    x2 = wdot(x1; out=$out, winit=$winit, $o...)
+    x3 = wdot(re; out=$out, winit=Identity($scale), $o...)
     x4 = add(x2,x3)
-    x5 = bias(x4; $o...)
+    x5 = bias(x4; binit=$binit, $o...)
     re = relu(x5)
 end

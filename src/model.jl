@@ -1,104 +1,65 @@
 """
 Model is an abstract type whose subtypes should provide the following:
 
-* `y=forw(m,x...; trn)`		# returns internal y
-* `l=loss(m,y,ygold,ygrad)`	# overwrites ygrad and returns loss
-* `back(m,ygrad,dx...)`		# overwrites dx if != nothing
-* `params(m)`
-* `reset(m)`
-
-Using these low level methods, Model defines the following:
-
-* `train(model, data; gclip, gcheck, getloss, getnorm)`
-* `test(model, data)`
-* `predict(model, data)` (TODO)
+* `train(model, data, loss)`
+* `test(model, data, loss)`
+* `predict(model, data)`
 * `setopt!(model; param...)`
 """
 abstract Model
-
-function train(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
-    numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    for item in data
-        (x,ygold) = item2xy(item)
-        gcheck > 0 && (gradcheck(m,ygold,x...; gcheck=gcheck, loss=loss, a...); gcheck=0)
-        ypred = forw(m, x...; trn=true, a...)
-        getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-        back(m, ygold; loss=loss, a...)
-        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-    end
-    return (sumloss/numloss, maxwnorm, maxgnorm)
-end
-
-function train2(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
-    numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    ystack = Any[]              # TODO: where do we add gradcheck?
-    for item in data
-        if item != nothing
-            (x,ygold) = item2xy(item)
-            ypred = forw(m, x...; trn=true, seq=seq, a...)
-            getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-            push!(ystack, ygold)
-        else                    # end of sequence
-            while !isempty(ystack)
-                ygold = pop!(ystack)
-                back(m, ygold; loss=loss, seq=seq, a...)
-            end
-            (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-            update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
-            getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-            reset(m; a...)
-        end
-    end
-    return (sumloss/numloss, maxwnorm, maxgnorm)
-end
-
-function test(m::Model, data; loss=quadloss, a...)
-    sumloss = numloss = 0
-    for item in data
-        item == nothing && (reset(m; a...); continue)
-        (x,ygold) = item2xy(item)
-        ypred = forw(m, x...; trn=false, a...)
-        sumloss += loss(ypred, ygold); numloss += 1
-    end
-    sumloss / numloss
-end
 
 setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)             # t:19
 wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)           # t:317
 gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)           # t:332
+
+# Helper function for train/test
 item2xy(item)=(isa(item, Tuple) ? (item[1:end-1],item[end]) : item==nothing ? (nothing,nothing) : ((),item))
 
+# So gradient checking does not mess up random seed:
 const gradcheck_rng = MersenneTwister()
 
-function gradcheck(m::Model, ygold, x...; delta=1e-4, rtol=eps(Float64)^(1/5), atol=eps(Float64)^(1/5), gcheck=10, loss=quadloss, seq=false, a...)
-    ypred = forw(m, x...; trn=true, seq=seq, a...)
-    l0 = loss(ypred, ygold)
-    back(m, ygold; loss=loss, seq=seq, a...)
-    pp = params(m)
-    for n=1:length(pp)
-        p = pp[n]
-        psave = copy(p.out)
-        pdiff = convert(Array, p.dif)
-        wlen = length(p.out)
-        irange = (wlen <= gcheck ? (1:wlen) : rand(gradcheck_rng, 1:wlen, gcheck))
-        for i in irange
-            wi0 = p.out[i]
-            wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
-            p.out[i] = wi1
-            ypred = forw(m, x...; trn=false, seq=seq, a...)
-            l1 = loss(ypred, ygold)
-            p.out[i] = wi0
-            dwi = (l1 - l0) / (wi1 - wi0)
-            if !isapprox(pdiff[i], dwi; rtol=rtol, atol=atol)
-                println(tuple(:gc, n, i, pdiff[i], dwi))
-            end
-        end
-        @assert isequal(p.out, psave)
-    end
-end
+
+# train(m, d; seq=false, a...)=(!seq ? train1(m,d;a...) : train2(m,d;a...))
+
+# function train1(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
+#     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
+#     for item in data
+#         (x,ygold) = item2xy(item)
+#         gcheck > 0 && (gradcheck(m,ygold,x...; gcheck=gcheck, loss=loss, a...); gcheck=0)
+#         ypred = forw(m, x...; trn=true, a...)
+#         getloss && (sumloss += loss(ypred, ygold); numloss += 1)
+#         back(m, ygold; loss=loss, a...)
+#         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+#         update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
+#         getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+#     end
+#     return (sumloss/numloss, maxwnorm, maxgnorm)
+# end
+
+# function train2(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
+#     gcheck == 0 || error("gradcheck for sequences not implemented yet")
+#     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
+#     ystack = Any[]              # TODO: where do we add gradcheck?
+#     for item in data
+#         if item != nothing
+#             (x,ygold) = item2xy(item)
+#             ypred = forw(m, x...; trn=true, seq=seq, a...)
+#             getloss && (sumloss += loss(ypred, ygold); numloss += 1)
+#             push!(ystack, ygold)
+#         else                    # end of sequence
+#             while !isempty(ystack)
+#                 ygold = pop!(ystack)
+#                 back(m, ygold; loss=loss, seq=seq, a...)
+#             end
+#             (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+#             update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
+#             getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+#             reset(m; a...)
+#         end
+#     end
+#     return (sumloss/numloss, maxwnorm, maxgnorm)
+# end
 
 # This will not work for MLP!  extra parameterless ops do not effect equality.
 # Base.isequal(a::Model,b::Model)=(typeof(a)==typeof(b) && isequal(params(a),params(b)))

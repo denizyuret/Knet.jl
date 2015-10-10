@@ -1,17 +1,27 @@
 """
-back(r::Net,ygold; loss) for individual items that may or may not be elements
-of a sequence.
+
+back(r::Net,ygold,loss) for individual items that may or may not be
+elements of a sequence.  The seq keyword argument determines which:
+initback sets incr=true for par if seq, back pops from stack if seq.
+The loss gradient of the output, ygrad, is computed using
+loss(ypred,ygold,ygrad).  ypred is retrieved from r.out[N] where N is
+the index of the last op.  ygrad is written to r.dif[N].  If r.op[N]
+has multiple outputs (toincr[N]), r.dif[N] is incremented.  If the
+optional loss argument is not provided, ygold is used as the loss
+gradient.  If ygold=nothing means the loss gradient from the output is
+taken to be 0.  Gradients computation proceeds backwards from N..1.
+
 """
-function back(r::Net, ygold, getdx...; loss=quadloss, seq=false, a...)
+function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...)
     N = nops(r)
-    initback(r, ygold, getdx...; seq=seq, a...)
-    if r.toincr[N] && ygold != nothing
+    initback(r, ygold, loss; getdx=getdx, seq=seq, a...)
+    if ygold == nothing
+        r.toincr[N] || (r.dif[N] = nothing)
+    elseif !r.toincr[N]
+        r.dif[N] = loss(r.out[N], ygold, r.dif0[N])
+    else
         loss(r.out[N], ygold, r.tmp[N])
         r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
-    elseif ygold != nothing
-        r.dif[N] = loss(r.out[N], ygold, r.dif0[N])
-    elseif !r.toincr[N]
-        r.dif[N] = nothing
     end
     for n = N:-1:1
         if r.dif[n] == nothing
@@ -41,6 +51,8 @@ function back(r::Net, ygold, getdx...; loss=quadloss, seq=false, a...)
     end
     getdx==() || r.dif[find(o->isa(o,Input), r.op)]
 end
+
+copyloss(ypred,ygold,ygrad)=copy!(ygrad,ygold)
 
 ### DEAD CODE:
 

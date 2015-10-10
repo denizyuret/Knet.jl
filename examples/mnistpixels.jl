@@ -6,8 +6,6 @@ using Knet
 using Knet: nextidx
 import Base: start, next, done
 using ArgParse
-include("irnn.jl")
-include("lstm.jl")
 include("s2c.jl")
 isdefined(:MNIST) || include("mnist.jl")
 
@@ -23,32 +21,23 @@ function mnistpixels(args=ARGS)
 
     nx = 1
     ny = 10
-    p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
-          opts["type"] == "lstm" ? lstm(n=opts["hidden"], fbias=opts["fbias"]) : 
+    p1 = (opts["type"] == "irnn" ? irnn(out=opts["hidden"], winit=Gaussian(0,opts["std"])) :
+          opts["type"] == "lstm" ? lstm(out=opts["hidden"], fbias=opts["fbias"]) : 
           error("Unknown network type "*opts["type"]))
-    p2 = softlayer(n=10, std=opts["std"])
+    p2 = wbf(out=10, winit=Gaussian(0,opts["std"]), f=soft)
     net = S2C(Net(p1), Net(p2))
     setopt!(net; lr=opts["lrate"])
     l = maxw = maxg = acc = 0
     for epoch=1:opts["epochs"]
-        (l,maxw,maxg) = train(net, trn; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
+        (l,maxw,maxg) = train(net, trn, softloss; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
         println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
         if epoch % opts["acc"] == 0
-            acc = accuracy(net, tst)
+            acc = 1-test(net, tst; loss=zeroone)
             println(tuple(:tst,epoch*trn.epochsize,acc))
         end
         flush(STDOUT)
     end
     return (acc, l, maxw, maxg)
-end
-
-softlayer(;n=1,std=0.01) = quote
-    x = input()
-    w = par($n,0; init=Gaussian(0,$std))
-    y = dot(w,x)
-    b = par(0; init=Constant(0))
-    z = add(b,y)
-    l = softmax(z)
 end
 
 type Pixels; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
@@ -62,9 +51,10 @@ type Pixels; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
     end
 end
 
-start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
+# state is an image/pixel pair
+start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); (0,0))
 
-done(d::Pixels, n)=(n >= d.epochsize)
+done(d::Pixels, s)=(s[1] >= d.epochsize)
 
 function next(d::Pixels, n)
     idx = nextidx(d,n)

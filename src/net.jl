@@ -1,7 +1,7 @@
 """
 Neural network.
 """
-type Net <: Model
+type Net
     op::Vector{Op}
     inputs::Vector{Vector{Int}}
     outputs::Vector{Vector{Int}}

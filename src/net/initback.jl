@@ -5,10 +5,9 @@ initback initializes the fields used by Net.back:
 - toback: depends on which dx args specified.
 - tosave: read-only, used for popping only if seq.
 """
-function initback(r::Net, ygold, getdx...; seq=false, a...)
-    @assert getdx == () || length(getdx) == ninputs(r)
+function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
     @assert ygold == nothing || issimilar2(ygold, r.out0[end])
-    set_toback(r, getdx...)
+    set_toback(r, getdx)
     set_toincr(r, seq)
     for n=length(r.op):-1:1
         r.toback[n] || continue
@@ -44,13 +43,13 @@ calculated for op[n] during back calculation.  This is only needed if
 op[n] is a par node or a par node descendent.  Or if the caller asked
 for dx for network inputs, those and their descendents.
 """
-function set_toback(r::Net, getdx...; a...)
+function set_toback(r::Net, getdx; a...)
     fill!(r.toback, false)
     N = length(r.op)
     lastinput = 0
     for n=1:N
         isa(r.op[n], Par) && (r.toback[n] = true)
-        isa(r.op[n], Input) && getdx != () && getdx[lastinput += 1] && (r.toback[n] = true)
+        isa(r.op[n], Input) && getdx && (r.toback[n] = true)
     end
     nback = sum(r.toback)
     while true

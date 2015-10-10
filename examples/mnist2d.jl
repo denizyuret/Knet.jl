@@ -10,6 +10,7 @@ function mnist2d(args=ARGS)
         ("--seed"; arg_type=Int; default=42)
         ("--nbatch"; arg_type=Int; default=100)
         ("--epochs"; arg_type=Int; default=3)
+        ("--gcheck"; arg_type=Int; default=0)
         ("--xsparse"; action=:store_true)
         ("--ysparse"; action=:store_true)
     end
@@ -29,22 +30,30 @@ function mnist2d(args=ARGS)
         h = wbf(x; out=64, f=relu)
         y = wbf(h; out=10, f=soft)
     end
-    net = Net(prog)
+    net = FNN(prog)
     setopt!(net, lr=0.5)
 
     l=w=g=0
     for epoch=1:epochs
-        (l,w,g) = train(net, dtrn; loss=softloss, seq=false, gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001) # t:3053
-        ltrn = test(net, dtrn; loss=softloss)
-        atrn = 1-test(net, dtrn; loss=zeroone)
-        ltst = test(net, dtst; loss=softloss)
-        atst = 1-test(net, dtst; loss=zeroone)
+        (l,w,g) = train(net, dtrn, softloss; getloss=true, getnorm=true, gcheck=gcheck, atol=0.01, rtol=0.001) # t:3053
+        ltrn = test(net, dtrn, softloss)
+        atrn = 1-test(net, dtrn, zeroone)
+        ltst = test(net, dtst, softloss)
+        atst = 1-test(net, dtst, zeroone)
         @show (epoch,l,w,g,ltrn,atrn,ltst,atst)
     end
     return (l,w,g)
 end
 
 !isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
+
+
+### SAMPLE RUN
+
+# (epoch,l,w,g,ltrn,atrn,ltst,atst) = (1,0.37387532f0,18.511799f0,2.843379f0,0.21288027f0,0.9327666666666667,0.2148458f0,0.9289000000000001)
+# (epoch,l,w,g,ltrn,atrn,ltst,atst) = (2,0.14995994f0,22.269361f0,3.9932733f0,0.13567321f0,0.9574,0.14322147f0,0.9546)
+# (epoch,l,w,g,ltrn,atrn,ltst,atst) = (3,0.10628127f0,24.865438f0,3.5134742f0,0.100041345f0,0.9681833333333334,0.114785746f0,0.9641000000000001)
+
 
 ### SAMPLE RUN OLD
 

@@ -20,14 +20,14 @@ function mnist4d(args=ARGS)
         x3 = wbf(x2; out=500, f=relu)
         p  = wbf(x3; out=10, f=soft)
     end
-    lenet = Net(prog)
+    lenet = FNN(prog)
     setopt!(lenet; lr=0.1)
     lwg = nothing
     for epoch=1:3
-        lwg = train(lenet, dtrn; loss=softloss)
+        lwg = train(lenet,dtrn,softloss)
         @show (epoch, lwg...)
-        @show 1-test(lenet,dtrn; loss=zeroone)
-        @show 1-test(lenet,dtst; loss=zeroone)
+        @show 1-test(lenet,dtrn,zeroone)
+        @show 1-test(lenet,dtst,zeroone)
     end
     return lwg
 end

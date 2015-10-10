@@ -14,6 +14,7 @@ function linreg(args=ARGS)
         ("--epochsize"; arg_type=Int; default=10000)
         ("--epochs"; arg_type=Int; default=5)
         ("--noise"; arg_type=Real; default=0.01)
+        ("--gcheck"; arg_type=Int; default=0)
         ("--lr"; arg_type=Real; default=0.05)
         ("--seed"; arg_type=Int; default=42)
     end
@@ -23,11 +24,11 @@ function linreg(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
     data = LinReg(outputs, inputs, batchsize, epochsize, noise)
-    net = Net(wdot(out=outputs))
+    net = FNN(wdot(out=outputs))
     setopt!(net; lr=lr)
     lwg = nothing
     for epoch = 1:epochs
-        lwg = train(net, data; gcheck=100)
+        lwg = train(net, data, quadloss; gcheck=gcheck)
         println(lwg)
     end
     return lwg

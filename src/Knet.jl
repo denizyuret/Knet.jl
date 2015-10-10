@@ -21,7 +21,6 @@ include("util/array.jl");	export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 include("data.jl");		export ItemTensor  # uses KUdense
 
-include("model.jl");		export Model, train, test, accuracy, setopt!
 include("op.jl");		
 include("op/add.jl");		export add
 include("op/dot.jl");		# export dot # this already has a definition in base
@@ -41,6 +40,10 @@ include("net/initback.jl")
 include("net/forw.jl")
 include("net/back.jl")
 include("net/util.jl")
+
+include("model.jl");		export Model, train, test, predict, setopt!
+include("model/fnn.jl");        export FNN
+include("model/s2c.jl");        export S2C
 
 end # module
 
