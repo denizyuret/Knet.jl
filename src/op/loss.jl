@@ -411,7 +411,7 @@ scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
 
 function zeroone(ypred::Array, ygold::Array)
     (yrows,ycols) = size2(ypred)
-    cost = zero(Float64)
+    cost = 0
     tmin = typemin(eltype(ypred))
     for j=1:ycols
         (cz,cy,ymax,zmax) = (0,0,tmin,tmin)
