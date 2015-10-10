@@ -31,7 +31,7 @@ include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp
 include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool
-include("op/compound.jl");	export wdot, bias, wbf, add2, lstm, irnn, wconv, convpool
+include("op/compound.jl");	export wdot, bias, wb, wbf, add2, lstm, irnn, wconv, convpool
 include("update.jl");		
 
 include("net.jl");              export Net, params, forw, back

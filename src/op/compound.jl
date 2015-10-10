@@ -10,6 +10,12 @@ bias(; binit=Constant(0), o...) = quote
     y = add(b,x)
 end
 
+wb(; out=0, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
+    x = input()
+    y = wdot(x; out=$out, winit=$winit, $o...)
+    z = bias(y; binit=$binit, $o...)
+end
+
 wbf(; out=0, f=relu, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
     x = input()
     y = wdot(x; out=$out, winit=$winit, $o...)

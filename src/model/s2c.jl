@@ -5,7 +5,7 @@ S2C(rnn::Expr,fnn::Expr)=S2C(Net(rnn),Net(fnn))
 params(m::S2C)=m.params
 
 function train(m::S2C, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0, o...)
-    gcheck>0 && warn("s2c.gradcheck has not been implemented, ignoring option.")
+    gcheck>0 && Base.warn_once("s2c.gradcheck has not been implemented, ignoring option.")
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
     for item in data
         (x,ygold) = item2xy(item)
