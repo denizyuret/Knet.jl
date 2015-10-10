@@ -28,7 +28,7 @@ include("op/dot.jl");		# export dot # this already has a definition in base
 include("op/mul.jl");		export mul
 include("op/input.jl");		export input
 include("op/par.jl");           export par, Par, Gaussian, Uniform, Constant, Identity
-include("op/loss.jl");		export quadloss, softloss, softmax # TODO-TEST: logploss, xentloss, percloss, scalloss, 
+include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp
 include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool

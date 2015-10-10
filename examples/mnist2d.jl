@@ -25,17 +25,17 @@ function mnist2d(args=ARGS)
     dtrn = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
     dtst = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
 
-    prog = mlp(layers=(64,10), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
+    prog = mlp(layers=(64,10), actf=relu, last=soft, winit=Gaussian(0,.01), binit=Constant(0))
     net = Net(prog)
     setopt!(net, lr=0.5)
 
     l=w=g=0
     for epoch=1:epochs
-        (l,w,g) = train(net, dtrn; gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001) # t:3053
-        ltrn = test(net, dtrn)  # t:815
-        atrn = accuracy(net, dtrn) # t:877
-        ltst = 0 # test(net, dtst)
-        atst = 0 # accuracy(net, dtst)
+        (l,w,g) = train(net, dtrn; loss=softloss, seq=false, gclip=0, gcheck=100, getloss=true, getnorm=true, atol=0.01, rtol=0.001) # t:3053
+        ltrn = test(net, dtrn; loss=softloss)
+        atrn = 1-test(net, dtrn; loss=zeroone)
+        ltst = test(net, dtst; loss=softloss)
+        atst = 1-test(net, dtst; loss=zeroone)
         @show (epoch,l,w,g,ltrn,atrn,ltst,atst)
     end
     return (l,w,g)
@@ -43,7 +43,7 @@ end
 
 !isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
 
-### SAMPLE RUN
+### SAMPLE RUN OLD
 
 # INFO: Loading MNIST...
 #   5.736248 seconds (362.24 k allocations: 502.003 MB, 1.35% gc time)
