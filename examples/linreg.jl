@@ -23,7 +23,7 @@ function linreg(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
     data = LinReg(outputs, inputs, batchsize, epochsize, noise)
-    net = Net(LinRegModel(outputs))
+    net = Net(wdot(out=outputs))
     setopt!(net; lr=lr)
     lwg = nothing
     for epoch = 1:epochs
@@ -31,15 +31,6 @@ function linreg(args=ARGS)
         println(lwg)
     end
     return lwg
-end
-
-# Linear regression model:
-
-LinRegModel(n) = quote
-    x = input()
-    w = par($n,0)
-    y = dot(w,x)
-#    z = quadloss(y)
 end
 
 # Data generator:

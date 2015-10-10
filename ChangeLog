@@ -33,7 +33,6 @@
 	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
 	1000 src/op/conv.jl: fix old versions to run comparison test.
-	1000 src/op/conv.jl: implement xavier in par.jl.
 	1000 src/net/forw.jl: make yout optional last argument to match the op interface?
 	1000 implement gru using con.
 	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
@@ -79,6 +78,7 @@
 	5000 rename train->train! ??
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	DONE initback: minimize array zeroing.
+	DONE src/op/conv.jl: implement xavier in par.jl.
 
 	* forw-loss-back: What is the best interface?
 	forw(m,x) => y
