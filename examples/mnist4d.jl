@@ -36,16 +36,16 @@ function mnist4d(args=ARGS)
         a4 = dot(w4,d3)
         b4 = par(0)
         c4 = add(b4,a4)
-        p = softmax(c4)
+        p = soft(c4)
     end
     lenet = Net(prog)
     setopt!(lenet; lr=0.1)
     lwg = nothing
     for epoch=1:3
-        lwg = train(lenet, dtrn)
+        lwg = train(lenet, dtrn; loss=softloss)
         @show (epoch, lwg...)
-        @show accuracy(lenet,dtrn)
-        @show accuracy(lenet,dtst)
+        @show 1-test(lenet,dtrn; loss=zeroone)
+        @show 1-test(lenet,dtst; loss=zeroone)
     end
     return lwg
 end
