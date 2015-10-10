@@ -13,6 +13,8 @@
 	0100 ashish nce model
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0300 need better net combo
+	1000 src/op2: start a collection of compound ops: wdot, bias, lstm, wbf...
+	1000 src/op/loss.jl: cleanup
 	1000 get rid of input() and use constructor arguments instead?
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	1000 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?

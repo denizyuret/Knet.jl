@@ -2,6 +2,20 @@ params(r::Net)=r.params
 ninputs(r::Net)=r.netinputs
 nops(r::Net)=length(r.op)
 
+### Cleanup at the end of sequence
+
+function reset(r::Net; keepstate=false, a...)
+    if keepstate
+        copy!(r.out, r.out0)
+    else
+        fill!(r.out, nothing)
+    end
+    fill!(r.dif, nothing)
+    for n=1:length(r.op)
+        r.toincr[n] && fill!(r.dif0[n], 0)
+    end
+end
+
 ### Stack functions: push, pop
 
 function push(r::Net,n::Int)

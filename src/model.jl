@@ -5,30 +5,51 @@ Model is an abstract type whose subtypes should provide the following:
 * `l=loss(m,y,ygold,ygrad)`	# overwrites ygrad and returns loss
 * `back(m,ygrad,dx...)`		# overwrites dx if != nothing
 * `params(m)`
+* `reset(m)`
 
 Using these low level methods, Model defines the following:
 
 * `train(model, data; gclip, gcheck, getloss, getnorm)`
 * `test(model, data)`
 * `predict(model, data)` (TODO)
-* `accuracy(model, data)`
 * `setopt!(model; param...)`
 """
 abstract Model
 
-function train(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, seq=false, a...)
+function train(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
-    for item in data # TODO: implement nothing and reset for rnn
+    for item in data
         (x,ygold) = item2xy(item)
-        ypred = forw(m, x...; trn=true, seq=seq, a...)
-        back(m, ygold; loss=loss, seq=seq, a...)
-
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+        gcheck > 0 && (gradcheck(m,ygold,x...; gcheck=gcheck, loss=loss, a...); gcheck=0)
+        ypred = forw(m, x...; trn=true, a...)
         getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-        gcheck > 0 && (gradcheck(m,ygold,x...; gcheck=gcheck, loss=loss, seq=seq, a...); gcheck=0) # when to do this in seq
+        back(m, ygold; loss=loss, a...)
+        (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+    end
+    return (sumloss/numloss, maxwnorm, maxgnorm)
+end
 
-        update!(m; gclip=(g > gclip > 0 ? gclip/g : 0))
+function train2(m::Model, data; loss=quadloss, gclip=0, gcheck=0, getnorm=true, getloss=true, a...)
+    numloss = sumloss = maxwnorm = maxgnorm = w = g = 0
+    ystack = Any[]              # TODO: where do we add gradcheck?
+    for item in data
+        if item != nothing
+            (x,ygold) = item2xy(item)
+            ypred = forw(m, x...; trn=true, seq=seq, a...)
+            getloss && (sumloss += loss(ypred, ygold); numloss += 1)
+            push!(ystack, ygold)
+        else                    # end of sequence
+            while !isempty(ystack)
+                ygold = pop!(ystack)
+                back(m, ygold; loss=loss, seq=seq, a...)
+            end
+            (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+            update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), a...)
+            getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+            reset(m; a...)
+        end
     end
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
@@ -36,8 +57,9 @@ end
 function test(m::Model, data; loss=quadloss, a...)
     sumloss = numloss = 0
     for item in data
+        item == nothing && (reset(m; a...); continue)
         (x,ygold) = item2xy(item)
-        ypred = forw(m, x...; trn=false, seq=false, a...)
+        ypred = forw(m, x...; trn=false, a...)
         sumloss += loss(ypred, ygold); numloss += 1
     end
     sumloss / numloss
