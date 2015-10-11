@@ -55,14 +55,16 @@ include("mnistpixels.jl")
 @time @show test7 = mnistpixels()
 # 8.877034 seconds (43.27 M allocations: 1.099 GB, 4.33% gc time)
 # @test test7  == (0.1216,2.3023171f0,10.4108f0,30.598776f0)
-@test test7 == (0.12159999999999982,2.3023171f0,10.4108f0,30.598776f0)
+# @test test7 == (0.12159999999999982,2.3023171f0,10.4108f0,30.598776f0) # switched to itembased
+@test test7 == (0.12159999999999982,2.3023171f0,10.412794f0,30.598776f0) # measuring wnorm after update now
 
 include("adding.jl")
 #@time @show test8 = adding()
 # 10.077803 seconds (16.49 M allocations: 748.580 MB, 2.15% gc time)
 @time @show test8 = adding()
 # 10.326623 seconds (15.39 M allocations: 698.357 MB, 2.81% gc time)
-@test test8  == (0.04885713f0, 5.6036315f0,3.805253f0)
+# @test test8  == (0.04885713f0, 5.6036315f0,3.805253f0) 
+@test test8  == (0.04885713f0, 5.6057444f0, 3.805253f0) # measuring wnorm after update now
 
 include("rnnlm.jl")
 #@time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt")

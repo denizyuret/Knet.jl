@@ -19,8 +19,8 @@ function train(m::S2C, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0
             back(m.rnn; seq=true, o...)
         end
         (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), o...)
+        getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
         reset!(m.rnn; o...)
     end
     return (sumloss/numloss, maxwnorm, maxgnorm)
