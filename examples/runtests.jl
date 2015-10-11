@@ -60,11 +60,12 @@ include("mnistpixels.jl")
 
 include("adding.jl")
 #@time @show test8 = adding()
-# 10.077803 seconds (16.49 M allocations: 748.580 MB, 2.15% gc time)
+# 10.177291 seconds (17.07 M allocations: 740.969 MB, 2.08% gc time)
 @time @show test8 = adding()
-# 10.326623 seconds (15.39 M allocations: 698.357 MB, 2.81% gc time)
+# 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time)
 # @test test8  == (0.04885713f0, 5.6036315f0,3.805253f0) 
-@test test8  == (0.04885713f0, 5.6057444f0, 3.805253f0) # measuring wnorm after update now
+# @test test8  == (0.04885713f0, 5.6057444f0, 3.805253f0) # measuring wnorm after update now
+@test test8 == (0.05627571f0,5.484082f0,4.1594324f0) # new generator
 
 include("rnnlm.jl")
 #@time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt")

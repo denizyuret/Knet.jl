@@ -13,7 +13,7 @@ function adding(args=ARGS)
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
-    data = Adding1(opts["length"], opts["batchsize"], opts["epochsize"])
+    data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
     p1 = (opts["nettype"] == "irnn" ? irnn(out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
           opts["nettype"] == "lstm" ? lstm(out=opts["hidden"], fbias=opts["fbias"]) : 
           error("Unknown network type "*opts["nettype"]))
@@ -30,61 +30,18 @@ function adding(args=ARGS)
     return (mse, maxw, maxg)
 end
 
-type Adding1; len; batchsize; epochsize; b; x; y; 
-    Adding1(len, batchsize, epochsize)=new(len,batchsize,epochsize,Adding(len,batchsize,epochsize))
-end
-
-start(a::Adding1)=(0,0)
-done(a::Adding1,s)=(s[1] >= a.b.epochsize)
-
-function next(a::Adding1, s)
-    (n,t) = s
-    t == 0 && ((xy,n1) = next(a.b,n); (a.x,a.y)=xy)
-    t += 1
-    if t < a.b.len
-        return ((a.x[t], nothing), (n,t))
-    else
-        return ((a.x[t], a.y), (n+a.b.batchsize, 0))
-    end
-end
-
-type Adding; len; batchsize; epochsize; rng;
-    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
-end
-
-start(a::Adding)=0
-
-done(a::Adding,n)=(n >= a.epochsize)
-
-function next(a::Adding, n)
-    nb = min(a.batchsize, a.epochsize-n)
-    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
-    y = Array(Float32,1,nb)
-    t1 = rand(a.rng,1:a.len,nb)
-    t2 = rand(a.rng,1:a.len,nb)
-    for b=1:nb
-        while t2[b]==t1[b]
-            t2[b]=rand(a.rng,1:a.len)
-        end
-        x[t1[b]][2,b]=1
-        x[t2[b]][2,b]=1
-        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
-    end
-    return ((x,y), n+nb)
-end
-
-
-type Adding2; len; batchsize; epochsize; batch; sum; cnt; rng;
-    Adding2(len, batchsize, epochsize; rng=MersenneTwister()) = 
-    new(len, batchsize, epochsize, zeros(2,batchsize), zeros(1,batchsize), zeros(1,batchsize), rng)
+type Adding; len; batchsize; epochsize; batch; sum; cnt; rng;
+    Adding(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
+    new(len, batchsize, epochsize, zeros(Float32,2,batchsize), 
+        zeros(Float32,1,batchsize), zeros(Int,1,batchsize), rng)
 end
 
 # state keeps track of instance number, time step
-start(a::Adding2)=(0,0)
+start(a::Adding)=(0,0)
 
-done(a::Adding2,s)=(s[1] >= a.epochsize)
+done(a::Adding,s)=(s[1] >= a.epochsize)
 
-function next(a::Adding2, s)
+function next(a::Adding, s)
     (n,t) = s
     t == 0 && (fill!(a.sum, 0); fill!(a.cnt, 0))
     rand!(a.rng, sub(a.batch,1,:))
@@ -501,3 +458,50 @@ end
 # (38000,0.1655073f0,3.7557068f0,0.32211268f0)
 # (40000,0.16552721f0,3.7773042f0,0.34974277f0)
 #  55.892459 seconds (93.09 M allocations: 4.137 GB, 2.54% gc time)
+
+# OLD GENERATOR FOR COMPARISON:
+
+# type Adding1; len; batchsize; epochsize; b; x; y; 
+#     Adding1(len, batchsize, epochsize; o...)=new(len,batchsize,epochsize,Adding0(len,batchsize,epochsize; o...))
+# end
+
+# start(a::Adding1)=(0,0)
+# done(a::Adding1,s)=(s[1] >= a.b.epochsize)
+
+# function next(a::Adding1, s)
+#     (n,t) = s
+#     t == 0 && ((xy,n1) = next(a.b,n); (a.x,a.y)=xy)
+#     t += 1
+#     if t < a.b.len
+#         return ((a.x[t], nothing), (n,t))
+#     else
+#         return ((a.x[t], a.y), (n+a.b.batchsize, 0))
+#     end
+# end
+
+# type Adding0; len; batchsize; epochsize; rng;
+#     Adding0(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+# end
+
+# start(a::Adding0)=0
+
+# done(a::Adding0,n)=(n >= a.epochsize)
+
+# function next(a::Adding0, n)
+#     nb = min(a.batchsize, a.epochsize-n)
+#     x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
+#     y = Array(Float32,1,nb)
+#     t1 = rand(a.rng,1:a.len,nb)
+#     t2 = rand(a.rng,1:a.len,nb)
+#     for b=1:nb
+#         while t2[b]==t1[b]
+#             t2[b]=rand(a.rng,1:a.len)
+#         end
+#         x[t1[b]][2,b]=1
+#         x[t2[b]][2,b]=1
+#         y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
+#     end
+#     return ((x,y), n+nb)
+# end
+
+
