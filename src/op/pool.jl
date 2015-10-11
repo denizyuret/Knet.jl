@@ -9,9 +9,9 @@ back_reads_y(::Pool)=true
 pool(; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)=
     Pool(window, padding, stride, mode)
 forw(p::Pool, x, y; o...)=
-    cudnnPoolingForward_v4(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode)
+    cudnnPoolingForward(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode)
 back(p::Pool, dy, dx; x=nothing, y=nothing, o...)=
-    (dx!=nothing && cudnnPoolingBackward_v4(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode))
+    (dx!=nothing && cudnnPoolingBackward(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode))
 
 function infersize(p::Pool,x)
     y = [x...]
@@ -25,6 +25,7 @@ function infersize(p::Pool,x)
     return (x, tuple(y...))
 end
 
+psize(w, nd)=(isa(w,Integer)  ? fill(w,nd) : length(w) != nd ? error("Dimension mismatch") : w)
 
 ### DEAD CODE:
 
