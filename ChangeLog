@@ -1,85 +1,89 @@
 2015-10-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0010 do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
-	0015 ai-mtg: We need a predict function: new forw can return out, back return dx for net stitching?
-	0020 op/loss.jl: Take loss out of the model, make it a train/test option.  Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0030 performance improvements based on rnnlm profile: need better sparse back: A_mul_Bst->sparse and axpy
 	0050 saman: local contrast normalization.
-	0100 src/model/fnn.jl: predict has not been tested
-	0100 need train/test switch for nce and dropout.
-	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
-	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
-	0100 src/net.jl: handle con and rnd in tosave.
 	0100 ashish nce model
+	0100 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
+	0100 need train/test switch for nce and dropout.
+	0100 src/model/fnn.jl: predict has not been tested
+	0100 src/net.jl: handle con and rnd in tosave.
+	0100 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0150 examples/adding.jl: figure out why the new data generator did not work.
 	0200 ai-mtg: Onur and Ozan's bidirectional model.
 	0300 need better net combo
-	1000 src/op/loss.jl: cleanup
-	1000 get rid of input() and use constructor arguments instead?
 	1000 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	1000 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
+	1000 Work on non-gpu compatibility.
+	1000 add xnorm in addition to wnorm and gnorm
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 ai-mtg: kernels and perceptrons.
-	1000 barett s2s test (copying english?)
-	1000 embedded expr: do we really need to?  abstraction takes care of most variable hiding.
-	1000 handout-mtg Avoid variables by allowing embedded expressions.
-	1000 handout-mtg Replace 0's with ? or _ in dimensions.
-	1000 mul2: change order to x1,x2,y
-	1000 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
-	1000 model.jl: add predict, load, save
-	1000 src/net/forw.jl: get rid of sequence forw? have one type of forw with options (seq vs keepstate do we need both?)
-	1000 model.jl: handle the case where the data has tuples of length 1 or more than 2.
-	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
-	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
-	1000 src/op/conv.jl: fix old versions to run comparison test.
-	1000 src/net/forw.jl: make yout optional last argument to match the op interface?
-	1000 implement gru using con.
-	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
-	1000 take loss out: that way there is no need for accuracy vs test difference.  deprecate accuracy.  consider sequence vs item loss.  implement zeroone, perceptron, etc.
-	1000 update.jl: add norm clipping and other Google tricks.
-	1000 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
-	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
-	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
-	1000 minibatch resizing
-	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
-	1000 expensive sparse axpy: check if sparsity pattern remains the same, and do elementwise on nzval when you can. examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns for increment (not being used in mnist).  examples/mnistsparse.jl: axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
-	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
-	1000 linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern.
-	1000 cusparse.jl: check efficiency of resizecopy for different array types.
-	1000 util/cudnn.jl: these changes should go into CUDNN
-	1000 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
-	1000 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
-	1000 examples: TODO: consolidate options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
-	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
-	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
-	1000 initforw: type/size inference in inputless networks?
-	1000 implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
-	1000 implement maxnorm activation function.
-	1000 Work on non-gpu compatibility.
-	1000 kperceptron.jl: reimplement within the new framework.
-	1000 perceptron and structured perceptron examples.
-	1000 reimplement averaging.
 	1000 allow tuples of any length for data, (y,) for unsupervised/inputless, (x1,x2,y) for multi-input
-	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
-	1000 src/op/add.jl,mul.jl: handle scalar input going forw and back (or implement axpb?, scal?)
-	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
-	1000 src/op/conv.jl: cpu implementation
+	1000 barett s2s test (copying english?)
+	1000 cusparse.jl: check efficiency of resizecopy for different array types.
+	1000 embedded expr: do we really need to?  abstraction takes care of most variable hiding.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
+	1000 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	1000 examples/mnist4d.jl: test with dropout
 	1000 examples/mnistpixels.jl: gcheck gives terrible results, check.
 	1000 examples/mnistsparse.jl: gcheck does not work?
+	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
 	1000 examples/rnnlm.jl: loss per sequence or loss per token?
 	1000 examples/s2c.jl: find better way to stitch networks together without exposing guts.
+	1000 examples: TODO: consolidate options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1000 examples: reimplement predict, train, and tutorial.jl.
-	1000 par and loss should probably get out of op.
-	1000 ntm
-	5000 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
+	1000 expensive sparse axpy: check if sparsity pattern remains the same, and do elementwise on nzval when you can. examples/mnistsparse.jl (nbatch): TODO: investigate sparsity patterns for increment (not being used in mnist).  examples/mnistsparse.jl: axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
+	1000 get rid of input() and use constructor arguments instead?
 	1000 gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
+	1000 handout-mtg Avoid variables by allowing embedded expressions.
+	1000 handout-mtg Replace 0's with ? or _ in dimensions.
+	1000 implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	1000 implement gru using con.
+	1000 implement maxnorm activation function.
+	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
+	1000 initforw: type/size inference in inputless networks?
+	1000 kperceptron.jl: reimplement within the new framework.
+	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
+	1000 linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern.
+	1000 minibatch resizing
+	1000 model.jl: add predict, load, save
+	1000 model.jl: handle the case where the data has tuples of length 1 or more than 2.
+	1000 mul2: change order to x1,x2,y
+	1000 ntm
+	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
+	1000 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
+	1000 par and loss should probably get out of op.
+	1000 perceptron and structured perceptron examples.
+	1000 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
+	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
+	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
+	1000 reimplement averaging.
+	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
+	1000 src/net/forw.jl: get rid of sequence forw? have one type of forw with options (seq vs keepstate do we need both?)
+	1000 src/net/forw.jl: make yout optional last argument to match the op interface?
+	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
+	1000 src/op/add.jl,mul.jl: handle scalar input going forw and back (or implement axpb?, scal?)
+	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
+	1000 src/op/conv.jl: cpu implementation
+	1000 src/op/conv.jl: fix old versions to run comparison test.
+	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
+	1000 src/op/loss.jl: cleanup
+	1000 take loss out: that way there is no need for accuracy vs test difference.  deprecate accuracy.  consider sequence vs item loss.  implement zeroone, perceptron, etc.
+	1000 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
+	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
+	1000 update.jl: add norm clipping and other Google tricks.
+	1000 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
+	1000 util/cudnn.jl: these changes should go into CUDNN
 	5000 compiler improvements: find more register sharing for dif in initback.
+	5000 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	5000 rename train->train! ??
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE do we need 2 forw?  1 forw may make the predict interface easier. we could have a keepstate like option for sequences.
+	DONE ai-mtg: We need a predict function: new forw can return out, back return dx for net stitching?
+	DONE op/loss.jl: Take loss out of the model, make it a train/test option.
 
 	* examples/mnistpixels.jl: How does s2c work in the new interface?
 	[1] The sequence proceeds with x=pixel, y=nothing.  At the end we
