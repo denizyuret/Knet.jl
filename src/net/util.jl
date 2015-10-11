@@ -27,7 +27,7 @@ function push(r::Net,n::Int)
         r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing over array")
         r.stack[r.sp] = nothing
     elseif r.stack[r.sp] == nothing
-        warn("pushing array over nothing")
+        # warn("pushing array over nothing")  # This actually happens with rnnlm keepstate
         r.stack[r.sp] = copy(r.out[n])
     elseif r.stack[r.sp] == :newcell
         r.stack[r.sp] = copy(r.out[n])
