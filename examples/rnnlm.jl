@@ -39,7 +39,7 @@ function rnnlm(args=ARGS)
         end
         @show (ep, perp..., wmax, gmax, lr)
     end
-    return (net, perp..., wmax, gmax)
+    return (perp..., wmax, gmax)
 end
 
 
@@ -86,7 +86,7 @@ end
 
 function next(d::LMData,state)                              	# d.data is the whole corpus represented as a sequence of Int32's
     (nword, eos) = state                                        # eos is true if last output was nothing
-    if !eos && (nword % d.batchsize * d.seqlength == 0)
+    if !eos && (nword % (d.batchsize * d.seqlength) == 0)
         return (nothing, (nword, true))                         # output nothing indicating end of sequence
     end
     segsize = div(length(d.data), d.batchsize)                  # we split it into d.batchsize roughly equal sized segments
