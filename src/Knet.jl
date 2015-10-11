@@ -13,7 +13,6 @@ include("util/gpu.jl");		export setseed
 @useifgpu CUDNN  
 @gpu include("util/cudart.jl");
 @gpu include("util/curand.jl");
-@gpu include("util/cudnn.jl");
 @gpu include("util/cusparse.jl");
 include("util/linalg.jl");	
 
