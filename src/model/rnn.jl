@@ -12,7 +12,7 @@ function train(m::RNN, data, loss; gclip=0, gcheck=0, getnorm=true, getloss=true
             (x,ygold) = item2xy(item)
             ypred = forw(m.net, x...; trn=true, seq=true, o...)
             getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-            push!(ystack, ygold)
+            push!(ystack, copy(ygold))
         else                    # end of sequence
             while !isempty(ystack)
                 ygold = pop!(ystack)
