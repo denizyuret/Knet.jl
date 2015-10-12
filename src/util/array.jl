@@ -34,13 +34,9 @@ function Base.isapprox(x, y;
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
     x = convert(Array, x)
     y = convert(Array, y)
-    @inbounds for i=1:length(x)
-        isapprox(x[i],y[i]; rtol=rtol, atol=atol) || return false
-    end
-    return true
-    # d = abs(x-y)
-    # s = abs(x)+abs(y)
-    # all(d .< (atol + rtol * s))
+    d = abs(x-y)
+    s = abs(x)+abs(y)
+    maximum(d - rtol * s) <= atol
 end
 
 Base.convert{T,I}(::Type{Array{T,2}}, a::SparseMatrixCSC{T,I})=full(a)
