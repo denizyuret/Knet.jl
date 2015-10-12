@@ -9,9 +9,9 @@ back_reads_y(::Pool)=true
 pool(; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)=
     Pool(window, padding, stride, mode)
 forw(p::Pool, x, y; o...)=
-    cudnnPoolingForward(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode)
+    (cudnnPoolingForward(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync(); y)
 back(p::Pool, dy, dx; x=nothing, y=nothing, o...)=
-    (dx!=nothing && cudnnPoolingBackward(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode))
+    (dx!=nothing && cudnnPoolingBackward(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync())
 
 function infersize(p::Pool,x)
     y = [x...]

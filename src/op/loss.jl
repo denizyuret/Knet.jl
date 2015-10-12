@@ -85,8 +85,8 @@ function softloss(ypred::Array, ygold::Array, ygrad::Array; o...)
     end
 end
 
-@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaArray{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(ygold),1/ccount(ygold),ypred,ygold,ygrad);ygrad)
-@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaArray{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),1/ccount(ygold),ypred,ygold,ygrad);ygrad)
+@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaArray{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(ygold),1/ccount(ygold),ypred,ygold,ygrad); gpusync(); ygrad)
+@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaArray{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),1/ccount(ygold),ypred,ygold,ygrad); gpusync(); ygrad)
 @gpu softloss(ypred::CudaArray, ygold::Array, ygrad::CudaArray)=softloss(ypred, CudaArray(ygold), ygrad)
 
 function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; o...)
@@ -102,8 +102,8 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; o...)
     return ygrad
 end
 
-@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaSparseMatrixCSC{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);ygrad)
-@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaSparseMatrixCSC{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);ygrad)
+@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaSparseMatrixCSC{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);gpusync();ygrad)
+@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaSparseMatrixCSC{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);gpusync();ygrad)
 @gpu softloss(ypred::CudaArray, ygold::SparseMatrixCSC, ygrad::CudaArray)=softloss(ypred, CudaSparseMatrixCSC(ygold), ygrad)
 
 function softloss(ypred::Array, ygold::Array)
@@ -120,6 +120,7 @@ end
     ccall((:softloss32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(ygold),ypred,ygold,ly)
     loss = CUBLAS.asum(ly)/ccount(ygold)
     tmp == nothing && free(ly)
+    gpusync()
     return loss
 end
 
@@ -128,6 +129,7 @@ end
     ccall((:softloss64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),ypred,ygold,ly)
     loss = CUBLAS.asum(ly)/ccount(ygold)
     tmp == nothing && free(ly)
+    gpusync()
     return loss
 end
 
@@ -153,6 +155,7 @@ end
           size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly)
     loss = CUBLAS.asum(nnz(ygold),ly,1)/ccount(ygold)
     tmp == nothing && free(ly)
+    gpusync()
     return loss
 end
 
@@ -163,6 +166,7 @@ end
           size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly)
     loss = CUBLAS.asum(nnz(ygold),ly,1)/ccount(ygold)
     tmp == nothing && free(ly)
+    gpusync()
     return loss
 end
 
@@ -211,6 +215,8 @@ function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray)
     ygrad === ygold || copy!(ygrad, ygold) # TODO: avoid copy if possible
     scale!(-1/ycols, ygrad)
     axpy!(1/ycols, y, ygrad)
+    gpusync()
+    return ygrad
 end
 
 function quadloss(y::BaseArray, ygold::BaseArray)
@@ -219,6 +225,7 @@ function quadloss(y::BaseArray, ygold::BaseArray)
     axpy!(-1, y, ytemp)
     qloss = vecnorm(ytemp)^2/(2*ccount(y))
     free(ytemp)
+    gpusync()
     return qloss
 end
 

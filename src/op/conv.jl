@@ -20,12 +20,15 @@ function forw(c::Conv, w, x, y; o...)
         return nothing
     end
     cudnnConvolutionForward(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode)
+    gpusync()
+    return y
 end
 
 function back(c::Conv, dy, dw, dx; x=nothing, o...)
     dw == nothing && dx == nothing && return
     dw != nothing && (x[2] != nothing ? cudnnConvolutionBackwardFilter(x[2], dy, dw; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : fill!(dw,0))
     dx != nothing && (x[1] != nothing ? cudnnConvolutionBackwardData(x[1], dy, dx; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : error("Uninitialized filter"))
+    gpusync()
 end
 
 # x: (x1,x2...,C,N)
