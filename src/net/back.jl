@@ -37,15 +37,23 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...
             end
             xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
             back(r.op[n], dyn, dxn...; x=xn, y=yn, a...)
+            gpusync()
             for i in r.inputs[n]
                 if r.toback[i]
-                    r.toincr[i] && axpy!(1, r.tmp[i], r.dif0[i])
+                    if r.toincr[i]
+                        axpy!(1, r.tmp[i], r.dif0[i]) 
+                        gpusync()
+                    end
                     r.dif[i] = r.dif0[i]
                 else
                     r.dif[i] = nothing
                 end
             end
-            r.toincr[n] && !isa(r.op[n], Par) && fill!(r.dif[n],0)
+            gpusync()
+            if r.toincr[n] && !isa(r.op[n], Par)
+                fill!(r.dif[n],0)
+                gpusync()
+            end
         end
         seq && r.tosave[n] && pop(r,n)
     end
