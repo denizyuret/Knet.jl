@@ -10,6 +10,7 @@ type Net
     tosave::Vector{Bool} 
     toback::Vector{Bool}
     toincr::Vector{Bool}
+    sparse::Vector{Bool}
     out::Vector
     out0::Vector
     dif::Vector
@@ -31,6 +32,7 @@ function Net(a::Expr)
         tosave(op, inputs),
         falses(N), # toback: depends on dx
         falses(N), # toincr: depends on seq
+        falses(N), # sparse: depends on input
         cell(N), cell(N), cell(N), cell(N), cell(N),
         Any[], 0)
 end
