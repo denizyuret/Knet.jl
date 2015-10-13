@@ -15,7 +15,7 @@ __device__ double atomicAdd(double* address, double val)
 }
 
 template<typename dType>
-__global__ void _add_csr_dns(int m, int n, dType alpha,
+__global__ void _add_csr_dns_atomic(int m, int n, dType alpha,
 			     int nnzA,
 			     const dType *csrValA,
 			     const int *csrRowPtrA,
@@ -27,7 +27,23 @@ __global__ void _add_csr_dns(int m, int n, dType alpha,
     int col = csrColIndA[nz]-1;
     int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
     atomicAdd(&B[col * m + row], val);
-    //B[col * m + row] +=  val;
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+template<typename dType>
+__global__ void _add_csr_dns(int m, int n, dType alpha,
+			     int nnzA,
+			     const dType *csrValA,
+			     const int *csrRowPtrA,
+			     const int *csrColIndA,
+			     dType *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  while (nz < nnzA) {
+    dType val = alpha * csrValA[nz];
+    int col = csrColIndA[nz]-1;
+    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    B[col * m + row] +=  val;
     nz += blockDim.x * gridDim.x;
   }
 }
@@ -35,6 +51,8 @@ __global__ void _add_csr_dns(int m, int n, dType alpha,
 extern "C" {
   void add_csr_dns_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
   void add_csr_dns_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_atomic_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_atomic_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
 }
 
 /*

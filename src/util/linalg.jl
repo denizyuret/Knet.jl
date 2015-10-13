@@ -212,8 +212,12 @@ function axpy!(a, x::ArrayAccumulator, y::CudaMatrix)
 end
 
 
-axpy!(a,x::CudaSparseMatrixCSRU{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
-axpy!(a,x::CudaSparseMatrixCSRU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+# CSR does not need atomic operations because each position is only written once
+axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+# CSRU needs atomic operations because the sparse representation may contain multiple values for one location
+axpy!(a,x::CudaSparseMatrixCSRU{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_atomic_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+axpy!(a,x::CudaSparseMatrixCSRU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_atomic_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
 
 
 ### axpb! useful scale and shift transformation: x -> ax+b
