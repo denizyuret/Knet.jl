@@ -91,10 +91,16 @@ function finddif(r::Net, n)
     if dif0 == nothing
         et = eltype(r.out0[n])
         sz = size(r.out0[n])
-        dif0 = (r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSRU(et, sz...) :
+        dif0 = (
+                ### This is sparse non-incremental dw: can't really have dense without 
+                # rewriting CUSPARSE.csrmm to take sparse matrix in second position.  As
+                # it stands, we'd have to transpose all three matrices: dw = dy * x' -> dw' = x * dy'
                 r.sparse[n] && !r.toincr[n] && !gpu() ? spzeros(et, sz...) :
+                r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSR(spzeros(et, sz...)) : # t:12.38
+                ### CSRU speed 20% slower than CSR on mnist (atomicAdd conflicts?), also cannot compute vecnorm.
+                # r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSRU(et, sz...) : # t:14.69
                 ### Uncomment this if you want sparse incremental dw:
-                ### Similar speed, less memory, however cannot compute vecnorm.
+                ### Speed similar to dense on rnnlm, less memory, cannot compute vecnorm.
                 # r.sparse[n] && r.toincr[n] && gpu()   ? ArrayAccumulator(et, sz) :
                 # r.sparse[n] && r.toincr[n] && !gpu()  ? ArrayAccumulator(et, sz) :
                 gpu() ? CudaArray(et, sz) : Array(et, sz))
@@ -115,7 +121,11 @@ function findtmp(r::Net, n)
     if tmp == nothing
         et = eltype(r.out0[n])
         sz = size(r.out0[n])
-        tmp = (gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
+        tmp = (gpu() && r.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
+               # CSRU is 5% faster if no atomic op conflicts (rnnlm), 
+               # but significantly slower when there are lots of conflicts (mnist)
+               # Not worth the risk until I implement uniq for CSRU
+               # gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
                !gpu() && r.sparse[n] ? spzeros(et, sz...) :
                gpu() ? CudaArray(et, sz) : 
                Array(et, sz))
