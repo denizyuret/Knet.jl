@@ -19,3 +19,4 @@ v0.4
 .cache
 setup.sh
 .julia
+.juliahistory
