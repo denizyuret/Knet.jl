@@ -7,6 +7,7 @@
 
 using Knet, ArgParse
 import Base: start, next, done
+# net = nothing # uncomment for debugging
 
 function rnnlm(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -18,13 +19,19 @@ function rnnlm(args=ARGS)
     dict = Dict{Any,Int32}()
     data = Any[]
     for f in opts["datafiles"]
-        push!(data, LMData(f;  batch=opts["batch_size"], seqlen=opts["seq_length"], dict=dict))
+        push!(data, LMData(f;  dict=dict, 
+                           batch=opts["batch_size"], 
+                           seqlen=opts["seq_length"], 
+                           ftype=opts["float64"]?Float64:Float32, 
+                           dense=opts["dense"]))
     end
     vocab_size = length(dict)
     prog = rnnlmModel(layers = opts["layers"],
                       rnn_size = opts["rnn_size"],
                       vocab_size = vocab_size)
+    # global net # uncomment for debugging
     net = RNN(prog)
+
     lr = opts["lr"]
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
     perp = zeros(length(data))
@@ -35,13 +42,15 @@ function rnnlm(args=ARGS)
         perp[1] = exp(ltrn)
         for idata = 2:length(data)
             ldev = test(net, data[idata], softloss; keepstate=true)
-            perp[idata] = exp(ldev) # TODO: look into reporting loss per sequence rather than per token
+            perp[idata] = exp(ldev)
         end
         @show (ep, perp..., wmax, gmax, lr)
     end
     return (perp..., wmax, gmax)
 end
 
+# julia> rnnlm("ptb.test.txt")
+# (ep,perp...,wmax,gmax,lr) = (1,694.3535880341253,256.35040516045433,159.35646292641206,1.0)
 
 function rnnlmModel(;
                     layers = 0,
@@ -69,7 +78,7 @@ end
 
 type LMData; data; dict; batchsize; seqlength; x; y; end
 
-function LMData(fname::AbstractString; batch=20, seqlen=20, dict=Dict{Any,Int32}())
+function LMData(fname::AbstractString; batch=20, seqlen=20, dict=Dict{Any,Int32}(), ftype=Float32, dense=false)
     data = Int32[]
     f = open(fname)
     for l in eachline(f)
@@ -78,8 +87,13 @@ function LMData(fname::AbstractString; batch=20, seqlen=20, dict=Dict{Any,Int32}
         end
         push!(data, get!(dict, "<eos>", 1+length(dict))) # end-of-sentence
     end
-    x = speye(Float64, length(dict), batch)
-    y = speye(Float64, length(dict), batch)
+    if !dense
+        x = speye(ftype, length(dict), batch)
+        y = speye(ftype, length(dict), batch)
+    else
+        x = zeros(ftype, length(dict), batch)
+        y = zeros(ftype, length(dict), batch)
+    end
     info("Read $fname: $(length(data)) words, $(length(dict)) vocab.")
     LMData(data, dict, batch, seqlen, x, y)
 end
@@ -91,10 +105,20 @@ function next(d::LMData,state)                              	# d.data is the who
     end
     segsize = div(length(d.data), d.batchsize)                  # we split it into d.batchsize roughly equal sized segments
     offset = div(nword, d.batchsize)                            # this is how many words have been served so far from each segment
-    for b = 1:d.batchsize
-        idata = (b-1)*segsize + offset
-        d.x.rowval[b] = d.data[idata+1]
-        d.y.rowval[b] = d.data[idata+2]
+    if issparse(d.x)
+        for b = 1:d.batchsize
+            idata = (b-1)*segsize + offset
+            d.x.rowval[b] = d.data[idata+1]
+            d.y.rowval[b] = d.data[idata+2]
+        end
+    else
+        fill!(d.x, 0)
+        fill!(d.y, 0)
+        for b = 1:d.batchsize
+            idata = (b-1)*segsize + offset
+            d.x[d.data[idata+1], b] = 1
+            d.y[d.data[idata+2], b] = 1
+        end
     end
     ((d.x, d.y), (nword + d.batchsize, false))	# each call to next will deliver a single word from each of the d.batchsize segments
 end
@@ -177,6 +201,12 @@ function parse_commandline(args)
         help = "random seed, use 0 to turn off"
         arg_type = Int
         default = 42
+        "--float64"
+        help = "Use Float64 (Float32 default)"
+        action = :store_true
+        "--dense"
+        help = "Use dense matrix ops (sparse ops default)"
+        action = :store_true
         "--preset"
         help = "load one of the preset option combinations"
         arg_type = Int
