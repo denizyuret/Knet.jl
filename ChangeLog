@@ -69,6 +69,7 @@
 	1000 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
 	1000 use templated code for cuda kernels
 	1000 util/cudnn.jl: these changes should go into CUDNN
+	1000 find the three parameter element wise mul in julia and rename mul2
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
