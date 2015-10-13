@@ -1,5 +1,33 @@
 2015-10-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* @knet: new interface issues:
+	- @knet takes a function definition, ends up defining a function,
+	with the given name, but one that returns interpolated
+	expressions, not evaluating them.
+	- the arguments will have to create input expressions.
+	- do we still need the input op?
+	- keyword args in the body need careful handling.
+	- we have ops and knet functions, any interface difference?
+	- knet functions used to define both models and new ops, any
+	interface difference?
+	- at what point do we use gensyms?
+
+	@knet function logreg(x; out=0)  # compiler can handle x without explicit input stmts; we still need input registers so input ops will be in the compiler output
+	    y = wdot(x; out=out)         # careful interpolating keyword args, rhs interpolates, lhs doesn't
+	    soft(y)                      # assignment could be optional for last stmt?
+	    # soft(wdot(x; out=out))     # support embedding?
+	end
+
+	@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...)
+	    w = par(out,0; init=winit, o...) # careful interpolating o...
+	    y = dot(w,x)
+	end
+
+	- compiler actually calls these functions during compilation
+	- netstmt separates args and params, params for constructor, args for op
+	- if the result is an op, it is inserted into ops,inputs,output
+	- if the result is an Expr, it is further compiled by subcomp.
+
 	* TODO:
 	0029 @knet function add2(x,y;out=0) ... end syntax for ops and models.
 	0050 saman: local contrast normalization.
@@ -14,7 +42,7 @@
 	0124 attention s2s model
 	0125 ntm
 	0126 ctc apply speech model to mt
-	0199 turn off gpusync() when done with profiling
+	DONE turn off gpusync() when done with profiling
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 src/op/loss.jl: cleanup
@@ -22,12 +50,13 @@
 	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0800 implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
 	0800 update.jl: add norm clipping and other Google tricks.
-	1000 Work on non-gpu compatibility.
+	0100 Work on non-gpu compatibility.
+	1000 complete gradcheck, predict in addition to train/test for models other than fnn
 	1000 add xnorm in addition to wnorm and gnorm
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 ai-mtg: kernels and perceptrons.
-	1000 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
+	0100 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
 	1000 examples/mnist4d.jl: test with dropout
