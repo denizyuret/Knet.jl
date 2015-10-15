@@ -1,63 +1,53 @@
-wdot(; out=0, winit=Gaussian(0,.01), o...) = quote
-    x = input()
-    w = par($out,0; init=$winit, $o...)
+@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...)
+    w = par(; o..., init=winit, dims=(out,0))
     y = dot(w,x)
 end
 
-bias(; binit=Constant(0), o...) = quote
-    x = input()
-    b = par(0; init=$binit, $o...)
+@knet function bias(x; binit=Constant(0), o...)
+    b = par(; o..., init=binit, dims=(0,))
     y = add(b,x)
 end
 
-wb(; out=0, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
-    x = input()
-    y = wdot(x; out=$out, winit=$winit, $o...)
-    z = bias(y; binit=$binit, $o...)
+@knet function wb(x; o...)
+    y = wdot(x; o...)
+    z = bias(y; o...)
 end
 
-wbf(; out=0, f=relu, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
-    x = input()
-    y = wdot(x; out=$out, winit=$winit, $o...)
-    z = bias(y; binit=$binit, $o...)
-    a = $f(z)
+@knet function wbf(x; f=relu, o...)
+    y = wb(x; o...)
+    z = f(y; o...)
 end
 
-wconv(; out=0, window=0, cinit=Xavier(), o...) = quote
-    x = input()
-    w = par($window, $window, 0, $out; init=$cinit, $o...)
+@knet function wconv(x; out=0, window=0, cinit=Xavier(), o...)
+    w = par(; o..., init=cinit, dims=(window, window, 0, out))
     y = conv(w,x)
 end
 
-convpool(; out=0, f=relu, cwindow=0, pwindow=0, o...) = quote
-    x = input()
-    y = wconv(x; out=$out, window=$cwindow, $o...)
-    z = bias(y; $o...)
-    r = $f(z)
-    p = pool(r; window=$pwindow, $o...)
+@knet function cbfp(x; f=relu, cwindow=0, pwindow=0, o...)
+    y = wconv(x; o..., window=cwindow)
+    z = bias(y; o...)
+    r = f(z; o...)
+    p = pool(r; o..., window=pwindow)
 end
 
-add2(; out=0, f=sigm, binit=Constant(0), o...) = quote
-    x1 = input()
-    y1 = wdot(x1; out=$out, $o...)
-    x2 = input()
-    y2 = wdot(x2; out=$out, $o...)
+@knet function add2(x1, x2; f=sigm, o...)
+    y1 = wdot(x1; o...)
+    y2 = wdot(x2; o...)
     x3 = add(y1,y2)
-    y3 = bias(x3; binit=$binit, $o...)
-    ou = $f(y3)
+    y3 = bias(x3; o...)
+    ou = f(y3; o...)
 end
 
-lstm(; out=0, fbias=0, o...) = quote
-    x  = input()
-    i  = add2(x,h;out=$out,f=sigm,$o...)
-    f  = add2(x,h;out=$out,f=sigm,binit=$fbias,$o...)
-    o  = add2(x,h;out=$out,f=sigm,$o...)
-    g  = add2(x,h;out=$out,f=tanh,$o...)
-    ig = mul(i,g)
-    fc = mul(f,c)
-    c  = add(ig,fc)
-    tc = tanh(c)
-    h  = mul(tc,o)
+@knet function lstm(x; fbias=0, o...)
+    input  = add2(x,h; o..., f=sigm)
+    forget = add2(x,h; o..., f=sigm, binit=fbias)
+    output = add2(x,h; o..., f=sigm)
+    newmem = add2(x,h; o..., f=tanh)
+    ig = mul(input,newmem)
+    fc = mul(forget,cell)
+    cell = add(ig,fc)
+    tc = tanh(cell)
+    h  = mul(tc,output)
 end
 
 """
@@ -67,11 +57,10 @@ Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize
 Recurrent Networks of Rectified Linear Units. arXiv preprint
 arXiv:1504.00941.
 """
-irnn(; out=0, scale=1, winit=Gaussian(0,.01), binit=Constant(0), o...) = quote
-    x1 = input()
-    x2 = wdot(x1; out=$out, winit=$winit, $o...)
-    x3 = wdot(re; out=$out, winit=Identity($scale), $o...)
-    x4 = add(x2,x3)
-    x5 = bias(x4; binit=$binit, $o...)
-    re = relu(x5)
+@knet function irnn(x; scale=1, winit=Gaussian(0,.01), o...)
+    wx = wdot(x; o..., winit=winit)
+    wr = wdot(r; o..., winit=Identity(scale))
+    xr = add(wx,wr)
+    xrb = bias(xr; o...)
+    r = relu(xrb)
 end

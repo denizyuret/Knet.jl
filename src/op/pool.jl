@@ -6,8 +6,8 @@ ninputs(::Pool)=1
 overwrites(::Pool)=false
 back_reads_x(::Pool)=true
 back_reads_y(::Pool)=true
-pool(; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)=
-    Pool(window, padding, stride, mode)
+pool(x,y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=
+    (Pool(window, padding, stride, mode), x, y)
 forw(p::Pool, x, y; o...)=
     (cudnnPoolingForward(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync(); y)
 back(p::Pool, dy, dx; x=nothing, y=nothing, o...)=

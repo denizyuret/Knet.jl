@@ -14,10 +14,10 @@ function adding(args=ARGS)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    p1 = (opts["nettype"] == "irnn" ? irnn(out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
-          opts["nettype"] == "lstm" ? lstm(out=opts["hidden"], fbias=opts["fbias"]) : 
+    p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
+          opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
           error("Unknown network type "*opts["nettype"]))
-    p2 = wb(out=1, winit=Gaussian(0,opts["winit"]))
+    p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
     net = S2C(p1, p2)
     setopt!(net; lr=opts["lrate"])
     mse = maxw = maxg = 0

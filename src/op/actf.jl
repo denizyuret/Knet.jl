@@ -20,7 +20,7 @@ for (ltype,lforw,lback,lname) in
      (:Logp, :logpforw, :logpback, :logp))
     @eval begin
         type $ltype <: Actf; end
-        $lname()=$ltype()
+        $lname(x,y;o...)=($ltype(),x,y)
         forw(l::$ltype, x, y; o...)=$lforw(x,y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
     end

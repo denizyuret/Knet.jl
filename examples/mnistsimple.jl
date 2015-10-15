@@ -22,21 +22,20 @@ end
 
 # Prepare model
 
-prog = quote
-    x1 = input()
-    w1 = par(64,0)
+@knet function mnistsimple(x1)
+    w1 = par(;dims=(64,0))
     z1 = dot(w1,x1)
-    b1 = par(0)
+    b1 = par(;dims=(0,))
     y1 = add(b1,z1)
     x2 = relu(y1)
-    w2 = par(10,0)
+    w2 = par(;dims=(10,0))
     z2 = dot(w2,x2)
-    b2 = par(0)
+    b2 = par(;dims=(0,))
     y2 = add(b2,z2)
     ou = soft(y2)
 end
 
-model = FNN(prog)
+model = FNN(mnistsimple)
 
 # Train and evaluate
 

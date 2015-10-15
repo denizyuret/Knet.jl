@@ -5,6 +5,13 @@ using Base.Test
 using Knet
 isdefined(:MNIST) || include("mnist.jl")
 
+@knet function lenet_model(x0)
+    x1 = cbfp(x0; out=20, f=relu, cwindow=5, pwindow=2)
+    x2 = cbfp(x1; out=50, f=relu, cwindow=5, pwindow=2)
+    x3 = wbf(x2; out=500, f=relu)
+    p  = wbf(x3; out=10, f=soft)
+end
+
 function mnist4d(args=ARGS)
     setseed(42)
     nbatch=100
@@ -13,14 +20,7 @@ function mnist4d(args=ARGS)
     dtst = ItemTensor(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst; batch=nbatch)
 
     info("Testing lenet (convolutional net) on MNIST")
-    prog = quote
-        x0 = input()
-        x1 = convpool(x0; out=20, f=relu, cwindow=5, pwindow=2)
-        x2 = convpool(x1; out=50, f=relu, cwindow=5, pwindow=2)
-        x3 = wbf(x2; out=500, f=relu)
-        p  = wbf(x3; out=10, f=soft)
-    end
-    lenet = FNN(prog)
+    lenet = FNN(lenet_model)
     setopt!(lenet; lr=0.1)
     lwg = nothing
     for epoch=1:3

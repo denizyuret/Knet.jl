@@ -3,6 +3,11 @@
 using Knet,ArgParse,Base.Test
 isdefined(:MNIST) || include("mnist.jl")
 
+@knet function mnist2d_model(x; hidden=64, f=relu)
+    h = wbf(x; out=hidden, f=f)
+    y = wbf(h; out=10, f=soft)
+end
+
 function mnist2d(args=ARGS)
     info("Testing simple mlp on MNIST")
     s = ArgParseSettings()
@@ -25,12 +30,7 @@ function mnist2d(args=ARGS)
     dtrn = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
     dtst = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
 
-    prog = quote
-        x = input()
-        h = wbf(x; out=64, f=relu)
-        y = wbf(h; out=10, f=soft)
-    end
-    net = FNN(prog)
+    net = FNN(mnist2d_model)
     setopt!(net, lr=0.5)
 
     l=w=g=0

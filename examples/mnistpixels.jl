@@ -21,10 +21,10 @@ function mnistpixels(args=ARGS)
 
     nx = 1
     ny = 10
-    p1 = (nettype == "irnn" ? irnn(out=hidden, winit=Gaussian(0,winit)) :
-          nettype == "lstm" ? lstm(out=hidden, fbias=fbias) : 
+    p1 = (nettype == "irnn" ? Net(irnn; out=hidden, winit=Gaussian(0,winit)) :
+          nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
           error("Unknown network type "*nettype))
-    p2 = wbf(out=10, winit=Gaussian(0,winit), f=soft)
+    p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
     net = S2C(p1,p2)
     setopt!(net; lr=lrate)
     l = maxw = maxg = acc = 0

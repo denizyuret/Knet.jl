@@ -6,7 +6,7 @@
 
 type Add <: Op; end
 
-add()=Add()
+add(x1,x2,y)=(Add(),x1,x2,y)
 ninputs(::Add)=2
 overwrites(::Add)=true
 back_reads_x(::Add)=false

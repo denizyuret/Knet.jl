@@ -8,9 +8,9 @@ overwrites(::Conv)=false
 back_reads_x(::Conv)=true
 back_reads_y(::Conv)=false
 
-function conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
+function conv(w, x, y; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
     @assert in(mode, (CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION))
-    Conv(padding, stride, upscale, mode)
+    (Conv(padding, stride, upscale, mode), w, x, y)
 end
 
 function forw(c::Conv, w, x, y; o...)

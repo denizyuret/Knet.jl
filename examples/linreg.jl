@@ -24,7 +24,7 @@ function linreg(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
     data = LinReg(outputs, inputs, batchsize, epochsize, noise)
-    net = FNN(wdot(out=outputs))
+    net = FNN(wdot; out=outputs)
     setopt!(net; lr=lr)
     lwg = nothing
     for epoch = 1:epochs

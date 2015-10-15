@@ -6,10 +6,18 @@ type Par <: Op; dims; init; initialized; out0; out; dif;
     Par()=new(); 
 end
 
-setopt!(p::Par; o...)=(for (n,v) in o; p.(n)=v; end; p)
-par(; o...)=setopt!(Par(); initialized=false, o...)
-par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
-par(w::AbstractArray; o...)=par(; out0=w, dims=size(w), o...)
+function setopt!(p::Par; o...)
+    for (n,v) in o
+        if in(n, fieldnames(p))
+            p.(n)=v
+        else
+            Base.warn_once("setopt!: ignoring unrecognized option $n")
+        end
+    end
+    p
+end
+par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
+par(w::AbstractArray, y; o...)=par(y; out0=w, dims=size(w), o...)
 
 infersize(p::Par)=(isdefined(p,:dims) ? (p.dims,) : nothing)
 ninputs(::Par)=0
@@ -139,3 +147,7 @@ end
 
 # DONE: back
 # DONE: going back we should not zero the incremental dif!
+
+# Use the dims option instead of:
+# par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
+

@@ -1,7 +1,7 @@
 immutable S2C <: Model; rnn; fnn; params; end
 
 S2C(rnn::Net,fnn::Net)=S2C(rnn,fnn,vcat(params(rnn),params(fnn)))
-S2C(rnn::Expr,fnn::Expr)=S2C(Net(rnn),Net(fnn))
+S2C(rnn::Function,fnn::Function;o...)=S2C(Net(rnn;o...),Net(fnn;o...))
 params(m::S2C)=m.params
 
 function train(m::S2C, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0, o...)

@@ -19,8 +19,8 @@ include("util/linalg.jl");
 include("util/array.jl");	export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 include("data.jl");		export ItemTensor  # uses KUdense
-
 include("op.jl");		
+
 include("op/add.jl");		export add
 include("op/dot.jl");		# export dot # this already has a definition in base
 include("op/mul.jl");		export mul
@@ -30,9 +30,9 @@ include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp
 include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool
-include("op/compound.jl");	export wdot, bias, wb, wbf, add2, lstm, irnn, wconv, convpool
 include("update.jl");		
 
+include("compiler.jl");		export @knet
 include("net.jl");              export Net, params, forw, back
 include("net/initforw.jl")
 include("net/initback.jl")
@@ -44,6 +44,8 @@ include("model.jl");		export Model, train, test, predict, setopt!
 include("model/fnn.jl");        export FNN
 include("model/rnn.jl");        export RNN
 include("model/s2c.jl");        export S2C
+
+include("op/compound.jl");	export wdot, bias, wb, wbf, add2, lstm, irnn, wconv, cbfp
 
 end # module
 
