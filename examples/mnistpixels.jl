@@ -6,9 +6,6 @@ using Knet
 using Knet: nextidx
 import Base: start, next, done
 using ArgParse
-include("irnn.jl")
-include("lstm.jl")
-include("s2c.jl")
 isdefined(:MNIST) || include("mnist.jl")
 
 function mnistpixels(args=ARGS)
@@ -16,25 +13,26 @@ function mnistpixels(args=ARGS)
     opts = parse_commandline(args)
     info("Pixel-by-pixel MNIST problem from Le et al. 2015.")
     println(opts)
-    opts["seed"] > 0 && setseed(opts["seed"])
+    for (k,v) in opts; @eval ($(symbol(k))=$v); end
+    seed > 0 && setseed(seed)
 
-    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=opts["batchsize"], epoch=opts["epochsize"], bootstrap=true)
-    tst = Pixels(MNIST.xtst, MNIST.ytst; batch=opts["batchsize"])
+    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
+    tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
 
     nx = 1
     ny = 10
-    p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
-          opts["type"] == "lstm" ? lstm(n=opts["hidden"], fbias=opts["fbias"]) : 
-          error("Unknown network type "*opts["type"]))
-    p2 = softlayer(n=10, std=opts["std"])
-    net = S2C(Net(p1), Net(p2))
-    setopt!(net; lr=opts["lrate"])
+    p1 = (nettype == "irnn" ? Net(irnn; out=hidden, winit=Gaussian(0,winit)) :
+          nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
+          error("Unknown network type "*nettype))
+    p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
+    net = S2C(p1,p2)
+    setopt!(net; lr=lrate)
     l = maxw = maxg = acc = 0
-    for epoch=1:opts["epochs"]
-        (l,maxw,maxg) = train(net, trn; gclip=opts["gclip"], gcheck=opts["gcheck"], rtol=opts["rtol"], atol=opts["atol"])
+    for epoch=1:epochs
+        (l,maxw,maxg) = train(net, trn, softloss; gclip=gclip, gcheck=gcheck, rtol=rtol, atol=atol)
         println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
-        if epoch % opts["acc"] == 0
-            acc = accuracy(net, tst)
+        if epoch % testfreq == 0
+            acc = 1-test(net, tst, zeroone)
             println(tuple(:tst,epoch*trn.epochsize,acc))
         end
         flush(STDOUT)
@@ -42,53 +40,56 @@ function mnistpixels(args=ARGS)
     return (acc, l, maxw, maxg)
 end
 
-softlayer(;n=1,std=0.01) = quote
-    x = input()
-    w = par($n,0; init=Gaussian(0,$std))
-    y = dot(w,x)
-    b = par(0; init=Constant(0))
-    z = add(b,y)
-    l = softmax(z)
-end
+# input comes in as xtrn(784,60000), ytrn(10,60000)
+# the batch arg determines how many images we present in parallel
+# each call to the next should output batch pixels, i.e. x(1,batch), y=nothing
+# the last pixel should be served as x(1,batch), y(10,batch)
 
-type Pixels; x; rng; datasize; epochsize; batchsize; bootstrap; shuffle; batch;
-    function Pixels(x...; rng=MersenneTwister(), epoch=ccount(x[1]), batch=16, bootstrap=false, shuffle=false)
-        nx = ccount(x[1])
-        all(xi->ccount(xi)==nx, x) || error("Item count mismatch")
-        idx = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
-        xbatch = [ similar(x[1], (1,batch)) for i=(1:clength(x[1])) ]
-        ybatch = similar(x[2], (clength(x[2]),batch))
-        new(x, rng, nx, epoch, batch, bootstrap, idx, (xbatch,ybatch))
+type Pixels; x; y; rng; datasize; epochsize; batchsize; bootstrap; shuffle; xbatch; ybatch; images;
+    function Pixels(x, y; rng=MersenneTwister(), epoch=ccount(x), batch=16, bootstrap=false, shuffle=false)
+        nx = ccount(x)
+        nx == ccount(y) || error("Item count mismatch")
+        shuf = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
+        xbatch = similar(x, (1,batch))
+        ybatch = similar(y, (clength(y),batch))
+        new(x, y, rng, nx, epoch, batch, bootstrap, shuf, xbatch, ybatch, nothing)
     end
 end
 
-start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); 0)
+# state is an image/pixel pair
+start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); (0,0))
 
-done(d::Pixels, n)=(n >= d.epochsize)
+# epochsize is given as image count, not pixel count
+done(d::Pixels, s)=(s[1] >= d.epochsize)
 
-function next(d::Pixels, n)
-    idx = nextidx(d,n)
-    nb = length(idx)
-    nt = clength(d.x[1])
-    for b=1:nb
-        i=idx[b]
-        t0 = (i-1)*nt
-        @inbounds for t=1:nt
-            d.batch[1][t][b] = d.x[1][t0 + t]
-        end
-        d.batch[2][:,b] = d.x[2][:,i]
+function next(d::Pixels, s)
+    (n,t) = s                   # image and pixel count
+    t==0 && (d.images = nextidx(d,n)) # image indices for current batch
+    nb = length(d.images)       # batch size, xbatch[1:nb] needs to be filled
+    nt = clength(d.x)           # pixels per image
+    t += 1                      # next pixel to serve
+    for b=1:nb                  # batch index
+        i=d.images[b]           # image index
+        d.xbatch[b] = d.x[t,i]
+        t == nt && (d.ybatch[:,b] = d.y[:,i])
     end
-    (d.batch, n+nb)
+    return t < nt ?
+    ((d.xbatch, nothing), (n, t)) :
+    ((d.xbatch, d.ybatch), (n+nb, 0))
 end
 
 function parse_commandline(args)
     s = ArgParseSettings()
     @add_arg_table s begin
+        "--epochs"
+        help = "Number of epochs to train"
+        arg_type = Int
+        default = 1
         "--epochsize"
         help = "number of training examples per epoch"
         arg_type = Int
         default = 1000 # 10000
-        "--acc"
+        "--testfreq"
         help = "Compute test accuracy every acc epochs"
         arg_type = Int
         default = 1 # 10
@@ -112,14 +113,14 @@ function parse_commandline(args)
         help = "gradient check"
         arg_type = Int
         default = 0
-        "--type"
+        "--nettype"
         help = "type of network"
         default = "irnn" # "lstm"
         "--fbias"
         help = "forget gate bias for lstm"
         arg_type = Float64
         default =  1.0
-        "--std"
+        "--winit"
         help = "stdev for weight initialization (for irnn)"
         arg_type = Float64
         default =  0.01
@@ -135,10 +136,6 @@ function parse_commandline(args)
         help = "Random seed"
         arg_type = Int
         default = 1003
-        "--epochs"
-        help = "Number of epochs to train"
-        arg_type = Int
-        default = 1
     end
     parse_args(args,s)
 end

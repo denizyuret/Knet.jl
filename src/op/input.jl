@@ -1,5 +1,5 @@
 type Input <: Op; end
-input()=Input()
+input(y)=(Input(),y)
 ninputs(::Input)=0
 overwrites(::Input)=false
 back_reads_x(::Input)=false

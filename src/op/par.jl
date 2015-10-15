@@ -6,10 +6,18 @@ type Par <: Op; dims; init; initialized; out0; out; dif;
     Par()=new(); 
 end
 
-setopt!(p::Par; o...)=(for (n,v) in o; p.(n)=v; end; p)
-par(; o...)=setopt!(Par(); initialized=false, o...)
-par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
-par(w::AbstractArray; o...)=par(; out0=w, dims=size(w), o...)
+function setopt!(p::Par; o...)
+    for (n,v) in o
+        if in(n, fieldnames(p))
+            p.(n)=v
+        else
+            Base.warn_once("setopt!: ignoring unrecognized option $n")
+        end
+    end
+    p
+end
+par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
+par(w::AbstractArray, y; o...)=par(y; out0=w, dims=size(w), o...)
 
 infersize(p::Par)=(isdefined(p,:dims) ? (p.dims,) : nothing)
 ninputs(::Par)=0
@@ -22,6 +30,7 @@ type Gaussian <: Rgen; mean; std; end
 type Uniform  <: Rgen; min; max; end
 type Constant <: Rgen; val; end
 type Identity <: Rgen; val; Identity(x=1)=new(x); end
+type Xavier <: Rgen; end
 
 function back(p::Par, dy; y=nothing, o...)
     isdefined(p, :dif) || (p.dif = dy)
@@ -42,7 +51,8 @@ function forw(p::Par, y; o...)
          isa(p.init, Uniform)  ? (rand!(y); axpb!(p.init.max - p.init.min, p.init.min, y)) :
          isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
          isa(p.init, Identity) ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
-         error())
+         isa(p.init, Xavier) ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); rand!(y); axpb!(2*scale, -scale, y)) :
+         error("p.init=$(p.init)"))
     end
 end
 
@@ -137,3 +147,7 @@ end
 
 # DONE: back
 # DONE: going back we should not zero the incremental dif!
+
+# Use the dims option instead of:
+# par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
+

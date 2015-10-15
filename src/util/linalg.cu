@@ -1,5 +1,297 @@
 #include "../knet.h"
 
+__device__ double atomicAdd(double* address, double val)
+{
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed,
+		    __double_as_longlong(val +
+					 __longlong_as_double(assumed)));
+    // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)} while (assumed != old);
+  } while(assumed != old); 
+  return __longlong_as_double(old);
+}
+
+template<typename dType>
+__global__ void _add_csr_dns_atomic(int m, int n, dType alpha,
+			     int nnzA,
+			     const dType *csrValA,
+			     const int *csrRowPtrA,
+			     const int *csrColIndA,
+			     dType *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  while (nz < nnzA) {
+    dType val = alpha * csrValA[nz];
+    int col = csrColIndA[nz]-1;
+    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    atomicAdd(&B[col * m + row], val);
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+template<typename dType>
+__global__ void _add_csr_dns(int m, int n, dType alpha,
+			     int nnzA,
+			     const dType *csrValA,
+			     const int *csrRowPtrA,
+			     const int *csrColIndA,
+			     dType *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  while (nz < nnzA) {
+    dType val = alpha * csrValA[nz];
+    int col = csrColIndA[nz]-1;
+    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    B[col * m + row] +=  val;
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void add_csr_dns_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_atomic_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_atomic_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+}
+
+/*
+   ........x............................................
+   ..................x..................................
+   ..x..................................................
+...
+...
+...
+...
+*/
+
+/* dw=dy*xt where dy is dense column major, xt is sparse csr (or
+   transposed csc) and dw is sparse csr.  each row of dw will hold
+   nnz(x) values.  crows assumed initialized.  resulting ccols 
+   unsorted with possible duplicates. */
+
+template<typename dType>
+__global__ void _mul_dns_csr_csr(int arows, int acols, dType *a, int *brows, int *bcols, dType *b, int *crows, int *ccols, dType *c) {
+  int t = threadIdx.x + blockIdx.x * blockDim.x;
+  int T = arows*acols;
+  int bnnz = brows[acols]-1;
+  if (t == 0) crows[0] = 1;
+  while (t < T) {
+    dType aval = a[t];
+    int arow0 = t % arows;
+    int acol0 = t / arows;
+    int brow0 = acol0;
+    int crow0 = arow0;
+    for (int b1 = brows[brow0]; b1 < brows[brow0+1]; b1++) { 	// b[brows[r]-1...brows[r+1]-2] contains row 0-based-r
+      int b0 = b1-1;
+      int c0 = crow0 * bnnz + b0;				// each c row has nnz(b) entries so we can use nz index of b as row index of c
+      ccols[c0] = bcols[b0];
+      c[c0] = aval * b[b0];
+    }
+    if (acol0 == 0) crows[crow0+1] = (crow0+1)*bnnz + 1;
+    t += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void mul_dns_csr_csr_32(int arows, int acols, float  *a, int *brows, int *bcols, float  *b, int *crows, int *ccols, float  *c) KCALL(_mul_dns_csr_csr, arows, acols, a, brows, bcols, b, crows, ccols, c);
+  void mul_dns_csr_csr_64(int arows, int acols, double *a, int *brows, int *bcols, double *b, int *crows, int *ccols, double *c) KCALL(_mul_dns_csr_csr, arows, acols, a, brows, bcols, b, crows, ccols, c);
+}
+
+
+/* CUBLAS nrm2 is extremely slow.  The following is a substitute from Barret Zoph.
+   Based on: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
+*/
+
+//for optimizing warps
+//volatile must be used as register optimization will lead to wrong answers
+template<typename dType>
+__device__ 
+void warpReduceSum(volatile dType* sdata, int tid) {
+	sdata[tid] += sdata[tid + 32];
+	sdata[tid] += sdata[tid + 16];
+	sdata[tid] += sdata[tid + 8];
+	sdata[tid] += sdata[tid + 4];
+	sdata[tid] += sdata[tid + 2];
+	sdata[tid] += sdata[tid + 1];
+}
+
+#define NORM_THREADS 256
+template<typename dType>
+__global__
+void basic_compute_norm_p1(dType *d_gradient,int size,dType *result) {
+	__shared__ dType buffer[NORM_THREADS];
+	int i_start = threadIdx.x+blockIdx.x*blockDim.x; //start at the thread index
+	int i_end = size; //end at dim
+	int i_step = blockDim.x*gridDim.x; //the block dimension (aka the number of threads in the block) is the step
+	int tid = threadIdx.x;
+
+
+	buffer[tid] = 0;
+	for(int i= i_start; i<i_end; i+=i_step) {
+		buffer[tid]+=(d_gradient[i]*d_gradient[i]);
+	}
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		result[blockIdx.x]=buffer[0];
+	}
+}
+
+
+template<typename dType>
+__global__
+void basic_compute_norm_p2(dType *temp_result,dType *final_result) {
+	__shared__ dType buffer[NORM_THREADS];
+
+	int tid = threadIdx.x;
+	buffer[tid] = temp_result[tid];
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		final_result[0]=buffer[0];
+	}
+}
+
+template<typename dType>
+__global__
+void basic_compute_asum_p1(dType *d_gradient,int size,dType *result) {
+	__shared__ dType buffer[NORM_THREADS];
+	int i_start = threadIdx.x+blockIdx.x*blockDim.x; //start at the thread index
+	int i_end = size; //end at dim
+	int i_step = blockDim.x*gridDim.x; //the block dimension (aka the number of threads in the block) is the step
+	int tid = threadIdx.x;
+
+
+	buffer[tid] = 0;
+	for(int i= i_start; i<i_end; i+=i_step) {
+	  dType di = d_gradient[i];
+	  if (di < 0) di = -di;
+	  buffer[tid]+=di;
+	}
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		result[blockIdx.x]=buffer[0];
+	}
+}
+
+
+template<typename dType>
+__global__
+void basic_compute_asum_p2(dType *temp_result,dType *final_result) {
+	__shared__ dType buffer[NORM_THREADS];
+
+	int tid = threadIdx.x;
+	buffer[tid] = temp_result[tid];
+	__syncthreads();
+
+	for(int stride=NORM_THREADS/2; stride>32; stride>>=1) {
+		if(tid < stride) {
+			buffer[tid] += buffer[stride + tid];
+		}
+		__syncthreads();
+	}
+
+	if(tid<32) {
+		warpReduceSum(buffer,tid);
+	}
+	__syncthreads();
+
+	if(tid==0) {
+		final_result[0]=buffer[0];
+	}
+}
+
+
+extern "C" {
+  float vecnorm2_32(float *d_array,int size) {
+    float norm;
+    static float *d_temp_result;
+    static float *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(float));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(float));
+    basic_compute_norm_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_norm_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(float),cudaMemcpyDeviceToHost);
+    return sqrt(norm);
+  }
+
+  double vecnorm2_64(double *d_array,int size) {
+    double norm;
+    static double *d_temp_result;
+    static double *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(double));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(double));
+    basic_compute_norm_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_norm_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(double),cudaMemcpyDeviceToHost);
+    return sqrt(norm);
+  }
+
+  // Unfortunately vecnorm1 is not any faster than CUBLAS.asum
+
+  float vecnorm1_32(float *d_array,int size) {
+    float norm;
+    static float *d_temp_result;
+    static float *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(float));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(float));
+    basic_compute_asum_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_asum_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(float),cudaMemcpyDeviceToHost);
+    return norm;
+  }
+
+  double vecnorm1_64(double *d_array,int size) {
+    double norm;
+    static double *d_temp_result;
+    static double *d_result;
+    if (d_temp_result == NULL) cudaMalloc(&d_temp_result, NORM_THREADS*sizeof(double));
+    if (d_result == NULL) cudaMalloc(&d_result, 1*sizeof(double));
+    basic_compute_asum_p1<<<NORM_THREADS,NORM_THREADS>>>(d_array,size,d_temp_result);
+    basic_compute_asum_p2<<<1,NORM_THREADS>>>(d_temp_result,d_result);
+    cudaMemcpy(&norm,d_result,1*sizeof(double),cudaMemcpyDeviceToHost);
+    return norm;
+  }
+}
+
 /*
   The following functions multiply two sparse matrices into a dense matrix.
   The sparse matrices are in 1-based csc format.
@@ -219,43 +511,7 @@ __global__ void _mul2_64(int n, double *x, double *y, double *z) {
   }
 }
 
-__global__ void _axpy32csr(int m, int n, float alpha,
-			   int nnzA,
-			   const float *csrValA,
-			   const int *csrRowPtrA,
-			   const int *csrColIndA,
-			   float *B) {
-  int nz = threadIdx.x + blockIdx.x * blockDim.x;
-  while (nz < nnzA) {
-    float val = alpha * csrValA[nz];
-    int col = csrColIndA[nz]-1;
-    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
-    B[col * m + row] += val;
-    nz += blockDim.x * gridDim.x;
-  }
-}
-
-__global__ void _axpy64csr(int m, int n, double alpha,
-			   int nnzA,
-			   const double *csrValA,
-			   const int *csrRowPtrA,
-			   const int *csrColIndA,
-			   double *B) {
-  int nz = threadIdx.x + blockIdx.x * blockDim.x;
-  while (nz < nnzA) {
-    double val = alpha * csrValA[nz];
-    int col = csrColIndA[nz]-1;
-    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
-    B[col * m + row] += val;
-    nz += blockDim.x * gridDim.x;
-  }
-}
-
 extern "C" {
-
-  void axpy32csr(int m, int n, float alpha, int nnzA, const float *csrValA, const int *csrRowPtrA, const int *csrColIndA, float *B) KCALL(_axpy32csr,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
-  void axpy64csr(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_axpy64csr,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
-
 
   void A_mul_Bs_32(int mx, int ns,  float *x,  float *sval, int *srow, int *scol,  float *k) KCALL(_A_mul_Bs_32,mx,ns,x,sval,srow,scol,k);
   void A_mul_Bs_64(int mx, int ns, double *x, double *sval, int *srow, int *scol, double *k) KCALL(_A_mul_Bs_64,mx,ns,x,sval,srow,scol,k);

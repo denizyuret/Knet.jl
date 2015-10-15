@@ -5,7 +5,7 @@
 # infersize (used by netinit)
 # overwrites (not used any more?)
 
-abstract Op <: Model
+abstract Op
 
 forw(l::Op, y, x...; o...) = error("$(typeof(l)) has not implemented forw")
 back(l::Op, dy, dx...; o...)   = error("$(typeof(l)) has not implemented back")

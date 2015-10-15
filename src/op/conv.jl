@@ -8,9 +8,9 @@ overwrites(::Conv)=false
 back_reads_x(::Conv)=true
 back_reads_y(::Conv)=false
 
-function conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
+function conv(w, x, y; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
     @assert in(mode, (CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION))
-    Conv(padding, stride, upscale, mode)
+    (Conv(padding, stride, upscale, mode), w, x, y)
 end
 
 function forw(c::Conv, w, x, y; o...)
@@ -19,13 +19,16 @@ function forw(c::Conv, w, x, y; o...)
     elseif x == nothing
         return nothing
     end
-    cudnnConvolutionForward_v4(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode)
+    cudnnConvolutionForward(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode)
+    gpusync()
+    return y
 end
 
 function back(c::Conv, dy, dw, dx; x=nothing, o...)
     dw == nothing && dx == nothing && return
-    dw != nothing && (x[2] != nothing ? cudnnConvolutionBackwardFilter_v4(x[2], dy, dw; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : fill!(dw,0))
-    dx != nothing && (x[1] != nothing ? cudnnConvolutionBackwardData_v4(x[1], dy, dx; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : error("Uninitialized filter"))
+    dw != nothing && (x[2] != nothing ? cudnnConvolutionBackwardFilter(x[2], dy, dw; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : fill!(dw,0))
+    dx != nothing && (x[1] != nothing ? cudnnConvolutionBackwardData(x[1], dy, dx; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : error("Uninitialized filter"))
+    gpusync()
 end
 
 # x: (x1,x2...,C,N)

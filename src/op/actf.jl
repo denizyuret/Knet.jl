@@ -20,7 +20,7 @@ for (ltype,lforw,lback,lname) in
      (:Logp, :logpforw, :logpback, :logp))
     @eval begin
         type $ltype <: Actf; end
-        $lname()=$ltype()
+        $lname(x,y;o...)=($ltype(),x,y)
         forw(l::$ltype, x, y; o...)=$lforw(x,y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
     end
@@ -30,18 +30,18 @@ end
 
 sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
 sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end; dx)
-@gpu (sigmforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID))
-@gpu (sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID))
+@gpu sigmforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); y)
+@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); dx)
 
 tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end; y)
 tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end; dx)
-@gpu (tanhforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH))
-@gpu (tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH))
+@gpu tanhforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH); gpusync(); y)
+@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH); gpusync(); dx)
 
 reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
 reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
-@gpu (reluforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU))
-@gpu (reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU))
+@gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
+@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
 
 function softforw(x::Array,y::Array)
     (st,nx) = size2(x)
@@ -71,8 +71,8 @@ end
 
 
 # TODO: what happened to the buggy 0.5 factor?
-@gpu (softforw(x::CudaArray,y::CudaArray)=cudnnSoftmaxForward(x,y))
-@gpu (softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnSoftmaxBackward(y, dy, dx))
+@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
+@gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
 
 function logpforw(x::Array,y::Array)
     (nd,nx) = size2(x)
@@ -92,9 +92,9 @@ end
 logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
 
 @gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=
-        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); y))
+        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); gpusync(); y))
 @gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=
-        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); y))
+        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); gpusync(); y))
 
 
 ### DEAD CODE

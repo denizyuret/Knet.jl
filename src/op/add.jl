@@ -6,7 +6,7 @@
 
 type Add <: Op; end
 
-add()=Add()
+add(x1,x2,y)=(Add(),x1,x2,y)
 ninputs(::Add)=2
 overwrites(::Add)=true
 back_reads_x(::Add)=false
@@ -37,7 +37,7 @@ end
 
 biasforw(b::Vector, x::Array, y::Array)=(c=ndims(x)-1; for i=1:length(y); y[i] = x[i] + b[ind2sub(size(x),i)[c]]; end; y)
 biasforw(b::Vector, x::Vector, y::Vector)=(for i=1:length(y); y[i] = x[i] + b[i]; end; y)
-@gpu biasforw(b::CudaArray, x::CudaArray, y::CudaArray)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C))
+@gpu biasforw(b::CudaArray, x::CudaArray, y::CudaArray)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C); gpusync(); y)
 
 function back(::Add, dy, dx1, dx2; o...)
     if dx2 != nothing
@@ -59,7 +59,7 @@ end
 
 biasback(dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
 biasback(dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
-@gpu biasback(dy::CudaArray, db::CudaArray)=cudnnConvolutionBackwardBias(dy, db)
+@gpu biasback(dy::CudaArray, db::CudaArray)=(cudnnConvolutionBackwardBias(dy, db); gpusync(); db)
 
 biassize(y)=(size(y, ndims(y)==1 ? 1 : ndims(y)-1),)
 

@@ -1,5 +1,6 @@
 *~
 *_dbg.jl
+*-dbg.jl
 *.out
 *.mat
 *.job
@@ -18,3 +19,4 @@ v0.4
 .cache
 setup.sh
 .julia
+.juliahistory

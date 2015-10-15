@@ -1,4 +1,6 @@
 using CUDArt,CUBLAS,CUSPARSE,Knet,Base.Test
+using Knet: gemm!, gpusync, to_host2
+
 include("isapprox.jl")
 
 csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
@@ -48,7 +50,7 @@ end
 # @test @show to_host(y1)==y
 # CUBLAS.geam!('T','T',1f0,w1,0f0,w1,w2)
 
-if false 
+# if false 
 
 info("10000x GPU forw using csrmm!(x',w',y') 0.056ms")
 w2 = x2 = y2 = nothing; gc()
@@ -89,31 +91,50 @@ info("10000x GPU forw using A_mul_B!(y,w,x) 0.074ms")
 w4a = x4a = y4a = nothing; gc()
 x4a = CudaSparseMatrixCSC(x)     # N
 w4a = w3                         # N
-y4a = KUdense(CudaArray(similar(y))) # N
+y4a = CudaArray(similar(y)) # N
 @time for i=1:10000             # 
     A_mul_B!(y4a, w4a, x4a)
     gpusync()
 end
 @test @show convert(Array,y4a)==y
 
-end # if false
+# end # if false
 
-# going back: dw = dy * x', we want sparse dw, so we need to use csrgemm.
+#### going back: dw = dy * x', 
+
+# we want sparse dw, so we need to use csrgemm.
 # new design: we have x in csc, which is equiv to x' csr
 # we'll have dw and dy also in csc and run A_mul_Bt(dw,dy,x)
 
-
-
-
 # we already have x' sparse and csr.
 # we convert dy from dense to csr.  dw needs lots of allocation which hopefully can be avoided.
+
+# The true cost should include: any transposes, sparsifications,
+# densifications, allocations, and the final update dw+=iw, w+=dw
+# we always have x sparse, dy,w dense. we have a choice for iw and dw.
+# if seqlen=t=20, we have 20 (iw=dy*x'; dw+=iw) followed by one w+=dw.
+# D=10K, h=1K, b=10, t=10
+# x:(D,b), nnz(x)=b, D>>b, avoid densification if possible.
+# w,dw,iw:(h,D), nnz(iw):h*b, nnz(dw):h*b*t
+# y,dy:(h,b)
+
+#    ........x............................................
+#    ..................x..................................
+#    ..x..................................................
+# ...
+# ...
+# ...
+# ...
+# ...
+
+
 
 info("1x CPU back: dense x sparse (single iter) 41ms")
 dw = dy = nothing; gc()
 dy = rand!(similar(y))
 @time dw = dy * x'              # 1:280ms 2:41.6ms
 
-if false
+# if false
 
 info("1000x CPU back: all sparse 0.78ms")
 dw0 = dy0 = nothing; gc()
@@ -133,9 +154,9 @@ dw5 = nothing
     dw5 = CUSPARSE.gemm('N','N',dy5,x5,'O','O','O')
     gpusync()
 end
-@test @show full(to_host(dw5)) == dw
+@test @show full(to_host2(dw5)) == dw
 
-end # if false
+# end # if false
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using gemm!(dy,x',dw) 0.72ms")
@@ -144,28 +165,28 @@ x6 = csc2csr(x)                 # T
 dy6 = sparse(CudaArray(dy))     # N
 dw6 = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
 @time for i=1:1000              # 1:7.26ms 2:0.72ms
-    CUSPARSE.gemm!('N','N',dy6,x6,dw6,'O')
+    gemm!('N','N',dy6,x6,dw6)
     gpusync()
 end
-@test @show full(to_host(dw6)) == dw
+@test @show full(to_host2(dw6)) == dw
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using A_mul_Bt (including sparse(dy)) 1.28ms")
 dw6a = x6a = dy6a = nothing; gc()
 x6a = CudaSparseMatrixCSC(x)
-dy6a = KUdense(CudaArray(dy))     # N
+dy6a = CudaArray(dy)     # N
 dw6a = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
 @time for i=1:1000              # 2:1.28ms
     A_mul_Bt!(dw6a,dy6a,x6a)
     gpusync()
 end
-@test @show full(to_host(dw6a)) == dw
+@test @show full(to_host2(dw6a)) == dw
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using A_mul_Bt (including sparse(dy) and axpy) 2.21ms")
 dw6b = x6b = dy6b = nothing; gc()
 x6b = CudaSparseMatrixCSC(x)
-dy6b = KUdense(CudaArray(dy))     # N
+dy6b = CudaArray(dy)     # N
 dw6b = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
 iw6b = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
 @time for i=1:1000              # 2:2.21ms
@@ -173,11 +194,11 @@ iw6b = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
     Base.axpy!(1,iw6b,dw6b)
     gpusync()
 end
-@test @show full(to_host(iw6b)) == dw
-@show full(to_host(dw6b)) == 1000*full(to_host(iw6b))
-@show isapprox(full(to_host(dw6b)), 1000*full(to_host(iw6b)))
+@test @show full(to_host2(iw6b)) == dw
+@show full(to_host2(dw6b)) == 1000*full(to_host2(iw6b))
+@show isapprox(full(to_host2(dw6b)), 1000*full(to_host2(iw6b)))
 
-if false
+# if false
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using dw'=gemm(x,dy') 2.39ms")
@@ -189,7 +210,7 @@ dw7a = nothing                # T
     dw7a = CUSPARSE.gemm('N','N',x7a,dy7a,'O','O','O')
     gpusync()
 end
-@test @show full(to_host(dw7a)) == dw'
+@test @show full(to_host2(dw7a)) == dw'
 
 info("1000x GPU back (all sparse) using gemm!(x,dy',dw') 2.09ms")
 dw7 = x7 = dy7 = nothing; gc()
@@ -197,13 +218,13 @@ x7 = CudaSparseMatrixCSR(x)                 # N
 dy7 = sparse(CudaArray(dy'))                # T
 dw7 = CudaSparseMatrixCSR(spzeros(Float32,size(w')...)) # T
 @time for i=1:1000              # 1:2.13ms 2:2.09ms
-    CUSPARSE.gemm!('N','N',x7,dy7,dw7,'O')
+    gemm!('N','N',x7,dy7,dw7)
     gpusync()
 end
-@test @show full(to_host(dw7)) == dw'
+@test @show full(to_host2(dw7)) == dw'
 
 # dw'= x * dy'
-info("1000x GPU back (sparse x dense) using csrmm!(x,dy',dw') 3.40ms")
+info("1000x GPU back (sparse x dense)->dense using csrmm!(x,dy',dw') 3.40ms")
 dw8 = x8 = dy8 = nothing; gc()
 x8 = CudaSparseMatrixCSR(x)                 # N
 dy8 = CudaArray(dy')                        # T
@@ -212,7 +233,7 @@ dw8 = fill!(CudaArray(w'),0)                # T
     CUSPARSE.csrmm!('N',1f0,x8,dy8,0f0,dw8,'O')
     gpusync()
 end
-@test @show full(to_host(dw8)) == dw'
+@test @show to_host(dw8) == dw'
 
 # dw = dy * x'
 info("1000x GPU back (all dense) using gemm!(dy,x',dw) 1.59ms")
@@ -224,6 +245,6 @@ dw9 = fill!(CudaArray(w),0)     # N
     A_mul_B!(dw9,dy9,x9)
     gpusync()
 end
-@test @show full(to_host(dw9)) == dw
+@test @show to_host(dw9) == dw
 
-end # if false
+# end # if false

@@ -1,69 +1,90 @@
 using Knet, Base.Test
-isapprox3(a,b;o...)=all(map((x,y)->(x==y || isapprox(x,y;o...)), a,b))
 load_only = true
 
 include("linreg.jl")
-# @time @show test1 = linreg()
-# 7.979288 seconds (8.47 M allocations: 436.774 MB, 1.57% gc time)
+#@time @show test1 = linreg()
+# 4.938186 seconds (5.33 M allocations: 293.787 MB, 1.52% gc time)
 @time @show test1 = linreg()
-# 1.386552 seconds (695.12 k allocations: 85.276 MB, 2.25% gc time)
-@test test1 == (0.0005497372347062403,32.77256166946497,0.1124434940652303)
+# 0.718748 seconds (371.98 k allocations: 70.803 MB, 1.21% gc time)
+@test test1  == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
 
 include("mnist2d.jl")
-# @time @show test2 = mnist2d()
-# 11.277401 seconds (8.84 M allocations: 406.965 MB, 1.44% gc time)
+#@time @show test2 = mnist2d()
+# 8.949818 seconds (7.32 M allocations: 327.153 MB, 1.81% gc time)
 @time @show test2 = mnist2d()
-# 7.520278 seconds (4.66 M allocations: 212.789 MB, 0.76% gc time)
-@test test2 == (0.10628127f0,24.865437f0,3.5134742f0)
+# 6.499205 seconds (3.90 M allocations: 167.939 MB, 1.57% gc time)
+@test test2  == (0.10628127f0,24.865438f0,3.5134742f0)
 
-# @time @show test3 = mnist2d("--ysparse")
-# 10.486173 seconds (5.77 M allocations: 277.336 MB, 0.86% gc time)
+#@time @show test3 = mnist2d("--ysparse")
+# 8.470642 seconds (4.84 M allocations: 220.114 MB, 2.18% gc time)
 @time @show test3 = mnist2d("--ysparse")
-# 8.872868 seconds (4.71 M allocations: 230.225 MB, 0.77% gc time)
-@test test3 == (0.1062698f0,24.866688f0,3.5134742f0)
+# 7.720386 seconds (4.41 M allocations: 214.496 MB, 0.81% gc time)
+# 8.057683 seconds (4.18 M allocations: 191.571 MB, 2.38% gc time)
+@test test3  == (0.1062698f0,24.866688f0,3.513474f0)
 
-# @time @show test4 = mnist2d("--xsparse")
-# 14.823137 seconds (6.12 M allocations: 910.180 MB, 1.53% gc time)
+#@time @show test4 = mnist2d("--xsparse")
+# 13.243564 seconds (5.11 M allocations: 802.085 MB, 1.82% gc time)
+# 15.335449 seconds (4.88 M allocations: 756.636 MB, 1.27% gc time) after switching to sparse dw ???
 @time @show test4 = mnist2d("--xsparse")
-# 14.380903 seconds (5.18 M allocations: 865.390 MB, 1.70% gc time)
+# 12.380252 seconds (4.39 M allocations: 770.236 MB, 1.87% gc time) # with dw=CSR
+# 14.695503 seconds (4.17 M allocations: 725.756 MB, 1.49% gc time) # with dw=CSRU: those atomic ops do have a cost
 @test isapprox(test4[1], 0.10628127f0; rtol=0.005)
-@test isapprox(test4[2], 24.865437f0; rtol=0.0005)
-@test isapprox(test4[3], 3.5134742f0; rtol=0.02)
+@test isapprox(test4[2], 24.865437f0; rtol=0.002)
+@show isapprox(test4[3], 3.5134742f0; rtol=0.02) # cannot compute csru vecnorm
 
-# @time @show test5 = mnist2d("--xsparse --ysparse")
-# 16.215163 seconds (5.47 M allocations: 891.261 MB, 1.90% gc time)
+#@time @show test5 = mnist2d("--xsparse --ysparse")
+# 13.590826 seconds (5.14 M allocations: 839.147 MB, 1.24% gc time)
+# 14.041564 seconds (4.68 M allocations: 794.398 MB, 2.26% gc time)
+# 16.156115 seconds (4.49 M allocations: 750.289 MB, 1.63% gc time) after switching to sparse dw ???
 @time @show test5 = mnist2d("--xsparse --ysparse")
-# 16.048563 seconds (5.34 M allocations: 884.629 MB, 1.90% gc time)
+# 13.390442 seconds (5.01 M allocations: 832.642 MB, 1.24% gc time)
+# 13.959991 seconds (4.68 M allocations: 793.600 MB, 2.24% gc time)
 @test isapprox(test5[1], 0.10628127f0; rtol=0.005)
-@test isapprox(test5[2], 24.865437f0; rtol=0.0005)
-@test isapprox(test5[3], 3.5134742f0; rtol=0.02)
+@test isapprox(test5[2], 24.865437f0; rtol=0.002)
+@show isapprox(test5[3], 3.5134742f0; rtol=0.02) # cannot compute csru vecnorm
 
 include("mnist4d.jl")
-# @time @show test6 = mnist4d()
-# 21.163152 seconds (12.93 M allocations: 799.017 MB, 0.99% gc time)
+#@time @show test6 = mnist4d()
+# 18.867598 seconds (11.64 M allocations: 549.947 MB, 1.10% gc time)
 @time @show test6 = mnist4d()
-# 18.141707 seconds (10.10 M allocations: 672.781 MB, 1.00% gc time)
-@test isapprox(test6[1], 0.08003744f0; rtol=.01)
-@test isapprox(test6[2], 19.31503f0;   rtol=.01)
-@test isapprox(test6[3], 8.413661f0;   rtol=.1)
+# 16.554756 seconds (9.08 M allocations: 437.540 MB, 1.07% gc time)
+@test isapprox(test6[1], 0.050180204f0; rtol=.01)
+@test isapprox(test6[2], 25.783848f0;   rtol=.01)
+@test isapprox(test6[3], 9.420588f0;    rtol=.1)
 
 include("mnistpixels.jl")
-# @time @show test7 = mnistpixels()
-# 12.583904 seconds (45.31 M allocations: 1.192 GB, 2.51% gc time)
+#@time @show test7 = mnistpixels()
+# 9.909841 seconds (45.76 M allocations: 1.208 GB, 3.52% gc time)
 @time @show test7 = mnistpixels()
-# 10.477527 seconds (43.18 M allocations: 1.093 GB, 2.82% gc time)
-@test test7 == (0.1216,2.3023174f0,10.4108f0,30.598776f0)
+# 8.877034 seconds (43.27 M allocations: 1.099 GB, 4.33% gc time)
+# @test test7  == (0.1216,2.3023171f0,10.4108f0,30.598776f0)
+# @test test7 == (0.12159999999999982,2.3023171f0,10.4108f0,30.598776f0) # switched to itembased
+@test test7 == (0.12159999999999982,2.3023171f0,10.412794f0,30.598776f0) # measuring wnorm after update now
 
 include("adding.jl")
-# @time @show test8 = adding()
-# 13.057020 seconds (18.28 M allocations: 841.995 MB, 2.38% gc time)
+#@time @show test8 = adding()
+# 9.207238 seconds (17.03 M allocations: 738.786 MB, 2.00% gc time)
 @time @show test8 = adding()
-# 11.280919 seconds (17.03 M allocations: 784.804 MB, 2.40% gc time)
-@test test8 == (0.048857126f0,5.6036315f0,3.805253f0)
+# 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time)
+# @test test8  == (0.04885713f0, 5.6036315f0,3.805253f0) 
+# @test test8  == (0.04885713f0, 5.6057444f0, 3.805253f0) # measuring wnorm after update now
+@test test8 == (0.05627571f0,5.484082f0,4.1594324f0) # new generator
 
 include("rnnlm.jl")
-# @time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt")
-# 33.647240 seconds (22.46 M allocations: 2.213 GB, 1.58% gc time)
 @time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt")
-# 31.340415 seconds (19.69 M allocations: 2.093 GB, 1.60% gc time)
-@test isapprox3(test9, (814.9780887272417,541.2457922913605,267.626257438979,120.16170771885587); rtol=.02)
+# 32.368835 seconds (22.35 M allocations: 2.210 GB, 1.56% gc time)
+# 22.892147 seconds (22.46 M allocations: 945.257 MB, 2.17% gc time) after switching to Float32
+@time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt")
+# 21.215483 seconds (20.45 M allocations: 861.323 MB, 4.25% gc time)
+
+# This is for: Float64
+# @test isapprox(test9[1], 814.9780887272417;  rtol=.0001)
+# @test isapprox(test9[2], 541.2457922913605;  rtol=.0001)
+# @test isapprox(test9[3], 267.626257438979;   rtol=.005)
+# @test isapprox(test9[4], 120.16170771885587; rtol=.0001)
+
+# Changing to: Float32
+@test isapprox(test9[1], 823.0, rtol=0.05)
+@test isapprox(test9[2], 536.0, rtol=0.05)
+@test isapprox(test9[3], 267.2, rtol=.005)
+@test isapprox(test9[4], 136.92346f0, rtol=0.0001)

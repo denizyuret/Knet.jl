@@ -1,23 +1,32 @@
 """
-back(r::Net,dy,dx...) for individual items that may or may not be elements
-of a sequence.
+
+back(r::Net,ygold,loss) for individual items that may or may not be
+elements of a sequence.  The seq keyword argument determines which:
+initback sets incr=true for par if seq, back pops from stack if seq.
+The loss gradient of the output, ygrad, is computed using
+loss(ypred,ygold,ygrad).  ypred is retrieved from r.out[N] where N is
+the index of the last op.  ygrad is written to r.dif[N].  If r.op[N]
+has multiple outputs (toincr[N]), r.dif[N] is incremented.  If the
+optional loss argument is not provided, ygold is used as the loss
+gradient.  If ygold=nothing means the loss gradient from the output is
+taken to be 0.  Gradients computation proceeds backwards from N..1.
+
 """
-function back(r::Net, dy, dx...; seq=false, a...)
+function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...)
     N = nops(r)
-    seq || initback(r, dy, dx...; seq=false, a...)
-    @assert dy == nothing || issimilar2(dy, r.dif0[N])
-    if dy == nothing
-        r.toincr[N] || (r.dif[N] = nothing) # otherwise we pretend we add 0
-    elseif r.toincr[N]
-        copy!(r.tmp[N], dy)
-        r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
+    initback(r, ygold, loss; getdx=getdx, seq=seq, a...)
+    if ygold == nothing
+        r.toincr[N] || (r.dif[N] = nothing)
+    elseif !r.toincr[N]
+        r.dif[N] = loss(r.out[N], ygold, r.dif0[N])
     else
-        r.dif[N] = copy!(r.dif0[N], dy)
-    end										# ; dbg(r,:dif,N) 
+        loss(r.out[N], ygold, r.tmp[N])
+        r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
+    end
     for n = N:-1:1
         if r.dif[n] == nothing
             for i in r.inputs[n]
-                r.toincr[i] || (r.dif[i] = nothing)
+                !r.toincr[i] && (r.dif[i] = nothing)
             end
         else
             dxn = Any[]
@@ -27,37 +36,43 @@ function back(r::Net, dy, dx...; seq=false, a...)
                 push!(xn, r.out[i]) 
             end
             xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
-            back(r.op[n], dyn, dxn...; x=xn, y=yn, a...) # t:2164
+            back(r.op[n], dyn, dxn...; x=xn, y=yn, a...)
+            gpusync()
             for i in r.inputs[n]
                 if r.toback[i]
-                    r.toincr[i] && axpy!(1, r.tmp[i], r.dif0[i])            # ; r.toincr[i]&&dbg(r,:tmp,i)
-                    r.dif[i] = r.dif0[i]                                    # ; dbg(r,:dif,i)
+                    if r.toincr[i]
+                        axpy!(1, r.tmp[i], r.dif0[i]) 
+                        gpusync()
+                    end
+                    r.dif[i] = r.dif0[i]
                 else
                     r.dif[i] = nothing
                 end
             end
-            r.toincr[n] && !isa(r.op[n], Par) && fill!(r.dif[n],0)
+            gpusync()
+            if r.toincr[n] && !isa(r.op[n], Par)
+                fill!(r.dif[n],0)
+                gpusync()
+            end
         end
-        seq && r.tosave[n] && pop(r,n)                                    # ; r.tosave[n]&&dbg(r,:out,n)
+        seq && r.tosave[n] && pop(r,n)
     end
-    if dx != ()
-        lastinput = 0
-        for n = 1:N
-            isa(r.op[n], Input) || continue
-            copy!(dx[lastinput += 1], r.dif[n])
-        end
-    end
+    getdx && get1(r.dif[find(o->isa(o,Input), r.op)])
 end
 
-# back(r::Net,dy::Vector) for a sequence
-function back(r::Net, dy::Vector, dx...; a...)
-    dxi = map(x->(x==nothing ? x : x[end]), dx)
-    initback(r, dy[end], dxi...; seq=true, a...)
-    for i=length(dy):-1:1
-        dxi = map(x->(x==nothing ? x : x[i]), dx)
-        back(r, dy[i], dxi...; seq=true, a...)
-    end
-end
+copyloss(ypred,ygold,ygrad)=copy!(ygrad,ygold)
+
+### DEAD CODE:
+
+# # back(r::Net,dy::Vector) for a sequence
+# function back(r::Net, dy::Vector, dx...; a...)
+#     dxi = map(x->(x==nothing ? x : x[end]), dx)
+#     initback(r, dy[end], dxi...; seq=true, a...)
+#     for i=length(dy):-1:1
+#         dxi = map(x->(x==nothing ? x : x[i]), dx)
+#         back(r, dy[i], dxi...; seq=true, a...)
+#     end
+# end
 
 # DONE: truncated bptt
 # - go forward k1 steps, run back for k2, update, recover state
@@ -69,4 +84,12 @@ end
     #     n = i+N
     #     r.tosave[n] && pop(r,n)                                    # ; r.tosave[n] && dbg(r,:out,n)
     #     dx == nothing || copy!(dx[i], r.dif[n])
+    # end
+
+    # if dx != ()
+    #     lastinput = 0
+    #     for n = 1:N
+    #         isa(r.op[n], Input) || continue
+    #         copy!(dx[lastinput += 1], r.dif[n])
+    #     end
     # end

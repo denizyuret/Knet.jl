@@ -1,6 +1,6 @@
 type Mul <: Op; Mul()=new(); end
 
-mul()=Mul()
+mul(x1,x2,y)=(Mul(),x1,x2,y)
 ninputs(::Mul)=2
 overwrites(::Mul)=false
 back_reads_x(::Mul)=true

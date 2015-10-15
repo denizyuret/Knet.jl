@@ -5,11 +5,18 @@ import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm
 import Base.LinAlg: axpy!, scale!
 
 ### VEC functions
-# axpy!{S,T}(a,x::KUdense{S,T},y::KUdense{S,T})=(axpy!(convert(T,a),x.arr,y.arr); y)
-axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); @assert n==length(y); axpy!(n,convert(T,a),x,1,y,1); y)
-# scale!{S,T}(a,x::KUdense{S,T})=(scale!(convert(T,a),x.arr); x)
-scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); x)
-vecnorm(x::CudaArray)=nrm2(x)
+axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); n==length(y)||error(); axpy!(n,convert(T,a),x,1,y,1); gpusync(); y)
+scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); gpusync(); x)
+
+# CUBLAS is twice as slow as Barret's custom kernel in my experiments:
+# vecnorm(x::CudaArray)=nrm2(x)
+vecnorm2(x::CudaArray{Float32})=ccall((:vecnorm2_32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+vecnorm2(x::CudaArray{Float64})=ccall((:vecnorm2_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+vecnorm1(x::CudaArray{Float32})=ccall((:vecnorm1_32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+vecnorm1(x::CudaArray{Float64})=ccall((:vecnorm1_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+vecnorm(x::CudaArray,p=2)=(p==2 ? vecnorm2(x) : p==1 ? vecnorm1(x) : error("Undefined"))
+
+# (ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
 
 ### MMUL
 # This is not a complete implementation.  The goal is to support Knet
@@ -23,32 +30,18 @@ vecnorm(x::CudaArray)=nrm2(x)
 
 ### CudaMatrix (Matrix versions already defined)
 
-A_mul_B!{T}( C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
-A_mul_Bt!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
-At_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
+A_mul_B!{T}( C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=(gemm!('N','N',one(T),A,B,zero(T),C); gpusync(); C)
+A_mul_Bt!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=(gemm!('N','T',one(T),A,B,zero(T),C); gpusync(); C)
+At_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=(gemm!('T','N',one(T),A,B,zero(T),C); gpusync(); C)
 
 ### Add the ability to multiply arrays with other than 2 dimensions
 mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))
-A_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-A_mul_Bt!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-At_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-
-### KUDENSE
-
-# The input could be a tensor or a vector.  In which case perform
-# internal calculations in 2D.
-
-# A_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
-# At_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
-# A_mul_Bt!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); C)
-
-# # KUdense mixed with other types:
-# A_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); C)
-# At_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); C)
-# A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C), mat2d(A.arr), mat2d(B.arr)); C)
+A_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
+A_mul_Bt!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
+At_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
+A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
+A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
+At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
 
 # CudaSparseMatrixCSC
 # y = w * xS
@@ -61,21 +54,101 @@ function A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{
     CUSPARSE.csrmm2!('N','T',one(T),bT,A,zero(T),cT,'O') # yT = xT * w'
     CUBLAS.geam!('T','T',one(T),cT,zero(T),cT,C)
     free(cT)
+    gpusync()
     return C
 end
 
 # dw = dy * x'
+# A_mul_Bt!(csr,dns,csc) is more efficient if we do not insist on
+# unique sorted csr entries.  To signal unsorted csr, we introduce a
+# new type so we don't accidentally pass it to an unprepared function.
+# The following copied from CUSPARSE.jl:
+
+type CudaSparseMatrixCSRU{T}
+    rowPtr::CudaArray{Cint,1}
+    colVal::CudaArray{Cint,1}
+    nzVal::CudaArray{T,1}
+    dims::NTuple{2,Int}
+    nnz::Cint
+    dev::Int
+    function CudaSparseMatrixCSRU(rowPtr::CudaVector{Cint}, colVal::CudaVector{Cint}, nzVal::CudaVector{T}, dims::NTuple{2,Int}, nnz::Cint, dev::Int)
+        new(rowPtr,colVal,nzVal,dims,nnz,dev)
+    end
+end
+
+CudaSparseMatrixCSRU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSRU{T}(fill!(CudaArray(Cint,m),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
+CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, convert(Cint,length(nzVal)), device())
+CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, nnz, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, nnz, device())
+Base.eltype{T}(x::CudaSparseMatrixCSRU{T})=T
+Base.size(x::CudaSparseMatrixCSRU)=x.dims
+Base.issparse(x::CudaSparseMatrixCSRU)=true
+Base.scale!(s,x::CudaSparseMatrixCSRU)=scale!(s,x.nzVal)
+Base.similar(Mat::CudaSparseMatrixCSRU) = CudaSparseMatrixCSRU(eltype(Mat), copy(Mat.rowPtr), copy(Mat.colVal), similar(Mat.nzVal), Mat.nnz, Mat.dims)
+Base.copy(Mat::CudaSparseMatrixCSRU; stream=null_stream) = copy!(similar(Mat),Mat;stream=null_stream)
+function Base.copy!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream=null_stream)
+    if dst.dims != src.dims
+        throw(ArgumentError("Inconsistent Sparse Matrix size"))
+    end
+    copy!( dst.rowPtr, src.rowPtr )
+    copy!( dst.colVal, src.colVal )
+    copy!( dst.nzVal, src.nzVal )
+    dst.nnz = src.nnz
+    dst
+end
+function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSRU{T})
+    rowPtr = to_host(Mat.rowPtr)
+    colVal = to_host(Mat.colVal)
+    nzVal = to_host(Mat.nzVal)
+    #construct Is
+    I = similar(colVal)
+    counter = 1
+    for row = 1 : size(Mat)[1], k = rowPtr[row] : (rowPtr[row+1]-1)
+        I[counter] = row
+        counter += 1
+    end
+    return sparse(I,colVal,nzVal,Mat.dims[1],Mat.dims[2])
+end
+
+function A_mul_Bt_Csize!{T}(C::CudaSparseMatrixCSRU{T},A::CudaMatrix{T},B::CudaSparseMatrixCSC{T})
+    C.dims == (size(A,1), size(B,1)) || error()
+    C.nnz = C.dims[1] * B.nnz
+    resize!(C.rowPtr, C.dims[1]+1)
+    resize!(C.colVal, C.nnz)
+    resize!(C.nzVal, C.nnz)
+end
+
+function A_mul_Bt!(C::CudaSparseMatrixCSRU{Float32},A::CudaMatrix{Float32},B::CudaSparseMatrixCSC{Float32})
+    A_mul_Bt_Csize!(C,A,B)
+    ccall((:mul_dns_csr_csr_32,libknet), Void,
+          (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
+          size(A,1), size(A,2), A, B.colPtr, B.rowVal, B.nzVal, C.rowPtr, C.colVal, C.nzVal)
+    gpusync()
+    return C
+end
+
+function A_mul_Bt!(C::CudaSparseMatrixCSRU{Float64},A::CudaMatrix{Float64},B::CudaSparseMatrixCSC{Float64})
+    A_mul_Bt_Csize!(C,A,B)
+    ccall((:mul_dns_csr_csr_64,libknet), Void,
+          (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
+          size(A,1), size(A,2), A, B.colPtr, B.rowVal, B.nzVal, C.rowPtr, C.colVal, C.nzVal)
+    gpusync()
+    return C
+end
+
+# dw = dy * x'
+# This version gives a proper CSR matrix but is slower:
 function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::CudaMatrix{T},B::CudaSparseMatrixCSC{T})
     bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
     a = sparse(A)               # t:337 gives CudaSparseMatrixCSR
     gemm!('N','N',a,bT,C)       # t:868
     free(a)                     # t:96
+    gpusync()
     return C
 end
 
-# TODO: the sparsity pattern should be identical here, could make this much faster:
-# iw = dy * x'  : we have the same x, and dy is always dense
-# if that is the case we just do axpy!(1,x.nzVal,y.nzVal)
+# dw = dw + iw
+# This is also slow, so instead we keep dw dense, 
+# or use an accumulator type defined below
 function axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T})
     z = CUSPARSE.geam(convert(T,a), x, one(T), y, 'O', 'O', 'O')
     free(y)
@@ -83,26 +156,83 @@ function axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T})
     y.colVal = z.colVal
     y.nzVal = z.nzVal
     y.nnz = z.nnz
+    gpusync()
     return y
 end
 
-axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
-axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:axpy64csr,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
+# For incremental updates with sparse dw, it is inefficient to try dw
+# += iw.  Instead we will just keep a list of iw.  The sparsity
+# patterns are likely different, so we are not losing any space.  So
+# we invent a new type, so the user can pretend this is a matrix.
+
+# Unfortunately this is not faster than keeping dw dense when iw sparse.
+# However it takes much less space.
+
+type ArrayAccumulator; arr; eltype; size; cnt;
+    ArrayAccumulator(xtype, dims)=new(Any[], xtype, dims, 0)
+end
+
+Base.size(x::ArrayAccumulator)=x.size
+Base.eltype(x::ArrayAccumulator)=x.eltype
+Base.fill!(x::ArrayAccumulator, n)=(n==0 ? x.cnt = 0 : error())
+Base.scale!(s, x::ArrayAccumulator)=(for i=1:x.cnt; scale!(s,x.arr[i]); end; x)
+
+# TODO: this does not work for unsorted csru or ArrayAccumulator,
+# since they may have multiple entries for a single position.  Note
+# that p=1 is not feasible either since entries might cancel out.
+# Base.vecnorm(x::ArrayAccumulator)=(n=0;for i=1:x.cnt;
+# n+=vecnorm(x.arr[i]); end; n)
+function Base.vecnorm(x::Union{ArrayAccumulator,CudaSparseMatrixCSRU},p=2)
+    Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0")
+    return 0
+end
+
+function axpy!(a, x, y::ArrayAccumulator)
+    @assert size(x)==size(y) && eltype(x)==eltype(y)
+    y.cnt += 1
+    if length(y.arr) >= y.cnt
+        copy!(y.arr[y.cnt], x)
+    elseif length(y.arr)+1 == y.cnt
+        push!(y.arr, copy(x))
+    else
+        error()
+    end
+    a != 1 && scale!(a, y.arr[y.cnt])
+    gpusync()
+    return y
+end
+
+function axpy!(a, x::ArrayAccumulator, y::CudaMatrix)
+    @assert size(x)==size(y) && eltype(x)==eltype(y)
+    for i=1:x.cnt
+        axpy!(a, x.arr[i], y)
+    end
+    gpusync()
+    return y
+end
+
+
+# CSR does not need atomic operations because each position is only written once
+axpy!(a,x::CudaSparseMatrixCSR{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+# CSRU needs atomic operations because the sparse representation may contain multiple values for one location
+axpy!(a,x::CudaSparseMatrixCSRU{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_atomic_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
+axpy!(a,x::CudaSparseMatrixCSRU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_atomic_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
 
 
 ### axpb! useful scale and shift transformation: x -> ax+b
 
 axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)
-axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libknet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x);x)
-axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x);x)
+axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libknet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x); gpusync(); x)
+axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x); gpusync(); x)
 
 
 ### mul2 element-wise multiplication:
 
 # mul2!(c::KUdense,a::KUdense,b::KUdense)=(mul2!(c.arr,a.arr,b.arr);c)
 mul2!(c::Array,a::Array,b::Array)=(for i=1:length(c); c[i] = a[i]*b[i]; end; c)
-mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c);c)
-mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c);c)
+mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c); gpusync(); c)
+mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c); gpusync(); c)
 
 
 
@@ -260,3 +390,30 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 #     end
 #     return k
 # end
+
+    # muldbg = nothing
+    # C2 = deepcopy(C)
+    # A_mul_Btx!(C,A,B)
+    # if !isapprox(full(to_host2(C2)), full(to_host2(C)))
+    #     global muldbg
+    #     muldbg = (A,B,C,C2)
+    #     error()
+    # end
+    # return C2
+
+### KUDENSE
+
+# The input could be a tensor or a vector.  In which case perform
+# internal calculations in 2D.
+
+# A_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); gpusync(); C)
+# At_mul_B!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); gpusync(); C)
+# A_mul_Bt!{S,T}(C::KUdense{S,T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C.arr), mat2d(A.arr), mat2d(B.arr)); gpusync(); C)
+
+# # KUdense mixed with other types:
+# A_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(A_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); gpusync(); C)
+# At_mul_B!{S,T}(C::KUdense{S,T}, A::BaseArray{T}, B::KUdense{S,T})=(At_mul_B!(mat2d(C.arr), mat2d(A), mat2d(B.arr)); gpusync(); C)
+# A_mul_Bt!{S,T}(C::BaseArray{T}, A::KUdense{S,T}, B::KUdense{S,T})=(A_mul_Bt!(mat2d(C), mat2d(A.arr), mat2d(B.arr)); gpusync(); C)
+
+# axpy!{S,T}(a,x::KUdense{S,T},y::KUdense{S,T})=(axpy!(convert(T,a),x.arr,y.arr); y)
+# scale!{S,T}(a,x::KUdense{S,T})=(scale!(convert(T,a),x.arr); x)

@@ -5,33 +5,29 @@ initback initializes the fields used by Net.back:
 - toback: depends on which dx args specified.
 - tosave: read-only, used for popping only if seq.
 """
-function initback(r::Net, dy, dx...; seq=false, a...)
-    @assert dx == () || length(dx) == ninputs(r)
-    set_toback(r, dx...)
+function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
+    @assert ygold == nothing || issimilar2(ygold, r.out0[end])
+    set_toback(r, getdx)
     set_toincr(r, seq)
+    set_sparse(r)
     for n=length(r.op):-1:1
-        r.toback[n] || continue
-        st = difsparse(r, dy, n)
-        if isassigned(r.dif0, n)
-            @assert (issimilar2(r.dif0[n], r.out0[n]) && stype(r.dif0[n])==st) # TODO: implement batch size change
+        r.toback[n] || continue # we mix initback and initback0 here because if getdx or seq changes we may need to alloc new arrays.
+        if isassigned(r.dif0,n) # TODO: implement batch size change
+            @assert (issimilar2(r.dif0[n], r.out0[n]) ) #TODO: && issparse(r.dif0[n])==r.sparse[n])
         else
-            r.dif0[n] = finddif(r, n, st)
+            r.dif0[n] = finddif(r, n)
+            r.dif[n] = nothing
         end
         if r.toincr[n]
             if isassigned(r.tmp, n)
-                @assert (issimilar2(r.tmp[n], r.out0[n]) && stype(r.tmp[n])==st)
+                @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==r.sparse[n])
             else
-                r.tmp[n] = findtmp(r, n, st)
+                r.tmp[n] = findtmp(r, n)
+                fill!(r.dif0[n], 0)
             end
         end
     end
-    fill!(r.dif, nothing)
-    for n=1:length(r.op)                                # TODO-OPTIMIZATION
-        isassigned(r.dif0, n) && fill!(r.dif0[n], 0)
-        isassigned(r.tmp, n) && fill!(r.tmp[n], 0)
-    end
 end
-
 
 """
 set_toback(r::Net) sets r.toback[n] which is true if dif[n] should be
@@ -39,13 +35,13 @@ calculated for op[n] during back calculation.  This is only needed if
 op[n] is a par node or a par node descendent.  Or if the caller asked
 for dx for network inputs, those and their descendents.
 """
-function set_toback(r::Net, dx...)
+function set_toback(r::Net, getdx; a...)
     fill!(r.toback, false)
     N = length(r.op)
     lastinput = 0
     for n=1:N
         isa(r.op[n], Par) && (r.toback[n] = true)
-        isa(r.op[n], Input) && dx != () && dx[lastinput += 1] != nothing && (r.toback[n] = true)
+        isa(r.op[n], Input) && getdx && (r.toback[n] = true)
     end
     nback = sum(r.toback)
     while true
@@ -67,7 +63,8 @@ end
 """
 set_toincr(r::Net) sets r.toincr[n] which is true if dif[n] should be
 incrementally updated.  This is necessary if op[n] has multiple
-outputs, or it is a Par and we are processing a sequence.
+outputs, or it is a Par and we are processing a sequence.  This is the
+one place we can't seem to get rid of the seq flag.
 """
 function set_toincr(r::Net, seq)
     fill!(r.toincr, false)
@@ -78,52 +75,78 @@ function set_toincr(r::Net, seq)
 end
 
 
-function finddif(r::Net, n, st)
+function finddif(r::Net, n)
     dif0 = nothing
-    if (!isa(r.op[n], Par) && 
-        !r.toincr[n])
-        for i=n+1:length(r.op)
-            if (isassigned(r.dif0, i)
-                && size(r.dif0[i]) == size(r.out0[n])
-                && stype(r.dif0[i]) == st
-                && in(n, r.inputs[i])
-                && overwrites(r.op[i])
-                && !r.toincr[i])
-                dif0 = r.dif0[i]
-                break
-            end
+    if !r.toincr[n]
+        @assert length(r.outputs[n]) == 1 # otherwise toincr would be true
+        o = r.outputs[n][1]     # first try overwriting the output dif
+        if (o > n
+            && !r.toincr[o]
+            && overwrites(r.op[o])
+            && isassigned(r.dif0, o)
+            && size(r.dif0[o]) == size(r.out0[n]))
+            dif0 = r.dif0[o]
         end
     end
     if dif0 == nothing
-        dif0 = newarray(gpu(), st, eltype(r.out0[n]), size(r.out0[n]))
+        et = eltype(r.out0[n])
+        sz = size(r.out0[n])
+        dif0 = (
+                ### This is sparse non-incremental dw: can't really have dense without 
+                # rewriting CUSPARSE.csrmm to take sparse matrix in second position.  As
+                # it stands, we'd have to transpose all three matrices: dw = dy * x' -> dw' = x * dy'
+                r.sparse[n] && !r.toincr[n] && !gpu() ? spzeros(et, sz...) :
+                r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSR(spzeros(et, sz...)) : # t:12.38
+                ### CSRU speed 20% slower than CSR on mnist (atomicAdd conflicts?), also cannot compute vecnorm.
+                # r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSRU(et, sz...) : # t:14.69
+                ### Uncomment this if you want sparse incremental dw:
+                ### Speed similar to dense on rnnlm, less memory, cannot compute vecnorm.
+                # r.sparse[n] && r.toincr[n] && gpu()   ? ArrayAccumulator(et, sz) :
+                # r.sparse[n] && r.toincr[n] && !gpu()  ? ArrayAccumulator(et, sz) :
+                gpu() ? CudaArray(et, sz) : Array(et, sz))
     end
     return dif0
 end
 
-function findtmp(r::Net, n, st)
+function findtmp(r::Net, n)
     tmp = nothing
     for i=n+1:length(r.op)
         if (isassigned(r.tmp, i) &&
             size(r.tmp[i]) == size(r.dif0[n]) &&
-            stype(r.tmp[i]) == st)
+            issparse(r.tmp[i]) == r.sparse[n])
             tmp = r.tmp[i]
             break
         end
     end
     if tmp == nothing
-        tmp = newarray(gpu(), st, eltype(r.dif0[n]), size(r.dif0[n]))
+        et = eltype(r.out0[n])
+        sz = size(r.out0[n])
+        tmp = (gpu() && r.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
+               # CSRU is 5% faster if no atomic op conflicts (rnnlm), 
+               # but significantly slower when there are lots of conflicts (mnist)
+               # Not worth the risk until I implement uniq for CSRU
+               # gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
+               !gpu() && r.sparse[n] ? spzeros(et, sz...) :
+               gpu() ? CudaArray(et, sz) : 
+               Array(et, sz))
     end
     return tmp
 end
 
-function difsparse(r::Net, dy, n)                       # TODO: test this, compare with old initback
-    N = length(r.op)
-    n == N && length(r.outputs[n]) == 1 && return stype(dy)
-    for i=1:N
-        # The sparse operation dw = dy * x' is implemented for dw:csr, dy:arr, x:csc.
-        isa(r.op[i], Dot) && n == r.inputs[i][1] && stype(r.out0[r.inputs[i][2]])==:csc && return :csr
+# The only sparse matrices are the dw and iw for w that dot sparse inputs.
+function set_sparse(r::Net)
+    fill!(r.sparse, false)
+    for i=1:length(r.op)
+        if isa(r.op[i], Input) && issparse(r.out0[i])
+            for o in r.outputs[i]
+                if isa(r.op[o], Dot)
+                    w = r.inputs[o][1]
+                    @assert isa(r.op[w], Par)
+                    r.sparse[w] = true
+                end
+            end
+        end
     end
-    return nothing
 end
 
 
@@ -515,3 +538,24 @@ end
 #         end
 #     end
 # end
+
+        # else                    # otherwise find one with matching size
+        #     for k=o+1:length(r.op)
+        #         if (!r.toincr[k]
+        #             && isassigned(r.dif0, k)
+        #             && size(r.dif0[k]) == size(r.out0[n])
+        #             && stype(r.dif0[k]) == st
+        #             && r.outputs[k][1] > k)
+        #             dif0 = r.dif0[k]
+        #             # TODO: However we need to check and see if this has been used between n..o
+        #             # Also we don't know whether o > n for sure
+        #             # This all needs more thinking
+        #             break
+        #         end
+        #     end
+# should be part of reset:
+    # fill!(r.dif, nothing)
+    # for n=1:length(r.op)
+    #     isassigned(r.dif0, n) && r.toincr[n] && fill!(r.dif0[n], 0)
+    # end
+

@@ -5,7 +5,7 @@ import Base: dot
 
 type Dot <: Op; end
 
-dot()=Dot()
+dot(w,x,y)=(Dot(),w,x,y)
 ninputs(::Dot)=2
 overwrites(::Dot)=false
 back_reads_x(::Dot)=true

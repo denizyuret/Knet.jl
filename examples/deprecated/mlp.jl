@@ -1,4 +1,4 @@
-function mlp(; layers=(), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
+function mlp(; layers=(), last=softmax, actf=relu, winit=Gaussian(0,.01), binit=Constant(0))
     prog = quote
         x0 = input()
     end
@@ -6,7 +6,7 @@ function mlp(; layers=(), loss=softmax, actf=relu, winit=Gaussian(0,.01), binit=
     x0 = x1 = :x0
     for n=1:N
         x0 = x1; x1 = symbol("x$n")
-        op = :($x1 = mlplayer($x0; n=$(layers[n]), f=$(n<N ? actf : loss), winit=$winit, binit=$binit))
+        op = :($x1 = mlplayer($x0; n=$(layers[n]), f=$(n<N ? actf : last), winit=$winit, binit=$binit))
         push!(prog.args, op)
     end
     return prog

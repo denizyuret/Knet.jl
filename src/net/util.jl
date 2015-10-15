@@ -2,6 +2,21 @@ params(r::Net)=r.params
 ninputs(r::Net)=r.netinputs
 nops(r::Net)=length(r.op)
 
+### Cleanup at the end of sequence
+
+function reset!(r::Net; keepstate=false, a...)
+    @assert r.sp == 0
+    if keepstate
+        copy!(r.out, r.out0)
+    else
+        fill!(r.out, nothing)
+    end
+    fill!(r.dif, nothing)
+    for n=1:length(r.op)
+        r.toback[n] && r.toincr[n] && fill!(r.dif0[n], 0)
+    end
+end
+
 ### Stack functions: push, pop
 
 function push(r::Net,n::Int)
@@ -12,7 +27,7 @@ function push(r::Net,n::Int)
         r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing over array")
         r.stack[r.sp] = nothing
     elseif r.stack[r.sp] == nothing
-        warn("pushing array over nothing")
+        # warn("pushing array over nothing")  # This actually happens with rnnlm keepstate
         r.stack[r.sp] = copy(r.out[n])
     elseif r.stack[r.sp] == :newcell
         r.stack[r.sp] = copy(r.out[n])

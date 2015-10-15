@@ -6,9 +6,6 @@
 using ArgParse
 using Knet
 import Base: start, next, done
-include("irnn.jl")
-include("lstm.jl")
-include("s2c.jl")
 
 function adding(args=ARGS)
     info("Adding problem from Le et al. 2015.")
@@ -17,15 +14,15 @@ function adding(args=ARGS)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    p1 = (opts["type"] == "irnn" ? irnn(n=opts["hidden"], std=opts["std"]) :
-          opts["type"] == "lstm" ? lstm(n=opts["hidden"], fbias=opts["fbias"]) : 
-          error("Unknown network type "*opts["type"]))
-    p2 = qlayer(std=opts["std"])
-    net = S2C(Net(p1), Net(p2))
+    p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
+          opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
+          error("Unknown network type "*opts["nettype"]))
+    p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
+    net = S2C(p1, p2)
     setopt!(net; lr=opts["lrate"])
     mse = maxw = maxg = 0
     for epoch=1:opts["epochs"]
-        (l,maxw,maxg) = train(net, data; gclip=opts["gclip"], gcheck=opts["gcheck"])
+        (l,maxw,maxg) = train(net, data, quadloss; gclip=opts["gclip"], gcheck=opts["gcheck"])
         mse = 2*l
         println(tuple(epoch*data.epochsize,mse,maxw,maxg))
         flush(STDOUT)
@@ -33,40 +30,37 @@ function adding(args=ARGS)
     return (mse, maxw, maxg)
 end
 
-type Adding; len; batchsize; epochsize; rng;
-    Adding(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+type Adding; len; batchsize; epochsize; batch; sum; cnt; rng;
+    Adding(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
+    new(len, batchsize, epochsize, zeros(Float32,2,batchsize), 
+        zeros(Float32,1,batchsize), zeros(Int,1,batchsize), rng)
 end
 
-start(a::Adding)=0
+# state keeps track of instance number, time step
+start(a::Adding)=(0,0)
 
-done(a::Adding,n)=(n >= a.epochsize)
+done(a::Adding,s)=(s[1] >= a.epochsize)
 
-function next(a::Adding, n)
-    nb = min(a.batchsize, a.epochsize-n)
-    x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
-    y = Array(Float32,1,nb)
-    t1 = rand(a.rng,1:a.len,nb)
-    t2 = rand(a.rng,1:a.len,nb)
-    for b=1:nb
-        while t2[b]==t1[b]
-            t2[b]=rand(a.rng,1:a.len)
+function next(a::Adding, s)
+    (n,t) = s
+    t == 0 && (fill!(a.sum, 0); fill!(a.cnt, 0))
+    rand!(a.rng, sub(a.batch,1,:))
+    fill!(sub(a.batch,2,:),0)
+    togo = a.len - t
+    for b=1:a.batchsize
+        if (a.cnt[b]==0 ? rand(a.rng) <= 2/togo : 
+            a.cnt[b]==1 ? rand(a.rng) <= 1/togo : false)
+            a.batch[2,b] = 1
+            a.cnt[b] += 1
+            a.sum[b] += a.batch[1,b]
         end
-        x[t1[b]][2,b]=1
-        x[t2[b]][2,b]=1
-        y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
     end
-    return ((x,y), n+nb)
+    if t+1 < a.len
+        return ((a.batch,nothing), (n,t+1))
+    else
+        return ((a.batch,a.sum), (n+a.batchsize,0))
+    end
 end
-
-qlayer(;std=0.01) = quote
-    x = input()
-    w = par(1,0; init=Gaussian(0,$std))
-    y = dot(w,x)
-    b = par(0; init=Constant(0))
-    z = add(b,y)
-    l = quadloss(z)
-end
-
 
 function parse_commandline(args)
     s = ArgParseSettings()
@@ -103,14 +97,14 @@ function parse_commandline(args)
         help = "gradient check"
         arg_type = Int
         default = 10
-        "--type"
+        "--nettype"
         help = "type of network"
         default = "irnn" # "lstm"
         "--fbias"
         help = "forget gate bias (for lstm)"
         arg_type = Float64
         default = 1.0
-        "--std"
+        "--winit"
         help = "stdev for weight initialization (for irnn)"
         arg_type = Float64
         default =  0.01 # 0.001
@@ -464,3 +458,50 @@ end
 # (38000,0.1655073f0,3.7557068f0,0.32211268f0)
 # (40000,0.16552721f0,3.7773042f0,0.34974277f0)
 #  55.892459 seconds (93.09 M allocations: 4.137 GB, 2.54% gc time)
+
+# OLD GENERATOR FOR COMPARISON:
+
+# type Adding1; len; batchsize; epochsize; b; x; y; 
+#     Adding1(len, batchsize, epochsize; o...)=new(len,batchsize,epochsize,Adding0(len,batchsize,epochsize; o...))
+# end
+
+# start(a::Adding1)=(0,0)
+# done(a::Adding1,s)=(s[1] >= a.b.epochsize)
+
+# function next(a::Adding1, s)
+#     (n,t) = s
+#     t == 0 && ((xy,n1) = next(a.b,n); (a.x,a.y)=xy)
+#     t += 1
+#     if t < a.b.len
+#         return ((a.x[t], nothing), (n,t))
+#     else
+#         return ((a.x[t], a.y), (n+a.b.batchsize, 0))
+#     end
+# end
+
+# type Adding0; len; batchsize; epochsize; rng;
+#     Adding0(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+# end
+
+# start(a::Adding0)=0
+
+# done(a::Adding0,n)=(n >= a.epochsize)
+
+# function next(a::Adding0, n)
+#     nb = min(a.batchsize, a.epochsize-n)
+#     x = [ vcat(rand(a.rng,Float32,1,nb),zeros(Float32,1,nb)) for t=1:a.len ]
+#     y = Array(Float32,1,nb)
+#     t1 = rand(a.rng,1:a.len,nb)
+#     t2 = rand(a.rng,1:a.len,nb)
+#     for b=1:nb
+#         while t2[b]==t1[b]
+#             t2[b]=rand(a.rng,1:a.len)
+#         end
+#         x[t1[b]][2,b]=1
+#         x[t2[b]][2,b]=1
+#         y[b] = x[t1[b]][1,b] + x[t2[b]][1,b]
+#     end
+#     return ((x,y), n+nb)
+# end
+
+
