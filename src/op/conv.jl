@@ -79,9 +79,13 @@ xavier!(a)=(fanin = length(a) / (size(a)[end]); scale = sqrt(3 / fanin); rand!(a
 import CUDNN: cudnnGetConvolutionNdForwardOutputDim, cudnnConvolutionForward, cudnnConvolutionBackwardFilter, cudnnConvolutionBackwardData
 
 cudnnGetConvolutionNdForwardOutputDim(x::KUdense, w::KUparam)=cudnnGetConvolutionNdForwardOutputDim(x.arr, w.arr)
+cudnnGetConvolutionNdForwardOutputDim(x::BaseArray, w::KUparam)=cudnnGetConvolutionNdForwardOutputDim(x, w.arr)
 cudnnConvolutionForward(x::KUdense, w::KUparam, y::KUdense)=(cudnnConvolutionForward(x.arr, w.arr, y.arr);y)
+cudnnConvolutionForward(x::BaseArray, w::KUparam, y::BaseArray)=(cudnnConvolutionForward(x, w.arr, y);y)
 cudnnConvolutionBackwardFilter(x::KUdense, dy::KUdense, w::BaseArray)=(cudnnConvolutionBackwardFilter(x.arr, dy.arr, w);w)
+cudnnConvolutionBackwardFilter(x::BaseArray, dy::BaseArray, w::BaseArray)=(cudnnConvolutionBackwardFilter(x, dy, w);w)
 cudnnConvolutionBackwardData(w::KUparam, dy::KUdense, dx::KUdense)=(cudnnConvolutionBackwardData(w.arr, dy.arr, dx.arr);dx)
+cudnnConvolutionBackwardData(w::KUparam, dy::BaseArray, dx::BaseArray)=(cudnnConvolutionBackwardData(w.arr, dy, dx);dx)
 
 # Make things work with CPU (for now)
 
