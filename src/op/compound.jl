@@ -40,7 +40,7 @@ end
 
 @knet function lstm(x; fbias=0, o...)
     input  = add2(x,h; o..., f=sigm)
-    forget = add2(x,h; o..., f=sigm, binit=fbias)
+    forget = add2(x,h; o..., f=sigm, binit=Constant(fbias))
     output = add2(x,h; o..., f=sigm)
     newmem = add2(x,h; o..., f=tanh)
     ig = mul(input,newmem)

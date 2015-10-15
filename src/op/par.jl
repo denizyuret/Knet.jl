@@ -52,7 +52,7 @@ function forw(p::Par, y; o...)
          isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
          isa(p.init, Identity) ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
          isa(p.init, Xavier) ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); rand!(y); axpb!(2*scale, -scale, y)) :
-         error())
+         error("p.init=$(p.init)"))
     end
 end
 

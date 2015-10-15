@@ -7,10 +7,10 @@ type Net
     outputs::Vector{Vector{Int}}
     netinputs::Int
     params::Vector{Par}
-    tosave::Vector{Bool} 
-    toback::Vector{Bool}
-    toincr::Vector{Bool}
-    sparse::Vector{Bool}
+    tosave::Vector{Bool}        # result of op[n] needed for back calculation.  
+    toback::Vector{Bool}        # dif[n] should be calculated during back calculation
+    toincr::Vector{Bool}        # dif[n] should be incrementally updated: multiple outputs or Par in a sequence model
+    sparse::Vector{Bool}        # a parameter dotted with sparse input
     out::Vector
     out0::Vector
     dif::Vector

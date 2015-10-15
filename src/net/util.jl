@@ -13,7 +13,7 @@ function reset!(r::Net; keepstate=false, a...)
     end
     fill!(r.dif, nothing)
     for n=1:length(r.op)
-        r.toincr[n] && fill!(r.dif0[n], 0)
+        r.toback[n] && r.toincr[n] && fill!(r.dif0[n], 0)
     end
 end
 
