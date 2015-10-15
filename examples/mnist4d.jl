@@ -3,7 +3,7 @@
 
 using Base.Test
 using KUnet
-using KUnet: params, isapprox2
+using KUnet: params
 isdefined(:MNIST) || include("mnist.jl")
 setseed(42)
 nbatch=100
