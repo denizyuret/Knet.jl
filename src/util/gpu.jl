@@ -32,7 +32,7 @@ macro gpu(_ex); if GPU; esc(_ex); end; end
 
 # Load kernels from CUDArt
 @useifgpu CUDArt
-GPU && CUDArt.init!([CUDArt.CuModule(),], [CUDArt.device(),])
+GPU && CUDArt.init(CUDArt.devices(i->true))
 
 # Additional cuda code
 const libknet = Libdl.find_library(["libknet"], [Pkg.dir("Knet/src")])
