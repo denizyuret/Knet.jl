@@ -5,6 +5,7 @@ import Base: dot
 
 type Dot <: Op; end
 
+"@knet function dot(w,x) is matrix multiplication."
 dot(w,x,y)=(Dot(),w,x,y)
 ninputs(::Dot)=2
 overwrites(::Dot)=false

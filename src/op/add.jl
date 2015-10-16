@@ -1,11 +1,13 @@
 # TODO: averaging? keep both arr and avg inside par, set output to one without copy?
 # should be handled between net and par not by the op.
 # DONE: handle nothings?  -- net is handling them.
-# TODO: handle scalar input for adding a constant.
+# DONE: handle scalar input for adding a constant. -- axpb will handle this
 # TODO: back
 
 type Add <: Op; end
 
+# TODO: explain bias broadcasting.
+"@knet function add(x,y) is element-wise broadcasting addition."
 add(x1,x2,y)=(Add(),x1,x2,y)
 ninputs(::Add)=2
 overwrites(::Add)=true
@@ -25,9 +27,6 @@ function forw(::Add, x1, x2, y; o...)
         y===x2 ? axpy!(1,x1,y) :
         y===x1 ? axpy!(1,x2,y) :
         (copy!(y,x2); axpy!(1,x1,y))
-    elseif length(x1) == 1
-        y===x2 || copy!(y, x2)
-        axpb!(1,x1[1],y)
     elseif size(x1) == biassize(y)
         biasforw(x1,x2,y)
     else
@@ -50,8 +49,6 @@ function back(::Add, dy, dx1, dx2; o...)
         dx1 === dy || copy!(dx1, dy)
     elseif size(dx1) == biassize(dy)
         biasback(dy, dx1)
-    elseif length(dx1) == 1
-        error("not implemented") # TODO
     else
         error("Don't know how to add $(size(dy))=$(size(dx1))+$(size(dx2))")
     end
@@ -71,9 +68,7 @@ function infersize(::Add, x1, x2)
     elseif x2==nothing
         length(x1) > 1 ? (x1,x1,x1) : (x1,x2,x2)
     elseif length(x1) == 1
-        if x1[1] == 1           # scalar addition
-            (x1,x2,x2)
-        elseif length(x2) == 1  # vector addition
+        if length(x2) == 1  # vector addition
             x3 = commonsize(x1,x2)
             (x3,x3,x3)
         else                    # bias addition

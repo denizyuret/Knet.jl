@@ -1,10 +1,38 @@
 # TODO: update
 # TODO: averaging
 
-type Par <: Op; dims; init; initialized; out0; out; dif;
+type Par <: Op; dims; init; initialized; out; dif;
     lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
     Par()=new(); 
 end
+
+# TODO: document
+"""
+
+`@knet function par(; dims, init, opts...)` creates a parameter array
+of size `dims` which should be a tuple of Ints.  Some entries in dims
+can be left as 0, in which case they will be inferred from the input.
+
+`init` can be one of:
+
+    * Array or CudaArray
+    * Gaussian(mean, std)
+    * Uniform(min, max)
+    * Constant(val)
+    * Identity(scale)
+    * Xavier()
+
+Other `opts` include:
+
+    * lr
+    * l1reg
+    * l2reg
+    * adagrad
+    * momentum
+    * nesterov
+    * average
+"""
+par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
 
 function setopt!(p::Par; o...)
     for (n,v) in o
@@ -16,8 +44,6 @@ function setopt!(p::Par; o...)
     end
     p
 end
-par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
-par(w::AbstractArray, y; o...)=par(y; out0=w, dims=size(w), o...)
 
 infersize(p::Par)=(isdefined(p,:dims) ? (p.dims,) : nothing)
 ninputs(::Par)=0
@@ -45,13 +71,13 @@ function forw(p::Par, y; o...)
     else
         p.initialized = true
         p.out = 
-        (isdefined(p, :out0)   ? copy!(y, p.out0) :
-         !isdefined(p, :init)  ? scale!(0.01, randn!(y)) :
-         isa(p.init, Constant) ? fill!(y, p.init.val) :
-         isa(p.init, Uniform)  ? (rand!(y); axpb!(p.init.max - p.init.min, p.init.min, y)) :
-         isa(p.init, Gaussian) ? (randn!(y); axpb!(p.init.std, p.init.mean, y)) : 
-         isa(p.init, Identity) ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
-         isa(p.init, Xavier) ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); rand!(y); axpb!(2*scale, -scale, y)) :
+        (!isdefined(p, :init)   ? scale!(0.01, randn!(y)) :
+         isa(p.init, BaseArray) ? copy!(y, p.init) :
+         isa(p.init, Constant)  ? fill!(y, p.init.val) :
+         isa(p.init, Uniform)   ? axpb!(rand!(y); a=p.init.max - p.init.min, b=p.init.min) :
+         isa(p.init, Gaussian)  ? axpb!(randn!(y); a=p.init.std, b=p.init.mean) :
+         isa(p.init, Identity)  ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
+         isa(p.init, Xavier)    ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
          error("p.init=$(p.init)"))
     end
 end
@@ -150,4 +176,7 @@ end
 
 # Use the dims option instead of:
 # par(i::Integer, d::Integer...; o...)=par(; dims=(i,d...), o...)
+
+# Use init=w for array initialization.
+# par(w::AbstractArray, y; o...)=par(y; out0=w, dims=size(w), o...)
 

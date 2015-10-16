@@ -1,15 +1,21 @@
 type Pool <: Op; window; padding; stride; mode; end
 
-# window, padding, stride can be specified as Ints or as tuples.
+"""
+@knet function pool(x; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)
+
+window, padding, stride can be specified as Ints or as tuples.
+"""
+pool(x,y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=
+    (Pool(window, padding, stride, mode), x, y)
 
 ninputs(::Pool)=1
 overwrites(::Pool)=false
 back_reads_x(::Pool)=true
 back_reads_y(::Pool)=true
-pool(x,y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=
-    (Pool(window, padding, stride, mode), x, y)
+
 forw(p::Pool, x, y; o...)=
     (cudnnPoolingForward(x, y; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync(); y)
+
 back(p::Pool, dy, dx; x=nothing, y=nothing, o...)=
     (dx!=nothing && cudnnPoolingBackward(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync())
 

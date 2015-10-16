@@ -479,22 +479,6 @@ __global__ void _A_mul_Bst_64(int my, int xc, double *dy, double *xval, int *xro
   }
 }
 
-__global__ void _axpb32(int n, float a, float b, float *x) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    x[i] = a * x[i] + b;
-    i += blockDim.x * gridDim.x;
-  }
-}
-
-__global__ void _axpb64(int n, double a, double b, double *x) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    x[i] = a * x[i] + b;
-    i += blockDim.x * gridDim.x;
-  }
-}
-
 __global__ void _mul2_32(int n, float *x, float *y, float *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -545,9 +529,6 @@ extern "C" {
   void At_test(int blk,int thr,int nx, int ns,  float *xval, int *xrow, int *xcol,  float *sval, int *srow, int *scol, float *k) {_Ast_mul_Bs_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
   void A_test(int blk,int thr,int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) {_As_mul_Bs_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
 
-
-  void axpb32(int n, float a, float b, float *x) KCALL(_axpb32,n,a,b,x);
-  void axpb64(int n, double a, double b, double *x) KCALL(_axpb64,n,a,b,x);
 
   void mul2_32(int n, float  *x, float  *y,  float *z) KCALL(_mul2_32,n,x,y,z);
   void mul2_64(int n, double *x, double *y, double *z) KCALL(_mul2_64,n,x,y,z);

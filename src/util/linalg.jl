@@ -220,13 +220,6 @@ axpy!(a,x::CudaSparseMatrixCSRU{Float32},y::CudaMatrix{Float32})=(ccall((:add_cs
 axpy!(a,x::CudaSparseMatrixCSRU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_atomic_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
 
 
-### axpb! useful scale and shift transformation: x -> ax+b
-
-axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)
-axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libknet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x); gpusync(); x)
-axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x); gpusync(); x)
-
-
 ### mul2 element-wise multiplication:
 
 # mul2!(c::KUdense,a::KUdense,b::KUdense)=(mul2!(c.arr,a.arr,b.arr);c)
@@ -237,6 +230,12 @@ mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall(
 
 
 ### DEAD CODE:
+
+# ### axpb! useful scale and shift transformation: x -> ax+b
+
+# axpb!(a::Number, b::Number, x::Array)=(for i=1:length(x); x[i]=a*x[i]+b; end; x)
+# axpb!(a::Number, b::Number, x::CudaArray{Float32})=(ccall((:axpb32,libknet),Void,(Cint,Cfloat,Cfloat,Ptr{Cfloat}),length(x),a,b,x); gpusync(); x)
+# axpb!(a::Number, b::Number, x::CudaArray{Float64})=(ccall((:axpb64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Cdouble}),length(x),a,b,x); gpusync(); x)
 
 
 ### SPARSE: A_mul_Bs!(y, w, x)

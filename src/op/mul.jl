@@ -1,5 +1,7 @@
 type Mul <: Op; Mul()=new(); end
 
+# TODO: implement broadcasting
+"@knet function mul(x,y) is element-wise multiplication."
 mul(x1,x2,y)=(Mul(),x1,x2,y)
 ninputs(::Mul)=2
 overwrites(::Mul)=false
@@ -14,9 +16,6 @@ function forw(l::Mul, x1, x2, y; o...)
         nothing
     elseif size(x1) == size(x2)
         mul2!(y,x1,x2)          # TODO: (minor) change order to x1,x2,y
-    elseif length(x1) == 1
-        y === x2 || copy!(y,x2)
-        scale!(x1[1], y)
     else
         error()
     end
@@ -30,7 +29,7 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         elseif size(x[1]) == size(dy)
             mul2!(dx2, dy, x[1])
         else
-            error("TODO: implement scaling diff")
+            throw(DimensionMismatch())
         end
     end
     if dx1 == nothing
@@ -43,10 +42,8 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         else
             error("x2 and y should have the same size in mul")
         end
-    elseif length(dx1) == 1
-        error("TODO: implement scaling diff")
     else
-        error()
+        throw(DimensionMismatch())
     end
 end
 
@@ -54,8 +51,6 @@ function infersize(::Mul, x1, x2)
     if x1==x2==nothing
         nothing
     elseif x1==nothing
-        (x1,x2,x2)
-    elseif length(x1) == 1 && x1[1] == 1  # scalar mul
         (x1,x2,x2)
     elseif x2==nothing          # element-wise mul
         (x1, x1, x1)
