@@ -4,7 +4,7 @@ inputs.  It does not zero r.out0 or set r.out.
 """
 function initforw(r::Net, inputs...; o...)
     @assert length(inputs) == ninputs(r)
-    isassigned(r.out0, 1) || initforw0(r, inputs...)
+    r.out0[1]==nothing && initforw0(r, inputs...)
     lastinput = 0
     for n=1:length(r.op)
         if isa(r.op[n], Input)
@@ -49,10 +49,10 @@ function findout(r::Net, n, sizes, nsparse)
         while true
             k = mod1(k+1, length(r.op))
             for j in r.inputs[k]
-                isassigned(r.out0, j) && r.out0[j] === r.out0[i] && (willberead = true; break)
+                (r.out0[j]!=nothing) && r.out0[j] === r.out0[i] && (willberead = true; break)
             end
             willberead && break
-            isassigned(r.out0,k) && r.out0[k] === r.out0[i] && break
+            (r.out0[k]!=nothing) && r.out0[k] === r.out0[i] && break
         end
         !willberead && (free = r.out0[i]; break)
     end
@@ -61,7 +61,7 @@ end
 
 function infersize(r::Net, inputs...)
     N = length(r.op)
-    dims = fill!(cell(N), nothing)
+    dims = nothings(N)
     lastinput = 0
     notfound = N
     while notfound > 0
@@ -102,7 +102,7 @@ end
 
     # if ygold != nothing
     #     @assert issimilar2(ygold, r.out0[N])
-    #     if isassigned(r.dif0, N)
+    #     if (r.dif0[ N]!=nothing)
     #         @assert issimilar3(ygold, r.dif0[N])
     #     else
     #         r.dif0[N] = newarray(gpu(), stype(ygold), eltype(ygold), size(ygold))

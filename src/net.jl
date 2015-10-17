@@ -12,8 +12,8 @@ type Net
     toincr::Vector{Bool}        # dif[n] should be incrementally updated: multiple outputs or Par in a sequence model
     sparse::Vector{Bool}        # a parameter dotted with sparse input
     out::Vector
-    out0::Vector
     dif::Vector
+    out0::Vector
     dif0::Vector
     tmp::Vector
     stack::Vector
@@ -45,7 +45,7 @@ function Net(b::Expr)
         falses(N), # toback: depends on dx
         falses(N), # toincr: depends on seq
         falses(N), # sparse: depends on input
-        cell(N), cell(N), cell(N), cell(N), cell(N),
+        nothings(N), nothings(N), nothings(N), nothings(N), nothings(N),
         Any[], 0)
 end
 

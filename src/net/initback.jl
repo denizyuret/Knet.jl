@@ -12,14 +12,14 @@ function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
     set_sparse(r)
     for n=length(r.op):-1:1
         r.toback[n] || continue # we mix initback and initback0 here because if getdx or seq changes we may need to alloc new arrays.
-        if isassigned(r.dif0,n) # TODO: implement batch size change
+        if (r.dif0[n]!=nothing) # TODO: implement batch size change
             @assert (issimilar2(r.dif0[n], r.out0[n]) ) #TODO: && issparse(r.dif0[n])==r.sparse[n])
         else
             r.dif0[n] = finddif(r, n)
             # r.dif[n] = nothing # Leave this to reset! otherwise s2s does not work
         end
         if r.toincr[n]
-            if isassigned(r.tmp, n)
+            if (r.tmp[n]!=nothing)
                 @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==r.sparse[n])
             else
                 r.tmp[n] = findtmp(r, n)
@@ -83,7 +83,7 @@ function finddif(r::Net, n)
         if (o > n
             && !r.toincr[o]
             && overwrites(r.op[o])
-            && isassigned(r.dif0, o)
+            && (r.dif0[o]!=nothing)
             && size(r.dif0[o]) == size(r.out0[n]))
             dif0 = r.dif0[o]
         end
@@ -111,7 +111,7 @@ end
 function findtmp(r::Net, n)
     tmp = nothing
     for i=n+1:length(r.op)
-        if (isassigned(r.tmp, i) &&
+        if ((r.tmp[i]!=nothing) &&
             size(r.tmp[i]) == size(r.dif0[n]) &&
             issparse(r.tmp[i]) == r.sparse[n])
             tmp = r.tmp[i]
@@ -542,7 +542,7 @@ end
         # else                    # otherwise find one with matching size
         #     for k=o+1:length(r.op)
         #         if (!r.toincr[k]
-        #             && isassigned(r.dif0, k)
+        #             && (r.dif0[ k]!=nothing)
         #             && size(r.dif0[k]) == size(r.out0[n])
         #             && stype(r.dif0[k]) == st
         #             && r.outputs[k][1] > k)
@@ -556,6 +556,6 @@ end
 # should be part of reset:
     # fill!(r.dif, nothing)
     # for n=1:length(r.op)
-    #     isassigned(r.dif0, n) && r.toincr[n] && fill!(r.dif0[n], 0)
+    #     (r.dif0[ n]!=nothing) && r.toincr[n] && fill!(r.dif0[n], 0)
     # end
 

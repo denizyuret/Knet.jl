@@ -1,6 +1,9 @@
 params(r::Net)=r.params
 ninputs(r::Net)=r.netinputs
 nops(r::Net)=length(r.op)
+inputs(r::Net,n)=r.inputs[n]
+forwref(r::Net,n)=any(i->in(n,inputs(r,i)), 1:n-1)
+
 
 ### Cleanup at the end of sequence
 
@@ -111,6 +114,8 @@ end
 issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))
 issimilar3(i,o)=(eltype(i) == eltype(o) && size(i) == size(o) && issparse(i) == issparse(o))
 
+nothings(n::Integer)=fill!(cell(n),nothing)
+
 # ### DEBUGGING
 
 ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
@@ -123,6 +128,26 @@ vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
                    (isdefined(x,:dif)? vecnorm0(x.dif) : 0))
 vecnorm0(::Void)=0
 vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
+
+function Base.summary(r::Net)
+    """
+    op: $(map(typeof,r.op))
+    inputs: $(r.inputs)
+    outputs: $(r.outputs)
+    params: $(vecnorm0(r.params))
+    tosave: $(find(r.tosave))
+    toback: $(find(r.toback))
+    toincr: $(find(r.toincr))
+    sparse: $(find(r.sparse))
+    out: $(vecnorm0(r.out))
+    dif: $(vecnorm0(r.dif))
+    out0: $(vecnorm0(r.out0))
+    dif0: $(vecnorm0(r.dif0))
+    tmp: $(vecnorm0(r.tmp))
+    stack: $(vecnorm0(r.stack[1:r.sp]))
+    sp: $(r.sp)
+    """
+end
 
 # # TODO: look into julia nullables to make this nothing=zero matrix thing better
 
