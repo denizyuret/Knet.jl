@@ -65,11 +65,7 @@ function back(p::Par, dy; y=nothing, o...)
 end
 
 function forw(p::Par, y; o...)
-    if p.initialized
-        @assert p.out === y "p.out=$(p.out) y=$y"
-        return y
-    else
-        p.initialized = true
+    if !p.initialized
         p.out = 
         (!isdefined(p, :init)   ? scale!(0.01, randn!(y)) :
          isa(p.init, BaseArray) ? copy!(y, p.init) :
@@ -79,7 +75,10 @@ function forw(p::Par, y; o...)
          isa(p.init, Identity)  ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
          isa(p.init, Xavier)    ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
          error("p.init=$(p.init)"))
+        p.initialized = true
     end
+    @assert p.out === y "p.out=$(p.out) y=$y"
+    return p.out
 end
 
 function Base.isequal(a::Par,b::Par)
