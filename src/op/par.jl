@@ -39,7 +39,8 @@ function setopt!(p::Par; o...)
         if in(n, fieldnames(p))
             p.(n)=v
         else
-            Base.warn_once("setopt!: ignoring unrecognized option $n")
+            # This happens regularly when binit gets passed to wdot etc.
+            # Base.warn_once("setopt!: ignoring unrecognized option $n")
         end
     end
     p
