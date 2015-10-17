@@ -1,6 +1,6 @@
 """
 initback initializes the fields used by Net.back:
-- dif, dif0, tmp: allocated or size checked.
+- dif0, tmp: allocated or size checked.
 - toincr: depends on seq.
 - toback: depends on which dx args specified.
 - tosave: read-only, used for popping only if seq.
@@ -16,7 +16,7 @@ function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
             @assert (issimilar2(r.dif0[n], r.out0[n]) ) #TODO: && issparse(r.dif0[n])==r.sparse[n])
         else
             r.dif0[n] = finddif(r, n)
-            r.dif[n] = nothing
+            # r.dif[n] = nothing # Leave this to reset! otherwise s2s does not work
         end
         if r.toincr[n]
             if isassigned(r.tmp, n)
