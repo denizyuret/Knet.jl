@@ -10,8 +10,9 @@ abstract Model
 
 setopt!(m::Model; o...)=(for p in params(m); setopt!(p; o...); end)
 update!(m::Model; o...)=(for p in params(m); update!(p; o...); end)             # t:19
-wnorm(m::Model,w=0)=(for p in params(m); w += vecnorm(p.out); end; w)           # t:317
-gnorm(m::Model,g=0)=(for p in params(m); g += vecnorm(p.dif); end; g)           # t:332
+vnorm(x)=(x==nothing ? 0 : vecnorm(x))
+wnorm(m::Model,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
+gnorm(m::Model,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332
 
 # Helper function for train/test
 item2xy(item)=(isa(item, Tuple) ? (item[1:end-1],item[end]) : item==nothing ? (nothing,nothing) : ((),item))
