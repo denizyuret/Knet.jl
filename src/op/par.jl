@@ -59,9 +59,9 @@ type Identity <: Rgen; val; Identity(x=1)=new(x); end
 type Xavier <: Rgen; end
 
 function back(p::Par, dy; y=nothing, o...)
-    isdefined(p, :dif) || (p.dif = dy)
-    @assert dy === p.dif
-    @assert y === p.out
+    p.dif == nothing && (p.dif = dy)
+    @assert dy === p.dif "dy=$dy p.dif=$(p.dif)"
+    @assert y === p.out "y=$y p.out=$(p.out)"
 end
 
 function forw(p::Par, y; o...)
@@ -75,6 +75,7 @@ function forw(p::Par, y; o...)
          isa(p.init, Identity)  ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
          isa(p.init, Xavier)    ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
          error("p.init=$(p.init)"))
+        p.dif = nothing
         p.initialized = true
     end
     @assert p.out === y "p.out=$(p.out) y=$y"
