@@ -46,7 +46,7 @@ include("model/rnn.jl");        export RNN
 include("model/s2c.jl");        export S2C
 include("model/s2s.jl");        export S2S, S2SData, encoder, decoder
 
-include("op/compound.jl");	export wdot, bias, wb, wbf, add2, lstm, irnn, wconv, cbfp
+include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp
 
 end # module
 
