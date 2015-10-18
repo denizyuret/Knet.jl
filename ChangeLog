@@ -1,7 +1,10 @@
 2015-10-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	0030 download/install barrets code for testing.
+	0050 compare s2s with barret without gclip
 	0050 reimplement mlp/rnnlm with the repeat instruction
+	0050 saman: local contrast normalization, manual weight bug.
 	0098 wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging
@@ -18,7 +21,6 @@
 	0126 ctc apply speech model to mt
 	0127 image captioning example
 	0130 language learning in minecraft
-	0150 saman: local contrast normalization, manual weight bug.
 	0160 learning to interpret python ,mfind other examples
 	0200 barret optimization: for sparse input, keep dw dense, but use a mask to make w += dw faster.
 	0200 examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
@@ -28,6 +30,7 @@
 	0250 src/model/s2s.jl: implement gcheck.
 	0300 dynamisarrays add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
 	0300 package KUdense as DynamicArrays.jl and post it.
+	0350 write mikolov ptb downloader like mnist. maybe use github lfs?
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 src/op/compound.jl: finish documentation for all ops.
@@ -195,8 +198,13 @@
 	2      89.9217 203.996 229.068 216.359 5.37694 0      52.1384 
 	3      133.053 116.824 119.512 117.12 4.7632 0      41.745 
 	4      176.464 84.6054 90.0316 87.8274 4.47537 0      77.5709 
-	5      220.23 64.2483 67.7716 65.6518 4.18437 0      69.8705 
+	5      220.23 64.2483 67.7716 65.6518 4.18437 0      69.8705
 
+	playing with hidden size, comparing output at epoch=20:
+	100  20     869.202 19.9098 32.8415 31.4728 3.44912 0      139.686 
+	200  20     1320.63 10.4122 18.7426 18.1979 2.90131 0      140.008 
+	512  20     2400.58 4.05138 18.1581 17.5052 2.8625 0      139.964
+	1024 
 
 2015-10-15  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -20,3 +20,4 @@ v0.4
 setup.sh
 .julia
 .juliahistory
+*.run
