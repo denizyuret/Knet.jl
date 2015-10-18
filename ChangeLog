@@ -1,14 +1,9 @@
 2015-10-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0011 barett s2s test (copying english?)
-	0012 profile s2s
-	DONE examples/copyseq.jl: implement train/test.
 	0050 reimplement mlp/rnnlm with the repeat instruction
-	0050 src/model/s2s.jl: implement gcheck.
-	0050 s2s.jl: add warning if not using the whole dataset.
-	0050 src/net/initforw.jl: create and use toforw to avoid unnecessary forw calculation. Eliminate S2C!
 	0098 wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names.
+	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0105 ashish nce model
@@ -24,19 +19,19 @@
 	0127 image captioning example
 	0130 language learning in minecraft
 	0150 saman: local contrast normalization, manual weight bug.
-	0153 ai-mtg: Onur and Ozan's bidirectional model.
-	0200 examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
 	0160 learning to interpret python ,mfind other examples
 	0200 barret optimization: for sparse input, keep dw dense, but use a mask to make w += dw faster.
+	0200 examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
 	0200 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0200 optimization: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0250 implement gru using con. or axpb?
+	0250 src/model/s2s.jl: implement gcheck.
 	0300 dynamisarrays add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
 	0300 package KUdense as DynamicArrays.jl and post it.
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
-	0700 src/op/loss.jl: cleanup, move out of op.
 	0700 src/op/compound.jl: finish documentation for all ops.
+	0700 src/op/loss.jl: cleanup, move out of op.
 	0799 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
 	0800 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
@@ -92,6 +87,116 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* DONE:
+	DONE barett s2s test (copying english?)
+	DONE examples/copyseq.jl: implement train/test.
+	DONE profile s2s
+	DONE s2s.jl: add warning if not using the whole dataset.
+	DONE src/net/initforw.jl: create and use toforw to avoid unnecessary forw calculation. Eliminate S2C! It turns out you can't. Forw doesn't know if ygold=nothing.
+	DONE add copyseq to runtests.
+
+	* copyseq-profile:
+	Do not use a batchsize less than 100:
+	Powers of two do help
+
+		number of sentences
+	batch	10000	5120	6400	sparse
+	1025	21.63
+	1024	16.33	7.68
+	1000	18.10
+	512	17.50	7.22
+	500	18.24
+	256	19.09	7.52	10.41	8.36
+	200	20.06	7.53	12.81	8.83
+	128	20.44	9.62	10.78	9.17
+	100	22.29	10.54	11.85	10.02
+	64	25.48	9.87	13.69	11.47
+	32	36.50	14.14
+	16	57.60
+
+	Further improvements using batchsize=128 corpus=6400 from 9.17
+	6.20 iw=csr dw=dense removed decoder output bias looking at copyseq.3.prof
+	6.06 if we use dw=ArrayAccumulator
+	7.67 if we use iw=dw=dense
+	3.82 if we use iw=csru dw=ArrayAccumulator
+	4.01 if we turn loss/norm calculation back on
+	11.13 iw=dw=dense in comparison
+	6.42 iw=csr dw=dense
+>>>	3.96 iw=csru dw=dense
+	2.55 gpusync=nothing
+	2.06 batchsize=256
+
+	iw=csru dw=dense gpusync=nothing whole ptb.train.txt, trying batchsize
+	41.01 128 (1,1085.8583984375,6.990126f0,0,0)
+	38.90 128 noloss
+	31.88 256 noloss
+	24.64 512 noloss
+	21.82 1024 noloss
+
+	iw=csru dw=dense gpusync=nothing whole ptb.train.txt, batch=128, gclip=0, trying lr
+	0.1 (1,1085.8583984375,6.990126f0,0,0)
+	0.2 (1,956.5218505859375,6.8633037f0,0,0)
+	0.5 (1,958.371826171875,6.865236f0,0,0)
+>>>	1.0 (1,674.5174560546875,6.5139976f0,0,0)
+	1.5 (1,NaN,NaN32,0,0)
+
+	...lr=1, trying gclip
+	inf (1,674.5174560546875,6.5139976f0,0,0)
+	100 (1,763.9644165039062,6.638521f0,0,55.73273f0)
+	50  (1,757.4146728515625,6.629911f0,0,270.44965f0)
+	20  (1,681.4532470703125,6.5242276f0,0,95.472626f0)
+>>>	10  (1,633.58251953125,6.4513903f0,0,109.699844f0)
+	5   (1,681.5367431640625,6.52435f0,0,128.67555f0)
+	2   (1,748.1823120117188,6.6176467f0,0,84.69178f0)
+	1   (1,755.4359741210938,6.627295f0,0,101.31935f0)
+
+	...gclip=10, trying lr
+	.5  (1,743.931884765625,6.6119494f0,0,101.189766f0)
+	1   (1,633.58251953125,6.4513903f0,0,109.699844f0)
+	1.5 (1,560.0001831054688,6.327937f0,0,55.12631f0)
+	2   (1,541.9075927734375,6.2950954f0,0,33.691235f0)
+	2.5 (1,550.0517578125,6.3100123f0,0,55.207405f0)
+	3   (1,581.8964233398438,6.3662925f0,0,55.3924f0)
+	6   (1,711.7434692382812,6.5677176f0,0,28.626701f0)
+
+	lr=2, final gclip check
+	5   (1,585.214111328125,6.371978f0,0,188.39285f0)
+	10  (1,541.9075927734375,6.2950954f0,0,33.691235f0)
+	20  (1,582.9039306640625,6.3680224f0,0,59.838856f0)
+
+	lr=2, gc=10, impact of batchsize on time and accuracy
+	1024 23.05 (1,2182.025390625,7.688009f0,0,104.297005f0)
+	512  25.93 (1,1387.432861328125,7.2352104f0,0,79.66049f0)
+	256  33.57 (1,887.585693359375,6.788505f0,0,42.632828f0)
+	128  41.15 (1,541.9075927734375,6.2950954f0,0,33.691235f0)
+	64   64.62 (1,315.03179931640625,5.7526736f0,0,56.093933f0)
+	32  112.83 (1,173.69186401367188,5.157283f0,0,91.488815f0)
+	16  213.02 (1,116.3692398071289,4.756768f0,0,179.33853f0)
+
+	where do they get in 2 epochs?
+	1024 46.06 (2,949.5081787109375,6.855944f0,0,48.838074f0)  < 128
+	512  52.42 (2,684.6193237304688,6.528863f0,0,191.49686f0)  < 128
+	256  66.53 (2,399.59967041015625,5.9904633f0,0,36.83023f0) < 64
+	128  82.07 (2,207.21353149414062,5.33375f0,0,54.024696f0)  ?
+	64  129.33 (2,123.24575805664062,4.8141804f0,0,56.24083f0) ?
+	32  224.85 (2,67.45431518554688,4.2114506f0,0,135.91908f0) > 16
+
+	and 3 epochs
+	1024 69.14 (3,717.0039672851562,6.5750813f0,0,34.406246f0) < 64
+	512  79.04 (3,454.5836181640625,6.119382f0,0,34.60331f0)   < 128
+	256  99.90 (3,218.51165771484375,5.3868394f0,0,60.949215f0) < 128
+	128 123.82 (3,119.21369934082031,4.7809176f0,0,68.25633f0) > 64
+	64  194.36 (3,75.53480529785156,4.3245935f0,0,92.08937f0)
+	32  333.22 (3,44.343299865722656,3.7919617f0,0,203.678f0)
+
+	* best: lr=2 gclip=10 batch=128 iw=csru dw=dense
+	1      46.8345 603.903 353.193 345.621 5.84534 0      69.7023 
+	2      89.9217 203.996 229.068 216.359 5.37694 0      52.1384 
+	3      133.053 116.824 119.512 117.12 4.7632 0      41.745 
+	4      176.464 84.6054 90.0316 87.8274 4.47537 0      77.5709 
+	5      220.23 64.2483 67.7716 65.6518 4.18437 0      69.8705 
+
 
 2015-10-15  Deniz Yuret  <dyuret@ku.edu.tr>
 
