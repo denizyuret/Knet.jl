@@ -7,10 +7,20 @@ to create an encoder and a decoder.  See `S2SData` for data format.
 """
 immutable S2S <: Model; encoder; decoder; params;
     function S2S(kfun::Function; o...)
-        enc = Net(kfun; o...)
-        dec = Net(kfun; o...)
+        enc = Net(encoder; o..., f=kfun)
+        dec = Net(decoder; o..., f=kfun)
         new(enc, dec, vcat(params(enc), params(dec)))
     end
+end
+
+@knet function encoder(word; f=nothing, hidden=0, o...)
+    wvec = wdot(word; o..., out=hidden)
+    hvec = f(wvec; o..., out=hidden)
+end
+
+@knet function decoder(word; f=nothing, hidden=0, vocab=0, o...)
+    hvec = encoder(word; o..., f=f, hidden=hidden)
+    tvec = wbf(hvec; out=vocab, f=soft)
 end
 
 params(m::S2S)=m.params
@@ -22,7 +32,6 @@ function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0
     numloss = sumloss = maxwnorm = maxgnorm = 0
     decoding = false
     ystack = Any[]
-    ycell = nothing
     reset!(m; o...)
     for item in data
         (x,ygold) = item2xy(item)
@@ -42,7 +51,7 @@ function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0
             push!(ystack, copy(ygold))
         end
         if !decoding && ygold == nothing
-            ycell = forw(m.encoder, x...; trn=true, seq=true, o...)
+            forw(m.encoder, x...; trn=true, seq=true, o...)
         end
     end
     # For the last sentence
@@ -53,7 +62,6 @@ end
 function test(m::S2S, data, loss; o...)
     numloss = sumloss = 0
     decoding = false
-    ycell = nothing
     reset!(m; o...)
     for item in data
         (x,ygold) = item2xy(item)
@@ -71,14 +79,14 @@ function test(m::S2S, data, loss; o...)
             numloss += 1
         end
         if !decoding && ygold == nothing # keep encoding
-            ycell = forw(m.encoder, x...; trn=false, seq=true, o...)
+            forw(m.encoder, x...; trn=false, seq=true, o...)
         end
     end
     sumloss / numloss
 end
 
 function bptt(m::S2S, ystack, loss; getnorm=true, gclip=0, maxwnorm=0, maxgnorm=0, o...)
-    @assert m.encoder.sp == m.decoder.sp
+    # @assert m.encoder.sp == m.decoder.sp # this does not work when encoder does not have output
     while !isempty(ystack)
         ygold = pop!(ystack)
         back(m.decoder, ygold, loss; seq=true, o...)
@@ -97,7 +105,9 @@ end
 function copyforw!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
-            m.decoder.out[n] = m.encoder.out[n]
+            # m.decoder.out0[n] == nothing && (m.decoder.out0[n] = similar(m.encoder.out[n]))
+            # m.decoder.out[n] = copy!(m.decoder.out0[n], m.encoder.out[n])
+            m.decoder.out[n] = m.decoder.out0[n] = m.encoder.out[n]
         end
     end
 end
@@ -105,7 +115,9 @@ end
 function copyback!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
-            m.encoder.dif[n] = m.decoder.dif[n]
+            # m.encoder.dif0[n] == nothing && (m.encoder.dif0[n] = similar(m.decoder.dif[n]))
+            # m.encoder.dif[n] = copy!(m.encoder.dif0[n], m.decoder.dif[n])
+            m.encoder.dif[n] = m.encoder.dif0[n] = m.decoder.dif[n]
         end
     end
 end
