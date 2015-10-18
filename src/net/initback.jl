@@ -121,11 +121,13 @@ function findtmp(r::Net, n)
     if tmp == nothing
         et = eltype(r.out0[n])
         sz = size(r.out0[n])
-        tmp = (gpu() && r.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
+        tmp = (
                # CSRU is 5% faster if no atomic op conflicts (rnnlm), 
                # but significantly slower when there are lots of conflicts (mnist)
                # Not worth the risk until I implement uniq for CSRU
-               # gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
+               # Seems significantly faster on s2s, putting csru back on
+               gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
+               # gpu() && r.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
                !gpu() && r.sparse[n] ? spzeros(et, sz...) :
                gpu() ? CudaArray(et, sz) : 
                Array(et, sz))
