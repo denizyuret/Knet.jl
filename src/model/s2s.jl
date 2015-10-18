@@ -1,14 +1,3 @@
-# TODO:
-# take one network and duplicate, not two.
-#   this may require toforw flag.
-#   which will allow us to reimplement s2c using a single network.
-#   prefer procedures to flags (which are caches that may corrupt)
-# point with out, do not copy out0 during transitions.
-
-#DBG
-using Knet
-import Knet: train, test, params, item2xy, nops, forwref, gnorm, wnorm, update!, reset!
-
 """
 S2S(net::Function) implements the sequence to sequence model from:
 Sutskever, I., Vinyals, O., & Le, Q. V. (2014). Sequence to sequence
@@ -25,6 +14,8 @@ immutable S2S <: Model; encoder; decoder; params;
 end
 
 params(m::S2S)=m.params
+reset!(m::S2S; o...)=(reset!(m.encoder; o...);reset!(m.decoder; o...))
+
 
 function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0, o...)
     gcheck>0 && Base.warn_once("s2s.gradcheck has not been implemented, ignoring option. (TODO)")
@@ -32,11 +23,13 @@ function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0
     decoding = false
     ystack = Any[]
     ycell = nothing
+    reset!(m; o...)
     for item in data
         (x,ygold) = item2xy(item)
         if decoding && ygold == nothing # the next sentence started
             (maxwnorm, maxgnorm) = bptt(m, ystack, loss; getnorm=getnorm, gclip=gclip, maxwnorm=maxwnorm, maxgnorm=maxgnorm, o...)
             @assert isempty(ystack) && m.encoder.sp == 0 && m.decoder.sp == 0
+            reset!(m; o...)
             decoding = false
         end
         if !decoding && ygold != nothing
@@ -57,33 +50,15 @@ function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0
     return (sumloss/numloss, maxwnorm, maxgnorm)
 end
 
-function bptt(m::S2S, ystack, loss; getnorm=true, gclip=0, maxwnorm=0, maxgnorm=0, o...)
-    @assert m.encoder.sp == m.decoder.sp
-    while !isempty(ystack)
-        ygold = pop!(ystack)
-        back(m.decoder, ygold, loss; seq=true, o...)
-    end
-    @assert m.decoder.sp == 0
-    copyback!(m)
-    while m.encoder.sp > 0
-        back(m.encoder; seq=true, o...)
-    end
-    (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
-    update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), o...)
-    getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-    reset!(m.encoder; o...); reset!(m.decoder; o...)
-    (maxwnorm, maxgnorm)
-end
-
 function test(m::S2S, data, loss; o...)
     numloss = sumloss = 0
     decoding = false
     ycell = nothing
+    reset!(m; o...)
     for item in data
         (x,ygold) = item2xy(item)
         if decoding && ygold == nothing # the next sentence started
-            reset!(m.encoder; o...)
-            reset!(m.decoder; o...)
+            reset!(m; o...)
             decoding = false
         end
         if !decoding && ygold != nothing # output sequence started
@@ -100,6 +75,23 @@ function test(m::S2S, data, loss; o...)
         end
     end
     sumloss / numloss
+end
+
+function bptt(m::S2S, ystack, loss; getnorm=true, gclip=0, maxwnorm=0, maxgnorm=0, o...)
+    @assert m.encoder.sp == m.decoder.sp
+    while !isempty(ystack)
+        ygold = pop!(ystack)
+        back(m.decoder, ygold, loss; seq=true, o...)
+    end
+    @assert m.decoder.sp == 0
+    copyback!(m)
+    while m.encoder.sp > 0
+        back(m.encoder; seq=true, o...)
+    end
+    (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+    update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), o...)
+    getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
+    (maxwnorm, maxgnorm)
 end
 
 function copyforw!(m::S2S)
@@ -176,7 +168,7 @@ using y=nothing as an indicator.
 type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; end
 
 function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=Float32, dense=false,
-                 dict1=Dict{AbstractString,Int32}(), dict2=Dict{AbstractString,Int32}())
+                 dict1=Dict{Any,Int32}(), dict2=Dict{Any,Int32}())
     data1 = loadseq(file1, dict1)
     data2 = loadseq(file2, dict2)
     @assert length(data1) == length(data2)
@@ -189,7 +181,7 @@ end
 const eosstr = "<s>"
 const eos = 1
 
-function loadseq(fname::AbstractString, dict=Dict{AbstractString,Int32})
+function loadseq(fname::AbstractString, dict=Dict{Any,Int32}())
     data = Vector{Int32}[]
     isempty(dict) && (dict[eosstr]=eos)
     open(fname) do f
