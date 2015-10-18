@@ -13,6 +13,11 @@ end
     z = bias(y; o...)
 end
 
+@knet function wf(x; f=relu, o...)
+    y = wdot(x; o...)
+    z = f(y; o...)
+end
+
 @knet function wbf(x; f=relu, o...)
     y = wb(x; o...)
     z = f(y; o...)
