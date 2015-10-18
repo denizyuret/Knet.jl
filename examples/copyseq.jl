@@ -31,6 +31,7 @@ function copyseq(args=ARGS)
     setopt!(model; lr=lr)
     wmax = gmax = 0
     perp = zeros(length(data))
+    println("epoch  secs    ptrain  pvalid  ptest.. ltrain  wnorm  gnorm")
     t0 = time_ns()
     for epoch=1:epochs
         (loss,wmax,gmax) = train(model, data[1], softloss; gcheck=gcheck, gclip=gclip, getnorm=getnorm, getloss=getloss)
