@@ -23,7 +23,7 @@ function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
                 @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==r.sparse[n])
             else
                 r.tmp[n] = findtmp(r, n)
-                fill!(r.dif0[n], 0)
+                # fill!(r.dif0[n], 0)  # This will break s2s best if finddif zeros during alloc
             end
         end
     end
@@ -103,7 +103,7 @@ function finddif(r::Net, n)
                 ### Speed similar to dense on rnnlm, less memory, cannot compute vecnorm.
                 # r.sparse[n] && r.toincr[n] && gpu()   ? ArrayAccumulator(et, sz) :
                 # r.sparse[n] && r.toincr[n] && !gpu()  ? ArrayAccumulator(et, sz) :
-                gpu() ? CudaArray(et, sz) : Array(et, sz))
+                gpu() ? fill!(CudaArray(et, sz),0) : zeros(et, sz))
     end
     return dif0
 end
