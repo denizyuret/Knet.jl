@@ -27,15 +27,15 @@ function push(r::Net,n::Int)
     length(r.stack) == r.sp && push!(r.stack, :newcell)
     r.sp += 1
     if r.out[n] == nothing                             # TODO: (minor) remove these checks once code is tested
-        r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || warn("pushing nothing over array")
+        r.stack[r.sp] == nothing || r.stack[r.sp] == :newcell || Base.warn_once("pushing nothing over array")
         r.stack[r.sp] = nothing
     elseif r.stack[r.sp] == nothing
-        # warn("pushing array over nothing")  # This actually happens with rnnlm keepstate
+        Base.warn_once("pushing array over nothing")  # This actually happens with rnnlm keepstate
         r.stack[r.sp] = copy(r.out[n])
     elseif r.stack[r.sp] == :newcell
         r.stack[r.sp] = copy(r.out[n])
     elseif size(r.out[n]) != size(r.stack[r.sp])
-        warn("pushing array of different size")
+        Base.warn_once("pushing array of different size")
         resize!(r.stack[r.sp], size(r.out[n]))
         copy!(r.stack[r.sp], r.out[n])
     else
