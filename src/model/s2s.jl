@@ -20,7 +20,8 @@ end
 
 @knet function decoder(word; f=nothing, hidden=0, vocab=0, o...)
     hvec = encoder(word; o..., f=f, hidden=hidden)
-    tvec = wbf(hvec; out=vocab, f=soft)
+    tvec = wdot(hvec; out=vocab)
+    pvec = soft(tvec)
 end
 
 params(m::S2S)=m.params
@@ -96,7 +97,7 @@ function bptt(m::S2S, ystack, loss; getnorm=true, gclip=0, maxwnorm=0, maxgnorm=
     while m.encoder.sp > 0
         back(m.encoder; seq=true, o...)
     end
-    (getnorm || gclip>0) && (g = gnorm(m); g > maxgnorm && (maxgnorm = g))
+    (getnorm || gclip>0) ? (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) : (g=0)
     update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), o...)
     getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
     (maxwnorm, maxgnorm)
@@ -177,17 +178,17 @@ by the S2SData generator and are not present in the sourcefile or the
 targetfile.  The S2S model switches between encoding and decoding
 using y=nothing as an indicator.    
 """
-type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; end
+type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; stop; end
 
 function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=Float32, dense=false,
-                 dict1=Dict{Any,Int32}(), dict2=Dict{Any,Int32}())
+                 dict1=Dict{Any,Int32}(), dict2=Dict{Any,Int32}(), stop=typemax(Int))
     data1 = loadseq(file1, dict1)
     data2 = loadseq(file2, dict2)
     @assert length(data1) == length(data2)
     sorted = sortperm(data1, by=length)
     data1 = data1[sorted]
     data2 = data2[sorted]
-    S2SData(data1, data2, dict1, dict2, batch, ftype, dense, nothing, nothing)
+    S2SData(data1, data2, dict1, dict2, batch, ftype, dense, nothing, nothing, stop)
 end
 
 const eosstr = "<s>"
@@ -251,7 +252,13 @@ setrow!(x::Array,i,j)=(x[:,j]=0; x[i,j]=1)
 # TODO: add warning if we are leave some data out
 function done(d::S2SData,state)
     (nbatch, nword, decode) = state
-    (nbatch+1)*d.batch > length(d.data1)
+    if (nbatch+1)*d.batch > min(length(d.data1), d.stop)
+        if nbatch * d.batch != length(d.data1) 
+            Base.warn_once("Skipping $(length(d.data1) - nbatch * d.batch) lines at the end.")
+        end
+        return true
+    end
+    return false
 end
 
 # allocate the batch arrays if necessary
