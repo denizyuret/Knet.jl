@@ -1,16 +1,10 @@
 using Knet, ArgParse
 
-@knet function copymodel(word; hidden=0, vocab=0)
-    wvec = wdot(word; out=hidden)
-    hvec = lstm(wvec; out=hidden)
-    tvec = wbf(hvec; out=vocab, f=soft) # TODO: find a way to turn this off for encoder
-end
-
 function copyseq(args=ARGS)
     info("Learning to copy sequences to test the S2S model.")
     s = ArgParseSettings()
     @add_arg_table s begin
-        ("datafile"; help="Input file")
+        ("datafiles"; nargs='+'; required=true; help="First file used for training")
         ("--batchsize"; arg_type=Int; default=20)
         ("--ftype"; default="Float32")
         ("--dense"; action=:store_true)
@@ -26,16 +20,28 @@ function copyseq(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
-    data = S2SData(datafile, datafile; batch=batchsize, ftype=eval(parse(ftype)), dense=dense)
-    model = S2S(copymodel; hidden=hidden, vocab=length(data.dict2))
-    setopt!(model; lr=lr)
-    perp = wmax = gmax = 0
-    for epoch=1:epochs
-        (loss,wmax,gmax) = train(model, data, softloss; gcheck=gcheck, gclip=gclip)
-        perp = exp(loss)
-        println((epoch,perp,loss,wmax,gmax))
+    data = Any[]
+    dict = [ Dict{Any,Int32}() for i=1:2 ]
+    for f in datafiles
+        push!(data, S2SData(f, f; batch=batchsize, ftype=eval(parse(ftype)), dense=dense, dict1=dict[1], dict2=dict[2]))
     end
-    return (perp, wmax, gmax)
+    # length(data)==1 && push!(data, data[1]) # If no test data specified use the training data
+    global model = S2S(lstm; hidden=hidden, vocab=length(dict[2]))
+    setopt!(model; lr=lr)
+    wmax = gmax = 0
+    perp = zeros(length(data))
+    train(model, data[1], softloss; gcheck=gcheck, gclip=gclip) #DBG: pretrain to compile for timing
+    
+    @time for epoch=1:epochs
+        (loss,wmax,gmax) = train(model, data[1], softloss; gcheck=gcheck, gclip=gclip)
+        perp[1] = exp(loss)
+        for d=2:length(data)
+            loss = test(model, data[d], softloss)
+            perp[d] = exp(loss)
+        end
+        println((epoch,perp...,loss,wmax,gmax))
+    end
+    return (perp..., wmax, gmax)
 end
 
 !isinteractive() && !isdefined(:load_only) && copyseq(ARGS)
