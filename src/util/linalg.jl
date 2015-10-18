@@ -89,9 +89,9 @@ function Base.copy!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream
     if dst.dims != src.dims
         throw(ArgumentError("Inconsistent Sparse Matrix size"))
     end
-    copy!( dst.rowPtr, src.rowPtr )
-    copy!( dst.colVal, src.colVal )
-    copy!( dst.nzVal, src.nzVal )
+    resizecopy!( dst.rowPtr, src.rowPtr )
+    resizecopy!( dst.colVal, src.colVal )
+    resizecopy!( dst.nzVal, src.nzVal )
     dst.nnz = src.nnz
     dst
 end
@@ -139,8 +139,11 @@ end
 # This version gives a proper CSR matrix but is slower:
 function A_mul_Bt!{T}(C::CudaSparseMatrixCSR{T},A::CudaMatrix{T},B::CudaSparseMatrixCSC{T})
     bT = CudaSparseMatrixCSR{T}(B.colPtr, B.rowVal, B.nzVal, (B.dims[2],B.dims[1]), B.nnz, B.dev)
+    gpusync()
     a = sparse(A)               # t:337 gives CudaSparseMatrixCSR
+    gpusync()
     gemm!('N','N',a,bT,C)       # t:868
+    gpusync()
     free(a)                     # t:96
     gpusync()
     return C
@@ -182,10 +185,7 @@ Base.scale!(s, x::ArrayAccumulator)=(for i=1:x.cnt; scale!(s,x.arr[i]); end; x)
 # that p=1 is not feasible either since entries might cancel out.
 # Base.vecnorm(x::ArrayAccumulator)=(n=0;for i=1:x.cnt;
 # n+=vecnorm(x.arr[i]); end; n)
-function Base.vecnorm(x::Union{ArrayAccumulator,CudaSparseMatrixCSRU},p=2)
-    Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0")
-    return 0
-end
+vecnorm(x::ArrayAccumulator,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)
 
 function axpy!(a, x, y::ArrayAccumulator)
     @assert size(x)==size(y) && eltype(x)==eltype(y)
@@ -219,6 +219,7 @@ axpy!(a,x::CudaSparseMatrixCSR{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr
 axpy!(a,x::CudaSparseMatrixCSRU{Float32},y::CudaMatrix{Float32})=(ccall((:add_csr_dns_atomic_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
 axpy!(a,x::CudaSparseMatrixCSRU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csr_dns_atomic_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); gpusync(); y)
 
+vecnorm(x::CudaSparseMatrixCSRU,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)
 
 ### mul2 element-wise multiplication:
 
