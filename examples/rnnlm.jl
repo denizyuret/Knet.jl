@@ -35,7 +35,7 @@ function rnnlm(args=ARGS)
     for ep=1:opts["max_max_epoch"]
         ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net, lr=lr))
         train(net, data[1], softloss; gclip=opts["max_grad_norm"], keepstate=true, losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        opts["gcheck"]>0 && gradcheck(net,data[1],softloss; gcheck=opts["gcheck"], keepstate=true)
+        opts["gcheck"]>0 && gradcheck(net,data[1],softloss; gcheck=opts["gcheck"])
         perp[1] = exp(l[1]/l[2])
         for idata = 2:length(data)
             ldev = test(net, data[idata], softloss; keepstate=true)
