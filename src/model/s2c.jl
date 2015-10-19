@@ -15,7 +15,7 @@ function s2c_loop(m::S2C, data, loss; gcheck=false, o...)
         ycell = forw(m.rnn, x...; seq=true, o...)
         ygold == nothing && continue
         ypred = forw(m.fnn, ycell; o...)
-        s2c_eos(m, x, ygold, ypred, loss; o...)
+        s2c_eos(m, x, ygold, ypred, loss; gcheck=gcheck, o...)
         gcheck && break
         reset!(m; o...)
     end
