@@ -12,7 +12,7 @@ isdefined(:MNIST) || include("mnist.jl")
 end
 
 function mnist4d(args=ARGS)
-    info("Learning to copy sequences to test the S2S model.")
+    info("Testing lenet (convolutional net) on MNIST")
     s = ArgParseSettings()
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=42)
@@ -30,7 +30,6 @@ function mnist4d(args=ARGS)
     dtrn = ItemTensor(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn; batch=nbatch)
     dtst = ItemTensor(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst; batch=nbatch)
 
-    info("Testing lenet (convolutional net) on MNIST")
     lenet = FNN(lenet_model)
     setopt!(lenet; lr=lr)
     l=zeros(2); m=zeros(2)

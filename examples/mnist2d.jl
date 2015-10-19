@@ -32,7 +32,7 @@ function mnist2d(args=ARGS)
 
     net = FNN(mnist2d_model)
     setopt!(net, lr=0.5)
-    l=zeros(2); m=zeros(2)
+    l=[0f0,0f0]; m=[0f0,0f0]
 
     for epoch=1:epochs
         train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0)) # t:3053

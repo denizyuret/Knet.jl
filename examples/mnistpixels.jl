@@ -89,7 +89,7 @@ function parse_commandline(args)
         "--epochsize"
         help = "number of training examples per epoch"
         arg_type = Int
-        default = 1000 # 10000
+        default = 100 # 10000
         "--testfreq"
         help = "Compute test accuracy every acc epochs"
         arg_type = Int
@@ -97,7 +97,7 @@ function parse_commandline(args)
         "--batchsize"
         help = "minibatch size"
         arg_type = Int
-        default = 200 # 16
+        default = 20 # 16
         "--hidden"
         help = "number of hidden units"
         arg_type = Int

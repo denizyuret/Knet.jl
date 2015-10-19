@@ -122,6 +122,7 @@ ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
 ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
 idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
 
+vecnorm0(x,y...)=map(vecnorm0,(x,y...))
 vecnorm0(x::Vector)=map(vecnorm0,x)
 vecnorm0(x::Tuple)=map(vecnorm0,x)
 vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),

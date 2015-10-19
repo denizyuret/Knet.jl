@@ -1,7 +1,10 @@
 2015-10-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
 	0030 complete gradcheck, predict in addition to train/test for models other than fnn
+	0040 fix padding for s2s
+	0045 find out why csru breaks load without module
 	0050 saman: local contrast normalization, manual weight bug.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging

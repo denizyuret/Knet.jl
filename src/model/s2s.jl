@@ -38,7 +38,7 @@ function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
         (x,ygold) = item2xy(item)
         if decoding && ygold == nothing # the next sentence started
             gcheck && break
-            s2s_eos(m, data, loss; o...)
+            s2s_eos(m, data, loss; gcheck=gcheck, o...)
             reset!(m; o...)
             decoding = false
         end
@@ -53,7 +53,7 @@ function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
             s2s_encode(m, x; o...)
         end
     end
-    s2s_eos(m, data, loss; o...)
+    s2s_eos(m, data, loss; gcheck=gcheck, o...)
 end
 
 function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)
