@@ -8,21 +8,11 @@ end
 
 # TODO: document
 """
-
 `@knet function par(; dims, init, opts...)` creates a parameter array
 of size `dims` which should be a tuple of Ints.  Some entries in dims
 can be left as 0, in which case they will be inferred from the input.
-
-`init` can be one of:
-
-    * Array or CudaArray
-    * Gaussian(mean, std)
-    * Uniform(min, max)
-    * Constant(val)
-    * Identity(scale)
-    * Xavier()
-
-Other `opts` include:
+`init` can be an Array, CudaArray, or a subtype of Rgen (please see
+the Rgen doc).  Other `opts` include:
 
     * lr
     * l1reg
@@ -52,6 +42,17 @@ overwrites(::Par)=false
 back_reads_x(::Par)=false
 back_reads_y(::Par)=false
 
+"""
+Rgen is an abstract type whose subtypes represent random distributions
+for parameter initialization.  Currently implemented subtypes are listed
+below.  They are used to specify initialization during Net construction.
+
+    * Gaussian(mean, std)
+    * Uniform(min, max)
+    * Constant(val)
+    * Identity(scale)
+    * Xavier()
+"""
 abstract Rgen
 type Gaussian <: Rgen; mean; std; end
 type Uniform  <: Rgen; min; max; end

@@ -21,3 +21,5 @@ setup.sh
 .julia
 .juliahistory
 *.run
+*.log
+*.prof

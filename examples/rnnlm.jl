@@ -7,7 +7,6 @@
 
 using Knet, ArgParse
 import Base: start, next, done
-# net = nothing # uncomment for debugging
 
 function rnnlm(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -25,15 +24,12 @@ function rnnlm(args=ARGS)
                            ftype=opts["float64"]?Float64:Float32, 
                            dense=opts["dense"]))
     end
-    vocab_size = length(dict)
-    prog = rnnlmModel(layers = opts["layers"],
-                      rnn_size = opts["rnn_size"],
-                      vocab_size = vocab_size)
-    # global net # uncomment for debugging
-    net = RNN(prog)
 
+    vocab_size = length(dict)
+    global net = RNN(rnnlmModel; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
     lr = opts["lr"]
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
+
     perp = zeros(length(data))
     wmax = gmax = 0
     for ep=1:opts["max_max_epoch"]
@@ -49,53 +45,27 @@ function rnnlm(args=ARGS)
     return (perp..., wmax, gmax)
 end
 
-# julia> rnnlm("ptb.test.txt")
-# (ep,perp...,wmax,gmax,lr) = (1,694.3535880341253,256.35040516045433,159.35646292641206,1.0)
-
-function rnnlmModel(;
-                    layers = 0,
-                    rnn_size = 0,
-                    vocab_size = 0,
-                    )
-    prog = quote                # do we need the prefix?  lstm will do a dot?  yes if you want the same embedding going into each gate.
-        i0 = input()
-        x0 = wdot(i0; out=$rnn_size)
-    end
-    s0 = s1 = :x0
-    for n=1:layers
-        s0 = s1
-        s1 = symbol("x$n")
-        op = :($s1 = lstm($s0; out=$rnn_size))
-        push!(prog.args, op)
-    end
-    prog2 = quote
-        ou = wbf($s1; out=$vocab_size, f=soft)
-    end
-    append!(prog.args, prog2.args)
-    return prog
+@knet function rnnlmModel(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=lstm, o...)
+    wvec = wdot(word; o..., out=rnn_size)
+    yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size)
+    prob = wbf(yrnn; o..., out=vocab_size, f=soft)
 end
 
 
-type LMData; data; dict; batchsize; seqlength; x; y; end
+type LMData; data; dict; batchsize; seqlength; ftype; dense; x; y; end
 
 function LMData(fname::AbstractString; batch=20, seqlen=20, dict=Dict{Any,Int32}(), ftype=Float32, dense=false)
     data = Int32[]
-    f = open(fname)
-    for l in eachline(f)
-        for w in split(l)
-            push!(data, get!(dict, w, 1+length(dict)))
+    open(fname) do f 
+        for l in eachline(f)
+            for w in split(l)
+                push!(data, get!(dict, w, 1+length(dict)))
+            end
+            push!(data, get!(dict, "<eos>", 1+length(dict))) # end-of-sentence
         end
-        push!(data, get!(dict, "<eos>", 1+length(dict))) # end-of-sentence
-    end
-    if !dense
-        x = speye(ftype, length(dict), batch)
-        y = speye(ftype, length(dict), batch)
-    else
-        x = zeros(ftype, length(dict), batch)
-        y = zeros(ftype, length(dict), batch)
     end
     info("Read $fname: $(length(data)) words, $(length(dict)) vocab.")
-    LMData(data, dict, batch, seqlen, x, y)
+    LMData(data, dict, batch, seqlen, ftype, dense, nothing, nothing)
 end
 
 function next(d::LMData,state)                              	# d.data is the whole corpus represented as a sequence of Int32's
@@ -125,12 +95,15 @@ end
 
 # The state indicates number of words served, and whether the last output was end-of-sequence nothing
 function start(d::LMData)
-    mx = size(d.x, 1)
-    nd = length(d.dict)
-    if nd > mx                  # if dict size increases, adjust batch arrays
-        d.x.m = d.y.m = nd
-    elseif nd  < mx
-        error("Dictionary shrinkage")
+    ndict = length(d.dict)
+    if d.x == nothing || size(d.x) != (ndict, d.batch)
+        if d.dense
+            d.x = zeros(d.ftype, ndict, d.batchsize)
+            d.y = zeros(d.ftype, ndict, d.batchsize)
+        else
+            d.x = speye(d.ftype, ndict, d.batchsize)
+            d.y = speye(d.ftype, ndict, d.batchsize)
+        end
     end
     return (0, true)
 end
@@ -276,3 +249,30 @@ end
 # tmp(6/18): 18 toincr, 6 unique sizes
 # out(29/46): 15 par + 11 tosave + 3 tmp
 # dif(26/45):
+
+# julia> rnnlm("ptb.test.txt")
+# (ep,perp...,wmax,gmax,lr) = (1,694.3535880341253,256.35040516045433,159.35646292641206,1.0)
+
+# function rnnlmModel2(;
+#                     layers = 0,
+#                     rnn_size = 0,
+#                     vocab_size = 0,
+#                     )
+#     prog = quote                # do we need the prefix?  lstm will do a dot?  yes if you want the same embedding going into each gate.
+#         i0 = input()
+#         x0 = wdot(i0; out=$rnn_size)
+#     end
+#     s0 = s1 = :x0
+#     for n=1:layers
+#         s0 = s1
+#         s1 = symbol("x$n")
+#         op = :($s1 = lstm($s0; out=$rnn_size))
+#         push!(prog.args, op)
+#     end
+#     prog2 = quote
+#         ou = wbf($s1; out=$vocab_size, f=soft)
+#     end
+#     append!(prog.args, prog2.args)
+#     return prog
+# end
+

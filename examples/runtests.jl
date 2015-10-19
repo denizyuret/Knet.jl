@@ -84,10 +84,10 @@ include("rnnlm.jl")
 # @test isapprox(test9[4], 120.16170771885587; rtol=.0001)
 
 # Changing to: Float32
-@test isapprox(test9[1], 823.0, rtol=0.05)
-@test isapprox(test9[2], 536.0, rtol=0.05)
-@test isapprox(test9[3], 267.2, rtol=.005)
-@test isapprox(test9[4], 136.92346f0, rtol=0.0001)
+@test isapprox(test9[1], 825.336, rtol=0.05)
+@test isapprox(test9[2], 531.640, rtol=0.05)
+@test isapprox(test9[3], 267.337, rtol=.005)
+@test isapprox(test9[4], 136.923, rtol=0.0001)
 
 include("copyseq.jl")
 @time @show test10 = copyseq("--getloss --getnorm --epochs 1 ptb.valid.txt ptb.test.txt")
