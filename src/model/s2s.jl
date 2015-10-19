@@ -215,7 +215,7 @@ function next(d::S2SData, state)
         data = sub(d.data1, s1:s2)
         slen = 1 + maximum(map(length, data))
         for sent=1:length(data)
-            xword = (slen-nword <= length(data[sent]) ? data[sent][slen-nword] : eos)
+            xword = (slen-nword <= length(data[sent]) ? data[sent][slen-nword] : 0)
             setrow!(d.x, xword, sent)
         end
         nword += 1
@@ -225,8 +225,8 @@ function next(d::S2SData, state)
         data = sub(d.data2, s1:s2)
         slen = 1 + maximum(map(length, data))
         for sent=1:length(data)
-            xword = (1 <= nword <= length(data[sent]) ? data[sent][nword] : eos)
-            yword = (1 <= nword+1 <= length(data[sent]) ? data[sent][nword+1] : eos)
+            xword = (1 <= nword <= length(data[sent]) ? data[sent][nword] : 0)
+            yword = (1 <= nword+1 <= length(data[sent]) ? data[sent][nword+1] : 0)
             setrow!(d.x, xword, sent)
             setrow!(d.y, yword, sent)
         end
@@ -236,8 +236,8 @@ function next(d::S2SData, state)
     end
 end
 
-setrow!(x::SparseMatrixCSC,i,j)=(x.rowval[j] = i)
-setrow!(x::Array,i,j)=(x[:,j]=0; x[i,j]=1)
+setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
+setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
 
 # we stop if there is not enough data for another full batch.
 # TODO: add warning if we are leave some data out
