@@ -43,6 +43,7 @@
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 ai-mtg: kernels and perceptrons.
+	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 consider moving from y=f(x) to f(x,y) for the knet language.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.

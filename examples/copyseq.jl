@@ -29,20 +29,23 @@ function copyseq(args=ARGS)
     end
     global model = S2S(lstm; hidden=hidden, vocab=length(dict[2]))
     setopt!(model; lr=lr)
-    wmax = gmax = 0
+
     perp = zeros(length(data))
-    println("epoch  secs    ptrain  pvalid  ptest.. ltrain  wnorm  gnorm")
+    maxnorm = (getnorm ? [0.0, 0.0] : nothing)
+    losscnt = (getloss ? [0.0, 0.0] : nothing)
     t0 = time_ns()
+    println("epoch  secs    ptrain  pvalid  ptest.. ltrain  wnorm  gnorm")
     for epoch=1:epochs
-        (loss,wmax,gmax) = train(model, data[1], softloss; gcheck=gcheck, gclip=gclip, getnorm=getnorm, getloss=getloss)
-        perp[1] = exp(loss)
+        train(model, data[1], softloss; gclip=gclip, maxnorm=maxnorm, losscnt=losscnt)
+        losscnt != nothing && (perp[1] = exp(losscnt[1]/losscnt[2]))
         for d=2:length(data)
             loss = test(model, data[d], softloss)
             perp[d] = exp(loss)
         end
-        myprint(epoch,(time_ns()-t0)/1e9,perp...,loss,wmax,gmax)
+        myprint(epoch, (time_ns()-t0)/1e9, perp..., (maxnorm==nothing ? [] : maxnorm)...)
+        gcheck > 0 && gradcheck(model, data[1], softloss; gcheck=gcheck)
     end
-    return (perp..., wmax, gmax)
+    return (perp..., (maxnorm==nothing ? [] : maxnorm)...)
 end
 
 myprint(a...)=(for x in a; @printf("%-6g ",x); end; println(); flush(STDOUT))

@@ -40,7 +40,7 @@ include("net/forw.jl")
 include("net/back.jl")
 include("net/util.jl")
 
-include("model.jl");		export Model, train, test, predict, setopt!
+include("model.jl");		export Model, train, test, predict, gradcheck, setopt!
 include("model/fnn.jl");        export FNN
 include("model/rnn.jl");        export RNN
 include("model/s2c.jl");        export S2C

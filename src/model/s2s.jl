@@ -13,6 +13,9 @@ immutable S2S <: Model; encoder; decoder; params;
     end
 end
 
+params(m::S2S)=m.params
+reset!(m::S2S; o...)=(reset!(m.encoder; o...);reset!(m.decoder; o...))
+
 @knet function encoder(word; f=nothing, hidden=0, o...)
     wvec = wdot(word; o..., out=hidden)
     hvec = f(wvec; o..., out=hidden)
@@ -24,86 +27,74 @@ end
     pvec = soft(tvec)
 end
 
-params(m::S2S)=m.params
-reset!(m::S2S; o...)=(reset!(m.encoder; o...);reset!(m.decoder; o...))
+train(m::S2S, data, loss; o...)=s2s_loop(m, data, loss; trn=true, ystack=Any[], o...)
 
+test(m::S2S, data, loss; o...)=(l=[0.0,0.0]; s2s_loop(m, data, loss; losscnt=l, o...); l[1]/l[2])
 
-function train(m::S2S, data, loss; getloss=true, getnorm=true, gclip=0, gcheck=0, o...)
-    gcheck>0 && Base.warn_once("s2s.gradcheck has not been implemented, ignoring option. (TODO)")
-    numloss = sumloss = maxwnorm = maxgnorm = 0
-    decoding = false
-    ystack = Any[]
-    reset!(m; o...)
-    for item in data
-        (x,ygold) = item2xy(item)
-        if decoding && ygold == nothing # the next sentence started
-            (maxwnorm, maxgnorm) = bptt(m, ystack, loss; getnorm=getnorm, gclip=gclip, maxwnorm=maxwnorm, maxgnorm=maxgnorm, o...)
-            @assert isempty(ystack) && m.encoder.sp == 0 && m.decoder.sp == 0
-            reset!(m; o...)
-            decoding = false
-        end
-        if !decoding && ygold != nothing
-            copyforw!(m)
-            decoding = true
-        end
-        if decoding && ygold != nothing
-            ypred = forw(m.decoder, x...; trn=true, seq=true, o...)
-            getloss && (sumloss += loss(ypred, ygold); numloss += 1)
-            push!(ystack, copy(ygold))
-        end
-        if !decoding && ygold == nothing
-            forw(m.encoder, x...; trn=true, seq=true, o...)
-        end
-    end
-    # For the last sentence
-    (maxwnorm, maxgnorm) = bptt(m, ystack, loss; getnorm=getnorm, gclip=gclip, maxwnorm=maxwnorm, maxgnorm=maxgnorm, o...)
-    return (sumloss/numloss, maxwnorm, maxgnorm)
-end
-
-function test(m::S2S, data, loss; o...)
-    numloss = sumloss = 0
+function s2s_loop(m::S2S, data, loss; once=false, o...)
     decoding = false
     reset!(m; o...)
     for item in data
         (x,ygold) = item2xy(item)
         if decoding && ygold == nothing # the next sentence started
+            once && break
+            s2s_eos(m, data, loss; o...)
             reset!(m; o...)
             decoding = false
         end
-        if !decoding && ygold != nothing # output sequence started
-            copyforw!(m)
+        if !decoding && ygold != nothing # source ended, target sequence started
+            s2s_copyforw!(m)
             decoding = true
         end
-        if decoding && ygold != nothing # keep decoding
-            ypred = forw(m.decoder, x...; trn=false, seq=true, o...)
-            sumloss += loss(ypred, ygold)
-            numloss += 1
+        if decoding && ygold != nothing # keep decoding target
+            s2s_decode(m, x, ygold, loss; o...)
         end
-        if !decoding && ygold == nothing # keep encoding
-            forw(m.encoder, x...; trn=false, seq=true, o...)
+        if !decoding && ygold == nothing # keep encoding source
+            s2s_encode(m, x; o...)
         end
     end
-    sumloss / numloss
+    s2s_eos(m, data, loss; o...)
 end
 
-function bptt(m::S2S, ystack, loss; getnorm=true, gclip=0, maxwnorm=0, maxgnorm=0, o...)
-    # @assert m.encoder.sp == m.decoder.sp # this does not work when encoder does not have output
+function s2s_eos(m::S2S, data, loss; trn=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)
+    if ystack != nothing
+        s2s_bptt(m, ystack, loss; o...)
+        g = (gclip > 0 || maxnorm!=nothing ? gnorm(m) : 0)
+    end
+    if trn
+        gclip=(g > gclip > 0 ? gclip/g : 0)
+        update!(m; gclip=gclip, o...)
+    end
+    if maxnorm != nothing
+        w=wnorm(m)
+        w > maxnorm[1] && (maxnorm[1]=w)
+        g > maxnorm[2] && (maxnorm[2]=g)
+    end
+end
+
+function s2s_decode(m::S2S, x, ygold, loss; ystack=nothing, losscnt=nothing, o...)
+    ypred = forw(m.decoder, x...; trn=(ystack!=nothing), seq=true, o...)
+    losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
+    ystack != nothing  && push!(ystack, copy(ygold))
+end
+
+function s2s_encode(m::S2S, x; ystack=nothing, o...)
+    forw(m.encoder, x...; trn=(ystack!=nothing), seq=true, o...)
+end    
+
+function s2s_bptt(m::S2S, ystack, loss; o...)
     while !isempty(ystack)
         ygold = pop!(ystack)
         back(m.decoder, ygold, loss; seq=true, o...)
     end
     @assert m.decoder.sp == 0
-    copyback!(m)
+    s2s_copyback!(m)
     while m.encoder.sp > 0
         back(m.encoder; seq=true, o...)
     end
-    (getnorm || gclip>0) ? (g = gnorm(m); g > maxgnorm && (maxgnorm = g)) : (g=0)
-    update!(m; gclip=(g > gclip > 0 ? gclip/g : 0), o...)
-    getnorm && (w = wnorm(m); w > maxwnorm && (maxwnorm = w))
-    (maxwnorm, maxgnorm)
 end
 
-function copyforw!(m::S2S)
+function s2s_copyforw!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
             # m.decoder.out0[n] == nothing && (m.decoder.out0[n] = similar(m.encoder.out[n]))
@@ -113,7 +104,7 @@ function copyforw!(m::S2S)
     end
 end
 
-function copyback!(m::S2S)
+function s2s_copyback!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
             # m.encoder.dif0[n] == nothing && (m.encoder.dif0[n] = similar(m.decoder.dif[n]))
@@ -122,6 +113,40 @@ function copyback!(m::S2S)
         end
     end
 end
+
+function gradcheck(m::S2S, data, loss; gcheck=10, o...)
+    losscnt = [0.0, 0.0]
+    s2s_loop(m, data, loss; once=true, ystack=Any[], losscnt=losscnt)
+    loss0 = losscnt[1]
+    pp = params(m)
+    pdiff = map(p->convert(Array, p.dif), pp)
+    delta = atol = rtol = cbrt(eps(eltype(pdiff[1])))  # 6e-6 for Float64, 5e-3 for Float32 works best
+    maxbad = 0
+    for n=1:length(pp)
+        p = pp[n]
+        psave = copy(p.out)
+        wlen = length(p.out)
+        irange = (wlen <= gcheck ? (1:wlen) : sortperm(abs(vec(pdiff[n])),rev=true)[1:gcheck]) # rand(1:wlen, gcheck))
+        for i in irange
+            wi0 = p.out[i]
+            wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
+            p.out[i] = wi1
+            s2s_loop(m, data, loss; once=true, losscnt=fill!(losscnt,0))
+            loss1 = losscnt[1]
+            p.out[i] = wi0
+            dwi = (loss1 - loss0) / (wi1 - wi0)
+            dw0 = pdiff[n][i]
+            z=abs(dw0-dwi)-rtol*max(abs(dw0),abs(dwi)); z>maxbad && (maxbad=z)
+            if !isapprox(dw0, dwi; rtol=rtol, atol=atol)
+                println(tuple(:gc, n, i, dw0, dwi))
+            end
+        end
+        @assert isequal(p.out, psave)
+    end
+    info("gradient checked the largest $(length(pdiff))x$(gcheck) parameters:")
+    info("abs(x-y) <= atol+rtol*max(abs(x),abs(y))) where rtol=$rtol, atol=$maxbad")
+end
+
 
 
 """
