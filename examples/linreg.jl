@@ -39,10 +39,10 @@ end
 # Data generator:
 import Base: start, next, done
 
-type LinReg; w; batchsize; epochsize; noise; rng; seed; end
+type LinReg; w; batchsize; epochsize; noise; rng; end
 
-function LinReg(outputs,inputs; batchsize=20, epochsize=10000, noise=.01, rng=MersenneTwister(), seed=42)
-    LinReg(randn(outputs,inputs),batchsize,epochsize,noise,rng,seed)
+function LinReg(outputs,inputs; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG)
+    LinReg(randn(rng,outputs,inputs),batchsize,epochsize,noise,rng)
 end
 
 function next(l::LinReg, n)
@@ -52,7 +52,7 @@ function next(l::LinReg, n)
     return ((x,y), n+l.batchsize)
 end
 
-start(l::LinReg)=(srand(l.rng,l.seed);0)
+start(l::LinReg)=0
 done(l::LinReg,n)=(n >= l.epochsize)
 
 !isinteractive() && !isdefined(:load_only) && linreg(ARGS)
