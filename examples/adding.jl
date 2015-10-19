@@ -13,12 +13,12 @@ function adding(args=ARGS)
     opts = parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
-    data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
+    global data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
     p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
           opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
           error("Unknown network type "*opts["nettype"]))
     p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
-    net = S2C(p1, p2)
+    global net = S2C(p1, p2)
     setopt!(net; lr=opts["lrate"])
     mse = 0; l=zeros(2); m=zeros(2)
     for epoch=1:opts["epochs"]
