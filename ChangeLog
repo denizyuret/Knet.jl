@@ -2,7 +2,6 @@
 
 	* TODO:
 	0030 complete gradcheck, predict in addition to train/test for models other than fnn
-	0050 reimplement mlp/rnnlm with the repeat instruction
 	0050 saman: local contrast normalization, manual weight bug.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging
@@ -94,6 +93,8 @@
 	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.
 	DONE download/install barrets code for testing.
 	DONE compare s2s with barret without gclip
+	DONE reimplement mlp/rnnlm with the repeat instruction
+
 
 2015-10-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
