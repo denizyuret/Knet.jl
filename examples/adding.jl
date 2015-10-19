@@ -20,12 +20,12 @@ function adding(args=ARGS)
     p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
     global net = S2C(p1, p2)
     setopt!(net; lr=opts["lrate"])
-    mse = 0; l=zeros(2); m=zeros(2)
+    mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
     for epoch=1:opts["epochs"]
         train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        opts["gcheck"] > 0 && gradcheck(net,data,quadloss;gcheck=opts["gcheck"])
         mse = 2*l[1]/l[2]
         println(tuple(epoch*data.epochsize,mse,m...))
+        opts["gcheck"] > 0 && gradcheck(net,data,quadloss;gcheck=opts["gcheck"])
         flush(STDOUT)
     end
     return (mse, m...)
