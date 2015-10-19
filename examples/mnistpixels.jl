@@ -27,17 +27,18 @@ function mnistpixels(args=ARGS)
     p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
     net = S2C(p1,p2)
     setopt!(net; lr=lrate)
-    l = maxw = maxg = acc = 0
+    l = zeros(2); m = zeros(2); acc = 0
     for epoch=1:epochs
-        (l,maxw,maxg) = train(net, trn, softloss; gclip=gclip, gcheck=gcheck, rtol=rtol, atol=atol)
-        println(tuple(:trn,epoch*trn.epochsize,l,maxw,maxg))
+        train(net, trn, softloss; gclip=gclip, losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        println(tuple(:trn,epoch*trn.epochsize,l[1]/l[2],m...))
+        gcheck > 0 && gradcheck(net, trn, softloss; gcheck=gcheck)
         if epoch % testfreq == 0
             acc = 1-test(net, tst, zeroone)
             println(tuple(:tst,epoch*trn.epochsize,acc))
         end
         flush(STDOUT)
     end
-    return (acc, l, maxw, maxg)
+    return (acc, l[1]/l[2], m...)
 end
 
 # input comes in as xtrn(784,60000), ytrn(10,60000)

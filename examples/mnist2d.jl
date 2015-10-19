@@ -32,17 +32,18 @@ function mnist2d(args=ARGS)
 
     net = FNN(mnist2d_model)
     setopt!(net, lr=0.5)
+    l=zeros(2); m=zeros(2)
 
-    l=w=g=0
     for epoch=1:epochs
-        (l,w,g) = train(net, dtrn, softloss; getloss=true, getnorm=true, gcheck=gcheck, atol=0.01, rtol=0.001) # t:3053
+        train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0)) # t:3053
         ltrn = test(net, dtrn, softloss)
         atrn = 1-test(net, dtrn, zeroone)
         ltst = test(net, dtst, softloss)
         atst = 1-test(net, dtst, zeroone)
-        @show (epoch,l,w,g,ltrn,atrn,ltst,atst)
+        println((epoch,l[1]/l[2],m[1],m[2],ltrn,atrn,ltst,atst))
+        gcheck > 0 && gradcheck(net, dtrn, softloss; gcheck=gcheck)
     end
-    return (l,w,g)
+    return (l[1]/l[2],m[1],m[2])
 end
 
 !isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)

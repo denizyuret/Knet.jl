@@ -23,34 +23,36 @@ function linreg(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
-    data = LinReg(outputs, inputs, batchsize, epochsize, noise)
-    net = FNN(wdot; out=outputs)
+    global data = LinReg(outputs, inputs; batchsize=batchsize, epochsize=epochsize, noise=noise)
+    global net = FNN(wdot; out=outputs)
     setopt!(net; lr=lr)
-    lwg = nothing
+    losscnt = zeros(2)
+    maxnorm = zeros(2)
     for epoch = 1:epochs
-        lwg = train(net, data, quadloss; gcheck=gcheck)
-        println(lwg)
+        train(net, data, quadloss; maxnorm=fill!(maxnorm,0), losscnt=fill!(losscnt,0))
+        println((losscnt[1]/losscnt[2], maxnorm[1], maxnorm[2]))
+        gcheck > 0 && gradcheck(net, data, quadloss; gcheck=gcheck)
     end
-    return lwg
+    return (losscnt[1]/losscnt[2], maxnorm[1], maxnorm[2])
 end
 
 # Data generator:
 import Base: start, next, done
 
-type LinReg; w; batchsize; epochsize; noise; end
+type LinReg; w; batchsize; epochsize; noise; rng; seed; end
 
-function LinReg(outputs,inputs,batchsize,epochsize,noise)
-    LinReg(randn(outputs,inputs),batchsize,epochsize,noise)
+function LinReg(outputs,inputs; batchsize=20, epochsize=10000, noise=.01, rng=MersenneTwister(), seed=42)
+    LinReg(randn(outputs,inputs),batchsize,epochsize,noise,rng,seed)
 end
 
 function next(l::LinReg, n)
     (outputs, inputs) = size(l.w)
-    x = rand(inputs, l.batchsize)
-    y = l.w * x + scale(l.noise, randn(outputs, l.batchsize))
+    x = rand(l.rng, inputs, l.batchsize)
+    y = l.w * x + scale(l.noise, randn(l.rng, outputs, l.batchsize))
     return ((x,y), n+l.batchsize)
 end
 
-start(::LinReg)=0
+start(l::LinReg)=(srand(l.rng,l.seed);0)
 done(l::LinReg,n)=(n >= l.epochsize)
 
 !isinteractive() && !isdefined(:load_only) && linreg(ARGS)

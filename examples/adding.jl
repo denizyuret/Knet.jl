@@ -20,14 +20,15 @@ function adding(args=ARGS)
     p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
     net = S2C(p1, p2)
     setopt!(net; lr=opts["lrate"])
-    mse = maxw = maxg = 0
+    mse = 0; l=zeros(2); m=zeros(2)
     for epoch=1:opts["epochs"]
-        (l,maxw,maxg) = train(net, data, quadloss; gclip=opts["gclip"], gcheck=opts["gcheck"])
-        mse = 2*l
-        println(tuple(epoch*data.epochsize,mse,maxw,maxg))
+        train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        opts["gcheck"] > 0 && gradcheck(net,data,quadloss;gcheck=opts["gcheck"])
+        mse = 2*l[1]/l[2]
+        println(tuple(epoch*data.epochsize,mse,m...))
         flush(STDOUT)
     end
-    return (mse, maxw, maxg)
+    return (mse, m...)
 end
 
 type Adding; len; batchsize; epochsize; batch; sum; cnt; rng;
@@ -96,7 +97,7 @@ function parse_commandline(args)
         "--gcheck"
         help = "gradient check"
         arg_type = Int
-        default = 10
+        default = 0
         "--nettype"
         help = "type of network"
         default = "irnn" # "lstm"

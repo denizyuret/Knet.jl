@@ -31,18 +31,19 @@ function rnnlm(args=ARGS)
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
 
     perp = zeros(length(data))
-    wmax = gmax = 0
+    l=zeros(2); m=zeros(2)
     for ep=1:opts["max_max_epoch"]
         ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net, lr=lr))
-        (ltrn,wmax,gmax) = train(net, data[1], softloss; gclip=opts["max_grad_norm"], gcheck=opts["gcheck"], keepstate=true)
-        perp[1] = exp(ltrn)
+        train(net, data[1], softloss; gclip=opts["max_grad_norm"], keepstate=true, losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        opts["gcheck"]>0 && gradcheck(net,data[1],softloss; gcheck=opts["gcheck"], keepstate=true)
+        perp[1] = exp(l[1]/l[2])
         for idata = 2:length(data)
             ldev = test(net, data[idata], softloss; keepstate=true)
             perp[idata] = exp(ldev)
         end
-        @show (ep, perp..., wmax, gmax, lr)
+        @show (ep, perp..., m..., lr)
     end
-    return (perp..., wmax, gmax)
+    return (perp..., m...)
 end
 
 @knet function rnnlmModel(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=lstm, o...)
@@ -96,7 +97,7 @@ end
 # The state indicates number of words served, and whether the last output was end-of-sequence nothing
 function start(d::LMData)
     ndict = length(d.dict)
-    if d.x == nothing || size(d.x) != (ndict, d.batch)
+    if d.x == nothing || size(d.x) != (ndict, d.batchsize)
         if d.dense
             d.x = zeros(d.ftype, ndict, d.batchsize)
             d.y = zeros(d.ftype, ndict, d.batchsize)

@@ -1,8 +1,7 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 # 4-D convolution test
 
-using Base.Test
-using Knet
+using Knet, ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
 @knet function lenet_model(x0)
@@ -13,23 +12,36 @@ isdefined(:MNIST) || include("mnist.jl")
 end
 
 function mnist4d(args=ARGS)
-    setseed(42)
-    nbatch=100
+    info("Learning to copy sequences to test the S2S model.")
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=42)
+        ("--nbatch"; arg_type=Int; default=100)
+        ("--lr"; arg_type=Float64; default=0.1)
+        ("--epochs"; arg_type=Int; default=3)
+        ("--gcheck"; arg_type=Int; default=0)
+    end
+    isa(args, AbstractString) && (args=split(args))
+    opts = parse_args(args, s)
+    println(opts)
+    for (k,v) in opts; @eval ($(symbol(k))=$v); end
+    seed > 0 && setseed(seed)
 
     dtrn = ItemTensor(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn; batch=nbatch)
     dtst = ItemTensor(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst; batch=nbatch)
 
     info("Testing lenet (convolutional net) on MNIST")
     lenet = FNN(lenet_model)
-    setopt!(lenet; lr=0.1)
-    lwg = nothing
-    for epoch=1:3
-        lwg = train(lenet,dtrn,softloss)
-        @show (epoch, lwg...)
-        @show 1-test(lenet,dtrn,zeroone)
-        @show 1-test(lenet,dtst,zeroone)
+    setopt!(lenet; lr=lr)
+    l=zeros(2); m=zeros(2)
+    for epoch=1:epochs
+        train(lenet,dtrn,softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        atrn = 1-test(lenet,dtrn,zeroone)
+        atst = 1-test(lenet,dtst,zeroone)
+        println((epoch, atrn, atst, l[1]/l[2], m...))
+        gcheck > 0 && gradcheck(lenet,dtrn,softloss; gcheck=gcheck)
     end
-    return lwg
+    return (l[1]/l[2],m...)
 end
 
 !isinteractive() && !isdefined(:load_only) && mnist4d(ARGS)
