@@ -16,8 +16,8 @@ function mnistpixels(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
-    tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
+    global trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
+    global tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
 
     nx = 1
     ny = 10
@@ -25,9 +25,9 @@ function mnistpixels(args=ARGS)
           nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
           error("Unknown network type "*nettype))
     p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
-    net = S2C(p1,p2)
+    global net = S2C(p1,p2)
     setopt!(net; lr=lrate)
-    l = zeros(2); m = zeros(2); acc = 0
+    l = [0f0,0f0]; m = [0f0,0f0]; acc = 0
     for epoch=1:epochs
         train(net, trn, softloss; gclip=gclip, losscnt=fill!(l,0), maxnorm=fill!(m,0))
         println(tuple(:trn,epoch*trn.epochsize,l[1]/l[2],m...))
