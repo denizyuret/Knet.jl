@@ -12,15 +12,15 @@ gradient.  If ygold=nothing means the loss gradient from the output is
 taken to be 0.  Gradients computation proceeds backwards from N..1.
 
 """
-function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...)
+function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
     N = nops(r)
-    initback(r, ygold, loss; getdx=getdx, seq=seq, a...)
+    initback(r, ygold, loss; getdx=getdx, seq=seq, o...)
     if ygold == nothing
         r.toincr[N] || (r.dif[N] = nothing)
     elseif !r.toincr[N]
-        r.dif[N] = loss(r.out[N], ygold, r.dif0[N])
+        r.dif[N] = loss(r.out[N], ygold, r.dif0[N]; o...)
     else
-        loss(r.out[N], ygold, r.tmp[N])
+        loss(r.out[N], ygold, r.tmp[N]; o...)
         r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
     end
     for n = N:-1:1
@@ -36,7 +36,7 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...
                 push!(xn, r.out[i]) 
             end
             xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
-            back(r.op[n], dyn, dxn...; x=xn, y=yn, a...)
+            back(r.op[n], dyn, dxn...; x=xn, y=yn, o...)
             gpusync()
             for i in r.inputs[n]
                 if r.toback[i]
@@ -57,10 +57,10 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, a...
         end
         seq && r.tosave[n] && pop(r,n)
     end
-    getdx && get1(r.dif[find(o->isa(o,Input), r.op)])
+    getdx && get1(r.dif[find(op->isa(op,Input), r.op)])
 end
 
-copyloss(ypred,ygold,ygrad)=copy!(ygrad,ygold)
+copyloss(ypred,ygold,ygrad;o...)=copy!(ygrad,ygold)
 
 ### DEAD CODE:
 
