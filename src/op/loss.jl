@@ -48,82 +48,116 @@ for (ltype, lback, lloss, lname) in
     end
 end
 
-### SOFTLOSS: 
+"""
+```
+loss = softloss(ypred,ygold)
+softloss(ypred,ygold,ygrad)
+```
 
-# Cross entropy loss to use after the Soft layer.
-# y should have normalized probabilities output by the model.
-# p has normalized probabilities from the answer key.
-# Normalization is across the last dimension, i.e. sum(p[:,...,:,i])==1
-# Calculates the gradient of the loss wrt y, i.e. 1-p/y
+Cross entropy loss to use after a softmax output (see the `soft`
+activation function).  ypred has the normalized probabilities output
+by the model.  ygold has normalized probabilities from the answer key.
+For general arrays normalization is across the last dimension,
+i.e. sum(y[:,...,:,i])==1.
 
-# Math:
-#
-# J = -Σ pi log yi		;; loss function
-#   = -Σ pi log (yi/Σyj)	;; should make normalization explicit
-#   = (-Σ pi log yi) + Σ pi log Σ yj
-#   = (-Σ pi log yi) + log Σ yj
-#
-# ∂J/∂yk = -pk/yk + (1/Σ yj)
-#        = -pk/yk + 1
-#
-# dy = wx			;; dy is the input to the soft layer
-# yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
-# ∂yi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
-#         = (i=k) yi - yi yk
-# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input dy
-#        = Σ (1-pi/yi)((i=k) yi - yi yk)
-#        = Σ ((i=k) yi - yi yk - (i=k) pi + pi yk)
-#        = yk - pk - yk Σ (yi - pi)
-#        = yk - pk
+The two argument version calculates the loss value:
 
-### The three argument version is for gradient calculation:
+loss = -Σ ygold[i,j] log ypred[i,j]
 
-function softloss(ypred::Array, ygold::Array, ygrad::Array; o...)
+The three argument version calculates the gradient of the loss wrt ypred:
+
+ygrad[i,j] = 1 - ygold[i,j]/ypred[i,j]
+
+If a certain column needs to be ignored (e.g. it is padding for a
+minibatch), set ygold[:,j]=0.  This will eliminate its contribution to
+loss.  The gradient calculation will detect this and set ygrad[:,j]=0.
+
+For the math let us use p for ygold, q for ypred, and ∂J/∂qk for the
+derivative of the loss wrt ypred[k]:
+```
+J = -Σ pi log qi                        ;; loss function
+  = -Σ pi log (qi/Σqj)                  ;; normalization explicit
+  = (-Σ pi log qi) + Σ pi log Σ qj
+  = (-Σ pi log qi) + log Σ qj
+
+∂J/∂qk = -pk/qk + (1/Σ qj)
+       = -pk/qk + 1
+```
+"""
+function softloss(ypred::Array, ygold::Array, ygrad::Array; mask=nothing, o...)
     @assert size(ypred)==size(ygold)==size(ygrad)
-    ycols=ccount(ygrad)
+    (yrows,ycols) = size2(ygrad)
     for i=1:length(ygrad)
-        ygrad[i] = ((ypred[i]-ygold[i])/ypred[i])/ycols
+        ygrad[i] = (mask == nothing || mask[1 + div((i-1),yrows)] != 0 ?
+                    ((ypred[i]-ygold[i])/ypred[i])/ycols : 0)
     end
 end
 
-@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaArray{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), length(ygold),1/ccount(ygold),ypred,ygold,ygrad); gpusync(); ygrad)
-@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaArray{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),1/ccount(ygold),ypred,ygold,ygrad); gpusync(); ygrad)
-@gpu softloss(ypred::CudaArray, ygold::Array, ygrad::CudaArray)=softloss(ypred, CudaArray(ygold), ygrad)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
+    (yrows,ycols) = size2(ygrad)
+    mask != C_NULL && (mask = convert(CudaArray, mask))
+    T <: Float32 ? ccall((:softlossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cuchar}, Ptr{Cfloat}), 
+                         yrows,ycols,ypred,ygold,mask,ygrad) :
+    T <: Float64 ? ccall((:softlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
+                         yrows,ycols,ypred,ygold,mask,ygrad) : error()
+    gpusync()
+    return ygrad
+end
 
-function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; o...)
-    fill!(ygrad, 1/size(ygold,2))
+@gpu softloss(ypred::CudaArray, ygold::Array, ygrad::CudaArray; o...)=softloss(ypred, CudaArray(ygold), ygrad; o...)
+
+function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; mask=nothing, o...)
+    ycols = size(ygold,2)
+    col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
     for nz = 1:nnz(ygold)
-        dyi = ygold.nzval[nz]
-        row = ygold.rowval[nz]
-        col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
         while nz > ygold.colptr[col+1]-1; col += 1; end
-        i = (col-1) * size(ypred,1) + row
-        ygrad[i] *= (1-dyi/ypred[i])
+        if mask == nothing || mask[col] != 0
+            ygoldi = ygold.nzval[nz]
+            row = ygold.rowval[nz]
+            i = (col-1) * size(ypred,1) + row
+            ygrad[i] = (1-ygoldi/ypred[i])/ycols
+        else
+            ygrad[i] = 0
+        end
     end
     return ygrad
 end
 
-@gpu softloss(ypred::CudaArray{Float32}, ygold::CudaSparseMatrixCSC{Float32}, ygrad::CudaArray{Float32}; o...)=(ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cfloat}), size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);gpusync();ygrad)
-@gpu softloss(ypred::CudaArray{Float64}, ygold::CudaSparseMatrixCSC{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);gpusync();ygrad)
-@gpu softloss(ypred::CudaArray, ygold::SparseMatrixCSC, ygrad::CudaArray)=softloss(ypred, CudaSparseMatrixCSC(ygold), ygrad)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
+    (yrows,ycols) = size2(ygrad)
+    mask != C_NULL && (mask = convert(CudaArray, mask))
+    T <: Float32 ? ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}), 
+                         yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) :
+    T <: Float64 ? ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
+                         yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) : error()
+    gpusync()
+    return ygrad
+end
+@gpu softloss(ypred::CudaArray, ygold::SparseMatrixCSC, ygrad::CudaArray; o...)=softloss(ypred, CudaSparseMatrixCSC(ygold), ygrad; o...)
 
 
 ### The two argument version is for loss calculation:
 
-function softloss(ypred::Array, ygold::Array)
+function softloss(ypred::Array, ygold::Array; mask=nothing)
     @assert size(ypred)==size(ygold)
     cost=zero(Float64)
     for i=1:length(ygold)
-        ygold[i] > 0 && (cost += (ygold[i]*log(ypred[i])))
+        (mask==nothing || mask[1 + div((i-1),yrows)] != 0) &&
+        ygold[i] > 0 &&
+        (cost += (ygold[i]*log(ypred[i])))
     end
     return -cost/ccount(ygrad)
 end
 
-@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, o...)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, mask=C_NULL, o...)
     ly = (tmp == nothing ? similar(ypred) : tmp) # TODO: get rid of alloc
-    T <: Float32 ? ccall((:softloss32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(ygold),ypred,ygold,ly) :
-    T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),ypred,ygold,ly) : error()
-    loss = CUBLAS.asum(ly)/ccount(ygold)
+    mask == C_NULL || (mask = convert(CudaArray,mask))
+    (yrows,ycols) = size2(ygold)
+    T <: Float32 ? ccall((:softloss32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cuchar},Ptr{Cfloat}),
+                         yrows,ycols,ypred,ygold,mask,ly) :
+    T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
+                         yrows,ycols,ypred,ygold,mask,ly) : error()
+    loss = CUBLAS.asum(ly)/ycols
     ly === tmp || free(ly)
     gpusync()
     return loss
@@ -131,29 +165,32 @@ end
 
 @gpu softloss(ypred::CudaArray, ygold::Array; o...)=softloss(ypred, CudaArray(ygold); o...)
 
-function softloss(ypred::Array, ygold::SparseMatrixCSC; o...)
+function softloss(ypred::Array, ygold::SparseMatrixCSC; mask=nothing, o...)
     cost=zero(Float64)
     col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
     for nz = 1:nnz(ygold)
+        while nz > ygold.colptr[col+1]-1; col += 1; end
+        mask!=nothing && mask[col]==0 && continue
         ygoldi = ygold.nzval[nz]
         row = ygold.rowval[nz]
-        while nz > ygold.colptr[col+1]-1; col += 1; end
         i = (col-1) * size(ypred,1) + row
         cost -= (ygoldi * log(ypred[i]))
     end
     return cost/ccount(ygold)
 end
 
-@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}; tmp=nothing, o...)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}; mask=C_NULL, tmp=nothing, o...)
     ly = (tmp == nothing ? similar(ygold.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(ygold) || error("not enough temp space")
+    mask==C_NULL || (mask=convert(CudaArray,mask))
+    (yrows,ycols) = size(ygold)
     T <: Float32 ?
-    ccall((:softloss32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
-          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly) :
+    ccall((:softloss32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}),
+          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ly) :
     T <: Float64 ?
-    ccall((:softloss64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
-          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly) : error()
-    loss = CUBLAS.asum(nnz(ygold),ly,1)/ccount(ygold)
+    ccall((:softloss64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
+          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ly) : error()
+    loss = CUBLAS.asum(nnz(ygold),ly,1)/ycols
     ly === tmp || free(ly)
     gpusync()
     return loss
@@ -444,3 +481,4 @@ zeroone(ypred,ygold)=zeroone(convert(Array,ypred),convert(Array,ygold))
 
 # params(::Loss)=Any[]
 # overwrites(::Loss)=true
+

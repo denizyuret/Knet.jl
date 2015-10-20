@@ -34,8 +34,7 @@ test(m::S2S, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o
 function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
     decoding = false
     reset!(m; o...)
-    for item in data
-        (x,ygold) = item2xy(item)
+    for (x,ygold,mask) in data
         if decoding && ygold == nothing # the next sentence started
             gcheck && break
             s2s_eos(m, data, loss; gcheck=gcheck, o...)
@@ -47,13 +46,23 @@ function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
             decoding = true
         end
         if decoding && ygold != nothing # keep decoding target
-            s2s_decode(m, x, ygold, loss; o...)
+            s2s_decode(m, x, ygold, mask, loss; o...)
         end
         if !decoding && ygold == nothing # keep encoding source
             s2s_encode(m, x; o...)
         end
     end
     s2s_eos(m, data, loss; gcheck=gcheck, o...)
+end
+
+function s2s_encode(m::S2S, x; trn=false, o...)
+    forw(m.encoder, x; trn=trn, seq=true, o...)
+end    
+
+function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
+    ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
+    ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
+    losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += 1)
 end
 
 function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)
@@ -72,20 +81,10 @@ function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, ma
     end
 end
 
-function s2s_decode(m::S2S, x, ygold, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
-    ypred = forw(m.decoder, x...; trn=trn, seq=true, o...)
-    losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
-    ystack != nothing  && push!(ystack, copy(ygold))
-end
-
-function s2s_encode(m::S2S, x; trn=false, o...)
-    forw(m.encoder, x...; trn=trn, seq=true, o...)
-end    
-
 function s2s_bptt(m::S2S, ystack, loss; o...)
     while !isempty(ystack)
-        ygold = pop!(ystack)
-        back(m.decoder, ygold, loss; seq=true, o...)
+        (ygold,mask) = pop!(ystack)
+        back(m.decoder, ygold, loss; seq=true, mask=mask, o...)
     end
     @assert m.decoder.sp == 0
     s2s_copyback!(m)
@@ -169,7 +168,9 @@ by the S2SData generator and are not present in the sourcefile or the
 targetfile.  The S2S model switches between encoding and decoding
 using y=nothing as an indicator.    
 """
-type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; stop; end
+type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; mask; stop; end
+
+# TODO: get rid of the stop field if no longer used.
 
 function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=Float32, dense=false,
                  dict1=Dict{Any,Int32}(), dict2=Dict{Any,Int32}(), stop=typemax(Int))
@@ -179,11 +180,13 @@ function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=F
     sorted = sortperm(data1, by=length)
     data1 = data1[sorted]
     data2 = data2[sorted]
-    S2SData(data1, data2, dict1, dict2, batch, ftype, dense, nothing, nothing, stop)
+    S2SData(data1, data2, dict1, dict2, batch, ftype, dense, nothing, nothing, nothing, stop)
 end
 
 const eosstr = "<s>"
 const eos = 1
+
+# TODO implement shuffling by blocks, still keeping similar sized items together.
 
 function loadseq(fname::AbstractString, dict=Dict{Any,Int32}())
     data = Vector{Int32}[]
@@ -212,32 +215,50 @@ function next(d::S2SData, state)
     s1 = d.batch * nbatch + 1
     s2 = d.batch * (nbatch + 1)
     if !decode                  # gen data1[s1:s2] in reverse for encoding
-        data = sub(d.data1, s1:s2)
-        slen = 1 + maximum(map(length, data))
-        for sent=1:length(data)
-            xword = (slen-nword <= length(data[sent]) ? data[sent][slen-nword] : 0)
-            setrow!(d.x, xword, sent)
+        sentences = sub(d.data1, s1:s2)
+        maxlen = 1 + maximum(map(length, sentences))
+        w = maxlen-nword
+        for s=1:length(sentences)
+            n=length(sentences[s])
+            xword = (w <= n ? sentences[s][w] :
+                     w == n+1 ? eos : 0)
+            if xword != 0
+                d.mask[s] = 1
+                setrow!(d.x, xword, s)
+            else
+                d.mask[s] = 0
+            end
         end
         nword += 1
-        nword == slen && (nword = 0; decode = true)
-        return ((d.x, nothing), (nbatch, nword, decode))
+        nword == maxlen && (nword = 0; decode = true)
+        return ((d.x, nothing, d.mask), (nbatch, nword, decode))
     else                        # gen data2[s1:s2] for decoding
-        data = sub(d.data2, s1:s2)
-        slen = 1 + maximum(map(length, data))
-        for sent=1:length(data)
-            xword = (1 <= nword <= length(data[sent]) ? data[sent][nword] : 0)
-            yword = (1 <= nword+1 <= length(data[sent]) ? data[sent][nword+1] : 0)
-            setrow!(d.x, xword, sent)
-            setrow!(d.y, yword, sent)
+        sentences = sub(d.data2, s1:s2)
+        maxlen = 1 + maximum(map(length, sentences))
+        for s=1:length(sentences)
+            n=length(sentences[s])
+            xword = (nword == 0 ? eos : 1 <= nword <= n ? sentences[s][nword] : 0)
+            yword = (nword < n ? sentences[s][nword+1] : nword == n ? eos : 0)
+            if xword != 0
+                @assert yword != 0
+                d.mask[s] = 1
+                setrow!(d.x, xword, s)
+                setrow!(d.y, yword, s)
+            else
+                d.mask[s] = 0
+            end
         end
         nword += 1
-        nword == slen && (nbatch += 1; nword = 0; decode = false)
-        return ((d.x, d.y), (nbatch, nword, decode))
+        nword == maxlen && (nbatch += 1; nword = 0; decode = false)
+        return ((d.x, d.y, d.mask), (nbatch, nword, decode))
     end
 end
 
+# TODO: these assume one hot columns, make them more general.
 setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
 setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
+zerocolumn(x::SparseMatrixCSC,j)=(x.nzval[j]==0)
+zerocolumn(x::Array,j)=(findfirst(sub(x,:,j))==0)
 
 # we stop if there is not enough data for another full batch.
 # TODO: add warning if we are leave some data out
@@ -263,6 +284,7 @@ function start(d::S2SData)
             d.x = speye(d.ftype, maxdict, d.batch)
             d.y = speye(d.ftype, maxdict, d.batch)
         end
+        d.mask = zeros(Cuchar, d.batch) # make this float for gpu
     end
     return (0, 0, false)
 end
@@ -302,3 +324,14 @@ end
 #   don't need this for one best greedy output
 #   it will make minibatching more difficult
 #   this is a problem for predict (TODO)
+
+
+### DEAD CODE:
+    # if losscnt != nothing 
+    #     l = loss(ypred, ygold)  # returns total loss / num columns ignoring padding
+    #     ycols = size(ygold,2)
+    #     nzcols = 0
+    #     for j=1:ycols; zerocolumn(ygold,j) || (nzcols += 1); end
+    #     losscnt[1] += l # this has been scaled by (1/ycols) by the loss function
+    #     losscnt[2] += (nzcols/ycols)    # this should work as long as loss for padded columns is 0 as it should be
+    # end

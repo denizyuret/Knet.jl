@@ -12,7 +12,8 @@ include("mnist2d.jl")
 @time @show test2 = mnist2d("--gcheck $gcheck")
 # 8.949818 seconds (7.32 M allocations: 327.153 MB, 1.81% gc time)
 # 6.499205 seconds (3.90 M allocations: 167.939 MB, 1.57% gc time)
-@test test2  == (0.10628127f0,24.865438f0,3.5134742f0)
+# @test test2 == (0.10628127f0,24.865438f0,3.5134742f0)
+@test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
 
 @time @show test3 = mnist2d("--ysparse --gcheck $gcheck")
 # 8.470642 seconds (4.84 M allocations: 220.114 MB, 2.18% gc time)

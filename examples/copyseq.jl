@@ -22,12 +22,12 @@ function copyseq(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
-    data = Any[]
+    global data = Any[]
     dict = [ Dict{Any,Int32}() for i=1:2 ]
     for f in datafiles
         push!(data, S2SData(f, f; batch=batchsize, ftype=eval(parse(ftype)), dense=dense, dict1=dict[1], dict2=dict[2])) # , stop=6400)) #DBG
     end
-    global model = S2S(lstm; hidden=hidden, vocab=length(dict[2]))
+    global model = S2S(lstm; hidden=hidden, vocab=length(dict[2]), winit=Uniform(-.05,.05))
     setopt!(model; lr=lr)
 
     perp = zeros(length(data))
@@ -36,8 +36,9 @@ function copyseq(args=ARGS)
     t0 = time_ns()
     println("epoch  secs    ptrain  pvalid  ptest.. ltrain  wnorm  gnorm")
     for epoch=1:epochs
-        train(model, data[1], softloss; gclip=gclip, maxnorm=maxnorm, losscnt=losscnt)
+        train(model, data[1], softloss; gclip=gclip, maxnorm=fill!(maxnorm,0), losscnt=fill!(losscnt,0))
         losscnt != nothing && (perp[1] = exp(losscnt[1]/losscnt[2]))
+        # @show losscnt
         for d=2:length(data)
             loss = test(model, data[d], softloss)
             perp[d] = exp(loss)

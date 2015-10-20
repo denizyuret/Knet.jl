@@ -46,6 +46,16 @@ reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 :
 @gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
 @gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
 
+# dy = wx			;; dy is the input to the soft layer
+# yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
+# ∂yi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
+#         = (i=k) yi - yi yk
+# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input dy
+#        = Σ (1-pi/yi)((i=k) yi - yi yk)
+#        = Σ ((i=k) yi - yi yk - (i=k) pi + pi yk)
+#        = yk - pk - yk Σ (yi - pi)
+#        = yk - pk
+
 @doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" soft
 function softforw(x::Array,y::Array)
     (st,nx) = size2(x)

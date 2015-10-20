@@ -1,13 +1,39 @@
-2015-10-19  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-20  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/model/s2s.jl: we need to handle padding for short sequences
+	in a minibatch.  This means certain columns of x/y need to be
+	ignored.  During forw calculation different columns do not
+	interfere, so nothing to be done, we can leave noise in those
+	columns.  During back calculation if we can get the loss gradient
+	to be zero for those columns, that would propagate back the
+	message "I do not care what is in those columns" and do the right
+	thing.  We can rely on zero columns on ygold or use a mask.  (1)
+	Zero columns only work for softloss, not quadloss.  They take time
+	to produce and detect.  (2) The mask will change with every token,
+	so it would have to be stored with ygold[t] (even during encoding
+	when ygold is nothing).  Both encode and decode would have to copy
+	and push this on the stack.  bptt would have to pop it and pass it
+	to back, maybe as a keyword option during both decode and encode
+	back.  Actually we don't need it during encoder back, since
+	ygold=nothing there is no need to mask it.  Will the noise columns
+	interfere during encoder back?  The cell and hidden arrays get
+	passed forward, and they have noise columns.  If the loss gradient
+	for these columns is 0 we should be ok.  biasback simply sums
+	ygrad -> ok.  dotback has dw=dy*x'.  The noise columns in x will
+	get multiplied by the zero columns in dy -> ok.  Are dy=0 columns
+	preserved going back?  They should but check.  So encoder needs no
+	mask, and we can store mask just with dy.  In both cases we need
+	s2s and loss modified in coordination.  (3) We could use negative
+	numbers.
 
 	* TODO:
-	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
-	0030 complete gradcheck, predict in addition to train/test for models other than fnn
+	0010 src/op/loss.jl: fix softloss to ignore zero columns.
 	0040 fix padding for s2s
-	0045 find out why csru breaks load without module
+	DONE find out why csru breaks load without module: workspace() function clears Main and solves problem (losing all variables)
 	0050 saman: local contrast normalization, manual weight bug.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging
+	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
 	0103 vivi concatenation
 	0105 ashish nce model
 	0106 karpathy character based models, inputless networks with random generators
@@ -22,15 +48,13 @@
 	0127 image captioning example
 	0130 language learning in minecraft
 	0160 learning to interpret python ,mfind other examples
-	0200 figure out the difference between copyseq and barret.
 	0200 barret optimization: for sparse input, keep dw dense, but use a mask to make w += dw faster.
-	0200 examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
+	0201 barret: implementing the whole lstm with single matrix multiplication
+	DONE examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
 	0200 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0200 optimization: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0250 implement gru using con. or axpb?
-	0250 src/model/s2s.jl: implement gcheck.
-	0300 dynamisarrays add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
-	0300 package KUdense as DynamicArrays.jl and post it.
+	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
 	0350 write mikolov ptb downloader like mnist. maybe use github lfs?
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
@@ -46,23 +70,20 @@
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 ai-mtg: kernels and perceptrons.
-	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 consider moving from y=f(x) to f(x,y) for the knet language.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
 	1000 examples/mnist4d.jl: test with dropout
-	1000 examples/mnistpixels.jl: gcheck gives terrible results, check.
-	1000 examples/mnistsparse.jl: gcheck does not work?
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
 	1000 examples: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 find the three parameter element wise mul in julia and rename mul2
 	1000 get rid of input() and use constructor arguments instead?	can we?
-	1000 gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 initforw: type/size inference in inputless networks?
+	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
 	1000 kperceptron.jl: reimplement within the new framework.
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern.
@@ -76,6 +97,7 @@
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
 	1000 reimplement averaging.
 	1000 src/model/fnn.jl: predict has not been tested
+	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
 	1000 src/op/add.jl,mul.jl: handle scalar input going forw and back (or implement axpb?, scal?)
@@ -92,13 +114,17 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+	DONE complete gradcheck, predict in addition to train/test for models other than fnn
+	DONE examples/mnistpixels.jl: gcheck gives terrible results, check.
+	DONE examples/mnistsparse.jl: gcheck does not work?
+	DONE gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
+	DONE src/model/s2s.jl: implement gcheck.
 
 	* DONE:
 	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.
 	DONE download/install barrets code for testing.
 	DONE compare s2s with barret without gclip
 	DONE reimplement mlp/rnnlm with the repeat instruction
-
 
 2015-10-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
