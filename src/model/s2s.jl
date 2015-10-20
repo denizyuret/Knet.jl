@@ -62,8 +62,9 @@ end
 function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
-    batchsize = (mask == nothing ? ccount(ygold) : sum(mask))
-    losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += 1)
+    (yrows, ycols) = size2(ygold)
+    nwords = (mask == nothing ? ycols : sum(mask))
+    losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += nwords/ycols)
 end
 
 function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)
