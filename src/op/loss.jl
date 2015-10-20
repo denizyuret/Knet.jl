@@ -76,6 +76,7 @@ end
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
+### The three argument version is for gradient calculation:
 
 function softloss(ypred::Array, ygold::Array, ygrad::Array; o...)
     @assert size(ypred)==size(ygold)==size(ygrad)
@@ -106,6 +107,9 @@ end
 @gpu softloss(ypred::CudaArray{Float64}, ygold::CudaSparseMatrixCSC{Float64}, ygrad::CudaArray{Float64}; o...)=(ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ygrad);gpusync();ygrad)
 @gpu softloss(ypred::CudaArray, ygold::SparseMatrixCSC, ygrad::CudaArray)=softloss(ypred, CudaSparseMatrixCSC(ygold), ygrad)
 
+
+### The two argument version is for loss calculation:
+
 function softloss(ypred::Array, ygold::Array)
     @assert size(ypred)==size(ygold)
     cost=zero(Float64)
@@ -115,20 +119,12 @@ function softloss(ypred::Array, ygold::Array)
     return -cost/ccount(ygrad)
 end
 
-@gpu function softloss(ypred::CudaArray{Float32}, ygold::CudaArray{Float32}; tmp=nothing, o...)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(ypred) : tmp) # TODO: get rid of alloc
-    ccall((:softloss32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(ygold),ypred,ygold,ly)
+    T <: Float32 ? ccall((:softloss32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(ygold),ypred,ygold,ly) :
+    T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),ypred,ygold,ly) : error()
     loss = CUBLAS.asum(ly)/ccount(ygold)
-    tmp == nothing && free(ly)
-    gpusync()
-    return loss
-end
-
-@gpu function softloss(ypred::CudaArray{Float64}, ygold::CudaArray{Float64}; tmp=nothing, o...)
-    ly = (tmp == nothing ? similar(ypred) : tmp) # TODO: get rid of alloc
-    ccall((:softloss64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(ygold),ypred,ygold,ly)
-    loss = CUBLAS.asum(ly)/ccount(ygold)
-    tmp == nothing && free(ly)
+    ly === tmp || free(ly)
     gpusync()
     return loss
 end
@@ -137,35 +133,28 @@ end
 
 function softloss(ypred::Array, ygold::SparseMatrixCSC; o...)
     cost=zero(Float64)
+    col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
     for nz = 1:nnz(ygold)
-        dyi = ygold.nzval[nz]
+        ygoldi = ygold.nzval[nz]
         row = ygold.rowval[nz]
-        col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
         while nz > ygold.colptr[col+1]-1; col += 1; end
         i = (col-1) * size(ypred,1) + row
-        cost -= (dyi * log(ypred[i]))
+        cost -= (ygoldi * log(ypred[i]))
     end
     return cost/ccount(ygold)
 end
 
-@gpu function softloss(ypred::CudaArray{Float32}, ygold::CudaSparseMatrixCSC{Float32}; tmp=nothing, o...)
+@gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}; tmp=nothing, o...)
     ly = (tmp == nothing ? similar(ygold.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(ygold) || error("not enough temp space")
+    T <: Float32 ?
     ccall((:softloss32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
-          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly)
-    loss = CUBLAS.asum(nnz(ygold),ly,1)/ccount(ygold)
-    tmp == nothing && free(ly)
-    gpusync()
-    return loss
-end
-
-@gpu function softloss(ypred::CudaArray{Float64}, ygold::CudaSparseMatrixCSC{Float64}; tmp=nothing, o...)
-    ly = (tmp == nothing ? similar(ygold.nzVal) : tmp) # TODO: get rid of alloc
-    length(ly) >= nnz(ygold) || error("not enough temp space")
+          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly) :
+    T <: Float64 ?
     ccall((:softloss64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
-          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly)
+          size(ygold,1),size(ygold,2),ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,ly) : error()
     loss = CUBLAS.asum(nnz(ygold),ly,1)/ccount(ygold)
-    tmp == nothing && free(ly)
+    ly === tmp || free(ly)
     gpusync()
     return loss
 end
