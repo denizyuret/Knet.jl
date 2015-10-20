@@ -128,7 +128,7 @@ vecnorm0(x::Tuple)=map(vecnorm0,x)
 vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
                    (isdefined(x,:dif)? vecnorm0(x.dif) : 0))
 vecnorm0(::Void)=0
-vecnorm0(x)=floor(1e4*vecnorm(x))/1e4
+vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
 function Base.summary(r::Net)
     """

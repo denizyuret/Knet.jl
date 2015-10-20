@@ -1,10 +1,14 @@
-module Knet
+# module Knet
 using Compat
 
 # Print date, expression and elapsed time after execution
 VERSION < v"0.4-" && eval(Expr(:using,:Dates))
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
 export @date
+
+macro dbg(x) esc(x) end
+#macro dbg(x) nothing end
+
 
 include("util/gpu.jl");		export setseed
 @useifgpu CUDArt
@@ -49,7 +53,7 @@ include("model/s2s.jl");        export S2S, S2SData, encoder, decoder
 
 include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp #, repeat is in base
 
-end # module
+# end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias

@@ -62,6 +62,7 @@ end
 function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
+    batchsize = (mask == nothing ? ccount(ygold) : sum(mask))
     losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += 1)
 end
 
@@ -82,6 +83,7 @@ function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, ma
 end
 
 function s2s_bptt(m::S2S, ystack, loss; o...)
+    #@dbg println(vecnorm0(params(m)))
     while !isempty(ystack)
         (ygold,mask) = pop!(ystack)
         back(m.decoder, ygold, loss; seq=true, mask=mask, o...)
@@ -91,6 +93,7 @@ function s2s_bptt(m::S2S, ystack, loss; o...)
     while m.encoder.sp > 0
         back(m.encoder; seq=true, o...)
     end
+    #@dbg println(vecnorm0(params(m)))
 end
 
 function s2s_copyforw!(m::S2S)
@@ -177,9 +180,19 @@ function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=F
     data1 = loadseq(file1, dict1)
     data2 = loadseq(file2, dict2)
     @assert length(data1) == length(data2)
-    sorted = sortperm(data1, by=length)
-    data1 = data1[sorted]
-    data2 = data2[sorted]
+    # TODO: Implement block sorting instead
+    # sorted = sortperm(data1, by=length)
+    # data1 = data1[sorted]
+    # data2 = data2[sorted]
+    ns = length(data1)
+    batch > ns && (batch = ns; warn("Changing batchsize to $batch"))
+    skip = ns % batch
+    if skip > 0
+        keep = ns - skip
+        nw1 = sum(map(length, sub(data1,1:keep)))
+        nw2 = sum(map(length, sub(data2,1:keep)))
+        warn("Skipping $ns % $batch = $skip lines at the end leaving ns=$keep nw1=$nw1 nw2=$nw2.")
+    end
     S2SData(data1, data2, dict1, dict2, batch, ftype, dense, nothing, nothing, nothing, stop)
 end
 
@@ -227,6 +240,7 @@ function next(d::S2SData, state)
                 setrow!(d.x, xword, s)
             else
                 d.mask[s] = 0
+                S2S_ZERO && setrow!(d.x, 0, s) #DBG
             end
         end
         nword += 1
@@ -246,12 +260,15 @@ function next(d::S2SData, state)
                 setrow!(d.y, yword, s)
             else
                 d.mask[s] = 0
+                S2S_ZERO && setrow!(d.x, 0, s) #DBG
+                S2S_ZERO && setrow!(d.y, 0, s) #DBG
             end
         end
         nword += 1
         nword == maxlen && (nbatch += 1; nword = 0; decode = false)
         return ((d.x, d.y, d.mask), (nbatch, nword, decode))
     end
+    # @dbg println((d.x.rowval,decode ? d.y.rowval : nothing,convert(Vector{Int},d.mask)))
 end
 
 # TODO: these assume one hot columns, make them more general.
@@ -261,16 +278,9 @@ zerocolumn(x::SparseMatrixCSC,j)=(x.nzval[j]==0)
 zerocolumn(x::Array,j)=(findfirst(sub(x,:,j))==0)
 
 # we stop if there is not enough data for another full batch.
-# TODO: add warning if we are leave some data out
 function done(d::S2SData,state)
     (nbatch, nword, decode) = state
-    if (nbatch+1)*d.batch > min(length(d.data1), d.stop)
-        if nbatch * d.batch != length(d.data1) 
-            Base.warn_once("Skipping $(length(d.data1) - nbatch * d.batch) lines at the end.")
-        end
-        return true
-    end
-    return false
+    return ((nbatch+1)*d.batch > min(length(d.data1), d.stop))
 end
 
 # allocate the batch arrays if necessary
@@ -288,6 +298,11 @@ function start(d::S2SData)
     end
     return (0, 0, false)
 end
+
+# We should set padding columns to zero in the input.  Otherwise when
+# the next time step has a legitimate word in that column, the hidden
+# state column will not be zero.
+S2S_ZERO=true
 
 # FAQ:
 #
@@ -324,6 +339,16 @@ end
 #   don't need this for one best greedy output
 #   it will make minibatching more difficult
 #   this is a problem for predict (TODO)
+# Q: gradient scaling?
+#   this becomes a problem once we start doing minibatching and padding short sequences.  I started
+#   dividing loss and its gradients with minibatch size so the choice of minibatch does not effect
+#   the step sizes and require a different learning rate.  In s2s if we have a sequence minibatch of
+#   size N, which consists of T token minibatches each of size N.  Some sequences in the minibatch
+#   are shorter so some of the token minibatches contain padding.  Say a particular token minibatch
+#   contains n<N real words, the rest is padding.  Do we normalize using n or N?  It turns out in
+#   this case the correct answer is N because we do not want the word in this minibatch to have
+#   higher weight compared to other words in the sequence!
+
 
 
 ### DEAD CODE:

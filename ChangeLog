@@ -27,6 +27,7 @@
 	numbers.
 
 	* TODO:
+	0010 s2s.jl: add block sorting
 	0010 src/op/loss.jl: fix softloss to ignore zero columns.
 	0040 fix padding for s2s
 	DONE find out why csru breaks load without module: workspace() function clears Main and solves problem (losing all variables)
