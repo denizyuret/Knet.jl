@@ -41,25 +41,19 @@ J = -Σ pi log qi                        ;; loss function
 function softloss(ypred::Array, ygold::Array, ygrad::Array; mask=nothing, o...)
     @assert size(ypred)==size(ygold)==size(ygrad)
     (yrows,ycols) = size2(ygrad)
-    batchsize = (mask == nothing ? ycols : sum(mask))
     for i=1:length(ygrad)
         ygrad[i] = (mask == nothing || mask[1 + div((i-1),yrows)] != 0 ?
-                    ((ypred[i]-ygold[i])/ypred[i])/batchsize : 0)
+                    ((ypred[i]-ygold[i])/ypred[i])/ycols : 0)
     end
 end
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
     (yrows,ycols) = size2(ygrad)
-    if mask != C_NULL
-        batchsize = sum(mask)
-        mask = convert(CudaArray, mask)
-    else
-        batchsize = ycols
-    end
-    T <: Float32 ? ccall((:softlossback32,libknet),Void,(Cint,Cint,Cint,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cuchar}, Ptr{Cfloat}), 
-                         yrows,ycols,batchsize,ypred,ygold,mask,ygrad) :
-    T <: Float64 ? ccall((:softlossback64,libknet),Void,(Cint,Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
-                         yrows,ycols,batchsize,ypred,ygold,mask,ygrad) : error()
+    mask != C_NULL && (mask = convert(CudaArray, mask))
+    T <: Float32 ? ccall((:softlossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cuchar}, Ptr{Cfloat}), 
+                         yrows,ycols,ypred,ygold,mask,ygrad) :
+    T <: Float64 ? ccall((:softlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
+                         yrows,ycols,ypred,ygold,mask,ygrad) : error()
     gpusync()
     #@dbg println((:softlossbackgpudense,vecnorm0(ypred,ygold,ygrad),mask==C_NULL?mask:convert(Vector{Int},mask)))
     return ygrad
@@ -68,15 +62,15 @@ end
 @gpu softloss(ypred::CudaArray, ygold::Array, ygrad::CudaArray; o...)=softloss(ypred, CudaArray(ygold), ygrad; o...)
 
 function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; mask=nothing, o...)
-    batchsize = (mask == nothing ? size(ygold,2) : sum(mask))
+    (yrows, ycols) = size(ygold)
     col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
     for nz = 1:nnz(ygold)
         while nz > ygold.colptr[col+1]-1; col += 1; end
         if mask == nothing || mask[col] != 0
             ygoldi = ygold.nzval[nz]
             row = ygold.rowval[nz]
-            i = (col-1) * size(ypred,1) + row
-            ygrad[i] = (1-ygoldi/ypred[i])/batchsize
+            i = (col-1) * yrows + row
+            ygrad[i] = (1-ygoldi/ypred[i])/ycols
         else
             ygrad[i] = 0
         end
@@ -86,16 +80,11 @@ end
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
     (yrows,ycols) = size2(ygrad)
-    if mask != C_NULL
-        batchsize = sum(mask)
-        mask = convert(CudaArray, mask)
-    else
-        batchsize = ycols
-    end
+    mask != C_NULL && (mask = convert(CudaArray, mask))
     T <: Float32 ? ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}), 
-                         yrows,ycols,batchsize,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) :
+                         yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) :
     T <: Float64 ? ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
-                         yrows,ycols,batchsize,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) : error()
+                         yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) : error()
     gpusync()
     #@dbg println((:softlossbackgpusparse,vecnorm0(ypred,ygold,ygrad),mask==C_NULL?mask:convert(Vector{Int},mask)))
     return ygrad
@@ -114,24 +103,18 @@ function softloss(ypred::Array, ygold::Array; mask=nothing)
         ygold[i] > 0 &&
         (logp += (ygold[i]*log(ypred[i])))
     end
-    batchsize = (mask == nothing ? ycols : sum(mask))
-    return -logp/batchsize
+    return -logp/ycols
 end
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, mask=C_NULL, o...)
     (yrows,ycols) = size2(ygold)
-    if mask != C_NULL
-        batchsize = sum(mask)
-        mask = convert(CudaArray,mask)
-    else
-        batchsize = ycols
-    end
+    mask != C_NULL && (mask = convert(CudaArray,mask))
     ly = (tmp == nothing ? similar(ypred) : tmp) # TODO: get rid of alloc
     T <: Float32 ? ccall((:softloss32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cuchar},Ptr{Cfloat}),
                          yrows,ycols,ypred,ygold,mask,ly) :
     T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold,mask,ly) : error()
-    loss = CUBLAS.asum(ly)/batchsize
+    loss = CUBLAS.asum(ly)/ycols
     #@dbg println((:softlosslossgpudense,loss,vecnorm0(ly,ypred,ygold),mask==C_NULL?mask:convert(Vector{Int},mask)))
     #@dbg push!(DBGSTACK, map(copy,(ly,ypred,ygold,mask)))
     ly === tmp || free(ly)
@@ -153,25 +136,19 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC; mask=nothing, o...)
         i = (col-1) * yrows + row
         logp += (ygoldi * log(ypred[i]))
     end
-    batchsize = (mask == nothing ? ycols : sum(mask))
-    return -logp/batchsize
+    return -logp/ycols
 end
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}; mask=C_NULL, tmp=nothing, o...)
     (yrows,ycols) = size(ygold)
-    if mask!=C_NULL
-        batchsize = sum(mask)
-        mask=convert(CudaArray,mask)
-    else
-        batchsize = ycols
-    end
+    mask!=C_NULL && (mask=convert(CudaArray,mask))
     ly = (tmp == nothing ? similar(ygold.nzVal) : tmp) # TODO: get rid of alloc
     length(ly) >= nnz(ygold) || error("not enough temp space")
     T <: Float32 ? ccall((:softloss32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat},Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}),
                          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ly) :
     T <: Float64 ? ccall((:softloss64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ly) : error()
-    loss = CUBLAS.asum(nnz(ygold),ly,1)/batchsize
+    loss = CUBLAS.asum(nnz(ygold),ly,1)/ycols
     ly === tmp || free(ly)
     gpusync()
     #@dbg println((:softlosslossgpusparse,loss,vecnorm0(ypred,ygold.nzVal),mask==C_NULL?mask:convert(Vector{Int},mask)))
