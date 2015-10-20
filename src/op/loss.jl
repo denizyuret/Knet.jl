@@ -81,9 +81,9 @@ end
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaSparseMatrixCSC{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
     (yrows,ycols) = size2(ygrad)
     mask != C_NULL && (mask = convert(CudaArray, mask))
-    T <: Float32 ? ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}), 
+    T <: Float32 ? ccall((:softlossback32csc,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Cint,Ptr{Cfloat}, Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cfloat}), 
                          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) :
-    T <: Float64 ? ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
+    T <: Float64 ? ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) : error()
     gpusync()
     #@dbg println((:softlossbackgpusparse,vecnorm0(ypred,ygold,ygrad),mask==C_NULL?mask:convert(Vector{Int},mask)))
