@@ -64,6 +64,8 @@ function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, los
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
     (yrows, ycols) = size2(ygold)
     nwords = (mask == nothing ? ycols : sum(mask))
+    # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
+    # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
     losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += nwords/ycols)
 end
 
@@ -84,7 +86,6 @@ function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, ma
 end
 
 function s2s_bptt(m::S2S, ystack, loss; o...)
-    #@dbg println(vecnorm0(params(m)))
     while !isempty(ystack)
         (ygold,mask) = pop!(ystack)
         back(m.decoder, ygold, loss; seq=true, mask=mask, o...)
@@ -94,7 +95,6 @@ function s2s_bptt(m::S2S, ystack, loss; o...)
     while m.encoder.sp > 0
         back(m.encoder; seq=true, o...)
     end
-    #@dbg println(vecnorm0(params(m)))
 end
 
 function s2s_copyforw!(m::S2S)
@@ -176,15 +176,14 @@ type S2SData; data1; data2; dict1; dict2; batch; ftype; dense; x; y; mask; stop;
 
 # TODO: get rid of the stop field if no longer used.
 
-function S2SData(file1::AbstractString, file2::AbstractString; batch=20, ftype=Float32, dense=false,
+function S2SData(file1::AbstractString, file2::AbstractString; batch=128, block=10, ftype=Float32, dense=false,
                  dict1=Dict{Any,Int32}(), dict2=Dict{Any,Int32}(), stop=typemax(Int))
     data1 = loadseq(file1, dict1)
     data2 = loadseq(file2, dict2)
     @assert length(data1) == length(data2)
-    # TODO: Implement block sorting instead
-    # sorted = sortperm(data1, by=length)
-    # data1 = data1[sorted]
-    # data2 = data2[sorted]
+    sorted = sortblocks(data1; batch=batch, block=block)
+    data1 = data1[sorted]
+    data2 = data2[sorted]
     ns = length(data1)
     batch > ns && (batch = ns; warn("Changing batchsize to $batch"))
     skip = ns % batch
@@ -200,7 +199,18 @@ end
 const eosstr = "<s>"
 const eos = 1
 
-# TODO implement shuffling by blocks, still keeping similar sized items together.
+function sortblocks(data; batch=128, block=10)
+    perm = Int[]
+    n = length(data)
+    bb = batch*block
+    for i=1:bb:n
+        j=i+bb-1
+        j > n && (j=n)
+        pi = sortperm(sub(data,i:j), by=length)
+        append!(perm, (pi + (i-1)))
+    end
+    return perm
+end
 
 function loadseq(fname::AbstractString, dict=Dict{Any,Int32}())
     data = Vector{Int32}[]
@@ -241,7 +251,7 @@ function next(d::S2SData, state)
                 setrow!(d.x, xword, s)
             else
                 d.mask[s] = 0
-                S2S_ZERO && setrow!(d.x, 0, s) #DBG
+                setrow!(d.x, 0, s)
             end
         end
         nword += 1
@@ -261,15 +271,14 @@ function next(d::S2SData, state)
                 setrow!(d.y, yword, s)
             else
                 d.mask[s] = 0
-                S2S_ZERO && setrow!(d.x, 0, s) #DBG
-                S2S_ZERO && setrow!(d.y, 0, s) #DBG
+                setrow!(d.x, 0, s)
+                setrow!(d.y, 0, s)
             end
         end
         nword += 1
         nword == maxlen && (nbatch += 1; nword = 0; decode = false)
         return ((d.x, d.y, d.mask), (nbatch, nword, decode))
     end
-    # @dbg println((d.x.rowval,decode ? d.y.rowval : nothing,convert(Vector{Int},d.mask)))
 end
 
 # TODO: these assume one hot columns, make them more general.
@@ -300,10 +309,6 @@ function start(d::S2SData)
     return (0, 0, false)
 end
 
-# We should set padding columns to zero in the input.  Otherwise when
-# the next time step has a legitimate word in that column, the hidden
-# state column will not be zero.
-S2S_ZERO=true
 
 # FAQ:
 #
@@ -349,7 +354,10 @@ S2S_ZERO=true
 #   contains n<N real words, the rest is padding.  Do we normalize using n or N?  It turns out in
 #   this case the correct answer is N because we do not want the word in this minibatch to have
 #   higher weight compared to other words in the sequence!
-
+# Q: do we zero out padded columns?
+#   We should set padding columns to zero in the input.  Otherwise when
+#   the next time step has a legitimate word in that column, the hidden
+#   state column will not be zero.
 
 
 ### DEAD CODE:

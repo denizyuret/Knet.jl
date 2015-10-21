@@ -1,38 +1,13 @@
 2015-10-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* src/model/s2s.jl: we need to handle padding for short sequences
-	in a minibatch.  This means certain columns of x/y need to be
-	ignored.  During forw calculation different columns do not
-	interfere, so nothing to be done, we can leave noise in those
-	columns.  During back calculation if we can get the loss gradient
-	to be zero for those columns, that would propagate back the
-	message "I do not care what is in those columns" and do the right
-	thing.  We can rely on zero columns on ygold or use a mask.  (1)
-	Zero columns only work for softloss, not quadloss.  They take time
-	to produce and detect.  (2) The mask will change with every token,
-	so it would have to be stored with ygold[t] (even during encoding
-	when ygold is nothing).  Both encode and decode would have to copy
-	and push this on the stack.  bptt would have to pop it and pass it
-	to back, maybe as a keyword option during both decode and encode
-	back.  Actually we don't need it during encoder back, since
-	ygold=nothing there is no need to mask it.  Will the noise columns
-	interfere during encoder back?  The cell and hidden arrays get
-	passed forward, and they have noise columns.  If the loss gradient
-	for these columns is 0 we should be ok.  biasback simply sums
-	ygrad -> ok.  dotback has dw=dy*x'.  The noise columns in x will
-	get multiplied by the zero columns in dy -> ok.  Are dy=0 columns
-	preserved going back?  They should but check.  So encoder needs no
-	mask, and we can store mask just with dy.  In both cases we need
-	s2s and loss modified in coordination.  (3) We could use negative
-	numbers.
-
 	* TODO:
-	0010 s2s.jl: add block sorting
-	0010 src/op/loss.jl: fix softloss to ignore zero columns.
-	0040 fix padding for s2s
+	DONE s2s.jl: add block sorting
+	DONE src/op/loss.jl: fix softloss to ignore zero columns.
+	DONE fix padding for s2s
 	DONE find out why csru breaks load without module: workspace() function clears Main and solves problem (losing all variables)
 	0050 saman: local contrast normalization, manual weight bug.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
+	0101 Pkg.test("CUDArt") fails?
 	0102 yonatan supertagging
 	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
 	0103 vivi concatenation
@@ -120,6 +95,32 @@
 	DONE examples/mnistsparse.jl: gcheck does not work?
 	DONE gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
 	DONE src/model/s2s.jl: implement gcheck.
+
+	* src/model/s2s.jl: we need to handle padding for short sequences
+	in a minibatch.  This means certain columns of x/y need to be
+	ignored.  During forw calculation different columns do not
+	interfere, so nothing to be done, we can leave noise in those
+	columns.  During back calculation if we can get the loss gradient
+	to be zero for those columns, that would propagate back the
+	message "I do not care what is in those columns" and do the right
+	thing.  We can rely on zero columns on ygold or use a mask.  (1)
+	Zero columns only work for softloss, not quadloss.  They take time
+	to produce and detect.  (2) The mask will change with every token,
+	so it would have to be stored with ygold[t] (even during encoding
+	when ygold is nothing).  Both encode and decode would have to copy
+	and push this on the stack.  bptt would have to pop it and pass it
+	to back, maybe as a keyword option during both decode and encode
+	back.  Actually we don't need it during encoder back, since
+	ygold=nothing there is no need to mask it.  Will the noise columns
+	interfere during encoder back?  The cell and hidden arrays get
+	passed forward, and they have noise columns.  If the loss gradient
+	for these columns is 0 we should be ok.  biasback simply sums
+	ygrad -> ok.  dotback has dw=dy*x'.  The noise columns in x will
+	get multiplied by the zero columns in dy -> ok.  Are dy=0 columns
+	preserved going back?  They should but check.  So encoder needs no
+	mask, and we can store mask just with dy.  In both cases we need
+	s2s and loss modified in coordination.  (3) We could use negative
+	numbers.
 
 	* DONE:
 	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.

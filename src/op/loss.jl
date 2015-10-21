@@ -55,7 +55,6 @@ end
     T <: Float64 ? ccall((:softlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold,mask,ygrad) : error()
     gpusync()
-    #@dbg println((:softlossbackgpudense,vecnorm0(ypred,ygold,ygrad),mask==C_NULL?mask:convert(Vector{Int},mask)))
     return ygrad
 end
 
@@ -86,7 +85,6 @@ end
     T <: Float64 ? ccall((:softlossback64csc,libknet),Void,(Cint,Cint,Ptr{Cdouble},Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold.nnz,ygold.nzVal,ygold.rowVal,ygold.colPtr,mask,ygrad) : error()
     gpusync()
-    #@dbg println((:softlossbackgpusparse,vecnorm0(ypred,ygold,ygrad),mask==C_NULL?mask:convert(Vector{Int},mask)))
     return ygrad
 end
 @gpu softloss(ypred::CudaArray, ygold::SparseMatrixCSC, ygrad::CudaArray; o...)=softloss(ypred, CudaSparseMatrixCSC(ygold), ygrad; o...)
@@ -115,8 +113,6 @@ end
     T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold,mask,ly) : error()
     loss = CUBLAS.asum(ly)/ycols
-    #@dbg println((:softlosslossgpudense,loss,vecnorm0(ly,ypred,ygold),mask==C_NULL?mask:convert(Vector{Int},mask)))
-    #@dbg push!(DBGSTACK, map(copy,(ly,ypred,ygold,mask)))
     ly === tmp || free(ly)
     gpusync()
     return loss
@@ -151,7 +147,6 @@ end
     loss = CUBLAS.asum(nnz(ygold),ly,1)/ycols
     ly === tmp || free(ly)
     gpusync()
-    #@dbg println((:softlosslossgpusparse,loss,vecnorm0(ypred,ygold.nzVal),mask==C_NULL?mask:convert(Vector{Int},mask)))
     return loss
 end
 

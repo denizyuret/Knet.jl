@@ -45,10 +45,3 @@ function gpumem()
     convert(Int,mfree[1])
 end
 
-# This is for profiling:
-# gpusync()=device_synchronize()
-# This is for production:
-gpusync()=nothing
-
-# This gets overriden if gpu available:
-setseed(n)=srand(n)

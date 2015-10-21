@@ -1,6 +1,7 @@
 # Simple linear regression.
 
 using Knet, ArgParse
+import Base.LinAlg.linreg
 
 # Main loop:
 
