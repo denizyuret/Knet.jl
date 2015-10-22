@@ -1,15 +1,15 @@
+2015-10-21  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/data/S2SData.jl (target): reopen when restart.
+
 2015-10-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	DONE s2s.jl: add block sorting
-	DONE src/op/loss.jl: fix softloss to ignore zero columns.
-	DONE fix padding for s2s
-	DONE find out why csru breaks load without module: workspace() function clears Main and solves problem (losing all variables)
 	0050 saman: local contrast normalization, manual weight bug.
+	0060 check copy results in ~/knet/v0.6/examples/
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0101 Pkg.test("CUDArt") fails?
 	0102 yonatan supertagging
-	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
 	0103 vivi concatenation
 	0105 ashish nce model
 	0106 karpathy character based models, inputless networks with random generators
@@ -25,10 +25,9 @@
 	0130 language learning in minecraft
 	0160 learning to interpret python ,mfind other examples
 	0200 barret optimization: for sparse input, keep dw dense, but use a mask to make w += dw faster.
-	0201 barret: implementing the whole lstm with single matrix multiplication
-	DONE examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
 	0200 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0200 optimization: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
+	0201 barret: implementing the whole lstm with single matrix multiplication
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
 	0350 write mikolov ptb downloader like mnist. maybe use github lfs?
@@ -73,6 +72,7 @@
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
 	1000 reimplement averaging.
 	1000 src/model/fnn.jl: predict has not been tested
+	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
 	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
@@ -90,11 +90,22 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* DONE:
+	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.
+	DONE download/install barrets code for testing.
+	DONE compare s2s with barret without gclip
+	DONE reimplement mlp/rnnlm with the repeat instruction
 	DONE complete gradcheck, predict in addition to train/test for models other than fnn
 	DONE examples/mnistpixels.jl: gcheck gives terrible results, check.
 	DONE examples/mnistsparse.jl: gcheck does not work?
+	DONE examples/rnnlm.jl: BUG: start does not handle dense arrays. ArgParse does not handle Real.
+	DONE find out why csru breaks load without module: workspace() function clears Main and solves problem (losing all variables)
+	DONE fix padding for s2s
 	DONE gradcheck for sequences does not work: it has to go through a whole sequence, implement as option or separately.
+	DONE s2s.jl: add block sorting
 	DONE src/model/s2s.jl: implement gcheck.
+	DONE src/op/loss.jl: fix softloss to ignore zero columns.
 
 	* src/model/s2s.jl: we need to handle padding for short sequences
 	in a minibatch.  This means certain columns of x/y need to be
@@ -121,12 +132,6 @@
 	mask, and we can store mask just with dy.  In both cases we need
 	s2s and loss modified in coordination.  (3) We could use negative
 	numbers.
-
-	* DONE:
-	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.
-	DONE download/install barrets code for testing.
-	DONE compare s2s with barret without gclip
-	DONE reimplement mlp/rnnlm with the repeat instruction
 
 2015-10-18  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -23,11 +23,12 @@ function copyseq(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
     global data = Any[]
-    dict = [ Dict{Any,Int32}() for i=1:2 ]
+    # TODO: add a dict option, for now the vocab of first file becomes dict.
+    dict = Knet.readvocab(datafiles[1])
     for f in datafiles
-        push!(data, S2SData(f, f; batch=batchsize, ftype=eval(parse(ftype)), dense=dense, dict1=dict[1], dict2=dict[2]))
+        push!(data, S2SData(f; batchsize=batchsize, ftype=eval(parse(ftype)), dense=dense, dict=dict))
     end
-    global model = S2S(lstm; hidden=hidden, vocab=length(dict[2]), winit=eval(parse(winit)))
+    global model = S2S(lstm; hidden=hidden, vocab=length(dict), winit=eval(parse(winit))) # TODO: 1+ for unk ? 
     setopt!(model; lr=lr)
 
     perp = zeros(length(data))
