@@ -1,3 +1,4 @@
+*.xz
 *~
 *_dbg.jl
 *-dbg.jl
