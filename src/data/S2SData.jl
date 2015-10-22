@@ -62,8 +62,10 @@ type S2SData; bgen1; bgen2;
     end
 end
 
+typealias S2SDataFile Union{AbstractString,Cmd}
+
 "With two filename arguments, assume SequencePerLine format"
-function S2SData(file1::AbstractString, file2::AbstractString; dict1=nothing, dict2=nothing, o...)
+function S2SData(file1::S2SDataFile, file2::S2SDataFile; dict1=nothing, dict2=nothing, o...)
     isa(dict1,AbstractString) && (dict1 = readvocab(dict1))
     isa(dict2,AbstractString) && (dict2 = readvocab(dict2))
     sgen1 = SequencePerLine(file1; dict=dict1, o...)
@@ -71,8 +73,8 @@ function S2SData(file1::AbstractString, file2::AbstractString; dict1=nothing, di
     S2SData(sgen1, sgen2; o...)
 end
 
-"With s single filename argument, assume SequencePerLine format and create a copy dataset"
-function S2SData(file::AbstractString; dict=nothing, o...)
+"With a single filename argument, use copy for target sequence"
+function S2SData(file::S2SDataFile; dict=nothing, o...)
     isa(dict,AbstractString) && (dict = readvocab(dict))
     sgen1 = SequencePerLine(file; dict=dict, o...)
     sgen2 = SequencePerLine(file; dict=dict, o...)
@@ -117,13 +119,9 @@ done(d::S2SData, state)=(d.bgen1.done && d.bgen2.done)
 
 function next(d::S2SData, state)
     (nword, encode) = state
-    (r,s) =
     encode ?
     nextencode(d.bgen1, nword) :
     nextdecode(d.bgen2, nword)
-    (x,y,m) = r
-    # println((convert(Vector{Int},m), x.rowval, y==nothing?y:y.rowval))
-    (r,s)
 end
 
 function nextencode(b::S2SBatch, nword)
@@ -167,8 +165,11 @@ end
 setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
 setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
 
-function readvocab(file)
-    d = Dict{Any,Int}("<s>"=>1) #DBG
+# maxtoken is length(dict)+2 for <unk> and <s>
+maxtoken(s::S2SData,i)=(i==1 ? maxtoken(s.bgen1.sgen) : i==2 ? maxtoken(s.bgen2.sgen) : error())
+
+function readvocab(file) # TODO: test with cmd e.g. `zcat foo.gz`
+    d = Dict{Any,Int}() 
     open(file) do f
         for l in eachline(f)
             for w in split(l)
@@ -179,23 +180,25 @@ function readvocab(file)
     return d
 end
 
+
+
 ### DEAD CODE:
 
-    # data1 = loadseq(file1, dict1)
-    # data2 = loadseq(file2, dict2)
-    # @assert length(data1) == length(data2)
-    # sorted = sortblocks(data1; batch=batch, block=block)
-    # data1 = data1[sorted]
-    # data2 = data2[sorted]
-    # ns = length(data1)
-    # batch > ns && (batch = ns; warn("Changing batchsize to $batch"))
-    # skip = ns % batch
-    # if skip > 0
-    #     keep = ns - skip
-    #     nw1 = sum(map(length, sub(data1,1:keep)))
-    #     nw2 = sum(map(length, sub(data2,1:keep)))
-    #     warn("Skipping $ns % $batch = $skip lines at the end leaving ns=$keep nw1=$nw1 nw2=$nw2.")
-    # end
+# data1 = loadseq(file1, dict1)
+# data2 = loadseq(file2, dict2)
+# @assert length(data1) == length(data2)
+# sorted = sortblocks(data1; batch=batch, block=block)
+# data1 = data1[sorted]
+# data2 = data2[sorted]
+# ns = length(data1)
+# batch > ns && (batch = ns; warn("Changing batchsize to $batch"))
+# skip = ns % batch
+# if skip > 0
+#     keep = ns - skip
+#     nw1 = sum(map(length, sub(data1,1:keep)))
+#     nw2 = sum(map(length, sub(data2,1:keep)))
+#     warn("Skipping $ns % $batch = $skip lines at the end leaving ns=$keep nw1=$nw1 nw2=$nw2.")
+# end
 
 # function sortblocks(data; batch=128, block=10)
 #     perm = Int[]
@@ -236,3 +239,15 @@ end
 # We need data in batch before first call to next.
 # Somebody needs to alloc x,y
 
+# OLD_S2S=0 
+# "<s>"=>1) 
+#     OLD_S2S==1 && (d["<s>"]=1)
+# w == "<unk>" && continue 
+# @show get(d,"<s>",nothing)
+# @show get(d,"<unk>",nothing)
+# @show length(d)
+
+# (r,s) =
+# (x,y,m) = r
+# # println((convert(Vector{Int},m), x.rowval, y==nothing?y:y.rowval))
+# (r,s)

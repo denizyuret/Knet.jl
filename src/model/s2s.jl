@@ -59,7 +59,9 @@ function s2s_encode(m::S2S, x; trn=false, o...)
     forw(m.encoder, x; trn=trn, seq=true, o...)
 end    
 
-function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
+S2S_REPORT = 100
+
+function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, maxnorm=nothing, o...)
     ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
     (yrows, ycols) = size2(ygold)
@@ -67,6 +69,12 @@ function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, los
     # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
     # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
     losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += nwords/ycols)
+    global S2S_REPORT #DBG
+    if losscnt[2] > S2S_REPORT
+        println((exp(losscnt[1]/losscnt[2]), losscnt..., maxnorm...))
+        S2S_REPORT *= 2
+        fill!(losscnt,0); fill!(maxnorm,0)
+    end
 end
 
 function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)

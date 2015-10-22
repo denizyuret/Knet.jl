@@ -5,6 +5,7 @@ function copyseq(args=ARGS)
     s = ArgParseSettings()
     @add_arg_table s begin
         ("datafiles"; nargs='+'; required=true; help="First file used for training")
+        ("--dictfile"; help="Dictionary file, first datafile used if not specified")
         ("--epochs"; arg_type=Int; default=1)
         ("--hidden"; arg_type=Int; default=100)
         ("--batchsize"; arg_type=Int; default=128)
@@ -22,19 +23,19 @@ function copyseq(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
+    dict = (dictfile == nothing ? datafiles[1] : dictfile)
     global data = Any[]
-    # TODO: add a dict option, for now the vocab of first file becomes dict.
-    dict = Knet.readvocab(datafiles[1])
     for f in datafiles
         push!(data, S2SData(f; batchsize=batchsize, ftype=eval(parse(ftype)), dense=dense, dict=dict))
     end
-    global model = S2S(lstm; hidden=hidden, vocab=length(dict), winit=eval(parse(winit))) # TODO: 1+ for unk ? 
+    vocab = maxtoken(data[1],2)
+    global model = S2S(lstm; hidden=hidden, vocab=vocab, winit=eval(parse(winit)))
     setopt!(model; lr=lr)
 
     perp = zeros(length(data))
     (maxnorm,losscnt) = fast ? (nothing,nothing) : (zeros(2),zeros(2))
     t0 = time_ns()
-    println("epoch  secs    ptrain  pvalid  ptest.. ltrain  wnorm  gnorm")
+    println("epoch  secs    ptrain  ptest.. wnorm  gnorm")
     for epoch=1:epochs
         fast || (fill!(maxnorm,0); fill!(losscnt,0))
         train(model, data[1], softloss; gclip=gclip, maxnorm=maxnorm, losscnt=losscnt)

@@ -137,10 +137,11 @@ end
 if opts["all"] || opts["copyseq"]
     include("copyseq.jl")
     @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
-    @test isapprox(test10[1], 3314.41; rtol=.0001)
-    @test isapprox(test10[2], 1282.50; rtol=.0001)
-    @test isapprox(test10[3], 103.972; rtol=.0001)
-    @test isapprox(test10[4], 200.409; rtol=.0001)
+    @test isapprox(test10[1], 3143.22; rtol=.0001)
+    @test isapprox(test10[2], 1261.19; rtol=.0001)
+    @test isapprox(test10[3], 106.760; rtol=.0001)
+    @test isapprox(test10[4], 206.272; rtol=.0001)
     twice && (@time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
+    # 11.230476 seconds (16.29 M allocations: 701.612 MB, 4.05% gc time) Wed Oct 21 23:19:24 PDT 2015 (unsorted input)
 end

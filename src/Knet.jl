@@ -53,7 +53,7 @@ include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two
 include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp #, repeat is in base
 
 include("data/ItemTensor.jl");		export ItemTensor
-include("data/S2SData.jl");     	export S2SData
+include("data/S2SData.jl");     	export S2SData, maxtoken
 include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 
