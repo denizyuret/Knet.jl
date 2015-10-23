@@ -114,6 +114,11 @@ end
 
 if opts["all"] || opts["rnnlm"]
     include("rnnlm.jl")
+    if !isfile("ptb.valid.txt")
+        info("Downloading ptb...")
+	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz`,
+                     `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
+    end
     @time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
 
     # This is for: Float64
@@ -135,6 +140,11 @@ if opts["all"] || opts["rnnlm"]
 end
 
 if opts["all"] || opts["copyseq"]
+    if !isfile("ptb.valid.txt")
+        info("Downloading ptb...")
+	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz`,
+                     `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
+    end
     include("copyseq.jl")
     @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
     @test isapprox(test10[1], 3143.22; rtol=.0001)
