@@ -70,8 +70,9 @@ function s2s_loss(m::S2S, ypred, ygold, mask, loss; losscnt=nothing, lossreport=
     nwords = (mask == nothing ? ycols : sum(mask))
     losscnt[1] += loss(ypred,ygold;mask=mask) # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
     losscnt[2] += nwords/ycols                # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
-    if lossreport > 0 && losscnt[2] > lossreport
-        println((exp(losscnt[1]/losscnt[2]), losscnt..., maxnorm...))
+    # we could scale losscnt with ycols so losscnt[1] is total loss and losscnt[2] is total words, but I think that breaks gradcheck since the scaled versions are what gets used for parameter updates in order to prevent batch size from effecting step size.
+    if lossreport > 0 && losscnt[2]*ycols > lossreport
+        println((exp(losscnt[1]/losscnt[2]), losscnt[1]*ycols, losscnt[2]*ycols))
         losscnt[1] = losscnt[2] = 0
     end
 end
