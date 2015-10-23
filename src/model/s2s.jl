@@ -59,21 +59,20 @@ function s2s_encode(m::S2S, x; trn=false, o...)
     forw(m.encoder, x; trn=trn, seq=true, o...)
 end    
 
-S2S_REPORT = 100
-
-function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, maxnorm=nothing, o...)
+function s2s_decode(m::S2S, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
+    losscnt != nothing && s2s_loss(m, ypred, ygold, mask, loss; losscnt=losscnt, o...)
+end
+
+function s2s_loss(m::S2S, ypred, ygold, mask, loss; losscnt=nothing, lossreport=0, o...)
     (yrows, ycols) = size2(ygold)
     nwords = (mask == nothing ? ycols : sum(mask))
-    # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
-    # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
-    losscnt != nothing && (losscnt[1] += loss(ypred,ygold;mask=mask); losscnt[2] += nwords/ycols)
-    global S2S_REPORT #DBG
-    if losscnt[2] > S2S_REPORT
+    losscnt[1] += loss(ypred,ygold;mask=mask) # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
+    losscnt[2] += nwords/ycols                # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
+    if lossreport > 0 && losscnt[2] > lossreport
         println((exp(losscnt[1]/losscnt[2]), losscnt..., maxnorm...))
-        S2S_REPORT *= 2
-        fill!(losscnt,0); fill!(maxnorm,0)
+        losscnt[1] = losscnt[2] = 0
     end
 end
 
