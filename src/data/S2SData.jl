@@ -1,18 +1,17 @@
 """
-
-S2SData(data1, data2; batch=20, ftype=Float32, dense=false) creates a
+S2SData(data1, data2; batch=128, ftype=Float32, dense=false) creates a
 data generator that can be used with an S2S model.  The source data1
 and target data2 should be sequence generators, i.e. next(data1)
 should deliver a vector of Ints that represent the next sequence.
 eos(data1) should give the special integer representing
 end-of-sequence.  This division of labor allows different file formats
-to be supported.
+to be supported.  maxtoken(data1) should give the largest integer
+produced by data1.
 
 The following transformations are performed by an S2SData generator:
 
 * sequences are minibatched according to the batch argument.
 * sequences in a minibatch padded to all be the same length.
-* sequences are sorted by length to minimize padding.
 * the source sequences are generated in reverse order.
 * source tokens are presented as (x,nothing) pairs
 * target tokens are presented as (x[t-1],x[t]) pairs
@@ -52,8 +51,11 @@ a matrix.)
 
 Note that the end-of-sentence markers <s> are automatically inserted
 by the S2SData generator and are not present in the source or the
-target.  The S2S model switches between encoding and decoding
-using y=nothing as an indicator.    
+target.  The training will be faster if adjacent sequence lengths are
+similar, but S2SData does not do any sorting, this should be done by
+the sequence generators.  The S2S model switches between encoding and
+decoding using y=nothing as an indicator.
+
 """
 type S2SData; bgen1; bgen2; 
     function S2SData(sgen1, sgen2; batchsize=128, ftype=Float32, dense=false, o...)
