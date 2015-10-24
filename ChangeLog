@@ -1,95 +1,140 @@
-2015-10-21  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* src/data/S2SData.jl (target): reopen when restart.
-
-2015-10-20  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0050 saman: local contrast normalization, manual weight bug.
-	0060 check copy results in ~/knet/v0.6/examples/
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
-	0101 Pkg.test("CUDArt") fails?
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0105 ashish nce model
 	0106 karpathy character based models, inputless networks with random generators
-	0110 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
-	0110 need train/test switch for nce and dropout.
-	0110 src/net.jl: handle con and rnd in tosave.
-	0110 src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0120 need something for turkish translation to report to tubitak
 	0124 attention s2s model
 	0125 ntm
 	0126 ctc apply speech model to mt
 	0127 image captioning example
+	0128 try s2s model in turkish translation
 	0130 language learning in minecraft
-	0160 learning to interpret python ,mfind other examples
-	0200 barret optimization: for sparse input, keep dw dense, but use a mask to make w += dw faster.
-	0200 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
-	0200 optimization: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
-	0201 barret: implementing the whole lstm with single matrix multiplication
+	0160 learning to interpret python, find other examples
+	0200 saman: local contrast normalization, manual weight bug: add the other cudnn bias options for broadcasting add.
+	0210 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
+	0210 mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
+	0210 examples/mnist4d.jl,rnnlm.jl: test with dropout
+	0210 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
+	0210 need train/test switch for nce and dropout.
+	0210 src/net.jl: handle con and rnd in tosave.
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
-	0350 write mikolov ptb downloader like mnist. maybe use github lfs?
+	0700 --- src/op/loss.jl: cleanup, move out of op.
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 src/op/compound.jl: finish documentation for all ops.
-	0700 src/op/loss.jl: cleanup, move out of op.
-	0799 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
+	0800 --- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	0800 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
+	0800 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
+	0800 why do we get nan?  copyseq gives nan with gradient clipping for lr=2 gclip=10,5 on ptb.  can we prevent this?
 	0800 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
-	0800 implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	0800 maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
 	0800 update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
-	0900 Work on non-gpu compatibility.
-	1000 add xnorm in addition to wnorm and gnorm
+	0900 --- barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
+	0901 barret speed: implementing the whole lstm with single matrix multiplication
+	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
+	0950 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
+	0950 find the three parameter element wise mul in julia and rename mul2
+	0950 probably should move cuda and julia code from linalg into add/mul etc.
+	0970 perceptron and structured perceptron examples.
+	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
+	0970 reimplement averaging. for perceptron.
+	0970 kperceptron.jl: reimplement within the new framework.
+	0970 ai-mtg: kernels and perceptrons.
+	1000 Work on non-gpu compatibility.
+	1000 character convolution.
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
-	1000 ai-mtg: kernels and perceptrons.
-	1000 consider moving from y=f(x) to f(x,y) for the knet language.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
-	1000 examples/mnist4d.jl: test with dropout
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
 	1000 examples: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1000 examples: reimplement predict, train, and tutorial.jl.
-	1000 find the three parameter element wise mul in julia and rename mul2
 	1000 get rid of input() and use constructor arguments instead?	can we?
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 initforw: type/size inference in inputless networks?
 	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
-	1000 kperceptron.jl: reimplement within the new framework.
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
-	1000 linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern.
 	1000 minibatch resizing
 	1000 model.jl: add predict, load, save
 	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
-	1000 par and loss should probably get out of op.
-	1000 perceptron and structured perceptron examples.
-	1000 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
+	1000 par and loss should probably get out of op.  at least loss.
 	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
-	1000 reimplement averaging.
 	1000 src/model/fnn.jl: predict has not been tested
 	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
 	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
-	1000 src/op/add.jl,mul.jl: handle scalar input going forw and back (or implement axpb?, scal?)
 	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
 	1000 src/op/conv.jl: cpu implementation
 	1000 src/op/conv.jl: fix old versions to run comparison test.
 	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
 	1000 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
-	1000 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
 	1000 use templated code for cuda kernels
-	1000 util/cudnn.jl: these changes should go into CUDNN
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* convolution:
+
+	matlab 1-D y=conv(x,w,'full')  "Full convolution (default)."
+	y[k] = sum[j] x[j] w[k-j+1]
+	k=1:x+w-1
+	j=max(1,k+1-w):min(k,x)
+	cudnn: ndims=2, padding=w-1, stride=1, upscale=1, mode=CUDNN_CONVOLUTION
+	Note: ndims=1 is not implemented, just use ndims=2 and get the central only non-zero column of the result.
+
+	matlab 1-D y=conv(x,w,'same')  "Central part of the convolution of the same size as u."
+	y[k] = sum[j] x[j] w[k-j+w/2+1]
+	k=1:x
+	j=max(1,k-w/2+1):min(k+w/2,x)
+	cudnn: ndims=2, padding=w/2, stride=1, upscale=1, mode=CUDNN_CONVOLUTION
+	Note: This works only if length(w) is odd.  There is no setting to get 'same' with w even.
+
+	matlab 1-D y=conv(x,w,'valid')  "Only those parts of the convolution that are computed without the zero-padded edges."
+	y[k] = sum[j] x[j] w[k-j+w]
+	k=1:x-w+1
+	j=k:k+w-1
+	cudnn: ndims=2, padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION
+
+2015-10-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* COPY-EXPERIMENTS:
+	common-options: ("hidden"=>512,"lr"=>2.0,"dense"=>false,"batchsize"=>128,"winit"=>"Gaussian(0,0.01)","fast"=>true,"gclip"=>10.0,"gcheck"=>0,"epochs"=>100,"ftype"=>"Float32","seed"=>42,"datafiles"=>Any["ptb.train.txt","ptb.valid.txt"])
+	10202219-copy256.out: best dev-perplexity 21.8159 @28 epochs 85 secs/epoch: copyseq.jl --fast --hidden 256 --epochs 100 ptb.train.txt ptb.valid.txt
+	10210212-copy512.out: best dev-perplexity 16.4968 @28 epochs 138 secs/epoch: copyseq.jl --fast --hidden 512 --epochs 100 ptb.train.txt ptb.valid.txt
+	10231733-copy1024.log: best dev-perplexity 24.1769 @16 epochs 584 secs/epoch: copyseq.jl --hidden 1024 --epochs 100 --gclip 10 --lr 1 ptb.train.txt ptb.valid.txt
+	10211111-copy1024.out: buggy, actually ran with hidden=512.
+	10220837-tenten512copy.log: best perpexity 2.2888 @262(iter)*128(batch)*1000(nbatch)=33,536,000 words, ran for 770 iters total with no further improvement: lr=2 gclip=10 vocab=10024 hidden=512
+	10231022-tenten1024.log: best perplexity 1.02315 @846(iter)*128(batch)*1000(nbatch)=108,288,000 words, ran for 858 iters total, probably need to decrease lr to get closer to 1.0: lr=2 gclip=5 vocab=10024 hidden=1024
+
+	* DONE:
+	DONE s2s.jl: make lossreset a reporting optional argument.
+	DONE copyseq.jl: --fast is broken in dev: julia copyseq.jl --fast --hidden 1024 --epochs 40 ptb.train.txt ptb.valid.txt
+	DONE write mikolov ptb downloader like mnist. maybe use github lfs?
+	DONE Pkg.test("CUDArt") fails? fixed at 0.2.3.
+	DONE check copy results in ~/knet/v0.6/examples/
+	DONE consider moving from y=f(x) to f(x,y) for the knet language. -- harder to read.
+	DONE src/op/add.jl,mul.jl: handle scalar input going forw and back: implemented ax^p+b in actf instead.
+	DONE linalg.jl: axpy!{T}(a,x::CudaSparseMatrixCSR{T},y::CudaSparseMatrixCSR{T}) should check sparseness pattern. no longer relevant.
+	DONE util/cudnn.jl: these changes should go into CUDNN
+
+2015-10-21  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	src/data/S2SData.jl (target): reopen when restart.
+
+2015-10-20  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE wdot wconv bias can be just single parameter versions of dot, conv, add.  no  need for New names: decided this wasn't a good idea, it is only going to effect dot/add/conv and it is going to create more confusion.
