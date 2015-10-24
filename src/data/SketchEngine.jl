@@ -2,26 +2,21 @@ import Base: start, next, done
 
 # file can be a Cmd, e.g. `xzcat sdfkl32KCsd_enTenTen12.vert.xz`
 
-type SketchEngine; file; dict; eos; unk; eostag; maxtoken; maxlen; column;
+type SketchEngine; file; dict; unk; eostag; maxlen; column;
     function SketchEngine(file; dict=nothing, eostag="</s>", maxlen=40, column=1, o...)
         if dict == nothing
             unk = 0             # we will construct dict from data
-            eos = 1
             dict = Dict{Any,Int}(eostag=>eos)
-            maxtoken = 0
         else
             isa(dict,Dict) || (dict = readvocab(dict))
             unk = length(dict)+1
-            eos = length(dict)+2
-            maxtoken = eos
         end
-        new(file, dict, eos, unk, eostag, maxtoken, maxlen, column)
+        new(file, dict, unk, eostag, maxlen, column)
     end
 end
 
 unk(s::SketchEngine)=s.unk
-eos(s::SketchEngine)=s.eos
-maxtoken(s::SketchEngine)=(s.maxtoken > 0 ? s.maxtoken : error("Please specify dict for maxtoken"))
+maxtoken(s::SketchEngine)=(s.unk > 0 ? s.unk : error("Please specify dict for maxtoken"))
 
 start(s::SketchEngine)=open(s.file)
 done(s::SketchEngine,io)=(isa(io,Tuple) && (io=io[1]); eof(io) && (close(io); true))

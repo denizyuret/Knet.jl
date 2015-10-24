@@ -1,22 +1,18 @@
-type SequencePerLine; file; dict; unk; eos; maxtoken;
+type SequencePerLine; file; dict; unk;
     function SequencePerLine(file; dict=nothing, o...)
         if dict == nothing
             unk = 0             # we will construct dict from data
-            eos = 1
-            dict = Dict{Any,Int}("<s>" => eos)
-            maxtoken = 0
+            dict = Dict{Any,Int}()
         else
+            isa(dict,Dict) || (dict = readvocab(dict))
             unk = length(dict)+1
-            eos = length(dict)+2
-            maxtoken = length(dict)+2
         end
-        new(file, dict, unk, eos, maxtoken)
+        new(file, dict, unk)
     end
 end
 
 unk(s::SequencePerLine)=s.unk
-eos(s::SequencePerLine)=s.eos
-maxtoken(s::SequencePerLine)=(s.maxtoken > 0 ? s.maxtoken : error("Please specify dict for maxtoken"))
+maxtoken(s::SequencePerLine)=(s.unk > 0 ? s.unk : error("Please specify a dict for maxtoken"))
 
 start(s::SequencePerLine)=open(s.file)
 done(s::SequencePerLine,io)=(isa(io,Tuple) && (io=io[1]); eof(io) && (close(io); true))

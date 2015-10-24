@@ -23,7 +23,7 @@ end
 
 type TagBatch; sgen; state; sent; word; done;
     function TagBatch(sgen, batchsize, ftype, dense)
-        word = (dense ? zeros : spones)(ftype, maxtoken(sgen)-1, batchsize) # -1 because we do not need eos
+        word = (dense ? zeros : spones)(ftype, maxtoken(sgen), batchsize)
         sent = Array(Any, batchsize)
         @show map(summary, (word,sent))
         new(sgen, nothing, sent, word, false)
@@ -77,7 +77,7 @@ function nextbatch(b::TagBatch)
     end
 end
 
-maxtoken(s::TagData,i)=maxtoken(i==1 ? s.x.sgen : i==2 ? s.y.sgen : error())-1 # -1 because we will never generate an eos token
+maxtoken(s::TagData,i)=maxtoken(i==1 ? s.x.sgen : i==2 ? s.y.sgen : error())
 
 spones(ftype, m, n)=sparse(ones(Int32,n), Int32[1:n;], one(ftype), m, n)
 

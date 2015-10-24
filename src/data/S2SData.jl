@@ -1,12 +1,16 @@
 """
+
 S2SData(data1, data2; batch=128, ftype=Float32, dense=false) creates a
 data generator that can be used with an S2S model.  The source data1
 and target data2 should be sequence generators, i.e. next(data1)
 should deliver a vector of Ints that represent the next sequence.
-eos(data1) should give the special integer representing
-end-of-sequence.  This division of labor allows different file formats
-to be supported.  maxtoken(data1) should give the largest integer
-produced by data1.
+This division of labor allows different file formats to be supported.
+
+maxtoken(sgen) should give the largest integer produced by sequence
+generator sgen.  Note that sequence generators do not generate eos
+tokens, S2SData uses maxtoken(sgen)+1 as eos by convention.  Sequence
+generators do generate unk tokens (which should be included in the
+maxtoken(sgen) count).
 
 The following transformations are performed by an S2SData generator:
 
@@ -86,11 +90,11 @@ end
 type S2SBatch; sgen; state; batch; x; y; mask; done;
     function S2SBatch(sgen, batchsize, ftype, dense)
         if dense
-            x = zeros(ftype, maxtoken(sgen), batchsize)
-            y = zeros(ftype, maxtoken(sgen), batchsize)
+            x = zeros(ftype, eos(sgen), batchsize)
+            y = zeros(ftype, eos(sgen), batchsize)
         else
-            x = speye(ftype, maxtoken(sgen), batchsize)
-            y = speye(ftype, maxtoken(sgen), batchsize)
+            x = speye(ftype, eos(sgen), batchsize)
+            y = speye(ftype, eos(sgen), batchsize)
         end
         mask = zeros(Cuchar, batchsize)
         batch = Array(Any, batchsize)
@@ -167,8 +171,12 @@ end
 setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
 setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
 
-# maxtoken is length(dict)+2 for <unk> and <s>
-maxtoken(s::S2SData,i)=(i==1 ? maxtoken(s.bgen1.sgen) : i==2 ? maxtoken(s.bgen2.sgen) : error())
+# Sequence generators do not generate eos, the s2s generator does.  It
+# makes it maxtoken(sgen)+1 by convention.  So maxtoken of the s2s
+# generator is one more than the maxtoken of the sequence generator.
+
+eos(sgen)=maxtoken(sgen)+1
+maxtoken(s::S2SData,i)=(i==1 ? eos(s.bgen1.sgen) : i==2 ? eos(s.bgen2.sgen) : error())
 
 function readvocab(file) # TODO: test with cmd e.g. `zcat foo.gz`
     d = Dict{Any,Int}() 
