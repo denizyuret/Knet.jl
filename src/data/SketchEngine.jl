@@ -2,8 +2,8 @@ import Base: start, next, done
 
 # file can be a Cmd, e.g. `xzcat sdfkl32KCsd_enTenTen12.vert.xz`
 
-type SketchEngine; file; dict; eos; unk; eostag; maxtoken; maxlen;
-    function SketchEngine(file; dict=nothing, eostag="</s>", maxlen=40, o...)
+type SketchEngine; file; dict; eos; unk; eostag; maxtoken; maxlen; column;
+    function SketchEngine(file; dict=nothing, eostag="</s>", maxlen=40, column=1, o...)
         if dict == nothing
             unk = 0             # we will construct dict from data
             eos = 1
@@ -15,7 +15,7 @@ type SketchEngine; file; dict; eos; unk; eostag; maxtoken; maxlen;
             eos = length(dict)+2
             maxtoken = eos
         end
-        new(file, dict, eos, unk, eostag, maxtoken, maxlen)
+        new(file, dict, eos, unk, eostag, maxtoken, maxlen, column)
     end
 end
 
@@ -39,7 +39,7 @@ function next(s::SketchEngine, io)
         elseif line[1]=='<' && line[2]!='\t'
             continue
         else
-            token = split(line)[1]
+            token = split(line)[s.column]
             if s.unk == 0
                 push!(sent, get!(s.dict, token, 1+length(s.dict)))
             else
