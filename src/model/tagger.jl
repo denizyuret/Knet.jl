@@ -14,7 +14,7 @@ function tagger_loop(m::Tagger, data, loss; gcheck=false, o...)
     x,ygold,mask = Any[],Any[],Any[]
     for item in data            # each item contains one (x,y,mask) triple for a minibatch of tokens for time t
         if item != nothing      
-            push!(x, item[1]); push!(ygold, item[2]); push!(mask, item[3])
+            push!(x, copy(item[1])); push!(ygold, copy(item[2])); push!(mask, copy(item[3]))
         else                    # or an item can be nothing marking sentence end
             reset!(m)
             yforw = tagger_forw(m.forw, x; o...)
