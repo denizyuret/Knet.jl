@@ -12,9 +12,11 @@
 	0126 ctc apply speech model to mt
 	0127 image captioning example
 	0128 try s2s model in turkish translation
+	0129 rnn based parser
 	0130 language learning in minecraft
 	0160 learning to interpret python, find other examples
 	0200 saman: local contrast normalization, manual weight bug: add the other cudnn bias options for broadcasting add.
+	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	0210 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0210 mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
 	0210 examples/mnist4d.jl,rnnlm.jl: test with dropout

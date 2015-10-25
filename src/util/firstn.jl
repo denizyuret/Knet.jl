@@ -33,6 +33,12 @@ function onerows(x::SparseMatrixCSC,dict::Dict)
     end
 end
 
+function onerows(x::SparseMatrixCSC)
+    map(1:size(x,2)) do i
+        x.nzval[i] == 0 ? 0 : x.rowval[i]
+    end
+end
+
 function firstn(a::TagData,n)
     b=Any[]
     for i in a
@@ -40,7 +46,9 @@ function firstn(a::TagData,n)
             push!(b,i)
         else
             (x,y,m) = i
-            push!(b, (convert(Vector{Int},m), onerows(x,a.x.sgen.dict), onerows(y,a.y.sgen.dict)))
+            !isa(a.x.sgen,Array) && isdefined(a.x.sgen,:dict) ?
+            push!(b, (convert(Vector{Int},m), onerows(x,a.x.sgen.dict), onerows(y,a.y.sgen.dict))) :
+            push!(b, map(z->convert(Vector{Int},z), (m, onerows(x), onerows(y))))
         end
         length(b)==n && break
     end
