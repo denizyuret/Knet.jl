@@ -16,6 +16,7 @@
 import sys
 import os
 import shlex
+import juliadoc
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -32,6 +33,8 @@ import shlex
 # ones.
 extensions = [
     'sphinx.ext.mathjax',
+    'juliadoc.julia', 
+    'juliadoc.jlhelp',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -120,6 +123,7 @@ html_theme = 'alabaster'
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
+html_theme_path = [juliadoc.get_theme_dir()]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -157,6 +161,7 @@ html_static_path = ['_static']
 
 # Custom sidebar templates, maps document names to template names.
 #html_sidebars = {}
+html_sidebars = juliadoc.default_sidebars()
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
