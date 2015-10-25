@@ -187,11 +187,13 @@ end
 
 ### ZERO-ONE LOSS
 
-function zeroone(ypred::Array, ygold::Array)
+function zeroone(ypred::Array, ygold::Array; mask=nothing, o...)
+    @assert size(ypred)==size(ygold)
     (yrows,ycols) = size2(ypred)
     cost = 0
     tmin = typemin(eltype(ypred))
     for j=1:ycols
+        mask!=nothing && mask[j]==0 && continue
         (cz,cy,ymax,zmax) = (0,0,tmin,tmin)
         i1=(j-1)*yrows+1; i2=j*yrows
         for i=i1:i2
@@ -203,7 +205,7 @@ function zeroone(ypred::Array, ygold::Array)
     return cost/ycols
 end
 
-zeroone(ypred,ygold)=zeroone(convert(Array,ypred),convert(Array,ygold))
+zeroone(ypred,ygold; o...)=zeroone(convert(Array,ypred),convert(Array,ygold); o...)
 
 
 ### DEAD CODE
