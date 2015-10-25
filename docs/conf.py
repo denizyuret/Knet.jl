@@ -17,6 +17,7 @@ import sys
 import os
 import shlex
 import juliadoc
+import sphinx_rtd_theme
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -31,11 +32,10 @@ import juliadoc
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.mathjax',
-    'juliadoc.julia', 
-    'juliadoc.jlhelp',
-]
+extensions = ['sphinx.ext.mathjax',
+              'juliadoc.julia', 
+              'juliadoc.jldoctest',
+              'juliadoc.jlhelp']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -106,6 +106,9 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+primary_domain = 'jl'
+highlight_language = 'julia'
+
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
@@ -114,7 +117,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'alabaster'
+html_theme = 'julia'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -123,7 +126,8 @@ html_theme = 'alabaster'
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
-html_theme_path = [juliadoc.get_theme_dir()]
+html_theme_path = [juliadoc.get_theme_dir(),
+                   sphinx_rtd_theme.get_html_theme_path()]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -161,7 +165,7 @@ html_static_path = ['_static']
 
 # Custom sidebar templates, maps document names to template names.
 #html_sidebars = {}
-html_sidebars = juliadoc.default_sidebars()
+#html_sidebars = juliadoc.default_sidebars()
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -169,6 +173,7 @@ html_sidebars = juliadoc.default_sidebars()
 
 # If false, no module index is generated.
 #html_domain_indices = True
+html_domain_indices = False
 
 # If false, no index is generated.
 #html_use_index = True
@@ -181,9 +186,11 @@ html_sidebars = juliadoc.default_sidebars()
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 #html_show_copyright = True
+html_show_copyright = False
 
 # If true, an OpenSearch description file will be output, and all pages will
 # contain a <link> tag referring to it.  The value of this option must be the
@@ -208,7 +215,7 @@ html_sidebars = juliadoc.default_sidebars()
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Knetjldoc'
+htmlhelp_basename = 'KnetDoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -230,7 +237,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'Knetjl.tex', 'Knet.jl Documentation',
+  (master_doc, 'Knet.tex', 'Knet.jl Documentation',
    'Deniz Yuret', 'manual'),
 ]
 
