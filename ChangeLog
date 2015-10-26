@@ -1,20 +1,15 @@
-2015-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	DONE scale learning rate for gclip
-	0010 noop bug: why didn't axpb work as a noop?  ner16.jl.
-	0050 -- saman: local contrast normalization, manual weight bug: add the other cudnn bias options for broadcasting add.
-	0050 add.jl: document broadcasting and make sure forw and back works in all cases.
-	0050 add can also take a scaling argument?
-	0055 put warning to s2s/tagger about not being onehot
+	DONE noop bug: why didn't axpb work as a noop?  ner16.jl.
+	0011 primitive ops cannot be used as models?  Net(axpb) failing.
+	0012 do not expose Net to users it is confusing: knet functions and models (FNN, RNN, etc.) should be sufficient.
 	0060 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0060 examples/mnist4d.jl,rnnlm.jl: test with dropout
 	0060 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
 	0060 mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
 	0060 need train/test switch for nce and dropout.
 	0060 src/net.jl: handle con and rnd in tosave.
-	0090 -- ai-mtg: Onur and Ozan's bidirectional model.
-	0090 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0105 ashish nce model
@@ -24,39 +19,41 @@
 	0125 ntm
 	0126 ctc apply speech model to mt
 	0127 image captioning example
-	0128 try s2s model in turkish translation
+	0128 try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0129 rnn based parser
 	0130 language learning in minecraft
 	0160 learning to interpret python, find other examples
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
+	0350 -- saman: local contrast normalization, manual weight bug: add the other cudnn bias options for broadcasting add.
 	0700 --- src/op/loss.jl: cleanup, move out of op.
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 src/op/compound.jl: finish documentation for all ops.
 	0800 --- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
-	0800 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
-	0800 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
-	0800 why do we get nan?  copyseq gives nan with gradient clipping for lr=2 gclip=10,5 on ptb.  can we prevent this?
 	0800 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
+	0800 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
 	0800 maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
 	0800 update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
+	0800 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
+	0800 why do we get nan?  copyseq gives nan with gradient clipping for lr=2 gclip=10,5 on ptb.  can we prevent this?
+	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0900 --- barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
 	0901 barret speed: implementing the whole lstm with single matrix multiplication
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
-	0950 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0950 find the three parameter element wise mul in julia and rename mul2
+	0950 mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0950 probably should move cuda and julia code from linalg into add/mul etc.
+	0970 ai-mtg: kernels and perceptrons.
+	0970 kperceptron.jl: reimplement within the new framework.
 	0970 perceptron and structured perceptron examples.
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
-	0970 kperceptron.jl: reimplement within the new framework.
-	0970 ai-mtg: kernels and perceptrons.
-	1000 do not expose Net to users it is confusing: knet functions and models (FNN, RNN, etc.) should be sufficient.
 	1000 Work on non-gpu compatibility.
-	1000 character convolution.
+	1000 add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
+	1000 character convolution.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
@@ -65,11 +62,11 @@
 	1000 get rid of input() and use constructor arguments instead?	can we?
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
 	1000 implement maxnorm activation function.
-	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 initforw: type/size inference in inputless networks?
 	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
+	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 minibatch resizing
 	1000 model.jl: add predict, load, save
 	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
@@ -92,6 +89,15 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* DONE:
+	DONE add can also take a scaling argument?
+	DONE put warning to s2s/tagger about not being onehot: no need, they start with sequence generators that produce tokens, not arbitrary feature vectors.
+	DONE scale learning rate for gclip
+	DONE -- ai-mtg: Onur and Ozan's bidirectional model.
+
+
+2015-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* ner-prof:
 

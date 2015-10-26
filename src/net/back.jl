@@ -17,6 +17,9 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...
     initback(r, ygold, loss; getdx=getdx, seq=seq, o...)
     if ygold == nothing
         r.toincr[N] || (r.dif[N] = nothing)
+    elseif r.dif0[N] == nothing
+        # This may happen for a parameter free network
+        @assert !any(r.toback)
     elseif !r.toincr[N]
         r.dif[N] = loss(r.out[N], ygold, r.dif0[N]; o...)
     else
