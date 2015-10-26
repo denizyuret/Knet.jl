@@ -24,7 +24,8 @@ twice = opts["twice"]
 if opts["all"] || opts["linreg"]
     include("linreg.jl")
     @time @show test1 = linreg("--gcheck $gcheck")
-    @test test1  == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
+    #@test test1 == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
+    @test  test1 == (0.0005497372347062409,32.77256166946497,0.11244349406522969) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     twice && (@time @show test1 = linreg("--gcheck $gcheck"))
     # 0.739858 seconds (394.09 k allocations: 71.335 MB, 1.23% gc time) Tue Oct 20 18:29:41 PDT 2015
 end
@@ -36,6 +37,7 @@ if opts["all"] || opts["mnist2d"]
     @test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
     twice && (@time @show test2 = mnist2d("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
+    # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -44,6 +46,7 @@ if opts["all"] || opts["mnist2dy"]
     @test test3  == (0.1062698f0,24.866688f0,3.513474f0)
     twice && (@time @show test3 = mnist2d("--ysparse --gcheck $gcheck"))
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
+    # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -56,6 +59,7 @@ if opts["all"] || opts["mnist2dx"]
 
     twice && (@time @show test4 = mnist2d("--xsparse --gcheck $gcheck"))
     # 12.362125 seconds (3.81 M allocations: 753.744 MB, 1.87% gc time)  Tue Oct 20 19:13:25 PDT 2015
+    # 11.751002 seconds (3.84 M allocations: 753.959 MB, 1.95% gc time) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -67,6 +71,7 @@ if opts["all"] || opts["mnist2dxy"]
 
     twice && (@time @show test5 = mnist2d("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
+    # 13.320959 seconds (4.11 M allocations: 776.397 MB, 2.29% gc time) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
 end
 
 if opts["all"] || opts["mnist4d"]
