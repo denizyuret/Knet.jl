@@ -4,7 +4,8 @@ using JLD, ArgParse, Knet
 # hidden: 128; no recurrent; biyofiz'de cpu'da 1 trn epoch 18 thread ile 258 sn. => 0.0371 char error
 # hidden: 512; output layer'da recurrent connection; 1trn epoch: gpu'da 217 sn.; dev cerr (char error): 0.0256
 
-# Knet speed: hidden:128, batch:32, non-recurr out, 272 sec/epoch
+# Knet speed: hidden:128, batch:32, non-recurr out, --fast 154 sec/epoch
+# Knet speed: hidden:512, batch:32, non-recurr out, --fast 208 sec/epoch
 
 # Set training parameters:
 
@@ -91,7 +92,7 @@ for epoch=1:epochs
     @date devprp = exp(test(model, dev, softloss))
     @date deverr = test(model, dev, zeroone)
     @show (epoch, devprp, deverr)
-    push!(history, devprp)
+    push!(history, deverr)
     if length(history) > 5 && history[end] > history[end-5]
         @show lr /= 2
         setopt!(model; lr=lr)
