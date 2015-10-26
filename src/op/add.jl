@@ -4,61 +4,109 @@
 # DONE: handle scalar input for adding a constant. -- axpb will handle this
 # TODO: back
 
-type Add <: Op; end
+type Add <: Op; alpha; beta; end
 
-# TODO: explain bias broadcasting.
-"@knet function add(x,y) is element-wise broadcasting addition."
-add(x1,x2,y)=(Add(),x1,x2,y)
+"""
+
+@knet function add(x1,x2; alpha=1,beta=1) performs element-wise
+broadcasting addition.  alpha and beta are used to scale x1 and x2
+respectively.  The result computed is y = alpha x1 + beta x2.  The
+size of the output y always matches the size of x2.  Broadcasting is
+performed as follows (following Julia convention, size below refers to
+the tuple of dimensions, fastest changing first, and ndims refers to
+the number of dimensions):
+
+- If x1 and x2 are the same size their elements are added.
+
+- If x1 and x2 have the same ndims but different sizes, each dimension
+  of the x1 array must match the coresponding dimension of the x2
+  array or must be equal to 1. In the latter case, the same value from
+  the x1 array for those dimensions will be used to blend into the x2
+  array.  (At least this is what it says in the cudnnAddTensor doc but
+  unfortunately not all combinations work as promised. TODO: I will
+  update this doc as soon as Nvidia tells me what the real spec is.)
+  Example: (5,4,1,1)+(5,4,3,2)=>(5,4,3,2)
+
+- If x1 and x2 have different ndims, x1 is assumed to be missing its
+  rightmost dims and those are assumed to be 1.  Example:
+  (5,4)+(5,4,3,2)=>(5,4,1,1)+(5,4,3,2)=>(5,4,3,2).
+
+- The one exception to the last rule is when x1 has ndims=1 and x2 has
+  ndims > 1.  In this case x1 is matched to the next to last dimension
+  of x2.  Example: (3,)+(5,4,3,2)=>(1,1,3,1)+(5,4,3,2)=>(5,4,3,2).
+
+"""
+add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
+
 ninputs(::Add)=2
 overwrites(::Add)=true
 back_reads_x(::Add)=false
 back_reads_y(::Add)=false
 
-function forw(::Add, x1, x2, y; o...)
+add!(a::Number,x::Array,b::Number,y::Array)=broadcast!(+,y,(a==1 ? x : a*x),(b==1 ? y : b*y))
+@gpu add!(a::Number,x::CudaArray,b::Number,y::CudaArray)=(cudnnAddTensor(x,y; alpha=a, beta=b); gpusync(); y)
+
+function forw(a::Add, x1, x2, y; o...)
     @assert x2 == nothing || size(y) == size(x2)
-    if x1==x2==nothing
-        nothing
-    elseif x1==nothing
+    if x1!=nothing && x2!=nothing # we use nothing to represent the zero array
+        x1 = reshape_to_match(x1,x2)
+        y===x2 ? add!(a.alpha,x1,a.beta,y) :
+        y===x1 ? add!(a.beta,x2,a.alpha,y) :
+        (copy!(y,x2); add!(a.alpha,x1,a.beta,y))
+    elseif x2 != nothing
         y===x2 ? y : copy!(y, x2)
-    elseif x2==nothing
+    elseif x1 != nothing
         size(y) != size(x1) ? nothing :
         y===x1 ? y : copy!(y, x1)
-    elseif size(x1) == size(x2)
-        y===x2 ? axpy!(1,x1,y) :
-        y===x1 ? axpy!(1,x2,y) :
-        (copy!(y,x2); axpy!(1,x1,y))
-    elseif size(x1) == biassize(y)
-        biasforw(x1,x2,y)
     else
-        error("Don't know how to add $(size(y))=$(size(x1))+$(size(x2))")
+        nothing
     end
 end
 
-biasforw(b::Vector, x::Array, y::Array)=(c=ndims(x)-1; for i=1:length(y); y[i] = x[i] + b[ind2sub(size(x),i)[c]]; end; y)
-biasforw(b::Vector, x::Vector, y::Vector)=(for i=1:length(y); y[i] = x[i] + b[i]; end; y)
-@gpu biasforw(b::CudaArray, x::CudaArray, y::CudaArray)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C); gpusync(); y)
+function reshape_to_match(x1,x2)
+    if ndims(x1) < ndims(x2)
+        n = ndims(x2)
+        newsize = ones(Int,n)
+        if ndims(x1)==1
+            newsize[n-1] = length(x1)
+        else
+            for i=1:ndims(x1)
+                newsize[i] = size(x1,i)
+            end
+        end
+        x1 = reshape(x1, tuple(newsize...))
+    end
+    for i=1:ndims(x1)
+        size(x1,i)==1 || size(x1,i)==size(x2,i) ||
+        throw(DimensionMismatch("Each x1 dimension must match x2 or be 1."))
+    end
+    return x1
+end
 
-function back(::Add, dy, dx1, dx2; o...)
+function back(a::Add, dy, dx1, dx2; o...)
     if dx2 != nothing
-        @assert size(dx2) == size(dy)
-        dx2 === dy || copy!(dx2, dy)
+        size(dx2) == size(dy) || throw(DimensionMismatch("The size of the output must match x2"))
+        dx2 === dy  || copy!(dx2, dy)
+        a.beta == 1 || scale!(a.beta, dx2)
     end
     if dx1 == nothing
         # done
     elseif size(dx1) == size(dy)
-        dx1 === dy || copy!(dx1, dy)
+        dx1 === dy   || copy!(dx1, dy)
+        a.alpha == 1 || scale!(a.alpha, dx1)
     elseif size(dx1) == biassize(dy)
         biasback(dy, dx1)
+        a.alpha == 1 || scale!(a.alpha, dx1)
     else
-        error("Don't know how to add $(size(dy))=$(size(dx1))+$(size(dx2))")
+        # TODO: implement more broadcasting back.
+        error("Don't know how to do back pass with $(size(dy))=$(size(dx1))+$(size(dx2))")
     end
 end
 
+biassize(y)=(size(y, ndims(y)==1 ? 1 : ndims(y)-1),)
 biasback(dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
 biasback(dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
 @gpu biasback(dy::CudaArray, db::CudaArray)=(cudnnConvolutionBackwardBias(dy, db); gpusync(); db)
-
-biassize(y)=(size(y, ndims(y)==1 ? 1 : ndims(y)-1),)
 
 function infersize(::Add, x1, x2)
     if x1==x2==nothing
@@ -100,3 +148,11 @@ function commonsize(x1,x2)
         i1
     end
 end
+
+
+### DEAD CODE:
+
+# biasforw(b::Vector, x::Array, y::Array)=(c=ndims(x)-1; for i=1:length(y); y[i] = x[i] + b[ind2sub(size(x),i)[c]]; end; y)
+# biasforw(b::Vector, x::Vector, y::Vector)=(for i=1:length(y); y[i] = x[i] + b[i]; end; y)
+# @gpu biasforw(b::CudaArray, x::CudaArray, y::CudaArray)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C); gpusync(); y)
+
