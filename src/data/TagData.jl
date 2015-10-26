@@ -25,7 +25,6 @@ type TagBatch; sgen; state; sent; word; done;
     function TagBatch(sgen, batchsize, ftype, dense)
         word = (dense ? zeros : spones)(ftype, maxtoken(sgen), batchsize)
         sent = Array(Any, batchsize)
-        @show map(summary, (word,sent))
         new(sgen, nothing, sent, word, false)
     end
 end
@@ -78,6 +77,7 @@ function nextbatch(b::TagBatch)
 end
 
 maxtoken(s::TagData,i)=maxtoken(i==1 ? s.x.sgen : i==2 ? s.y.sgen : error())
+maxtoken(x::Vector{Vector{Int}}) = maximum(map(maximum,x))
 
 spones(ftype, m, n)=sparse(ones(Int32,n), Int32[1:n;], one(ftype), m, n)
 

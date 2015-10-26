@@ -1,6 +1,7 @@
-2015-10-23  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	0050 add.jl: document broadcasting and make sure forw and back works in all cases.
 	0100 ai-mtg: Onur and Ozan's bidirectional model.
 	0102 yonatan supertagging
 	0103 vivi concatenation
@@ -86,6 +87,91 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* ner-prof:
+
+	7895 .../.julia/v0.4/Knet/src/model/tagger.jl; train; line: 11
+
+	1324 .../.julia/v0.4/Knet/src/model/tagger.jl; tagger_loop; line: 20 m.forw
+	1341 .../.julia/v0.4/Knet/src/model/tagger.jl; tagger_loop; line: 21 m.back
+	313  .../.julia/v0.4/Knet/src/model/tagger.jl; tagger_loop; line: 22 m.pred
+	4872 .../.julia/v0.4/Knet/src/model/tagger.jl; tagger_loop; line: 24 m.bptt
+
+	1280 ....julia/v0.4/Knet/src/model/tagger.jl; tagger_forw; line: 36 m.forw.net.forw
+	1306 ....julia/v0.4/Knet/src/model/tagger.jl; tagger_forw; line: 36 m.back.net.forw
+	259 .../.julia/v0.4/Knet/src/model/tagger.jl; tagger_forw; line: 36 m.pred.net.forw
+	637  ....julia/v0.4/Knet/src/model/tagger.jl; tagger_bptt; line: 62 m.pred.net.back
+	2099 ....julia/v0.4/Knet/src/model/tagger.jl; tagger_bptt; line: 66 m.back.net.back
+	2071 ....julia/v0.4/Knet/src/model/tagger.jl; tagger_bptt; line: 69 m.forw.net.back
+
+        1076 ...dev/.julia/v0.4/Knet/src/net/forw.jl; forw; line: 23 m.forw.op.forw
+        1135 ...dev/.julia/v0.4/Knet/src/net/forw.jl; forw; line: 23 m.back.op.forw
+        195 ...dev/.julia/v0.4/Knet/src/net/forw.jl; forw; line: 23  m.pred.op.forw
+        320 ...dev/.julia/v0.4/Knet/src/net/back.jl; back; line: 39  m.pred.op.back
+        45  ...dev/.julia/v0.4/Knet/src/net/back.jl; back; line: 44  m.pred.axpy
+        1266 ...ev/.julia/v0.4/Knet/src/net/back.jl; back; line: 39  m.back.op.back
+        559  ...ev/.julia/v0.4/Knet/src/net/back.jl; back; line: 44  m.back.axpy
+        1279 ...ev/.julia/v0.4/Knet/src/net/back.jl; back; line: 39  m.forw.op.back
+        564  ...ev/.julia/v0.4/Knet/src/net/back.jl; back; line: 44  m.forw.axpy
+
+	1045 op/dot.jl         forw              19	=> A_mul_B!
+	 239 util/linalg.jl     A_mul_B!          51	=> dense x sparse (similar)
+	 201 util/linalg.jl     A_mul_B!          54	=> dense x sparse (csrmm2!)
+	 121 util/linalg.jl     A_mul_B!          55	=> dense x sparse (geam!)
+	 114 util/linalg.jl     A_mul_B!          56	=> dense x sparse (free)
+	 # dense x dense does not even compare, switch to all dense
+
+	547 util/linalg.jl     axpy!            219	=> add_csr_dns_atomic_32
+	545 op/add.jl          back              51	=> biasback (cudnnConvolutionBackwardBias)
+	511 op/dot.jl          back              23	=> A_mul_Bt!
+	485 op/dot.jl          back              24	=> At_mul_B!
+	475 util/linalg.jl     At_mul_B!	 35	=> dense
+	462 op/add.jl          forw              31	=> biasforw (cudnnAddTensor)
+	319 util/linalg.jl     A_mul_Bt!         34	=> dense
+	284 op/actf.jl         sigmback          35	=> (cudnnActivationBackward)
+	232 util/linalg.jl     mul2!            228	=> mul2_32
+	 125 op/mul.jl          forw              18
+	 125 op/mul.jl          back              30
+	 108 op/mul.jl          back              41
+	217 op/loss.jl         softloss          90	=> softlossback32csc (sparse ygold)
+	119 op/actf.jl         tanhback          41	=> (cudnnActivationBackward)
+	105 util/linalg.jl     A_mul_Bt!        125	=> dense x sparse
+
+2015-10-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/op/add.jl: cudnnAddTensor and cudnnAddTensor_v3:
+
+	CUDNN v3 uses NCHW and NCDHW orders by default.  (Reverse these for Julia)
+
+	The deprecated version 2 only supports 4-D and had the following modes:
+
+	11HW: CUDNN_ADD_IMAGE or CUDNN_ADD_SAME_HW: In this mode, the bias tensor is defined as one image with one feature map. This image will be added to every feature map of every image of the input/output tensor.
+	1CHW: CUDNN_ADD_FEATURE_MAP or CUDNN_ADD_SAME_CHW: In this mode, the bias tensor is defined as one image with multiple feature maps. This image will be added to every image of the input/output tensor.
+	1C11: CUDNN_ADD_SAME_C: In this mode, the bias tensor is defined as one image with multiple feature maps of dimension 1x1; it can be seen as an vector of feature maps. Each feature map of the bias tensor will be added to the corresponding feature map of all height-by- width pixels of every image of the input/output tensor.
+	NCHW: CUDNN_ADD_FULL_TENSOR: In this mode, the bias tensor has the same dimensions as the input/output tensor. It will be added point-wise to the input/output tensor.
+
+	‣ Except for the CUDNN_ADD_SAME_C mode, the dimensions h,w of the two tensors must match.
+	‣ In the case of CUDNN_ADD_IMAGE mode, the dimensions n,c of the bias tensor must be 1.
+	‣ In the case of CUDNN_ADD_FEATURE_MAP mode, the dimension n of the bias tensor must be 1 and the dimension c of the two tensors must match.
+	‣ In the case of CUDNN_ADD_FULL_TENSOR mode, the dimensions n,c of the two tensors must match.
+	‣ In the case of CUDNN_ADD_SAME_C mode, the dimensions n,w,h of the bias tensor must be 1 and the dimension c of the two tensors must match.
+
+	The new version has a simpler interface:
+	Each dimension of the bias tensor must match the coresponding dimension of the srcDest tensor or must be equal to 1.
+
+	The question is: can the new version simulate everything that the old version did, and does it support Saman's requirement?
+	I think by setting the appropriate dimensions to 1, the answers to both questions is yes.
+
+	However CUDNN still assumes that the two tensors are of the same dimensionality, Knet supports different dimensionalities.
+	So when the bias is shorter, what exactly do we do?
+	Currently only 1-D is supported and it is assumed to be 1C11.
+	It seems we can assume the leftmost cudnn dimensions are 1 for the other cases to get v2 behavior.
+	What is Julia's broadcasting rules?
+	Assumes the rightmost dimensions are 1 if not the same ndims, i.e. the same.
+	In the ADD_SAME_C case if we have NC, and the bias is C we are ok.
+	But if we have NCHW, and the bias is C that requires special handling.
+
+2015-10-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* convolution:
 
