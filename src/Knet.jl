@@ -36,7 +36,7 @@ include("op/pool.jl");		export pool
 include("update.jl");		
 
 include("compiler.jl");		export @knet
-include("net.jl");              export Net, params, forw, back
+include("net.jl");              export params, forw, back
 include("net/initforw.jl")
 include("net/initback.jl")
 include("net/forw.jl")

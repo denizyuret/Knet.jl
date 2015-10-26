@@ -8,6 +8,14 @@ import Base: start, next, done
 using ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
+@knet function p1(x; rnn=nothing, hidden=0, o...)
+    y = rnn(x; o..., out=hidden)
+end
+
+@knet function p2(x; nclass=0, o...)
+    y = wbf(x; o..., out=nclass, f=soft)
+end
+
 function mnistpixels(args=ARGS)
     isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
@@ -18,14 +26,8 @@ function mnistpixels(args=ARGS)
 
     global trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
     global tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
+    global net = S2C(p1,p2; rnn=eval(parse(nettype)), hidden=hidden, nclass=10, winit=Gaussian(0,winit), fbias=fbias)
 
-    nx = 1
-    ny = 10
-    p1 = (nettype == "irnn" ? Net(irnn; out=hidden, winit=Gaussian(0,winit)) :
-          nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
-          error("Unknown network type "*nettype))
-    p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
-    global net = S2C(p1,p2)
     setopt!(net; lr=lrate)
     l = [0f0,0f0]; m = [0f0,0f0]; acc = 0
     for epoch=1:epochs
@@ -122,7 +124,7 @@ function parse_commandline(args)
         arg_type = Float64
         default =  1.0
         "--winit"
-        help = "stdev for weight initialization (for irnn)"
+        help = "stdev for weight initialization"
         arg_type = Float64
         default =  0.01
         "--rtol"
@@ -201,3 +203,9 @@ end
 # (:trn,20000,2.3024626f0,14.717022f0,0.12132876f0)
 # (:trn,30000,2.3024027f0,14.721309f0,0.10962964f0)
 # (:trn,40000,2.3023393f0,14.725827f0,0.14956589f0)
+
+# S2C no longer accepts Net, it expects kfun:
+    # p1 = (nettype == "irnn" ? Net(irnn; out=hidden, winit=Gaussian(0,winit)) :
+    #       nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
+    #       error("Unknown network type "*nettype))
+    # p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)

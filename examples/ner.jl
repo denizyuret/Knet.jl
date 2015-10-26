@@ -42,14 +42,14 @@ flush(STDOUT)
 # TODO: faster lstm possible if I do it with a single wdot
 # add2,wdot,bias defined in Knet/src/op/compound.jl
 
-@knet function peeplstm(x; o...)
-    input  = add3(x,h,c; o..., f=sigm)
-    forget = add3(x,h,c; o..., f=sigm)
-    newmem = add2(x,h; o..., f=tanh)
+@knet function peeplstm(x; hidden=0, o...)
+    input  = add3(x,h,c; o..., f=sigm, out=hidden)
+    forget = add3(x,h,c; o..., f=sigm, out=hidden)
+    newmem = add2(x,h;   o..., f=tanh, out=hidden)
     ig = mul(input,newmem)
     fc = mul(forget,c)
     c  = add(ig,fc)
-    output = add3(x,h,c; o..., f=sigm)
+    output = add3(x,h,c; o..., f=sigm, out=hidden)
     tc = tanh(c)
     h  = mul(output,tc)
 end
@@ -62,6 +62,10 @@ end
     z2 = add(z1,y3)
     z3 = bias(z2; o...)
     ou = f(z3; o...)
+end
+
+@knet function pred(x,y; nclass=0, o...)
+    z = add2(x,y; out=nclass, f=soft, winit=Xavier())
 end
 
 # Construct tagger model
@@ -77,10 +81,7 @@ end
 # b=lasagne.init.Constant(0.)
 # hid_init=lasagne.init.Constant(0.)
 
-fnet = Net(peeplstm; out=hidden, winit=winit)
-bnet = Net(peeplstm; out=hidden, winit=winit)
-pnet = Net(add2; ninputs=2, out=nclass, f=soft, winit=Xavier())
-model = Tagger(fnet, bnet, pnet)
+model = Tagger(peeplstm, peeplstm, pred; nclass=nclass, hidden=hidden, winit=winit)
 setopt!(model; lr=lr)
 losscnt = (fast ? nothing : zeros(2))
 maxnorm = (fast ? nothing : zeros(2))
@@ -99,3 +100,13 @@ for epoch=1:epochs
     end
     flush(STDOUT)
 end
+
+
+### DEAD CODE:
+
+## We should use kfun's for constructor, not Nets
+# fnet = Net(peeplstm; out=hidden, winit=winit)
+# bnet = Net(peeplstm; out=hidden, winit=winit)
+# pnet = Net(add2; ninputs=2, out=nclass, f=soft, winit=Xavier())
+# model = Tagger(fnet, bnet, pnet)
+

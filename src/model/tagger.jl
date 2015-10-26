@@ -1,5 +1,8 @@
 immutable Tagger <: Model; forw; back; pred; params;
-    function Tagger(forw::Net, back::Net, pred::Net; o...)
+    function Tagger(forw::Function, back::Function, pred::Function; o...)
+        forw = Net(forw; o...)
+        back = Net(back; o...)
+        pred = Net(pred; o..., ninputs=2)
         par = vcat(params(forw), params(back), params(pred))
         new(forw, back, pred, par)
     end

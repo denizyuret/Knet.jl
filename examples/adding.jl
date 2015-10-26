@@ -7,6 +7,14 @@ using ArgParse
 using Knet
 import Base: start, next, done
 
+@knet function p1(x; rnn=nothing, hidden=0, o...)
+    y = rnn(x; o..., out=hidden)
+end
+
+@knet function p2(x; o...)
+    y = wb(x; o..., out=1)
+end
+
 function adding(args=ARGS)
     info("Adding problem from Le et al. 2015.")
     isa(args, AbstractString) && (args=split(args))
@@ -14,11 +22,7 @@ function adding(args=ARGS)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     global data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
-          opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
-          error("Unknown network type "*opts["nettype"]))
-    p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
-    global net = S2C(p1, p2)
+    global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
     setopt!(net; lr=opts["lrate"])
     mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
     for epoch=1:opts["epochs"]
@@ -506,3 +510,7 @@ end
 # end
 
 
+    # p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
+    #       opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
+    #       error("Unknown network type "*opts["nettype"]))
+    # p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))

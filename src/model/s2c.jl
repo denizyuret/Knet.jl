@@ -1,7 +1,12 @@
-immutable S2C <: Model; rnn; fnn; params; end
+immutable S2C <: Model; rnn; fnn; params;
+    function S2C(rnn::Function,fnn::Function; o...)
+        r = Net(rnn; o...)
+        f = Net(fnn; o...)
+        p = vcat(params(r), params(f))
+        new(r, f, p)
+    end
+end
 
-S2C(rnn::Net,fnn::Net)=S2C(rnn,fnn,vcat(params(rnn),params(fnn)))
-S2C(rnn::Function,fnn::Function;o...)=S2C(Net(rnn;o...),Net(fnn;o...))
 params(m::S2C)=m.params
 reset!(m::S2C;o...)=(reset!(m.rnn;o...); reset!(m.fnn;o...))
 
@@ -48,6 +53,13 @@ end
 
 
 ### DEAD CODE
+
+# Decided not to expose the Net() function.  Users only interact with
+# knet functions and models.  Having an intermediate Net object is
+# confusing.  To solve the problem of different initialization
+# parameters, one could just define new knet functions.
+
+# S2C(rnn::Net,fnn::Net)=S2C(rnn,fnn,vcat(params(rnn),params(fnn)))
 
 # function train(m::S2C, data, loss; getloss=true, getnorm=true, gclip=0, o...)
 #     numloss = sumloss = maxwnorm = maxgnorm = w = g = 0

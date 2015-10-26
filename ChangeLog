@@ -1,9 +1,6 @@
 2015-10-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	DONE noop bug: why didn't axpb work as a noop?  ner16.jl.
-	0011 primitive ops cannot be used as models?  Net(axpb) failing.
-	0012 do not expose Net to users it is confusing: knet functions and models (FNN, RNN, etc.) should be sufficient.
 	0060 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
 	0060 examples/mnist4d.jl,rnnlm.jl: test with dropout
 	0060 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
@@ -95,6 +92,9 @@
 	DONE put warning to s2s/tagger about not being onehot: no need, they start with sequence generators that produce tokens, not arbitrary feature vectors.
 	DONE scale learning rate for gclip
 	DONE -- ai-mtg: Onur and Ozan's bidirectional model.
+	DONE noop bug: why didn't axpb work as a noop?  ner16.jl. -- fixed back.jl
+	DONE primitive ops cannot be used as models?  Net(axpb) failing: That is normal, primitive ops and knet functions have different types of output: axpb(:a,:b) => (Knet.Axpb(1,1,0),:a,:b); noop(:a,:b) => quote; b = axpb(a); end
+	DONE do not expose Net to users it is confusing: knet functions and models (FNN, RNN, etc.) should be sufficient.
 
 
 2015-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
