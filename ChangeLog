@@ -1,13 +1,7 @@
-2015-10-26  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-10-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0050 saman: also could you please add absolute value rectification as well? i would be needing it to replicate the socher model
-	0060 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul: none of the ops are using trn right now! we don't even need a trn flag for ops.
-	0060 examples/mnist4d.jl,rnnlm.jl: test with dropout
-	DONE handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented: no need for con, we have axpb.
-	DONE mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
-	DONE need train/test switch for nce and dropout: for dropout we use the trn flag, for nce we'll think later.
-	0060 src/net.jl: handle con and rnd in tosave: no need for con, we have axpb.  for rnd we need it for back calc because it changes every iteration.  drop does this because in mul we have back_reads_x. back:56:if r.toincr[n] && !isa(r.op[n], Par) fill!(r.dif[n],0): check rnd should never have dif.  but we have back.jl:30 if r.dif[n] == nothing set inputs to nothing: that's find rnd has no inputs. ok we need to debug Nan.
+	0050 saman: also could you please add absolute value rectification as well? i would be needing it to replicate the socher model:  /mnt/kufs/scratch/szia13/resizedata148/Knettest1.jl
 	0100 --- examples:
 	0102 yonatan supertagging
 	0103 vivi concatenation
@@ -18,9 +12,10 @@
 	0125 ntm
 	0126 ctc apply speech model to mt
 	0127 image captioning example
-	0128 try s2s model in turkish translation: jonmay sent link to low density translation data.
+	0120 try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0129 rnn based parser
 	0130 language learning in minecraft
+	0131 try dropout and other architectures for ner
 	0160 learning to interpret python, find other examples
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
@@ -33,12 +28,11 @@
 	0700 src/op/compound.jl: finish documentation for all ops.
 	0800 --- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
 	0800 Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
+	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0800 callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
 	0800 maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
 	0800 update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
 	0800 update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
-	0800 why do we get nan?  copyseq gives nan with gradient clipping for lr=2 gclip=10,5 on ptb.  can we prevent this?
-	0800 Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0900 --- barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
 	0901 barret speed: implementing the whole lstm with single matrix multiplication
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
@@ -51,6 +45,8 @@
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
 	1000 Work on non-gpu compatibility.
+	1000 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
+	1000 edit test/runtests.jl to run the examples instead.
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 character convolution.
@@ -89,6 +85,18 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-10-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul: none of the ops are using trn right now! we don't even need a trn flag for ops except for rnd.
+	DONE handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented: no need for con, we have axpb.
+	DONE mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
+	DONE need train/test switch for nce and dropout: for dropout we use the trn flag, for nce we'll think later.
+	DONE src/net.jl: handle con and rnd in tosave: no need for con, we have axpb.  for rnd we need it for back calc because it changes every iteration.  drop does this because in mul we have back_reads_x. back:56:if r.toincr[n] && !isa(r.op[n], Par) fill!(r.dif[n],0): check rnd should never have dif.  but we have back.jl:30 if r.dif[n] == nothing set inputs to nothing: that's find rnd has no inputs. ok we need to debug Nan.
+	DONE why do we get nan?  copyseq gives nan with gradient clipping for lr=2 gclip=10,5 on ptb.  can we prevent this?
+
+2015-10-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE add can also take a scaling argument?
