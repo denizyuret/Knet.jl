@@ -51,9 +51,9 @@ function infersize(::Mul, x1, x2)
     if x1==x2==nothing
         nothing
     elseif x1==nothing
-        (x1,x2,x2)
+        (x2,x2,x2)
     elseif x2==nothing          # element-wise mul
-        (x1, x1, x1)
+        (x1,x1,x1)
     elseif length(x1) == length(x2)
         x3 = map(x1, x2) do i1,i2
             i1 == 0 && (i1=i2)
@@ -63,7 +63,7 @@ function infersize(::Mul, x1, x2)
         end
         (x3, x3, x3)
     else
-        error()
+        throw(DimensionMismatch())
     end
 end
 

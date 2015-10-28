@@ -62,7 +62,7 @@ function tosave(op, inputs)
         back_reads_y(op[n]) && (tosave[n] = true)
         if back_reads_x(op[n])
             for i in inputs[n]
-                if !isa(op[i], Par) # TODO: how about con and rnd?
+                if !isa(op[i], Par)
                     tosave[i] = true
                 end
             end

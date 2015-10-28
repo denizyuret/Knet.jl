@@ -30,6 +30,11 @@ end
     a = f(z; o...)
 end
 
+@knet function Base.drop(x; pdrop=0, o...)
+    r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)), testrgen=Constant(1))
+    y = mul(r,x)
+end
+
 @knet function wconv(x; out=0, window=0, cinit=Xavier(), o...)
     w = par(; o..., init=cinit, dims=(window, window, 0, out))
     y = conv(w,x)

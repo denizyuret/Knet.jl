@@ -42,24 +42,6 @@ overwrites(::Par)=false
 back_reads_x(::Par)=false
 back_reads_y(::Par)=false
 
-"""
-Rgen is an abstract type whose subtypes represent random distributions
-for parameter initialization.  Currently implemented subtypes are listed
-below.  They are used to specify initialization during Net construction.
-
-    * Gaussian(mean, std)
-    * Uniform(min, max)
-    * Constant(val)
-    * Identity(scale)
-    * Xavier()
-"""
-abstract Rgen
-type Gaussian <: Rgen; mean; std; end
-type Uniform  <: Rgen; min; max; end
-type Constant <: Rgen; val; end
-type Identity <: Rgen; val; Identity(x=1)=new(x); end
-type Xavier <: Rgen; end
-
 function back(p::Par, dy; y=nothing, o...)
     p.dif == nothing && (p.dif = dy)
     @assert dy === p.dif "dy=$dy p.dif=$(p.dif)"
@@ -68,15 +50,14 @@ end
 
 function forw(p::Par, y; o...)
     if !p.initialized
-        p.out = 
-        (!isdefined(p, :init)   ? scale!(0.01, randn!(y)) :
-         isa(p.init, BaseArray) ? copy!(y, p.init) :
-         isa(p.init, Constant)  ? fill!(y, p.init.val) :
-         isa(p.init, Uniform)   ? axpb!(rand!(y); a=p.init.max - p.init.min, b=p.init.min) :
-         isa(p.init, Gaussian)  ? axpb!(randn!(y); a=p.init.std, b=p.init.mean) :
-         isa(p.init, Identity)  ? scale!(p.init.val, copy!(y, eye(eltype(y), size(y)...))) :
-         isa(p.init, Xavier)    ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
-         error("p.init=$(p.init)"))
+        if !isdefined(p, :init)
+            rgen!(Gaussian(0,0.01), y)
+        elseif isa(p.init, BaseArray)
+            copy!(y, p.init)
+        else
+            rgen!(p.init, y)
+        end
+        p.out = y
         p.dif = nothing
         p.initialized = true
     end
@@ -182,3 +163,20 @@ end
 # Use init=w for array initialization.
 # par(w::AbstractArray, y; o...)=par(y; out0=w, dims=size(w), o...)
 
+# """
+# Rgen is an abstract type whose subtypes represent random distributions
+# for parameter initialization.  Currently implemented subtypes are listed
+# below.  They are used to specify initialization during Net construction.
+
+#     * Gaussian(mean, std)
+#     * Uniform(min, max)
+#     * Constant(val)
+#     * Identity(scale)
+#     * Xavier()
+# """
+# abstract Rgen
+# type Gaussian <: Rgen; mean; std; end
+# type Uniform  <: Rgen; min; max; end
+# type Constant <: Rgen; val; end
+# type Identity <: Rgen; val; Identity(x=1)=new(x); end
+# type Xavier <: Rgen; end

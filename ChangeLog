@@ -1,12 +1,14 @@
 2015-10-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0060 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul.
+	0050 saman: also could you please add absolute value rectification as well? i would be needing it to replicate the socher model
+	0060 --- src/op/drop.jl: implement rnd.  implement dropout using rnd and mul: none of the ops are using trn right now! we don't even need a trn flag for ops.
 	0060 examples/mnist4d.jl,rnnlm.jl: test with dropout
-	0060 handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented.
-	0060 mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
-	0060 need train/test switch for nce and dropout.
-	0060 src/net.jl: handle con and rnd in tosave.
+	DONE handout-mtg Also conv/pool/rnd/con in the handout have not yet been implemented: no need for con, we have axpb.
+	DONE mul.jl:54 when we add rnd for dropout this should be x2,x2,x2; we are not doing broadcasting.
+	DONE need train/test switch for nce and dropout: for dropout we use the trn flag, for nce we'll think later.
+	0060 src/net.jl: handle con and rnd in tosave: no need for con, we have axpb.  for rnd we need it for back calc because it changes every iteration.  drop does this because in mul we have back_reads_x. back:56:if r.toincr[n] && !isa(r.op[n], Par) fill!(r.dif[n],0): check rnd should never have dif.  but we have back.jl:30 if r.dif[n] == nothing set inputs to nothing: that's find rnd has no inputs. ok we need to debug Nan.
+	0100 --- examples:
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0105 ashish nce model
@@ -22,7 +24,9 @@
 	0160 learning to interpret python, find other examples
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
-	0350 -- saman: local contrast normalization, manual weight bug: add the other cudnn bias options for broadcasting add.
+	0350 -- saman: local contrast normalization, manual weight bug:
+	0350 add the other cudnn bias options for broadcasting add.
+	0350 add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
 	0700 --- src/op/loss.jl: cleanup, move out of op.
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
@@ -47,7 +51,6 @@
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
 	1000 Work on non-gpu compatibility.
-	1000 add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 character convolution.

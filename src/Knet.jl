@@ -8,7 +8,7 @@ macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x
 macro dbg(x) nothing end        # This is for production
 #gpusync()=device_synchronize() # This is for profiling
 gpusync()=nothing               # This is for production
-setseed(n)=srand(n)             # This gets overwritten if gpu available
+setseed(n)=srand(n)             # This gets overwritten in curand.jl if gpu available
 export @date, @dbg, gpusync, setseed
 
 @useifgpu CUDArt
@@ -19,6 +19,7 @@ export @date, @dbg, gpusync, setseed
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
 include("util/linalg.jl");	
+include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
 
 include("util/array.jl");	export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
@@ -28,7 +29,8 @@ include("op/add.jl");		export add
 include("op/dot.jl");		# export dot # this already has a definition in base
 include("op/mul.jl");		export mul
 include("op/input.jl");		export input
-include("op/par.jl");           export par, Gaussian, Uniform, Constant, Identity, Xavier
+include("op/par.jl");           export par
+include("op/rnd.jl");           export rnd
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp, axpb
 include("op/conv.jl");		# export conv # this already has a definition in base
@@ -51,7 +53,7 @@ include("model/s2c.jl");        export S2C
 include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
 include("model/tagger.jl");	export Tagger
 
-include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp #, repeat is in base
+include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
 include("data/ItemTensor.jl");		export ItemTensor
 include("data/S2SData.jl");     	export S2SData, maxtoken
