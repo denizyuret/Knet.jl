@@ -1,3 +1,4 @@
+#include <limits>
 #include "knet.h"
 
 __global__ void _fill32(int n, float x, float *a) {
@@ -46,11 +47,8 @@ __global__ void _softloss(int m, int n, const dType *y, const dType *dy, const b
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int mn = m*n;
   while (i < mn) {
-    if (mask != NULL && !mask[i/m]) {
-      ly[i] = 0;
-    } else {
-      ly[i] = -dy[i]*log(y[i]);
-    }
+    dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+    ly[i] = ((mask != NULL && !mask[i/m]) ? 0 : (-dy[i] * log(yi)));
     i += blockDim.x * gridDim.x;
   }
 }
@@ -73,7 +71,8 @@ __global__ void _softloss_csc(int nrows, int ncols, const dType *y, int nnz, con
       dType dyi = cscVal[nz];
       int row = cscRowInd[nz]-1;
       int i = col * nrows + row;
-      ly[nz] = -dyi * log(y[i]);
+      dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+      ly[nz] = -dyi * log(yi);
     }
     nz += blockDim.x * gridDim.x;
   }
@@ -89,7 +88,8 @@ __global__ void _softlossback(int m, int n, const dType *y, const dType *dy, con
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int mn = m*n;
   while (i < mn) {
-    dx[i] = (mask != NULL && !mask[i/m]) ? 0 : (y[i] - dy[i])/(y[i] * n);
+    dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+    dx[i] = ((mask != NULL && !mask[i/m]) ? 0 : (yi - dy[i])/(yi * n));
     i += blockDim.x * gridDim.x;
   }
 }
@@ -107,9 +107,12 @@ __global__ void _softlossback_csc2(int nrows, const dType *y, int nnz, const dTy
     for (; nz > cscColPtr[col+1]-2; col++);
     if (mask == NULL || mask[col]) {
       dType dy = cscVal[nz];
-      int row = cscRowInd[nz]-1;
-      int i = col * nrows + row;
-      dx[i] *= (1 - dy/y[i]);
+      if (dy != 0) {
+	int row = cscRowInd[nz]-1;
+	int i = col * nrows + row;
+	dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+	dx[i] *= (1 - dy/yi);
+      }
     }
     nz += blockDim.x * gridDim.x;
   }

@@ -42,8 +42,12 @@ function softloss(ypred::Array, ygold::Array, ygrad::Array; mask=nothing, o...)
     @assert size(ypred)==size(ygold)==size(ygrad)
     (yrows,ycols) = size2(ygrad)
     for i=1:length(ygrad)
-        ygrad[i] = (mask == nothing || mask[1 + div((i-1),yrows)] != 0 ?
-                    ((ypred[i]-ygold[i])/ypred[i])/ycols : 0)
+        if (mask != nothing && mask[1 + div((i-1),yrows)] == 0)
+            ygrad[i] = 0
+        else
+            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            ygrad[i] = ((ypredi-ygold[i])/ypredi)/ycols
+        end
     end
 end
 
@@ -65,13 +69,14 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; mask=nothi
     col = 1             # Column i is in colptr[i]:(colptr[i+1]-1)
     for nz = 1:nnz(ygold)
         while nz > ygold.colptr[col+1]-1; col += 1; end
-        if mask == nothing || mask[col] != 0
+        if mask != nothing && mask[col] == 0
+            ygrad[i] = 0
+        else
             ygoldi = ygold.nzval[nz]
             row = ygold.rowval[nz]
             i = (col-1) * yrows + row
-            ygrad[i] = (1-ygoldi/ypred[i])/ycols
-        else
-            ygrad[i] = 0
+            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            ygrad[i] = ((ypredi-ygoldi)/ypredi)/ycols
         end
     end
     return ygrad
@@ -97,9 +102,10 @@ function softloss(ypred::Array, ygold::Array; mask=nothing)
     (yrows,ycols) = size2(ygold)
     logp=zero(Float64)
     for i=1:length(ygold)
-        (mask==nothing || mask[1 + div((i-1),yrows)] != 0) &&
-        ygold[i] > 0 &&
-        (logp += (ygold[i]*log(ypred[i])))
+        if (mask==nothing || mask[1 + div((i-1),yrows)] != 0)
+            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            logp += ygold[i]*log(ypredi)
+        end
     end
     return -logp/ycols
 end
@@ -130,7 +136,8 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC; mask=nothing, o...)
         ygoldi = ygold.nzval[nz]
         row = ygold.rowval[nz]
         i = (col-1) * yrows + row
-        logp += (ygoldi * log(ypred[i]))
+        ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+        logp += (ygoldi * log(ypredi))
     end
     return -logp/ycols
 end
