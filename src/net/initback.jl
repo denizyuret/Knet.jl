@@ -78,14 +78,19 @@ end
 function finddif(r::Net, n)
     dif0 = nothing
     if !r.toincr[n]
-        @assert length(r.outputs[n]) == 1 # otherwise toincr would be true
-        o = r.outputs[n][1]     # first try overwriting the output dif
-        if (o > n
-            && !r.toincr[o]
-            && overwrites(r.op[o])
-            && (r.dif0[o]!=nothing)
-            && size(r.dif0[o]) == size(r.out0[n]))
-            dif0 = r.dif0[o]
+        if length(r.outputs[n]) == 0
+            # There are no outputs to try overwriting, this may happen with childless ops
+        elseif length(r.outputs[n]) == 1
+            o = r.outputs[n][1]     # first try overwriting the output dif
+            if (o > n
+                && !r.toincr[o]
+                && overwrites(r.op[o])
+                && (r.dif0[o]!=nothing)
+                && size(r.dif0[o]) == size(r.out0[n]))
+                dif0 = r.dif0[o]
+            end
+        else
+            error("toincr==false for multi output op")
         end
     end
     if dif0 == nothing
