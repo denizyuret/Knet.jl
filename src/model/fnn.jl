@@ -4,6 +4,7 @@ params(m::FNN)=params(m.net)
 function train(m::FNN, data, loss; gclip=0, gcheck=false, maxnorm=nothing, losscnt=nothing, o...)
     for item in data
         (x,ygold) = item2xy(item)
+        reset!(m.net; o...)
         ypred = forw(m.net, x...; trn=true, o...)
         losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
         back(m.net, ygold, loss; o...)
