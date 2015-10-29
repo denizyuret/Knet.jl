@@ -13,9 +13,24 @@ __global__ void _axpb(int n, dType a, dType *x, dType p, dType b, dType *y) {
   }
 }
 
+template<typename dType>
+__global__ void _axpb_back(int n, dType a, dType *x, dType p, dType *dy, dType *dx) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    dType dxi = dy[i];
+    dType ap = a*p;
+    if (p != 1) dxi *= pow(x[i],p-1);
+    if (ap != 1) dxi *= ap;
+    dx[i] = dxi;
+    i += blockDim.x * gridDim.x;
+  }
+}
+
 extern "C" {
-  void axpb32(int n, float a, float *x, float p, float b, float *y) KCALL(_axpb,n,a,x,p,b,y)
-  void axpb64(int n, double a, double *x, double p, double b, double *y) KCALL(_axpb,n,a,x,p,b,y)
+  void axpb32(int n, float a, float *x, float p, float b, float *y) KCALL(_axpb,n,a,x,p,b,y);
+  void axpb64(int n, double a, double *x, double p, double b, double *y) KCALL(_axpb,n,a,x,p,b,y);
+  void axpb_back32(int n, float  a, float  *x, float  p, float  *dy, float  *dx) KCALL(_axpb_back,n,a,x,p,dy,dx);
+  void axpb_back64(int n, double a, double *x, double p, double *dy, double *dx) KCALL(_axpb_back,n,a,x,p,dy,dx);
 }
 
 /* x is layer output, i.e. unnormalized log probabilities.
