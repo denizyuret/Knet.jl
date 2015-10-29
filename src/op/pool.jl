@@ -19,19 +19,39 @@ forw(p::Pool, x, y; o...)=
 back(p::Pool, dy, dx; x=nothing, y=nothing, o...)=
     (dx!=nothing && cudnnPoolingBackward(y, dy, x, dx; window=p.window, padding=p.padding, stride=p.stride, mode=p.mode); gpusync())
 
-function infersize(p::Pool,x)
-    y = [x...]
-    nd = length(x)-2
-    pad = psize(p.padding, nd)
-    win = psize(p.window, nd)
-    str = psize(p.stride, nd)
-    for i=1:nd
-        y[i] = 1 + ceil((y[i] + 2*pad[i] - win[i]) / str[i])
+function infersize(p::Pool,x,y)
+    if x==nothing && y==nothing
+        nothing
+    elseif x==nothing
+        infersize(p, ntuple(i->0, length(y)), y)
+    elseif y==nothing
+        infersize(p, x, ntuple(i->0, length(x)))
+    else
+        x = [x...]; y = [y...]
+        nd = length(x)-2
+        pad = psize(p.padding, nd)
+        win = psize(p.window, nd)
+        str = psize(p.stride, nd)
+        for i=1:nd
+            if y[i] > 0 && x[i] > 0
+                y[i] == 1 + ceil((x[i] + 2*pad[i] - win[i]) / str[i]) || throw(DimensionMismatch())
+            elseif x[i] > 0
+                y[i] = 1 + ceil((x[i] + 2*pad[i] - win[i]) / str[i])
+            elseif y[i] > 0 && str[i] == 1
+                x[i] = y[i] - 1 - 2*pad[i] + win[i]
+            end
+        end
+        for i=nd+1:nd+2
+            y[i] == x[i] ? nothing :
+            y[i] == 0 ? y[i]=x[i] :
+            x[i] == 0 ? x[i]=y[i] :
+            throw(DimensionMismatch())
+        end
+        return (tuple(x...), tuple(y...))
     end
-    return (x, tuple(y...))
 end
 
-psize(w, nd)=(isa(w,Integer)  ? fill(w,nd) : length(w) != nd ? error("Dimension mismatch") : w)
+psize(w, nd)=(isa(w,Integer) ? ntuple(i->w,nd) : length(w) == nd ? w : throw(DimensionMismatch()))
 
 ### DEAD CODE:
 

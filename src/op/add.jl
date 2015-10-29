@@ -108,46 +108,45 @@ biasback(dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for
 biasback(dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
 @gpu biasback(dy::CudaArray, db::CudaArray)=(cudnnConvolutionBackwardBias(dy, db); gpusync(); db)
 
-function infersize(::Add, x1, x2)
-    if x1==x2==nothing
+function infersize(a::Add, x1, x2, y)
+    if x1==x2==y==nothing
         nothing
-    elseif x1==nothing
-        (x1,x2,x2)
+    elseif x2==y==nothing
+        (x1, nothing, nothing)
     elseif x2==nothing
-        length(x1) > 1 ? (x1,x1,x1) : (x1,x2,x2)
-    elseif length(x1) == 1
-        if length(x2) == 1  # vector addition
-            x3 = commonsize(x1,x2)
-            (x3,x3,x3)
-        else                    # bias addition
-            x3 = sizeafterbias(x1,x2)
-            ((x3[end-1],),x3,x3)
-        end
-    elseif length(x1) == length(x2) # element-wise
-        x3 = commonsize(x1,x2)
-        (x3,x3,x3)
+        infersize(a, x1, y, y)
+    elseif y==nothing
+        infersize(a, x1, x2, x2)
     else
-        error()
+        ydims = map(x2, y) do xdim, ydim
+            xdim == ydim ? xdim :
+            xdim == 0 ? ydim :
+            ydim == 0 ? xdim :
+            throw(DimensionMismatch())
+        end
+        x1==nothing && (return (nothing, ydims, ydims))
+        xdims = [x1...]; ydims = [ydims...]
+        if length(xdims) == 1
+            xdims[1] == ydims[end-1] ? nothing :
+            xdims[1] == 0 ? xdims[1]=ydims[end-1] :
+            ydims[end-1]==0 ? ydims[end-1]=xdims[1] :
+            throw(DimensionMismatch())
+        elseif length(x1) <= length(ydims)
+            for i=1:length(xdims)
+                xdims[i] == ydims[i] ? continue :
+                xdims[i] == 1 ? continue :
+                xdims[i] == 0 ? continue :
+                ydims[i] == 0 ? (ydims[i] = xdims[i]) :
+                throw(DimensionMismatch())
+            end
+        else
+            throw(DimensionMismatch())
+        end
+        xdims = tuple(xdims...); ydims = tuple(ydims...)
+        return (xdims, ydims, ydims)
     end
 end
 
-function sizeafterbias(x1,x2)
-    i1 = x1[1]
-    i2 = x2[end-1]
-    i1 == 0 && (i1=i2)
-    i2 == 0 && (i2=i1)
-    i1 == i2 || error()
-    tuple(x2[1:end-2]..., i2, x2[end])
-end
-
-function commonsize(x1,x2)
-    map(x1, x2) do i1,i2
-        i1 == 0 && (i1=i2)
-        i2 == 0 && (i2=i1)
-        i1 == i2 || error()
-        i1
-    end
-end
 
 
 ### DEAD CODE:
@@ -156,3 +155,20 @@ end
 # biasforw(b::Vector, x::Vector, y::Vector)=(for i=1:length(y); y[i] = x[i] + b[i]; end; y)
 # @gpu biasforw(b::CudaArray, x::CudaArray, y::CudaArray)=(y===x||copy!(y,x);cudnnAddTensor(b, y; mode=CUDNN_ADD_SAME_C); gpusync(); y)
 
+# function sizeafterbias(x1,x2)
+#     i1 = x1[1]
+#     i2 = x2[end-1]
+#     i1 == 0 && (i1=i2)
+#     i2 == 0 && (i2=i1)
+#     i1 == i2 || error()
+#     tuple(x2[1:end-2]..., i2, x2[end])
+# end
+
+# function commonsize(x1,x2)
+#     map(x1, x2) do i1,i2
+#         i1 == 0 && (i1=i2)
+#         i2 == 0 && (i2=i1)
+#         i1 == i2 || error()
+#         i1
+#     end
+# end

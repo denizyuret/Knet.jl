@@ -38,24 +38,46 @@ end
 # x: (x1,x2...,C,N)
 # w: (w1,w2...,C,K)
 # y: (y1,y2...,K,N)
-# Assuming padding=0 and stride=1: yi=xi-wi+1
+# If padding=0 and stride=1: yi=xi-wi+1
 # In general we have: yi = 1 + (xi + 2*padding - wi) / stride
 
-function infersize(::Conv,w,x)
-    @assert length(w) == length(x)
-    nd = length(x)
-    x = [x...]
-    w = [w...]
-    x[nd-1] == 0 && (x[nd-1] = w[nd-1])
-    w[nd-1] == 0 && (w[nd-1] = x[nd-1])
-    @assert x[nd-1] == w[nd-1]
-    y = zeros(x)
-    for i=1:nd-2
-        w[i] > 0 && x[i] > 0 && (y[i] = x[i]-w[i]+1)
+function infersize(c::Conv,w,x,y)
+    if w==x==y==nothing
+        nothing
+    elseif w==nothing || x==nothing || y==nothing
+        n = (w!=nothing ? length(w) : x!=nothing ? length(x) : y!=nothing ? length(y) : error())
+        w == nothing && (w = ntuple(i->0, n))
+        x == nothing && (x = ntuple(i->0, n))
+        y == nothing && (y = ntuple(i->0, n))
+        infersize(c,w,x,y)
+    else
+        s = (isa(c.stride,  Integer) ? ntuple(i->c.stride,  length(y)-2) : c.stride)
+        p = (isa(c.padding, Integer) ? ntuple(i->c.padding, length(y)-2) : c.padding)
+        length(w) == length(x) == length(y) == length(s)+2 == length(p)+2 || throw(DimensionMismatch())
+        w = [w...]; x = [x...]; y = [y...]
+        for i=1:length(s)
+            if w[i] > 0 && x[i] > 0 && y[i] > 0
+                y[i] == 1 + div(x[i] + 2*p[i] - w[i], s[i]) || throw(DimensionMismatch())
+            elseif w[i] > 0 && x[i] > 0 && y[i] == 0
+                y[i] = 1 + div(x[i] + 2*p[i] - w[i], s[i])
+            elseif w[i] > 0 && x[i] == 0 && y[i] > 0 && s[i] == 1
+                x[i] = y[i] - 1 - 2*p[i] + w[i]
+            end
+        end
+        n = length(x)
+        equate!(x,n-1,w,n-1)
+        equate!(x,n,y,n)
+        equate!(w,n,y,n-1)
+        w = tuple(w...); x = tuple(x...); y = tuple(y...)
+        (w,x,y)
     end
-    y[nd-1] = w[nd]
-    y[nd] = x[nd]
-    return (tuple(w...), tuple(x...), tuple(y...))
+end
+
+function equate!(a,i,b,j)
+    a[i] == b[j] ? nothing :
+    a[i] == 0 ? a[i] = b[j] :
+    b[j] == 0 ? b[j] = a[i] :
+    throw(DimensionMismatch())
 end
 
 ### DEAD CODE
@@ -153,3 +175,21 @@ end
 # cudnnConvolutionBackwardFilter(x::Array, dy::Array, w::Array)=(w1=CudaArray(w);cudnnConvolutionBackwardFilter(CudaArray(x), CudaArray(dy), w1); copy!(w,1,w1,1,length(w)))
 # cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArray(dx);cudnnConvolutionBackwardData(CudaArray(w), CudaArray(dy), dx1); copy!(dx,1,dx1,1,length(dx)))
 
+
+#     else
+
+#     @assert length(w) == length(x) == length(y)
+#     nd = length(x)
+#     x = [x...]
+#     w = [w...]
+#     x[nd-1] == 0 && (x[nd-1] = w[nd-1])
+#     w[nd-1] == 0 && (w[nd-1] = x[nd-1])
+#     @assert x[nd-1] == w[nd-1]
+#     y = zeros(x)
+#     for i=1:nd-2
+#         w[i] > 0 && x[i] > 0 && (y[i] = x[i]-w[i]+1)
+#     end
+#     y[nd-1] = w[nd]
+#     y[nd] = x[nd]
+#     return (tuple(w...), tuple(x...), tuple(y...))
+# end

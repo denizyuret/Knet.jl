@@ -1,7 +1,9 @@
 2015-10-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0050 saman: also could you please add absolute value rectification as well? i would be needing it to replicate the socher model:  /mnt/kufs/scratch/szia13/resizedata148/Knettest1.jl
+	0010 model.jl: add predict, load, save
+	0010 src/model/fnn.jl: predict has not been tested
+	0010 src/model/s2s.jl: implement predict, i.e. decoder. in all models.
 	0100 --- examples:
 	0102 yonatan supertagging
 	0103 vivi concatenation
@@ -64,14 +66,10 @@
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 minibatch resizing
-	1000 model.jl: add predict, load, save
 	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
 	1000 par and loss should probably get out of op.  at least loss.
 	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library.
-	1000 src/model/fnn.jl: predict has not been tested
-	1000 src/model/s2s.jl (setrow!): these assume one hot columns, make them more general.
-	1000 src/model/s2s.jl: implement predict, i.e. decoder.
 	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
 	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
@@ -85,6 +83,15 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* DONE:
+	DONE axpb back is not working -- fixed bug
+	DONE unused variables seem to cause problem -- fixed bug
+	DONE fix infersize
+	DONE figure out saman's scaling problem, why do we need lr=0.5/255 if xrange is [0:255]?
+	DONE saman: also could you please add absolute value rectification as well? i would be needing it to replicate the socher model:  /mnt/kufs/scratch/szia13/resizedata148/Knettest1.jl
+	DONE src/model/s2s.jl (setrow!): these assume one hot columns, make them more general: no need to do this in s2s, it constructs one-hot.
+
 
 2015-10-27  Deniz Yuret  <dyuret@ku.edu.tr>
 

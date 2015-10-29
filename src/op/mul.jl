@@ -47,23 +47,25 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
     end
 end
 
-function infersize(::Mul, x1, x2)
-    if x1==x2==nothing
+function infersize(m::Mul, x1, x2, y)
+    if x1==x2==y==nothing
         nothing
-    elseif x1==nothing
-        (x2,x2,x2)
-    elseif x2==nothing          # element-wise mul
-        (x1,x1,x1)
-    elseif length(x1) == length(x2)
-        x3 = map(x1, x2) do i1,i2
-            i1 == 0 && (i1=i2)
-            i2 == 0 && (i2=i1)
-            i1 == i2 || error()
-            i1
-        end
-        (x3, x3, x3)
+    elseif x1==nothing || x2==nothing || y==nothing
+        n = length(x1!=nothing ? x1 : x2!=nothing ? x2 : y!=nothing ? y : error())
+        x1 == nothing && (x1 = ntuple(i->0,n))
+        x2 == nothing && (x2 = ntuple(i->0,n))
+        y == nothing && (y = ntuple(i->0,n))
+        infersize(m,x1,x2,y)
     else
-        throw(DimensionMismatch())
+        length(x1)==length(x2)==length(y) || throw(DimensionMismatch())
+        dims = map(x1,x2,y) do a,b,c
+            n = 0
+            a==0 || a==n ? nothing : n==0 ? n=a : throw(DimensionMismatch())
+            b==0 || b==n ? nothing : n==0 ? n=b : throw(DimensionMismatch())
+            c==0 || c==n ? nothing : n==0 ? n=c : throw(DimensionMismatch())
+            n
+        end
+        (dims, dims, dims)
     end
 end
 

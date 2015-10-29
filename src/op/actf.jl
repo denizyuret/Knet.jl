@@ -5,10 +5,27 @@ import Base: tanh
 abstract Actf <: Op
 
 ninputs(::Actf)=1
-infersize(::Actf,dims)=(dims==nothing ? nothing : (dims,dims))
 overwrites(::Actf)=true
 back_reads_x(::Actf)=false
 back_reads_y(::Actf)=true
+
+function infersize(::Actf,xdims,ydims)
+    if xdims==nothing
+        (ydims, ydims)
+    elseif ydims==nothing
+        (xdims, xdims)
+    else
+        @assert length(xdims) == length(ydims)
+        dims = map(xdims, ydims) do x,y
+            x == y ? x :
+            x == 0 ? y :
+            y == 0 ? x :
+            throw(DimensionMismatch())
+        end
+        (dims, dims)
+    end
+end
+
 
 ### Common Definitions
 
@@ -124,25 +141,38 @@ forw(f::Axpb, x, y; o...)=axpb!(x,y; a=f.a,p=f.p,b=f.b)
 function back(f::Axpb, dy, dx; x=nothing, o...)
     dx==nothing && return
     x==nothing && error("Need x for axpb back")
-    axpb!(x,dx; a=f.a*f.p, p=f.p-1)
-    mul2!(dx, dx, dy)
+    axpb_back!(x, dy, dx; a=f.a,p=f.p)
     return dx
 end
 
 function axpb!{T}(x::Array{T}, y::Array{T}=x; a=1,p=1,b=0)
     length(x)==length(y) || throw(DimensionMismatch())
     a=T(a); b=T(b); p=T(p)
-    for i=1:length(y); y[i]=a*x^p+b; end
+    for i=1:length(y); y[i]=a*x[i]^p+b; end
     return y
+end
+
+function axpb_back!{T}(x::Array{T}, dy::Array{T}, dx::Array{T}=dy; a=1,p=1)
+    length(x)==length(dy)==length(dx) || throw(DimensionMismatch())
+    a=T(a); p=T(p)
+    for i=1:length(dx); dx[i]=dy[i]*x[i]^(p-1)*a*p; end
+    return dx
 end
 
 @gpu function axpb!{T}(x::CudaArray{T}, y::CudaArray{T}=x; a=1,p=1,b=0)
     length(x)==length(y) || throw(DimensionMismatch())
-    a=T(a); b=T(b); p=T(p)
     T <: Float32 ? ccall((:axpb32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Cfloat,Ptr{Cfloat}), length(x), convert(Cfloat,a), x, convert(Cfloat,p), convert(Cfloat,b), y) :
     T <: Float64 ? ccall((:axpb64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Cdouble,Ptr{Cdouble}), length(x), convert(Cdouble,a), x, convert(Cdouble,p), convert(Cdouble,b), y) :
     error("axpb! not defined for $T")
     return y
+end
+
+@gpu function axpb_back!{T}(x::CudaArray{T}, dy::CudaArray{T}, dx::CudaArray{T}=dy; a=1,p=1)
+    length(x)==length(dy)==length(dx) || throw(DimensionMismatch())
+    T <: Float32 ? ccall((:axpb_back32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Ptr{Cfloat},Ptr{Cfloat}), length(x), convert(Cfloat,a), x, convert(Cfloat,p), dy, dx) :
+    T <: Float64 ? ccall((:axpb_back64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Ptr{Cdouble},Ptr{Cdouble}), length(x), convert(Cdouble,a), x, convert(Cdouble,p), dy, dx) :
+    error("axpb! not defined for $T")
+    return dx
 end
 
 

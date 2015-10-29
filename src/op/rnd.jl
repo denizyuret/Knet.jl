@@ -4,6 +4,6 @@ ninputs(::Rnd)=0
 overwrites(::Rnd)=false
 back_reads_x(::Rnd)=false
 back_reads_y(::Rnd)=false
-infersize(::Rnd)=nothing
+infersize(::Rnd,y)=tuple(y)
 forw(r::Rnd, y; trn=false, o...)=rgen!(trn || r.testrgen==nothing ? r.rgen : r.testrgen, y)
 back(r::Rnd, dy; o...)=error("rnd has no backward pass")

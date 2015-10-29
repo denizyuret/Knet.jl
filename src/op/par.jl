@@ -36,7 +36,21 @@ function setopt!(p::Par; o...)
     p
 end
 
-infersize(p::Par)=(isdefined(p,:dims) ? (p.dims,) : nothing)
+function infersize(p::Par,ysize)
+    psize = (isdefined(p,:init) && isa(p.init, BaseArray) ? size(p.init) :
+             isdefined(p,:dims) ? p.dims : nothing)
+    psize == nothing && return tuple(ysize)
+    ysize == nothing && return tuple(psize)
+    length(psize) == length(ysize) || throw(DimensionMismatch())
+    dims = map(psize, ysize) do pi,yi
+        pi==yi ? pi :
+        pi==0  ? yi :
+        yi==0  ? pi :
+        throw(DimensionMismatch())
+    end
+    tuple(dims)
+end
+
 ninputs(::Par)=0
 overwrites(::Par)=false
 back_reads_x(::Par)=false

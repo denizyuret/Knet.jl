@@ -69,7 +69,7 @@ function infersize(r::Net, inputs...)
             if isa(r.op[n], Input)
                 dims[n] == nothing && (dims[n] = size(inputs[lastinput += 1]))
             else
-                d = infersize(r.op[n], dims[r.inputs[n]]...)
+                d = infersize(r.op[n], dims[r.inputs[n]]..., dims[n])
                 d == nothing && continue
                 dims[n] = d[end]
                 dims[r.inputs[n]] = [d[1:end-1]...]
