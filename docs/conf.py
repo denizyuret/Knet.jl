@@ -115,19 +115,20 @@ todo_include_todos = False
 
 # -- Options for HTML output ----------------------------------------------
 
+# Add any paths that contain custom themes here, relative to this directory.
+#html_theme_path = []
+html_theme_path = ['theme', juliadoc.get_theme_dir(),
+                   sphinx_rtd_theme.get_html_theme_path()]
+
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'julia'
+#html_theme = 'julia'
+html_theme = 'knet'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #html_theme_options = {}
-
-# Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
-html_theme_path = [juliadoc.get_theme_dir(),
-                   sphinx_rtd_theme.get_html_theme_path()]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -148,7 +149,7 @@ html_theme_path = [juliadoc.get_theme_dir(),
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -228,6 +229,7 @@ latex_elements = {
 
 # Additional stuff for the LaTeX preamble.
 #'preamble': '',
+'preamble': '\usepackage{amssymb}',
 
 # Latex figure (float) alignment
 #'figure_align': 'htbp',

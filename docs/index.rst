@@ -11,7 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-
+   nce
 
 Indices and tables
 ==================
@@ -20,3 +20,26 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+Here is some text.
+
+Here is a reference :ref:`nce`
+
+Here is some math: :math:`a^2+b^2=c^2`
+
+Here is some Julia: ``square(x)=x*x``
+
+Here is multiline Julia:
+
+.. code::
+
+	function tagger_forw(net::Net, inputs...; o...)
+	    N = length(inputs[1])
+	    ystack = cell(N)
+	    for n=1:N
+	        ypred = forw(net, map(x->x[n], inputs)...; seq=true, o...)
+	        ystack[n] = copy(ypred)
+	    end
+	    return ystack
+	end
+
+And that's that.
