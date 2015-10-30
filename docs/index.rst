@@ -13,6 +13,18 @@ Contents:
 
    nce
 
+.. scode?
+.. s2s
+.. s2c
+.. tagging
+.. linreg
+.. logistic/softmax
+.. mlp
+.. convnet
+.. attention
+.. perceptron
+.. kernel perceptron
+
 Indices and tables
 ==================
 
