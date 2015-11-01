@@ -1,13 +1,54 @@
+2015-10-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* nce: Here are the operations:
+
+	Train:
+	0. starting with h.
+	1. pick which noise words go with a minibatch.
+	2. pick rows of the decoding matrix (minibatch words + noise words)
+	3. do the matrix product of hidden layer h with those rows to get s(y)
+	4. calculate loss: what exactly is the input here?
+	   for real  words: exp(s(y))/(exp(s(y))+kq(y))
+	   for noise words:  (k q(y))/(exp(s(y))+kq(y))
+	   So the loss function needs k (actually that can be computed from size(x) and q(y) (or maybe I and q(I)) and a way to distinguish noise from real.
+	5. calculate gradient:
+	   for real  words: 1 - exp(s(y))/(exp(s(y))+kq(y))
+	   for noise words:   - exp(s(y))/(exp(s(y))+kq(y))
+	   Again, the same things are needed.
+
+	Test:
+	0. starting with h.
+	1. do the matrix product of hidden layer h with the whole decoding matrix.
+	2. apply the softmax transformation to the output.
+	3. use softmax loss and softmax gradient.
+
+	It seems adding conditional statements to the compiler is more elegant?
+	The same mechanism could also improve dropout and rnd.
+	Or do we have two networks with shared weights?
+
+	h = dot(u,x)  # or whatever gives the hidden layer, dims=(hdims,nbatch)
+	w = par(; dims=(vocab,hdims))
+	a = dot(w,h) if !trn # (vocab,nbatch)
+	b = bias(a) if !trn
+	c = soft(b) if !trn
+	r = nce(?; dims=(k+nbatch,vocab)) if trn # or maybe rnd(; dims=(..), sparse=true, rng=OneHotRows())?  but we need the batch words in there.  maybe two separate r matrices?  we have no concat op.
+	s = dot(r,w) if trn  # (k+nbatch,hdims)
+	t = dot(s,h) if trn  # (k+nbatch,nbatch)
+
+	nceloss(ypred,ygold,ygrad)
+	nceloss(ypred,ygold)
+
 2015-10-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	0005 --- ashish nce model: can implement as a compound model with different train and test final layers!
 	0010 model.jl: add predict, load, save
 	0010 src/model/fnn.jl: predict has not been tested
-	0010 src/model/s2s.jl: implement predict, i.e. decoder. in all models.
+	0010 src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
+	0020 I get Nan's back when I run copyseq with winit=Uniform(-10,10).  Gradient check fails with winit=Uniform(-1,1)
 	0100 --- examples:
 	0102 yonatan supertagging
 	0103 vivi concatenation
-	0105 ashish nce model
 	0106 karpathy character based models, inputless networks with random generators
 	0120 need something for turkish translation to report to tubitak
 	0124 attention s2s model
@@ -46,6 +87,8 @@
 	0970 perceptron and structured perceptron examples.
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
+	1000 It takes 24 methods to define a loss function!
+	1000 It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
 	1000 Work on non-gpu compatibility.
 	1000 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
 	1000 edit test/runtests.jl to run the examples instead.
