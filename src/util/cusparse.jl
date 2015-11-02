@@ -23,7 +23,7 @@ Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCS
 Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host2(a))
 Base.isempty(a::CudaSparseMatrix) = (length(a) == 0)
 Base.issparse(a::CudaSparseMatrix) = true
-Base.ndims(::CudaSparseMatrix) = 2
+# Base.ndims(::CudaSparseMatrix) = 2
 Base.nnz(x::CudaSparseMatrix)=x.nnz
 Base.scale!(c,a::CudaSparseMatrix) = (scale!(c,a.nzVal); a)
 Base.stride(g::CudaSparseMatrix,i)=(i==1 ? 1 : i==2 ? g.dims[1] : length(g))
