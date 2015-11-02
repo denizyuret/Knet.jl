@@ -6,7 +6,8 @@ initback initializes the fields used by Net.back:
 - tosave: read-only, used for popping only if seq.
 """
 function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
-    @assert ygold == nothing || issimilar2(ygold, r.out0[end])
+    # This is not true for nce; ygold and r.out0[end] have different dimensions.
+    # @assert ygold == nothing || issimilar2(ygold, r.out0[end])
     set_toback(r, getdx)
     set_toincr(r, seq)
     set_sparse(r)
@@ -41,7 +42,7 @@ function set_toback(r::Net, getdx; a...)
     lastinput = 0
     for n=1:N
         isa(r.op[n], Par) && (r.toback[n] = true)
-        isa(r.op[n], Input) && getdx && (r.toback[n] = true)
+        isa(r.op[n], Input) && getdx[lastinput+=1] && (r.toback[n] = true)
     end
     nback = sum(r.toback)
     while true
@@ -58,7 +59,6 @@ function set_toback(r::Net, getdx; a...)
         nb == nback ? break : nback = nb
     end
 end
-
 
 """
 set_toincr(r::Net) sets r.toincr[n] which is true if dif[n] should be
@@ -141,23 +141,35 @@ function findtmp(r::Net, n)
 end
 
 # The only sparse matrices are the dw and iw for w that dot sparse inputs.
+# Note that NCE adds noise and ygold matrices as left inputs.
 function set_sparse(r::Net)
     fill!(r.sparse, false)
-    for i=1:length(r.op)
-        if isa(r.op[i], Input) && issparse(r.out0[i])
-            for o in r.outputs[i]
-                if isa(r.op[o], Dot)
-                    w = r.inputs[o][1]
-                    @assert isa(r.op[w], Par)
-                    r.sparse[w] = true
-                end
+    for o=1:length(r.op)
+        if isa(r.op[o], Dot)
+            (i,j) = r.inputs[o]
+            if issparse(r.out0[i]) && issparse(r.out0[j])
+                error("Dot of two sparse matrices")
+            elseif issparse(r.out0[i])
+                r.sparse[j] = true
+            elseif issparse(r.out0[j])
+                r.sparse[i] = true
             end
         end
     end
 end
 
-
 ### DEAD CODE
+
+# if isa(r.op[i], Input) && issparse(r.out0[i])
+#     for o in r.outputs[i]
+#         if isa(r.op[o], Dot)
+#             w = r.inputs[o][1]
+#             @assert isa(r.op[w], Par)
+#             r.sparse[w] = true
+#         end
+#     end
+# end
+
 
 # # instead of changing the ops, record the eltype in net and use it when generating stuff.
 #     # for o in r.op
