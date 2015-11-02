@@ -50,6 +50,15 @@ function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T})
     return a
 end
 
+function Base.copy!{T}(a::CudaSparseMatrixCSR{T}, b::CudaSparseMatrixCSR{T})
+    a.dims = b.dims
+    a.nnz = b.nnz
+    resizecopy!(a.rowPtr, convert(Vector{Cint},b.rowPtr))
+    resizecopy!(a.colVal, convert(Vector{Cint},b.colVal))
+    resizecopy!(a.nzVal, b.nzVal)
+    return a
+end
+
 function resizecopy!{T}(a::CudaVector{T}, b::Vector{T})
     resize!(a, length(b))       # TODO: is this efficient?
     copy!(a, b)
