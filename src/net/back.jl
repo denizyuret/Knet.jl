@@ -14,6 +14,7 @@ taken to be 0.  Gradients computation proceeds backwards from N..1.
 """
 function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
     N = nops(r)
+    getdx = getdxidx(getdx, ninputs(r))
     initback(r, ygold, loss; getdx=getdx, seq=seq, o...)
     if ygold == nothing
         r.toincr[N] || (r.dif[N] = nothing)
@@ -60,10 +61,22 @@ function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...
         end
         seq && r.tosave[n] && pop(r,n)
     end
-    getdx && get1(r.dif[find(op->isa(op,Input), r.op)])
+    if any(getdx)
+        dx = Any[]; nx = 0
+        for i=1:N; isa(r.op[i],Input) && getdx[nx+=1] && push!(dx, r.dif[i]); end
+        return get1(dx)
+    end
 end
 
 copyloss(ypred,ygold,ygrad;o...)=copy!(ygrad,ygold)
+
+function getdxidx(getdx, n)
+    (isa(getdx, Vector{Bool}) && length(getdx)==n ? getdx :
+     isa(getdx, Bool) ? fill(getdx, n) :
+     isa(getdx, Vector{Int}) ? (tmp=falses(n);tmp[getdx]=true;tmp) :
+     isa(getdx, Int) ? (tmp=falses(n);tmp[getdx]=true;tmp) :
+     error("getdx=$getdx ninputs=$(n)"))
+end
 
 ### DEAD CODE:
 
