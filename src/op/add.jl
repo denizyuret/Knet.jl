@@ -94,7 +94,7 @@ function back(a::Add, dy, dx1, dx2; o...)
     elseif size(dx1) == size(dy)
         dx1 === dy   || copy!(dx1, dy)
         a.alpha == 1 || scale!(a.alpha, dx1)
-    elseif size(dx1) == biassize(dy)
+    elseif biassize(dy, dx1)
         biasback(dy, dx1)
         a.alpha == 1 || scale!(a.alpha, dx1)
     else
@@ -103,7 +103,8 @@ function back(a::Add, dy, dx1, dx2; o...)
     end
 end
 
-biassize(y)=(size(y, ndims(y)==1 ? 1 : ndims(y)-1),)
+biassize(dy,db)=(size(db,1)==size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1) && all([size(db,i)==1 for i=2:ndims(db)]))
+
 biasback(dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
 biasback(dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
 @gpu biasback(dy::CudaArray, db::CudaArray)=(cudnnConvolutionBackwardBias(dy, db); gpusync(); db)
