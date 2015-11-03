@@ -5,7 +5,7 @@ __global__ void _nce_grad_real(int n, dType *ypred, dType *kqvec, dType *ygrad) 
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while(i < n) {
     int ij = n*i+i;
-    ygrad[ij] = -kqvec[i]/(exp(ypred[ij]) + kqvec[i]);
+    ygrad[ij] = -(kqvec[i]/(exp(ypred[ij]) + kqvec[i]))/n;
     i += blockDim.x * gridDim.x;
   }
 }
@@ -54,7 +54,7 @@ __global__ void _nce_grad_noise(int K, int B, dType *ypred, dType *kqvec, dType 
   while(kb < KB) {
     dType exps = exp(ypred[kb]);
     dType kq = kqvec[kb % K];
-    ygrad[kb] = exps/(exps+kq);
+    ygrad[kb] = (exps/(exps+kq))/B;
     kb += blockDim.x * gridDim.x;
   }
 }

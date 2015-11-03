@@ -4,7 +4,7 @@ import Base: start, next, done
 function ncelm(args=ARGS)
     info("NCE language model")
     isa(args, AbstractString) && (args=split(args))
-    opts = parse_commandline(args)
+    opts = nce_parse_commandline(args)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     opts["dropout"] > 0 && error("TODO: implement dropout")
@@ -25,17 +25,16 @@ function ncelm(args=ARGS)
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
 
     psample = fill(ftype(1/vocab_size), vocab_size)
-    nsample = 100
 
     perp = zeros(length(data))
     l=zeros(2); m=zeros(2)
     for ep=1:opts["max_max_epoch"]
         ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net, lr=lr))
-        train(net, data[1], nothing; psample=psample, nsample=nsample, gclip=opts["max_grad_norm"], keepstate=true, losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        @time train(net, data[1], nothing; psample=psample, nsample=opts["nsample"], gclip=opts["max_grad_norm"], keepstate=true, losscnt=fill!(l,0), maxnorm=fill!(m,0))
         opts["gcheck"]>0 && gradcheck(net,data[1],softloss; gcheck=opts["gcheck"])
         perp[1] = exp(l[1]/l[2])
         for idata = 2:length(data)
-            ldev = test(net, data[idata], softloss; keepstate=true)
+            @time ldev = test(net, data[idata], softloss; keepstate=true)
             perp[idata] = exp(ldev)
         end
         @show (ep, perp..., m..., lr)
@@ -43,7 +42,7 @@ function ncelm(args=ARGS)
     return (perp..., m...)
 end
 
-@knet function nce_rnn(word; layers=0, rnn_size=0, rnn_type=lstm, o...)
+@knet function nce_rnn(word; layers=1, rnn_size=0, rnn_type=lstm, o...)
     wvec = wdot(word; o..., out=rnn_size)
     yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size)
 end
@@ -111,7 +110,7 @@ function done(d::LMData,state)
     eos && nword + d.batchsize * d.seqlength > length(d.data)
 end
 
-function parse_commandline(args)
+function nce_parse_commandline(args)
     s = ArgParseSettings()
     @add_arg_table s begin
         "--batch_size"
@@ -134,6 +133,10 @@ function parse_commandline(args)
         help = "size of the lstm"
         arg_type = Int
         default = 200
+        "--nsample"
+        help = "number of noise samples per minibatch"
+        arg_type = Int
+        default = 100
         "--dropout"
         help = "dropout units with this probability"
         arg_type = Float64
@@ -153,7 +156,7 @@ function parse_commandline(args)
         "--max_epoch"
         help = "number of epochs at initial lr"
         arg_type = Int
-        default = 1 # 4
+        default = 10000 # 4
         "--max_max_epoch"
         help = "number of epochs to train"
         arg_type = Int

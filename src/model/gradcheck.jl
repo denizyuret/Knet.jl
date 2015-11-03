@@ -1,5 +1,5 @@
 function gradcheck(m::Model, data, loss; gcheck=10, o...)
-    rnum = time_ns()
+    rnum = 42 # time_ns() #DBG
     isdefined(data,:rng) && (data_rng_save = data.rng; data.rng=MersenneTwister(); srand(data.rng,rnum))
     isdefined(m,:rng) && (m_rng_save = m.rng; m.rng=MersenneTwister(); srand(m.rng,rnum))
     l = zeros(2)
