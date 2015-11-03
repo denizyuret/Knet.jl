@@ -304,7 +304,67 @@ mul2!(c::Array,a::Array,b::Array)=(for i=1:length(c); c[i] = a[i]*b[i]; end; c)
 mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c); gpusync(); c)
 mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c); gpusync(); c)
 
+### element-wise log and exp:
+log!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]=log(a[i]); end; b)
+exp!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]=exp(a[i]); end; b)
 
+Base.log(a::CudaArray)=log!(a,similar(a))
+Base.exp(a::CudaArray)=log!(a,similar(a))
+
+function log!{T}(a::CudaArray{T},b::CudaArray{T}=a)
+    length(a)==length(b) || throw(DimensionMismatch())
+    T <: Float32 ? ccall((:log32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b) :
+    T <: Float64 ? ccall((:log64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b) :
+    error("$T not supported")
+    gpusync()
+    return b
+end
+
+function exp!{T}(a::CudaArray{T},b::CudaArray{T}=a)
+    length(a)==length(b) || throw(DimensionMismatch())
+    T <: Float32 ? ccall((:exp32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b) :
+    T <: Float64 ? ccall((:exp64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b) :
+    error("$T not supported")
+    gpusync()
+    return b
+end
+
+### get the diagonal of a matrix:
+function diag!{T}(a::CudaMatrix{T}, d::CudaVector{T})
+    n = min(size(a)...)
+    T <: Float32 ? ccall((:diag32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(a,1),size(a,2),a,d) :
+    T <: Float64 ? ccall((:diag64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(a,1),size(a,2),a,d) :
+    error("$T not supported")
+    gpusync()
+    return d
+end
+
+diag(a::CudaMatrix)=diag!(a, similar(a,(min(size(a)...),)))
+
+function diag!(a::Matrix, d::Vector)
+    min(size(a)...) == length(d) || throw(DimensionMismatch())
+    for i=1:length(d); d[i] = a[i,i]; end
+    return d
+end
+
+function diagm!(d::Vector, a::Matrix)
+    min(size(a)...) == length(d) || throw(DimensionMismatch())
+    fill!(a,0)
+    for i=1:length(d); a[i,i]=d[i]; end
+    return a
+end
+
+diagm(d::CudaVector)=diagm!(d, similar(d, (length(d), length(d))))
+
+function diagm!{T}(d::CudaVector{T}, a::CudaMatrix{T})
+    min(size(a)...) == length(d) || throw(DimensionMismatch())
+    fill!(a,0)
+    T <: Float32 ? ccall((:diagm32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(a,1),size(a,2),d,a) :
+    T <: Float64 ? ccall((:diagm64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(a,1),size(a,2),d,a) :
+    error("$T not supported")
+    gpusync()
+    return a
+end
 
 ### DEAD CODE:
 

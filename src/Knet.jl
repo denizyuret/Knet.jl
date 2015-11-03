@@ -1,4 +1,4 @@
-# module Knet
+module Knet
 using Compat
 include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 
@@ -35,6 +35,8 @@ include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp, axpb
 include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool
+include("op/nce.jl");		export nce
+include("op/arr.jl");		export arr
 include("update.jl");		
 
 include("compiler.jl");		export @knet
@@ -62,7 +64,7 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData
 
-# end # module
+end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias

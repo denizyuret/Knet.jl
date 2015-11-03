@@ -151,9 +151,9 @@ function set_sparse(r::Net)
             if issparse(r.out0[i]) && issparse(r.out0[j])
                 error("Dot of two sparse matrices")
             elseif issparse(r.out0[j])
-                r.sparse[i] = CudaSparseMatrixCSRU
+                r.sparse[i] = r.toincr[i] ? CudaSparseMatrixCSRU : CudaSparseMatrixCSR # TODO: clean up this mess!
             elseif issparse(r.out0[i])
-                r.sparse[j] = CudaSparseMatrixCSCU
+                r.sparse[j] = r.toincr[i] ? CudaSparseMatrixCSCU : CudaSparseMatrixCSC
             end
         end
     end

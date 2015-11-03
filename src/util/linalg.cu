@@ -613,3 +613,63 @@ extern "C" {
   void mul2_32(int n, float  *x, float  *y,  float *z) KCALL(_mul2_32,n,x,y,z);
   void mul2_64(int n, double *x, double *y, double *z) KCALL(_mul2_64,n,x,y,z);
 }
+
+template<typename dType>
+__global__ void _log(int n, dType *a, dType *b) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    b[i] = log(a[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void log32(int n, float  *a, float  *b) KCALL(_log,n,a,b);
+  void log64(int n, double *a, double *b) KCALL(_log,n,a,b);
+}
+
+
+template<typename dType>
+__global__ void _exp(int n, dType *a, dType *b) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    b[i] = exp(a[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void exp32(int n, float  *a, float  *b) KCALL(_exp,n,a,b);
+  void exp64(int n, double *a, double *b) KCALL(_exp,n,a,b);
+}
+
+template<typename dType>
+__global__ void _diag(int m, int n, dType *a, dType *d) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int k = (m<n) ? m : n;
+  while (i < k) {
+    d[i] = a[i*m+i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void diag32(int m, int n, float  *a, float  *d) KCALL(_diag,m,n,a,d);
+  void diag64(int m, int n, double *a, double *d) KCALL(_diag,m,n,a,d);
+}
+
+template<typename dType>
+__global__ void _diagm(int m, int n, dType *d, dType *a) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int k = (m<n) ? m : n;
+  while (i < k) {
+    a[i*m+i] = d[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void diagm32(int m, int n, float  *d, float  *a) KCALL(_diagm,m,n,d,a);
+  void diagm64(int m, int n, double *d, double *a) KCALL(_diagm,m,n,d,a);
+}
+

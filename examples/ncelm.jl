@@ -20,11 +20,11 @@ function ncelm(args=ARGS)
     end
 
     vocab_size = length(dict)
-    global net = NCE(nce_rnn; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab = vocab_size)
+    psample = fill(ftype(1/vocab_size), vocab_size) # TODO: compute unigram instead
+
+    global net = NCE(nce_rnn; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab = vocab_size, psample=psample, nsample=opts["nsample"])
     lr = opts["lr"]
     setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
-
-    psample = fill(ftype(1/vocab_size), vocab_size)
 
     perp = zeros(length(data))
     l=zeros(2); m=zeros(2)
@@ -189,3 +189,15 @@ function nce_parse_commandline(args)
 end
 
 !isinteractive() && !isdefined(:load_only) && ncelm(ARGS)
+
+
+# version 099b284
+# [dy_052@hpc3004 examples]$ julia ncelm.jl ptb.valid.txt ptb.test.txt 
+# WARNING: requiring "Knet" in module "Main" did not define a corresponding module.
+# INFO: NCE language model
+# Dict{AbstractString,Any}("rnn_size"=>200,"lr"=>1.0,"decay"=>2.0,"dense"=>false,"batch_size"=>20,"float64"=>false,"dropout"=>0.0,"max_grad_norm"=>5.0,"max_epoch"=>10000,"init_weight"=>0.1,"gcheck"=>0,"layers"=>1,"vocab_size"=>10000,"seq_length"=>20,"nsample"=>100,"seed"=>42,"max_max_epoch"=>1,"datafiles"=>Any["ptb.valid.txt","ptb.test.txt"])
+# INFO: Read ptb.valid.txt: 73760 words, 6022 vocab.
+# INFO: Read ptb.test.txt: 82430 words, 7596 vocab.
+#  19.979308 seconds (27.21 M allocations: 1.133 GB, 3.39% gc time)
+#   6.901726 seconds (8.21 M allocations: 342.865 MB, 2.84% gc time)
+# (ep,perp...,m...,lr) = (1,1.0383780365714608,816.3109741210938,999.4002685546875,38.147953033447266,1.0)

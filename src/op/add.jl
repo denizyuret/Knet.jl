@@ -8,13 +8,13 @@ type Add <: Op; alpha; beta; end
 
 """
 
-@knet function add(x1,x2; alpha=1,beta=1) performs element-wise
-broadcasting addition.  alpha and beta are used to scale x1 and x2
-respectively.  The result computed is y = alpha x1 + beta x2.  The
-size of the output y always matches the size of x2.  Broadcasting is
-performed as follows (following Julia convention, size below refers to
-the tuple of dimensions, fastest changing first, and ndims refers to
-the number of dimensions):
+@knet Op add(x1,x2; alpha=1,beta=1) performs element-wise broadcasting
+addition.  alpha and beta are used to scale x1 and x2 respectively.
+The result computed is y = alpha x1 + beta x2.  The size of the output
+y always matches the size of x2.  Broadcasting is performed as follows
+(following Julia convention, size below refers to the tuple of
+dimensions, fastest changing first, and ndims refers to the number of
+dimensions):
 
 - If x1 and x2 are the same size their elements are added.
 

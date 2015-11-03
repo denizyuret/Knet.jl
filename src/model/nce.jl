@@ -4,7 +4,6 @@ type NCE <: Model; rnn; tst; trn1; trn2; rng; psample; prob; alias; noise; kqvec
         trn1 = Net(nce_trn; o..., ninputs=2)            # h[H,B]->p[B,B]
         trn2 = Net(nce_trn; o..., ninputs=2)            # h[H,B]->p[K,B]
         tst  = Net(nce_tst; o...)                       # h[H,B]->p[V,B]
-        trn1.tosave[end] = trn2.tosave[end] = true      # TODO: this should automatically happen if we had a nce layer with back_reads_y=true
         new(rnn, tst, trn1, trn2, rng)
     end
 end
@@ -12,13 +11,16 @@ end
 params(r::NCE)=vcat(params(r.rnn), params(r.tst))       # trn1,2 and tst share parameters
 reset!(r::NCE)=map(reset!, (r.rnn, r.tst, r.trn1, r.trn2))
 
-@knet function nce_trn(h,r; vocab=0, nce_winit=Gaussian(0,.01), nce_binit=Constant(log(1/vocab)), o...)
+@knet function nce_trn(h,r; vocab=0, psample=nothing, nsample=0, kqvec=psample*nsample, nce_winit=Gaussian(0,.01), nce_binit=Constant(log(1/vocab)), o...)
     w  = par(; init=nce_winit, dims=(vocab,0))
     b  = par(; init=nce_binit, dims=(vocab,1))
+    q  = arr(; init=kqvec)
     rw = dot(r,w)
     rb = dot(r,b)
-    y1 = dot(rw,h)
-    y2 = add(rb,y1)
+    rq = dot(r,q)
+    y  = dot(rw,h)
+    s  = add(rb,y)
+    p  = nce(rq,s)
 end
 
 @knet function nce_tst(h; o...)
@@ -30,7 +32,7 @@ end
 end
 
 # m.tst: input, par(w), par(b), dot, add, soft
-# m.trn1,2: input(h), input(r), par(w), par(b), dot(rw), dot(rb), dot(rwh), add
+# m.trn1,2: input(h), input(r), par(w), par(b), par(q), dot(rw), dot(rb), dot(rq), dot(y), add(s), nce(q)
 function nce_init(m::NCE, data)
     m.tst.out0[1] == nothing || return
     (x,ygold) = item2xy(first(data))
@@ -74,34 +76,26 @@ function train(m::NCE, data, loss=nothing; nsample=0, psample=nothing, gclip=0, 
     nce_alias_init(m, psample, nsample)
     nce_init(m, data)
     reset!(m)
-    ystack = Any[]
     for item in data
         if item != nothing
             (x,ygold) = item2xy(item)
             isa(ygold, SparseMatrixCSC) || error("NCE expects ygold to be a SparseMatrixCSC")
             h = forw(m.rnn, x...; trn=true, seq=true, o...)
+
             r = csc2csr(ygold)  # copies the transpose to gpu
             y = forw(m.trn1, h, r; trn=true, seq=true, o...)
-            kqvec = CudaArray(m.kqvec[ygold.rowval])
-            push!(ystack, kqvec)
-            losscnt != nothing && (losscnt[1] += nce_loss_real(y, kqvec); losscnt[2] += 1)
-
-            # TODO: losscnt += 1 is probably not correct here: 15 mins
+            losscnt != nothing && (losscnt[1] += nce_loss_real(y); losscnt[2] += 1)
 
             nce_alias_sample(m)
             r = csc2csr(m.noise)
             y = forw(m.trn2, h, r; trn=true, seq=true, o...)
-            kqvec = CudaArray(m.kqvec[m.noise.rowval])
-            push!(ystack, kqvec)
-            losscnt != nothing && (losscnt[1] += nce_loss_noise(y, kqvec); losscnt[2] += length(kqvec))
+            losscnt != nothing && (losscnt[1] += nce_loss_noise(y); losscnt[2] += nsample)
 
         else # end of sequence
-            while !isempty(ystack)
-                noise = pop!(ystack)
-                hgrad1 = back(m.trn2, noise, nce_loss_noise; seq=true, getdx=1, o...)
+            while m.rnn.sp > 0
+                hgrad1 = back(m.trn2, Any[], nce_loss_noise; seq=true, getdx=1, o...)
                 hgrad = copy(hgrad1)
-                ygold = pop!(ystack)
-                hgrad2 = back(m.trn1, ygold, nce_loss_real;  seq=true, getdx=1, o...)
+                hgrad2 = back(m.trn1, Any[], nce_loss_real;  seq=true, getdx=1, o...)
                 axpy!(1, hgrad2, hgrad)
                 back(m.rnn, hgrad; seq=true, o...)
             end
@@ -114,7 +108,6 @@ function train(m::NCE, data, loss=nothing; nsample=0, psample=nothing, gclip=0, 
                 g > maxnorm[2] && (maxnorm[2]=g)
             end
             reset!(m)
-            #@show (losscnt[1]/losscnt[2], losscnt..., maxnorm...)
         end
     end
 end
@@ -155,108 +148,26 @@ function nce_alias_sample(m::NCE)
     end
 end
 
-# TODO: Should we move the loss code into loss.jl?
 # TODO: will have to implement masks like softloss?
-# TODO: batchsize normalization?
 
-# J = -s(y)+log(exp s(y)+kq(y))
-# ypred is Matrix(B,B), ypred[i,j] is the score of the i'th gold word on the j'th sentence (only ypred[i,i] is used)
-# kqvec is Vector(B), kqvec[i] is K * prob(i'th gold word under the noise dist)
-function nce_loss_real(ypred::Matrix, kqvec::Vector; o...)
-    l = 0.0
-    n = size(ypred,1)
-    for i=1:n
-        s = ypred[i,i]
-        l += -s + log(exp(s)+kqvec[i])
-    end
-    return l/n
-end
+# J_real = -logp(d=1|y)
+# ypred is Matrix(B,B), ypred[i,j] is the p(d=1) given the i'th gold word on the j'th sentence (only ypred[i,i] is used)
+nce_loss_real(ypred, ygold=nothing; o...)=vecnorm(log!(diag(ypred)),1)/size2(ypred,2)
 
-@gpu function nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}; o...)
-    # kq = CudaArray(size(m.noise, 2) * m.psample[ygold.rowval])
-    ytemp = similar(kqvec)
-    T <: Float32 ? ccall((:nce_loss_real_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), size(ypred,1), ypred, kqvec, ytemp) :
-    T <: Float64 ? ccall((:nce_loss_real_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), size(ypred,1), ypred, kqvec, ytemp) :
-    error("$T not supported")
-    vecnorm(ytemp,1)/size(ypred,2)
-end
+# J_noise = -logp(d=0|y) = -log(1-p(d=1|y))
+# ypred is Matrix(K,B), ypred[i,j] is the p(d=1) given the i'th gold word on the j'th sentence
+nce_loss_noise(ypred, ygold=nothing; o...)=vecnorm(log!(axpb!(ypred,similar(ypred);a=-1,b=1)),1)/size2(ypred,2)
 
-@gpu nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}; o...)=nce_loss_real(ypred, CudaArray(kqvec); o...)
+# dJ_real/dp = -1/p
+nce_loss_real(ypred, ygold, ygrad; o...)=diagm!(axpb!(diag(ypred); a=-1/size2(ypred,2),p=-1), ygrad)
 
-# dJ/ds = p(d=1|y)-1 = (exp s(y))/(exp s(y) + kq(y)) - 1 = -(kq(y))/(exp s(y) + kq(y))
-function nce_loss_real(ypred::Matrix, kqvec::Vector, ygrad::Matrix; o...)
-    fill!(ygrad,0)
-    n=size(ygrad,1)
-    for i=1:n
-        s = ypred[i,i]
-        kq = kqvec[i]
-        ygrad[i,i] = -(kq / (exp(s) + kq))/n
-    end
-    return ygrad
-end
+# dJ_noise/dp = 1/(1-p)
+nce_loss_noise(ypred, ygold, ygrad; o...)=axpb!(axpb!(ypred,ygrad; a=-1, b=1); p=-1, a=1/size2(ypred,2))
 
-@gpu function nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}, ygrad::CudaMatrix{T}; o...)
-    fill!(ygrad,0)
-    # kq = CudaArray(size(m.noise,2) * m.psample[ygold.rowval])
-    T <: Float32 ? ccall((:nce_grad_real_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), size(ypred,1), ypred, kqvec, ygrad) :
-    T <: Float64 ? ccall((:nce_grad_real_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), size(ypred,1), ypred, kqvec, ygrad) :
-    error("$T not supported")
-    return ygrad
-end
+csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
 
-@gpu nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}, ygrad::CudaMatrix{T}; o...)=nce_loss_real(ypred, CudaArray(kqvec), ygrad; o...)
 
-# J = -log(kq(y))+log(exp s(y)+kq(y))
-# ypred is (K,B); ypred[k,b] is the score of k'th noise sample in b'th sentence
-# kqvec is (K,); kqvec[k] is K * prob(k'th noise sample)
-function nce_loss_noise(ypred::Matrix, kqvec::Vector; o...)
-    (K,B) = size(ypred)
-    J = 0.0
-    for k=1:K
-        kq = kqvec[k]
-        logkq = log(kq)
-        for b=1:B
-            s = ypred[k,b]
-            J += log(exp(s) + kq) - logkq
-        end
-    end
-    return J/B
-end
 
-@gpu function nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}; o...)
-    (K,B) = size(ypred)
-    ytemp = similar(ypred)
-    T <: Float32 ? ccall((:nce_loss_noise_32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), K, B, ypred, kqvec, ytemp) :
-    T <: Float64 ? ccall((:nce_loss_noise_64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), K, B, ypred, kqvec, ytemp) :
-    error("$T not supported")
-    vecnorm(ytemp,1)/B
-end
-
-@gpu nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}; o...)=nce_loss_noise(ypred,CudaArray(kqvec); o...)
-
-# dJ/ds = (exp s(y))/(exp s(y) + kq(y))
-function nce_loss_noise(ypred::Matrix, kqvec::Vector, ygrad::Matrix; o...)
-    (K,B) = size(ypred)
-    for k=1:K
-        for b=1:B
-            exps = exp(ypred[k,b])
-            ygrad[k,b] = (exps/(exps+kqvec[k]))/B
-        end
-    end
-    return ygrad
-end
-
-@gpu function nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}, ygrad::CudaMatrix{T}; o...)
-    (K,B) = size(ypred)
-    T <: Float32 ? ccall((:nce_grad_noise_32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), K, B, ypred, kqvec, ygrad) :
-    T <: Float64 ? ccall((:nce_grad_noise_64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), K, B, ypred, kqvec, ygrad) :
-    error("$T not supported")
-    return ygrad
-end
-
-@gpu nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}, ygrad::CudaMatrix{T}; o...)=nce_loss_noise(ypred,CudaArray(kqvec),ygrad; o...)
-
-@gpu csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
 
 # Define main, test, noise, gold as four separate networks.
 # If we leave w,b outside of networks they will get unnecessarily copied.
@@ -274,7 +185,7 @@ end
 
 # Call nce_trn with r = random one-hot-rows matrix to get noise sample scores
 # Call nce_trn with r = ygold' to get real sample scores
-# TODO: figure out w/b sharing, can it be a par argument?
+# DONE: figure out w/b sharing, can it be a par argument?
 # problem is it cannot be initialized at construction, we only get allocation after first sample
 # run the first sample through the test network to get real w and b Par's and then point to them.
 
@@ -291,7 +202,82 @@ end
 
 # TODO: a lot of things only work on gpu
 
-# TODO: init bias = -log vocab
-# TODO: check losscnt
-# TODO: check loss functions
-# TODO: cannot infer size if batchsize=1
+# DONE: init bias = -log vocab
+# DONE: check losscnt
+# DONE: check loss functions
+# TODO: cannot infer size of lstm if batchsize=1
+
+
+### DEAD CODE
+
+# function nce_loss_real(ypred::Matrix, kqvec::Vector, ygrad::Matrix; o...)
+#     fill!(ygrad,0)
+#     n=size(ygrad,1)
+#     for i=1:n
+#         s = ypred[i,i]
+#         kq = kqvec[i]
+#         ygrad[i,i] = -(kq / (exp(s) + kq))/n
+#     end
+#     return ygrad
+# end
+
+# @gpu function nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}, ygrad::CudaMatrix{T}; o...)
+#     fill!(ygrad,0)
+#     # kq = CudaArray(size(m.noise,2) * m.psample[ygold.rowval])
+#     T <: Float32 ? ccall((:nce_grad_real_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), size(ypred,1), ypred, kqvec, ygrad) :
+#     T <: Float64 ? ccall((:nce_grad_real_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), size(ypred,1), ypred, kqvec, ygrad) :
+#     error("$T not supported")
+#     return ygrad
+# end
+
+# @gpu nce_loss_real{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}, ygrad::CudaMatrix{T}; o...)=nce_loss_real(ypred, CudaArray(kqvec), ygrad; o...)
+
+# # J = -log(kq(y))+log(exp s(y)+kq(y))
+# # ypred is (K,B); ypred[k,b] is the score of k'th noise sample in b'th sentence
+# # kqvec is (K,); kqvec[k] is K * prob(k'th noise sample)
+# function nce_loss_noise(ypred::Matrix, kqvec::Vector; o...)
+#     (K,B) = size(ypred)
+#     J = 0.0
+#     for k=1:K
+#         kq = kqvec[k]
+#         logkq = log(kq)
+#         for b=1:B
+#             s = ypred[k,b]
+#             J += log(exp(s) + kq) - logkq
+#         end
+#     end
+#     return J/B
+# end
+
+# @gpu function nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}; o...)
+#     (K,B) = size(ypred)
+#     ytemp = similar(ypred)
+#     T <: Float32 ? ccall((:nce_loss_noise_32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), K, B, ypred, kqvec, ytemp) :
+#     T <: Float64 ? ccall((:nce_loss_noise_64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), K, B, ypred, kqvec, ytemp) :
+#     error("$T not supported")
+#     vecnorm(ytemp,1)/B
+# end
+
+# @gpu nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}; o...)=nce_loss_noise(ypred,CudaArray(kqvec); o...)
+
+# # dJ/ds = (exp s(y))/(exp s(y) + kq(y))
+# function nce_loss_noise(ypred::Matrix, kqvec::Vector, ygrad::Matrix; o...)
+#     (K,B) = size(ypred)
+#     for k=1:K
+#         for b=1:B
+#             exps = exp(ypred[k,b])
+#             ygrad[k,b] = (exps/(exps+kqvec[k]))/B
+#         end
+#     end
+#     return ygrad
+# end
+
+# @gpu function nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::CudaVector{T}, ygrad::CudaMatrix{T}; o...)
+#     (K,B) = size(ypred)
+#     T <: Float32 ? ccall((:nce_grad_noise_32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}), K, B, ypred, kqvec, ygrad) :
+#     T <: Float64 ? ccall((:nce_grad_noise_64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}), K, B, ypred, kqvec, ygrad) :
+#     error("$T not supported")
+#     return ygrad
+# end
+
+# @gpu nce_loss_noise{T}(ypred::CudaMatrix{T}, kqvec::Vector{T}, ygrad::CudaMatrix{T}; o...)=nce_loss_noise(ypred,CudaArray(kqvec),ygrad; o...)
