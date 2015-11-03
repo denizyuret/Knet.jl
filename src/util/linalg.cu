@@ -22,13 +22,19 @@ __global__ void _add_csr_dns_atomic(int m, int n, dType alpha,
 			     const int *csrColIndA,
 			     dType *B) {
   int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  int row = 0;
   while (nz < nnzA) {
     dType val = alpha * csrValA[nz];
     int col = csrColIndA[nz]-1;
-    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    for (; nz > csrRowPtrA[row+1]-2; row++);
     atomicAdd(&B[col * m + row], val);
     nz += blockDim.x * gridDim.x;
   }
+}
+
+extern "C" {
+  void add_csr_dns_atomic_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+  void add_csr_dns_atomic_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
 }
 
 template<typename dType>
@@ -39,10 +45,11 @@ __global__ void _add_csr_dns(int m, int n, dType alpha,
 			     const int *csrColIndA,
 			     dType *B) {
   int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  int row = 0;
   while (nz < nnzA) {
     dType val = alpha * csrValA[nz];
     int col = csrColIndA[nz]-1;
-    int row; for (row = 0; nz > csrRowPtrA[row+1]-2; row++);
+    for (; nz > csrRowPtrA[row+1]-2; row++);
     B[col * m + row] +=  val;
     nz += blockDim.x * gridDim.x;
   }
@@ -51,8 +58,52 @@ __global__ void _add_csr_dns(int m, int n, dType alpha,
 extern "C" {
   void add_csr_dns_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
   void add_csr_dns_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
-  void add_csr_dns_atomic_32(int m, int n, float  alpha, int nnzA, const float  *csrValA, const int *csrRowPtrA, const int *csrColIndA, float  *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
-  void add_csr_dns_atomic_64(int m, int n, double alpha, int nnzA, const double *csrValA, const int *csrRowPtrA, const int *csrColIndA, double *B) KCALL(_add_csr_dns_atomic,m,n,alpha,nnzA,csrValA,csrRowPtrA,csrColIndA,B);
+}
+
+template<typename dType>
+__global__ void _add_csc_dns_atomic(int m, int n, dType alpha,
+				    int nnzA,
+				    const dType *cscValA,
+				    const int *cscColPtrA,
+				    const int *cscRowIndA,
+				    dType *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  int col = 0;
+  while (nz < nnzA) {
+    dType val = alpha * cscValA[nz];
+    int row = cscRowIndA[nz]-1;
+    for (; nz > cscColPtrA[col+1]-2; col++);
+    atomicAdd(&B[col * m + row], val);
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void add_csc_dns_atomic_32(int m, int n, float  alpha, int nnzA, const float  *cscValA, const int *cscColPtrA, const int *cscRowIndA, float  *B) KCALL(_add_csc_dns_atomic,m,n,alpha,nnzA,cscValA,cscColPtrA,cscRowIndA,B);
+  void add_csc_dns_atomic_64(int m, int n, double alpha, int nnzA, const double *cscValA, const int *cscColPtrA, const int *cscRowIndA, double *B) KCALL(_add_csc_dns_atomic,m,n,alpha,nnzA,cscValA,cscColPtrA,cscRowIndA,B);
+}
+
+template<typename dType>
+__global__ void _add_csc_dns(int m, int n, dType alpha,
+			     int nnzA,
+			     const dType *cscValA,
+			     const int *cscColPtrA,
+			     const int *cscRowIndA,
+			     dType *B) {
+  int nz = threadIdx.x + blockIdx.x * blockDim.x;
+  int col = 0;
+  while (nz < nnzA) {
+    dType val = alpha * cscValA[nz];
+    int row = cscRowIndA[nz]-1;
+    for (; nz > cscColPtrA[col+1]-2; col++);
+    B[col * m + row] +=  val;
+    nz += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void add_csc_dns_32(int m, int n, float  alpha, int nnzA, const float  *cscValA, const int *cscColPtrA, const int *cscRowIndA, float  *B) KCALL(_add_csc_dns,m,n,alpha,nnzA,cscValA,cscColPtrA,cscRowIndA,B);
+  void add_csc_dns_64(int m, int n, double alpha, int nnzA, const double *cscValA, const int *cscColPtrA, const int *cscRowIndA, double *B) KCALL(_add_csc_dns,m,n,alpha,nnzA,cscValA,cscColPtrA,cscRowIndA,B);
 }
 
 /*
@@ -71,7 +122,7 @@ extern "C" {
    unsorted with possible duplicates. */
 
 template<typename dType>
-__global__ void _mul_dns_csr_csr(int arows, int acols, dType *a, int *brows, int *bcols, dType *b, int *crows, int *ccols, dType *c) {
+__global__ void _mul_dns_csr_csru(int arows, int acols, dType *a, int *brows, int *bcols, dType *b, int *crows, int *ccols, dType *c) {
   int t = threadIdx.x + blockIdx.x * blockDim.x;
   int T = arows*acols;
   int bnnz = brows[acols]-1;
@@ -94,8 +145,37 @@ __global__ void _mul_dns_csr_csr(int arows, int acols, dType *a, int *brows, int
 }
 
 extern "C" {
-  void mul_dns_csr_csr_32(int arows, int acols, float  *a, int *brows, int *bcols, float  *b, int *crows, int *ccols, float  *c) KCALL(_mul_dns_csr_csr, arows, acols, a, brows, bcols, b, crows, ccols, c);
-  void mul_dns_csr_csr_64(int arows, int acols, double *a, int *brows, int *bcols, double *b, int *crows, int *ccols, double *c) KCALL(_mul_dns_csr_csr, arows, acols, a, brows, bcols, b, crows, ccols, c);
+  void mul_dns_csr_csru_32(int arows, int acols, float  *a, int *brows, int *bcols, float  *b, int *crows, int *ccols, float  *c) KCALL(_mul_dns_csr_csru, arows, acols, a, brows, bcols, b, crows, ccols, c);
+  void mul_dns_csr_csru_64(int arows, int acols, double *a, int *brows, int *bcols, double *b, int *crows, int *ccols, double *c) KCALL(_mul_dns_csr_csru, arows, acols, a, brows, bcols, b, crows, ccols, c);
+}
+
+
+template<typename dType>
+__global__ void _mul_csc_dns_cscu(int brows, int bcols, int *acols, int *arows, dType *a, dType *b, int *ccols, int *crows, dType *c) {
+  int t = threadIdx.x + blockIdx.x * blockDim.x;
+  int T = brows*bcols;
+  int annz = acols[brows]-1;
+  if (t == 0) ccols[0] = 1;
+  while (t < T) {
+    dType bval = b[t];
+    int brow0 = t % brows;
+    int bcol0 = t / brows;
+    int acol0 = brow0;
+    int ccol0 = bcol0;
+    for (int a1 = acols[acol0]; a1 < acols[acol0+1]; a1++) { 	// a[acols[r]-1...acols[r+1]-2] contains col 0-based-r
+      int a0 = a1-1;
+      int c0 = ccol0 * annz + a0;				// each c col has nnz(a) entries so we can use nz index of a as col index of c
+      crows[c0] = arows[a0];
+      c[c0] = bval * a[a0];
+    }
+    if (brow0 == 0) ccols[ccol0+1] = (ccol0+1)*annz + 1;
+    t += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void mul_csc_dns_cscu_32(int brows, int bcols, int *acols, int *arows, float  *a, float  *b, int *ccols, int *crows, float  *c) KCALL(_mul_csc_dns_cscu,brows,bcols,acols,arows,a,b,ccols,crows,c);
+  void mul_csc_dns_cscu_64(int brows, int bcols, int *acols, int *arows, double *a, double *b, int *ccols, int *crows, double *c) KCALL(_mul_csc_dns_cscu,brows,bcols,acols,arows,a,b,ccols,crows,c);
 }
 
 

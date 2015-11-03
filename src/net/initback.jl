@@ -14,14 +14,14 @@ function initback(r::Net, ygold, loss; getdx=false, seq=false, a...)
     for n=length(r.op):-1:1
         r.toback[n] || continue # we mix initback and initback0 here because if getdx or seq changes we may need to alloc new arrays.
         if (r.dif0[n]!=nothing) # TODO: implement batch size change
-            @assert (issimilar2(r.dif0[n], r.out0[n]) ) #TODO: && issparse(r.dif0[n])==r.sparse[n])
+            @assert (issimilar2(r.dif0[n], r.out0[n]) ) #TODO: && issparse(r.dif0[n])==(r.sparse[n]!=nothing)
         else
             r.dif0[n] = finddif(r, n)
             # r.dif[n] = nothing # Leave this to reset! otherwise s2s does not work
         end
         if r.toincr[n]
             if (r.tmp[n]!=nothing)
-                @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==r.sparse[n])
+                @assert (issimilar2(r.tmp[n], r.out0[n]) && issparse(r.tmp[n])==(r.sparse[n]!=nothing))
             else
                 r.tmp[n] = findtmp(r, n)
                 # fill!(r.dif0[n], 0)  # This will break s2s best if finddif zeros during alloc
@@ -100,8 +100,8 @@ function finddif(r::Net, n)
                 ### This is sparse non-incremental dw: can't really have dense without 
                 # rewriting CUSPARSE.csrmm to take sparse matrix in second position.  As
                 # it stands, we'd have to transpose all three matrices: dw = dy * x' -> dw' = x * dy'
-                r.sparse[n] && !r.toincr[n] && !gpu() ? spzeros(et, sz...) :
-                r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSR(spzeros(et, sz...)) : # t:12.38
+                (r.sparse[n]!=nothing) && !r.toincr[n] && !gpu() ? spzeros(et, sz...) :
+                (r.sparse[n]!=nothing) && !r.toincr[n] && gpu()  ? (r.sparse[n])(spzeros(et, sz...)) : # t:12.38
                 ### CSRU speed 20% slower than CSR on mnist (atomicAdd conflicts?), also cannot compute vecnorm.
                 # r.sparse[n] && !r.toincr[n] && gpu()  ? CudaSparseMatrixCSRU(et, sz...) : # t:14.69
                 ### Uncomment this if you want sparse incremental dw:
@@ -117,8 +117,8 @@ function findtmp(r::Net, n)
     tmp = nothing
     for i=n+1:length(r.op)
         if ((r.tmp[i]!=nothing) &&
-            size(r.tmp[i]) == size(r.dif0[n]) &&
-            issparse(r.tmp[i]) == r.sparse[n])
+            (size(r.tmp[i]) == size(r.dif0[n])) &&
+            (r.sparse[n]==nothing || typeof(r.tmp[i]) <: r.sparse[n]))
             tmp = r.tmp[i]
             break
         end
@@ -131,9 +131,9 @@ function findtmp(r::Net, n)
                # but significantly slower when there are lots of conflicts (mnist)
                # Not worth the risk until I implement uniq for CSRU
                # Seems significantly faster on s2s, putting csru back on
-               gpu() && r.sparse[n] ? CudaSparseMatrixCSRU(et, sz...) :
+               gpu() && r.sparse[n]!=nothing ? (r.sparse[n])(et, sz...) :
                # gpu() && r.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
-               !gpu() && r.sparse[n] ? spzeros(et, sz...) :
+               !gpu() && r.sparse[n]!=nothing ? spzeros(et, sz...) :
                gpu() ? CudaArray(et, sz) : 
                Array(et, sz))
     end
@@ -141,18 +141,19 @@ function findtmp(r::Net, n)
 end
 
 # The only sparse matrices are the dw and iw for w that dot sparse inputs.
-# Note that NCE adds noise and ygold matrices as left inputs.
+# Regular sparse x is a right csc input.
+# NCE adds noise and ygold matrices as left csr inputs.
 function set_sparse(r::Net)
-    fill!(r.sparse, false)
+    fill!(r.sparse, nothing)
     for o=1:length(r.op)
         if isa(r.op[o], Dot)
             (i,j) = r.inputs[o]
             if issparse(r.out0[i]) && issparse(r.out0[j])
                 error("Dot of two sparse matrices")
-            elseif issparse(r.out0[i])
-                r.sparse[j] = true
             elseif issparse(r.out0[j])
-                r.sparse[i] = true
+                r.sparse[i] = CudaSparseMatrixCSRU
+            elseif issparse(r.out0[i])
+                r.sparse[j] = CudaSparseMatrixCSCU
             end
         end
     end

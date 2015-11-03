@@ -1,44 +1,4 @@
-2015-10-30  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* nce: Here are the operations:
-
-	Train:
-	0. starting with h.
-	1. pick which noise words go with a minibatch.
-	2. pick rows of the decoding matrix (minibatch words + noise words)
-	3. do the matrix product of hidden layer h with those rows to get s(y)
-	4. calculate loss: what exactly is the input here?
-	   for real  words: exp(s(y))/(exp(s(y))+kq(y))
-	   for noise words:  (k q(y))/(exp(s(y))+kq(y))
-	   So the loss function needs k (actually that can be computed from size(x) and q(y) (or maybe I and q(I)) and a way to distinguish noise from real.
-	5. calculate gradient:
-	   for real  words: 1 - exp(s(y))/(exp(s(y))+kq(y))
-	   for noise words:   - exp(s(y))/(exp(s(y))+kq(y))
-	   Again, the same things are needed.
-
-	Test:
-	0. starting with h.
-	1. do the matrix product of hidden layer h with the whole decoding matrix.
-	2. apply the softmax transformation to the output.
-	3. use softmax loss and softmax gradient.
-
-	It seems adding conditional statements to the compiler is more elegant?
-	The same mechanism could also improve dropout and rnd.
-	Or do we have two networks with shared weights?
-
-	h = dot(u,x)  # or whatever gives the hidden layer, dims=(hdims,nbatch)
-	w = par(; dims=(vocab,hdims))
-	a = dot(w,h) if !trn # (vocab,nbatch)
-	b = bias(a) if !trn
-	c = soft(b) if !trn
-	r = nce(?; dims=(k+nbatch,vocab)) if trn # or maybe rnd(; dims=(..), sparse=true, rng=OneHotRows())?  but we need the batch words in there.  maybe two separate r matrices?  we have no concat op.
-	s = dot(r,w) if trn  # (k+nbatch,hdims)
-	t = dot(s,h) if trn  # (k+nbatch,nbatch)
-
-	nceloss(ypred,ygold,ygrad)
-	nceloss(ypred,ygold)
-
-2015-10-28  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-11-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 	0005 --- ashish nce model: can implement as a compound model with different train and test final layers!
@@ -47,6 +7,8 @@
 	0010 src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
 	0020 I get Nan's back when I run copyseq with winit=Uniform(-10,10).  Gradient check fails with winit=Uniform(-1,1)
 	0100 --- examples:
+	0101 try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
+	0101 design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0106 karpathy character based models, inputless networks with random generators
@@ -98,7 +60,8 @@
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
-	1000 examples: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
+	1000 examples/runtests.jl: should run the whole set if no options given.
+	1000 examples: ArgParse, args: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 get rid of input() and use constructor arguments instead?	can we?
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
@@ -108,7 +71,7 @@
 	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
-	1000 minibatch resizing
+	1000 minibatch resizing: cusparse.jl: rename all Base.copy! to resizecopy!; define ones for Array, CudaArray; use them in resizing.
 	1000 nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  also report the cusparse transpose problem.
 	1000 par and loss should probably get out of op.  at least loss.
 	1000 pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing.
@@ -126,6 +89,48 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-10-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* nce: Here are the operations:
+
+	Train:
+	0. starting with h.
+	1. pick which noise words go with a minibatch.
+	2. pick rows of the decoding matrix (minibatch words + noise words)
+	3. do the matrix product of hidden layer h with those rows to get s(y)
+	4. calculate loss: what exactly is the input here?
+	   for real  words: exp(s(y))/(exp(s(y))+kq(y))
+	   for noise words:  (k q(y))/(exp(s(y))+kq(y))
+	   So the loss function needs k (actually that can be computed from size(x) and q(y) (or maybe I and q(I)) and a way to distinguish noise from real.
+	5. calculate gradient:
+	   for real  words: 1 - exp(s(y))/(exp(s(y))+kq(y))
+	   for noise words:   - exp(s(y))/(exp(s(y))+kq(y))
+	   Again, the same things are needed.
+
+	Test:
+	0. starting with h.
+	1. do the matrix product of hidden layer h with the whole decoding matrix.
+	2. apply the softmax transformation to the output.
+	3. use softmax loss and softmax gradient.
+
+	It seems adding conditional statements to the compiler is more elegant?
+	The same mechanism could also improve dropout and rnd.
+	Or do we have two networks with shared weights?
+
+	h = dot(u,x)  # or whatever gives the hidden layer, dims=(hdims,nbatch)
+	w = par(; dims=(vocab,hdims))
+	a = dot(w,h) if !trn # (vocab,nbatch)
+	b = bias(a) if !trn
+	c = soft(b) if !trn
+	r = nce(?; dims=(k+nbatch,vocab)) if trn # or maybe rnd(; dims=(..), sparse=true, rng=OneHotRows())?  but we need the batch words in there.  maybe two separate r matrices?  we have no concat op.
+	s = dot(r,w) if trn  # (k+nbatch,hdims)
+	t = dot(s,h) if trn  # (k+nbatch,nbatch)
+
+	nceloss(ypred,ygold,ygrad)
+	nceloss(ypred,ygold)
+
+2015-10-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE axpb back is not working -- fixed bug

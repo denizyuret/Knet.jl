@@ -1,4 +1,4 @@
-module Knet
+# module Knet
 using Compat
 include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 
@@ -52,6 +52,7 @@ include("model/rnn.jl");        export RNN
 include("model/s2c.jl");        export S2C
 include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
 include("model/tagger.jl");	export Tagger
+include("model/nce.jl");	export NCE
 
 include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
@@ -61,7 +62,7 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData
 
-end # module
+# end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias
