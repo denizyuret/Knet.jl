@@ -76,7 +76,7 @@ This would replace the `add2(x,h)` operations with appropriately
 defined `add3(x,h,cell)` operations below.
 
 ```
-@knet function lstm(x; fbias=0, o...)
+@knet function lstm(x; fbias=1, o...)
     input  = add2(x,h; o..., f=sigm)
     forget = add2(x,h; o..., f=sigm, binit=Constant(fbias))
     output = add2(x,h; o..., f=sigm)
@@ -89,7 +89,7 @@ defined `add3(x,h,cell)` operations below.
 end
 ```
 """
-@knet function lstm(x; fbias=0, o...)
+@knet function lstm(x; fbias=1, o...)
     input  = add2(x,h; o..., f=sigm)
     forget = add2(x,h; o..., f=sigm, binit=Constant(fbias))
     output = add2(x,h; o..., f=sigm)
