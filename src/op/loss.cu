@@ -47,7 +47,7 @@ __global__ void _softloss(int m, int n, const dType *y, const dType *dy, const b
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int mn = m*n;
   while (i < mn) {
-    dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+    dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
     ly[i] = ((mask != NULL && !mask[i/m]) ? 0 : (-dy[i] * log(yi)));
     i += blockDim.x * gridDim.x;
   }
@@ -71,7 +71,7 @@ __global__ void _softloss_csc(int nrows, int ncols, const dType *y, int nnz, con
       dType dyi = cscVal[nz];
       int row = cscRowInd[nz]-1;
       int i = col * nrows + row;
-      dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+      dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
       ly[nz] = -dyi * log(yi);
     }
     nz += blockDim.x * gridDim.x;
@@ -88,7 +88,7 @@ __global__ void _softlossback(int m, int n, const dType *y, const dType *dy, con
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int mn = m*n;
   while (i < mn) {
-    dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+    dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
     dx[i] = ((mask != NULL && !mask[i/m]) ? 0 : (yi - dy[i])/(yi * n));
     i += blockDim.x * gridDim.x;
   }
@@ -110,7 +110,7 @@ __global__ void _softlossback_csc2(int nrows, const dType *y, int nnz, const dTy
       if (dy != 0) {
 	int row = cscRowInd[nz]-1;
 	int i = col * nrows + row;
-	dType yi = (y[i] > 0 ? y[i] : __FLT_EPSILON__);
+	dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
 	dx[i] *= (1 - dy/yi);
       }
     }
