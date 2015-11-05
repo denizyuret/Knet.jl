@@ -9,8 +9,8 @@ function linreg(args=ARGS)
     info("Simple linear regression example")
     s = ArgParseSettings()
     @add_arg_table s begin
-        ("--inputs"; arg_type=Int; default=100)
-        ("--outputs"; arg_type=Int; default=10)
+        ("--inputdims"; arg_type=Int; default=100)
+        ("--outputdims"; arg_type=Int; default=10)
         ("--batchsize"; arg_type=Int; default=20)
         ("--epochsize"; arg_type=Int; default=10000)
         ("--epochs"; arg_type=Int; default=5)
@@ -24,8 +24,8 @@ function linreg(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
-    global data = LinReg(outputs, inputs; batchsize=batchsize, epochsize=epochsize, noise=noise)
-    global net = FNN(wdot; out=outputs)
+    global data = LinReg(outputdims, inputdims; batchsize=batchsize, epochsize=epochsize, noise=noise)
+    global net = FNN(wdot; out=outputdims)
     setopt!(net; lr=lr)
     losscnt = zeros(2)
     maxnorm = zeros(2)
@@ -42,14 +42,14 @@ import Base: start, next, done
 
 type LinReg; w; batchsize; epochsize; noise; rng; end
 
-function LinReg(outputs,inputs; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG)
-    LinReg(randn(rng,outputs,inputs),batchsize,epochsize,noise,rng)
+function LinReg(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG)
+    LinReg(randn(rng,outputdims,inputdims),batchsize,epochsize,noise,rng)
 end
 
 function next(l::LinReg, n)
-    (outputs, inputs) = size(l.w)
-    x = rand(l.rng, inputs, l.batchsize)
-    y = l.w * x + scale(l.noise, randn(l.rng, outputs, l.batchsize))
+    (outputdims, inputdims) = size(l.w)
+    x = rand(l.rng, inputdims, l.batchsize)
+    y = l.w * x + scale(l.noise, randn(l.rng, outputdims, l.batchsize))
     return ((x,y), n+l.batchsize)
 end
 
