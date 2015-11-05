@@ -43,44 +43,25 @@ overwrites(::Add)=true
 back_reads_x(::Add)=false
 back_reads_y(::Add)=false
 
-add!(a::Number,x::Array,b::Number,y::Array)=broadcast!(+,y,(a==1 ? x : a*x),(b==1 ? y : b*y))
-@gpu add!(a::Number,x::CudaArray,b::Number,y::CudaArray)=(cudnnAddTensor(x,y; alpha=a, beta=b); gpusync(); y)
-
 function forw(a::Add, x1, x2, y; o...)
     @assert x2 == nothing || size(y) == size(x2)
     if x1!=nothing && x2!=nothing # we use nothing to represent the zero array
-        x1 = reshape_to_match(x1,x2)
-        y===x2 ? add!(a.alpha,x1,a.beta,y) :
-        y===x1 ? add!(a.beta,x2,a.alpha,y) :
-        (copy!(y,x2); add!(a.alpha,x1,a.beta,y))
-    elseif x2 != nothing
-        y===x2 ? y : copy!(y, x2)
-    elseif x1 != nothing
-        size(y) != size(x1) ? nothing :
-        y===x1 ? y : copy!(y, x1)
-    else
-        nothing
-    end
-end
-
-function reshape_to_match(x1,x2)
-    if ndims(x1) < ndims(x2)
-        n = ndims(x2)
-        newsize = ones(Int,n)
-        if ndims(x1)==1
-            newsize[n-1] = length(x1)
+        if size(x1)==size(x2)
+            addforw1!(a.alpha,x1,a.beta,x2,y)
         else
-            for i=1:ndims(x1)
-                newsize[i] = size(x1,i)
-            end
+            ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
+            baddforw2!(a.alpha,x1,a.beta,x2,y)
         end
-        x1 = reshape(x1, tuple(newsize...))
+    elseif x2 != nothing
+        y===x2 || copy!(y, x2)
+        a.beta==1 || scale!(y, a.beta)
+    elseif x1 != nothing && size(y)==size(x1)
+        y===x1 || copy!(y, x1)
+        a.alpha==1 || scale!(y, a.alpha)
+    else
+        y=nothing
     end
-    for i=1:ndims(x1)
-        size(x1,i)==1 || size(x1,i)==size(x2,i) ||
-        throw(DimensionMismatch("Each x1 dimension must match x2 or be 1."))
-    end
-    return x1
+    return y
 end
 
 function back(a::Add, dy, dx1, dx2; o...)
@@ -94,20 +75,141 @@ function back(a::Add, dy, dx1, dx2; o...)
     elseif size(dx1) == size(dy)
         dx1 === dy   || copy!(dx1, dy)
         a.alpha == 1 || scale!(a.alpha, dx1)
-    elseif biassize(dy, dx1)
-        biasback(dy, dx1)
-        a.alpha == 1 || scale!(a.alpha, dx1)
     else
-        # TODO: implement more broadcasting back.
-        error("Don't know how to do back pass with $(size(dy))=$(size(dx1))+$(size(dx2))")
+        ndims(dx1) < ndims(dy) && (dx1 = reshape_to_match(dx1,dy))
+        baddback2!(a.alpha, dy, dx1)
     end
 end
 
-biassize(dy,db)=(size(db,1)==size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1) && all([size(db,i)==1 for i=2:ndims(db)]))
+addforw0!(alpha,a,beta,b,c)=(a===c||b===c||copy!(c,b))
+baddforw0!(alpha,a,beta,b,c)=(b===c||copy!(c,b))
+baddback0!(alpha,dy,db)=fill!(db,0)
 
-biasback(dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end)
-biasback(dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end)
-@gpu biasback(dy::CudaArray, db::CudaArray)=(cudnnConvolutionBackwardBias(dy, db); gpusync(); db)
+@gpu function addforw1!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
+    CUBLAS.geam!('N','N',T(alpha),a,T(beta),b,c)
+    gpusync(); return c
+end
+
+@gpu function addforw2!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
+    c===b || copy!(c,b)
+    cudnnAddTensor(a,c; alpha=T(alpha), beta=T(beta))
+    gpusync(); return c
+end
+
+function addforw3!(alpha,a,beta,b,c)
+    if c===b
+        beta != 1 && scale!(beta, c)
+        axpy!(alpha, a, c)
+    elseif c===a
+        alpha != 1 && scale!(alpha, c)
+        axpy!(beta, b, c)
+    else
+        copy!(c,b)
+        beta != 1 && scale!(beta, c)
+        axpy!(alpha, a, c)
+    end
+    gpusync(); return c
+end
+
+function baddforw_cpu!(alpha::Number,a::Array,beta::Number,b::Array,c::Array)
+    broadcast!(+,c,(alpha==1 ? a : alpha*a),(beta==1 ? b : beta*b))
+end
+
+@gpu function baddforw1!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T}) # mnist2d:6.40
+    c===b || copy!(c,b)
+    cudnnAddTensor(a,c; alpha=T(alpha), beta=T(beta))
+end
+
+@gpu function baddforw2!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T}) # mnist2d:7.55
+    for i=1:ndims(a) 
+        size(a,i)==1 || size(a,i)==size(b,i) ||
+        throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
+    end
+    ndims(b) <= 8 || error("add kernel supports dimensions up to 8")
+    adims = CudaArray(Cint[size(a)...])
+    bdims = CudaArray(Cint[size(b)...])
+    T <: Float32 ? ccall((:addforw32,libknet),Void,(Cint,Cfloat,Ptr{Cint},Ptr{Cfloat},Cfloat,Ptr{Cint},Ptr{Cfloat},Ptr{Cfloat}),ndims(a),T(alpha),adims,a,T(beta),bdims,b,c) :
+    T <: Float64 ? ccall((:addforw64,libknet),Void,(Cint,Cdouble,Ptr{Cint},Ptr{Cdouble},Cdouble,Ptr{Cint},Ptr{Cdouble},Ptr{Cdouble}),ndims(a),T(alpha),adims,a,T(beta),bdims,b,c) :
+    error("$T not supported")
+    gpusync(); return c
+end
+
+# TODO: this does not cover all forms of db for cpu:
+baddback_cpu!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
+
+@gpu function baddback1!{T}(alpha::Number, dy::CudaArray{T}, db::CudaArray{T})
+    cudnnConvolutionBackwardBias(dy, db)
+    alpha==1 || scale!(T(alpha),db)
+    gpusync()
+    return db
+end
+
+@gpu function baddback2!{T}(alpha::Number, dc::CudaArray{T}, da::CudaArray{T})
+    ndims(da) == ndims(dc) || throw(DimensionMismatch())
+    if ndims(da)==2
+        if size(da,1)==size(dc,1) && size(da,2)==1
+            tmp = fill!(similar(dc, (size(dc,2),1)),1)
+            A_mul_B!(da,dc,tmp)
+            free(tmp)
+        elseif size(da,2)==size(dc,2) && size(da,1)==1
+            tmp = fill!(similar(dc, (1,size(dc,1))),1)
+            A_mul_B!(da,tmp,dc)
+            free(tmp)
+        else
+            throw(DimensionMismatch())
+        end
+    else
+        ndims(da) <= 8 || error("add kernel supports dimensions up to 8")
+        for i=1:ndims(da) 
+            size(da,i)==1 || size(da,i)==size(dc,i) ||
+            throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
+        end
+        adims = CudaArray(Cint[size(da)...])
+        cdims = CudaArray(Cint[size(dc)...])
+        fill!(da,0)
+        T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dc),cdims,dc,adims,da) :
+        T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dc),cdims,dc,adims,da) :
+        error("$T not supported")
+    end
+    alpha == 1 || scale!(alpha, da)
+    gpusync()
+    return da
+end
+
+@gpu function baddback3!{T}(alpha::Number, dc::CudaArray{T}, da::CudaArray{T})
+    ndims(da) == ndims(dc) || throw(DimensionMismatch())
+    ndims(da) <= 8 || error("add kernel supports dimensions up to 8")
+    for i=1:ndims(da) 
+        size(da,i)==1 || size(da,i)==size(dc,i) ||
+        throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
+    end
+    adims = CudaArray(Cint[size(da)...])
+    cdims = CudaArray(Cint[size(dc)...])
+    fill!(da,0)
+    T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dc),cdims,dc,adims,da) :
+    T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dc),cdims,dc,adims,da) :
+    error("$T not supported")
+    alpha == 1 || scale!(alpha, da)
+    gpusync()
+    return da
+end
+
+
+
+"reshape_to_match(x1,x2) reshapes x1 to match ndims(x2) if necessary."
+function reshape_to_match(x1,x2)
+    n = ndims(x2)
+    newsize = ones(Int,n)
+    if ndims(x1)==1
+        newsize[n-1] = length(x1)
+    else
+        for i=1:ndims(x1)
+            newsize[i] = size(x1,i)
+        end
+    end
+    reshape(x1, tuple(newsize...))
+end
+
 
 function infersize(a::Add, x1, x2, y)
     if x1==x2==y==nothing
@@ -173,3 +275,15 @@ end
 #         i1
 #     end
 # end
+
+    # elseif biassize(dy, dx1)
+    #     biasback(dy, dx1)
+    #     a.alpha == 1 || scale!(a.alpha, dx1)
+    # else
+    #     # TODO: implement more broadcasting back.
+    #     error("Don't know how to do back pass with $(size(dy))=$(size(dx1))+$(size(dx2))")
+# biassize(dy,db)=(size(db,1)==size(dy, ndims(dy)==1 ? 1 : ndims(dy)-1) && all([size(db,i)==1 for i=2:ndims(db)]))
+
+# baddback!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
+# baddback!(alpha::Number, dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end; alpha==1||scale!(alpha,db))
+
