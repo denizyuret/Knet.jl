@@ -5,8 +5,9 @@ import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm
 import Base.LinAlg: axpy!, scale!
 
 ### VEC functions
-axpy!{T}(a,x::CudaArray{T},y::CudaArray{T})=(n=length(x); n==length(y)||error(); axpy!(n,convert(T,a),x,1,y,1); gpusync(); y)
-scale!{T}(a,x::CudaArray{T})=(scal!(length(x),convert(T,a),x,1); gpusync(); x)
+axpy!{T}(a::Number,x::CudaArray{T},y::CudaArray{T})=(n=length(x); n==length(y)||error(); axpy!(n,T(a),x,1,y,1); gpusync(); y)
+scale!{T}(a::Number,x::CudaArray{T})=(a==1||scal!(length(x),T(a),x,1); gpusync(); x)
+scale!{T}(x::CudaArray{T},a::Number)=(a==1||scal!(length(x),T(a),x,1); gpusync(); x)
 
 # CUBLAS is twice as slow as Barret's custom kernel in my experiments:
 # vecnorm(x::CudaArray)=nrm2(x)
