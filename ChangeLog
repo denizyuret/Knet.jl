@@ -1,7 +1,10 @@
-2015-11-02  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-11-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 	0005 --- ashish nce model: can implement as a compound model with different train and test final layers!
+	0006 profile s2s
+	0007 implement profile nce
+	0008 work on conditional language
 	0010 model.jl: add predict, load, save
 	0010 src/model/fnn.jl: predict has not been tested
 	0010 src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
@@ -89,6 +92,58 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-11-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* nce-prof:
+
+	secs	H	B	N	T	V	desc
+	1.69	100	128	128000	20	10000	lstm only
+	12.12	1024	128	128000	20	10000	lstm only 10561 wps
+	2.96	256	128	128000	20	10000	lstm only
+	4.68	512	256	128000	20	10000	lstm only
+	7.09	512	64	128000	20	10000	lstm only
+	3.53	512	64	64000	20	10000	lstm only
+	4.00	256	64	128000	20	10000	lstm only
+	5.41	512	128	128000	10	10000	lstm only
+	5.50	512	128	128000	40	10000	lstm only
+	5.47	512	128	128000	20	10000	lstm only 23400 wps
+	11.36	512	128	128000	20	10000	lstm only 2 layers
+	17.25	512	128	128000	20	10000	lstm only 3 layers
+	6.66	512	128	128000	20	10000	lstm + w.encoder 19219 wps
+	6.69	512	128	128000	20	20000	lstm + w.encoder
+	6.91	512	128	128000	20	100000	lstm + w.encoder
+	12.54	512	128	128000	20	10000	lstm 2 layers + w.encoder
+	10.87	512	128	128000	20	10000	lstm + w.encoder + w.decoder
+	19.94	512	128	128000	20	10000	lstm + w.encoder + w.decoder + bias
+	20.52	512	128	128000	20	10000	lstm + w.encoder + w.decoder + bias + soft
+	8.12	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + bias + soft
+	7.97	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + bias
+	3.69	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder
+	1.62	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + bias: fake cudnnAddTensor
+	3.69	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder: with cudnnAddTensor
+	1.62	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder: with fake add
+	1.79	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder: with my add kernel
+	1.90	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + bias: with my add kernel
+	2.04	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + soft: with my add kernel
+	2.15	512	128	128000	20	10000	test: lstm + w.encoder + w.decoder + bias + soft: with my add kernel
+	20.27	512	128	128000	20	10000	train: lstm + w.encoder + w.decoder + bias + soft: with cudnn addforw and cudnn addback
+	14.16	512	128	128000	20	10000	train: lstm + w.encoder + w.decoder + bias + soft: with my addforw and cudnn addback: forw=2.15 back=12.30
+	8.87	512	128	128000	20	10000	train: lstm + w.encoder + w.decoder + bias + soft: with my addforw and atomicAdd addback
+	8.44	512	128	128000	20	10000	train: lstm + w.encoder + w.decoder + bias + soft: with my addforw and cublas addback
+	8.07	512	128	128000	20	10000	train: lstm + w.encoder + w.decoder + bias + soft: with fake forw/back add: forw=1.62 back=6.45 biasback=5.85!
+
+	The final bias is very expensive.  Takes y[V,B] and adds b[V,1]
+	forward.  Takes dy[V,B] and accumulates into db[V,1] going
+	backward.  The back involves atomic ops but even the forward is
+	way too slow.
+
+	mnist2d gives contradictory results?
+	7.71	addback=cublas
+	7.65	addback=cudnnConvolutionBackwardBias
+	7.31	addback=my-atomicAdd-kernel (gives non-deterministic results)
+
+2015-11-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
 2015-10-30  Deniz Yuret  <dyuret@ku.edu.tr>
 

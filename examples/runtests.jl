@@ -35,7 +35,7 @@ if opts["all"] || opts["mnist2d"]
     @time @show test2 = mnist2d("--gcheck $gcheck")
     # @test test2 == (0.10628127f0,24.865438f0,3.5134742f0)
     @test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
-    twice && (@time @show test2 = mnist2d("--gcheck $gcheck"))
+    twice && (gc(); @time @show test2 = mnist2d("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
 end
@@ -152,7 +152,7 @@ if opts["all"] || opts["copyseq"]
     end
     include("copyseq.jl")
     @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
-    @test isapprox(test10[1], 3143.22; rtol=.0001)
+    @test isapprox(test10[1], 3143.22; rtol=.001)
     @test isapprox(test10[2], 1261.19; rtol=.0001)
     @test isapprox(test10[3], 106.760; rtol=.0001)
     @test isapprox(test10[4], 206.272; rtol=.0001)

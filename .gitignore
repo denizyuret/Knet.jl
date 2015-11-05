@@ -1,3 +1,4 @@
+*.mem
 *.bak
 *.cnt
 *.dict
