@@ -45,11 +45,13 @@ function softloss(ypred::Array, ygold::Array, ygrad::Array; mask=nothing, o...)
         if (mask != nothing && mask[1 + div((i-1),yrows)] == 0)
             ygrad[i] = 0
         else
-            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            ypredi = epsbump(ypred[i])
             ygrad[i] = ((ypredi-ygold[i])/ypredi)/ycols
         end
     end
 end
+
+epsbump(x)=(x > eps(typeof(x)) ? x : eps(typeof(x)))
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}, ygrad::CudaArray{T}; mask=C_NULL, o...)
     (yrows,ycols) = size2(ygrad)
@@ -75,7 +77,7 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC, ygrad::Array; mask=nothi
             ygoldi = ygold.nzval[nz]
             row = ygold.rowval[nz]
             i = (col-1) * yrows + row
-            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            ypredi = epsbump(ypred[i])
             ygrad[i] = ((ypredi-ygoldi)/ypredi)/ycols
         end
     end
@@ -103,7 +105,7 @@ function softloss(ypred::Array, ygold::Array; mask=nothing)
     logp=zero(Float64)
     for i=1:length(ygold)
         if (mask==nothing || mask[1 + div((i-1),yrows)] != 0)
-            ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+            ypredi = epsbump(ypred[i])
             logp += ygold[i]*log(ypredi)
         end
     end
@@ -136,7 +138,7 @@ function softloss(ypred::Array, ygold::SparseMatrixCSC; mask=nothing, o...)
         ygoldi = ygold.nzval[nz]
         row = ygold.rowval[nz]
         i = (col-1) * yrows + row
-        ypredi = (ypred[i] > 0 ? ypred[i] : eps(ypred[i]))
+        ypredi = epsbump(ypred[i])
         logp += (ygoldi * log(ypredi))
     end
     return -logp/ycols
