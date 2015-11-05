@@ -69,7 +69,7 @@ function test(m::NCE, data, loss; o...)
     return sumloss/numloss
 end
 
-function train(m::NCE, data, loss=nothing; nsample=0, psample=nothing, gclip=0, gcheck=false, maxnorm=nothing, losscnt=nothing, o...) #DBG: 6022
+function train(m::NCE, data, loss=nothing; nsample=0, psample=nothing, gclip=0, gcheck=false, maxnorm=nothing, losscnt=nothing, o...) # t:7351
     loss==nothing || Base.warn_once("NCE uses its own loss function for training, the user provided one is ignored.")
     nsample==0 && (nsample=100; Base.warn_once("Using nsample=100"))
     psample==nothing && (v=m.trn1.op[3].dims[1];psample=fill(Float32(1/v),v); Base.warn_once("Using uniform noise dist"))
@@ -80,24 +80,24 @@ function train(m::NCE, data, loss=nothing; nsample=0, psample=nothing, gclip=0, 
         if item != nothing
             (x,ygold) = item2xy(item)
             isa(ygold, SparseMatrixCSC) || error("NCE expects ygold to be a SparseMatrixCSC")
-            h = forw(m.rnn, x...; trn=true, seq=true, o...)
+            h = forw(m.rnn, x...; trn=true, seq=true, o...)                                     # t:1668
 
-            r = csc2csr(ygold)  # copies the transpose to gpu
-            y = forw(m.trn1, h, r; trn=true, seq=true, o...)
-            losscnt != nothing && (losscnt[1] += nce_loss_real(y); losscnt[2] += 1)
+            r = csc2csr(ygold)                                                                  # t:159  copies the transpose to gpu
+            y = forw(m.trn1, h, r; trn=true, seq=true, o...)                                    # t:460
+            losscnt != nothing && (losscnt[1] += nce_loss_real(y); losscnt[2] += 1)             # t:94
 
-            nce_alias_sample(m)
-            r = csc2csr(m.noise)
-            y = forw(m.trn2, h, r; trn=true, seq=true, o...)
-            losscnt != nothing && (losscnt[1] += nce_loss_noise(y); losscnt[2] += nsample)
+            nce_alias_sample(m)                                                                 # t:56
+            r = csc2csr(m.noise)                                                                # t:109
+            y = forw(m.trn2, h, r; trn=true, seq=true, o...)                                    # t:523
+            losscnt != nothing && (losscnt[1] += nce_loss_noise(y); losscnt[2] += nsample)      # t:134
 
         else # end of sequence
             while m.rnn.sp > 0
-                hgrad1 = back(m.trn2, Any[], nce_loss_noise; seq=true, getdx=1, o...)
-                hgrad = copy(hgrad1)
-                hgrad2 = back(m.trn1, Any[], nce_loss_real;  seq=true, getdx=1, o...)
-                axpy!(1, hgrad2, hgrad)
-                back(m.rnn, hgrad; seq=true, o...)
+                hgrad1 = back(m.trn2, Any[], nce_loss_noise; seq=true, getdx=1, o...)           # t:864
+                hgrad = copy(hgrad1)                                                            # t:28
+                hgrad2 = back(m.trn1, Any[], nce_loss_real;  seq=true, getdx=1, o...)           # t:660
+                axpy!(1, hgrad2, hgrad)                                                         # t:9
+                back(m.rnn, hgrad; seq=true, o...)                                              # t:2446
             end
             gcheck && break
             g = (gclip > 0 || maxnorm!=nothing ? gnorm(m) : 0)
