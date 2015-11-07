@@ -7,36 +7,81 @@ using JLD, ArgParse, Knet
 # Knet speed: hidden:128, batch:32, non-recurr out, --fast 154 sec/epoch
 # Knet speed: hidden:512, batch:32, non-recurr out, --fast 208 sec/epoch
 
-# Set training parameters:
+isdefined(:xtrn) || (@load "ner.jld")
 
-s = ArgParseSettings()
-@add_arg_table s begin
-    ("--hidden"; default=128; arg_type=Int)
-    ("--lr"; default=0.001; arg_type=Float64) # WARNING: adam not implemented yet
-    ("--batchsize"; default=32; arg_type=Int) # WARNING: I skip the leftovers
-    ("--epochs"; default=1000; arg_type=Int)
-    ("--gclip"; default=5.0; arg_type=Float64; help="model-wide gradient clip")
-    ("--winit"; default="Gaussian(0,0.1)"; help="weight initialization")
-    ("--fast"; action=:store_true; help="skip norm and loss calculations.")
-    ("--gcheck"; default=0; arg_type=Int; help="gradient checking")
-    ("--lossreport"; default=0; arg_type=Int; help="report training loss every n tokens")
-    ("--seed"; default=42; arg_type=Int; help="random seed")
+function ner(args=ARGS)
+
+    # Set training parameters:
+
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        ("--hidden"; default=128; arg_type=Int)
+        ("--lr"; default=0.001; arg_type=Float64) # WARNING: adam not implemented yet
+        ("--batchsize"; default=32; arg_type=Int) # WARNING: I skip the leftovers
+        ("--epochs"; default=1000; arg_type=Int)
+        ("--gclip"; default=5.0; arg_type=Float64; help="model-wide gradient clip")
+        ("--winit"; default="Gaussian(0,0.1)"; help="weight initialization")
+        ("--fast"; action=:store_true; help="skip norm and loss calculations.")
+        ("--devfortrn"; action=:store_true; help="use dev for training for timing experiments.")
+        ("--gcheck"; default=0; arg_type=Int; help="gradient checking")
+        ("--lossreport"; default=0; arg_type=Int; help="report training loss every n tokens")
+        ("--seed"; default=42; arg_type=Int; help="random seed")
+    end
+    isa(args, AbstractString) && (args=split(args))
+    opts = parse_args(args, s)
+    println(opts)
+    for (k,v) in opts; @eval ($(symbol(k))=$v); end
+    winit1 = eval(parse(winit))
+    seed > 0 && setseed(seed)
+
+    # Load data: (should we shuffle?)
+
+    @show map(size, (xtrn, ytrn, xdev, ydev))
+    trn = TagData(xtrn, ytrn; batchsize=batchsize, dense=true)
+    dev = TagData(xdev, ydev; batchsize=batchsize, dense=true)
+    @show maxtoken(xtrn)
+    @show nclass = maxtoken(ytrn)
+    flush(STDOUT)
+
+    # Construct tagger model
+
+    # initialization ek:
+    # output layer'da sofmax kullanirsak:
+    # W=lasagne.init.GlorotUniform(gain=1.0) # aka Xavier initialization.
+    # b=lasagne.init.Constant(0.)
+
+    # output layer'da recurrent softmax kullanirsak:
+    # W_in_to_hid=lasagne.init. GlorotUniform(gain=1.0) # aka Xavier initialization.
+    # W_hid_to_hid=Identity(),
+    # b=lasagne.init.Constant(0.)
+    # hid_init=lasagne.init.Constant(0.)
+
+    model = Tagger(peeplstm, peeplstm, pred; nclass=nclass, hidden=hidden, winit=winit1)
+    setopt!(model; lr=lr)
+    losscnt = (fast ? nothing : zeros(2))
+    maxnorm = (fast ? nothing : zeros(2))
+    history = Any[]
+    epoch=trnprp=devprp=deverr=0
+
+    for epoch=1:epochs
+        @show epoch
+        devfortrn ?
+        train(model, dev, softloss; gclip=gclip, losscnt=losscnt, maxnorm=maxnorm, lossreport=lossreport) :
+        train(model, trn, softloss; gclip=gclip, losscnt=losscnt, maxnorm=maxnorm, lossreport=lossreport)
+        gcheck > 0 && gradcheck(model, trn, softloss; gcheck=gcheck)
+        @show trnprp = exp(losscnt[1]/losscnt[2])
+        @show devprp = exp(test(model, dev, softloss))
+        @show deverr = test(model, dev, zeroone)
+        push!(history, deverr)
+        if length(history) > 5 && history[end] > history[end-5]
+            @show lr /= 2
+            setopt!(model; lr=lr)
+        end
+        flush(STDOUT)
+    end
+
+    return (epoch,trnprp,devprp,deverr)
 end
-opts = parse_args(ARGS, s)
-println(opts)
-for (k,v) in opts; @eval ($(symbol(k))=$v); end
-winit = eval(parse(winit))
-seed > 0 && setseed(seed)
-
-# Load data: (should we shuffle?)
-
-@load "ner.jld"
-@show map(size, (xtrn, ytrn, xdev, ydev))
-trn = TagData(xtrn, ytrn; batchsize=batchsize, dense=true)
-dev = TagData(xdev, ydev; batchsize=batchsize, dense=true)
-@show maxtoken(xtrn)
-@show nclass = maxtoken(ytrn)
-flush(STDOUT)
 
 # Construct peephole lstm model from http://arxiv.org/pdf/1308.0850.pdf pp.5
 # TODO: faster lstm possible if I do it with a single wdot
@@ -68,38 +113,7 @@ end
     z = add2(x,y; out=nclass, f=soft, winit=Xavier())
 end
 
-# Construct tagger model
-
-# initialization ek:
-# output layer'da sofmax kullanirsak:
-# W=lasagne.init.GlorotUniform(gain=1.0) # aka Xavier initialization.
-# b=lasagne.init.Constant(0.)
-
-# output layer'da recurrent softmax kullanirsak:
-# W_in_to_hid=lasagne.init. GlorotUniform(gain=1.0) # aka Xavier initialization.
-# W_hid_to_hid=Identity(),
-# b=lasagne.init.Constant(0.)
-# hid_init=lasagne.init.Constant(0.)
-
-model = Tagger(peeplstm, peeplstm, pred; nclass=nclass, hidden=hidden, winit=winit)
-setopt!(model; lr=lr)
-losscnt = (fast ? nothing : zeros(2))
-maxnorm = (fast ? nothing : zeros(2))
-history = Any[]
-
-for epoch=1:epochs
-    @date train(model, trn, softloss; gclip=gclip, losscnt=losscnt, maxnorm=maxnorm, lossreport=lossreport)
-    gcheck > 0 && (@date gradcheck(model, trn, softloss; gcheck=gcheck))
-    @date devprp = exp(test(model, dev, softloss))
-    @date deverr = test(model, dev, zeroone)
-    @show (epoch, devprp, deverr)
-    push!(history, deverr)
-    if length(history) > 5 && history[end] > history[end-5]
-        @show lr /= 2
-        setopt!(model; lr=lr)
-    end
-    flush(STDOUT)
-end
+!isinteractive() && !isdefined(:load_only) && ner(ARGS)
 
 
 ### DEAD CODE:

@@ -23,6 +23,8 @@ function initforw0(r::Net, inputs...)
     sizes = infersize(r, inputs...)
     lastinput = 0
     for n=1:length(r.op)
+        # We may have pre-allocated arrays due to parameter sharing:
+        r.out0[n] != nothing && size(r.out0[n])==sizes[n] && continue
         ### REGISTER SHARING OPTIMIZATION:
         st = (isa(r.op[n], Input) ? stype(inputs[lastinput += 1]) : nothing)
         r.out0[n] = findout(r, n, sizes, st)

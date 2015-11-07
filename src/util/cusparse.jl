@@ -23,7 +23,7 @@ Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCS
 Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host2(a))
 Base.isempty(a::CudaSparseMatrix) = (length(a) == 0)
 Base.issparse(a::CudaSparseMatrix) = true
-Base.ndims(::CudaSparseMatrix) = 2
+# Base.ndims(::CudaSparseMatrix) = 2
 Base.nnz(x::CudaSparseMatrix)=x.nnz
 Base.scale!(c,a::CudaSparseMatrix) = (scale!(c,a.nzVal); a)
 Base.stride(g::CudaSparseMatrix,i)=(i==1 ? 1 : i==2 ? g.dims[1] : length(g))
@@ -46,6 +46,15 @@ function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T})
     a.nnz = b.nnz
     resizecopy!(a.colPtr, convert(Vector{Cint},b.colPtr))
     resizecopy!(a.rowVal, convert(Vector{Cint},b.rowVal))
+    resizecopy!(a.nzVal, b.nzVal)
+    return a
+end
+
+function Base.copy!{T}(a::CudaSparseMatrixCSR{T}, b::CudaSparseMatrixCSR{T})
+    a.dims = b.dims
+    a.nnz = b.nnz
+    resizecopy!(a.rowPtr, convert(Vector{Cint},b.rowPtr))
+    resizecopy!(a.colVal, convert(Vector{Cint},b.colVal))
     resizecopy!(a.nzVal, b.nzVal)
     return a
 end

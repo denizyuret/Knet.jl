@@ -25,32 +25,37 @@ function back(::Dot, dy, dx1, dx2; x=nothing, o...)
 end
 
 function infersize(d::Dot,a,b,c)
-    # a,b may have more than 2 dims (convolution tensors etc.),
-    # in which case we group the first n-1 into a super-column
-    # a,b can also be nothing
     a==b==c==nothing && return nothing
-    a==nothing || (a=[a...]; a1=prod(a[1:end-1]); a2=a[end])
-    b==nothing || (b=[b...]; b1=prod(b[1:end-1]); b2=b[end])
+    # a,b may have more than 2 dims (convolution tensors etc.), in which case we group the first n-1 into a super-column
+    # or they could have 1 dim (bias), in which case we assume a column vector
+    # a,b can also be nothing
+    dotsize(x)=(length(x)==1 ? (x[1],1) : (prod(x[1:end-1]),x[end]))
+    a==nothing || (a=[a...]; (a1,a2)=dotsize(a))
+    b==nothing || (b=[b...]; (b1,b2)=dotsize(b))
     (c1,c2) = (c == nothing ? (0,0) :
                length(c)==2 ? c :
                throw(DimensionMismatch()))
+    if a != nothing && b != nothing
+        a2 == b1 ? nothing :
+        a2 == 0  ? a2=b1 :
+        b1 == 0  ? b1=a2 :
+        throw(DimensionMismatch())
+    end
     if a != nothing
         a1 == c1 ? nothing :
-        a1 == 0  ? (length(a)==2 && (a[1]=c1)) :
+        a1 == 0  ? a1=c1 :
         c1 == 0  ? c1=a1 :
         throw(DimensionMismatch())
+        length(a) <= 2 && (a[1] = a1)
+        length(a) >= 2 && (a[end] = a2)
     end
     if b != nothing
         b2 == c2 ? nothing :
-        b2 == 0  ? b[end] = c2 :
-        c2 == 0  ? c2 = b2 :
+        b2 == 0  ? b2=c2 :
+        c2 == 0  ? c2=b2 :
         throw(DimensionMismatch())
-    end
-    if a != nothing && b != nothing
-        a2 == b1 ? nothing :
-        a2 == 0  ? a[end]=b1 :
-        b1 == 0  ? (length(b)==2 && (b[1]=a2)) :
-        throw(DimensionMismatch())
+        length(b) <= 2 && (b[1] = b1)
+        length(b) >= 2 && (b[end] = b2)
     end
     (a==nothing ? a : tuple(a...),
      b==nothing ? b : tuple(b...),

@@ -35,6 +35,8 @@ include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss
 include("op/actf.jl");		export sigm, tanh, relu, soft, logp, axpb
 include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool
+include("op/nce.jl");		export nce
+include("op/arr.jl");		export arr
 include("update.jl");		
 
 include("compiler.jl");		export @knet
@@ -52,6 +54,7 @@ include("model/rnn.jl");        export RNN
 include("model/s2c.jl");        export S2C
 include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
 include("model/tagger.jl");	export Tagger
+include("model/nce.jl");	export NCE
 
 include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 

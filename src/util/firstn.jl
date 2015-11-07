@@ -1,3 +1,5 @@
+# TODO: use take and drop instead of firstn given in Julia base.
+
 function firstn(a,n)
     b=Any[]
     for i in a

@@ -32,6 +32,7 @@ train(m::S2S, data, loss; o...)=s2s_loop(m, data, loss; trn=true, ystack=Any[], 
 test(m::S2S, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o...); l[1]/l[2])
 
 function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
+    s2s_lossreport()
     decoding = false
     reset!(m; o...)
     for (x,ygold,mask) in data
@@ -71,10 +72,33 @@ function s2s_loss(m::S2S, ypred, ygold, mask, loss; losscnt=nothing, lossreport=
     losscnt[1] += loss(ypred,ygold;mask=mask) # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
     losscnt[2] += nwords/ycols                # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
     # we could scale losscnt with ycols so losscnt[1] is total loss and losscnt[2] is total words, but I think that breaks gradcheck since the scaled versions are what gets used for parameter updates in order to prevent batch size from effecting step size.
-    if lossreport > 0 && losscnt[2]*ycols > lossreport
-        println((exp(losscnt[1]/losscnt[2]), losscnt[1]*ycols, losscnt[2]*ycols))
-        losscnt[1] = losscnt[2] = 0
-    end
+    lossreport > 0 && s2s_lossreport(losscnt,ycols,lossreport)
+end
+
+s2s_time0 = s2s_time1 = s2s_inst = 0
+s2s_print(a...)=(for x in a; @printf("%.2f ",x); end; println(); flush(STDOUT))
+
+function s2s_lossreport()
+    global s2s_time0, s2s_time1, s2s_inst
+    s2s_inst = 0
+    s2s_time0 = s2s_time1 = time_ns()
+    println("time inst speed perp")
+end
+
+function s2s_lossreport(losscnt,batchsize,lossreport)
+    global s2s_time0, s2s_time1, s2s_inst
+    s2s_time0 == 0 && s2s_lossreport()
+    losscnt == nothing && return
+    losscnt[2]*batchsize < lossreport && return
+    curr_time = time_ns()
+    batch_time = Int(curr_time - s2s_time1)/10^9
+    total_time = Int(curr_time - s2s_time0)/10^9
+    s2s_time1 = curr_time
+    batch_inst = losscnt[2]*batchsize
+    batch_loss = losscnt[1]*batchsize
+    s2s_inst += batch_inst
+    s2s_print(total_time, s2s_inst, batch_inst/batch_time, exp(batch_loss/batch_inst))
+    losscnt[1] = losscnt[2] = 0
 end
 
 function s2s_eos(m::S2S, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm=nothing, gclip=0, o...)

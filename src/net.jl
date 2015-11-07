@@ -10,7 +10,7 @@ type Net
     tosave::Vector{Bool}        # result of op[n] needed for back calculation.  
     toback::Vector{Bool}        # dif[n] should be calculated during back calculation
     toincr::Vector{Bool}        # dif[n] should be incrementally updated: multiple outputs or Par in a sequence model
-    sparse::Vector{Bool}        # a parameter dotted with sparse input
+    sparse::Vector              # a parameter dotted with sparse input
     out::Vector
     dif::Vector
     out0::Vector
@@ -44,7 +44,7 @@ function Net(b::Expr)
         tosave(op, inputs),     # TODO: does this not depend on dx as well?
         falses(N), # toback: depends on dx
         falses(N), # toincr: depends on seq
-        falses(N), # sparse: depends on input
+        nothings(N), # sparse: depends on input
         nothings(N), nothings(N), nothings(N), nothings(N), nothings(N),
         Any[], 0)
 end

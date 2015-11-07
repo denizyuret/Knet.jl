@@ -1,10 +1,7 @@
 function gradcheck(m::Model, data, loss; gcheck=10, o...)
-    if isdefined(data,:rng)
-        rng_save = data.rng
-        data.rng = MersenneTwister()
-        rnum = time_ns()
-        srand(data.rng, rnum)
-    end
+    rnum = 42 # time_ns() #DBG
+    isdefined(data,:rng) && (data_rng_save = data.rng; data.rng=MersenneTwister(); srand(data.rng,rnum))
+    isdefined(m,:rng) && (m_rng_save = m.rng; m.rng=MersenneTwister(); srand(m.rng,rnum))
     l = zeros(2)
     train(m, data, loss; gcheck=true, losscnt=fill!(l,0), o...)
     loss0 = l[1]
@@ -22,6 +19,7 @@ function gradcheck(m::Model, data, loss; gcheck=10, o...)
             wi1 = (wi0 >= 0 ? wi0 + delta : wi0 - delta)
             p.out[i] = wi1
             isdefined(data,:rng) && srand(data.rng, rnum)
+            isdefined(m,:rng) && srand(m.rng, rnum)
             train(m, data, loss; gcheck=true, losscnt=fill!(l,0), o...)
             loss1 = l[1]
             p.out[i] = wi0
@@ -34,7 +32,8 @@ function gradcheck(m::Model, data, loss; gcheck=10, o...)
         end
         @assert isequal(p.out, psave)
     end
-    isdefined(data,:rng) && (data.rng = rng_save)
+    isdefined(data,:rng) && (data.rng = data_rng_save)
+    isdefined(m,:rng) && (m.rng = m_rng_save)
     println("gc:atol=$maxbad for rtol=$rtol, delta=$delta for largest $(length(pdiff))x$(gcheck) gradients: abs(x-y) <= atol+rtol*max(abs(x),abs(y))")
 end
 
