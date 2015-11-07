@@ -1,35 +1,56 @@
-2015-11-05  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-11-06  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* add-prof: different models favor different add kernels:
+	The three numbers in the column headings represent [addforw,baddforw,baddback] versions
+	Using anything other than baddback1 is disastrous for mnist4d
+
+			111		112		113		121		211		311		312
+	linreg		 0.734662	 0.737347	 0.738270	 0.734238	 0.738811	 0.731515+++	 0.732703
+	mnist2d		 7.026818+++	 7.155074	 7.242237	 7.646728	 7.060876	 7.031675	 7.151208
+	mnist2dy	 8.764879	 8.473809+++	 8.831164	 9.292171	 8.644037	 8.542426	 8.798958
+	mnist2dx	12.221623	12.065425	12.383539	13.012722	11.904061+++	12.005169	12.226228
+	mnist2dxy	13.587995	13.508498	13.746538	14.250780	13.361326	13.339761+++	13.618278
+	mnist4d		17.094644+++	25.352326	25.423771	18.618623	17.145873	17.135514	25.325004
+	mnistpixels	 2.803704	 3.422196	 3.336632	 3.608828	 2.754792	 2.713217+++	 3.300772
+	addinglstm	 2.287262	 2.680547	 2.749945	 2.704410	 2.266927	 2.246450+++	 2.567801
+	addingirnn	10.609234+++	12.760513	13.137940	12.825036	10.870026	10.703243	12.231000
+	rnnlm		23.604012	20.699631	21.767035	22.242024	23.096798	22.972406	20.174617+++
+	copyseq		12.510439	13.091394	12.128401	14.763487	11.693091	11.658034+++	12.153890
 
 	* TODO:
-	0005 --- ashish nce model: can implement as a compound model with different train and test final layers!
-	0006 profile s2s
-	0007 implement profile nce
-	0008 work on conditional language
+	0005 work on conditionals in compiler
+	0006 yonatan language learning model
+	0007 work on pretraining for low resource translation using s2s or lm models.
+	0009 check vivi job status: 1e9 running, start tenten after.
 	0010 model.jl: add predict, load, save
 	0010 src/model/fnn.jl: predict has not been tested
 	0010 src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
 	0020 I get Nan's back when I run copyseq with winit=Uniform(-10,10).  Gradient check fails with winit=Uniform(-1,1)
 	0100 --- examples:
-	0101 try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
 	0101 design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
+	0101 try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
 	0102 yonatan supertagging
 	0103 vivi concatenation
 	0106 karpathy character based models, inputless networks with random generators
 	0120 need something for turkish translation to report to tubitak
+	0120 try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0124 attention s2s model
 	0125 ntm
 	0126 ctc apply speech model to mt
 	0127 image captioning example
-	0120 try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0129 rnn based parser
 	0130 language learning in minecraft
 	0131 try dropout and other architectures for ner
 	0160 learning to interpret python, find other examples
+	0200 nce needs mask
+	0200 s2s needs nce
+	0200 saman kernel for lcn
 	0250 implement gru using con. or axpb?
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
 	0350 -- saman: local contrast normalization, manual weight bug:
 	0350 add the other cudnn bias options for broadcasting add.
 	0350 add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
+	0500 add copytenten to runtests: src/data/S2SData.jl: add epochsize argument so copytenten can stop early.
 	0700 --- src/op/loss.jl: cleanup, move out of op.
 	0700 examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
@@ -52,18 +73,17 @@
 	0970 perceptron and structured perceptron examples.
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
-	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
+	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 Work on non-gpu compatibility.
-	1000 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
-	1000 edit test/runtests.jl to run the examples instead.
 	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 character convolution.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
+	1000 edit test/runtests.jl to run the examples instead.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
+	1000 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
 	1000 examples/rnnlm.jl: did not get good results on the large experiment, debug.
-	1000 examples/runtests.jl: should run the whole set if no options given.
 	1000 examples: ArgParse, args: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 get rid of input() and use constructor arguments instead?	can we?
@@ -88,10 +108,53 @@
 	1000 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 	1000 use templated code for cuda kernels
+	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+	DONE add ncelm to runtests
+	DONE add ner to runtests:
+	DONE examples/runtests.jl: should run the whole set if no options given.
+	DONE fix timing problem
+	DONE release nce version
+
+2015-11-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* jonmay-tok:
+	~jonmay/projects/lorelei/unitok/[ben,eng] (also tur and tam but i haven’t done much with those yet)
+	eng has eng.mono.xxx.[train|test] for xxx of cdectok, notok, ulftok, unitok. ulftok should be best, notok should be worst. i guess cdectok should be close to ulftok and better than unitok.
+	ben has flat, cdectok, ldctok, unitok. cdectok is the character tokenization and should be worst. flat is notok. unitok and ldctok should be close and the best.
+	morphsyn: http://groups.csail.mit.edu/rbg/code/morphsyn/
+
+	* cuda-streams:
+	http://devblogs.nvidia.com/parallelforall/how-overlap-data-transfers-cuda-cc/
+	https://github.com/parallel-forall/code-samples/blob/master/series/cuda-cpp/overlap-data-transfers/async.cu
+	http://devblogs.nvidia.com/parallelforall/gpu-pro-tip-cuda-7-streams-simplify-concurrency/
+
+	* copytenten.prof:
+	1	  11872	total
+	0.729616  8662	cudaDeviceSynchronize
+	0.66939	  7947	s2s_bptt
+	0.521732  6194	op.back
+	0.291358  3459	op.forw
+	0.215212  2555	dot.back.At_mul_B.dense
+	0.206284  2449	dot.back.A_mul_Bt.dense
+	0.172675  2050	dot.forw.A_mul_B.dense
+	0.0560142 665	add.forw.baddforw2!
+	0.0441375 524	add.back.baddback2!
+	0.0328504 390	net.back.axpy
+
+	* saman.bug: dyuret@parcore-6-0:/mnt/kufs/scratch/szia13/resizedata148/preprocesseddata/Knettestpretrain.jl
+	~/tmp/saman-setup.sh
+
+	* DONE:
+
+	DONE --- ashish nce model: can implement as a compound model with different train and test final layers!
+	DONE implement profile nce, s2s/nce model
+	DONE jonmay tokenization problem
+	DONE profile s2s
+	DONE solve saman bug
 
 2015-11-03  Deniz Yuret  <dyuret@ku.edu.tr>
 

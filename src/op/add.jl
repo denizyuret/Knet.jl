@@ -47,10 +47,10 @@ function forw(a::Add, x1, x2, y; o...)
     @assert x2 == nothing || size(y) == size(x2)
     if x1!=nothing && x2!=nothing # we use nothing to represent the zero array
         if size(x1)==size(x2)
-            addforw1!(a.alpha,x1,a.beta,x2,y)
+            addforw3!(a.alpha,x1,a.beta,x2,y)
         else
             ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
-            baddforw2!(a.alpha,x1,a.beta,x2,y)
+            baddforw1!(a.alpha,x1,a.beta,x2,y)
         end
     elseif x2 != nothing
         y===x2 || copy!(y, x2)
@@ -77,7 +77,7 @@ function back(a::Add, dy, dx1, dx2; o...)
         a.alpha == 1 || scale!(a.alpha, dx1)
     else
         ndims(dx1) < ndims(dy) && (dx1 = reshape_to_match(dx1,dy))
-        baddback2!(a.alpha, dy, dx1)
+        baddback1!(a.alpha, dy, dx1)
     end
 end
 
@@ -86,13 +86,13 @@ baddforw0!(alpha,a,beta,b,c)=(b===c||copy!(c,b))
 baddback0!(alpha,dy,db)=fill!(db,0)
 
 @gpu function addforw1!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
-    CUBLAS.geam!('N','N',T(alpha),a,T(beta),b,c)
+    c===b || copy!(c,b)
+    cudnnAddTensor(a,c; alpha=T(alpha), beta=T(beta))
     gpusync(); return c
 end
 
 @gpu function addforw2!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
-    c===b || copy!(c,b)
-    cudnnAddTensor(a,c; alpha=T(alpha), beta=T(beta))
+    CUBLAS.geam!('N','N',T(alpha),a,T(beta),b,c)
     gpusync(); return c
 end
 
