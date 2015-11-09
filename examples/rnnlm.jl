@@ -102,8 +102,8 @@ function start(d::LMData)
             d.x = zeros(d.ftype, ndict, d.batchsize)
             d.y = zeros(d.ftype, ndict, d.batchsize)
         else
-            d.x = speye(d.ftype, ndict, d.batchsize)
-            d.y = speye(d.ftype, ndict, d.batchsize)
+            d.x = sponehot(d.ftype, ndict, d.batchsize)
+            d.y = sponehot(d.ftype, ndict, d.batchsize)
         end
     end
     return (0, true)

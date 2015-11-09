@@ -23,7 +23,7 @@ end
 
 type TagBatch; sgen; state; sent; word; done;
     function TagBatch(sgen, batchsize, ftype, dense)
-        word = (dense ? zeros : spones)(ftype, maxtoken(sgen), batchsize)
+        word = (dense ? zeros : sponehot)(ftype, maxtoken(sgen), batchsize)
         sent = Array(Any, batchsize)
         new(sgen, nothing, sent, word, false)
     end
@@ -79,7 +79,7 @@ end
 maxtoken(s::TagData,i)=maxtoken(i==1 ? s.x.sgen : i==2 ? s.y.sgen : error())
 maxtoken(x::Vector{Vector{Int}}) = maximum(map(maximum,x))
 
-Base.spones(ftype, m, n)=sparse(ones(Int32,n), Int32[1:n;], one(ftype), m, n)
+sponehot(ftype, m, n)=sparse(ones(Int32,n), Int32[1:n;], one(ftype), m, n)
 
 # # TODO: these assume one hot columns, make them more general.
 # setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))

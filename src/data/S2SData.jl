@@ -93,8 +93,8 @@ type S2SBatch; sgen; state; batch; x; y; mask; done;
             x = zeros(ftype, eos(sgen), batchsize)
             y = zeros(ftype, eos(sgen), batchsize)
         else
-            x = speye(ftype, eos(sgen), batchsize)
-            y = speye(ftype, eos(sgen), batchsize)
+            x = sponehot(ftype, eos(sgen), batchsize)
+            y = sponehot(ftype, eos(sgen), batchsize)
         end
         mask = zeros(Cuchar, batchsize)
         batch = Array(Any, batchsize)
