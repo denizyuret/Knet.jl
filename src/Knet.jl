@@ -18,6 +18,7 @@ export @date, @dbg, gpusync, setseed
 @gpu include("util/cudart.jl");
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
+@gpu include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/linalg.jl");	
 include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
 
@@ -88,7 +89,6 @@ end # module
 # include("data/mnist.jl");	# export MNIST
 # include("data/pixels.jl");	# export Pixels
 
-# include("util/deepcopy.jl");	# export cpucopy, gpucopy
 # include("util/array.jl");	# export BaseArray
 
 # # include("param.jl");		# export KUparam, setopt! # deprecated

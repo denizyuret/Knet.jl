@@ -18,6 +18,7 @@ type Net
     tmp::Vector
     stack::Vector
     sp::Int
+    Net()=new()
 end
     
 function Net(f::Function; ninputs=1, o...)
@@ -31,22 +32,25 @@ function Net(f::Function; ninputs=1, o...)
 end
 
 function Net(b::Expr)
+    net = Net()
     prog = _knet(b)
-    op = map(first, prog)
+    net.op = map(first, prog)
     N = length(prog)
     dict = Dict{Symbol,Int}()
     for i=1:N; dict[last(prog[i])] = i; end
-    inputs = [ Int[] for i=1:N ]
-    for i=1:N; for j=2:length(prog[i])-1; push!(inputs[i], dict[prog[i][j]]); end; end
-    Net(op, inputs, outputs(inputs),
-        count(x->isa(x,Input), op),
-        filter(x->isa(x,Par), op),
-        tosave(op, inputs),     # TODO: does this not depend on dx as well?
-        falses(N), # toback: depends on dx
-        falses(N), # toincr: depends on seq
-        nothings(N), # sparse: depends on input
-        nothings(N), nothings(N), nothings(N), nothings(N), nothings(N),
-        Any[], 0)
+    net.inputs = [ Int[] for i=1:N ]
+    for i=1:N; for j=2:length(prog[i])-1; push!(net.inputs[i], dict[prog[i][j]]); end; end
+    net.outputs = outputs(net.inputs)
+    net.netinputs = count(x->isa(x,Input), net.op)
+    net.params = filter(x->isa(x,Par), net.op)
+    net.tosave = tosave(net.op, net.inputs)     # TODO: does this not depend on dx as well?
+    net.toback = falses(N) # toback: depends on dx
+    net.toincr = falses(N) # toincr: depends on seq
+    net.sparse = nothings(N) # sparse: depends on input
+    for f in (:out,:dif,:out0,:dif0,:tmp); net.(f) = nothings(N); end
+    net.stack = Any[]
+    net.sp = 0
+    return net
 end
 
 """

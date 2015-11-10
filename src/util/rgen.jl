@@ -31,3 +31,15 @@ end
 
 @gpu bernoulli!(p,s,x::CudaArray{Float32})=(ccall((:bernoulli32,libknet), Void, (Cint,Cfloat,Cfloat,Ptr{Cfloat}), length(x), p, s, x); gpusync(); x)
 @gpu bernoulli!(p,s,x::CudaArray{Float64})=(ccall((:bernoulli64,libknet), Void, (Cint,Cdouble,Cdouble,Ptr{Cdouble}), length(x), p, s, x); gpusync(); x)
+
+function Base.isequal(a::Rgen,b::Rgen)
+    typeof(a)==typeof(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
