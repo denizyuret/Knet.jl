@@ -30,7 +30,7 @@ nb = 20
 info("1000x CPU forw: 0.2ms")
 w = x = y = nothing; gc()
 w = rand(Float32,  nh, nd)      # N
-x = speye(Float32, nd, nb)      # N
+x = sponehot(Float32, nd, nb)      # N
 rand!(x.rowval, 1:nd)
 y = Array(Float32, nh, nb)      # N
 @time for i=1:1000              # 1:0.5ms, 2:0.2ms

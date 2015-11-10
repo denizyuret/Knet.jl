@@ -117,7 +117,7 @@ end
 function nce_alias_init(m::NCE, psample, nsample)
     vocab = length(psample)
     isdefined(m, :noise) && size(m.noise) == (vocab, nsample) || 
-    (m.noise = spones(eltype(psample), length(psample), nsample))
+    (m.noise = sponehot(eltype(psample), length(psample), nsample))
     isdefined(m, :psample) && isequal(m.psample, psample) && return
     m.psample = copy(psample)
     m.kqvec = nsample * psample
