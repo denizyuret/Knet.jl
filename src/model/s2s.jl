@@ -44,13 +44,13 @@ test(m::S2S, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o
 # done: eos(sgen) different for x2
 # todo: nbest should be another parameter, for now we assume nbest=1
 
-function predict(m::S2S, sgen; beamsize=1, dense=false, o...)
+function predict(m::S2S, sgen; beamsize=1, dense=false, nbest=1, o...)
     clear!(m)
     p = params(m)
-    @show ftype = eltype(p[1].out)
-    @show eos1 = vocab1 = size(p[1].out, 2)
-    @show eos2 = vocab2 = size(p[end].out, 1)
-    @assert eos1 == eos(sgen)
+    ftype = eltype(p[1].out)
+    eos1 = vocab1 = size(p[1].out, 2)
+    eos2 = vocab2 = size(p[end].out, 1)
+    # @assert eos1 == eos(sgen)
     if dense
         x1 = zeros(ftype, vocab1, 1)
         x2 = zeros(ftype, vocab2, beamsize)
@@ -65,11 +65,13 @@ function predict(m::S2S, sgen; beamsize=1, dense=false, o...)
         for x in reverse(seq)
             forw(m.encoder, setrow!(x1, x, 1); trn=false, seq=true, o...)
         end
-        s2s_copyforw!(m.encoder, m.decoder, [1 for i=1:beamsize])
         for i in 1:beamsize
             setrow!(x2, eos2, i)
         end
-        push!(pred, decode(m.decoder, x2; o...))
+        #@show display(to_host(m.encoder.out[end]))
+        initforw(m.decoder, x2)
+        s2s_copyforw!(m.encoder, m.decoder, [1 for i=1:beamsize])
+        push!(pred, decode(m.decoder, x2; nbest=nbest, o...))
     end
     return pred
 end
@@ -79,6 +81,8 @@ end
 # todo: generate the max score sequence (already have prob in y) no need to log all: we do need to log all to combine with previous logp
 # done: n-best is a different parameter than beamsize, implement n-best?
 # done: pop the finished sequences from the beam, stop when everything on the beam is worse than top-n in the popped sequences.
+# todo: give back the answer in string
+# todo: add dropout
 
 function decode(r::Net, x; nbest=1, o...)
     (nrows,ncols) = size(x)
@@ -95,16 +99,19 @@ function decode(r::Net, x; nbest=1, o...)
     global nbestqueue = PriorityQueue()
 
     while true
+        #@show x
+        #@show display(to_host(r.out[end-3]))
         yprob = forw(r, x; trn=false, seq=true, o...)
         log!(yprob, ylogp)
         copy!(yscore, 1, ylogp, 1, length(yscore))
         broadcast!(+, yscore, score, yscore)
         global ytop = topn(yscore, 2*ncols)
         global newbeam,newscore,oldcol,newn
-        global tmp = similar(x)        # todo: avoid alloc
         newbeam,newscore,oldcol,newn = similar(beam),similar(score),zeros(Int,ncols),0
+        global tmp = similar(x)        # todo: avoid alloc
         for i in ytop
             (iword, ibeam) = ind2sub(yscore, i)
+            # println("yscore$((beam[ibeam]..., iword))=$(yscore[i])")
             if iword == eos
                 if length(nbestqueue) < nbest
                     nbestqueue[beam[ibeam]] = yscore[i]
@@ -133,7 +140,6 @@ function decode(r::Net, x; nbest=1, o...)
     for i=nbest:-1:1
         nbestlist[i] = dequeue!(nbestqueue)
     end
-    error(:ok)
     return nbestlist
 end
 
