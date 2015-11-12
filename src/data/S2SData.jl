@@ -191,6 +191,35 @@ function readvocab(file) # TODO: test with cmd e.g. `zcat foo.gz`
 end
 
 
+# Some utilities for evaluation:
+
+function dict2arr(d::Dict)
+    a = cell(length(d))
+    for (k,v) in d
+        a[v] = k
+    end
+    return a
+end
+
+function lookup(s,d::Dict,a=dict2arr(d))
+    if isa(s,Integer)
+        a[s]
+    else
+        map(x->lookup(x,d,a), s)
+    end
+end
+
+function exactmatch(m::S2S, data::S2SData; beamsize=10, nbest=10)
+    global s1 = data.bgen1.sgen
+    global s2 = data.bgen2.sgen
+    global pr = predict(m,s1; beamsize=beamsize, nbest=nbest)
+    mean(map(first,pr) .== collect(s2))
+end
+
+function kmatch(a, b, k)
+    mean(map((x,y)->in(x,y[1:k]), a, b))
+end
+
 
 ### DEAD CODE:
 
