@@ -187,45 +187,53 @@ gpucopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=deepcopy_internal(x,s)
 gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
 
 # We need cpu versions of CudaSparseMatrices for cpu/gpucopy to work
-type SparseMatrixCSR0{T}
-    rowPtr::Array{Cint,1}
-    colVal::Array{Cint,1}
-    nzVal::Array{T,1}
-    dims::NTuple{2,Int}
-    nnz::Cint
-    dev::Int
+if !isdefined(:SparseMatrixCSR0)
+    type SparseMatrixCSR0{T}
+        rowPtr::Array{Cint,1}
+        colVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
 end
 
-type SparseMatrixCSRU{T}
-    rowPtr::Array{Cint,1}
-    colVal::Array{Cint,1}
-    nzVal::Array{T,1}
-    dims::NTuple{2,Int}
-    nnz::Cint
-    dev::Int
+if !isdefined(:SparseMatrixCSRU)
+    type SparseMatrixCSRU{T}
+        rowPtr::Array{Cint,1}
+        colVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
 end
 
-type SparseMatrixCSC0{T}
-    colPtr::Array{Cint,1}
-    rowVal::Array{Cint,1}
-    nzVal::Array{T,1}
-    dims::NTuple{2,Int}
-    nnz::Cint
-    dev::Int
+if !isdefined(:SparseMatrixCSC0)
+    type SparseMatrixCSC0{T}
+        colPtr::Array{Cint,1}
+        rowVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
 end
 
-type SparseMatrixCSCU{T}
-    colPtr::Array{Cint,1}
-    rowVal::Array{Cint,1}
-    nzVal::Array{T,1}
-    dims::NTuple{2,Int}
-    nnz::Cint
-    dev::Int
+if !isdefined(:SparseMatrixCSCU)
+    type SparseMatrixCSCU{T}
+        colPtr::Array{Cint,1}
+        rowVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
 end
 
 # preserve matrix format in cpu
-typealias SparseMatrix0 Union{SparseMatrixCSC0,SparseMatrixCSR0,SparseMatrixCSCU,SparseMatrixCSRU}
-typealias CudaSparseMatrix0 Union{CudaSparseMatrixCSC,CudaSparseMatrixCSR,CudaSparseMatrixCSCU,CudaSparseMatrixCSRU}
+isdefined(:SparseMatrix0) || (typealias SparseMatrix0 Union{SparseMatrixCSC0,SparseMatrixCSR0,SparseMatrixCSCU,SparseMatrixCSRU})
+isdefined(:CudaSparseMatrix0) || typealias CudaSparseMatrix0 Union{CudaSparseMatrixCSC,CudaSparseMatrixCSR,CudaSparseMatrixCSCU,CudaSparseMatrixCSRU}
 
 cpucopy_internal(x::CudaSparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
 gpucopy_internal(x::SparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
