@@ -6,6 +6,11 @@ macro knet(f); esc(Expr(:(=),f.args[1].args[1],Expr(:quote,f))); end
 # - inheriting conditions
 # - inheriting keyword arguments
 # - replacing returns with variables
+# - variable replacement in subroutine calls
+# - recording of arg names at top level
+# - representation of primitive ops
+# - ninputs problem
+# - separate env table for knet ops and funs
 
 function comp(f::Expr; o...)
     ((f.head == :function || f.head == :(=)) &&
@@ -13,68 +18,145 @@ function comp(f::Expr; o...)
      (f.args[1].head == :call) &&
      (f.args[2].head == :block)) ||
     error("the compiler expects a function definition.")
-    returnvar = gensym(:return)
-    _comp(f.args[2]; returnvar=returnvar)
+    (fhead, fbody) = f.args
+    (fname, fargs, fpars) = _comp_call(fhead)
+    kwargs = _comp_kwargs(f, o)
+    args = [x=>x for x in fargs]
+    args[:return] = :return
+    _comp(fbody, args, kwargs, Expr(:&&))
+    # returnvar = gensym(:return)
+    # cond = Expr(:&&)
+    # kwargs = _comp_kwargs(f, o)
+    # instructions = _comp(fbody, returnvar, cond, kwargs)
 end
 
-function _comp_block(s::Expr; o...)
-    mapreduce(x->_comp(x;o...), append!, s.args)
-end
+function _comp(expr,name::Dict,value::Dict,cond::Expr)
+    if isa(expr,LineNumberNode)
+        Any[]
+    elseif !isa(expr,Expr)
+        error("expecting expression got $expr")
+    elseif expr.head == :block
+        mapreduce(x->_comp(x,name,value,cond), append!, expr.args)
+    elseif expr.head == :return
+        _comp(Expr(:(=), :return, expr.args[1]),name,value,cond)
+    elseif expr.head == :if
+        append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])), length(s.args) == 2 ? Any[] :
+                _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:!,expr.args[1]))))
+    elseif expr.head != :(=)
+        error("expecting assignment expression got $expr")
+    elseif !isa(expr.args[1], Symbol)
+        error("lhs should be a symbol in $expr")
+    elseif isa(expr.args[2], Symbol) # y=x
+        _comp(Expr(:(=), expr.args[1], Expr(:call,:_copy,expr.args[2])),name,value,cond) # x=y -> x=copy(y)
+    elseif !isa(expr.args[2], Expr) || expr.args[2].head != :call
+        error("rhs should be a function call in $expr")
+    else                        # y=f(x...;o...)
+        y = expr.args[1]
+        (f,x,o) = _comp_call(expr.args[2])
 
-function _comp_if(s::Expr; cond=true, o...)
-    append!(_comp(s.args[2]; cond=(cond==true ? s.args[1] : Expr(:&&, cond, s.args[1])), o...),
-            length(s.args) == 2 ? Any[] :
-            _comp(s.args[3]; cond=(cond==true ? Expr(:!,s.args[1]) : Expr(:&&, cond, Expr(:!,s.args[1]))), o...))
-end
-
-function _comp_return(s::Expr; returnvar=nothing, o...)
-    @assert returnvar != nothing
-    _comp(Expr(:(=), returnvar, s.args[1]); o...)
-end
-
-function _comp_assign(s::Expr; o...)
-    @show (:assign, s, o)
-    Any[]
-end
-
-# pass down pars with appropriate overrides and evaluation
-# variable replacement in subroutine calls
-# recording of arg names at top level
-# representation of primitive ops
-# ninputs problem
-
-function _comp(s::Expr; o...)
-    if s.head == :block
-        _comp_block(s; o...)
-    elseif s.head == :if
-        _comp_if(s; o...)
-    elseif s.head == :return
-        _comp_return(s; o...)
-    elseif s.head == :(=)
-        _comp_assign(s; o...)
-    else
-        @show (:unknown, s)
+        yname = get!(name, y, gensym(y))
+        feval = _comp_eval(f, value)
+        xname = map(x) do v
+            # TODO: evaluate x's instead of insisting them to be symbols
+            isa(v,Symbol) ? get!(name,v,gensym(v)) :
+            error("positional argument $v should be a symbol in $expr")
+        end
+        odict = Dict{Symbol,Any}()
+        for k in o
+            if k.head == :kw
+                odict[k.args[1]] = _comp_eval(k.args[2], value)
+            elseif k.head == :(...)
+                for (a,b) in _comp_eval(k.args[1], value)
+                    odict[a] = b
+                end
+            else
+                error("Malformed keyword argument $k")
+            end
+        end
+        if isa(feval, DataType) && (feval <: Op)
+            op = feval(; odict...)
+            Any[(cond, yname, op, xname...)]
+        elseif isa(feval, Expr)
+            kwargs = _comp_kwargs(feval, odict)
+            args = _comp_args(feval, xname, yname)
+            fbody = feval.args[2]
+            _comp(fbody, args, kwargs, cond)
+        else
+            error("expecting Op or Expr got $f")
+        end
     end
 end
 
-_comp(s::LineNumberNode; o...)=Any[]
-_comp(s; o...)=(@show typeof(s); Any[])
+"""
+Given an expression or symbol and a dictionary of symbols, evaluate the 
+expression in an environment defined by the dict.
+"""
+function _comp_eval(s,d::Dict)
+    a = Expr(:let,Expr(:block,s))
+    for (k,v) in d
+        push!(a.args, Expr(:(=),k,v))
+    end
+    eval(current_module(), a)
+end
 
-# comp(f; o...) => o: compiler options
-# forw(f,x; o...) => o: runtime options
-# so we can do forw(f,x; training=true, encoding=false) etc.
-# we already do this!
-# so forw has to evaluate conditions with respect to o... and we are all set!
-# do we compile with the @knet macro or the comp function?
+function _comp_args(f::Expr, x::Array, y::Symbol)
+    (fname, fargs, fpars) = _comp_call(f.args[1])
+    length(fargs)==length(x) || error("parameter mismatch [$fargs] [$x]")
+    fdict = Dict{Symbol,Symbol}()
+    for i=1:length(x)
+        (isa(x[i],Symbol) && isa(fargs[i],Symbol)) || error("parameter not symbol [$fargs] [$x]")
+        fdict[fargs[i]] = x[i]
+    end
+    fdict[:return] = y
+    return fdict
+end
 
-# The compiler:
-_knet(x::Expr)=(x.head == :block ? _knet_bloc(x.args) : x.head == :(=) ? _knet_assn(x.args...) : error())
-_knet_bloc(x::Array)=mapreduce(_knet, append!, x)
-_knet_assn(s::Symbol, x::Expr)=(x.head == :call ? _knet_call(x.args...,s) : error())
-_knet_call(f, p::Expr, o...)=(p.head == :parameters ? _knet(eval(current_module(), Expr(:call, f, p, map(QuoteNode, o)...))) : error())
-_knet_call(f, o...)=_knet(eval(current_module(),Expr(:call,f,map(QuoteNode, o)...)))
-_knet(x::Tuple)=(isa(x[1],Op) ? Any[x] : error())
-_knet(::LineNumberNode)=Any[]
+"""
+Given a function definition and an array of keyword arguments, returns
+a dictionary of keyword arguments that should be passed to the body of
+the function.
+"""        
+function _comp_kwargs(f::Expr, o)
+    (fname, fargs, fpars) = _comp_call(f.args[1])
+    isempty(fpars) && return Any[]
+    slurp = (isa(fpars[end],Expr) && fpars[end].head == :(...) ? pop!(fpars).args[1] : nothing)
+    fdict = Dict{Symbol,Any}()
+    for k in fpars
+        (isa(k, Expr) && isa(k.args[1], Symbol) && k.head == :kw) || error("Malformed keyword argument $k")
+        fdict[k.args[1]] = eval(current_module(), k.args[2])
+    end
+    if slurp != nothing
+        fdict[slurp] = Any[]
+    end
+    for (k,v) in o
+        if haskey(fdict, k)
+            fdict[k] = v
+        elseif slurp != nothing
+            push!(fdict[slurp], (k,v))
+        else
+            error("Unrecognized keyword argument \"$k\"")
+        end
+    end
+    return fdict
+end
+
+function _comp_call(s::Expr)
+    f = s.args[1]
+    x = s.args[2:end]
+    o = !isempty(x) && isa(x[1],Expr) && x[1].head==:parameters ? shift!(x).args[1:end] : Any[]
+    (f, x, o)
+end
+
+### DEAD CODE:
+
+# # The compiler:
+# _knet(x::Expr)=(x.head == :block ? _knet_bloc(x.args) : x.head == :(=) ? _knet_assn(x.args...) : error())
+# _knet_bloc(x::Array)=mapreduce(_knet, append!, x)
+# _knet_assn(s::Symbol, x::Expr)=(x.head == :call ? _knet_call(x.args...,s) : error())
+# _knet_call(f, p::Expr, o...)=(p.head == :parameters ? _knet(eval(current_module(), Expr(:call, f, p, map(QuoteNode, o)...))) : error())
+# _knet_call(f, o...)=_knet(eval(current_module(),Expr(:call,f,map(QuoteNode, o)...)))
+# _knet(x::Tuple)=(isa(x[1],Op) ? Any[x] : error())
+# _knet(::LineNumberNode)=Any[]
 
 
 
@@ -326,3 +408,150 @@ _knet(::LineNumberNode)=Any[]
 
 
 # :ok
+
+    # fparameters contain the parameters in the function call
+    # their values might be unevaluated
+    # o... contains the parameters from the compiler call
+    # the op constructor should be called with ?
+
+# pass down pars with appropriate overrides and evaluation
+# compiler options example:
+# comp(f; hidden=100, lr=0.1)
+# f = :(function f(x; hidden=0,o...); w = par(;out=hidden,o...); return dot(w,x); end)
+# par should we called with out=100, lr=0.1
+# if f(x; hidden=0) then par should be called with out=100 but no lr
+# so the pars that get passed to the body of f is determined by the header of f
+# if the header contains o..., then all pars are passed, overriding any defaults in f header
+
+# function call example
+# > w = par(; out=10, o...)
+# function definition example
+# > function wdot(x; out=10, o...)
+# compiler call example
+# > comp(wdot; out=10, o...)
+# Differences:
+# we can have o... in the middle in function call: par(; o..., out=10)
+# we can have more than one splat: par(; o..., p..., out=10)
+# Difference in terms of what should be passed as kwargs?
+# Going from a comp call to function definition we excluded vars not in function kwarg list
+# We treated the comp call as if it were a function call for wdot
+# So it should be an error to have variables wdot does not expect
+
+# 1. comp(wdot; hidden=10, lr=1) is called
+# .. wdot(x; hidden=0, winit=Gaussian(0,.01), o...) is the signature of wdot
+# 2. we construct a dictionary of keyword args for wdot from the comp call and wdot signature
+# .. we pass this dictionary down to _comp...
+# 3. in the body we have: w = par(; out=hidden, init=winit, o...)
+# 4. we need to call par with (out=10,lr=1)
+# this means the rhs of par keywords or par slurps need to be evaluated in an environment
+# extended by our dict.
+
+# comp(f; o...) => o: compiler options
+# forw(f,x; o...) => o: runtime options
+# so we can do forw(f,x; training=true, encoding=false) etc.
+# we already do this!
+# so forw has to evaluate conditions with respect to o... and we are all set!
+# do we compile with the @knet macro or the comp function?
+
+# function _comp_old(s::Expr, r::Symbol, c::Expr, d::Dict)
+#     if s.head == :block
+#         _comp_block(s, r, c, d)
+#     elseif s.head == :if
+#         _comp_if(s, r, c, d)
+#     elseif s.head == :return
+#         _comp_return(s, r, c, d)
+#     elseif s.head == :(=)
+#         _comp_assign(s, r, c, d)
+#     else
+#         @show (:unknown, s)
+#     end
+# end
+
+# function _comp_block(s::Expr,r::Symbol,c::Expr,d::Dict)
+#     mapreduce(x->_comp(x,r,c,d), append!, s.args)
+# end
+
+# function _comp_if(s::Expr,r::Symbol,c::Expr,d::Dict)
+#     append!(_comp(s.args[2],r,Expr(c.head,c.args...,s.args[1]), d),
+#             length(s.args) == 2 ? Any[] :
+#             _comp(s.args[3],r,Expr(c.head,c.args...,Expr(:!,s.args[1])), d))
+# end
+
+# function _comp_return(s::Expr,r::Symbol,c::Expr,d::Dict)
+#     _comp(Expr(:(=), r, s.args[1]),r,c,d)
+# end
+
+# function _comp_assign(s::Expr,r::Symbol,c::Expr,d::Dict)
+#     @assert length(s.args)==2
+#     (lhs,rhs) = s.args
+#     @assert isa(lhs, Symbol)
+#     if isa(rhs, Symbol)
+#         @show (:assign_symbol, s,r,c,d); Any[]
+#     else
+#         @assert isa(rhs, Expr)
+#         @assert rhs.head == :call
+#         func = eval(current_module(), rhs.args[1])
+#         if isa(func, Expr)
+#             _comp_sub(s,r,c,d)
+#         elseif isa(func, DataType) && func <: Op
+#             _comp_op(s,r,c,d)
+#         else
+#             @show (:assign_unknown, s,r,c,d); Any[]
+#         end
+#     end
+# end
+
+# "compile: w = par(; out=10, o...)"
+# function _comp_op(s::Expr,r::Symbol,c::Expr,d::Dict)
+#     (lhs,rhs) = s.args
+#     a = rhs.args
+#     if length(a) > 1 && isa(a[2],Expr) && a[2].head == :parameters
+#         fcall = a[1:2]
+#         fargs = a[3:end]
+#     else
+#         fcall = a[1:1]
+#         fargs = a[2:end]
+#     end
+#     @assert all(x->isa(x,Symbol), fargs) "Positional arguments must be symbols only, knet does not support default values or ... slurping before the semicolon."
+#     @assert unique(fargs)==fargs "Positional arguments must be unique."
+#     op = _comp_eval(Expr(:call,fcall...), d)
+#     Any[tuple(c, lhs, op, fargs...)]
+# end
+
+# f (wdot) is a function definition.
+# compile the body of f, but:
+# returnvar needs to be lhs
+# args in function def need to be replaced with fargs
+# local vars in function def need to be gensym
+# fpar dict needs to be handled
+# we just need the instructions back.
+# _comp the body
+# we need two dictionaries: symbol replacement dict, and eval dict
+# when we see y=wdot(x; o...) in the body we need to replace y, x, and o.
+# when we see z = f(y; o...) find y and z in vars, f and o in dict
+# so target and input vars in vars, all else eval
+# initial: comp gets fname and kwargs
+# kwargs matches kwpars in f definition, may have extras if o...
+
+# problem symbols like conv and dot are defined in base and cannot be overwritten
+# solution: make the compiler look them up in a special primitives table
+# that special table can also include operators like '+' or '*'
+
+# However if we do use a primitives table and do not define symbols 
+# like dot in Julia then we can't pass them using comp(wbf;f=dot)
+
+# """
+
+# Compiling a single instruction::
+
+#     y=f(x1,x2,...;o1=v1,o2=v2,on...)
+
+# when f is a primitive operator or
+# when the function definition for f is::
+
+#     function f(z1,z2,...;p1=w1,p2=w2,pn...)    
+
+# """
+# _comp
+
+
