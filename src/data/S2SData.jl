@@ -168,8 +168,8 @@ function nextbatch(b::S2SBatch)
 end
 
 # TODO: these assume one hot columns, make them more general.
-setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
-setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
+setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0); x)
+setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1); x)
 
 # Sequence generators do not generate eos, the s2s generator does.  It
 # makes it maxtoken(sgen)+1 by convention.  So maxtoken of the s2s
