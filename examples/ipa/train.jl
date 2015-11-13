@@ -1,4 +1,5 @@
 using Knet, ArgParse, JLD
+using Knet: clear!
 
 @knet function droplstm(x0; fbias=1, drop1=0.2, drop2=0.2, o...)
     x = drop(x0; pdrop=drop1)

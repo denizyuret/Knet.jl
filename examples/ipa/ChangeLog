@@ -27,6 +27,9 @@
 	opt434.out:19     2600.86 1.20433 1.21442 1215.87 21.3783 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 22 --drop1 0.8 --drop2 0.5 --epochs 20
 	opt452.out:22     3004.95 1.17685 1.20637 1298.47 18.9302 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 23 --drop1 0.8 --drop2 0.4 --epochs 30
 
+	julia> exp(test(m,testdata,softloss)) => 1.2063670124244923
+	julia> exactmatch(m,testdata) => 0.6613769145744512
+
 	* ipa03.out: multi-epoch training with ("bestfile"=>"best03.jld","hidden"=>512,"lr"=>2.0,"decay"=>1.0,"drop2"=>0.2,"batchsize"=>128,"savefile"=>"last03.jld","fast"=>false,"gclip"=>5.0,"usesparse"=>false,"loadfile"=>nothing,"dictfiles"=>Any["lhs.dict","rhs.dict"],"gcheck"=>0,"fbias"=>0.8324,"epochs"=>100,"drop1"=>0.4,"ftype"=>"Float32","lossreport"=>100000,"seed"=>42,"datafiles"=>Any["lhs.trn","rhs.trn","lhs.tst","rhs.tst"])
 	@beamsize=10
 	julia> exp(test(m, testdata, softloss)) 1.2446281349836184
