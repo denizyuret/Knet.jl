@@ -9,6 +9,23 @@
 
 	Higher drop2:
 	opt367.out:12     1641.15 1.159  1.22811 1086.04 26.1913 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 15 --drop1 0.4 --drop2 0.3 --epochs 15
+	opt373.out:13     1778.07 1.17837 1.22482 1100.84 19.9034 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 16 --drop1 0.4 --drop2 0.5 --epochs 15
+
+	Testing drop1=[0.2..0.5] when drop2=0.4, drop1=0.4 wins
+	opt383.out:12     1643.14 1.17815 1.2267 1076.41 23.019 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 17 --drop1 0.4 --drop2 0.4 --epochs 15
+
+	Testing drop2=[0.6..0.8] when drop1=0.4
+	Testing drop1=[0.3,0.4,0.5] when drop2=0.5
+	opt398.out:13     1775.75 1.17841 1.23037 1093.8 25.1098 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 19 --drop1 0.5 --drop2 0.5 --epochs 20
+	opt397.out:13     1779.13 1.16661 1.2305 1097.27 30.8873 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 19 --drop1 0.4 --drop2 0.5 --epochs 20
+
+	Larger drop1 or fbias.
+	opt407.out:15     2052.31 1.17061 1.22055 1160.84 37.0853 --hidden 512 --gclip 5 --lr 2 --fbias 1.1 --seed 20 --drop1 0.5 --drop2 0.5 --epochs 20
+	opt403.out:15     2048.9 1.17867 1.22063 1150.71 21.991   --hidden 512 --gclip 5 --lr 2 --fbias 1.0 --seed 20 --drop1 0.6 --drop2 0.5 --epochs 20
+	opt413.out:19     2597.87 1.18212 1.221  1557.54 14.3562  --hidden 512 --gclip 10 --lr 2 --fbias 1 --seed 20 --drop1 0.5 --drop2 0.5 --epochs 20
+
+	opt434.out:19     2600.86 1.20433 1.21442 1215.87 21.3783 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 22 --drop1 0.8 --drop2 0.5 --epochs 20
+	opt452.out:22     3004.95 1.17685 1.20637 1298.47 18.9302 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 23 --drop1 0.8 --drop2 0.4 --epochs 30
 
 	* ipa03.out: multi-epoch training with ("bestfile"=>"best03.jld","hidden"=>512,"lr"=>2.0,"decay"=>1.0,"drop2"=>0.2,"batchsize"=>128,"savefile"=>"last03.jld","fast"=>false,"gclip"=>5.0,"usesparse"=>false,"loadfile"=>nothing,"dictfiles"=>Any["lhs.dict","rhs.dict"],"gcheck"=>0,"fbias"=>0.8324,"epochs"=>100,"drop1"=>0.4,"ftype"=>"Float32","lossreport"=>100000,"seed"=>42,"datafiles"=>Any["lhs.trn","rhs.trn","lhs.tst","rhs.tst"])
 	@beamsize=10
