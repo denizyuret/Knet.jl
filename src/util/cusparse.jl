@@ -4,23 +4,8 @@ using CUDArt
 using CUSPARSE
 using CUSPARSE: CudaSparseMatrix
 
-# This is buggy in master:util.jl:75, submitted pull request:
-function to_host2{T}(Mat::CudaSparseMatrixCSR{T})
-    rowPtr = to_host(Mat.rowPtr)
-    colVal = to_host(Mat.colVal)
-    nzVal = to_host(Mat.nzVal)
-    #construct Is
-    I = similar(colVal)
-    counter = 1
-    for row = 1 : size(Mat)[1], k = rowPtr[row] : (rowPtr[row+1]-1)
-        I[counter] = row
-        counter += 1
-    end
-    return sparse(I,colVal,nzVal,Mat.dims[1],Mat.dims[2])
-end
-
 Base.convert(::Type{CudaSparseMatrixCSC}, x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
-Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host2(a))
+Base.convert{T<:Array}(::Type{T},a::CudaSparseMatrix)=full(to_host(a))
 Base.isempty(a::CudaSparseMatrix) = (length(a) == 0)
 Base.issparse(a::CudaSparseMatrix) = true
 # Base.ndims(::CudaSparseMatrix) = 2
@@ -88,6 +73,194 @@ function Base.fill!(x::CudaSparseMatrixCSC,n)
     x.nnz = 0
     return x
 end
+
+# A_mul_Bt!(csr,dns,csc) is more efficient if we do not insist on
+# unique sorted csr entries.  To signal unsorted csr, we introduce a
+# new type so we don't accidentally pass it to an unprepared function.
+# The following adapted from CUSPARSE.jl:
+
+# For dw = r' * du we need the CSC versions below
+
+if !isdefined(:CudaSparseMatrixCSRU)
+    type CudaSparseMatrixCSRU{T}
+        rowPtr::CudaVector{Cint}
+        colVal::CudaVector{Cint}
+        nzVal::CudaVector{T}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+if !isdefined(:CudaSparseMatrixCSCU)
+    type CudaSparseMatrixCSCU{T}
+        colPtr::CudaVector{Cint}
+        rowVal::CudaVector{Cint}
+        nzVal::CudaVector{T}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+CudaSparseMatrixCSRU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSRU{T}(fill!(CudaArray(Cint,m+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
+CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, convert(Cint,length(nzVal)), device())
+CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, nnz, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, nnz, device())
+
+CudaSparseMatrixCSCU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSCU{T}(fill!(CudaArray(Cint,n+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
+CudaSparseMatrixCSCU(T::Type, colPtr::CudaArray, rowVal::CudaArray, nzVal::CudaArray, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(colPtr, rowVal, nzVal, dims, convert(Cint,length(nzVal)), device())
+CudaSparseMatrixCSCU(T::Type, colPtr::CudaArray, rowVal::CudaArray, nzVal::CudaArray, nnz, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(colPtr, rowVal, nzVal, dims, nnz, device())
+CudaSparseMatrixCSCU(T::Type, colPtr::Vector, rowVal::Vector, nzVal::Vector, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(CudaArray(convert(Vector{Cint},colPtr)), CudaArray(convert(Vector{Cint},rowVal)), CudaArray(nzVal), dims, convert(Cint,length(nzVal)), device())
+CudaSparseMatrixCSCU(Mat::SparseMatrixCSC) = CudaSparseMatrixCSCU(eltype(Mat), Mat.colptr, Mat.rowval, Mat.nzval, size(Mat))
+
+
+Base.eltype{T}(x::CudaSparseMatrixCSRU{T})=T
+Base.size(x::CudaSparseMatrixCSRU)=x.dims
+Base.issparse(x::CudaSparseMatrixCSRU)=true
+Base.scale!(s,x::CudaSparseMatrixCSRU)=scale!(s,x.nzVal)
+Base.similar(Mat::CudaSparseMatrixCSRU) = CudaSparseMatrixCSRU(eltype(Mat), copy(Mat.rowPtr), copy(Mat.colVal), similar(Mat.nzVal), Mat.nnz, Mat.dims)
+Base.copy(Mat::CudaSparseMatrixCSRU; stream=null_stream) = copy!(similar(Mat),Mat;stream=null_stream)
+
+Base.eltype{T}(x::CudaSparseMatrixCSCU{T})=T
+Base.size(x::CudaSparseMatrixCSCU)=x.dims
+Base.issparse(x::CudaSparseMatrixCSCU)=true
+Base.scale!(s,x::CudaSparseMatrixCSCU)=scale!(s,x.nzVal)
+Base.similar(Mat::CudaSparseMatrixCSCU) = CudaSparseMatrixCSCU(eltype(Mat), copy(Mat.colPtr), copy(Mat.rowVal), similar(Mat.nzVal), Mat.nnz, Mat.dims)
+Base.copy(Mat::CudaSparseMatrixCSCU; stream=null_stream) = copy!(similar(Mat),Mat;stream=null_stream)
+
+function Base.copy!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream=null_stream)
+    if dst.dims != src.dims
+        throw(ArgumentError("Inconsistent Sparse Matrix size"))
+    end
+    resizecopy!( dst.rowPtr, src.rowPtr )
+    resizecopy!( dst.colVal, src.colVal )
+    resizecopy!( dst.nzVal, src.nzVal )
+    dst.nnz = src.nnz
+    dst
+end
+
+function Base.copy!(dst::CudaSparseMatrixCSCU, src::CudaSparseMatrixCSCU; stream=null_stream)
+    if dst.dims != src.dims
+        throw(ArgumentError("Inconsistent Sparse Matrix size"))
+    end
+    resizecopy!( dst.colPtr, src.colPtr )
+    resizecopy!( dst.rowVal, src.rowVal )
+    resizecopy!( dst.nzVal, src.nzVal )
+    dst.nnz = src.nnz
+    dst
+end
+
+function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSRU{T})
+    rowPtr = to_host(Mat.rowPtr)
+    colVal = to_host(Mat.colVal)
+    nzVal = to_host(Mat.nzVal)
+    #construct Is
+    I = similar(colVal)
+    counter = 1
+    for row = 1 : size(Mat)[1], k = rowPtr[row] : (rowPtr[row+1]-1)
+        I[counter] = row
+        counter += 1
+    end
+    return sparse(I,colVal,nzVal,Mat.dims[1],Mat.dims[2])
+end
+
+function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSCU{T})
+    (m,n) = Mat.dims
+    colptr = to_host(Mat.colPtr)
+    rowval = to_host(Mat.rowVal)
+    nzval = to_host(Mat.nzVal)
+    colval = similar(rowval)
+    for i=1:n
+        colval[colptr[i]:colptr[i+1]-1] = i
+    end
+    return sparse(rowval, colval, nzval, m, n)
+end
+
+deepcopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=deepcopy_internal(x,s)
+
+deepcopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=deepcopy_internal(x,s)
+
+deepcopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=deepcopy_internal(x,s)
+gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
+
+# We need cpu versions of CudaSparseMatrices for cpu/gpucopy to work
+if !isdefined(:SparseMatrixCSR0)
+    type SparseMatrixCSR0{T}
+        rowPtr::Array{Cint,1}
+        colVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+if !isdefined(:SparseMatrixCSRU)
+    type SparseMatrixCSRU{T}
+        rowPtr::Array{Cint,1}
+        colVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+if !isdefined(:SparseMatrixCSC0)
+    type SparseMatrixCSC0{T}
+        colPtr::Array{Cint,1}
+        rowVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+if !isdefined(:SparseMatrixCSCU)
+    type SparseMatrixCSCU{T}
+        colPtr::Array{Cint,1}
+        rowVal::Array{Cint,1}
+        nzVal::Array{T,1}
+        dims::NTuple{2,Int}
+        nnz::Cint
+        dev::Int
+    end
+end
+
+# preserve matrix format in cpu
+isdefined(:SparseMatrix0) || (typealias SparseMatrix0 Union{SparseMatrixCSC0,SparseMatrixCSR0,SparseMatrixCSCU,SparseMatrixCSRU})
+isdefined(:CudaSparseMatrix0) || typealias CudaSparseMatrix0 Union{CudaSparseMatrixCSC,CudaSparseMatrixCSR,CudaSparseMatrixCSCU,CudaSparseMatrixCSRU}
+
+cpucopy_internal(x::CudaSparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
+gpucopy_internal(x::SparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
+
+cpucopy_sparse{T}(x::CudaSparseMatrixCSC{T})=SparseMatrixCSC0{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
+cpucopy_sparse{T}(x::CudaSparseMatrixCSCU{T})=SparseMatrixCSCU{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
+cpucopy_sparse{T}(x::CudaSparseMatrixCSR{T})=SparseMatrixCSR0{T}(to_host(x.rowPtr),to_host(x.colVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
+cpucopy_sparse{T}(x::CudaSparseMatrixCSRU{T})=SparseMatrixCSRU{T}(to_host(x.rowPtr),to_host(x.colVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
+
+gpucopy_sparse{T}(x::SparseMatrixCSC0{T})=CudaSparseMatrixCSC{T}(CudaArray(x.colPtr),CudaArray(x.rowVal),CudaArray(x.nzVal),x.dims,x.nnz,x.dev)
+gpucopy_sparse{T}(x::SparseMatrixCSCU{T})=CudaSparseMatrixCSCU{T}(CudaArray(x.colPtr),CudaArray(x.rowVal),CudaArray(x.nzVal),x.dims,x.nnz,x.dev)
+gpucopy_sparse{T}(x::SparseMatrixCSR0{T})=CudaSparseMatrixCSR{T}(CudaArray(x.rowPtr),CudaArray(x.colVal),CudaArray(x.nzVal),x.dims,x.nnz,x.dev)
+gpucopy_sparse{T}(x::SparseMatrixCSRU{T})=CudaSparseMatrixCSRU{T}(CudaArray(x.rowPtr),CudaArray(x.colVal),CudaArray(x.nzVal),x.dims,x.nnz,x.dev)
+
+# equality testing
+function Base.isequal(a::Union{CudaSparseMatrix0,SparseMatrix0},b::Union{CudaSparseMatrix0,SparseMatrix0})
+    typeof(a)==typeof(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
+
 
 import Base.LinAlg.BLAS: gemm!
 using CUSPARSE: SparseChar, cusparseop, cusparseindex,
@@ -192,3 +365,18 @@ end
         #                       &cudescc, C.nzVal, C.rowPtr, C.colVal))
         #     C
         # end
+# # This is buggy in master:util.jl:75, submitted pull request:
+# function to_host2{T}(Mat::CudaSparseMatrixCSR{T})
+#     rowPtr = to_host(Mat.rowPtr)
+#     colVal = to_host(Mat.colVal)
+#     nzVal = to_host(Mat.nzVal)
+#     #construct Is
+#     I = similar(colVal)
+#     counter = 1
+#     for row = 1 : size(Mat)[1], k = rowPtr[row] : (rowPtr[row+1]-1)
+#         I[counter] = row
+#         counter += 1
+#     end
+#     return sparse(I,colVal,nzVal,Mat.dims[1],Mat.dims[2])
+# end
+

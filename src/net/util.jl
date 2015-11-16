@@ -71,23 +71,23 @@ function isequal(a::Net, b::Net)
     return true
 end
 
-# Do not copy inputs to gpu:
-
-function gpucopy_internal(x::Net, stackdict::ObjectIdDict)
-    if haskey(stackdict, x)
-        return stackdict[x]
+# Do not copy everything to gpu
+function gpucopy_internal(x::Net, s::ObjectIdDict)
+    haskey(s,x) && return s[x]
+    n = Net()
+    for f in (:netinputs, :sp)
+        n.(f) = x.(f)
     end
-    y = ccall(:jl_new_struct_uninit, Any, (Any,), Net)
-    stackdict[x] = y
-    for i in fieldnames(x)
-        if isdefined(x,i)
-            y.(i) = (i == :inputs ?
-                     cpucopy_internal(x.(i), stackdict) :
-                     gpucopy_internal(x.(i), stackdict))
-        end
+    for f in (:inputs, :outputs, :tosave, :toback, :toincr, :sparse)
+        n.(f) = deepcopy_internal(x.(f),s)
     end
-    return y
+    for f in (:op, :out, :dif, :out0, :dif0, :tmp, :stack)
+        n.(f) = gpucopy_internal(x.(f),s)
+    end
+    n.params = filter(x->isa(x,Par), n.op)
+    return n
 end
+
 
 get1(x)=(length(x)==1?x[1]:x)
 
@@ -823,3 +823,21 @@ end
 #     #     trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
 #     #     r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
 #     # end
+
+# # Do not copy inputs to gpu:
+
+# function gpucopy_internal(x::Net, stackdict::ObjectIdDict)
+#     if haskey(stackdict, x)
+#         return stackdict[x]
+#     end
+#     y = ccall(:jl_new_struct_uninit, Any, (Any,), Net)
+#     stackdict[x] = y
+#     for i in fieldnames(x)
+#         if isdefined(x,i)
+#             y.(i) = (i == :inputs ?
+#                      cpucopy_internal(x.(i), stackdict) :
+#                      gpucopy_internal(x.(i), stackdict))
+#         end
+#     end
+#     return y
+# end

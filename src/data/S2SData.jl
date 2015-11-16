@@ -168,8 +168,8 @@ function nextbatch(b::S2SBatch)
 end
 
 # TODO: these assume one hot columns, make them more general.
-setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0))
-setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1))
+setrow!(x::SparseMatrixCSC,i,j)=(i>0 ? (x.rowval[j] = i; x.nzval[j] = 1) : (x.rowval[j]=1; x.nzval[j]=0); x)
+setrow!(x::Array,i,j)=(x[:,j]=0; i>0 && (x[i,j]=1); x)
 
 # Sequence generators do not generate eos, the s2s generator does.  It
 # makes it maxtoken(sgen)+1 by convention.  So maxtoken of the s2s
@@ -190,6 +190,35 @@ function readvocab(file) # TODO: test with cmd e.g. `zcat foo.gz`
     return d
 end
 
+
+# Some utilities for evaluation:
+
+function dict2arr(d::Dict)
+    a = cell(length(d))
+    for (k,v) in d
+        a[v] = k
+    end
+    return a
+end
+
+function lookup(s,d::Dict,a=dict2arr(d))
+    if isa(s,Integer)
+        a[s]
+    else
+        map(x->lookup(x,d,a), s)
+    end
+end
+
+function exactmatch(m::S2S, data::S2SData; beamsize=10, nbest=10)
+    global s1 = data.bgen1.sgen
+    global s2 = data.bgen2.sgen
+    global pr = predict(m,s1; beamsize=beamsize, nbest=nbest)
+    mean(map(first,pr) .== collect(s2))
+end
+
+function kmatch(a, b, k)
+    mean(map((x,y)->in(x,y[1:k]), a, b))
+end
 
 
 ### DEAD CODE:

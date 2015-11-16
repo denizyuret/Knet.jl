@@ -50,7 +50,7 @@ end
 @knet function add2(x1, x2; f=sigm, o...)
     y1 = wdot(x1; o...)
     y2 = wdot(x2; o...)
-    x3 = add(y1,y2)
+    x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
     y3 = bias(x3; o...)
     ou = f(y3; o...)
 end

@@ -31,6 +31,153 @@ train(m::S2S, data, loss; o...)=s2s_loop(m, data, loss; trn=true, ystack=Any[], 
 
 test(m::S2S, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o...); l[1]/l[2])
 
+# todo: implement load/save: revive cpucopy - done. 
+# todo: implement predict
+# data should be a sequence generator for the source side
+# i.e. next(data) should be a vector of source side ints
+# todo: introduce an abstract type for data
+# done: we need to have our own batch matrices
+# done: the batchsize for the model needs to change
+# note: no need for mask if we use batchsize=1 for predict
+# note: s2sdata should probably be part of train, since we'll have to write different train functions for different models anyway, how the model consumes data is not part of the data, it is part of train, will make it easier to write data generators.
+# done: copyforw needs to do repmat
+# done: eos(sgen) different for x2
+# todo: nbest should be another parameter, for now we assume nbest=1
+
+function predict(m::S2S, sgen; beamsize=1, dense=false, nbest=1, o...)
+    clear!(m)
+    p = params(m)
+    ftype = eltype(p[1].out)
+    eos1 = vocab1 = size(p[1].out, 2)
+    eos2 = vocab2 = size(p[end].out, 1)
+    # @assert eos1 == eos(sgen)
+    if dense
+        x1 = zeros(ftype, vocab1, 1)
+        x2 = zeros(ftype, vocab2, beamsize)
+    else
+        x1 = sponehot(ftype, vocab1, 1)
+        x2 = sponehot(ftype, vocab2, beamsize)
+    end
+    pred = Any[]
+    for seq in sgen
+        reset!(m)
+        forw(m.encoder, setrow!(x1,eos1,1); trn=false, seq=true, o...)
+        for x in reverse(seq)
+            forw(m.encoder, setrow!(x1, x, 1); trn=false, seq=true, o...)
+        end
+        for i in 1:beamsize
+            setrow!(x2, eos2, i)
+        end
+        #@show display(to_host(m.encoder.out[end]))
+        initforw(m.decoder, x2)
+        s2s_copyforw!(m.encoder, m.decoder, [1 for i=1:beamsize])
+        push!(pred, decode(m.decoder, x2; nbest=nbest, o...))
+    end
+    return pred
+end
+
+# done: construct the new h, need a shuffling version of copyforw, need to be careful not to overwrite
+# done: construct the new x, need to find the top scoring words without repetition, these are cumulative scores, not word scores! and cumulative words, e.g. identical words may win continuing different sequences.  we can use bad initial scores for all but the first of the initial columns.
+# todo: generate the max score sequence (already have prob in y) no need to log all: we do need to log all to combine with previous logp
+# done: n-best is a different parameter than beamsize, implement n-best?
+# done: pop the finished sequences from the beam, stop when everything on the beam is worse than top-n in the popped sequences.
+# todo: give back the answer in string
+# todo: add dropout
+
+function decode(r::Net, x; nbest=1, o...)
+    (nrows,ncols) = size(x)
+    eos = vocab = nrows
+    # TODO: some of these should not need to be allocated every time
+    global ylogp = CudaArray(eltype(x), size(x))
+    global yscore = Array(eltype(x), size(x))
+    # beam is going to hold the previous tokens leading up to the current columns
+    global beam = [ Int[] for i=1:ncols ]
+    # score is the cumulative logp of sequences on the beam, we initialize all but the first column with -Inf because initially all columns are going to be the same.
+    global score = Array(eltype(x), (1, ncols))
+    fill!(score, -Inf); score[1]=0
+    # nbest list for completed sequences, keys: Int[], values: cumulative logp.  When scores on the beam are all worse than the ones in nbest stop.
+    global nbestqueue = PriorityQueue()
+
+    while true
+        #@show x
+        #@show display(to_host(r.out[end-3]))
+        yprob = forw(r, x; trn=false, seq=true, o...)
+        log!(yprob, ylogp)
+        copy!(yscore, 1, ylogp, 1, length(yscore))
+        broadcast!(+, yscore, score, yscore)
+        global ytop = topn(yscore, 2*ncols)
+        global newbeam,newscore,oldcol,newn
+        newbeam,newscore,oldcol,newn = similar(beam),similar(score),zeros(Int,ncols),0
+        global tmp = similar(x)        # todo: avoid alloc
+        for i in ytop
+            (iword, ibeam) = ind2sub(yscore, i)
+            # println("yscore$((beam[ibeam]..., iword))=$(yscore[i])")
+            if iword == eos
+                if length(nbestqueue) < nbest
+                    nbestqueue[beam[ibeam]] = yscore[i]
+                elseif yscore[i] > peek(nbestqueue).second
+                    dequeue!(nbestqueue)
+                    nbestqueue[beam[ibeam]] = yscore[i]
+                end
+            else
+                newn += 1
+                oldcol[newn] = ibeam
+                newbeam[newn] = vcat(beam[ibeam],iword)
+                newscore[newn] = yscore[i]
+                setrow!(tmp, iword, newn)
+                newn == ncols && break
+            end
+        end
+        # todo: what if there is not enough to fill ncols?
+        @assert newn == ncols
+        beam,score = newbeam,newscore
+        length(nbestqueue) >= nbest && score[1] < peek(nbestqueue).second && break
+        s2s_copyforw!(r, r, oldcol)
+        x = tmp
+    end
+    @assert length(nbestqueue) == nbest
+    global nbestlist = Array(Vector{Int}, nbest)
+    for i=nbest:-1:1
+        nbestlist[i] = dequeue!(nbestqueue)
+    end
+    return nbestlist
+end
+
+using Base.Collections
+
+function topn{T}(a::Array{T},n::Int)
+    p = PriorityQueue{Int,T,Base.Order.ForwardOrdering}()
+    plen::Int = 0
+    pmin::T = typemax(T)
+    @inbounds for i=1:length(a)
+        if plen < n
+            p[i] = a[i]
+            plen += 1
+            pmin = peek(p).second
+        elseif a[i] > pmin
+            dequeue!(p)
+            p[i] = a[i]
+            pmin = peek(p).second
+        end
+    end
+    k = Array(Int,n)
+    @inbounds for i=n:-1:1
+        k[i] = dequeue!(p)
+    end
+    return k
+end
+
+function clear!(m::S2S)
+    for net in (m.encoder, m.decoder)
+        for i in 1:nops(net)
+            if !isa(net.op[i],Par) && !isa(net.op[i],Arr)
+                net.out[i] = net.out0[i] = net.dif[i] = net.dif0[i] = net.tmp[i] = nothing
+            end
+        end
+    end
+    return m
+end
+
 function s2s_loop(m::S2S, data, loss; gcheck=false, o...)
     s2s_lossreport()
     decoding = false
@@ -139,6 +286,26 @@ function s2s_copyforw!(m::S2S)
     end
 end
 
+function s2s_copyforw!(n1::Net, n2::Net, cols)
+    ncols = length(cols)
+    for n=1:nops(n1)
+        if forwref(n1, n)
+            o1 = n1.out[n]
+            @assert o1 != nothing
+            nrows = size(o1,1)
+            o2 = n2.tmp[n]
+            if o2 == nothing || size(o2) != (nrows, ncols)
+                o2 = similar(o1, (nrows, ncols))
+            end
+            for i=1:length(cols)
+                copy!(o2, 1+(i-1)*nrows, o1, 1+(cols[i]-1)*nrows, nrows)
+            end
+            n2.tmp[n] = n2.out0[n]
+            n2.out[n] = n2.out0[n] = o2
+        end
+    end
+end
+
 function s2s_copyback!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
@@ -149,6 +316,17 @@ function s2s_copyback!(m::S2S)
     end
 end
 
+function Base.isequal(a::S2S,b::S2S)
+    typeof(a)==typeof(b) || return false
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
 
 # FAQ:
 #

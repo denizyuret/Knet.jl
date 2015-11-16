@@ -72,6 +72,7 @@ function forw(p::Par, y; o...)
             rgen!(p.init, y)
         end
         p.out = y
+        p.dims = size(y)
         p.dif = nothing
         p.initialized = true
     end

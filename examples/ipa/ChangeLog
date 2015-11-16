@@ -1,0 +1,125 @@
+2015-11-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* opt.pl: running more overfitting experiments with ipa.jl:
+	opt337.out:10     1368.79 1.14917 1.23877 1018.02 27.8436 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 14 --drop1 0.4 --drop2 0.2 --epochs 15
+	512 did better than 362 and 724!
+
+	Higher fbias seems to help.
+	opt353.out:11     1504.82 1.15357 1.23808 1061.98 24.4819 --hidden 512 --gclip 5 --lr 2 --fbias 1.1 --seed 14 --drop1 0.4 --drop2 0.2 --epochs 15
+
+	Higher drop2:
+	opt367.out:12     1641.15 1.159  1.22811 1086.04 26.1913 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 15 --drop1 0.4 --drop2 0.3 --epochs 15
+	opt373.out:13     1778.07 1.17837 1.22482 1100.84 19.9034 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 16 --drop1 0.4 --drop2 0.5 --epochs 15
+
+	Testing drop1=[0.2..0.5] when drop2=0.4, drop1=0.4 wins
+	opt383.out:12     1643.14 1.17815 1.2267 1076.41 23.019 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 17 --drop1 0.4 --drop2 0.4 --epochs 15
+
+	Testing drop2=[0.6..0.8] when drop1=0.4
+	Testing drop1=[0.3,0.4,0.5] when drop2=0.5
+	opt398.out:13     1775.75 1.17841 1.23037 1093.8 25.1098 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 19 --drop1 0.5 --drop2 0.5 --epochs 20
+	opt397.out:13     1779.13 1.16661 1.2305 1097.27 30.8873 --hidden 512 --gclip 5 --lr 2 --fbias 0.9 --seed 19 --drop1 0.4 --drop2 0.5 --epochs 20
+
+	Larger drop1 or fbias.
+	opt407.out:15     2052.31 1.17061 1.22055 1160.84 37.0853 --hidden 512 --gclip 5 --lr 2 --fbias 1.1 --seed 20 --drop1 0.5 --drop2 0.5 --epochs 20
+	opt403.out:15     2048.9 1.17867 1.22063 1150.71 21.991   --hidden 512 --gclip 5 --lr 2 --fbias 1.0 --seed 20 --drop1 0.6 --drop2 0.5 --epochs 20
+	opt413.out:19     2597.87 1.18212 1.221  1557.54 14.3562  --hidden 512 --gclip 10 --lr 2 --fbias 1 --seed 20 --drop1 0.5 --drop2 0.5 --epochs 20
+
+	opt434.out:19     2600.86 1.20433 1.21442 1215.87 21.3783 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 22 --drop1 0.8 --drop2 0.5 --epochs 20
+	opt452.out:22     3004.95 1.17685 1.20637 1298.47 18.9302 --hidden 512 --gclip 5 --lr 2 --fbias 1 --seed 23 --drop1 0.8 --drop2 0.4 --epochs 30
+
+	julia> exp(test(m,testdata,softloss)) => 1.2063670124244923
+	julia> exactmatch(m,testdata) => 0.6613769145744512
+
+	* ipa03.out: multi-epoch training with ("bestfile"=>"best03.jld","hidden"=>512,"lr"=>2.0,"decay"=>1.0,"drop2"=>0.2,"batchsize"=>128,"savefile"=>"last03.jld","fast"=>false,"gclip"=>5.0,"usesparse"=>false,"loadfile"=>nothing,"dictfiles"=>Any["lhs.dict","rhs.dict"],"gcheck"=>0,"fbias"=>0.8324,"epochs"=>100,"drop1"=>0.4,"ftype"=>"Float32","lossreport"=>100000,"seed"=>42,"datafiles"=>Any["lhs.trn","rhs.trn","lhs.tst","rhs.tst"])
+	@beamsize=10
+	julia> exp(test(m, testdata, softloss)) 1.2446281349836184
+	julia> kmatch(s2,pr,1) 0.6399810516342965
+	julia> kmatch(s2,pr,2) 0.7820148428864677
+	julia> kmatch(s2,pr,3) 0.8366492973314384
+	julia> kmatch(s2,pr,4) 0.864756039791568
+	julia> kmatch(s2,pr,5) 0.8836254539712617
+	julia> kmatch(s2,pr,6) 0.8989420495815569
+	julia> kmatch(s2,pr,10) 0.9265750828991
+	@beamsize=16
+	kmatch[1:5] identical
+	julia> kmatch(s2,pr,10) 0.926969840517922
+	julia> kmatch(s2,pr,16) 0.9438654666035055
+	@beamsize=64
+	kmatch[1:10]identical
+	julia> kmatch(s2,pr,16) 0.9441023211747986
+
+
+	* dropout: testing dev loss at 10 epochs
+	opt243.out:10     799.476 1.30007 1.27946 1036.18 40.0019 with  --hidden 256 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.15 --seed 10 --drop1 0.4 --drop2 0.2 --epochs 10
+w=0.1	opt255.out:10     796.54 1.27575 1.26741 943.429 17.501 with    --hidden 256 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.1 --seed 11 --drop1 0.4 --drop2 0.2 --epochs 10
+h=362	opt258.out:10     968.414 1.24251 1.26258 1252.89 26.4296 with  --hidden 362 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.15 --seed 11 --drop1 0.4 --drop2 0.2 --epochs 10
+
+	NOTE: the ideal winit follows xavier, just use xavier from now on when playing with hidden size.
+
+h=512	opt274.out:10     1368.38 1.18747 1.24086 1273.22 23.9564 with  --hidden 512 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.1 --seed 12 --drop1 0.4 --drop2 0.2 --epochs 10
+
+2015-11-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* ipa.jl: running multiple epochs:
+
+	epoch  secs    ptrain  ptest.. wnorm  gnorm
+	1      82.2259 2.29681 3.10306 780.155 100.838 
+	2      159.334 1.69395 1.73713 829.958 64.7856 
+	3      236.35 1.51294 1.52381 870.332 49.92  
+	4      313.376 1.41687 1.43727 906.926 39.35  
+	5      390.402 1.34045 1.38608 941.51 43.1367 
+	6      467.403 1.3044 1.36128 974.115 25.2341 
+	7      544.424 1.25875 1.34039 1004.82 28.5873 
+	8      621.444 1.22682 1.33415 1033.95 47.0961 
+	9      698.456 1.21162 1.32938 1061.7 38.5276 
+	10     775.479 1.20099 1.32609 1088.09 23.8066 
+	11     852.499 1.18287 1.31737 1112.93 27.543 
+	12     929.57 1.18109 1.32478 1136.59 38.3956 
+	13     1006.65 1.16423 1.32558 1159.46 31.6875 
+	14     1083.75 1.15182 1.31916 1181.12 29.0313 
+
+
+	* opt.pl: optimizing for ipa, running one epoch.
+
+	run1: 'hidden' => [256,362,181], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.2, 0.15, 0.3], 'seed' => [4]
+	win1a: (hidden=362) opt124.out:1      99.0181 2.25121 3.23702 1309.15 95.5526 --hidden 362 --gclip 5 --lr 2 --fbias 0.7 --winit 0.2 --seed 5
+	win1b: (winit=0.15) opt122.out:1      82.3747 2.21541 3.24947 775.05 158.294 --hidden 256 --gclip 5 --lr 2 --fbias 0.7 --winit 0.15 --seed 5
+	run2: 'hidden' => [362,256,512], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.15, 0.2, 0.1, 0.05, 0.02, 0.01], 'seed' => [5],
+	win2: --hidden 362 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.15 --seed 5 => opt150.out:1      98.9886 2.2213 2.94805 1033.66 186.31
+	run3: 'hidden' => [362,256,512], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.8324,0.75,0.99], 'winit' => [0.15, 0.2, 0.1], 'seed' => [6],
+	win3: --hidden 256 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.15 --seed 6 => opt164.out:1      82.0738 2.29681 3.10306 780.155 100.838
+	run4: 'hidden' => [256,362,181], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.8324,0.75,0.90], 'winit' => [0.15, 0.2, 0.1], 'seed' => [7],
+	win4: same: --hidden 256 --gclip 5 --lr 2 --fbias 0.8324 --winit 0.15 --seed 7 => opt181.out:1      82.1564 2.33058 3.08951 780.299 160.646
+
+	* opt.pl: optimizing for copy, running one epoch.
+
+	run1: 'hidden' => [100,70,140], 'gclip' => [5.0,3.5,7.0], 'lr' => [2.0,1.4,2.8], 'fbias' => [0.0, 0.5, 1.0], 'winit' => [0.01, 0.05, 0.005]
+	win1: (fbias=0.5): --hidden 100 --gclip 5 --lr 2 --fbias 0.5 --winit 0.01: opt6.out:1      64.9852 7.72244 19.7852 228.541 47.307
+	run2: 'hidden' => [100,70,140], 'gclip' => [5.0,3.5,7.0], 'lr' => [2.0,1.4,2.8], 'fbias' => [0.5, 0.35, 0.7], 'winit' => [0.01, 0.05, 0.005]
+	win2: (fbias=0.7): --hidden 100 --gclip 5 --lr 2 --fbias 0.7 --winit 0.01: opt27.out:1      65.5659 6.21068 14.6392 242.932 86.53
+	run3: 'hidden' => [100,70,140], 'gclip' => [5.0,3.5,7.0], 'lr' => [2.0,1.4,2.8], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.01, 0.05, 0.005]
+	win3: same
+	run4: 'hidden' => [128,64,256], 'gclip' => [5.0,2.0,1.0,10.0,20,0], 'lr' => [2.0,1.0,0.5,3.0,4.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.01, 0.001, 0.1]
+	win4: (winit=0.1) --hidden 128 --gclip 5 --lr 2 --fbias 0.7 --winit 0.1 => 65.3948 3.72208 8.2865 421.72 61.4699
+	run5: 'hidden' => [128,64,256], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.1, 0.2, 0.5, 0.02, 0.05], 'seed' => [2]
+	win5: (winit=0.2) --hidden 128 --gclip 5 --lr 2 --fbias 0.7 --winit 0.2 --seed 2 => opt62.out:1      65.858 1.95153 3.18606 635.418 79.3154 
+	run6: 'hidden' => [128,64,256], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.2, 0.15, 0.3], 'seed' => [3], 
+	win6: (hidden=256) --hidden 256 --gclip 5 --lr 2 --fbias 0.7 --winit 0.2 --seed 3 => opt85.out:1      86.2337 1.39884 2.06183 969.326 89.7387 
+	run7: 'hidden' => [256,362,181], 'gclip' => [5.0,2.0,10.0], 'lr' => [2.0,1.0,3.0], 'fbias' => [0.7, 0.5886, 0.8324], 'winit' => [0.2, 0.15, 0.3], 'seed' => [4]
+	win7: (same)       --hidden 256 --gclip 5 --lr 2 --fbias 0.7 --winit 0.2 --seed 4 => opt101.out:1      86.4447 1.36793 2.12854 970.84 104.908 
+
+
+	* data:
+	/auto/nlg-05/deri/gazetteer/pronouncer/cmudict.0.6_lg.w-p-gp
+	columns:
+	orthography
+	arpabet
+	alignment
+
+	In alignment many-to-many: lhs just has concat, rhs has _.
+
+	Relevant paper:
+	Bi-directional conversion between graphemes and phonemes using a joint n-gram model.
+
+
+
