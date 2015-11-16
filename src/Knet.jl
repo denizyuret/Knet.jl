@@ -63,7 +63,7 @@ include("data/ItemTensor.jl");		export ItemTensor
 include("data/S2SData.jl");     	export S2SData, maxtoken
 include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
-include("data/TagData.jl"); 		export TagData
+include("data/TagData.jl"); 		export TagData, sponehot
 
 end # module
 
