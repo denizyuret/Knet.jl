@@ -119,8 +119,7 @@ h=512	opt274.out:10     1368.38 1.18747 1.24086 1273.22 23.9564 with  --hidden 5
 	In alignment many-to-many: lhs just has concat, rhs has _.
 
 	Relevant paper:
-	Bi-directional conversion between graphemes and phonemes using a
-	joint n-gram model.
+	Bi-directional conversion between graphemes and phonemes using a joint n-gram model.
 
 
 
