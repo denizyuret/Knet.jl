@@ -1,13 +1,4 @@
-# TODO: averaging? keep both arr and avg inside par, set output to one without copy?
-# should be handled between net and par not by the op.
-# DONE: handle nothings?  -- net is handling them.
-# DONE: handle scalar input for adding a constant. -- axpb will handle this
-# TODO: back
-
-type Add <: Op; alpha; beta; end
-
 """
-
 @knet Op add(x1,x2; alpha=1,beta=1) performs element-wise broadcasting
 addition.  alpha and beta are used to scale x1 and x2 respectively.
 The result computed is y = alpha x1 + beta x2.  The size of the output
@@ -19,12 +10,13 @@ dimensions):
 - If x1 and x2 are the same size their elements are added.
 
 - If x1 and x2 have the same ndims but different sizes, each dimension
-  of the x1 array must match the coresponding dimension of the x2
+  of the x1 array must match the corresponding dimension of the x2
   array or must be equal to 1. In the latter case, the same value from
   the x1 array for those dimensions will be used to blend into the x2
-  array.  (At least this is what it says in the cudnnAddTensor doc but
-  unfortunately not all combinations work as promised. TODO: I will
-  update this doc as soon as Nvidia tells me what the real spec is.)
+  array.  (At least this is what it says in the NVIDIA cudnnAddTensor
+  doc but unfortunately not all combinations work as promised.  I sent
+  them a bug report and wrote my own kernels to fill in the gaps for
+  now -- Oct 16, 2015.)
   Example: (5,4,1,1)+(5,4,3,2)=>(5,4,3,2)
 
 - If x1 and x2 have different ndims, x1 is assumed to be missing its
@@ -38,6 +30,7 @@ dimensions):
 """
 add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
 
+type Add <: Op; alpha; beta; end
 ninputs(::Add)=2
 overwrites(::Add)=true
 back_reads_x(::Add)=false
@@ -46,11 +39,13 @@ back_reads_y(::Add)=false
 function forw(a::Add, x1, x2, y; o...)
     @assert x2 == nothing || size(y) == size(x2)
     if x1!=nothing && x2!=nothing # we use nothing to represent the zero array
+        ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
         if size(x1)==size(x2)
             addforw3!(a.alpha,x1,a.beta,x2,y)
-        else
-            ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
+        elseif cudnnAddTensorCompatible(x1,x2)
             baddforw1!(a.alpha,x1,a.beta,x2,y)
+        else
+            baddforw2!(a.alpha,x1,a.beta,x2,y)
         end
     elseif x2 != nothing
         y===x2 || copy!(y, x2)
@@ -70,15 +65,18 @@ function back(a::Add, dy, dx1, dx2; o...)
         dx2 === dy  || copy!(dx2, dy)
         a.beta == 1 || scale!(a.beta, dx2)
     end
-    if dx1 == nothing
-        # done
-    elseif size(dx1) == size(dy)
+    dx1 == nothing && return
+    ndims(dx1) < ndims(dy) && (dx1 = reshape_to_match(dx1,dy))
+    if size(dx1) == size(dy)
         dx1 === dy   || copy!(dx1, dy)
-        a.alpha == 1 || scale!(a.alpha, dx1)
+    elseif cudnnAddTensorCompatible(dx1,dy)
+        baddback1!(dy, dx1)
+    elseif ndims(dy) == 2
+        baddback2!(dy, dx1)
     else
-        ndims(dx1) < ndims(dy) && (dx1 = reshape_to_match(dx1,dy))
-        baddback1!(a.alpha, dy, dx1)
+        baddback3!(dy, dx1)
     end
+    a.alpha == 1 || scale!(a.alpha, dx1)
 end
 
 addforw0!(alpha,a,beta,b,c)=(a===c||b===c||copy!(c,b))
@@ -120,6 +118,18 @@ end
     cudnnAddTensor(a,c; alpha=T(alpha), beta=T(beta))
 end
 
+function cudnnAddTensorCompatible(a,b)
+    sa = size(a)
+    sb = size(b)
+    sa == sb && return true
+    n = length(sa)
+    length(sb) == n || return false
+    sa == ntuple(i->(i==n-1 ? sb[i] : 1), n) && return true
+    sa == ntuple(i->(i==n ? 1 : sb[i]), n) && return true
+    sa == ntuple(i->(i>=n-1 ? 1 : sb[i]), n) && return true
+    return false
+end
+
 @gpu function baddforw2!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T}) # mnist2d:7.55
     for i=1:ndims(a) 
         size(a,i)==1 || size(a,i)==size(b,i) ||
@@ -137,61 +147,45 @@ end
 # TODO: this does not cover all forms of db for cpu:
 baddback_cpu!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
 
-@gpu function baddback1!{T}(alpha::Number, dy::CudaArray{T}, db::CudaArray{T})
+@gpu function baddback1!{T}(dy::CudaArray{T}, db::CudaArray{T})
     cudnnConvolutionBackwardBias(dy, db)
-    alpha==1 || scale!(T(alpha),db)
     gpusync()
     return db
 end
 
-@gpu function baddback2!{T}(alpha::Number, dc::CudaArray{T}, da::CudaArray{T})
-    ndims(da) == ndims(dc) || throw(DimensionMismatch())
-    if ndims(da)==2
-        if size(da,1)==size(dc,1) && size(da,2)==1
-            tmp = fill!(similar(dc, (size(dc,2),1)),1)
-            A_mul_B!(da,dc,tmp)
-            free(tmp)
-        elseif size(da,2)==size(dc,2) && size(da,1)==1
-            tmp = fill!(similar(dc, (1,size(dc,1))),1)
-            A_mul_B!(da,tmp,dc)
-            free(tmp)
-        else
-            throw(DimensionMismatch())
-        end
+@gpu function baddback2!{T}(dy::CudaArray{T}, db::CudaArray{T})
+    ndims(db) == ndims(dy) || throw(DimensionMismatch())
+    ndims(db)==2 || throw(DimensionMismatch())
+    if size(db,1)==size(dy,1) && size(db,2)==1
+        tmp = fill!(similar(dy, (size(dy,2),1)),1)
+        A_mul_B!(db,dy,tmp)
+        free(tmp)
+    elseif size(db,2)==size(dy,2) && size(db,1)==1
+        tmp = fill!(similar(dy, (1,size(dy,1))),1)
+        A_mul_B!(db,tmp,dy)
+        free(tmp)
     else
-        ndims(da) <= 8 || error("add kernel supports dimensions up to 8")
-        for i=1:ndims(da) 
-            size(da,i)==1 || size(da,i)==size(dc,i) ||
-            throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
-        end
-        adims = CudaArray(Cint[size(da)...])
-        cdims = CudaArray(Cint[size(dc)...])
-        fill!(da,0)
-        T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dc),cdims,dc,adims,da) :
-        T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dc),cdims,dc,adims,da) :
-        error("$T not supported")
+        throw(DimensionMismatch())
     end
-    alpha == 1 || scale!(alpha, da)
     gpusync()
-    return da
+    return db
 end
 
-@gpu function baddback3!{T}(alpha::Number, dc::CudaArray{T}, da::CudaArray{T})
-    ndims(da) == ndims(dc) || throw(DimensionMismatch())
-    ndims(da) <= 8 || error("add kernel supports dimensions up to 8")
-    for i=1:ndims(da) 
-        size(da,i)==1 || size(da,i)==size(dc,i) ||
+@gpu function baddback3!{T}(dy::CudaArray{T}, db::CudaArray{T})
+    ndims(db) == ndims(dy) || throw(DimensionMismatch())
+    ndims(db) <= 8 || error("add kernel supports dimensions up to 8")
+    for i=1:ndims(db) 
+        size(db,i)==1 || size(db,i)==size(dy,i) ||
         throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
     end
-    adims = CudaArray(Cint[size(da)...])
-    cdims = CudaArray(Cint[size(dc)...])
-    fill!(da,0)
-    T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dc),cdims,dc,adims,da) :
-    T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dc),cdims,dc,adims,da) :
+    adims = CudaArray(Cint[size(db)...])
+    cdims = CudaArray(Cint[size(dy)...])
+    fill!(db,0)
+    T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dy),cdims,dy,adims,db) :
+    T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dy),cdims,dy,adims,db) :
     error("$T not supported")
-    alpha == 1 || scale!(alpha, da)
     gpusync()
-    return da
+    return db
 end
 
 
@@ -286,4 +280,10 @@ end
 
 # baddback!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
 # baddback!(alpha::Number, dy::Vector, db::Vector)=(for i=1:length(dy); db[i]=dy[i]; end; alpha==1||scale!(alpha,db))
+
+# TODO: averaging? keep both arr and avg inside par, set output to one without copy?
+# should be handled between net and par not by the op.
+# DONE: handle nothings?  -- net is handling them.
+# DONE: handle scalar input for adding a constant. -- axpb will handle this
+# DONE: back
 
