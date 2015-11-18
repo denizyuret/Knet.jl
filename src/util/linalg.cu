@@ -545,22 +545,6 @@ __global__ void _A_mul_Bst_64(int my, int xc, double *dy, double *xval, int *xro
   }
 }
 
-__global__ void _mul2_32(int n, float *x, float *y, float *z) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    z[i] = y[i] * x[i];
-    i += blockDim.x * gridDim.x;
-  }
-}
-
-__global__ void _mul2_64(int n, double *x, double *y, double *z) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    z[i] = y[i] * x[i];
-    i += blockDim.x * gridDim.x;
-  }
-}
-
 extern "C" {
 
   void A_mul_Bs_32(int mx, int ns,  float *x,  float *sval, int *srow, int *scol,  float *k) KCALL(_A_mul_Bs_32,mx,ns,x,sval,srow,scol,k);
@@ -596,8 +580,6 @@ extern "C" {
   void A_test(int blk,int thr,int nx, int ns, float *xval, int *xrow, int *xcol, float *sval, int *srow, int *scol, float *k) {_As_mul_Bs_32<<<blk,thr>>>(nx,ns,xval,xrow,xcol,sval,srow,scol,k); CUDA(cudaGetLastError()); }
 
 
-  void mul2_32(int n, float  *x, float  *y,  float *z) KCALL(_mul2_32,n,x,y,z);
-  void mul2_64(int n, double *x, double *y, double *z) KCALL(_mul2_64,n,x,y,z);
 }
 
 template<typename dType>

@@ -1,25 +1,26 @@
-type Mul <: Op; Mul()=new(); end
+type Mul <: Op; alpha; beta; end
 
-# TODO: implement broadcasting
-"@knet function mul(x,y) is element-wise multiplication."
-mul(x1,x2,y)=(Mul(),x1,x2,y)
+mul(x1,x2,y; alpha=1, beta=1)=(Mul(alpha,beta),x1,x2,y)
 ninputs(::Mul)=2
 overwrites(::Mul)=false
 back_reads_x(::Mul)=true
 back_reads_y(::Mul)=false
-
-# x1,x2 is a pair of similarly sized input matrices
 
 function forw(l::Mul, x1, x2, y; o...)
     @assert x2 == nothing || size(x2) == size(y)
     if x1==nothing || x2==nothing # nothing represents zero
         nothing
     elseif size(x1) == size(x2)
-        mul2!(y,x1,x2)          # TODO: (minor) change order to x1,x2,y
+        mul2!(l.alpha,x1,l.beta,x2,y)
     else
-        error()
+        ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
+        bmul!(l.alpha,x1,l.beta,x2,y)
     end
 end
+
+# z = mul(x,y; alpha,beta) = x^alpha * y^beta
+# dJ/dx = dJ/dz dz/dx = dJ/dz * alpha * x^(alpha-1) * y^beta
+# dJ/dy = dJ/dz dz/dy = dJ/dz * x^alpha * beta * y^(beta-1)
 
 function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
     if dx2 != nothing
@@ -27,7 +28,8 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         if x[1] == nothing      # representing zero
             fill!(dx2, 0)
         elseif size(x[1]) == size(dy)
-            mul2!(dx2, dy, x[1])
+            mul2!(1,dy,l.alpha,x[1],dx2)
+            l.beta == 1 || scale!(l.beta, mul2!(1,dx2,l.beta-1,x[2],dx2))
         else
             throw(DimensionMismatch())
         end
@@ -38,7 +40,8 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         if x[2] == nothing      # representing zero
             fill!(dx1, 0)
         elseif size(x[2]) == size(dy)
-            mul2!(dx1, dy, x[2])
+            mul2!(1,dy,l.beta,x[2],dx1)
+            l.alpha == 1 || scale!(l.alpha, mul2!(1,dx1,l.alpha-1,x[1],dx1))
         else
             error("x2 and y should have the same size in mul")
         end
@@ -46,6 +49,12 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         throw(DimensionMismatch())
     end
 end
+
+### mul2 element-wise multiplication:
+
+mul2!(alpha::Number,a::Array,beta::Number,b::Array,c::Array)=(for i=1:length(c); c[i] = a[i]^alpha*b[i]^beta; end; c)
+mul2!(alpha::Number,a::CudaArray{Float32},beta::Number,b::CudaArray{Float32},c::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Ptr{Cfloat},Ptr{Cfloat}),length(a),Cfloat(alpha),a,Cfloat(beta),b,c); gpusync(); c)
+mul2!(alpha::Number,a::CudaArray{Float64},beta::Number,b::CudaArray{Float64},c::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(a),Cdouble(alpha),a,Cdouble(beta),b,c); gpusync(); c)
 
 function infersize(m::Mul, x1, x2, y)
     if x1==x2==y==nothing
