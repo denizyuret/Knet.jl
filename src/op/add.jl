@@ -39,14 +39,7 @@ back_reads_y(::Add)=false
 function forw(a::Add, x1, x2, y; o...)
     @assert x2 == nothing || size(y) == size(x2)
     if x1!=nothing && x2!=nothing # we use nothing to represent the zero array
-        ndims(x1) < ndims(x2) && (x1 = reshape_to_match(x1,x2))
-        if size(x1)==size(x2)
-            addforw3!(a.alpha,x1,a.beta,x2,y)
-        elseif cudnnAddTensorCompatible(x1,x2)
-            baddforw1!(a.alpha,x1,a.beta,x2,y)
-        else
-            baddforw2!(a.alpha,x1,a.beta,x2,y)
-        end
+        baddforw!(a.alpha,x1,a.beta,x2,y)
     elseif x2 != nothing
         y===x2 || copy!(y, x2)
         a.beta==1 || scale!(y, a.beta)
@@ -65,23 +58,27 @@ function back(a::Add, dy, dx1, dx2; o...)
         dx2 === dy  || copy!(dx2, dy)
         a.beta == 1 || scale!(a.beta, dx2)
     end
-    dx1 == nothing && return
-    ndims(dx1) < ndims(dy) && (dx1 = reshape_to_match(dx1,dy))
-    if size(dx1) == size(dy)
-        dx1 === dy   || copy!(dx1, dy)
-    elseif cudnnAddTensorCompatible(dx1,dy)
-        baddback1!(dy, dx1)
-    elseif ndims(dy) == 2
-        baddback2!(dy, dx1)
-    else
-        baddback3!(dy, dx1)
+    if dx1 != nothing
+        baddback!(dy, dx1)
+        a.alpha == 1 || scale!(a.alpha, dx1)
     end
-    a.alpha == 1 || scale!(a.alpha, dx1)
 end
 
 addforw0!(alpha,a,beta,b,c)=(a===c||b===c||copy!(c,b))
 baddforw0!(alpha,a,beta,b,c)=(b===c||copy!(c,b))
 baddback0!(alpha,dy,db)=fill!(db,0)
+
+function baddforw!(alpha,a,beta,b,c)
+    size(c) == size(b) || throw(DimensionMismatch("The size of the output must match the second input"))
+    size(a) == size(b) || (a = reshape_to_match(a,b; CUDNN_ADD_SAME_C=true))
+    if size(a)==size(b)
+        addforw3!(alpha,a,beta,b,c)
+    elseif cudnnAddTensorCompatible(a,b)
+        baddforw1!(alpha,a,beta,b,c)
+    else
+        baddforw2!(alpha,a,beta,b,c)
+    end
+end    
 
 @gpu function addforw1!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
     c===b || copy!(c,b)
@@ -136,16 +133,32 @@ end
         throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
     end
     ndims(b) <= 8 || error("add kernel supports dimensions up to 8")
-    adims = CudaArray(Cint[size(a)...])
-    bdims = CudaArray(Cint[size(b)...])
-    T <: Float32 ? ccall((:addforw32,libknet),Void,(Cint,Cfloat,Ptr{Cint},Ptr{Cfloat},Cfloat,Ptr{Cint},Ptr{Cfloat},Ptr{Cfloat}),ndims(a),T(alpha),adims,a,T(beta),bdims,b,c) :
-    T <: Float64 ? ccall((:addforw64,libknet),Void,(Cint,Cdouble,Ptr{Cint},Ptr{Cdouble},Cdouble,Ptr{Cint},Ptr{Cdouble},Ptr{Cdouble}),ndims(a),T(alpha),adims,a,T(beta),bdims,b,c) :
+    T <: Float32 ? ccall((:addforw32,libknet),Void,(Cint,Cfloat,Ptr{Cint},Ptr{Cfloat},Cfloat,Ptr{Cint},Ptr{Cfloat},Ptr{Cfloat}),ndims(a),T(alpha),cudadims(a),a,T(beta),cudadims(b),b,c) :
+    T <: Float64 ? ccall((:addforw64,libknet),Void,(Cint,Cdouble,Ptr{Cint},Ptr{Cdouble},Cdouble,Ptr{Cint},Ptr{Cdouble},Ptr{Cdouble}),ndims(a),T(alpha),cudadims(a),a,T(beta),cudadims(b),b,c) :
     error("$T not supported")
     gpusync(); return c
 end
 
 # TODO: this does not cover all forms of db for cpu:
 baddback_cpu!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fill!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
+
+function baddback!(dy, db)
+    size(db) == size(dy) || (db = reshape_to_match(db,dy; CUDNN_ADD_SAME_C=true))
+    if size(db) == size(dy)
+        db === dy   || copy!(db, dy)
+    elseif cudnnConvolutionBackwardBiasCompatible(dy,db)
+        baddback1!(dy, db)
+    elseif ndims(dy) == 2
+        baddback2!(dy, db)
+    else
+        baddback3!(dy, db)
+    end
+end
+
+function cudnnConvolutionBackwardBiasCompatible(dy,db)
+    ndims(dy)==ndims(db)==1 && return (size(dy)==size(db))
+    size(db) == ntuple(i->(i==ndims(dy)-1 ? size(dy,i) : 1), ndims(dy))
+end
 
 @gpu function baddback1!{T}(dy::CudaArray{T}, db::CudaArray{T})
     cudnnConvolutionBackwardBias(dy, db)
@@ -164,6 +177,8 @@ end
         tmp = fill!(similar(dy, (1,size(dy,1))),1)
         A_mul_B!(db,tmp,dy)
         free(tmp)
+    elseif size(db)==(1,1)
+        baddback3!(dy,db)
     else
         throw(DimensionMismatch())
     end
@@ -178,11 +193,9 @@ end
         size(db,i)==1 || size(db,i)==size(dy,i) ||
         throw(DimensionMismatch("Each dimension of x1 must match x2 or be 1."))
     end
-    adims = CudaArray(Cint[size(db)...])
-    cdims = CudaArray(Cint[size(dy)...])
     fill!(db,0)
-    T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dy),cdims,dy,adims,db) :
-    T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dy),cdims,dy,adims,db) :
+    T <: Float32 ? ccall((:addback32,libknet),Void,(Cint,Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cfloat}),ndims(dy),cudadims(dy),dy,cudadims(db),db) :
+    T <: Float64 ? ccall((:addback64,libknet),Void,(Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),ndims(dy),cudadims(dy),dy,cudadims(db),db) :
     error("$T not supported")
     gpusync()
     return db
@@ -190,18 +203,23 @@ end
 
 
 
-"reshape_to_match(x1,x2) reshapes x1 to match ndims(x2) if necessary."
-function reshape_to_match(x1,x2)
-    n = ndims(x2)
-    newsize = ones(Int,n)
-    if ndims(x1)==1
-        newsize[n-1] = length(x1)
+"reshape_to_match(x1,x2) reshapes x1 to match x2."
+function reshape_to_match(x1,x2; CUDNN_ADD_SAME_C=false)
+    if CUDNN_ADD_SAME_C && ndims(x1)==1
+        newsize = ntuple(ndims(x2)) do i
+            i != ndims(x2)-1 ? 1 :
+            size(x2,i) == size(x1,1) ? size(x1,1) :
+            throw(DimensionMismatch("$(size(x1)) $(size(x2))"))
+        end
     else
-        for i=1:ndims(x1)
-            newsize[i] = size(x1,i)
+        newsize = ntuple(ndims(x2)) do i
+            i > ndims(x1) ? 1 :
+            size(x1,i)==1 ? 1 :
+            size(x1,i)==size(x2,i) ? size(x1,i) :
+            throw(DimensionMismatch("$(size(x1)) $(size(x2))"))
         end
     end
-    reshape(x1, tuple(newsize...))
+    reshape(x1, newsize)
 end
 
 

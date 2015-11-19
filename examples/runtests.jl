@@ -51,6 +51,7 @@ if opts["all"] || opts["mnist2d"]
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 7.031675 seconds (3.47 M allocations: 158.983 MB, 1.31% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 6.730379 seconds (3.61 M allocations: 161.998 MB, 1.42% gc time)
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -62,6 +63,7 @@ if opts["all"] || opts["mnist2dy"]
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
     # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 8.542426 seconds (3.73 M allocations: 181.290 MB, 2.06% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 8.073397 seconds (3.86 M allocations: 184.237 MB, 2.15% gc time)
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -81,6 +83,7 @@ if opts["all"] || opts["mnist2dx"]
     # 12.362125 seconds (3.81 M allocations: 753.744 MB, 1.87% gc time) Tue Oct 20 19:13:25 PDT 2015
     # 11.751002 seconds (3.84 M allocations: 753.959 MB, 1.95% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 12.005169 seconds (3.95 M allocations: 761.003 MB, 1.90% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 11.939937 seconds (4.11 M allocations: 764.436 MB, 1.91% gc time)
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -99,6 +102,7 @@ if opts["all"] || opts["mnist2dxy"]
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
     # 13.320959 seconds (4.11 M allocations: 776.397 MB, 2.29% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 13.339761 seconds (4.23 M allocations: 783.602 MB, 2.27% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 13.421199 seconds (4.37 M allocations: 786.728 MB, 2.27% gc time)
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -117,6 +121,7 @@ if opts["all"] || opts["mnist4d"]
     twice && (gc(); @time @show test6 = mnist4d("--gcheck $gcheck"))
     # 17.093371 seconds (10.15 M allocations: 479.611 MB, 1.11% gc time) Tue Oct 20 19:09:19 PDT 2015
     # 17.135514 seconds (10.38 M allocations: 494.816 MB, 1.11% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 17.002958 seconds (10.58 M allocations: 499.822 MB, 1.11% gc time)
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -160,6 +165,7 @@ if opts["all"] || opts["addingirnn"]
     twice && (gc(); @time @show test8b = adding("--gcheck $gcheck"))
     # 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time) # --epochs 20 --nettype irnn
     # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time)
 end
 
 if opts["all"] || opts["rnnlm"]
