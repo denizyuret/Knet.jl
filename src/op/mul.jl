@@ -50,8 +50,8 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         if x1 == nothing      # representing zero
             fill!(dx2, 0)
         else
-            bmul!(1,dy,l.alpha,x1,dx2)
-            l.beta == 1 || scale!(l.beta, bmul!(1,dx2,l.beta-1,x2,dx2))
+            bmul!(l.alpha,x1,1,dy,dx2)
+            l.beta == 1 || scale!(l.beta, bmul!(l.beta-1,x2,1,dx2,dx2))
         end
     end
 
@@ -59,14 +59,14 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
         if x2 == nothing
             fill!(dx1, 0)
         elseif size(dx1) == size(dy)
-            bmul!(1,dy,l.beta,x2,dx1)
+            bmul!(l.beta,x2,1,dy,dx1)
             l.alpha == 1 || scale!(l.alpha, bmul!(1,dx1,l.alpha-1,x1,dx1))
         else
             tmp = similar(dy)
-            bmul!(1,dy,l.beta,x2,tmp)
+            bmul!(l.beta,x2,1,dy,tmp)
             baddback!(tmp,dx1)
             free(tmp)
-            l.alpha == 1 || scale!(l.alpha, bmul!(1,dx1,l.alpha-1,x1,dx1))
+            l.alpha == 1 || scale!(l.alpha, bmul!(l.alpha-1,x1,1,dx1,dx1))
         end
     end
 end
