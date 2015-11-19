@@ -1,9 +1,9 @@
 using Knet, ArgParse, Base.Test
 
 # Uncomment these if you want lots of messages:
-# import Base.Test: default_handler, Success, Failure, Error
+import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
-# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 load_only = true
@@ -35,7 +35,8 @@ if opts["all"] || opts["linreg"]
     include("linreg.jl")
     @time @show test1 = linreg("--gcheck $gcheck")
     #@test test1 == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
-    @test  test1 == (0.0005497372347062409,32.77256166946497,0.11244349406522969) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
+    #@test test1 == (0.0005497372347062409,32.77256166946497,0.11244349406522969) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
+    @test  test1 == (0.0005497846637255734,32.77257400591496,0.11265426200775067) # Wed Nov 18 21:39:18 PST 2015: xavier init
     twice && (@time @show test1 = linreg("--gcheck $gcheck"))
     # 0.739858 seconds (394.09 k allocations: 71.335 MB, 1.23% gc time) Tue Oct 20 18:29:41 PDT 2015
     # 0.731515 seconds (391.62 k allocations: 71.451 MB, 1.21% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -46,7 +47,8 @@ if opts["all"] || opts["mnist2d"]
     @time @show test2 = mnist2d("--gcheck $gcheck")
     # @test test2 == (0.10628127f0,24.865438f0,3.5134742f0)
     # @test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
-    @test test2 ==   (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    # @test test2 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    @test   test2 == (0.108679175f0,43.344624f0,3.0013776f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
     twice && (gc(); @time @show test2 = mnist2d("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
@@ -57,8 +59,9 @@ end
 if opts["all"] || opts["mnist2dy"]
     isdefined(:mnist2d) || include("mnist2d.jl")
     @time @show test3 = mnist2d("--ysparse --gcheck $gcheck")
-    # @test test3  == (0.1062698f0,24.866688f0,3.513474f0)
-    @test test3 ==    (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    #@test test3 == (0.1062698f0,24.866688f0,3.513474f0)
+    #@test test3 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    @test  test3 == (0.10906915f0,43.341377f0,3.1931002f0)  # Wed Nov 18 21:39:18 PST 2015: xavier init
     twice && (gc(); @time @show test3 = mnist2d("--ysparse --gcheck $gcheck"))
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
     # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
@@ -75,9 +78,14 @@ if opts["all"] || opts["mnist2dx"]
     # @test isapprox(test4[3], 3.5134742f0; rtol=0.02) # cannot compute csru vecnorm
 
     # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test isapprox(test4[1], 0.10610757f0; rtol=0.01)
-    @test isapprox(test4[2], 24.87226f0; rtol=0.001)
-    @test isapprox(test4[3], 3.3128357f0; rtol=0.1)
+    # @test isapprox(test4[1], 0.10610757f0; rtol=0.01)
+    # @test isapprox(test4[2], 24.87226f0; rtol=0.001)
+    # @test isapprox(test4[3], 3.3128357f0; rtol=0.1)
+
+    # (0.109181836f0,43.36849f0,3.2359037f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
+    @test isapprox(test4[1], 0.109181836f0; rtol=0.01)
+    @test isapprox(test4[2], 43.36849f0; rtol=0.001)
+    @test isapprox(test4[3], 3.2359037f0; rtol=0.1)
 
     twice && (gc(); @time @show test4 = mnist2d("--xsparse --gcheck $gcheck"))
     # 12.362125 seconds (3.81 M allocations: 753.744 MB, 1.87% gc time) Tue Oct 20 19:13:25 PDT 2015
@@ -94,9 +102,14 @@ if opts["all"] || opts["mnist2dxy"]
     # @test isapprox(test5[3], 3.5134742f0; rtol=0.02) # cannot compute csru vecnorm
 
     # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test isapprox(test4[1], 0.10610757f0; rtol=0.01)
-    @test isapprox(test4[2], 24.87226f0; rtol=0.001)
-    @test isapprox(test4[3], 3.3128357f0; rtol=0.1)
+    # @test isapprox(test5[1], 0.10610757f0; rtol=0.01)
+    # @test isapprox(test5[2], 24.87226f0; rtol=0.001)
+    # @test isapprox(test5[3], 3.3128357f0; rtol=0.1)
+
+    # (0.1091015f0,43.368706f0,3.2359257f0); Wed Nov 18 21:39:18 PST 2015: xavier init
+    @test isapprox(test5[1], 0.1091015f0; rtol=0.01)
+    @test isapprox(test5[2], 43.368706f0; rtol=0.001)
+    @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
 
     twice && (gc(); @time @show test5 = mnist2d("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
@@ -114,9 +127,14 @@ if opts["all"] || opts["mnist4d"]
     # @test isapprox(test6[3], 9.420588f0;    rtol=.1)
 
     # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test isapprox(test6[1], .050181; rtol=0.01)
-    @test isapprox(test6[2], 25.7783; rtol=0.001)
-    @test isapprox(test6[3], 9.59026; rtol=0.1)
+    # @test isapprox(test6[1], .050181; rtol=0.01)
+    # @test isapprox(test6[2], 25.7783; rtol=0.001)
+    # @test isapprox(test6[3], 9.59026; rtol=0.1)
+
+    # (0.02938571214979068,65.9176025390625,7.652309894561768); Wed Nov 18 21:39:18 PST 2015: xavier init
+    @test isapprox(test6[1], .029385; rtol=0.01)
+    @test isapprox(test6[2], 65.9176; rtol=0.001)
+    @test isapprox(test6[3], 7.65231; rtol=0.1)
 
     twice && (gc(); @time @show test6 = mnist4d("--gcheck $gcheck"))
     # 17.093371 seconds (10.15 M allocations: 479.611 MB, 1.11% gc time) Tue Oct 20 19:09:19 PDT 2015
@@ -218,10 +236,16 @@ if opts["all"] || opts["copyseq"]
     # @test isapprox(test10[4], 206.272; rtol=.0001)
 
     # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test isapprox(test10[1], 3130.86 ; rtol=.0001)
-    @test isapprox(test10[2], 1363.82 ; rtol=.0001)
-    @test isapprox(test10[3],  105.026; rtol=.0001)
-    @test isapprox(test10[4],  184.931; rtol=.0001)
+    # @test isapprox(test10[1], 3130.86 ; rtol=.0001)
+    # @test isapprox(test10[2], 1363.82 ; rtol=.0001)
+    # @test isapprox(test10[3],  105.026; rtol=.0001)
+    # @test isapprox(test10[4],  184.931; rtol=.0001)
+
+    # (4248.32913889032,959.0360211411156,102.61302185058594,145.56500244140625); Wed Nov 18 21:39:18 PST 2015: xavier init
+    @test isapprox(test10[1], 4248.329; rtol=.0001)
+    @test isapprox(test10[2],  959.036; rtol=.0001)
+    @test isapprox(test10[3],  102.613; rtol=.0001)
+    @test isapprox(test10[4],  145.565; rtol=.0001)
 
     twice && (gc(); @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
