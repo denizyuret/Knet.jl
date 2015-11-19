@@ -95,7 +95,7 @@ end
     output = add2(x,h; o..., f=sigm)
     newmem = add2(x,h; o..., f=tanh)
     ig = mul(input,newmem)
-    fc = mul(forget,cell)
+    fc = mul(cell,forget)       # (forget,cell) breaks infersize
     cell = add(ig,fc)
     tc = tanh(cell)
     h  = mul(tc,output)
