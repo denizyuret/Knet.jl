@@ -1,11 +1,10 @@
-# """
-# wdot(x; out=0, winit=Gaussian(0,.01), o...) represents a linear
-# transformation (matrix product) w*x.  The output size can be specified
-# by the `out` parameter, and the weight matrix will be initialized
-# using the distribution or array given by winit.
-# """
-
-@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...) # TODO: use Xavier instead
+"""
+@knet function wdot(x; out=0, winit=Xavier(), o...) represents
+a linear transformation (matrix product) w*x.  The output size can be
+specified by the `out` parameter, and the weight matrix will be
+initialized using the distribution or array given by winit.
+"""
+@knet function wdot(x; out=0, winit=Xavier(), o...)
     w = par(; o..., init=winit, dims=(out,0))
     return w*x
 end
@@ -69,7 +68,7 @@ J. Schmidhuber. Long short-term memory. Neural Computation, 1997."
 The keyword argument `out` determines the hidden size, `fbias`
 determines the forget gate bias (0 by default), `winit` and `binit`
 can be used to specify the default initialization for weight matrices
-(Gaussian(0,.01) by default), and bias vectors (Constant(0) by
+(Xavier() by default), and bias vectors (Constant(0) by
 default).  Please see `@doc par` for details.
 
 My implementation is closest to the one described in "Vinyals, O.,
@@ -101,7 +100,7 @@ end
     forget = add2(x,h; o..., f=sigm, binit=Constant(fbias))
     output = add2(x,h; o..., f=sigm)
     newmem = add2(x,h; o..., f=tanh)
-    cell = input .* newmem + forget .* cell
+    cell = input .* newmem + cell .* forget
     h  = tanh(cell) .* output
     return h
 end
@@ -113,7 +112,7 @@ Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize
 Recurrent Networks of Rectified Linear Units. arXiv preprint
 arXiv:1504.00941."
 ```
-@knet function irnn(x; scale=1, winit=Gaussian(0,.01), o...)
+@knet function irnn(x; scale=1, winit=Xavier(), o...)
     wx = wdot(x; o..., winit=winit)
     wr = wdot(r; o..., winit=Identity(scale))
     xr = add(wx,wr)
@@ -122,7 +121,7 @@ arXiv:1504.00941."
 end
 ```
 """
-@knet function irnn(x; scale=1, winit=Gaussian(0,.01), o...)
+@knet function irnn(x; scale=1, winit=Xavier(), o...)
     wx = wdot(x; o..., winit=winit)
     wr = wdot(r; o..., winit=Identity(scale))
     r = relu(bias(wx + wr; o...))
