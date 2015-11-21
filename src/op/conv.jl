@@ -1,7 +1,9 @@
 import Base: conv
 using CUDNN: cudnnConvolutionDescriptor_t
 
-type Conv <: Op; padding; stride; upscale; mode; end
+type Conv <: Op; padding; stride; upscale; mode;
+    Conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION, o...)=new(padding,stride,upscale,mode)
+end
 
 ninputs(::Conv)=2
 overwrites(::Conv)=false

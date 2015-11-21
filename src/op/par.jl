@@ -1,9 +1,8 @@
 # TODO: update
 # TODO: averaging
 
-type Par <: Op; dims; init; initialized; out; dif;
-    lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
-    Par()=new(); 
+type Par <: Op; dims; init; initialized; out; dif; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
+    Par(;o...)=setopt!(new(); initialized=false, o...)
 end
 
 # TODO: document

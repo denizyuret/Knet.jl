@@ -1,4 +1,4 @@
-type Nce <: Op; end
+type Nce <: Op; Nce(;o...)=new(); end
 
 """
 @knet Op nce(q,s) computes the activation function for Noise

@@ -1,25 +1,43 @@
-2015-11-07  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-11-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0005 -- work on conditionals in compiler
-	0005 - design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
-	0005 - implement gru using con. or axpb?
-	0005 - work on compound statements
-	0005 - work on arithmetic operators
+
+	0000 arr does not work in saman's lcn model: another infersize problem
+	0003 -- vivi concatenation
+ 	0004 -- yonatan language learning model
+	0005 *** work on conditionals in compiler
+	0005 + It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
+	0005 + ai-mtg: Being able to access arrays with original variable names.
+	0005 + design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
+	0005 + environment table, instruction type with fields for original name, calling function, etc.
+	0005 + work on arithmetic operators
+	0005 + work on compound statements
+	0005 - compound statements that involve axpb or alpha/beta in add/mul.
+	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0005 - warn for reassigned locals
 	0005 - warn for unused constants
-	0010 -- model.jl: add predict, load, save
+	0010 *** model.jl: add predict, load, save:
+	0010 - add ipa model train and predict to runtests.jl.
+	0010 - for load/save check timholy's message about extending jld with custom types
+	0010 - get spearmint to work in knet or reimplement in julia: https://github.com/HIPS/Spearmint
 	0010 - src/model/fnn.jl: predict has not been tested
 	0010 - src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
-	0100 --- examples:
-	0101 -- work on pretraining for low resource translation using s2s or lm models.
-	0101 - try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
+	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
+	0010 - the first and second test give different results after load from file
+	0020 saman: cudnn 3D errors
+	0020 saman: difference in results of kunet and knet
+	0020 saman: add lcn example to knet, push lcn branch to master
+	0020 saman: add msra init
+	0100 *** examples:
+	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 - need something for turkish translation to report to tubitak
+	0101 - try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
 	0101 - try s2s model in turkish translation: jonmay sent link to low density translation data.
+	0101 -- work on pretraining for low resource translation using s2s or lm models.
 	0102 -- yonatan supertagging
-	0103 -- vivi concatenation
-	0104 -- yonatan language learning model
+	0105 -- onur/ozan bidirectional model version 2.
 	0106 -- karpathy character based models, inputless networks with random generators
+	0107 -- aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
 	0124 -- attention s2s model
 	0125 -- ntm
 	0126 -- ctc apply speech model to mt
@@ -28,43 +46,40 @@
 	0130 -- language learning in minecraft
 	0131 -- try dropout and other architectures for ner
 	0132 -- learning to interpret python, find other examples
+	0200 I get Nan's back when I run copyseq with winit=Uniform(-10,10).  Gradient check fails with winit=Uniform(-1,1)
 	0200 nce needs mask
 	0200 s2s needs nce
-	0200 I get Nan's back when I run copyseq with winit=Uniform(-10,10).  Gradient check fails with winit=Uniform(-1,1)
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
-	0350 -- saman kernel for lcn
-	0350 - saman: local contrast normalization, manual weight bug:
-	0350 - add the other cudnn bias options for broadcasting add.
-	0350 - add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
 	0500 add copytenten to runtests: src/data/S2SData.jl: add epochsize argument so copytenten can stop early.
-	0700 -- src/op/loss.jl: cleanup, move out of op.
 	0700 - examples/mnist4d.jl (lemlp): TODO: debug softloss carefully, mlp diff has grown.  Debug/implement other losses.
 	0700 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 - src/op/compound.jl: finish documentation for all ops.
-	0800 -- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	0700 -- src/op/loss.jl: cleanup, move out of op.
 	0800 - Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	0800 - Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0800 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
 	0800 - maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
 	0800 - update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
 	0800 - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
+	0800 -- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
 	0900 -- barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
 	0901 - barret speed: implementing the whole lstm with single matrix multiplication
 	0902 - speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
-	0950 -- mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0950 - find the three parameter element wise mul in julia and rename mul2
 	0950 - probably should move cuda and julia code from linalg into add/mul etc.
+	0950 -- mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0970 ai-mtg: kernels and perceptrons.
 	0970 kperceptron.jl: reimplement within the new framework.
 	0970 perceptron and structured perceptron examples.
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
-	1000 It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
+	1000 bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
+	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 Work on non-gpu compatibility.
-	1000 ai-mtg: Being able to access arrays with original variable names.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 character convolution.
+	1000 implement gru using con. or axpb?
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 edit test/runtests.jl to run the examples instead.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
@@ -99,6 +114,64 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* DONE:
+	DONE -- saman kernel for lcn
+	DONE - saman: local contrast normalization, manual weight bug:
+	DONE - add the other cudnn bias options for broadcasting add.
+	DONE - add.jl: document broadcasting and make sure forw and back works in all cases: ok nvidia cudnnAddTensor_v3 does not work as advertised.  waiting to hear back from nvidia.  also there is no general broadcasting add back in cudnn.  cudnnConvolutionBackwardBias only works for 1-D bias.  should look at caffe etc.
+	DONE - for aliya ipa model we definitely need s2s decoder.
+	DONE saman: fix lstm size inference in lcn branch and push to master
+	DONE saman: make xavier or msra default init, test on lcn, push to master
+
+
+2015-11-07  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* conditionals:
+	- do we handle them in the macro or the compiler?
+	- what is the final format?
+	-- (Op, in1, in2, ..., out) is the old format out of the compiler
+	-- (cond, out, op, in1, ...) could be the new format, just write some accessors so it doesn't matter.
+	- cond needs to be a full logical expression:
+	-- we want no block structure in compiler output
+	-- so each instruction will have to have a complete condition as an expression.
+	-- these will go into net.cond array of expressions.
+	- the return in the middle problem is different, handle later.
+	- the macro produced function handles gensyms and adding the return variable.
+	- the compiler does subroutine expansion gets a sequence of primitive actions.
+	- who handles the conditionals?
+	- should we turn an if else end sequence into multiple independent if's.
+	- what environment are we going to evaluate the conditionals against?
+	- we'll let the compiler handle conditionals, it can pass the current condition to each recursive compile call
+	- the macro just takes care of variable renaming.
+
+	- we could define the knet macro just to quote the function definition and do the rest in the compiler:
+	macro knet(x); esc(Expr(:(=),x.args[1].args[1],Expr(:quote,x))); end
+	- so the compiler goes from function definition and keyword arguments to Net.
+	- the problem is with the keyword arguments which need to be evaluated by the compiler.
+	- the compiler can no longer rely on the individual ops to do the substitutions.
+	- the value of a keyword argument like out=100 gets passed down layers
+	- the compiler can carry it down like a global environment
+	- maybe the runtime can use the same trick for the conditionals.
+	- this way our function definitions do not need kwargs or o...?
+	- which primitive ops use kwargs?
+	-- axpb: a,p,b (other actf none)
+	-- add: alpha,beta
+	-- arr: init
+	-- conv: padding, stride, upscale, mode
+	-- dot: none
+	-- input: none
+	-- mul: none
+	-- nce: none
+	-- par: dims, init, lr, ...
+	-- pool: window, padding, stride, mode
+	-- rnd: rgen, testrgen (to be deprecated)
+	- all these optional keyword arguments customize the behavior of the op
+	- and they are frozen at compiler time! is that necessary?  yes, different op, different net.
+	- they go into the functor.
+	- and we like passing these things from compound ops to primitives.  or if primitives have this format so should the compounds.
+	- so the problem is can our compiler do this.
+
 
 2015-11-06  Deniz Yuret  <dyuret@ku.edu.tr>
 

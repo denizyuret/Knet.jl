@@ -3,7 +3,7 @@ import Base: dot
 # TODO: Who implements averaging?  -- net should
 # TODO: handle or don't use nothings? -- don't use
 
-type Dot <: Op; end
+type Dot <: Op; Dot(;o...)=new(); end
 
 "@knet function dot(w,x) is matrix multiplication."
 dot(w,x,y)=(Dot(),w,x,y)

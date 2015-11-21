@@ -1,33 +1,82 @@
-"@knet takes a function definition and assigns its AST to the function name."
-macro knet(f); esc(Expr(:(=),f.args[1].args[1],Expr(:quote,f))); end
-
 # the compiler turns expressions into low level instruction sequences.
-# - variable renaming in function calls.
-# - inheriting conditions
-# - inheriting keyword arguments
-# - replacing returns with variables
-# - variable replacement in subroutine calls
-# - recording of arg names at top level
-# - representation of primitive ops
-# - ninputs problem
-# - separate env table for knet ops and funs
+# + variable renaming in function calls.
+# + inheriting conditions
+# + inheriting keyword arguments
+# + replacing returns with variables
+# + recording of arg names at top level
+# + preserve local and arg variable names of top level function
+# + representation of primitive ops
+# + ninputs problem: look up the definition or ask the Op
+# + can we compile primitive operators into net: why not
+# + separate env table for knet ops and funs: cleaner but cannot pass name to Net or comp, or f=relu type kwarg unless we write macros.
+# + adapt to the new _kenv structure: need next pointers?
+# + compound operations
+# + arithmetic operators
+# + multiple functions sharing registers vs one with conditionals
+# + instead of lots of arrays in net, have an Instruction type with the necessary fields: fix the rest of the code in net/
+# - fix or delete net.jl and finish @knet macro
+# - add a copy instruction
+# - fix repeat
+# - check TODO, test all
 
-function comp(f::Expr; o...)
-    ((f.head == :function || f.head == :(=)) &&
-     (length(f.args) == 2) &&
-     (f.args[1].head == :call) &&
-     (f.args[2].head == :block)) ||
-    error("the compiler expects a function definition.")
-    (fhead, fbody) = f.args
-    (fname, fargs, fpars) = _comp_call(fhead)
-    kwargs = _comp_kwargs(f, o)
-    args = [x=>x for x in fargs]
-    args[:return] = :return
-    _comp(fbody, args, kwargs, Expr(:&&))
-    # returnvar = gensym(:return)
-    # cond = Expr(:&&)
-    # kwargs = _comp_kwargs(f, o)
-    # instructions = _comp(fbody, returnvar, cond, kwargs)
+"""
+The @knet macro defines a new knet function:
+
+    @knet function wbf(x; f=:relu, o...)
+        y = wdot(x; o...)
+        z = bias(y; o...)
+        return f(z; o...)
+    end
+
+Note that this does not define wbf as a Julia variable, instead it
+inserts the definition into a table named _KENV.  Once wbf is defined
+it can be:
+
+    (1) Used as an operator in other knet function definitions
+    (2) Compiled into a knet model (Net) using the compile function
+
+"""
+macro knet(f)
+    (fname, fargs, fpars, fbody) = _comp_parse_def(f)
+    esc(Expr(:(=),Expr(:ref,:_KENV,Expr(:quote,fname)),Expr(:quote,f)))
+end
+
+
+"""
+compile(fname::Symbol; o...) compiles the knet function given by fname
+into a knet model, i.e. a Net object.  fname should be a symbol
+(i.e. use compile(:lstm), not compile(lstm)).  Optional keyword
+arguments (o...) can be used to pass initialization parameters to the
+compiler.  For example:
+
+    net = compile(:lstm; fbias=1, out=128)
+"""    
+function compile(fname::Symbol; o...)
+    haskey(_KENV, fname) || error("$fname not defined as a knet function")
+    op = _comp(_KENV[fname]; o...)
+    Net(op, 0, Any[])
+end
+
+function _comp(f::Expr; o...)
+    (fname, fargs, fpars, fbody) = _comp_parse_def(f)
+    prog = Expr(:block)
+    for x in fargs; push!(prog.args, :($x=input())); end
+    append!(prog.args, fbody.args)
+    locals = [x=>x for x in _comp_locals(fbody)]
+    fpars = _comp_fpars(f, o)
+    cond = Expr(:&&)  # A 0-arg && evaluates to true
+    _comp(prog, locals, fpars, cond)
+end
+
+function _comp{T<:Op}(f::Type{T}; o...)
+    feval = f(;o...)
+    fargs = [ symbol("x$i") for i in 1:ninputs(feval) ]
+    fcall = Expr(:call, feval, fargs...)
+    prog = Expr(:block)
+    for x in fargs; push!(prog.args, :($x=input())); end
+    push!(prog.args, Expr(:return, fcall))
+    locals = [x=>x for x in _comp_locals(prog)]
+    _comp(prog, locals, Dict(), Expr(:&&))
 end
 
 function _comp(expr,name::Dict,value::Dict,cond::Expr)
@@ -37,32 +86,37 @@ function _comp(expr,name::Dict,value::Dict,cond::Expr)
         error("expecting expression got $expr")
     elseif expr.head == :block
         mapreduce(x->_comp(x,name,value,cond), append!, expr.args)
-    elseif expr.head == :return
-        _comp(Expr(:(=), :return, expr.args[1]),name,value,cond)
     elseif expr.head == :if
-        append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])), length(s.args) == 2 ? Any[] :
+        append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])), length(expr.args) == 2 ? Any[] :
                 _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:!,expr.args[1]))))
+    elseif expr.head == :return # return y -> return = y
+        _comp(Expr(:(=), :return, expr.args[1]),name,value,cond)
     elseif expr.head != :(=)
         error("expecting assignment expression got $expr")
     elseif !isa(expr.args[1], Symbol)
         error("lhs should be a symbol in $expr")
-    elseif isa(expr.args[2], Symbol) # y=x
-        _comp(Expr(:(=), expr.args[1], Expr(:call,:_copy,expr.args[2])),name,value,cond) # x=y -> x=copy(y)
+    elseif isa(expr.args[2], Symbol) # y=x -> y=copy(x)
+        _comp(Expr(:(=), expr.args[1], Expr(:call,:copy,expr.args[2])),name,value,cond)
     elseif !isa(expr.args[2], Expr) || expr.args[2].head != :call
         error("rhs should be a function call in $expr")
     else                        # y=f(x...;o...)
-        y = expr.args[1]
-        (f,x,o) = _comp_call(expr.args[2])
-
-        yname = get!(name, y, gensym(y))
-        feval = _comp_eval(f, value)
-        xname = map(x) do v
-            # TODO: evaluate x's instead of insisting them to be symbols
-            isa(v,Symbol) ? get!(name,v,gensym(v)) :
-            error("positional argument $v should be a symbol in $expr")
+        prog = Any[]
+        (f,fargs,fpars) = _comp_parse_call(expr.args[2])
+        xname = map(fargs) do x
+            if isa(x,Symbol)
+                get!(name,x,gensym(x))
+            elseif isa(x,Expr)
+                tmp = gensym(:tmp)
+                name[tmp] = tmp
+                append!(prog, _comp(Expr(:(=), tmp, x), name, value, cond))
+                tmp
+            else
+                error("Malformed positional argument $x in $expr")
+            end
         end
+        xname = convert(Vector{Symbol}, xname)
         odict = Dict{Symbol,Any}()
-        for k in o
+        for k in fpars
             if k.head == :kw
                 odict[k.args[1]] = _comp_eval(k.args[2], value)
             elseif k.head == :(...)
@@ -70,28 +124,51 @@ function _comp(expr,name::Dict,value::Dict,cond::Expr)
                     odict[a] = b
                 end
             else
-                error("Malformed keyword argument $k")
+                error("Malformed keyword argument $k in $expr")
             end
         end
-        if isa(feval, DataType) && (feval <: Op)
+        feval = _comp_func(f, value)
+        y = expr.args[1]
+        yname = get!(name, y, gensym(y))
+        if isa(feval, Op)
+            push!(prog, Ins(yname, feval, xname, cond))
+        elseif isa(feval, DataType) && (feval <: Op)
             op = feval(; odict...)
-            Any[(cond, yname, op, xname...)]
+            push!(prog, Ins(yname, op, xname, cond))
         elseif isa(feval, Expr)
-            kwargs = _comp_kwargs(feval, odict)
-            args = _comp_args(feval, xname, yname)
+            fpars = _comp_fpars(feval, odict)
+            args = _comp_fargs(feval, xname, yname)
             fbody = feval.args[2]
-            _comp(fbody, args, kwargs, cond)
+            append!(prog, _comp(fbody, args, fpars, cond))
         else
             error("expecting Op or Expr got $f")
         end
+        return prog
     end
 end
 
-"""
-Given an expression or symbol and a dictionary of symbols, evaluate the 
-expression in an environment defined by the dict.
-"""
+function _comp_locals(ex)       # TODO: should we ignore conditionals, which are global?
+    if isa(ex, Symbol)
+        Any[ex]
+    elseif isa(ex,LineNumberNode)
+        Any[]
+    elseif !isa(ex, Expr)
+        error("Expected Expr got $ex")
+    elseif ex.head == :parameters
+        Any[]
+    elseif ex.head == :return
+        mapreduce(_comp_locals, append!, Any[:return], ex.args)
+    elseif ex.head == :call
+        mapreduce(_comp_locals, append!, Any[], ex.args[2:end])
+    else
+        mapreduce(_comp_locals, append!, Any[], ex.args)
+    end
+end
+
+# Given an expression or symbol and a dictionary of symbols, evaluate the 
+# expression in an environment defined by the dict.
 function _comp_eval(s,d::Dict)
+    haskey(_KENV, s) && return _KENV[s]
     a = Expr(:let,Expr(:block,s))
     for (k,v) in d
         push!(a.args, Expr(:(=),k,v))
@@ -99,8 +176,16 @@ function _comp_eval(s,d::Dict)
     eval(current_module(), a)
 end
 
-function _comp_args(f::Expr, x::Array, y::Symbol)
-    (fname, fargs, fpars) = _comp_call(f.args[1])
+# TODO: not sure if we need this special treatment:
+# TODO: this forces quotation f=:relu, is there another way?
+function _comp_func(s,d::Dict)
+    haskey(d, s) && (s = d[s])
+    haskey(_KENV, s) && (s = _KENV[s])
+    return s
+end
+
+function _comp_fargs(f::Expr, x::Array, y::Symbol)
+    (fname, fargs, fpars) = _comp_parse_call(f.args[1])
     length(fargs)==length(x) || error("parameter mismatch [$fargs] [$x]")
     fdict = Dict{Symbol,Symbol}()
     for i=1:length(x)
@@ -111,13 +196,11 @@ function _comp_args(f::Expr, x::Array, y::Symbol)
     return fdict
 end
 
-"""
-Given a function definition and an array of keyword arguments, returns
-a dictionary of keyword arguments that should be passed to the body of
-the function.
-"""        
-function _comp_kwargs(f::Expr, o)
-    (fname, fargs, fpars) = _comp_call(f.args[1])
+# Given a function definition and an array of keyword arguments, returns
+# a dictionary of keyword arguments that should be passed to the body of
+# the function.
+function _comp_fpars(f::Expr, o)
+    (fname, fargs, fpars) = _comp_parse_call(f.args[1])
     isempty(fpars) && return Any[]
     slurp = (isa(fpars[end],Expr) && fpars[end].head == :(...) ? pop!(fpars).args[1] : nothing)
     fdict = Dict{Symbol,Any}()
@@ -140,12 +223,27 @@ function _comp_kwargs(f::Expr, o)
     return fdict
 end
 
-function _comp_call(s::Expr)
+function _comp_parse_def(f)
+    (isa(f,Expr) &&
+     (f.head == :function || f.head == :(=)) &&
+     (length(f.args) == 2) &&
+     (f.args[1].head == :call) &&
+     (f.args[2].head == :block)) ||
+    error("Expected function definition got $f")
+    (fhead, fbody) = f.args
+    (fname, fargs, fpars) = _comp_parse_call(fhead)
+    (fname, fargs, fpars, fbody)
+end
+
+function _comp_parse_call(s)
+    (isa(s,Expr) && s.head == :call) ||
+    error("Expected function call got $s")
     f = s.args[1]
-    x = s.args[2:end]
+    x = s.args[2:end]           # Use [:] notation to create a copy
     o = !isempty(x) && isa(x[1],Expr) && x[1].head==:parameters ? shift!(x).args[1:end] : Any[]
     (f, x, o)
 end
+
 
 ### DEAD CODE:
 
@@ -555,3 +653,119 @@ end
 # _comp
 
 
+# The core of the compiler is the compilation of a function call.  If
+# the function is a primitive, this gets compiled into a single
+# instruction.  If it is a compound, then the body of the function
+# with certain transformations gets compiled into an array of
+# instructions.
+
+# The compilation of the function call takes place in a lexical
+# environment.  There are several components of this environment:
+
+# 1. The target variable.  The function call can be the rhs of an
+# assignment statement, an internal call in a compound statement, or
+# we may be compiling the top level function as a model.  In each case
+# a target symbol should be provided to _comp_call.  Any return
+# statement in the body of the function will be turned into an
+# assignment to this target symbol.  But see #3.
+
+# 2. The function name.  This could be a symbol in _kenv, which is a
+# table of knet functions and their names, or a kwarg symbol from the
+# parent function, in which case it should be evaluated.  The kwarg
+# takes precedence.
+
+# 3. The positional arguments.  These are either symbols or other
+# calls.  To compile other calls we gensym target variables and insert
+# their instructions preceding the current function call.  Once each
+# argument turns into a symbol, these symbols will need to replace the
+# parameters of the function call in the body.  Recursively this means
+# we need a symbol map passed to _comp_call.  The target variable can
+# also be in this map as the value of :return.
+
+# 4. The keyword arguments.  These come as symbol=expr pairs,
+# optionally followed by a o... splat.  The expr can be a kenv symbol,
+# or a julia expression which should be evaluated in that order.
+# These symbols should go into a symbol table and be used while
+# compiling the body of the function.
+
+# What is the simplest way to do this?  How many separate symtables do
+# we need?  Can we combine symbol lookup and expr eval?
+
+# eval args until all are symbols => we need a real _comp_call?
+# should we do syntactic xforms?
+
+
+# fargs or fpars could be empty depending on whether the user uses semicolon
+# they may also have plain symbols or splats, which we should warn the user about
+# fname could be a primitive op or a kfun, but it should be stored in _kenv in either case
+# f = get(_kenv, fname, nothing)
+# f == nothing && error("$fname not defined as a knet function")
+# # in either case we should be able to compile it
+# @show global tmp = 
+# fcomp = eval(current_module(), tmp)
+
+# user defines kfun using @knet function foo...
+# user compiles kfun calling @knet kfun(a=1,b=2...)
+# this should return a net.
+# user uses kfun in other code using kfun(x,y;a=1,b=2...)
+# the two usages may be confusing.
+# we could just provide compile(:kfun; args...) instead of the knet macro
+
+# function _knet(f)
+#     (fname, fargs, fpars) = _comp_parse_call(f)
+#     haskey(_kenv, fname) || error("$fname not defined as a knet function")
+#     isempty(fpars) && ((fargs,fpars)=(fpars,fargs))
+#     isempty(fargs) || error("Usage: @knet f(a=1,b=2,...)")
+#     ex = Expr(:call,:comp,Expr(:parameters,fpars...),Expr(:ref,:_kenv,QuoteNode(fname)))
+#     fcomp = eval(current_module(), ex)
+# end
+
+# macro kdef(f)
+#     _kdef(f)
+# end
+
+# # """
+# # The @knet macro compiles a knet function as a model:
+
+# #     net = @knet foo(a=1,b=2)
+
+# # compiles the knet function foo as a model with initialization
+# # parameters `a=1` and `b=2` and assigns the result to the Julia
+# # variable `net`.
+# # """
+# macro knet(f)
+#     if f.head==:function
+#         _kdef(f)
+#     elseif f.head == :(=)
+#         _kdef(f)
+#     elseif f.head == :call
+#         _knet(f)
+#     end
+# end
+
+    # inputs = filter(x->isa(x.op,Input), op)
+    # params = filter(x->isa(x.op,Par), op)
+
+# """
+# _kops lists primitive operations and their knet names.  The primitive
+# operations (capitalized in the code) are represented by types that are
+# subtypes of Op.
+# """
+# _kops = [(:add,Add),(:+,Add),   # TODO: catch add with alpha/beta
+#          (:arr,Arr),            
+#          (:axpb,Axpb),          # TODO: catch axpb
+#          (:conv,Conv),
+#          (:dot,Dot),(:*,Dot),
+#          (:input,Input),
+#          (:logp,Logp),
+#          (:mul,Mul),(:.*,Mul),  # TODO: define div,sub
+#          (:nce,Nce),
+#          (:par,Par),
+#          (:pool,Pool),
+#          (:relu,Relu),
+#          (:rnd,Rnd),
+#          (:sigm,Sigm),
+#          (:soft,Soft),
+#          (:tanh,Tanh)]
+
+:ok

@@ -1,5 +1,11 @@
-module Knet
+#module Knet
 using Compat
+
+# _KENV is the environment table for knet functions.  We keep these
+# out of Julia to avoid name conflicts.
+
+isdefined(:_KENV) || (_KENV = Dict{Symbol,Any}())
+
 include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 
 # Useful utilities
@@ -26,19 +32,20 @@ include("util/array.jl");	export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 
 include("op.jl");		
-include("op/add.jl");		export add
-include("op/dot.jl");		# export dot # this already has a definition in base
-include("op/mul.jl");		export mul
-include("op/input.jl");		export input
-include("op/par.jl");           export par
-include("op/rnd.jl");           export rnd
-include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
-include("op/actf.jl");		export sigm, tanh, relu, soft, logp, axpb
-include("op/conv.jl");		# export conv # this already has a definition in base
-include("op/pool.jl");		export pool
-include("op/nce.jl");		export nce
-include("op/arr.jl");		export arr
+include("op/actf.jl")
+include("op/add.jl")
+include("op/const.jl")
+include("op/conv.jl")
+include("op/dot.jl")
+include("op/input.jl")
+include("op/mul.jl")
+include("op/nce.jl")
+include("op/par.jl")
+include("op/pool.jl")
+include("op/rnd.jl")
+
 include("update.jl");		
+include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
 include("compiler.jl");		export @knet
 include("net.jl");              export params, forw, back
@@ -65,7 +72,7 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
-end # module
+#end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias

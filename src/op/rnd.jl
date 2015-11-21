@@ -1,4 +1,4 @@
-type Rnd <: Op; rgen; testrgen; end
+type Rnd <: Op; rgen; testrgen; Rnd(;rgen=Uniform(0,1),testrgen=nothing, o...)=new(rgen,testrgen); end
 rnd(y; rgen=Uniform(0,1), testrgen=nothing)=(Rnd(rgen, testrgen), y)
 ninputs(::Rnd)=0
 overwrites(::Rnd)=false

@@ -1,4 +1,4 @@
-type Input <: Op; end
+type Input <: Op; Input(;o...)=new(); end
 
 "@knet function input() fetches the next network input."
 input(y)=(Input(),y)

@@ -9,6 +9,20 @@ overwrites(::Actf)=true
 back_reads_x(::Actf)=false
 back_reads_y(::Actf)=true
 
+for (ltype,lforw,lback,lname) in 
+    ((:Sigm, :sigmforw, :sigmback, :sigm),
+     (:Tanh, :tanhforw, :tanhback, :tanh),
+     (:Relu, :reluforw, :reluback, :relu),
+     (:Soft, :softforw, :softback, :soft),
+     (:Logp, :logpforw, :logpback, :logp))
+    @eval begin
+        type $ltype <: Actf; end
+        forw(l::$ltype, x, y; o...)=$lforw(x,y)
+        back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
+    end
+    _KENV[lname] = eval(ltype)
+end
+
 function infersize(::Actf,xdims,ydims)
     if xdims==nothing
         (ydims, ydims)
@@ -26,38 +40,21 @@ function infersize(::Actf,xdims,ydims)
     end
 end
 
-
-### Common Definitions
-
-for (ltype,lforw,lback,lname) in 
-    ((:Sigm, :sigmforw, :sigmback, :sigm),
-     (:Tanh, :tanhforw, :tanhback, :tanh),
-     (:Relu, :reluforw, :reluback, :relu),
-     (:Soft, :softforw, :softback, :soft),
-     (:Logp, :logpforw, :logpback, :logp))
-    @eval begin
-        type $ltype <: Actf; end
-        $lname(x,y;o...)=($ltype(),x,y)
-        forw(l::$ltype, x, y; o...)=$lforw(x,y)
-        back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
-    end
-end
-
 ### Implementations
 
-@doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" sigm
+@doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" :sigm
 sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
 sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end; dx)
 @gpu sigmforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); y)
 @gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); dx)
 
-@doc "@knet function tanh(x) computes the hyperbolic tangent activation function." tanh
+@doc "@knet function tanh(x) computes the hyperbolic tangent activation function." :tanh
 tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end; y)
 tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end; dx)
 @gpu tanhforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH); gpusync(); y)
 @gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH); gpusync(); dx)
 
-@doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" relu
+@doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" :relu
 reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
 reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
 @gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
@@ -73,7 +70,7 @@ reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 :
 #        = yk - pk - yk Σ (yi - pi)
 #        = yk - pk
 
-@doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" soft
+@doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" :soft
 function softforw(x::Array,y::Array)
     (st,nx) = size2(x)
     for j=1:nx
@@ -105,7 +102,7 @@ end
 @gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
 @gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
 
-@doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" logp
+@doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" :logp
 function logpforw(x::Array,y::Array)
     (nd,nx) = size2(x)
     for j=1:nx
@@ -129,10 +126,11 @@ logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
         ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); gpusync(); y))
 
 
-"@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise."
-axpb(x,y;a=1,p=1,b=0)=(Axpb(a,p,b),x,y)
+@doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise." :axpb
 
-type Axpb <: Actf; a; p; b; end
+# axpb(x,y;a=1,p=1,b=0)=(Axpb(a,p,b),x,y)
+
+type Axpb <: Actf; a; p; b; Axpb(;a=1,p=1,b=0,o...)=new(a,p,b); end
 back_reads_x(::Axpb)=true
 back_reads_y(::Axpb)=false
 
@@ -183,3 +181,6 @@ end
 # params(::Actf)=Any[]
 # ysize(::Actf,x)=size(x)
 # overwrites(::Actf)=true
+
+        # type $ltype <: Actf; $ltype(;o...)=new(); end
+        # $lname(x,y;o...)=($ltype(),x,y)

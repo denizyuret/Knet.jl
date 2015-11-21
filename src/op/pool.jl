@@ -1,4 +1,6 @@
-type Pool <: Op; window; padding; stride; mode; end
+type Pool <: Op; window; padding; stride; mode;
+    Pool(;window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=new(window,padding,stride,mode)
+end
 
 """
 @knet function pool(x; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)

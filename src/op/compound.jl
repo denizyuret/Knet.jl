@@ -1,58 +1,65 @@
-"""
-@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...) represents
-a linear transformation (matrix product) w*x.  The output size can be
-specified by the `out` parameter, and the weight matrix will be
-initialized using the distribution or array given by winit.
-"""
-@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...)
+# """
+# wdot(x; out=0, winit=Gaussian(0,.01), o...) represents a linear
+# transformation (matrix product) w*x.  The output size can be specified
+# by the `out` parameter, and the weight matrix will be initialized
+# using the distribution or array given by winit.
+# """
+
+@knet function wdot(x; out=0, winit=Gaussian(0,.01), o...) # TODO: use Xavier instead
     w = par(; o..., init=winit, dims=(out,0))
-    y = dot(w,x)
+    return w*x
+end
+
+@knet function copy(x; o...)
+    return axpb(x)              # TODO: do something more efficient.
 end
 
 @knet function bias(x; binit=Constant(0), o...)
     b = par(; o..., init=binit, dims=(0,))
-    y = add(b,x)
+    return b+x
 end
 
 @knet function wb(x; o...)
     y = wdot(x; o...)
-    z = bias(y; o...)
+    return bias(y; o...)
 end
 
-@knet function wf(x; f=relu, o...)
+@knet function wf(x; f=:relu, o...)
     y = wdot(x; o...)
-    z = f(y; o...)
+    return f(y; o...)
 end
 
-@knet function wbf(x; f=relu, o...)
+@knet function wbf(x; f=:relu, o...)
     y = wdot(x; o...)
     z = bias(y; o...)
-    a = f(z; o...)
+    return f(z; o...)
 end
 
-@knet function Base.drop(x; pdrop=0, o...)
-    r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)), testrgen=Constant(1))
-    y = mul(r,x)
+@knet function drop(x; pdrop=0, o...)
+    if training
+        r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)))
+        return mul(r,x)
+    else
+        return x
+    end
 end
 
 @knet function wconv(x; out=0, window=0, cinit=Xavier(), o...)
     w = par(; o..., init=cinit, dims=(window, window, 0, out))
-    y = conv(w,x)
+    return conv(w,x)
 end
 
 @knet function cbfp(x; f=relu, cwindow=0, pwindow=0, o...)
     y = wconv(x; o..., window=cwindow)
     z = bias(y; o...)
     r = f(z; o...)
-    p = pool(r; o..., window=pwindow)
+    return pool(r; o..., window=pwindow)
 end
 
-@knet function add2(x1, x2; f=sigm, o...)
-    y1 = wdot(x1; o...)
-    y2 = wdot(x2; o...)
-    x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
-    y3 = bias(x3; o...)
-    ou = f(y3; o...)
+@knet function add2(x1, x2; f=:sigm, o...)
+    y = wdot(x2; o...) + wdot(x1; o...) # if (y1,y2) lstm cannot infer size with one column input
+    z = bias(y; o...)
+    return f(z; o...)
 end
 
 """
@@ -94,11 +101,9 @@ end
     forget = add2(x,h; o..., f=sigm, binit=Constant(fbias))
     output = add2(x,h; o..., f=sigm)
     newmem = add2(x,h; o..., f=tanh)
-    ig = mul(input,newmem)
-    fc = mul(forget,cell)
-    cell = add(ig,fc)
-    tc = tanh(cell)
-    h  = mul(tc,output)
+    cell = input .* newmem + forget .* cell
+    h  = tanh(cell) .* output
+    return h
 end
 
 """
@@ -120,9 +125,11 @@ end
 @knet function irnn(x; scale=1, winit=Gaussian(0,.01), o...)
     wx = wdot(x; o..., winit=winit)
     wr = wdot(r; o..., winit=Identity(scale))
-    xr = add(wx,wr)
-    xrb = bias(xr; o...)
-    r = relu(xrb)
+    r = relu(bias(wx + wr; o...))
+    # xr = wx + wr
+    # xrb = bias(xr; o...)
+    # r = relu(xrb)
+    return r
 end
 
 """

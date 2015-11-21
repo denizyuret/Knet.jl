@@ -1,57 +1,21 @@
-"""
-Neural network compiler.
-"""
-type Net
-    op::Vector{Op}
-    inputs::Vector{Vector{Int}}
-    outputs::Vector{Vector{Int}}
-    netinputs::Int
-    params::Vector{Par}
-    tosave::Vector{Bool}        # result of op[n] needed for back calculation.  
-    toback::Vector{Bool}        # dif[n] should be calculated during back calculation
-    toincr::Vector{Bool}        # dif[n] should be incrementally updated: multiple outputs or Par in a sequence model
-    sparse::Vector              # a parameter dotted with sparse input
-    out::Vector
-    dif::Vector
-    out0::Vector
-    dif0::Vector
-    tmp::Vector
-    stack::Vector
-    sp::Int
-    Net()=new()
-end
-    
-function Net(f::Function; ninputs=1, o...)
-    x = [ gensym("x") for i=1:ninputs ]
-    y = gensym("y")
-    p = f(x..., y; o...)
-    b = Expr(:block)
-    for i in x; push!(b.args, :($i = input())); end
-    append!(b.args, p.args)
-    Net(b)
+type Ins
+    output::Symbol
+    op::Op
+    inputs::Vector{Symbol}
+    cond::Expr
+    plist::Dict
+    out; out0; dif; dif0; tmp
+    function Ins(output::Symbol,op::Op,inputs::Vector{Symbol},cond::Expr)
+        Ins(output,op,inputs,cond,Dict(),nothing,nothing,nothing,nothing,nothing)
+    end
 end
 
-function Net(b::Expr)
-    net = Net()
-    prog = _knet(b)
-    net.op = map(first, prog)
-    N = length(prog)
-    dict = Dict{Symbol,Int}()
-    for i=1:N; dict[last(prog[i])] = i; end
-    net.inputs = [ Int[] for i=1:N ]
-    for i=1:N; for j=2:length(prog[i])-1; push!(net.inputs[i], dict[prog[i][j]]); end; end
-    net.outputs = outputs(net.inputs)
-    net.netinputs = count(x->isa(x,Input), net.op)
-    net.params = filter(x->isa(x,Par), net.op)
-    net.tosave = tosave(net.op, net.inputs)     # TODO: does this not depend on dx as well?
-    net.toback = falses(N) # toback: depends on dx
-    net.toincr = falses(N) # toincr: depends on seq
-    net.sparse = nothings(N) # sparse: depends on input
-    for f in (:out,:dif,:out0,:dif0,:tmp); net.(f) = nothings(N); end
-    net.stack = Any[]
-    net.sp = 0
-    return net
+type Net
+    op::Vector{Ins}
+    sp::Int
+    stack::Vector
 end
+
 
 """
 tosave(op, inputs) returns tosave[n] which is true if the result of 
@@ -232,3 +196,57 @@ end
 #     return (nout .> 1)
 # end
 
+# """
+# Neural network compiler.
+# """
+# type Net0
+#     op::Vector{Op}
+#     inputs::Vector{Vector{Int}}
+#     outputs::Vector{Vector{Int}}
+#     netinputs::Int
+#     params::Vector{Par}
+#     tosave::Vector{Bool}        # result of op[n] needed for back calculation.  
+#     toback::Vector{Bool}        # dif[n] should be calculated during back calculation
+#     toincr::Vector{Bool}        # dif[n] should be incrementally updated: multiple outputs or Par in a sequence model
+#     sparse::Vector              # a parameter dotted with sparse input
+#     out::Vector
+#     dif::Vector
+#     out0::Vector
+#     dif0::Vector
+#     tmp::Vector
+#     stack::Vector
+#     sp::Int
+#     Net0()=new()
+# end
+    
+# function Net(f::Function; ninputs=1, o...)
+#     x = [ gensym("x") for i=1:ninputs ]
+#     y = gensym("y")
+#     p = f(x..., y; o...)
+#     b = Expr(:block)
+#     for i in x; push!(b.args, :($i = input())); end
+#     append!(b.args, p.args)
+#     Net(b)
+# end
+
+# function Net(b::Expr)
+#     net = Net()
+#     prog = _knet(b)
+#     net.op = map(first, prog)
+#     N = length(prog)
+#     dict = Dict{Symbol,Int}()
+#     for i=1:N; dict[last(prog[i])] = i; end
+#     net.inputs = [ Int[] for i=1:N ]
+#     for i=1:N; for j=2:length(prog[i])-1; push!(net.inputs[i], dict[prog[i][j]]); end; end
+#     net.outputs = outputs(net.inputs)
+#     net.netinputs = count(x->isa(x,Input), net.op)
+#     net.params = filter(x->isa(x,Par), net.op)
+#     net.tosave = tosave(net.op, net.inputs)     # TODO: does this not depend on dx as well?
+#     net.toback = falses(N) # toback: depends on dx
+#     net.toincr = falses(N) # toincr: depends on seq
+#     net.sparse = nothings(N) # sparse: depends on input
+#     for f in (:out,:dif,:out0,:dif0,:tmp); net.(f) = nothings(N); end
+#     net.stack = Any[]
+#     net.sp = 0
+#     return net
+# end

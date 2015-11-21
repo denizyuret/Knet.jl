@@ -4,7 +4,7 @@
 # DONE: handle scalar input for adding a constant. -- axpb will handle this
 # TODO: back
 
-type Add <: Op; alpha; beta; end
+type Add <: Op; alpha; beta; Add(;alpha=1,beta=1,o...)=new(alpha,beta); end
 
 """
 
@@ -36,7 +36,12 @@ dimensions):
   of x2.  Example: (3,)+(5,4,3,2)=>(1,1,3,1)+(5,4,3,2)=>(5,4,3,2).
 
 """
-add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
+:add
+
+_KENV[:add] = Add
+_KENV[:+] = Add
+
+# add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
 
 ninputs(::Add)=2
 overwrites(::Add)=true

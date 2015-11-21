@@ -1,4 +1,4 @@
-type Mul <: Op; Mul()=new(); end
+type Mul <: Op; Mul(;o...)=new(); end
 
 # TODO: implement broadcasting
 "@knet function mul(x,y) is element-wise multiplication."
