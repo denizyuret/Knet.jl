@@ -6,7 +6,7 @@ type Ins
     plist::Dict
     out; out0; dif; dif0; tmp
     function Ins(output::Symbol,op::Op,inputs::Vector{Symbol},cond::Expr)
-        Ins(output,op,inputs,cond,Dict(),nothing,nothing,nothing,nothing,nothing)
+        new(output,op,inputs,cond,Dict(),nothing,nothing,nothing,nothing,nothing)
     end
 end
 

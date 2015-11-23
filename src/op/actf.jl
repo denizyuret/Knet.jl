@@ -1,5 +1,3 @@
-import Base: tanh
-
 # Activation function layers:
 
 abstract Actf <: Op
@@ -16,11 +14,11 @@ for (ltype,lforw,lback,lname) in
      (:Soft, :softforw, :softback, :soft),
      (:Logp, :logpforw, :logpback, :logp))
     @eval begin
-        type $ltype <: Actf; end
+        type $ltype <: Actf; $ltype(;o...)=new(); end
         forw(l::$ltype, x, y; o...)=$lforw(x,y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
     end
-    _KENV[lname] = eval(ltype)
+    kdef(lname,eval(ltype))
 end
 
 function infersize(::Actf,xdims,ydims)
@@ -131,6 +129,8 @@ logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
 # axpb(x,y;a=1,p=1,b=0)=(Axpb(a,p,b),x,y)
 
 type Axpb <: Actf; a; p; b; Axpb(;a=1,p=1,b=0,o...)=new(a,p,b); end
+kdef(:axpb,Axpb) # TODO: compiler should recognize arithmetic expr for axpb
+
 back_reads_x(::Axpb)=true
 back_reads_y(::Axpb)=false
 

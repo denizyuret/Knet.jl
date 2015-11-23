@@ -1,8 +1,5 @@
 type Input <: Op; Input(;o...)=new(); end
-
-"@knet function input() fetches the next network input."
-input(y)=(Input(),y)
-
+kdef(:input,Input)
 ninputs(::Input)=0
 overwrites(::Input)=false
 back_reads_x(::Input)=false

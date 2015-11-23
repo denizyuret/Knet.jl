@@ -1,15 +1,15 @@
-type Pool <: Op; window; padding; stride; mode;
-    Pool(;window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=new(window,padding,stride,mode)
-end
-
 """
 @knet function pool(x; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)
 
 window, padding, stride can be specified as Ints or as tuples.
 """
-pool(x,y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=
-    (Pool(window, padding, stride, mode), x, y)
+type Pool <: Op; window; padding; stride; mode;
+    function Pool(;window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)
+        new(window,padding,stride,mode)
+    end
+end
 
+kdef(:pool,Pool)
 ninputs(::Pool)=1
 overwrites(::Pool)=false
 back_reads_x(::Pool)=true
@@ -126,3 +126,7 @@ psize(w, nd)=(isa(w,Integer) ? ntuple(i->w,nd) : length(w) == nd ? w : throw(Dim
 # cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, x::Array)=cudnnGetPoolingNdForwardOutputDim(pd, CudaArray(x))
 # cudnnPoolingForward(pd::PoolingDescriptor, x::Array, y::Array)=(y1=CudaArray(y);cudnnPoolingForward(pd, CudaArray(x), y1); copy!(y,1,y1,1,length(y)))
 # cudnnPoolingBackward(pd::PoolingDescriptor, y::Array, dy::Array, x::Array, dx::Array)=(dx1=CudaArray(dx);cudnnPoolingBackward(pd, CudaArray(y), CudaArray(dy), CudaArray(x), dx1); copy!(dx,1,dx1,1,length(dx)))
+
+# pool(x,y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX, o...)=
+#     (Pool(window, padding, stride, mode), x, y)
+

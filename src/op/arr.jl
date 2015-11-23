@@ -1,9 +1,17 @@
-type Arr <: Op; init; initialized; out; Arr(init)=new(init,false); end
-arr(y; init=nothing, o...)=(Arr(init),y)
+type Arr <: Op; init; initialized; out; Arr(;init=nothing,o...)=new(init,false); end
+kdef(:arr,Arr)
 infersize(a::Arr,ysize)=tuple(size(a.init))
 ninputs(::Arr)=0
 overwrites(::Arr)=false
 back_reads_x(::Arr)=false
 back_reads_y(::Arr)=false
 back(::Arr,dy;o...)=nothing
-forw(a::Arr,y;o...)=(!a.initialized ? (a.initialized=true; a.out=copy!(y, a.init)) : a.out===y ? y : error("Constant modified"))
+
+function forw(a::Arr,y;o...)
+    if !a.initialized
+        a.out=copy!(y, a.init)
+        a.initialized=true
+    end
+    a.out===y || error("Constant modified")
+    return y
+end

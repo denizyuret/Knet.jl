@@ -28,14 +28,11 @@ dimensions):
   of x2.  Example: (3,)+(5,4,3,2)=>(1,1,3,1)+(5,4,3,2)=>(5,4,3,2).
 
 """
-:add
-
-_KENV[:add] = Add
-_KENV[:+] = Add
-
-# add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
-
 type Add <: Op; alpha; beta; Add(;alpha=1,beta=1,o...)=new(alpha,beta); end
+
+kdef(:add,Add)
+kdef(:+,Add)
+
 ninputs(::Add)=2
 overwrites(::Add)=true
 back_reads_x(::Add)=false
@@ -310,3 +307,6 @@ end
 # DONE: handle scalar input for adding a constant. -- axpb will handle this
 # DONE: back
 
+# add(x1,x2,y; alpha=1, beta=1)=(Add(alpha,beta),x1,x2,y)
+# _KENV[:add] = Add
+# _KENV[:+] = Add

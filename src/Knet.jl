@@ -1,20 +1,27 @@
-#module Knet
+"Module that contains the names of Knet functions."
+module Kenv; kdef(x,y)=eval(Kenv,Expr(:(=),x,Expr(:quote,y))); end
+
+module Knet
 using Compat
+using Main.Kenv
+using Kenv.kdef
 
-# _KENV is the environment table for knet functions.  We keep these
-# out of Julia to avoid name conflicts.
+# This is for debugging
+DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
+macro dbg(x) :(DBG && $(esc(x))) end
+# This is for production
+#macro dbg(x) nothing end        
 
-isdefined(:_KENV) || (_KENV = Dict{Symbol,Any}())
+#gpusync()=device_synchronize() # This is for profiling
+gpusync()=nothing               # This is for production
 
 include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 
 # Useful utilities
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end # Print date, expression; run and print elapsed time after execution
-#macro dbg(x) esc(x) end        # This is for debugging
-macro dbg(x) nothing end        # This is for production
-#gpusync()=device_synchronize() # This is for profiling
-gpusync()=nothing               # This is for production
+
 setseed(n)=srand(n)             # This gets overwritten in curand.jl if gpu available
+
 export @date, @dbg, gpusync, setseed
 
 @useifgpu CUDArt
@@ -34,7 +41,7 @@ include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 include("op.jl");		
 include("op/actf.jl")
 include("op/add.jl")
-include("op/const.jl")
+include("op/arr.jl")
 include("op/conv.jl")
 include("op/dot.jl")
 include("op/input.jl")
@@ -47,13 +54,15 @@ include("op/rnd.jl")
 include("update.jl");		
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-include("compiler.jl");		export @knet
+include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net.jl");              export params, forw, back
 include("net/initforw.jl")
 include("net/initback.jl")
 include("net/forw.jl")
 include("net/back.jl")
 include("net/util.jl")
+
+include("op/compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
 include("model.jl");		export Model, train, test, predict, setopt!
 include("model/gradcheck.jl");  export gradcheck
@@ -64,15 +73,13 @@ include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two
 include("model/tagger.jl");	export Tagger
 include("model/nce.jl");	export NCE
 
-include("op/compound.jl");	export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
-
 include("data/ItemTensor.jl");		export ItemTensor
 include("data/S2SData.jl");     	export S2SData, maxtoken
 include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
-#end # module
+end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias
@@ -100,3 +107,8 @@ include("data/TagData.jl"); 		export TagData, sponehot
 
 # # include("param.jl");		# export KUparam, setopt! # deprecated
 # isdefined(:KUdense) || include("util/dense.jl");	# deprecate?
+
+# _KENV is the environment table for knet functions.  We keep these
+# out of Julia to avoid name conflicts.
+# isdefined(:_KENV) || (_KENV = Dict{Symbol,Any}())
+

@@ -1,12 +1,8 @@
-import Base: dot
-
-# TODO: Who implements averaging?  -- net should
-# TODO: handle or don't use nothings? -- don't use
-
 type Dot <: Op; Dot(;o...)=new(); end
 
-"@knet function dot(w,x) is matrix multiplication."
-dot(w,x,y)=(Dot(),w,x,y)
+kdef(:dot,Dot)
+kdef(:*,Dot)
+
 ninputs(::Dot)=2
 overwrites(::Dot)=false
 back_reads_x(::Dot)=true
@@ -61,3 +57,13 @@ function infersize(d::Dot,a,b,c)
      b==nothing ? b : tuple(b...),
      (c1,c2))
 end
+
+
+### DEAD CODE:
+
+# import Base: dot
+
+# TODO: Who implements averaging?  -- net should
+# TODO: handle or don't use nothings? -- don't use
+
+# dot(w,x,y)=(Dot(),w,x,y)

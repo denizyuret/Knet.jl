@@ -1,11 +1,17 @@
+# TODO: have a doc for ops here.
+"@knet function dot(w,x) is matrix multiplication."
+"@knet function input() fetches the next network input."
+# ### mul2 element-wise multiplication:
+
+abstract Op
+
 # Each op must provide the following:
 # back_reads_y (tosave)
 # back_reads_x (tosave)
 # ninputs (netcomp1)
 # infersize (used by netinit)
 # overwrites (not used any more?)
-
-abstract Op
+# ysize, loss (not used any more?)
 
 forw(l::Op, y, x...; o...) = error("$(typeof(l)) has not implemented forw")
 back(l::Op, dy, dx...; o...)   = error("$(typeof(l)) has not implemented back")

@@ -11,7 +11,7 @@ end
 params(r::NCE)=vcat(params(r.rnn), params(r.tst))       # trn1,2 and tst share parameters
 reset!(r::NCE)=map(reset!, (r.rnn, r.tst, r.trn1, r.trn2))
 
-@knet function nce_trn(h,r; vocab=0, psample=nothing, nsample=0, kqvec=psample*nsample, nce_winit=Gaussian(0,.01), nce_binit=Constant(log(1/vocab)), o...)
+@knet function nce_trn(h,r; vocab=0, psample=0, nsample=0, kqvec=psample*nsample, nce_winit=Gaussian(0,.01), nce_binit=Constant(log(1/vocab)), o...)
     w  = par(; init=nce_winit, dims=(vocab,0))
     b  = par(; init=nce_binit, dims=(vocab,1))
     q  = arr(; init=kqvec)

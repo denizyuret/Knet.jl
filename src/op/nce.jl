@@ -1,11 +1,11 @@
-type Nce <: Op; Nce(;o...)=new(); end
-
 """
 @knet Op nce(q,s) computes the activation function for Noise
 Contrastive Estimation.  Given q[K] and s[K,B] the output is p[K,B]
 where p[i,j]=exp(s[i,j])/(exp(s[i,j])+q[i]).
 """
-nce(q,s,p)=(Nce(),q,s,p)
+type Nce <: Op; Nce(;o...)=new(); end
+kdef(:nce,Nce)
+
 ninputs(::Nce)=2
 overwrites(::Nce)=true
 back_reads_x(::Nce)=false
@@ -47,3 +47,7 @@ function infersize(a::Nce, q, s, p)
     end
     return (tuple(q...), tuple(s...), tuple(p...))
 end
+
+
+### DEAD CODE:
+# nce(q,s,p)=(Nce(),q,s,p)

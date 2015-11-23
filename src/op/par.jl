@@ -1,11 +1,6 @@
 # TODO: update
 # TODO: averaging
 
-type Par <: Op; dims; init; initialized; out; dif; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
-    Par(;o...)=setopt!(new(); initialized=false, o...)
-end
-
-# TODO: document
 """
 `@knet function par(; dims, init, opts...)` creates a parameter array
 of size `dims` which should be a tuple of Ints.  Some entries in dims
@@ -21,7 +16,11 @@ the Rgen doc).  Other `opts` include:
     * nesterov
     * average
 """
-par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
+type Par <: Op; dims; init; initialized; out; dif; lr; l1reg; l2reg; adagrad; ada; momentum; mom; nesterov; nes; average; avg; 
+    Par(;o...)=setopt!(new(); initialized=false, o...)
+end
+
+kdef(:par,Par)
 
 function setopt!(p::Par; o...)
     for (n,v) in o
@@ -194,3 +193,6 @@ end
 # type Constant <: Rgen; val; end
 # type Identity <: Rgen; val; Identity(x=1)=new(x); end
 # type Xavier <: Rgen; end
+
+# par(y; o...)=(setopt!(Par(); initialized=false, o...), y)
+

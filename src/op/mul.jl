@@ -1,6 +1,7 @@
 type Mul <: Op; alpha; beta; Mul(;alpha=1,beta=1,o...)=new(alpha,beta); end
+kdef(:mul,Mul)
+kdef(:.*,Mul)
 
-mul(x1,x2,y; alpha=1, beta=1)=(Mul(alpha,beta),x1,x2,y)
 ninputs(::Mul)=2
 overwrites(::Mul)=false
 back_reads_x(::Mul)=true
@@ -154,3 +155,4 @@ end
 # mul2!(alpha::Number,a::CudaArray{Float32},beta::Number,b::CudaArray{Float32},c::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Ptr{Cfloat},Ptr{Cfloat}),length(a),Cfloat(alpha),a,Cfloat(beta),b,c); gpusync(); c)
 # mul2!(alpha::Number,a::CudaArray{Float64},beta::Number,b::CudaArray{Float64},c::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(a),Cdouble(alpha),a,Cdouble(beta),b,c); gpusync(); c)
 
+# mul(x1,x2,y; alpha=1, beta=1)=(Mul(alpha,beta),x1,x2,y)

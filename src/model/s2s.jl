@@ -16,12 +16,12 @@ end
 params(m::S2S)=m.params
 reset!(m::S2S; o...)=(reset!(m.encoder; o...);reset!(m.decoder; o...))
 
-@knet function encoder(word; f=nothing, hidden=0, o...)
+@knet function encoder(word; f=:lstm, hidden=0, o...)
     wvec = wdot(word; o..., out=hidden)
     hvec = f(wvec; o..., out=hidden)
 end
 
-@knet function decoder(word; f=nothing, hidden=0, vocab=0, o...)
+@knet function decoder(word; f=:lstm, hidden=0, vocab=0, o...)
     hvec = encoder(word; o..., f=f, hidden=hidden)
     tvec = wdot(hvec; out=vocab)
     pvec = soft(tvec)

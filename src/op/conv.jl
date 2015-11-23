@@ -1,23 +1,14 @@
-import Base: conv
-using CUDNN: cudnnConvolutionDescriptor_t
-
 type Conv <: Op; padding; stride; upscale; mode;
-    Conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION, o...)=new(padding,stride,upscale,mode)
+    function Conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION, o...)
+        new(padding,stride,upscale,mode)
+    end
 end
+kdef(:conv,Conv)
 
 ninputs(::Conv)=2
 overwrites(::Conv)=false
 back_reads_x(::Conv)=true
 back_reads_y(::Conv)=false
-
-# TODO: write doc
-"""
-@knet function conv(w, x; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
-"""    
-function conv(w, x, y; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
-    @assert in(mode, (CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION))
-    (Conv(padding, stride, upscale, mode), w, x, y)
-end
 
 function forw(c::Conv, w, x, y; o...)
     if w == nothing
@@ -195,3 +186,14 @@ end
 #     y[nd] = x[nd]
 #     return (tuple(w...), tuple(x...), tuple(y...))
 # end
+
+# # TODO: write doc
+# """
+# @knet function conv(w, x; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
+# """    
+# function conv(w, x, y; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
+#     @assert in(mode, (CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION))
+#     (Conv(padding, stride, upscale, mode), w, x, y)
+# end
+
+# using CUDNN: cudnnConvolutionDescriptor_t

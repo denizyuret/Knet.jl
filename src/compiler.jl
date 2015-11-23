@@ -14,61 +14,71 @@
 # + arithmetic operators
 # + multiple functions sharing registers vs one with conditionals
 # + instead of lots of arrays in net, have an Instruction type with the necessary fields: fix the rest of the code in net/
+# + wf and f=:sigm not working. the dict that comes to _comp_eval should splat :o.
+# + it works in recursive call from lstm to add2
 # - fix or delete net.jl and finish @knet macro
 # - add a copy instruction
 # - fix repeat
 # - check TODO, test all
+# - note that output variables are no longer unique, either with conditions or without more than one instr may overwrite the same variable
+
 
 """
 The @knet macro defines a new knet function:
 
-    @knet function wbf(x; f=:relu, o...)
+    @knet function wbf(x; f=relu, o...)
         y = wdot(x; o...)
         z = bias(y; o...)
         return f(z; o...)
     end
 
-Note that this does not define wbf as a Julia variable, instead it
-inserts the definition into a table named _KENV.  Once wbf is defined
-it can be:
+Once wbf is defined it can be:
 
     (1) Used as an operator in other knet function definitions
     (2) Compiled into a knet model (Net) using the compile function
-
 """
 macro knet(f)
     (fname, fargs, fpars, fbody) = _comp_parse_def(f)
-    esc(Expr(:(=),Expr(:ref,:_KENV,Expr(:quote,fname)),Expr(:quote,f)))
+    esc(Expr(:call,Kenv.kdef,Expr(:quote,fname),Expr(:quote,f)))
 end
 
 
 """
+
 compile(fname::Symbol; o...) compiles the knet function given by fname
 into a knet model, i.e. a Net object.  fname should be a symbol
 (i.e. use compile(:lstm), not compile(lstm)).  Optional keyword
 arguments (o...) can be used to pass initialization parameters to the
-compiler.  For example:
+compiler.  knet function names in keyword args should also be escaped
+with a colon.  For example:
 
-    net = compile(:lstm; fbias=1, out=128)
+    net = compile(:wbf; f=:sigm, out=100)
 """    
 function compile(fname::Symbol; o...)
-    haskey(_KENV, fname) || error("$fname not defined as a knet function")
-    op = _comp(_KENV[fname]; o...)
+    @dbg println((:compile,:fname,fname,:o,o))
+    isdefined(Kenv, fname) || error("$fname not defined as a knet function")
+    op = _comp(Kenv.(fname); o...)
+    @dbg println((:compile,:op,op))
     Net(op, 0, Any[])
 end
 
 function _comp(f::Expr; o...)
+    @dbg println((:_comp1,:f,f,:o,o))
     (fname, fargs, fpars, fbody) = _comp_parse_def(f)
     prog = Expr(:block)
     for x in fargs; push!(prog.args, :($x=input())); end
     append!(prog.args, fbody.args)
     locals = [x=>x for x in _comp_locals(fbody)]
+    @dbg println((:_comp1,:locals,locals))
     fpars = _comp_fpars(f, o)
     cond = Expr(:&&)  # A 0-arg && evaluates to true
-    _comp(prog, locals, fpars, cond)
+    op = _comp(prog, locals, fpars, cond)
+    @dbg println((:_comp1,:return,op))
+    return op
 end
 
 function _comp{T<:Op}(f::Type{T}; o...)
+    @dbg println((:_comp2,:f,f,:o,o))
     feval = f(;o...)
     fargs = [ symbol("x$i") for i in 1:ninputs(feval) ]
     fcall = Expr(:call, feval, fargs...)
@@ -76,115 +86,171 @@ function _comp{T<:Op}(f::Type{T}; o...)
     for x in fargs; push!(prog.args, :($x=input())); end
     push!(prog.args, Expr(:return, fcall))
     locals = [x=>x for x in _comp_locals(prog)]
-    _comp(prog, locals, Dict(), Expr(:&&))
+    @dbg println((:_comp2,:locals,locals))
+    op = _comp(prog, locals, Dict(), Expr(:&&))
+    @dbg println((:_comp2,:return,op))
+    return op
 end
 
+# _comp compiles expr in the context defined by name, value, and dict.
+# It returns a Vector{Ins} array of instructions.
+# name is a Dict{Symbol,Symbol} that provides name substitution rules.
+# value is a Dict{Symbol,Any} that gives values for variables.
+# cond is an Expr that gives the current condition.
+#
+# Example:
+# 
+# @knet function wf(x; f=relu, o...)
+#     y = wdot(x; o...)
+#     return f(y; o...)
+# end
+#
+# compile(:wf; out=10, f=:sigm)
+#
+# calls _comp with:
+# expr: body of wf prepended with :(x=input())
+# name: {:x=>:x, :y=>:y, :return=>:return} preserving the local variable names of the top level call
+#       name is used for renaming variables that are lhs in assignments, and positional arguments.
+#       any local variable not found in name will be replaced with a gensym when compiling the body.
+# value: {:f=>:sigm, :o=>[(:out,10)]} these values should be used while compiling the function body
+#        value is for evaluating variables that are function names and keyword arguments.
+# cond: :($(Expr(:&&))) the initial cond is an empty conjunction which evaluates to true
+
 function _comp(expr,name::Dict,value::Dict,cond::Expr)
-    if isa(expr,LineNumberNode)
-        Any[]
-    elseif !isa(expr,Expr)
-        error("expecting expression got $expr")
-    elseif expr.head == :block
-        mapreduce(x->_comp(x,name,value,cond), append!, expr.args)
-    elseif expr.head == :if
-        append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])), length(expr.args) == 2 ? Any[] :
-                _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:!,expr.args[1]))))
-    elseif expr.head == :return # return y -> return = y
-        _comp(Expr(:(=), :return, expr.args[1]),name,value,cond)
-    elseif expr.head != :(=)
-        error("expecting assignment expression got $expr")
-    elseif !isa(expr.args[1], Symbol)
-        error("lhs should be a symbol in $expr")
-    elseif isa(expr.args[2], Symbol) # y=x -> y=copy(x)
-        _comp(Expr(:(=), expr.args[1], Expr(:call,:copy,expr.args[2])),name,value,cond)
-    elseif !isa(expr.args[2], Expr) || expr.args[2].head != :call
-        error("rhs should be a function call in $expr")
-    else                        # y=f(x...;o...)
-        prog = Any[]
-        (f,fargs,fpars) = _comp_parse_call(expr.args[2])
-        xname = map(fargs) do x
-            if isa(x,Symbol)
-                get!(name,x,gensym(x))
-            elseif isa(x,Expr)
-                tmp = gensym(:tmp)
-                name[tmp] = tmp
-                append!(prog, _comp(Expr(:(=), tmp, x), name, value, cond))
-                tmp
-            else
-                error("Malformed positional argument $x in $expr")
-            end
-        end
-        xname = convert(Vector{Symbol}, xname)
-        odict = Dict{Symbol,Any}()
-        for k in fpars
-            if k.head == :kw
-                odict[k.args[1]] = _comp_eval(k.args[2], value)
-            elseif k.head == :(...)
-                for (a,b) in _comp_eval(k.args[1], value)
-                    odict[a] = b
-                end
-            else
-                error("Malformed keyword argument $k in $expr")
-            end
-        end
-        feval = _comp_func(f, value)
-        y = expr.args[1]
-        yname = get!(name, y, gensym(y))
-        if isa(feval, Op)
-            push!(prog, Ins(yname, feval, xname, cond))
-        elseif isa(feval, DataType) && (feval <: Op)
-            op = feval(; odict...)
-            push!(prog, Ins(yname, op, xname, cond))
-        elseif isa(feval, Expr)
-            fpars = _comp_fpars(feval, odict)
-            args = _comp_fargs(feval, xname, yname)
-            fbody = feval.args[2]
-            append!(prog, _comp(fbody, args, fpars, cond))
+    @dbg println((:_comp,:expr,expr,:name,name,:value,value,:cond,cond))
+    p = (isa(expr,LineNumberNode) ? Any[] :
+         !isa(expr,Expr) ? error("expecting expression got $expr") :
+         expr.head == :block ? mapreduce(x->_comp(x,name,value,cond), append!, expr.args) :
+         expr.head == :if ? _comp_if(expr, name, value, cond) :
+         expr.head == :return ? _comp(Expr(:(=), :return, expr.args[1]),name,value,cond) : # return y -> return = y
+         expr.head != :(=) ? error("expecting assignment expression got $expr") :
+         !isa(expr.args[1], Symbol) ? error("lhs should be a symbol in $expr") :
+         isa(expr.args[2], Symbol) ? _comp(Expr(:(=), expr.args[1], Expr(:call,:copy,expr.args[2])),name,value,cond) : # y=x -> y=copy(x)
+         !isa(expr.args[2], Expr) || expr.args[2].head != :call ? error("rhs should be a function call in $expr") :
+         _comp_assignment(expr, name, value, cond) # y=f(x...;o...)
+         )
+    @dbg println((:_comp, :return, p))
+    return p
+end
+
+# Continuing the last example, since the body is a block, _comp calls
+# itself on each line recursively appending the results.  At some
+# point we get to a typical line like :(y=wdot(x;o...))  which calls
+# _comp_assignment with the name, value, cond given above.
+
+# _comp_assignment :(y=wdot(x;o...)) has to create a new name2, value2, cond2 to compile the body of wdot.
+# (1) eval the name of the function (wdot) in the value dict for possible replacement (it could be a variable f), then the Kenv global environment (all knet functions must be defined there).
+# (2) lookup the name of lhs (y) in the name dict, creating a gensym for it if not found.  Set name2[:return] to this name.
+# (3) compile any arg expressions, adding their instructions to the program, and generating gensyms for their return variables. Add these as {par=>arg} mappings to name2.
+# (4) lookup the names of the args (x) in the name dict, creating gensyms for them if not found, adding {par=>arg} mappings to name2.
+# (5) evaluate keyword argument values in the call using (a) value dict, (b) Kenv table, (c) julia environment.
+# (6) construct the value dict considering the function definition of wdot and the output of #5.
+
+function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
+    @dbg println((:_comp_assignment,:expr,expr,:name,name,:value,value,:cond,cond))
+    prog = Any[]
+    (f,fargs,fpars) = _comp_parse_call(expr.args[2])
+
+    haskey(value, f) && (f=value[f])
+    # haskey(_KENV, f) || error("$f is not a knet function.")
+    # feval = _KENV[f]
+    # feval = _comp_eval(f, value)
+    feval = eval(Kenv, f)
+    @dbg println((:_comp_assignment,:feval,feval))
+
+    y = expr.args[1]
+    yname = get!(name, y, gensym(y))
+    @dbg println((:_comp_assignment,:yname,yname))
+
+    xname = map(fargs) do x
+        if isa(x,Symbol)
+            get!(name,x,gensym(x))
+        elseif isa(x,Expr)
+            tmp = gensym(:tmp)
+            name[tmp] = tmp
+            append!(prog, _comp(Expr(:(=), tmp, x), name, value, cond))
+            tmp
         else
-            error("expecting Op or Expr got $f")
+            error("Malformed positional argument $x in $expr")
         end
-        return prog
     end
+    xname = convert(Vector{Symbol}, xname)
+    @dbg println((:_comp_assignment,:xname,xname))
+
+    odict = Dict{Symbol,Any}()
+    for k in fpars              # this is the fpars from the call, not the definition
+        if k.head == :kw
+            odict[k.args[1]] = _comp_eval(k.args[2], value)
+        elseif k.head == :(...)
+            for (a,b) in _comp_eval(k.args[1], value)
+                odict[a] = b
+            end
+        else
+            error("Malformed keyword argument $k in $expr")
+        end
+    end
+    @dbg println((:_comp_assignment,:odict,odict))
+
+    if isa(feval, Op)
+        # This happens when compiling a primitive Op directly, kwargs already taken into account in comp2
+        push!(prog, Ins(yname, feval, xname, cond))
+    elseif isa(feval, DataType) && (feval <: Op)
+        op = feval(; odict...)
+        push!(prog, Ins(yname, op, xname, cond))
+    elseif isa(feval, Expr)
+        name2 = _comp_fargs(feval, xname, yname)
+        value2 = _comp_fpars(feval, odict)
+        fbody = feval.args[2]
+        append!(prog, _comp(fbody, name2, value2, cond))
+    else
+        error("expecting Op or Expr got $f")
+    end
+    @dbg println((:_comp_assignment,:return,prog))
+    return prog
+end
+
+function _comp_if(expr::Expr,name::Dict,value::Dict,cond::Expr)
+    @dbg println((:_comp_if,:expr,expr,:name,name,:value,value,:cond,cond))
+    p = append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])),
+                length(expr.args) == 2 ? Any[] :
+                _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:!,expr.args[1]))))
+    @dbg println((:_comp_if,:return,p))
+    return p
 end
 
 function _comp_locals(ex)       # TODO: should we ignore conditionals, which are global?
-    if isa(ex, Symbol)
-        Any[ex]
-    elseif isa(ex,LineNumberNode)
-        Any[]
-    elseif !isa(ex, Expr)
-        error("Expected Expr got $ex")
-    elseif ex.head == :parameters
-        Any[]
-    elseif ex.head == :return
-        mapreduce(_comp_locals, append!, Any[:return], ex.args)
-    elseif ex.head == :call
-        mapreduce(_comp_locals, append!, Any[], ex.args[2:end])
-    else
-        mapreduce(_comp_locals, append!, Any[], ex.args)
-    end
+    # @dbg println((:_comp_locals,:ex,ex))
+    l = (isa(ex, Symbol) ? Any[ex] :
+         isa(ex,LineNumberNode) ? Any[] :
+         !isa(ex, Expr) ? error("Expected Expr got $ex") :
+         ex.head == :parameters ? Any[] :
+         ex.head == :return ? mapreduce(_comp_locals, append!, Any[:return], ex.args) :
+         ex.head == :call ? mapreduce(_comp_locals, append!, Any[], ex.args[2:end]) :
+         mapreduce(_comp_locals, append!, Any[], ex.args))
+    # @dbg println((:_comp_locals,:return,l))
+    return l
 end
 
 # Given an expression or symbol and a dictionary of symbols, evaluate the 
-# expression in an environment defined by the dict.
+# expression in an environment defined by the dict, and Julia.
 function _comp_eval(s,d::Dict)
-    haskey(_KENV, s) && return _KENV[s]
+    @dbg println((:_comp_eval,:s,s,:d,d))
     a = Expr(:let,Expr(:block,s))
     for (k,v) in d
+        isa(v,Symbol) && (v=Expr(:quote,v)) # this is to prevent over-evaluation of (f=:sigm)
         push!(a.args, Expr(:(=),k,v))
     end
-    eval(current_module(), a)
+    ev = eval(current_module(), a)
+    @dbg println((:_comp_eval,:return,ev))
+    return ev
 end
 
-# TODO: not sure if we need this special treatment:
-# TODO: this forces quotation f=:relu, is there another way?
-function _comp_func(s,d::Dict)
-    haskey(d, s) && (s = d[s])
-    haskey(_KENV, s) && (s = _KENV[s])
-    return s
-end
 
+# Given a function definition, an array of argument symbols, x, and a
+# return symbol, y, return a name dictionary that should be used when
+# compiling the body of the function.
 function _comp_fargs(f::Expr, x::Array, y::Symbol)
+    @dbg println((:_comp_fargs,:f,f,:x,x,:y,y))
     (fname, fargs, fpars) = _comp_parse_call(f.args[1])
     length(fargs)==length(x) || error("parameter mismatch [$fargs] [$x]")
     fdict = Dict{Symbol,Symbol}()
@@ -193,37 +259,41 @@ function _comp_fargs(f::Expr, x::Array, y::Symbol)
         fdict[fargs[i]] = x[i]
     end
     fdict[:return] = y
+    @dbg println((:_comp_fargs,:return,fdict))
     return fdict
 end
 
-# Given a function definition and an array of keyword arguments, returns
-# a dictionary of keyword arguments that should be passed to the body of
-# the function.
+# Given a function definition and an array of keyword arguments found
+# in the function call, returns a dictionary of keyword arguments that
+# should be passed to the body of the function.  I tried writing my
+# own function for this, but it is difficult to be consistent with the
+# Julia implementation, e.g. having a kwarg value be in scope for a
+# later kwarg etc.  It is easier to just construct a Julia function
+# and see what it does.  Unfortunately anonymous functions do not
+# currently accept kwargs
+# (https://github.com/JuliaLang/julia/issues/2773), so we construct a
+# named function.
+
 function _comp_fpars(f::Expr, o)
-    (fname, fargs, fpars) = _comp_parse_call(f.args[1])
-    isempty(fpars) && return Any[]
-    slurp = (isa(fpars[end],Expr) && fpars[end].head == :(...) ? pop!(fpars).args[1] : nothing)
-    fdict = Dict{Symbol,Any}()
-    for k in fpars
-        (isa(k, Expr) && isa(k.args[1], Symbol) && k.head == :kw) || error("Malformed keyword argument $k")
-        fdict[k.args[1]] = eval(current_module(), k.args[2])
-    end
-    if slurp != nothing
-        fdict[slurp] = Any[]
-    end
-    for (k,v) in o
-        if haskey(fdict, k)
-            fdict[k] = v
-        elseif slurp != nothing
-            push!(fdict[slurp], (k,v))
-        else
-            error("Unrecognized keyword argument \"$k\"")
-        end
-    end
+    @dbg println((:_comp_fpars,:f,f,:o,o))
+    (fname, fargs, fpars) = _comp_parse_call(f.args[1]) # these are from the function definition
+    ftemp = :_comp_fpars_tmp
+    fhead = Expr(:call, ftemp, Expr(:parameters, fpars...)) # exclude fargs
+    fvars = map(s->Expr(:(=>), QuoteNode(s.args[1]), s.args[1]), fpars)
+    fbody = Expr(:block, Expr(:call, :Dict, fvars...))
+    fdefn = Expr(:function, fhead, fbody)
+    # If we use Kenv instead of current_module to capture knet
+    # functions, things go awry, e.g. a kwarg (k=a*b) ends up calling
+    # Dot instead of regular multiply.  It is best not to mix Kenv and
+    # Julia.
+    eval(current_module(),fdefn)
+    fdict = eval(current_module(),ftemp)(;o...)
+    @dbg println((:_comp_fpars,:return,fdict))
     return fdict
 end
 
 function _comp_parse_def(f)
+    @dbg println((:_comp_parse_def,:f,f))
     (isa(f,Expr) &&
      (f.head == :function || f.head == :(=)) &&
      (length(f.args) == 2) &&
@@ -232,15 +302,18 @@ function _comp_parse_def(f)
     error("Expected function definition got $f")
     (fhead, fbody) = f.args
     (fname, fargs, fpars) = _comp_parse_call(fhead)
+    @dbg println((:_comp_parse_def,:return,:fname,fname,:fargs,fargs,:fpars,fpars,:fbody,fbody))
     (fname, fargs, fpars, fbody)
 end
 
 function _comp_parse_call(s)
+    @dbg println((:_comp_parse_call,:s,s))
     (isa(s,Expr) && s.head == :call) ||
     error("Expected function call got $s")
     f = s.args[1]
     x = s.args[2:end]           # Use [:] notation to create a copy
     o = !isempty(x) && isa(x[1],Expr) && x[1].head==:parameters ? shift!(x).args[1:end] : Any[]
+    @dbg println((:_comp_parse_call,:return,:fname,f,:fargs,x,:fpars,o))
     (f, x, o)
 end
 
@@ -767,5 +840,49 @@ end
 #          (:sigm,Sigm),
 #          (:soft,Soft),
 #          (:tanh,Tanh)]
+
+#     feval = _comp_func(f, value)
+# # TODO: not sure if we need this special treatment:
+# # TODO: this forces quotation f=:relu, is there another way?
+# function _comp_func(s,d::Dict)
+#     @dbg println((:_comp_func,:s,s,:d,d))
+#     f = s
+#     haskey(d, f) && (f = d[f])
+#     haskey(_KENV, f) && (f = _KENV[f])
+#     @dbg println((:_comp_func,:return,f))
+#     return f
+# end
+
+# macro knet(f)
+#     (fname, fargs, fpars, fbody) = _comp_parse_def(f)
+#     esc(Expr(:(=),Expr(:ref,:_KENV,Expr(:quote,fname)),Expr(:quote,f)))
+# end
+
+# function _comp_fpars(f::Expr, o)
+#     @dbg println((:_comp_fpars,:f,f,:o,o))
+#     (fname, fargs, fpars) = _comp_parse_call(f.args[1]) # these are from the function definition
+#     slurp = (!isempty(fpars) && isa(fpars[end],Expr) && fpars[end].head == :(...) ? pop!(fpars).args[1] : nothing)
+#     fdict = Dict{Symbol,Any}()
+#     for k in fpars
+#         (isa(k, Expr) && isa(k.args[1], Symbol) && k.head == :kw) || error("Malformed keyword argument $k")
+#         fdict[k.args[1]] = eval(Kenv, k.args[2])
+#         # (isa(k.args[2],Symbol) && haskey(_KENV,k.args[2]) ? _KENV[k.args[2]] :
+#         #  eval(current_module(), k.args[2]))
+#     end
+#     if slurp != nothing
+#         fdict[slurp] = Any[]
+#     end
+#     for (k,v) in o
+#         if haskey(fdict, k)
+#             fdict[k] = v
+#         elseif slurp != nothing
+#             push!(fdict[slurp], (k,v))
+#         else
+#             error("Unrecognized keyword argument \"$k\"")
+#         end
+#     end
+#     @dbg println((:_comp_fpars,:return,fdict))
+#     return fdict
+# end
 
 :ok
