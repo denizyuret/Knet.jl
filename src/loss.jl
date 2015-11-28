@@ -39,7 +39,8 @@ loss(net::Net, z, y=net[end].y)=loss(net[end], z, y)
 
 quadloss(y::Array, z::Array)=(cost=zero(Float64); for i=1:length(z); cost += (y[i]-z[i])^2; end; 0.5*cost/ccount(z))
 quadlossback(y::Array, z::Array)=(nx=ccount(z); for i=1:length(z); z[i] = (y[i]-z[i])/nx; end)
-GPU && (quadlossback(y::CudaArray, z::CudaArray)=cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), z))
+GPU && (quadlossback(y::CudaArray, z::CudaArray)=(n=ccount(z); scale!(-1/n, z); axpy!(1/n,y,z); z))
+# cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), z))
 
 
 ### SOFTLOSS: 

@@ -43,7 +43,7 @@ function train(net::Net, x, y; batch=128, shuffle=false, iters=0, o...)
         (iters > 0) && (e/batch >= iters) && break
         gpu() && (gpumem() < (1<<28)) && gc() # need this until julia triggers gc() when gpumem is low
     end
-    strip!(net)
+#    strip!(net)
 end
 
 # Predict implements forw with minibatches.
