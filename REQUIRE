@@ -1,6 +1,10 @@
-julia 0.3-
+julia 0.3 0.4-
+Compat
+CUDArt
+CUBLAS
+CUSPARSE
+CUDNN
 JLD
 GZip
 ArgParse
-Compat
 Dates

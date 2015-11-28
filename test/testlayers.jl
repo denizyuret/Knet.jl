@@ -159,8 +159,8 @@ end
 
 function filetest(net1)
     isa(net1[1], Pool) && (warn("Pooling layers cannot be saved to file yet"); return true)
-    KUnet.savenet("/tmp/kunet.test", net1)
-    net2 = KUnet.loadnet("/tmp/kunet.test")
+    KUnet.savenet("/tmp/kunet.test.jld", net1)
+    net2 = KUnet.loadnet("/tmp/kunet.test.jld")
     return all(map(iseq03, net1, net2))
 end
 
