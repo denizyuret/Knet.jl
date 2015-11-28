@@ -1,6 +1,6 @@
 using HDF5
 using ArgParse
-using KUnet
+using Knet
 
 function main()
     s = ArgParseSettings()
@@ -23,7 +23,7 @@ function main()
         default = 128
     end
     args = parse_args(s)
-    KUnet.gpu(!args["nogpu"])
+    Knet.gpu(!args["nogpu"])
     args["nogpu"] && blas_set_num_threads(20)
     x = h5read(args["x"], "/data")
     net = map(l->Layer(l), split(args["net"],','))

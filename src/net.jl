@@ -136,11 +136,11 @@ using HDF5, JLD
 function savenet(filename::String, net::Net)
     net = strip!(net)
     GPU && (net = cpucopy(net))
-    save(filename, "kunet", net)
+    save(filename, "knet", net)
 end
 
 function loadnet(filename::String)
-    net = load(filename, "kunet")
+    net = load(filename, "knet")
     net = strip!(net)
     gpu() ? gpucopy(net) : net
 end

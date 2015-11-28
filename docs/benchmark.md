@@ -1,11 +1,11 @@
 ## Benchmark
 
-KUnet contains a complete backprop implementation in
-[Matlab](https://github.com/denizyuret/KUnet.jl/tree/master/matlab)
+Knet contains a complete backprop implementation in
+[Matlab](https://github.com/denizyuret/Knet.jl/tree/master/matlab)
 and pure
-[C/CUDA](https://github.com/denizyuret/KUnet.jl/tree/master/cuda) as
+[C/CUDA](https://github.com/denizyuret/Knet.jl/tree/master/cuda) as
 well as
-[Julia](https://github.com/denizyuret/KUnet.jl/tree/master/src).  I
+[Julia](https://github.com/denizyuret/Knet.jl/tree/master/src).  I
 use these (and [Caffe](http://caffe.berkeleyvision.org)) for
 debugging and benchmarking.
 

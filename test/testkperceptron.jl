@@ -1,7 +1,7 @@
 using Base.Test
 using CUDArt
-using KUnet
-include(Pkg.dir("KUnet/test/mnist.jl"))
+using Knet
+include(Pkg.dir("Knet/test/mnist.jl"))
 sparse32{T}(a::Array{T})=convert(SparseMatrixCSC{T,Int32}, a)
 
 xtrn = MNIST.xtrn
@@ -39,7 +39,7 @@ for ker in (
                         )
                 # loc == :gpu && ker[1] == :perceptron && continue
                 println("\n$ker, $prc, $fmt, $loc")
-                KUnet.gpu(loc == :gpu)
+                Knet.gpu(loc == :gpu)
                 for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=copy(MNIST.$p); end
                 prc == :double && (for p in (:xtrn, :xtst, :ytrn, :ytst); @eval $p=convert(Array{Float64},$p); end)
                 fmt == :sparse && (for p in (:xtrn, :xtst); @eval $p=sparse32($p); end)
@@ -48,7 +48,7 @@ for ker in (
 
                 net = (ker[1] == :perceptron ? 
                        Layer[Mmul(nc;average=true,init=initzero), PercLoss()] :
-                       Layer[KPerceptron(nc, KUnet.(ker[1]), ker[2])])
+                       Layer[KPerceptron(nc, Knet.(ker[1]), ker[2])])
                 gc(); @date train(net, xtrn, ytrn; iters=niter,batch=nbatch)
                 @date a = accuracy(ytst, predict(net, xtst))
                 s = isdefined(net[1],:s) ? size(net[1].s) : 0
@@ -91,7 +91,7 @@ end
 # for i=1:2
 # ftrn = sparse(MNIST.xtrn)
 # ftst = sparse(MNIST.xtst)
-# @show fnet = Layer[KPerceptron(10, KUnet.klinear0, [0f0])]
+# @show fnet = Layer[KPerceptron(10, Knet.klinear0, [0f0])]
 #     gc()
 #     @date train(fnet, ftrn, ytrn; iters=niter,batch=nbatch)
 #     gc()
@@ -105,7 +105,7 @@ end
 # for i=1:2
 # ltrn = sparse(MNIST.xtrn)
 # ltst = sparse(MNIST.xtst)
-# @show lnet = Layer[KPerceptron(10, KUnet.klinear, [0f0])]
+# @show lnet = Layer[KPerceptron(10, Knet.klinear, [0f0])]
 # gc()
 #     @date train(lnet, ltrn, ytrn; iters=niter,batch=nbatch)
 # gc()
@@ -119,7 +119,7 @@ end
 # for i=1:2
 # qtrn = sparse(MNIST.xtrn)
 # qtst = sparse(MNIST.xtst)
-# @show qnet = Layer[KPerceptron(10, KUnet.kgauss, [g0])]
+# @show qnet = Layer[KPerceptron(10, Knet.kgauss, [g0])]
 #     @date train(qnet, qtrn, ytrn; iters=niter,batch=nbatch)
 #     @time println((i, size(qnet[1].s), 
 #                    accuracy(ytst, predict(qnet, qtst)),
@@ -131,7 +131,7 @@ end
 # for i=1:2
 # qtrn = sparse(MNIST.xtrn)
 # qtst = sparse(MNIST.xtst)
-# @show qnet = Layer[KPerceptron(10, KUnet.kgauss0, [g0])]
+# @show qnet = Layer[KPerceptron(10, Knet.kgauss0, [g0])]
 #     @date train(qnet, qtrn, ytrn; iters=niter,batch=nbatch)
 #     @time println((i, size(qnet[1].s), 
 #                    accuracy(ytst, predict(qnet, qtst)),
@@ -143,7 +143,7 @@ end
 # for i=1:2
 # ktrn = sparse(MNIST.xtrn)
 # ktst = sparse(MNIST.xtst)
-# @show knet = Layer[KPerceptron(10, KUnet.kpoly, [c0,d0])]
+# @show knet = Layer[KPerceptron(10, Knet.kpoly, [c0,d0])]
 #     @date train(knet, ktrn, ytrn; iters=niter,batch=nbatch)
 #     @time println((i, size(knet[1].s), 
 #                    accuracy(ytst, predict(knet, ktst)),
@@ -155,7 +155,7 @@ end
 # for i=1:2
 # ktrn = sparse(MNIST.xtrn)
 # ktst = sparse(MNIST.xtst)
-# @show knet = Layer[KPerceptron(10, KUnet.kpoly, [c0,d0])]
+# @show knet = Layer[KPerceptron(10, Knet.kpoly, [c0,d0])]
 #     @date train(knet, ktrn, ytrn; iters=niter,batch=nbatch)
 #     @time println((i, size(knet[1].s), 
 #                    accuracy(ytst, predict(knet, ktst)),
@@ -220,7 +220,7 @@ end
 # if false; info("KPerceptron+kgauss")
 # qtrn = sparse(MNIST.xtrn)
 # qtst = sparse(MNIST.xtst)
-# @show qnet = Layer[KPerceptron(10, KUnet.kgauss, [g0])]
+# @show qnet = Layer[KPerceptron(10, Knet.kgauss, [g0])]
 # for i=1:1
 #     @date train(qnet, qtrn, ytrn; iters=niter,batch=nbatch)
 #     @time println((i, size(qnet[1].s), 
@@ -245,7 +245,7 @@ end
 # end; end
 
 # if false; info("Poly+PercLoss+GPU+dense") # mmul, hcat, ctranspose do not work
-# KUnet.gpu(true)
+# Knet.gpu(true)
 # cnet = Layer[Poly(c=c0,d=d0,w=CudaArray(w0)), PercLoss()]
 # for i=1:1
 #     @time train(cnet, xtrn, ytrn; iters=niter,batch=nbatch)

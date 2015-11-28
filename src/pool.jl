@@ -75,21 +75,21 @@ CUDNN.cudnnPoolingBackward(pd::PoolingDescriptor, y::Array, dy::Array, x::Array,
 
 # function forw(l::Pool, x; o...)
 #     # error("CPU pool not implemented")
-#     a = KUnet.Atype
-#     KUnet.atype(CudaDynArray)
+#     a = Knet.Atype
+#     Knet.atype(CudaDynArray)
 #     y = forw(copy(l), CudaDynArray(x); o...)
-#     KUnet.atype(a)
+#     Knet.atype(a)
 #     l.x = x
 #     l.y = to_host(y)
 # end
 
 # function back(l::Pool, dy; o...)
 #     # error("CPU pool not implemented")
-#     a = KUnet.Atype
-#     KUnet.atype(CudaDynArray)
+#     a = Knet.Atype
+#     Knet.atype(CudaDynArray)
 #     ll = copy(l); ll.y = CudaDynArray(l.y); ll.x = CudaDynArray(l.x)
 #     dx = back(ll, CudaDynArray(dy); o...)
-#     KUnet.atype(a)
+#     Knet.atype(a)
 #     l.dy = dy
 #     l.dx = to_host(dx)
 # end

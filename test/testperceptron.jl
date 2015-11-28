@@ -1,6 +1,6 @@
-using CUDArt, KUnet, Base.Test
+using CUDArt, Knet, Base.Test
 include("isapprox.jl")
-@time include(Pkg.dir("KUnet/test/mnist.jl"))
+@time include(Pkg.dir("Knet/test/mnist.jl"))
 
 ytype(X::DataType)=
     (X <: KUsparse{Array} ? KUdense{Array} :
@@ -56,11 +56,11 @@ end # for X
 
 # DEAD CODE:
 
-# using KUnet
-# using KUnet: accuracy
-# @time require(Pkg.dir("KUnet/test/mnist.jl"))
+# using Knet
+# using Knet: accuracy
+# @time require(Pkg.dir("Knet/test/mnist.jl"))
 
-# KUnet.gpu(false)
+# Knet.gpu(false)
 # xtrn = float32(255*MNIST.xtrn)
 # xtst = float32(255*MNIST.xtst)
 # ytrn = float32(MNIST.ytrn)
@@ -101,8 +101,8 @@ end # for X
 # ./(a::CudaArray{Float32,2}, ::Int64)=a
 # -(a::CudaArray{Float32,2}, b::CudaArray{Float32,2})=a
 
-# # KUnet.atype(CudaArray)
-# KUnet.gpu(true)
+# # Knet.atype(CudaArray)
+# Knet.gpu(true)
 # cnet = Layer[Perceptron(10)]
 # @time for i=1:5
 #     train(cnet, xtrn, ytrn; iters=100)
@@ -110,7 +110,7 @@ end # for X
 #              accuracy(ytst, predict(cnet, xtst)),
 #              accuracy(ytrn, predict(cnet, xtrn))))
 # end
-# # KUnet.atype(Array)
+# # Knet.atype(Array)
 # end # if false
 
 # # Similar stuff needs to be defined for sparse cuda arrays.

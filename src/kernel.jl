@@ -78,8 +78,8 @@ end
 # If b==0 we can just go over nonzero entries with sparse.
 
 # if GPU
-# poly(y::AbstractCudaArray{Float32}, a, b, d)=(ccall((poly32,libkunet),Void,(Ptr{Float32},Float32,Float32,Float32),y,a,b,d);y)
-# poly(y::AbstractCudaArray{Float64}, a, b, d)=(ccall((poly64,libkunet),Void,(Ptr{Float64},Float64,Float64,Float64),y,a,b,d);y)
+# poly(y::AbstractCudaArray{Float32}, a, b, d)=(ccall((poly32,libknet),Void,(Ptr{Float32},Float32,Float32,Float32),y,a,b,d);y)
+# poly(y::AbstractCudaArray{Float64}, a, b, d)=(ccall((poly64,libknet),Void,(Ptr{Float64},Float64,Float64,Float64),y,a,b,d);y)
 # # TODO: test sparse on cpu/gpu
 # # TODO: implement poly32/64 in cuda
 # end

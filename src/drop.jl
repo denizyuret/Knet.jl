@@ -29,5 +29,5 @@ end
 drop(x::Array, xdrop::Array, dropout::Number, scale::Number)=(for i=1:length(x); x[i] = (xdrop[i] < dropout ? zero(x[i]) : scale * x[i]); end)
 drop(x::KUdense, xdrop::KUdense, dropout::Number, scale::Number)=drop(x.arr, xdrop.arr, dropout, scale)
 
-GPU && (drop(x::CudaArray{Float32}, xdrop::CudaArray{Float32}, dropout, scale)=ccall((:drop32,libkunet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale))
-GPU && (drop(x::CudaArray{Float64}, xdrop::CudaArray{Float64}, dropout, scale)=ccall((:drop64,libkunet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale))
+GPU && (drop(x::CudaArray{Float32}, xdrop::CudaArray{Float32}, dropout, scale)=ccall((:drop32,libknet),Void,(Cint,Ptr{Float32},Ptr{Float32},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale))
+GPU && (drop(x::CudaArray{Float64}, xdrop::CudaArray{Float64}, dropout, scale)=ccall((:drop64,libknet),Void,(Cint,Ptr{Float64},Ptr{Float64},Cdouble,Cdouble),length(x),x,xdrop,dropout,scale))

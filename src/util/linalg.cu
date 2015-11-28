@@ -1,4 +1,4 @@
-#include "../kunet.h"
+#include "../knet.h"
 
 /*
   The following functions multiply two sparse matrices into a dense matrix.

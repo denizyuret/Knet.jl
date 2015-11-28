@@ -1,10 +1,10 @@
 using CUDArt
-using KUnet
-using KUnet: accuracy
-require(Pkg.dir("KUnet/test/mnist.jl"))
+using Knet
+using Knet: accuracy
+require(Pkg.dir("Knet/test/mnist.jl"))
 
-KUnet.ftype(Float32) # mnist has Float32 data
-KUnet.atype(Array)
+Knet.ftype(Float32) # mnist has Float32 data
+Knet.atype(Array)
 xtrn = MNIST.xtrn
 xtst = MNIST.xtst
 ytrn = MNIST.ytrn
@@ -35,7 +35,7 @@ end
 end # if false
 
 if false # mmul, hcat, ctranspose do not work
-KUnet.atype(CudaArray)
+Knet.atype(CudaArray)
 cnet = Layer[Rbfk(gamma=g0,w=CudaArray(w0)), PercLoss()]
 for i=1:1
     @time train(cnet, xtst, ytst; iters=1)
@@ -43,5 +43,5 @@ for i=1:1
              accuracy(ytst, predict(cnet, xtst)),
              )) # accuracy(ytrn, predict(cnet, xtrn))))
 end
-KUnet.atype(Array)
+Knet.atype(Array)
 end # if false

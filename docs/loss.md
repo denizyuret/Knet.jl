@@ -33,9 +33,9 @@ This is an expensive operation and it is often not needed during
 prediction (argmax qi = argmax yi).  In those cases it would be better
 to avoid normalization during forward computation and implement it
 during the backward step of training.  To give users some flexibility,
-KUnet implements three different cross entropy loss layers:
+Knet implements three different cross entropy loss layers:
 
-* [SoftLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/softloss.jl):
+* [SoftLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/softloss.jl):
   assumes the network outputs are normalized probabilities, computing
   the loss and the gradients without performing softmax.  Should only
   be used after the Soft final layer, which applies softmax to the
@@ -50,7 +50,7 @@ KUnet implements three different cross entropy loss layers:
         ∂J/∂qk = -pk/qk + (1/Σ qj)
                = -pk/qk + 1
 
-* [XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl):
+* [XentLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/xentloss.jl):
   assumes the network outputs are raw (unnormalized log probabilities)
   and performs softmax before computing the loss and its gradients.
   Can be used after any final layer.  If y is the network output, q is
@@ -64,7 +64,7 @@ KUnet implements three different cross entropy loss layers:
         ∂J/∂yk = -pk + (exp yk) / (Σ exp yj)
                = -pk + qk
 
-* [LogpLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/logploss.jl):
+* [LogpLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/logploss.jl):
   assumes the network outputs are normalized log probabilities and
   computes the loss and the gradients accordingly.  Log probability
   outputs are sometimes useful when computing log likelihoods.  Should
@@ -79,13 +79,13 @@ output.
 
 Other loss layers implemented are:
 
-* [QuadLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/quadloss.jl):
+* [QuadLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/quadloss.jl):
   quadratic loss layer, can be used after any final layer.
 
         J(y) = (1/2) Σ (yi-zi)^2
         ∂J/∂yk = yk - zk.
 
-* [PercLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/percloss.jl):
+* [PercLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/percloss.jl):
   implements the perceptron loss function.  A multiclass perceptron
   can be constructed using an Mmul layer followed by PercLoss and
   using a learning rate of 1.  If i is the correct answer and j is the

@@ -1,4 +1,4 @@
-using KUnet
+using Knet
 require("mnist.jl")
 using MNIST: xtrn, ytrn, xtst, ytst
 setseed(42)

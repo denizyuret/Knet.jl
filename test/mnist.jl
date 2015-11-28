@@ -1,6 +1,6 @@
 module MNIST
 using GZip
-using KUnet
+using Knet
 # using CUDArt
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
@@ -35,9 +35,9 @@ ytst = readlabels(ytst_file)
 
 function train(net, epochs=10)
     for i=1:epochs
-        KUnet.train(net, xtrn, ytrn)
-        y = KUnet.predict(net, xtst)
-        # println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2]), length(keys(CUDArt.cuda_ptrs)), KUnet.gpumem()))
+        Knet.train(net, xtrn, ytrn)
+        y = Knet.predict(net, xtst)
+        # println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2]), length(keys(CUDArt.cuda_ptrs)), Knet.gpumem()))
         println((i, mean(findmax(y,1)[2] .== findmax(ytst,1)[2])))
     end
 end

@@ -1,4 +1,4 @@
-using KUnet, HDF5, JLD, ArgParse, Compat
+using Knet, HDF5, JLD, ArgParse, Compat
 
 function initnet()
     args = parse_commandline()

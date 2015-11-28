@@ -1,6 +1,6 @@
 using CUDArt
 using CUDNN
-using KUnet
+using Knet
 require("mnist.jl")
 using MNIST: xtrn, ytrn, xtst, ytst
 
@@ -22,7 +22,7 @@ conv1 = ConvLayer(w=Filter(float32(randn(dims1)*0.01)),
 # y1: (24,24,20,64)
 # z1: (12,12,20,64) => x2
 
-@show x2=KUnet.forw(conv1,x1)
+@show x2=Knet.forw(conv1,x1)
 
 dims2 = (5,5,20,50)
 conv2 = ConvLayer(w=Filter(float32(randn(dims2)*0.01)),
@@ -36,7 +36,7 @@ conv2 = ConvLayer(w=Filter(float32(randn(dims2)*0.01)),
 # z2: (4,4,50,64)
 # x3: (800,64)
 
-@show x3=KUnet.forw(conv2,x2)
+@show x3=Knet.forw(conv2,x2)
 
 dims3 = (500,800)
 ip3 = Layer(w=CudaArray(float32(randn(dims3)*0.01)),
@@ -48,7 +48,7 @@ ip3 = Layer(w=CudaArray(float32(randn(dims3)*0.01)),
 
 # y3: (500,64) => x4
 
-@show x4=KUnet.forw(ip3,x3)
+@show x4=Knet.forw(ip3,x3)
 
 dims4 = (10,500)
 ip4 = Layer(w=CudaArray(float32(randn(dims4)*0.01)),
@@ -58,6 +58,6 @@ ip4 = Layer(w=CudaArray(float32(randn(dims4)*0.01)),
             pb=UpdateParam(learningRate=2*lr),
             )
 
-@show x5=KUnet.forw(ip4,x4)
+@show x5=Knet.forw(ip4,x4)
 
 net4 = [conv1, conv2, ip3, ip4]

@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 /* y is layer output, i.e. unnormalized log probabilities.
    On output y will contain normalized probabilities. */

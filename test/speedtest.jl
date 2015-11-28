@@ -1,7 +1,7 @@
-using KUnet
+using Knet
 using HDF5
 
-@KUnet.useif CUDArt
+@Knet.useif CUDArt
 
 if isdefined(:CUDArt)
 const libkunet = find_library(["libkunet"], ["."])
@@ -32,8 +32,8 @@ function speedtest()
     x = h5read("devx.h5","/data")
     l1 = Layer("dev1.h5")
     l2 = Layer("dev2.h5")
-    l1.xforw = KUnet.noop
-    l2.xforw = KUnet.noop
+    l1.xforw = Knet.noop
+    l2.xforw = Knet.noop
     l1.w = CudaArray(l1.w)
     l1.b = CudaArray(l1.b)
     l2.w = CudaArray(l2.w)
@@ -56,8 +56,8 @@ function speedtest2()
     x = h5read("devx.h5","/data")
     l1 = Layer("dev1.h5")
     l2 = Layer("dev2.h5")
-    l1.xforw = KUnet.noop
-    l2.xforw = KUnet.noop
+    l1.xforw = Knet.noop
+    l2.xforw = Knet.noop
     l1.w = CudaArray(l1.w)
     l1.b = CudaArray(l1.b)
     l2.w = CudaArray(l2.w)
@@ -70,8 +70,8 @@ function speedtest2()
     # l1.y = similar(l1.w,(size(l1.w,1), batch))
     # l2.y = similar(l2.w,(size(l2.w,1), batch))
     net = [l1,l2]
-    @time KUnet.predict(net, x, batch)
-    @time KUnet.predict(net, x, batch)
+    @time Knet.predict(net, x, batch)
+    @time Knet.predict(net, x, batch)
 end
 end
 
@@ -79,11 +79,11 @@ function speedtest3()
     # blas_set_num_threads(20)
     batch = 937
     x = h5read("devx.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
+    l1 = Knet.Layer("dev1.h5")
+    l2 = Knet.Layer("dev2.h5")
     net = [l1,l2]
-    @time KUnet.predict(net, x, batch=batch)
-    @time KUnet.predict(net, x, batch=batch)
+    @time Knet.predict(net, x, batch=batch)
+    @time Knet.predict(net, x, batch=batch)
 end
 
 function speedtest4()
@@ -91,13 +91,13 @@ function speedtest4()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
+    l1 = Knet.Layer("dev1.h5")
+    l2 = Knet.Layer("dev2.h5")
     net = [l1,l2]
     xx = x[:,1:batch]
     yy = y[:,1:batch]
-    @time KUnet.backprop(net, xx, yy)
-    @time KUnet.backprop(net, xx, yy)
+    @time Knet.backprop(net, xx, yy)
+    @time Knet.backprop(net, xx, yy)
     net
 end
 
@@ -107,10 +107,10 @@ function speedtest5()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("dev1.h5")
-    l2 = KUnet.Layer("dev2.h5")
-    l1.xforw = KUnet.noop
-    l2.xforw = KUnet.noop
+    l1 = Knet.Layer("dev1.h5")
+    l2 = Knet.Layer("dev2.h5")
+    l1.xforw = Knet.noop
+    l2.xforw = Knet.noop
     l1.w = CudaArray(l1.w)
     l1.b = CudaArray(l1.b)
     l2.w = CudaArray(l2.w)
@@ -118,8 +118,8 @@ function speedtest5()
     net = [l1,l2]
     xx = CudaArray(x[:,1:batch])
     yy = CudaArray(y[:,1:batch])
-    @time KUnet.backprop(net, xx, yy)
-    @time KUnet.backprop(net, xx, yy)
+    @time Knet.backprop(net, xx, yy)
+    @time Knet.backprop(net, xx, yy)
     net
 end
 end
@@ -129,12 +129,12 @@ function speedtest6()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("rnd1.h5")
-    l2 = KUnet.Layer("rnd2.h5")
+    l1 = Knet.Layer("rnd1.h5")
+    l2 = Knet.Layer("rnd2.h5")
     net = [l1,l2]
-    KUnet.setparam!(net, :l2reg, 0.5f0)
-    @time KUnet.train(net, x, y; batch=937, iters=10)
-    @time KUnet.train(net, x, y; batch=937, iters=10)
+    Knet.setparam!(net, :l2reg, 0.5f0)
+    @time Knet.train(net, x, y; batch=937, iters=10)
+    @time Knet.train(net, x, y; batch=937, iters=10)
     net
 end
 
@@ -143,15 +143,15 @@ function speedtest7()
     batch = 937
     x = h5read("devx.h5","/data")
     y = h5read("devy.h5","/data")
-    l1 = KUnet.Layer("rnd1.h5")
-    l2 = KUnet.Layer("rnd2.h5")
+    l1 = Knet.Layer("rnd1.h5")
+    l2 = Knet.Layer("rnd2.h5")
     l1.w = CudaArray(l1.w)
     l1.b = CudaArray(l1.b)
     l2.w = CudaArray(l2.w)
     l2.b = CudaArray(l2.b)
     net = [l1,l2]
-    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
-    @time KUnet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
+    @time Knet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
+    @time Knet.train(net, x, y; batch=937, iters=1, l2reg=0.5f0)
     net
 end
 end

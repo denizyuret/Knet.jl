@@ -2,19 +2,19 @@
 
 We will use the [MNIST](http://yann.lecun.com/exdb/mnist) dataset to
 illustrate basic usage of
-[KUnet](https://github.com/denizyuret/KUnet.jl):
+[Knet](https://github.com/denizyuret/Knet.jl):
 
 ```
-julia> require(Pkg.dir("KUnet/test/mnist.jl"))
+julia> require(Pkg.dir("Knet/test/mnist.jl"))
 ```
 
 This may take a bit the first time you run to download the data.
 
-Next we tell Julia we intend to use KUnet, and some variables from
+Next we tell Julia we intend to use Knet, and some variables from
 MNIST:
 
 ```
-julia> using KUnet
+julia> using Knet
 julia> using MNIST: xtrn, ytrn, xtst, ytst
 ```
 
@@ -48,8 +48,8 @@ They are subtypes of an abstract type called Layer.  The full list of
 Layers currently implemented are described in [Layers](layers.md).
 
 A Net is simply a 1-D array of Layers.  Here are the definitions from
-[net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl) and 
-[bias.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl):
+[net.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/net.jl) and 
+[bias.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/bias.jl):
 
 ```
 abstract Layer
@@ -102,7 +102,7 @@ end
 ```
 
 If you take a look at the definition of `train` in
-[net.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/net.jl),
+[net.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/net.jl),
 you will see that it takes a network net, the input x, and the desired
 output y, and after splitting the data into minibatches of size
 `batch`, it just calls `backprop` and `update`.  Here is a simplified
@@ -135,20 +135,20 @@ gradient wrt its output dy and returns the loss gradient wrt its input
 dx.  If the layer has a parameter w, `back` also computes the loss
 gradient w.diff wrt its current value w.data.  You can take a look at
 individual layer definitions (e.g. in
-[mmul.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/mmul.jl),
-[bias.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/bias.jl),
-[relu.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/relu.jl),
+[mmul.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/mmul.jl),
+[bias.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/bias.jl),
+[relu.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/relu.jl),
 etc.) to see how this is done for each layer.
 
 The final layer of the network
-([XentLoss](https://github.com/denizyuret/KUnet.jl/blob/master/src/xentloss.jl)
+([XentLoss](https://github.com/denizyuret/Knet.jl/blob/master/src/xentloss.jl)
 in our case) is a subtype of LossLayer.  LossLayer is a special type
 of layer: its forw does nothing but record the network output y.  Its
 back expects the desired output z (not a gradient) and computes the
 loss gradient wrt the network output dy.  A LossLayer also implements
 the function `loss(l::LossLayer,z)` which returns the actual loss
 value given the desired output z.  See [Loss Layers](loss.md) for a
-complete list of loss layers implemented in KUnet.
+complete list of loss layers implemented in Knet.
 
 The `update` function for a net calls the `update` function for each
 of its layers, which in turn calls the `update` function on layer
@@ -163,7 +163,7 @@ The `update` function for a parameter p is used to update its values
 (p.data) given the loss gradients (p.diff).  Its behavior is
 controlled by the following parameters: lr, l1reg, l2reg, adagrad,
 momentum, nesterov.  Here is a simplified definition of `update` from
-[param.jl](https://github.com/denizyuret/KUnet.jl/blob/master/src/param.jl)
+[param.jl](https://github.com/denizyuret/Knet.jl/blob/master/src/param.jl)
 (p.ada, p.mom, and p.nes are temporary arrays initialized to 0):
 
 ```
@@ -196,7 +196,7 @@ accuracy at this point.  We should instead split the training set into
 a training and a development portion and do all our playing around
 with those.  We should also run each experiment 10 times with
 different random seeds and measure standard errors, etc.  But, this is
-just a KUnet tutorial.
+just a Knet tutorial.
 
 It seems the training set accuracy is not that great.  Maybe
 increasing the learning rate may help:

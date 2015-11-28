@@ -173,9 +173,9 @@ function kgauss(k::CudaArray{Float32}, x::CudaArray{Float32}, s::CudaArray{Float
     k = klinear(k, x, s, p)
     x2 = CudaArray(Float32, size(x,2))
     s2 = CudaArray(Float32, size(s,2))
-    ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(x,1),size(x,2),x,x2)
-    ccall((:kgauss32sum,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(s,1),size(s,2),s,s2)
-    ccall((:kgauss32map,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
+    ccall((:kgauss32sum,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(x,1),size(x,2),x,x2)
+    ccall((:kgauss32sum,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(s,1),size(s,2),s,s2)
+    ccall((:kgauss32map,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Cfloat),
           size(x,2),size(s,2),x2,s2,k,p[1])
     gpusync()
     free(x2); free(s2)
@@ -188,9 +188,9 @@ function kgauss(k::CudaArray{Float64}, x::CudaArray{Float64}, s::CudaArray{Float
     k = klinear(k, x, s, p)
     x2 = CudaArray(Float64, size(x,2))
     s2 = CudaArray(Float64, size(s,2))
-    ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(x,1),size(x,2),x,x2)
-    ccall((:kgauss64sum,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(s,1),size(s,2),s,s2)
-    ccall((:kgauss64map,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Cdouble),
+    ccall((:kgauss64sum,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(x,1),size(x,2),x,x2)
+    ccall((:kgauss64sum,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(s,1),size(s,2),s,s2)
+    ccall((:kgauss64map,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Cdouble),
           size(x,2),size(s,2),x2,s2,k,p[1])
     free(x2); free(s2)
     gpusync()
@@ -199,7 +199,7 @@ end
 
 function kgauss(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kgauss32,libkunet),Void,
+    ccall((:kgauss32,libknet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
     gpusync()
@@ -208,7 +208,7 @@ end
 
 function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kgauss64,libkunet),Void,
+    ccall((:kgauss64,libknet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1])
     gpusync()
@@ -216,7 +216,7 @@ function kgauss(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sp
 end
 
 function kpolymap(k::CudaArray{Float32}, c, d)
-    ccall((:kpolymap32,libkunet),Void,
+    ccall((:kpolymap32,libknet),Void,
           (Cint,Ptr{Cfloat},Cfloat,Cfloat),
           length(k),k,c,d)
     gpusync()
@@ -224,7 +224,7 @@ function kpolymap(k::CudaArray{Float32}, c, d)
 end
 
 function kpolymap(k::CudaArray{Float64}, c, d)
-    ccall((:kpolymap64,libkunet),Void,
+    ccall((:kpolymap64,libknet),Void,
           (Cint,Ptr{Cdouble},Cdouble,Cdouble),
           length(k),k,c,d)
     gpusync()
@@ -233,7 +233,7 @@ end
 
 function kpoly(k::CudaArray{Float32}, x::Sparse{CudaArray,Float32,Int32}, s::Sparse{CudaArray,Float32,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kpoly32,libkunet),Void,
+    ccall((:kpoly32,libknet),Void,
           (Cint,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat},Cfloat,Cfloat),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
     gpusync()
@@ -242,7 +242,7 @@ end
 
 function kpoly(k::CudaArray{Float64}, x::Sparse{CudaArray,Float64,Int32}, s::Sparse{CudaArray,Float64,Int32}, p)
     @assert size(k)==(size(x,2),size(s,2))
-    ccall((:kpoly64,libkunet),Void,
+    ccall((:kpoly64,libknet),Void,
           (Cint,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble},Cdouble,Cdouble),
           size(x,2),size(s,2),x.nzval,x.rowval,x.colptr,s.nzval,s.rowval,s.colptr,k,p[1],p[2])
     gpusync()
@@ -318,7 +318,7 @@ end # if GPU
 #     @assert size(k)==(size(t,1), size(s,2))
 #     isempty(k) && return k
 #     fill!(k, zero(eltype(k)))
-#     ccall((:kgauss32,libkunet),Void,
+#     ccall((:kgauss32,libknet),Void,
 #           (Cint,Cint,Ptr{Float32},Ptr{Cint},Ptr{Cint},Ptr{Float32},Ptr{Cint},Ptr{Cint},Float32,Ptr{Float32}),
 #           size(t,1),size(s,2),t.nzval,t.rowval,t.colptr,s.nzval,s.rowval,s.colptr,p[1],k)
 #     k1 = cpucopy(k)

@@ -1,4 +1,4 @@
-using KUnet, CUDArt, Base.Test
+using Knet, CUDArt, Base.Test
 
 a=rand(3,5)
 

@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 /* kgauss uses the same algorithm and input/output format as At_mul_B
    to compute the gaussian kernel: x(nd,nx) s(nd,ns) -> k(nx,ns) 
@@ -244,7 +244,7 @@ if GPU
 
 function kback(l::KPerceptron, z::AbstractCudaArray{Float32})
     nptr = Cint[l.dn]; uptr = Cfloat[l.du]
-    ccall((:kback32,libkunet), Void,
+    ccall((:kback32,libknet), Void,
           (Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),
           z,l.y,l.dw0,l.dw1,l.dj,nptr,uptr)
     l.dn = nptr[1]; l.du = uptr[1]
@@ -252,7 +252,7 @@ end
 
 function kback(l::KPerceptron, z::AbstractCudaArray{Float64})
     nptr = Cint[l.dn]; uptr = Cdouble[l.du]
-    ccall((:kback64,libkunet), Void,
+    ccall((:kback64,libknet), Void,
           (Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),
           z,l.y,l.dw0,l.dw1,l.dj,nptr,uptr)
     l.dn = nptr[1]; l.du = uptr[1]

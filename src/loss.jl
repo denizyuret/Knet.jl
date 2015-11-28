@@ -73,8 +73,8 @@ GPU && (quadlossback(y::CudaArray, z::CudaArray)=(n=ccount(z); scale!(-1/n, z); 
 
 softloss(y::Array,p::Array)=(cost=zero(Float64); for i=1:length(p); p[i]>0 && (cost -= (p[i]*log(y[i]))); end; cost/ccount(p))
 softlossback(y::Array,p::Array)=(nx=ccount(p); for i=1:length(p); p[i] = ((y[i]-p[i])/y[i])/nx; end)
-GPU && (softlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:softloss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
-GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softloss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
+GPU && (softlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:softloss32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
+GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softloss64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
 
 
 ### LOGPLOSS:
@@ -99,8 +99,8 @@ GPU && (softlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:softl
 
 logploss(y::Array, p::Array)=(nx = ccount(p); cost = zero(Float64); for i=1:length(p); cost -= (p[i]*y[i]); end; cost/nx)
 logplossback(y::Array, p::Array)=(nx = ccount(p); for i=1:length(p); p[i] = (exp(y[i])-p[i])/nx; end)
-GPU && (logplossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:logploss32,libkunet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
-GPU && (logplossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:logploss64,libkunet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
+GPU && (logplossback(y::CudaArray{Float32}, p::CudaArray{Float32})=ccall((:logploss32,libknet),Void,(Cint,Cdouble,Ptr{Cfloat},Ptr{Cfloat}),length(p),1/ccount(p),y,p))
+GPU && (logplossback(y::CudaArray{Float64}, p::CudaArray{Float64})=ccall((:logploss64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Ptr{Cdouble}),length(p),1/ccount(p),y,p))
 
 
 ### XENTLOSS:
@@ -153,8 +153,8 @@ function xentlossback(y::Array, p::Array)
     return p
 end
 
-GPU && (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=((nd,nx)=size2(p);ccall((:xentloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p)))
-GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size2(p);ccall((:xentloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p)))
+GPU && (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32})=((nd,nx)=size2(p);ccall((:xentloss32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p)))
+GPU && (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64})=((nd,nx)=size2(p);ccall((:xentloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p)))
 
 
 ### PERCLOSS
@@ -222,8 +222,8 @@ function perclossback{T}(y::Array{T}, z::Array{T})
     end
 end
 
-GPU && (perclossback(y::CudaArray{Float32}, z::CudaArray{Float32})=((nd,nx)=size2(z);ccall((:percloss32,libkunet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,z)))
-GPU && (perclossback(y::CudaArray{Float64}, z::CudaArray{Float64})=((nd,nx)=size2(z);ccall((:percloss64,libkunet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,z)))
+GPU && (perclossback(y::CudaArray{Float32}, z::CudaArray{Float32})=((nd,nx)=size2(z);ccall((:percloss32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,z)))
+GPU && (perclossback(y::CudaArray{Float64}, z::CudaArray{Float64})=((nd,nx)=size2(z);ccall((:percloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,z)))
 
 
 ### SCALLOSS

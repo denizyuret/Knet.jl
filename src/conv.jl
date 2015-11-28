@@ -64,21 +64,21 @@ CUDNN.cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArra
 # DEAD CODE:
 
 # function forw(l::Conv, x; o...)
-#     # a = KUnet.Atype
-#     # KUnet.atype(CudaDynArray)
+#     # a = Knet.Atype
+#     # Knet.atype(CudaDynArray)
 #     y = forw(copy(l), CudaDynArray(x); o...)
-#     # KUnet.atype(a)
+#     # Knet.atype(a)
 #     l.x = x
 #     l.y = to_host(y)
 # end
 
 # function back(l::Conv, dy; o...)
 #     # error("CPU conv not implemented")
-#     a = KUnet.Atype
-#     KUnet.atype(CudaDynArray)
+#     a = Knet.Atype
+#     Knet.atype(CudaDynArray)
 #     ll = copy(l); ll.y = CudaDynArray(l.y); ll.x = CudaDynArray(l.x)
 #     dx = back(ll, CudaDynArray(dy); o...)
-#     KUnet.atype(a)
+#     Knet.atype(a)
 #     l.dy = dy
 #     l.w.diff = to_host(ll.w.diff)
 #     l.dx = to_host(dx)

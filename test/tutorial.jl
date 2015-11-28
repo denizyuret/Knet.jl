@@ -1,5 +1,5 @@
-require(Pkg.dir("KUnet/test/mnist.jl"))
-using KUnet
+require(Pkg.dir("Knet/test/mnist.jl"))
+using Knet
 using MNIST: xtrn, ytrn, xtst, ytst
 
 net = [Mmul(64), Bias(), Relu(),

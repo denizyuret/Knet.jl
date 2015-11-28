@@ -1,6 +1,6 @@
-using KUnet
-KUnet.atype(Array)
-KUnet.ftype(Float64)
+using Knet
+Knet.atype(Array)
+Knet.ftype(Float64)
 nc = 3
 nd = 5
 x = nothing

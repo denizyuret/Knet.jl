@@ -1,5 +1,5 @@
 using Compat
-using KUnet
+using Knet
 using HDF5,JLD
 typealias LUP Union(Layer,UpdateParam)
 import Base.isequal

@@ -1,4 +1,4 @@
-The KUnet.jl package is licensed under the MIT "Expat" License:
+The Knet.jl package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2015: Deniz Yuret.
 >

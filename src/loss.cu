@@ -1,4 +1,4 @@
-#include "kunet.h"
+#include "knet.h"
 
 __global__ void _softloss32(int n, double scale, float *y, float *dy) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

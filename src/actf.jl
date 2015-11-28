@@ -78,5 +78,5 @@ end
 
 logpback(y,dy)=dy
 
-GPU && (logpforw(y::CudaArray{Float32})=((nd,nx) = size2(y);ccall((:logpforw32,libkunet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y)))
-GPU && (logpforw(y::CudaArray{Float64})=((nd,nx) = size2(y);ccall((:logpforw64,libkunet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y)))
+GPU && (logpforw(y::CudaArray{Float32})=((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32}),nd,nx,y)))
+GPU && (logpforw(y::CudaArray{Float64})=((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64}),nd,nx,y)))

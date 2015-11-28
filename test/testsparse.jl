@@ -1,7 +1,7 @@
 using Compat
 using Base.Test
 using CUDArt
-using KUnet
+using Knet
 density = 0.4
 
 iseq01(a::KUsparse,b::SparseMatrixCSC)=(for f in fieldnames(a); iseq01(a.(f),b.(f)) || (warn("$f mismatch:\n$(a.(f))\n$(b.(f))"); return false); end; return true)

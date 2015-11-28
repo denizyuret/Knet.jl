@@ -1,9 +1,9 @@
 require("mnist.jl")
 using CUDArt
-using KUnet
+using Knet
 using MNIST: xtrn, ytrn, xtst, ytst
 accuracy(y,z)=mean(findmax(y,1)[2] .== findmax(z,1)[2])
-KUnet.srandom(1)
+Knet.srandom(1)
 
 net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
        Conv(5,5,20,50), Bias(50), Relu(), Pool(2),
@@ -12,12 +12,12 @@ net = [Conv(5,5,1,20), Bias(20), Relu(), Pool(2),
 
 @show x = CudaArray(reshape(xtrn[:,1:64], 28, 28, 1, 64))
 for l in net
-    @show x = KUnet.forw(l, x)
+    @show x = Knet.forw(l, x)
 end
 @show dy = CudaArray(ytrn[:,1:64])
 @show loss(net[length(net)], dy)
 for i=length(net):-1:1
-    @show dy = KUnet.back(net[i], dy)
+    @show dy = Knet.back(net[i], dy)
 end
 
 xtrn = reshape(xtrn, 28, 28, 1, size(xtrn, 2))
@@ -45,7 +45,7 @@ end
 # # y1: (24,24,20,64)
 # # z1: (12,12,20,64) => x2
 
-# @show x2=KUnet.forw(conv1,x1)
+# @show x2=Knet.forw(conv1,x1)
 
 # dims2 = (5,5,20,50)
 # conv2 = ConvLayer(w=Filter(float32(randn(dims2)*0.01)),
@@ -59,7 +59,7 @@ end
 # # z2: (4,4,50,64)
 # # x3: (800,64)
 
-# @show x3=KUnet.forw(conv2,x2)
+# @show x3=Knet.forw(conv2,x2)
 
 # dims3 = (500,800)
 # ip3 = Layer(w=CudaArray(float32(randn(dims3)*0.01)),
@@ -71,7 +71,7 @@ end
 
 # # y3: (500,64) => x4
 
-# @show x4=KUnet.forw(ip3,x3)
+# @show x4=Knet.forw(ip3,x3)
 
 # dims4 = (10,500)
 # ip4 = Layer(w=CudaArray(float32(randn(dims4)*0.01)),
@@ -81,6 +81,6 @@ end
 #             pb=UpdateParam(learningRate=2*lr),
 #             )
 
-# @show x5=KUnet.forw(ip4,x4)
+# @show x5=Knet.forw(ip4,x4)
 
 # net4 = [conv1, conv2, ip3, ip4]

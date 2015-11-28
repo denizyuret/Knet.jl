@@ -1,4 +1,4 @@
-using KUnet, CUDArt, Base.Test
+using Knet, CUDArt, Base.Test
 
 iseq02(a,b)=(convert(Array,a)==convert(Array,b))
 

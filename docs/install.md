@@ -1,11 +1,11 @@
 ## Installation
 
-KUnet was tested on Julia v0.3 on Linux machines with and
-without GPUs.  You should be able to install KUnet simply with:
+Knet was tested on Julia v0.3 on Linux machines with and
+without GPUs.  You should be able to install Knet simply with:
 
 ```
-julia> Pkg.clone("git://github.com/denizyuret/KUnet.jl.git")
-julia> Pkg.build("KUnet")
+julia> Pkg.clone("git://github.com/denizyuret/Knet.jl.git")
+julia> Pkg.build("Knet")
 ```
 
 This should automatically install other required packages
