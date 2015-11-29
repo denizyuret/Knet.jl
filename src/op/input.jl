@@ -1,5 +1,5 @@
 type Input <: Op; Input(;o...)=new(); end
-kdef(:input,Input)
+Kenv.kdef(:input,Input)
 ninputs(::Input)=0
 overwrites(::Input)=false
 back_reads_x(::Input)=false

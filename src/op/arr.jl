@@ -1,5 +1,5 @@
 type Arr <: Op; init; initialized; out; Arr(;init=nothing,o...)=new(init,false); end
-kdef(:arr,Arr)
+Kenv.kdef(:arr,Arr)
 infersize(a::Arr,ysize)=tuple(size(a.init))
 ninputs(::Arr)=0
 overwrites(::Arr)=false

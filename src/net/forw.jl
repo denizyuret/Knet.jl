@@ -1,29 +1,43 @@
 """
-forw(r::Net,x...) executes forward pass for one item (that may or may
-not be part of a sequence), and returns the output.  The input x can
-consist of zero or more arrays.  The arrays can be any Julia array
-type (gpu/cpu, dense/sparse, Float64/32/16), they will get copied.
-The output is always a dense array (on gpu if available) that is
-internal to the net, and will be overwritten in the next call, so it
-should be copied by the caller if needed long term.  initforw
-allocates out0 if necessary but does not initialize out or out0, so
-for rnn's that have forward references a call to reset at the
-beginning of a sequence is necessary.
+forw(f::Net,input...; save=false, kwargs...) applies the compiled knet
+function f to the given input.  Following the forward pass, the
+program registers can be queried using get(f,:name).  get(f,:return)
+is special and gives the result passed to return.  Note that arrays
+returned by get(f,:name) are internal to the Net and will be
+overwritten in the next forw call.
+
+The input consists of zero or more arrays.  For sequence models, the
+input typically corresponds to a single item in the sequence.  The
+input arrays can be any Julia array type (gpu/cpu, dense/sparse,
+Float64/32/16).  They get copied before processing, they are never
+overwritten.
+
+The internal arrays are not cleared between calls.  This should not be
+a problem for feed forward nets and is necessary for RNNs.  An
+explicit call to reset!(f) clears all internal arrays, which may be
+necessary at the beginning of a sequence for RNNs.
+
+The boolean keyword argument `save` tells `forw` whether to save the
+arrays useful for the gradient calculation on f.stack.  This is only
+necessary for RNNs and only during training.  The rest of the keyword
+arguments are used as boolean condition variables during program
+execution.
+
 """
-function forw(r::Net, x...; trn=false, seq=false, a...)
-    initforw(r, x...; a...)
-    N = nops(r)
+function forw(f::Net, input...; save=false, kwargs...)
+    initforw(f, input...; save=save, kwargs...)
     lastinput = 0
-    for n = 1:N
-        trn && seq && r.tosave[n] && push(r,n)
-        if isa(r.op[n], Input)
-            r.out[n] = copy!(r.out0[n], x[lastinput += 1])
+    for p in f.prog
+        getprop(p,:forw) || continue
+        r = f.reg[p.output]
+        getprop(p,:push) && push(f,r)
+        if isa(p.op, Input)
+            r.out = copy!(r.out0, input[lastinput += 1])
         else
-            xn = r.out[r.inputs[n]]  # t:13/628
-            r.out[n] = forw(r.op[n], xn..., r.out0[n]; trn=trn, a...)
+            xn = [ f.reg[i].out for i in p.inputs]
+            r.out = forw(p.op, xn..., r.out0; kwargs...)
         end
     end
-    return r.out[N]
 end
 
 
@@ -61,3 +75,10 @@ end
 #     return loss
 # end
 
+# The
+# output is always a dense array (on gpu if available) that is internal
+# to the net, and will be overwritten in the next call, so it should be
+# copied by the caller if needed long term.  initforw allocates out0 if
+# necessary but does not initialize out or out0, so for rnn's that have
+# forward references a call to reset at the beginning of a sequence is
+# necessary.

@@ -4,7 +4,7 @@ module Kenv; kdef(x,y)=eval(Kenv,Expr(:(=),x,Expr(:quote,y))); end
 module Knet
 using Compat
 using Main.Kenv
-using Kenv.kdef
+#using Kenv.kdef # This does not work for some reason, have to use Kenv.kdef explicitly
 
 # This is for debugging
 DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
@@ -54,8 +54,8 @@ include("op/rnd.jl")
 include("update.jl");		
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
+include("net.jl");              # export params, forw, back
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
-include("net.jl");              export params, forw, back
 include("net/initforw.jl")
 include("net/initback.jl")
 include("net/forw.jl")

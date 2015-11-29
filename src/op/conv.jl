@@ -3,7 +3,7 @@ type Conv <: Op; padding; stride; upscale; mode;
         new(padding,stride,upscale,mode)
     end
 end
-kdef(:conv,Conv)
+Kenv.kdef(:conv,Conv)
 
 ninputs(::Conv)=2
 overwrites(::Conv)=false

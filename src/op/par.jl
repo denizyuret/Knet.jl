@@ -20,7 +20,7 @@ type Par <: Op; dims; init; initialized; out; dif; lr; l1reg; l2reg; adagrad; ad
     Par(;o...)=setopt!(new(); initialized=false, o...)
 end
 
-kdef(:par,Par)
+Kenv.kdef(:par,Par)
 
 function setopt!(p::Par; o...)
     for (n,v) in o

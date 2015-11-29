@@ -115,3 +115,17 @@ function _getbytes(x,d)
 end
 
 getbytes(x)=_getbytes(x, ObjectIdDict())
+
+# Changing the way CudaArray prints:
+
+if !isdefined(:_CudaArray)
+    import Base: size, linearindexing, getindex, writemime, summary
+    using Base: with_output_limit, showarray, dims2string
+    type _CudaArray{T,N} <: AbstractArray{T,N}; a::CudaArray{T,N}; end
+    _CudaArray{T,N}(a::CudaArray{T,N})=_CudaArray{T,N}(a)
+    size(a::_CudaArray)=size(a.a)
+    linearindexing(::_CudaArray)=Base.LinearFast()
+    getindex{T}(a::_CudaArray{T},i::Int)=getindex(a.a,i)
+    summary{T,N}(a::_CudaArray{T,N})=string(dims2string(size(a)), " CudaArray{$T,$N}")
+    writemime(io::IO, ::MIME"text/plain", v::CudaArray)=with_output_limit(()->showarray(io, _CudaArray(v), header=true, repr=false))
+end

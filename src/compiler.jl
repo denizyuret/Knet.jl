@@ -1,28 +1,3 @@
-# the compiler turns expressions into low level instruction sequences.
-# + variable renaming in function calls.
-# + inheriting conditions
-# + inheriting keyword arguments
-# + replacing returns with variables
-# + recording of arg names at top level
-# + preserve local and arg variable names of top level function
-# + representation of primitive ops
-# + ninputs problem: look up the definition or ask the Op
-# + can we compile primitive operators into net: why not
-# + separate env table for knet ops and funs: cleaner but cannot pass name to Net or comp, or f=relu type kwarg unless we write macros.
-# + adapt to the new _kenv structure: need next pointers?
-# + compound operations
-# + arithmetic operators
-# + multiple functions sharing registers vs one with conditionals
-# + instead of lots of arrays in net, have an Instruction type with the necessary fields: fix the rest of the code in net/
-# + wf and f=:sigm not working. the dict that comes to _comp_eval should splat :o.
-# + it works in recursive call from lstm to add2
-# - fix or delete net.jl and finish @knet macro
-# - add a copy instruction
-# - fix repeat
-# - check TODO, test all
-# - note that output variables are no longer unique, either with conditions or without more than one instr may overwrite the same variable
-
-
 """
 The @knet macro defines a new knet function:
 
@@ -32,7 +7,7 @@ The @knet macro defines a new knet function:
         return f(z; o...)
     end
 
-Once wbf is defined it can be:
+Once a knet function is defined it can be:
 
     (1) Used as an operator in other knet function definitions
     (2) Compiled into a knet model (Net) using the compile function
@@ -44,12 +19,11 @@ end
 
 
 """
-
 compile(fname::Symbol; o...) compiles the knet function given by fname
 into a knet model, i.e. a Net object.  fname should be a symbol
 (i.e. use compile(:lstm), not compile(lstm)).  Optional keyword
 arguments (o...) can be used to pass initialization parameters to the
-compiler.  knet function names in keyword args should also be escaped
+compiler.  Knet function names in keyword args should also be escaped
 with a colon.  For example:
 
     net = compile(:wbf; f=:sigm, out=100)
@@ -57,9 +31,9 @@ with a colon.  For example:
 function compile(fname::Symbol; o...)
     @dbg println((:compile,:fname,fname,:o,o))
     isdefined(Kenv, fname) || error("$fname not defined as a knet function")
-    op = _comp(Kenv.(fname); o...)
-    @dbg println((:compile,:op,op))
-    Net(op, 0, Any[])
+    prog = _comp(Kenv.(fname); o...)
+    @dbg println((:compile,:prog,prog))
+    Net(prog)
 end
 
 function _comp(f::Expr; o...)
@@ -148,7 +122,7 @@ end
 
 function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
     @dbg println((:_comp_assignment,:expr,expr,:name,name,:value,value,:cond,cond))
-    prog = Any[]
+    prog = Ins[]
     (f,fargs,fpars) = _comp_parse_call(expr.args[2])
 
     haskey(value, f) && (f=value[f])
@@ -166,6 +140,7 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
         if isa(x,Symbol)
             get!(name,x,gensym(x))
         elseif isa(x,Expr)
+            # TODO: use the same reg if possible for register sharing
             tmp = gensym(:tmp)
             name[tmp] = tmp
             append!(prog, _comp(Expr(:(=), tmp, x), name, value, cond))
@@ -193,10 +168,10 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
 
     if isa(feval, Op)
         # This happens when compiling a primitive Op directly, kwargs already taken into account in comp2
-        push!(prog, Ins(yname, feval, xname, cond))
+        push!(prog, Ins(yname, feval, xname, cond, Dict()))
     elseif isa(feval, DataType) && (feval <: Op)
         op = feval(; odict...)
-        push!(prog, Ins(yname, op, xname, cond))
+        push!(prog, Ins(yname, op, xname, cond, Dict()))
     elseif isa(feval, Expr)
         name2 = _comp_fargs(feval, xname, yname)
         value2 = _comp_fpars(feval, odict)
@@ -213,7 +188,7 @@ function _comp_if(expr::Expr,name::Dict,value::Dict,cond::Expr)
     @dbg println((:_comp_if,:expr,expr,:name,name,:value,value,:cond,cond))
     p = append!(_comp(expr.args[2],name,value,Expr(cond.head,cond.args...,expr.args[1])),
                 length(expr.args) == 2 ? Any[] :
-                _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:!,expr.args[1]))))
+                _comp(expr.args[3],name,value,Expr(cond.head,cond.args...,Expr(:call,:!,expr.args[1]))))
     @dbg println((:_comp_if,:return,p))
     return p
 end
@@ -317,6 +292,13 @@ function _comp_parse_call(s)
     (f, x, o)
 end
 
+function test_compiler()
+    for n in names(Kenv,true)
+        isa(Kenv.(n),DataType) || isa(Kenv.(n),Expr) || continue
+        println(n)
+        compile(n; out=10, f=:tanh)
+    end
+end
 
 ### DEAD CODE:
 
@@ -884,5 +866,25 @@ end
 #     @dbg println((:_comp_fpars,:return,fdict))
 #     return fdict
 # end
+
+# the compiler turns expressions into low level instruction sequences.
+# + variable renaming in function calls.
+# + inheriting conditions
+# + inheriting keyword arguments
+# + replacing returns with variables
+# + recording of arg names at top level
+# + preserve local and arg variable names of top level function
+# + representation of primitive ops
+# + ninputs problem: look up the definition or ask the Op
+# + can we compile primitive operators into net: why not
+# + separate env table for knet ops and funs: cleaner but cannot pass name to Net or comp, or f=relu type kwarg unless we write macros.
+# + adapt to the new _kenv structure: need next pointers?
+# + compound operations
+# + arithmetic operators
+# + multiple functions sharing registers vs one with conditionals
+# + instead of lots of arrays in net, have an Instruction type with the necessary fields: fix the rest of the code in net/
+# + wf and f=:sigm not working. the dict that comes to _comp_eval should splat :o.
+# + it works in recursive call from lstm to add2
+
 
 :ok

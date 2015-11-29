@@ -1,6 +1,6 @@
 type Mul <: Op; alpha; beta; Mul(;alpha=1,beta=1,o...)=new(alpha,beta); end
-kdef(:mul,Mul)
-kdef(:.*,Mul)
+Kenv.kdef(:mul,Mul)
+Kenv.kdef(:.*,Mul)
 
 ninputs(::Mul)=2
 overwrites(::Mul)=false

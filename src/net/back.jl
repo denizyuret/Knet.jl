@@ -1,7 +1,9 @@
 """
 
-back(r::Net,ygold,loss) for individual items that may or may not be
-elements of a sequence.  The seq keyword argument determines which:
+back(r::Net,ygold,loss) computes the gradients of weights and
+activations according to the given loss function and gold output.
+ygold represents an individual item minibatch that may or may not be
+an element of a sequence.  The seq keyword argument determines which:
 initback sets incr=true for par if seq, back pops from stack if seq.
 The loss gradient of the output, ygrad, is computed using
 loss(ypred,ygold,ygrad).  ypred is retrieved from r.out[N] where N is
@@ -9,7 +11,7 @@ the index of the last op.  ygrad is written to r.dif[N].  If r.op[N]
 has multiple outputs (toincr[N]), r.dif[N] is incremented.  If the
 optional loss argument is not provided, ygold is used as the loss
 gradient.  If ygold=nothing means the loss gradient from the output is
-taken to be 0.  Gradients computation proceeds backwards from N..1.
+taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 """
 function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)

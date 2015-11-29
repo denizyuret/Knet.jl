@@ -1,7 +1,7 @@
 type Dot <: Op; Dot(;o...)=new(); end
 
-kdef(:dot,Dot)
-kdef(:*,Dot)
+Kenv.kdef(:dot,Dot)
+Kenv.kdef(:*,Dot)
 
 ninputs(::Dot)=2
 overwrites(::Dot)=false

@@ -12,13 +12,14 @@ for (ltype,lforw,lback,lname) in
      (:Tanh, :tanhforw, :tanhback, :tanh),
      (:Relu, :reluforw, :reluback, :relu),
      (:Soft, :softforw, :softback, :soft),
-     (:Logp, :logpforw, :logpback, :logp))
+     (:Logp, :logpforw, :logpback, :logp),
+     (:Copy, :copyforw, :copyback, :copy))
     @eval begin
         type $ltype <: Actf; $ltype(;o...)=new(); end
         forw(l::$ltype, x, y; o...)=$lforw(x,y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
     end
-    kdef(lname,eval(ltype))
+    Kenv.kdef(lname,eval(ltype))
 end
 
 function infersize(::Actf,xdims,ydims)
@@ -39,6 +40,11 @@ function infersize(::Actf,xdims,ydims)
 end
 
 ### Implementations
+
+@doc "@knet function copy(x) copies its input to its output" :copy
+back_reads_y(::Copy)=false
+copyforw(x,y)=(x===y ? y : copy!(y,x))
+copyback(y,dy,dx)=(dx===dy ? dx : copy!(dx,dy))
 
 @doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" :sigm
 sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
@@ -129,7 +135,7 @@ logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
 # axpb(x,y;a=1,p=1,b=0)=(Axpb(a,p,b),x,y)
 
 type Axpb <: Actf; a; p; b; Axpb(;a=1,p=1,b=0,o...)=new(a,p,b); end
-kdef(:axpb,Axpb) # TODO: compiler should recognize arithmetic expr for axpb
+Kenv.kdef(:axpb,Axpb) # TODO: compiler should recognize arithmetic expr for axpb
 
 back_reads_x(::Axpb)=true
 back_reads_y(::Axpb)=false

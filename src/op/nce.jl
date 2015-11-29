@@ -4,7 +4,7 @@ Contrastive Estimation.  Given q[K] and s[K,B] the output is p[K,B]
 where p[i,j]=exp(s[i,j])/(exp(s[i,j])+q[i]).
 """
 type Nce <: Op; Nce(;o...)=new(); end
-kdef(:nce,Nce)
+Kenv.kdef(:nce,Nce)
 
 ninputs(::Nce)=2
 overwrites(::Nce)=true

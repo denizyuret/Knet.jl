@@ -1,33 +1,38 @@
-2015-11-18  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-11-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE - fix or delete net.jl and finish @knet macro
+	DONE - warn for reassigned locals: this is normal now, how user does register sharing.
+	DONE - note that output variables are no longer unique, either with conditions or without more than one instr may overwrite the same variable
 
 	* TODO:
 
-	0000 arr does not work in saman's lcn model: another infersize problem
-	0003 -- vivi concatenation
- 	0004 -- yonatan language learning model
+ 	0001 -- yonatan language learning model
 	0005 *** work on conditionals in compiler
-	0005 + It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
-	0005 + ai-mtg: Being able to access arrays with original variable names.
-	0005 + design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
-	0005 + environment table, instruction type with fields for original name, calling function, etc.
-	0005 + work on arithmetic operators
-	0005 + work on compound statements
-	0005 - compound statements that involve axpb or alpha/beta in add/mul.
-	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
-	0005 - warn for reassigned locals
+	0005 - fix back and initback, util.jl:reset!
+	0005 - initforw: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types.
+	0005 - initforw: does initsize play well with stype?  what is sparse other than input?
+	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks.
+	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
+	0005 - switch to user based array sharing, fix compiler to reuse registers and share intermediate tmp
+	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0005 - warn for unused constants
+	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
+	0005 - compound statements that involve axpb or alpha/beta in add/mul.
+	0005 - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
+	0005 - fix repeat
+	0005 - check TODO, test all
+	0005 - speed difference between kunet and knet?
+	0005 - do we stop running forw when we hit return?
 	0010 *** model.jl: add predict, load, save:
 	0010 - add ipa model train and predict to runtests.jl.
 	0010 - for load/save check timholy's message about extending jld with custom types
-	0010 - get spearmint to work in knet or reimplement in julia: https://github.com/HIPS/Spearmint
 	0010 - src/model/fnn.jl: predict has not been tested
 	0010 - src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
-	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
 	0010 - the first and second test give different results after load from file
-	0020 saman: cudnn 3D errors
-	0020 saman: difference in results of kunet and knet
-	0020 saman: add lcn example to knet, push lcn branch to master
-	0020 saman: add msra init
+	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
+	0010 - saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
+	0020 saman: add lcn example to knet, push lcn branch to	master. confirm 3D works.
 	0100 *** examples:
 	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 - need something for turkish translation to report to tubitak
@@ -55,6 +60,10 @@
 	0700 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 - src/op/compound.jl: finish documentation for all ops.
 	0700 -- src/op/loss.jl: cleanup, move out of op.
+	0800 *** optimization
+	0800 - net2net: http://arxiv.org/pdf/1511.05641
+	0800 - batch normalization: http://arxiv.org/abs/1502.03167 http://arxiv.org/abs/1510.01378
+	0800 - gradient noise http://arxiv.org/pdf/1511.06807v1.pdf: basically try all combinations of weight noise, gradient noise, activation noise.  prevent blowup by normalization/clipping.
 	0800 - Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	0800 - Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
 	0800 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia.
@@ -73,13 +82,13 @@
 	0970 perceptron and structured perceptron examples.
 	0970 perclossback: these should be scaled 1/nx, why isn't our gradient check complaining?
 	0970 reimplement averaging. for perceptron.
-	1000 bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
-	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
+	1000 I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.
+	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 Work on non-gpu compatibility.
 	1000 ai-mtg: Copy instruction for going back two time steps.
 	1000 character convolution.
-	1000 implement gru using con. or axpb?
+	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 edit test/runtests.jl to run the examples instead.
 	1000 examples/adding.jl: check out unstability of 400. share results with authors.
@@ -89,6 +98,7 @@
 	1000 examples: reimplement predict, train, and tutorial.jl.
 	1000 get rid of input() and use constructor arguments instead?	can we?
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
+	1000 implement gru using con. or axpb?
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 initforw: type/size inference in inputless networks?
@@ -109,11 +119,48 @@
 	1000 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 	1000 use templated code for cuda kernels
+	1000 ~/knet/lcn/examples/: mnist4d("--actf relu --gcheck 10 --xscale 255 --lr 0.001") gives lots of gradient errors.
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+	* display: Here is the sequence of calls following display(::Array):
+	display(x)
+	@try_display
+	2375 multimedia.jl; display; line: 151	macro?
+	2374 multimedia.jl; display; line: 120	display(d::TextDisplay, x)
+	display(d::TextDisplay, x) = display(d, MIME"text/plain"(), x)
+	display(d::TextDisplay, M::MIME"text/plain", x) = writemime(d.io, M, x)
+        2372 replutil.jl; writemime; line: 28	writemime(io::IO, ::MIME"text/plain", v::AbstractArray) = with_output_limit(()->showarray(io, v, header=true, repr=false))
+        1958 show.jl; showarray; line: 1238
+
+
+2015-11-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE kunet vs knet: trying to setup kunet, testlayers fails, different cuda lib version? lenet1.jl fails. saman: difference in results of kunet and knet: I was trying to solve the scaling issue regarding Knet and Kunet. I tried to run the example mnist4d.jl without scaling mnist data (i.e. not dividing it by 255)..and i ran it with lr =0.001 instead of 0.1 which we use for scaled data..it doesnot learn anything. If i apply the same changes in KUnet it can still learn the same way with unscaled data. Is it possible for you to look into this? It might be causing issues with LCN since i am still not able to learn anything despite trying the things you mentioned.
+	DONE saman: cudnn 3D errors
+	DONE + work on compound statements
+	DONE + work on arithmetic operators
+	DONE + environment table, instruction type with fields for original name, calling function, etc.
+	DONE + design conditional language, test concept on nce, s2c, s2s, tagger, dropout, att, ntm, ctc
+	DONE + ai-mtg: Being able to access arrays with original variable names.
+	DONE + It is difficult to stitch networks or share variables or implement conditional ops. Can we implement s2s/s2c with conditionals?  Is it easier with networks sharing variables?  One network feeding into another?
+
+
+2015-11-24  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE - get spearmint to work in knet or reimplement in julia: https://github.com/HIPS/Spearmint
+	DONE -- vivi concatenation
+	DONE saman: I was trying to solve the scaling issue regarding Knet and Kunet. I tried to run the example mnist4d.jl without scaling mnist data (i.e. not dividing it by 255)..and i ran it with lr =0.001 instead of 0.1 which we use for scaled data..it doesnot learn anything. If i apply the same changes in KUnet it can still learn the same way with unscaled data. Is it possible for you to look into this? It might be causing issues with LCN since i am still not able to learn anything despite trying the things you mentioned.
+	DONE arr does not work in saman's lcn model: another infersize problem
+	DONE large lr pushes weights to inf, use gclip=100 for safety. In 1e9layer1 spearmint why do I still get NaNs with quadloss? Gradcheck fails after initialization just like mnist4d. julia train.jl 1e9data.jld --epochs 20 --lr 1 --drop1 0.45
+	DONE compare hyperopt with spearmint
+
+2015-11-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE -- saman kernel for lcn

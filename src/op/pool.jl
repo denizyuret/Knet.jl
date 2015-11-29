@@ -9,7 +9,7 @@ type Pool <: Op; window; padding; stride; mode;
     end
 end
 
-kdef(:pool,Pool)
+Kenv.kdef(:pool,Pool)
 ninputs(::Pool)=1
 overwrites(::Pool)=false
 back_reads_x(::Pool)=true

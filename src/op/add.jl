@@ -30,8 +30,8 @@ dimensions):
 """
 type Add <: Op; alpha; beta; Add(;alpha=1,beta=1,o...)=new(alpha,beta); end
 
-kdef(:add,Add)
-kdef(:+,Add)
+Kenv.kdef(:add,Add)
+Kenv.kdef(:+,Add)
 
 ninputs(::Add)=2
 overwrites(::Add)=true

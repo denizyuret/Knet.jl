@@ -1,62 +1,94 @@
-type Ins
+"DataType for program instructions."
+immutable Ins
     output::Symbol
     op::Op
     inputs::Vector{Symbol}
     cond::Expr
     plist::Dict
+end
+
+"DataType for program registers."
+type Reg
     out; out0; dif; dif0; tmp
-    function Ins(output::Symbol,op::Op,inputs::Vector{Symbol},cond::Expr)
-        new(output,op,inputs,cond,Dict(),nothing,nothing,nothing,nothing,nothing)
-    end
+    size; eltype; outtype; diftype; tmptype;
+    Reg()=new()
 end
 
+"DataType for a compiled network."
 type Net
-    op::Vector{Ins}
-    sp::Int
+    prog::Vector{Ins}
+    reg::Dict{Symbol,Reg}
     stack::Vector
+    sp::Int
+    lastforw
+end
+
+function Net(prog::Vector{Ins})
+    reg = [ x.output=>Reg() for x in prog ]
+    Net(prog, reg, Any[], 0, nothing)
 end
 
 
-"""
-tosave(op, inputs) returns tosave[n] which is true if the result of 
-op[n] would be needed for back calculation.  We find this out using 
-back_reads_x and back_reads_y on each op.  Note that Par registers 
-are persistent and do not need to be saved.
-"""
-function tosave(op, inputs)
-    N = length(op)
-    tosave = falses(N)
-    for n=1:length(op)
-        back_reads_y(op[n]) && (tosave[n] = true)
-        if back_reads_x(op[n])
-            for i in inputs[n]
-                if !isa(op[i], Par)
-                    tosave[i] = true
-                end
-            end
-        end
-    end
-    return tosave
-end
-
-"""
-outputs(inputs) returns an array of output indices for each register.
-Note that the final register is the network output, so it could be 
-read externally even if outputs[N] is empty.
-"""
-function outputs(inputs)
-    N = length(inputs)
-    outputs = [ Int[] for n=1:N ]
-    for n=1:N
-        for i in inputs[n]
-            push!(outputs[i], n)
-        end
-    end
-    push!(outputs[N], 0)        # for network output
-    return outputs
-end
 
 ### DEAD CODE
+
+# type Ins
+#     output::Symbol
+#     op::Op
+#     inputs::Vector{Symbol}
+#     cond::Expr
+#     plist::Dict
+#     out; out0; dif; dif0; tmp
+#     function Ins(output::Symbol,op::Op,inputs::Vector{Symbol},cond::Expr)
+#         new(output,op,inputs,cond,Dict(),nothing,nothing,nothing,nothing,nothing)
+#     end
+# end
+
+# type Net
+#     op::Vector{Ins}
+#     sp::Int
+#     stack::Vector
+# end
+
+
+# """
+# tosave(op, inputs) returns tosave[n] which is true if the result of 
+# op[n] would be needed for back calculation.  We find this out using 
+# back_reads_x and back_reads_y on each op.  Note that Par registers 
+# are persistent and do not need to be saved.
+# """
+# function tosave(op, inputs)
+#     N = length(op)
+#     tosave = falses(N)
+#     for n=1:length(op)
+#         back_reads_y(op[n]) && (tosave[n] = true)
+#         if back_reads_x(op[n])
+#             for i in inputs[n]
+#                 if !isa(op[i], Par)
+#                     tosave[i] = true
+#                 end
+#             end
+#         end
+#     end
+#     return tosave
+# end
+
+# """
+# outputs(inputs) returns an array of output indices for each register.
+# Note that the final register is the network output, so it could be 
+# read externally even if outputs[N] is empty.
+# """
+# function outputs(inputs)
+#     N = length(inputs)
+#     outputs = [ Int[] for n=1:N ]
+#     for n=1:N
+#         for i in inputs[n]
+#             push!(outputs[i], n)
+#         end
+#     end
+#     push!(outputs[N], 0)        # for network output
+#     return outputs
+# end
 
 # """
 # Net(::Expr) compiles a quoted block of net language to a Net object
@@ -250,3 +282,9 @@ end
 #     net.sp = 0
 #     return net
 # end
+
+# No longer true, we are switching to user controlled register based sharing:
+# Two registers may share their out0 arrays but not dif0 or vice-versa
+# So each symbol should correspond to a unique register, sharing
+# optimization can be done at the array level, not the register level.
+
