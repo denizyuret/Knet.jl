@@ -5,10 +5,10 @@ using Knet, ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
 @knet function lenet_model(x0)
-    x1 = cbfp(x0; out=20, f=relu, cwindow=5, pwindow=2)
-    x2 = cbfp(x1; out=50, f=relu, cwindow=5, pwindow=2)
-    x3 = wbf(x2; out=500, f=relu)
-    p  = wbf(x3; out=10, f=soft)
+    x1 = cbfp(x0; out=20, f=:relu, cwindow=5, pwindow=2)
+    x2 = cbfp(x1; out=50, f=:relu, cwindow=5, pwindow=2)
+    x3 = wbf(x2; out=500, f=:relu)
+    return wbf(x3; out=10, f=:soft)
 end
 
 function mnist4d(args=ARGS)
@@ -27,10 +27,10 @@ function mnist4d(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    dtrn = ItemTensor(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn; batch=nbatch)
-    dtst = ItemTensor(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst; batch=nbatch)
+    dtrn = minibatch(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn, nbatch)
+    dtst = minibatch(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst, nbatch)
 
-    lenet = FNN(lenet_model)
+    lenet = compile(:lenet_model)
     setopt!(lenet; lr=lr)
     l=zeros(2); m=zeros(2)
     for epoch=1:epochs
@@ -41,6 +41,37 @@ function mnist4d(args=ARGS)
         gcheck > 0 && gradcheck(lenet,dtrn,softloss; gcheck=gcheck)
     end
     return (l[1]/l[2],m...)
+end
+
+function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+    for (x,ygold) in data
+        reset!(f)
+        ypred = forw(f, x)
+        back(f, ygold, loss)
+        update!(f)
+        losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+        w=wnorm(f); w > maxnorm[1] && (maxnorm[1]=w)
+        g=gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
+    end
+end
+
+function test(f::Net, data, loss)
+    sumloss = numloss = 0
+    for (x,ygold) in data
+        ypred = forw(f, x)
+        sumloss += loss(ypred, ygold)
+        numloss += 1
+    end
+    sumloss / numloss
+end
+
+function minibatch(x, y, batchsize)
+    data = Any[]
+    for i=1:batchsize:ccount(x)
+        j=i+batchsize-1
+        push!(data, (cget(x,i:j), cget(y,i:j)))
+    end
+    return data
 end
 
 !isinteractive() && !isdefined(:load_only) && mnist4d(ARGS)

@@ -1,7 +1,7 @@
 "Module that contains the names of Knet functions."
 module Kenv; kdef(x,y)=eval(Kenv,Expr(:(=),x,Expr(:quote,y))); end
 
-# module Knet
+module Knet
 using Compat
 using Main.Kenv
 #using Kenv.kdef # This does not work for some reason, have to use Kenv.kdef explicitly
@@ -54,8 +54,8 @@ include("op/rnd.jl")
 include("update.jl");		
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-include("model.jl");		export Model, train, test, predict, setopt!
-include("net.jl");              # export params, forw, back
+include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
+include("net.jl");              export Net, forw, back, update!, reset!
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
@@ -79,7 +79,7 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
-# end # module
+end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias
