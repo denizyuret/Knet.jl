@@ -251,12 +251,13 @@ end
 
 function _comp_fpars(f::Expr, o)
     @dbg println((:_comp_fpars,:f,f,:o,o))
-    (fname, fargs, fpars) = _comp_parse_call(f.args[1]) # these are from the function definition
-    ftemp = :_comp_fpars_tmp
-    fhead = Expr(:call, ftemp, Expr(:parameters, fpars...)) # exclude fargs
+    (fname, fargs, fpars) = _comp_parse_call(f.args[1]) # these are from the original function definition
+    ftemp = :_comp_fpars_tmp                            # constructing a new function definition
+    fhead = Expr(:call, ftemp)
+    !isempty(fpars) && push!(fhead.args, Expr(:parameters, fpars...)) # including fpars, excluding fargs
     fvars = map(s->Expr(:(=>), QuoteNode(s.args[1]), s.args[1]), fpars)
     fbody = Expr(:block, Expr(:call, :Dict, fvars...))
-    fdefn = Expr(:function, fhead, fbody)
+    fdefn = Expr(:function, fhead, fbody) # the new function returns a dictionary of fpars and their values
     # If we use Kenv instead of current_module to capture knet
     # functions, things go awry, e.g. a kwarg (k=a*b) ends up calling
     # Dot instead of regular multiply.  It is best not to mix Kenv and

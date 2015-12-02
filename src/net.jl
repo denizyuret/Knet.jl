@@ -9,13 +9,18 @@ end
 
 "DataType for program registers."
 type Reg
-    out; out0; dif; dif0; tmp
-    size; eltype; outtype; diftype; tmptype;
-    Reg()=new()
+    out; out0; dif; dif0; tmp;
+    size #::Dims prevents us from using nothing
+    eltype::DataType
+    outtype::DataType
+    diftype::DataType
+    tmptype::DataType
+    plist::Dict
+    Reg()=(r=new();r.plist=Dict();r)
 end
 
 "DataType for a compiled network."
-type Net
+type Net <: Model
     prog::Vector{Ins}
     reg::Dict{Symbol,Reg}
     stack::Vector

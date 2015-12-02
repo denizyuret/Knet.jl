@@ -1,9 +1,9 @@
 """
-initforw allocates register storage (out0) if uninitialized or there
-is a change in input size, sparsity, save flag, or keyword arguments.
-It does not zero or reset the registers, there is a separate reset!
-function for that.  FNN's do not need reset, and RNNs only do at the
-end of a sequence.
+initforw allocates register storage (out0) and sets the :forw and
+:push flags if these are uninitialized or there is a change in input
+size, sparsity, save flag, or keyword arguments.  It does not zero or
+reset the registers, there is a separate reset!  function for that.
+FNN's do not need reset, and RNNs only do at the end of a sequence.
 """
 function initforw(f::Net, inputs...; save=false, o...)
     @assert length(inputs) == ninputs(f)
@@ -13,46 +13,69 @@ function initforw(f::Net, inputs...; save=false, o...)
         || map(stype, inputs) != f.lastforw[3]
         || sort(o) != f.lastforw[4])
         save && f.lastforw[1] && Base.warn_once("Net reset during RNN training")
-        initcond(f; o...)
-        initsave(f, save)
-        initsize(f, inputs...)
-        inittype(f, inputs...)
-        initout0(f, inputs...)
+        initcond(f; o...)       # set :forw
+        initsave(f, save)       # set :push
+        initsize(f, inputs...)  # set reg.size
+        inittype(f, inputs...)  # set reg.eltype, reg.outtype
+        initout0(f, inputs...)  # set reg.out0
         f.lastforw = (save, map(size, inputs), map(stype, inputs), sort(o))
     end
 end
 
-# Determine element and array type of r.out0 for each register r.
-function inittype(f::Net, inputs...)
-    isempty(inputs) && error("Don't know how to infer eltype with inputless networks yet.")
-    ftype = eltype(inputs[1])
-    for i in inputs
-        eltype(i) == ftype || error("Conflicting element type in input $i.")
-    end
+
+# initcond(f::Net; o...) sets the :forw property of each f.prog[n] which
+# is determined by evaluating f.prog[n].cond in the context of the
+# kwargs passed to forw.
+
+function initcond(f::Net; o...)
+    for p in f.prog; setprop!(p,:forw,false); end
+    d = Dict(o)
     for p in f.prog
-        r = f.reg[p.output]
-        r.eltype = ftype        # TODO: What if there is a conflict with par.init or a previous eltype?
-        r.outtype = CudaArray   # TODO: how about sparse arrays?
+        c = condeval(p.cond,d)
+        setprop!(p,:forw,c)
+        c && (p.output == :return) && break
     end
 end
 
-function initout0(f::Net, inputs...)
+function condeval(s,d::Dict)
+    (isa(s, Bool) ? s :
+     isa(s, Symbol) ? get(d,s,false) :
+     !isa(s, Expr) ? error("Expected boolean expression got $s") :
+     s.head == :&& ? mapreduce(x->condeval(x,d), &, true, s.args) :
+     s.head == :|| ? mapreduce(x->condeval(x,d), |, false, s.args) :
+     s.head == :call && s.args[1] == :! ? !condeval(s.args[2],d) :
+     error("Expected boolean expression got $s"))
+end
+
+# initsave(f::Net) sets the :push property of each f.prog[n] which
+# should be true if the result of f.prog[n] will be needed for back
+# calculation.  We find this out using back_reads_x and back_reads_y
+# on each op.  Note that Par registers are persistent and do not need
+# to be saved.  Also note that save is only necessary for (1) RNN
+# sequence models and (2) only for training and (3) only for ops with
+# forw=true.
+
+function initsave(f::Net, save::Bool)
+    for p in f.prog; setprop!(p,:push,false); end
+    save || return
     for p in f.prog
-        r = f.reg[p.output]
-        if !isdefined(r,:out0)
-            r.out0 = r.outtype(r.eltype, r.size)
-        elseif (isa(r.out0, r.outtype) &&
-                eltype(r.out0) == r.eltype &&
-                size(r.out0) == r.size)
-            continue
-        elseif (isa(p.op, Par) || isa(p.op, Arr))
-            error("Size or type change not allowed in parameters")
-        else
-            r.out0 = r.outtype(r.eltype, r.size)
+        get(p,:forw) || return
+        back_reads_y(p.op) && setprop!(p,:push,true)
+        if back_reads_x(p.op)
+            for q in f.prog
+                if in(q.output, p.inputs) && !ispersistent(q)
+                    setprop!(q,:push,true)
+                end
+            end
         end
     end
 end
 
+ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
+
+
+# initsize infers the size of each register
+# TODO: ignore the ones with forw=false?
 
 function initsize(f::Net, inputs...)
     for (n,r) in f.reg; r.size = nothing; end
@@ -84,53 +107,44 @@ function initsize(f::Net, inputs...)
     end
 end
 
-
-"""
-initsave(f::Net) sets the :push property of each f.prog[n] which
-should be true if the result of f.prog[n] will be needed for back
-calculation.  We find this out using back_reads_x and back_reads_y on
-each op.  Note that Par registers are persistent and do not need to be
-saved.  Also note that save is only necessary for training RNN
-sequence models.
-"""
-function initsave(f::Net, save::Bool)
-    for p in f.prog; setprop!(p,:push,false); end
-    save || return
+# Determine element and array type of r.out0 for each register r.
+function inittype(f::Net, inputs...)
+    isempty(inputs) && error("Don't know how to infer eltype with inputless networks yet.")
+    ftype = eltype(inputs[1])
+    for i in inputs
+        eltype(i) == ftype || error("Conflicting element type in input $i.")
+    end
+    lastinput = 0
     for p in f.prog
-        getprop(p,:forw) || return
-        back_reads_y(p.op) && setprop!(p,:push,true)
-        if back_reads_x(p.op)
-            for q in f.prog
-                if in(q.output, p.inputs) && !ispersistent(q)
-                    setprop!(q,:push,true)
-                end
-            end
+        r = f.reg[p.output]
+        r.eltype = ftype        # TODO: What if there is a conflict with par.init or a previous eltype?
+        if isa(p.op,Input) && issparse(inputs[lastinput+=1])
+            r.outtype = (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC)
+        else                    # TODO: not all these types will allow r.outtype(r.eltype,r.size)
+            r.outtype = (gpu() ? CudaArray : Array)
         end
     end
 end
 
-ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || getprop(p,:push))
-
-"""
-initcond(f::Net; o...) sets the :forw property of each f.prog[n] which
-is determined by evaluating f.prog[n].cond in the context of the
-kwargs passed to forw.
-"""
-function initcond(f::Net; o...)
-    d = Dict(o)
+function initout0(f::Net, inputs...)
     for p in f.prog
-        setprop!(p,:forw,condeval(p.cond,d))
+        get(p,:forw) || continue
+        r = f.reg[p.output]
+        if checkarray(r, :out0, r.outtype, r.eltype, r.size)
+            # all done
+        elseif isdefined(r,:out0) && (isa(p.op, Par) || isa(p.op, Arr))
+            error("Size or type change not allowed in parameters")
+        else
+            r.out0 = r.outtype(r.eltype, r.size)
+        end
     end
 end
 
-function condeval(s,d::Dict)
-    (isa(s, Bool) ? s :
-     isa(s, Symbol) ? get(d,s,false) :
-     !isa(s, Expr) ? error("Expected boolean expression got $s") :
-     s.head == :&& ? mapreduce(x->condeval(x,d), &, true, s.args) :
-     s.head == :|| ? mapreduce(x->condeval(x,d), |, false, s.args) :
-     s.head == :call && s.args[1] == :! ? !condeval(s.args[2],d) :
-     error("Expected boolean expression got $s"))
+function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)
+    isdefined(r,n) &&
+    isa(r.(n), atype) &&
+    eltype(r.(n)) == etype &&
+    size(r.(n)) == dims
 end
 
 ### DEAD CODE:

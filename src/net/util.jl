@@ -1,19 +1,35 @@
+registers(f::Net)=values(f.reg)
+instructions(f::Net)=f.prog
+output_register(f::Net,p::Ins)=get(f.reg,p.output,nothing)
+input_registers(f::Net,p::Ins)=map(s->get(f.reg,s,nothing), p.inputs)
+
 nops(f::Net)=length(f.prog)
+Base.length(f::Net)=length(f.prog)
 params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.prog))
 ninputs(f::Net)=count(x->isa(x.op,Input), f.prog)
 inputs(f::Net,n)=f.prog[n].inputs
 output(f::Net,n)=f.prog[n].output
 forwref(f::Net,n)=any(i->in(output(f,n),inputs(f,i)), 1:n-1)
 
-getprop(p::Ins,k)=get(p.plist,k,false)
-setprop!(p::Ins,k,v)=(p.plist[k]=v)
+getprop(p::Ins,k,d=false)=get(p.plist,k,d)
+setprop!(p::Ins,k,v=true)=(p.plist[k]=v)
+set!(p::Ins,k,v=true)=setprop!(p,k,v)
 
-getreg(f::Net,k)=get(f.reg,k,nothing)
-getdif(f::Net,k)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
-getout(f::Net,k)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
+getprop(p::Reg,k,d=false)=get(p.plist,k,d)
+setprop!(p::Reg,k,v=true)=(p.plist[k]=v)
+set!(p::Reg,k,v=true)=setprop!(p,k,v)
+inc!(p::Reg,k)=set!(p,k,1+get(p,k))
+
+getreg(f::Net,k::Symbol)=get(f.reg,k,nothing)
+getdif(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
+getout(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
+
 Base.get(f::Net,k)=getout(f,k)
+Base.get(p::Ins,k,d=false)=getprop(p,k,d)
+Base.get(p::Reg,k,d=false)=getprop(p,k,d)
 
 Base.copy!(r::Reg,x)=(r.out=copy!(r.out0,x))
+
 
 ### Cleanup at the beginning/end of sequence
 

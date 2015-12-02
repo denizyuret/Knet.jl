@@ -1,5 +1,5 @@
 """
-
+REWRITE:
 back(r::Net,ygold,loss) computes the gradients of weights and
 activations according to the given loss function and gold output.
 ygold represents an individual item minibatch that may or may not be
@@ -14,65 +14,79 @@ gradient.  If ygold=nothing means the loss gradient from the output is
 taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 """
-function back(r::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
-    N = nops(r)
-    getdx = getdxidx(getdx, ninputs(r))
-    initback(r, ygold, loss; getdx=getdx, seq=seq, o...)
-    if ygold == nothing
-        r.toincr[N] || (r.dif[N] = nothing)
-    elseif r.dif0[N] == nothing
-        # This may happen for a parameter free network
-        @assert !any(r.toback)
-    elseif !r.toincr[N]
-        r.dif[N] = loss(r.out[N], ygold, r.dif0[N]; o...)
-    else
-        loss(r.out[N], ygold, r.tmp[N]; o...)
-        r.dif[N] = axpy!(1,r.tmp[N],r.dif0[N])
-    end
-    for n = N:-1:1
-        if r.dif[n] == nothing
-            for i in r.inputs[n]
-                !r.toincr[i] && (r.dif[i] = nothing)
+
+function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
+    getdx = getdxbool(getdx, ninputs(f))
+    initback(f, ygold, loss; getdx=getdx, seq=seq, o...) # TODO: fix initback: set :grad and :incr, on the reg or on the op? both on reg!
+    gotreturn = false
+    for n = length(f.prog):-1:1
+        p = f.prog[n]
+        get(p,:forw) || continue
+        r = f.reg[p.output]
+        if !gotreturn
+            gotreturn = true
+            p.output == :return || warn("Using $(p.output) as the return register.")
+            if ygold == nothing
+                get(r,:incr) || (r.dif = nothing)
+            elseif r.dif0 == nothing
+                # This may happen for a parameter free network
+                @assert !any(q->(isa(q.op,Par)&&get(q,:forw)),f.prog)
+            elseif get(r,:incr)
+                loss(r.out, ygold, r.tmp; o...)
+                r.dif = axpy!(1,r.tmp,r.dif0)
+            else
+                r.dif = loss(r.out, ygold, r.dif0; o...)
+            end
+        end
+        inputregs = map(i->f.reg[i], p.inputs)
+        if r.dif == nothing
+            for ri in inputregs
+                get(ri,:incr) || (ri.dif = nothing)
             end
         else
             dxn = Any[]
             xn = Any[]
-            for i in r.inputs[n]
-                push!(dxn, !r.toback[i] ? nothing : r.toincr[i] ? r.tmp[i] : r.dif0[i])
-                push!(xn, r.out[i]) 
+            for ri in inputregs
+                push!(dxn, !get(ri,:grad) ? nothing : get(ri,:incr) ? ri.tmp : ri.dif0)
+                push!(xn, ri.out)
             end
-            xn = get1(xn); yn = r.out[n]; dyn = r.dif[n]
-            back(r.op[n], dyn, dxn...; x=xn, y=yn, o...)
+            xn = get1(xn); yn = r.out; dyn = r.dif
+            back(p.op, dyn, dxn...; x=xn, y=yn, o...)
             gpusync()
-            for i in r.inputs[n]
-                if r.toback[i]
-                    if r.toincr[i]
-                        axpy!(1, r.tmp[i], r.dif0[i]) 
-                        gpusync()
-                    end
-                    r.dif[i] = r.dif0[i]
+            for ri in inputregs
+                if get(ri,:incr)
+                    ri.dif = axpy!(1, ri.tmp, ri.dif0)
+                    gpusync()
+                elseif get(ri,:grad)
+                    ri.dif = ri.dif0
                 else
-                    r.dif[i] = nothing
+                    ri.dif = nothing
                 end
             end
             gpusync()
-            if r.toincr[n] && !isa(r.op[n], Par)
-                fill!(r.dif[n],0)
+            if get(r,:incr) && !isa(p.op, Par)
+                # what if p.op=Arr?  then it will have no inputs, thus :grad=:incr=false
+                # TODO: where does Par.dif get zeroed out?  reset?
+                fill!(r.dif,0)
                 gpusync()
             end
         end
-        seq && r.tosave[n] && pop(r,n)
+        seq && get(p,:save) && pop(f,r)
     end
     if any(getdx)
         dx = Any[]; nx = 0
-        for i=1:N; isa(r.op[i],Input) && getdx[nx+=1] && push!(dx, r.dif[i]); end
+        for p in f.prog
+            isa(p.op,Input) && getdx[nx+=1] && push!(dx, f.reg[p.output].dif);
+        end
         return get1(dx)
     end
 end
 
+# this is used when no loss fn specified, in which case we assume ygold=ygrad
 copyloss(ypred,ygold,ygrad;o...)=copy!(ygrad,ygold)
 
-function getdxidx(getdx, n)
+# turn various forms of getdx into boolean vector
+function getdxbool(getdx, n)
     (isa(getdx, Vector{Bool}) && length(getdx)==n ? getdx :
      isa(getdx, Bool) ? fill(getdx, n) :
      isa(getdx, Vector{Int}) ? (tmp=falses(n);tmp[getdx]=true;tmp) :

@@ -28,9 +28,9 @@ function forw(f::Net, input...; save=false, kwargs...)
     initforw(f, input...; save=save, kwargs...)
     lastinput = 0
     for p in f.prog
-        getprop(p,:forw) || continue
+        get(p,:forw) || continue
         r = f.reg[p.output]
-        getprop(p,:push) && push(f,r)
+        get(p,:push) && push(f,r)
         if isa(p.op, Input)
             r.out = copy!(r.out0, input[lastinput += 1])
         else
@@ -38,6 +38,7 @@ function forw(f::Net, input...; save=false, kwargs...)
             r.out = forw(p.op, xn..., r.out0; kwargs...)
         end
     end
+    return get(f,:return)
 end
 
 

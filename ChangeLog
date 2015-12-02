@@ -1,29 +1,29 @@
-2015-11-28  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* DONE:
-	DONE - fix or delete net.jl and finish @knet macro
-	DONE - warn for reassigned locals: this is normal now, how user does register sharing.
-	DONE - note that output variables are no longer unique, either with conditions or without more than one instr may overwrite the same variable
+2015-11-30  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
  	0001 -- yonatan language learning model
 	0005 *** work on conditionals in compiler
-	0005 - fix back and initback, util.jl:reset!
-	0005 - initforw: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types.
-	0005 - initforw: does initsize play well with stype?  what is sparse other than input?
-	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks.
-	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
-	0005 - switch to user based array sharing, fix compiler to reuse registers and share intermediate tmp
-	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
-	0005 - warn for unused constants
-	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
-	0005 - compound statements that involve axpb or alpha/beta in add/mul.
+	0005 - todo: do we need the seq option to back?  is it the same as save?
+	0005 - initforw detects when there is a change and does not compute otherwise.  initback should do the same.
+	0005 - back.jl: where does Par.dif get zeroed out?  reset?
+	0005 - mnist2d.jl: setopt! should work with register names as well.
+	0005 - use better get/set function names in net/*.jl
+	0005 - get rid of seq flag
 	0005 - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
-	0005 - fix repeat
+	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0005 - check TODO, test all
+	0005 - compound statements that involve axpb or alpha/beta in add/mul.
+	0005 - fix back and initback, util.jl:reset! handle sparse.
+	0005 - fix compiler to reuse registers and share intermediate tmp
+	0005 - fix repeat
+	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
+	0005 - initsize: ignore forw=false
+	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?
+	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
+	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
 	0005 - speed difference between kunet and knet?
-	0005 - do we stop running forw when we hit return?
+	0005 - warn for unused constants
 	0010 *** model.jl: add predict, load, save:
 	0010 - add ipa model train and predict to runtests.jl.
 	0010 - for load/save check timholy's message about extending jld with custom types
@@ -126,7 +126,78 @@
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
 
+	* DONE:
+	DONE - do we stop running forw when we hit return? Yes.
+	DONE - rename getprop -> get
+	DONE - switch to user based array sharing,
+
+
+2015-11-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/net/back.jl: return design:
+	We used to have the result of the last op always be returned.
+	We now introduced conditionals and a return statement.
+	Q: where is back going to match its ygold?
+	Q: can we still do back going from N:-1:1?
+	Q: how about operations with :forw=false?
+	Q: do we allow multiple return statements?
+	We have a separate return register
+	Q: how can we avoid unnecessary copying for (return x) or (y=x)?
+	Q: should return be an operator like input?
+	As an op, it already is, writes to external register provided by caller.
+	As a model, it is currently allocated internally -- inconsistent.
+	If multiple returns are allowed they should have consistent size/type.
+	Q: for multiple returns does the first one terminate forw?
+	With julia semantics it should.
+	initforw would need to set :forw according to cond instead of forw: it already does.
+	Q: can we remove the return statement to avoid confusion?
+	As a model it is meaningless anyway, we query any register we want.
+	Q: what about back?  It needs to know what to match to ygold!
+	As an op we can readopt the convention of returning the last value.
+	The compiler does not know what the last operation is!  It depends on runtime conditions.
+	Does that make return mandatory for ops?
+	Q: return as register vs return as op.  multiple returns.  return size consistency.  avoid copy.
+	Q: can we rely on ops running in order with some skipped due to cond? yes, no goto statements.
+	Q: is it ever the case that return is not the last stmt?
+	Q: do we have return?  multiple return?  return with var vs return with op?
+	Q: if last-op and cond, which register?
+
+	D1: julia: have return, allow multiple, exit on first.
+	exit on first can be implemented by initcond setting the rest :forw=false.
+	check for size consistency under all conditions: this will happen automatically if we use the return register.
+	- however it may necessitate unnecessary copying.
+	back can go N:-1:1 skipping ops with :forw=false and match ygold with first active op encountered.
+	if no return, last value is returned in julia: compiler needs to be modified for this to work for ops.
+	- do we insert return ops so size check happens?
+	- do we just insist for a return?  in which case back needs to check first active op is return.
+
+	@knet function drop2(x; pdrop=0, o...)
+	    # implicit x=input() here
+	    if training
+	        r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)))
+	        x = mul(r,x)
+	    end
+	    return x
+	end
+
+	@knet function drop1(x; pdrop=0, o...)
+	    if training
+	        r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)))
+	        return mul(r,x)
+	    else
+	        return x
+	    end
+	end
+
+2015-11-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE - fix or delete net.jl and finish @knet macro
+	DONE - warn for reassigned locals: this is normal now, how user does register sharing.
+	DONE - note that output variables are no longer unique, either with conditions or without more than one instr may overwrite the same variable
+
 	* display: Here is the sequence of calls following display(::Array):
+	It looks like we need to overwrite writemime to change the way things are displayed.
 	display(x)
 	@try_display
 	2375 multimedia.jl; display; line: 151	macro?

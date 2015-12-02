@@ -3,9 +3,28 @@
 using Knet,ArgParse,Base.Test
 isdefined(:MNIST) || include("mnist.jl")
 
-@knet function mnist2d_model(x; hidden=64, f=relu)
-    h = wbf(x; out=hidden, f=f)
-    y = wbf(h; out=10, f=soft)
+@knet function mnist2layer(x)
+    h    = wbf(x; out=64, f=:relu)
+    return wbf(h; out=10, f=:soft)
+end
+
+function train(f::Net, data, loss)
+    for (x,y) in data
+        reset!(f)
+        forw(f, x)
+        back(f, y, loss)
+        update!(f)
+    end
+end
+
+function test(f::Net, data, loss)
+    sumloss = numloss = 0
+    for (x,ygold) in data
+        ypred = forw(f, x)
+        sumloss += loss(ypred, ygold)
+        numloss += 1
+    end
+    sumloss / numloss
 end
 
 function mnist2d(args=ARGS)
@@ -15,7 +34,7 @@ function mnist2d(args=ARGS)
         ("--seed"; arg_type=Int; default=42)
         ("--nbatch"; arg_type=Int; default=100)
         ("--epochs"; arg_type=Int; default=3)
-        ("--gcheck"; arg_type=Int; default=0)
+        # ("--gcheck"; arg_type=Int; default=0)
         ("--xsparse"; action=:store_true)
         ("--ysparse"; action=:store_true)
     end
@@ -30,20 +49,19 @@ function mnist2d(args=ARGS)
     dtrn = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
     dtst = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
 
-    net = FNN(mnist2d_model)
+    global net = compile(:mnist2layer)
     setopt!(net, lr=0.5)
-    l=[0f0,0f0]; m=[0f0,0f0]
-
+    ltrn = atrn = ltst = atst = 0
+    println((:epoch,:ltrn,:atrn,:ltst,:atst))
     for epoch=1:epochs
-        train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0)) # t:3053
+        train(net, dtrn, softloss)
         ltrn = test(net, dtrn, softloss)
         atrn = 1-test(net, dtrn, zeroone)
         ltst = test(net, dtst, softloss)
         atst = 1-test(net, dtst, zeroone)
-        println((epoch,l[1]/l[2],m[1],m[2],ltrn,atrn,ltst,atst))
-        gcheck > 0 && gradcheck(net, dtrn, softloss; gcheck=gcheck)
+        println((epoch,ltrn,atrn,ltst,atst))
     end
-    return (l[1]/l[2],m[1],m[2])
+    return (epochs,ltrn,atrn,ltst,atst)
 end
 
 !isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
