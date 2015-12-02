@@ -1,7 +1,45 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
-using Knet,ArgParse,Base.Test
+using Knet,ArgParse
 isdefined(:MNIST) || include("mnist.jl")
+
+function mnist2d(args=ARGS)
+    info("Testing simple mlp on MNIST")
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=42)
+        ("--nbatch"; arg_type=Int; default=100)
+        ("--epochs"; arg_type=Int; default=3)
+        ("--gcheck"; arg_type=Int; default=0) # TODO: fix gcheck
+        ("--xsparse"; action=:store_true)
+        ("--ysparse"; action=:store_true)
+    end
+    isa(args, AbstractString) && (args=split(args))
+    opts = parse_args(args,s)
+    println(opts)
+    for (k,v) in opts; @eval ($(symbol(k))=$v); end
+    seed > 0 && setseed(seed)
+
+    fx = (xsparse ? sparse : identity)
+    fy = (ysparse ? sparse : identity)
+    dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), nbatch)
+    dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), nbatch)
+
+    global net = compile(:mnist2layer)
+    setopt!(net, lr=0.5)
+
+    println((:epoch,:ltrn,:atrn,:ltst,:atst))
+    ltrn = atrn = ltst = atst = 0
+    for epoch=1:epochs
+        train(net, dtrn, softloss)
+        ltrn = test(net, dtrn, softloss)
+        atrn = 1-test(net, dtrn, zeroone)
+        ltst = test(net, dtst, softloss)
+        atst = 1-test(net, dtst, zeroone)
+        println((epoch,ltrn,atrn,ltst,atst))
+    end
+    return (epochs,ltrn,atrn,ltst,atst)
+end
 
 @knet function mnist2layer(x)
     h    = wbf(x; out=64, f=:relu)
@@ -27,43 +65,17 @@ function test(f::Net, data, loss)
     sumloss / numloss
 end
 
-function mnist2d(args=ARGS)
-    info("Testing simple mlp on MNIST")
-    s = ArgParseSettings()
-    @add_arg_table s begin
-        ("--seed"; arg_type=Int; default=42)
-        ("--nbatch"; arg_type=Int; default=100)
-        ("--epochs"; arg_type=Int; default=3)
-        # ("--gcheck"; arg_type=Int; default=0)
-        ("--xsparse"; action=:store_true)
-        ("--ysparse"; action=:store_true)
+function minibatch(x, y, batchsize)
+    data = Any[]
+    for i=1:batchsize:size(x,2)
+        j=i+batchsize-1
+        push!(data, (x[:,i:j], y[:,i:j]))
     end
-    isa(args, AbstractString) && (args=split(args))
-    opts = parse_args(args,s)
-    println(opts)
-    for (k,v) in opts; @eval ($(symbol(k))=$v); end
-    seed > 0 && setseed(seed)
-
-    fx = (xsparse ? sparse : identity)
-    fy = (ysparse ? sparse : identity)
-    dtrn = ItemTensor(fx(MNIST.xtrn), fy(MNIST.ytrn); batch=nbatch)
-    dtst = ItemTensor(fx(MNIST.xtst), fy(MNIST.ytst); batch=nbatch)
-
-    global net = compile(:mnist2layer)
-    setopt!(net, lr=0.5)
-    ltrn = atrn = ltst = atst = 0
-    println((:epoch,:ltrn,:atrn,:ltst,:atst))
-    for epoch=1:epochs
-        train(net, dtrn, softloss)
-        ltrn = test(net, dtrn, softloss)
-        atrn = 1-test(net, dtrn, zeroone)
-        ltst = test(net, dtst, softloss)
-        atst = 1-test(net, dtst, zeroone)
-        println((epoch,ltrn,atrn,ltst,atst))
-    end
-    return (epochs,ltrn,atrn,ltst,atst)
+    return data
 end
 
+# This allows both non-interactive (shell command) and interactive calls like:
+# julia> mnist2d("--epochs 10")
 !isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
 
 

@@ -15,11 +15,11 @@ function initback(f::Net, ygold, loss; getdx=false, seq=false, a...)
     for r in registers(f)
         if get(r,:grad)
             if !checkarray(r, :dif0, r.diftype, r.eltype, r.size)
-                r.dif0 = r.diftype(r.eltype, r.size)
+                r.dif0 = newarray(r.diftype, r.eltype, r.size)
             end
             if get(r,:incr)
                 if !checkarray(r, :dif0, r.diftype, r.eltype, r.size)
-                    r.tmp = r.tmptype(r.eltype, r.size)
+                    r.tmp = newarray(r.tmptype, r.eltype, r.size)
                 end
             end
         end
@@ -89,13 +89,41 @@ function initincr(f::Net, seq)
     end
 end
 
+# Note about sparse arrays:
+# If input x is sparse (example: matrix of one-hot word columns)
+# and the first op is dot(w,x):
+# w will be dense (example: word embedding matrix)
+# y = w * x and all following forw outputs will be dense.
+# Going back we have dw = dy * x' and dx = w' * dy
+# We would like to keep dw sparse.
+# The only sparse matrices are the dw and iw for w that dot sparse inputs.
+# Regular sparse x is a right csc input.
+# NCE adds noise and ygold matrices as left csr inputs.
+# TODO: cleanup this mess: more generic code? more versatile sparse type?
 
-function inittype2(f::Net)      # TODO: handle sparse
+function inittype2(f::Net)
     for r in registers(f)
-        if get(r,:grad)
-            r.diftype = CudaArray
-            if get(r,:incr)
-                r.tmptype = CudaArray
+        r.diftype = (gpu() ? CudaArray : Array)
+        r.tmptype = (gpu() ? CudaArray : Array)
+    end
+    for p in instructions(f)
+        isa(p.op, Dot) || continue
+        (a, b) = input_registers(f, p)
+        if issparse(a.out0) && issparse(b.out0)
+            error("Dot of two sparse matrices")
+        elseif issparse(b.out0) && get(a,:grad) # y = w * x  with sparse x in rnnlm
+            if get(a,:incr)
+                a.diftype = gpu() ? CudaArray : Array
+                a.tmptype = gpu() ? CudaSparseMatrixCSRU : SparseMatrixCSC
+            else
+                a.diftype = gpu() ? CudaSparseMatrixCSR : SparseMatrixCSC
+            end
+        elseif issparse(a.out0) && get(b,:grad) # rw = r * w  with sparse r in nce
+            if get(b,:incr)
+                b.diftype = gpu() ? CudaArray : Array
+                b.tmptype = gpu() ? CudaSparseMatrixCSCU : SparseMatrixCSC
+            else
+                b.diftype = gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC
             end
         end
     end
@@ -103,9 +131,6 @@ end
 
 ### DEAD CODE
 
-# # The only sparse matrices are the dw and iw for w that dot sparse inputs.
-# # Regular sparse x is a right csc input.
-# # NCE adds noise and ygold matrices as left csr inputs.
 # function inittype2(f::Net)
 #     fill!(f.sparse, nothing)
 #     for o=1:length(f.op)

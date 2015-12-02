@@ -132,14 +132,22 @@ stype(a::SparseMatrixCSC)=:csc
 stype(a::CudaSparseMatrixCSC)=:csc
 stype(a::CudaSparseMatrixCSR)=:csr
 
-function newarray(ongpu, stype, xtype, dims)
-    (ongpu ?
-     (stype==:csc ? gpucsc(xtype, dims) :
-      stype==:csr ? gpucsr(xtype, dims) :
-      stype==nothing ? gpuarr(xtype, dims) : error()) :
-     (stype==:csc ? cpucsc(xtype, dims) :
-      stype==nothing ? cpuarr(xtype, dims) : error()))
-end
+# function newarray(ongpu, stype, xtype, dims)
+#     (ongpu ?
+#      (stype==:csc ? gpucsc(xtype, dims) :
+#       stype==:csr ? gpucsr(xtype, dims) :
+#       stype==nothing ? gpuarr(xtype, dims) : error()) :
+#      (stype==:csc ? cpucsc(xtype, dims) :
+#       stype==nothing ? cpuarr(xtype, dims) : error()))
+# end
+
+newarray(::Type{Array}, t::DataType, d::Dims)=Array(t,d)
+newarray(::Type{CudaArray}, t::DataType, d::Dims)=CudaArray(t,d)
+newarray(::Type{SparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=SparseMatrixCSC(d[1], d[2], ones(Cint, d[2]+1), Array(Cint, 0), Array(t, 0))
+newarray(::Type{CudaSparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSC(t, fill!(CudaArray(Cint, d[2]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+newarray(::Type{CudaSparseMatrixCSR}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSR(t, fill!(CudaArray(Cint, d[1]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+newarray(::Type{CudaSparseMatrixCSCU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSCU(t, d...)
+newarray(::Type{CudaSparseMatrixCSRU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSRU(t, d...)
 
 issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))
 issimilar3(i,o)=(eltype(i) == eltype(o) && size(i) == size(o) && issparse(i) == issparse(o))

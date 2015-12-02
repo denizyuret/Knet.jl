@@ -107,7 +107,7 @@ function initsize(f::Net, inputs...)
     end
 end
 
-# Determine element and array type of r.out0 for each register r.
+# inittype: Determines element and array type of r.out0 for each register r.
 function inittype(f::Net, inputs...)
     isempty(inputs) && error("Don't know how to infer eltype with inputless networks yet.")
     ftype = eltype(inputs[1])
@@ -120,7 +120,7 @@ function inittype(f::Net, inputs...)
         r.eltype = ftype        # TODO: What if there is a conflict with par.init or a previous eltype?
         if isa(p.op,Input) && issparse(inputs[lastinput+=1])
             r.outtype = (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC)
-        else                    # TODO: not all these types will allow r.outtype(r.eltype,r.size)
+        else
             r.outtype = (gpu() ? CudaArray : Array)
         end
     end
@@ -133,9 +133,9 @@ function initout0(f::Net, inputs...)
         if checkarray(r, :out0, r.outtype, r.eltype, r.size)
             # all done
         elseif isdefined(r,:out0) && (isa(p.op, Par) || isa(p.op, Arr))
-            error("Size or type change not allowed in parameters")
+            error("Size or type change not allowed in parameters and constants")
         else
-            r.out0 = r.outtype(r.eltype, r.size)
+            r.out0 = newarray(r.outtype, r.eltype, r.size)
         end
     end
 end
@@ -146,6 +146,8 @@ function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::D
     eltype(r.(n)) == etype &&
     size(r.(n)) == dims
 end
+
+
 
 ### DEAD CODE:
 
