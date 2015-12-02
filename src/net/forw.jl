@@ -57,7 +57,7 @@ end
 # forw(r::Net,x::Vector) for sequences.
 # x can be a Vector of Arrays representing items.
 # x can be a Vector of Tuples representing multiple inputs.
-# x cannot be a Vector of scalars (TODO:think this over)
+# x cannot be a Vector of scalars (DONE:think this over)
 # """
 # function forw(r::Net, x::Vector, yout=nothing; ygold=nothing, a...)
 #     # display((:forwseq0,length(x),vecnorm0(r.out),vecnorm0(r.stack[1:r.sp])))

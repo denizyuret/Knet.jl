@@ -48,7 +48,7 @@ function push(f::Net,r::Reg)
     length(f.stack) <  f.sp && error("Stack error")
     length(f.stack) == f.sp && push!(f.stack, :newcell)
     f.sp += 1
-    if r.out == nothing                             # TODO: (minor) remove these checks once code is tested
+    if r.out == nothing                             # todo: (minor) remove these checks once code is tested
         f.stack[f.sp] == nothing || f.stack[f.sp] == :newcell || Base.warn_once("pushing nothing over array")
         f.stack[f.sp] = nothing
     elseif f.stack[f.sp] == nothing
@@ -160,27 +160,28 @@ vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
 vecnorm0(::Void)=0
 vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
-function Base.summary(r::Net)
-    """
-    op: $(map(typeof,r.op))
-    inputs: $(r.inputs)
-    outputs: $(r.outputs)
-    params: $(vecnorm0(r.params))
-    tosave: $(find(r.tosave))
-    toback: $(find(r.toback))
-    toincr: $(find(r.toincr))
-    sparse: $(find(r.sparse))
-    out: $(vecnorm0(r.out))
-    dif: $(vecnorm0(r.dif))
-    out0: $(vecnorm0(r.out0))
-    dif0: $(vecnorm0(r.dif0))
-    tmp: $(vecnorm0(r.tmp))
-    stack: $(vecnorm0(r.stack[1:r.sp]))
-    sp: $(r.sp)
-    """
-end
+### DEAD CODE
 
-# # TODO: look into julia nullables to make this nothing=zero matrix thing better
+# function Base.summary(r::Net)
+#     """
+#     op: $(map(typeof,r.op))
+#     inputs: $(r.inputs)
+#     outputs: $(r.outputs)
+#     params: $(vecnorm0(r.params))
+#     tosave: $(find(r.tosave))
+#     toback: $(find(r.toback))
+#     toincr: $(find(r.toincr))
+#     sparse: $(find(r.sparse))
+#     out: $(vecnorm0(r.out))
+#     dif: $(vecnorm0(r.dif))
+#     out0: $(vecnorm0(r.out0))
+#     dif0: $(vecnorm0(r.dif0))
+#     tmp: $(vecnorm0(r.tmp))
+#     stack: $(vecnorm0(r.stack[1:r.sp]))
+#     sp: $(r.sp)
+#     """
+# end
+
 
 # function dbg(r,f,n)
 #     r.dbg || return
@@ -198,8 +199,6 @@ end
 #         end
 #     end
 # end
-
-### DEAD CODE
 
 # forw{T<:Number}(r::Net,  x::Vector{T}; a...)=error("forw expects a minibatch") # forw(r, reshape(x,  length(x),  1); a...)
 # back{T<:Number}(r::Net, dy::Vector{T}; a...)=error("back expects a minibatch") # back(r, reshape(dy, length(dy), 1); a...)
@@ -709,7 +708,7 @@ end
 #     initbatch(r, inputs...; trn=trn, seq=true, a...)
 #     fill!(r.out, nothing)                               # to represent zero matrices at t=0
 #     if trn
-#         fill!(r.dif, nothing)                           # why? (TODO)
+#         fill!(r.dif, nothing)                           # why? (todo)
 #         for n=1:length(r.dif0)
 #             r.toincr[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
 #         end
@@ -727,7 +726,7 @@ end
 #         initparams(r, inputs...; seq=seq)
 #         initdif0(r)
 #         if !seq
-#             fill!(r.dif, nothing)                           # why? (TODO)
+#             fill!(r.dif, nothing)                           # why? (todo)
 #             for n=1:length(r.dif0)
 #                 r.toincr[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
 #             end
@@ -797,7 +796,7 @@ end
 
 # init before a sequence zeroes out everything:
 # out[:] is set to nothing to represent zero matrices at t=0
-# dif[:] is set to nothing why?  (TODO)
+# dif[:] is set to nothing why?  (todo)
 # dif0[n] is set to zero for r.multi[n]
 # but first we need to allocate using the batch init
 # the input is x[t][d...,i] for single input
@@ -832,7 +831,7 @@ end
 # # Not init w here any more...
 #     # for w in params(r)
 #     #     if !isdefined(w,:diff)
-#     #         if issparse(x)      # TODO: is this the right thing for all ops?
+#     #         if issparse(x)      # todo: is this the right thing for all ops?
 #     #             w.diff = CudaSparseMatrixCSR(spzeros(eltype(x), size(w)...))
 #     #         else
 #     #             w.diff = similar(w.arr)
@@ -878,6 +877,6 @@ end
     #     fill!(f.out, nothing)
     # end
     # fill!(f.dif, nothing)
-    # for n=1:length(f.op)    ## TODO: fix reset dif for back
+    # for n=1:length(f.op)    ## todo: fix reset dif for back
     #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fill!(f.dif0[n], 0)
     # end

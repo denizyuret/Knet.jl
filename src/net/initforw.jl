@@ -75,7 +75,6 @@ ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
 
 
 # initsize infers the size of each register
-# TODO: ignore the ones with forw=false?
 
 function initsize(f::Net, inputs...)
     for (n,r) in f.reg; r.size = nothing; end
@@ -117,7 +116,7 @@ function inittype(f::Net, inputs...)
     lastinput = 0
     for p in f.prog
         r = f.reg[p.output]
-        r.eltype = ftype        # TODO: What if there is a conflict with par.init or a previous eltype?
+        r.eltype = ftype
         if isa(p.op,Input) && issparse(inputs[lastinput+=1])
             r.outtype = (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC)
         else
@@ -228,7 +227,7 @@ end
 
 # function initout0(f::Net, inputs...; o...)
 #     xtype = infertype(f, inputs...)
-#     sizes = infersize(f, inputs...) # TODO: fix infersize
+#     sizes = infersize(f, inputs...) # todo: fix infersize
 #     lastinput = 0
 #     for p in f.prog
 #         r = f.reg[p.output]
@@ -240,13 +239,13 @@ end
 #             r.out0 = nothing
 #         end
 #     end
-#     # TODO: infersize should make sure same register has same size
+#     # todo: infersize should make sure same register has same size
 #     # should we leave array sharing to the user? x=relu(x)
 #     # what if they type x=dot(x,y)?
 #     # how about array sharing going back?  different rules?
 #     for n=1:nops(f)
 #         p = f.prog[n]
-#         # TODO: this is all wrong, the register has out not  p.
+#         # todo: this is all wrong, the register has out not  p.
 #         p.out = nothing
 #         if p.out0 != nothing && (isa(p.op,Par) || isa(p.op,Arr))
 #             continue
@@ -258,7 +257,7 @@ end
 #             p.out0 = newarray(gpu(), st, xtype, sizes[n])
 #         end
 #     end
-#     # TODO: figure out tmp
+#     # todo: figure out tmp
 # end
 
 
@@ -273,4 +272,4 @@ end
 # end
 # it == nothing && error("Cannot infer eltype")
 # return it
-# # TODO: deal with inputless networks:
+# # todo: deal with inputless networks:

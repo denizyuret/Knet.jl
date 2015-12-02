@@ -28,17 +28,23 @@ function mnist2d(args=ARGS)
     global net = compile(:mnist2layer)
     setopt!(net, lr=0.5)
 
-    println((:epoch,:ltrn,:atrn,:ltst,:atst))
-    ltrn = atrn = ltst = atst = 0
+    # println((:epoch,:ltrn,:atrn,:ltst,:atst))
+    # ltrn = atrn = ltst = atst = 0
+    l=[0f0,0f0]; m=[0f0,0f0]
+
     for epoch=1:epochs
-        train(net, dtrn, softloss)
+        # train(net, dtrn, softloss)
+        train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
         ltrn = test(net, dtrn, softloss)
         atrn = 1-test(net, dtrn, zeroone)
         ltst = test(net, dtst, softloss)
         atst = 1-test(net, dtst, zeroone)
-        println((epoch,ltrn,atrn,ltst,atst))
+        println((epoch,l[1]/l[2],m[1],m[2],ltrn,atrn,ltst,atst))
+        # gcheck > 0 && gradcheck(net, dtrn, softloss; gcheck=gcheck)
+        # println((epoch,ltrn,atrn,ltst,atst))
     end
-    return (epochs,ltrn,atrn,ltst,atst)
+    # return (epochs,ltrn,atrn,ltst,atst)
+    return (l[1]/l[2],m[1],m[2])
 end
 
 @knet function mnist2layer(x)
@@ -46,12 +52,24 @@ end
     return wbf(h; out=10, f=:soft)
 end
 
-function train(f::Net, data, loss)
+function train0(f::Net, data, loss)
     for (x,y) in data
         reset!(f)
         forw(f, x)
         back(f, y, loss)
         update!(f)
+    end
+end
+
+function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+    for (x,ygold) in data
+        reset!(f)
+        ypred = forw(f, x)
+        back(f, ygold, loss)
+        update!(f)
+        losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+        w=wnorm(f); w > maxnorm[1] && (maxnorm[1]=w)
+        g=gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
     end
 end
 

@@ -4,29 +4,29 @@
 
  	0001 -- yonatan language learning model
 	0005 *** work on conditionals in compiler
-	DONE - fix back and initback,
-	DONE - handle sparse.
-	0005 - todo: do we need the seq option to back?  is it the same as save?
-	0005 - initforw detects when there is a change and does not compute otherwise.  initback should do the same.
-	0005 - back.jl: where does Par.dif get zeroed out?  reset?
-	0005 - mnist2d.jl: setopt! should work with register names as well.
-	0005 - use better get/set function names in net/*.jl
-	0005 - get rid of seq flag
+	0005 - reimplement S2C using conditionals, start to clean up data and models.
+	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
+	0005 - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
 	0005 - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
+	0005 - back/initback: get rid of seq flag if possible, can we use save?
 	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0005 - check TODO, test all
+	0005 - cleanup net/util.jl
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
-	DONE - util.jl:reset!
+	0005 - examples: consolidate train/test functions, maybe demo options.
 	0005 - fix compiler to reuse registers and share intermediate tmp
-	0005 - fix repeat
 	0005 - fix gradcheck
-	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
+	0005 - fix repeat
 	0005 - initsize: ignore forw=false
-	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?
+	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?  # TODO: What if there is a conflict with par.init or a previous eltype?
 	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
+	0005 - mnist2d.jl: setopt! should work with register names as well.
 	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
-	0005 - speed difference between kunet and knet?
+	0005 - saman: sent another kunet vs knet comparison. also check speed difference between kunet and knet?
+	0005 - use better get/set function names in net/*.jl
 	0005 - warn for unused constants
+	0005 - update docs
+	0005 - runtests.jl: update timing, simplify scripts (no need for norms everywhere)
 	0008 - all sparse code slowed down? (lcn, master test).  rest of mnist speed-up due to not using ItemTensor?
 	0010 *** model.jl: add predict, load, save:
 	0010 - add ipa model train and predict to runtests.jl.
@@ -36,10 +36,8 @@
 	0010 - the first and second test give different results after load from file
 	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
 	0010 - saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
-	0020 saman: add lcn example to knet, push lcn branch to	master. confirm 3D works.
+	0020 saman: add lcn example to knet, push lcn branch to	master. 
 	0020 saman: profile lcn
-	0020 saman: change default convolution to gemm, no speed diff but handles 3D
-	0020 saman: sent another kunet vs knet comparison.
 	0100 *** examples:
 	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 - need something for turkish translation to report to tubitak
@@ -127,6 +125,7 @@
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 	1000 use templated code for cuda kernels
 	1000 ~/knet/lcn/examples/: mnist4d("--actf relu --gcheck 10 --xscale 255 --lr 0.001") gives lots of gradient errors.
+	1000 net/util.jl: # # TODO: look into julia nullables to make this nothing=zero matrix thing better
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
@@ -137,6 +136,12 @@
 	DONE - do we stop running forw when we hit return? Yes.
 	DONE - rename getprop -> get
 	DONE - switch to user based array sharing,
+	DONE - fix back and initback,
+	DONE - handle sparse.
+	DONE - util.jl:reset!
+	DONE - back.jl: where does Par.dif get zeroed out?  reset?
+	DONE - initforw detects when there is a change and does not compute otherwise.  initback should do the same.
+	DONE saman: change default convolution to gemm, no speed diff but handles 3D. confirm 3D works.
 
 
 2015-11-29  Deniz Yuret  <dyuret@ku.edu.tr>

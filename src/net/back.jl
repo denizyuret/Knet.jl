@@ -17,7 +17,7 @@ taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
     getdx = getdxbool(getdx, ninputs(f))
-    initback(f, ygold, loss; getdx=getdx, seq=seq, o...) # TODO: fix initback: set :grad and :incr, on the reg or on the op? both on reg!
+    initback(f, ygold, loss; getdx=getdx, seq=seq, o...)
     gotreturn = false
     for n = length(f.prog):-1:1
         p = f.prog[n]
@@ -66,7 +66,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...
             gpusync()
             if get(r,:incr) && !isa(p.op, Par)
                 # what if p.op=Arr?  then it will have no inputs, thus :grad=:incr=false
-                # TODO: where does Par.dif get zeroed out?  reset?
+                # where does Par.dif get zeroed out? at reset!
                 fill!(r.dif,0)
                 gpusync()
             end

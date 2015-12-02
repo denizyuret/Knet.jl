@@ -1,4 +1,4 @@
-"""
+""" REWRITE:
 initback initializes the fields used by Net.back:
 - dif0, tmp: allocated or size checked.
 - reg.incr: depends on seq.
@@ -6,9 +6,8 @@ initback initializes the fields used by Net.back:
 - op.save: read-only, used for popping only if seq.
 """
 function initback(f::Net, ygold, loss; getdx=false, seq=false, a...)
-    # TODO: avoid doing any of this if there is no change in the inputs and flags.
-    # This is not true for nce; ygold and f.out0[end] have different dimensions.
-    # @assert ygold == nothing || issimilar2(ygold, f.out0[end])
+    f.lastback == (f.lastforw, getdx, seq) && return # avoid work if nothing changed
+    f.lastback =  (f.lastforw, getdx, seq)
     initgrad(f, getdx)
     initincr(f, seq)
     inittype2(f)
@@ -139,7 +138,7 @@ end
 #             if issparse(f.out0[i]) && issparse(f.out0[j])
 #                 error("Dot of two sparse matrices")
 #             elseif issparse(f.out0[j])
-#                 f.sparse[i] = f.toincr[i] ? CudaSparseMatrixCSRU : CudaSparseMatrixCSR # TODO: clean up this mess!
+#                 f.sparse[i] = f.toincr[i] ? CudaSparseMatrixCSRU : CudaSparseMatrixCSR # todo: clean up this mess!
 #             elseif issparse(f.out0[i])
 #                 f.sparse[j] = f.toincr[i] ? CudaSparseMatrixCSCU : CudaSparseMatrixCSC
 #             end
@@ -260,9 +259,9 @@ end
 #         f.tosave[n] && continue                         # a saved register should only be written by op[n]
 #         i = f.inputs[n][1]                              # see if we can overwrite the first input
 #         f.tosave[i] && continue                         # do not overwrite if you are going to save for back
-#         ow = true; k = n                                # TODO: checkout other inputs if this one fails
+#         ow = true; k = n                                # todo: checkout other inputs if this one fails
 #         while true                                      # see if anybody else uses i before its next update
-#             k = mod1(k+1, N)                            # TODO: This is suboptimal, gives 13 regs for LSTM
+#             k = mod1(k+1, N)                            # todo: This is suboptimal, gives 13 regs for LSTM
 #             in(i, f.inputs[k]) && (ow = false; break)   # Should look for existing regs no longer used
 #             k == i && break                             # this is nontrivial because the sizes are unknown
 #             k == N && i > N && break                    # but can possibly be inferred
@@ -288,8 +287,8 @@ end
 # f.dif0[n] holds the actual array, f.dif[n] can point to this or be 'nothing' representing the zero matrix.
 # """
 # function initdif(f::Net)
-#     # TODO: this is not optimal for add: no need for two copies of dy when neither input is overwriting.
-#     # TODO: tmp register to replace dif1 and serve other needs
+#     # todo: this is not optimal for add: no need for two copies of dy when neither input is overwriting.
+#     # todo: tmp register to replace dif1 and serve other needs
 
 #     index = zeros(Int,nops(f))                                  # index==0 represents need for new register
 #     for n=1:nops(f)                                             # find out if back(op[n]) can overwrite dif[n]
@@ -319,10 +318,10 @@ end
 # """
 # inittmp(f::Net) initializes f.tmp[n] which is an extra array for:
 # (1) incremental updates if f.toincr[n].
-# (2) for forw/back ops that need extra space (TODO)
+# (2) for forw/back ops that need extra space (todo)
 # """
 # function inittmp(f::Net)
-#     # TODO: this is inefficient, could use a single tmp for each size.
+#     # todo: this is inefficient, could use a single tmp for each size.
 #     f.tmp = cell(nops(f))
 #     for n=1:length(f.tmp)
 #         f.tmp[n] = f.toincr[n] ? Any[] : nothing
@@ -415,7 +414,7 @@ end
 # #     end
 # # end
 
-# # isupdated(o)=true # TODO: should be false for rand and const
+# # isupdated(o)=true # todo: should be false for rand and const
 
 #     #     @assert !haskey(dict, target)			# each target has to be unique
 #     #     for x in args
@@ -438,7 +437,7 @@ end
 # #     f.dbg && display((:initforw0,keepstate,vecnorm0(f.out),vecnorm0(f.stack[1:f.sp])))
 # #     f.sp == 0 || error("Stack corruption")
 # #     length(inputs) == ninputs(f) || error("Wrong number of inputs")
-# #     out = fill!(cell(length(f.out0)), nothing)          # TODO: (minor) can we get rid of alloc
+# #     out = fill!(cell(length(f.out0)), nothing)          # todo: (minor) can we get rid of alloc
 # #     lastinput = 0
 # #     while findfirst(out,nothing) > 0                            # allow multiple passes for size inference
 # #         nnothing = count(x->(x==nothing), out)
@@ -448,7 +447,7 @@ end
 # #             elseif isa(f.op[n], Input)
 # #                 out[n] = initarray(f.out0, n, inputs[lastinput += 1])
 # #             elseif isempty(f.inputs[n])                         # par, rnd, con
-# #                 s = psize(f, n)                                 # TODO: write psize inference
+# #                 s = psize(f, n)                                 # todo: write psize inference
 # #                 s == nothing && continue                        # may happen first pass
 # #                 out[n] = initarray(f.out0, n, inputs[1], s; dense=true)
 # #             else
@@ -460,7 +459,7 @@ end
 # #         nnothing == count(x->(x==nothing), out) && error("Cannot determine size of array $(findfirst(out,nothing))")
 # #     end
 # #     # We recover or reset f.out:
-# #     keepstate ? copy!(f.out, f.out0) : fill!(f.out, nothing) # TODO: f.out[i] = arr(f.out0[i]) elsewhere..
+# #     keepstate ? copy!(f.out, f.out0) : fill!(f.out, nothing) # todo: f.out[i] = arr(f.out0[i]) elsewhere..
 # #     f.dbg && display((:initforw1,keepstate,vecnorm0(f.out),vecnorm0(f.stack[1:f.sp])))
 # # end
 
@@ -479,7 +478,7 @@ end
 # #         error("Element type mismatch")
 # #     elseif size(a[i]) != dims
 # #         warn("Resizing $(size(a[i]))->$dims")
-# #         fill!(resize!(a[i], dims), 0) # TODO: this does not work for sparse
+# #         fill!(resize!(a[i], dims), 0) # todo: this does not work for sparse
 # #     end
 # #     (display((:initarray1,summary(a[i]),i,summary(x),dims,dense,summary(a)));println())
 # #     return a[i]
@@ -530,7 +529,7 @@ end
 # function initback0(f::Net, dy; a...)
 #     N = length(f.op)
 #     firstwrite = zeros(Int, N)                          # dif[n] is read at t=n, find out when it is first written.
-#     # TODO: dif[N] is special!
+#     # todo: dif[N] is special!
 #     for n=N:-1:1
 #         f.toback[n] || continue
 #         k = n
@@ -541,7 +540,7 @@ end
 #     end
 #     return firstwrite
 #     for n=N:-1:1
-#         nsparse = false # TODO
+#         nsparse = false # todo
 #         f.toback[n] || continue
 #         f.dif[n] = finddif(f, n, nsparse)
 #         f.toincr[n] && (f.tmp[n] = findtmp(f, n, nsparse))
@@ -571,7 +570,7 @@ end
 # stand-alone item, never between elements of a sequence.
 
 # function initback1(f::Net, dy; seq=false, a...)
-#     fill!(f.dif, nothing)                           # why? (TODO)
+#     fill!(f.dif, nothing)                           # why? (todo)
 #     for n=1:length(f.dif0)
 #         y = (n==nops(f) && dy!=nothing ? dy : f.out0[n])
 #         initarray(f.dif0, n, y; dense=true) # x and dw may be sparse, dx and w always dense
@@ -592,7 +591,7 @@ end
 # function initback0(f::Net, dy, dx...; a...)
 #     N = length(f.op)
 #     dxback = falses(N)
-#     if !isempty(dx)                                     # TODO: what if this changes after net init?
+#     if !isempty(dx)                                     # todo: what if this changes after net init?
 #         lastinput = 0
 #         for n=1:N
 #             isa(f.op[n], Input) || continue
@@ -602,10 +601,10 @@ end
 #     for n=N:-1:1
 #         nsparse = difsparse(f, dy, n)
 #         f.toback[n] || dxback[n] || continue
-#         # f.dif0[n] = finddif(f, n, nsparse)  # TODO-OPTIMIZATION
+#         # f.dif0[n] = finddif(f, n, nsparse)  # todo-OPTIMIZATION
 #         f.dif0[n] = newarray(gpu(), nsparse, eltype(f.out0[n]), size(f.out0[n]))
-#         if f.toincr[n]    # TODO: what if this changes after init?
-#             # f.tmp[n] = findtmp(f, n, nsparse) # TODO-OPTIMIZATION
+#         if f.toincr[n]    # todo: what if this changes after init?
+#             # f.tmp[n] = findtmp(f, n, nsparse) # todo-OPTIMIZATION
 #             f.tmp[n] = newarray(gpu(), nsparse, eltype(f.out0[n]), size(f.out0[n]))
 #         end
 #     end
@@ -619,7 +618,7 @@ end
         #             && stype(f.dif0[k]) == st
         #             && f.outputs[k][1] > k)
         #             dif0 = f.dif0[k]
-        #             # TODO: However we need to check and see if this has been used between n..o
+        #             # todo: However we need to check and see if this has been used between n..o
         #             # Also we don't know whether o > n for sure
         #             # This all needs more thinking
         #             break
@@ -633,8 +632,8 @@ end
 
 # for n=length(f.op):-1:1
 #     f.toback[n] || continue # we mix initback and initback0 here because if getdx or seq changes we may need to alloc new arrays.
-#     if (f.dif0[n]!=nothing) # TODO: implement batch size change
-#         @assert (issimilar2(f.dif0[n], f.out0[n]) ) #TODO: && issparse(f.dif0[n])==(f.sparse[n]!=nothing)
+#     if (f.dif0[n]!=nothing) # todo: implement batch size change
+#         @assert (issimilar2(f.dif0[n], f.out0[n]) ) #todo: && issparse(f.dif0[n])==(f.sparse[n]!=nothing)
 #     else
 #         f.dif0[n] = finddif(f, n)
 #         # f.dif[n] = nothing # Leave this to reset! otherwise s2s does not work
@@ -648,3 +647,6 @@ end
 #         end
 #     end
 # end
+
+    # This is not true for nce; ygold and f.out0[end] have different dimensions.
+    # @assert ygold == nothing || issimilar2(ygold, f.out0[end])

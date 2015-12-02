@@ -26,11 +26,12 @@ type Net <: Model
     stack::Vector
     sp::Int
     lastforw
+    lastback
 end
 
 function Net(prog::Vector{Ins})
     reg = [ x.output=>Reg() for x in prog ]
-    Net(prog, reg, Any[], 0, nothing)
+    Net(prog, reg, Any[], 0, nothing, nothing)
 end
 
 
@@ -278,7 +279,7 @@ end
 #     net.outputs = outputs(net.inputs)
 #     net.netinputs = count(x->isa(x,Input), net.op)
 #     net.params = filter(x->isa(x,Par), net.op)
-#     net.tosave = tosave(net.op, net.inputs)     # TODO: does this not depend on dx as well?
+#     net.tosave = tosave(net.op, net.inputs)     # todo: does this not depend on dx as well?
 #     net.toback = falses(N) # toback: depends on dx
 #     net.toincr = falses(N) # toincr: depends on seq
 #     net.sparse = nothings(N) # sparse: depends on input
