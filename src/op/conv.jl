@@ -23,7 +23,8 @@ function forw(c::Conv, w, x, y; o...)
     elseif x == nothing
         return nothing
     end
-    cudnnConvolutionForward(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode)
+    cudnnConvolutionForward(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode,
+                            algorithm=CUDNN.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM)
     gpusync()
     return y
 end
