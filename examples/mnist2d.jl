@@ -22,8 +22,8 @@ function mnist2d(args=ARGS)
 
     fx = (xsparse ? sparse : identity)
     fy = (ysparse ? sparse : identity)
-    dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), nbatch)
-    dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), nbatch)
+    global dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), nbatch)
+    global dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), nbatch)
 
     global net = compile(:mnist2layer)
     setopt!(net, lr=0.5)

@@ -25,7 +25,7 @@ function linreg(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
     global data = LinReg(outputdims, inputdims; batchsize=batchsize, epochsize=epochsize, noise=noise)
-    global net = FNN(wdot; out=outputdims)
+    global net = compile(:wdot; out=outputdims)
     setopt!(net; lr=lr)
     losscnt = zeros(2)
     maxnorm = zeros(2)
@@ -35,6 +35,18 @@ function linreg(args=ARGS)
         gcheck > 0 && gradcheck(net, data, quadloss; gcheck=gcheck)
     end
     return (losscnt[1]/losscnt[2], maxnorm[1], maxnorm[2])
+end
+
+function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+    for (x,ygold) in data
+        reset!(f)
+        ypred = forw(f, x)
+        back(f, ygold, loss)
+        update!(f)
+        losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+        w=wnorm(f); w > maxnorm[1] && (maxnorm[1]=w)
+        g=gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
+    end
 end
 
 # Data generator:

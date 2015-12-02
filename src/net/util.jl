@@ -38,16 +38,8 @@ function reset!(f::Net; keepstate=false, a...)
     for r in values(f.reg)
         r.out = (keepstate ? r.out0 : nothing)
         r.dif = nothing
+        get(r,:incr) && r.dif0!=nothing && fill!(r.dif0, 0)
     end
-    # if keepstate
-    #     copy!(f.out, f.out0)   ## why did we copy here?
-    # else
-    #     fill!(f.out, nothing)
-    # end
-    # fill!(f.dif, nothing)
-    # for n=1:length(f.op)    ## TODO: fix reset dif for back
-    #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fill!(f.dif0[n], 0)
-    # end
 end
 
 ### Stack functions: push, pop
@@ -879,3 +871,13 @@ end
 #     end
 #     return y
 # end
+
+    # if keepstate
+    #     copy!(f.out, f.out0)   ## why did we copy here?
+    # else
+    #     fill!(f.out, nothing)
+    # end
+    # fill!(f.dif, nothing)
+    # for n=1:length(f.op)    ## TODO: fix reset dif for back
+    #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fill!(f.dif0[n], 0)
+    # end

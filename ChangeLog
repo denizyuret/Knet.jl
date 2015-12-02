@@ -5,8 +5,7 @@
  	0001 -- yonatan language learning model
 	0005 *** work on conditionals in compiler
 	DONE - fix back and initback,
-	0005 - handle sparse.
-	0005 - all sparse code slowed down? (lcn, master test).  rest of mnist speed-up due to not using ItemTensor?
+	DONE - handle sparse.
 	0005 - todo: do we need the seq option to back?  is it the same as save?
 	0005 - initforw detects when there is a change and does not compute otherwise.  initback should do the same.
 	0005 - back.jl: where does Par.dif get zeroed out?  reset?
@@ -17,9 +16,10 @@
 	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0005 - check TODO, test all
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
-	0005 - util.jl:reset!
+	DONE - util.jl:reset!
 	0005 - fix compiler to reuse registers and share intermediate tmp
 	0005 - fix repeat
+	0005 - fix gradcheck
 	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
 	0005 - initsize: ignore forw=false
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?
@@ -27,6 +27,7 @@
 	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
 	0005 - speed difference between kunet and knet?
 	0005 - warn for unused constants
+	0008 - all sparse code slowed down? (lcn, master test).  rest of mnist speed-up due to not using ItemTensor?
 	0010 *** model.jl: add predict, load, save:
 	0010 - add ipa model train and predict to runtests.jl.
 	0010 - for load/save check timholy's message about extending jld with custom types
