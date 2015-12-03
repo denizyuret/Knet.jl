@@ -33,22 +33,42 @@ function compile(fname::Symbol; o...)
     isdefined(Kenv, fname) || error("$fname not defined as a knet function")
     prog = _comp(Kenv.(fname); o...)
     @dbg println((:compile,:prog,prog))
-    Net(prog)
+    inst = _comp_inst(prog)
+    @dbg println((:compile,:inst,inst))
+    Net(inst)
+end
+
+function _comp_inst(prog)
+    # There could be repeated and read-before-write variables
+    s2i = Dict{Symbol,Int}()
+    for n=1:length(prog)
+        (op,x,y,cond) = prog[n]
+        s2i[y] = n
+    end
+    inst = Array(Ins,length(prog))
+    for n=1:length(prog)
+        (op,x,y,cond) = prog[n]
+        inputs = convert(Vector{Int}, map(s->s2i[s], x))
+        plist = Dict{Symbol,Any}(:name => y)
+        inst[n] = Ins(op, inputs, cond, plist)
+        s2i[y] = n
+    end
+    return inst
 end
 
 function _comp(f::Expr; o...)
     @dbg println((:_comp1,:f,f,:o,o))
     (fname, fargs, fpars, fbody) = _comp_parse_def(f)
-    prog = Expr(:block)
-    for x in fargs; push!(prog.args, :($x=input())); end
-    append!(prog.args, fbody.args)
+    expr = Expr(:block)
+    for x in fargs; push!(expr.args, :($x=input())); end
+    append!(expr.args, fbody.args)
     locals = [x=>x for x in _comp_locals(fbody)]
     @dbg println((:_comp1,:locals,locals))
     fpars = _comp_fpars(f, o)
     cond = Expr(:&&)  # A 0-arg && evaluates to true
-    op = _comp(prog, locals, fpars, cond)
-    @dbg println((:_comp1,:return,op))
-    return op
+    prog = _comp(expr, locals, fpars, cond)
+    @dbg println((:_comp1,:return,prog))
+    return prog
 end
 
 function _comp{T<:Op}(f::Type{T}; o...)
@@ -56,17 +76,17 @@ function _comp{T<:Op}(f::Type{T}; o...)
     feval = f(;o...)
     fargs = [ symbol("x$i") for i in 1:ninputs(feval) ]
     fcall = Expr(:call, feval, fargs...)
-    prog = Expr(:block)
-    for x in fargs; push!(prog.args, :($x=input())); end
-    push!(prog.args, Expr(:return, fcall))
-    locals = [x=>x for x in _comp_locals(prog)]
+    expr = Expr(:block)
+    for x in fargs; push!(expr.args, :($x=input())); end
+    push!(expr.args, Expr(:return, fcall))
+    locals = [x=>x for x in _comp_locals(expr)]
     @dbg println((:_comp2,:locals,locals))
-    op = _comp(prog, locals, Dict(), Expr(:&&))
-    @dbg println((:_comp2,:return,op))
-    return op
+    prog = _comp(expr, locals, Dict(), Expr(:&&))
+    @dbg println((:_comp2,:return,prog))
+    return prog
 end
 
-# _comp compiles expr in the context defined by name, value, and dict.
+# _comp compiles expr in the context defined by name, value, and cond.
 # It returns a Vector{Ins} array of instructions.
 # name is a Dict{Symbol,Symbol} that provides name substitution rules.
 # value is a Dict{Symbol,Any} that gives values for variables.
@@ -122,7 +142,7 @@ end
 
 function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
     @dbg println((:_comp_assignment,:expr,expr,:name,name,:value,value,:cond,cond))
-    prog = Ins[]
+    prog = Any[]
     (f,fargs,fpars) = _comp_parse_call(expr.args[2])
 
     haskey(value, f) && (f=value[f])
@@ -168,10 +188,10 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
 
     if isa(feval, Op)
         # This happens when compiling a primitive Op directly, kwargs already taken into account in comp2
-        push!(prog, Ins(yname, feval, xname, cond, Dict()))
+        push!(prog, (feval, xname, yname, cond))
     elseif isa(feval, DataType) && (feval <: Op)
         op = feval(; odict...)
-        push!(prog, Ins(yname, op, xname, cond, Dict()))
+        push!(prog, (op, xname, yname, cond))
     elseif isa(feval, Expr)
         name2 = _comp_fargs(feval, xname, yname)
         value2 = _comp_fpars(feval, odict)
