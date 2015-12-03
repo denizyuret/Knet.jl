@@ -15,74 +15,66 @@ taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 """
 
-function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, seq=false, o...)
+function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f))
-    initback(f, ygold, loss; getdx=getdx, seq=seq, o...)
-    gotreturn = false
-    for n = length(f.prog):-1:1
-        p = f.prog[n]
-        get(p,:forw) || continue
-        r = f.reg[p.output]
-        if !gotreturn
-            gotreturn = true
-            p.output == :return || warn("Using $(p.output) as the return register.")
-            if ygold == nothing
-                get(r,:incr) || (r.dif = nothing)
-            elseif r.dif0 == nothing
-                # This may happen for a parameter free network
-                @assert !any(q->(isa(q.op,Par)&&get(q,:forw)),f.prog)
-            elseif get(r,:incr)
-                loss(r.out, ygold, r.tmp; o...)
-                r.dif = axpy!(1,r.tmp,r.dif0)
-            else
-                r.dif = loss(r.out, ygold, r.dif0; o...)
-            end
+    initback(f, ygold, loss, getdx) # TODO: rethink lastforw==lastback in a seq context
+
+    yreg = getreg(f, :return)
+    if yreg != nothing
+        if ygold == nothing && get(yreg,:incr) # TODO: fix incr to take into account :return status
+            # nothing to do
+        elseif ygold == nothing
+            yreg.dif = nothing
+        elseif get(yreg,:incr)
+            loss(yreg.out, ygold, yreg.tmp; o...) # TODO: are we sure yreg.out has not been changed?
+            yreg.dif = axpy!(1,yreg.tmp,yreg.dif0)
+        else
+            yreg.dif = loss(yreg.out, ygold, yreg.dif0; o...)
         end
-        inputregs = map(i->f.reg[i], p.inputs)
-        if r.dif == nothing
-            for ri in inputregs
-                get(ri,:incr) || (ri.dif = nothing)
+    elseif ygold != nothing
+        error("ygold specified when there is no output")
+    end
+
+    for n = length(f.prog):-1:1
+        s = pop!(f.stack)
+        s == nothing && continue
+        (p, xsave, ysave) = s
+        @assert p === f.prog[n]
+        y = output_register(f,p)
+        get(y,:grad) || continue
+        global xx = input_registers(f,p)
+        if y.dif == nothing
+            for x in xx
+                get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
             end
         else
-            dxn = Any[]
-            xn = Any[]
-            for ri in inputregs
-                push!(dxn, !get(ri,:grad) ? nothing : get(ri,:incr) ? ri.tmp : ri.dif0)
-                push!(xn, ri.out)
-            end
-            xn = get1(xn); yn = r.out; dyn = r.dif
-            back(p.op, dyn, dxn...; x=xn, y=yn, o...)
+            dxx = map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
+            back(p.op, y.dif, dxx...; x=get1(xsave), y=ysave, o...)
             gpusync()
-            for ri in inputregs
-                if get(ri,:incr)
-                    ri.dif = axpy!(1, ri.tmp, ri.dif0)
-                    gpusync()
-                elseif get(ri,:grad)
-                    ri.dif = ri.dif0
-                else
-                    ri.dif = nothing
-                end
+            for x in xx
+                x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
+                         get(x,:grad) ? x.dif0 : nothing)
+                gpusync()
             end
-            gpusync()
-            if get(r,:incr) && !isa(p.op, Par)
+            if get(y,:incr) && !isa(p.op, Par)
                 # what if p.op=Arr?  then it will have no inputs, thus :grad=:incr=false
                 # where does Par.dif get zeroed out? at reset!
-                fill!(r.dif,0)
+                @show p
+                fill!(y.dif,0)
                 gpusync()
             end
         end
-        seq && get(p,:save) && pop(f,r)
     end
     if any(getdx)
         dx = Any[]; nx = 0
         for p in f.prog
-            isa(p.op,Input) && getdx[nx+=1] && push!(dx, f.reg[p.output].dif);
+            isa(p.op,Input) && getdx[nx+=1] && push!(dx, getdif(f,p))
         end
         return get1(dx)
     end
 end
 
-# this is used when no loss fn specified, in which case we assume ygold=ygrad
+# this is used when no loss fn specified, in which case we assume ygold is actually ygrad
 copyloss(ypred,ygold,ygrad;o...)=copy!(ygrad,ygold)
 
 # turn various forms of getdx into boolean vector
@@ -93,6 +85,8 @@ function getdxbool(getdx, n)
      isa(getdx, Int) ? (tmp=falses(n);tmp[getdx]=true;tmp) :
      error("getdx=$getdx ninputs=$(n)"))
 end
+
+get1(x)=(!isempty(methods(length, (typeof(x),))) && length(x)==1?x[1]:x)
 
 ### DEAD CODE:
 

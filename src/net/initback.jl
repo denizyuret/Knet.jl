@@ -5,19 +5,20 @@ initback initializes the fields used by Net.back:
 - reg.back: depends on which dx args specified.
 - op.save: read-only, used for popping only if seq.
 """
-function initback(f::Net, ygold, loss; getdx=false, seq=false, a...)
-    f.lastback == (f.lastforw, getdx, seq) && return # avoid work if nothing changed
-    f.lastback =  (f.lastforw, getdx, seq)
+function initback(f::Net, ygold, loss, getdx)
+    # f.lastback == (f.lastforw, getdx, seq) && return # TODO: avoid work if nothing changed
+    # f.lastback =  (f.lastforw, getdx, seq)
     initgrad(f, getdx)
-    initincr(f, seq)
+    initincr(f)
     inittype2(f)
     for r in registers(f)
         if get(r,:grad)
             if !checkarray(r, :dif0, r.diftype, r.eltype, r.size)
                 r.dif0 = newarray(r.diftype, r.eltype, r.size)
+                fill!(r.dif0,0)
             end
             if get(r,:incr)
-                if !checkarray(r, :dif0, r.diftype, r.eltype, r.size)
+                if !checkarray(r, :tmp, r.tmptype, r.eltype, r.size)
                     r.tmp = newarray(r.tmptype, r.eltype, r.size)
                 end
             end
@@ -31,13 +32,12 @@ end
 # op[n] is a par node or a par node descendent.  Or if the caller asked
 # for dx for network inputs, those and their descendents.
 # """
-function initgrad(f::Net, getdx; a...)
+function initgrad(f::Net, getdx)
     for r in registers(f)
         set!(r,:grad,false)
     end
     lastinput = 0
     for p in instructions(f)
-        get(p,:forw) || continue
         if (isa(p.op, Par) ||
             (isa(p.op, Input) &&
              getdx[lastinput+=1]))
@@ -45,11 +45,10 @@ function initgrad(f::Net, getdx; a...)
             setprop!(r,:grad,true)
         end
     end
-    count_back(f::Net)=mapreduce(r->get(r,:grad), +, 0, registers(f))
-    nback = count_back(f)
+    count_grad(f::Net)=mapreduce(r->get(r,:grad), +, 0, registers(f))
+    nback = count_grad(f)
     while true
         for p in instructions(f)
-            get(p,:forw) || continue
             r = output_register(f,p)
             get(r,:grad) && continue
             for i in input_registers(f,p)
@@ -59,25 +58,28 @@ function initgrad(f::Net, getdx; a...)
                 end
             end
         end
-        nb = count_back(f)
+        nb = count_grad(f)
         nb == nback ? break : nback = nb
     end
 end
 
-# """ REWRITE:
+# REWRITE:
 # set_toincr(f::Net) sets f.toincr[n] which is true if dif[n] should be
 # incrementally updated.  This is necessary if op[n] has multiple
 # outputs, or it is a Par and we are processing a sequence.  This is the
 # one place we can't seem to get rid of the seq flag.
-# """
-function initincr(f::Net, seq)
-    for r in registers(f)
-        set!(r,:fanout,0)
+# 
+# We can make all Par registers :incr.
+# - TODO: efficiency cost for fnn.
+# - who resets them to zero for rnn or for fnn.
+
+function initincr(f::Net)
+    for (k,r) in f.reg
+        set!(r,:fanout,(k==:return ? 1 : 0))
         set!(r,:incr,false)
     end
     for p in instructions(f)
-        get(p,:forw) || continue
-        if seq && isa(p.op, Par)
+        if isa(p.op, Par)       # TODO: is there any way to avoid this for fnn?
             set!(output_register(f,p),:incr,true)
         end
         for i in input_registers(f,p)

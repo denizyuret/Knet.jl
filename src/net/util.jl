@@ -1,7 +1,20 @@
+### Cleanup at the beginning/end of sequence
+
+function reset!(f::Net; keepstate=false, a...)
+    @assert isempty(f.stack)
+    for r in registers(f)
+        r.out = (keepstate ? r.out0 : nothing)
+        r.dif = nothing
+        r.saved = false
+        get(r,:incr) && fill!(r.dif0, 0)
+    end
+end
+
 registers(f::Net)=values(f.reg)
 instructions(f::Net)=f.prog
 output_register(f::Net,p::Ins)=get(f.reg,p.output,nothing)
 input_registers(f::Net,p::Ins)=map(s->get(f.reg,s,nothing), p.inputs)
+input_arrays(f::Net,p::Ins)=map(s->(haskey(f.reg,s) ? f.reg[s].out : nothing), p.inputs)
 
 nops(f::Net)=length(f.prog)
 Base.length(f::Net)=length(f.prog)
@@ -23,6 +36,9 @@ inc!(p::Reg,k)=set!(p,k,1+get(p,k))
 getreg(f::Net,k::Symbol)=get(f.reg,k,nothing)
 getdif(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
 getout(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
+getreg(f::Net,p::Ins)=getreg(f,p.output)
+getdif(f::Net,p::Ins)=getdif(f,p.output)
+getout(f::Net,p::Ins)=getout(f,p.output)
 
 Base.get(f::Net,k)=getout(f,k)
 Base.get(p::Ins,k,d=false)=getprop(p,k,d)
@@ -30,53 +46,6 @@ Base.get(p::Reg,k,d=false)=getprop(p,k,d)
 
 Base.copy!(r::Reg,x)=(r.out=copy!(r.out0,x))
 
-
-### Cleanup at the beginning/end of sequence
-
-function reset!(f::Net; keepstate=false, a...)
-    @assert f.sp == 0
-    for r in values(f.reg)
-        r.out = (keepstate ? r.out0 : nothing)
-        r.dif = nothing
-        get(r,:incr) && r.dif0!=nothing && fill!(r.dif0, 0)
-    end
-end
-
-### Stack functions: push, pop
-
-function push(f::Net,r::Reg)
-    length(f.stack) <  f.sp && error("Stack error")
-    length(f.stack) == f.sp && push!(f.stack, :newcell)
-    f.sp += 1
-    if r.out == nothing                             # todo: (minor) remove these checks once code is tested
-        f.stack[f.sp] == nothing || f.stack[f.sp] == :newcell || Base.warn_once("pushing nothing over array")
-        f.stack[f.sp] = nothing
-    elseif f.stack[f.sp] == nothing
-        Base.warn_once("pushing array over nothing")  # This actually happens with rnnlm keepstate
-        f.stack[f.sp] = copy(r.out)
-    elseif f.stack[f.sp] == :newcell
-        f.stack[f.sp] = copy(r.out)
-    elseif size(r.out) != size(f.stack[f.sp])
-        Base.warn_once("pushing array of different size")
-        resize!(f.stack[f.sp], size(r.out))
-        copy!(f.stack[f.sp], r.out)
-    else
-        copy!(f.stack[f.sp], r.out)
-    end
-end
-
-function pop(f::Net,r::Reg)
-    f.sp > 0 || error("Stack error")
-    if r.out == nothing
-        f.stack[f.sp] == nothing || warn("popping array over nothing")
-    elseif f.stack[f.sp] == nothing
-        # warn("popping nothing over array")
-    elseif size(r.out) != size(f.stack[f.sp])
-        warn("popping different sized array")
-    end
-    r.out = f.stack[f.sp]
-    f.sp -= 1
-end
 
 ### General utilities:
 
@@ -110,8 +79,6 @@ function gpucopy_internal(x::Net, s::ObjectIdDict)
     return n
 end
 
-
-get1(x)=(length(x)==1?x[1]:x)
 
 cpucsc(xtype, dims)=spzeros(xtype, dims...)
 cpuarr(xtype, dims)=zeros(xtype, dims)
@@ -880,3 +847,42 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
     # for n=1:length(f.op)    ## todo: fix reset dif for back
     #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fill!(f.dif0[n], 0)
     # end
+# ### Stack functions: push, pop
+
+# function push(f::Net,r::Reg)
+#     length(f.stack) <  f.sp && error("Stack error")
+#     length(f.stack) == f.sp && push!(f.stack, :newcell)
+#     f.sp += 1
+#     if r.out == nothing                             # todo: (minor) remove these checks once code is tested
+#         f.stack[f.sp] == nothing || f.stack[f.sp] == :newcell || Base.warn_once("pushing nothing over array")
+#         f.stack[f.sp] = nothing
+#     elseif f.stack[f.sp] == nothing
+#         Base.warn_once("pushing array over nothing")  # This actually happens with rnnlm keepstate
+#         f.stack[f.sp] = copy(r.out)
+#     elseif f.stack[f.sp] == :newcell
+#         f.stack[f.sp] = copy(r.out)
+#     elseif size(r.out) != size(f.stack[f.sp])
+#         Base.warn_once("pushing array of different size")
+#         resize!(f.stack[f.sp], size(r.out))
+#         copy!(f.stack[f.sp], r.out)
+#     else
+#         copy!(f.stack[f.sp], r.out)
+#     end
+# end
+
+# function pop(f::Net,r::Reg)
+#     f.sp > 0 || error("Stack error")
+#     if r.out == nothing
+#         f.stack[f.sp] == nothing || warn("popping array over nothing")
+#     elseif f.stack[f.sp] == nothing
+#         # warn("popping nothing over array")
+#     elseif size(r.out) != size(f.stack[f.sp])
+#         warn("popping different sized array")
+#     end
+#     r.out = f.stack[f.sp]
+#     f.sp -= 1
+# end
+
+        # get(r,:incr) && # TODO: incr not ready here, can we do something more efficient than zeroing everything?
+        # r.dif0!=nothing &&
+        # isdefined(r,:dif0) && get(r,:incr) && fill!(r.dif0, 0)

@@ -29,9 +29,9 @@ end
 end
 
 @knet function wbf(x; f=:relu, o...)
-    y = wdot(x; o...)
-    z = bias(y; o...)
-    return f(z; o...)
+    h = wdot(x; o...)
+    h = bias(h; o...)
+    return f(h; o...)
 end
 
 @knet function drop(x; pdrop=0, o...)

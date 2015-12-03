@@ -5,20 +5,17 @@ size, sparsity, save flag, or keyword arguments.  It does not zero or
 reset the registers, there is a separate reset!  function for that.
 FNN's do not need reset, and RNNs only do at the end of a sequence.
 """
-function initforw(f::Net, inputs...; save=false, o...)
+function initforw(f::Net, inputs...; o...)
     @assert length(inputs) == ninputs(f)
     if (f.lastforw == nothing
-        || save != f.lastforw[1]
+        || map(typeof, inputs) != f.lastforw[1]
         || map(size, inputs) != f.lastforw[2]
-        || map(stype, inputs) != f.lastforw[3]
-        || sort(o) != f.lastforw[4])
-        save && f.lastforw[1] && Base.warn_once("Net reset during RNN training")
+        || sort(o) != f.lastforw[3])
+        f.lastforw = (map(typeof, inputs), map(size, inputs), sort(o))
         initcond(f; o...)       # set :forw
-        initsave(f, save)       # set :push
         initsize(f, inputs...)  # set reg.size
         inittype(f, inputs...)  # set reg.eltype, reg.outtype
         initout0(f, inputs...)  # set reg.out0
-        f.lastforw = (save, map(size, inputs), map(stype, inputs), sort(o))
     end
 end
 
@@ -46,35 +43,6 @@ function condeval(s,d::Dict)
      s.head == :call && s.args[1] == :! ? !condeval(s.args[2],d) :
      error("Expected boolean expression got $s"))
 end
-
-# initsave(f::Net) sets the :push property of each f.prog[n] which
-# should be true if the result of f.prog[n] will be needed for back
-# calculation.  We find this out using back_reads_x and back_reads_y
-# on each op.  Note that Par registers are persistent and do not need
-# to be saved.  Also note that save is only necessary for (1) RNN
-# sequence models and (2) only for training and (3) only for ops with
-# forw=true.
-
-function initsave(f::Net, save::Bool)
-    for p in f.prog; setprop!(p,:push,false); end
-    save || return
-    for p in f.prog
-        get(p,:forw) || return
-        back_reads_y(p.op) && setprop!(p,:push,true)
-        if back_reads_x(p.op)
-            for q in f.prog
-                if in(q.output, p.inputs) && !ispersistent(q)
-                    setprop!(q,:push,true)
-                end
-            end
-        end
-    end
-end
-
-ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
-
-
-# initsize infers the size of each register
 
 function initsize(f::Net, inputs...)
     for (n,r) in f.reg; r.size = nothing; end
@@ -273,3 +241,36 @@ end
 # it == nothing && error("Cannot infer eltype")
 # return it
 # # todo: deal with inputless networks:
+
+# initsave(f::Net) sets the :push property of each f.prog[n] which
+# should be true if the result of f.prog[n] will be needed for back
+# calculation.  We find this out using back_reads_x and back_reads_y
+# on each op.  Note that Par registers are persistent and do not need
+# to be saved.  Also note that save is only necessary for (1) RNN
+# sequence models and (2) only for training and (3) only for ops with
+# forw=true.
+
+# function initsave(f::Net, save::Bool)
+#     for p in f.prog; setprop!(p,:push,false); end
+#     save || return
+#     for p in f.prog
+#         get(p,:forw) || return
+#         back_reads_y(p.op) && setprop!(p,:push,true)
+#         if back_reads_x(p.op)
+#             for q in f.prog
+#                 if in(q.output, p.inputs) && !ispersistent(q)
+#                     setprop!(q,:push,true)
+#                 end
+#             end
+#         end
+#     end
+# end
+
+# ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
+
+
+# initsize infers the size of each register
+
+        # This will happen with conditionals:
+        # save && f.lastforw[1] && Base.warn_once("Net reset during RNN training")
+        # initsave(f, save)       # set :push

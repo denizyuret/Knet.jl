@@ -1,48 +1,77 @@
 """
-forw(f::Net,input...; save=false, kwargs...) applies the compiled knet
-function f to the given input.  Following the forward pass, the
-program registers can be queried using get(f,:name).  get(f,:return)
-is special and gives the result passed to return.  Note that arrays
-returned by get(f,:name) are internal to the Net and will be
-overwritten in the next forw call.
 
-The input consists of zero or more arrays.  For sequence models, the
-input typically corresponds to a single item in the sequence.  The
-input arrays can be any Julia array type (gpu/cpu, dense/sparse,
-Float64/32/16).  They get copied before processing, they are never
-overwritten.
+forw(f::Net, input...; kwargs...) applies the compiled knet function f
+to the given input.  If f has a return statement, its result is returned
+otherwise nothing is returned.  Following forw(), the program registers
+can be queried using get(f,:name).  The special register :return
+contains the return value, if any.  Note that arrays returned by
+get(f,:name) are internal to the Net and will be overwritten in the next
+forw call.
 
-The internal arrays are not cleared between calls.  This should not be
-a problem for feed forward nets and is necessary for RNNs.  An
-explicit call to reset!(f) clears all internal arrays, which may be
-necessary at the beginning of a sequence for RNNs.
+The input consists of zero or more arrays representing a single
+minibatch.  For sequence models, the input typically corresponds to a
+minibatch for a single time step.  The input arrays can be any Julia
+array type (gpu/cpu, dense/sparse, Float64/32/16).  They get copied
+before processing, they are never overwritten.
 
-The boolean keyword argument `save` tells `forw` whether to save the
-arrays useful for the gradient calculation on f.stack.  This is only
-necessary for RNNs and only during training.  The rest of the keyword
-arguments are used as boolean condition variables during program
-execution.
+The keyword arguments are used as boolean condition variables during
+function execution.
+
+The internal registers are not cleared between calls.  This should not
+be a problem for feed forward nets and is necessary for RNNs which
+have read-before-write registers.  An explicit call to reset!(f)
+clears all internal registers, which may be necessary at the beginning
+of a sequence for RNNs.
+
+TODO: How about par registers?
+    
+forw() saves the state useful for the gradient calculation on f.stack.
+This is only necessary during training where the stack will be popped by
+back().  During testing forwtest() should be used instead, which
+performs the same computation but does not touch the stack.
 
 """
-function forw(f::Net, input...; save=false, kwargs...)
-    initforw(f, input...; save=save, kwargs...)
+function forw(f::Net, input...; kwargs...)
+    initforw(f, input...; kwargs...)
     lastinput = 0
-    for p in f.prog
-        get(p,:forw) || continue
-        r = f.reg[p.output]
-        get(p,:push) && push(f,r)
-        if isa(p.op, Input)
-            r.out = copy!(r.out0, input[lastinput += 1])
-        else
-            xn = [ f.reg[i].out for i in p.inputs]
-            r.out = forw(p.op, xn..., r.out0; kwargs...)
+    for p in instructions(f)
+        get(p,:forw) || (push!(f.stack, nothing); continue)
+        y = output_register(f,p)
+        x = input_registers(f,p)
+        xout = map(r->r.out, x)
+        y.saved && !ispersistent(p) && (y.out0 = copy(y.out0); y.saved=false)       # copy-on-write
+        y.out = (isa(p.op, Input) ?
+                 copy!(y.out0, input[lastinput += 1]) :
+                 forw(p.op, xout..., y.out0; kwargs...))
+        xsave = ysave = nothing
+        if back_reads_x(p.op)
+            xsave = xout
+            for r in x; r.saved = true; end
         end
+        if back_reads_y(p.op)
+            ysave = y.out
+            y.saved = true
+        end
+        push!(f.stack, (p, xsave, ysave))
     end
     return get(f,:return)
 end
 
+function forwtest(f::Net, input...; kwargs...)
+    initforw(f, input...; kwargs...)
+    lastinput = 0
+    for p in instructions(f)
+        get(p,:forw) || continue
+        y = output_register(f,p)
+        y.out = (isa(p.op, Input) ?
+                 copy!(y.out0, input[lastinput += 1]) :
+                 forw(p.op, input_arrays(f,p)..., y.out0; kwargs...))
+    end
+    return get(f,:return)
+end
 
-
+# We do not need to copy persistent registers, they are guaranteed not to change during forwback.
+ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr))
 
 ### DEAD CODE:
     # yout != nothing && copy!(yout, r.out[N])

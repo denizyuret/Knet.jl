@@ -76,7 +76,7 @@ end
 function test(f::Net, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
-        ypred = forw(f, x)
+        ypred = forwtest(f, x)
         sumloss += loss(ypred, ygold)
         numloss += 1
     end

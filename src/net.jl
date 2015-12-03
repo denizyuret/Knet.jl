@@ -10,13 +10,14 @@ end
 "DataType for program registers."
 type Reg
     out; out0; dif; dif0; tmp;
-    size #::Dims prevents us from using nothing
+    saved::Bool                 # this indicates the register has been pushed on the stack, and out0 should be copied before overwritten.
+    size #::Dims prevents us from using nothing during size inference, TODO; use empty tuple instead, TODO: should we put these into plist?
     eltype::DataType
     outtype::DataType
     diftype::DataType
     tmptype::DataType
     plist::Dict
-    Reg()=(r=new();r.plist=Dict();r)
+    Reg()=(r=new();r.plist=Dict();r.saved=false;r)
 end
 
 "DataType for a compiled network."
@@ -24,14 +25,13 @@ type Net <: Model
     prog::Vector{Ins}
     reg::Dict{Symbol,Reg}
     stack::Vector
-    sp::Int
     lastforw
     lastback
 end
 
 function Net(prog::Vector{Ins})
     reg = [ x.output=>Reg() for x in prog ]
-    Net(prog, reg, Any[], 0, nothing, nothing)
+    Net(prog, reg, Any[], nothing, nothing)
 end
 
 

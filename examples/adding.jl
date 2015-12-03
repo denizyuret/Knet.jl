@@ -3,26 +3,45 @@
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 # Usage: julia adding.jl [opts], use --help for a full list of opts.
 
-using ArgParse
-using Knet
-import Base: start, next, done
+using Knet, ArgParse
 
-@knet function p1(x; rnn=nothing, hidden=0, o...)
-    y = rnn(x; o..., out=hidden)
+@knet function s2c(x; rnn=nothing, hidden=0, o...)
+    h = rnn(x; o..., out=hidden)
+    if predict
+        return wb(h; o..., out=1)
+    end
 end
 
-@knet function p2(x; o...)
-    y = wb(x; o..., out=1)
+function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+    reset!(f)
+    for (x,ygold) in data
+        if ygold == nothing
+            forw(f, x; save=true, predict=false)
+        else
+            ypred = forw(f, x; save=true, predict=true) # TODO: better name than save?  save!=seq?  rnntrain?
+            losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+            ygrad = back(f, ygold, loss; seq=true) # TODO: do we get the conditionals from forw pass or recalculate?
+            while f.sp > 0; back(f; seq=true); end # TODO: f.sp is too low level
+            g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
+            gscale = (g > gclip > 0 ? gclip/g : 0)
+            update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
+            w = wnorm(f); w > maxnorm[1] && (maxnorm[1]=w) # TODO: take this maxnorm calculation elsewhere, have a statistics optional function? just be smart about scaling?  batch-normalization, msra etc.
+            reset!(f)
+        end
+    end
 end
 
 function adding(args=ARGS)
     info("Adding problem from Le et al. 2015.")
     isa(args, AbstractString) && (args=split(args))
-    opts = parse_commandline(args)
+    opts = parse_commandline(args) # TODO: get option processing back in here
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     global data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    global net = compile(:s2c; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    # TODO: can pass opts in directly to compile as hash if keys were symbols
+    # TODO: winit should probably be Xavier, at least give the user the option
     setopt!(net; lr=opts["lrate"])
     mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
     for epoch=1:opts["epochs"]
@@ -34,6 +53,10 @@ function adding(args=ARGS)
     end
     return (mse, m...)
 end
+
+# Data generator:
+
+import Base: start, next, done
 
 type Adding; len; batchsize; epochsize; batch; sum; cnt; rng;
     Adding(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
@@ -514,3 +537,12 @@ end
     #       opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
     #       error("Unknown network type "*opts["nettype"]))
     # p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
+
+# @knet function p1(x; rnn=nothing, hidden=0, o...)
+#     y = rnn(x; o..., out=hidden)
+# end
+
+# @knet function p2(x; o...)
+#     y = wb(x; o..., out=1)
+# end
+
