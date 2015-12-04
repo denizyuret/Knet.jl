@@ -151,15 +151,20 @@ end
 # end
 # ```
 # """
-function Base.repeat(x::Symbol, y::Symbol; frepeat=nothing, nrepeat=0, o...)
-    @assert isa(frepeat,Function) && nrepeat > 0
-    prog = Expr(:block)
-    s0 = s1 = x
+
+function krepeat(; frepeat=nothing, nrepeat=0, o...)
+    @assert isa(frepeat,Symbol) && nrepeat > 0
+    x0 = x1 = gensym(:x)
+    fname = gensym(:f)
+    fhead = Expr(:call,fname,x0)
+    fbody = Expr(:block)
     for i=1:nrepeat-1
-        s0 = s1
-        s1 = gensym()
-        push!(prog.args, :($s1 = $frepeat($s0; $o...)))
+        x0 = x1
+        x1 = gensym(:x)
+        push!(fbody.args, :($x1 = $frepeat($x0; $o...)))
     end
-    push!(prog.args, :($y = $frepeat($s1; $o...)))
-    return prog
+    push!(fbody.args, :(return $frepeat($x1; $o...)))
+    return Expr(:function, fhead, fbody)
 end
+
+Kenv.kdef(:repeat, krepeat)     # TODO: define a macro to avoid explicit kdef call

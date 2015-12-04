@@ -192,13 +192,13 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
     elseif isa(feval, DataType) && (feval <: Op)
         op = feval(; odict...)
         push!(prog, (op, xname, yname, cond))
-    elseif isa(feval, Expr)
+    else
+        isa(feval, Function) && (feval = feval(; odict...)) # This allows macros like repeat
+        isa(feval, Expr) || error("expecting Op or Expr got $f")
         name2 = _comp_fargs(feval, xname, yname)
         value2 = _comp_fpars(feval, odict)
         fbody = feval.args[2]
         append!(prog, _comp(fbody, name2, value2, cond))
-    else
-        error("expecting Op or Expr got $f")
     end
     @dbg println((:_comp_assignment,:return,prog))
     return prog

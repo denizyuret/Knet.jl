@@ -15,7 +15,7 @@ function main(args=ARGS)
     global data = Data(opts["length"], opts["batchsize"], opts["epochsize"])
     # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
     global net = compile(:adding; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
-    # TODO: can pass opts in directly to compile as hash if keys were symbols
+    # TODO: can pass opts in directly to compile as hash if keys were symbols: parse_args has an as_symbols option.
     # TODO: winit should probably be Xavier, at least give the user the option
     setopt!(net; lr=opts["lrate"])
     mse = 0; l=[0f0,0f0]; m=[0f0,0f0]

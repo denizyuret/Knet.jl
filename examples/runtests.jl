@@ -1,9 +1,9 @@
 using Knet, ArgParse, Base.Test
 
 # Uncomment these if you want lots of messages:
-# import Base.Test: default_handler, Success, Failure, Error
+import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
-# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 load_only = true
@@ -193,7 +193,7 @@ if opts["all"] || opts["rnnlm"]
 	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz`,
                      `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
     end
-    @time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
+    @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
 
     # This is for: Float64
     # @test isapprox(test9[1], 814.9780887272417;  rtol=.0001)
@@ -213,7 +213,7 @@ if opts["all"] || opts["rnnlm"]
     @test isapprox(test9[3], 267.272, rtol=0.001)
     @test isapprox(test9[4], 136.923, rtol=0.0001)
 
-    twice && (gc(); @time @show test9 = rnnlm("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
+    twice && (gc(); @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
     # 32.368835 seconds (22.35 M allocations: 2.210 GB, 1.56% gc time)   for Float64
     # 22.892147 seconds (22.46 M allocations: 945.257 MB, 2.17% gc time) after switching to Float32
     # 21.982870 seconds (20.64 M allocations: 866.929 MB, 3.08% gc time) Tue Oct 20 19:00:29 PDT 2015

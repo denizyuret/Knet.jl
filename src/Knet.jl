@@ -51,17 +51,17 @@ include("op/par.jl")
 include("op/pool.jl")
 include("op/rnd.jl")
 
-include("update.jl");		
+include("update.jl");		export update!
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
 include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
-include("net.jl");              export Net, forw, forwtest, back, update!, reset!
+include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
-include("net/forw.jl")
-include("net/back.jl")
-include("net/util.jl")
+include("net/forw.jl");         export forw, forwtest
+include("net/back.jl");         export back
+include("net/util.jl");         export reset!
 
 include("op/compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 

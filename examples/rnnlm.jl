@@ -5,10 +5,10 @@
 # Usage: julia rnnlm.jl ptb.train.txt ptb.valid.txt ptb.test.txt
 # Type julia rnnlm.jl --help for more options
 
+module RNNLM
 using Knet, ArgParse
-import Base: start, next, done
 
-function rnnlm(args=ARGS)
+function main(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
     isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
@@ -26,19 +26,22 @@ function rnnlm(args=ARGS)
     end
 
     vocab_size = length(dict)
-    global net = RNN(rnnlmModel; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
+    #global net = RNN(rnnlmModel; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
+    global net = compile(:rnnlm;  layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
     lr = opts["lr"]
-    setopt!(net, lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
+    setopt!(net; lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
+    perp = zeros(length(data)); l=zeros(2); m=zeros(2)
 
-    perp = zeros(length(data))
-    l=zeros(2); m=zeros(2)
     for ep=1:opts["max_max_epoch"]
-        ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net, lr=lr))
-        train(net, data[1], softloss; gclip=opts["max_grad_norm"], keepstate=true, losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        opts["gcheck"]>0 && gradcheck(net,data[1],softloss; gcheck=opts["gcheck"])
+        ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net; lr=lr))
+        train(net, data[1], softloss; gclip=opts["max_grad_norm"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
         perp[1] = exp(l[1]/l[2])
+        opts["gcheck"]>0 && gradcheck(net,
+                                      f->train(f,data[1],softloss;losscnt=fill!(l,0),gcheck=true),
+                                      f->test(f,data[1],softloss;gcheck=true);
+                                      gcheck=opts["gcheck"])
         for idata = 2:length(data)
-            ldev = test(net, data[idata], softloss; keepstate=true)
+            ldev = test(net, data[idata], softloss)
             perp[idata] = exp(ldev)
         end
         @show (ep, perp..., m..., lr)
@@ -46,12 +49,70 @@ function rnnlm(args=ARGS)
     return (perp..., m...)
 end
 
-@knet function rnnlmModel(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=lstm, o...)
+@knet function rnnlm(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=:lstm, o...)
     wvec = wdot(word; o..., out=rnn_size)
-    yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size)
-    prob = wbf(yrnn; o..., out=vocab_size, f=soft)
+    yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size) # TODO: fix repeat
+    return wbf(yrnn; o..., out=vocab_size, f=:soft)
 end
 
+function reset!(f::Net)
+    isempty(f.stack) || warn("Stack not empty")
+    empty!(f.stack)
+    empty!(f.sdict)
+    for p in registers(f)
+        p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
+        p.dif = nothing
+        get(p,:incr) && fill!(p.dif0, 0)
+    end
+end
+
+function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=nothing)
+    reset!(f)
+    ystack = Any[]
+    for item in data
+        if item != nothing
+            (x,ygold) = item
+            ypred = forw(f, x)
+            losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
+            push!(ystack, copy(ygold))
+        else                    # end of sequence
+            while !isempty(ystack)
+                ygold = pop!(ystack)
+                back(f, ygold, loss)
+            end
+            gcheck && break
+            g = (gclip > 0 || maxnorm!=nothing ? gnorm(f) : 0)
+            update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
+            if maxnorm != nothing
+                w=wnorm(f)
+                w > maxnorm[1] && (maxnorm[1]=w)
+                g > maxnorm[2] && (maxnorm[2]=g)
+            end
+            reset!(f)
+        end
+    end
+    losscnt[1]/losscnt[2]
+end
+
+function test(f, data, loss; gcheck=false)
+    sumloss = numloss = 0
+    reset!(f)
+    for item in data
+        if item != nothing
+            (x,ygold) = item
+            ypred = forwtest(f, x)
+            sumloss += loss(ypred, ygold)
+            numloss += 1
+        else
+            gcheck && break
+            reset!(f)
+        end
+    end
+    return sumloss/numloss
+end
+
+
+import Base: start, next, done
 
 type LMData; data; dict; batchsize; seqlength; ftype; dense; x; y; end
 
@@ -222,7 +283,9 @@ function parse_commandline(args)
     return opts
 end
 
-!isinteractive() && !isdefined(:load_only) && rnnlm(ARGS)
+!isinteractive() && !isdefined(Main,:load_only) && rnnlm(ARGS)
+
+end # module
 
 
 ### SAMPLE RUN: results may vary because of sparse matrix multiplications.
