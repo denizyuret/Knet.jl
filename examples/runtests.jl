@@ -228,7 +228,7 @@ if opts["all"] || opts["copyseq"]
                      `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
     end
     include("copyseq.jl")
-    @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
+    @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
 
     # @test isapprox(test10[1], 3143.22; rtol=.001)
     # @test isapprox(test10[2], 1261.19; rtol=.0001)
@@ -242,12 +242,13 @@ if opts["all"] || opts["copyseq"]
     # @test isapprox(test10[4],  184.931; rtol=.0001)
 
     # (4248.32913889032,959.0360211411156,102.61302185058594,145.56500244140625); Wed Nov 18 21:39:18 PST 2015: xavier init
+    # How did this happen when we have a winit argument?
     @test isapprox(test10[1], 4248.329; rtol=.0001)
     @test isapprox(test10[2],  959.036; rtol=.0001)
     @test isapprox(test10[3],  102.613; rtol=.0001)
     @test isapprox(test10[4],  145.565; rtol=.0001)
 
-    twice && (gc(); @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
+    twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
     # 11.230476 seconds (16.29 M allocations: 701.612 MB, 4.05% gc time) Wed Oct 21 23:19:24 PDT 2015 (unsorted input)
     # 11.658034 seconds (17.49 M allocations: 752.336 MB, 4.47% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels

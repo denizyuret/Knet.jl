@@ -33,27 +33,10 @@ function compile(fname::Symbol; o...)
     isdefined(Kenv, fname) || error("$fname not defined as a knet function")
     prog = _comp(Kenv.(fname); o...)
     @dbg println((:compile,:prog,prog))
-    inst = _comp_inst(prog)
-    @dbg println((:compile,:inst,inst))
-    Net(inst)
-end
-
-function _comp_inst(prog)
-    # There could be repeated and read-before-write variables
-    s2i = Dict{Symbol,Int}()
-    for n=1:length(prog)
-        (op,x,y,cond) = prog[n]
-        s2i[y] = n
-    end
-    inst = Array(Reg,length(prog))
-    for n=1:length(prog)
-        (op,x,y,cond) = prog[n]
-        inputs = convert(Vector{Int}, map(s->s2i[s], x))
-        plist = Dict{Symbol,Any}(:name => y)
-        inst[n] = Reg(op, inputs, cond, plist)
-        s2i[y] = n
-    end
-    return inst
+    Net(prog)
+    # inst = _comp_inst(prog)
+    # @dbg println((:compile,:inst,inst))
+    # Net(inst)
 end
 
 function _comp(f::Expr; o...)
@@ -142,7 +125,7 @@ end
 
 function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
     @dbg println((:_comp_assignment,:expr,expr,:name,name,:value,value,:cond,cond))
-    prog = Any[]
+    prog = Reg[]
     (f,fargs,fpars) = _comp_parse_call(expr.args[2])
 
     haskey(value, f) && (f=value[f])
@@ -188,10 +171,10 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
 
     if isa(feval, Op)
         # This happens when compiling a primitive Op directly, kwargs already taken into account in comp2
-        push!(prog, (feval, xname, yname, cond))
+        push!(prog, Reg(feval, yname, xname, cond))
     elseif isa(feval, DataType) && (feval <: Op)
         op = feval(; odict...)
-        push!(prog, (op, xname, yname, cond))
+        push!(prog, Reg(op, yname, xname, cond))
     else
         isa(feval, Function) && (feval = feval(; odict...)) # This allows macros like repeat
         isa(feval, Expr) || error("expecting Op or Expr got $f")

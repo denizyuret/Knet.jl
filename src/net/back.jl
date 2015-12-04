@@ -32,10 +32,10 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
             if ygold == nothing # represents zero gradient
                 get(y,:incr) || (y.dif = nothing)
             else
-                !isreturn(y) && warn("ygold specified when there is no return")
+                !isreturn(y) && Base.warn_once("ygold specified when there is no return")
                 ysave == nothing && error("return value was not saved")
                 if get(y,:incr)
-                    loss(ysave, ygold, y.tmp; o...)
+                    loss(ysave, ygold, y.tmp; o...) # loss needs o... for e.g. mask
                     y.dif = axpy!(1,y.tmp,y.dif0)
                 else
                     y.dif = loss(ysave, ygold, y.dif0; o...)

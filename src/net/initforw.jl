@@ -12,10 +12,11 @@ function initforw(f::Net, inputs...; o...)
         || map(size, inputs) != f.lastforw[2]
         || sort(o) != f.lastforw[3])
         f.lastforw = (map(typeof, inputs), map(size, inputs), sort(o))
-        initcond(f; o...)       # set :forw
-        initsize(f, inputs...)  # set reg.size
-        inittype(f, inputs...)  # set reg.eltype, reg.outtype
-        initout0(f, inputs...)  # set reg.out0
+        initcond(f; o...)
+        initargv(f)
+        initsize(f, inputs...)
+        inittype(f, inputs...)
+        initout0(f, inputs...)
     end
 end
 
@@ -46,30 +47,49 @@ function condeval(s,d::Dict)
      error("Expected boolean expression got $s"))
 end
 
+function initargv(f::Net)
+    # There could be repeated and read-before-write variables
+    s2i = Dict{Symbol,Int}()
+    for n=1:length(f)
+        p = get(f,n)
+        get(p,:forw) || continue
+        s2i[p.name] = n
+    end
+    for n=1:length(f)
+        p = get(f,n)
+        get(p,:forw) || continue
+        p.argv = convert(Vector{Int}, map(s->s2i[s], p.args))
+        s2i[p.name] = n
+    end
+end
+
+forwregs(f::Net)=filter(r->get(r,:forw), registers(f))
+
 function initsize(f::Net, inputs...)
-    for p in registers(f)
+    for p in forwregs(f)
         set!(p,:size,nothing)
     end
     lastinput = 0
-    for p in registers(f)
+    for p in forwregs(f)
         isa(p.op, Input) || continue
         set!(p,:size,size(inputs[lastinput += 1]))
     end
     nodims(p)=(s=get(p,:size); s==nothing || prod(s)==0)
-    notfound = count(nodims, registers(f))
+    notfound = count(nodims, forwregs(f))
     while notfound > 0
-        for p in registers(f)
+        for p in forwregs(f)
             isa(p.op, Input) && continue
             dy = get(p,:size)
-            dx = map(x->get(x,:size), get(f,p.inputs))
+            xx = input_registers(f,p)
+            dx = map(x->get(x,:size), xx)
             d = infersize(p.op, dx..., dy)
             d == nothing && continue
             set!(p,:size,d[end])
-            for i=1:length(p.inputs)
-                set!(get(f,p.inputs[i]),:size,d[i])
+            for i=1:length(xx)
+                set!(xx[i],:size,d[i])
             end
         end
-        nf = count(nodims, registers(f))
+        nf = count(nodims, forwregs(f))
         nf == notfound && error("Cannot infer sizes")
         notfound = nf
     end
@@ -83,7 +103,7 @@ function inittype(f::Net, inputs...)
         eltype(i) == ftype || error("Conflicting element type in input $i.")
     end
     lastinput = 0
-    for p in registers(f)
+    for p in forwregs(f)
         set!(p,:eltype,ftype)
         if isa(p.op,Input) && issparse(inputs[lastinput+=1])
             set!(p,:outtype, (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC))
@@ -94,8 +114,7 @@ function inittype(f::Net, inputs...)
 end
 
 function initout0(f::Net, inputs...)
-    for p in registers(f)
-        get(p,:forw) || continue
+    for p in forwregs(f)
         at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
         if checkarray(p, :out0, at, et, sz)
             # all done

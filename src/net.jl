@@ -1,11 +1,13 @@
 "DataType for program registers."
 type Reg
     op::Op
-    inputs::Vector{Int}
+    name::Symbol
+    args::Vector{Symbol}
     cond::Expr
+    argv::Vector{Int}
     plist::Dict{Symbol,Any}
     out; out0; dif; dif0; tmp;
-    Reg(op::Op,inputs::Vector{Int},cond::Expr,plist::Dict{Symbol,Any}=Dict{Symbol,Any}())=new(op,inputs,cond,plist)
+    Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=new(op,name,args,cond,Int[],Dict{Symbol,Any}())
 end
 
 "DataType for a compiled network."
@@ -20,20 +22,16 @@ end
 
 import Base: length, get, eltype, pop!, push!
 
-get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
-set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
-inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
-
-length(f::Net)=length(f.reg)
-get(f::Net,i)=f.reg[i]
 registers(f::Net)=f.reg
+length(f::Net)=length(f.reg)
+get(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
 params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg))
 ninputs(f::Net)=count(x->isa(x.op,Input),f.reg)
-eltype(f::Net)=eltype(f.reg[1].out0)
+eltype(f::Net)=(r=f.reg[1];isdefined(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
 
 function get(f::Net,k::Symbol)
     i = findlast(f.reg) do p
-        get(p,:forw) && get(p,:name)==k
+        get(p,:forw) && p.name==k
     end
     return i==0 ? nothing : f.reg[i]
 end
@@ -42,7 +40,7 @@ out(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.out)
 dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
 
 inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
-input_registers(f::Net,p::Reg)=f.reg[p.inputs]
+input_registers(f::Net,p::Reg)=f.reg[p.argv]
 
 pop!(f::Net)=pop!(f.stack)
 push!(f::Net,a)=(incref!(f,a); push!(f.stack,a))
@@ -54,6 +52,10 @@ function incref!(f::Net,a)
     ysave == nothing || (f.sdict[ysave] = true)
     xsave == nothing || (for x in xsave; f.sdict[x] = true; end)
 end
+
+get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
+set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
+inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
 
 
 ### DEAD CODE

@@ -1,6 +1,6 @@
 ### Cleanup at the beginning/end of sequence
 
-function reset!(f::Net; keepstate=false, a...)
+function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnnlm defined its own reset
     isempty(f.stack) || warn("Stack not empty")
     empty!(f.stack)
     empty!(f.sdict)

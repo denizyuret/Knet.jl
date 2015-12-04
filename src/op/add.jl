@@ -239,7 +239,7 @@ function infersize(a::Add, x1, x2, y)
             xdim == ydim ? xdim :
             xdim == 0 ? ydim :
             ydim == 0 ? xdim :
-            throw(DimensionMismatch())
+            throw(DimensionMismatch("$y=add($x1,$x2)"))
         end
         x1==nothing && (return (nothing, ydims, ydims))
         xdims = [x1...]; ydims = [ydims...]
@@ -247,17 +247,17 @@ function infersize(a::Add, x1, x2, y)
             xdims[1] == ydims[end-1] ? nothing :
             xdims[1] == 0 ? xdims[1]=ydims[end-1] :
             ydims[end-1]==0 ? ydims[end-1]=xdims[1] :
-            throw(DimensionMismatch())
+            throw(DimensionMismatch("$y=add($x1,$x2)"))
         elseif length(x1) <= length(ydims)
             for i=1:length(xdims)
                 xdims[i] == ydims[i] ? continue :
                 xdims[i] == 1 ? continue :
                 xdims[i] == 0 ? continue :
                 ydims[i] == 0 ? (ydims[i] = xdims[i]) :
-                throw(DimensionMismatch())
+                throw(DimensionMismatch("$y=add($x1,$x2)"))
             end
         else
-            throw(DimensionMismatch())
+            throw(DimensionMismatch("$y=add($x1,$x2)"))
         end
         xdims = tuple(xdims...); ydims = tuple(ydims...)
         return (xdims, ydims, ydims)

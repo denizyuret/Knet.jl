@@ -1,48 +1,40 @@
-2015-12-03  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-04  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
-	read-before-write in the network.  seq means we are running it
-	forw multiple steps before calling back.  They are not the same,
-	we can have seq with fnn, or run rnn for a single step.  When do
-	we need the following, and when can we avoid them:
+	* compiler.jl: conditionals and input assignment.  The inputs to
+	an operation may come from different places depending on the
+	runtime conditions.  Therefore we cannot compile exact input
+	indices into the Net.  We have to do this at initforw.
 
-			r+s	!r+s	r+!s	!r+!s
-	par=incr	y	y	n	n	this is only necessary for sequences where par gets read multiple times
-	stack		y	y	n	n	if we ever rewrite out, only happens in sequences (not counting array sharing)
-	out=void	y	n	y	n	this is only necessary if there is read-before-write but it is cheap, if keepstate out=out0 instead
-	out0=0		n	n	n	n	never needed
-	tmp=0		n	n	n	n	never needed
-	dif=void	n	n	n	n	never needed, will never read before write?
-	dif0=0		i	i	i	i	need if incr
+	Interestingly we just switched from in-place semantics to julia
+	semantics for a=f(x).  If multiple assignments are made to the
+	same variable, this matters.
 
-	When the user compiles a net, we know whether or not it is an rnn.
-	Actually we may need to wait until the first forw to see which
-	cond are true, which may change the rnn property.  When the user
-	calls forw we don't know if this is part of a sequence yet.  back
-	can tell this from stack depth if forw uses stack.  We can assume
-	rnn's always go with sequences (otherwise read-before-write does
-	not make sense).  Or always use the stack.  In any case par=incr
-	only necessary if stack depth is more than prog length.  Stack
-	always necessary, it also gives us information about cond, just
-	avoid copy.
+	For copyseq we have two rnns that share a hidden state.  All other
+	weights are different.  Could do it by defining a two input rnn
+	which takes (x,h) and pass h from one to the other.  However we
+	can't have two outputs.  y is the only return as it will be
+	compared with ygold for loss.  I don't think we could do it
+	without spilling the guts of lstm into the definition.  Here is an
+	attempt:
 
-	* DONE:
+	@knet function affine2(x,y; o...)
+	    a = par(; o...)
+	    b = par(; o...)
+	    c = par(; o...)
+	    return a*x+b*y+c
+	end
 
-	DONE net.jl: implement incref! decref! copy-on-write
-	DONE net.jl: implement get(Net,Symbol)
-	DONE compiler.jl: symbols to numbers
-	DONE fix util.jl: reset!
-	DONE fix initforw
-	DONE fix forw
-	DONE fix initback
-	DONE fix back
-	DONE net.jl: delete Reg
-	DONE rename Ins -> Reg
-	DONE avoid making par incr for fnn
-	DONE back.jl: are we sure y.out has not been changed? must use ysave with loss.
-	DONE can't use get(f,:return) in back, the :forw register is no longer valid, use the stack to see the operations
-	DONE fix lastback rethink lastforw==lastback in a seq context
-	DONE return needs to always save its output to compute loss. should we have a return operator as well as a register?  does nothing except pass its input, but has back_reads_y=true.  do this with copy.  no need for op, did it as extra condition in forw.
+	@knet function s2s(x; o...)
+	    if decoding
+	        hx = affine2(h,x; o...)
+	    else
+	        hx = affine2(h,x; o...)	# this op has different weights
+	    end
+	    h = relu(hx)	# share hidden state
+            if decoding
+                return soft(wdot(h; out=vocab))	# only return if decoding
+	    end
+	end
 
 	* TODO:
 
@@ -56,21 +48,24 @@
 	DONE addingirnn
 	0000 addinglstm: gives slightly different result.
 	0000 mnistpixels: gives slightly different result.
-	DONE - fix repeat
 	0000 rnnlm: gives slightly different result.
-	0000 copyseq
+	0000 copyseq: gives slightly different result.  Warning: ygold when no return.
 	0000 ncelm
 	0000 ner
 	0000 get all other models to work, sanity check with no array sharing version.
+	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
+	0000 axpb -> copy (already defined as an actf?)
 	0000 examples: use as_symbols option for parse_args
 	0000 length(Adding.net.sdict) => 91 after one minibatch, normal?
 	0000 reimplement array sharing, make it an optional pass for debugging
+	DONE - fix repeat
 	0000 turn CUDArt back to normal
 	0000 copy!: softloss@loss.jl:67 ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
 	0000 shows that +2 CudaArray comes from add.jl:75 reshape_to_match.  Does this allocate?  No, but it would be still better to get rid.  Also mul.  Also symmetric broadcasting.
 	0000 should we perform memory management for stack by keeping around some arrays that get reused?
 	0000 test batch resize
-	0005 *** work on conditionals in compiler
+	0000 replace Expr(:&&) with true in compiler
+	0000 cannot add three terms, fix in compiler (a+b+c)
 	0005 - solve the incr problem, user based register sharing may be in trouble.
 	0005 - optimize alloc, copy, fill.
 	0005 - back: problem with zeroing out the dif0 for back.
@@ -80,7 +75,6 @@
 	0005 - start to clean up data and models. retire the Model interface if ok, only expose Net,forw,back,reset!,update!, let people write their own train/test functions
 	0005 - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
 	0005 - back/initback: get rid of seq flag if possible, can we use save?
-	0005 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0005 - check TODO, test all
 	0005 - cleanup net/util.jl
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
@@ -203,6 +197,52 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-12-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
+	read-before-write in the network.  seq means we are running it
+	forw multiple steps before calling back.  They are not the same,
+	we can have seq with fnn, or run rnn for a single step.  When do
+	we need the following, and when can we avoid them:
+
+			r+s	!r+s	r+!s	!r+!s
+	par=incr	y	y	n	n	this is only necessary for sequences where par gets read multiple times
+	stack		y	y	n	n	if we ever rewrite out, only happens in sequences (not counting array sharing)
+	out=void	y	n	y	n	this is only necessary if there is read-before-write but it is cheap, if keepstate out=out0 instead
+	out0=0		n	n	n	n	never needed
+	tmp=0		n	n	n	n	never needed
+	dif=void	n	n	n	n	never needed, will never read before write?
+	dif0=0		i	i	i	i	need if incr
+
+	When the user compiles a net, we know whether or not it is an rnn.
+	Actually we may need to wait until the first forw to see which
+	cond are true, which may change the rnn property.  When the user
+	calls forw we don't know if this is part of a sequence yet.  back
+	can tell this from stack depth if forw uses stack.  We can assume
+	rnn's always go with sequences (otherwise read-before-write does
+	not make sense).  Or always use the stack.  In any case par=incr
+	only necessary if stack depth is more than prog length.  Stack
+	always necessary, it also gives us information about cond, just
+	avoid copy.
+
+	* DONE:
+
+	DONE net.jl: implement incref! decref! copy-on-write
+	DONE net.jl: implement get(Net,Symbol)
+	DONE compiler.jl: symbols to numbers
+	DONE fix util.jl: reset!
+	DONE fix initforw
+	DONE fix forw
+	DONE fix initback
+	DONE fix back
+	DONE net.jl: delete Reg
+	DONE rename Ins -> Reg
+	DONE avoid making par incr for fnn
+	DONE back.jl: are we sure y.out has not been changed? must use ysave with loss.
+	DONE can't use get(f,:return) in back, the :forw register is no longer valid, use the stack to see the operations
+	DONE fix lastback rethink lastforw==lastback in a seq context
+	DONE return needs to always save its output to compute loss. should we have a return operator as well as a register?  does nothing except pass its input, but has back_reads_y=true.  do this with copy.  no need for op, did it as extra condition in forw.
 
 2015-12-02  Deniz Yuret  <dyuret@ku.edu.tr>
 
