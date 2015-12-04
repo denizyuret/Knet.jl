@@ -18,57 +18,60 @@ taken to be 0.  Gradient computation proceeds backwards from N..1.
 function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f))
     initback(f, ygold, loss, getdx) # TODO: rethink lastforw==lastback in a seq context
+    gotreturn = false
 
-    yreg = getreg(f, :return)
-    if yreg != nothing
-        if ygold == nothing && get(yreg,:incr) # TODO: fix incr to take into account :return status
-            # nothing to do
-        elseif ygold == nothing
-            yreg.dif = nothing
-        elseif get(yreg,:incr)
-            loss(yreg.out, ygold, yreg.tmp; o...) # TODO: are we sure yreg.out has not been changed?
-            yreg.dif = axpy!(1,yreg.tmp,yreg.dif0)
-        else
-            yreg.dif = loss(yreg.out, ygold, yreg.dif0; o...)
-        end
-    elseif ygold != nothing
-        error("ygold specified when there is no output")
-    end
-
-    for n = length(f.prog):-1:1
-        s = pop!(f.stack)
+    for n = length(f):-1:1
+        s = pop!(f)
         s == nothing && continue
-        (p, xsave, ysave) = s
-        @assert p === f.prog[n]
-        y = output_register(f,p)
-        get(y,:grad) || continue
-        global xx = input_registers(f,p)
+        (y, xsave, ysave) = s
+        @assert y === get(f,n)
+        get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
+        
+        if !gotreturn
+            gotreturn = true
+            if ygold == nothing # represents zero gradient
+                get(y,:incr) || (y.dif = nothing)
+            else
+                !isreturn(y) && warn("ygold specified when there is no return")
+                ysave == nothing && error("return value was not saved")
+                if get(y,:incr)
+                    loss(ysave, ygold, y.tmp; o...)
+                    y.dif = axpy!(1,y.tmp,y.dif0)
+                else
+                    y.dif = loss(ysave, ygold, y.dif0; o...)
+                end
+            end
+        elseif isreturn(y)
+            error("Got return in non-final instruction")
+        end
+
+        xx = input_registers(f,y)
         if y.dif == nothing
             for x in xx
                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
             end
         else
             dxx = map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
-            back(p.op, y.dif, dxx...; x=get1(xsave), y=ysave, o...)
+            back(y.op, y.dif, dxx...; x=get1(xsave), y=ysave, o...)
             gpusync()
             for x in xx
                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
                          get(x,:grad) ? x.dif0 : nothing)
                 gpusync()
             end
-            if get(y,:incr) && !isa(p.op, Par)
-                # what if p.op=Arr?  then it will have no inputs, thus :grad=:incr=false
+            if get(y,:incr) && !isa(y.op, Par)
+                # what if y.op=Arr?  then it will have no inputs, thus :grad=:incr=false
                 # where does Par.dif get zeroed out? at reset!
-                @show p
                 fill!(y.dif,0)
                 gpusync()
             end
         end
     end
+
     if any(getdx)
         dx = Any[]; nx = 0
-        for p in f.prog
-            isa(p.op,Input) && getdx[nx+=1] && push!(dx, getdif(f,p))
+        for p in registers(f)
+            isa(p.op,Input) && getdx[nx+=1] && push!(dx, p.dif)
         end
         return get1(dx)
     end

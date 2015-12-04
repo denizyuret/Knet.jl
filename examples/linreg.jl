@@ -1,12 +1,12 @@
 # Simple linear regression.
-
+module LinReg
 using Knet, ArgParse
-import Base.LinAlg.linreg
 
 # Main loop:
 
-function linreg(args=ARGS)
+function main(args=ARGS)
     info("Simple linear regression example")
+    @show args
     s = ArgParseSettings()
     @add_arg_table s begin
         ("--inputdims"; arg_type=Int; default=100)
@@ -24,7 +24,7 @@ function linreg(args=ARGS)
     println(opts)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
-    global data = LinReg(outputdims, inputdims; batchsize=batchsize, epochsize=epochsize, noise=noise)
+    global data = Data(outputdims, inputdims; batchsize=batchsize, epochsize=epochsize, noise=noise)
     global net = compile(:wdot; out=outputdims)
     setopt!(net; lr=lr)
     losscnt = zeros(2)
@@ -32,12 +32,12 @@ function linreg(args=ARGS)
     for epoch = 1:epochs
         train(net, data, quadloss; maxnorm=fill!(maxnorm,0), losscnt=fill!(losscnt,0))
         println((losscnt[1]/losscnt[2], maxnorm[1], maxnorm[2]))
-        gcheck > 0 && gradcheck(net, data, quadloss; gcheck=gcheck)
+        gcheck > 0 && gradcheck(net, f->gradloss(f,data,quadloss;grad=true), f->gradloss(f,data,quadloss); gcheck=gcheck)
     end
     return (losscnt[1]/losscnt[2], maxnorm[1], maxnorm[2])
 end
 
-function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
         reset!(f)
         ypred = forw(f, x)
@@ -49,23 +49,36 @@ function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
     end
 end
 
+function gradloss(f, data, loss; grad=false, seed=42)
+    data_rng = data.rng
+    data.rng = MersenneTwister()
+    srand(data.rng, seed)
+    (x,ygold) = first(data)
+    reset!(f)
+    ypred = grad ? forw(f, x) : forwtest(f, x)
+    grad && back(f, ygold, loss)
+    data.rng = data_rng
+    loss(ypred, ygold)
+end
+
 # Data generator:
 import Base: start, next, done
 
-type LinReg; w; batchsize; epochsize; noise; rng; end
+type Data; w; batchsize; epochsize; noise; rng; end
 
-function LinReg(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG)
-    LinReg(randn(rng,outputdims,inputdims),batchsize,epochsize,noise,rng)
+function Data(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG)
+    Data(randn(rng,outputdims,inputdims),batchsize,epochsize,noise,rng)
 end
 
-function next(l::LinReg, n)
+function next(l::Data, n)
     (outputdims, inputdims) = size(l.w)
     x = rand(l.rng, inputdims, l.batchsize)
     y = l.w * x + scale(l.noise, randn(l.rng, outputdims, l.batchsize))
     return ((x,y), n+l.batchsize)
 end
 
-start(l::LinReg)=0
-done(l::LinReg,n)=(n >= l.epochsize)
+start(l::Data)=0
+done(l::Data,n)=(n >= l.epochsize)
 
-!isinteractive() && !isdefined(:load_only) && linreg(ARGS)
+!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
+end

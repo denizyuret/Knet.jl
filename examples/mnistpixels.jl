@@ -2,21 +2,11 @@
 # N., & Hinton, G. E. (2015). A Simple Way to Initialize Recurrent
 # Networks of Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 
-using Knet
-using Knet: nextidx
-import Base: start, next, done
-using ArgParse
+module MNISTPixels
+using Main, Knet, ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
-@knet function p1(x; rnn=nothing, hidden=0, o...)
-    y = rnn(x; o..., out=hidden)
-end
-
-@knet function p2(x; nclass=0, o...)
-    y = wbf(x; o..., out=nclass, f=soft)
-end
-
-function mnistpixels(args=ARGS)
+function main(args=ARGS)
     isa(args, AbstractString) && (args=split(args))
     opts = parse_commandline(args)
     info("Pixel-by-pixel MNIST problem from Le et al. 2015.")
@@ -26,14 +16,14 @@ function mnistpixels(args=ARGS)
 
     global trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
     global tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
-    global net = S2C(p1,p2; rnn=eval(parse(nettype)), hidden=hidden, nclass=10, winit=Gaussian(0,winit), fbias=fbias)
-
+    global net = compile(:mpixels; rnn=symbol(nettype), hidden=hidden, nclass=10, winit=Gaussian(0,winit), fbias=fbias)
     setopt!(net; lr=lrate)
+
     l = [0f0,0f0]; m = [0f0,0f0]; acc = 0
     for epoch=1:epochs
         train(net, trn, softloss; gclip=gclip, losscnt=fill!(l,0), maxnorm=fill!(m,0))
         println(tuple(:trn,epoch*trn.epochsize,l[1]/l[2],m...))
-        gcheck > 0 && gradcheck(net, trn, softloss; gcheck=gcheck)
+        gcheck > 0 && gradcheck(net, f->gradloss(f,trn,softloss;grad=true), f->gradloss(f,trn,softloss); gcheck=gcheck)
         if epoch % testfreq == 0
             acc = 1-test(net, tst, zeroone)
             println(tuple(:tst,epoch*trn.epochsize,acc))
@@ -42,6 +32,83 @@ function mnistpixels(args=ARGS)
     end
     return (acc, l[1]/l[2], m...)
 end
+
+@knet function mpixels(x; rnn=nothing, hidden=0, nclass=0, o...)
+    h = rnn(x; o..., out=hidden)
+    if predict
+        return wbf(h; o..., out=nclass, f=:soft)
+    end
+end
+
+# @knet function p1(x; rnn=nothing, hidden=0, o...)
+#     y = rnn(x; o..., out=hidden)
+# end
+
+# @knet function p2(x; nclass=0, o...)
+#     y = wbf(x; o..., out=nclass, f=soft)
+# end
+
+function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+    reset!(f)
+    for (x,ygold) in data
+        if ygold == nothing
+            forw(f, x; predict=false)
+        else
+            ypred = forw(f, x; predict=true)
+            losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+            back(f, ygold, loss)
+            while !isempty(f.stack); back(f); end # TODO: f.stack is too low level
+            g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
+            gscale = (g > gclip > 0 ? gclip/g : 0)
+            update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
+            w = wnorm(f); w > maxnorm[1] && (maxnorm[1]=w) # TODO: take this maxnorm calculation elsewhere, have a statistics optional function? just be smart about scaling?  batch-normalization, msra etc.
+            reset!(f)
+        end
+    end
+end
+
+function test(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+    sumloss = numloss = 0
+    reset!(f)
+    for (x,ygold) in data
+        if ygold == nothing
+            forwtest(f, x; predict=false)
+        else
+            ypred = forwtest(f, x; predict=true)
+            sumloss += loss(ypred, ygold); numloss += 1
+            reset!(f)
+        end
+    end
+    sumloss / numloss
+end
+
+function gradloss(f::Net, data, loss; grad=false, seed=42)
+    data_rng = data.rng
+    data.rng = MersenneTwister()
+    srand(data.rng, seed)
+    reset!(f)
+    myforw = grad ? forw : forwtest
+    loss1 = 0
+    for (x,ygold) in data
+        if ygold == nothing
+            myforw(f, x; predict=false)
+        else
+            ypred = myforw(f, x; predict=true)
+            loss1 = loss(ypred, ygold)
+            if grad
+                back(f, ygold, loss)
+                while !isempty(f.stack); back(f); end
+            end
+            break
+        end
+    end
+    data.rng = data_rng
+    return loss1
+end
+
+# Data generator:
+
+import Base: start, next, done
 
 # input comes in as xtrn(784,60000), ytrn(10,60000)
 # the batch arg determines how many images we present in parallel
@@ -64,6 +131,8 @@ start(d::Pixels)=(d.shuffle != nothing && shuffle!(d.rng, d.shuffle); (0,0))
 
 # epochsize is given as image count, not pixel count
 done(d::Pixels, s)=(s[1] >= d.epochsize)
+
+using Knet: nextidx
 
 function next(d::Pixels, s)
     (n,t) = s                   # image and pixel count
@@ -143,7 +212,9 @@ function parse_commandline(args)
     parse_args(args,s)
 end
 
-!isinteractive() && !isdefined(:load_only) && mnistpixels(ARGS)
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+
+end # module
 
 # NOTES:
 

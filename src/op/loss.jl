@@ -174,7 +174,7 @@ end
 
 # This is cpu/gpu generic, the rest is dead code:
 
-function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray)
+function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray; o...)
     @assert size(y)==size(ygold)==size(ygrad)
     ycols = ccount(y)
     ygrad === ygold || copy!(ygrad, ygold) # TODO: avoid copy if possible
@@ -184,7 +184,7 @@ function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray)
     return ygrad
 end
 
-function quadloss(y::BaseArray, ygold::BaseArray)
+function quadloss(y::BaseArray, ygold::BaseArray; o...)
     ytemp = similar(y)         # TODO: avoid alloc
     copy!(ytemp, ygold)
     axpy!(-1, y, ytemp)

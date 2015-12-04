@@ -1,42 +1,97 @@
-"DataType for program instructions."
-immutable Ins
-    output::Symbol
-    op::Op
-    inputs::Vector{Symbol}
-    cond::Expr
-    plist::Dict
-end
-
 "DataType for program registers."
 type Reg
+    op::Op
+    inputs::Vector{Int}
+    cond::Expr
+    plist::Dict{Symbol,Any}
     out; out0; dif; dif0; tmp;
-    saved::Bool                 # this indicates the register has been pushed on the stack, and out0 should be copied before overwritten.
-    size #::Dims prevents us from using nothing during size inference, TODO; use empty tuple instead, TODO: should we put these into plist?
-    eltype::DataType
-    outtype::DataType
-    diftype::DataType
-    tmptype::DataType
-    plist::Dict
-    Reg()=(r=new();r.plist=Dict();r.saved=false;r)
+    Reg(op::Op,inputs::Vector{Int},cond::Expr,plist::Dict{Symbol,Any}=Dict{Symbol,Any}())=new(op,inputs,cond,plist)
 end
 
 "DataType for a compiled network."
 type Net <: Model
-    prog::Vector{Ins}
-    reg::Dict{Symbol,Reg}
+    reg::Vector{Reg}
     stack::Vector
+    sdict::ObjectIdDict         # To implement copy-on-write
     lastforw
     lastback
+    Net(reg::Vector{Reg})=new(reg, Any[], ObjectIdDict())
 end
 
-function Net(prog::Vector{Ins})
-    reg = [ x.output=>Reg() for x in prog ]
-    Net(prog, reg, Any[], nothing, nothing)
+import Base: length, get, eltype, pop!, push!
+
+get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
+set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
+inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
+
+length(f::Net)=length(f.reg)
+get(f::Net,i)=f.reg[i]
+registers(f::Net)=f.reg
+params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg))
+ninputs(f::Net)=count(x->isa(x.op,Input),f.reg)
+eltype(f::Net)=eltype(f.reg[1].out0)
+
+function get(f::Net,k::Symbol)
+    i = findlast(f.reg) do p
+        get(p,:forw) && get(p,:name)==k
+    end
+    return i==0 ? nothing : f.reg[i]
 end
 
+out(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.out)
+dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
+
+inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
+input_registers(f::Net,p::Reg)=f.reg[p.inputs]
+
+pop!(f::Net)=pop!(f.stack)
+push!(f::Net,a)=(incref!(f,a); push!(f.stack,a))
+
+function incref!(f::Net,a)
+    a==nothing && return
+    isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
+    (y, xsave, ysave) = a
+    ysave == nothing || (f.sdict[ysave] = true)
+    xsave == nothing || (for x in xsave; f.sdict[x] = true; end)
+end
 
 
 ### DEAD CODE
+
+# op(f::Net,n::Int)=f.reg[n].op
+# inputs(f::Net,n::Int)=f.reg[n].inputs
+# output(f::Net,n::Int)=f.reg[n].output
+# forwref(f::Net,n::Int)=any(i->in(output(f,n),inputs(f,i)), 1:n-1)
+
+
+# registers(f::Net)=values(f.reg)
+# output_register(f::Net,p::Ins)=get(f.reg,p.output,nothing)
+# input_registers(f::Net,p::Ins)=map(s->get(f.reg,s,nothing), p.inputs)
+# input_arrays(f::Net,p::Ins)=map(s->(haskey(f.reg,s) ? f.reg[s].out : nothing), p.inputs)
+
+# nops(f::Net)=length(f.reg)
+
+# getprop(p::Ins,k,d=false)=get(p.plist,k,d)
+# setprop!(p::Ins,k,v=true)=(p.plist[k]=v)
+# set!(p::Ins,k,v=true)=setprop!(p,k,v)
+
+# getprop(p::Reg,k,d=false)=get(p.plist,k,d)
+# setprop!(p::Reg,k,v=true)=(p.plist[k]=v)
+# set!(p::Reg,k,v=true)=setprop!(p,k,v)
+# inc!(p::Reg,k)=set!(p,k,1+get(p,k))
+
+# getreg(f::Net,k::Symbol)=get(f.reg,k,nothing)
+# getdif(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
+# getout(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
+# getreg(f::Net,p::Ins)=getreg(f,p.output)
+# getdif(f::Net,p::Ins)=getdif(f,p.output)
+# getout(f::Net,p::Ins)=getout(f,p.output)
+
+# Base.get(f::Net,k)=getout(f,k)
+# Base.get(p::Ins,k,d=false)=getprop(p,k,d)
+# Base.get(p::Reg,k,d=false)=getprop(p,k,d)
+
+# Base.copy!(r::Reg,x)=(r.out=copy!(r.out0,x))
 
 # type Ins
 #     output::Symbol
@@ -269,13 +324,13 @@ end
 
 # function Net(b::Expr)
 #     net = Net()
-#     prog = _knet(b)
-#     net.op = map(first, prog)
-#     N = length(prog)
+#     reg = _knet(b)
+#     net.op = map(first, reg)
+#     N = length(reg)
 #     dict = Dict{Symbol,Int}()
-#     for i=1:N; dict[last(prog[i])] = i; end
+#     for i=1:N; dict[last(reg[i])] = i; end
 #     net.inputs = [ Int[] for i=1:N ]
-#     for i=1:N; for j=2:length(prog[i])-1; push!(net.inputs[i], dict[prog[i][j]]); end; end
+#     for i=1:N; for j=2:length(reg[i])-1; push!(net.inputs[i], dict[reg[i][j]]); end; end
 #     net.outputs = outputs(net.inputs)
 #     net.netinputs = count(x->isa(x,Input), net.op)
 #     net.params = filter(x->isa(x,Par), net.op)
@@ -293,4 +348,14 @@ end
 # Two registers may share their out0 arrays but not dif0 or vice-versa
 # So each symbol should correspond to a unique register, sharing
 # optimization can be done at the array level, not the register level.
+
+# "DataType for regram registers."
+# type Reg
+#     size #::Dims prevents us from using nothing during size inference, TODO; use empty tuple instead, TODO: should we put these into plist?
+#     eltype::DataType
+#     outtype::DataType
+#     diftype::DataType
+#     tmptype::DataType
+#     Reg()=(r=new();r.plist=Dict();r.saved=false;r)
+# end
 

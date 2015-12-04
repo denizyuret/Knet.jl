@@ -6,20 +6,21 @@ initback initializes the fields used by Net.back:
 - op.save: read-only, used for popping only if seq.
 """
 function initback(f::Net, ygold, loss, getdx)
-    # f.lastback == (f.lastforw, getdx, seq) && return # TODO: avoid work if nothing changed
-    # f.lastback =  (f.lastforw, getdx, seq)
+    seq = length(f.stack) > length(f)
+    isdefined(f,:lastback) && f.lastback == (f.lastforw, getdx, f.lastback[3] || seq) && return
+    f.lastback =  (f.lastforw, getdx, seq)
     initgrad(f, getdx)
     initincr(f)
     inittype2(f)
-    for r in registers(f)
-        if get(r,:grad)
-            if !checkarray(r, :dif0, r.diftype, r.eltype, r.size)
-                r.dif0 = newarray(r.diftype, r.eltype, r.size)
-                fill!(r.dif0,0)
+    for p in registers(f)
+        if get(p,:grad)
+            if !checkarray(p, :dif0, get(p,:diftype), get(p,:eltype), get(p,:size))
+                p.dif0 = newarray(get(p,:diftype), get(p,:eltype), get(p,:size))
+                get(p,:incr) && fill!(p.dif0,0)
             end
-            if get(r,:incr)
-                if !checkarray(r, :tmp, r.tmptype, r.eltype, r.size)
-                    r.tmp = newarray(r.tmptype, r.eltype, r.size)
+            if get(p,:incr)
+                if !checkarray(p, :tmp, get(p,:tmptype), get(p,:eltype), get(p,:size))
+                    p.tmp = newarray(get(p,:tmptype), get(p,:eltype), get(p,:size))
                 end
             end
         end
@@ -33,27 +34,25 @@ end
 # for dx for network inputs, those and their descendents.
 # """
 function initgrad(f::Net, getdx)
-    for r in registers(f)
-        set!(r,:grad,false)
+    for p in registers(f)
+        set!(p,:grad,false)
     end
     lastinput = 0
-    for p in instructions(f)
+    for p in registers(f)
         if (isa(p.op, Par) ||
             (isa(p.op, Input) &&
              getdx[lastinput+=1]))
-            r = output_register(f,p)
-            setprop!(r,:grad,true)
+            set!(p,:grad,true)  # :grad means we need the gradient of the output of this operation, does not mean go back on this operation.
         end
     end
     count_grad(f::Net)=mapreduce(r->get(r,:grad), +, 0, registers(f))
     nback = count_grad(f)
     while true
-        for p in instructions(f)
-            r = output_register(f,p)
-            get(r,:grad) && continue
+        for p in registers(f)
+            get(p,:grad) && continue
             for i in input_registers(f,p)
                 if get(i,:grad)
-                    set!(r,:grad,true)
+                    set!(p,:grad,true)
                     break
                 end
             end
@@ -74,14 +73,14 @@ end
 # - who resets them to zero for rnn or for fnn.
 
 function initincr(f::Net)
-    for (k,r) in f.reg
-        set!(r,:fanout,(k==:return ? 1 : 0))
-        set!(r,:incr,false)
+    seq = length(f.stack) > length(f)
+    for p in registers(f)
+        get(p,:grad) || continue
+        set!(p,:incr,seq && isa(p.op,Par))
+        set!(p,:fanout, isreturn(p) ? 1 : 0)
     end
-    for p in instructions(f)
-        if isa(p.op, Par)       # TODO: is there any way to avoid this for fnn?
-            set!(output_register(f,p),:incr,true)
-        end
+    for p in registers(f)
+        get(p,:grad) || continue
         for i in input_registers(f,p)
             if get(i,:grad) && inc!(i,:fanout) > 1
                 set!(i,:incr,true)
@@ -103,28 +102,28 @@ end
 # TODO: cleanup this mess: more generic code? more versatile sparse type?
 
 function inittype2(f::Net)
-    for r in registers(f)
-        r.diftype = (gpu() ? CudaArray : Array)
-        r.tmptype = (gpu() ? CudaArray : Array)
+    for p in registers(f)
+        set!(p,:diftype, gpu() ? CudaArray : Array)
+        set!(p,:tmptype, gpu() ? CudaArray : Array)
     end
-    for p in instructions(f)
-        isa(p.op, Dot) || continue
+    for p in registers(f)
+        isa(p.op, Dot) || continue # We only know how to do sparse dot
         (a, b) = input_registers(f, p)
         if issparse(a.out0) && issparse(b.out0)
             error("Dot of two sparse matrices")
         elseif issparse(b.out0) && get(a,:grad) # y = w * x  with sparse x in rnnlm
             if get(a,:incr)
-                a.diftype = gpu() ? CudaArray : Array
-                a.tmptype = gpu() ? CudaSparseMatrixCSRU : SparseMatrixCSC
+                set!(a,:diftype, gpu() ? CudaArray : Array)
+                set!(a,:tmptype, gpu() ? CudaSparseMatrixCSRU : SparseMatrixCSC)
             else
-                a.diftype = gpu() ? CudaSparseMatrixCSR : SparseMatrixCSC
+                set!(a,:diftype, gpu() ? CudaSparseMatrixCSR : SparseMatrixCSC)
             end
         elseif issparse(a.out0) && get(b,:grad) # rw = r * w  with sparse r in nce
             if get(b,:incr)
-                b.diftype = gpu() ? CudaArray : Array
-                b.tmptype = gpu() ? CudaSparseMatrixCSCU : SparseMatrixCSC
+                set!(b,:diftype, gpu() ? CudaArray : Array)
+                set!(b,:tmptype, gpu() ? CudaSparseMatrixCSCU : SparseMatrixCSC)
             else
-                b.diftype = gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC
+                set!(b,:diftype, gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC)
             end
         end
     end

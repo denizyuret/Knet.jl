@@ -1,163 +1,73 @@
-2015-12-02  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-03  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* zero: We need to be careful about when registers are zeroed and copied.
-	r.tmp never needs to get zeroed.
-	r.out needs zero if read-before-write, otherwise no need.
-	In that case do we still need out vs out0?
-	r.dif needs zero if :incr. (1) after creation, (2) after each use.
-	par.out never zeroed after initialization.
-	par.dif can be zeroed after update!.
+	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
+	read-before-write in the network.  seq means we are running it
+	forw multiple steps before calling back.  They are not the same,
+	we can have seq with fnn, or run rnn for a single step.  When do
+	we need the following, and when can we avoid them:
 
-	Current count after 1 epoch in mnist2d:
-	:CudaArray => 10222
-	:fill!     => 2408
-	:copy!     => 11597
-	:copy      => 1797
+			r+s	!r+s	r+!s	!r+!s
+	par=incr	y	y	n	n	this is only necessary for sequences where par gets read multiple times
+	stack		y	y	n	n	if we ever rewrite out, only happens in sequences (not counting array sharing)
+	out=void	y	n	y	n	this is only necessary if there is read-before-write but it is cheap, if keepstate out=out0 instead
+	out0=0		n	n	n	n	never needed
+	tmp=0		n	n	n	n	never needed
+	dif=void	n	n	n	n	never needed, will never read before write?
+	dif0=0		i	i	i	i	need if incr
 
-	This includes forwback(dtrn), 2x test(dtrn), 2x test(dtst)
-	dtrn has 600, dtst has 100 minibatches.  Too complicated.
+	When the user compiles a net, we know whether or not it is an rnn.
+	Actually we may need to wait until the first forw to see which
+	cond are true, which may change the rnn property.  When the user
+	calls forw we don't know if this is part of a sequence yet.  back
+	can tell this from stack depth if forw uses stack.  We can assume
+	rnn's always go with sequences (otherwise read-before-write does
+	not make sense).  Or always use the stack.  In any case par=incr
+	only necessary if stack depth is more than prog length.  Stack
+	always necessary, it also gives us information about cond, just
+	avoid copy.
 
-	foo.jl: single minibatch.  After forw:
-	:CudaArray => 13
-	:fill!     => 2
-	:copy!     => 3
+	* DONE:
 
-	net.prog has 11 instructions.  net.reg has 11 registers.  All unique.
-
-	forwtest.init: 11 CudaArray, 2 fill!
-	forwtest.iter: +2 CudaArray, +3 copy!
-
-	Using Base.show_backtrace(io, backtrace()):
-	TODO: shows that +2 CudaArray comes from add.jl:75 reshape_to_match.  Does this allocate?  No, but it would be still better to get rid.  Also mul.  Also symmetric broadcasting.
-	2 fill! comes from rgen filling the biases with 0.
-	+1 copy! comes from input copying.
-	DONE: +2 copy! comes from add.jl:116 baddforw1, bias adding copies the array!  we need write-in-place.
-
-	Changing wbf to reuse h reduced init CudaArray to 9.
-	CudaArray: init=9 iter=+2 (input copying + reshape_to_match)
-	fill!: init=2
-	copy!: init=0 iter=+1 (input copying)
-
-	But it should be less, minimum is 7:
-	x  = input()
-	w1 = par()
-	b1 = par()
-	h  = f(w1*x+b1)
-	w2 = par()
-	b2 = par()
-	return f(w2*h+b2)
-
-	TODO: Two problems:
-	- return always introduces a new register.
-	- compound expressions introduce useless registers.
-
-	forw.init: CudaArray=9 fill!=2
-	forw.iter: CudaArray=+2,+5 copy!=+1,+4 copy=+0,+3
-	saved: 2w, x, tmp, return
-	w's do not get copied, they are persistent.
-	need return: output of soft
-	need x: dw = dy * x'
-	need tmp: output of relu
-	So 3 copies are normal, and the fact that we had 0 copies in iter 1 is also good.
-	+1 copy! comes from input copying, normal.
-	+5 CudaArray is 3 stack copy, 1 input copy!, 1 reshape_to_match.
-
-	forwback:
-	forw: (:CudaArray=>11,:fill!=>2,:copy!=>1) ok.
-	back: (:CudaArray=>28,:fill!=>14,:copy!=>4)
-	forw: (:CudaArray=>33,:fill!=>14,:copy!=>8,:copy=>3) need to undo saved when popping! during initback? reset!?
-	back: (:CudaArray=>36,:fill!=>18,:copy!=>11,:copy=>3)
-	forw: (:CudaArray=>41,:fill!=>18,:copy!=>15,:copy=>6)
-	back: (:CudaArray=>44,:fill!=>22,:copy!=>18,:copy=>6) seems 3*CudaArray, 4*fill!, 3*copy!
-
-	Fixed reg.saved in reset:
-	reset:  ()
-	forw:   (:CudaArray=>11,:fill!=>2,:copy!=>1)
-	back:   (:CudaArray=>28,:fill!=>14,:copy!=>4)  # Initial alloc?
-	update: (:CudaArray=>28,:fill!=>14,:copy!=>4)
-	reset:  (:CudaArray=>28,:fill!=>20,:copy!=>4)  # Do we need all 6 fills?
-	forw:   (:CudaArray=>30,:fill!=>20,:copy!=>5)  # copy fixed, 1*copy! for input, no fill!, 1*reshape_to_match
-	back:   (:CudaArray=>33,:fill!=>24,:copy!=>8)  # 3 copy! 4 fill!
-	update: (:CudaArray=>33,:fill!=>24,:copy!=>8)
-	reset:  (:CudaArray=>33,:fill!=>30,:copy!=>8)
-	forw:   (:CudaArray=>35,:fill!=>30,:copy!=>9)
-	back:   (:CudaArray=>38,:fill!=>34,:copy!=>12)
-	update: (:CudaArray=>38,:fill!=>34,:copy!=>12)
-
-	reset:
-	TODO: 4 fills are for parameters, can be avoided if we had non-incr parameters
-***	TODO: 2 fills are for h => overwritten registers should not be counted as multi-output???
-
-	back:
-	initially 3 copy!, 12 fill!, 17 CudaArray
-	each iter 3 copy!, 4 fill!
-	We have 9 registers, 6 of them incr, 8 of them grad
-	so we have 8 dif0, and 6 tmp allocated = 14 CudaArray (the other 3 CudaArray come from copy!)
-	and explains the 8 fill.
-	1 copy!: softloss@loss.jl:67  normal, ygold is copied for gradient calc.
-	TODO: however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
-	2 copy!: back@add.jl:60
-***	TODO: this is bias back and we are not sharing dx and dy?  We should be sharing them, it is the same register!? Oh, but it is incr so one is dif one is tmp.
-	4 fill!: back@back.jl:62
-***	TODO: It zeros each h twice!  Will be fixed with incr vs overwrite issue.
-	TODO: avoid work in initback if nothing changed
-
-	Big question: we want to reuse registers to avoid copy and take advantage of overwrite.
-	This makes them multi-output and brings incr cost?
-	Think carefully about overwritten registers, this is a new phenomenon.
-
-	OK, we switched from array sharing to register sharing.  With
-	array sharing each register (operation output) was distinct, we
-	could reason about their derivatives going back.  If the output of
-	one op was used as input to multiple ops we had :incr.  With
-	register sharing they are no longer distinct.  Multiple ops may
-	overwrite the same register.  So don't think 'gradient wrt a
-	register', still think 'gradient wrt an operator output'.
-	Registers are just storage, they are not the real variables.  An
-	op-output is the real variable.  Only mark with :incr the operator
-	outputs that are used more than once (before getting overwritten).
-	Is overwriting going to cause other trouble?
-
-	So should :grad and :incr be flags on operators or flags on
-	registers?  They should be on operators, registers are just
-	storage!  So does that mean a single register may need multiple
-	difs?  We have no problem with outs, if the value is needed later,
-	it is saved on the stack.  What about the dif?  The execution
-	trace has (op, x, y) on the stack that reflect the input and
-	output of the operation at the time of the forward pass.  difs
-	should not be on registers but on ops as well?  This is almost
-	back to array sharing, except we have array names controlled by
-	the user.  What about pars?  Back pass reads dy and writes dx
-	given (op, x, y).  Why are we sharing arrays anyway?  To avoid
-	extra copying and to save memory.  What about dif sharing, if we
-	have difs assigned to operators, nobody will share?  Should we go
-	back to automatic sharing and revive findout, finddif, findtmp?
-	What storage we use, what name the user accesses are two different
-	issues.  But this goes back very deep.  Gradient needs to know not
-	just which registers were the input, but which operator outputs
-	were they at the forw time.  forw() does not need that
-	information, it can just keep overwriting registers as the user
-	wants.  back() has to be more careful.  Ignore register names,
-	compute which operator fed its output to which operators input.
-	Difs get assigned to operators.  Multi output operators get tmps
-	and incr.  Why not assign out to operators as well?  No storage
-	assigned to registers?  Is this going back to the original design?
-	Dissociate names completely, handle them separately.  This sharing
-	by user was a horrible idea.  All arrays go back to instr.  Reg
-	becomes a hash that points to instr as well, or search in the
-	"name" field of instr.  The register type disappears.  How do we
-	handle stack and saved in the presence of array sharing?  We can
-	have a pointer hash.  All the way back to the compiler :( Are you
-	sure, can this be salvaged, can we just do difs?
-
-	TODO: should we perform memory management for stack by keeping
-	around some arrays that get reused?
-
-	TODO: use ObjectIdDict for copy-on-write.
+	DONE net.jl: implement incref! decref! copy-on-write
+	DONE net.jl: implement get(Net,Symbol)
+	DONE compiler.jl: symbols to numbers
+	DONE fix util.jl: reset!
+	DONE fix initforw
+	DONE fix forw
+	DONE fix initback
+	DONE fix back
+	DONE net.jl: delete Reg
+	DONE rename Ins -> Reg
+	DONE avoid making par incr for fnn
+	DONE back.jl: are we sure y.out has not been changed? must use ysave with loss.
+	DONE can't use get(f,:return) in back, the :forw register is no longer valid, use the stack to see the operations
+	DONE fix lastback rethink lastforw==lastback in a seq context
+	DONE return needs to always save its output to compute loss. should we have a return operator as well as a register?  does nothing except pass its input, but has back_reads_y=true.  do this with copy.  no need for op, did it as extra condition in forw.
 
 	* TODO:
 
- 	0001 -- yonatan language learning model
+	DONE - fix gradcheck
+	DONE linreg
+	DONE mnist2d
+	DONE mnist2dy
+	DONE mnist2dx
+	DONE mnist2dxy
+	0000 mnist4d: giving out-of-memory error.
+	DONE addingirnn
+	0000 addinglstm: gives slightly different result.
+	0000 mnistpixels: gives slightly different result.
+	0000 rnnlm
+	0000 copyseq
+	0000 ncelm
+	0000 ner
+	0000 get all other models to work, sanity check with no array sharing version.
+	0000 length(Adding.net.sdict) => 91 after one minibatch, normal?
+	0000 reimplement array sharing, make it an optional pass for debugging
+	0000 turn CUDArt back to normal
+	0000 copy!: softloss@loss.jl:67 ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
+	0000 shows that +2 CudaArray comes from add.jl:75 reshape_to_match.  Does this allocate?  No, but it would be still better to get rid.  Also mul.  Also symmetric broadcasting.
+	0000 should we perform memory management for stack by keeping around some arrays that get reused?
+	0000 test batch resize
 	0005 *** work on conditionals in compiler
 	0005 - solve the incr problem, user based register sharing may be in trouble.
 	0005 - optimize alloc, copy, fill.
@@ -174,7 +84,6 @@
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
 	0005 - examples: consolidate train/test functions, maybe demo options.
 	0005 - fix compiler to reuse registers and share intermediate tmp
-	0005 - fix gradcheck
 	0005 - fix repeat
 	0005 - initsize: ignore forw=false
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?  # TODO: What if there is a conflict with par.init or a previous eltype?
@@ -197,6 +106,7 @@
 	0010 - the first and second test give different results after load from file
 	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
 	0010 - saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
+ 	0011 -- yonatan language learning model
 	0020 saman: add lcn example to knet, push lcn branch to	master.
 	0020 saman: profile lcn
 	0100 *** examples:
@@ -292,6 +202,161 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-12-02  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* zero: We need to be careful about when registers are zeroed and copied.
+	r.tmp never needs to get zeroed.
+	r.out needs zero if read-before-write, otherwise no need.
+	In that case do we still need out vs out0?
+	r.dif needs zero if :incr. (1) after creation, (2) after each use.
+	par.out never zeroed after initialization.
+	par.dif can be zeroed after update!.
+
+	Current count after 1 epoch in mnist2d:
+	:CudaArray => 10222
+	:fill!     => 2408
+	:copy!     => 11597
+	:copy      => 1797
+
+	This includes forwback(dtrn), 2x test(dtrn), 2x test(dtst)
+	dtrn has 600, dtst has 100 minibatches.  Too complicated.
+
+	foo.jl: single minibatch.  After forw:
+	:CudaArray => 13
+	:fill!     => 2
+	:copy!     => 3
+
+	net.prog has 11 instructions.  net.reg has 11 registers.  All unique.
+
+	forwtest.init: 11 CudaArray, 2 fill!
+	forwtest.iter: +2 CudaArray, +3 copy!
+
+	Using Base.show_backtrace(io, backtrace()):
+	+2 CudaArray comes from add.jl:75 reshape_to_match
+	2 fill! comes from rgen filling the biases with 0.
+	+1 copy! comes from input copying.
+	DONE: +2 copy! comes from add.jl:116 baddforw1, bias adding copies the array!  we need write-in-place.
+
+	Changing wbf to reuse h reduced init CudaArray to 9.
+	CudaArray: init=9 iter=+2 (input copying + reshape_to_match)
+	fill!: init=2
+	copy!: init=0 iter=+1 (input copying)
+
+	But it should be less, minimum is 7:
+	x  = input()
+	w1 = par()
+	b1 = par()
+	h  = f(w1*x+b1)
+	w2 = par()
+	b2 = par()
+	return f(w2*h+b2)
+
+	DONE: Two problems:
+	- return always introduces a new register.
+	- compound expressions introduce useless registers.
+	- will go away when we go back to array sharing.
+
+	forw.init: CudaArray=9 fill!=2
+	forw.iter: CudaArray=+2,+5 copy!=+1,+4 copy=+0,+3
+	saved: 2w, x, tmp, return
+	w's do not get copied, they are persistent.
+	need return: output of soft
+	need x: dw = dy * x'
+	need tmp: output of relu
+	So 3 copies are normal, and the fact that we had 0 copies in iter 1 is also good.
+	+1 copy! comes from input copying, normal.
+	+5 CudaArray is 3 stack copy, 1 input copy!, 1 reshape_to_match.
+
+	forwback:
+	forw: (:CudaArray=>11,:fill!=>2,:copy!=>1) ok.
+	back: (:CudaArray=>28,:fill!=>14,:copy!=>4)
+	forw: (:CudaArray=>33,:fill!=>14,:copy!=>8,:copy=>3) need to undo saved when popping! during initback? reset!?
+	back: (:CudaArray=>36,:fill!=>18,:copy!=>11,:copy=>3)
+	forw: (:CudaArray=>41,:fill!=>18,:copy!=>15,:copy=>6)
+	back: (:CudaArray=>44,:fill!=>22,:copy!=>18,:copy=>6) seems 3*CudaArray, 4*fill!, 3*copy!
+
+	Fixed reg.saved in reset:
+	reset:  ()
+	forw:   (:CudaArray=>11,:fill!=>2,:copy!=>1)
+	back:   (:CudaArray=>28,:fill!=>14,:copy!=>4)  # Initial alloc?
+	update: (:CudaArray=>28,:fill!=>14,:copy!=>4)
+	reset:  (:CudaArray=>28,:fill!=>20,:copy!=>4)  # Do we need all 6 fills?
+	forw:   (:CudaArray=>30,:fill!=>20,:copy!=>5)  # copy fixed, 1*copy! for input, no fill!, 1*reshape_to_match
+	back:   (:CudaArray=>33,:fill!=>24,:copy!=>8)  # 3 copy! 4 fill!
+	update: (:CudaArray=>33,:fill!=>24,:copy!=>8)
+	reset:  (:CudaArray=>33,:fill!=>30,:copy!=>8)
+	forw:   (:CudaArray=>35,:fill!=>30,:copy!=>9)
+	back:   (:CudaArray=>38,:fill!=>34,:copy!=>12)
+	update: (:CudaArray=>38,:fill!=>34,:copy!=>12)
+
+	reset:
+	DONE: 4 fills are for parameters, can be avoided if we had non-incr parameters
+	DONE: 2 fills are for h => overwritten registers should not be counted as multi-output???
+
+	back:
+	initially 3 copy!, 12 fill!, 17 CudaArray
+	each iter 3 copy!, 4 fill!
+	We have 9 registers, 6 of them incr, 8 of them grad
+	so we have 8 dif0, and 6 tmp allocated = 14 CudaArray (the other 3 CudaArray come from copy!)
+	and explains the 8 fill.
+	1 copy!: softloss@loss.jl:67  normal, ygold is copied for gradient calc.
+	ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
+	2 copy!: back@add.jl:60
+	DONE: this is bias back and we are not sharing dx and dy?  We should be sharing them, it is the same register!? Oh, but it is incr so one is dif one is tmp.
+	4 fill!: back@back.jl:62
+	DONE: It zeros each h twice!  Will be fixed with incr vs overwrite issue.
+	DONE: avoid work in initback if nothing changed
+
+	Big question: we want to reuse registers to avoid copy and take advantage of overwrite.
+	This makes them multi-output and brings incr cost?
+	Think carefully about overwritten registers, this is a new phenomenon.
+
+	OK, we switched from array sharing to register sharing.  With
+	array sharing each register (operation output) was distinct, we
+	could reason about their derivatives going back.  If the output of
+	one op was used as input to multiple ops we had :incr.  With
+	register sharing they are no longer distinct.  Multiple ops may
+	overwrite the same register.  So don't think 'gradient wrt a
+	register', still think 'gradient wrt an operator output'.
+	Registers are just storage, they are not the real variables.  An
+	op-output is the real variable.  Only mark with :incr the operator
+	outputs that are used more than once (before getting overwritten).
+	Is overwriting going to cause other trouble?
+
+	So should :grad and :incr be flags on operators or flags on
+	registers?  They should be on operators, registers are just
+	storage!  So does that mean a single register may need multiple
+	difs?  We have no problem with outs, if the value is needed later,
+	it is saved on the stack.  What about the dif?  The execution
+	trace has (op, x, y) on the stack that reflect the input and
+	output of the operation at the time of the forward pass.  difs
+	should not be on registers but on ops as well?  This is almost
+	back to array sharing, except we have array names controlled by
+	the user.  What about pars?  Back pass reads dy and writes dx
+	given (op, x, y).  Why are we sharing arrays anyway?  To avoid
+	extra copying and to save memory.  What about dif sharing, if we
+	have difs assigned to operators, nobody will share?  Should we go
+	back to automatic sharing and revive findout, finddif, findtmp?
+	What storage we use, what name the user accesses are two different
+	issues.  But this goes back very deep.  Gradient needs to know not
+	just which registers were the input, but which operator outputs
+	were they at the forw time.  forw() does not need that
+	information, it can just keep overwriting registers as the user
+	wants.  back() has to be more careful.  Ignore register names,
+	compute which operator fed its output to which operators input.
+	Difs get assigned to operators.  Multi output operators get tmps
+	and incr.  Why not assign out to operators as well?  No storage
+	assigned to registers?  Is this going back to the original design?
+	Dissociate names completely, handle them separately.  This sharing
+	by user was a horrible idea.  All arrays go back to instr.  Reg
+	becomes a hash that points to instr as well, or search in the
+	"name" field of instr.  The register type disappears.  How do we
+	handle stack and saved in the presence of array sharing?  We can
+	have a pointer hash.  All the way back to the compiler :( Are you
+	sure, can this be salvaged, can we just do difs?
+
+	DONE: use ObjectIdDict for copy-on-write.
 
 2015-11-30  Deniz Yuret  <dyuret@ku.edu.tr>
 

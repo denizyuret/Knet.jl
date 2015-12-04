@@ -1,50 +1,16 @@
 ### Cleanup at the beginning/end of sequence
 
 function reset!(f::Net; keepstate=false, a...)
-    @assert isempty(f.stack)
-    for r in registers(f)
-        r.out = (keepstate ? r.out0 : nothing)
-        r.dif = nothing
-        r.saved = false
-        get(r,:incr) && fill!(r.dif0, 0)
+    isempty(f.stack) || warn("Stack not empty")
+    empty!(f.stack)
+    empty!(f.sdict)
+    for p in registers(f)
+        p.out = (keepstate ? p.out0 : nothing)
+        p.dif = nothing
+        get(p,:incr) && fill!(p.dif0, 0)
     end
+    # Base.show_backtrace(STDOUT,backtrace());println()
 end
-
-registers(f::Net)=values(f.reg)
-instructions(f::Net)=f.prog
-output_register(f::Net,p::Ins)=get(f.reg,p.output,nothing)
-input_registers(f::Net,p::Ins)=map(s->get(f.reg,s,nothing), p.inputs)
-input_arrays(f::Net,p::Ins)=map(s->(haskey(f.reg,s) ? f.reg[s].out : nothing), p.inputs)
-
-nops(f::Net)=length(f.prog)
-Base.length(f::Net)=length(f.prog)
-params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.prog))
-ninputs(f::Net)=count(x->isa(x.op,Input), f.prog)
-inputs(f::Net,n)=f.prog[n].inputs
-output(f::Net,n)=f.prog[n].output
-forwref(f::Net,n)=any(i->in(output(f,n),inputs(f,i)), 1:n-1)
-
-getprop(p::Ins,k,d=false)=get(p.plist,k,d)
-setprop!(p::Ins,k,v=true)=(p.plist[k]=v)
-set!(p::Ins,k,v=true)=setprop!(p,k,v)
-
-getprop(p::Reg,k,d=false)=get(p.plist,k,d)
-setprop!(p::Reg,k,v=true)=(p.plist[k]=v)
-set!(p::Reg,k,v=true)=setprop!(p,k,v)
-inc!(p::Reg,k)=set!(p,k,1+get(p,k))
-
-getreg(f::Net,k::Symbol)=get(f.reg,k,nothing)
-getdif(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
-getout(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
-getreg(f::Net,p::Ins)=getreg(f,p.output)
-getdif(f::Net,p::Ins)=getdif(f,p.output)
-getout(f::Net,p::Ins)=getout(f,p.output)
-
-Base.get(f::Net,k)=getout(f,k)
-Base.get(p::Ins,k,d=false)=getprop(p,k,d)
-Base.get(p::Reg,k,d=false)=getprop(p,k,d)
-
-Base.copy!(r::Reg,x)=(r.out=copy!(r.out0,x))
 
 
 ### General utilities:

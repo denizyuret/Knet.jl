@@ -3,9 +3,33 @@
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 # Usage: julia adding.jl [opts], use --help for a full list of opts.
 
-using Knet, ArgParse
+module Adding
+using Main, Knet, ArgParse, CUDArt
 
-@knet function s2c(x; rnn=nothing, hidden=0, o...)
+function main(args=ARGS)
+    info("Adding problem from Le et al. 2015.")
+    isa(args, AbstractString) && (args=split(args))
+    opts = parse_commandline(args) # TODO: get option processing back in here
+    println(opts)
+    opts["seed"] > 0 && setseed(opts["seed"])
+    global data = Data(opts["length"], opts["batchsize"], opts["epochsize"])
+    # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    global net = compile(:adding; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    # TODO: can pass opts in directly to compile as hash if keys were symbols
+    # TODO: winit should probably be Xavier, at least give the user the option
+    setopt!(net; lr=opts["lrate"])
+    mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
+    for epoch=1:opts["epochs"]
+        train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        mse = 2*l[1]/l[2]
+        println(tuple(epoch*data.epochsize,mse,m...))
+        opts["gcheck"] > 0 && gradcheck(net,f->gradloss(f,data,quadloss;grad=true),f->gradloss(f,data,quadloss);gcheck=opts["gcheck"])
+        flush(STDOUT)
+    end
+    return (mse, m...)
+end
+
+@knet function adding(x; rnn=nothing, hidden=0, o...)
     h = rnn(x; o..., out=hidden)
     if predict
         return wb(h; o..., out=1)
@@ -16,12 +40,12 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     reset!(f)
     for (x,ygold) in data
         if ygold == nothing
-            forw(f, x; save=true, predict=false)
+            forw(f, x; predict=false)
         else
-            ypred = forw(f, x; save=true, predict=true) # TODO: better name than save?  save!=seq?  rnntrain?
+            ypred = forw(f, x; predict=true)
             losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
-            ygrad = back(f, ygold, loss; seq=true) # TODO: do we get the conditionals from forw pass or recalculate?
-            while f.sp > 0; back(f; seq=true); end # TODO: f.sp is too low level
+            back(f, ygold, loss)
+            while !isempty(f.stack); back(f); end # TODO: f.stack is too low level
             g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
             gscale = (g > gclip > 0 ? gclip/g : 0)
             update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
@@ -31,45 +55,46 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     end
 end
 
-function adding(args=ARGS)
-    info("Adding problem from Le et al. 2015.")
-    isa(args, AbstractString) && (args=split(args))
-    opts = parse_commandline(args) # TODO: get option processing back in here
-    println(opts)
-    opts["seed"] > 0 && setseed(opts["seed"])
-    global data = Adding(opts["length"], opts["batchsize"], opts["epochsize"])
-    # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
-    global net = compile(:s2c; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
-    # TODO: can pass opts in directly to compile as hash if keys were symbols
-    # TODO: winit should probably be Xavier, at least give the user the option
-    setopt!(net; lr=opts["lrate"])
-    mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
-    for epoch=1:opts["epochs"]
-        train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        mse = 2*l[1]/l[2]
-        println(tuple(epoch*data.epochsize,mse,m...))
-        opts["gcheck"] > 0 && gradcheck(net,data,quadloss;gcheck=opts["gcheck"])
-        flush(STDOUT)
+function gradloss(f::Net, data, loss; grad=false, seed=42)
+    data_rng = data.rng
+    data.rng = MersenneTwister()
+    srand(data.rng, seed)
+    reset!(f)
+    myforw = grad ? forw : forwtest
+    loss1 = 0
+    for (x,ygold) in data
+        if ygold == nothing
+            myforw(f, x; predict=false)
+        else
+            ypred = myforw(f, x; predict=true)
+            loss1 = loss(ypred, ygold)
+            if grad
+                back(f, ygold, loss)
+                while !isempty(f.stack); back(f); end
+            end
+            break
+        end
     end
-    return (mse, m...)
+    data.rng = data_rng
+    return loss1
 end
 
 # Data generator:
 
 import Base: start, next, done
 
-type Adding; len; batchsize; epochsize; batch; sum; cnt; rng;
-    Adding(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
+type Data; len; batchsize; epochsize; batch; sum; cnt; rng;
+    Data(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
     new(len, batchsize, epochsize, zeros(Float32,2,batchsize), 
         zeros(Float32,1,batchsize), zeros(Int,1,batchsize), rng)
 end
 
 # state keeps track of instance number, time step
-start(a::Adding)=(0,0)
+start(a::Data)=(0,0)
 
-done(a::Adding,s)=(s[1] >= a.epochsize)
+done(a::Data,s)=(s[1] >= a.epochsize)
 
-function next(a::Adding, s)
+function next(a::Data, s)
     (n,t) = s
     t == 0 && (fill!(a.sum, 0); fill!(a.cnt, 0))
     rand!(a.rng, sub(a.batch,1,:))
@@ -144,7 +169,9 @@ function parse_commandline(args)
     parse_args(args,s)
 end
 
-!isinteractive() && !isdefined(:load_only) && adding(ARGS)
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+
+end #module
 
 ### SAMPLE RUNS: Mon Sep 28 21:22:01 PDT 2015
 

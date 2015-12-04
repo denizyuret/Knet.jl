@@ -45,12 +45,12 @@ function _comp_inst(prog)
         (op,x,y,cond) = prog[n]
         s2i[y] = n
     end
-    inst = Array(Ins,length(prog))
+    inst = Array(Reg,length(prog))
     for n=1:length(prog)
         (op,x,y,cond) = prog[n]
         inputs = convert(Vector{Int}, map(s->s2i[s], x))
         plist = Dict{Symbol,Any}(:name => y)
-        inst[n] = Ins(op, inputs, cond, plist)
+        inst[n] = Reg(op, inputs, cond, plist)
         s2i[y] = n
     end
     return inst
@@ -87,7 +87,7 @@ function _comp{T<:Op}(f::Type{T}; o...)
 end
 
 # _comp compiles expr in the context defined by name, value, and cond.
-# It returns a Vector{Ins} array of instructions.
+# It returns a Vector{Reg} array of instructions.
 # name is a Dict{Symbol,Symbol} that provides name substitution rules.
 # value is a Dict{Symbol,Any} that gives values for variables.
 # cond is an Expr that gives the current condition.

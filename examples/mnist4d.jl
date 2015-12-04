@@ -1,6 +1,7 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 # 4-D convolution test
 
+module MNIST4D
 using Knet, ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
@@ -11,12 +12,12 @@ isdefined(:MNIST) || include("mnist.jl")
     return wbf(x3; out=10, f=:soft)
 end
 
-function mnist4d(args=ARGS)
+function main(args=ARGS)
     info("Testing lenet (convolutional net) on MNIST")
     s = ArgParseSettings()
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=42)
-        ("--nbatch"; arg_type=Int; default=100)
+        ("--batchsize"; arg_type=Int; default=100)
         ("--lr"; arg_type=Float64; default=0.1)
         ("--epochs"; arg_type=Int; default=3)
         ("--gcheck"; arg_type=Int; default=0)
@@ -27,18 +28,18 @@ function mnist4d(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    dtrn = minibatch(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn, nbatch)
-    dtst = minibatch(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst, nbatch)
+    global dtrn = minibatch(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn, batchsize)
+    global dtst = minibatch(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst, batchsize)
 
-    lenet = compile(:lenet_model)
-    setopt!(lenet; lr=lr)
+    global net = compile(:lenet_model)
+    setopt!(net; lr=lr)
     l=zeros(2); m=zeros(2)
     for epoch=1:epochs
-        train(lenet,dtrn,softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        atrn = 1-test(lenet,dtrn,zeroone)
-        atst = 1-test(lenet,dtst,zeroone)
+        train(net,dtrn,softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
+        atrn = 1-test(net,dtrn,zeroone)
+        atst = 1-test(net,dtst,zeroone)
         println((epoch, atrn, atst, l[1]/l[2], m...))
-        gcheck > 0 && gradcheck(lenet,dtrn,softloss; gcheck=gcheck)
+        gcheck > 0 && gradcheck(net, f->getgrad(f,dtrn,softloss), f->getloss(f,dtrn,softloss); gcheck=gcheck)
     end
     return (l[1]/l[2],m...)
 end
@@ -74,7 +75,24 @@ function minibatch(x, y, batchsize)
     return data
 end
 
-!isinteractive() && !isdefined(:load_only) && mnist4d(ARGS)
+function getgrad(f, data, loss)
+    (x,ygold) = first(data)
+    reset!(f)
+    ypred = forw(f, x)
+    back(f, ygold, loss)
+    loss(ypred, ygold)
+end
+
+function getloss(f, data, loss)
+    (x,ygold) = first(data)
+    reset!(f)
+    ypred = forwtest(f, x)
+    loss(ypred, ygold)
+end
+
+!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
+
+end # module
 
 
 ### DEAD CODE:

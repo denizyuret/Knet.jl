@@ -7,7 +7,7 @@ FNN's do not need reset, and RNNs only do at the end of a sequence.
 """
 function initforw(f::Net, inputs...; o...)
     @assert length(inputs) == ninputs(f)
-    if (f.lastforw == nothing
+    if (!isdefined(f,:lastforw)
         || map(typeof, inputs) != f.lastforw[1]
         || map(size, inputs) != f.lastforw[2]
         || sort(o) != f.lastforw[3])
@@ -20,17 +20,19 @@ function initforw(f::Net, inputs...; o...)
 end
 
 
-# initcond(f::Net; o...) sets the :forw property of each f.prog[n] which
-# is determined by evaluating f.prog[n].cond in the context of the
+# initcond(f::Net; o...) sets the :forw property of each f.reg[n] which
+# is determined by evaluating f.reg[n].cond in the context of the
 # kwargs passed to forw.
 
 function initcond(f::Net; o...)
-    for p in f.prog; setprop!(p,:forw,false); end
+    for p in registers(f)
+        set!(p,:forw,false)
+    end
     d = Dict(o)
-    for p in f.prog
+    for p in registers(f)
         c = condeval(p.cond,d)
-        setprop!(p,:forw,c)
-        c && (p.output == :return) && break
+        set!(p,:forw,c)
+        c && isreturn(p) && break
     end
 end
 
@@ -45,36 +47,35 @@ function condeval(s,d::Dict)
 end
 
 function initsize(f::Net, inputs...)
-    for (n,r) in f.reg; r.size = nothing; end
-    lastinput = 0
-    for p in f.prog
-        isa(p.op, Input) || continue
-        r = f.reg[p.output]
-        s = size(inputs[lastinput += 1])
-        r.size == nothing ? (r.size = s) : (@assert r.size==s)
+    for p in registers(f)
+        set!(p,:size,nothing)
     end
-    nodims(x)=(x.size==nothing || prod(x.size)==0)
-    notfound = count(nodims, values(f.reg))
+    lastinput = 0
+    for p in registers(f)
+        isa(p.op, Input) || continue
+        set!(p,:size,size(inputs[lastinput += 1]))
+    end
+    nodims(p)=(s=get(p,:size); s==nothing || prod(s)==0)
+    notfound = count(nodims, registers(f))
     while notfound > 0
-        for p in f.prog
+        for p in registers(f)
             isa(p.op, Input) && continue
-            y = f.reg[p.output]
-            dy = y.size
-            dx = [ f.reg[i].size for i in p.inputs]
+            dy = get(p,:size)
+            dx = map(x->get(x,:size), get(f,p.inputs))
             d = infersize(p.op, dx..., dy)
             d == nothing && continue
-            y.size = d[end]
+            set!(p,:size,d[end])
             for i=1:length(p.inputs)
-                f.reg[p.inputs[i]].size = d[i]
+                set!(get(f,p.inputs[i]),:size,d[i])
             end
         end
-        nf = count(nodims, values(f.reg))
+        nf = count(nodims, registers(f))
         nf == notfound && error("Cannot infer sizes")
         notfound = nf
     end
 end
 
-# inittype: Determines element and array type of r.out0 for each register r.
+# inittype: Determines element and array type of p.out0 for each register p.
 function inittype(f::Net, inputs...)
     isempty(inputs) && error("Don't know how to infer eltype with inputless networks yet.")
     ftype = eltype(inputs[1])
@@ -82,27 +83,26 @@ function inittype(f::Net, inputs...)
         eltype(i) == ftype || error("Conflicting element type in input $i.")
     end
     lastinput = 0
-    for p in f.prog
-        r = f.reg[p.output]
-        r.eltype = ftype
+    for p in registers(f)
+        set!(p,:eltype,ftype)
         if isa(p.op,Input) && issparse(inputs[lastinput+=1])
-            r.outtype = (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC)
+            set!(p,:outtype, (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC))
         else
-            r.outtype = (gpu() ? CudaArray : Array)
+            set!(p,:outtype, (gpu() ? CudaArray : Array))
         end
     end
 end
 
 function initout0(f::Net, inputs...)
-    for p in f.prog
+    for p in registers(f)
         get(p,:forw) || continue
-        r = f.reg[p.output]
-        if checkarray(r, :out0, r.outtype, r.eltype, r.size)
+        at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
+        if checkarray(p, :out0, at, et, sz)
             # all done
-        elseif isdefined(r,:out0) && (isa(p.op, Par) || isa(p.op, Arr))
+        elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
             error("Size or type change not allowed in parameters and constants")
         else
-            r.out0 = newarray(r.outtype, r.eltype, r.size)
+            p.out0 = newarray(at, et, sz)
         end
     end
 end

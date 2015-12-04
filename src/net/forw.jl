@@ -34,44 +34,37 @@ performs the same computation but does not touch the stack.
 function forw(f::Net, input...; kwargs...)
     initforw(f, input...; kwargs...)
     lastinput = 0
-    for p in instructions(f)
-        get(p,:forw) || (push!(f.stack, nothing); continue)
-        y = output_register(f,p)
-        x = input_registers(f,p)
-        xout = map(r->r.out, x)
-        y.saved && !ispersistent(p) && (y.out0 = copy(y.out0); y.saved=false)       # copy-on-write
-        y.out = (isa(p.op, Input) ?
-                 copy!(y.out0, input[lastinput += 1]) :
-                 forw(p.op, xout..., y.out0; kwargs...))
-        xsave = ysave = nothing
-        if back_reads_x(p.op)
-            xsave = xout
-            for r in x; r.saved = true; end
+    for y in registers(f)
+        get(y,:forw) || (push!(f, nothing); continue)
+        xout = inputs(f,y)
+        !ispersistent(y) && haskey(f.sdict,y.out0) && (y.out0 = copy(y.out0))  # copy-on-write
+        if isa(y.op, Input)
+            y.out = copy!(y.out0, input[lastinput += 1])
+        else
+            y.out = forw(y.op, xout..., y.out0; kwargs...)
         end
-        if back_reads_y(p.op)
-            ysave = y.out
-            y.saved = true
-        end
-        push!(f.stack, (p, xsave, ysave))
+        xsave = back_reads_x(y.op) ? xout  : nothing
+        ysave = back_reads_y(y.op) || isreturn(y) ? y.out : nothing
+        push!(f, (y, xsave, ysave))
     end
-    return get(f,:return)
+    return out(f,:return)
 end
 
 function forwtest(f::Net, input...; kwargs...)
     initforw(f, input...; kwargs...)
     lastinput = 0
-    for p in instructions(f)
-        get(p,:forw) || continue
-        y = output_register(f,p)
-        y.out = (isa(p.op, Input) ?
+    for y in registers(f)
+        get(y,:forw) || continue
+        y.out = (isa(y.op, Input) ?
                  copy!(y.out0, input[lastinput += 1]) :
-                 forw(p.op, input_arrays(f,p)..., y.out0; kwargs...))
+                 forw(y.op, inputs(f,y)..., y.out0; kwargs...))
     end
-    return get(f,:return)
+    return out(f,:return)
 end
 
 # We do not need to copy persistent registers, they are guaranteed not to change during forwback.
-ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr))
+ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
+isreturn(p::Reg)=(get(p,:name)==:return)
 
 ### DEAD CODE:
     # yout != nothing && copy!(yout, r.out[N])

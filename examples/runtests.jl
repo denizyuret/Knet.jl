@@ -1,9 +1,9 @@
 using Knet, ArgParse, Base.Test
 
 # Uncomment these if you want lots of messages:
-import Base.Test: default_handler, Success, Failure, Error
+# import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
-default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 load_only = true
@@ -33,23 +33,23 @@ twice = opts["twice"]
 
 if opts["all"] || opts["linreg"]
     include("linreg.jl")
-    @time @show test1 = linreg("--gcheck $gcheck")
+    @time @show test1 = LinReg.main("--gcheck $gcheck")
     #@test test1 == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
     #@test test1 == (0.0005497372347062409,32.77256166946497,0.11244349406522969) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     @test  test1 == (0.0005497846637255734,32.77257400591496,0.11265426200775067) # Wed Nov 18 21:39:18 PST 2015: xavier init
-    twice && (@time @show test1 = linreg("--gcheck $gcheck"))
+    twice && (@time @show test1 = LinReg.main("--gcheck $gcheck"))
     # 0.739858 seconds (394.09 k allocations: 71.335 MB, 1.23% gc time) Tue Oct 20 18:29:41 PDT 2015
     # 0.731515 seconds (391.62 k allocations: 71.451 MB, 1.21% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
 end
 
 if opts["all"] || opts["mnist2d"]
     include("mnist2d.jl")
-    @time @show test2 = mnist2d("--gcheck $gcheck")
+    @time @show test2 = MNIST2D.main("--gcheck $gcheck")
     # @test test2 == (0.10628127f0,24.865438f0,3.5134742f0)
     # @test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
     # @test test2 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
     @test   test2 == (0.108679175f0,43.344624f0,3.0013776f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
-    twice && (gc(); @time @show test2 = mnist2d("--gcheck $gcheck"))
+    twice && (gc(); @time @show test2 = MNIST2D.main("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 7.031675 seconds (3.47 M allocations: 158.983 MB, 1.31% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -58,11 +58,11 @@ end
 
 if opts["all"] || opts["mnist2dy"]
     isdefined(:mnist2d) || include("mnist2d.jl")
-    @time @show test3 = mnist2d("--ysparse --gcheck $gcheck")
+    @time @show test3 = MNIST2D.main("--ysparse --gcheck $gcheck")
     #@test test3 == (0.1062698f0,24.866688f0,3.513474f0)
     #@test test3 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
     @test  test3 == (0.10906915f0,43.341377f0,3.1931002f0)  # Wed Nov 18 21:39:18 PST 2015: xavier init
-    twice && (gc(); @time @show test3 = mnist2d("--ysparse --gcheck $gcheck"))
+    twice && (gc(); @time @show test3 = MNIST2D.main("--ysparse --gcheck $gcheck"))
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
     # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 8.542426 seconds (3.73 M allocations: 181.290 MB, 2.06% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -71,7 +71,7 @@ end
 
 if opts["all"] || opts["mnist2dx"]
     isdefined(:mnist2d) || include("mnist2d.jl")
-    @time @show test4 = mnist2d("--xsparse --gcheck $gcheck")
+    @time @show test4 = MNIST2D.main("--xsparse --gcheck $gcheck")
 
     # @test isapprox(test4[1], 0.10628127f0; rtol=0.005)
     # @test isapprox(test4[2], 24.865437f0; rtol=0.002)
@@ -87,7 +87,7 @@ if opts["all"] || opts["mnist2dx"]
     @test isapprox(test4[2], 43.36849f0; rtol=0.001)
     @test isapprox(test4[3], 3.2359037f0; rtol=0.1)
 
-    twice && (gc(); @time @show test4 = mnist2d("--xsparse --gcheck $gcheck"))
+    twice && (gc(); @time @show test4 = MNIST2D.main("--xsparse --gcheck $gcheck"))
     # 12.362125 seconds (3.81 M allocations: 753.744 MB, 1.87% gc time) Tue Oct 20 19:13:25 PDT 2015
     # 11.751002 seconds (3.84 M allocations: 753.959 MB, 1.95% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 12.005169 seconds (3.95 M allocations: 761.003 MB, 1.90% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -96,7 +96,7 @@ end
 
 if opts["all"] || opts["mnist2dxy"]
     isdefined(:mnist2d) || include("mnist2d.jl")
-    @time @show test5 = mnist2d("--xsparse --ysparse --gcheck $gcheck")
+    @time @show test5 = MNIST2D.main("--xsparse --ysparse --gcheck $gcheck")
     # @test isapprox(test5[1], 0.10628127f0; rtol=0.005)
     # @test isapprox(test5[2], 24.865437f0; rtol=0.002)
     # @test isapprox(test5[3], 3.5134742f0; rtol=0.02) # cannot compute csru vecnorm
@@ -111,7 +111,7 @@ if opts["all"] || opts["mnist2dxy"]
     @test isapprox(test5[2], 43.368706f0; rtol=0.001)
     @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
 
-    twice && (gc(); @time @show test5 = mnist2d("--xsparse --ysparse --gcheck $gcheck"))
+    twice && (gc(); @time @show test5 = MNIST2D.main("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
     # 13.320959 seconds (4.11 M allocations: 776.397 MB, 2.29% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 13.339761 seconds (4.23 M allocations: 783.602 MB, 2.27% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -120,7 +120,7 @@ end
 
 if opts["all"] || opts["mnist4d"]
     include("mnist4d.jl")
-    @time @show test6 = mnist4d("--gcheck $gcheck")
+    @time @show test6 = MNIST4D.main("--gcheck $gcheck")
 
     # @test isapprox(test6[1], 0.050180204f0; rtol=.01)
     # @test isapprox(test6[2], 25.783848f0;   rtol=.01)
@@ -136,7 +136,7 @@ if opts["all"] || opts["mnist4d"]
     @test isapprox(test6[2], 65.9176; rtol=0.001)
     @test isapprox(test6[3], 7.65231; rtol=0.1)
 
-    twice && (gc(); @time @show test6 = mnist4d("--gcheck $gcheck"))
+    twice && (gc(); @time @show test6 = MNIST4D.main("--gcheck $gcheck"))
     # 17.093371 seconds (10.15 M allocations: 479.611 MB, 1.11% gc time) Tue Oct 20 19:09:19 PDT 2015
     # 17.135514 seconds (10.38 M allocations: 494.816 MB, 1.11% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 17.002958 seconds (10.58 M allocations: 499.822 MB, 1.11% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
@@ -145,7 +145,7 @@ end
 if opts["all"] || opts["mnistpixels"]
     include("mnistpixels.jl")
 
-    # @time @show test7 = mnistpixels("--gcheck $gcheck")
+    # @time @show test7 = MNISTPixels.main("--gcheck $gcheck")
     # 9.909841 seconds (45.76 M allocations: 1.208 GB, 3.52% gc time)
     # 8.877034 seconds (43.27 M allocations: 1.099 GB, 4.33% gc time)
     # @test test7  == (0.1216,2.3023171f0,10.4108f0,30.598776f0)
@@ -153,34 +153,34 @@ if opts["all"] || opts["mnistpixels"]
     # @test test7 == (0.12159999999999982,2.3023171f0,10.412794f0,30.598776f0) # measuring wnorm after update now
 
     # switch to lstm so we can gradcheck, too slow for gcheck>1
-    @time @show test7 = mnistpixels("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128") 
+    @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128") 
     @test test7 == (0,2.3025737f0,14.70776f0,0.12069904f0) # switched to --gcheck 1 --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128
-    twice && (gc(); @time @show test7 = mnistpixels("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128"))
+    twice && (gc(); @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128"))
     # 2.599979 seconds (5.19 M allocations: 212.248 MB, 2.77% gc time)  Tue Oct 20 19:07:11 PDT 2015
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
 end
 
 if opts["all"] || opts["addinglstm"]
     include("adding.jl")
-    @time @show test8 = adding("--gcheck $gcheck --epochs 1 --nettype lstm")
+    @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm")
 
     @test test8 == (0.24768005f0,3.601481f0,1.2290705f0)      # switched to --epochs 1 --nettype lstm, gradcheck does not work with irnn/relu
 
-    twice && (gc(); @time @show test8 = adding("--gcheck $gcheck --epochs 1 --nettype lstm"))
+    twice && (gc(); @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm"))
     # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
     # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
 end
 
 if opts["all"] || opts["addingirnn"]
     include("adding.jl")
-    @time @show test8b = adding("--gcheck $gcheck")
+    @time @show test8b = Adding.main("--gcheck $gcheck")
 
     # @test test8b  == (0.04885713f0, 5.6036315f0,3.805253f0)  	# --epochs 20 --nettype irnn
     # @test test8b  == (0.04885713f0, 5.6057444f0, 3.805253f0) 	# measuring wnorm after update now
     # @test test8b == (0.05627571f0,5.484082f0,4.1594324f0)    	# new generator
     @test test8b == (0.056275677f0,5.484083f0,4.159457f0)	# 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
 
-    twice && (gc(); @time @show test8b = adding("--gcheck $gcheck"))
+    twice && (gc(); @time @show test8b = Adding.main("--gcheck $gcheck"))
     # 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time) # --epochs 20 --nettype irnn
     # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn

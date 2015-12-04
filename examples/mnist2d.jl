@@ -1,14 +1,15 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
+module MNIST2D
 using Knet,ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
-function mnist2d(args=ARGS)
+function main(args=ARGS)
     info("Testing simple mlp on MNIST")
     s = ArgParseSettings()
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=42)
-        ("--nbatch"; arg_type=Int; default=100)
+        ("--batchsize"; arg_type=Int; default=100)
         ("--epochs"; arg_type=Int; default=3)
         ("--gcheck"; arg_type=Int; default=0) # TODO: fix gcheck
         ("--xsparse"; action=:store_true)
@@ -22,8 +23,8 @@ function mnist2d(args=ARGS)
 
     fx = (xsparse ? sparse : identity)
     fy = (ysparse ? sparse : identity)
-    global dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), nbatch)
-    global dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), nbatch)
+    global dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), batchsize)
+    global dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), batchsize)
 
     global net = compile(:mnist2layer)
     setopt!(net, lr=0.5)
@@ -40,7 +41,7 @@ function mnist2d(args=ARGS)
         ltst = test(net, dtst, softloss)
         atst = 1-test(net, dtst, zeroone)
         println((epoch,l[1]/l[2],m[1],m[2],ltrn,atrn,ltst,atst))
-        # gcheck > 0 && gradcheck(net, dtrn, softloss; gcheck=gcheck)
+        gcheck > 0 && gradcheck(net, f->getgrad(f,dtrn,softloss), f->getloss(f,dtrn,softloss); gcheck=gcheck)
         # println((epoch,ltrn,atrn,ltst,atst))
     end
     # return (epochs,ltrn,atrn,ltst,atst)
@@ -52,7 +53,7 @@ end
     return wbf(h; out=10, f=:soft)
 end
 
-function train0(f::Net, data, loss)
+function train0(f, data, loss)
     for (x,y) in data
         reset!(f)
         forw(f, x)
@@ -61,7 +62,7 @@ function train0(f::Net, data, loss)
     end
 end
 
-function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
         reset!(f)
         ypred = forw(f, x)
@@ -73,7 +74,7 @@ function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
     end
 end
 
-function test(f::Net, data, loss)
+function test(f, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
         ypred = forwtest(f, x)
@@ -92,10 +93,26 @@ function minibatch(x, y, batchsize)
     return data
 end
 
+function getgrad(f, data, loss)
+    (x,ygold) = first(data)
+    reset!(f)
+    ypred = forw(f, x)
+    back(f, ygold, loss)
+    loss(ypred, ygold)
+end
+
+function getloss(f, data, loss)
+    (x,ygold) = first(data)
+    reset!(f)
+    ypred = forwtest(f, x)
+    loss(ypred, ygold)
+end
+
 # This allows both non-interactive (shell command) and interactive calls like:
 # julia> mnist2d("--epochs 10")
-!isinteractive() && !isdefined(:load_only) && mnist2d(ARGS)
+!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
 
+end # module
 
 ### SAMPLE RUN
 
