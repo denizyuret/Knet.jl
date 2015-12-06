@@ -1,4 +1,5 @@
-using JLD, ArgParse, Knet
+module NER
+using Main, JLD, ArgParse, Knet
 
 # opt: adam (beta1=0.9, beta2=0.999,epsilon=1e-08) batch=32, lr=0.001, gclip=5
 # hidden: 128; no recurrent; biyofiz'de cpu'da 1 trn epoch 18 thread ile 258 sn. => 0.0371 char error
@@ -9,7 +10,7 @@ using JLD, ArgParse, Knet
 
 isdefined(:xtrn) || (@load "ner.jld")
 
-function ner(args=ARGS)
+function main(args=ARGS)
 
     # Set training parameters:
 
@@ -37,8 +38,8 @@ function ner(args=ARGS)
     # Load data: (should we shuffle?)
 
     @show map(size, (xtrn, ytrn, xdev, ydev))
-    trn = TagData(xtrn, ytrn; batchsize=batchsize, dense=true)
-    dev = TagData(xdev, ydev; batchsize=batchsize, dense=true)
+    global trn = TagData(xtrn, ytrn; batchsize=batchsize, dense=true)
+    global dev = TagData(xdev, ydev; batchsize=batchsize, dense=true)
     @show maxtoken(xtrn)
     @show nclass = maxtoken(ytrn)
     flush(STDOUT)
@@ -56,7 +57,7 @@ function ner(args=ARGS)
     # b=lasagne.init.Constant(0.)
     # hid_init=lasagne.init.Constant(0.)
 
-    model = Tagger(peeplstm, peeplstm, pred; nclass=nclass, hidden=hidden, winit=winit1)
+    global model = Tagger(peeplstm, peeplstm, pred; nclass=nclass, hidden=hidden, winit=winit1)
     setopt!(model; lr=lr)
     losscnt = (fast ? nothing : zeros(2))
     maxnorm = (fast ? nothing : zeros(2))
@@ -113,8 +114,9 @@ end
     z = add2(x,y; out=nclass, f=soft, winit=Xavier())
 end
 
-!isinteractive() && !isdefined(:load_only) && ner(ARGS)
+!isinteractive() && !isdefined(Core.Main, :load_only) && main(ARGS)
 
+end # module
 
 ### DEAD CODE:
 

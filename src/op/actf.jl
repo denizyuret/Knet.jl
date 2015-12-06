@@ -64,15 +64,15 @@ reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 :
 @gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
 @gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
 
-# dy = wx			;; dy is the input to the soft layer
-# yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
-# ∂yi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
-#         = (i=k) yi - yi yk
-# ∂J/∂zk = Σ (∂J/∂yi)(∂yi/∂zk)	;; derivative wrt the input dy
-#        = Σ (1-pi/yi)((i=k) yi - yi yk)
-#        = Σ ((i=k) yi - yi yk - (i=k) pi + pi yk)
-#        = yk - pk - yk Σ (yi - pi)
-#        = yk - pk
+# z = wx			;; z is the input to the soft layer
+# qi = (exp zi) / (Σ exp zj)	;; q is the output of the soft layer
+# ∂qi/∂zk = [(i=k)(exp zi)(Σ exp zj) - (exp zi)(exp zk)] / (Σ exp zj)^2
+#         = (i=k) qi - qi qk
+# ∂J/∂zk = Σ (∂J/∂qi)(∂qi/∂zk)	;; derivative wrt the input z
+#        = Σ (1-pi/qi)((i=k) qi - qi qk)
+#        = Σ ((i=k) qi - qi qk - (i=k) pi + pi qk)
+#        = qk - pk - qk Σ (qi - pi)
+#        = qk - pk
 
 @doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" :soft
 function softforw(x::Array,y::Array)
@@ -89,22 +89,18 @@ function softforw(x::Array,y::Array)
     return y
 end
 
-function softback(y::Array,dy::Array,dx::Array)
-    (st,nx) = size2(dy)
-    for j=1:nx
-        i1=(j-1)*st+1
-        i2=j*st
-        sumydy = zero(Float64)
-        for i=i1:i2; sumydy += y[i] * dy[i]; end
-        for i=i1:i2; dx[i] = y[i] * (dy[i] - sumydy); end
-    end
+@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
+
+# Note that softback expects ygold from softloss, not ygrad!
+# See the softloss doc for an explanation.
+function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
+    ycols = ccount(ypred)
+    dx===ygold || copy!(dx,ygold)
+    scale!(-1/ycols,dx)
+    axpy!(1/ycols,ypred,dx)
+    mask!=nothing && domask(mask,dx)
     return dx
 end
-
-
-# TODO: what happened to the buggy 0.5 factor?
-@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
-@gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
 
 @doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" :logp
 function logpforw(x::Array,y::Array)
