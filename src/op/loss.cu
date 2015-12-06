@@ -43,6 +43,23 @@ extern "C" {
 }
 
 template<typename dType>
+__global__ void _mask(int m, int n, const bool *mask, dType *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int mn = m*n;
+  while (i < mn) {
+    if (!mask[i/m]) {
+      y[i] = 0;
+    }
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+extern "C" {
+  void mask32(int m, int n, const bool *mask, float  *y) KCALL(_mask,m,n,mask,y);
+  void mask64(int m, int n, const bool *mask, double *y) KCALL(_mask,m,n,mask,y);
+}
+
+template<typename dType>
 __global__ void _softloss(int m, int n, const dType *y, const dType *dy, const bool *mask, dType *ly) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int mn = m*n;
@@ -83,64 +100,66 @@ extern "C" {
   void softloss64csc(int nrows, int ncols, const double *y, int nnz, const double *cscVal, const int *cscRowInd, const int *cscColPtr, const bool *mask, double *ly) KCALL(_softloss_csc, nrows, ncols, y, nnz, cscVal, cscRowInd, cscColPtr, mask, ly);
 }
 
-template<typename dType>
-__global__ void _softlossback(int m, int n, const dType *y, const dType *dy, const bool *mask, dType *dx) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  int mn = m*n;
-  while (i < mn) {
-    dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
-    dx[i] = ((mask != NULL && !mask[i/m]) ? 0 : (yi - dy[i])/(yi * n));
-    i += blockDim.x * gridDim.x;
-  }
-}
+// we are passing back ygold for softlossback.
 
-extern "C" {
-  void softlossback32(int m, int n, const float  *y, const float  *dy, const bool *mask, float  *dx) KCALL(_softlossback,m,n,y,dy,mask,dx);
-  void softlossback64(int m, int n, const double *y, const double *dy, const bool *mask, double *dx) KCALL(_softlossback,m,n,y,dy,mask,dx);
-}
+// template<typename dType>
+// __global__ void _softlossback(int m, int n, const dType *y, const dType *dy, const bool *mask, dType *dx) {
+//   int i = threadIdx.x + blockIdx.x * blockDim.x;
+//   int mn = m*n;
+//   while (i < mn) {
+//     dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
+//     dx[i] = ((mask != NULL && !mask[i/m]) ? 0 : (yi - dy[i])/(yi * n));
+//     i += blockDim.x * gridDim.x;
+//   }
+// }
 
-template<typename dType>
-__global__ void _softlossback_csc2(int nrows, const dType *y, int nnz, const dType *cscVal, const int *cscRowInd, const int *cscColPtr, const bool *mask, dType *dx) {
-  int nz = threadIdx.x + blockIdx.x * blockDim.x;
-  int col = 0;
-  while (nz < nnz) {
-    for (; nz > cscColPtr[col+1]-2; col++);
-    if (mask == NULL || mask[col]) {
-      dType dy = cscVal[nz];
-      if (dy != 0) {
-	int row = cscRowInd[nz]-1;
-	int i = col * nrows + row;
-	dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
-	dx[i] *= (1 - dy/yi);
-      }
-    }
-    nz += blockDim.x * gridDim.x;
-  }
-}
+// extern "C" {
+//   void softlossback32(int m, int n, const float  *y, const float  *dy, const bool *mask, float  *dx) KCALL(_softlossback,m,n,y,dy,mask,dx);
+//   void softlossback64(int m, int n, const double *y, const double *dy, const bool *mask, double *dx) KCALL(_softlossback,m,n,y,dy,mask,dx);
+// }
 
-template<typename dType>
-__global__ void _softlossback_csc1(int nrows, int ncols, dType scale, const bool *mask, dType *dx) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  int len = nrows*ncols;
-  while (i < len) {
-    dx[i] = (mask == NULL || mask[i/nrows]) ? scale : 0;
-    i += blockDim.x * gridDim.x;
-  }
-}
+// template<typename dType>
+// __global__ void _softlossback_csc2(int nrows, const dType *y, int nnz, const dType *cscVal, const int *cscRowInd, const int *cscColPtr, const bool *mask, dType *dx) {
+//   int nz = threadIdx.x + blockIdx.x * blockDim.x;
+//   int col = 0;
+//   while (nz < nnz) {
+//     for (; nz > cscColPtr[col+1]-2; col++);
+//     if (mask == NULL || mask[col]) {
+//       dType dy = cscVal[nz];
+//       if (dy != 0) {
+// 	int row = cscRowInd[nz]-1;
+// 	int i = col * nrows + row;
+// 	dType yi = (y[i] > __FLT_EPSILON__ ? y[i] : __FLT_EPSILON__);
+// 	dx[i] *= (1 - dy/yi);
+//       }
+//     }
+//     nz += blockDim.x * gridDim.x;
+//   }
+// }
 
-extern "C" {
-  void softlossback32csc(int nrows, int ncols, const float  *y, int nnz, const float  *cscVal, 
-			 const int *cscRowInd, const int *cscColPtr, const bool *mask, float  *dx) {
-    KCALL(_softlossback_csc1, nrows, ncols, (float)1.0/ncols, mask, dx);
-    KCALL(_softlossback_csc2, nrows, y, nnz, cscVal, cscRowInd, cscColPtr, mask, dx);
-  }
+// template<typename dType>
+// __global__ void _softlossback_csc1(int nrows, int ncols, dType scale, const bool *mask, dType *dx) {
+//   int i = threadIdx.x + blockIdx.x * blockDim.x;
+//   int len = nrows*ncols;
+//   while (i < len) {
+//     dx[i] = (mask == NULL || mask[i/nrows]) ? scale : 0;
+//     i += blockDim.x * gridDim.x;
+//   }
+// }
 
-  void softlossback64csc(int nrows, int ncols, const double *y, int nnz, const double *cscVal, 
-			 const int *cscRowInd, const int *cscColPtr, const bool *mask, double *dx) {
-    KCALL(_softlossback_csc1, nrows, ncols, 1.0/ncols, mask, dx);
-    KCALL(_softlossback_csc2, nrows, y, nnz, cscVal, cscRowInd, cscColPtr, mask, dx);
-  }
-}
+// extern "C" {
+//   void softlossback32csc(int nrows, int ncols, const float  *y, int nnz, const float  *cscVal, 
+// 			 const int *cscRowInd, const int *cscColPtr, const bool *mask, float  *dx) {
+//     KCALL(_softlossback_csc1, nrows, ncols, (float)1.0/ncols, mask, dx);
+//     KCALL(_softlossback_csc2, nrows, y, nnz, cscVal, cscRowInd, cscColPtr, mask, dx);
+//   }
+
+//   void softlossback64csc(int nrows, int ncols, const double *y, int nnz, const double *cscVal, 
+// 			 const int *cscRowInd, const int *cscColPtr, const bool *mask, double *dx) {
+//     KCALL(_softlossback_csc1, nrows, ncols, 1.0/ncols, mask, dx);
+//     KCALL(_softlossback_csc2, nrows, y, nnz, cscVal, cscRowInd, cscColPtr, mask, dx);
+//   }
+// }
 
 __global__ void _logplossback32(int n, double scale, float *y, float *dy, float *dx) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

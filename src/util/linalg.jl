@@ -196,13 +196,6 @@ axpy!(a,x::CudaSparseMatrixCSCU{Float64},y::CudaMatrix{Float64})=(ccall((:add_cs
 vecnorm(x::CudaSparseMatrixCSRU,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)
 vecnorm(x::CudaSparseMatrixCSCU,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)
 
-### mul2 element-wise multiplication:
-
-# mul2!(c::KUdense,a::KUdense,b::KUdense)=(mul2!(c.arr,a.arr,b.arr);c)
-mul2!(c::Array,a::Array,b::Array)=(for i=1:length(c); c[i] = a[i]*b[i]; end; c)
-mul2!(c::CudaArray{Float32},a::CudaArray{Float32},b::CudaArray{Float32})=(ccall((:mul2_32,libknet),Void,(Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),length(a),a,b,c); gpusync(); c)
-mul2!(c::CudaArray{Float64},a::CudaArray{Float64},b::CudaArray{Float64})=(ccall((:mul2_64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(a),a,b,c); gpusync(); c)
-
 ### element-wise log and exp:
 log!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]=log(a[i]); end; b)
 exp!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]=exp(a[i]); end; b)

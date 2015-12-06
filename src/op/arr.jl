@@ -1,6 +1,6 @@
 type Arr <: Op; init; initialized; out; Arr(init)=new(init,false); end
 arr(y; init=nothing, o...)=(Arr(init),y)
-infersize(a::Arr,ysize)=size(a.init)
+infersize(a::Arr,ysize)=tuple(size(a.init))
 ninputs(::Arr)=0
 overwrites(::Arr)=false
 back_reads_x(::Arr)=false

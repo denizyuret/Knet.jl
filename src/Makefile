@@ -1,6 +1,6 @@
 CFLAGS=-O3 -I.
 
-libknet.so: op/actf.o op/loss.o update.o util/linalg.o util/rgen.o op/nce.o op/add.o
+libknet.so: op/actf.o op/loss.o update.o util/linalg.o util/rgen.o op/nce.o op/add.o op/mul.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
 
 %.o: %.cu knet.h
