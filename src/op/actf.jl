@@ -88,22 +88,31 @@ function softforw(x::Array,y::Array)
     return y
 end
 
-function softback(y::Array,dy::Array,dx::Array)
-    (st,nx) = size2(dy)
-    for j=1:nx
-        i1=(j-1)*st+1
-        i2=j*st
-        sumydy = zero(Float64)
-        for i=i1:i2; sumydy += y[i] * dy[i]; end
-        for i=i1:i2; dx[i] = y[i] * (dy[i] - sumydy); end
-    end
+@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
+
+function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
+    ycols = ccount(ypred)
+    dx===ygold || copy!(dx,ygold)
+    scale!(-1/ycols,dx)
+    axpy!(1/ycols,ypred,dx)
+    mask!=nothing && domask(mask,dx)
     return dx
 end
 
+# function softback(y::Array,dy::Array,dx::Array)
+#     (st,nx) = size2(dy)
+#     for j=1:nx
+#         i1=(j-1)*st+1
+#         i2=j*st
+#         sumydy = zero(Float64)
+#         for i=i1:i2; sumydy += y[i] * dy[i]; end
+#         for i=i1:i2; dx[i] = y[i] * (dy[i] - sumydy); end
+#     end
+#     return dx
+# end
 
-# TODO: what happened to the buggy 0.5 factor?
-@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
-@gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
+
+# @gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
 
 @doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" logp
 function logpforw(x::Array,y::Array)
