@@ -38,6 +38,7 @@ include("op/conv.jl");		# export conv # this already has a definition in base
 include("op/pool.jl");		export pool
 include("op/nce.jl");		export nce
 include("op/arr.jl");		export arr
+include("op/lrn.jl");		export lrn
 include("update.jl");		
 
 include("compiler.jl");		export @knet
