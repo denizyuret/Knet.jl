@@ -4,7 +4,7 @@
 	+ check mnist2 ygold specified when there is no return
 	+ check pkg.status
 
-	* linreg: 0.74s -> 1.04s for 5 epochs
+	* linreg: master:0.74s -> dev:1.04s (for 5 epochs)
 	+ initialization only? no, for 20 epochs 2.88->3.92s, means init:26.6ms->80ms, iter:142.6ms->192ms
 	+ multiple initialization?  no, confirmed initforw and initback only entered once.
 	+ extra alloc/copy? 5 epoch, 10K epochsize, 20 batchsize, 500 batch/epoch, 2500 batches, expect few alloc, 5000 copy.
@@ -13,7 +13,12 @@
 	alloc: 2*initforw:125, 2*initback:19, +1*initforw:125, loss:143(repeats)
 	OK, reduced it to 3 copy per iter, got rid of quadloss temp alloc.
 	time improved to 0.90s for 5 epochs, 3.58 for 20 epochs
+	cpu quadloss improved this further.
+	+ biyofiz-4-0 new timing:
+	master:662ms dev:772ms
 	+ stack cost?
+	if I take out stack dev:720ms
+	20 epochs: dev:2780ms master:2590ms
 
 	* TODO:
 
@@ -27,7 +32,7 @@
 	0000 copyseq: gives slightly different result.  Warning: ygold when no return.
 	0000 examples: use as_symbols option for parse_args
 	0000 length(Adding.net.sdict) => 91 after one minibatch, normal?
-	0000 linreg: slow
+	DONE linreg: slow
 	0000 mnist2d: slow
 	0000 mnist2dx: slow
 	0000 mnist2dxy: slow
@@ -171,7 +176,8 @@
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
-	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
+	9999 why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
+	DONE initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
 
 2015-12-05  Deniz Yuret  <dyuret@ku.edu.tr>

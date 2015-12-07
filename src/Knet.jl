@@ -1,16 +1,16 @@
 "Module that contains the names of Knet functions."
 module Kenv; kdef(x,y)=eval(Kenv,Expr(:(=),x,Expr(:quote,y))); end
 
-# module Knet
+module Knet
 using Compat
 using Main.Kenv
 #using Kenv.kdef # This does not work for some reason, have to use Kenv.kdef explicitly
 
 # This is for debugging
-DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
-macro dbg(x) :(DBG && $(esc(x))) end
+#DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
+#macro dbg(x) :(DBG && $(esc(x))) end
 # This is for production
-#macro dbg(x) nothing end        
+macro dbg(x) nothing end        
 
 #gpusync()=device_synchronize() # This is for profiling
 gpusync()=nothing               # This is for production
@@ -79,7 +79,7 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
-# end # module
+end # module
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias

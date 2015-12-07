@@ -128,43 +128,45 @@ end
 # J = (1/2)*sum((y-ygold)^2)
 # dJ/dy = y-ygold
 
-function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray; mask=nothing)
-    @assert size(y)==size(ygold)==size(ygrad)
-    ycols = ccount(y)
+function quadloss(ypred::BaseArray, ygold::BaseArray, ygrad::BaseArray; mask=nothing)
+    @assert size(ypred)==size(ygold)==size(ygrad)
+    ycols = ccount(ypred)
     ygrad === ygold || copy!(ygrad, ygold) # TODO: avoid copy if possible
     scale!(-1/ycols, ygrad)
-    axpy!(1/ycols, y, ygrad)
+    axpy!(1/ycols, ypred, ygrad)
     mask != nothing && domask(mask, ygrad)
     gpusync()
     return ygrad
 end
 
-# This is faster than the GPU version:
-function quadloss{T}(y::Array{T}, ygold::Array{T}; mask=nothing)
+# cpu is faster in 2-arg quadloss: 875ms->745ms
+function quadloss{T}(ypred::Array{T}, ygold::Array{T}; mask=nothing)
+    length(ypred)==length(ygold) || throw(DimensionMismatch("ypred:$(size(ypred)) ygold:$(size(ygold))"))
     loss = 0.0
     if mask == nothing
-        @inbounds for i=1:length(y)
-            loss += (y[i]-ygold[i]).^2
+        @inbounds for i=1:length(ypred)
+            loss += (ypred[i]-ygold[i]).^2
         end
     else
-        m = csize(y)
-        @inbounds for i=1:length(y)
+        m = csize(ypred)
+        @inbounds for i=1:length(ypred)
             j = 1+div(i-1,m)
-            m[j] == 0 && (x[i]=0)
+            mask[j]!=0 && (loss += (ypred[i]-ygold[i]).^2)
         end
     end
-    loss/(2*ccount(y))
+    loss / (2*ccount(ypred))
 end
 
-quadloss(y, ygold; o...)=quadloss(convert(Array,y),convert(Array,ygold); o...)
+quadloss(ypred,ygold; mask=nothing)=quadloss(convert(Array,ypred), convert(Array,ygold); mask=(mask==nothing ? mask : convert(Array,mask)))
+# quadloss(ypred,ygold; o...)=quadloss(convert(Array,ypred), convert(Array,ygold); o...)
 
-function quadloss_gpu(y::BaseArray, ygold::BaseArray; mask=nothing)
-    global quadlosstemp
-    issimilar(quadlosstemp,ygold) || (quadlosstemp=similar(ygold))
+function quadloss0(ypred::BaseArray, ygold::BaseArray; mask=nothing)
+    global quadlosstemp         # using this instead of alloc: 950ms->875ms
+    issimilar(quadlosstemp, ypred) || (quadlosstemp = similar(ypred))
     copy!(quadlosstemp, ygold)
-    axpy!(-1, to_host(y), quadlosstemp)
+    axpy!(-1, ypred, quadlosstemp)
     mask != nothing && domask(mask, quadlosstemp)
-    qloss = vecnorm(quadlosstemp)^2/(2*ccount(y))
+    qloss = vecnorm(quadlosstemp)^2/(2*ccount(ypred))
     gpusync()
     return qloss
 end
