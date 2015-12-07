@@ -139,16 +139,37 @@ function quadloss(y::BaseArray, ygold::BaseArray, ygrad::BaseArray; mask=nothing
     return ygrad
 end
 
-function quadloss(y::BaseArray, ygold::BaseArray; mask=nothing)
-    ytemp = similar(y)         # TODO: avoid alloc
-    copy!(ytemp, ygold)
-    axpy!(-1, y, ytemp)
-    mask != nothing && domask(mask, ytemp)
-    qloss = vecnorm(ytemp)^2/(2*ccount(y))
-    free(ytemp)
+# This is faster than the GPU version:
+function quadloss{T}(y::Array{T}, ygold::Array{T}; mask=nothing)
+    loss = 0.0
+    if mask == nothing
+        @inbounds for i=1:length(y)
+            loss += (y[i]-ygold[i]).^2
+        end
+    else
+        m = csize(y)
+        @inbounds for i=1:length(y)
+            j = 1+div(i-1,m)
+            m[j] == 0 && (x[i]=0)
+        end
+    end
+    loss/(2*ccount(y))
+end
+
+quadloss(y, ygold; o...)=quadloss(convert(Array,y),convert(Array,ygold); o...)
+
+function quadloss_gpu(y::BaseArray, ygold::BaseArray; mask=nothing)
+    global quadlosstemp
+    issimilar(quadlosstemp,ygold) || (quadlosstemp=similar(ygold))
+    copy!(quadlosstemp, ygold)
+    axpy!(-1, to_host(y), quadlosstemp)
+    mask != nothing && domask(mask, quadlosstemp)
+    qloss = vecnorm(quadlosstemp)^2/(2*ccount(y))
     gpusync()
     return qloss
 end
+
+quadlosstemp = nothing
 
 # TODO: mask should be bool instead of cuchar?
 
@@ -159,11 +180,11 @@ end
     return x
 end
 
-function domask(m::Array{Cuchar},x::Array) # TODO: test
+function domask(mask::Array{Cuchar},x::Array) # TODO: test
     m = csize(x)
     @inbounds for i=1:length(x)
         j = 1+div(i-1,m)
-        m[j] == 0 && (x[i]=0)
+        mask[j] == 0 && (x[i]=0)
     end
 end
 

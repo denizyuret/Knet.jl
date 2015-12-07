@@ -1,8 +1,19 @@
 2015-12-07  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* compiler-optimizations:
-	- check mnist2 ygold specified when there is no return
-	- check pkg.status
+	+ check mnist2 ygold specified when there is no return
+	+ check pkg.status
+
+	* linreg: 0.74s -> 1.04s for 5 epochs
+	+ initialization only? no, for 20 epochs 2.88->3.92s, means init:26.6ms->80ms, iter:142.6ms->192ms
+	+ multiple initialization?  no, confirmed initforw and initback only entered once.
+	+ extra alloc/copy? 5 epoch, 10K epochsize, 20 batchsize, 500 batch/epoch, 2500 batches, expect few alloc, 5000 copy.
+	got 2505 alloc, 7500 copy: 1 alloc, 3 copy per batch + 5 alloc at init.
+	copy!: loss:134(ygold->ygrad ok), forw:42(input->reg ok), loss:144 (ygold->temp in quadloss2)
+	alloc: 2*initforw:125, 2*initback:19, +1*initforw:125, loss:143(repeats)
+	OK, reduced it to 3 copy per iter, got rid of quadloss temp alloc.
+	time improved to 0.90s for 5 epochs, 3.58 for 20 epochs
+	+ stack cost?
 
 	* TODO:
 
