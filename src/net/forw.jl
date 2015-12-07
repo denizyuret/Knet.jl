@@ -1,12 +1,12 @@
 """
 
 forw(f::Net, input...; kwargs...) applies the compiled knet function f
-to the given input.  If f has a return statement, its result is returned
-otherwise nothing is returned.  Following forw(), the program registers
-can be queried using get(f,:name).  The special register :return
-contains the return value, if any.  Note that arrays returned by
-get(f,:name) are internal to the Net and will be overwritten in the next
-forw call.
+to the given input.  If f has a return statement, its result is
+returned otherwise nothing is returned.  Following forw(), the program
+registers can be queried using get(f,regname).  The special register
+get(f,:return) contains the return value, if any.  Note that arrays
+returned by get(f,regname) are internal to the Net and will be
+overwritten in the next forw call.
 
 The input consists of zero or more arrays representing a single
 minibatch.  For sequence models, the input typically corresponds to a
@@ -44,7 +44,7 @@ function forw(f::Net, input...; kwargs...)
             y.out = forw(y.op, xout..., y.out0; kwargs...)
         end
         xsave = back_reads_x(y.op) ? xout  : nothing
-        ysave = back_reads_y(y.op) || isreturn(y) ? y.out : nothing
+        ysave = (back_reads_y(y.op) || isreturn(y)) ? y.out : nothing
         push!(f, (y, xsave, ysave))
     end
     return out(f,:return)
@@ -64,7 +64,7 @@ end
 
 # We do not need to copy persistent registers, they are guaranteed not to change during forwback.
 ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
-isreturn(p::Reg)=(get(p,:name)==:return)
+isreturn(p::Reg)=(p.name==:return)
 
 ### DEAD CODE:
     # yout != nothing && copy!(yout, r.out[N])

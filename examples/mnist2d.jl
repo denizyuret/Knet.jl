@@ -1,7 +1,7 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
 module MNIST2D
-using Knet,ArgParse
+using Main,Knet,ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
 function main(args=ARGS)
@@ -110,7 +110,7 @@ end
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # julia> mnist2d("--epochs 10")
-!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end # module
 

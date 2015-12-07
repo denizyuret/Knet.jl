@@ -1,6 +1,6 @@
 # Simple linear regression.
 module LinReg
-using Knet, ArgParse
+using Main, Knet, ArgParse
 
 # Main loop:
 
@@ -80,5 +80,5 @@ end
 start(l::Data)=0
 done(l::Data,n)=(n >= l.epochsize)
 
-!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 end

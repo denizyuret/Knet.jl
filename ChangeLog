@@ -1,51 +1,11 @@
-2015-12-05  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-07  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* softmax:
-	Currently soft computes: qi = exp(xi)/Σ exp(xj)
-	Then softloss computes: J  = Σ -p log q
-	Then softgrad computes: ∂J/∂q = 1-p/q
-	;; Derivation requires making normalization explicit:
-	;; J = Σi -pi log (qi/Σqj)
-	;; = Σi -pi log qi + pi log Σqj
-	;; = (Σ -pi log qi) + log Σ qj
-	Then softback computes: ∂J/∂xk = Σi (∂J/∂qi)(∂qi/∂xk)
-	;; ∂qi/∂xk = [(i=k)(exp xi)(Σ exp xj) - (exp xi)(exp xk)] / (Σ exp xj)^2
-	;; = (i=k) qi - qi qk
-	But we can instead do: ∂J/∂x = q-p
-	;; ∂J/∂xk = Σi (∂J/∂qi)(∂qi/∂xk)
-	;; = Σi (1-pi/qi)((i=k) qi - qi qk)
-	;; = Σi (qi-pi)((i=k)-qk)
-	;; = Σi ((i=k) qi - qi qk - (i=k) pi + pi qk)
-	;; = qk - qk - pk + qk = qk - pk
-	So have softloss pass back p instead of ∂J/∂q which is numerically unstable.
-
-	How do we handle masks?  A column mask asks to ignore certain
-	columns.  Any gradients on these columns need to be 0.  For softmax
-	we can simply set p=q for these columns.  The new version:
-	Soft computes: qi = exp(xi)/Σ exp(xj)
-	Then softloss computes: J  = Σ -p log q
-	Then softgrad computes: dq = (mask=1 ? p : q)
-	Then softback computes: dx = q-p
-	and we get zeros in masked columns.
-
-	But this assumes only loss has mask available.  If back has mask
-	available soft can use it to zero out mask=0 columns.  That
-	simplifies softgrad.
-
-	How do we handle masks in quadloss?
-	Simply set dx=0 for columns with mask=0.
-	This is like softback.  We need a mask kernel.
-
-	* DONE:
-	DONE saman: kunet-vs-knet speed and results:  /mnt/kufs/scratch/szia13/mnist/mnisttst-KuNet.jl /mnt/kufs/scratch/szia13/mnist/mnisttst-Knet.jl
-	DONE nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  was my mistake. also report the cusparse transpose problem. 
-	DONE cudnn softmax function: take a second look at it, see what it does, measure its speed, use it if possible.
-	DONE pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing. KevinKang@NVIDIA: This issue has been fixed now in the development versions, and the fix would be available for you in the next cuDNN release(v4). Thanks for reporting this issue to us!
-	DONE - examples/mnist4d.jl (lemlp): debug softloss carefully, mlp diff has grown.
+	* compiler-optimizations:
+	- check mnist2 ygold specified when there is no return
+	- check pkg.status
 
 	* TODO:
 
-	0000 merge to dev: saman: loss.jl: solve the mask issue. change softloss to pass back the gold probabilities.  have soft back do the p-q numerically stable gradient calculation.  for 2arg softloss see if cpu or gpu is faster. DONT:implement and use xentloss, numerically much more stable than softloss, no need for epsilon.
 	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
 	0000 addingirnn: slow
@@ -107,11 +67,11 @@
 	0010 - src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
 	0010 - the first and second test give different results after load from file
 	0010 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
-	0011 -- yonatan language learning model
+	0011 yonatan: language learning model
 	0020 saman: add lcn example to knet, push lcn branch to	master. lcn: add example: http://papers.nips.cc/paper/4773-convolutional-recursive-deep-learning-for-3d-object-classification.pdf
 	0020 saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf; https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
-	0020 saman: implement lrn from cudnn (*LRN* and *Divisive*): Anyway LRN is local response normalization. Its mentioned in the following paper: http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf; This is similar to LCN but its more like brightness normalization rather than contrast normalization and its used in ImageNet. So i think it would be good to incorporate it in Knet. Divisive Normalization is also associated with it and it performs normalization using a precomputed means matrix. So far only this has been implemented. If there would be a way to compute means and dev itself, this could be used for the division part of LCN. 	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
 	0020 saman: profile lcn: /mnt/kufs/scratch/szia13/mnist/foo.jl; You can pass lcn_mode as true or false to use it. The directory also contains the gaussian kernel for lcn. I timed one convolution layer followed by softmax with and without lcn and here are the timings: without lcn: 56.18 for 20 epochs (2.81 seconds per epoch on avg); with lcn: 131.69 for 20 epochs (6.58 seconds per epoch on avg)
+	0021 saman: waiting for saman to debug: implement lrn from cudnn (*LRN* and *Divisive*): Anyway LRN is local response normalization. Its mentioned in the following paper: http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf; This is similar to LCN but its more like brightness normalization rather than contrast normalization and its used in ImageNet. So i think it would be good to incorporate it in Knet. Divisive Normalization is also associated with it and it performs normalization using a precomputed means matrix. So far only this has been implemented. If there would be a way to compute means and dev itself, this could be used for the division part of LCN. 	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
 	0030 aliya: try bit representation on ipa
 	0100 *** examples:
 	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
@@ -202,6 +162,52 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
 	9999 rename train->train! ??
+
+2015-12-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE saman: kunet-vs-knet speed and results:  /mnt/kufs/scratch/szia13/mnist/mnisttst-KuNet.jl /mnt/kufs/scratch/szia13/mnist/mnisttst-Knet.jl
+	DONE nvidia bug check: actf.jl: cudnnSoftmaxBackward off by a factor of 2? came back saying there is no bug.  was my mistake. also report the cusparse transpose problem. 
+	DONE cudnn softmax function: take a second look at it, see what it does, measure its speed, use it if possible.
+	DONE pool.jl: CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is buggy when padding > 0 or else I have no idea what it is doing. KevinKang@NVIDIA: This issue has been fixed now in the development versions, and the fix would be available for you in the next cuDNN release(v4). Thanks for reporting this issue to us!
+	DONE - examples/mnist4d.jl (lemlp): debug softloss carefully, mlp diff has grown.
+	DONE merge to dev: saman: loss.jl: solve the mask issue. change softloss to pass back the gold probabilities.  have soft back do the p-q numerically stable gradient calculation.  for 2arg softloss see if cpu or gpu is faster. DONT:implement and use xentloss, numerically much more stable than softloss, no need for epsilon.
+
+	* softmax:
+	Currently soft computes: qi = exp(xi)/Σ exp(xj)
+	Then softloss computes: J  = Σ -p log q
+	Then softgrad computes: ∂J/∂q = 1-p/q
+	;; Derivation requires making normalization explicit:
+	;; J = Σi -pi log (qi/Σqj)
+	;; = Σi -pi log qi + pi log Σqj
+	;; = (Σ -pi log qi) + log Σ qj
+	Then softback computes: ∂J/∂xk = Σi (∂J/∂qi)(∂qi/∂xk)
+	;; ∂qi/∂xk = [(i=k)(exp xi)(Σ exp xj) - (exp xi)(exp xk)] / (Σ exp xj)^2
+	;; = (i=k) qi - qi qk
+	But we can instead do: ∂J/∂x = q-p
+	;; ∂J/∂xk = Σi (∂J/∂qi)(∂qi/∂xk)
+	;; = Σi (1-pi/qi)((i=k) qi - qi qk)
+	;; = Σi (qi-pi)((i=k)-qk)
+	;; = Σi ((i=k) qi - qi qk - (i=k) pi + pi qk)
+	;; = qk - qk - pk + qk = qk - pk
+	So have softloss pass back p instead of ∂J/∂q which is numerically unstable.
+
+	How do we handle masks?  A column mask asks to ignore certain
+	columns.  Any gradients on these columns need to be 0.  For softmax
+	we can simply set p=q for these columns.  The new version:
+	Soft computes: qi = exp(xi)/Σ exp(xj)
+	Then softloss computes: J  = Σ -p log q
+	Then softgrad computes: dq = (mask=1 ? p : q)
+	Then softback computes: dx = q-p
+	and we get zeros in masked columns.
+
+	But this assumes only loss has mask available.  If back has mask
+	available soft can use it to zero out mask=0 columns.  That
+	simplifies softgrad.
+
+	How do we handle masks in quadloss?
+	Simply set dx=0 for columns with mask=0.
+	This is like softback.  We need a mask kernel.
 
 	* kunet-vs-knet: debugging mnist4d example.
 	- kunet converges, knet does not.

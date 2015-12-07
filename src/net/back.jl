@@ -78,7 +78,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
 end
 
 # this is used when no loss fn specified, in which case we assume ygold is actually ygrad
-copyloss(ypred,ygold,ygrad;o...)=copy!(ygrad,ygold)
+copyloss(ypred,ygold,ygrad;o...)=(ygrad===ygold ? ygrad : copy!(ygrad,ygold))
 
 # turn various forms of getdx into boolean vector
 function getdxbool(getdx, n)
