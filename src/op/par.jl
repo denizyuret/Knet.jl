@@ -50,7 +50,7 @@ function infersize(p::Par,ysize)
 end
 
 ninputs(::Par)=0
-overwrites(::Par)=false
+canoverwrite(::Par)=false
 back_reads_x(::Par)=false
 back_reads_y(::Par)=false
 

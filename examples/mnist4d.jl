@@ -2,7 +2,7 @@
 # 4-D convolution test
 
 module MNIST4D
-using Knet, ArgParse
+using Main, Knet, ArgParse
 isdefined(:MNIST) || include("mnist.jl")
 
 @knet function lenet_model(x0)
@@ -90,7 +90,7 @@ function getloss(f, data, loss)
     loss(ypred, ygold)
 end
 
-!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end # module
 

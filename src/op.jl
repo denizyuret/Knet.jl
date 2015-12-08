@@ -10,7 +10,7 @@ abstract Op
 # back_reads_x (tosave)
 # ninputs (netcomp1)
 # infersize (used by netinit)
-# overwrites (not used any more?)
+# canoverwrite (used by initforw)
 # ysize, loss (not used any more?)
 
 forw(l::Op, y, x...; o...) = error("$(typeof(l)) has not implemented forw")
@@ -19,7 +19,7 @@ loss(l::Op, dy, y; o...)   = error("$(typeof(l)) has not implemented loss")
 
 ninputs(l::Op)          = error("$(typeof(l)) has not implemented ninputs")
 ysize(l::Op, x...)      = error("$(typeof(l)) has not implemented ysize")
-overwrites(l::Op)       = error("$(typeof(l)) has not implemented overwrites")
+canoverwrite(l::Op)       = error("$(typeof(l)) has not implemented canoverwrite")
 back_reads_x(l::Op)     = error("$(typeof(l)) has not implemented back_reads_x")
 back_reads_y(l::Op)     = error("$(typeof(l)) has not implemented back_reads_y")
 # Base.eltype(::Op) = nothing

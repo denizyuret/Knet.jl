@@ -7,7 +7,7 @@ type Nce <: Op; Nce(;o...)=new(); end
 Kenv.kdef(:nce,Nce)
 
 ninputs(::Nce)=2
-overwrites(::Nce)=true
+canoverwrite(::Nce)=true
 back_reads_x(::Nce)=false
 back_reads_y(::Nce)=true
 

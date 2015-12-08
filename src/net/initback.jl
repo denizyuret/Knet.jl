@@ -12,17 +12,34 @@ function initback(f::Net, ygold, loss, getdx)
     initgrad(f, getdx)
     initincr(f)
     inittype2(f)
-    for p in registers(f)
+    initdif0(f)
+    inittmp(f)
+end
+
+function initdif0(f::Net)
+    for i=length(f):-1:1
+        p=get(f,i)
         if get(p,:grad)
-            if !checkarray(p, :dif0, get(p,:diftype), get(p,:eltype), get(p,:size))
-                p.dif0 = newarray(get(p,:diftype), get(p,:eltype), get(p,:size))
+            at, et, sz = get(p,:diftype), get(p,:eltype), get(p,:size)
+            if !checkarray(p, :dif0, at, et, sz)
+                p.dif0 = newarray(at, et, sz)
                 get(p,:incr) && fill!(p.dif0,0)
             end
-            if get(p,:incr)
-                if !checkarray(p, :tmp, get(p,:tmptype), get(p,:eltype), get(p,:size))
-                    p.tmp = newarray(get(p,:tmptype), get(p,:eltype), get(p,:size))
+            if canoverwrite(p.op) && get(p,:backoverwrite,true)
+                q = f.reg[p.argv[end]]
+                if (!isdefined(q,:dif0) && !get(q,:incr) && (at,et,sz)==(get(q,:diftype),get(q,:eltype),get(q,:size)))
+                    q.dif0 = p.dif0
                 end
             end
+        end
+    end
+end
+
+function inittmp(f::Net)
+    for p in registers(f)
+        if get(p,:incr)
+            at, et, sz = get(p,:tmptype), get(p,:eltype), get(p,:size)
+            checkarray(p,:tmp,at,et,sz) || (p.tmp = newarray(at,et,sz))
         end
     end
 end

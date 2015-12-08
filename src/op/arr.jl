@@ -2,7 +2,7 @@ type Arr <: Op; init; initialized; out; Arr(;init=nothing,o...)=new(init,false);
 Kenv.kdef(:arr,Arr)
 infersize(a::Arr,ysize)=tuple(size(a.init))
 ninputs(::Arr)=0
-overwrites(::Arr)=false
+canoverwrite(::Arr)=false
 back_reads_x(::Arr)=false
 back_reads_y(::Arr)=false
 back(::Arr,dy;o...)=nothing

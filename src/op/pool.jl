@@ -11,7 +11,7 @@ end
 
 Kenv.kdef(:pool,Pool)
 ninputs(::Pool)=1
-overwrites(::Pool)=false
+canoverwrite(::Pool)=false
 back_reads_x(::Pool)=true
 back_reads_y(::Pool)=true
 

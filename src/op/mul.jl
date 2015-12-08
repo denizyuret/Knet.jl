@@ -3,7 +3,7 @@ Kenv.kdef(:mul,Mul)
 Kenv.kdef(:.*,Mul)
 
 ninputs(::Mul)=2
-overwrites(::Mul)=false
+canoverwrite(::Mul)=false
 back_reads_x(::Mul)=true
 back_reads_y(::Mul)=false
 

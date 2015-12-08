@@ -9,7 +9,7 @@ end
 Kenv.kdef(:conv,Conv)
 
 ninputs(::Conv)=2
-overwrites(::Conv)=false
+canoverwrite(::Conv)=false
 back_reads_x(::Conv)=true
 back_reads_y(::Conv)=false
 

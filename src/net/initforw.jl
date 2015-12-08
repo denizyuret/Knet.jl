@@ -120,6 +120,9 @@ function initout0(f::Net, inputs...)
             # all done
         elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
             error("Size or type change not allowed in parameters and constants")
+        elseif (canoverwrite(p.op) && get(p, :forwoverwrite, true) &&
+                checkarray(f.reg[p.argv[end]], :out0, at, et, sz))
+            p.out0 = f.reg[p.argv[end]].out0
         else
             p.out0 = newarray(at, et, sz)
         end
@@ -132,8 +135,6 @@ function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::D
     eltype(r.(n)) == etype &&
     size(r.(n)) == dims
 end
-
-
 
 ### DEAD CODE:
 

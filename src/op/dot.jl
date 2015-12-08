@@ -4,7 +4,7 @@ Kenv.kdef(:dot,Dot)
 Kenv.kdef(:*,Dot)
 
 ninputs(::Dot)=2
-overwrites(::Dot)=false
+canoverwrite(::Dot)=false
 back_reads_x(::Dot)=true
 back_reads_y(::Dot)=false
 

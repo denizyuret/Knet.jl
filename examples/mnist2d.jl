@@ -11,7 +11,7 @@ function main(args=ARGS)
         ("--seed"; arg_type=Int; default=42)
         ("--batchsize"; arg_type=Int; default=100)
         ("--epochs"; arg_type=Int; default=3)
-        ("--gcheck"; arg_type=Int; default=0) # TODO: fix gcheck
+        ("--gcheck"; arg_type=Int; default=0)
         ("--xsparse"; action=:store_true)
         ("--ysparse"; action=:store_true)
     end
@@ -34,7 +34,7 @@ function main(args=ARGS)
     l=[0f0,0f0]; m=[0f0,0f0]
 
     for epoch=1:epochs
-        # train(net, dtrn, softloss)
+        # train0(net, dtrn, softloss)
         train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
         ltrn = test(net, dtrn, softloss)
         atrn = 1-test(net, dtrn, zeroone)

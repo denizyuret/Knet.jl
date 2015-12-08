@@ -3,7 +3,7 @@
 abstract Actf <: Op
 
 ninputs(::Actf)=1
-overwrites(::Actf)=true
+canoverwrite(::Actf)=true
 back_reads_x(::Actf)=false
 back_reads_y(::Actf)=true
 

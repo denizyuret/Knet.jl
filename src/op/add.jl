@@ -34,7 +34,7 @@ Kenv.kdef(:add,Add)
 Kenv.kdef(:+,Add)
 
 ninputs(::Add)=2
-overwrites(::Add)=true
+canoverwrite(::Add)=true
 back_reads_x(::Add)=false
 back_reads_y(::Add)=false
 

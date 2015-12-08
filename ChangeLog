@@ -1,56 +1,30 @@
-2015-12-07  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* compiler-optimizations:
-	+ check mnist2 ygold specified when there is no return
-	+ check pkg.status
-
-	* linreg: master:0.74s -> dev:1.04s (for 5 epochs)
-	+ initialization only? no, for 20 epochs 2.88->3.92s, means init:26.6ms->80ms, iter:142.6ms->192ms
-	+ multiple initialization?  no, confirmed initforw and initback only entered once.
-	+ extra alloc/copy? 5 epoch, 10K epochsize, 20 batchsize, 500 batch/epoch, 2500 batches, expect few alloc, 5000 copy.
-	got 2505 alloc, 7500 copy: 1 alloc, 3 copy per batch + 5 alloc at init.
-	copy!: loss:134(ygold->ygrad ok), forw:42(input->reg ok), loss:144 (ygold->temp in quadloss2)
-	alloc: 2*initforw:125, 2*initback:19, +1*initforw:125, loss:143(repeats)
-	OK, reduced it to 3 copy per iter, got rid of quadloss temp alloc.
-	time improved to 0.90s for 5 epochs, 3.58 for 20 epochs
-	cpu quadloss improved this further.
-	+ biyofiz-4-0 new timing:
-	master:662ms dev:772ms
-	+ stack cost?
-	if I take out stack dev:720ms
-	20 epochs: dev:2780ms master:2590ms
+2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
+	0000 consolidate set and setopt
 	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
 	0000 addingirnn: slow
 	0000 addinglstm: gives slightly different result.
 	0000 axpb -> copy (already defined as an actf?)
 	0000 cannot add three terms, fix in compiler (a+b+c)
-	0000 copy!: softloss@loss.jl:67 ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
+	0000 test cpu softloss. compare quadloss on bigger problem. copy!: softloss@loss.jl:67 ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
 	0000 copyseq: gives slightly different result.  Warning: ygold when no return.
 	0000 examples: use as_symbols option for parse_args
 	0000 length(Adding.net.sdict) => 91 after one minibatch, normal?
-	DONE linreg: slow
-	0000 mnist2d: slow
 	0000 mnist2dx: slow
 	0000 mnist2dxy: slow
 	0000 mnist2dy: slow
 	0000 mnist4d: giving out-of-memory error.
 	0000 mnistpixels: gives slightly different result.
-	0000 reimplement array sharing, make it an optional pass for debugging
 	0000 replace Expr(:&&) with true in compiler
 	0000 rnnlm: gives slightly different result.
 	0000 should we perform memory management for stack by keeping around some arrays that get reused?
-	0000 shows that +2 CudaArray comes from add.jl:75 reshape_to_match.  Does this allocate?  No, but it would be still better to get rid.  Also mul.  Also symmetric broadcasting.
 	0000 test batch resize
-	0000 turn CUDArt back to normal
 	0001 get all other models to work, sanity check with no array sharing version.
 	0001 ncelm
 	0001 ner
-	0005 - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
-	0005 - back/initback: get rid of seq flag if possible, can we use save?
 	0005 - back: problem with zeroing out the dif0 for back.
 	0005 - check TODO, test all
 	0005 - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
@@ -177,8 +151,56 @@
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 	9999 why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
+
+	* examples/mnist2d.jl: compiler optimizations.
+	At init:
+	2+9 alloc initout0
+	2 fill! for bias
+	8+2 alloc initback
+
+	In 100 batches:
+	+100 copy! @forw.jl:42: forw copies input ok
+	+100 copy! @back.jl:41 softloss.back copies ygold ok
+	-200 copy! @add.jl:60  back copies dx2->dy, array sharing should solve this
+	-200 copy! @add.jl:116: baddforw1, forw array sharing should solve this.
+	-100 copy! @actf.jl:98: softback copies ygold again?  array sharing?
+
+	After forwoverwrite: 7/11 unique out0, wbf share same out0, no copy for stack.
+	After backoverwrite: 7/11 unique dif0, wbf share same dif0, 2 copy! per iter.
+
+	* DONE:
+
 	DONE initback: removing the ability for getdx from a subset of the inputs during back, add later if necessary.
-	9999 rename train->train! ??
+	DONE make forwoverwrite the default after testing, still leave it as an option
+	DONE rename overwrites -> canoverwrite
+	DONE linreg: slow
+	DONE mnist2d: slow
+	DONE reimplement array sharing, make it an optional pass for debugging
+	DONE shows that +2 CudaArray comes from add.jl:75 reshape_to_match.  Does this allocate?  No, but it would be still better to get rid.  Also mul.  Also symmetric broadcasting.
+	DONE turn CUDArt back to normal
+	DONE - add a copy instruction: but sometimes making variables identical is different from copy, avoid actual copy when user says a=b or return c if possible.
+	DONE - back/initback: get rid of seq flag if possible, can we use save?
+	DONE rename train->train! ?? not exporting this function any more!
+
+2015-12-07  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* linreg: compiler optimizations.
+	master:0.74s -> dev:1.04s (for 5 epochs)
+	+ initialization only? no, for 20 epochs 2.88->3.92s, means init:26.6ms->80ms, iter:142.6ms->192ms
+	+ multiple initialization?  no, confirmed initforw and initback only entered once.
+	+ extra alloc/copy? 5 epoch, 10K epochsize, 20 batchsize, 500 batch/epoch, 2500 batches, expect few alloc, 5000 copy.
+	got 2505 alloc, 7500 copy: 1 alloc, 3 copy per batch + 5 alloc at init.
+	copy!: loss:134(ygold->ygrad ok), forw:42(input->reg ok), loss:144 (ygold->temp in quadloss2)
+	alloc: 2*initforw:125, 2*initback:19, +1*initforw:125, loss:143(repeats)
+	OK, reduced it to 3 copy per iter, got rid of quadloss temp alloc.
+	time improved to 0.90s for 5 epochs, 3.58 for 20 epochs
+	cpu quadloss improved this further.
+	+ biyofiz-4-0 new timing:
+	master:662ms dev:772ms
+	+ stack cost?
+	if I take out stack dev:720ms
+	20 epochs: dev:2780ms master:2590ms
+
 
 2015-12-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
