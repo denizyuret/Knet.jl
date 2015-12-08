@@ -112,7 +112,7 @@ function infersize(a::Mul, x1, x2, y)
             ydim == 0 ? xdim :
             throw(DimensionMismatch())
         end
-        x1==nothing && (return (nothing, ydims, ydims))
+        x1==nothing && (return (ydims, ydims, ydims))
         length(x1) <= length(ydims) || throw(DimensionMismatch())
         xdims = [x1...]; ydims = [ydims...]
         for i=1:length(xdims)

@@ -241,7 +241,7 @@ function infersize(a::Add, x1, x2, y)
             ydim == 0 ? xdim :
             throw(DimensionMismatch("$y=add($x1,$x2)"))
         end
-        x1==nothing && (return (nothing, ydims, ydims))
+        x1==nothing && (return (ydims, ydims, ydims))
         xdims = [x1...]; ydims = [ydims...]
         if length(xdims) == 1
             xdims[1] == ydims[end-1] ? nothing :
