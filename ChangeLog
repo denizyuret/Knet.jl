@@ -1,9 +1,39 @@
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* mnist4d: dev gives out-of-memory.  master and lcn are different?
+	cudnn difference? nope.  lcn was stuck at 405b7d7.  We have
+	changed default conv and softgrad since then.  dev still giving
+	oom.  The size and array sharing match.  There must be extra
+	allocs.  It was because I forgot to reset!, which meant sdict was
+	not emptied, which meant at iter>1 it reallocated all arrays
+	thinking they were still in the stack.  Probably should make sdict
+	count refs.  mnist4d had reset but was using forw instead of
+	forwtest in test.
+	DONE - Make this more idiot proof. Call forwtest->apply?
+	DONE - broke mnist2dy and mnist2xy: only when module Knet is commented out.
+
+
+	* mnist2dx: slow in dev.  slower in master?  At some point between
+	Nov18 and Dec08 it went from 12 to 19 secs.  Got messed up in
+	405b7d7.  The only thing I did there was to switch from Gaussian
+	to Xavier?  And switching back to Gaussian fixes the speed!  We
+	have w1(64x784) in +-0.216 with xavier (std=0.125).  w2(10x64) in
+	+-0.546 (std=0.310).  These are >10 times larger than
+	gaussian(0,.01).  We can observe the slowdown with Gaussian with
+	similar std.  In fact w1 can be kept xavier.  When w2.std exceeds
+	.1 we start slowing down.
+
+	* DONE:
+	DONE mnist2dy: slow
+	DONE mnist2dx: slow
+	DONE mnist2dxy: slow
+	DONE saman: cannot infer size error. drop(r,x,y) has no way to infer r.  drop(x,r,y) has no way to infer y.  how did this work in ipa?
+	DONE mnist4d: giving out-of-memory error.
+
 	* TODO:
 
-	0000 consolidate set and setopt
-	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
+	1000 consolidate set and setopt
+	0100 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
 	0000 addingirnn: slow
 	0000 addinglstm: gives slightly different result.
@@ -13,10 +43,6 @@
 	0000 copyseq: gives slightly different result.  Warning: ygold when no return.
 	0000 examples: use as_symbols option for parse_args
 	0000 length(Adding.net.sdict) => 91 after one minibatch, normal?
-	0000 mnist2dx: slow
-	0000 mnist2dxy: slow
-	0000 mnist2dy: slow
-	0000 mnist4d: giving out-of-memory error.
 	0000 mnistpixels: gives slightly different result.
 	0000 replace Expr(:&&) with true in compiler
 	0000 rnnlm: gives slightly different result.
@@ -150,7 +176,7 @@
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
-	9999 why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
+	9999 seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
 
 	* examples/mnist2d.jl: compiler optimizations.
 	At init:

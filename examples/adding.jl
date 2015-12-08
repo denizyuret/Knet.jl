@@ -60,7 +60,7 @@ function gradloss(f::Net, data, loss; grad=false, seed=42)
     data.rng = MersenneTwister()
     srand(data.rng, seed)
     reset!(f)
-    myforw = grad ? forw : forwtest
+    myforw = grad ? forw : apply
     loss1 = 0
     for (x,ygold) in data
         if ygold == nothing

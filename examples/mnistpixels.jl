@@ -72,9 +72,9 @@ function test(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     reset!(f)
     for (x,ygold) in data
         if ygold == nothing
-            forwtest(f, x; predict=false)
+            apply(f, x; predict=false)
         else
-            ypred = forwtest(f, x; predict=true)
+            ypred = apply(f, x; predict=true)
             sumloss += loss(ypred, ygold); numloss += 1
             reset!(f)
         end
@@ -87,7 +87,7 @@ function gradloss(f::Net, data, loss; grad=false, seed=42)
     data.rng = MersenneTwister()
     srand(data.rng, seed)
     reset!(f)
-    myforw = grad ? forw : forwtest
+    myforw = grad ? forw : apply
     loss1 = 0
     for (x,ygold) in data
         if ygold == nothing

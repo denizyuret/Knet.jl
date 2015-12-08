@@ -42,21 +42,63 @@ dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
 inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
 input_registers(f::Net,p::Reg)=f.reg[p.argv]
 
-pop!(f::Net)=pop!(f.stack)
-push!(f::Net,a)=(incref!(f,a); push!(f.stack,a))
-
-function incref!(f::Net,a)
-    a==nothing && return
-    isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
-    (y, xsave, ysave) = a
-    ysave == nothing || (f.sdict[ysave] = true)
-    xsave == nothing || (for x in xsave; f.sdict[x] = true; end)
-end
-
 get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
 set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
 inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
+set!(f::Net,k::Symbol,v=true)=(for p in registers(f); p.plist[k]=v; end)
 
+pop!(f::Net)=(pop!(f.stack); decref!(f,a); a)
+
+function push!(f::Net,a)
+    push!(f.stack,a)
+    if a!=nothing
+        isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
+        (y, xsave, ysave) = a
+        ysave == nothing || inc!(f.sdict,ysave)
+        xsave == nothing || (for x in xsave; inc!(f.sdict,x); end)
+    end
+end
+
+function pop!(f::Net)
+    a = pop!(f.stack)
+    if a!=nothing
+        isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
+        (y, xsave, ysave) = a
+        ysave == nothing || dec!(f.sdict,ysave)
+        xsave == nothing || (for x in xsave; dec!(f.sdict,x); end)
+    end
+    return a
+end
+
+inc!(p::ObjectIdDict,k)=(p[k]=1+get(p,k,0))
+
+function dec!(p::ObjectIdDict,k)
+    haskey(p,k) || (warn("Object not in dict"); return)
+    n = get(p,k,0)
+    if n > 1
+        p[k] = n-1
+    elseif n == 1
+        delete!(p,k)
+    else
+        warn("Bad count for object: $n")
+        delete!(p,k)
+    end
+end
+
+### Cleanup at the beginning/end of sequence
+
+function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnnlm defined its own reset
+    isempty(f.stack) || warn("Stack not empty")
+    isempty(f.sdict) || warn("Sdict not empty")
+    empty!(f.stack)
+    empty!(f.sdict)
+    for p in registers(f)
+        p.out = (keepstate ? p.out0 : nothing)
+        p.dif = nothing
+        get(p,:incr) && fill!(p.dif0, 0)
+    end
+    # Base.show_backtrace(STDOUT,backtrace());println()
+end
 
 ### DEAD CODE
 

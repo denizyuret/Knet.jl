@@ -59,7 +59,7 @@ include("net.jl");              export Reg, Net, set!, inc!, registers, params, 
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
-include("net/forw.jl");         export forw, forwtest
+include("net/forw.jl");         export forw # and apply imported from Base
 include("net/back.jl");         export back
 include("net/util.jl");         export reset!
 

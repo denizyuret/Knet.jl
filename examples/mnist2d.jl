@@ -1,8 +1,9 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
+isdefined(:MNIST) || include("mnist.jl")
+
 module MNIST2D
 using Main,Knet,ArgParse
-isdefined(:MNIST) || include("mnist.jl")
 
 function main(args=ARGS)
     info("Testing simple mlp on MNIST")
@@ -28,6 +29,9 @@ function main(args=ARGS)
 
     global net = compile(:mnist2layer)
     setopt!(net, lr=0.5)
+    # To make sure the array sharing does not change the results:
+    # set!(net, :forwoverwrite, false)
+    # set!(net, :backoverwrite, false)
 
     # println((:epoch,:ltrn,:atrn,:ltst,:atst))
     # ltrn = atrn = ltst = atst = 0
@@ -48,14 +52,13 @@ function main(args=ARGS)
     return (l[1]/l[2],m[1],m[2])
 end
 
-@knet function mnist2layer(x)
-    h    = wbf(x; out=64, f=:relu)
-    return wbf(h; out=10, f=:soft)
+@knet function mnist2layer(x; winit=Gaussian(0,.1))
+    h    = wbf(x; out=64, f=:relu, winit=winit)
+    return wbf(h; out=10, f=:soft, winit=winit)
 end
 
 function train0(f, data, loss)
     for (x,y) in data
-        reset!(f)
         forw(f, x)
         back(f, y, loss)
         update!(f)
@@ -64,7 +67,6 @@ end
 
 function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
-        reset!(f)
         ypred = forw(f, x)
         back(f, ygold, loss)
         update!(f)
@@ -77,7 +79,7 @@ end
 function test(f, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
-        ypred = forwtest(f, x)
+        ypred = apply(f, x)
         sumloss += loss(ypred, ygold)
         numloss += 1
     end
@@ -104,7 +106,7 @@ end
 function getloss(f, data, loss)
     (x,ygold) = first(data)
     reset!(f)
-    ypred = forwtest(f, x)
+    ypred = apply(f, x)
     loss(ypred, ygold)
 end
 

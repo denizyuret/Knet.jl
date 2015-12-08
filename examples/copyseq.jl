@@ -115,12 +115,12 @@ end
 
 function s2s_encode(m, x; trn=false, o...)
     # forw(m.encoder, x; trn=trn, seq=true, o...)
-    (trn?forw:forwtest)(m, x)
+    (trn?forw:apply)(m, x)
 end    
 
 function s2s_decode(m, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     # ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
-    ypred = (trn?forw:forwtest)(m, x; decoding=true)
+    ypred = (trn?forw:apply)(m, x; decoding=true)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
     losscnt != nothing && s2s_loss(m, ypred, ygold, mask, loss; losscnt=losscnt, o...)
 end

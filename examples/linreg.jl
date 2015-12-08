@@ -39,7 +39,6 @@ end
 
 function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
-        reset!(f)
         ypred = forw(f, x)
         back(f, ygold, loss)
         update!(f)
@@ -54,8 +53,7 @@ function gradloss(f, data, loss; grad=false, seed=42)
     data.rng = MersenneTwister()
     srand(data.rng, seed)
     (x,ygold) = first(data)
-    reset!(f)
-    ypred = grad ? forw(f, x) : forwtest(f, x)
+    ypred = grad ? forw(f, x) : apply(f, x)
     grad && back(f, ygold, loss)
     data.rng = data_rng
     loss(ypred, ygold)

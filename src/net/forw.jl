@@ -23,11 +23,9 @@ have read-before-write registers.  An explicit call to reset!(f)
 clears all internal registers, which may be necessary at the beginning
 of a sequence for RNNs.
 
-TODO: How about par registers?
-    
 forw() saves the state useful for the gradient calculation on f.stack.
-This is only necessary during training where the stack will be popped by
-back().  During testing forwtest() should be used instead, which
+This is only necessary during training where the stack will be popped
+by back().  During testing apply() should be used instead, which
 performs the same computation but does not touch the stack.
 
 """
@@ -50,7 +48,7 @@ function forw(f::Net, input...; kwargs...)
     return out(f,:return)
 end
 
-function forwtest(f::Net, input...; kwargs...)
+function Base.apply(f::Net, input...; kwargs...)
     initforw(f, input...; kwargs...)
     lastinput = 0
     for y in registers(f)

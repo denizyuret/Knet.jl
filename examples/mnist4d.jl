@@ -1,9 +1,10 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 # 4-D convolution test
 
+isdefined(:MNIST) || include("mnist.jl")
+
 module MNIST4D
 using Main, Knet, ArgParse
-isdefined(:MNIST) || include("mnist.jl")
 
 @knet function lenet_model(x0)
     x1 = cbfp(x0; out=20, f=:relu, cwindow=5, pwindow=2)
@@ -33,6 +34,10 @@ function main(args=ARGS)
 
     global net = compile(:lenet_model)
     setopt!(net; lr=lr)
+    # To make sure the array sharing does not change the results:
+    # set!(net, :forwoverwrite, false)
+    # set!(net, :backoverwrite, false)
+
     l=zeros(2); m=zeros(2)
     for epoch=1:epochs
         train(net,dtrn,softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
@@ -46,7 +51,6 @@ end
 
 function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
-        reset!(f)
         ypred = forw(f, x)
         back(f, ygold, loss)
         update!(f)
@@ -59,7 +63,7 @@ end
 function test(f::Net, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
-        ypred = forw(f, x)
+        ypred = apply(f, x)
         sumloss += loss(ypred, ygold)
         numloss += 1
     end
@@ -77,7 +81,6 @@ end
 
 function getgrad(f, data, loss)
     (x,ygold) = first(data)
-    reset!(f)
     ypred = forw(f, x)
     back(f, ygold, loss)
     loss(ypred, ygold)
@@ -85,8 +88,7 @@ end
 
 function getloss(f, data, loss)
     (x,ygold) = first(data)
-    reset!(f)
-    ypred = forwtest(f, x)
+    ypred = apply(f, x)
     loss(ypred, ygold)
 end
 

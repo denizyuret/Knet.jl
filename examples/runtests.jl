@@ -36,10 +36,12 @@ if opts["all"] || opts["linreg"]
     @time @show test1 = LinReg.main("--gcheck $gcheck")
     #@test test1 == (0.0005497372347062405,32.77256166946498,0.11244349406523031)
     #@test test1 == (0.0005497372347062409,32.77256166946497,0.11244349406522969) # Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
-    @test  test1 == (0.0005497846637255734,32.77257400591496,0.11265426200775067) # Wed Nov 18 21:39:18 PST 2015: xavier init
-    twice && (@time @show test1 = LinReg.main("--gcheck $gcheck"))
+    #@test test1 == (0.0005497846637255734,32.77257400591496,0.11265426200775067) # Wed Nov 18 21:39:18 PST 2015: xavier init
+    @test test1  == (0.0005497846637255735,32.77257400591496,0.11265426200775067) # Mon Dec  7 22:40:27 PST 2015: cpu quadloss
+    twice && (gc(); @time @show test1 = LinReg.main(""))
     # 0.739858 seconds (394.09 k allocations: 71.335 MB, 1.23% gc time) Tue Oct 20 18:29:41 PDT 2015
     # 0.731515 seconds (391.62 k allocations: 71.451 MB, 1.21% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 0.837992 seconds (690.89 k allocations: 86.433 MB, 0.80% gc time) Mon Dec  7 22:43:42 PST 2015: knet7
 end
 
 if opts["all"] || opts["mnist2d"]
@@ -48,12 +50,15 @@ if opts["all"] || opts["mnist2d"]
     # @test test2 == (0.10628127f0,24.865438f0,3.5134742f0)
     # @test test2 == (0.10626979f0,24.866688f0,3.5134728f0) # softloss with mask
     # @test test2 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test   test2 == (0.108679175f0,43.344624f0,3.0013776f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
+    # @test test2 == (0.108679175f0,43.344624f0,3.0013776f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
+    # @test test2 == (0.10911515f0,43.322735f0,3.2024312f0)  # improved softmax (dx=q-p)
+    @test test2 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
     twice && (gc(); @time @show test2 = MNIST2D.main("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 7.031675 seconds (3.47 M allocations: 158.983 MB, 1.31% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 6.730379 seconds (3.61 M allocations: 161.998 MB, 1.42% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 4.832591 seconds (4.67 M allocations: 407.652 MB, 4.33% gc time) Tue Dec  8 09:36:22 PST 2015: knet7
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -61,12 +66,15 @@ if opts["all"] || opts["mnist2dy"]
     @time @show test3 = MNIST2D.main("--ysparse --gcheck $gcheck")
     #@test test3 == (0.1062698f0,24.866688f0,3.513474f0)
     #@test test3 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test  test3 == (0.10906915f0,43.341377f0,3.1931002f0)  # Wed Nov 18 21:39:18 PST 2015: xavier init
+    #@test test3 == (0.10906915f0,43.341377f0,3.1931002f0)  # Wed Nov 18 21:39:18 PST 2015: xavier init
+    #@test test3 == (0.10911515f0,43.322735f0,3.2024312f0) # improved softmax (dx=q-p)
+    @test test3 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
     twice && (gc(); @time @show test3 = MNIST2D.main("--ysparse --gcheck $gcheck"))
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
     # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 8.542426 seconds (3.73 M allocations: 181.290 MB, 2.06% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 8.073397 seconds (3.86 M allocations: 184.237 MB, 2.15% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 5.237889 seconds (4.86 M allocations: 432.598 MB, 5.14% gc time) Tue Dec  8 08:06:30 PST 2015: knet7
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -83,15 +91,28 @@ if opts["all"] || opts["mnist2dx"]
     # @test isapprox(test4[3], 3.3128357f0; rtol=0.1)
 
     # (0.109181836f0,43.36849f0,3.2359037f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
-    @test isapprox(test4[1], 0.109181836f0; rtol=0.01)
-    @test isapprox(test4[2], 43.36849f0; rtol=0.001)
-    @test isapprox(test4[3], 3.2359037f0; rtol=0.1)
+    # @test isapprox(test4[1], 0.109181836f0; rtol=0.01)
+    # @test isapprox(test4[2], 43.36849f0; rtol=0.001)
+    # @test isapprox(test4[3], 3.2359037f0; rtol=0.1)
 
+    # (0.109118156f0,43.322895f0,3.2024305f0) # improved softmax (dx=q-p)
+    # @test isapprox(test4[1], 0.109118156f0; rtol=0.01)
+    # @test isapprox(test4[2], 43.322895f0; rtol=0.001)
+    # @test isapprox(test4[3], 3.2024305f0; rtol=0.1)
+
+    # (0.10815071f0,37.009987f0,2.8580344f0) TODO: switched back to gaussian, xavier in final layer slows down xsparse!?
+    @test isapprox(test4[1], 0.10815071f0; rtol=0.01)
+    @test isapprox(test4[2], 37.009987f0; rtol=0.001)
+    @test isapprox(test4[3], 2.8580344f0; rtol=0.1)
+    
     twice && (gc(); @time @show test4 = MNIST2D.main("--xsparse --gcheck $gcheck"))
     # 12.362125 seconds (3.81 M allocations: 753.744 MB, 1.87% gc time) Tue Oct 20 19:13:25 PDT 2015
     # 11.751002 seconds (3.84 M allocations: 753.959 MB, 1.95% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 12.005169 seconds (3.95 M allocations: 761.003 MB, 1.90% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
-    # 11.939937 seconds (4.11 M allocations: 764.436 MB, 1.91% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 12.647064 seconds (4.10 M allocations: 764.156 MB, 1.71% gc time) 2a9c883 2015-11-18 fixed lstm infersize issue
+    # 19.643433 seconds (4.08 M allocations: 750.880 MB, 1.12% gc time) 405b7d7 2015-11-18 Changed default weight init to Xavier
+    # 16.538108 seconds (5.16 M allocations: 909.466 MB, 1.65% gc time) Tue Dec  8 08:07:17 PST 2015: knet7 xavier
+    # 9.608017 seconds (5.16 M allocations: 921.080 MB, 3.53% gc time)  Tue Dec  8 09:39:05 PST 2015: knet7 gaussian
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -106,16 +127,28 @@ if opts["all"] || opts["mnist2dxy"]
     # @test isapprox(test5[2], 24.87226f0; rtol=0.001)
     # @test isapprox(test5[3], 3.3128357f0; rtol=0.1)
 
-    # (0.1091015f0,43.368706f0,3.2359257f0); Wed Nov 18 21:39:18 PST 2015: xavier init
-    @test isapprox(test5[1], 0.1091015f0; rtol=0.01)
-    @test isapprox(test5[2], 43.368706f0; rtol=0.001)
-    @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
+    # # (0.1091015f0,43.368706f0,3.2359257f0); Wed Nov 18 21:39:18 PST 2015: xavier init
+    # @test isapprox(test5[1], 0.1091015f0; rtol=0.01)
+    # @test isapprox(test5[2], 43.368706f0; rtol=0.001)
+    # @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
+
+    # (0.109118156f0,43.322895f0,3.2024305f0) # improved softmax (dx=q-p)
+    # @test isapprox(test4[1], 0.109118156f0; rtol=0.01)
+    # @test isapprox(test4[2], 43.322895f0; rtol=0.001)
+    # @test isapprox(test4[3], 3.2024305f0; rtol=0.1)
+
+    # (0.10815071f0,37.009987f0,2.8580344f0) switched back to gaussian, xavier in final layer slows down xsparse!?
+    @test isapprox(test4[1], 0.10815071f0; rtol=0.01)
+    @test isapprox(test4[2], 37.009987f0; rtol=0.001)
+    @test isapprox(test4[3], 2.8580344f0; rtol=0.1)
 
     twice && (gc(); @time @show test5 = MNIST2D.main("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
     # 13.320959 seconds (4.11 M allocations: 776.397 MB, 2.29% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
     # 13.339761 seconds (4.23 M allocations: 783.602 MB, 2.27% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
-    # 13.421199 seconds (4.37 M allocations: 786.728 MB, 2.27% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 13.421199 seconds (4.37 M allocations: 786.728 MB, 2.27% gc time) Wed Nov 18 21:28:22 PST 2015: lcn gaussian
+    # 16.959799 seconds (5.43 M allocations: 935.729 MB, 1.98% gc time) Tue Dec  8 08:07:43 PST 2015: knet7 xavier
+    # 10.177581 seconds (5.42 M allocations: 947.233 MB, 4.17% gc time) Tue Dec  8 09:40:31 PST 2015: knet7 gaussian
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -131,10 +164,15 @@ if opts["all"] || opts["mnist4d"]
     # @test isapprox(test6[2], 25.7783; rtol=0.001)
     # @test isapprox(test6[3], 9.59026; rtol=0.1)
 
-    # (0.02938571214979068,65.9176025390625,7.652309894561768); Wed Nov 18 21:39:18 PST 2015: xavier init
-    @test isapprox(test6[1], .029385; rtol=0.01)
-    @test isapprox(test6[2], 65.9176; rtol=0.001)
-    @test isapprox(test6[3], 7.65231; rtol=0.1)
+    # # (0.02938571214979068,65.9176025390625,7.652309894561768); Wed Nov 18 21:39:18 PST 2015: xavier init
+    # @test isapprox(test6[1], .029385; rtol=0.01)
+    # @test isapprox(test6[2], 65.9176; rtol=0.001)
+    # @test isapprox(test6[3], 7.65231; rtol=0.1)
+
+    # (0.03091877909648853,66.5221939086914,4.423511505126953); improved softmax (dx=q-p)
+    @test isapprox(test6[1], .030919; rtol=0.01)
+    @test isapprox(test6[2], 66.5222; rtol=0.001)
+    @test isapprox(test6[3], 5.0; rtol=0.2)
 
     twice && (gc(); @time @show test6 = MNIST4D.main("--gcheck $gcheck"))
     # 17.093371 seconds (10.15 M allocations: 479.611 MB, 1.11% gc time) Tue Oct 20 19:09:19 PDT 2015

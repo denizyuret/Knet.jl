@@ -1,17 +1,4 @@
-### Cleanup at the beginning/end of sequence
-
-function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnnlm defined its own reset
-    isempty(f.stack) || warn("Stack not empty")
-    empty!(f.stack)
-    empty!(f.sdict)
-    for p in registers(f)
-        p.out = (keepstate ? p.out0 : nothing)
-        p.dif = nothing
-        get(p,:incr) && fill!(p.dif0, 0)
-    end
-    # Base.show_backtrace(STDOUT,backtrace());println()
-end
-
+# TODO: move these to net.jl
 
 ### General utilities:
 

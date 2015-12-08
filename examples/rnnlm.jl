@@ -100,7 +100,7 @@ function test(f, data, loss; gcheck=false)
     for item in data
         if item != nothing
             (x,ygold) = item
-            ypred = forwtest(f, x)
+            ypred = apply(f, x)
             sumloss += loss(ypred, ygold)
             numloss += 1
         else
