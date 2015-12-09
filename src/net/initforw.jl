@@ -16,7 +16,7 @@ function initforw(f::Net, inputs...; o...)
         initargv(f)
         initsize(f, inputs...)
         inittype(f, inputs...)
-        initout0(f, inputs...)
+        initout0(f)
     end
 end
 
@@ -113,18 +113,29 @@ function inittype(f::Net, inputs...)
     end
 end
 
-function initout0(f::Net, inputs...)
-    for p in forwregs(f)
-        at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
-        if checkarray(p, :out0, at, et, sz)
-            # all done
-        elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
-            error("Size or type change not allowed in parameters and constants")
-        elseif (canoverwrite(p.op) && get(p, :forwoverwrite, true) &&
-                checkarray(f.reg[p.argv[end]], :out0, at, et, sz))
-            p.out0 = f.reg[p.argv[end]].out0
-        else
+initout0(f::Net)=(for p in forwregs(f); initout0(f,p); end)
+
+function initout0(f::Net, p::Reg)
+    at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
+    if checkarray(p, :out0, at, et, sz)
+        # all done
+    elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
+        error("Size or type change not allowed in parameters and constants")
+    else
+        p.out0 = nothing
+        if canoverwrite(p.op) && get(p, :forwoverwrite, true)
+            for i in reverse(p.argv) # consider overwriting the last input first
+                q = f.reg[i]
+                if !ispersistent(q) && checkarray(q,:out0,at,et,sz) && !haskey(f.sdict,q.out0)
+                    p.out0 = q.out0
+                    @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
+                    break
+                end
+            end
+        end
+        if p.out0 == nothing
             p.out0 = newarray(at, et, sz)
+            @dbg info("Alloc $(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
         end
     end
 end
@@ -135,6 +146,11 @@ function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::D
     eltype(r.(n)) == etype &&
     size(r.(n)) == dims
 end
+
+# We do not need to copy persistent registers, they are guaranteed not to change during forwback.
+ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
+isreturn(p::Reg)=(p.name==:return)
+
 
 ### DEAD CODE:
 

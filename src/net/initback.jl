@@ -16,27 +16,29 @@ function initback(f::Net, ygold, loss, getdx)
     inittmp(f)
 end
 
-function initdif0(f::Net)
-    for i=length(f):-1:1
-        p=get(f,i)
-        if get(p,:grad)
-            at, et, sz = get(p,:diftype), get(p,:eltype), get(p,:size)
-            if !checkarray(p, :dif0, at, et, sz)
-                p.dif0 = newarray(at, et, sz)
-                get(p,:incr) && fill!(p.dif0,0)
-            end
-            if canoverwrite(p.op) && get(p,:backoverwrite,true)
-                q = f.reg[p.argv[end]]
-                if (!isdefined(q,:dif0) && !get(q,:incr) && (at,et,sz)==(get(q,:diftype),get(q,:eltype),get(q,:size)))
-                    q.dif0 = p.dif0
-                end
+backregs(f::Net)=filter(r->get(r,:grad), registers(f))
+
+initdif0(f::Net)=(for p in reverse(backregs(f)); initdif0(f,p); end)
+
+function initdif0(f::Net,p::Reg)
+    at, et, sz = get(p,:diftype), get(p,:eltype), get(p,:size)
+    if !checkarray(p, :dif0, at, et, sz)
+        p.dif0 = newarray(at, et, sz)
+        get(p,:incr) && fill!(p.dif0,0)
+    end
+    if canoverwrite(p.op) && get(p,:backoverwrite,true) && !get(p,:incr)
+        for i in reverse(p.argv) # consider overwriting the last input first
+            q = f.reg[i]
+            if (!isdefined(q,:dif0) && !get(q,:incr) && (at,et,sz)==(get(q,:diftype),get(q,:eltype),get(q,:size)))
+                q.dif0 = p.dif0
+                break
             end
         end
     end
 end
 
 function inittmp(f::Net)
-    for p in registers(f)
+    for p in backregs(f)
         if get(p,:incr)
             at, et, sz = get(p,:tmptype), get(p,:eltype), get(p,:size)
             checkarray(p,:tmp,at,et,sz) || (p.tmp = newarray(at,et,sz))
@@ -91,13 +93,11 @@ end
 
 function initincr(f::Net)
     seq = length(f.stack) > length(f)
-    for p in registers(f)
-        get(p,:grad) || continue
+    for p in backregs(f)
         set!(p,:incr,seq && isa(p.op,Par))
         set!(p,:fanout, isreturn(p) ? 1 : 0)
     end
-    for p in registers(f)
-        get(p,:grad) || continue
+    for p in backregs(f)
         for i in input_registers(f,p)
             if get(i,:grad) && inc!(i,:fanout) > 1
                 set!(i,:incr,true)
@@ -119,11 +119,11 @@ end
 # TODO: cleanup this mess: more generic code? more versatile sparse type?
 
 function inittype2(f::Net)
-    for p in registers(f)
+    for p in backregs(f)
         set!(p,:diftype, gpu() ? CudaArray : Array)
         set!(p,:tmptype, gpu() ? CudaArray : Array)
     end
-    for p in registers(f)
+    for p in backregs(f)
         isa(p.op, Dot) || continue # We only know how to do sparse dot
         (a, b) = input_registers(f, p)
         if issparse(a.out0) && issparse(b.out0)

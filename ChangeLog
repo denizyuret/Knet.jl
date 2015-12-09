@@ -1,3 +1,54 @@
+2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* adding.jl: broken. turning off array sharing fixes it, but
+	slightly different result.  could be due to change in quadloss.
+	backoverwrite is the problem, forwoverwrite is ok. also get
+
+	Problem1: initforw does array sharing.  then forw pushes one of
+	the shared arrays on the stack.  next iteration all the other
+	users of that array realloc.  The sharing is lost.  This is a
+	performance problem does not effect the answer.
+	Solution1: go back to copy-on-save instead of copy-on-write.  The
+	sharing structure is preserved.  Con: useless copying for fnn.
+	Solution1b: Reintroduce the flags to stop push/pop for fnns.
+	Solution2: consider overwrite before realloc in forw.  need to
+	check if input is on stack as well.
+	Implementing solution 2... 1 alloc and 3 pointers every iteration,
+	might be slow.
+	Solution2b: do not share problem registers in the beginning, that
+	way nobody has to realloc.
+
+	Problem2: initback let incr register dif0 to get overwritten.
+	This is fixed now.
+
+	Getting the correct result, but slow: 10.54 secs vs 22.07 secs.
+	Could be the extra alloc for the stack, knet6 reuses stack
+	arrays.  Could be the extra shuffling due to Solution2.
+
+	- why slow?
+	- why axpb?
+	- try stack array reuse, rather array pool for initout0.
+	- WARNING: Sdict not empty. WARNING: Object not in dict.
+	- remember: stack tells back which ops were executed, cannot get
+	rid of stack for fnns without major redesign.
+	- conjecture: stack always has unique arrays?
+	- hypothesis: copy_on_write for stack ops responsible.
+
+	Timing expriments:
+	- original: 22.535261 seconds (37.51 M allocations: 1.407 GB, 3.15% gc time)
+	- without decref!: 21.918482 seconds (37.51 M allocations: 1.407 GB, 3.12% gc time)
+	- without copy_on_write: 19.962486 seconds (36.14 M allocations: 1.368 GB, 1.67% gc time)
+
+	This is still far from master: 10.544112 seconds (21.14 M allocations: 876.542 MB, 2.00% gc time)
+
+	- compare registers with master: master has different out0 for
+	relu9.  dev has differnt dif0 for dot3.
+
+	- could it be the cpu quadloss?  with gpu quadloss:
+	22.765790 seconds (37.52 M allocations: 1.407 GB, 3.12% gc time)
+
+	I am out of ideas.  Profiling results:
+
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* mnist4d: dev gives out-of-memory.  master and lcn are different?
@@ -32,6 +83,8 @@
 
 	* TODO:
 
+	0000 start barrett translation experiments
+	0000 check on vivi 16e9.cnt
 	1000 consolidate set and setopt
 	0100 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
@@ -398,6 +451,7 @@
 	tmp=0		n	n	n	n	never needed
 	dif=void	n	n	n	n	never needed, will never read before write?
 	dif0=0		i	i	i	i	need if incr
+	reg=incr	o	o	o	o	always needed for multi-output
 
 	When the user compiles a net, we know whether or not it is an rnn.
 	Actually we may need to wait until the first forw to see which

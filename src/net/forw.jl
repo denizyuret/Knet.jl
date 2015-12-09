@@ -35,7 +35,7 @@ function forw(f::Net, input...; kwargs...)
     for y in registers(f)
         get(y,:forw) || (push!(f, nothing); continue)
         xout = inputs(f,y)
-        !ispersistent(y) && haskey(f.sdict,y.out0) && (y.out0 = copy(y.out0))  # copy-on-write
+        copy_on_write(f,y)
         if isa(y.op, Input)
             y.out = copy!(y.out0, input[lastinput += 1])
         else
@@ -60,9 +60,13 @@ function Base.apply(f::Net, input...; kwargs...)
     return out(f,:return)
 end
 
-# We do not need to copy persistent registers, they are guaranteed not to change during forwback.
-ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
-isreturn(p::Reg)=(p.name==:return)
+# If y.out has been saved on stack, find new storage so we do not overwrite
+function copy_on_write(f::Net,y::Reg)
+    if !ispersistent(y) && haskey(f.sdict,y.out0)
+        y.out0 = nothing
+        initout0(f,y)
+    end
+end
 
 ### DEAD CODE:
     # yout != nothing && copy!(yout, r.out[N])
