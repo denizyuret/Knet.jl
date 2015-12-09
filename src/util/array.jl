@@ -4,10 +4,10 @@
 function similar!(l, n, a, T=eltype(a), dims=size(a); fill=nothing)
     if !isdefined(l,n) || (typeof(l.(n)) != typeof(a))
         l.(n) = similar(a, T, dims)
-        fill != nothing && fill!(l.(n), fill)
+        fill != nothing && fillsync!(l.(n), fill)
     elseif (size(l.(n)) != dims)
         l.(n) = resize!(l.(n), dims)
-        fill != nothing && fill!(l.(n), fill)
+        fill != nothing && fillsync!(l.(n), fill)
     end
     return l.(n)
 end

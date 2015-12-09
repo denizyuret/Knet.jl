@@ -31,7 +31,7 @@ size2(y,i)=size2(y)[i]
 #     n  = clength(b) * length(r)
 #     length(a.ptr) >= n || resize!(a.ptr, int(resizefactor(KUdense)*n+1))
 #     b1 = 1 + clength(b) * (first(r) - 1)
-#     copy!(a.ptr, 1, b, b1, n)
+#     copysync!(a.ptr, 1, b, b1, n)
 #     a.arr = arr(a.ptr, csize(b, length(r)))
 #     return a
 # end
@@ -45,7 +45,7 @@ size2(y,i)=size2(y)[i]
 #     alen = 0
 #     for i=1:ncols
 #         bidx = (cols[i]-1)*clen + 1
-#         copy!(a.ptr, alen+1, b, bidx, clen)
+#         copysync!(a.ptr, alen+1, b, bidx, clen)
 #         alen += clen
 #     end
 #     a.arr = arr(a.ptr, csize(b, ncols))
@@ -61,7 +61,7 @@ function cslice!{T}(a::BaseArray{T}, b::BaseArray{T}, cols)
     alen = 0
     for i=1:ncols
         bidx = (cols[i]-1)*clen + 1
-        copy!(a, alen+1, b, bidx, clen) # t:134
+        copysync!(a, alen+1, b, bidx, clen) # t:134
         alen += clen
     end
     return a
@@ -79,8 +79,8 @@ function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
     for bj in cols                 # copy column b[:,bj] to a[:,aj]
         b1 = bptr[bj]
         nz = bptr[bj+1]-b1
-        copy!(a.nzval, a1, b.nzval, b1, nz) # t:217
-        copy!(a.rowval, a1, b.rowval, b1, nz) # t:191
+        copysync!(a.nzval, a1, b.nzval, b1, nz) # t:217
+        copysync!(a.rowval, a1, b.rowval, b1, nz) # t:191
         a1 += nz
         a.colptr[aj+=1] = a1
     end
@@ -101,8 +101,8 @@ end
 #     for bj in r                 # copy column b[:,bj] to a[:,aj]
 #         b1 = bptr[bj]
 #         nz = bptr[bj+1]-b1
-#         copy!(a.nzval, a1, b.nzval, b1, nz)
-#         copy!(a.rowval, a1, b.rowval, b1, nz)
+#         copysync!(a.nzval, a1, b.nzval, b1, nz)
+#         copysync!(a.rowval, a1, b.rowval, b1, nz)
 #         a1 += nz
 #         aptr[aj+=1] = a1
 #     end
@@ -125,7 +125,7 @@ function ccopy!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccoun
     clen = clength(src)
     d1 = 1 + clen * (di - 1)
     s1 = 1 + clen * (si - 1)
-    copy!(dst, d1, src, s1, clen * n)
+    copysync!(dst, d1, src, s1, clen * n)
     return dst
 end
 
@@ -165,7 +165,7 @@ end
 #     length(a.ptr) >= n || resize!(a.ptr, round(Int,resizefactor(KUdense)*n+1))
 #     for i=1:ncols
 #         bidx = (cols[i]-1)*clen + 1
-#         copy!(a.ptr, alen+1, b, bidx, clen)
+#         copysync!(a.ptr, alen+1, b, bidx, clen)
 #         alen += clen
 #     end
 #     a.arr = arr(a.ptr, csize(a, ccount(a) + ncols))
@@ -193,13 +193,13 @@ end
 #         nz=bptr[bj+1]-bptr[bj]  # with nz nonzero values
 #         @assert length(aptr) == aj
 #         push!(aptr, aptr[aj]+nz) # aptr[aj+1] = aptr[aj]+nz
-#         copy!(a.nzval,na+1,b.nzval,bptr[bj],nz)
-#         copy!(a.rowval,na+1,b.rowval,bptr[bj],nz)
+#         copysync!(a.nzval,na+1,b.nzval,bptr[bj],nz)
+#         copysync!(a.rowval,na+1,b.rowval,bptr[bj],nz)
 #         na = na+nz
 #     end
 #     @assert length(aptr) == a.n + ncols + 1
 #     resize!(a.colptr, a.n + ncols + 1)
-#     copy!(a.colptr, a.n+2, aptr, a.n+2, ncols)
+#     copysync!(a.colptr, a.n+2, aptr, a.n+2, ncols)
 #     a.n += ncols
 #     return a
 # end
@@ -222,7 +222,7 @@ end
 #             @assert newj == newn+1 == length(ds) <= oldj	
 #             newn += 1
 #             if newj != oldj
-#                 ccopy!(s,newj,s,oldj,1)
+#                 ccopysync!(s,newj,s,oldj,1)
 #                 for w in ww; ccopy!(w,newj,w,oldj,1); end
 #             end
 #         end
@@ -253,8 +253,8 @@ end
 #             ncol += 1
 #             nnz += nval
 #             if newj != oldj
-#                 copy!(s.rowval, to, s.rowval, from, nval)
-#                 copy!(s.nzval, to, s.nzval, from, nval)
+#                 copysync!(s.rowval, to, s.rowval, from, nval)
+#                 copysync!(s.nzval, to, s.nzval, from, nval)
 #                 s.colptr[ncol+1] = nnz+1
 #                 for w in ww; ccopy!(w,newj,w,oldj,1); end
 #             else 
@@ -284,7 +284,7 @@ end
 
 # Getting columns one at a time is expensive, just copy the whole array
 # CudaArray does not support sub, even if it did we would not be able to hash it
-# getcol{T}(s::KUdense{CudaArray,T}, j)=(n=clength(s);copy!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
+# getcol{T}(s::KUdense{CudaArray,T}, j)=(n=clength(s);copysync!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
 
 # we need to look at the columns, might as well copy
 
@@ -364,8 +364,8 @@ end
 #     n = size(s,2)
 #     uu = size!(uu, (size(u,1),n))
 #     vv = size!(vv, (size(v,1),n))
-#     copy!(uu, 1, u, 1, size(u,1)*n)
-#     copy!(vv, 1, v, 1, size(v,1)*n)
+#     copysync!(uu, 1, u, 1, size(u,1)*n)
+#     copysync!(vv, 1, v, 1, size(v,1)*n)
 #     (ss.m, ss.n, ss.colptr, ss.rowval, ss.nzval) = (s.m, s.n, gpucopy(s.colptr), gpucopy(s.rowval), gpucopy(s.nzval))
 #     return (ss,uu,vv)
 # end
@@ -381,13 +381,13 @@ end
 #     for bj in r                 # copy column b[:,bj] to a[:,aj]
 #         b1 = b.colptr[bj]
 #         nz = b.colptr[bj+1]-b1
-#         copy!(a.nzval.arr, a1, b.nzval, b1, nz)
-#         copy!(a.rowval.arr, a1, b.rowval, b1, nz)
+#         copysync!(a.nzval.arr, a1, b.nzval, b1, nz)
+#         copysync!(a.rowval.arr, a1, b.rowval, b1, nz)
 #         a1 += nz
 #         aptr[aj+=1] = a1
 #     end
 #     @assert aj == a.n+1
-#     copy!(a.colptr, aptr)
+#     copysync!(a.colptr, aptr)
 #     return a
 # end
 

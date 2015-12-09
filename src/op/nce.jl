@@ -25,7 +25,7 @@ forw(::Nce, kq, s, p; o...)=(size2(s) != size2(p) ? throw(DimensionMismatch()) :
 
 # ds[i,j] = dp[i,j]*p[i,j]*(1-p[i,j]) same as sigmback!
 function back(::Nce, dp, dq, ds; y=nothing, o...) # y is p
-    dq != nothing && (Base.warn_once("Taking gradient of constant"); fill!(dq,0))
+    dq != nothing && (Base.warn_once("Taking gradient of constant"); fillsync!(dq,0))
     ds != nothing && (length(y)==length(ds)==length(dp)||throw(DimensionMismatch()); sigmback(y,dp,ds))
 end
 

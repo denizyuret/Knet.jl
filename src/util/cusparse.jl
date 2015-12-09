@@ -17,57 +17,57 @@ Base.strides(g::CudaSparseMatrix)=(1,g.dims[1])
 Base.vecnorm(a::CudaSparseMatrix) = vecnorm(a.nzVal)
 Base.LinAlg.BLAS.nrm2(a::CudaSparseMatrix) = Base.LinAlg.BLAS.nrm2(a.nzVal)
 
-function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
+function copysync!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
     a.dims = (b.m,b.n)
     a.nnz = convert(Cint, length(b.nzval))
     resizecopy!(a.colPtr, convert(Vector{Cint},b.colptr))
     resizecopy!(a.rowVal, convert(Vector{Cint},b.rowval))
     resizecopy!(a.nzVal, b.nzval)
-    return a
+    gpusync(); return a
 end
 
-function Base.copy!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T})
+function copysync!{T}(a::CudaSparseMatrixCSC{T}, b::CudaSparseMatrixCSC{T})
     a.dims = b.dims
     a.nnz = b.nnz
     resizecopy!(a.colPtr, convert(Vector{Cint},b.colPtr))
     resizecopy!(a.rowVal, convert(Vector{Cint},b.rowVal))
     resizecopy!(a.nzVal, b.nzVal)
-    return a
+    gpusync(); return a
 end
 
-function Base.copy!{T}(a::CudaSparseMatrixCSR{T}, b::CudaSparseMatrixCSR{T})
+function copysync!{T}(a::CudaSparseMatrixCSR{T}, b::CudaSparseMatrixCSR{T})
     a.dims = b.dims
     a.nnz = b.nnz
     resizecopy!(a.rowPtr, convert(Vector{Cint},b.rowPtr))
     resizecopy!(a.colVal, convert(Vector{Cint},b.colVal))
     resizecopy!(a.nzVal, b.nzVal)
-    return a
+    gpusync(); return a
 end
 
 function resizecopy!{T}(a::CudaVector{T}, b::Vector{T})
     resize!(a, length(b))       # TODO: is this efficient?
-    copy!(a, b)
+    copysync!(a, b)
 end
 
 function resizecopy!{T}(a::CudaVector{T}, b::CudaVector{T})
     resize!(a, length(b))       # TODO: is this efficient?
-    copy!(a, b)
+    copysync!(a, b)
 end
 
 CUDArt.free(x::CudaSparseMatrixCSR)=(free(x.rowPtr);free(x.colVal);free(x.nzVal))
 
-function Base.fill!(x::CudaSparseMatrixCSR,n)
+function fillsync!(x::CudaSparseMatrixCSR,n)
     n == 0 || error("Only 0 fill for sparse")
-    fill!(x.rowPtr,1)
+    fillsync!(x.rowPtr,1)
     resize!(x.colVal,0)
     resize!(x.nzVal,0)
     x.nnz = 0
     return x
 end
 
-function Base.fill!(x::CudaSparseMatrixCSC,n)
+function fillsync!(x::CudaSparseMatrixCSC,n)
     n == 0 || error("Only 0 fill for sparse")
-    fill!(x.colPtr,1)
+    fillsync!(x.colPtr,1)
     resize!(x.rowVal,0)
     resize!(x.nzVal,0)
     x.nnz = 0
@@ -103,11 +103,11 @@ if !isdefined(:CudaSparseMatrixCSCU)
     end
 end
 
-CudaSparseMatrixCSRU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSRU{T}(fill!(CudaArray(Cint,m+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
+CudaSparseMatrixCSRU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSRU{T}(fillsync!(CudaArray(Cint,m+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
 CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, convert(Cint,length(nzVal)), device())
 CudaSparseMatrixCSRU(T::Type, rowPtr::CudaArray, colVal::CudaArray, nzVal::CudaArray, nnz, dims::NTuple{2,Int}) = CudaSparseMatrixCSRU{T}(rowPtr, colVal, nzVal, dims, nnz, device())
 
-CudaSparseMatrixCSCU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSCU{T}(fill!(CudaArray(Cint,n+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
+CudaSparseMatrixCSCU(T::Type, m::Integer, n::Integer)=CudaSparseMatrixCSCU{T}(fillsync!(CudaArray(Cint,n+1),1), CudaArray(Cint,0), CudaArray(T,0), (convert(Int,m),convert(Int,n)), convert(Cint,0), convert(Int,device()))
 CudaSparseMatrixCSCU(T::Type, colPtr::CudaArray, rowVal::CudaArray, nzVal::CudaArray, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(colPtr, rowVal, nzVal, dims, convert(Cint,length(nzVal)), device())
 CudaSparseMatrixCSCU(T::Type, colPtr::CudaArray, rowVal::CudaArray, nzVal::CudaArray, nnz, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(colPtr, rowVal, nzVal, dims, nnz, device())
 CudaSparseMatrixCSCU(T::Type, colPtr::Vector, rowVal::Vector, nzVal::Vector, dims::NTuple{2,Int}) = CudaSparseMatrixCSCU{T}(CudaArray(convert(Vector{Cint},colPtr)), CudaArray(convert(Vector{Cint},rowVal)), CudaArray(nzVal), dims, convert(Cint,length(nzVal)), device())
@@ -119,16 +119,16 @@ Base.size(x::CudaSparseMatrixCSRU)=x.dims
 Base.issparse(x::CudaSparseMatrixCSRU)=true
 Base.scale!(s,x::CudaSparseMatrixCSRU)=scale!(s,x.nzVal)
 Base.similar(Mat::CudaSparseMatrixCSRU) = CudaSparseMatrixCSRU(eltype(Mat), copy(Mat.rowPtr), copy(Mat.colVal), similar(Mat.nzVal), Mat.nnz, Mat.dims)
-Base.copy(Mat::CudaSparseMatrixCSRU; stream=null_stream) = copy!(similar(Mat),Mat;stream=null_stream)
+Base.copy(Mat::CudaSparseMatrixCSRU; stream=null_stream) = copysync!(similar(Mat),Mat;stream=null_stream)
 
 Base.eltype{T}(x::CudaSparseMatrixCSCU{T})=T
 Base.size(x::CudaSparseMatrixCSCU)=x.dims
 Base.issparse(x::CudaSparseMatrixCSCU)=true
 Base.scale!(s,x::CudaSparseMatrixCSCU)=scale!(s,x.nzVal)
 Base.similar(Mat::CudaSparseMatrixCSCU) = CudaSparseMatrixCSCU(eltype(Mat), copy(Mat.colPtr), copy(Mat.rowVal), similar(Mat.nzVal), Mat.nnz, Mat.dims)
-Base.copy(Mat::CudaSparseMatrixCSCU; stream=null_stream) = copy!(similar(Mat),Mat;stream=null_stream)
+Base.copy(Mat::CudaSparseMatrixCSCU; stream=null_stream) = copysync!(similar(Mat),Mat;stream=null_stream)
 
-function Base.copy!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream=null_stream)
+function copysync!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream=null_stream)
     if dst.dims != src.dims
         throw(ArgumentError("Inconsistent Sparse Matrix size"))
     end
@@ -136,10 +136,10 @@ function Base.copy!(dst::CudaSparseMatrixCSRU, src::CudaSparseMatrixCSRU; stream
     resizecopy!( dst.colVal, src.colVal )
     resizecopy!( dst.nzVal, src.nzVal )
     dst.nnz = src.nnz
-    dst
+    gpusync(); return dst
 end
 
-function Base.copy!(dst::CudaSparseMatrixCSCU, src::CudaSparseMatrixCSCU; stream=null_stream)
+function copysync!(dst::CudaSparseMatrixCSCU, src::CudaSparseMatrixCSCU; stream=null_stream)
     if dst.dims != src.dims
         throw(ArgumentError("Inconsistent Sparse Matrix size"))
     end
@@ -147,7 +147,7 @@ function Base.copy!(dst::CudaSparseMatrixCSCU, src::CudaSparseMatrixCSCU; stream
     resizecopy!( dst.rowVal, src.rowVal )
     resizecopy!( dst.nzVal, src.nzVal )
     dst.nnz = src.nnz
-    dst
+    gpusync(); return dst
 end
 
 function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSRU{T})

@@ -28,7 +28,7 @@ end
 
 function back(c::Conv, dy, dw, dx; x=nothing, o...)
     dw == nothing && dx == nothing && return
-    dw != nothing && (x[2] != nothing ? cudnnConvolutionBackwardFilter(x[2], dy, dw; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : fill!(dw,0))
+    dw != nothing && (x[2] != nothing ? cudnnConvolutionBackwardFilter(x[2], dy, dw; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : fillsync!(dw,0))
     dx != nothing && (x[1] != nothing ? cudnnConvolutionBackwardData(x[1], dy, dx; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode) : error("Uninitialized filter"))
     gpusync()
 end
@@ -169,9 +169,9 @@ end
 # Make things work with CPU (for now)
 
 # cudnnGetConvolutionNdForwardOutputDim(x::Array, w::Array)=cudnnGetConvolutionNdForwardOutputDim(CudaArray(x),CudaArray(w))
-# cudnnConvolutionForward(x::Array, w::Array, y::Array)=(y1=CudaArray(y);cudnnConvolutionForward(CudaArray(x), CudaArray(w), y1);copy!(y,1,y1,1,length(y)))
-# cudnnConvolutionBackwardFilter(x::Array, dy::Array, w::Array)=(w1=CudaArray(w);cudnnConvolutionBackwardFilter(CudaArray(x), CudaArray(dy), w1); copy!(w,1,w1,1,length(w)))
-# cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArray(dx);cudnnConvolutionBackwardData(CudaArray(w), CudaArray(dy), dx1); copy!(dx,1,dx1,1,length(dx)))
+# cudnnConvolutionForward(x::Array, w::Array, y::Array)=(y1=CudaArray(y);cudnnConvolutionForward(CudaArray(x), CudaArray(w), y1);copysync!(y,1,y1,1,length(y)))
+# cudnnConvolutionBackwardFilter(x::Array, dy::Array, w::Array)=(w1=CudaArray(w);cudnnConvolutionBackwardFilter(CudaArray(x), CudaArray(dy), w1); copysync!(w,1,w1,1,length(w)))
+# cudnnConvolutionBackwardData(w::Array, dy::Array, dx::Array)=(dx1=CudaArray(dx);cudnnConvolutionBackwardData(CudaArray(w), CudaArray(dy), dx1); copysync!(dx,1,dx1,1,length(dx)))
 
 
 #     else

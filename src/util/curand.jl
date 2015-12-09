@@ -32,7 +32,7 @@ function randn!(a::CudaArray{Float32},mean=0f0,stddev=1f0)
         @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t,Cfloat,Cfloat),rng(),a,length(a),mean,stddev)
     else
         @assert 0==ccall((:curandGenerateNormal,libcurand),Cint,(Ptr{Void},Ptr{Cfloat},Csize_t,Cfloat,Cfloat),rng(),a,length(a)-1,mean,stddev)
-        copy!(a,length(a),Float32[randn()*stddev+mean],1,1)
+        copysync!(a,length(a),Float32[randn()*stddev+mean],1,1)
     end
     return a
 end
@@ -42,7 +42,7 @@ function randn!(a::CudaArray{Float64},mean=0e0,stddev=1e0)
         @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t,Cdouble,Cdouble),rng(),a,length(a),mean,stddev)
     else
         @assert 0==ccall((:curandGenerateNormalDouble,libcurand),Cint,(Ptr{Void},Ptr{Cdouble},Csize_t,Cdouble,Cdouble),rng(),a,length(a)-1,mean,stddev)
-        copy!(a,length(a),Float64[randn()*stddev+mean],1,1)
+        copysync!(a,length(a),Float64[randn()*stddev+mean],1,1)
     end
     return a
 end

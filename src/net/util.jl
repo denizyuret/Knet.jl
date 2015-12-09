@@ -37,7 +37,7 @@ cpucsc(xtype, dims)=spzeros(xtype, dims...)
 cpuarr(xtype, dims)=zeros(xtype, dims)
 gpucsc(xtype, dims)=CudaSparseMatrixCSC(spzeros(xtype, dims...))
 gpucsr(xtype, dims)=CudaSparseMatrixCSR(spzeros(xtype, dims...))
-gpuarr(xtype, dims)=fill!(CudaArray(xtype, dims), 0)
+gpuarr(xtype, dims)=fillsync!(CudaArray(xtype, dims), 0)
 
 stype(a)=nothing
 stype(a::SparseMatrixCSC)=:csc
@@ -56,15 +56,15 @@ stype(a::CudaSparseMatrixCSR)=:csr
 newarray(::Type{Array}, t::DataType, d::Dims)=Array(t,d)
 newarray(::Type{CudaArray}, t::DataType, d::Dims)=CudaArray(t,d)
 newarray(::Type{SparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=SparseMatrixCSC(d[1], d[2], ones(Cint, d[2]+1), Array(Cint, 0), Array(t, 0))
-newarray(::Type{CudaSparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSC(t, fill!(CudaArray(Cint, d[2]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
-newarray(::Type{CudaSparseMatrixCSR}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSR(t, fill!(CudaArray(Cint, d[1]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+newarray(::Type{CudaSparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSC(t, fillsync!(CudaArray(Cint, d[2]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+newarray(::Type{CudaSparseMatrixCSR}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSR(t, fillsync!(CudaArray(Cint, d[1]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
 newarray(::Type{CudaSparseMatrixCSCU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSCU(t, d...)
 newarray(::Type{CudaSparseMatrixCSRU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSRU(t, d...)
 
 issimilar2(i,o)=(eltype(i) == eltype(o) && size(i) == size(o))
 issimilar3(i,o)=(eltype(i) == eltype(o) && size(i) == size(o) && issparse(i) == issparse(o))
 
-nothings(n::Integer)=fill!(cell(n),nothing)
+nothings(n::Integer)=fillsync!(cell(n),nothing)
 
 # ### DEBUGGING
 
@@ -148,7 +148,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #                 end
 #             end
 #             if length(r.freads[n]) > 1
-#                 fill!(r.dh[n], 0)               # if n has multiple outputs, reset dh[n]
+#                 fillsync!(r.dh[n], 0)               # if n has multiple outputs, reset dh[n]
 #             end
 #         end
 #     end
@@ -179,7 +179,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
 # function initbuf(r::Net)
 #     N = length(r.op)
-#     index = fill!(Array(Any,N), 0)
+#     index = fillsync!(Array(Any,N), 0)
 #     for n=1:N
 #         if overwrites(r.op[n])
 #             index[n] = i = r.inputs[n][1] # tentatively prepare to overwrite first input
@@ -219,7 +219,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 # # and others that result from them at time>0
 
 # function initoutput(r::Net)
-#     r.output = fill!(Array(Any,length(r.op)), nothing)
+#     r.output = fillsync!(Array(Any,length(r.op)), nothing)
 # end
 
 # # r.stack[n<=N][t] is a copy of the output of r.op[n] at r.time=t
@@ -263,7 +263,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #             length(r.stack[n]) == r.time - 1 || error("Stack corruption")
 #             push!(r.stack[n], copy(x[i]))
 #         else
-#             copy!(r.stack[n][r.time], x[i])
+#             copysync!(r.stack[n][r.time], x[i])
 #         end
 #     end
 # end
@@ -302,7 +302,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #         setindex!(a, x, i...)
 #     else
 #         resize!(ai, size(x))
-#         copy!(ai, x)
+#         copysync!(ai, x)
 #     end
 #     return getindex(a, i...)
 # end
@@ -315,7 +315,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
 # function inithidden(r::Net, x, N, T)
 #     if !isdefined(r,x)
-#         r.(x) = fill!(Array(Any, N, T), nothing)
+#         r.(x) = fillsync!(Array(Any, N, T), nothing)
 #     elseif size(r.(x), 1) != N
 #         error("Size mismatch")
 #     elseif size(r.(x), 2) != T
@@ -324,7 +324,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #             r.(x) = sub(r.(x), 1:N, 1:T)
 #         elseif size(r.(x), 2) < T
 #             h = Array(Any, N, T)
-#             copy!(h, 1, r.(x), 1, length(r.(x)))
+#             copysync!(h, 1, r.(x), 1, length(r.(x)))
 #             h[length(r.(x))+1:end] = nothing
 #             r.(x) = h
 #         end
@@ -381,10 +381,10 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     # or should we try to accept nothing input?
 #     # but what about batch size?  should be hdim x nbatch
 #     # hinton says train h0 like the weights: copy column nbatch times
-#     y = fill!(Array(Any, 1+length(rnn), 1+length(x)), nothing)
+#     y = fillsync!(Array(Any, 1+length(rnn), 1+length(x)), nothing)
 # end
 
-# nothings(m,n)=fill!(Array(Any,m,n),nothing)
+# nothings(m,n)=fillsync!(Array(Any,m,n),nothing)
 
 # function forwreads(r::Net)
 #     N = length(r.inputs)
@@ -472,7 +472,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
         # if !predict && isassigned(r.stack,n)
         #     if r.output[n] != nothing
-        #         copy!(r.stack[n][r.time], r.output[n])
+        #         copysync!(r.stack[n][r.time], r.output[n])
         #     else
         #         warn("Recording 'nothing' in stack at $n:$(typeof(r.op[n]))")
         #         r.stack[n][r.time] = nothing
@@ -602,9 +602,9 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #         r.stack[r.sp] = copy(r.reg[i])
 #     elseif size(r.reg[i]) != size(r.stack[r.sp])
 #         warn("resizing during push")
-#         copy!(r.stack[r.sp], r.reg[i])
+#         copysync!(r.stack[r.sp], r.reg[i])
 #     else
-#         copy!(r.stack[r.sp], r.reg[i])
+#         copysync!(r.stack[r.sp], r.reg[i])
 #     end
 # end
 
@@ -626,14 +626,14 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     r.sp == 0 || error("Stack corruption")
 #     inputs = isa(x[1],Tuple) ? x[1] : (x[1],)
 #     initbatch(r, inputs...; trn=trn, seq=true, a...)
-#     fill!(r.out, nothing)                               # to represent zero matrices at t=0
+#     fillsync!(r.out, nothing)                               # to represent zero matrices at t=0
 #     if trn
-#         fill!(r.dif, nothing)                           # why? (todo)
+#         fillsync!(r.dif, nothing)                           # why? (todo)
 #         for n=1:length(r.dif0)
-#             r.toincr[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+#             r.toincr[n] && fillsync!(r.dif0[n], 0)           # zeroed by back at every item in sequence
 #         end
 #         for w in params(r)
-#             fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#             fillsync!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
 #         end
 #     end
 # end
@@ -641,17 +641,17 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 # function initbatch(r::Net, inputs...; trn=false, seq=false)
 #     length(inputs) == ninputs(r) || error("Wrong number of inputs")
 #     initout0(r, inputs...)
-#     !seq && fill!(r.out, nothing)
+#     !seq && fillsync!(r.out, nothing)
 #     if trn
 #         initparams(r, inputs...; seq=seq)
 #         initdif0(r)
 #         if !seq
-#             fill!(r.dif, nothing)                           # why? (todo)
+#             fillsync!(r.dif, nothing)                           # why? (todo)
 #             for n=1:length(r.dif0)
-#                 r.toincr[n] && fill!(r.dif0[n], 0)           # zeroed by back at every item in sequence
+#                 r.toincr[n] && fillsync!(r.dif0[n], 0)           # zeroed by back at every item in sequence
 #             end
 #             for w in params(r)
-#                 fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#                 fillsync!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
 #             end
 #         end
 #     end
@@ -761,7 +761,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     # if seq
 #     #     for w in params(r)
 #     #         similar!(w, :inc, w.diff)
-#     #         fill!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
+#     #         fillsync!(w.diff, 0)                            # zeroed only once at the beginning of the sequence
 #     #     end
 #     # end
 
@@ -770,7 +770,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     #     n = i+N                           # input[i] goes into out[i+N]
 #     #     eltype(inputs[i]) == eltype(r.out0[n]) || error("Element type mismatch $i $n")
 #     #     trn && r.push[n] && push(r,n)         # t:140 save old input if necessary
-#     #     r.out[n] = copy!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
+#     #     r.out[n] = copysync!(r.out0[n], inputs[i]) 	# ; dbg(r,:out,n) # t:98 inputs can be any type of array, this will copy it to gpu or wherever
 #     # end
 
 # # Do not copy inputs to gpu:
@@ -792,13 +792,13 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 # end
 
     # if keepstate
-    #     copy!(f.out, f.out0)   ## why did we copy here?
+    #     copysync!(f.out, f.out0)   ## why did we copy here?
     # else
-    #     fill!(f.out, nothing)
+    #     fillsync!(f.out, nothing)
     # end
-    # fill!(f.dif, nothing)
+    # fillsync!(f.dif, nothing)
     # for n=1:length(f.op)    ## todo: fix reset dif for back
-    #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fill!(f.dif0[n], 0)
+    #     f.toback[n] && f.toincr[n] && f.dif0[n]!=nothing && fillsync!(f.dif0[n], 0)
     # end
 # ### Stack functions: push, pop
 
@@ -817,9 +817,9 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     elseif size(r.out) != size(f.stack[f.sp])
 #         Base.warn_once("pushing array of different size")
 #         resize!(f.stack[f.sp], size(r.out))
-#         copy!(f.stack[f.sp], r.out)
+#         copysync!(f.stack[f.sp], r.out)
 #     else
-#         copy!(f.stack[f.sp], r.out)
+#         copysync!(f.stack[f.sp], r.out)
 #     end
 # end
 
@@ -838,4 +838,4 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
         # get(r,:incr) && # TODO: incr not ready here, can we do something more efficient than zeroing everything?
         # r.dif0!=nothing &&
-        # isdefined(r,:dif0) && get(r,:incr) && fill!(r.dif0, 0)
+        # isdefined(r,:dif0) && get(r,:incr) && fillsync!(r.dif0, 0)

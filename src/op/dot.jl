@@ -16,8 +16,8 @@ function forw(::Dot, x1, x2, y; o...)
 end
 
 function back(::Dot, dy, dx1, dx2; x=nothing, o...)
-    dx1 != nothing && (x[2] != nothing ? A_mul_Bt!(dx1, dy, x[2]) : fill!(dx1, 0))
-    dx2 != nothing && (x[1] != nothing ? At_mul_B!(dx2, x[1], dy) : fill!(dx2, 0))
+    dx1 != nothing && (x[2] != nothing ? A_mul_Bt!(dx1, dy, x[2]) : fillsync!(dx1, 0))
+    dx2 != nothing && (x[1] != nothing ? At_mul_B!(dx2, x[1], dy) : fillsync!(dx2, 0))
 end
 
 function infersize(d::Dot,a,b,c)

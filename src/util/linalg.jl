@@ -143,7 +143,7 @@ end
 
 Base.size(x::ArrayAccumulator)=x.size
 Base.eltype(x::ArrayAccumulator)=x.eltype
-Base.fill!(x::ArrayAccumulator, n)=(n==0 ? x.cnt = 0 : error())
+fillsync!(x::ArrayAccumulator, n)=(n==0 ? x.cnt = 0 : error())
 Base.scale!(s, x::ArrayAccumulator)=(for i=1:x.cnt; scale!(s,x.arr[i]); end; x)
 
 # TODO: this does not work for unsorted csru or ArrayAccumulator,
@@ -157,7 +157,7 @@ function axpy!(a, x, y::ArrayAccumulator)
     @assert size(x)==size(y) && eltype(x)==eltype(y)
     y.cnt += 1
     if length(y.arr) >= y.cnt
-        copy!(y.arr[y.cnt], x)
+        copysync!(y.arr[y.cnt], x)
     elseif length(y.arr)+1 == y.cnt
         push!(y.arr, copy(x))
     else
@@ -241,7 +241,7 @@ end
 
 function diagm!(d::Vector, a::Matrix)
     min(size(a)...) == length(d) || throw(DimensionMismatch())
-    fill!(a,0)
+    fillsync!(a,0)
     for i=1:length(d); a[i,i]=d[i]; end
     return a
 end
@@ -250,7 +250,7 @@ diagm(d::CudaVector)=diagm!(d, similar(d, (length(d), length(d))))
 
 function diagm!{T}(d::CudaVector{T}, a::CudaMatrix{T})
     min(size(a)...) == length(d) || throw(DimensionMismatch())
-    fill!(a,0)
+    fillsync!(a,0)
     T <: Float32 ? ccall((:diagm32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat}),size(a,1),size(a,2),d,a) :
     T <: Float64 ? ccall((:diagm64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble}),size(a,1),size(a,2),d,a) :
     error("$T not supported")
@@ -275,7 +275,7 @@ end
 # function A_mul_B!{A<:Array}(y::Matrix, w::Matrix, x::KUsparse{A}) # 1607
 #     @assert size(y)==(size(w,1), size(x,2))
 #     # eltype's do not have to match.
-#     fill!(y, zero(eltype(y)))
+#     fillsync!(y, zero(eltype(y)))
 #     @inbounds for xcol=1:size(x,2)
 #         @inbounds for xp=x.colptr[xcol]:(x.colptr[xcol+1]-1)
 #             xval = x.nzval[xp]  # 133
@@ -313,7 +313,7 @@ end
 
 # function A_mul_Bt!{A<:Array}(dw::Matrix, dy::Matrix, x::KUsparse{A})
 #     @assert size(dw)==(size(dy,1), size(x,1))
-#     fill!(dw, zero(eltype(dw)))
+#     fillsync!(dw, zero(eltype(dw)))
 #     @inbounds for xcol=1:size(x,2)                      # xcol = ycol
 #         xrange = x.colptr[xcol]:(x.colptr[xcol+1]-1)	
 #         @inbounds for xp in xrange
@@ -352,7 +352,7 @@ end
 
 # At_mul_B!{A<:Array}(k::Matrix, s::KUsparse{A}, x::KUsparse{A})=At_mul_B!(k, convert(SparseMatrixCSC,s), convert(SparseMatrixCSC,x))
 
-# At_mul_B!(k::Matrix, s::SparseMatrixCSC, x::SparseMatrixCSC)=copy!(k, s' * x)
+# At_mul_B!(k::Matrix, s::SparseMatrixCSC, x::SparseMatrixCSC)=copysync!(k, s' * x)
 
 # function At_mul_B!{A<:CudaArray,B<:CudaArray}(k::CudaArray{Float32,2}, s::KUsparse{A,Float32}, x::KUsparse{B,Float32})
 #     @assert size(k)==(size(s,2),size(x,2))
@@ -402,7 +402,7 @@ end
 # This is too slow:
 # function At_mul_B!{A<:Array,B<:Array}(k::Matrix, s::Sparse{A}, x::Sparse{B})
 #     @assert size(k)==(size(s,2),size(x,2))
-#     fill!(k, 0)
+#     fillsync!(k, 0)
 #     for xcol=1:size(x,2)
 #         for scol=1:size(s,2)
 #             x1=x.colptr[xcol]; x2=x.colptr[xcol+1]

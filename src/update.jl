@@ -32,7 +32,7 @@ end
 l1reg!(l1, w, dw)=for i=1:length(dw); (w[i]>zero(w[i])) ? (dw[i]+=l1) : (w[i]<zero(w[i])) ? (dw[i]-=l1) : 0; end
 l2reg!(l2, w, dw)=axpy!(l2, w, dw)
 adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
-momentum!(m, dw2, dw)=(axpy!(m, dw2, dw); copy!(dw2,dw))
+momentum!(m, dw2, dw)=(axpy!(m, dw2, dw); copysync!(dw2,dw))
 nesterov!(m, dw2, dw)=(scale!(m, dw2); axpy!(1, dw, dw2); axpy!(m, dw2, dw))
 
 if GPU

@@ -135,6 +135,7 @@ function initout0(f::Net, p::Reg)
         end
         if p.out0 == nothing
             p.out0 = newarray(at, et, sz)
+            gpusync()
             @dbg info("Alloc $(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
         end
     end
@@ -186,12 +187,12 @@ isreturn(p::Reg)=(p.name==:return)
     # if !seq
     #     # @assert all((r.out .== nothing) | (r.out .== r.out0)) # t:110/244
     #     @assert !keepstate "meaningless keepstate in non-sequence run"
-    #     fill!(r.out, nothing)
+    #     fillsync!(r.out, nothing)
     # elseif keepstate
-    #     copy!(r.out, r.out0)
+    #     copysync!(r.out, r.out0)
     # else
     #     # @assert all((r.out .== nothing) | (r.out .== r.out0))
-    #     fill!(r.out, nothing)
+    #     fillsync!(r.out, nothing)
     # end
 
 # keepstate=false, seq=false

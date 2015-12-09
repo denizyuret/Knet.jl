@@ -8,6 +8,10 @@ import CUDArt: to_host
 to_host(x)=x                    # so we can use it in general
 issparse(::CudaArray)=false
 
+# For profiling:
+copysync!{T}(dst::ContiguousArray{T}, src::ContiguousArray{T}; stream=null_stream)=(copy!(dst,src;stream=stream);gpusync();dst)
+fillsync!{T}(X::CudaArray{T}, val; stream=null_stream)=(fill!(X,val;stream=stream);gpusync();X)
+
 isequal(A::CudaArray,B::CudaArray) = (typeof(A)==typeof(B) && size(A)==size(B) && isequal(to_host(A),to_host(B)))
 
 convert{A<:CudaArray,T,N}(::Type{A}, a::Array{T,N})=CudaArray(a)
@@ -20,7 +24,7 @@ function resize!(a::CudaVector, n::Integer)
         a.dims = (n,)
     elseif n > length(a)
         b = CudaArray(eltype(a), convert(Int,n))
-        copy!(b, 1, a, 1, min(n, length(a)))
+        copysync!(b, 1, a, 1, min(n, length(a)))
         free(a.ptr)
         a.ptr = b.ptr
         a.dims = b.dims
@@ -33,9 +37,9 @@ end
 
 typealias BaseArray{T,N} Union{Array{T,N},SubArray{T,N},CudaArray{T,N}}
 
-function copy!{T<:Real}(dst::BaseArray{T}, di::Integer, 
-                        src::BaseArray{T}, si::Integer, 
-                        n::Integer; stream=null_stream)
+function copysync!{T<:Real}(dst::BaseArray{T}, di::Integer, 
+                            src::BaseArray{T}, si::Integer, 
+                            n::Integer; stream=null_stream)
     @assert eltype(src) <: eltype(dst) "$(eltype(dst)) != $(eltype(src))"
     @assert isbits(T)
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
@@ -46,14 +50,14 @@ function copy!{T<:Real}(dst::BaseArray{T}, di::Integer,
     dptr = pointer(dst) + (di-1) * esize
     sptr = pointer(src) + (si-1) * esize
     CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
-    return dst
+    gpusync(); return dst
 end
 
 isempty(a::CudaArray)=(length(a)==0)
 
 # This one has to be defined like this because of a conflict with the CUDArt version:
-#fill!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
-#fill!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);A)
+#fillsync!(A::AbstractCudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);gpusync();A)
+#fillsync!(A::CudaArray,x::Number)=(isempty(A)||cudnnSetTensor(A, x);gpusync();A)
 
 pointer{T}(x::CudaArray{T}, i::Integer) = pointer(x) + (i-1)*sizeof(T)
 
@@ -69,8 +73,8 @@ gpucopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=Cu
 
 # AbstractArray methods:
 
-Base.getindex{T}(x::CudaArray{T}, i::Integer)=copy!(T[0], 1, x, i, 1)[1]
-Base.setindex!{T}(x::CudaArray{T}, v, i::Integer)=copy!(x, i, T[convert(T,v)], 1, 1)
+Base.getindex{T}(x::CudaArray{T}, i::Integer)=copysync!(T[0], 1, x, i, 1)[1]
+Base.setindex!{T}(x::CudaArray{T}, v, i::Integer)=copysync!(x, i, T[convert(T,v)], 1, 1)
 Base.endof(x::CudaArray)=length(x)
 
 # Finding memory usage:

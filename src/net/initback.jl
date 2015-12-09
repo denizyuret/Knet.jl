@@ -24,7 +24,7 @@ function initdif0(f::Net,p::Reg)
     at, et, sz = get(p,:diftype), get(p,:eltype), get(p,:size)
     if !checkarray(p, :dif0, at, et, sz)
         p.dif0 = newarray(at, et, sz)
-        get(p,:incr) && fill!(p.dif0,0)
+        get(p,:incr) && fillsync!(p.dif0,0)
     end
     if canoverwrite(p.op) && get(p,:backoverwrite,true) && !get(p,:incr)
         for i in reverse(p.argv) # consider overwriting the last input first
@@ -149,7 +149,7 @@ end
 ### DEAD CODE
 
 # function inittype2(f::Net)
-#     fill!(f.sparse, nothing)
+#     fillsync!(f.sparse, nothing)
 #     for o=1:length(f.op)
 #         if isa(f.op[o], Dot)
 #             (i,j) = f.inputs[o]
@@ -197,7 +197,7 @@ end
 #                 ### Speed similar to dense on rnnlm, less memory, cannot compute vecnorm.
 #                 # f.sparse[n] && f.toincr[n] && gpu()   ? ArrayAccumulator(et, sz) :
 #                 # f.sparse[n] && f.toincr[n] && !gpu()  ? ArrayAccumulator(et, sz) :
-#                 gpu() ? fill!(CudaArray(et, sz),0) : zeros(et, sz))
+#                 gpu() ? fillsync!(CudaArray(et, sz),0) : zeros(et, sz))
 #     end
 #     return dif0
 # end
@@ -297,7 +297,7 @@ end
 #         while index[k]!=0; k=index[k]; end
 #         f.out0[n] = f.out0[k]
 #     end
-#     f.out = fill!(cell(N), nothing)                       # use nothing to represent identity element: 0 for add, 1 for mul
+#     f.out = fillsync!(cell(N), nothing)                       # use nothing to represent identity element: 0 for add, 1 for mul
 # end
 
 # """
@@ -330,7 +330,7 @@ end
 #         while index[k]!=0; k=index[k]; end
 #         f.dif0[n] = f.dif0[k]
 #     end
-#     f.dif = fill!(cell(nops(f)), nothing)
+#     f.dif = fillsync!(cell(nops(f)), nothing)
 # end
 
 # """
@@ -455,7 +455,7 @@ end
 # #     f.dbg && display((:initforw0,keepstate,vecnorm0(f.out),vecnorm0(f.stack[1:f.sp])))
 # #     f.sp == 0 || error("Stack corruption")
 # #     length(inputs) == ninputs(f) || error("Wrong number of inputs")
-# #     out = fill!(cell(length(f.out0)), nothing)          # todo: (minor) can we get rid of alloc
+# #     out = fillsync!(cell(length(f.out0)), nothing)          # todo: (minor) can we get rid of alloc
 # #     lastinput = 0
 # #     while findfirst(out,nothing) > 0                            # allow multiple passes for size inference
 # #         nnothing = count(x->(x==nothing), out)
@@ -477,7 +477,7 @@ end
 # #         nnothing == count(x->(x==nothing), out) && error("Cannot determine size of array $(findfirst(out,nothing))")
 # #     end
 # #     # We recover or reset f.out:
-# #     keepstate ? copy!(f.out, f.out0) : fill!(f.out, nothing) # todo: f.out[i] = arr(f.out0[i]) elsewhere..
+# #     keepstate ? copysync!(f.out, f.out0) : fillsync!(f.out, nothing) # todo: f.out[i] = arr(f.out0[i]) elsewhere..
 # #     f.dbg && display((:initforw1,keepstate,vecnorm0(f.out),vecnorm0(f.stack[1:f.sp])))
 # # end
 
@@ -489,14 +489,14 @@ end
 # #             a[i] = spzeros(eltype(x), dims...)
 # #             gpu() && (a[i] = CudaSparseMatrixCSC(a[i]))
 # #         else
-# #             a[i] = fill!(KUdense(gpu()?CudaArray:Array, eltype(x), dims), 0)
+# #             a[i] = fillsync!(KUdense(gpu()?CudaArray:Array, eltype(x), dims), 0)
 # #         end
 # #         for j=1:length(a); a[j]===oldai && (a[j]=a[i]); end # preserve array sharing
 # #     elseif eltype(a[i]) != eltype(x)
 # #         error("Element type mismatch")
 # #     elseif size(a[i]) != dims
 # #         warn("Resizing $(size(a[i]))->$dims")
-# #         fill!(resize!(a[i], dims), 0) # todo: this does not work for sparse
+# #         fillsync!(resize!(a[i], dims), 0) # todo: this does not work for sparse
 # #     end
 # #     (display((:initarray1,summary(a[i]),i,summary(x),dims,dense,summary(a)));println())
 # #     return a[i]
@@ -588,7 +588,7 @@ end
 # stand-alone item, never between elements of a sequence.
 
 # function initback1(f::Net, dy; seq=false, a...)
-#     fill!(f.dif, nothing)                           # why? (todo)
+#     fillsync!(f.dif, nothing)                           # why? (todo)
 #     for n=1:length(f.dif0)
 #         y = (n==nops(f) && dy!=nothing ? dy : f.out0[n])
 #         initarray(f.dif0, n, y; dense=true) # x and dw may be sparse, dx and w always dense
@@ -597,11 +597,11 @@ end
 #         end
 #     end
 #     for n=1:length(f.dif0)
-#         f.toincr[n] && fill!(f.dif0[n], 0)           # zeroed by back at every item in sequence
+#         f.toincr[n] && fillsync!(f.dif0[n], 0)           # zeroed by back at every item in sequence
 #     end
 #     if seq
 #         for w in params(f)       # zeroed only once at the beginning of the sequence
-#             isdefined(w,:diff) && isdefined(w,:inc) && fill!(w.diff,0)
+#             isdefined(w,:diff) && isdefined(w,:inc) && fillsync!(w.diff,0)
 #         end
 #     end
 # end
@@ -643,9 +643,9 @@ end
         #         end
         #     end
 # should be part of reset:
-    # fill!(f.dif, nothing)
+    # fillsync!(f.dif, nothing)
     # for n=1:length(f.op)
-    #     (f.dif0[ n]!=nothing) && f.toincr[n] && fill!(f.dif0[n], 0)
+    #     (f.dif0[ n]!=nothing) && f.toincr[n] && fillsync!(f.dif0[n], 0)
     # end
 
 # for n=length(f.op):-1:1
@@ -661,7 +661,7 @@ end
 #             @assert (issimilar2(f.tmp[n], f.out0[n]) && issparse(f.tmp[n])==(f.sparse[n]!=nothing))
 #         else
 #             f.tmp[n] = findtmp(f, n)
-#             # fill!(f.dif0[n], 0)  # This will break s2s best if finddif zeros during alloc
+#             # fillsync!(f.dif0[n], 0)  # This will break s2s best if finddif zeros during alloc
 #         end
 #     end
 # end

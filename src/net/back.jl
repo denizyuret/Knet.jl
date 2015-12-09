@@ -62,7 +62,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
             if get(y,:incr) && !isa(y.op, Par)
                 # what if y.op=Arr?  then it will have no inputs, thus :grad=:incr=false
                 # where does Par.dif get zeroed out? at reset!
-                fill!(y.dif,0)
+                fillsync!(y.dif,0)
                 gpusync()
             end
         end
@@ -78,7 +78,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
 end
 
 # this is used when no loss fn specified, in which case we assume ygold is actually ygrad
-copyloss(ypred,ygold,ygrad;o...)=(ygrad===ygold ? ygrad : copy!(ygrad,ygold))
+copyloss(ypred,ygold,ygrad;o...)=(ygrad===ygold ? ygrad : copysync!(ygrad,ygold))
 
 # turn various forms of getdx into boolean vector
 function getdxbool(getdx, n)
@@ -89,7 +89,9 @@ function getdxbool(getdx, n)
      error("getdx=$getdx ninputs=$(n)"))
 end
 
-get1(x)=(!isempty(methods(length, (typeof(x),))) && length(x)==1?x[1]:x)
+# This is extremely slow:
+#get1(x)=(!isempty(methods(length, (typeof(x),))) && length(x)==1?x[1]:x)
+get1(x)=(length(x)==1?x[1]:x)
 
 ### DEAD CODE:
 
@@ -112,13 +114,13 @@ get1(x)=(!isempty(methods(length, (typeof(x),))) && length(x)==1?x[1]:x)
     # for i = ninputs(r):-1:1
     #     n = i+N
     #     r.tosave[n] && pop(r,n)                                    # ; r.tosave[n] && dbg(r,:out,n)
-    #     dx == nothing || copy!(dx[i], r.dif[n])
+    #     dx == nothing || copysync!(dx[i], r.dif[n])
     # end
 
     # if dx != ()
     #     lastinput = 0
     #     for n = 1:N
     #         isa(r.op[n], Input) || continue
-    #         copy!(dx[lastinput += 1], r.dif[n])
+    #         copysync!(dx[lastinput += 1], r.dif[n])
     #     end
     # end

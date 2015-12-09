@@ -8,14 +8,15 @@
 	the shared arrays on the stack.  next iteration all the other
 	users of that array realloc.  The sharing is lost.  This is a
 	performance problem does not effect the answer.
-	Solution1: go back to copy-on-save instead of copy-on-write.  The
+	Solution1a: go back to copy-on-save instead of copy-on-write.  The
 	sharing structure is preserved.  Con: useless copying for fnn.
 	Solution1b: Reintroduce the flags to stop push/pop for fnns.
-	Solution2: consider overwrite before realloc in forw.  need to
+	Solution1c: consider overwrite before realloc in forw.  need to
 	check if input is on stack as well.
-	Implementing solution 2... 1 alloc and 3 pointers every iteration,
+	Implementing solution 1c... 1 alloc and 3 pointers every iteration,
 	might be slow.
-	Solution2b: do not share problem registers in the beginning, that
+
+	? Solution1d: do not share problem registers in the beginning, that
 	way nobody has to realloc.
 
 	Problem2: initback let incr register dif0 to get overwritten.
@@ -25,14 +26,13 @@
 	Could be the extra alloc for the stack, knet6 reuses stack
 	arrays.  Could be the extra shuffling due to Solution2.
 
-	- why slow?
-	- why axpb?
-	- try stack array reuse, rather array pool for initout0.
-	- WARNING: Sdict not empty. WARNING: Object not in dict.
-	- remember: stack tells back which ops were executed, cannot get
-	rid of stack for fnns without major redesign.
-	- conjecture: stack always has unique arrays?
-	- hypothesis: copy_on_write for stack ops responsible.
+	? why slow?
+	? why axpb?
+	Solution2a: try stack array reuse, rather array pool for initout0.
+	? WARNING: Sdict not empty. WARNING: Object not in dict.
+	+ remember: stack tells back which ops were executed, cannot get rid of stack for fnns without major redesign.
+	? conjecture: stack always has unique arrays?
+	x hypothesis: copy_on_write for stack ops responsible.
 
 	Timing expriments:
 	- original: 22.535261 seconds (37.51 M allocations: 1.407 GB, 3.15% gc time)
@@ -48,6 +48,33 @@
 	22.765790 seconds (37.52 M allocations: 1.407 GB, 3.12% gc time)
 
 	I am out of ideas.  Profiling results:
+
+			dev		master
+	rnn.forw	L43:1268	L20:898
+	fnn.forw	L45:275 	L22:41
+	fnn.back	L47:437 	L35:76
+	rnn.back	L48:2337	L36,38:118+1248
+	update!		L51:23		L43:18
+
+	Low level functions (src/op) seem comparable.  dev is a bit slow
+	on add.back probably because of the one dot3.dif0 sharing it
+	missed.
+
+	- Is it the conditional evaluation?  We do initforw twice a
+	minibatch?
+
+	- forw has 3 differences:
+	1. initforw (18 vs 187): more calls?
+	2. inputs (27 vs 199): ?
+	3. copy_on_write (253 vs 0): alloc cost?
+
+	- back:
+	1. pop is expensive (0 vs 228).
+	2. dxx is expensive (0 vs 157).
+	3. op.back (968 vs 1799): missed sharing?  extra ops? fix gpusync().
+	4. axpy (212 vs 376)
+	5. fill (78 vs 121)
+	6. get1 (0 vs 767): calling methods was a bad idea.
 
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -83,6 +110,8 @@
 
 	* TODO:
 
+	1000 move compound, loss out of op.
+	0000 rethink out/get/reg/dif/getprop set/setprop/setopt naming
 	0000 start barrett translation experiments
 	0000 check on vivi 16e9.cnt
 	1000 consolidate set and setopt

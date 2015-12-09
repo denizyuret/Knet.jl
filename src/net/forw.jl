@@ -37,7 +37,7 @@ function forw(f::Net, input...; kwargs...)
         xout = inputs(f,y)
         copy_on_write(f,y)
         if isa(y.op, Input)
-            y.out = copy!(y.out0, input[lastinput += 1])
+            y.out = copysync!(y.out0, input[lastinput += 1])
         else
             y.out = forw(y.op, xout..., y.out0; kwargs...)
         end
@@ -54,7 +54,7 @@ function Base.apply(f::Net, input...; kwargs...)
     for y in registers(f)
         get(y,:forw) || continue
         y.out = (isa(y.op, Input) ?
-                 copy!(y.out0, input[lastinput += 1]) :
+                 copysync!(y.out0, input[lastinput += 1]) :
                  forw(y.op, inputs(f,y)..., y.out0; kwargs...))
     end
     return out(f,:return)
@@ -69,10 +69,10 @@ function copy_on_write(f::Net,y::Reg)
 end
 
 ### DEAD CODE:
-    # yout != nothing && copy!(yout, r.out[N])
+    # yout != nothing && copysync!(yout, r.out[N])
     # loss1 = 0.0
     # if ygold != nothing
-    #     r.dif[N] = copy!(r.dif0[N], ygold)                                      # t:6/628
+    #     r.dif[N] = copysync!(r.dif0[N], ygold)                                      # t:6/628
     #     loss1 = loss(r.op[N], r.dif[N], r.out[N])                               # t:442/628
     # end
     # return loss1

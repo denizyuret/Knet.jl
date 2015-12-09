@@ -10,7 +10,7 @@ back(::Const,dy;o...)=nothing
 
 function forw(a::Const,y;o...)
     if !a.initialized
-        a.out=copy!(y, a.init)
+        a.out=copysync!(y, a.init)
         a.initialized=true
     end
     a.out===y || error("Constant modified")

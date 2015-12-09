@@ -39,15 +39,21 @@ end
 out(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.out)
 dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
 
-inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
+# map too slow?
+# inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
+function inputs(f::Net,p::Reg)
+    n = length(p.argv)
+    a = cell(n)
+    @inbounds for i=1:n; a[i]=f.reg[p.argv[i]].out; end
+    return a
+end
+
 input_registers(f::Net,p::Reg)=f.reg[p.argv]
 
 get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
 set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
 inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
 set!(f::Net,k::Symbol,v=true)=(for p in registers(f); p.plist[k]=v; end)
-
-pop!(f::Net)=(pop!(f.stack); decref!(f,a); a)
 
 function push!(f::Net,a)
     push!(f.stack,a)
@@ -59,31 +65,37 @@ function push!(f::Net,a)
     end
 end
 
-function pop!(f::Net)
-    a = pop!(f.stack)
-    if a!=nothing
-        isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
-        (y, xsave, ysave) = a
-        ysave == nothing || dec!(f.sdict,ysave)
-        xsave == nothing || (for x in xsave; dec!(f.sdict,x); end)
-    end
-    return a
-end
+pop!(f::Net)=pop!(f.stack)
 
-inc!(p::ObjectIdDict,k)=(p[k]=1+get(p,k,0))
+inc!(p::ObjectIdDict,k)=(p[k]=true)
 
-function dec!(p::ObjectIdDict,k)
-    haskey(p,k) || (warn("Object not in dict"); return)
-    n = get(p,k,0)
-    if n > 1
-        p[k] = n-1
-    elseif n == 1
-        delete!(p,k)
-    else
-        warn("Bad count for object: $n")
-        delete!(p,k)
-    end
-end
+# Too expensive:
+
+# function pop!(f::Net)
+#     a = pop!(f.stack)
+#     if a!=nothing
+#         isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
+#         (y, xsave, ysave) = a
+#         ysave == nothing || dec!(f.sdict,ysave)
+#         xsave == nothing || (for x in xsave; dec!(f.sdict,x); end)
+#     end
+#     return a
+# end
+
+# inc!(p::ObjectIdDict,k)=(p[k]=1+get(p,k,0))
+
+# function dec!(p::ObjectIdDict,k)
+#     haskey(p,k) || (warn("Object not in dict"); return)
+#     n = get(p,k,0)
+#     if n > 1
+#         p[k] = n-1
+#     elseif n == 1
+#         delete!(p,k)
+#     else
+#         warn("Bad count for object: $n")
+#         delete!(p,k)
+#     end
+# end
 
 ### Cleanup at the beginning/end of sequence
 
@@ -95,7 +107,7 @@ function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnn
     for p in registers(f)
         p.out = (keepstate ? p.out0 : nothing)
         p.dif = nothing
-        get(p,:incr) && fill!(p.dif0, 0)
+        get(p,:incr) && fillsync!(p.dif0, 0)
     end
     # Base.show_backtrace(STDOUT,backtrace());println()
 end
@@ -135,7 +147,7 @@ end
 # Base.get(p::Ins,k,d=false)=getprop(p,k,d)
 # Base.get(p::Reg,k,d=false)=getprop(p,k,d)
 
-# Base.copy!(r::Reg,x)=(r.out=copy!(r.out0,x))
+# Base.copysync!(r::Reg,x)=(r.out=copysync!(r.out0,x))
 
 # type Ins
 #     output::Symbol

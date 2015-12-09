@@ -45,7 +45,7 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
 
     if dx2 != nothing  # dJ/dy = dJ/dz dz/dy = dJ/dz * x^alpha * y^(beta-1) * beta
         if x1 == nothing      # representing zero
-            fill!(dx2, 0)
+            fillsync!(dx2, 0)
         else
             bmul!(l.alpha,x1,1,dy,dx2)
             l.beta == 1 || scale!(l.beta, bmul!(l.beta-1,x2,1,dx2,dx2))
@@ -54,7 +54,7 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
 
     if dx1 != nothing  # dJ/dxj = sum_i dJ/dzi dzi/dxj = sum_i dJ/dzi * yi^beta * xj^(alpha-1) * alpha
         if x2 == nothing
-            fill!(dx1, 0)
+            fillsync!(dx1, 0)
         elseif size(dx1) == size(dy)
             bmul!(l.beta,x2,1,dy,dx1)
             l.alpha == 1 || scale!(l.alpha, bmul!(1,dx1,l.alpha-1,x1,dx1))
@@ -66,6 +66,7 @@ function back(l::Mul, dy, dx1, dx2; x=nothing, o...)
             l.alpha == 1 || scale!(l.alpha, bmul!(l.alpha-1,x1,1,dx1,dx1))
         end
     end
+    gpusync()
 end
 
 ### bmul! broadcasting multiplication: c=a^alpha * b^beta

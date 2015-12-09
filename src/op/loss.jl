@@ -45,10 +45,10 @@ It is much better to directly compute: ∂J/∂x = q-p
 So have softloss(ypred,ygold,ygrad) pass back ygrad=ygold instead of
 ∂J/∂q.  Then softback just computes ypred-ygold.
 """
-softloss(ypred,ygold,ygrad; o...)=(ygrad===ygold ? ygrad : copy!(ygrad,ygold))
+softloss(ypred,ygold,ygrad; o...)=(ygrad===ygold ? ygrad : copysync!(ygrad,ygold))
 
 # This is necessary for sparse ygold
-Base.copy!{T}(ygrad::BaseArray{T},ygold::SparseMatrixCSC{T})=copy!(ygrad,full(ygold))
+copysync!{T}(ygrad::BaseArray{T},ygold::SparseMatrixCSC{T})=copysync!(ygrad,full(ygold))
 # TODO: make it more efficient.
 # TODO: in fact the whole sparse matrix allocation has to change, ygrad should be sparse. otherwise lm will suffer.
 
@@ -131,7 +131,7 @@ end
 function quadloss(ypred::BaseArray, ygold::BaseArray, ygrad::BaseArray; mask=nothing)
     @assert size(ypred)==size(ygold)==size(ygrad)
     ycols = ccount(ypred)
-    ygrad === ygold || copy!(ygrad, ygold) # TODO: avoid copy if possible
+    ygrad === ygold || copysync!(ygrad, ygold) # TODO: avoid copy if possible
     scale!(-1/ycols, ygrad)
     axpy!(1/ycols, ypred, ygrad)
     mask != nothing && domask(mask, ygrad)
@@ -163,7 +163,7 @@ quadloss(ypred,ygold; mask=nothing)=quadloss(convert(Array,ypred), convert(Array
 function quadloss0(ypred::BaseArray, ygold::BaseArray; mask=nothing)
     global quadlosstemp         # using this instead of alloc: 950ms->875ms
     issimilar(quadlosstemp, ypred) || (quadlosstemp = similar(ypred))
-    copy!(quadlosstemp, ygold)
+    copysync!(quadlosstemp, ygold)
     axpy!(-1, ypred, quadlosstemp)
     mask != nothing && domask(mask, quadlosstemp)
     qloss = vecnorm(quadlosstemp)^2/(2*ccount(ypred))
@@ -179,7 +179,7 @@ quadlosstemp = nothing
     T <: Float32 ? ccall((:mask32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
     T <: Float64 ? ccall((:mask64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
     error("$T not supported")
-    return x
+    gpusync(); return x
 end
 
 function domask(mask::Array{Cuchar},x::Array) # TODO: test
@@ -247,7 +247,7 @@ zeroone(ypred,ygold; o...)=zeroone(convert(Array,ypred),convert(Array,ygold); o.
 
 #         function forw(l::$ltype, x, y; o...)
 #             size(x) == size(y) || error(map(summary,(x,y)))
-#             (y===x ? y : copy!(y,x)) # TODO: is this copy necessary?
+#             (y===x ? y : copysync!(y,x)) # TODO: is this copy necessary?
 #         end
 
 #         function back(l::$ltype, dy, dx; y=nothing, o...)
@@ -301,15 +301,15 @@ zeroone(ypred,ygold; o...)=zeroone(convert(Array,ypred),convert(Array,ygold); o.
 
 # # @gpu function quadlossloss(y::CudaArray, dy::CudaArray; tmp=nothing, o...)
 # #     tmp == nothing && (tmp = similar(y)) # t:87/472
-# #     copy!(tmp, y)                        # t:29/472
+# #     copysync!(tmp, y)                        # t:29/472
 # #     axpy!(-1, dy, tmp)                   # t:24/472
 # #     vecnorm(tmp)^2/(2*ccount(y))         # t:330/472
 # # end
 
 # # # quadlossback(y::Array, dy::Array, dx::Array=dy; o...)=(nx=ccount(dx); for i=1:length(dx); dx[i] = (y[i]-dy[i])/nx; end; dx)
-# # # @gpu quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy; o...)=(dx===dy||copy!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx)  ## cudnnTransformTensor is buggy
+# # # @gpu quadlossback(y::CudaArray, dy::CudaArray, dx::CudaArray=dy; o...)=(dx===dy||copysync!(dx,dy); cudnnTransformTensor(1/ccount(y), y, -1/ccount(y), dx); dx)  ## cudnnTransformTensor is buggy
 
-# # quadlossback(y, dy, dx=dy; o...)=(dx===dy||copy!(dx,dy); scale!(-1/ccount(y), dx); axpy!(1/ccount(y), y, dx); dx)
+# # quadlossback(y, dy, dx=dy; o...)=(dx===dy||copysync!(dx,dy); scale!(-1/ccount(y), dx); axpy!(1/ccount(y), y, dx); dx)
 
 # ### LOGPLOSS:
 
@@ -473,7 +473,7 @@ zeroone(ypred,ygold; o...)=zeroone(convert(Array,ypred),convert(Array,ygold); o.
 # # of the existing loss functions would work?
 
 # scallossloss(y,dy)=error("Not implemented")
-# scallossback(y,dy,dx=dy)=(dx===dy||copy!(dx,dy);scale!(1/ccount(dx), dx))
+# scallossback(y,dy,dx=dy)=(dx===dy||copysync!(dx,dy);scale!(1/ccount(dx), dx))
 
 
 

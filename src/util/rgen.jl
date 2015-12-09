@@ -19,10 +19,10 @@ type Xavier <: Rgen; end        # lasagne calls this GlorotUniform?
 type Bernoulli <: Rgen; p; scale; Bernoulli(p=0.5, s=1)=new(p,s); end
 
 function rgen!(r::Rgen, y)
-    (isa(r, Constant)  ? fill!(y, r.val) :
+    (isa(r, Constant)  ? fillsync!(y, r.val) :
      isa(r, Uniform)   ? axpb!(rand!(y); a=r.max - r.min, b=r.min) :
      isa(r, Gaussian)  ? axpb!(randn!(y); a=r.std, b=r.mean) :
-     isa(r, Identity)  ? scale!(r.scale, copy!(y, eye(eltype(y), size(y)...))) :
+     isa(r, Identity)  ? scale!(r.scale, copysync!(y, eye(eltype(y), size(y)...))) :
      isa(r, Xavier)    ? (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
      isa(r, Bernoulli) ? bernoulli!(r.p, r.scale, rand!(y)) :
      error("Unknown Rgen=$r"))

@@ -103,7 +103,7 @@ function decode(r::Net, x; nbest=1, o...)
         #@show display(to_host(r.out[end-3]))
         yprob = forw(r, x; trn=false, seq=true, o...)
         log!(yprob, ylogp)
-        copy!(yscore, 1, ylogp, 1, length(yscore))
+        copysync!(yscore, 1, ylogp, 1, length(yscore))
         broadcast!(+, yscore, score, yscore)
         global ytop = topn(yscore, 2*ncols)
         global newbeam,newscore,oldcol,newn
@@ -280,7 +280,7 @@ function s2s_copyforw!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
             # m.decoder.out0[n] == nothing && (m.decoder.out0[n] = similar(m.encoder.out[n]))
-            # m.decoder.out[n] = copy!(m.decoder.out0[n], m.encoder.out[n])
+            # m.decoder.out[n] = copysync!(m.decoder.out0[n], m.encoder.out[n])
             m.decoder.out[n] = m.decoder.out0[n] = m.encoder.out[n]
         end
     end
@@ -298,7 +298,7 @@ function s2s_copyforw!(n1::Net, n2::Net, cols)
                 o2 = similar(o1, (nrows, ncols))
             end
             for i=1:length(cols)
-                copy!(o2, 1+(i-1)*nrows, o1, 1+(cols[i]-1)*nrows, nrows)
+                copysync!(o2, 1+(i-1)*nrows, o1, 1+(cols[i]-1)*nrows, nrows)
             end
             n2.tmp[n] = n2.out0[n]
             n2.out[n] = n2.out0[n] = o2
@@ -310,7 +310,7 @@ function s2s_copyback!(m::S2S)
     for n=1:nops(m.encoder)
         if forwref(m.encoder, n)
             # m.encoder.dif0[n] == nothing && (m.encoder.dif0[n] = similar(m.decoder.dif[n]))
-            # m.encoder.dif[n] = copy!(m.encoder.dif0[n], m.decoder.dif[n])
+            # m.encoder.dif[n] = copysync!(m.encoder.dif0[n], m.decoder.dif[n])
             m.encoder.dif[n] = m.encoder.dif0[n] = m.decoder.dif[n]
         end
     end

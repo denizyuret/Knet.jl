@@ -16,8 +16,8 @@ for (ltype,lforw,lback,lname) in
      (:Copy, :copyforw, :copyback, :copy))
     @eval begin
         type $ltype <: Actf; $ltype(;o...)=new(); end
-        forw(l::$ltype, x, y; o...)=$lforw(x,y)
-        back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
+        forw(l::$ltype, x, y; o...)=($lforw(x,y);gpusync();y)
+        back(l::$ltype, dy, dx; y=nothing, o...)=(dx==nothing&&return;$lback(y,dy,dx);gpusync();dx)
     end
     Kenv.kdef(lname,eval(ltype))
 end
@@ -43,26 +43,26 @@ end
 
 @doc "@knet function copy(x) copies its input to its output" :copy
 back_reads_y(::Copy)=false
-copyforw(x,y)=(x===y ? y : copy!(y,x))
-copyback(y,dy,dx)=(dx===dy ? dx : copy!(dx,dy))
+copyforw(x,y)=(x===y ? y : copysync!(y,x))
+copyback(y,dy,dx)=(dx===dy ? dx : copysync!(dx,dy))
 
 @doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" :sigm
-sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
-sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end; dx)
-@gpu sigmforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); y)
-@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); dx)
+sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end)
+sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end)
+@gpu sigmforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID)
+@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID)
 
 @doc "@knet function tanh(x) computes the hyperbolic tangent activation function." :tanh
-tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end; y)
-tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end; dx)
-@gpu tanhforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH); gpusync(); y)
-@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH); gpusync(); dx)
+tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end)
+tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end)
+@gpu tanhforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH)
+@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH)
 
 @doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" :relu
-reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
-reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
-@gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
-@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
+reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end)
+reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end)
+@gpu reluforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU)
+@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU)
 
 # z = wx			;; z is the input to the soft layer
 # qi = (exp zi) / (Σ exp zj)	;; q is the output of the soft layer
@@ -89,16 +89,17 @@ function softforw(x::Array,y::Array)
     return y
 end
 
-@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
+@gpu softforw(x::CudaArray,y::CudaArray)=cudnnSoftmaxForward(x,y)
 
 # Note that softback expects ygold from softloss, not ygrad!
 # See the softloss doc for an explanation.
 function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
     ycols = ccount(ypred)
-    dx===ygold || copy!(dx,ygold)
+    dx===ygold || copysync!(dx,ygold)
     scale!(-1/ycols,dx)
     axpy!(1/ycols,ypred,dx)
     mask!=nothing && domask(mask,dx)
+    gpusync()
     return dx
 end
 
@@ -115,16 +116,14 @@ function logpforw(x::Array,y::Array)
         logz = log(expy)
         for i=i1:i2; y[i] -= logz; end
     end
-    return y
 end
 
-logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
+logpback(y,dy,dx)=(dx===dy||copysync!(dx,dy))
 
 @gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=
-        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); gpusync(); y))
+        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y))
 @gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=
-        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); gpusync(); y))
-
+        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y))
 
 @doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise." :axpb
 
@@ -164,6 +163,7 @@ end
     T <: Float32 ? ccall((:axpb32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Cfloat,Ptr{Cfloat}), length(x), convert(Cfloat,a), x, convert(Cfloat,p), convert(Cfloat,b), y) :
     T <: Float64 ? ccall((:axpb64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Cdouble,Ptr{Cdouble}), length(x), convert(Cdouble,a), x, convert(Cdouble,p), convert(Cdouble,b), y) :
     error("axpb! not defined for $T")
+    gpusync()
     return y
 end
 
@@ -172,6 +172,7 @@ end
     T <: Float32 ? ccall((:axpb_back32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Ptr{Cfloat},Ptr{Cfloat}), length(x), convert(Cfloat,a), x, convert(Cfloat,p), dy, dx) :
     T <: Float64 ? ccall((:axpb_back64,libknet),Void,(Cint,Cdouble,Ptr{Cdouble},Cdouble,Ptr{Cdouble},Ptr{Cdouble}), length(x), convert(Cdouble,a), x, convert(Cdouble,p), dy, dx) :
     error("axpb! not defined for $T")
+    gpusync()
     return dx
 end
 

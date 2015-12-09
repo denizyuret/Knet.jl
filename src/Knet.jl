@@ -12,8 +12,8 @@ using Main.Kenv
 # This is for production
 macro dbg(x) nothing end        
 
-#gpusync()=device_synchronize() # This is for profiling
-gpusync()=nothing               # This is for production
+gpusync()=device_synchronize() # This is for profiling
+#gpusync()=nothing               # This is for production
 
 include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 

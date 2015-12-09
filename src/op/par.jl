@@ -65,7 +65,7 @@ function forw(p::Par, y; o...)
         if !isdefined(p, :init)
             rgen!(Gaussian(0,0.01), y)
         elseif isa(p.init, BaseArray)
-            copy!(y, p.init)
+            copysync!(y, p.init)
         else
             rgen!(p.init, y)
         end
@@ -110,7 +110,7 @@ end
 # DEPRECATED:
 # update!(::Nothing;o...)=nothing
 # setopt!(::Nothing;o...)=nothing
-# initdiff(w::Par; fill=nothing, o...)=(similar!(w, :diff, w.arr); fill!=nothing && fill!(w.diff,fill); w)
+# initdiff(w::Par; fill=nothing, o...)=(similar!(w, :diff, w.arr); fillsync!=nothing && fillsync!(w.diff,fill); w)
 
 # We need to fix cpu/gpu copy so the type changes appropriately:
 
