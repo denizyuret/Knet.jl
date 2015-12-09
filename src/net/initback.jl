@@ -1,10 +1,10 @@
-""" REWRITE:
-initback initializes the fields used by Net.back:
-- dif0, tmp: allocated or size checked.
-- reg.incr: depends on seq.
-- reg.back: depends on which dx args specified.
-- op.save: read-only, used for popping only if seq.
-"""
+# """ REWRITE:
+# initback initializes the fields used by Net.back:
+# - dif0, tmp: allocated or size checked.
+# - reg.incr: depends on seq.
+# - reg.back: depends on which dx args specified.
+# - op.save: read-only, used for popping only if seq.
+# """
 function initback(f::Net, ygold, loss, getdx)
     seq = length(f.stack) > length(f)
     isdefined(f,:lastback) && f.lastback == (f.lastforw, getdx, f.lastback[3] || seq) && return
@@ -14,6 +14,7 @@ function initback(f::Net, ygold, loss, getdx)
     inittype2(f)
     initdif0(f)
     inittmp(f)
+    gpusync()
 end
 
 backregs(f::Net)=filter(r->get(r,:grad), registers(f))

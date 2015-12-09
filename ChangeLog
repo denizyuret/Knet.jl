@@ -65,8 +65,8 @@
 
 	- forw has 3 differences:
 	1. initforw (18 vs 187): more calls?
-	2. inputs (27 vs 199): ?
-	3. copy_on_write (253 vs 0): alloc cost?
+	2. inputs (27 vs 199): map expensive, fixed with for loop.
+	3. copy_on_write (0 vs 253): alloc cost?
 
 	- back:
 	1. pop is expensive (0 vs 228).

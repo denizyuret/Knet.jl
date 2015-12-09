@@ -120,10 +120,8 @@ end
 
 logpback(y,dy,dx)=(dx===dy||copysync!(dx,dy))
 
-@gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=
-        ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y))
-@gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=
-        ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y))
+@gpu logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y))
+@gpu logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y))
 
 @doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise." :axpb
 

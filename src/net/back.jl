@@ -51,19 +51,16 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
             end
         else
-            dxx = map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
+            dxx = inputdifs(f,y)  # map too slow? map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
             back(y.op, y.dif, dxx...; x=get1(xsave), y=ysave, o...)
-            gpusync()
             for x in xx
                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
                          get(x,:grad) ? x.dif0 : nothing)
-                gpusync()
             end
             if get(y,:incr) && !isa(y.op, Par)
                 # what if y.op=Arr?  then it will have no inputs, thus :grad=:incr=false
                 # where does Par.dif get zeroed out? at reset!
                 fillsync!(y.dif,0)
-                gpusync()
             end
         end
     end
@@ -91,7 +88,7 @@ end
 
 # This is extremely slow:
 #get1(x)=(!isempty(methods(length, (typeof(x),))) && length(x)==1?x[1]:x)
-get1(x)=(length(x)==1?x[1]:x)
+get1(x)=(x==nothing?x:length(x)==1?x[1]:x)
 
 ### DEAD CODE:
 

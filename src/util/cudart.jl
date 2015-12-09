@@ -1,6 +1,7 @@
 ### These were missing from CUDArt:
 
 using CUDArt
+using CUDArt: ContiguousArray
 
 import Base: isequal, convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse, deepcopy_internal
 import CUDArt: to_host

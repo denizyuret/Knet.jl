@@ -39,6 +39,8 @@ end
 out(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.out)
 dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
 
+input_registers(f::Net,p::Reg)=f.reg[p.argv]
+
 # map too slow?
 # inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
 function inputs(f::Net,p::Reg)
@@ -48,7 +50,17 @@ function inputs(f::Net,p::Reg)
     return a
 end
 
-input_registers(f::Net,p::Reg)=f.reg[p.argv]
+function inputdifs(f::Net,p::Reg)
+    n = length(p.argv)
+    a = cell(n)
+    @inbounds for i=1:n
+        r = f.reg[p.argv[i]]
+        a[i]=(!get(r,:grad) ? nothing :
+              get(r,:incr) ? r.tmp :
+              r.dif0)
+    end
+    return a
+end
 
 get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
 set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
@@ -101,7 +113,7 @@ inc!(p::ObjectIdDict,k)=(p[k]=true)
 
 function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnnlm defined its own reset
     isempty(f.stack) || warn("Stack not empty")
-    isempty(f.sdict) || warn("Sdict not empty")
+    # isempty(f.sdict) || warn("Sdict not empty")
     empty!(f.stack)
     empty!(f.sdict)
     for p in registers(f)
