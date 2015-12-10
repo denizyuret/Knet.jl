@@ -79,12 +79,16 @@ function reset!(f::Net)
     end
 end
 
-function push!(f::Net,a)
+function push!(f::Net,p::Reg)
     f.sp += 1
     while length(f.stack) < f.sp; push!(f.stack, nothing); end
-    f.stack[f.sp] = (a==nothing ? nothing :
-                     issimilar(a, f.stack[f.sp]) ? copysync!(f.stack[f.sp+1], a) :
-                     copysync!(similar(a), a))
+    f.stack[f.sp] = (!get(p,:forw) ? :skip :
+                     p.out==nothing ? nothing :
+                     !get(p,:save) ? nothing :
+                     ispersistent(p) ? p.out :
+                     issimilar(p.out, f.stack[f.sp]) ?
+                     copysync!(f.stack[f.sp], p.out) :
+                     copysync!(similar(p.out), p.out))
 end
 
 ### DEAD CODE

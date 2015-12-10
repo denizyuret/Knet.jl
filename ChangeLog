@@ -1,3 +1,9 @@
+2015-12-10  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/adding.jl: Got the timing down to:
+	12.077214 seconds (21.69 M allocations: 951.524 MB, 1.71% gc time)
+	with the new stack.  However results don't match.
+
 2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
@@ -217,6 +223,7 @@
 
 	* TODO:
 
+	0000 ninputs(Net) does not consult :forw, it should.
 	1000 move compound, loss out of op.
 	0000 rethink out/get/reg/dif/getprop set/setprop/setopt naming
 	0000 start barrett translation experiments

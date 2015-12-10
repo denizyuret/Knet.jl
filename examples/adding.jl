@@ -40,12 +40,12 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     reset!(f)
     for (x,ygold) in data
         if ygold == nothing
-            forw(f, x; predict=false)
+            sforw(f, x; predict=false)
         else
-            ypred = forw(f, x; predict=true)
+            ypred = sforw(f, x; predict=true)
             losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
-            back(f, ygold, loss)
-            while !isempty(f.stack); back(f); end # TODO: f.stack is too low level
+            sback(f, ygold, loss)
+            while f.sp>0; sback(f); end # TODO: f.stack is too low level
             g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
             gscale = (g > gclip > 0 ? gclip/g : 0)
             update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
@@ -60,7 +60,7 @@ function gradloss(f::Net, data, loss; grad=false, seed=42)
     data.rng = MersenneTwister()
     srand(data.rng, seed)
     reset!(f)
-    myforw = grad ? forw : fapply
+    myforw = grad ? sforw : forw
     loss1 = 0
     for (x,ygold) in data
         if ygold == nothing
@@ -69,8 +69,8 @@ function gradloss(f::Net, data, loss; grad=false, seed=42)
             ypred = myforw(f, x; predict=true)
             loss1 = loss(ypred, ygold)
             if grad
-                back(f, ygold, loss)
-                while !isempty(f.stack); back(f); end
+                sback(f, ygold, loss)
+                while f.sp>0; sback(f); end
             end
             break
         end

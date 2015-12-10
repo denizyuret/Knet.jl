@@ -59,8 +59,8 @@ include("net.jl");              export Reg, Net, set!, inc!, registers, params, 
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
-include("net/forw.jl");         export forw # and apply imported from Base
-include("net/back.jl");         export back
+include("net/forw.jl");         export forw, sforw
+include("net/back.jl");         export back, sback
 include("net/util.jl");         export reset!
 
 include("op/compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base

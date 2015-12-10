@@ -44,7 +44,7 @@ function _forw(f::Net, seq::Bool, input...; kwargs...)
                 y.out = forw(y.op, inputs(f,y)..., y.out0; kwargs...)
             end
         end
-        seq && push!(f, get(y,:save) ? y.out : nothing)
+        seq && push!(f, y)
     end
     return out(f,:return)
 end

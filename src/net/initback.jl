@@ -5,7 +5,7 @@
 # - reg.back: depends on which dx args specified.
 # - op.save: read-only, used for popping only if seq.
 # """
-function initback(f::Net, ygold, loss, getdx; seq=false)
+function initback(f::Net, ygold, loss, getdx, seq)
     isdefined(f,:lastback) && f.lastback == (f.lastforw, getdx, f.lastback[3] || seq) && return
     initgrad(f, getdx)
     initincr(f)

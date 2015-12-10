@@ -14,15 +14,17 @@ gradient.  If ygold=nothing means the loss gradient from the output is
 taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 """
-
-function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
-    getdx = getdxbool(getdx, ninputs(f))
-    initback(f, ygold, loss, getdx; seq=false)
+function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...)
+    getdx = getdxbool(getdx, ninputs(f)); dx=Any[]
+    initback(f, ygold, loss, getdx, seq)
+    seq && (f.sp -= length(f))  # this way f.stack[f.sp+n] gives the output of n'th op
     gotreturn = false
+    gotinputs = 0
     for n = length(f):-1:1
+        skipped(f,n,seq) && continue
         y = get(f,n)
-        get(y,:forw) || continue # means this operation was not executed
         get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
+        yout = (!seq ? y.out : f.stack[f.sp+n])
         if !gotreturn
             gotreturn = true
             if ygold == nothing # represents zero gradient
@@ -30,10 +32,10 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
             else
                 !isreturn(y) && Base.warn_once("ygold specified when there is no return")
                 if get(y,:incr)
-                    loss(y.out, ygold, y.tmp; o...) # loss needs o... for e.g. mask
+                    loss(yout, ygold, y.tmp; o...) # loss needs o... for e.g. mask
                     y.dif = axpy!(1,y.tmp,y.dif0)
                 else
-                    y.dif = loss(y.out, ygold, y.dif0; o...)
+                    y.dif = loss(yout, ygold, y.dif0; o...)
                 end
             end
         elseif isreturn(y)
@@ -45,7 +47,9 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
             end
         else
             xx = input_registers(f,y)
-            back(y.op, y.dif, difs(xx)...; x=get1(outs(xx)), y=y.out, o...)
+            xdif = difs(xx)
+            xout = get1(!seq ? outs(xx) : f.stack[f.sp+y.argv])
+            back(y.op, y.dif, xdif...; x=xout, y=yout, o...)
             for x in xx
                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
                          get(x,:grad) ? x.dif0 : nothing)
@@ -54,17 +58,22 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
                 fillsync!(y.dif,0)
             end
         end
-    end
-    if any(getdx)
-        dx = Any[]; nx = 0
-        for p in registers(f)
-            isa(p.op,Input) && getdx[nx+=1] && push!(dx, p.dif)
+        if isa(y.op,Input)
+            getdx[end-gotinputs] && unshift!(dx, y.dif)
+            gotinputs += 1
         end
-        return get1(dx)
     end
+    return get1(dx)
 end
 
-function sback(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
+
+sback(f::Net, ygold=nothing, loss=copyloss; o...)=back(f,ygold,loss;o...,seq=true)
+
+# For FNNs we can tell whether an op was skipped using the :forw flag.
+# For RNNs the :forw flag may change through the iterations, so we check the stack.
+skipped(f::Net,n::Int,seq::Bool)=(seq ? f.stack[f.sp+n]==:skip : !get(get(f,n),:forw))
+
+function sback_delete(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f))
     initback(f, ygold, loss, getdx) # TODO: rethink lastforw==lastback in a seq context
     gotreturn = false
