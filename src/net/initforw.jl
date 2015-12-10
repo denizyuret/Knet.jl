@@ -5,7 +5,7 @@ size, sparsity, save flag, or keyword arguments.  It does not zero or
 reset the registers, there is a separate reset!  function for that.
 FNN's do not need reset, and RNNs only do at the end of a sequence.
 """
-function initforw(f::Net, inputs...; o...)
+function initforw(f::Net, inputs...; seq=false, o...)
     @assert length(inputs) == ninputs(f)
     if (!isdefined(f,:lastforw)
         || map(typeof, inputs) != f.lastforw[1]
@@ -16,9 +16,52 @@ function initforw(f::Net, inputs...; o...)
         initargv(f)
         initsize(f, inputs...)
         inittype(f, inputs...)
-        initout0(f)
+        initsave(f)
+        initout0(f; seq=seq)
     end
 end
+
+initout0(f::Net;o...)=(for p in forwregs(f); initout0(f,p;o...); end)
+
+function initout0(f::Net, p::Reg; seq=false)
+    at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
+    if checkarray(p, :out0, at, et, sz)
+        # all done
+    elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
+        error("Size or type change not allowed in parameters and constants")
+    else
+        # TODO: we should take a seq option from sforw.  If no seq apply some fnn optimizations.
+        # In particular !get(p,:save) is not necessary.  Also !haskey can be removed once we
+        # stop using sdict and switch to copy-on-save.
+        p.out0 = nothing
+        if canoverwrite(p.op) && (!seq || !get(p, :save)) && get(p, :forwoverwrite, true)
+            for i in reverse(p.argv) # consider overwriting the last input first
+                q = f.reg[i]
+                if !ispersistent(q) && !get(q, :save) && checkarray(q,:out0,at,et,sz) && !haskey(f.sdict,q.out0)
+                    p.out0 = q.out0
+                    @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
+                    break
+                end
+            end
+        end
+        if p.out0 == nothing
+            p.out0 = newarray(at, et, sz)
+            gpusync()
+            @dbg info("Alloc $(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
+        end
+    end
+end
+
+function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)
+    isdefined(r,n) &&
+    isa(r.(n), atype) &&
+    eltype(r.(n)) == etype &&
+    size(r.(n)) == dims
+end
+
+# We do not need to copy persistent registers, they are guaranteed not to change during forwback.
+ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
+isreturn(p::Reg)=(p.name==:return)
 
 
 # initcond(f::Net; o...) sets the :forw property of each f.reg[n] which
@@ -113,44 +156,25 @@ function inittype(f::Net, inputs...)
     end
 end
 
-initout0(f::Net)=(for p in forwregs(f); initout0(f,p); end)
+# initsave(f::Net) sets the :save property of each f.prog[n] which
+# should be true if the result of f.prog[n] will be needed for back
+# calculation.  We find this out using back_reads_x and back_reads_y
+# on each op as well as checking if the output will be returned.  Any
+# register with a save flag should not be overwritten.
 
-function initout0(f::Net, p::Reg)
-    at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
-    if checkarray(p, :out0, at, et, sz)
-        # all done
-    elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
-        error("Size or type change not allowed in parameters and constants")
-    else
-        p.out0 = nothing
-        if canoverwrite(p.op) && get(p, :forwoverwrite, true)
-            for i in reverse(p.argv) # consider overwriting the last input first
-                q = f.reg[i]
-                if !ispersistent(q) && checkarray(q,:out0,at,et,sz) && !haskey(f.sdict,q.out0)
-                    p.out0 = q.out0
-                    @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
-                    break
-                end
-            end
+function initsave(f::Net)
+    for p in registers(f); set!(p,:save,false); end
+    for p in registers(f)
+        if isreturn(p) || back_reads_y(p.op)
+            set!(p,:save,true)
         end
-        if p.out0 == nothing
-            p.out0 = newarray(at, et, sz)
-            gpusync()
-            @dbg info("Alloc $(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
+        if back_reads_x(p.op)
+            for i in p.argv
+                set!(get(f,i),:save,true)
+            end
         end
     end
 end
-
-function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)
-    isdefined(r,n) &&
-    isa(r.(n), atype) &&
-    eltype(r.(n)) == etype &&
-    size(r.(n)) == dims
-end
-
-# We do not need to copy persistent registers, they are guaranteed not to change during forwback.
-ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))
-isreturn(p::Reg)=(p.name==:return)
 
 
 ### DEAD CODE:
@@ -278,30 +302,6 @@ isreturn(p::Reg)=(p.name==:return)
 # it == nothing && error("Cannot infer eltype")
 # return it
 # # todo: deal with inputless networks:
-
-# initsave(f::Net) sets the :push property of each f.prog[n] which
-# should be true if the result of f.prog[n] will be needed for back
-# calculation.  We find this out using back_reads_x and back_reads_y
-# on each op.  Note that Par registers are persistent and do not need
-# to be saved.  Also note that save is only necessary for (1) RNN
-# sequence models and (2) only for training and (3) only for ops with
-# forw=true.
-
-# function initsave(f::Net, save::Bool)
-#     for p in f.prog; setprop!(p,:push,false); end
-#     save || return
-#     for p in f.prog
-#         get(p,:forw) || return
-#         back_reads_y(p.op) && setprop!(p,:push,true)
-#         if back_reads_x(p.op)
-#             for q in f.prog
-#                 if in(q.output, p.inputs) && !ispersistent(q)
-#                     setprop!(q,:push,true)
-#                 end
-#             end
-#         end
-#     end
-# end
 
 # ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
 

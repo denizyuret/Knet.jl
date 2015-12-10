@@ -63,7 +63,7 @@ end
 function test(f::Net, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
-        ypred = apply(f, x)
+        ypred = fapply(f, x)
         sumloss += loss(ypred, ygold)
         numloss += 1
     end
@@ -88,7 +88,7 @@ end
 
 function getloss(f, data, loss)
     (x,ygold) = first(data)
-    ypred = apply(f, x)
+    ypred = fapply(f, x)
     loss(ypred, ygold)
 end
 

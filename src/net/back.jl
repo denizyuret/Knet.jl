@@ -17,6 +17,55 @@ taken to be 0.  Gradient computation proceeds backwards from N..1.
 
 function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f))
+    initback(f, ygold, loss, getdx; seq=false)
+    gotreturn = false
+    for n = length(f):-1:1
+        y = get(f,n)
+        get(y,:forw) || continue # means this operation was not executed
+        get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
+        if !gotreturn
+            gotreturn = true
+            if ygold == nothing # represents zero gradient
+                get(y,:incr) || (y.dif = nothing)
+            else
+                !isreturn(y) && Base.warn_once("ygold specified when there is no return")
+                if get(y,:incr)
+                    loss(y.out, ygold, y.tmp; o...) # loss needs o... for e.g. mask
+                    y.dif = axpy!(1,y.tmp,y.dif0)
+                else
+                    y.dif = loss(y.out, ygold, y.dif0; o...)
+                end
+            end
+        elseif isreturn(y)
+            error("Got return in non-final instruction")
+        end
+        if y.dif == nothing
+            for x in input_registers(f,y)
+                get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
+            end
+        else
+            xx = input_registers(f,y)
+            back(y.op, y.dif, difs(xx)...; x=get1(outs(xx)), y=y.out, o...)
+            for x in xx
+                x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
+                         get(x,:grad) ? x.dif0 : nothing)
+            end
+            if get(y,:incr) && !isa(y.op, Par)
+                fillsync!(y.dif,0)
+            end
+        end
+    end
+    if any(getdx)
+        dx = Any[]; nx = 0
+        for p in registers(f)
+            isa(p.op,Input) && getdx[nx+=1] && push!(dx, p.dif)
+        end
+        return get1(dx)
+    end
+end
+
+function sback(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
+    getdx = getdxbool(getdx, ninputs(f))
     initback(f, ygold, loss, getdx) # TODO: rethink lastforw==lastback in a seq context
     gotreturn = false
 
@@ -51,8 +100,8 @@ function back(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
             end
         else
-            dxx = inputdifs(f,y)  # map too slow? map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
-            back(y.op, y.dif, dxx...; x=get1(xsave), y=ysave, o...)
+            xdif = inputdifs(f,y)  # map too slow? map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
+            back(y.op, y.dif, xdif...; x=get1(xsave), y=ysave, o...)
             for x in xx
                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
                          get(x,:grad) ? x.dif0 : nothing)

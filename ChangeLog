@@ -1,6 +1,6 @@
 2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* adding.jl: broken. turning off array sharing fixes it, but
+	* addingirnn: broken. turning off array sharing fixes it, but
 	slightly different result.  could be due to change in quadloss.
 	backoverwrite is the problem, forwoverwrite is ok. also get
 
@@ -75,6 +75,32 @@
 	4. axpy (212 vs 376)
 	5. fill (78 vs 121)
 	6. get1 (0 vs 767): calling methods was a bad idea.
+
+	d77a960: 14.171792 seconds (22.24 M allocations: 925.864 MB, 4.10%
+	gc time) At this point back seems as fast as master (dev:1146,
+	master:1362).  The big differences seem to be initforw and
+	copy_on_write.
+
+	without copy_on_write: 12.10 seconds.
+	without intiforw: I don't know how to test that.
+
+	And we still have the realloc bug. (Solution 1d).
+
+	- pop can delete sdict when stack empty.
+	- arrays in sdict can be copied to sfree and reused.
+	- have to be careful if sharing with out0. there will be sharing.
+
+	- may switch to copy-on-save: no sharing between stack and out0.
+	no need to check sdict.  sharing in out0 preserved, no realloc.
+	can reuse stack arrays through sfree.  find some other solution to
+	prevent copy for fnn.  detect 2nd forw as seq?  have rnnforw and
+	rnnback?  fnn will need some other way to detect conditions.
+
+	OK new design: separate forw/back from sforw/sback.  forw/back
+	does not use stack, back can use :forw flag to find out which ops
+	to undo.  Removes the need for apply.  Still need to be careful
+	for: (1) read-before-write, (2) multi-output, (3) sharing arrays
+	that back will use.
 
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 

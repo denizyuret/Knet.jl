@@ -53,7 +53,7 @@ function gradloss(f, data, loss; grad=false, seed=42)
     data.rng = MersenneTwister()
     srand(data.rng, seed)
     (x,ygold) = first(data)
-    ypred = grad ? forw(f, x) : apply(f, x)
+    ypred = forw(f, x)
     grad && back(f, ygold, loss)
     data.rng = data_rng
     loss(ypred, ygold)

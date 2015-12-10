@@ -1,5 +1,5 @@
 """
-
+REWRITE!!!
 forw(f::Net, input...; kwargs...) applies the compiled knet function f
 to the given input.  If f has a return statement, its result is
 returned otherwise nothing is returned.  Following forw(), the program
@@ -30,7 +30,19 @@ performs the same computation but does not touch the stack.
 
 """
 function forw(f::Net, input...; kwargs...)
-    initforw(f, input...; kwargs...)
+    initforw(f, input...; seq=false, kwargs...)
+    lastinput = 0
+    for y in registers(f)
+        get(y,:forw) || continue
+        y.out = (isa(y.op, Input) ?
+                 copysync!(y.out0, input[lastinput += 1]) :
+                 forw(y.op, inputs(f,y)..., y.out0; kwargs...))
+    end
+    return out(f,:return)
+end
+
+function sforw(f::Net, input...; kwargs...)
+    initforw(f, input...; seq=true, kwargs...)
     lastinput = 0
     for y in registers(f)
         get(y,:forw) || (push!(f, nothing); continue)
@@ -44,18 +56,6 @@ function forw(f::Net, input...; kwargs...)
         xsave = back_reads_x(y.op) ? xout  : nothing
         ysave = (back_reads_y(y.op) || isreturn(y)) ? y.out : nothing
         push!(f, (y, xsave, ysave))
-    end
-    return out(f,:return)
-end
-
-function Base.apply(f::Net, input...; kwargs...)
-    initforw(f, input...; kwargs...)
-    lastinput = 0
-    for y in registers(f)
-        get(y,:forw) || continue
-        y.out = (isa(y.op, Input) ?
-                 copysync!(y.out0, input[lastinput += 1]) :
-                 forw(y.op, inputs(f,y)..., y.out0; kwargs...))
     end
     return out(f,:return)
 end

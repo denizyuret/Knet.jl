@@ -15,6 +15,7 @@ type Net <: Model
     reg::Vector{Reg}
     stack::Vector
     sdict::ObjectIdDict         # To implement copy-on-write
+    sfree::Vector               # To reuse allocated arrays
     lastforw
     lastback
     Net(reg::Vector{Reg})=new(reg, Any[], ObjectIdDict())
@@ -43,18 +44,20 @@ input_registers(f::Net,p::Reg)=f.reg[p.argv]
 
 # map too slow?
 # inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
-function inputs(f::Net,p::Reg)
-    n = length(p.argv)
+inputs(f::Net,p::Reg)=outs(input_registers(f,p))
+
+function outs(pp::Vector{Reg})
+    n = length(pp)
     a = cell(n)
-    @inbounds for i=1:n; a[i]=f.reg[p.argv[i]].out; end
+    @inbounds for i=1:n; a[i]=pp[i].out; end
     return a
 end
 
-function inputdifs(f::Net,p::Reg)
-    n = length(p.argv)
+function difs(pp::Vector{Reg})
+    n = length(pp)
     a = cell(n)
     @inbounds for i=1:n
-        r = f.reg[p.argv[i]]
+        r = pp[i]
         a[i]=(!get(r,:grad) ? nothing :
               get(r,:incr) ? r.tmp :
               r.dif0)
@@ -72,14 +75,19 @@ function push!(f::Net,a)
     if a!=nothing
         isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
         (y, xsave, ysave) = a
-        ysave == nothing || inc!(f.sdict,ysave)
-        xsave == nothing || (for x in xsave; inc!(f.sdict,x); end)
+        ysave == nothing || (f.sdict[ysave]=true)
+        xsave == nothing || (for x in xsave; f.sdict[x]=true; end)
     end
 end
 
-pop!(f::Net)=pop!(f.stack)
-
-inc!(p::ObjectIdDict,k)=(p[k]=true)
+function pop!(f::Net)
+    a = pop!(f.stack)
+    if isempty(f.stack)
+        f.sfree = collect(keys(f.sdict))
+        empty!(f.sdict)
+    end
+    return a
+end
 
 # Too expensive:
 
@@ -111,17 +119,13 @@ inc!(p::ObjectIdDict,k)=(p[k]=true)
 
 ### Cleanup at the beginning/end of sequence
 
-function reset!(f::Net; keepstate=false, a...) # TODO: get rid of keepstate, rnnlm defined its own reset
-    isempty(f.stack) || warn("Stack not empty")
-    # isempty(f.sdict) || warn("Sdict not empty")
-    empty!(f.stack)
-    empty!(f.sdict)
+function reset!(f::Net)
+    isempty(f.stack) || (warn("Stack not empty"); empty!(f.stack))
+    isempty(f.sdict) || (warn("Sdict not empty"); empty!(f.sdict))
     for p in registers(f)
-        p.out = (keepstate ? p.out0 : nothing)
-        p.dif = nothing
+        p.out = p.dif = nothing
         get(p,:incr) && fillsync!(p.dif0, 0)
     end
-    # Base.show_backtrace(STDOUT,backtrace());println()
 end
 
 ### DEAD CODE

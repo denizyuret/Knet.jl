@@ -79,7 +79,7 @@ end
 function test(f, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
-        ypred = apply(f, x)
+        ypred = forw(f, x)
         sumloss += loss(ypred, ygold)
         numloss += 1
     end
@@ -106,7 +106,7 @@ end
 function getloss(f, data, loss)
     (x,ygold) = first(data)
     reset!(f)
-    ypred = apply(f, x)
+    ypred = forw(f, x)
     loss(ypred, ygold)
 end
 
