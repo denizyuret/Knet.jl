@@ -1,5 +1,67 @@
 2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
+	read-before-write in the network.  seq means we are running it
+	forw multiple steps before calling back.  They are not the same,
+	we can have seq with fnn, or run rnn for a single step.  When do
+	we need the following, and when can we avoid them:
+
+			r+s	!r+s	r+!s	!r+!s
+	par=incr	y	y	n	n	this is only necessary for sequences where par gets read multiple times
+	stack		y	y	n	n	if we ever rewrite out, only happens in sequences (not counting array sharing)
+	out=void	y	n	y	n	this is only necessary if there is read-before-write but it is cheap, if keepstate out=out0 instead
+	out0=0		n	n	n	n	never needed
+	tmp=0		n	n	n	n	never needed
+	dif=void	n	n	n	n	never needed, will never read before write?
+	dif0=0		i	i	i	i	need if incr
+	reg=incr	o	o	o	o	always needed for multi-output
+
+	When the user compiles a net, we know whether or not it is an rnn.
+	Actually we may need to wait until the first forw to see which
+	cond are true, which may change the rnn property.  When the user
+	calls forw we don't know if this is part of a sequence yet.  back
+	can tell this from stack depth if forw uses stack.  We can assume
+	rnn's always go with sequences (otherwise read-before-write does
+	not make sense).  Or always use the stack.  In any case par=incr
+	only necessary if stack depth is more than prog length.  Stack
+	always necessary, it also gives us information about cond, just
+	avoid copy.
+
+	* reg-types: special treatment may be required for registers:
+
+	- multi-output: these registers are read at multiple locations in
+	the program.  Depends on :cond.  :incr flag set for both sback and
+	back.  The return registers are read by the user and compared to
+	gold, which should count as 1.  All Par registers become
+	multi-output during sequences and need :incr in sback.
+	Multi-output registers can forwoverwrite but should not be
+	overwritten.  More specifically they could be overwritten by the
+	last reader, but that is probably not worth the complexity.
+
+	- need-for-back: these registers are detected using back_reads_x
+	and y.  Also the return register is always in this category
+	because of the loss gradient.  Depends on :cond.  Their :save flag
+	is set.  However to speed up initforw we can compute this once and
+	be conservative in array sharing.  They can forwoverwrite but
+	should not be forwoverwritten in fnns.  In rnns they can be
+	forwoverwritten after copying to stack.  If push happens at
+	creation time this is ok.  If it happens at read time, this is
+	risky, the register could be overwritten before it is read.
+	Better be conservative and do not overwrite these.
+
+	- persistent: Par and Arr registers.  They do not change during
+	forwback, so no need to copy them in sforw when pushing.  Cannot
+	overwrite or be overwritten, the par and arr ops already have
+	canoverwrite=false so no need to separately check.
+
+	- isreturn: should count 1 extra output and always have
+	need-for-back.
+
+	- read-before-write: these registers exist in rnns.  They should
+	be zeroed out at the beginning of sequences by reset!.  They can
+	forwoverwrite and be overwritten.  FNNs with this type of register
+	do not make sense, if they exist the user should call reset.
+
 	* addingirnn: broken. turning off array sharing fixes it, but
 	slightly different result.  could be due to change in quadloss.
 	backoverwrite is the problem, forwoverwrite is ok. also get
@@ -100,7 +162,26 @@
 	does not use stack, back can use :forw flag to find out which ops
 	to undo.  Removes the need for apply.  Still need to be careful
 	for: (1) read-before-write, (2) multi-output, (3) sharing arrays
-	that back will use.
+	that back will use.  FNN is done.
+
+	copy-on-save has the following problem: the same array may get
+	copied multiple times (one for x, one for y, imagine an output of
+	relu going into a dot).  copy-on-write is more elegant for saving
+	records of operations.  copy-on-write has three problems: (1) hash
+	lookup cost, probably insignificant.  (2) Allocation cost, would
+	go away if we found a safe and quick way to reuse arrays.
+	copy-on-save also has to reuse arrays, but reuse is easier to
+	implement because there is no sharing between stack and out0. (3)
+	when a shared array is pushed, all siblings reallocate.  Can solve
+	by not sharing :save registers, which will cost in-place ops.
+	There is also the old design of pushing only output array rather
+	than a record of operations.  That requires knowing the :save
+	flag.  The :save flag depends on :cond.  :cond may change during
+	multiple iterations.  But pushing happens during forw, so that's
+	ok.  Let's try this with copy-on-save.
+
+	- try copy-on-save.
+	- fix slow initforw.
 
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -491,33 +572,6 @@
 	DONE - fix repeat
 
 2015-12-03  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* seq-vs-rnn: Another point is seq vs rnn.  rnn means we have
-	read-before-write in the network.  seq means we are running it
-	forw multiple steps before calling back.  They are not the same,
-	we can have seq with fnn, or run rnn for a single step.  When do
-	we need the following, and when can we avoid them:
-
-			r+s	!r+s	r+!s	!r+!s
-	par=incr	y	y	n	n	this is only necessary for sequences where par gets read multiple times
-	stack		y	y	n	n	if we ever rewrite out, only happens in sequences (not counting array sharing)
-	out=void	y	n	y	n	this is only necessary if there is read-before-write but it is cheap, if keepstate out=out0 instead
-	out0=0		n	n	n	n	never needed
-	tmp=0		n	n	n	n	never needed
-	dif=void	n	n	n	n	never needed, will never read before write?
-	dif0=0		i	i	i	i	need if incr
-	reg=incr	o	o	o	o	always needed for multi-output
-
-	When the user compiles a net, we know whether or not it is an rnn.
-	Actually we may need to wait until the first forw to see which
-	cond are true, which may change the rnn property.  When the user
-	calls forw we don't know if this is part of a sequence yet.  back
-	can tell this from stack depth if forw uses stack.  We can assume
-	rnn's always go with sequences (otherwise read-before-write does
-	not make sense).  Or always use the stack.  In any case par=incr
-	only necessary if stack depth is more than prog length.  Stack
-	always necessary, it also gives us information about cond, just
-	avoid copy.
 
 	* DONE:
 

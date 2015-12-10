@@ -6,14 +6,13 @@
 # - op.save: read-only, used for popping only if seq.
 # """
 function initback(f::Net, ygold, loss, getdx; seq=false)
-    seq = length(f.stack) > length(f)
     isdefined(f,:lastback) && f.lastback == (f.lastforw, getdx, f.lastback[3] || seq) && return
-    f.lastback =  (f.lastforw, getdx, seq)
     initgrad(f, getdx)
     initincr(f)
     inittype2(f)
     initdif0(f)
     inittmp(f)
+    f.lastback =  (f.lastforw, getdx, seq)
     gpusync()
 end
 

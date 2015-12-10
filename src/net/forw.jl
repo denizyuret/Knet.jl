@@ -1,12 +1,13 @@
 """
-REWRITE!!!
+REWRITE!!
 forw(f::Net, input...; kwargs...) applies the compiled knet function f
-to the given input.  If f has a return statement, its result is
-returned otherwise nothing is returned.  Following forw(), the program
-registers can be queried using get(f,regname).  The special register
-get(f,:return) contains the return value, if any.  Note that arrays
-returned by get(f,regname) are internal to the Net and will be
-overwritten in the next forw call.
+to the given input.  
+
+If f has a return statement, its result is returned, otherwise nothing
+is returned.  Following forw(), the program registers can be queried
+using get(f,regname).  The special register get(f,:return) contains
+the return value, if any.  Note that arrays returned by get(f,regname)
+are internal to the Net and will be overwritten in the next forw call.
 
 The input consists of zero or more arrays representing a single
 minibatch.  For sequence models, the input typically corresponds to a
@@ -29,44 +30,25 @@ by back().  During testing apply() should be used instead, which
 performs the same computation but does not touch the stack.
 
 """
-function forw(f::Net, input...; kwargs...)
-    initforw(f, input...; seq=false, kwargs...)
-    lastinput = 0
-    for y in registers(f)
-        get(y,:forw) || continue
-        y.out = (isa(y.op, Input) ?
-                 copysync!(y.out0, input[lastinput += 1]) :
-                 forw(y.op, inputs(f,y)..., y.out0; kwargs...))
-    end
-    return out(f,:return)
-end
+forw(f::Net, input...; kwargs...) = _forw(f,false,input...; kwargs...)
+sforw(f::Net, input...; kwargs...) = _forw(f,true,input...; kwargs...)
 
-function sforw(f::Net, input...; kwargs...)
-    initforw(f, input...; seq=true, kwargs...)
+function _forw(f::Net, seq::Bool, input...; kwargs...)
+    initforw(f, seq, input...; kwargs...)
     lastinput = 0
     for y in registers(f)
-        get(y,:forw) || (push!(f, nothing); continue)
-        xout = inputs(f,y)
-        copy_on_write(f,y)
-        if isa(y.op, Input)
-            y.out = copysync!(y.out0, input[lastinput += 1])
-        else
-            y.out = forw(y.op, xout..., y.out0; kwargs...)
+        if get(y,:forw)
+            if isa(y.op, Input)
+                y.out = copysync!(y.out0, input[lastinput += 1])
+            else
+                y.out = forw(y.op, inputs(f,y)..., y.out0; kwargs...)
+            end
         end
-        xsave = back_reads_x(y.op) ? xout  : nothing
-        ysave = (back_reads_y(y.op) || isreturn(y)) ? y.out : nothing
-        push!(f, (y, xsave, ysave))
+        seq && push!(f, get(y,:save) ? y.out : nothing)
     end
     return out(f,:return)
 end
 
-# If y.out has been saved on stack, find new storage so we do not overwrite
-function copy_on_write(f::Net,y::Reg)
-    if !ispersistent(y) && haskey(f.sdict,y.out0)
-        y.out0 = nothing
-        initout0(f,y)
-    end
-end
 
 ### DEAD CODE:
     # yout != nothing && copysync!(yout, r.out[N])
@@ -107,3 +89,11 @@ end
 # necessary but does not initialize out or out0, so for rnn's that have
 # forward references a call to reset at the beginning of a sequence is
 # necessary.
+
+# # If y.out has been saved on stack, find new storage so we do not overwrite
+# function copy_on_write(f::Net,y::Reg)
+#     if !ispersistent(y) && haskey(f.sdict,y.out0)
+#         y.out0 = nothing
+#         initout0(f,y)
+#     end
+# end

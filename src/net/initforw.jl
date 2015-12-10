@@ -5,20 +5,18 @@ size, sparsity, save flag, or keyword arguments.  It does not zero or
 reset the registers, there is a separate reset!  function for that.
 FNN's do not need reset, and RNNs only do at the end of a sequence.
 """
-function initforw(f::Net, inputs...; seq=false, o...)
-    @assert length(inputs) == ninputs(f)
-    if (!isdefined(f,:lastforw)
-        || map(typeof, inputs) != f.lastforw[1]
-        || map(size, inputs) != f.lastforw[2]
-        || sort(o) != f.lastforw[3])
-        f.lastforw = (map(typeof, inputs), map(size, inputs), sort(o))
-        initcond(f; o...)
-        initargv(f)
-        initsize(f, inputs...)
-        inittype(f, inputs...)
-        initsave(f)
-        initout0(f; seq=seq)
-    end
+function initforw(f::Net, seq::Bool, inputs...; o...)
+    length(inputs) == ninputs(f) || throw(ArgumentError())
+    isdefined(f,:lastforw) && f.lastforw==(map(typeof, inputs), map(size, inputs), o) && return
+    initcond(f; o...)
+    initargv(f)
+    initsave(f)
+    initfanout(f)
+    initsize(f, inputs...)
+    inittype(f, inputs...)
+    initout0(f; seq=seq)
+    f.lastforw = (map(typeof, inputs), map(size, inputs), o)
+    gpusync()
 end
 
 initout0(f::Net;o...)=(for p in forwregs(f); initout0(f,p;o...); end)
@@ -30,14 +28,11 @@ function initout0(f::Net, p::Reg; seq=false)
     elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
         error("Size or type change not allowed in parameters and constants")
     else
-        # TODO: we should take a seq option from sforw.  If no seq apply some fnn optimizations.
-        # In particular !get(p,:save) is not necessary.  Also !haskey can be removed once we
-        # stop using sdict and switch to copy-on-save.
         p.out0 = nothing
-        if canoverwrite(p.op) && (!seq || !get(p, :save)) && get(p, :forwoverwrite, true)
+        if canoverwrite(p.op) && get(p, :forwoverwrite, true)
             for i in reverse(p.argv) # consider overwriting the last input first
                 q = f.reg[i]
-                if !ispersistent(q) && !get(q, :save) && checkarray(q,:out0,at,et,sz) && !haskey(f.sdict,q.out0)
+                if checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !get(q, :save) && get(q, :fanout)==1
                     p.out0 = q.out0
                     @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
                     break
@@ -90,6 +85,14 @@ function condeval(s,d::Dict)
      error("Expected boolean expression got $s"))
 end
 
+function forwregs(f::Net)
+    a = Reg[]
+    for r in registers(f)
+        get(r,:forw) && push!(a,r)
+    end
+    return a
+end
+
 function initargv(f::Net)
     # There could be repeated and read-before-write variables
     s2i = Dict{Symbol,Int}()
@@ -105,8 +108,6 @@ function initargv(f::Net)
         s2i[p.name] = n
     end
 end
-
-forwregs(f::Net)=filter(r->get(r,:forw), registers(f))
 
 function initsize(f::Net, inputs...)
     for p in forwregs(f)
@@ -159,12 +160,14 @@ end
 # initsave(f::Net) sets the :save property of each f.prog[n] which
 # should be true if the result of f.prog[n] will be needed for back
 # calculation.  We find this out using back_reads_x and back_reads_y
-# on each op as well as checking if the output will be returned.  Any
-# register with a save flag should not be overwritten.
+# on each op as well as checking if the output will be returned and
+# thus will be needed for back loss and grad calculation.  Any
+# register with a save flag should not be overwritten in forw.  We'll
+# be conservative and also not overwrite in sforw.
 
 function initsave(f::Net)
     for p in registers(f); set!(p,:save,false); end
-    for p in registers(f)
+    for p in forwregs(f)
         if isreturn(p) || back_reads_y(p.op)
             set!(p,:save,true)
         end
@@ -176,6 +179,26 @@ function initsave(f::Net)
     end
 end
 
+# get(p,:fanout)>1: these registers are read at multiple locations in
+# the program.  Depends on :cond.  :incr flag set for both sback and
+# back.  The return registers are read by the user and compared to
+# gold, which should count as 1.  All Par registers become
+# multi-output during sequences and need :incr in sback.  Multi-output
+# registers can forwoverwrite but should not be overwritten.  More
+# specifically they could be overwritten by the last reader, but that
+# is probably not worth the complexity.
+
+function initfanout(f::Net)
+    regs = forwregs(f)
+    for p in regs; set!(p,:fanout,0); end
+    for p in regs
+        isreturn(p) && inc!(p,:fanout)
+        for i in input_registers(f,p)
+            @assert get(i,:forw)
+            inc!(i,:fanout)
+        end
+    end
+end
 
 ### DEAD CODE:
 

@@ -20,8 +20,8 @@ s = ArgParseSettings()
     ("--mnist2dxy"; action=:store_true)
     ("--mnist4d"; action=:store_true)
     ("--mnistpixels"; action=:store_true)
-    ("--addingirnn"; action=:store_true)
-    ("--addinglstm"; action=:store_true)
+    ("--addirnn"; action=:store_true)
+    ("--addlstm"; action=:store_true)
     ("--rnnlm"; action=:store_true)
     ("--copyseq"; action=:store_true)
     ("--ncelm"; action=:store_true)
@@ -42,6 +42,7 @@ if opts["all"] || opts["linreg"]
     # 0.739858 seconds (394.09 k allocations: 71.335 MB, 1.23% gc time) Tue Oct 20 18:29:41 PDT 2015
     # 0.731515 seconds (391.62 k allocations: 71.451 MB, 1.21% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 0.837992 seconds (690.89 k allocations: 86.433 MB, 0.80% gc time) Mon Dec  7 22:43:42 PST 2015: knet7
+    # 0.661330 seconds (408.42 k allocations: 77.432 MB, 0.89% gc time) 466c40e not using stack for fnn
 end
 
 if opts["all"] || opts["mnist2d"]
@@ -59,7 +60,7 @@ if opts["all"] || opts["mnist2d"]
     # 7.031675 seconds (3.47 M allocations: 158.983 MB, 1.31% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 6.730379 seconds (3.61 M allocations: 161.998 MB, 1.42% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 4.832591 seconds (4.67 M allocations: 407.652 MB, 4.33% gc time) Tue Dec  8 09:36:22 PST 2015: knet7
-    # 4.096904 seconds (3.28 M allocations: 362.141 MB, 4.84% gc time) Wed Dec  9 16:10:19 PST 2015: not using stack for fnn
+    # 4.096904 seconds (3.28 M allocations: 362.141 MB, 4.84% gc time) Wed Dec  9 16:10:19 PST 2015: 466c40e not using stack for fnn
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -76,6 +77,7 @@ if opts["all"] || opts["mnist2dy"]
     # 8.542426 seconds (3.73 M allocations: 181.290 MB, 2.06% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 8.073397 seconds (3.86 M allocations: 184.237 MB, 2.15% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 5.237889 seconds (4.86 M allocations: 432.598 MB, 5.14% gc time) Tue Dec  8 08:06:30 PST 2015: knet7
+    # 4.370380 seconds (3.48 M allocations: 387.233 MB, 5.65% gc time) 466c40e not using stack for fnn
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -114,6 +116,7 @@ if opts["all"] || opts["mnist2dx"]
     # 19.643433 seconds (4.08 M allocations: 750.880 MB, 1.12% gc time) 405b7d7 2015-11-18 Changed default weight init to Xavier
     # 16.538108 seconds (5.16 M allocations: 909.466 MB, 1.65% gc time) Tue Dec  8 08:07:17 PST 2015: knet7 xavier
     # 9.608017 seconds (5.16 M allocations: 921.080 MB, 3.53% gc time)  Tue Dec  8 09:39:05 PST 2015: knet7 gaussian
+    # 7.946223 seconds (3.76 M allocations: 875.557 MB, 3.11% gc time) 466c40e not using stack for fnn
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -150,6 +153,7 @@ if opts["all"] || opts["mnist2dxy"]
     # 13.421199 seconds (4.37 M allocations: 786.728 MB, 2.27% gc time) Wed Nov 18 21:28:22 PST 2015: lcn gaussian
     # 16.959799 seconds (5.43 M allocations: 935.729 MB, 1.98% gc time) Tue Dec  8 08:07:43 PST 2015: knet7 xavier
     # 10.177581 seconds (5.42 M allocations: 947.233 MB, 4.17% gc time) Tue Dec  8 09:40:31 PST 2015: knet7 gaussian
+    # 8.360521 seconds (4.01 M allocations: 901.532 MB, 3.63% gc time) 466c40e not using stack for fnn
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -171,7 +175,7 @@ if opts["all"] || opts["mnist4d"]
     # @test isapprox(test6[3], 7.65231; rtol=0.1)
 
     # (0.03091877909648853,66.5221939086914,4.423511505126953); improved softmax (dx=q-p)
-    @test isapprox(test6[1], .030919; rtol=0.01)
+    @test isapprox(test6[1], .030919; rtol=0.02)
     @test isapprox(test6[2], 66.5222; rtol=0.001)
     @test isapprox(test6[3], 5.0; rtol=0.2)
 
@@ -179,6 +183,33 @@ if opts["all"] || opts["mnist4d"]
     # 17.093371 seconds (10.15 M allocations: 479.611 MB, 1.11% gc time) Tue Oct 20 19:09:19 PDT 2015
     # 17.135514 seconds (10.38 M allocations: 494.816 MB, 1.11% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 17.002958 seconds (10.58 M allocations: 499.822 MB, 1.11% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 14.898975 seconds (10.11 M allocations: 697.407 MB, 1.97% gc time) 466c40e not using stack for fnn
+end
+
+if opts["all"] || opts["addirnn"]
+    include("adding.jl")
+    @time @show test8b = Adding.main("--gcheck $gcheck")
+
+    # @test test8b  == (0.04885713f0, 5.6036315f0,3.805253f0)  	# --epochs 20 --nettype irnn
+    # @test test8b  == (0.04885713f0, 5.6057444f0, 3.805253f0) 	# measuring wnorm after update now
+    # @test test8b == (0.05627571f0,5.484082f0,4.1594324f0)    	# new generator
+    @test test8b == (0.056275677f0,5.484083f0,4.159457f0)	# 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+
+    twice && (gc(); @time @show test8b = Adding.main("--gcheck $gcheck"))
+    # 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time) # --epochs 20 --nettype irnn
+    # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+end
+
+if opts["all"] || opts["addlstm"]
+    include("adding.jl")
+    @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm")
+
+    @test test8 == (0.24768005f0,3.601481f0,1.2290705f0)      # switched to --epochs 1 --nettype lstm, gradcheck does not work with irnn/relu
+
+    twice && (gc(); @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm"))
+    # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
+    # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -197,32 +228,6 @@ if opts["all"] || opts["mnistpixels"]
     twice && (gc(); @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128"))
     # 2.599979 seconds (5.19 M allocations: 212.248 MB, 2.77% gc time)  Tue Oct 20 19:07:11 PDT 2015
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
-end
-
-if opts["all"] || opts["addinglstm"]
-    include("adding.jl")
-    @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm")
-
-    @test test8 == (0.24768005f0,3.601481f0,1.2290705f0)      # switched to --epochs 1 --nettype lstm, gradcheck does not work with irnn/relu
-
-    twice && (gc(); @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm"))
-    # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
-    # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
-end
-
-if opts["all"] || opts["addingirnn"]
-    include("adding.jl")
-    @time @show test8b = Adding.main("--gcheck $gcheck")
-
-    # @test test8b  == (0.04885713f0, 5.6036315f0,3.805253f0)  	# --epochs 20 --nettype irnn
-    # @test test8b  == (0.04885713f0, 5.6057444f0, 3.805253f0) 	# measuring wnorm after update now
-    # @test test8b == (0.05627571f0,5.484082f0,4.1594324f0)    	# new generator
-    @test test8b == (0.056275677f0,5.484083f0,4.159457f0)	# 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-
-    twice && (gc(); @time @show test8b = Adding.main("--gcheck $gcheck"))
-    # 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time) # --epochs 20 --nettype irnn
-    # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
-    # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
 end
 
 if opts["all"] || opts["rnnlm"]

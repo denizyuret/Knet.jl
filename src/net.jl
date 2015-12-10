@@ -14,11 +14,10 @@ end
 type Net <: Model
     reg::Vector{Reg}
     stack::Vector
-    sdict::ObjectIdDict         # To implement copy-on-write
-    sfree::Vector               # To reuse allocated arrays
+    sp::Int
     lastforw
     lastback
-    Net(reg::Vector{Reg})=new(reg, Any[], ObjectIdDict())
+    Net(reg::Vector{Reg})=new(reg, Any[], 0)
 end
 
 import Base: length, get, eltype, pop!, push!
@@ -70,24 +69,48 @@ set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
 inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
 set!(f::Net,k::Symbol,v=true)=(for p in registers(f); p.plist[k]=v; end)
 
-function push!(f::Net,a)
-    push!(f.stack,a)
-    if a!=nothing
-        isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
-        (y, xsave, ysave) = a
-        ysave == nothing || (f.sdict[ysave]=true)
-        xsave == nothing || (for x in xsave; f.sdict[x]=true; end)
+### Cleanup at the beginning/end of sequence
+
+function reset!(f::Net)
+    f.sp = 0
+    for p in registers(f)
+        p.out = p.dif = nothing
+        get(p,:incr) && fillsync!(p.dif0, 0)
     end
 end
 
-function pop!(f::Net)
-    a = pop!(f.stack)
-    if isempty(f.stack)
-        f.sfree = collect(keys(f.sdict))
-        empty!(f.sdict)
-    end
-    return a
+function push!(f::Net,a)
+    f.sp += 1
+    while length(f.stack) < f.sp; push!(f.stack, nothing); end
+    f.stack[f.sp] = (a==nothing ? nothing :
+                     issimilar(a, f.stack[f.sp]) ? copysync!(f.stack[f.sp+1], a) :
+                     copysync!(similar(a), a))
 end
+
+### DEAD CODE
+
+    # isempty(f.stack) || (warn("Stack not empty"); empty!(f.stack))
+    # isempty(f.sdict) || (warn("Sdict not empty"); empty!(f.sdict))
+
+
+# function push!(f::Net,a)
+#     push!(f.stack,a)
+#     if a!=nothing
+#         isa(a,NTuple{3}) || error("Expected NTuple{3} got $a")
+#         (y, xsave, ysave) = a
+#         ysave == nothing || (f.sdict[ysave]=true)
+#         xsave == nothing || (for x in xsave; f.sdict[x]=true; end)
+#     end
+# end
+
+# function pop!(f::Net)
+#     a = pop!(f.stack)
+#     if isempty(f.stack)
+#         f.sfree = collect(keys(f.sdict))
+#         empty!(f.sdict)
+#     end
+#     return a
+# end
 
 # Too expensive:
 
@@ -117,18 +140,6 @@ end
 #     end
 # end
 
-### Cleanup at the beginning/end of sequence
-
-function reset!(f::Net)
-    isempty(f.stack) || (warn("Stack not empty"); empty!(f.stack))
-    isempty(f.sdict) || (warn("Sdict not empty"); empty!(f.sdict))
-    for p in registers(f)
-        p.out = p.dif = nothing
-        get(p,:incr) && fillsync!(p.dif0, 0)
-    end
-end
-
-### DEAD CODE
 
 # op(f::Net,n::Int)=f.reg[n].op
 # inputs(f::Net,n::Int)=f.reg[n].inputs
