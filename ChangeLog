@@ -15,6 +15,11 @@
 	(16,1.5236576f0,2.3667827f0,1.5743105f0) single iter dev with copy-all
 
 	The problem is we are using future values of inputs in back.
+	Fixed it.  Now we have:
+	12.071895 seconds (21.19 M allocations: 922.258 MB, 1.80% gc time)
+
+	With gpu quadloss:
+	12.307355 seconds (21.19 M allocations: 922.106 MB, 1.74% gc time)
 
 2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -198,7 +203,10 @@
 	multiple iterations.  But pushing happens during forw, so that's
 	ok.  Let's try this with copy-on-save.
 
-	- try copy-on-save.
+	- try copy-on-save: pushing array if save, nothing if not.  That
+	does not distinguish noforw from nosave.  Also this does not avoid
+	copying persistent arrays.
+
 	- fix slow initforw.
 
 2015-12-08  Deniz Yuret  <dyuret@ku.edu.tr>

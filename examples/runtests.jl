@@ -190,10 +190,11 @@ if opts["all"] || opts["addirnn"]
     include("adding.jl")
     @time @show test8b = Adding.main("--gcheck $gcheck")
 
-    # @test test8b  == (0.04885713f0, 5.6036315f0,3.805253f0)  	# --epochs 20 --nettype irnn
-    # @test test8b  == (0.04885713f0, 5.6057444f0, 3.805253f0) 	# measuring wnorm after update now
+    # @test test8b == (0.04885713f0, 5.6036315f0,3.805253f0)  	# --epochs 20 --nettype irnn
+    # @test test8b == (0.04885713f0, 5.6057444f0, 3.805253f0) 	# measuring wnorm after update now
     # @test test8b == (0.05627571f0,5.484082f0,4.1594324f0)    	# new generator
-    @test test8b == (0.056275677f0,5.484083f0,4.159457f0)	# 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    # @test test8b == (0.056275677f0,5.484083f0,4.159457f0)	# 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    @test test8b ==   (0.05627568f0,5.484083f0,4.159457f0)
 
     twice && (gc(); @time @show test8b = Adding.main("--gcheck $gcheck"))
     # 9.114330 seconds (16.23 M allocations: 704.629 MB, 1.80% gc time) # --epochs 20 --nettype irnn
