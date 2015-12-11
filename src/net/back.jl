@@ -17,14 +17,13 @@ taken to be 0.  Gradient computation proceeds backwards from N..1.
 function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f)); dx=Any[]
     initback(f, ygold, loss, getdx, seq)
-    seq && (f.sp -= length(f))  # this way f.stack[f.sp+n] gives the output of n'th op
     gotreturn = false
     gotinputs = 0
     for n = length(f):-1:1
         skipped(f,n,seq) && continue
         y = get(f,n)
         get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
-        yout = (!seq ? y.out : f.stack[f.sp+n])
+        yout = (!seq ? y.out : stack_output(f,n))
         if !gotreturn
             gotreturn = true
             if ygold == nothing # represents zero gradient
@@ -48,7 +47,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
         else
             xx = input_registers(f,y)
             xdif = difs(xx)
-            xout = get1(!seq ? outs(xx) : f.stack[f.sp+y.argv])
+            xout = get1(!seq ? outs(xx) : stack_inputs(f,n))
             back(y.op, y.dif, xdif...; x=xout, y=yout, o...)
             for x in xx
                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
@@ -63,6 +62,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
             gotinputs += 1
         end
     end
+    seq && (f.sp -= length(f))  # this way f.stack[f.sp+n] gives the output of n'th op
     return get1(dx)
 end
 
@@ -72,6 +72,28 @@ sback(f::Net, ygold=nothing, loss=copyloss; o...)=back(f,ygold,loss;o...,seq=tru
 # For FNNs we can tell whether an op was skipped using the :forw flag.
 # For RNNs the :forw flag may change through the iterations, so we check the stack.
 skipped(f::Net,n::Int,seq::Bool)=(seq ? f.stack[f.sp+n]==:skip : !get(get(f,n),:forw))
+
+# We assume f.reg[end].out is saved in f.stack[f.sp]
+stack_output(f::Net,n::Int)=f.stack[f.sp - length(f) + n]
+
+# For inputs the situation is a bit more complicated.
+# We want to use their values prior to n'th op.
+function stack_inputs(f::Net,n::Int)
+    r = get(f,n)
+    back_reads_x(r.op) || return nothing
+    a = r.argv
+    x = cell(length(a))
+    @inbounds for i=1:length(a)
+        if a[i] < n
+            x[i] = f.stack[f.sp - length(f) + a[i]]
+        elseif f.sp > length(f)
+            x[i] = f.stack[f.sp - 2*length(f) + a[i]]
+        else
+            x[i] = nothing
+        end
+    end
+end
+
 
 function sback_delete(f::Net, ygold=nothing, loss=copyloss; getdx=false, o...)
     getdx = getdxbool(getdx, ninputs(f))

@@ -1,8 +1,20 @@
 2015-12-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* examples/adding.jl: Got the timing down to:
+	* examples/adding.jl: Got the timing with new stack down to:
 	12.077214 seconds (21.69 M allocations: 951.524 MB, 1.71% gc time)
-	with the new stack.  However results don't match.
+	vs master:
+	10.396677 seconds (21.08 M allocations: 874.771 MB, 1.84% gc time)
+	- The remaining diff probably due to extra initforw.
+	- However results don't match. First fix that.
+
+	Try sforw/sback on linreg: works
+	Try sforw/sback on mnist2d: works
+	Try single iter adding:
+	(16,1.5236576f0,2.3667753f0,1.5722239f0) single iter with master
+	(16,1.5236576f0,2.3667827f0,1.5743105f0) single iter with dev
+	(16,1.5236576f0,2.3667827f0,1.5743105f0) single iter dev with copy-all
+
+	The problem is we are using future values of inputs in back.
 
 2015-12-09  Deniz Yuret  <dyuret@ku.edu.tr>
 

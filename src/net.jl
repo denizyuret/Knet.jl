@@ -84,6 +84,7 @@ function push!(f::Net,p::Reg)
     while length(f.stack) < f.sp; push!(f.stack, nothing); end
     f.stack[f.sp] = (!get(p,:forw) ? :skip :
                      p.out==nothing ? nothing :
+                     # true ? copy(p.out) : 
                      !get(p,:save) ? nothing :
                      ispersistent(p) ? p.out :
                      issimilar(p.out, f.stack[f.sp]) ?

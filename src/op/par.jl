@@ -56,8 +56,8 @@ back_reads_y(::Par)=false
 
 function back(p::Par, dy; y=nothing, o...)
     p.dif == nothing && (p.dif = dy)
-    @assert dy === p.dif "dy=$dy p.dif=$(p.dif)"
-    @assert y == nothing || y === p.out "y=$y p.out=$(p.out)"
+    dy === p.dif || Base.warn_once("dy=$dy p.dif=$(p.dif)")
+    y == nothing || y === p.out || Base.warn_once("y=$y p.out=$(p.out)")
 end
 
 function forw(p::Par, y; o...)
