@@ -91,6 +91,7 @@ function stack_inputs(f::Net,n::Int)
         else
             x[i] = nothing
         end
+        x[i] == :skip && (x[i]=nothing) # TODO: why does this happen in copyseq?
     end
     return x
 end

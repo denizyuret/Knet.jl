@@ -91,12 +91,12 @@ test(m, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o...);
 function s2s_loop(m, data, loss; gcheck=false, o...)
     s2s_lossreport()
     decoding = false
-    reset!(m; o...)
+    reset!(m)
     for (x,ygold,mask) in data
         if decoding && ygold == nothing # the next sentence started
             gcheck && break
             s2s_eos(m, data, loss; gcheck=gcheck, o...)
-            reset!(m; o...)
+            reset!(m)
             decoding = false
         end
         if !decoding && ygold != nothing # source ended, target sequence started
@@ -115,12 +115,12 @@ end
 
 function s2s_encode(m, x; trn=false, o...)
     # forw(m.encoder, x; trn=trn, seq=true, o...)
-    (trn?forw:fapply)(m, x)
+    (trn?sforw:forw)(m, x; decoding=false)
 end    
 
 function s2s_decode(m, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     # ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
-    ypred = (trn?forw:fapply)(m, x; decoding=true)
+    ypred = (trn?sforw:forw)(m, x; decoding=true)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
     losscnt != nothing && s2s_loss(m, ypred, ygold, mask, loss; losscnt=losscnt, o...)
 end
@@ -154,14 +154,14 @@ function s2s_bptt(m, ystack, loss; o...)
     while !isempty(ystack)
         (ygold,mask) = pop!(ystack)
         # back(m.decoder, ygold, loss; seq=true, mask=mask, o...)
-        back(m, ygold, loss; mask=mask, o...) # back passes mask on to loss
+        sback(m, ygold, loss; mask=mask, o...) # back passes mask on to loss
     end
     # @assert m.decoder.sp == 0
     # s2s_copyback!(m)
     # while m.encoder.sp > 0
-    while !isempty(m.stack)
+    while m.sp > 0
         # back(m.encoder; seq=true, o...)
-        back(m)
+        sback(m)                # TODO: what about mask here?
     end
 end
 

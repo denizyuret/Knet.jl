@@ -266,6 +266,7 @@ if opts["all"] || opts["rnnlm"]
     # 21.982870 seconds (20.64 M allocations: 866.929 MB, 3.08% gc time) Tue Oct 20 19:00:29 PDT 2015
     # 22.972406 seconds (21.15 M allocations: 893.519 MB, 3.08% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 23.269379 seconds (21.74 M allocations: 902.787 MB, 3.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 23.352192 seconds (19.00 M allocations: 2.850 GB, 3.80% gc time)   9312287: Knet7 with small diff
 end
 
 if opts["all"] || opts["copyseq"]
