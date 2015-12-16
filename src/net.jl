@@ -91,6 +91,9 @@ function push!(f::Net,p::Reg)
                      copysync!(similar(p.out), p.out))
 end
 
+stack_empty!(f::Net)=(f.sp=0)
+stack_isempty(f::Net)=(f.sp==0)
+
 ### DEAD CODE
 
     # isempty(f.stack) || (warn("Stack not empty"); empty!(f.stack))

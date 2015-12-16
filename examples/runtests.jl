@@ -301,6 +301,7 @@ if opts["all"] || opts["copyseq"]
     # 11.230476 seconds (16.29 M allocations: 701.612 MB, 4.05% gc time) Wed Oct 21 23:19:24 PDT 2015 (unsorted input)
     # 11.658034 seconds (17.49 M allocations: 752.336 MB, 4.47% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 11.743344 seconds (17.82 M allocations: 749.691 MB, 4.43% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 11.432132 seconds (15.06 M allocations: 4.608 GB, 5.12% gc time)   e7e299b Knet7 results differ.
 end
 
 if opts["all"] || opts["ncelm"]

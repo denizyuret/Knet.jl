@@ -45,7 +45,7 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
             ypred = sforw(f, x; predict=true)
             losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
             sback(f, ygold, loss)
-            while f.sp>0; sback(f); end # TODO: f.stack is too low level
+            while !stack_isempty(f); sback(f); end
             g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
             gscale = (g > gclip > 0 ? gclip/g : 0)
             update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
@@ -70,7 +70,7 @@ function gradloss(f::Net, data, loss; grad=false, seed=42)
             loss1 = loss(ypred, ygold)
             if grad
                 sback(f, ygold, loss)
-                while f.sp>0; sback(f); end
+                while !stack_isempty(f); sback(f); end
             end
             break
         end

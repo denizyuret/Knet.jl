@@ -56,8 +56,10 @@ end
 end
 
 function reset!(f::Net)
-    f.sp==0 || warn("Stack not empty")
-    f.sp = 0
+    if !stack_isempty(f)
+        warn("Stack not empty")
+        stack_empty!(f)
+    end
     for p in registers(f)
         p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
         p.dif = nothing
