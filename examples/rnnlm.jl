@@ -56,9 +56,8 @@ end
 end
 
 function reset!(f::Net)
-    isempty(f.stack) || warn("Stack not empty")
-    empty!(f.stack)
-    empty!(f.sdict)
+    f.sp==0 || warn("Stack not empty")
+    f.sp = 0
     for p in registers(f)
         p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
         p.dif = nothing
@@ -72,13 +71,13 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
     for item in data
         if item != nothing
             (x,ygold) = item
-            ypred = forw(f, x)
+            ypred = sforw(f, x)
             losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
             push!(ystack, copy(ygold))
         else                    # end of sequence
             while !isempty(ystack)
                 ygold = pop!(ystack)
-                back(f, ygold, loss)
+                sback(f, ygold, loss)
             end
             gcheck && break
             g = (gclip > 0 || maxnorm!=nothing ? gnorm(f) : 0)
@@ -100,7 +99,7 @@ function test(f, data, loss; gcheck=false)
     for item in data
         if item != nothing
             (x,ygold) = item
-            ypred = fapply(f, x)
+            ypred = forw(f, x)
             sumloss += loss(ypred, ygold)
             numloss += 1
         else

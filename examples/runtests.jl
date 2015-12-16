@@ -230,6 +230,7 @@ if opts["all"] || opts["mnistpixels"]
     twice && (gc(); @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128"))
     # 2.599979 seconds (5.19 M allocations: 212.248 MB, 2.77% gc time)  Tue Oct 20 19:07:11 PDT 2015
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 2.889495 seconds (5.09 M allocations: 208.266 MB, 2.43% gc time)  f826bce: Knet7 small diff in result
 end
 
 if opts["all"] || opts["rnnlm"]

@@ -7,8 +7,8 @@
 	0000 keep profiling addirnn, initforw probably responsible for remaining difference
 	0000 auto_unbox: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
 	0001 addingirnn: slow
-	0001 addinglstm: gives slightly different result. could be due to cpu quadloss
-	0001 mnistpixels: gives slightly different result. now completely broken.
+	0001 addinglstm: gives slightly different result. could be due to cpu quadloss: checked, it is not.
+	0001 mnistpixels: gives slightly different result. 
 	0001 copyseq: gives slightly different result.  Warning: ygold when no return.
 	0001 rnnlm: gives slightly different result.
 	0001 ncelm
