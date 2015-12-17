@@ -40,6 +40,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
         elseif isreturn(y)
             error("Got return in non-final instruction")
         end
+        # println(:back, (findfirst(registers(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
         if y.dif == nothing
             for x in input_registers(f,y)
                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)

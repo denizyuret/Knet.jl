@@ -9,9 +9,10 @@
     return w*x
 end
 
-@knet function copy(x; o...)
-    return axpb(x)              # TODO: do something more efficient.
-end
+# This is already defined as a primitive in actf.jl:
+# @knet function copy(x; o...)
+#     return axpb(x)              # TODO: do something more efficient.
+# end
 
 @knet function bias(x; binit=Constant(0), o...)
     b = par(; o..., init=binit, dims=(0,))
@@ -55,10 +56,19 @@ end
     return pool(r; o..., window=pwindow)
 end
 
-@knet function add2(x1, x2; f=:sigm, o...)
-    y = wdot(x2; o...) + wdot(x1; o...) # if (y1,y2) lstm cannot infer size with one column input
-    z = bias(y; o...)
-    return f(z; o...)
+# @knet function add2(x1, x2; f=:sigm, o...)
+#     y = wdot(x2; o...) + wdot(x1; o...) # if (y1,y2) lstm cannot infer size with one column input
+#     z = bias(y; o...)
+#     return f(z; o...)
+# end
+
+# Go back to old def for debugging, should be equivalent:
+@knet function add2(x1, x2; f=sigm, o...)
+    y1 = wdot(x1; o...)
+    y2 = wdot(x2; o...)
+    x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
+    y3 = bias(x3; o...)
+    return f(y3; o...)
 end
 
 # """

@@ -7,6 +7,7 @@
 
 module RNNLM
 using Knet, ArgParse
+using Knet: fillsync!
 
 function main(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -30,6 +31,10 @@ function main(args=ARGS)
     global net = compile(:rnnlm;  layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
     lr = opts["lr"]
     setopt!(net; lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
+    if opts["nosharing"]
+        set!(net, :forwoverwrite, false)
+        set!(net, :backoverwrite, false)
+    end
     perp = zeros(length(data)); l=zeros(2); m=zeros(2)
 
     for ep=1:opts["max_max_epoch"]
@@ -50,25 +55,36 @@ function main(args=ARGS)
 end
 
 @knet function rnnlm(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=:lstm, o...)
-    wvec = wdot(word; o..., out=rnn_size)
-    yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size) # TODO: fix repeat
-    return wbf(yrnn; o..., out=vocab_size, f=:soft)
+    wvec = wdot(word; o..., out=rnn_size) # 1-3
+    yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size) # 4-40 with 41 copy for return
+    return wbf(yrnn; o..., out=vocab_size, f=:soft) # 42-46
 end
 
-function reset!(f::Net)
-    if !stack_isempty(f)
-        warn("Stack not empty")
-        stack_empty!(f)
+function reset_trn!(f::Net)
+    if f.sp != length(f)
+        info("Stack length: $(f.sp) Regs: $(length(f))")
     end
+    stack_empty!(f)
     for p in registers(f)
         p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
         p.dif = nothing
-        get(p,:incr) && fill!(p.dif0, 0)
+        get(p,:incr) && fillsync!(p.dif0, 0)
+        push!(f,p)
     end
 end
 
+function reset_tst!(f::Net)
+    for p in registers(f)
+        p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
+        p.dif = nothing
+        get(p,:incr) && fillsync!(p.dif0, 0)
+    end
+end
+
+# _update_dbg = 0
+
 function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=nothing)
-    reset!(f)
+    reset_trn!(f)
     ystack = Any[]
     for item in data
         if item != nothing
@@ -81,23 +97,24 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
                 ygold = pop!(ystack)
                 sback(f, ygold, loss)
             end
-            gcheck && break
+            gcheck && return losscnt[1] # the parameter gradients are cumulative over the whole sequence
             g = (gclip > 0 || maxnorm!=nothing ? gnorm(f) : 0)
+            # global _update_dbg; _update_dbg +=1; _update_dbg > 1 && error(:ok)
             update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
             if maxnorm != nothing
                 w=wnorm(f)
                 w > maxnorm[1] && (maxnorm[1]=w)
                 g > maxnorm[2] && (maxnorm[2]=g)
             end
-            reset!(f)
+            reset_trn!(f)
         end
     end
-    losscnt[1]/losscnt[2]
+    losscnt[1]/losscnt[2]       # this will give per-token loss, should we do per-sequence instead?
 end
 
 function test(f, data, loss; gcheck=false)
     sumloss = numloss = 0
-    reset!(f)
+    reset_tst!(f)
     for item in data
         if item != nothing
             (x,ygold) = item
@@ -105,8 +122,8 @@ function test(f, data, loss; gcheck=false)
             sumloss += loss(ypred, ygold)
             numloss += 1
         else
-            gcheck && break
-            reset!(f)
+            gcheck && return sumloss
+            reset_tst!(f)
         end
     end
     return sumloss/numloss
@@ -243,6 +260,9 @@ function parse_commandline(args)
         "--dense"
         help = "Use dense matrix ops (sparse ops default)"
         action = :store_true
+        "--nosharing"
+        help = "Do not share register arrays (this is for debugging, should not change results)"
+        action = :store_true
         "--preset"
         help = "load one of the preset option combinations"
         arg_type = Int
@@ -284,7 +304,7 @@ function parse_commandline(args)
     return opts
 end
 
-!isinteractive() && !isdefined(Main,:load_only) && rnnlm(ARGS)
+!isinteractive() && !isdefined(Main,:load_only) && main(ARGS)
 
 end # module
 

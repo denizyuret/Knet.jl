@@ -7,8 +7,8 @@ using Main.Kenv
 #using Kenv.kdef # This does not work for some reason, have to use Kenv.kdef explicitly
 
 # This is for debugging
-#DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
-#macro dbg(x) :(DBG && $(esc(x))) end
+# DBG=false; dbg()=DBG; dbg(b::Bool)=(global DBG=b)
+# macro dbg(x) :(DBG && $(esc(x))) end
 # This is for production
 macro dbg(x) nothing end        
 
@@ -55,7 +55,7 @@ include("update.jl");		export update!
 include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
 include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
-include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif
+include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
