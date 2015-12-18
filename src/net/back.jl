@@ -42,11 +42,11 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
         end
         # println(:back, (findfirst(registers(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
         if y.dif == nothing
-            for x in input_registers(f,y)
+            for x in (seq ? stack_input_registers(f,n) : input_registers(f,y))
                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
             end
         else
-            xx = input_registers(f,y)
+            xx = (seq ? stack_input_registers(f,n) : input_registers(f,y))
             xdif = difs(xx)
             xout = get1(!seq ? outs(xx) : stack_inputs(f,n))
             back(y.op, y.dif, xdif...; x=xout, y=yout, o...)
@@ -63,7 +63,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
             gotinputs += 1
         end
     end
-    seq && (f.sp -= length(f))  # this way f.stack[f.sp+n] gives the output of n'th op
+    seq && (f.sp -= length(f))  # this way f.stack[f.sp] gives the output of n'th op next call
     return get1(dx)
 end
 
@@ -72,27 +72,36 @@ sback(f::Net, ygold=nothing, loss=copyloss; o...)=back(f,ygold,loss;o...,seq=tru
 
 # For FNNs we can tell whether an op was skipped using the :forw flag.
 # For RNNs the :forw flag may change through the iterations, so we check the stack.
-skipped(f::Net,n::Int,seq::Bool)=(seq ? stack_output(f,n)==:skip : !get(get(f,n),:forw))
+skipped(f::Net,n::Int,seq::Bool)=(seq ? !stack_forw(f,n) : !get(get(f,n),:forw))
 
-# We assume f.reg[end].out is saved in f.stack[f.sp]
-stack_output(f::Net,n::Int)=f.stack[f.sp - length(f) + n]
+# We assume f.reg[end].out is saved in f.stack[f.sp].out
+# In the calls below n is the network index
+stack_entry(f::Net,n::Int)=f.stack[f.sp - length(f) + n]
+stack_output(f::Net,n::Int)=stack_entry(f,n).out
+stack_argv(f::Net,n::Int)=stack_entry(f,n).argv
+stack_forw(f::Net,n::Int)=stack_entry(f,n).forw
 
 # For inputs the situation is a bit more complicated.
 # We want to use their values prior to n'th op.
+# And we want to use the indices from the argv on stack.
+
+stack_input_registers(f::Net,n::Int)=f.reg[stack_argv(f,n)]
+
 function stack_inputs(f::Net,n::Int)
     r = get(f,n)
     back_reads_x(r.op) || return nothing
-    a = r.argv
+    a = stack_argv(f,n)
     x = cell(length(a))
     @inbounds for i=1:length(a)
-        if a[i] < n
-            x[i] = f.stack[f.sp - length(f) + a[i]]
-        elseif f.sp > length(f)
-            x[i] = f.stack[f.sp - 2*length(f) + a[i]]
-        else
+        stack_index = f.sp - length(f) + a[i]
+        a[i] >= n && (stack_index -= length(f)) # use prior value of read-before-write register
+        if stack_index <= 0
             x[i] = nothing
+        else
+            s = f.stack[stack_index]
+            s.forw || Base.warn_once("Stack input has forw=false.")
+            x[i] = s.out
         end
-        x[i] == :skip && (x[i]=nothing) # TODO: why does this happen in copyseq?
     end
     return x
 end

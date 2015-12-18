@@ -1,22 +1,28 @@
 """
-initforw allocates register storage (out0) and sets the :forw and
-:push flags if these are uninitialized or there is a change in input
-size, sparsity, save flag, or keyword arguments.  It does not zero or
-reset the registers, there is a separate reset!  function for that.
-FNN's do not need reset, and RNNs only do at the end of a sequence.
+initforw allocates register storage (out0) and sets register fields
+and flags if these are uninitialized or there is a change in input
+size, type, or keyword arguments.  It does not zero or reset the
+registers, there is a separate reset!  function for that.  FNN's do
+not need reset, and RNNs only do at the beginning of a sequence.  Here
+RNN refers to any network with a read-before-write register regardless
+of whether it is applied to a sequence.
 """
-function initforw(f::Net, seq::Bool, inputs...; o...)
+function initforw(f::Net, inputs...; o...)
+    nextforw = (map(typeof, inputs), map(size, inputs), o)
+    if !isdefined(f,:lastforw) || f.lastforw!=nextforw
+        if !isdefined(f,:lastforw) || (o != f.lastforw[3]) # when conditions change, the comp graph changes, effects argv, fanout, save
+            initcond(f; o...)       # o,name,cond -> :forw
+            initargv(f)             # :forw,name,args -> argv
+            initsave(f)             # :forw,op,argv -> :save
+            initfanout(f)           # :forw,name,argv -> :fanout
+        end                         # changing input size/type or argv may change size and type of registers
+        initsize(f, inputs...)      # :forw,inputs,op -> :size
+        inittype(f, inputs...)      # :forw,inputs,op -> :eltype,:outtype
+        initout0(f)                 # :forw,argv,op,:outtype,:eltype,:size,:forwoverwrite,:save,:fanout -> out0
+        f.lastforw = nextforw
+        gpusync()
+    end
     length(inputs) == ninputs(f) || throw(ArgumentError())
-    isdefined(f,:lastforw) && f.lastforw==(map(typeof, inputs), map(size, inputs), o) && return
-    initcond(f; o...)
-    initargv(f)
-    initsave(f)
-    initfanout(f)
-    initsize(f, inputs...)
-    inittype(f, inputs...)
-    initout0(f; seq=seq)
-    f.lastforw = (map(typeof, inputs), map(size, inputs), o)
-    gpusync()
 end
 
 initout0(f::Net;o...)=(for p in forwregs(f); initout0(f,p;o...); end)
@@ -163,7 +169,8 @@ end
 # on each op as well as checking if the output will be returned and
 # thus will be needed for back loss and grad calculation.  Any
 # register with a save flag should not be overwritten in forw.  We'll
-# be conservative and also not overwrite in sforw.
+# be conservative and also not overwrite in sforw, even though it
+# saves registers on the stack.
 
 function initsave(f::Net)
     for p in registers(f); set!(p,:save,false); end

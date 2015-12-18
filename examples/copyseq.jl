@@ -50,21 +50,38 @@ function main(args=ARGS)
             perp[d] = exp(loss)
         end
         myprint(epoch, (time_ns()-t0)/1e9, perp..., (fast ? [] : maxnorm)...)
-        gcheck > 0 && gradcheck(model, data[1], softloss; gcheck=gcheck)
+        gcheck > 0 && gradcheck(model,
+                                f->(train(f,data[1],softloss;losscnt=fill!(losscnt,0),gcheck=true);losscnt[1]),
+                                f->(test(f,data[1],softloss;losscnt=fill!(losscnt,0),gcheck=true);losscnt[1]);
+                                gcheck=gcheck)
     end
     return (fast ? (perp...) :  (perp..., maxnorm...))
 end
 
-@knet function aff2(x,y; out=0, o...)
-    a = par(; o..., dims=(out,0))
-    b = par(; o..., dims=(out,0))
-    c = par(; o..., dims=(0,))
-    # return a*x+b*y+c
-    xy = a*x+b*y
-    return c+xy
+# This copies lstm exactly for replicatability:
+@knet function copyseq(word; fbias=0, vocab=0, winit=0, o...)
+    if decoding
+        x = wdot(word; o...)
+        input  = add2(x,h; o..., f=:sigm)
+        forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
+        output = add2(x,h; o..., f=:sigm)
+        newmem = add2(x,h; o..., f=:tanh)
+    else
+        x = wdot(word; o...)
+        input  = add2(x,h; o..., f=:sigm)
+        forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
+        output = add2(x,h; o..., f=:sigm)
+        newmem = add2(x,h; o..., f=:tanh)
+    end
+    cell = input .* newmem + cell .* forget
+    h  = tanh(cell) .* output
+    if decoding
+        tvec = wdot(h; out=vocab)
+        return soft(tvec)
+    end
 end
 
-@knet function copyseq(word; fbias=0, vocab=0, winit=0, o...)
+@knet function copyseq1(word; fbias=0, vocab=0, winit=0, o...)
     if decoding
         x = wdot(word; o...)
         input  = sigm(aff2(x,h; o...))
@@ -85,8 +102,23 @@ end
     end
 end
 
-train(m, data, loss; o...)=s2s_loop(m, data, loss; trn=true, ystack=Any[], o...)
-test(m, data, loss; o...)=(l=zeros(2); s2s_loop(m, data, loss; losscnt=l, o...); l[1]/l[2])
+@knet function aff2(x,y; out=0, o...)
+    a = par(; o..., dims=(out,0))
+    b = par(; o..., dims=(out,0))
+    c = par(; o..., dims=(0,))
+    # return a*x+b*y+c
+    xy = a*x+b*y
+    return c+xy
+end
+
+function train(m, data, loss; o...)
+    s2s_loop(m, data, loss; trn=true, ystack=Any[], o...)
+end
+
+function test(m, data, loss; losscnt=zeros(2), o...)
+    s2s_loop(m, data, loss; losscnt=losscnt, o...)
+    losscnt[1]/losscnt[2]
+end
 
 function s2s_loop(m, data, loss; gcheck=false, o...)
     s2s_lossreport()
@@ -162,6 +194,7 @@ function s2s_bptt(m, ystack, loss; o...)
     while m.sp > 0
         # back(m.encoder; seq=true, o...)
         sback(m)                # TODO: what about mask here?
+        # error(:ok)
     end
 end
 
@@ -171,7 +204,7 @@ function s2s_lossreport()
     global s2s_time0, s2s_time1, s2s_inst
     s2s_inst = 0
     s2s_time0 = s2s_time1 = time_ns()
-    println("time inst speed perp")
+    # println("time inst speed perp")
 end
 
 s2s_print(a...)=(for x in a; @printf("%.2f ",x); end; println(); flush(STDOUT))

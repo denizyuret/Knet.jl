@@ -34,7 +34,7 @@ forw(f::Net, input...; kwargs...) = _forw(f,false,input...; kwargs...)
 sforw(f::Net, input...; kwargs...) = _forw(f,true,input...; kwargs...)
 
 function _forw(f::Net, seq::Bool, input...; kwargs...)
-    initforw(f, seq, input...; kwargs...)
+    initforw(f, input...; kwargs...)
     lastinput = 0
     for y in registers(f)
         if get(y,:forw)

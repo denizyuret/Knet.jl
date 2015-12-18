@@ -212,6 +212,7 @@ if opts["all"] || opts["addlstm"]
     twice && (gc(); @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm"))
     # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
     # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
+    # 2.557893 seconds (4.20 M allocations: 189.816 MB, 1.68% gc time)  08758b7 Knet7
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -231,6 +232,7 @@ if opts["all"] || opts["mnistpixels"]
     # 2.599979 seconds (5.19 M allocations: 212.248 MB, 2.77% gc time)  Tue Oct 20 19:07:11 PDT 2015
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 2.889495 seconds (5.09 M allocations: 208.266 MB, 2.43% gc time)  f826bce: Knet7 small diff in result
+    # 2.856504 seconds (5.09 M allocations: 208.169 MB, 2.33% gc time)  08758b7: Knet7 diff fixed
 end
 
 if opts["all"] || opts["rnnlm"]
@@ -267,7 +269,7 @@ if opts["all"] || opts["rnnlm"]
     # 22.972406 seconds (21.15 M allocations: 893.519 MB, 3.08% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 23.269379 seconds (21.74 M allocations: 902.787 MB, 3.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 23.352192 seconds (19.00 M allocations: 2.850 GB, 3.80% gc time)   9312287: Knet7 with small diff
-    # 23.227981 seconds (19.04 M allocations: 2.851 GB, 3.81% gc time)
+    # 23.227981 seconds (19.04 M allocations: 2.851 GB, 3.81% gc time)   08758b7: Knet7 fixed bug
 end
 
 if opts["all"] || opts["copyseq"]
@@ -292,10 +294,16 @@ if opts["all"] || opts["copyseq"]
 
     # (4248.32913889032,959.0360211411156,102.61302185058594,145.56500244140625); Wed Nov 18 21:39:18 PST 2015: xavier init
     # How did this happen when we have a winit argument?
-    @test isapprox(test10[1], 4248.329; rtol=.0001)
-    @test isapprox(test10[2],  959.036; rtol=.0001)
-    @test isapprox(test10[3],  102.613; rtol=.0001)
-    @test isapprox(test10[4],  145.565; rtol=.0001)
+    # @test isapprox(test10[1], 4248.329; rtol=.0001)
+    # @test isapprox(test10[2],  959.036; rtol=.0001)
+    # @test isapprox(test10[3],  102.613; rtol=.0001)
+    # @test isapprox(test10[4],  145.565; rtol=.0001)
+
+    # (2795.7879178030457,1920.8166122933324,105.37513732910156,519.6539306640625); improved softmax (dx=q-p)
+    @test isapprox(test10[1], 2795.788; rtol=.001)
+    @test isapprox(test10[2], 1920.817; rtol=.001)
+    @test isapprox(test10[3],  105.375; rtol=.001)
+    @test isapprox(test10[4],  519.654; rtol=.001)
 
     twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015

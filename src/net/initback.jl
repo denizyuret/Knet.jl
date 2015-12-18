@@ -92,7 +92,7 @@ end
 # - who resets them to zero for rnn or for fnn.
 
 function initincr(f::Net)
-    seq = length(f.stack) > length(f)
+    seq = (stack_length(f) > 0)
     for p in backregs(f)
         set!(p,:incr,seq && isa(p.op,Par))
         set!(p,:fanout, isreturn(p) ? 1 : 0)

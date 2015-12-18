@@ -10,10 +10,25 @@ type Reg
     Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=new(op,name,args,cond,Int[],Dict{Symbol,Any}())
 end
 
+# Stack entries will be triples consisting of:
+# 1. the :forw flag, indicating whether the operation was performed
+# 2. the argv array indicating which inputs were used
+# 3. the output array, if :save was set
+# Both :forw and argv may change based on runtime conditions, and
+# the stack has to record these for back which does not have access
+# to runtime conditions.
+
+"DataType for stack entries."
+type StackEntry
+    forw::Bool
+    argv::Vector{Int}
+    out
+end
+
 "DataType for a compiled network."
 type Net <: Model
     reg::Vector{Reg}
-    stack::Vector
+    stack::Vector{StackEntry}
     sp::Int
     lastforw
     lastback
@@ -26,7 +41,7 @@ registers(f::Net)=f.reg
 length(f::Net)=length(f.reg)
 get(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
 params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg))
-ninputs(f::Net)=count(x->isa(x.op,Input),f.reg)
+ninputs(f::Net)=count(x->(isa(x.op,Input) && get(x,:forw)),f.reg)
 eltype(f::Net)=(r=f.reg[1];isdefined(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
 
 function get(f::Net,k::Symbol)
@@ -80,19 +95,43 @@ function reset!(f::Net)
 end
 
 function push!(f::Net,p::Reg)
-    f.sp += 1
-    while length(f.stack) < f.sp; push!(f.stack, nothing); end
-    f.stack[f.sp] = (!get(p,:forw) ? :skip :
-                     p.out == nothing ? nothing :
-                     !get(p,:save) ? nothing :
-                     ispersistent(p) ? p.out :
-                     issimilar(p.out, f.stack[f.sp]) ?
-                     copysync!(f.stack[f.sp], p.out) :
-                     copysync!(similar(p.out), p.out))
+    if length(f.stack) < f.sp
+        error("Stack error")
+    elseif length(f.stack) == f.sp
+        push!(f.stack, StackEntry(false, Int[], nothing))
+    end
+    s = f.stack[f.sp+=1]
+    s.forw = get(p,:forw)
+    if s.forw
+        s.argv = (issimilar(s.argv,p.argv) ?
+                  copy!(s.argv,p.argv) :
+                  copy(p.argv))
+        s.out = (!get(p,:save) ? s.out : # won't be used so keep the storage
+                 p.out == nothing ?      # nothing represents zero array
+                 (s.out!=nothing && Base.warn_once("Writing nothing over array"); nothing) :
+                 ispersistent(p) ? p.out : # no need to copy Par or Arr, they won't change during forw/back
+                 issimilar(s.out, p.out) ?
+                 copysync!(s.out, p.out) :
+                 copysync!(similar(p.out), p.out)) # this is the only allocation
+    end
 end
 
+stack_length(f::Net)=f.sp
 stack_empty!(f::Net)=(f.sp=0)
 stack_isempty(f::Net)=(f.sp==0)
+
+# DEBUGGING:
+function netprint(f::Net)
+    vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
+    for i=1:length(f)
+        r=get(f,i)
+        @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...), size(r.out0),
+                vecnorm1(r,:out), vecnorm1(r,:dif), r.name, tuple(r.cond.args...),
+                filter((x,y)->!isa(y,DataType),r.plist)
+                )
+    end
+end
+
 
 ### DEAD CODE
 
