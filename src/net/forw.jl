@@ -45,8 +45,9 @@ function _forw(f::Net, seq::Bool, input...; kwargs...)
             end
         end
         seq && push!(f, y)
-        # println(:forw, (findfirst(registers(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.out)))
+        # println(:forw, (findfirst(registers(f), y), typeof(y.op), y.argv, size(y.out0), vecnorm0(y.out)))
     end
+    # error(:ok)
     return out(f,:return)
 end
 

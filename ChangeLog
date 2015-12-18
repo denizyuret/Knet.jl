@@ -1,28 +1,17 @@
-2015-12-17  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* copyseq: The encoder difs are always nothing.  Potential
-	problem: going back stack tells us which ops were skipped.
-	However it doesn't tell us what the inputs were.  The inputs to
-	ops are dependent on the conditions.  So the stack may need to
-	keep around the inputs as well.  No: we need the indices of the
-	inputs.  Is there anything else that is condition dependent we are
-	missing that back uses?
-
-2015-12-16  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	0001 copyseq: gives slightly different result. gradcheck does not work. need to keep around input indices!  fixed.  gradcheck still failing.  speed is slow. (15.232240 vs 11.432132)
-	0001 rnnlm: WARNING: Stack input has forw=false. speed: 23.227981 vs 25.988030
-	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
-	0000 get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
-	0000 keep profiling addirnn, initforw probably responsible for remaining difference
-	0000 auto_unbox: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
-	0001 addingirnn: slow
+	DONE copyseq: fix winit bug, reverts to Xavier even if we call compile with Gaussian.  done: was a bug in copyseq definition.
+	0000 addingirnn: slow
+	0000 copyseq: gives slightly different result. gradcheck does not work. need to keep around input indices!  fixed.  gradcheck still failing.  speed is slow. (15.232240 vs 11.432132)
+	0000 rnnlm: WARNING: Stack input has forw=false. speed: 23.227981 vs 25.988030
+	0001 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
+	0001 get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
+	0001 keep profiling addirnn, initforw probably responsible for remaining difference
 	0001 ncelm
 	0001 ner
 	0002 analyze array sharing in lstm and irnn, compare to master
-	DONE ninputs(Net) does not consult :forw, it should.
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0003 cannot add three terms, fix in compiler (a+b+c)
 	0003 consolidate set and setopt
@@ -56,6 +45,7 @@
 	0005 - warn for unused constants
 	0005 - wrap examples in modules so multiple can be loaded?
 	0008 - all sparse code slowed down? (lcn, master test).  rest of mnist speed-up due to not using ItemTensor?
+	0009 auto_unbox: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
 	0009 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	0010 *** model.jl: add predict, load, save:
 	0010 - add ipa model train and predict to runtests.jl.
@@ -158,11 +148,24 @@
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
+2015-12-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* copyseq: The encoder difs are always nothing.  Potential
+	problem: going back stack tells us which ops were skipped.
+	However it doesn't tell us what the inputs were.  The inputs to
+	ops are dependent on the conditions.  So the stack may need to
+	keep around the inputs as well.  No: we need the indices of the
+	inputs.  Is there anything else that is condition dependent we are
+	missing that back uses?
+
+2015-12-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
 	* DONE:
 	DONE rnnlm: gives slightly different result. fails gradcheck.
 	DONE axpb -> copy (already defined as an actf?)
 	DONE addinglstm: gives slightly different result. could be due to cpu quadloss: checked, it is not. lstm add2 difference.  fixed.
 	DONE mnistpixels: gives slightly different result.
+	DONE ninputs(Net) does not consult :forw, it should.
 
 	* examples/rnnlm.jl: debug diff with master:
 	>> how much variance is there?

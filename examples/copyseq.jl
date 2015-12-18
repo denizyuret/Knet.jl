@@ -59,8 +59,8 @@ function main(args=ARGS)
 end
 
 # This copies lstm exactly for replicatability:
-@knet function copyseq(word; fbias=0, vocab=0, winit=0, o...)
-    if decoding
+@knet function copyseq(word; fbias=0, vocab=0, o...)
+    if !decoding
         x = wdot(word; o...)
         input  = add2(x,h; o..., f=:sigm)
         forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
@@ -81,7 +81,7 @@ end
     end
 end
 
-@knet function copyseq1(word; fbias=0, vocab=0, winit=0, o...)
+@knet function copyseq1(word; fbias=0, vocab=0, o...)
     if decoding
         x = wdot(word; o...)
         input  = sigm(aff2(x,h; o...))
