@@ -119,9 +119,9 @@ if opts["all"] || opts["mnist2dxy"]
     # @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
 
     # (0.109118156f0,43.322895f0,3.2024305f0) # improved softmax (dx=q-p)
-    @test isapprox(test4[1], 0.109118156f0; rtol=0.01)
-    @test isapprox(test4[2], 43.322895f0; rtol=0.001)
-    @test isapprox(test4[3], 3.2024305f0; rtol=0.1)
+    @test isapprox(test5[1], 0.109118156f0; rtol=0.01)
+    @test isapprox(test5[2], 43.322895f0; rtol=0.001)
+    @test isapprox(test5[3], 3.2024305f0; rtol=0.1)
 
     twice && (gc(); @time @show test5 = mnist2d("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
@@ -265,10 +265,17 @@ if opts["all"] || opts["copyseq"]
     # @test isapprox(test10[4],  145.565; rtol=.0001)
 
     # (2795.7879178030457,1920.8166122933324,105.37513732910156,519.6539306640625); improved softmax (dx=q-p)
-    @test isapprox(test10[1], 2795.788; rtol=.001)
-    @test isapprox(test10[2], 1920.817; rtol=.001)
-    @test isapprox(test10[3],  105.375; rtol=.001)
-    @test isapprox(test10[4],  519.654; rtol=.001)
+    # However this is a buggy result, the mask was not working, gradcheck failing
+    # @test isapprox(test10[1], 2795.788; rtol=.001)
+    # @test isapprox(test10[2], 1920.817; rtol=.001)
+    # @test isapprox(test10[3],  105.375; rtol=.001)
+    # @test isapprox(test10[4],  519.654; rtol=.001)
+
+    # (2655.478295383588,1390.5051700612544,104.02143096923828,224.8983154296875); fixed mask bug
+    @test isapprox(test10[1], 2655.478; rtol=.001)
+    @test isapprox(test10[2], 1390.505; rtol=.001)
+    @test isapprox(test10[3],  104.021; rtol=.001)
+    @test isapprox(test10[4],  224.898; rtol=.001)
 
     twice && (gc(); @time @show test10 = copyseq("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
@@ -298,7 +305,9 @@ if (opts["all"] || opts["ner"]) && isfile("ner.jld")
     include("ner.jl")
     @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128")
     # @test test12 == (1,5.391641813553446,5.146268547771243,0.8020976309565352)
-    @test test12 ==   (1,5.393209156518277,5.148051345734625,0.8023380248924044)  # improved softmax (dx=q-p)
+    # @test test12 == (1,5.393209156518277,5.148051345734625,0.8023380248924044)  # improved softmax (dx=q-p)
+    @test   test12 == (1,5.391641811073821,5.146268554714583,0.8020976309565352) # Fri Dec 18 15:38:06 PST 2015
+
     twice && (gc(); @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128"))
     # 20.866555 seconds (37.80 M allocations: 1.829 GB, 6.12% gc time)
     # 20.983972 seconds (38.88 M allocations: 1.854 GB, 6.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn

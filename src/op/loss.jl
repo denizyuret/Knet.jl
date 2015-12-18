@@ -153,18 +153,21 @@ end
 # TODO: mask should be bool instead of cuchar?
 
 @gpu function domask{T}(m::CudaArray{Cuchar},x::CudaArray{T}) # TODO: test
-    T <: Float32 ? ccall((:mask32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
-    T <: Float64 ? ccall((:mask64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
+    T <: Float32 ? ccall((:mask32,libknet),Void,(Cint,Cint,Ptr{Cuchar},Ptr{Cfloat}),size(x,1),size(x,2),m,x) :
+    T <: Float64 ? ccall((:mask64,libknet),Void,(Cint,Cint,Ptr{Cuchar},Ptr{Cdouble}),size(x,1),size(x,2),m,x) :
     error("$T not supported")
     return x
 end
 
-function domask(m::Array{Cuchar},x::Array) # TODO: test
-    m = csize(x)
+@gpu domask{T}(m::Vector{Cuchar},x::CudaArray{T})=domask(CudaArray(m),x)
+
+function domask(mask::Array{Cuchar},x::Array) # TODO: test
+    m = clength(x)
     @inbounds for i=1:length(x)
         j = 1+div(i-1,m)
-        m[j] == 0 && (x[i]=0)
+        mask[j] == 0 && (x[i]=0)
     end
+    return x
 end
 
 ### ZERO-ONE LOSS
