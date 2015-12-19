@@ -44,6 +44,7 @@ if opts["all"] || opts["linreg"]
     # 0.837992 seconds (690.89 k allocations: 86.433 MB, 0.80% gc time) Mon Dec  7 22:43:42 PST 2015: knet7
     # 0.661330 seconds (408.42 k allocations: 77.432 MB, 0.89% gc time) 466c40e not using stack for fnn
     # 0.762190 seconds (391.60 k allocations: 71.451 MB, 1.50% gc time) 5f60a84 latest master
+    # 0.674939 seconds (418.42 k allocations: 77.355 MB, 1.24% gc time) ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnist2d"]
@@ -63,6 +64,7 @@ if opts["all"] || opts["mnist2d"]
     # 4.832591 seconds (4.67 M allocations: 407.652 MB, 4.33% gc time) Tue Dec  8 09:36:22 PST 2015: knet7
     # 4.096904 seconds (3.28 M allocations: 362.141 MB, 4.84% gc time) Wed Dec  9 16:10:19 PST 2015: 466c40e not using stack for fnn
     # 7.656945 seconds (3.54 M allocations: 159.374 MB, 1.28% gc time) 5f60a84 latest master (xavier)
+    # 4.219116 seconds (3.35 M allocations: 364.417 MB, 5.91% gc time) ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -81,6 +83,7 @@ if opts["all"] || opts["mnist2dy"]
     # 5.237889 seconds (4.86 M allocations: 432.598 MB, 5.14% gc time) Tue Dec  8 08:06:30 PST 2015: knet7
     # 4.370380 seconds (3.48 M allocations: 387.233 MB, 5.65% gc time) 466c40e not using stack for fnn
     # 9.067960 seconds (3.71 M allocations: 184.288 MB, 1.74% gc time) 5f60a84 latest master (xavier)
+    # 4.605455 seconds (3.56 M allocations: 389.701 MB, 6.76% gc time) ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -121,6 +124,7 @@ if opts["all"] || opts["mnist2dx"]
     # 9.608017 seconds (5.16 M allocations: 921.080 MB, 3.53% gc time)  Tue Dec  8 09:39:05 PST 2015: knet7 gaussian
     # 7.946223 seconds (3.76 M allocations: 875.557 MB, 3.11% gc time)  466c40e not using stack for fnn
     # 19.994696 seconds (4.01 M allocations: 748.440 MB, 1.39% gc time) 5f60a84 latest master (xavier)
+    # 8.290566 seconds (3.83 M allocations: 877.837 MB, 3.95% gc time)  ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -141,14 +145,14 @@ if opts["all"] || opts["mnist2dxy"]
     # @test isapprox(test5[3], 3.2359257f0; rtol=0.1)
 
     # (0.109118156f0,43.322895f0,3.2024305f0) # improved softmax (dx=q-p)
-    # @test isapprox(test4[1], 0.109118156f0; rtol=0.01)
-    # @test isapprox(test4[2], 43.322895f0; rtol=0.001)
-    # @test isapprox(test4[3], 3.2024305f0; rtol=0.1)
+    # @test isapprox(test5[1], 0.109118156f0; rtol=0.01)
+    # @test isapprox(test5[2], 43.322895f0; rtol=0.001)
+    # @test isapprox(test5[3], 3.2024305f0; rtol=0.1)
 
     # (0.10815071f0,37.009987f0,2.8580344f0) switched back to gaussian, xavier in final layer slows down xsparse!?
-    @test isapprox(test4[1], 0.10815071f0; rtol=0.01)
-    @test isapprox(test4[2], 37.009987f0; rtol=0.001)
-    @test isapprox(test4[3], 2.8580344f0; rtol=0.1)
+    @test isapprox(test5[1], 0.10815071f0; rtol=0.01)
+    @test isapprox(test5[2], 37.009987f0; rtol=0.001)
+    @test isapprox(test5[3], 2.8580344f0; rtol=0.1)
 
     twice && (gc(); @time @show test5 = MNIST2D.main("--xsparse --ysparse --gcheck $gcheck"))
     # 14.077099 seconds (4.09 M allocations: 776.263 MB, 2.22% gc time) Tue Oct 20 19:11:52 PDT 2015
@@ -159,6 +163,7 @@ if opts["all"] || opts["mnist2dxy"]
     # 10.177581 seconds (5.42 M allocations: 947.233 MB, 4.17% gc time) Tue Dec  8 09:40:31 PST 2015: knet7 gaussian
     # 8.360521 seconds (4.01 M allocations: 901.532 MB, 3.63% gc time)  466c40e not using stack for fnn
     # 21.294241 seconds (4.22 M allocations: 774.002 MB, 1.58% gc time) 5f60a84 latest master (xavier)
+    # 8.688249 seconds (4.10 M allocations: 904.181 MB, 4.55% gc time)  ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -190,6 +195,7 @@ if opts["all"] || opts["mnist4d"]
     # 17.002958 seconds (10.58 M allocations: 499.822 MB, 1.11% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 14.898975 seconds (10.11 M allocations: 697.407 MB, 1.97% gc time) 466c40e not using stack for fnn
     # 16.956578 seconds (10.41 M allocations: 495.519 MB, 1.28% gc time) 5f60a84 latest master (xavier)
+    # 14.990415 seconds (10.23 M allocations: 701.862 MB, 2.59% gc time) ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["addirnn"]
@@ -207,7 +213,8 @@ if opts["all"] || opts["addirnn"]
     # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 12.071895 seconds (21.19 M allocations: 922.258 MB, 1.80% gc time) 0c1148e knet7 expensive initforw
-    # 11.802089 seconds (21.81 M allocations: 901.486 MB, 3.06% gc time) 5f60a84 latest master (xavier)
+    # 11.802089 seconds (21.81 M allocations: 901.486 MB, 3.06% gc time) 5f60a84 latest master
+    # 12.800159 seconds (21.51 M allocations: 935.733 MB, 2.57% gc time) ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["addlstm"]
@@ -221,6 +228,7 @@ if opts["all"] || opts["addlstm"]
     # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 2.557893 seconds (4.20 M allocations: 189.816 MB, 1.68% gc time)  08758b7 Knet7
     # 2.482413 seconds (4.18 M allocations: 178.685 MB, 2.97% gc time)  5f60a84 latest master (xavier)
+    # 2.676177 seconds (4.27 M allocations: 192.726 MB, 2.35% gc time)  ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -242,6 +250,7 @@ if opts["all"] || opts["mnistpixels"]
     # 2.889495 seconds (5.09 M allocations: 208.266 MB, 2.43% gc time)  f826bce: Knet7 small diff in result
     # 2.856504 seconds (5.09 M allocations: 208.169 MB, 2.33% gc time)  08758b7: Knet7 diff fixed
     # 3.021688 seconds (5.64 M allocations: 229.431 MB, 3.30% gc time)  5f60a84 latest master (xavier)
+    # 3.117822 seconds (4.95 M allocations: 212.537 MB, 4.01% gc time)  ad5d969 latest Knet7
 end
 
 if opts["all"] || opts["rnnlm"]
@@ -265,10 +274,16 @@ if opts["all"] || opts["rnnlm"]
     # @test isapprox(test9[3], 267.337, rtol=.005)
     # @test isapprox(test9[4], 136.923, rtol=0.0001)
 
-    # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
-    @test isapprox(test9[1], 822.177, rtol=0.01)
-    @test isapprox(test9[2], 535.746, rtol=0.1)
-    @test isapprox(test9[3], 267.272, rtol=0.001)
+    # # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
+    # @test isapprox(test9[1], 822.177, rtol=0.01)
+    # @test isapprox(test9[2], 535.746, rtol=0.1)
+    # @test isapprox(test9[3], 267.272, rtol=0.001)
+    # @test isapprox(test9[4], 136.923, rtol=0.0001)
+
+    # 
+    @test isapprox(test9[1], 824.207, rtol=0.01)
+    @test isapprox(test9[2], 532.005, rtol=0.1)
+    @test isapprox(test9[3], 267.190, rtol=0.001)
     @test isapprox(test9[4], 136.923, rtol=0.0001)
 
     twice && (gc(); @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
@@ -280,6 +295,8 @@ if opts["all"] || opts["rnnlm"]
     # 23.352192 seconds (19.00 M allocations: 2.850 GB, 3.80% gc time)   9312287: Knet7 with small diff
     # 23.227981 seconds (19.04 M allocations: 2.851 GB, 3.81% gc time)   08758b7: Knet7 fixed bug
     # 23.439377 seconds (21.80 M allocations: 2.970 GB, 4.00% gc time)   5f60a84 latest master (xavier)
+    # 26.134600 seconds (18.88 M allocations: 2.859 GB, 4.20% gc time)   ad5d969 latest Knet7
+    # 23.591260 seconds (18.73 M allocations: 2.852 GB, 4.09% gc time)
 end
 
 if opts["all"] || opts["copyseq"]
@@ -309,11 +326,11 @@ if opts["all"] || opts["copyseq"]
     # @test isapprox(test10[3],  102.613; rtol=.0001)
     # @test isapprox(test10[4],  145.565; rtol=.0001)
 
-    # (2795.7879178030457,1920.8166122933324,105.37513732910156,519.6539306640625); improved softmax (dx=q-p)
-    @test isapprox(test10[1], 2795.788; rtol=.001)
-    @test isapprox(test10[2], 1920.817; rtol=.001)
-    @test isapprox(test10[3],  105.375; rtol=.001)
-    @test isapprox(test10[4],  519.654; rtol=.001)
+    # (2624.353349018743,1325.262392101933,103.99244689941406,224.86605834960938); ad5d969 latest Knet7
+    @test isapprox(test10[1], 2624.353; rtol=.001)
+    @test isapprox(test10[2], 1325.262; rtol=.001)
+    @test isapprox(test10[3],  103.992; rtol=.001)
+    @test isapprox(test10[4],  224.866; rtol=.001)
 
     twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
@@ -322,9 +339,10 @@ if opts["all"] || opts["copyseq"]
     # 11.743344 seconds (17.82 M allocations: 749.691 MB, 4.43% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 11.432132 seconds (15.06 M allocations: 4.608 GB, 5.12% gc time)   e7e299b Knet7 results differ.
     # 15.257276 seconds (18.37 M allocations: 4.756 GB, 6.38% gc time)   5f60a84 latest master (dx=q-p copies ygold to dense)
+    # 15.604067 seconds (16.58 M allocations: 4.699 GB, 7.37% gc time)   ad5d969 latest Knet7 (probably same problem)
 end
 
-if opts["all"] || opts["ncelm"]
+if opts["all"] || opts["ncelm"] # TODO: port ncelm to Knet7
     include("ncelm.jl")
     if !isfile("ptb.valid.txt")
         info("Downloading ptb...")
@@ -342,7 +360,7 @@ if opts["all"] || opts["ncelm"]
     # 6.146882 seconds (5.60 M allocations: 209.355 MB, 2.60% gc time) 5f60a84 latest master (xavier)
 end
 
-if (opts["all"] || opts["ner"]) && isfile("ner.jld") # TODO: gcheck for ner
+if (opts["all"] || opts["ner"]) && isfile("ner.jld") # TODO: gcheck for ner, port to Knet7
     include("ner.jl")
     @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128")
     @test test12 == (1,5.391641813553446,5.146268547771243,0.8020976309565352)

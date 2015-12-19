@@ -17,7 +17,7 @@ function main(args=ARGS)
     opts["seed"] > 0 && setseed(opts["seed"])
     opts["dropout"] > 0 && error("TODO: implement dropout")
     dict = Dict{Any,Int32}()
-    data = Any[]
+    global data = Any[]
     for f in opts["datafiles"]
         push!(data, LMData(f;  dict=dict, 
                            batch=opts["batch_size"], 
@@ -42,7 +42,7 @@ function main(args=ARGS)
         train(net, data[1], softloss; gclip=opts["max_grad_norm"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
         perp[1] = exp(l[1]/l[2])
         opts["gcheck"]>0 && gradcheck(net,
-                                      f->train(f,data[1],softloss;losscnt=fill!(l,0),gcheck=true),
+                                      f->train(f,data[1],softloss;gcheck=true),
                                       f->test(f,data[1],softloss;gcheck=true);
                                       gcheck=opts["gcheck"])
         for idata = 2:length(data)
@@ -60,24 +60,23 @@ end
     return wbf(yrnn; o..., out=vocab_size, f=:soft) # 42-46
 end
 
-function reset_trn!(f::Net)
+function reset_trn!(f::Net; o...)
     if f.sp != length(f)
         info("Stack length: $(f.sp) Regs: $(length(f))")
     end
     stack_empty!(f)
+    reset_tst!(f; o...)
     for p in registers(f)
-        p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
         p.dif = nothing
         get(p,:incr) && fillsync!(p.dif0, 0)
+        set!(p, :forw, true)
         push!(f,p)
     end
 end
 
-function reset_tst!(f::Net)
+function reset_tst!(f::Net; keepstate=false)
     for p in registers(f)
-        p.out = isdefined(p,:out0) ? p.out0 : nothing          # keepstate
-        p.dif = nothing
-        get(p,:incr) && fillsync!(p.dif0, 0)
+        p.out = keepstate && isdefined(p,:out0) ? p.out0 : nothing
     end
 end
 
@@ -97,7 +96,8 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
                 ygold = pop!(ystack)
                 sback(f, ygold, loss)
             end
-            gcheck && return losscnt[1] # the parameter gradients are cumulative over the whole sequence
+            #error(:ok)
+            gcheck && break # return losscnt[1] leave the loss calculation to test # the parameter gradients are cumulative over the whole sequence
             g = (gclip > 0 || maxnorm!=nothing ? gnorm(f) : 0)
             # global _update_dbg; _update_dbg +=1; _update_dbg > 1 && error(:ok)
             update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
@@ -106,24 +106,26 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
                 w > maxnorm[1] && (maxnorm[1]=w)
                 g > maxnorm[2] && (maxnorm[2]=g)
             end
-            reset_trn!(f)
+            reset_trn!(f; keepstate=true)
         end
     end
-    losscnt[1]/losscnt[2]       # this will give per-token loss, should we do per-sequence instead?
+    # losscnt[1]/losscnt[2]       # this will give per-token loss, should we do per-sequence instead?
 end
 
 function test(f, data, loss; gcheck=false)
-    sumloss = numloss = 0
+    #info("testing")
+    sumloss = numloss = 0.0
     reset_tst!(f)
     for item in data
         if item != nothing
             (x,ygold) = item
             ypred = forw(f, x)
+            # @show (hash(x),hash(ygold),vecnorm0(ypred))
             sumloss += loss(ypred, ygold)
             numloss += 1
         else
             gcheck && return sumloss
-            reset_tst!(f)
+            reset_tst!(f; keepstate=true)
         end
     end
     return sumloss/numloss

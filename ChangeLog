@@ -1,26 +1,22 @@
-2015-12-18  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	DONE copyseq: fix winit bug, reverts to Xavier even if we call compile with Gaussian.  done: was a bug in copyseq definition.
-	DONE copyseq: figure out the small diff between master and dev: close enough, numerical.
-	DONE copyseq: figure out why both master and dev fail gradcheck: we broke it at cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p.  how come mnist is not broken?  final layer broken ok, but what about the previous layers? mask problem, fixed.
-	DONE solve master gcheck issues: gcheck fails on some tests: ok only adding with relu fails, known issue.
+	DONE rnnlm: WARNING: Stack input has forw=false. solved.  results ok.
 
 	* TODO:
 
-	0000 solve master speed issues: significant slow down on some tests: xavier slowed down sparse mnist2dx and copyseq!? some machine difference. copyseq culprit: cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p: probably because ygold is densified.
-	0000 addingirnn: slow
-	0000 copyseq: gives slightly different result. gradcheck does not work. need to keep around input indices!  fixed.  gradcheck still failing.  speed is slow. (15.232240 vs 11.432132)
-	0000 rnnlm: WARNING: Stack input has forw=false. speed: 23.227981 vs 25.988030
-	0001 Start investigating (1) slightly different results, (2) speed and memory issues before going any further.
-	0001 get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
-	0001 keep profiling addirnn, initforw probably responsible for remaining difference
-	0001 ncelm
-	0001 ner
+	0000 1. rnnlm: speed: 23.227981 vs 25.988030.  gcheck failing.
+	0000 2. copyseq: speed is slow. (15.232240 vs 11.432132) probably due to copying ygold to dense.
+	0000 3. addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference
+	0001 Start investigating (1) slightly different results, (2) speed and memory issues before going any further. get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
+	0001 ncelm: port to Knet7
+	0001 ner: port to Knet7
 	0002 analyze array sharing in lstm and irnn, compare to master
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0003 cannot add three terms, fix in compiler (a+b+c)
-	0003 consolidate set and setopt
+	0004 consolidate set and setopt
+	0004 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
+	0004 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
 	0003 examples: use as_symbols option for parse_args
 	0003 move compound, loss out of op.
 	0003 replace Expr(:&&) with true in compiler
@@ -34,23 +30,18 @@
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
 	0005 - examples: consolidate train/test functions, maybe demo options.
 	0005 - fix compiler to reuse registers and share intermediate tmp
-	0005 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg?
 	0005 - initsize: ignore forw=false
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input?  # TODO: What if there is a conflict with par.init or a previous eltype?
 	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0005 - mnist2d.jl: setopt! should work with register names as well.
 	0005 - optimize alloc, copy, fill.
-	0005 - par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
-	0005 - reimplement S2C using conditionals: adding, mnistpixels.
 	0005 - runtests.jl: update timing, simplify scripts (no need for norms everywhere), merge with test/runtests.jl
-	0005 - solve the incr problem, user based register sharing may be in trouble.
 	0005 - start to clean up data and models. retire the Model interface if ok, only expose Net,forw,back,reset!,update!, let people write their own train/test functions
 	0005 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	0005 - update docs
 	0005 - use better get/set function names in net/*.jl, search and replace all a.b type references.
 	0005 - warn for unused constants
-	0005 - wrap examples in modules so multiple can be loaded?
-	0008 - all sparse code slowed down? (lcn, master test).  rest of mnist speed-up due to not using ItemTensor?
+	0008 - all sparse code slowed down? (lcn, master test).  due to xavier.  find out why. rest of mnist speed-up due to not using ItemTensor?
 	0009 auto_unbox: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
 	0009 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	0010 *** model.jl: add predict, load, save:
@@ -64,7 +55,7 @@
 	0020 saman: add lcn example to knet, push lcn branch to	master. lcn: add example: http://papers.nips.cc/paper/4773-convolutional-recursive-deep-learning-for-3d-object-classification.pdf
 	0020 saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf; https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
 	0020 saman: profile lcn: /mnt/kufs/scratch/szia13/mnist/foo.jl; You can pass lcn_mode as true or false to use it. The directory also contains the gaussian kernel for lcn. I timed one convolution layer followed by softmax with and without lcn and here are the timings: without lcn: 56.18 for 20 epochs (2.81 seconds per epoch on avg); with lcn: 131.69 for 20 epochs (6.58 seconds per epoch on avg)
-	0021 saman: waiting for saman to debug: implement lrn from cudnn (*LRN* and *Divisive*): Anyway LRN is local response normalization. Its mentioned in the following paper: http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf; This is similar to LCN but its more like brightness normalization rather than contrast normalization and its used in ImageNet. So i think it would be good to incorporate it in Knet. Divisive Normalization is also associated with it and it performs normalization using a precomputed means matrix. So far only this has been implemented. If there would be a way to compute means and dev itself, this could be used for the division part of LCN. 	1000 check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
+	0021 saman: waiting for saman to debug: implement lrn from cudnn (*LRN* and *Divisive*): Anyway LRN is local response normalization. Its mentioned in the following paper: http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf; This is similar to LCN but its more like brightness normalization rather than contrast normalization and its used in ImageNet. So i think it would be good to incorporate it in Knet. Divisive Normalization is also associated with it and it performs normalization using a precomputed means matrix. So far only this has been implemented. If there would be a way to compute means and dev itself, this could be used for the division part of LCN. check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
 	0030 aliya: try bit representation on ipa
 	0100 *** examples:
 	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
@@ -153,6 +144,19 @@
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+2015-12-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE copyseq: fix winit bug, reverts to Xavier even if we call compile with Gaussian.  done: was a bug in copyseq definition.
+	DONE copyseq: figure out the small diff between master and dev: close enough, numerical.
+	DONE copyseq: figure out why both master and dev fail gradcheck: we broke it at cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p.  how come mnist is not broken?  final layer broken ok, but what about the previous layers? mask problem, fixed.
+	DONE solve master gcheck issues: gcheck fails on some tests: ok only adding with relu fails, known issue.
+	DONE copyseq: gives slightly different result. gradcheck does not work. need to keep around input indices!  fixed.  gradcheck still failing.  fixed.
+	DONE solve master speed issues: significant slow down on some tests: xavier slowed down sparse mnist2dx and copyseq!? some machine difference. copyseq culprit: cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p: probably because ygold is densified.
+	DONE - reimplement S2C using conditionals: adding, mnistpixels.
+	DONE - solve the incr problem, user based register sharing may be in trouble.
+	DONE - wrap examples in modules so multiple can be loaded?
 
 2015-12-17  Deniz Yuret  <dyuret@ku.edu.tr>
 

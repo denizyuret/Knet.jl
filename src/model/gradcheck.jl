@@ -6,8 +6,9 @@ function gradcheck(m, grad, loss; gcheck=10, _eps=cbrt(eps(eltype(m))), delta=_e
     # l = zeros(2)
     # train(m, data, loss; gcheck=true, losscnt=fill!(l,0), o...)
     # loss0 = l[1]
+    loss0 = loss(m)
+    grad(m)
     pp = params(m)
-    loss0 = grad(m)
     ppdif = map(p->convert(Array, p.dif), pp) # This may get reset in loss
     maxbad = 0
     for n = 1:length(pp)
