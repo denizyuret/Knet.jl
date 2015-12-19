@@ -16,8 +16,8 @@ for (ltype,lforw,lback,lname) in
      (:Copy, :copyforw, :copyback, :copy))
     @eval begin
         type $ltype <: Actf; $ltype(;o...)=new(); end
-        forw(l::$ltype, x, y; o...)=($lforw(x,y);gpusync();y)
-        back(l::$ltype, dy, dx; y=nothing, o...)=(dx==nothing&&return;$lback(y,dy,dx);gpusync();dx)
+        forw(l::$ltype, x, y; o...)=($lforw(x,y;o...);gpusync();y)
+        back(l::$ltype, dy, dx; y=nothing, o...)=(dx==nothing&&return;$lback(y,dy,dx;o...);gpusync();dx) # need o... for mask etc.
     end
     Kenv.kdef(lname,eval(ltype))
 end
@@ -43,26 +43,26 @@ end
 
 @doc "@knet function copy(x) copies its input to its output" :copy
 back_reads_y(::Copy)=false
-copyforw(x,y)=(x===y ? y : copysync!(y,x))
-copyback(y,dy,dx)=(dx===dy ? dx : copysync!(dx,dy))
+copyforw(x,y;o...)=(x===y ? y : copysync!(y,x))
+copyback(y,dy,dx;o...)=(dx===dy ? dx : copysync!(dx,dy))
 
 @doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" :sigm
-sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end)
-sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end)
-@gpu sigmforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID)
-@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID)
+sigmforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end)
+sigmback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end)
+@gpu sigmforw(x::CudaArray,y::CudaArray;o...)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID)
+@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID)
 
 @doc "@knet function tanh(x) computes the hyperbolic tangent activation function." :tanh
-tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end)
-tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end)
-@gpu tanhforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH)
-@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH)
+tanhforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=tanh(x[i]); end)
+tanhback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end)
+@gpu tanhforw(x::CudaArray,y::CudaArray;o...)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH)
+@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH)
 
 @doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" :relu
-reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end)
-reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end)
-@gpu reluforw(x::CudaArray,y::CudaArray)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU)
-@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU)
+reluforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end)
+reluback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end)
+@gpu reluforw(x::CudaArray,y::CudaArray;o...)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU)
+@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU)
 
 # z = wx			;; z is the input to the soft layer
 # qi = (exp zi) / (Σ exp zj)	;; q is the output of the soft layer
@@ -75,7 +75,7 @@ reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 :
 #        = qk - pk
 
 @doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" :soft
-function softforw(x::Array,y::Array)
+function softforw(x::Array,y::Array;o...)
     (st,nx) = size2(x)
     for j=1:nx
         i1=(j-1)*st+1
@@ -89,7 +89,7 @@ function softforw(x::Array,y::Array)
     return y
 end
 
-@gpu softforw(x::CudaArray,y::CudaArray)=cudnnSoftmaxForward(x,y)
+@gpu softforw(x::CudaArray,y::CudaArray;o...)=cudnnSoftmaxForward(x,y)
 
 # Note that softback expects ygold from softloss, not ygrad!
 # See the softloss doc for an explanation.
@@ -104,7 +104,7 @@ function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
 end
 
 @doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" :logp
-function logpforw(x::Array,y::Array)
+function logpforw(x::Array,y::Array;o...)
     (nd,nx) = size2(x)
     for j=1:nx
         i1=(j-1)*nd+1
@@ -118,10 +118,10 @@ function logpforw(x::Array,y::Array)
     end
 end
 
-logpback(y,dy,dx)=(dx===dy||copysync!(dx,dy))
+logpback(y,dy,dx;o...)=(dx===dy||copysync!(dx,dy))
 
-@gpu logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y))
-@gpu logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y))
+@gpu logpforw(x::CudaArray{Float32},y::CudaArray{Float32};o...)=((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y))
+@gpu logpforw(x::CudaArray{Float64},y::CudaArray{Float64};o...)=((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y))
 
 @doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise." :axpb
 

@@ -20,6 +20,7 @@ function main(args=ARGS)
         ("--fast"; help="skip norm and loss calculations."; action=:store_true)
         ("--gcheck"; arg_type=Int; default=0)
         ("--seed"; arg_type=Int; default=42)
+        ("--nosharing"; action = :store_true)
     end
     isa(args, AbstractString) && (args=split(args))
     opts = parse_args(args, s)
@@ -35,6 +36,10 @@ function main(args=ARGS)
     # global model = S2S(lstm; fbias=fbias, hidden=hidden, vocab=vocab, winit=eval(parse(winit)))
     global model = compile(:copyseq; fbias=fbias, out=hidden, vocab=vocab, winit=eval(parse(winit)))
     setopt!(model; lr=lr)
+    if nosharing
+        set!(model, :forwoverwrite, false)
+        set!(model, :backoverwrite, false)
+    end
 
     perp = zeros(length(data))
     (maxnorm,losscnt) = fast ? (nothing,nothing) : (zeros(2),zeros(2))

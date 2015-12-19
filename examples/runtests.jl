@@ -19,9 +19,9 @@ s = ArgParseSettings()
     ("--mnist2dx"; action=:store_true)
     ("--mnist2dxy"; action=:store_true)
     ("--mnist4d"; action=:store_true)
-    ("--mnistpixels"; action=:store_true)
     ("--addirnn"; action=:store_true)
     ("--addlstm"; action=:store_true)
+    ("--mnistpixels"; action=:store_true)
     ("--rnnlm"; action=:store_true)
     ("--copyseq"; action=:store_true)
     ("--ncelm"; action=:store_true)
@@ -43,6 +43,7 @@ if opts["all"] || opts["linreg"]
     # 0.731515 seconds (391.62 k allocations: 71.451 MB, 1.21% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 0.837992 seconds (690.89 k allocations: 86.433 MB, 0.80% gc time) Mon Dec  7 22:43:42 PST 2015: knet7
     # 0.661330 seconds (408.42 k allocations: 77.432 MB, 0.89% gc time) 466c40e not using stack for fnn
+    # 0.762190 seconds (391.60 k allocations: 71.451 MB, 1.50% gc time) 5f60a84 latest master
 end
 
 if opts["all"] || opts["mnist2d"]
@@ -61,6 +62,7 @@ if opts["all"] || opts["mnist2d"]
     # 6.730379 seconds (3.61 M allocations: 161.998 MB, 1.42% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 4.832591 seconds (4.67 M allocations: 407.652 MB, 4.33% gc time) Tue Dec  8 09:36:22 PST 2015: knet7
     # 4.096904 seconds (3.28 M allocations: 362.141 MB, 4.84% gc time) Wed Dec  9 16:10:19 PST 2015: 466c40e not using stack for fnn
+    # 7.656945 seconds (3.54 M allocations: 159.374 MB, 1.28% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -78,6 +80,7 @@ if opts["all"] || opts["mnist2dy"]
     # 8.073397 seconds (3.86 M allocations: 184.237 MB, 2.15% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 5.237889 seconds (4.86 M allocations: 432.598 MB, 5.14% gc time) Tue Dec  8 08:06:30 PST 2015: knet7
     # 4.370380 seconds (3.48 M allocations: 387.233 MB, 5.65% gc time) 466c40e not using stack for fnn
+    # 9.067960 seconds (3.71 M allocations: 184.288 MB, 1.74% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -116,7 +119,8 @@ if opts["all"] || opts["mnist2dx"]
     # 19.643433 seconds (4.08 M allocations: 750.880 MB, 1.12% gc time) 405b7d7 2015-11-18 Changed default weight init to Xavier
     # 16.538108 seconds (5.16 M allocations: 909.466 MB, 1.65% gc time) Tue Dec  8 08:07:17 PST 2015: knet7 xavier
     # 9.608017 seconds (5.16 M allocations: 921.080 MB, 3.53% gc time)  Tue Dec  8 09:39:05 PST 2015: knet7 gaussian
-    # 7.946223 seconds (3.76 M allocations: 875.557 MB, 3.11% gc time) 466c40e not using stack for fnn
+    # 7.946223 seconds (3.76 M allocations: 875.557 MB, 3.11% gc time)  466c40e not using stack for fnn
+    # 19.994696 seconds (4.01 M allocations: 748.440 MB, 1.39% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -153,7 +157,8 @@ if opts["all"] || opts["mnist2dxy"]
     # 13.421199 seconds (4.37 M allocations: 786.728 MB, 2.27% gc time) Wed Nov 18 21:28:22 PST 2015: lcn gaussian
     # 16.959799 seconds (5.43 M allocations: 935.729 MB, 1.98% gc time) Tue Dec  8 08:07:43 PST 2015: knet7 xavier
     # 10.177581 seconds (5.42 M allocations: 947.233 MB, 4.17% gc time) Tue Dec  8 09:40:31 PST 2015: knet7 gaussian
-    # 8.360521 seconds (4.01 M allocations: 901.532 MB, 3.63% gc time) 466c40e not using stack for fnn
+    # 8.360521 seconds (4.01 M allocations: 901.532 MB, 3.63% gc time)  466c40e not using stack for fnn
+    # 21.294241 seconds (4.22 M allocations: 774.002 MB, 1.58% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -184,6 +189,7 @@ if opts["all"] || opts["mnist4d"]
     # 17.135514 seconds (10.38 M allocations: 494.816 MB, 1.11% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 17.002958 seconds (10.58 M allocations: 499.822 MB, 1.11% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 14.898975 seconds (10.11 M allocations: 697.407 MB, 1.97% gc time) 466c40e not using stack for fnn
+    # 16.956578 seconds (10.41 M allocations: 495.519 MB, 1.28% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["addirnn"]
@@ -201,6 +207,7 @@ if opts["all"] || opts["addirnn"]
     # 10.703243 seconds (20.59 M allocations: 863.693 MB, 2.41% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 10.528267 seconds (21.14 M allocations: 876.542 MB, 2.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 12.071895 seconds (21.19 M allocations: 922.258 MB, 1.80% gc time) 0c1148e knet7 expensive initforw
+    # 11.802089 seconds (21.81 M allocations: 901.486 MB, 3.06% gc time) 5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["addlstm"]
@@ -213,6 +220,7 @@ if opts["all"] || opts["addlstm"]
     # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
     # 2.246450 seconds (3.90 M allocations: 169.582 MB, 2.18% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 2.557893 seconds (4.20 M allocations: 189.816 MB, 1.68% gc time)  08758b7 Knet7
+    # 2.482413 seconds (4.18 M allocations: 178.685 MB, 2.97% gc time)  5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -233,6 +241,7 @@ if opts["all"] || opts["mnistpixels"]
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 2.889495 seconds (5.09 M allocations: 208.266 MB, 2.43% gc time)  f826bce: Knet7 small diff in result
     # 2.856504 seconds (5.09 M allocations: 208.169 MB, 2.33% gc time)  08758b7: Knet7 diff fixed
+    # 3.021688 seconds (5.64 M allocations: 229.431 MB, 3.30% gc time)  5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["rnnlm"]
@@ -270,6 +279,7 @@ if opts["all"] || opts["rnnlm"]
     # 23.269379 seconds (21.74 M allocations: 902.787 MB, 3.01% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 23.352192 seconds (19.00 M allocations: 2.850 GB, 3.80% gc time)   9312287: Knet7 with small diff
     # 23.227981 seconds (19.04 M allocations: 2.851 GB, 3.81% gc time)   08758b7: Knet7 fixed bug
+    # 23.439377 seconds (21.80 M allocations: 2.970 GB, 4.00% gc time)   5f60a84 latest master (xavier)
 end
 
 if opts["all"] || opts["copyseq"]
@@ -311,6 +321,7 @@ if opts["all"] || opts["copyseq"]
     # 11.658034 seconds (17.49 M allocations: 752.336 MB, 4.47% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels
     # 11.743344 seconds (17.82 M allocations: 749.691 MB, 4.43% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
     # 11.432132 seconds (15.06 M allocations: 4.608 GB, 5.12% gc time)   e7e299b Knet7 results differ.
+    # 15.257276 seconds (18.37 M allocations: 4.756 GB, 6.38% gc time)   5f60a84 latest master (dx=q-p copies ygold to dense)
 end
 
 if opts["all"] || opts["ncelm"]
@@ -328,13 +339,15 @@ if opts["all"] || opts["ncelm"]
     twice && (gc(); @time @show test11 = ncelm("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
     # 6.069526 seconds (5.36 M allocations: 204.252 MB, 2.06% gc time)
     # 6.079928 seconds (5.45 M allocations: 204.452 MB, 2.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 6.146882 seconds (5.60 M allocations: 209.355 MB, 2.60% gc time) 5f60a84 latest master (xavier)
 end
 
-if (opts["all"] || opts["ner"]) && isfile("ner.jld")
+if (opts["all"] || opts["ner"]) && isfile("ner.jld") # TODO: gcheck for ner
     include("ner.jl")
     @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128")
     @test test12 == (1,5.391641813553446,5.146268547771243,0.8020976309565352)
     twice && (gc(); @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128"))
     # 20.866555 seconds (37.80 M allocations: 1.829 GB, 6.12% gc time)
     # 20.983972 seconds (38.88 M allocations: 1.854 GB, 6.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+    # 20.359684 seconds (40.20 M allocations: 1.908 GB, 5.04% gc time) 5f60a84 latest master (xavier)
 end

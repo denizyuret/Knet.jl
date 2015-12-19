@@ -173,21 +173,27 @@ end
 
 quadlosstemp = nothing
 
-# TODO: mask should be bool instead of cuchar?
+# Should mask be bool instead of cuchar?  It turns out a bool vector
+# in Julia is a char vector but only the last bit is used, other bits
+# may contain garbage.  Bool type in c++ is a char vector that
+# contains strictly 0 or 1.  It is safer to just use Cuchar.
 
-@gpu function domask{T}(m::CudaArray{Cuchar},x::CudaArray{T}) # TODO: test
-    T <: Float32 ? ccall((:mask32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
-    T <: Float64 ? ccall((:mask64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cuchar}),size(x,1),size(x,2),x,m) :
+@gpu function domask{T}(m::CudaVector{Cuchar},x::CudaArray{T})
+    T <: Float32 ? ccall((:mask32,libknet),Void,(Cint,Cint,Ptr{Cuchar},Ptr{Cfloat}),size(x,1),size(x,2),m,x) :
+    T <: Float64 ? ccall((:mask64,libknet),Void,(Cint,Cint,Ptr{Cuchar},Ptr{Cdouble}),size(x,1),size(x,2),m,x) :
     error("$T not supported")
     gpusync(); return x
 end
 
-function domask(mask::Array{Cuchar},x::Array) # TODO: test
-    m = csize(x)
+@gpu domask{T}(m::Vector{Cuchar},x::CudaArray{T})=domask(CudaArray(m),x)
+
+function domask(mask::Vector{Cuchar},x::Array)
+    m = clength(x)
     @inbounds for i=1:length(x)
         j = 1+div(i-1,m)
         mask[j] == 0 && (x[i]=0)
     end
+    return x
 end
 
 ### ZERO-ONE LOSS

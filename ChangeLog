@@ -1,8 +1,14 @@
 2015-12-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* DONE:
+	DONE copyseq: fix winit bug, reverts to Xavier even if we call compile with Gaussian.  done: was a bug in copyseq definition.
+	DONE copyseq: figure out the small diff between master and dev: close enough, numerical.
+	DONE copyseq: figure out why both master and dev fail gradcheck: we broke it at cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p.  how come mnist is not broken?  final layer broken ok, but what about the previous layers? mask problem, fixed.
+	DONE solve master gcheck issues: gcheck fails on some tests: ok only adding with relu fails, known issue.
+
 	* TODO:
 
-	DONE copyseq: fix winit bug, reverts to Xavier even if we call compile with Gaussian.  done: was a bug in copyseq definition.
+	0000 solve master speed issues: significant slow down on some tests: xavier slowed down sparse mnist2dx and copyseq!? some machine difference. copyseq culprit: cca8b4f 2015-12-05 improved softmax gradient: using dx=q-p: probably because ygold is densified.
 	0000 addingirnn: slow
 	0000 copyseq: gives slightly different result. gradcheck does not work. need to keep around input indices!  fixed.  gradcheck still failing.  speed is slow. (15.232240 vs 11.432132)
 	0000 rnnlm: WARNING: Stack input has forw=false. speed: 23.227981 vs 25.988030
