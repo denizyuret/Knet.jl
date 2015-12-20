@@ -38,30 +38,30 @@ for (ltype,lforw,lback,lname) in
     @eval begin
         type $ltype <: Actf; end
         $lname(x,y;o...)=($ltype(),x,y)
-        forw(l::$ltype, x, y; o...)=$lforw(x,y)
-        back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx))
+        forw(l::$ltype, x, y; o...)=$lforw(x,y;o...)
+        back(l::$ltype, dy, dx; y=nothing, o...)=(dx != nothing && $lback(y,dy,dx;o...))
     end
 end
 
 ### Implementations
 
 @doc "@knet function sigm(x) computes the sigmoid activation function: 1/(1+exp(-x))" sigm
-sigmforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
-sigmback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end; dx)
-@gpu sigmforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); y)
-@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); dx)
+sigmforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=(1/(1+exp(-x[i]))); end; y)
+sigmback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=dy[i]*y[i]*(1-y[i]); end; dx)
+@gpu sigmforw(x::CudaArray,y::CudaArray;o...)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); y)
+@gpu sigmback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_SIGMOID); gpusync(); dx)
 
 @doc "@knet function tanh(x) computes the hyperbolic tangent activation function." tanh
-tanhforw(x::Array,y::Array)=(for i=1:length(y); y[i]=tanh(x[i]); end; y)
-tanhback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end; dx)
-@gpu tanhforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH); gpusync(); y)
-@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH); gpusync(); dx)
+tanhforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=tanh(x[i]); end; y)
+tanhback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=dy[i]*(1+y[i])*(1-y[i]); end; dx)
+@gpu tanhforw(x::CudaArray,y::CudaArray;o...)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_TANH); gpusync(); y)
+@gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH); gpusync(); dx)
 
 @doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" relu
-reluforw(x::Array,y::Array)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
-reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
-@gpu reluforw(x::CudaArray,y::CudaArray)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
-@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
+reluforw(x::Array,y::Array;o...)=(for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end; y)
+reluback(y::Array,dy::Array,dx::Array;o...)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end; dx)
+@gpu reluforw(x::CudaArray,y::CudaArray;o...)=(cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU); gpusync(); y)
+@gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=(cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU); gpusync(); dx)
 
 # dy = wx			;; dy is the input to the soft layer
 # yi = (exp zi) / (Σ exp zj)	;; y is the output of the soft layer
@@ -74,7 +74,7 @@ reluback(y::Array,dy::Array,dx::Array)=(for i=1:length(dx); dx[i]=(y[i]==0 ? 0 :
 #        = yk - pk
 
 @doc "@knet function soft(x) computes the softmax activation function: exp(x[i,j])/sum(exp(x[:,j]))" soft
-function softforw(x::Array,y::Array)
+function softforw(x::Array,y::Array;o...)
     (st,nx) = size2(x)
     for j=1:nx
         i1=(j-1)*st+1
@@ -88,7 +88,7 @@ function softforw(x::Array,y::Array)
     return y
 end
 
-@gpu softforw(x::CudaArray,y::CudaArray)=(cudnnSoftmaxForward(x,y); gpusync(); y)
+@gpu softforw(x::CudaArray,y::CudaArray;o...)=(cudnnSoftmaxForward(x,y); gpusync(); y)
 
 function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
     ycols = ccount(ypred)
@@ -99,7 +99,7 @@ function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
     return dx
 end
 
-# function softback(y::Array,dy::Array,dx::Array)
+# function softback(y::Array,dy::Array,dx::Array;o...)
 #     (st,nx) = size2(dy)
 #     for j=1:nx
 #         i1=(j-1)*st+1
@@ -112,10 +112,10 @@ end
 # end
 
 
-# @gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
+# @gpu softback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
 
 @doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" logp
-function logpforw(x::Array,y::Array)
+function logpforw(x::Array,y::Array;o...)
     (nd,nx) = size2(x)
     for j=1:nx
         i1=(j-1)*nd+1
@@ -130,11 +130,11 @@ function logpforw(x::Array,y::Array)
     return y
 end
 
-logpback(y,dy,dx)=(dx===dy||copy!(dx,dy);dx)
+logpback(y,dy,dx;o...)=(dx===dy||copy!(dx,dy);dx)
 
-@gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32})=
+@gpu (logpforw(x::CudaArray{Float32},y::CudaArray{Float32};o...)=
         ((nd,nx) = size2(y);ccall((:logpforw32,libknet),Void,(Cint,Cint,Ptr{Float32},Ptr{Float32}),nd,nx,x,y); gpusync(); y))
-@gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64})=
+@gpu (logpforw(x::CudaArray{Float64},y::CudaArray{Float64};o...)=
         ((nd,nx) = size2(y);ccall((:logpforw64,libknet),Void,(Cint,Cint,Ptr{Float64},Ptr{Float64}),nd,nx,x,y); gpusync(); y))
 
 
@@ -188,7 +188,7 @@ end
 ### DEAD CODE
 
         # $lforw(x::KUdense, y::KUdense=x)=($lforw(x.arr,y.arr);y)
-        # $lback(y::KUdense, dy::KUdense, dx::KUdense=dy)=($lback(y.arr, dy.arr, dx.arr);dx)
+        # $lback(y::KUdense, dy::KUdense, dx::KUdense=dy;o...)=($lback(y.arr, dy.arr, dx.arr);dx)
 # params(::Actf)=Any[]
 # ysize(::Actf,x)=size(x)
 # overwrites(::Actf)=true
