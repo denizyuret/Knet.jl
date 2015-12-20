@@ -15,15 +15,14 @@ macro dbg(x) nothing end
 #gpusync()=device_synchronize() # This is for profiling
 gpusync()=nothing               # This is for production
 
-include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
-
 # Useful utilities
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end # Print date, expression; run and print elapsed time after execution
-
-setseed(n)=srand(n)             # This gets overwritten in curand.jl if gpu available
+setseed(n)=srand(n)             # Set both cpu and gpu seed. This gets overwritten in curand.jl if gpu available
 
 export @date, @dbg, gpusync, setseed
 
+
+include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUSPARSE
@@ -34,8 +33,7 @@ export @date, @dbg, gpusync, setseed
 @gpu include("util/deepcopy.jl");	export cpucopy, gpucopy
 include("util/linalg.jl");	
 include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
-
-include("util/array.jl");	export isapprox
+include("util/array.jl");	# export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 
 include("op.jl");		
@@ -54,14 +52,12 @@ include("op/rnd.jl")
 include("update.jl");		export update!
 include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-# include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
-include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, setopt!, wnorm, gnorm
-include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
-include("net/initforw.jl")
-include("net/initback.jl")
+include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, setopt!, wnorm, gnorm, reset!
+include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs _comp_parse_def
 include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback
-include("net/util.jl");         export reset!
+include("net/initforw.jl")
+include("net/initback.jl")
 
 include("compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
@@ -116,3 +112,5 @@ end # module
 # include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
 # include("model/tagger.jl");	export Tagger
 # include("model/nce.jl");	export NCE
+# include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
+# include("net/util.jl");         

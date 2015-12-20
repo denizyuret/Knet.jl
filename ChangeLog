@@ -92,18 +92,19 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	DONE - src/model/s2s.jl,tagger.jl,s2c.jl: implement predict, i.e. decoder. in all models.
 	DONE get rid of input() and use constructor arguments instead?	can we?
 	DONE ai-mtg: Copy instruction for going back two time steps.
+	DONE - start to clean up data and models. retire the Model interface if ok, only expose Net,forw,back,reset!,update!, let people write their own train/test functions. model.jl: add predict, load, save:
+	DONE move compound, loss out of op. par and loss should probably get out of op.  at least loss.
+	DONE - runtests.jl: update timing, simplify scripts (no need for norms everywhere), merge with test/runtests.jl. edit test/runtests.jl to run the examples instead.
 
 	* TODO:
 
-	0000 - start to clean up data and models. retire the Model interface if ok, only expose Net,forw,back,reset!,update!, let people write their own train/test functions. model.jl: add predict, load, save:
-	0000 - update docs
 	0000 Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.
 	0000 Julia: for load/save check timholy's message about extending jld with custom types - the first and second test give different results after load from file
+	0001 - update docs
 	0001 cpu-only support
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0003 - examples: consolidate train/test functions, maybe demo options. use as_symbols option for parse_args
 	0003 cannot add three terms, fix in compiler (a+b+c) compound statements that involve axpb or alpha/beta in add/mul.
-	0003 move compound, loss out of op. par and loss should probably get out of op.  at least loss.
 	0003 test batch resize: minibatch resizing: cusparse.jl: rename all Base.copy! to resizecopy!; define ones for Array, CudaArray; use them in resizing.
 	0004 consolidate set and setopt. rethink out/get/reg/dif/getprop set/setprop/setopt naming. mnist2d.jl: setopt! should work with register names as well.	0004 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well. - use better get/set function names in net/*.jl, search and replace all a.b type references.
 	0005 - check TODO, test all
@@ -111,7 +112,6 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	0005 - compiler: warn for unused constants
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
 	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
-	0005 - runtests.jl: update timing, simplify scripts (no need for norms everywhere), merge with test/runtests.jl. edit test/runtests.jl to run the examples instead.
 	0005 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	0007 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0007 - src/op/compound.jl: finish documentation for all ops.

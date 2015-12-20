@@ -138,6 +138,32 @@ vnorm(x)=(x==nothing ? 0 : vecnorm(x))
 wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
 gnorm(m::Net,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332
 
+function Base.isequal(a::Net, b::Net)
+    for n in fieldnames(a)
+        if isdefined(a,n) && isdefined(b,n)
+            isequal(a.(n), b.(n)) || return false
+        elseif isdefined(a,n) || isdefined(b,n)
+            return false
+        end
+    end
+    return true
+end
+
+### DEBUGGING
+
+ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
+ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)
+idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array ? x[1] : error("$(typeof(x))"))
+
+vecnorm0(x,y...)=map(vecnorm0,(x,y...))
+vecnorm0(x::Vector)=map(vecnorm0,x)
+vecnorm0(x::Tuple)=map(vecnorm0,x)
+vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
+                   (isdefined(x,:dif)? vecnorm0(x.dif) : 0))
+vecnorm0(::Void)=0
+vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
+
+
 ### DEAD CODE
 
     # isempty(f.stack) || (warn("Stack not empty"); empty!(f.stack))
