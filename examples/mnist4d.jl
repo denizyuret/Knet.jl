@@ -72,7 +72,7 @@ end
 
 function minibatch(x, y, batchsize)
     data = Any[]
-    for i=1:batchsize:ccount(x)
+    for i=1:batchsize:ccount(x)-batchsize+1
         j=i+batchsize-1
         push!(data, (cget(x,i:j), cget(y,i:j)))
     end

@@ -88,7 +88,7 @@ end
 
 function minibatch(x, y, batchsize)
     data = Any[]
-    for i=1:batchsize:size(x,2)
+    for i=1:batchsize:size(x,2)-batchsize+1
         j=i+batchsize-1
         push!(data, (x[:,i:j], y[:,i:j]))
     end
