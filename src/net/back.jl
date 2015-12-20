@@ -21,16 +21,16 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
     gotinputs = 0
     for n = length(f):-1:1
         skipped(f,n,seq) && continue
-        y = get(f,n)
-        get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
+        y = reg(f,n)
+        getp(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
         yout = (!seq ? y.out : stack_output(f,n))
         if !gotreturn
             gotreturn = true
             if ygold == nothing # represents zero gradient
-                get(y,:incr) || (y.dif = nothing)
+                getp(y,:incr) || (y.dif = nothing)
             else
                 !isreturn(y) && Base.warn_once("ygold specified when there is no return")
-                if get(y,:incr)
+                if getp(y,:incr)
                     loss(yout, ygold, y.tmp; o...) # loss needs o... for e.g. mask
                     y.dif = axpy!(1,y.tmp,y.dif0)
                 else
@@ -40,21 +40,21 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
         elseif isreturn(y)
             error("Got return in non-final instruction")
         end
-        # println(:back, (findfirst(registers(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
+        # println(:back, (findfirst(regs(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
         if y.dif == nothing
-            for x in (seq ? stack_input_registers(f,n) : input_registers(f,y))
-                get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
+            for x in (seq ? stack_inputregs(f,n) : inputregs(f,y))
+                getp(x,:grad) && !getp(x,:incr) && (x.dif = nothing)
             end
         else
-            xx = (seq ? stack_input_registers(f,n) : input_registers(f,y))
+            xx = (seq ? stack_inputregs(f,n) : inputregs(f,y))
             xdif = difs(xx)
             xout = get1(!seq ? outs(xx) : stack_inputs(f,n))
             back(y.op, y.dif, xdif...; x=xout, y=yout, o...)
             for x in xx
-                x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
-                         get(x,:grad) ? x.dif0 : nothing)
+                x.dif = (getp(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
+                         getp(x,:grad) ? x.dif0 : nothing)
             end
-            if get(y,:incr) && !isa(y.op, Par)
+            if getp(y,:incr) && !isa(y.op, Par)
                 fillsync!(y.dif,0)
             end
         end
@@ -72,7 +72,7 @@ sback(f::Net, ygold=nothing, loss=copyloss; o...)=back(f,ygold,loss;o...,seq=tru
 
 # For FNNs we can tell whether an op was skipped using the :forw flag.
 # For RNNs the :forw flag may change through the iterations, so we check the stack.
-skipped(f::Net,n::Int,seq::Bool)=(seq ? !stack_forw(f,n) : !get(get(f,n),:forw))
+skipped(f::Net,n::Int,seq::Bool)=(seq ? !stack_forw(f,n) : !getp(reg(f,n),:forw))
 
 # We assume f.reg[end].out is saved in f.stack[f.sp].out
 # In the calls below n is the network index
@@ -85,10 +85,10 @@ stack_forw(f::Net,n::Int)=stack_entry(f,n).forw
 # We want to use their values prior to n'th op.
 # And we want to use the indices from the argv on stack.
 
-stack_input_registers(f::Net,n::Int)=f.reg[stack_argv(f,n)]
+stack_inputregs(f::Net,n::Int)=f.reg[stack_argv(f,n)]
 
 function stack_inputs(f::Net,n::Int)
-    r = get(f,n)
+    r = reg(f,n)
     back_reads_x(r.op) || return nothing
     a = stack_argv(f,n)
     x = cell(length(a))
@@ -133,17 +133,17 @@ get1(x)=(x==nothing?x:length(x)==1?x[1]:x)
 #         s = pop!(f)
 #         s == nothing && continue
 #         (y, xsave, ysave) = s
-#         @assert y === get(f,n)
-#         get(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
+#         @assert y === reg(f,n)
+#         getp(y,:grad) || continue # :grad means we need the gradient of the output of this operation, does not mean go back on this operation. but no :grad means no need to go back.
         
 #         if !gotreturn
 #             gotreturn = true
 #             if ygold == nothing # represents zero gradient
-#                 get(y,:incr) || (y.dif = nothing)
+#                 getp(y,:incr) || (y.dif = nothing)
 #             else
 #                 !isreturn(y) && Base.warn_once("ygold specified when there is no return")
 #                 ysave == nothing && error("return value was not saved")
-#                 if get(y,:incr)
+#                 if getp(y,:incr)
 #                     loss(ysave, ygold, y.tmp; o...) # loss needs o... for e.g. mask
 #                     y.dif = axpy!(1,y.tmp,y.dif0)
 #                 else
@@ -154,19 +154,19 @@ get1(x)=(x==nothing?x:length(x)==1?x[1]:x)
 #             error("Got return in non-final instruction")
 #         end
 
-#         xx = input_registers(f,y)
+#         xx = inputregs(f,y)
 #         if y.dif == nothing
 #             for x in xx
-#                 get(x,:grad) && !get(x,:incr) && (x.dif = nothing)
+#                 getp(x,:grad) && !getp(x,:incr) && (x.dif = nothing)
 #             end
 #         else
-#             xdif = inputdifs(f,y)  # map too slow? map(x->(!get(x,:grad) ? nothing : get(x,:incr) ? x.tmp : x.dif0), xx)
+#             xdif = inputdifs(f,y)  # map too slow? map(x->(!getp(x,:grad) ? nothing : getp(x,:incr) ? x.tmp : x.dif0), xx)
 #             back(y.op, y.dif, xdif...; x=get1(xsave), y=ysave, o...)
 #             for x in xx
-#                 x.dif = (get(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
-#                          get(x,:grad) ? x.dif0 : nothing)
+#                 x.dif = (getp(x,:incr) ? axpy!(1, x.tmp, x.dif0) :
+#                          getp(x,:grad) ? x.dif0 : nothing)
 #             end
-#             if get(y,:incr) && !isa(y.op, Par)
+#             if getp(y,:incr) && !isa(y.op, Par)
 #                 # what if y.op=Arr?  then it will have no inputs, thus :grad=:incr=false
 #                 # where does Par.dif get zeroed out? at reset!
 #                 fillsync!(y.dif,0)
@@ -176,7 +176,7 @@ get1(x)=(x==nothing?x:length(x)==1?x[1]:x)
 
 #     if any(getdx)
 #         dx = Any[]; nx = 0
-#         for p in registers(f)
+#         for p in regs(f)
 #             isa(p.op,Input) && getdx[nx+=1] && push!(dx, p.dif)
 #         end
 #         return get1(dx)

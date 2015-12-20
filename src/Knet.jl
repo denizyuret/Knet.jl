@@ -52,7 +52,7 @@ include("op/rnd.jl")
 include("update.jl");		export update!
 include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, setopt!, wnorm, gnorm, reset!
+include("net.jl");              export setopt!, wnorm, gnorm, reset! #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, 
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs _comp_parse_def
 include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback

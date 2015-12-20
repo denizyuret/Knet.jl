@@ -49,7 +49,7 @@ function main(args=ARGS)
     return (l[1]/l[2],m...)
 end
 
-function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
+function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
     for (x,ygold) in data
         ypred = forw(f, x)
         back(f, ygold, loss)
@@ -60,7 +60,7 @@ function train(f::Net, data, loss; losscnt=nothing, maxnorm=nothing)
     end
 end
 
-function test(f::Net, data, loss)
+function test(f, data, loss)
     sumloss = numloss = 0
     for (x,ygold) in data
         ypred = forw(f, x)

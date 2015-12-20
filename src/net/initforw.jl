@@ -28,17 +28,17 @@ end
 initout0(f::Net;o...)=(for p in forwregs(f); initout0(f,p;o...); end)
 
 function initout0(f::Net, p::Reg; seq=false)
-    at, et, sz = get(p,:outtype), get(p,:eltype), get(p,:size)
+    at, et, sz = getp(p,:outtype), getp(p,:eltype), getp(p,:size)
     if checkarray(p, :out0, at, et, sz)
         # all done
     elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
         error("Size or type change not allowed in parameters and constants")
     else
         p.out0 = nothing
-        if canoverwrite(p.op) && get(p, :forwoverwrite, true)
+        if canoverwrite(p.op) && getp(p, :forwoverwrite, true)
             for i in reverse(p.argv) # consider overwriting the last input first
-                q = f.reg[i]
-                if checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !get(q, :save) && get(q, :fanout)==1
+                q = reg(f,i)
+                if checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !getp(q, :save) && getp(q, :fanout)==1
                     p.out0 = q.out0
                     @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
                     break
@@ -78,13 +78,13 @@ isreturn(p::Reg)=(p.name==:return)
 # kwargs passed to forw.
 
 function initcond(f::Net; o...)
-    for p in registers(f)
-        set!(p,:forw,false)
+    for p in regs(f)
+        setp(p,:forw,false)
     end
     d = Dict(o)
-    for p in registers(f)
+    for p in regs(f)
         c = condeval(p.cond,d)
-        set!(p,:forw,c)
+        setp(p,:forw,c)
         c && isreturn(p) && break
     end
 end
@@ -101,8 +101,8 @@ end
 
 function forwregs(f::Net)
     a = Reg[]
-    for r in registers(f)
-        get(r,:forw) && push!(a,r)
+    for r in regs(f)
+        getp(r,:forw) && push!(a,r)
     end
     return a
 end
@@ -111,13 +111,13 @@ function initargv(f::Net)
     # There could be repeated and read-before-write variables
     s2i = Dict{Symbol,Int}()
     for n=1:length(f)
-        p = get(f,n)
-        get(p,:forw) || continue
+        p = reg(f,n)
+        getp(p,:forw) || continue
         s2i[p.name] = n
     end
     for n=1:length(f)
-        p = get(f,n)
-        get(p,:forw) || continue
+        p = reg(f,n)
+        getp(p,:forw) || continue
         p.argv = convert(Vector{Int}, map(s->s2i[s], p.args))
         s2i[p.name] = n
     end
@@ -125,26 +125,26 @@ end
 
 function initsize(f::Net, inputs...)
     for p in forwregs(f)
-        set!(p,:size,nothing)
+        setp(p,:size,nothing)
     end
     lastinput = 0
     for p in forwregs(f)
         isa(p.op, Input) || continue
-        set!(p,:size,size(inputs[lastinput += 1]))
+        setp(p,:size,size(inputs[lastinput += 1]))
     end
-    nodims(p)=(s=get(p,:size); s==nothing || prod(s)==0)
+    nodims(p)=(s=getp(p,:size); s==nothing || prod(s)==0)
     notfound = count(nodims, forwregs(f))
     while notfound > 0
         for p in forwregs(f)
             isa(p.op, Input) && continue
-            dy = get(p,:size)
-            xx = input_registers(f,p)
-            dx = map(x->get(x,:size), xx)
+            dy = getp(p,:size)
+            xx = inputregs(f,p)
+            dx = map(x->getp(x,:size), xx)
             d = infersize(p.op, dx..., dy)
             d == nothing && continue
-            set!(p,:size,d[end])
+            setp(p,:size,d[end])
             for i=1:length(xx)
-                set!(xx[i],:size,d[i])
+                setp(xx[i],:size,d[i])
             end
         end
         nf = count(nodims, forwregs(f))
@@ -162,11 +162,11 @@ function inittype(f::Net, inputs...)
     end
     lastinput = 0
     for p in forwregs(f)
-        set!(p,:eltype,ftype)
+        setp(p,:eltype,ftype)
         if isa(p.op,Input) && issparse(inputs[lastinput+=1])
-            set!(p,:outtype, (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC))
+            setp(p,:outtype, (gpu() ? CudaSparseMatrixCSC : SparseMatrixCSC))
         else
-            set!(p,:outtype, (gpu() ? CudaArray : Array))
+            setp(p,:outtype, (gpu() ? CudaArray : Array))
         end
     end
 end
@@ -181,20 +181,20 @@ end
 # saves registers on the stack.
 
 function initsave(f::Net)
-    for p in registers(f); set!(p,:save,false); end
+    for p in regs(f); setp(p,:save,false); end
     for p in forwregs(f)
         if isreturn(p) || back_reads_y(p.op)
-            set!(p,:save,true)
+            setp(p,:save,true)
         end
         if back_reads_x(p.op)
             for i in p.argv
-                set!(get(f,i),:save,true)
+                setp(reg(f,i),:save,true)
             end
         end
     end
 end
 
-# get(p,:fanout)>1: these registers are read at multiple locations in
+# getp(p,:fanout)>1: these registers are read at multiple locations in
 # the program.  Depends on :cond.  :incr flag set for both sback and
 # back.  The return registers are read by the user and compared to
 # gold, which should count as 1.  All Par registers become
@@ -205,12 +205,12 @@ end
 
 function initfanout(f::Net)
     regs = forwregs(f)
-    for p in regs; set!(p,:fanout,0); end
+    for p in regs; setp(p,:fanout,0); end
     for p in regs
-        isreturn(p) && inc!(p,:fanout)
-        for i in input_registers(f,p)
-            @assert get(i,:forw)
-            inc!(i,:fanout)
+        isreturn(p) && incp(p,:fanout)
+        for i in inputregs(f,p)
+            @assert getp(i,:forw)
+            incp(i,:fanout)
         end
     end
 end
@@ -260,7 +260,7 @@ end
 # keepstate=false, seq=false
 
 # Switching to user controlled register sharing instead of automatic optimization...
-# Safer.  Also makes get(f,:name) work as expected.
+# Safer.  Also makes reg(f,:name) work as expected.
 
 # function findout0(f::Net, n, sizes, nsparse)
 #     qn = f.prog[n]
@@ -341,7 +341,7 @@ end
 # return it
 # # todo: deal with inputless networks:
 
-# ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || get(p,:push))
+# ispersistent(p::Ins)=(isa(p.op,Par) || isa(p.op,Arr) || getp(p,:push))
 
 
 # initsize infers the size of each register

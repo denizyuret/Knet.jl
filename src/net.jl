@@ -37,28 +37,28 @@ end
 
 import Base: length, get, eltype, pop!, push!
 
-registers(f::Net)=f.reg
+regs(f::Net)=f.reg
 length(f::Net)=length(f.reg)
-get(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
-params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg))
-ninputs(f::Net)=count(x->(isa(x.op,Input) && get(x,:forw)),f.reg)
+reg(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
+params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg)) # This will have to return Reg instead of Par when we change Par
+ninputs(f::Net)=count(x->(isa(x.op,Input) && getp(x,:forw)),f.reg)
 eltype(f::Net)=(r=f.reg[1];isdefined(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
 
-function get(f::Net,k::Symbol)
+function reg(f::Net,k::Symbol)
     i = findlast(f.reg) do p
-        get(p,:forw) && p.name==k
+        getp(p,:forw) && p.name==k
     end
     return i==0 ? nothing : f.reg[i]
 end
 
-out(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.out)
-dif(f::Net,k::Symbol)=(r=get(f,k); r==nothing ? r : r.dif)
+get(f::Net,k)=(r=reg(f,k); r==nothing ? r : r.out)
+dif(f::Net,k)=(r=reg(f,k); r==nothing ? r : r.dif)
 
-input_registers(f::Net,p::Reg)=f.reg[p.argv]
+inputregs(f::Net,p::Reg)=f.reg[p.argv]
 
 # map too slow?
-# inputs(f::Net,p::Reg)=map(x->x.out, input_registers(f,p))
-inputs(f::Net,p::Reg)=outs(input_registers(f,p))
+# inputs(f::Net,p::Reg)=map(x->x.out, inputregs(f,p))
+inputs(f::Net,p::Reg)=outs(inputregs(f,p))
 
 function outs(pp::Vector{Reg})
     n = length(pp)
@@ -72,25 +72,25 @@ function difs(pp::Vector{Reg})
     a = cell(n)
     @inbounds for i=1:n
         r = pp[i]
-        a[i]=(!get(r,:grad) ? nothing :
-              get(r,:incr) ? r.tmp :
+        a[i]=(!getp(r,:grad) ? nothing :
+              getp(r,:incr) ? r.tmp :
               r.dif0)
     end
     return a
 end
 
-get(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
-set!(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
-inc!(p::Reg,k::Symbol)=set!(p,k,1+get(p,k,0))
-set!(f::Net,k::Symbol,v=true)=(for p in registers(f); p.plist[k]=v; end)
+getp(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
+setp(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
+incp(p::Reg,k::Symbol)=setp(p,k,1+getp(p,k,0))
+setp(f::Net,k::Symbol,v=true)=(for p in regs(f); p.plist[k]=v; end)
 
 ### Cleanup at the beginning/end of sequence
 
 function reset!(f::Net)
     f.sp = 0
-    for p in registers(f)
+    for p in regs(f)
         p.out = p.dif = nothing
-        get(p,:incr) && fillsync!(p.dif0, 0)
+        getp(p,:incr) && fillsync!(p.dif0, 0)
     end
 end
 
@@ -101,12 +101,12 @@ function push!(f::Net,p::Reg)
         push!(f.stack, StackEntry(false, Int[], nothing))
     end
     s = f.stack[f.sp+=1]
-    s.forw = get(p,:forw)
+    s.forw = getp(p,:forw)
     if s.forw
         s.argv = (issimilar(s.argv,p.argv) ?
                   copy!(s.argv,p.argv) :
                   copy(p.argv))
-        s.out = (!get(p,:save) ? s.out : # won't be used so keep the storage
+        s.out = (!getp(p,:save) ? s.out : # won't be used so keep the storage
                  p.out == nothing ?      # nothing represents zero array
                  (s.out!=nothing && Base.warn_once("Writing nothing over array"); nothing) :
                  ispersistent(p) ? p.out : # no need to copy Par or Arr, they won't change during forw/back
@@ -121,8 +121,8 @@ stack_empty!(f::Net)=(f.sp=0)
 stack_isempty(f::Net)=(f.sp==0)
 
 
-setopt!(m::Net; o...)=(for p in params(m); setopt!(p; o...); end)
-update!(m::Net; o...)=(for p in params(m); update!(p; o...); end)             # t:19
+setopt!(m::Net; o...)=(for p in params(m); setopt!(p; o...); end) # TODO: merge with setp
+update!(m::Net; o...)=(for p in params(m); update!(p; o...); end) # TODO: implement callbacks
 vnorm(x)=(x==nothing ? 0 : vecnorm(x))
 wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
 gnorm(m::Net,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332
@@ -143,7 +143,7 @@ end
 function netprint(f::Net)
     vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
     for i=1:length(f)
-        r=get(f,i)
+        r=reg(f,i)
         @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...), size(r.out0),
                 vecnorm1(r,:out), vecnorm1(r,:dif), r.name, tuple(r.cond.args...),
                 filter((x,y)->!isa(y,DataType),r.plist)
@@ -202,11 +202,11 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     return a
 # end
 
-# inc!(p::ObjectIdDict,k)=(p[k]=1+get(p,k,0))
+# inc!(p::ObjectIdDict,k)=(p[k]=1+getp(p,k,0))
 
 # function dec!(p::ObjectIdDict,k)
 #     haskey(p,k) || (warn("Object not in dict"); return)
-#     n = get(p,k,0)
+#     n = getp(p,k,0)
 #     if n > 1
 #         p[k] = n-1
 #     elseif n == 1
@@ -224,9 +224,9 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 # forwref(f::Net,n::Int)=any(i->in(output(f,n),inputs(f,i)), 1:n-1)
 
 
-# registers(f::Net)=values(f.reg)
-# output_register(f::Net,p::Ins)=get(f.reg,p.output,nothing)
-# input_registers(f::Net,p::Ins)=map(s->get(f.reg,s,nothing), p.inputs)
+# regs(f::Net)=values(f.reg)
+# output_register(f::Net,p::Ins)=reg(f.reg,p.output,nothing)
+# inputregs(f::Net,p::Ins)=map(s->reg(f.reg,s,nothing), p.inputs)
 # input_arrays(f::Net,p::Ins)=map(s->(haskey(f.reg,s) ? f.reg[s].out : nothing), p.inputs)
 
 # nops(f::Net)=length(f.reg)
@@ -240,14 +240,14 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 # set!(p::Reg,k,v=true)=setprop!(p,k,v)
 # inc!(p::Reg,k)=set!(p,k,1+get(p,k))
 
-# getreg(f::Net,k::Symbol)=get(f.reg,k,nothing)
+# getreg(f::Net,k::Symbol)=reg(f.reg,k,nothing)
 # getdif(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].dif : nothing)
 # getout(f::Net,k::Symbol)=(haskey(f.reg,k) ? f.reg[k].out : nothing)
 # getreg(f::Net,p::Ins)=getreg(f,p.output)
 # getdif(f::Net,p::Ins)=getdif(f,p.output)
 # getout(f::Net,p::Ins)=getout(f,p.output)
 
-# Base.get(f::Net,k)=getout(f,k)
+# Base.reg(f::Net,k)=getout(f,k)
 # Base.get(p::Ins,k,d=false)=getprop(p,k,d)
 # Base.get(p::Reg,k,d=false)=getprop(p,k,d)
 

@@ -7,7 +7,7 @@
 
 module RNNLM
 using Knet, ArgParse
-using Knet: fillsync!
+using Knet: regs, getp, setp, stack_length, stack_empty!
 
 function main(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -32,8 +32,8 @@ function main(args=ARGS)
     lr = opts["lr"]
     setopt!(net; lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
     if opts["nosharing"]
-        set!(net, :forwoverwrite, false)
-        set!(net, :backoverwrite, false)
+        setp(net, :forwoverwrite, false)
+        setp(net, :backoverwrite, false)
     end
     perp = zeros(length(data)); l=zeros(2); m=zeros(2)
 
@@ -60,22 +60,22 @@ end
     return wbf(yrnn; o..., out=vocab_size, f=:soft) # 42-46
 end
 
-function reset_trn!(f::Net; o...)
-    if f.sp != length(f)
-        info("Stack length: $(f.sp) Regs: $(length(f))")
+function reset_trn!(f; o...)
+    if stack_length(f) != length(f)
+        info("Stack length: $(stack_length(f)) Regs: $(length(f))")
     end
     stack_empty!(f)
     reset_tst!(f; o...)
-    for p in registers(f)
+    for p in regs(f)
         p.dif = nothing
-        get(p,:incr) && fillsync!(p.dif0, 0)
-        set!(p, :forw, true)
+        getp(p,:incr) && fill!(p.dif0, 0)
+        setp(p, :forw, true)
         push!(f,p)
     end
 end
 
-function reset_tst!(f::Net; keepstate=false)
-    for p in registers(f)
+function reset_tst!(f; keepstate=false)
+    for p in regs(f)
         p.out = keepstate && isdefined(p,:out0) ? p.out0 : nothing
     end
 end

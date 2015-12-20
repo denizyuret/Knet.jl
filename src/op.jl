@@ -1,6 +1,6 @@
 # TODO: have a doc for ops here.
-"@knet function dot(w,x) is matrix multiplication."
-"@knet function input() fetches the next network input."
+#"@knet function dot(w,x) is matrix multiplication."
+#"@knet function input() fetches the next network input."
 # ### mul2 element-wise multiplication:
 
 abstract Op

@@ -36,8 +36,8 @@ sforw(f::Net, input...; kwargs...) = _forw(f,true,input...; kwargs...)
 function _forw(f::Net, seq::Bool, input...; kwargs...)
     initforw(f, input...; kwargs...)
     lastinput = 0
-    for y in registers(f)
-        if get(y,:forw)
+    for y in regs(f)
+        if getp(y,:forw)
             if isa(y.op, Input)
                 y.out = copysync!(y.out0, input[lastinput += 1])
             else
@@ -45,10 +45,10 @@ function _forw(f::Net, seq::Bool, input...; kwargs...)
             end
         end
         seq && push!(f, y)
-        # println(:forw, (findfirst(registers(f), y), typeof(y.op), y.argv, size(y.out0), vecnorm0(y.out)))
+        # println(:forw, (findfirst(regs(f), y), typeof(y.op), y.argv, size(y.out0), vecnorm0(y.out)))
     end
     # error(:ok)
-    return out(f,:return)
+    return get(f,:return)
 end
 
 

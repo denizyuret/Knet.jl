@@ -4,7 +4,7 @@
 
 module MNISTPixels
 using Main, Knet, ArgParse
-using Knet: nextidx
+using Knet: nextidx, stack_isempty
 
 isdefined(:MNIST) || include("mnist.jl")
 
@@ -50,7 +50,7 @@ end
 #     y = wbf(x; o..., out=nclass, f=soft)
 # end
 
-function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+function train(f, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     reset!(f)
     for (x,ygold) in data
         if ygold == nothing
@@ -69,7 +69,7 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     end
 end
 
-function test(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+function test(f, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     sumloss = numloss = 0
     reset!(f)
     for (x,ygold) in data
@@ -84,7 +84,7 @@ function test(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     sumloss / numloss
 end
 
-function gradloss(f::Net, data, loss; grad=false, seed=42)
+function gradloss(f, data, loss; grad=false, seed=42)
     data_rng = data.rng
     data.rng = MersenneTwister()
     srand(data.rng, seed)

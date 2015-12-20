@@ -5,6 +5,7 @@
 
 module Adding
 using Main, Knet, ArgParse, CUDArt
+using Knet: stack_isempty
 
 function main(args=ARGS)
     info("Adding problem from Le et al. 2015.")
@@ -36,7 +37,7 @@ end
     end
 end
 
-function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
+function train(f, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     reset!(f)
     for (x,ygold) in data
         if ygold == nothing
@@ -55,7 +56,7 @@ function train(f::Net, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
     end
 end
 
-function gradloss(f::Net, data, loss; grad=false, seed=42)
+function gradloss(f, data, loss; grad=false, seed=42)
     data_rng = data.rng
     data.rng = MersenneTwister()
     srand(data.rng, seed)
