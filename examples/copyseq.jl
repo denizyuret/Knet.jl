@@ -1,5 +1,6 @@
 module CopySeq
-using Main, Knet, ArgParse
+using Main, CUDArt, CUSPARSE, Knet, ArgParse
+using Knet: gpu, copysync!
 
 function main(args=ARGS)
     info("Learning to copy sequences to test the S2S model.")
@@ -125,11 +126,27 @@ function test(m, data, loss; losscnt=zeros(2), o...)
     losscnt[1]/losscnt[2]
 end
 
+# Persistent storage for ygold and mask
+s2s_ygold = nothing
+s2s_mask = nothing
+copytogpu(y,x::Array)=CudaArray(x)
+copytogpu(y,x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
+copytogpu{T}(y::CudaArray{T},x::Array{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
+copytogpu{T}(y::CudaSparseMatrixCSC{T},x::SparseMatrixCSC{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
+
+
 function s2s_loop(m, data, loss; gcheck=false, o...)
+    global s2s_ygold, s2s_mask
     s2s_lossreport()
     decoding = false
     reset!(m)
     for (x,ygold,mask) in data
+        nwords = (mask == nothing ? size(x,2) : sum(mask))
+        # x,ygold,mask are cpu arrays; x gets copied to gpu by forw; we should do the other two here
+        if gpu() && ygold != nothing
+            ygold = s2s_ygold = copytogpu(s2s_ygold,ygold)
+            mask != nothing && (mask = s2s_mask  = copytogpu(s2s_mask,mask)) # mask not used when ygold=nothing
+        end
         if decoding && ygold == nothing # the next sentence started
             gcheck && break
             s2s_eos(m, data, loss; gcheck=gcheck, o...)
@@ -141,7 +158,7 @@ function s2s_loop(m, data, loss; gcheck=false, o...)
             decoding = true
         end
         if decoding && ygold != nothing # keep decoding target
-            s2s_decode(m, x, ygold, mask, loss; o...)
+            s2s_decode(m, x, ygold, mask, nwords, loss; o...)
         end
         if !decoding && ygold == nothing # keep encoding source
             s2s_encode(m, x; o...)
@@ -155,16 +172,15 @@ function s2s_encode(m, x; trn=false, o...)
     (trn?sforw:forw)(m, x; decoding=false)
 end    
 
-function s2s_decode(m, x, ygold, mask, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
+function s2s_decode(m, x, ygold, mask, nwords, loss; trn=false, ystack=nothing, losscnt=nothing, o...)
     # ypred = forw(m.decoder, x; trn=trn, seq=true, o...)
     ypred = (trn?sforw:forw)(m, x; decoding=true)
     ystack != nothing  && push!(ystack, (copy(ygold),copy(mask))) # TODO: get rid of alloc
-    losscnt != nothing && s2s_loss(m, ypred, ygold, mask, loss; losscnt=losscnt, o...)
+    losscnt != nothing && s2s_loss(m, ypred, ygold, mask, nwords, loss; losscnt=losscnt, o...)
 end
 
-function s2s_loss(m, ypred, ygold, mask, loss; losscnt=nothing, lossreport=0, o...)
-    (yrows, ycols) = size2(ygold)
-    nwords = (mask == nothing ? ycols : sum(mask)) # TODO: loss should handle mask, currently only softloss does.
+function s2s_loss(m, ypred, ygold, mask, nwords, loss; losscnt=nothing, lossreport=0, o...)
+    (yrows, ycols) = size2(ygold)  # TODO: loss should handle mask, currently only softloss does.
     losscnt[1] += loss(ypred,ygold;mask=mask) # loss divides total loss by minibatch size ycols.  at the end the total loss will be equal to
     losscnt[2] += nwords/ycols                # losscnt[1]*ycols.  losscnt[1]/losscnt[2] will equal totalloss/totalwords.
     # we could scale losscnt with ycols so losscnt[1] is total loss and losscnt[2] is total words, but I think that breaks gradcheck since the scaled versions are what gets used for parameter updates in order to prevent batch size from effecting step size.

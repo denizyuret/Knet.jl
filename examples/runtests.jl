@@ -55,7 +55,8 @@ if opts["all"] || opts["mnist2d"]
     # @test test2 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
     # @test test2 == (0.108679175f0,43.344624f0,3.0013776f0) # Wed Nov 18 21:39:18 PST 2015: xavier init
     # @test test2 == (0.10911515f0,43.322735f0,3.2024312f0)  # improved softmax (dx=q-p)
-    @test test2 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
+    # @test test2 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
+    @test test2 == (0.10843158f0,36.997395f0,2.963311f0)     # softmaxtemp introduced
     twice && (gc(); @time @show test2 = MNIST2D.main("--gcheck $gcheck"))
     # 6.941715 seconds (3.35 M allocations: 151.876 MB, 1.33% gc time) Tue Oct 20 19:15:59 PDT 2015
     # 6.741272 seconds (3.35 M allocations: 151.858 MB, 1.41% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr
@@ -74,7 +75,8 @@ if opts["all"] || opts["mnist2dy"]
     #@test test3 == (0.10610757f0,24.87226f0,3.3128357f0)  # 51a1bc1 v0.6.8 improved nan-proofing of softmax Fri Nov  6 12:53:16 PST 2015
     #@test test3 == (0.10906915f0,43.341377f0,3.1931002f0)  # Wed Nov 18 21:39:18 PST 2015: xavier init
     #@test test3 == (0.10911515f0,43.322735f0,3.2024312f0) # improved softmax (dx=q-p)
-    @test test3 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
+    #@test test3 == (0.10843158f0,36.997395f0,2.9633076f0)    # switched back to gaussian, xavier slows down xsparse!?
+    @test test3 == (0.10843156f0,36.997395f0,2.963311f0)     # softmaxtemp introduced
     twice && (gc(); @time @show test3 = MNIST2D.main("--ysparse --gcheck $gcheck"))
     # 8.478264 seconds (3.59 M allocations: 173.689 MB, 2.06% gc time) Tue Oct 20 19:14:45 PDT 2015
     # 8.205758 seconds (3.59 M allocations: 173.636 MB, 2.14% gc time) Mon Oct 26 11:10:17 PDT 2015: update uses axpy to scale with gclip&lr

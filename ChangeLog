@@ -1,19 +1,89 @@
 2015-12-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* examples/copyseq.jl: looking at cudart operations.
+	batchsize=128.  running on /tmp/foodata with 128 sequences.
+	Meaning 1 epoch = 1 minibatch.  Longest sequence has 20 tokens.
+	One minibatch takes 42 forward steps with two eos tokens.  The
+	model has 77 registers, stack has 3234=77*42 entries.  51 unique
+	out0, 51 unique dif0, 31 unique tmp.  76 :grad, 31 :incr (27
+	Par + 4 multi)
+
+	1 epoch = 1 minibatch.
+	:CudaArray   => 637
+	:reinterpret => 336
+	:fill!       => 170
+	:copy!       => 799
+
+	2 epochs:
+	:CudaArray   => 742 (+105)
+	:reinterpret => 672 (+336)
+	:fill!       => 332 (+162)
+	:copy!       => 1598 (+799)
+
+	calling train from outside is different?:
+	:CudaArray   => 42
+	:copy!       => 757
+	:fill!       => 162
+	:reinterpret => 336
+
+	+ why two different results for train? losscnt vs back only.
+	+ what are the delta ops each epoch?
+
+	Prevent multiple alloc for ygold and mask: could do in copyseq
+	script, but a more general solution is better.  The loss2/loss3
+	interface.  We want grad without loss: train.  We want loss
+	without grad: test.  Storing ygold/mask with net?  Still need to
+	copy multiple times for loss/grad.  If copyseq uses gpu we have
+	single copy.  vs two copies and a general solution.  Implement
+	both?  loss is not part of the net interface at all!  It just acts
+	on arrays.  OK, we copy once in copyseq.  Still we have 42 allocs
+	because of ystack.
+
+	CudaArray:
+---	-21 53 37 71 198 sback1 softloss3 domask copies mask: done.
+---	-21 51 37 71 198 sback1 softloss3 axpy copies ygold: done.
+---	-21 89 172 softloss2 copies ygold to gpu: done.
+---	-21 77 89 172 softloss2 copies mask: done.
+---	-21 78 89 172 softloss2 allocs tmp: prevent by having softlosstemp done.
+***	+42 c180 ystack
+
+	copy!
+ok	=21 f42 f34 c159 encoder sforw copy input
+ok	=1  a49 f44 f34 c159 encoder sforw add.forw(x1,nothing)
+ok	=189 n109 f47 f34 c159 encoder sforw push!
+ok	=21 f42 f34 c164 decoder sforw copy input
+ok	=210 n109 f47 f34 c164 decoder sforw push!
+---	-21 l89 c172 softloss2 copies ygold to gpu
+---	-21 l77 l89 c172 softloss2 copies mask to gpu
+ok	=21 l50 b37 b71 c198 sback1 softloss3 ypred->xgrad
+---	-21 l51 b37 b71 c198 sback1 softloss3 axpy copies ygold to gpu
+---	-21 l53 b37 b71 c198 sback1 softloss3 domask copies mask to gpu
+?	=21 a61 b52 b71 c198 sback1 add.back copies dy to dx2: can we solve this with sharing?
+?	=21 a61 b52 b71 c205 sback2 add.back copies dy to dx2
+?	=105 a155 a65 b52 b71 c198 sback1 add baddback:153?dy->db (dx1) for symmetric add2 dx1=dx2, can we use the same array?
+?	=105 a155 a65 b52 b71 c205 sback2 add baddback:153?dy->db (dx1)
+***	+21 c180 ystack
+***	+21 c180 ystack
+ok	+21 c138,151 copytogpu ygold/mask
+ok	+21 c138,150 copytogpu ygold/mask
+
+	fill!
+ok	23 n93 c135,124,54 reset! incr
+ok	8  n93 c135,124,54 reset! incr
+ok	4  d19 b52 b71 c205 dot.back x2==nothing
+ok	63 b58 b71 c198 sback2 incr
+ok	63 b58 b71 c205 sback1 incr
+ok	1  m48 b52 b71 c205 mul.back x1==nothing
+
 	* DONE:
 	DONE rnnlm: WARNING: Stack input has forw=false. solved.  results ok.
 	DONE 1. rnnlm: speed: 23.227981 vs 25.988030.  gcheck failing. fixed.
 	DONE 2. copyseq: speed is slow. (15.232240 vs 11.432132) probably due to copying ygold to dense.
+	DONE - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
+	DONE Start investigating (1) slightly different results, (2) speed and memory issues before going any further. get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
 
 	* TODO:
 
-	0000 addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference
-	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further. get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
-	0000 analyze array sharing in lstm and irnn, compare to master
-	0000 - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
-	0501 ncelm: port to Knet7
-	0501 ner: port to Knet7
-	0501 ipa: port to Knet7
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0003 cannot add three terms, fix in compiler (a+b+c)
 	0004 consolidate set and setopt
@@ -80,7 +150,6 @@
 	0200 nce needs mask
 	0200 s2s needs nce
 	0300 package KUdense as DynamicArrays.jl and post it: add gpu conditionals and cpu only tests, sparse?; should turn constructors into convert.
-	0500 add copytenten to runtests: src/data/S2SData.jl: add epochsize argument so copytenten can stop early.
 	0700 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss.
 	0700 - src/op/compound.jl: finish documentation for all ops.
 	0700 -- src/op/loss.jl: cleanup, move out of op.
@@ -143,6 +212,14 @@
 	1000 use templated code for cuda kernels
 	1000 ~/knet/lcn/examples/: mnist4d("--actf relu --gcheck 10 --xscale 255 --lr 0.001") gives lots of gradient errors.
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
+	1500 add copytenten to runtests: src/data/S2SData.jl: add epochsize argument so copytenten can stop early.
+	1501 ncelm: port to Knet7
+	1501 ner: port to Knet7
+	1501 ipa: port to Knet7
+	1501 rnnlm: simpler rnnlm example without keepstate
+	1501 copyseq: get rid of ystack alloc (l.180); see if add2 can pass dy back twice without copying; see if any more array sharing possible for add.back.
+	1501 addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference?
+	1501 analyze array sharing in lstm and irnn, compare to master
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 

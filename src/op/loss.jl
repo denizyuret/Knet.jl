@@ -72,16 +72,20 @@ function softloss(ypred::Array, ygold::Array; mask=nothing)
     return -logp/ycols
 end
 
+softlosstemp = nothing
+
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, mask=nothing, o...)
+    global softlosstemp
     (yrows,ycols) = size2(ygold)
     mask = (mask==nothing ? C_NULL : convert(CudaArray,mask))
-    ly = (tmp == nothing ? similar(ypred) : tmp) # TODO: get rid of alloc
+    ly = (issimilar(tmp,ypred) ? tmp :
+          issimilar(softlosstemp,ypred) ? softlosstemp :
+          (softlosstemp = similar(ypred)))
     T <: Float32 ? ccall((:softloss32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cuchar},Ptr{Cfloat}),
                          yrows,ycols,ypred,ygold,mask,ly) :
     T <: Float64 ? ccall((:softloss64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cuchar},Ptr{Cdouble}),
                          yrows,ycols,ypred,ygold,mask,ly) : error()
     loss = CUBLAS.asum(ly)/ycols
-    ly === tmp || free(ly)
     gpusync()
     return loss
 end
