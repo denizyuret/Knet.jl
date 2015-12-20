@@ -96,11 +96,12 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	DONE move compound, loss out of op. par and loss should probably get out of op.  at least loss.
 	DONE - runtests.jl: update timing, simplify scripts (no need for norms everywhere), merge with test/runtests.jl. edit test/runtests.jl to run the examples instead.
 	DONE src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
+	DONE Julia: for load/save check timholy's message about extending jld with custom types - the first and second test give different results after load from file
+	DONE - cleanup net/util.jl
 
 	* TODO:
 
-	0000 Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.
-	0000 Julia: for load/save check timholy's message about extending jld with custom types - the first and second test give different results after load from file
+	0000 lcn->master, master->v0.6, dev->master and/or v0.7
 	0001 - update docs
 	0001 cpu-only support
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
@@ -109,7 +110,6 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	0003 test batch resize: minibatch resizing: cusparse.jl: rename all Base.copy! to resizecopy!; define ones for Array, CudaArray; use them in resizing.
 	0004 consolidate set and setopt. rethink out/get/reg/dif/getprop set/setprop/setopt naming. mnist2d.jl: setopt! should work with register names as well.	0004 - fix the relationship between par/arr and the new reg, use plist for par update options, implement update callbacks, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well. - use better get/set function names in net/*.jl, search and replace all a.b type references.
 	0005 - check TODO, test all
-	0005 - cleanup net/util.jl
 	0005 - compiler: warn for unused constants
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
 	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
@@ -119,6 +119,7 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	0007 - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
 	0007 use templated code for cuda kernels
 	0008 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response.
+	0008 Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.
 	0011 yonatan: language learning model
 	0012 aliya: try bit representation on ipa
 	0020 saman: add lcn example to knet, push lcn branch to	master. lcn: add example: http://papers.nips.cc/paper/4773-convolutional-recursive-deep-learning-for-3d-object-classification.pdf

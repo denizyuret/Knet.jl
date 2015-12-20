@@ -1,7 +1,7 @@
 using CUDArt,CUBLAS,CUSPARSE,Knet,Base.Test
-using Knet: gemm!, gpusync, to_host2
+using Knet: gemm!, gpusync
 
-include("isapprox.jl")
+# include("isapprox.jl")
 
 csc2csr{T}(x::SparseMatrixCSC{T})=CudaSparseMatrixCSR{T}(CudaArray(convert(Vector{Cint},x.colptr)), CudaArray(convert(Vector{Cint},x.rowval)), CudaArray(x.nzval), (x.n,x.m), convert(Cint,length(x.nzval)), device())
 
@@ -154,7 +154,7 @@ dw5 = nothing
     dw5 = CUSPARSE.gemm('N','N',dy5,x5,'O','O','O')
     gpusync()
 end
-@test @show full(to_host2(dw5)) == dw
+@test @show full(to_host(dw5)) == dw
 
 # end # if false
 
@@ -168,7 +168,7 @@ dw6 = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
     gemm!('N','N',dy6,x6,dw6)
     gpusync()
 end
-@test @show full(to_host2(dw6)) == dw
+@test @show full(to_host(dw6)) == dw
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using A_mul_Bt (including sparse(dy)) 1.28ms")
@@ -180,7 +180,7 @@ dw6a = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
     A_mul_Bt!(dw6a,dy6a,x6a)
     gpusync()
 end
-@test @show full(to_host2(dw6a)) == dw
+@test @show full(to_host(dw6a)) == dw
 
 # dw = dy * x'
 info("1000x GPU back (all sparse) using A_mul_Bt (including sparse(dy) and axpy) 2.21ms")
@@ -194,9 +194,9 @@ iw6b = CudaSparseMatrixCSR(spzeros(Float32,size(w)...)) # N
     Base.axpy!(1,iw6b,dw6b)
     gpusync()
 end
-@test @show full(to_host2(iw6b)) == dw
-@show full(to_host2(dw6b)) == 1000*full(to_host2(iw6b))
-@show isapprox(full(to_host2(dw6b)), 1000*full(to_host2(iw6b)))
+@test @show full(to_host(iw6b)) == dw
+@show full(to_host(dw6b)) == 1000*full(to_host(iw6b))
+@show isapprox(full(to_host(dw6b)), 1000*full(to_host(iw6b)))
 
 # if false
 
@@ -210,7 +210,7 @@ dw7a = nothing                # T
     dw7a = CUSPARSE.gemm('N','N',x7a,dy7a,'O','O','O')
     gpusync()
 end
-@test @show full(to_host2(dw7a)) == dw'
+@test @show full(to_host(dw7a)) == dw'
 
 info("1000x GPU back (all sparse) using gemm!(x,dy',dw') 2.09ms")
 dw7 = x7 = dy7 = nothing; gc()
@@ -221,7 +221,7 @@ dw7 = CudaSparseMatrixCSR(spzeros(Float32,size(w')...)) # T
     gemm!('N','N',x7,dy7,dw7)
     gpusync()
 end
-@test @show full(to_host2(dw7)) == dw'
+@test @show full(to_host(dw7)) == dw'
 
 # dw'= x * dy'
 info("1000x GPU back (sparse x dense)->dense using csrmm!(x,dy',dw') 3.40ms")
