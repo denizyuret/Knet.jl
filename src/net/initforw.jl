@@ -61,12 +61,12 @@ function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::D
 end
 
 newarray(::Type{Array}, t::DataType, d::Dims)=Array(t,d)
-newarray(::Type{CudaArray}, t::DataType, d::Dims)=CudaArray(t,d)
 newarray(::Type{SparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=SparseMatrixCSC(d[1], d[2], ones(Cint, d[2]+1), Array(Cint, 0), Array(t, 0))
-newarray(::Type{CudaSparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSC(t, fillsync!(CudaArray(Cint, d[2]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
-newarray(::Type{CudaSparseMatrixCSR}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSR(t, fillsync!(CudaArray(Cint, d[1]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
-newarray(::Type{CudaSparseMatrixCSCU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSCU(t, d...)
-newarray(::Type{CudaSparseMatrixCSRU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSRU(t, d...)
+@gpu newarray(::Type{CudaArray}, t::DataType, d::Dims)=CudaArray(t,d)
+@gpu newarray(::Type{CudaSparseMatrixCSC}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSC(t, fillsync!(CudaArray(Cint, d[2]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+@gpu newarray(::Type{CudaSparseMatrixCSR}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSR(t, fillsync!(CudaArray(Cint, d[1]+1), 1), CudaArray(Cint, 0), CudaArray(t, 0), d)
+@gpu newarray(::Type{CudaSparseMatrixCSCU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSCU(t, d...)
+@gpu newarray(::Type{CudaSparseMatrixCSRU}, t::DataType, d::NTuple{2,Int})=CudaSparseMatrixCSRU(t, d...)
 
 # We do not need to copy persistent registers, they are guaranteed not to change during forwback.
 ispersistent(p::Reg)=(isa(p.op,Par) || isa(p.op,Arr))

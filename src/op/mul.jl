@@ -71,7 +71,7 @@ end
 
 ### bmul! broadcasting multiplication: c=a^alpha * b^beta
 
-function bmul!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
+@gpu function bmul!{T}(alpha::Number,a::CudaArray{T},beta::Number,b::CudaArray{T},c::CudaArray{T})
     size(b) == size(c) || throw(DimensionMismatch("b and c should have the same size in bmul!"))
     if size(a) == size(b)
         T <: Float32 ? ccall((:mul32,libknet),Void,(Cint,Cfloat,Ptr{Cfloat},Cfloat,Ptr{Cfloat},Ptr{Cfloat}),length(a),T(alpha),a,T(beta),b,c) :

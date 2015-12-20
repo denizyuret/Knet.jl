@@ -31,7 +31,7 @@ include("util/gpu.jl");		export gpu, @gpu, @useifgpu # Find out if we have a gpu
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
 @gpu include("util/deepcopy.jl");	export cpucopy, gpucopy
-include("util/linalg.jl");	
+@gpu include("util/linalg.jl");	
 include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
 include("util/array.jl");	# export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2

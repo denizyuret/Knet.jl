@@ -40,3 +40,22 @@ function Base.isapprox(x, y;
 end
 
 Base.convert{T,I}(::Type{Array{T,2}}, a::SparseMatrixCSC{T,I})=full(a)
+
+if !GPU  # alternatives defined in cudart.jl
+    typealias BaseArray{T,N} Union{Array{T,N},SubArray{T,N}}
+    copysync!(a,b)=copy!(a,b)
+    fillsync!(a,b)=fill!(a,b)
+end
+
+# Define a more versatile version of randn!
+
+import Base: randn!, GLOBAL_RNG
+
+randn!{T}(A::AbstractArray{T}, mean=zero(T), std=one(T)) = randn!(GLOBAL_RNG, A, mean, std)
+
+function randn!{T}(rng::AbstractRNG, A::AbstractArray{T}, mean=zero(T), std=one(T))
+    for i in eachindex(A)
+        @inbounds A[i] = mean+std*randn(rng)
+    end
+    A
+end

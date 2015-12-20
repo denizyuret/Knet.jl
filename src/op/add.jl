@@ -110,7 +110,7 @@ function addforw3!(alpha,a,beta,b,c)
     gpusync(); return c
 end
 
-function baddforw_cpu!(alpha::Number,a::Array,beta::Number,b::Array,c::Array)
+function baddforw!(alpha::Number,a::Array,beta::Number,b::Array,c::Array)
     broadcast!(+,c,(alpha==1 ? a : alpha*a),(beta==1 ? b : beta*b))
 end
 
@@ -145,7 +145,14 @@ end
 end
 
 # TODO: this does not cover all forms of db for cpu:
-baddback_cpu!(alpha::Number, dy::Array, db::Vector)=(c=ndims(dy)-1; fillsync!(db, zero(eltype(db))); for i=1:length(dy); db[ind2sub(size(dy),i)[c]] += dy[i]; end; alpha==1||scale!(alpha,db))
+function baddback!(dy::Array, db::Vector)
+    c=ndims(dy)-1
+    fillsync!(db, zero(eltype(db)))
+    @inbounds for i=1:length(dy)
+        db[ind2sub(size(dy),i)[c]] += dy[i]
+    end
+    return db
+end
 
 function baddback!(dy, db)
     size(db) == size(dy) || (db = reshape_to_match(db,dy; CUDNN_ADD_SAME_C=true))

@@ -14,7 +14,7 @@ back_reads_y(::Nce)=true
 # kq[K,1], s[K,B], p[i,j]=exp(s[i,j])/(exp(s[i,j])+kq[i])
 nceforw!(kq::Array,s::Array,p::Array)=(for i=1:size2(s,1), j=1:size2(s,2); p[i,j]=exp(s[i,j])/(exp(s[i,j])+kq[i]); end; p)
 
-nceforw!{T}(kq::CudaArray{T},s::CudaArray{T},p::CudaArray{T})=
+@gpu nceforw!{T}(kq::CudaArray{T},s::CudaArray{T},p::CudaArray{T})=
     (T <: Float32 ? ccall((:nceforw32,libknet),Void,(Cint,Cint,Ptr{Cfloat}, Ptr{Cfloat}, Ptr{Cfloat}), size2(s,1),size2(s,2),kq,s,p) :
      T <: Float64 ? ccall((:nceforw64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),size2(s,1),size2(s,2),kq,s,p) :
      error("$T not supported"); gpusync(); p)

@@ -1,9 +1,9 @@
 using Knet, Base.Test
 
 # Uncomment these if you want lots of messages:
-import Base.Test: default_handler, Success, Failure, Error
+# import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
-default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
 # default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 load_only = true

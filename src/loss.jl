@@ -72,6 +72,8 @@ function softloss(ypred::Array, ygold::Array; mask=nothing)
     return -logp/ycols
 end
 
+epsbump(x)=(x > eps(typeof(x)) ? x : eps(typeof(x)))
+
 softlosstemp = nothing
 
 @gpu function softloss{T}(ypred::CudaArray{T}, ygold::CudaArray{T}; tmp=nothing, mask=nothing, o...)
