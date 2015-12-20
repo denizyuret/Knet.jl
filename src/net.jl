@@ -120,17 +120,6 @@ stack_length(f::Net)=f.sp
 stack_empty!(f::Net)=(f.sp=0)
 stack_isempty(f::Net)=(f.sp==0)
 
-# DEBUGGING:
-function netprint(f::Net)
-    vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
-    for i=1:length(f)
-        r=get(f,i)
-        @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...), size(r.out0),
-                vecnorm1(r,:out), vecnorm1(r,:dif), r.name, tuple(r.cond.args...),
-                filter((x,y)->!isa(y,DataType),r.plist)
-                )
-    end
-end
 
 setopt!(m::Net; o...)=(for p in params(m); setopt!(p; o...); end)
 update!(m::Net; o...)=(for p in params(m); update!(p; o...); end)             # t:19
@@ -138,7 +127,7 @@ vnorm(x)=(x==nothing ? 0 : vecnorm(x))
 wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
 gnorm(m::Net,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332
 
-function Base.isequal(a::Net, b::Net)
+function Base.isequal(a::Union{Net,Reg,StackEntry}, b::Union{Net,Reg,StackEntry})
     for n in fieldnames(a)
         if isdefined(a,n) && isdefined(b,n)
             isequal(a.(n), b.(n)) || return false
@@ -150,6 +139,17 @@ function Base.isequal(a::Net, b::Net)
 end
 
 ### DEBUGGING
+
+function netprint(f::Net)
+    vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
+    for i=1:length(f)
+        r=get(f,i)
+        @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...), size(r.out0),
+                vecnorm1(r,:out), vecnorm1(r,:dif), r.name, tuple(r.cond.args...),
+                filter((x,y)->!isa(y,DataType),r.plist)
+                )
+    end
+end
 
 ptr16(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xffff, 4)
 ptr8(x)=hex(x==nothing ? 0 : hash(pointer(x)) % 0xff, 2)

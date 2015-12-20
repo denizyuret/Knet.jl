@@ -95,6 +95,7 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	DONE - start to clean up data and models. retire the Model interface if ok, only expose Net,forw,back,reset!,update!, let people write their own train/test functions. model.jl: add predict, load, save:
 	DONE move compound, loss out of op. par and loss should probably get out of op.  at least loss.
 	DONE - runtests.jl: update timing, simplify scripts (no need for norms everywhere), merge with test/runtests.jl. edit test/runtests.jl to run the examples instead.
+	DONE src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 
 	* TODO:
 
@@ -179,7 +180,6 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 net/util.jl: look into julia nullables to make this nothing=zero matrix thing better
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library. will be fixed in v4.
-	1000 src/net.jl: TODO: eventually get rid of all similar, similar!, issimilar, dsimilar, dtype, dsimilar! etc. defined in array.jl.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
 	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
 	1000 src/op/conv.jl: cpu implementation

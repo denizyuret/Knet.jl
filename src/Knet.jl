@@ -22,12 +22,12 @@ setseed(n)=srand(n)             # Set both cpu and gpu seed. This gets overwritt
 export @date, @dbg, gpusync, setseed
 
 
-include("util/gpu.jl");		# Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
+include("util/gpu.jl");		export gpu, @gpu, @useifgpu # Find out if we have a gpu, defines gpu(), @gpu, @useifgpu etc.
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUSPARSE
 @useifgpu CUDNN  
-@gpu include("util/cudart.jl");
+@gpu include("util/cudart.jl");	export copysync!, fillsync!
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
 @gpu include("util/deepcopy.jl");	export cpucopy, gpucopy

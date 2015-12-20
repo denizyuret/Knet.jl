@@ -80,17 +80,17 @@ Base.endof(x::CudaArray)=length(x)
 
 # Finding memory usage:
 
-_getbytes(x::DataType,d) = sizeof(x)
-
+_getbytes(x::DataType,d)=sizeof(Int)
 _getbytes(x::NTuple,d)=sum(map(y->_getbytes(y,d), x))
-
 _getbytes(x::AbstractCudaArray,d)=(haskey(d,x) ? 0 : (d[x]=1; length(x) * sizeof(eltype(x))))
+_getbytes(x::Symbol,d)=sizeof(Int)
 
 function _getbytes(x::DenseArray,d) 
     haskey(d,x) && return 0; d[x]=1
     total = sizeof(x)
     if !isbits(eltype(x))
         for i = 1:length(x)
+            isassigned(x,i) || continue
             isize = _getbytes(x[i],d)
             # @show (typeof(x), i, isize)
             total += isize
@@ -133,4 +133,13 @@ if !isdefined(:_CudaArray)
     getindex{T}(a::_CudaArray{T},i::Int)=getindex(a.a,i)
     summary{T,N}(a::_CudaArray{T,N})=string(dims2string(size(a)), " CudaArray{$T,$N}")
     writemime(io::IO, ::MIME"text/plain", v::CudaArray)=with_output_limit(()->showarray(io, _CudaArray(v), header=true, repr=false))
+end
+
+
+# To be able to load/save CudaArrays:
+if !isdefined(:_CudaArraySave)
+    using JLD
+    type _CudaArraySave; a::Array; end
+    JLD.writeas(c::CudaArray) = _CudaArraySave(to_host(c))
+    JLD.readas(d::_CudaArraySave) = CudaArray(d.a)
 end
