@@ -209,12 +209,12 @@ function lookup(s,d::Dict,a=dict2arr(d))
     end
 end
 
-function exactmatch(m::S2S, data::S2SData; beamsize=10, nbest=10)
-    global s1 = data.bgen1.sgen
-    global s2 = data.bgen2.sgen
-    global pr = predict(m,s1; beamsize=beamsize, nbest=nbest)
-    mean(map(first,pr) .== collect(s2))
-end
+# function exactmatch(m::S2S, data::S2SData; beamsize=10, nbest=10)
+#     global s1 = data.bgen1.sgen
+#     global s2 = data.bgen2.sgen
+#     global pr = predict(m,s1; beamsize=beamsize, nbest=nbest)
+#     mean(map(first,pr) .== collect(s2))
+# end
 
 function kmatch(a, b, k)
     mean(map((x,y)->in(x,y[1:k]), a, b))

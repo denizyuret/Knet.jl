@@ -52,10 +52,10 @@ include("op/pool.jl")
 include("op/rnd.jl")
 
 include("update.jl");		export update!
-include("op/loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
+include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
-include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!
+# include("model.jl");		export Model, train, test, predict, setopt!, wnorm, gnorm
+include("net.jl");              export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, setopt!, wnorm, gnorm
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs the last one
 include("net/initforw.jl")
 include("net/initback.jl")
@@ -63,15 +63,9 @@ include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback
 include("net/util.jl");         export reset!
 
-include("op/compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
+include("compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
-include("model/gradcheck.jl");  export gradcheck
-include("model/fnn.jl");        export FNN
-include("model/rnn.jl");        export RNN
-include("model/s2c.jl");        export S2C
-include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
-include("model/tagger.jl");	export Tagger
-include("model/nce.jl");	export NCE
+include("gradcheck.jl");  	export gradcheck 
 
 include("data/ItemTensor.jl");		export ItemTensor
 include("data/S2SData.jl");     	export S2SData, maxtoken
@@ -80,6 +74,10 @@ include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
 end # module
+
+
+
+### DEAD CODE
 
 # include("op/mmul.jl");     	# export Mmul
 # include("op/bias.jl");		# export Bias
@@ -112,3 +110,9 @@ end # module
 # out of Julia to avoid name conflicts.
 # isdefined(:_KENV) || (_KENV = Dict{Symbol,Any}())
 
+# include("model/fnn.jl");        export FNN
+# include("model/rnn.jl");        export RNN
+# include("model/s2c.jl");        export S2C
+# include("model/s2s.jl");        export S2S, S2SData, encoder, decoder # last two needed by the compiler
+# include("model/tagger.jl");	export Tagger
+# include("model/nce.jl");	export NCE

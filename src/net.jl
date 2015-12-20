@@ -26,7 +26,7 @@ type StackEntry
 end
 
 "DataType for a compiled network."
-type Net <: Model
+type Net
     reg::Vector{Reg}
     stack::Vector{StackEntry}
     sp::Int
@@ -132,6 +132,11 @@ function netprint(f::Net)
     end
 end
 
+setopt!(m::Net; o...)=(for p in params(m); setopt!(p; o...); end)
+update!(m::Net; o...)=(for p in params(m); update!(p; o...); end)             # t:19
+vnorm(x)=(x==nothing ? 0 : vecnorm(x))
+wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
+gnorm(m::Net,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332
 
 ### DEAD CODE
 
