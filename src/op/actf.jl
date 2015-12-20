@@ -91,17 +91,19 @@ end
 
 @gpu softforw(x::CudaArray,y::CudaArray;o...)=cudnnSoftmaxForward(x,y)
 
-# Note that softback expects ygold from softloss, not ygrad!
+# Note that softback expects xgrad from softloss, not ygrad!
 # See the softloss doc for an explanation.
-function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
-    ycols = ccount(ypred)
-    dx===ygold || copysync!(dx,ygold)
-    scale!(-1/ycols,dx)
-    axpy!(1/ycols,ypred,dx)
-    mask!=nothing && domask(mask,dx)
-    gpusync()
-    return dx
-end
+softback(ypred,xgrad1,xgrad2; o...)=(xgrad1===xgrad2 ? xgrad2 : copysync!(xgrad2,xgrad1))
+
+# function softback(ypred,ygold,dx; mask=nothing, o...) # dx=(ypred-ygold)/ycols
+#     ycols = ccount(ypred)
+#     dx===ygold || copysync!(dx,ygold)
+#     scale!(-1/ycols,dx)
+#     axpy!(1/ycols,ypred,dx)
+#     mask!=nothing && domask(mask,dx)
+#     gpusync()
+#     return dx
+# end
 
 @doc "@knet function logp(x) computes the log softmax activation function: x[i,j])-log(sum(exp(x[:,j])))" :logp
 function logpforw(x::Array,y::Array;o...)

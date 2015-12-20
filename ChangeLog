@@ -2,16 +2,18 @@
 
 	* DONE:
 	DONE rnnlm: WARNING: Stack input has forw=false. solved.  results ok.
+	DONE 1. rnnlm: speed: 23.227981 vs 25.988030.  gcheck failing. fixed.
+	DONE 2. copyseq: speed is slow. (15.232240 vs 11.432132) probably due to copying ygold to dense.
 
 	* TODO:
 
-	0000 1. rnnlm: speed: 23.227981 vs 25.988030.  gcheck failing.
-	0000 2. copyseq: speed is slow. (15.232240 vs 11.432132) probably due to copying ygold to dense.
-	0000 3. addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference
-	0001 Start investigating (1) slightly different results, (2) speed and memory issues before going any further. get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
-	0001 ncelm: port to Knet7
-	0001 ner: port to Knet7
-	0002 analyze array sharing in lstm and irnn, compare to master
+	0000 addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference
+	0000 Start investigating (1) slightly different results, (2) speed and memory issues before going any further. get all other models to work, sanity check with no array sharing version.  Could make this an option in runtests?
+	0000 analyze array sharing in lstm and irnn, compare to master
+	0000 - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
+	0501 ncelm: port to Knet7
+	0501 ner: port to Knet7
+	0501 ipa: port to Knet7
 	0003 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.
 	0003 cannot add three terms, fix in compiler (a+b+c)
 	0004 consolidate set and setopt
@@ -25,7 +27,6 @@
 	0003 test cpu softloss. compare quadloss on bigger problem. copy!: softloss@loss.jl:67 ygold copied for gradient. however this may happen twice one for 2arg one for 3arg version of softloss.  prevent that.
 	0005 - back: problem with zeroing out the dif0 for back.
 	0005 - check TODO, test all
-	0005 - check/compare number of arrays allocated for forw/back lstm, count number of useless copies and allocations
 	0005 - cleanup net/util.jl
 	0005 - compound statements that involve axpb or alpha/beta in add/mul.
 	0005 - examples: consolidate train/test functions, maybe demo options.

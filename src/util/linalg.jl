@@ -192,6 +192,10 @@ axpy!(a,x::CudaSparseMatrixCSC{Float64},y::CudaMatrix{Float64})=(ccall((:add_csc
 axpy!(a,x::CudaSparseMatrixCSCU{Float32},y::CudaMatrix{Float32})=(ccall((:add_csc_dns_atomic_32,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.colPtr,x.rowVal,y); gpusync(); y)
 axpy!(a,x::CudaSparseMatrixCSCU{Float64},y::CudaMatrix{Float64})=(ccall((:add_csc_dns_atomic_64,libknet),Void,(Cint,Cint,Cdouble,Cint,Ptr{Cdouble},Ptr{Cint},Ptr{Cint},Ptr{Cdouble}),x.dims[1],x.dims[2],convert(Float64,a),x.nnz,x.nzVal,x.colPtr,x.rowVal,y); gpusync(); y)
 
+# This is necessary for cpu ygold in softloss
+axpy!{T}(a,x::SparseMatrixCSC{T},y::CudaMatrix{T})=axpy!(a,CudaSparseMatrixCSC(x),y)
+axpy!{T}(a,x::Matrix{T},y::CudaMatrix{T})=axpy!(a,CudaArray(x),y)
+
 # Warn we cannot compute vecnorm
 vecnorm(x::CudaSparseMatrixCSRU,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)
 vecnorm(x::CudaSparseMatrixCSCU,p=2)=(Base.warn_once("Cannot compute vecnorm for $(typeof(x)), returning 0");0)

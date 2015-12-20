@@ -42,15 +42,18 @@ It is much better to directly compute: ∂J/∂x = q-p
 ;; = Σi ((i=k) qi - qi qk - (i=k) pi + pi qk)
 ;; = qk - qk - pk + qk = qk - pk
 
-So have softloss(ypred,ygold,ygrad) pass back ygrad=ygold instead of
-∂J/∂q.  Then softback just computes ypred-ygold.
+So have softloss(ypred,ygold,ygrad) pass back xgrad=ypred-ygold,
+i.e. ∂J/∂x instead of ∂J/∂q.  Then softback just passes this back.
 """
-softloss(ypred,ygold,ygrad; o...)=(ygrad===ygold ? ygrad : copysync!(ygrad,ygold))
-
-# This is necessary for sparse ygold
-copysync!{T}(ygrad::BaseArray{T},ygold::SparseMatrixCSC{T})=copysync!(ygrad,full(ygold))
-# TODO: make it more efficient.
-# TODO: in fact the whole sparse matrix allocation has to change, ygrad should be sparse. otherwise lm will suffer.
+function softloss(ypred,ygold,xgrad; mask=nothing, o...) # xgrad=(ypred-ygold)/ycols
+    ycols = ccount(ypred)
+    xgrad===ypred || copysync!(xgrad,ypred)
+    axpy!(-1,ygold,xgrad)
+    scale!(1/ycols,xgrad)
+    mask!=nothing && domask(mask,xgrad)
+    gpusync()
+    return xgrad
+end
 
 ### The two argument version is for loss calculation:
 
