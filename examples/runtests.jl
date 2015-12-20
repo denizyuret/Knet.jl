@@ -345,30 +345,30 @@ if opts["all"] || opts["copyseq"]
     # 12.093022 seconds (16.60 M allocations: 713.095 MB, 4.80% gc time) fixed sparse softloss
 end
 
-if opts["all"] || opts["ncelm"] # TODO: port ncelm to Knet7
-    include("ncelm.jl")
-    if !isfile("ptb.valid.txt")
-        info("Downloading ptb...")
-	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/ncelm/simple-examples.tgz`,
-                     `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
-    end
-    @time @show test11 = ncelm("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
-    @test isapprox(test11[1], 1.04277, rtol=0.0001)
-    @test isapprox(test11[2], 1411.14, rtol=0.0001)
-    @test isapprox(test11[3], 968.846, rtol=0.0001)
-    @test isapprox(test11[4], 31.8226, rtol=0.0001)
-    twice && (gc(); @time @show test11 = ncelm("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
-    # 6.069526 seconds (5.36 M allocations: 204.252 MB, 2.06% gc time)
-    # 6.079928 seconds (5.45 M allocations: 204.452 MB, 2.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
-    # 6.146882 seconds (5.60 M allocations: 209.355 MB, 2.60% gc time) 5f60a84 latest master (xavier)
-end
+# if opts["all"] || opts["ncelm"] # TODO: port ncelm to Knet7
+#     include("ncelm.jl")
+#     if !isfile("ptb.valid.txt")
+#         info("Downloading ptb...")
+# 	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/ncelm/simple-examples.tgz`,
+#                      `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
+#     end
+#     @time @show test11 = ncelm("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
+#     @test isapprox(test11[1], 1.04277, rtol=0.0001)
+#     @test isapprox(test11[2], 1411.14, rtol=0.0001)
+#     @test isapprox(test11[3], 968.846, rtol=0.0001)
+#     @test isapprox(test11[4], 31.8226, rtol=0.0001)
+#     twice && (gc(); @time @show test11 = ncelm("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
+#     # 6.069526 seconds (5.36 M allocations: 204.252 MB, 2.06% gc time)
+#     # 6.079928 seconds (5.45 M allocations: 204.452 MB, 2.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+#     # 6.146882 seconds (5.60 M allocations: 209.355 MB, 2.60% gc time) 5f60a84 latest master (xavier)
+# end
 
-if (opts["all"] || opts["ner"]) && isfile("ner.jld") # TODO: gcheck for ner, port to Knet7
-    include("ner.jl")
-    @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128")
-    @test test12 == (1,5.391641813553446,5.146268547771243,0.8020976309565352)
-    twice && (gc(); @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128"))
-    # 20.866555 seconds (37.80 M allocations: 1.829 GB, 6.12% gc time)
-    # 20.983972 seconds (38.88 M allocations: 1.854 GB, 6.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
-    # 20.359684 seconds (40.20 M allocations: 1.908 GB, 5.04% gc time) 5f60a84 latest master (xavier)
-end
+# if (opts["all"] || opts["ner"]) && isfile("ner.jld") # TODO: gcheck for ner, port to Knet7
+#     include("ner.jl")
+#     @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128")
+#     @test test12 == (1,5.391641813553446,5.146268547771243,0.8020976309565352)
+#     twice && (gc(); @time @show test12 = ner("--devfortrn --epochs 1 --batchsize 128"))
+#     # 20.866555 seconds (37.80 M allocations: 1.829 GB, 6.12% gc time)
+#     # 20.983972 seconds (38.88 M allocations: 1.854 GB, 6.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
+#     # 20.359684 seconds (40.20 M allocations: 1.908 GB, 5.04% gc time) 5f60a84 latest master (xavier)
+# end
