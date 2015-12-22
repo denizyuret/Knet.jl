@@ -41,12 +41,14 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
             error("Got return in non-final instruction")
         end
         # println(:back, (findfirst(regs(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
-        if y.dif == nothing
-            for x in (seq ? stack_inputregs(f,n) : inputregs(f,y))
+        xx = (seq ? stack_inputregs(f,n) : inputregs(f,y))
+        if isempty(xx)
+            # nothing to do
+        elseif y.dif == nothing
+            for x in xx
                 getp(x,:grad) && !getp(x,:incr) && (x.dif = nothing)
             end
         else
-            xx = (seq ? stack_inputregs(f,n) : inputregs(f,y))
             xdif = difs(xx)
             xout = get1(!seq ? outs(xx) : stack_inputs(f,n))
             back(y.op, y.dif, xdif...; x=xout, y=yout, o...)

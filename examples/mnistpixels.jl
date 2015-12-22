@@ -19,7 +19,7 @@ function main(args=ARGS)
     global trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
     global tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
     global net = compile(:mpixels; rnn=symbol(nettype), hidden=hidden, nclass=10, winit=Gaussian(0,winit), fbias=fbias)
-    setopt!(net; lr=lrate)
+    setp(net; lr=lrate)
 
     l = [0f0,0f0]; m = [0f0,0f0]; acc = 0
     for epoch=1:epochs

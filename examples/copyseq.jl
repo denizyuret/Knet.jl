@@ -35,7 +35,7 @@ function main(args=ARGS)
     vocab = maxtoken(data[1],2)
     # global model = S2S(lstm; fbias=fbias, hidden=hidden, vocab=vocab, winit=eval(parse(winit)))
     global model = compile(:copyseq; fbias=fbias, out=hidden, vocab=vocab, winit=eval(parse(winit)))
-    setopt!(model; lr=lr)
+    setp(model; lr=lr)
     if nosharing
         set!(model, :forwoverwrite, false)
         set!(model, :backoverwrite, false)

@@ -18,7 +18,7 @@ function main(args=ARGS)
     global net = compile(:adding; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
     # TODO: can pass opts in directly to compile as hash if keys were symbols: parse_args has an as_symbols option.
     # TODO: winit should probably be Xavier, at least give the user the option
-    setopt!(net; lr=opts["lrate"])
+    setp(net; lr=opts["lrate"])
     mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
     for epoch=1:opts["epochs"]
         train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))

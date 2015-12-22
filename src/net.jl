@@ -40,7 +40,7 @@ import Base: length, get, eltype, pop!, push!
 regs(f::Net)=f.reg
 length(f::Net)=length(f.reg)
 reg(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
-params(f::Net)=filter(x->isa(x,Par),map(x->x.op,f.reg)) # This will have to return Reg instead of Par when we change Par
+params(f::Net)=filter(x->isa(x.op,Par),f.reg)
 ninputs(f::Net)=count(x->(isa(x.op,Input) && getp(x,:forw)),f.reg)
 eltype(f::Net)=(r=f.reg[1];isdefined(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
 
@@ -81,8 +81,10 @@ end
 
 getp(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
 setp(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
-incp(p::Reg,k::Symbol)=setp(p,k,1+getp(p,k,0))
 setp(f::Net,k::Symbol,v=true)=(for p in regs(f); p.plist[k]=v; end)
+setp(p::Reg; o...)=(for (k,v) in o; setp(p,k,v); end)
+setp(f::Net; o...)=(for p in regs(f); setp(p; o...); end)
+incp(p::Reg,k::Symbol)=setp(p,k,1+getp(p,k,0))
 
 ### Cleanup at the beginning/end of sequence
 
@@ -120,8 +122,6 @@ stack_length(f::Net)=f.sp
 stack_empty!(f::Net)=(f.sp=0)
 stack_isempty(f::Net)=(f.sp==0)
 
-
-setopt!(m::Net; o...)=(for p in params(m); setopt!(p; o...); end) # TODO: merge with setp
 update!(m::Net; o...)=(for p in params(m); update!(p; o...); end) # TODO: implement callbacks
 vnorm(x)=(x==nothing ? 0 : vecnorm(x))
 wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317

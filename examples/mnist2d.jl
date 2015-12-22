@@ -28,7 +28,7 @@ function main(args=ARGS)
     global dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), batchsize)
 
     global net = compile(:mnist2layer)
-    setopt!(net, lr=0.5)
+    setp(net, lr=0.5)
     # To make sure the array sharing does not change the results:
     # set!(net, :forwoverwrite, false)
     # set!(net, :backoverwrite, false)

@@ -33,7 +33,7 @@ function main(args=ARGS)
     global dtst = minibatch(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst, batchsize)
 
     global net = compile(:lenet_model)
-    setopt!(net; lr=lr)
+    setp(net; lr=lr)
     # To make sure the array sharing does not change the results:
     # set!(net, :forwoverwrite, false)
     # set!(net, :backoverwrite, false)

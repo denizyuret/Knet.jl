@@ -37,7 +37,7 @@ end
 
 @knet function drop(x; pdrop=0, o...)
     if training
-        r = rnd(; rgen=Bernoulli(1-pdrop, 1/(1-pdrop)))
+        r = rnd(; init=Bernoulli(1-pdrop, 1/(1-pdrop)))
         return mul(r,x)
     else
         return x

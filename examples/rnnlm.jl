@@ -5,9 +5,11 @@
 # Usage: julia rnnlm.jl ptb.train.txt ptb.valid.txt ptb.test.txt
 # Type julia rnnlm.jl --help for more options
 
+using Knet,CUDArt # useful when debugging
+
 module RNNLM
 using Knet, ArgParse
-using Knet: regs, getp, setp, stack_length, stack_empty!
+using Knet: regs, getp, setp, stack_length, stack_empty!, params
 
 function main(args=ARGS)
     info("RNN language model example from Zaremba et al. 2014.")
@@ -27,10 +29,11 @@ function main(args=ARGS)
     end
 
     vocab_size = length(dict)
-    #global net = RNN(rnnlmModel; layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
     global net = compile(:rnnlm;  layers = opts["layers"], rnn_size = opts["rnn_size"], vocab_size = vocab_size)
     lr = opts["lr"]
-    setopt!(net; lr=lr, init = Uniform(-opts["init_weight"], opts["init_weight"]))
+    setp(net; lr=lr) 
+    init = Uniform(-opts["init_weight"], opts["init_weight"])
+    for r in params(net); r.op.init=init; end
     if opts["nosharing"]
         setp(net, :forwoverwrite, false)
         setp(net, :backoverwrite, false)
@@ -38,7 +41,7 @@ function main(args=ARGS)
     perp = zeros(length(data)); l=zeros(2); m=zeros(2)
 
     for ep=1:opts["max_max_epoch"]
-        ep > opts["max_epoch"] && (lr /= opts["decay"]; setopt!(net; lr=lr))
+        ep > opts["max_epoch"] && (lr /= opts["decay"]; setp(net; lr=lr))
         train(net, data[1], softloss; gclip=opts["max_grad_norm"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
         perp[1] = exp(l[1]/l[2])
         opts["gcheck"]>0 && gradcheck(net,
@@ -54,10 +57,20 @@ function main(args=ARGS)
     return (perp..., m...)
 end
 
-@knet function rnnlm(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=:lstm, o...)
+@knet function rnnlm(word; layers=0, rnn_size=0, vocab_size=0, rnn_type=:lstm1, o...)
     wvec = wdot(word; o..., out=rnn_size) # 1-3
     yrnn = repeat(wvec; o..., frepeat=rnn_type, nrepeat=layers, out=rnn_size) # 4-40 with 41 copy for return
     return wbf(yrnn; o..., out=vocab_size, f=:soft) # 42-46
+end
+
+@knet function lstm1(x; o...)   # need version without fbias
+    input  = add2(x,h; o..., f=:sigm)
+    forget = add2(x,h; o..., f=:sigm)
+    output = add2(x,h; o..., f=:sigm)
+    newmem = add2(x,h; o..., f=:tanh)
+    cell = input .* newmem + cell .* forget
+    h  = tanh(cell) .* output
+    return h
 end
 
 function reset_trn!(f; o...)
@@ -89,6 +102,7 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
         if item != nothing
             (x,ygold) = item
             ypred = sforw(f, x)
+            # Knet.netprint(f); error(:ok)
             losscnt != nothing && (losscnt[1] += loss(ypred, ygold); losscnt[2] += 1)
             push!(ystack, copy(ygold))
         else                    # end of sequence

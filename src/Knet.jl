@@ -39,20 +39,21 @@ include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 include("op.jl");		
 include("op/actf.jl")
 include("op/add.jl")
-include("op/arr.jl")
 include("op/conv.jl")
 include("op/dot.jl")
-include("op/input.jl")
 include("op/mul.jl")
 include("op/nce.jl")
-include("op/par.jl")
 include("op/pool.jl")
-include("op/rnd.jl")
+include("op/genop.jl")
 
-include("update.jl");		export update!
+# include("op/par.jl")
+# include("op/arr.jl")
+# include("op/rnd.jl")
+# include("op/input.jl")
+
 include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
 
-include("net.jl");              export setopt!, wnorm, gnorm, reset! #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, 
+include("net.jl");              export setp, wnorm, gnorm, reset! #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, 
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs _comp_parse_def
 include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback
@@ -62,6 +63,8 @@ include("net/initback.jl")
 include("compound.jl");	# export wdot, bias, wb, wf, wbf, add2, lstm, irnn, wconv, cbfp # repeat,drop in base
 
 include("gradcheck.jl");  	export gradcheck 
+
+include("update.jl");		export update!
 
 include("data/ItemTensor.jl");		export ItemTensor
 include("data/S2SData.jl");     	export S2SData, maxtoken

@@ -26,7 +26,7 @@ function main(args=ARGS)
     seed > 0 && setseed(seed)
     global data = Data(outputdims, inputdims; batchsize=batchsize, epochsize=epochsize, noise=noise)
     global net = compile(:wdot; out=outputdims)
-    setopt!(net; lr=lr)
+    setp(net; lr=lr)
     losscnt = zeros(2)
     maxnorm = zeros(2)
     for epoch = 1:epochs
