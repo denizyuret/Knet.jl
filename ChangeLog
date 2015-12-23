@@ -1,9 +1,11 @@
 2015-12-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* DONE:
+	DONE new par: consolidate set and setopt. mnist2d.jl: setopt! should work with register names as well - fix the relationship between par/arr and the new reg, use plist for par update options, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
+
 	* TODO:
 
-	0000 new par: consolidate set and setopt. mnist2d.jl: setopt! should work with register names as well - fix the relationship between par/arr and the new reg, use plist for par update options, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
-	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1.
+	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1. look at julia broadcasting.
 	0003 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
 	0004 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	0004 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols...
