@@ -1,8 +1,5 @@
 type Dot <: Op; Dot(;o...)=new(); end
 
-Kenv.kdef(:dot,Dot)
-Kenv.kdef(:*,Dot)
-
 ninputs(::Dot)=2
 canoverwrite(::Dot)=false
 back_reads_x(::Dot)=true

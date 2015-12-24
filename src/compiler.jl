@@ -14,9 +14,8 @@ Once a knet function is defined it can be:
 """
 macro knet(f)
     (fname, fargs, fpars, fbody) = _comp_parse_def(f)
-    esc(Expr(:call,Kenv.kdef,Expr(:quote,fname),Expr(:quote,f)))
+    esc(Expr(:call,Kfun.kdef,Expr(:quote,fname),Expr(:quote,f)))
 end
-
 
 """
 compile(fname::Symbol; o...) compiles the knet function given by fname
@@ -30,8 +29,8 @@ with a colon.  For example:
 """    
 function compile(fname::Symbol; o...)
     @dbg println((:compile,:fname,fname,:o,o))
-    isdefined(Kenv, fname) || error("$fname not defined as a knet function")
-    prog = _comp(Kenv.(fname); o...)
+    isdefined(Kfun, fname) || error("$fname not defined as a knet function")
+    prog = _comp(Kfun.(fname); o...)
     @dbg println((:compile,:prog,prog))
     Net(prog)
     # inst = _comp_inst(prog)
@@ -116,11 +115,11 @@ end
 # _comp_assignment with the name, value, cond given above.
 
 # _comp_assignment :(y=wdot(x;o...)) has to create a new name2, value2, cond2 to compile the body of wdot.
-# (1) eval the name of the function (wdot) in the value dict for possible replacement (it could be a variable f), then the Kenv global environment (all knet functions must be defined there).
+# (1) eval the name of the function (wdot) in the value dict for possible replacement (it could be a variable f), then the Kfun global environment (all knet functions must be defined there).
 # (2) lookup the name of lhs (y) in the name dict, creating a gensym for it if not found.  Set name2[:return] to this name.
 # (3) compile any arg expressions, adding their instructions to the program, and generating gensyms for their return variables. Add these as {par=>arg} mappings to name2.
 # (4) lookup the names of the args (x) in the name dict, creating gensyms for them if not found, adding {par=>arg} mappings to name2.
-# (5) evaluate keyword argument values in the call using (a) value dict, (b) Kenv table, (c) julia environment.
+# (5) evaluate keyword argument values in the call using (a) value dict, (b) Kfun table, (c) julia environment.
 # (6) construct the value dict considering the function definition of wdot and the output of #5.
 
 function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
@@ -132,7 +131,7 @@ function _comp_assignment(expr::Expr,name::Dict,value::Dict,cond::Expr)
     # haskey(_KENV, f) || error("$f is not a knet function.")
     # feval = _KENV[f]
     # feval = _comp_eval(f, value)
-    feval = eval(Kenv, f)
+    feval = eval(Kfun, f)
     @dbg println((:_comp_assignment,:feval,feval))
 
     y = expr.args[1]
@@ -261,9 +260,9 @@ function _comp_fpars(f::Expr, o)
     fvars = map(s->Expr(:(=>), QuoteNode(s.args[1]), s.args[1]), fpars)
     fbody = Expr(:block, Expr(:call, :Dict, fvars...))
     fdefn = Expr(:function, fhead, fbody) # the new function returns a dictionary of fpars and their values
-    # If we use Kenv instead of current_module to capture knet
+    # If we use Kfun instead of current_module to capture knet
     # functions, things go awry, e.g. a kwarg (k=a*b) ends up calling
-    # Dot instead of regular multiply.  It is best not to mix Kenv and
+    # Dot instead of regular multiply.  It is best not to mix Kfun and
     # Julia.
     eval(current_module(),fdefn)
     fdict = eval(current_module(),ftemp)(;o...)
@@ -297,8 +296,8 @@ function _comp_parse_call(s)
 end
 
 function test_compiler()
-    for n in names(Kenv,true)
-        isa(Kenv.(n),DataType) || isa(Kenv.(n),Expr) || continue
+    for n in names(Kfun,true)
+        isa(Kfun.(n),DataType) || isa(Kfun.(n),Expr) || continue
         println(n)
         compile(n; out=10, f=:tanh)
     end
@@ -851,7 +850,7 @@ end
 #     fdict = Dict{Symbol,Any}()
 #     for k in fpars
 #         (isa(k, Expr) && isa(k.args[1], Symbol) && k.head == :kw) || error("Malformed keyword argument $k")
-#         fdict[k.args[1]] = eval(Kenv, k.args[2])
+#         fdict[k.args[1]] = eval(Kfun, k.args[2])
 #         # (isa(k.args[2],Symbol) && haskey(_KENV,k.args[2]) ? _KENV[k.args[2]] :
 #         #  eval(current_module(), k.args[2]))
 #     end

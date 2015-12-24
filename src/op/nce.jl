@@ -3,13 +3,12 @@
 Contrastive Estimation.  Given q[K] and s[K,B] the output is p[K,B]
 where p[i,j]=exp(s[i,j])/(exp(s[i,j])+q[i]).
 """
-type Nce <: Op; Nce(;o...)=new(); end
-Kenv.kdef(:nce,Nce)
+type NCE <: Op; NCE(;o...)=new(); end
 
-ninputs(::Nce)=2
-canoverwrite(::Nce)=true
-back_reads_x(::Nce)=false
-back_reads_y(::Nce)=true
+ninputs(::NCE)=2
+canoverwrite(::NCE)=true
+back_reads_x(::NCE)=false
+back_reads_y(::NCE)=true
 
 # kq[K,1], s[K,B], p[i,j]=exp(s[i,j])/(exp(s[i,j])+kq[i])
 nceforw!(kq::Array,s::Array,p::Array)=(for i=1:size2(s,1), j=1:size2(s,2); p[i,j]=exp(s[i,j])/(exp(s[i,j])+kq[i]); end; p)
@@ -19,17 +18,17 @@ nceforw!(kq::Array,s::Array,p::Array)=(for i=1:size2(s,1), j=1:size2(s,2); p[i,j
      T <: Float64 ? ccall((:nceforw64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),size2(s,1),size2(s,2),kq,s,p) :
      error("$T not supported"); gpusync(); p)
 
-forw(::Nce, kq, s, p; o...)=(size2(s) != size2(p) ? throw(DimensionMismatch()) :
+forw(::NCE, kq, s, p; o...)=(size2(s) != size2(p) ? throw(DimensionMismatch()) :
                              size2(s,1) != length(kq) ? throw(DimensionMismatch()) :
                              nceforw!(kq,s,p))
 
 # ds[i,j] = dp[i,j]*p[i,j]*(1-p[i,j]) same as sigmback!
-function back(::Nce, dp, dq, ds; y=nothing, o...) # y is p
+function back(::NCE, dp, dq, ds; y=nothing, o...) # y is p
     dq != nothing && (Base.warn_once("Taking gradient of constant"); fillsync!(dq,0))
     ds != nothing && (length(y)==length(ds)==length(dp)||throw(DimensionMismatch()); sigmback(y,dp,ds))
 end
 
-function infersize(a::Nce, q, s, p)
+function infersize(a::NCE, q, s, p)
     q = (q == nothing ? [0,1] : length(q) == 2 ? [q...] : throw(DimensionMismatch("q=$q")))
     s = (s == nothing ? [0,0] : length(s) == 2 ? [s...] : throw(DimensionMismatch("s=$s")))
     p = (p == nothing ? [0,0] : length(p) == 2 ? [p...] : throw(DimensionMismatch("p=$p")))
@@ -50,4 +49,4 @@ end
 
 
 ### DEAD CODE:
-# nce(q,s,p)=(Nce(),q,s,p)
+# nce(q,s,p)=(NCE(),q,s,p)

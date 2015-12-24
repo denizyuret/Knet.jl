@@ -1,12 +1,7 @@
-2015-12-22  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* DONE:
-	DONE new par: consolidate set and setopt. mnist2d.jl: setopt! should work with register names as well - fix the relationship between par/arr and the new reg, use plist for par update options, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
+2015-12-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-
 	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1. look at julia broadcasting.
-	0003 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.
 	0004 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	0004 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols...
 	0005 - compiler: warn for unused constants
@@ -14,7 +9,6 @@
 	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0007 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0007 use templated code for cuda kernels
-	0008 Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.  Two problems.  Kenv should be split: rename Kfun in kfun.jl, cp compound.jl kfun.jl, put @knet macro and defs, including op defs in it.  CU* should be compiled.  However latest CU* have issues.
 	0009 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0011 yonatan: language learning model
 	0012 aliya: try bit representation on ipa
@@ -44,6 +38,7 @@
 	0131 -- try dropout and other architectures for ner
 	0132 -- learning to interpret python, find other examples
 	0799 *** update!
+	0800 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.  would it be just easier to leave this to the user: they write their own train function anyway.  they have access to setp.  just provide some examples.
 	0800 we have not tested adagrad etc. in Knet7 yet.  waiting for callback update implementation.
 	0800 - Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
 	0800 - Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
@@ -61,6 +56,8 @@
 	0950 - probably should move cuda and julia code from linalg into add/mul etc.
 	0950 -- mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y)
 	0970 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
+	1000 test cpu compatibility for all ops, numerical comparison with gpu
+	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops!)
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 cannot add three terms, fix in compiler (a+b+c) compound statements that involve axpb or alpha/beta in add/mul.
@@ -106,6 +103,16 @@
 	1501 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.  Two problems.  Kenv should be split: rename Kfun in kfun.jl, cp compound.jl kfun.jl, put @knet macro and defs, including op defs in it.  CU* should be compiled.  However latest CU* have issues.
+
+
+2015-12-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	DONE new par: consolidate set and setopt. mnist2d.jl: setopt! should work with register names as well - fix the relationship between par/arr and the new reg, use plist for par update options, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
+
 
 2015-12-20  Deniz Yuret  <dyuret@ku.edu.tr>
 

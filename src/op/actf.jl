@@ -12,14 +12,13 @@ for (ltype,lforw,lback,lname) in
      (:Tanh, :tanhforw, :tanhback, :tanh),
      (:Relu, :reluforw, :reluback, :relu),
      (:Soft, :softforw, :softback, :soft),
-     (:Logp, :logpforw, :logpback, :logp),
+     (:Logp, :logpforw, :logpback, :logp), # to be deprecated
      (:Copy, :copyforw, :copyback, :copy))
     @eval begin
         type $ltype <: Actf; $ltype(;o...)=new(); end
         forw(l::$ltype, x, y; o...)=($lforw(x,y;o...);gpusync();y)
         back(l::$ltype, dy, dx; y=nothing, o...)=(dx==nothing&&return;$lback(y,dy,dx;o...);gpusync();dx) # need o... for mask etc.
     end
-    Kenv.kdef(lname,eval(ltype))
 end
 
 function infersize(::Actf,xdims,ydims)
@@ -130,7 +129,6 @@ logpback(y,dy,dx;o...)=(dx===dy||copysync!(dx,dy))
 # axpb(x,y;a=1,p=1,b=0)=(Axpb(a,p,b),x,y)
 
 type Axpb <: Actf; a; p; b; Axpb(;a=1,p=1,b=0,o...)=new(a,p,b); end
-Kenv.kdef(:axpb,Axpb) # TODO: compiler should recognize arithmetic expr for axpb
 
 back_reads_x(::Axpb)=true
 back_reads_y(::Axpb)=false

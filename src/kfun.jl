@@ -1,3 +1,38 @@
+"Module that contains the bindings of Knet functions."
+module Kfun
+using Knet
+
+# function to add a knet function definition used by the @knet macro
+kdef(x,y)=eval(Kfun,Expr(:(=),x,Expr(:quote,y)))
+
+# Define some primitive knet functions as Op objects.
+# The names on the LHS can be changed to modify the knet language without changing the implementation.
+# Having these under the Kfun module (without import) allows use of Base names like dot or +.
+using Knet: Add, Arr, Axpb, Conv, Copy, Dot, Input, Logp, LRN, Mul, NCE, Par, Pool, Relu, Rnd, Sigm, Soft, Tanh
+* = Dot
++ = Add
+.* = Mul
+add=Add
+arr=Arr
+axpb=Axpb
+conv=Conv
+copy=Copy
+dot=Dot
+input=Input
+logp=Logp
+lrn=LRN
+mul=Mul
+nce=NCE
+par=Par
+pool=Pool
+relu=Relu
+rnd=Rnd
+sigm=Sigm
+soft=Soft
+tanh=Tanh
+
+# Define some compound knet functions:
+
 # """
 # @knet function wdot(x; out=0, winit=Xavier(), o...) represents
 # a linear transformation (matrix product) w*x.  The output size can be
@@ -162,7 +197,7 @@ end
 # ```
 # """
 
-function krepeat(; frepeat=nothing, nrepeat=0, o...)
+function repeat(; frepeat=nothing, nrepeat=0, o...)
     @assert isa(frepeat,Symbol) && nrepeat > 0
     x0 = x1 = gensym(:x)
     fname = gensym(:f)
@@ -177,4 +212,4 @@ function krepeat(; frepeat=nothing, nrepeat=0, o...)
     return Expr(:function, fhead, fbody)
 end
 
-Kenv.kdef(:repeat, krepeat)     # TODO: define a macro to avoid explicit kdef call
+end # module

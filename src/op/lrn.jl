@@ -1,5 +1,5 @@
 type LRN <: Op; n; alpha; beta; k; end
-lrn(x,y;n=5,alpha=1e-4,beta=0.75,k=2.0,o...)=(LRN(n,alpha,beta,k),x,y)
+LRN(x,y;n=5,alpha=1e-4,beta=0.75,k=2.0,o...)=(LRN(n,alpha,beta,k),x,y)
 ninputs(::LRN)=1
 overwrites(::LRN)=false
 back_reads_x(::LRN)=true

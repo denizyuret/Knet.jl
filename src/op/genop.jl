@@ -14,10 +14,6 @@ type Par <: GenOp; dims; init; initialized; Par(; dims=nothing, init=nothing, o.
 type Arr <: GenOp; dims; init; initialized; Arr(; dims=nothing, init=nothing, o...)=new(dims,init,false); end
 type Rnd <: GenOp; dims; init; Rnd(; dims=nothing, init=nothing, o...)=new(dims,init); end
 type Input <: GenOp; Input(;o...)=new(); end
-Kenv.kdef(:par,Par)
-Kenv.kdef(:arr,Arr)
-Kenv.kdef(:rnd,Rnd)
-Kenv.kdef(:input,Input)
 
 forw(p::Par,y;o...)=(p.initialized ? y : (p.initialized=true; genforw(p.init,y)))
 forw(p::Arr,y;o...)=(p.initialized ? y : (p.initialized=true; genforw(p.init,y)))

@@ -6,7 +6,6 @@ type Conv <: Op; padding; stride; upscale; mode; algorithm; workSpace; workSpace
         new(padding, stride, upscale, mode, algorithm, workSpace, workSpaceSizeInBytes, alpha, beta)
     end
 end
-Kenv.kdef(:conv,Conv)
 
 ninputs(::Conv)=2
 canoverwrite(::Conv)=false
