@@ -1,7 +1,7 @@
 # Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 
 isdefined(:MNIST) || include("mnist.jl")
-
+using Knet,CUDArt
 module MNIST2D
 using Main,Knet,ArgParse
 

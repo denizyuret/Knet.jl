@@ -3,6 +3,7 @@
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 # Usage: julia adding.jl [opts], use --help for a full list of opts.
 
+using CUDArt,Knet
 module Adding
 using Main, Knet, ArgParse, CUDArt
 using Knet: stack_isempty

@@ -46,11 +46,10 @@ include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
 ### Main
 include("op.jl")
 include("op/actf.jl")
-include("op/add.jl")
+include("op/broadcast.jl")
 include("op/conv.jl")
 include("op/dot.jl")
 include("op/lrn.jl")
-include("op/mul.jl")
 include("op/nce.jl")
 include("op/pool.jl")
 include("op/genop.jl")

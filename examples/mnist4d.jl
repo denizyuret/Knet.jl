@@ -3,6 +3,7 @@
 
 isdefined(:MNIST) || include("mnist.jl")
 
+using Knet,CUDArt
 module MNIST4D
 using Main, Knet, ArgParse
 

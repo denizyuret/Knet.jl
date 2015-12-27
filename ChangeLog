@@ -1,36 +1,12 @@
-2015-12-25  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* src/op/broadcast.jl:
-	# Broadcasting elementwise add and mul
-	# This should eventually replace add.jl and mul.jl
-	# TODO: figure out CUDNN_SAME_C, here or in the bias definition?  bias can't resize?
-	###but we can define the model with par size (1,1,b,1). Support full Julia broadcasting.
-	# avoid reshape_to_match if possible.
-	# Do we need to support full broadcast?  All we need so far is elementwise and bias and bias has its own rules (SAME_C) which breaks the julia broadcast pattern when ndims(x1)=1 and ndims(x2)>2.
-	# Do we need alpha,beta when we have axpb?  Only advantage is to be able to use a single kernel like axpy for both scaling and adding.
-	# alpha,beta for mul is not fully general anyway because of negative numbers. Should we define sub and div instead?
-	###Just use axpb? Get rid fo alpha/beta.
-	# sub may mean subarray which may allow us to implement single op lstm.
-	###Define everything in terms of broadcast!, then extend broadcast! to CudaArray.
-	# julia broadcast also accepts number instead of array
-
-	Finish this before documentation as it changes the interface:
-	- no more alpha,beta in add/mul
-	- full support of Julia broadcast semantics with no exceptions (use (1,1,n,1) for SAME_C)
-
-	* DONE:
-	DONE - find the three parameter element wise mul in julia and rename mul2 -- can't, it calls broadcast
-
-2015-12-23  Deniz Yuret  <dyuret@ku.edu.tr>
+2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0000 - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1. look at julia broadcasting.
+	0000 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
 	0005 - compiler: warn for unused constants
 	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
-	0005 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0011 yonatan: language learning model
 	0012 aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
@@ -78,7 +54,7 @@
 	0950 -- mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
 	1000 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	1000 test cpu compatibility for all ops, numerical comparison with gpu
-	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops!)
+	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops! also look at the other reversible paper: arXiv:1502.03492)
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 cannot add three terms, fix in compiler (a+b+c) compound statements that involve axpb or alpha/beta in add/mul.
@@ -115,6 +91,7 @@
 	1501 addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference?
 	1501 analyze array sharing in lstm and irnn, compare to master
 	1501 copyseq: get rid of ystack alloc (l.180); see if add2 can pass dy back twice without copying; see if any more array sharing possible for add.back.
+	1501 julia mnist2d.jl --epochs 1 --batchsize 1 does not learn, figure out why.
 	1501 ipa: port to Knet7
 	1501 nce needs mask
 	1501 ncelm: port to Knet7
@@ -125,6 +102,51 @@
 	1501 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1. look at julia broadcasting.
+
+
+2015-12-25  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* src/op/broadcast.jl:
+	# Broadcasting elementwise add and mul
+	# This should eventually replace add.jl and mul.jl
+	# TODO: figure out CUDNN_SAME_C, here or in the bias definition?  bias can't resize?
+	###but we can define the model with par size (1,1,b,1). Support full Julia broadcasting.
+	# avoid reshape_to_match if possible.
+	# Do we need to support full broadcast?  All we need so far is elementwise and bias and bias has its own rules (SAME_C) which breaks the julia broadcast pattern when ndims(x1)=1 and ndims(x2)>2.
+	# Do we need alpha,beta when we have axpb?  Only advantage is to be able to use a single kernel like axpy for both scaling and adding.
+	# alpha,beta for mul is not fully general anyway because of negative numbers. Should we define sub and div instead?
+	###Just use axpb? Get rid fo alpha/beta.
+	# sub may mean subarray which may allow us to implement single op lstm.
+	###Define everything in terms of broadcast!, then extend broadcast! to CudaArray.
+	# julia broadcast also accepts number instead of array
+
+	Finish this before documentation as it changes the interface:
+	- no more alpha,beta in add/mul
+	- full support of Julia broadcast semantics with no exceptions (use (1,1,n,1) for SAME_C)
+
+	Use mnist2d, mnist3d, and copyseq for speed tests, each has different broadcasting requirements.
+	Fix mnist4d and cbfp to use 4D bias.
+
+	mnist2d test: passes, with slight numerical nondeterminism due to
+	atomicAdd.  speed=4.46 compared to master=3.97 which uses
+	cudnnAddTensor going forward, cudnnConvolutionBackwardBias going
+	backward.
+
+	DONE: Figure out their implementation. Main diff in forw: 3.60 vs 4.27.  Back is 3.60 vs 3.70.  So our baddforw is slow.
+	DONE: Add size checks for cudnn calls: just let them fail.
+	DONE: test switching bias and array.
+	DONE: adding.jl needs add2,add3, but not working.
+	DONE: need to figure out AddTensor and BiasBack to make mul more efficient?  (But mul is always elementwise in lstm)
+	DONE: test infersize: lstm+, lcn, dropout, batch=1, other saman example?
+	POST: Implement CPU versions: forw already done, need back.
+
+	* DONE:
+	DONE - find the three parameter element wise mul in julia and rename mul2 -- can't, it calls broadcast
+
+2015-12-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE Julia: I tried Knet.ji for faster load (see Module doc) but it fails.  Fix it.  Two problems.  Kenv should be split: rename Kfun in kfun.jl, cp compound.jl kfun.jl, put @knet macro and defs, including op defs in it.  CU* should be compiled.  However latest CU* have issues.

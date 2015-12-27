@@ -12,6 +12,7 @@ using Knet: Add, Arr, Axpb, Conv, Copy, Dot, Input, Logp, LRN, Mul, NCE, Par, Po
 * = Dot
 + = Add
 .* = Mul
+.+ = Add
 add=Add
 arr=Arr
 axpb=Axpb
@@ -84,9 +85,14 @@ end
     return conv(w,x)
 end
 
+@knet function bias4(x; binit=Constant(0), o...)
+    b = par(; o..., init=binit, dims=(1,1,0,1))
+    return b+x
+end
+
 @knet function cbfp(x; f=:relu, cwindow=0, pwindow=0, o...)
     y = wconv(x; o..., window=cwindow)
-    z = bias(y; o...)
+    z = bias4(y; o...)
     r = f(z; o...)
     return pool(r; o..., window=pwindow)
 end
@@ -150,7 +156,7 @@ end
     return h
 end
 
-# """
+
 # This is the IRNN model, a recurrent net with relu activations whose
 # recurrent weights are initialized with the identity matrix.  From: "Le,
 # Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize
@@ -165,7 +171,7 @@ end
 #     r = relu(xrb)
 # end
 # ```
-# """
+
 @knet function irnn(x; scale=1, winit=Xavier(), o...)
     wx = wdot(x; o..., winit=winit)
     wr = wdot(r; o..., winit=Identity(scale))
