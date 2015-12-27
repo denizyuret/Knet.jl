@@ -1,79 +1,74 @@
 2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+
 	0000 - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
-	0005 - compiler: warn for unused constants
-	0005 - inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
-	0011 yonatan: language learning model
-	0012 aliya: try bit representation on ipa
+	0011 example: yonatan: language learning model
+	0012 example: aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
-	0100 *** examples ***
-	0101 character convolution models.
-	0101 - many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
-	0101 - need something for turkish translation to report to tubitak
-	0101 - try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder
-	0101 - try s2s model in turkish translation: jonmay sent link to low density translation data.
-	0101 -- work on pretraining for low resource translation using s2s or lm models.
-	0102 -- yonatan supertagging
-	0105 -- onur/ozan bidirectional model version 2.
-	0106 -- karpathy character based models, inputless networks with random generators
-	0107 -- aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
-	0124 -- attention s2s model
-	0125 -- ntm
-	0126 -- ctc apply speech model to mt
-	0127 -- image captioning example
-	0129 -- rnn based parser
-	0130 -- language learning in minecraft
-	0131 -- try dropout and other architectures for ner
-	0132 -- learning to interpret python, find other examples
+	0101 example: character convolution models.
+	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
+	0101 example: need something for turkish translation to report to tubitak
+	0101 example: try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
+	0101 example: try s2s model in turkish translation: jonmay sent link to low density translation data.
+	0102 example: yonatan supertagging
+	0105 example: onur/ozan ner bidirectional model version 2. try dropout and other architectures for ner.
+	0106 example: karpathy character based models, generating wikipedia etc. inputless networks with random generators
+	0107 example: aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
+	0124 example: attention s2s model
+	0125 example: ntm and variants.
+	0126 example: ctc apply speech model to mt
+	0127 example: image captioning example
+	0129 example: rnn based parser. ashish.
+	0130 example: language learning in minecraft
+	0132 example: learning to interpret python, find other examples
+	0133 example: net2net: http://arxiv.org/pdf/1511.05641
 	0220 saman: add lcn example to knet, push lcn branch to	master. lcn: add example: http://papers.nips.cc/paper/4773-convolutional-recursive-deep-learning-for-3d-object-classification.pdf
 	0220 saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf; https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
 	0220 saman: profile lcn: /mnt/kufs/scratch/szia13/mnist/foo.jl; You can pass lcn_mode as true or false to use it. The directory also contains the gaussian kernel for lcn. I timed one convolution layer followed by softmax with and without lcn and here are the timings: without lcn: 56.18 for 20 epochs (2.81 seconds per epoch on avg); with lcn: 131.69 for 20 epochs (6.58 seconds per epoch on avg)
 	0220 saman: ~/knet/lcn/examples/: mnist4d("--actf relu --gcheck 10 --xscale 255 --lr 0.001") gives lots of gradient errors.
 	0221 saman: waiting for saman to debug: implement lrn from cudnn (*LRN* and *Divisive*): Anyway LRN is local response normalization. Its mentioned in the following paper: http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf; This is similar to LCN but its more like brightness normalization rather than contrast normalization and its used in ImageNet. So i think it would be good to incorporate it in Knet. Divisive Normalization is also associated with it and it performs normalization using a precomputed means matrix. So far only this has been implemented. If there would be a way to compute means and dev itself, this could be used for the division part of LCN. check out cudnnLRNMode_t and cudnnDivNormMode_t in the latest cudnn
-	0799 *** update!
-	0800 - callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. - update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.  would it be just easier to leave this to the user: they write their own train function anyway.  they have access to setp.  just provide some examples.
-	0800 - understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
-	0800 we have not tested adagrad etc. in Knet7 yet.  waiting for callback update implementation.
-	0800 - Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
-	0800 - Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
-	0800 - batch normalization: http://arxiv.org/abs/1502.03167 http://arxiv.org/abs/1510.01378
-	0800 - gradient noise http://arxiv.org/pdf/1511.06807v1.pdf: basically try all combinations of weight noise, gradient noise, activation noise.  prevent blowup by normalization/clipping.
-	0800 - maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
-	0800 - net2net: http://arxiv.org/pdf/1511.05641
-	0800 - update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
-	0800 -- implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
-	0900 *** speed
-	0900 -- barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
-	0901 - barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
-	0902 - speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
-	0950 - probably should move cuda and julia code from linalg into add/mul etc.
-	0950 -- mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
-	1000 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
-	1000 test cpu compatibility for all ops, numerical comparison with gpu
-	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops! also look at the other reversible paper: arXiv:1502.03492)
+	0800 update: Barrett's training tricks from Google: 1. Element wise clip the cell states so they do not go above 50, 2. Clip the norm elementwise at a threshold value (I do not know what they use), 3. Take the total norm of all matrices except the input embeddings and rescale the norm so it is <=5
+	0800 update: Ozan's optimization tricks: We are using adam. There is no common choice for optimization method. People use adam, rmsprop, momentum or their own learning rate schedule. Some tricks: - Norm clipping - Truncated backprop for large sequences - Batching sequences - Initializing hidden to hidden weights with identity matrix for elman type networks with relu activation - Large initial values for forget gate bias in LSTMs.  In response to: are you guys using adam, rmsprop, adadelta, adagrad etc?  what tricks to people prefer for training rnns?
+	0800 update: batch normalization: http://arxiv.org/abs/1502.03167 http://arxiv.org/abs/1510.01378
+	0800 update: callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. update: update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.  would it be just easier to leave this to the user: they write their own train function anyway.  they have access to setp.  just provide some examples.
+	0800 update: gradient noise http://arxiv.org/pdf/1511.06807v1.pdf: basically try all combinations of weight noise, gradient noise, activation noise.  prevent blowup by normalization/clipping.
+	0800 update: implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	0800 update: maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
+	0800 update: understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
+	0800 update: update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
+	0800 update: we have not tested adagrad etc. in Knet7 yet.  waiting for callback update implementation.
+	0900 speed: barret speed: for sparse input, keep dw dense, but use a mask to make w += dw faster.
+	0901 speed: barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
+	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
+	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 cannot add three terms, fix in compiler (a+b+c) compound statements that involve axpb or alpha/beta in add/mul.
+	1000 compiler: warn for unused constants
+	1000 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
 	1000 implement gru using con. or axpb?
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
+	1000 inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
 	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 net/util.jl: look into julia nullables to make this nothing=zero matrix thing better
 	1000 pool.jl: function cudnnGetPoolingNdForwardOutputDim(pd::PoolingDescriptor, input::AbstractCudaArray) check if added to the library. will be fixed in v4.
+	1000 probably should move cuda and julia code from linalg into add/mul etc.
+	1000 setp/getp should work with register names, indices to set a single register.
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
 	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
-	1000 src/op/conv.jl: cpu implementation
 	1000 src/op/conv.jl: fix old versions to run comparison test.
-	1000 src/op/input.jl: try replacing methods with nothing. we should not be using these?
+	1000 test cpu compatibility for all ops, numerical comparison with gpu: add, conv, pool.
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
+	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops! also look at the other reversible paper: arXiv:1502.03492)
 	1008 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols... opened CUDArt issue.
 	1008 Julia: cublas latest master broke knet, highlevel.jl conflicts with linalg.jl?  broke adding.jl. ArgumentError: output matrix must not be aliased with input matrix
 	1008 Julia: cusparse latest master broke knet: UndefVarError: SparseArrays not defined. Check author's email.
@@ -88,18 +83,18 @@
 	1501 - add ipa model train and predict to runtests.jl.
 	1501 - all sparse code slowed down? (lcn, master test).  due to xavier.  find out why. rest of mnist speed-up due to not using ItemTensor?
 	1501 - examples: consolidate train/test functions, maybe demo options. use as_symbols option for parse_args
+	1501 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	1501 addingirnn: slow, keep profiling addirnn, initforw probably responsible for remaining difference?
 	1501 analyze array sharing in lstm and irnn, compare to master
 	1501 copyseq: get rid of ystack alloc (l.180); see if add2 can pass dy back twice without copying; see if any more array sharing possible for add.back.
-	1501 julia mnist2d.jl --epochs 1 --batchsize 1 does not learn, figure out why.
 	1501 ipa: port to Knet7
+	1501 julia mnist2d.jl --epochs 1 --batchsize 1 does not learn, figure out why.
 	1501 nce needs mask
 	1501 ncelm: port to Knet7
 	1501 ner: port to Knet7
 	1501 rnnlm: simpler rnnlm example without keepstate, with mask.
 	1501 s2s needs nce
 	1501 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
-	1501 - test dropout and lcn by adding them to mnist2d, mnist4d?
 	5000 compiler improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
@@ -156,6 +151,7 @@
 
 	* DONE:
 	DONE new par: consolidate set and setopt. mnist2d.jl: setopt! should work with register names as well - fix the relationship between par/arr and the new reg, use plist for par update options, maybe merge par and reg? par can use plist to avoid all the unused members, update callbacks can use plist for extensibility as well.
+	DONE src/op/input.jl: try replacing methods with nothing. we should not be using these?
 
 
 2015-12-20  Deniz Yuret  <dyuret@ku.edu.tr>

@@ -45,7 +45,7 @@ if opts["all"] || opts["linreg"]
     # 0.661330 seconds (408.42 k allocations: 77.432 MB, 0.89% gc time) 466c40e not using stack for fnn
     # 0.762190 seconds (391.60 k allocations: 71.451 MB, 1.50% gc time) 5f60a84 latest master
     # 0.674939 seconds (418.42 k allocations: 77.355 MB, 1.24% gc time) ad5d969 latest Knet7
-    # 0.577099 seconds (356.36 k allocations: 73.864 MB, 0.94% gc time) broadcast.jl
+    # 0.577099 seconds (356.36 k allocations: 73.864 MB, 0.94% gc time) 53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnist2d"]
@@ -67,7 +67,7 @@ if opts["all"] || opts["mnist2d"]
     # 4.096904 seconds (3.28 M allocations: 362.141 MB, 4.84% gc time) Wed Dec  9 16:10:19 PST 2015: 466c40e not using stack for fnn
     # 7.656945 seconds (3.54 M allocations: 159.374 MB, 1.28% gc time) 5f60a84 latest master (xavier)
     # 4.219116 seconds (3.35 M allocations: 364.417 MB, 5.91% gc time) ad5d969 latest Knet7
-    # 3.611838 seconds (2.95 M allocations: 346.479 MB, 5.23% gc time) broadcast.jl
+    # 3.611838 seconds (2.95 M allocations: 346.479 MB, 5.23% gc time) 53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnist2dy"]
@@ -88,7 +88,7 @@ if opts["all"] || opts["mnist2dy"]
     # 4.370380 seconds (3.48 M allocations: 387.233 MB, 5.65% gc time) 466c40e not using stack for fnn
     # 9.067960 seconds (3.71 M allocations: 184.288 MB, 1.74% gc time) 5f60a84 latest master (xavier)
     # 4.605455 seconds (3.56 M allocations: 389.701 MB, 6.76% gc time) ad5d969 latest Knet7
-    # 3.959572 seconds (3.31 M allocations: 371.077 MB, 6.99% gc time) broadcast.jl
+    # 3.959572 seconds (3.31 M allocations: 371.077 MB, 6.99% gc time) 53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnist2dx"]
@@ -130,7 +130,7 @@ if opts["all"] || opts["mnist2dx"]
     # 7.946223 seconds (3.76 M allocations: 875.557 MB, 3.11% gc time)  466c40e not using stack for fnn
     # 19.994696 seconds (4.01 M allocations: 748.440 MB, 1.39% gc time) 5f60a84 latest master (xavier)
     # 8.290566 seconds (3.83 M allocations: 877.837 MB, 3.95% gc time)  ad5d969 latest Knet7
-    # 7.527577 seconds (3.50 M allocations: 861.132 MB, 3.36% gc time)  broadcast.jl
+    # 7.527577 seconds (3.50 M allocations: 861.132 MB, 3.36% gc time)  53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnist2dxy"]
@@ -170,7 +170,7 @@ if opts["all"] || opts["mnist2dxy"]
     # 8.360521 seconds (4.01 M allocations: 901.532 MB, 3.63% gc time)  466c40e not using stack for fnn
     # 21.294241 seconds (4.22 M allocations: 774.002 MB, 1.58% gc time) 5f60a84 latest master (xavier)
     # 8.688249 seconds (4.10 M allocations: 904.181 MB, 4.55% gc time)  ad5d969 latest Knet7
-    # 8.237475 seconds (3.87 M allocations: 885.827 MB, 4.08% gc time)  broadcast.jl
+    # 8.237475 seconds (3.87 M allocations: 885.827 MB, 4.08% gc time)  53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnist4d"]
@@ -203,7 +203,7 @@ if opts["all"] || opts["mnist4d"]
     # 14.898975 seconds (10.11 M allocations: 697.407 MB, 1.97% gc time) 466c40e not using stack for fnn
     # 16.956578 seconds (10.41 M allocations: 495.519 MB, 1.28% gc time) 5f60a84 latest master (xavier)
     # 14.990415 seconds (10.23 M allocations: 701.862 MB, 2.59% gc time) ad5d969 latest Knet7
-    # 14.402732 seconds (9.66 M allocations: 674.339 MB, 1.97% gc time)  broadcast.jl
+    # 14.402732 seconds (9.66 M allocations: 674.339 MB, 1.97% gc time)  53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["addirnn"]
@@ -223,7 +223,7 @@ if opts["all"] || opts["addirnn"]
     # 12.071895 seconds (21.19 M allocations: 922.258 MB, 1.80% gc time) 0c1148e knet7 expensive initforw
     # 11.802089 seconds (21.81 M allocations: 901.486 MB, 3.06% gc time) 5f60a84 latest master
     # 12.800159 seconds (21.51 M allocations: 935.733 MB, 2.57% gc time) ad5d969 latest Knet7
-    # 11.881547 seconds (21.80 M allocations: 935.974 MB, 1.90% gc time) broadcast.jl
+    # 11.881547 seconds (21.80 M allocations: 935.974 MB, 1.90% gc time) 53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["addlstm"]
@@ -238,7 +238,7 @@ if opts["all"] || opts["addlstm"]
     # 2.557893 seconds (4.20 M allocations: 189.816 MB, 1.68% gc time)  08758b7 Knet7
     # 2.482413 seconds (4.18 M allocations: 178.685 MB, 2.97% gc time)  5f60a84 latest master (xavier)
     # 2.676177 seconds (4.27 M allocations: 192.726 MB, 2.35% gc time)  ad5d969 latest Knet7
-    # 2.403824 seconds (4.06 M allocations: 181.446 MB, 1.85% gc time)  broadcast.jl
+    # 2.403824 seconds (4.06 M allocations: 181.446 MB, 1.85% gc time)  53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["mnistpixels"]
@@ -261,7 +261,7 @@ if opts["all"] || opts["mnistpixels"]
     # 2.856504 seconds (5.09 M allocations: 208.169 MB, 2.33% gc time)  08758b7: Knet7 diff fixed
     # 3.021688 seconds (5.64 M allocations: 229.431 MB, 3.30% gc time)  5f60a84 latest master (xavier)
     # 3.117822 seconds (4.95 M allocations: 212.537 MB, 4.01% gc time)  ad5d969 latest Knet7
-    # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  broadcast.jl
+    # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["rnnlm"]
@@ -310,7 +310,7 @@ if opts["all"] || opts["rnnlm"]
     # 23.591260 seconds (18.73 M allocations: 2.852 GB, 4.09% gc time)   5b1eca0 Sat Dec 19 09:30:14 PST 2015
     # 26.092232 seconds (18.77 M allocations: 2.853 GB, 4.11% gc time)   when run with runtests.jl --all ??
     # 23.319572 seconds (19.01 M allocations: 795.725 MB, 3.02% gc time) fixed sparse softloss, ran by itself
-    # 25.047980 seconds (20.10 M allocations: 844.618 MB, 2.97% gc time) broadcast.jl
+    # 25.047980 seconds (20.10 M allocations: 844.618 MB, 2.97% gc time) 53bfcd1 broadcast.jl
 end
 
 if opts["all"] || opts["copyseq"]
@@ -355,7 +355,7 @@ if opts["all"] || opts["copyseq"]
     # 15.257276 seconds (18.37 M allocations: 4.756 GB, 6.38% gc time)   5f60a84 latest master (sparse softloss dx=q-p copies ygold to dense)
     # 15.604067 seconds (16.58 M allocations: 4.699 GB, 7.37% gc time)   ad5d969 latest Knet7 (probably same problem)
     # 12.093022 seconds (16.60 M allocations: 713.095 MB, 4.80% gc time) fixed sparse softloss
-    # 11.591728 seconds (15.00 M allocations: 651.078 MB, 3.43% gc time) broadcast.jl
+    # 11.591728 seconds (15.00 M allocations: 651.078 MB, 3.43% gc time) 53bfcd1 broadcast.jl
 end
 
 # if opts["all"] || opts["ncelm"] # TODO: port ncelm to Knet7
