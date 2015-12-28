@@ -6,4 +6,5 @@ CUSPARSE
 CUDNN
 JLD
 GZip
+HTTPClient
 ArgParse

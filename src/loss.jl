@@ -138,7 +138,7 @@ end
 # dJ/dy = y-ygold
 
 function quadloss(ypred::BaseArray, ygold::BaseArray, ygrad::BaseArray; mask=nothing)
-    @assert size(ypred)==size(ygold)==size(ygrad)
+    length(ypred)==length(ygold)==length(ygrad) || throw(DimensionMismatch("$(map(size,(ypred,ygold,ygrad)))"))
     ycols = ccount(ypred)
     ygrad === ygold || copysync!(ygrad, ygold) # TODO: avoid copy if possible
     scale!(-1/ycols, ygrad)
@@ -150,7 +150,7 @@ end
 
 # cpu is faster in 2-arg quadloss: 875ms->745ms
 function quadloss{T}(ypred::Array{T}, ygold::Array{T}; mask=nothing)
-    length(ypred)==length(ygold) || throw(DimensionMismatch("ypred:$(size(ypred)) ygold:$(size(ygold))"))
+    length(ypred)==length(ygold) || throw(DimensionMismatch("$(map(size,(ypred,ygold)))"))
     loss = 0.0
     if mask == nothing
         @inbounds for i=1:length(ypred)

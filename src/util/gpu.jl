@@ -10,8 +10,9 @@ for p in ("CUDArt", "CUBLAS", "CUDNN")
     isdir(Pkg.dir(p)) || (warn("Cannot find $p");GPU=false)
 end
 if GPU
+    const libcudart = Libdl.find_library(["libcudart"], [])
     gpucnt=Int32[0]
-    gpuret=ccall((:cudaGetDeviceCount,"libcudart"),Int32,(Ptr{Cint},),gpucnt)
+    gpuret=ccall((:cudaGetDeviceCount,libcudart),Int32,(Ptr{Cint},),gpucnt)
     (gpucnt == 0 || gpuret != 0) && (warn("No gpu detected");GPU=false)
 end
 
@@ -41,3 +42,5 @@ function gpumem()
     convert(Int,mfree[1])
 end
 
+# setseed: Set both cpu and gpu seed. This gets overwritten in curand.jl if gpu available
+setseed(n)=srand(n)
