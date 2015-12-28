@@ -109,7 +109,7 @@ end
 end
 
 # addback sets dx=dy except if different sizes appropriate dims of dy are summed up
-@gpu function addback{T}(dy::CudaArray{T},dx::CudaArray{T})
+function addback(dy,dx)
     if dy === dx
         # done
     elseif size(dy) == size(dx)
@@ -117,12 +117,14 @@ end
         copysync!(dx,dy)                    # addirnn=11.95 addlstm=2.48 copyseq=11.51 rnnlm=22.84
     else
         # Base.warn_once(:BADDBACK)
-        # baddback(dy,dx)                   # mnist2d=3.70 4d=22.36 addirnn=14.35 addlstm=2.90 copyseq=11.32 rnnlm=20.94   nondeterministic.
-        cudnnConvolutionBackwardBias(dy,dx) # mnist2d=3.60 4d=14.42 addirnn=11.95 addlstm=2.48 copyseq=11.51 rnnlm=22.84
+        sum!(dx,dy)
     end
 end
 
-addback(dy,dx)=error(:CPUADDBACK_NOT_IMPLEMENTED)
+@gpu function sum!{T}(dx::CudaArray{T},dy::CudaArray{T})
+    # baddback(dy,dx)                   # mnist2d=3.70 4d=22.36 addirnn=14.35 addlstm=2.90 copyseq=11.32 rnnlm=20.94   nondeterministic.
+    cudnnConvolutionBackwardBias(dy,dx) # mnist2d=3.60 4d=14.42 addirnn=11.95 addlstm=2.48 copyseq=11.51 rnnlm=22.84
+end
 
 # mulback has dx1=dy*x2 and dx2=dy*x1 with appropriate broadcasting sums
 @gpu function mulback{T}(dy::CudaArray{T},x1::CudaArray{T},dx2::CudaArray{T})
