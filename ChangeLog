@@ -1,3 +1,43 @@
+2015-12-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DOCS:
+	- reading data: readdlm, HTTPClient.get
+	- data normalization
+	- setseed and replicatability
+	- trn/tst split
+	- minibatching
+	- knet function as model
+	- list of primitive ops
+	- implicit size with dims=(0,)
+	- init options to par
+	- dot/add vs */+
+	- keyword args in knet function
+	- knet return
+	- knet function as new op
+	- compile
+	- keyword args to compile
+	- forw
+	- back
+	- update!
+	- setp and learning rate
+	- other training options
+	- get registers and looking at network internals, netprint?
+	- 2-arg loss functions
+	- 3-arg loss functions (user does not need)
+	- load/save data in jld
+	- load/save model in jld
+	- elementwise and broadcasting operations: .+ .- .* ./
+	- julia array indexing, colon operator.
+	- sum, mean, std with dims option.
+	- size with without dims option.
+	- regression and quadloss (housing example)
+	- classification and softloss
+	- convolution and pooling
+	- dropout
+	- read-before-write ops, sequences, rnns: language model? smaller character based word model?
+	- conditionals: s2c, s2s
+	- perceptron, kernel perceptron
+
 2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:

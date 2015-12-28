@@ -1,5 +1,6 @@
 module CopySeq
 using Main, CUDArt, CUSPARSE, Knet, ArgParse
+using Knet: copysync!
 
 function main(args=ARGS)
     info("Learning to copy sequences to test the S2S model.")
