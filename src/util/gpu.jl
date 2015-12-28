@@ -9,8 +9,8 @@ end
 for p in ("CUDArt", "CUBLAS", "CUDNN")
     isdir(Pkg.dir(p)) || (warn("Cannot find $p");GPU=false)
 end
+const libcudart = Libdl.find_library(["libcudart"], [])
 if GPU
-    const libcudart = Libdl.find_library(["libcudart"], [])
     gpucnt=Int32[0]
     gpuret=ccall((:cudaGetDeviceCount,libcudart),Int32,(Ptr{Cint},),gpucnt)
     (gpucnt == 0 || gpuret != 0) && (warn("No gpu detected");GPU=false)
