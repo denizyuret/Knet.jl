@@ -1,5 +1,7 @@
 module MNIST
-using GZip, HTTPClient
+using GZip
+#using HTTPClient
+using Requests
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
 const xtrn_file = "train-images-idx3-ubyte.gz"
@@ -8,7 +10,7 @@ const xtst_file = "t10k-images-idx3-ubyte.gz"
 const ytst_file = "t10k-labels-idx1-ubyte.gz"
 
 function wgetzcat(gz)
-    isfile(gz) || get("$mnisturl/$gz"; ostream=gz) # run(`wget $mnisturl/$gz`)
+    isfile(gz) || save(get("$mnisturl/$gz"), gz) # get("$mnisturl/$gz"; ostream=gz) # run(`wget $mnisturl/$gz`)
     fh = GZip.open(gz)
     a = readbytes(fh)
     close(fh)

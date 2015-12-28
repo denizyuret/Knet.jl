@@ -1,9 +1,11 @@
-using Knet,HTTPClient
+using Knet
+#using HTTPClient
+using Requests
 
 url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
 # data = readdlm(get(url).body.data) # TODO: saving as file as in mnist
 file="housing.data"
-isfile(file) || get(url; ostream=file)
+isfile(file) || save(get(url), file) # get(url; ostream=file)
 data = readdlm(file)'
 @show size(data)
 x = data[1:13,:]

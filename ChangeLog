@@ -37,6 +37,8 @@
 	- read-before-write ops, sequences, rnns: language model? smaller character based word model?
 	- conditionals: s2c, s2s
 	- perceptron, kernel perceptron
+	- data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
+	- anatomy of a knet function.
 
 2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
