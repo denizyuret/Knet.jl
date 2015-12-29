@@ -196,15 +196,16 @@ function _comp_if(expr::Expr,name::Dict,value::Dict,cond::Expr)
 end
 
 function _comp_locals(ex)       # TODO: should we ignore conditionals, which are global?
-    # @dbg println((:_comp_locals,:ex,ex))
+    @dbg println((:_comp_locals,:ex,ex))
     l = (isa(ex, Symbol) ? Any[ex] :
          isa(ex,LineNumberNode) ? Any[] :
          !isa(ex, Expr) ? error("Expected Expr got $ex") :
          ex.head == :parameters ? Any[] :
+         ex.head == :kw ? Any[] :
          ex.head == :return ? mapreduce(_comp_locals, append!, Any[:return], ex.args) :
          ex.head == :call ? mapreduce(_comp_locals, append!, Any[], ex.args[2:end]) :
          mapreduce(_comp_locals, append!, Any[], ex.args))
-    # @dbg println((:_comp_locals,:return,l))
+    @dbg println((:_comp_locals,:return,l))
     return l
 end
 
@@ -289,8 +290,15 @@ function _comp_parse_call(s)
     (isa(s,Expr) && s.head == :call) ||
     error("Expected function call got $s")
     f = s.args[1]
-    x = s.args[2:end]           # Use [:] notation to create a copy
-    o = !isempty(x) && isa(x[1],Expr) && x[1].head==:parameters ? shift!(x).args[1:end] : Any[]
+    a = s.args[2:end]           # Use [:] notation to create a copy
+    x = Any[]
+    o = Any[]
+    for ai in a
+        !isa(ai,Expr) ? push!(x,ai) :
+        ai.head==:parameters ? append!(o, ai.args) :
+        ai.head==:kw ? push!(o, ai) :
+        push!(x, ai)
+    end
     @dbg println((:_comp_parse_call,:return,:fname,f,:fargs,x,:fpars,o))
     (f, x, o)
 end

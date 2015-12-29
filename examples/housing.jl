@@ -19,8 +19,8 @@ xtst=x[:,r[401:end]]
 ytst=y[:,r[401:end]]
 
 @knet function housing(x)       # knet functions
-    w = par(; dims=(1,13), init=Gaussian(0,.1))      # TODO: 0 size unspecified
-    b = par(; dims=(1,), init=Constant(0))        # TODO: do we need init? yes.
+    w = par(dims=(1,13), init=Gaussian(0,.1))      # TODO: 0 size unspecified
+    b = par(dims=(1,),   init=Constant(0))        # TODO: do we need init? yes.
     return w * x .+ b           # TODO: maybe cover dot/add first?
 end                             # TODO: keyword args
 
