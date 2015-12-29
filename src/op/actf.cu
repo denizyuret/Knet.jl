@@ -1,7 +1,7 @@
 #include "knet.h"
 
 template<typename dType>
-__global__ void _axpb(int n, dType a, dType *x, dType p, dType b, dType *y) {
+__global__ void _axpbforw(int n, dType a, dType *x, dType p, dType b, dType *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     dType yi = x[i];
@@ -14,49 +14,23 @@ __global__ void _axpb(int n, dType a, dType *x, dType p, dType b, dType *y) {
 }
 
 template<typename dType>
-__global__ void _axpb_back(int n, dType a, dType *x, dType p, dType *dy, dType *dx) {
+__global__ void _axpbback(int n, dType a, dType *x, dType p, dType *dy, dType *dx) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
+  dType ap = a*p;   
   while (i < n) {
     dType dxi = dy[i];
-    dType ap = a*p;
-    if (p != 1) dxi *= pow(x[i],p-1);
-    if (ap != 1) dxi *= ap;
+    if (a!=1 || p!=1) {
+      if (ap != 1) dxi *= ap;
+      if (p != 1) dxi *= pow(x[i],p-1);
+    }
     dx[i] = dxi;
     i += blockDim.x * gridDim.x;
   }
 }
 
 extern "C" {
-  void axpb32(int n, float a, float *x, float p, float b, float *y) KCALL(_axpb,n,a,x,p,b,y);
-  void axpb64(int n, double a, double *x, double p, double b, double *y) KCALL(_axpb,n,a,x,p,b,y);
-  void axpb_back32(int n, float  a, float  *x, float  p, float  *dy, float  *dx) KCALL(_axpb_back,n,a,x,p,dy,dx);
-  void axpb_back64(int n, double a, double *x, double p, double *dy, double *dx) KCALL(_axpb_back,n,a,x,p,dy,dx);
-}
-
-/* x is layer output, i.e. unnormalized log probabilities.
-   On output y will contain normalized log probabilities. 
-   x and y can point to the same array. */
-
-template<typename dType>
-__global__ void _logpforw(int nrows, int ncols, dType *x, dType *y) {
-  double expy;
-  dType xmax, logz;
-  int i0, i1;
-  int col = threadIdx.x + blockIdx.x * blockDim.x;
-  while (col < ncols) {
-    i0 = col * nrows;
-    i1 = i0  + nrows;
-    xmax = -INFINITY;
-    for (int i=i0; i<i1; i++) { if (x[i] > xmax) xmax = x[i]; }
-    expy = 0;
-    for (int i=i0; i<i1; i++) { y[i] = x[i]-xmax; expy += exp(y[i]); }
-    logz = log(expy);
-    for (int i=i0; i<i1; i++) { y[i] -= logz; }
-    col += blockDim.x * gridDim.x;
-  }
-}
-
-extern "C" {
-  void logpforw32(int nrows, int ncols, float *x, float *y) KCALL(_logpforw,nrows,ncols,x,y);
-  void logpforw64(int nrows, int ncols, double *x, double *y) KCALL(_logpforw,nrows,ncols,x,y);
+  void axpbforw32(int n, float a, float *x, float p, float b, float *y) KCALL(_axpbforw,n,a,x,p,b,y);
+  void axpbforw64(int n, double a, double *x, double p, double b, double *y) KCALL(_axpbforw,n,a,x,p,b,y);
+  void axpbback32(int n, float  a, float  *x, float  p, float  *dy, float  *dx) KCALL(_axpbback,n,a,x,p,dy,dx);
+  void axpbback64(int n, double a, double *x, double p, double *dy, double *dx) KCALL(_axpbback,n,a,x,p,dy,dx);
 }

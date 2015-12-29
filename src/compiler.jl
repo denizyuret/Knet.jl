@@ -198,6 +198,7 @@ end
 function _comp_locals(ex)       # TODO: should we ignore conditionals, which are global?
     @dbg println((:_comp_locals,:ex,ex))
     l = (isa(ex, Symbol) ? Any[ex] :
+         isa(ex, Number) ? Any[] :
          isa(ex,LineNumberNode) ? Any[] :
          !isa(ex, Expr) ? error("Expected Expr got $ex") :
          ex.head == :parameters ? Any[] :
@@ -291,6 +292,58 @@ function _comp_parse_call(s)
     error("Expected function call got $s")
     f = s.args[1]
     a = s.args[2:end]           # Use [:] notation to create a copy
+    f == :+  ? _comp_parse_add(a...) :
+    f == :.+ ? _comp_parse_badd(a...) :
+    f == :-  ? _comp_parse_sub(a...) :
+    f == :.- ? _comp_parse_bsub(a...) :
+    f == :*  ? _comp_parse_mul(a...) :
+    f == :.* ? _comp_parse_bmul(a...) :
+    f == :/  ? _comp_parse_div(a...) :
+    f == :./ ? _comp_parse_bdiv(a...) :
+    _comp_parse_fcall(f,a)
+end
+
+# what if we have expression instead of symbol: define a compound type SymEx
+# what if we have symbol instead of number (from compiler kwargs): can't happen, value subst does not take place with variables, only op args and func names
+
+typealias SymEx Union{Symbol,Expr}
+
+_comp_parse_add(x)=error("+$x")
+_comp_parse_add(x,y)=_comp_parse_badd(x,y)
+_comp_parse_add(x...)=_comp_parse_call(_comp_binarize(:+,x...))
+_comp_parse_badd(x::SymEx,y::SymEx)=(:.+, Any[x,y], Any[])
+_comp_parse_badd(x::Number,y::SymEx)=(:axpb, Any[y], Any[Expr(:kw,:b,x)])
+_comp_parse_badd(x::SymEx,y::Number)=(:axpb, Any[x], Any[Expr(:kw,:b,y)])
+_comp_parse_badd(x...)=error(".+$x")
+
+_comp_parse_sub(x...)=_comp_parse_bsub(x...)
+_comp_parse_bsub(x::SymEx,y::SymEx)=(:.+, Any[x,:(axpb($y;a=-1))], Any[])
+_comp_parse_bsub(x::Number,y::SymEx)=(:axpb, Any[y], Any[Expr(:kw,:a,-1), Expr(:kw,:b,x)])
+_comp_parse_bsub(x::SymEx,y::Number)=(:axpb, Any[x], Any[Expr(:kw,:b,-y)])
+_comp_parse_bsub(x::SymEx)=(:axpb, Any[x], Any[Expr(:kw,:a,-1)])
+_comp_parse_bsub(x...)=error(".-$x")
+
+_comp_parse_mul(x::SymEx,y::SymEx)=(:*, Any[x,y], Any[])
+_comp_parse_mul(x,y)=_comp_parse_bmul(x,y)
+_comp_parse_mul(x...)=_comp_parse_call(_comp_binarize(:*,x...))
+_comp_parse_mul(x)=error("*$x")
+_comp_parse_bmul(x::SymEx,y::SymEx)=(:.*, Any[x,y], Any[])
+_comp_parse_bmul(x::Number,y::SymEx)=(:axpb, Any[y], Any[Expr(:kw,:a,x)])
+_comp_parse_bmul(x::SymEx,y::Number)=(:axpb, Any[x], Any[Expr(:kw,:a,y)])
+_comp_parse_bmul(x...)=error(".*$x")
+
+_comp_parse_div(x::SymEx,y::SymEx)=error("$x/$y")
+_comp_parse_div(x,y)=_comp_parse_bdiv(x,y)
+_comp_parse_div(x...)=error("/$x")
+_comp_parse_bdiv(x::SymEx,y::SymEx)=(:.*, Any[x,:(axpb($y;p=-1))], Any[])
+_comp_parse_bdiv(x::Number,y::SymEx)=(:axpb, Any[y], Any[Expr(:kw,:a,x),Expr(:kw,:p,-1)])
+_comp_parse_bdiv(x::SymEx,y::Number)=(:axpb, Any[x], Any[Expr(:kw,:a,1/y)])
+_comp_parse_bdiv(x...)=error("./$x")
+
+_comp_binarize(f,x,y)=Expr(:call,f,x,y)
+_comp_binarize(f,x,y,z,t...)=_comp_binarize(f,Expr(:call,f,x,y),z,t...)
+
+function _comp_parse_fcall(f, a)
     x = Any[]
     o = Any[]
     for ai in a
@@ -299,7 +352,7 @@ function _comp_parse_call(s)
         ai.head==:kw ? push!(o, ai) :
         push!(x, ai)
     end
-    @dbg println((:_comp_parse_call,:return,:fname,f,:fargs,x,:fpars,o))
+    @dbg println((:_comp_parse_fcall,:return,:fname,f,:fargs,x,:fpars,o))
     (f, x, o)
 end
 

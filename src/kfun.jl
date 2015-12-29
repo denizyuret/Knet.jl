@@ -1,6 +1,6 @@
 "Module that contains the bindings of Knet functions."
 module Kfun
-using Knet
+using Knet: @knet, Add, Arr, Axpb, Conv, Copy, Dot, Input, LRN, Mul, NCE, Par, Pool, Relu, Rnd, Sigm, Soft, Tanh
 
 # function to add a knet function definition used by the @knet macro
 kdef(x,y)=eval(Kfun,Expr(:(=),x,Expr(:quote,y)))
@@ -8,7 +8,6 @@ kdef(x,y)=eval(Kfun,Expr(:(=),x,Expr(:quote,y)))
 # Define some primitive knet functions as Op objects.
 # The names on the LHS can be changed to modify the knet language without changing the implementation.
 # Having these under the Kfun module (without import) allows use of Base names like dot or +.
-using Knet: Add, Arr, Axpb, Conv, Copy, Dot, Input, Logp, LRN, Mul, NCE, Par, Pool, Relu, Rnd, Sigm, Soft, Tanh
 * = Dot
 + = Add
 .* = Mul
@@ -20,7 +19,6 @@ conv=Conv
 copy=Copy
 dot=Dot
 input=Input
-logp=Logp
 lrn=LRN
 mul=Mul
 nce=NCE
