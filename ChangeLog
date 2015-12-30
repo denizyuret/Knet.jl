@@ -1,6 +1,49 @@
 2015-12-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* DOCS:
+	- reading data: readdlm, HTTPClient.get
+	- data normalization
+	- setseed and replicatability
+	- trn/tst split
+	- minibatching
+	- knet function as model
+	- list of primitive ops
+	- implicit size with dims=(0,)
+	- init options to par
+	- dot/add vs */+
+	- keyword args in knet function
+	- knet return
+	- knet function as new op
+	- compile
+	- keyword args to compile
+	- forw
+	- back
+	- update!
+	- setp and learning rate
+	- other training options
+	- get registers and looking at network internals, netprint?
+	- 2-arg loss functions
+	- 3-arg loss functions (user does not need)
+	- load/save data in jld
+	- load/save model in jld
+	- elementwise and broadcasting operations: .+ .- .* ./
+	- julia array indexing, colon operator.
+	- sum, mean, std with dims option.
+	- size with without dims option.
+	- regression and quadloss (housing example)
+	- classification and softloss
+	- convolution and pooling
+	- dropout
+	- read-before-write ops, sequences, rnns: language model? smaller character based word model?
+	- conditionals: s2c, s2s
+	- perceptron, kernel perceptron
+	- data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
+	- anatomy of a knet function.
+	- structured learning
+	- nce
+
 	* TODO:
+	0000 lstm gives different results when overwrite=false.  cpu fails as well.
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
@@ -111,45 +154,6 @@
 
 2015-12-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* DOCS:
-	- reading data: readdlm, HTTPClient.get
-	- data normalization
-	- setseed and replicatability
-	- trn/tst split
-	- minibatching
-	- knet function as model
-	- list of primitive ops
-	- implicit size with dims=(0,)
-	- init options to par
-	- dot/add vs */+
-	- keyword args in knet function
-	- knet return
-	- knet function as new op
-	- compile
-	- keyword args to compile
-	- forw
-	- back
-	- update!
-	- setp and learning rate
-	- other training options
-	- get registers and looking at network internals, netprint?
-	- 2-arg loss functions
-	- 3-arg loss functions (user does not need)
-	- load/save data in jld
-	- load/save model in jld
-	- elementwise and broadcasting operations: .+ .- .* ./
-	- julia array indexing, colon operator.
-	- sum, mean, std with dims option.
-	- size with without dims option.
-	- regression and quadloss (housing example)
-	- classification and softloss
-	- convolution and pooling
-	- dropout
-	- read-before-write ops, sequences, rnns: language model? smaller character based word model?
-	- conditionals: s2c, s2s
-	- perceptron, kernel perceptron
-	- data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
-	- anatomy of a knet function.
 
 2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 

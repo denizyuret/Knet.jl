@@ -35,15 +35,15 @@ include(Pkg.dir("Knet/examples/adding.jl"))
 @test  Adding.main("--epochs 1") == (0.21368636f0,3.4062932f0,6.621738f0)
 
 #@test Adding.main("--epochs 1 --nettype lstm") == (0.24768005f0,3.601481f0,1.2290705f0) #gpu
-@test  Adding.main("--epochs 1 --nettype lstm") == (0.24437553f0,3.632197f0,1.1948838f0)
+@test  Adding.main("--epochs 1 --nettype lstm") == (0.24432828f0,3.6435652f0,1.1989625f0)
 
 include(Pkg.dir("Knet/examples/rnnlm.jl"))
 #@test RNNLM.main("--max_max_epoch 1 --dense seqdata.txt") == (30.65637197763184, 110.81809997558594,29.36899185180664) #gpu
-@test  RNNLM.main("--max_max_epoch 1 --dense seqdata.txt") == (29.622394801464417,111.10834503173828,13.128467559814453)
+@test  RNNLM.main("--max_max_epoch 1 --dense seqdata.txt") == (30.349935446042096,110.69515228271484,26.056880950927734)
 
 include(Pkg.dir("Knet/examples/copyseq.jl"))
 #@test CopySeq.main("--epochs 1 --dense seqdata.txt") == (40.00286169097269, 30.352935791015625,1.646486520767212)
-@test  CopySeq.main("--epochs 1 --dense seqdata.txt") == (40.002447770224165,29.90311050415039, 1.4534868001937866)
+@test  CopySeq.main("--epochs 1 --dense seqdata.txt") == (40.00211618458305,29.903160095214844,1.4534363746643066)
 
 ### DEAD CODE:
 # using Compat

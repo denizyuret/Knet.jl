@@ -10,6 +10,7 @@ of whether it is applied to a sequence.
 function initforw(f::Net, inputs...; o...)
     nextforw = (map(typeof, inputs), map(size, inputs), o)
     if !isdefined(f,:lastforw) || f.lastforw!=nextforw
+        #setp(f,:forwoverwrite,false); setp(f,:backoverwrite,false)
         if !isdefined(f,:lastforw) || (o != f.lastforw[3]) # when conditions change, the comp graph changes, effects argv, fanout, save
             initcond(f; o...)       # o,name,cond -> :forw
             initargv(f)             # :forw,name,args -> argv
@@ -53,6 +54,13 @@ function initout0(f::Net, p::Reg; seq=false)
     end
 end
 
+function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)
+    isdefined(r,n) &&
+    isa(r.(n), atype) &&
+    eltype(r.(n)) == etype &&
+    size(r.(n)) == dims
+end
+
 function canshare(f::Net, p::Reg, q::Reg)
     # checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !getp(q, :save) && getp(q, :fanout)==1
     ispersistent(q) && return false
@@ -61,19 +69,35 @@ function canshare(f::Net, p::Reg, q::Reg)
     at, et, sz = getp(p,:outtype), getp(p,:eltype), getp(p,:size)
     checkarray(q,:out0,at,et,sz) || return false
     # a=b*c; c=sigm(a) should not share, dot cannot overwrite!
-    for r in forwregs(f)
-        if isdefined(r,:out0) && r.out0 === q.out0 && !canoverwrite(r.op) && in(p.name, r.args)
-            return false
-        end
-    end
-    return true
+    # a=b*c; d=e*f; e=a+d; e should not share a, a overwrites it!
+    p.out0 = q.out0
+    ok = checkshare(f)
+    p.out0 = nothing
+    return ok
 end
 
-function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)
-    isdefined(r,n) &&
-    isa(r.(n), atype) &&
-    eltype(r.(n)) == etype &&
-    size(r.(n)) == dims
+function checkshare(f::Net)
+    d = ObjectIdDict()
+    for i=1:length(f)
+        ri=f.reg[i]
+        getp(ri,:forw) || continue
+        isdefined(ri,:out0) || continue
+        d[ri.out0]=i
+    end
+    for i=1:length(f)
+        ri=f.reg[i]
+        getp(ri,:forw) || continue
+        for j in ri.argv
+            rj=f.reg[j]
+            isdefined(rj,:out0) || continue
+            k = d[rj.out0]
+            k == j || return false # warn("$j was overwritten by $k before being read by $i.")
+            isdefined(ri,:out0) || continue
+            !canoverwrite(ri.op) && ri.out0===rj.out0 && return false # warn("$i and $j share array in nonoverwriting op.")
+        end
+        isdefined(ri,:out0) && (d[ri.out0] = i)
+    end
+    return true
 end
 
 newarray(::Type{Array}, t::DataType, d::Dims)=Array(t,d)

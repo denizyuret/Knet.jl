@@ -43,9 +43,9 @@ function _forw(f::Net, seq::Bool, input...; kwargs...)
             else
                 y.out = forw(y.op, inputs(f,y)..., y.out0; kwargs...)
             end
+            # println(:forw, (findfirst(regs(f), y), typeof(y.op), y.argv, size(y.out0), vecnorm0(y.out)))
         end
         seq && push!(f, y)
-        # println(:forw, (findfirst(regs(f), y), typeof(y.op), y.argv, size(y.out0), vecnorm0(y.out)))
     end
     # error(:ok)
     return get(f,:return)
