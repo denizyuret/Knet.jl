@@ -1,3 +1,16 @@
+2015-12-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* tur-preinit-fails:
+	- rnd results too good:
+	-- maybe they would be with these params for fr-en, en-en too.
+	- pre results too bad:
+	-- buggy trainer
+	-- buggy big model
+	-- buggy vocab copy
+	-- buggy corpus: tokenization capitalization domain etc
+	--- check most frequent tokens, check lm cross entropy
+	--- maybe fr-en would not do as good if en side was not identical
+
 2015-12-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DOCS:
@@ -43,17 +56,17 @@
 	- nce
 
 	* TODO:
-	0000 lstm gives different results when overwrite=false.  cpu fails as well.
+	0000 example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
+	0005 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
 	0011 example: yonatan: language learning model
 	0012 example: aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
 	0101 example: character convolution models.
 	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 example: need something for turkish translation to report to tubitak
-	0101 example: try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
 	0101 example: try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0102 example: yonatan supertagging
 	0105 example: onur/ozan ner bidirectional model version 2. try dropout and other architectures for ner.
@@ -146,6 +159,7 @@
 	DONE cpu: addirnn does not converge: (40000,0.16878323f0,6.2745414f0,0.25430006f0) (1) weight init different: ok, (2) gradcheck buggy, fixed. (3) lstm passes. (4) relu fails, fixed. (5) sigm fails. but lstm has sigm units??? noshare gives correct result in cpu. sharing pattern same as gpu. 5,6,8,9 shared. 5=4*9 which works in cublas not in blas? should fanout>1 be shared? (6) tanh fails. all fixed.
 	DONE compiler: cannot add three terms, fix in compiler (a+b+c): easy fix, convert all to .+ which takes binary ops. but too late by the time it gets to the compiler.
 	DONE compiler: compound statements that involve axpb or alpha/beta in add/mul.  + == .+ ; - == .- ; * != .* ; / != ./ ; the last two are only equal when one arg is a number.  need to support number+array, array+number and array+array versions.
+	DONE lstm gives different results when overwrite=false.  cpu fails as well.
 
 2015-12-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
