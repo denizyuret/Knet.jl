@@ -4,6 +4,8 @@
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
+	1000 cpu test domask
+	1000 cpu sparse support: mnist2dx does not run: Need to implement: A_mul_B!(::Array{Float32,2}, ::Array{Float32,2}, ::SparseMatrixCSC{Float32,Int32}); the other direction is implemented in sparse/linalg.jl.  take a look at how '*' works.
 	0011 example: yonatan: language learning model
 	0012 example: aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
@@ -66,7 +68,7 @@
 	1000 test cpu compatibility for all ops, numerical comparison with gpu: add, conv, pool.
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops! also look at the other reversible paper: arXiv:1502.03492)
-	1008 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols... opened CUDArt issue.
+	1008 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols... opened CUDArt issue. Running gradcheck prevents the error (because it forces gc?).  Using softmax also prevents error (again, there are temp variables that force gc?)
 	1008 Julia: cublas latest master broke knet, highlevel.jl conflicts with linalg.jl?  broke adding.jl. ArgumentError: output matrix must not be aliased with input matrix
 	1008 Julia: cusparse latest master broke knet: UndefVarError: SparseArrays not defined. Check author's email.
 	1009 add streams for speed-up: the problem is not as urgent as we thought 3500 vs 3750 wps.
@@ -96,6 +98,8 @@
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
 	* DONE:
+	DONE cpu: lstm does not work: cpu mulback not implemented yet
+	DONE cpu: addirnn does not converge: (40000,0.16878323f0,6.2745414f0,0.25430006f0) (1) weight init different: ok, (2) gradcheck buggy, fixed. (3) lstm passes. (4) relu fails, fixed. (5) sigm fails. but lstm has sigm units??? noshare gives correct result in cpu. sharing pattern same as gpu. 5,6,8,9 shared. 5=4*9 which works in cublas not in blas? should fanout>1 be shared? (6) tanh fails. all fixed.
 	DONE compiler: cannot add three terms, fix in compiler (a+b+c): easy fix, convert all to .+ which takes binary ops. but too late by the time it gets to the compiler.
 	DONE compiler: compound statements that involve axpb or alpha/beta in add/mul.  + == .+ ; - == .- ; * != .* ; / != ./ ; the last two are only equal when one arg is a number.  need to support number+array, array+number and array+array versions.
 

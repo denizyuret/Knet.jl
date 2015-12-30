@@ -12,7 +12,7 @@ back_reads_y(::Mul)=false
 
 # TODO: test this with 2d, 4d, lstm, irnn, minibatch=1 etc.
 # better yet prove that it will work.
-function infersize(b::Broadcast, D...)
+function infersize(::Broadcast, D...)
     findfirst(d->!isa(d,Void), D) == 0 && return nothing
     maxd = 0; for d in D
         d != nothing && length(d) > maxd && (maxd = length(d))
@@ -39,25 +39,25 @@ end
 
 ### LEVEL 1: forw/back Handle `nothing`
 
-function forw(a::Add,x1,x2,y; o...)
+function forw(::Add,x1,x2,y; o...)
     x1==x2==nothing ? nothing :         # `nothing` represents the zero array to avoid unnecessary fill! in forw and copy! in stack
     x1==nothing ? broadcast!(+,y,x2) :	# use broadcast here instead of copy in case x,y have different sizes
     x2==nothing ? broadcast!(+,y,x1) :
     broadcast!(+,y,x1,x2)               # forw uses julia broadcast semantics
 end
 
-function forw(a::Mul,x1,x2,y;o...)
+function forw(::Mul,x1,x2,y;o...)
     x1==nothing ? nothing :             # `nothing` represents zero for mul also
     x2==nothing ? nothing :             # TODO: the alternative is to have it represent the ones array?
     broadcast!(*,y,x1,x2)               # but I had trouble with that before for a reason I don't remember.
 end
 
-function back(a::Add,dy,dx1,dx2; o...)
+function back(::Add,dy,dx1,dx2; o...)
     dx1!=nothing && addback(dy,dx1)
     dx2!=nothing && addback(dy,dx2)
 end
 
-function back(a::Mul,dy,dx1,dx2; x=nothing, o...)
+function back(::Mul,dy,dx1,dx2; x=nothing, o...)
     (x==nothing || length(x)!=2) && error("back(mul) needs inputs x1 and x2")
     (x1,x2) = x
     dx1!=nothing && (x2==nothing ? fillsync!(dx1,0) : mulback(dy,x2,dx1))
@@ -65,6 +65,8 @@ function back(a::Mul,dy,dx1,dx2; x=nothing, o...)
 end
 
 ### LEVEL 2: broadcast!, add/mulback: select best op based on size
+
+import Base: broadcast!, sum!
 
 @gpu function broadcast!{T}(f::Function, y::CudaArray{T}, x::CudaArray{T})
     if f===+
@@ -127,7 +129,7 @@ end
 end
 
 # mulback has dx1=dy*x2 and dx2=dy*x1 with appropriate broadcasting sums
-@gpu function mulback{T}(dy::CudaArray{T},x1::CudaArray{T},dx2::CudaArray{T})
+function mulback(dy,x1,dx2)
     if size(dy)==size(x1)==size(dx2)
         # Base.warn_once(:MULBACK)
         mul3(dy,x1,dx2)         # addlstm=2.48 copyseq=11.51 rnnlm=22.84
@@ -136,8 +138,6 @@ end
         bmulback(dy,x1,dx2)
     end
 end
-
-mulback(dy,x1,dx2)=error(:CPUMULBACK_NOT_IMPLEMENTED)
 
 ### LEVEL 3: Actual implementations
 
@@ -165,6 +165,12 @@ end
     T <: Float64 ? ccall((:mul64,libknet),Void,(Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),length(c),a,b,c) :
     error("$T not supported")
     gpusync(); return c
+end
+
+function mul3{T}(a::Array{T},b::Array{T},c::Array{T})
+    size(a)==size(b)==size(c) || throw(DimensionMismatch())
+    @inbounds for i=1:length(c); c[i]=a[i]*b[i]; end
+    return c
 end
 
 # 3b. broadcasting add

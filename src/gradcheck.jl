@@ -9,7 +9,8 @@ function gradcheck(m, grad, loss; gcheck=10, _eps=cbrt(eps(eltype(m))), delta=_e
     loss0 = loss(m)
     grad(m)
     pp = params(m)
-    ppdif = map(p->convert(Array, p.dif), pp) # This may get reset in loss
+    dcopy(p)=(isa(p.dif,Array) ? copy(p.dif) : convert(Array,p.dif))
+    ppdif = map(dcopy, pp) # This may get reset in loss, so make a copy now
     maxbad = 0
     for n = 1:length(pp)
         p = pp[n]
@@ -42,6 +43,7 @@ function gradcheck(m, grad, loss; gcheck=10, _eps=cbrt(eps(eltype(m))), delta=_e
             maxbad, rtol, delta, length(params(m)), gcheck)
     # println("gc:atol=$maxbad for rtol=$rtol, delta=$delta for largest $(length(params(m)))x$(gcheck) gradients: abs(x-y) <= atol+rtol*max(abs(x),abs(y))")
 end
+
 
 
 # Why loss0 = l[1], instead of l[1]/l[2]?

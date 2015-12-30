@@ -5,7 +5,7 @@
 
 using CUDArt,Knet
 module Adding
-using Main, Knet, ArgParse, CUDArt
+using Main, Knet, ArgParse, CUDArt, JLD
 using Knet: stack_isempty
 
 function main(args=ARGS)
@@ -15,11 +15,19 @@ function main(args=ARGS)
     println(opts)
     opts["seed"] > 0 && setseed(opts["seed"])
     global data = Data(opts["length"], opts["batchsize"], opts["epochsize"])
-    # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
-    global net = compile(:adding; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    if opts["load"] != nothing
+        global net = load(opts["load"],"net")
+    else
+        # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+        global net = compile(:adding; rnn=symbol(opts["nettype"]), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])
+    end
     # TODO: can pass opts in directly to compile as hash if keys were symbols: parse_args has an as_symbols option.
     # TODO: winit should probably be Xavier, at least give the user the option
     setp(net; lr=opts["lrate"])
+    if opts["nosharing"]
+        setp(net, :forwoverwrite, false)
+        setp(net, :backoverwrite, false)
+    end
     mse = 0; l=[0f0,0f0]; m=[0f0,0f0]
     for epoch=1:opts["epochs"]
         train(net, data, quadloss; gclip=opts["gclip"], losscnt=fill!(l,0), maxnorm=fill!(m,0))
@@ -155,6 +163,8 @@ function parse_commandline(args)
         "--nettype"
         help = "type of network"
         default = "irnn" # "lstm"
+        "--load"
+        help = "load network from file"
         "--fbias"
         help = "forget gate bias (for lstm)"
         arg_type = Float64
@@ -163,6 +173,9 @@ function parse_commandline(args)
         help = "stdev for weight initialization (for irnn)"
         arg_type = Float64
         default =  0.01 # 0.001
+        "--nosharing"
+        help = "Do not share register arrays (this is for debugging, should not change results)"
+        action = :store_true
         "--seed"
         help = "Random seed"
         arg_type = Int

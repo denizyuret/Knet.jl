@@ -38,7 +38,7 @@ function initout0(f::Net, p::Reg; seq=false)
         if canoverwrite(p.op) && getp(p, :forwoverwrite, true)
             for i in reverse(p.argv) # consider overwriting the last input first
                 q = reg(f,i)
-                if checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !getp(q, :save) && getp(q, :fanout)==1
+                if canshare(f,p,q)
                     p.out0 = q.out0
                     @dbg info("Overwrite $(findfirst(f.reg,q))->$(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
                     break
@@ -51,6 +51,22 @@ function initout0(f::Net, p::Reg; seq=false)
             @dbg info("Alloc $(findfirst(f.reg,p))=$(Int(pointer(p.out0))%1000)")
         end
     end
+end
+
+function canshare(f::Net, p::Reg, q::Reg)
+    # checkarray(q,:out0,at,et,sz) && !ispersistent(q) && !getp(q, :save) && getp(q, :fanout)==1
+    ispersistent(q) && return false
+    getp(q,:save) && return false
+    getp(q,:fanout) > 1 && return false
+    at, et, sz = getp(p,:outtype), getp(p,:eltype), getp(p,:size)
+    checkarray(q,:out0,at,et,sz) || return false
+    # a=b*c; c=sigm(a) should not share, dot cannot overwrite!
+    for r in forwregs(f)
+        if isdefined(r,:out0) && r.out0 === q.out0 && !canoverwrite(r.op) && in(p.name, r.args)
+            return false
+        end
+    end
+    return true
 end
 
 function checkarray(r::Reg, n::Symbol, atype::DataType, etype::DataType, dims::Dims)

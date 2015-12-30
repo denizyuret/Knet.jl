@@ -37,6 +37,31 @@ function randn!{T}(rng::AbstractRNG, A::AbstractArray{T}, mean=zero(T), std=one(
     A
 end
 
+# This is missing from sparse/linalg.jl: modified from (*) line 100.
+import Base: A_mul_B!, A_mul_Bt!, At_mul_B!
+
+# y = w * x
+function Base.A_mul_B!{TX,TvA,TiA}(Y::StridedMatrix{TX}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA})
+    mX, nX = size(X)
+    nX == A.m || throw(DimensionMismatch())
+    size(Y) == (mX, A.n) || throw(DimensionMismatch())
+    fill!(Y,0)
+    rowval = A.rowval
+    nzval = A.nzval
+    @inbounds for multivec_row=1:mX, col = 1:A.n, k=A.colptr[col]:(A.colptr[col+1]-1)
+        Y[multivec_row, col] += X[multivec_row, rowval[k]] * nzval[k]
+    end
+    Y
+end
+
+# dw = dy * x'
+function Base.A_mul_Bt!{TX,TvA,TiA}(Y::SparseMatrixCSC{TvA,TiA}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA})
+    error(:cpu_sparse_not_implemented_yet)
+end
+
+# dx = w' * dy is all dense
+
+
 ### DEAD CODE:
 
 # # SIMILAR! create an array l.(n) similar to a given one.  If l.(n)

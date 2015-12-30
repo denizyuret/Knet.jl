@@ -1,5 +1,6 @@
+using Knet
 module CopySeq
-using Main, CUDArt, CUSPARSE, Knet, ArgParse
+using Main, Knet, ArgParse
 using Knet: copysync!
 
 function main(args=ARGS)
@@ -129,10 +130,10 @@ end
 # Persistent storage for ygold and mask
 s2s_ygold = nothing
 s2s_mask = nothing
-copytogpu(y,x::Array)=CudaArray(x)
-copytogpu(y,x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
-copytogpu{T}(y::CudaArray{T},x::Array{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
-copytogpu{T}(y::CudaSparseMatrixCSC{T},x::SparseMatrixCSC{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
+@gpu copytogpu(y,x::Array)=CudaArray(x)
+@gpu copytogpu(y,x::SparseMatrixCSC)=CudaSparseMatrixCSC(x)
+@gpu copytogpu{T}(y::CudaArray{T},x::Array{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
+@gpu copytogpu{T}(y::CudaSparseMatrixCSC{T},x::SparseMatrixCSC{T})=(size(x)==size(y) ? copysync!(y,x) : copytogpu(nothing,x))
 
 
 function s2s_loop(m, data, loss; gcheck=false, o...)
@@ -143,7 +144,7 @@ function s2s_loop(m, data, loss; gcheck=false, o...)
     for (x,ygold,mask) in data
         nwords = (mask == nothing ? size(x,2) : sum(mask))
         # x,ygold,mask are cpu arrays; x gets copied to gpu by forw; we should do the other two here
-        if ygold != nothing # && gpu()
+        if ygold != nothing && gpu()
             ygold = s2s_ygold = copytogpu(s2s_ygold,ygold)
             mask != nothing && (mask = s2s_mask  = copytogpu(s2s_mask,mask)) # mask not used when ygold=nothing
         end

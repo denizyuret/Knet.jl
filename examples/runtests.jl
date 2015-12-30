@@ -385,3 +385,15 @@ end
 #     # 20.983972 seconds (38.88 M allocations: 1.854 GB, 6.21% gc time) Wed Nov 18 21:28:22 PST 2015: lcn
 #     # 20.359684 seconds (40.20 M allocations: 1.908 GB, 5.04% gc time) 5f60a84 latest master (xavier)
 # end
+
+1    # 0.577099 seconds (356.36 k allocations: 73.864 MB, 0.94% gc time) 53bfcd1 broadcast.jl
+2    # 3.611838 seconds (2.95 M allocations: 346.479 MB, 5.23% gc time) 53bfcd1 broadcast.jl
+3    # 3.959572 seconds (3.31 M allocations: 371.077 MB, 6.99% gc time) 53bfcd1 broadcast.jl
+4    # 7.527577 seconds (3.50 M allocations: 861.132 MB, 3.36% gc time)  53bfcd1 broadcast.jl
+5    # 8.237475 seconds (3.87 M allocations: 885.827 MB, 4.08% gc time)  53bfcd1 broadcast.jl
+6    # 14.402732 seconds (9.66 M allocations: 674.339 MB, 1.97% gc time)  53bfcd1 broadcast.jl
+8b   # 11.881547 seconds (21.80 M allocations: 935.974 MB, 1.90% gc time) 53bfcd1 broadcast.jl
+8    # 2.403824 seconds (4.06 M allocations: 181.446 MB, 1.85% gc time)  53bfcd1 broadcast.jl
+7    # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
+9    # 25.047980 seconds (20.10 M allocations: 844.618 MB, 2.97% gc time) 53bfcd1 broadcast.jl
+10   # 11.591728 seconds (15.00 M allocations: 651.078 MB, 3.43% gc time) 53bfcd1 broadcast.jl
