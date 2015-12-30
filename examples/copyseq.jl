@@ -2,6 +2,8 @@ using Knet
 module CopySeq
 using Main, Knet, ArgParse
 using Knet: copysync!
+@useifgpu CUDArt
+@useifgpu CUSPARSE
 
 function main(args=ARGS)
     info("Learning to copy sequences to test the S2S model.")

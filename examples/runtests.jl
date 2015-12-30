@@ -230,7 +230,8 @@ if opts["all"] || opts["addlstm"]
     include("adding.jl")
     @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm")
 
-    @test test8 == (0.24768005f0,3.601481f0,1.2290705f0)      # switched to --epochs 1 --nettype lstm, gradcheck does not work with irnn/relu
+    #@test test8 == (0.24768005f0,3.601481f0,1.2290705f0)      # switched to --epochs 1 --nettype lstm, gradcheck does not work with irnn/relu
+    @test  test8 == (0.24771407f0,3.592532f0,1.2260413f0)      # 5fdb080 2015-12-29 bugfixes in array sharing and gradcheck that effect cpu only
 
     twice && (gc(); @time @show test8 = Adding.main("--gcheck $gcheck --epochs 1 --nettype lstm"))
     # 2.028728 seconds (3.82 M allocations: 164.958 MB, 1.95% gc time)  Tue Oct 20 19:03:01 PDT 2015
@@ -253,7 +254,9 @@ if opts["all"] || opts["mnistpixels"]
 
     # switch to lstm so we can gradcheck, too slow for gcheck>1
     @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128") 
-    @test test7 == (0,2.3025737f0,14.70776f0,0.12069904f0) # switched to --gcheck 1 --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128
+    #@test test7 == (0,2.3025737f0,14.70776f0,0.12069904f0) # switched to --gcheck 1 --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128
+    @test  test7 == (0,2.302574f0, 14.70776f0,0.12069165f0) # 5fdb080 2015-12-29 bugfixes in array sharing and gradcheck that effect cpu only
+
     twice && (gc(); @time @show test7 = MNISTPixels.main("--gcheck $gcheck --nettype lstm --testfreq 2 --epochs 1 --batchsize 64 --epochsize 128"))
     # 2.599979 seconds (5.19 M allocations: 212.248 MB, 2.77% gc time)  Tue Oct 20 19:07:11 PDT 2015
     # 2.713217 seconds (5.28 M allocations: 217.967 MB, 2.56% gc time)  Fri Nov  6 12:53:16 PST 2015: new add kernels
@@ -292,10 +295,17 @@ if opts["all"] || opts["rnnlm"]
     # @test isapprox(test9[4], 136.923, rtol=0.0001)
 
     # 5b1eca0 Sat Dec 19 09:30:14 PST 2015 Knet7 passes gcheck
-    @test isapprox(test9[1], 824.207, rtol=0.01)
-    @test isapprox(test9[2], 532.005, rtol=0.1)
-    @test isapprox(test9[3], 267.190, rtol=0.001)
-    @test isapprox(test9[4], 136.923, rtol=0.0001)
+    # @test isapprox(test9[1], 824.207, rtol=0.01)
+    # @test isapprox(test9[2], 532.005, rtol=0.1)
+    # @test isapprox(test9[3], 267.190, rtol=0.001)
+    # @test isapprox(test9[4], 136.923, rtol=0.0001)
+
+    # 5fdb080 2015-12-29 bugfixes in array sharing and gradcheck that effect cpu only
+    # (825.1204134412419,516.4697114589613,267.68865966796875,130.12557983398438)
+    @test isapprox(test9[1], 825.120, rtol=0.01)
+    @test isapprox(test9[2], 516.470, rtol=0.1)
+    @test isapprox(test9[3], 267.689, rtol=0.001)
+    @test isapprox(test9[4], 130.126, rtol=0.0001)
 
     twice && (gc(); @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
     # 32.368835 seconds (22.35 M allocations: 2.210 GB, 1.56% gc time)   for Float64
@@ -341,10 +351,17 @@ if opts["all"] || opts["copyseq"]
     # @test isapprox(test10[4],  145.565; rtol=.0001)
 
     # (2624.353349018743,1325.262392101933,103.99244689941406,224.86605834960938); ad5d969 latest Knet7
-    @test isapprox(test10[1], 2624.353; rtol=.001)
-    @test isapprox(test10[2], 1325.262; rtol=.001)
-    @test isapprox(test10[3],  103.992; rtol=.001)
-    @test isapprox(test10[4],  224.866; rtol=.001)
+    # @test isapprox(test10[1], 2624.353; rtol=.001)
+    # @test isapprox(test10[2], 1325.262; rtol=.001)
+    # @test isapprox(test10[3],  103.992; rtol=.001)
+    # @test isapprox(test10[4],  224.866; rtol=.001)
+
+    # 5fdb080 2015-12-29 bugfixes in array sharing and gradcheck that effect cpu only
+    # (2584.0528168317383,1070.9145626705672,105.5205307006836,230.8980255126953)
+    @test isapprox(test10[1], 2584.053; rtol=.001)
+    @test isapprox(test10[2], 1070.915; rtol=.001)
+    @test isapprox(test10[3],  105.521; rtol=.001)
+    @test isapprox(test10[4],  230.898; rtol=.001)
 
     twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
@@ -386,14 +403,14 @@ end
 #     # 20.359684 seconds (40.20 M allocations: 1.908 GB, 5.04% gc time) 5f60a84 latest master (xavier)
 # end
 
-1    # 0.577099 seconds (356.36 k allocations: 73.864 MB, 0.94% gc time) 53bfcd1 broadcast.jl
-2    # 3.611838 seconds (2.95 M allocations: 346.479 MB, 5.23% gc time) 53bfcd1 broadcast.jl
-3    # 3.959572 seconds (3.31 M allocations: 371.077 MB, 6.99% gc time) 53bfcd1 broadcast.jl
-4    # 7.527577 seconds (3.50 M allocations: 861.132 MB, 3.36% gc time)  53bfcd1 broadcast.jl
-5    # 8.237475 seconds (3.87 M allocations: 885.827 MB, 4.08% gc time)  53bfcd1 broadcast.jl
-6    # 14.402732 seconds (9.66 M allocations: 674.339 MB, 1.97% gc time)  53bfcd1 broadcast.jl
-8b   # 11.881547 seconds (21.80 M allocations: 935.974 MB, 1.90% gc time) 53bfcd1 broadcast.jl
-8    # 2.403824 seconds (4.06 M allocations: 181.446 MB, 1.85% gc time)  53bfcd1 broadcast.jl
-7    # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
-9    # 25.047980 seconds (20.10 M allocations: 844.618 MB, 2.97% gc time) 53bfcd1 broadcast.jl
-10   # 11.591728 seconds (15.00 M allocations: 651.078 MB, 3.43% gc time) 53bfcd1 broadcast.jl
+# 1    # 0.577099 seconds (356.36 k allocations: 73.864 MB, 0.94% gc time) 53bfcd1 broadcast.jl
+# 2    # 3.611838 seconds (2.95 M allocations: 346.479 MB, 5.23% gc time) 53bfcd1 broadcast.jl
+# 3    # 3.959572 seconds (3.31 M allocations: 371.077 MB, 6.99% gc time) 53bfcd1 broadcast.jl
+# 4    # 7.527577 seconds (3.50 M allocations: 861.132 MB, 3.36% gc time)  53bfcd1 broadcast.jl
+# 5    # 8.237475 seconds (3.87 M allocations: 885.827 MB, 4.08% gc time)  53bfcd1 broadcast.jl
+# 6    # 14.402732 seconds (9.66 M allocations: 674.339 MB, 1.97% gc time)  53bfcd1 broadcast.jl
+# 8b   # 11.881547 seconds (21.80 M allocations: 935.974 MB, 1.90% gc time) 53bfcd1 broadcast.jl
+# 8    # 2.403824 seconds (4.06 M allocations: 181.446 MB, 1.85% gc time)  53bfcd1 broadcast.jl
+# 7    # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
+# 9    # 25.047980 seconds (20.10 M allocations: 844.618 MB, 2.97% gc time) 53bfcd1 broadcast.jl
+# 10   # 11.591728 seconds (15.00 M allocations: 651.078 MB, 3.43% gc time) 53bfcd1 broadcast.jl
