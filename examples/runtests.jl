@@ -265,14 +265,24 @@ if opts["all"] || opts["mnistpixels"]
     # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
 end
 
-if opts["all"] || opts["rnnlm"]
-    include("rnnlm.jl")
-    if !isfile("ptb.valid.txt")
-        info("Downloading ptb...")
+const knetdata = Pkg.dir("Knet/data")
+
+function download_mikolov_examples()
+    url = "http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz"
+    if !isfile("$knetdata/ptb.valid.txt")
+        info("Downloading $url to $knetdata")
+        curr = pwd()
+        cd(knetdata)
 	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz`,
                      `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
+        cd(curr)
     end
-    @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck")
+end
+
+if opts["all"] || opts["rnnlm"]
+    include("rnnlm.jl")
+    download_mikolov_examples()
+    @time @show test9 = RNNLM.main("$knetdata/ptb.valid.txt $knetdata/ptb.test.txt --gcheck $gcheck")
 
     # This is for: Float64
     # @test isapprox(test9[1], 814.9780887272417;  rtol=.0001)
@@ -298,7 +308,7 @@ if opts["all"] || opts["rnnlm"]
     @test isapprox(test9[3], 267.190, rtol=0.001)
     @test isapprox(test9[4], 136.923, rtol=0.0001)
 
-    twice && (gc(); @time @show test9 = RNNLM.main("ptb.valid.txt ptb.test.txt --gcheck $gcheck"))
+    twice && (gc(); @time @show test9 = RNNLM.main("$knetdata/ptb.valid.txt $knetdata/ptb.test.txt --gcheck $gcheck"))
     # 32.368835 seconds (22.35 M allocations: 2.210 GB, 1.56% gc time)   for Float64
     # 22.892147 seconds (22.46 M allocations: 945.257 MB, 2.17% gc time) after switching to Float32
     # 21.982870 seconds (20.64 M allocations: 866.929 MB, 3.08% gc time) Tue Oct 20 19:00:29 PDT 2015
@@ -315,13 +325,9 @@ if opts["all"] || opts["rnnlm"]
 end
 
 if opts["all"] || opts["copyseq"]
-    if !isfile("ptb.valid.txt")
-        info("Downloading ptb...")
-	run(pipeline(`wget -q -O- http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz`,
-                     `tar --strip-components 3 -xvzf - ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`))
-    end
+    download_mikolov_examples()
     include("copyseq.jl")
-    @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt")
+    @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck $knetdata/ptb.valid.txt $knetdata/ptb.test.txt")
 
     # @test isapprox(test10[1], 3143.22; rtol=.001)
     # @test isapprox(test10[2], 1261.19; rtol=.0001)
@@ -347,7 +353,7 @@ if opts["all"] || opts["copyseq"]
     @test isapprox(test10[3],  103.992; rtol=.001)
     @test isapprox(test10[4],  224.866; rtol=.001)
 
-    twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck ptb.valid.txt ptb.test.txt"))
+    twice && (gc(); @time @show test10 = CopySeq.main("--epochs 1 --gcheck $gcheck $knetdata/ptb.valid.txt $knetdata/ptb.test.txt"))
     # 5.984980 seconds (8.33 M allocations: 353.611 MB, 4.15% gc time) Tue Oct 20 18:58:25 PDT 2015
     # 11.230476 seconds (16.29 M allocations: 701.612 MB, 4.05% gc time) Wed Oct 21 23:19:24 PDT 2015 (unsorted input)
     # 11.658034 seconds (17.49 M allocations: 752.336 MB, 4.47% gc time) Fri Nov  6 12:53:16 PST 2015: new add kernels

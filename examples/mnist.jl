@@ -4,14 +4,19 @@ using GZip
 using Requests
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
+const knetdata = Pkg.dir("Knet/data")
 const xtrn_file = "train-images-idx3-ubyte.gz"
 const ytrn_file = "train-labels-idx1-ubyte.gz"
 const xtst_file = "t10k-images-idx3-ubyte.gz"
 const ytst_file = "t10k-labels-idx1-ubyte.gz"
 
 function wgetzcat(gz)
-    isfile(gz) || save(get("$mnisturl/$gz"), gz) # get("$mnisturl/$gz"; ostream=gz) # run(`wget $mnisturl/$gz`)
-    fh = GZip.open(gz)
+    gzpath = "$knetdata/$gz"
+    if !isfile(gzpath)
+        info("Downloading $mnisturl/$gz to $knetdata")
+        save(get("$mnisturl/$gz"), gzpath) # get("$mnisturl/$gz"; ostream=gz) # run(`wget $mnisturl/$gz`)
+    end
+    fh = GZip.open(gzpath)
     a = readbytes(fh)
     close(fh)
     a

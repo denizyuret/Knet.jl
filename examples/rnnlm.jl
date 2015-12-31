@@ -5,8 +5,7 @@
 # Usage: julia rnnlm.jl ptb.train.txt ptb.valid.txt ptb.test.txt
 # Type julia rnnlm.jl --help for more options
 
-using Knet,CUDArt # useful when debugging
-
+using Knet
 module RNNLM
 using Knet, ArgParse
 using Knet: regs, getp, setp, stack_length, stack_empty!, params

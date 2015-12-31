@@ -3,10 +3,11 @@
 # Rectified Linear Units. arXiv preprint arXiv:1504.00941.
 # Usage: julia adding.jl [opts], use --help for a full list of opts.
 
-using CUDArt,Knet
+using Knet
 module Adding
-using Main, Knet, ArgParse, CUDArt, JLD
+using Main, Knet, ArgParse, JLD
 using Knet: stack_isempty
+@useifgpu CUDArt
 
 function main(args=ARGS)
     info("Adding problem from Le et al. 2015.")

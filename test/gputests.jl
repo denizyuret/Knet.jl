@@ -25,11 +25,13 @@ include(Pkg.dir("Knet/examples/adding.jl"))
 @test Adding.main("--epochs 1") == (0.22713459f0,3.3565507f0,5.3267756f0)
 @test Adding.main("--epochs 1 --nettype lstm") == (0.24768005f0,3.601481f0,1.2290705f0)
 
+seqdata = Pkg.dir("Knet/data/seqdata.txt")
+
 include(Pkg.dir("Knet/examples/rnnlm.jl"))
-@test RNNLM.main("--max_max_epoch 1 --dense seqdata.txt") == (30.65637197763184,110.81809997558594,29.36899185180664)
+@test RNNLM.main("--max_max_epoch 1 --dense $seqdata") == (30.65637197763184,110.81809997558594,29.36899185180664)
 
 include(Pkg.dir("Knet/examples/copyseq.jl"))
-@test CopySeq.main("--epochs 1 --dense seqdata.txt") == (40.00286169097269,30.352935791015625,1.646486520767212)
+@test CopySeq.main("--epochs 1 --dense $seqdata") == (40.00286169097269,30.352935791015625,1.646486520767212)
 
 ### DEAD CODE:
 # using Compat

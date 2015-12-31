@@ -3,9 +3,12 @@ using Knet
 using Requests
 
 url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-# data = readdlm(get(url).body.data) # TODO: saving as file as in mnist
-file="housing.data"
-isfile(file) || save(get(url), file) # get(url; ostream=file)
+# data = readdlm(get(url).body.data) # could do it without saving file
+file=Pkg.dir("Knet/data/housing.data")
+if !isfile(file)
+    info("Downloading $url to $file")
+    save(get(url), file) # get(url; ostream=file)
+end
 data = readdlm(file)'
 @show size(data)
 x = data[1:13,:]
