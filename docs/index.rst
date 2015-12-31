@@ -11,9 +11,10 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   kfun
-   nce
+   intro
 
+.. kfun
+.. nce
 .. scode?
 .. s2s
 .. s2c
