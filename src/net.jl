@@ -80,11 +80,19 @@ function difs(pp::Vector{Reg})
 end
 
 getp(p::Reg,k::Symbol,v=false)=get(p.plist,k,v)
-setp(p::Reg,k::Symbol,v=true)=(p.plist[k]=v)
-setp(f::Net,k::Symbol,v=true)=(for p in regs(f); p.plist[k]=v; end)
+incp(p::Reg,k::Symbol)=setp(p,k,1+getp(p,k,0))
+setp(p::Reg,k::Symbol,v)=(p.plist[k]=v)
 setp(p::Reg; o...)=(for (k,v) in o; setp(p,k,v); end)
 setp(f::Net; o...)=(for p in regs(f); setp(p; o...); end)
-incp(p::Reg,k::Symbol)=setp(p,k,1+getp(p,k,0))
+
+function setp(f::Net,k; o...)
+    r=reg(f,k)
+    if isa(r,Reg)
+        setp(r;o...)
+    elseif isa(r,Array)
+        for p in r; setp(p;o...); end
+    end
+end
 
 ### Cleanup at the beginning/end of sequence
 

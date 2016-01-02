@@ -29,17 +29,17 @@ packages::
 If you have a GPU machine, you may need to type ``Pkg.build("Knet")``
 to compile the Knet GPU kernels.  If you do not have a GPU machine,
 you don't need ``Pkg.build`` but you may get some warnings indicating
-the lack of GPU support.  These can typically be safely ignored.  To
+the lack of GPU support.  Usually, these can be safely ignored.  To
 make sure everything has installed correctly, type
 ``Pkg.test("Knet")`` which should take a couple of minutes kicking the
 tires.  If all is OK, continue with the next section, if not you can
 get help at the `knet-users
 <https://groups.google.com/forum/#!forum/knet-users>`_ mailing list.
 
-Models, Functions, and Operators
+Models, functions, and operators
 --------------------------------
 ..
-   @kfun, compile, forw, get
+   @kfun, compile, forw, get, primitive ops
 
 To start using Knet, type ``using Knet`` at the Julia prompt.
 
@@ -49,10 +49,11 @@ To start using Knet, type ``using Knet`` at the Julia prompt.
    ...
 
 In Knet, a machine learning model is defined using a special function
-syntax.  The following example defines a Knet function for a simple
-linear regression model with 13 inputs and 1 output. You can type this
-definition at the Julia prompt, or you can copy and paste it into a
-file which can be loaded into Julia using ``include("filename")``:
+syntax with the ``@knet`` macro.  The following example defines a Knet
+function for a simple linear regression model with 13 inputs and 1
+output. You can type this definition at the Julia prompt, or you can
+copy and paste it into a file which can be loaded into Julia using
+``include("filename")``:
 
 .. testcode::
 
@@ -86,7 +87,7 @@ In this definition:
 This looks a lot like a regular Julia `function definition
 <http://julia.readthedocs.org/en/release-0.4/manual/functions>`_
 except for the ``@knet`` macro.  However it is important to emphasize
-that the @knet macro does not define ``lin`` as a regular Julia
+that the ``@knet`` macro does not define ``lin`` as a regular Julia
 function or variable.  Furthermore, only a restricted set of statement
 types (e.g. assignment and return statements) and operators
 (e.g. ``par``, ``*`` and ``.+``) can be used in a @knet function
@@ -98,9 +99,9 @@ Operator                	Description
 :func:`par() <par>`		a parameter array, updated during training; kwargs: [#]_ ``dims, init``
 :func:`rnd() <rnd>`		a random array, updated every call; kwargs: ``dims, init``
 :func:`arr() <arr>`           	a constant array, never updated; kwargs: ``dims, init``
-:func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A*B``
-:func:`add(A,B) <add>`		elementwise broadcasting [#]_ addition of arrays ``A`` and ``B``, alternative notation: ``A.+B``
-:func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A.*B``
+:func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A * B``
+:func:`add(A,B) <add>`		elementwise broadcasting [#]_ addition of arrays ``A`` and ``B``, alternative notation: ``A .+ B``
+:func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A .* B``
 :func:`conv(W,X) <conv>`       	convolution with filter ``W`` and input ``X``; kwargs: ``padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION``
 :func:`pool(X) <pool>`		pooling; kwargs: ``window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX``
 :func:`axpb(X) <axpb>`         	computes ``a*x^p+b``; kwargs: ``a=1, p=1, b=0``
@@ -138,9 +139,9 @@ trained with examples and used for predictions, we need to compile it:
 
 .. doctest::
 
-    julia> f = compile(:lin);	# Note that the colon before lin is required
+    julia> f = compile(:lin)	# The colon before lin is required
     ...
-    
+
 ..
    This defines ``f`` as an actual model (model or Net?) that we can
    train and use for predictions (repeated).  Note that the colon
@@ -150,8 +151,9 @@ trained with examples and used for predictions, we need to compile it:
    Knet function then compiling it into a model, will become more clear
    when we introduce compile time parameters.)
 
-To test our model let's give it some input.  ``w`` is a 1x13 row
-vector, so the input ``x`` should be a 13x1 column vector:
+To test our model let's give it some input.  ``w`` is a :math:`1\times
+13` row vector, so the input ``x`` should be a :math:`13\times 1`
+column vector:
 
 .. doctest::
 
@@ -159,7 +161,7 @@ vector, so the input ``x`` should be a 13x1 column vector:
     13x1 Array{Float64,2}:
       0.367563
      -0.886205
-     ...
+      ...
       0.569829
      -1.42206
 
@@ -172,11 +174,7 @@ To obtain the prediction of model ``f`` on input ``x`` we use the
     1x1 Array{Float64,2}:
      -1.00532
 
-We can query the model and see its parameters using ``get`` (Note that
-we need to escape Knet variable names using the `colon
-character
-<http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols>`_,
-just like we did for ``:lin`` when compiling.):
+We can query the model and see its parameters using ``get``:
       
 .. doctest::
 
@@ -188,10 +186,14 @@ just like we did for ``:lin`` when compiling.):
     1x1 Array{Float64,2}:
      1.49138
     
-We can also look at the input with ``get(f,:x)``, reexamine the output
-using the special ``:return`` symbol with ``get(f,:return)``.  In fact
-using ``get``, we can confirm that our model gives us the same answer
-as an equivalent Julia expression:
+Note that we need to escape Knet variable names using the `colon
+character
+<http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols>`_,
+just like we did for ``:lin`` when compiling.  We can also look at the
+input with ``get(f,:x)``, reexamine the output using the special
+``:return`` symbol with ``get(f,:return)``.  In fact using ``get``, we
+can confirm that our model gives us the same answer as an equivalent
+Julia expression:
 
 .. doctest::     
 
@@ -203,7 +205,7 @@ as an equivalent Julia expression:
    Also note that ``lin`` is not defined as a regular Julia function or
    variable.
 
-   .. doctest::
+   .. doctest
 
       julia> lin(5)
       ERROR: UndefVarError: lin not defined
@@ -216,70 +218,59 @@ as an equivalent Julia expression:
 
 Training
 --------
+..
+   quadloss, back, update!, setp, update options
 
-What makes a machine learning model different from an ordinary
-function is its ability to learn from data.  Let us download the
-`Housing <http://archive.ics.uci.edu/ml/datasets/Housing>`_ dataset
-from the `UCI Machine Learning Repository
-<http://archive.ics.uci.edu/ml/datasets.html>`_ to train our model:
+OK, we can define functions using Knet but why should we bother?  What
+makes a Knet model different from an ordinary function is that Knet
+models are `differentiable programs`.  This means that for a given
+input not only can they compute an output, but they can also compute
+which way their parameters should be modified to approach some desired
+output.  If we have some input-output data that comes from an unknown
+function, we can `train` a Knet model to look like this unknown
+function by manipulating its parameters.
+
+Let us download the `Housing
+<http://archive.ics.uci.edu/ml/datasets/Housing>`_ dataset from the
+`UCI Machine Learning Repository
+<http://archive.ics.uci.edu/ml/datasets.html>`_ to train our ``lin``
+model:
 
 .. doctest::
    
    julia> using Requests
-
    julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data";
+   julia> data = readdlm(get(url).data)'  # Don't forget the final apostrophe to transpose
+   14x506 Array{Float64,2}:...
 
-   julia> data = readdlm(get(url).data)'	# Don't forget the final apostrophe for transpose
-   14x506 Array{Float64,2}:
-   ...
-
-The dataset has housing related information about 506 neighborhoods in
+The dataset has housing related information for 506 neighborhoods in
 Boston, each with 14 attributes.  The last attribute is the median
 house price to be predicted, so let's separate it:
 
 .. doctest::
    
    julia> x = data[1:13,:]
-   13x506 Array{Float64,2}:
-   ...
-
+   13x506 Array{Float64,2}:...
    julia> y = data[14,:]
-   1x506 Array{Float64,2}:
-   ...
+   1x506 Array{Float64,2}:...
 
 You may have noticed that the input attributes have very different
 ranges.  It is usually a good idea to normalize them:
 
 .. doctest::
 
-   julia> x = (x .- mean(x,2)) ./ std(x,2)
-   13x506 Array{Float64,2}:
-   ...
+   julia> x = (x .- mean(x,2)) ./ std(x,2);
 
 It is also a good idea to split our dataset into train and test
 portions so we can estimate how well our model will do on unseen data:
 
 .. doctest::
 
-   julia> r = randperm(size(x,2))
-   506-element Array{Int64,1}:
-   ...
-
-   julia> xtrn=x[:,r[1:400]]
-   13x400 Array{Float64,2}:
-   ...
-    
-   julia> ytrn=y[:,r[1:400]]
-   1x400 Array{Float64,2}:
-   ...
-    
-   julia> xtst=x[:,r[401:end]]
-   13x106 Array{Float64,2}:
-   ...
-    
-   julia> ytst=y[:,r[401:end]]
-   1x106 Array{Float64,2}:
-   ...
+   julia> r = randperm(size(x,2));
+   julia> xtrn=x[:,r[1:400]];
+   julia> ytrn=y[:,r[1:400]];
+   julia> xtst=x[:,r[401:end]];
+   julia> ytst=y[:,r[401:end]];
     
 Let's see how well our randomly initialized model does before
 training:
@@ -287,29 +278,37 @@ training:
 .. doctest::
 
    julia> ypred = forw(f, xtst)
-   1x106 Array{Float64,2}:
-   ...
-    
+   1x106 Array{Float64,2}:...
    julia> quadloss(ypred, ytst)
    289.7437322259235
 
 The quadratic loss function ``quadloss`` computes :math:`(1/2n) \sum
-(\hat{y} - y)^2`, i.e. half of the expected squared difference between
-a predicted answer and the correct answer.  Given that y values range
-from 5 to 50, `RMSE
-<https://en.wikipedia.org/wiki/Root-mean-square_deviation>`_ =
+(\hat{y} - y)^2`, i.e. half of the mean squared difference between a
+predicted answer :math:`\hat{y}` and the desired answer :math:`y`.
+Given that :math:`y` values range from 5 to 50, a `root mean squared
+error (RMSE)
+<https://en.wikipedia.org/wiki/Root-mean-square_deviation>`_ of
 :math:`\sqrt{2\times 289.7}=24.07` is a pretty bad score.
 
-Knet provides four functions to help train models:
+We would like to minimize this loss which should get the predicted
+answer closer to the desired answer.  To do this we first compute the
+loss gradient for the parameters of ``f``, this is the direction in
+parameter space that maximally increase the loss.  Then we move the
+parameters in the opposite direction.
+
+Knet provides three functions to help train models:
 
 ================================= ==============================================================================
 Function                	  Description
 ================================= ==============================================================================
-:func:`forw(f,x) <forw>`	  returns the prediction of model f on input x
-:func:`back(f,y,loss) <back>`	  computes the gradient of the parameters of f wrt the gold answers y and a loss function
-:func:`update!(f) <update!>`	  updates the parameters of f using the gradients to improve loss
-:func:`setp(f; kwargs...) <setp>` can be used to configure update options such as the learning rate ``lr``
+:func:`forw(f,x) <forw>`	  returns the prediction of model ``f`` on input ``x``
+:func:`back(f,y,lossfn) <back>`	  computes the loss gradients of ``f`` parameters based on the desired output ``y`` and a loss function ``lossfn``
+:func:`update!(f) <update!>`	  updates the parameters of ``f`` using the gradients computed by ``back`` to reduce loss
 ================================= ==============================================================================
+
+..
+   TODO: remove the ! from update! ?
+   TODO: have an objective function instead of a loss function?
 
 Using these, we can write a simple training script:
 
@@ -328,26 +327,52 @@ Using these, we can write a simple training script:
       
    ...
 
-... and train our model after setting an appropriate learning rate:
+Here is the sequence of events that take place during training:
+
+* The ``for`` loop grabs training instances one by one.
+* ``forw`` computes the prediction for the i'th instance.  This is required for the next step.
+* ``back`` computes the loss gradient ``dw`` for each parameter ``w`` for the i'th instance.
+* ``update!`` subtracts (a function of) ``dw`` from ``w`` to reduce the loss for each parameter ``w``.
+
+We can manipulate how exactly ``update!`` behaves by setting some
+training options like the learning rate ``lr``.  I'll explain the
+mathematical motivation later, but algorithmically these training
+options manipulate the ``dw`` array (sometimes using an auxiliary
+array ``dw2``) before the subtraction to improve the loss faster.
+Here is a list of training options supported by Knet and how they
+manipulate ``dw``:
+
+=============================== ==============================================================================
+Option	                	Description
+=============================== ==============================================================================
+``lr``				Learning rate: ``dw *= lr``
+``l1reg``			L1 regularization: ``dw += l1reg * sign(w)``
+``l2reg``			L2 regularization: ``dw += l2reg * w``
+``adagrad``			Adagrad (boolean): ``dw2 += dw .* dw; dw = dw ./ (1e-8 + sqrt(dw2))``
+``momentum``			Momentum: ``dw += momentum * dw2; dw2 = dw``
+``nesterov``			Nesterov: ``dw2 = nesterov * dw2 + dw; dw += nesterov * dw2``
+=============================== ==============================================================================
+
+
+We can set these training options for individual parameters using
+e.g. ``setp(f, :w; lr=0.001)``, or for the whole model using ``setp(f;
+lr=0.001)``.  Let's set the learning rate to 0.001 and train the model
+for 100 epochs:
 
 .. doctest::
 
-   julia> setp(f, lr=0.001)
-   
+   julia> setp(f; lr=0.001)
    julia> for i=1:100; train(f, xtrn, ytrn, quadloss); end
 
-100 epochs of training should take a few seconds, and this time
-our RMSE should be much better:
+This should take a few seconds, and this time our RMSE should be much
+better:
 
 .. doctest::
    
    julia> ypred = forw(f, xtst)
-   1x106 Array{Float64,2}:
-   ...
-
+   1x106 Array{Float64,2}:...
    julia> quadloss(ypred,ytst)
    12.334981140829859
-
    julia> sqrt(2*ans)
    4.966886578296279
 
@@ -359,31 +384,45 @@ We can see what the model has learnt looking at the new weights:
    1x13 Array{Float64,2}:
     -0.426154  0.765073  0.287288 ... -1.94362  0.837376  -3.45769
 
-   julia> sortperm(vec(get(f,:w)))
-   13-element Array{Int64,1}:
-    13
-     8
-    ...
-     9
-     6
+..
+   julia> println(sortperm(vec(get(f,:w))))
+   [13,8,11,5,10,1,7,3,2,4,12,9,6]
 
 The two weights with the most negative contributions are 13 and 8.  We
 can find out from `UCI
 <http://archive.ics.uci.edu/ml/datasets/Housing>`_ that these are::
 
   13. LSTAT: % lower status of the population
-  8. DIS: weighted distances to five Boston employment centres
+   8. DIS: weighted distances to five Boston employment centres
 
 And the two with the most positive contributions are 9 and 6::
 
-  9. RAD: index of accessibility to radial highways 
-  6. RM: average number of rooms per dwelling
+   9. RAD: index of accessibility to radial highways 
+   6. RM: average number of rooms per dwelling
       
 Now, there are a lot more efficient and elegant ways to perform and
 analyze a linear regression as you can find out from any decent
 statistics text.  However the basic method outlined in this section
 has the advantage of being easy to generalize to models that are a lot
 more complicated as we will see next.
+
+Defining new operators
+----------------------
+..
+   @knet as op, compile time options (kwargs for kfun and compile)
+   lenet example, fast enough on cpu?
+
+Conditionals
+------------
+..
+   if-else, runtime conditions (kwargs for forw), dropout
+   lenet with dropout?  fast enough for cpu?
+   
+Sequences and RNNs
+------------------
+..
+   read-before-write, karpathy example?
+
 
 .. - kfun as model: linear regression.
 .. - kfun as new ops: mnist lenet.
