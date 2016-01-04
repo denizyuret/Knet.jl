@@ -33,8 +33,9 @@ the lack of GPU support.  Usually, these can be safely ignored.  To
 make sure everything has installed correctly, type
 ``Pkg.test("Knet")`` which should take a couple of minutes kicking the
 tires.  If all is OK, continue with the next section, if not you can
-get help at the `knet-users
-<https://groups.google.com/forum/#!forum/knet-users>`_ mailing list.
+get help at the knet-users_ mailing list.
+
+.. _knet-users: https://groups.google.com/forum/#!forum/knet-users
 
 Models, functions, and operators
 --------------------------------
@@ -84,14 +85,15 @@ In this definition:
   function, where ``*`` denotes matrix product and ``.+`` denotes
   elementwise addition.
 
-This looks a lot like a regular Julia `function definition
-<http://julia.readthedocs.org/en/release-0.4/manual/functions>`_
+This looks a lot like a regular `Julia function definition`_
 except for the ``@knet`` macro.  However it is important to emphasize
 that the ``@knet`` macro does not define ``lin`` as a regular Julia
 function or variable.  Furthermore, only a restricted set of statement
 types (e.g. assignment and return statements) and operators
 (e.g. ``par``, ``*`` and ``.+``) can be used in a @knet function
 definition.  A full list of Knet primitive operators is given below:
+
+.. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
 
 ===============================	==============================================================================
 Operator                	Description
@@ -113,22 +115,23 @@ Operator                	Description
 ===============================	==============================================================================
 
 .. [#] Both Julia and Knet functions accept optional `keyword
-       arguments
-       <http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments>`_.
-       Functions with keyword arguments are defined using a semicolon
-       in the signature, e.g. ``plot(x, y; width=1, height=2)``, the
-       semicolon is optional when the function is called,
-       e.g. both ``plot(x, y, width=2)`` or ``plot(x, y; width=2)``
-       work.  Unspecified keyword arguments take their default values
-       specified in the function definition.
+       arguments`_ Functions with keyword arguments are defined using
+       a semicolon in the signature, e.g. ``plot(x, y; width=1,
+       height=2)``, the semicolon is optional when the function is
+       called, e.g. both ``plot(x, y, width=2)`` or ``plot(x, y;
+       width=2)`` work.  Unspecified keyword arguments take their
+       default values specified in the function definition.
 
-.. [#] `Broadcasting operations <http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting>`_
-       are element-by-element binary operations on arrays
-       of possibly different sizes, such as adding a vector to each
-       column of a matrix.  They expand singleton dimensions in array
-       arguments to match the corresponding dimension in the other
-       array without using extra memory, and apply the given function
-       elementwise.
+.. [#] `Broadcasting operations`_ are element-by-element binary
+       operations on arrays of possibly different sizes, such as
+       adding a vector to each column of a matrix.  They expand
+       singleton dimensions in array arguments to match the
+       corresponding dimension in the other array without using extra
+       memory, and apply the given function elementwise.
+
+.. _keyword arguments: http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments
+
+.. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
 
 In order to turn ``lin`` into a machine learning model that can be
 trained with examples and used for predictions, we need to compile it:
@@ -187,8 +190,7 @@ We can query the model and see its parameters using ``get``:
      1.49138
     
 Note that we need to escape Knet variable names using the `colon
-character
-<http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols>`_,
+character`_
 just like we did for ``:lin`` when compiling.  We can also look at the
 input with ``get(f,:x)``, reexamine the output using the special
 ``:return`` symbol with ``get(f,:return)``.  In fact using ``get``, we
@@ -200,6 +202,8 @@ Julia expression:
     julia> get(f,:w) * get(f,:x) .+ get(f,:b)
     1x1 Array{Float64,2}:
      -1.00532
+
+.. _colon character: http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols
 
 ..
    Also note that ``lin`` is not defined as a regular Julia function or
@@ -230,11 +234,12 @@ output.  If we have some input-output data that comes from an unknown
 function, we can `train` a Knet model to look like this unknown
 function by manipulating its parameters.
 
-Let us download the `Housing
-<http://archive.ics.uci.edu/ml/datasets/Housing>`_ dataset from the
-`UCI Machine Learning Repository
-<http://archive.ics.uci.edu/ml/datasets.html>`_ to train our ``lin``
-model:
+Let us download the `Housing dataset`_ from the `UCI Machine Learning
+Repository`_ to train our ``lin`` model:
+
+.. _Housing dataset: http://archive.ics.uci.edu/ml/datasets/Housing
+
+.. _UCI Machine Learning Repository: http://archive.ics.uci.edu/ml/datasets.html
 
 .. doctest::
    
@@ -286,9 +291,10 @@ The quadratic loss function ``quadloss`` computes :math:`(1/2n) \sum
 (\hat{y} - y)^2`, i.e. half of the mean squared difference between a
 predicted answer :math:`\hat{y}` and the desired answer :math:`y`.
 Given that :math:`y` values range from 5 to 50, a `root mean squared
-error (RMSE)
-<https://en.wikipedia.org/wiki/Root-mean-square_deviation>`_ of
-:math:`\sqrt{2\times 289.7}=24.07` is a pretty bad score.
+error (RMSE)`_ of :math:`\sqrt{2\times 289.7}=24.07` is a pretty bad
+score.
+
+.. _root mean squared error (RMSE): https://en.wikipedia.org/wiki/Root-mean-square_deviation
 
 We would like to minimize this loss which should get the predicted
 answer closer to the desired answer.  To do this we first compute the
@@ -389,8 +395,7 @@ We can see what the model has learnt looking at the new weights:
    [13,8,11,5,10,1,7,3,2,4,12,9,6]
 
 The two weights with the most negative contributions are 13 and 8.  We
-can find out from `UCI
-<http://archive.ics.uci.edu/ml/datasets/Housing>`_ that these are::
+can find out from UCI_ that these are::
 
   13. LSTAT: % lower status of the population
    8. DIS: weighted distances to five Boston employment centres
@@ -400,6 +405,8 @@ And the two with the most positive contributions are 9 and 6::
    9. RAD: index of accessibility to radial highways 
    6. RM: average number of rooms per dwelling
       
+.. _UCI: http://archive.ics.uci.edu/ml/datasets/Housing
+
 Now, there are a lot more efficient and elegant ways to perform and
 analyze a linear regression as you can find out from any decent
 statistics text.  However the basic method outlined in this section
@@ -411,6 +418,19 @@ Defining new operators
 ..
    @knet as op, compile time options (kwargs for kfun and compile)
    lenet example, fast enough on cpu?
+
+The key to controlling complexity in computer languages is
+*abstraction*.  Abstraction is the ability to name compound structures
+built from primitive parts, so they too can be used as primitives.  In
+Knet we do this by using @knet functions not as models, but as new
+operators inside other @knet functions.
+
+We will use the LeNet_ convolutional neural network model to
+illustrate the power of abstraction in Knet.  The model will be used
+to classify hand-written digits from the MNIST_ dataset.
+
+.. _LeNet: http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf
+.. _MNIST: http://yann.lecun.com/exdb/mnist
 
 Conditionals
 ------------
