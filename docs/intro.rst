@@ -417,7 +417,7 @@ Defining new operators
 ----------------------
 ..
    @knet as op, compile time options (kwargs for kfun and compile)
-   lenet example, fast enough on cpu?
+   lenet example, fast enough on cpu?, minibatches
 
 The key to controlling complexity in computer languages is
 *abstraction*.  Abstraction is the ability to name compound structures
@@ -431,6 +431,8 @@ to classify hand-written digits from the MNIST_ dataset.
 
 .. _LeNet: http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf
 .. _MNIST: http://yann.lecun.com/exdb/mnist
+
+
 
 Conditionals
 ------------

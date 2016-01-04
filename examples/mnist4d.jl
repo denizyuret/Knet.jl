@@ -30,8 +30,8 @@ function main(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    global dtrn = minibatch(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn, batchsize)
-    global dtst = minibatch(reshape(MNIST.xtst,28,28,1,div(length(MNIST.xtst),28*28)), MNIST.ytst, batchsize)
+    global dtrn = minibatch(MNIST.xtrn, MNIST.ytrn, batchsize)
+    global dtst = minibatch(MNIST.xtst, MNIST.ytst, batchsize)
 
     global net = compile(:lenet_model)
     setp(net; lr=lr)

@@ -3,6 +3,7 @@
 isdefined(:MNIST) || include("mnist.jl")
 module MNIST2D
 using Main,Knet,ArgParse
+using Knet: mat2d
 
 function main(args=ARGS)
     info("Testing simple mlp on MNIST")
@@ -21,8 +22,10 @@ function main(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    fx = (xsparse ? sparse : identity)
-    fy = (ysparse ? sparse : identity)
+    fsparse(x)=sparse(mat2d(x))
+    fdense(x)=mat2d(x)
+    fx = (xsparse ? fsparse : fdense)
+    fy = (ysparse ? fsparse : fdense)
     global dtrn = minibatch(fx(MNIST.xtrn), fy(MNIST.ytrn), batchsize)
     global dtst = minibatch(fx(MNIST.xtst), fy(MNIST.ytst), batchsize)
 

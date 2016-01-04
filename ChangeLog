@@ -1,20 +1,4 @@
-2015-12-30  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* tur-preinit-fails:
-	- rnd results too good:
-	-- maybe they would be with these params for fr-en, en-en too.
-	- pre results too bad:
-	-- buggy trainer
-	-- buggy big model
-	-- buggy vocab copy
-	-- buggy corpus: tokenization capitalization domain etc
-	--- check most frequent tokens, check lm cross entropy
-	--- maybe fr-en would not do as good if en side was not identical
-	- fixed copy problem but still bad pretraining results
-	-- running pre2 to confirm
-	-- english vocab different or distribution different
-
-2015-12-29  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-01-04  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DOCS:
 	- reading data: readdlm, HTTPClient.get
@@ -60,6 +44,7 @@
 
 	* TODO:
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
+	0001 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
 	0005 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
@@ -67,7 +52,6 @@
 	0012 example: aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
 	0100 example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
-	0101 example: character convolution models.
 	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 example: need something for turkish translation to report to tubitak
 	0101 example: try s2s model in turkish translation: jonmay sent link to low density translation data.
@@ -102,6 +86,8 @@
 	0901 speed: barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
+	1000 test and integrate cudnn v4, it has batch normalization, lcn, lrn.  may have fixed some bugs.
+	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 compiler: warn for unused constants
@@ -136,6 +122,7 @@
 	1500 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
 	1500 examples/rnnlm.jl: did not get good results on the large experiment, debug.
 	1500 examples: ArgParse, args: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
+	1500 examples: ArgParse cannot catch error: fix is in https://github.com/carlobaldassi/ArgParse.jl/issues/24
 	1500 examples: reimplement predict, train, and tutorial.jl.
 	1501 - add ipa model train and predict to runtests.jl.
 	1501 - all sparse code slowed down? (lcn, master test).  due to xavier.  find out why. rest of mnist speed-up due to not using ItemTensor?
@@ -155,6 +142,24 @@
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
+2015-12-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* tur-preinit-fails:
+	- rnd results too good:
+	-- maybe they would be with these params for fr-en, en-en too.
+	- pre results too bad:
+	-- buggy trainer
+	-- buggy big model
+	-- buggy vocab copy
+	-- buggy corpus: tokenization capitalization domain etc
+	--- check most frequent tokens, check lm cross entropy
+	--- maybe fr-en would not do as good if en side was not identical
+	- fixed copy problem but still bad pretraining results
+	-- running pre2 to confirm
+	-- english vocab different or distribution different
+
+2015-12-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
 	* DONE:
 	DONE cpu test domask
 	DONE test cpu compatibility for all ops, numerical comparison with gpu: add, conv, pool.
@@ -169,14 +174,10 @@
 	* DONE:
 	DONE - make semicolon optional: cannot do it, foo(a=1) is not the same as foo(;a=1) in julia. no, that is true in defition, not in call!
 
-2015-12-27  Deniz Yuret  <dyuret@ku.edu.tr>
-
-
 2015-12-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE - bmul!, baddforw!: make broadcasting ops take small array in either position, fix infersize by having a second pass that assumes add/mul are not broadcasting.  test infersize with lstm and minibatch=1. look at julia broadcasting.
-
 
 2015-12-25  Deniz Yuret  <dyuret@ku.edu.tr>
 

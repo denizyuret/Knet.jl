@@ -4,7 +4,7 @@
 
 module MNISTPixels
 using Main, Knet, ArgParse
-using Knet: nextidx, stack_isempty
+using Knet: nextidx, stack_isempty, mat2d
 
 isdefined(:MNIST) || include("mnist.jl")
 
@@ -16,8 +16,8 @@ function main(args=ARGS)
     for (k,v) in opts; @eval ($(symbol(k))=$v); end
     seed > 0 && setseed(seed)
 
-    global trn = Pixels(MNIST.xtrn, MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
-    global tst = Pixels(MNIST.xtst, MNIST.ytst; batch=batchsize)
+    global trn = Pixels(mat2d(MNIST.xtrn), MNIST.ytrn; batch=batchsize, epoch=epochsize, bootstrap=true)
+    global tst = Pixels(mat2d(MNIST.xtst), MNIST.ytst; batch=batchsize)
     global net = compile(:mpixels; rnn=symbol(nettype), hidden=hidden, nclass=10, winit=Gaussian(0,winit), fbias=fbias)
     setp(net; lr=lrate)
 

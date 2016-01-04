@@ -30,7 +30,7 @@ end
 
 function readimages(gz)
     a=(wgetzcat(gz)[17:end] ./ 255.0f0)
-    reshape(a, 28*28, div(length(a),(28*28)))
+    reshape(a, 28, 28, 1, div(length(a),(28*28)))
 end
 
 function loadmnist()
