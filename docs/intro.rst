@@ -95,24 +95,28 @@ definition.  A full list of Knet primitive operators is given below:
 
 .. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
 
-===============================	==============================================================================
-Operator                	Description
-===============================	==============================================================================
-:func:`par() <par>`		a parameter array, updated during training; kwargs: [#]_ ``dims, init``
-:func:`rnd() <rnd>`		a random array, updated every call; kwargs: ``dims, init``
-:func:`arr() <arr>`           	a constant array, never updated; kwargs: ``dims, init``
-:func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A * B``
-:func:`add(A,B) <add>`		elementwise broadcasting [#]_ addition of arrays ``A`` and ``B``, alternative notation: ``A .+ B``
-:func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A .* B``
-:func:`conv(W,X) <conv>`       	convolution with filter ``W`` and input ``X``; kwargs: ``padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION``
-:func:`pool(X) <pool>`		pooling; kwargs: ``window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX``
-:func:`axpb(X) <axpb>`         	computes ``a*x^p+b``; kwargs: ``a=1, p=1, b=0``
-:func:`copy(X) <copy>`         	copies ``X`` to output.
-:func:`relu(X) <relu>`		rectified linear activation function: ``(x > 0 ? x : 0)``
-:func:`sigm(X) <sigm>`		sigmoid activation function: ``1/(1+exp(-x))``
-:func:`soft(X) <soft>`		softmax activation function: ``(exp xi) / (Σ exp xj)``
-:func:`tanh(X) <tanh>`		hyperbolic tangent activation function.
-===============================	==============================================================================
+.. _primitives-table:
+
+.. table:: Knet primitives
+
+   ===============================	==============================================================================
+   Operator                		Description
+   ===============================	==============================================================================
+   :func:`par() <par>`			a parameter array, updated during training; kwargs: [#]_ ``dims, init``
+   :func:`rnd() <rnd>`			a random array, updated every call; kwargs: ``dims, init``
+   :func:`arr() <arr>`           	a constant array, never updated; kwargs: ``dims, init``
+   :func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A * B``
+   :func:`add(A,B) <add>`		elementwise broadcasting [#]_ addition of arrays ``A`` and ``B``, alternative notation: ``A .+ B``
+   :func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A .* B``
+   :func:`conv(W,X) <conv>`       	convolution [#]_ with filter ``W`` and input ``X``; kwargs: ``padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION``
+   :func:`pool(X) <pool>`		pooling; kwargs: ``window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX``
+   :func:`axpb(X) <axpb>`         	computes ``a*x^p+b``; kwargs: ``a=1, p=1, b=0``
+   :func:`copy(X) <copy>`         	copies ``X`` to output.
+   :func:`relu(X) <relu>`		rectified linear activation function: ``(x > 0 ? x : 0)``
+   :func:`sigm(X) <sigm>`		sigmoid activation function: ``1/(1+exp(-x))``
+   :func:`soft(X) <soft>`		softmax activation function: ``(exp xi) / (Σ exp xj)``
+   :func:`tanh(X) <tanh>`		hyperbolic tangent activation function.
+   ===============================	==============================================================================
 
 .. [#] Both Julia and Knet functions accept optional `keyword
        arguments`_ Functions with keyword arguments are defined using
@@ -129,16 +133,20 @@ Operator                	Description
        corresponding dimension in the other array without using extra
        memory, and apply the given function elementwise.
 
-.. _keyword arguments: http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments
+.. [#] For detailed information about convolution and pooling, please
+       see the documentation for CUDNN_ and `CUDNN.jl`_.
 
+.. _keyword arguments: http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments
 .. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
+.. _CUDNN: https://developer.nvidia.com/cudnn
+.. _CUDNN.jl: https://github.com/JuliaGPU/CUDNN.jl
 
 In order to turn ``lin`` into a machine learning model that can be
 trained with examples and used for predictions, we need to compile it:
 
 .. doctest:: :hide:
 
-    julia> srand(42);
+    julia> setseed(42);
 
 .. doctest::
 
@@ -298,7 +306,7 @@ score.
 
 We would like to minimize this loss which should get the predicted
 answer closer to the desired answer.  To do this we first compute the
-loss gradient for the parameters of ``f``, this is the direction in
+loss gradient for the parameters of ``f`` -- this is the direction in
 parameter space that maximally increase the loss.  Then we move the
 parameters in the opposite direction.
 
@@ -416,8 +424,9 @@ more complicated as we will see next.
 Defining new operators
 ----------------------
 ..
-   @knet as op, compile time options (kwargs for kfun and compile)
-   lenet example, fast enough on cpu?, minibatches
+   @knet as op, kwargs for @knet functions,
+   function options (f=:relu).
+   lenet example, fast enough on cpu?
 
 The key to controlling complexity in computer languages is
 *abstraction*.  Abstraction is the ability to name compound structures
@@ -426,12 +435,297 @@ Knet we do this by using @knet functions not as models, but as new
 operators inside other @knet functions.
 
 We will use the LeNet_ convolutional neural network model to
-illustrate the power of abstraction in Knet.  The model will be used
-to classify hand-written digits from the MNIST_ dataset.
+illustrate this.  Here is the LeNet model [#]_ defined only using
+primitives [#]_ from the :ref:`primitives-table` table:
+
+.. testcode::
+
+    @knet function lenet1(x)    # dims=(28,28,1,N)
+        w1 = par(init=Xavier(),   dims=(5,5,1,20))
+        c1 = conv(w1,x)         # dims=(24,24,20,N)
+        b1 = par(init=Constant(0),dims=(1,1,20,1))
+        a1 = add(b1,c1)
+        r1 = relu(a1)
+        p1 = pool(r1)           # dims=(12,12,20,N)
+
+        w2 = par(init=Xavier(),   dims=(5,5,20,50))
+        c2 = conv(w2,p1)        # dims=(8,8,50,N)
+        b2 = par(init=Constant(0),dims=(1,1,50,1))
+        a2 = add(b2,c2)
+        r2 = relu(a2)
+        p2 = pool(r2)           # dims=(4,4,50,N)
+
+        w3 = par(init=Xavier(),   dims=(500,800))
+        d3 = dot(w3,p2)         # dims=(500,N)
+        b3 = par(init=Constant(0),dims=(500,1))
+        a3 = add(b3,d3)
+        r3 = relu(a3)
+
+        w4 = par(init=Xavier(),   dims=(10,500))
+        d4 = dot(w4,r3)         # dims=(10,N)
+        b4 = par(init=Constant(0),dims=(10,1))
+        a4 = add(b4,d4)
+        return soft(a4)         # dims=(10,N)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+.. [#] This definition closely follows the Caffe_ implementation.
+
+.. _Caffe: http://caffe.berkeleyvision.org/gathered/examples/mnist.html
+
+.. [#] ``Xavier()`` and ``Constant(0)`` are random number
+       distributions that can be used to initialize Knet parameters,
+       they will be covered in detail later.
+
+At 22 lines long, this model looks a lot more complicated than our
+linear regression model.  Compared to state of the art object
+recognition models however, it is still tiny.  You would not want to
+code a model like GoogLeNet_ using these primitives.
+
+.. _GoogLeNet: http://arxiv.org/abs/1409.4842
+
+If you look closely, the LeNet model has two convolution-pooling
+layers, a fully connected relu layer and a final softmax output layer
+(separated by blank lines).  Wouldn't it be nice to say just *that*::
+
+    @knet function lenet2(x)
+        a = conv_pool_layer(x)
+        b = conv_pool_layer(a)
+        c = relu_layer(b)
+        return softmax_layer(c)
+    end
+    
+``lenet2`` is a lot more readable than ``lenet1``.  But before we can
+use this definition, we have to solve two problems:
+
+* ``conv_pool_layer`` etc. are not primitive operators, we need a way to add them to the Knet language.
+* Each layer has some attributes, like ``init`` and ``dims``, that we need to be able to configure.
+
+Knet solves the first problem by allowing @knet functions to be used
+as operators as well as models.  For example::
+
+    @knet function conv_pool_layer(x)
+        w = par(init=Xavier(), dims=(5,5,1,20))
+        c = conv(w,x)
+        b = par(init=Constant(0), dims=(1,1,20,1))
+        a = add(b,c)
+        r = relu(a)
+        return pool(r)
+    end
+
+With this definition, the the first ``a = conv_pool_layer(x)``
+operation in ``lenet2`` will work exactly as we want, but not the
+second.
+
+This brings us to the second problem, layer configuration.  It would
+be nice not to hard code numbers like ``(5,5,1,20)`` in the definition
+of a new operation like ``conv_pool_layer``.  Making these numbers
+configurable would make such operations more reusable across models.
+Even within the same model, you may want to use the same layer type in
+more than one configuration.  For example in ``lenet2`` there is no
+way to distinguish the two ``conv_pool_layer`` operations, but looking
+at ``lenet1`` we clearly want them to do different things.
+
+Knet solves the layer configuration problem using `keyword
+arguments`_.  Slightly modifying the definition of
+``conv_pool_layer``::
+
+    @knet function conv_pool_layer(x; winit=Xavier(), wdims=(5,5,1,20), binit=Constant(0), bdims=(1,1,20,1))
+        w = par(init=winit, dims=wdims)
+        c = conv(w,x)
+        b = par(init=binit, dims=bdims)
+        a = add(b,c)
+        r = relu(a)
+        return pool(r)
+    end
+
+would allow us to distinguish the two ``conv_pool_layer`` operations:
+
+.. testcode::
+
+    @knet function lenet3(x)
+        a = conv_pool_layer(x; wdims=(5,5,1,20),  bdims=(1,1,20,1))
+        b = conv_pool_layer(a; wdims=(5,5,20,50), bdims=(1,1,50,1))
+        c = relu_layer(b; wdims=(500,800), bdims=(500,1))
+        return softmax_layer(c; wdims=(10,500), bdims=(10,1))
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+In fact, we can use keyword arguments to define a ``generic_layer``
+that contains the shared code for all our layers:
+
+.. testcode::
+
+    @knet function generic_layer(x; f1=:relu, f2=:dot, winit=Xavier(), binit=Constant(0), wdims=(), bdims=())
+        w = par(init=winit, dims=wdims)
+        y = f2(w,x)
+        b = par(init=binit, dims=bdims)
+        z = add(b,y)
+        return f1(z)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+Note that in this example we are not only making initialization
+parameters like ``winit`` and ``binit`` configurable, we are also
+making operators like ``relu`` and ``dot`` configurable (note the
+colons in the first line).  This generic layer will allow us to define
+many layer types easily:
+
+.. testcode::
+
+    @knet function conv_pool_layer(x; o...)
+        y = generic_layer(x; o..., f2=:conv)
+        return pool(y)
+    end
+
+    @knet function relu_layer(x; o...)
+        return generic_layer(x; o...)
+    end
+
+    @knet function softmax_layer(x; o...)
+        return generic_layer(x; o..., f1=:soft)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+The ``...`` notation in the function definitions and calls above is
+Julia's `slurp and splat operator`_.  Its usage here basically says
+that whatever keyword arguments you pass the ``relu_layer``, for
+example, it will pass them down to the ``generic_layer``.
+
+.. _slurp and splat operator: http://julia.readthedocs.org/en/release-0.4/manual/faq/?highlight=splat#what-does-the-operator-do
+
+Using new operators and keyword arguments, not only did we cut the
+amount of code in half, we made the definition of LeNet a lot more
+readable and gained a bunch of reusable operators to boot.  I am sure
+you can think of more clever ways to define LeNet and similar models
+using the power of abstraction.  To see some example reusable
+operators take a look at `kfun.jl`_.
+
+.. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
+
+TODO: repeat, zero sizes, keyword args to compile(), rgen distributions.
+
+Minibatches
+-----------
+..
+   minibatch, softloss, zeroone
+
+We will use the LeNet model to classify hand-written digits from the
+MNIST_ dataset.  The following downloads the MNIST data:
 
 .. _LeNet: http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf
 .. _MNIST: http://yann.lecun.com/exdb/mnist
 
+.. doctest::
+
+    julia> include(Pkg.dir("Knet/examples/mnist.jl"))
+    ...
+
+Once loaded, the data is available as multi-dimensional Julia arrays
+(tensors) in the MNIST module:
+
+.. doctest::
+
+    julia> MNIST.xtrn
+    28x28x1x60000 Array{Float32,4}:...
+    julia> MNIST.ytrn
+    10x60000 Array{Float32,2}:...
+    julia> MNIST.xtst
+    28x28x1x10000 Array{Float32,4}:...
+    julia> MNIST.ytst
+    10x10000 Array{Float32,2}:...
+
+We have 60000 training and 10000 testing examples.  Each input x is a
+28x28x1 image, where the first two numbers represent the width and
+height in pixels, the third number is the number of channels (which is
+1 for grayscale images, 3 for RGB images etc.)  The pixel values have
+been normalized to :math:`[0,1]`.  Each output y is a ten-dimensional
+one-hot vector (a vector that has a single non-zero component)
+indicating the correct class for a given image.
+
+This is a much larger dataset than Housing.  For computational
+efficiency, it is not advisable to use these examples one at a time
+during training like we did before.  The following will split the data
+into groups of 100 examples called minibatches:
+
+.. doctest::
+
+    julia> batchsize=100;
+    julia> trn = minibatch(MNIST.xtrn, MNIST.ytrn, batchsize)
+    600-element Array{Any,1}:...
+    julia> tst = minibatch(MNIST.xtst, MNIST.ytst, batchsize)
+    100-element Array{Any,1}:...
+
+Each element of ``trn`` and ``tst`` is an x, y pair that contains 100
+examples:
+
+.. doctest::
+ 
+    julia> trn[1]
+    (
+    28x28x1x100 Array{Float32,4}:...
+    10x100 Array{Float32,2}:...)
+
+Here are some simple train and test scripts that use this minibatched
+data:
+
+.. testcode::
+
+    function train(f, data, loss)
+        for (x,y) in data
+            forw(f, x)
+            back(f, y, loss)
+            update!(f)
+        end
+    end
+
+    function test(f, data, loss)
+        sumloss = numloss = 0
+        for (x,ygold) in data
+            ypred = forw(f, x)
+            sumloss += loss(ypred, ygold)
+            numloss += 1
+        end
+        sumloss / numloss
+    end
+
+.. testoutput::
+   :hide:
+      
+   ...
+
+OK, now we are ready to train the LeNet model with the minibatched
+MNIST data:
+
+.. doctest::
+
+   julia> net = compile(:lenet1);
+   julia> setp(net; lr=0.1);
+   julia> train(net, trn, softloss);
+   julia> test(net, tst, zeroone)
+   0.0226
+
+We compile the model and set the learning rate to 0.1, which works
+well for this example.  After one epoch of training we get 2.26% test
+error.  Your results may be slightly different if you are using a GPU
+machine because some of the convolution operations are
+non-deterministic.  You may want to train for more epochs and compare
+the results to the ones on the MNIST_ site.  We also see two new loss
+functions in this example: ``softloss`` computes the *cross entropy
+loss*, :math:`E(p\log\hat{p})`, and ``zeroone`` computes the *zero-one
+loss* which is the ratio of predictions that were wrong.
 
 
 Conditionals

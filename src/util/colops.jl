@@ -19,6 +19,15 @@ cget(a,i)=(ndims(a)==1 ? error() : getindex(a, ntuple(i->(:), ndims(a)-1)..., i)
 size2(y)=(nd=ndims(y); (nd==1 ? (length(y),1) : (stride(y, nd), size(y, nd)))) # size as a matrix
 size2(y,i)=size2(y)[i]
 
+function minibatch(x, y, batchsize)
+    data = Any[]
+    for i=1:batchsize:ccount(x)
+        j=min(i+batchsize-1,ccount(x))
+        push!(data, (cget(x,i:j), cget(y,i:j)))
+    end
+    return data
+end
+
 # CSLICE!  Returns a slice of array b, with columns specified in range
 # r, using the storage in KUarray a.  The element types need to match,
 # but the size of a does not need to match, it is adjusted as

@@ -21,7 +21,7 @@ include("util/gpu.jl");		export gpu, @gpu, @useifgpu, setseed
 include("util/dbg.jl");		export @date, @dbg, gpusync
 include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
 include("util/array.jl");	# export isapprox
-include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2
+include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2, minibatch
 
 ### Main
 include("op.jl")
