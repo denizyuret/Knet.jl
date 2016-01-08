@@ -171,22 +171,6 @@ function clean(net::Net)
     return Net(a)
 end
 
-# TODO: retire savenet and loadnet, we just need clean.
-
-function savenet(fname::AbstractString, net::Net; o...)
-    a = Array(Reg, length(net))
-    for i=1:length(net)
-        r = net.reg[i]
-        a[i] = Reg(r.op, r.name, r.args, r.cond, r.argv, r.plist, 
-                   ispersistent(r) ? r.out : nothing,
-                   ispersistent(r) ? r.out0 : nothing,
-                   nothing, nothing, nothing)
-    end
-    save(fname, "knetmodel", Net(a); o...)
-end
-
-loadnet(fname::AbstractString)=load(fname, "knetmodel")
-
 ### DEBUGGING
 
 function netprint(f::Net)
@@ -567,4 +551,20 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     tmptype::DataType
 #     Reg()=(r=new();r.plist=Dict();r.saved=false;r)
 # end
+
+# # TODO: retire savenet and loadnet, we just need clean.
+
+# function savenet(fname::AbstractString, net::Net; o...)
+#     a = Array(Reg, length(net))
+#     for i=1:length(net)
+#         r = net.reg[i]
+#         a[i] = Reg(r.op, r.name, r.args, r.cond, r.argv, r.plist, 
+#                    ispersistent(r) ? r.out : nothing,
+#                    ispersistent(r) ? r.out0 : nothing,
+#                    nothing, nothing, nothing)
+#     end
+#     save(fname, "knetmodel", Net(a); o...)
+# end
+
+# loadnet(fname::AbstractString)=load(fname, "knetmodel")
 

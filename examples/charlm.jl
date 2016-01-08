@@ -2,14 +2,16 @@ module CharLM
 using Knet, ArgParse, JLD
 
 function main(args=ARGS)
+    global net, vocab, text, data
     s = ArgParseSettings()
     s.description="charlm.jl (c) Deniz Yuret, 2016. This is the character-level language model from a popular blog post 'The Unreasonable Effectiveness of Recurrent Neural Networks' by Andrej Karpathy, 2015. (http://karpathy.github.io/2015/05/21/rnn-effectiveness)"
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
-        ("datafiles"; nargs='+'; required=true; help="First file used for training, second for dev, others for test if provided.")
+        ("--datafiles"; nargs='+'; help="if provided, use first file for training, second for dev, others for test.")
         ("--loadfile"; help="initialize model from file")
         ("--savefile"; help="save final model to file")
         ("--bestfile"; help="save best model to file")
+        ("--generate"; arg_type=Int; default=0; help="if non-zero generate given number of bytes.")
         ("--nlayer"; arg_type=Int; default=1)
         ("--hidden"; arg_type=Int; default=256)
         ("--embedding"; arg_type=Int; default=256)
@@ -23,17 +25,48 @@ function main(args=ARGS)
         ("--seed"; arg_type=Int; default=42)
     end
     isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s; as_symbols=true)
-    println(o)
+    o = parse_args(args, s; as_symbols=true); println(o)
     o[:seed] > 0 && setseed(o[:seed])
-    global text = map(f->readall(f), o[:datafiles])
-    info("Chars read: $((map(length,text)...))")
-    vocab = Dict{Char,Int}()
-    for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
-    o[:vocabsize] = length(vocab)
-    info("$(o[:vocabsize]) unique chars")
-    global data = map(t->minibatch(t, vocab; o...), text)
-    global net = (o[:loadfile] != nothing ? loadnet(o[:loadfile]) : compile(:charlm; o...))
+    text = !isempty(o[:datafiles]) ? map(f->readall(f), o[:datafiles]) : cell(0)
+    !isempty(text) && info("Chars read: $((map(length,text)...))")
+    vocab = o[:loadfile]!=nothing ? load(o[:loadfile], "vocab") : Dict{Char,Int}()
+    if !isempty(text)
+        if isempty(vocab)
+            for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
+        else
+            for t in text, c in t; haskey(vocab, c) || error("Unknown char $c"); end
+        end
+    end
+    o[:vocabsize] = length(vocab); info("$(o[:vocabsize]) unique chars")
+    net = o[:loadfile]!=nothing ? load(o[:loadfile], "net") : compile(:charlm; o...)
+    !isempty(text) && bigtrain(net, text, vocab, o)
+    o[:generate] > 0 && generate(net, vocab, o)
+end
+
+function generate(f, vocab, o)
+    alpha = Array(Char, length(vocab))
+    for (c,i) in vocab; alpha[i]=c; end
+    x=zeros(Float32, length(alpha), 1)
+    y=zeros(Float32, length(alpha), 1)
+    xi = 1
+    reset!(net)
+    for i=1:o[:generate]
+        copy!(y, forw(f,x))
+        x[xi] = 0
+        r = rand(Float32)
+        p = 0
+        for c=1:length(y)
+            p += y[c]
+            r <= p && (xi=c; break)
+        end
+        x[xi] = 1
+        print(alpha[xi])
+    end
+    println()
+end
+
+function bigtrain(net, text, vocab, o)
+    data = map(t->minibatch(t, vocab; o...), text)
     setp(net, lr=o[:lr])
     loss = zeros(length(data))
     lastloss = bestloss = Inf
@@ -47,11 +80,11 @@ function main(args=ARGS)
             lastloss = loss[2]
             if lastloss < bestloss
                 bestloss = lastloss
-                o[:bestfile]!=nothing && savenet(o[:bestfile], net)
+                o[:bestfile]!=nothing && save(o[:bestfile], "net", clean(net), "vocab", vocab)
             end
         end
     end
-    o[:savefile]!=nothing && savenet(o[:savefile], net)
+    o[:savefile]!=nothing && save(o[:savefile], "net", clean(net), "vocab", vocab)
     return bestloss
 end
 
@@ -124,6 +157,9 @@ function minibatch(chars, vocab; vocabsize=0, batchsize=0, o...)
     end
     return data
 end
+
+# temp workaround: prevents error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
+@gpu atexit(()->(for r in net.reg; r.out0!=nothing && Main.CUDArt.free(r.out0); end))
 
 !isinteractive() && !isdefined(Core.Main, :load_only) && main(ARGS)
 
