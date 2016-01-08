@@ -9,9 +9,9 @@ of whether it is applied to a sequence.
 """
 function initforw(f::Net, inputs...; o...)
     nextforw = (map(typeof, inputs), map(size, inputs), o)
-    if !isdefined(f,:lastforw) || f.lastforw!=nextforw
+    if isvoid(f,:lastforw) || f.lastforw!=nextforw
         #setp(f,:forwoverwrite,false); setp(f,:backoverwrite,false)
-        if !isdefined(f,:lastforw) || (o != f.lastforw[3]) # when conditions change, the comp graph changes, effects argv, fanout, save
+        if isvoid(f,:lastforw) || (o != f.lastforw[3]) # when conditions change, the comp graph changes, effects argv, fanout, save
             initcond(f; o...)       # o,name,cond -> :forw
             initargv(f)             # :forw,name,args -> argv
             initsave(f)             # :forw,op,argv -> :save
@@ -32,7 +32,7 @@ function initout0(f::Net, p::Reg; seq=false)
     at, et, sz = getp(p,:outtype), getp(p,:eltype), getp(p,:size)
     if checkarray(p, :out0, at, et, sz)
         # all done
-    elseif isdefined(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
+    elseif !isvoid(p, :out0) && (isa(p.op, Par) || isa(p.op, Arr))
         error("Size or type change not allowed in parameters and constants")
     else
         p.out0 = nothing
@@ -76,12 +76,14 @@ function canshare(f::Net, p::Reg, q::Reg)
     return ok
 end
 
+isvoid(x,n)=(!isdefined(x,n) || isa(x.(n),Void))
+
 function checkshare(f::Net)
     d = ObjectIdDict()
     for i=1:length(f)
         ri=f.reg[i]
         getp(ri,:forw) || continue
-        isdefined(ri,:out0) || continue
+        !isvoid(ri,:out0) || continue
         d[ri.out0]=i
     end
     for i=1:length(f)
@@ -89,13 +91,13 @@ function checkshare(f::Net)
         getp(ri,:forw) || continue
         for j in ri.argv
             rj=f.reg[j]
-            isdefined(rj,:out0) || continue
+            !isvoid(rj,:out0) || continue
             k = d[rj.out0]
             k == j || return false # warn("$j was overwritten by $k before being read by $i.")
-            isdefined(ri,:out0) || continue
+            !isvoid(ri,:out0) || continue
             !canoverwrite(ri.op) && ri.out0===rj.out0 && return false # warn("$i and $j share array in nonoverwriting op.")
         end
-        isdefined(ri,:out0) && (d[ri.out0] = i)
+        !isvoid(ri,:out0) && (d[ri.out0] = i)
     end
     return true
 end

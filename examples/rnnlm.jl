@@ -72,16 +72,18 @@ end
     return h
 end
 
-function reset_trn!(f; o...)
+reset_trn!(f;o...)=reset!(f, keepstate=true)
+
+function reset_trn_old!(f; o...)
     if stack_length(f) != length(f)
         info("Stack length: $(stack_length(f)) Regs: $(length(f))")
     end
     stack_empty!(f)
     reset_tst!(f; o...)
-    for p in regs(f)
+    for p in regs(f)            # This is necessary so when back looks at time < 0 the stack gives something back.
         p.dif = nothing
         getp(p,:incr) && fill!(p.dif0, 0)
-        setp(p, :forw, true)
+        setp(p, :forw, true)    # I am not sure why this is necessary
         push!(f,p)
     end
 end

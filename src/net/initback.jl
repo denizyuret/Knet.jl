@@ -8,7 +8,7 @@
 function initback(f::Net, ygold, loss, getdx, seq)
     seq == !stack_isempty(f) || error("")
     nextback = (f.lastforw, getdx, seq)
-    if !isdefined(f,:lastback) || f.lastback != nextback
+    if isvoid(f,:lastback) || f.lastback != nextback
         initgrad(f, getdx)
         initincr(f)
         inittype2(f)
@@ -32,7 +32,7 @@ function initdif0(f::Net,p::Reg)
     if canoverwrite(p.op) && getp(p,:backoverwrite,true) && !getp(p,:incr)
         for i in reverse(p.argv) # consider overwriting the last input first
             q = reg(f,i)
-            if (!isdefined(q,:dif0) && !getp(q,:incr) && (at,et,sz)==(getp(q,:diftype),getp(q,:eltype),getp(q,:size)))
+            if (isvoid(q,:dif0) && !getp(q,:incr) && (at,et,sz)==(getp(q,:diftype),getp(q,:eltype),getp(q,:size)))
                 q.dif0 = p.dif0
                 break
             end

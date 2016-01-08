@@ -4,6 +4,8 @@ A Tutorial Introduction
 
 We will begin by a quick tutorial on Knet.
 
+  TODO: add intro/conclusion at all levels.
+
 Installation
 ------------
 
@@ -40,7 +42,7 @@ get help at the knet-users_ mailing list.
 Models, functions, and operators
 --------------------------------
 ..
-   @kfun, compile, forw, get, primitive ops
+   @knet, compile, forw, get, primitive ops
 
 To start using Knet, type ``using Knet`` at the Julia prompt.
 
@@ -96,8 +98,6 @@ definition.  A full list of Knet primitive operators is given below:
 .. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
 
 .. _primitives-table:
-
-.. table:: Knet primitives
 
    ===============================	==============================================================================
    Operator                		Description
@@ -228,8 +228,8 @@ Julia expression:
    @knet function with all the syntactic restrictions, limited number of
    operators, need for compilation etc.?
 
-Training
---------
+Training a model
+----------------
 ..
    quadloss, back, update!, setp, update options
 
@@ -356,6 +356,8 @@ array ``dw2``) before the subtraction to improve the loss faster.
 Here is a list of training options supported by Knet and how they
 manipulate ``dw``:
 
+.. _training-options-table:
+
 =============================== ==============================================================================
 Option	                	Description
 =============================== ==============================================================================
@@ -425,7 +427,7 @@ Defining new operators
 ----------------------
 ..
    @knet as op, kwargs for @knet functions,
-   function options (f=:relu).
+   function options (f=:relu).  splat.
    lenet example, fast enough on cpu?
 
 The key to controlling complexity in computer languages is
@@ -436,7 +438,8 @@ operators inside other @knet functions.
 
 We will use the LeNet_ convolutional neural network model to
 illustrate this.  Here is the LeNet model [#]_ defined only using
-primitives [#]_ from the :ref:`primitives-table` table:
+primitives [#]_ from the :ref:`Knet primitives table
+<primitives-table>`:
 
 .. testcode::
 
@@ -615,7 +618,8 @@ operators take a look at `kfun.jl`_.
 
 .. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
 
-TODO: repeat, zero sizes, keyword args to compile(), rgen distributions.
+..
+   TODO: repeat, zero sizes and size inference, keyword args to compile(), rgen distributions.
 
 Minibatches
 -----------
@@ -634,7 +638,7 @@ MNIST_ dataset.  The following downloads the MNIST data:
     ...
 
 Once loaded, the data is available as multi-dimensional Julia arrays
-(tensors) in the MNIST module:
+in the MNIST module:
 
 .. doctest::
 
@@ -657,8 +661,8 @@ indicating the correct class for a given image.
 
 This is a much larger dataset than Housing.  For computational
 efficiency, it is not advisable to use these examples one at a time
-during training like we did before.  The following will split the data
-into groups of 100 examples called minibatches:
+during training like we did in the regression example.  The following
+will split the data into groups of 100 examples called minibatches:
 
 .. doctest::
 
@@ -675,8 +679,10 @@ examples:
  
     julia> trn[1]
     (
-    28x28x1x100 Array{Float32,4}:...
-    10x100 Array{Float32,2}:...)
+    28x28x1x100 Array{Float32,4}:
+    ...
+    10x100 Array{Float32,2}:
+    ...)
 
 Here are some simple train and test scripts that use this minibatched
 data:
@@ -711,57 +717,146 @@ MNIST data:
 
 .. doctest::
 
-   julia> net = compile(:lenet1);
+   julia> net = compile(:lenet3);
    julia> setp(net; lr=0.1);
    julia> train(net, trn, softloss);
    julia> test(net, tst, zeroone)
    0.0226
 
 We compile the model and set the learning rate to 0.1, which works
-well for this example.  After one epoch of training we get 2.26% test
-error.  Your results may be slightly different if you are using a GPU
-machine because some of the convolution operations are
-non-deterministic.  You may want to train for more epochs and compare
-the results to the ones on the MNIST_ site.  We also see two new loss
-functions in this example: ``softloss`` computes the *cross entropy
-loss*, :math:`E(p\log\hat{p})`, and ``zeroone`` computes the *zero-one
-loss* which is the ratio of predictions that were wrong.
+well for this example.  We also see two new loss functions in this
+example: ``softloss`` computes the *cross entropy loss*,
+:math:`E(p\log\hat{p})`, commonly used for training classification
+models and ``zeroone`` computes the *zero-one loss* which is the ratio
+of predictions that were wrong.
+
+  TODO: give some timing information, that was our motivation here.
+  possibly show the source for minibatch.  point to the iterable
+  interface and knet examples for less memory waste on bigger datasets. 
+
+After one epoch of training we get 2.26% test error [#]_.  You should
+be able to get this down to 0.8% in about 30 epochs of training.  See
+the MNIST_ web page for some benchmark results on this dataset.
+
+.. [#] Your results may be slightly different if you are using a GPU
+       machine because some of the convolution operations are non-deterministic.   
+
+RNNs
+----
+..
+   read-before-write, simple rnn, lstm
+
+In this section we will see how to implement *recurrent neural
+networks* (RNNs) in Knet.  All local variables in Knet functions are
+`static variables`_, i.e. their values are preserved between calls
+unless otherwise specified.  It turns out this is the only language
+feature you need to define RNNs.  Here is a simple example::
+
+    @knet function rnn1(x; hsize=100, xsize=50)
+        a = par(init=Xavier(), dims=(hsize, xsize))
+        b = par(init=Xavier(), dims=(hsize, hsize))
+        c = par(init=Constant(0), dims=(hsize, 1))
+        d = a * x .+ b * h .+ c
+        h = relu(d)
+    end
+
+..
+
+  TODO: would be nice to use 0 for xsize at this point.  Also this is
+  the second time we are using Xavier etc without much explanation.
+
+.. _static variables: https://en.wikipedia.org/wiki/Static_variable
+
+Notice anything strange?  The first three lines define three model
+parameters.  Then the fourth line sets ``d`` to a linear combination
+of the input ``x`` and the hidden state ``h``.  But ``h`` hasn't been
+defined yet.  Exactly!  Having read-before-write variables is the only
+thing that distinguishes an RNN @knet function from feed-forward
+models like LeNet.
+
+The way Knet handles read-before-write variables is by initializing
+them to 0 arrays before any input is processed, then preserving the
+values between the calls.  Thus during the first call in the above
+example, ``h`` would start as 0, ``d`` would be set to ``a * x .+ c``,
+which in turn would cause ``h`` to get set to ``relu(a * x .+ c)``.
+During the second call, this value of ``h`` would be remembered and
+used, thus making the value of ``h`` at time t dependent on
+its value at time t-1.
+
+Sequences
+---------
+..
+   how to represent sequence data? karpathy example?  need generator.
+   Karpathy Technical: Lets train a 2-layer LSTM with 512 hidden nodes
+   (approx. 3.5 million parameters), and with dropout of 0.5 after
+   each layer. We'll train with batches of 100 examples and truncated
+   backpropagation through time of length 100 characters. With these
+   settings one batch on a TITAN Z GPU takes about 0.46 seconds (this
+   can be cut in half with 50 character BPTT at negligible cost in
+   performance). Without further ado, lets see a sample from the RNN:
+
+   In RNNs past inputs effect future outputs.  Thus they are typically
+   used to process sequences, such as speech or text data.
+
+.. _karpathy: http://karpathy.github.io/2015/05/21/rnn-effectiveness/
+
+.. _shakespeare: http://www.gutenberg.org/files/100/100.txt
 
 
 Conditionals
 ------------
+
+There are cases where you want to execute parts of a model
+*conditionally*, e.g. only during training, or only during some parts
+of the input in sequence models.  Knet supports the use of *runtime
+conditions* for this purpose.
+
+Dropout
+-------
 ..
    if-else, runtime conditions (kwargs for forw), dropout
    lenet with dropout?  fast enough for cpu?
-   
-Sequences and RNNs
-------------------
-..
-   read-before-write, karpathy example?
+   lenet is not a good example for dropout does not converge very fast.  dropout may not be
+   a good motivator for conditionals: there are other ways to
+   implement dropout?, s2c, s2s models may be better?
+   lenet with drop=0.4 drop1=0.0 adaptive lr with decay=0.9 gets 0.5%
+   (min .0045) in 100 epochs.  with fixed lr=0.1 gets <0.5% in 50
+   epochs so no need for the adaptive lr. hmm trying to replicate, 50
+   is not enough.
+   this should probably come after rnns and sequences.
+   could make this a dropout section and have a different conditional
+   section. as a dropout section it doesn't need to be in the
+   tutorial.  if this is going to be its own section, put more about
+   the theory, the alternatives, other types of noise introduction
+   papers.
 
 
-.. - kfun as model: linear regression.
-.. - kfun as new ops: mnist lenet.
-.. - compile time parameters: 
-.. - runtime parameters: conditionals: dropout? on mnist lenet?
-.. - rbw registers: rnn intro, rnnlm (char based).
-.. - conditionals: copyseq or adding or dropout?
-.. 
-.. - linear regression?  uci?  https://archive.ics.uci.edu/ml/datasets/Housing
-.. - or do we do artificial data generation: cpu/gpu conversion may be difficult.
-.. - mnist definitely
-.. - mnist4d for convolution
-.. - maybe something else for simple nnet?
-.. - copyseq to introduce rnns
-.. 
-.. TODO:
-.. 
-.. - we need to talk about installation somewhere.
-.. - Other requirements like v0.4.0, cuda libraries, cpu compatibility etc.
-.. - DONE: Install latest v0.4.2.
-.. - DONE: Update packages.
-.. - DONE: Figure out no-gpu installation (CUDA* requirements)
-.. - Create an amazon aws image for easy gpu work.
-.. .. see http://sphinx-doc.org/ext/doctest.html
-.. .. testcode for regular doctest for prompted examples
-.. .. http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
+If you keep training the LeNet model on MNIST for about 30 epochs you
+will observe that the training error drops to zero but the test error
+hovers around 0.8%::
+
+    for epoch=1:100
+        train(net, trn, softloss)
+        println((epoch, test(net, trn, zeroone), test(net, tst, zeroone)))
+    end
+
+    (1,0.020466666666666505,0.024799999999999996)
+    (2,0.013649999999999905,0.01820000000000001)
+    ...
+    (29,0.0,0.008100000000000003)
+    (30,0.0,0.008000000000000004)
+
+This is called *overfitting*.  The model has memorized the training
+set, but does not generalize equally well to the test set.  There are
+many ways to reduce overfitting: more training data, a smaller model
+with fewer parameters, regularization (remember the ``l1reg`` and
+``l2reg`` from the :ref:`table of training options
+<training-options-table>`), and early stopping can all help and will
+be covered elsewhere (TODO).  In this section we will look at a more
+recent technique called dropout_.
+
+.. _dropout: http://jmlr.org/papers/v15/srivastava14a.html
+
+For each ``forw`` call during training, dropout replaces a certain
+percentage of the output of an operation with zeros, and scales the
+rest to keep the total output the same.  During testing 

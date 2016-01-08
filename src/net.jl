@@ -7,7 +7,9 @@ type Reg
     argv::Vector{Int}
     plist::Dict{Symbol,Any}
     out; out0; dif; dif0; tmp;
-    Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=new(op,name,args,cond,Int[],Dict{Symbol,Any}())
+    Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=
+        new(op,name,args,cond,Int[],Dict{Symbol,Any}(),
+            nothing,nothing,nothing,nothing,nothing)
 end
 
 # Stack entries will be triples consisting of:
@@ -42,7 +44,7 @@ length(f::Net)=length(f.reg)
 reg(f::Net,i)=f.reg[i]          # i could be an array or any other type of index expression
 params(f::Net)=filter(x->isa(x.op,Par),f.reg)
 ninputs(f::Net)=count(x->(isa(x.op,Input) && getp(x,:forw)),f.reg)
-eltype(f::Net)=(r=f.reg[1];isdefined(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
+eltype(f::Net)=(r=f.reg[1];!isvoid(r,:out0)?eltype(r.out0):error("Uninitialized Net"))
 
 function reg(f::Net,k::Symbol)
     i = findlast(f.reg) do p
@@ -96,11 +98,17 @@ end
 
 ### Cleanup at the beginning/end of sequence
 
-function reset!(f::Net)
+function reset!(f::Net; keepstate=false)
     f.sp = 0
     for p in regs(f)
-        p.out = p.dif = nothing
+        p.dif = nothing
         getp(p,:incr) && fillsync!(p.dif0, 0)
+        if keepstate
+            p.out = p.out0
+            push!(f,p)
+        else
+            p.out = nothing
+        end
     end
 end
 
@@ -166,8 +174,8 @@ idx1(x)=(x==nothing ? -1 : atype(x)==CudaArray ? to_host(x)[1] : atype(x)==Array
 vecnorm0(x,y...)=map(vecnorm0,(x,y...))
 vecnorm0(x::Vector)=map(vecnorm0,x)
 vecnorm0(x::Tuple)=map(vecnorm0,x)
-vecnorm0(x::Par)= ((isdefined(x,:out)? vecnorm0(x.out) : 0),
-                   (isdefined(x,:dif)? vecnorm0(x.dif) : 0))
+vecnorm0(x::Par)= ((!isvoid(x,:out)? vecnorm0(x.out) : 0),
+                   (!isvoid(x,:dif)? vecnorm0(x.dif) : 0))
 vecnorm0(::Void)=0
 vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 

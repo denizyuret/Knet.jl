@@ -41,7 +41,7 @@ function back(f::Net, ygold=nothing, loss=copyloss; seq=false, getdx=false, o...
             error("Got return in non-final instruction")
         end
         # println(:back, (findfirst(regs(f), y), typeof(y.op), y.argv, Knet.vecnorm0(y.dif)))
-        xx = (seq ? stack_inputregs(f,n) : inputregs(f,y))
+        xx = (!seq ? inputregs(f,y) : stack_inputregs(f,n))
         if isempty(xx)
             # nothing to do
         elseif y.dif == nothing

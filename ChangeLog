@@ -1,46 +1,102 @@
+2016-01-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* todo:
+	+ work on lorelei tokenization?
+	- work on yonatan example?
+	- finish dropout example
+	- write karpathy demo for rnns, or rewrite rnnlm, or copy with words
+	- have both dropout and a separate conditional section with rnn example?
+	- work on char-conv based lm/mt model?
+
+	* intro.rst: 3613 words = 8.5 pages.  425 words/page.
+
 2016-01-04  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DOCS:
-	- reading data: readdlm, HTTPClient.get
-	- data normalization
-	- setseed and replicatability
-	- trn/tst split
-	- minibatching
-	- knet function as model
-	- list of primitive ops
-	- implicit size with dims=(0,)
-	- init options to par
-	- dot/add vs */+
-	- keyword args in knet function
-	- knet return
-	- knet function as new op
-	- compile
+	+ @knet function as model
+	+ compile
+	+ forw
+	+ get registers and looking at network internals
+	+ list of primitive ops
+	+ elementwise and broadcasting operations: .+ .- .* ./
+	+ dot/add vs */+
+	+ @knet return
+
+	+ back
+	+ update!
+	+ 2-arg loss functions
+	+ setp and learning rate
+	+ other training options
+	+ regression and quadloss (housing example)
+	+ reading data: readdlm, HTTPClient.get
+	+ data normalization
+	+ trn/tst split
+	+ train script
+
+	+ @knet function as new op
+	+ keyword args in knet function
+	+ splat
+
+	+ minibatching
+	+ classification and softloss, zeroone loss
+
+	- zero size, size inference: could have a tutorial section on this following new operators.
+	- installation
+	- contributing (fork/pull)
+	- bug-feature request (github issues)
+	- defining new primitives
+	- 3 sections: tutorial, examples, reference
+	- sforw vs forw (forw is used during test for rnns!)
+	- xavier, uniform etc.
+	- repeat operator
 	- keyword args to compile
-	- forw
-	- back
-	- update!
-	- setp and learning rate
-	- other training options
-	- get registers and looking at network internals, netprint?
-	- 2-arg loss functions
+	- init options to par: array, rgen
+	- setseed and replicatability
+	- update!: gradient clipping
+	- update!: parameter averaging
+	- netprint?
 	- 3-arg loss functions (user does not need)
 	- load/save data in jld
 	- load/save model in jld
-	- elementwise and broadcasting operations: .+ .- .* ./
 	- julia array indexing, colon operator.
 	- sum, mean, std with dims option.
 	- size with without dims option.
-	- regression and quadloss (housing example)
-	- classification and softloss
-	- convolution and pooling
+	- convolution and pooling: explanation
 	- dropout
-	- read-before-write ops, sequences, rnns: language model? smaller character based word model?
-	- conditionals: s2c, s2s
+	- read-before-write ops, sequences, rnns: language model? karpathy? smaller character based word model?
+	- conditionals, kwargs to forw
+	- s2c, s2s
 	- perceptron, kernel perceptron
 	- data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
 	- anatomy of a knet function.
 	- structured learning
 	- nce
+
+	.. - kfun as model: linear regression.
+	.. - kfun as new ops: mnist lenet.
+	.. - compile time parameters: 
+	.. - runtime parameters: conditionals: dropout? on mnist lenet?
+	.. - rbw registers: rnn intro, rnnlm (char based).
+	.. - conditionals: copyseq or adding or dropout?
+	.. 
+	.. - linear regression?  uci?  https://archive.ics.uci.edu/ml/datasets/Housing
+	.. - or do we do artificial data generation: cpu/gpu conversion may be difficult.
+	.. - mnist definitely
+	.. - mnist4d for convolution
+	.. - maybe something else for simple nnet?
+	.. - copyseq to introduce rnns
+	.. 
+	.. TODO:
+	.. 
+	.. - we need to talk about installation somewhere.
+	.. - Other requirements like v0.4.0, cuda libraries, cpu compatibility etc.
+	.. - DONE: Install latest v0.4.2.
+	.. - DONE: Update packages.
+	.. - DONE: Figure out no-gpu installation (CUDA* requirements)
+	.. - Create an amazon aws image for easy gpu work.
+	.. .. see http://sphinx-doc.org/ext/doctest.html
+	.. .. testcode for regular doctest for prompted examples
+	.. .. http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
 
 	* TODO:
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
@@ -87,6 +143,8 @@
 	0901 speed: barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
+	1000 highway networks
+	1000 implement an integrated optimizer like hyperopt within knet, dhc maybe?
 	1000 test and integrate cudnn v4, it has batch normalization, lcn, lrn.  may have fixed some bugs.
 	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
