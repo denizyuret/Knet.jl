@@ -7,10 +7,11 @@ type Reg
     argv::Vector{Int}
     plist::Dict{Symbol,Any}
     out; out0; dif; dif0; tmp;
-    Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=
-        new(op,name,args,cond,Int[],Dict{Symbol,Any}(),
-            nothing,nothing,nothing,nothing,nothing)
 end
+
+Reg(op::Op,name::Symbol,args::Vector{Symbol},cond::Expr)=
+    Reg(op,name,args,cond,Int[],Dict{Symbol,Any}(),
+        nothing,nothing,nothing,nothing,nothing)
 
 # Stack entries will be triples consisting of:
 # 1. the :forw flag, indicating whether the operation was performed
@@ -102,7 +103,7 @@ function reset!(f::Net; keepstate=false)
     f.sp = 0
     for p in regs(f)
         p.dif = nothing
-        getp(p,:incr) && fillsync!(p.dif0, 0)
+        getp(p,:incr) && !isvoid(p,:dif0) && fillsync!(p.dif0, 0)
         if keepstate
             p.out = p.out0
             push!(f,p)
@@ -153,6 +154,24 @@ function Base.isequal(a::Union{Net,Reg,StackEntry}, b::Union{Net,Reg,StackEntry}
     end
     return true
 end
+
+### File I/O
+
+using JLD
+
+function savenet(fname::AbstractString, net::Net; o...)
+    a = Array(Reg, length(net))
+    for i=1:length(net)
+        r = net.reg[i]
+        a[i] = Reg(r.op, r.name, r.args, r.cond, r.argv, r.plist, 
+                   ispersistent(r) ? r.out : nothing,
+                   ispersistent(r) ? r.out0 : nothing,
+                   nothing, nothing, nothing)
+    end
+    save(fname, "knetmodel", Net(a); o...)
+end
+
+loadnet(fname::AbstractString)=load(fname, "knetmodel")
 
 ### DEBUGGING
 

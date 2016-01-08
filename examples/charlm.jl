@@ -1,51 +1,59 @@
-using Knet
 module CharLM
-using Main, Knet, ArgParse, Requests
+using Knet, ArgParse, JLD
 
 function main(args=ARGS)
     s = ArgParseSettings()
+    s.description="charlm.jl (c) Deniz Yuret, 2016. This is the character-level language model from a popular blog post 'The Unreasonable Effectiveness of Recurrent Neural Networks' by Andrej Karpathy, 2015. (http://karpathy.github.io/2015/05/21/rnn-effectiveness)"
+    s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
-        ("datafiles"; nargs='+'; required=true; help="First file used for training, second for dev")
+        ("datafiles"; nargs='+'; required=true; help="First file used for training, second for dev, others for test if provided.")
+        ("--loadfile"; help="initialize model from file")
+        ("--savefile"; help="save final model to file")
+        ("--bestfile"; help="save best model to file")
+        ("--nlayer"; arg_type=Int; default=1)
+        ("--hidden"; arg_type=Int; default=256)
+        ("--embedding"; arg_type=Int; default=256)
         ("--epochs"; arg_type=Int; default=1)
-        ("--seed"; arg_type=Int; default=42)
         ("--batchsize"; arg_type=Int; default=128)
         ("--seqlength"; arg_type=Int; default=100)
         ("--decay"; arg_type=Float64; default=0.9)
-        ("--embedding"; arg_type=Int; default=256)
-        ("--hidden"; arg_type=Int; default=256)
-        ("--nlayer"; arg_type=Int; default=1)
         ("--lr"; arg_type=Float64; default=1.0)
         ("--gclip"; arg_type=Float64; default=5.0)
         ("--dropout"; arg_type=Float64; default=0.0)
+        ("--seed"; arg_type=Int; default=42)
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println(o)
     o[:seed] > 0 && setseed(o[:seed])
-    text = map(f->readall(f), o[:datafiles])
+    global text = map(f->readall(f), o[:datafiles])
     info("Chars read: $((map(length,text)...))")
     vocab = Dict{Char,Int}()
     for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
     o[:vocabsize] = length(vocab)
     info("$(o[:vocabsize]) unique chars")
-    data = map(t->minibatch(t, vocab; o...), text)
-    net = compile(:charlm; o...)
+    global data = map(t->minibatch(t, vocab; o...), text)
+    global net = (o[:loadfile] != nothing ? loadnet(o[:loadfile]) : compile(:charlm; o...))
     setp(net, lr=o[:lr])
     loss = zeros(length(data))
-    devloss = Inf
+    lastloss = bestloss = Inf
     for epoch=1:o[:epochs]
         for d=1:length(data)
             loss[d] = (d==1 ? train(net, data[d], softloss; o...) : test(net, data[d], softloss))
         end
         println((epoch, o[:lr], loss...)); flush(STDOUT)
-        loss[2] > devloss && (o[:lr] *= o[:decay]; setp(net, lr=o[:lr]))
-        devloss = loss[2]
+        if length(data) > 1
+            loss[2] > lastloss && (o[:lr] *= o[:decay]; setp(net, lr=o[:lr]))
+            lastloss = loss[2]
+            if lastloss < bestloss
+                bestloss = lastloss
+                o[:bestfile]!=nothing && savenet(o[:bestfile], net)
+            end
+        end
     end
-    return loss[2]
+    o[:savefile]!=nothing && savenet(o[:savefile], net)
+    return bestloss
 end
-
-# TODO: try dropout
-# TODO: try embedding
 
 @knet function charlm(x; embedding=0, nlayer=0, vocabsize=0, o...)
     y = wdot(x; out=embedding)
@@ -60,7 +68,7 @@ end
 
 function test(f, data, loss)
     sumloss = 0.0
-    reset!(f, keepstate=false)
+    reset!(f)
     T = length(data)-1
     for t=1:T
         x = data[t]
@@ -151,6 +159,9 @@ end # module
 # const path = Pkg.dir("Knet/data/100.txt")
 # const url = "http://www.gutenberg.org/files/100/100.txt"
 # isfile(path) || (info("Downloading $url"); save(get(url), path))
+
+# TODO: try smaller embedding with 512 hidden: done.
+# TODO: need dropout after embedding, no we don't.
 
 # Parameters to play with:
 # lr=0.001
