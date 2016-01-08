@@ -621,8 +621,8 @@ operators take a look at `kfun.jl`_.
 ..
    TODO: repeat, zero sizes and size inference, keyword args to compile(), rgen distributions.
 
-Minibatches
------------
+Training with minibatches
+-------------------------
 ..
    minibatch, softloss, zeroone
 
@@ -741,6 +741,96 @@ the MNIST_ web page for some benchmark results on this dataset.
 .. [#] Your results may be slightly different if you are using a GPU
        machine because some of the convolution operations are non-deterministic.   
 
+Conditionals
+------------
+
+..
+   if-else, runtime conditions (kwargs for forw), dropout
+   lenet with dropout?  fast enough for cpu?
+   lenet is not a good example for dropout does not converge very fast.  dropout may not be
+   a good motivator for conditionals: there are other ways to
+   implement dropout?, s2c, s2s models may be better?
+   lenet with drop=0.4 drop1=0.0 adaptive lr with decay=0.9 gets 0.5%
+   (min .0045) in 100 epochs.  with fixed lr=0.1 gets <0.5% in 50
+   epochs so no need for the adaptive lr. hmm trying to replicate, 50
+   is not enough.
+   this should probably come after rnns and sequences.
+   could make this a dropout section and have a different conditional
+   section. as a dropout section it doesn't need to be in the
+   tutorial.  if this is going to be its own section, put more about
+   the theory, the alternatives, other types of noise introduction
+   papers.
+
+There are cases where you want to execute parts of a model
+*conditionally*, e.g. only during training, or only during some parts
+of the input in some sequence models.  Knet supports the use of
+*runtime conditions* for this purpose.  We will illustrate the use of
+conditions by implementing a training technique called dropout_ to
+improve the generalization power of the LeNet model.
+
+.. _dropout: http://jmlr.org/papers/v15/srivastava14a.html
+.. _conditional evaluation: http://julia.readthedocs.org/en/release-0.4/manual/control-flow/#man-conditional-evaluation
+
+If you keep training the LeNet model on MNIST for about 30 epochs you
+will observe that the training error drops to zero but the test error
+hovers around 0.8%::
+
+    for epoch=1:100
+        train(net, trn, softloss)
+        println((epoch, test(net, trn, zeroone), test(net, tst, zeroone)))
+    end
+
+    (1,0.020466666666666505,0.024799999999999996)
+    (2,0.013649999999999905,0.01820000000000001)
+    ...
+    (29,0.0,0.008100000000000003)
+    (30,0.0,0.008000000000000004)
+
+This is called *overfitting*.  The model has memorized the training
+set, but does not generalize equally well to the test set.  There are
+many ways to reduce overfitting: more training data, a smaller model
+with fewer parameters, regularization (remember the ``l1reg`` and
+``l2reg`` from the :ref:`table of training options
+<training-options-table>`), and early stopping can all help, and will
+be covered elsewhere (TODO).  For now let's focus on dropout.
+
+Dropout prevents overfitting by injecting random noise into the model.
+Specifically, for each ``forw`` call during training, dropout layers
+placed between two operations replace a random portion of their input
+with zeros, and scale the rest to keep the total output the same.
+During testing random noise would degrade performance, so we would
+like to turn dropout off.  Here is one way to implement this in Knet::
+
+    @knet function drop(x; pdrop=0, o...)
+        if dropout
+            return x .* rnd(init=Bernoulli(1-pdrop, 1/(1-pdrop)))
+        else
+            return x
+        end
+    end
+
+In Knet `if ... else ... end` block causes `conditional evaluation`_
+the way one would expect.  The variable `dropout` next to `if` is a
+global condition variable: it is not declared as an argument to the
+function.  Instead, once a model with a `drop` operation is compiled,
+the call to `forw` accepts `dropout` as an optional keyword argument
+and passes it down::
+
+    forw(model, input; dropout=true)
+
+This means every time we call `forw`, we can change whether dropout
+occurs or not.  During test time, we would like to stop dropout, so we
+can call the model with `dropout=false`:
+
+    forw(model, input; dropout=false)
+
+By default, all unspecified condition variables are false, so we could
+also omit the condition during test time::
+
+    forw(model, input)
+
+
+
 RNNs
 ----
 ..
@@ -803,60 +893,3 @@ Sequences
 .. _shakespeare: http://www.gutenberg.org/files/100/100.txt
 
 
-Conditionals
-------------
-
-There are cases where you want to execute parts of a model
-*conditionally*, e.g. only during training, or only during some parts
-of the input in sequence models.  Knet supports the use of *runtime
-conditions* for this purpose.
-
-Dropout
--------
-..
-   if-else, runtime conditions (kwargs for forw), dropout
-   lenet with dropout?  fast enough for cpu?
-   lenet is not a good example for dropout does not converge very fast.  dropout may not be
-   a good motivator for conditionals: there are other ways to
-   implement dropout?, s2c, s2s models may be better?
-   lenet with drop=0.4 drop1=0.0 adaptive lr with decay=0.9 gets 0.5%
-   (min .0045) in 100 epochs.  with fixed lr=0.1 gets <0.5% in 50
-   epochs so no need for the adaptive lr. hmm trying to replicate, 50
-   is not enough.
-   this should probably come after rnns and sequences.
-   could make this a dropout section and have a different conditional
-   section. as a dropout section it doesn't need to be in the
-   tutorial.  if this is going to be its own section, put more about
-   the theory, the alternatives, other types of noise introduction
-   papers.
-
-
-If you keep training the LeNet model on MNIST for about 30 epochs you
-will observe that the training error drops to zero but the test error
-hovers around 0.8%::
-
-    for epoch=1:100
-        train(net, trn, softloss)
-        println((epoch, test(net, trn, zeroone), test(net, tst, zeroone)))
-    end
-
-    (1,0.020466666666666505,0.024799999999999996)
-    (2,0.013649999999999905,0.01820000000000001)
-    ...
-    (29,0.0,0.008100000000000003)
-    (30,0.0,0.008000000000000004)
-
-This is called *overfitting*.  The model has memorized the training
-set, but does not generalize equally well to the test set.  There are
-many ways to reduce overfitting: more training data, a smaller model
-with fewer parameters, regularization (remember the ``l1reg`` and
-``l2reg`` from the :ref:`table of training options
-<training-options-table>`), and early stopping can all help and will
-be covered elsewhere (TODO).  In this section we will look at a more
-recent technique called dropout_.
-
-.. _dropout: http://jmlr.org/papers/v15/srivastava14a.html
-
-For each ``forw`` call during training, dropout replaces a certain
-percentage of the output of an operation with zeros, and scales the
-rest to keep the total output the same.  During testing 

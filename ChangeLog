@@ -1,5 +1,50 @@
 2016-01-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* charlm:
+	@@hpc3001 512x3: (53,0.38742048900000015,1.14088601630349,1.2621695815867233)  source ../setup.sh; julia charlm.jl 100.trn 100.dev --epochs 1000 --hidden 512 --embedding 512 --nlayer 3 --lr 1.0 --gclip 5.0 --dropout 0.5
+	best @10 epoch: (8,1.0,1.0524426423170234,1.2930993204383174) tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_1024_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_0.out:
+	best @20 epoch: (18,0.81,1.0498852644873522,1.263663904705879) tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_dropout_0_5_batchsize_128_hidden_1024_embedding_256_nlayer_1_lr_1_0_gclip_5_0_epochs_20.out:(18,0.81,1.0498852644873522,1.263663904705879)
+	foo.jld with (8,1.0,1.0533660260935827,1.3006370929184012) generates some pretty good Shakespeare.
+	So 1.3 seems reasonable.  Figure out how to get there fastest.
+
+	* ideas:
+	- speed comparison with barret code
+	- list prob dist
+	- list compound ops
+	- compile kwargs
+	- forw kwargs
+	- sforw/sback
+	- size inference
+	- setup amazon machine.
+	- introduce compiler kwargs in one paragraph, example.
+	- have a table of defined kfun.
+	- put dropout example back where it was.
+	- call the option dropout, not training.
+	- show source for minibatch, make it more readable.
+	- rename charlm minibatch to something else.
+	- in the paper explain the bayes - pretraining connection.
+	- add save and best options to charlm, write a generator with temperature.
+	- is batch norm a better gclip alternative?
+	- do we need rmsprop or adam?
+	- how many hidden states does the conv char lm paper use?
+	  - small=2x300, large=2x650
+	  - for the V=10k mikolov data.
+	  - bptt 35 time steps (words?)
+	  - batch size of 20 and 100
+	  - 25 epochs
+	  - dropout=0.5
+	  - gclip=5
+	- ashish said that didn't work without highway networks, do we need them?
+	- wrap charlm up and start yonatan.
+	- profile lstm and figure out multi-cpu.
+	- play with charlm batch size!
+	+ work on lorelei tokenization?
+	- work on yonatan example?
+	- finish dropout example
+	- write karpathy demo for rnns, or rewrite rnnlm, or copy with words
+	- have both dropout and a separate conditional section with rnn example?
+	- work on char-conv based lm/mt model?
+
 	* TODO:
 	DONE loadnet, savenet
 	DONE example: karpathy character based models, generating wikipedia etc. inputless networks with random generators
@@ -104,60 +149,6 @@
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
-	* save:
-	example charlm model with:
-	Dict{Symbol,Any}(:lr=>1.0,:savefile=>nothing,:loadfile=>nothing,:dropout=>0.0,:bestfile=>nothing,:embedding=>256,:gclip=>5.0,:hidden=>256,:epochs=>1,:nlayer=>1,:decay=>0.9,:seqlength=>100,:seed=>42,:batchsize=>128,:datafiles=>Any["100.dev","100.dev"])
-	172895296 save size
-	147279959 compressed save
-	166699081 getbytes
-	We could cut this to a third if we did not save tmp and dif0.
-	If we zero these out initback won't realize and won't reallocate.
-	If we zero all but persistent we can get more savings.
-	2694376 after zeroing all but persistent arrays
-	2720536 when compressed: takes more space!
-
-	* ideas:
-	- introduce compiler kwargs in one paragraph, example.
-	- have a table of defined kfun.
-	- put dropout example back where it was.
-	- call the option dropout, not training.
-	- show source for minibatch, make it more readable.
-	- rename charlm minibatch to something else.
-	- in the paper explain the bayes - pretraining connection.
-	- add save and best options to charlm, write a generator with temperature.
-	- is batch norm a better gclip alternative?
-	- do we need rmsprop or adam?
-	- how many hidden states does the conv char lm paper use? 
-	  - small=2x300, large=2x650
-	  - for the V=10k mikolov data.
-	  - bptt 35 time steps (words?)
-	  - batch size of 20 and 100
-	  - 25 epochs
-	  - dropout=0.5
-	  - gclip=5
-	- ashish said that didn't work without highway networks, do we need them?
-	- wrap charlm up and start yonatan.
-	- profile lstm and figure out multi-cpu.
-	- play with charlm batch size!
-
-	* charlm:
-	tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_1024_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_0.out:(8,1.0,1.0524426423170234,1.2930993204383174)
-	tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_512_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_2.out:(10,1.0,1.1437616401196848,1.2982171160161333)
-
-2016-01-05  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* todo:
-	+ work on lorelei tokenization?
-	- work on yonatan example?
-	- finish dropout example
-	- write karpathy demo for rnns, or rewrite rnnlm, or copy with words
-	- have both dropout and a separate conditional section with rnn example?
-	- work on char-conv based lm/mt model?
-
-	* intro.rst: 3613 words = 8.5 pages.  425 words/page.
-
-2016-01-04  Deniz Yuret  <dyuret@ku.edu.tr>
-
 	* DOCS:
 	+ @knet function as model
 	+ compile
@@ -218,6 +209,25 @@
 	- structured learning
 	- nce
 
+	* savenet:
+	example charlm model with:
+	Dict{Symbol,Any}(:lr=>1.0,:savefile=>nothing,:loadfile=>nothing,:dropout=>0.0,:bestfile=>nothing,:embedding=>256,:gclip=>5.0,:hidden=>256,:epochs=>1,:nlayer=>1,:decay=>0.9,:seqlength=>100,:seed=>42,:batchsize=>128,:datafiles=>Any["100.dev","100.dev"])
+	172895296 save size
+	147279959 compressed save
+	166699081 getbytes
+	We could cut this to a third if we did not save tmp and dif0.
+	If we zero these out initback won't realize and won't reallocate.
+	If we zero all but persistent we can get more savings.
+	2694376 after zeroing all but persistent arrays
+	2720536 when compressed: takes more space!
+
+2016-01-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* intro.rst: 3613 words = 8.5 pages.  425 words/page.
+
+2016-01-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DOCS:
 	.. - kfun as model: linear regression.
 	.. - kfun as new ops: mnist lenet.
 	.. - compile time parameters: 

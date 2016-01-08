@@ -159,6 +159,20 @@ end
 
 using JLD
 
+function clean(net::Net)
+    a = Array(Reg, length(net))
+    for i=1:length(net)
+        r = net.reg[i]
+        a[i] = Reg(r.op, r.name, r.args, r.cond, r.argv, r.plist, 
+                   ispersistent(r) ? r.out : nothing,
+                   ispersistent(r) ? r.out0 : nothing,
+                   nothing, nothing, nothing)
+    end
+    return Net(a)
+end
+
+# TODO: retire savenet and loadnet, we just need clean.
+
 function savenet(fname::AbstractString, net::Net; o...)
     a = Array(Reg, length(net))
     for i=1:length(net)

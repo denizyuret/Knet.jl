@@ -36,13 +36,9 @@ A_mul_Bt!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=(gemm!('N','T
 At_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaMatrix{T})=(gemm!('T','N',one(T),A,B,zero(T),C); gpusync(); C)
 
 ### Add the ability to multiply arrays with other than 2 dimensions
-mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))
 A_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
 A_mul_Bt!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
 At_mul_B!{T}(C::CudaArray{T},A::CudaArray{T},B::CudaArray{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
-A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
-A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
-At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); gpusync(); C)
 
 # CudaSparseMatrixCSC
 # y = w * xS

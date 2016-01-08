@@ -79,7 +79,7 @@ function test(f, data, loss)
     sumloss/T
 end
 
-function train(f, data, loss; gclip=0, seqlength=100, o...)
+function train(f, data, loss; gclip=0, seqlength=100, dropout=0, o...)
     ystack = cell(0)
     sumloss = 0.0
     reset!(f, keepstate=false)
@@ -87,7 +87,7 @@ function train(f, data, loss; gclip=0, seqlength=100, o...)
     for t=1:T
         x = data[t]
         ygold = data[t+1]
-        ypred = sforw(f,x; training=true)
+        ypred = sforw(f,x; dropout=(dropout>0))
         sumloss += loss(ypred, ygold)
         push!(ystack,ygold)
         if (t%seqlength == 0 || t==T)
@@ -129,17 +129,6 @@ end
 
 end # module
 
-# Define a model.
-# Should we have an embedding matrix?
-# Should we add dropout?
-
-# do we want to keep state - may not matter much
-# do we want to clean up gutenberg stuff - naah
-# we need to write a generator
-# do we want to have a dev set - probably
-# for dev set we can just run forw, so no need for minibatch x time blocks
-# but careful about stack overflow, sforw vs forw.
-
 # Complete works of Shakespeare:
 # http://www.gutenberg.org/files/100/100.txt
 
@@ -152,16 +141,9 @@ end # module
 #  Shakespeare: 3-layer RNN with 512 hidden nodes on each layer
 #  temperature? you can also generate an infinite amount of your own samples at different temperatures with the provided code.
 
-# TODO:
-# write test script
-# put all this in a module with argparse
-
 # const path = Pkg.dir("Knet/data/100.txt")
 # const url = "http://www.gutenberg.org/files/100/100.txt"
 # isfile(path) || (info("Downloading $url"); save(get(url), path))
-
-# TODO: try smaller embedding with 512 hidden: done.
-# TODO: need dropout after embedding, no we don't.
 
 # Parameters to play with:
 # lr=0.001

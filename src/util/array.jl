@@ -18,11 +18,13 @@ end
 # This is missing from Base
 Base.convert{T,I}(::Type{Array{T,2}}, a::SparseMatrixCSC{T,I})=full(a)
 
-if !GPU  # alternatives defined in cudart.jl
+# alternatives defined in cudart.jl
+if !GPU
     typealias BaseArray{T,N} Union{Array{T,N},SubArray{T,N}}
-    copysync!(a,b)=copy!(a,b)
-    fillsync!(a,b)=fill!(a,b)
 end
+
+copysync!(a::AbstractArray,b::AbstractArray)=copy!(a,b)
+fillsync!(a::AbstractArray,x)=fill!(a,x)
 
 # Define a more versatile version of randn!
 
@@ -39,6 +41,13 @@ end
 
 # This is missing from sparse/linalg.jl: modified from (*) line 100.
 import Base: A_mul_B!, A_mul_Bt!, At_mul_B!
+using Base.LinAlg.BLAS: gemm!
+
+### Add the ability to multiply arrays with other than 2 dimensions
+mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))
+A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
 
 # y = w * x
 function Base.A_mul_B!{TX,TvA,TiA}(Y::StridedMatrix{TX}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA})
