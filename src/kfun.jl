@@ -71,8 +71,7 @@ end
 
 @knet function drop(x; pdrop=0, o...)
     if dropout
-        r = rnd(; init=Bernoulli(1-pdrop, 1/(1-pdrop)))
-        return mul(r,x)
+        return x .* rnd(init=Bernoulli(1-pdrop, 1/(1-pdrop)))
     else
         return x
     end

@@ -1,13 +1,15 @@
 2016-01-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* charlm:
-	@@hpc3001 512x3: (53,0.38742048900000015,1.14088601630349,1.2621695815867233)  source ../setup.sh; julia charlm.jl 100.trn 100.dev --epochs 1000 --hidden 512 --embedding 512 --nlayer 3 --lr 1.0 --gclip 5.0 --dropout 0.5
+	512x3: (98,0.0523347633027361,1.1037882519571802,1.254777816141009)  source ../setup.sh; julia charlm.jl 100.trn 100.dev --epochs 1000 --hidden 512 --embedding 512 --nlayer 3 --lr 1.0 --gclip 5.0 --dropout 0.5
 	best @10 epoch: (8,1.0,1.0524426423170234,1.2930993204383174) tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_1024_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_0.out:
 	best @20 epoch: (18,0.81,1.0498852644873522,1.263663904705879) tmp/source_setup_sh_julia_charlm_jl_100_trn_100_dev_dropout_0_5_batchsize_128_hidden_1024_embedding_256_nlayer_1_lr_1_0_gclip_5_0_epochs_20.out:(18,0.81,1.0498852644873522,1.263663904705879)
+	best @20 epoch: (20,0.9,1.118612103332397,1.2526385033000718) source_setup_sh_julia_charlm_jl_100_trn_100_dev_dropout_0_5_batchsize_128_hidden_1024_embedding_256_nlayer_2_lr_1_0_gclip_5_0_epochs_20.out
 	foo.jld with (8,1.0,1.0533660260935827,1.3006370929184012) generates some pretty good Shakespeare.
 	So 1.3 seems reasonable.  Figure out how to get there fastest.
 
 	* ideas:
+	- minibatch source.
 	- commit charnn once experiments done
 	- get rid of loadnet savenet
 	- speed comparison with barret code

@@ -11,10 +11,11 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   install
    intro
+   kfun
+   nce
 
-.. kfun
-.. nce
 .. scode?
 .. s2s
 .. s2c
@@ -36,7 +37,7 @@ Indices and tables
 
 Here is some text.
 
-Here is a reference :ref:`nce`
+Here is a reference :ref:`installation-section`
 
 Here is some math: :math:`a^2+b^2=c^2`
 

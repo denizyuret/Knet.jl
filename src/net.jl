@@ -54,7 +54,7 @@ function reg(f::Net,k::Symbol)
     return i==0 ? nothing : f.reg[i]
 end
 
-get(f::Net,k)=(r=reg(f,k); r==nothing ? r : r.out)
+get(f::Net,k)=(r=reg(f,k); r==nothing ? r : to_host(r.out))
 dif(f::Net,k)=(r=reg(f,k); r==nothing ? r : r.dif)
 
 inputregs(f::Net,p::Reg)=f.reg[p.argv]

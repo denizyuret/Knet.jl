@@ -48,7 +48,8 @@ function _forw(f::Net, seq::Bool, input...; kwargs...)
         seq && push!(f, y)
     end
     # error(:ok)
-    return get(f,:return)
+    r = reg(f,:return)
+    return (r==nothing ? r : r.out)
 end
 
 
