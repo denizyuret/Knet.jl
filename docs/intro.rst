@@ -11,8 +11,8 @@ for now.  No prior knowledge of machine learning or Julia is
 necessary, but general programming experience will be assumed.  It
 would be best if you follow along with the examples on your computer.
 
-Models, functions, and operators
---------------------------------
+Functions and models
+--------------------
 .. @knet, compile, forw, get
 
 In this section, we will create our first Knet model, and learn how to
@@ -356,14 +356,14 @@ LeNet model defined using only the :ref:`primitive operators of Knet
         b1 = par(init=Constant(0),dims=(1,1,20,1))
         a1 = add(b1,c1)
         r1 = relu(a1)
-        p1 = pool(r1)           # dims=(12,12,20,N)
+        p1 = pool(r1; window=2) # dims=(12,12,20,N)
 
         w2 = par(init=Xavier(),   dims=(5,5,20,50))
         c2 = conv(w2,p1)        # dims=(8,8,50,N)
         b2 = par(init=Constant(0),dims=(1,1,50,1))
         a2 = add(b2,c2)
         r2 = relu(a2)
-        p2 = pool(r2)           # dims=(4,4,50,N)
+        p2 = pool(r2; window=2) # dims=(4,4,50,N)
 
         w3 = par(init=Xavier(),   dims=(500,800))
         d3 = dot(w3,p2)         # dims=(500,N)
@@ -406,7 +406,9 @@ primitives table <primitives-table>`, you can see that the model has
 two convolution-pooling layers (commonly used in image processing), a
 fully connected relu layer and a final softmax output layer (I
 separated them by blank lines to help).  Wouldn't it be nice to say
-just *that*::
+just *that*:
+
+.. testcode::
 
     @knet function lenet2(x)
         a = conv_pool_layer(x)
@@ -414,7 +416,11 @@ just *that*::
         c = relu_layer(b)
         return softmax_layer(c)
     end
-    
+
+.. testoutput:: :hide:
+
+   ...
+
 ``lenet2`` is a lot more readable than ``lenet1``.  But before we can
 use this definition, we have to solve two problems:
 
@@ -422,7 +428,10 @@ use this definition, we have to solve two problems:
 * Each layer has some attributes, like ``init`` and ``dims``, that we need to be able to configure.
 
 Knet solves the first problem by allowing @knet functions to be used
-as operators as well as models.  For example::
+as operators as well as models.  For example, we can define
+``conv_pool_layer`` as an operator with:
+
+.. testcode::
 
     @knet function conv_pool_layer(x)
         w = par(init=Xavier(), dims=(5,5,1,20))
@@ -430,12 +439,16 @@ as operators as well as models.  For example::
         b = par(init=Constant(0), dims=(1,1,20,1))
         a = add(b,c)
         r = relu(a)
-        return pool(r)
+        return pool(r; window=2)
     end
+
+.. testoutput:: :hide:
+
+   ...
 
 With this definition, the the first ``a = conv_pool_layer(x)``
 operation in ``lenet2`` will work exactly as we want, but not the
-second (it has different dimensions).
+second (it has different convolution dimensions).
 
 This brings us to the second problem, layer configuration.  It would
 be nice not to hard-code numbers like ``(5,5,1,20)`` in the definition
@@ -456,49 +469,44 @@ in order: Keyword arguments are identified by name instead of
 position, and they can be passed in any order (or not passed at all)
 following regular (positional) arguments.  In fact we have already
 seen examples: ``dims`` and ``init`` are keyword arguments for ``par``
-(which has no regular arguments).  Functions with keyword arguments are
-defined using a semicolon in the signature, e.g. ``function plot(x, y;
-width=1, height=2)``.  The semicolon is optional when the function is
-called, e.g. both ``plot(x, y, width=2)`` or ``plot(x, y; width=2)``
-work.  Unspecified keyword arguments take their default values
-specified in the function definition.  Extra keyword arguments can be
-collected using `three dots`_ in the function definition: ``function
-plot(x, y; width=1, height=2, o...)``, and passed in function calls:
-``plot(x, y; o...)``.
+(which has no regular arguments) and ``window`` is a keyword argument
+for ``pool``.  Functions with keyword arguments are defined using a
+semicolon in the signature, e.g. ``function pool(x; window=2,
+padding=0)``.  The semicolon is optional when the function is called,
+e.g. both ``pool(x, window=5)`` or ``pool(x; window=5)`` work.
+Unspecified keyword arguments take their default values specified in
+the function definition.  Extra keyword arguments can be collected
+using `three dots`_ in the function definition: ``function pool(x;
+window=2, padding=0, o...)``, and passed in function calls: ``pool(x;
+o...)``.
 
 Here is a configurable version of ``conv_pool_layer`` using keyword
-arguments::
-
-    @knet function conv_pool_layer(x; winit=Xavier(), wdims=(), binit=Constant(0), bdims=())
-        w = par(init=winit, dims=wdims)
-        c = conv(w,x)
-        b = par(init=binit, dims=bdims)
-        a = add(b,c)
-        r = relu(a)
-        return pool(r)
-    end
-
-This allows us to distinguish the two ``conv_pool_layer`` operations:
+arguments:
 
 .. testcode::
 
-    @knet function lenet3(x)
-        a = conv_pool_layer(x; wdims=(5,5,1,20),  bdims=(1,1,20,1))
-        b = conv_pool_layer(a; wdims=(5,5,20,50), bdims=(1,1,50,1))
-        c = relu_layer(b; wdims=(500,800), bdims=(500,1))
-        return softmax_layer(c; wdims=(10,500), bdims=(10,1))
+    @knet function conv_pool_layer(x; cwindow=0, cinput=0, coutput=0, pwindow=0)
+        w = par(init=Xavier(), dims=(cwindow,cwindow,cinput,coutput))
+        c = conv(w,x)
+        b = par(init=Constant(0), dims=(1,1,coutput,1))
+        a = add(b,c)
+        r = relu(a)
+        return pool(r; window=pwindow)
     end
 
 .. testoutput:: :hide:
 
    ...
 
-In fact, we can use keyword arguments to define a ``generic_layer``
+Similarly, we can define ``relu_layer`` and ``softmax_layer`` with
+keyword arguments and make them more reusable.  If you did this,
+however, you'd notice that we are repeating a lot of code. That is
+almost always a bad idea.  Why don't we define a ``generic_layer``
 that contains the shared code for all our layers:
 
 .. testcode::
 
-    @knet function generic_layer(x; f1=:dot, f2=:relu, winit=Xavier(), binit=Constant(0), wdims=(), bdims=())
+    @knet function generic_layer(x; f1=:dot, f2=:relu, wdims=(), bdims=(), winit=Xavier(), binit=Constant(0))
         w = par(init=winit, dims=wdims)
         y = f1(w,x)
         b = par(init=binit, dims=bdims)
@@ -519,38 +527,84 @@ types easily:
 
 .. testcode::
 
-    @knet function conv_pool_layer(x; o...)
-        y = generic_layer(x; o..., f1=:conv, f2=:relu)
-        return pool(y)
+    @knet function conv_pool_layer(x; cwindow=0, cinput=0, coutput=0, pwindow=0)
+        y = generic_layer(x; f1=:conv, f2=:relu, wdims=(cwindow,cwindow,cinput,coutput), bdims=(1,1,coutput,1))
+        return pool(y; window=pwindow)
     end
 
-    @knet function relu_layer(x; o...)
-        return generic_layer(x; o..., f1=:dot, f2=:relu)
+    @knet function relu_layer(x; input=0, output=0)
+        return generic_layer(x; f1=:dot, f2=:relu, wdims=(output,input), bdims=(output,1))
     end
 
-    @knet function softmax_layer(x; o...)
-        return generic_layer(x; o..., f1=:dot, f2=:soft)
+    @knet function softmax_layer(x; input=0, output=0)
+        return generic_layer(x; f1=:dot, f2=:soft, wdims=(output,input), bdims=(output,1))
     end
 
 .. testoutput:: :hide:
 
    ...
 
-TODO: we need to introduce size inference here, otherwise they won't
-understand kfun.jl.  Also, keyword arguments for compile should be
-introduced here.
+Finally we can define a working version of LeNet using 4 lines of code:
+
+.. testcode::
+
+    @knet function lenet3(x)
+        a = conv_pool_layer(x; cwindow=5, cinput=1,  coutput=20, pwindow=2)
+        b = conv_pool_layer(a; cwindow=5, cinput=20, coutput=50, pwindow=2)
+        c = relu_layer(b; input=800, output=500)
+        return softmax_layer(c; input=500, output=10)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+There are still a lot of hard-coded dimensions in ``lenet3``.  Some of
+these, like the filter size (5), and the hidden layer size (500) can
+be considered part of the model design.  We should make them
+configurable so the user can experiment with different sized models.
+But some, like the number of input channels (1), and the input to the
+``relu_layer`` (800) are determined by input size.  If we tried to
+apply ``lenet3`` to a dataset with different sized images, it would
+break.  Knet solves this problem using **size inference**: Any
+dimension that relies on the input size can be left as 0, which tells
+Knet to infer that dimension when the first input is received.
+Leaving input dependent dimensions as 0, and using keyword arguments
+to determine model size we arrive at a fully configurable version of
+LeNet:
+
+.. testcode::
+
+    @knet function lenet4(x; cwin1=5, cout1=20, pwin1=2, cwin2=5, cout2=50, pwin2=2, hidden=500, nclass=10)
+        a = conv_pool_layer(x; cwindow=cwin1, coutput=cout1, pwindow=pwin1)
+        b = conv_pool_layer(a; cwindow=cwin2, coutput=cout2, pwindow=pwin2)
+        c = relu_layer(b; output=hidden)
+        return softmax_layer(c; output=nclass)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+To compile an instance of ``lenet4`` with particular dimensions, we
+pass keyword arguments to ``compile``:
+
+.. doctest::
+
+   julia> f = compile(:lenet4; cout1=30, cout2=60, hidden=600)
+   ...
 
 .. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
 
 In this section we saw how to use @knet functions as new operators,
 and configure them using keyword arguments.  Using the power of
 abstraction, not only did we cut the amount of code for the LeNet
-model in half, we made its definition a lot more readable and gained a
-bunch of reusable operators to boot.  I am sure you can think of more
-clever ways to define LeNet and other complex models using your own
-set of operators.  To see some example reusable operators take a look
-at the :ref:`Knet compound operators <compounds-table>` table and see
-their definitions in `kfun.jl`_.
+model in half, we made its definition a lot more readable and
+configurable, and gained a bunch of reusable operators to boot.  I am
+sure you can think of more clever ways to define LeNet and other
+complex models using your own set of operators.  To see some example
+reusable operators take a look at the :ref:`Knet compound operators
+<compounds-table>` table and see their definitions in `kfun.jl`_.
 
 
 Training with minibatches
@@ -699,13 +753,16 @@ non-determinism introduced by parallel GPU operations.
 
 .. doctest::
 
-   julia> net = compile(:lenet3);
+   julia> net = compile(:lenet4);
    julia> setp(net; lr=0.1);
    julia> train(net, trn, softloss);
    julia> test(net, tst, zeroone)
    0.0226
 
-TODO: In this section...
+In this section we saw how splitting the training data into
+minibatches can speed up training.  We trained our first neural
+network on a classification problem and used two new loss functions:
+``softloss`` and ``zeroone``.
 
 Conditional Evaluation
 ----------------------
@@ -795,12 +852,12 @@ Here is one way to add dropout to the LeNet model:
 
 .. testcode::
 
-    @knet function lenet4(x)
-        a = conv_pool_layer(x; wdims=(5,5,1,20),  bdims=(1,1,20,1))
-        b = conv_pool_layer(a; wdims=(5,5,20,50), bdims=(1,1,50,1))
-        bdrop = drop(b; pdrop=0.5)
-        c = relu_layer(bdrop; wdims=(500,800), bdims=(500,1))
-        return softmax_layer(c; wdims=(10,500), bdims=(10,1))
+    @knet function lenet5(x; pdrop=0.5, cwin1=5, cout1=20, pwin1=2, cwin2=5, cout2=50, pwin2=2, hidden=500, nclass=10)
+        a = conv_pool_layer(x; cwindow=cwin1, coutput=cout1, pwindow=pwin1)
+        b = conv_pool_layer(a; cwindow=cwin2, coutput=cout2, pwindow=pwin2)
+        bdrop = drop(b; pdrop=pdrop)
+        c = relu_layer(bdrop; output=hidden)
+        return softmax_layer(c; output=nclass)
     end
 
 .. testoutput:: :hide:
@@ -825,13 +882,14 @@ our ``train`` function to pass the condition to ``forw``:
 
     ...
 
-During training, we will reduce the learning rate whenever the test
-error gets worse, another precaution against overfitting::
+Here is our training script.  Note that we reduce the learning rate
+whenever the test error gets worse, another precaution against
+overfitting::
 
     lrate = 0.1
     decay = 0.9
     lasterr = 1.0
-    net = compile(:lenet4)
+    net = compile(:lenet5)
     setp(net; lr=lrate)
 
     for epoch=1:100
@@ -857,19 +915,34 @@ art compared to other benchmark results on the MNIST_ website::
     (99,0.0014780882941434613,0.0003333333333333334,0.005200000000000002)
     (100,0.0014780882941434613,0.0003666666666666668,0.005000000000000002)
 
-TODO: In this section...
+In this section, we saw how to use the ``if ... else ... end``
+construct to perform conditional evaluation in a model, where the
+conditions are passed using keyword arguments to ``forw``.  We used
+this to implement ``dropout``, an effective technique to prevent
+overfitting.
+
 
 Recurrent neural networks
 -------------------------
 .. read-before-write, simple rnn, lstm
 
 .. _static variables: https://en.wikipedia.org/wiki/Static_variable
+.. _this post: http://karpathy.github.io/2015/05/21/rnn-effectiveness
 
 In this section we will see how to implement **recurrent neural
-networks** (RNNs) in Knet.  All local variables in Knet functions are
-`static variables`_, i.e. their values are preserved between calls
-unless otherwise specified.  It turns out this is the only language
-feature you need to define RNNs.  Here is a simple example::
+networks** (RNNs) in Knet.  A RNN is a class of neural network where
+connections between units form a directed cycle, which allows them to
+keep a persistent state (memory) over time.  This gives them the
+ability to process sequences of arbitrary length one element at a
+time, while keeping track of what happened at previous elements.
+Contrast this with feed forward nets like LeNet, which have a fixed
+sized input, output and perform a fixed number of operations. See
+`this post`_ for a nice introduction to RNNs.
+
+To support RNNs, all local variables in Knet functions are `static
+variables`_, i.e. their values are preserved between calls unless
+otherwise specified.  It turns out this is the only language feature
+you need to define RNNs.  Here is a simple example::
 
     @knet function rnn1(x; hsize=100, xsize=50)
         a = par(init=Xavier(), dims=(hsize, xsize))
@@ -894,6 +967,8 @@ which in turn would cause ``h`` to get set to ``relu(a * x .+ c)``.
 During the second call, this value of ``h`` would be remembered and
 used, thus making the value of ``h`` at time t dependent on
 its value at time t-1.
+
+TODO: LSTM...
 
 TODO: In this section...
 
@@ -1057,20 +1132,22 @@ Option	                	Description
 
 TODO:
 
-* add intro/conclusion at all levels.
-* primitive ops
-* colon and symbols
-* broadcasting ops
-* keyword arguments
-* link Julia functions to Julia doc
-* repeat, zero sizes and size inference, keyword args to compile(), rgen distributions.
-* fix doctest again.
-* find the table that shows tradeoff for minibatching.
-* installation link is broken: http://www.sphinx-doc.org/en/stable/markup/inline.html
-* size inference?
-* introduce table of distributions, Bernoulli etc.
-* rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
+* DONE: add intro/conclusion at all levels. 
+* DONE: amazon machine, pull/fork, issues.
+* DONE: fix doctest again.
+* DONE: installation link is broken: http://www.sphinx-doc.org/en/stable/markup/inline.html
+* DONE: keyword args to compile(), 
+* DONE: keyword arguments. 
+* DONE: primitive ops. 
+* DONE: ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.
+* DONE: rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
+* DONE: size inference?
 * broadcasting, explain in minibatch?
-* amazon machine, pull/fork, issues.
+* colon and symbols
+* find the paper that shows tradeoff for minibatching.
+* introduce table of distributions, Bernoulli etc.
+* link Julia functions to Julia doc
+* repeat, 
 * update options
-* ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.
+
+.. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia> (.+)/' intro.rst > foo.intro.jl
