@@ -9,17 +9,15 @@ own models and apply machine learning to your own problems as quickly
 as possible.  So some of the details and exceptions will be skipped
 for now.  No prior knowledge of machine learning or Julia is
 necessary, but general programming experience will be assumed.  It
-would be best if you follow along with the examples on your computer,
-please see :ref:`installation-section` for setup instructions.
-
+would be best if you follow along with the examples on your computer.
 
 Models, functions, and operators
 --------------------------------
 .. @knet, compile, forw, get
 
-In this section, we will create our first Knet model, learn how to
-peek into it, and how to make a prediction.  To start using Knet, type
-``using Knet`` at the Julia prompt::
+In this section, we will create our first Knet model, and learn how to
+make predictions.  To start using Knet, type ``using Knet`` at the
+Julia prompt::
 
    julia> using Knet
 
@@ -67,8 +65,8 @@ In this definition:
 - The final ``return`` statement specifies the output of the Knet
   function, where ``*`` denotes matrix product and ``.+`` denotes
   elementwise addition.  Only a restricted set of :ref:`operators
-  <primitives-table>` (e.g. ``*`` and ``.+``) and statement types
-  (e.g. assignment and return statements) can be used in a @knet
+  <primitives-table>` such as ``*`` and ``.+``, and statement types
+  such as assignment and return statements can be used in a @knet
   function definition.
 
 In order to turn ``lin`` into a machine learning model that can be
@@ -120,11 +118,14 @@ as an equivalent Julia expression:
     1x1 Array{Float64,2}:
      -1.00532
 
+In this section, we have seen how to create a Knet model by compiling
+a @knet function, how to perform a prediction given an input using
+``forw``, and how to take a look at model parameters using ``get``.
+Next we will see how to train models.
 
 Training a model
 ----------------
-..
-   quadloss, back, update!, setp, update options
+.. quadloss, back, update!, setp, lr
 
 OK, so we can define functions using Knet but why should we bother?
 The thing that makes a Knet model different from an ordinary function
@@ -140,8 +141,11 @@ unknown function by manipulating its parameters.
 
 We will use the Housing_ dataset from the `UCI Machine Learning
 Repository`_ to train our ``lin`` model.  The dataset has housing
-related information for 506 neighborhoods in Boston, each with 14
-attributes.  Here are the first 3 entries::
+related information for 506 neighborhoods in Boston from 1978.  Each
+neighborhood has 14 attributes, the goal is to use the first 13, such
+as average number of rooms per house, or distance to employment
+centers, to predict the 14'th attribute: median dollar value of the
+houses.  Here are the first 3 entries::
 
     0.00632  18.00   2.310  0  0.5380  6.5750  65.20  4.0900   1  296.0  15.30 396.90   4.98  24.00
     0.02731   0.00   7.070  0  0.4690  6.4210  78.90  4.9671   2  242.0  17.80 396.90   9.14  21.60
@@ -156,7 +160,8 @@ enables downloading files from the internet using the :func:`get`
 function and :func:`readdlm <readdlm>`, a function which turns space
 or tab delimited data into a Julia array.  If for some reason this
 does not work, you can download the data file from the given URL by
-other means and run ``readdlm("housing.data")`` instead::
+other means and run ``readdlm("housing.data")`` on the local file
+instead::
 
    julia> using Requests
    julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data";
@@ -181,10 +186,10 @@ it:
 
 .. _Julia's array indexing: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#indexing
 
-Here we are using `Julia's array indexing`_ notation to split the data
-array into input ``x`` and output ``y``.  Inside the square brackets
-``1:13`` means grab the rows 1 through 13, and the ``:`` character by
-itself means grab all the columns.
+Here we are using `Julia's array indexing`_ notation to split the
+``data`` array into input ``x`` and output ``y``.  Inside the square
+brackets ``1:13`` means grab the rows 1 through 13, and the ``:``
+character by itself means grab all the columns.
 
 You may have noticed that the input attributes have very different
 ranges.  It is usually a good idea to normalize them by subtracting
@@ -227,13 +232,14 @@ training:
    julia> quadloss(ypred, ytst)
    289.7437322259235
 
-The quadratic loss function :func:`quadloss` computes :math:`(1/2n)
-\sum (\hat{y} - y)^2`, i.e. half of the mean squared difference
-between a predicted answer :math:`\hat{y}` and the desired answer
-:math:`y`.  Given that :math:`y` values range from 5 to 50, an RMSD_
-of :math:`\sqrt{2\times 289.7}=24.07` is a pretty bad score.
-
 .. _RMSD: https://en.wikipedia.org/wiki/Root-mean-square_deviation
+
+The quadratic :ref:`loss function <loss-table>` :func:`quadloss`
+computes :math:`(1/2n) \sum (\hat{y} - y)^2`, i.e. half of the mean
+squared difference between a predicted answer :math:`\hat{y}` and the
+desired answer :math:`y`.  Given that :math:`y` values range from 5 to
+50, an RMSD_ of :math:`\sqrt{2\times 289.7}=24.07` is a pretty bad
+score.
 
 We would like to minimize this loss which should get the predicted
 answers closer to the desired answers.  To do this we first compute
@@ -241,12 +247,6 @@ the loss gradient for the parameters of ``f`` -- this is the direction
 in parameter space that maximally increases the loss.  Then we move the
 parameters in the opposite direction.  Here is a simple function that
 performs these steps:
-
-..
-   TODO: remove the ! from update! ?
-   TODO: have an objective function instead of a loss function?
-
-.. Using these, we can write a simple training script:
 
 .. testcode::
    
@@ -267,12 +267,8 @@ performs these steps:
 * The ``for`` loop grabs training instances one by one.
 * ``forw`` computes the prediction for the i'th instance.  This is required for the next step.
 * ``back`` computes the loss gradient ``dw`` for each parameter ``w`` for the i'th instance.
-* ``update!`` subtracts (a function of) ``dw`` from ``w`` to reduce the loss for each parameter ``w``.
+* ``update!`` subtracts (a function of) ``dw`` from each ``w`` to reduce the loss.
 
-
-.. We can set these training options for individual parameters using
-.. e.g. ``setp(f, :w; lr=0.001)``, or for the whole model using ``setp(f;
-.. lr=0.001)``.  
 
 Before training, it is important to set a good learning rate.  The
 learning rate controls how large the update steps are going to be: too
@@ -310,6 +306,8 @@ We can see what the model has learnt looking at the new weights:
    julia> println(sortperm(vec(get(f,:w))))
    [13,8,11,5,10,1,7,3,2,4,12,9,6]
 
+.. _UCI: http://archive.ics.uci.edu/ml/datasets/Housing
+
 The two weights with the most negative contributions are 13 and 8.  We
 can find out from UCI_ that these are::
 
@@ -321,13 +319,16 @@ And the two with the most positive contributions are 9 and 6::
    9. RAD: index of accessibility to radial highways 
    6. RM: average number of rooms per dwelling
       
-.. _UCI: http://archive.ics.uci.edu/ml/datasets/Housing
-
-Now, there are a lot more efficient and elegant ways to perform and
-analyze a linear regression as you can find out from any decent
-statistics text.  However the basic method outlined in this section
-has the advantage of being easy to generalize to models that are a lot
-more complicated as we will see next.
+In this section we saw how to download data, turn it into a Julia
+array, normalize and split it into input, output, train, and test
+subsets.  We wrote a simple training script using ``forw``, ``back``,
+and ``update!``, set the learning rate ``lr`` using ``setp``, and
+evaluated the model using the ``quadloss`` loss function.  Now, there
+are a lot more efficient and elegant ways to perform and analyze a
+linear regression as you can find out from any decent statistics text.
+However the basic method outlined in this section has the advantage of
+being easy to generalize to models that are a lot more complicated as
+we will see next.
 
 Defining new operators
 ----------------------
@@ -344,7 +345,7 @@ operators inside other @knet functions.
 
 To illustrate this, we will use the LeNet_ convolutional neural
 network model designed to recognize handwritten digits.  Here is the
-LeNet model defined only using the :ref:`primitive operators of Knet
+LeNet model defined using only the :ref:`primitive operators of Knet
 <primitives-table>`:
 
 .. testcode::
@@ -536,28 +537,32 @@ types easily:
    ...
 
 TODO: we need to introduce size inference here, otherwise they won't
-understand kfun.jl.
+understand kfun.jl.  Also, keyword arguments for compile should be
+introduced here.
 
 .. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
 
-Using new operators and keyword arguments, not only did we cut the
-amount of code in half, we made the definition of LeNet a lot more
-readable and gained a bunch of reusable operators to boot.  I am sure
-you can think of more clever ways to define LeNet and similar models
-using the power of abstraction.  To see some example reusable
-operators take a look at the :ref:`Knet compound operators
-<compounds-table>` table and see their definitions in `kfun.jl`_.
+In this section we saw how to use @knet functions as new operators,
+and configure them using keyword arguments.  Using the power of
+abstraction, not only did we cut the amount of code for the LeNet
+model in half, we made its definition a lot more readable and gained a
+bunch of reusable operators to boot.  I am sure you can think of more
+clever ways to define LeNet and other complex models using your own
+set of operators.  To see some example reusable operators take a look
+at the :ref:`Knet compound operators <compounds-table>` table and see
+their definitions in `kfun.jl`_.
 
 
 Training with minibatches
 -------------------------
-..
-   minibatch, softloss, zeroone
+.. minibatch, softloss, zeroone
 
 We will use the LeNet model to classify hand-written digits from the
-MNIST_ dataset.  Here are the first 8 images from MNIST:
+MNIST_ dataset.  Here are the first 8 images from MNIST, the goal is
+to look at the pixels and classify each image as one of the digits
+0-9:
 
-.. image:: firsteightimages.jpg
+.. image:: images/firsteightimages.jpg
 
 The following loads the MNIST data:
 
@@ -569,8 +574,7 @@ The following loads the MNIST data:
     julia> include(Pkg.dir("Knet/examples/mnist.jl"))
     INFO: Loading MNIST...
 
-Once loaded, the data is available as multi-dimensional Julia arrays
-in the MNIST module:
+Once loaded, the data is available as multi-dimensional Julia arrays:
 
 .. doctest::
 
@@ -677,9 +681,9 @@ argument:
       
    ...
 
-Next, we compile the model and set the learning rate to 0.1, which
-works well for this example.  We use two new :ref:`loss functions
-<loss-table>`: ``softloss`` computes the cross entropy loss,
+Before training, we compile the model and set the learning rate to
+0.1, which works well for this example.  We use two new :ref:`loss
+functions <loss-table>`: ``softloss`` computes the cross entropy loss,
 :math:`E(p\log\hat{p})`, commonly used for training classification
 models and ``zeroone`` computes the zero-one loss which is the ratio
 of predictions that were wrong.  I got 2.26% test error after one
@@ -700,6 +704,8 @@ non-determinism introduced by parallel GPU operations.
    julia> train(net, trn, softloss);
    julia> test(net, tst, zeroone)
    0.0226
+
+TODO: In this section...
 
 Conditional Evaluation
 ----------------------
@@ -723,9 +729,9 @@ Conditional Evaluation
 
 There are cases where you want to execute parts of a model
 *conditionally*, e.g. only during training, or only during some parts
-of the input in some sequence models.  Knet supports the use of
-**runtime conditions** for this purpose.  We will illustrate the use
-of conditions by implementing a training technique called dropout_ to
+of the input in sequence models.  Knet supports the use of **runtime
+conditions** for this purpose.  We will illustrate the use of
+conditions by implementing a training technique called dropout_ to
 improve the generalization power of the LeNet model.
 
 .. _dropout: http://jmlr.org/papers/v15/srivastava14a.html
@@ -776,14 +782,14 @@ argument and passes it down as a global condition::
 
 This means every time we call ``forw``, we can change whether dropout
 occurs or not.  During test time, we would like to stop dropout, so we
-can call the model with ``dropout=false``::
+can run the model with ``dropout=false``::
 
     forw(model, input; dropout=false)
 
 By default, all unspecified condition variables are false, so we could
 also omit the condition during test time::
 
-    forw(model, input)
+    forw(model, input)	# dropout=false is assumed
 
 Here is one way to add dropout to the LeNet model:
 
@@ -802,8 +808,8 @@ Here is one way to add dropout to the LeNet model:
     ...
 
 Whenever the condition variable ``dropout`` is true, this will replace
-half of the entries in the ``b`` array with zeros.  We need to pass
-the condition to ``forw`` in our ``train`` function:
+half of the entries in the ``b`` array with zeros.  We need to modify
+our ``train`` function to pass the condition to ``forw``:
 
 .. testcode::
 
@@ -819,14 +825,14 @@ the condition to ``forw`` in our ``train`` function:
 
     ...
 
-During training, we will also reduce the learning rate whenever the
-test error gets worse, another precaution against overfitting::
+During training, we will reduce the learning rate whenever the test
+error gets worse, another precaution against overfitting::
 
-    net = compile(:lenet4)
     lrate = 0.1
-    setp(net; lr=lrate)
     decay = 0.9
     lasterr = 1.0
+    net = compile(:lenet4)
+    setp(net; lr=lrate)
 
     for epoch=1:100
         train(net, trn, softloss)
@@ -851,6 +857,7 @@ art compared to other benchmark results on the MNIST_ website::
     (99,0.0014780882941434613,0.0003333333333333334,0.005200000000000002)
     (100,0.0014780882941434613,0.0003666666666666668,0.005000000000000002)
 
+TODO: In this section...
 
 Recurrent neural networks
 -------------------------
@@ -887,6 +894,8 @@ which in turn would cause ``h`` to get set to ``relu(a * x .+ c)``.
 During the second call, this value of ``h`` would be remembered and
 used, thus making the value of ``h`` at time t dependent on
 its value at time t-1.
+
+TODO: In this section...
 
 Training with sequences
 -----------------------
@@ -1035,6 +1044,16 @@ Option	                	Description
 .. ``l1reg`` and ``l2reg`` from the :ref:`table of training options
 .. <training-options-table>`).  For now let's focus on dropout.
 
+..
+   TODO: remove the ! from update! ?
+   TODO: have an objective function instead of a loss function?
+
+.. Using these, we can write a simple training script:
+
+.. We can set these training options for individual parameters using
+.. e.g. ``setp(f, :w; lr=0.001)``, or for the whole model using ``setp(f;
+.. lr=0.001)``.  
+
 
 TODO:
 
@@ -1050,7 +1069,8 @@ TODO:
 * installation link is broken: http://www.sphinx-doc.org/en/stable/markup/inline.html
 * size inference?
 * introduce table of distributions, Bernoulli etc.
-* rnn1: would be nice to use 0 for xsize at this point.  Also this is
-  the second time we are using Xavier etc without much explanation.
+* rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
 * broadcasting, explain in minibatch?
-
+* amazon machine, pull/fork, issues.
+* update options
+* ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.

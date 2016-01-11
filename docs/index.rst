@@ -13,9 +13,9 @@ Contents:
 
    install
    intro
-   kfun
-   nce
 
+.. kfun
+.. nce
 .. scode?
 .. s2s
 .. s2c
@@ -37,7 +37,7 @@ Indices and tables
 
 Here is some text.
 
-Here is a reference :ref:`installation-section`
+.. Here is a reference :ref:`installation-section`
 
 Here is some math: :math:`a^2+b^2=c^2`
 
@@ -57,4 +57,4 @@ Here is multiline Julia:
 	    return ystack
 	end
 
-And that's that.
+.. And that's that.

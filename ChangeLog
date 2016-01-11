@@ -1,3 +1,67 @@
+2016-01-10  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* amazon:
+	3 types of gpu instances:
+	Instance type 	vCPUs 	Memory (GiB)	Storage (GB)	Weighted capacity 	Total bid price  	% of On-Demand 
+	  cg1.4xlarge	16	22	2 x 840	1	$0.07 	3%
+	  g2.2xlarge	8	15	1 x 60 SSD	1	$0.07 	11%
+	  g2.8xlarge	32	60	2 x 120 SSD	1	$0.07 	3%
+
+	Model	GPUs	vCPU	Mem (GiB)	SSD Storage (GB)
+	g2.2xlarge	1	8	15	1 x 60
+	g2.8xlarge	4	32	60	2 x 120
+
+	High Frequency Intel Xeon E5-2670 (Sandy Bridge) Processors
+	High-performance NVIDIA GPUs, each with 1,536 CUDA cores and 4GB of video memory
+
+	cg1.4 is previous generation, only available US east, $2.
+	g2.2 is $0.07, g2.8 is $0.29
+
+	g2.2 has 1 GRID K520 NVIDIA GPU, 4GB GPU RAM, 16GB CPU RAM, 1 CPU
+	with 4 physical cores.  Looks like 7 with hyperthreading. Intel(R)
+	Xeon(R) CPU E5-2670 0 @ 2.60GHz.
+
+	g2.8 has 2 sockets, 8 cores per socket, 16 physical 32 virtual cores.
+	$ egrep -e "core id" -e ^physical /proc/cpuinfo|xargs -l2 echo|sort -u
+	60GB CPU RAM.  Intel(R) Xeon(R) CPU E5-2670 0 @ 2.60GHz.
+	4 K520 GPUs each with 4GB RAM.
+
+	nvidia ami: Cannot be made public!!!
+	amzn-ami-graphics-hvm-2015.09.1.x86_64-ebs-d3fbf14b-243d-46e0-916c-82a8bf6955b4-ami-b0b8c8da.2 (ami-943956f4)
+	Driver version 340.32
+	libcublas.so.6.5.14 (under /opt/nvidia/cuda/lib64)
+	added:
+	emacs-24.3
+	git-2.4.3
+	perl-5.6.13
+	python-2.7.10
+	mlocate
+	sudo yum --enablerepo=epel install hdf5
+	cmake (for MbedTLS)
+
+	Requesting ec2 instance:
+	- Request spot instance.
+	- Choose Amazon Linux AMI with NVIDIA GRID GPU Driver.
+
+	http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using_cluster_computing.html#gpu-operating-systems
+	https://aws.amazon.com/ec2/spot/getting-started/
+	https://console.aws.amazon.com/billing/home?#/
+	http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html
+
+	Login command: ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com
+
+	AMI creation:
+	ami-809feae0 snap-ecd005d4 vol-696e1f91 /dev/xvda
+	ami-4f9fea2f snap-d81561e1 vol-696e1f91 /dev/xvda Knet-0.7.2 cannot make public!
+
+	Start with: ami-d5ea86b5
+	Amazon Linux AMI 2015.09.1 (HVM), SSD Volume Type - ami-d5ea86b5
+	amzn-ami-hvm-2015.09.1.x86_64-gp2 (ami-d5ea86b5)
+	[ec2-user@ip-172-31-9-42 ~]$
+	ami-b99beed9 snap-53dfb770 vol-f2bccd0a /dev/xvda Knet-0.7.2 public image!
+	ami-149bee74 snap-90d01fb2 vol-f2bccd0a /dev/xvda Knet-0.7.2a more up to date.
+
+
 2016-01-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* charlm:
