@@ -48,6 +48,7 @@ using ``include("filename")``:
 .. _randn: http://julia.readthedocs.org/en/release-0.4/stdlib/numbers/#Base.randn
 .. _Julia function: http://julia.readthedocs.org/en/release-0.4/manual/functions
 .. _variable: http://julia.readthedocs.org/en/release-0.4/manual/variables
+.. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
 
 In this definition:
 
@@ -63,11 +64,16 @@ In this definition:
   array of size ``dims`` filled with random numbers from the standard
   normal distribution.
 - The final ``return`` statement specifies the output of the Knet
-  function, where ``*`` denotes matrix product and ``.+`` denotes
-  elementwise addition.  Only a restricted set of :ref:`operators
-  <primitives-table>` such as ``*`` and ``.+``, and statement types
-  such as assignment and return statements can be used in a @knet
-  function definition.
+  function.
+- The ``*`` denotes matrix product and ``.+`` denotes elementwise
+  broadcasting addition.  `Broadcasting operations`_ can act on arrays
+  with different sizes, such as adding a vector to each column of a
+  matrix.  They expand singleton dimensions in array arguments to
+  match the corresponding dimension in the other array without using
+  extra memory, and apply the operation elementwise.
+- Only a :ref:`restricted set of operators <primitives-table>` such as
+  ``*`` and ``.+``, and statement types such as assignment and return
+  statements can be used in a @knet function definition.
 
 In order to turn ``lin`` into a machine learning model that can be
 trained with examples and used for predictions, we need to compile it:
@@ -273,9 +279,10 @@ performs these steps:
 Before training, it is important to set a good learning rate.  The
 learning rate controls how large the update steps are going to be: too
 small and you'd wait for a long time, too large and ``train`` may
-never converge.  The :func:`setp` function is used to set training
-options like the learning rate.  Let's set the learning rate to 0.001
-and train the model for 100 epochs (i.e. 100 passes over the dataset):
+never converge.  The :func:`setp` function is used to set
+:ref:`training options <options-table>` like the learning rate.  Let's
+set the learning rate to 0.001 and train the model for 100 epochs
+(i.e. 100 passes over the dataset):
 
 .. doctest::
 
@@ -926,8 +933,7 @@ Recurrent neural networks
 -------------------------
 .. read-before-write, simple rnn, lstm
 
-.. _static variables: https://en.wikipedia.org/wiki/Static_variable
-.. _this post: http://karpathy.github.io/2015/05/21/rnn-effectiveness
+.. _Karpathy, 2015: http://karpathy.github.io/2015/05/21/rnn-effectiveness/
 
 In this section we will see how to implement **recurrent neural
 networks** (RNNs) in Knet.  A RNN is a class of neural network where
@@ -937,7 +943,9 @@ ability to process sequences of arbitrary length one element at a
 time, while keeping track of what happened at previous elements.
 Contrast this with feed forward nets like LeNet, which have a fixed
 sized input, output and perform a fixed number of operations. See
-`this post`_ for a nice introduction to RNNs.
+(`Karpathy, 2015`_) for a nice introduction to RNNs.
+
+.. _static variables: https://en.wikipedia.org/wiki/Static_variable
 
 To support RNNs, all local variables in Knet functions are `static
 variables`_, i.e. their values are preserved between calls unless
@@ -956,8 +964,7 @@ Notice anything strange?  The first three lines define three model
 parameters.  Then the fourth line sets ``d`` to a linear combination
 of the input ``x`` and the hidden state ``h``.  But ``h`` hasn't been
 defined yet.  Exactly!  Having read-before-write variables is the only
-thing that distinguishes an RNN @knet function from feed-forward
-models like LeNet.
+thing that distinguishes an RNN from feed-forward models like LeNet.
 
 The way Knet handles read-before-write variables is by initializing
 them to 0 arrays before any input is processed, then preserving the
@@ -968,9 +975,64 @@ During the second call, this value of ``h`` would be remembered and
 used, thus making the value of ``h`` at time t dependent on
 its value at time t-1.
 
-TODO: LSTM...
+.. _better initialization: http://arxiv.org/abs/1504.00941
+.. _smarter updates: http://arxiv.org/abs/1511.06464
+.. _LSTMs: http://deeplearning.cs.cmu.edu/pdfs/Hochreiter97_lstm.pdf
+.. _GRUs: http://arxiv.org/pdf/1406.1078v3
+.. _Colah, 2015: http://colah.github.io/posts/2015-08-Understanding-LSTMs
 
-TODO: In this section...
+It turns out simple RNNs like ``rnn1`` are not very good at
+remembering things for a very long time.  There are some techniques to
+improve their retention based on `better initialization`_ or `smarter
+updates`_, but currently the most popular solution is using more
+complicated units like LSTMs_ and GRUs_.  These units control the
+information flow into and out of the unit using gates similar to
+digital circuits and can model long term dependencies.  See (`Colah,
+2015`_) for a good overview of LSTMs.
+
+Defining an LSTM in Knet is almost as concise as writing its
+mathematical definition:
+
+.. testcode::
+
+    @knet function lstm(x; fbias=1, o...)
+        input  = wbf2(x,h; o..., f=:sigm)
+        forget = wbf2(x,h; o..., f=:sigm, binit=Constant(fbias))
+        output = wbf2(x,h; o..., f=:sigm)
+        newmem = wbf2(x,h; o..., f=:tanh)
+        cell = input .* newmem + cell .* forget
+        h  = tanh(cell) .* output
+        return h
+    end
+
+.. testoutput:: :hide:
+
+    ...
+
+The ``wbf2`` operator applies an affine function (linear function +
+bias) to its two inputs followed by an activation function (specified
+by the ``f`` keyword argument).  Try to define this operator yourself
+as an exercise, (see kfun.jl_ for the Knet definition).  
+
+The LSTM has an input gate, forget gate and an output gate that
+control information flow.  Each gate depends on the current input
+``x``, and the last output ``h``.  The memory value ``cell`` is
+computed by blending a new value ``newmem`` with its old value under
+the control of ``input`` and ``forget`` gates.  The ``output`` gate
+decides how much of the ``cell`` is shared with the outside world.
+
+If an ``input`` gate element is close to 0, the corresponding element
+in the new input ``x`` will have little effect on the memory cell.  If
+a ``forget`` gate element is close to 1, the contents of the
+corresponding memory cell can be preserved for a long time.  Thus the
+LSTM has the ability to pay attention to the current input, or
+reminisce in the past, and it can learn when to do which based on the
+problem.
+
+In this section we introduced simple recurrent neural networks and
+LSTMs.  We saw that having static variables is the only language
+feature necessary to implement RNNs.  Next we will look at how to
+train them.
 
 Training with sequences
 -----------------------
@@ -987,77 +1049,260 @@ Training with sequences
    In RNNs past inputs effect future outputs.  Thus they are typically
    used to process sequences, such as speech or text data.
 
-.. _karpathy: http://karpathy.github.io/2015/05/21/rnn-effectiveness/
-
 .. _shakespeare: http://www.gutenberg.org/files/100/100.txt
 
+So far we have built a model that can predict house prices, another
+that can recognize handwritten digits.  As a final example let's train
+one that can write like Shakespeare!  (`Karpathy, 2015`_) demonstrated
+that character based language models based on LSTMs are surprizingly
+adept at generating text in many genres, from Wikipedia articles to C
+programs.  Here we will replicate one of his examples using Knet.
+
+.. _Project Gutenberg: https://www.gutenberg.org
+
+First let's download "The Complete Works of William Shakespeare" from
+`Project Gutenberg`_:
+
+.. doctest::
+
+   julia> using Requests
+   julia> url="http://www.gutenberg.org/files/100/100.txt";
+   julia> text=get(url).data
+   5589917-element Array{UInt8,1}:...
+
+Map each character to a unique integer:
+
+.. doctest::
+
+   julia> char2int = Dict();
+   julia> for c in text; get!(char2int, c, 1+length(char2int)); end
+   julia> nchar = length(char2int)
+   92
+
+Create minibatches.  Each minibatch is a (vocabsize, batchsize)
+matrix with one-hot columns.  The vocab dictionary maps characters
+to integer indices.  The data array returned will have
+T=|chars|/batchsize minibatches.  The columns of minibatch t refer
+to characters t, t+T, t+2T etc.  During training if x=data[t], then
+y=data[t+1].
+
+.. testcode::
+
+   function minibatch(chars, char2int, batchsize)
+       data = cell(0)
+       T = div(length(chars), batchsize)
+       for t=1:T
+	   d=zeros(Float32, length(char2int), batchsize)
+	   for b=1:batchsize
+	       c = char2int[chars[t + (b-1) * T]]
+	       d[c,b] = 1
+	   end
+	   push!(data, d)
+       end
+       return data
+   end
+
+.. testoutput:: :hide:
+
+   ...
+
+.. doctest::
+
+   julia> batchsize = 128;
+   julia> data = minibatch(text, char2int, batchsize);
+
+Training script:
+
+.. testcode::
+
+   function train(f, data, loss; gclip=0, seqlength=100, pdrop=0, o...)
+       ystack = cell(0)
+       sumloss = 0.0
+       reset!(f, keepstate=false)
+       T = length(data)-1
+       for t=1:T
+	   x = data[t]
+	   ygold = data[t+1]
+	   ypred = sforw(f,x; dropout=(pdrop>0))
+	   sumloss += loss(ypred, ygold)
+	   push!(ystack,ygold)
+	   if (t%seqlength == 0 || t==T)
+	       while !isempty(ystack)
+		   ygold = pop!(ystack)
+		   sback(f,ygold,loss)
+	       end
+	       g = (gclip > 0 ? gnorm(f) : 0)
+	       update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
+	       reset!(f, keepstate=true)
+	   end
+       end
+       sumloss/T
+   end
+
+.. testoutput:: :hide:
+
+   ...
+
+
+Define a character based language model using an LSTM:
+
+.. testcode::
+
+   @knet function charlm(x; embedding=0, hidden=0, pdrop=0, nchar=0)
+       a = wdot(x; out=embedding)
+       b = lstm(a; out=hidden)
+       c = drop(b; pdrop=pdrop)
+       return wbf(c; out=nchar, f=:soft)
+   end
+
+.. testoutput:: :hide:
+
+   ...
+
+Compile and train:
+
+.. doctest::
+
+   julia> net = compile(:charlm; embedding=128, hidden=128, pdrop=0.0, nchar=nchar);
+   julia> for i=1:10; train(net, data, softloss); end
+
+Generate:
+
+.. testcode::
+
+   function generate(f, int2char, nchar)
+       x=zeros(Float32, length(int2char), 1)
+       y=zeros(Float32, length(int2char), 1)
+       xi = 1
+       for i=1:nchar
+	   copy!(y, forw(f,x))
+	   x[xi] = 0
+	   xi = sample(y)
+	   x[xi] = 1
+	   print(int2char[xi])
+       end
+       println()
+   end
+
+   function sample(pdist)
+       r = rand(Float32)
+       p = 0
+       for c=1:length(pdist)
+	   p += pdist[c]
+	   r <= p && return c
+       end
+   end
+
+.. testoutput:: :hide:
+
+   ...
+
+.. doctest::
+
+   julia> int2char = Array(Char, length(char2int));
+   julia> for (c,i) in char2int; int2char[i] = Char(c); end
+   julia> generate(net, int2char, 1024)
+
+
+In this section...
 
 Some useful tables
 ------------------
 
 .. _primitives-table:
 
-   ===============================	==============================================================================
-   Operator                		Description
-   ===============================	==============================================================================
-   :func:`par() <par>`			a parameter array, updated during training; kwargs: ``dims, init``
-   :func:`rnd() <rnd>`			a random array, updated every call; kwargs: ``dims, init``
-   :func:`arr() <arr>`           	a constant array, never updated; kwargs: ``dims, init``
-   :func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A * B``
-   :func:`add(A,B) <add>`		elementwise broadcasting [#]_ addition of arrays ``A`` and ``B``, alternative notation: ``A .+ B``
-   :func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A .* B``
-   :func:`conv(W,X) <conv>`       	convolution [#]_ with filter ``W`` and input ``X``; kwargs: ``padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION``
-   :func:`pool(X) <pool>`		pooling; kwargs: ``window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX``
-   :func:`axpb(X) <axpb>`         	computes ``a*x^p+b``; kwargs: ``a=1, p=1, b=0``
-   :func:`copy(X) <copy>`         	copies ``X`` to output.
-   :func:`relu(X) <relu>`		rectified linear activation function: ``(x > 0 ? x : 0)``
-   :func:`sigm(X) <sigm>`		sigmoid activation function: ``1/(1+exp(-x))``
-   :func:`soft(X) <soft>`		softmax activation function: ``(exp xi) / (Σ exp xj)``
-   :func:`tanh(X) <tanh>`		hyperbolic tangent activation function.
-   ===============================	==============================================================================
+**Table 1: Primitive Knet operators**
 
-.. [#] `Broadcasting operations`_ are element-by-element binary
-       operations on arrays of possibly different sizes, such as
-       adding a vector to each column of a matrix.  They expand
-       singleton dimensions in array arguments to match the
-       corresponding dimension in the other array without using extra
-       memory, and apply the given function elementwise.
-
-.. [#] For detailed information about convolution and pooling, please
-       see the documentation for CUDNN_ and `CUDNN.jl`_.
+===============================	==============================================================================
+Operator               		Description
+===============================	==============================================================================
+:func:`par() <par>`		a parameter array, updated during training; kwargs: ``dims, init``
+:func:`rnd() <rnd>`		a random array, updated every call; kwargs: ``dims, init``
+:func:`arr() <arr>`           	a constant array, never updated; kwargs: ``dims, init``
+:func:`dot(A,B) <dot>`        	matrix product of ``A`` and ``B``; alternative notation: ``A * B``
+:func:`add(A,B) <add>`		elementwise broadcasting addition of arrays ``A`` and ``B``, alternative notation: ``A .+ B``
+:func:`mul(A,B) <mul>`        	elementwise broadcasting multiplication of arrays ``A`` and ``B``; alternative notation: ``A .* B``
+:func:`conv(W,X) <conv>`       	convolution with filter ``W`` and input ``X``; kwargs: ``padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION``
+:func:`pool(X) <pool>`		pooling; kwargs: ``window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX``
+:func:`axpb(X) <axpb>`         	computes ``a*x^p+b``; kwargs: ``a=1, p=1, b=0``
+:func:`copy(X) <copy>`         	copies ``X`` to output.
+:func:`relu(X) <relu>`		rectified linear activation function: ``(x > 0 ? x : 0)``
+:func:`sigm(X) <sigm>`		sigmoid activation function: ``1/(1+exp(-x))``
+:func:`soft(X) <soft>`		softmax activation function: ``(exp xi) / (Σ exp xj)``
+:func:`tanh(X) <tanh>`		hyperbolic tangent activation function.
+===============================	==============================================================================
 
 .. _compounds-table:
 
-TODO: make a compounds table.
+**Table 2: Compound Knet operators**
+
+These operators combine several primitive operators and typically hide
+the parameters in their definitions to make code more readable.
+
+.. _LSTM: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+.. _IRNN: http://arxiv.org/abs/1504.00941
+
+===============================	==============================================================================
+Operator               		Description
+===============================	==============================================================================
+:func:`wdot(x) <wdot>`		apply a linear transformation ``w * x``; kwargs: ``out=0, winit=Xavier()``
+:func:`bias(x) <bias>`		add a bias ``x .+ b``; kwargs: ``binit=Constant(0)``
+:func:`wb(x) <wb>`		apply an affine function ``w * x .+ b``; kwargs: ``out=0, winit=Xavier(), binit=Constant(0)``
+:func:`wf(x) <wf>`		linear transformation + activation function ``f(w * x)``; kwargs: ``f=:relu, out=0, winit=Xavier()``
+:func:`wbf(x) <wbf>`		affine function + activation function ``f(w * x .+ b)``; kwargs: ``f=:relu, out=0, winit=Xavier(), binit=Constant(0)``
+:func:`wbf2(x,y) <add2>`	affine function + activation function for two variables ``f(a*x .+ b*y .+ c)``; kwargs:``f=:sigm, out=0, winit=Xavier(), binit=Constant(0)``
+:func:`wconv(x) <wconv>`	apply a convolution ``conv(w,x)``; kwargs: ``out=0, window=0, padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION, cinit=Xavier()``
+:func:`cbfp(x) <cbfp>`		convolution, bias, activation function, and pooling; kwargs: ``f=:relu, out=0, cwindow=0, pwindow=0, cinit=Xavier(), binit=Constant(0)``
+:func:`drop(x) <drop>`		replace ``pdrop`` of the input with 0 and scale the rest with ``1/(1-pdrop)``; kwargs: ``pdrop=0``
+:func:`lstm(x) <lstm>`		LSTM_; kwargs:``fbias=1, out=0, winit=Xavier(), binit=Constant(0)``
+:func:`irnn(x) <irnn>`		IRNN_; kwargs:``scale=1, out=0, winit=Xavier(), binit=Constant(0)``
+:func:`repeat(x) <repeat>`	apply operator ``frepeat`` to input ``x`` ``nrepeat times; kwargs: ``frepeat=nothing, nrepeat=0``
+===============================	==============================================================================
 
 .. _rgen-table:
 
-TODO: make an rgen table.
+**Table 3: Random distributions**
+
+This table lists random distributions and other array fillers that can
+be used to initalize parameters (used with the ``init`` keyword
+argument for ``par``).
+
+=======================================	==============================================================================
+Distribution           			Description
+=======================================	==============================================================================
+:func:`Bernoulli(p,scale) <Bernoulli>`	output ``scale`` with probability ``p`` and 0 otherwise
+:func:`Constant(val) <Constant>`	fill with a constant value ``val``
+:func:`Gaussian(mean, std) <Gaussian>`	normally distributed random values with mean ``mean`` and standard deviation ``std``
+:func:`Identity(scale) <Identity>`	identity matrix multiplied by ``scale``
+:func:`Uniform(min, max) <Uniform>`	uniformly distributed random values between ``min`` and ``max``
+:func:`Xavier() <Xavier>`		Xavier_ initialization: uniform in :math:`[-\sqrt{3/n},\sqrt{3/n}]` where n is the number of inputs (rows)
+=======================================	==============================================================================
+
+.. _Xavier: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
 
 .. _loss-table:
 
-TODO: make a loss fn table.
+**Table 4: Loss functions**
 
-Knet functions to help train models: (TODO: list all functions covered
-in tutorial)
+===============================================	======================================================
+Function           				Description
+===============================================	======================================================
+:func:`softloss(ypred,ygold) <softloss>`	Cross entropy loss: :math:`E[p\log\hat{p}]`
+:func:`quadloss(ypred,ygold) <quadloss>`	Quadratic loss: :math:`½ E[(y-\hat{y})^2]`
+:func:`zeroone(ypred,ygold) <zeroone>`		Zero-one loss: :math:`E[\arg\max y \neq \arg\max\hat{y}]`
+===============================================	======================================================
 
-================================= ==============================================================================
-Function                	  Description
-================================= ==============================================================================
-:func:`forw(f,x) <forw>`	  returns the prediction of model ``f`` on input ``x``
-:func:`back(f,y,lossfn) <back>`	  computes the loss gradients of ``f`` parameters based on the desired output ``y`` and a loss function ``lossfn``
-:func:`update!(f) <update!>`	  updates the parameters of ``f`` using the gradients computed by ``back`` to reduce loss
-================================= ==============================================================================
+.. _options-table:
+
+**Table 5: Training options**
 
 We can manipulate how exactly ``update!`` behaves by setting some
 training options like the learning rate ``lr``.  I'll explain the
-mathematical motivation later, but algorithmically these training
+mathematical motivation elsewhere, but algorithmically these training
 options manipulate the ``dw`` array (sometimes using an auxiliary
 array ``dw2``) before the subtraction to improve the loss faster.
 Here is a list of training options supported by Knet and how they
 manipulate ``dw``:
-
-.. _training-options-table:
 
 =============================== ==============================================================================
 Option	                	Description
@@ -1070,12 +1315,30 @@ Option	                	Description
 ``nesterov``			Nesterov: ``dw2 = nesterov * dw2 + dw; dw += nesterov * dw2``
 =============================== ==============================================================================
 
+.. _functions-table:
 
-.. _colon character: http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols
-.. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
-.. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
-.. _CUDNN: https://developer.nvidia.com/cudnn
-.. _CUDNN.jl: https://github.com/JuliaGPU/CUDNN.jl
+**Table 6: Summary of modeling related functions**
+
+=======================================	==============================================================================
+Function                	 	Description
+=======================================	==============================================================================
+:func:`@kfun function ... end <kfun>`	defines a @knet function that can be used as a model or a new operator
+:func:`if cond ... else ... end <>`	conditional evaluation in a @knet function with condition variable ``cond`` supplied by ``forw``
+:func:`compile(:kfun; o...) <compile>`  creates a model given @knet function ``kfun``; kwargs used for model configuration
+:func:`forw(f,x; o...) <forw>`	  	returns the prediction of model ``f`` on input ``x``; kwargs used for setting conditions
+:func:`back(f,ygold,loss) <back>`	computes the loss gradients for ``f`` parameters based on desired output ``ygold`` and loss function ``loss``
+:func:`update!(f) <update!>`	  	updates the parameters of ``f`` using the gradients computed by ``back`` to reduce loss
+:func:`get(f,:w) <get>`			return parameter ``w`` of model ``f``
+:func:`setp(f; opt=val...) <setp>`	sets training options for model ``f``
+:func:`minibatch(x,y,batchsize) <>`	split data into minibatches
+=======================================	==============================================================================
+
+
+
+.. .. _colon character: http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols
+.. .. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
+.. .. _CUDNN: https://developer.nvidia.com/cudnn
+.. .. _CUDNN.jl: https://github.com/JuliaGPU/CUDNN.jl
 
 .. This looks a lot like a regular `Julia function definition`_ except
 .. for the ``@knet`` macro.  However it is important to emphasize that
@@ -1129,6 +1392,16 @@ Option	                	Description
 .. e.g. ``setp(f, :w; lr=0.001)``, or for the whole model using ``setp(f;
 .. lr=0.001)``.  
 
+.. .. [#] `Broadcasting operations`_ are element-by-element binary
+..        operations on arrays of possibly different sizes, such as
+..        adding a vector to each column of a matrix.  They expand
+..        singleton dimensions in array arguments to match the
+..        corresponding dimension in the other array without using extra
+..        memory, and apply the given function elementwise.
+
+.. .. [#] For detailed information about convolution and pooling, please
+..        see the documentation for CUDNN_ and `CUDNN.jl`_.
+
 
 TODO:
 
@@ -1142,12 +1415,13 @@ TODO:
 * DONE: ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.
 * DONE: rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
 * DONE: size inference?
-* broadcasting, explain in minibatch?
+* DONE: broadcasting, explain in minibatch. even earlier we have broadcasting in lenet.
 * colon and symbols
 * find the paper that shows tradeoff for minibatching.
 * introduce table of distributions, Bernoulli etc.
 * link Julia functions to Julia doc
 * repeat, 
 * update options
+* load/save
 
 .. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia> (.+)/' intro.rst > foo.intro.jl

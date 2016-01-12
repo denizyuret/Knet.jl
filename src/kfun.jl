@@ -79,7 +79,7 @@ end
 
 @knet function wconv(x; out=0, window=0, cinit=Xavier(), o...)
     w = par(; o..., init=cinit, dims=(window, window, 0, out))
-    return conv(w,x)
+    return conv(w,x; o...)
 end
 
 @knet function bias4(x; binit=Constant(0), o...)
@@ -94,14 +94,14 @@ end
     return pool(r; o..., window=pwindow)
 end
 
-# @knet function add2(x1, x2; f=:sigm, o...)
+# @knet function wbf2(x1, x2; f=:sigm, o...)
 #     y = wdot(x2; o...) + wdot(x1; o...) # if (y1,y2) lstm cannot infer size with one column input
 #     z = bias(y; o...)
 #     return f(z; o...)
 # end
 
 # Go back to old def for debugging, should be equivalent:
-@knet function add2(x1, x2; f=sigm, o...)
+@knet function wbf2(x1, x2; f=:sigm, o...)
     y1 = wdot(x1; o...)
     y2 = wdot(x2; o...)
     x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
@@ -126,15 +126,15 @@ end
 # peephole connections, i.e. have the cell as an input to the forget,
 # output and input gates, see "A. Graves. Generating sequences with
 # recurrent neural networks. In Arxiv preprint arXiv:1308.0850, 2013."
-# This would replace the `add2(x,h)` operations with appropriately
+# This would replace the `wbf2(x,h)` operations with appropriately
 # defined `add3(x,h,cell)` operations below.
 
 # ```
 # @knet function lstm(x; fbias=1, o...)
-#     input  = add2(x,h; o..., f=:sigm)
-#     forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
-#     output = add2(x,h; o..., f=:sigm)
-#     newmem = add2(x,h; o..., f=:tanh)
+#     input  = wbf2(x,h; o..., f=:sigm)
+#     forget = wbf2(x,h; o..., f=:sigm, binit=Constant(fbias))
+#     output = wbf2(x,h; o..., f=:sigm)
+#     newmem = wbf2(x,h; o..., f=:tanh)
 #     ig = mul(input,newmem)
 #     fc = mul(forget,cell)
 #     cell = add(ig,fc)
@@ -144,10 +144,10 @@ end
 # ```
 # """
 @knet function lstm(x; fbias=1, o...)
-    input  = add2(x,h; o..., f=:sigm)
-    forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
-    output = add2(x,h; o..., f=:sigm)
-    newmem = add2(x,h; o..., f=:tanh)
+    input  = wbf2(x,h; o..., f=:sigm)
+    forget = wbf2(x,h; o..., f=:sigm, binit=Constant(fbias))
+    output = wbf2(x,h; o..., f=:sigm)
+    newmem = wbf2(x,h; o..., f=:tanh)
     cell = input .* newmem + cell .* forget
     h  = tanh(cell) .* output
     return h

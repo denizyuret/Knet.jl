@@ -116,6 +116,8 @@
 	* TODO:
 	DONE loadnet, savenet
 	DONE example: karpathy character based models, generating wikipedia etc. inputless networks with random generators
+	0000 switch back to HTTPClient in REQUIRE and in tutorial.
+	0000 master fails the cpu tests again.
 	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0000 docs: fix knet.svg
 	0001 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf

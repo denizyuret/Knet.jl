@@ -49,7 +49,6 @@ function generate(f, vocab, o)
     x=zeros(Float32, length(alpha), 1)
     y=zeros(Float32, length(alpha), 1)
     xi = 1
-    reset!(net)
     for i=1:o[:generate]
         copy!(y, forw(f,x))
         x[xi] = 0
