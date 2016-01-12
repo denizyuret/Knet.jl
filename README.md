@@ -3,8 +3,8 @@
 Knet is a machine learning module implemented in
 [Julia](http://julia.readthedocs.org/en/release-0.4), so you should be
 able to run it on any machine that can run Julia.  It has been tested
-on Julia 0.4.2 using Linux machines with NVIDIA GPUs and CUDA
-libraries, but most of it works on vanilla Linux and OSX machines as
+on Julia 0.4.2 using Linux machines with NVIDIA GPUs and the CUDA
+library, but most of it works on vanilla Linux and OSX machines as
 well (currently cpu-only support for some operations is incomplete).
 Knet is an open-source project and we are always open to new
 contributions: bug reports and fixes, feature requests and
