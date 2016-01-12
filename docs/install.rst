@@ -13,22 +13,10 @@ well (currently cpu-only support for some operations is incomplete).
 If you would like to try it on your own computer, please follow the
 instructions on `Installation`_.  If you would like to try working
 with a GPU and do not have access to one, take a look at `Using Amazon
-AWS`_.  If you find a bug, or would like to request a feature, please
-open a `GitHub issue`_.  If you need help please consider joining the
-knet-users_ mailing list.
-
-.. _fork the Knet repository: https://help.github.com/articles/fork-a-repo
-.. _pull request: https://help.github.com/articles/using-pull-requests
-.. _github.com: http://github.com
-
-Knet is an open-source project and we are always open to new
-contributions: bug fixes, new machine learning models and operators,
-inspiring examples, benchmarking results are all welcome.  If you'd
-like to contribute to the code base, please get an account at
-github.com_ and `fork the Knet repository`_.  After your contribution
-is implemented and passes ``Pkg.test("Knet")``, please submit it
-using a `pull request`_.
-
+AWS`_.  If you find a bug, please open a `GitHub issue`_.  If you
+would like to contribute to Knet, see `Tips for developers`_.  If you
+need help, or would like to request a feature, please consider joining
+the knet-users_ mailing list.
 
 Installation
 ------------
@@ -63,6 +51,22 @@ make sure everything has installed correctly, type
 ``Pkg.test("Knet")`` which should take a couple of minutes kicking the
 tires.  If all is OK, continue with the next section, if not you can
 get help at the knet-users_ mailing list.
+
+Tips for developers
+-------------------
+
+Knet is an open-source project and we are always open to new
+contributions: bug fixes, new machine learning models and operators,
+inspiring examples, benchmarking results are all welcome.  If you'd
+like to contribute to the code base, here are some tips:
+
+* Please get an account at `github.com <https://www.github.com>`_.
+* `Fork <https://help.github.com/articles/fork-a-repo>`_ the `Knet repository <https://github.com/denizyuret/Knet.jl>`_.
+* Point Julia to your fork using ``Pkg.clone("git@github.com:your-username/Knet.jl.git")`` and ``Pkg.build("Knet")``.  You may want to remove any old versions with ``Pkg.rm("Knet")`` first.
+* Make sure your `fork is up-to-date <https://help.github.com/articles/syncing-a-fork>`_.
+* Retrieve the latest version of the master branch using ``Pkg.checkout("Knet")``.
+* Test your code using ``Pkg.test("Knet")``.
+* Please submit your contribution using a `pull request <https://help.github.com/articles/using-pull-requests>`_.
 
 Using Amazon AWS
 ----------------
