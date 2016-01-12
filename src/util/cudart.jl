@@ -4,9 +4,7 @@ using CUDArt
 using CUDArt: ContiguousArray
 
 import Base: isequal, convert, reshape, resize!, copy!, isempty, fill!, pointer, issparse, deepcopy_internal
-import CUDArt: to_host
 
-to_host(x)=x                    # so we can use it in general
 issparse(::CudaArray)=false
 
 # For profiling:

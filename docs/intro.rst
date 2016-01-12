@@ -1115,15 +1115,15 @@ Training script:
 
 .. testcode::
 
-   function train(f, data, loss; gclip=0, seqlength=100, pdrop=0, o...)
+   function train(f, data, loss; gclip=0, seqlength=100, o...)
+       reset!(f)
        ystack = cell(0)
        sumloss = 0.0
-       reset!(f, keepstate=false)
        T = length(data)-1
        for t=1:T
 	   x = data[t]
 	   ygold = data[t+1]
-	   ypred = sforw(f,x; dropout=(pdrop>0))
+	   ypred = sforw(f,x; dropout=true)
 	   sumloss += loss(ypred, ygold)
 	   push!(ystack,ygold)
 	   if (t%seqlength == 0 || t==T)
@@ -1159,18 +1159,24 @@ Define a character based language model using an LSTM:
 
    ...
 
+TODO: add a version using repeat here...
+
 Compile and train:
 
 .. doctest::
 
-   julia> net = compile(:charlm; embedding=128, hidden=128, pdrop=0.0, nchar=nchar);
-   julia> for i=1:10; train(net, data, softloss); end
+   julia> net = compile(:charlm; embedding=256, hidden=512, pdrop=0.2, nchar=nchar);
+   julia> setp(net; lr=1.0)
+   julia> for i=1:10; train(net, data, softloss; gclip=5.0); end
+
+TODO: figure out fastest reasonable model...: source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_512_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_2.time	2123	1.2982171160161333
 
 Generate:
 
 .. testcode::
 
    function generate(f, int2char, nchar)
+       reset!(f)
        x=zeros(Float32, length(int2char), 1)
        y=zeros(Float32, length(int2char), 1)
        xi = 1
@@ -1416,12 +1422,12 @@ TODO:
 * DONE: rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
 * DONE: size inference?
 * DONE: broadcasting, explain in minibatch. even earlier we have broadcasting in lenet.
+* DONE: introduce table of distributions, Bernoulli etc.
+* DONE: update options
 * colon and symbols
 * find the paper that shows tradeoff for minibatching.
-* introduce table of distributions, Bernoulli etc.
 * link Julia functions to Julia doc
-* repeat, 
-* update options
-* load/save
+* repeat.
+* load/save model.
 
 .. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia> (.+)/' intro.rst > foo.intro.jl

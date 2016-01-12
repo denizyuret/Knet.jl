@@ -44,3 +44,10 @@ end
 
 # setseed: Set both cpu and gpu seed. This gets overwritten in curand.jl if gpu available
 setseed(n)=srand(n)
+
+# to_host: Set this to identity unless input is CudaArray.
+if GPU
+    CUDArt.to_host(x)=x
+else
+    to_host(x)=x
+end
