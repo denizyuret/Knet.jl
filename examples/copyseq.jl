@@ -71,16 +71,16 @@ end
 @knet function copyseq(word; fbias=0, vocab=0, o...)
     if !decoding
         x = wdot(word; o...)
-        input  = add2(x,h; o..., f=:sigm)
-        forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
-        output = add2(x,h; o..., f=:sigm)
-        newmem = add2(x,h; o..., f=:tanh)
+        input  = wbf2(x,h; o..., f=:sigm)
+        forget = wbf2(x,h; o..., f=:sigm, binit=Constant(fbias))
+        output = wbf2(x,h; o..., f=:sigm)
+        newmem = wbf2(x,h; o..., f=:tanh)
     else
         x = wdot(word; o...)
-        input  = add2(x,h; o..., f=:sigm)
-        forget = add2(x,h; o..., f=:sigm, binit=Constant(fbias))
-        output = add2(x,h; o..., f=:sigm)
-        newmem = add2(x,h; o..., f=:tanh)
+        input  = wbf2(x,h; o..., f=:sigm)
+        forget = wbf2(x,h; o..., f=:sigm, binit=Constant(fbias))
+        output = wbf2(x,h; o..., f=:sigm)
+        newmem = wbf2(x,h; o..., f=:tanh)
     end
     cell = input .* newmem + cell .* forget
     h  = tanh(cell) .* output
@@ -195,8 +195,8 @@ function s2s_eos(m, data, loss; trn=false, gcheck=false, ystack=nothing, maxnorm
         s2s_bptt(m, ystack, loss; o...)
         g = (gclip > 0 || maxnorm!=nothing ? gnorm(m) : 0)
         if !gcheck
-            gclip=(g > gclip > 0 ? gclip/g : 0)
-            update!(m; gclip=gclip, o...)
+            gscale=(g > gclip > 0 ? gclip/g : 1)
+            update!(m; gscale=gscale, o...)
         end
     end
     if maxnorm != nothing

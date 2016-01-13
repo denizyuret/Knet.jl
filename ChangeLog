@@ -1,19 +1,50 @@
 2016-01-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
-	0000 to_host undefined error during tutorial on cpu.
-	DONE demo not working in *julia*.
-	0010 try new cudnn 404
-	0010 try new cublas.jl
-	0000 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
-	0000 master fails the cpu tests again.
-	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
+
+	0000 convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
+	1000 julia: timholy: If you can come up with a solution that exploits Requires.jl, do you think that would be better? (does this solve conditional gpu library dependency problem for Knet?)
+	0000 docs:  rename charlm minibatch to something else.
+	0000 docs:  sforw/sback
+	0000 docs: 3 sections: tutorial, examples, reference
+	0000 docs: 3-arg loss functions (user does not need)
+	0000 docs: anatomy of a knet function.
+	0000 docs: colon and symbols
+	0000 docs: convolution and pooling: explanation
+	0000 docs: data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
+	0000 docs: find the paper that shows tradeoff for minibatching.
 	0000 docs: fix knet.svg
+	0000 docs: generate pieces from docs/shakespeare.jld
+	0000 docs: link Julia functions to Julia doc
+	0000 docs: load/save data in jld
+	0000 docs: load/save model in jld
+	0000 docs: load/save model.
+	0000 docs: nce
+	0000 docs: netprint?
+	0000 docs: perceptron, kernel perceptron
+	0000 docs: repeat operator
+	0000 docs: repeat.
+	0000 docs: s2c, s2s
+	0000 docs: setseed and replicatability
+	0000 docs: sforw vs forw (forw is used during test for rnns!)
+	0000 docs: size with without dims option.
+	0000 docs: structured learning
+	0000 docs: update!: gradient clipping
+	0000 docs: update!: parameter averaging
+	0000 gutenberg does not let download from certain machines.
+	0000 in the barret paper explain the bayes - pretraining connection.
+	0000 profile lstm and figure out multi-cpu: amazon has multi-cpu machines.
+	0000 speed comparison with barret code
+	0000 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
+	0000 work on yonatan example?
+	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	0001 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf
 	0001 example: yonatan: language learning model
 	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0003 use templated code for cuda kernels
 	0005 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
+	0010 try new cublas.jl
+	0010 try new cudnn 404
 	0012 example: aliya: try bit representation on ipa
 	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
 	0100 example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
@@ -50,18 +81,17 @@
 	0901 speed: barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
-	1000 highway networks
-	1000 implement an integrated optimizer like hyperopt within knet, dhc maybe?
-	1000 test and integrate cudnn v4, it has batch normalization, lcn, lrn.  may have fixed some bugs.
-	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
+	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
 	1000 compiler: warn for unused constants
 	1000 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	1000 cpu conv/pool support.
 	1000 cpu sparse support: mnist2dx does not run: Need to implement: A_mul_B!(::Array{Float32,2}, ::Array{Float32,2}, ::SparseMatrixCSC{Float32,Int32}); the other direction is implemented in sparse/linalg.jl.  take a look at how '*' works.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
 	1000 handout-mtg Replace 0's with ? or _ in dimensions.
+	1000 highway networks
+	1000 implement an integrated optimizer like hyperopt within knet, dhc maybe?
 	1000 implement gru using con. or axpb?
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
@@ -76,6 +106,7 @@
 	1000 src/netcomp.jl: convert all asserts to meaningful error messages.
 	1000 src/op/conv.jl,pool.jl: test 3D-4D-5D convolution and pooling.
 	1000 src/op/conv.jl: fix old versions to run comparison test.
+	1000 test and integrate cudnn v4, it has batch normalization, lcn, lrn.  may have fixed some bugs.
 	1000 testing: add a testnet.jl that constructs random nets and does gradient testing: testlayers could not find the pool bug
 	1000 urnn, a more sophisticated irnn but same norm preserving idea: http://arxiv.org/pdf/1511.06464v2.pdf (not only norm preserving helps convergence but rnn without stack may be possible with reversible ops! also look at the other reversible paper: arXiv:1502.03492)
 	1008 Julia: auto_unbox error: seems quadloss2 related. why do we get at exit (cudnn? other finalizers?): error in running finalizer: ErrorException("auto_unbox: unable to determine argument type"). check julia-dev response. gdb not showing symbols... opened CUDArt issue. Running gradcheck prevents the error (because it forces gc?).  Using softmax also prevents error (again, there are temp variables that force gc?)
@@ -87,8 +118,8 @@
 	1500 examples/adding.jl: check out unstability of 400. share results with authors.
 	1500 examples/mnist4d.jl,mnist2d.jl,rnnlm.jl: test with dropout
 	1500 examples/rnnlm.jl: did not get good results on the large experiment, debug.
-	1500 examples: ArgParse, args: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1500 examples: ArgParse cannot catch error: fix is in https://github.com/carlobaldassi/ArgParse.jl/issues/24
+	1500 examples: ArgParse, args: consolidate example options in one file.  fix train and predict.  turn libsvm2sparse into a data generator.
 	1500 examples: reimplement predict, train, and tutorial.jl.
 	1501 - add ipa model train and predict to runtests.jl.
 	1501 - all sparse code slowed down? (lcn, master test).  due to xavier.  find out why. rest of mnist speed-up due to not using ItemTensor?
@@ -108,66 +139,81 @@
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
-	* DOCS:
-	+ @knet function as model
-	+ compile
-	+ forw
-	+ get registers and looking at network internals
-	+ list of primitive ops
-	+ elementwise and broadcasting operations: .+ .- .* ./
-	+ dot/add vs */+
-	+ @knet return
+	* DONE:
+	DONE demo not working in *julia*.
+	DONE master fails the cpu tests again.
+	DONE to_host undefined error during tutorial on cpu.
+	DONE docs: 2-arg loss functions
+	DONE docs: @knet function as model
+	DONE docs: @knet function as new op
+	DONE docs: @knet return
+	DONE docs: back
+	DONE docs: bug-feature request (github issues)
+	DONE docs: classification and softloss, zeroone loss
+	DONE docs: compile
+	DONE docs: conditionals, kwargs to forw
+	DONE docs: contributing (fork/pull)
+	DONE docs: data normalization
+	DONE docs: defining new primitives
+	DONE docs: dot/add vs */+
+	DONE docs: dropout
+	DONE docs: elementwise and broadcasting operations: .+ .- .* ./
+	DONE docs: forw
+	DONE docs: get registers and looking at network internals
+	DONE docs: init options to par: array, rgen
+	DONE docs: installation
+	DONE docs: julia array indexing, colon operator.
+	DONE docs: keyword args in knet function
+	DONE docs: keyword args to compile
+	DONE docs: list of primitive ops
+	DONE docs: minibatching
+	DONE docs: other training options
+	DONE docs: read-before-write ops, sequences, rnns: language model? karpathy? smaller character based word model?
+	DONE docs: reading data: readdlm, HTTPClient.get
+	DONE docs: regression and quadloss (housing example)
+	DONE docs: setp and learning rate
+	DONE docs: splat
+	DONE docs: sum, mean, std with dims option.
+	DONE docs: train script
+	DONE docs: trn/tst split
+	DONE docs: update!
+	DONE docs: xavier, uniform etc.
+	DONE docs: zero size, size inference: could have a tutorial section on this following new operators.
+	DONE docs: add save and best options to charlm, write a generator with temperature.
+	DONE docs: call the option dropout, not training.
+	DONE docs: commit charnn once experiments done
+	DONE docs: compile kwargs
+	DONE docs: finish dropout example
+	DONE docs: forw kwargs
+	DONE docs: get rid of loadnet savenet
+	DONE docs: have a table of defined kfun.
+	DONE docs: have both dropout and a separate conditional section with rnn example?
+	DONE docs: introduce compiler kwargs in one paragraph, example.
+	DONE docs: list compound ops
+	DONE docs: list prob dist
+	DONE docs: minibatch source.
+	DONE docs: play with charlm batch size!
+	DONE docs: put dropout example back where it was.
+	DONE docs: setup amazon machine.
+	DONE docs: show source for minibatch, make it more readable.
+	DONE docs: size inference
+	DONE docs: wrap charlm up and start yonatan.
+	DONE docs: write karpathy demo for rnns, or rewrite rnnlm, or copy with words
+	DONE work on lorelei tokenization?
+	DONE docs: add intro/conclusion at all levels. 
+	DONE docs: amazon machine, pull/fork, issues.
+	DONE docs: fix doctest again.
+	DONE docs: installation link is broken: http://www.sphinx-doc.org/en/stable/markup/inline.html
+	DONE docs: keyword args to compile(), 
+	DONE docs: keyword arguments. 
+	DONE docs: primitive ops. 
+	DONE docs: ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.
+	DONE docs: rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
+	DONE docs: size inference?
+	DONE docs: broadcasting, explain in minibatch. even earlier we have broadcasting in lenet.
+	DONE docs: introduce table of distributions, Bernoulli etc.
+	DONE docs: update options
 
-	+ back
-	+ update!
-	+ 2-arg loss functions
-	+ setp and learning rate
-	+ other training options
-	+ regression and quadloss (housing example)
-	+ reading data: readdlm, HTTPClient.get
-	+ data normalization
-	+ trn/tst split
-	+ train script
-
-	+ @knet function as new op
-	+ keyword args in knet function
-	+ splat
-
-	+ minibatching
-	+ classification and softloss, zeroone loss
-
-	- zero size, size inference: could have a tutorial section on this following new operators.
-	- installation
-	- contributing (fork/pull)
-	- bug-feature request (github issues)
-	- defining new primitives
-	- 3 sections: tutorial, examples, reference
-	- sforw vs forw (forw is used during test for rnns!)
-	- xavier, uniform etc.
-	- repeat operator
-	- keyword args to compile
-	- init options to par: array, rgen
-	- setseed and replicatability
-	- update!: gradient clipping
-	- update!: parameter averaging
-	- netprint?
-	- 3-arg loss functions (user does not need)
-	- load/save data in jld
-	- load/save model in jld
-	- julia array indexing, colon operator.
-	- sum, mean, std with dims option.
-	- size with without dims option.
-	- convolution and pooling: explanation
-	- dropout
-	- read-before-write ops, sequences, rnns: language model? karpathy? smaller character based word model?
-	- conditionals, kwargs to forw
-	- s2c, s2s
-	- perceptron, kernel perceptron
-	- data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
-	- anatomy of a knet function.
-	- structured learning
-	- nce
-	
 
 2016-01-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
@@ -243,47 +289,6 @@
 	foo.jld with (8,1.0,1.0533660260935827,1.3006370929184012) generates some pretty good Shakespeare.
 	So 1.3 seems reasonable.  Figure out how to get there fastest.
 
-	* ideas:
-	- minibatch source.
-	- commit charnn once experiments done
-	- get rid of loadnet savenet
-	- speed comparison with barret code
-	- list prob dist
-	- list compound ops
-	- compile kwargs
-	- forw kwargs
-	- sforw/sback
-	- size inference
-	- setup amazon machine.
-	- introduce compiler kwargs in one paragraph, example.
-	- have a table of defined kfun.
-	- put dropout example back where it was.
-	- call the option dropout, not training.
-	- show source for minibatch, make it more readable.
-	- rename charlm minibatch to something else.
-	- in the paper explain the bayes - pretraining connection.
-	- add save and best options to charlm, write a generator with temperature.
-	- is batch norm a better gclip alternative?
-	- do we need rmsprop or adam?
-	- how many hidden states does the conv char lm paper use?
-	  - small=2x300, large=2x650
-	  - for the V=10k mikolov data.
-	  - bptt 35 time steps (words?)
-	  - batch size of 20 and 100
-	  - 25 epochs
-	  - dropout=0.5
-	  - gclip=5
-	- ashish said that didn't work without highway networks, do we need them?
-	- wrap charlm up and start yonatan.
-	- profile lstm and figure out multi-cpu.
-	- play with charlm batch size!
-	+ work on lorelei tokenization?
-	- work on yonatan example?
-	- finish dropout example
-	- write karpathy demo for rnns, or rewrite rnnlm, or copy with words
-	- have both dropout and a separate conditional section with rnn example?
-	- work on char-conv based lm/mt model?
-
 	* DONE:
 	DONE loadnet, savenet
 	DONE example: karpathy character based models, generating wikipedia etc. inputless networks with random generators
@@ -322,14 +327,14 @@
 	.. - maybe something else for simple nnet?
 	.. - copyseq to introduce rnns
 	.. 
-	.. TODO:
+	.. DONE:
 	.. 
 	.. - we need to talk about installation somewhere.
 	.. - Other requirements like v0.4.0, cuda libraries, cpu compatibility etc.
 	.. - DONE: Install latest v0.4.2.
 	.. - DONE: Update packages.
 	.. - DONE: Figure out no-gpu installation (CUDA* requirements)
-	.. - Create an amazon aws image for easy gpu work.
+	.. - DONE: Create an amazon aws image for easy gpu work.
 	.. .. see http://sphinx-doc.org/ext/doctest.html
 	.. .. testcode for regular doctest for prompted examples
 	.. .. http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
@@ -2054,7 +2059,8 @@ ok	1  m48 b52 b71 c205 mul.back x1==nothing
 
 2015-10-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* DONE: decided to keep dw dense for now, speed is similar to ArrayAccumulator and no problems with vecnorm.
+	* DONE:
+	DONE decided to keep dw dense for now, speed is similar to ArrayAccumulator and no problems with vecnorm.
 	DONE cudnn: update doc and release cudnn
 	DONE expensive sparse axpy: check if sparsity pattern remains the same, and do elementwise on nzval when you can. examples/mnistsparse.jl; investigate sparsity patterns for increment (not being used in mnist).  examples/mnistsparse.jl: axpy!(::Int64, ::CUSPARSE.CudaSparseMatrixCSR{Float64}, ::CUDArt.CudaArray{Float64,2})
 	DONE performance improvements based on rnnlm profile: need better sparse back: A_mul_Bst->sparse and axpy

@@ -139,7 +139,16 @@ stack_length(f::Net)=f.sp
 stack_empty!(f::Net)=(f.sp=0)
 stack_isempty(f::Net)=(f.sp==0)
 
-update!(m::Net; o...)=(for p in params(m); update!(p; o...); end) # TODO: implement callbacks
+function update!(m::Net; gclip=0, gscale=1, o...) # TODO: implement callbacks
+    if gclip > 0
+        g = gnorm(m)
+        gscale *= (g > gclip ? gclip/g : 1)
+    end
+    for p in params(m)
+        update!(p; o..., gscale=gscale)
+    end
+end
+
 vnorm(x)=(x==nothing ? 0 : vecnorm(x))
 wnorm(m::Net,w=0)=(for p in params(m); w += vnorm(p.out); end; w)           # t:317
 gnorm(m::Net,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # t:332

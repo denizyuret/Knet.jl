@@ -63,10 +63,10 @@ end
 end
 
 @knet function lstm1(x; o...)   # need version without fbias
-    input  = add2(x,h; o..., f=:sigm)
-    forget = add2(x,h; o..., f=:sigm)
-    output = add2(x,h; o..., f=:sigm)
-    newmem = add2(x,h; o..., f=:tanh)
+    input  = wbf2(x,h; o..., f=:sigm)
+    forget = wbf2(x,h; o..., f=:sigm)
+    output = wbf2(x,h; o..., f=:sigm)
+    newmem = wbf2(x,h; o..., f=:tanh)
     cell = input .* newmem + cell .* forget
     h  = tanh(cell) .* output
     return h
@@ -115,7 +115,7 @@ function train(f, data, loss; gcheck=false, gclip=0, maxnorm=nothing, losscnt=no
             gcheck && break # return losscnt[1] leave the loss calculation to test # the parameter gradients are cumulative over the whole sequence
             g = (gclip > 0 || maxnorm!=nothing ? gnorm(f) : 0)
             # global _update_dbg; _update_dbg +=1; _update_dbg > 1 && error(:ok)
-            update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
+            update!(f; gscale=(g > gclip > 0 ? gclip/g : 1))
             if maxnorm != nothing
                 w=wnorm(f)
                 w > maxnorm[1] && (maxnorm[1]=w)

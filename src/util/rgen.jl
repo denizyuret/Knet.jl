@@ -29,6 +29,7 @@ function rgen!(r::Rgen, y)
     return y
 end
 
+bernoulli!{T}(p,s,x::Array{T})=(p=T(p);s=T(s);@inbounds for i=1:length(x); x[i] = (rand(T) < p ? s : 0); end; x)
 @gpu bernoulli!(p,s,x::CudaArray{Float32})=(ccall((:bernoulli32,libknet), Void, (Cint,Cfloat,Cfloat,Ptr{Cfloat}), length(x), p, s, x); gpusync(); x)
 @gpu bernoulli!(p,s,x::CudaArray{Float64})=(ccall((:bernoulli64,libknet), Void, (Cint,Cdouble,Cdouble,Ptr{Cdouble}), length(x), p, s, x); gpusync(); x)
 

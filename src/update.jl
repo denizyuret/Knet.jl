@@ -1,13 +1,13 @@
 using Base.LinAlg: axpy!, scale!
 
-function update!(r::Reg; gclip=0, o...)
+function update!(r::Reg; gscale=1, o...)
     initupdate(r)
     getp(r,:l1reg,0)!=0 && l1reg!(getp(r,:l1reg), r.out, r.dif)
     getp(r,:l2reg,0)!=0 && l2reg!(getp(r,:l2reg), r.out, r.dif)
     getp(r,:adagrad) && adagrad!(1e-8, getp(r,:ada), r.dif) # TODO: make 1e-8 a parameter
     getp(r,:momentum,0)!=0 && momentum!(getp(r,:momentum), getp(r,:mom), r.dif)
     getp(r,:nesterov,0)!=0 && nesterov!(getp(r,:nesterov), getp(r,:nes), r.dif)
-    scale = -1 * getp(r,:lr,1) * (gclip > 0 ? gclip : 1) # TODO: make scale a parameter for callbacks
+    scale = -1 * getp(r,:lr,1) * gscale # TODO: make scale a parameter for callbacks
     axpy!(scale, r.dif, r.out)
     getp(r,:average) && axpy!(1,r.out,getp(r,:avg))
 end

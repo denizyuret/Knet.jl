@@ -128,7 +128,7 @@ function train(f, data, loss; gclip=0, seqlength=100, dropout=0, o...)
                 sback(f,ygold,loss)
             end
             g = (gclip > 0 ? gnorm(f) : 0)
-            update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
+            update!(f; gscale=(g > gclip > 0 ? gclip/g : 1))
             reset!(f, keepstate=true)
             # @show (t, sumloss/t)
         end

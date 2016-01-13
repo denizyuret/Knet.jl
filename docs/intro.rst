@@ -250,9 +250,9 @@ score.
 We would like to minimize this loss which should get the predicted
 answers closer to the desired answers.  To do this we first compute
 the loss gradient for the parameters of ``f`` -- this is the direction
-in parameter space that maximally increases the loss.  Then we move the
-parameters in the opposite direction.  Here is a simple function that
-performs these steps:
+in parameter space that maximally increases the loss.  Then we move
+the parameters in the opposite direction.  Here is a simple function
+that performs these steps:
 
 .. testcode::
    
@@ -1037,40 +1037,28 @@ train them.
 Training with sequences
 -----------------------
 ..
-   how to represent sequence data? karpathy example?  need generator.
-   Karpathy Technical: Lets train a 2-layer LSTM with 512 hidden nodes
-   (approx. 3.5 million parameters), and with dropout of 0.5 after
-   each layer. We'll train with batches of 100 examples and truncated
-   backpropagation through time of length 100 characters. With these
-   settings one batch on a TITAN Z GPU takes about 0.46 seconds (this
-   can be cut in half with 50 character BPTT at negligible cost in
-   performance). Without further ado, lets see a sample from the RNN:
-
-   In RNNs past inputs effect future outputs.  Thus they are typically
-   used to process sequences, such as speech or text data.
-
-.. _shakespeare: http://www.gutenberg.org/files/100/100.txt
-
-So far we have built a model that can predict house prices, another
-that can recognize handwritten digits.  As a final example let's train
-one that can write like Shakespeare!  (`Karpathy, 2015`_) demonstrated
-that character based language models based on LSTMs are surprizingly
-adept at generating text in many genres, from Wikipedia articles to C
-programs.  Here we will replicate one of his examples using Knet.
 
 .. _Project Gutenberg: https://www.gutenberg.org
 
-First let's download "The Complete Works of William Shakespeare" from
-`Project Gutenberg`_:
+So far we have built a model that can predict house prices, another
+that can recognize handwritten digits.  As a final example let's train
+one that can write like Shakespeare! [#]_ First let's download "The
+Complete Works of William Shakespeare" from `Project Gutenberg`_:
+
+TODO: put example output in the beginning, mention all examples in the introduction...
 
 .. doctest::
 
    julia> using Requests
-   julia> url="http://www.gutenberg.org/files/100/100.txt";
+   julia> url="http://gutenberg.pglaf.org/1/0/100/100.txt";
    julia> text=get(url).data
    5589917-element Array{UInt8,1}:...
 
-Map each character to a unique integer:
+The ``text`` array now has all 5,589,917 characters of "The Complete
+Works" in a Julia array.  If ``get`` does not work, you can download
+``100.txt`` by other means and use ``text=readall("100.txt")`` on the
+local file.  We will use one-hot vectors to represent characters, so
+let's map each character to an integer index :math:`1\ldots n`:
 
 .. doctest::
 
@@ -1079,22 +1067,34 @@ Map each character to a unique integer:
    julia> nchar = length(char2int)
    92
 
-Create minibatches.  Each minibatch is a (vocabsize, batchsize)
-matrix with one-hot columns.  The vocab dictionary maps characters
-to integer indices.  The data array returned will have
-T=|chars|/batchsize minibatches.  The columns of minibatch t refer
-to characters t, t+T, t+2T etc.  During training if x=data[t], then
-y=data[t+1].
+.. _associative collection: http://julia.readthedocs.org/en/release-0.4/stdlib/collections/#associative-collections
+
+``Dict`` is Julia's standard `associative collection`_ for mapping
+arbitrary keys to values.  ``get!(dict,key,default)`` returns the
+value for the given key, storing ``key=>default`` in ``dict`` if no
+mapping for the key is present.  Going over the ``text`` array we
+discover 92 unique characters and map them to integers :math:`1\ldots
+92`.
+
+We will train our RNN to read characters from ``text`` in sequence,
+and predict the next character after each.  The training will go much
+faster if we can use the minibatching trick we saw earlier and process
+multiple inputs at a time.  For that, we split the text array into
+``batchsize`` equal length subsequences.  Then the first batch has the
+first character from each subsequence, second batch contains the
+second characters etc.  Each minibatch is represented by a ``nchar x
+batchsize`` matrix with one-hot columns.  Here is a function that
+implements this type of sequence minibatching:
 
 .. testcode::
 
-   function minibatch(chars, char2int, batchsize)
-       data = cell(0)
-       T = div(length(chars), batchsize)
+   function seqbatch(seq, dict, batchsize)
+       data = Any[]
+       T = div(length(seq), batchsize)
        for t=1:T
-	   d=zeros(Float32, length(char2int), batchsize)
+	   d=zeros(Float32, length(dict), batchsize)
 	   for b=1:batchsize
-	       c = char2int[chars[t + (b-1) * T]]
+	       c = dict[seq[t + (b-1) * T]]
 	       d[c,b] = 1
 	   end
 	   push!(data, d)
@@ -1106,42 +1106,64 @@ y=data[t+1].
 
    ...
 
+Let's use it to split ``text`` into minibatches of size 128:
+
 .. doctest::
 
    julia> batchsize = 128;
-   julia> data = minibatch(text, char2int, batchsize);
+   julia> data = seqbatch(text, char2int, batchsize)
+   43671-element Array{Any,1}:...
+   julia> data[1]
+   92x128 Array{Float32,2}:...
 
-Training script:
+The data array returned has ``T=length(text)/batchsize`` minibatches.
+The columns of minibatch ``data[t]`` refer to characters ``t``,
+``t+T``, ``t+2T``, ... from ``text``.  During training, when
+``data[t]`` is the input, ``data[t+1]`` will be the desired output.
+Now that we have the data ready to go, let's talk about RNN training.
+
+RNN training is a bit more involved than training feed-forward models.
+We still have the prediction, gradient calculation and update steps,
+but not all three steps are performed after every input.  Details will
+be covered elsewhere, but here is a basic algorithm: Go forward
+``nforw`` steps, remembering the desired outputs and model state, then
+perform ``nforw`` back steps accumulating gradients, finally update
+the parameters and reset the network for the next iteration:
 
 .. testcode::
 
-   function train(f, data, loss; gclip=0, seqlength=100, o...)
+   function train(f, data, loss; nforw=100, gclip=0)
        reset!(f)
-       ystack = cell(0)
-       sumloss = 0.0
-       T = length(data)-1
-       for t=1:T
+       ystack = Any[]
+       T = length(data) - 1
+       for t = 1:T
 	   x = data[t]
-	   ygold = data[t+1]
-	   ypred = sforw(f,x; dropout=true)
-	   sumloss += loss(ypred, ygold)
-	   push!(ystack,ygold)
-	   if (t%seqlength == 0 || t==T)
+	   y = data[t+1]
+	   sforw(f, x; dropout=true)
+	   push!(ystack, y)
+	   if (t % nforw == 0 || t == T)
 	       while !isempty(ystack)
 		   ygold = pop!(ystack)
-		   sback(f,ygold,loss)
+		   sback(f, ygold, loss)
 	       end
-	       g = (gclip > 0 ? gnorm(f) : 0)
-	       update!(f; gclip=(g > gclip > 0 ? gclip/g : 0))
-	       reset!(f, keepstate=true)
+	       update!(f; gclip=gclip)
+	       reset!(f; keepstate=true)
 	   end
        end
-       sumloss/T
    end
 
 .. testoutput:: :hide:
 
    ...
+
+BPTT, seqlength
+gclip
+reset
+sforw/sback
+modify update to compute norm there
+keepstate
+
+Training script:
 
 
 Define a character based language model using an LSTM:
@@ -1169,7 +1191,7 @@ Compile and train:
    julia> setp(net; lr=1.0)
    julia> for i=1:10; train(net, data, softloss; gclip=5.0); end
 
-TODO: figure out fastest reasonable model...: source_setup_sh_julia_charlm_jl_100_trn_100_dev_epochs_10_hidden_512_embedding_256_nlayer_1_lr_1_0_gclip_5_0_dropout_0_2.time	2123	1.2982171160161333
+TODO: add load/save here...
 
 Generate:
 
@@ -1209,8 +1231,14 @@ Generate:
    julia> for (c,i) in char2int; int2char[i] = Char(c); end
    julia> generate(net, int2char, 1024)
 
+TODO: generate some text...
 
 In this section...
+
+.. [#] (`Karpathy, 2015`_) demonstrated that character based language
+  models based on LSTMs are surprisingly adept at generating text in
+  many genres, from Wikipedia articles to C programs.  Here we replicate
+  one of his examples using Knet.
 
 Some useful tables
 ------------------
@@ -1341,6 +1369,8 @@ Function                	 	Description
 
 
 
+.. DEAD CODE:
+
 .. .. _colon character: http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols
 .. .. _Julia function definition: http://julia.readthedocs.org/en/release-0.4/manual/functions>
 .. .. _CUDNN: https://developer.nvidia.com/cudnn
@@ -1366,14 +1396,13 @@ Function                	 	Description
 ..    Knet function then compiling it into a model, will become more clear
 ..    when we introduce compile time parameters.)
 
-
 .. ..
 ..    Also note that ``lin`` is not defined as a regular Julia function or
 ..    variable.
 
 ..    .. doctest
 
-..       julia> lin(5)
+..       julia: lin(5)
 ..       ERROR: UndefVarError: lin not defined
 
 .. ..
@@ -1408,26 +1437,16 @@ Function                	 	Description
 .. .. [#] For detailed information about convolution and pooling, please
 ..        see the documentation for CUDNN_ and `CUDNN.jl`_.
 
+   .. how to represent sequence data? karpathy example?  need generator.
+   .. Karpathy Technical: Lets train a 2-layer LSTM with 512 hidden nodes
+   .. (approx. 3.5 million parameters), and with dropout of 0.5 after
+   .. each layer. We'll train with batches of 100 examples and truncated
+   .. backpropagation through time of length 100 characters. With these
+   .. settings one batch on a TITAN Z GPU takes about 0.46 seconds (this
+   .. can be cut in half with 50 character BPTT at negligible cost in
+   .. performance). Without further ado, lets see a sample from the RNN:
 
-TODO:
+   .. In RNNs past inputs effect future outputs.  Thus they are typically
+   .. used to process sequences, such as speech or text data.
 
-* DONE: add intro/conclusion at all levels. 
-* DONE: amazon machine, pull/fork, issues.
-* DONE: fix doctest again.
-* DONE: installation link is broken: http://www.sphinx-doc.org/en/stable/markup/inline.html
-* DONE: keyword args to compile(), 
-* DONE: keyword arguments. 
-* DONE: primitive ops. 
-* DONE: ref links do not show up in github, neigher does :math: this is normal, it happens on Julia doc as well.
-* DONE: rnn1: would be nice to use 0 for xsize at this point.  Also this is the second time we are using Xavier etc without much explanation.
-* DONE: size inference?
-* DONE: broadcasting, explain in minibatch. even earlier we have broadcasting in lenet.
-* DONE: introduce table of distributions, Bernoulli etc.
-* DONE: update options
-* colon and symbols
-* find the paper that shows tradeoff for minibatching.
-* link Julia functions to Julia doc
-* repeat.
-* load/save model.
-
-.. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia> (.+)/' intro.rst > foo.intro.jl
+.. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia[>] (.+)/' intro.rst > foo.intro.jl

@@ -61,8 +61,8 @@ function train(f, data, loss; gclip=0, losscnt=nothing, maxnorm=nothing)
             sback(f, ygold, loss)
             while !stack_isempty(f); sback(f); end
             g = gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
-            gscale = (g > gclip > 0 ? gclip/g : 0)
-            update!(f; gclip=gscale) # TODO: should rename this update option to gscale, gclip is the limit gscale is the factor; or do this calc in update?
+            gscale = (g > gclip > 0 ? gclip/g : 1)
+            update!(f; gscale=gscale)
             w = wnorm(f); w > maxnorm[1] && (maxnorm[1]=w) # TODO: take this maxnorm calculation elsewhere, have a statistics optional function? just be smart about scaling?  batch-normalization, msra etc.
             reset!(f)
         end

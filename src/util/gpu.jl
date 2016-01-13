@@ -46,6 +46,7 @@ end
 setseed(n)=srand(n)
 
 # to_host: Set this to identity unless input is CudaArray.
+@useifgpu CUDArt
 if GPU
     CUDArt.to_host(x)=x
 else
