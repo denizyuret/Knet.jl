@@ -1036,16 +1036,43 @@ train them.
 
 Training with sequences
 -----------------------
-..
+
+(`Karpathy, 2015`_) has lots of fun examples showing how character
+based language models based on LSTMs are surprisingly adept at
+generating text in many genres, from Wikipedia articles to C programs.
+To demonstrate training with sequences, we'll implement one of these
+examples and build a model that can write like Shakespeare!  After
+training on "The Complete Works of William Shakespeare" for less than
+an hour, here is a sample of brilliant writing you can expect from
+your model::
+
+  LUCETTA. Welcome, getzing a knot. There is as I thought you aim
+    Cack to Corioli.
+  MACBETH. So it were timen'd nobility and prayers after God'.
+  FIRST SOLDIER. O, that, a tailor, cold.
+  DIANA. Good Master Anne Warwick!
+  SECOND WARD. Hold, almost proverb as one worth ne'er;
+    And do I above thee confer to look his dead;
+    I'll know that you are ood'd with memines;
+    The name of Cupid wiltwite tears will hold
+    As so I fled; and purgut not brightens,
+    Their forves and speed as with these terms of Ely
+    Whose picture is not dignitories of which,
+    Their than disgrace to him she is.
+  GOBARIND. O Sure, ThisH more.,
+    wherein hath he been not their deed of quantity,
+    No ere we spoke itation on the tent.
+    I will be a thought of base-thief;
+    Then tears you ever steal to have you kindness.
+    And so, doth not make best in lady,
+    Your love was execreed'd fray where Thoman's nature;
+    I have bad Tlauphie he should sray and gentle,
+
 
 .. _Project Gutenberg: https://www.gutenberg.org
 
-So far we have built a model that can predict house prices, another
-that can recognize handwritten digits.  As a final example let's train
-one that can write like Shakespeare! [#]_ First let's download "The
-Complete Works of William Shakespeare" from `Project Gutenberg`_:
-
-TODO: put example output in the beginning, mention all examples in the introduction...
+First let's download "The Complete Works of William Shakespeare" from
+`Project Gutenberg`_:
 
 .. doctest::
 
@@ -1124,11 +1151,11 @@ Now that we have the data ready to go, let's talk about RNN training.
 
 RNN training is a bit more involved than training feed-forward models.
 We still have the prediction, gradient calculation and update steps,
-but not all three steps are performed after every input.  Details will
-be covered elsewhere, but here is a basic algorithm: Go forward
-``nforw`` steps, remembering the desired outputs and model state, then
-perform ``nforw`` back steps accumulating gradients, finally update
-the parameters and reset the network for the next iteration:
+but not all three steps should be performed after every input.  Here
+is a basic algorithm: Go forward ``nforw`` steps, remembering the
+desired outputs and model state, then perform ``nforw`` back steps
+accumulating gradients, finally update the parameters and reset the
+network for the next iteration:
 
 .. testcode::
 
@@ -1156,17 +1183,16 @@ the parameters and reset the network for the next iteration:
 
    ...
 
-BPTT, seqlength
-gclip
-reset
-sforw/sback
-modify update to compute norm there
-keepstate
+Note that we use ``sforw`` and ``sback`` instead of ``forw`` and
+``back`` during sequence training: these save and restore internal
+state to allow multiple forward steps followed by multiple backward
+steps.  ``reset!`` is necessary to zero out or recover internal state
+before a sequence of forward steps.  ``ystack`` is used to store gold
+answers.  The ``gclip`` is for gradient clipping, a common RNN
+training strategy to keep the parameters from diverging.
 
-Training script:
-
-
-Define a character based language model using an LSTM:
+With data and training script ready, all we need is a model.  We will
+define a character based RNN language model using an LSTM:
 
 .. testcode::
 
@@ -1181,9 +1207,42 @@ Define a character based language model using an LSTM:
 
    ...
 
-TODO: add a version using repeat here...
+``wdot`` multiplies the one-hot representation ``x`` of the input
+character with an embedding matrix and turns it into a dense vector of
+size ``embedding``.  We apply an LSTM of size ``hidden`` to this dense
+vector, and dropout the result with probability ``pdrop``.  Finally
+``wbf`` applies softmax to a linear function of the LSTM output to get
+a probability vector of size ``nchar`` for the next character.
 
-Compile and train:
+(`Karpathy, 2015`_) uses not one but several LSTM layers to simulate
+Shakespeare.  In Knet, we can define a multi-layer LSTM model using
+the high-level operator ``repeat``:
+
+.. testcode::
+
+   @knet function lstmdrop(a; pdrop=0, hidden=0)
+       b = lstm(a; out=hidden)
+       return drop(b; pdrop=pdrop)
+   end
+
+   @knet function charlm2(x; nlayer=0, embedding=0, hidden=0, pdrop=0, nchar=0)
+       a = wdot(x; out=embedding)
+       c = repeat(a; frepeat=:lstmdrop, nrepeat=nlayer, hidden=hidden, pdrop=pdrop)
+       return wbf(c; out=nchar, f=:soft)
+   end
+
+.. testoutput:: :hide:
+
+   ...
+
+In ``charlm2``, the ``repeat`` instruction will perform the
+``frepeat`` operation ``nrepeat`` times starting with input ``a``.
+Using ``charlm2`` with ``nlayer=1`` would be equivalent to the
+original ``charlm``.
+
+In the interest of time we will start with a small single layer model.
+With the following parameters, 10 epochs of training takes about 35-40
+minutes on a K20 GPU:
 
 .. doctest::
 
@@ -1191,9 +1250,28 @@ Compile and train:
    julia> setp(net; lr=1.0)
    julia> for i=1:10; train(net, data, softloss; gclip=5.0); end
 
-TODO: add load/save here...
+.. _JLD: https://github.com/JuliaLang/JLD.jl
 
-Generate:
+After spending this much time training a model, you probably want to
+save it.  Knet uses the JLD_ module to save and load models and data.
+Calling ``clean(model)`` during a save is recommended to strip the
+model of temporary arrays which may save a lot of space.  Don't forget
+to save the ``char2int`` dictionary, otherwise it will be difficult to
+interpret the output of the model:
+
+.. doctest::
+
+   julia> using JLD
+   julia> JLD.save("charlm.jld", "model", clean(net), "dict", char2int);
+   julia> net2 = JLD.load("charlm.jld", "model")	# should create a copy of net
+   ...
+
+TODO: put load/save and other fns in the function table.
+
+Finally, to generate the Shakespearean output we promised, we need to
+implement a generator.  The following generator samples a character
+from the probability vector output by the model, prints it and feeds
+it back to the model to get the next character:
 
 .. testcode::
 
@@ -1229,16 +1307,10 @@ Generate:
 
    julia> int2char = Array(Char, length(char2int));
    julia> for (c,i) in char2int; int2char[i] = Char(c); end
-   julia> generate(net, int2char, 1024)
+   julia> generate(net, int2char, 1024)  # should generate 1024 chars of Shakespeare
 
-TODO: generate some text...
+TODO: In this section...
 
-In this section...
-
-.. [#] (`Karpathy, 2015`_) demonstrated that character based language
-  models based on LSTMs are surprisingly adept at generating text in
-  many genres, from Wikipedia articles to C programs.  Here we replicate
-  one of his examples using Knet.
 
 Some useful tables
 ------------------
@@ -1450,3 +1522,6 @@ Function                	 	Description
    .. used to process sequences, such as speech or text data.
 
 .. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia[>] (.+)/' intro.rst > foo.intro.jl
+
+TODO: put example output in the beginning, mention all examples in the introduction...
+

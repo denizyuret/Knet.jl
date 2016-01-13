@@ -2,10 +2,11 @@
 
 	* TODO:
 
+	0000 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
 	0000 convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
 	1000 julia: timholy: If you can come up with a solution that exploits Requires.jl, do you think that would be better? (does this solve conditional gpu library dependency problem for Knet?)
-	0000 docs:  rename charlm minibatch to something else.
-	0000 docs:  sforw/sback
+	DONE docs:  rename charlm minibatch to something else.
+	DONE docs:  sforw/sback
 	0000 docs: 3 sections: tutorial, examples, reference
 	0000 docs: 3-arg loss functions (user does not need)
 	0000 docs: anatomy of a knet function.
@@ -16,22 +17,20 @@
 	0000 docs: fix knet.svg
 	0000 docs: generate pieces from docs/shakespeare.jld
 	0000 docs: link Julia functions to Julia doc
-	0000 docs: load/save data in jld
-	0000 docs: load/save model in jld
-	0000 docs: load/save model.
+	DONE docs: load/save data in jld
+	DONE docs: load/save model in jld
 	0000 docs: nce
 	0000 docs: netprint?
 	0000 docs: perceptron, kernel perceptron
-	0000 docs: repeat operator
-	0000 docs: repeat.
+	DONE docs: repeat operator
 	0000 docs: s2c, s2s
 	0000 docs: setseed and replicatability
 	0000 docs: sforw vs forw (forw is used during test for rnns!)
 	0000 docs: size with without dims option.
 	0000 docs: structured learning
-	0000 docs: update!: gradient clipping
+	DONE docs: update!: gradient clipping
 	0000 docs: update!: parameter averaging
-	0000 gutenberg does not let download from certain machines.
+	DONE docs: gutenberg does not let download from certain machines.
 	0000 in the barret paper explain the bayes - pretraining connection.
 	0000 profile lstm and figure out multi-cpu: amazon has multi-cpu machines.
 	0000 speed comparison with barret code
