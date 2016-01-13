@@ -36,8 +36,8 @@ using ``include("filename")``:
 .. testcode::
 
     @knet function lin(x)
-        w = par(init=randn(1,13))
-        b = par(init=randn(1,1))
+        w = par(init=Gaussian(0,0.1), dims=(1,13))
+        b = par(init=Constant(0), dims(1,1))
         return w * x .+ b
     end
 
@@ -45,7 +45,6 @@ using ``include("filename")``:
 
    ...
 
-.. _randn: http://julia.readthedocs.org/en/release-0.4/stdlib/numbers/#Base.randn
 .. _Julia function: http://julia.readthedocs.org/en/release-0.4/manual/functions
 .. _variable: http://julia.readthedocs.org/en/release-0.4/manual/variables
 .. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
@@ -57,12 +56,10 @@ In this definition:
 - ``x`` is the only input argument.
 - ``w`` and ``b`` are model parameters as indicated by the ``par``
   constructor.
-- ``init`` is a keyword argument to ``par`` describing how the
-  parameter should be initialized.  It can take an array or one of the
-  supported :ref:`random distributions <rgen-table>`.
-- :func:`randn(dims) <randn>` is a Julia function that returns an
-  array of size ``dims`` filled with random numbers from the standard
-  normal distribution.
+- ``init`` and ``dims`` are `keyword arguments`_ to ``par`` describing
+  how the parameter should be initialized.  ``init`` can take a Julia
+  array or one of the supported :ref:`random distributions
+  <rgen-table>`.
 - The final ``return`` statement specifies the output of the Knet
   function.
 - The ``*`` denotes matrix product and ``.+`` denotes elementwise
@@ -85,7 +82,7 @@ trained with examples and used for predictions, we need to compile it:
 
 To test our model let's give it some input.  ``w`` is a :math:`1\times
 13` row vector, so the input ``x`` should be a :math:`13\times 1`
-column vector:
+column vector.  Let's initialize with some random numbers:
 
 .. doctest::
 
@@ -1521,7 +1518,12 @@ Function                	 	Description
    .. In RNNs past inputs effect future outputs.  Thus they are typically
    .. used to process sequences, such as speech or text data.
 
+
 .. perl -ne '$p=0 if /^.. testoutput::/; print if $p; $p=1 if /^.. testcode::/; print "$1\n" if /julia[>] (.+)/' intro.rst > foo.intro.jl
+.. .. _randn: http://julia.readthedocs.org/en/release-0.4/stdlib/numbers/#Base.randn
+.. - :func:`randn(dims) <randn>` is a Julia function that returns an
+..   array of size ``dims`` filled with random numbers from the standard
+..   normal distribution.
 
 TODO: put example output in the beginning, mention all examples in the introduction...
 

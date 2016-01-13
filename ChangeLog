@@ -2,6 +2,7 @@
 
 	* TODO:
 
+	0000 docs: do not use randn, Float64 trouble later.
 	0000 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
 	0000 convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
 	1000 julia: timholy: If you can come up with a solution that exploits Requires.jl, do you think that would be better? (does this solve conditional gpu library dependency problem for Knet?)
