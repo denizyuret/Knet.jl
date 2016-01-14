@@ -25,6 +25,7 @@ initdif0(f::Net)=(for p in reverse(backregs(f)); initdif0(f,p); end)
 
 function initdif0(f::Net,p::Reg)
     at, et, sz = getp(p,:diftype), getp(p,:eltype), getp(p,:size)
+    (isa(at,DataType) && isa(et,DataType) && isa(sz,Dims)) || error("Reg has missing info: $((p.name,at,et,sz))")
     if !checkarray(p, :dif0, at, et, sz)
         p.dif0 = newarray(at, et, sz)
         getp(p,:incr) && fillsync!(p.dif0,0)
@@ -61,9 +62,7 @@ function initgrad(f::Net, getdx)
     end
     lastinput = 0
     for p in regs(f)
-        if (isa(p.op, Par) ||
-            (isa(p.op, Input) &&
-             getdx[lastinput+=1]))
+        if ((isa(p.op, Par) && p.op.initialized) || (isa(p.op, Input) && getdx[lastinput+=1]))
             setp(p,:grad,true)  # :grad means we need the gradient of the output of this operation, does not mean go back on this operation.
         end
     end
