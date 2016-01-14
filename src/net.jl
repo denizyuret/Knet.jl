@@ -145,6 +145,7 @@ function update!(m::Net; gclip=0, gscale=1, o...) # TODO: implement callbacks
         gscale *= (g > gclip ? gclip/g : 1)
     end
     for p in params(m)
+        isvoid(p,:dif) && continue # may happen when a conditional part of the model never runs
         update!(p; o..., gscale=gscale)
     end
 end
@@ -186,7 +187,8 @@ function netprint(f::Net)
     vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
     for i=1:length(f)
         r=reg(f,i)
-        @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...), size(r.out0),
+        @printf("%d %s%s %s (%g,%g) %s %s %s\n", i, typeof(r.op), tuple(r.argv...),
+                (isvoid(r,:out0) ? () : size(r.out0)),
                 vecnorm1(r,:out), vecnorm1(r,:dif), r.name, tuple(r.cond.args...),
                 filter((x,y)->!isa(y,DataType),r.plist)
                 )
