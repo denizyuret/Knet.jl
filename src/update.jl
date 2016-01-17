@@ -42,7 +42,7 @@ l2reg!(l2, w, dw)=axpy!(l2, w, dw)
 adagrad!(eps, dw2, dw)=for i=1:length(dw); dw2[i] += dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
 momentum!(m, dw2, dw)=(axpy!(m, dw2, dw); copysync!(dw2,dw))
 nesterov!(m, dw2, dw)=(scale!(m, dw2); axpy!(1, dw, dw2); axpy!(m, dw2, dw))
-rmsprop!(eps, rho, dw2, dw)=for i=1:length(dw); dw2[i] = dw2[i] * rho + (1 - rho) * dw[i] ^ 2; dw[i] /= (eps + sqrt(dw2[i])); end
+rmsprop!(eps, rho, dw2, dw)=for i=1:length(dw); dw2[i] = dw2[i] * rho + (1 - rho) * dw[i] * dw[i]; dw[i] /= (eps + sqrt(dw2[i])); end
 
 @gpu adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libknet),Void,(Cint,Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
 @gpu adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libknet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
