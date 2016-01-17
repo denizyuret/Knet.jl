@@ -1414,6 +1414,7 @@ Option	                	Description
 ``l1reg``			L1 regularization: ``dw += l1reg * sign(w)``
 ``l2reg``			L2 regularization: ``dw += l2reg * w``
 ``adagrad``			Adagrad (boolean): ``dw2 += dw .* dw; dw = dw ./ (1e-8 + sqrt(dw2))``
+``rmsprop``			Rmsprop (boolean): ``dw2 = dw2 * 0.9 + 0.1 * dw .* dw; dw = dw ./ (1e-8 + sqrt(dw2))``
 ``momentum``			Momentum: ``dw += momentum * dw2; dw2 = dw``
 ``nesterov``			Nesterov: ``dw2 = nesterov * dw2 + dw; dw += nesterov * dw2``
 =============================== ==============================================================================
