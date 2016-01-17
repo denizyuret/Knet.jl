@@ -62,6 +62,6 @@ extern "C" {
   void l1reg64(int n, double l1, double *w, double *dw) KCALL(_l1reg64,n,l1,w,dw);
   void adagrad32(int n, double eps, float *dw2, float *dw) KCALL(_adagrad32,n,eps,dw2,dw);
   void adagrad64(int n, double eps, double *dw2, double *dw) KCALL(_adagrad64,n,eps,dw2,dw);
-  void rmsprop32(int n, double eps, double rho, float *dw2, float *dw) KCALL(_rmsprop32,n,eps,dw2,dw);
-  void rmsprop64(int n, double eps, double rho, double *dw2, double *dw) KCALL(_rmsprop64,n,eps,dw2,dw);
+  void rmsprop32(int n, double eps, double rho, float *dw2, float *dw) KCALL(_rmsprop32,n,eps, rho, dw2,dw);
+  void rmsprop64(int n, double eps, double rho, double *dw2, double *dw) KCALL(_rmsprop64,n,eps, rho, dw2,dw);
 }

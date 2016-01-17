@@ -48,9 +48,8 @@ rmsprop!(eps, rho, dw2, dw)=for i=1:length(dw); dw2[i] = dw2[i] * rho + (1 - rho
 @gpu adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libknet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
 @gpu l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libknet),Void,(Cint,Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
 @gpu l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libknet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
-@gpu rmsprop!(eps, rho, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libknet),Void,(Cint,Cdouble, Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps, rho, dw2,dw)
-@gpu adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps, rho, dw2,dw)
-@
+@gpu rmsprop!(eps, rho, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:rmsprop32,libknet),Void,(Cint,Cdouble, Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps, rho, dw2,dw)
+@gpu rmsprop!(eps, rho, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:rmsprop64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps, rho, dw2,dw)
 
 
 # function maxnorm!(maxnorm, w)
