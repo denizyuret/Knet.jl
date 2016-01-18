@@ -1268,7 +1268,9 @@ TODO: put load/save and other fns in the function table.
 Finally, to generate the Shakespearean output we promised, we need to
 implement a generator.  The following generator samples a character
 from the probability vector output by the model, prints it and feeds
-it back to the model to get the next character:
+it back to the model to get the next character.  Note that we use
+regular ``forw`` in ``generate``, ``sforw`` is only necessary when
+training RNNs.
 
 .. testcode::
 

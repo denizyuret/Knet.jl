@@ -1,62 +1,58 @@
-2016-01-12  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-01-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	0000 docs: do not use randn, Float64 trouble later.
-	0000 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
-	0000 convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
-	1000 julia: timholy: If you can come up with a solution that exploits Requires.jl, do you think that would be better? (does this solve conditional gpu library dependency problem for Knet?)
-	DONE docs:  rename charlm minibatch to something else.
-	DONE docs:  sforw/sback
-	0000 docs: 3 sections: tutorial, examples, reference
-	0000 docs: 3-arg loss functions (user does not need)
-	0000 docs: anatomy of a knet function.
-	0000 docs: colon and symbols
-	0000 docs: convolution and pooling: explanation
-	0000 docs: data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
-	0000 docs: find the paper that shows tradeoff for minibatching.
-	0000 docs: fix knet.svg
-	0000 docs: generate pieces from docs/shakespeare.jld
-	0000 docs: link Julia functions to Julia doc
-	DONE docs: load/save data in jld
-	DONE docs: load/save model in jld
-	0000 docs: nce
-	0000 docs: netprint?
-	0000 docs: perceptron, kernel perceptron
-	DONE docs: repeat operator
-	0000 docs: s2c, s2s
-	0000 docs: setseed and replicatability
-	0000 docs: sforw vs forw (forw is used during test for rnns!)
-	0000 docs: size with without dims option.
-	0000 docs: structured learning
-	DONE docs: update!: gradient clipping
-	0000 docs: update!: parameter averaging
-	DONE docs: gutenberg does not let download from certain machines.
-	0000 in the barret paper explain the bayes - pretraining connection.
-	0000 profile lstm and figure out multi-cpu: amazon has multi-cpu machines.
-	0000 speed comparison with barret code
-	0000 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
-	0000 work on yonatan example?
-	0001 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
-	0001 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf
-	0001 example: yonatan: language learning model
-	0003 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
-	0003 use templated code for cuda kernels
-	0005 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
-	0010 try new cublas.jl
-	0010 try new cudnn 404
-	0012 example: aliya: try bit representation on ipa
-	0070 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
+	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
+	0000 decide ml course concept map and book chapters
+	0005 decide ml course examples
+	0010 - work on yonatan example?
+	0010 example: yonatan: language learning model
+	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines.
+	0020 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
+	0025 speed comparison with barret code on charlm
+	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
+	0040 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
+	0050 use templated code for cuda kernels
+	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
+	0070 try new cublas.jl
+	0080 try new cudnn 404
+	0085 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
+	0090 docs: 3 sections: tutorial, examples, reference
+	0090 docs: 3-arg loss functions (user does not need)
+	0090 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
+	0090 docs: anatomy of a knet function.
+	0090 docs: colon and symbols
+	0090 docs: convolution and pooling: explanation
+	0090 docs: data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
+	0090 docs: find the paper that shows tradeoff for minibatching.
+	0090 docs: fix knet.svg
+	0090 docs: link Julia functions to Julia doc
+	0090 docs: ArgParse and scripts
+	0090 docs: predicting with lenet
+	0090 docs: optimizing parameters
+	0090 docs: nce
+	0090 docs: netprint?
+	0090 docs: perceptron, kernel perceptron
+	0090 docs: s2c, s2s
+	0090 docs: setseed and replicatability
+	0090 docs: size with without dims option.
+	0090 docs: structured learning
+	0090 docs: update!: parameter averaging
+	0090 docs: sell shorter implementation by comparing with other frameworks: http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet/
+	0090 docs: sell speed using benchmarks
+	0090 docs: each example can be its own doc
+	0090 docs: explain the acronyms for wbf cbfp etc.
 	0100 example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
 	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
 	0101 example: need something for turkish translation to report to tubitak
 	0101 example: try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0102 example: yonatan supertagging
+	0103 example: aliya: try bit representation on ipa
 	0105 example: onur/ozan ner bidirectional model version 2. try dropout and other architectures for ner.
 	0107 example: aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
 	0124 example: attention s2s model
 	0125 example: ntm and variants.
-	0126 example: ctc apply speech model to mt
+	0126 example: ctc apply speech model to mt: https://github.com/baidu-research/warp-ctc http://www.cs.toronto.edu/~graves/icml_2006.pdf
 	0127 example: image captioning example
 	0129 example: rnn based parser. ashish.
 	0130 example: language learning in minecraft
@@ -81,6 +77,7 @@
 	0901 speed: barret speed: implementing the whole lstm with single matrix multiplication: subarray operation?
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
+	0999 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
@@ -97,6 +94,7 @@
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
 	1000 investigate irnn/relu gradcheck failure (adding, mnistpixels) make sure it is not a bug
+	1000 julia: timholy: If you can come up with a solution that exploits Requires.jl, do you think that would be better? (does this solve conditional gpu library dependency problem for Knet?)
 	1000 linalg.jl: A_mul_B!{T}(C::CudaMatrix{T}, A::CudaMatrix{T}, B::CudaSparseMatrixCSC{T}) allocates.
 	1000 loss should give total loss, the ycols normalization makes it too confusing.  back can do the normalization?
 	1000 net/util.jl: look into julia nullables to make this nothing=zero matrix thing better
@@ -138,6 +136,20 @@
 	1501 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE docs:  rename charlm minibatch to something else.
+	DONE docs:  sforw/sback
+	DONE docs: do not use randn, Float64 trouble later.
+	DONE docs: gutenberg does not let download from certain machines.
+	DONE docs: load/save data in jld
+	DONE docs: load/save model in jld
+	DONE docs: repeat operator
+	DONE docs: update!: gradient clipping
+	DONE docs: generate pieces from docs/shakespeare.jld
+	DONE docs: sforw vs forw (forw is used during test for rnns!)
+
+2016-01-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE demo not working in *julia*.
