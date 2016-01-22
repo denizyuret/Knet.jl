@@ -2,12 +2,18 @@
 
 	* TODO:
 
-	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
+	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
+	0000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
+	0000 merge pull requests: https://help.github.com/articles/checking-out-pull-requests-locally/
 	0000 decide ml course concept map and book chapters
+	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine
+	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
+	0000 Write paper, send somewhere.
+	0003 example: aliya: try bit representation on ipa
 	0005 decide ml course examples
 	0010 - work on yonatan example?
 	0010 example: yonatan: language learning model
-	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines.
+	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines: http://www.nvidia.com/docs/io/116711/sc11-multi-gpu.pdf
 	0020 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
 	0025 speed comparison with barret code on charlm
 	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
@@ -17,6 +23,9 @@
 	0070 try new cublas.jl
 	0080 try new cudnn 404
 	0085 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
+	0090 docs: add convexity discussion to the ml book
+	0090 docs: knet function anatomy.
+	0090 docs: how to add new (1) comp ops, (2) prim ops, (3) updates, (4) rgens. (5) loss fns.
 	0090 docs: 3 sections: tutorial, examples, reference
 	0090 docs: 3-arg loss functions (user does not need)
 	0090 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
@@ -42,21 +51,21 @@
 	0090 docs: sell speed using benchmarks
 	0090 docs: each example can be its own doc
 	0090 docs: explain the acronyms for wbf cbfp etc.
-	0100 example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
+	DONE example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
 	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
-	0101 example: need something for turkish translation to report to tubitak
-	0101 example: try s2s model in turkish translation: jonmay sent link to low density translation data.
+	DONE example: need something for turkish translation to report to tubitak
+	DONE example: try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0102 example: yonatan supertagging
-	0103 example: aliya: try bit representation on ipa
 	0105 example: onur/ozan ner bidirectional model version 2. try dropout and other architectures for ner.
 	0107 example: aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
-	0124 example: attention s2s model
-	0125 example: ntm and variants.
+	0124 example: attention s2s model: http://arxiv.org/abs/1508.04025
+	0124 example: translation s2s model: http://arxiv.org/abs/1409.3215
+	0125 example: ntm and variants: http://arxiv.org/abs/1410.5401 http://arxiv.org/abs/1505.00521
 	0126 example: ctc apply speech model to mt: https://github.com/baidu-research/warp-ctc http://www.cs.toronto.edu/~graves/icml_2006.pdf
-	0127 example: image captioning example
+	0127 example: image captioning example http://arxiv.org/abs/1411.4555 
 	0129 example: rnn based parser. ashish.
 	0130 example: language learning in minecraft
-	0132 example: learning to interpret python, find other examples
+	0132 example: learning to interpret python, find other examples: http://arxiv.org/abs/1410.4615
 	0133 example: net2net: http://arxiv.org/pdf/1511.05641
 	0220 saman: add lcn example to knet, push lcn branch to	master. lcn: add example: http://papers.nips.cc/paper/4773-convolutional-recursive-deep-learning-for-3d-object-classification.pdf
 	0220 saman: add msra init: arXiv:1502.01852, http://www.jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf; https://github.com/BVLC/caffe/blob/master/include/caffe/filler.hpp#L129
@@ -78,6 +87,7 @@
 	0902 speed: gemm can do incremental updates: pass incr back to ops instead of creating tmp.
 	0950 speed: mul2: can probably be implemented using blas sbmv with diagonal m.  (else change order to x1,x2,y) also check out scale! with vector scale argument.
 	0999 - update docs, remove dead code, update comments, check src TODO, - src/op/compound.jl: finish documentation for all ops.
+	1000 Figure out how to debug Julia source -- cannot see local variables.
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
