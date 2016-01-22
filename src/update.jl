@@ -8,6 +8,10 @@ function update!(r::Reg; gscale=1, o...)
     getp(r,:rmsprop) && rmsprop!(1e-8, 0.9, getp(r,:rms), r.dif) # TODO: make 1e-8 a parameter
     getp(r,:momentum,0)!=0 && momentum!(getp(r,:momentum), getp(r,:mom), r.dif)
     getp(r,:nesterov,0)!=0 && nesterov!(getp(r,:nesterov), getp(r,:nes), r.dif)
+    if getp(r, :adam)
+        incp(r, :t)
+        adam!(getp(r, :t), getp(r, :eps), getp(r, :b1), getp(r, :b2), getp(r, :fstm), getp(r, :scndm), r.dif)
+    end
     scale = -1 * getp(r,:lr,1) * gscale # TODO: make scale a parameter for callbacks
     axpy!(scale, r.dif, r.out)
     getp(r,:average) && axpy!(1,r.out,getp(r,:avg))
@@ -20,6 +24,13 @@ function initupdate(r::Reg)
         getp(r,:rmsprop) && similarp(r, :rms, r.dif)
         getp(r,:momentum,0)!=0 && similarp(r, :mom, r.dif)
         getp(r,:nesterov,0)!=0 && similarp(r, :nes, r.dif)
+        if getp(r,:adam)
+            similarp(r, :fstm, r.dif)
+            similarp(r, :scndm, r.dif)
+            getp(r, :eps) == 0 && setp(r, :eps, 1e-8)
+            getp(r, :b1) == 0 && setp(r, :b1, 0.9)
+            getp(r, :b2) == 0 && setp(r, :b2, 0.999)
+        end
     else
         error("r.dif==nothing in $r")
     end
@@ -44,13 +55,22 @@ momentum!(m, dw2, dw)=(axpy!(m, dw2, dw); copysync!(dw2,dw))
 nesterov!(m, dw2, dw)=(scale!(m, dw2); axpy!(1, dw, dw2); axpy!(m, dw2, dw))
 rmsprop!(eps, rho, dw2, dw)=for i=1:length(dw); dw2[i] = dw2[i] * rho + (1 - rho) * dw[i] * dw[i]; dw[i] /= sqrt(dw2[i] + eps); end
 
+function adam!(t, eps, b1, b2, fstm, scndm, dw)
+    for i=1:length(dw)
+        fstm[i] = b1*fstm[i] + (1-b1)*dw[i]
+        scndm[i] = b2*scndm[i] + (1-b2)*(dw[i] *dw[i])
+        dw[i] = (fstm[i] / (1 - b1 ^ t)) / (sqrt(scndm[i] / (1 - b2 ^ t)) + eps)
+    end
+end
+
 @gpu adagrad!(eps, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adagrad32,libknet),Void,(Cint,Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps,dw2,dw)
 @gpu adagrad!(eps, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adagrad64,libknet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps,dw2,dw)
 @gpu l1reg!(l1, w::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:l1reg32,libknet),Void,(Cint,Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),l1,w,dw)
 @gpu l1reg!(l1, w::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:l1reg64,libknet),Void,(Cint,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),l1,w,dw)
 @gpu rmsprop!(eps, rho, dw2::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:rmsprop32,libknet),Void,(Cint,Cdouble, Cdouble,Ptr{Float32},Ptr{Float32}),length(dw),eps, rho, dw2,dw)
 @gpu rmsprop!(eps, rho, dw2::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:rmsprop64,libknet),Void,(Cint,Cdouble,Cdouble,Ptr{Float64},Ptr{Float64}),length(dw),eps, rho, dw2,dw)
-
+@gpu adam!(t, eps, b1, b2, fstm::CudaArray{Float32}, scndm::CudaArray{Float32}, dw::CudaArray{Float32})=ccall((:adam32,libknet),Void,(Cint,Cint,Cdouble,Cdouble, Cdouble,Ptr{Float32},Ptr{Float32},Ptr{Float32}),length(dw),t,eps,b1,b2,fstm,scndm,dw)
+@gpu adam!(t, eps, b1, b2, fstm::CudaArray{Float64}, scndm::CudaArray{Float64}, dw::CudaArray{Float64})=ccall((:adam64,libknet),Void,(Cint,Cint,Cdouble,Cdouble, Cdouble,Ptr{Float64},Ptr{Float64},Ptr{Float64}),length(dw),t,eps,b1,b2,fstm,scndm,dw)
 
 # function maxnorm!(maxnorm, w)
 #     error("Did not debug maxnorm yet.")
