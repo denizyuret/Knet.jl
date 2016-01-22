@@ -2,6 +2,7 @@
 
 	* TODO:
 
+	0000 fix new cublas.jl
 	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
 	0000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
 	0000 merge pull requests: https://help.github.com/articles/checking-out-pull-requests-locally/
@@ -20,7 +21,6 @@
 	0040 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0050 use templated code for cuda kernels
 	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
-	0070 try new cublas.jl
 	0080 try new cudnn 404
 	0085 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
 	0090 docs: add convexity discussion to the ml book
