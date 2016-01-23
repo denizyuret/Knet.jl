@@ -1,5 +1,7 @@
 # Knet
 
+[![Build Status](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+
 Knet is a machine learning module implemented in
 [Julia](http://julia.readthedocs.org/en/release-0.4), so you should be
 able to run it on any machine that can run Julia.  It has been tested
