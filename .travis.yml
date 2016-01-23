@@ -2,12 +2,16 @@ language: julia
 os:
   - linux
   - osx
-julia:
-  - release
-  - nightly
 notifications:
-  email: false
-# uncomment the following lines to override the default test script
+  email: true
+
+## uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("KUnet"); Pkg.test("KUnet"; coverage=true)'
+#  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("Knet"); Pkg.test("Knet"; coverage=true)'
+
+## https://docs.travis-ci.com/user/languages/julia
+## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
+# julia:
+#   - release
+#   - nightly

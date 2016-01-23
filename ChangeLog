@@ -1,19 +1,18 @@
-2016-01-13  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-01-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	0000 fix new cublas.jl
-	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
-	0000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
-	0000 merge pull requests: https://help.github.com/articles/checking-out-pull-requests-locally/
-	0000 decide ml course concept map and book chapters
+	0000 Turn on travis testing
+	0000 Register project under Julia
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine
 	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
 	0000 Write paper, send somewhere.
+	0000 decide ml course concept map and book chapters
+	0000 fix new cublas.jl
+	0000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
+	0000 transfer to balina
+	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
 	0003 example: aliya: try bit representation on ipa
-	0005 decide ml course examples
-	0010 - work on yonatan example?
-	0010 example: yonatan: language learning model
 	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines: http://www.nvidia.com/docs/io/116711/sc11-multi-gpu.pdf
 	0020 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
 	0025 speed comparison with barret code on charlm
@@ -23,38 +22,35 @@
 	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
 	0080 try new cudnn 404
 	0085 ai-mtg: kernels and perceptrons. kperceptron.jl: reimplement within the new framework. perceptron and structured perceptron examples. perclossback: these should be scaled 1/nx, why isn't our gradient check complaining? reimplement averaging. for perceptron.
-	0090 docs: add convexity discussion to the ml book
-	0090 docs: knet function anatomy.
-	0090 docs: how to add new (1) comp ops, (2) prim ops, (3) updates, (4) rgens. (5) loss fns.
 	0090 docs: 3 sections: tutorial, examples, reference
 	0090 docs: 3-arg loss functions (user does not need)
+	0090 docs: ArgParse and scripts
+	0090 docs: add convexity discussion to the ml book
 	0090 docs: add to README: what is Knet and why should you bother.  compositional models.  benchmarks.
 	0090 docs: anatomy of a knet function.
 	0090 docs: colon and symbols
 	0090 docs: convolution and pooling: explanation
 	0090 docs: data types net, reg, stackentry access functions etc. don't forget to export whatever is mentioned in docs.
+	0090 docs: each example can be its own doc
+	0090 docs: explain the acronyms for wbf cbfp etc.
 	0090 docs: find the paper that shows tradeoff for minibatching.
 	0090 docs: fix knet.svg
+	0090 docs: how to add new (1) comp ops, (2) prim ops, (3) updates, (4) rgens. (5) loss fns.
+	0090 docs: knet function anatomy.
 	0090 docs: link Julia functions to Julia doc
-	0090 docs: ArgParse and scripts
-	0090 docs: predicting with lenet
-	0090 docs: optimizing parameters
 	0090 docs: nce
 	0090 docs: netprint?
+	0090 docs: optimizing parameters
 	0090 docs: perceptron, kernel perceptron
+	0090 docs: predicting with lenet
 	0090 docs: s2c, s2s
+	0090 docs: sell shorter implementation by comparing with other frameworks: http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet/
+	0090 docs: sell speed using benchmarks
 	0090 docs: setseed and replicatability
 	0090 docs: size with without dims option.
 	0090 docs: structured learning
 	0090 docs: update!: parameter averaging
-	0090 docs: sell shorter implementation by comparing with other frameworks: http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet/
-	0090 docs: sell speed using benchmarks
-	0090 docs: each example can be its own doc
-	0090 docs: explain the acronyms for wbf cbfp etc.
-	DONE example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
 	0101 example: many-to-one and one-to-many mt training.  mt models that fix the hidden state.  swapping input-output languages fixing the hidden state.  learning paraphrase models from mt models.
-	DONE example: need something for turkish translation to report to tubitak
-	DONE example: try s2s model in turkish translation: jonmay sent link to low density translation data.
 	0102 example: yonatan supertagging
 	0105 example: onur/ozan ner bidirectional model version 2. try dropout and other architectures for ner.
 	0107 example: aliya ipa example: "Bi-directional conversion between graphemes and phonemes using a joint n-gram model.", "http://arxiv.org/pdf/1506.00196v3.pdf"
@@ -146,6 +142,17 @@
 	1501 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE - work on yonatan example?
+	DONE decide ml course examples
+	DONE example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
+	DONE example: need something for turkish translation to report to tubitak
+	DONE example: try s2s model in turkish translation: jonmay sent link to low density translation data.
+	DONE example: yonatan: language learning model
+	DONE merge pull requests: https://help.github.com/articles/checking-out-pull-requests-locally/
+
+2016-01-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	DONE docs:  rename charlm minibatch to something else.
