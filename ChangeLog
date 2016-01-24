@@ -2,7 +2,8 @@
 
 	* TODO:
 
-	0000 Turn on travis testing
+	1000 Train bidirectional rnn to predict substitutes, use for scode.
+	DONE Turn on travis testing
 	0000 Register project under Julia
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine
 	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145

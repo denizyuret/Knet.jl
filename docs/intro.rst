@@ -37,7 +37,7 @@ using ``include("filename")``:
 
     @knet function lin(x)
         w = par(init=Gaussian(0,0.1), dims=(1,13))
-        b = par(init=Constant(0), dims(1,1))
+        b = par(init=Constant(0), dims=(1,1))
         return w * x .+ b
     end
 
