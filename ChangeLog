@@ -1,23 +1,24 @@
-2016-01-22  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-01-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	1000 Train bidirectional rnn to predict substitutes, use for scode.
-	DONE Turn on travis testing
-	0000 Register project under Julia
+	0000 LoadError: unrecognized keyword argument "nrepeat" https://github.com/denizyuret/Knet.jl/issues/3
+	1000 Fix "Parsing the Penn Treebank in 60 seconds" blog post to work with the new Knet, or have a Knet version to checkout for this demo.
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine
 	0000 NaN: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
+	0000 Register project under Julia (probably after fixing the CUSPARSE incompatibility and HTTPClient issue and documentation TODO fixes).
 	0000 Write paper, send somewhere.
 	0000 decide ml course concept map and book chapters
-	0000 fix new cublas.jl
-	0000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
+	0000 fix new cusparse.jl v4
+	0000 cusparse v4 broken: quick fix with REQUIRE version spec
+	1000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
 	0000 transfer to balina
 	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
 	0003 example: aliya: try bit representation on ipa
 	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines: http://www.nvidia.com/docs/io/116711/sc11-multi-gpu.pdf
 	0020 example: character convolution models: its got good notation, lstm, conv, highway networks, language modeling... lm paper: github.com/yoonkim/lstm-char-cnn 1508.06615v4.pdf convlm: work on char-conv based lm/mt model? - is batch norm a better gclip alternative? - do we need rmsprop or adam? - how many hidden states does the conv char lm paper use? - small=2x300, large=2x650 - for the V=10k mikolov data. - bptt 35 time steps (words?) - batch size of 20 and 100 - 25 epochs - dropout=0.5 - gclip=5 - ashish said that didn't work without highway networks, do we need them?
 	0025 speed comparison with barret code on charlm
-	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc.
+	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc: libcurl fails, libcurl/master passes, see what changed, apply fix to httpclient.
 	0040 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0050 use templated code for cuda kernels
 	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
@@ -45,7 +46,6 @@
 	0090 docs: perceptron, kernel perceptron
 	0090 docs: predicting with lenet
 	0090 docs: s2c, s2s
-	0090 docs: sell shorter implementation by comparing with other frameworks: http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet/
 	0090 docs: sell speed using benchmarks
 	0090 docs: setseed and replicatability
 	0090 docs: size with without dims option.
@@ -87,9 +87,19 @@
 	1000 Figure out how to debug Julia source -- cannot see local variables.
 	1000 Figure out how to run on multi-gpu machines: both how to choose single gpu, or use multi-gpu: gpu.jl was running init on all gpus, fixed that.
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
-	1000 another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
+	1000 Train bidirectional rnn to predict substitutes, use for scode.
+	1000 comparison: another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
+	1000 comparison: convnet speed comparison: https://github.com/soumith/convnet-benchmarks
+	1000 comparison: http://blog.udacity.com/2016/01/putting-deep-learning-to-work.html tensorflow course?
+	1000 comparison: http://googleresearch.blogspot.com/2015/11/tensorflow-googles-latest-machine_9.html
+	1000 comparison: https://github.com/Lasagne/Lasagne
+	1000 comparison: https://github.com/Microsoft/CNTK (microsoft)
+	1000 comparison: https://github.com/dmlc/mxnet (baidu?)
+	1000 comparison: https://velesnet.ml/
+	1000 comparison: https://www.projectoxford.ai/
+	1000 comparison: https://github.com/baidu-research/warp-ctc
+	1000 comparison: sell shorter implementation by comparing with other frameworks: http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet/
 	1000 compiler: warn for unused constants
-	1000 convnet speed comparison: https://github.com/soumith/convnet-benchmarks
 	1000 cpu conv/pool support.
 	1000 cpu sparse support: mnist2dx does not run: Need to implement: A_mul_B!(::Array{Float32,2}, ::Array{Float32,2}, ::SparseMatrixCSC{Float32,Int32}); the other direction is implemented in sparse/linalg.jl.  take a look at how '*' works.
 	1000 cusparse.jl: check efficiency of resizecopy for different array types.
@@ -144,7 +154,10 @@
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
 
+2016-01-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
 	* DONE:
+	DONE Turn on travis testing
 	DONE - work on yonatan example?
 	DONE decide ml course examples
 	DONE example: barret: check on tur/uzb experiments. try pre-training for low resource mt: we can use rnnlm or copy, may need permutation matrix before encoder. work on pretraining for low resource translation using s2s or lm models.
