@@ -1,6 +1,6 @@
 type Conv <: Op; padding; stride; upscale; mode; algorithm; workSpace; workSpaceSizeInBytes; alpha; beta;
     function Conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION,
-                  algorithm=CUDNN.CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
+                  algorithm=CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
                   workSpace=C_NULL, workSpaceSizeInBytes=0, alpha=1.0, beta=0.0,
                   o...)
         new(padding, stride, upscale, mode, algorithm, workSpace, workSpaceSizeInBytes, alpha, beta)

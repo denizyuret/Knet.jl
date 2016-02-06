@@ -1,4 +1,18 @@
-import CUDNN: cudnnConvolutionForward, cudnnConvolutionBackwardFilter, cudnnConvolutionBackwardData, cudnnPoolingForward, cudnnPoolingBackward
+if GPU
+    import CUDNN: cudnnConvolutionForward, cudnnConvolutionBackwardFilter, cudnnConvolutionBackwardData, cudnnPoolingForward, cudnnPoolingBackward
+    using CUDNN: CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION, CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM, CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM, CUDNN_CONVOLUTION_FWD_ALGO_GEMM, CUDNN_CONVOLUTION_FWD_ALGO_DIRECT, CUDNN_CONVOLUTION_FWD_ALGO_FFT, CUDNN_POOLING_MAX, CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+else
+    const CUDNN_CONVOLUTION = (UInt32)(0)
+    const CUDNN_CROSS_CORRELATION = (UInt32)(1)
+    const CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM = (UInt32)(0)
+    const CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM = (UInt32)(1)
+    const CUDNN_CONVOLUTION_FWD_ALGO_GEMM = (UInt32)(2)
+    const CUDNN_CONVOLUTION_FWD_ALGO_DIRECT = (UInt32)(3)
+    const CUDNN_CONVOLUTION_FWD_ALGO_FFT = (UInt32)(4)
+    const CUDNN_POOLING_MAX = (UInt32)(0)
+    const CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING = (UInt32)(1)
+    const CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING = (UInt32)(2)
+end
 
 function _conv2_gemm{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
     window = size(w,1)
@@ -19,12 +33,14 @@ function _conv2{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
 end
 
 function cudnnConvolutionForward{T}(x::Array{T,4}, w::Array{T,4}, y::Array{T,4}; padding=0, stride=1, 
-upscale=1, mode=0, cd=nothing, algorithm="okuru13", workSpace=0, workSpaceSizeInBytes=0, alpha=1, beta=1,im2col=1)
+                                    upscale=1, mode=CUDNN_CONVOLUTION, cd=nothing,
+                                    algorithm=CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
+                                    workSpace=0, workSpaceSizeInBytes=0, alpha=1, beta=1,im2col=1)
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
     fill!(y,0)
-    @assert padding==0 && stride==1 && upscale==1&& mode==0
+    @assert (padding==0 && stride==1 && upscale==1 && mode==CUDNN_CONVOLUTION && algorithm == CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM) "$((padding,stride,upscale,mode,algorithm))"
     Wx,Hx,Cx,N = size(x)
     Ww,Hw,Cw,K = size(w)
     @assert Cx==Cw
@@ -36,12 +52,12 @@ upscale=1, mode=0, cd=nothing, algorithm="okuru13", workSpace=0, workSpaceSizeIn
 end
 
 # dw = rot180(xcorr(x,dy))
-function cudnnConvolutionBackwardFilter{T}(x::Array{T,4}, dy::Array{T,4}, dw::Array{T,4}; padding=0, stride=1, upscale=1, mode=0)
+function cudnnConvolutionBackwardFilter{T}(x::Array{T,4}, dy::Array{T,4}, dw::Array{T,4}; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
     # x:    (Wx,Hx,Cx,N)
     # dy:   (Wy,Hy,K,N) 
     # dw:    (Ww,Hw,Cw,K) 
     fill!(dw,0)
-    @assert padding==0&& stride==1&& upscale==1&& mode==0
+    @assert (padding==0&& stride==1&& upscale==1&& mode==CUDNN_CONVOLUTION)
     Wx,Hx,C,Nx = size(x)
     Wy,Hy,K,Ny = size(dy)
     @inbounds for c in 1:C, k in 1:K, n in 1:Ny
@@ -51,9 +67,9 @@ function cudnnConvolutionBackwardFilter{T}(x::Array{T,4}, dy::Array{T,4}, dw::Ar
 end
 
 # dx = xcorr(dy, w, 'full')
-function cudnnConvolutionBackwardData{T}(w::Array{T,4}, dy::Array{T,4}, dx::Array{T,4}; padding=0, stride=1, upscale=1, mode=0)
+function cudnnConvolutionBackwardData{T}(w::Array{T,4}, dy::Array{T,4}, dx::Array{T,4}; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION)
     fill!(dx,0)
-    @assert padding==0&& stride==1&& upscale==1&& mode==0
+    @assert (padding==0&& stride==1&& upscale==1&& mode==CUDNN_CONVOLUTION)
     Wy,Hy,Ky,N = size(dy)
     Ww,Hw,C,Kw = size(w)
     @assert Ky==Kw
@@ -66,13 +82,13 @@ function cudnnConvolutionBackwardData{T}(w::Array{T,4}, dy::Array{T,4}, dx::Arra
 end
 
 
-function cudnnPoolingForward{T}(x::Array{T,4}, y; window=2, padding=0, stride=window, mode=0)
+function cudnnPoolingForward{T}(x::Array{T,4}, y; window=2, padding=0, stride=window, mode=CUDNN_POOLING_MAX)
     fill!(y,0)
-    @assert padding==0 &&  mode==0 &&  stride==window
+    @assert (padding==0 &&  mode==CUDNN_POOLING_MAX &&  stride==window)
     # x: (W,H,C,N)
     Wx,Hx,C,Nx = size(x);
     Wy,Hy,K,Ny = size(y);
-    @assert Nx == Ny && C==K
+    @assert (Nx == Ny && C==K)
     @inbounds for n in 1:Nx, c in 1:C, j in 1:stride:Hx, i in 1:stride:Wx
         iy, jy = div(i,stride)+1, div(j,stride)+1
         hx_end = j+window-1 > Hx ? Hx : j+window-1
@@ -82,13 +98,13 @@ function cudnnPoolingForward{T}(x::Array{T,4}, y; window=2, padding=0, stride=wi
     return y
 end
 
-function cudnnPoolingBackward{T}(y::Array{T,4}, dy::Array{T,4}, x::Array{T,4}, dx::Array{T,4}; window=2, padding=0, stride=1, mode=0)
+function cudnnPoolingBackward{T}(y::Array{T,4}, dy::Array{T,4}, x::Array{T,4}, dx::Array{T,4}; window=2, padding=0, stride=1, mode=CUDNN_POOLING_MAX)
     fill!(dx,0)
-    @assert padding==0 && stride==window && mode==0
+    @assert (padding==0 && stride==window && mode==CUDNN_POOLING_MAX)
     # x: (W,H,C,N)
     Wx,Hx,C,Nx = size(x);
     Wy,Hy,K,Ny = size(y);
-    @assert Nx == Ny && C==K
+    @assert (Nx == Ny && C==K)
     @inbounds for n in 1:Nx, c in 1:C, j in 1:stride:Hx, i in 1:stride:Wx
         iy, jy = div(i,stride)+1, div(j,stride)+1
         hx_end = j+window-1 > Hx ? Hx : j+window-1
@@ -108,8 +124,8 @@ function cudnnGetConvolutionNdForwardOutputDim{T}(x::Array{T,4}, w::Array{T,4}; 
     return (Wy,Hy,K,N)
 end
 
-function cudnnGetPoolingNdForwardOutputDim{T}(x::Array{T,4}; window=2, padding=0, stride=1, mode=0)
-    # @assert padding==0 && stride==1 && mode==0
+function cudnnGetPoolingNdForwardOutputDim{T}(x::Array{T,4}; window=2, padding=0, stride=1, mode=CUDNN_POOLING_MAX)
+    # @assert padding==0 && stride==1 && mode==CUDNN_POOLING_MAX
     dims = [size(x)...]
     # (mode, pdims, window, padding, stride) = cudnnGetPoolingNdDescriptor(pd)
     for i=1:length(dims)-2
