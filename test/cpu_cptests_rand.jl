@@ -29,20 +29,20 @@ dy = rand(Float32,size(y)); tdy = CudaArray(dy)
 
 
 cudnnConvolutionForward(tx,tw,ty; padding=padding, stride=stride); y = to_host(ty)
-cudnnConvolutionForward(x,w,y2; padding=padding, stride=stride);
+@time cudnnConvolutionForward(x,w,y2; padding=padding, stride=stride);
 @test_approx_eq y y2
 
 cudnnConvolutionBackwardFilter(tx,tdy,tdw); dw = to_host(tdw)
-cudnnConvolutionBackwardFilter(x,dy,dw2)
+@time cudnnConvolutionBackwardFilter(x,dy,dw2)
 @test_approx_eq dw dw2
 
 cudnnConvolutionBackwardData(tw, tdy, tdx); dx = to_host(tdx)
-cudnnConvolutionBackwardData(w, dy, dx2);
+@time cudnnConvolutionBackwardData(w, dy, dx2);
 @test_approx_eq dx dx2
 
 
 using CUDNN: PD, CUDNN_POOLING_MAX, cudnnGetPoolingNdForwardOutputDim
-x = rand(Float32,18,18,3,100); tx = CudaArray(x);
+x = rand(Float32,64,64,3,128); tx = CudaArray(x);
 psize, padding, stride = 5, 0, 5
 pd1 = PD(2, psize, padding, stride, CUDNN_POOLING_MAX)
 @assert cudnnGetPoolingNdForwardOutputDim(pd1, tx) == cudnnGetPoolingNdForwardOutputDim(x, window=psize, padding=padding, stride=stride, mode=0)
@@ -50,14 +50,14 @@ pd1 = PD(2, psize, padding, stride, CUDNN_POOLING_MAX)
 y = zeros(Float32, ydims); ty = CudaArray(y);
 y2 = zeros(y)
 cudnnPoolingForward(tx, ty; window=psize, padding=padding, stride=stride, mode=0); y = to_host(ty);
-cudnnPoolingForward(x, y2; window=psize, padding=padding, stride=stride, mode=0);
+@time cudnnPoolingForward(x, y2; window=psize, padding=padding, stride=stride, mode=0);
 @test_approx_eq y y2
 
 dx = zeros(Float32, size(x)); tdx = CudaArray(dx);
 dx2 = zeros(Float32, size(x));
 dy = rand(Float32, size(y)); tdy = CudaArray(dy);
 cudnnPoolingBackward(ty, tdy, tx, tdx; window=psize, padding=padding, stride=stride, mode=0); dx = to_host(tdx);
-cudnnPoolingBackward(y, dy, x, dx2; window=psize, padding=padding, stride=stride, mode=0);
+@time cudnnPoolingBackward(y, dy, x, dx2; window=psize, padding=padding, stride=stride, mode=0);
 @test_approx_eq dx dx2
 
 :ok

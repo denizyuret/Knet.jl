@@ -1,5 +1,17 @@
 import CUDNN: cudnnConvolutionForward, cudnnConvolutionBackwardFilter, cudnnConvolutionBackwardData, cudnnPoolingForward, cudnnPoolingBackward
 
+function _conv2_gemm{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
+    window = size(w,1)
+    row_extend = size(x,1)-window+1
+    col_extend = size(x,2)-window+1
+    widx = [(j-1)*size(x,1)+i for i in 1:row_extend, j in 1:col_extend]
+
+    oidx = [(j-1)*size(x,1)+i for i in 1:window, j in 1:window]
+    # @show oidx = [(j-1)*size(A,1)+i for i in window:-1:1, j in window:-1:1]
+    destidx = [i+(j-1) for i in widx, j in oidx]
+    return reshape(x[destidx]*(xcorr ? w[:] : reverse(w[:])),row_extend,col_extend)
+end
+
 function _conv2{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
     max_pad = map(x->x-1-pad,size(w))
     y = conv2(x, xcorr ? rot180(w) : w)
@@ -7,7 +19,7 @@ function _conv2{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
 end
 
 function cudnnConvolutionForward{T}(x::Array{T,4}, w::Array{T,4}, y::Array{T,4}; padding=0, stride=1, 
-upscale=1, mode=0, cd=nothing, algorithm="okuru13", workSpace=0, workSpaceSizeInBytes=0, alpha=1, beta=1)
+upscale=1, mode=0, cd=nothing, algorithm="okuru13", workSpace=0, workSpaceSizeInBytes=0, alpha=1, beta=1,im2col=1)
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
@@ -15,8 +27,10 @@ upscale=1, mode=0, cd=nothing, algorithm="okuru13", workSpace=0, workSpaceSizeIn
     @assert padding==0 && stride==1 && upscale==1&& mode==0
     Wx,Hx,Cx,N = size(x)
     Ww,Hw,Cw,K = size(w)
+    @assert Cx==Cw
+
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
-        y[:,:,k,n] += _conv2(x[:,:,c,n], w[:,:,c,k]; pad=padding, stride=stride, xcorr=mode!=0)
+        y[:,:,k,n] += _conv2_gemm(x[:,:,c,n], w[:,:,c,k]; pad=padding, stride=stride, xcorr=mode!=0)
     end
     return y
 end
@@ -31,7 +45,7 @@ function cudnnConvolutionBackwardFilter{T}(x::Array{T,4}, dy::Array{T,4}, dw::Ar
     Wx,Hx,C,Nx = size(x)
     Wy,Hy,K,Ny = size(dy)
     @inbounds for c in 1:C, k in 1:K, n in 1:Ny
-        dw[:,:,c,k] += rot180(_conv2(x[:,:,c,n], dy[:,:,k,n]; pad=padding, stride=stride, xcorr=true))
+        dw[:,:,c,k] += rot180(_conv2_gemm(x[:,:,c,n], dy[:,:,k,n]; pad=padding, stride=stride, xcorr=true))
     end
     return dw
 end
