@@ -22,6 +22,7 @@ include("util/dbg.jl");		export @date, @dbg, gpusync
 include("util/rgen.jl");	export Gaussian, Uniform, Constant, Identity, Xavier, Bernoulli
 include("util/array.jl");	# export isapprox
 include("util/colops.jl");	export csize, clength, ccount, csub, cget, size2, minibatch
+include("util/conv_pool_cpu.jl");
 
 ### Main
 include("op.jl")
