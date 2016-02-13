@@ -2,6 +2,7 @@
 
 	* TODO:
 
+	0000 add cpu conv tests to cputest.jl, test HTTPClient, register with Julia
 	0000 LoadError: unrecognized keyword argument "nrepeat" https://github.com/denizyuret/Knet.jl/issues/3
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine, by default have it search for the device with the least memory load.
 	0000 NaN problem: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
@@ -151,6 +152,37 @@
 	1501 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+2016-02-06  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* cpu-conv:
+	dyuret@iui-5-0:~/knet/dev[0]$ git pull
+	remote: Counting objects: 21, done.        
+	remote: Compressing objects: 100% (21/21), done.        
+	remote: Total 21 (delta 9), reused 0 (delta 0), pack-reused 0        
+	Unpacking objects: 100% (21/21), done.
+	From github.com:denizyuret/Knet.jl
+	c6481ec..c1cfa23  dev        -> origin/dev
+	Updating c6481ec..c1cfa23
+	Fast-forward
+	examples/mnist4d_debug.jl  | 245 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	examples/mnist4d_sample.jl | 230 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	src/Knet.jl                |   1 +
+	src/util/conv_pool_cpu.jl  | 120 +++++++++++++++++++++++++++++++++++++++++++
+	test/cpu_cptests_rand.jl   |  63 +++++++++++++++++++++++
+	test/cpu_cptests_simple.jl |  58 +++++++++++++++++++++
+	6 files changed, 717 insertions(+)
+	create mode 100644 examples/mnist4d_debug.jl
+	create mode 100644 examples/mnist4d_sample.jl
+	create mode 100644 src/util/conv_pool_cpu.jl
+	create mode 100644 test/cpu_cptests_rand.jl
+	create mode 100644 test/cpu_cptests_simple.jl
+
+	dyuret@iui-5-0:~/knet/dev[0]$ git log | head
+	c1cfa23 2016-02-06 Merge pull request #4 from kuruonur1/conv_cpu
+	c928733 2016-02-06 conv gemm
+	7c68461 2016-02-05 conv cpu works
+	c6481ec 2016-02-05 updates
 
 2016-01-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
