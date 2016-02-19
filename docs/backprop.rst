@@ -8,6 +8,10 @@ Backpropagation
    squared error, linear regression, stochastic gradient descent
 
 .. TODO: rewrite this whole introduction
+.. TODO: add explanation for dw = dy * x^T - everybody gets confused
+.. TODO: integrate knet examples
+.. TODO: integrate quiz questions as exercises
+.. TODO: add programming examples/exercises from class logs
 
 Arthur Samuel, the author of the first self-learning checkers program,
 defined machine learning as a "field of study that gives computers the

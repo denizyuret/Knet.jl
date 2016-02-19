@@ -174,8 +174,3 @@ we usually skip that and directly compute the gradient with respect to
 
 .. softmax classifier
 
-.. adding another layer, linear layers are useless
-
-.. introduce non-linearities (activation functions)
-
-.. do the mnist example with a two layer mlp

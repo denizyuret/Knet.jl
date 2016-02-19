@@ -87,7 +87,7 @@
 	1000 It takes 24 methods to define a loss function!  Need better array library so we can write generic code.
 	1000 Train bidirectional rnn to predict substitutes, use for scode.
 	1000 comparison: another deep learning evaluation kit: https://github.com/zer0n/deepframeworks/blob/master/README.md
-	1000 comparison: convnet speed comparison: https://github.com/soumith/convnet-benchmarks
+	1000 comparison: convnet speed comparison: https://github.com/soumith/convnet-benchmarks. Yukarıdaki benchmark skorlarına göre en hızlı çalışan sistemi, yazan kişi aşağıdaki yorumda açıklamış. http://petewarden.com/2015/04/20/why-gemm-is-at-the-heart-of-deep-learning/#comments
 	1000 comparison: http://blog.udacity.com/2016/01/putting-deep-learning-to-work.html tensorflow course?
 	1000 comparison: http://googleresearch.blogspot.com/2015/11/tensorflow-googles-latest-machine_9.html
 	1000 comparison: https://github.com/Lasagne/Lasagne
