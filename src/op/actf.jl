@@ -95,7 +95,7 @@ function softforw(x::Array,y::Array;o...)
 end
 
 
-@doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^b+b elementwise." :axpb
+@doc "@knet function axpb(x;a=1,p=1,b=0) computes y=ax^p+b elementwise." :axpb
 type Axpb <: Actf; a; p; b; Axpb(;a=1,p=1,b=0,o...)=new(a,p,b); end
 back_reads_x(f::Axpb)=(f.p!=1)
 back_reads_y(f::Axpb)=false
