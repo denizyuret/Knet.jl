@@ -610,6 +610,7 @@ complex models using your own set of operators.  To see some example
 reusable operators take a look at the :ref:`Knet compound operators
 <compounds-table>` table and see their definitions in `kfun.jl`_.
 
+.. _training-with-minibatches:
 
 Training with minibatches
 -------------------------

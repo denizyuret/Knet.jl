@@ -172,5 +172,119 @@ when some components of :math:`\hat{p}` get very small.  In practice
 we usually skip that and directly compute the gradient with respect to
 :math:`y` which is numerically stable.
 
-.. softmax classifier
+MNIST example
+-------------
 
+.. _MNIST: http://yann.lecun.com/exdb/mnist
+
+Let's try our softmax classifier on the MNIST_ handwritten digit
+classification dataset.  Here are the first 8 images from MNIST, the goal is
+to look at the pixels and classify each image as one of the digits
+0-9:
+
+.. image:: images/firsteightimages.jpg
+
+See :ref:`training-with-minibatches` for more information about the
+MNIST task, loading and minibatching data, and simple train and test
+scripts.
+
+Here is a softmax classifier in Knet:
+
+.. testcode::
+
+    @knet function mnist_softmax(x)
+        w = par(init=Gaussian(0,0.001), dims=(10,28*28))
+        b = par(init=Constant(0), dims=(10,1))
+        y = w * x + b
+        return soft(y)
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+We will compile our model and set an appropriate learning rate:
+
+.. doctest::
+
+    julia> model = compile(:mnist_softmax);
+    julia> setp(model; lr=0.15);
+
+Let us train our model for 100 epochs and print out the negative log
+likelihood (``softloss``) and classification error (``zeroone``) on
+the training and testing sets after every epoch:
+
+.. testcode::
+
+    for epoch=1:nepochs
+        train(model, dtrn, softloss)
+        @printf("epoch:%d softloss:%g/%g zeroone:%g/%g\n", epoch,
+                test(model, dtrn, softloss),
+                test(model, dtst, softloss),
+                test(model, dtrn, zeroone),
+                test(model, dtst, zeroone))
+    end
+
+.. testoutput::
+
+   epoch:1 softloss:0.359311/0.342333 zeroone:0.103033/0.094
+   epoch:2 softloss:0.32429/0.311829 zeroone:0.0924667/0.088
+   ...
+   epoch:99 softloss:0.238815/0.270058 zeroone:0.0668667/0.0763
+   epoch:100 softloss:0.238695/0.270091 zeroone:0.0668333/0.0762
+
+Here is a plot of the losses vs training epochs:
+
+.. image:: images/mnist_softmax.png
+
+We can observe a few things.  First the training losses are better
+than the test losses.  This means there is some **overfitting**.
+Second, it does not look like the training loss is going down to zero.
+This means the softmax model is not flexible enough to fit the
+training data exactly.
+
+Representational power
+----------------------
+
+So far we have seen how to create a machine learning model as a
+differentiable program (linear regression, softmax classification)
+whose parameters can be adjusted to hopefully imitate whatever process
+generated our training data.  A natural question to ask is whether a
+particular model can behave like any system we want (given the right
+parameters) or whether there is a limit to what it can represent.
+
+
+It turns out the softmax classifier is quite limited in its
+representational power: it can only represent linear classification
+boundaries.  To show this, remember the form of the softmax classifier
+which gives the probability of the i'th class as:
+
+.. math::
+
+   p_i &=& \frac{\exp y_i}{\sum_{c=1}^C \exp y_c} \\
+
+where :math:`y_i` is a linear function of the input :math:`x`.  Note
+that :math:`p_i` is a monotonically increasing function of
+:math:`y_i`, so for two classes :math:`i` and :math:`j`, :math:`p_i >
+p_j` if :math:`y_i > y_j`.  The boundary between two classes :math:`i`
+and :math:`j` is the set of inputs for which the probability of the
+two classes are equal:
+
+.. math::
+
+   p_i &=& p_j \\
+   y_i &=& y_j \\
+   w_i x + b_i &=& w_j x + b_j \\
+   (w_i - w_j) x + (b_i - b_j) &=& 0
+
+where :math:`w_i, b_i` refer to the i'th row of :math:`w` and
+:math:`b`. This is a linear equation, i.e. the border between two
+classes will always be linear in the input space with the softmax
+classifier:
+
+.. image:: images/linear-boundary.png
+
+In the MNIST example, the relation between the pixels and the digit
+classes is unlikely to be this simple.  That is why we are stuck at
+6-7% training error.  To get better results we need more powerful
+models.
