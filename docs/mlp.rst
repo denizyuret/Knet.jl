@@ -129,11 +129,14 @@ function approximators!
 
 Please see `(Nielsen, 2016, Ch 4)`_ for an intuitive explanation of
 this result and `(Bengio et al. 2016, Ch 6.4)`_ for a more in depth
-discussion and references.
+discussion and references.  `(Karpathy, 2016, Ch 1)`_ also has a good
+explanation of activation functions and architecture.
 
 .. _(Nielsen, 2016, Ch 4): http://neuralnetworksanddeeplearning.com/chap4.html
 
 .. _(Bengio et al. 2016, Ch 6.4): http://www.deeplearningbook.org/contents/mlp.html
+
+.. _(Karpathy, 2016, Ch 1): http://cs231n.github.io/neural-networks-1
 
 .. universality: nielsen constructs it turning step activations into
 .. bump functions to approx a given function.  He uses two hidden

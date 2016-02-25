@@ -146,6 +146,8 @@ Gradient of log likelihood
 To compute the gradient for log likelihood, we need to make the
 normalization of :math:`\hat{p}` explicit:
 
+.. TODO: explain why we need explicit normalization.
+
 .. math::
 
    \ell &=& \sum_c p_c \log \frac{\hat{p}_c}{\sum_k\hat{p}_k} \\

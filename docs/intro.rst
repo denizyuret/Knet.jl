@@ -1529,5 +1529,7 @@ Function                	 	Description
 ..   array of size ``dims`` filled with random numbers from the standard
 ..   normal distribution.
 
-TODO: put example output in the beginning, mention all examples in the introduction...
+.. TODO: put example output in the beginning, mention all examples in the introduction...
 
+.. TODO: gradient checking
+.. TODO: mlp example (use mnist everywhere?)

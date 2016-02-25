@@ -4,6 +4,10 @@ Convolutional Neural Networks
 
 .. Notes from: http://cs231n.github.io/convolutional-networks
 
+.. For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
+
+.. TODO: add references at the end of each section.
+
 .. discuss efficiency, reducing parameters reduces learning complexity
 .. even though mlp is universal, learning weights for a cat-recognizer
 .. would end up repeating weights.
