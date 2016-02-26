@@ -21,13 +21,12 @@ function _conv2_gemm{T}(x0::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=fa
     else
         x=x0
     end
-    window = size(w,1)
-    row_extend = size(x,1)-window+1
-    col_extend = size(x,2)-window+1
-    widx = [(j-1)*size(x,1)+i for i in 1:row_extend, j in 1:col_extend]
+    rwindow, cwindow = size(w)
+    row_extend = size(x,1)-rwindow+1
+    col_extend = size(x,2)-cwindow+1
 
-    oidx = [(j-1)*size(x,1)+i for i in 1:window, j in 1:window]
-    # @show oidx = [(j-1)*size(A,1)+i for i in window:-1:1, j in window:-1:1]
+    widx = [(j-1)*size(x,1)+i for i in 1:row_extend, j in 1:col_extend]
+    oidx = [(j-1)*size(x,1)+i for i in 1:rwindow, j in 1:cwindow]
     destidx = [i+(j-1) for i in widx, j in oidx]
     return reshape(x[destidx]*(xcorr ? w[:] : reverse(w[:])),row_extend,col_extend)
 end
@@ -49,7 +48,7 @@ function cudnnConvolutionForward{T}(x::Array{T,4}, w::Array{T,4}, y::Array{T,4};
     @assert (padding==0 && stride==1 && upscale==1 && mode==CUDNN_CONVOLUTION && algorithm == CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM) "$((padding,stride,upscale,mode,algorithm))"
     Wx,Hx,Cx,N = size(x)
     Ww,Hw,Cw,K = size(w)
-    @assert Cx==Cw
+    @assert (Cx==Cw && Hx>=Hw && Wx>=Ww) "$((Wx,Hw,Ww,Hw))"
 
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
         y[:,:,k,n] += _conv2_gemm(x[:,:,c,n], w[:,:,c,k]; pad=padding, stride=stride, xcorr=mode!=0)
