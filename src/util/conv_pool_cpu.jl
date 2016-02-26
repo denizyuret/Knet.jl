@@ -14,14 +14,19 @@ else
     const CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING = (UInt32)(2)
 end
 
-function _conv2_gemm{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
-    window = size(w,1)
-    row_extend = size(x,1)-window+1
-    col_extend = size(x,2)-window+1
-    widx = [(j-1)*size(x,1)+i for i in 1:row_extend, j in 1:col_extend]
+function _conv2_gemm{T}(x0::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
+    if pad > 0
+        x=zeros(eltype(x0),map(m->2pad+m,size(x0))) 
+        x[pad+1:end-pad,pad+1:end-pad] = x0
+    else
+        x=x0
+    end
+    rwindow, cwindow = size(w)
+    row_extend = size(x,1)-rwindow+1
+    col_extend = size(x,2)-cwindow+1
 
-    oidx = [(j-1)*size(x,1)+i for i in 1:window, j in 1:window]
-    # @show oidx = [(j-1)*size(A,1)+i for i in window:-1:1, j in window:-1:1]
+    widx = [(j-1)*size(x,1)+i for i in 1:row_extend, j in 1:col_extend]
+    oidx = [(j-1)*size(x,1)+i for i in 1:rwindow, j in 1:cwindow]
     destidx = [i+(j-1) for i in widx, j in oidx]
     return reshape(x[destidx]*(xcorr ? w[:] : reverse(w[:])),row_extend,col_extend)
 end
@@ -43,7 +48,7 @@ function cudnnConvolutionForward{T}(x::Array{T,4}, w::Array{T,4}, y::Array{T,4};
     @assert (padding==0 && stride==1 && upscale==1 && mode==CUDNN_CONVOLUTION && algorithm == CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM) "$((padding,stride,upscale,mode,algorithm))"
     Wx,Hx,Cx,N = size(x)
     Ww,Hw,Cw,K = size(w)
-    @assert Cx==Cw
+    @assert (Cx==Cw && Hx>=Hw && Wx>=Ww) "$((Wx,Hw,Ww,Hw))"
 
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
         y[:,:,k,n] += _conv2_gemm(x[:,:,c,n], w[:,:,c,k]; pad=padding, stride=stride, xcorr=mode!=0)
@@ -74,7 +79,8 @@ function cudnnConvolutionBackwardData{T}(w::Array{T,4}, dy::Array{T,4}, dx::Arra
     Ww,Hw,C,Kw = size(w)
     @assert Ky==Kw
     @inbounds for n in 1:N, c in 1:C, k in 1:Kw
-        t = conv2(dy[:,:,k,n], rot180(w[:,:,c,k]))
+        t = _conv2_gemm(dy[:,:,k,n], w[:,:,c,k]; xcorr=true, pad=Ww-1)
+        # t = conv2(dy[:,:,k,n], rot180(w[:,:,c,k]))
         # t = _conv2(dy[:,:,k,n], w[:,:,c,k]; pad=Ww-1, stride=stride, xcorr=true)
         dx[:,:,c,n] += t
     end
