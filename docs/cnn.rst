@@ -2,9 +2,358 @@
 Convolutional Neural Networks
 *****************************
 
-.. Notes from: http://cs231n.github.io/convolutional-networks
+Motivation
+----------
 
-.. For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
+.. _ILSVRC: http://www.image-net.org/challenges/LSVRC/2014
+
+Let's say we are trying to build a model that will detect cats in
+photographs.  The average resolution of images in ILSVRC_ is
+:math:`482\times 415`, with three channels (RGB) this makes the
+typical input size :math:`482\times 415\times 3=600,090`.  Each hidden
+unit connected to the input in a multilayer perceptron would have 600K
+parameters, a single hidden layer of size 1000 would have 600 million
+parameters.  Too many parameters cause two types of problems: (1)
+today's GPUs have limited amount of memory (4G-12G) and large networks
+fill them up quickly.  (2) models with a large number of parameters
+are difficult to train without overfitting: we need a lot of data,
+strong regularization, and/or a good initialization to learn with
+large models.
+
+One problem with the MLP is that it is fully connected: every hidden
+unit is connected to every input pixel.  The model does not assume any
+spatial relationships between pixels, in fact we can permute all the
+pixels in an image and the performance of the MLP would be the same!
+We could instead have an architecture where each hidden unit is
+connected to a small patch of the image, say :math:`40\times 40`.
+Each such locally connected hidden unit would have :math:`40\times
+40\times 3=4800` parameters instead of 600K.  For the price (in
+memory) of one fully connected hidden unit, we could have 125 of these
+locally connected mini-hidden-units with receptive fields spread
+around the image.
+
+The second problem with the MLP is that it does not take advantage of
+the symmetry in the problem: a cat in the lower right corner of the
+image is going to be similar to a cat in the lower left corner.  This
+means the local hidden units looking at these two patches can share
+identical weights.  We can take one :math:`40\times 40` cat filter and
+apply it to each :math:`40\times 40` patch in the image taking up only
+4800 parameters.
+
+.. TODO: add a picture of local vs fully connected.
+
+A **convolutional neural network** (aka CNN or ConvNet) combines these
+two ideas and uses operations that are local and that share weights.
+CNNs commonly use three types of operations: convolution, pooling, and
+normalization which we describe next.
+
+
+Convolution
+-----------
+
+**Convolution in 1-D**
+
+Let :math:`w, x` be two 1-D vectors with :math:`W, X` elements
+respectively.  In our examples, we will assume x is the input
+(consider it a 1-D image) and w is a filter with :math:`W<X`.  The 1-D
+convolution operation :math:`y=w\ast x` results in a vector with
+:math:`Y=X-W+1` elements defined as:
+
+.. math::
+
+   y_i \equiv \sum_{t=i}^{i+W-1} x_t w_{i+W-t} \,\,\forall i\in\{1,\ldots,X-W+1\}
+
+This can be visualized as flipping w, sliding it over x, and at each
+step writing their dot product into y.  Here is an example in Knet you
+should be able to calculate by hand:
+
+.. doctest::
+
+   @knet function convtest1(x)
+       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
+       y = conv(w, x)
+       return y
+   end
+   julia> f = compile(:convtest1);
+   julia> x = reshape([1.0:7.0...], (7,1,1,1))
+   7x1x1x1 Array{Float64,4}: [1,2,3,4,5,6,7]
+   julia> y = forw(f,x)
+   5x1x1x1 Array{Float64,4}: [10,16,22,28,34]
+
+.. _CUDNN: https://developer.nvidia.com/cudnn
+
+``conv`` is the convolution operation in Knet (based on the CUDNN_
+implementation).  For reasons that will become clear it works with 4-D
+and 5-D arrays, so we reshape our 1-D input vectors by adding extra
+singleton dimensions at the end.  The convolution of w=[1,2,3] and
+x=[1,2,3,4,5,6,7] gives y=[10,16,22,28,34].  For example, the third
+element of y, 22, can be obtained by reversing w to [3,2,1] and taking
+its dot product starting with the third element of x, [3,4,5].
+
+
+**Padding**
+
+In the last example, the input x had 7 dimensions, the output y had 5.
+In image processing applications we typically want to keep x and y the
+same size.  For this purpose we can provide a ``padding`` keyword
+argument to the ``conv`` operator.  If padding=k, x will be assumed
+padded with k zeros on the left and right before the convolution,
+e.g. padding=1 means treat x as [0 1 2 3 4 5 6 7 0].  The result will
+have :math:`Y=X+2P-W+1` elements where :math:`P` is the padding size.
+Therefore to preserve the size of x when W=3 we should use padding=1
+(the default padding is 0).
+
+.. doctest::
+
+   @knet function convtest2(x)
+       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
+       y = conv(w, x; padding=1)
+       return y
+   end
+   julia> f = compile(:convtest2);
+   julia> y = forw(f,x)
+   7x1x1x1 Array{Float64,4}: [4,10,16,22,28,34,32]
+
+.. TODO: implement actual 1-D convolution.
+
+For example, to calculate the first entry of y, take the dot product
+of the inverted w, [3,2,1] with the first three elements of the padded
+x, [0 1 2].  You can see that in order to preserve the input size,
+:math:`Y=X`, given a filter size :math:`W`, the padding should be set
+to :math:`P=(W-1)/2`.  This will work if W is odd.
+
+**Stride**
+
+In the preceding examples we shift the inverted w by one position
+after each dot product.  In some cases you may want to skip two or
+more positions.  The amount of skip is set by the ``stride`` keyword
+argument of the ``conv`` operation (the default stride is 1).  In the
+following example we set stride to W such that the consecutive filter
+applications are non-overlapping:
+
+.. doctest::
+
+   @knet function convtest3(x)
+       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
+       y = conv(w, x; padding=1, stride=3)
+       return y
+   end
+   julia> f = compile(:convtest3);
+   julia> y = forw(f,x)
+   3x1x1x1 Array{Float64,4}: [4,22,32]
+
+Note that the output has the first, middle, and last values of the
+previous example, i.e. every third value is kept and the rest are
+skipped.  In general if stride=S and padding=P, the size of the output
+will be:
+
+.. math::
+
+   Y = 1 + \left\lfloor\frac{X+2P-W}{S}\right\rfloor
+
+
+.. TODO: mode is not very useful and is not supported by cpu, at some
+.. point add it to the documentation.
+
+**More Dimensions**
+
+When the input x has multiple dimensions convolution is defined
+similarly.  In particular the filter w has the same number of
+dimensions but typically smaller size.  The convolution operation
+flips w in each dimension and slides it over x, calculating the sum of
+elementwise products at every step.  The formulas we have given above
+relating the output size to the input and filter sizes, padding and
+stride parameters apply independently for each dimension.
+
+Knet supports 2D and 3D convolutions.  The inputs and the filters have
+two extra dimensions at the end which means we use 4D and 5D arrays
+for 2D and 3D convolutions.  Here is a 2D convolution example:
+
+.. doctest::
+
+   @knet function convtest4(x)
+       w = par(init=reshape([1.0:4.0...], (2,2,1,1)))
+       y = conv(w, x)
+       return y
+   end
+   julia> f = compile(:convtest4);
+   julia> x = reshape([1.0:9.0...], (3,3,1,1));
+   julia> y = forw(f,x);
+   julia> x
+   3x3x1x1 Array{Float64,4}:
+   [:, :, 1, 1] =
+    1.0  4.0  7.0
+    2.0  5.0  8.0
+    3.0  6.0  9.0
+   julia> get(f,:w)
+   2x2x1x1 Array{Float64,4}:
+   [:, :, 1, 1] =
+    1.0  3.0
+    2.0  4.0
+   julia> y
+   2x2x1x1 CudaArray{Float64,4}:
+   [:, :, 1, 1] =
+    23.0  53.0
+    33.0  63.0
+
+To see how this result comes about, note that when you flip w in both
+dimensions you get::
+
+   4 2
+   3 1
+
+Multiplying this elementwise with the upper left corner of x::
+
+   1 4
+   2 5
+
+and adding the results gives you the first entry 23.
+
+The padding and stride options work similarly in multiple dimensions
+and can be specified as tuples: padding=(1,2) means a padding width of
+1 along the first dimension and 2 along the second dimension for a 2D
+convolution.  You can use padding=1 as a shorthand for padding=(1,1).
+
+**Multiple filters**
+
+So far we have been ignoring the extra dimensions at the end of our
+convolution arrays.  Now we are ready to put them to use.  A
+D-dimensional input image is typically represented as a D+1
+dimensional array with dimensions:
+
+.. math::
+
+   [ X_1, \ldots, X_D, C ]
+
+The first D dimensions :math:`X_1\ldots X_D` determine the spatial
+extent of the image.  The last dimension :math:`C` is the number of
+channels.  The definition and number of channels is application
+dependent.  We use C=3 for RGB images representing the intensity in
+three colors: red, green, and blue.  For grayscale images we have a
+single channel, C=1.  If you were developing a model for chess, we
+could have C=12, each channel representing the locations of a
+different piece type.
+
+In an actual CNN we do not typically hand-code the filters.  Instead
+we tell the network: "here are 1000 randomly initialized filters, you
+go ahead and turn them into patterns useful for my task."  This means
+we usually work with banks of multiple filters simultaneously and GPUs
+have optimized operations for such filter banks.  The dimensions of a
+typical filter bank are:
+
+.. math::
+
+   [ W_1, \ldots, W_D, I, O ]
+
+The first D dimensions :math:`W_1\ldots W_D` determine the spatial
+extent of the filters.  The next dimension :math:`I` is the number of
+input channels, i.e. the number of filters from the previous layer, or
+the number of color channels of the input image.  The last dimension
+:math:`O` is the number of output channels, i.e. the number of filters
+in this layer.
+
+If we take an input of size :math:`[X_1,\ldots, X_D,I]` and apply a
+filter bank of size :math:`[W_1,\ldots,W_D,I,O]` using padding
+:math:`[P_1,\ldots,P_D]` and stride :math:`[S_1,\ldots,S_D]` the
+resulting array will have dimensions:
+
+.. math::
+
+   [ W_1, \ldots, W_D, I, O ] \ast [ X_1, \ldots, X_D, I ] 
+   \Rightarrow [ Y_1, \ldots, Y_D, O ] \\
+
+   \mbox{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
+
+As an example let's start with an input image of :math:`256\times 256`
+pixels and 3 RGB channels.  We'll first apply 25 filters of size
+:math:`5\times 5` and padding=2, then 50 filters of size
+:math:`3\times 3` and padding=1, and finally 75 filters of size
+:math:`3\times 3` and padding=1.  Here are the dimensions we will get:
+
+.. math::
+
+   [ 256, 256, 3 ] \ast [ 5, 5, 3, 25 ] \Rightarrow [ 256, 256, 25 ] \\
+   [ 256, 256, 25] \ast [ 3, 3, 25,50 ] \Rightarrow [ 256, 256, 50 ] \\
+   [ 256, 256, 50] \ast [ 3, 3, 50,75 ] \Rightarrow [ 256, 256, 75 ]
+
+Note that the number of input channels of the input data and the
+filter bank always match.  In other words, a filter covers only a
+small part of the spatial extent of the input but all of its channel
+depth.
+
+**Multiple instances**
+
+In addition to processing multiple filters in parallel, we will want
+to implement CNNs with minibatching, i.e. process multiple inputs in
+parallel.  A minibatch of D-dimensional images is represented as a D+2
+dimensional array:
+
+.. math::
+
+   [ X_1, \ldots, X_D, I, N ]
+
+where I is the number of channels as before, and N is the number of
+images in a minibatch.  The convolution implementation in Knet/CUDNN
+use D+2 dimensional arrays for both images and filters.  We used 1 for
+the extra dimensions in our first examples, in effect using a single
+channel and a single image minibatch.  
+
+If we apply a filter bank of size :math:`[W_1, \ldots, W_D, I, O]` to
+the minibatch given above the output size would be:
+
+.. math::
+
+   [ W_1, \ldots, W_D, I, O ] \ast [ X_1, \ldots, X_D, I, N ] 
+   \Rightarrow [ Y_1, \ldots, Y_D, O, N ] \\
+
+   \mbox{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
+
+If we used a minibatch size of 128 in the previous example with
+:math:`256\times 256` images, the sizes would be:
+
+.. math::
+
+   [ 256, 256, 3, 128 ] \ast [ 5, 5, 3, 25 ] \Rightarrow [ 256, 256, 25, 128 ] \\
+   [ 256, 256, 25, 128] \ast [ 3, 3, 25,50 ] \Rightarrow [ 256, 256, 50, 128 ] \\
+   [ 256, 256, 50, 128] \ast [ 3, 3, 50,75 ] \Rightarrow [ 256, 256, 75, 128 ]
+
+basically adding an extra dimension of 128 at the end of each data
+array.  
+
+By the way, the arrays in this particular example already exceed 5GB
+of storage, so you would want to use a smaller minibatch size if you
+had a K20 GPU with 4GB of RAM.
+
+Note: All the dimensions given above are for column-major languages
+like Knet.  CUDNN uses row-major notation, so all the dimensions
+would be reversed, e.g. :math:`[N,I,X_D,\ldots,X_1]`.
+
+**Backpropagation**
+
+
+
+Pooling
+-------
+
+
+Normalization
+-------------
+
+TODO: LCN, LRN, DivN, BatchNormalization, Inception?
+
+
+Architectures
+-------------
+
+
+References
+----------
+
+Some of this was based on notes from: http://cs231n.github.io/convolutional-networks
+
+For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
+
+The CUDNN manual has more details about the implementation: https://developer.nvidia.com/cudnn
 
 .. TODO: add references at the end of each section.
 
