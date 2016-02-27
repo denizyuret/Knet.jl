@@ -98,16 +98,20 @@ In image processing applications we typically want to keep x and y the
 same size.  For this purpose we can provide a ``padding`` keyword
 argument to the ``conv`` operator.  If padding=k, x will be assumed
 padded with k zeros on the left and right before the convolution,
-e.g. padding=1 means treat x as [0 1 2 3 4 5 6 7 0].  The result will
-have :math:`Y=X+2P-W+1` elements where :math:`P` is the padding size.
-Therefore to preserve the size of x when W=3 we should use padding=1
-(the default padding is 0).
+e.g. padding=1 means treat x as [0 1 2 3 4 5 6 7 0].  The default
+padding is 0.  For inputs in D-dimensions we can specify padding with
+a D-tuple, e.g. ``padding=(1,2)`` for 2D, or a single number,
+e.g. ``padding=1`` which is shorthand for ``padding=(1,1)``.  The
+result will have :math:`Y=X+2P-W+1` elements where :math:`P` is the
+padding size.  Therefore to preserve the size of x when W=3 we should
+use padding=1.
+
 
 .. doctest::
 
    @knet function convtest2(x)
        w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
-       y = conv(w, x; padding=1)
+       y = conv(w, x; padding=(1,0))
        return y
    end
    julia> f = compile(:convtest2);
@@ -135,7 +139,7 @@ applications are non-overlapping:
 
    @knet function convtest3(x)
        w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
-       y = conv(w, x; padding=1, stride=3)
+       y = conv(w, x; padding=(1,0), stride=3)
        return y
    end
    julia> f = compile(:convtest3);
@@ -227,12 +231,12 @@ dimensional array with dimensions:
 
 The first D dimensions :math:`X_1\ldots X_D` determine the spatial
 extent of the image.  The last dimension :math:`C` is the number of
-channels.  The definition and number of channels is application
-dependent.  We use C=3 for RGB images representing the intensity in
-three colors: red, green, and blue.  For grayscale images we have a
-single channel, C=1.  If you were developing a model for chess, we
-could have C=12, each channel representing the locations of a
-different piece type.
+channels (aka slices, frames, maps, filters).  The definition and
+number of channels is application dependent.  We use C=3 for RGB
+images representing the intensity in three colors: red, green, and
+blue.  For grayscale images we have a single channel, C=1.  If you
+were developing a model for chess, we could have C=12, each channel
+representing the locations of a different piece type.
 
 In an actual CNN we do not typically hand-code the filters.  Instead
 we tell the network: "here are 1000 randomly initialized filters, you
@@ -330,21 +334,302 @@ would be reversed, e.g. :math:`[N,I,X_D,\ldots,X_1]`.
 
 **Backpropagation**
 
+See http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf for a
+derivation of the backward pass for convolution.
 
+.. TODO: summarize the derivative, maybe using 1D.
 
 Pooling
 -------
 
+It is common practice to use pooling layers in between convolution
+operations in CNNs.  Pooling reduces the size of its input by
+replacing each patch of a given size with a single value, typically
+the maximum or the average value in the patch.
+
+Like convolution, pooling slides a small window of a given size over
+the input optionally padded with zeros skipping stride pixels every
+step.  By default there is no padding, the window size is 2, and
+stride is equal to the window size.  The default pooling operation is
+max.
+
+**Pooling in 1-D**
+
+Here is a 1-D example:
+
+.. doctest::
+
+   @knet function pooltest1(x)
+       y = pool(x)
+       return y
+   end
+   julia> f = compile(:pooltest1)
+   julia> x = reshape([1.0:6.0...], (6,1,1,1))
+   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
+   julia> forw(f,x)
+   3x1x1x1 CudaArray{Float64,4}: [2,4,6]
+
+With window size and stride equal to 2, pooling considers the input
+windows :math:`[1,2], [3,4], [5,6]` and picks the maximum in each
+window.  
+
+**Window**
+
+The default and most commonly used window size is 2, however other
+window sizes can be specified using the ``window`` keyword.  For
+D-dimensional inputs the size can be specified using a D-tuple,
+e.g. ``window=(2,3)`` for 2-D, or a single number, e.g. ``window=3``
+which is shorthand for ``window=(3,3)`` in 2-D.  Here is an example
+using a window size of 3 instead of the default 2:
+
+.. doctest::
+
+   @knet function pooltest2(x)
+       y = pool(x; window=3)
+       return y
+   end
+   julia> f = compile(:pooltest1)
+   julia> x = reshape([1.0:6.0...], (6,1,1,1))
+   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
+   julia> forw(f,x)
+   3x1x1x1 CudaArray{Float64,4}: [3,6]
+
+With a window and stride of 3 (the stride is equal to window size by
+default), pooling considers the input windows :math:`[1,2,3],[4,5,6]`,
+and writes the maximum of each window to the output.  If the input
+size is :math:`X`, and stride is equal to the window size :math:`W`,
+the output will have :math:`Y=\lceil X/W\rceil` elements.
+
+**Padding**
+
+The amount of zero padding is specified using the ``padding`` keyword
+argument just like convolution.  Padding is 0 by default.  For
+D-dimensional inputs padding can be specified as a tuple such as
+``padding=(1,2)``, or a single number ``padding=1`` which is shorthand
+for ``padding=(1,1)`` in 2-D.  Here is a 1-D example:
+
+.. doctest::
+
+   @knet function pooltest3(x)
+       y = pool(x; padding=(1,0))
+       return y
+   end
+   julia> f = compile(:pooltest3)
+   julia> x = reshape([1.0:6.0...], (6,1,1,1))
+   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
+   julia> forw(f,x)
+   3x1x1x1 CudaArray{Float64,4}: [1,3,5,6]
+
+In this example, window=stride=2 by default and the padding size is 1,
+so the input is treated as :math:`[0,1,2,3,4,5,6,0]` and split into
+windows of :math:`[0,1],[2,3],[4,5],[6,0]` and the maximum of each
+window is written to the output.
+
+With padding size :math:`P`, if the input size is :math:`X`, and
+stride is equal to the window size :math:`W`, the output will have
+:math:`Y=\lceil (X+2P)/W\rceil` elements.
+
+**Stride**
+
+The pooling stride is equal to the window size by default (as opposed
+to the convolution case, where it is 1 by default).  This is most
+common in practice but other strides can be specified using
+tuples e.g. ``stride=(1,2)`` or numbers e.g. ``stride=1``.
+
+.. TODO: fix infersize problem when stride != window.
+
+In general, when we have an input of size :math:`X` and pool with
+window size :math:`W`, padding :math:`P`, and stride :math:`S`, the
+size of the output will be:
+
+.. math::
+
+   Y = 1 + \left\lceil\frac{X+2P-W}{S}\right\rceil
+
+**Pooling operations**
+
+There are three pooling operations defined by CUDNN used for
+summarizing each window:
+
+* ``CUDNN_POOLING_MAX``
+* ``CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING``
+* ``CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING``
+
+These options can be specified as the value of the ``mode`` keyword
+argument to the ``pool`` operation.  The default is
+``CUDNN_POOLING_MAX`` which we have been using so far.  The last two
+compute averages, and differ in whether to include or exclude the
+padding zeros in these averages.  For example, with input
+:math:`x=[1,2,3,4,5,6]`, ``window=stride=2``, and ``padding=1`` we
+have the following outputs with the three options::
+
+  mode=CUDNN_POOLING_MAX => [1,3,5,6]
+  mode=CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING => [0.5, 2.5, 4.5, 3.0]
+  mode=CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING => [1.0, 2.5, 4.5, 6.0]
+
+**More Dimensions**
+
+D-dimensional inputs are pooled with D-dimensional windows, the size
+of each output dimension given by the 1-D formulas above.  Here is a
+2-D example with default options, i.e. window=stride=(2,2),
+padding=(0,0), mode=max::
+
+   @knet function pooltest1(x)
+       y = pool(x)
+       return y
+   end
+   julia> f = compile(:pooltest1)
+   julia> x = reshape([1.0:16.0...], (4,4,1,1))
+   4x4x1x1 Array{Float64,4}:
+   [:, :, 1, 1] =
+    1.0  5.0   9.0  13.0
+    2.0  6.0  10.0  14.0
+    3.0  7.0  11.0  15.0
+    4.0  8.0  12.0  16.0
+   julia> forw(f,x)
+   2x2x1x1 CudaArray{Float64,4}:
+   [:, :, 1, 1] =
+    6.0  14.0
+    8.0  16.0
+
+
+**Multiple channels and instances**
+
+As we saw in convolution, each data array has two extra dimensions in
+addition to the spatial dimensions: :math:`[ X_1, \ldots, X_D, I, N ]`
+where :math:`I` is the number of channels and :math:`N` is the number
+of instances in a minibatch.  
+
+When the number of channels is greater than 1, the pooling operation
+is performed independently on each channel, e.g. for each patch, the
+maximum/average in each channel is computed independently and copied
+to the output.  Here is an example with two channels::
+
+  @knet function pooltest1(x)
+      y = pool(x)
+      return y
+  end
+  julia> f = compile(:pooltest1)
+  julia> x = rand(4,4,2,1)
+  4x4x2x1 Array{Float64,4}:
+  [:, :, 1, 1] =
+   0.0235776   0.470246  0.829754  0.164617
+   0.375611    0.884792  0.561758  0.955467
+   0.00740115  0.76617   0.674633  0.480402
+   0.979588    0.949825  0.449385  0.956657
+  [:, :, 2, 1] =
+   0.254501  0.0930295  0.640946  0.270479
+   0.422195  0.0399775  0.387326  0.234855
+   0.102558  0.589408   0.69867   0.498438
+   0.823076  0.797679   0.695289  0.888321
+  julia> forw(f,x)
+  2x2x2x1 CudaArray{Float64,4}:
+  [:, :, 1, 1] =
+   0.884792  0.955467
+   0.979588  0.956657
+  [:, :, 2, 1] =
+   0.422195  0.640946
+   0.823076  0.888321
+
+When the number of instances is greater than 1, i.e. we are using
+minibatches, the pooling operation similarly runs in parallel on all
+the instances::
+
+  julia> x = rand(4,4,1,2)
+  4x4x1x2 Array{Float64,4}:
+  [:, :, 1, 1] =
+   0.664524  0.581233   0.949937  0.563411
+   0.760211  0.714199   0.985956  0.478583
+   0.190559  0.682141   0.43941   0.682127
+   0.701371  0.0159724  0.28857   0.166187
+
+  [:, :, 1, 2] =
+   0.637187  0.279795  0.0336316  0.233479
+   0.979812  0.910836  0.410312   0.94062 
+   0.171724  0.388222  0.597548   0.817148
+   0.41193   0.864101  0.178535   0.4956  
+
+  julia> forw(f,x)
+  2x2x1x2 CudaArray{Float64,4}:
+  [:, :, 1, 1] =
+   0.760211  0.985956
+   0.701371  0.682127
+
+  [:, :, 1, 2] =
+   0.979812  0.94062 
+   0.864101  0.817148
+
+
+.. TODO: **Backpropagation**
 
 Normalization
 -------------
 
-TODO: LCN, LRN, DivN, BatchNormalization, Inception?
+Karpathy says: "Many types of normalization layers have been proposed
+for use in ConvNet architectures, sometimes with the intentions of
+implementing inhibition schemes observed in the biological
+brain. However, these layers have recently fallen out of favor because
+in practice their contribution has been shown to be minimal, if any."
+(http://cs231n.github.io/convolutional-networks/#norm)  Batch
+normalization may be an exception, as it is used in modern
+architectures.
+
+Here are some references for normalization operations:
+
+Implementations:
+
+* Alex Krizhevsky's cuda-convnet library API. (https://code.google.com/archive/p/cuda-convnet/wikis/LayerParams.wiki#Local_response_normalization_layer_(same_map))
+* http://caffe.berkeleyvision.org/tutorial/layers.html
+* http://lasagne.readthedocs.org/en/latest/modules/layers/normalization.html
+
+Divisive normalisation (DivN):
+
+* S. Lyu and E. Simoncelli. Nonlinear image representation
+  using divisive normalization. In CVPR, pages 1–8, 2008.
+
+Local contrast normalization (LCN):
+
+* N. Pinto, D. D. Cox, and J. J. DiCarlo. Why is real-world visual
+  object recognition hard? PLoS Computational Biology,
+  4(1), 2008.
+* Jarrett, Kevin, et al. "What is the best multi-stage architecture
+  for object recognition?." Computer Vision, 2009 IEEE 12th
+  International Conference
+  on. IEEE, 2009. (http://yann.lecun.com/exdb/publis/pdf/jarrett-iccv-09.pdf)
+
+Local response normalization (LRN):
+
+* Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton. "Imagenet
+  classification with deep convolutional neural networks." Advances in
+  neural information processing systems. 2012. 
+  (http://machinelearning.wustl.edu/mlpapers/paper_files/NIPS2012_0534.pdf)
+
+Batch Normalization:
+
+* Ioffe, Sergey, and Christian Szegedy. "Batch normalization:
+  Accelerating deep network training by reducing internal covariate
+  shift." arXiv preprint arXiv:1502.03167 (2015). (http://arxiv.org/abs/1502.03167)
+
+.. TODO: LCN, LRN, DivN, BatchNormalization, Inception?
 
 
 Architectures
 -------------
 
+
+Exercises
+---------
+
+* Design a filter that shifts a given image one pixel to right.
+* Design an image filter that has 0 output in regions of uniform
+  color, but nonzero output at edges where the color changes.
+* If your input consisted of two consecutive frames of video, how
+  would you detect motion using convolution?
+* Can you implement matrix multiplication in terms of convolution?
+  reshape operations?  
+* Can you implement convolution in terms of matrix multiplication?
+* Can you implement elementwise broadcasting multiplication in terms
+  of convolution?
 
 References
 ----------
