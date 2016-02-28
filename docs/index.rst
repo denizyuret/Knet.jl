@@ -13,6 +13,10 @@ Contents:
 
    install
    intro
+   backprop
+   softmax
+   mlp
+   cnn
 
 .. kfun
 .. nce

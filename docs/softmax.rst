@@ -290,3 +290,8 @@ In the MNIST example, the relation between the pixels and the digit
 classes is unlikely to be this simple.  That is why we are stuck at
 6-7% training error.  To get better results we need more powerful
 models.
+
+References
+----------
+
+* http://ufldl.stanford.edu/tutorial/supervised/SoftmaxRegression

@@ -422,6 +422,11 @@ activations, or weights during training seem to help generalization,
 (3) Pressuring the optimization to stay in one corner of the weight
 space (e.g. L1, L2, maxnorm regularization) helps generalization.
 
+References
+----------
+
+* http://ufldl.stanford.edu/tutorial/supervised/LinearRegression
+
 .. The gradient of a function with respect to a vector or matrix is not
 .. only a collection of partial derivatives, but also the *direction of
 .. maximum ascent*, i.e. if you are going to take a fixed size (small)

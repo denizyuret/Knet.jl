@@ -2,6 +2,7 @@
 Convolutional Neural Networks
 *****************************
 
+
 Motivation
 ----------
 
@@ -565,6 +566,8 @@ the instances::
 Normalization
 -------------
 
+Draft...
+
 Karpathy says: "Many types of normalization layers have been proposed
 for use in ConvNet architectures, sometimes with the intentions of
 implementing inhibition schemes observed in the biological
@@ -608,7 +611,7 @@ Batch Normalization:
 
 * Ioffe, Sergey, and Christian Szegedy. "Batch normalization:
   Accelerating deep network training by reducing internal covariate
-  shift." arXiv preprint arXiv:1502.03167 (2015). (http://arxiv.org/abs/1502.03167)
+  shift." arXiv preprint arXiv:1502.03167 (2015). (http://arxiv.org/abs/1502.03167/)
 
 .. TODO: LCN, LRN, DivN, BatchNormalization, Inception?
 
@@ -616,6 +619,7 @@ Batch Normalization:
 Architectures
 -------------
 
+TODO...
 
 Exercises
 ---------
@@ -634,11 +638,21 @@ Exercises
 References
 ----------
 
-Some of this was based on notes from: http://cs231n.github.io/convolutional-networks
+* Some of this was based on notes from: http://cs231n.github.io/convolutional-networks
+* For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
+* The CUDNN manual has more details about the implementation: https://developer.nvidia.com/cudnn
+* http://deeplearning.net/tutorial/lenet.html
+* http://www.denizyuret.com/2014/04/on-emergence-of-visual-cortex-receptive.html
+* http://neuralnetworksanddeeplearning.com/chap6.html
+* http://www.deeplearningbook.org/contents/convnets.html
+* http://ufldl.stanford.edu/tutorial/supervised/FeatureExtractionUsingConvolution
+* http://ufldl.stanford.edu/tutorial/supervised/Pooling
+* http://ufldl.stanford.edu/tutorial/supervised/ConvolutionalNeuralNetwork
 
-For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
+.. TODO: mention the main motivation behind cnns, the visual cortex story.
 
-The CUDNN manual has more details about the implementation: https://developer.nvidia.com/cudnn
+.. TODO: separate programming examples from math?
+
 
 .. TODO: add references at the end of each section.
 
