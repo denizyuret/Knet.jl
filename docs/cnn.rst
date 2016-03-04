@@ -629,8 +629,8 @@ Exercises
   color, but nonzero output at edges where the color changes.
 * If your input consisted of two consecutive frames of video, how
   would you detect motion using convolution?
-* Can you implement matrix multiplication in terms of convolution?
-  reshape operations?  
+* Can you implement matrix-vector multiplication in terms of convolution?
+  How about matrix-matrix multiplication?  Do you need reshape operations?  
 * Can you implement convolution in terms of matrix multiplication?
 * Can you implement elementwise broadcasting multiplication in terms
   of convolution?

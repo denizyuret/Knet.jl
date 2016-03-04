@@ -19,6 +19,8 @@
 
 	* TODO:
 
+	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.
+	0000 BUG: soft is buggy, its derivative won't work if used inside the network, go back to xentloss/softloss design.
 	0000 add cpu conv tests to cputest.jl, test HTTPClient, register with Julia
 	0000 LoadError: unrecognized keyword argument "nrepeat" https://github.com/denizyuret/Knet.jl/issues/3
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine, by default have it search for the device with the least memory load.
@@ -31,7 +33,7 @@
 	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
 	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines: http://www.nvidia.com/docs/io/116711/sc11-multi-gpu.pdf
 	0025 speed comparison with barret code on charlm
-	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc: libcurl fails, libcurl/master passes, see what changed, apply fix to httpclient.
+	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc: libcurl fails, libcurl/master passes (this is because it doesn't test anything, the regular version calls HTTPClient.test), (cancel: see what changed, apply fix to httpclient), with regular libcurl v0.2.0 osx and ubuntu works, centos6 does not.
 	0040 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0050 use templated code for cuda kernels
 	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.

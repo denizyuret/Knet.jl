@@ -139,13 +139,15 @@ on the number of hidden layers.  The efficiency is important both
 computationally and statistically: models with fewer parameters can be
 evaluated faster, and can learn from fewer examples (ref?).  It turns
 out there are functions whose representations are *exponentially more
-expensive* in a shallow network compared to a deeper network (ref?).
-Recent winners of image recognition contests use networks with dozens
-of convolutional layers.  The advantage of deeper MLPs is empirically
-less clear, but you should experiment with the number of units and
-layers using a development set when starting a new problem.
+expensive* in a shallow network compared to a deeper network (see
+`(Nielsen, 2016, Ch 5)`_ for a discussion).  Recent winners of image
+recognition contests use networks with dozens of convolutional layers.
+The advantage of deeper MLPs is empirically less clear, but you should
+experiment with the number of units and layers using a development set
+when starting a new problem.
 
 .. _(Nielsen, 2016, Ch 4): http://neuralnetworksanddeeplearning.com/chap4.html
+.. _(Nielsen, 2016, Ch 4): http://neuralnetworksanddeeplearning.com/chap5.html
 .. _(Bengio et al. 2016, Ch 6.4): http://www.deeplearningbook.org/contents/mlp.html
 
 Please see `(Nielsen, 2016, Ch 4)`_ for an intuitive explanation of
@@ -393,6 +395,7 @@ References
 * http://www.deeplearningbook.org/contents/mlp.html
 * http://cs231n.github.io/neural-networks-1
 * http://ufldl.stanford.edu/tutorial/supervised/MultiLayerNeuralNetwork
+* http://www.wildml.com/2015/09/implementing-a-neural-network-from-scratch
 
 .. TODO: neuron picture vs matrix picture
 

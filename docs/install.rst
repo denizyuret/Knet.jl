@@ -166,9 +166,9 @@ Open up a terminal (or Putty if you are on Windows) and type::
 Replacing ``knetkey.pem`` with the path to your key file and
 ``ec2-52-53-213-180`` with the address of your machine.  If all goes
 well you should get a shell prompt.  There you can type ``julia``, and
-at the julia prompt ``Pkg.test("Knet")`` to make sure all is good.
-This should take about a minute.  If all tests pass, you are ready to
-work with Knet::
+at the julia prompt ``Pkg.update()`` and ``Pkg.build("Knet")`` to get
+the latest versions of the packages, as the versions in the AMI may be
+out of date::
 
     [ec2-user@ip-172-31-6-90 ~]$ julia
 		   _
@@ -181,6 +181,13 @@ work with Knet::
     |__/                   |  x86_64-unknown-linux-gnu
 
     WARNING: Terminal not fully functional
+    julia> Pkg.update()
+    julia> Pkg.build("Knet")
+
+Finally you can run ``Pkg.test("Knet")`` to make sure all is good.
+This should take about a minute.  If all tests pass, you are ready to
+work with Knet::
+
     julia> Pkg.test("Knet")
     INFO: Testing Knet
     INFO: Simple linear regression example
@@ -189,4 +196,3 @@ work with Knet::
 
     julia> 
 
-.. TODO
