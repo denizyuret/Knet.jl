@@ -29,7 +29,7 @@ with a colon.  For example:
 """    
 function compile(fname::Symbol; o...)
     @dbg println((:compile,:fname,fname,:o,o))
-    isdefined(Kfun, fname) || error("$fname not defined as a knet function")
+    isdefined(Kfun, fname) || error("$fname not defined as a knet function, use @knet in function declaration")
     prog = _comp(Kfun.(fname); o...)
     @dbg println((:compile,:prog,prog))
     Net(prog)
