@@ -93,8 +93,9 @@ following screen:
 
 Make sure you select the "N. California" region in the upper right
 corner, then click on AMIs on the left menu.  Choose "Public images"
-and type "Knet-0.7.2a" at the AMI search box.  You should see the
-following screen with information about the Knet AMI:
+and enter "Knet" in the AMI search box.  Pick the latest Knet image
+(Knet-0.7.2d as of this writing).  You should see the following screen
+with information about the Knet AMI:
 
 .. image:: images/aws02.png
 

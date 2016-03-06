@@ -1,24 +1,9 @@
-2016-02-28  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* docs:
-	Do not miss the key ideas. The key idea behind cnns are the visual
-	system and the efficiency argument.  The key idea behind mlps are
-	universality and backprop.  The key idea behind rnns are turning
-	completeness and unrolling in time.
-
-	Separate the programming examples from the main content.  Each
-	chapter can have a final section on programming examples /
-	exercises.  We also need math exercises.  Also reading and
-	references.
-
-	Complete the concept map.
-
-	Do the optimization and the overfitting lectures after rnn.
-
 2016-02-11  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
+	0000 installation on a cpu machine produces many warnings and errors, find a way to conditionally load gpu support.
+	0000 bmul is incomplete, complete and test it.
 	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.
 	0000 BUG: soft is buggy, its derivative won't work if used inside the network, go back to xentloss/softloss design.
 	0000 add cpu conv tests to cputest.jl, test HTTPClient, register with Julia

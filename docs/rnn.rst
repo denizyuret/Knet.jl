@@ -6,4 +6,5 @@ References
 * https://en.wikipedia.org/wiki/Recurrent_neural_network
 * https://www.willamette.edu/~gorr/classes/cs449/rnn1.html
 * http://www.deeplearningbook.org/contents/rnn.html
+* coursera hinton
 

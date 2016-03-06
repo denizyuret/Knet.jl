@@ -1,0 +1,133 @@
+2016-03-06  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO: problems nielsen does not cover:
+	recurrent neural networks, Boltzmann machines, generative models, transfer learning, reinforcement learning
+
+	* cnn-reading:
+	+ colah
+	+ hinton
+	+ ufldl
+	+ deeplearning tutorial
+	= deeplearningbook: still reading
+	= nielsen: have a sequence of experiments with mnist, may be able to use for programming assignment. interesting discussions at the end: http://neuralnetworksanddeeplearning.com/chap6.html
+	+ cs231n: check again
+
+	* cnn.rst (todo):
+	- biology
+	- conv backprop
+	- is this a knet documentation or convolution text?
+	- fix infersize problem when stride != window?
+	- why are the size formulas for conv and pool different?  they should be the same!  pooling works just like convolution without a filter.
+	- most of the detail in pooling can be eliminated if we just say it is like convolution without filter.
+	- pooling backprop
+	- normalization
+	- architectures
+	- other conv units (mlpconv from http://colah.github.io/posts/2014-07-Conv-Nets-Modular)
+	- colah has nice filter examples from gimp documentation, we could generate some.
+	- im2col relation to matrix multiplication
+	- go over melike email
+
+	* next-lecture:
+	- pooling.
+	- backprop?
+	- im2col?
+	- conv picture vs neuron picture
+	- normalization
+	- architectures
+	- viewpoint invariance, symmetry, translation scaling
+
+2016-02-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* docs:
+	Do not miss the key ideas. The key idea behind cnns are the visual
+	system and the efficiency argument.  The key idea behind mlps are
+	universality and backprop.  The key idea behind rnns are turning
+	completeness and unrolling in time.
+
+	Separate the programming examples from the main content.  Each
+	chapter can have a final section on programming examples /
+	exercises.  We also need math exercises.  Also reading and
+	references.
+
+	Complete the concept map.
+
+	Do the optimization and the overfitting lectures after rnn.
+
+2016-02-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+
+	---------- Forwarded message ---------
+	From: Deniz Yuret <denizyuret@gmail.com>
+	Date: Fri, Feb 5, 2016 at 7:19 AM
+	Subject: knet book
+
+	knet book
+
+	inference vs decision
+	loss min combines the two
+	where does reinforcement learning come in
+	classification vs regression?  could introduce later
+	unsupervised vs supervised?  could intro later
+	discriminative vs generative vs conditional?  could intro later
+	first define the main problems: we want to improve.  inference and
+	decision is the rational solution.  what signal do we get?  could
+	lead to reinforcement...  maybe sup, unsup... gen vs disc are
+	methods for conditional subtype, later? schwartz and regret?
+	maybe all this belongs to theory section, most irrelevant to loss
+	minimizing knet models.  minimize theory in the beginning.
+
+	tutorial
+	models
+	theory
+	knet reference?
+
+	.. knet seems out of place
+	.. is nce a model or theory?  maybe theory and model should be
+	interspersed.  first introduce loss/ml, do linalg etc.  what kind
+	of theory precedes perceptron, can introduce without loss!  nce
+	needs ml?  svm needs vc?
+	.. we can't solve all at once.  start writing.  put in theory as
+	the need arises.  how much data do we need?  why do we overfit?
+	why doesnt bayes overfit?  mistake bound - that underlies
+	perceptron and regret models?
+	.. where does damn reinforcement fit? definitely has actions,
+	policies etc.  not just prediction.  bayes = prediction =
+	inference.
+
+	start with linalg (perceptron more complicated, bayes too
+	theoretical)
+	make a list of concepts at start of each chapter
+	with prerequisites?
+	linear transform, model vs reality vs observations
+	prediction problem, loss function? or shall we say ml, or
+	objective function, and leave loss to action, rl?  but the
+	probability connection here is weak.
+	.. cross entropy or likelihood: likelihood assumes observations
+	not probabilistic, with xent they can be distributions. so
+	likelihood.
+	then we have one vs many inputs
+	we have one vs many outputs
+	we have the analytic solution (only here)
+	introduce gradient, batch solution (GD), instance or minibatch
+	(SGD).
+	introduce matrix multiplication notation.
+	.. later: one hot, selects columns...
+	convex function, unique minimum. (only here, softmax and svm).
+	min for train is not min for test (estimating real performance)
+	overfitting, early stop?  may not happen vc low.
+	train, dev, test split?  (no need for dev, no hyperparameters)
+	model != reality, the art of building models (i.e. chameleon
+	functions, programs?) such that something close to reality is
+	easily accessible without fiddling too much.
+
+	softmax, nnet, cnn, rnn
+	perceptron, kernel, svm?
+	structured?
+	overfitting
+	optimization
+
+	theory should follow models
+	bayes, pac/vc, shalev schwartz stuff, regret, sample complexity
+
+	we are missing pca, svd, manifold learning, clustering...

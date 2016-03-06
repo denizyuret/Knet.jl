@@ -2,9 +2,32 @@
 Convolutional Neural Networks
 *****************************
 
+.. TODO: start with biological motivation, then rename the following
+.. computational motivation.
+.. http://www.deeplearningbook.org/contents/convnets.html has biological story in final sections.
+
+.. emphasize viewpoint invariance (translational symmetry) from hinton:
+.. https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec5.pdf
+
+.. receptive fields in deeper layers are larger:
+.. http://www.deeplearningbook.org/contents/convnets.html Fig 9.4, pp. 339
+.. this is true if we don't use pooling!
 
 Motivation
 ----------
+
+.. TODO: hinton mentions 2012 and 256x256 images, let's change to
+.. ILSVRC-2012 when the revolution began.
+..  https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec5.pdf
+.. nielsen also has some history on this:
+.. http://neuralnetworksanddeeplearning.com/chap6.html
+
+.. bengio has an edge detection net for efficiency comparison:
+.. http://www.deeplearningbook.org/contents/convnets.html Fig 9.6 pp.342
+
+.. invariance vs equivariance:
+.. http://www.deeplearningbook.org/contents/convnets.html pp. 340
+.. equivariant to translation but not rotation and scaling pp. 341
 
 .. _ILSVRC: http://www.image-net.org/challenges/LSVRC/2014
 
@@ -56,17 +79,30 @@ Convolution
 
 Let :math:`w, x` be two 1-D vectors with :math:`W, X` elements
 respectively.  In our examples, we will assume x is the input
-(consider it a 1-D image) and w is a filter with :math:`W<X`.  The 1-D
-convolution operation :math:`y=w\ast x` results in a vector with
-:math:`Y=X-W+1` elements defined as:
+(consider it a 1-D image) and w is a filter (aka kernel) with
+:math:`W<X`.  The 1-D convolution operation :math:`y=w\ast x` results
+in a vector with :math:`Y=X-W+1` elements defined as:
 
 .. math::
 
-   y_i \equiv \sum_{t=i}^{i+W-1} x_t w_{i+W-t} \,\,\forall i\in\{1,\ldots,X-W+1\}
+   y_k \equiv \sum_{i+j=k+W} x_i w_j
 
-This can be visualized as flipping w, sliding it over x, and at each
-step writing their dot product into y.  Here is an example in Knet you
-should be able to calculate by hand:
+or equivalently
+
+.. TODO: mention valid vs other types of convolution.
+.. TODO: why flip?  the above expression derived from probability. flipping makes it commutative.
+
+.. math::
+
+   y_k \equiv \sum_{i=k}^{k+W-1} x_i w_{k+W-i}
+
+where :math:`i\in[1,X], j\in[1,W], k\in[1,Y]`.  We get each entry in y
+by multiplying pairs of matching entries in x and w and summing the
+results.  Matching entries in x and w are the ones whose indices add
+up to a constant.  This can be visualized as flipping w, sliding it
+over x, and at each step writing their dot product into a single entry
+in y.  Here is an example in Knet you should be able to calculate by
+hand:
 
 .. doctest::
 
@@ -156,9 +192,36 @@ will be:
 
    Y = 1 + \left\lfloor\frac{X+2P-W}{S}\right\rfloor
 
+**Mode**
 
-.. TODO: mode is not very useful and is not supported by cpu, at some
-.. point add it to the documentation.
+The convolution operation we have used so far flips the convolution
+kernel before multiplying it with the input.  To take our first 1-D convolution example with 
+
+.. math::
+
+   y_1 &=& x_1 w_W + x_2 w_{W-1} + x_3 w_{W-2} + \ldots \\
+   y_2 &=& x_2 w_W + x_3 w_{W-1} + x_4 w_{W-2} + \ldots \\
+   \ldots
+
+We could also perform a similar operation without kernel flipping:
+
+.. math::
+
+   y_1 &=& x_1 w_1 + x_2 w_2 + x_3 w_3 + \ldots \\
+   y_2 &=& x_2 w_1 + x_3 w_2 + x_4 w_3 + \ldots \\
+   \ldots
+
+This variation is called cross-correlation.  The two modes are
+specified in Knet/CUDNN by specifying one of the following as the
+value of the ``mode`` keyword:
+
+* ``CUDNN_CONVOLUTION``
+* ``CUDNN_CROSS_CORRELATION``
+
+This option would be important if we were hand designing our filters.
+However the mode does not matter for CNNs where the filters are learnt
+from data, the CNN will simply learn an inverted version of the filter
+if necessary.
 
 **More Dimensions**
 
@@ -333,26 +396,232 @@ Note: All the dimensions given above are for column-major languages
 like Knet.  CUDNN uses row-major notation, so all the dimensions
 would be reversed, e.g. :math:`[N,I,X_D,\ldots,X_1]`.
 
+
+.. **Convolution vs neuron pictures**
+
+.. http://colah.github.io/posts/2014-07-Understanding-Convolutions/
+
+.. TODO: add beautiful pictures like the ones in http://colah.github.io/posts/2014-07-Conv-Nets-Modular/
+
+.. the cbf operation is equivalent to applying f(wx+b) to each patch!
+
+.. the output is sometimes called a feature map (http://www.deeplearningbook.org/contents/convnets.html)
+
+
+**Convolution vs matrix multiplication**
+
+.. http://www.deeplearningbook.org/contents/convnets.html pp.2
+.. http://colah.github.io/posts/2014-07-Understanding-Convolutions
+.. http://cs231n.github.io/convolutional-networks/ im2col
+
+Convolution can be turned into a matrix multiplication, where certain
+entries in the matrix are constrained to be the same.  The motivation
+is to be able to use efficient algorithms for matrix multiplication
+in order to perform convolution.  The drawback is the large amount of
+memory needed due to repeated entries or sparse representations.
+
+Here is a matrix implementation for our first convolution example
+:math:`w=[1\ldots 3],\,\,x=[1\ldots 7],\,\,w\ast x = [10,16,22,28,34]`:
+
+.. image:: images/im2col1a.jpg
+   :width: 30%
+
+In this example we repeated the entries of the filter on multiple rows
+of a sparse matrix with shifted positions.  Alternatively we can
+repeat the entries of the input to place each local patch on a
+separate column of an input matrix:
+
+.. image:: images/im2col1b.jpg
+   :width: 50%
+
+The first approach turns w into a :math:`Y\times X` sparse matrix,
+wheras the second turns x into a :math:`W\times Y` dense matrix.
+
+For 2-D images, typically the second approach is used: the local
+patches of the image used by convolution are stretched out to columns
+of an input matrix, an operation commonly called ``im2col``.  Each
+convolutional filter is stretched out to rows of a filter matrix.
+After the matrix multiplication the resulting array is reshaped into
+the proper output dimensions.  The following figure illustrates these
+operations on a small example:
+
+.. image:: images/im2col2.jpg
+   :width: 40%
+
+It is also possible to go in the other direction, i.e. implement
+matrix multiplication (i.e. a fully connected layer) in terms of
+convolution.  This conversion is useful when we want to build a
+network that can be applied to inputs of different sizes: the matrix
+multiplication would fail, but the convolution will give us outputs of
+matching sizes.  Consider a fully connected layer with a weight matrix
+W of size :math:`K\times D` mapping a D-dimensional input vector x to
+a K-dimensional output vector y.  We can consider each of the K rows
+of the W matrix a convolution filter.  The following example shows how
+we can reshape the arrays and use convolution for matrix
+multiplication::
+
+  julia> using Knet, CUDNN
+  julia> x = reshape([1.0:3.0...], (3,1))
+  3x1 Array{Float64,2}:
+   1.0
+   2.0
+   3.0
+  julia> w = reshape([1.0:6.0...], (2,3))
+  2x3 Array{Float64,2}:
+   1.0  3.0  5.0
+   2.0  4.0  6.0
+  julia> y = w * x
+  2x1 Array{Float64,2}:
+   22.0
+   28.0
+  julia> f = compile(:conv, mode=CUDNN_CROSS_CORRELATION);
+  julia> x2 = reshape(x, (3,1,1,1))
+  3x1x1x1 Array{Float64,4}:
+  [:, :, 1, 1] =
+   1.0
+   2.0
+   3.0
+  julia> w2 = reshape(w', (3,1,1,2))
+  3x1x1x2 Array{Float64,4}:
+  [:, :, 1, 1] =
+   1.0
+   3.0
+   5.0
+  [:, :, 1, 2] =
+   2.0
+   4.0
+   6.0
+  julia> y2 = forw(f, w2, x2)
+  1x1x2x1 CudaArray{Float64,4}:
+  [:, :, 1, 1] =
+   22.0
+  [:, :, 2, 1] =
+   28.0
+
+In addition to computational concerns, these examples also show that a
+fully connected layer can emulate a convolutional layer given the
+right weights and vice versa, i.e. convolution does not get us any
+extra representational power.  However it does get us representational
+and statistical efficiency, i.e. the functions we would like to
+approximate are often expressed with significantly fewer parameters
+using convolutional layers and thus require fewer examples to train.
+
+.. DONE: It is also possible to convert FC to conv: http://cs231n.github.io/convolutional-networks/ Converting FC layers to CONV layers
+
 **Backpropagation**
 
-See http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf for a
-derivation of the backward pass for convolution.
+Convolution is a linear operation consisting of additions and
+multiplications, so its backward pass is not very complicated except
+for the indexing.  Just like the backward pass for matrix
+multiplication can be expressed as another matrix multiplication, the
+backward pass for convolution (at least if we use stride=1) can be
+expressed as another convolution.  We will derive the backward pass
+for a 1-D example using the cross-correlation mode (no kernel
+flipping) to keep things simple.  We will denote the cross-correlation
+operation with :math:`\star` to distinguish it from convolution
+denoted with :math:`\ast`.  Here are the individual entries of
+:math:`y=w\star x`:
 
-.. TODO: summarize the derivative, maybe using 1D.
+.. TODO: confirm this at least if we use stride=1
+
+.. math::
+
+   y_1 &=& x_1 w_1 + x_2 w_2 + x_3 w_3 + \ldots \\
+   y_2 &=& x_2 w_1 + x_3 w_2 + x_4 w_3 + \ldots \\
+   y_3 &=& x_3 w_1 + x_4 w_2 + x_5 w_3 + \ldots \\
+   \ldots
+
+As you can see, because of weight sharing the same w entry is used in
+computing multiple y entries.  This means a single w entry effects the
+objective function through multiple paths and these effects need to be
+added.  Denoting :math:`\partial J/\partial y_i` as :math:`y_i'` for
+brevity we have:
+
+.. math::
+
+   w_1' &=& x_1 y_1' + x_2 y_2' + \ldots \\
+   w_2' &=& x_2 y_1' + x_3 y_2' + \ldots \\
+   w_3' &=& x_3 y_1' + x_4 y_2' + \ldots \\
+   \ldots \\
+
+which can be recognized as another cross-correlation operation, this
+time between :math:`x` and :math:`y'`.  This allows us to write
+:math:`w'=y'\star x`.
+
+Alternatively, we can use the equivalent matrix multiplication
+operation from the last section to derive the backward pass:
+
+.. image:: images/xcor-im2col-forw.jpg
+   :width: 50%
+
+If :math:`r` is the matrix with repeated :math:`x` entries in this
+picture, we have :math:`y=wr`. Remember that the backward pass for
+matrix multiplication :math:`y=wr` is :math:`w'=y'r^T`:
+
+.. image:: images/xcor-im2col-back.jpg
+   :width: 50%
+
+which can be recognized as the matrix multiplication equivalent of the
+cross correlation operation :math:`w'=y'\star x`.
+
+Here is the gradient for the input:
+
+.. math::
+
+   x_1' &=& w_1 y_1' \\
+   x_2' &=& w_2 y_1' + w_1 y_2' \\
+   x_3' &=& w_3 y_1' + w_2 y_2' + w_1 y_3' \\
+   \ldots \\
+
+You can recognize this as a regular convolution between :math:`w` and
+:math:`y'` with some zero padding.
+
+The following resources provide more detailed derivations of the
+backward pass for convolution:
+
+* `Goodfellow, I. (2010) <http://www.iro.umontreal.ca/~lisa/pointeurs/convolution.pdf>`_. Technical report: Multidimensional, downsampled convolution for autoencoders. Technical report, Université de Montréal. 312.
+* `Bouvrie, J. (2006) <http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf>`_. Notes on convolutional neural networks.
+* UFLDL `tutorial <http://ufldl.stanford.edu/tutorial/supervised/ConvolutionalNeuralNetwork>`_ and `exercise <http://ufldl.stanford.edu/tutorial/supervised/ExerciseConvolutionalNeuralNetwork>`_ on CNNs.
+
+.. TODO: decide filter/kernel use consistently.
+
+.. DONE: also derive using matrix multiplication.
+
+.. hinton lec5 slide 11: mentions the weight tying and addition in back pass.
+.. http://ufldl.stanford.edu/tutorial/supervised/ConvolutionalNeuralNetwork/ has derivatives
+.. http://ufldl.stanford.edu/tutorial/supervised/ExerciseConvolutionalNeuralNetwork/ also
+.. http://www.deeplearningbook.org/contents/convnets.html cites Goodfellow 2010 for derivatives.  says back pass implementable by conv only when stride=1.
+.. See http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf for a derivation of the backward pass for convolution.
 
 Pooling
 -------
 
-It is common practice to use pooling layers in between convolution
-operations in CNNs.  Pooling reduces the size of its input by
-replacing each patch of a given size with a single value, typically
-the maximum or the average value in the patch.
+.. computational motivation.
+.. translational symmetry vs scale symmetry in viewpoint invariance.
+.. pooling useful for ignoring small translations? or large scaling differences? (there is no weight tying for the second)
+.. translation invariance (small shifts in input should not change the output) vs translational symmetry (same feature useful in one patch, also useful in another patch)
+.. alternatives to pooling.
+
+It is common practice to use pooling (aka subsampling) layers in
+between convolution operations in CNNs.  Pooling looks at small
+windows of the input, and computes a single summary statistic,
+e.g. maximum or average, for each window.  A pooling layer basically
+says: tell me whether this feature exists in a certain region of the
+image, I don't care exactly where.  This makes the output of the layer
+invariant to small translations of the input.  Pooling layers use
+large strides, typically as large as the window size, which reduces
+the size of their output.
+
+.. This reduces memory cost and improves representational and statistical
+.. efficiency when the function we want to represent can be approximated
+.. well.
 
 Like convolution, pooling slides a small window of a given size over
 the input optionally padded with zeros skipping stride pixels every
-step.  By default there is no padding, the window size is 2, and
-stride is equal to the window size.  The default pooling operation is
-max.
+step.  In Knet by default there is no padding, the window size is 2,
+stride is equal to the window size and the pooling operation is max.
+These default settings reduce each dimension of the input to half the
+size.
 
 **Pooling in 1-D**
 
@@ -560,6 +829,7 @@ the instances::
    0.979812  0.94062 
    0.864101  0.817148
 
+.. TODO: **Do we need pooling?**
 
 .. TODO: **Backpropagation**
 
@@ -613,13 +883,80 @@ Batch Normalization:
   Accelerating deep network training by reducing internal covariate
   shift." arXiv preprint arXiv:1502.03167 (2015). (http://arxiv.org/abs/1502.03167/)
 
-.. TODO: LCN, LRN, DivN, BatchNormalization, Inception?
+.. TODO: LCN, LRN, DivN, BatchNormalization, 
+.. TODO: what is Inception?
 
 
 Architectures
 -------------
 
-TODO...
+We have seen a number of new operations: convolution, pooling, filters
+etc.  How to best put these together to form a CNN is still an active
+area of research.  In this section we summarize common patterns of
+usage in recent work based on `(Karpathy, 2016)
+<http://cs231n.github.io/convolutional-networks>`_.
+
+* The operations in convolutional networks are usually ordered into
+  several layers of convolution-bias-activation-pooling sequences
+  (``cbfp`` is the mnemonic used in Knet).  Note that the
+  convolution-bias-activation sequence is an efficient way to
+  implement the common neural net function :math:`f(wx+b)` for a
+  locally connected and weight sharing hidden layer.  
+
+* The convolutional layers are typically followed by a number of fully
+  connected layers that end with a softmax layer for prediction (if we
+  are training for a classification problem).
+
+* It is preferrable to have multiple convolution layers with small
+  filter sizes rather than a single layer with a large filter size.
+  Consider three convolutional layers with a filter size of
+  :math:`3\times 3`.  The units in the top layer have receptive fields
+  of size :math:`7\times 7`.  Compare this with a single layer with a
+  filter size of :math:`7\times 7`.  The three layer architecture has
+  two advantages: The units in the single layer network is restricted
+  to linear decision boundaries, whereas the three layer network can
+  be more expressive.  Second, if we assume C channels, the parameter
+  tensor for the single layer network has size :math:`[7,7,C,C]`
+  whereas the three layer network has three tensors of size
+  :math:`[3,3,C,C]` i.e. a smaller number of parameters.  The one
+  disadvantage of the three layer network is the extra storage
+  required to store the intermediate results for backpropagation.
+
+* Thus common settings for convolution use :math:`3\times 3` filters
+  with ``stride = padding = 1`` (which incidentally preserves the
+  input size).  The one exception may be a larger filter size used in
+  the first layer which is applied to the image pixels.  This will
+  save memory when the input is at its largest, and linear functions
+  may be sufficient to express the low level features at this stage.
+
+* The pooling operation may not be present in every layer.  Keep in
+  mind that pooling destroys information and having several
+  convolutional layers without pooling may allow more complex features
+  to be learnt.  When pooling is present it is best to keep the window
+  size small to minimize information loss.  The common settings for
+  pooling are ``window = stride = 2, padding = 0``, which halves the
+  input size in each dimension.
+
+Beyond these general guidelines, you should look at the architectures
+used by successful models in the literature.  Some examples are 
+LeNet `(LeCun et al. 1998) <http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf>`_,
+AlexNet `(Krizhevsky et al. 2012) <http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks>`_,
+ZFNet `(Zeiler and Fergus, 2013) <http://arxiv.org/abs/1311.2901>`_,
+GoogLeNet `(Szegedy et al. 2014) <http://arxiv.org/abs/1409.4842>`_,
+VGGNet `(Simonyan and Zisserman, 2014) <http://arxiv.org/abs/1409.1556>`_, and 
+ResNet `(He et al. 2015) <http://arxiv.org/abs/1512.03385>`_.
+
+.. architecture of individual units:
+.. http://colah.github.io/posts/2014-07-Conv-Nets-Modular/
+.. claims a conv unit is a single layer mlp? and a natural extension
+.. would be multi layer:
+.. "That said, in the recent paper ‘Network in Network’ (Lin et
+.. al. (2013)), a new “Mlpconv” layer is proposed. In this model, AA
+.. would have multiple layers of neurons, with the final layer outputting
+.. higher level features for the region. In the paper, the model achieves
+.. some very impressive results, setting new state of the art on a number
+.. of benchmark datasets."
+
 
 Exercises
 ---------
@@ -638,21 +975,27 @@ Exercises
 References
 ----------
 
-* Some of this was based on notes from: http://cs231n.github.io/convolutional-networks
-* For derivatives see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf
-* The CUDNN manual has more details about the implementation: https://developer.nvidia.com/cudnn
+* Some of this chapter was based on the excellent lecture notes from: http://cs231n.github.io/convolutional-networks
+* Christopher Olah's blog has very good visual explanations (thanks to 
+  Melike Softa for the reference): http://colah.github.io/posts/2014-07-Conv-Nets-Modular
+* `UFLDL <http://ufldl.stanford.edu>`_ 
+  (or its `old version
+  <http://ufldl.stanford.edu/wiki/index.php/UFLDL_Tutorial>`_)
+  is an online tutorial with programming examples and explicit gradient derivations covering
+  `convolution <http://ufldl.stanford.edu/tutorial/supervised/FeatureExtractionUsingConvolution>`_, 
+  `pooling <http://ufldl.stanford.edu/tutorial/supervised/Pooling>`_, 
+  and `CNNs <http://ufldl.stanford.edu/tutorial/supervised/ConvolutionalNeuralNetwork>`_.
+* Hinton's video lecture and presentation at Coursera (Lec 5): https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec5.pdf
+* For a derivation of gradients see: http://people.csail.mit.edu/jvb/papers/cnn_tutorial.pdf or http://www.iro.umontreal.ca/~lisa/pointeurs/convolution.pdf
+* The CUDNN manual has more details about the convolution API: https://developer.nvidia.com/cudnn
 * http://deeplearning.net/tutorial/lenet.html
 * http://www.denizyuret.com/2014/04/on-emergence-of-visual-cortex-receptive.html
 * http://neuralnetworksanddeeplearning.com/chap6.html
 * http://www.deeplearningbook.org/contents/convnets.html
-* http://ufldl.stanford.edu/tutorial/supervised/FeatureExtractionUsingConvolution
-* http://ufldl.stanford.edu/tutorial/supervised/Pooling
-* http://ufldl.stanford.edu/tutorial/supervised/ConvolutionalNeuralNetwork
 
 .. TODO: mention the main motivation behind cnns, the visual cortex story.
 
 .. TODO: separate programming examples from math?
-
 
 .. TODO: add references at the end of each section.
 
