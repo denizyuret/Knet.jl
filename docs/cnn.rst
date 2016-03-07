@@ -877,14 +877,29 @@ Local response normalization (LRN):
   neural information processing systems. 2012. 
   (http://machinelearning.wustl.edu/mlpapers/paper_files/NIPS2012_0534.pdf)
 
-Batch Normalization:
+Batch Normalization: This is more of an optimization topic.
 
 * Ioffe, Sergey, and Christian Szegedy. "Batch normalization:
   Accelerating deep network training by reducing internal covariate
   shift." arXiv preprint arXiv:1502.03167 (2015). (http://arxiv.org/abs/1502.03167/)
 
 .. TODO: LCN, LRN, DivN, BatchNormalization, 
-.. TODO: what is Inception?
+.. TODO: what is Inception? It seems like they are trying to determine the connectivity pattern automatically.
+
+.. References from Saman for Normalization
+.. LRN 
+.. http://www.cs.toronto.edu/~fritz/absps/imagenet.pdf
+
+.. DivNorm
+.. https://code.google.com/archive/p/cuda-convnet/wikis/LayerParams.wiki#Local_response_normalization_layer_(same_map)
+.. This is equivalent to Local Contrast Normalization of Cuda-convnet in the link given. 
+
+.. LeCunn’s Formulation of LCN (not there in cudnn)
+.. http://yann.lecun.com/exdb/publis/pdf/jarrett-iccv-09.pdf
+
+.. Batch Normalization
+.. http://arxiv.org/pdf/1502.03167.pdf
+.. I have not test the batch normalization so far.
 
 
 Architectures
