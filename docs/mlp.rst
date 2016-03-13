@@ -147,7 +147,7 @@ experiment with the number of units and layers using a development set
 when starting a new problem.
 
 .. _(Nielsen, 2016, Ch 4): http://neuralnetworksanddeeplearning.com/chap4.html
-.. _(Nielsen, 2016, Ch 4): http://neuralnetworksanddeeplearning.com/chap5.html
+.. _(Nielsen, 2016, Ch 5): http://neuralnetworksanddeeplearning.com/chap5.html
 .. _(Bengio et al. 2016, Ch 6.4): http://www.deeplearningbook.org/contents/mlp.html
 
 Please see `(Nielsen, 2016, Ch 4)`_ for an intuitive explanation of
@@ -361,8 +361,8 @@ specified by ``frepeat`` configured by other keyword arguments a given
 number of times specified by ``nrepeat``.  Here is a definition of
 mlp3 using repeat::
 
-    @knet function mlp3e(x)
-        h = repeat(x; frepeat=:wbf, nrepeat=2, f=:relu, out=100)
+    @knet function mlp3e(x; o...)
+        h = repeat(x; frepeat=:wbf, nrepeat=2, f=:relu, out=100, o...)
 	return wbf(h; f=:soft, out=10)
     end
 
@@ -371,6 +371,8 @@ mlp3 using repeat::
         b = par(init=binit, dims=(out,1))
 	return f(w * x + b)
     end
+
+.. TODO: get rid of the bug in repeat that forces us to have o...
 
 In this example ``repeat`` saved us a single line, but the difference
 can be more significant in deeper models.
