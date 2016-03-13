@@ -12,6 +12,7 @@ for (ltype,lforw,lback) in
      (:Tanh, :tanhforw, :tanhback),
      (:Relu, :reluforw, :reluback),
      (:Soft, :softforw, :softback),
+     (:Soft1, :soft1forw, :soft1back),
      (:Copy, :copyforw, :copyback))
     @eval begin
         type $ltype <: Actf; $ltype(;o...)=new(); end
@@ -92,6 +93,40 @@ function softforw(x::Array,y::Array;o...)
         for i=i1:i2; y[i] /= ysum; end
     end
     return y
+end
+
+# The exception of expecting xgrad instead of ygrad in the soft layer
+# is ok if it is the last layer and is used with softloss, which is
+# aware of this exception.  However, if soft is to be used internally
+# in a model this does not work, the layer will receive ygrad.  For
+# now we will define a soft1 layer to prevent code break and
+# eventually retire the soft layer in favor of models that do not have
+# a final actf and that use what we used to call xentloss.
+
+# For the math let us use x for the input to softmax, y for output, J
+# for loss.  The softforw function computes:
+# ;; yi = exp(xi)/Σj exp(xj)
+# Softback should compute:
+# ;; ∂yi/∂xk = [(i=k)(exp xi)(Σ exp xj) - (exp xi)(exp xk)] / (Σ exp xj)^2
+# ;; = (i=k) yi - yi yk
+# ;; ∂J/∂xk = Σi (∂J/∂yi)(∂yi/∂xk)
+# ;; = Σi (∂J/∂yi)((i=k) yk - yi yk)
+# ;; = yk ((∂J/∂yk) - Σi yi (∂J/∂yi))
+
+soft1forw(x,y;o...)=softforw(x,y;o...) # forward does not change
+
+@gpu soft1back(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=(cudnnSoftmaxBackward(y, dy, dx); gpusync(); dx)
+
+function soft1back(y::Array,dy::Array,dx::Array;o...)
+    (st,nx) = size2(dy)
+    for j=1:nx
+        i1=(j-1)*st+1
+        i2=j*st
+        sumydy = zero(Float64)
+        for i=i1:i2; sumydy += y[i] * dy[i]; end
+        for i=i1:i2; dx[i] = y[i] * (dy[i] - sumydy); end
+    end
+    return dx
 end
 
 
