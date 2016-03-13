@@ -1007,6 +1007,9 @@ References
 * http://www.denizyuret.com/2014/04/on-emergence-of-visual-cortex-receptive.html
 * http://neuralnetworksanddeeplearning.com/chap6.html
 * http://www.deeplearningbook.org/contents/convnets.html
+* http://www.wildml.com/2015/11/understanding-convolutional-neural-networks-for-nlp
+
+.. TODO: checkout https://www.udacity.com/course/deep-learning--ud730
 
 .. TODO: mention the main motivation behind cnns, the visual cortex story.
 
