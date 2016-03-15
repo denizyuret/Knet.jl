@@ -1,7 +1,7 @@
 type Conv <: Op; padding; stride; upscale; mode; algorithm; workSpace; workSpaceSizeInBytes; alpha; beta;
     function Conv(; padding=0, stride=1, upscale=1, mode=CUDNN_CONVOLUTION,
                   algorithm=CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
-                  workSpace=C_NULL, workSpaceSizeInBytes=0, alpha=1.0, beta=0.0,
+                  workSpace=nothing, workSpaceSizeInBytes=0, alpha=1.0, beta=0.0,
                   o...)
         new(padding, stride, upscale, mode, algorithm, workSpace, workSpaceSizeInBytes, alpha, beta)
     end
@@ -18,8 +18,9 @@ function forw(c::Conv, w, x, y; o...)
     elseif x == nothing
         return nothing
     end
+    ws = (c.workSpace == nothing ? C_NULL : c.workSpace)
     cudnnConvolutionForward(x, w, y; padding=c.padding, stride=c.stride, upscale=c.upscale, mode=c.mode,
-                            algorithm=c.algorithm, workSpace=c.workSpace, workSpaceSizeInBytes=c.workSpaceSizeInBytes,
+                            algorithm=c.algorithm, workSpace=ws, workSpaceSizeInBytes=c.workSpaceSizeInBytes,
                             alpha=c.alpha, beta=c.beta)
     gpusync()
     return y
