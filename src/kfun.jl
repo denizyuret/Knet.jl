@@ -129,12 +129,18 @@ end
 
 @knet function cbfp73(x; cwindow=3, cpadding=div(cwindow,2), cstride=1, cmode=Knet.CUDNN_CONVOLUTION,
                       pwindow=2, ppadding=0, pstride=pwindow, pmode=Knet.CUDNN_POOLING_MAX,
-                      cinit=Xavier(), binit=Constant(0),
-                      f=:relu, o...)
+                      cinit=Xavier(), binit=Constant(0), f=:relu, o...)
     y = wconv(x; o..., window=cwindow, padding=cpadding, stride=cstride, mode=cmode, init=cinit)
     z = bias4(y; o..., init=binit)
     r = f(z; o...)
     return pool(r; o..., window=pwindow, padding=ppadding, stride=pstride, mode=pmode)
+end
+
+@knet function cbf73(x; cwindow=3, cpadding=div(cwindow,2), cstride=1, cmode=Knet.CUDNN_CONVOLUTION,
+                     cinit=Xavier(), binit=Constant(0), f=:relu, o...)
+    y = wconv(x; o..., window=cwindow, padding=cpadding, stride=cstride, mode=cmode, init=cinit)
+    z = bias4(y; o..., init=binit)
+    return f(z; o...)
 end
 
 # @knet function wbf2(x1, x2; f=:sigm, o...)
