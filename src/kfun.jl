@@ -44,6 +44,13 @@ tanh=Tanh
     return w*x
 end
 
+# The interface changes marked with suffix 73 for now.
+# Eventually these will become the defaults.
+@knet function wdot73(x; out=0, o...)
+    w = par(; o..., dims=(out,0))
+    return w*x
+end
+
 # This is already defined as a primitive in actf.jl:
 # @knet function copy(x; o...)
 #     return axpb(x)              # TODO: do something more efficient.
@@ -54,9 +61,19 @@ end
     return b+x
 end
 
+@knet function bias73(x; o...)
+    b = par(; o..., dims=(0,))
+    return b+x
+end
+
 @knet function wb(x; o...)
     y = wdot(x; o...)
     return bias(y; o...)
+end
+
+@knet function wb73(x; winit=Xavier(), binit=Constant(0), o...)
+    y = wdot(x; o..., init=winit)
+    return bias(y; o..., init=binit)
 end
 
 @knet function wf(x; f=:relu, o...)
@@ -67,6 +84,11 @@ end
 @knet function wbf(x; f=:relu, o...)
     h = wdot(x; o...)
     h = bias(h; o...)
+    return f(h; o...)
+end
+
+@knet function wbf73(x; f=:relu, o...)
+    h = wb(x; o...)
     return f(h; o...)
 end
 
@@ -83,8 +105,18 @@ end
     return conv(w,x; o...)
 end
 
+@knet function wconv73(x; out=0, window=0, o...)
+    w = par(; o..., dims=(window, window, 0, out))
+    return conv(w,x; o...)
+end
+
 @knet function bias4(x; binit=Constant(0), o...)
     b = par(; o..., init=binit, dims=(1,1,0,1))
+    return b+x
+end
+
+@knet function bias473(x; o...)
+    b = par(; o..., dims=(1,1,0,1))
     return b+x
 end
 
@@ -93,6 +125,16 @@ end
     z = bias4(y; o...)
     r = f(z; o...)
     return pool(r; o..., window=pwindow)
+end
+
+@knet function cbfp73(x; cwindow=3, cpadding=div(cwindow,2), cstride=1, cmode=Knet.CUDNN_CONVOLUTION,
+                      pwindow=2, ppadding=0, pstride=pwindow, pmode=Knet.CUDNN_POOLING_MAX,
+                      cinit=Xavier(), binit=Constant(0),
+                      f=:relu, o...)
+    y = wconv(x; o..., window=cwindow, padding=cpadding, stride=cstride, mode=cmode, init=cinit)
+    z = bias4(y; o..., init=binit)
+    r = f(z; o...)
+    return pool(r; o..., window=pwindow, padding=ppadding, stride=pstride, mode=pmode)
 end
 
 # @knet function wbf2(x1, x2; f=:sigm, o...)
@@ -107,6 +149,14 @@ end
     y2 = wdot(x2; o...)
     x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
     y3 = bias(x3; o...)
+    return f(y3; o...)
+end
+
+@knet function wbf273(x1, x2; f=:sigm, winit=Xavier(), binit=Constant(0), o...)
+    y1 = wdot(x1; o..., init=winit)
+    y2 = wdot(x2; o..., init=winit)
+    x3 = add(y2,y1)             # if (y1,y2) lstm cannot infer size with one column input
+    y3 = bias(x3; o..., init=binit)
     return f(y3; o...)
 end
 

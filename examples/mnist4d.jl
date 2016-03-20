@@ -8,10 +8,10 @@ module MNIST4D
 using Main, Knet, ArgParse
 
 @knet function lenet_model(x0)
-    x1 = cbfp(x0; out=20, f=:relu, cwindow=5, pwindow=2)
-    x2 = cbfp(x1; out=50, f=:relu, cwindow=5, pwindow=2)
-    x3 = wbf(x2; out=500, f=:relu)
-    return wbf(x3; out=10, f=:soft)
+    x1 = cbfp73(x0; out=20, f=:relu, cwindow=5, pwindow=2, cpadding=0)
+    x2 = cbfp73(x1; out=50, f=:relu, cwindow=5, pwindow=2, cpadding=0)
+    x3 = wbf73(x2; out=500, f=:relu)
+    return wbf73(x3; out=10, f=:soft)
 end
 
 function main(args=ARGS)
