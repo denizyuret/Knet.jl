@@ -2,6 +2,8 @@
 
 	* TODO:
 
+	0000 use download instead of HTTPClient or Request!  Remove those from the requirement list.
+	0000 logisticloss: need a loss function to use with a single probability output with sigm.
 	0000 installation on a cpu machine produces many warnings and errors, find a way to conditionally load gpu support.
 	0000 bmul is incomplete, complete and test it.
 	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.

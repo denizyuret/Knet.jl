@@ -1008,6 +1008,7 @@ References
 * http://neuralnetworksanddeeplearning.com/chap6.html
 * http://www.deeplearningbook.org/contents/convnets.html
 * http://www.wildml.com/2015/11/understanding-convolutional-neural-networks-for-nlp
+* http://scs.ryerson.ca/~aharley/vis/conv/ has a nice visualization of an MNIST CNN.  (Thanks to Fatih Ozhamaratli for the reference).
 
 .. TODO: checkout https://www.udacity.com/course/deep-learning--ud730
 
