@@ -17,6 +17,9 @@ Contents:
    softmax
    mlp
    cnn
+   rnn
+   rl
+   opt
 
 .. kfun
 .. nce
