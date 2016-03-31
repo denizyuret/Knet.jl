@@ -20,6 +20,7 @@ Contents:
    rnn
    rl
    opt
+   gen
 
 .. kfun
 .. nce
