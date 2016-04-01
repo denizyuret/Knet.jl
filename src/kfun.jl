@@ -210,7 +210,19 @@ end
     return h
 end
 
-
+# Based on http://arxiv.org/pdf/1412.3555v1.pdf
+# And https://github.com/karpathy/char-rnn/blob/master/model/GRU.lua
+@knet function gru(x;o...)
+    update = wbf2(x,h; o..., f=:sigm)
+    reset  = wbf2(x,h; o..., f=:sigm)
+    gatedHidden = mul(reset, h)
+    hcandidate = wbf2(x,gatedHidden; o..., f=:tanh)
+    zh = mul(hcandidate, update)
+    minup = axpb( update;a=-1, b=1)
+    zhm1 = mul(minup, h)
+    h = add(zhm1, zh)
+    return h
+end
 # This is the IRNN model, a recurrent net with relu activations whose
 # recurrent weights are initialized with the identity matrix.  From: "Le,
 # Q. V., Jaitly, N., & Hinton, G. E. (2015). A Simple Way to Initialize
