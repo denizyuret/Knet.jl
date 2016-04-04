@@ -13,7 +13,7 @@ end
 
 
 function back(::Transp, dx, dy; o...)
-  if dx != nothing
+  if dy != nothing
     copysync!(dx, dy)
   end
 end
