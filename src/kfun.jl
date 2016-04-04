@@ -1,6 +1,6 @@
 "Module that contains the bindings of Knet functions."
 module Kfun
-using Knet: @knet, Add, Arr, Axpb, Conv, Copy, Dot, Input, LRN, Mul, NCE, Par, Pool, Relu, Rnd, Sigm, Soft, Tanh
+using Knet: @knet, Add, Arr, Axpb, Conv, Copy, Dot, Input, LRN, Mul, NCE, Par, Pool, Relu, Rnd, Sigm, Soft, Tanh, Transp
 
 # function to add a knet function definition used by the @knet macro
 kdef(x,y)=eval(Kfun,Expr(:(=),x,Expr(:quote,y)))
@@ -29,7 +29,7 @@ rnd=Rnd
 sigm=Sigm
 soft=Soft
 tanh=Tanh
-
+transp=Transp
 # Define some compound knet functions:
 
 # """
