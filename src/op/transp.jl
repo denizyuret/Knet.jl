@@ -5,14 +5,14 @@ canoverwrite(::Transp)=false
 back_reads_x(::Transp)=false
 back_reads_y(::Transp)=false
 
-function forw(::Transp, x, y; o...)
+function transpforw(::Transp, x, y; o...)
   (y === x) && error("No array sharin in transp.")
   (x == nothing) && return nothing
   transpose!(y,x) # TODO decide dimensionality check, check cuda array compatibility
 end
 
 
-function back(::Transp, dx, dy; o...)
+function transpback(::Transp, dx, dy; o...)
   if dx != nothing
     copysync!(dx, dy)
   end
