@@ -33,6 +33,7 @@ include("op/lrn.jl")
 include("op/nce.jl")
 include("op/pool.jl")
 include("op/genop.jl")
+include("op/transp.jl")
 include("net.jl");              export setp, wnorm, gnorm, reset!, clean #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!,
 include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback
@@ -43,7 +44,7 @@ include("gradcheck.jl");  	export gradcheck
 include("update.jl");		export update!
 include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss,
 include("kfun.jl")
-include("transp.jl")
+
 
 # To be deprecated:
 include("data/ItemTensor.jl");		export ItemTensor
