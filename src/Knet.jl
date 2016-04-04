@@ -8,14 +8,14 @@ include("util/gpu.jl");		export gpu, @gpu, @useifgpu, setseed
 @useifgpu CUDArt
 @useifgpu CUBLAS
 @useifgpu CUSPARSE
-@useifgpu CUDNN  
+@useifgpu CUDNN
 
 ### GPU dependent includes
 @gpu include("util/cudart.jl");		# export copysync!, fillsync!
 @gpu include("util/curand.jl");
 @gpu include("util/cusparse.jl");
 @gpu include("util/deepcopy.jl"); 	# export cpucopy, gpucopy
-@gpu include("util/linalg.jl");	
+@gpu include("util/linalg.jl");
 
 ### GPU independent utilities
 include("util/dbg.jl");		export @date, @dbg, gpusync
@@ -33,16 +33,17 @@ include("op/lrn.jl")
 include("op/nce.jl")
 include("op/pool.jl")
 include("op/genop.jl")
-include("net.jl");              export setp, wnorm, gnorm, reset!, clean #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!, 
+include("net.jl");              export setp, wnorm, gnorm, reset!, clean #export Reg, Net, set!, inc!, registers, params, ninputs, out, dif, stack_isempty, stack_empty!,
 include("net/forw.jl");         export forw, sforw
 include("net/back.jl");         export back, sback
 include("net/initforw.jl")
 include("net/initback.jl")
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs _comp_parse_def
-include("gradcheck.jl");  	export gradcheck 
+include("gradcheck.jl");  	export gradcheck
 include("update.jl");		export update!
-include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
+include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss,
 include("kfun.jl")
+include("transp.jl")
 
 # To be deprecated:
 include("data/ItemTensor.jl");		export ItemTensor
