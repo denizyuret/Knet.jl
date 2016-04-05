@@ -13,12 +13,15 @@ References
 * https://www.udacity.com/course/machine-learning-reinforcement-learning--ud820
 * http://www.nature.com/nature/journal/v518/n7540/full/nature14236.html
 * http://people.csail.mit.edu/regina/my_papers/TG15.pdf
-* http://karpathy.github.io/2015/05/21/rnn-effectiveness
-  For more about REINFORCE and more generally Reinforcement Learning
-  and policy gradient methods (which REINFORCE is a special case of)
-  David Silver's class, or one of Pieter Abbeel's classes.
-  This is very much ongoing work but these hard attention models have
-  been explored, for example, in Inferring Algorithmic Patterns with
-  Stack-Augmented Recurrent Nets, Reinforcement Learning Neural
-  Turing Machines, and Show Attend and Tell.
-
+* In http://karpathy.github.io/2015/05/21/rnn-effectiveness: For more
+  about REINFORCE and more generally Reinforcement Learning and policy
+  gradient methods (which REINFORCE is a special case of) David
+  Silver's class, or one of Pieter Abbeel's classes.  This is very
+  much ongoing work but these hard attention models have been
+  explored, for example, in Inferring Algorithmic Patterns with
+  Stack-Augmented Recurrent Nets, Reinforcement Learning Neural Turing
+  Machines, and Show Attend and Tell.
+* In http://www.deeplearningbook.org/contents/ml.html: Please see
+  Sutton and Barto (1998) or Bertsekasand Tsitsiklis (1996) for
+  information about reinforcement learning, and Mnih et al.(2013) for
+  the deep learning approach to reinforcement learning.
