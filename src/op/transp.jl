@@ -53,3 +53,7 @@ function infersize(::Transp, xdims, ydims)
     end
   end
 end
+
+
+@gpu transpose!(y::CudaArray{Float32,2}, x::CudaArray{Float32,2})=CUBLAS.geam!('T', 'N', Float32(1), x, Float32(0), y, y)
+@gpu transpose!(y::CudaArray{Float64,2}, x::CudaArray{Float64,2})=CUBLAS.geam!('T', 'N', Float64(1), x, Float64(0), y, y)
