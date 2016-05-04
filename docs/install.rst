@@ -71,6 +71,8 @@ like to contribute to the code base, here are some tips:
 Using Amazon AWS
 ----------------
 
+.. TODO: give instructions for actual pricing rather than spot prices.
+
 .. _Amazon Web Services: https://aws.amazon.com
 .. _AMI: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html
 
