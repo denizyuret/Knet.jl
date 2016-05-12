@@ -1,7 +1,5 @@
 module MNIST
 using GZip
-#using HTTPClient
-using Requests
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
 const knetdata = Pkg.dir("Knet/data")
@@ -14,7 +12,7 @@ function wgetzcat(gz)
     gzpath = "$knetdata/$gz"
     if !isfile(gzpath)
         info("Downloading $mnisturl/$gz to $knetdata")
-        save(get("$mnisturl/$gz"), gzpath) # get("$mnisturl/$gz"; ostream=gz) # run(`wget $mnisturl/$gz`)
+        download("$mnisturl/$gz", "$knetdata/$gz")
     end
     fh = GZip.open(gzpath)
     a = readbytes(fh)

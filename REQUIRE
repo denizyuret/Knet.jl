@@ -6,6 +6,4 @@ CUSPARSE 0.3 0.4-
 CUDNN
 JLD
 GZip
-#HTTPClient has issues at ku: https://github.com/JuliaWeb/LibCURL.jl/issues/24 https://github.com/JuliaWeb/LibCURL.jl/issues/25
-Requests
 ArgParse

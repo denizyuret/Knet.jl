@@ -1347,6 +1347,7 @@ the parameters in their definitions to make code more readable.
 
 .. _LSTM: http://colah.github.io/posts/2015-08-Understanding-LSTMs
 .. _IRNN: http://arxiv.org/abs/1504.00941
+.. _GRU: http://arxiv.org/abs/1412.3555
 
 ===============================	==============================================================================
 Operator               		Description
@@ -1362,6 +1363,7 @@ Operator               		Description
 :func:`drop(x) <drop>`		replace ``pdrop`` of the input with 0 and scale the rest with ``1/(1-pdrop)``; kwargs: ``pdrop=0``
 :func:`lstm(x) <lstm>`		LSTM_; kwargs:``fbias=1, out=0, winit=Xavier(), binit=Constant(0)``
 :func:`irnn(x) <irnn>`		IRNN_; kwargs:``scale=1, out=0, winit=Xavier(), binit=Constant(0)``
+:func:`gru(x) <gru>`		GRU_; kwargs:``out=0, winit=Xavier(), binit=Constant(0)``
 :func:`repeat(x) <repeat>`	apply operator ``frepeat`` to input ``x`` ``nrepeat times; kwargs: ``frepeat=nothing, nrepeat=0``
 ===============================	==============================================================================
 
@@ -1381,7 +1383,7 @@ Distribution           			Description
 :func:`Gaussian(mean, std) <Gaussian>`	normally distributed random values with mean ``mean`` and standard deviation ``std``
 :func:`Identity(scale) <Identity>`	identity matrix multiplied by ``scale``
 :func:`Uniform(min, max) <Uniform>`	uniformly distributed random values between ``min`` and ``max``
-:func:`Xavier() <Xavier>`		Xavier_ initialization: uniform in :math:`[-\sqrt{3/n},\sqrt{3/n}]` where n is the number of inputs (rows)
+:func:`Xavier() <Xavier>`		Xavier_ initialization: deprecated, please use Glorot. Uniform in :math:`[-\sqrt{3/n},\sqrt{3/n}]` where n=length(a)/size(a)[end] 
 =======================================	==============================================================================
 
 .. _Xavier: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
@@ -1418,6 +1420,7 @@ Option	                	Description
 ``l2reg``			L2 regularization: ``dw += l2reg * w``
 ``adagrad``			Adagrad (boolean): ``dw2 += dw .* dw; dw = dw ./ (1e-8 + sqrt(dw2))``
 ``rmsprop``			Rmsprop (boolean): ``dw2 = dw2 * 0.9 + 0.1 * dw .* dw; dw = dw ./ (1e-8 + sqrt(dw2))``
+``adam``			Adam (boolean); see http://arxiv.org/abs/1412.6980
 ``momentum``			Momentum: ``dw += momentum * dw2; dw2 = dw``
 ``nesterov``			Nesterov: ``dw2 = nesterov * dw2 + dw; dw += nesterov * dw2``
 =============================== ==============================================================================

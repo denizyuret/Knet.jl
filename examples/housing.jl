@@ -1,13 +1,10 @@
 using Knet
-#using HTTPClient
-using Requests
 
 url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-# data = readdlm(get(url).body.data) # could do it without saving file
 file=Pkg.dir("Knet/data/housing.data")
 if !isfile(file)
     info("Downloading $url to $file")
-    save(get(url), file) # get(url; ostream=file)
+    download(url, file)
 end
 data = readdlm(file)'
 @show size(data)

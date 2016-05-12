@@ -1,29 +1,27 @@
-2016-02-11  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-04-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
-	0000 The delta-bar-delta algorithm (Jacobs, 1988) is an early heuristic approachto adapting individual learning rates for model parameters during training. Theapproach is based on a simple idea: if the partial derivative of the loss, with respectto a given model parameter, remains the same sign, then the learning rate shouldincrease. If the partial derivative with respect to that parameter changes sign,then the learning rate should decrease. Of course, this kind of rule can only beapplied to full batch optimization
-	0000 check the momentum definition compared to the Bengio book.	does alpha=0.99 mean the same thing?
-	0000 define soft73loss to be the old xentloss, i.e. softmax + cross-entropy loss, define xentloss to follow soft layer?  for binary input we have the same problem, logisticloss vs sigmloss for sigmoid followed by logistic loss?
-	0000 use download instead of HTTPClient or Request!  Remove those from the requirement list.
-	0000 logisticloss: need a loss function to use with a single probability output with sigm.
-	0000 installation on a cpu machine produces many warnings and errors, find a way to conditionally load gpu support.
-	0000 bmul is incomplete, complete and test it.
 	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.
 	0000 BUG: soft is buggy, its derivative won't work if used inside the network, go back to xentloss/softloss design.
-	0000 add cpu conv tests to cputest.jl, test HTTPClient, register with Julia
 	0000 LoadError: unrecognized keyword argument "nrepeat" https://github.com/denizyuret/Knet.jl/issues/3
 	0000 Make Knet.gpu() take an int option and set the device on multi-gpu machine, by default have it search for the device with the least memory load.
 	0000 NaN problem: julia ModelC-S-xyz.jl --lrate 0.263519 --decay 0.131408 --dropout 0.263145
 	0000 Register project under Julia (probably after fixing the CUSPARSE incompatibility and HTTPClient issue and documentation TODO fixes).
+	0000 The delta-bar-delta algorithm (Jacobs, 1988) is an early heuristic approachto adapting individual learning rates for model parameters during training. Theapproach is based on a simple idea: if the partial derivative of the loss, with respectto a given model parameter, remains the same sign, then the learning rate shouldincrease. If the partial derivative with respect to that parameter changes sign,then the learning rate should decrease. Of course, this kind of rule can only beapplied to full batch optimization
 	0000 Write Knet paper, send somewhere.
+	0000 add cpu conv tests to cputest.jl, test HTTPClient, register with Julia
+	0000 bmul is incomplete, complete and test it.
+	0000 check the momentum definition compared to the Bengio book.	does alpha=0.99 mean the same thing?
 	0000 decide ml course concept map and book chapters
+	0000 define soft73loss to be the old xentloss, i.e. softmax + cross-entropy loss, define xentloss to follow soft layer?  for binary input we have the same problem, logisticloss vs sigmloss for sigmoid followed by logistic loss?
 	0000 fix new cusparse.jl v4
+	0000 installation on a cpu machine produces many warnings and errors, find a way to conditionally load gpu support.
+	0000 logisticloss: need a loss function to use with a single probability output with sigm.
 	0000 transfer to balina (tenten, wikidump)
 	0000 unit test optimizers from http://cs231n.github.io/neural-networks-3/#ada
 	0015 - profile lstm and figure out multi-gpu: amazon has multi-gpu machines: http://www.nvidia.com/docs/io/116711/sc11-multi-gpu.pdf
 	0025 speed comparison with barret code on charlm
-	0030 switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc: libcurl fails, libcurl/master passes (this is because it doesn't test anything, the regular version calls HTTPClient.test), (cancel: see what changed, apply fix to httpclient), with regular libcurl v0.2.0 osx and ubuntu works, centos6 does not.
 	0040 - op/loss.jl: Fix/test all losses.  Update comments del l.y.  No need for forw.  Just loss, which returns loss and sets gradient.  Check tmp use avoid alloc.  Retire/fix logploss, xentloss, percloss, scalloss. -- src/op/loss.jl: cleanup, move out of op.
 	0050 use templated code for cuda kernels
 	0060 initforw: does not check sharing or read-before-write registers when cond/minibatch changes.
@@ -80,7 +78,7 @@
 	0800 update: batch normalization: http://arxiv.org/abs/1502.03167 http://arxiv.org/abs/1510.01378, cudnn4 has it.
 	0800 update: callbacks for update: registering the operation with atreplinit(): : registry look at atexit etc for examples from julia. update: update.jl: figure out how to extend update with callbacks so new optimization tricks can be added.  would it be just easier to leave this to the user: they write their own train function anyway.  they have access to setp.  just provide some examples.
 	0800 update: gradient noise http://arxiv.org/pdf/1511.06807v1.pdf: basically try all combinations of weight noise, gradient noise, activation noise.  prevent blowup by normalization/clipping.
-	0800 update: implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
+	0800 update: implement adadelta.  test all of them.
 	0800 update: maxnorm should give a detailed report on all out/dif arrays rather than a single number. Probably makes sense to do this inside the Net. Could be like a training option.
 	0800 update: understand xavier/glorotuniform: it works so well, may inform gradient/weight clipping and reporting, i.e. if xavier is based on some norm, clip based on that norm.
 	0800 update: update.jl: add norm clipping and other Google tricks: clip types: calc(per-element, per-matrix, all-recurr, all-model) x clip(g, w, x) x (all, recurr) ?
@@ -114,7 +112,6 @@
 	1000 highway networks
 	1000 ijulia notebooks: https://github.com/JuliaLang/IJulia.jl
 	1000 implement an integrated optimizer like hyperopt within knet, dhc maybe?
-	1000 implement gru using con. or axpb?
 	1000 implement maxnorm activation function.
 	1000 initforw/forw: write in-place transpose for dy or decide on extra space for ops that need temp space (use tmp?).
 	1000 inittype: fix inittype to check parameters as well as inputs, error if inconsistent, use Float32 if not found.  Add detection of sparse array types. does initsize play well with stype?  what is sparse other than input? What if there is a conflict with par.init or a previous eltype? initforw: type/size inference in inputless networks?
@@ -161,6 +158,13 @@
 	1501 test/rnntest.jl: back gives eq for layers 18..8, approxeq for layers 7..1: TODO: investigate why
 	5000 runtime improvements: find more register sharing for dif in initback.
 	9999 find out why profiling does not work: @time does not mix well with @profile.  valgrind detects memory bugs.
+
+	* DONE:
+	DONE implement gru using con. or axpb?
+	DONE use download instead of HTTPClient or Request!  Remove those from the requirement list.
+	DONE switch back to HTTPClient in REQUIRE and in tutorial, solve problem at koc: libcurl fails, libcurl/master passes (this is because it doesn't test anything, the regular version calls HTTPClient.test), (cancel: see what changed, apply fix to httpclient), with regular libcurl v0.2.0 osx and ubuntu works, centos6 does not. cancel all, julia has a download function!
+	DONE xavier was buggy with FC layers, fixed it and added a scale parameter.
+	DONE update: implement alternatives to adagrad: adam, rmsprop, adadelta. test on bparser.
 
 2016-02-06  Deniz Yuret  <dyuret@ku.edu.tr>
 
