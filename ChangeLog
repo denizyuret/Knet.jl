@@ -2,6 +2,8 @@
 
 	* TODO:
 
+	0000 gpu() should take a gpu id.  Knet should automatically use the most empty gpu.
+	0000 should be able to work with both cpu and gpu models/arrays. gpu() is not flexible enough. Array types should decide.
 	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.
 	0000 BUG: soft is buggy, its derivative won't work if used inside the network, go back to xentloss/softloss design.
 	0000 LoadError: unrecognized keyword argument "nrepeat" https://github.com/denizyuret/Knet.jl/issues/3
