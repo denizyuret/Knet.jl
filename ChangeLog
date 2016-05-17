@@ -2,6 +2,7 @@
 
 	* TODO:
 
+	0000 CUBLAS should be extended with all the allocating ops like *,+ etc. for debugging.
 	0000 gpu() should take a gpu id.  Knet should automatically use the most empty gpu.
 	0000 should be able to work with both cpu and gpu models/arrays. gpu() is not flexible enough. Array types should decide.
 	0000 BUG: repeat is buggy, it doesn't work if we remove o... from the definition of mlp.
