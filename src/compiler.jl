@@ -44,7 +44,7 @@ function _comp(f::Expr; o...)
     expr = Expr(:block)
     for x in fargs; push!(expr.args, :($x=input())); end
     append!(expr.args, fbody.args)
-    locals = [x=>x for x in _comp_locals(fbody)]
+    locals = Dict(x=>x for x in _comp_locals(fbody))
     @dbg println((:_comp1,:locals,locals))
     fpars = _comp_fpars(f, o)
     cond = Expr(:&&)  # A 0-arg && evaluates to true
@@ -61,7 +61,7 @@ function _comp{T<:Op}(f::Type{T}; o...)
     expr = Expr(:block)
     for x in fargs; push!(expr.args, :($x=input())); end
     push!(expr.args, Expr(:return, fcall))
-    locals = [x=>x for x in _comp_locals(expr)]
+    locals = Dict(x=>x for x in _comp_locals(expr))
     @dbg println((:_comp2,:locals,locals))
     prog = _comp(expr, locals, Dict(), Expr(:&&))
     @dbg println((:_comp2,:return,prog))
