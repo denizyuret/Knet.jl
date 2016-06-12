@@ -104,7 +104,7 @@ over x, and at each step writing their dot product into a single entry
 in y.  Here is an example in Knet you should be able to calculate by
 hand:
 
-.. doctest::
+.. code::
 
    @knet function convtest1(x)
        w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
@@ -144,7 +144,7 @@ padding size.  Therefore to preserve the size of x when W=3 we should
 use padding=1.
 
 
-.. doctest::
+.. code::
 
    @knet function convtest2(x)
        w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
@@ -172,7 +172,7 @@ argument of the ``conv`` operation (the default stride is 1).  In the
 following example we set stride to W such that the consecutive filter
 applications are non-overlapping:
 
-.. doctest::
+.. code::
 
    @knet function convtest3(x)
        w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
@@ -237,7 +237,7 @@ Knet supports 2D and 3D convolutions.  The inputs and the filters have
 two extra dimensions at the end which means we use 4D and 5D arrays
 for 2D and 3D convolutions.  Here is a 2D convolution example:
 
-.. doctest::
+.. code::
 
    @knet function convtest4(x)
        w = par(init=reshape([1.0:4.0...], (2,2,1,1)))
@@ -627,7 +627,7 @@ size.
 
 Here is a 1-D example:
 
-.. doctest::
+.. code::
 
    @knet function pooltest1(x)
        y = pool(x)
@@ -652,7 +652,7 @@ e.g. ``window=(2,3)`` for 2-D, or a single number, e.g. ``window=3``
 which is shorthand for ``window=(3,3)`` in 2-D.  Here is an example
 using a window size of 3 instead of the default 2:
 
-.. doctest::
+.. code::
 
    @knet function pooltest2(x)
        y = pool(x; window=3)
@@ -678,7 +678,7 @@ D-dimensional inputs padding can be specified as a tuple such as
 ``padding=(1,2)``, or a single number ``padding=1`` which is shorthand
 for ``padding=(1,1)`` in 2-D.  Here is a 1-D example:
 
-.. doctest::
+.. code::
 
    @knet function pooltest3(x)
        y = pool(x; padding=(1,0))

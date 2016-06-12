@@ -192,7 +192,7 @@ scripts.
 
 Here is a softmax classifier in Knet:
 
-.. testcode::
+.. code::
 
     @knet function mnist_softmax(x)
         w = par(init=Gaussian(0,0.001), dims=(10,28*28))
@@ -201,13 +201,13 @@ Here is a softmax classifier in Knet:
         return soft(y)
     end
 
-.. testoutput:: :hide:
+.. code:: :hide:
 
    ...
 
 We will compile our model and set an appropriate learning rate:
 
-.. doctest::
+.. code::
 
     julia> model = compile(:mnist_softmax);
     julia> setp(model; lr=0.15);
@@ -216,7 +216,7 @@ Let us train our model for 100 epochs and print out the negative log
 likelihood (``softloss``) and classification error (``zeroone``) on
 the training and testing sets after every epoch:
 
-.. testcode::
+.. code::
 
     for epoch=1:nepochs
         train(model, dtrn, softloss)

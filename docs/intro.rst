@@ -2,6 +2,8 @@
 A Tutorial Introduction
 ***********************
 
+.. TODO: write a preface doc summarizing what Knet is good for: sparse etc.
+
 We will begin by a quick tutorial on Knet, going over the essential
 tools for defining, training, and evaluating real machine learning
 models.  The goal is to get you to the point where you can create your
@@ -19,19 +21,24 @@ In this section, we will create our first Knet model, and learn how to
 make predictions.  To start using Knet, type ``using Knet`` at the
 Julia prompt::
 
-   julia> using Knet
+    julia> using Knet
 
-.. testsetup::
+.. testcode:: :hide:
 
    using Knet
-   setseed(42);
+   setseed(42)
+
+.. testoutput:: :hide:
+
+   ...
 
 In Knet, a machine learning model is defined using a special function
-syntax with the ``@knet`` macro.  The following example defines a
-@knet function for a simple linear regression model with 13 inputs and
-a single output. You can type this definition at the Julia prompt, or
-you can copy and paste it into a file which can be loaded into Julia
-using ``include("filename")``:
+syntax with the ``@knet`` macro.  It may be helpful at this point to
+review the `Julia function`_ syntax as the Knet syntax is based on it.
+The following example defines a @knet function for a simple linear
+regression model with 13 inputs and a single output. You can type this
+definition at the Julia prompt, or you can copy and paste it into a
+file which can be loaded into Julia using ``include("filename")``:
 
 .. testcode::
 
@@ -51,26 +58,27 @@ using ``include("filename")``:
 
 In this definition:
 
-- ``@knet`` indicates that ``lin`` is a special Knet function, it does
-  not get defined as a regular `Julia function`_ or variable_.
-- ``x`` is the only input argument.
-- ``w`` and ``b`` are model parameters as indicated by the ``par``
-  constructor.
-- ``init`` and ``dims`` are `keyword arguments`_ to ``par`` describing
-  how the parameter should be initialized.  ``init`` can take a Julia
-  array or one of the supported :ref:`random distributions
-  <rgen-table>`.
-- The final ``return`` statement specifies the output of the Knet
-  function.
+- ``@knet`` indicates that ``lin`` is a Knet function, and not a regular `Julia function`_ or variable_.
+- ``x`` is the only input argument.  We will use a ``(13,1)`` column vector for this example.
+- ``w`` and ``b`` are model parameters as indicated by the ``par`` constructor.
+- ``init`` and ``dims`` are `keyword arguments`_ to ``par``.
+- ``dims`` gives the dimensions of the parameter.  Julia stores arrays
+  in column-major order, i.e. ``(1,13)`` specifies 1 row and 13 columns.
+- ``init`` describes how the parameter should be initialized. It can be a user
+  supplied Julia array or one of the supported :ref:`array fillers
+  <rgen-table>` as in this example.
+- The final ``return`` statement specifies the output of the Knet function.
 - The ``*`` denotes matrix product and ``.+`` denotes elementwise
-  broadcasting addition.  `Broadcasting operations`_ can act on arrays
+  broadcasting addition.
+- `Broadcasting operations`_ like ``.+`` can act on arrays
   with different sizes, such as adding a vector to each column of a
   matrix.  They expand singleton dimensions in array arguments to
   match the corresponding dimension in the other array without using
   extra memory, and apply the operation elementwise.
-- Only a :ref:`restricted set of operators <primitives-table>` such as
-  ``*`` and ``.+``, and statement types such as assignment and return
-  statements can be used in a @knet function definition.
+- Unlike regular Julia functions, only a :ref:`restricted set of
+  operators <primitives-table>` such as ``*`` and ``.+``, and
+  statement types such as assignments and returns can be used in a
+  @knet function definition.
 
 In order to turn ``lin`` into a machine learning model that can be
 trained with examples and used for predictions, we need to compile it:
@@ -80,15 +88,17 @@ trained with examples and used for predictions, we need to compile it:
     julia> f = compile(:lin)	# The colon before lin is required
     ...
 
-To test our model let's give it some input.  ``w`` is a :math:`1\times
-13` row vector, so the input ``x`` should be a :math:`13\times 1`
-column vector.  Let's initialize with some random numbers:
+To test our model let's give it some input initialized with random
+numbers:
 
 .. doctest::
 
     julia> x = randn(13,1)
-    13x1 Array{Float64,2}:...
-
+    13x1 Array{Float64,2}:
+     -0.556027
+     -0.444383
+     ...
+     
 To obtain the prediction of model ``f`` on input ``x`` we use the
 ``forw`` function, which basically calculates ``w * x .+ b``:
 
@@ -96,7 +106,7 @@ To obtain the prediction of model ``f`` on input ``x`` we use the
     
     julia> forw(f,x)
     1x1 Array{Float64,2}:
-     -1.00532
+     -0.710651
 
 We can query the model and see its parameters using ``get``:
       
@@ -104,11 +114,11 @@ We can query the model and see its parameters using ``get``:
 
     julia> get(f,:w)		# The colon before w is required
     1x13 Array{Float64,2}:
-     -0.556027  -0.444383  0.0271553 ... 1.08238  0.187028  0.518149
+     0.149138  0.0367563  ... -0.433747  0.0569829
 
     julia> get(f,:b)
     1x1 Array{Float64,2}:
-     1.49138
+     0.0
     
 We can also look at the input with ``get(f,:x)``, reexamine the output
 using the special ``:return`` symbol with ``get(f,:return)``.  In fact
@@ -119,7 +129,7 @@ as an equivalent Julia expression:
 
     julia> get(f,:w) * get(f,:x) .+ get(f,:b)
     1x1 Array{Float64,2}:
-     -1.00532
+     -0.710651
 
 In this section, we have seen how to create a Knet model by compiling
 a @knet function, how to perform a prediction given an input using
@@ -155,25 +165,22 @@ houses.  Here are the first 3 entries::
     0.02729   0.00   7.070  0  0.4690  7.1850  61.10  4.9671   2  242.0  17.80 392.83   4.03  34.70
     ...
 
-.. _Requests: https://github.com/JuliaWeb/Requests.jl
 .. _readdlm: http://julia.readthedocs.org/en/release-0.4/stdlib/io-network/#Base.readdlm
 
-Let's download the dataset using Requests_, a Julia module that
-enables downloading files from the internet using the :func:`get`
-function and :func:`readdlm <readdlm>`, a function which turns space
-or tab delimited data into a Julia array.  If for some reason this
-does not work, you can download the data file from the given URL by
-other means and run ``readdlm("housing.data")`` on the local file
-instead::
+Let's download the dataset and use :func:`readdlm <readdlm>` to turn
+it into a Julia array.
 
-   julia> using Requests
-   julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data";
-   julia> data = readdlm(get(url).data)'  # Don't forget the final apostrophe to transpose data
-   14x506 Array{Float64,2}:...
-
-.. doctest:: :hide:
+.. doctest::
    
-   julia> data = readdlm(Pkg.dir("Knet/data/housing.data"))';
+   julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data";
+   julia> file = Pkg.dir("Knet/data/housing.data");
+   julia> download(url, file)
+     ...
+   julia> data = readdlm(file)'  # Don't forget the final apostrophe to transpose data
+   14x506 Array{Float64,2}:
+      0.00632    0.02731    0.02729 ...   0.06076    0.10959    0.04741
+     18.0        0.0        0.0     ...   0.0        0.0        0.0
+     ...
    
 The resulting ``data`` matrix should have 506 columns representing
 neighborhoods, and 14 rows representing the attributes.  The last
@@ -233,7 +240,7 @@ training:
    julia> ypred = forw(f, xtst)
    1x106 Array{Float64,2}:...
    julia> quadloss(ypred, ytst)
-   289.7437322259235
+   307.9336...
 
 .. _RMSD: https://en.wikipedia.org/wiki/Root-mean-square_deviation
 
@@ -241,7 +248,7 @@ The quadratic :ref:`loss function <loss-table>` :func:`quadloss`
 computes :math:`(1/2n) \sum (\hat{y} - y)^2`, i.e. half of the mean
 squared difference between a predicted answer :math:`\hat{y}` and the
 desired answer :math:`y`.  Given that :math:`y` values range from 5 to
-50, an RMSD_ of :math:`\sqrt{2\times 289.7}=24.07` is a pretty bad
+50, an RMSD_ of :math:`\sqrt{2\times 307.9}=24.8` is a pretty bad
 score.
 
 We would like to minimize this loss which should get the predicted
@@ -294,9 +301,9 @@ better:
    julia> ypred = forw(f, xtst)
    1x106 Array{Float64,2}:...
    julia> quadloss(ypred,ytst)
-   12.3349...
+   11.5989...
    julia> sqrt(2*ans)
-   4.9668...
+   4.8164...
 
 We can see what the model has learnt looking at the new weights:
 
@@ -304,7 +311,7 @@ We can see what the model has learnt looking at the new weights:
 
    julia> get(f,:w)
    1x13 Array{Float64,2}:
-    -0.426154  0.765073  0.287288 ... -1.94362  0.837376  -3.45769
+   -0.560346  0.924687  0.0446596  ...  -1.89473  1.13219  -3.51418
 
 ..
    julia> println(sortperm(vec(get(f,:w))))
@@ -333,6 +340,8 @@ linear regression as you can find out from any decent statistics text.
 However the basic method outlined in this section has the advantage of
 being easy to generalize to models that are a lot more complicated as
 we will see next.
+
+.. TODO: add a softmax and an mlp example
 
 Defining new operators
 ----------------------
