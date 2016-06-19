@@ -1,11 +1,40 @@
+2016-06-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TRACE-DESIGN-2:
+
+	The design falls out of the following requirements:
+
+	- No compiler: the user runs regular Julia code for forward.
+	- All ops on the path from a parameter to a loss need to be recorded for backward.
+	- Don't know when and where the losses are going to appear.
+	- All ops involving parameters and their descendents need to be recorded.
+	- Create recording methods for each op marked with argument types.
+	- Mark parameters with Par and descendents with Dat data types.
+	- Par and Dat are only there to mark the need for recording and to indicate what/how to update.
+	- Par is read-only during forward, modified only during init and update.
+	- Dat can be overwritten multiple times during forward. (e.g. in RNN; record has to handle this)
+	- Dat is needed because after a Par-Array op, there could be Array-Array ops before loss.
+	- Both Par and Dat can interact with regular Array.
+	- We can't just use special ops instead of Par/Dat types, user error may prevent recording using regular ops.
+
+	Problems: Want to preserve Julia syntax options (* vs A_mul_B!
+	etc) and just add recording.  As soon as we introduce a new type,
+	many parts of the hierarchy need to be defined.  With two types
+	even worse.  Can we do this without defining new types?  A macro
+	like @into!  Instrumenting @profile ?  Would still need to define
+	back for each op, but these can be generic and at least not needed
+	for each arg type.  What about for loops and conditionals?
+	Leaving where to put the macro to the user is dangerous.
+
 2016-06-16  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* trace: Instead of pre-compilation, why don't we do runtime
-	trace?  Record all operations that involve parameters and their
-	children.  Once back is called go backwards on the whole execution
-	history.  Any part of the code that does not get effected by
-	parameters (for loops with constants, constant conditionals) need
-	not be recorded.
+	* TRACE-DESIGN-1:
+
+	Instead of pre-compilation, why don't we do runtime trace?  Record
+	all operations that involve parameters and their children.  Once
+	back is called go backwards on the whole execution history.  Any
+	part of the code that does not get effected by parameters (for
+	loops with constants, constant conditionals) need not be recorded.
 
 	Can we use the trace mechanism?  None exist except @profile.
 	Can we record everywhere or just inside knet functions?
@@ -75,7 +104,7 @@
 	of specialized methods based on argument types.
 
 
-	2016-04-01  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-04-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 
