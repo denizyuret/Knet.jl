@@ -186,12 +186,14 @@ end
 Base.writemime(io::IO, ::MIME"text/plain", f::Net)=netprint(f)
 
 function netprint(f::Net)
-    vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
+    # vecnorm1(x,n)=(!isdefined(x,n)? Inf : x.(n)==nothing ? NaN : vecnorm(x.(n)))
     for i=1:length(f)
         r=reg(f,i)
-        @printf("%d %s%s name=>%s", i, typeof(r.op), tuple(r.argv...), string(r.name))
-        @printf(",dims=>%s", (isvoid(r,:out0) ? () : size(r.out0)))
-        @printf(",norm=>%g,gnorm=>%g", vecnorm1(r,:out), vecnorm1(r,:dif))
+        @printf("%d %s%s name=>%s", i, typeof(r.op), tuple(r.argv...), r.name)
+        !isempty(r.args) && @printf(",args=>(%s)", join(r.args,","))
+        !isvoid(r,:out0) && @printf(",dims=>%s", size(r.out0))
+        !isvoid(r,:out) && @printf(",norm=>%g", vecnorm(r.out))
+        !isvoid(r,:dif) && @printf(",norm=>%g", vecnorm(r.dif))
         !isempty(r.cond.args) && @printf(",cond=>%s", r.cond.args)
         for (k,v) in r.plist; @printf(",%s=>%s", string(k), v); end
         println()
