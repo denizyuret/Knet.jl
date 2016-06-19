@@ -1,4 +1,81 @@
-2016-04-01  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-06-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* trace: Instead of pre-compilation, why don't we do runtime
+	trace?  Record all operations that involve parameters and their
+	children.  Once back is called go backwards on the whole execution
+	history.  Any part of the code that does not get effected by
+	parameters (for loops with constants, constant conditionals) need
+	not be recorded.
+
+	Can we use the trace mechanism?  None exist except @profile.
+	Can we record everywhere or just inside knet functions?
+	Is it possible just to override some functions and leave for loops alone?
+	Can we get rid of forw and just call knet functions?
+
+	write @knet8 macro.
+	replace array ops with instrumented versions that save state.
+	save execution trace to global stack.
+	call back with gold output and loss function?
+	how do we distinguish parameters?
+	How do we mark children of parameter operations?
+	Record everything and just go back on the useful ops (useful means on the path from a parameter to loss).
+	Need to be able to turn off recording for test and have reset, save-state?
+
+	If we record everything, do we need to mark parameters?  They are
+	just like any other array.  Except we want to take derivative wrt
+	them.  How do we represent identity of arrays?  Two variables can
+	point to the same array.  One array can change over time...
+
+	We can have a specific parameter type, which takes care of
+	specializing functions, but what about array-array intermediate
+	ops without parameters (mark those with a special type as well?)
+
+	How do we give the target array in the syntax?  Revert back to
+	ugly Julia?
+
+	We could use InplaceOps again.  Need to extend it with relu etc.
+	Or relu etc. may be inplace by default anyway.
+
+	If we are going to type @into! for each expression, we may as well
+	do @knet and do what we want (recording etc) thru special
+	functions?  vs. control things thru special array types?  But
+	@into! will be optional for readability, we'll allow using
+	A_mul_B! etc.
+
+	The two array types (for parameters and data arrays) is the better
+	solution.  We could also revive the dynamicarrays library and
+	implement e.g. blobs of caffe with both gpu and cpu pointers etc.
+	convert can be used to get cpu or gpu pointers on demand.  Should
+	look at caffe blobs in more detail to see if this is worth it.
+
+	Is two array types sufficient to construct the full comp graph?
+	Ops can be: arr=op(par,arr), arr=op(arr).  par never on the left
+	side, it is a constant.  Anything that leads from par to loss
+	should be recorded.  Don't know where loss is going to be called
+	during forward pass, so record everything that involves par or
+	arr. Any ops that involve regular arrays or constants?  par gets
+	initialized and updated outside of recording.
+
+	We'll have to write a lot of methods for a lot of array
+	combinations again.  Each will have to know how to record as
+	well.  Can't we do something more minimal?
+
+	If we do everything with a @knet macro, can we avoid defining new
+	types and ops?  The @knet expressions will check the global save
+	variable and save everything automatically.  Leave if/for alone.
+	Could also do what @into! does.
+
+	Who does the array allocation?  We want to get as close as we can
+	to somebody writing a natural julia function to go forward.
+
+	InplaceOps takes arithmetic ops, converts them to internal ops
+	(add! etc.) which in turn gets converted to A_foo_B or broadcast.
+
+	Check this out: The syntax @generated function enables generation
+	of specialized methods based on argument types.
+
+
+	2016-04-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
 

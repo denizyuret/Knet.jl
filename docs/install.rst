@@ -18,6 +18,8 @@ would like to contribute to Knet, see `Tips for developers`_.  If you
 need help, or would like to request a feature, please consider joining
 the knet-users_ mailing list.
 
+.. _installation:
+
 Installation
 ------------
 

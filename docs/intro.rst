@@ -6,26 +6,42 @@ A Tutorial Introduction
 
 We will begin by a quick tutorial on Knet, going over the essential
 tools for defining, training, and evaluating real machine learning
-models.  The goal is to get you to the point where you can create your
-own models and apply machine learning to your own problems as quickly
-as possible.  So some of the details and exceptions will be skipped
-for now.  No prior knowledge of machine learning or Julia is
-necessary, but general programming experience will be assumed.  It
-would be best if you follow along with the examples on your computer.
+models in 10 short lessons.  The examples cover linear regression,
+softmax classification, multilayer perceptrons, convolutional and
+recurrent neural networks.  We will use these models to predict
+housing prices in Boston, recognize handwritten digits, and teach the
+computer to write like Shakespeare!
 
-Functions and models
---------------------
-.. @knet, compile, forw, get
+The goal is to get you to the point where you can create your own
+models and apply machine learning to your own problems as quickly as
+possible.  So some of the details and exceptions will be skipped for
+now.  No prior knowledge of machine learning or Julia is necessary,
+but general programming experience will be assumed.  It would be best
+if you follow along with the examples on your computer.  Before we get
+started please complete the :ref:`installation instructions
+<installation>` if you have not done so already.
+
+1. Functions and models
+-----------------------
+
+.. TODO: convert netprint to the actual Net print method and show
+   examples here.
+
+.. seealso::
+
+   @knet, function, compile, forw, get, :colon
 
 In this section, we will create our first Knet model, and learn how to
 make predictions.  To start using Knet, type ``using Knet`` at the
-Julia prompt::
+Julia prompt:
 
+.. doctest::
+   
     julia> using Knet
+    ...
 
 .. testcode:: :hide:
 
-   using Knet
    setseed(42)
 
 .. testoutput:: :hide:
@@ -42,9 +58,9 @@ file which can be loaded into Julia using ``include("filename")``:
 
 .. testcode::
 
-    @knet function lin(x)
-        w = par(init=Gaussian(0,0.1), dims=(1,13))
-        b = par(init=Constant(0), dims=(1,1))
+    @knet function linreg(x)
+        w = par(dims=(1,13), init=Gaussian(0,0.1))
+        b = par(dims=(1,1),  init=Constant(0))
         return w * x .+ b
     end
 
@@ -55,13 +71,14 @@ file which can be loaded into Julia using ``include("filename")``:
 .. _Julia function: http://julia.readthedocs.org/en/release-0.4/manual/functions
 .. _variable: http://julia.readthedocs.org/en/release-0.4/manual/variables
 .. _Broadcasting operations: http://julia.readthedocs.org/en/release-0.4/manual/arrays/#broadcasting
+.. _keyword arguments: http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments
 
 In this definition:
 
-- ``@knet`` indicates that ``lin`` is a Knet function, and not a regular `Julia function`_ or variable_.
+- ``@knet`` indicates that ``linreg`` is a Knet function, and not a regular `Julia function`_ or variable_.
 - ``x`` is the only input argument.  We will use a ``(13,1)`` column vector for this example.
 - ``w`` and ``b`` are model parameters as indicated by the ``par`` constructor.
-- ``init`` and ``dims`` are `keyword arguments`_ to ``par``.
+- ``dims`` and ``init`` are `keyword arguments`_ to ``par``.
 - ``dims`` gives the dimensions of the parameter.  Julia stores arrays
   in column-major order, i.e. ``(1,13)`` specifies 1 row and 13 columns.
 - ``init`` describes how the parameter should be initialized. It can be a user
@@ -80,12 +97,12 @@ In this definition:
   statement types such as assignments and returns can be used in a
   @knet function definition.
 
-In order to turn ``lin`` into a machine learning model that can be
+In order to turn ``linreg`` into a machine learning model that can be
 trained with examples and used for predictions, we need to compile it:
 
 .. doctest::
 
-    julia> f = compile(:lin)	# The colon before lin is required
+    julia> f1 = compile(:linreg)	# The colon before linreg is required
     ...
 
 To test our model let's give it some input initialized with random
@@ -93,18 +110,18 @@ numbers:
 
 .. doctest::
 
-    julia> x = randn(13,1)
+    julia> x1 = randn(13,1)
     13x1 Array{Float64,2}:
      -0.556027
      -0.444383
      ...
      
-To obtain the prediction of model ``f`` on input ``x`` we use the
-``forw`` function, which basically calculates ``w * x .+ b``:
+To obtain the prediction of model ``f1`` on input ``x1`` we use the
+``forw`` function, which basically calculates ``w * x1 .+ b``:
 
 .. doctest::     
     
-    julia> forw(f,x)
+    julia> forw(f1,x1)
     1x1 Array{Float64,2}:
      -0.710651
 
@@ -112,48 +129,69 @@ We can query the model and see its parameters using ``get``:
       
 .. doctest::
 
-    julia> get(f,:w)		# The colon before w is required
+    julia> get(f1,:w)		# The colon before w is required
     1x13 Array{Float64,2}:
      0.149138  0.0367563  ... -0.433747  0.0569829
 
-    julia> get(f,:b)
+    julia> get(f1,:b)
     1x1 Array{Float64,2}:
      0.0
     
-We can also look at the input with ``get(f,:x)``, reexamine the output
-using the special ``:return`` symbol with ``get(f,:return)``.  In fact
+We can also look at the input with ``get(f1,:x)``, reexamine the output
+using the special ``:return`` symbol with ``get(f1,:return)``.  In fact
 using ``get``, we can confirm that our model gives us the same answer
 as an equivalent Julia expression:
 
 .. doctest::     
 
-    julia> get(f,:w) * get(f,:x) .+ get(f,:b)
+    julia> get(f1,:w) * get(f1,:x) .+ get(f1,:b)
     1x1 Array{Float64,2}:
-     -0.710651
+     -0.710651 DBG
+
+You can see the internals of the compiled model looking at ``f1``.  It
+consists of 5 low level operations::
+
+  julia> f1
+  1 Knet.Input() name=>x,dims=>(13,1),norm=>3.84375,...
+  2 Knet.Par() name=>w,dims=>(1,13),norm=>0.529962,...
+  3 Knet.Par() name=>b,dims=>(1,1),norm=>0 ,...
+  4 Knet.Dot(2,1) name=>##tmp#7298,args=>(w,x),dims=>(1,1),norm=>0.710651,...
+  5 Knet.Add(4,3) name=>return,args=>(##tmp#7298,b),dims=>(1,1),norm=>0.710651,...
+  
+You may have noticed the colons before Knet variable names like
+``:linreg``, ``:w``, ``:x``, ``:b``, etc.  Any variable introduced in
+a @knet macro is not a regular Julia variable so its name needs to be
+escaped using the `colon character`_ in ordinary Julia code.  In
+contrast, ``f1`` and ``x1`` are ordinary Julia variables.
+
+.. _colon character: http://julia.readthedocs.org/en/release-0.4/manual/metaprogramming#symbols
 
 In this section, we have seen how to create a Knet model by compiling
 a @knet function, how to perform a prediction given an input using
 ``forw``, and how to take a look at model parameters using ``get``.
 Next we will see how to train models.
 
-Training a model
-----------------
-.. quadloss, back, update!, setp, lr
+2. Training a model
+-------------------
+
+.. seealso::
+
+   back, update!, setp, lr, quadloss
 
 OK, so we can define functions using Knet but why should we bother?
-The thing that makes a Knet model different from an ordinary function
-is that Knet models are **differentiable programs**.  This means that
-for a given input not only can they compute an output, but they can
-also compute which way their parameters should be modified to approach
-some desired output.  If we have some input-output data that comes
-from an unknown function, we can train a Knet model to look like this
-unknown function by manipulating its parameters.
+The thing that makes a Knet function different from an ordinary
+function is that Knet functions are **differentiable programs**.  This
+means that for a given input not only can they compute an output, but
+they can also compute which way their parameters should be modified to
+approach some desired output.  If we have some input-output data that
+comes from an unknown function, we can train a Knet model to look like
+this unknown function by manipulating its parameters.
 
 .. _Housing: http://archive.ics.uci.edu/ml/datasets/Housing
 .. _UCI Machine Learning Repository: http://archive.ics.uci.edu/ml/datasets.html
 
 We will use the Housing_ dataset from the `UCI Machine Learning
-Repository`_ to train our ``lin`` model.  The dataset has housing
+Repository`_ to train our ``linreg`` model.  The dataset has housing
 related information for 506 neighborhoods in Boston from 1978.  Each
 neighborhood has 14 attributes, the goal is to use the first 13, such
 as average number of rooms per house, or distance to employment
@@ -237,7 +275,7 @@ training:
 
 .. doctest::
 
-   julia> ypred = forw(f, xtst)
+   julia> ypred = forw(f1, xtst)
    1x106 Array{Float64,2}:...
    julia> quadloss(ypred, ytst)
    307.9336...
@@ -253,7 +291,7 @@ score.
 
 We would like to minimize this loss which should get the predicted
 answers closer to the desired answers.  To do this we first compute
-the loss gradient for the parameters of ``f`` -- this is the direction
+the loss gradient for the parameters of ``f1`` -- this is the direction
 in parameter space that maximally increases the loss.  Then we move
 the parameters in the opposite direction.  Here is a simple function
 that performs these steps:
@@ -273,11 +311,10 @@ that performs these steps:
       
    ...
 
-
 * The ``for`` loop grabs training instances one by one.
 * ``forw`` computes the prediction for the i'th instance.  This is required for the next step.
-* ``back`` computes the loss gradient ``dw`` for each parameter ``w`` for the i'th instance.
-* ``update!`` subtracts (a function of) ``dw`` from each ``w`` to reduce the loss.
+* ``back`` computes the loss gradient for each parameter in ``f`` for the i'th instance.
+* ``update!`` moves each parameter opposite the gradient direction to reduce the loss.
 
 
 Before training, it is important to set a good learning rate.  The
@@ -290,15 +327,15 @@ set the learning rate to 0.001 and train the model for 100 epochs
 
 .. doctest::
 
-   julia> setp(f, lr=0.001)
-   julia> for i=1:100; train(f, xtrn, ytrn); end
+   julia> setp(f1, lr=0.001)
+   julia> for i=1:100; train(f1, xtrn, ytrn); end
 
 This should take a few seconds, and this time our RMSD should be much
 better:
 
 .. doctest::
    
-   julia> ypred = forw(f, xtst)
+   julia> ypred = forw(f1, xtst)
    1x106 Array{Float64,2}:...
    julia> quadloss(ypred,ytst)
    11.5989...
@@ -309,12 +346,12 @@ We can see what the model has learnt looking at the new weights:
 
 .. doctest::
 
-   julia> get(f,:w)
+   julia> get(f1,:w)
    1x13 Array{Float64,2}:
-   -0.560346  0.924687  0.0446596  ...  -1.89473  1.13219  -3.51418
+    -0.560346  0.924687  0.0446596  ...  -1.89473  1.13219  -3.51418 DBG
 
 ..
-   julia> println(sortperm(vec(get(f,:w))))
+   julia> println(sortperm(vec(get(f1,:w))))
    [13,8,11,5,10,1,7,3,2,4,12,9,6]
 
 .. _UCI: http://archive.ics.uci.edu/ml/datasets/Housing
@@ -338,23 +375,307 @@ evaluated the model using the ``quadloss`` loss function.  Now, there
 are a lot more efficient and elegant ways to perform and analyze a
 linear regression as you can find out from any decent statistics text.
 However the basic method outlined in this section has the advantage of
-being easy to generalize to models that are a lot more complicated as
-we will see next.
+being easy to generalize to models that are a lot larger and
+complicated.
 
-.. TODO: add a softmax and an mlp example
+3. Making models generic
+------------------------
 
-Defining new operators
-----------------------
-..
+.. TODO: mention that they are already generic when it comes to array
+   type and element type.
+
+.. seealso::
+
+   keyword arguments, size inference
+
+Hardcoding the dimensions of parameters in ``linreg`` makes it
+awfully specific to the Housing dataset.  Knet allows keyword
+arguments in @knet function definitions to get around this problem:
+
+.. testcode::
+
+    @knet function linreg2(x; inputs=13, outputs=1)
+        w = par(dims=(outputs,inputs), init=Gaussian(0,0.1))
+        b = par(dims=(outputs,1), init=Constant(0))
+        return w * x .+ b
+    end
+
+.. testoutput:: :hide:
+
+   ...
+
+Now we can use this model for another dataset that has, for example,
+784 inputs and 10 outputs by passing these keyword arguments to
+``compile``:
+
+.. doctest::
+
+   julia> f2 = compile(:linreg2, inputs=784, outputs=10);
+
+Knet functions borrow the syntax for `keyword arguments`_ from Julia,
+and we will be using them in many contexts, so a brief aside is in
+order: Keyword arguments are identified by name instead of position,
+and they can be passed in any order (or not passed at all) following
+regular (positional) arguments.  In fact we have already seen
+examples: ``dims`` and ``init`` are keyword arguments for ``par``
+(which has no regular arguments).  Functions with keyword arguments
+are defined using a semicolon in the signature, e.g. ``function
+pool(x; window=2, padding=0)``.  The semicolon is optional when the
+function is called, e.g. both ``pool(x, window=5)`` or ``pool(x;
+window=5)`` work.  Unspecified keyword arguments take their default
+values specified in the function definition.  Extra keyword arguments
+can be collected using `three dots`_ in the function definition:
+``function pool(x; window=2, padding=0, o...)``, and passed in
+function calls: ``pool(x; o...)``.
+
+.. _three dots: http://julia.readthedocs.org/en/release-0.4/manual/faq/?highlight=splat#what-does-the-operator-do
+
+In addition to keyword arguments to make models more generic, Knet
+implements **size inference**: Any dimension that relies on the input
+size can be left as 0, which tells Knet to infer that dimension when
+the first input is received.  Leaving input dependent dimensions as 0,
+and using a keyword argument to determine output size we arrive at a
+fully generic version of linreg:
+
+.. testcode::
+
+    @knet function linreg3(x; out=1)
+        w = par(dims=(out,0), init=Gaussian(0,0.1))
+        b = par(dims=(out,1), init=Constant(0))
+        return w * x .+ b
+    end
+
+.. testoutput:: :hide:
+
+   ... DBG
+
+In this section, we have seen how to make @knet functions more generic
+using keyword arguments and size inference.  This will especially come
+in handy when we are using them as new operators as described next.
+
+4. Defining new operators
+-------------------------
+
+.. seealso::
+   
+   @knet function as operator, soft
+
+The key to controlling complexity in computer languages is
+**abstraction**.  Abstraction is the ability to name compound
+structures built from primitive parts, so they too can be used as
+primitives.  In Knet we do this by using @knet functions not just as
+models, but as new operators inside other @knet functions.
+
+To illustrate this, we will implement a softmax classification model.
+Softmax classification is basically linear regression with multiple
+outputs followed by normalization.  Here is how we can define it in
+Knet:
+
+.. testcode::
+   
+    @knet function softmax(x; out=10)
+        z = linreg3(x; out=out)
+        return soft(z)
+    end
+
+.. testoutput:: :hide:
+
+   ...		DBG
+
+The ``softmax`` model basically computes ``soft(w * x .+ b)`` with
+trainable parameters ``w`` and ``b`` by calling ``linreg3`` we defined
+in the previous section.  The ``out`` keyword parameter determines the
+number of outputs and is passed from ``softmax`` to ``linreg3``
+unchanged.  The number of inputs is left unspecified and is inferred
+when the first input is received.  The ``soft`` operator normalizes
+its argument by exponentiating its elements and dividing each by their
+sum.
+
+In this section we saw an example of using a @knet function as a new
+operator.  Using the power of abstraction, not only can we avoid
+repetition and shorten the amount of code for larger models, we make
+the definitions a lot more readable and configurable, and gain a bunch
+of reusable operators to boot.  To see some example reusable operators
+take a look at the :ref:`Knet compound operators <compounds-table>`
+table and see their definitions in `kfun.jl`_.
+
+.. _training-with-minibatches:
+
+5. Training with minibatches
+----------------------------
+
+.. TODO: mention that minibatching does not change the model ops, they
+   work fine with multiple columns.  Also comment that minibatching
+   with sequence models is a pain.
+
+.. seealso::
+
+   minibatch, softloss, zeroone
+
+We will use the softmax model to classify hand-written digits from the
+MNIST_ dataset.  Here are the first 8 images from MNIST, the goal is
+to look at the pixels and classify each image as one of the digits
+0-9:
+
+.. image:: images/firsteightimages.jpg
+
+The following loads the MNIST data:
+
+.. _MNIST: http://yann.lecun.com/exdb/mnist
+
+.. doctest::
+
+    julia> include(Pkg.dir("Knet/examples/mnist.jl"))
+    INFO: Loading MNIST...
+
+Once loaded, the data is available as multi-dimensional Julia arrays:
+
+.. doctest::
+
+    julia> MNIST.xtrn
+    28x28x1x60000 Array{Float32,4}:...
+    julia> MNIST.ytrn
+    10x60000 Array{Float32,2}:...
+    julia> MNIST.xtst
+    28x28x1x10000 Array{Float32,4}:...
+    julia> MNIST.ytst
+    10x10000 Array{Float32,2}:...
+
+We have 60000 training and 10000 testing examples.  Each input x is a
+28x28x1 array representing one image, where the first two numbers
+represent the width and height in pixels, the third number is the
+number of channels (which is 1 for grayscale images, 3 for RGB
+images).  The softmax model will treat each image as a ``28*28*1=784``
+dimensional vector.  The pixel values have been normalized to
+:math:`[0,1]`.  Each output y is a ten-dimensional one-hot vector (a
+vector that has a single non-zero component) indicating the correct
+class (0-9) for a given image.
+
+This is a much larger dataset than Housing.  For computational
+efficiency, it is not advisable to use these examples one at a time
+during training like we did before.  We will split the data into
+groups of 100 examples called **minibatches**, and pass data to
+``forw`` and ``back`` one minibatch at a time instead of one instance
+at a time.  On my laptop, one epoch of training softmax on MNIST takes
+about 0.34 seconds with a minibatch size of 100, 1.67 seconds with a
+minibatch size of 10, and 10.5 seconds if we do not use minibatches.
+
+Knet provides a small ``minibatch`` function to split the data::
+
+    function minibatch(x, y, batchsize)
+        data = Any[]
+        for i=1:batchsize:ccount(x)
+            j=min(i+batchsize-1,ccount(x))
+            push!(data, (cget(x,i:j), cget(y,i:j)))
+        end
+        return data
+    end
+
+.. _iterables: http://julia.readthedocs.org/en/release-0.4/manual/interfaces/#iteration
+.. _subarrays: http://julia.readthedocs.org/en/release-0.4/manual/arrays/
+
+``minibatch`` takes ``batchsize`` columns of ``x`` and ``y`` at a
+time, pairs them up and pushes them into a ``data`` array.  It works
+for arrays of any dimensionality, treating the last dimension as
+"columns".  Note that this type of minibatching is fine for small
+datasets, but it requires holding two copies of the data in memory.
+For problems with a large amount of data you may want to use
+subarrays_ or iterables_.
+
+Here is ``minibatch`` in action:
+
+.. doctest::
+
+    julia> batchsize=100;
+    julia> trn = minibatch(MNIST.xtrn, MNIST.ytrn, batchsize)
+    600-element Array{Any,1}:...
+    julia> tst = minibatch(MNIST.xtst, MNIST.ytst, batchsize)
+    100-element Array{Any,1}:...
+
+Each element of ``trn`` and ``tst`` is an x, y pair that contains 100
+examples::
+
+    julia> trn[1]
+    (28x28x1x100 Array{Float32,4}: ...,
+     10x100 Array{Float32,2}: ...)
+
+Here are some simple train and test functions that use this type of
+minibatched data.  Note that they take the loss function as a third
+argument and iterate through the x,y pairs (minibatches) in data:
+
+.. testcode::
+
+    function train(f, data, loss)
+        for (x,y) in data
+            forw(f, x)
+            back(f, y, loss)
+            update!(f)
+        end
+    end
+
+    function test(f, data, loss)
+        sumloss = numloss = 0
+        for (x,ygold) in data
+            ypred = forw(f, x)
+            sumloss += loss(ypred, ygold)
+            numloss += 1
+        end
+        return sumloss / numloss
+    end
+
+.. testoutput::
+   :hide:
+      
+   ...
+
+Before training, we compile the model and set the learning rate to
+0.2, which works well for this example.  We use two new :ref:`loss
+functions <loss-table>`: ``softloss`` computes the cross entropy loss,
+:math:`E(p\log\hat{p})`, commonly used for training classification
+models and ``zeroone`` computes the zero-one loss which is the
+proportion of predictions that were wrong.  I got 7.66% test error
+after 40 epochs of training.  Your results may be slightly different
+on different machines, or different runs on the same machine because
+of random initialization.
+
+.. testcode:: :hide:
+
+   setseed(42)
+
+.. testoutput:: :hide:
+
+   ... DBG
+
+.. doctest::
+
+   julia> model = compile(:softmax);
+   julia> setp(model; lr=0.2);
+   julia> for epoch=1:40; train(model, trn, softloss); end
+   julia> test(model, tst, zeroone)
+   0.0766...
+
+In this section we saw how splitting the training data into
+minibatches can speed up training.  We trained our first
+classification model on MNIST and used two new loss functions:
+``softloss`` and ``zeroone``.
+
+6. MLP
+------   
+
+.. TODO: add mlp example.  Introduce repeat?  Should fix it first.
+
+7. Convnet
+----------   
+
+.. TODO: add lenet example.  What concepts introduced?
+
+**Deprecated**
+
+.. seealso::
+
    @knet as op, kwargs for @knet functions,
    function options (f=:relu).  splat.
    lenet example, fast enough on cpu?
-
-The key to controlling complexity in computer languages is
-**abstraction**.  Abstraction is the ability to name compound structures
-built from primitive parts, so they too can be used as primitives.  In
-Knet we do this by using @knet functions not as models, but as new
-operators inside other @knet functions.
 
 To illustrate this, we will use the LeNet_ convolutional neural
 network model designed to recognize handwritten digits.  Here is the
@@ -364,31 +685,31 @@ LeNet model defined using only the :ref:`primitive operators of Knet
 .. testcode::
 
     @knet function lenet1(x)    # dims=(28,28,1,N)
-        w1 = par(init=Xavier(),   dims=(5,5,1,20))
-        c1 = conv(w1,x)         # dims=(24,24,20,N)
-        b1 = par(init=Constant(0),dims=(1,1,20,1))
-        a1 = add(b1,c1)
-        r1 = relu(a1)
-        p1 = pool(r1; window=2) # dims=(12,12,20,N)
+	w1 = par(init=Xavier(),   dims=(5,5,1,20))
+	c1 = conv(w1,x)         # dims=(24,24,20,N)
+	b1 = par(init=Constant(0),dims=(1,1,20,1))
+	a1 = add(b1,c1)
+	r1 = relu(a1)
+	p1 = pool(r1; window=2) # dims=(12,12,20,N)
 
-        w2 = par(init=Xavier(),   dims=(5,5,20,50))
-        c2 = conv(w2,p1)        # dims=(8,8,50,N)
-        b2 = par(init=Constant(0),dims=(1,1,50,1))
-        a2 = add(b2,c2)
-        r2 = relu(a2)
-        p2 = pool(r2; window=2) # dims=(4,4,50,N)
+	w2 = par(init=Xavier(),   dims=(5,5,20,50))
+	c2 = conv(w2,p1)        # dims=(8,8,50,N)
+	b2 = par(init=Constant(0),dims=(1,1,50,1))
+	a2 = add(b2,c2)
+	r2 = relu(a2)
+	p2 = pool(r2; window=2) # dims=(4,4,50,N)
 
-        w3 = par(init=Xavier(),   dims=(500,800))
-        d3 = dot(w3,p2)         # dims=(500,N)
-        b3 = par(init=Constant(0),dims=(500,1))
-        a3 = add(b3,d3)
-        r3 = relu(a3)
+	w3 = par(init=Xavier(),   dims=(500,800))
+	d3 = dot(w3,p2)         # dims=(500,N)
+	b3 = par(init=Constant(0),dims=(500,1))
+	a3 = add(b3,d3)
+	r3 = relu(a3)
 
-        w4 = par(init=Xavier(),   dims=(10,500))
-        d4 = dot(w4,r3)         # dims=(10,N)
-        b4 = par(init=Constant(0),dims=(10,1))
-        a4 = add(b4,d4)
-        return soft(a4)         # dims=(10,N)
+	w4 = par(init=Xavier(),   dims=(10,500))
+	d4 = dot(w4,r3)         # dims=(10,N)
+	b4 = par(init=Constant(0),dims=(10,1))
+	a4 = add(b4,d4)
+	return soft(a4)         # dims=(10,N)
     end
 
 .. testoutput:: :hide:
@@ -401,7 +722,7 @@ LeNet model defined using only the :ref:`primitive operators of Knet
 
 .. .. [#] This definition closely follows the Caffe_ implementation.
 
-.. In our first model ``lin``, we had specified model parameters by
+.. In our first model ``linreg``, we had specified model parameters by
 .. passing random arrays to the ``init`` argument.  LeNet uses a
 .. different alternative, the parameters are specified by indicating
 .. their size with the ``dims`` argument and random distributions
@@ -424,10 +745,10 @@ just *that*:
 .. testcode::
 
     @knet function lenet2(x)
-        a = conv_pool_layer(x)
-        b = conv_pool_layer(a)
-        c = relu_layer(b)
-        return softmax_layer(c)
+	a = conv_pool_layer(x)
+	b = conv_pool_layer(a)
+	c = relu_layer(b)
+	return softmax_layer(c)
     end
 
 .. testoutput:: :hide:
@@ -447,12 +768,12 @@ as operators as well as models.  For example, we can define
 .. testcode::
 
     @knet function conv_pool_layer(x)
-        w = par(init=Xavier(), dims=(5,5,1,20))
-        c = conv(w,x)
-        b = par(init=Constant(0), dims=(1,1,20,1))
-        a = add(b,c)
-        r = relu(a)
-        return pool(r; window=2)
+	w = par(init=Xavier(), dims=(5,5,1,20))
+	c = conv(w,x)
+	b = par(init=Constant(0), dims=(1,1,20,1))
+	a = add(b,c)
+	r = relu(a)
+	return pool(r; window=2)
     end
 
 .. testoutput:: :hide:
@@ -471,9 +792,6 @@ Even within the same model, you may want to use the same layer type in
 more than one configuration.  For example in ``lenet2`` there is no
 way to distinguish the two ``conv_pool_layer`` operations, but looking
 at ``lenet1`` we clearly want them to do different things.
-
-.. _keyword arguments: http://julia.readthedocs.org/en/release-0.4/manual/functions/#keyword-arguments
-.. _three dots: http://julia.readthedocs.org/en/release-0.4/manual/faq/?highlight=splat#what-does-the-operator-do
 
 Knet solves the layer configuration problem using `keyword
 arguments`_.  Knet functions borrow the keyword argument syntax from
@@ -499,12 +817,12 @@ arguments:
 .. testcode::
 
     @knet function conv_pool_layer(x; cwindow=0, cinput=0, coutput=0, pwindow=0)
-        w = par(init=Xavier(), dims=(cwindow,cwindow,cinput,coutput))
-        c = conv(w,x)
-        b = par(init=Constant(0), dims=(1,1,coutput,1))
-        a = add(b,c)
-        r = relu(a)
-        return pool(r; window=pwindow)
+	w = par(init=Xavier(), dims=(cwindow,cwindow,cinput,coutput))
+	c = conv(w,x)
+	b = par(init=Constant(0), dims=(1,1,coutput,1))
+	a = add(b,c)
+	r = relu(a)
+	return pool(r; window=pwindow)
     end
 
 .. testoutput:: :hide:
@@ -520,11 +838,11 @@ that contains the shared code for all our layers:
 .. testcode::
 
     @knet function generic_layer(x; f1=:dot, f2=:relu, wdims=(), bdims=(), winit=Xavier(), binit=Constant(0))
-        w = par(init=winit, dims=wdims)
-        y = f1(w,x)
-        b = par(init=binit, dims=bdims)
-        z = add(b,y)
-        return f2(z)
+	w = par(init=winit, dims=wdims)
+	y = f1(w,x)
+	b = par(init=binit, dims=bdims)
+	z = add(b,y)
+	return f2(z)
     end
 
 .. testoutput:: :hide:
@@ -541,16 +859,16 @@ types easily:
 .. testcode::
 
     @knet function conv_pool_layer(x; cwindow=0, cinput=0, coutput=0, pwindow=0)
-        y = generic_layer(x; f1=:conv, f2=:relu, wdims=(cwindow,cwindow,cinput,coutput), bdims=(1,1,coutput,1))
-        return pool(y; window=pwindow)
+	y = generic_layer(x; f1=:conv, f2=:relu, wdims=(cwindow,cwindow,cinput,coutput), bdims=(1,1,coutput,1))
+	return pool(y; window=pwindow)
     end
 
     @knet function relu_layer(x; input=0, output=0)
-        return generic_layer(x; f1=:dot, f2=:relu, wdims=(output,input), bdims=(output,1))
+	return generic_layer(x; f1=:dot, f2=:relu, wdims=(output,input), bdims=(output,1))
     end
 
     @knet function softmax_layer(x; input=0, output=0)
-        return generic_layer(x; f1=:dot, f2=:soft, wdims=(output,input), bdims=(output,1))
+	return generic_layer(x; f1=:dot, f2=:soft, wdims=(output,input), bdims=(output,1))
     end
 
 .. testoutput:: :hide:
@@ -562,10 +880,10 @@ Finally we can define a working version of LeNet using 4 lines of code:
 .. testcode::
 
     @knet function lenet3(x)
-        a = conv_pool_layer(x; cwindow=5, cinput=1,  coutput=20, pwindow=2)
-        b = conv_pool_layer(a; cwindow=5, cinput=20, coutput=50, pwindow=2)
-        c = relu_layer(b; input=800, output=500)
-        return softmax_layer(c; input=500, output=10)
+	a = conv_pool_layer(x; cwindow=5, cinput=1,  coutput=20, pwindow=2)
+	b = conv_pool_layer(a; cwindow=5, cinput=20, coutput=50, pwindow=2)
+	c = relu_layer(b; input=800, output=500)
+	return softmax_layer(c; input=500, output=10)
     end
 
 .. testoutput:: :hide:
@@ -589,10 +907,10 @@ LeNet:
 .. testcode::
 
     @knet function lenet4(x; cwin1=5, cout1=20, pwin1=2, cwin2=5, cout2=50, pwin2=2, hidden=500, nclass=10)
-        a = conv_pool_layer(x; cwindow=cwin1, coutput=cout1, pwindow=pwin1)
-        b = conv_pool_layer(a; cwindow=cwin2, coutput=cout2, pwindow=pwin2)
-        c = relu_layer(b; output=hidden)
-        return softmax_layer(c; output=nclass)
+	a = conv_pool_layer(x; cwindow=cwin1, coutput=cout1, pwindow=pwin1)
+	b = conv_pool_layer(a; cwindow=cwin2, coutput=cout2, pwindow=pwin2)
+	c = relu_layer(b; output=hidden)
+	return softmax_layer(c; output=nclass)
     end
 
 .. testoutput:: :hide:
@@ -607,8 +925,6 @@ pass keyword arguments to ``compile``:
    julia> f = compile(:lenet4; cout1=30, cout2=60, hidden=600)
    ...
 
-.. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
-
 In this section we saw how to use @knet functions as new operators,
 and configure them using keyword arguments.  Using the power of
 abstraction, not only did we cut the amount of code for the LeNet
@@ -619,170 +935,16 @@ complex models using your own set of operators.  To see some example
 reusable operators take a look at the :ref:`Knet compound operators
 <compounds-table>` table and see their definitions in `kfun.jl`_.
 
-.. _training-with-minibatches:
-
-Training with minibatches
--------------------------
-.. minibatch, softloss, zeroone
-
-We will use the LeNet model to classify hand-written digits from the
-MNIST_ dataset.  Here are the first 8 images from MNIST, the goal is
-to look at the pixels and classify each image as one of the digits
-0-9:
-
-.. image:: images/firsteightimages.jpg
-
-The following loads the MNIST data:
-
 .. _LeNet: http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf
-.. _MNIST: http://yann.lecun.com/exdb/mnist
 
-.. doctest::
+8. Conditional Evaluation
+-------------------------
 
-    julia> include(Pkg.dir("Knet/examples/mnist.jl"))
-    INFO: Loading MNIST...
-
-Once loaded, the data is available as multi-dimensional Julia arrays:
-
-.. doctest::
-
-    julia> MNIST.xtrn
-    28x28x1x60000 Array{Float32,4}:...
-    julia> MNIST.ytrn
-    10x60000 Array{Float32,2}:...
-    julia> MNIST.xtst
-    28x28x1x10000 Array{Float32,4}:...
-    julia> MNIST.ytst
-    10x10000 Array{Float32,2}:...
-
-We have 60000 training and 10000 testing examples.  Each input x is a
-28x28x1 array, where the first two numbers represent the width and
-height in pixels, the third number is the number of channels (which is
-1 for grayscale images, 3 for RGB images etc.)  The pixel values have
-been normalized to :math:`[0,1]`.  Each output y is a ten-dimensional
-one-hot vector (a vector that has a single non-zero component)
-indicating the correct class (0-9) for a given image.
-
-This is a much larger dataset than Housing.  For computational
-efficiency, it is not advisable to use these examples one at a time
-during training like we did before.  We will split the data into
-groups of 100 examples called **minibatches**, and pass data to
-``forw`` and ``back`` one minibatch at a time instead of one instance
-at a time.  On a machine with a Nvidia K20 GPU, one epoch of training
-LeNet on MNIST takes about 3.1 seconds with a minibatch size of 100,
-10.8 seconds with a minibatch size of 10, and 75.2 seconds if we do
-not use minibatches.  
-
-Knet provides a small ``minibatch`` function to split the data:
-
-.. testcode::
-
-    function minibatch(x, y, batchsize)
-        data = Any[]
-        for i=1:batchsize:ccount(x)
-            j=min(i+batchsize-1,ccount(x))
-            push!(data, (cget(x,i:j), cget(y,i:j)))
-        end
-        return data
-    end
-
-.. testoutput:: :hide:
-
-    ...
-
-.. _iterables: http://julia.readthedocs.org/en/release-0.4/manual/interfaces/#iteration
-.. _subarrays: http://julia.readthedocs.org/en/release-0.4/manual/arrays/
-
-``minibatch`` takes ``batchsize`` columns of ``x`` and ``y`` at a
-time, pairs them up and pushes them into a ``data`` array.  It works
-for arrays of any dimensionality, treating the last dimension as
-"columns".  This type of minibatching is fine for small datasets, but
-it requires holding two copies of the data in memory.  For problems
-with a large amount of data you may want to use subarrays_ or
-iterables_.
-
-Here is ``minibatch`` in action:
-
-.. doctest::
-
-    julia> batchsize=100;
-    julia> trn = minibatch(MNIST.xtrn, MNIST.ytrn, batchsize)
-    600-element Array{Any,1}:...
-    julia> tst = minibatch(MNIST.xtst, MNIST.ytst, batchsize)
-    100-element Array{Any,1}:...
-
-Each element of ``trn`` and ``tst`` is an x, y pair that contains 100
-examples::
-
-    julia> trn[1]
-    (28x28x1x100 Array{Float32,4}:
-     ...,
-     10x100 Array{Float32,2}:
-     ...)
-
-Here are some simple train and test functions that use this type of
-minibatched data.  Note that they take the loss function as a third
-argument:
-
-.. testcode::
-
-    function train(f, data, loss)
-        for (x,y) in data
-            forw(f, x)
-            back(f, y, loss)
-            update!(f)
-        end
-    end
-
-    function test(f, data, loss)
-        sumloss = numloss = 0
-        for (x,ygold) in data
-            ypred = forw(f, x)
-            sumloss += loss(ypred, ygold)
-            numloss += 1
-        end
-        sumloss / numloss
-    end
-
-.. testoutput::
-   :hide:
-      
-   ...
-
-Before training, we compile the model and set the learning rate to
-0.1, which works well for this example.  We use two new :ref:`loss
-functions <loss-table>`: ``softloss`` computes the cross entropy loss,
-:math:`E(p\log\hat{p})`, commonly used for training classification
-models and ``zeroone`` computes the zero-one loss which is the ratio
-of predictions that were wrong.  I got 2.26% test error after one
-epoch of training.  Your results may be slightly different on
-different machines, or different runs on the same machine because of
-non-determinism introduced by parallel GPU operations.
-
-.. After one epoch of training I got 2.26% test error.  Your results may
-.. be slightly different because some of the convolution operations are
-.. non-deterministic.  You should be able to get the error down to 0.8%
-.. in about 30 epochs of training.  You can compare this with some
-.. benchmark results on the MNIST_ web page:
-
-.. doctest::
-
-   julia> net = compile(:lenet4);
-   julia> setp(net; lr=0.1);
-   julia> train(net, trn, softloss);
-   julia> test(net, tst, zeroone)
-   0.0226
-
-In this section we saw how splitting the training data into
-minibatches can speed up training.  We trained our first neural
-network on a classification problem and used two new loss functions:
-``softloss`` and ``zeroone``.
-
-Conditional Evaluation
-----------------------
+.. seealso::
+   
+   if-else, runtime conditions (kwargs for forw), dropout
 
 ..
-   if-else, runtime conditions (kwargs for forw), dropout
    lenet with dropout?  fast enough for cpu?
    lenet is not a good example for dropout does not converge very fast.  dropout may not be
    a good motivator for conditionals: there are other ways to
@@ -936,9 +1098,12 @@ this to implement ``dropout``, an effective technique to prevent
 overfitting.
 
 
-Recurrent neural networks
--------------------------
-.. read-before-write, simple rnn, lstm
+9. Recurrent neural networks
+----------------------------
+
+.. seealso::
+
+   read-before-write, simple rnn, lstm
 
 .. _Karpathy, 2015: http://karpathy.github.io/2015/05/21/rnn-effectiveness/
 
@@ -1021,6 +1186,8 @@ bias) to its two inputs followed by an activation function (specified
 by the ``f`` keyword argument).  Try to define this operator yourself
 as an exercise, (see kfun.jl_ for the Knet definition).  
 
+.. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
+
 The LSTM has an input gate, forget gate and an output gate that
 control information flow.  Each gate depends on the current input
 ``x``, and the last output ``h``.  The memory value ``cell`` is
@@ -1041,8 +1208,8 @@ LSTMs.  We saw that having static variables is the only language
 feature necessary to implement RNNs.  Next we will look at how to
 train them.
 
-Training with sequences
------------------------
+10. Training with sequences
+---------------------------
 
 (`Karpathy, 2015`_) has lots of fun examples showing how character
 based language models based on LSTMs are surprisingly adept at
@@ -1463,14 +1630,14 @@ Function                	 	Description
 
 .. This looks a lot like a regular `Julia function definition`_ except
 .. for the ``@knet`` macro.  However it is important to emphasize that
-.. the ``@knet`` macro does not define ``lin`` as a regular Julia
+.. the ``@knet`` macro does not define ``linreg`` as a regular Julia
 .. function or variable.  Furthermore, only a restricted set of statement
 .. types (e.g. assignment and return statements) and operators
 .. (e.g. ``par``, ``*`` and ``.+``) can be used in a @knet function
 .. definition.  A list of Knet primitive operators is given below:
 
 .. .. Note that we need to escape Knet variable names using the `colon
-.. .. character`_ just like we did for ``:lin`` when compiling.
+.. .. character`_ just like we did for ``:linreg`` when compiling.
 
 .. ..
 ..    This defines ``f`` as an actual model (model or Net?) that we can
@@ -1482,13 +1649,13 @@ Function                	 	Description
 ..    when we introduce compile time parameters.)
 
 .. ..
-..    Also note that ``lin`` is not defined as a regular Julia function or
+..    Also note that ``linreg`` is not defined as a regular Julia function or
 ..    variable.
 
 ..    .. doctest
 
-..       julia: lin(5)
-..       ERROR: UndefVarError: lin not defined
+..       julia: linreg(5)
+..       ERROR: UndefVarError: linreg not defined
 
 .. ..
 ..    So far it looks like all Knet gave us is a very complicated way to
@@ -1545,3 +1712,12 @@ Function                	 	Description
 
 .. TODO: gradient checking
 .. TODO: mlp example (use mnist everywhere?)
+
+
+.. After one epoch of training I got 2.26% test error.  Your results may
+.. be slightly different because some of the convolution operations are
+.. non-deterministic.  You should be able to get the error down to 0.8%
+.. in about 30 epochs of training.  You can compare this with some
+.. benchmark results on the MNIST_ web page:
+
+   
