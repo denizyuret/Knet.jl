@@ -26,6 +26,17 @@
 	for each arg type.  What about for loops and conditionals?
 	Leaving where to put the macro to the user is dangerous.
 
+	The problem with the instrumenting profile solution is that it
+	records the top level lines, not the low level operations like we
+	want.  We want to instrument few low level operations (A_mul_B*,
+	broadcast, conv, pool etc.) and build everything out of these.
+	The datatypes inform the user which operations have been
+	instrumented.  Using Julia names or syntax on this primitive
+	operations is optional and probably not very practical.  So if we
+	want to write tanh(w*x.+b), we'll have to define these operations
+	for the new datatypes.  We can define/instrument them in bulk
+	using macros.
+
 2016-06-16  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TRACE-DESIGN-1:
