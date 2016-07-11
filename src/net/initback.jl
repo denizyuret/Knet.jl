@@ -6,7 +6,7 @@
 # - op.save: read-only, used for popping only if seq.
 # """
 function initback(f::Net, ygold, loss, getdx, seq)
-    seq == !stack_isempty(f) || error("")
+    seq == !stack_isempty(f) || error("sback is called while stack is empty")
     nextback = (f.lastforw, getdx, seq)
     if isvoid(f,:lastback) || f.lastback != nextback
         initgrad(f, getdx)
@@ -52,7 +52,7 @@ end
 
 # """ REWRITE:
 # set_toback(f::Net) sets f.toback[n] which is true if dif[n] should be
-# calculated for op[n] during back calculation.  This is only needed if 
+# calculated for op[n] during back calculation.  This is only needed if
 # op[n] is a par node or a par node descendent.  Or if the caller asked
 # for dx for network inputs, those and their descendents.
 # """
@@ -88,7 +88,7 @@ end
 # incrementally updated.  This is necessary if op[n] has multiple
 # outputs, or it is a Par and we are processing a sequence.  This is the
 # one place we can't seem to get rid of the seq flag.
-# 
+#
 # We can make all Par registers :incr.
 # - TODO: efficiency cost for fnn.
 # - who resets them to zero for rnn or for fnn.
@@ -188,7 +188,7 @@ end
 #         et = eltype(f.out0[n])
 #         sz = size(f.out0[n])
 #         dif0 = (
-#                 ### This is sparse non-incremental dw: can't really have dense without 
+#                 ### This is sparse non-incremental dw: can't really have dense without
 #                 # rewriting CUSPARSE.csrmm to take sparse matrix in second position.  As
 #                 # it stands, we'd have to transpose all three matrices: dw = dy * x' -> dw' = x * dy'
 #                 (f.sparse[n]!=nothing) && !f.toincr[n] && !gpu() ? spzeros(et, sz...) :
@@ -218,14 +218,14 @@ end
 #         et = eltype(f.out0[n])
 #         sz = size(f.out0[n])
 #         tmp = (
-#                # CSRU is 5% faster if no atomic op conflicts (rnnlm), 
+#                # CSRU is 5% faster if no atomic op conflicts (rnnlm),
 #                # but significantly slower when there are lots of conflicts (mnist)
 #                # Not worth the risk until I implement uniq for CSRU
 #                # Seems significantly faster on s2s, putting csru back on
 #                gpu() && f.sparse[n]!=nothing ? (f.sparse[n])(et, sz...) :
-#                # gpu() && f.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) : 
+#                # gpu() && f.sparse[n] ? CudaSparseMatrixCSR(spzeros(et, sz...)) :
 #                !gpu() && f.sparse[n]!=nothing ? spzeros(et, sz...) :
-#                gpu() ? CudaArray(et, sz) : 
+#                gpu() ? CudaArray(et, sz) :
 #                Array(et, sz))
 #     end
 #     return tmp
@@ -274,7 +274,7 @@ end
 # function initout(f::Net)
 #     N = length(f.op)
 #     index = zeros(Int,N)          			# index==0 represents need for new register
-#     for n=1:N                    
+#     for n=1:N
 #         overwrites(f.op[n]) || continue                 # see if we can reuse our input for output
 #         f.tosave[n] && continue                         # a saved register should only be written by op[n]
 #         i = f.inputs[n][1]                              # see if we can overwrite the first input
@@ -285,12 +285,12 @@ end
 #             in(i, f.inputs[k]) && (ow = false; break)   # Should look for existing regs no longer used
 #             k == i && break                             # this is nontrivial because the sizes are unknown
 #             k == N && i > N && break                    # but can possibly be inferred
-#         end                                             # fencepost check: N==1:OK, i==n:OK, i>N:OK 
+#         end                                             # fencepost check: N==1:OK, i==n:OK, i>N:OK
 #         ow && (index[n]=i)
 #     end
 #     f.out0 = cell(N)
 #     for n=1:N                                           # index==0 ops get their own registers
-#         index[n]==0 || continue 
+#         index[n]==0 || continue
 #         f.out0[n] = Any[]
 #     end
 #     for n=1:N                                             # other ops will overwrite existing registers
@@ -438,7 +438,7 @@ end
 
 #     #     @assert !haskey(dict, target)			# each target has to be unique
 #     #     for x in args
-#     #         @assert haskey(dict, x)                     # 
+#     #         @assert haskey(dict, x)                     #
 #     #     end
 #     #     if func == :input && inputs != nothing          # subroutines take their input registers from caller
 #     #         @assert length(inputs) >= nextinput
@@ -447,7 +447,7 @@ end
 #     #     end
 #     #     op = eval(Expr(:call, func, pars...))
 #     # end
-#     # 
+#     #
 
 # # initforw(f::Net,x...) is called at the beginning of a sequence or
 # # before processing a stand-alone item.  It is not called between
@@ -581,7 +581,7 @@ end
 #         isa(f.op[i], Par) && return
 #         size(f.dif[i]) == size(f.out0[n]) || continue
 #         issparse(f.dif[i]) == nsparse || continue
-        
+
 #     end
 #     return free
 # end
