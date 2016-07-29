@@ -5,6 +5,7 @@ Reinforcement Learning
 References
 ----------
 
+* http://karpathy.github.io/2016/05/31/rl/
 * https://webdocs.cs.ualberta.ca/~sutton/book/the-book.html
 * http://www0.cs.ucl.ac.uk/staff/d.silver/web/Teaching.html
 * http://videolectures.net/rldm2015_silver_reinforcement_learning/?q=david%20silver
