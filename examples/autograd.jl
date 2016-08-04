@@ -73,14 +73,12 @@ CalculationTape()=Any[]
 iscomplete(a)=(!isempty(a) && a[end]==nothing)
 complete!(a)=push!(a,nothing)                                   # Q: why do we need complete?
 
-"""
-Wraps a function so that its gradient can be specified and its invocation
-can be recorded. For examples, see the docs.
-"""
-type Primitive; fun; grads; zero_grads; end
+# OK, store gradmakers in methods that take (Val{N}, y, x...)?
+# This way we can use method dispatch to find the appropriate gradient.
+# Still using the closure to store x,y?
 
-# Turn methods into functions that take Primitive as first arg?
-Primitive(fun) = Primitive(fun, Dict{Int,Function}(), Set{Int}())
+typealias D1 Type{Val{1}}
+typealias D2 Type{Val{2}}
 
 """
 forward_pass(fun, args, kwargs, argnum) -> (start_node, end_node, tape)
@@ -92,7 +90,7 @@ operations use regular `call`.  This is the only place where a tape is
 created.  Multiple tapes only enter the picture for higher level derivatives.
 """    
 function forward_pass(fun, args, kwargs, argnum)
-    @show (fun, args, kwargs, argnum)
+    display((:forward_pass, fun, args, kwargs, argnum))
     tape = CalculationTape()                                    # Q: what is this for, when do we need multiple tapes?
     arg_wrt = args[argnum]                                      # Q: return grad wrt all args instead of a single one?
     start_node = new_node(safe_type(getval(arg_wrt)), Any[tape]) # Q: do we need safe_type and getval?
@@ -107,99 +105,18 @@ end
 new_node(value, tapes)=Node(value, tapes)
 safe_type(value) = isa(value, Integer) ? float(value) : value
 getval(x) = isa(x, Node) ? x.value : x                          # Q: we strip Node, important for higher order derivatives.
-merge_tapes(x,y) = x            # TODO: this should be a primitive, there is trickery in its gradient
-
-# This is where the main action is:
-# forward_pass wraps the relevant argument in a Node and calls the top level function.
-# Inside the function whenever a Primitive is called with a Node arg, we end up here.
-# call(p::Primitive) replaces arg Nodes with their values and calls p.fun.
-# for each Node arg, if it is not in zero_grads, and its tape is not complete:
-# we store (tape, i, parent_rnode) in array ops and keep track of unique tapes.
-# After the call, we wrap result in a node with all unique tapes.
-# for each (tape, i, parent_rnode) in ops:
-# we call gradmaker on p with argnum=i
-# we push (grad_p, parent_rnode) on parent_grad_ops of ReverseNode of result 
-
-function call(p::Primitive, args...; kwargs...)
-    argvals = Any[args...]
-    ops = []
-    tapes = Set()
-    for (i, arg) in enumerate(args)
-        if isa(arg, Node)
-            argvals[i] = arg.value
-            if i in p.zero_grads; continue; end                 # Q: who sets zero_grads, why?
-            for (tape, parent_rnode) in arg.tapes               # Node.tapes is a Dict{Tape,Node}
-                if !iscomplete(tape)                            # Q: why do we need iscomplete? high-order derivatives?
-                    push!(ops, (tape, i, parent_rnode))         # ops should be called args or inputs!
-                    push!(tapes, tape)                          
-                end
-            end
-        end
-    end
-    result = p.fun(argvals...; kwargs...)
-    # if isa(result, NotImplemented); return result; end        # Q: what's this for?  NotImplemented is a Python primitive!
-    if !isempty(ops)
-        result = new_node(result, tapes)
-        for (tape, argnum, parent) in ops                       
-            gradfun = gradmaker(p, argnum, result, args, kwargs) # Creates a node specific gradfun (dy->dx) with x,y in a closure by calling p.grads[argnum](y,x)
-            rnode = result.tapes[tape]
-            push!(rnode.parent_grad_ops, (gradfun, parent))
-        end
-    end
-    return result
-end
-
-
-# Q: Can we get away with a single Node type?
-# Q: Why do we need multiple tapes?  Hypothesis: for higher level derivatives.
-# Q: If we build a tree, how do we prune non-parameter inputs?  (they won't have node types)
-# Q: How do we get derivatives for multiple parameters (possibly wrapped up in one list)?
-
-# OK, at this point we get:
-# MethodError: `sin` has no method matching sin(::Node)
-# It is time to implement primitive.
-
-function gradmaker(p::Primitive, argnum, ans, args, kwargs)
-    try 
-        p.grads[argnum](ans, args...; kwargs...)
-    catch e
-        if isa(e, KeyError)
-            name = p.fun.env.name
-            if isempty(p.grads)
-                error("Gradient of $name not yet implemented.")
-            else
-                error("Gradient of $name w.r.t. arg number $argnum not yet implemented.")
-            end
-        else
-            throw(e)
-        end
-    end
-end
-
-defgrad(p::Primitive, gradmaker, argnum=1) = (p.grads[argnum] = gradmaker)
-defgrads(p::Primitive, gradmaker, argnums) = (for argnum in argnums; defgrad(p, partial(gradmaker, argnum), argnum); end)
-defgrad_is_zero(p::Primitive, argnums=(1,))= (for argnum in argnums; push!(p.zero_grads, argnum); end)
-
-
-
-# TODO: what is partial, define it?
-# TODO: what is primitive with aux, do we need it?
-# TODO: NotImplemented, NoDerivativeNode?
-# TODO: zeros_like
 
 """
 backward_pass(start_node, end_node, tape) -> gradient wrt start_node.value
 """
 function backward_pass(start_node, end_node, tape)
-    # @show start_node
-    # @show end_node
-    # display(tape)
-    # @show isa(end_node, Node)
-    # @show haskey(end_node.tapes, tape)
-    global _s, _e, _t
-    _s, _e, _t = start_node, end_node, tape
+    #DBG
+    display((:backward_pass,start_node, end_node, tape))
+    global _s,_e,_t
+    _s,_e,_t = start_node, end_node, tape
     isa(end_node, Node) || warn("end_node is not a Node")
-    haskey(end_node.tapes, tape) || warn("cannot find the tape")
+    haskey(end_node.tapes, tape) || warn("cannot find tape")
+    #DBGEND
     if !isa(end_node, Node) || !haskey(end_node.tapes, tape)    # This may happen if the function returns a constant, for example
         warn("Output seems independent of input. Returning zero gradient.")
         return zeros_like(start_node)
@@ -227,6 +144,111 @@ function backward_pass(start_node, end_node, tape)
     return cur_outgrad
 end
 
+# And define generic method for primitives that does what Primitive.call does
+function primitive(f)
+    function f(args...; kwargs...)
+        display((f.env.name, args..., kwargs...))
+        argvals = Any[args...]
+        ops = []
+        tapes = Set()
+        found_node = false
+        for (i, arg) in enumerate(args)
+            if isa(arg, Node)
+                found_node = true
+                argvals[i] = arg.value
+                # if i in p.zero_grads; continue; end                 # Q: who sets zero_grads, why?  TODO: reimplement
+                for (tape, parent_rnode) in arg.tapes               # Node.tapes is a Dict{Tape,Node}
+                    if !iscomplete(tape)                            # Q: why do we need iscomplete? high-order derivatives?
+                        push!(ops, (tape, i, parent_rnode))         # ops should be called args or inputs!
+                        push!(tapes, tape)                          
+                    end
+                end
+            end
+        end
+        found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
+        result = f(argvals...; kwargs...)
+        # if isa(result, NotImplemented); return result; end        # Q: what's this for?  NotImplemented is a Python primitive!
+        if !isempty(ops)
+            result = new_node(result, tapes)
+            for (tape, argnum, parent) in ops                       
+                # gradfun = gradmaker(p, argnum, result, args, kwargs) # Creates a node specific gradfun (dy->dx) with x,y in a closure by calling p.grads[argnum](y,x)
+                gradfun = f(Val{argnum}, result, args...; kwargs...)
+                rnode = result.tapes[tape]
+                push!(rnode.parent_grad_ops, (gradfun, parent))
+            end
+        end
+        return result
+    end
+end
+
+# BUG: this merge_tapes overrides the primitive version!
+# We need to explicitly specify Node types?
+merge_tapes(x::Number,y) = x                                    # DBG: temporary fix.
+merge_tapes(::D1,c,a,b) = (x->x)
+merge_tapes(::D2,c,a,b) = (x->x)
+primitive(merge_tapes)
+
+primitive(sin)
+primitive(cos)
+primitive(+)
+primitive(*)
+
+sin(::D1,y,x)=(dy->dy*cos(x))
+cos(::D1,y,x)=(dy->dy*(-sin(x)))
+(+)(::D1,y,x1,x2)=(dy->dy)
+(+)(::D2,y,x1,x2)=(dy->dy)
+(*)(::D1,y,x1,x2)=(dy->dy*x2)
+(*)(::D2,y,x1,x2)=(dy->dy*x1)
+
+gsin = grad(sin)
+hsin = grad(gsin)
+@show sin(1.0)
+@show gsin(1.0)
+@show hsin(1.0)
+
+# foo2(x,y)=sin(x)+cos(y)
+# goo2 = grad(foo2)
+# goo22 = grad(foo2, 2)
+# @show goo2(1,2)
+# @show goo22(1,2)
+
+# Q: Can we get away with a single Node type?
+# Q: Why do we need multiple tapes?  Hypothesis: for higher level derivatives.
+# Q: If we build a tree, how do we prune non-parameter inputs?  (they won't have node types)
+# Q: How do we get derivatives for multiple parameters (possibly wrapped up in one list)?
+
+# OK, at this point we get:
+# MethodError: `sin` has no method matching sin(::Node)
+# It is time to implement primitive.
+
+# TODO: what is partial, define it?
+# TODO: what is primitive with aux, do we need it?
+# TODO: NotImplemented, NoDerivativeNode?
+# TODO: zeros_like
+
+# function gradmaker(p::Primitive, argnum, ans, args, kwargs)
+#     try 
+#         p.grads[argnum](ans, args...; kwargs...)
+#     catch e
+#         if isa(e, KeyError)
+#             name = p.fun.env.name
+#             if isempty(p.grads)
+#                 error("Gradient of $name not yet implemented.")
+#             else
+#                 error("Gradient of $name w.r.t. arg number $argnum not yet implemented.")
+#             end
+#         else
+#             throw(e)
+#         end
+#     end
+# end
+
+# defgrad(p::Primitive, gradmaker, argnum=1) = (p.grads[argnum] = gradmaker)
+# defgrads(p::Primitive, gradmaker, argnums) = (for argnum in argnums; defgrad(p, partial(gradmaker, argnum), argnum); end)
+# defgrad_is_zero(p::Primitive, argnums=(1,))= (for argnum in argnums; push!(p.zero_grads, argnum); end)
+
+
+
 # Type signatures for gradients:
 # f: X->Y
 # Primitive(f)=P: Node(X)->Node(Y)?
@@ -239,51 +261,46 @@ end
 # Q: can we do gradients without higher order functions?
 # Q: we need a Node method, what else do we absolutely need?
 
-_psin = Primitive(sin)
-_pcos = Primitive(cos)
-sin(x::Node)=_psin(x)
-cos(x::Node)=_pcos(x)
-# Instead of recording inputs and outputs explicitly, we hide it in closures for every call?
-# We store pointers to all inputs and outputs!
-defgrad(_psin, (y,x)->(dy->dy * _pcos(x)))                         # dJ/dx = dJ/dy * dy/dx
-defgrad(_pcos, (y,x)->(dy->-dy * _psin(x)))
+# _psin = Primitive(sin)
+# _pcos = Primitive(cos)
+# sin(x::Node)=_psin(x)
+# cos(x::Node)=_pcos(x)
+# # Instead of recording inputs and outputs explicitly, we hide it in closures for every call?
+# # We store pointers to all inputs and outputs!
+# defgrad(_psin, (y,x)->(dy->dy * _pcos(x)))                         # dJ/dx = dJ/dy * dy/dx
+# defgrad(_pcos, (y,x)->(dy->-dy * _psin(x)))
 
-(start_node, end_node, tape) = forward_pass(sin, [1.0,], [], 1)
-#show start_node # value:1.0, tapes:(tape=>tape[1])
-#show end_node   # value:0.84, tapes:(tape=>tape[2])
-#display(tape)
-# type ReverseNode; parent_grad_ops; outgrads; node_type; node_value; end
-# tape[1]: ReverseNode(Any[],Any[],Node,1.0)                                                                       
-# tape[2]: ReverseNode(Any[((anonymous function),ReverseNode(Any[],Any[],Node,1.0))],Any[],Node,0.8414709848078965)
+# (start_node, end_node, tape) = forward_pass(sin, [1.0,], [], 1)
+# #show start_node # value:1.0, tapes:(tape=>tape[1])
+# #show end_node   # value:0.84, tapes:(tape=>tape[2])
+# #display(tape)
+# # type ReverseNode; parent_grad_ops; outgrads; node_type; node_value; end
+# # tape[1]: ReverseNode(Any[],Any[],Node,1.0)                                                                       
+# # tape[2]: ReverseNode(Any[((anonymous function),ReverseNode(Any[],Any[],Node,1.0))],Any[],Node,0.8414709848078965)
 
-_gsin = grad(sin)
-_gcos = grad(cos)
-#show sin(1.0)
-#show _gsin(1.0)
-#show cos(1.0)
-#show _gcos(1.0)
+# _gsin = grad(sin)
+# _gcos = grad(cos)
+# #show sin(1.0)
+# #show _gsin(1.0)
+# #show cos(1.0)
+# #show _gcos(1.0)
 
-# Implement + for multi-input example:
-_padd = Primitive(+)
-defgrad(_padd, (c,a,b)->(g->g), 1)
-defgrad(_padd, (c,a,b)->(g->g), 2)
-(+)(a::Node,b::Node)=_padd(a,b)
+# # Implement + for multi-input example:
+# _padd = Primitive(+)
+# defgrad(_padd, (c,a,b)->(g->g), 1)
+# defgrad(_padd, (c,a,b)->(g->g), 2)
+# (+)(a::Node,b::Node)=_padd(a,b)
 
-# foo1(x)=sin(sin(x)+cos(x))
-# (start_node, end_node, tape) = forward_pass(foo1, [1.0,], [], 1)
-# goo1 = grad(foo1)
-# @show foo1(1.0)
-# @show goo1(1.0)
+# # foo1(x)=sin(sin(x)+cos(x))
+# # (start_node, end_node, tape) = forward_pass(foo1, [1.0,], [], 1)
+# # goo1 = grad(foo1)
+# # @show foo1(1.0)
+# # @show goo1(1.0)
 
-# foo3(x)=(a=sin(x);println(typeof(a));b=cos(x);return a)
-# goo3 = grad(foo3)
-# @show goo3(1.0)
+# # foo3(x)=(a=sin(x);println(typeof(a));b=cos(x);return a)
+# # goo3 = grad(foo3)
+# # @show goo3(1.0)
 
-foo2(x,y)=sin(x)+cos(y)
-goo2 = grad(foo2)
-goo22 = grad(foo2, 2)
-@show goo2(1,2)
-@show goo22(1,2)
 
 # Q: who does array allocation for array gradients?
 
@@ -346,6 +363,55 @@ goo22 = grad(foo2, 2)
 # there is also the problem of interface, autograd solves this with closures, we'd need to find a way to store input/output
 # in autograd, there is no gradient but a gradient maker which is invoked with x,y and creates a function on demand
 
+
+# """
+# Wraps a function so that its gradient can be specified and its invocation
+# can be recorded. For examples, see the docs.
+# """
+# type Primitive; fun; grads; zero_grads; end
+
+# # Turn methods into functions that take Primitive as first arg?
+# Primitive(fun) = Primitive(fun, Dict{Int,Function}(), Set{Int}())
+
+# # This is where the main action is:
+# # forward_pass wraps the relevant argument in a Node and calls the top level function.
+# # Inside the function whenever a Primitive is called with a Node arg, we end up here.
+# # call(p::Primitive) replaces arg Nodes with their values and calls p.fun.
+# # for each Node arg, if it is not in zero_grads, and its tape is not complete:
+# # we store (tape, i, parent_rnode) in array ops and keep track of unique tapes.
+# # After the call, we wrap result in a node with all unique tapes.
+# # for each (tape, i, parent_rnode) in ops:
+# # we call gradmaker on p with argnum=i
+# # we push (grad_p, parent_rnode) on parent_grad_ops of ReverseNode of result 
+
+# function call(p::Primitive, args...; kwargs...)
+#     argvals = Any[args...]
+#     ops = []
+#     tapes = Set()
+#     for (i, arg) in enumerate(args)
+#         if isa(arg, Node)
+#             argvals[i] = arg.value
+#             if i in p.zero_grads; continue; end                 # Q: who sets zero_grads, why?
+#             for (tape, parent_rnode) in arg.tapes               # Node.tapes is a Dict{Tape,Node}
+#                 if !iscomplete(tape)                            # Q: why do we need iscomplete? high-order derivatives?
+#                     push!(ops, (tape, i, parent_rnode))         # ops should be called args or inputs!
+#                     push!(tapes, tape)                          
+#                 end
+#             end
+#         end
+#     end
+#     result = p.fun(argvals...; kwargs...)
+#     # if isa(result, NotImplemented); return result; end        # Q: what's this for?  NotImplemented is a Python primitive!
+#     if !isempty(ops)
+#         result = new_node(result, tapes)
+#         for (tape, argnum, parent) in ops                       
+#             gradfun = gradmaker(p, argnum, result, args, kwargs) # Creates a node specific gradfun (dy->dx) with x,y in a closure by calling p.grads[argnum](y,x)
+#             rnode = result.tapes[tape]
+#             push!(rnode.parent_grad_ops, (gradfun, parent))
+#         end
+#     end
+#     return result
+# end
 
 ### Need to find a Julia way to register primitives and their gradients.
 # - call Primitive if any of the args is Node
