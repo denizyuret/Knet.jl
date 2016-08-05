@@ -1,14 +1,10 @@
 # TODO:
-# Working with one Node type simplifies the code.
-# Could be much simplified if we don't support higher derivatives:
-# - no need for multiple tapes, merge_tapes.
-# - no need for tape complete?
-# Need to find a Julia way to register primitives and their gradients.
-# Need to test second order derivatives.
-# Need to test arrays.
+# are closures efficient?
+# Need to test arrays, tuples etc.  Handle getindex.
 # Need to solve the allocation / overwriting problem.
 
-importall Base
+importall Base  # getindex, sin, etc.
+dbg(x)=println(x)
 
 """
 grad(fun, argnum=1) -> gradfun    
@@ -21,7 +17,7 @@ positional argument number `argnum`. The returned function takes the same
 arguments as `fun`, but returns the gradient instead. The function `fun`
 should be scalar-valued. The gradient has the same type as the argument.
 """
-function grad(fun, argnum=1)
+function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         backward_pass(forward_pass(fun, args, kwargs, argnum)...)
     end
@@ -32,25 +28,26 @@ end
 ### There are three interacting types to record operations:
 
 """
-A Node is created:
+Node(value, tapes) creates a new Node:
 
 1. in forward_pass for the argument we are taking gradient w.r.t.
 2. in call for the output of a primitive operation.
 
 When a Node is created, it pushes ReverseNodes with the same value
 on each tape, and records pointers to each tape and its ReverseNode
-in its `tapes` dictionary.  These ReverseNodes have uninitialized
-parent_grad_ops and outgrads.
-
-Ordinarily there is only one tape (unless we do higher order derivatives).
+in its `tapes` dictionary.  These ReverseNodes have empty
+parent_grad_ops and outgrads which are written by call and back 
+respectively.  Ordinarily there is only one tape (unless we do 
+higher order derivatives).
 """
 type Node; value; tapes;                                        # field tapes is a Dict()
     function Node(value, tapes)                                 # arg tapes is an Array
         self = new(value, ObjectIdDict())                       # tapes: Dict{tape->reversenode}
         for tape in tapes
             new_rnode = ReverseNode(typeof(self), value)        # Q: do we need typeof here any more if we have a single Node type?  also why define self.Rnode in python?
-            push!(tape, new_rnode)
+            push!(tape, new_rnode)                              # This is the only place new elements are added to a tape.
             self.tapes[tape] = new_rnode
+            dbg((:node,sptr(self),sptr(tape),new_rnode))
         end
         return self
     end
@@ -59,8 +56,8 @@ end
 """
 ReverseNode is a plain type with four slots:
 
-* `parent_grad_ops`: `call` fills this with (gradfun,parent) pairs for each Node argument.
-* `outgrads`: used by backward_pass
+* `parent_grad_ops`: `call` fills this array with (gradfun,parent) pairs for each Node argument.
+* `outgrads`: used by backward_pass, array of gradients for this node (in case fanout > 1).
 * `node_type`: type of corresponding Node
 * `node_value`: same value as corresponding Node
 """    
@@ -90,12 +87,13 @@ operations use regular `call`.  This is the only place where a tape is
 created.  Multiple tapes only enter the picture for higher level derivatives.
 """    
 function forward_pass(fun, args, kwargs, argnum)
-    display((:forward_pass, fun, args, kwargs, argnum))
+    dbg((:forw, fun, args, kwargs, argnum))
     tape = CalculationTape()                                    # Q: what is this for, when do we need multiple tapes?
     arg_wrt = args[argnum]                                      # Q: return grad wrt all args instead of a single one?
     start_node = new_node(safe_type(getval(arg_wrt)), Any[tape]) # Q: do we need safe_type and getval?
     args = Any[args...]                                         # This is to make args writable
     args[argnum] = merge_tapes(start_node, arg_wrt)             # Q: what does merge do? arg_wrt is not a node? it returns start_node here, is this for higher order derivatives?
+    #dbg(tape)
     end_node = fun(args...; kwargs...)                          # TODO: add error handling.
     return start_node, end_node, tape
 end
@@ -111,7 +109,7 @@ backward_pass(start_node, end_node, tape) -> gradient wrt start_node.value
 """
 function backward_pass(start_node, end_node, tape)
     #DBG
-    display((:backward_pass,start_node, end_node, tape))
+    dbg((:back,:s,start_node,:e,end_node,:t,tape))
     global _s,_e,_t
     _s,_e,_t = start_node, end_node, tape
     isa(end_node, Node) || warn("end_node is not a Node")
@@ -131,7 +129,7 @@ function backward_pass(start_node, end_node, tape)
     cur_outgrad = nothing
     for node in tape[end-1:-1:1]                                # note the end-1 because we pushed nothing to complete
         if !isempty(node.outgrads)
-            cur_outgrad = sum_outgrads(node)
+            cur_outgrad = sum_outgrads(node)                    # Q:could this be array summation?
             # TODO: @assert (type(new_node(getval(cur_outgrad))) == node.node_type) "Types are {0} and {1}" # TODO:.format(type(new_node(getval(cur_outgrad))), node.node_type)
             for (gradfun, parent) in node.parent_grad_ops
                 # Q: Should not be necessary with a single node type:
@@ -145,9 +143,10 @@ function backward_pass(start_node, end_node, tape)
 end
 
 # And define generic method for primitives that does what Primitive.call does
-function primitive(f)
-    function f(args...; kwargs...)
-        display((f.env.name, args..., kwargs...))
+function recording(f)
+    #dbg((:recording,f))
+    function r(args...; kwargs...)
+        dbg((:call, f, args..., kwargs...))
         argvals = Any[args...]
         ops = []
         tapes = Set()
@@ -172,27 +171,109 @@ function primitive(f)
             result = new_node(result, tapes)
             for (tape, argnum, parent) in ops                       
                 # gradfun = gradmaker(p, argnum, result, args, kwargs) # Creates a node specific gradfun (dy->dx) with x,y in a closure by calling p.grads[argnum](y,x)
+                dbg((Val{argnum}, result, args..., kwargs...))
                 gradfun = f(Val{argnum}, result, args...; kwargs...)
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
+                dbg((:deps,sptr(tape),rnode))
             end
         end
         return result
     end
+    return r
 end
 
-# BUG: this merge_tapes overrides the primitive version!
-# We need to explicitly specify Node types?
-merge_tapes(x::Number,y) = x                                    # DBG: temporary fix.
-merge_tapes(::D1,c,a,b) = (x->x)
+macro primitive(f)
+    esc(:(local r = recording($f); $f(x...;o...)=r(x...;o...)))
+end
+
+merge_tapes(x,y) = x
+merge_tapes(::D1,c,a,b) = (x->x)   # Q: but these don't record, is that a problem?
 merge_tapes(::D2,c,a,b) = (x->x)
-primitive(merge_tapes)
+# Problem: Using regular @primitive, merge_tapes(x,y) overrides merge_tapes(x...)
+# So we define gradient manually
+merge_tapes_r = recording(merge_tapes)
+merge_tapes(x::Node,y::Node) = merge_tapes_r(x,y)
 
-primitive(sin)
-primitive(cos)
-primitive(+)
-primitive(*)
+# Top level Julia container types that support getindex:
+# Associative, AbstractArray, Tuple
+# getindex(obj, key...) => value
+# setindex!(obj, val, key...) => obj
+# @primitive getindex
+getindex(::D1,val,x::AbstractArray,key...)=(dbg((:g1,x));g->(z=zeros_like(x);setindex!(z,g,key...);z))
+getindex(::D1,val,x::Associative,key...)=(dbg((:g2,x));g->(z=zeros_like(x);setindex!(z,g,key...);z))
+getindex(::D1,val,x::Tuple,key)=(dbg((:g3,x));g->ntuple(i->(i==key ? g : zeros_like(x[i])), length(x)))
 
+# Problem:
+# julia> @which getindex(Val{1}, Node(1,[]), Node(1,[]), 1)
+# getindex(T::Type{T}, vals...) at array.jl:165
+# Again, not explicitly declaring Node causes issues.  Define recording version manually.
+getindex_r = recording(getindex)
+getindex(x::Node, i...)=getindex_r(x,i...)
+getindex(t::Type, v, x::Node, i...)=getindex_r(t,v,x,i...)
+getindex(t::Type, v::Node, x::Type, i...)=getindex_r(t,v,x,i...)
+
+
+# We also have composite types that can be used as structs:
+# getfield(obj,key) => val
+# setfield!(obj,key,val) => val
+# @primitive getfield
+# getfield(::D1,val,obj,key)=(g->(z=zeros_like(obj);setfield!(z,key,g);z))
+# ERROR: Core.getfield cannot be extended
+# ok, we give up for now (workaround would be to define own get function)
+
+# zeros_like is similar to deepcopy.jl:
+
+zeros_like(x) = zeros_internal(x, ObjectIdDict())
+
+zeros_internal(x::Node,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=zeros_internal(x.value,d))
+zeros_internal(x::Tuple,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=ntuple(i->zeros_internal(x[i],d), length(x)))
+zeros_internal(x::Associative,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=[ k => zeros_internal(v,d) for (k,v) in x ])
+
+function zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)
+    haskey(d,x) && return d[x]
+    if isbits(T)
+        return (d[x]=zeros(x))
+    end
+    dest = similar(x)
+    for i=1:length(x)
+        if isdefined(x,i)
+            arrayset(dest, zeros_internal(x[i],d), i)
+        end
+    end
+    return (d[x]=dest)
+end
+
+function zeros_internal{T}(x::T,d::ObjectIdDict)
+    haskey(d,x) && return d[x]
+    nf = nfields(T)
+    (isbits(T) || nf == 0) && return zero(x)
+    y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
+    for i in 1:nf
+        if isdefined(x,i)
+            ccall(:jl_set_nth_field, Void, (Any, Csize_t, Any), y, i-1,
+                  zeros_internal(getfield(x,i), d))
+        end
+    end
+    return (d[x]=y::T)
+end
+
+# Pretty print for debugging:
+sptr(x::ReverseNode)="R$(Int(hash(x)%10000))"
+sptr(x::Node)="N$(Int(hash(x)%10000))"
+sptr(x::Function)="F$(Int(hash(x)%10000))"
+sptr(x::Array)="T$(Int(pointer(x))%10000)"
+Base.show(io::IO, n::Node) = print(io,"$(sptr(n))$((n.value,map(sptr,keys(n.tapes))...))")
+Base.show(io::IO, n::ReverseNode) = print(io,"$(sptr(n))$((n.node_value,n.outgrads,map(a->((sptr(a[1]),sptr(a[2]))),n.parent_grad_ops)...))")
+
+# Examples:
+@primitive(sin)
+@primitive(cos)
+@primitive(+)
+@primitive(*)
+
+# Q: alt notation: sin(x...,y,:D1) or sin(x...,y,dy,:D1) for non-closure interface
+# however this does not allow x... in definition which may be useful.
 sin(::D1,y,x)=(dy->dy*cos(x))
 cos(::D1,y,x)=(dy->dy*(-sin(x)))
 (+)(::D1,y,x1,x2)=(dy->dy)
@@ -200,11 +281,16 @@ cos(::D1,y,x)=(dy->dy*(-sin(x)))
 (*)(::D1,y,x1,x2)=(dy->dy*x2)
 (*)(::D2,y,x1,x2)=(dy->dy*x1)
 
-gsin = grad(sin)
-hsin = grad(gsin)
-@show sin(1.0)
-@show gsin(1.0)
-@show hsin(1.0)
+foo(x)=sin(x[1])+cos(x[2])
+goo = grad(foo)
+@show goo((1.,2.))
+
+
+# gsin = grad(sin)
+# hsin = grad(gsin)
+# #@show sin(1.0)
+# #@show gsin(1.0)
+# @show hsin(1.0)
 
 # foo2(x,y)=sin(x)+cos(y)
 # goo2 = grad(foo2)
@@ -441,3 +527,12 @@ hsin = grad(gsin)
 # -- the output could be an array.  output type does not determine method.  only input types do.
 # -- so gradient or gradient maker method needs all inputs with their types!
 # -- right now p.grads[argnum] stores one gradient maker per argument position.  It should at least be grads[argtypes,argnum].
+
+# DONE:
+# merge_tapes issue, how to define primitives
+# Working with one Node type simplifies the code.
+# Could be much simplified if we don't support higher derivatives:
+# - no need for multiple tapes, merge_tapes.
+# - no need for tape complete?
+# Need to find a Julia way to register primitives and their gradients.
+# Need to test second order derivatives.
