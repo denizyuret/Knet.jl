@@ -2,6 +2,7 @@
 
 	* TODO:
 
+	0000 add code citation for bibtex like autograd
 	0000 debug: master and dev give different results on MNIST4D.main("--epochs 1")
 	0000 debug: (initialization?) master and dev differ on CopySeq.main("--epochs 1 --dense "*Pkg.dir("Knet/data/seqdata.txt"))
 	0000 debug: liblinear and knet give different results for softmax regression
