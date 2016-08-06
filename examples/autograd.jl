@@ -4,7 +4,6 @@
 # Need to solve the allocation / overwriting problem.
 
 importall Base  # getindex, sin, etc.
-dbg(x)=println(x)
 
 """
 grad(fun, argnum=1) -> gradfun    
@@ -21,6 +20,7 @@ function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         backward_pass(forward_pass(fun, args, kwargs, argnum)...)
     end
+    dbg((:grad,name(gradfun,(symbol("D$argnum"),name(fun)))))
     return gradfun
 end
 
@@ -47,8 +47,8 @@ type Node; value; tapes;                                        # field tapes is
             new_rnode = ReverseNode(typeof(self), value)        # Q: do we need typeof here any more if we have a single Node type?  also why define self.Rnode in python?
             push!(tape, new_rnode)                              # This is the only place new elements are added to a tape.
             self.tapes[tape] = new_rnode
-            dbg((:node,sptr(self),sptr(tape),new_rnode))
         end
+        dbg((:node,self))
         return self
     end
 end
@@ -63,7 +63,6 @@ ReverseNode is a plain type with four slots:
 """    
 type ReverseNode; parent_grad_ops; outgrads; node_type; node_value; end
 ReverseNode(node_type, node_value) = ReverseNode([], [], node_type, node_value)
-sum_outgrads(rnode::ReverseNode)=sum(rnode.outgrads)            # TODO: does this work when grads are arrays?  maybe that is the reason for the strange python syntax, using the 0'th grad as the accumulator?
 
 "CalculationTape is an array of ReverseNodes with a `complete` flag."
 CalculationTape()=Any[]
@@ -87,13 +86,12 @@ operations use regular `call`.  This is the only place where a tape is
 created.  Multiple tapes only enter the picture for higher level derivatives.
 """    
 function forward_pass(fun, args, kwargs, argnum)
-    dbg((:forw, fun, args, kwargs, argnum))
+    dbg((symbol("forw$argnum"), name(fun), args..., kwargs...))
     tape = CalculationTape()                                    # Q: what is this for, when do we need multiple tapes?
     arg_wrt = args[argnum]                                      # Q: return grad wrt all args instead of a single one?
     start_node = new_node(safe_type(getval(arg_wrt)), Any[tape]) # Q: do we need safe_type and getval?
     args = Any[args...]                                         # This is to make args writable
     args[argnum] = merge_tapes(start_node, arg_wrt)             # Q: what does merge do? arg_wrt is not a node? it returns start_node here, is this for higher order derivatives?
-    #dbg(tape)
     end_node = fun(args...; kwargs...)                          # TODO: add error handling.
     return start_node, end_node, tape
 end
@@ -109,7 +107,7 @@ backward_pass(start_node, end_node, tape) -> gradient wrt start_node.value
 """
 function backward_pass(start_node, end_node, tape)
     #DBG
-    dbg((:back,:s,start_node,:e,end_node,:t,tape))
+    dbg((:back,name(start_node),name(end_node),name(tape)))
     global _s,_e,_t
     _s,_e,_t = start_node, end_node, tape
     isa(end_node, Node) || warn("end_node is not a Node")
@@ -134,8 +132,10 @@ function backward_pass(start_node, end_node, tape)
             for (gradfun, parent) in node.parent_grad_ops
                 # Q: Should not be necessary with a single node type:
                 # og = cast_to_node_type(gradfun(cur_outgrad), parent.node_type, parent.node_value)
+                dbg((:back1,cur_outgrad,name(gradfun)))
                 og = gradfun(cur_outgrad)
                 push!(parent.outgrads, og)
+                dbg((:back2,og,name(gradfun)))
             end
         end
     end
@@ -143,10 +143,15 @@ function backward_pass(start_node, end_node, tape)
 end
 
 # And define generic method for primitives that does what Primitive.call does
-function recording(f)
-    #dbg((:recording,f))
+"""
+recorder(fun) returns rfun, a recording version of fun.  rfun is defined with
+a generic signature r(args...; kwargs...) and is intended to catch all
+invocations that have at least one Node argument.
+"""
+function recorder(f)
+    #dbg((:recorder,f))
     function r(args...; kwargs...)
-        dbg((:call, f, args..., kwargs...))
+        dbg((:call, name(f), args..., kwargs...))
         argvals = Any[args...]
         ops = []
         tapes = Set()
@@ -171,11 +176,11 @@ function recording(f)
             result = new_node(result, tapes)
             for (tape, argnum, parent) in ops                       
                 # gradfun = gradmaker(p, argnum, result, args, kwargs) # Creates a node specific gradfun (dy->dx) with x,y in a closure by calling p.grads[argnum](y,x)
-                dbg((Val{argnum}, result, args..., kwargs...))
                 gradfun = f(Val{argnum}, result, args...; kwargs...)
+                name(gradfun,(symbol("D$argnum"),f,:out,result,:args,args...,kwargs...)) # Record for debugging
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
-                dbg((:deps,sptr(tape),rnode))
+                dbg((:deps,name(tape),rnode))
             end
         end
         return result
@@ -184,93 +189,87 @@ function recording(f)
 end
 
 macro primitive(f)
-    esc(:(local r = recording($f); $f(x...;o...)=r(x...;o...)))
+    esc(:(local r = recorder($f); $f(x...;o...)=r(x...;o...)))
 end
 
 merge_tapes(x,y) = x
-merge_tapes(::D1,c,a,b) = (x->x)   # Q: but these don't record, is that a problem?
+merge_tapes(::D1,c,a,b) = (x->x)   
 merge_tapes(::D2,c,a,b) = (x->x)
-# Problem: Using regular @primitive, merge_tapes(x,y) overrides merge_tapes(x...)
-# So we define gradient manually
-merge_tapes_r = recording(merge_tapes)
+# Q: but these gradmakers don't record, is that a problem?  A: Let's think
+# about this.  gradmakers are only run during forward call of primitives to
+# generate a gradfun.  They are always run with Node arguments.  However
+# their output is a Function, i.e. does not have a gradient, so they do not
+# need to be recorded even though they have Node arguments.  A gradfun is run
+# by back to compute dx from dy.  It is a composite function with a single
+# argument, its primitive operations will be recorded if its inputs is a
+# Node.  Its input, dy, comes from sum_outgrads and can be a Node,
+# (Q:when?). But this should ot be a problem as boxing and unboxing is done
+# automatically.
+
+# Problem: If we use regular @primitive, merge_tapes(x,y) overrides merge_tapes(x...)
+# So we define recorder for merge_tapes manually
+merge_tapes_r = recorder(merge_tapes)
 merge_tapes(x::Node,y::Node) = merge_tapes_r(x,y)
 
+# Container types are handled by overloading getindex:
 # Top level Julia container types that support getindex:
 # Associative, AbstractArray, Tuple
 # getindex(obj, key...) => value
 # setindex!(obj, val, key...) => obj
-# @primitive getindex
-getindex(::D1,val,x::AbstractArray,key...)=(dbg((:g1,x));g->(z=zeros_like(x);setindex!(z,g,key...);z))
-getindex(::D1,val,x::Associative,key...)=(dbg((:g2,x));g->(z=zeros_like(x);setindex!(z,g,key...);z))
-getindex(::D1,val,x::Tuple,key)=(dbg((:g3,x));g->ntuple(i->(i==key ? g : zeros_like(x[i])), length(x)))
 
-# Problem:
-# julia> @which getindex(Val{1}, Node(1,[]), Node(1,[]), 1)
-# getindex(T::Type{T}, vals...) at array.jl:165
-# Again, not explicitly declaring Node causes issues.  Define recording version manually.
-getindex_r = recording(getindex)
-getindex(x::Node, i...)=getindex_r(x,i...)
-getindex(t::Type, v, x::Node, i...)=getindex_r(t,v,x,i...)
-getindex(t::Type, v::Node, x::Type, i...)=getindex_r(t,v,x,i...)
+@primitive getindex
 
+function getindex(::D1,val,obj,key...)
+    x = getval(obj) # could be a Node
+    isa(x, AbstractArray) ? g->(z=zeros_like(x);setindex!(z,g,key...);z) :
+    isa(x, Associative)   ? g->(z=zeros_like(x);setindex!(z,g,key...);z) :
+    isa(x, Tuple)         ? g->ntuple(i->(i==key[1] ? g : zeros_like(x[i])), length(x)) :
+    error("getindex cannot handle $(typeof(x))")
+end
 
-# We also have composite types that can be used as structs:
-# getfield(obj,key) => val
-# setfield!(obj,key,val) => val
-# @primitive getfield
-# getfield(::D1,val,obj,key)=(g->(z=zeros_like(obj);setfield!(z,key,g);z))
-# ERROR: Core.getfield cannot be extended
-# ok, we give up for now (workaround would be to define own get function)
-
-# zeros_like is similar to deepcopy.jl:
-
+"""
+zeros_like(x) -> value or object similar to x filled with zeros.
+Can handle bits types, Array, Tuple, Associative, and Node.
+Implementation similar to deepcopy.
+TODO: avoid allocating large arrays using `nothing` like Knet.
+"""
 zeros_like(x) = zeros_internal(x, ObjectIdDict())
+zeros_check(x, d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=zeros_internal(x,d))
+zeros_internal(x::Node,d::ObjectIdDict)=zeros_check(x.value,d)
+zeros_internal(x::Tuple,d::ObjectIdDict)=ntuple(i->zeros_check(x[i],d), length(x))
+zeros_internal(x::Associative,d::ObjectIdDict)=[ k => zeros_check(v,d) for (k,v) in x ]
+zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)=(isbits(T) ? zeros(x) : T[zeros_check(e) for e in x])
+zeros_internal{T}(x::T,d::ObjectIdDict)=(isbits(T) ? zero(x) : error("zeros_like cannot handle $T"))
 
-zeros_internal(x::Node,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=zeros_internal(x.value,d))
-zeros_internal(x::Tuple,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=ntuple(i->zeros_internal(x[i],d), length(x)))
-zeros_internal(x::Associative,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=[ k => zeros_internal(v,d) for (k,v) in x ])
-
-function zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)
-    haskey(d,x) && return d[x]
-    if isbits(T)
-        return (d[x]=zeros(x))
-    end
-    dest = similar(x)
-    for i=1:length(x)
-        if isdefined(x,i)
-            arrayset(dest, zeros_internal(x[i],d), i)
-        end
-    end
-    return (d[x]=dest)
-end
-
-function zeros_internal{T}(x::T,d::ObjectIdDict)
-    haskey(d,x) && return d[x]
-    nf = nfields(T)
-    (isbits(T) || nf == 0) && return zero(x)
-    y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
-    for i in 1:nf
-        if isdefined(x,i)
-            ccall(:jl_set_nth_field, Void, (Any, Csize_t, Any), y, i-1,
-                  zeros_internal(getfield(x,i), d))
-        end
-    end
-    return (d[x]=y::T)
-end
+# TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
+# (instead of pushing to parent.outgrads, we'd have to call sum directly)
+# Q: for array and dict we are modifying the first element of outgrads, is that ok?
+sum_outgrads(rnode::ReverseNode)=(o=rnode.outgrads; length(o)==0 ? error() : length(o)==1 ? o[1] : sum_internal(o[1],o))
+sum_internal(::Number,a)=sum(a)
+sum_internal(::Tuple,a)=tuple([sum_internal(e[1],e) for e in zip(a...)]...)
+sum_internal{T}(a1::AbstractArray{T},a)=(isbits(T) ? broadcast!(+,a1,a...) : [sum_internal(e[1],e) for e in zip(a...)])
+sum_internal(a1::Associative,a)=(for i=2:length(a), (k,v) in a[i]; a1[k]=v+get(a1,k,0); end; a1)
 
 # Pretty print for debugging:
-sptr(x::ReverseNode)="R$(Int(hash(x)%10000))"
-sptr(x::Node)="N$(Int(hash(x)%10000))"
-sptr(x::Function)="F$(Int(hash(x)%10000))"
-sptr(x::Array)="T$(Int(pointer(x))%10000)"
-Base.show(io::IO, n::Node) = print(io,"$(sptr(n))$((n.value,map(sptr,keys(n.tapes))...))")
-Base.show(io::IO, n::ReverseNode) = print(io,"$(sptr(n))$((n.node_value,n.outgrads,map(a->((sptr(a[1]),sptr(a[2]))),n.parent_grad_ops)...))")
+dbg(x)=println(x)
+_name=ObjectIdDict()
+name(f,n)=(_name[f]=n)
+name(f)=get(_name,f,f)
+name(x::ReverseNode)=symbol("R$(href(x))")
+name(x::Node)=symbol("N$(href(x))")
+name(x::Array)=symbol("A$(href(Ref(x)))")
+name(x::Tuple)=map(name,x)
+href(x)=Int(hash(x)%100)
+
+Base.show(io::IO, n::Node) = print(io,"$(name(n))$((n.value,[(name(t),name(r)) for (t,r) in n.tapes]...))")
+Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((n.node_value,n.outgrads,[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
 
 # Examples:
 @primitive(sin)
 @primitive(cos)
 @primitive(+)
 @primitive(*)
+@primitive(-)
 
 # Q: alt notation: sin(x...,y,:D1) or sin(x...,y,dy,:D1) for non-closure interface
 # however this does not allow x... in definition which may be useful.
@@ -280,10 +279,14 @@ cos(::D1,y,x)=(dy->dy*(-sin(x)))
 (+)(::D2,y,x1,x2)=(dy->dy)
 (*)(::D1,y,x1,x2)=(dy->dy*x2)
 (*)(::D2,y,x1,x2)=(dy->dy*x1)
+(-)(::D1,y,x)=(dy->-dy)
 
 foo(x)=sin(x[1])+cos(x[2])
 goo = grad(foo)
 @show goo((1.,2.))
+hoo = grad(goo)
+@show hoo((1.,2.))
+
 
 
 # gsin = grad(sin)
@@ -400,7 +403,7 @@ goo = grad(foo)
 #     # x is the argument that we're differentiating with respect to.
 #     if isa(x, Array)
 #         shape = size(x)
-#         function new_fun(g)
+#         function new_fun(g)<
 #             result = gradfun(g)
 #             while anp.ndim(result) > len(shape)
 #                 result = anp.sum(result, axis=broadcast_idx)
@@ -536,3 +539,49 @@ goo = grad(foo)
 # - no need for tape complete?
 # Need to find a Julia way to register primitives and their gradients.
 # Need to test second order derivatives.
+
+# @primitive getindex
+
+# Problem:
+# julia> @which getindex(Val{1}, Node(1,[]), Node(1,[]), 1)
+# getindex(T::Type{T}, vals...) at array.jl:165
+# Again, not explicitly declaring Node causes issues.  Define recorder version manually.
+# getindex_r = recorder(getindex)
+# getindex(x::Node, i...)=getindex_r(x,i...)
+# getindex(x...;o...)=error((:getindex,x...,o...))
+
+# We also have composite types that can be used as structs:
+# getfield(obj,key) => val
+# setfield!(obj,key,val) => val
+# @primitive getfield
+# getfield(::D1,val,obj,key)=(g->(z=zeros_like(obj);setfield!(z,key,g);z))
+# ERROR: Core.getfield cannot be extended
+# ok, we give up for now (workaround would be to define own get function)
+# function zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)
+#     haskey(d,x) && return d[x]
+#     if isbits(T)
+#         return (d[x]=zeros(x))
+#     end
+#     dest = similar(x)
+#     for i=1:length(x)
+#         if isdefined(x,i)
+#             arrayset(dest, zeros_internal(x[i],d), i)
+#         end
+#     end
+#     return (d[x]=dest)
+# end
+
+# function zeros_internal{T}(x::T,d::ObjectIdDict)
+#     haskey(d,x) && return d[x]
+#     nf = nfields(T)
+#     (isbits(T) || nf == 0) && return zero(x)
+#     y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
+#     for i in 1:nf
+#         if isdefined(x,i)
+#             ccall(:jl_set_nth_field, Void, (Any, Csize_t, Any), y, i-1,
+#                   zeros_internal(getfield(x,i), d))
+#         end
+#     end
+#     return (d[x]=y::T)
+# end
+
