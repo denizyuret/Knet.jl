@@ -1,6 +1,9 @@
 # TODO:
 # are closures efficient?
 # Need to test arrays, tuples etc.  Handle getindex.
+# Implement mnist examples.
+# Implement general operators.
+# Try gpu operations.
 # Need to solve the allocation / overwriting problem.
 
 importall Base  # getindex, sin, etc.
