@@ -201,7 +201,7 @@ log!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]
 exp!(a::Array,b::Array=a)=(@assert length(a)==length(b); for i=1:length(a); b[i]=exp(a[i]); end; b)
 
 Base.log(a::CudaArray)=log!(a,similar(a))
-Base.exp(a::CudaArray)=log!(a,similar(a))
+Base.exp(a::CudaArray)=exp!(a,similar(a))
 
 function log!{T}(a::CudaArray{T},b::CudaArray{T}=a)
     length(a)==length(b) || throw(DimensionMismatch())
