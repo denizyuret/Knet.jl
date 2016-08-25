@@ -123,6 +123,7 @@ function addback(dy,dx)
     end
 end
 
+# warning: this works for sum(a,2) but not for sum(a,1)
 @gpu function sum!{T}(dx::CudaArray{T},dy::CudaArray{T})
     # baddback(dy,dx)                   # mnist2d=3.70 4d=22.36 addirnn=14.35 addlstm=2.90 copyseq=11.32 rnnlm=20.94   nondeterministic.
     cudnnConvolutionBackwardBias(dy,dx) # mnist2d=3.60 4d=14.42 addirnn=11.95 addlstm=2.48 copyseq=11.51 rnnlm=22.84

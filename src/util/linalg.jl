@@ -1,7 +1,7 @@
 # TODO: deprecate KUdense in this file.
 
 using Base.LinAlg.BLAS: gemm!, scal!, nrm2
-import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm
+import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm, sum
 import Base.LinAlg: axpy!, scale!
 
 ### VEC functions
@@ -15,6 +15,8 @@ vecnorm2(x::CudaArray{Float32})=ccall((:vecnorm2_32,libknet),Float32,(Ptr{Cfloat
 vecnorm2(x::CudaArray{Float64})=ccall((:vecnorm2_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
 vecnorm1(x::CudaArray{Float32})=ccall((:vecnorm1_32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
 vecnorm1(x::CudaArray{Float64})=ccall((:vecnorm1_64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
+sum(x::CudaArray{Float32})=ccall((:sum32,libknet),Float32,(Ptr{Cfloat},Cint),x,length(x))
+sum(x::CudaArray{Float64})=ccall((:sum64,libknet),Float64,(Ptr{Cdouble},Cint),x,length(x))
 vecnorm(x::CudaArray,p=2)=(p==2 ? vecnorm2(x) : p==1 ? vecnorm1(x) : error("Undefined"))
 
 # (ccall((:axpy32csr,libknet),Void,(Cint,Cint,Cfloat,Cint,Ptr{Cfloat},Ptr{Cint},Ptr{Cint},Ptr{Cfloat}),x.dims[1],x.dims[2],convert(Float32,a),x.nnz,x.nzVal,x.rowPtr,x.colVal,y); y)
