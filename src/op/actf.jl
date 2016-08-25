@@ -60,8 +60,13 @@ tanhback(y::Array,dy::Array,dx::Array;o...)=(@inbounds for i=1:length(dx); dx[i]
 @gpu tanhback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_TANH)
 
 @doc "@knet function relu(x) computes the rectified linear activation function: (x<0 ? 0 : x)" :relu
-reluforw(x::Array,y::Array;o...)=(@inbounds for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end)
-reluback(y::Array,dy::Array,dx::Array;o...)=(@inbounds for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end)
+# This is too slow, use broadcast:  TODO: find out why. same is not true for tanh.
+# reluforw(x::Array,y::Array;o...)=(@inbounds for i=1:length(y); y[i]=(x[i]<0 ? 0 : x[i]) end)
+# reluforw(x::Array,y::Array;o...)=broadcast!(max,y,x,0)
+reluforw(x::Array,y::Array;o...)=(@inbounds for i=1:length(y); if x[i]>0; y[i]=x[i]; else; y[i]=0; end; end)
+# reluback(y::Array,dy::Array,dx::Array;o...)=(@inbounds for i=1:length(dx); dx[i]=(y[i]==0 ? 0 : dy[i]) end)
+# reluback(y::Array,dy::Array,dx::Array;o...)=(copy!(dx,dy); dx[y.==0]=0)
+reluback(y::Array,dy::Array,dx::Array;o...)=(@inbounds for i=1:length(dx); if y[i]==0; dx[i]=0; else; dx[i]=dy[i]; end; end)
 @gpu reluforw(x::CudaArray,y::CudaArray;o...)=cudnnActivationForward(x,y; mode=CUDNN_ACTIVATION_RELU)
 @gpu reluback(y::CudaArray,dy::CudaArray,dx::CudaArray;o...)=cudnnActivationBackward(y, dy, y, dx; mode=CUDNN_ACTIVATION_RELU)
 
