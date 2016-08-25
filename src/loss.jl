@@ -375,37 +375,39 @@ zeroone(ypred,ygold; o...)=zeroone(convert(Array,ypred),convert(Array,ygold); o.
 # #
 # # dJ/dy[md] = (1/N) (q[md] - p[md])
 
-# function xentlossloss(y::Array, p::Array)
-#     cost = zero(Float64)
-#     (nd,nx) = size2(p)
-#     for j=1:nx
-#         i1=(j-1)*nd+1; i2=j*nd
-#         z = sumpy = zero(Float64)
-#         ymax = typemin(eltype(y))
-#         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
-#         for i=i1:i2; yi=y[i]-ymax; z += exp(yi); sumpy += p[i]*yi; end
-#         cost += (log(z) - sumpy)
-#     end
-#     return cost/nx
-# end
+function xentloss{T}(y::Array{T}, p::Array{T})
+    cost = zero(Float64)
+    (nd,nx) = size2(p)
+    for j=1:nx
+        i1=(j-1)*nd+1; i2=j*nd
+        z = sumpy = zero(Float64)
+        ymax = typemin(eltype(y))
+        @inbounds for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
+        @inbounds for i=i1:i2; yi=y[i]-ymax; z += exp(yi); sumpy += p[i]*yi; end
+        cost += (log(z) - sumpy)
+    end
+    return cost/nx
+end
 
-# function xentlossback(y::Array, p::Array, dx::Array=p)
-#     (nd,nx) = size2(p)
-#     for j=1:nx
-#         i1=(j-1)*nd+1; i2=j*nd
-#         z = zero(Float64)
-#         ymax = typemin(eltype(y)) # subtract ymax for numerical stability
-#         for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
-#         for i=i1:i2; z += exp(y[i]-ymax); end
-#         for i=i1:i2; yi = exp(y[i]-ymax)/z; dx[i] = (yi - p[i])/nx; end
-#     end
-#     return dx
-# end
+xentloss{T}(y::CudaArray{T}, p::CudaArray{T})=xentloss(to_host(y),to_host(p))
 
-# @gpu (xentlossback(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32}=p)=
-#         ((nd,nx)=size2(p);ccall((:xentlossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
-# @gpu (xentlossback(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64}=p)=
-#         ((nd,nx)=size2(p);ccall((:xentlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
+function xentloss{T}(y::Array{T}, p::Array{T}, dx::Array{T})
+    (nd,nx) = size2(p)
+    for j=1:nx
+        i1=(j-1)*nd+1; i2=j*nd
+        z = zero(Float64)
+        ymax = typemin(eltype(y)) # subtract ymax for numerical stability
+        @inbounds for i=i1:i2; y[i] > ymax && (ymax = y[i]); end
+        @inbounds for i=i1:i2; z += exp(y[i]-ymax); end
+        @inbounds for i=i1:i2; yi = exp(y[i]-ymax)/z; dx[i] = (yi - p[i])/nx; end
+    end
+    return dx
+end
+
+@gpu (xentloss(y::CudaArray{Float32}, p::CudaArray{Float32}, dx::CudaArray{Float32})=
+        ((nd,nx)=size2(p);ccall((:xentlossback32,libknet),Void,(Cint,Cint,Ptr{Cfloat},Ptr{Cfloat},Ptr{Cfloat}),nd,nx,y,p,dx);dx))
+@gpu (xentloss(y::CudaArray{Float64}, p::CudaArray{Float64}, dx::CudaArray{Float64})=
+        ((nd,nx)=size2(p);ccall((:xentlossback64,libknet),Void,(Cint,Cint,Ptr{Cdouble},Ptr{Cdouble},Ptr{Cdouble}),nd,nx,y,p,dx);dx))
 
 
 # ### PERCLOSS
