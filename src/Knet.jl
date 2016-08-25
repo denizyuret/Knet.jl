@@ -1,7 +1,8 @@
 # Uncomment this when all CUDA modules support precompilation
 # isdefined(Base, :__precompile__) && __precompile__()
-module Knet
+#module Knet
 using Compat
+info("Loading Knet")
 
 ### GPU detection and initialization
 include("util/gpu.jl");		export gpu, @gpu, @useifgpu, setseed
@@ -42,8 +43,8 @@ include("net/initback.jl")
 include("compiler.jl");		export @knet, compile, _comp_parse_def # @knet needs _comp_parse_def
 include("gradcheck.jl");  	export gradcheck 
 include("update.jl");		export update!
-include("loss.jl");		export quadloss, softloss, zeroone # TODO-TEST: logploss, xentloss, percloss, scalloss, 
-include("kfun.jl")
+include("loss.jl");		export quadloss, softloss, zeroone, xentloss # TODO-TEST: logploss, xentloss, percloss, scalloss, 
+#include("kfun.jl")
 
 # To be deprecated:
 include("data/ItemTensor.jl");		export ItemTensor
@@ -52,6 +53,9 @@ include("data/SequencePerLine.jl"); 	export SequencePerLine
 include("data/SketchEngine.jl"); 	export SketchEngine
 include("data/TagData.jl"); 		export TagData, sponehot
 
+# Knet8 stuff
+include("tmplike.jl");		export tmplike, tmpdict, tmpkeep
+
 # Load kernels from CUDArt
 function __init__()
 # Let's just use one gpu for now.
@@ -59,4 +63,6 @@ function __init__()
     @gpu CUDArt.init(CUDArt.device())
 end
 
-end # module
+__init__()
+info("Loading Knet done.")
+#end # module
