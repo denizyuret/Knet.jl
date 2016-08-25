@@ -1,6 +1,36 @@
+2016-08-25  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Finish math.jl in AutoGrad.
+	# - Implement broadcast1 for sin,cos etc.
+	# - Take a look at Julia broadcast implementation.
+	# - Implement 2+arg broadcasting better than CUDNN.
+
+	* TODO8:
+	# ArrayFire may do these better!!!
+	## It does memory management: https://arrayfire.com/forums/viewtopic.php?f=17&t=43223
+	## Can it be extended with missing functions?  Can we write new kernels?
+	## Can we run CUDNN code on it?
+	## Try sending AFArrays to libknet kernels or CUDNN functions to see.
+	## Benchmark comparing it to CUBLAS and CUDNN.
+	## Figure out the bug in the mnist example.
+	## http://arrayfire.com/custom-kernels-with-arrayfire/
+	## http://arrayfire.com/arrayfire-cuda-interoperability/
+
+	# ArrayFire should have {T,N} instead of {T,4} but:
+	## ambiguity for ^ need to be fixed.
+	## display for vectors broken.
+	## zeros(AF) gives regular array.
+
+	# ERROR: ArrayFire Error (101) : Device out of memory
+	## It seems I'll need my memory manager after all?  Does ArrayFire support target variables?
+	## The problem was fixed when I enabled gc in timeit!!!
+	## train0 still having issues. (1) I can copy their kernels. (2) I can call their gc?
+	## axpy was the culprit, back to normal.
+
 2016-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* TODO7:
 
 	0000 add code citation for bibtex like autograd
 	0000 debug: master and dev give different results on MNIST4D.main("--epochs 1")
