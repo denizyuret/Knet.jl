@@ -389,7 +389,7 @@ function xentloss{T}(y::Array{T}, p::Array{T})
     return cost/nx
 end
 
-xentloss{T}(y::CudaArray{T}, p::CudaArray{T})=xentloss(to_host(y),to_host(p))
+@gpu xentloss{T}(y::CudaArray{T}, p::CudaArray{T})=xentloss(to_host(y),to_host(p))
 
 function xentloss{T}(y::Array{T}, p::Array{T}, dx::Array{T})
     (nd,nx) = size2(p)
