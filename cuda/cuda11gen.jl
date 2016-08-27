@@ -1,6 +1,6 @@
 include("cuda11.jl")
 
-function cuda11src(f, j, ex; BLK=128, THR=128)
+function cuda11src(f, j, ex; BLK=512, THR=512)
 """
 __global__ void _$(f)_32_11(int n, float *x, float *y, float *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

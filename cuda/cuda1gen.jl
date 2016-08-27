@@ -1,6 +1,6 @@
 include("cuda1.jl")
 
-function cuda1src(f, j=f, ex32="$(f)(x[i])", ex64=ex32; BLK=128, THR=128)
+function cuda1src(f, j=f, ex32="$(f)(x[i])", ex64=ex32; BLK=512, THR=512)
 """
 __global__ void _$(f)_32(int n, float *x, float *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

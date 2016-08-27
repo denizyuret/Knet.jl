@@ -9,6 +9,9 @@
 	# find ArrayFire kernels. can we use arrayfire kernels outside?  (matmul, broadcast and reduce). They are built by JIT!
 
 	* TODO8:
+	# finish cuda2arg, cublas, cudnn, curand etc.
+	# move cuda -> src, src -> src7
+	# define KnetArray. (KA) use instead of CudaArray.
 	# test cuda version compare with af.
 	# can we get AF kernels to dump out?
 	# try c++ ArrayFire mnist example?

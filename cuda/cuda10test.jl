@@ -34,4 +34,6 @@ end
 for f in cuda10
     isa(f,Tuple) || (f=(f,))
     cuda10test(f...)
+    cuda10test(f...)
+    cuda10test(f...)
 end

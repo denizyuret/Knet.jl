@@ -6,10 +6,10 @@ cuda01 = [
 ("sub",".-","s-x[i]"),
 ("mul",".*","s*x[i]"),
 ("div","./","s/x[i]"),
+("pow",".^","pow(s,x[i])"),
 # "hypot",
 # "rhypot",
 # "atan2",
-# "pow",
 # "frexp",
 # "ldexp",
 # "scalbn",
@@ -32,6 +32,8 @@ cuda01 = [
 (.*){T}(s::Number,a::CudaArray{T})=(.*)(T(s),a)
 (./){T}(a::CudaArray{T},s::Number)=(.*)(T(1/s),a)
 (./){T}(s::Number,a::CudaArray{T})=(./)(T(s),a)
+#(.^){T}(a::CudaArray{T},s::Number) # cannot convert to an s,a operation
+(.^){T}(s::Number,a::CudaArray{T})=(.^)(T(s),a)
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
 (+){T}(a::CudaArray{T},s::Number)=(.+)(T(s),a)
@@ -43,7 +45,8 @@ cuda01 = [
 (/){T}(a::CudaArray{T},s::Number)=(.*)(T(1/s),a)
 (\){T}(s::Number,a::CudaArray{T})=(.*)(T(1/s),a)
 #(/){T}(s::Number,a::CudaArray{T})=(.*)(T(1/s),a) # not defined in base
-
+#(^){T}(a::CudaArray{T},s::Number)=(.^)(a,T(s)) # linalg
+#(^){T}(s::Number,a::CudaArray{T})=(.^)(T(s),a) # linalg
 
 function cuda01def(f, j=f, o...)
     libknet8 = Pkg.dir("Knet/cuda/libknet8")
