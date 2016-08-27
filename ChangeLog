@@ -1,3 +1,14 @@
+2016-08-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* cuda: timing tests on 100K repetitions on 1000x100 output array with simple ops:
+	F32	F64	where
+	0.73	1.40	cuda1  (unary)
+	0.73	1.40	cuda01 (scalar,array)
+	0.80	2.06	cuda11 (same size array)
+	1.40	2.31	cuda12 (vector broadcasting)
+
+	BLK=256,THR=256 for all except cuda12 which has BLK=256,THR=128.
+
 2016-08-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:

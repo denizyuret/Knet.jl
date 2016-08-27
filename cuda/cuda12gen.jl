@@ -4,9 +4,9 @@
 # has size (a1,a2,...) and input array b has size (1,...,bn,...,1), we
 # need to find the linear index in b given the linear index in a.  If
 # we are at position (i1,i2,...) the answer is just
-# i_n=1+div(i-1,stride(a,n)).  So we can just pass in stride(a,n) as
-# an argument for each input.  In 0-based indexing this is
-# div(i,stride(a,n)).
+# i_n=mod(div(i,stride(a,n)),size(a,n)) with 0 indexing.  So we can
+# just pass in stride(a,n) and size(a,n) as an argument for each
+# input.
 
 include("cuda12.jl")
 
