@@ -2,15 +2,16 @@ include("cuda12.jl")
 using CUDArt
 libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
 
-SIZE = 1000
-ITER = 10000
-mat32 = CudaArray(rand(Float32,SIZE,SIZE))
-col32 = CudaArray(rand(Float32,SIZE))
-row32 = CudaArray(rand(Float32,1,SIZE))
+SIZE1 = 1000
+SIZE2 = 100
+ITER = 100000
+mat32 = CudaArray(rand(Float32,SIZE1,SIZE2))
+col32 = CudaArray(rand(Float32,SIZE1))
+row32 = CudaArray(rand(Float32,1,SIZE2))
 out32 = similar(mat32)
-mat64 = CudaArray(rand(Float64,SIZE,SIZE))
-col64 = CudaArray(rand(Float64,SIZE))
-row64 = CudaArray(rand(Float64,1,SIZE))
+mat64 = CudaArray(rand(Float64,SIZE1,SIZE2))
+col64 = CudaArray(rand(Float64,SIZE1))
+row64 = CudaArray(rand(Float64,1,SIZE2))
 out64 = similar(mat64)
 f32 = f64 = nothing
 

@@ -10,7 +10,7 @@
 
 include("cuda12.jl")
 
-function cuda12src(f, j, ex; BLK=512, THR=256)
+function cuda12src(f, j, ex; BLK=256, THR=128)
 """
 __global__ void _$(f)_32_12(int n, float *x, int sx, int nx, float *y, int sy, int ny, float *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;

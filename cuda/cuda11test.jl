@@ -2,8 +2,8 @@ include("cuda11.jl")
 using CUDArt
 libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
 
-SIZE = 1000000
-ITER = 10000
+SIZE = 100000
+ITER = 100000
 x32 = CudaArray(rand(Float32,SIZE))
 y32 = CudaArray(rand(Float32,SIZE))
 z32 = similar(x32)
