@@ -1,12 +1,34 @@
+2016-08-26  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# we should write a general profiler to compare cpu and general gpu libraries, primitives and mnist.
+	# can we have fine control over arrayfire memory management? deviceMemInfo, deviceGC, If you are calling from a garbage collected language life Julia, you will also need to call the garbage collector of that language before hand to clean up the references.
+	# can we improve arrayfire mnist results by using external kernels for xentloss and relu?  find better xentloss design.  using quadloss for now.
+	# profile ArrayFire.
+	# read ArrayFire docs.
+	# find ArrayFire kernels. can we use arrayfire kernels outside?  (matmul, broadcast and reduce). They are built by JIT!
+
+	* TODO8:
+	# test cuda version compare with af.
+	# can we get AF kernels to dump out?
+	# try c++ ArrayFire mnist example?
+	# should we introduce our own CudaArray type?
+	# will arrayfire memory management still work with rnns?
+	# eventually look at arrayfire convolution.
+	# thrust and tensorflow also opensource.
+	# we could just support 0,1,2 dims or 0,1,N dims for map and reduce.
+	# JIT compile kernels as needed: https://blog.maleadt.net/2015/01/15/julia-cuda/
+	## http://docs.nvidia.com/cuda/nvrtc/index.html#basic-usage
+	## http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
+
 2016-08-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	# Finish math.jl in AutoGrad.
-	# - Implement broadcast1 for sin,cos etc.
-	# - Take a look at Julia broadcast implementation.
-	# - Implement 2+arg broadcasting better than CUDNN.
+	# - Implement broadcast1 for sin,cos etc. - arrayfire?
+	# - Take a look at Julia broadcast implementation. - arrayfire?
+	# - Implement 2+arg broadcasting better than CUDNN. - arrayfire?
 
-	* TODO8:
 	# ArrayFire may do these better!!!
 	## It does memory management: https://arrayfire.com/forums/viewtopic.php?f=17&t=43223
 	## Can it be extended with missing functions?  Can we write new kernels?
