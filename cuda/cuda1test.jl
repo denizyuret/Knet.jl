@@ -1,6 +1,6 @@
 include("cuda1arg.jl")
 using CUDArt
-libknet1handle = Libdl.dlopen(Libdl.find_library(["libknet1"],[Pkg.dir("Knet/src/cuda")]))
+libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
 
 SIZE = 1000000
 ITER = 10000
@@ -12,10 +12,10 @@ y64 = similar(x64)
 function cuda1test(fname, jname=fname, o...)
     println(fname)
     fcpu = eval(parse(jname))
-    f32 = Libdl.dlsym(libknet1handle, fname*"_32")
+    f32 = Libdl.dlsym(libknet8handle, fname*"_32")
     @time cuda1rep(f32,x32,y32)
     isapprox(to_host(y32),fcpu(to_host(x32))) || warn("$fname 32")
-    f64 = Libdl.dlsym(libknet1handle, fname*"_64")
+    f64 = Libdl.dlsym(libknet8handle, fname*"_64")
     @time cuda1rep(f64,x64,y64)
     isapprox(to_host(y64),fcpu(to_host(x64))) || warn("$fname 64")
 end

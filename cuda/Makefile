@@ -1,6 +1,6 @@
-CFLAGS=-O3 -I. --use_fast_math
+CFLAGS=-O3 -use_fast_math
 
-libknet1.so: cuda1gen.o
+libknet8.so: cuda1gen.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -o $@
 
 %.o: %.cu
@@ -10,7 +10,6 @@ libknet1.so: cuda1gen.o
 	julia $< > $@
 
 cuda1gen.cu: cuda1gen.jl cuda1arg.jl
-	julia $< > $@
 
 clean:
-	-rm *.o libknet1.so
+	-rm *.o *.cu libknet1.so

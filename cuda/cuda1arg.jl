@@ -66,7 +66,7 @@ relu(x)=max(0,x)
 sigm(x)=inv(1+exp(-x))
 
 function cuda1def(f, j=f, o...)
-    libknet1 = Pkg.dir("Knet/src/cuda/libknet1")
+    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
@@ -74,7 +74,7 @@ function cuda1def(f, j=f, o...)
         @eval begin
             function $J(x::CudaArray{$T})
                 y = similar(x)
-                ccall(($F,$libknet1),Void,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
+                ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
         end
