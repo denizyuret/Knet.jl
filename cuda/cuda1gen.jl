@@ -1,4 +1,4 @@
-include("cuda1arg.jl")
+include("cuda1.jl")
 
 function cuda1src(f, j=f, ex32="$(f)(x[i])", ex64=ex32; BLK=128, THR=128)
 """
@@ -29,7 +29,7 @@ extern "C" {
 """
 end
 
-for a in cuda1arg
+for a in cuda1
     isa(a,Tuple) || (a=(a,))
     print(cuda1src(a...))
 end

@@ -1,7 +1,7 @@
 using CUDArt
 importall Base
 
-cuda1arg = [
+cuda1 = [
 "sqrt",
 # "rsqrt",
 # "cbrt",
@@ -81,7 +81,7 @@ function cuda1def(f, j=f, o...)
     end
 end
 
-for f in cuda1arg
+for f in cuda1
     isa(f,Tuple) || (f=(f,))
     cuda1def(f...)
 end

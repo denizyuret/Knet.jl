@@ -1,4 +1,4 @@
-include("cuda1arg.jl")
+include("cuda1.jl")
 using CUDArt
 libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
 
@@ -29,7 +29,7 @@ function cuda1rep{T}(f,x::CudaArray{T},y::CudaArray{T})
     CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
 end
 
-for f in cuda1arg
+for f in cuda1
     isa(f,Tuple) || (f=(f,))
     cuda1test(f...)
 end
