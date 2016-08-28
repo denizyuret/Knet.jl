@@ -25,10 +25,10 @@ cuda11 = [
 ]
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
-(+){T}(x::CudaArray{T},y::CudaArray{T})=(.+)(x,y)
-(-){T}(x::CudaArray{T},y::CudaArray{T})=(.-)(x,y)
-#(*){T}(x::CudaArray{T},y::CudaArray{T})=(.*)(x,y) # This is matmul
-#(/){T}(x::CudaArray{T},y::CudaArray{T})=(./)(x,y) # This is another linalg op
+(+){T}(x::KnetArray{T},y::KnetArray{T})=(.+)(x,y)
+(-){T}(x::KnetArray{T},y::KnetArray{T})=(.-)(x,y)
+#(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
+#(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
 
 
 function cuda11def(f, j=f, o...)
@@ -38,9 +38,9 @@ function cuda11def(f, j=f, o...)
         T = Symbol("Float$S")
         F = "$(f)_$(S)_11"
         @eval begin
-            function $J(x::CudaArray{$T},y::CudaArray{$T})
+            function $J(x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
-                    z = similar(x)
+                    z = tmplike(x)
                     ccall(($F,$libknet8),Void,(Cint,$Ptr{T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
                     return z
                 else

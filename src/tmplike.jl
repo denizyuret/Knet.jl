@@ -11,8 +11,8 @@ using CUDArt
 
 type TmpStack; arr::Vector; idx::Int; TmpStack()=new([],0); end
 typealias TmpDict Dict{Int,TmpStack}
-for T in (Float16,Float32,Float64)
-    A = CudaArray{T}
+for F in (Float16,Float32,Float64)
+    A = CudaArray{F}
     let d=TmpDict()
         global tmpdict{T<:A}(::Type{T})=d
     end
@@ -34,4 +34,14 @@ function tmplike(a, dims::Dims=size(a))
         s.arr[s.idx] = reshape(s.arr[s.idx], dims)
     end
     return s.arr[s.idx]
+end
+
+function tmpmem()
+    a = []
+    for T in (Float16,Float32,Float64)
+        D = tmpdict(CudaArray{T})
+        isempty(D) && continue
+        push!(a, (T,:sizes,length(D),:arrays,sum(s->length(s.arr),values(D)),:nelem,sum(d->d[1]*length(d[2].arr),D)))
+    end
+    return a
 end

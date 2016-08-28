@@ -22,6 +22,8 @@ cuda10 = [
 # "fdim",
 ]
 
+(.^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s))
+
 function cuda10def(f, j=f, o...)
     libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
@@ -29,8 +31,8 @@ function cuda10def(f, j=f, o...)
         T = Symbol("Float$S")
         F = "$(f)_$(S)_10"
         @eval begin
-            function $J(x::CudaArray{$T},s::$T)
-                y = similar(x)
+            function $J(x::KnetArray{$T},s::$T)
+                y = tmplike(x)
                 ccall(($F,$libknet8),Void,(Cint,Ptr{$T},$T,Ptr{$T}),length(y),x,s,y)
                 return y
             end

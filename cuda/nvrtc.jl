@@ -48,8 +48,8 @@ ccall((:nvrtcDestroyProgram,libnvrtc),Cint,(Ptr{nvrtcProgram},),progP)
 
 n = 10
 a = rand()
-x = CudaArray(rand(n))
-y = CudaArray(rand(n))
+x = KnetArray(rand(n))
+y = KnetArray(rand(n))
 out = similar(x)
 
 # cuLaunchKernel(kernel, 

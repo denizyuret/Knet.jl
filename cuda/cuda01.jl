@@ -26,33 +26,33 @@ cuda01 = [
 
 # For array,scalar we can get some for free:
 # Only type corrected number,array need implementing for basic arithmetic:
-(.+){T}(a::CudaArray{T},s::Number)=(.+)(T(s),a)
-(.+){T}(s::Number,a::CudaArray{T})=(.+)(T(s),a)
-(.-){T}(a::CudaArray{T},s::Number)=(.+)(T(-s),a)
-(.-){T}(s::Number,a::CudaArray{T})=(.-)(T(s),a)
-(.*){T}(a::CudaArray{T},s::Number)=(.*)(T(s),a)
-(.*){T}(s::Number,a::CudaArray{T})=(.*)(T(s),a)
-(./){T}(a::CudaArray{T},s::Number)=(.*)(T(1/s),a)
-(./){T}(s::Number,a::CudaArray{T})=(./)(T(s),a)
-#(.^){T}(a::CudaArray{T},s::Number) # cannot convert to an s,a operation
-(.^){T}(s::Number,a::CudaArray{T})=(.^)(T(s),a)
-max{T}(a::CudaArray{T},s::Number)=max(T(s),a)
-max{T}(s::Number,a::CudaArray{T})=max(T(s),a)
-min{T}(a::CudaArray{T},s::Number)=min(T(s),a)
-min{T}(s::Number,a::CudaArray{T})=min(T(s),a)
+(.+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
+(.+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
+(.-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
+(.-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
+(.*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
+(.*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
+(./){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
+(./){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
+#(.^){T}(a::KnetArray{T},s::Number) # cannot convert to an s,a operation
+(.^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
+max{T}(a::KnetArray{T},s::Number)=max(T(s),a)
+max{T}(s::Number,a::KnetArray{T})=max(T(s),a)
+min{T}(a::KnetArray{T},s::Number)=min(T(s),a)
+min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
-(+){T}(a::CudaArray{T},s::Number)=(.+)(T(s),a)
-(+){T}(s::Number,a::CudaArray{T})=(.+)(T(s),a)
-(-){T}(a::CudaArray{T},s::Number)=(.+)(T(-s),a)
-(-){T}(s::Number,a::CudaArray{T})=(.-)(T(s),a)
-(*){T}(a::CudaArray{T},s::Number)=(.*)(T(s),a)
-(*){T}(s::Number,a::CudaArray{T})=(.*)(T(s),a)
-(/){T}(a::CudaArray{T},s::Number)=(.*)(T(1/s),a)
-(\){T}(s::Number,a::CudaArray{T})=(.*)(T(1/s),a)
-#(/){T}(s::Number,a::CudaArray{T})=(.*)(T(1/s),a) # not defined in base
-#(^){T}(a::CudaArray{T},s::Number)=(.^)(a,T(s)) # linalg
-#(^){T}(s::Number,a::CudaArray{T})=(.^)(T(s),a) # linalg
+(+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
+(+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
+(-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
+(-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
+(*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
+(*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
+(/){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
+(\){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a)
+#(/){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a) # not defined in base
+#(^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s)) # linalg
+#(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # linalg
 
 function cuda01def(f, j=f, o...)
     libknet8 = Pkg.dir("Knet/cuda/libknet8")
@@ -61,8 +61,8 @@ function cuda01def(f, j=f, o...)
         T = Symbol("Float$S")
         F = "$(f)_$(S)_01"
         @eval begin
-            function $J(s::$T,x::CudaArray{$T})
-                y = similar(x)
+            function $J(s::$T,x::KnetArray{$T})
+                y = tmplike(x)
                 ccall(($F,$libknet8),Void,(Cint,$T,Ptr{$T},Ptr{$T}),length(y),s,x,y)
                 return y
             end

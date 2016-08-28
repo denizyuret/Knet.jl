@@ -1,0 +1,53 @@
+using CUDArt
+import Base: sum, prod, maximum, minimum, norm, vecnorm
+import Base.LinAlg: norm_sqr
+import Base.LinAlg.BLAS: asum
+
+cuda20 = [
+("add","sum","ai+xi","xi","0"),
+("mul","prod","ai*xi","xi","1"),
+("max","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
+("min","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+("sum1","asum","ai+xi","abs(xi)","0"),
+("sum2","norm_sqr","ai+xi","xi*xi","0"),
+("nnz","countnz","ai+xi","(xi!=0)","0"),
+]
+
+norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
+
+function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+    if length(x) == 0
+        zero(T)
+    elseif p == 2
+        sqrt(norm_sqr(x))
+    elseif p == 1
+        asum(x)
+    elseif p == Inf
+        maximum(abs(x))
+    elseif p == 0
+        countnz(x)
+    elseif p == -Inf
+        minimum(abs(x))
+    else
+        sum(abs(x).^p)^(1/p)
+    end
+end
+
+function cuda20def(f, j=f, o...)
+    libknet8 = Pkg.dir("Knet/cuda/libknet8")
+    J=Symbol(j)
+    for S in (32,64)
+        T = Symbol("Float$S")
+        F = "$(f)_$(S)_20"
+        @eval begin
+            function $J(x::KnetArray{$T})
+                ccall(($F,$libknet8),$T,(Cint,Ptr{$T}),length(x),x)
+            end
+        end
+    end
+end
+
+for f in cuda20
+    isa(f,Tuple) || (f=(f,))
+    cuda20def(f...)
+end

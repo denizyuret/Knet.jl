@@ -59,6 +59,8 @@ cuda1 = [
 ("inv", "inv", "1/xi"),
 ("relu", "relu", "(xi>0?xi:0)"),
 ("sigm", "sigm", "1/(1+exp(-xi))"),
+("abs", "abs", "(xi<0?-xi:xi)"),
+("abs2", "abs2", "(xi*xi)"),
 ]
 
 inv(x)=1./x
@@ -72,8 +74,8 @@ function cuda1def(f, j=f, o...)
         T = Symbol("Float$S")
         F = "$(f)_$S"
         @eval begin
-            function $J(x::CudaArray{$T})
-                y = similar(x)
+            function $J(x::KnetArray{$T})
+                y = tmplike(x)
                 ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end

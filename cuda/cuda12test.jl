@@ -5,15 +5,15 @@ libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cud
 SIZE1 = 1000
 SIZE2 = 100
 ITER = 100000
-mat32 = CudaArray(rand(Float32,SIZE1,SIZE2))
-mat32b = CudaArray(rand(Float32,SIZE1,SIZE2))
-col32 = CudaArray(rand(Float32,SIZE1))
-row32 = CudaArray(rand(Float32,1,SIZE2))
+mat32 = KnetArray(rand(Float32,SIZE1,SIZE2))
+mat32b = KnetArray(rand(Float32,SIZE1,SIZE2))
+col32 = KnetArray(rand(Float32,SIZE1))
+row32 = KnetArray(rand(Float32,1,SIZE2))
 out32 = similar(mat32)
-mat64 = CudaArray(rand(Float64,SIZE1,SIZE2))
-mat64b = CudaArray(rand(Float64,SIZE1,SIZE2))
-col64 = CudaArray(rand(Float64,SIZE1))
-row64 = CudaArray(rand(Float64,1,SIZE2))
+mat64 = KnetArray(rand(Float64,SIZE1,SIZE2))
+mat64b = KnetArray(rand(Float64,SIZE1,SIZE2))
+col64 = KnetArray(rand(Float64,SIZE1))
+row64 = KnetArray(rand(Float64,1,SIZE2))
 out64 = similar(mat64)
 f32 = f64 = nothing
 
@@ -40,7 +40,7 @@ function cuda12test(fname, jname=fname, o...)
     isapprox(to_host(out64),fcpu(to_host(row64),to_host(col64))) || warn("$fname 64 row col")
 end
 
-function cuda12rep{T}(f,x::CudaArray{T},y::CudaArray{T},z::CudaArray{T})
+function cuda12rep{T}(f,x::KnetArray{T},y::KnetArray{T},z::KnetArray{T})
     n = Cint(length(z))
     if size(x,1)==1; sx=size(z,1); else; sx=1; end
     if size(y,1)==1; sy=size(z,1); else; sy=1; end
@@ -52,7 +52,7 @@ function cuda12rep{T}(f,x::CudaArray{T},y::CudaArray{T},z::CudaArray{T})
     CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
 end
 
-Base.display(x::CudaArray)=(print("CudaArray ");display(to_host(x)))
+Base.display(x::KnetArray)=(print("KnetArray ");display(to_host(x)))
 
 for f in cuda12
     isa(f,Tuple) || (f=(f,))

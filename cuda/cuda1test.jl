@@ -4,9 +4,9 @@ libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cud
 
 SIZE = 100000
 ITER = 100000
-x32 = CudaArray(rand(Float32,SIZE))
+x32 = KnetArray(rand(Float32,SIZE))
 y32 = similar(x32)
-x64 = CudaArray(rand(Float64,SIZE))
+x64 = KnetArray(rand(Float64,SIZE))
 y64 = similar(x64)
 
 function cuda1test(fname, jname=fname, o...)
@@ -20,7 +20,7 @@ function cuda1test(fname, jname=fname, o...)
     isapprox(to_host(y64),fcpu(to_host(x64))) || warn("$fname 64")
 end
 
-function cuda1rep{T}(f,x::CudaArray{T},y::CudaArray{T})
+function cuda1rep{T}(f,x::KnetArray{T},y::KnetArray{T})
     n = Cint(length(y))
     for i=1:ITER
         ccall(f,Void,(Cint,Ptr{T},Ptr{T}),n,x,y)

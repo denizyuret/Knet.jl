@@ -39,7 +39,9 @@ const libknet = Libdl.find_library(["libknet"], [Pkg.dir("Knet/src")])
     mfree=Csize_t[1]
     mtotal=Csize_t[1]
     ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
-    convert(Int,mfree[1])
+    nbytes=convert(Int,mfree[1])
+    narray=length(CUDArt.cuda_ptrs)
+    (narray,nbytes)
 end
 
 # setseed: Set both cpu and gpu seed. This gets overwritten in curand.jl if gpu available
