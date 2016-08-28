@@ -60,8 +60,7 @@ function timeall_kn(w=w2kn,d=d0kn,t=10)
             gc_enable(false)
             @time (loop_kn(fun[i],w,d,t); device_synchronize())
             gc_enable(true)
-            @show gpuinfo()
-            @show tmpinfo()
+            gpuinfo()
         end
     end
 end

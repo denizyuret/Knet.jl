@@ -36,13 +36,14 @@ end
 
 tmplike(a, dims::Int...)=tmplike(a, dims)
 
-tmpinfo()=Any[(t...,length(s.arr)) for (t,s) in TmpDict]
-
 function gpuinfo()
     mfree=Csize_t[1]
     mtotal=Csize_t[1]
     ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
     nbytes=convert(Int,mfree[1])
     narray=length(CUDArt.cuda_ptrs)
-    (nbytes,narray)
+    println((:free,nbytes,:cuda_ptrs,narray))
+    for (t,s) in TmpDict
+        println((t...,length(s.arr)))
+    end
 end

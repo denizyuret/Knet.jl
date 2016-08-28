@@ -58,6 +58,8 @@ cuda1 = [
 ("sigm", "sigm", "1/(1+exp(-xi))"),
 ("abs", "abs", "(xi<0?-xi:xi)"),
 ("abs2", "abs2", "(xi*xi)"),
+("zeros","zeros", "0"),  # TODO: replace this with fill
+("ones","ones", "1"),  # TODO: replace this with fill
 ]
 
 inv(x)=1./x

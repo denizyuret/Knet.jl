@@ -28,6 +28,7 @@ end
 end
 
 KnetArray(T::Type, dims::Dims)=KnetArray(KnetPtr(T,sizeof(T)*prod(dims)), dims, device())
+KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
 
 typealias KnetMatrix{T} KnetArray{T,2}
 typealias KnetVector{T} KnetArray{T,1}

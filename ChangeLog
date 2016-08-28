@@ -1,3 +1,16 @@
+2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO8:
+	# try to measure back functions one by one as well, determine and minimize autograd overhead.
+	# make BLK,THR dependent on the input size?
+	## may improve final sum which is only 10x100 in this example.
+	## figure out why forw adds 0.38
+	# need gradient check.
+	# profile AutoGrad more, figure out memory problem, good look at unbroadcast. memory use with/without forw.  closures?
+	# make AutoGrad completely generic?
+	# finish cudnn, curand etc.
+	# tmpfree is dangerous, user visible variables from a=b*c may be overwritten!
+
 2016-08-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -7,13 +20,7 @@
 	# test cuda version compare with af.
 	# we could just support 0,1,2 dims or 0,1,N dims for map and reduce.
 	# finish cuda2arg, cublas
-
-	* TODO8:
 	# need to write cuda21 vector reductions before full AutoGrad test.
-	# make AutoGrad completely generic?
-	# profile AutoGrad more, figure out memory problem, good look at unbroadcast. memory use with/without forw.
-	# finish cudnn, curand etc.
-	# tmpfree is dangerous, user visible variables from a=b*c may be overwritten!
 
 	* ArrayFire: gave up on it, my code is faster:
 	# can we get AF kernels to dump out?

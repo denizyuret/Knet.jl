@@ -1,14 +1,14 @@
-# fun		cpu	af	kn	kn+gc1	kn+gc2
-# 1 mul		0.94	0.56	0.56	0.56	0.56
-# 2 bias	1.05	0.56	0.60	0.59	0.59
-# 3 max		1.34	0.56	0.63	0.62	0.62
-# 4 mul		1.44	0.74	0.76	0.75	0.75
-# 5 bias	1.48	0.75	0.90	0.78	0.78
-# 6 sub		1.49	0.81	1.05	0.82	0.81
-# 7 sq		1.62	0.93	1.19	0.85	0.84
-# 8 sum		1.62	1.22	-	-	1.08
-# 9 forw	2.47	2.60	-	-	1.46,1.75?
-# 10 grad	5.52	6.53
+# fun		cpu	af	kn	kn+gc1	kn+gc2	delta
+# 1 mul		0.94	0.56	0.56	0.56	0.56	0.56
+# 2 bias	1.05	0.56	0.59	0.59	0.59	0.03
+# 3 max		1.34	0.56	0.63	0.62	0.62	0.03
+# 4 mul		1.44	0.74	0.75	0.75	0.75	0.13
+# 5 bias	1.48	0.75	0.79	0.78	0.78	0.03
+# 6 sub		1.49	0.81	0.82	0.81	0.81	0.03
+# 7 sq		1.62	0.93	0.85	0.84	0.84	0.03
+# 8 sum		1.62	1.22	1.19	1.07	1.08	0.24
+# 9 forw	2.47	2.60	2.25	1.67	1.46	0.38	:1.55,1.75?
+# 10 grad	5.52	6.53	5.86	3.52	3.62	2.16	:3.68?
 # 
 # (*) timeall(weights(), weights(64), data(), 10)
 # (*) af results with gc_enable=false and sync()
@@ -21,17 +21,17 @@ using AutoGrad: forward_pass
 
 fun = []
 
-# push!(fun,(w,x,y)->w[1]*x)
-# push!(fun,(w,x,y)->w[1]*x.+w[2])
-# push!(fun,(w,x,y)->max(0,w[1]*x.+w[2]))
-# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]))
-# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]).+w[4])
-# push!(fun,(w,x,y)->((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y))
+push!(fun,(w,x,y)->w[1]*x)
+push!(fun,(w,x,y)->w[1]*x.+w[2])
+push!(fun,(w,x,y)->max(0,w[1]*x.+w[2]))
+push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]))
+push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]).+w[4])
+push!(fun,(w,x,y)->((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y))
 push!(fun,(w,x,y)->(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
-push!(fun,(w,x,y)->sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
-fun1 = fun[end]
+fun1 = (w,x,y)->sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
+push!(fun, fun1)
 push!(fun,(w,x,y)->forward_pass(fun1,(w,x,y),(),1))
-# push!(fun,grad(fun1))
+push!(fun,grad(fun1))
 
 function timeall(w=w2,d=d0,t=10)
     for i=1:length(fun)

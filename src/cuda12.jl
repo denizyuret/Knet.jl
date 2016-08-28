@@ -1,25 +1,5 @@
-cuda12 = [
-("add",".+","xi+yi"),
-("sub",".-","xi-yi"),
-("mul",".*","xi*yi"),
-("div","./","xi/yi"),
-("pow",".^","pow(xi,yi)"),
-("max","max","(xi>yi?xi:yi)"),
-("min","min","(xi<yi?xi:yi)"),
-# "hypot",
-# "rhypot",
-# "atan2",
-# "frexp",
-# "ldexp",
-# "scalbn",
-# "scalbln",
-# "jn",
-# "yn",
-# "fmod",
-# "remainder",
-# "mod",
-# "fdim",
-]
+# Broadcasting binary functions (uses the same list as same size arrays)
+cuda12 = cuda11
 
 # Broadcast max/min haven't been defined:
 max(a::Array,b::Array)=broadcast(max,a,b)
