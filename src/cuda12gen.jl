@@ -1,3 +1,5 @@
+using Knet: cuda12
+
 # Full broadcasting index computation is complicated.  I am going to
 # handle the case where the input arrays are either the same size as
 # the result or vectors (have a single dim > 1).  If the result array
@@ -7,8 +9,6 @@
 # i_n=mod(div(i,stride(a,n)),size(a,n)) with 0 indexing.  So we can
 # just pass in stride(a,n) and size(a,n) as an argument for each
 # input.
-
-include("cuda12.jl")
 
 function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
 """

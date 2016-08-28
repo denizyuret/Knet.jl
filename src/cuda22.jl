@@ -1,4 +1,3 @@
-using CUDArt
 using CUBLAS: gemm!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)

@@ -1,4 +1,4 @@
-include("cuda10.jl")
+using Knet: cuda10
 
 function cuda10src(f, j=f, ex="$f(xi,s)"; BLK=256, THR=256)
 """

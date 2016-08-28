@@ -1,6 +1,5 @@
-include("cuda10.jl")
-using CUDArt
-libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
+using Knet,CUDArt
+libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/src")]))
 
 SIZE = 100000
 ITER = 100000
@@ -31,7 +30,7 @@ function cuda10rep{T}(f,x::KnetArray{T},s::T,y::KnetArray{T})
     CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
 end
 
-for f in cuda10
+for f in Knet.cuda10
     isa(f,Tuple) || (f=(f,))
     cuda10test(f...)
     cuda10test(f...)

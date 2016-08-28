@@ -1,5 +1,3 @@
-using CUDArt
-import Base: sum, prod, maximum, minimum, norm, vecnorm
 import Base.LinAlg: norm_sqr
 import Base.LinAlg.BLAS: asum
 
@@ -34,7 +32,6 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
 end
 
 function cuda20def(f, j=f, o...)
-    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
@@ -47,7 +44,9 @@ function cuda20def(f, j=f, o...)
     end
 end
 
-for f in cuda20
-    isa(f,Tuple) || (f=(f,))
-    cuda20def(f...)
+if isdefined(:libknet8)
+    for f in cuda20
+        isa(f,Tuple) || (f=(f,))
+        cuda20def(f...)
+    end
 end

@@ -1,6 +1,5 @@
-include("cuda12.jl")
-using CUDArt
-libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
+using Knet,CUDArt
+libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/src")]))
 
 SIZE1 = 1000
 SIZE2 = 100
@@ -54,7 +53,7 @@ end
 
 Base.display(x::KnetArray)=(print("KnetArray ");display(to_host(x)))
 
-for f in cuda12
+for f in Knet.cuda12
     isa(f,Tuple) || (f=(f,))
     cuda12test(f...)
 end

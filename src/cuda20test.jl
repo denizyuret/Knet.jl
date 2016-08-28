@@ -9,10 +9,11 @@
 # (*) BLK=128, THR=128 does best for kn.
 # (*) what is the secret behind the cpu sum?
 
-include("cuda20.jl")
-using CUDArt
-# using CUBLAS
-libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/cuda")]))
+using Knet,CUDArt
+using Base.LinAlg: norm_sqr
+using Base.LinAlg.BLAS: asum
+
+libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/src")]))
 
 SIZE = 100000
 ITER = 100000
@@ -63,7 +64,7 @@ function af20rep{T}(f,x::AFArray{T})
 end
 end
 
-for f in cuda20
+for f in Knet.cuda20
     isa(f,Tuple) || (f=(f,))
     cuda20test(f...)
     cuda20test(f...)

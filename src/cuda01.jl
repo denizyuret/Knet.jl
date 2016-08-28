@@ -1,6 +1,3 @@
-using CUDArt
-importall Base
-
 cuda01 = [
 ("add",".+","s+xi"),
 ("sub",".-","s-xi"),
@@ -55,7 +52,6 @@ min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
 #(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # linalg
 
 function cuda01def(f, j=f, o...)
-    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
@@ -70,7 +66,9 @@ function cuda01def(f, j=f, o...)
     end
 end
     
-for f in cuda01
-    isa(f,Tuple) || (f=(f,))
-    cuda01def(f...)
+if isdefined(:libknet8)
+    for f in cuda01
+        isa(f,Tuple) || (f=(f,))
+        cuda01def(f...)
+    end
 end

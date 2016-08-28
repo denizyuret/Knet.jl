@@ -1,6 +1,3 @@
-using CUDArt
-importall Base
-
 cuda12 = [
 ("add",".+","xi+yi"),
 ("sub",".-","xi-yi"),
@@ -73,7 +70,6 @@ function vbroadcast_shape(x,y)
 end
 
 function cuda12def(f, j=f, o...)
-    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
@@ -96,7 +92,9 @@ function cuda12def(f, j=f, o...)
     end
 end
     
-for f in cuda12
-    isa(f,Tuple) || (f=(f,))
-    cuda12def(f...)
+if isdefined(:libknet8)
+    for f in cuda12
+        isa(f,Tuple) || (f=(f,))
+        cuda12def(f...)
+    end
 end

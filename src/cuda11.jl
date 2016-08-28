@@ -1,6 +1,3 @@
-using CUDArt
-importall Base
-
 cuda11 = [
 ("add",".+","xi+yi"),
 ("sub",".-","xi-yi"),
@@ -32,7 +29,6 @@ cuda11 = [
 
 
 function cuda11def(f, j=f, o...)
-    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")

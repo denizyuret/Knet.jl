@@ -1,8 +1,8 @@
+using Knet: cuda20
+
 # Reduction to a scalar
 # CUBLAS nrm2 is extremely slow.  The following is based on code from Barret Zoph.
 # Based on: http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf
-
-include("cuda20.jl")
 
 function cuda20src(f, j, op, f1, v0; BLK=128, THR=128)
     sprint() do s

@@ -1,4 +1,4 @@
-include("cuda11.jl")
+using Knet: cuda11
 
 function cuda11src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
 """

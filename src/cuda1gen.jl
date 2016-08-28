@@ -1,4 +1,4 @@
-include("cuda1.jl")
+using Knet: cuda1
 
 function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
 """

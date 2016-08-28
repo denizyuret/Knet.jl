@@ -1,2 +1,6 @@
-using Knet
-include(gpu() ? "gputests.jl" : "cputests.jl")
+include("../src/cuda1test.jl")
+include("../src/cuda01test.jl")
+include("../src/cuda10test.jl")
+include("../src/cuda11test.jl")
+include("../src/cuda12test.jl")
+include("../src/cuda20test.jl")

@@ -1,6 +1,3 @@
-using CUDArt
-importall Base
-
 cuda1 = [
 "sqrt",
 # "rsqrt",
@@ -68,7 +65,6 @@ relu(x)=max(0,x)
 sigm(x)=inv(1+exp(-x))
 
 function cuda1def(f, j=f, o...)
-    libknet8 = Pkg.dir("Knet/cuda/libknet8")
     J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
@@ -83,7 +79,9 @@ function cuda1def(f, j=f, o...)
     end
 end
 
-for f in cuda1
-    isa(f,Tuple) || (f=(f,))
-    cuda1def(f...)
+if isdefined(:libknet8)
+    for f in cuda1
+        isa(f,Tuple) || (f=(f,))
+        cuda1def(f...)
+    end
 end

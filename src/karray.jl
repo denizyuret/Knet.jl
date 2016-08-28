@@ -37,9 +37,13 @@ Base.convert{A<:Array,T}(::Type{A}, a::KnetArray{T})=copysync!(Array(T,size(a)),
 Base.similar{T}(a::KnetArray{T})=KnetArray(T,size(a))
 Base.similar{T}(a::KnetArray{T},dims::Dims)=KnetArray(T,dims)
 Base.unsafe_convert{T}(::Type{Ptr{T}}, a::KnetArray) = Base.unsafe_convert(Ptr{T}, pointer(a))
+Base.unsafe_convert{T}(::Type{Ptr{T}}, p::KnetPtr) = Base.unsafe_convert(Ptr{T}, p.ptr)
 Base.pointer(a::KnetArray)=a.ptr
 CUDArt.to_host(a::KnetArray)=convert(Array,a)
 Base.reshape{T}(a::KnetArray{T},dims::Dims)=(prod(dims)==length(a)||throw(DimensionMismatch()); KnetArray(a.ptr,dims,a.dev))
+Base.convert(::Type{UInt}, x::KnetPtr) = convert(UInt,x.ptr)
+Base.convert{T}(::Type{KnetPtr{T}}, x::Integer) = KnetPtr(convert(Ptr{T},x))
+Base.(:+)(x::KnetPtr,y::Integer) = oftype(x, UInt(UInt(x) + y))
 
 # AbstractArray interface
 Base.size(a::KnetArray)=a.dims
@@ -49,6 +53,7 @@ Base.setindex!{T}(a::KnetArray{T}, v, i::Integer)=copysync!(a, i, T[convert(T,v)
 
 # These are defined for AbstractArrays:
 Base.length(a::KnetArray)=prod(size(a))
+Base.size(a::KnetArray,i::Int)=size(a)[i]
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
 
@@ -65,6 +70,10 @@ function copysync!{T}(dst::Union{Array{T},SubArray{T},KnetArray{T}}, di::Integer
     CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
     return dst
 end
+
+CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevice
+CUDArt.cudamemcpykind(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
+CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
 
 # GPU memory allocation is very expensive.  So we create an
 # application specific memory manager.  Typically same type, size, and
