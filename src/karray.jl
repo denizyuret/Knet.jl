@@ -56,6 +56,7 @@ Base.length(a::KnetArray)=prod(size(a))
 Base.ndims(a::KnetArray)=length(size(a))
 Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
 Base.eltype{T}(x::KnetArray{T})=T
+Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
 
@@ -83,3 +84,6 @@ Base.convert{T,A<:CudaArray}(::Type{A},a::KnetArray{T})=CudaArray(convert(CudaPt
 Base.convert{T,A<:CudaPtr}(::Type{A},p::KnetPtr{T})=CudaPtr(p.ptr)
 gemm!{T}(transA::Char,transB::Char,alpha::T,A::KnetMatrix{T},B::KnetMatrix{T},beta::T,C::KnetMatrix{T})=
     (gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C)); C)
+
+# TODO: fix this:
+Base.display(x::KnetArray)=(print("KnetArray ");display(CUDArt.to_host(x)))

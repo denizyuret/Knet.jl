@@ -31,7 +31,7 @@
 2016-08-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* cuda: timing tests on 100K repetitions on 1000x100 output array with simple ops:
-	BLK=256,THR=256 for all.
+	BLK=256,THR=256 for all (except reductions cuda20,cuda21 use 128,128)
 
 	F32	F64	where
 	0.73	1.40	cuda1  (unary)
@@ -45,6 +45,15 @@
 	mat+col	1.06	mat+col	1.53
 	mat+row	1.28	mat+row	1.64
 	row+col	1.53	row+col	1.57
+
+	scalar reduction (cuda20):
+	F32 2.98
+	F64 3.08
+
+	vector reduction (cuda21): (for 1000x100 matrix)
+		F32	F64
+	mat>col 3.54	3.66
+	mat>row 0.86	1.00
 
 2016-08-26  Deniz Yuret  <dyuret@ku.edu.tr>
 

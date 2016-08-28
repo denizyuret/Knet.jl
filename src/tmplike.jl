@@ -34,6 +34,8 @@ function tmplike(a, dims::Dims=size(a))
     return s.arr[s.idx]
 end
 
+tmplike(a, dims::Int...)=tmplike(a, dims)
+
 tmpinfo()=Any[(t...,length(s.arr)) for (t,s) in TmpDict]
 
 function gpuinfo()

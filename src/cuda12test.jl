@@ -51,8 +51,6 @@ function cuda12rep{T}(f,x::KnetArray{T},y::KnetArray{T},z::KnetArray{T})
     CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
 end
 
-Base.display(x::KnetArray)=(print("KnetArray ");display(to_host(x)))
-
 for f in Knet.cuda12
     isa(f,Tuple) || (f=(f,))
     cuda12test(f...)
