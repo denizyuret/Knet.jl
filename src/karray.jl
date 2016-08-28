@@ -20,7 +20,7 @@ function KnetPtr(T::Type, n::Integer)
 end
 
 if !isdefined(:KnetArray)
-type KnetArray{T,N} # <: AbstractArray{T,N}
+type KnetArray{T,N} # <: AbstractArray{T,N} # commented this out to find leaks.
     ptr::KnetPtr{T}
     dims::NTuple{N,Int}
     dev::Int
@@ -51,9 +51,11 @@ Base.linearindexing(::KnetArray)=Base.linearfast()
 Base.getindex{T}(a::KnetArray{T}, i::Integer)=copysync!(T[0], 1, a, i, 1)[1]
 Base.setindex!{T}(a::KnetArray{T}, v, i::Integer)=copysync!(a, i, T[convert(T,v)], 1, 1)
 
-# These are defined for AbstractArrays:
+# These are defined for AbstractArrays, so we can remove it eventually:
 Base.length(a::KnetArray)=prod(size(a))
-Base.size(a::KnetArray,i::Int)=size(a)[i]
+Base.ndims(a::KnetArray)=length(size(a))
+Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
+Base.eltype{T}(x::KnetArray{T})=T
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
 
@@ -75,49 +77,9 @@ CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevi
 CUDArt.cudamemcpykind(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
 CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
 
-# GPU memory allocation is very expensive.  So we create an
-# application specific memory manager.  Typically same type, size, and
-# number of arrays are needed in every iteration of training and
-# testing.  During training these arrays should not be overwritten
-# until the backward pass.  During testing they should be recycled as
-# much as possible.
-
-# We will have a Dict((arrayType,arrayLength)=>arrays):
-
-!isdefined(:TmpDict) && (TmpDict = Dict())
-
-# Each value in the dict will hold arrays of same type and length with
-# idx pointing to the last one used:
-
-type TmpStack; arr::Vector; idx::Int; TmpStack()=new([],0); end
-
-# When we are done with an iteration, we reset idx=0 instead of
-# freeing the arrays so we can reuse them:
-
-tmpfree()=(for s in values(TmpDict); s.idx=0; end)
-
-# This is the main function, to be used like "similar":
-
-function tmplike(a, dims::Dims=size(a))
-    s = get!(TmpStack, TmpDict, (typeof(a),prod(dims)))
-    s.idx += 1
-    if s.idx > length(s.arr)
-        push!(s.arr, similar(a,dims))
-        s.idx > length(s.arr) && error("short stack")
-    end
-    if size(s.arr[s.idx]) != dims
-        s.arr[s.idx] = reshape(s.arr[s.idx], dims)
-    end
-    return s.arr[s.idx]
-end
-
-tmpmem()=[(t...,length(s.arr)) for (t,s) in TmpDict]
-
-function gpumem()
-    mfree=Csize_t[1]
-    mtotal=Csize_t[1]
-    ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
-    nbytes=convert(Int,mfree[1])
-    narray=length(CUDArt.cuda_ptrs)
-    (nbytes,narray)
-end
+# CUBLAS gemm! expects CudaArrays, here is a workaround with shared pointers:
+import CUBLAS: gemm!
+Base.convert{T,A<:CudaArray}(::Type{A},a::KnetArray{T})=CudaArray(convert(CudaPtr{T},a.ptr),a.dims,a.dev)
+Base.convert{T,A<:CudaPtr}(::Type{A},p::KnetPtr{T})=CudaPtr(p.ptr)
+gemm!{T}(transA::Char,transB::Char,alpha::T,A::KnetMatrix{T},B::KnetMatrix{T},beta::T,C::KnetMatrix{T})=
+    (gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C)); C)

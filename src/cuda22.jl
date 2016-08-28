@@ -1,4 +1,4 @@
-using CUBLAS: gemm!
+using Base.LinAlg.BLAS: gemm!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
 (*){T}(A::KnetMatrix{T},B::KnetMatrix{T})=A_mul_B!(tmplike(A,(size(A,1),size(B,2))),A,B)

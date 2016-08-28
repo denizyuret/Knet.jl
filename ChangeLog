@@ -1,3 +1,33 @@
+2016-08-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# move cuda -> src, src -> src7
+	# should we introduce our own CudaArray type?
+	# define KnetArray. (KA) use instead of CudaArray.
+	# test cuda version compare with af.
+	# we could just support 0,1,2 dims or 0,1,N dims for map and reduce.
+	# finish cuda2arg, cublas
+
+	* TODO8:
+	# need to write cuda21 vector reductions before full AutoGrad test.
+	# make AutoGrad completely generic?
+	# profile AutoGrad more, figure out memory problem, good look at unbroadcast. memory use with/without forw.
+	# finish cudnn, curand etc.
+	# tmpfree is dangerous, user visible variables from a=b*c may be overwritten!
+
+	* ArrayFire: gave up on it, my code is faster:
+	# can we get AF kernels to dump out?
+	# try c++ ArrayFire mnist example?
+	# will arrayfire memory management still work with rnns?
+	# eventually look at arrayfire convolution.
+	# thrust and tensorflow also opensource.
+
+	* JIT: could look at this if libknet8 gets too big:
+	# JIT compile kernels as needed: https://blog.maleadt.net/2015/01/15/julia-cuda/
+	## http://docs.nvidia.com/cuda/nvrtc/index.html#basic-usage
+	## http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
+
+
 2016-08-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* cuda: timing tests on 100K repetitions on 1000x100 output array with simple ops:
@@ -9,7 +39,7 @@
 	0.80	2.06	cuda11 (same size array)
 	0.86	2.08	cuda12 (same size array, broadcasting)
 
-	broadcasting:
+	broadcasting (cuda12):
 	F32		F64
 	mat+mat	0.86	mat+mat	2.08
 	mat+col	1.06	mat+col	1.53
@@ -26,21 +56,6 @@
 	# read ArrayFire docs.
 	# find ArrayFire kernels. can we use arrayfire kernels outside?  (matmul, broadcast and reduce). They are built by JIT!
 
-	* TODO8:
-	# finish cuda2arg, cublas, cudnn, curand etc.
-	# move cuda -> src, src -> src7
-	# define KnetArray. (KA) use instead of CudaArray.
-	# test cuda version compare with af.
-	# can we get AF kernels to dump out?
-	# try c++ ArrayFire mnist example?
-	# should we introduce our own CudaArray type?
-	# will arrayfire memory management still work with rnns?
-	# eventually look at arrayfire convolution.
-	# thrust and tensorflow also opensource.
-	# we could just support 0,1,2 dims or 0,1,N dims for map and reduce.
-	# JIT compile kernels as needed: https://blog.maleadt.net/2015/01/15/julia-cuda/
-	## http://docs.nvidia.com/cuda/nvrtc/index.html#basic-usage
-	## http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
 
 2016-08-25  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -7,7 +7,7 @@
 # 6 sub		1.49	0.81	1.05	0.82	0.81
 # 7 sq		1.62	0.93	1.19	0.85	0.84
 # 8 sum		1.62	1.22	-	-	1.08
-# 9 forw	2.47	2.60	-	-	1.46
+# 9 forw	2.47	2.60	-	-	1.46,1.75?
 # 10 grad	5.52	6.53
 # 
 # (*) timeall(weights(), weights(64), data(), 10)
@@ -31,7 +31,7 @@ push!(fun,(w,x,y)->(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
 push!(fun,(w,x,y)->sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
 fun1 = fun[end]
 push!(fun,(w,x,y)->forward_pass(fun1,(w,x,y),(),1))
-push!(fun,grad(fun1))
+# push!(fun,grad(fun1))
 
 function timeall(w=w2,d=d0,t=10)
     for i=1:length(fun)
