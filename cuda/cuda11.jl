@@ -2,14 +2,16 @@ using CUDArt
 importall Base
 
 cuda11 = [
-("add",".+","x[i]+y[i]"),
-("sub",".-","x[i]-y[i]"),
-("mul",".*","x[i]*y[i]"),
-("div","./","x[i]/y[i]"),
+("add",".+","xi+yi"),
+("sub",".-","xi-yi"),
+("mul",".*","xi*yi"),
+("div","./","xi/yi"),
+("pow",".^","pow(xi,yi)"),
+("max","max","(xi>yi?xi:yi)"),
+("min","min","(xi<yi?xi:yi)"),
 # "hypot",
 # "rhypot",
 # "atan2",
-# "pow",
 # "frexp",
 # "ldexp",
 # "scalbn",
@@ -48,8 +50,9 @@ function cuda11def(f, j=f, o...)
         end
     end
 end
-    
-for f in cuda11
-    isa(f,Tuple) || (f=(f,))
-    cuda11def(f...)
-end
+
+# Do this in cuda12, to handle size(x)!=size(y)
+# for f in cuda11
+#     isa(f,Tuple) || (f=(f,))
+#     cuda11def(f...)
+# end

@@ -55,10 +55,10 @@ cuda1 = [
 # "lround",
 # "llrint",
 # "llround",
-("neg", "-", "-x[i]"),
-("inv", "inv", "1/x[i]"),
-("relu", "relu", "(x[i]>0?x[i]:0)"),
-("sigm", "sigm", "1/(1+exp(-x[i]))"),
+("neg", "-", "-xi"),
+("inv", "inv", "1/xi"),
+("relu", "relu", "(xi>0?xi:0)"),
+("sigm", "sigm", "1/(1+exp(-xi))"),
 ]
 
 inv(x)=1./x

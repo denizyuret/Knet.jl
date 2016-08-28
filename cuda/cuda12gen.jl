@@ -10,13 +10,13 @@
 
 include("cuda12.jl")
 
-function cuda12src(f, j, ex; BLK=256, THR=128)
+function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
 """
 __global__ void _$(f)_32_12(int n, float *x, int sx, int nx, float *y, int sy, int ny, float *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    int xi = (i/sx)%nx;
-    int yi = (i/sy)%ny;
+    float xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[1] : x[(i/sx)%nx]);
+    float yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[1] : y[(i/sy)%ny]);
     z[i] = $ex;
     i += blockDim.x * gridDim.x;
   }
@@ -29,8 +29,8 @@ extern "C" {
 __global__ void _$(f)_64_12(int n, double *x, int sx, int nx, double *y, int sy, int ny, double *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    int xi = (i/sx)%nx;
-    int yi = (i/sy)%ny;
+    double xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[1] : x[(i/sx)%nx]);
+    double yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[1] : y[(i/sy)%ny]);
     z[i] = $ex;
     i += blockDim.x * gridDim.x;
   }

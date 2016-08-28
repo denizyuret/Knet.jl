@@ -2,11 +2,13 @@ using CUDArt
 importall Base
 
 cuda12 = [
-("add",".+","x[xi]+y[yi]"),
-("sub",".-","x[xi]-y[yi]"),
-("mul",".*","x[xi]*y[yi]"),
-("div","./","x[xi]/y[yi]"),
-("pow",".^","pow(x[xi],y[yi])"),
+("add",".+","xi+yi"),
+("sub",".-","xi-yi"),
+("mul",".*","xi*yi"),
+("div","./","xi/yi"),
+("pow",".^","pow(xi,yi)"),
+("max","max","(xi>yi?xi:yi)"),
+("min","min","(xi<yi?xi:yi)"),
 # "hypot",
 # "rhypot",
 # "atan2",
@@ -21,6 +23,10 @@ cuda12 = [
 # "mod",
 # "fdim",
 ]
+
+# Broadcast max/min haven't been defined:
+max(a::Array,b::Array)=broadcast(max,a,b)
+min(a::Array,b::Array)=broadcast(min,a,b)
 
 function vbroadcast_shape(x,y)
     nz = max(ndims(x),ndims(y))

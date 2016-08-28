@@ -2,11 +2,13 @@ using CUDArt
 importall Base
 
 cuda01 = [
-("add",".+","s+x[i]"),
-("sub",".-","s-x[i]"),
-("mul",".*","s*x[i]"),
-("div","./","s/x[i]"),
-("pow",".^","pow(s,x[i])"),
+("add",".+","s+xi"),
+("sub",".-","s-xi"),
+("mul",".*","s*xi"),
+("div","./","s/xi"),
+("pow",".^","pow(s,xi)"),
+("max","max","(xi>s?xi:s)"),
+("min","min","(xi<s?xi:s)"),
 # "hypot",
 # "rhypot",
 # "atan2",
@@ -34,6 +36,10 @@ cuda01 = [
 (./){T}(s::Number,a::CudaArray{T})=(./)(T(s),a)
 #(.^){T}(a::CudaArray{T},s::Number) # cannot convert to an s,a operation
 (.^){T}(s::Number,a::CudaArray{T})=(.^)(T(s),a)
+max{T}(a::CudaArray{T},s::Number)=max(T(s),a)
+max{T}(s::Number,a::CudaArray{T})=max(T(s),a)
+min{T}(a::CudaArray{T},s::Number)=min(T(s),a)
+min{T}(s::Number,a::CudaArray{T})=min(T(s),a)
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
 (+){T}(a::CudaArray{T},s::Number)=(.+)(T(s),a)

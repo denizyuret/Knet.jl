@@ -2,11 +2,11 @@ using CUDArt
 importall Base
 
 cuda10 = [
-# ("add",".+","s+x[i]"),
-# ("sub",".-","s-x[i]"),
-# ("mul",".*","s*x[i]"),
-# ("div","./","s/x[i]"),
-("pow",".^","pow(x[i],s)"),
+# ("add",".+","s+xi"),
+# ("sub",".-","s-xi"),
+# ("mul",".*","s*xi"),
+# ("div","./","s/xi"),
+("pow",".^","pow(xi,s)"),
 # "hypot",
 # "rhypot",
 # "atan2",

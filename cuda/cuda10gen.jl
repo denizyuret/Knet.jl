@@ -1,10 +1,11 @@
 include("cuda10.jl")
 
-function cuda10src(f, j, ex; BLK=256, THR=256)
+function cuda10src(f, j=f, ex="$f(xi,s)"; BLK=256, THR=256)
 """
 __global__ void _$(f)_32_10(int n, float *x, float s, float *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
+    float xi = x[i];
     y[i] = $ex;
     i += blockDim.x * gridDim.x;
   }
@@ -17,6 +18,7 @@ extern "C" {
 __global__ void _$(f)_64_10(int n, double *x, double s, double *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
+    double xi = x[i];
     y[i] = $ex;
     i += blockDim.x * gridDim.x;
   }
