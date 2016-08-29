@@ -7,8 +7,8 @@
 # 6 sub		1.49	0.81	0.82	0.81	0.81	0.82	0.03
 # 7 sq		1.62	0.93	0.85	0.84	0.84	0.85	0.03
 # 8 sum		1.62	1.22	1.19	1.07	1.08	1.07	0.24
-# 9 forw	2.47	2.60	2.25	1.67	1.46	1.68	0.38	:1.55,1.73?
-# 10 grad	5.52	6.53	5.86	3.52	3.62	3.30	2.16	:3.68,3.36?
+# 9 forw	2.47	2.60	2.25	1.67	1.46	1.68	0.38	:1.55,1.73?,1.93
+# 10 grad	5.52	6.53	5.86	3.52	3.62	3.30	2.16	:3.68,3.36?,3.53
 # 
 # (*) timeall(weights(), weights(64), data(), 10)
 # (*) af results with gc_enable=false and sync()
@@ -21,17 +21,17 @@ using AutoGrad: forward_pass
 
 fun = []
 
-push!(fun,(w,x,y)->w[1]*x)
-push!(fun,(w,x,y)->w[1]*x.+w[2])
-push!(fun,(w,x,y)->max(0,w[1]*x.+w[2]))
-push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]))
-push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]).+w[4])
-push!(fun,(w,x,y)->((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y))
-push!(fun,(w,x,y)->(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
+# push!(fun,(w,x,y)->w[1]*x)
+# push!(fun,(w,x,y)->w[1]*x.+w[2])
+# push!(fun,(w,x,y)->max(0,w[1]*x.+w[2]))
+# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]))
+# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]).+w[4])
+# push!(fun,(w,x,y)->((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y))
+# push!(fun,(w,x,y)->(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
 fun1 = (w,x,y)->sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
-push!(fun, fun1)
+#push!(fun, fun1)
 push!(fun,(w,x,y)->forward_pass(fun1,(w,x,y),(),1))
-push!(fun,grad(fun1))
+#push!(fun,grad(fun1))
 
 function timeall(w=w2,d=d0,t=10)
     for i=1:length(fun)
@@ -74,7 +74,7 @@ function data()
     batch(xtrn,ytrn,100)
 end
 
-function gzload(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
+function gzload(file; dir=Pkg.dir("Knet/data/"), url="http://yann.lecun.com/exdb/mnist/")
     path = dir*file
     isfile(path) || download(url*file, path)
     f = gzopen(path)

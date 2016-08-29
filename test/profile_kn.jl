@@ -18,9 +18,9 @@ for (f,d) in matmul2arg
     @eval @primitive $f(x1::KnetArray,x2::KnetArray)::y $(d[1]) $(d[2])
 end
 for (f,g) in broadcast2arg
-    @eval @primitive $f(x1::KnetArray,x2::KnetArray)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
-    @eval @primitive $f(x1::Number,x2::KnetArray)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
-    @eval @primitive $f(x1::KnetArray,x2::Number)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
+    @eval @primitive $f(x1::KnetArray,x2::KnetArray)::y  unbroadcast(y,x1,$(g[1]))  unbroadcast(y,x2,$(g[2]))
+    @eval @primitive $f(x1::Number,x2::KnetArray)::y  unbroadcast(y,x1,$(g[1]))  unbroadcast(y,x2,$(g[2]))
+    @eval @primitive $f(x1::KnetArray,x2::Number)::y  unbroadcast(y,x1,$(g[1]))  unbroadcast(y,x2,$(g[2]))
 end
 for (f,g) in math2arg
     @eval @primitive $f(x1::KnetArray,x2::KnetArray)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
@@ -57,14 +57,15 @@ gpuinfo("after d0kn,w2kn")
 function timeall_kn(w=w2kn,d=d0kn,t=10)
     for i=1:length(fun)
         print(i); printfun(fun[i])
-        for j=1:5
-            gc_enable(false)
-            @time (loop_kn(fun[i],w,d,t); device_synchronize())
-            gpuinfo("before gc")
-            gc_enable(true)
-            gc()
+        for j=1:3
+            # gc_enable(false)
+            # @time (loop_kn(fun[i],w,d,t); device_synchronize())
+            @time loop_kn(fun[i],w,d,t)
+            # gpuinfo("before gc")
+            # gc_enable(true)
+            # gc()
             sleep(2)
-            gpuinfo("after gc")
+            # gpuinfo("after gc")
         end
     end
 end
@@ -72,7 +73,6 @@ end
 function loop_kn(f,w,d,t)
     for i in 1:t
         for (x,y) in d
-            tmpfree()
             f(w,x,y)
         end
     end
