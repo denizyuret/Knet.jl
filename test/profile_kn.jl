@@ -44,9 +44,11 @@ end
 @primitive  sum(x::KnetArray,i...)  (dy->dy.+zeros(x))
 
 include("profile.jl")
+gpuinfo("before d0kn,w2kn")
 d0kn = map(i->map(KnetArray,i),d0)
-# w1kn = map(KnetArray,w1)
 w2kn = map(KnetArray,w2)
+gpuinfo("after d0kn,w2kn")
+# w1kn = map(KnetArray,w1)
 # timeall(w2kn,d0kn,10)
 # loop(fun[9],w2kn,d0kn,10)
 # (x1kn,y1kn)=first(d0kn)
@@ -56,11 +58,13 @@ function timeall_kn(w=w2kn,d=d0kn,t=10)
     for i=1:length(fun)
         print(i); printfun(fun[i])
         for j=1:5
-            sleep(2)
             gc_enable(false)
             @time (loop_kn(fun[i],w,d,t); device_synchronize())
+            gpuinfo("before gc")
             gc_enable(true)
-            gpuinfo()
+            gc()
+            sleep(2)
+            gpuinfo("after gc")
         end
     end
 end

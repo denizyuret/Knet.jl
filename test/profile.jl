@@ -1,18 +1,18 @@
-# fun		cpu	af	kn	kn+gc1	kn+gc2	delta
-# 1 mul		0.94	0.56	0.56	0.56	0.56	0.56
-# 2 bias	1.05	0.56	0.59	0.59	0.59	0.03
-# 3 max		1.34	0.56	0.63	0.62	0.62	0.03
-# 4 mul		1.44	0.74	0.75	0.75	0.75	0.13
-# 5 bias	1.48	0.75	0.79	0.78	0.78	0.03
-# 6 sub		1.49	0.81	0.82	0.81	0.81	0.03
-# 7 sq		1.62	0.93	0.85	0.84	0.84	0.03
-# 8 sum		1.62	1.22	1.19	1.07	1.08	0.24
-# 9 forw	2.47	2.60	2.25	1.67	1.46	0.38	:1.55,1.75?
-# 10 grad	5.52	6.53	5.86	3.52	3.62	2.16	:3.68?
+# fun		cpu	af	kn	kn+gc1	kn+gc2	kn+gc3	delta
+# 1 mul		0.94	0.56	0.56	0.56	0.56	0.56	0.56
+# 2 bias	1.05	0.56	0.59	0.59	0.59	0.59	0.03
+# 3 max		1.34	0.56	0.63	0.62	0.62	0.62	0.03
+# 4 mul		1.44	0.74	0.75	0.75	0.75	0.75	0.13
+# 5 bias	1.48	0.75	0.79	0.78	0.78	0.78	0.03
+# 6 sub		1.49	0.81	0.82	0.81	0.81	0.82	0.03
+# 7 sq		1.62	0.93	0.85	0.84	0.84	0.85	0.03
+# 8 sum		1.62	1.22	1.19	1.07	1.08	1.07	0.24
+# 9 forw	2.47	2.60	2.25	1.67	1.46	1.68	0.38	:1.55,1.73?
+# 10 grad	5.52	6.53	5.86	3.52	3.62	3.30	2.16	:3.68,3.36?
 # 
 # (*) timeall(weights(), weights(64), data(), 10)
 # (*) af results with gc_enable=false and sync()
-# (*) kn uses `similar`, +gc1 runs tmpfree every epoch, +gc2 runs tmpfree every iteration (minibatch)
+# (*) kn uses `similar`, +gc1 runs tmpfree every epoch, +gc2 runs tmpfree every iteration (minibatch), +gc3 uses KnetFree and calls gc every 10 epochs.
 # AF: The forw records arrays preventing their reuse?
 # AF: They are merging consecutive ops in one kernel, which breaks down with forw?
 
