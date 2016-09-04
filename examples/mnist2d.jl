@@ -3,7 +3,6 @@ isdefined(:MNIST) || include("mnist.jl")
 module MNIST2D
 using Knet,AutoGrad,ArgParse
 using Main.MNIST: xtrn,ytrn,xtst,ytst
-using Base.LinAlg: axpy!
 
 function main(args=ARGS)
     global w, dtrn, dtst
