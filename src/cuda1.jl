@@ -73,7 +73,7 @@ function cuda1def(f, j=f, o...)
         F = "$(f)_$S"
         @eval begin
             function $J(x::KnetArray{$T})
-                y = tmplike(x)
+                y = similar(x)
                 ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end

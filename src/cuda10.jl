@@ -28,7 +28,7 @@ function cuda10def(f, j=f, o...)
         F = "$(f)_$(S)_10"
         @eval begin
             function $J(x::KnetArray{$T},s::$T)
-                y = tmplike(x)
+                y = similar(x)
                 ccall(($F,$libknet8),Void,(Cint,Ptr{$T},$T,Ptr{$T}),length(y),x,s,y)
                 return y
             end

@@ -26,7 +26,7 @@ function cuda21def(f, j=f, o...)
                             size(x,i)
                         end
                     end
-                    y = tmplike(x, ysize)
+                    y = similar(x, ysize)
                     nx = length(x); ny = length(y); sy = stride(x,i0)
                     ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
                     return y

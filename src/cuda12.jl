@@ -58,12 +58,12 @@ function cuda12def(f, j=f, o...)
         @eval begin
             function $J(x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
-                    z = tmplike(x)
+                    z = similar(x)
                     ccall(($F11,$libknet8),Void,(Cint,$Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
                     return z
                 else
                     (dz,sx,nx,sy,ny) = vbroadcast_shape(x,y)
-                    z = tmplike(x,dz)
+                    z = similar(x,dz)
                     ccall(($F12,$libknet8),Void,(Cint,$Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
                     return z
                 end
