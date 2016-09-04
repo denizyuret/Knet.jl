@@ -1,15 +1,28 @@
-2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# mnist2d: add hidden option
+	# mnist2d: comparison with knet7
 
 	* TODO8:
-	# try to measure back functions one by one as well, determine and minimize autograd overhead.
-	# make BLK,THR dependent on the input size?
-	## may improve final sum which is only 10x100 in this example.
-	## figure out why forw adds 0.38
-	# need gradient check.
+	# extend tests to cover all combinations of 10,100,1000 dimensions.
+	# mnist2d: implement efficient softmax
+	# mnist2d: sparse arrays, cpu/gpu, Float16,32,64 options
+	# mnist2d: cpu support
+	# mnist2d: sampling gradcheck
+	# mnist2d: update documentation
+	# try to measure back functions one by one as well for gpu profiling.
+	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	# finish cudnn, curand etc. if possible eliminate dependence on them.
+
+2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
 	# profile AutoGrad more, figure out memory problem, good look at unbroadcast. memory use with/without forw.  closures?
 	# make AutoGrad completely generic?
-	# finish cudnn, curand etc.
 	# tmpfree is dangerous, user visible variables from a=b*c may be overwritten!
+	# figure out why forw adds 0.38
+	# determine and minimize autograd overhead.
 
 2016-08-28  Deniz Yuret  <dyuret@ku.edu.tr>
 

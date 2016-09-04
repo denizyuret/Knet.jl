@@ -1,6 +1,6 @@
-for i in ("1", "01", "10", "11", "12", "20")
+for i in ("1", "01", "10", "11", "12", "20", "21")
     f = "cuda$(i)test.jl"
-    println(f)
+    info(f)
     include("../src/$f")
 end
 

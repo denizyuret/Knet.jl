@@ -48,12 +48,15 @@ end
 # If you really want to clean up memory you need to call knetgc:
 
 function knetgc()
+    gc_enable(false)
     for v in values(KnetFree)
         for p in v.free
             CUDArt.rt.cudaFree(p)
         end
+        v.used -= length(v.free)
         empty!(v.free)
     end
+    gc_enable(true)
 end
 
 if !isdefined(:KnetArray)
@@ -93,6 +96,8 @@ Base.ndims(a::KnetArray)=length(size(a))
 Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
 Base.eltype{T}(x::KnetArray{T})=T
 Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
+import AutoGrad: sum_outgrads
+sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
 
@@ -116,14 +121,7 @@ CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevi
 CUDArt.cudamemcpykind(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
 CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
 
-# CUBLAS gemm! expects CudaArrays, here is a workaround with shared pointers:
-import CUBLAS: gemm!
-Base.convert{T,N,A<:CudaArray}(::Type{A},a::KnetArray{T,N})=CudaArray{T,N}(CudaPtr{T}(convert(Ptr{T},pointer(a))),a.dims,a.dev)
-#Base.convert{A<:CudaPtr}(::Type{A},p::KnetPtr)=CudaPtr(p.ptr)
-gemm!{T}(transA::Char,transB::Char,alpha::T,A::KnetMatrix{T},B::KnetMatrix{T},beta::T,C::KnetMatrix{T})=
-    (gemm!(transA,transB,alpha,convert(CudaArray,A),convert(CudaArray,B),beta,convert(CudaArray,C)); C)
-
-# TODO: fix this:
+# TODO: this will be fixed when we inherint from AbstractArray.
 Base.display(x::KnetArray)=(print("KnetArray ");display(CUDArt.to_host(x)))
 
 function gpuinfo(msg="")
@@ -136,6 +134,3 @@ function gpuinfo(msg="")
     println((nbytes,[(k,v.used,length(v.free)) for (k,v) in KnetFree]...,:cuda_ptrs,narray))
 end
 
-# From legacy memory manager:
-tmplike(a...)=similar(a...)
-tmpfree()=nothing

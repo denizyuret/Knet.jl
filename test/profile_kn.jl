@@ -1,8 +1,7 @@
 importall Base
 using Knet,CUDArt,AutoGrad
 
-AutoGrad.tofloat{T<:AbstractFloat}(a::KnetArray{T})=a
-AutoGrad._dbg{T}(x::KnetArray{T})=Symbol("K$(join([id2(x),size(x)...,8*sizeof(T)],'_'))")
+AutoGrad._dbg{T}(x::KnetArray{T})="K$(join([id2(x),size(x)...,8*sizeof(T)],'_'))"
 
 include(Pkg.dir("AutoGrad/test/profile.jl"))
 gpuinfo("before d0kn,w2kn")
