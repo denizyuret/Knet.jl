@@ -2,8 +2,12 @@ language: julia
 os:
   - linux
   - osx
+julia:
+  - 0.4
+  - 0.5
+  - nightly
 notifications:
-  email: true
+  email: false
 
 ## uncomment the following lines to override the default test script
 #script:

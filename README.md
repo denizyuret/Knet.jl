@@ -1,6 +1,13 @@
 # Knet
 
 [![Build Status](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+<!-- 
+TODO: https://github.com/JuliaCI/Coverage.jl
+[![Coverage Status](https://coveralls.io/repos/denizyuret/Knet.jl/badge.svg)](https://coveralls.io/r/denizyuret/Knet.jl)
+[![Knet](http://pkg.julialang.org/badges/Knet_0.3.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![Knet](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![Knet](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
+-->
 
 Knet is a machine learning module implemented in
 [Julia](http://julia.readthedocs.org/en/release-0.4), so you should be
