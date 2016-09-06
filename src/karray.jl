@@ -24,7 +24,7 @@ if !isdefined(:KnetFree)
     KnetFree = Dict{Int,KnetPtrs}()
 end
 
-function free(p::KnetPtr)
+function freeKnetPtr(p::KnetPtr)
     ptrs = KnetFree[p.len]
     push!(ptrs.free,p.ptr)
 end
@@ -38,7 +38,7 @@ function KnetPtr(nbytes::Integer)
         kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
     end
-    finalizer(kp, free)
+    finalizer(kp, freeKnetPtr)
     return kp
 end
 
@@ -57,7 +57,7 @@ function knetgc()
 end
 
 if !isdefined(:KnetArray)
-type KnetArray{T,N} # <: AbstractArray{T,N} # commented this out to find leaks.
+type KnetArray{T,N} # <: AbstractArray{T,N} # TODO: uncomment and deal with ambiguities
     ptr::KnetPtr
     dims::NTuple{N,Int}
     dev::Int
@@ -70,8 +70,18 @@ KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
 typealias KnetMatrix{T} KnetArray{T,2}
 typealias KnetVector{T} KnetArray{T,1}
 
-Base.convert{A<:KnetArray,T}(::Type{A}, a::Array{T})=knetcopy!(KnetArray(T,size(a)),1,a,1,length(a))
-Base.convert{A<:Array,T}(::Type{A}, a::KnetArray{T})=knetcopy!(Array(T,size(a)),1,a,1,length(a))
+Base.convert{T,N}(::Type{KnetArray}, x::KnetArray{T,N}) = x
+Base.convert{T,N}(::Type{KnetArray{T}}, x::KnetArray{T,N}) = x
+Base.convert{T,N}(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) = x
+Base.convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
+Base.convert{T,N,S}(::Type{KnetArray{T}}, x::AbstractArray{S,N}) = convert(KnetArray{T,N}, x)
+Base.convert{T,N,S}(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) = knetcopy!(KnetArray(T, size(x)), 1, convert(Array{T,N},x), 1, length(x))
+Base.convert{T,N}(::Type{Array}, x::KnetArray{T,N}) = convert(Array{T,N}, x)
+Base.convert{T,N,S}(::Type{Array{T}}, x::KnetArray{S,N}) = convert(Array{T,N}, x)
+Base.convert{T,N,S}(::Type{Array{T,N}}, x::KnetArray{S,N}) = convert(Array{T,N},knetcopy!(Array(S, size(x)), 1, x, 1, length(x)))
+Base.convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}, x)
+Base.convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},knetcopy!(Array(S, size(x)), 1, x, 1, length(x)))
+
 Base.similar{T}(a::KnetArray{T})=KnetArray(T,size(a))
 Base.similar{T}(a::KnetArray{T},dims::Dims)=KnetArray(T,dims)
 Base.similar{T}(a::KnetArray{T},dims::Int...)=KnetArray(T,dims)
@@ -131,10 +141,10 @@ function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Inte
     return dest
 end
 
-cudadir(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevice
-cudadir(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
-cudadir(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
-cudadir(dstp::Ptr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToHost
+cudadir(::KnetArray, ::Array) = CUDArt.rt.cudaMemcpyHostToDevice
+cudadir(::Array, ::KnetArray) = CUDArt.rt.cudaMemcpyDeviceToHost
+cudadir(::KnetArray, ::KnetArray) = CUDArt.rt.cudaMemcpyDeviceToDevice
+cudadir(::Array, ::Array) = CUDArt.rt.cudaMemcpyHostToHost
 
 # TODO: this will be fixed when we inherint from AbstractArray.
 Base.display(x::KnetArray)=(print("KnetArray ");display(convert(Array,x)))

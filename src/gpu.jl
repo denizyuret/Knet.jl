@@ -13,13 +13,15 @@ let GPU=-1, cublashandles=Dict()
     gpu()=GPU
     gpu(b::Bool)=gpu(b ? pickgpu() : -1)
     function gpu(i::Int)
-        global GPU = i
+        GPU = i
         if i >= 0
+            eval(Expr(:using,:CUDArt))
             CUDArt.device(i)
             cublashandle = get!(cublasCreate, cublashandles, i)
         else
             cublashandle = nothing
         end
+        return GPU
     end
 end
 
@@ -38,7 +40,7 @@ end
 
 function gpucount()
     ptr=Int32[0]
-    gpustat=ccall((:cudaGetDeviceCount,:libcudart),Int32,(Ptr{Cint},),ptr)
+    gpustat=ccall((:cudaGetDeviceCount,"libcudart"),Int32,(Ptr{Cint},),ptr)
     if gpustat == 0
         return Int(ptr[1])
     else
@@ -49,20 +51,19 @@ end
 function gpufree()
     mfree=Csize_t[1]
     mtotal=Csize_t[1]
-    ccall((:cudaMemGetInfo,:libcudart),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
+    ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
     nbytes=convert(Int,mfree[1])
 end
 
 function pickgpu()
-    pick = free = -1
-    if !isempty(libcudart)
-        for i=0:gpucount()-1
-            CUDArt.device(i)
-            ifree = gpufree()
-            if ifree > free
-                pick = i
-                free = ifree
-            end
+    eval(Expr(:using,:CUDArt))
+    pick = mem = -1
+    for i=0:gpucount()-1
+        CUDArt.device(i)
+        imem = gpufree()
+        if imem > mem
+            pick = i
+            mem = imem
         end
     end
     return pick
@@ -77,10 +78,10 @@ end
 
 function cublasCreate()
     handleP = Ptr{Void}[0]
-    ret = ccall((:cublasCreate_v2, libcublas), UInt32, (Ptr{Ptr{Void}},), handleP)
+    ret = ccall((:cublasCreate_v2, "libcublas"), UInt32, (Ptr{Ptr{Void}},), handleP)
     ret==0 || error("Could not create cublasHandle: $ret")
     handle = handleP[1]
-    atexit(()->cublascheck(ccall((:cublasDestroy_v2, libcublas), UInt32, (Ptr{Void},), handle)))
+    atexit(()->ccall((:cublasDestroy_v2, "libcublas"), UInt32, (Ptr{Void},), handle))
     return handle
 end
 

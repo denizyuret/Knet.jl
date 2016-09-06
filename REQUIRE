@@ -1,6 +1,6 @@
 julia 0.4
-Compat 0.7.9
 AutoGrad
+# Compat 0.7.9
 # JLD
 # GZip
 # ArgParse

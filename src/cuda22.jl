@@ -38,9 +38,9 @@ function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B:
     alpha = T(alpha); beta = T(beta)
     lda = size2(A,1); ldb = size2(B,1); ldc = size2(C,1)
     if T<:Float32
-        cublascheck(ccall((:cublasSgemm_v2, libcublas), UInt32, (Ptr{Void}, UInt32, UInt32, Cint, Cint, Cint, Ptr{Cfloat}, Ptr{Cfloat}, Cint, Ptr{Cfloat}, Cint, Ptr{Cfloat}, Ptr{Cfloat}, Cint), cublashandle, transa, transb, m, n, k, [alpha], A, lda, B, ldb, [beta], C, ldc))
+        cublascheck(ccall((:cublasSgemm_v2, "libcublas"), UInt32, (Ptr{Void}, UInt32, UInt32, Cint, Cint, Cint, Ptr{Cfloat}, Ptr{Cfloat}, Cint, Ptr{Cfloat}, Cint, Ptr{Cfloat}, Ptr{Cfloat}, Cint), cublashandle, transa, transb, m, n, k, [alpha], A, lda, B, ldb, [beta], C, ldc))
     elseif T<:Float64
-        cublascheck(ccall((:cublasDgemm_v2, libcublas), UInt32, (Ptr{Void}, UInt32, UInt32, Cint, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint), cublashandle, transa, transb, m, n, k, [alpha], A, lda, B, ldb, [beta], C, ldc))
+        cublascheck(ccall((:cublasDgemm_v2, "libcublas"), UInt32, (Ptr{Void}, UInt32, UInt32, Cint, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint), cublashandle, transa, transb, m, n, k, [alpha], A, lda, B, ldb, [beta], C, ldc))
     else
         error("CUBLAS does not support $T")
     end
