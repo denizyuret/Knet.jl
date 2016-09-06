@@ -15,6 +15,7 @@ function main(args=ARGS)
         ("--gcheck"; arg_type=Int; default=0)
         ("--xsparse"; action=:store_true)
         ("--ysparse"; action=:store_true)
+        ("--fast"; action=:store_true)
     end
     isa(args, AbstractString) && (args=split(args))
     opts = parse_args(args,s)
@@ -38,17 +39,18 @@ function main(args=ARGS)
     # println((:epoch,:ltrn,:atrn,:ltst,:atst))
     # ltrn = atrn = ltst = atst = 0
     l=[0f0,0f0]; m=[0f0,0f0]
-
-    for epoch=1:epochs
-        # train0(net, dtrn, softloss)
-        train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        ltrn = test(net, dtrn, softloss)
-        atrn = 1-test(net, dtrn, zeroone)
-        ltst = test(net, dtst, softloss)
-        atst = 1-test(net, dtst, zeroone)
-        println((epoch,l[1]/l[2],m[1],m[2],ltrn,atrn,ltst,atst))
-        gcheck > 0 && gradcheck(net, f->getgrad(f,dtrn,softloss), f->getloss(f,dtrn,softloss); gcheck=gcheck)
-        # println((epoch,ltrn,atrn,ltst,atst))
+    println((:epoch,0,scores(net)...))
+    if fast
+        @time for epoch=1:epochs
+            train0(net, dtrn, softloss)
+        end
+        println((:epoch,epochs,scores(net)...))
+    else
+        for epoch=1:epochs
+            train(net, dtrn, softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
+            println((epoch,l[1]/l[2],m[1],m[2],scores(net)...))
+            gcheck > 0 && gradcheck(net, f->getgrad(f,dtrn,softloss), f->getloss(f,dtrn,softloss); gcheck=gcheck)
+        end
     end
     # return (epochs,ltrn,atrn,ltst,atst)
     return (l[1]/l[2],m[1],m[2])
@@ -65,6 +67,13 @@ function train0(f, data, loss)
         back(f, y, loss)
         update!(f)
     end
+end
+
+function scores(f)
+    :ltrn,test(net, dtrn, softloss),
+    :atrn,1-test(net, dtrn, zeroone),
+    :ltst,test(net, dtst, softloss),
+    :atst,1-test(net, dtst, zeroone)
 end
 
 function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
