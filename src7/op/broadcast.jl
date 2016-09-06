@@ -185,23 +185,28 @@ end
     gpusync(); return c
 end
 
+# At least avoid alloc for cudadims (still paying copy cost)
+_x1dims = CudaArray(Cint,8)
+_x2dims = CudaArray(Cint,8)
+_ydims = CudaArray(Cint,8)
+
 @gpu function baddforw{T}(x::CudaArray{T}, y::CudaArray{T})
     ndims(x) <= ndims(y) <= 8 || error("Only xdims<=ydims<=8 supported")
-    xdims = cudadims(size(x), size(y))
-    ydims = cudadims(size(y))
-    T <: Float32 ? ccall((:badd2forw32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(y),ndims(y),xdims,x,ydims,y) :
-    T <: Float64 ? ccall((:badd2forw64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(y),ndims(y),xdims,x,ydims,y) :
+    cudadims!(_x1dims, size(x), size(y))
+    cudadims!(_ydims, size(y))
+    T <: Float32 ? ccall((:badd2forw32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(y),ndims(y),_x1dims,x,_ydims,y) :
+    T <: Float64 ? ccall((:badd2forw64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(y),ndims(y),_x1dims,x,_ydims,y) :
     error("$T not supported")
     gpusync(); return y
 end
 
 @gpu function baddforw{T}(x1::CudaArray{T}, x2::CudaArray{T}, y::CudaArray{T})
     (ndims(x1) <= ndims(y) && ndims(x2) <= ndims(y) && ndims(y) <= 8) || error("Only xdims<=ydims<=8 supported")
-    x1dims = cudadims(size(x1), size(y))
-    x2dims = cudadims(size(x2), size(y))
-    ydims = cudadims(size(y))
-    T <: Float32 ? ccall((:badd3forw32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(y),ndims(y),x1dims,x1,x2dims,x2,ydims,y) :
-    T <: Float64 ? ccall((:badd3forw64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(y),ndims(y),x1dims,x1,x2dims,x2,ydims,y) :
+    cudadims!(_x1dims, size(x1), size(y))
+    cudadims!(_x2dims, size(x2), size(y))
+    cudadims!(_ydims, size(y))
+    T <: Float32 ? ccall((:badd3forw32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(y),ndims(y),_x1dims,x1,_x2dims,x2,_ydims,y) :
+    T <: Float64 ? ccall((:badd3forw64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(y),ndims(y),_x1dims,x1,_x2dims,x2,_ydims,y) :
     error("$T not supported")
     gpusync(); return y
 end
@@ -209,12 +214,12 @@ end
 # 3c. broadcasting add back
 
 @gpu function baddback{T}(dy::CudaArray{T}, dx::CudaArray{T})
-    ndims(dx) <= ndims(dy) <= 8 || error("Only xdims<=ydims<=8 supported")
-    xdims = cudadims(size(dx), size(dy))
-    ydims = cudadims(size(dy))
+    ndims(dx) <= ndims(dy) <= 8 || error("Only _x1dims<=ydims<=8 supported")
+    cudadims!(_x1dims, size(dx), size(dy))
+    cudadims!(_ydims, size(dy))
     fill!(dx,0)
-    T <: Float32 ? ccall((:badd2back32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(dy),ndims(dy),ydims,dy,xdims,dx) :
-    T <: Float64 ? ccall((:badd2back64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(dy),ndims(dy),ydims,dy,xdims,dx) :
+    T <: Float32 ? ccall((:badd2back32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(dy),ndims(dy),_ydims,dy,_x1dims,dx) :
+    T <: Float64 ? ccall((:badd2back64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(dy),ndims(dy),_ydims,dy,_x1dims,dx) :
     error("$T not supported")
     gpusync();
 end
@@ -223,23 +228,23 @@ end
 @gpu function bmulback{T}(dy::CudaArray{T}, x1::CudaArray{T}, dx2::CudaArray{T})
     error(:BMULBACK_NOT_IMPLEMENTED)
     ndims(dx) <= ndims(dy) <= 8 || error("Only xdims<=ydims<=8 supported")
-    xdims = cudadims(size(dx), size(dy))
-    ydims = cudadims(size(dy))
+    cudadims!(_x1dims, size(dx), size(dy))
+    cudadims!(_ydims, size(dy))
     fill!(dx,0)
-    T <: Float32 ? ccall((:bmul3back32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(dy),ndims(dy),ydims,dy,xdims,dx) :
-    T <: Float64 ? ccall((:bmul3back64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(dy),ndims(dy),ydims,dy,xdims,dx) :
+    T <: Float32 ? ccall((:bmul3back32,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cfloat}, Ptr{Cint},Ptr{Cfloat}), length(dy),ndims(dy),_ydims,dy,_x1dims,dx) :
+    T <: Float64 ? ccall((:bmul3back64,libknet),Void,(Cint,Cint,Ptr{Cint},Ptr{Cdouble},Ptr{Cint},Ptr{Cdouble}),length(dy),ndims(dy),_ydims,dy,_x1dims,dx) :
     error("$T not supported")
     gpusync();
 end
 
-@gpu function cudadims(xdims::Dims, ydims::Dims)
+@gpu function cudadims!(c::CudaArray{Cint}, xdims::Dims, ydims::Dims)
     d = ones(Cint, length(ydims))
     @inbounds for i=1:length(xdims)
         d[i] = xdims[i]
         d[i] == 1 || d[i] == ydims[i] || throw(DimensionMismatch("$xdims,$ydims"))
     end
-    CudaArray(d)
+    copysync!(c,1,d,1,length(d))
 end
 
-@gpu cudadims(ydims::Dims)=CudaArray(Cint[ydims...])
+@gpu cudadims!(c::CudaArray{Cint},ydims::Dims)=copysync!(c, 1, Cint[ydims...], 1, length(ydims))
 

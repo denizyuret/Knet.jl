@@ -1,55 +1,91 @@
-using Knet
+"""
+This example uses the Housing dataset from the UCI Machine Learning
+Repository to demonstrate a linear regression model. The dataset has
+housing related information for 506 neighborhoods in Boston from
+1978. Each neighborhood has 14 attributes, the goal is to use the
+first 13, such as average number of rooms per house, or distance to
+employment centers, to predict the 14’th attribute: median dollar
+value of the houses.
 
-url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-file=Pkg.dir("Knet/data/housing.data")
-if !isfile(file)
-    info("Downloading $url to $file")
-    download(url, file)
-end
-data = readdlm(file)'
-@show size(data)
-x = data[1:13,:]
-y = data[14,:]
-x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
-setseed(42)                      # replicatibility
-r = randperm(size(x,2))         # trn/tst split
-xtrn=x[:,r[1:400]]
-ytrn=y[:,r[1:400]]
-xtst=x[:,r[401:end]]
-ytst=y[:,r[401:end]]
+You can run the demo using `julia housing.jl`.  Use `julia housing.jl
+--help` for a list of options.  The dataset will be automatically
+downloaded and randomly split into training and test sets.  The
+quadratic loss for the training and test sets will be printed at every
+epoch and optimized parameters will be returned.
 
-@knet function housing(x)       # knet functions
-    w = par(dims=(1,13), init=Gaussian(0,.1))      # TODO: 0 size unspecified
-    b = par(dims=(1,),   init=Constant(0))        # TODO: do we need init? yes.
-    return w * x .+ b           # TODO: maybe cover dot/add first?
-end                             # TODO: keyword args
+"""
+module Housing
+using Knet,ArgParse
 
-net = compile(:housing)         # TODO: knet functions as new op
-#setp(net; adagrad=true)              # TODO: setting properties, lr
-#setp(net; momentum=.01)
-#setp(net; lr=.0001)
-setp(net; lr=.001)
-
-function test(f, x, y, loss)
-    ypred = forw(f,x)           # forw
-    return loss(ypred, y)       # loss fns, 2 and 3 arg (3 arg not needed by user)
-end
-
-function train(f, x, y, loss)
-    for i=1:size(x,2)
-        forw(net, x[:,i])       # TODO: minibatching
-        back(net, y[:,i], loss) # back
-        update!(net)            # update
+function main(args=ARGS)
+    global w, dtrn, dtst
+    s = ArgParseSettings()
+    s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
+Repository."
+    s.exc_handler=ArgParse.debug_handler
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
+        ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
+        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
     end
+    isa(args, AbstractString) && (args=split(args))
+    o = parse_args(args, s; as_symbols=true)
+    println("opts=",[(k,v) for (k,v) in o]...)
+    o[:seed] > 0 && srand(o[:seed])
+    atype = eval(parse(o[:atype]))
+    w = Any[convert(atype, 0.1*randn(1,13)), 0]
+    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata())
+    println((:epoch,0,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    if o[:fast]
+        @time train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs])
+        println((:epoch,o[:epochs],:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    else
+        @time for epoch=1:o[:epochs]
+            train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
+            println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+        end
+    end
+    return w
 end
 
-for epoch=1:20
-    train(net, xtrn, ytrn, quadloss)
-    trnloss = test(net, xtrn, ytrn, quadloss)
-    tstloss = test(net, xtst, ytst, quadloss)
-    println((epoch, trnloss, tstloss))
+predict(w,x)=(w[1]*x.+w[2])
+
+loss(w,x,y)=(sum(abs2(y-predict(w,x))) / size(x,2))
+
+lossgradient = grad(loss)
+
+function train(w, x, y; lr=.1, epochs=20)
+    for epoch=1:epochs
+        g = lossgradient(w, x, y)
+        for i in 1:length(w)
+            w[i] -= lr * g[i]
+        end
+    end
+    return w
 end
 
-# (1000,10.42231344167744,13.540365138552836) lr=.0005
-# (1000,10.406989532354851,13.519196251929689) lr=.0001
-# (1000,10.434297477316601,13.54778461998077) lr=.00005
+function loaddata()
+    url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
+    file=Pkg.dir("Knet/data/housing.data")
+    if !isfile(file)
+        info("Downloading $url to $file")
+        download(url, file)
+    end
+    data = readdlm(file)'
+    @show size(data) # (14,506)
+    x = data[1:13,:]
+    y = data[14:14,:]
+    x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
+    r = randperm(size(x,2))          # trn/tst split
+    xtrn=x[:,r[1:400]]
+    ytrn=y[:,r[1:400]]
+    xtst=x[:,r[401:end]]
+    ytst=y[:,r[401:end]]
+    (xtrn, ytrn, xtst, ytst)
+end
+
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+
+end # module Housing

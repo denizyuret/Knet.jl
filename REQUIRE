@@ -1,9 +1,10 @@
 julia 0.4
-Compat
-CUDArt
-CUBLAS
-CUSPARSE 0.3 0.4-
-CUDNN
-JLD
-GZip
-ArgParse
+AutoGrad
+# Compat 0.7.9
+# JLD
+# GZip
+# ArgParse
+# CUDArt
+# CUBLAS
+# CUSPARSE 0.3 0.4-
+# CUDNN

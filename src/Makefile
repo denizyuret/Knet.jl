@@ -1,10 +1,15 @@
-CFLAGS=-O3 -I.
+CFLAGS=-O3 -use_fast_math
 
-libknet.so: op/actf.o loss.o update.o util/linalg.o util/rgen.o op/nce.o op/broadcast.o
-	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -lcublas -lcurand -o $@
+libknet8.so: cuda1.o cuda01.o cuda10.o cuda11.o cuda12.o cuda20.o cuda21.o
+	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -o $@
 
-%.o: %.cu knet.h
+%.o: %.cu
 	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@
 
+%.cu: %gen.jl %.jl
+	julia $< > $@
+
 clean:
-	-rm *.o */*.o libknet.so
+	-rm *.o *.cu libknet8.so
+
+.PRECIOUS: *.cu

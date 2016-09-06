@@ -39,8 +39,8 @@ typealias BaseArray{T,N} Union{Array{T,N},SubArray{T,N},CudaArray{T,N}}
 function copysync!{T<:Real}(dst::BaseArray{T}, di::Integer, 
                             src::BaseArray{T}, si::Integer, 
                             n::Integer; stream=null_stream)
-    @assert eltype(src) <: eltype(dst) "$(eltype(dst)) != $(eltype(src))"
-    @assert isbits(T)
+    eltype(src) <: eltype(dst) || error("$(eltype(dst)) != $(eltype(src))")
+    isbits(T) || error("$T not a bits type")
     if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
         throw(BoundsError())
     end
@@ -121,7 +121,8 @@ getbytes(x)=_getbytes(x, ObjectIdDict())
 
 # Changing the way CudaArray prints:
 
-if !isdefined(:_CudaArray)
+if false # this takes up extra memory
+# if !isdefined(:_CudaArray)
     import Base: size, linearindexing, getindex, writemime, summary
     using Base: with_output_limit, showarray, dims2string
     type _CudaArray{T,N} <: AbstractArray{T,N}; a::CudaArray{T,N}; end

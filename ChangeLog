@@ -1,6 +1,131 @@
+2016-09-06  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# mnist2d: cpu support, in general for all of Knet; test with v0.4 and v0.5
+
+	* TODO8:
+	# mnist2d: update documentation
+	# mnist2d: sparse arrays, cpu/gpu, Float16,32,64 options
+	# mnist2d: sampling gradcheck
+	# mnist4d
+	# charlm
+	# examples/README
+	# try to measure back functions one by one as well for gpu profiling.
+	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	# finish cudnn, curand etc. if possible eliminate dependence on them.
+	# mnist2d: implement efficient softmax -- seems ok for now.
+	# extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# load/save using JLD
+
+2016-09-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# mnist2d: add hidden option
+	# mnist2d: comparison with knet7
+
+2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# profile AutoGrad more, figure out memory problem, good look at unbroadcast. memory use with/without forw.  closures?
+	# make AutoGrad completely generic?
+	# tmpfree is dangerous, user visible variables from a=b*c may be overwritten!
+	# figure out why forw adds 0.38
+	# determine and minimize autograd overhead.
+
+2016-08-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# move cuda -> src, src -> src7
+	# should we introduce our own CudaArray type?
+	# define KnetArray. (KA) use instead of CudaArray.
+	# test cuda version compare with af.
+	# we could just support 0,1,2 dims or 0,1,N dims for map and reduce.
+	# finish cuda2arg, cublas
+	# need to write cuda21 vector reductions before full AutoGrad test.
+
+	* ArrayFire: gave up on it, my code is faster:
+	# can we get AF kernels to dump out?
+	# try c++ ArrayFire mnist example?
+	# will arrayfire memory management still work with rnns?
+	# eventually look at arrayfire convolution.
+	# thrust and tensorflow also opensource.
+
+	* JIT: could look at this if libknet8 gets too big:
+	# JIT compile kernels as needed: https://blog.maleadt.net/2015/01/15/julia-cuda/
+	## http://docs.nvidia.com/cuda/nvrtc/index.html#basic-usage
+	## http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
+
+
+2016-08-27  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* cuda: timing tests on 100K repetitions on 1000x100 output array with simple ops:
+	BLK=256,THR=256 for all (except reductions cuda20,cuda21 use 128,128)
+
+	F32	F64	where
+	0.73	1.40	cuda1  (unary)
+	0.73	1.40	cuda01 (scalar,array)
+	0.80	2.06	cuda11 (same size array)
+	0.86	2.08	cuda12 (same size array, broadcasting)
+
+	broadcasting (cuda12):
+	F32		F64
+	mat+mat	0.86	mat+mat	2.08
+	mat+col	1.06	mat+col	1.53
+	mat+row	1.28	mat+row	1.64
+	row+col	1.53	row+col	1.57
+
+	scalar reduction (cuda20):
+	F32 2.98
+	F64 3.08
+
+	vector reduction (cuda21): (for 1000x100 matrix)
+		F32	F64
+	mat>col 3.54	3.66
+	mat>row 0.86	1.00
+
+2016-08-26  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# we should write a general profiler to compare cpu and general gpu libraries, primitives and mnist.
+	# can we have fine control over arrayfire memory management? deviceMemInfo, deviceGC, If you are calling from a garbage collected language life Julia, you will also need to call the garbage collector of that language before hand to clean up the references.
+	# can we improve arrayfire mnist results by using external kernels for xentloss and relu?  find better xentloss design.  using quadloss for now.
+	# profile ArrayFire.
+	# read ArrayFire docs.
+	# find ArrayFire kernels. can we use arrayfire kernels outside?  (matmul, broadcast and reduce). They are built by JIT!
+
+
+2016-08-25  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Finish math.jl in AutoGrad.
+	# - Implement broadcast1 for sin,cos etc. - arrayfire?
+	# - Take a look at Julia broadcast implementation. - arrayfire?
+	# - Implement 2+arg broadcasting better than CUDNN. - arrayfire?
+
+	# ArrayFire may do these better!!!
+	## It does memory management: https://arrayfire.com/forums/viewtopic.php?f=17&t=43223
+	## Can it be extended with missing functions?  Can we write new kernels?
+	## Can we run CUDNN code on it?
+	## Try sending AFArrays to libknet kernels or CUDNN functions to see.
+	## Benchmark comparing it to CUBLAS and CUDNN.
+	## Figure out the bug in the mnist example.
+	## http://arrayfire.com/custom-kernels-with-arrayfire/
+	## http://arrayfire.com/arrayfire-cuda-interoperability/
+
+	# ArrayFire should have {T,N} instead of {T,4} but:
+	## ambiguity for ^ need to be fixed.
+	## display for vectors broken.
+	## zeros(AF) gives regular array.
+
+	# ERROR: ArrayFire Error (101) : Device out of memory
+	## It seems I'll need my memory manager after all?  Does ArrayFire support target variables?
+	## The problem was fixed when I enabled gc in timeit!!!
+	## train0 still having issues. (1) I can copy their kernels. (2) I can call their gc?
+	## axpy was the culprit, back to normal.
+
 2016-07-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO:
+	* TODO7:
 
 	0000 add code citation for bibtex like autograd
 	0000 debug: master and dev give different results on MNIST4D.main("--epochs 1")
