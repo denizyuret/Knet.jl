@@ -66,9 +66,9 @@ function cuda01def(f, j=f, o...)
     end
 end
     
-if isdefined(:libknet8)
+#if isdefined(:libknet8)
     for f in cuda01
         isa(f,Tuple) || (f=(f,))
         cuda01def(f...)
     end
-end
+#end

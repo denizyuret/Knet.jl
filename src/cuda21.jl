@@ -38,9 +38,9 @@ function cuda21def(f, j=f, o...)
     end
 end
 
-if isdefined(:libknet8)
+#if isdefined(:libknet8)
     for f in cuda21
         isa(f,Tuple) || (f=(f,))
         cuda21def(f...)
     end
-end
+#end

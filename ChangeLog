@@ -1,11 +1,9 @@
-2016-09-04  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-06  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# mnist2d: add hidden option
-	# mnist2d: comparison with knet7
+	# mnist2d: cpu support, in general for all of Knet; test with v0.4 and v0.5
 
 	* TODO8:
-	# mnist2d: cpu support, in general for all of Knet; test with v0.4 and v0.5
 	# mnist2d: update documentation
 	# mnist2d: sparse arrays, cpu/gpu, Float16,32,64 options
 	# mnist2d: sampling gradcheck
@@ -17,6 +15,13 @@
 	# finish cudnn, curand etc. if possible eliminate dependence on them.
 	# mnist2d: implement efficient softmax -- seems ok for now.
 	# extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# load/save using JLD
+
+2016-09-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# mnist2d: add hidden option
+	# mnist2d: comparison with knet7
 
 2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
 

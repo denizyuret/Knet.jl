@@ -1,8 +1,6 @@
 # This is mostly copied from CUDArt to create an application specific
 # memory manager.
 
-using CUDArt
-
 # KnetPtr type holds a gpu allocated pointer.
 
 type KnetPtr
@@ -36,9 +34,8 @@ function KnetPtr(nbytes::Integer)
     if !isempty(ptrs.free)
         kp = KnetPtr(pop!(ptrs.free),nbytes)
     else
-        pp = Ptr{Void}[C_NULL]
-        CUDArt.rt.cudaMalloc(pp, nbytes)
-        kp = KnetPtr(pp[1],nbytes)
+        ptr = knetMalloc(nbytes)
+        kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
     end
     finalizer(kp, free)
@@ -51,7 +48,7 @@ function knetgc()
     gc_enable(false)
     for v in values(KnetFree)
         for p in v.free
-            CUDArt.rt.cudaFree(p)
+            knetFree(p)
         end
         v.used -= length(v.free)
         empty!(v.free)
@@ -67,12 +64,11 @@ type KnetArray{T,N} # <: AbstractArray{T,N} # commented this out to find leaks.
 end
 end
 
-KnetArray{T,N}(::Type{T}, dims::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(dims)), dims, device())
+KnetArray{T,N}(::Type{T}, dims::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(dims)), dims, gpu())
 KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
 
 typealias KnetMatrix{T} KnetArray{T,2}
 typealias KnetVector{T} KnetArray{T,1}
-typealias KA{T,N} KnetArray{T,N}  # for my sanity
 
 Base.convert{A<:KnetArray,T}(::Type{A}, a::Array{T})=knetcopy!(KnetArray(T,size(a)),1,a,1,length(a))
 Base.convert{A<:Array,T}(::Type{A}, a::KnetArray{T})=knetcopy!(Array(T,size(a)),1,a,1,length(a))
@@ -80,8 +76,8 @@ Base.similar{T}(a::KnetArray{T})=KnetArray(T,size(a))
 Base.similar{T}(a::KnetArray{T},dims::Dims)=KnetArray(T,dims)
 Base.similar{T}(a::KnetArray{T},dims::Int...)=KnetArray(T,dims)
 Base.unsafe_convert{T}(::Type{Ptr{T}}, a::KnetArray) = Base.unsafe_convert(Ptr{T}, pointer(a))
-Base.pointer(a::KnetArray)=a.ptr
-CUDArt.to_host(a::KnetArray)=convert(Array,a)
+Base.pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
+Base.pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 Base.reshape{T}(a::KnetArray{T},dims::Dims)=(prod(dims)==length(a)||throw(DimensionMismatch()); KnetArray(a.ptr,dims,a.dev))
 
 # AbstractArray interface
@@ -99,38 +95,49 @@ Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n
 import AutoGrad: sum_outgrads
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 
-# Generalizing low level copy using linear indexing to/from gpu arrays:
+function knetMalloc(nbytes::Int)
+    if gpu() >= 0
+        pp = Ptr{Void}[C_NULL]
+        CUDArt.rt.cudaMalloc(pp, nbytes)
+        return pp[1]
+    else
+        convert(Ptr{Void}, pointer(Array(UInt8,nbytes)))
+    end
+end
 
-function knetcopy!{T}(dst::Union{Array{T},SubArray{T},KnetArray{T}}, di::Integer, 
-                      src::Union{Array{T},SubArray{T},KnetArray{T}}, si::Integer, 
-                      n::Integer; stream=null_stream)
-    if si+n-1 > length(src) || di+n-1 > length(dst) || di < 1 || si < 1
+function knetFree(p::Ptr{Void})
+    if gpu() >= 0
+        CUDArt.rt.cudaFree(p)
+    end
+end
+
+# Generalizing low level copy using linear indexing to/from gpu arrays:
+# copy!{T}(dest::Array{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer)
+
+typealias Kcopy{T} Union{Array{T},SubArray{T},KnetArray{T}}
+
+function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Integer, n::Integer; stream=nothing)
+    n == 0 && return dest
+    isbits(T) || error("knetcopy! only works for isbits arrays.")
+    if n < 0 || soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
         throw(BoundsError())
     end
-    esize = sizeof(T)
-    nbytes = n * esize
-    dptr = pointer(dst) + (di-1) * esize
-    sptr = pointer(src) + (si-1) * esize
-    CUDArt.rt.cudaMemcpyAsync(dptr, sptr, nbytes, CUDArt.cudamemcpykind(dst, src), stream)
-    return dst
+    if gpu() >= 0
+        stream == nothing && (stream = null_stream)
+        CUDArt.rt.cudaMemcpyAsync(pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest, src), stream)
+    else
+        Base.unsafe_copy!(pointer(dest,doffs), pointer(src,soffs), n)
+    end
+    return dest
 end
 
-# These are needed for knetcopy:
-Base.pointer(a::KnetArray)=a.ptr.ptr
-CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevice
-CUDArt.cudamemcpykind(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
-CUDArt.cudamemcpykind(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
+cudadir(dstp::KnetPtr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToDevice
+cudadir(dstp::Ptr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToHost
+cudadir(dstp::KnetPtr, srcp::KnetPtr) = CUDArt.rt.cudaMemcpyDeviceToDevice
+cudadir(dstp::Ptr, srcp::Ptr) = CUDArt.rt.cudaMemcpyHostToHost
 
 # TODO: this will be fixed when we inherint from AbstractArray.
-Base.display(x::KnetArray)=(print("KnetArray ");display(CUDArt.to_host(x)))
+Base.display(x::KnetArray)=(print("KnetArray ");display(convert(Array,x)))
 
-function gpuinfo(msg="")
-    mfree=Csize_t[1]
-    mtotal=Csize_t[1]
-    ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
-    nbytes=convert(Int,mfree[1])
-    narray=length(CUDArt.cuda_ptrs)
-    print("$msg ")
-    println((nbytes,[(k,v.used,length(v.free)) for (k,v) in KnetFree]...,:cuda_ptrs,narray))
-end
+meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree]
 

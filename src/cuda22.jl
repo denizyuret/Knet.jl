@@ -19,13 +19,9 @@ Ac_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul
 Ac_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt(A,B)
 
 
-
-const libcublas = Libdl.find_library(["libcublas"], ["/usr/local/cuda"])
-isempty(libcublas) && error("CUBLAS library cannot be found")
-cublascheck(x) = (x==0 || error("CUBLAS error $x"))
-
 function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T})
     cublasop(c::Char)=(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
+    cublascheck(x) = (x==0 || error("CUBLAS error $x"))
     size2(x,i)=(if ndims(x)<=2; size(x,i); elseif i==1; div(length(x),size(x,ndims(x))); elseif i==2; size(x,ndims(x)); else 1; end)
     if transA == 'N'
         m=size2(A,1); k=size2(A,2)

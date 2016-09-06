@@ -7,37 +7,47 @@ first 13, such as average number of rooms per house, or distance to
 employment centers, to predict the 14’th attribute: median dollar
 value of the houses.
 
-To run the demo, simply `include("housing.jl")` and run `Housing.main()`.  
-The dataset will be automatically downloaded.  You can provide the
-initial weights as an optional argument, which should be a pair of
-1x13 weight matrix and a scalar bias.  `train` also accepts the
-following keyword arguments: `lr` specifies the learning rate,
-`epochs` gives number of epochs, and `seed` specifies the random
-number seed.  The quadratic loss for the train and test sets will be
-printed at every epoch and optimized parameters will be returned.
+You can run the demo using `julia housing.jl`.  Use `julia housing.jl
+--help` for a list of options.  The dataset will be automatically
+downloaded and randomly split into training and test sets.  The
+quadratic loss for the training and test sets will be printed at every
+epoch and optimized parameters will be returned.
+
 """
 module Housing
-using Knet,AutoGrad,ArgParse
+using Knet,ArgParse
 
 function main(args=ARGS)
     global w, dtrn, dtst
     s = ArgParseSettings()
     s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
-Repository"
+Repository."
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
-        ("--seed"; arg_type=Int; default=-1)
-        ("--epochs"; arg_type=Int; default=20)
-        ("--lr"; arg_type=Float64; default=0.1)
+        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
+        ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
+        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
     end
     isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s; as_symbols=true); println(o)
+    o = parse_args(args, s; as_symbols=true)
+    println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    w = Any[KnetArray(0.1*randn(1,13)), 0.0]
-    (xtrn,ytrn,xtst,ytst) = loaddata()
+    atype = eval(parse(o[:atype]))
+    w = Any[convert(atype, 0.1*randn(1,13)), 0]
+    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata())
     println((:epoch,0,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
-    @time train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs])
-    println((:epoch,o[:epochs],:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    if o[:fast]
+        @time train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs])
+        println((:epoch,o[:epochs],:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    else
+        @time for epoch=1:o[:epochs]
+            train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
+            println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+        end
+    end
+    return w
 end
 
 predict(w,x)=(w[1]*x.+w[2])
@@ -69,10 +79,10 @@ function loaddata()
     y = data[14:14,:]
     x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
     r = randperm(size(x,2))          # trn/tst split
-    xtrn=KnetArray(x[:,r[1:400]])
-    ytrn=KnetArray(y[:,r[1:400]])
-    xtst=KnetArray(x[:,r[401:end]])
-    ytst=KnetArray(y[:,r[401:end]])
+    xtrn=x[:,r[1:400]]
+    ytrn=y[:,r[1:400]]
+    xtst=x[:,r[401:end]]
+    ytst=y[:,r[401:end]]
     (xtrn, ytrn, xtst, ytst)
 end
 

@@ -36,9 +36,9 @@ function cuda10def(f, j=f, o...)
     end
 end
     
-if isdefined(:libknet8)
+#if isdefined(:libknet8)
     for f in cuda10
         isa(f,Tuple) || (f=(f,))
         cuda10def(f...)
     end
-end
+#end
