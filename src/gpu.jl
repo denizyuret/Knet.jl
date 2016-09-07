@@ -7,9 +7,8 @@ const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
 #     end
 # end
 
-let GPU=-1, cublashandles=Dict()
-    global gpu
-    global cublashandle
+let GPU=-1, handles=Dict()
+    global gpu, cublashandle, cudnnhandle
     gpu()=GPU
     gpu(b::Bool)=gpu(b ? pickgpu() : -1)
     function gpu(i::Int)
@@ -17,9 +16,10 @@ let GPU=-1, cublashandles=Dict()
         if i >= 0
             eval(Expr(:using,:CUDArt))
             CUDArt.device(i)
-            cublashandle = get!(cublasCreate, cublashandles, i)
+            cublashandle = get!(cublasCreate, handles, (:cublas,i))
+            cudnnhandle  = get!(cudnnCreate, handles, (:cudnn,i))
         else
-            cublashandle = nothing
+            cublashandle = cudnnhandle = nothing
         end
         return GPU
     end
@@ -82,6 +82,15 @@ function cublasCreate()
     ret==0 || error("Could not create cublasHandle: $ret")
     handle = handleP[1]
     atexit(()->ccall((:cublasDestroy_v2, "libcublas"), UInt32, (Ptr{Void},), handle))
+    return handle
+end
+
+function cudnnCreate()
+    handleP = Ptr{Void}[0]
+    ret = ccall((:cudnnCreate, "libcudnn"), UInt32, (Ptr{Ptr{Void}},), handleP)
+    ret==0 || error("Could not create cudnnHandle: $ret")
+    handle = handleP[1]
+    atexit(()->ccall((:cudnnDestroy, "libcudnn"), UInt32, (Ptr{Void},), handle))
     return handle
 end
 

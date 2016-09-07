@@ -3,9 +3,14 @@
 
 isdefined(:MNIST) || include("mnist.jl")
 
-using Knet,CUDArt
 module MNIST4D
-using Main, Knet, ArgParse
+using Knet
+
+relu(x)=max(0,x)
+
+function conv_layer()
+    pool(max(0, conv(w,x) .+ b), 2)
+end
 
 @knet function lenet_model(x0)
     x1 = cbfp73(x0; out=20, f=:relu, cwindow=5, pwindow=2, cpadding=0)
