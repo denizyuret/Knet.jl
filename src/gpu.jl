@@ -71,7 +71,7 @@ end
 
 function gpuinfo(msg="")
     nbytes = gpufree()
-    narray=length(CUDArt.cuda_ptrs)
+    narray = isdefined(:CUDArt) ? length(CUDArt.cuda_ptrs) : 0
     print("$msg ")
     println((nbytes,meminfo()...,:cuda_ptrs,narray))
 end

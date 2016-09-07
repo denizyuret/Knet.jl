@@ -1,5 +1,5 @@
 julia 0.4
-AutoGrad
+AutoGrad 0.0.2
 # Compat 0.7.9
 # JLD
 # GZip
