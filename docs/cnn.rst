@@ -2,6 +2,8 @@
 Convolutional Neural Networks
 *****************************
 
+... TODO: update all programming examples from Knet7 to Knet8
+
 .. TODO: start with biological motivation, then rename the following
 .. computational motivation.
 .. http://www.deeplearningbook.org/contents/convnets.html has biological story in final sections.

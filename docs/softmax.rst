@@ -64,7 +64,7 @@ likelihood is the same as maximizing log likelihood:
 
 We will typically use the negative of :math:`\ell` (machine learning
 people like to minimize), which is known as **negative log
-likelihood** (NLL), or **cross-entropy loss** (``softloss`` in Knet).
+likelihood** (NLL), or **cross-entropy loss**.
 
 Softmax
 -------
@@ -80,11 +80,11 @@ and normalization:
    p_i = \frac{\exp y_i}{\sum_{c=1}^C \exp y_c}
 
 where :math:`i,c\in\{1,\ldots,C\}` range over classes, and :math:`p_i,
-y_i, y_c` refer to class probabilities and values for a single instance.
-This is called the **softmax function** (``soft`` operation in Knet).
-A model that converts the unnormalized values at the end of a linear
-regression to normalized probabilities for classification is called
-the **softmax classifier**.
+y_i, y_c` refer to class probabilities and values for a single
+instance.  This is called the **softmax function**.  A model that
+converts the unnormalized values at the end of a linear regression to
+normalized probabilities for classification is called the **softmax
+classifier**.
 
 We need to figure out the backward pass for the softmax function.  In
 other words if someone gives us the gradient of some objective
@@ -190,50 +190,46 @@ See :ref:`training-with-minibatches` for more information about the
 MNIST task, loading and minibatching data, and simple train and test
 scripts.
 
-Here is a softmax classifier in Knet:
+Here is the loss function for a softmax classifier in Julia:
 
 .. code::
 
-    @knet function mnist_softmax(x)
-        w = par(init=Gaussian(0,0.001), dims=(10,28*28))
-        b = par(init=Constant(0), dims=(10,1))
-        y = w * x + b
-        return soft(y)
-    end
+   function softmax(w,x,ygold)
+       ypred = w[1]*x .+ w[2]
+       ynorm = ypred .- log(sum(exp(ypred),1))
+       -sum(ygold .* ynorm) / size(ygold,2)
+   end
+
+   softmax_gradient = grad(softmax)
 
 .. code:: :hide:
 
    ...
 
-We will compile our model and set an appropriate learning rate:
+Let us train our model for 100 epochs and print out the classification
+error on the training and test sets after every epoch (see the full
+example in Pkg.dir("Knet/examples/mnist.jl")):
 
 .. code::
 
-    julia> model = compile(:mnist_softmax);
-    julia> setp(model; lr=0.15);
-
-Let us train our model for 100 epochs and print out the negative log
-likelihood (``softloss``) and classification error (``zeroone``) on
-the training and testing sets after every epoch:
-
-.. code::
-
+    w = Any[0.1*randn(10,784), zeros(10,1)]
     for epoch=1:nepochs
-        train(model, dtrn, softloss)
-        @printf("epoch:%d softloss:%g/%g zeroone:%g/%g\n", epoch,
-                test(model, dtrn, softloss),
-                test(model, dtst, softloss),
-                test(model, dtrn, zeroone),
-                test(model, dtst, zeroone))
+        for (x,y) in dtrn  # dtrn is a list of minibatches
+            g = softmax_gradient(w, x, y)
+            for i in 1:length(w)
+                w[i] -= lr * g[i]
+            end
+        end
+	# Print accuracy
     end
 
 .. testoutput::
 
-   epoch:1 softloss:0.359311/0.342333 zeroone:0.103033/0.094
-   epoch:2 softloss:0.32429/0.311829 zeroone:0.0924667/0.088
+   (:epoch,0,:trn,0.1135,:tst,0.1097)
+   (:epoch,1,:trn,0.9008666666666667,:tst,0.9048)
    ...
-   epoch:99 softloss:0.238815/0.270058 zeroone:0.0668667/0.0763
-   epoch:100 softloss:0.238695/0.270091 zeroone:0.0668333/0.0762
+   (:epoch,99,:trn,0.9274833333333333,:tst,0.9177)
+   (:epoch,100,:trn,0.92755,:tst,0.9176)
 
 Here is a plot of the losses vs training epochs:
 

@@ -73,7 +73,7 @@ end
 
 lossgradient = grad(loss)
 
-function train(w, dtrn; lr=.1, epochs=20)
+function train(w, dtrn; lr=.5, epochs=10)
     for epoch=1:epochs
         for (x,y) in dtrn
             g = lossgradient(w, x, y)

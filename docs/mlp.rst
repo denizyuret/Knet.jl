@@ -2,6 +2,8 @@
 Multilayer Perceptrons
 **********************
 
+... TODO: update all programming examples from Knet7 to Knet8
+
 In this section we create multilayer perceptrons by stacking multiple
 linear layers with non-linear activation functions in between.
 

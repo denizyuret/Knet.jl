@@ -25,10 +25,10 @@ Installation
 
 First download and install the latest version of Julia from
 `<http://julialang.org/downloads>`_.  As of this writing the latest
-version is 0.4.5 and I have tested Knet using 64-bit Generic Linux
+version is 0.4.6 and I have tested Knet using 64-bit Generic Linux
 binaries and the Mac OS X package (dmg).  Once Julia is installed,
 type ``julia`` at the command prompt to start the Julia interpreter.
-To install Knet type ``Pkg.add("Knet")`` and go get some coffee while
+To install Knet type the command below and go get some coffee while
 Julia downloads and installs all the necessary packages::
 
     $ julia
@@ -41,9 +41,9 @@ Julia downloads and installs all the necessary packages::
      _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
     |__/                   |  x86_64-apple-darwin13.4.0
 
-    julia> Pkg.add("Knet")
+    julia> Pkg.clone("git://github.com/denizyuret/Knet.jl.git")
 
-.. TODO: register the Knet package for this to work
+.. TODO: register the Knet package for Pkg.add("Knet")
 
 If you have a GPU machine, you may need to type ``Pkg.build("Knet")``
 to compile the Knet GPU kernels.  If you do not have a GPU machine,
@@ -60,7 +60,9 @@ Tips for developers
 Knet is an open-source project and we are always open to new
 contributions: bug fixes, new machine learning models and operators,
 inspiring examples, benchmarking results are all welcome.  If you'd
-like to contribute to the code base, here are some tips:
+like to contribute to the code base, please sign up at the
+[knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing
+list and follow these tips:
 
 * Please get an account at `github.com <https://www.github.com>`_.
 * `Fork <https://help.github.com/articles/fork-a-repo>`_ the `Knet repository <https://github.com/denizyuret/Knet.jl>`_.
@@ -73,8 +75,6 @@ like to contribute to the code base, here are some tips:
 
 Using Amazon AWS
 ----------------
-
-.. TODO: give instructions for actual pricing rather than spot prices.
 
 .. _Amazon Web Services: https://aws.amazon.com
 .. _AMI: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html
