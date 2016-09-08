@@ -66,6 +66,7 @@ end
 
 KnetArray{T,N}(::Type{T}, dims::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(dims)), dims, gpu())
 KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
+KnetArray(T::Type, d::Integer...) = KnetArray(T,convert(Tuple{Vararg{Int}}, d))
 
 typealias KnetMatrix{T} KnetArray{T,2}
 typealias KnetVector{T} KnetArray{T,1}

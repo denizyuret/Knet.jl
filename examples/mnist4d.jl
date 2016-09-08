@@ -4,20 +4,130 @@
 isdefined(:MNIST) || include("mnist.jl")
 
 module MNIST4D
-using Knet
+using Knet,AutoGrad,CUDNN,ArgParse
 
-relu(x)=max(0,x)
+# CUDNN supports CudaArrays, here is a hack until we implement KnetArray support
 
-function conv_layer()
-    pool(max(0, conv(w,x) .+ b), 2)
+convert{T}(::Type{CudaPtr}, p::KnetPtr{T})=CudaPtr(p.ptr)
+convert{T,N}(::Type{CudaArray}, x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr(x.ptr), size(x), x.dev)
+
+# Define some new primitives: conv4 and pool4
+
+function conv4{T}(x::KnetArray{T},w::KnetArray{T}; o...)
+    cx = CudaArray(x)
+    cw = CudaArray(w)
+    ydims = cudnnGetConvolutionNdForwardOutputDim(cx,cw; o...)
+    y = similar(x, ydims)
+    cy = CudaArray(y)
+    cudnnConvolutionForward(cx, cw, cy; o...)
+    return y
 end
 
-@knet function lenet_model(x0)
-    x1 = cbfp73(x0; out=20, f=:relu, cwindow=5, pwindow=2, cpadding=0)
-    x2 = cbfp73(x1; out=50, f=:relu, cwindow=5, pwindow=2, cpadding=0)
-    x3 = wbf73(x2; out=500, f=:relu)
-    return wbf73(x3; out=10, f=:soft)
+function conv4x{T}(x::KnetArray{T},w::KnetArray{T},dy::KnetArray{T}; o...)
+    dx = similar(x)
+    cw = CudaArray(w)
+    cdx = CudaArray(dx)
+    cdy = CudaArray(dy)
+    cudnnConvolutionBackwardData(cw,cdy,cdx; o...)
+    return dx
 end
+
+function conv4w{T}(x::KnetArray{T},w::KnetArray{T},dy::KnetArray{T}; o...)
+    dw = similar(w)
+    cx = CudaArray(x)
+    cdy = CudaArray(dy)
+    cdw = CudaArray(dw)
+    cudnnConvolutionBackwardFilter(cx,cdy,cdw; o...)
+    return dw
+end
+
+@primitive  conv4(x,w; o...),dy  conv4x(x,w,dy;o...)  conv4w(x,w,dy;o...)
+
+function pool4{T}(x::KnetArray{T}; o...)
+    pd = PD(ndims=ndims(x), o...)
+    cx = CudaArray(x)
+    ydims = cudnnGetPoolingNdForwardOutputDim(pd, cx)
+    y = similar(x, ydims)
+    cy = CudaArray(y)
+    cudnnPoolingForward(cx, cy; o...)
+    return y
+end
+
+function pool4x{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; o...)
+    dx = similar(x)
+    cx = CudaArray(x)
+    cy = CudaArray(y)
+    cdy = CudaArray(dy)
+    cdx = CudaArray(dx)
+    cudnnPoolingBackward(cy,cdy,cx,cdx; o...)
+    return dx
+end
+
+@primitive  pool4(x;o...),dy,y  pool4x(x,y,dy;o...)
+
+function predict(w,x0)          # LeNet model
+    x1 = pool4(max(0, conv4(w[1],x0) .+ w[2]))
+    x2 = pool4(max(0, conv4(w[3],x1) .+ w[4]))
+    x3 = max(0, w[5]*x2 .+ w[6])
+    x4 = w[7]*x3 .+ w[8]
+end
+
+function weights(;ftype=Float32,atype=KnetArray,winit=0.1) # TODO: xavier
+    w = Array(Any,8)
+    w[1] = randn(Float32,5,5,1,20)*winit
+    w[2] = zeros(Float32,1,1,20,1)
+    w[3] = randn(Float32,5,5,20,50)*winit
+    w[4] = zeros(Float32,1,1,50,1)
+    w[5] = randn(Float32,500,100)*winit
+    w[6] = zeros(Float32,500,1)
+    w[7] = randn(Float32,10,500)*winit
+    w[8] = zeros(Float32,10,1)
+    return map(a->convert(atype,a), w)
+end
+
+function minibatch(x, y, batchsize; atype=KnetArray)
+    data = Any[]
+    for i=1:batchsize:size(x,2)-batchsize+1
+        j=i+batchsize-1
+        xi = convert(atype, reshape(x[:,i:j],(28,28,1,batchsize)))
+        yi = convert(atype, y[:,i:j])
+        push!(data, (xi, yi))
+    end
+    return data
+end
+
+function loss(w,x,ygold)
+    ypred = predict(w,x)
+    ynorm = ypred .- log(sum(exp(ypred),1))
+    -sum(ygold .* ynorm) / size(ygold,2)
+end
+
+lossgradient = grad(loss)
+
+function accuracy(w, dtst)
+    ncorrect = ninstance = 0
+    for (x, ygold) in dtst
+        ypred = predict(w, x)
+        ncorrect += sum((ypred .== maximum(ypred,1)) .* (ygold .== maximum(ygold,1)))
+        ninstance += size(ygold,2)
+    end
+    return ncorrect/ninstance
+end
+
+function train(w, data; lr=.1, epochs=20)
+    for epoch=1:epochs
+        for (x,y) in data
+            g = lossgradient(w, x, y)
+            for i in 1:length(w)
+                w[i] -= lr * g[i]
+            end
+        end
+    end
+    return w
+end
+
+Base.randn(T::Type, dims::Dims) = convert(Array{T}, randn(dims))
+Base.randn(T::Type, d1::Integer, dims::Integer...) = randn(T, convert(Tuple{Vararg{Int}}, (d1,dims...)))
 
 function main(args=ARGS)
     info("Testing lenet (convolutional net) on MNIST")
@@ -27,75 +137,28 @@ function main(args=ARGS)
         ("--batchsize"; arg_type=Int; default=100)
         ("--lr"; arg_type=Float64; default=0.1)
         ("--epochs"; arg_type=Int; default=3)
-        ("--gcheck"; arg_type=Int; default=0)
+        #TODO: ("--gcheck"; arg_type=Int; default=0), --atype, --winit, --fast
     end
     isa(args, AbstractString) && (args=split(args))
-    opts = parse_args(args, s)
-    println(opts)
-    for (k,v) in opts; @eval ($(symbol(k))=$v); end
-    seed > 0 && setseed(seed)
+    o = parse_args(args, s; as_symbols=true)
+    println("opts=",[(k,v) for (k,v) in o]...)
+    o[:seed] > 0 && srand(o[:seed])
 
-    global dtrn = minibatch(MNIST.xtrn, MNIST.ytrn, batchsize)
-    global dtst = minibatch(MNIST.xtst, MNIST.ytst, batchsize)
+    global dtrn = minibatch(MNIST.xtrn, MNIST.ytrn, o[:batchsize])
+    global dtst = minibatch(MNIST.xtst, MNIST.ytst, o[:batchsize])
+    global w = weights()
 
-    global net = compile(:lenet_model)
-    setp(net; lr=lr)
-    # To make sure the array sharing does not change the results:
-    # set!(net, :forwoverwrite, false)
-    # set!(net, :backoverwrite, false)
-
-    l=zeros(2); m=zeros(2)
-    for epoch=1:epochs
-        train(net,dtrn,softloss; losscnt=fill!(l,0), maxnorm=fill!(m,0))
-        atrn = 1-test(net,dtrn,zeroone)
-        atst = 1-test(net,dtst,zeroone)
-        println((epoch, atrn, atst, l[1]/l[2], m...))
-        gcheck > 0 && gradcheck(net, f->getgrad(f,dtrn,softloss), f->getloss(f,dtrn,softloss); gcheck=gcheck)
+    println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    if o[:fast]
+        @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
+        println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    else
+        @time for epoch=1:o[:epochs]
+            train(w, dtrn; lr=o[:lr], epochs=1)
+            println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+        end
     end
-    return (l[1]/l[2],m...)
-end
-
-function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
-    for (x,ygold) in data
-        ypred = forw(f, x)
-        back(f, ygold, loss)
-        update!(f)
-        losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
-        w=wnorm(f); w > maxnorm[1] && (maxnorm[1]=w)
-        g=gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
-    end
-end
-
-function test(f, data, loss)
-    sumloss = numloss = 0
-    for (x,ygold) in data
-        ypred = forw(f, x)
-        sumloss += loss(ypred, ygold)
-        numloss += 1
-    end
-    sumloss / numloss
-end
-
-function minibatch(x, y, batchsize)
-    data = Any[]
-    for i=1:batchsize:ccount(x)-batchsize+1
-        j=i+batchsize-1
-        push!(data, (cget(x,i:j), cget(y,i:j)))
-    end
-    return data
-end
-
-function getgrad(f, data, loss)
-    (x,ygold) = first(data)
-    ypred = forw(f, x)
-    back(f, ygold, loss)
-    loss(ypred, ygold)
-end
-
-function getloss(f, data, loss)
-    (x,ygold) = first(data)
-    ypred = forw(f, x)
-    loss(ypred, ygold)
+    return w
 end
 
 !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
@@ -104,6 +167,40 @@ end # module
 
 
 ### DEAD CODE:
+
+# function train(f, data, loss; losscnt=nothing, maxnorm=nothing)
+#     for (x,ygold) in data
+#         ypred = forw(f, x)
+#         back(f, ygold, loss)
+#         update!(f)
+#         losscnt[1] += loss(ypred, ygold); losscnt[2] += 1
+#         w=wnorm(f); w > maxnorm[1] && (maxnorm[1]=w)
+#         g=gnorm(f); g > maxnorm[2] && (maxnorm[2]=g)
+#     end
+# end
+
+# function test(f, data, loss)
+#     sumloss = numloss = 0
+#     for (x,ygold) in data
+#         ypred = forw(f, x)
+#         sumloss += loss(ypred, ygold)
+#         numloss += 1
+#     end
+#     sumloss / numloss
+# end
+
+# function getgrad(f, data, loss)
+#     (x,ygold) = first(data)
+#     ypred = forw(f, x)
+#     back(f, ygold, loss)
+#     loss(ypred, ygold)
+# end
+
+# function getloss(f, data, loss)
+#     (x,ygold) = first(data)
+#     ypred = forw(f, x)
+#     loss(ypred, ygold)
+# end
 
 # single batch for training for quick debug
 # dtrn1 = ItemTensor(reshape(MNIST.xtrn,28,28,1,div(length(MNIST.xtrn),28*28)), MNIST.ytrn; batch=nbatch,epoch=nbatch)
