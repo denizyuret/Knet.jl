@@ -89,7 +89,7 @@ Base.similar{T}(a::KnetArray{T},dims::Int...)=KnetArray(T,dims)
 Base.unsafe_convert{T}(::Type{Ptr{T}}, a::KnetArray) = Base.unsafe_convert(Ptr{T}, pointer(a))
 Base.pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 Base.pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
-Base.reshape{T}(a::KnetArray{T},dims::Dims)=(prod(dims)==length(a)||throw(DimensionMismatch()); KnetArray(a.ptr,dims,a.dev))
+Base.reshape{T}(a::KnetArray{T},dims::Dims)=(prod(dims)==length(a)||throw(DimensionMismatch()); KnetArray{T,length(dims)}(a.ptr,dims,a.dev))
 
 # AbstractArray interface
 Base.size(a::KnetArray)=a.dims
