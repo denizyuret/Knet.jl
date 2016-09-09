@@ -33,10 +33,21 @@ function KnetPtr(nbytes::Integer)
     ptrs = get!(KnetPtrs,KnetFree,nbytes)
     if !isempty(ptrs.free)
         kp = KnetPtr(pop!(ptrs.free),nbytes)
-    else
+    elseif gpufree() > 10^8
         ptr = knetMalloc(nbytes)
         kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
+    else
+        gc() #; print(".")
+        if !isempty(ptrs.free)
+            kp = KnetPtr(pop!(ptrs.free),nbytes)
+        else
+            # print(nbytes); gpuinfo()
+            knetgc()
+            ptr = knetMalloc(nbytes)
+            kp = KnetPtr(ptr,nbytes)
+            ptrs.used += 1
+        end
     end
     finalizer(kp, freeKnetPtr)
     return kp
