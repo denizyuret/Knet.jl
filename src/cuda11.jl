@@ -30,7 +30,7 @@ cuda11 = [
 # These are used in cuda12.jl as special cases of equal sized array,array ops.
 # Here we'll just define some functions that specifically do not have broadcasting.
 
-(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch());(.+)(x,y))
-(-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch());(.-)(x,y))
+(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
+(-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
 #(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
 #(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op

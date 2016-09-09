@@ -46,8 +46,9 @@ Julia downloads and installs all the necessary packages::
 .. TODO: register the Knet package for Pkg.add("Knet")
 
 Some Knet examples use additional packages such as ArgParse, Compat,
-and GZip.  These are not required for the regular operation of Knet.
-You can install them manually when needed using Pkg.add("PkgName").
+and GZip.  GPU support requires CUDArt, CUDNN.  These are not required
+by Knet, you can install them manually when needed using
+Pkg.add("PkgName").
 
 If you have a GPU machine, you may need to type ``Pkg.build("Knet")``
 to compile the Knet GPU kernels.  If you do not have a GPU machine,

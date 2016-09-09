@@ -40,8 +40,8 @@ function main(args=ARGS)
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, ytype=atype)
-    dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, ytype=atype)
+    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
+    dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
     println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
@@ -106,9 +106,9 @@ function weights(h...; atype=Array{Float32}, winit=0.1)
     return w
 end
 
-function minibatch(x, y, batchsize; xtype=Array{Float32}, ytype=Array{Float32}, xrows=784, yrows=10, xscale=255.)
-    xbatch(a)=convert(xtype, reshape(a,xrows,div(length(a),xrows)))./xscale
-    ybatch(a)=(a[a.==0]=10; convert(ytype, sparse(convert(Vector{Int},a),1:length(a),one(eltype(a)),yrows,length(a))))
+function minibatch(x, y, batchsize; atype=Array{Float32}, xrows=784, yrows=10, xscale=255.)
+    xbatch(a)=convert(atype, reshape(a,xrows,div(length(a),xrows)))./xscale
+    ybatch(a)=(a[a.==0]=10; convert(atype, sparse(convert(Vector{Int},a),1:length(a),one(eltype(a)),yrows,length(a))))
     xcols = div(length(x),xrows)
     xcols == length(y) || throw(DimensionMismatch())
     data = Any[]

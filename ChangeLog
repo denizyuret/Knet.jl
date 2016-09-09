@@ -4,13 +4,13 @@
 	# mnist2d: cpu support, in general for all of Knet; test with v0.4 and v0.5
 	# mnist2d: cpu/gpu, Float16,32,64 options
 	# mnist2d: update documentation
+	# put info about additional packages for examples and gpu in README
 
 	* TODO8:
 	# mnist4d
 	# charlm
 	# write examples/README
-	# put info about additional packages for examples and gpu in README
-	# 
+	# gc problem.
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	# finish cudnn, curand etc. if possible eliminate dependence on them.
@@ -19,6 +19,8 @@
 	# load/save using JLD
 	# mnist2d: sparse arrays
 	# mnist2d: sampling gradcheck
+
+	* gc-problem: mnist4d explodes memory.
 
 2016-09-04  Deniz Yuret  <dyuret@ku.edu.tr>
 

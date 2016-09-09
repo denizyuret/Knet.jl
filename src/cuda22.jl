@@ -29,9 +29,9 @@ function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B:
         m=size2(A,2); k=size2(A,1)
     end
     if transB == 'N'
-        n=size2(B,2); k==size2(B,1) || throw(DimensionMismatch())
+        n=size2(B,2); k==size2(B,1) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     else
-        n=size2(B,1); k==size2(B,2) || throw(DimensionMismatch())
+        n=size2(B,1); k==size2(B,2) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     end
     (m == size2(C,1) && n == size(C,2)) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     transa = cublasop(transA); transb = cublasop(transB)
