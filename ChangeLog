@@ -1,3 +1,20 @@
+2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+
+	* TODO8:
+	# charlm
+	# write examples/README
+	# try to measure back functions one by one as well for gpu profiling.
+	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	# extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# finish cudnn, curand etc. if possible eliminate dependence on them.
+	# mnist2d: implement efficient softmax -- seems ok for now.
+	# mnist2d: sparse arrays
+	# mnist2d: sampling gradcheck
+	# cpu convolution
+	# load/save using JLD: need to write KnetArray handlers.
+
 2016-09-06  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -5,20 +22,8 @@
 	# mnist2d: cpu/gpu, Float16,32,64 options
 	# mnist2d: update documentation
 	# put info about additional packages for examples and gpu in README
-
-	* TODO8:
 	# mnist4d
-	# charlm
-	# write examples/README
 	# gc problem.
-	# try to measure back functions one by one as well for gpu profiling.
-	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	# finish cudnn, curand etc. if possible eliminate dependence on them.
-	# mnist2d: implement efficient softmax -- seems ok for now.
-	# extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	# load/save using JLD
-	# mnist2d: sparse arrays
-	# mnist2d: sampling gradcheck
 
 	* gc-problem: mnist4d explodes memory.
 
