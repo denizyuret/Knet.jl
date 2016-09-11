@@ -4,6 +4,11 @@
 
 	* TODO8:
 	# charlm
+	## implemented maximum but AutoGrad.ungetindex failing tests
+	## loss results do not match Knet7 because of epsbump
+	## need an efficient softmax, logsumexp
+	## cpu=gpu tested but knet7=knet8 only forward up to epsbump
+	## need a good gradcheck to make sure
 	# write examples/README
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.

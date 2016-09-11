@@ -53,7 +53,7 @@ cuda1 = [
 # "llrint",
 # "llround",
 ("neg", "-", "-xi"),
-("inv", "inv", "1/xi"),
+("invx", "invx", "1/xi"),
 ("relu", "relu", "(xi>0?xi:0)"),
 ("sigm", "sigm", "1/(1+exp(-xi))"),
 ("abs", "abs", "(xi<0?-xi:xi)"),
@@ -62,9 +62,10 @@ cuda1 = [
 ("ones","ones", "1"),  # TODO: replace this with fill
 ]
 
-inv(x)=1./x
+# TODO: define these as primitives, implement their gradients as cuda kernels.
+invx(x)=1./x
 relu(x)=max(0,x)
-sigm(x)=inv(1+exp(-x))
+sigm(x)=invx(1+exp(-x))
 
 function cuda1def(f, j=f, o...)
     J=Symbol(j)

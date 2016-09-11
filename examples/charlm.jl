@@ -46,7 +46,7 @@ using `weights` with the appropriate arguments passed from `train`.
         """
 foo=0 # module CharLM
 
-using Knet,AutoGrad,ArgParse,Compat
+using Knet,AutoGrad,ArgParse,JLD,Compat
 using Base.LinAlg: axpy!
 
 
@@ -72,22 +72,25 @@ function main(args=ARGS)
         ("--gclip"; arg_type=Float64; default=5.0; help="Value to clip the gradient norm at.")
         ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
+        ("--gpu"; action=:store_true; help="Use GPU.")
         # TODO: does this override if we are loading from file?
         # TODO: JLD must represent KnetArray
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        # Just have a gpu option instead? (figure out sparse later)
+        # ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    o[:atype] = eval(parse(o[:atype]))
+    o[:gpu] && gpu(true)
+    o[:atype] = (gpu()>=0 ? KnetArray{Float32} : Array{Float32})  # eval(parse(o[:atype]))
 
     # we initialize a model from loadfile, train using datafiles (both optional).
     # if the user specifies neither, train a model using shakespeare.
     isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],shakespeare())
 
     # read text and report lengths
-    text = map((@compat read), o[:datafiles]) # TODO: readstring gets confused with BOM marker in pg100.txt
+    text = map((@compat readstring), o[:datafiles])
     !isempty(text) && info("Chars read: $(map((f,c)->(basename(f),length(c)),o[:datafiles],text))")
 
     # vocab (char_to_index) comes from the initial model if there is one, otherwise from the datafiles.
@@ -99,14 +102,15 @@ function main(args=ARGS)
     else
         vocab = load(o[:loadfile], "vocab") 
         for t in text, c in t; haskey(vocab, c) || error("Unknown char $c"); end
-        model = load(o[:loadfile], "model") # TODO: possibly convert to atype
+        model = load(o[:loadfile], "model")
+        for (k,v) in model; model[k] = convert(o[:atype],v); end
     end
-
+    info("$(length(vocab)) unique chars.")
     if !isempty(text)
-        data = map(t->minibatch(t, vocab, o), text)
-        println((0,map(d->loss(model,d,initstate(o)), data)...))
-        for epoch=1:o[:epochs]           # TODO: model save
-            @time train(model,data[1]; slen=o[:seqlength], lr=o[:lr]) # TODO: gclip, lrdecay, gcheck, profile
+        data = map(t->minibatch(t, vocab, o), text) # TODO: do not load the whole data into memory?
+        @time println((0,map(d->loss(model,d,initstate(o)), data)...)) # TODO: have one initstate
+        for epoch=1:o[:epochs]           # TODO: model save, gclip, lrdecay, gcheck, profile
+            @time train(model,data[1],o) # TODO: only send necessary o options
             @time println((epoch,map(d->loss(model,d,initstate(o)), data)...))
         end
     end
@@ -141,13 +145,14 @@ function minibatch(chars, char_to_index, o)
     return data
 end
 
-function train(w, x; slen=100, lr=1.0)
-    state = initstate(o)
+function train(w, x, o)
+    slen = o[:seqlength]
+    state0 = initstate(o)       # TODO: keepstate -- loss overwriting state with Values causes memory leak!!!
     for t = 1:slen:length(x)-slen
         r = t:t+slen-1
-        g = lossgradient(w, x, state; range=r)
+        g = lossgradient(w, x, state0; range=r)
         for k in keys(g)
-            w[k] -= lr * g[k]
+            w[k] -= o[:lr] * g[k]
             # TODO: implement weight decay
             # TODO: implement gradient clip
         end
@@ -160,14 +165,14 @@ function loss(w, x, state; range=1:length(x)-1)
     (h,c) = state
     logp = 0.0; xcnt = 0
     for t in range
-        xt = w[:W_embedding] * x[t]
-        (h,c) = lstm(w, xt, h, c)
-        ypred = w[:W_predict] * h .+ w[:b_predict]
-        ynorm = ypred .- log(sum(exp(ypred),1))
-        logp += sum(x[t+1] .* ynorm)
+        xt = w[:W_embedding] * x[t] # 256,128
+        (h,c) = lstm(w, xt, h, c)   # 256,128x2; 256,128x32gc
+        ypred = w[:W_predict] * h .+ w[:b_predict] # 87,128 x2???
+        ypred = ypred .- maximum(ypred,1)
+        ynorm = ypred .- log(sum(exp(ypred),1))    # 87,128; 87,128x1gc; 128,1x2gc
+        logp += sum(x[t+1] .* ynorm) # 87,128x1gc
         xcnt += size(ynorm,2)
     end
-    state[1]=h; state[2]=c
     return -logp/xcnt
 end
 
@@ -176,6 +181,7 @@ lossgradient = grad(loss)
 # TODO: implement vcat for KnetArray and try various concat versions for efficiency.
 # TODO: profile this.
 # TODO: gradcheck!!!
+# TODO: need a good logsumexp or softmax primitive.
 
 function lstm(w, input, hidden, cell)
     ingate  = sigm(w[:Wx_ingate]  * input .+ w[:Wh_ingate] * hidden .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
@@ -186,9 +192,6 @@ function lstm(w, input, hidden, cell)
     hidden  = outgate .* tanh(cell)
     return hidden, cell
 end
-
-sigm(x) = 1 ./ (1 + exp(-x))
-@primitive sigm(x::Array),dy,y  (dy .* y .* (1 - y))
 
 function initstate(o)
     hidden = convert(o[:atype], zeros(o[:hidden], o[:batchsize]))
@@ -401,4 +404,8 @@ end
 #     end
 #     return outputs, (hidden, cell)
 # end
+
+# We don't need this: Knet has it
+# sigm(x) = 1 ./ (1 + exp(-x))
+# @primitive sigm(x),dy,y  (dy .* y .* (1 - y))
 

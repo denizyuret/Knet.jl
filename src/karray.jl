@@ -37,19 +37,14 @@ function KnetPtr(nbytes::Integer)
         ptr = knetMalloc(nbytes)
         kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
+    elseif (print("."); gc(); !isempty(ptrs.free))
+        kp = KnetPtr(pop!(ptrs.free),nbytes)
     else
-        
-        if (print("."); gc(); !isempty(ptrs.free))
-            kp = KnetPtr(pop!(ptrs.free),nbytes)
-        elseif (print(";"); gc(); sleep(2); !isempty(ptrs.free))
-            kp = KnetPtr(pop!(ptrs.free),nbytes)
-        else
-            print((:knetgc,nbytes)); gpuinfo()
-            knetgc()
-            ptr = knetMalloc(nbytes)
-            kp = KnetPtr(ptr,nbytes)
-            ptrs.used += 1
-        end
+        print((:knetgc,nbytes)); gpuinfo()
+        knetgc()
+        ptr = knetMalloc(nbytes)
+        kp = KnetPtr(ptr,nbytes)
+        ptrs.used += 1
     end
     finalizer(kp, freeKnetPtr)
     return kp
