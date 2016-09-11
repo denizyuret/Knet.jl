@@ -33,16 +33,18 @@ function KnetPtr(nbytes::Integer)
     ptrs = get!(KnetPtrs,KnetFree,nbytes)
     if !isempty(ptrs.free)
         kp = KnetPtr(pop!(ptrs.free),nbytes)
-    elseif gpufree() > 10^8
+    elseif gpufree() > 10^9
         ptr = knetMalloc(nbytes)
         kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
     else
-        gc() #; print(".")
-        if !isempty(ptrs.free)
+        
+        if (print("."); gc(); !isempty(ptrs.free))
+            kp = KnetPtr(pop!(ptrs.free),nbytes)
+        elseif (print(";"); gc(); sleep(2); !isempty(ptrs.free))
             kp = KnetPtr(pop!(ptrs.free),nbytes)
         else
-            # print(nbytes); gpuinfo()
+            print((:knetgc,nbytes)); gpuinfo()
             knetgc()
             ptr = knetMalloc(nbytes)
             kp = KnetPtr(ptr,nbytes)
@@ -114,6 +116,7 @@ Base.ndims(a::KnetArray)=length(size(a))
 Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
 Base.eltype{T}(x::KnetArray{T})=T
 Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
+Base.summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 import AutoGrad: sum_outgrads
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 
