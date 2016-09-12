@@ -35,7 +35,7 @@ Example usage:
 """
 module CharLM
 
-using Knet,AutoGrad,ArgParse,JLD,Compat
+using Knet,AutoGrad,ArgParse,Compat
 
 function main(args=ARGS)
     # global model,text,data,vocab,o
@@ -68,6 +68,10 @@ function main(args=ARGS)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     o[:gpu] && gpu(true)
+    if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
+        isdir(Pkg.dir("JLD")) || error("Please Pkg.add(\"JLD\") to load or save files.")
+        eval(Expr(:using,:JLD))
+    end
 
     # we initialize a model from loadfile, train using datafiles (both optional).
     # if the user specifies neither, train a model using shakespeare.

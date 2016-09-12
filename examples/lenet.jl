@@ -6,7 +6,6 @@ isdefined(:MNIST) || (load_only=true;include("mnist.jl"))
 module LeNet
 using Knet,ArgParse,AutoGrad,CUDArt,CUDNN
 using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
-gpu(true)
 
 
 function main(args=ARGS)

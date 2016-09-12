@@ -119,7 +119,7 @@ sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 function knetMalloc(nbytes::Int)
     if gpu() >= 0
         pp = Ptr{Void}[C_NULL]
-        CUDArt.rt.cudaMalloc(pp, nbytes)
+        @cudart(:cudaMalloc,(Ptr{Ptr{Void}},Csize_t),pp,nbytes)
         return pp[1]
     else
         convert(Ptr{Void}, pointer(Array(UInt8,nbytes)))
@@ -128,7 +128,7 @@ end
 
 function knetFree(p::Ptr{Void})
     if gpu() >= 0
-        CUDArt.rt.cudaFree(p)
+        @cudart(:cudaFree,(Ptr{Void},),p)
     end
 end
 
@@ -137,26 +137,27 @@ end
 
 typealias Kcopy{T} Union{Array{T},SubArray{T},KnetArray{T}}
 
-function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Integer, n::Integer; stream=nothing)
+function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Integer, n::Integer; stream=C_NULL)
     n == 0 && return dest
     isbits(T) || error("knetcopy! only works for isbits arrays.")
     if n < 0 || soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
         throw(BoundsError())
     end
     if gpu() >= 0
-        stream == nothing && (stream = null_stream)
-        CUDArt.rt.cudaMemcpyAsync(pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest, src), stream)
+        @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+                pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest, src), stream)
     else
+        # TODO: fix this, support cpu?
         # Base.unsafe_copy!(pointer(dest,doffs), pointer(src,soffs), n)
         error("GPU is inactive, please use gpu(true) or gpu(n) to use KnetArray.")
     end
     return dest
 end
 
-cudadir(::KnetArray, ::Array) = CUDArt.rt.cudaMemcpyHostToDevice
-cudadir(::Array, ::KnetArray) = CUDArt.rt.cudaMemcpyDeviceToHost
-cudadir(::KnetArray, ::KnetArray) = CUDArt.rt.cudaMemcpyDeviceToDevice
-cudadir(::Array, ::Array) = CUDArt.rt.cudaMemcpyHostToHost
+cudadir(::Array, ::Array) = 0
+cudadir(::KnetArray, ::Array) = 1
+cudadir(::Array, ::KnetArray) = 2
+cudadir(::KnetArray, ::KnetArray) = 3
 
 # TODO: this will be fixed when we inherint from AbstractArray.
 Base.display(x::KnetArray)=(print("KnetArray ");display(convert(Array,x)))
@@ -164,9 +165,9 @@ Base.display(x::KnetArray)=(print("KnetArray ");display(convert(Array,x)))
 meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree]
 
 # To be able to load/save KnetArrays:
-if !isdefined(:_KnetArray)
-    using JLD
+if isdir(Pkg.dir("JLD"))
+    import JLD: writeas, readas
     type _KnetArray; a::Array; end
-    JLD.writeas(c::KnetArray) = _KnetArray(Array(c))
-    JLD.readas(d::_KnetArray) = KnetArray(d.a)
+    writeas(c::KnetArray) = _KnetArray(Array(c))
+    readas(d::_KnetArray) = KnetArray(d.a)
 end

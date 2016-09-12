@@ -1,21 +1,37 @@
 const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
 
-# This does not compile:
-# function __init__()
-#     if gpulibs()
-#         gpu(pickgpu())
-#     end
-# end
+function __init__()
+    try
+        gpu(true)
+        info("Using GPU $(gpu())")
+    catch e
+        warn("$e: using the CPU.")
+        gpu(false)
+    end
+end
+
+macro cudart(f,x...)
+    fx = Expr(:ccall, :($f,"libcudart"), :UInt32, x...)
+    quote
+        local _r = $fx
+        if _r != 0
+            warn("CUDA error $_r triggered from:")
+            Base.show_backtrace(STDOUT, backtrace())
+        end
+    end
+end
 
 let GPU=-1, handles=Dict()
     global gpu, cublashandle, cudnnhandle
-    gpu()=GPU
-    gpu(b::Bool)=gpu(b ? pickgpu() : -1)
+
+    "Return the active gpu device, or -1 for cpu."
+    gpu()=GPU  # (d=Cint[-1];@cudart(:cudaGetDevice,(Ptr{Cint},),d);d[1])
+
+    "Use gpu with device id i for i>=0, otherwise use cpu."
     function gpu(i::Int)
         GPU = i
         if i >= 0
-            eval(Expr(:using,:CUDArt))
-            CUDArt.device(i)
+            @cudart(:cudaSetDevice, (Cint,), i)
             cublashandle = get!(cublasCreate, handles, (:cublas,i))
             cudnnhandle  = get!(cudnnCreate, handles, (:cudnn,i))
         else
@@ -23,57 +39,44 @@ let GPU=-1, handles=Dict()
         end
         return GPU
     end
-end
 
-function gpulibs()
-    libs = true
-    lpath = [Pkg.dir("Knet/src")]
-    for l in ("libknet8", "libcuda", "libcudart", "libcublas","libcudnn")
-        isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");libs=false)
+    "Pick the gpu with the most available if b=true, otherwise use cpu."
+    function gpu(b::Bool)
+        if b
+            pick = mem = -1
+            for i=0:gpucount()-1
+                @cudart(:cudaSetDevice, (Cint,), i)
+                imem = gpufree()
+                if imem > mem
+                    pick = i
+                    mem = imem
+                end
+            end
+            gpu(pick)
+        else
+            gpu(-1)
+        end
     end
-    # TODO: eliminate these dependencies:
-    for p in ("CUDArt",) # , "CUBLAS", "CUDNN")
-        isdir(Pkg.dir(p)) || (warn("Cannot find $p");libs=false)
-    end
-    return libs
 end
 
 function gpucount()
-    ptr=Int32[0]
-    gpustat=ccall((:cudaGetDeviceCount,"libcudart"),Int32,(Ptr{Cint},),ptr)
-    if gpustat == 0
-        return Int(ptr[1])
-    else
-        return 0
-    end
+    ptr=Cint[0]
+    @cudart(:cudaGetDeviceCount,(Ptr{Cint},),ptr)
+    return Int(ptr[1])
 end
 
-function gpufree()
-    mfree=Csize_t[1]
-    mtotal=Csize_t[1]
-    ccall((:cudaMemGetInfo,"libcudart"),Cint,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
-    nbytes=convert(Int,mfree[1])
+function gpumem()
+    mfree=Csize_t[1]; mtotal=Csize_t[1]
+    @cudart(:cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),mfree,mtotal)
+    (Int(mfree[1]),Int(mtotal[1]))
 end
 
-function pickgpu()
-    eval(Expr(:using,:CUDArt))
-    pick = mem = -1
-    for i=0:gpucount()-1
-        CUDArt.device(i)
-        imem = gpufree()
-        if imem > mem
-            pick = i
-            mem = imem
-        end
-    end
-    return pick
-end
+gpufree()=gpumem()[1]
 
 function gpuinfo(msg="")
-    nbytes = gpufree()
-    narray = isdefined(:CUDArt) ? length(CUDArt.cuda_ptrs) : 0
     print("$msg ")
-    println((nbytes,meminfo()...,:cuda_ptrs,narray))
+    ptrs = isdefined(:CUDArt) ? (:cuda_ptrs,length(CUDArt.cuda_ptrs)) : ()
+    println((gpumem()...,meminfo()...,ptrs...))
 end
 
 function cublasCreate()
@@ -93,4 +96,19 @@ function cudnnCreate()
     atexit(()->ccall((:cudnnDestroy, "libcudnn"), UInt32, (Ptr{Void},), handle))
     return handle
 end
+
+# function gpulibs()
+#     libs = true
+#     lpath = [Pkg.dir("Knet/src")]
+#     for l in ("libknet8", "libcuda", "libcudart", "libcublas","libcudnn")
+#         isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");libs=false)
+#     end
+#     # TODO: eliminate these dependencies:
+#     for p in ("CUDArt",) # , "CUBLAS", "CUDNN")
+#         isdir(Pkg.dir(p)) || (warn("Cannot find $p");libs=false)
+#     end
+#     return libs
+# end
+
+
 
