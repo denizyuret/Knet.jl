@@ -1,3 +1,5 @@
+2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
 2015-05-17    <dyuret@ku.edu.tr>
 
 	* src/sigm.jl: done: make sure back returns dx.
