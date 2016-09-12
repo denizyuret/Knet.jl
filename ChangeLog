@@ -7,6 +7,7 @@
 	# load/save using JLD: need to write KnetArray handlers.
 	## turn gpu on by default if exists.
 	# eliminate dependence on CUDArt.
+	## support multiple gpus with KnetArrays
 
 	# need an efficient softmax, logsumexp.
 	## test on mnist --fast:
@@ -27,7 +28,6 @@
 	# cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
 
 	* TODO8:
-	## support multiple gpus with KnetArrays
 	# charlm
 	## implemented maximum but AutoGrad.ungetindex failing tests
 	## experiment with other forms of lstm, profile speed
@@ -39,6 +39,7 @@
 	# mnist2d: sparse arrays
 	# cpu convolution
 	# implement axpy! for KnetArray if it is worth it to get faster updates.
+	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
 
 2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
 

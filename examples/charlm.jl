@@ -58,16 +58,15 @@ function main(args=ARGS)
         ("--gclip"; arg_type=Float64; default=5.0; help="Value to clip the gradient norm at.")
         ("--keepstate"; action=:store_true; help="Keep state between iterations.")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
+        ("--seed"; arg_type=Int; default=42; help="Random number seed.")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
         #TODO ("--nlayer"; arg_type=Int; default=1; help="Number of LSTM layers.")
-        ("--seed"; arg_type=Int; default=42; help="Random number seed.")
-        ("--gpu"; action=:store_true; help="Use GPU.")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    o[:gpu] && gpu(true)
     if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
         isdir(Pkg.dir("JLD")) || error("Please Pkg.add(\"JLD\") to load or save files.")
         eval(Expr(:using,:JLD))
@@ -108,21 +107,21 @@ end
 
 
 function train!(model, text, vocab, o)
-    atype = (gpu()>=0 ? KnetArray{Float32} : Array{Float32})  # eval(parse(o[:atype]))
+    atype = eval(parse(o[:atype]))
     for (k,v) in model; model[k] = convert(atype,v); end
-    h0 = c0 = convert(atype, zeros(o[:hidden], o[:batchsize]))
+    h0 = c0 = convert(atype, zeros(o[:hidden], o[:batchsize])); s0=Any[h0,c0]
     data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    @time losses = map(d->loss(model,d,[h0,c0]), data)
+    @time losses = map(d->loss(model,d,s0), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
     lr = o[:lr]
     for epoch=1:o[:epochs]
-        @time train1(model, data[1], [h0,c0]; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
-        @time losses = map(d->loss(model,d,[h0,c0]), data)
+        @time train1(model, data[1], s0; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
+        @time losses = map(d->loss(model,d,s0), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
-            gradcheck(loss, model, data[1], [h0,c0]; gcheck=o[:gcheck], range=1:o[:seqlength])
+            gradcheck(loss, model, data[1], s0; gcheck=o[:gcheck], range=1:o[:seqlength])
         end
         devloss = losses[devset]
         if devloss < devbest
@@ -141,6 +140,7 @@ function train!(model, text, vocab, o)
 end    
 
 function train1(w, x, state; slen=100, lr=1.0, gclip=0.0, keepstate=false)
+    keepstate && (state = copy(state))
     for t = 1:slen:length(x)-slen
         r = t:t+slen-1
         g = lossgradient(w, x, state; range=r, keepstate=keepstate)

@@ -2,8 +2,8 @@ const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
 
 function __init__()
     try
-        gpu(true)
-        info("Using GPU $(gpu())")
+        r = gpu(true)
+        info(r >= 0 ? "Using GPU $r" : "No GPU found, using the CPU")
     catch e
         warn("$e: using the CPU.")
         gpu(false)
@@ -61,8 +61,12 @@ end
 
 function gpucount()
     ptr=Cint[0]
-    @cudart(:cudaGetDeviceCount,(Ptr{Cint},),ptr)
-    return Int(ptr[1])
+    try
+        ret=ccall((:cudaGetDeviceCount,"libcudart"),UInt32,(Ptr{Cint},),ptr)
+        return ifelse(ret==0, Int(ptr[1]), 0)
+    catch e
+        return 0
+    end
 end
 
 function gpumem()
