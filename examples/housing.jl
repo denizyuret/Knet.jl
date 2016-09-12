@@ -29,6 +29,7 @@ Repository."
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
@@ -45,6 +46,9 @@ Repository."
         @time for epoch=1:o[:epochs]
             train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
             println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+            if o[:gcheck] > 0
+                gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck])
+            end
         end
     end
     return w

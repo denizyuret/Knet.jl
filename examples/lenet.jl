@@ -18,7 +18,7 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=0.1)
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--epochs"; arg_type=Int; default=3)
-        #TODO: ("--gcheck"; arg_type=Int; default=0), --atype, --winit
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
@@ -36,6 +36,9 @@ function main(args=ARGS)
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+            if o[:gcheck] > 0
+                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck])
+            end
         end
     end
     return w

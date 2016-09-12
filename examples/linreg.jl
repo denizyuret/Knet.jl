@@ -19,7 +19,7 @@ function main(args=ARGS)
         ("--noise"; arg_type=Float64; default=0.01; help="noise in data")
         ("--outputdims"; arg_type=Int; default=10; help="output dimensions")
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
-        #TODO ("--gcheck"; arg_type=Int; default=0)
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args,s; as_symbols=true)
@@ -36,6 +36,9 @@ function main(args=ARGS)
         @time for epoch=1:o[:epochs]
             w = train(w, data; epochs=1, lr=o[:lr])
             println((:epoch,epoch,:loss,test(w,data)))
+            if o[:gcheck] > 0
+                gradcheck(loss, w, first(data)...; gcheck=o[:gcheck])
+            end
         end
     end
     return w

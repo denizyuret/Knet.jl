@@ -5,21 +5,25 @@
 	## test on mnist --fast:
 	## cpu before: 2.75  gpu before: 2.25
 	## cpu after : 2.75  gpu after : 2.10
-	## test on charlm with 10k lines of shakespeare (one epoch time):
-	## gpu before: test: 2.32 train: 6.58
-	## gpu after : test: 2.33 train: 6.30
 	## test on lenet --fast:
 	## gpu before: 10.15  gpu after: 9.84 (mostly because of relu)
 	## after using 10^8 for knetgc limit: 9.30
+	## test on charlm with 10k lines of shakespeare (one epoch time) (10,2.419187890389808):
+	## compare with 10.6 secs/epoch for train in Knet7:
+	## gpu before: test: 2.32 train: 6.58
+	## gpu after : test: 2.33 train: 6.30
+	## bitarrays : test: 2.15 train: 6.20
+	## fixes     : test: 2.16 train: 6.14
+	# loss results do not match Knet7 because of epsbump
+	# cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
+	# mnist2d: sampling gradcheck
+	## need a good gradcheck to make sure, other TODO items in charlm.
 
 	* TODO8:
 	# charlm
 	## implemented maximum but AutoGrad.ungetindex failing tests
-	## loss results do not match Knet7 because of epsbump
-	## cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
-	## need a good gradcheck to make sure, other TODO items in charlm.
 	## experiment with other forms of lstm, profile speed
-	# support multiple gpus with KnetArrays, turn gpu on by default if exists.
+	## support multiple gpus with KnetArrays, turn gpu on by default if exists.
 	# write examples/README
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
@@ -27,9 +31,9 @@
 	# finish cudnn, curand etc. if possible eliminate dependence on them.
 	# mnist2d: implement efficient softmax -- seems ok for now.
 	# mnist2d: sparse arrays
-	# mnist2d: sampling gradcheck
 	# cpu convolution
 	# load/save using JLD: need to write KnetArray handlers.
+	# implement axpy! for KnetArray if it is worth it to get faster updates.
 
 2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
 

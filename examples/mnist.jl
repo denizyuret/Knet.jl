@@ -30,6 +30,7 @@ function main(args=ARGS)
         ("--winit"; arg_type=Float64; default=0.1; help="w initialized with winit*randn()")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
         # These are to experiment with sparse arrays
         # ("--xtype"; help="input array type: defaults to atype")
         # ("--ytype"; help="output array type: defaults to atype")
@@ -50,6 +51,9 @@ function main(args=ARGS)
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+            if o[:gcheck] > 0
+                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck])
+            end
         end
     end
     return w

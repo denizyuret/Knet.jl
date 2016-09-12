@@ -112,6 +112,7 @@ Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
 Base.eltype{T}(x::KnetArray{T})=T
 Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
 Base.summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
+Base.eachindex(a::KnetArray) = (1:length(a))
 import AutoGrad: sum_outgrads
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 

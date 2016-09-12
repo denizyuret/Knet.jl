@@ -57,7 +57,7 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=1.0; help="Initial learning rate.")
         ("--gclip"; arg_type=Float64; default=5.0; help="Value to clip the gradient norm at.")
         ("--keepstate"; action=:store_true; help="Keep state between iterations.")
-        #TODO ("--gcheck"; arg_type=Int; default=0; help="Gradient check.")
+        ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
         #TODO ("--nlayer"; arg_type=Int; default=1; help="Number of LSTM layers.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
@@ -117,6 +117,9 @@ function train!(model, text, vocab, o)
         @time train1(model, data[1], [h0,c0]; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
         @time losses = map(d->loss(model,d,[h0,c0]), data)
         println((:epoch,epoch,:loss,losses...))
+        if o[:gcheck] > 0
+            gradcheck(loss, model, data[1], [h0,c0]; gcheck=o[:gcheck], range=1:o[:seqlength])
+        end
         devloss = losses[devset]
         if devloss < devbest
             devbest = devloss
@@ -133,36 +136,10 @@ function train!(model, text, vocab, o)
     end
 end    
 
-function shakespeare()
-    file = Pkg.dir("Knet/data/100.txt")
-    if !isfile(file)
-        info("Downloading 'The Complete Works of William Shakespeare'")
-        url = "http://www.gutenberg.org/files/100/100.txt"
-        download(url,file)
-    end
-    return file
-end
-
-function minibatch(chars, char_to_index, batch_size)
-    nbatch = div(length(chars), batch_size)
-    vocab_size = length(char_to_index)
-    data = Any[]
-    for i = 1:nbatch
-        d = falses(vocab_size, batch_size) # use BitArray until we implement sparse
-        for j = 1:batch_size
-            d[char_to_index[chars[i + nbatch * (j - 1)]], j] = 1
-        end
-        push!(data, d)  # do not convert here, we don't need all data on gpu! convert(o[:atype], d))
-    end
-    return data
-end
-
-function train1(w, x, state0; slen=100, lr=1.0, gclip=0.0, keepstate=false)
-    state = copy(state0)
+function train1(w, x, state; slen=100, lr=1.0, gclip=0.0, keepstate=false)
     for t = 1:slen:length(x)-slen
         r = t:t+slen-1
-        !keepstate && (state = copy(state0))
-        g = lossgradient(w, x, state; range=r)
+        g = lossgradient(w, x, state; range=r, keepstate=keepstate)
         gscale = lr
         if gclip > 0
             gnorm = sqrt(mapreduce(a->vecnorm(a)^2, +, 0, values(g)))
@@ -178,7 +155,7 @@ function train1(w, x, state0; slen=100, lr=1.0, gclip=0.0, keepstate=false)
 end
 
 # Given parameters w, sequence x, and hidden-cell pair state, returns loss.
-function loss(w, x, state; range=1:length(x)-1)
+function loss(w, x, state; range=1:length(x)-1, keepstate=false)
     (h,c) = state
     loss = 0.0; xcnt = 0
     atype = typeof(getval(w[:W_embedding]))
@@ -193,7 +170,9 @@ function loss(w, x, state; range=1:length(x)-1)
         xcnt += size(ynorm,2)
         xcurr = xnext
     end
-    state[1]=getval(h); state[2]=getval(c)
+    if keepstate
+        state[1]=getval(h); state[2]=getval(c)
+    end
     return -loss/xcnt
 end
 
@@ -271,9 +250,72 @@ function sample(p)
     end
 end
 
+function shakespeare()
+    file = Pkg.dir("Knet/data/100.txt")
+    if !isfile(file)
+        info("Downloading 'The Complete Works of William Shakespeare'")
+        url = "http://www.gutenberg.org/files/100/100.txt"
+        download(url,file)
+    end
+    return file
+end
+
+function minibatch(chars, char_to_index, batch_size)
+    nbatch = div(length(chars), batch_size)
+    vocab_size = length(char_to_index)
+    data = Any[]
+    for i = 1:nbatch
+        d = falses(vocab_size, batch_size) # use BitArray until we implement sparse
+        for j = 1:batch_size
+            d[char_to_index[chars[i + nbatch * (j - 1)]], j] = 1
+        end
+        push!(data, d)  # do not convert here, we don't need all data on gpu! convert(o[:atype], d))
+    end
+    return data
+end
+
 !isinteractive() && main(ARGS)
 
 end  # module
+
+
+### SAMPLE OUTPUT (with head -10000 100.txt):
+# julia> CharLM.main("--gpu --data 10.txt")
+# opts=(:lr,1.0)(:savefile,nothing)(:loadfile,nothing)(:dropout,0.0)(:generate,0)(:bestfile,nothing)(:embedding,256)(:gclip,5.0)(:hidden,256)(:epochs,10)(:nlayer,1)(:decay,0.9)(:gpu,true)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])
+# INFO: Chars read: [("10.txt",425808)]
+# INFO: 87 unique chars.
+# (0,4.465127425659868)
+#   2.182693 seconds (2.36 M allocations: 240.394 MB, 1.74% gc time)
+#   7.861079 seconds (10.12 M allocations: 601.311 MB, 1.84% gc time)
+# (1,3.3244698245543285)
+#   2.159062 seconds (2.35 M allocations: 239.217 MB, 1.80% gc time)
+#   6.200085 seconds (9.55 M allocations: 575.573 MB, 2.28% gc time)
+# (2,3.24593908969621)
+#   2.352389 seconds (2.34 M allocations: 239.381 MB, 1.51% gc time)
+#   6.211946 seconds (9.55 M allocations: 575.568 MB, 2.21% gc time)
+# (3,3.226540256084356)
+#   2.158299 seconds (2.35 M allocations: 239.364 MB, 1.79% gc time)
+#   6.211275 seconds (9.53 M allocations: 575.308 MB, 2.14% gc time)
+# (4,3.175428791332962)
+#   2.157585 seconds (2.35 M allocations: 239.304 MB, 1.81% gc time)
+#   6.193208 seconds (9.54 M allocations: 575.363 MB, 2.17% gc time)
+# (5,3.0706729381245776)
+#   2.158664 seconds (2.35 M allocations: 239.234 MB, 1.78% gc time)
+#   6.193677 seconds (9.52 M allocations: 575.198 MB, 2.17% gc time)
+# (6,2.917405513749087)
+#   2.156435 seconds (2.36 M allocations: 239.400 MB, 1.85% gc time)
+#   6.198174 seconds (9.55 M allocations: 575.579 MB, 2.27% gc time)
+# (7,2.747614740070544)
+#   2.160784 seconds (2.35 M allocations: 239.362 MB, 1.82% gc time)
+#   6.218180 seconds (9.53 M allocations: 575.268 MB, 2.21% gc time)
+# (8,2.6047531828485933)
+#   2.159249 seconds (2.35 M allocations: 239.329 MB, 1.80% gc time)
+#   6.204293 seconds (9.53 M allocations: 575.338 MB, 2.18% gc time)
+# (9,2.5084830727254537)
+#   2.159896 seconds (2.35 M allocations: 239.259 MB, 1.80% gc time)
+#   6.194213 seconds (9.52 M allocations: 575.198 MB, 2.13% gc time)
+# (10,2.419187890389808)
+#   2.161113 seconds (2.36 M allocations: 239.397 MB, 1.84% gc time)
 
 
 ### DEAD CODE:
