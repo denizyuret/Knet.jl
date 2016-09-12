@@ -162,3 +162,10 @@ Base.display(x::KnetArray)=(print("KnetArray ");display(convert(Array,x)))
 
 meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree]
 
+# To be able to load/save KnetArrays:
+if !isdefined(:_KnetArray)
+    using JLD
+    type _KnetArray; a::Array; end
+    JLD.writeas(c::KnetArray) = _KnetArray(Array(c))
+    JLD.readas(d::_KnetArray) = KnetArray(d.a)
+end
