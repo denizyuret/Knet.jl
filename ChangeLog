@@ -1,5 +1,108 @@
 2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* TODO8:
+	# clean up old tags and register Knet
+	# charlm
+	## implemented maximum but AutoGrad.ungetindex failing tests
+	## experiment with other forms of lstm, profile speed
+	# write examples/README
+	# try to measure back functions one by one as well for gpu profiling.
+	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# finish cudnn, curand etc. if possible eliminate dependence on them.
+	# mnist2d: sparse arrays
+	# cpu convolution
+	# implement axpy! for KnetArray if it is worth it to get faster updates.
+	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
+
+	* Release:
+
+	Eliminated old tags.  Just tag one 0.7 and one 0.8 version.
+
+	For each tagged version:
+	- minimize REQUIRE
+	- test on v0.4 v0.5 v0.6
+	- test on cpu vs gpu
+
+	julia 0.4 knet 0.7 cpu: ok
+	julia 0.4 knet 0.7 gpu: fail: mnist4d,copyseq
+	julia 0.4 knet 0.8 cpu: ok
+	julia 0.4 knet 0.8 gpu: ok
+	julia 0.4 autograd cpu: ok
+	julia 0.4 autograd gpu: ok
+	julia 0.5 knet 0.7 cpu: error
+	julia 0.5 knet 0.7 gpu: error
+	julia 0.5 knet 0.8 cpu: ok
+	julia 0.5 knet 0.8 gpu: ok
+	julia 0.5 autograd cpu: ok
+	julia 0.5 autograd gpu: ok
+	julia 0.6 knet 0.7 cpu: error
+	julia 0.6 knet 0.7 gpu: error
+	julia 0.6 knet 0.8 cpu: warnings
+	julia 0.6 knet 0.8 gpu: warnings
+	julia 0.6 autograd cpu: error, wip compat0.6
+	julia 0.6 autograd gpu: error, wip compat0.6
+
+	julia 0.6 knet 0.8 cpu:
+	using Knet
+	WARNING: log{T <: Number}(x::AbstractArray{T}) is deprecated, use log.(x) instead.
+	WARNING: cos{T <: Number}(x::AbstractArray{T}) is deprecated, use cos.(x) instead.
+	WARNING: abs2{T <: Number}(x::AbstractArray{T}) is deprecated, use abs2.(x) instead.
+	Tests pass.
+
+	julia 0.6 autograd master cpu:
+	using AutoGrad: ok
+	Pkg.test("AutoGrad")
+	WARNING: max{T1 <: Real}(x::Real,y::AbstractArray{T1}) is deprecated, use max.(x,y) instead.
+	WARNING: abs{T <: Number}(x::AbstractArray{T}) is deprecated, use abs.(x) instead.
+	This is a common error I need to fix for other Julia versions as well:
+	WARNING: (AutoGrad.ungetindex,0.18437601415789295,[0.228639,0.085112],(2,),"MethodError(convert,(Array{Float64,N},OH416_A660_2_(2,)_0.18437601415789295))")
+	ERROR: LoadError: MethodError: no method matching erfinv(::Array{Float64,1})
+
+	julia 0.4 knet 0.7 gpu: fails mnist4d and copyseq
+
+	julia 0.4 knet 0.7 cpu: should add cpu conv test but they pass.
+
+	julia 0.5 knet 0.7 cpu:
+	using Knet
+	WARNING: Method definition randn!(Base.Random.AbstractRNG, AbstractArray{#T<:Any, N<:Any}) in module Random at random.jl:1207 overwritten in module Knet at /mnt/ai/home/dyuret/.julia/v0.5/Knet/src/util/array.jl:36.
+	WARNING: could not import Base.lastidx into LegacyStrings
+	WARNING: Base.writemime is deprecated. likely near /mnt/ai/home/dyuret/.julia/v0.5/Knet/src/net.jl:186
+	WARNING: deprecated syntax "[a=>b for (a,b) in c]". Use "Dict(a=>b for (a,b) in c)" instead.
+	Pkg.test("Knet")
+	WARNING: symbol is deprecated, use Symbol instead./mnt/ai/home/dyuret/.julia/v0.5/Knet/examples/linreg.jl:25
+	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead./mnt/ai/home/dyuret/.julia/v0.5/Knet/src/compiler.jl:33
+	ERROR: expecting assignment expression got  # /mnt/ai/home/dyuret/.julia/v0.5/Knet/src/kfun.jl, line 43:
+	in _comp(::Expr, ::Dict{Symbol,Symbol}, ::Dict{Symbol,Any}, ::Expr) at /mnt/ai/home/dyuret/.julia/v0.5/Knet/src/compiler.jl:97
+
+	julia 0.6 knet 0.7 cpu: (similar to julia 0.5)
+	using Knet
+	WARNING: Method definition randn!(Base.Random.AbstractRNG, AbstractArray{#T<:Any, N<:Any}) in module Random at random.jl:1281 overwritten in module Knet at /mnt/ai/home/dyuret/.julia/v0.6/Knet/src/util/array.jl:36.
+	WARNING: could not import Base.lastidx into LegacyStrings
+	WARNING: Base.writemime is deprecated.  likely near /mnt/ai/home/dyuret/.julia/v0.6/Knet/src/net.jl:186
+	WARNING: deprecated syntax "[a=>b for (a,b) in c]".Use "Dict(a=>b for (a,b) in c)" instead.
+	Pkg.test("Knet")
+	WARNING: Method definition randn!(Base.Random.AbstractRNG, AbstractArray{#T<:Any, N<:Any}) in module Random at random.jl:1281 overwritten in module Knet at /mnt/ai/home/dyuret/.julia/v0.6/Knet/src/util/array.jl:36.
+	WARNING: symbol is deprecated, use Symbol instead.
+	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead.
+	ERROR: expecting assignment expression got  # /mnt/ai/home/dyuret/.julia/v0.6/Knet/src/kfun.jl, line 43:
+	in _comp(::Expr, ::Dict{Symbol,Symbol}, ::Dict{Symbol,Any}, ::Expr) at /mnt/ai/home/dyuret/.julia/v0.6/Knet/src/compiler.jl:97
+
+	julia 0.5 knet 0.7 gpu:
+	WARNING: Base.SparseMatrix is deprecated. (in CUSPARSE)
+	WARNING: Method definition (::Type{Knet._CudaArray})(CUDArt.CudaArray{#T<:Any, #N<:Any}) in module Knet at /state/partition1/dyuret/knet/publish/v0.5/Knet/src/util/cudart.jl:127 overwritten at /state/partition1/dyuret/knet/publish/v0.5/Knet/src/util/cudart.jl:128.
+	WARNING: Base.writemime is deprecated. likely near /state/partition1/dyuret/knet/publish/v0.5/Knet/src/util/cudart.jl:133
+	ERROR: LoadError: LoadError: LoadError: UndefVarError: TopNode not defined /state/partition1/dyuret/knet/publish/v0.5/Knet/src/util/deepcopy.jl, in expression starting on line 21
+	WARNING: Method definition randn!(Base.Random.AbstractRNG, AbstractArray{#T<:Any, N<:Any}) in module Random at random.jl:1207 overwritten in module Knet at /state/partition1/dyuret/knet/publish/v0.5/Knet/src/util/array.jl:36.
+	WARNING: deprecated syntax "[a=>b for (a,b) in c]". Use "Dict(a=>b for (a,b) in c)" instead.
+	WARNING: could not import Test.default_handler into Main
+	WARNING: could not import Test.Success into Main
+	WARNING: could not import Test.Failure into Main
+	ERROR: LoadError: LoadError: UndefVarError: Success not defined
+	WARNING: symbol is deprecated, use Symbol instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/examples/linreg.jl:25
+	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/src/compiler.jl:33
+	catastrophic failure of tests.
+
 	* DONE:
 	# mnist2d: sampling gradcheck
 	## need a good gradcheck to make sure, other TODO items in charlm.
@@ -27,20 +130,6 @@
 	# loss results do not match Knet7 because of epsbump
 	# cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
 
-	* TODO8:
-	# charlm
-	## implemented maximum but AutoGrad.ungetindex failing tests
-	## experiment with other forms of lstm, profile speed
-	# write examples/README
-	# clean up old tags and register Knet
-	# try to measure back functions one by one as well for gpu profiling.
-	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	# finish cudnn, curand etc. if possible eliminate dependence on them.
-	# mnist2d: sparse arrays
-	# cpu convolution
-	# implement axpy! for KnetArray if it is worth it to get faster updates.
-	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
 
 2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
 

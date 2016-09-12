@@ -2,7 +2,7 @@ using Knet
 
 predict(w,x)=(w*x)
 
-loss(w,x,y)=(sum(abs2(y-predict(w,x))) / size(x,2))
+loss(w,x,y)=(sum((y-predict(w,x)).^2) / size(x,2))
 
 lossgradient = grad(loss)
 
