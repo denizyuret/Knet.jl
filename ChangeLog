@@ -32,6 +32,7 @@
 	## implemented maximum but AutoGrad.ungetindex failing tests
 	## experiment with other forms of lstm, profile speed
 	# write examples/README
+	# clean up old tags and register Knet
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.

@@ -37,7 +37,7 @@ end
 function next(l::Data, n)
     (outputdims, inputdims) = size(l.w)
     x = convert(l.atype, rand(l.rng, inputdims, l.batchsize))
-    y = l.w * x + convert(l.atype, scale(l.noise, randn(l.rng, outputdims, l.batchsize)))
+    y = l.w * x + convert(l.atype, l.noise * randn(l.rng, outputdims, l.batchsize))
     return ((x,y), n+l.batchsize)
 end
 

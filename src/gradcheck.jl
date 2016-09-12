@@ -6,7 +6,7 @@ function gradcheck(f, w, x...; gcheck=10, o...)
     elseif isa(w, KnetArray) || (isa(w, Array) && isbits(eltype(w)))
         gc_array(w, d, f, w, x...; gcheck=gcheck, o...)
     else
-        k = indices(w)
+        k = gc_indices(w)
         for i in k
             gc_index(w, d, i, f, w, x...; gcheck=gcheck, o...)
         end
@@ -19,7 +19,7 @@ function gc_index(w, d, i, f, w0, x...; gcheck=10, o...)
     elseif isa(w[i],KnetArray) || (isa(w[i], Array) && isbits(eltype(w[i])))
         gc_array(w[i], d[i], f, w0, x...; gcheck=gcheck, o...)
     else
-        k = indices(w[i])
+        k = gc_indices(w[i])
         for j in k
             gc_index(w[i], d[i], j, f, w0, x...; gcheck=gcheck, o...)
         end
@@ -61,8 +61,8 @@ function gc_number(d, f, w, x...; o...)
 end
 
 gc_params(t)=(a=cbrt(eps(t)); (a,a,a))
-indices(w)=eachindex(w)
-indices(w::Tuple)=(1:length(w))
+gc_indices(w)=eachindex(w)
+gc_indices(w::Tuple)=(1:length(w))
 
 function gc_interval(w,d)
     w1=w-d/2
