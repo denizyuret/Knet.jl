@@ -33,7 +33,7 @@ function KnetPtr(nbytes::Integer)
     ptrs = get!(KnetPtrs,KnetFree,nbytes)
     if !isempty(ptrs.free)
         kp = KnetPtr(pop!(ptrs.free),nbytes)
-    elseif gpufree() > 10^9
+    elseif gpufree() > 10^8
         ptr = knetMalloc(nbytes)
         kp = KnetPtr(ptr,nbytes)
         ptrs.used += 1
@@ -146,7 +146,8 @@ function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Inte
         stream == nothing && (stream = null_stream)
         CUDArt.rt.cudaMemcpyAsync(pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest, src), stream)
     else
-        Base.unsafe_copy!(pointer(dest,doffs), pointer(src,soffs), n)
+        # Base.unsafe_copy!(pointer(dest,doffs), pointer(src,soffs), n)
+        error("GPU is inactive, please use gpu(true) or gpu(n) to use KnetArray.")
     end
     return dest
 end

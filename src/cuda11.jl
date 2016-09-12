@@ -25,6 +25,10 @@ cuda11 = [
 # "remainder",
 # "mod",
 # "fdim",
+("invxback","invxback","(-xi*yi*yi)"),
+("reluback","reluback","(yi>0?xi:0)"),
+("sigmback","sigmback","(xi*yi*(1-yi))"),
+("tanhback","tanhback","(xi*(1-yi*yi))"),
 ]
 
 # These are used in cuda12.jl as special cases of equal sized array,array ops.

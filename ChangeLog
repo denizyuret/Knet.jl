@@ -1,14 +1,25 @@
-2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
+	# need an efficient softmax, logsumexp.
+	## test on mnist --fast:
+	## cpu before: 2.75  gpu before: 2.25
+	## cpu after : 2.75  gpu after : 2.10
+	## test on charlm with 10k lines of shakespeare (one epoch time):
+	## gpu before: test: 2.32 train: 6.58
+	## gpu after : test: 2.33 train: 6.30
+	## test on lenet --fast:
+	## gpu before: 10.15  gpu after: 9.84 (mostly because of relu)
+	## after using 10^8 for knetgc limit: 9.30
 
 	* TODO8:
 	# charlm
 	## implemented maximum but AutoGrad.ungetindex failing tests
 	## loss results do not match Knet7 because of epsbump
-	## need an efficient softmax, logsumexp
-	## cpu=gpu tested but knet7=knet8 only forward up to epsbump
-	## need a good gradcheck to make sure
+	## cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
+	## need a good gradcheck to make sure, other TODO items in charlm.
+	## experiment with other forms of lstm, profile speed
+	# support multiple gpus with KnetArrays, turn gpu on by default if exists.
 	# write examples/README
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
@@ -19,6 +30,12 @@
 	# mnist2d: sampling gradcheck
 	# cpu convolution
 	# load/save using JLD: need to write KnetArray handlers.
+
+2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# charlm keepstate problem: state has Values so gc does not work unless we getval or reinit state between iterations!
+	# charlm loss problem: knet7!=knet8 because of epsbump.
 
 2016-09-06  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -3,7 +3,7 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 module Knet
 using AutoGrad
 importall Base
-export KnetArray, gpu, gpuinfo, knetgc, relu, sigm, grad
+export grad, KnetArray, gpu, gpuinfo, relu, sigm, invx, logp
 
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays

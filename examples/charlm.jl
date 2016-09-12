@@ -163,17 +163,18 @@ end
 # loss and modifies state in-place. # TODO: dropout
 function loss(w, x, state; range=1:length(x)-1)
     (h,c) = state
-    logp = 0.0; xcnt = 0
+    loss = 0.0; xcnt = 0
     for t in range
         xt = w[:W_embedding] * x[t] # 256,128
         (h,c) = lstm(w, xt, h, c)   # 256,128x2; 256,128x32gc
         ypred = w[:W_predict] * h .+ w[:b_predict] # 87,128 x2???
-        ypred = ypred .- maximum(ypred,1)
-        ynorm = ypred .- log(sum(exp(ypred),1))    # 87,128; 87,128x1gc; 128,1x2gc
-        logp += sum(x[t+1] .* ynorm) # 87,128x1gc
+        # ypred = ypred .- maximum(ypred,1)
+        # ynorm = ypred .- log(sum(exp(ypred),1))    # 87,128; 87,128x1gc; 128,1x2gc
+        ynorm = logp(ypred)
+        loss += sum(x[t+1] .* ynorm) # 87,128x1gc
         xcnt += size(ynorm,2)
     end
-    return -logp/xcnt
+    return -loss/xcnt
 end
 
 lossgradient = grad(loss)

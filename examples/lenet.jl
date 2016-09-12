@@ -29,11 +29,10 @@ function main(args=ARGS)
     global dtst = minibatch4(xtst, ytst, o[:batchsize])
     global w = weights()
 
-    println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-        println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     else
+        println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
@@ -54,17 +53,17 @@ function train(w, data; lr=.1, epochs=20, nxy=0)
     return w
 end
 
-function predict(w,x0)                         # 28,28,1,100
-    x1 = pool4(max(0, conv4(w[1],x0) .+ w[2])) # 12,12,20,100
-    x2 = pool4(max(0, conv4(w[3],x1) .+ w[4])) # 4,4,50,100
-    x2a = reshape(x2, (800,100))               # 800,100
-    x3 = max(0, w[5]*x2a .+ w[6])              # 500,100
-    x4 = w[7]*x3 .+ w[8]                       # 10,100
+function predict(w,x0)                       # 28,28,1,100
+    x1 = pool4(relu(conv4(w[1],x0) .+ w[2])) # 12,12,20,100
+    x2 = pool4(relu(conv4(w[3],x1) .+ w[4])) # 4,4,50,100
+    x2a = reshape(x2, (800,100))             # 800,100
+    x3 = relu(w[5]*x2a .+ w[6])              # 500,100
+    x4 = w[7]*x3 .+ w[8]                     # 10,100
 end
 
 function loss(w,x,ygold)
     ypred = predict(w,x)
-    ynorm = ypred .- log(sum(exp(ypred),1))
+    ynorm = logp(ypred)  # ypred .- log(sum(exp(ypred),1))
     -sum(ygold .* ynorm) / size(ygold,2)
 end
 

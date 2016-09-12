@@ -59,7 +59,7 @@ function predict(w,x)
     for i=1:2:length(w)
         x = w[i]*x .+ w[i+1]
         if i<length(w)-1
-            x = max(0,x)
+            x = relu(x) # max(0,x)
         end
     end
     return x
@@ -67,7 +67,7 @@ end
 
 function loss(w,x,ygold)
     ypred = predict(w,x)
-    ynorm = ypred .- log(sum(exp(ypred),1))
+    ynorm = logp(ypred) # ypred .- log(sum(exp(ypred),1))
     -sum(ygold .* ynorm) / size(ygold,2)
 end
 
