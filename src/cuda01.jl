@@ -21,6 +21,17 @@ cuda01 = [
 # "fdim",
 ]
 
+# ambiguity fixes:
+max{T<:Real}(a::KnetArray{T},s::Number)=max(T(s),a)
+max{T<:Real}(s::Number,a::KnetArray{T})=max(T(s),a)
+min{T<:Real}(a::KnetArray{T},s::Number)=min(T(s),a)
+min{T<:Real}(s::Number,a::KnetArray{T})=min(T(s),a)
+(+)(a::KnetArray{Bool},s::Bool)=(.+)(s,a)
+(+)(s::Bool,a::KnetArray{Bool})=(.+)(s,a)
+(-)(a::KnetArray{Bool},s::Bool)=(.+)(-s,a)
+(-)(s::Bool,a::KnetArray{Bool})=(.-)(s,a)
+.^(x::Base.Irrational{:e}, a::KnetArray)=.^(float(x),a)
+
 # For array,scalar we can get some for free:
 # Only type corrected number,array need implementing for basic arithmetic:
 (.+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
