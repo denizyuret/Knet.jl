@@ -295,6 +295,7 @@ end
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     @eval function knetfill!(a::KnetArray{$T},v::$T,I=1:length(a))
         ccall(($F,$libknet8),Void,(Cint,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
+        return a
     end
 end
 
