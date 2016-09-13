@@ -4,7 +4,7 @@
 	## support cat and sub with KnetArray.
 
 	* TODO8:
-	# lenet broken.
+	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
 	# charlm
 	## experiment with other forms of lstm, profile speed
 	# document KnetArray.

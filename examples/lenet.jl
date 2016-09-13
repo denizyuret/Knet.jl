@@ -184,9 +184,8 @@ end
 # CUDNN supports CudaArrays, here is a hack until we implement KnetArray support
 
 using Knet: KnetPtr
-Base.convert(::Type{CudaPtr}, p::KnetPtr)=CudaPtr(p.ptr)
-Base.convert{T,N}(::Type{CudaArray}, x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr(x.ptr), size(x), x.dev)
-
+## Base.convert(::Type{CudaPtr}, p::KnetPtr)=CudaPtr(p.ptr)
+Base.convert{T,N}(::Type{CudaArray}, x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr{T}(pointer(x)), size(x), x.ptr.dev)
 
 !isinteractive() && main(ARGS) # !isdefined(Core.Main,:load_only) && main(ARGS)
 

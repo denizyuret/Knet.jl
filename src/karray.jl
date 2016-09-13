@@ -105,7 +105,7 @@ meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
 ### KnetArray ###
 
 if !isdefined(:KnetArray)
-type KnetArray{T,N} <: AbstractArray{T,N}
+type KnetArray{T,N} #BUGGY? <: AbstractArray{T,N}
     ptr::KnetPtr
     dims::NTuple{N,Int}
 end
@@ -173,14 +173,14 @@ using Base: to_indexes, index_shape, _getindex, _setindex!, linearindexing
 
 function getindex{T}(A::KnetArray{T}, I::Real...)
     J = to_indexes(I...)
-    checkbounds(A,J...)
+    #TODO checkbounds(A,J...)
     i = sub2ind(size(A), J...)
     knetcopy!(T[0], 1, A, i, 1)[1]
 end
 
 function setindex!{T}(A::KnetArray{T}, v, I::Real...)
     J = to_indexes(I...)
-    checkbounds(A,J...)
+    #TODO checkbounds(A,J...)
     i = sub2ind(size(A), J...)
     knetcopy!(A, i, T[v], 1, 1)
 end
@@ -200,7 +200,7 @@ function setindex!{T}(A::KnetArray{T}, v, I::Colon)
 end
 
 function getindex{T}(A::KnetArray{T}, I::UnitRange)
-    checkbounds(A, I)
+    #TODO checkbounds(A, I)
     off = 1+(first(I)-1)*sizeof(T)
     len = sizeof(T)*length(I)
     ptr = KnetPtr(A.ptr, off, len)
@@ -245,7 +245,7 @@ end
 # multidimensional setindex as efficient as possible they would work.
 # Trying to minimize number of knetcopy! operations.
 function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2::Union{Real, UnitRange, Colon})
-    checkbounds(A, I1, I2)
+    #TODO checkbounds(A, I1, I2)
     isa(I1,Colon) && (I1=1:size(A,1)); L1 = length(I1)
     isa(I2,Colon) && (I2=1:size(A,2)); L2 = length(I2)
     lenB = L1*L2
@@ -345,3 +345,19 @@ if isdir(Pkg.dir("JLD"))
     readas(d::_KnetArray) = KnetArray(d.a)
 end
 
+# These are defined for AbstractArrays, so we can remove it eventually:
+Base.length(a::KnetArray)=prod(size(a))
+Base.ndims(a::KnetArray)=length(size(a))
+Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
+Base.eltype{T}(x::KnetArray{T})=T
+Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
+Base.summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
+Base.eachindex(a::KnetArray) = (1:length(a))
+import AutoGrad: sum_outgrads
+sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
+import Base:similar
+similar{T}(a::KnetArray{T})               = similar(a, T, size(a))
+similar(   a::KnetArray, T)               = similar(a, T, size(a))
+similar{T}(a::KnetArray{T}, dims::Dims)   = similar(a, T, dims)
+similar{T}(a::KnetArray{T}, dims::Int...) = similar(a, T, dims)
+similar(   a::KnetArray, T, dims::Int...) = similar(a, T, dims)
