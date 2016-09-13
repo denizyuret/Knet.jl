@@ -1,10 +1,11 @@
-2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO8:
-	# clean up old tags and register Knet
 	# charlm
-	## implemented maximum but AutoGrad.ungetindex failing tests
 	## experiment with other forms of lstm, profile speed
+	## support cat and sub with KnetArray.
+	# document KnetArray.
+	# clean up old tags and register Knet
 	# write examples/README
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
@@ -38,9 +39,9 @@
 	julia 0.5 autograd gpu: ok
 	julia 0.6 knet 0.7 cpu: error
 	julia 0.6 knet 0.7 gpu: error
-	julia 0.6 knet 0.8 cpu: warnings
-	julia 0.6 knet 0.8 gpu: warnings
-	julia 0.6 autograd cpu: error, wip compat0.6
+	julia 0.6 knet 0.8 cpu: ok
+	julia 0.6 knet 0.8 gpu: ok
+	julia 0.6 autograd cpu: error, wip compat0.6, 0-dim array problem
 	julia 0.6 autograd gpu: error, wip compat0.6
 
 	julia 0.6 knet 0.8 cpu:
@@ -103,6 +104,8 @@
 	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/src/compiler.jl:33
 	catastrophic failure of tests.
 
+2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
 	* DONE:
 	# mnist2d: sampling gradcheck
 	## need a good gradcheck to make sure, other TODO items in charlm.
@@ -129,6 +132,7 @@
 	## charlm:
 	# loss results do not match Knet7 because of epsbump
 	# cpu=gpu tested but knet7=knet8 only forward up to epsbump, knet8 dont have keepstate or gclip
+	## implemented maximum but AutoGrad.ungetindex failing tests
 
 
 2016-09-10  Deniz Yuret  <dyuret@ku.edu.tr>
