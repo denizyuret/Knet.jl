@@ -79,8 +79,8 @@ gpufree()=gpumem()[1]
 
 function gpuinfo(msg="")
     print("$msg ")
-    ptrs = isdefined(:CUDArt) ? (:cuda_ptrs,length(CUDArt.cuda_ptrs)) : ()
-    println((gpumem()...,meminfo()...,ptrs...))
+    # ptrs = isdefined(:CUDArt) ? (:cuda_ptrs,length(CUDArt.cuda_ptrs)) : ()
+    println((gpumem()...,meminfo()...))
 end
 
 function cublasCreate()

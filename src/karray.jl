@@ -185,14 +185,16 @@ function setindex!{T}(A::KnetArray{T}, v, I::Real...)
     knetcopy!(A, i, T[v], 1, 1)
 end
 
-getindex(A::KnetArray, ::Colon)=reshape(A,length(A))
+getindex(A::KnetArray, I::Colon)=reshape(A,length(A))
 
-function setindex!{T}(A::KnetArray{T}, v, ::Colon)
+function setindex!{T}(A::KnetArray{T}, v, I::Colon)
     if isa(v,Number)
-        knetfill!(A,T(v))
-    elseif (isa(v,KnetArray{T}) || isa(v,Array{T})) && (length(v)==length(A))
+        knetfill!(A,T(v),1,length(A))
+    elseif (isa(v,KnetArray) || isa(v,Array)) && (length(v)==length(A))
+        eltype(v)==T || (v = convert(Array{T},v))
         knetcopy!(A,1,v,1,length(A))
     else
+        @show (:setcolon,I)
         _setindex!(linearindexing(A), A, v, I)
     end
 end
@@ -207,10 +209,12 @@ end
 
 function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
     if isa(v,Number)
-        knetfill!(A,T(v),I)
-    elseif (isa(v,KnetArray{T}) || isa(v,Array{T})) && (length(v)==length(I))
+        knetfill!(A,T(v),first(I),length(I))
+    elseif (isa(v,KnetArray) || isa(v,Array)) && (length(v)==length(I))
+        eltype(v)==T || (v = convert(Array{T},v))
         knetcopy!(A,first(I),v,1,length(I))
     else
+        @show (:setunit,I)
         _setindex!(linearindexing(A), A, v, I)
     end
 end
@@ -237,13 +241,45 @@ function getindex{T}(A::KnetArray{T}, I::Union{Real, UnitRange, Colon}...)
     KnetArray{T,length(bsize)}(ptr, bsize)
 end
 
-# TODO:
 # cat,hcat,vcat are implemented in terms of setindex!.  If we can get
 # multidimensional setindex as efficient as possible they would work.
 # Trying to minimize number of knetcopy! operations.
-function setindex!{T}(A::KnetArray{T}, B, I::Union{Real, UnitRange, Colon}...)
-    # @show I
-    _setindex!(linearindexing(A),A,B,I...)
+function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2::Union{Real, UnitRange, Colon})
+    checkbounds(A, I1, I2)
+    isa(I1,Colon) && (I1=1:size(A,1)); L1 = length(I1)
+    isa(I2,Colon) && (I2=1:size(A,2)); L2 = length(I2)
+    lenB = L1*L2
+    if isa(B,Number)
+        B = T(B)
+    elseif isa(B,KnetArray) || isa(B,Array)
+        length(B)==lenB || throw(DimensionMismatch())
+        eltype(B)==T || (B=convert(Array{T},B))
+        cdir = cudadir(A,B)
+    end
+    if L1 == size(A,1)
+        # first dimension is full, we can do a single knetcopy!
+        offA = 1+(first(I2)-1)*size(A,1)
+        if isa(B, Number)
+            knetfill!(A,T(B),offA,lenB)
+        else
+            @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+                    pointer(A,offA), pointer(B,1), lenB*sizeof(T), cdir, C_NULL)
+        end
+    else
+        offB = 1
+        i1 = first(I1)
+        for i2 in I2
+            offA = sub2ind(size(A), i1, i2)
+            if isa(B, Number)
+                knetfill!(A,T(B),offA,L1)
+            else
+                @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+                        pointer(A,offA), pointer(B,offB), L1*sizeof(T), cdir, C_NULL)
+                offB += L1
+            end
+        end
+    end
+    return A
 end
 
 # hcat(v,v): I = (Colon(),1:1) I = (Colon(),2:2)
@@ -253,10 +289,10 @@ end
 
 
 # DBG: see if we miss anything:
-# function setindex!{T}(A::KnetArray{T}, v, I...)
-#     @show I
-#     _setindex!(linearindexing(A),A,v,I...)
-# end
+function setindex!{T}(A::KnetArray{T}, v, I...)
+    @show (:setindex,I)
+    _setindex!(linearindexing(A),A,v,I...)
+end
 
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
@@ -271,7 +307,6 @@ function knetcopy!{T}(dest::Kcopy{T}, doffs::Integer, src::Kcopy{T}, soffs::Inte
         throw(BoundsError())
     end
     if (isa(src,KnetArray) && src.ptr.dev >= 0) || (isa(dest,KnetArray) && dest.ptr.dev >= 0)
-        # TODO: does this copy between devices?
         @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
                 pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest, src), stream)
     else
@@ -293,15 +328,14 @@ function cudadir(a,b)
 end
 
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
-    @eval function knetfill!(a::KnetArray{$T},v::$T,I=1:length(a))
-        ccall(($F,$libknet8),Void,(Cint,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
-        return a
+    @eval function knetfill!(a::KnetArray{$T},v::$T,off,len)
+        ccall(($F,$libknet8),Void,(Cint,$T,Ptr{$T}),len,v,pointer(a,off))
     end
 end
 
-zeros{T}(a::KnetArray{T})=knetfill!(similar(a),zero(T))
-ones{T}(a::KnetArray{T})=knetfill!(similar(a),one(T))
-fill!{T}(a::KnetArray{T},x)=knetfill!(a,T(x))
+Base.fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
+Base.zeros{T}(a::KnetArray{T})=fill!(similar(a),zero(T))
+Base.ones{T}(a::KnetArray{T})=fill!(similar(a),one(T))
 
 # To be able to load/save KnetArrays:
 if isdir(Pkg.dir("JLD"))

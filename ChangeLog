@@ -1,9 +1,12 @@
 2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* DONE:
+	## support cat and sub with KnetArray.
+
 	* TODO8:
+	# lenet broken.
 	# charlm
 	## experiment with other forms of lstm, profile speed
-	## support cat and sub with KnetArray.
 	# document KnetArray.
 	# clean up old tags and register Knet
 	# write examples/README
