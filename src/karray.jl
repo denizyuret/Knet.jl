@@ -128,6 +128,7 @@ Base.convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray
 Base.convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},knetcopy!(Array(S, size(x)), 1, x, 1, length(x)))
 Base.similar(a::KnetArray, T, dims::Dims) = KnetArray(T, dims)
 Base.reshape{T}(a::KnetArray{T},dims::Dims)=(if dims==size(a); a; elseif prod(dims)!=length(a); throw(DimensionMismatch()); else; KnetArray{T,length(dims)}(a.ptr,dims); end)
+Base.reshape(a::KnetArray, dims::Int...) = reshape(a, dims)
 # KnetArray <- AbstractArray
 Base.convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
 Base.convert{T,N,S}(::Type{KnetArray{T}}, x::AbstractArray{S,N}) = convert(KnetArray{T,N}, x)
@@ -221,13 +222,98 @@ function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
     end
 end
 
+# TODO: the general getindex, setindex! work for 1 and 2 dimensions only, write general versions.
+function indexparams{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
+    N > 2 && error("setindex for ndims > 2 not implemented yet")
+    skipped = false
+    nrows = nelts = 1
+    subs1 = ones(Int,2)
+    astep = length(A)
+    for i=1:length(I)
+        Ii = I[i]
+        subs1[i] = first(Ii)
+        Ai = size(A,i)
+        if isa(Ii, Colon)
+            Li = Ai
+        elseif isa(Ii, Real)
+            1 <= Ii <= Ai || throw(DimensionMismatch())
+            Li = 1
+        else
+            1 <= first(Ii) <= last(Ii) <= Ai || throw(DimensionMismatch())
+            Li = length(Ii)
+        end
+        nelts *= Li
+        if !skipped
+            nrows *= Li
+            if Li < Ai
+                skipped = true
+                astep = stride(A,i+1)
+            end
+        end
+    end
+    ncols = div(nelts, nrows)
+    firstindex = sub2ind(size(A),subs1...)
+    return (nelts,nrows,ncols,firstindex,astep)
+end
+
+function setindex!{T,N}(A::KnetArray{T,N}, B, I::Union{Real, UnitRange, Colon}...)
+    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
+    aptr0 = pointer(A, firstindex)
+    if isa(B,Number)
+        B = T(B)
+        if ncols == 1
+            if T <: Float32;    ccall((:fill_32,libknet8),Void,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
+            elseif T<: Float64; ccall((:fill_64,libknet8),Void,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
+            else error("$T not supported"); end
+        else
+            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
+            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
+            else error("$T not supported"); end
+        end
+    else
+        length(B) == nelts || throw(DimensionMismatch())
+        B = convert(KnetArray{T},B)
+        if ncols == 1
+            @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+                    aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
+        else
+            nrows *= sizeof(T); astep *= sizeof(T)
+            ccall((:xcopy,libknet8),Void,(Cint,Cint,Ptr{Void},Cint,Ptr{Void},Cint), nrows, ncols, B, nrows, aptr0, astep)
+        end
+    end
+    return A
+end
+
+function getindex{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
+    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
+    B1 = isa(I[1],Colon) ? size(A,1) : length(I[1])
+    B2 = isa(I[2],Colon) ? size(A,2) : length(I[2])
+    if ncols == 1
+        off = 1+(firstindex-1)*sizeof(T)
+        len = nrows*sizeof(T)
+        ptr = KnetPtr(A.ptr, off, len)
+        KnetArray{T,2}(ptr, (B1,B2))
+    else
+        B = similar(A, (B1,B2))
+        nrows *= sizeof(T); astep *= sizeof(T)
+        ccall((:xcopy,libknet8),Void,(Cint,Cint,Ptr{Void},Cint,Ptr{Void},Cint),
+              nrows, ncols, pointer(A,firstindex), astep, B, nrows)
+        return B
+    end
+end
+
 # If I is contiguous return a shared pointer, otherwise call Julia getindex.
-function getindex{T}(A::KnetArray{T}, I::Union{Real, UnitRange, Colon}...)
+function getindex1{T}(A::KnetArray{T}, I::Union{Real, UnitRange, Colon}...)
     asize = size(A)
-    bsize = index_shape(A, I...)
+    bsize = zeros(Int,length(I))
     bstart = 1
     for i in 1:length(asize)
-        if i <= length(bsize); bi = bsize[i]; else; bi = 1; end
+        if i <= length(bsize)
+            if I[i]==(:); bi=size(A,i); else; bi=length(I[i]); end
+            bsize[i] = bi
+        else
+            bi = 1
+        end
         if bi < asize[i]
             if prod(asize[i+1:end]) > 1
                 return _getindex(linearindexing(A), A, I...)
@@ -241,42 +327,6 @@ function getindex{T}(A::KnetArray{T}, I::Union{Real, UnitRange, Colon}...)
     len = prod(bsize)*sizeof(T)
     ptr = KnetPtr(A.ptr, off, len)
     KnetArray{T,length(bsize)}(ptr, bsize)
-end
-
-# TODO: setindex! for general arrays, the following only works for matrices.
-function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2::Union{Real, UnitRange, Colon})
-    #TODO checkbounds(A, I1, I2)
-    isa(I1,Colon) && (I1=1:size(A,1)); L1 = length(I1)
-    isa(I2,Colon) && (I2=1:size(A,2)); L2 = length(I2)
-    lenB = L1*L2
-    if isa(B,Number)
-        B = T(B)
-    else
-        length(B)==lenB || throw(DimensionMismatch())
-        B=convert(KnetArray{T},B)
-    end
-    if L1 == size(A,1)
-        # first dimension is full, we can do a single knetcopy!
-        offA = 1+(first(I2)-1)*size(A,1)
-        if isa(B, Number)
-            knetfill!(A,T(B),offA,lenB)
-        else
-            @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
-                    pointer(A,offA), pointer(B,1), lenB*sizeof(T), cudadir(A,B), C_NULL)
-        end
-    else
-        offA = sub2ind(size(A), first(I1), first(I2))
-        if isa(B, Number)
-            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cint,Cint,Cfloat, Ptr{Cfloat}), lenB,L1,offA-1,size(A,1),B,A)
-            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cint,Cint,Cdouble,Ptr{Cdouble}),lenB,L1,offA-1,size(A,1),B,A)
-            else error("$T not supported"); end
-        else
-            st = sizeof(T)
-            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cint,Cint,Ptr{Void},Ptr{Void}),
-                  lenB*st,L1*st,(offA-1)*st,size(A,1)*st,B,A)
-        end            
-    end
-    return A
 end
 
 # hcat(v,v): I = (Colon(),1:1) I = (Colon(),2:2)
@@ -329,6 +379,13 @@ function vcat{T}(a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
     c[1:size(a,1),:] = a
     c[1+size(a,1):end,:] = b
     return c
+end
+
+function cat{T}(d, a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
+    if     d==1; vcat(a,b)
+    elseif d==2; hcat(a,b)
+    else error("cat($d) not implemented.")
+    end
 end
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:

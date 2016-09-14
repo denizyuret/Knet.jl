@@ -188,8 +188,31 @@ end
 
 lossgradient = grad(loss)
 
-# TODO: implement vcat for KnetArray and try various concat versions for efficiency.
+
 function lstm(w, input, hidden, cell)
+    x = vcat(input, hidden)
+    ingate  = sigm(w[:W_ingate]  * x .+ w[:b_ingate])
+    forget  = sigm(w[:W_forget]  * x .+ w[:b_forget])
+    outgate = sigm(w[:W_outgate] * x .+ w[:b_outgate])
+    change  = tanh(w[:W_change]  * x .+ w[:b_change])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    return hidden, cell
+end
+
+function weights(vocabsize,hiddensize,embedsize)
+    w = Dict()
+    for gate in (:ingate, :forget, :outgate, :change)
+        w[Symbol("W_$gate")] = xavier(hiddensize, embedsize+hiddensize)
+        w[Symbol("b_$gate")] = (gate == :forget ? ones : zeros)(hiddensize, 1)
+    end
+    w[:W_embedding] = xavier(embedsize, vocabsize)
+    w[:W_predict]   = xavier(vocabsize, hiddensize)
+    w[:b_predict]   = zeros(vocabsize, 1)
+    return w
+end
+
+function lstm1(w, input, hidden, cell)
     ingate  = sigm(w[:Wx_ingate]  * input .+ w[:Wh_ingate] * hidden .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
     forget  = sigm(w[:Wx_forget]  * input .+ w[:Wh_forget] * hidden .+ w[:b_forget]) # then use indexing, or (better) subarrays to get individual gates
     outgate = sigm(w[:Wx_outgate] * input .+ w[:Wh_outgate] * hidden .+ w[:b_outgate])
@@ -199,9 +222,7 @@ function lstm(w, input, hidden, cell)
     return hidden, cell
 end
 
-initstate(h,b)=Any[zeros(h,b), zeros(h,b)]
-
-function weights(vocabsize,hiddensize,embedsize)
+function weights1(vocabsize,hiddensize,embedsize)
     w = Dict()
     for gate in (:ingate, :forget, :outgate, :change)
         w[Symbol("Wx_$gate")] = xavier(hiddensize, embedsize)
@@ -213,6 +234,8 @@ function weights(vocabsize,hiddensize,embedsize)
     w[:b_predict]   = zeros(vocabsize, 1)
     return w
 end
+
+# TODO: Do we really need xavier?
 
 function xavier(a...)
     w = rand(a...)
@@ -290,6 +313,22 @@ end
 !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end  # module
+
+
+# SAMPLE RUN 80503e7+ Wed Sep 14 17:35:36 EEST 2016: using vcat
+#
+# charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
+# opts=(:keepstate,false)(:lr,1.0)(:atype,"KnetArray{Float32}")(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:embedding,256)(:gclip,5.0)(:hidden,256)(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
+# INFO: Chars read: [("10.txt",425808)]
+# INFO: 87 unique chars.
+#   1.930180 seconds (1.95 M allocations: 213.741 MB, 1.82% gc time)
+# (:epoch,0,:loss,4.462641664662756)
+#   4.968101 seconds (7.47 M allocations: 454.259 MB, 2.24% gc time)
+#   4.963733 seconds (7.47 M allocations: 454.363 MB, 2.26% gc time)
+#   4.967413 seconds (7.45 M allocations: 454.024 MB, 2.14% gc time)
+#   1.945658 seconds (1.98 M allocations: 214.183 MB, 2.02% gc time)
+# (:epoch,3,:loss,3.2389672966290237)
+
 
 # SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
 #

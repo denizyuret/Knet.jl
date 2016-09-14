@@ -46,22 +46,6 @@ extern "C" {
     _fill_$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
-__global__ void _xfill_$F(int xlen, int xrows, int yidx0, int yrows, $T x, $T *y) {
-  int xrow, xcol, yidx;
-  int xidx = threadIdx.x + blockIdx.x * blockDim.x;
-  while (xidx < xlen) {
-    xrow = xidx % xrows;
-    xcol = xidx / xrows;
-    yidx = yidx0 + yrows * xcol + xrow;
-    y[yidx] = x;
-    xidx += blockDim.x * gridDim.x;
-  }
-}
-extern "C" {
-  void xfill_$F(int xlen, int xrows, int yidx0, int yrows, $T x, $T *y) {
-    _xfill_$F<<<$BLK,$THR>>>(xlen,xrows,yidx0,yrows,x,y);
-  }    
-}
 """)
         end
     end
@@ -69,26 +53,57 @@ end
 
 print(cuda1fill())
 
-# copy x into a particular position in y
-function cuda1copy(; BLK=256, THR=256)
+function cuda1xfill(; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","32"),("double","64")]
+            print(s,
 """
-__global__ void _xcopy(int xlen, int xrows, int yidx0, int yrows, const char *x, char *y) {
-  int xrow, xcol, yidx;
-  int xidx = threadIdx.x + blockIdx.x * blockDim.x;
-  while (xidx < xlen) {
-    xrow = xidx % xrows;
-    xcol = xidx / xrows;
-    yidx = yidx0 + yrows * xcol + xrow;
-    y[yidx] = x[xidx];
-    xidx += blockDim.x * gridDim.x;
+__global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
+  int row, col, yidx;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = i % nrows;
+    col = i / nrows;
+    if (col >= ncols) break;
+    yidx = row + col * incy;
+    y[yidx] = x;
+    i += blockDim.x * gridDim.x;
   }
 }
 extern "C" {
-  void xcopy(int xlen, int xrows, int yidx0, int yrows, const void *x, void *y) {
-    _xcopy<<<$BLK,$THR>>>(xlen,xrows,yidx0,yrows,(char*)x,(char*)y);
+  void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
+    _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
+  }    
+}
+""")
+        end
+    end
+end
+
+print(cuda1xfill())
+
+# copy a block from x into y
+function cuda1xcopy(; BLK=256, THR=256)
+"""
+__global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, int incy) {
+  int row, col, xidx, yidx;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = i % nrows;
+    col = i / nrows;
+    if (col >= ncols) break;
+    xidx = row + col * incx;
+    yidx = row + col * incy;
+    y[yidx] = x[xidx];
+    i += blockDim.x * gridDim.x;
+  }
+}
+extern "C" {
+  void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
+    _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }    
 }
 """
 end
 
-print(cuda1copy())
+print(cuda1xcopy())
