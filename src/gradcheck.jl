@@ -69,7 +69,7 @@ gc_indices(w::Tuple)=(1:length(w))
 function gc_interval(w,d)
     w1=w-d/2
     w2=w+d/2
-    sign(w1)==sign(w)||(w1=zero(w))
-    sign(w2)==sign(w)||(w2=zero(w))
+    (w1 < 0 < w) && (w1=zero(w))
+    (w2 > 0 > w) && (w2=zero(w))
     return (w1,w2)
 end
