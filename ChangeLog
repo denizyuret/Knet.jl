@@ -3,11 +3,12 @@
 	* DONE:
 	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
 	# charlm: slowed down
+	# charlm: experiment with other forms of lstm
+	# try cpu sum and vcat see if better.
+	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
+	# charlm: optimize params
 
 	* TODO8:
-	# charlm: experiment with other forms of lstm, profile speed
-	# karray: checkbounds without abstractarray.
-	# try cpu sum and vcat see if better.
 	# lenet: move cudnn calls to cuda44.jl
 	# remove importall Base.
 	# document KnetArray.
@@ -21,7 +22,8 @@
 	# mnist2d: sparse arrays
 	# cpu convolution
 	# implement axpy! for KnetArray if it is worth it to get faster updates.
-	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
+	# charlm: profile speed
+	# karray: checkbounds without abstractarray.
 
 	* Release:
 

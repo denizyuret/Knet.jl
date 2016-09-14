@@ -454,8 +454,11 @@ Base.similar(   a::KnetArray, T)               = similar(a, T, size(a))
 Base.similar{T}(a::KnetArray{T}, dims::Dims)   = similar(a, T, dims)
 Base.similar{T}(a::KnetArray{T}, dims::Int...) = similar(a, T, dims)
 Base.similar(   a::KnetArray, T, dims::Int...) = similar(a, T, dims)
-AutoGrad.sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 
+import AutoGrad: zeroslike, sum_outgrads, OneHot
+zeroslike(a::KnetArray)=zeros(a)
+sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
+sum_outgrads(a::KnetArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
 
 # For printing without copying the whole KnetArray and without inheriting AbstractArray:
 type KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end

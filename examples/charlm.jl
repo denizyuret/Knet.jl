@@ -53,8 +53,9 @@ function main(args=ARGS)
         ("--batchsize"; arg_type=Int; default=128; help="Number of sequences to train on in parallel.")
         ("--seqlength"; arg_type=Int; default=100; help="Number of steps to unroll the network for.")
         ("--decay"; arg_type=Float64; default=0.9; help="Learning rate decay.")
-        ("--lr"; arg_type=Float64; default=1.0; help="Initial learning rate.")
-        ("--gclip"; arg_type=Float64; default=5.0; help="Value to clip the gradient norm at.")
+        ("--lr"; arg_type=Float64; default=4.0; help="Initial learning rate.")
+        ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
+        ("--winit"; arg_type=Float64; default=0.3; help="Initial weights set to winit*randn().")
         ("--keepstate"; action=:store_true; help="Keep state between iterations.")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
@@ -86,7 +87,7 @@ function main(args=ARGS)
     if o[:loadfile]==nothing
         vocab = Dict{Char,Int}()
         for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
-        model = weights(length(vocab), o[:hidden], o[:embedding])
+        model = weights(length(vocab), o[:hidden], o[:embedding], o[:winit])
     else
         info("Loading model from $(o[:loadfile])")
         vocab = load(o[:loadfile], "vocab") 
@@ -190,69 +191,27 @@ lossgradient = grad(loss)
 
 
 function lstm(w, input, hidden, cell)
+    h = size(hidden, 1)
     x = vcat(input, hidden)
-    ingate  = sigm(w[:W_ingate]  * x .+ w[:b_ingate])
-    forget  = sigm(w[:W_forget]  * x .+ w[:b_forget])
-    outgate = sigm(w[:W_outgate] * x .+ w[:b_outgate])
-    change  = tanh(w[:W_change]  * x .+ w[:b_change])
+    g = w[:W_gates] * x .+ w[:b_gates]
+    forget  = sigm(g[1:h,:])
+    ingate  = sigm(g[1+h:2h,:])
+    outgate = sigm(g[1+2h:3h,:])
+    change  = tanh(g[1+3h:end,:])
     cell    = cell .* forget + ingate .* change
     hidden  = outgate .* tanh(cell)
     return hidden, cell
 end
 
-function weights(vocabsize,hiddensize,embedsize)
+function weights(vocabsize,hiddensize,embedsize,winit)
     w = Dict()
-    for gate in (:ingate, :forget, :outgate, :change)
-        w[Symbol("W_$gate")] = xavier(hiddensize, embedsize+hiddensize)
-        w[Symbol("b_$gate")] = (gate == :forget ? ones : zeros)(hiddensize, 1)
-    end
-    w[:W_embedding] = xavier(embedsize, vocabsize)
-    w[:W_predict]   = xavier(vocabsize, hiddensize)
+    w[:W_gates] = winit*randn(4*hiddensize, embedsize+hiddensize)
+    w[:b_gates] = zeros(4*hiddensize,1)
+    w[:b_gates][1:hiddensize] = 1
+    w[:W_embedding] = winit*randn(embedsize, vocabsize)
+    w[:W_predict]   = winit*randn(vocabsize, hiddensize)
     w[:b_predict]   = zeros(vocabsize, 1)
     return w
-end
-
-function lstm1(w, input, hidden, cell)
-    ingate  = sigm(w[:Wx_ingate]  * input .+ w[:Wh_ingate] * hidden .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
-    forget  = sigm(w[:Wx_forget]  * input .+ w[:Wh_forget] * hidden .+ w[:b_forget]) # then use indexing, or (better) subarrays to get individual gates
-    outgate = sigm(w[:Wx_outgate] * input .+ w[:Wh_outgate] * hidden .+ w[:b_outgate])
-    change  = tanh(w[:Wx_change]  * input .+ w[:Wh_change] * hidden .+ w[:b_change])
-    cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
-    return hidden, cell
-end
-
-function weights1(vocabsize,hiddensize,embedsize)
-    w = Dict()
-    for gate in (:ingate, :forget, :outgate, :change)
-        w[Symbol("Wx_$gate")] = xavier(hiddensize, embedsize)
-        w[Symbol("Wh_$gate")] = xavier(hiddensize, hiddensize)
-        w[Symbol("b_$gate")] = (gate == :forget ? ones : zeros)(hiddensize, 1)
-    end
-    w[:W_embedding] = xavier(embedsize, vocabsize)
-    w[:W_predict]   = xavier(vocabsize, hiddensize)
-    w[:b_predict]   = zeros(vocabsize, 1)
-    return w
-end
-
-# TODO: Do we really need xavier?
-
-function xavier(a...)
-    w = rand(a...)
-     # The old implementation was not right for fully connected layers:
-     # (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
-    if ndims(w) < 2
-        error("ndims=$(ndims(w)) in xavier")
-    elseif ndims(w) == 2
-        fanout = size(w,1)
-        fanin = size(w,2)
-    else
-        fanout = size(w, ndims(w)) # Caffe disagrees: http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details
-        fanin = div(length(w), fanout)
-    end
-    # See: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
-    s = sqrt(2 / (fanin + fanout))
-    w = 2s*w-s
 end
 
 function generate(model, vocab, nchar)
@@ -315,7 +274,48 @@ end
 end  # module
 
 
-# SAMPLE RUN 80503e7+ Wed Sep 14 17:35:36 EEST 2016: using vcat
+
+### SAMPLE RUN 31136d5+ Wed Sep 14 17:51:44 EEST 2016: using vcat(x,h) and vcat(w...)
+### optimized learning parameters: winit=0.3, lr=4.0, gclip=3.0
+
+# charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
+# opts=(:keepstate,false)(:lr,4.0)(:atype,"KnetArray{Float32}")(:winit,0.3)(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:gclip,3.0)(:embedding,256)(:hidden,256)(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
+# INFO: Chars read: [("10.txt",425808)]
+# INFO: 87 unique chars.
+#   1.596959 seconds (1.79 M allocations: 197.432 MB, 2.56% gc time)
+# (:epoch,0,:loss,5.541976199042528)
+#   4.421566 seconds (6.23 M allocations: 375.843 MB, 2.54% gc time)
+#   4.418540 seconds (6.25 M allocations: 376.058 MB, 2.51% gc time)
+#   4.402317 seconds (6.26 M allocations: 376.297 MB, 2.66% gc time)
+#   1.594677 seconds (1.81 M allocations: 197.737 MB, 2.64% gc time)
+# (:epoch,3,:loss,1.8484550957572192)
+
+# function lstm(w, input, hidden, cell)
+#     h = size(hidden, 1)
+#     x = vcat(input, hidden)
+#     g = w[:W_gates] * x .+ w[:b_gates]
+#     forget  = sigm(g[1:h,:])
+#     ingate  = sigm(g[1+h:2h,:])
+#     outgate = sigm(g[1+2h:3h,:])
+#     change  = tanh(g[1+3h:end,:])
+#     cell    = cell .* forget + ingate .* change
+#     hidden  = outgate .* tanh(cell)
+#     return hidden, cell
+# end
+
+# function weights(vocabsize,hiddensize,embedsize)
+#     w = Dict()
+#     w[:W_gates] = xavier(4*hiddensize, embedsize+hiddensize)
+#     w[:b_gates] = zeros(4*hiddensize,1)
+#     w[:b_gates][1:hiddensize] = 1
+#     w[:W_embedding] = xavier(embedsize, vocabsize)
+#     w[:W_predict]   = xavier(vocabsize, hiddensize)
+#     w[:b_predict]   = zeros(vocabsize, 1)
+#     return w
+# end
+
+
+### SAMPLE RUN 80503e7+ Wed Sep 14 17:35:36 EEST 2016: using vcat(x,h)
 #
 # charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
 # opts=(:keepstate,false)(:lr,1.0)(:atype,"KnetArray{Float32}")(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:embedding,256)(:gclip,5.0)(:hidden,256)(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
@@ -329,8 +329,31 @@ end  # module
 #   1.945658 seconds (1.98 M allocations: 214.183 MB, 2.02% gc time)
 # (:epoch,3,:loss,3.2389672966290237)
 
+# function lstm(w, input, hidden, cell)
+#     x = vcat(input, hidden)
+#     ingate  = sigm(w[:W_ingate]  * x .+ w[:b_ingate])
+#     forget  = sigm(w[:W_forget]  * x .+ w[:b_forget])
+#     outgate = sigm(w[:W_outgate] * x .+ w[:b_outgate])
+#     change  = tanh(w[:W_change]  * x .+ w[:b_change])
+#     cell    = cell .* forget + ingate .* change
+#     hidden  = outgate .* tanh(cell)
+#     return hidden, cell
+# end
 
-# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
+# function weights(vocabsize,hiddensize,embedsize)
+#     w = Dict()
+#     for gate in (:ingate, :forget, :outgate, :change)
+#         w[Symbol("W_$gate")] = xavier(hiddensize, embedsize+hiddensize)
+#         w[Symbol("b_$gate")] = (gate == :forget ? ones : zeros)(hiddensize, 1)
+#     end
+#     w[:W_embedding] = xavier(embedsize, vocabsize)
+#     w[:W_predict]   = xavier(vocabsize, hiddensize)
+#     w[:b_predict]   = zeros(vocabsize, 1)
+#     return w
+# end
+
+
+### SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016: separate x, h, w, b
 #
 # charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
 # opts=(:keepstate,false)(:lr,1.0)(:atype,"KnetArray{Float32}")(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:embedding,256)(:gclip,5.0)(:hidden,256)(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
@@ -343,6 +366,29 @@ end  # module
 #   6.277462 seconds (9.54 M allocations: 574.637 MB, 2.86% gc time)
 #   2.165516 seconds (2.34 M allocations: 238.323 MB, 2.56% gc time)
 # (:epoch,3,:loss,3.226540256084356)
+
+# function lstm(w, input, hidden, cell)
+#     ingate  = sigm(w[:Wx_ingate]  * input .+ w[:Wh_ingate] * hidden .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
+#     forget  = sigm(w[:Wx_forget]  * input .+ w[:Wh_forget] * hidden .+ w[:b_forget]) # then use indexing, or (better) subarrays to get individual gates
+#     outgate = sigm(w[:Wx_outgate] * input .+ w[:Wh_outgate] * hidden .+ w[:b_outgate])
+#     change  = tanh(w[:Wx_change]  * input .+ w[:Wh_change] * hidden .+ w[:b_change])
+#     cell    = cell .* forget + ingate .* change
+#     hidden  = outgate .* tanh(cell)
+#     return hidden, cell
+# end
+
+# function weights(vocabsize,hiddensize,embedsize)
+#     w = Dict()
+#     for gate in (:ingate, :forget, :outgate, :change)
+#         w[Symbol("Wx_$gate")] = xavier(hiddensize, embedsize)
+#         w[Symbol("Wh_$gate")] = xavier(hiddensize, hiddensize)
+#         w[Symbol("b_$gate")] = (gate == :forget ? ones : zeros)(hiddensize, 1)
+#     end
+#     w[:W_embedding] = xavier(embedsize, vocabsize)
+#     w[:W_predict]   = xavier(vocabsize, hiddensize)
+#     w[:b_predict]   = zeros(vocabsize, 1)
+#     return w
+# end
 
 
 ### SAMPLE OUTPUT (with head -10000 100.txt):
@@ -360,3 +406,4 @@ end  # module
 #   2.352389 seconds (2.34 M allocations: 239.381 MB, 1.51% gc time)
 #   6.211946 seconds (9.55 M allocations: 575.568 MB, 2.21% gc time)
 # (3,3.226540256084356)
+
