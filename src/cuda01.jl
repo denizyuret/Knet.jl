@@ -22,10 +22,14 @@ cuda01 = [
 ]
 
 # ambiguity fixes:
-max{T<:Real}(a::KnetArray{T},s::Number)=max(T(s),a)
-max{T<:Real}(s::Number,a::KnetArray{T})=max(T(s),a)
-min{T<:Real}(a::KnetArray{T},s::Number)=min(T(s),a)
-min{T<:Real}(s::Number,a::KnetArray{T})=min(T(s),a)
+max{T<:Real,S<:Real}(a::KnetArray{T},s::S)=max(T(s),a)
+max{T<:Real,S<:Real}(s::S,a::KnetArray{T})=max(T(s),a)
+min{T<:Real,S<:Real}(a::KnetArray{T},s::S)=min(T(s),a)
+min{T<:Real,S<:Real}(s::S,a::KnetArray{T})=min(T(s),a)
+max{T<:Real,S<:Number}(a::KnetArray{T},s::S)=max(T(s),a)
+max{T<:Real,S<:Number}(s::S,a::KnetArray{T})=max(T(s),a)
+min{T<:Real,S<:Number}(a::KnetArray{T},s::S)=min(T(s),a)
+min{T<:Real,S<:Number}(s::S,a::KnetArray{T})=min(T(s),a)
 (+)(a::KnetArray{Bool},s::Bool)=(.+)(s,a)
 (+)(s::Bool,a::KnetArray{Bool})=(.+)(s,a)
 (-)(a::KnetArray{Bool},s::Bool)=(.+)(-s,a)

@@ -105,7 +105,7 @@ meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
 ### KnetArray ###
 
 if !isdefined(:KnetArray)
-type KnetArray{T,N} #BUGGY? <: AbstractArray{T,N}
+type KnetArray{T,N} # <: AbstractArray{T,N} # Never know when we'll inherit some inefficient fallback...
     ptr::KnetPtr
     dims::NTuple{N,Int}
 end
@@ -288,11 +288,11 @@ end
 # vcat(m,m): I = (1:3,Colon()) I = (4:6,Colon())
 
 
-# DBG: see if we miss anything:
-function setindex!{T}(A::KnetArray{T}, v, I...)
-    @show (:setindex,I)
-    _setindex!(linearindexing(A),A,v,I...)
-end
+# see if we miss anything:
+# function setindex!{T}(A::KnetArray{T}, v, I...)
+#     @show (:setindex,I)
+#     _setindex!(linearindexing(A),A,v,I...)
+# end
 
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
@@ -345,7 +345,7 @@ if isdir(Pkg.dir("JLD"))
     readas(d::_KnetArray) = KnetArray(d.a)
 end
 
-# These are defined for AbstractArrays, so we can remove it eventually:
+# These are defined for AbstractArrays, so we can remove them eventually:
 Base.length(a::KnetArray)=prod(size(a))
 Base.ndims(a::KnetArray)=length(size(a))
 Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
@@ -353,11 +353,9 @@ Base.eltype{T}(x::KnetArray{T})=T
 Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
 Base.summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 Base.eachindex(a::KnetArray) = (1:length(a))
-import AutoGrad: sum_outgrads
-sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
-import Base:similar
-similar{T}(a::KnetArray{T})               = similar(a, T, size(a))
-similar(   a::KnetArray, T)               = similar(a, T, size(a))
-similar{T}(a::KnetArray{T}, dims::Dims)   = similar(a, T, dims)
-similar{T}(a::KnetArray{T}, dims::Int...) = similar(a, T, dims)
-similar(   a::KnetArray, T, dims::Int...) = similar(a, T, dims)
+Base.similar{T}(a::KnetArray{T})               = similar(a, T, size(a))
+Base.similar(   a::KnetArray, T)               = similar(a, T, size(a))
+Base.similar{T}(a::KnetArray{T}, dims::Dims)   = similar(a, T, dims)
+Base.similar{T}(a::KnetArray{T}, dims::Int...) = similar(a, T, dims)
+Base.similar(   a::KnetArray, T, dims::Int...) = similar(a, T, dims)
+AutoGrad.sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)

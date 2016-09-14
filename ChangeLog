@@ -1,12 +1,14 @@
-2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-14  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	## support cat and sub with KnetArray.
+	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
 
 	* TODO8:
-	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
-	# charlm
-	## experiment with other forms of lstm, profile speed
+	# karray: checkbounds without abstractarray.
+	# lenet: move cudnn calls to cuda44.jl
+	# charlm: slowed down
+	# remove importall Base.
+	# charlm: experiment with other forms of lstm, profile speed
 	# document KnetArray.
 	# clean up old tags and register Knet
 	# write examples/README
@@ -106,6 +108,11 @@
 	WARNING: symbol is deprecated, use Symbol instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/examples/linreg.jl:25
 	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/src/compiler.jl:33
 	catastrophic failure of tests.
+
+2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	## support cat and sub with KnetArray.
 
 2016-09-12  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -18,7 +18,6 @@ module Housing
 using Knet,ArgParse
 
 function main(args=ARGS)
-    global w, dtrn, dtst
     s = ArgParseSettings()
     s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
 Repository."
@@ -31,6 +30,7 @@ Repository."
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
+    println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
@@ -90,6 +90,19 @@ function loaddata()
     (xtrn, ytrn, xtst, ytst)
 end
 
+# This allows both non-interactive (shell command) and interactive calls like:
+# $ julia housing.jl --epochs 10
+# julia> Housing.main("--epochs 10")
 !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end # module Housing
+
+# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
+#
+# housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
+# Repository.
+# opts=(:seed,-1)(:epochs,20)(:lr,0.1)(:atype,"KnetArray")(:gcheck,0)(:fast,true)
+# size(data) = (14,506)
+# (:epoch,0,:trn,577.8060720494859,:tst,656.5939685291422)
+#   0.018364 seconds (7.15 k allocations: 347.266 KB)
+# (:epoch,20,:trn,20.908099852265146,:tst,33.9047224887537)

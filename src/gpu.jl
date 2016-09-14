@@ -101,18 +101,3 @@ function cudnnCreate()
     return handle
 end
 
-# function gpulibs()
-#     libs = true
-#     lpath = [Pkg.dir("Knet/src")]
-#     for l in ("libknet8", "libcuda", "libcudart", "libcublas","libcudnn")
-#         isempty(Libdl.find_library([l], lpath)) && (warn("Cannot find $l");libs=false)
-#     end
-#     # TODO: eliminate these dependencies:
-#     for p in ("CUDArt",) # , "CUBLAS", "CUDNN")
-#         isdir(Pkg.dir(p)) || (warn("Cannot find $p");libs=false)
-#     end
-#     return libs
-# end
-
-
-

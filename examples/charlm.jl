@@ -38,7 +38,6 @@ module CharLM
 using Knet,AutoGrad,ArgParse,Compat
 
 function main(args=ARGS)
-    # global model,text,data,vocab,o
     s = ArgParseSettings()
     s.description="charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness."
     s.exc_handler=ArgParse.debug_handler
@@ -50,7 +49,7 @@ function main(args=ARGS)
         ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of characters.")
         ("--hidden"; arg_type=Int; default=256; help="Size of the LSTM internal state.")
         ("--embedding"; arg_type=Int; default=256; help="Size of the embedding vector.")
-        ("--epochs"; arg_type=Int; default=10; help="Number of epochs for training.")
+        ("--epochs"; arg_type=Int; default=3; help="Number of epochs for training.")
         ("--batchsize"; arg_type=Int; default=128; help="Number of sequences to train on in parallel.")
         ("--seqlength"; arg_type=Int; default=100; help="Number of steps to unroll the network for.")
         ("--decay"; arg_type=Float64; default=0.9; help="Learning rate decay.")
@@ -60,9 +59,11 @@ function main(args=ARGS)
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
         #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
         #TODO ("--nlayer"; arg_type=Int; default=1; help="Number of LSTM layers.")
     end
+    println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
@@ -118,6 +119,7 @@ function train!(model, text, vocab, o)
     lr = o[:lr]
     for epoch=1:o[:epochs]
         @time train1(model, data[1], s0; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
+        o[:fast] && continue
         @time losses = map(d->loss(model,d,s0), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
@@ -136,6 +138,10 @@ function train!(model, text, vocab, o)
             info("New learning rate: $lr")
         end
         devlast = devloss
+    end
+    if o[:fast]
+        @time losses = map(d->loss(model,d,s0), data)
+        println((:epoch,o[:epochs],:loss,losses...))
     end
 end    
 
@@ -278,9 +284,26 @@ function minibatch(chars, char_to_index, batch_size)
     return data
 end
 
-!isinteractive() && main(ARGS)
+# This allows both non-interactive (shell command) and interactive calls like:
+# $ julia charlm.jl --epochs 10
+# julia> CharLM.main("--epochs 10")
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end  # module
+
+# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
+#
+# charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
+# opts=(:keepstate,false)(:lr,1.0)(:atype,"KnetArray{Float32}")(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:embedding,256)(:gclip,5.0)(:hidden,256)(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
+# INFO: Chars read: [("10.txt",425808)]
+# INFO: 87 unique chars.
+#   2.156358 seconds (2.31 M allocations: 237.913 MB, 2.30% gc time)
+# (:epoch,0,:loss,4.465127425659868)
+#   6.287736 seconds (9.54 M allocations: 574.703 MB, 2.84% gc time)
+#   6.272144 seconds (9.54 M allocations: 574.633 MB, 2.80% gc time)
+#   6.277462 seconds (9.54 M allocations: 574.637 MB, 2.86% gc time)
+#   2.165516 seconds (2.34 M allocations: 238.323 MB, 2.56% gc time)
+# (:epoch,3,:loss,3.226540256084356)
 
 
 ### SAMPLE OUTPUT (with head -10000 100.txt):
@@ -298,175 +321,3 @@ end  # module
 #   2.352389 seconds (2.34 M allocations: 239.381 MB, 1.51% gc time)
 #   6.211946 seconds (9.55 M allocations: 575.568 MB, 2.21% gc time)
 # (3,3.226540256084356)
-#   2.158299 seconds (2.35 M allocations: 239.364 MB, 1.79% gc time)
-#   6.211275 seconds (9.53 M allocations: 575.308 MB, 2.14% gc time)
-# (4,3.175428791332962)
-#   2.157585 seconds (2.35 M allocations: 239.304 MB, 1.81% gc time)
-#   6.193208 seconds (9.54 M allocations: 575.363 MB, 2.17% gc time)
-# (5,3.0706729381245776)
-#   2.158664 seconds (2.35 M allocations: 239.234 MB, 1.78% gc time)
-#   6.193677 seconds (9.52 M allocations: 575.198 MB, 2.17% gc time)
-# (6,2.917405513749087)
-#   2.156435 seconds (2.36 M allocations: 239.400 MB, 1.85% gc time)
-#   6.198174 seconds (9.55 M allocations: 575.579 MB, 2.27% gc time)
-# (7,2.747614740070544)
-#   2.160784 seconds (2.35 M allocations: 239.362 MB, 1.82% gc time)
-#   6.218180 seconds (9.53 M allocations: 575.268 MB, 2.21% gc time)
-# (8,2.6047531828485933)
-#   2.159249 seconds (2.35 M allocations: 239.329 MB, 1.80% gc time)
-#   6.204293 seconds (9.53 M allocations: 575.338 MB, 2.18% gc time)
-# (9,2.5084830727254537)
-#   2.159896 seconds (2.35 M allocations: 239.259 MB, 1.80% gc time)
-#   6.194213 seconds (9.52 M allocations: 575.198 MB, 2.13% gc time)
-# (10,2.419187890389808)
-#   2.161113 seconds (2.36 M allocations: 239.397 MB, 1.84% gc time)
-
-
-### DEAD CODE:
-
-# function predict(w, hidden)
-#     output = w[:W_predict] * hidden .+ w[:b_predict]
-#     return output .- log(sum(exp(output), 1))
-# end
-
-# function dropout(x, pdrop)
-#     return x .* (rand(size(x)) .< (1 - pdrop)) / (1 - pdrop)
-# end
-
-# function loss(w, inputs, targets; kwargs...)
-#     outputs = forw(w, inputs; kwargs...)[1]
-#     n = length(inputs)
-#     z = 0.0
-#     for t = 1:n
-#         z += sum(outputs[t] .* targets[t])
-#     end
-#     return -z / size(inputs[1], 2)
-# end
-
-# function gnorm(g)
-#     return mapreduce(vecnorm, +, 0, values(g))
-# end
-
-# function train(w=nothing; datasrc=nothing, char_limit=0, epochs=1, lr_init=1.0,
-#                lr_decay=0.95, decay_after=10, embedding_size=128,
-#                hidden_size=256, batch_size=50, sequence_length=50, gclip=5.0,
-#                pdrop=0, seed=0)
-#     seed > -1 && srand(seed)
-#     data, chars, char_to_index, index_to_char = loaddata(datasrc, batch_size, char_limit)
-#     vocab_size = length(char_to_index)
-#     if w == nothing
-#         w = weights(; input_size=vocab_size, output_size=vocab_size,
-#                     embedding_size=embedding_size, hidden_size=hidden_size,
-#                     batch_size=batch_size)
-#     end
-#     gradfun = grad(loss)
-
-#     for epoch = 1:epochs
-#         start_time = time()
-#         targets = Any[]
-#         inputs = Any[]
-#         loss_count = zeros(2)
-#         lr = lr_init * lr_decay^max(0, epoch - decay_after)
-#         T = length(data) - 1
-#         for t = 1:T
-#             push!(inputs, copy(data[t])) # why copy here? there is no overwriting in AutoGrad.
-#             push!(targets, copy(data[t + 1]))
-#             if (t % sequence_length == 0) || t == T
-#                 loss_count[1] += loss(w, inputs, targets; pdrop=pdrop)
-#                 loss_count[2] += length(inputs)
-#                 g = gradfun(w, inputs, targets; pdrop=pdrop)
-#                 gn = (gclip > 0 ? gnorm(g) : 0)
-#                 gscale = (gn > gclip > 0 ? (gclip / gn) : 1)
-#                 for p in keys(w)
-#                     axpy!(-lr * gscale, g[p], w[p])
-#                 end
-#                 empty!(inputs)
-#                 empty!(targets)
-#             end
-#             if t % 1000 == 0
-#                 elapsed_time = time() - start_time
-#                 @printf(STDERR, "Epoch: %d, t: %d/%d, Loss: %.6f, LR: %.6f, Time: %.6f\n",
-#                         epoch, t, T, loss_count[1] / loss_count[2], lr, elapsed_time)
-#             end
-#         end
-#     end
-
-#     return w, index_to_char
-# end
-
-# function loaddata(datasrc, batch_size, char_limit=0)
-#     if datasrc == nothing
-#         datasrc = Pkg.dir("AutoGrad/data/pg100.txt")
-#     end
-#     if !isfile(datasrc)
-#         url = "http://www.gutenberg.org/cache/epub/100/pg100.txt"
-#         download(url,datasrc)
-#     end
-#     stream = open(datasrc)
-#     chars = Char[]
-#     char_to_index = Dict{Char, Int32}()
-#     while !eof(stream)
-#         c = read(stream, Char)
-#         get!(char_to_index, c, 1 + length(char_to_index))
-#         push!(chars, c)
-#         char_limit > 0 && length(chars) >= char_limit && break
-#     end
-#     info("Read: $(length(chars)) characters, $(length(char_to_index)) vocabulary")
-#     data = minibatch(chars, char_to_index, batch_size)
-#     index_to_char = Array(Char, length(char_to_index))
-#     for (c, i) in char_to_index
-#         index_to_char[i] = c
-#     end
-#     return data, chars, char_to_index, index_to_char
-# end
-
-# let
-#     atype = eval(parse(o[:atype]))
-
-#     data, chars, char_to_index, index_to_char = loaddata(datasrc, batch_size, char_limit)
-#     vocab_size = length(char_to_index)
-
-#     # w = weights(o[:hidden]...; atype=atype, winit=o[:winit]) # need input/output size, load data first
-#     dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
-#     dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
-#     println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
-#     if o[:fast]
-#         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-#         println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
-#     else
-#         @time for epoch=1:o[:epochs]
-#             train(w, dtrn; lr=o[:lr], epochs=1)
-#             println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
-#         end
-#     end
-#     return w
-# end
-
-    
-# function xavier(fan_out, fan_in)
-#     scale = sqrt(6 / (fan_in + fan_out))
-#     return convert(Array{Float32}, 2 * scale * rand(fan_out, fan_in) - scale)
-# end
-
-# function forw(w, inputs; state=nothing, pdrop=0)
-#     batch_size = size(inputs[1], 2)
-#     hidden_size = size(w[:W_predict], 2)
-#     if state == nothing
-#         hidden = zeros(Float32, (hidden_size, batch_size))
-#         cell = zeros(Float32, (hidden_size, batch_size))
-#     else
-#         hidden, cell = state
-#     end
-#     outputs = Any[]
-#     for input in inputs
-#         hidden, cell = lstm(w, w[:W_embedding] * input, hidden, cell)
-#         pdrop > 0 && (hidden = dropout(hidden, pdrop))
-#         push!(outputs, predict(w, hidden))
-#     end
-#     return outputs, (hidden, cell)
-# end
-
-# We don't need this: Knet has it
-# sigm(x) = 1 ./ (1 + exp(-x))
-# @primitive sigm(x),dy,y  (dy .* y .* (1 - y))
-

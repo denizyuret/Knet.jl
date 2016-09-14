@@ -1,32 +1,49 @@
-# Handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
-# 4-D convolution test with the LeNet model.
-
 isdefined(:MNIST) || (load_only=true;include("mnist.jl"))
 
+"""
+This example learns to classify hand-written digits from the MNIST
+dataset (http://yann.lecun.com/exdb/mnist).  There are 60000 training
+and 10000 test examples. Each input x consists of 784 pixels
+representing a 28x28 image.  The pixel values are normalized to
+[0,1]. Each output y is converted to a ten-dimensional one-hot vector
+(a vector that has a single non-zero component) indicating the correct
+class (0-9) for a given image.  10 is used to represent 0.
+
+You can run the demo using `julia lenet.jl`.  Use `julia lenet.jl
+--help` for a list of options.  The dataset will be automatically
+downloaded.  By default the LeNet convolutional neural network model
+will be trained for 10 epochs.  The accuracy for the training and test
+sets will be printed at every epoch and optimized parameters will be
+returned.
+
+"""
 module LeNet
 using Knet,ArgParse,AutoGrad,CUDArt,CUDNN
 using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
 
 
 function main(args=ARGS)
-    info("Testing LeNet (convolutional net) on MNIST")
+    global w, dtrn, dtst
     s = ArgParseSettings()
+    s.description="lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
+    s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
-        ("--seed"; arg_type=Int; default=42)
-        ("--batchsize"; arg_type=Int; default=100)
-        ("--lr"; arg_type=Float64; default=0.1)
+        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
+        ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
+        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--epochs"; arg_type=Int; default=3)
-        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
+        ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
     end
+    println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
 
-    global dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
-    global dtst = minibatch4(xtst, ytst, o[:batchsize])
-    global w = weights()
+    dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
+    dtst = minibatch4(xtst, ytst, o[:batchsize])
+    w = weights()
 
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
@@ -183,10 +200,18 @@ end
 
 # CUDNN supports CudaArrays, here is a hack until we implement KnetArray support
 
-using Knet: KnetPtr
-## Base.convert(::Type{CudaPtr}, p::KnetPtr)=CudaPtr(p.ptr)
-Base.convert{T,N}(::Type{CudaArray}, x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr{T}(pointer(x)), size(x), x.ptr.dev)
+CUDArt.CudaArray{T,N}(x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr{T}(x.ptr.ptr), size(x), x.ptr.dev)
 
-!isinteractive() && main(ARGS) # !isdefined(Core.Main,:load_only) && main(ARGS)
+# This allows both non-interactive (shell command) and interactive calls like:
+# $ julia lenet.jl --epochs 10
+# julia> LeNet.main("--epochs 10")
+!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 
 end # module
+
+# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
+#
+# lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
+# opts=(:seed,-1)(:batchsize,100)(:epochs,3)(:lr,0.1)(:gcheck,0)(:fast,true)
+# ..................  
+# 9.319163 seconds (5.84 M allocations: 277.927 MB, 7.37% gc time)

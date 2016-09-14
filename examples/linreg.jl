@@ -21,6 +21,7 @@ function main(args=ARGS)
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
+    println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args,s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
@@ -88,5 +89,18 @@ end
 start(l::Data)=0
 done(l::Data,n)=(n >= l.epochsize)
 
+# This allows both non-interactive (shell command) and interactive calls like:
+# $ julia linreg.jl --epochs 10
+# julia> LinReg.main("--epochs 10")
 !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+
 end
+
+
+# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
+#
+# linreg.jl (c) Deniz Yuret, 2016. Linear regression example with artificial data.
+# opts=(:lr,0.02)(:atype,"KnetArray")(:epochsize,10000)(:inputdims,100)(:noise,0.01)(:epochs,10)(:gcheck,0)(:seed,-1)(:outputdims,10)(:batchsize,20)(:fast,true)
+# (:epoch,0,:loss,349.84485494071095)
+#   1.320391 seconds (1.65 M allocations: 164.061 MB, 1.85% gc time)
+# (:epoch,10,:loss,0.0010327464077591123)
