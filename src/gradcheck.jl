@@ -29,6 +29,7 @@ end
 function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, o...)
     irange = (icheck > 0 ? (icheck:icheck) :
               length(w) <= gcheck ? (1:length(w)) :
+              d == nothing ? rand(1:length(w), gcheck) :
               sortperm(abs(vec(Array(d))),rev=true)[1:gcheck])
     (delta, atol, rtol) = gc_params(typeof(w[first(irange)]))
     for i in irange
@@ -40,10 +41,11 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, o...)
         f2 = f(worig, x...; o...)
         w[i] = w0
         nd = (f2-f1) / (w2-w1)
-        if !isapprox(d[i], nd; rtol=rtol, atol=atol)
-            warn("gc: d=$(d[i]) nd=$nd")
+        di = (d==nothing ? 0 : d[i])
+        if !isapprox(di, nd; rtol=rtol, atol=atol)
+            warn("gc: d=$di nd=$nd")
         else
-            info("gc: d=$(d[i]) nd=$nd")
+            info("gc: d=$di nd=$nd")
         end
     end
 end
