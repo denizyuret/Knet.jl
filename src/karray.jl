@@ -117,6 +117,8 @@ KnetArray(T::Type, d::Integer...) = KnetArray(T,convert(Tuple{Vararg{Int}}, d))
 
 typealias KnetMatrix{T} KnetArray{T,2}
 typealias KnetVector{T} KnetArray{T,1}
+typealias KnetVecOrMat{T} Union{KnetVector{T}, KnetMatrix{T}}
+
 
 # KnetArray <- KnetArray
 Base.convert{T,N}(::Type{KnetArray}, x::KnetArray{T,N}) = x
@@ -241,9 +243,7 @@ function getindex{T}(A::KnetArray{T}, I::Union{Real, UnitRange, Colon}...)
     KnetArray{T,length(bsize)}(ptr, bsize)
 end
 
-# cat,hcat,vcat are implemented in terms of setindex!.  If we can get
-# multidimensional setindex as efficient as possible they would work.
-# Trying to minimize number of knetcopy! operations.
+# TODO: setindex! for general arrays, the following only works for matrices.
 function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2::Union{Real, UnitRange, Colon})
     #TODO checkbounds(A, I1, I2)
     isa(I1,Colon) && (I1=1:size(A,1)); L1 = length(I1)
@@ -251,10 +251,9 @@ function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2
     lenB = L1*L2
     if isa(B,Number)
         B = T(B)
-    elseif isa(B,KnetArray) || isa(B,Array)
+    else
         length(B)==lenB || throw(DimensionMismatch())
-        eltype(B)==T || (B=convert(Array{T},B))
-        cdir = cudadir(A,B)
+        B=convert(KnetArray{T},B)
     end
     if L1 == size(A,1)
         # first dimension is full, we can do a single knetcopy!
@@ -263,21 +262,19 @@ function setindex!{T}(A::KnetMatrix{T}, B, I1::Union{Real, UnitRange, Colon}, I2
             knetfill!(A,T(B),offA,lenB)
         else
             @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
-                    pointer(A,offA), pointer(B,1), lenB*sizeof(T), cdir, C_NULL)
+                    pointer(A,offA), pointer(B,1), lenB*sizeof(T), cudadir(A,B), C_NULL)
         end
     else
-        offB = 1
-        i1 = first(I1)
-        for i2 in I2
-            offA = sub2ind(size(A), i1, i2)
-            if isa(B, Number)
-                knetfill!(A,T(B),offA,L1)
-            else
-                @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
-                        pointer(A,offA), pointer(B,offB), L1*sizeof(T), cdir, C_NULL)
-                offB += L1
-            end
-        end
+        offA = sub2ind(size(A), first(I1), first(I2))
+        if isa(B, Number)
+            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cint,Cint,Cfloat, Ptr{Cfloat}), lenB,L1,offA-1,size(A,1),B,A)
+            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cint,Cint,Cdouble,Ptr{Cdouble}),lenB,L1,offA-1,size(A,1),B,A)
+            else error("$T not supported"); end
+        else
+            st = sizeof(T)
+            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cint,Cint,Ptr{Void},Ptr{Void}),
+                  lenB*st,L1*st,(offA-1)*st,size(A,1)*st,B,A)
+        end            
     end
     return A
 end
@@ -294,6 +291,45 @@ end
 #     _setindex!(linearindexing(A),A,v,I...)
 # end
 
+
+# Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
+#
+#		cpu	gpu	g->c->g	vkernel
+# hcat(a,a)	2350	225	16160
+# hcat(a,v)	1230	115	6490
+# hcat(v,a)	1220	120	6490
+# hcat(v,v)	3.53	12.53	48.49
+# vcat(a,a)	2630	10980	16590	665
+# vcat(a,t)	1350	10860	6550	338
+# vcat(t,a)	1360	10850	6570	338
+# vcat(v,v)	2.13	12.33	45.40	13.58
+
+function hcat{T}(a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
+    size(a,1)==size(b,1) || throw(DimensionMismatch())
+    c1 = size(a,1)
+    c2 = size(a,2) + size(b,2)
+    c = KnetArray(T, (c1,c2))
+    c[:,1:size(a,2)] = a
+    c[:,1+size(a,2):end] = b
+    return c
+end
+
+function vcat{T}(a::KnetVector{T}, b::KnetVector{T})
+    c = KnetArray(T, length(a)+length(b))
+    c[1:length(a)] = a
+    c[1+length(a):end] = b
+    return c
+end
+
+function vcat{T}(a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
+    size(a,2)==size(b,2) || throw(DimensionMismatch())
+    c1 = size(a,1) + size(b,1)
+    c2 = size(a,2)
+    c = KnetArray(T, (c1,c2))
+    c[1:size(a,1),:] = a
+    c[1+size(a,1):end,:] = b
+    return c
+end
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
 # copy!{T}(dest::Array{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer)
@@ -340,18 +376,21 @@ Base.ones{T}(a::KnetArray{T})=fill!(similar(a),one(T))
 # To be able to load/save KnetArrays:
 if isdir(Pkg.dir("JLD"))
     import JLD: writeas, readas
-    type _KnetArray; a::Array; end
-    writeas(c::KnetArray) = _KnetArray(Array(c))
-    readas(d::_KnetArray) = KnetArray(d.a)
+    type KnetJLD; a::Array; end
+    writeas(c::KnetArray) = KnetJLD(Array(c))
+    readas(d::KnetJLD) = KnetArray(d.a)
 end
 
 # These are defined for AbstractArrays, so we can remove them eventually:
-Base.length(a::KnetArray)=prod(size(a))
-Base.ndims(a::KnetArray)=length(size(a))
-Base.size(x::KnetArray,i::Integer)=(if i>ndims(x); 1; else; size(x)[i]; end)
-Base.eltype{T}(x::KnetArray{T})=T
+Base.size{T,N}(x::KnetArray{T,N},i::Integer)=(if i>N; 1; else; size(x)[i]; end)
 Base.stride(x::KnetArray,i::Integer)=(if i>ndims(x); length(x); else; s=1; for n=1:(i-1); s*=size(x,n); end; s; end)
 Base.summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
+Base.ndims{T,N}(a::KnetArray{T,N})=N
+Base.eltype{T}(x::KnetArray{T})=T
+Base.elsize{T}(::KnetArray{T}) = sizeof(T)
+Base.length(a::KnetArray)=prod(size(a))
+Base.endof(a::KnetArray) = length(a)
+Base.first(a::KnetArray) = a[1]
 Base.eachindex(a::KnetArray) = (1:length(a))
 Base.similar{T}(a::KnetArray{T})               = similar(a, T, size(a))
 Base.similar(   a::KnetArray, T)               = similar(a, T, size(a))
@@ -359,3 +398,11 @@ Base.similar{T}(a::KnetArray{T}, dims::Dims)   = similar(a, T, dims)
 Base.similar{T}(a::KnetArray{T}, dims::Int...) = similar(a, T, dims)
 Base.similar(   a::KnetArray, T, dims::Int...) = similar(a, T, dims)
 AutoGrad.sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
+
+
+# For printing without copying the whole KnetArray and without inheriting AbstractArray:
+type KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
+getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
+size(a::KnetDisplay) = size(a.a)
+summary(a::KnetDisplay) = string(Base.dims2string(size(a)), " ", typeof(a.a))
+display(a::KnetArray) = display(KnetDisplay(a))

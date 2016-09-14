@@ -2,15 +2,17 @@
 
 	* DONE:
 	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
+	# charlm: slowed down
 
 	* TODO8:
-	# karray: checkbounds without abstractarray.
-	# lenet: move cudnn calls to cuda44.jl
-	# charlm: slowed down
-	# remove importall Base.
 	# charlm: experiment with other forms of lstm, profile speed
+	# karray: checkbounds without abstractarray.
+	# try cpu sum and vcat see if better.
+	# lenet: move cudnn calls to cuda44.jl
+	# remove importall Base.
 	# document KnetArray.
-	# clean up old tags and register Knet
+	# add transpose to KnetArray.
+	# clean up old tags and register Knet: 0.7 has tests failing on	Julia 0.4 and errors on Julia 0.5.
 	# write examples/README
 	# try to measure back functions one by one as well for gpu profiling.
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
