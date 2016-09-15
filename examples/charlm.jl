@@ -71,7 +71,7 @@ function bigtrain(net, text, vocab, o)
     lastloss = bestloss = Inf
     for epoch=1:o[:epochs]
         for d=1:length(data)
-            loss[d] = (d==1 ? train(net, data[d], softloss; o...) : test(net, data[d], softloss))
+            @time loss[d] = (d==1 ? train(net, data[d], softloss; o...) : test(net, data[d], softloss))
         end
         println((epoch, o[:lr], loss...)); flush(STDOUT)
         if length(data) > 1
