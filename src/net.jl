@@ -165,9 +165,9 @@ function Base.isequal(a::Union{Net,Reg,StackEntry}, b::Union{Net,Reg,StackEntry}
     return true
 end
 
-### File I/O
+### File I/O: taken care of by JLD
 
-using JLD
+# using JLD
 
 function clean(net::Net)
     a = Array(Reg, length(net))

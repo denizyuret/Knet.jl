@@ -1,5 +1,5 @@
 module CharLM
-using Knet, ArgParse, JLD
+using Knet, ArgParse
 
 function main(args=ARGS)
     global net, vocab, text, data
@@ -29,6 +29,8 @@ function main(args=ARGS)
     o[:seed] > 0 && setseed(o[:seed])
     text = !isempty(o[:datafiles]) ? map(f->readall(f), o[:datafiles]) : cell(0)
     !isempty(text) && info("Chars read: $((map(length,text)...))")
+    # Only include JLD if needed
+    (o[:loadfile]!=nothing || o[:savefile]!=nothing || o[:bestfile]!=nothing) && eval(Expr(:using,:JLD))
     vocab = o[:loadfile]!=nothing ? load(o[:loadfile], "vocab") : Dict{Char,Int}()
     if !isempty(text)
         if isempty(vocab)

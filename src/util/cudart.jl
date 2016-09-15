@@ -135,8 +135,8 @@ end
 
 
 # To be able to load/save CudaArrays:
-if !isdefined(:_CudaArraySave)
-    using JLD
+if !isdefined(:_CudaArraySave) && isdir(Pkg.dir("JLD"))
+    eval(Expr(:using,:JLD))
     type _CudaArraySave; a::Array; end
     JLD.writeas(c::CudaArray) = _CudaArraySave(to_host(c))
     JLD.readas(d::_CudaArraySave) = CudaArray(d.a)

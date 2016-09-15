@@ -1,7 +1,7 @@
 # Uncomment this when all CUDA modules support precompilation
 # isdefined(Base, :__precompile__) && __precompile__()
 module Knet
-using Compat
+# using Compat
 
 ### GPU detection and initialization
 include("util/gpu.jl");		export gpu, @gpu, @useifgpu, setseed

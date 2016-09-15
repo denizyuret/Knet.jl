@@ -5,7 +5,7 @@
 
 using Knet
 module Adding
-using Main, Knet, ArgParse, JLD
+using Main, Knet, ArgParse
 using Knet: stack_isempty
 @useifgpu CUDArt
 
@@ -17,6 +17,7 @@ function main(args=ARGS)
     opts["seed"] > 0 && setseed(opts["seed"])
     global data = Data(opts["length"], opts["batchsize"], opts["epochsize"])
     if opts["load"] != nothing
+        eval(Expr(:using,:JLD))
         global net = load(opts["load"],"net")
     else
         # global net = S2C(p1, p2; rnn=eval(parse(opts["nettype"])), hidden=opts["hidden"], winit=Gaussian(0,opts["winit"]), fbias=opts["fbias"])

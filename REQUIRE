@@ -1,9 +1,15 @@
-julia 0.4
-Compat
-CUDArt
-CUBLAS
-CUSPARSE 0.3 0.4-
-CUDNN
-JLD
-GZip
+julia 0.4 0.5-
 ArgParse
+
+# These are required for gpu support:
+# CUDArt
+# CUBLAS
+# CUSPARSE 0.3 0.4-
+# CUDNN
+
+# These are required for some examples:
+# GZip
+# JLD
+
+# These are not used any more:
+# Compat
