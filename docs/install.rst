@@ -25,11 +25,10 @@ Installation
 
 First download and install the latest version of Julia from
 `<http://julialang.org/downloads>`_.  As of this writing the latest
-version is 0.4.5 and I have tested Knet using 64-bit Generic Linux
+version is 0.4.6 and I have tested Knet using 64-bit Generic Linux
 binaries and the Mac OS X package (dmg).  Once Julia is installed,
 type ``julia`` at the command prompt to start the Julia interpreter.
-To install Knet type ``Pkg.add("Knet")`` and go get some coffee while
-Julia downloads and installs all the necessary packages::
+and type ``Pkg.add("Knet")`` to install Knet.
 
     $ julia
 		   _
@@ -45,14 +44,18 @@ Julia downloads and installs all the necessary packages::
 
 .. TODO: register the Knet package for this to work
 
-If you have a GPU machine, you may need to type ``Pkg.build("Knet")``
-to compile the Knet GPU kernels.  If you do not have a GPU machine,
-you don't need ``Pkg.build`` but you may get some warnings indicating
-the lack of GPU support.  Usually, these can be safely ignored.  To
-make sure everything has installed correctly, type
-``Pkg.test("Knet")`` which should take a couple of minutes kicking the
-tires.  If all is OK, continue with the next section, if not you can
-get help at the knet-users_ mailing list.
+By default Knet only installs the minimum requirements.  Some examples
+use extra packages like GZip and JLD.  GPU support requires the
+packages CUDArt, CUBLAS, CUDNN and CUSPARSE (0.3).  These extra
+packages can be installed using additional ``Pkg.add()`` commands.  If
+you have a GPU machine, you may need to type ``Pkg.build("Knet")`` to
+compile the Knet GPU kernels.  If you do not have a GPU machine, you
+don't need ``Pkg.build`` but you may get some warnings indicating the
+lack of GPU support.  Usually, these can be safely ignored.  To make
+sure everything has installed correctly, type ``Pkg.test("Knet")``
+which should take a couple of minutes kicking the tires.  If all is
+OK, continue with the next section, if not you can get help at the
+knet-users_ mailing list.
 
 Tips for developers
 -------------------
