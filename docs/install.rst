@@ -45,8 +45,8 @@ and type ``Pkg.add("Knet")`` to install Knet.
 .. TODO: register the Knet package for this to work
 
 By default Knet only installs the minimum requirements.  Some examples
-use extra packages like GZip and JLD.  GPU support requires the
-packages CUDArt, CUBLAS, CUDNN and CUSPARSE (0.3).  These extra
+use extra packages like ArgParse, GZip and JLD.  GPU support requires
+the packages CUDArt, CUBLAS, CUDNN and CUSPARSE (0.3).  These extra
 packages can be installed using additional ``Pkg.add()`` commands.  If
 you have a GPU machine, you may need to type ``Pkg.build("Knet")`` to
 compile the Knet GPU kernels.  If you do not have a GPU machine, you

@@ -1,5 +1,4 @@
 julia 0.4 0.5-
-ArgParse
 
 # These are required for gpu support:
 # CUDArt
@@ -8,8 +7,9 @@ ArgParse
 # CUDNN
 
 # These are required for some examples:
+# ArgParse
 # GZip
 # JLD
 
-# These are not used any more:
+# This is not used any more:
 # Compat
