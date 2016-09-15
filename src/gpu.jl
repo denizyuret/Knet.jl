@@ -1,11 +1,13 @@
+# Knet gpu kernels:
 const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
 
+# See if we have a gpu at initialization:
 function __init__()
     try
         r = gpu(true)
-        info(r >= 0 ? "Using GPU $r" : "No GPU found, using the CPU")
+        info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
-        warn("$e: using the CPU.")
+        warn("$e: Knet using the CPU.")
         gpu(false)
     end
 end

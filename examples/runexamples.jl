@@ -3,13 +3,18 @@ using Knet
 Pkg.test("Knet")
 load_only = true
 
+# Use first 10K lines of shakespeare to save time:
+include("charlm.jl")
+cdata = Pkg.dir("Knet/data/10.txt")
+run(pipeline(`head -10000 $(CharLM.shakespeare())`,cdata))
+
 for (p,f,o1,o2,o3) =
     (
      (:LinReg, "linreg.jl", "--gcheck 2", "--fast", "--fast"),
      (:Housing, "housing.jl", "--gcheck 2", "--fast", "--fast"),
      (:MNIST, "mnist.jl", "--gcheck 2", "--fast", "--fast"),
      (:LeNet, "lenet.jl", "--gcheck 2", "--fast", "--fast"),
-     (:CharLM, "charlm.jl", "--gcheck 2 --data 10.txt", "--fast --data 10.txt", "--fast --data 10.txt"),
+     (:CharLM, "charlm.jl", "--gcheck 2 --data $cdata", "--fast --data $cdata", "--fast --data $cdata"),
     )
     gc()
     Knet.knetgc()

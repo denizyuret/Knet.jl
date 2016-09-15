@@ -7,23 +7,28 @@
 	# try cpu sum and vcat see if better.
 	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
 	# charlm: optimize params
+	# 0.7: upper limit julia 0.5, remove downloading mnist from runtests.
+	# 0.7 has tests failing on Julia 0.4 and errors on Julia 0.5.
 
 	* TODO8:
 	# lenet: move cudnn calls to cuda44.jl
 	# remove importall Base.
-	# document KnetArray.
-	# add transpose to KnetArray.
-	# clean up old tags and register Knet: 0.7 has tests failing on	Julia 0.4 and errors on Julia 0.5.
+	# document KnetArray both inline and in readme.  extend readme with examples. revise intro.
 	# write examples/README
-	# try to measure back functions one by one as well for gpu profiling.
+	# new amazon aws image
+	# clean up old tags and register Knet
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# try to measure back functions one by one as well for gpu profiling.
 	# finish cudnn, curand etc. if possible eliminate dependence on them.
-	# mnist2d: sparse arrays
-	# cpu convolution
+	# mnist2d: implement/test sparse arrays
+	# for general arrays: broadcast, get/setindex, h/v/cat.
+	# add back cpu convolution
 	# implement axpy! for KnetArray if it is worth it to get faster updates.
-	# charlm: profile speed
+	# charlm: profile speed, add dropout, nlayer.
 	# karray: checkbounds without abstractarray.
+	# add transpose to KnetArray.
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 
 	* Release:
 
