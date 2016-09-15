@@ -1,6 +1,6 @@
 using Knet
 module CopySeq
-using Main, Knet, ArgParse
+using Knet, ArgParse
 using Knet: copysync!
 @useifgpu CUDArt
 @useifgpu CUSPARSE
@@ -249,8 +249,10 @@ function s2s_lossreport(losscnt,batchsize,lossreport)
     losscnt[1] = losscnt[2] = 0
 end
 
+# temp workaround: prevents error in running finalizer: ErrorException("auto_unbox: unable to determine argument type")
+gpu() && (@gpu atexit(()->(for r in model.reg; r.out0!=nothing && CUDArt.free(r.out0); end)))
 
-!isinteractive() && !isdefined(Core.Main, :load_only) && main(ARGS)
+!isinteractive() && !isdefined(Main, :load_only) && main(ARGS)
 
 end # module
 
