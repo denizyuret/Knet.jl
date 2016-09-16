@@ -26,3 +26,16 @@ examples, benchmarking results are all welcome.
 * If you need help or would like to request a feature, please consider joining the [knet-users](https://groups.google.com/forum/#!forum/knet-users) mailing list.
 * If you find a bug, please open a [GitHub issue](https://github.com/denizyuret/Knet.jl/issues).  
 * If you would like to contribute to Knet development, check out the [knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing list and [tips for developers](http://knet.readthedocs.org/en/dev/install.html#tips-for-developers).
+
+## Citation
+
+Here is the suggested citation for Knet:
+
+```
+@misc{knet,
+  author={Yuret, Deniz},
+  title={Knet: Ko\c{c} University deep learning framework.},
+  year={2016},
+  howpublished={\url{https://github.com/denizyuret/Knet.jl}}
+}
+```

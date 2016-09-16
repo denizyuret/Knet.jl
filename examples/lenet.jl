@@ -1,9 +1,10 @@
 isdefined(:MNIST) || (load_only=true;include("mnist.jl"))
 
 """
-This example learns to classify hand-written digits from the MNIST
-dataset (http://yann.lecun.com/exdb/mnist).  There are 60000 training
-and 10000 test examples. Each input x consists of 784 pixels
+
+This example learns to classify hand-written digits from the
+[MNIST](http://yann.lecun.com/exdb/mnist) dataset.  There are 60000
+training and 10000 test examples. Each input x consists of 784 pixels
 representing a 28x28 image.  The pixel values are normalized to
 [0,1]. Each output y is converted to a ten-dimensional one-hot vector
 (a vector that has a single non-zero component) indicating the correct
@@ -11,10 +12,10 @@ class (0-9) for a given image.  10 is used to represent 0.
 
 You can run the demo using `julia lenet.jl`.  Use `julia lenet.jl
 --help` for a list of options.  The dataset will be automatically
-downloaded.  By default the LeNet convolutional neural network model
-will be trained for 10 epochs.  The accuracy for the training and test
-sets will be printed at every epoch and optimized parameters will be
-returned.
+downloaded.  By default the [LeNet](http://yann.lecun.com/exdb/lenet)
+convolutional neural network model will be trained for 10 epochs.  The
+accuracy for the training and test sets will be printed at every epoch
+and optimized parameters will be returned.
 
 """
 module LeNet

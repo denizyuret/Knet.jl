@@ -1,4 +1,9 @@
-# Simple linear regression.
+"""
+LinReg is a simple linear regression example using artificially
+generated data. You can run the demo using `julia linreg.jl`.  The
+quadratic loss will be printed at every epoch and optimized parameters
+will be returned.  Use `julia linreg.jl --help` for a list of options.
+"""
 module LinReg
 using Knet, ArgParse
 

@@ -6,13 +6,15 @@
 	# document KnetArray inline.
 	# remove importall Base.
 	# implement more efficient lstm making sure getindex does a view (transpose?)
+	# citation
+	# write examples/README
 
 	* TODO8:
-	# document KnetArray in readme.  extend readme with examples. revise intro.
-	# write examples/README
+	# document KnetArray in readme.
+	# extend readme with examples. revise intro. publish intro on blog.
 	# new amazon aws image
-	# citation
 	# clean up old tags and register Knet
+	# write paper for nips
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
 	# try to measure back functions one by one as well for gpu profiling.
