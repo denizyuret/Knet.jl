@@ -431,7 +431,7 @@ Base.zeros{T}(a::KnetArray{T})=fill!(similar(a),zero(T))
 Base.ones{T}(a::KnetArray{T})=fill!(similar(a),one(T))
 
 # To be able to load/save KnetArrays:
-if isdir(Pkg.dir("JLD"))
+if Pkg.installed("JLD") != nothing
     import JLD: writeas, readas
     type KnetJLD; a::Array; end
     writeas(c::KnetArray) = KnetJLD(Array(c))

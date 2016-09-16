@@ -28,8 +28,7 @@ First download and install the latest version of Julia from
 version is 0.4.6 and I have tested Knet using 64-bit Generic Linux
 binaries and the Mac OS X package (dmg).  Once Julia is installed,
 type ``julia`` at the command prompt to start the Julia interpreter.
-To install Knet type the command below and go get some coffee while
-Julia downloads and installs all the necessary packages::
+To install Knet just use ``Pkg.add("Knet")``::
 
     $ julia
 		   _
@@ -37,27 +36,23 @@ Julia downloads and installs all the necessary packages::
       (_)     | (_) (_)    |  Documentation: http://docs.julialang.org
        _ _   _| |_  __ _   |  Type "?help" for help.
       | | | | | | |/ _` |  |
-      | | |_| | | | (_| |  |  Version 0.4.5 (2016-03-18 00:58 UTC)
+      | | |_| | | | (_| |  |  Version 0.4.6 (2016-06-19 17:16 UTC)
      _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
     |__/                   |  x86_64-apple-darwin13.4.0
 
-    julia> Pkg.clone("git://github.com/denizyuret/Knet.jl.git")
+    julia> Pkg.add("Knet")
 
-.. TODO: register the Knet package for Pkg.add("Knet")
+Some Knet examples use additional packages such as ArgParse, JLD, GZip
+and Compat.  GPU convolution support requires CUDArt and CUDNN.  These
+are not required by Knet, you can install them manually when needed
+using Pkg.add("PkgName").
 
-Some Knet examples use additional packages such as ArgParse, Compat,
-and GZip.  GPU support requires CUDArt and CUDNN.  JLD is used for
-File I/O. These are not required by Knet, you can install them
-manually when needed using Pkg.add("PkgName").
-
-If you have a GPU machine, you may need to type ``Pkg.build("Knet")``
-to compile the Knet GPU kernels.  If you do not have a GPU machine,
-you don't need ``Pkg.build`` but you may get some warnings indicating
-the lack of GPU support.  Usually, these can be safely ignored.  To
-make sure everything has installed correctly, type
-``Pkg.test("Knet")`` which should take a couple of minutes kicking the
-tires.  If all is OK, continue with the next section, if not you can
-get help at the knet-users_ mailing list.
+Run ``Pkg.build("Knet")`` to recompile Knet after optional packages
+are installed and to compile the Knet GPU kernels at first
+installation if you have a GPU machine.  To make sure everything has
+installed correctly, type ``Pkg.test("Knet")`` which should take a
+minute kicking the tires.  If all is OK, continue with the next
+section, if not you can get help at the knet-users_ mailing list.
 
 Tips for developers
 -------------------

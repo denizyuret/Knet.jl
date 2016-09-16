@@ -73,8 +73,8 @@ function train(w, data; lr=.1, epochs=20, nxy=0)
 end
 
 function predict(w,x0)                       # 28,28,1,100
-    x1 = pool4(relu(conv4(w[1],x0) .+ w[2])) # 12,12,20,100
-    x2 = pool4(relu(conv4(w[3],x1) .+ w[4])) # 4,4,50,100
+    x1 = pool(relu(conv4(w[1],x0) .+ w[2])) # 12,12,20,100
+    x2 = pool(relu(conv4(w[3],x1) .+ w[4])) # 4,4,50,100
     x2a = reshape(x2, (800,100))             # 800,100
     x3 = relu(w[5]*x2a .+ w[6])              # 500,100
     x4 = w[7]*x3 .+ w[8]                     # 10,100
@@ -140,67 +140,6 @@ function xavier(a...)
     w = 2s*w-s
 end
 
-
-# Define some new primitives: conv4 and pool4
-
-function conv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
-    cx = CudaArray(x)
-    cw = CudaArray(w)
-    ydims = cudnnGetConvolutionNdForwardOutputDim(cx,cw; o...)
-    y = similar(x, ydims)
-    cy = CudaArray(y)
-    cudnnConvolutionForward(cx, cw, cy; o...)
-    return y
-end
-
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
-    dx = similar(x)
-    cw = CudaArray(w)
-    cdx = CudaArray(dx)
-    cdy = CudaArray(dy)
-    cudnnConvolutionBackwardData(cw,cdy,cdx; o...)
-    return dx
-end
-
-function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
-    dw = similar(w)
-    cx = CudaArray(x)
-    cdy = CudaArray(dy)
-    cdw = CudaArray(dw)
-    cudnnConvolutionBackwardFilter(cx,cdy,cdw; o...)
-    return dw
-end
-
-@primitive  conv4(w,x; o...),dy  conv4w(w,x,dy;o...)  conv4x(w,x,dy;o...)
-@zerograd conv4x(w,x,dy;o...)
-@zerograd conv4w(w,x,dy;o...)
-
-function pool4{T}(x::KnetArray{T}; o...)
-    pd = CUDNN.PD(ndims=ndims(x), o...)
-    cx = CudaArray(x)
-    ydims = cudnnGetPoolingNdForwardOutputDim(pd, cx)
-    y = similar(x, ydims)
-    cy = CudaArray(y)
-    cudnnPoolingForward(cx, cy; o...)
-    return y
-end
-
-function pool4x{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; o...)
-    dx = similar(x)
-    cx = CudaArray(x)
-    cy = CudaArray(y)
-    cdy = CudaArray(dy)
-    cdx = CudaArray(dx)
-    cudnnPoolingBackward(cy,cdy,cx,cdx; o...)
-    return dx
-end
-
-@primitive  pool4(x;o...),dy,y  pool4x(x,y,dy;o...)
-@zerograd pool4x(x,y,dy;o...)
-
-# CUDNN supports CudaArrays, here is a hack until we implement KnetArray support
-
-CUDArt.CudaArray{T,N}(x::KnetArray{T,N})=CudaArray{T,N}(CudaPtr{T}(x.ptr.ptr), size(x), x.ptr.dev)
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia lenet.jl --epochs 10

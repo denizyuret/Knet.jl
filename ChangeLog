@@ -1,17 +1,9 @@
-2016-09-14  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-16  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
-	# charlm: slowed down
-	# charlm: experiment with other forms of lstm
-	# try cpu sum and vcat see if better.
-	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
-	# charlm: optimize params
-	# 0.7: upper limit julia 0.5, remove downloading mnist from runtests.
-	# 0.7 has tests failing on Julia 0.4 and errors on Julia 0.5.
+	# lenet: move cudnn calls to cuda44.jl
 
 	* TODO8:
-	# lenet: move cudnn calls to cuda44.jl
 	# remove importall Base.
 	# document KnetArray both inline and in readme.  extend readme with examples. revise intro.
 	# write examples/README
@@ -117,6 +109,18 @@
 	WARNING: symbol is deprecated, use Symbol instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/examples/linreg.jl:25
 	WARNING: Knet.Kfun.(:wdot) is deprecated; use Knet.Kfun.:wdot or getfield(Knet.Kfun, :wdot) instead. /state/partition1/dyuret/knet/publish/v0.5/Knet/src/compiler.jl:33
 	catastrophic failure of tests.
+
+2016-09-14  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# lenet broken: chased bug down to KnetArray <: AbstractArray, what do we inherit?
+	# charlm: slowed down
+	# charlm: experiment with other forms of lstm
+	# try cpu sum and vcat see if better.
+	# check multi-gpu support on KnetArrays: can we copy, free, etc with a non-active device?
+	# charlm: optimize params
+	# 0.7: upper limit julia 0.5, remove downloading mnist from runtests.
+	# 0.7 has tests failing on Julia 0.4 and errors on Julia 0.5.
 
 2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
 

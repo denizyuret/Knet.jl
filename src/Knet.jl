@@ -3,7 +3,7 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 module Knet
 using AutoGrad
 importall Base                  # TODO: remove this
-export KnetArray, grad, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp
+export KnetArray, grad, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
 
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
@@ -15,7 +15,7 @@ include("cuda12.jl")            # array,array->array (broadcasting)
 include("cuda20.jl")            # array->scalar (reductions)
 include("cuda21.jl")            # array->vector (reductions)
 include("cuda22.jl")            # array,array->array (linear algebra)
-#include("cuda44.jl")           # TODO: convolution and pooling
+include("cuda44.jl")            # convolution and pooling
 include("gradcheck.jl")         # gradient check
 
 end # module
