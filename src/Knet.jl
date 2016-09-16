@@ -3,6 +3,9 @@
 module Knet
 # using Compat
 
+const knetdata = joinpath(dirname(@__FILE__),"..","data")
+export knetdata
+
 ### GPU detection and initialization
 include("util/gpu.jl");		export gpu, @gpu, @useifgpu, setseed
 @useifgpu CUDArt

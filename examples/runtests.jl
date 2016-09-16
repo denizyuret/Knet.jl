@@ -265,8 +265,6 @@ if opts["all"] || opts["mnistpixels"]
     # 2.726979 seconds (4.58 M allocations: 196.119 MB, 3.06% gc time)  53bfcd1 broadcast.jl
 end
 
-const knetdata = Pkg.dir("Knet/data")
-
 function download_mikolov_examples()
     url = "http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz"
     if !isfile("$knetdata/ptb.valid.txt")

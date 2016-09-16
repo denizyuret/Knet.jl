@@ -2,17 +2,15 @@ module MNIST
 using GZip
 
 const mnisturl = "http://yann.lecun.com/exdb/mnist"
-const knetdata = Pkg.dir("Knet/data")
 const xtrn_file = "train-images-idx3-ubyte.gz"
 const ytrn_file = "train-labels-idx1-ubyte.gz"
 const xtst_file = "t10k-images-idx3-ubyte.gz"
 const ytst_file = "t10k-labels-idx1-ubyte.gz"
 
-function wgetzcat(gz)
-    gzpath = "$knetdata/$gz"
+function wgetzcat(gz; gzpath=joinpath(dirname(@__FILE__),"..","data",gz))
     if !isfile(gzpath)
-        info("Downloading $mnisturl/$gz to $knetdata")
-        download("$mnisturl/$gz", "$knetdata/$gz")
+        info("Downloading $mnisturl/$gz to $gzpath")
+        download("$mnisturl/$gz", gzpath)
     end
     fh = GZip.open(gzpath)
     a = readbytes(fh)
