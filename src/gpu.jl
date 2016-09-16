@@ -6,7 +6,7 @@ macro cuda(lib,fun,x...)
         quote
             local _r = $fx
             if _r != 0
-                warn($err * _r)
+                warn($err, _r)
                 Base.show_backtrace(STDOUT, backtrace())
             end
         end
