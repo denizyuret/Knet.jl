@@ -10,8 +10,10 @@
 	# write examples/README
 
 	* TODO8:
+	# charlm fails on cpu.  change its default data file to something smaller.
+	# test gpu/cpu, osx/linux, 0.4, 0.5, 0.6. (currently failing on Travis).
+	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
 	# document KnetArray in readme.
-	# extend readme with examples. revise intro. publish intro on blog.
 	# new amazon aws image
 	# clean up old tags and register Knet
 	# write paper for nips

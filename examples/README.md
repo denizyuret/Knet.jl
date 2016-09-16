@@ -9,13 +9,14 @@ will be returned.  Use `julia linreg.jl --help` for a list of options.
 
 ## [Housing](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing.jl)
 
-This example uses the Housing dataset from the UCI Machine Learning
-Repository to demonstrate a linear regression model. The dataset has
-housing related information for 506 neighborhoods in Boston from
-1978. Each neighborhood has 14 attributes, the goal is to use the
-first 13, such as average number of rooms per house, or distance to
-employment centers, to predict the 14’th attribute: median dollar
-value of the houses.
+This example uses the
+[Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset
+from the UCI Machine Learning Repository to demonstrate a linear
+regression model. The dataset has housing related information for 506
+neighborhoods in Boston from 1978. Each neighborhood has 14
+attributes, the goal is to use the first 13, such as average number of
+rooms per house, or distance to employment centers, to predict the
+14’th attribute: median dollar value of the houses.
 
 You can run the demo using `julia housing.jl`.  Use `julia housing.jl
 --help` for a list of options.  The dataset will be automatically

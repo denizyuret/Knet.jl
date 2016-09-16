@@ -9,7 +9,7 @@ TODO: https://github.com/JuliaCI/Coverage.jl
 [![Knet](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
 -->
 
-Knet is a machine learning package implemented in
+Knet (pronounced "Kay-Net") is a machine learning package implemented in
 [Julia](http://julia.readthedocs.org/en/latest), so you should be able
 to run it on any machine that can run Julia.  It has been tested on
 Julia 0.4 and later using Linux machines with NVIDIA GPUs and the CUDA
@@ -29,7 +29,7 @@ examples, benchmarking results are all welcome.
 
 ## Citation
 
-Here is the suggested citation for Knet:
+The suggested citation for Knet is:
 
 ```
 @misc{knet,
