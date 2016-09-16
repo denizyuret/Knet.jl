@@ -11,10 +11,7 @@ style.
 
 Example usage:
 
-* `julia charlm.jl`: trains a model using 'The Complete Works of
-  Shakespeare' using default options.
-
-* `julia charlm.jl --gpu`: uses the GPU for training.
+* `julia charlm.jl`: trains a model using 'Knet/ChangeLog'.
 
 * `julia charlm.jl --data foo.txt`: uses foo.txt to train instead.
 
@@ -75,8 +72,8 @@ function main(args=ARGS)
     end
 
     # we initialize a model from loadfile, train using datafiles (both optional).
-    # if the user specifies neither, train a model using shakespeare.
-    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],shakespeare())
+    # if the user specifies neither, train a model using Knet ChangeLog.
+    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],Pkg.dir("Knet/ChangeLog")) # shakespeare()
 
     # read text and report lengths
     text = map((@compat readstring), o[:datafiles])
@@ -112,7 +109,7 @@ function train!(model, text, vocab, o)
     atype = eval(parse(o[:atype]))
     for (k,v) in model; model[k] = convert(atype,v); end
     h0 = c0 = convert(atype, zeros(o[:batchsize],o[:hidden])); s0=Any[h0,c0]
-    data = map(t->minibatch(t, vocab, o[:batchsize]), text)
+    global data = map(t->minibatch(t, vocab, o[:batchsize]), text)
     @time losses = map(d->loss(model,d,s0), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
@@ -191,7 +188,8 @@ end
 
 lossgradient = grad(loss)
 
-# Assuming each row is an instance:
+# logp assumes each column is an instance.
+# logp2 assumes each row is an instance:
 function logp2(x)
     x = x .- maximum(x,2)
     x = x .- log(sum(exp(x),2))
@@ -224,27 +222,29 @@ function weights(vocabsize,hiddensize,embedsize,winit)
 end
 
 function generate(model, vocab, nchar)
-    index_to_char = Array(Char, length(vocab))
+    global index_to_char = Array(Char, length(vocab))
     for (k,v) in vocab; index_to_char[v] = k; end
     w = Dict()
     for (k,v) in model; w[k] = Array(v); end
-    h = c = zeros(w[:b_ingate])
-    xcurr = zeros(w[:b_predict])
+    @show (hiddensize, vocabsize) = size(w[:W_predict])
+    wt = eltype(w[:W_predict])
+    h = c = zeros(wt, 1, hiddensize)
+    xcurr = zeros(wt, 1, vocabsize)
     index = 1
     for t = 1:nchar
-        xt = w[:W_embedding] * xcurr
+        xt = xcurr * w[:W_embedding]
         (h,c) = lstm(w, xt, h, c)
-        ypred = w[:W_predict] * h .+ w[:b_predict]
-        xcurr[index,1] = 0
-        index = sample(exp(logp(ypred)))
-        xcurr[index,1] = 1
+        ypred = h * w[:W_predict] .+ w[:b_predict]
+        xcurr[1,index] = 0
+        index = sample(exp(logp2(ypred)))
         print(index_to_char[index])
+        xcurr[1,index] = 1
     end
     println()
 end
 
 function sample(p)
-    r = rand(Float32)
+    r = rand()
     for c = 1:length(p)
         r -= p[c]
         r < 0 && return c
@@ -264,13 +264,15 @@ end
 function minibatch(chars, char_to_index, batch_size)
     nbatch = div(length(chars), batch_size)
     vocab_size = length(char_to_index)
-    data = Any[]
-    for i = 1:nbatch
-        d = falses(batch_size, vocab_size) # use BitArray until we implement sparse
-        for j = 1:batch_size
-            d[j, char_to_index[chars[i + nbatch * (j - 1)]]] = 1
-        end
-        push!(data, d)  # do not convert here, we don't need all data on gpu! convert(o[:atype], d))
+    data = [ falses(batch_size, vocab_size) for i=1:nbatch ] # using BitArrays
+    cidx = 0
+    for c in chars            # safest way to iterate over utf-8 text
+        idata = 1 + cidx % nbatch
+        row = 1 + div(cidx, nbatch)
+        row > batch_size && break
+        col = char_to_index[c]
+        data[idata][row,col] = 1
+        cidx += 1
     end
     return data
 end
@@ -282,6 +284,9 @@ end
 
 end  # module
 
+# Note: 10.txt used in the sample runs below was generated using
+#   head -10000 100.txt > 10.txt
+# where 100.txt is the file downloaded by shakespeare().
 
 ### SAMPLE RUN 4ce58d1+ Fri Sep 16 12:24:00 EEST 2016
 ### Transposed everything so getindex does not need to copy
