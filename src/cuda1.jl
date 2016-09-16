@@ -1,4 +1,4 @@
-import Base: sqrt, exp, log, sin, tanh, -, abs, abs2
+import Base: sqrt, exp, log, sin, tanh, -, abs, abs2, sign
 
 cuda1 = [
 "sqrt",
@@ -60,6 +60,7 @@ cuda1 = [
 ("sigm", "sigm", "1/(1+exp(-xi))"),
 ("abs", "abs", "(xi<0?-xi:xi)"),
 ("abs2", "abs2", "(xi*xi)"),
+("sign", "sign", "(xi>0?1:xi<0?-1:0)"),
 ]
 
 function cuda1def(f, j=f, o...)

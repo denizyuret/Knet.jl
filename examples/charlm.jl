@@ -11,7 +11,7 @@ style.
 
 Example usage:
 
-* `julia charlm.jl`: trains a model using 'Knet/ChangeLog'.
+* `julia charlm.jl`: trains a model using its own code.
 
 * `julia charlm.jl --data foo.txt`: uses foo.txt to train instead.
 
@@ -52,7 +52,7 @@ function main(args=ARGS)
         ("--decay"; arg_type=Float64; default=0.9; help="Learning rate decay.")
         ("--lr"; arg_type=Float64; default=4.0; help="Initial learning rate.")
         ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
-        ("--winit"; arg_type=Float64; default=0.3; help="Initial weights set to winit*randn().")
+        ("--winit"; arg_type=Float64; default=0.01; help="Initial weights set to winit*randn().")
         ("--keepstate"; action=:store_true; help="Keep state between iterations.")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
@@ -73,7 +73,7 @@ function main(args=ARGS)
 
     # we initialize a model from loadfile, train using datafiles (both optional).
     # if the user specifies neither, train a model using Knet ChangeLog.
-    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],Pkg.dir("Knet/ChangeLog")) # shakespeare()
+    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],Pkg.dir("Knet/examples/charlm.jl")) # shakespeare()
 
     # read text and report lengths
     text = map((@compat readstring), o[:datafiles])
@@ -109,7 +109,7 @@ function train!(model, text, vocab, o)
     atype = eval(parse(o[:atype]))
     for (k,v) in model; model[k] = convert(atype,v); end
     h0 = c0 = convert(atype, zeros(o[:batchsize],o[:hidden])); s0=Any[h0,c0]
-    global data = map(t->minibatch(t, vocab, o[:batchsize]), text)
+    data = map(t->minibatch(t, vocab, o[:batchsize]), text)
     @time losses = map(d->loss(model,d,s0), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
@@ -222,7 +222,7 @@ function weights(vocabsize,hiddensize,embedsize,winit)
 end
 
 function generate(model, vocab, nchar)
-    global index_to_char = Array(Char, length(vocab))
+    index_to_char = Array(Char, length(vocab))
     for (k,v) in vocab; index_to_char[v] = k; end
     w = Dict()
     for (k,v) in model; w[k] = Array(v); end

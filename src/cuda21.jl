@@ -1,10 +1,12 @@
-import Base: sum, prod, maximum, minimum
+import Base: sum, prod, maximum, minimum, sumabs, sumabs2
 
 cuda21 = [
 ("add","sum","ai+xi","xi","0"),
 ("mul","prod","ai*xi","xi","1"),
 ("max","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
 ("min","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
+("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
 ]
 
 function cuda21def(f, j=f, o...)

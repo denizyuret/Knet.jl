@@ -1,4 +1,4 @@
-import Base: .+, .-, .*, ./, .^, max, min, +, -, *, /, \
+import Base: .+, .-, .*, ./, .^, max, min, .==, .>, .>=, .<, .<=, +, -, *, /, \
 
 cuda01 = [
 ("add",".+","s+xi"),
@@ -8,6 +8,11 @@ cuda01 = [
 ("pow",".^","pow(s,xi)"),
 ("max","max","(xi>s?xi:s)"),
 ("min","min","(xi<s?xi:s)"),
+("eq",".==","xi==s"),
+("gt",".>","xi>s"),
+("ge",".>=","xi>=s"),
+("lt",".<","xi<s"),
+("le",".<=","xi<=s"),
 # "hypot",
 # "rhypot",
 # "atan2",
@@ -54,6 +59,17 @@ max{T}(a::KnetArray{T},s::Number)=max(T(s),a)
 max{T}(s::Number,a::KnetArray{T})=max(T(s),a)
 min{T}(a::KnetArray{T},s::Number)=min(T(s),a)
 min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
+
+.=={T}(a::KnetArray{T},s::Number)=(T(s).==a)
+.=={T}(s::Number,a::KnetArray{T})=(T(s).==a)
+.>{T}(a::KnetArray{T},s::Number)=(T(s).<a)
+.>{T}(s::Number,a::KnetArray{T})=(T(s).>a)
+.>={T}(a::KnetArray{T},s::Number)=(T(s).<=a)
+.>={T}(s::Number,a::KnetArray{T})=(T(s).>=a)
+.<{T}(a::KnetArray{T},s::Number)=(T(s).>a)
+.<{T}(s::Number,a::KnetArray{T})=(T(s).<a)
+.<={T}(a::KnetArray{T},s::Number)=(T(s).>=a)
+.<={T}(s::Number,a::KnetArray{T})=(T(s).<=a)
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
 (+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)

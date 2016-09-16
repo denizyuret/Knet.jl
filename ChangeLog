@@ -10,7 +10,7 @@
 	# write examples/README
 
 	* TODO8:
-	# charlm fails on cpu.  change its default data file to something smaller.
+	# charlm fails on cpu.  change its default data file to something smaller.  small files fail gradcheck.
 	# test gpu/cpu, osx/linux, 0.4, 0.5, 0.6. (currently failing on Travis).
 	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
 	# document KnetArray in readme.
@@ -28,6 +28,7 @@
 	# charlm: profile speed, add dropout, nlayer.
 	# add transpose to KnetArray.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
+	# autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 
 	* Release:
 

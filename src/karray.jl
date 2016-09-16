@@ -236,6 +236,27 @@ function setindex!{T}(A::KnetArray{T}, v, I::Real...)
     unsafe_copy!(A, i, T[v], 1, 1)
 end
 
+function getindex{T}(A::KnetArray{T}, I::UnitRange)
+    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
+    off = 1+(first(I)-1)*sizeof(T)
+    len = length(I)*sizeof(T)
+    ptr = KnetPtr(A.ptr, off, len)
+    KnetArray{T,1}(ptr, (length(I),))
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
+    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
+    if isa(v,Number)
+        knetfill!(A,T(v),first(I),length(I))
+    elseif (isa(v,KnetArray) || isa(v,Array))
+        length(v)==length(I) || throw(DimensionMismatch())
+        eltype(v)==T || (v = convert(Array{T},v))
+        unsafe_copy!(A,first(I),v,1,length(I))
+    else
+        throw(MethodError(setindex!, A, v, I))
+    end
+end
+
 function getindex(A::KnetArray, I::Colon)
     reshape(A,length(A))
 end
@@ -247,28 +268,6 @@ function setindex!{T}(A::KnetArray{T}, v, I::Colon)
         length(v)==length(A) || throw(DimensionMismatch())
         eltype(v)==T || (v = convert(Array{T},v))
         unsafe_copy!(A,1,v,1,length(A))
-    else
-        throw(MethodError(setindex!, A, v, I))
-    end
-end
-
-function getindex{T}(A::KnetArray{T}, I::UnitRange)
-    @inbounds for j=1:length(J)
-        1 <= first(I) <= last(I) <= size(A,j) || throw(BoundsError(A,J))
-    end
-    off = 1+(first(I)-1)*sizeof(T)
-    len = length(I)*sizeof(T)
-    ptr = KnetPtr(A.ptr, off, len)
-    KnetArray{T,1}(ptr, (length(I),))
-end
-
-function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
-    if isa(v,Number)
-        knetfill!(A,T(v),first(I),length(I))
-    elseif (isa(v,KnetArray) || isa(v,Array))
-        length(v)==length(I) || throw(DimensionMismatch())
-        eltype(v)==T || (v = convert(Array{T},v))
-        unsafe_copy!(A,first(I),v,1,length(I))
     else
         throw(MethodError(setindex!, A, v, I))
     end
@@ -420,7 +419,7 @@ end
 # unsafe_copy!{T}(dest::Ptr{T}, src::Ptr{T}, n) at array.jl:73
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
-import Base: unsafe_copy!
+import Base: unsafe_copy!, copy
 
 function unsafe_copy!{T}(dest::Union{KnetArray{T},Array{T}}, doffs, src::Union{KnetArray{T},Array{T}}, soffs, n; stream=C_NULL)
     @cuda(cudart,cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
@@ -438,6 +437,8 @@ function cudadir(a,b)
     end
 end
 
+copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
+
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     @eval function knetfill!(a::KnetArray{$T},v::$T,off,len)
@@ -454,10 +455,12 @@ if Pkg.installed("JLD") != nothing
 end
 
 # AutoGrad functions:
-import AutoGrad: zeroslike, sum_outgrads, OneHot
+import AutoGrad: zeroslike, sum_outgrads, OneHot, unary_nd, indexed_function, isequivalent
 zeroslike(a::KnetArray)=zeros(a)
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 sum_outgrads(a::KnetArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
+unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
+isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 
 # Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
 import Base: display, summary

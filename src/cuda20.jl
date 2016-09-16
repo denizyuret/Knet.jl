@@ -1,14 +1,13 @@
-import Base: sum, prod, maximum, minimum, countnz
-import Base.LinAlg: norm_sqr, norm, vecnorm
-import Base.LinAlg.BLAS: asum
+import Base: sum, prod, maximum, minimum, sumabs, sumabs2, countnz
+import Base.LinAlg: norm, vecnorm
 
 cuda20 = [
 ("add","sum","ai+xi","xi","0"),
 ("mul","prod","ai*xi","xi","1"),
 ("max","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
 ("min","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-("sum1","asum","ai+xi","abs(xi)","0"),
-("sum2","norm_sqr","ai+xi","xi*xi","0"),
+("sum1","sumabs","ai+xi","abs(xi)","0"),
+("sum2","sumabs2","ai+xi","xi*xi","0"),
 ("nnz","countnz","ai+xi","(xi!=0)","0"),
 ]
 
@@ -18,9 +17,9 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
     if length(x) == 0
         zero(T)
     elseif p == 2
-        sqrt(norm_sqr(x))
+        sqrt(sumabs2(x))
     elseif p == 1
-        asum(x)
+        sumabs(x)
     elseif p == Inf
         maximum(abs(x))
     elseif p == 0
