@@ -115,7 +115,7 @@ end
 # To avoid conflict with AutoGrad:
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
 @primitive tanh(x::KnetArray),dy,y tanhback(dy,y)
-
+@primitive tanhback(dy,y),ddx  ddx.*(1.-y.*y)  ddx.*(-2.*dy.*y)
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
