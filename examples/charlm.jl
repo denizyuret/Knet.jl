@@ -67,13 +67,13 @@ function main(args=ARGS)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
-        isdir(Pkg.dir("JLD")) || error("Please Pkg.add(\"JLD\") to load or save files.")
+        Pkg.installed("JLD")==nothing && error("Please Pkg.add(\"JLD\") to load or save files.")
         eval(Expr(:using,:JLD))
     end
 
     # we initialize a model from loadfile, train using datafiles (both optional).
     # if the user specifies neither, train a model using Knet ChangeLog.
-    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],Pkg.dir("Knet/examples/charlm.jl")) # shakespeare()
+    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],@__FILE__) # shakespeare()
 
     # read text and report lengths
     text = map((@compat readstring), o[:datafiles])
@@ -252,7 +252,7 @@ function sample(p)
 end
 
 function shakespeare()
-    file = Pkg.dir("Knet/data/100.txt")
+    file = joinpath(Knet.datapath,"100.txt")
     if !isfile(file)
         info("Downloading 'The Complete Works of William Shakespeare'")
         url = "http://www.gutenberg.org/files/100/100.txt"

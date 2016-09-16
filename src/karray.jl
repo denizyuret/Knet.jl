@@ -329,16 +329,18 @@ function indexparams{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...
     astep = length(A)
     for i=1:length(I)
         Ii = I[i]
-        subs1[i] = first(Ii)
         Ai = size(A,i)
         if isa(Ii, Colon)
             Li = Ai
+            subs1[i] = 1
         elseif isa(Ii, Real)
             1 <= Ii <= Ai || throw(DimensionMismatch())
             Li = 1
+            subs1[i] = Int(Ii)
         else
             1 <= first(Ii) <= last(Ii) <= Ai || throw(DimensionMismatch())
             Li = length(Ii)
+            subs1[i] = first(Ii)
         end
         nelts *= Li
         if !skipped

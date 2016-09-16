@@ -1,6 +1,6 @@
-using Knet,CUDArt,BenchmarkTools
+using Knet,BenchmarkTools
 
-mul100(a,b)=(for i=1:100; c=a*b; end; device_synchronize())
+mul100(a,b)=(for i=1:100; c=a*b; end; Knet.@cuda(cudart,cudaDeviceSynchronize,()))
 
 N = (10,100,1000)
 T = (Float32,Float64)

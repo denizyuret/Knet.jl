@@ -4,7 +4,8 @@ module Knet
 using AutoGrad
 export grad
 export KnetArray, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
-const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
+const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
+const datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays

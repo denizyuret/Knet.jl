@@ -1,5 +1,5 @@
-using Knet, CUDArt
-libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/src")]))
+using Knet
+libknet8handle = Libdl.dlopen(Knet.libknet8)
 
 SIZE = 100000
 ITER = 100000
@@ -15,10 +15,10 @@ function cuda01test(fname, jname=fname, o...)
     fcpu = eval(parse(jname))
     f32 = Libdl.dlsym(libknet8handle, fname*"_32_01")
     @time cuda01rep(f32,s32,x32,y32)
-    isapprox(to_host(y32),fcpu(s32,to_host(x32))) || warn("$fname 32")
+    isapprox(Array(y32),fcpu(s32,Array(x32))) || warn("$fname 32")
     f64 = Libdl.dlsym(libknet8handle, fname*"_64_01")
     @time cuda01rep(f64,s64,x64,y64)
-    isapprox(to_host(y64),fcpu(s64,to_host(x64))) || warn("$fname 64")
+    isapprox(Array(y64),fcpu(s64,Array(x64))) || warn("$fname 64")
 end
 
 function cuda01rep{T}(f,s::T,x::KnetArray{T},y::KnetArray{T})
@@ -26,8 +26,8 @@ function cuda01rep{T}(f,s::T,x::KnetArray{T},y::KnetArray{T})
     for i=1:ITER
         ccall(f,Void,(Cint,T,Ptr{T},Ptr{T}),n,s,x,y)
     end
-    device_synchronize()
-    CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
+    Knet.@cuda(cudart,cudaDeviceSynchronize,())
+    Knet.@cuda(cudart,cudaGetLastError,())
 end
 
 for f in Knet.cuda01

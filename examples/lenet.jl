@@ -24,7 +24,6 @@ using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
 
 
 function main(args=ARGS)
-    global w, dtrn, dtst
     s = ArgParseSettings()
     s.description="lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
     s.exc_handler=ArgParse.debug_handler

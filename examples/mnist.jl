@@ -19,7 +19,6 @@ module MNIST
 using Knet,ArgParse,Compat,GZip
 
 function main(args=ARGS)
-    global w, dtrn, dtst
     s = ArgParseSettings()
     s.description="mnist.jl (c) Deniz Yuret, 2016. Multi-layer perceptron model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
     s.exc_handler=ArgParse.debug_handler
@@ -128,15 +127,14 @@ end
 
 function loaddata()
     info("Loading MNIST...")
-    gzread("train-images-idx3-ubyte.gz")[17:end],
-    gzread("t10k-images-idx3-ubyte.gz")[17:end],
-    gzread("train-labels-idx1-ubyte.gz")[9:end],
-    gzread("t10k-labels-idx1-ubyte.gz")[9:end]
+    gzload("train-images-idx3-ubyte.gz")[17:end],
+    gzload("t10k-images-idx3-ubyte.gz")[17:end],
+    gzload("train-labels-idx1-ubyte.gz")[9:end],
+    gzload("t10k-labels-idx1-ubyte.gz")[9:end]
 end
 
-function gzread(file; dir=Pkg.dir("Knet/data/"), url="http://yann.lecun.com/exdb/mnist/")
-    path = dir*file
-    isfile(path) || download(url*file, path)
+function gzload(file; path=joinpath(Knet.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+    isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)
     close(f)

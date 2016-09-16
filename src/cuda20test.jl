@@ -9,11 +9,9 @@
 # (*) BLK=128, THR=128 does best for kn.
 # (*) what is the secret behind the cpu sum?
 
-using Knet,CUDArt
-using Base.LinAlg: norm_sqr
-using Base.LinAlg.BLAS: asum
+using Knet
 
-libknet8handle = Libdl.dlopen(Libdl.find_library(["libknet8"],[Pkg.dir("Knet/src")]))
+libknet8handle = Libdl.dlopen(Knet.libknet8)
 
 SIZE = 100000
 ITER = 100000
@@ -25,13 +23,13 @@ function cuda20test(fname, jname=fname, o...)
     fcpu = eval(parse(jname))
     f32 = Libdl.dlsym(libknet8handle, fname*"_32_20")
     @time y32 = cuda20rep(f32,x32)
-    # @time z32 = cpu20rep(fcpu,to_host(x32))
-    z32 = fcpu(to_host(x32))
+    # @time z32 = cpu20rep(fcpu,Array(x32))
+    z32 = fcpu(Array(x32))
     isapprox(y32,z32) || warn("$fname 32")
     f64 = Libdl.dlsym(libknet8handle, fname*"_64_20")
     @time y64 = cuda20rep(f64,x64)
-    # @time z64 = cpu20rep(fcpu,to_host(x64))
-    z64 = fcpu(to_host(x64))
+    # @time z64 = cpu20rep(fcpu,Array(x64))
+    z64 = fcpu(Array(x64))
     isapprox(y64,z64) || warn("$fname 64")
 end
 
@@ -41,8 +39,8 @@ function cuda20rep{T}(f,x::KnetArray{T})
     for i=1:ITER
         y = ccall(f,T,(Cint,Ptr{T}),n,x)
     end
-    device_synchronize()
-    CUDArt.rt.checkerror(CUDArt.rt.cudaGetLastError())
+    Knet.@cuda(cudart,cudaDeviceSynchronize,())
+    Knet.@cuda(cudart,cudaGetLastError,())
     return y
 end
 
