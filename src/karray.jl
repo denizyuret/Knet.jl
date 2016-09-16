@@ -206,6 +206,18 @@ import Base: getindex, setindex!
 
 # First deal with the easy cases: integer indices, a Colon or a UnitRange.
 
+function getindex{T}(A::KnetArray{T}, I::Real)
+    J = Int(I)
+    1 <= J <= length(A) || throw(BoundsError(A,J))
+    unsafe_copy!(T[0], 1, A, J, 1)[1]
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::Real)
+    J = Int(I)
+    1 <= J <= length(A) || throw(BoundsError(A,J))
+    unsafe_copy!(A, J, T[v], 1, 1)
+end
+
 function getindex{T}(A::KnetArray{T}, I::Real...)
     J = Base.to_indexes(I...)
     @inbounds for j=1:length(J)

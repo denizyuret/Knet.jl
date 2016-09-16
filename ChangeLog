@@ -5,9 +5,9 @@
 	# karray: checkbounds without abstractarray.
 	# document KnetArray inline.
 	# remove importall Base.
+	# implement more efficient lstm making sure getindex does a view (transpose?)
 
 	* TODO8:
-	# implement more efficient lstm making sure getindex does a view (transpose?)
 	# document KnetArray in readme.  extend readme with examples. revise intro.
 	# write examples/README
 	# new amazon aws image
