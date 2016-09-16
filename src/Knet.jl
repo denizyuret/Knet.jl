@@ -4,6 +4,7 @@ module Knet
 using AutoGrad
 export grad
 export KnetArray, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
+const libknet8  = Libdl.find_library(["libknet8"], [Pkg.dir("Knet/src")])
 
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
@@ -17,5 +18,16 @@ include("cuda21.jl")            # array->vector (reductions)
 include("cuda22.jl")            # array,array->array (linear algebra)
 include("cuda44.jl")            # convolution and pooling
 include("gradcheck.jl")         # gradient check
+
+# See if we have a gpu at initialization:
+function __init__()
+    try
+        r = gpu(true)
+        info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
+    catch e
+        warn("$e: Knet using the CPU.")
+        gpu(false)
+    end
+end
 
 end # module

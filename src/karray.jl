@@ -84,7 +84,7 @@ function knetgc()
     for v in values(KnetFree[dev+2])
         if dev >= 0
             for p in v.free
-                @cudart(:cudaFree,(Ptr{Void},),p)
+                @cuda(:cudart,:cudaFree,(Ptr{Void},),p)
             end
         end
         v.used -= length(v.free)
@@ -96,7 +96,7 @@ end
 function knetMalloc(nbytes::Int)
     if gpu() >= 0
         ptr = Ptr{Void}[C_NULL]
-        @cudart(:cudaMalloc,(Ptr{Ptr{Void}},Csize_t),ptr,nbytes)
+        @cuda(:cudart,:cudaMalloc,(Ptr{Ptr{Void}},Csize_t),ptr,nbytes)
         return ptr[1]
     else
         convert(Ptr{Void}, pointer(Array(UInt8,nbytes)))
@@ -312,8 +312,8 @@ function setindex!{T,N}(A::KnetArray{T,N}, B, I::Union{Real, UnitRange, Colon}..
         length(B) == nelts || throw(DimensionMismatch())
         B = convert(KnetArray{T},B)
         if ncols == 1
-            @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
-                    aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
+            @cuda(:cudart,:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+                  aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
         else
             nrows *= sizeof(T); astep *= sizeof(T)
             ccall((:xcopy,libknet8),Void,(Cint,Cint,Ptr{Void},Cint,Ptr{Void},Cint), nrows, ncols, B, nrows, aptr0, astep)
@@ -423,8 +423,8 @@ end
 import Base: unsafe_copy!
 
 function unsafe_copy!{T}(dest::Union{KnetArray{T},Array{T}}, doffs, src::Union{KnetArray{T},Array{T}}, soffs, n; stream=C_NULL)
-    @cudart(:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
-            pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src), stream)
+    @cuda(:cudart,:cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src), stream)
     return dest
 end
 
