@@ -1,3 +1,5 @@
+import Base: sum, prod, maximum, minimum
+
 cuda21 = [
 ("add","sum","ai+xi","xi","0"),
 ("mul","prod","ai*xi","xi","1"),

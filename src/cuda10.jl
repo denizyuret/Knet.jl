@@ -1,3 +1,5 @@
+import Base: .^
+
 cuda10 = [
 # ("add",".+","s+xi"),
 # ("sub",".-","s-xi"),

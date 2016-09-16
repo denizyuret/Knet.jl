@@ -1,3 +1,5 @@
+import Base: .+, .-, .*, ./, .^, max, min, .==, .>, .>=, .<, .<=, +, -
+
 # Broadcasting binary functions (uses the same list as same size arrays)
 cuda12 = cuda11
 

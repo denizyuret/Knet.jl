@@ -1,3 +1,5 @@
+import Base: sqrt, exp, log, sin, tanh, -, abs, abs2
+
 cuda1 = [
 "sqrt",
 # "rsqrt",

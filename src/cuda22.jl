@@ -1,3 +1,7 @@
+import Base: *, A_mul_B!
+import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
+import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
+import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
 import Base.LinAlg.BLAS: gemm!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)

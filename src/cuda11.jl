@@ -1,4 +1,7 @@
 # Elementwise binary functions for arrays of the same size
+
+import Base: .+, .-, .*, ./, .^, max, min, .==, .>, .>=, .<, .<=, +, -
+
 cuda11 = [
 ("add",".+","xi+yi"),
 ("sub",".-","xi-yi"),

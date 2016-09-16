@@ -1,3 +1,5 @@
+import Base: .+, .-, .*, ./, .^, max, min, +, -, *, /, \
+
 cuda01 = [
 ("add",".+","s+xi"),
 ("sub",".-","s-xi"),

@@ -1,4 +1,5 @@
-import Base.LinAlg: norm_sqr
+import Base: sum, prod, maximum, minimum, countnz
+import Base.LinAlg: norm_sqr, norm, vecnorm
 import Base.LinAlg.BLAS: asum
 
 cuda20 = [

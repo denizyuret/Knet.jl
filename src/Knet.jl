@@ -2,8 +2,8 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
 using AutoGrad
-importall Base                  # TODO: remove this
-export KnetArray, grad, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
+export grad
+export KnetArray, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
 
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
