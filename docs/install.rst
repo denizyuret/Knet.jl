@@ -98,7 +98,7 @@ following screen:
 2. Make sure you select the "N. California" region in the upper right
 corner, then click on AMIs on the lower left menu.  At the search box,
 choose "Public images" and search for "Knet".  Click on the latest
-Knet image (Knet-0.7.2d as of this writing).  You should see the
+Knet image (Knet-0.8.0 as of this writing).  You should see the
 following screen with information about the Knet AMI. Click on the
 "Launch" button on the upper left.
 

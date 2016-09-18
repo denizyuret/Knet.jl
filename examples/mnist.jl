@@ -95,7 +95,7 @@ function accuracy(w, dtst)
     ncorrect = ninstance = 0
     for (x, ygold) in dtst
         ypred = predict(w, x)
-        ncorrect += sum((ypred .== maximum(ypred,1)) .* (ygold .== maximum(ygold,1)))
+        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
         ninstance += size(ygold,2)
     end
     return ncorrect/ninstance

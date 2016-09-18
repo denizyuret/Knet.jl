@@ -80,8 +80,7 @@ end
 function predict(w,x0)                       # 28,28,1,100
     x1 = pool(relu(conv4(w[1],x0) .+ w[2])) # 12,12,20,100
     x2 = pool(relu(conv4(w[3],x1) .+ w[4])) # 4,4,50,100
-    x2a = reshape(x2, (800,100))             # 800,100
-    x3 = relu(w[5]*x2a .+ w[6])              # 500,100
+    x3 = relu(w[5]*mat(x2) .+ w[6])              # 500,100
     x4 = w[7]*x3 .+ w[8]                     # 10,100
 end
 

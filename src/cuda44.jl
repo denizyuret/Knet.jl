@@ -76,6 +76,20 @@ pool(x...; o...)  = error("For GPU convolution support please use: Pkg.add(\"CUD
 
 end
 
+"Convenience function to convert arrays to matrices."
+function mat(x)
+    if ndims(x) > 2
+        xn = size(x,ndims(x))
+        reshape(x, (div(length(x),xn),xn))
+    elseif ndims(x)==2
+        x
+    elseif ndims(x)==1
+        reshape(x, (length(x),1))
+    else
+        throw(MethodError(mat,x))
+    end
+end
+
 # Work in progress on direct KnetArray support to eliminate dependency on CUDNN:
 
 # typealias CPtr Ptr{Void}

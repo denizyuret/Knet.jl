@@ -3,7 +3,7 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 module Knet
 using AutoGrad
 export grad
-export KnetArray, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool
+export KnetArray, gradcheck, gpu, gpuinfo, relu, sigm, invx, logp, conv4, pool, mat
 const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
 const datapath = joinpath(dirname(@__FILE__),"..","data")
 
