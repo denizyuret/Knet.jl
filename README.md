@@ -21,8 +21,8 @@ closures, array indexing and concatenation.  The training can be
 performed on the GPU by simply using KnetArray instead of Array for
 parameters and data.  Check out the
 [documentation](http://knet.rtfd.org) and the
-[examples](https://github.com/denizyuret/Knet.jl/tree/master/examples),
-directory for more information.
+[examples directory](https://github.com/denizyuret/Knet.jl/tree/master/examples)
+for more information.
 
 ## <a name="cont"></a> Contents
 
@@ -76,8 +76,8 @@ loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
 is the input and `y` is the desired output.  To train this model, we
 want to adjust its parameters to reduce the loss on some training
 examples.  The direction in the parameter space in which the loss
-reduction is maximum is the negative gradient of the loss.  Knet uses
-the higher-order function `grad` from
+reduction is maximum is given by the negative gradient of the loss.
+Knet uses the higher-order function `grad` from
 [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute
 the gradient direction:
 
@@ -89,9 +89,9 @@ Note that `grad` is a higher-order function that takes and returns
 other functions.  The `lossgradient` function takes the same arguments
 as `loss`, e.g. `dw = lossgradient(w,x,y)`.  Instead of returning a
 loss, it returns `dw`, the gradient of the loss with respect to its
-first argument `w`.  `dw` has the same type and size as `w`.  Each
-entry in `dw` gives the derivative of the loss with respect to that
-entry in `w`.
+first argument `w`.  The type and size of `dw` is identical to `w`,
+each entry in `dw` gives the derivative of the loss with respect to
+the corresponding entry in `w`.
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
@@ -109,8 +109,9 @@ end
 ```
 
 We simply iterate over the input-output pairs in data, calculate the
-lossgradient for each example, and move the parameters in the opposite
-direction with a step size determined by the learning rate `lr`.
+lossgradient for each example, and move the parameters in the negative
+gradient direction with a step size determined by the learning rate
+`lr`.
 
 Let's train this model on the
 [Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset
@@ -139,18 +140,21 @@ dropping from 366.0 to 29.6.  See
 [housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing.jl)
 for more information on this example.
 
+Note that `grad` was the only function used that is not in the Julia
+standard library.  This is typical of models defined in Knet.
+
 ### <a name="soft"></a> Softmax classification
 
 In this example we build a simple classification model for the
 [MNIST](http://yann.lecun.com/exdb/mnist) handwritten digit
 recognition dataset.  MNIST has 60000 training and 10000 test
 examples. Each input x consists of 784 pixels representing a 28x28
-image.
+image.  The corresponding output indicates the identity of the digit
+0..9.
 
-Classification models handle discrete outputs (in this case the
-identity of the digit 0..9), as opposed to regression models, which
-handle numeric outputs.  We typically use the cross entropy loss
-function in classification models:
+Classification models handle discrete outputs, as opposed to
+regression models, which handle numeric outputs.  We typically use the
+cross entropy loss function in classification models:
 
 ```
 function loss(w,x,ygold)
@@ -163,7 +167,7 @@ end
 Other than the change of loss function, the softmax model is identical
 to the linear regression model.  We use the same `predict`, same
 `train` and set `lossgradient=grad(loss)` as before.  To see how well
-our model classifies we can use an `accuracy` function which returns
+our model classifies let's define an `accuracy` function which returns
 the percentage of instances classified correctly:
 
 ```
@@ -198,7 +202,7 @@ julia> for epoch=1:10
 (:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
 ```
 
-Including `mnist.jl` loads the MNIST data, downloading from the
+Including `mnist.jl` loads the MNIST data, downloading it from the
 internet if necessary, and provides a training set (xtrn,ytrn), test
 set (xtst,ytst) and a `minibatch` utility which we use to rearrange
 the data into chunks of 100 instances.  After randomly initializing
@@ -300,7 +304,7 @@ code for the LeNet example can be found in
 
 ### <a name="recu"></a> Recurrent neural network
 
-Coming soon...
+Coming soon... (check out [charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl))
 
 <!--
 
