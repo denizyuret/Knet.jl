@@ -164,24 +164,39 @@ Other than the change of loss function, the softmax model is identical
 to the linear regression model.  We use the same `predict`, same
 `train` and set `lossgradient=grad(loss)` as before.
 
+We define an `accuracy` function which returns the percentage of
+instances classified correctly:
+
+```
+function accuracy(w, data)
+    ncorrect = ninstance = 0
+    for (x, ygold) in data
+        ypred = predict(w,x)
+        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
+        ninstance += size(ygold,2)
+    end
+    return ncorrect/ninstance
+end
+```
+
 Now let's train a model on the MNIST data:
 
 ```
 julia> include(Pkg.dir("Knet/examples/mnist.jl"))
-julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch, accuracy
+julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
 julia> dtrn = minibatch(xtrn, ytrn, 100)
 julia> dtst = minibatch(xtst, ytst, 100)
-julia> w = Any[ 0.2*rand(Float32,10,784)-0.1, zeros(Float32,10,1) ]
-julia> println((0, accuracy(w,dtrn), accuracy(w,dtst)))
+julia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]
+julia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
 julia> for epoch=1:10
            train(w, dtrn; lr=0.5)
-           println((epoch, accuracy(w,dtrn), accuracy(w,dtst)))
+           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
        end
 
-(0,0.06983333f0,0.0751f0)
-(1,0.90033334f0,0.9051f0)
+(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)
+(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)
 ...
-(10,0.9195667f0,0.9157f0)
+(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
 ```
 
 Including `mnist.jl` loads the MNIST data, downloading from the
@@ -218,8 +233,8 @@ w, we can define multi-layer perceptrons of arbitrary depth.  Let's
 define one with a single hidden layer of 64 units:
 
 ```
-w = Any[ 0.2*rand(Float32,64,784)-0.1, zeros(Float32,64,1),
-         0.2*rand(Float32,10,64)-0.1,  zeros(Float32,10,1) ]
+w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
+         -0.1+0.2*rand(Float32,10,64),  zeros(Float32,10,1) ]
 ```
 
 The rest of the code is the same as the softmax model.  We use the
@@ -230,10 +245,10 @@ The multi-layer perceptron does significantly better than the softmax
 model:
 
 ```
-(0,0.08681667f0,0.0887f0)
-(1,0.9371f0,0.9356f0)
+(:epoch,0,:trn,0.10166667f0,:tst,0.0977f0)
+(:epoch,1,:trn,0.9389167f0,:tst,0.9407f0)
 ...
-(10,0.9855833f0,0.9718f0)
+(:epoch,10,:trn,0.9866f0,:tst,0.9735f0)
 ```
 
 #### <a name="conv"></a> Convolutional neural network
@@ -252,6 +267,34 @@ function predict(w,x0)
     x3 = max(0, w[5]*mat(x2) .+ w[6])
     return w[7]*x3 .+ w[8]
 end
+```
+
+The weights for the convolutional net can be initialized as follows:
+
+```
+w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
+         -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
+         -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),
+         -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]
+```
+
+Currently convolution and pooling are only supported on the GPU for
+4-D and 5-D arrays.  So we reshape our data and transfer it along with
+the parameters to the GPU by converting them into KnetArray:
+
+```
+dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
+dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
+w = map(KnetArray, w)
+```
+
+The training proceeds as before giving us even better results:
+
+```
+(:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
+(:epoch,1,:trn,0.96963334f0,:tst,0.971f0)
+...
+(:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)
 ```
 
 #### <a name="recu"></a> Recurrent neural network
