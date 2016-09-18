@@ -448,14 +448,6 @@ for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     end
 end
 
-# To be able to load/save KnetArrays:
-if Pkg.installed("JLD") != nothing
-    import JLD: writeas, readas
-    type KnetJLD; a::Array; end
-    writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = KnetArray(d.a)
-end
-
 # AutoGrad functions:
 import AutoGrad: zeroslike, sum_outgrads, OneHot, unary_nd, indexed_function, isequivalent
 zeroslike(a::KnetArray)=zeros(a)

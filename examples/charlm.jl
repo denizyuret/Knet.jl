@@ -277,6 +277,14 @@ function minibatch(chars, char_to_index, batch_size)
     return data
 end
 
+# To be able to load/save KnetArrays:
+if Pkg.installed("JLD") != nothing
+    import JLD: writeas, readas
+    type KnetJLD; a::Array; end
+    writeas(c::KnetArray) = KnetJLD(Array(c))
+    readas(d::KnetJLD) = KnetArray(d.a)
+end
+
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia charlm.jl --epochs 10
 # julia> CharLM.main("--epochs 10")
