@@ -1,4 +1,9 @@
-isdefined(:MNIST) || (load_only=true;include("mnist.jl"))
+if !isdefined(:MNIST)
+    local lo=isdefined(:load_only)
+    load_only=true
+    include("mnist.jl")
+    load_only=lo
+end
 
 """
 
@@ -144,7 +149,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia lenet.jl --epochs 10
 # julia> LeNet.main("--epochs 10")
-!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+!isinteractive() && (!isdefined(Main,:load_only) || !Main.load_only) && main(ARGS)
 
 end # module
 
