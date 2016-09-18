@@ -45,7 +45,7 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, o...)
         if !isapprox(di, nd; rtol=rtol, atol=atol)
             warn("d=$di nd=$nd")
         else
-            println("GRAD: d=$di nd=$nd")
+            println("gcheck: d=$di nd=$nd")
         end
     end
 end
@@ -58,7 +58,7 @@ function gc_number(d, f, w, x...; o...)
     if !isapprox(d, nd; rtol=rtol, atol=atol)
         warn("d=$d nd=$nd")
     else
-        println("GRAD: d=$d nd=$nd")
+        println("gcheck: d=$d nd=$nd")
     end
 end
 

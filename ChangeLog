@@ -3,6 +3,7 @@
 	* DONE:
 	# new amazon aws image
 	# finish cudnn, curand etc. if possible eliminate dependence on them.
+	# logp should take a second argument like sum.
 
 	* TODO8:
 	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
@@ -14,7 +15,6 @@
 	# mnist2d: implement/test sparse arrays
 	# for general arrays: broadcast, get/setindex, h/v/cat.
 	# autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
-	# logp should take a second argument like sum.
 	# add back cpu convolution
 	# implement axpy! for KnetArray if it is worth it to get faster updates.
 	# charlm: profile speed, add dropout, nlayer.

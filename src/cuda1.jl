@@ -132,11 +132,19 @@ end
 # plogq = p .* logq	-1
 # loss  = -sum(plogq)	1
 
-"Treat columns of x as unnormalized logp and return normalized logp."
-function logp(x)
-    x = x .- maximum(x,1)
-    x = x .- log(sum(exp(x),1))
+"""
+
+logp(x,[dims]) treats entries in x as as unnormalized logp and returns
+normalized logp.  If dims is not specified the normalization is over
+the whole x, otherwise the normalization is performed over the given
+dimensions.  In particular dims=1 normalizes columns of x and dims=2
+normalizes rows of x.
+
+"""
+function logp(x,d...)
+    x = x .- maximum(x,d...)
+    x = x .- log(sum(exp(x),d...))
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  logp(x),dy,y  (dy - exp(y).*sum(dy,1))
+@primitive  logp(x,d...),dy,y  (dy - exp(y).*sum(dy,d...))

@@ -174,7 +174,7 @@ function loss(w, x, state; range=1:length(x)-1, keepstate=false)
         xt = xcurr * w[:W_embedding]
         (h,c) = lstm(w, xt, h, c)
         ypred = h * w[:W_predict] .+ w[:b_predict]
-        ynorm = logp2(ypred)
+        ynorm = logp(ypred,2)
         xnext = convert(atype, x[t+1])
         loss += sum(xnext .* ynorm)
         xcnt += size(ynorm,1)
@@ -187,15 +187,6 @@ function loss(w, x, state; range=1:length(x)-1, keepstate=false)
 end
 
 lossgradient = grad(loss)
-
-# logp assumes each column is an instance.
-# logp2 assumes each row is an instance:
-function logp2(x)
-    x = x .- maximum(x,2)
-    x = x .- log(sum(exp(x),2))
-end
-
-@primitive logp2(x),dy,y  (dy - exp(y).*sum(dy,2))
 
 function lstm(w, input, hidden, cell)
     h = size(hidden, 2)
@@ -236,7 +227,7 @@ function generate(model, vocab, nchar)
         (h,c) = lstm(w, xt, h, c)
         ypred = h * w[:W_predict] .+ w[:b_predict]
         xcurr[1,index] = 0
-        index = sample(exp(logp2(ypred)))
+        index = sample(exp(logp(ypred,2)))
         print(index_to_char[index])
         xcurr[1,index] = 1
     end
