@@ -1,4 +1,4 @@
-## Knet
+# Knet
 
 [![Build Status](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 <!-- 
@@ -17,14 +17,14 @@ construction of high-performance deep learning models in plain Julia
 by combining automatic differentiation with efficient GPU kernels and
 memory management.  Models can be defined and trained using arbitrary
 Julia code with helper functions, loops, conditionals, recursion,
-closures, array indexing and concatenation.  Models can be trained on
-the GPU by simply using KnetArray instead of Array for parameters and
-data.  Check out the
+closures, array indexing and concatenation.  The training can be
+performed on the GPU by simply using KnetArray instead of Array for
+parameters and data.  Check out the
 [tutorial](http://knet.readthedocs.io/en/latest/intro.html),
 [examples](https://github.com/denizyuret/Knet.jl/tree/master/examples),
 and [documentation](http://knet.rtfd.org) for more information.
 
-### <a name="cont"></a> Contents
+## <a name="cont"></a> Contents
 
 * [Installation](#inst)
 * [Examples](#exam)
@@ -38,7 +38,7 @@ and [documentation](http://knet.rtfd.org) for more information.
 * [See also](#seea)
 
 
-### <a name="inst"></a> Installation
+## <a name="inst"></a> Installation
 
 You can install Knet using `Pkg.add("Knet")`.  Some of the examples
 use additional packages such as ArgParse, GZip, and CUDNN.  These are
@@ -51,7 +51,7 @@ AWS](http://knet.readthedocs.org/en/dev/install.html#using-amazon-aws)
 to experiment with GPU machines on the cloud with pre-installed Knet
 images.
 
-### <a name="exam"></a> Examples
+## <a name="exam"></a> Examples
 
 In Knet, a machine learning model is defined using plain Julia code.
 A typical model consists of a prediction and a loss function.  The
@@ -59,7 +59,7 @@ prediction function takes model parameters and some input, returns the
 prediction of the model for that input.  The loss function measures
 how bad the prediction is with respect to some desired output.
 
-#### <a name="line"></a> Linear regression
+### <a name="line"></a> Linear regression
 
 Here is the prediction function and the corresponding quadratic loss
 function for a simple linear regression model:
@@ -69,7 +69,7 @@ using Knet
 
 predict(w,x) = w[1]*x .+ w[2]
 
-loss(w,x,y) = sumabs2(y - predict(w,x)) / size(x,2)
+loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
 ```
 
 `w` is a list of parameters (it could be a Tuple, Array, or Dict), `x`
@@ -139,7 +139,7 @@ dropping from 366.0 to 29.6.  See
 [housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing.jl)
 for more information on this example.
 
-#### <a name="soft"></a> Softmax classification
+### <a name="soft"></a> Softmax classification
 
 In this example we build a simple classification model for the
 [MNIST](http://yann.lecun.com/exdb/mnist) handwritten digit
@@ -156,16 +156,15 @@ function in classification models:
 function loss(w,x,ygold)
     ypred = predict(w,x)
     ynorm = ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(x,2)
+    -sum(ygold .* ynorm) / size(ygold,2)
 end
 ```
 
 Other than the change of loss function, the softmax model is identical
 to the linear regression model.  We use the same `predict`, same
-`train` and set `lossgradient=grad(loss)` as before.
-
-We define an `accuracy` function which returns the percentage of
-instances classified correctly:
+`train` and set `lossgradient=grad(loss)` as before.  To see how well
+our model classifies we can use an `accuracy` function which returns
+the percentage of instances classified correctly:
 
 ```
 function accuracy(w, data)
@@ -209,7 +208,7 @@ to the limit of what we can achieve with this type of model.  To
 improve further we must look beyond linear models.
 
 
-#### <a name="mult"></a> Multi-layer perceptron
+### <a name="mult"></a> Multi-layer perceptron
 
 A multi-layer perceptron, i.e. a fully connected feed-forward neural
 network, is basically a bunch of linear regression models stuck
@@ -251,7 +250,7 @@ model:
 (:epoch,10,:trn,0.9866f0,:tst,0.9735f0)
 ```
 
-#### <a name="conv"></a> Convolutional neural network
+### <a name="conv"></a> Convolutional neural network
 
 To improve the performance further, we can use [convolutional neural
 networks](http://cs231n.github.io/convolutional-networks/).  We will
@@ -279,8 +278,8 @@ w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
 ```
 
 Currently convolution and pooling are only supported on the GPU for
-4-D and 5-D arrays.  So we reshape our data and transfer it along with
-the parameters to the GPU by converting them into KnetArray:
+4-D and 5-D arrays.  So we reshape our data and transfer it to the GPU
+along with the parameters by converting them into KnetArrays:
 
 ```
 dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
@@ -297,16 +296,16 @@ The training proceeds as before giving us even better results:
 (:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)
 ```
 
-#### <a name="recu"></a> Recurrent neural network
+### <a name="recu"></a> Recurrent neural network
 
 
-### <a name="unde"></a> Under the hood
+## <a name="unde"></a> Under the hood
 
 
-### <a name="benc"></a> Benchmarks
+## <a name="benc"></a> Benchmarks
 
 
-### <a name="seea"></a> See also
+## <a name="seea"></a> See also
 
 * If you would like a quick introduction to Knet, try the [tutorial](http://knet.readthedocs.org/en/latest/intro.html).
 * If you would like to try Knet on your own computer, please follow the [installation instructions](http://knet.readthedocs.org/en/dev/install.html#installation).
