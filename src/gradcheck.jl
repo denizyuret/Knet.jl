@@ -43,9 +43,9 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, o...)
         nd = (f2-f1) / (w2-w1)
         di = (d==nothing ? 0 : d[i])
         if !isapprox(di, nd; rtol=rtol, atol=atol)
-            warn("gcheck: d=$di nd=$nd")
+            warn("d=$di nd=$nd")
         else
-            info("gcheck: d=$di nd=$nd")
+            println("GRAD: d=$di nd=$nd")
         end
     end
 end
@@ -56,9 +56,9 @@ function gc_number(d, f, w, x...; o...)
     (f1, f2) = (f(w1,x...;o...), f(w2,x...;o...))
     nd = (f2-f1) / (w2-w1)
     if !isapprox(d, nd; rtol=rtol, atol=atol)
-        warn("gcheck: d=$d nd=$nd")
+        warn("d=$d nd=$nd")
     else
-        info("gcheck: d=$d nd=$nd")
+        println("GRAD: d=$d nd=$nd")
     end
 end
 

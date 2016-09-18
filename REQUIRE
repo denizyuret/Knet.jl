@@ -7,11 +7,5 @@ AutoGrad 0.0.3
 # JLD
 # GZip
 
-# We need these for GPU support:
-# CUDArt
-# CUBLAS
-# CUSPARSE 0.3 0.4-
-# CUDNN
-
 # We will need this for 0.6 compat:
 # Compat 0.7.15 # for sin.(x) etc.

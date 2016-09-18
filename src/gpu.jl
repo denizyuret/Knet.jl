@@ -56,19 +56,21 @@ gpumem()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},P
 gpufree()=gpumem()[1]
 gpuinfo(msg="")=(print("$msg "); println((gpumem()...,meminfo()...)))
 
+typealias Cptr Ptr{Void}
+
 function cublasCreate()
-    handleP = Ptr{Void}[0]
-    @cuda(cublas,cublasCreate_v2, (Ptr{Ptr{Void}},), handleP)
+    handleP = Cptr[0]
+    @cuda(cublas,cublasCreate_v2, (Ptr{Cptr},), handleP)
     handle = handleP[1]
-    atexit(()->@cuda(cublas,cublasDestroy_v2, (Ptr{Void},), handle))
+    atexit(()->@cuda(cublas,cublasDestroy_v2, (Cptr,), handle))
     return handle
 end
 
 function cudnnCreate()
-    handleP = Ptr{Void}[0]
-    @cuda(cudnn,cudnnCreate,(Ptr{Ptr{Void}},), handleP)
+    handleP = Cptr[0]
+    @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
-    atexit(()->@cuda(cudnn,cudnnDestroy,(Ptr{Void},), handle))
+    atexit(()->@cuda(cudnn,cudnnDestroy,(Cptr,), handle))
     return handle
 end
 

@@ -24,7 +24,7 @@ and optimized parameters will be returned.
 
 """
 module LeNet
-using Knet,ArgParse,AutoGrad,CUDArt,CUDNN
+using Knet,ArgParse,AutoGrad
 using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
 
 
@@ -49,11 +49,12 @@ function main(args=ARGS)
     dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
     dtst = minibatch4(xtst, ytst, o[:batchsize])
     w = weights()
+    println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
 
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
+        println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     else
-        println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
