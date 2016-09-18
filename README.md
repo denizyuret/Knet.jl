@@ -20,9 +20,9 @@ Julia code with helper functions, loops, conditionals, recursion,
 closures, array indexing and concatenation.  The training can be
 performed on the GPU by simply using KnetArray instead of Array for
 parameters and data.  Check out the
-[tutorial](http://knet.readthedocs.io/en/latest/intro.html),
+[documentation](http://knet.rtfd.org) and the
 [examples](https://github.com/denizyuret/Knet.jl/tree/master/examples),
-and [documentation](http://knet.rtfd.org) for more information.
+directory for more information.
 
 ## <a name="cont"></a> Contents
 
@@ -35,13 +35,13 @@ and [documentation](http://knet.rtfd.org) for more information.
   - [Recurrent neural network](#recu)
 * [Under the hood](#unde)
 * [Benchmarks](#benc)
-* [See also](#seea)
+* [Contributing](#cont)
 
 
 ## <a name="inst"></a> Installation
 
 You can install Knet using `Pkg.add("Knet")`.  Some of the examples
-use additional packages such as ArgParse, GZip, and CUDNN.  These are
+use additional packages such as ArgParse, GZip, and JLD.  These are
 not required by Knet and can be installed when needed using additional
 `Pkg.add()` commands.  The documentation provides detailed
 [installation
@@ -287,7 +287,9 @@ dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
 w = map(KnetArray, w)
 ```
 
-The training proceeds as before giving us even better results:
+The training proceeds as before giving us even better results.  The
+code for the LeNet example can be found in
+[lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet.jl).
 
 ```
 (:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
@@ -298,27 +300,70 @@ The training proceeds as before giving us even better results:
 
 ### <a name="recu"></a> Recurrent neural network
 
+Coming soon...
+
+<!--
+
+In this example we are going to implement an
+[LSTM](http://colah.github.io/posts/2015-08-Understanding-LSTMs) based
+recurrent neural network for character-level language models inspired
+by ["The Unreasonable Effectiveness of Recurrent Neural
+Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness)
+from the Andrej Karpathy blog.  The model can be trained with
+different genres of text, and can be used to generate original text in
+the same style.  The code for the model can be found in
+[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl)
+
+Here is a possible LSTM definition in Knet, which follows the
+mathematical definition pretty closely:
+
+```
+function lstm(w, input, hidden, cell)
+    h = size(hidden, 2)
+    x = hcat(input, hidden)
+    g = x * w[:W_gates] .+ w[:b_gates]
+    forget  = sigm(g[:,1:h])
+    ingate  = sigm(g[:,1+h:2h])
+    outgate = sigm(g[:,1+2h:3h])
+    change  = tanh(g[:,1+3h:end])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    return hidden, cell
+end
+```
+
+At each time step, an LSTM unit takes some parameters w and input, and
+updates its internal state, given by the hidden and cell variables.
+Note that in this implementation the weights for the various LSTM
+gates are concatenated in w[:W_gates] to perform a single matrix
+multiplication for efficiency.  The result is split into individual
+gates again using regular Julia indexing syntax, e.g. `g[:,1:h]`.
+
+-->
 
 ## <a name="unde"></a> Under the hood
 
+Coming soon...
 
 ## <a name="benc"></a> Benchmarks
 
+Coming soon...
 
-## <a name="seea"></a> See also
-
-* If you would like a quick introduction to Knet, try the [tutorial](http://knet.readthedocs.org/en/latest/intro.html).
-* If you would like to try Knet on your own computer, please follow the [installation instructions](http://knet.readthedocs.org/en/dev/install.html#installation).
-* If you would like to try working with a GPU and do not have access to one, take a look at the [using Amazon AWS](http://knet.readthedocs.org/en/dev/install.html#using-amazon-aws) tutorial.
-* If you need help or would like to request a feature, please consider joining the [knet-users](https://groups.google.com/forum/#!forum/knet-users) mailing list.
-* If you find a bug, please open a [GitHub issue](https://github.com/denizyuret/Knet.jl/issues).  
-* If you would like to contribute to Knet development, check out the [knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing list and [tips for developers](http://knet.readthedocs.org/en/dev/install.html#tips-for-developers).
+## <a name="cont"></a> Contributing
 
 Knet is an open-source project and we are always open to new
 contributions: bug reports and fixes, feature requests and
 contributions, new machine learning models and operators, inspiring
-examples, benchmarking results are all welcome.  If you use Knet in
-your own work, the suggested citation is:
+examples, benchmarking results are all welcome.  If you need help or
+would like to request a feature, please consider joining the
+[knet-users](https://groups.google.com/forum/#!forum/knet-users)
+mailing list.  If you find a bug, please open a [GitHub
+issue](https://github.com/denizyuret/Knet.jl/issues).  If you would
+like to contribute to Knet development, check out the
+[knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing
+list and [tips for
+developers](http://knet.readthedocs.org/en/dev/install.html#tips-for-developers).
+If you use Knet in your own work, the suggested citation is:
 
 ```
 @misc{knet,

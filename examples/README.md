@@ -46,12 +46,11 @@ printed at every epoch and optimized parameters will be returned.
 This example learns to classify hand-written digits using the same
 dataset as the MNIST demo and the
 [LeNet](http://yann.lecun.com/exdb/lenet) convolutional neural network
-model.  Note that you need a GPU machine and have the CUDNN package
-installed for this demo.  You can run the demo using `julia lenet.jl`.
-The dataset will be automatically downloaded.  The accuracy for the
-training and test sets will be printed at every epoch and optimized
-parameters will be returned.  Use `julia lenet.jl --help` for a list
-of options.
+model.  Note that you need a GPU machine for this demo.  You can run
+the demo using `julia lenet.jl`.  The dataset will be automatically
+downloaded.  The accuracy for the training and test sets will be
+printed at every epoch and optimized parameters will be returned.  Use
+`julia lenet.jl --help` for a list of options.
 
 ## [CharLM](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl)
 

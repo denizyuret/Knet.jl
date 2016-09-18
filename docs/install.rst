@@ -42,10 +42,9 @@ To install Knet just use ``Pkg.add("Knet")``::
 
     julia> Pkg.add("Knet")
 
-Some Knet examples use additional packages such as ArgParse, JLD, GZip
-and Compat.  GPU convolution support requires CUDArt and CUDNN.  These
-are not required by Knet, you can install them manually when needed
-using Pkg.add("PkgName").
+Some Knet examples use additional packages such as ArgParse, GZip and
+JLD.  These are not required by Knet, you can install them manually
+when needed using Pkg.add("PkgName").
 
 Run ``Pkg.build("Knet")`` to recompile Knet after optional packages
 are installed and to compile the Knet GPU kernels at first

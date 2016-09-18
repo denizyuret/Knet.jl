@@ -24,7 +24,7 @@ and optimized parameters will be returned.
 
 """
 module LeNet
-using Knet,ArgParse,AutoGrad
+using Knet,ArgParse
 using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
 
 
@@ -45,6 +45,7 @@ function main(args=ARGS)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
+    gpu() >= 0 || error("LeNet only works on GPU machines.")
 
     dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
     dtst = minibatch4(xtst, ytst, o[:batchsize])
