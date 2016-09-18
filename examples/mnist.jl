@@ -112,8 +112,8 @@ function weights(h...; atype=Array{Float32}, winit=0.1)
     return w
 end
 
-function minibatch(x, y, batchsize; atype=Array{Float32}, xrows=784, yrows=10, xscale=255.)
-    xbatch(a)=convert(atype, reshape(a,xrows,div(length(a),xrows)))./xscale
+function minibatch(x, y, batchsize; atype=Array{Float32}, xrows=784, yrows=10, xscale=255)
+    xbatch(a)=convert(atype, reshape(a./xscale, xrows, div(length(a),xrows)))
     ybatch(a)=(a[a.==0]=10; convert(atype, sparse(convert(Vector{Int},a),1:length(a),one(eltype(a)),yrows,length(a))))
     xcols = div(length(x),xrows)
     xcols == length(y) || throw(DimensionMismatch())
