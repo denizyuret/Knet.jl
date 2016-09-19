@@ -44,8 +44,8 @@ function main(args=ARGS)
         ("--savefile"; help="Save final model to file")
         ("--bestfile"; help="Save best model to file")
         ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of characters.")
-        ("--hidden"; arg_type=Int; default=256; help="Size of the LSTM internal state.")
-        ("--embedding"; arg_type=Int; default=256; help="Size of the embedding vector.")
+        ("--hidden"; nargs='+'; arg_type=Int; default=[256]; help="Sizes of one or more LSTM layers.")
+        ("--embed"; arg_type=Int; default=256; help="Size of the embedding vector.")
         ("--epochs"; arg_type=Int; default=3; help="Number of epochs for training.")
         ("--batchsize"; arg_type=Int; default=128; help="Number of sequences to train on in parallel.")
         ("--seqlength"; arg_type=Int; default=100; help="Number of steps to unroll the network for.")
@@ -59,20 +59,20 @@ function main(args=ARGS)
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
-        #TODO ("--nlayer"; arg_type=Int; default=1; help="Number of LSTM layers.")
     end
     println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
+    o[:atype] = eval(parse(o[:atype]))
     if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
         Pkg.installed("JLD")==nothing && error("Please Pkg.add(\"JLD\") to load or save files.")
         eval(Expr(:using,:JLD))
     end
 
     # we initialize a model from loadfile, train using datafiles (both optional).
-    # if the user specifies neither, train a model using Knet ChangeLog.
+    # if the user specifies neither, train a model using the charlm.jl source code.
     isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],@__FILE__) # shakespeare()
 
     # read text and report lengths
@@ -84,12 +84,12 @@ function main(args=ARGS)
     if o[:loadfile]==nothing
         vocab = Dict{Char,Int}()
         for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
-        model = weights(length(vocab), o[:hidden], o[:embedding], o[:winit])
+        model = initweights(o[:atype], o[:hidden], length(vocab), o[:embed], o[:winit])
     else
         info("Loading model from $(o[:loadfile])")
         vocab = load(o[:loadfile], "vocab") 
         for t in text, c in t; haskey(vocab, c) || error("Unknown char $c"); end
-        model = load(o[:loadfile], "model")
+        model = map(p->convert(o[:atype],p), load(o[:loadfile], "model"))
     end
     info("$(length(vocab)) unique chars.")
     if !isempty(text)
@@ -105,23 +105,124 @@ function main(args=ARGS)
 end
 
 
+# param[2k-1,2k]: weight and bias for the k'th lstm layer
+# param[end-2]: embedding matrix
+# param[end-1,end]: weight and bias for final prediction
+function initweights(atype, hidden, vocab, embed, winit)
+    param = Array(Any, 2*length(hidden)+3)
+    input = embed
+    for k = 1:length(hidden)
+        param[2k-1] = winit*randn(input+hidden[k], 4*hidden[k])
+        param[2k]   = zeros(1, 4*hidden[k])
+        param[2k][1:hidden[k]] = 1 # forget gate bias
+        input = hidden[k]
+    end
+    param[end-2] = winit*randn(vocab,embed)
+    param[end-1] = winit*randn(hidden[end],vocab)
+    param[end] = zeros(1,vocab)
+    return map(p->convert(atype,p), param)
+end
+
+# state[2k-1,2k]: hidden and cell for the k'th lstm layer
+function initstate(atype, hidden, batchsize)
+    state = Array(Any, 2*length(hidden))
+    for k = 1:length(hidden)
+        state[2k-1] = zeros(batchsize,hidden[k])
+        state[2k] = zeros(batchsize,hidden[k])
+    end
+    return map(s->convert(atype,s), state)
+end
+
+# param[index,index+1]: weight and bias for this layer
+# state[index,index+1]: hidden and cell for this layer
+# state is modified in place and next hidden is returned
+function lstm(param,state,index,input)
+    (hidden,cell) = (state[index],state[index+1])
+    (weight,bias) = (param[index],param[index+1])
+    gates = hcat(input,hidden) * weight .+ bias
+    hsize = size(hidden,2)
+    forget  = sigm(gates[:,1:hsize])
+    ingate  = sigm(gates[:,1+hsize:2hsize])
+    outgate = sigm(gates[:,1+2hsize:3hsize])
+    change  = tanh(gates[:,1+3hsize:end])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    (state[index],state[index+1]) = (hidden,cell)
+    return hidden
+end
+
+# state[2k-1,2k]: hidden and cell for the k'th lstm layer
+# param[2k-1,2k]: weight and bias for k'th lstm layer
+# param[end-2]: embedding matrix
+# param[end-1,end]: weight and bias for final prediction
+function predict(param,state,input)
+    input = input * param[end-2]
+    for index = 1:2:length(state)
+        input = lstm(param,state,index,input)
+    end
+    return input * param[end-1] .+ param[end]
+end
+
+# sequence[t]: input token at time t
+function loss(param,state,sequence,range=1:length(sequence)-1)
+    total = count = 0
+    atype = typeof(getval(param[1]))
+    input = convert(atype,sequence[first(range)])
+    for t in range
+        ypred = predict(param,state,input)
+        ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
+        ygold = convert(atype,sequence[t+1])
+        total += sum(ygold .* ynorm)
+        count += size(ygold,2)
+        input = ygold
+    end
+    return -total / count
+end
+
+lossgradient = grad(loss)
+
+
+function train1(param, state0, sequence; slen=100, lr=1.0, gclip=0.0, keepstate=false)
+    state = copy(state0)
+    for t = 1:slen:length(sequence)-slen
+        range = t:t+slen-1
+        gloss = lossgradient(param, state, sequence, range)
+        gscale = lr
+        if gclip > 0
+            gnorm = sqrt(mapreduce(sumabs2, +, 0, gloss))
+            if gnorm > gclip
+                gscale *= gclip / gnorm
+            end
+        end
+        for k in 1:length(param)
+            param[k] -= gscale * gloss[k] # TODO: try axpy! to see if it is worth it
+        end
+        if keepstate
+            for i = 1:length(state)
+                isa(state,Value) && error("State should not be a Value.")
+                state[i] = getval(state[i])
+            end
+        else
+            state = copy(state0)
+        end
+    end
+end
+
 function train!(model, text, vocab, o)
-    atype = eval(parse(o[:atype]))
-    for (k,v) in model; model[k] = convert(atype,v); end
-    h0 = c0 = convert(atype, zeros(o[:batchsize],o[:hidden])); s0=Any[h0,c0]
+    state = initstate(o[:atype], o[:hidden], o[:batchsize])
     data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    @time losses = map(d->loss(model,d,s0), data)
+    @time losses = map(d->loss(model,state,d), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
     lr = o[:lr]
     for epoch=1:o[:epochs]
-        @time train1(model, data[1], s0; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
+        @time train1(model, state, data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
         o[:fast] && continue
-        @time losses = map(d->loss(model,d,s0), data)
+        @time losses = map(d->loss(model,state,d), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
-            gradcheck(loss, model, data[1], s0; gcheck=o[:gcheck], range=1:o[:seqlength])
+            gradcheck(loss, model, state, data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
         end
         devloss = losses[devset]
         if devloss < devbest
@@ -138,79 +239,10 @@ function train!(model, text, vocab, o)
         devlast = devloss
     end
     if o[:fast]
-        @time losses = map(d->loss(model,d,s0), data)
+        @time losses = map(d->loss(model,state,d), data)
         println((:epoch,o[:epochs],:loss,losses...))
     end
 end    
-
-function train1(w, x, state; slen=100, lr=1.0, gclip=0.0, keepstate=false)
-    keepstate && (state = copy(state))
-    for t = 1:slen:length(x)-slen
-        r = t:t+slen-1
-        g = lossgradient(w, x, state; range=r, keepstate=keepstate)
-        gscale = lr
-        if gclip > 0
-            gnorm = sqrt(mapreduce(a->vecnorm(a)^2, +, 0, values(g)))
-            if gnorm > gclip
-                gscale *= gclip / gnorm
-            end
-        end
-        for k in keys(g)
-            w[k] -= gscale * g[k]
-            # TODO: try axpy! to see if it is worth it
-        end
-    end
-end
-
-# Given parameters w, sequence x, and hidden-cell pair state, returns loss.
-# Note that we are transposing everything for getindex/hcat efficiency:
-# Instances are in rows of x instead of columns of x.
-function loss(w, x, state; range=1:length(x)-1, keepstate=false)
-    (h,c) = state
-    loss = 0.0; xcnt = 0
-    atype = typeof(getval(w[:W_embedding]))
-    xcurr = convert(atype, x[first(range)])
-    for t in range
-        xt = xcurr * w[:W_embedding]
-        (h,c) = lstm(w, xt, h, c)
-        ypred = h * w[:W_predict] .+ w[:b_predict]
-        ynorm = logp(ypred,2)
-        xnext = convert(atype, x[t+1])
-        loss += sum(xnext .* ynorm)
-        xcnt += size(ynorm,1)
-        xcurr = xnext
-    end
-    if keepstate
-        state[1]=getval(h); state[2]=getval(c)
-    end
-    return -loss/xcnt
-end
-
-lossgradient = grad(loss)
-
-function lstm(w, input, hidden, cell)
-    h = size(hidden, 2)
-    x = hcat(input, hidden)
-    g = x * w[:W_gates] .+ w[:b_gates]
-    forget  = sigm(g[:,1:h])
-    ingate  = sigm(g[:,1+h:2h])
-    outgate = sigm(g[:,1+2h:3h])
-    change  = tanh(g[:,1+3h:end])
-    cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
-    return hidden, cell
-end
-
-function weights(vocabsize,hiddensize,embedsize,winit)
-    w = Dict()
-    w[:W_gates] = winit*randn(embedsize+hiddensize,4*hiddensize)
-    w[:b_gates] = zeros(1,4*hiddensize)
-    w[:b_gates][1:hiddensize] = 1 # forget bias set to 1
-    w[:W_embedding] = winit*randn(vocabsize,embedsize)
-    w[:W_predict]   = winit*randn(hiddensize,vocabsize)
-    w[:b_predict]   = zeros(1,vocabsize)
-    return w
-end
 
 function generate(model, vocab, nchar)
     index_to_char = Array(Char, length(vocab))
