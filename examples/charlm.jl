@@ -53,7 +53,6 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=4.0; help="Initial learning rate.")
         ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
         ("--winit"; arg_type=Float64; default=0.01; help="Initial weights set to winit*randn().")
-        ("--keepstate"; action=:store_true; help="Keep state between iterations.")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=42; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
@@ -100,7 +99,8 @@ function main(args=ARGS)
         save(o[:savefile], "model", model, "vocab", vocab)
     end
     if o[:generate] > 0
-        generate(model, vocab, o[:generate])
+        state = initstate(o[:atype],o[:hidden],1)
+        generate(model, state, vocab, o[:generate])
     end
 end
 
@@ -155,6 +155,7 @@ end
 # param[2k-1,2k]: weight and bias for k'th lstm layer
 # param[end-2]: embedding matrix
 # param[end-1,end]: weight and bias for final prediction
+# state is modified in place
 function predict(param,state,input)
     input = input * param[end-2]
     for index = 1:2:length(state)
@@ -164,16 +165,17 @@ function predict(param,state,input)
 end
 
 # sequence[t]: input token at time t
+# state is modified in place
 function loss(param,state,sequence,range=1:length(sequence)-1)
-    total = count = 0
+    total = 0.0; count = 0
     atype = typeof(getval(param[1]))
     input = convert(atype,sequence[first(range)])
     for t in range
         ypred = predict(param,state,input)
-        ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
+        ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
         ygold = convert(atype,sequence[t+1])
         total += sum(ygold .* ynorm)
-        count += size(ygold,2)
+        count += size(ygold,1)
         input = ygold
     end
     return -total / count
@@ -181,9 +183,24 @@ end
 
 lossgradient = grad(loss)
 
+function generate(param, state, vocab, nchar)
+    index_to_char = Array(Char, length(vocab))
+    for (k,v) in vocab; index_to_char[v] = k; end
+    input = oftype(param[1], zeros(1,length(vocab)))
+    index = 1
+    for t in 1:nchar
+        ypred = predict(param,state,input)
+        input[index] = 0
+        index = sample(exp(logp(ypred)))
+        print(index_to_char[index])
+        input[index] = 1
+    end
+    println()
+end
 
-function train1(param, state0, sequence; slen=100, lr=1.0, gclip=0.0, keepstate=false)
-    state = copy(state0)
+# sequence[t]: input token at time t
+# state is modified in place
+function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
     for t = 1:slen:length(sequence)-slen
         range = t:t+slen-1
         gloss = lossgradient(param, state, sequence, range)
@@ -197,32 +214,28 @@ function train1(param, state0, sequence; slen=100, lr=1.0, gclip=0.0, keepstate=
         for k in 1:length(param)
             param[k] -= gscale * gloss[k] # TODO: try axpy! to see if it is worth it
         end
-        if keepstate
-            for i = 1:length(state)
-                isa(state,Value) && error("State should not be a Value.")
-                state[i] = getval(state[i])
-            end
-        else
-            state = copy(state0)
+        for i = 1:length(state)
+            isa(state,Value) && error("State should not be a Value.")
+            state[i] = getval(state[i])
         end
     end
 end
 
 function train!(model, text, vocab, o)
-    state = initstate(o[:atype], o[:hidden], o[:batchsize])
+    s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
     data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    @time losses = map(d->loss(model,state,d), data)
+    @time losses = map(d->loss(model,copy(s0),d), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
     lr = o[:lr]
     for epoch=1:o[:epochs]
-        @time train1(model, state, data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip], keepstate=o[:keepstate])
+        @time train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
         o[:fast] && continue
-        @time losses = map(d->loss(model,state,d), data)
+        @time losses = map(d->loss(model,copy(s0),d), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
-            gradcheck(loss, model, state, data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
+            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
         end
         devloss = losses[devset]
         if devloss < devbest
@@ -239,34 +252,13 @@ function train!(model, text, vocab, o)
         devlast = devloss
     end
     if o[:fast]
-        @time losses = map(d->loss(model,state,d), data)
+        @time losses = map(d->loss(model,copy(s0),d), data)
         println((:epoch,o[:epochs],:loss,losses...))
     end
 end    
 
-function generate(model, vocab, nchar)
-    index_to_char = Array(Char, length(vocab))
-    for (k,v) in vocab; index_to_char[v] = k; end
-    w = Dict()
-    for (k,v) in model; w[k] = Array(v); end
-    @show (hiddensize, vocabsize) = size(w[:W_predict])
-    wt = eltype(w[:W_predict])
-    h = c = zeros(wt, 1, hiddensize)
-    xcurr = zeros(wt, 1, vocabsize)
-    index = 1
-    for t = 1:nchar
-        xt = xcurr * w[:W_embedding]
-        (h,c) = lstm(w, xt, h, c)
-        ypred = h * w[:W_predict] .+ w[:b_predict]
-        xcurr[1,index] = 0
-        index = sample(exp(logp(ypred,2)))
-        print(index_to_char[index])
-        xcurr[1,index] = 1
-    end
-    println()
-end
-
 function sample(p)
+    p = convert(Array,p)
     r = rand()
     for c = 1:length(p)
         r -= p[c]
@@ -318,6 +310,28 @@ end  # module
 # Note: 10.txt used in the sample runs below was generated using
 #   head -10000 100.txt > 10.txt
 # where 100.txt is the file downloaded by shakespeare().
+
+
+
+### SAMPLE RUN 74a2e6c+ Mon Sep 19 14:03:10 EEST 2016
+### Implemented multi-layer.  Removed the keepstate option fixing it to true.
+### Note that winit default changed so I specify it below for comparison.
+### The slight difference is due to keepstate.
+
+# julia> CharLM.main("--data 10.txt --winit 0.3 --fast")
+# charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness.
+# opts=(:lr,4.0)(:atype,"KnetArray{Float32}")(:winit,0.3)(:savefile,nothing)(:loadfile,nothing)(:generate,0)(:bestfile,nothing)(:gclip,3.0)(:hidden,[256])(:epochs,3)(:decay,0.9)(:gcheck,0)(:seqlength,100)(:seed,42)(:embed,256)(:batchsize,128)(:datafiles,Any["10.txt"])(:fast,true)
+# INFO: Chars read: [("10.txt",425808)]
+# INFO: 87 unique chars.
+#   1.406687 seconds (1.74 M allocations: 196.799 MB, 2.49% gc time)
+# (:epoch,0,:loss,6.1075509900258)
+#   4.002638 seconds (6.12 M allocations: 374.188 MB, 2.41% gc time)
+#   3.990772 seconds (6.11 M allocations: 374.129 MB, 2.44% gc time)
+#   4.006249 seconds (6.12 M allocations: 374.240 MB, 2.53% gc time)
+#   1.405878 seconds (1.75 M allocations: 197.059 MB, 2.56% gc time)
+# (:epoch,3,:loss,1.8713183968407767)
+
+
 
 ### SAMPLE RUN 4ce58d1+ Fri Sep 16 12:24:00 EEST 2016
 ### Transposed everything so getindex does not need to copy

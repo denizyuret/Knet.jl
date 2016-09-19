@@ -6,6 +6,8 @@
 	# logp should take a second argument like sum.
 
 	* TODO8:
+	# implement better unit testing.
+	# broadcasting KnetArray bug when array size 1x1.
 	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
 	# document KnetArray in readme.
 	# write paper for nips
@@ -19,6 +21,7 @@
 	# implement axpy! for KnetArray if it is worth it to get faster updates.
 	# charlm: profile speed, add dropout, nlayer.
 	# add transpose to KnetArray.
+	# implement adam.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 
 2016-09-16  Deniz Yuret  <dyuret@ku.edu.tr>
