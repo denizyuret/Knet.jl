@@ -54,7 +54,7 @@ function main(args=ARGS)
         ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
         ("--winit"; arg_type=Float64; default=0.01; help="Initial weights set to winit*randn().")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
-        ("--seed"; arg_type=Int; default=42; help="Random number seed.")
+        ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
@@ -133,35 +133,30 @@ function initstate(atype, hidden, batchsize)
     return map(s->convert(atype,s), state)
 end
 
-# param[index,index+1]: weight and bias for this layer
-# state[index,index+1]: hidden and cell for this layer
-# state is modified in place and next hidden is returned
-function lstm(param,state,index,input)
-    (hidden,cell) = (state[index],state[index+1])
-    (weight,bias) = (param[index],param[index+1])
-    gates = hcat(input,hidden) * weight .+ bias
-    hsize = size(hidden,2)
+function lstm(weight,bias,hidden,cell,input)
+    gates   = hcat(input,hidden) * weight .+ bias
+    hsize   = size(hidden,2)
     forget  = sigm(gates[:,1:hsize])
     ingate  = sigm(gates[:,1+hsize:2hsize])
     outgate = sigm(gates[:,1+2hsize:3hsize])
     change  = tanh(gates[:,1+3hsize:end])
     cell    = cell .* forget + ingate .* change
     hidden  = outgate .* tanh(cell)
-    (state[index],state[index+1]) = (hidden,cell)
-    return hidden
+    return (hidden,cell)
 end
 
-# state[2k-1,2k]: hidden and cell for the k'th lstm layer
-# param[2k-1,2k]: weight and bias for k'th lstm layer
-# param[end-2]: embedding matrix
-# param[end-1,end]: weight and bias for final prediction
+# s[2k-1,2k]: hidden and cell for the k'th lstm layer
+# w[2k-1,2k]: weight and bias for k'th lstm layer
+# w[end-2]: embedding matrix
+# w[end-1,end]: weight and bias for final prediction
 # state is modified in place
-function predict(param,state,input)
-    input = input * param[end-2]
-    for index = 1:2:length(state)
-        input = lstm(param,state,index,input)
+function predict(w, s, x)
+    x = x * w[end-2]
+    for i = 1:2:length(s)
+        (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
+        x = s[i]
     end
-    return input * param[end-1] .+ param[end]
+    return x * w[end-1] .+ w[end]
 end
 
 # sequence[t]: input token at time t
