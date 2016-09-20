@@ -12,7 +12,7 @@ Contents:
    :maxdepth: 2
 
    install
-   intro
+   README
    backprop
    softmax
    mlp
