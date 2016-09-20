@@ -14,15 +14,20 @@ Introduction to Knet
 `Knet <http://knet.rtfd.org>`__ (pronounced "kay-net") is the `Koç
 University <http://www.ku.edu.tr/en>`__ deep learning framework
 implemented in `Julia <http://julia.rtfd.org>`__ by `Deniz Yuret
-<http://www.denizyuret.com>`__ and collaborators. It supports
-construction of high-performance deep learning models in plain Julia
-by combining automatic differentiation with efficient GPU kernels and
-memory management. Models can be defined and trained using arbitrary
-Julia code with helper functions, loops, conditionals, recursion,
-closures, array indexing and concatenation. The training can be
-performed on the GPU by simply using KnetArray instead of Array for
-parameters and data. Check out the `full documentation
-<http://knet.rtfd.org>`__ and the `examples directory
+<http://www.denizyuret.com>`__ and collaborators.  Unlike gradient
+generating compilers like Theano and TensorFlow which force users into
+a restricted mini-language, Knet allows the definition and training of
+machine learning models using the full power and expressivity of
+Julia.  Models are defined by describing only the forward calculation
+in plain Julia allowing helper functions, loops, conditionals,
+recursion, closures, tuples and dictionaries, array indexing and
+concatenation and almost everything else Julia offers. High
+performance is achieved by combining automatic differentiation of most
+of Julia with efficient GPU kernels and memory management. The
+computations can be performed on the GPU by simply using KnetArray
+instead of Array for parameters and data.  Check out the `full
+documentation <http://knet.rtfd.org>`__ (in progress) and the
+`examples directory
 <https://github.com/denizyuret/Knet.jl/tree/master/examples>`__ for
 more information.
 
