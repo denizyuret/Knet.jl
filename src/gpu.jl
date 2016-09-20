@@ -1,5 +1,8 @@
 macro cuda(lib,fun,x...)
-    if Libdl.find_library(["lib$lib"], []) != ""
+    if Libdl.find_library(["lib$lib"], []) == ""
+        msg = "Cannot find lib$lib, please install it and rerun Pkg.build(\"Knet\")."
+        :(error($msg))
+    else
         f2 = ("$fun","lib$lib")
         fx = Expr(:ccall, f2, :UInt32, x...)
         err = "$lib.$fun error "
@@ -51,7 +54,7 @@ let GPU=-1, handles=Dict()
     end
 end
 
-gpucount()=(p=Cint[0]; @cuda(cudart,cudaGetDeviceCount,(Ptr{Cint},),p); p[1])
+gpucount()=(try; p=Cint[0]; @cuda(cudart,cudaGetDeviceCount,(Ptr{Cint},),p); p[1]; catch; 0; end)
 gpumem()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 gpufree()=gpumem()[1]
 gpuinfo(msg="")=(print("$msg "); println((gpumem()...,meminfo()...)))
