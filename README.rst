@@ -126,7 +126,8 @@ lossgradient for each example, and move the parameters in the negative
 gradient direction with a step size determined by the learning rate
 ``lr``.
 
-.. image:: images/housing.jpeg
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/housing.jpeg?raw=true
+   :target: https://archive.ics.uci.edu/ml/datasets/Housing
 
 Let's train this model on the
 `Housing <https://archive.ics.uci.edu/ml/datasets/Housing>`__ dataset
@@ -167,6 +168,9 @@ In this example we build a simple classification model for the
 recognition dataset. MNIST has 60000 training and 10000 test examples.
 Each input x consists of 784 pixels representing a 28x28 image. The
 corresponding output indicates the identity of the digit 0..9.
+
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/firsteightimages.jpg?raw=true
+   :target: https://jamesmccaffrey.wordpress.com/2014/06/10/working-with-the-mnist-image-recognition-data-set
 
 Classification models handle discrete outputs, as opposed to regression
 models which handle numeric outputs. We typically use the cross entropy
@@ -232,8 +236,13 @@ Multi-layer perceptron
 
 A multi-layer perceptron, i.e. a fully connected feed-forward neural
 network, is basically a bunch of linear regression models stuck together
-with non-linearities in between. We can define one by slightly modifying
-the predict function:
+with non-linearities in between. 
+
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/neural_net2.jpeg?raw=true
+   :target: http://cs231n.github.io/neural-networks-1
+   :width: 60%
+
+We can define a MLP by slightly modifying the predict function:
 
 ::
 
@@ -277,9 +286,14 @@ To improve the performance further, we can use `convolutional neural
 networks <http://cs231n.github.io/convolutional-networks/>`__. We will
 implement the `LeNet <http://yann.lecun.com/exdb/lenet>`__ model which
 consists of two convolutional layers followed by two fully connected
-layers. Knet provides the ``conv4(w,x)`` and ``pool(x)`` functions for
-the implementation of convolutional nets (see ``@doc conv4`` and
-``@doc pool`` for more information):
+layers.
+
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/le_net.png?raw=true
+   :target: http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html
+
+Knet provides the ``conv4(w,x)`` and ``pool(x)`` functions for the
+implementation of convolutional nets (see ``@doc conv4`` and ``@doc
+pool`` for more information):
 
 ::
 
@@ -329,13 +343,16 @@ In this section we will see how to implement a recurrent neural network
 between units form a directed cycle, which allows them to keep a
 persistent state over time. This gives them the ability to process
 sequences of arbitrary length one element at a time, while keeping track
-of what happened at previous elements. As an example, we will build a
-character-level language model inspired by `"The Unreasonable
-Effectiveness of Recurrent Neural
-Networks" <http://karpathy.github.io/2015/05/21/rnn-effectiveness>`__
-from the Andrej Karpathy blog. The model can be trained with different
-genres of text, and can be used to generate original text in the same
-style.
+of what happened at previous elements. 
+
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/RNN-unrolled.png?raw=true
+   :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+
+As an example, we will build a character-level language model inspired
+by `"The Unreasonable Effectiveness of Recurrent Neural Networks"
+<http://karpathy.github.io/2015/05/21/rnn-effectiveness>`__ from the
+Andrej Karpathy blog. The model can be trained with different genres
+of text, and can be used to generate original text in the same style.
 
 It turns out simple RNNs are not very good at remembering things for a
 very long time. Currently the most popular solution is to use a more
@@ -345,6 +362,9 @@ similar to digital circuits and can model long term dependencies. See
 `Understanding LSTM
 Networks <http://colah.github.io/posts/2015-08-Understanding-LSTMs>`__
 by Christopher Olah for a good overview of LSTMs.
+
+.. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/LSTM3-chain.png?raw=true
+   :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
 
 The code below shows one way to define an LSTM in Knet. The first two
 arguments are the parameters, the weight matrix and the bias vector. The
