@@ -11,36 +11,27 @@ using Knet: cuda12
 # input.
 
 function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+            print(s,
 """
-__global__ void _$(f)_32_12(int n, float *x, int sx, int nx, float *y, int sy, int ny, float *z) {
+__global__ void _$(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    float xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[1] : x[(i/sx)%nx]);
-    float yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[1] : y[(i/sy)%ny]);
+    $T xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[0] : x[(i/sx)%nx]);
+    $T yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[0] : y[(i/sy)%ny]);
     z[i] = $ex;
     i += blockDim.x * gridDim.x;
   }
 }
 extern "C" {
-  void $(f)_32_12(int n, float *x, int sx, int nx, float *y, int sy, int ny, float *z) {
-    _$(f)_32_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
+  void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
+    _$(F)_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
   }    
 }
-__global__ void _$(f)_64_12(int n, double *x, int sx, int nx, double *y, int sy, int ny, double *z) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < n) {
-    double xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[1] : x[(i/sx)%nx]);
-    double yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[1] : y[(i/sy)%ny]);
-    z[i] = $ex;
-    i += blockDim.x * gridDim.x;
-  }
-}
-extern "C" {
-  void $(f)_64_12(int n, double *x, int sx, int nx, double *y, int sy, int ny, double *z) {
-    _$(f)_64_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
-  }    
-}
-"""
+""")
+        end
+    end
 end
 
 for a in cuda12
