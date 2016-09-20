@@ -1,5 +1,37 @@
 # Define some new primitives: conv4 and pool
 
+"""
+
+`conv4(w,x;kwargs...)` executes convolutions or cross-correlations
+using filters specified with `w` over tensor `x`.  Currently 4 or 5
+dimensional KnetArrays with Float32 or Float64 entries are supported.
+
+If `w` has dimensions (W1,W2,...,I,O) and `x` has dimensions
+(X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N)
+where
+
+    Yi=1+floor(Xi-Wi+2*padding[i]/stride[i])
+
+Here I is the number of input channels, O is the number of output
+channels, N is the number of instances, and Wi,Xi,Yi are spatial
+dimensions.  Padding and stride are keyword arguments that can be
+specified as a single number (in which case they apply to all
+dimensions), or an array/tuple with entries for each spatial
+dimension.
+
+Here is a description of all available keyword arguments:
+
+* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=0.
+* stride: the number of elements to slide to reach the next filtering window. Default=1.
+* upscale: upscale factor for each dimension. Default=1.
+* mode: 0 for convolution and 1 for cross-correlation.  Default=0.
+* alpha: can be used to scale the result. Default=1.
+* algo: specifies which convolution algorithm shoud be used to compute the results. Default=0. See the CUDNN User Guide for details.
+* workSpace: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm. Default=C_NULL.
+* workSpaceSizeInBytes: the size in bytes of the provided workSpace. Default=0.
+* handle: handle to a previously created cuDNN context. Default=Knet allocated context.
+
+"""
 function conv4{T}(w::KnetArray{T},x::KnetArray{T};
                   handle=cudnnhandle, alpha=one(T), beta=zero(T),
                   algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
@@ -35,6 +67,36 @@ end
 @zerograd  conv4x(w,x,dy;o...)
 @zerograd  conv4w(w,x,dy;o...)
 
+
+"""
+
+`pool(x;kwargs...)` computes pooling of input values (i.e., the
+maximum or average of several adjacent values) to produce an output
+with smaller height and/or width.  Currently 4 or 5 dimensional
+KnetArrays with Float32 or Float64 entries are supported.
+
+If `x` has dimensions (X1,X2,...,I,N), the result y will have
+dimensions (Y1,Y2,...,I,N) where
+
+   Yi=1+ceil(Xi-window[i]+2*padding[i])/stride[i]
+
+Here I is the number of input channels, N is the number of instances,
+and Xi,Yi are spatial dimensions.  Window, padding and stride are
+keyword arguments that can be specified as a single number (in which
+case they apply to all dimensions), or an array/tuple with entries for
+each spatial dimension.
+
+Here is a description of all available keyword arguments:
+
+* window: the pooling window size for each dimension. Default=2.
+* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=0.
+* stride: the number of elements to slide to reach the next pooling window. Default=same as window.
+* mode: 0 for max, 1 for average including padded values, 2 for average excluding padded values.  Default=0.
+* maxpoolingNanOpt: Nan numbers are not propagated if 0, they are propagated if 1. Default=0.
+* alpha: can be used to scale the result. Default=1.
+* handle: Handle to a previously created cuDNN context. Default=Knet allocated context.
+
+"""
 function pool{T}(x::KnetArray{T}; handle=cudnnhandle, alpha=one(T), beta=zero(T), o...)
     y = similar(x, pdims(x; o...))
     @cuda(cudnn, cudnnPoolingForward,
@@ -139,8 +201,8 @@ DT(::KnetArray{Float16})=UInt32(2)
 function cdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o...)
     ntuple(N) do i
         if i < N-1
-            pi = if isa(padding,Number); padding; else padding[i]; end
-            si = if isa(stride,Number); stride; else stride[i]; end
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
             1 + div(size(x,i) - size(w,i) + 2*pi, si)
         elseif i == N-1
             size(w,N)
@@ -151,14 +213,11 @@ function cdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o.
 end
 
 function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
-    isa(window,Integer) && (window=fill(window,N-2))
-    isa(padding,Integer) && (padding=fill(padding,N-2))
-    isa(stride, Integer) && (stride=fill(stride,N-2))
     ntuple(N) do i
         if i < N-1
-            wi = if isa(window,Number); window; else window[i]; end
-            pi = if isa(padding,Number); padding; else padding[i]; end
-            si = if isa(stride,Number); stride; else stride[i]; end
+            wi = (if isa(window,Number); window; else window[i]; end)
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
             1 + ceil(Int, (size(x,i) + 2*pi - wi) / si)
         else
             size(x,i)
@@ -166,7 +225,15 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
     end
 end
 
-"Convenience function to convert multidimensional arrays to matrices."
+"""
+
+mat(x) reshapes x into a two-dimensional matrix.  For 1-D inputs mat
+returns `reshape(x, (length(x),1))`.  For inputs with more than two
+dimensions of size (X1,X2,...,XD), mat returns
+
+    reshape(x, (X1*X2*...*X[D-1],XD))
+
+"""
 function mat(x)
     if ndims(x) > 2
         xn = size(x,ndims(x))

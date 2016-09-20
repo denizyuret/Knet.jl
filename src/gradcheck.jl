@@ -1,3 +1,14 @@
+"""
+
+gradcheck(f, w, x...; gcheck=10, o...)
+
+Numerically checks the gradient of `f(w,x...;o...)` with respect to
+its first argument `w`, which could be a Number, Array, Tuple or Dict.
+`gcheck` largest entries from each numeric array in gradient
+`dw=(grad(f))(w,x...;o...)` is compared to its numerical estimate and
+a Warning is issued for comparisons that fail.
+
+"""
 function gradcheck(f, w, x...; gcheck=10, o...)
     g = grad(f)
     d = g(w, x...; o...)

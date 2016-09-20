@@ -108,17 +108,34 @@ meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
 
 ### KnetArray ###
 
+"""
+
+KnetArray is a container for GPU arrays that supports most of the
+AbstractArray interface.  Important differences from the alternative
+CudaArray are: (1) a custom memory manager that minimizes the number
+of calls to the slow cudaMalloc by reusing already allocated but
+garbage collected GPU pointers.  (2) a custom getindex that handles
+ranges such as `a[5:10]` as views (with memory shared with the
+original array) instead of copies.  KnetArrays can be created by
+specifying the element type and dimensions or by conversion from
+regular Arrays and they can be converted back to regular Arrays (which
+involve copying to and from the GPU memory):
+
+    a = KnetArray(Float32,2,3)
+    b = KnetArray(zeros(2,3))
+    c = Array(b)
+
+"""
+type KnetArray{T,N}
+    ptr::KnetPtr
+    dims::NTuple{N,Int}
+end
+
 # Note: I removed <: AbstractArray{T,N} after I painfully discovered
 # some inefficient AbstractArray methods inherited unintentionally.
 # It is better to define a few extra methods to keep a tighter control
 # on what methods exactly get called for KnetArrays.
 
-if !isdefined(:KnetArray)
-type KnetArray{T,N}
-    ptr::KnetPtr
-    dims::NTuple{N,Int}
-end
-end
 
 # Aliases:
 typealias KnetMatrix{T} KnetArray{T,2}

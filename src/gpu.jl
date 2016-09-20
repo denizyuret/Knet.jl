@@ -19,10 +19,8 @@ end
 let GPU=-1, handles=Dict()
     global gpu, cublashandle, cudnnhandle
 
-    "Return the active gpu device, or -1 for cpu."
     gpu()=GPU  # (d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);d[1])
 
-    "Use gpu with device id i for 0<=i<gpucount(), otherwise use cpu."
     function gpu(i::Int)
         if 0 <= i < gpucount()
             @cuda(cudart,cudaSetDevice, (Cint,), i)
@@ -35,7 +33,6 @@ let GPU=-1, handles=Dict()
         return (GPU = i)
     end
 
-    "Pick the gpu with the most available memory if b=true, otherwise use cpu."
     function gpu(b::Bool)
         if b
             pick = mem = -1
@@ -53,6 +50,16 @@ let GPU=-1, handles=Dict()
         end
     end
 end
+
+"""
+gpu() returns the id of the active GPU device or -1 if none are active.
+
+gpu(d::Int) activates the GPU device d if 0 <= d < gpucount().
+
+gpu(true) activates the GPU device with the most available memory.
+
+gpu(false) deactivates GPU devices.    
+""" gpu
 
 gpucount()=(try; p=Cint[0]; @cuda(cudart,cudaGetDeviceCount,(Ptr{Cint},),p); p[1]; catch; 0; end)
 gpumem()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))

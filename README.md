@@ -24,7 +24,7 @@ parameters and data.  Check out the
 [examples directory](https://github.com/denizyuret/Knet.jl/tree/master/examples)
 for more information.
 
-## <a name="cont"></a> Contents
+## Contents
 
 * [Installation](#inst)
 * [Examples](#exam)
@@ -54,10 +54,14 @@ images.
 ## <a name="exam"></a> Examples
 
 In Knet, a machine learning model is defined using plain Julia code.
-A typical model consists of a prediction and a loss function.  The
+A typical model consists of a *prediction* and a *loss* function.  The
 prediction function takes model parameters and some input, returns the
 prediction of the model for that input.  The loss function measures
-how bad the prediction is with respect to some desired output.
+how bad the prediction is with respect to some desired output.  We
+train a model by adjusting its parameters to reduce the loss.  In this
+section we will see the prediction, loss, and training functions for
+five models: linear regression, softmax classification,
+fully-connected, convolutional and recurrent neural networks.
 
 ### <a name="line"></a> Linear regression
 
@@ -65,8 +69,6 @@ Here is the prediction function and the corresponding quadratic loss
 function for a simple linear regression model:
 
 ```
-using Knet
-
 predict(w,x) = w[1]*x .+ w[2]
 
 loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
@@ -74,7 +76,7 @@ loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
 
 `w` is a list of parameters (it could be a Tuple, Array, or Dict), `x`
 is the input and `y` is the desired output.  To train this model, we
-want to adjust its parameters to reduce the loss on some training
+want to adjust its parameters to reduce the loss on given training
 examples.  The direction in the parameter space in which the loss
 reduction is maximum is given by the negative gradient of the loss.
 Knet uses the higher-order function `grad` from
@@ -82,16 +84,19 @@ Knet uses the higher-order function `grad` from
 the gradient direction:
 
 ```
+using Knet
+
 lossgradient = grad(loss)
 ```
 
 Note that `grad` is a higher-order function that takes and returns
 other functions.  The `lossgradient` function takes the same arguments
 as `loss`, e.g. `dw = lossgradient(w,x,y)`.  Instead of returning a
-loss, it returns `dw`, the gradient of the loss with respect to its
-first argument `w`.  The type and size of `dw` is identical to `w`,
-each entry in `dw` gives the derivative of the loss with respect to
-the corresponding entry in `w`.
+loss value, `lossgradient` returns `dw`, the gradient of the loss with
+respect to its first argument `w`.  The type and size of `dw` is
+identical to `w`, each entry in `dw` gives the derivative of the loss
+with respect to the corresponding entry in `w`.  See `@doc grad` for
+more information.
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
@@ -132,11 +137,11 @@ julia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end
 
 The dataset has housing related information for 506 neighborhoods in
 Boston from 1978.  Each neighborhood is represented using 13
-attributes such as crime rate, and the goal is to predict the median
-dollar value of the houses.  After downloading, splitting and
-normalizing the data, we initialize the parameters randomly and take
-10 steps in the negative gradient direction.  We can see the loss
-dropping from 366.0 to 29.6.  See
+attributes such as crime rate or distance to employment centers.  The
+goal is to predict the median dollar value of the houses.  After
+downloading, splitting and normalizing the data, we initialize the
+parameters randomly and take 10 steps in the negative gradient
+direction.  We can see the loss dropping from 366.0 to 29.6.  See
 [housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing.jl)
 for more information on this example.
 
@@ -153,7 +158,7 @@ image.  The corresponding output indicates the identity of the digit
 0..9.
 
 Classification models handle discrete outputs, as opposed to
-regression models, which handle numeric outputs.  We typically use the
+regression models which handle numeric outputs.  We typically use the
 cross entropy loss function in classification models:
 
 ```
@@ -261,7 +266,8 @@ networks](http://cs231n.github.io/convolutional-networks/).  We will
 implement the [LeNet](http://yann.lecun.com/exdb/lenet) model which
 consists of two convolutional layers followed by two fully connected
 layers.  Knet provides the `conv4(w,x)` and `pool(x)` functions for
-the implementation of convolutional nets:
+the implementation of convolutional nets (see `@doc conv4` and `@doc
+pool` for more information):
 
 ```
 function predict(w,x0)
@@ -283,7 +289,8 @@ w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
 
 Currently convolution and pooling are only supported on the GPU for
 4-D and 5-D arrays.  So we reshape our data and transfer it to the GPU
-along with the parameters by converting them into KnetArrays:
+along with the parameters by converting them into KnetArrays (see
+`@doc KnetArray` for more information):
 
 ```
 dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
@@ -304,46 +311,179 @@ code for the LeNet example can be found in
 
 ### <a name="recu"></a> Recurrent neural network
 
-Coming soon... (check out [charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl))
-
-<!--
-
-In this example we are going to implement an
-[LSTM](http://colah.github.io/posts/2015-08-Understanding-LSTMs) based
-recurrent neural network for character-level language models inspired
-by ["The Unreasonable Effectiveness of Recurrent Neural
+In this section we will see how to implement a recurrent neural
+network (RNN) in Knet. An RNN is a class of neural network where
+connections between units form a directed cycle, which allows them to
+keep a persistent state over time. This gives them the ability to
+process sequences of arbitrary length one element at a time, while
+keeping track of what happened at previous elements.  As an example,
+we will build a character-level language model inspired by ["The
+Unreasonable Effectiveness of Recurrent Neural
 Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness)
 from the Andrej Karpathy blog.  The model can be trained with
 different genres of text, and can be used to generate original text in
-the same style.  The code for the model can be found in
-[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl)
+the same style.
 
-Here is a possible LSTM definition in Knet, which follows the
-mathematical definition pretty closely:
+It turns out simple RNNs are not very good at remembering things for a
+very long time. Currently the most popular solution is to use a more
+complicated unit like the Long Short Term Memory (LSTM). An LSTM
+controls the information flow into and out of the unit using gates
+similar to digital circuits and can model long term dependencies. See
+[Understanding LSTM
+Networks](http://colah.github.io/posts/2015-08-Understanding-LSTMs) by
+Christopher Olah for a good overview of LSTMs.
+
+The code below shows one way to define an LSTM in Knet.  The first two
+arguments are the parameters, the weight matrix and the bias vector.
+The next two arguments hold the internal state of the LSTM: the hidden
+and cell arrays.  The last argument is the input. Note that for
+performance reasons we lump all the parameters of the LSTM into one
+matrix-vector pair instead of using separate parameters for each gate.
+This way we can perform a single matrix multiplication, and recover
+the gates using array indexing.  We represent input, hidden and cell
+as row vectors rather than column vectors for more efficient
+concatenation and indexing. `sigm` and `tanh` are the sigmoid and the
+hyperbolic tangent activation functions.  The LSTM returns the updated
+state variables `hidden` and `cell`.
 
 ```
-function lstm(w, input, hidden, cell)
-    h = size(hidden, 2)
-    x = hcat(input, hidden)
-    g = x * w[:W_gates] .+ w[:b_gates]
-    forget  = sigm(g[:,1:h])
-    ingate  = sigm(g[:,1+h:2h])
-    outgate = sigm(g[:,1+2h:3h])
-    change  = tanh(g[:,1+3h:end])
+function lstm(weight,bias,hidden,cell,input)
+    gates   = hcat(input,hidden) * weight .+ bias
+    hsize   = size(hidden,2)
+    forget  = sigm(gates[:,1:hsize])
+    ingate  = sigm(gates[:,1+hsize:2hsize])
+    outgate = sigm(gates[:,1+2hsize:3hsize])
+    change  = tanh(gates[:,1+3hsize:end])
     cell    = cell .* forget + ingate .* change
     hidden  = outgate .* tanh(cell)
-    return hidden, cell
+    return (hidden,cell)
 end
 ```
 
-At each time step, an LSTM unit takes some parameters w and input, and
-updates its internal state, given by the hidden and cell variables.
-Note that in this implementation the weights for the various LSTM
-gates are concatenated in w[:W_gates] to perform a single matrix
-multiplication for efficiency.  The result is split into individual
-gates again using regular Julia indexing syntax, e.g. `g[:,1:h]`.
+The LSTM has an input gate, forget gate and an output gate that
+control information flow. Each gate depends on the current `input`
+value, and the last hidden state `hidden`. The memory value `cell` is
+computed by blending a new value `change` with the old `cell` value
+under the control of input and forget gates. The output gate decides
+how much of the `cell` is shared with the outside world.
 
--->
+If an input gate element is close to 0, the corresponding element in
+the new `input` will have little effect on the memory cell. If a
+forget gate element is close to 1, the contents of the corresponding
+memory cell can be preserved for a long time. Thus the LSTM has the
+ability to pay attention to the current input, or reminisce in the
+past, and it can learn when to do which based on the problem.
+
+To build a language model, we need to predict the next character in a
+piece of text given the current character and recent history as
+encoded in the internal state.  The `predict` function below
+implements a multi-layer LSTM model.  `s[2k-1:2k]` hold the hidden and
+cell arrays and `w[2k-1:2k]` hold the weight and bias parameters for
+the k'th LSTM layer.  The last three elements of `w` are the embedding
+matrix and the weight/bias for the final prediction.  `predict` takes
+the current character encoded in `x` as a one-hot row vector,
+multiplies it with the embedding matrix, passes it through a number of
+LSTM layers, and converts the output of the final layer to the same
+number of dimensions as the input using a linear transformation.  The
+state variable `s` is modified in-place.
+
+```
+function predict(w, s, x)
+    x = x * w[end-2]
+    for i = 1:2:length(s)
+        (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
+        x = s[i]
+    end
+    return x * w[end-1] .+ w[end]
+end
+```
+
+To train the language model we will use Backpropagation Through Time
+(BPTT) which basically means running the network on a given sequence
+and updating the parameters based on the total loss.  Here is a
+function that calculates the total cross-entropy loss for a given
+(sub)sequence:
+
+```
+function loss(param,state,sequence,range=1:length(sequence)-1)
+    total = 0.0; count = 0
+    atype = typeof(getval(param[1]))
+    input = convert(atype,sequence[first(range)])
+    for t in range
+        ypred = predict(param,state,input)
+        ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
+        ygold = convert(atype,sequence[t+1])
+        total += sum(ygold .* ynorm)
+        count += size(ygold,1)
+        input = ygold
+    end
+    return -total / count
+end
+```
+
+Here `param` and `state` hold the parameters and the state of the
+model, `sequence` and `range` give us the input sequence and a
+possible range over it to process.  We convert the entries in the
+sequence to inputs that have the same type as the parameters one at a
+time (to conserve GPU memory).  We use each token in the given range
+as an input to predict the next token.  The average cross-entropy loss
+per token is returned.
+
+To generate text we sample each character randomly using the
+probabilities predicted by the model based on the previous character:
+
+```
+function generate(param, state, vocab, nchar)
+    index_to_char = Array(Char, length(vocab))
+    for (k,v) in vocab; index_to_char[v] = k; end
+    input = oftype(param[1], zeros(1,length(vocab)))
+    index = 1
+    for t in 1:nchar
+        ypred = predict(param,state,input)
+        input[index] = 0
+        index = sample(exp(logp(ypred)))
+        print(index_to_char[index])
+        input[index] = 1
+    end
+    println()
+end
+```
+
+Here `param` and `state` hold the parameters and state variables as
+usual.  `vocab` is a Char->Int dictionary of the characters that can
+be produced by the model, and `nchar` gives the number of characters
+to generate.  We initialize the input as a zero vector and use
+`predict` to predict subsequent characters.  `sample` picks a random
+index based on the normalized probabilities output by the model.  
+
+At this point we can train the network on any given piece of text (or
+other discrete sequence).  For efficiency it is best to minibatch the
+training data and run BPTT on small subsequences.  See
+[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl)
+for details. Here is a sample run on 'The Complete Works of William
+Shakespeare':
+
+```
+$ cd .julia/Knet/examples
+$ wget http://www.gutenberg.org/files/100/100.txt
+$ julia charlm.jl --data 100.txt --epochs 10 --winit 0.3 --save shakespeare.jld
+... takes about 10 minutes on a GPU machine
+$ julia charlm.jl --load shakespeare.jld --generate 1000
+
+    Pand soping them, my lord, if such a foolish?
+  MARTER. My lord, and nothing in England's ground to new comp'd.
+    To bless your view of wot their dullst. If Doth no ape;
+    Which with the heart. Rome father stuff
+    These shall sweet Mary against a sudden him
+    Upon up th' night is a wits not that honour,
+    Shouts have sure?
+  MACBETH. Hark? And, Halcance doth never memory I be thou what
+    My enties mights in Tim thou?
+  PIESTO. Which it time's purpose mine hortful and
+    is my Lord.
+  BOTTOM. My lord, good mine eyest, then: I will not set up.
+  LUCILIUS. Who shall
+```
 
 ## <a name="unde"></a> Under the hood
 
