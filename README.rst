@@ -176,6 +176,7 @@ corresponding output indicates the identity of the digit 0..9.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/firsteightimages.jpg?raw=true
    :target: https://jamesmccaffrey.wordpress.com/2014/06/10/working-with-the-mnist-image-recognition-data-set
+(`image source <https://jamesmccaffrey.wordpress.com/2014/06/10/working-with-the-mnist-image-recognition-data-set>`__)
 
 Classification models handle discrete outputs, as opposed to regression
 models which handle numeric outputs. We typically use the cross entropy
@@ -246,6 +247,7 @@ with non-linearities in between.
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/neural_net2.jpeg?raw=true
    :target: http://cs231n.github.io/neural-networks-1
    :width: 60%
+(`image source <http://cs231n.github.io/neural-networks-1>`__)
 
 We can define a MLP by slightly modifying the predict function:
 
@@ -287,18 +289,20 @@ model:
 Convolutional neural network
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To improve the performance further, we can use `convolutional neural
-networks <http://cs231n.github.io/convolutional-networks/>`__. We will
-implement the `LeNet <http://yann.lecun.com/exdb/lenet>`__ model which
-consists of two convolutional layers followed by two fully connected
-layers.
+To improve the performance further, we can use a convolutional neural
+networks (CNN).  See the `course notes
+<http://cs231n.github.io/convolutional-networks/>`__ by Andrej
+Karpathy for a good introduction to CNNs. We will implement the `LeNet
+<http://yann.lecun.com/exdb/lenet>`__ model which consists of two
+convolutional layers followed by two fully connected layers.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/le_net.png?raw=true
    :target: http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html
+(`image source <http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html>`__)
 
 Knet provides the ``conv4(w,x)`` and ``pool(x)`` functions for the
 implementation of convolutional nets (see ``@doc conv4`` and ``@doc
-pool`` for more information):
+pool`` for details):
 
 ::
 
@@ -352,6 +356,7 @@ of what happened at previous elements.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/RNN-unrolled.png?raw=true
    :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+(`image source <http://colah.github.io/posts/2015-08-Understanding-LSTMs>`__)
 
 As an example, we will build a character-level language model inspired
 by `"The Unreasonable Effectiveness of Recurrent Neural Networks"
@@ -370,6 +375,7 @@ by Christopher Olah for a good overview of LSTMs.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/LSTM3-chain.png?raw=true
    :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+(`image source <http://colah.github.io/posts/2015-08-Understanding-LSTMs>`__)
 
 The code below shows one way to define an LSTM in Knet. The first two
 arguments are the parameters, the weight matrix and the bias vector. The
