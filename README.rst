@@ -14,15 +14,20 @@ Introduction to Knet
 `Knet <http://knet.rtfd.org>`__ (pronounced "kay-net") is the `Koç
 University <http://www.ku.edu.tr/en>`__ deep learning framework
 implemented in `Julia <http://julia.rtfd.org>`__ by `Deniz Yuret
-<http://www.denizyuret.com>`__ and collaborators. It supports
-construction of high-performance deep learning models in plain Julia
-by combining automatic differentiation with efficient GPU kernels and
-memory management. Models can be defined and trained using arbitrary
-Julia code with helper functions, loops, conditionals, recursion,
-closures, array indexing and concatenation. The training can be
-performed on the GPU by simply using KnetArray instead of Array for
-parameters and data. Check out the `full documentation
-<http://knet.rtfd.org>`__ and the `examples directory
+<http://www.denizyuret.com>`__ and collaborators.  Unlike gradient
+generating compilers like Theano and TensorFlow which force users into
+a restricted mini-language, Knet allows the definition and training of
+machine learning models using the full power and expressivity of
+Julia.  Models are defined by describing only the forward calculation
+in plain Julia allowing helper functions, loops, conditionals,
+recursion, closures, tuples and dictionaries, array indexing and
+concatenation and almost everything else Julia offers. High
+performance is achieved by combining automatic differentiation of most
+of Julia with efficient GPU kernels and memory management. The
+computations can be performed on the GPU by simply using KnetArray
+instead of Array for parameters and data.  Check out the `full
+documentation <http://knet.rtfd.org>`__ (in progress) and the
+`examples directory
 <https://github.com/denizyuret/Knet.jl/tree/master/examples>`__ for
 more information.
 
@@ -171,6 +176,7 @@ corresponding output indicates the identity of the digit 0..9.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/firsteightimages.jpg?raw=true
    :target: https://jamesmccaffrey.wordpress.com/2014/06/10/working-with-the-mnist-image-recognition-data-set
+(`image source <https://jamesmccaffrey.wordpress.com/2014/06/10/working-with-the-mnist-image-recognition-data-set>`__)
 
 Classification models handle discrete outputs, as opposed to regression
 models which handle numeric outputs. We typically use the cross entropy
@@ -241,6 +247,7 @@ with non-linearities in between.
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/neural_net2.jpeg?raw=true
    :target: http://cs231n.github.io/neural-networks-1
    :width: 60%
+(`image source <http://cs231n.github.io/neural-networks-1>`__)
 
 We can define a MLP by slightly modifying the predict function:
 
@@ -282,18 +289,20 @@ model:
 Convolutional neural network
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To improve the performance further, we can use `convolutional neural
-networks <http://cs231n.github.io/convolutional-networks/>`__. We will
-implement the `LeNet <http://yann.lecun.com/exdb/lenet>`__ model which
-consists of two convolutional layers followed by two fully connected
-layers.
+To improve the performance further, we can use a convolutional neural
+networks (CNN).  See the `course notes
+<http://cs231n.github.io/convolutional-networks/>`__ by Andrej
+Karpathy for a good introduction to CNNs. We will implement the `LeNet
+<http://yann.lecun.com/exdb/lenet>`__ model which consists of two
+convolutional layers followed by two fully connected layers.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/le_net.png?raw=true
    :target: http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html
+(`image source <http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html>`__)
 
 Knet provides the ``conv4(w,x)`` and ``pool(x)`` functions for the
 implementation of convolutional nets (see ``@doc conv4`` and ``@doc
-pool`` for more information):
+pool`` for details):
 
 ::
 
@@ -347,6 +356,7 @@ of what happened at previous elements.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/RNN-unrolled.png?raw=true
    :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+(`image source <http://colah.github.io/posts/2015-08-Understanding-LSTMs>`__)
 
 As an example, we will build a character-level language model inspired
 by `"The Unreasonable Effectiveness of Recurrent Neural Networks"
@@ -365,6 +375,7 @@ by Christopher Olah for a good overview of LSTMs.
 
 .. image:: https://github.com/denizyuret/Knet.jl/blob/master/docs/images/LSTM3-chain.png?raw=true
    :target: http://colah.github.io/posts/2015-08-Understanding-LSTMs
+(`image source <http://colah.github.io/posts/2015-08-Understanding-LSTMs>`__)
 
 The code below shows one way to define an LSTM in Knet. The first two
 arguments are the parameters, the weight matrix and the bias vector. The
