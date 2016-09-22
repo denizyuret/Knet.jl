@@ -1,12 +1,11 @@
-2016-09-20  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# broadcasting KnetArray bug when array size 1x1.
 
 	* TODO8:
-	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
-	# document KnetArray in readme.
+	# document KnetArray in readme. finish the under the hood section.
 	# put function references in documentation.
+	# update the rest of the documentation.
 	# write paper for nips
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
@@ -21,6 +20,12 @@
 	# implement adam.
 	# implement better unit testing.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
+
+2016-09-20  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# broadcasting KnetArray bug when array size 1x1.
+	# extend readme with examples. revise intro. publish intro on blog. use the presentation.
 
 2016-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
