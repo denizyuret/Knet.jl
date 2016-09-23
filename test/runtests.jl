@@ -68,4 +68,5 @@ end
 start(l::Data)=0
 done(l::Data,n)=(n >= l.epochsize)
 
-@test all(map(isapprox, main(),  (0.0005438227392702326,32.772139750826454,0.11215015965120426)))
+isapprox2(a,b)=isapprox(a,b,rtol=0.02)
+@test all(map(isapprox2, main(),  (0.0005438227392702326,32.772139750826454,0.11215015965120426)))

@@ -14,8 +14,8 @@ include(joinpath("..","examples","linreg.jl"))
 @test LinReg.main("") == (0.0005497354349066443,32.772564704299114,0.11249865587133624) #v0.7.3: new Xavier
 
 include(joinpath("..","examples","mnist2d.jl"))
-@test MNIST2D.main("--epochs 1") == (0.3204898f0,32.93997f0,4.614684f0)
-@test MNIST2D.main("--epochs 1 --ysparse") == (0.3204898f0,32.93997f0,4.614684f0)
+@test isapprox3(MNIST2D.main("--epochs 1"), (0.3204898f0,32.93997f0,4.614684f0), (0.0001,0.0001,0.0001))
+@test isapprox3(MNIST2D.main("--epochs 1 --ysparse"), (0.3204898f0,32.93997f0,4.614684f0), (0.0001,0.0001,0.0001))
 @test isapprox3(MNIST2D.main("--epochs 1 --xsparse"), (0.3204898f0,32.93997f0,4.614684f0), (0.0001,0.0001,0.0001))
 @test isapprox3(MNIST2D.main("--epochs 1 --xsparse --ysparse"), (0.3204898f0,32.93997f0,4.614684f0), (0.0001,0.0001,0.0001))
 
