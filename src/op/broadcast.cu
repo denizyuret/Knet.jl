@@ -129,7 +129,7 @@ __global__ void _badd2back(int celts, int ndims, int *cdims, dType *dc, int *adi
 	  ai = adims[2]*ai + (adims[2]==1 ? 0 : c2); }
 	ai = adims[1]*ai + (adims[1]==1 ? 0 : c1); }
       ai = adims[0]*ai + (adims[0]==1 ? 0 : c0); }
-    atomicAdd(&da[ai], dc[ci]);
+    molecularAdd(&da[ai], dc[ci]);
     ci += blockDim.x * gridDim.x;
   }
 }
@@ -163,7 +163,7 @@ __global__ void _bmul3back(int celts, int ndims, int *cdims, dType *dc, int *adi
 	  ai = adims[2]*ai + (adims[2]==1 ? 0 : c2); bi = bdims[2]*bi + (bdims[2]==1 ? 0 : c2); }
 	ai = adims[1]*ai + (adims[1]==1 ? 0 : c1); bi = bdims[1]*bi + (bdims[1]==1 ? 0 : c1); }
       ai = adims[0]*ai + (adims[0]==1 ? 0 : c0); bi = bdims[0]*bi + (bdims[0]==1 ? 0 : c0); }
-    atomicAdd(&db[bi], dc[ci] * a[ai]);
+    molecularAdd(&db[bi], dc[ci] * a[ai]);
     ci += blockDim.x * gridDim.x;
   }
 }

@@ -13,7 +13,7 @@ __global__ void _add_csr_dns_atomic(int m, int n, dType alpha,
     dType val = alpha * csrValA[nz];
     int col = csrColIndA[nz]-1;
     for (; nz > csrRowPtrA[row+1]-2; row++);
-    atomicAdd(&B[col * m + row], val);
+    molecularAdd(&B[col * m + row], val);
     nz += blockDim.x * gridDim.x;
   }
 }
@@ -59,7 +59,7 @@ __global__ void _add_csc_dns_atomic(int m, int n, dType alpha,
     dType val = alpha * cscValA[nz];
     int row = cscRowIndA[nz]-1;
     for (; nz > cscColPtrA[col+1]-2; col++);
-    atomicAdd(&B[col * m + row], val);
+    molecularAdd(&B[col * m + row], val);
     nz += blockDim.x * gridDim.x;
   }
 }

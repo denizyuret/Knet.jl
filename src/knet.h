@@ -7,7 +7,8 @@
 #define THR 128
 #define KCALL(f,...) {f<<<BLK,THR>>>(__VA_ARGS__); CUDA(cudaGetLastError()); }
 
-static __device__ double atomicAdd(double* address, double val)
+// renaming based on http://stackoverflow.com/questions/37566987/cuda-atomicadd-for-doubles-definition-error
+static __device__ double molecularAdd(double* address, double val)
 {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -19,6 +20,11 @@ static __device__ double atomicAdd(double* address, double val)
     // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)} while (assumed != old);
   } while(assumed != old); 
   return __longlong_as_double(old);
+}
+
+static __device__ float molecularAdd(float* address, float val)
+{
+  return atomicAdd(address, val);
 }
 
 #endif
