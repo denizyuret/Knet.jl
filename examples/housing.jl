@@ -27,6 +27,7 @@ Repository."
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
         ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
+        ("--test"; arg_type=Float64; default=0.0; help="ratio of data to split for testing")
         ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
@@ -38,7 +39,7 @@ Repository."
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = Any[convert(atype, 0.1*randn(1,13)), 0]
-    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata())
+    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
     println((:epoch,0,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
         @time train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs])
@@ -71,7 +72,7 @@ function train(w, x, y; lr=.1, epochs=20)
     return w
 end
 
-function loaddata()
+function loaddata(test=0.0)
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
     file=joinpath(Knet.datapath,"housing.data")
     if !isfile(file)
@@ -83,11 +84,17 @@ function loaddata()
     x = data[1:13,:]
     y = data[14:14,:]
     x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
-    r = randperm(size(x,2))          # trn/tst split
-    xtrn=x[:,r[1:400]]
-    ytrn=y[:,r[1:400]]
-    xtst=x[:,r[401:end]]
-    ytst=y[:,r[401:end]]
+    if test == 0
+        xtrn = xtst = x
+        ytrn = ytst = y
+    else
+        r = randperm(size(x,2))          # trn/tst split
+        n = round(Int, (1-test) * size(x,2))
+        xtrn=x[:,r[1:n]]
+        ytrn=y[:,r[1:n]]
+        xtst=x[:,r[n+1:end]]
+        ytst=y[:,r[n+1:end]]
+    end
     (xtrn, ytrn, xtst, ytst)
 end
 
