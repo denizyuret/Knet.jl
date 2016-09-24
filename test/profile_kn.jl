@@ -1,5 +1,6 @@
 importall Base
-using Knet,AutoGrad,CUDArt
+using Knet,AutoGrad
+using Knet: gpuinfo, gpusync
 gpu(true)
 
 AutoGrad._dbg{T}(x::KnetArray{T})="K$(join([id2(x),size(x)...,8*sizeof(T)],'_'))"
@@ -18,15 +19,15 @@ gpuinfo("after d0kn,w2kn")
 function timeall_kn(w=w2kn,d=d0kn,t=10)
     for i=1:length(fun)
         print(i); printfun(fun[i])
-        for j=1:3
+        for j=1:4
             gc_enable(false)
-            @time (loop_kn(fun[i],w,d,t); device_synchronize())
+            @time (loop_kn(fun[i],w,d,t); gpusync())
             # @time loop_kn(fun[i],w,d,t)
             gpuinfo("before gc")
             gc_enable(true)
             gc()
             sleep(2)
-            gpuinfo("after gc")
+            gpuinfo("after gc ")
         end
     end
 end

@@ -65,6 +65,7 @@ gpucount()=(try; p=Cint[0]; @cuda(cudart,cudaGetDeviceCount,(Ptr{Cint},),p); p[1
 gpumem()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 gpufree()=gpumem()[1]
 gpuinfo(msg="")=(print("$msg "); println((gpumem()...,meminfo()...)))
+gpusync()=@cuda(cudart,cudaDeviceSynchronize,())
 
 typealias Cptr Ptr{Void}
 
