@@ -1,8 +1,10 @@
-2016-09-22  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* DONE:
+2016-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO8:
+	# reimplement lenet using loop.
+	# implement vggnet demo.
+	# use Knet.dir set in Knet.jl.
+	# change default padding for conv4 to be (n-1)/2
 	# document KnetArray in readme. finish the under the hood section.
 	# put function references in documentation.
 	# update the rest of the documentation.
