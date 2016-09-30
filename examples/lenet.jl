@@ -79,11 +79,15 @@ function train(w, data; lr=.1, epochs=20, nxy=0)
     return w
 end
 
-function predict(w,x0)                       # 28,28,1,100
-    x1 = pool(relu(conv4(w[1],x0) .+ w[2])) # 12,12,20,100
-    x2 = pool(relu(conv4(w[3],x1) .+ w[4])) # 4,4,50,100
-    x3 = relu(w[5]*mat(x2) .+ w[6])              # 500,100
-    x4 = w[7]*x3 .+ w[8]                     # 10,100
+function predict(w,x,n=length(w)-4)
+    for i=1:2:n
+        x = pool(relu(conv4(w[i],x) .+ w[i+1]))
+    end
+    x = mat(x)
+    for i=n+1:2:length(w)-2
+        x = relu(w[i]*x .+ w[i+1])
+    end
+    return w[end-1]*x .+ w[end]
 end
 
 function loss(w,x,ygold)

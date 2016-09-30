@@ -1,7 +1,17 @@
-2016-09-27  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# use Float32 in housing by default.
+	# charlm can transfer all minibatches to gpu before timing (slows down due to gc)
+	# reimplement lenet using loop.
 
 	* TODO8:
-	# reimplement lenet using loop.
+	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
+	# delete knet.ji in build script
+	# implement a install_extras command.
+	# check if benchmarks keep minibatches in gpu.
+	# check warnings in cpu-only knet.
+	# change charlm default winit.
 	# implement vggnet demo.
 	# use Knet.dir set in Knet.jl.
 	# change default padding for conv4 to be (n-1)/2
