@@ -28,7 +28,7 @@ Repository."
         ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--test"; arg_type=Float64; default=0.0; help="ratio of data to split for testing")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
@@ -38,7 +38,7 @@ Repository."
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
-    w = Any[convert(atype, 0.1*randn(1,13)), 0]
+    w = Any[convert(atype, 0.1*randn(1,13)), zero(eltype(atype))]
     (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
     println((:epoch,0,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
@@ -58,7 +58,7 @@ end
 
 predict(w,x)=(w[1]*x.+w[2])
 
-loss(w,x,y)=(sum(abs2(y-predict(w,x))) / size(x,2))
+loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
 
 lossgradient = grad(loss)
 
