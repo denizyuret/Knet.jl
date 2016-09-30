@@ -175,6 +175,8 @@ import Base: eachindex, elsize, eltype, endof, fill!, first, length, linearindex
 eachindex(a::KnetArray) = (1:length(a))
 elsize{T}(::KnetArray{T}) = sizeof(T)
 eltype{T}(::KnetArray{T})=T
+eltype{T}(::Type{KnetArray{T}}) = T
+eltype{T,n}(::Type{KnetArray{T,n}}) = T
 endof(a::KnetArray) = length(a)
 fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
 first(a::KnetArray) = a[1]
