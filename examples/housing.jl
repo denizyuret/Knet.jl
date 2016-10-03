@@ -74,7 +74,7 @@ end
 
 function loaddata(test=0.0)
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-    file=joinpath(Knet.datapath,"housing.data")
+    file=Knet.dir("data","housing.data")
     if !isfile(file)
         info("Downloading $url to $file")
         download(url, file)

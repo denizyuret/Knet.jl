@@ -101,7 +101,7 @@ function loaddata()
     info("Loading done...")
 end
 
-function gzload(file; path=joinpath(Knet.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+function gzload(file; path=Knet.dir("data",file), url="http://yann.lecun.com/exdb/mnist/$file")
     isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)

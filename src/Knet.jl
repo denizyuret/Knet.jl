@@ -2,11 +2,11 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
 using AutoGrad
-export grad
-export KnetArray, gradcheck, gpu, relu, sigm, invx, logp, conv4, pool, mat
-const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
-const datapath = joinpath(dirname(@__FILE__),"..","data")
 
+const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
+dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
+
+export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, conv4, pool, mat
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
 include("cuda1.jl")             # unary operators
@@ -26,7 +26,7 @@ function __init__()
         r = gpu(true)
         info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
-        warn("$e: Knet using the CPU.")
+        warn("Knet using the CPU: $e")
         gpu(false)
     end
 end

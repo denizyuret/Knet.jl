@@ -1,7 +1,7 @@
 # This takes too long on Travis:
 # Pkg.add("ArgParse")
 # load_only=true
-# include(joinpath("..","examples","charlm.jl"))
+# include(Knet.dir("examples","charlm.jl"))
 # CharLM.main("--gcheck 3")
 
 using Knet

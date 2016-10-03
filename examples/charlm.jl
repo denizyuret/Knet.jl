@@ -262,7 +262,7 @@ function sample(p)
 end
 
 function shakespeare()
-    file = joinpath(Knet.datapath,"100.txt")
+    file = Knet.dir("data","100.txt")
     if !isfile(file)
         info("Downloading 'The Complete Works of William Shakespeare'")
         url = "http://www.gutenberg.org/files/100/100.txt"

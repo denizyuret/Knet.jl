@@ -133,7 +133,7 @@ function loaddata()
     gzload("t10k-labels-idx1-ubyte.gz")[9:end]
 end
 
-function gzload(file; path=joinpath(Knet.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+function gzload(file; path=Knet.dir("data",file), url="http://yann.lecun.com/exdb/mnist/$file")
     isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)

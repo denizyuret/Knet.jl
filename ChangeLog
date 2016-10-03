@@ -1,37 +1,45 @@
+2016-10-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# delete knet.ji in build script: no need.
+	# use Knet.dir set in Knet.jl.
+
+	* TODO8:
+	# write paper for nips
+	# put function references in documentation.
+	# update the rest of the documentation.
+	# document KnetArray in readme. finish the under the hood section.
+	# find out why benchmarks are slower on julia5/6.
+	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
+	# implement a install_extras command.
+	# check if benchmarks keep minibatches in gpu.
+	# check warnings in cpu-only knet.
+	# change charlm default winit.
+	# implement vggnet demo.
+	# change default padding for conv4 to be (n-1)/2
+	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	# try to measure back functions one by one as well for gpu profiling.
+	# mnist2d: implement/test sparse arrays
+	# for general arrays: broadcast, get/setindex, h/v/cat.
+	# implement better unit testing.
+	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
+	# add back cpu convolution
+	# implement axpy! for KnetArray if it is worth it to get faster updates.
+	# charlm: add dropout
+	# add transpose to KnetArray.
+	# implement adam.
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
+	# 0.8.1: tag new version for the paper when all is done.
+	# gputests.jl and cputests.jl are broken.  housing.jl fails gradcheck (because of Float32?)
+
 2016-09-30  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 	# use Float32 in housing by default.
 	# charlm can transfer all minibatches to gpu before timing (slows down due to gc)
 	# reimplement lenet using loop.
-
-	* TODO8:
-	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
-	# delete knet.ji in build script
-	# implement a install_extras command.
-	# check if benchmarks keep minibatches in gpu.
-	# check warnings in cpu-only knet.
-	# change charlm default winit.
-	# implement vggnet demo.
-	# use Knet.dir set in Knet.jl.
-	# change default padding for conv4 to be (n-1)/2
-	# document KnetArray in readme. finish the under the hood section.
-	# put function references in documentation.
-	# update the rest of the documentation.
-	# write paper for nips
-	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	# try to measure back functions one by one as well for gpu profiling.
-	# mnist2d: implement/test sparse arrays
-	# for general arrays: broadcast, get/setindex, h/v/cat.
-	# autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
-	# add back cpu convolution
-	# implement axpy! for KnetArray if it is worth it to get faster updates.
 	# charlm: profile speed, add dropout, nlayer.
-	# add transpose to KnetArray.
-	# implement adam.
-	# implement better unit testing.
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 
 2016-09-20  Deniz Yuret  <dyuret@ku.edu.tr>
 

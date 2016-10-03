@@ -10,7 +10,7 @@ import CUDNN.cudnnGetConvolutionNdForwardOutputDim
 import CUDNN.cudnnGetPoolingNdForwardOutputDim
 import CUDNN.cudnnPoolingForward
 import CUDNN.cudnnPoolingBackward
-include(joinpath("..","src","util","conv_pool_cpu.jl"))
+include(Knet.dir("src","util","conv_pool_cpu.jl"))
 
 padding=0
 stride=1
