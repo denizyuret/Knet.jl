@@ -7,6 +7,9 @@
 	# implement a install_extras command: no need instead we do following:
 	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
 	# implement vggnet demo.
+	# housing.jl bias fails gradcheck (because of Float32)
+	# check warnings in cpu-only knet.
+	# change charlm default winit.
 
 	* TODO8:
 	# write paper for nips
@@ -14,8 +17,6 @@
 	# update the rest of the documentation.
 	# document KnetArray in readme. finish the under the hood section.
 	# find out why benchmarks are slower on julia5/6.
-	# check warnings in cpu-only knet.
-	# change charlm default winit.
 	# change default padding for conv4 to be (n-1)/2
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
@@ -31,7 +32,7 @@
 	# implement adam.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 	# 0.8.1: tag new version for the paper when all is done.
-	# gputests.jl and cputests.jl are broken.  housing.jl fails gradcheck (because of Float32?)
+	# gputests.jl and cputests.jl are broken.
 
 2016-09-30  Deniz Yuret  <dyuret@ku.edu.tr>
 

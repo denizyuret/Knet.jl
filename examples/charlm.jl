@@ -56,7 +56,7 @@ function main(args=ARGS)
         ("--decay"; arg_type=Float64; default=0.9; help="Learning rate decay.")
         ("--lr"; arg_type=Float64; default=4.0; help="Initial learning rate.")
         ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
-        ("--winit"; arg_type=Float64; default=0.01; help="Initial weights set to winit*randn().")
+        ("--winit"; arg_type=Float64; default=0.3; help="Initial weights set to winit*randn().")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
@@ -223,7 +223,7 @@ end
 function train!(model, text, vocab, o)
     s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
     data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    @time losses = map(d->loss(model,copy(s0),d), data)
+    losses = map(d->loss(model,copy(s0),d), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
@@ -251,7 +251,7 @@ function train!(model, text, vocab, o)
         devlast = devloss
     end
     if o[:fast]
-        @time losses = map(d->loss(model,copy(s0),d), data)
+        losses = map(d->loss(model,copy(s0),d), data)
         println((:epoch,o[:epochs],:loss,losses...))
     end
 end    
