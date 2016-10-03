@@ -1,3 +1,7 @@
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 """
 This example uses the
 [Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset

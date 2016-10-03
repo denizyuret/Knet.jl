@@ -3,6 +3,10 @@
 	* DONE:
 	# delete knet.ji in build script: no need.
 	# use Knet.dir set in Knet.jl.
+	# check if benchmarks keep minibatches in gpu.
+	# implement a install_extras command: no need instead we do following:
+	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
+	# implement vggnet demo.
 
 	* TODO8:
 	# write paper for nips
@@ -10,12 +14,8 @@
 	# update the rest of the documentation.
 	# document KnetArray in readme. finish the under the hood section.
 	# find out why benchmarks are slower on julia5/6.
-	# automatic loading of packages by demos (use Pkg.add or introduce installExtras)
-	# implement a install_extras command.
-	# check if benchmarks keep minibatches in gpu.
 	# check warnings in cpu-only knet.
 	# change charlm default winit.
-	# implement vggnet demo.
 	# change default padding for conv4 to be (n-1)/2
 	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.

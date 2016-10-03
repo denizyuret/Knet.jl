@@ -1,3 +1,7 @@
+for p in ("Knet","ArgParse","Compat","GZip")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 """
 This example learns to classify hand-written digits from the MNIST
 dataset (http://yann.lecun.com/exdb/mnist).  There are 60000 training

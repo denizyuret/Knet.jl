@@ -5,7 +5,10 @@ AutoGrad 0.0.3
 # We need these for some examples:
 # ArgParse
 # JLD
-# GZip
+# GZip    # for mnist
+# Images  # for vgg
+# MAT     # for vgg
 
 # We will need this for 0.6 compat:
 # Compat 0.7.15 # for sin.(x) etc.
+# Compat 0.7.9  # for readbytes->read.

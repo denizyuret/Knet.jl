@@ -1,3 +1,7 @@
+for p in ("Knet","AutoGrad","ArgParse","Compat")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 """
 charlm.jl: Knet8 version (c) Emre Yolcu, Deniz Yuret, 2016
 
@@ -66,7 +70,7 @@ function main(args=ARGS)
     o[:seed] > 0 && srand(o[:seed])
     o[:atype] = eval(parse(o[:atype]))
     if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
-        Pkg.installed("JLD")==nothing && error("Please Pkg.add(\"JLD\") to load or save files.")
+        Pkg.installed("JLD")==nothing && Pkg.add("JLD") # error("Please Pkg.add(\"JLD\") to load or save files.")
         eval(Expr(:using,:JLD))
     end
 

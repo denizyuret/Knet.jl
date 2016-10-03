@@ -1,9 +1,9 @@
-if !isdefined(:MNIST)
-    local lo=isdefined(:load_only)
-    load_only=true
-    include("mnist.jl")
-    load_only=lo
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
 end
+using Knet
+!isdefined(:MNIST) && (local lo=isdefined(:load_only); load_only=true; include(Knet.dir("examples","mnist.jl")); load_only=lo)
+
 
 """
 

@@ -1,3 +1,7 @@
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 """
 LinReg is a simple linear regression example using artificially
 generated data. You can run the demo using `julia linreg.jl`.  The
