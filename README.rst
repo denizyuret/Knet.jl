@@ -43,8 +43,9 @@ Contents
    -  `Convolutional neural network`_
    -  `Recurrent neural network`_
 
--  `Under the hood`_
 -  `Benchmarks`_
+-  `Function reference`_
+-  `Under the hood`_
 -  `Contributing`_
 
 Installation
@@ -528,15 +529,204 @@ Shakespeare':
       BOTTOM. My lord, good mine eyest, then: I will not set up.
       LUCILIUS. Who shall
 
-Under the hood
---------------
-
-Coming soon...
-
 Benchmarks
 ----------
 
-Coming soon...
+Each of the examples above was used as a benchmark to compare Knet
+with other frameworks.  The table below shows the number of seconds it
+takes to train a given model for a particular dataset, number of
+epochs and minibatch size for Knet, Theano, Torch, Caffe and
+TensorFlow.  Knet has comparable performance to other commonly used
+frameworks.
+
+=======	======== ====== =====	====	======	=====	=====	=====
+model	dataset	 epochs	batch	Knet	Theano	Torch	Caffe	TFlow
+=======	======== ====== =====	====	======	=====	=====	=====
+LinReg	Housing	 10K	506	2.85	1.88	2.66	2.37	5.92
+Softmax	MNIST	 10	100	2.35	1.40	2.88	2.82	5.57
+MLP	MNIST	 10	100	3.68	2.31	4.03	3.75	6.94
+LeNet	MNIST	 1	100	3.59	3.03	1.69	3.54	8.77
+CharLM	Hiawatha 1	128	2.25	4.57	2.23	--	2.86
+=======	======== ====== =====	====	======	=====	=====	=====
+
+The benchmarking was done on g2.2xlarge GPU instances on Amazon
+AWS. The code is available at `github
+<https://github.com/ozanarkancan/Knet8-Benchmarks>`__ and as machine
+image ``deep_AMI_v6`` at AWS N.California. See the section on `using
+Amazon AWS
+<http://knet.readthedocs.org/en/latest/install.html#using-amazon-aws>`__
+for more information.  The datasets are available online using the
+following links: `Housing
+<https://archive.ics.uci.edu/ml/datasets/Housing>`__, `MNIST
+<http://yann.lecun.com/exdb/mnist>`__, `Hiawatha
+<http://www.gutenberg.org/files/19/19.txt>`__. The MLP uses a single
+hidden layer of 64 units.  CharLM uses a single layer LSTM language
+model with embedding and hidden layer sizes set to 256 and trained
+using BPTT with a sequence length of 100. Each dataset was minibatched
+and transferred to GPU prior to benchmarking when possible.
+
+
+Function reference
+------------------
+
+We implement machine learning models in Knet using regular Julia code
+and the ``grad`` function.  Knet defines a few more utility functions
+listed below.  See ``@doc <function>`` for full details.
+
+============= ==========
+``grad``      returns the gradient function.
+``KnetArray`` constructs a GPU array.
+``gradcheck`` compares gradients with numeric approximations.
+``Knet.dir``  returns a path relative to Knet root.
+``gpu``       determines which GPU Knet uses.
+``relu``      returns ``max(0,x)``
+``sigm``      returns ``(1./(1+exp(-x)))``
+``invx``      returns ``(1./x)``
+``logp``      returns ``x .- log(sum(exp(x)))``
+``conv4``     executes convolutions or cross-correlations.
+``pool``      replaces several adjacent values with their mean or maximum.
+``mat``       reshapes its input into a two-dimensional matrix.
+============= ==========
+
+
+Under the hood
+--------------
+
+Knet relies on the `AutoGrad
+<https://github.com/denizyuret/AutoGrad.jl>`__ package and the
+`KnetArray
+<https://github.com/denizyuret/Knet.jl/blob/master/src/karray.jl>`__
+data type for its functionality and performance.  AutoGrad computes
+the gradient of Julia functions and KnetArray implements high
+performance GPU arrays with custom memory management. This section
+briefly describes them.
+
+AutoGrad
+~~~~~~~~
+
+As we have seen, many common machine learning models can be expressed as differentiable programs that input parameters and data and output a scalar loss value.
+The loss value measures how close the model predictions are to desired values with the given parameters.  
+Training a model can then be seen as an optimization problem: find the parameters that minimize the loss.  
+Typically, a gradient based optimization algorithm is used for computational efficiency: the direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss with respect to the parameters. 
+Thus gradient computations take a central stage in software frameworks for machine learning.
+In this section I will briefly outline existing gradient computation techniques and motivate the particular approach taken by Knet.
+
+Computation of gradients in computer models is performed by four main
+methods `(Baydin et al. 2015) <https://arxiv.org/abs/1502.05767>`__:
+
+* manual differentiation (programming the derivatives)
+* numerical differentiation (using finite difference approximations)
+* symbolic differentiation (using expression manipulation)
+* automatic differentiation (detailed below)
+
+Manually taking derivatives and coding the result is labor intensive,
+error-prone, and all but impossible with complex deep learning models.
+Numerical differentiation is simple:
+:math:`f'(x)=(f(x+\epsilon)-f(x-\epsilon))/(2\epsilon)` but
+impractical: the finite difference equation needs to be evaluated for
+each individual parameter, of which there are typically many.  Pure
+symbolic differentiation using expression manipulation, as implemented
+in software such as Maxima, Maple, and Mathematica is impractical for
+different reasons: (i) it may not be feasible to express a machine
+learning model as a closed form mathematical expression, and (ii) the
+symbolic derivative can be exponentially larger than the model itself
+leading to inefficient run-time calculation.  This leaves us with
+automatic differentiation.
+
+Automatic differentiation is the idea of using symbolic derivatives
+only at the level of elementary operations, and computing the gradient
+of a compound function by applying the chain rule to intermediate
+numerical results.  For example, pure symbolic differentiation of
+:math:`\sin^2(x)` could give us :math:`2\sin(x)\cos(x)` directly.
+Automatic differentiation would use the intermediate numerical values
+:math:`x_1=\sin(x)`, :math:`x_2=x_1^2` and the elementary derivatives
+:math:`dx_2/dx_1=2x_1`, :math:`dx_1/dx=\cos(x)` to compute the same
+answer without ever building a full gradient expression.
+
+To implement automatic differentiation the target function needs to be
+decomposed into its elementary operations, a process similar to
+compilation.  Most machine learning frameworks (such as Theano, Torch,
+Caffe, Tensorflow and older versions of Knet prior to v0.8) compile
+models expressed in a restricted mini-language into a computational
+graph of elementary operations that have pre-defined derivatives.
+There are two drawbacks with this approach: (i) the restricted
+mini-languages tend to have limited support for high-level language
+features such as conditionals, loops, helper functions, array
+indexing, etc. (e.g. the infamous ``scan`` operation in Theano) (ii)
+the sequence of elementary operations that unfold at run-time needs to
+be known in advance, and they are difficult to handle when the
+sequence is data dependent.
+
+There is an alternative: high-level languages, like Julia and Python,
+already know how to decompose functions into their elementary
+operations.  If we let the users define their models directly in a
+high-level language, then record the elementary operations during loss
+calculation at run-time, the computational graph can be constructed
+from the recorded operations. The cost of recording is not
+prohibitive: The table below gives cumulative times for elementary
+operations of an MLP with quadratic loss. Recording only adds 15\% to
+the raw cost of the forward computation. Backpropagation roughly
+doubles the total time as expected.
+
+================== ====
+op                 secs
+================== ====
+``a1=w1*x``        0.67
+``a2=w2.+a1``      0.71
+``a3=max(0,a2)``   0.75
+``a4=w3*a3``       0.81
+``a5=w4.+a4``      0.85
+``a6=a5-y``        0.89
+``a7=sumabs2(a6)`` 1.18
++recording         1.33
++backprop          2.79
+================== ====
+
+This is the approach taken by the popular `autograd
+<https://github.com/HIPS/autograd>`__ Python package and its Julia
+port `AutoGrad.jl <https://github.com/denizyuret/AutoGrad.jl>`__ used
+by Knet.  In these implementations ``g=grad(f)`` generates a gradient
+function ``g``, which takes the same inputs as the function ``f`` but
+returns the gradient.  The gradient function ``g`` triggers recording
+by boxing the parameters in a special data type and calls ``f``.  The
+elementary operations in ``f`` are overloaded to record their actions
+and output boxed answers when their inputs are boxed. The sequence of
+recorded operations is then used to compute gradients. In the Julia
+AutoGrad package, derivatives can be defined independently for each
+method of a function (determined by argument types) making full use of
+Julia's multiple dispatch.  New elementary operations and derivatives
+can be defined concisely using Julia's macro and meta-programming
+facilities.  See `AutoGrad.jl
+<https://github.com/denizyuret/AutoGrad.jl>`__ for details.
+
+KnetArray
+~~~~~~~~~
+
+GPUs have become indispensable for training large deep learning
+models.  Even the small examples implemented here run up to 17x faster
+on the GPU compared to the 8 core CPU architecture we use for
+benchmarking.  However GPU implementations have a few potential
+pitfalls: (i) GPU memory allocation is slow, (ii) GPU-RAM memory
+transfer is slow, (iii) reduction operations (like ``sum``) can be
+very slow unless implemented properly (See `Optimizing Parallel
+Reduction in CUDA
+<http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf>`__).
+
+Knet implements `KnetArray
+<https://github.com/denizyuret/Knet.jl/blob/master/src/karray.jl>`__
+as a Julia data type that wraps GPU array pointers.  KnetArray is
+based on the more standard `CudaArray
+<https://github.com/JuliaGPU/CUDArt.jl>`__ with a few important
+differences: (i) KnetArrays have a custom memory manager, similar to
+`ArrayFire <http://arrayfire.com>`__, which reuse pointers garbage
+collected by Julia to reduce the number of GPU memory
+allocations, (ii) array ranges (e.g. ``a[:,3:5]``) are handled as
+views with shared pointers instead of copies when possible, and (iii)
+a number of custom CUDA kernels written for KnetArrays implement
+element-wise, broadcasting, and scalar and vector reduction operations
+efficiently.  As a result Knet allows users to implement their models
+using high-level code, yet be competitive in performance with other
+frameworks as demonstrated in the benchmarks section.
 
 Contributing
 ------------
@@ -564,3 +754,14 @@ If you use Knet in your own work, the suggested citation is:
       howpublished={\url{https://github.com/denizyuret/Knet.jl}}
     }
 
+Current contributors:
+
+* Deniz Yuret
+* Ozan Arkan Can
+* Onur Kuru
+* Emre Ünal
+* Erenay Dayanık
+* Ömer Kırnap
+* İlker Kesen
+* Emre Yolcu
+* Meriç Melike Softa

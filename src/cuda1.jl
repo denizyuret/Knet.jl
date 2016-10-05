@@ -115,7 +115,7 @@ end
 
 "invx(x) returns (1./x)" invx
 "relu(x) returns max(0,x)" relu
-"sigm(x) returns (1./(1+exp(x)))" sigm
+"sigm(x) returns (1./(1+exp(-x)))" sigm
 
 # To avoid conflict with AutoGrad:
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
