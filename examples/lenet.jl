@@ -25,7 +25,7 @@ and optimized parameters will be returned.
 """
 module LeNet
 using Knet,ArgParse
-using Main.MNIST: minibatch, xtrn, ytrn, xtst, ytst
+using Main.MNIST: minibatch, accuracy, xtrn, ytrn, xtst, ytst
 
 
 function main(args=ARGS)
@@ -50,15 +50,16 @@ function main(args=ARGS)
     dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
     dtst = minibatch4(xtst, ytst, o[:batchsize])
     w = weights()
-    println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+    report(0)
 
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-        println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+        report(o[:epochs])
     else
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
-            println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+            report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck])
             end
@@ -67,12 +68,14 @@ function main(args=ARGS)
     return w
 end
 
+
 function train(w, data; lr=.1, epochs=20, nxy=0)
     for epoch=1:epochs
         for (x,y) in data
             g = lossgradient(w, x, y)
             for i in 1:length(w)
-                w[i] -= lr * g[i]
+                # w[i] -= lr * g[i]
+                axpy!(-lr, g[i], w[i])
             end
         end
     end
@@ -118,18 +121,6 @@ function minibatch4(x, y, batchsize; atype=KnetArray{Float32})
         data[i] = (reshape(x, (28,28,1,batchsize)), y)
     end
     return data
-end
-
-function accuracy(w, dtst; nxy=0)
-    ncorrect = ninstance = nloss = 0
-    for (x, ygold) in dtst
-        ypred = predict(w, x)
-        ynorm = ypred .- log(sum(exp(ypred),1))
-        nloss += -sum(ygold .* ynorm)
-        ncorrect += sum((ypred .== maximum(ypred,1)) .* (ygold .== maximum(ygold,1)))
-        ninstance += size(ygold,2)
-    end
-    return (ncorrect/ninstance, nloss/ninstance)
 end
 
 function xavier(a...)

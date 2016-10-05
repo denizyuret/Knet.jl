@@ -109,6 +109,67 @@ function main(args=ARGS)
 end
 
 
+function train!(model, text, vocab, o)
+    s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
+    data = map(t->minibatch(t, vocab, o[:batchsize]), text)
+    losses = map(d->loss(model,copy(s0),d), data)
+    println((:epoch,0,:loss,losses...))
+    devset = ifelse(length(data) > 1, 2, 1)
+    devlast = devbest = losses[devset]
+    lr = o[:lr]
+    for epoch=1:o[:epochs]
+        @time train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
+        o[:fast] && continue
+        @time losses = map(d->loss(model,copy(s0),d), data)
+        println((:epoch,epoch,:loss,losses...))
+        if o[:gcheck] > 0
+            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
+        end
+        devloss = losses[devset]
+        if devloss < devbest
+            devbest = devloss
+            if o[:bestfile] != nothing
+                info("Saving best model to $(o[:bestfile])")
+                save(o[:bestfile], "model", model, "vocab", vocab)
+            end
+        end
+        if devloss > devlast
+            lr *= o[:decay]
+            info("New learning rate: $lr")
+        end
+        devlast = devloss
+    end
+    if o[:fast]
+        losses = map(d->loss(model,copy(s0),d), data)
+        println((:epoch,o[:epochs],:loss,losses...))
+    end
+end    
+
+
+# sequence[t]: input token at time t
+# state is modified in place
+function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
+    for t = 1:slen:length(sequence)-slen
+        range = t:t+slen-1
+        gloss = lossgradient(param, state, sequence, range)
+        gscale = lr
+        if gclip > 0
+            gnorm = sqrt(mapreduce(sumabs2, +, 0, gloss))
+            if gnorm > gclip
+                gscale *= gclip / gnorm
+            end
+        end
+        for k in 1:length(param)
+            # param[k] -= gscale * gloss[k]
+            axpy!(-gscale, gloss[k], param[k])
+        end
+        for i = 1:length(state)
+            isa(state,Value) && error("State should not be a Value.")
+            state[i] = getval(state[i])
+        end
+    end
+end
+
 # param[2k-1,2k]: weight and bias for the k'th lstm layer
 # param[end-2]: embedding matrix
 # param[end-1,end]: weight and bias for final prediction
@@ -196,65 +257,6 @@ function generate(param, state, vocab, nchar)
     end
     println()
 end
-
-# sequence[t]: input token at time t
-# state is modified in place
-function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
-    for t = 1:slen:length(sequence)-slen
-        range = t:t+slen-1
-        gloss = lossgradient(param, state, sequence, range)
-        gscale = lr
-        if gclip > 0
-            gnorm = sqrt(mapreduce(sumabs2, +, 0, gloss))
-            if gnorm > gclip
-                gscale *= gclip / gnorm
-            end
-        end
-        for k in 1:length(param)
-            param[k] -= gscale * gloss[k] # TODO: try axpy! to see if it is worth it
-        end
-        for i = 1:length(state)
-            isa(state,Value) && error("State should not be a Value.")
-            state[i] = getval(state[i])
-        end
-    end
-end
-
-function train!(model, text, vocab, o)
-    s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
-    data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    losses = map(d->loss(model,copy(s0),d), data)
-    println((:epoch,0,:loss,losses...))
-    devset = ifelse(length(data) > 1, 2, 1)
-    devlast = devbest = losses[devset]
-    lr = o[:lr]
-    for epoch=1:o[:epochs]
-        @time train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-        o[:fast] && continue
-        @time losses = map(d->loss(model,copy(s0),d), data)
-        println((:epoch,epoch,:loss,losses...))
-        if o[:gcheck] > 0
-            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
-        end
-        devloss = losses[devset]
-        if devloss < devbest
-            devbest = devloss
-            if o[:bestfile] != nothing
-                info("Saving best model to $(o[:bestfile])")
-                save(o[:bestfile], "model", model, "vocab", vocab)
-            end
-        end
-        if devloss > devlast
-            lr *= o[:decay]
-            info("New learning rate: $lr")
-        end
-        devlast = devloss
-    end
-    if o[:fast]
-        losses = map(d->loss(model,copy(s0),d), data)
-        println((:epoch,o[:epochs],:loss,losses...))
-    end
-end    
 
 function sample(p)
     p = convert(Array,p)
