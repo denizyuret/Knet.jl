@@ -4,26 +4,37 @@
 	# write paper for nips
 	# document KnetArray in readme. finish the under the hood section.
 	# put function references in documentation.
+	# try to measure back functions one by one as well for gpu profiling.
+	# implement axpy! for KnetArray if it is worth it to get faster updates.
 
 	* TODO8:
-	# update the rest of the documentation.
-	# find out why benchmarks are slower on julia5/6.
-	# change default padding for conv4 to be (n-1)/2
-	# make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	# try to measure back functions one by one as well for gpu profiling.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
 	# mnist2d: implement/test sparse arrays
 	# for general arrays: broadcast, get/setindex, h/v/cat.
 	# implement better unit testing.
 	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 	# add back cpu convolution
-	# implement axpy! for KnetArray if it is worth it to get faster updates.
 	# charlm: add dropout
 	# add transpose to KnetArray.
 	# implement adam.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 	# 0.8.1: tag new version for the paper when all is done.
 	# gputests.jl and cputests.jl are broken.
+	# update the rest of the documentation.
+	# find out why benchmarks are slower on julia5/6.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# vgg: change default padding for conv4 to be (n-1)/2
+	# resolve issues
+	# check old todo list
+	# deepcopy does not work for KnetArray
 
 2016-10-03  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -546,7 +546,7 @@ LinReg	Housing	 10K	506	2.85	1.88	2.66	2.37	5.92
 Softmax	MNIST	 10	100	2.35	1.40	2.88	2.82	5.57
 MLP	MNIST	 10	100	3.68	2.31	4.03	3.75	6.94
 LeNet	MNIST	 1	100	3.59	3.03	1.69	3.54	8.77
-CharLM	Hiawatha 1	128	2.25	4.57	2.23	--	2.86
+CharLM	Hiawatha 1	128	2.25	2.42	2.23	--	2.86
 =======	======== ====== =====	====	======	=====	=====	=====
 
 The benchmarking was done on g2.2xlarge GPU instances on Amazon
