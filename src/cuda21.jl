@@ -42,9 +42,36 @@ function cuda21def(f, j=f, o...)
     end
 end
 
-#if isdefined(:libknet8)
-    for f in cuda21
-        isa(f,Tuple) || (f=(f,))
-        cuda21def(f...)
-    end
-#end
+for f in cuda21
+    isa(f,Tuple) || (f=(f,))
+    cuda21def(f...)
+end
+
+
+# The xentloss interface is no good because of double normalization.
+
+"""
+xentloss(x, p [,dims])
+
+Compute cross-entropy loss for unnormalized log probability estimates
+x and normalized probabilities p normalizing over the given
+dimensions.  By default normalization is over the whole array, dims=1
+normalizes over the columns, dims=2 normalizes over the rows of a 2-D
+array.
+
+"""
+function xentloss(x,p,d...)
+    x = x .- maximum(x,d...)
+    z = log(sum(exp(x),d...))
+    return sum(p .* (x .- z)) / length(z)
+end
+
+function xentback(x,p,d...)
+    x = x .- maximum(x,d...)
+    x = exp(x)
+    z = sum(x,d...)
+    return x./z - p
+end
+
+@primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
+
