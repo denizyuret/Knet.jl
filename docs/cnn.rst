@@ -1011,6 +1011,8 @@ References
 * http://www.deeplearningbook.org/contents/convnets.html
 * http://www.wildml.com/2015/11/understanding-convolutional-neural-networks-for-nlp
 * http://scs.ryerson.ca/~aharley/vis/conv/ has a nice visualization of an MNIST CNN.  (Thanks to Fatih Ozhamaratli for the reference).
+* http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet visualizing popular CNN architectures side by side with mxnet.
+* http://cs231n.github.io/understanding-cnn visualizing what convnets learn.
 
 .. TODO: checkout https://www.udacity.com/course/deep-learning--ud730
 

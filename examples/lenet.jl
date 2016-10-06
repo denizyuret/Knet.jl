@@ -51,12 +51,11 @@ function main(args=ARGS)
     dtst = minibatch4(xtst, ytst, o[:batchsize])
     w = weights()
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
-    report(0)
 
     if o[:fast]
-        @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-        report(o[:epochs])
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); Knet.gpusync())
     else
+        report(0)
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             report(epoch)
