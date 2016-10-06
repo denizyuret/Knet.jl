@@ -4,6 +4,11 @@ module Knet
 using AutoGrad
 
 const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
+"""
+Knet.dir(path...) constructs a path relative to Knet root.  For example:
+
+Knet.dir("examples","mnist.jl") => "/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl"
+"""
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
 export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, conv4, pool, mat

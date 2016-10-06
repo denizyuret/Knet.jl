@@ -49,14 +49,15 @@ function main(args=ARGS)
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
     dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
     dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
-    println((:epoch,0,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    report(0)
     if o[:fast]
         @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-        println((:epoch,o[:epochs],:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+        report(o[:epochs])
     else
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
-            println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+            report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck])
             end
@@ -88,21 +89,24 @@ function train(w, dtrn; lr=.5, epochs=10)
         for (x,y) in dtrn
             g = lossgradient(w, x, y)
             for i in 1:length(w)
-                w[i] -= lr * g[i]
+                # w[i] -= lr * g[i]
+                axpy!(-lr, g[i], w[i])
             end
         end
     end
     return w
 end
 
-function accuracy(w, dtst)
-    ncorrect = ninstance = 0
+function accuracy(w, dtst, pred=predict)
+    ncorrect = ninstance = nloss = 0
     for (x, ygold) in dtst
-        ypred = predict(w, x)
+        ypred = pred(w, x)
+        ynorm = ypred .- log(sum(exp(ypred),1))
+        nloss += -sum(ygold .* ynorm)
         ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
         ninstance += size(ygold,2)
     end
-    return ncorrect/ninstance
+    return (ncorrect/ninstance, nloss/ninstance)
 end
 
 function weights(h...; atype=Array{Float32}, winit=0.1)

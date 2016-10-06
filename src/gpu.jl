@@ -61,7 +61,7 @@ gpu(true) activates the GPU device with the most available memory.
 gpu(false) deactivates GPU devices.    
 """ gpu
 
-gpucount()=(try; p=Cint[0]; ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),p); p[1]; catch; 0; end)
+gpucount()=(try; p=Cint[0]; eval(:(ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),$p))); p[1]; catch; 0; end)
 gpumem()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 gpufree()=gpumem()[1]
 gpuinfo(msg="")=(print("$msg "); println((gpumem()...,meminfo()...)))

@@ -69,9 +69,11 @@ lossgradient = grad(loss)
 function train(w, x, y; lr=.1, epochs=20)
     for epoch=1:epochs
         g = lossgradient(w, x, y)
-        for i in 1:length(w)
-            w[i] -= lr * g[i]
-        end
+        # for i in 1:length(w)
+        #     w[i] -= lr * g[i]
+        # end
+        axpy!(-lr, g[1], w[1])
+        w[2] -= lr * g[2]
     end
     return w
 end
