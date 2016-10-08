@@ -44,14 +44,14 @@ Repository."
     atype = eval(parse(o[:atype]))
     w = Any[convert(atype, 0.1*randn(1,13)), zero(eltype(atype))]
     (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
-    println((:epoch,0,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
-        @time train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs])
-        println((:epoch,o[:epochs],:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); Knet.gpusync())
     else
+        report(0)
         @time for epoch=1:o[:epochs]
             train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
-            println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+            report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck])
             end
