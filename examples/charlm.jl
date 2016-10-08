@@ -163,8 +163,8 @@ function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
             # param[k] -= gscale * gloss[k]
             axpy!(-gscale, gloss[k], param[k])
         end
+        isa(state,Value) && error("State should not be a Value.")
         for i = 1:length(state)
-            isa(state,Value) && error("State should not be a Value.")
             state[i] = getval(state[i])
         end
     end
