@@ -51,14 +51,13 @@ Contents
 Installation
 ------------
 
-You can install Knet using ``Pkg.add("Knet")``. Some of the examples use
-additional packages such as ArgParse, GZip, and JLD. These are not
-required by Knet and can be installed when needed using additional
-``Pkg.add()`` commands. See the detailed
-`installation
-instructions <http://knet.readthedocs.org/en/latest/install.html#installation>`__
-as well as the section on `using Amazon
-AWS <http://knet.readthedocs.org/en/latest/install.html#using-amazon-aws>`__
+You can install Knet using ``Pkg.add("Knet")``. Some of the examples
+use additional packages such as ArgParse, GZip, and JLD. These are not
+required by Knet and are installed automatically when needed.  See the
+detailed `installation instructions
+<http://knet.readthedocs.org/en/latest/install.html#installation>`__
+as well as the section on `using Amazon AWS
+<http://knet.readthedocs.org/en/latest/install.html#using-amazon-aws>`__
 to experiment with GPU machines on the cloud with pre-installed Knet
 images.
 
@@ -542,11 +541,11 @@ frameworks.
 =======	======== ====== =====	====	======	=====	=====	=====
 model	dataset	 epochs	batch	Knet	Theano	Torch	Caffe	TFlow
 =======	======== ====== =====	====	======	=====	=====	=====
-LinReg	Housing	 10K	506	2.85	1.88	2.66	2.37	5.92
-Softmax	MNIST	 10	100	2.35	1.40	2.88	2.82	5.57
-MLP	MNIST	 10	100	3.68	2.31	4.03	3.75	6.94
+LinReg	Housing	 10K	506	2.84	1.88	2.66	2.35	5.92
+Softmax	MNIST	 10	100	2.35	1.40	2.88	2.45	5.57
+MLP	MNIST	 10	100	3.68	2.31	4.03	3.69	6.94
 LeNet	MNIST	 1	100	3.59	3.03	1.69	3.54	8.77
-CharLM	Hiawatha 1	128	2.25	2.42	2.23	--	2.86
+CharLM	Hiawatha 1	128	2.25	2.42	2.23	1.43	2.86
 =======	======== ====== =====	====	======	=====	=====	=====
 
 The benchmarking was done on g2.2xlarge GPU instances on Amazon

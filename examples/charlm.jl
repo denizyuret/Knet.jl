@@ -112,14 +112,19 @@ end
 function train!(model, text, vocab, o)
     s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
     data = map(t->minibatch(t, vocab, o[:batchsize]), text)
+    lr = o[:lr]
+    if o[:fast]
+        @time (for epoch=1:o[:epochs]
+               train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
+               end; Knet.gpusync())
+        return
+    end
     losses = map(d->loss(model,copy(s0),d), data)
     println((:epoch,0,:loss,losses...))
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
-    lr = o[:lr]
     for epoch=1:o[:epochs]
         @time train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-        o[:fast] && continue
         @time losses = map(d->loss(model,copy(s0),d), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
@@ -138,10 +143,6 @@ function train!(model, text, vocab, o)
             info("New learning rate: $lr")
         end
         devlast = devloss
-    end
-    if o[:fast]
-        losses = map(d->loss(model,copy(s0),d), data)
-        println((:epoch,o[:epochs],:loss,losses...))
     end
 end    
 
@@ -163,8 +164,8 @@ function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
             # param[k] -= gscale * gloss[k]
             axpy!(-gscale, gloss[k], param[k])
         end
+        isa(state,Value) && error("State should not be a Value.")
         for i = 1:length(state)
-            isa(state,Value) && error("State should not be a Value.")
             state[i] = getval(state[i])
         end
     end

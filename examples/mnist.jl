@@ -50,11 +50,10 @@ function main(args=ARGS)
     dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
     dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
-    report(0)
     if o[:fast]
-        @time train(w, dtrn; lr=o[:lr], epochs=o[:epochs])
-        report(o[:epochs])
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); Knet.gpusync())
     else
+        report(0)
         @time for epoch=1:o[:epochs]
             train(w, dtrn; lr=o[:lr], epochs=1)
             report(epoch)
