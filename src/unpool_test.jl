@@ -1,4 +1,4 @@
-include("unpool.jl");
+using Knet;
 
 x = zeros(2,2,2,2);
 x[:,:,1,1] = [1.0 2.0; 3.0 4.0];
