@@ -35,7 +35,7 @@ function cuda21def(f, j=f, o...)
                     ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
                     return y
                 else
-                    error("Only scalar and vector reductions supported.")
+                    error("Only scalar and vector reductions supported: $((size(x),region))")
                 end
             end
         end
