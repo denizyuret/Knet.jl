@@ -483,3 +483,4 @@ size(a::KnetDisplay) = size(a.a)
 summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
+AutoGrad._dbg(a::KnetArray) = "K$(join([AutoGrad.id2(a),size(a)...],'_'))"
