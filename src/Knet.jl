@@ -13,6 +13,7 @@ dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
 export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, conv4, pool, mat
 export gaussian, xavier         # export distributions
+export deconv4                  # export deconvolution
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
 include("cuda1.jl")             # unary operators
