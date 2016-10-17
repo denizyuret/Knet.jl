@@ -483,6 +483,9 @@ size(a::KnetDisplay) = size(a.a)
 summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
+AutoGrad._dbg(a::KnetArray) = "K$(join([AutoGrad.id2(a),size(a)...],'_'))"
+
+# curand functions:
 
 import Base: rand!
 rand!(a::KnetArray{Float32})=(@cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
@@ -500,3 +503,4 @@ function rng(init=false)
     return RNG
 end
 end
+
