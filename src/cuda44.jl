@@ -249,15 +249,9 @@ end
 
 
 #Deconvolution
-#forward = conv4 backward wrt x
-function deconv4{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                  handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                  algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
-    dx = similar(x)
-    @cuda(cudnn,cudnnConvolutionBackwardData,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
-    return dx
+#forward pass
+function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
+    conv4x(w,x,KnetArray(ones(size(x))))
 end
 
 #backward pass
