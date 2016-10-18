@@ -2,27 +2,41 @@ abstract UpdateParams
 
 type SGDParams <: UpdateParams
 	lr::AbstractFloat
+	w
 end
 
 type MomentumParams <: UpdateParams
 	lr::AbstractFloat
 	gamma::AbstractFloat
 	velocity
+	w
 end
 
-function sgd!(weight, grad; lr=0.001)
-	copy!(weight, weight - lr*grad)
+type AdamParams <: UpdateParams
+	lr::AbstractFloat
+	beta1::AbstractFloat
+	beta2::AbstractFloat
+	t::AbstractFloat
+	eps::AbstractFloat
+	fstm
+	scndm
+	w
 end
 
-function sgd!(weight, grad, params::SGDParams)
-	sgd!(weight, grad; lr=params.lr)
+function sgd!(params::SGDParams, grad)
+	params.w = params.w - params.lr*grad
 end
 
-function momentum!(weight, grad, velocity; lr=0.001, gamma=0.95)
-	copy!(velocity, gamma * velocity + lr * grad)
-	copy!(weight, weight - velocity)
+function momentum!(params::MomentumParams, grad)
+	params.velocity = params.gamma * params.velocity + params.lr*grad
+	params.w = params.w - params.velocity
 end
 
-function momentum!(weight, grad, params::MomentumParams)
-	momentum!(weight, grad, params.velocity; lr=params.lr, gamma=params.gamma)
+function adam!(params::AdamParams, grad)
+	params.fstm = params.beta1 * params.fstm + (1 - params.beta1)*grad
+	params.scndm = params.beta2 * params.scndm + (1 - params.beta2)*(grad .^ 2)
+	fstm_corrected = params.fstm / (1 - params.beta1 ^ params.t) 
+	scndm_corrected = params.scndm / (1 - params.beta2 ^ params.t)
+	params.w = params.w - params.lr * fstm_corrected ./ (sqrt(scndm_corrected) + params.eps)
+	params.t = params.t + 1
 end
