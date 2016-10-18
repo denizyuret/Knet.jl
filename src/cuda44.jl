@@ -263,7 +263,7 @@ function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
     diffszx = dcpadxdims(indims,outdims);
     newx = Array(similar(x, indims));
     #do the actual padding, tbd 5d tensors
-    newx[diffszx[1]+1:size(y,1)+diffszx[1], diffszx[2]+1:size(y,2)+diffszx[2]   ,1,1] = Array(x)[:,:,1,1];
+    newx[diffszx[1]+1:size(x,1)+diffszx[1], diffszx[2]+1:size(x,2)+diffszx[2]   ,1,1] = Array(x)[:,:,1,1];
     newx = KnetArray(newx);
     #apply normal convolution
     conv4(w,newx);
