@@ -249,35 +249,57 @@ end
 
 
 #Deconvolution
+#backward pass - NOT REQUIRED ???
 #forward pass
-function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
-    conv4x(w,x,KnetArray(ones(size(x))))
+"""
+TODO: Implement the following optional arguments
+padding
+stride
+"""
+function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
+    indims = dcxdims(w,x);
+    outdims = dcydims(w,x);
+    #pad the input by
+    diffszx = dcpadxdims(indims,outdims);
+    newx = Array(similar(x, indims));
+    #do the actual padding, tbd 5d tensors
+    newx[diffszx[1]+1:size(y,1)+diffszx[1], diffszx[2]+1:size(y,2)+diffszx[2]   ,1,1] = Array(x)[:,:,1,1];
+    newx = KnetArray(newx);
+    #apply normal convolution
+    conv4(w,newx);
 end
 
-#backward pass
-function deconv4x{T}(w::KnetArray{T},x::KnetArray{T}; o...)
-    return conv4(w,x; o...)
+
+#Calculates output dimensions of deconvolution of w and x
+function dcydims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
+    ntuple(N) do i
+        if i < N-1
+            size(x,i) + size(w,i) - 1
+        elseif i == N-1 #Filters
+            size(w,N)
+        else # i == N   #Minibatch
+            size(x,N)
+        end
+    end
 end
 
-
-#=REMINDER
-function conv4{T}(w::KnetArray{T},x::KnetArray{T};
-                  handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                  algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
-    y = similar(x, cdims(w,x;o...))
-    @cuda(cudnn, cudnnConvolutionForward,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(y),y)
-    return y
+#Calculates padded input dimensions of deconvolution of w and x
+function dcxdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
+    szY = dcydims(w,x)
+    ntuple(N) do i
+        if i < N-1
+            szY[i] + size(w,i) - 1
+        elseif i == N-1 #Filters
+            size(w,N)
+        else # i == N   #Minibatch
+            size(x,N)
+        end
+    end
 end
 
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                   handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                   algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
-    dx = similar(x)
-    @cuda(cudnn,cudnnConvolutionBackwardData,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
-    return dx
+#Calculate input padding dimensions of deconvolution of dimensions indims and outdims
+function dcpadxdims(indims, outdims)
+    ntuple(length(outdims)) do i
+        indims[i] - outdims[i]
+    end
 end
-=#
