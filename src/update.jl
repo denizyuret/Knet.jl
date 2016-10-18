@@ -1,18 +1,16 @@
-abstract UpdateParams
-
-type SGDParams <: UpdateParams
+type SGDParams
 	lr::AbstractFloat
 	w
 end
 
-type MomentumParams <: UpdateParams
+type MomentumParams
 	lr::AbstractFloat
 	gamma::AbstractFloat
 	velocity
 	w
 end
 
-type AdamParams <: UpdateParams
+type AdamParams
 	lr::AbstractFloat
 	beta1::AbstractFloat
 	beta2::AbstractFloat
@@ -23,7 +21,15 @@ type AdamParams <: UpdateParams
 	w
 end
 
-function sgd!(params::SGDParams, grad)
+type AdagradParams
+	lr::AbstractFloat
+	eps::AbstractFloat
+	G
+	w
+end
+
+
+function sgd!(params::Union{SGDParams, MomentumParams, AdamParams}, grad)
 	params.w = params.w - params.lr*grad
 end
 
@@ -39,4 +45,9 @@ function adam!(params::AdamParams, grad)
 	scndm_corrected = params.scndm / (1 - params.beta2 ^ params.t)
 	params.w = params.w - params.lr * fstm_corrected ./ (sqrt(scndm_corrected) + params.eps)
 	params.t = params.t + 1
+end
+
+function adagrad!(params::AdagradParams, grad)
+	params.G = params.G + grad .^ 2
+	params.w = params.w - params.lr * grad ./ sqrt(params.G + params.eps)
 end

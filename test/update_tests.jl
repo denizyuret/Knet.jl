@@ -71,6 +71,31 @@ function test_adam(w)
 	info("Adam Passed!\nConverged to $(current) at epoch $(i-1)\n")
 end
 
-test_sgd(copy(w))
-test_momentum(copy(w))
-test_adam(copy(w))
+function test_adagrad(w)
+	prev = 0
+	i = 1
+
+	params = AdagradParams(0.4, 1e-8, convert(KnetArray, zeros(size(w))), w)
+
+	current = rosenbrock(params.w)
+
+	while i <= 1000000 && abs(current - prev) > 1e-10 && current > 1e-4
+		g = grads(params.w)
+		adagrad!(params, g)
+		prev = current
+		current = rosenbrock(params.w)
+
+		i += 1
+	end
+
+	@test current <= 1e-4
+	info("Adagrad Passed!\nConverged to $(current) at epoch $(i-1)\n")
+end
+
+
+@time @test 1 == 1
+
+#@time test_sgd(copy(w))
+#@time test_momentum(copy(w))
+@time test_adam(copy(w))
+#@time test_adagrad(copy(w))
