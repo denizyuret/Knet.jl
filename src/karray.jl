@@ -148,7 +148,7 @@ KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
 KnetArray(T::Type, d::Integer...)=KnetArray(T,convert(Tuple{Vararg{Int}}, d))
 
 # Conversions:
-import Base: convert, reshape, unsafe_convert, pointer
+import Base: convert, reshape, vec, unsafe_convert, pointer
 # KnetArray <- KnetArray
 convert{T,N}(::Type{KnetArray}, x::KnetArray{T,N}) = x
 convert{T,N}(::Type{KnetArray{T}}, x::KnetArray{T,N}) = x
@@ -157,6 +157,7 @@ convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}
 convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},unsafe_copy!(Array(S, size(x)), 1, x, 1, length(x)))
 reshape{T}(a::KnetArray{T},dims::Dims)=(if dims==size(a); a; elseif prod(dims)!=length(a); throw(DimensionMismatch()); else; KnetArray{T,length(dims)}(a.ptr,dims); end)
 reshape(a::KnetArray, dims::Int...) = reshape(a, dims)
+vec(a::KnetArray) = reshape(a, length(a))
 # KnetArray <- AbstractArray
 convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T}}, x::AbstractArray{S,N}) = convert(KnetArray{T,N}, x)
