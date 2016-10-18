@@ -60,8 +60,8 @@ function adam!(params::AdamParams, w, g)
 	axpy!(1-params.beta1, g, params.fstm)
 	
 	params.scndm = params.beta2*params.scndm
-	axpy!(1-params.beta2, g.^2, params.scndm)
-	
+	axpy!(1-params.beta2, g .* g, params.scndm)
+
 	fstm_corrected = params.fstm / (1 - params.beta1 ^ params.t) 
 	scndm_corrected = params.scndm / (1 - params.beta2 ^ params.t)
 	
@@ -73,24 +73,24 @@ end
 #Duchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization.
 #Journal of Machine Learning Research, 12, 2121–2159. Retrieved from http://jmlr.org/papers/v12/duchi11a.html
 function adagrad!(params::AdagradParams, w, g)
-	axpy!(1, g .^ 2, params.G)
-	axpy!(-1 * params.lr, (g ./ sqrt(params.G + params.eps)), w)
+	axpy!(1, g .* g, params.G)
+	axpy!(-1 * params.lr, g ./ sqrt(params.G+ params.eps), w)
 end
 
 #Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method. Retrieved from http://arxiv.org/abs/1212.5701
 function adadelta!(params::AdadeltaParams, w, g)
 	params.G = params.rho*params.G
-	axpy!(1-params.rho, g .^ 2, params.G)
+	axpy!(1-params.rho, g .* g, params.G)
 	update = g .* sqrt(params.delta + params.eps) ./ sqrt(params.G + params.eps)
 	axpy!(-1 * params.lr, update, w)
 
 	params.delta = params.rho * params.delta
-	axpy!(1-params.rho, update .^ 2, params.delta)
+	axpy!(1-params.rho, update .* update , params.delta)
 end
 
 #http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
 function rmsprop!(params::RmspropParams, w, g)
 	params.G = params.rho*params.G
-	axpy!(1-params.rho, g .^ 2, params.G)
+	axpy!(1-params.rho, g .* g, params.G)
 	axpy!(-1 * params.lr, g ./ sqrt(params.G + params.eps), w)
 end
