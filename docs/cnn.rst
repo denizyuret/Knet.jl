@@ -107,6 +107,7 @@ in y.  Here is an example in Julia you should be able to calculate by
 hand:
 
 .. code::
+
    julia> w = KnetArray(reshape([1.0,2.0,3.0], (3,1,1,1)))
    3×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3]
    julia> x = KnetArray(reshape([1.0:7.0...], (7,1,1,1)))
@@ -142,6 +143,7 @@ use padding=1.
 
 
 .. code::
+
    julia> y = conv4(w, x; padding=(1,0))
    7×1×1×1 Knet.KnetArray{Float64,4}: [4,10,16,22,28,34,32]
 
@@ -163,6 +165,7 @@ following example we set stride to W such that the consecutive filter
 applications are non-overlapping:
 
 .. code::
+
    julia> y = conv4(w, x; padding=(1,0), stride=3)
    3×1×1×1 Knet.KnetArray{Float64,4}: [4,22,32]
 
@@ -221,6 +224,7 @@ two extra dimensions at the end which means we use 4D and 5D arrays
 for 2D and 3D convolutions.  Here is a 2D convolution example:
 
 .. code::
+
    julia> w = KnetArray(reshape([1.0:4.0...], (2,2,1,1)))
    2×2×1×1 Knet.KnetArray{Float64,4}:
    [:, :, 1, 1] =
@@ -642,6 +646,7 @@ D-dimensional inputs padding can be specified as a tuple such as
 for ``padding=(1,1)`` in 2-D.  Here is a 1-D example:
 
 .. code::
+
   julia> x = KnetArray(reshape([1.0:6.0...], (6,1,1,1)))
   6×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6]
   
@@ -666,6 +671,7 @@ tuples e.g. ``stride=(1,2)`` or numbers e.g. ``stride=1``. Here is a
 1-D example with a stride of 4 instead of the default 2:
 
 .. code::
+
   julia> x = KnetArray(reshape([1.0:10.0...], (10,1,1,1)))
   10×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6,7,8,9,10]
   
@@ -971,6 +977,7 @@ References
 * http://scs.ryerson.ca/~aharley/vis/conv/ has a nice visualization of an MNIST CNN.  (Thanks to Fatih Ozhamaratli for the reference).
 * http://josephpcohen.com/w/visualizing-cnn-architectures-side-by-side-with-mxnet visualizing popular CNN architectures side by side with mxnet.
 * http://cs231n.github.io/understanding-cnn visualizing what convnets learn.
+* https://arxiv.org/abs/1603.07285 A guide to convolution arithmetic for deep learning
 
 .. TODO: checkout https://www.udacity.com/course/deep-learning--ud730
 

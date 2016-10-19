@@ -2,8 +2,6 @@
 Multilayer Perceptrons
 **********************
 
-... DONE: update all programming examples from Knet7 to Knet8
-
 In this section we create multilayer perceptrons by stacking multiple
 linear layers with non-linear activation functions in between.
 
@@ -13,13 +11,14 @@ Stacking linear classifiers is useless
 We could try stacking multiple linear classifiers together.  Here is a
 two layer model::
 
-    function mnist_softmax_2(w, x)
-        y1 = w[1] * x .+ w[2]
-        return w[3] * y1 .+ w[4]
+    function multilinear(w, x, ygold)
+        y1 = w[1] * x  .+ w[2]
+        y2 = w[3] * y1 .+ w[4]
+	return softloss(ygold, y2)
     end
 
-Note that instead of outputting ``y1``, we used it as input to
-another linear classifier.  Intermediate arrays like ``y1``
+Note that instead of using ``y1`` as our prediction, we used it as
+input to another linear classifier.  Intermediate arrays like ``y1``
 are known as **hidden layers** because their contents are not directly
 visible outside the model.
 
@@ -46,29 +45,30 @@ Introducing nonlinearities
 
 Here is a slightly modified version of the two layer model::
 
-    function mnist_mlp(w, x)
+    function mlp(w, x, ygold)
         y1 = relu(w[1] * x .+ w[2])
-        return w[3] * y1 .+ w[4]
+	y2 = w[3] * y1 .+ w[4]
+	return softloss(ygold, y2)
     end
 
-MLP in ``mnist_mlp`` stands for **multilayer perceptron** which is one
-name for this type of model.  The only difference with the previous
-example is the ``relu`` function we introduced in line 4.  This is
+MLP in ``mlp`` stands for **multilayer perceptron** which is one name
+for this type of model.  The only difference with the previous example
+is the ``relu()`` function we introduced in the first line.  This is
 known as the rectified linear unit (or rectifier), and is a simple
 function defined by ``relu(x)=max(x,0)`` applied elementwise to the
 input array.  So mathematically what we are computing is:
 
 .. math::
 
-   \hat{p} &=& \mbox{soft}(W_2\, \mbox{relu}(W_1 x + b_1) + b_2)
+   \hat{p} &=& \mbox{soft}(W_2\, \mbox{relu}(W_1 x + b_1) + b_2) \\
 
 This cannot be reduced to a linear function, which may not seem like a
 big difference but what a difference it makes to the model!  Here are
-the learning curves for ``mnist_mlp``:
+the learning curves for ``mlp`` using a hidden layer of size 64:
 
 .. image:: images/mnist_mlp.png
 
-Here are the learning curves for the linear model ``mnist_softmax``
+Here are the learning curves for the linear model ``softmax``
 plotted at the same scale for comparison:
 
 .. image:: images/mnist_softmax2.png
