@@ -2,7 +2,7 @@
 Convolutional Neural Networks
 *****************************
 
-... TODO: update all programming examples from Knet7 to Knet8
+.. DONE: update all programming examples from Knet7 to Knet8
 
 .. TODO: start with biological motivation, then rename the following
 .. computational motivation.
@@ -103,25 +103,20 @@ by multiplying pairs of matching entries in x and w and summing the
 results.  Matching entries in x and w are the ones whose indices add
 up to a constant.  This can be visualized as flipping w, sliding it
 over x, and at each step writing their dot product into a single entry
-in y.  Here is an example in Knet you should be able to calculate by
+in y.  Here is an example in Julia you should be able to calculate by
 hand:
 
 .. code::
-
-   @knet function convtest1(x)
-       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
-       y = conv(w, x)
-       return y
-   end
-   julia> f = compile(:convtest1);
-   julia> x = reshape([1.0:7.0...], (7,1,1,1))
-   7x1x1x1 Array{Float64,4}: [1,2,3,4,5,6,7]
-   julia> y = forw(f,x)
-   5x1x1x1 Array{Float64,4}: [10,16,22,28,34]
+   julia> w = KnetArray(reshape([1.0,2.0,3.0], (3,1,1,1)))
+   3×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3]
+   julia> x = KnetArray(reshape([1.0:7.0...], (7,1,1,1)))
+   7×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6,7]
+   julia> y = conv4(w, x)
+   5×1×1×1 Knet.KnetArray{Float64,4}: [10,16,22,28,34]
 
 .. _CUDNN: https://developer.nvidia.com/cudnn
 
-``conv`` is the convolution operation in Knet (based on the CUDNN_
+``conv4`` is the convolution operation in Knet (based on the CUDNN_
 implementation).  For reasons that will become clear it works with 4-D
 and 5-D arrays, so we reshape our 1-D input vectors by adding extra
 singleton dimensions at the end.  The convolution of w=[1,2,3] and
@@ -135,7 +130,7 @@ its dot product starting with the third element of x, [3,4,5].
 In the last example, the input x had 7 dimensions, the output y had 5.
 In image processing applications we typically want to keep x and y the
 same size.  For this purpose we can provide a ``padding`` keyword
-argument to the ``conv`` operator.  If padding=k, x will be assumed
+argument to the ``conv4`` operator.  If padding=k, x will be assumed
 padded with k zeros on the left and right before the convolution,
 e.g. padding=1 means treat x as [0 1 2 3 4 5 6 7 0].  The default
 padding is 0.  For inputs in D-dimensions we can specify padding with
@@ -147,15 +142,8 @@ use padding=1.
 
 
 .. code::
-
-   @knet function convtest2(x)
-       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
-       y = conv(w, x; padding=(1,0))
-       return y
-   end
-   julia> f = compile(:convtest2);
-   julia> y = forw(f,x)
-   7x1x1x1 Array{Float64,4}: [4,10,16,22,28,34,32]
+   julia> y = conv4(w, x; padding=(1,0))
+   7×1×1×1 Knet.KnetArray{Float64,4}: [4,10,16,22,28,34,32]
 
 .. TODO: implement actual 1-D convolution.
 
@@ -170,20 +158,13 @@ to :math:`P=(W-1)/2`.  This will work if W is odd.
 In the preceding examples we shift the inverted w by one position
 after each dot product.  In some cases you may want to skip two or
 more positions.  The amount of skip is set by the ``stride`` keyword
-argument of the ``conv`` operation (the default stride is 1).  In the
+argument of the ``conv4`` operation (the default stride is 1).  In the
 following example we set stride to W such that the consecutive filter
 applications are non-overlapping:
 
 .. code::
-
-   @knet function convtest3(x)
-       w = par(init=reshape([1.0,2.0,3.0], (3,1,1,1)))
-       y = conv(w, x; padding=(1,0), stride=3)
-       return y
-   end
-   julia> f = compile(:convtest3);
-   julia> y = forw(f,x)
-   3x1x1x1 Array{Float64,4}: [4,22,32]
+   julia> y = conv4(w, x; padding=(1,0), stride=3)
+   3×1×1×1 Knet.KnetArray{Float64,4}: [4,22,32]
 
 Note that the output has the first, middle, and last values of the
 previous example, i.e. every third value is kept and the rest are
@@ -214,11 +195,11 @@ We could also perform a similar operation without kernel flipping:
    \ldots
 
 This variation is called cross-correlation.  The two modes are
-specified in Knet/CUDNN by specifying one of the following as the
+specified in Knet by choosing one of the following as the
 value of the ``mode`` keyword:
 
-* ``CUDNN_CONVOLUTION``
-* ``CUDNN_CROSS_CORRELATION``
+* ``0`` for convolution
+* ``1`` for cross-correlation
 
 This option would be important if we were hand designing our filters.
 However the mode does not matter for CNNs where the filters are learnt
@@ -240,28 +221,19 @@ two extra dimensions at the end which means we use 4D and 5D arrays
 for 2D and 3D convolutions.  Here is a 2D convolution example:
 
 .. code::
-
-   @knet function convtest4(x)
-       w = par(init=reshape([1.0:4.0...], (2,2,1,1)))
-       y = conv(w, x)
-       return y
-   end
-   julia> f = compile(:convtest4);
-   julia> x = reshape([1.0:9.0...], (3,3,1,1));
-   julia> y = forw(f,x);
-   julia> x
-   3x3x1x1 Array{Float64,4}:
+   julia> w = KnetArray(reshape([1.0:4.0...], (2,2,1,1)))
+   2×2×1×1 Knet.KnetArray{Float64,4}:
+   [:, :, 1, 1] =
+    1.0  3.0
+    2.0  4.0
+   julia> x = KnetArray(reshape([1.0:9.0...], (3,3,1,1)))
+   3×3×1×1 Knet.KnetArray{Float64,4}:
    [:, :, 1, 1] =
     1.0  4.0  7.0
     2.0  5.0  8.0
     3.0  6.0  9.0
-   julia> get(f,:w)
-   2x2x1x1 Array{Float64,4}:
-   [:, :, 1, 1] =
-    1.0  3.0
-    2.0  4.0
-   julia> y
-   2x2x1x1 CudaArray{Float64,4}:
+   julia> y = conv4(w, x)
+   2×2×1×1 Knet.KnetArray{Float64,4}:
    [:, :, 1, 1] =
     23.0  53.0
     33.0  63.0
@@ -395,7 +367,7 @@ of storage, so you would want to use a smaller minibatch size if you
 had a K20 GPU with 4GB of RAM.
 
 Note: All the dimensions given above are for column-major languages
-like Knet.  CUDNN uses row-major notation, so all the dimensions
+like Julia.  CUDNN uses row-major notation, so all the dimensions
 would be reversed, e.g. :math:`[N,I,X_D,\ldots,X_1]`.
 
 
@@ -461,30 +433,29 @@ a K-dimensional output vector y.  We can consider each of the K rows
 of the W matrix a convolution filter.  The following example shows how
 we can reshape the arrays and use convolution for matrix
 multiplication::
-
-  julia> using Knet, CUDNN
-  julia> x = reshape([1.0:3.0...], (3,1))
-  3x1 Array{Float64,2}:
+  
+  julia> using Knet
+  julia> x = KnetArray(reshape([1.0:3.0...], (3,1)))
+  3×1 Knet.KnetArray{Float64,2}:
    1.0
    2.0
    3.0
-  julia> w = reshape([1.0:6.0...], (2,3))
-  2x3 Array{Float64,2}:
+  julia> w = KnetArray(reshape([1.0:6.0...], (2,3)))
+  2×3 Knet.KnetArray{Float64,2}:
    1.0  3.0  5.0
    2.0  4.0  6.0
   julia> y = w * x
-  2x1 Array{Float64,2}:
+  2×1 Knet.KnetArray{Float64,2}:
    22.0
    28.0
-  julia> f = compile(:conv, mode=CUDNN_CROSS_CORRELATION);
   julia> x2 = reshape(x, (3,1,1,1))
-  3x1x1x1 Array{Float64,4}:
+  3×1×1×1 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
    1.0
    2.0
    3.0
-  julia> w2 = reshape(w', (3,1,1,2))
-  3x1x1x2 Array{Float64,4}:
+  julia> w2 = KnetArray(reshape(Array(w)', (3,1,1,2)))
+  3×1×1×2 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
    1.0
    3.0
@@ -493,13 +464,13 @@ multiplication::
    2.0
    4.0
    6.0
-  julia> y2 = forw(f, w2, x2)
-  1x1x2x1 CudaArray{Float64,4}:
+  julia> y2 = conv4(w2, x2; mode=1)
+  1×1×2×1 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
    22.0
   [:, :, 2, 1] =
    28.0
-
+  
 In addition to computational concerns, these examples also show that a
 fully connected layer can emulate a convolutional layer given the
 right weights and vice versa, i.e. convolution does not get us any
@@ -631,15 +602,10 @@ Here is a 1-D example:
 
 .. code::
 
-   @knet function pooltest1(x)
-       y = pool(x)
-       return y
-   end
-   julia> f = compile(:pooltest1)
-   julia> x = reshape([1.0:6.0...], (6,1,1,1))
-   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
-   julia> forw(f,x)
-   3x1x1x1 CudaArray{Float64,4}: [2,4,6]
+   julia> x = KnetArray(reshape([1.0:6.0...], (6,1,1,1)))
+   6×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6]
+   julia> pool(x)
+   3×1×1×1 Knet.KnetArray{Float64,4}: [2,4,6]
 
 With window size and stride equal to 2, pooling considers the input
 windows :math:`[1,2], [3,4], [5,6]` and picks the maximum in each
@@ -656,16 +622,11 @@ using a window size of 3 instead of the default 2:
 
 .. code::
 
-   @knet function pooltest2(x)
-       y = pool(x; window=3)
-       return y
-   end
-   julia> f = compile(:pooltest1)
-   julia> x = reshape([1.0:6.0...], (6,1,1,1))
-   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
-   julia> forw(f,x)
-   3x1x1x1 CudaArray{Float64,4}: [3,6]
-
+  julia> x = KnetArray(reshape([1.0:6.0...], (6,1,1,1)))
+  6×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6]
+  julia> pool(x; window=3)
+  2×1×1×1 Knet.KnetArray{Float64,4}: [3, 6]
+  
 With a window and stride of 3 (the stride is equal to window size by
 default), pooling considers the input windows :math:`[1,2,3],[4,5,6]`,
 and writes the maximum of each window to the output.  If the input
@@ -681,17 +642,12 @@ D-dimensional inputs padding can be specified as a tuple such as
 for ``padding=(1,1)`` in 2-D.  Here is a 1-D example:
 
 .. code::
-
-   @knet function pooltest3(x)
-       y = pool(x; padding=(1,0))
-       return y
-   end
-   julia> f = compile(:pooltest3)
-   julia> x = reshape([1.0:6.0...], (6,1,1,1))
-   6x1x1x1 Array{Float64,4}: [1,2,3,4,5,6]
-   julia> forw(f,x)
-   3x1x1x1 CudaArray{Float64,4}: [1,3,5,6]
-
+  julia> x = KnetArray(reshape([1.0:6.0...], (6,1,1,1)))
+  6×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6]
+  
+  julia> pool(x; padding=(1,0))
+  4×1×1×1 Knet.KnetArray{Float64,4}: [1,3,5,6]
+  
 In this example, window=stride=2 by default and the padding size is 1,
 so the input is treated as :math:`[0,1,2,3,4,5,6,0]` and split into
 windows of :math:`[0,1],[2,3],[4,5],[6,0]` and the maximum of each
@@ -706,7 +662,15 @@ stride is equal to the window size :math:`W`, the output will have
 The pooling stride is equal to the window size by default (as opposed
 to the convolution case, where it is 1 by default).  This is most
 common in practice but other strides can be specified using
-tuples e.g. ``stride=(1,2)`` or numbers e.g. ``stride=1``.
+tuples e.g. ``stride=(1,2)`` or numbers e.g. ``stride=1``. Here is a
+1-D example with a stride of 4 instead of the default 2:
+
+.. code::
+  julia> x = KnetArray(reshape([1.0:10.0...], (10,1,1,1)))
+  10×1×1×1 Knet.KnetArray{Float64,4}: [1,2,3,4,5,6,7,8,9,10]
+  
+  julia> pool(x; stride=4)
+  4×1×1×1 Knet.KnetArray{Float64,4}: [2, 6, 10]
 
 .. TODO: fix infersize problem when stride != window.
 
@@ -729,15 +693,16 @@ summarizing each window:
 
 These options can be specified as the value of the ``mode`` keyword
 argument to the ``pool`` operation.  The default is
-``CUDNN_POOLING_MAX`` which we have been using so far.  The last two
+``0`` (max pooling) which we have been using so far.  The last two
 compute averages, and differ in whether to include or exclude the
-padding zeros in these averages.  For example, with input
-:math:`x=[1,2,3,4,5,6]`, ``window=stride=2``, and ``padding=1`` we
-have the following outputs with the three options::
+padding zeros in these averages.  ``mode`` should be ``1`` for averaging
+including padding, and ``2`` for averaging excluding padding.
+For example, with input :math:`x=[1,2,3,4,5,6]`, ``window=stride=2``,
+and ``padding=1`` we have the following outputs with the three options::
 
-  mode=CUDNN_POOLING_MAX => [1,3,5,6]
-  mode=CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING => [0.5, 2.5, 4.5, 3.0]
-  mode=CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING => [1.0, 2.5, 4.5, 6.0]
+  mode=0 => [1,3,5,6]
+  mode=1 => [0.5, 2.5, 4.5, 3.0]
+  mode=2 => [1.0, 2.5, 4.5, 6.0]
 
 **More Dimensions**
 
@@ -745,25 +710,21 @@ D-dimensional inputs are pooled with D-dimensional windows, the size
 of each output dimension given by the 1-D formulas above.  Here is a
 2-D example with default options, i.e. window=stride=(2,2),
 padding=(0,0), mode=max::
-
-   @knet function pooltest1(x)
-       y = pool(x)
-       return y
-   end
-   julia> f = compile(:pooltest1)
-   julia> x = reshape([1.0:16.0...], (4,4,1,1))
-   4x4x1x1 Array{Float64,4}:
+  
+   julia> x = KnetArray(reshape([1.0:16.0...], (4,4,1,1)))
+   4×4×1×1 Knet.KnetArray{Float64,4}:
    [:, :, 1, 1] =
     1.0  5.0   9.0  13.0
     2.0  6.0  10.0  14.0
     3.0  7.0  11.0  15.0
     4.0  8.0  12.0  16.0
-   julia> forw(f,x)
-   2x2x1x1 CudaArray{Float64,4}:
+   
+   julia> pool(x)
+   2×2×1×1 Knet.KnetArray{Float64,4}:
    [:, :, 1, 1] =
     6.0  14.0
     8.0  16.0
-
+   
 
 **Multiple channels and instances**
 
@@ -777,59 +738,57 @@ is performed independently on each channel, e.g. for each patch, the
 maximum/average in each channel is computed independently and copied
 to the output.  Here is an example with two channels::
 
-  @knet function pooltest1(x)
-      y = pool(x)
-      return y
-  end
-  julia> f = compile(:pooltest1)
-  julia> x = rand(4,4,2,1)
-  4x4x2x1 Array{Float64,4}:
+  julia> x = KnetArray(rand(4,4,2,1))
+  4×4×2×1 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
-   0.0235776   0.470246  0.829754  0.164617
-   0.375611    0.884792  0.561758  0.955467
-   0.00740115  0.76617   0.674633  0.480402
-   0.979588    0.949825  0.449385  0.956657
+   0.880221  0.738729  0.317231   0.990521
+   0.626842  0.562692  0.339969   0.92469
+   0.416676  0.403625  0.352799   0.46624
+   0.566254  0.634703  0.0632812  0.0857779
+  
   [:, :, 2, 1] =
-   0.254501  0.0930295  0.640946  0.270479
-   0.422195  0.0399775  0.387326  0.234855
-   0.102558  0.589408   0.69867   0.498438
-   0.823076  0.797679   0.695289  0.888321
-  julia> forw(f,x)
-  2x2x2x1 CudaArray{Float64,4}:
+   0.300799  0.407623   0.26275   0.767884
+   0.217025  0.0055375  0.623168  0.957374
+   0.154975  0.246693   0.769524  0.628197
+   0.259161  0.648074   0.333324  0.46305
+  
+  julia> pool(x)
+  2×2×2×1 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
-   0.884792  0.955467
-   0.979588  0.956657
+   0.880221  0.990521
+   0.634703  0.46624
+  
   [:, :, 2, 1] =
-   0.422195  0.640946
-   0.823076  0.888321
-
+   0.407623  0.957374
+   0.648074  0.769524
+  
 When the number of instances is greater than 1, i.e. we are using
 minibatches, the pooling operation similarly runs in parallel on all
 the instances::
 
-  julia> x = rand(4,4,1,2)
-  4x4x1x2 Array{Float64,4}:
+  julia> x = KnetArray(rand(4,4,1,2))
+  4×4×1×2 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
-   0.664524  0.581233   0.949937  0.563411
-   0.760211  0.714199   0.985956  0.478583
-   0.190559  0.682141   0.43941   0.682127
-   0.701371  0.0159724  0.28857   0.166187
-
+   0.155228  0.848345  0.629651  0.262436
+   0.729994  0.320431  0.466628  0.0293943
+   0.374592  0.662795  0.819015  0.974298
+   0.421283  0.83866   0.385306  0.36081
+  
   [:, :, 1, 2] =
-   0.637187  0.279795  0.0336316  0.233479
-   0.979812  0.910836  0.410312   0.94062 
-   0.171724  0.388222  0.597548   0.817148
-   0.41193   0.864101  0.178535   0.4956  
-
-  julia> forw(f,x)
-  2x2x1x2 CudaArray{Float64,4}:
+   0.0562608  0.598084  0.0231604  0.232413
+   0.71073    0.411324  0.28688    0.287947
+   0.997445   0.618981  0.471971   0.684064
+   0.902232   0.570232  0.190876   0.339076
+  
+  julia> pool(x)
+  2×2×1×2 Knet.KnetArray{Float64,4}:
   [:, :, 1, 1] =
-   0.760211  0.985956
-   0.701371  0.682127
-
+   0.848345  0.629651
+   0.83866   0.974298
+  
   [:, :, 1, 2] =
-   0.979812  0.94062 
-   0.864101  0.817148
+   0.71073   0.287947
+   0.997445  0.684064
 
 .. TODO: **Do we need pooling?**
 
@@ -914,10 +873,9 @@ usage in recent work based on `(Karpathy, 2016)
 <http://cs231n.github.io/convolutional-networks>`_.
 
 * The operations in convolutional networks are usually ordered into
-  several layers of convolution-bias-activation-pooling sequences
-  (``cbfp`` is the mnemonic used in Knet).  Note that the
-  convolution-bias-activation sequence is an efficient way to
-  implement the common neural net function :math:`f(wx+b)` for a
+  several layers of convolution-bias-activation-pooling sequences.
+  Note that the convolution-bias-activation sequence is an efficient way
+  to implement the common neural net function :math:`f(wx+b)` for a
   locally connected and weight sharing hidden layer.  
 
 * The convolutional layers are typically followed by a number of fully
