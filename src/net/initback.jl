@@ -6,7 +6,7 @@
 # - op.save: read-only, used for popping only if seq.
 # """
 function initback(f::Net, ygold, loss, getdx, seq)
-    seq == !stack_isempty(f) || error("")
+    seq == !stack_isempty(f) || error("sback is called while stack is empty")
     nextback = (f.lastforw, getdx, seq)
     if isvoid(f,:lastback) || f.lastback != nextback
         initgrad(f, getdx)
