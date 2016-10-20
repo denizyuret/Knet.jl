@@ -87,18 +87,19 @@ end
 # 1. Avoid creating intermediate arrays
 # 2. Avoid taking derivatives of intermediate operations
 
-for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/x[i]), :(-y[i]*y[i]*dy[i])),
-                   (:relu, :reluback, :(max(zero(T),x[i])), :(ifelse(y[i]>0,dy[i],zero(T)))),
+for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
+                   (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
                    (:sigm, :sigmback, 
                     # Numerically stable implementation from http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
-                    :(if x[i]>=0; z=exp(-x[i]); one(T)/(one(T)+z); else; z=exp(x[i]); z/(one(T)+z); end),
-                    :(dy[i]*y[i]*(one(T)-y[i]))),
-                   (:tanx, :tanhback, :(tanh(x[i])), :(dy[i]*(one(T)-y[i]*y[i]))),
+                    :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
+                    :(dyi*yi*(one(T)-yi))),
+                   (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
                    )
     @eval begin
         function $f{T<:AbstractFloat}(x::Array{T})
             y = similar(x)
             @inbounds for i=1:length(y)
+                xi = x[i]
                 y[i] = $y
             end
             return y
@@ -106,10 +107,14 @@ for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/x[i]), :(-y[i]*y[i]*dy[i])),
         function $g{T<:AbstractFloat}(dy::Array{T},y::Array{T})
             dx = similar(dy)
             @inbounds for i=1:length(dx)
+                yi = y[i]
+                dyi = dy[i]
                 dx[i] = $dx
             end
             return dx
         end
+        $f{T<:Number}(xi::T)=$y
+        $g{T<:Number}(dyi::T,yi::T)=$dx
         @primitive $f(x),dy,y $g(dy,y)
     end
 end
