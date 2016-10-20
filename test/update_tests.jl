@@ -8,14 +8,14 @@ rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
 grads = grad(rosenbrock)
 srand(123456789)
 
-function test_base(w, params, f)
+function test_base(w, params)
 	prev = 0
 	i = 1
 
 	current = rosenbrock(w)
 	while i <= 1000000 && abs(current - prev) > 1e-10 && current > 1e-3
 		g = grads(w)
-		f(params, w, g)
+		w, params = update!(w, g, params)
 		prev = current
 		current = rosenbrock(w)
 
@@ -23,37 +23,37 @@ function test_base(w, params, f)
 	end
 
 	@test current <= 1e-3
-	info("$f Passed!\nConverged to $(current) at epoch $(i-1)")
+	info("$(typeof(params)) Passed!\nConverged to $(current) at epoch $(i-1)")
 end
 
 function test_sgd(w)
-	params = SgdParams(0.0005)
-	test_base(w, params, sgd!)
+	params = init_sgd(;lr=0.0005)
+	test_base(w, params)
 end
 
 function test_momentum(w)
-	params = MomentumParams(0.00005, 0.95, convert(typeof(w), zeros(size(w))))
-	test_base(w, params, momentum!)
+	params = init_momentum(w;lr=0.00005, gamma=0.95, velocity=convert(typeof(w), zeros(size(w))))
+	test_base(w, params)
 end
 
 function test_adam(w)
-	params = AdamParams(0.005, 0.9, 0.95, 1, 1e-8, convert(typeof(w), zeros(size(w))), convert(typeof(w), zeros(size(w))))
-	test_base(w, params, adam!)
+	params = init_adam(w; lr=0.005, beta1=0.9, beta2=0.95, t=1, eps=1e-8, fstm=convert(typeof(w), zeros(size(w))), scndm=convert(typeof(w), zeros(size(w))))
+	test_base(w, params)
 end
 
 function test_adagrad(w)
-	params = AdagradParams(0.35, 1e-6, convert(typeof(w), zeros(size(w))))
-	test_base(w, params, adagrad!)
+	params = init_adagrad(w; lr=0.35, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+	test_base(w, params)
 end
 
 function test_adadelta(w)
-	params = AdadeltaParams(0.001, 0.9, 1e-6, convert(typeof(w), zeros(size(w))), convert(typeof(w), zeros(size(w))))
-	test_base(w, params, adadelta!)
+	params = init_adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))), delta=convert(typeof(w), zeros(size(w))))
+	test_base(w, params)
 end
 
 function test_rmsprop(w)
-	params = RmspropParams(0.0002, 0.9, 1e-6, convert(typeof(w), zeros(size(w))))
-	test_base(w, params, rmsprop!)
+	params = init_rmsprop(w; lr=0.0002, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+	test_base(w, params)
 end
 
 #GPU Tests

@@ -54,7 +54,7 @@ function KnetPtr(nbytes::Integer)
         ptr = knetMalloc(nbytes)
         kp = KnetPtr(ptr,nbytes,dev,nothing)
         ptrs.used += 1
-    elseif (print("."); gc(); !isempty(ptrs.free))
+    elseif (gc(); !isempty(ptrs.free))
         kp = KnetPtr(pop!(ptrs.free),nbytes,dev,nothing)
     else
         print((:knetgc,nbytes)); gpuinfo()
