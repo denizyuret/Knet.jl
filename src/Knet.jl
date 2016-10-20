@@ -26,7 +26,7 @@ include("cuda44.jl")            # convolution and pooling
 include("gradcheck.jl")         # gradient check
 include("update.jl")		# update functions
 
-export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, init_sgd, init_momentum, init_adam, init_adagrad, init_adadelta, init_rmsprop, update!
+export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 
 # See if we have a gpu at initialization:
 function __init__()

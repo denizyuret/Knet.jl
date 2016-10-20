@@ -113,17 +113,17 @@ function params(ws, o)
 	for i=1:length(ws)
 		w = ws[i]
 		if o[:optim] == "Sgd"
-			prm = init_sgd(;lr=o[:lr])
+			prm = Sgd(;lr=o[:lr])
 		elseif o[:optim] == "Momentum"
-			prm = init_momentum(w; lr=o[:lr], gamma=o[:gamma])
+			prm = Momentum(w; lr=o[:lr], gamma=o[:gamma])
 		elseif o[:optim] == "Adam"
-			prm = init_adam(w; lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
+			prm = Adam(w; lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
 		elseif o[:optim] == "Adagrad"
-			prm = init_adagrad(w; lr=o[:lr], eps=o[:eps])
+			prm = Adagrad(w; lr=o[:lr], eps=o[:eps])
 		elseif o[:optim] == "Adadelta"
-			prm = init_adadelta(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
+			prm = Adadelta(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
 		elseif o[:optim] == "Rmsprop"
-			prm = init_rmsprop(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
+			prm = Rmsprop(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
 		else
 			error("Unknown optimization method!")
 		end

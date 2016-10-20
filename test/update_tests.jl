@@ -27,32 +27,32 @@ function test_base(w, params)
 end
 
 function test_sgd(w)
-	params = init_sgd(;lr=0.0005)
+	params = Sgd(;lr=0.0005)
 	test_base(w, params)
 end
 
 function test_momentum(w)
-	params = init_momentum(w;lr=0.00005, gamma=0.95, velocity=convert(typeof(w), zeros(size(w))))
+	params = Momentum(w;lr=0.00005, gamma=0.95, velocity=zeros(w))
 	test_base(w, params)
 end
 
 function test_adam(w)
-	params = init_adam(w; lr=0.005, beta1=0.9, beta2=0.95, t=1, eps=1e-8, fstm=convert(typeof(w), zeros(size(w))), scndm=convert(typeof(w), zeros(size(w))))
+	params = Adam(w; lr=0.005, beta1=0.9, beta2=0.95, t=1, eps=1e-8, fstm=zeros(w), scndm=zeros(w))
 	test_base(w, params)
 end
 
 function test_adagrad(w)
-	params = init_adagrad(w; lr=0.35, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+	params = Adagrad(w; lr=0.35, eps=1e-6, G=zeros(w))
 	test_base(w, params)
 end
 
 function test_adadelta(w)
-	params = init_adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))), delta=convert(typeof(w), zeros(size(w))))
+	params = Adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w), delta=zeros(w))
 	test_base(w, params)
 end
 
 function test_rmsprop(w)
-	params = init_rmsprop(w; lr=0.0002, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+	params = Rmsprop(w; lr=0.0002, rho=0.9, eps=1e-6, G=zeros(w))
 	test_base(w, params)
 end
 

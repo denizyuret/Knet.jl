@@ -2,7 +2,7 @@ type Sgd
 	lr::AbstractFloat
 end
 
-init_sgd(;lr=0.001) = Sgd(lr)
+Sgd(;lr=0.001) = Sgd(lr)
 
 type Momentum
 	lr::AbstractFloat
@@ -10,7 +10,7 @@ type Momentum
 	velocity
 end
 
-function init_momentum(w; lr=0.001, gamma=0.9, velocity=convert(typeof(w), zeros(size(w))))
+function Momentum(w; lr=0.001, gamma=0.9, velocity=zeros(w))
 	@assert size(w) == size(velocity)
 	Momentum(lr, gamma, velocity)
 end
@@ -25,7 +25,7 @@ type Adam
 	scndm
 end
 
-function init_adam(w; lr=0.001, beta1=0.9, beta2=0.999, t=1, eps=1e-8, fstm=convert(typeof(w), zeros(size(w))), scndm=convert(typeof(w), zeros(size(w))))
+function Adam(w; lr=0.001, beta1=0.9, beta2=0.999, t=1, eps=1e-8, fstm=zeros(w), scndm=zeros(w))
 	@assert size(w) == size(fstm)
 	@assert size(w) == size(scndm)
 	Adam(lr, beta1, beta2, t, eps, fstm, scndm)
@@ -37,7 +37,7 @@ type Adagrad
 	G
 end
 
-function init_adagrad(w; lr=0.001, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+function Adagrad(w; lr=0.001, eps=1e-6, G=zeros(w))
 	@assert size(w) == size(G)
 	Adagrad(lr, eps, G)
 end
@@ -50,7 +50,7 @@ type Adadelta
 	delta
 end
 
-function init_adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))), delta=convert(typeof(w), zeros(size(w))))
+function Adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w), delta=zeros(w))
 	@assert size(w) == size(G)
 	Adadelta(lr, rho, eps, G, delta)
 end
@@ -62,7 +62,7 @@ type Rmsprop
 	G
 end
 
-function init_rmsprop(w; lr=0.001, rho=0.9, eps=1e-6, G=convert(typeof(w), zeros(size(w))))
+function Rmsprop(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w))
 	@assert size(w) == size(G)
 	Rmsprop(lr, rho, eps, G)
 end
