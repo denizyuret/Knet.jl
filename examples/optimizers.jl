@@ -17,7 +17,7 @@ At the end of the training accuracy for the training and test sets for each epoc
 and optimized parameters will be returned.
 
 """
-module Optim
+module Optimizers
 using Knet,ArgParse
 using Main.MNIST: minibatch, accuracy, xtrn, ytrn, xtst, ytst
 

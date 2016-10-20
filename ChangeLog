@@ -35,6 +35,7 @@
 	# resolve issues
 	# check old todo list
 	# deepcopy does not work for KnetArray
+	# the update methods not documented yet.
 
 2016-10-03  Deniz Yuret  <dyuret@ku.edu.tr>
 
