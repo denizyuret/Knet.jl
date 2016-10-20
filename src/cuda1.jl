@@ -57,7 +57,7 @@ cuda1 = [
 ("neg", "-", "-xi"),
 ("invx", "invx", "1/xi"),
 ("relu", "relu", "(xi>0?xi:0)"),
-("sigm", "sigm", "1/(1+exp(-xi))"),
+("sigm", "sigm", "(xi>=0?1/(1+exp(-xi)):(exp(xi)/(1+exp(xi))))"),
 ("abs", "abs", "(xi<0?-xi:xi)"),
 ("abs2", "abs2", "(xi*xi)"),
 ("sign", "sign", "(xi>0?1:xi<0?-1:0)"),
@@ -78,12 +78,10 @@ function cuda1def(f, j=f, o...)
     end
 end
 
-#if isdefined(:libknet8)
-    for f in cuda1
-        isa(f,Tuple) || (f=(f,))
-        cuda1def(f...)
-    end
-#end
+for f in cuda1
+    isa(f,Tuple) || (f=(f,))
+    cuda1def(f...)
+end
 
 # Define some common operations as primitives for efficiency:
 # 1. Avoid creating intermediate arrays
@@ -91,7 +89,10 @@ end
 
 for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/x[i]), :(-y[i]*y[i]*dy[i])),
                    (:relu, :reluback, :(max(zero(T),x[i])), :(ifelse(y[i]>0,dy[i],zero(T)))),
-                   (:sigm, :sigmback, :(one(T)/(one(T)+exp(-x[i]))), :(dy[i]*y[i]*(one(T)-y[i]))),
+                   (:sigm, :sigmback, 
+                    # Numerically stable implementation from http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
+                    :(if x[i]>=0; z=exp(-x[i]); one(T)/(one(T)+z); else; z=exp(x[i]); z/(one(T)+z); end),
+                    :(dy[i]*y[i]*(one(T)-y[i]))),
                    (:tanx, :tanhback, :(tanh(x[i])), :(dy[i]*(one(T)-y[i]*y[i]))),
                    )
     @eval begin
@@ -153,3 +154,11 @@ end
 
 # dy should be -p and y=logq so this should give us -p+q
 @primitive  logp(x,d...),dy,y  (dy - exp(y).*sum(dy,d...))
+
+# stable logsumexp
+function logsumexp(x,d...)
+    xmax = maximum(x,d...)
+    xmax + log(sum(exp(x .- xmax),d...))
+end
+
+@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
