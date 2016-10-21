@@ -17,7 +17,7 @@ macro cuda(lib,fun,x...)
 end
 
 let GPU=-1, handles=Dict()
-    global gpu, cublashandle, cudnnhandle
+    global gpu, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
     gpu()=GPU  # (d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);d[1])
 
@@ -26,6 +26,8 @@ let GPU=-1, handles=Dict()
             @cuda(cudart,cudaSetDevice, (Cint,), i)
             cublashandle = get!(cublasCreate, handles, (:cublas,i))
             cudnnhandle  = get!(cudnnCreate, handles, (:cudnn,i))
+            cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
+            cudaDriverVersion = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion,(Ptr{Cint},),p);Int(p[1]))
         else
             i = -1
             cublashandle = cudnnhandle = nothing
@@ -74,6 +76,7 @@ function cublasCreate()
     @cuda(cublas,cublasCreate_v2, (Ptr{Cptr},), handleP)
     handle = handleP[1]
     atexit(()->@cuda(cublas,cublasDestroy_v2, (Cptr,), handle))
+    global cublasVersion = (p=Cint[0];@cuda(cublas,cublasGetVersion_v2,(Cptr,Ptr{Cint}),handle,p);Int(p[1]))
     return handle
 end
 
@@ -82,6 +85,7 @@ function cudnnCreate()
     @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
     atexit(()->@cuda(cudnn,cudnnDestroy,(Cptr,), handle))
+    global cudnnVersion = Int(ccall((:cudnnGetVersion,:libcudnn),Csize_t,()))
     return handle
 end
 
