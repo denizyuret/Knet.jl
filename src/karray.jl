@@ -29,7 +29,7 @@ end
 # keyed by length in bytes so it can be reused.
 
 if !isdefined(:KnetFree)
-    KnetFree = [ Dict{Int,KnetPtrs}() for i=1:gpucount()+1 ]
+    KnetFree = [ Dict{Int,KnetPtrs}() for i=1:cudaGetDeviceCount()+1 ]
 end
 
 function freeKnetPtr(p::KnetPtr)
@@ -104,7 +104,8 @@ function knetMalloc(nbytes::Int)
 end
 
 meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
-
+gpufree()=cudaGetMemInfo()[1]
+gpuinfo(msg="")=(print("$msg "); println((cudaGetMemInfo()...,meminfo()...)))
 
 ### KnetArray ###
 
