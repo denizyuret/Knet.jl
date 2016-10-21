@@ -46,9 +46,19 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
                    handle=cudnnhandle, alpha=one(T), beta=zero(T),
                    algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
     dx = similar(x)
-    @cuda(cudnn,cudnnConvolutionBackwardData,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
+    if cudnnVersion >= 4000
+        @cuda(cudnn,cudnnConvolutionBackwardData,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
+    elseif cudnnVersion >= 3000
+        @cuda(cudnn,cudnnConvolutionBackwardData_v3,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
+    else
+        @cuda(cudnn,cudnnConvolutionBackwardData,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(beta),TD(dx),dx)
+    end
     return dx
 end
 
@@ -56,9 +66,19 @@ function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
                    handle=cudnnhandle, alpha=one(T), beta=zero(T),
                    algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
     dw = similar(w)
-    @cuda(cudnn,cudnnConvolutionBackwardFilter,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),FD(dw),dw)
+    if cudnnVersion >= 4000
+        @cuda(cudnn,cudnnConvolutionBackwardFilter,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),FD(dw),dw)
+    elseif cudnnVersion >= 3000
+        @cuda(cudnn,cudnnConvolutionBackwardFilter_v3,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),FD(dw),dw)
+    else
+        @cuda(cudnn,cudnnConvolutionBackwardFilter,
+              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
+              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(beta),FD(dw),dw)
+    end
     return dw
 end
 
@@ -141,9 +161,19 @@ type FD; ptr
         @cuda(cudnn,cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
         n = ndims(a)
         sz = [Cint(size(a,n-i+1)) for i=1:n]
-        @cuda(cudnn,cudnnSetFilterNdDescriptor,
-              (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-              d[1], DT(a), 0,     n,   sz)
+        if cudnnVersion >= 5000
+            @cuda(cudnn,cudnnSetFilterNdDescriptor,
+                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+                  d[1], DT(a), 0,     n,   sz)
+        elseif cudnnVersion >= 4000
+            @cuda(cudnn,cudnnSetFilterNdDescriptor_v4,
+                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+                  d[1], DT(a), 0,     n,   sz)
+        else
+            @cuda(cudnn,cudnnSetFilterNdDescriptor,
+                  (Cptr,UInt32,Cint,Ptr{Cint}),
+                  d[1], DT(a),    n,   sz)
+        end
         fd = new(d[1])
         finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
         return fd
@@ -155,9 +185,19 @@ type CD; ptr
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
-        @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
-              (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-              d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
+        if cudnnVersion >= 4000
+            @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
+                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
+        elseif cudnnVersion >= 3000
+            @cuda(cudnn,cudnnSetConvolutionNdDescriptor_v3,
+                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
+        else
+            @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
+                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode)
+        end
         cd = new(d[1])
         finalizer(cd, x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr))
         return cd
@@ -169,9 +209,19 @@ type PD; ptr
         d = Cptr[0]
         @cuda(cudnn,cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
-        @cuda(cudnn,cudnnSetPoolingNdDescriptor,
-              (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-              d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        if cudnnVersion >= 5000
+            @cuda(cudnn,cudnnSetPoolingNdDescriptor,
+                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+                  d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        elseif cudnnVersion >= 4000
+            @cuda(cudnn,cudnnSetPoolingNdDescriptor_v4,
+                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+                  d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        else
+            @cuda(cudnn,cudnnSetPoolingNdDescriptor,
+                  (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+                  d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        end
         pd = new(d[1])
         finalizer(pd, x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr))
         return pd
