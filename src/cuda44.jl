@@ -21,7 +21,7 @@ dimension.
 
 Here is a description of all available keyword arguments:
 
-* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=0.
+* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=floor((filterSize-1)/2) which preserves the input size when filterSize is odd and stride=1.
 * stride: the number of elements to slide to reach the next filtering window. Default=1.
 * upscale: upscale factor for each dimension. Default=1.
 * mode: 0 for convolution and 1 for cross-correlation.  Default=0.
@@ -240,7 +240,7 @@ function cdsize(w, nd)
     elseif length(w)==nd 
         [ Cint(w[nd-i+1]) for i=1:nd ]
     else
-        throw(DimensionMismatch())
+        throw(DimensionMismatch("$w $nd"))
     end
 end
 
@@ -276,7 +276,7 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
 end
 
 # convolution padding size that preserves the input size when filter size is odd and stride=1
-padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w))
+padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 """
 
