@@ -97,8 +97,8 @@ function cudnnPoolingForward{T}(x::Array{T,4}, y; window=2, padding=0, stride=wi
     @assert (Nx == Ny && C==K)
     @inbounds for n in 1:Nx, c in 1:C, j in 1:stride:Hx, i in 1:stride:Wx
         iy, jy = div(i,stride)+1, div(j,stride)+1
-        hx_end = j+window-1 > Hx ? Hx : j+window-1
-        wx_end = i+window-1 > Hx ? Hx : i+window-1
+        hx_end = (j+window-1 >= Hx) ? Hx : j+window-1
+        wx_end = (i+window-1 >= Wx) ? Wx : i+window-1
         y[iy,jy,c,n] = maximum(x[i:wx_end,j:hx_end,c,n])
     end
     return y
@@ -113,8 +113,8 @@ function cudnnPoolingBackward{T}(y::Array{T,4}, dy::Array{T,4}, x::Array{T,4}, d
     @assert (Nx == Ny && C==K)
     @inbounds for n in 1:Nx, c in 1:C, j in 1:stride:Hx, i in 1:stride:Wx
         iy, jy = div(i,stride)+1, div(j,stride)+1
-        hx_end = j+window-1 > Hx ? Hx : j+window-1
-        wx_end = i+window-1 > Hx ? Hx : i+window-1
+        hx_end = (j+window-1 >= Hx) ? Hx : j+window-1
+        wx_end = (i+window-1 >= Wx) ? Wx : i+window-1
         a = x[i:wx_end,j:hx_end,c,n]
         di,dj = ind2sub(a,indmax(a))
         dx[i+di-1,j+dj-1,c,n] += dy[iy,jy,c,n]

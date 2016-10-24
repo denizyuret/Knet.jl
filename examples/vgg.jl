@@ -79,7 +79,7 @@ end
 function weights(layers)
     w = Any[]
     for l in layers
-        haskey(l,"weights") && push!(w, l["weights"]...)
+        haskey(l,"weights") && !isempty(l["weights"]) && push!(w, l["weights"]...)
     end
     for i in 2:2:26
         w[i] = reshape(w[i], (1,1,length(w[i]),1))

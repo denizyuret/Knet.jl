@@ -2,8 +2,6 @@
 Multilayer Perceptrons
 **********************
 
-... TODO: update all programming examples from Knet7 to Knet8
-
 In this section we create multilayer perceptrons by stacking multiple
 linear layers with non-linear activation functions in between.
 
@@ -13,17 +11,14 @@ Stacking linear classifiers is useless
 We could try stacking multiple linear classifiers together.  Here is a
 two layer model::
 
-    @knet function mnist_softmax_2(x)
-        w1 = par(init=Gaussian(0,0.001), dims=(100,28*28))
-        b1 = par(init=Constant(0), dims=(100,1))
-        y1 = w1 * x + b1
-        w2 = par(init=Gaussian(0,0.001), dims=(10,100))
-        b2 = par(init=Constant(0), dims=(10,1))
-	return soft(w2 * y1 + b2)
+    function multilinear(w, x, ygold)
+        y1 = w[1] * x  .+ w[2]
+        y2 = w[3] * y1 .+ w[4]
+	return softloss(ygold, y2)
     end
 
-Note that instead of outputting the softmax of ``y1``, we used it as
-input to another softmax classifier.  Intermediate arrays like ``y1``
+Note that instead of using ``y1`` as our prediction, we used it as
+input to another linear classifier.  Intermediate arrays like ``y1``
 are known as **hidden layers** because their contents are not directly
 visible outside the model.
 
@@ -37,7 +32,7 @@ function computed in mathematical notation and do some algebra:
    \hat{p} &=& \mbox{soft}(W_2 (W_1 x + b_1) + b_2) \\
    &=& \mbox{soft}((W_2 W_1)\, x + W_2 b_1 + b_2) \\
    &=& \mbox{soft}(W x + b)
-   
+
 where :math:`W=W_2 W_1` and :math:`b=W_2 b_1 + b_2`.  In other words,
 we still have a linear classifier!  No matter how many linear
 functions you put on top of each other, what you get at the end is
@@ -50,33 +45,30 @@ Introducing nonlinearities
 
 Here is a slightly modified version of the two layer model::
 
-    @knet function mnist_mlp(x)
-        w1 = par(init=Gaussian(0,0.001), dims=(100,28*28))
-        b1 = par(init=Constant(0), dims=(100,1))
-        y1 = relu(w1 * x + b1)
-        w2 = par(init=Gaussian(0,0.001), dims=(10,100))
-        b2 = par(init=Constant(0), dims=(10,1))
-	return soft(w2 * y1 + b2)
+    function mlp(w, x, ygold)
+        y1 = relu(w[1] * x .+ w[2])
+	y2 = w[3] * y1 .+ w[4]
+	return softloss(ygold, y2)
     end
 
-MLP in ``mnist_mlp`` stands for **multilayer perceptron** which is one
-name for this type of model.  The only difference with the previous
-example is the ``relu`` function we introduced in line 4.  This is
+MLP in ``mlp`` stands for **multilayer perceptron** which is one name
+for this type of model.  The only difference with the previous example
+is the ``relu()`` function we introduced in the first line.  This is
 known as the rectified linear unit (or rectifier), and is a simple
 function defined by ``relu(x)=max(x,0)`` applied elementwise to the
 input array.  So mathematically what we are computing is:
 
 .. math::
 
-   \hat{p} &=& \mbox{soft}(W_2\, \mbox{relu}(W_1 x + b_1) + b_2)
+   \hat{p} &=& \mbox{soft}(W_2\, \mbox{relu}(W_1 x + b_1) + b_2) \\
 
 This cannot be reduced to a linear function, which may not seem like a
 big difference but what a difference it makes to the model!  Here are
-the learning curves for ``mnist_mlp``:
+the learning curves for ``mlp`` using a hidden layer of size 64:
 
 .. image:: images/mnist_mlp.png
 
-Here are the learning curves for the linear model ``mnist_softmax``
+Here are the learning curves for the linear model ``softmax``
 plotted at the same scale for comparison:
 
 .. image:: images/mnist_softmax2.png
@@ -118,7 +110,7 @@ relu     :math:`y = \max(0,x)`                     :math:`\nabla_x J = [ y \geq 
 .. _(Karpathy, 2016, Ch 1): http://cs231n.github.io/neural-networks-1
 
 See `(Karpathy, 2016, Ch 1)`_ for more on activation functions and MLP
-architecture.  
+architecture.
 
 Representational power
 ----------------------
@@ -252,145 +244,65 @@ In this section we introduce several Knet features that make it easier
 to define complex models.  As our working example, we will go through
 several attempts to define a 3-layer MLP.  Here is our first attempt::
 
-    @knet function mlp3a(x0)
-        w1 = par(init=Gaussian(0,0.001), dims=(100,28*28))
-        b1 = par(init=Constant(0), dims=(100,1))
-        x1 = relu(w1 * x0 + b1)
-        w2 = par(init=Gaussian(0,0.001), dims=(100,100))
-        b2 = par(init=Constant(0), dims=(100,1))
-        x2 = relu(w2 * x1 + b2)
-        w3 = par(init=Gaussian(0,0.001), dims=(10,100))
-        b3 = par(init=Constant(0), dims=(10,1))
-	return soft(w3 * x2 + b3)
+    function mlp3a(w, x0)
+        x1 = relu(w[1] * x0 .+ w[2])
+        x2 = relu(w[3] * x1 .+ w[4])
+        return w[5] * x2 .+ w[6]
     end
 
-We can identify several bad software engineering practices in this
-definition:
-
-* It contains a lot of repetition.
-* It has a number of hardcoded parameters.
+We can identify bad software engineering practices in this
+definition in that it contains a lot of repetition.
 
 The key to controlling complexity in computer languages is
 **abstraction**.  Abstraction is the ability to name compound
 structures built from primitive parts, so they too can be used as
-primitives.  In Knet we do this by using @knet functions not as
-models, but as new operators inside other @knet functions.
+primitives.
 
 **Defining new operators**
 
 We could make the definition of mlp3 more compact by defining
-@knet functions for its layers::
+separate functions for its layers::
 
-    @knet function mlp3b(x0)
-        x1 = relu_layer1(x0)
-	x2 = relu_layer2(x1)
-	return soft_layer3(x2)
+    function mlp3b(w, x0)
+        x1 = relu_layer1(w, x0)
+        x2 = relu_layer2(w, x1)
+        return pred_layer3(w, x2)
     end
 
-    @knet function relu_layer1(x)
-        w = par(init=Gaussian(0,0.001), dims=(100,28*28))
-        b = par(init=Constant(0), dims=(100,1))
-        return relu(w * x + b)
+    function relu_layer1(w, x)
+        return relu(w[1] * x .+ w[2])
     end
 
-    @knet function relu_layer2(x)
-        w = par(init=Gaussian(0,0.001), dims=(100,100))
-        b = par(init=Constant(0), dims=(100,1))
-        return relu(w * x + b)
+    function relu_layer2(w, x)
+        return relu(w[3] * x .+ w[4])
     end
 
-    @knet function soft_layer3(x)
-        w = par(init=Gaussian(0,0.001), dims=(10,100))
-        b = par(init=Constant(0), dims=(10,1))
-	return soft(w * x + b)
+    function pred_layer3(x)
+        return w[5] * x .+ w[6]
     end
 
 This may make the definition of ``mlp3b`` a bit more readable.  But it
-does not reduce the overall length of the program.  The helper @knet
-functions like ``relu_layer1`` contain hardcoded parameters like
-``dims`` and are not reusable.
+does not reduce the overall length of the program.  The helper
+functions like ``relu_layer1`` and ``relu_layer2`` are too similar
+except for the weights they use and can be reduced to a single function.
 
-**Using keyword arguments**
+**Increasing the number of layers**
 
-We can make @knet functions more reusable by using keyword arguments
-that make them configurable.  Here is a more compact definition of
-mlp3 using a single helper @knet function, ``wbf`` (mnemonic for
-:math:`f(w*x+b)`)::
+We can define a more general mlp model of arbitrary length. With
+weights of length 2n, the following model will have n layers,
+n-1 layers having the relu non-linearity::
 
-    @knet function mlp3c(x0)
-        x1 = wbf(x0; f=:relu, inputs=28*28, outputs=100)
-	x2 = wbf(x1; f=:relu, inputs=100, outputs=100)
-	return wbf(x2; f=:soft, inputs=100, outputs=10)
+    function mlp_nlayer(w,x)
+        for i=1:2:length(w)-2
+            x = relu(w[i] * x .+ w[i+1]))
+        end
+        return w[end-1] * x .+ w[end]
     end
 
-    @knet function wbf(x; f=:relu, inputs=0, outputs=0, winit=Gaussian(0,0.001), binit=Constant(0))
-        w = par(init=winit, dims=(outputs,inputs))
-        b = par(init=binit, dims=(outputs,1))
-	return f(w * x + b)
-    end
-
-**Size inference**
-
-Knet can infer the size of an array based on the operations and other
-arrays it interacts with.  In particular, when ``forw(f,x)`` is called
-Knet uses the size of the input ``x`` to figure out what size
-intermediate arrays to allocate when computing ``f``.  This allows us
-to define generic models and operators that work on inputs of any
-size.  We still need to specify the number of outputs, but the number
-of inputs can be left unspecified.  By convention 0 represents
-"unspecified" when declaring dimensions.  Here is a more generic
-version of mlp3 that will work on images of any size::
-
-    @knet function mlp3d(x0)
-        x1 = wbf(x0; f=:relu, out=100)
-	x2 = wbf(x1; f=:relu, out=100)
-	return wbf(x2; f=:soft, out=10)
-    end
-
-    @knet function wbf(x; f=:relu, out=0, winit=Gaussian(0,0.001), binit=Constant(0))
-        w = par(init=winit, dims=(out,0))
-        b = par(init=binit, dims=(out,1))
-	return f(w * x + b)
-    end
-
-**Higher-order operators**
-
-Higher-order operators are ones that take other operators as
-arguments.  We have already seen an example: ``wbf`` takes an operator
-``f`` as one of its keyword arguments.  A useful higher-order operator
-for multi-layer models is ``repeat``, which repeats a given operator
-specified by ``frepeat`` configured by other keyword arguments a given
-number of times specified by ``nrepeat``.  Here is a definition of
-mlp3 using repeat::
-
-    @knet function mlp3e(x; o...)
-        h = repeat(x; frepeat=:wbf, nrepeat=2, f=:relu, out=100, o...)
-	return wbf(h; f=:soft, out=10)
-    end
-
-    @knet function wbf(x; f=:relu, out=0, winit=Gaussian(0,0.001), binit=Constant(0))
-        w = par(init=winit, dims=(out,0))
-        b = par(init=binit, dims=(out,1))
-	return f(w * x + b)
-    end
-
-.. TODO: get rid of the bug in repeat that forces us to have o...
-
-In this example ``repeat`` saved us a single line, but the difference
-can be more significant in deeper models.
+In this example stacking the layers in a loop saved us only two
+lines, but the difference can be more significant in deeper models.
 
 .. TODO: check these implementations.
-
-**Built-in operators**
-
-.. _kfun.jl: https://github.com/denizyuret/Knet.jl/blob/master/src/kfun.jl
-
-In addition to primitive operators like ``relu``, many compound
-operators such as ``wbf`` are already defined in Knet to make it
-easier to define complex models.  Please see the tables of
-:ref:`primitive operators <primitives-table>` and :ref:`compound
-operators <compounds-table>` for a summary and `kfun.jl`_ for exact
-definitions.
 
 References
 ----------
@@ -405,7 +317,7 @@ References
 
 .. universality: nielsen constructs it turning step activations into
 .. bump functions to approx a given function.  He uses two hidden
-.. layers but argues one is enough.  
+.. layers but argues one is enough.
 
 .. I thought another argument was to restrict the test to a finite
 .. number of input points, and just get the right answers for the

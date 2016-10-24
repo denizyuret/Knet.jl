@@ -57,7 +57,7 @@ cuda1 = [
 ("neg", "-", "-xi"),
 ("invx", "invx", "1/xi"),
 ("relu", "relu", "(xi>0?xi:0)"),
-("sigm", "sigm", "1/(1+exp(-xi))"),
+("sigm", "sigm", "(xi>=0?1/(1+exp(-xi)):(exp(xi)/(1+exp(xi))))"),
 ("abs", "abs", "(xi<0?-xi:xi)"),
 ("abs2", "abs2", "(xi*xi)"),
 ("sign", "sign", "(xi>0?1:xi<0?-1:0)"),
@@ -78,26 +78,28 @@ function cuda1def(f, j=f, o...)
     end
 end
 
-#if isdefined(:libknet8)
-    for f in cuda1
-        isa(f,Tuple) || (f=(f,))
-        cuda1def(f...)
-    end
-#end
+for f in cuda1
+    isa(f,Tuple) || (f=(f,))
+    cuda1def(f...)
+end
 
 # Define some common operations as primitives for efficiency:
 # 1. Avoid creating intermediate arrays
 # 2. Avoid taking derivatives of intermediate operations
 
-for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/x[i]), :(-y[i]*y[i]*dy[i])),
-                   (:relu, :reluback, :(max(zero(T),x[i])), :(ifelse(y[i]>0,dy[i],zero(T)))),
-                   (:sigm, :sigmback, :(one(T)/(one(T)+exp(-x[i]))), :(dy[i]*y[i]*(one(T)-y[i]))),
-                   (:tanx, :tanhback, :(tanh(x[i])), :(dy[i]*(one(T)-y[i]*y[i]))),
+for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
+                   (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+                   (:sigm, :sigmback, 
+                    # Numerically stable implementation from http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
+                    :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
+                    :(dyi*yi*(one(T)-yi))),
+                   (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
                    )
     @eval begin
         function $f{T<:AbstractFloat}(x::Array{T})
             y = similar(x)
             @inbounds for i=1:length(y)
+                xi = x[i]
                 y[i] = $y
             end
             return y
@@ -105,10 +107,14 @@ for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/x[i]), :(-y[i]*y[i]*dy[i])),
         function $g{T<:AbstractFloat}(dy::Array{T},y::Array{T})
             dx = similar(dy)
             @inbounds for i=1:length(dx)
+                yi = y[i]
+                dyi = dy[i]
                 dx[i] = $dx
             end
             return dx
         end
+        $f{T<:Number}(xi::T)=$y
+        $g{T<:Number}(dyi::T,yi::T)=$dx
         @primitive $f(x),dy,y $g(dy,y)
     end
 end
@@ -153,3 +159,17 @@ end
 
 # dy should be -p and y=logq so this should give us -p+q
 @primitive  logp(x,d...),dy,y  (dy - exp(y).*sum(dy,d...))
+
+"""
+logsumexp(x,[dims]) computes log(sum(exp(x),dims)) in a numerically
+stable manner.  `dims` is an optional argument, if not specified the
+summation is over the whole x, otherwise the summation is performed
+over the given dimensions.  In particular dims=1 sums columns of x and
+dims=2 sums rows of x.
+"""
+function logsumexp(x,d...)
+    xmax = maximum(x,d...)
+    xmax + log(sum(exp(x .- xmax),d...))
+end
+
+@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
