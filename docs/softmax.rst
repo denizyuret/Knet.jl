@@ -190,12 +190,16 @@ See :ref:`training-with-minibatches` for more information about the
 MNIST task, loading and minibatching data, and simple train and test
 scripts.
 
-Here is the loss function for a softmax classifier in Julia:
+Here is the softmax classifier in Julia:
 
 .. code::
 
    function softmax(w,x,ygold)
-       ypred = w[1]*x .+ w[2]
+       ypred = w[1] * x .+ w[2]
+       return softloss(ygold, ypred)
+   end
+
+   function softloss(ygold, ypred)
        ynorm = ypred .- log(sum(exp(ypred),1))
        -sum(ygold .* ynorm) / size(ygold,2)
    end

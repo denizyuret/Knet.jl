@@ -66,3 +66,16 @@ Complete Works of William Shakespeare".  Note that this will take
 considerably longer than the other demos.  Please see the
 documentation in the code or use `julia charlm.jl --help` for a list
 of options.
+
+## [VGG](https://github.com/denizyuret/Knet.jl/blob/master/examples/vgg.jl)
+
+This example implements the [VGG
+model](http://www.robots.ox.ac.uk/~vgg/research/very_deep) from ["Very
+Deep Convolutional Networks for Large-Scale Image
+Recognition"](https://arxiv.org/abs/1409.1556), by Karen Simonyan and
+Andrew Zisserman, arXiv technical report 1409.1556, 2014.  In
+particular we use the 16 layer network, denoted as configuration D in
+the technical report.  The pretrained weights will be downloaded from
+the [MatConvNet website](http://www.vlfeat.org/matconvnet/pretrained)
+(492MB) the first time the program is used.  You can then classify an
+image from a local file or URL using `julia vgg.jl image-file-or-url`.
