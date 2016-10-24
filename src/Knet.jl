@@ -11,8 +11,9 @@ Knet.dir("examples","mnist.jl") => "/home/dyuret/.julia/v0.5/Knet/examples/mnist
 """
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
-export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, conv4, pool, mat
 export gaussian, xavier         # export distributions
+export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat
+export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 include("gpu.jl")               # gpu support
 include("karray.jl")            # use KnetArrays
 include("cuda1.jl")             # unary operators
@@ -26,6 +27,7 @@ include("cuda22.jl")            # array,array->array (linear algebra)
 include("cuda44.jl")            # convolution and pooling
 include("gradcheck.jl")         # gradient check
 include("distributions.jl")     # distributions
+include("update.jl")		# update functions
 
 # See if we have a gpu at initialization:
 function __init__()

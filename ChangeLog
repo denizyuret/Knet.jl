@@ -1,13 +1,17 @@
-2016-10-05  dyuret  <dyuret@ku.edu.tr>
+2016-10-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# write paper for nips
-	# document KnetArray in readme. finish the under the hood section.
-	# put function references in documentation.
-	# try to measure back functions one by one as well for gpu profiling.
-	# implement axpy! for KnetArray if it is worth it to get faster updates.
+	# implement adam.
+	# gpu(true) leaves memory footprint on each device.
+	# Paulito old cudnn interface support.
+	# update the rest of the documentation.
+	# vgg: change default padding for conv4 to be (n-1)/2
 
 	* TODO8:
+	# Davide push/vcat bug.
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
 	# optimization:
 	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
@@ -21,20 +25,25 @@
 	# implement better unit testing.
 	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 	# add back cpu convolution
-	# charlm: add dropout
 	# add transpose to KnetArray.
-	# implement adam.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
 	# 0.8.1: tag new version for the paper when all is done.
 	# gputests.jl and cputests.jl are broken.
-	# update the rest of the documentation.
 	# find out why benchmarks are slower on julia5/6.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# vgg: change default padding for conv4 to be (n-1)/2
 	# resolve issues
 	# check old todo list
 	# deepcopy does not work for KnetArray
+	# the update methods not documented yet.
+
+
+2016-10-05  dyuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# write paper for nips
+	# document KnetArray in readme. finish the under the hood section.
+	# put function references in documentation.
+	# try to measure back functions one by one as well for gpu profiling.
+	# implement axpy! for KnetArray if it is worth it to get faster updates.
 
 2016-10-03  Deniz Yuret  <dyuret@ku.edu.tr>
 

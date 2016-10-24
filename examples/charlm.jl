@@ -116,7 +116,7 @@ function train!(model, text, vocab, o)
     if o[:fast]
         @time (for epoch=1:o[:epochs]
                train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-               end; Knet.gpusync())
+               end; Knet.cudaDeviceSynchronize())
         return
     end
     losses = map(d->loss(model,copy(s0),d), data)
@@ -164,9 +164,10 @@ function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
             # param[k] -= gscale * gloss[k]
             axpy!(-gscale, gloss[k], param[k])
         end
-        isa(state,Value) && error("State should not be a Value.")
+        isa(state,Vector{Any}) || error("State should not be Boxed.")
+        # The following is needed in case AutoGrad boxes state values during gradient calculation
         for i = 1:length(state)
-            state[i] = getval(state[i])
+            state[i] = AutoGrad.getval(state[i])
         end
     end
 end
@@ -229,7 +230,7 @@ end
 # state is modified in place
 function loss(param,state,sequence,range=1:length(sequence)-1)
     total = 0.0; count = 0
-    atype = typeof(getval(param[1]))
+    atype = typeof(AutoGrad.getval(param[1]))
     input = convert(atype,sequence[first(range)])
     for t in range
         ypred = predict(param,state,input)

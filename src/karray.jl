@@ -29,7 +29,7 @@ end
 # keyed by length in bytes so it can be reused.
 
 if !isdefined(:KnetFree)
-    KnetFree = [ Dict{Int,KnetPtrs}() for i=1:gpucount()+1 ]
+    KnetFree = [ Dict{Int,KnetPtrs}() for i=1:cudaGetDeviceCount()+1 ]
 end
 
 function freeKnetPtr(p::KnetPtr)
@@ -104,7 +104,8 @@ function knetMalloc(nbytes::Int)
 end
 
 meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
-
+gpufree()=cudaGetMemInfo()[1]
+gpuinfo(msg="")=(print("$msg "); println((cudaGetMemInfo()...,meminfo()...)))
 
 ### KnetArray ###
 
@@ -148,7 +149,7 @@ KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
 KnetArray(T::Type, d::Integer...)=KnetArray(T,convert(Tuple{Vararg{Int}}, d))
 
 # Conversions:
-import Base: convert, reshape, unsafe_convert, pointer
+import Base: convert, reshape, vec, unsafe_convert, pointer
 # KnetArray <- KnetArray
 convert{T,N}(::Type{KnetArray}, x::KnetArray{T,N}) = x
 convert{T,N}(::Type{KnetArray{T}}, x::KnetArray{T,N}) = x
@@ -157,6 +158,7 @@ convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}
 convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},unsafe_copy!(Array(S, size(x)), 1, x, 1, length(x)))
 reshape{T}(a::KnetArray{T},dims::Dims)=(if dims==size(a); a; elseif prod(dims)!=length(a); throw(DimensionMismatch()); else; KnetArray{T,length(dims)}(a.ptr,dims); end)
 reshape(a::KnetArray, dims::Int...) = reshape(a, dims)
+vec(a::KnetArray) = reshape(a, length(a))
 # KnetArray <- AbstractArray
 convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T}}, x::AbstractArray{S,N}) = convert(KnetArray{T,N}, x)
@@ -483,3 +485,24 @@ size(a::KnetDisplay) = size(a.a)
 summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
+AutoGrad._dbg(a::KnetArray) = "K$(join([AutoGrad.id2(a),size(a)...],'_'))"
+
+# curand functions:
+
+import Base: rand!
+rand!(a::KnetArray{Float32})=(@cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
+rand!(a::KnetArray{Float64})=(@cuda(curand,curandGenerateUniformDouble,(Cptr,Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
+
+let RNG=0
+global rng
+function rng(init=false)
+    if RNG==0 || init
+        ptr = Cptr[0]
+        # CURAND_RNG_PSEUDO_DEFAULT = 100, ///< Default pseudorandom generator
+        @cuda(curand,curandCreateGenerator,(Cptr,Cint),ptr,100)
+        RNG = ptr[1]
+    end
+    return RNG
+end
+end
+

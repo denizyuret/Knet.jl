@@ -53,7 +53,7 @@ function main(args=ARGS)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
 
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); Knet.gpusync())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]
@@ -83,7 +83,7 @@ end
 
 function predict(w,x,n=length(w)-4)
     for i=1:2:n
-        x = pool(relu(conv4(w[i],x) .+ w[i+1]))
+        x = pool(relu(conv4(w[i],x;padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2

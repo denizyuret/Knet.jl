@@ -581,7 +581,8 @@ listed below.  See ``@doc <function>`` for full details.
 ``relu``      returns ``max(0,x)``
 ``sigm``      returns ``(1./(1+exp(-x)))``
 ``invx``      returns ``(1./x)``
-``logp``      returns ``x .- log(sum(exp(x)))``
+``logp``      returns ``x .- log(sum(exp(x),[dims]))``
+``logsumexp`` returns ``log(sum(exp(x),[dims]))``
 ``conv4``     executes convolutions or cross-correlations.
 ``pool``      replaces several adjacent values with their mean or maximum.
 ``mat``       reshapes its input into a two-dimensional matrix.
