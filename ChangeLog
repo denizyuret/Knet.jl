@@ -1,3 +1,13 @@
+2016-10-24  dyuret  <dyuret@ku.edu.tr>
+
+	* julia.st: for pretty-printing Julia use:
+	enscript -Ejulia -M A4 -2rGC -o foo1.ps core.jl
+	ps2pdf foo1.ps
+
+	enscript does not come with a julia format.  You can create one
+	using matlab.st (for keywords) and python.st (for strings,
+	comments) under /usr/share/enscript/hl/julia.st.
+
 2016-10-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
