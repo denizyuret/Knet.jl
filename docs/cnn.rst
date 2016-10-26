@@ -635,7 +635,7 @@ With a window and stride of 3 (the stride is equal to window size by
 default), pooling considers the input windows :math:`[1,2,3],[4,5,6]`,
 and writes the maximum of each window to the output.  If the input
 size is :math:`X`, and stride is equal to the window size :math:`W`,
-the output will have :math:`Y=\lceil X/W\rceil` elements.
+the output will have :math:`Y=\lfloor X/W\rfloor` elements.
 
 **Padding**
 
@@ -660,7 +660,7 @@ window is written to the output.
 
 With padding size :math:`P`, if the input size is :math:`X`, and
 stride is equal to the window size :math:`W`, the output will have
-:math:`Y=\lceil (X+2P)/W\rceil` elements.
+:math:`Y=\lfloor (X+2P)/W\rfloor` elements.
 
 **Stride**
 
@@ -686,7 +686,7 @@ size of the output will be:
 
 .. math::
 
-   Y = 1 + \left\lceil\frac{X+2P-W}{S}\right\rceil
+   Y = 1 + \left\lfloor\frac{X+2P-W}{S}\right\rfloor
 
 **Pooling operations**
 
