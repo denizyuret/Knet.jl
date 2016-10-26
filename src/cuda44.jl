@@ -10,7 +10,7 @@ If `w` has dimensions (W1,W2,...,I,O) and `x` has dimensions
 (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N)
 where
 
-    Yi=1+floor(Xi-Wi+2*padding[i]/stride[i])
+    Yi=1+floor((Xi+2*padding[i]-Wi)/stride[i])
 
 Here I is the number of input channels, O is the number of output
 channels, N is the number of instances, and Wi,Xi,Yi are spatial
@@ -98,7 +98,7 @@ KnetArrays with Float32 or Float64 entries are supported.
 If `x` has dimensions (X1,X2,...,I,N), the result y will have
 dimensions (Y1,Y2,...,I,N) where
 
-   Yi=1+ceil(Xi-window[i]+2*padding[i])/stride[i]
+   Yi=1+floor((Xi+2*padding[i]-window[i])/stride[i])
 
 Here I is the number of input channels, N is the number of instances,
 and Xi,Yi are spatial dimensions.  Window, padding and stride are
@@ -268,7 +268,7 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
             wi = (if isa(window,Number); window; else window[i]; end)
             pi = (if isa(padding,Number); padding; else padding[i]; end)
             si = (if isa(stride,Number); stride; else stride[i]; end)
-            1 + ceil(Int, (size(x,i) + 2*pi - wi) / si)
+            1 + div(size(x,i) + 2*pi - wi, si)
         else
             size(x,i)
         end
