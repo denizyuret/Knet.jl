@@ -306,6 +306,44 @@ end
 TODO: Implement the following optional arguments
 padding
 stride
+
+x (2,2)
+0   10
+20  30
+
+w (3,3)
+1   2   3
+4   5   6
+7   8   9
+
+y (4,4)
+0   10  20  30
+20  110 170 150
+80  290 350 270
+140 370 420 270
+
+How is deconv4 calculated ?
+
+Flipped w (3,3)
+9   8   7
+6   5   4
+3   2   1
+
+Padded input x by windowSize-1 (6,6)
+0   0   0   0   0   0
+0   0   0   0   0   0
+0   0   0   10  0   0
+0   0   20  30  0   0
+0   0   0   0   0   0
+0   0   0   0   0   0
+
+Now apply convolution - there is a better way but this is the easiest...(switch forward and backward passes)
+
+Output y is of size (4,4)
+0   10  20  30
+20  110 170 150
+80  290 350 270
+140 370 420 270
 """
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
     conv4(w,x; padding=size(w)[1]-1)
