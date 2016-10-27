@@ -72,8 +72,8 @@ y = pool(x)
 y2 = KnetArray(reshape(Float32[6 6 14 14; 6 6 14 14; 8 8 16 16; 8 8 16 16], (4,4,1,1)))
 y3 = KnetArray(reshape(Float32[6 6 6 14 14 14; 6 6 6 14 14 14; 6 6 6 14 14 14; 8 8 8 16 16 16; 8 8 8 16 16 16; 8 8 8 16 16 16], (6,6,1,1)))
 
-@test_approx_eq_eps     myunpool(y)             y2      1e-3
-@test_approx_eq_eps     myunpool(y; window=3)   y3      1e-3
+@test_approx_eq_eps     unpool(y)               y2      1e-3
+@test_approx_eq_eps     unpool(y; window=3)     y3      1e-3
 
 #Deconvolution
 y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
