@@ -302,8 +302,6 @@ end
 
 
 #Deconvolution
-#backward pass - NOT REQUIRED ???
-#forward pass
 """
 TODO: Implement the following optional arguments
 padding
@@ -312,7 +310,6 @@ stride
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
     conv4(w,x; padding=size(w)[1]-1)
 end
-
 
 #Calculates output dimensions of deconvolution of w and x
 function dcydims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
