@@ -64,7 +64,7 @@ end
 
 
 #Tests for features I implemented
-using Base.Tests;
+using Base.Test;
 
 #Unpooling
 x = KnetArray(reshape(Float32[1.0:16.0...], (4,4,1,1)))
