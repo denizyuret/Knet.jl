@@ -65,6 +65,7 @@ end
 
 #Tests for features I implemented
 using Base.Test;
+isapprox3(a,b,c)=all(map((x,y,z)->isapprox(x,y;rtol=z), a,b,c))
 
 #Unpooling
 x = KnetArray(reshape(Float32[1.0:16.0...], (4,4,1,1)))
@@ -72,12 +73,12 @@ y = pool(x)
 y2 = KnetArray(reshape(Float32[6 6 14 14; 6 6 14 14; 8 8 16 16; 8 8 16 16], (4,4,1,1)))
 y3 = KnetArray(reshape(Float32[6 6 6 14 14 14; 6 6 6 14 14 14; 6 6 6 14 14 14; 8 8 8 16 16 16; 8 8 8 16 16 16; 8 8 8 16 16 16], (6,6,1,1)))
 
-@test_approx_eq_eps     unpool(y)               y2      1e-3
-@test_approx_eq_eps     unpool(y; window=3)     y3      1e-3
+@test isapprox3(Array(unpool(y)),Array(y2),reshape(ones(Float32,length(y2))*1e-3, size(y2)))
+@test isapprox3(Array(unpool(y; window=3)),Array(y3),reshape(ones(Float32,length(y3))*1e-3, size(y3)))
 
 #Deconvolution
 y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
 x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0], (2,2,1,1)))
 w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1)))
 
-@test_approx_eq_eps     deconv4(w,x)            y       1e-3
+@test isapprox3(Array(deconv4(w,x)),Array(y),reshape(ones(Float32,length(y))*1e-3, size(y)))
