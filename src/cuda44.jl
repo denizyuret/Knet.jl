@@ -310,16 +310,7 @@ padding
 stride
 """
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
-    indims = dcxdims(w,x);
-    outdims = dcydims(w,x);
-    #pad the input by
-    diffszx = dcpadxdims(indims,outdims);
-    newx = Array(similar(x, indims));
-    #do the actual padding, tbd 5d tensors
-    newx[diffszx[1]+1:size(x,1)+diffszx[1], diffszx[2]+1:size(x,2)+diffszx[2]   ,1,1] = Array(x)[:,:,1,1];
-    newx = KnetArray(newx);
-    #apply normal convolution
-    conv4(w,newx);
+    conv4(w,x; padding=size(w)[1]-1)
 end
 
 

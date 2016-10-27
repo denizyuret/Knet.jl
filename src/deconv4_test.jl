@@ -1,41 +1,55 @@
 using Knet;
 
 """
-x   4x4
-1   2   3   4
-5   6   7   8
-9   10  11  12
-13  14  15  16
+x (2,2)
+0   10
+20  30
 
-w   3x3
-1   1   1
-1   1   1
-1   1   1
+w (3,3)
+1   2   3
+4   5   6
+7   8   9
 
-y   2x2
-54  90
-63  99
+y (4,4)
+0   10  20  30
+20  110 170 150
+80  290 350 270
+140 370 420 270
+
+How is deconv4 calculated ?
+
+Flipped w (3,3)
+9   8   7
+6   5   4
+3   2   1
+
+Padded input x by windowSize-1 (6,6)
+0   0   0   0   0   0
+0   0   0   0   0   0
+0   0   0   10  0   0
+0   0   20  30  0   0
+0   0   0   0   0   0
+0   0   0   0   0   0
+
+Now apply convolution - there is a better way but this is the easiest...(switch forward and backward passes)
+
+Output y is of size (4,4)
+0   10  20  30
+20  110 170 150
+80  290 350 270
+140 370 420 270
 """
+y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270]))
+x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0],2,2,1,1))
+w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0],3,3,1,1))
+display(x)
+display(w)
+ycalc = deconv4(w,x)
+display(ycalc)
 
-x = KnetArray(reshape([1.0:16.0...],(4,4,1,1)));
-w = KnetArray(ones(3,3,1,1));
-y = KnetArray(reshape([54.0 90.0; 63.0 99.0], (2,2,1,1)));
-
-
-#conv(x,w)
-#(4,4)*(3,3)=(4-3+1,4-3+1)=(2,2)
-
-#deconv(y,w)
-#(2,2)*(3,3)=(2+3-1,2+3-1)=(4,4)
-
-#=(4,4)
-0   0   0   0
-0   54  90  0
-0   63  99  0
-0   0   0   0
-=#
-
-#x=10 w=5 y=8
-x = KnetArray(ones(10,10,1,1));
-w = KnetArray(ones(3,3,1,1));
-y = KnetArray(ones(8,8,1,1));
+if ycalc == y
+    info("deconv4 test passed")
+else
+    warn("deconv4 test failed!")
+    println("actual result: $(y) calculated result: $(ycalc)")
+end
