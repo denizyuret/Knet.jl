@@ -67,7 +67,7 @@ end
 using Base.Test;
 isapprox3(a,b,c)=all(map((x,y,z)->isapprox(x,y;rtol=z), a,b,c))
 
-#Unpooling
+#Unpooling--All cases checked
 x1 = KnetArray(reshape(Float32[6.0  14.0; 8.0  16.0], (2,2,1,1)))
 x2 = KnetArray(reshape(Float32[1.0:9.0...], (3,3,1,1)))
 y12 = KnetArray(reshape(Float32[6 6 14 14; 6 6 14 14; 8 8 16 16; 8 8 16 16], (4,4,1,1)))
@@ -94,10 +94,7 @@ y23 = KnetArray(reshape(Float32[1.0  1.0  1.0  4.0  4.0  4.0  7.0  7.0  7.0;
 @test isapprox3(Array(unpool(x2)),Array(y22),reshape(ones(Float32,length(y22))*1e-3, size(y22)))
 @test isapprox3(Array(unpool(x2; window=3)),Array(y23),reshape(ones(Float32,length(y23))*1e-3, size(y23)))
 
-
-
-
-#Deconvolution
+#Deconvolution--Check more cases ?
 y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
 x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0], (2,2,1,1)))
 w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1)))
