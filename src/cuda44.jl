@@ -349,6 +349,18 @@ function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
     conv4(w,x; padding=size(w)[1]-1)
 end
 
+function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
+    conv4x(w,x,dy; padding=size(w)[1]-1)
+end
+
+function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
+    conv4w(w,x,dy; padded=size(w)[1]-1)
+end
+
+@primitive deconv4(w,x),dy  deconv4w(w,x,dy)  deconv4x(w,x,dy)
+@zerograd  deconv4x(w,x,dy)
+@zerograd  deconv4w(w,x,dy)
+
 #Calculates output dimensions of deconvolution of w and x
 function dcydims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
     ntuple(N) do i
