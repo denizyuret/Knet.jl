@@ -402,9 +402,13 @@ unpool (2x2 window)
 8   8   16  16
 8   8   16  16
 """
-function unpool(x; window=2)
+function unpool{T}(x::KnetArray{T}; window=2)
     y = similar(x,updims(x; window=window))
     Knet.poolx(y,x,x*window^2; window=window,mode=1)#where the did window^2 come from ?
+end
+
+function unpoolx{T}(x::KnetArray{T}, dy::KnetArray{T}; window=2)
+    Knet.poolx(unpool(x; window=window),x,dy*window^2; window=window,mode=1)
 end
 
 #Commented out section -> general case
@@ -422,3 +426,7 @@ function updims{T,N}(x::KnetArray{T,N}; window=2)
         end
     end
 end
+
+
+@primitive unpool(x; window),dy,y  unpoolx(x,dy; window)
+@zerograd  unpoolx(x,dy; window)
