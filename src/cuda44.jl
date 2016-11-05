@@ -428,5 +428,5 @@ function updims{T,N}(x::KnetArray{T,N}; window=2)
 end
 
 
-@primitive unpool(x; window),dy,y  unpoolx(x,dy; window)
-@zerograd  unpoolx(x,dy; window)
+@primitive unpool(x; o...),dy,y  unpoolx(x,dy; o...)
+@zerograd  unpoolx(x,dy; o...)
