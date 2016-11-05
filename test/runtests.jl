@@ -100,3 +100,5 @@ x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0], (2,2,1,1)))
 w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1)))
 
 @test isapprox3(Array(deconv4(w,x)),Array(y),reshape(ones(Float32,length(y))*1e-3, size(y)))
+
+#Add unpooling and deconv backwards pass tests
