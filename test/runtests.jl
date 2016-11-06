@@ -65,9 +65,15 @@ end
 
 #Tests for features I implemented
 using Base.Test;
-isapprox3(a,b,c)=all(map((x,y,z)->isapprox(x,y;rtol=z), a,b,c))
+function isapprox4{T}(a::KnetArray{T},b::KnetArray{T},c=1e-3)
+    a = Array(a)
+    b = Array(b)
+    c = reshape(ones(T,length(b))*c,size(b))
+    all(map((x,y,z)->isapprox(x,y;rtol=z), a,b,c))
+end
 
 #Unpooling--All cases checked
+println("Testing unpooling...")
 x1 = KnetArray(reshape(Float32[6.0  14.0; 8.0  16.0], (2,2,1,1)))
 x2 = KnetArray(reshape(Float32[1.0:9.0...], (3,3,1,1)))
 y12 = KnetArray(reshape(Float32[6 6 14 14; 6 6 14 14; 8 8 16 16; 8 8 16 16], (4,4,1,1)))
@@ -88,17 +94,45 @@ y23 = KnetArray(reshape(Float32[1.0  1.0  1.0  4.0  4.0  4.0  7.0  7.0  7.0;
  3.0  3.0  3.0  6.0  6.0  6.0  9.0  9.0  9.0;                                                                                                                            
  3.0  3.0  3.0  6.0  6.0  6.0  9.0  9.0  9.0], (9,9,1,1)))
 #Even input, even and odd windows
-@test isapprox3(Array(unpool(x1)),Array(y12),reshape(ones(Float32,length(y12))*1e-3, size(y12)))
-@test isapprox3(Array(unpool(x1; window=3)),Array(y13),reshape(ones(Float32,length(y13))*1e-3, size(y13)))
+@test isapprox4(unpool(x1),y12)
+@test isapprox4(unpool(x1; window=3),y13)
 #Odd input, even and odd windows
-@test isapprox3(Array(unpool(x2)),Array(y22),reshape(ones(Float32,length(y22))*1e-3, size(y22)))
-@test isapprox3(Array(unpool(x2; window=3)),Array(y23),reshape(ones(Float32,length(y23))*1e-3, size(y23)))
+@test isapprox4(unpool(x2), y22)
+@test isapprox4(unpool(x2; window=3),y23)
+
 
 #Deconvolution--Check more cases ?
+println("Testing deconvolution...")
 y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
 x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0], (2,2,1,1)))
 w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1)))
 
-@test isapprox3(Array(deconv4(w,x)),Array(y),reshape(ones(Float32,length(y))*1e-3, size(y)))
+@test isapprox4(deconv4(w,x),y)
 
+#=
+#Float16
+println("Testing Float16...")
+println("Testing w*x")
+
+#GPU Float64
+w = KnetArray(reshape(Float64[1.0 2.0 3.0 4.0], (2,2)))
+x = KnetArray(reshape(Float64[1.0 1.0 1.0 1.0], (2,2)))
+y = KnetArray(Float64[4.0 4.0; 6.0 6.0])
+@test isapprox4(w*x, y)
+
+#GPU Float32
+w = KnetArray(reshape(Float32[1.0 2.0 3.0 4.0], (2,2)))
+x = KnetArray(reshape(Float32[1.0 1.0 1.0 1.0], (2,2)))
+y = KnetArray(Float32[4.0 4.0; 6.0 6.0])
+@test isapprox4(w*x, y) 
+
+#GPU Float16
+w = KnetArray(reshape(Float16[1.0 2.0 3.0 4.0], (2,2)))
+x = KnetArray(reshape(Float16[1.0 1.0 1.0 1.0], (2,2)))
+y = KnetArray(Float16[4.0 4.0; 6.0 6.0])
+@test isapprox4(w*x, y)
+=#
+
+#TODO
+#Float16 conv to do
 #Add unpooling and deconv backwards pass tests
