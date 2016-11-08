@@ -354,7 +354,7 @@ function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
 end
 
 function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
-    conv4w(w,x,dy; padded=size(w)[1]-1)
+    conv4w(w,x,dy; padding=size(w)[1]-1)
 end
 
 @primitive deconv4(w,x),dy  deconv4w(w,x,dy)  deconv4x(w,x,dy)
