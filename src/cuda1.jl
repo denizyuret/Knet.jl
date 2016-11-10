@@ -105,6 +105,7 @@ for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
             return y
         end
         function $g{T<:AbstractFloat}(dy::Array{T},y::Array{T})
+		@show($g,size(dy),size(y))
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
