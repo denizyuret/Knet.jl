@@ -419,8 +419,8 @@ function unpool{T}(x::KnetArray{T}; window=2)
     Knet.poolx(y,x,x*window^2; window=window,mode=1)#where the did window^2 come from ?
 end
 
-function unpoolx{T}(x::KnetArray{T}, dy::KnetArray{T}; window=2)
-    Knet.poolx(unpool(x; window=window),x,dy*window^2; window=window,mode=1)
+function unpoolx{T}(x::KnetArray{T}, y::KnetArray{T}, dy::KnetArray{T}; window=2)
+    Knet.poolx(y,x,dy*window^2; window=window,mode=1)
 end
 
 #Commented out section -> general case
@@ -440,5 +440,5 @@ function updims{T,N}(x::KnetArray{T,N}; window=2)
 end
 
 
-@primitive unpool(x; o...),dy,y  unpoolx(x,dy; o...)
-@zerograd  unpoolx(x,dy; o...)
+@primitive unpool(x; o...),dy,y  unpoolx(x,y,dy; o...)
+@zerograd  unpoolx(x,y,dy; o...)
