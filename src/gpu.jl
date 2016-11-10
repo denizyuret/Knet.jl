@@ -3,15 +3,10 @@ macro cuda(lib,fun,x...)
         msg = "Cannot find lib$lib, please install it and rerun Pkg.build(\"Knet\")."
         :(error($msg))
     else
-        f2 = ("$fun","lib$lib")
-        fx = Expr(:ccall, f2, :UInt32, x...)
-        err = "$lib.$fun error "
-        esc(quote
-            if $fx != 0
-                warn($err, _r)
-                Base.show_backtrace(STDOUT, backtrace())
-            end
-        end)
+        fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
+        msg = "$lib.$fun error "
+        err = gensym()
+        esc(:(($err=$fx) == 0 || (warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()))))
     end
 end
 
@@ -21,6 +16,24 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
     gpu()=GPU
+
+    function gpuCount() # should not bomb when there is no gpu or nvidia libs
+        if GPUCNT == -1
+            GPUCNT = try
+	        p=Cuint[0]
+                # @cuda does not stay quiet so we use ccall here
+                # This code is only run once if successful, so nvmlInit here is ok
+                eval(:(ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()))
+	        eval(:(ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),$p)==0 || error()))
+                # Let us keep nvml initialized for future ops such as meminfo
+                # eval(:(ccall(("nvmlShutdown","libnvidia-ml"),UInt32,())==0 || error()))
+	        Int(p[1])
+            catch
+	        0
+            end
+        end
+        return GPUCNT
+    end
 
     function gpu(i::Int)
         (GPU == i) && return i
@@ -40,13 +53,9 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
 
     function gpu(usegpu::Bool)
         if usegpu && gpuCount() > 0
-            @cuda("nvidia-ml","nvmlInit",())
             pick = free = same = -1
-            dev = Cptr[0]
-            mem = Array(Culonglong,3)
             for i=0:gpuCount()-1
-                @cuda("nvidia-ml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
-                @cuda("nvidia-ml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
+                mem = nvmlDeviceGetMemoryInfo(i)
                 if mem[2] > free
                     pick = i
                     free = mem[2]
@@ -56,27 +65,12 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
                     rand(1:(same+=1)) == 1 && (pick = i)
                 end
             end
-            @cuda("nvidia-ml","nvmlShutdown",())
             gpu(pick)
         else
             for i=0:gpuCount()-1
                 @cuda(cudart,cudaDeviceReset,())
             end
             gpu(-1)
-        end
-    end
-
-    function gpuCount() # should not bomb when there is no gpu or nvidia libs
-        GPUCNT != -1 && (return GPUCNT)
-        GPUCNT = try
-	    p=Cuint[0]
-            # @cuda does not stay quiet so we use ccall here
-            eval(:(ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()))
-	    eval(:(ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),$p)==0 || error()))
-            eval(:(ccall(("nvmlShutdown","libnvidia-ml"),UInt32,())==0 || error()))
-	    Int(p[1])
-        catch
-	    0
         end
     end
 end
@@ -111,10 +105,8 @@ function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
     mem = Array(Culonglong,3)
-    @cuda("nvidia-ml","nvmlInit",())
     @cuda("nvidia-ml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
     @cuda("nvidia-ml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
-    @cuda("nvidia-ml","nvmlShutdown",())
     ntuple(i->Int(mem[i]),length(mem))
 end
 
