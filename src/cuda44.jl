@@ -301,7 +301,6 @@ function mat(x)
 end
 
 
-#Deconvolution
 """
 
 Implements deconvolution, which can be thought as the 'reverse' of the convolution operation.
@@ -357,9 +356,9 @@ function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
     conv4w(w,x,dy; padding=dcpad(w,x))
 end
 
-@primitive deconv4(w,x),dy  deconv4w(w,x,dy)  deconv4x(w,x,dy)
-@zerograd  deconv4x(w,x,dy)
-@zerograd  deconv4w(w,x,dy)
+@primitive deconv4(w,x),dy,y  deconv4w(w,x,dy)  deconv4x(w,x,dy)
+@zerograd deconv4x(w,x,dy)
+@zerograd deconv4w(w,x,dy)
 
 #Calculates the padding required for deconvolution of w and x
 function dcpad{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
@@ -368,7 +367,6 @@ function dcpad{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
     end
 end
 
-#Unpooling
 """
 
 Implements simple upsampling, which can be thought as the 'reverse' of the pooling operation.
@@ -407,6 +405,7 @@ function unpoolx{T}(dy::KnetArray{T}; window=2)
     pool(dy*window^2; window=window, mode=1)
 end
 
+#Calculates the output dimensions of unpool of x
 function updims{T,N}(x::KnetArray{T,N}; window=2)
     if !isa(window,Number) error("Window size must be a number!") end
     if !isa(window,Integer) error("Window size must be an integer!") end
