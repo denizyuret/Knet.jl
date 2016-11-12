@@ -346,16 +346,15 @@ Output y is of size (4,4)
 140 370 420 270
 """
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
-
-    conv4(w,x; padding=size(w)[1]-1)
+    conv4(w,x; padding=dcpad(w,x))
 end
 
 function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
-    conv4x(w,x,dy; padding=size(w)[1]-1)
+    conv4x(w,x,dy; padding=dcpad(w,x))
 end
 
 function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
-    conv4w(w,x,dy; padding=size(w)[1]-1)
+    conv4w(w,x,dy; padding=dcpad(w,x))
 end
 
 @primitive deconv4(w,x),dy  deconv4w(w,x,dy)  deconv4x(w,x,dy)
