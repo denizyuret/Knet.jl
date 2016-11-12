@@ -398,41 +398,48 @@ end
 
 #Unpooling
 """
-TODO: Implement the following optional arguments
-padding=0
-stride=window ???
 
-Simple unpooling (=upsampling) as in:
-https://swarbrickjones.wordpress.com/2015/04/29/convolutional-autoencoders-in-pythontheanolasagne/
-Example input-output
-x (2x2)
+Implements simple upsampling, which can be thought as the 'reverse' of the pooling operation.
+
+`unpool(x; kwargs...)` upsamples input `x`
+
+Example:
+
+Input `x`:
+
 6   14
+
 8   16
-unpool (2x2 window)
+
+Output of `unpool(x)`:
+
 6   6   14  14
+
 6   6   14  14
+
 8   8   16  16
+
 8   8   16  16
+
+Here is a description of all available keyword arguments:
+
+* window: integer upsampling factor. Default=2.
+
 """
 function unpool{T}(x::KnetArray{T}; window=2)
     y = similar(x,updims(x; window=window))
-    Knet.poolx(y,x,x*window^2; window=window,mode=1)#where the did window^2 come from ?
+    Knet.poolx(y,x,x*window^2; window=window,mode=1)
 end
 
 function unpoolx{T}(dy::KnetArray{T}; window=2)
     pool(dy*window^2; window=window, mode=1)
 end
 
-#Commented out section -> general case
 function updims{T,N}(x::KnetArray{T,N}; window=2)
     if !isa(window,Number) error("Window size must be a number!") end
-    #if !isa(padding,Number) error("Padding size must be a number!") end
-    #if stride != window error("Stride must be equal to window!") end
-
     ntuple(N) do i
         if i < N-1
             (size(x,i)-1)*window + window
-            #(size(x,i)-1)*stride + window - 2*padding
         else
             size(x,i)
         end
