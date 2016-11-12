@@ -437,15 +437,15 @@ end
 
 function updims{T,N}(x::KnetArray{T,N}; window=2)
     if !isa(window,Number) error("Window size must be a number!") end
+    if !isa(window,Integer) error("Window size must be an integer!") end
     ntuple(N) do i
         if i < N-1
-            (size(x,i)-1)*window + window
+            size(x,i)*window
         else
             size(x,i)
         end
     end
 end
 
-
 @primitive unpool(x; o...),dy,y  unpoolx(dy; o...)
-@zerograd  unpoolx(dy; o...)
+@zerograd unpoolx(dy; o...)
