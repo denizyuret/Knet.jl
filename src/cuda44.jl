@@ -346,6 +346,7 @@ Output y is of size (4,4)
 140 370 420 270
 """
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
+
     conv4(w,x; padding=size(w)[1]-1)
 end
 
@@ -361,40 +362,12 @@ end
 @zerograd  deconv4x(w,x,dy)
 @zerograd  deconv4w(w,x,dy)
 
-#Calculates output dimensions of deconvolution of w and x
-function dcydims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
-    ntuple(N) do i
-        if i < N-1
-            size(x,i) + size(w,i) - 1
-        elseif i == N-1 #Filters
-            size(w,N)
-        else # i == N   #Minibatch
-            size(x,N)
-        end
+#Calculates the padding required for deconvolution of w and x
+function dcpad{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
+    ntuple(N-2) do i
+        size(w,i) - 1
     end
 end
-
-#Calculates padded input dimensions of deconvolution of w and x
-function dcxdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
-    szY = dcydims(w,x)
-    ntuple(N) do i
-        if i < N-1
-            szY[i] + size(w,i) - 1
-        elseif i == N-1 #Filters
-            size(w,N)
-        else # i == N   #Minibatch
-            size(x,N)
-        end
-    end
-end
-
-#Calculate input padding dimensions of deconvolution of dimensions indims and outdims
-function dcpadxdims(indims, outdims)
-    ntuple(length(outdims)) do i
-        indims[i] - outdims[i]
-    end
-end
-
 
 #Unpooling
 """
