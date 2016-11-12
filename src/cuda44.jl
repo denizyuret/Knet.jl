@@ -303,47 +303,47 @@ end
 
 #Deconvolution
 """
-TODO: Implement the following optional arguments
-padding
-stride
 
-x (2,2)
+Implements deconvolution, which can be thought as the 'reverse' of the convolution operation.
+
+`deconv4(w,x; kwargs...)` deconvolves `w` and `x`
+
+Example:
+
+Input `x`:
+
 0   10
+
 20  30
 
-w (3,3)
+Filter `w`:
+
 1   2   3
+
 4   5   6
+
 7   8   9
 
-y (4,4)
+Output of `deconv4(w,x)`:
+
 0   10  20  30
+
 20  110 170 150
+
 80  290 350 270
+
 140 370 420 270
 
-How is deconv4 calculated ?
+How is `deconv4(w,x)` calculated ?
 
-Flipped w (3,3)
-9   8   7
-6   5   4
-3   2   1
+Calculate `conv4(w,x; padding=filterSize-1)`
 
-Padded input x by windowSize-1 (6,6)
-0   0   0   0   0   0
-0   0   0   0   0   0
-0   0   0   10  0   0
-0   0   20  30  0   0
-0   0   0   0   0   0
-0   0   0   0   0   0
+There is a better way (switch forward and backward passes), but this is the easiest...
 
-Now apply convolution - there is a better way but this is the easiest...(switch forward and backward passes)
+Here is a description of all available keyword arguments:
 
-Output y is of size (4,4)
-0   10  20  30
-20  110 170 150
-80  290 350 270
-140 370 420 270
+* None at the moment.
+
 """
 function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
     conv4(w,x; padding=dcpad(w,x))
