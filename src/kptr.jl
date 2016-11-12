@@ -76,11 +76,11 @@ function KnetPtr(nbytes::Integer)
         ptrs.used += 1
         return KnetPtr(ptr,nbytes,dev)
     end
-    gc(); print(".")
+    gc(); #print(".")
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
-    knetgc(); print("+")
+    knetgc(); #print("+")
     ptr = knetMalloc(nbytes)
     if ptr != nothing
         ptrs.used += 1
