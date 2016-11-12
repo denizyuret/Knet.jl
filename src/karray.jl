@@ -1,114 +1,3 @@
-# KnetArray implements GPU arrays.  Important differences from the
-# alternative CudaArray: (1) The memory manager minimizes the slow
-# cudaMalloc by reusing already allocated but garbage collected
-# arrays.  (2) getindex handles ranges as views (with shared memory)
-# instead of copies.
-
-
-# KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
-
-type KnetPtr
-    ptr::Ptr{Void}
-    len::Int
-    dev::Int
-    parent
-end
-
-# We use the KnetPtrs type to keep track of allocated pointers: We
-# need one per size per device.  KnetFree[i+2] will hold a dictionary
-# from sizes to KnetPtrs for device i.
-
-type KnetPtrs
-    used::Int
-    free::Array{Ptr{Void},1}
-    KnetPtrs()=new(0,Array(Ptr{Void},0))
-end
-
-# When Julia gc reclaims a KnetPtr object, the finalizer does not
-# actually release the memory, but inserts it in the KnetFree dict
-# keyed by length in bytes so it can be reused.
-
-if !isdefined(:KnetFree)
-    KnetFree = [ Dict{Int,KnetPtrs}() for i=1:cudaGetDeviceCount()+1 ]
-end
-
-function freeKnetPtr(p::KnetPtr)
-    ptrs = KnetFree[p.dev+2][p.len]
-    push!(ptrs.free,p.ptr)
-end
-
-# The KnetPtr constructor tries to avoid actual allocation which is
-# slow.  First it tries to find a previously allocated and garbage
-# collected pointer in KnetFree[dev+2].  If not available it allocates
-# a new one if we have more than 10^8 bytes of free memory.  Otherwise
-# it tries running gc() and see if we get a pointer back.  Finally if
-# all else fails, it calls knetgc which cleans up all allocated
-# KnetPtrs on the current device and starts over.
-
-function KnetPtr(nbytes::Integer)
-    dev = gpu()
-    ptrs = get!(KnetPtrs,KnetFree[dev+2],nbytes)
-    if !isempty(ptrs.free)
-        kp = KnetPtr(pop!(ptrs.free),nbytes,dev,nothing)
-    elseif dev == -1 || gpufree() > 10^8
-        ptr = knetMalloc(nbytes)
-        kp = KnetPtr(ptr,nbytes,dev,nothing)
-        ptrs.used += 1
-    elseif (print("."); gc(); !isempty(ptrs.free))
-        kp = KnetPtr(pop!(ptrs.free),nbytes,dev,nothing)
-    else
-        print((:knetgc,nbytes)); gpuinfo()
-        knetgc()
-        ptr = knetMalloc(nbytes)
-        kp = KnetPtr(ptr,nbytes,dev,nothing)
-        ptrs.used += 1
-    end
-    finalizer(kp, freeKnetPtr)
-    return kp
-end
-
-# This is used to create a shared pointer.  We need to have the parent field to prevent premature gc.
-function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
-    if len < 0 || offs < 1 || offs+len-1 > parent.len
-        throw(BoundsError())
-    end
-    KnetPtr(parent.ptr+offs-1, len, parent.dev, parent)
-end
-
-# If you really want to clean up memory you need to call knetgc:
-# Note that this only cleans the current device.
-
-function knetgc()
-    dev = gpu()
-    gc_enable(false)
-    for v in values(KnetFree[dev+2])
-        if dev >= 0
-            for p in v.free
-                @cuda(cudart,cudaFree,(Ptr{Void},),p)
-            end
-        end
-        v.used -= length(v.free)
-        empty!(v.free)
-    end
-    gc_enable(true)
-end
-
-function knetMalloc(nbytes::Int)
-    if gpu() >= 0
-        ptr = Ptr{Void}[C_NULL]
-        @cuda(cudart,cudaMalloc,(Ptr{Ptr{Void}},Csize_t),ptr,nbytes)
-        return ptr[1]
-    else
-        convert(Ptr{Void}, pointer(Array(UInt8,nbytes)))
-    end
-end
-
-meminfo()=[(k,v.used,length(v.free)) for (k,v) in KnetFree[gpu()+2]]
-gpufree()=cudaGetMemInfo()[1]
-gpuinfo(msg="")=(print("$msg "); println((cudaGetMemInfo()...,meminfo()...)))
-
-### KnetArray ###
-
 """
 
 KnetArray is a container for GPU arrays that supports most of the
@@ -308,7 +197,7 @@ function getindex{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
     else
         B = similar(A, (B1,B2))
         nrows *= sizeof(T); astep *= sizeof(T)
-        ccall((:xcopy,libknet8),Void,(Cint,Cint,Ptr{Void},Cint,Ptr{Void},Cint),
+        ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint),
               nrows, ncols, pointer(A,firstindex), astep, B, nrows)
         return B
     end
@@ -332,11 +221,11 @@ function setindex!{T,N}(A::KnetArray{T,N}, B, I::Union{Real, UnitRange, Colon}..
         length(B) == nelts || throw(DimensionMismatch())
         B = convert(KnetArray{T},B)
         if ncols == 1
-            @cuda(cudart,cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+            @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
                   aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
         else
             nrows *= sizeof(T); astep *= sizeof(T)
-            ccall((:xcopy,libknet8),Void,(Cint,Cint,Ptr{Void},Cint,Ptr{Void},Cint), nrows, ncols, B, nrows, aptr0, astep)
+            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
         end
     end
     return A
@@ -445,7 +334,7 @@ end
 import Base: unsafe_copy!, copy
 
 function unsafe_copy!{T}(dest::Union{KnetArray{T},Array{T}}, doffs, src::Union{KnetArray{T},Array{T}}, soffs, n; stream=C_NULL)
-    @cuda(cudart,cudaMemcpyAsync,(Ptr{Void},Ptr{Void},Csize_t,UInt32,Ptr{Void}),
+    @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src), stream)
     return dest
 end
