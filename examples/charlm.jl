@@ -116,7 +116,7 @@ function train!(model, text, vocab, o)
     if o[:fast]
         @time (for epoch=1:o[:epochs]
                train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-               end; Knet.cudaDeviceSynchronize())
+               end; gpu()>=0 && Knet.cudaDeviceSynchronize())
         return
     end
     losses = map(d->loss(model,copy(s0),d), data)

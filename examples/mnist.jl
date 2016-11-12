@@ -51,7 +51,7 @@ function main(args=ARGS)
     dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]

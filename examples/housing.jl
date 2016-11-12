@@ -46,7 +46,7 @@ Repository."
     (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
     report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
-        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); Knet.cudaDeviceSynchronize())
+        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]
