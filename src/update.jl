@@ -1,9 +1,50 @@
+"""
+
+Gradient descent is an optimization technique to minimize 
+an objective function paremeterized by a model's parameters.
+It updates the parameters in the opposite direction of the gradient 
+obtained by taking the derivative of the objective function w.r.t
+the paremeters. The learning rate (lr) determines the size of the step.
+It updates the weight with the following formula:
+
+w = w - lr * g
+
+where w is the weight, g is the gradient of the objective function w.r.t w and
+lr is the learning rate.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+
+"""
 type Sgd
 	lr::AbstractFloat
 end
 
 Sgd(;lr=0.001) = Sgd(lr)
 
+"""
+
+Momentum method tries to accelerate the Sgd by adding a velocity term to the update.
+It also decreases the oscilation between the opposite directions. It updates the weight
+with the following formulas:
+
+velocity = gamma * velocity + lr * g \n
+w = w - velocity
+
+where w is the weight, g is the gradient of the objective function w.r.t w,
+lr is the learning rate, gamma is the momentum parameter, 
+velocity is an array with the same size and type of w and holds the accelerated gradients.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+* `gamma::AbstractFloat=0.9`
+* `velocity=zeros(w)`
+
+Reference:
+
+Qian, N. (1999). On the momentum term in gradient descent learning algorithms. 
+Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151. http://doi.org/10.1016/S0893-6080(98)00116-6
+"""
 type Momentum
 	lr::AbstractFloat
 	gamma::AbstractFloat
@@ -15,6 +56,164 @@ function Momentum(w; lr=0.001, gamma=0.9, velocity=zeros(w))
 	Momentum(lr, gamma, velocity)
 end
 
+"""
+
+Adagrad is one of the methods that adapts the learning rate to the parameters.
+It stores the sum of the squares of the gradients to scale the learning rate.
+The learning rate is adapted for each gradient by the value of current gradient
+divided by the accumulated gradients. Hence, the learning rate is grater for
+the parameters where the accumulated gradients are small and the learning rate is
+small if the accumulated gradients are big. It updates the weight with the following formulas:
+
+G = G + g .^ 2
+
+w = w - g .* lr ./ sqrt(G + eps)
+
+where w is the weight, g is the gradient of the objective function w.r.t w,
+lr is the learning rate, G is an array with the same size and type of w and holds the 
+sum of the squares of the gradients. eps is a small value to prevent the zero value
+on the denominator.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+* `eps::AbstractFloat=1e-6`
+* `G=zeros(w)`
+
+Reference:
+
+Duchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization.
+Journal of Machine Learning Research, 12, 2121–2159. Retrieved from http://jmlr.org/papers/v12/duchi11a.html
+"""
+type Adagrad
+	lr::AbstractFloat
+	eps::AbstractFloat
+	G
+end
+
+function Adagrad(w; lr=0.001, eps=1e-6, G=zeros(w))
+	@assert size(w) == size(G)
+	Adagrad(lr, eps, G)
+end
+
+"""
+
+Adadelta is an extension to Adagrad to preventing the convergence of the 
+learning rate to zero with increase of time. Adadelta uses two ideas from Momentum and
+Adagrad. It scales the learning rate based on the accumulated gradients and
+holds the acceleration term like Momentum. It updates the weight with the following formulas:
+
+G = (1-rho) * g .^ 2 + rho * G
+
+update = g .* sqrt(delta + eps) ./ sqrt(G + eps)
+
+w = w - lr * update
+
+delta = rho * delta + (1-rho) * update .^ 2
+
+where w is the weight, g is the gradient of the objective function w.r.t w,
+lr is the learning rate, G is an array with the same size and type of w and holds the 
+sum of the squares of the gradients. eps is a small value to prevent the zero value
+on the denominator. rho is the momentum parameter and delta is an array with the same
+size and type of w and holds the sum of the squared updates.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+* `rho::AbstractFloat=0.9`
+* `eps::AbstractFloat=1e-6`
+* `G=zeros(w)`
+* `delta=zeros(w)`
+
+Reference:
+
+Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method. Retrieved from http://arxiv.org/abs/1212.5701
+"""
+type Adadelta
+	lr::AbstractFloat
+	rho::AbstractFloat
+	eps::AbstractFloat
+	G
+	delta
+end
+
+function Adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w), delta=zeros(w))
+	@assert size(w) == size(G)
+	Adadelta(lr, rho, eps, G, delta)
+end
+
+"""
+
+Rmsprop is a similar method to Adadelta that tries to improve Adagrad. It scales
+the learning rates by dividing the root mean squared of the gradients. It updates
+the weight with the following formula:
+
+G = (1-rho) * g .^ 2 + rho * G
+
+w = w - lr * g ./ sqrt(G + eps)
+
+where w is the weight, g is the gradient of the objective function w.r.t w,
+lr is the learning rate, G is an array with the same size and type of w and holds the 
+sum of the squares of the gradients. eps is a small value to prevent the zero value
+on the denominator. rho is the momentum parameter and delta is an array with the same
+size and type of w and holds the sum of the squared updates.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+* `rho::AbstractFloat=0.9`
+* `eps::AbstractFloat=1e-6`
+* `G=zeros(w)`
+
+Reference:
+
+http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
+"""
+type Rmsprop
+	lr::AbstractFloat
+	rho::AbstractFloat
+	eps::AbstractFloat
+	G
+end
+
+function Rmsprop(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w))
+	@assert size(w) == size(G)
+	Rmsprop(lr, rho, eps, G)
+end
+
+"""
+
+Adam is one of the methods that compute the adaptive learning rate. It stores
+accumulated gradients (first moment) and the sum of the squared of gradients (second).
+It scales the first and second moment with increase of time. Here is the update formulas:
+
+m = beta1 * m + (1 - beta1) * g
+
+v = beta2 * v + (1 - beta2) * g .* g
+
+mhat = m ./ (1 - beta1 ^ t)
+
+vhat = v ./ (1 - beta2 ^ t)
+
+w = w - (lr / (sqrt(vhat) + eps)) * mhat
+
+where w is the weight, g is the gradient of the objective function w.r.t w,
+lr is the learning rate, m is an array with the same size and type of w and holds the 
+accumulated gradients. v is an array with the same size and type of w and holds the 
+sum of the squares of the gradients. eps is a small value to prevent the zero value
+on the denominator. beta1 and beta2 are the parameters to calculate bias corrected
+first and second moments. t is the update count.
+
+# Arguments
+* `lr::AbstractFloat=0.001`
+* `beta1::AbstractFloat=0.9`
+* `beta2::AbstractFloat=0.999`
+* `t::AbstractFloat=1`
+* `eps::AbstractFloat=1e-8`
+* `fstm=zeros(w)`
+* `scndm=zeros(w)`
+
+Reference:
+
+Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.
+"""
 type Adam
 	lr::AbstractFloat
 	beta1::AbstractFloat
@@ -31,50 +230,21 @@ function Adam(w; lr=0.001, beta1=0.9, beta2=0.999, t=1, eps=1e-8, fstm=zeros(w),
 	Adam(lr, beta1, beta2, t, eps, fstm, scndm)
 end
 
-type Adagrad
-	lr::AbstractFloat
-	eps::AbstractFloat
-	G
-end
+"""
 
-function Adagrad(w; lr=0.001, eps=1e-6, G=zeros(w))
-	@assert size(w) == size(G)
-	Adagrad(lr, eps, G)
-end
-
-type Adadelta
-	lr::AbstractFloat
-	rho::AbstractFloat
-	eps::AbstractFloat
-	G
-	delta
-end
-
-function Adadelta(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w), delta=zeros(w))
-	@assert size(w) == size(G)
-	Adadelta(lr, rho, eps, G, delta)
-end
-
-type Rmsprop
-	lr::AbstractFloat
-	rho::AbstractFloat
-	eps::AbstractFloat
-	G
-end
-
-function Rmsprop(w; lr=0.001, rho=0.9, eps=1e-6, G=zeros(w))
-	@assert size(w) == size(G)
-	Rmsprop(lr, rho, eps, G)
-end
-
-#sgd
+Applies the stochastic gradient descent to the given weight w. Changes w in-place.
+Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Sgd)
 	axpy!(-1 * prms.lr, g, w)
 	return w, prms
 end
 
-#Qian, N. (1999). On the momentum term in gradient descent learning algorithms. 
-#Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151. http://doi.org/10.1016/S0893-6080(98)00116-6
+"""
+
+Applies the momentum update rule to the given weight w. Changes w and the velocity parameter (prms.velocity) in-place.
+Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Momentum)
 	prms.velocity = prms.gamma * prms.velocity
 	axpy!(prms.lr, g, prms.velocity)
@@ -82,7 +252,11 @@ function update!(w, g, prms::Momentum)
 	return w, prms
 end
 
-#Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.
+"""
+
+Applies the adam update rule to the given weight w. Changes w, prms.fstm, prms.scndm parameters in-place.
+Increases the update count (prms.t). Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Adam)
 	prms.fstm = prms.beta1*prms.fstm
 	axpy!(1-prms.beta1, g, prms.fstm)
@@ -99,15 +273,22 @@ function update!(w, g, prms::Adam)
 	return w, prms
 end
 
-#Duchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization.
-#Journal of Machine Learning Research, 12, 2121–2159. Retrieved from http://jmlr.org/papers/v12/duchi11a.html
+"""
+
+Applies the adagrad update rule to the given weight w. Changes w and prms.G in-place.
+Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Adagrad)
 	axpy!(1, g .* g, prms.G)
-	axpy!(-1 * prms.lr, g ./ sqrt(prms.G+ prms.eps), w)
+	axpy!(-1 * prms.lr, g ./ sqrt(prms.G + prms.eps), w)
 	return w, prms
 end
 
-#Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method. Retrieved from http://arxiv.org/abs/1212.5701
+"""
+
+Applies the adadelta update rule to the given weight w. Changes w, prms.G, and prms.delta in-place.
+Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Adadelta)
 	prms.G = prms.rho*prms.G
 	axpy!(1-prms.rho, g .* g, prms.G)
@@ -119,7 +300,11 @@ function update!(w, g, prms::Adadelta)
 	return w, prms
 end
 
-#http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
+"""
+
+Applies the adadelta update rule to the given weight w. Changes w and prms.G in-place.
+Returns the updated weight and the parameters.
+"""
 function update!(w, g, prms::Rmsprop)
 	prms.G = prms.rho*prms.G
 	axpy!(1-prms.rho, g .* g, prms.G)
