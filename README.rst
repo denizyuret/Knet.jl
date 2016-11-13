@@ -586,8 +586,19 @@ listed below.  See ``@doc <function>`` for full details.
 ``conv4``     executes convolutions or cross-correlations.
 ``pool``      replaces several adjacent values with their mean or maximum.
 ``mat``       reshapes its input into a two-dimensional matrix.
+``update!``   updates and returns the weight depending on the gradient and the parameters of the optimization method
 ============= ==========
 
+The constructors of the supported optimization methods are listed below.
+
+============= ==========
+``Sgd``       encapsulates learning rate
+``Momentum``  encapsulates learning rate, gamma and velocity
+``Adam``      encapsualtes learning rate, beta1, beta2, epsilon, time, first and second moments
+``Adagrad``   encapsualtes learning rate, epsilon and accumulated gradients (G)
+``Adadelta``  encapsulates learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)
+``Rmsprop``   encapsulates learning rate, rho, epsilon and accumulated gradients (G)
+============= ==========
 
 Under the hood
 --------------
