@@ -589,7 +589,13 @@ listed below.  See ``@doc <function>`` for full details.
 ``update!``   updates the weight depending on the gradient and the parameters of the optimization method
 ============= ==========
 
-The constructors of the supported optimization methods are listed below.
+The constructors of the supported optimization methods are listed below. ``update!`` can be called using one
+of them to update the w as following
+
+::
+
+    prms = Adagrad() # create an instance with default values
+    w, prms = update!(w, g, prms) # w is a weight array and g is related gradient
 
 ============= ==========
 ``Sgd``       encapsulates learning rate
