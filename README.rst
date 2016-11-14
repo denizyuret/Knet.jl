@@ -590,12 +590,12 @@ listed below.  See ``@doc <function>`` for full details.
 ============= ==========
 
 The constructors of the supported optimization methods are listed below. ``update!`` can be called using one
-of them to update the w as following
+of them to update a weight array as following:
 
 ::
 
     prms = Adagrad() # create an instance with default values
-    w, prms = update!(w, g, prms) # w is a weight array and g is related gradient
+    w, prms = update!(w, g, prms) # w is a weight array and g is the related gradient array
 
 ============= ==========
 ``Sgd``       encapsulates learning rate
