@@ -764,11 +764,11 @@ If you use Knet in your own work, the suggested citation is:
 
 ::
 
-    @misc{knet,
+    @inproceedings{knet,
       author={Yuret, Deniz},
-      title={Knet: Ko\c{c} University deep learning framework.},
+      title={Knet: beginning deep learning with 100 lines of Julia},
       year={2016},
-      howpublished={\url{https://github.com/denizyuret/Knet.jl}}
+      booktitle={Machine Learning Systems Workshop at NIPS 2016}
     }
 
 Current contributors:
@@ -782,3 +782,4 @@ Current contributors:
 * İlker Kesen
 * Emre Yolcu
 * Meriç Melike Softa
+* Ekrem Emre Yurdakul
