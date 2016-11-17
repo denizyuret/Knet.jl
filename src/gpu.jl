@@ -6,7 +6,15 @@ macro cuda(lib,fun,x...)
         fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
-        esc(:(($err=$fx) == 0 || (warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()))))
+        esc(:(
+        if ($err=$fx) != 0
+            if $("lib$lib") == "libcudnn"
+                $err = unsafe_string(ccall((:cudnnGetErrorString, $("lib$lib")), Cstring, (Csize_t,), $err))
+            end
+            warn($msg, $err)
+            Base.show_backtrace(STDOUT, backtrace())
+        end
+        ))
     end
 end
 
