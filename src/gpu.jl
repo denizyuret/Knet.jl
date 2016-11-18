@@ -12,8 +12,27 @@ end
 
 typealias Cptr Ptr{Void}
 
+cudaProperties = [
+    ("cudaComputeMajor","cudaComputeMajor","major"),
+    ("cudaComputeMinor","cudaComputeMinor","minor"),
+]
+
+function cudapdef(f, j=f, o...)
+    J=Symbol(j)
+    @eval begin
+        function $J(id::Int)
+            ccall(($f,$libknet8),Cint,(Cint,),id)
+        end
+    end
+end
+
+for f in cudaProperties
+    isa(f,Tuple) || (f=(f,))
+    cudapdef(f...)
+end
+
 let GPU=-1, GPUCNT=-1, handles=Dict()
-    global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
+    global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion, cudaComputeCapability
 
     gpu()=GPU
 
@@ -43,6 +62,7 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
             cudnnhandle  = get!(cudnnCreate,  handles, (:cudnn,i))
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
             cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
+            cudaComputeCapability = string(cudaComputeMajor(i), ".", cudaComputeMinor(i))
         else
             i = -1
             cublashandle = cudnnhandle = nothing
