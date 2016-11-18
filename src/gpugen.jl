@@ -9,8 +9,10 @@ extern "C"
   int $(f)(int id)
   {
     cudaDeviceProp properties;
-    cudaGetDeviceProperties(&properties,id);
-    return properties.$ex;
+    if (cudaGetDeviceProperties(&properties,id) == 0)
+      return properties.$ex;
+    else
+      return -1;
   }
 }
 """
