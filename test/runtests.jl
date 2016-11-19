@@ -63,7 +63,7 @@ println((:epoch,0,:loss,test(w,data)))
 end
 
 
-#Tests for features I implemented
+#Tests for new features
 using Base.Test;
 function isapprox4{T}(calculated::KnetArray{T},expected::KnetArray{T},c=1e-3)
     calculated = Array(calculated)
@@ -110,10 +110,6 @@ y23 = KnetArray(reshape(Float32[1 1 1 4 4 4 7 7 7;
 @test isapprox4(unpool(x2; window=3),y23)
 #All possible cases covered
 
-
-
-
-
 info("Testing unpooling (backward pass)...")
 dy1 = KnetArray(reshape(Float32[1 1 0 0;
                                 1 1 0 0;
@@ -151,17 +147,6 @@ xW = KnetArray(reshape(Float32[ 0  0;
 #All possible cases covered
 
 
-
-
-
-
-
-
-
-
-
-
-
 #Deconvolution
 info("Testing deconvolution (forward pass)...")
 y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
@@ -170,26 +155,4 @@ w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1))
 
 @test isapprox4(deconv4(w,x),y)
 
-info("Testing deconvolution (backward pass)...")
-
-#=
-info("Testing Float16...")
-
-#GPU Float64
-w = KnetArray(reshape(Float64[1.0 2.0 3.0 4.0], (2,2)))
-x = KnetArray(reshape(Float64[1.0 1.0 1.0 1.0], (2,2)))
-y = KnetArray(Float64[4.0 4.0; 6.0 6.0])
-@test isapprox4(w*x, y)
-
-#GPU Float32
-w = KnetArray(reshape(Float32[1.0 2.0 3.0 4.0], (2,2)))
-x = KnetArray(reshape(Float32[1.0 1.0 1.0 1.0], (2,2)))
-y = KnetArray(Float32[4.0 4.0; 6.0 6.0])
-@test isapprox4(w*x, y) 
-
-#GPU Float16
-w = KnetArray(reshape(Float16[1.0 2.0 3.0 4.0], (2,2)))
-x = KnetArray(reshape(Float16[1.0 1.0 1.0 1.0], (2,2)))
-y = KnetArray(Float16[4.0 4.0; 6.0 6.0])
-@test isapprox4(w*x, y)
-=#
+#info("Testing deconvolution (backward pass)...")
