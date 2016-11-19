@@ -15,6 +15,7 @@ export gaussian, xavier         # export distributions
 export grad, gradloss, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat, deconv4, unpool
 export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 include("gpu.jl")               # gpu support
+include("gpuh.jl")
 include("kptr.jl")              # KnetPtr
 include("karray.jl")            # KnetArray
 include("cuda1.jl")             # unary operators
