@@ -13,19 +13,14 @@ function cuda44permutedims3Dsrc(f, i1, i2, i3; BLK=256, THR=256)
             print(s,
 """
 __global__ void _$(F)_44($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
-  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimy1*dimy2*dimy3; v += blockDim.x * gridDim.x) {	
-		for (int i = 0; i < dimy1; i++) {
-			for (int j = 0; j < dimy2; j++) {
-				for (int k = 0; k < dimy3; k++) {
-					int destIndex = i + dimy1*j + dimy1*dimy2*k;
-					if (destIndex == v) {
-						int srcIndex = $i1 + dimx1*$i2 + dimx1*dimx2*$i3;
-						y[destIndex] = x[srcIndex];
-						break;
-					}
-				}
-			}
-		}
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimy1*dimy2*dimy3; v += blockDim.x * gridDim.x) {
+
+		int i = v % dimy1;
+		int j = ((v - i) / dimy1) % dimy2;
+		int k = ((v - j * dimy1 - i) / (dimy1 * dimy2)) % dimy3;
+
+		int srcIndex = $i1 + dimx1*$i2 + dimx1*dimx2*$i3;
+		y[v] = x[srcIndex];
 	}
 }
 extern "C" {
