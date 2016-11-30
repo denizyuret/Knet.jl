@@ -45,6 +45,7 @@ Contents
 
 -  `Benchmarks`_
 -  `Function reference`_
+-  `Optimization methods`_
 -  `Under the hood`_
 -  `Contributing`_
 
@@ -589,13 +590,10 @@ listed below.  See ``@doc <function>`` for full details.
 ``update!``   updates the weight depending on the gradient and the parameters of the optimization method
 ============= ==========
 
-The constructors of the supported optimization methods are listed below. ``update!`` can be called using one
-of them to update a weight array as following:
+Optimization methods
+--------------------
 
-::
-
-    prms = Adagrad() # create an instance with default values
-    w, prms = update!(w, g, prms) # w is a weight array and g is the related gradient array
+In the examples above, we used simple SGD as the optimization method and performed parameter updates manually using ``w[i] -= lr * dw[i]``.  The ``update!`` function provides more optimization methods and can be used in place of this manual update.  In addition to a weight array ``w[i]`` and its gradient ``dw[i]``, ``update!`` requires a third argument encapsulating the type, options, and state of the optimization method.  The constructors of the supported optimization methods are listed below.  See ``@doc Sgd`` etc. for full details.  Note that in general we need to keep one of these state variables per weight array, see `optimizers.jl <https://github.com/denizyuret/Knet.jl/blob/master/examples/optimizers.jl>`__ for example usage.
 
 ============= ==========
 ``Sgd``       encapsulates learning rate
@@ -605,6 +603,7 @@ of them to update a weight array as following:
 ``Adadelta``  encapsulates learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)
 ``Rmsprop``   encapsulates learning rate, rho, epsilon and accumulated gradients (G)
 ============= ==========
+
 
 Under the hood
 --------------
