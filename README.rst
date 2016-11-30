@@ -760,11 +760,11 @@ like to contribute to Knet development, check out the
 `knet-dev <https://groups.google.com/forum/#!forum/knet-dev>`__ mailing
 list and `tips for
 developers <http://knet.readthedocs.org/en/latest/install.html#tips-for-developers>`__.
-If you use Knet in your own work, the suggested citation is:
+If you use Knet in your own work, `here is a paper <http://www2.denizyuret.com/bib/yuret/yuret2016knet/knet-beginning-deep%20%283%29.pdf>`__ you can cite:
 
 ::
 
-    @inproceedings{knet,
+    @inproceedings{knet2016mlsys,
       author={Yuret, Deniz},
       title={Knet: beginning deep learning with 100 lines of Julia},
       year={2016},
