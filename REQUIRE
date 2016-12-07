@@ -1,6 +1,6 @@
 # These are required, the rest is optional.
 julia 0.4
-AutoGrad 0.0.3
+AutoGrad 0.0.4
 
 # We need these for some examples:
 # ArgParse
