@@ -12,9 +12,8 @@ for (p,f,o1,o2,o3) =
      (:CharLM, "charlm.jl", "--gcheck 2 --winit 0.01", "--fast", "--fast"),
     )
     gpu() < 0 && p == :LeNet && continue
-    gc()
-    gpu() >= 0 && Knet.knetgc()
     include(f)
     m = eval(:($p.main))
     m(o1); m(o2); m(o3)
+    gc(); gpu() >= 0 && Knet.knetgc()
 end
