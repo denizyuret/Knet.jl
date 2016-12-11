@@ -45,6 +45,7 @@ Contents
 
 -  `Benchmarks`_
 -  `Function reference`_
+-  `Optimization methods`_
 -  `Under the hood`_
 -  `Contributing`_
 
@@ -589,13 +590,10 @@ listed below.  See ``@doc <function>`` for full details.
 ``update!``   updates the weight depending on the gradient and the parameters of the optimization method
 ============= ==========
 
-The constructors of the supported optimization methods are listed below. ``update!`` can be called using one
-of them to update a weight array as following:
+Optimization methods
+--------------------
 
-::
-
-    prms = Adagrad() # create an instance with default values
-    w, prms = update!(w, g, prms) # w is a weight array and g is the related gradient array
+In the examples above, we used simple SGD as the optimization method and performed parameter updates manually using ``w[i] -= lr * dw[i]``.  The ``update!`` function provides more optimization methods and can be used in place of this manual update.  In addition to a weight array ``w[i]`` and its gradient ``dw[i]``, ``update!`` requires a third argument encapsulating the type, options, and state of the optimization method.  The constructors of the supported optimization methods are listed below.  See ``@doc Sgd`` etc. for full details.  Note that in general we need to keep one of these state variables per weight array, see `optimizers.jl <https://github.com/denizyuret/Knet.jl/blob/master/examples/optimizers.jl>`__ for example usage.
 
 ============= ==========
 ``Sgd``       encapsulates learning rate
@@ -605,6 +603,7 @@ of them to update a weight array as following:
 ``Adadelta``  encapsulates learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)
 ``Rmsprop``   encapsulates learning rate, rho, epsilon and accumulated gradients (G)
 ============= ==========
+
 
 Under the hood
 --------------
@@ -760,11 +759,11 @@ like to contribute to Knet development, check out the
 `knet-dev <https://groups.google.com/forum/#!forum/knet-dev>`__ mailing
 list and `tips for
 developers <http://knet.readthedocs.org/en/latest/install.html#tips-for-developers>`__.
-If you use Knet in your own work, the suggested citation is:
+If you use Knet in your own work, `here is a paper <http://www2.denizyuret.com/bib/yuret/yuret2016knet/knet-beginning-deep%20%283%29.pdf>`__ you can cite:
 
 ::
 
-    @inproceedings{knet,
+    @inproceedings{knet2016mlsys,
       author={Yuret, Deniz},
       title={Knet: beginning deep learning with 100 lines of Julia},
       year={2016},
