@@ -76,7 +76,7 @@ end
 
 function predict(w,x,n=length(w)-4)
     for i=1:2:n
-        x = pool(relu(conv4(w[i],x) .+ w[i+1]))
+        x = pool(relu(conv4(w[i],x; padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2
