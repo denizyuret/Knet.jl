@@ -31,8 +31,8 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
 	        p=Cuint[0]
                 # @cuda does not stay quiet so we use ccall here
                 # This code is only run once if successful, so nvmlInit here is ok
-                eval(:(ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()))
-	        eval(:(ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),$p)==0 || error()))
+                ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()
+	            ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),p)==0 || error()
                 # Let us keep nvml initialized for future ops such as meminfo
                 # eval(:(ccall(("nvmlShutdown","libnvidia-ml"),UInt32,())==0 || error()))
 	        Int(p[1])
