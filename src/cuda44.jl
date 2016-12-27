@@ -398,7 +398,7 @@ Here is a description of all available keyword arguments:
 """
 function unpool{T}(x::KnetArray{T}; window=2)
     y = similar(x,updims(x; window=window))
-    Knet.poolx(y,x,x*window^2; window=window,mode=1)
+    Knet.poolx(y,x,x.*window^2; window=window,mode=1)
 end
 
 function unpoolx{T}(dy::KnetArray{T}; window=2)
