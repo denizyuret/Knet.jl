@@ -36,7 +36,7 @@ type Sgd
 	lr::AbstractFloat
 end
 
-Sgd(;lr=0.001) = Sgd(lr)
+Sgd(w=nothing;lr=0.001) = Sgd(lr)
 
 """
 
