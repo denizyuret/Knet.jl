@@ -5,6 +5,8 @@ Optimization
 References
 ----------
 
+* http://videolectures.net/deeplearning2015_goodfellow_network_optimization/ (Ian Goodfellow's tutorial on neural network optimization at Deep Learning Summer School 2015).
+* http://int8.io/comparison-of-optimization-techniques-stochastic-gradient-descent-momentum-adagrad-and-adadelta (implementation and comparison of popular methods)
 * http://www.deeplearningbook.org/contents/numerical.html (basic intro in 4.3)
 * http://www.deeplearningbook.org/contents/optimization.html (8.1 generalization, 8.2 problems, 8.3 algorithms, 8.4 init, 8.5 adaptive lr, 8.6 approx 2nd order, 8.7 meta)
 * http://andrew.gibiansky.com/blog/machine-learning/gauss-newton-matrix/ (great posts on optimization)
