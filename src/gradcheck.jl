@@ -84,3 +84,17 @@ function gc_interval(w,d)
     (w2 > 0 > w) && (w2=zero(w))
     return (w1,w2)
 end
+
+import AutoGrad: backward_pass, forward_pass
+"""
+
+Another version of `grad(f)` which additionally returns `loss`
+
+"""
+function gradloss(fun::Function, argnum::Int=1)
+    #@dbgcore((:grad,fun,argnum))
+    function gradfun(args...; kwargs...)
+        return backward_pass(forward_pass(fun, args, kwargs, argnum)...), fun(args...; kwargs...)
+    end
+    return gradfun
+end
