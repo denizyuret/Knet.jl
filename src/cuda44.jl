@@ -181,7 +181,7 @@ type FD; ptr
 end
 
 type CD; ptr
-    function CD(w::KnetArray,x::KnetArray; padding=padsize(w), stride=1, upscale=1, mode=0)
+    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
@@ -274,9 +274,6 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
         end
     end
 end
-
-# convolution padding size that preserves the input size when filter size is odd and stride=1
-padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 """
 
