@@ -275,6 +275,10 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
     end
 end
 
+# Manually call this function inside your model
+# convolution padding size that preserves the input size when filter size is odd and stride=1
+padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w))
+
 """
 
 mat(x) reshapes x into a two-dimensional matrix.  For 1-D inputs mat
