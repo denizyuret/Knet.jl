@@ -345,26 +345,35 @@ Here is a description of all available keyword arguments:
 * None at the moment.
 
 """
-function deconv4{T}(w::KnetArray{T},x::KnetArray{T})
-    conv4(w,x; padding=dcpad(w,x))
+function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
+    y = similar(x,dcdims(w,x;o...))
+    return conv4x(w,y,x;o...)
 end
 
-function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
-    conv4x(w,x,dy; padding=dcpad(w,x))
+function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4w(w,dy,x;o...)
 end
 
-function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T})
-    conv4w(w,x,dy; padding=dcpad(w,x))
+function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4(w,dy;o...)
 end
 
-@primitive deconv4(w,x),dy,y  deconv4w(w,x,dy)  deconv4x(w,x,dy)
-@zerograd deconv4x(w,x,dy)
-@zerograd deconv4w(w,x,dy)
 
-#Calculates the padding required for deconvolution of w and x
-function dcpad{T,N}(w::KnetArray{T,N},x::KnetArray{T,N})
-    ntuple(N-2) do i
-        size(w,i) - 1
+@primitive deconv4(w,x; o...),dy,y  deconv4w(w,x,dy; o...)  deconv4x(w,x,dy; o...)
+@zerograd deconv4w(w,x,dy; o...)
+@zerograd deconv4x(w,x,dy; o...)
+
+function dcdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o...)
+    ntuple(N) do i
+        if i < N-1
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
+            si*(size(x,i)-1) + size(w,i) - 2*pi
+        elseif i == N-1
+            size(w,N)
+        else # i == N
+            size(x,N)
+        end
     end
 end
 
