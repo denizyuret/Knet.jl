@@ -134,8 +134,14 @@ function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T};
     return dx
 end
 
+function unpool{T}(x::KnetArray{T}; window=2)
+    y = similar(x,updims(x; window=window))
+    Knet.poolx(y,x,x.*window^2; window=window,mode=1)
+end
+
 @primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
 @zerograd  poolx(x,y,dy;o...)
+@primitive unpool(x;o...),dy,y -pool(-dy;o...)
 
 # cudnn descriptors
 
@@ -275,6 +281,19 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
     end
 end
 
+#Calculates the output dimensions of unpool(x)
+function updims{T,N}(x::KnetArray{T,N}; window=2)
+    if !isa(window,Number) error("Window size must be a number!") end
+    if !isa(window,Integer) error("Window size must be an integer!") end
+    ntuple(N) do i
+        if i < N-1
+            size(x,i)*window
+        else
+            size(x,i)
+        end
+    end
+end
+
 # Manually call this function inside your model
 # convolution padding size that preserves the input size when filter size is odd and stride=1
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w))
@@ -376,60 +395,6 @@ function dcdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o
         end
     end
 end
-
-"""
-
-Implements simple upsampling, which can be thought as the 'reverse' of the pooling operation.
-
-`unpool(x; kwargs...)` upsamples input `x`
-
-Example:
-
-Input `x`:
-
-6   14
-
-8   16
-
-Output of `unpool(x)`:
-
-6   6   14  14
-
-6   6   14  14
-
-8   8   16  16
-
-8   8   16  16
-
-Here is a description of all available keyword arguments:
-
-* window: integer upsampling factor. Default=2.
-
-"""
-function unpool{T}(x::KnetArray{T}; window=2)
-    y = similar(x,updims(x; window=window))
-    Knet.poolx(y,x,x.*window^2; window=window,mode=1)
-end
-
-function unpoolx{T}(dy::KnetArray{T}; window=2)
-    -pool(-dy; window=window)
-end
-
-#Calculates the output dimensions of unpool of x
-function updims{T,N}(x::KnetArray{T,N}; window=2)
-    if !isa(window,Number) error("Window size must be a number!") end
-    if !isa(window,Integer) error("Window size must be an integer!") end
-    ntuple(N) do i
-        if i < N-1
-            size(x,i)*window
-        else
-            size(x,i)
-        end
-    end
-end
-
-@primitive unpool(x; o...),dy,y  unpoolx(dy; o...)
-@zerograd unpoolx(dy; o...)
 
 import Base: transpose
 function transpose{T}(x::KnetArray{T})
