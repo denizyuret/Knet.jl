@@ -129,10 +129,10 @@ dy4 = KnetArray(reshape(Float32[0 0 0 0;
                                 0 0 1 1], (4,4,1,1)))
 
 #Gradients should be pool(dy) for the following cases
-@test isapprox4(Knet.unpoolx(dy1), pool(dy1))
-@test isapprox4(Knet.unpoolx(dy2), pool(dy2))
-@test isapprox4(Knet.unpoolx(dy3), pool(dy3))
-@test isapprox4(Knet.unpoolx(dy4), pool(dy4))
+@test isapprox4(-pool(-dy1), pool(dy1))
+@test isapprox4(-pool(-dy2), pool(dy2))
+@test isapprox4(-pool(-dy3), pool(dy3))
+@test isapprox4(-pool(-dy4), pool(dy4))
 
 dyW = KnetArray(reshape(Float32[1 0 0 0;
                                 1 0 0 0;
@@ -143,16 +143,5 @@ xW = KnetArray(reshape(Float32[ 0  0;
 
 #Gradient should be zero for the following case, since the output
 #cant't change like this for x under any condition
-@test isapprox4(Knet.unpoolx(dyW), xW)
+@test isapprox4(-pool(-dyW), xW)
 #All possible cases covered
-
-
-#Deconvolution
-info("Testing deconvolution (forward pass)...")
-y = KnetArray(reshape(Float32[0 10 20 30; 20 110 170 150; 80 290 350 270; 140 370 420 270], (4,4,1,1)))
-x = KnetArray(reshape(Float32[0.0 10.0; 20.0 30.0], (2,2,1,1)))
-w = KnetArray(reshape(Float32[1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], (3,3,1,1)))
-
-@test isapprox4(deconv4(w,x),y)
-
-#info("Testing deconvolution (backward pass)...")
