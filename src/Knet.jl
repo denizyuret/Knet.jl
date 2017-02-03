@@ -28,7 +28,7 @@ include("gradcheck.jl")         # gradient check
 include("update.jl")		# update functions
 include("distributions.jl")     # distributions
 
-export gaussian, xavier         # export distributions
+export gaussian, xavier, bilinear # export distributions
 export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 
 # See if we have a gpu at initialization:
