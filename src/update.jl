@@ -33,10 +33,10 @@ prms.lr = 0.01
 ```
 """
 type Sgd
-	lr::AbstractFloat
+    lr::AbstractFloat
+    Sgd(lr::AbstractFloat)  = new(lr)
+    Sgd(w=nothing;lr=0.001) = new(lr)
 end
-
-Sgd(w=nothing;lr=0.001) = Sgd(lr)
 
 """
 
