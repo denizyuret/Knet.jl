@@ -300,3 +300,58 @@ function mat(x)
     end
 end
 
+
+import Base: transpose
+function transpose{T}(x::KnetArray{T})
+    ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
+    sz = size(x)
+    y = similar(x,(sz[2],sz[1]))
+    if T<:Float32
+        @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    elseif T<:Float64
+        @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    else
+        error("CUBLAS does not support $T")
+    end
+    return y
+end
+
+import Base: permutedims
+function permutedims{T,N}(x::KnetArray{T,N}, dims)
+    length(dims) != ndims(x) && error("Dimensions mismatch")
+    (N < 2 || N > 5) && error("Unsupported number of dimensions")
+
+    funcName = "permutedims$(N)D_"
+    for i=1:N
+        funcName = funcName * "$(dims[i])_"
+    end
+    if T<:Float32
+        funcName = funcName * "32"
+    elseif T<:Float64
+        funcName = funcName * "64"
+    else
+        error("$T not supported")
+    end
+    funcName = funcName * "_44"
+    
+    if N == 2
+        if dims == [1 2]
+            return x
+        elseif dims == [2 1]
+            return transpose(x)
+        end
+    elseif N == 3
+        if dims == [1 2 3]
+            return x
+        else
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                                                    $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
+            return y
+        end
+    elseif N == 4 || N == 5
+        error("Not yet implemented")
+    end
+end
