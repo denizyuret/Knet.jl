@@ -395,3 +395,21 @@ function rng(init=false)
 end
 end
 
+# Array/KnetArray Transfer
+"""
+Transfer from regular array to KnetArray 
+"""
+function cpu2gpu(x::Array)
+    KnetArray(x)
+end
+
+@primitive cpu2gpu(x),dy,y (gpu2cpu(dy))
+
+"""
+Transfer from KnetArray to regular array
+"""
+function gpu2cpu(x::KnetArray)
+    Array(x)
+end
+
+@primitive gpu2cpu(x),dy,y (cpu2gpu(dy))
