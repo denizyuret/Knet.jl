@@ -137,6 +137,42 @@ end
 @primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
 @zerograd  poolx(x,y,dy;o...)
 
+"""
+
+Unpooling; `reverse` of pooling.
+
+"""
+function unpool{T}(x::KnetArray{T}; window=2)
+    y = similar(x,updims(x; window=window))
+    Knet.poolx(y,x,x.*window^2; window=window,mode=1)
+end
+
+@primitive unpool(x;o...),dy,y -pool(-dy;o...)
+
+
+"""
+
+Deconvolution; `reverse` of convolution.
+
+"""
+function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
+    y = similar(x,dcdims(w,x;o...))
+    return conv4x(w,y,x;o...)
+end
+
+function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4w(w,dy,x;o...)
+end
+
+function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4(w,dy;o...)
+end
+
+
+@primitive deconv4(w,x; o...),dy,y  deconv4w(w,x,dy; o...)  deconv4x(w,x,dy; o...)
+@zerograd deconv4w(w,x,dy; o...)
+@zerograd deconv4x(w,x,dy; o...)
+
 # cudnn descriptors
 
 type TD; ptr
@@ -269,6 +305,32 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
             pi = (if isa(padding,Number); padding; else padding[i]; end)
             si = (if isa(stride,Number); stride; else stride[i]; end)
             1 + div(size(x,i) + 2*pi - wi, si)
+        else
+            size(x,i)
+        end
+    end
+end
+
+function dcdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o...)
+    ntuple(N) do i
+        if i < N-1
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
+            si*(size(x,i)-1) + size(w,i) - 2*pi
+        elseif i == N-1
+            size(w,N)
+        else
+            size(x,N)
+        end
+    end
+end
+
+function updims{T,N}(x::KnetArray{T,N}; window=2)
+    if !isa(window,Number) error("Window size must be a number!") end
+    if !isa(window,Integer) error("Window size must be an integer!") end
+    ntuple(N) do i
+        if i < N-1
+            size(x,i)*window
         else
             size(x,i)
         end
