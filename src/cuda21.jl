@@ -16,9 +16,13 @@ function cuda21def(f, j=f, o...)
         F = "$(f)_$(S)_21"
         @eval begin
             function $J(x::KnetArray{$T}, region)
-                if length(region) == ndims(x)
-                    return fill!(similar(x,ntuple(i->1,ndims(x))), $J(x))
-                elseif length(region) == ndims(x)-1
+                rdims = Base.reduced_dims(size(x), region)
+                vdims = count(x->x>1,rdims)
+                if rdims == size(x)
+                    return copy(x)
+                elseif vdims == 0
+                    return fill!(similar(x,rdims), $J(x))
+                elseif vdims == 1
                     i0 = 0
                     ysize = ntuple(ndims(x)) do i
                         if in(i,region)
@@ -75,3 +79,16 @@ end
 
 @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
 
+"""
+logsumexp(x,[dims]) computes log(sum(exp(x),dims)) in a numerically
+stable manner.  `dims` is an optional argument, if not specified the
+summation is over the whole x, otherwise the summation is performed
+over the given dimensions.  In particular dims=1 sums columns of x and
+dims=2 sums rows of x.
+"""
+function logsumexp(x,d...)
+    xmax = maximum(x,d...)
+    xmax + log(sum(exp(x .- xmax),d...))
+end
+
+@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
