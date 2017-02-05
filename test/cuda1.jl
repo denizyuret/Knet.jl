@@ -1,34 +1,35 @@
-using Knet
-libknet8handle = Libdl.dlopen(Knet.libknet8)
+using Base.Test, Knet
 
-SIZE = 100000
-ITER = 100000
-x32 = KnetArray(rand(Float32,SIZE))
-y32 = similar(x32)
-x64 = KnetArray(rand(Float64,SIZE))
-y64 = similar(x64)
-
-function cuda1test(fname, jname=fname, o...)
-    println(fname)
-    fcpu = eval(parse(jname))
-    f32 = Libdl.dlsym(libknet8handle, fname*"_32")
-    @time cuda1rep(f32,x32,y32)
-    isapprox(Array(y32),fcpu(Array(x32))) || warn("$fname 32")
-    f64 = Libdl.dlsym(libknet8handle, fname*"_64")
-    @time cuda1rep(f64,x64,y64)
-    isapprox(Array(y64),fcpu(Array(x64))) || warn("$fname 64")
-end
-
-function cuda1rep{T}(f,x::KnetArray{T},y::KnetArray{T})
-    n = Cint(length(y))
-    for i=1:ITER
-        ccall(f,Void,(Cint,Ptr{T},Ptr{T}),n,x,y)
-    end
-    Knet.@cuda(cudart,cudaDeviceSynchronize,())
-    Knet.@cuda(cudart,cudaGetLastError,())
-end
-
+cuda1flist = Any[]
 for f in Knet.cuda1
-    isa(f,Tuple) || (f=(f,))
-    cuda1test(f...)
+    if isa(f,Tuple); f=f[2]; end
+    push!(cuda1flist, eval(parse(f)))
 end
+push!(cuda1flist, logp)
+push!(cuda1flist, x->isa(x,Number)?zero(x):logp(x,1))
+push!(cuda1flist, x->isa(x,Number)?zero(x):logp(x,2))
+
+@testset "cuda1" begin
+    for t in (Float32, Float64)
+        sx = exp(rand(t))
+        for n in (1,(1,1),2,(2,1),(1,2),(2,2))
+            ax = exp(rand(t,n))
+            if gpu() >= 0; gx = KnetArray(ax); end
+            for f in cuda1flist
+                # @show t,n,f
+                @test gradcheck(f, ax)
+                @test gradcheck(f, sx)
+                @test isa(f(sx),t)
+                if gpu() >= 0
+                    cy = f(ax)
+                    gy = f(gx)
+                    @test isapprox(cy,Array(gy))
+                    @test gradcheck(f, gx)
+                end
+            end
+        end
+    end
+end # cuda1
+
+nothing
+
