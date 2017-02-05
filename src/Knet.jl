@@ -11,7 +11,7 @@ Knet.dir("examples","mnist.jl") => "/home/dyuret/.julia/v0.5/Knet/examples/mnist
 """
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
-export grad, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat
+export grad, gradloss, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat
 include("gpu.jl")               # gpu support
 include("kptr.jl")              # KnetPtr
 include("karray.jl")            # KnetArray
