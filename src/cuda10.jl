@@ -93,6 +93,8 @@ min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
 
 .=={T}(a::KnetArray{T},s::Number)=(T(s).==a)
 .=={T}(s::Number,a::KnetArray{T})=(T(s).==a)
+.!={T}(a::KnetArray{T},s::Number)=(T(s).!=a)
+.!={T}(s::Number,a::KnetArray{T})=(T(s).!=a)
 .>{T}(a::KnetArray{T},s::Number)=(T(s).<a)
 .>{T}(s::Number,a::KnetArray{T})=(T(s).>a)
 .>={T}(a::KnetArray{T},s::Number)=(T(s).<=a)

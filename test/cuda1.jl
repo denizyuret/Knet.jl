@@ -1,7 +1,7 @@
 using Base.Test, Knet
 
 function frand(f,t,d...)
-    r = clamp(rand(t,d...),t(0.1),t(0.9))
+    r = rand(t,d...)*t(0.8)+t(0.1)
     if in(f,(acosh,asec))
         return 1 ./ r
     else
