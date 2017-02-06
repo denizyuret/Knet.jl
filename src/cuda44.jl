@@ -134,6 +134,9 @@ function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T};
     return dx
 end
 
+@primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
+@zerograd  poolx(x,y,dy;o...)
+
 """
 
 Unpooling; `reverse` of pooling.
@@ -334,9 +337,8 @@ function updims{T,N}(x::KnetArray{T,N}; window=2)
     end
 end
 
-# Manually call this function inside your model
 # convolution padding size that preserves the input size when filter size is odd and stride=1
-padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w))
+padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 """
 
@@ -359,6 +361,7 @@ function mat(x)
         throw(MethodError(mat,x))
     end
 end
+
 
 import Base: transpose
 function transpose{T}(x::KnetArray{T})
