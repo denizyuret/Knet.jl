@@ -19,8 +19,7 @@ include("kptr.jl")              # KnetPtr
 include("karray.jl")            # KnetArray
 include("cuda1.jl")             # unary operators
 include("cuda10.jl")            # array,scalar->array
-include("cuda11.jl")            # array,array->array (elementwise, same shape)
-include("cuda12.jl")            # array,array->array (broadcasting)
+include("cuda11.jl")            # array,array->array (elementwise broadcasting)
 include("cuda20.jl")            # array->scalar (reductions)
 include("cuda21.jl")            # array->vector (reductions)
 include("cuda22.jl")            # array,array->array (linear algebra)
