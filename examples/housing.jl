@@ -53,7 +53,7 @@ Repository."
             train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
             report(epoch)
             if o[:gcheck] > 0
-                gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck])
+                gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck], verbose=true)
             end
         end
     end

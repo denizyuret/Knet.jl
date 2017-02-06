@@ -21,12 +21,12 @@ push!(cuda1flist, x->isa(x,Number)?zero(x):logp(x,2))
 @testset "cuda1" begin
     for f in cuda1flist
         for t in (Float32, Float64)
-            @show f,t
+            # @show f,t
             sx = frand(f,t)
             @test isa(f(sx),t)
             @test gradcheck(f, sx; rtol=0.01)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                @show f,t,n
+                # @show f,t,n
                 ax = frand(f,t,n)
                 @test gradcheck(f, ax; rtol=0.01)
                 if gpu() >= 0

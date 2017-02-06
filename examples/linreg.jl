@@ -47,7 +47,7 @@ function main(args=ARGS)
             w = train(w, data; epochs=1, lr=o[:lr])
             println((:epoch,epoch,:loss,test(w,data)))
             if o[:gcheck] > 0
-                gradcheck(loss, w, first(data)...; gcheck=o[:gcheck])
+                gradcheck(loss, w, first(data)...; gcheck=o[:gcheck], verbose=true)
             end
         end
     end

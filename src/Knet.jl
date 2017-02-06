@@ -11,7 +11,8 @@ Knet.dir("examples","mnist.jl") => "/home/dyuret/.julia/v0.5/Knet/examples/mnist
 """
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
-export grad, gradloss, KnetArray, gradcheck, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat, cpu2gpu, gpu2cpu, deconv4, unpool
+export KnetArray, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat, cpu2gpu, gpu2cpu, deconv4, unpool
+export grad, gradloss, gradcheck # from AutoGrad
 
 include("gpu.jl")               # gpu support
 include("kptr.jl")              # KnetPtr
@@ -25,9 +26,8 @@ include("cuda20.jl")            # array->scalar (reductions)
 include("cuda21.jl")            # array->vector (reductions)
 include("cuda22.jl")            # array,array->array (linear algebra)
 include("cuda44.jl")            # convolution and pooling
-include("gradcheck.jl")         # gradient check
-include("update.jl")		        # update functions
-include("distributions.jl")     # distributions
+include("update.jl")		# update functions
+include("distributions.jl")     # distributions for weight init
 
 export gaussian, xavier, bilinear # export distributions
 export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!

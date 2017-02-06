@@ -1,8 +1,7 @@
 # cuda1: Array->Array
 
-# import Base: sqrt, exp, log, sin, cos, tanh, -, abs, abs2, sign
-
 # The following list comes from the NVIDIA math docs with some extras.
+# http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
 # The entry format is (cudaname, julianame, kernelcode)
 # With single name entries cudaname=julianame and kernelcode=name(xi).
 # I commented out functions if I don't know the Julia equivalent.
