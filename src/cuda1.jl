@@ -1,4 +1,4 @@
-import Base: sqrt, exp, log, sin, tanh, -, abs, abs2, sign
+import Base: sqrt, exp, log, sin, cos, tanh, -, abs, abs2, sign
 
 cuda1 = [
 "sqrt",
@@ -14,7 +14,7 @@ cuda1 = [
 # "log10",
 # "log1p",
 "sin",
-# "cos",
+"cos",
 # "tan",
 # "sinpi",
 # "cospi",
@@ -87,14 +87,15 @@ end
 # 1. Avoid creating intermediate arrays
 # 2. Avoid taking derivatives of intermediate operations
 
-for (f,g,y,dx) in ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
-                   (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
-                   (:sigm, :sigmback, 
-                    # Numerically stable implementation from http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
-                    :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
-                    :(dyi*yi*(one(T)-yi))),
-                   (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
-                   )
+for (f,g,y,dx) in
+    ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
+     (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+     (:sigm, :sigmback, 
+      # Numerically stable implementation from http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
+      :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
+      :(dyi*yi*(one(T)-yi))),
+     (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
+     )
     @eval begin
         function $f{T<:AbstractFloat}(x::Array{T})
             y = similar(x)
@@ -154,23 +155,27 @@ normalizes rows of x.
 
 """
 function logp(x,d...)
-    x = x .- maximum(x,d...)
-    x = x .- log(sum(exp(x),d...))
+    if isa(x,Number)
+        return zero(x)
+    elseif isempty(x)
+        return x
+    else
+        x = x .- maximum(x,d...)
+        return (x .- log(sum(exp(x),d...)))
+    end
+end
+
+function logpback(x,y,dy,d...)
+    x = AutoGrad.getval(x)
+    if isa(x,Number)
+        return zero(x)
+    elseif isempty(x)
+        return x
+    else
+        return (dy - exp(y).*sum(dy,d...))
+    end
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  logp(x,d...),dy,y  (dy - exp(y).*sum(dy,d...))
+@primitive  logp(x,d...),dy,y  logpback(x,y,dy,d...)
 
-"""
-logsumexp(x,[dims]) computes log(sum(exp(x),dims)) in a numerically
-stable manner.  `dims` is an optional argument, if not specified the
-summation is over the whole x, otherwise the summation is performed
-over the given dimensions.  In particular dims=1 sums columns of x and
-dims=2 sums rows of x.
-"""
-function logsumexp(x,d...)
-    xmax = maximum(x,d...)
-    xmax + log(sum(exp(x .- xmax),d...))
-end
-
-@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))

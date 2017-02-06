@@ -1,36 +1,44 @@
-#Generate a Gaussian distribution with specified mean and standard deviation
 function gaussian(a...; mean=0.0, std=0.01)
 	return randn(a...) * std + mean;
 end
 
-#Taken from "examples/lenet.jl"
 function xavier(a...)
     w = rand(a...)
-     # The old implementation was not right for fully connected layers:
-     # (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
     if ndims(w) < 2
         error("ndims=$(ndims(w)) in xavier")
     elseif ndims(w) == 2
         fanout = size(w,1)
         fanin = size(w,2)
     else
-        fanout = size(w, ndims(w)) # Caffe disagrees: http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details
+        fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    # See: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
     s = sqrt(2 / (fanin + fanout))
     w = 2s*w-s
 end
 
 """
 
-Used for initializing deconvolution layers.
+Bilinear interpolation filter weights; used for initializing deconvolution layers.
 
 Adapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33
 
+Arguments:
+
+`T` : Data Type
+
+`fw`: Width upscale factor
+
+`fh`: Height upscale factor
+
+`IN`: Number of input filters
+
+`ON`: Number of output filters
+
+
 Example usage:
 
-w = bilinear(Float32,2,2,2,2)
+w = bilinear(Float32,2,2,128,128)
 
 """
 function bilinear(T,fw,fh,IN,ON)

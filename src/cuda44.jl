@@ -134,14 +134,41 @@ function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T};
     return dx
 end
 
+"""
+
+Unpooling; `reverse` of pooling.
+
+"""
 function unpool{T}(x::KnetArray{T}; window=2)
     y = similar(x,updims(x; window=window))
     Knet.poolx(y,x,x.*window^2; window=window,mode=1)
 end
 
-@primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
-@zerograd  poolx(x,y,dy;o...)
 @primitive unpool(x;o...),dy,y -pool(-dy;o...)
+
+
+"""
+
+Deconvolution; `reverse` of convolution.
+
+"""
+function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
+    y = similar(x,dcdims(w,x;o...))
+    return conv4x(w,y,x;o...)
+end
+
+function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4w(w,dy,x;o...)
+end
+
+function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
+    return conv4(w,dy;o...)
+end
+
+
+@primitive deconv4(w,x; o...),dy,y  deconv4w(w,x,dy; o...)  deconv4x(w,x,dy; o...)
+@zerograd deconv4w(w,x,dy; o...)
+@zerograd deconv4x(w,x,dy; o...)
 
 # cudnn descriptors
 
@@ -281,7 +308,20 @@ function pdims{T,N}(x::KnetArray{T,N}; window=2, padding=0, stride=window, o...)
     end
 end
 
-#Calculates the output dimensions of unpool(x)
+function dcdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o...)
+    ntuple(N) do i
+        if i < N-1
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
+            si*(size(x,i)-1) + size(w,i) - 2*pi
+        elseif i == N-1
+            size(w,N)
+        else
+            size(x,N)
+        end
+    end
+end
+
 function updims{T,N}(x::KnetArray{T,N}; window=2)
     if !isa(window,Number) error("Window size must be a number!") end
     if !isa(window,Integer) error("Window size must be an integer!") end
@@ -317,82 +357,6 @@ function mat(x)
         reshape(x, (length(x),1))
     else
         throw(MethodError(mat,x))
-    end
-end
-
-
-"""
-
-Implements deconvolution, which can be thought as the 'reverse' of the convolution operation.
-
-`deconv4(w,x; kwargs...)` deconvolves `w` and `x`
-
-Example:
-
-Input `x`:
-
-0   10
-
-20  30
-
-Filter `w`:
-
-1   2   3
-
-4   5   6
-
-7   8   9
-
-Output of `deconv4(w,x)`:
-
-0   10  20  30
-
-20  110 170 150
-
-80  290 350 270
-
-140 370 420 270
-
-How is `deconv4(w,x)` calculated ?
-
-Calculate `conv4(w,x; padding=filterSize-1)`
-
-There is a better way (switch forward and backward passes), but this is the easiest...
-
-Here is a description of all available keyword arguments:
-
-* None at the moment.
-
-"""
-function deconv4{T}(w::KnetArray{T},x::KnetArray{T}; o...)
-    y = similar(x,dcdims(w,x;o...))
-    return conv4x(w,y,x;o...)
-end
-
-function deconv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
-    return conv4w(w,dy,x;o...)
-end
-
-function deconv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; o...)
-    return conv4(w,dy;o...)
-end
-
-
-@primitive deconv4(w,x; o...),dy,y  deconv4w(w,x,dy; o...)  deconv4x(w,x,dy; o...)
-@zerograd deconv4w(w,x,dy; o...)
-@zerograd deconv4x(w,x,dy; o...)
-
-function dcdims{T,N}(w::KnetArray{T,N},x::KnetArray{T,N}; padding=0, stride=1, o...)
-    ntuple(N) do i
-        if i < N-1
-            pi = (if isa(padding,Number); padding; else padding[i]; end)
-            si = (if isa(stride,Number); stride; else stride[i]; end)
-            si*(size(x,i)-1) + size(w,i) - 2*pi
-        elseif i == N-1
-            size(w,N)
-        else # i == N
-            size(x,N)
-        end
     end
 end
 

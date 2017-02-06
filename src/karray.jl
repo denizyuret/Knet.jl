@@ -62,7 +62,7 @@ pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, elsize, eltype, endof, fill!, first, length, linearindexing, ndims, ones, similar, size, stride, zeros
+import Base: eachindex, elsize, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, zeros
 eachindex(a::KnetArray) = (1:length(a))
 elsize{T}(::KnetArray{T}) = sizeof(T)
 eltype{T}(::KnetArray{T})=T
@@ -71,6 +71,7 @@ eltype{T,n}(::Type{KnetArray{T,n}}) = T
 endof(a::KnetArray) = length(a)
 fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
 first(a::KnetArray) = a[1]
+isempty(a::KnetArray) = (0==length(a))
 length(a::KnetArray)=prod(size(a))
 linearindexing(::KnetArray)=LinearFast()
 ndims{T,N}(a::KnetArray{T,N})=N
@@ -395,3 +396,21 @@ function rng(init=false)
 end
 end
 
+# Array/KnetArray Transfer
+"""
+Transfer from regular array to KnetArray 
+"""
+function cpu2gpu(x::Array)
+    KnetArray(x)
+end
+
+@primitive cpu2gpu(x),dy,y (gpu2cpu(dy))
+
+"""
+Transfer from KnetArray to regular array
+"""
+function gpu2cpu(x::KnetArray)
+    Array(x)
+end
+
+@primitive gpu2cpu(x),dy,y (cpu2gpu(dy))

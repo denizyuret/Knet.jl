@@ -1,6 +1,6 @@
 # Elementwise binary functions for arrays of the same size
 
-import Base: .+, .-, .*, ./, .^, max, min, .==, .>, .>=, .<, .<=, +, -
+import Base: .+, .-, .*, ./, .^, max, min, .==, .!=, .>, .>=, .<, .<=, +, -
 
 cuda11 = [
 ("add",".+","xi+yi"),
@@ -11,6 +11,7 @@ cuda11 = [
 ("max","max","(xi>yi?xi:yi)"),
 ("min","min","(xi<yi?xi:yi)"),
 ("eq",".==","xi==yi"),
+("ne",".!=","xi!=yi"),
 ("gt",".>","xi>yi"),
 ("ge",".>=","xi>=yi"),
 ("lt",".<","xi<yi"),
