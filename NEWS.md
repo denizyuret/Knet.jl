@@ -9,10 +9,12 @@ General
 * cpu2gpu, gpu2cpu primitives with gradients in karray.jl (@ereday).
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
+* KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
 
 Documentation and Testing
 -------------------------
 * New links added to opt and rl docs.
+* gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
 
 Examples
 --------
