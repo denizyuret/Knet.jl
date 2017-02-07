@@ -60,7 +60,7 @@ function main(args=ARGS)
             train(w, dtrn; lr=o[:lr], epochs=1)
             report(epoch)
             if o[:gcheck] > 0
-                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck])
+                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)
             end
         end
     end

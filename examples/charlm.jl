@@ -128,7 +128,7 @@ function train!(model, text, vocab, o)
         @time losses = map(d->loss(model,copy(s0),d), data)
         println((:epoch,epoch,:loss,losses...))
         if o[:gcheck] > 0
-            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck])
+            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck], verbose=true)
         end
         devloss = losses[devset]
         if devloss < devbest
