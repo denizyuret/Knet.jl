@@ -1,10 +1,9 @@
 using Base.Test, Knet
-using Knet: reduction_ops, xentloss
+using Knet: reduction_ops
 
-rand21(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
+rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 
-#TODO: reduction_fns = Any[norm,vecnorm,xentloss,logsumexp]
-reduction_fns = Any[]
+reduction_fns = Any[logsumexp]
 for f in reduction_ops
     if isa(f,Tuple); f=f[2]; end
     push!(reduction_fns, eval(parse(f)))
@@ -14,7 +13,7 @@ end
     for f in reduction_fns
         for t in (Float32, Float64)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                @show f,t,n
+                # @show f,t,n
                 ax = rand21(f,t,n)
                 @test gradcheck(f, ax)
                 @test gradcheck(f, ax, 1)
@@ -28,6 +27,24 @@ end
                     @test isapprox(f(ax,1),Array(f(gx,1)))
                     @test isapprox(f(ax,2),Array(f(gx,2)))
                 end
+            end
+        end
+    end
+end
+
+@testset "vecnorm" begin
+    f = vecnorm
+    for t in (Float32, Float64)
+        for n in (1,(1,1),2,(2,1),(1,2),(2,2))
+            ax = rand21(f,t,n)
+            for p in (0,1,2,Inf,-Inf,1/pi,-1/pi,0+pi,-pi)
+                # @show f,t,n,p
+                @test gradcheck(f, ax, p)
+                if gpu() >= 0
+                    gx = KnetArray(ax)
+                    @test gradcheck(f, gx, p)
+                    @test isapprox(f(ax,p), f(gx,p))
+                end            
             end
         end
     end

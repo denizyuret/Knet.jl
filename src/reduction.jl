@@ -28,9 +28,7 @@ function reduction_op(f, j=f, o...)
             function $J(x::KnetArray{$T}, region)
                 rdims = Base.reduced_dims(size(x), region)
                 vdims = count(x->x>1,rdims)
-                if rdims == size(x)
-                    return copy(x)
-                elseif vdims == 0
+                if vdims == 0   # falls back to Array->Scalar reduction
                     return fill!(similar(x,rdims), $J(x))
                 elseif vdims == 1
                     i0 = 0
@@ -61,6 +59,11 @@ for f in reduction_ops
     reduction_op(f...)
 end
 
+# This is missing from Base:
+import Base: countnz
+countnz{T}(a::AbstractArray{T},region)=Array{T}(sum(a.!=0,region))
+@zerograd countnz(a,d...)
+
 # Norm primitives:
 
 import Base.LinAlg: norm, vecnorm
@@ -85,33 +88,6 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
     end
 end
 
-# The xentloss interface is no good because of double normalization.
-
-"""
-xentloss(x, p [,dims])
-
-Compute cross-entropy loss for unnormalized log probability estimates
-x and normalized probabilities p normalizing over the given
-dimensions.  By default normalization is over the whole array, dims=1
-normalizes over the columns, dims=2 normalizes over the rows of a 2-D
-array.
-
-"""
-function xentloss(x,p,d...)
-    x = x .- maximum(x,d...)
-    z = log(sum(exp(x),d...))
-    return sum(p .* (x .- z)) / length(z)
-end
-
-function xentback(x,p,d...)
-    x = x .- maximum(x,d...)
-    x = exp(x)
-    z = sum(x,d...)
-    return x./z - p
-end
-
-@primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
-
 """
 logsumexp(x,[dims]) computes log(sum(exp(x),dims)) in a numerically
 stable manner.  `dims` is an optional argument, if not specified the
@@ -125,4 +101,31 @@ function logsumexp(x,d...)
 end
 
 @primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
+
+# # The xentloss interface is no good because of double normalization.
+
+# """
+# xentloss(x, p [,dims])
+
+# Compute cross-entropy loss for unnormalized log probability estimates
+# x and normalized probabilities p normalizing over the given
+# dimensions.  By default normalization is over the whole array, dims=1
+# normalizes over the columns, dims=2 normalizes over the rows of a 2-D
+# array.
+
+# """
+# function xentloss(x,p,d...)
+#     x = x .- maximum(x,d...)
+#     z = log(sum(exp(x),d...))
+#     return sum(p .* (x .- z)) / length(z)
+# end
+
+# function xentback(x,p,d...)
+#     x = x .- maximum(x,d...)
+#     x = exp(x)
+#     z = sum(x,d...)
+#     return x./z - p
+# end
+
+# @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
 
