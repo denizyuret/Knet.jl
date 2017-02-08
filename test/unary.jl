@@ -1,4 +1,5 @@
 using Base.Test, Knet
+using Knet: unary_ops
 
 function frand(f,t,d...)
     r = rand(t,d...)*t(0.8)+t(0.1)
@@ -9,32 +10,32 @@ function frand(f,t,d...)
     end
 end
 
-cuda1flist = Any[]
-for f in Knet.cuda1
+unary_fns = Any[]
+for f in unary_ops
     if isa(f,Tuple); f=f[2]; end
-    push!(cuda1flist, eval(parse(f)))
+    push!(unary_fns, eval(parse(f)))
 end
-push!(cuda1flist, logp)
-push!(cuda1flist, x->isa(x,Number)?zero(x):logp(x,1))
-push!(cuda1flist, x->isa(x,Number)?zero(x):logp(x,2))
+push!(unary_fns, logp)
+push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,1))
+push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
 
-@testset "cuda1" begin
-    for f in cuda1flist
+@testset "unary" begin
+    for f in unary_fns
         for t in (Float32, Float64)
             # @show f,t
             sx = frand(f,t)
             @test isa(f(sx),t)
-            @test gradcheck(f, sx; rtol=0.01)
+            @test gradcheck(f, sx)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
                 # @show f,t,n
                 ax = frand(f,t,n)
-                @test gradcheck(f, ax; rtol=0.01)
+                @test gradcheck(f, ax)
                 if gpu() >= 0
                     gx = KnetArray(ax)
                     cy = f(ax)
                     gy = f(gx)
                     @test isapprox(cy,Array(gy))
-                    @test gradcheck(f, gx; rtol=0.01)
+                    @test gradcheck(f, gx)
                 end
             end
         end

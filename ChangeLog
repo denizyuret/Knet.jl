@@ -1,3 +1,21 @@
+2017-02-07  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* src/Makefile (CFLAGS): code refactoring:
+
+	Function lists (cuda??.jl) and cuda code generators
+	(cuda??_gen.jl) do not go well together.  The reason is the same
+	function list (e.g. binary array ops) are used by more than one
+	type of cuda kernel (same size vs broadcasting kernels).  It makes
+	more sense to collect function lists in semantically named files
+	(unary, broadcasting, reduce etc.).
+
+	cuda1: abs2,abs,acos,... => unary
+	cuda10: add,sub,mul,...  => broadcast
+	cuda11: add,sub,mul,...
+	cuda12: add,sub,mul,...
+	cuda20: sum,prod,...     => reduction
+	cuda21: sum,prod,...
+
 2016-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO8:

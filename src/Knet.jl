@@ -18,13 +18,11 @@ include("gpu.jl")               # gpu support
 include("gpuh.jl")
 include("kptr.jl")              # KnetPtr
 include("karray.jl")            # KnetArray
-include("cuda1.jl")             # unary operators
-include("cuda10.jl")            # array,scalar->array
-include("cuda11.jl")            # array,array->array (elementwise broadcasting)
-include("cuda20.jl")            # array->scalar (reductions)
-include("cuda21.jl")            # array->vector (reductions)
-include("cuda22.jl")            # array,array->array (linear algebra)
-include("cuda44.jl")            # convolution and pooling
+include("unary.jl")             # unary operators
+include("broadcast.jl")         # elementwise broadcasting operations
+include("reduction.jl")         # scalar or vector reductions
+include("linalg.jl")            # linear algebra functions
+include("conv.jl")              # convolution and pooling
 include("update.jl")		# update functions
 include("distributions.jl")     # distributions for weight init
 
