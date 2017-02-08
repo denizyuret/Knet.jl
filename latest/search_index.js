@@ -85,7 +85,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Introduction to Knet",
     "category": "section",
-    "text": "(Image: ) (Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and the examples directory for more information. If you use Knet in academic work, here is a paper about Knet:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}"
+    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and the examples directory for more information. If you use Knet in academic work, here is a paper about Knet:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}"
 },
 
 {
