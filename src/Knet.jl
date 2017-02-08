@@ -15,7 +15,7 @@ export KnetArray, gpu, relu, sigm, invx, logp, logsumexp, conv4, pool, mat, cpu2
 export grad, gradloss, gradcheck # from AutoGrad
 
 include("gpu.jl")               # gpu support
-include("gpuh.jl")
+#include("gpuh.jl")
 include("kptr.jl")              # KnetPtr
 include("karray.jl")            # KnetArray
 include("unary.jl")             # unary operators
