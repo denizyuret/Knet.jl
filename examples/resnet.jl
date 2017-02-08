@@ -62,7 +62,8 @@ function main(args)
         162 => (resnet50, "resnet50"),
         314 => (resnet101, "resnet101"),
         467 => (resnet152, "resnet152"))
-    resnet, name = get(modeldict, length(w), resnet101)
+    !haskey(modeldict, length(w)) && error("wrong resnet MAT file")
+    resnet, name = modeldict[length(w)]
 
     info("Classifying with ", name)
     @time y1 = resnet(w,img,ms)
