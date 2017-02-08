@@ -1,20 +1,19 @@
 Introduction to Knet
 ====================
 
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://denizyuret.github.io/Knet.jl/stable)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
-[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 [![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
 [![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 
-[Knet](http://knet.rtfd.org) (pronounced "kay-net") is the [Koç
+[Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced "kay-net") is the [Koç
 University](http://www.ku.edu.tr/en) deep learning framework
-implemented in [Julia](http://julia.rtfd.org) by [Deniz
+implemented in [Julia](http://docs.julialang.org) by [Deniz
 Yuret](http://www.denizyuret.com) and collaborators.  It supports GPU
 operation and automatic differentiation using dynamic computational
 graphs for models defined in plain Julia.  This document is a tutorial
 introduction to Knet.  Check out the [full
-documentation](http://denizyuret.github.io/Knet.jl) and the [examples
+documentation](https://denizyuret.github.io/Knet.jl/latest) and the [examples
 directory](https://github.com/denizyuret/Knet.jl/tree/master/examples)
 for more information. If you use Knet in academic work, [here is a
 paper](https://goo.gl/zeUBFr) about Knet:
