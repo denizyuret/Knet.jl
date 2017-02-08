@@ -209,19 +209,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Standard-Library-1",
-    "page": "Reference",
-    "title": "Standard Library",
-    "category": "section",
-    "text": "Julia standard library functions supported by KnetArrays."
-},
-
-{
     "location": "reference.html#Function-reference-1",
     "page": "Reference",
     "title": "Function reference",
     "category": "section",
-    "text": "We implement machine learning models in Knet using regular Julia code and the grad function. Knet defines a few more utility functions listed below. See @doc <function> for full details.function description\ngrad returns the gradient function.\nKnetArray constructs a GPU array.\ngradcheck compares gradients with numeric approximations.\nKnet.dir returns a path relative to Knet root.\ngpu determines which GPU Knet uses.\nrelu returns max(0,x)\nsigm returns (1./(1+exp(-x)))\ninvx returns (1./x)\nlogp returns x .- log(sum(exp(x),[dims]))\nlogsumexp returns log(sum(exp(x),[dims]))\nconv4 executes convolutions or cross-correlations.\npool replaces several adjacent values with their mean or maximum.\nmat reshapes its input into a two-dimensional matrix.\nupdate! updates the weight depending on the gradient and the parameters of the optimization method<!–- TODO: move this to reference.md, add @ref to fns, add new fns. –>"
+    "text": "We implement machine learning models in Knet using regular Julia code and the grad function. Knet defines a few more utility functions listed below. See @doc <function> for full details.function description\nKnet.dir returns a path relative to Knet root.\nKnetArray constructs a GPU array.\nconv4 executes convolutions or cross-correlations.\ncpu2gpu copies Array to KnetArray\ndeconv4 reverse of convolution\ngpu determines which GPU Knet uses.\ngpu2cpu copies KnetArray to Array\ngrad returns the gradient function.\ngradcheck compares gradients with numeric approximations.\ngradloss version of grad that returns gradient and loss.\ninvx returns (1./x)\nlogp returns x .- log(sum(exp(x),[dims]))\nlogsumexp returns log(sum(exp(x),[dims]))\nmat reshapes its input into a two-dimensional matrix.\npool replaces several adjacent values with their mean or maximum.\nrelu returns max(0,x)\nsigm returns (1./(1+exp(-x)))\nunpool reverse of pooling\nupdate! updates the weight depending on the gradient and the parameters of the optimization method"
 },
 
 {
@@ -229,183 +221,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Optimization methods",
     "category": "section",
-    "text": "In the examples above, we used simple SGD as the optimization method and performed parameter updates manually using w[i] -= lr * dw[i]. The update! function provides more optimization methods and can be used in place of this manual update. In addition to a weight array w[i] and its gradient dw[i], update! requires a third argument encapsulating the type, options, and state of the optimization method. The constructors of the supported optimization methods are listed below. See @doc Sgd etc. for full details. Note that in general we need to keep one of these state variables per weight array, see optimizers.jl for example usage.optimizer parameters\nSgd learning rate\nMomentum learning rate, gamma and velocity\nAdam learning rate, beta1, beta2, epsilon, time, first and second moments\nAdagrad learning rate, epsilon and accumulated gradients (G)\nAdadelta learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)\nRmsprop learning rate, rho, epsilon and accumulated gradients (G)"
+    "text": "In the examples in the introduction, we used simple SGD as the optimization method and performed parameter updates manually using w[i] -= lr * dw[i]. The update! function provides more optimization methods and can be used in place of this manual update. In addition to a weight array w[i] and its gradient dw[i], update! requires a third argument encapsulating the type, options, and state of the optimization method. The constructors of the supported optimization methods are listed below. See @doc Sgd etc. for full details. Note that in general we need to keep one of these state variables per weight array, see optimizers.jl for example usage.optimizer parameters\nSgd learning rate\nMomentum learning rate, gamma and velocity\nAdam learning rate, beta1, beta2, epsilon, time, first and second moments\nAdagrad learning rate, epsilon and accumulated gradients (G)\nAdadelta learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)\nRmsprop learning rate, rho, epsilon and accumulated gradients (G)"
 },
 
 {
-    "location": "reference.html#Standard-Library-2",
+    "location": "reference.html#Standard-Library-1",
     "page": "Reference",
     "title": "Standard Library",
     "category": "section",
-    "text": "Julia standard library functions supported by KnetArrays... table:: Unary operations.+––––––-+   | -,  	|   | abs,	|   | abs2,	|   | acos,	|   | acosh,	|   | asin,	|   | asinh,	|   | atan,	|   | atanh,	|   | cbrt,	|   | ceil,	|   | cos,	|   | cosh,	|   | cospi,	|   | erf,	|   | erfc,	|   | erfcinv,	|   | erfcx,	|   | erfinv,	|   | exp,	|   | exp10,	|   | exp2,	|   | expm1,	|   | floor,	|   | log,	|   | log10,	|   | log1p,	|   | log2,	|   | round,	|   | sign,	|   | sin,	|   | sinh,	|   | sinpi,	|   | sqrt,	|   | tan,	|   | tanh,	|   | trunc,	|   +––––––-+.. TODO link these functions to their Julia docs.."
-},
-
-{
-    "location": "reference.html#Currently-unsupported-unary-functions-defined-by-cuda:-1",
-    "page": "Reference",
-    "title": "Currently unsupported unary functions defined by cuda:",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"cyl_bessel_i0\",-1",
-    "page": "Reference",
-    "title": "\"cyl_bessel_i0\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"cyl_bessel_i1\",-1",
-    "page": "Reference",
-    "title": "\"cyl_bessel_i1\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"ilogb\",-1",
-    "page": "Reference",
-    "title": "\"ilogb\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"j0\",-1",
-    "page": "Reference",
-    "title": "\"j0\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"j1\",-1",
-    "page": "Reference",
-    "title": "\"j1\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"lgamma\",-#-missing-digamma-for-derivative-1",
-    "page": "Reference",
-    "title": "\"lgamma\", # missing digamma for derivative",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"llrint\",-1",
-    "page": "Reference",
-    "title": "\"llrint\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"llround\",-1",
-    "page": "Reference",
-    "title": "\"llround\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"logb\",-1",
-    "page": "Reference",
-    "title": "\"logb\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"lrint\",-1",
-    "page": "Reference",
-    "title": "\"lrint\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"lround\",-1",
-    "page": "Reference",
-    "title": "\"lround\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"nearbyint\",-1",
-    "page": "Reference",
-    "title": "\"nearbyint\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"normcdf\",-1",
-    "page": "Reference",
-    "title": "\"normcdf\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"normcdfinv\",-1",
-    "page": "Reference",
-    "title": "\"normcdfinv\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"rcbrt\",-1",
-    "page": "Reference",
-    "title": "\"rcbrt\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"rint\",-1",
-    "page": "Reference",
-    "title": "\"rint\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"rsqrt\",-1",
-    "page": "Reference",
-    "title": "\"rsqrt\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"tgamma\",-1",
-    "page": "Reference",
-    "title": "\"tgamma\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"y0\",-1",
-    "page": "Reference",
-    "title": "\"y0\",",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "reference.html#\"y1\",-1",
-    "page": "Reference",
-    "title": "\"y1\",",
-    "category": "section",
-    "text": "..    Unary functions not in standard library    (\"invx\", \"invx\", \"1/xi\"),    (\"sigm\", \"sigm\", \"(xi>=0?1/(1+exp(-xi)):(exp(xi)/(1+exp(xi))))\"),    (\"relu\", \"relu\", \"(xi>0?xi:0)\"),"
+    "text": "Julia standard library functions supported by KnetArrays.note: Unary operators\n(-),  	  abs,	  abs2,	  acos,	  acosh,	  asin,	  asinh,	  atan,	  atanh,	  cbrt,	  ceil,	  cos,	  cosh,	  cospi,	  erf,	  erfc,	  erfcinv,	  erfcx,	  erfinv,	  exp,	  exp10,	  exp2,	  expm1,	  floor,	  log,	  log10,	  log1p,	  log2,	  round,	  sign,	  sin,	  sinh,	  sinpi,	  sqrt,	  tan,	  tanh,	  truncSome CUDA math operators not yet supported:note: Unsupported unary operators\ncyl_bessel_i0, cyl_bessel_i1, ilogb, j0, j1, lgamma, llrint, llround, logb, lrint, lround, nearbyint, normcdf, normcdfinv, rcbrt, rint, rsqrt, tgamma, y0, y1Broadcasting is supported between arrays of same size, array with scalar, and array with vector (i.e. at most one dimension > 1).note: Elementwise broadcasting operators\n(.*), (.+), (.-), (./), (.<), (.<=), (.!=), (.==), (.>), (.>=), (.^), max, min     Note that only Array->Scalar and Array->Vector reductions are supported.note: Reduction operators\ncountnz, maximum, minimum, prod, sum, sumabs, sumabs2, vecnormLinear algebra uses the CUBLAS library.note: Linear algebra operators\n(*), axpy!, permutedims (only 2D and 3D), transpose"
 },
 
 {
