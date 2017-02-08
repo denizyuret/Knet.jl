@@ -1,16 +1,19 @@
 language: julia
+
 os:
   - linux
   - osx
+
 julia:
   - 0.4
   - 0.5
-# - nightly  ## getting too many warnings
+
 notifications:
   email: false
+
 after_success:
   - julia -e 'Pkg.add("Documenter")'
-  - julia -e 'cd(Pkg.dir("PACKAGE_NAME")); include(joinpath("docs", "make.jl"))'
+  - julia -e 'cd(Pkg.dir("Knet")); include(joinpath("docs", "make.jl"))'
 
 ## uncomment the following lines to override the default test script
 #script:
@@ -22,3 +25,4 @@ after_success:
 # julia:
 #   - release
 #   - nightly
+# - nightly  ## getting too many warnings
