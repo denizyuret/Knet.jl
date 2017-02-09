@@ -1,19 +1,43 @@
 """
 
-KnetArray is a container for GPU arrays that supports most of the
-AbstractArray interface.  Important differences from the alternative
-CudaArray are: (1) a custom memory manager that minimizes the number
-of calls to the slow cudaMalloc by reusing already allocated but
-garbage collected GPU pointers.  (2) a custom getindex that handles
-ranges such as `a[5:10]` as views (with memory shared with the
-original array) instead of copies.  KnetArrays can be created by
-specifying the element type and dimensions or by conversion from
-regular Arrays and they can be converted back to regular Arrays (which
-involve copying to and from the GPU memory):
+    KnetArray(T, dims)
+    KnetArray(a::AbstractArray)
+    Array(k::KnetArray)
 
-    a = KnetArray(Float32,2,3)
-    b = KnetArray(zeros(2,3))
-    c = Array(b)
+Container for GPU arrays that supports most of the AbstractArray
+interface.  KnetArrays and Arrays can be converted to each other as
+shown above, which involves copying to and from the GPU memory.
+Important differences from the alternative CudaArray are: (1) a custom
+memory manager that minimizes the number of calls to the slow
+cudaMalloc by reusing already allocated but garbage collected GPU
+pointers.  (2) a custom getindex that handles ranges such as `a[5:10]`
+as views with shared memory instead of copies.
+
+# Supported functions:
+
+* Array operations: cat, convert, copy, display, eachindex, elsize,
+  eltype, endof, fill!, first, getindex, hcat, isempty, length,
+  linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
+  similar, size, stride, summary, vcat, vec, zeros
+
+* Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
+  atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
+  erfinv, exp, exp10, exp2, expm1, floor, log, log10, log1p, log2,
+  round, sign, sin, sinh, sinpi, sqrt, tan, tanh, trunc
+
+* Broadcasting operators: (.*), (.+), (.-), (./), (.<), (.<=), (.!=),
+  (.==), (.>), (.>=), (.^), max, min.  (Only Array-Scalar and
+  Array-Vector broadcasting are supported)
+
+* Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
+  sumabs2, vecnorm.  (Only Array->Scalar and Array->Vector reductions
+  are supported)
+    
+* Linear algebra: (*), axpy!, permutedims (only 2D and 3D), transpose
+
+* Knet extras: cpu2gpu, gpu2cpu, relu, sigm, invx, logp, logsumexp,
+  conv4, pool, deconv4, unpool, mat, update!
+    
 
 """
 type KnetArray{T,N}
@@ -62,7 +86,7 @@ pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, elsize, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, zeros
+import Base: eachindex, elsize, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros
 eachindex(a::KnetArray) = (1:length(a))
 elsize{T}(::KnetArray{T}) = sizeof(T)
 eltype{T}(::KnetArray{T})=T
@@ -332,7 +356,7 @@ end
 # unsafe_copy!{T}(dest::Ptr{T}, src::Ptr{T}, n) at array.jl:73
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
-import Base: unsafe_copy!, copy
+import Base: unsafe_copy!, copy, copy!
 
 function unsafe_copy!{T}(dest::Union{KnetArray{T},Array{T}}, doffs, src::Union{KnetArray{T},Array{T}}, soffs, n; stream=C_NULL)
     @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
@@ -351,6 +375,7 @@ function cudadir(a,b)
 end
 
 copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
+# TODO: copy!
 
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
@@ -398,7 +423,7 @@ end
 
 # Array/KnetArray Transfer
 """
-Transfer from regular array to KnetArray 
+Transfer from regular Array to KnetArray.
 """
 function cpu2gpu(x::Array)
     KnetArray(x)
@@ -407,7 +432,7 @@ end
 @primitive cpu2gpu(x),dy,y (gpu2cpu(dy))
 
 """
-Transfer from KnetArray to regular array
+Transfer from KnetArray to regular Array.
 """
 function gpu2cpu(x::KnetArray)
     Array(x)

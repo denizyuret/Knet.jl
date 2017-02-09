@@ -126,9 +126,9 @@ for (f,g,y,dx) in
     end
 end
 
-"invx(x) returns (1./x)" invx
-"relu(x) returns max(0,x)" relu
-"sigm(x) returns (1./(1+exp(-x)))" sigm
+"`invx(x) = (1./x)`" invx
+"`relu(x) = max(0,x)`" relu
+"`sigm(x) = (1./(1+exp(-x)))`" sigm
 
 # To avoid conflict with AutoGrad:
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
@@ -138,12 +138,15 @@ end
 
 """
 
-`logp(x,[dims])` treats entries in x as as unnormalized log
-probabilities and returns normalized log probabilities.  `dims` is an
-optional argument, if not specified the normalization is over the
-whole x, otherwise the normalization is performed over the given
-dimensions.  In particular dims=1 normalizes columns of x and dims=2
-normalizes rows of x.
+    logp(x,[dims])
+
+Treat entries in `x` as as unnormalized log probabilities and return
+normalized log probabilities.
+
+`dims` is an optional argument, if not specified the normalization is
+over the whole `x`, otherwise the normalization is performed over the
+given dimensions.  In particular, if `x` is a matrix, `dims=1`
+normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
 

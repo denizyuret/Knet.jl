@@ -2,34 +2,36 @@
 
 """
 
-`conv4(w,x;kwargs...)` executes convolutions or cross-correlations
-using filters specified with `w` over tensor `x`.  Currently 4 or 5
-dimensional KnetArrays with Float32 or Float64 entries are supported.
+    conv4(w, x; kwargs...)
 
-If `w` has dimensions (W1,W2,...,I,O) and `x` has dimensions
-(X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N)
-where
+Execute convolutions or cross-correlations using filters specified
+with `w` over tensor `x`.
+
+Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
+entries are supported.  If `w` has dimensions `(W1,W2,...,I,O)` and
+`x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
+dimensions `(Y1,Y2,...,O,N)` where
 
     Yi=1+floor((Xi+2*padding[i]-Wi)/stride[i])
 
-Here I is the number of input channels, O is the number of output
-channels, N is the number of instances, and Wi,Xi,Yi are spatial
-dimensions.  Padding and stride are keyword arguments that can be
+Here `I` is the number of input channels, `O` is the number of output
+channels, `N` is the number of instances, and `Wi,Xi,Yi` are spatial
+dimensions.  `padding` and `stride` are keyword arguments that can be
 specified as a single number (in which case they apply to all
 dimensions), or an array/tuple with entries for each spatial
 dimension.
 
-Here is a description of all available keyword arguments:
+# Keywords
 
-* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=floor((filterSize-1)/2) which preserves the input size when filterSize is odd and stride=1.
-* stride: the number of elements to slide to reach the next filtering window. Default=1.
-* upscale: upscale factor for each dimension. Default=1.
-* mode: 0 for convolution and 1 for cross-correlation.  Default=0.
-* alpha: can be used to scale the result. Default=1.
-* algo: specifies which convolution algorithm shoud be used to compute the results. Default=0. See the CUDNN User Guide for details.
-* workSpace: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm. Default=C_NULL.
-* workSpaceSizeInBytes: the size in bytes of the provided workSpace. Default=0.
-* handle: handle to a previously created cuDNN context. Default=Knet allocated context.
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `stride=1`: the number of elements to slide to reach the next filtering window.
+* `upscale=1`: upscale factor for each dimension.
+* `mode=0`: 0 for convolution and 1 for cross-correlation.
+* `alpha=1`: can be used to scale the result.
+* `algo=0`: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.
+* `workSpace=C_NULL`: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.
+* `workSpaceSizeInBytes=0`: the size in bytes of the provided workSpace. Default=0.
+* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
 function conv4{T}(w::KnetArray{T},x::KnetArray{T};
@@ -90,31 +92,33 @@ end
 
 """
 
-`pool(x;kwargs...)` computes pooling of input values (i.e., the
-maximum or average of several adjacent values) to produce an output
-with smaller height and/or width.  Currently 4 or 5 dimensional
-KnetArrays with Float32 or Float64 entries are supported.
+    pool(x; kwargs...) 
 
-If `x` has dimensions (X1,X2,...,I,N), the result y will have
-dimensions (Y1,Y2,...,I,N) where
+Compute pooling of input values (i.e., the maximum or average of
+several adjacent values) to produce an output with smaller height
+and/or width.  
 
-   Yi=1+floor((Xi+2*padding[i]-window[i])/stride[i])
+Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
+entries are supported.  If `x` has dimensions `(X1,X2,...,I,N)`, the
+result `y` will have dimensions `(Y1,Y2,...,I,N)` where
 
-Here I is the number of input channels, N is the number of instances,
-and Xi,Yi are spatial dimensions.  Window, padding and stride are
-keyword arguments that can be specified as a single number (in which
-case they apply to all dimensions), or an array/tuple with entries for
-each spatial dimension.
+    Yi=1+floor((Xi+2*padding[i]-window[i])/stride[i])
 
-Here is a description of all available keyword arguments:
+Here `I` is the number of input channels, `N` is the number of
+instances, and `Xi,Yi` are spatial dimensions.  `window`, `padding`
+and `stride` are keyword arguments that can be specified as a single
+number (in which case they apply to all dimensions), or an array/tuple
+with entries for each spatial dimension.
 
-* window: the pooling window size for each dimension. Default=2.
-* padding: the number of extra zeros implicitly concatenated at the start and at the end of each dimension. Default=0.
-* stride: the number of elements to slide to reach the next pooling window. Default=same as window.
-* mode: 0 for max, 1 for average including padded values, 2 for average excluding padded values.  Default=0.
-* maxpoolingNanOpt: Nan numbers are not propagated if 0, they are propagated if 1. Default=0.
-* alpha: can be used to scale the result. Default=1.
-* handle: Handle to a previously created cuDNN context. Default=Knet allocated context.
+# Keywords:
+
+* `window=2`: the pooling window size for each dimension.
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `stride=window`: the number of elements to slide to reach the next pooling window.
+* `mode=0`: 0 for max, 1 for average including padded values, 2 for average excluding padded values.
+* `maxpoolingNanOpt=0`: Nan numbers are not propagated if 0, they are propagated if 1.
+* `alpha=1`: can be used to scale the result.
+* `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
 function pool{T}(x::KnetArray{T}; handle=cudnnhandle, alpha=one(T), beta=zero(T), o...)
@@ -342,9 +346,14 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 """
 
-mat(x) reshapes x into a two-dimensional matrix.  For 1-D inputs mat
+    mat(x) 
+
+Reshape x into a two-dimensional matrix.
+
+This is typically used when turning the output of a 4-D convolution
+result into a 2-D input for a fully connected layer.  For 1-D inputs
 returns `reshape(x, (length(x),1))`.  For inputs with more than two
-dimensions of size (X1,X2,...,XD), mat returns
+dimensions of size `(X1,X2,...,XD)`, returns
 
     reshape(x, (X1*X2*...*X[D-1],XD))
 

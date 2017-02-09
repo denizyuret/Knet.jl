@@ -12,6 +12,31 @@ end
 
 typealias Cptr Ptr{Void}
 
+"""
+
+`gpu()` returns the id of the active GPU device or -1 if none are
+active.
+
+`gpu(true)` resets all GPU devices and activates the one with the most
+available memory.
+
+`gpu(false)` resets and deactivates all GPU devices.
+
+`gpu(d::Int)` activates the GPU device `d` if `0 <= d < gpuCount()`,
+otherwise deactivates devices.
+
+`gpu(true/false)` resets all devices.  If there are any allocated
+KnetArrays their pointers will be left dangling.  Thus
+`gpu(true/false)` should only be used during startup.  If you want to
+suspend GPU use temporarily, use `gpu(-1)`.
+
+`gpu(d::Int)` does not reset the devices.  You can select a previous
+device and find allocated memory preserved.  However trying to operate
+on arrays of an inactive device will result in error.
+
+"""
+function gpu end
+
 let GPU=-1, GPUCNT=-1, handles=Dict()
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
@@ -74,26 +99,6 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
         end
     end
 end
-
-"""
-gpu() returns the id of the active GPU device or -1 if none are active.
-
-gpu(true) resets all GPU devices and activates the one with the most available memory.
-
-gpu(false) resets and deactivates all GPU devices.
-
-gpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.
-
-gpu(true/false) resets all devices.  If there are any allocated
-KnetArrays their pointers will be left dangling.  Thus gpu(true/false)
-should only be used during startup.  If you want to suspend GPU use
-temporarily, use gpu(-1).
-
-gpu(d::Int) does not reset the devices.  You can select a previous
-device and find allocated memory preserved.  However trying to operate
-on arrays of an inactive device will result in error.
-
-""" gpu
 
 # cudaGetDeviceCount is deprecated, use gpuCount instead:
 cudaGetDeviceCount()=(try; p=Cint[0]; eval(:(ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),$p))); p[1]; catch; 0; end) # will not bomb when there is no gpu

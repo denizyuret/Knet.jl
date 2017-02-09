@@ -1,7 +1,7 @@
 using Documenter, Knet
 
 makedocs(
-    modules = [Knet],           # generate warnings for coverage
+    modules = [Knet,AutoGrad],           # generate warnings for coverage
     clean = false,              # do we clean build/
     format = :html,
     sitename = "Knet.jl",
@@ -13,7 +13,7 @@ makedocs(
         "Manual" => Any[
             "install.md",
             "README.md",
-            "reference.md",
+            "Reference" => "reference.md",
         ],
         "Textbook" => Any[
             "backprop.md",

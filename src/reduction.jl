@@ -89,11 +89,16 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
 end
 
 """
-logsumexp(x,[dims]) computes log(sum(exp(x),dims)) in a numerically
-stable manner.  `dims` is an optional argument, if not specified the
-summation is over the whole x, otherwise the summation is performed
-over the given dimensions.  In particular dims=1 sums columns of x and
-dims=2 sums rows of x.
+
+    logsumexp(x,[dims])
+
+Compute `log(sum(exp(x),dims))` in a numerically stable manner.
+
+`dims` is an optional argument, if not specified the summation is over
+the whole `x`, otherwise the summation is performed over the given
+dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
+of `x` and `dims=2` sums rows of `x`.
+
 """
 function logsumexp(x,d...)
     xmax = maximum(x,d...)

@@ -9,6 +9,17 @@
 	output.
 	Using sips command on osx to resize images.
 
+	- doctest, does it accept ... ?
+	- how do we generate docs from docstrings?
+	- can use function f end to document a zero method function
+	- you can document fields of a type.
+	- how do you refer to julia function docs from knet docstrings?
+	- @doc "..." foo is used when foo is defined by generated code
+	- can we default link text to link content?
+	- $(EXPORTS) used in module doc to list exported symbols.
+	- using ```@contents, @index, @docs
+	- where are the source links?
+
 2017-02-07  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
 	* src/Makefile (CFLAGS): code refactoring:
@@ -30,6 +41,12 @@
 2016-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO8:
+	# docs todo: warn against overwriting arrays.
+	# missing docs for distributions
+	# unclear docs for optimization
+	# override KnetArray and Array instead of cpu2gpu etc.
+	# KnetArray does not work on cpu-only (should it?)
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
 	# charlm: try indexing op instead of sparse matmul.
