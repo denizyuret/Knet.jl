@@ -20,6 +20,7 @@ Examples
 --------
 * optimizers.jl padding bug fixed.
 * vgg.jl now supports D and E models (@ilkerkesen).
+* Batch Normalization/ResNet example (resnet.jl) added. (@ilkerkesen)
 
 
 Knet v0.8.1 Release Notes

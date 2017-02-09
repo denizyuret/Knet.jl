@@ -1,3 +1,14 @@
+2017-02-08  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* Documenter.jl: (TODO) Julia documentation moved back to MD
+	supported by Documenter.jl.  Supports latex, doctest, xrefs,
+	search.  Hosted on github pages built throgh Travis (no need for
+	Python).  PDF output?  PDF:
+	https://juliadocs.github.io/Documenter.jl/stable/lib/internals/writers.html
+	Automatic conversion from rst? Try Pandoc.  Use markdown_github as
+	output.
+	Using sips command on osx to resize images.
+
 2017-02-07  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
 	* src/Makefile (CFLAGS): code refactoring:
