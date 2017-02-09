@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Manual",
     "category": "section",
-    "text": "Pages = [\n \"install.md\",\n \"README.md\",\n \"reference.md\",\n]"
+    "text": "Pages = [\n \"install.md\",\n \"tutorial.md\",\n \"examples.md\",\n \"reference.md\",\n]"
 },
 
 {
@@ -73,7 +73,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#",
+    "location": "tutorial.html#",
     "page": "Introduction to Knet",
     "title": "Introduction to Knet",
     "category": "page",
@@ -81,55 +81,47 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#Introduction-to-Knet-1",
+    "location": "tutorial.html#Introduction-to-Knet-1",
     "page": "Introduction to Knet",
     "title": "Introduction to Knet",
     "category": "section",
-    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and the examples directory for more information. If you use Knet in academic work, here is a paper about Knet:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}"
+    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and Examples for more information. If you use Knet in academic work, here is a paper that can be cited:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}ContentsPages = [\"tutorial.md\"]\nDepth = 5"
 },
 
 {
-    "location": "README.html#Contents-1",
-    "page": "Introduction to Knet",
-    "title": "Contents",
-    "category": "section",
-    "text": "Philosophy\nExamples\nLinear regression\nSoftmax classification\nMulti-layer perceptron\nConvolutional neural network\nRecurrent neural network\nBenchmarks\nUnder the hood\nContributing"
-},
-
-{
-    "location": "README.html#Philosophy-1",
+    "location": "tutorial.html#Philosophy-1",
     "page": "Introduction to Knet",
     "title": "Philosophy",
     "category": "section",
-    "text": "Knet uses dynamic computational graphs generated at runtime for automatic gradient calculation.  This allows machine learning models to be implemented by defining just the forward calculation (i.e. the computation from parameters and data to loss) using the full power and expressivity of a high level language like Julia. The implementation can use helper functions, loops, conditionals, recursion, closures, tuples and dictionaries, array indexing, concatenation and other high level features of Julia, some of which are often missing in the restricted modeling languages of static computational graph systems like Theano and Tensorflow.Knet achieves high performance by combining automatic differentiation of most of Julia with efficient GPU kernels and memory management. The computations can be performed on the GPU by simply using KnetArray instead of Array for parameters and data.  See Under the hood for more details."
+    "text": "Knet uses dynamic computational graphs generated at runtime for automatic differentiation of (almost) any Julia code.  This allows machine learning models to be implemented by defining just the forward calculation (i.e. the computation from parameters and data to loss) using the full power and expressivity of Julia. The implementation can use helper functions, loops, conditionals, recursion, closures, tuples and dictionaries, array indexing, concatenation and other high level language features, some of which are often missing in the restricted modeling languages of static computational graph systems like Theano, Torch, Caffe and Tensorflow.  GPU operation is supported by simply using the KnetArray type instead of regular Array for parameters and data.Knet builds a dynamic computational graph by recording primitive operations during forward calculation.  Only pointers to inputs and outputs are recorded for efficiency.  Therefore array overwriting is not supported during forward and backward passes.  This encourages a clean functional programming style.  High performance is achieved using custom memory management and efficient GPU kernels.  See Under the hood for more details."
 },
 
 {
-    "location": "README.html#Examples-1",
+    "location": "tutorial.html#Tutorial-1",
     "page": "Introduction to Knet",
-    "title": "Examples",
+    "title": "Tutorial",
     "category": "section",
     "text": "In Knet, a machine learning model is defined using plain Julia code. A typical model consists of a prediction and a loss function. The prediction function takes model parameters and some input, returns the prediction of the model for that input. The loss function measures how bad the prediction is with respect to some desired output. We train a model by adjusting its parameters to reduce the loss. In this section we will see the prediction, loss, and training functions for five models: linear regression, softmax classification, fully-connected, convolutional and recurrent neural networks.  It would be best to copy paste and modify these examples on your own computer.  You can install Knet using Pkg.add(\"Knet\") in Julia."
 },
 
 {
-    "location": "README.html#Linear-regression-1",
+    "location": "tutorial.html#Linear-regression-1",
     "page": "Introduction to Knet",
     "title": "Linear regression",
     "category": "section",
-    "text": "Here is the prediction function and the corresponding quadratic loss function for a simple linear regression model:predict(w,x) = w[1]*x .+ w[2]\n\nloss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)The variable w is a list of parameters (it could be a Tuple, Array, or Dict), x is the input and y is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function grad from AutoGrad.jl to compute the gradient direction:using Knet\n\nlossgradient = grad(loss)Note that grad is a higher-order function that takes and returns other functions. The lossgradient function takes the same arguments as loss, e.g. dw = lossgradient(w,x,y). Instead of returning a loss value, lossgradient returns dw, the gradient of the loss with respect to its first argument w. The type and size of dw is identical to w, each entry in dw gives the derivative of the loss with respect to the corresponding entry in w. See @doc grad for more information.Given some training data = [(x1,y1),(x2,y2),...], here is how we can train this model:function train(w, data; lr=.1)\n    for (x,y) in data\n        dw = lossgradient(w, x, y)\n        for i in 1:length(w)\n            w[i] -= lr * dw[i]\n        end\n    end\n    return w\nendWe simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate lr.(Image: image)Let's train this model on the Housing dataset from the UCI Machine Learning Repository.julia> url = \"https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data\"\njulia> rawdata = readdlm(download(url))\njulia> x = rawdata[:,1:13]'\njulia> x = (x .- mean(x,2)) ./ std(x,2)\njulia> y = rawdata[:,14:14]'\njulia> w = Any[ 0.1*randn(1,13), 0 ]\njulia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end\n366.0463078055053\n...\n29.63709385230451The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood is represented using 13 attributes such as crime rate or distance to employment centers. The goal is to predict the median value of the houses given in $1000's. After downloading, splitting and normalizing the data, we initialize the parameters randomly and take 10 steps in the negative gradient direction. We can see the loss dropping from 366.0 to 29.6. See housing.jl for more information on this example.Note that grad was the only function used that is not in the Julia standard library. This is typical of models defined in Knet."
+    "text": "Here is the prediction function and the corresponding quadratic loss function for a simple linear regression model:predict(w,x) = w[1]*x .+ w[2]\n\nloss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)The variable w is a list of parameters (it could be a Tuple, Array, or Dict), x is the input and y is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function grad from AutoGrad.jl to compute the gradient direction:using Knet\n\nlossgradient = grad(loss)Note that grad is a higher-order function that takes and returns other functions. The lossgradient function takes the same arguments as loss, e.g. dw = lossgradient(w,x,y). Instead of returning a loss value, lossgradient returns dw, the gradient of the loss with respect to its first argument w. The type and size of dw is identical to w, each entry in dw gives the derivative of the loss with respect to the corresponding entry in w. Given some training data = [(x1,y1),(x2,y2),...], here is how we can train this model:function train(w, data; lr=.1)\n    for (x,y) in data\n        dw = lossgradient(w, x, y)\n        for i in 1:length(w)\n            w[i] -= lr * dw[i]\n        end\n    end\n    return w\nendWe simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate lr.(Image: image)Let's train this model on the Housing dataset from the UCI Machine Learning Repository.julia> url = \"https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data\"\njulia> rawdata = readdlm(download(url))\njulia> x = rawdata[:,1:13]'\njulia> x = (x .- mean(x,2)) ./ std(x,2)\njulia> y = rawdata[:,14:14]'\njulia> w = Any[ 0.1*randn(1,13), 0 ]\njulia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end\n366.0463078055053\n...\n29.63709385230451The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood is represented using 13 attributes such as crime rate or distance to employment centers. The goal is to predict the median value of the houses given in $1000's. After downloading, splitting and normalizing the data, we initialize the parameters randomly and take 10 steps in the negative gradient direction. We can see the loss dropping from 366.0 to 29.6. See housing.jl for more information on this example.Note that grad was the only function used that is not in the Julia standard library. This is typical of models defined in Knet."
 },
 
 {
-    "location": "README.html#Softmax-classification-1",
+    "location": "tutorial.html#Softmax-classification-1",
     "page": "Introduction to Knet",
     "title": "Softmax classification",
     "category": "section",
-    "text": "In this example we build a simple classification model for the MNIST handwritten digit recognition dataset. MNIST has 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image. The corresponding output indicates the identity of the digit 0..9.(Image: image)(image source)Classification models handle discrete outputs, as opposed to regression models which handle numeric outputs. We typically use the cross entropy loss function in classification models:function loss(w,x,ygold)\n    ypred = predict(w,x)\n    ynorm = ypred .- log(sum(exp(ypred),1))\n    -sum(ygold .* ynorm) / size(ygold,2)\nendOther than the change of loss function, the softmax model is identical to the linear regression model. We use the same predict, same train and set lossgradient=grad(loss) as before. To see how well our model classifies let's define an accuracy function which returns the percentage of instances classified correctly:function accuracy(w, data)\n    ncorrect = ninstance = 0\n    for (x, ygold) in data\n        ypred = predict(w,x)\n        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))\n        ninstance += size(ygold,2)\n    end\n    return ncorrect/ninstance\nendNow let's train a model on the MNIST data:julia> include(Pkg.dir(\"Knet/examples/mnist.jl\"))\njulia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch\njulia> dtrn = minibatch(xtrn, ytrn, 100)\njulia> dtst = minibatch(xtst, ytst, 100)\njulia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]\njulia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\njulia> for epoch=1:10\n           train(w, dtrn; lr=0.5)\n           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\n       end\n\n(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)\n(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)\n...\n(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)Including mnist.jl loads the MNIST data, downloading it from the internet if necessary, and provides a training set (xtrn,ytrn), test set (xtst,ytst) and a minibatch utility which we use to rearrange the data into chunks of 100 instances. After randomly initializing the parameters we train for 10 epochs, printing out training and test set accuracy at every epoch. The final accuracy of about 92% is close to the limit of what we can achieve with this type of model. To improve further we must look beyond linear models."
+    "text": "In this example we build a simple classification model for the MNIST handwritten digit recognition dataset. MNIST has 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image. The corresponding output indicates the identity of the digit 0..9.(Image: image)(image source)Classification models handle discrete outputs, as opposed to regression models which handle numeric outputs. We typically use the cross entropy loss function in classification models:function loss(w,x,ygold)\n    ypred = predict(w,x)\n    ynorm = ypred .- log(sum(exp(ypred),1))\n    -sum(ygold .* ynorm) / size(ygold,2)\nendOther than the change of loss function, the softmax model is identical to the linear regression model. We use the same predict, same train and set lossgradient=grad(loss) as before. To see how well our model classifies let's define an accuracy function which returns the percentage of instances classified correctly:function accuracy(w, data)\n    ncorrect = ninstance = 0\n    for (x, ygold) in data\n        ypred = predict(w,x)\n        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))\n        ninstance += size(ygold,2)\n    end\n    return ncorrect/ninstance\nendNow let's train a model on the MNIST data:julia> include(Knet.dir(\"examples\",\"mnist.jl\"))\njulia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch\njulia> dtrn = minibatch(xtrn, ytrn, 100)\njulia> dtst = minibatch(xtst, ytst, 100)\njulia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]\njulia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\njulia> for epoch=1:10\n           train(w, dtrn; lr=0.5)\n           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\n       end\n\n(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)\n(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)\n...\n(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)Including mnist.jl loads the MNIST data, downloading it from the internet if necessary, and provides a training set (xtrn,ytrn), test set (xtst,ytst) and a minibatch utility which we use to rearrange the data into chunks of 100 instances. After randomly initializing the parameters we train for 10 epochs, printing out training and test set accuracy at every epoch. The final accuracy of about 92% is close to the limit of what we can achieve with this type of model. To improve further we must look beyond linear models."
 },
 
 {
-    "location": "README.html#Multi-layer-perceptron-1",
+    "location": "tutorial.html#Multi-layer-perceptron-1",
     "page": "Introduction to Knet",
     "title": "Multi-layer perceptron",
     "category": "section",
@@ -137,15 +129,15 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#Convolutional-neural-network-1",
+    "location": "tutorial.html#Convolutional-neural-network-1",
     "page": "Introduction to Knet",
     "title": "Convolutional neural network",
     "category": "section",
-    "text": "To improve the performance further, we can use a convolutional neural networks (CNN). See the course notes by Andrej Karpathy for a good introduction to CNNs. We will implement the LeNet model which consists of two convolutional layers followed by two fully connected layers.(Image: image)(image source)Knet provides the conv4(w,x) and pool(x) functions for the implementation of convolutional nets (see @doc conv4 and @doc pool for details):function predict(w,x0)\n    x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))\n    x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))\n    x3 = max(0, w[5]*mat(x2) .+ w[6])\n    return w[7]*x3 .+ w[8]\nendThe weights for the convolutional net can be initialized as follows:w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),\n         -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),\n         -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),\n         -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]Currently convolution and pooling are only supported on the GPU for 4-D and 5-D arrays. So we reshape our data and transfer it to the GPU along with the parameters by converting them into KnetArrays (see @doc KnetArray for more information):dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)\ndtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)\nw = map(KnetArray, w)The training proceeds as before giving us even better results. The code for the LeNet example can be found in lenet.jl.(:epoch,0,:trn,0.12215f0,:tst,0.1263f0)\n(:epoch,1,:trn,0.96963334f0,:tst,0.971f0)\n...\n(:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)"
+    "text": "To improve the performance further, we can use a convolutional neural networks (CNN). See the course notes by Andrej Karpathy for a good introduction to CNNs. We will implement the LeNet model which consists of two convolutional layers followed by two fully connected layers.(Image: image)(image source)Knet provides the conv4 and pool functions for the implementation of convolutional nets:function predict(w,x0)\n    x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))\n    x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))\n    x3 = max(0, w[5]*mat(x2) .+ w[6])\n    return w[7]*x3 .+ w[8]\nendThe weights for the convolutional net can be initialized as follows:w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),\n         -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),\n         -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),\n         -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]Currently convolution and pooling are only supported on the GPU for 4-D and 5-D arrays. So we reshape our data and transfer it to the GPU along with the parameters by converting them into KnetArrays:dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)\ndtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)\nw = map(KnetArray, w)The training proceeds as before giving us even better results. The code for the LeNet example can be found in lenet.jl.(:epoch,0,:trn,0.12215f0,:tst,0.1263f0)\n(:epoch,1,:trn,0.96963334f0,:tst,0.971f0)\n...\n(:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)"
 },
 
 {
-    "location": "README.html#Recurrent-neural-network-1",
+    "location": "tutorial.html#Recurrent-neural-network-1",
     "page": "Introduction to Knet",
     "title": "Recurrent neural network",
     "category": "section",
@@ -153,7 +145,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#Benchmarks-1",
+    "location": "tutorial.html#Benchmarks-1",
     "page": "Introduction to Knet",
     "title": "Benchmarks",
     "category": "section",
@@ -161,7 +153,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#Under-the-hood-1",
+    "location": "tutorial.html#Under-the-hood-1",
     "page": "Introduction to Knet",
     "title": "Under the hood",
     "category": "section",
@@ -169,7 +161,15 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#AutoGrad-1",
+    "location": "tutorial.html#KnetArrays-1",
+    "page": "Introduction to Knet",
+    "title": "KnetArrays",
+    "category": "section",
+    "text": "GPUs have become indispensable for training large deep learning models. Even the small examples implemented here run up to 17x faster on the GPU compared to the 8 core CPU architecture we use for benchmarking. However GPU implementations have a few potential pitfalls: (i) GPU memory allocation is slow, (ii) GPU-RAM memory transfer is slow, (iii) reduction operations (like sum) can be very slow unless implemented properly (See Optimizing Parallel Reduction in CUDA).Knet implements KnetArray as a Julia data type that wraps GPU array pointers. KnetArray is based on the more standard CudaArray with a few important differences: (i) KnetArrays have a custom memory manager, similar to ArrayFire, which reuse pointers garbage collected by Julia to reduce the number of GPU memory allocations, (ii) array ranges (e.g. a[:,3:5]) are handled as views with shared pointers instead of copies when possible, and (iii) a number of custom CUDA kernels written for KnetArrays implement element-wise, broadcasting, and scalar and vector reduction operations efficiently. As a result Knet allows users to implement their models using high-level code, yet be competitive in performance with other frameworks as demonstrated in the benchmarks section."
+},
+
+{
+    "location": "tutorial.html#AutoGrad-1",
     "page": "Introduction to Knet",
     "title": "AutoGrad",
     "category": "section",
@@ -177,15 +177,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "README.html#KnetArray-1",
-    "page": "Introduction to Knet",
-    "title": "KnetArray",
-    "category": "section",
-    "text": "GPUs have become indispensable for training large deep learning models. Even the small examples implemented here run up to 17x faster on the GPU compared to the 8 core CPU architecture we use for benchmarking. However GPU implementations have a few potential pitfalls: (i) GPU memory allocation is slow, (ii) GPU-RAM memory transfer is slow, (iii) reduction operations (like sum) can be very slow unless implemented properly (See Optimizing Parallel Reduction in CUDA).Knet implements KnetArray as a Julia data type that wraps GPU array pointers. KnetArray is based on the more standard CudaArray with a few important differences: (i) KnetArrays have a custom memory manager, similar to ArrayFire, which reuse pointers garbage collected by Julia to reduce the number of GPU memory allocations, (ii) array ranges (e.g. a[:,3:5]) are handled as views with shared pointers instead of copies when possible, and (iii) a number of custom CUDA kernels written for KnetArrays implement element-wise, broadcasting, and scalar and vector reduction operations efficiently. As a result Knet allows users to implement their models using high-level code, yet be competitive in performance with other frameworks as demonstrated in the benchmarks section."
-},
-
-{
-    "location": "README.html#Contributing-1",
+    "location": "tutorial.html#Contributing-1",
     "page": "Introduction to Knet",
     "title": "Contributing",
     "category": "section",
@@ -193,10 +185,162 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "examples.html#",
+    "page": "Examples",
+    "title": "Examples",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "examples.html#Examples-1",
+    "page": "Examples",
+    "title": "Examples",
+    "category": "section",
+    "text": "The following examples can be found in the Knet/examples directory."
+},
+
+{
+    "location": "examples.html#LinReg",
+    "page": "Examples",
+    "title": "LinReg",
+    "category": "Module",
+    "text": "LinReg is a simple linear regression example using artificially generated data. You can run the demo using julia linreg.jl on the command line or julia> LinReg.main() at the Julia prompt.  Use julia linreg.jl --help or julia> LinReg.main(\"--help\") for a list of options.  The quadratic loss will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#LinReg-1",
+    "page": "Examples",
+    "title": "LinReg",
+    "category": "section",
+    "text": "LinReg"
+},
+
+{
+    "location": "examples.html#Housing",
+    "page": "Examples",
+    "title": "Housing",
+    "category": "Module",
+    "text": "This example uses the Housing dataset from the UCI Machine Learning Repository to demonstrate a linear regression model. The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood has 14 attributes, the goal is to use the first 13, such as average number of rooms per house, or distance to employment centers, to predict the 14’th attribute: median dollar value of the houses.\n\nYou can run the demo using julia housing.jl.  Use julia housing.jl --help for a list of options.  The dataset will be automatically downloaded and randomly split into training and test sets.  The quadratic loss for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#Housing-1",
+    "page": "Examples",
+    "title": "Housing",
+    "category": "section",
+    "text": "Housing"
+},
+
+{
+    "location": "examples.html#MNIST",
+    "page": "Examples",
+    "title": "MNIST",
+    "category": "Module",
+    "text": "This example learns to classify hand-written digits from the MNIST dataset.  There are 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image.  The pixel values are normalized to [0,1]. Each output y is converted to a ten-dimensional one-hot vector (a vector that has a single non-zero component) indicating the correct class (0-9) for a given image.  10 is used to represent 0.\n\nYou can run the demo using julia mnist.jl on the command line or julia> MNIST.main() at the Julia prompt.  Options can be used like julia mnist.jl --epochs 3 or julia> MNIST.main(\"--epochs 3\").  Use julia mnist.jl --help for a list of options.  The dataset will be automatically downloaded.  By default a softmax model will be trained for 10 epochs.  You can also train a multi-layer perceptron by specifying one or more –hidden sizes.  The accuracy for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#MNIST-1",
+    "page": "Examples",
+    "title": "MNIST",
+    "category": "section",
+    "text": "MNIST"
+},
+
+{
+    "location": "examples.html#LeNet",
+    "page": "Examples",
+    "title": "LeNet",
+    "category": "Module",
+    "text": "This example learns to classify hand-written digits from the MNIST dataset.  There are 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image.  The pixel values are normalized to [0,1]. Each output y is converted to a ten-dimensional one-hot vector (a vector that has a single non-zero component) indicating the correct class (0-9) for a given image.  10 is used to represent 0.\n\nYou can run the demo using julia lenet.jl at the command line or julia> LeNet.main() at the Julia prompt.  Use julia lenet.jl --help or julia> LeNet.main(\"--help\") for a list of options.  The dataset will be automatically downloaded.  By default the LeNet convolutional neural network model will be trained for 10 epochs.  The accuracy for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#LeNet-1",
+    "page": "Examples",
+    "title": "LeNet",
+    "category": "section",
+    "text": "LeNet"
+},
+
+{
+    "location": "examples.html#CharLM",
+    "page": "Examples",
+    "title": "CharLM",
+    "category": "Module",
+    "text": "This example implements an LSTM network for training and testing character-level language models inspired by \"The Unreasonable Effectiveness of Recurrent Neural Networks\" from the Andrej Karpathy blog.  The model can be trained with different genres of text, and can be used to generate original text in the same style.\n\nExample usage:\n\njulia charlm.jl: trains a model using its own code.\njulia charlm.jl --data foo.txt: uses foo.txt to train instead.\njulia charlm.jl --data foo.txt bar.txt: uses foo.txt for training and bar.txt for validation.  Any number of files can be specified, the first two will be used for training and validation, the rest for testing.\njulia charlm.jl --best foo.jld --save bar.jld: saves the best model (according to validation set) to foo.jld, last model to bar.jld.\njulia charlm.jl --load foo.jld --generate 1000: generates 1000 characters from the model in foo.jld.\njulia charlm.jl --help: describes all available options.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#CharLM-1",
+    "page": "Examples",
+    "title": "CharLM",
+    "category": "section",
+    "text": "CharLM"
+},
+
+{
+    "location": "examples.html#VGG",
+    "page": "Examples",
+    "title": "VGG",
+    "category": "Module",
+    "text": "julia vgg.jl image-file-or-url\n\nThis example implements the VGG model from `Very Deep Convolutional Networks for Large-Scale Image Recognition', Karen Simonyan and Andrew Zisserman, arXiv technical report 1409.1556, 2014. This example works for D and E models currently. VGG-D is the default model if you do not specify any model.\n\nPaper url: https://arxiv.org/abs/1409.1556\nProject page: http://www.robots.ox.ac.uk/~vgg/research/very_deep\nMatConvNet weights used here: http://www.vlfeat.org/matconvnet/pretrained\n\n\n\n"
+},
+
+{
+    "location": "examples.html#VGG-1",
+    "page": "Examples",
+    "title": "VGG",
+    "category": "section",
+    "text": "VGG"
+},
+
+{
+    "location": "examples.html#ResNet",
+    "page": "Examples",
+    "title": "ResNet",
+    "category": "Module",
+    "text": "julia resnet.jl image-file-or-url\n\nThis example implements the ResNet-50, ResNet-101 and ResNet-152 models from 'Deep Residual Learning for Image Regocnition', Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun, arXiv technical report 1512.03385, 2015.\n\nPaper url: https://arxiv.org/abs/1512.03385\nProject page: https://github.com/KaimingHe/deep-residual-networks\nMatConvNet weights used here: http://www.vlfeat.org/matconvnet/pretrained\n\n\n\n"
+},
+
+{
+    "location": "examples.html#ResNet-1",
+    "page": "Examples",
+    "title": "ResNet",
+    "category": "section",
+    "text": "ResNet"
+},
+
+{
+    "location": "examples.html#Optimizers",
+    "page": "Examples",
+    "title": "Optimizers",
+    "category": "Module",
+    "text": "This example demonstrates the usage of stochastic gradient descent(sgd) based optimization methods. We train LeNet model on MNIST dataset similar to lenet.jl.\n\nYou can run the demo using julia optimizers.jl.  Use julia optimizers.jl --help for a list of options. By default the LeNet convolutional neural network model will be trained using sgd for 10 epochs. At the end of the training accuracy for the training and test sets for each epoch will be printed  and optimized parameters will be returned.\n\n\n\n"
+},
+
+{
+    "location": "examples.html#Optimizers-1",
+    "page": "Examples",
+    "title": "Optimizers",
+    "category": "section",
+    "text": "Optimizers"
+},
+
+{
     "location": "reference.html#",
     "page": "Reference",
     "title": "Reference",
     "category": "page",
+    "text": ""
+},
+
+{
+    "location": "reference.html#Reference-1",
+    "page": "Reference",
+    "title": "Reference",
+    "category": "section",
     "text": "ContentsPages = [\"reference.md\"]"
 },
 
