@@ -217,7 +217,7 @@ type FD; ptr
 end
 
 type CD; ptr
-    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
+    function CD(w::KnetArray,x::KnetArray; padding=padsize(w), stride=1, upscale=1, mode=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
