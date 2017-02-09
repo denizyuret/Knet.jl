@@ -1,3 +1,45 @@
+2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO8:
+	# source links? (especially for examples)
+	# docs todo: warn against overwriting arrays.
+	# use original docstrings for examples readme, put examples readme in docs.
+	# unclear docs for optimization
+	# override KnetArray and Array instead of cpu2gpu etc.
+	# KnetArray does not work on cpu-only (should it?)
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
+	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
+	# implement better unit testing.
+	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
+	# add back cpu convolution
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
+	# mnist2d: implement/test sparse arrays
+	# for general arrays: broadcast, get/setindex, h/v/cat.
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
+	# gputests.jl and cputests.jl are broken.
+	# find out why benchmarks are slower on julia5/6.
+	# resolve issues
+	# check old todo list
+	# deepcopy does not work for KnetArray
+
+	* DONE:
+
+	# missing docs for distributions
+	# the update methods not documented yet.
+	# 0.8.1: tag new version for the paper when all is done.
+	# add transpose to KnetArray.
+
+
 2017-02-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* Documenter.jl: (TODO) Julia documentation moved back to MD
@@ -10,7 +52,7 @@
 	Using sips command on osx to resize images.
 
 	- doctest, does it accept ... ?
-	- how do we generate docs from docstrings?
+	- how do we generate docs from docstrings? ```@docs
 	- can use function f end to document a zero method function
 	- you can document fields of a type.
 	- how do you refer to julia function docs from knet docstrings?
@@ -38,41 +80,6 @@
 	cuda20: sum,prod,...     => reduction
 	cuda21: sum,prod,...
 
-2016-10-25  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* TODO8:
-	# docs todo: warn against overwriting arrays.
-	# missing docs for distributions
-	# unclear docs for optimization
-	# override KnetArray and Array instead of cpu2gpu etc.
-	# KnetArray does not work on cpu-only (should it?)
-	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
-	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# optimization:
-	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	## optimize reduction and broadcasting kernels.
-	## optimize logp / softmax.
-	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
-	## try fusion: we can do layers in one kernel call: relu(wx+b).
-	## try streams or multiple gpus.
-	# mnist2d: implement/test sparse arrays
-	# for general arrays: broadcast, get/setindex, h/v/cat.
-	# implement better unit testing.
-	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
-	# add back cpu convolution
-	# add transpose to KnetArray.
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
-	# 0.8.1: tag new version for the paper when all is done.
-	# gputests.jl and cputests.jl are broken.
-	# find out why benchmarks are slower on julia5/6.
-	# resolve issues
-	# check old todo list
-	# deepcopy does not work for KnetArray
-	# the update methods not documented yet.
 
 2016-10-24  dyuret  <dyuret@ku.edu.tr>
 

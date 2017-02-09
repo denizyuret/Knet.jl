@@ -2,7 +2,7 @@ for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 using Knet
-!isdefined(:MNIST) && (local lo=isdefined(:load_only); load_only=true; include(Knet.dir("examples","mnist.jl")); load_only=lo)
+!isdefined(:MNIST) && include(Knet.dir("examples","mnist.jl"))
 
 
 """
@@ -19,7 +19,7 @@ and optimized parameters will be returned.
 """
 module Optimizers
 using Knet,ArgParse
-using Main.MNIST: minibatch, accuracy, xtrn, ytrn, xtst, ytst
+using Main.MNIST: minibatch, accuracy
 
 function main(args=ARGS)
     s = ArgParseSettings()
@@ -44,8 +44,9 @@ function main(args=ARGS)
     o[:seed] > 0 && srand(o[:seed])
     gpu() >= 0 || error("LeNet only works on GPU machines.")
 
-    dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
-    dtst = minibatch4(xtst, ytst, o[:batchsize])
+    isdefined(MNIST,:xtrn) || MNIST.loaddata()
+    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize])
+    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize])
     w = weights()
     prms = params(w, o)
     
@@ -164,7 +165,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia optimizers.jl --epochs 10
 # julia> Optim.main("--epochs 10")
-!isinteractive() && (!isdefined(Main,:load_only) || !Main.load_only) && main(ARGS)
+PROGRAM_FILE == "optimizers.jl" && main(ARGS)
 
 end # module
 
