@@ -197,39 +197,295 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Reference",
     "category": "page",
-    "text": ""
+    "text": "ContentsPages = [\"reference.md\"]"
 },
 
 {
-    "location": "reference.html#Reference-1",
+    "location": "reference.html#AutoGrad-1",
     "page": "Reference",
-    "title": "Reference",
+    "title": "AutoGrad",
     "category": "section",
-    "text": ""
+    "text": "AutoGrad.grad\nAutoGrad.gradloss\nAutoGrad.gradcheck"
 },
 
 {
-    "location": "reference.html#Function-reference-1",
+    "location": "reference.html#Knet.KnetArray",
     "page": "Reference",
-    "title": "Function reference",
-    "category": "section",
-    "text": "We implement machine learning models in Knet using regular Julia code and the grad function. Knet defines a few more utility functions listed below. See @doc <function> for full details.function description\nKnet.dir returns a path relative to Knet root.\nKnetArray constructs a GPU array.\nconv4 executes convolutions or cross-correlations.\ncpu2gpu copies Array to KnetArray\ndeconv4 reverse of convolution\ngpu determines which GPU Knet uses.\ngpu2cpu copies KnetArray to Array\ngrad returns the gradient function.\ngradcheck compares gradients with numeric approximations.\ngradloss version of grad that returns gradient and loss.\ninvx returns (1./x)\nlogp returns x .- log(sum(exp(x),[dims]))\nlogsumexp returns log(sum(exp(x),[dims]))\nmat reshapes its input into a two-dimensional matrix.\npool replaces several adjacent values with their mean or maximum.\nrelu returns max(0,x)\nsigm returns (1./(1+exp(-x)))\nunpool reverse of pooling\nupdate! updates the weight depending on the gradient and the parameters of the optimization method"
+    "title": "Knet.KnetArray",
+    "category": "Type",
+    "text": "KnetArray(T, dims)\nKnetArray(a::AbstractArray)\nArray(k::KnetArray)\n\nContainer for GPU arrays that supports most of the AbstractArray interface.  KnetArrays and Arrays can be converted to each other as shown above, which involves copying to and from the GPU memory. Important differences from the alternative CudaArray are: (1) a custom memory manager that minimizes the number of calls to the slow cudaMalloc by reusing already allocated but garbage collected GPU pointers.  (2) a custom getindex that handles ranges such as a[5:10] as views with shared memory instead of copies.\n\nSupported functions:\n\nArray operations: cat, convert, copy, display, eachindex, elsize, eltype, endof, fill!, first, getindex, hcat, isempty, length, linearindexing, ndims, ones, pointer, rand!, reshape, setindex!, similar, size, stride, summary, vcat, vec, zeros\nMath operators: (-), abs, abs2, acos, acosh, asin, asinh, atan, atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx, erfinv, exp, exp10, exp2, expm1, floor, log, log10, log1p, log2, round, sign, sin, sinh, sinpi, sqrt, tan, tanh, trunc\nBroadcasting operators: (.*), (.+), (.-), (./), (.<), (.<=), (.!=), (.==), (.>), (.>=), (.^), max, min.  (Only Array-Scalar and Array-Vector broadcasting are supported)\nReduction operators: countnz, maximum, minimum, prod, sum, sumabs, sumabs2, vecnorm.  (Only Array->Scalar and Array->Vector reductions are supported)\nLinear algebra: (*), axpy!, permutedims (only 2D and 3D), transpose\nKnet extras: cpu2gpu, gpu2cpu, relu, sigm, invx, logp, logsumexp, conv4, pool, deconv4, unpool, mat, update!\n\n\n\n"
 },
 
 {
-    "location": "reference.html#Optimization-methods-1",
+    "location": "reference.html#Knet.cpu2gpu",
     "page": "Reference",
-    "title": "Optimization methods",
-    "category": "section",
-    "text": "In the examples in the introduction, we used simple SGD as the optimization method and performed parameter updates manually using w[i] -= lr * dw[i]. The update! function provides more optimization methods and can be used in place of this manual update. In addition to a weight array w[i] and its gradient dw[i], update! requires a third argument encapsulating the type, options, and state of the optimization method. The constructors of the supported optimization methods are listed below. See @doc Sgd etc. for full details. Note that in general we need to keep one of these state variables per weight array, see optimizers.jl for example usage.optimizer parameters\nSgd learning rate\nMomentum learning rate, gamma and velocity\nAdam learning rate, beta1, beta2, epsilon, time, first and second moments\nAdagrad learning rate, epsilon and accumulated gradients (G)\nAdadelta learning rate, rho, epsilon, accumulated gradients (G) and updates (delta)\nRmsprop learning rate, rho, epsilon and accumulated gradients (G)"
+    "title": "Knet.cpu2gpu",
+    "category": "Function",
+    "text": "Transfer from regular Array to KnetArray.\n\n\n\n"
 },
 
 {
-    "location": "reference.html#Standard-Library-1",
+    "location": "reference.html#Knet.gpu2cpu",
     "page": "Reference",
-    "title": "Standard Library",
+    "title": "Knet.gpu2cpu",
+    "category": "Function",
+    "text": "Transfer from KnetArray to regular Array.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#KnetArray-1",
+    "page": "Reference",
+    "title": "KnetArray",
     "category": "section",
-    "text": "Julia standard library functions supported by KnetArrays.note: Unary operators\n(-),  	  abs,	  abs2,	  acos,	  acosh,	  asin,	  asinh,	  atan,	  atanh,	  cbrt,	  ceil,	  cos,	  cosh,	  cospi,	  erf,	  erfc,	  erfcinv,	  erfcx,	  erfinv,	  exp,	  exp10,	  exp2,	  expm1,	  floor,	  log,	  log10,	  log1p,	  log2,	  round,	  sign,	  sin,	  sinh,	  sinpi,	  sqrt,	  tan,	  tanh,	  truncSome CUDA math operators not yet supported:note: Unsupported unary operators\ncyl_bessel_i0, cyl_bessel_i1, ilogb, j0, j1, lgamma, llrint, llround, logb, lrint, lround, nearbyint, normcdf, normcdfinv, rcbrt, rint, rsqrt, tgamma, y0, y1Broadcasting is supported between arrays of same size, array with scalar, and array with vector (i.e. at most one dimension > 1).note: Elementwise broadcasting operators\n(.*), (.+), (.-), (./), (.<), (.<=), (.!=), (.==), (.>), (.>=), (.^), max, min     Note that only Array->Scalar and Array->Vector reductions are supported.note: Reduction operators\ncountnz, maximum, minimum, prod, sum, sumabs, sumabs2, vecnormLinear algebra uses the CUBLAS library.note: Linear algebra operators\n(*), axpy!, permutedims (only 2D and 3D), transpose"
+    "text": "Knet.KnetArray\nKnet.cpu2gpu\nKnet.gpu2cpu"
+},
+
+{
+    "location": "reference.html#Knet.dir",
+    "page": "Reference",
+    "title": "Knet.dir",
+    "category": "Function",
+    "text": "Knet.dir(path...)\n\nConstruct a path relative to Knet root.\n\nExample\n\njulia> Knet.dir(\"examples\",\"mnist.jl\")\n\"/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl\"\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.gpu",
+    "page": "Reference",
+    "title": "Knet.gpu",
+    "category": "Function",
+    "text": "gpu() returns the id of the active GPU device or -1 if none are active.\n\ngpu(true) resets all GPU devices and activates the one with the most available memory.\n\ngpu(false) resets and deactivates all GPU devices.\n\ngpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.\n\ngpu(true/false) resets all devices.  If there are any allocated KnetArrays their pointers will be left dangling.  Thus gpu(true/false) should only be used during startup.  If you want to suspend GPU use temporarily, use gpu(-1).\n\ngpu(d::Int) does not reset the devices.  You can select a previous device and find allocated memory preserved.  However trying to operate on arrays of an inactive device will result in error.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.logp",
+    "page": "Reference",
+    "title": "Knet.logp",
+    "category": "Function",
+    "text": "logp(x,[dims])\n\nTreat entries in x as as unnormalized log probabilities and return normalized log probabilities.\n\ndims is an optional argument, if not specified the normalization is over the whole x, otherwise the normalization is performed over the given dimensions.  In particular, if x is a matrix, dims=1 normalizes columns of x and dims=2 normalizes rows of x.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.logsumexp",
+    "page": "Reference",
+    "title": "Knet.logsumexp",
+    "category": "Function",
+    "text": "logsumexp(x,[dims])\n\nCompute log(sum(exp(x),dims)) in a numerically stable manner.\n\ndims is an optional argument, if not specified the summation is over the whole x, otherwise the summation is performed over the given dimensions.  In particular if x is a matrix, dims=1 sums columns of x and dims=2 sums rows of x.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.invx",
+    "page": "Reference",
+    "title": "Knet.invx",
+    "category": "Function",
+    "text": "invx(x) = (1./x)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.relu",
+    "page": "Reference",
+    "title": "Knet.relu",
+    "category": "Function",
+    "text": "relu(x) = max(0,x)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.sigm",
+    "page": "Reference",
+    "title": "Knet.sigm",
+    "category": "Function",
+    "text": "sigm(x) = (1./(1+exp(-x)))\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Utilities-1",
+    "page": "Reference",
+    "title": "Utilities",
+    "category": "section",
+    "text": "Knet.dir\nKnet.gpu\nKnet.logp\nKnet.logsumexp\nKnet.invx\nKnet.relu\nKnet.sigm"
+},
+
+{
+    "location": "reference.html#Knet.conv4",
+    "page": "Reference",
+    "title": "Knet.conv4",
+    "category": "Function",
+    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently 4 or 5 dimensional KnetArrays with Float32 or Float64 entries are supported.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nalgo=0: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.\nworkSpace=C_NULL: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.\nworkSpaceSizeInBytes=0: the size in bytes of the provided workSpace. Default=0.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.pool",
+    "page": "Reference",
+    "title": "Knet.pool",
+    "category": "Function",
+    "text": "pool(x; kwargs...)\n\nCompute pooling of input values (i.e., the maximum or average of several adjacent values) to produce an output with smaller height and/or width.  \n\nCurrently 4 or 5 dimensional KnetArrays with Float32 or Float64 entries are supported.  If x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,I,N) where\n\nYi=1+floor((Xi+2*padding[i]-window[i])/stride[i])\n\nHere I is the number of input channels, N is the number of instances, and Xi,Yi are spatial dimensions.  window, padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords:\n\nwindow=2: the pooling window size for each dimension.\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=window: the number of elements to slide to reach the next pooling window.\nmode=0: 0 for max, 1 for average including padded values, 2 for average excluding padded values.\nmaxpoolingNanOpt=0: Nan numbers are not propagated if 0, they are propagated if 1.\nalpha=1: can be used to scale the result.\nhandle: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.mat",
+    "page": "Reference",
+    "title": "Knet.mat",
+    "category": "Function",
+    "text": "mat(x)\n\nReshape x into a two-dimensional matrix.\n\nThis is typically used when turning the output of a 4-D convolution result into a 2-D input for a fully connected layer.  For 1-D inputs returns reshape(x, (length(x),1)).  For inputs with more than two dimensions of size (X1,X2,...,XD), returns\n\nreshape(x, (X1*X2*...*X[D-1],XD))\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.deconv4",
+    "page": "Reference",
+    "title": "Knet.deconv4",
+    "category": "Function",
+    "text": "Deconvolution; reverse of convolution.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.unpool",
+    "page": "Reference",
+    "title": "Knet.unpool",
+    "category": "Function",
+    "text": "Unpooling; reverse of pooling.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Convolution-1",
+    "page": "Reference",
+    "title": "Convolution",
+    "category": "section",
+    "text": "Knet.conv4\nKnet.pool\nKnet.mat\nKnet.deconv4\nKnet.unpool"
+},
+
+{
+    "location": "reference.html#Knet.update!",
+    "page": "Reference",
+    "title": "Knet.update!",
+    "category": "Function",
+    "text": "update! takes a weight array w, the gradient (g) of the objective function w.r.t w and an instance of the parameters of an optimization method. It updates w depending on g and the specified optimization method with parameters in-place. If the any parameters of the optimization method need to be updated, it is also updated in-place. The function  returns updated w and the instance of the parameters.\n\n** Arguments **\n\nw\ng\nprms::T\n\nT might be one of the following:\n\nSgd\nMomentum\nAdagrad\nAdadelta\nRmsprop\nAdam\n\n** Usage **\n\n#prms = Sgd()\n#prms = Momentum()\n#prms = Adagrad()\n#prms = Adadelta()\n#prms = Rmsprop()\nprms = Adam()\n\nw, prms = update!(w, g, prms)\n#update!(w, g, prm)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Sgd",
+    "page": "Reference",
+    "title": "Knet.Sgd",
+    "category": "Type",
+    "text": "Stochastic gradient descent is an optimization technique to minimize  an objective function paremeterized by a model's parameters. It updates the parameters in the opposite direction of the gradient  obtained by taking the gradient of the objective function w.r.t the paremeters. The learning rate (lr) determines the size of the step. It updates the weight with the following formula:\n\nw = w - lr * g\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w and lr is the learning rate.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\n\n** Usage **\n\nYou can create the Sgd instance with default learning rate value or  you can sepecify the learning rate. Then you can use the created instance in the update! function.\n\n#prms = Sgd()# use the default value\nprms = Sgd(;lr=0.1)\nupdate!(w, g, prms)\n\n#You can change the lr later\nprms.lr = 0.01\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Momentum",
+    "page": "Reference",
+    "title": "Knet.Momentum",
+    "category": "Type",
+    "text": "Momentum method tries to accelerate the Sgd by adding a velocity term to the update. It also decreases the oscilation between the opposite directions. It updates the weight with the following formulas:\n\nvelocity = gamma * velocity + lr * g\nw = w - velocity\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter,  velocity is an array with the same size and type of w and holds the accelerated gradients.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\ngamma::AbstractFloat=0.9\nvelocity=zeros(w)\n\n** Usage ** You can create the Momentum instance with default values or  you can sepecify the parameters. Then you can use the created instance in the update! function.\n\n#prms = Momentum() # use default values\nprms = Momentum(;lr=0.1, gamma=0.95) # generally you do not need to specify the velocity parameter\nupdate!(w, g, prms)\n\n#You can change the parameters later\nprms.lr=0.01\nprms.gamma=0.9\n\nReference:\n\nQian, N. (1999). On the momentum term in gradient descent learning algorithms.  Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151. http://doi.org/10.1016/S0893-6080(98)00116-6\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Adagrad",
+    "page": "Reference",
+    "title": "Knet.Adagrad",
+    "category": "Type",
+    "text": "Adagrad is one of the methods that adapts the learning rate to the parameters. It stores the sum of the squares of the gradients to scale the learning rate. The learning rate is adapted for each gradient by the value of current gradient divided by the accumulated gradients. Hence, the learning rate is greater for the parameters where the accumulated gradients are small and the learning rate is small if the accumulated gradients are big. It updates the weight with the following formulas:\n\nG = G + g .^ 2\nw = w - g .* lr ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the  sum of the squares of the gradients. eps is a small value to prevent the zero value on the denominator.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\neps::AbstractFloat=1e-6\nG=zeros(w)\n\n** Usage ** You can create the Adagrad instance with default values or  you can sepecify the parameters. Then you can use the created instance in the update! function.\n\n#prms = Adagrad() # use default values\nprms = Adagrad(;lr=0.1) # generally you do not need to specify the G and eps parameters\nupdate!(w, g, prms)\n\n#You can change the parameters later\nprms.lr=0.01\n\nReference:\n\nDuchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization. Journal of Machine Learning Research, 12, 2121–2159. Retrieved from http://jmlr.org/papers/v12/duchi11a.html\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Adadelta",
+    "page": "Reference",
+    "title": "Knet.Adadelta",
+    "category": "Type",
+    "text": "Adadelta is an extension to Adagrad to preventing the convergence of the  learning rate to zero with increase of time. Adadelta uses two ideas from Momentum and Adagrad. It scales the learning rate based on the accumulated gradients and holds the acceleration term like Momentum. It updates the weight with the following formulas:\n\nG = (1-rho) * g .^ 2 + rho * G\nupdate = g .* sqrt(delta + eps) ./ sqrt(G + eps)\nw = w - lr * update\ndelta = rho * delta + (1-rho) * update .^ 2\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the  sum of the squares of the gradients. eps is a small value to prevent the zero value on the denominator. rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\nrho::AbstractFloat=0.9\neps::AbstractFloat=1e-6\nG=zeros(w)\ndelta=zeros(w)\n\n** Usage ** You can create the Adadelta instance with default values or  you can sepecify the parameters. Then you can use the created instance in the update! function.\n\n#prms = Adadelta() # use default values\nprms = Adadelta(;lr=0.1, rho=0.8) # generally you do not need to specify the G, delta and eps parameters\nupdate!(w, g, prms)\n\n#You can change the parameters later\nprms.lr=0.01\nprms.rho=.9\nprms.eps=1-e8\n\nReference:\n\nZeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method. Retrieved from http://arxiv.org/abs/1212.5701\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Rmsprop",
+    "page": "Reference",
+    "title": "Knet.Rmsprop",
+    "category": "Type",
+    "text": "Rmsprop is a similar method to Adadelta that tries to improve Adagrad. It scales the learning rates by dividing the root mean squared of the gradients. It updates the weight with the following formula:\n\nG = (1-rho) * g .^ 2 + rho * G\nw = w - lr * g ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the  sum of the squares of the gradients. eps is a small value to prevent the zero value on the denominator. rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\nrho::AbstractFloat=0.9\neps::AbstractFloat=1e-6\nG=zeros(w)\n\n** Usage ** You can create the Rmsprop instance with default values or  you can sepecify the parameters. Then you can use the created instance in the update! function.\n\n#prms = Rmsprop() # use default values\nprms = Rmsprop(;lr=0.1, rho=0.9) # generally you do not need to specify the G and eps parameters\nupdate!(w, g, prms)\n\n#You can change the parameters later\nprms.lr=0.01\nprms.rho=0.8\nprms.eps=1-e8\n\nReference:\n\nTieleman, Tijmen, and Geoffrey Hinton. \"Lecture 6.5-rmsprop: Divide the gradient by a running average of its recent magnitude.\"  COURSERA: Neural Networks for Machine Learning 4.2 (2012).\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Adam",
+    "page": "Reference",
+    "title": "Knet.Adam",
+    "category": "Type",
+    "text": "Adam is one of the methods that compute the adaptive learning rate. It stores accumulated gradients (first moment) and the sum of the squared of gradients (second). It scales the first and second moment with increase of time. Here is the update formulas:\n\nm = beta1 * m + (1 - beta1) * g\nv = beta2 * v + (1 - beta2) * g .* g\nmhat = m ./ (1 - beta1 ^ t)\nvhat = v ./ (1 - beta2 ^ t)\nw = w - (lr / (sqrt(vhat) + eps)) * mhat\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, m is an array with the same size and type of w and holds the  accumulated gradients. v is an array with the same size and type of w and holds the  sum of the squares of the gradients. eps is a small value to prevent the zero value on the denominator. beta1 and beta2 are the parameters to calculate bias corrected first and second moments. t is the update count.\n\n** Arguments **\n\nlr::AbstractFloat=0.001\nbeta1::AbstractFloat=0.9\nbeta2::AbstractFloat=0.999\nt::AbstractFloat=1\neps::AbstractFloat=1e-8\nfstm=zeros(w)\nscndm=zeros(w)\n\n** Usage ** You can create the Adam instance with default values or  you can sepecify the parameters. Then you can use the created instance in the update! function.\n\n#prms = Adam() # use default values\nprms = Adam(;lr=0.1, beta1=0.95, beta2=0.995) # # generally you do not need to specify the fstm, scndm and eps parameters\nupdate!(w, g, prms)\n\n#You can change the parameters later\nprms.lr=0.01\nprms.beta1=0.8\nprms.beta2=0.9\nprms.eps=1e-9\n\nReference:\n\nKingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Optimization-1",
+    "page": "Reference",
+    "title": "Optimization",
+    "category": "section",
+    "text": "TODO: need blurb here about how optimization works, need to apply update! to individual weight arrays etc.Knet.update!\nKnet.Sgd\nKnet.Momentum\nKnet.Adagrad\nKnet.Adadelta\nKnet.Rmsprop\nKnet.Adam"
+},
+
+{
+    "location": "reference.html#Knet.gaussian",
+    "page": "Reference",
+    "title": "Knet.gaussian",
+    "category": "Function",
+    "text": "gaussian(a...; mean=0.0, std=0.01)\n\nReturn a Gaussian array with a given mean and standard deviation.  The a arguments are passed to randn.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.xavier",
+    "page": "Reference",
+    "title": "Knet.xavier",
+    "category": "Function",
+    "text": "xavier(a...)\n\nXavier initialization.  The a arguments are passed to rand.  See (Glorot and Bengio 2010) for a description. Caffe implements this slightly differently. Lasagne calls it GlorotUniform.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.bilinear",
+    "page": "Reference",
+    "title": "Knet.bilinear",
+    "category": "Function",
+    "text": "Bilinear interpolation filter weights; used for initializing deconvolution layers.\n\nAdapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33\n\nArguments:\n\nT : Data Type\n\nfw: Width upscale factor\n\nfh: Height upscale factor\n\nIN: Number of input filters\n\nON: Number of output filters\n\nExample usage:\n\nw = bilinear(Float32,2,2,128,128)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Initialization-1",
+    "page": "Reference",
+    "title": "Initialization",
+    "category": "section",
+    "text": "Knet.gaussian\nKnet.xavier\nKnet.bilinear"
+},
+
+{
+    "location": "reference.html#AutoGrad.@primitive",
+    "page": "Reference",
+    "title": "AutoGrad.@primitive",
+    "category": "Macro",
+    "text": "@primitive fx g1 g2... can be used to define a new primitive and (optionally) its gradients.\n\nJulia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types.  AutoGrad supports multiple dispatch for primitives and gradients.  Thus fx is a typed method declaration such as:\n\n@primitive sin(x::Number)\n@primitive hypot(x1::Array,x2::Array),dy,y\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f{T<:Number}(x::T) cannot be used.\n\nThe @primitive macro turns the first example into:\n\nlocal sin_r = recorder(sin)\nsin{T<:Number}(x::Rec{T}) = sin_r(x)\n\nThis will cause any call to sin with a Rec{T<:Number} argument to be recorded.  With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nlocal hypot_r = recorder(hypot)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)\n\nWe want the recorder version to be called if any one of the arguments is a boxed Rec.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nThe method declaration can optionally be followed by gradient expressions.  Here are the same examples with gradients:\n\n@primitive sin(x::Number),dy (dy*cos(x))\n@primitive hypot(x1::Array,x2::Array),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nNote that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following signature:\n\nf(Grad{i},dy,y,x...) => dx[i]\n\nFor the first example here is the generated gradient method:\n\nsin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))\n\nFor the second example a different gradient method is generated for each argument:\n\nhypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y) hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\nNon-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#AutoGrad.@zerograd",
+    "page": "Reference",
+    "title": "AutoGrad.@zerograd",
+    "category": "Macro",
+    "text": "@zerograd f(args...; kwargs...) allows f to handle its Rec inputs by unboxing them like @primitive, but unlike @primitive it does not record its actions or return a Rec result.  Some functions, like sign(), have zero gradient.  Others, like length() have discrete or constant outputs.  These need to handle Rec inputs, but do not need to record anything and can return regular values.  Their output can be treated like a constant in the program.  Use the @zerograd macro for those.  Note that kwargs are NOT unboxed.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#AutoGrad.getval",
+    "page": "Reference",
+    "title": "AutoGrad.getval",
+    "category": "Function",
+    "text": "getval(x) unboxes x if it is a Rec, otherwise returns x.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#AutoGrad-(advanced)-1",
+    "page": "Reference",
+    "title": "AutoGrad (advanced)",
+    "category": "section",
+    "text": "TODO: blurb here about how AutoGrad works, what the Rec type is etc.AutoGrad.@primitive\nAutoGrad.@zerograd\nAutoGrad.getval"
+},
+
+{
+    "location": "reference.html#Function-Index-1",
+    "page": "Reference",
+    "title": "Function Index",
+    "category": "section",
+    "text": "Pages = [\"reference.md\"]"
 },
 
 {
