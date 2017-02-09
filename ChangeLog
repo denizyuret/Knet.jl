@@ -1,17 +1,26 @@
 2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* TODO8:
+	* DONE:
+
+	# missing docs for distributions
+	# the update methods not documented yet.
+	# 0.8.1: tag new version for the paper when all is done.
+	# add transpose to KnetArray.
 	# source links? (especially for examples)
 	# docs todo: warn against overwriting arrays.
 	# use original docstrings for examples readme, put examples readme in docs.
-	# unclear docs for optimization
+
+	* TODO8:
+
+	# implement better unit testing.
+	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
+	# add back cpu convolution
+	# figure out rtfd doc setup or forwarding.
+	# fix unclear docs for optimization, tutorial example?
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# KnetArray does not work on cpu-only (should it?)
 	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# implement better unit testing.
-	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
-	# add back cpu convolution
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
 	# charlm: try indexing op instead of sparse matmul.
 	# charlm: try lstm time concatenation.
@@ -31,14 +40,6 @@
 	# resolve issues
 	# check old todo list
 	# deepcopy does not work for KnetArray
-
-	* DONE:
-
-	# missing docs for distributions
-	# the update methods not documented yet.
-	# 0.8.1: tag new version for the paper when all is done.
-	# add transpose to KnetArray.
-
 
 2017-02-08  Deniz Yuret  <dyuret@ku.edu.tr>
 

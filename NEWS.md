@@ -15,6 +15,8 @@ Documentation and Testing
 -------------------------
 * New links added to opt and rl docs.
 * gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
+* All documentation moved to Markdown using Documenter.jl.
+* Documentation for examples and a reference section added.
 
 Examples
 --------
