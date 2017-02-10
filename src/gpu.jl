@@ -48,8 +48,21 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
 	        p=Cuint[0]
                 # @cuda does not stay quiet so we use ccall here
                 # This code is only run once if successful, so nvmlInit here is ok
-                eval(:(ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()))
-	        eval(:(ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),$p)==0 || error()))
+                run(pipeline(`ldconfig -p`, stdout="temp.txt"))
+                libs = readlines("temp.txt"); rm("temp.txt")
+                lfound = false;
+                for lib in libs
+                    if startswith(lib,"\tlibnvidia-ml")
+                        lfound = true; break;
+                    end
+                end
+                if lfound
+                    info("Nvidia libraries found")
+                    ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()
+                    ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),p)==0 || error()
+                else
+                    info("Nvidia libraries not found")
+                end
                 # Let us keep nvml initialized for future ops such as meminfo
                 # eval(:(ccall(("nvmlShutdown","libnvidia-ml"),UInt32,())==0 || error()))
 	        Int(p[1])
