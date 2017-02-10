@@ -1,3 +1,19 @@
+2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* unit-test-todo:
+	+ broadcast.jl
+	cuda22.jl
+	cuda44.jl
+	distributions.jl
+	gpu.jl
+	+ karray.jl
+	kptr.jl
+	+ reduction.jl
+	x runtests.jl
+	+ unary.jl
+	update.jl
+
+
 2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:

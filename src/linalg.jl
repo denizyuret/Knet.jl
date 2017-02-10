@@ -1,9 +1,10 @@
-import Base: *, A_mul_B!
+import Base: *, transpose, A_mul_B!
 import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
 import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
 import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
 import Base.LinAlg.BLAS: gemm!
 import Base.LinAlg: axpy!
+export axpy!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
 (*){T}(A::KnetMatrix{T},B::KnetMatrix{T})=A_mul_B!(similar(A,(size(A,1),size(B,2))),A,B)
@@ -41,10 +42,12 @@ function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B:
     transa = cublasop(transA); transb = cublasop(transB)
     alpha = T[alpha]; beta = T[beta]
     lda = size2(A,1); ldb = size2(B,1); ldc = size2(C,1)
-    if T<:Float32
-        @cuda(cublas, cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
-    elseif T<:Float64
+    if T<:Float64
         @cuda(cublas, cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+    elseif T<:Float32
+        @cuda(cublas, cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+    # elseif T<:Float16
+    #     @cuda(cublas, cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     else
         error("CUBLAS does not support $T")
     end
@@ -66,4 +69,20 @@ end
 
 axpy!{T}(alpha::Number, x::KnetArray{T}, y::KnetArray{T})=axpy!(length(x),alpha,x,1,y,1)
 
-export axpy!
+
+function transpose{T}(x::KnetArray{T})
+    ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
+    sz = size(x)
+    y = similar(x,(sz[2],sz[1]))
+    if T<:Float32
+        @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    elseif T<:Float64
+        @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    else
+        error("CUBLAS does not support $T")
+    end
+    return y
+end
+
