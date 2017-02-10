@@ -15,7 +15,7 @@ as views with shared memory instead of copies.
 
 # Supported functions:
 
-* Array operations: cat, convert, copy, display, eachindex, elsize,
+* Array operations: cat, convert, copy, display, eachindex,
   eltype, endof, fill!, first, getindex, hcat, isempty, length,
   linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
   similar, size, stride, strides, summary, vcat, vec, zeros
@@ -86,15 +86,16 @@ pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, elsize, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros
+import Base: eachindex, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros
 eachindex(a::KnetArray) = (1:length(a))
-elsize{T}(::KnetArray{T}) = sizeof(T)
 eltype{T}(::KnetArray{T})=T
 eltype{T}(::Type{KnetArray{T}}) = T
 eltype{T,n}(::Type{KnetArray{T,n}}) = T
 endof(a::KnetArray) = length(a)
 fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
 first(a::KnetArray) = a[1]
+# AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
+@primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(dy,x,1)
 isempty(a::KnetArray) = (0==length(a))
 length(a::KnetArray)=prod(size(a))
 linearindexing(::KnetArray)=Base.LinearFast()
