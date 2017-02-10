@@ -2,29 +2,18 @@
 
 	* unit-test-todo:
 	+ broadcast.jl
-	cuda22.jl
 	cuda44.jl
 	distributions.jl
 	gpu.jl
 	+ karray.jl
 	kptr.jl
+	+ linalg.jl
 	+ reduction.jl
 	x runtests.jl
 	+ unary.jl
 	update.jl
 
-
-2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
-
 	* DONE:
-
-	# missing docs for distributions
-	# the update methods not documented yet.
-	# 0.8.1: tag new version for the paper when all is done.
-	# add transpose to KnetArray.
-	# source links? (especially for examples)
-	# docs todo: warn against overwriting arrays.
-	# use original docstrings for examples readme, put examples readme in docs.
 
 	* TODO8:
 
@@ -33,9 +22,10 @@
 	# add back cpu convolution
 	# figure out rtfd doc setup or forwarding.
 	# fix unclear docs for optimization, tutorial example?
+	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# KnetArray does not work on cpu-only (should it?)
-	# KnetArray ==, ===, issimilar etc. missing.
+	# KnetArray ==, ===, isapprox etc. missing.
 	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
@@ -57,6 +47,19 @@
 	# resolve issues
 	# check old todo list
 	# deepcopy does not work for KnetArray
+
+2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+
+	# missing docs for distributions
+	# the update methods not documented yet.
+	# 0.8.1: tag new version for the paper when all is done.
+	# add transpose to KnetArray.
+	# source links? (especially for examples)
+	# docs todo: warn against overwriting arrays.
+	# use original docstrings for examples readme, put examples readme in docs.
+
 
 2017-02-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
