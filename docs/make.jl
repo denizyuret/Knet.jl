@@ -40,8 +40,8 @@ makedocs(
 deploydocs(
     repo = "github.com/denizyuret/Knet.jl.git",
     target = "build",
-    deps = nothing,
-#   deps   = Deps.pip("mkdocs", "python-markdown-math"),
+#   deps = nothing,
+    deps   = Deps.pip("mkdocs", "python-markdown-math"),
     make = nothing,
     julia = "0.5",
     osname = "linux",
