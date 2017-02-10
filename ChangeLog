@@ -19,6 +19,7 @@
 	# fix unclear docs for optimization, tutorial example?
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# KnetArray does not work on cpu-only (should it?)
+	# KnetArray ==, ===, issimilar etc. missing.
 	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.

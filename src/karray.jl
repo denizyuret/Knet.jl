@@ -18,7 +18,7 @@ as views with shared memory instead of copies.
 * Array operations: cat, convert, copy, display, eachindex, elsize,
   eltype, endof, fill!, first, getindex, hcat, isempty, length,
   linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
-  similar, size, stride, summary, vcat, vec, zeros
+  similar, size, stride, strides, summary, vcat, vec, zeros
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -97,7 +97,7 @@ fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
 first(a::KnetArray) = a[1]
 isempty(a::KnetArray) = (0==length(a))
 length(a::KnetArray)=prod(size(a))
-linearindexing(::KnetArray)=LinearFast()
+linearindexing(::KnetArray)=Base.LinearFast()
 ndims{T,N}(a::KnetArray{T,N})=N
 ones{T}(a::KnetArray{T})=fill!(similar(a),one(T))
 similar(a::KnetArray, T, dims::Dims)      = KnetArray(T, dims)
