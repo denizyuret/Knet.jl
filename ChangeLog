@@ -1,17 +1,18 @@
 2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
-	* unit-test-todo:
-	+ broadcast.jl
-	cuda44.jl
-	distributions.jl
-	gpu.jl
-	+ karray.jl
-	kptr.jl
-	+ linalg.jl
-	+ reduction.jl
-	x runtests.jl
+	* unit-test-TODO:
 	+ unary.jl
+	+ broadcast.jl
+	+ reduction.jl
+	+ karray.jl
+	+ linalg.jl
+	... conv.jl
+	kptr.jl
+	gpu.jl
+	distributions.jl
 	update.jl
+	AutoGrad: run all tests with KnetArrays
+	runtests.jl: switch to new tests
 
 	* DONE:
 
@@ -29,7 +30,7 @@
 	# grad of convert (AutoGrad issue)
 	# KnetArray does not work on cpu-only (should it?)
 	# KnetArray ==, ===, isapprox etc. missing.
-	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email.
 
 	# docs todo: Julia tutorial. Baris Bozkurt's comments.
