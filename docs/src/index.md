@@ -6,7 +6,8 @@ Welcome to Knet.jl's documentation!
 ```@contents
 Pages = [
  "install.md",
- "README.md",
+ "tutorial.md",
+ "examples.md",
  "reference.md",
 ]
 ```

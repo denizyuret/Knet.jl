@@ -22,44 +22,6 @@ epoch and optimized parameters will be returned.
 module Housing
 using Knet,ArgParse
 
-function main(args=ARGS)
-    s = ArgParseSettings()
-    s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
-Repository."
-    s.exc_handler=ArgParse.debug_handler
-    @add_arg_table s begin
-        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
-        ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
-        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
-        ("--test"; arg_type=Float64; default=0.0; help="ratio of data to split for testing")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
-        ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
-    end
-    println(s.description)
-    isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s; as_symbols=true)
-    println("opts=",[(k,v) for (k,v) in o]...)
-    o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
-    w = Any[convert(atype, 0.1*randn(1,13)), zero(eltype(atype))]
-    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
-    report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
-    if o[:fast]
-        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
-    else
-        report(0)
-        @time for epoch=1:o[:epochs]
-            train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
-            report(epoch)
-            if o[:gcheck] > 0
-                gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck], verbose=true)
-            end
-        end
-    end
-    return w
-end
-
 predict(w,x)=(w[1]*x.+w[2])
 
 loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
@@ -104,10 +66,48 @@ function loaddata(test=0.0)
     (xtrn, ytrn, xtst, ytst)
 end
 
+function main(args=ARGS)
+    s = ArgParseSettings()
+    s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
+Repository."
+    s.exc_handler=ArgParse.debug_handler
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
+        ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
+        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
+        ("--test"; arg_type=Float64; default=0.0; help="ratio of data to split for testing")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
+    end
+    println(s.description)
+    isa(args, AbstractString) && (args=split(args))
+    o = parse_args(args, s; as_symbols=true)
+    println("opts=",[(k,v) for (k,v) in o]...)
+    o[:seed] > 0 && srand(o[:seed])
+    atype = eval(parse(o[:atype]))
+    w = Any[convert(atype, 0.1*randn(1,13)), zero(eltype(atype))]
+    (xtrn,ytrn,xtst,ytst) = map(x->convert(atype,x), loaddata(o[:test]))
+    report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
+    if o[:fast]
+        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+    else
+        report(0)
+        @time for epoch=1:o[:epochs]
+            train(w, xtrn, ytrn; lr=o[:lr], epochs=1)
+            report(epoch)
+            if o[:gcheck] > 0
+                gradcheck(loss, w, xtst, ytst; gcheck=o[:gcheck], verbose=true)
+            end
+        end
+    end
+    return w
+end
+
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia housing.jl --epochs 10
 # julia> Housing.main("--epochs 10")
-!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+PROGRAM_FILE=="housing.jl" && main(ARGS)
 
 end # module Housing
 

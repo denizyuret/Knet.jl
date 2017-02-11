@@ -2,8 +2,7 @@ for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 using Knet
-!isdefined(:MNIST) && (local lo=isdefined(:load_only); load_only=true; include(Knet.dir("examples","mnist.jl")); load_only=lo)
-
+!isdefined(:MNIST) && include(Knet.dir("examples","mnist.jl"))
 
 """
 
@@ -15,71 +14,20 @@ representing a 28x28 image.  The pixel values are normalized to
 (a vector that has a single non-zero component) indicating the correct
 class (0-9) for a given image.  10 is used to represent 0.
 
-You can run the demo using `julia lenet.jl`.  Use `julia lenet.jl
---help` for a list of options.  The dataset will be automatically
-downloaded.  By default the [LeNet](http://yann.lecun.com/exdb/lenet)
-convolutional neural network model will be trained for 10 epochs.  The
-accuracy for the training and test sets will be printed at every epoch
-and optimized parameters will be returned.
+You can run the demo using `julia lenet.jl` at the command line or
+`julia> LeNet.main()` at the Julia prompt.  Use `julia lenet.jl
+--help` or `julia> LeNet.main("--help")` for a list of options.  The
+dataset will be automatically downloaded.  By default the
+[LeNet](http://yann.lecun.com/exdb/lenet) convolutional neural network
+model will be trained for 10 epochs.  The accuracy for the training
+and test sets will be printed at every epoch and optimized parameters
+will be returned.
 
 """
 module LeNet
 using Knet,ArgParse
-using Main.MNIST: minibatch, accuracy, xtrn, ytrn, xtst, ytst
+using Main.MNIST: minibatch, accuracy
 
-
-function main(args=ARGS)
-    s = ArgParseSettings()
-    s.description="lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
-    s.exc_handler=ArgParse.debug_handler
-    @add_arg_table s begin
-        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
-        ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
-        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
-        ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
-        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
-    end
-    println(s.description)
-    isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s; as_symbols=true)
-    println("opts=",[(k,v) for (k,v) in o]...)
-    o[:seed] > 0 && srand(o[:seed])
-    gpu() >= 0 || error("LeNet only works on GPU machines.")
-
-    dtrn = minibatch4(xtrn, ytrn, o[:batchsize])
-    dtst = minibatch4(xtst, ytst, o[:batchsize])
-    w = weights()
-    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
-
-    if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
-    else
-        report(0)
-        @time for epoch=1:o[:epochs]
-            train(w, dtrn; lr=o[:lr], epochs=1)
-            report(epoch)
-            if o[:gcheck] > 0
-                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)
-            end
-        end
-    end
-    return w
-end
-
-
-function train(w, data; lr=.1, epochs=20, nxy=0)
-    for epoch=1:epochs
-        for (x,y) in data
-            g = lossgradient(w, x, y)
-            for i in 1:length(w)
-                # w[i] -= lr * g[i]
-                axpy!(-lr, g[i], w[i])
-            end
-        end
-    end
-    return w
-end
 
 function predict(w,x,n=length(w)-4)
     for i=1:2:n
@@ -99,6 +47,19 @@ function loss(w,x,ygold)
 end
 
 lossgradient = grad(loss)
+
+function train(w, data; lr=.1, epochs=20, nxy=0)
+    for epoch=1:epochs
+        for (x,y) in data
+            g = lossgradient(w, x, y)
+            for i in 1:length(w)
+                # w[i] -= lr * g[i]
+                axpy!(-lr, g[i], w[i])
+            end
+        end
+    end
+    return w
+end
 
 function weights(;ftype=Float32,atype=KnetArray)
     w = Array(Any,8)
@@ -140,11 +101,51 @@ function xavier(a...)
     w = 2s*w-s
 end
 
+function main(args=ARGS)
+    s = ArgParseSettings()
+    s.description="lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
+    s.exc_handler=ArgParse.debug_handler
+    @add_arg_table s begin
+        ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
+        ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
+        ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
+        ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
+        ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
+    end
+    println(s.description)
+    isa(args, AbstractString) && (args=split(args))
+    o = parse_args(args, s; as_symbols=true)
+    println("opts=",[(k,v) for (k,v) in o]...)
+    o[:seed] > 0 && srand(o[:seed])
+    gpu() >= 0 || error("LeNet only works on GPU machines.")
+
+    isdefined(MNIST,:xtrn) || MNIST.loaddata()
+    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize])
+    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize])
+    w = weights()
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+
+    if o[:fast]
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+    else
+        report(0)
+        @time for epoch=1:o[:epochs]
+            train(w, dtrn; lr=o[:lr], epochs=1)
+            report(epoch)
+            if o[:gcheck] > 0
+                gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)
+            end
+        end
+    end
+    return w
+end
+
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia lenet.jl --epochs 10
 # julia> LeNet.main("--epochs 10")
-!isinteractive() && (!isdefined(Main,:load_only) || !Main.load_only) && main(ARGS)
+PROGRAM_FILE == "lenet.jl" && main(ARGS)
 
 end # module
 

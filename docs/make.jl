@@ -1,7 +1,15 @@
 using Documenter, Knet
 
+# Load examples
+load_only = true
+for ex in ("linreg","housing","mnist","lenet","charlm","optimizers","vgg","resnet")
+    println("$ex.jl")
+    include(Knet.dir("examples","$ex.jl"))
+end
+println("makedocs")
+
 makedocs(
-    modules = [Knet],           # generate warnings for coverage
+    modules = [Knet,AutoGrad,LinReg,Housing,MNIST,LeNet,CharLM,Optimizers,VGG,ResNet],
     clean = false,              # do we clean build/
     format = :html,
     sitename = "Knet.jl",
@@ -12,7 +20,8 @@ makedocs(
         "Home" => "index.md",
         "Manual" => Any[
             "install.md",
-            "README.md",
+            "tutorial.md",
+            "examples.md",
             "reference.md",
         ],
         "Textbook" => Any[
@@ -31,8 +40,8 @@ makedocs(
 deploydocs(
     repo = "github.com/denizyuret/Knet.jl.git",
     target = "build",
-    deps = nothing,
-#   deps   = Deps.pip("mkdocs", "python-markdown-math"),
+#   deps = nothing,
+    deps   = Deps.pip("mkdocs", "python-markdown-math"),
     make = nothing,
     julia = "0.5",
     osname = "linux",

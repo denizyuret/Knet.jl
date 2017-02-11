@@ -3,7 +3,6 @@ for p in ("Knet","AutoGrad","ArgParse","Compat")
 end
 
 """
-charlm.jl: Knet8 version (c) Emre Yolcu, Deniz Yuret, 2016
 
 This example implements an LSTM network for training and testing
 character-level language models inspired by ["The Unreasonable
@@ -306,7 +305,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia charlm.jl --epochs 10
 # julia> CharLM.main("--epochs 10")
-!isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+PROGRAM_FILE=="charlm.jl" && main(ARGS)
 
 end  # module
 

@@ -1,16 +1,46 @@
-macro cuda(lib,fun,x...)
-    if Libdl.find_library(["lib$lib"], []) == ""
-        msg = "Cannot find lib$lib, please install it and rerun Pkg.build(\"Knet\")."
-        :(error($msg))
-    else
+macro cuda1(lib,fun,x...)       # quietly do nothing if library missing
+    if Libdl.find_library(["lib$lib"], []) != ""
         fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
-        esc(:(($err=$fx) == 0 || (warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()))))
+        esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
+    end
+end
+
+macro cuda(lib,fun,x...)        # give an error if library missing
+    if Libdl.find_library(["lib$lib"], []) != ""
+        Expr(:macrocall,Symbol("@cuda1"),lib,fun,x...)
+    else
+        Expr(:call,:error,"Cannot find lib$lib, please install it and rerun Pkg.build(\"Knet\").")
     end
 end
 
 typealias Cptr Ptr{Void}
+
+"""
+
+`gpu()` returns the id of the active GPU device or -1 if none are
+active.
+
+`gpu(true)` resets all GPU devices and activates the one with the most
+available memory.
+
+`gpu(false)` resets and deactivates all GPU devices.
+
+`gpu(d::Int)` activates the GPU device `d` if `0 <= d < gpuCount()`,
+otherwise deactivates devices.
+
+`gpu(true/false)` resets all devices.  If there are any allocated
+KnetArrays their pointers will be left dangling.  Thus
+`gpu(true/false)` should only be used during startup.  If you want to
+suspend GPU use temporarily, use `gpu(-1)`.
+
+`gpu(d::Int)` does not reset the devices.  You can select a previous
+device and find allocated memory preserved.  However trying to operate
+on arrays of an inactive device will result in error.
+
+"""
+function gpu end
 
 let GPU=-1, GPUCNT=-1, handles=Dict()
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
@@ -21,12 +51,12 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
         if GPUCNT == -1
             GPUCNT = try
 	        p=Cuint[0]
-                # @cuda does not stay quiet so we use ccall here
+                # @cuda does not stay quiet so we use @cuda1 here
                 # This code is only run once if successful, so nvmlInit here is ok
-                ccall(("nvmlInit","libnvidia-ml"),UInt32,())==0 || error()
-                ccall(("nvmlDeviceGetCount","libnvidia-ml"),UInt32,(Ptr{Cuint},),p)==0 || error()
+                @cuda1("nvidia-ml",nvmlInit,())
+                @cuda1("nvidia-ml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
                 # Let us keep nvml initialized for future ops such as meminfo
-                # eval(:(ccall(("nvmlShutdown","libnvidia-ml"),UInt32,())==0 || error()))
+                # @cuda1("nvidia-ml",nvmlShutdown,())
 	        Int(p[1])
             catch
 	        0
@@ -74,26 +104,6 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
         end
     end
 end
-
-"""
-gpu() returns the id of the active GPU device or -1 if none are active.
-
-gpu(true) resets all GPU devices and activates the one with the most available memory.
-
-gpu(false) resets and deactivates all GPU devices.
-
-gpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.
-
-gpu(true/false) resets all devices.  If there are any allocated
-KnetArrays their pointers will be left dangling.  Thus gpu(true/false)
-should only be used during startup.  If you want to suspend GPU use
-temporarily, use gpu(-1).
-
-gpu(d::Int) does not reset the devices.  You can select a previous
-device and find allocated memory preserved.  However trying to operate
-on arrays of an inactive device will result in error.
-
-""" gpu
 
 # cudaGetDeviceCount is deprecated, use gpuCount instead:
 cudaGetDeviceCount()=(try; p=Cint[0]; eval(:(ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),$p))); p[1]; catch; 0; end) # will not bomb when there is no gpu

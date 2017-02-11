@@ -1,4 +1,4 @@
-for p in ("Knet","ArgParse","ImageMagick","MAT")
+for p in ("Knet","ArgParse","ImageMagick","MAT","Images")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 using Knet
@@ -206,6 +206,6 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia vgg.jl cat.jpg
 # julia> ResNet.main("cat.jpg")
-!isinteractive() && (!isdefined(Main,:load_only) || !Main.load_only) && main(ARGS)
+PROGRAM_FILE=="resnet.jl" && main(ARGS)
 
 end # module

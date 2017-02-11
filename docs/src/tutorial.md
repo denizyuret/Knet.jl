@@ -1,22 +1,20 @@
-Introduction to Knet
-====================
+# Introduction to Knet
 
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
 [![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
 [![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
 [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 
-[Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced "kay-net") is the [Koç
-University](http://www.ku.edu.tr/en) deep learning framework
-implemented in [Julia](http://docs.julialang.org) by [Deniz
-Yuret](http://www.denizyuret.com) and collaborators.  It supports GPU
-operation and automatic differentiation using dynamic computational
-graphs for models defined in plain Julia.  This document is a tutorial
-introduction to Knet.  Check out the [full
-documentation](https://denizyuret.github.io/Knet.jl/latest) and the [examples
-directory](https://github.com/denizyuret/Knet.jl/tree/master/examples)
-for more information. If you use Knet in academic work, [here is a
-paper](https://goo.gl/zeUBFr) about Knet:
+[Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced
+"kay-net") is the [Koç University](http://www.ku.edu.tr/en) deep
+learning framework implemented in [Julia](http://docs.julialang.org)
+by [Deniz Yuret](http://www.denizyuret.com) and collaborators.  It
+supports GPU operation and automatic differentiation using dynamic
+computational graphs for models defined in plain Julia.  This document
+is a tutorial introduction to Knet.  Check out the [full
+documentation](https://denizyuret.github.io/Knet.jl/latest) and
+[Examples](@ref) for more information. If you use Knet in academic
+work, [here is a paper](https://goo.gl/zeUBFr) that can be cited:
 
     @inproceedings{knet2016mlsys,
       author={Yuret, Deniz},
@@ -26,45 +24,38 @@ paper](https://goo.gl/zeUBFr) about Knet:
     }
 
 
-Contents
---------
+**Contents**
 
--   [Philosophy](@ref)
--   [Examples](@ref)
-    -   [Linear regression](@ref)
-    -   [Softmax classification](@ref)
-    -   [Multi-layer perceptron](@ref)
-    -   [Convolutional neural network](@ref)
-    -   [Recurrent neural network](@ref)
--   [Benchmarks](@ref)
--   [Under the hood](@ref)
--   [Contributing](@ref)
+```@contents
+Pages = ["tutorial.md"]
+Depth = 5
+```
 
-
-
-Philosophy
-----------
+## Philosophy
 
 Knet uses dynamic computational graphs generated at runtime for
-automatic gradient calculation.  This allows machine learning models
-to be implemented by defining just the forward calculation (i.e. the
-computation from parameters and data to loss) using the full power and
-expressivity of a high level language like Julia. The implementation
-can use helper functions, loops, conditionals, recursion, closures,
-tuples and dictionaries, array indexing, concatenation and other high
-level features of Julia, some of which are often missing in the
-restricted modeling languages of static computational graph systems
-like Theano and Tensorflow.
+automatic differentiation of (almost) any Julia code.  This allows
+machine learning models to be implemented by defining just the forward
+calculation (i.e. the computation from parameters and data to loss)
+using the full power and expressivity of Julia. The implementation can
+use helper functions, loops, conditionals, recursion, closures, tuples
+and dictionaries, array indexing, concatenation and other high level
+language features, some of which are often missing in the restricted
+modeling languages of static computational graph systems like Theano,
+Torch, Caffe and Tensorflow.  GPU operation is supported by simply
+using the KnetArray type instead of regular Array for parameters and
+data.
 
-Knet achieves high performance by combining automatic differentiation
-of most of Julia with efficient GPU kernels and memory management. The
-computations can be performed on the GPU by simply using KnetArray
-instead of Array for parameters and data.  See [Under the hood](@ref)
-for more details.
+Knet builds a dynamic computational graph by recording primitive
+operations during forward calculation.  Only pointers to inputs and
+outputs are recorded for efficiency.  Therefore array overwriting is
+not supported during forward and backward passes.  This encourages a
+clean functional programming style.  High performance is achieved
+using custom memory management and efficient GPU kernels.  See [Under
+the hood](@ref) for more details.
 
 
-Examples
---------
+## Tutorial
 
 In Knet, a machine learning model is defined using plain Julia code. A
 typical model consists of a **prediction** and a **loss**
@@ -94,7 +85,7 @@ Dict), `x` is the input and `y` is the desired output. To train this
 model, we want to adjust its parameters to reduce the loss on given
 training examples. The direction in the parameter space in which the
 loss reduction is maximum is given by the negative gradient of the loss.
-Knet uses the higher-order function `grad` from
+Knet uses the higher-order function [`grad`](@ref) from
 [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute the
 gradient direction:
 
@@ -108,8 +99,7 @@ functions. The `lossgradient` function takes the same arguments as
 value, `lossgradient` returns `dw`, the gradient of the loss with
 respect to its first argument `w`. The type and size of `dw` is
 identical to `w`, each entry in `dw` gives the derivative of the loss
-with respect to the corresponding entry in `w`. See `@doc grad` for more
-information.
+with respect to the corresponding entry in `w`. 
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
@@ -200,7 +190,7 @@ percentage of instances classified correctly:
 
 Now let's train a model on the MNIST data:
 
-    julia> include(Pkg.dir("Knet/examples/mnist.jl"))
+    julia> include(Knet.dir("examples","mnist.jl"))
     julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
     julia> dtrn = minibatch(xtrn, ytrn, 100)
     julia> dtst = minibatch(xtst, ytst, 100)
@@ -280,9 +270,8 @@ convolutional layers followed by two fully connected layers.
 ([image
 source](http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html))
 
-Knet provides the `conv4(w,x)` and `pool(x)` functions for the
-implementation of convolutional nets (see `@doc conv4` and `@doc pool`
-for details):
+Knet provides the [`conv4`](@ref) and [`pool`](@ref) functions for the
+implementation of convolutional nets:
 
     function predict(w,x0)
         x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))
@@ -300,8 +289,7 @@ The weights for the convolutional net can be initialized as follows:
 
 Currently convolution and pooling are only supported on the GPU for 4-D
 and 5-D arrays. So we reshape our data and transfer it to the GPU along
-with the parameters by converting them into KnetArrays (see
-`@doc KnetArray` for more information):
+with the parameters by converting them into [`KnetArray`](@ref)s:
 
     dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
     dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
@@ -351,17 +339,17 @@ Christopher Olah for a good overview of LSTMs.
 source](http://colah.github.io/posts/2015-08-Understanding-LSTMs))
 
 The code below shows one way to define an LSTM in Knet. The first two
-arguments are the parameters, the weight matrix and the bias vector. The
-next two arguments hold the internal state of the LSTM: the hidden and
-cell arrays. The last argument is the input. Note that for performance
-reasons we lump all the parameters of the LSTM into one matrix-vector
-pair instead of using separate parameters for each gate. This way we can
-perform a single matrix multiplication, and recover the gates using
-array indexing. We represent input, hidden and cell as row vectors
-rather than column vectors for more efficient concatenation and
-indexing. `sigm` and `tanh` are the sigmoid and the hyperbolic tangent
-activation functions. The LSTM returns the updated state variables
-`hidden` and `cell`.
+arguments are the parameters, the weight matrix and the bias
+vector. The next two arguments hold the internal state of the LSTM:
+the hidden and cell arrays. The last argument is the input. Note that
+for performance reasons we lump all the parameters of the LSTM into
+one matrix-vector pair instead of using separate parameters for each
+gate. This way we can perform a single matrix multiplication, and
+recover the gates using array indexing. We represent input, hidden and
+cell as row vectors rather than column vectors for more efficient
+concatenation and indexing. [`sigm`](@ref) and `tanh` are the sigmoid
+and the hyperbolic tangent activation functions. The LSTM returns the
+updated state variables `hidden` and `cell`.
 
     function lstm(weight,bias,hidden,cell,input)
         gates   = hcat(input,hidden) * weight .+ bias
@@ -490,8 +478,7 @@ Shakespeare':
       BOTTOM. My lord, good mine eyest, then: I will not set up.
       LUCILIUS. Who shall
 
-Benchmarks
-----------
+## Benchmarks
 
 Each of the examples above was used as a benchmark to compare Knet with
 other frameworks. The table below shows the number of seconds it takes
@@ -522,16 +509,39 @@ language model with embedding and hidden layer sizes set to 256 and
 trained using BPTT with a sequence length of 100. Each dataset was
 minibatched and transferred to GPU prior to benchmarking when possible.
 
-Under the hood
---------------
+## Under the hood
 
 Knet relies on the
 [AutoGrad](https://github.com/denizyuret/AutoGrad.jl) package and the
-[KnetArray](https://github.com/denizyuret/Knet.jl/blob/master/src/karray.jl)
-data type for its functionality and performance. AutoGrad computes the
-gradient of Julia functions and KnetArray implements high performance
-GPU arrays with custom memory management. This section briefly
-describes them.
+[KnetArray](@ref) data type for its functionality and
+performance. AutoGrad computes the gradient of Julia functions and
+KnetArray implements high performance GPU arrays with custom memory
+management. This section briefly describes them.
+
+### KnetArrays
+
+GPUs have become indispensable for training large deep learning models.
+Even the small examples implemented here run up to 17x faster on the GPU
+compared to the 8 core CPU architecture we use for benchmarking. However
+GPU implementations have a few potential pitfalls: (i) GPU memory
+allocation is slow, (ii) GPU-RAM memory transfer is slow, (iii)
+reduction operations (like `sum`) can be very slow unless implemented
+properly (See [Optimizing Parallel Reduction in
+CUDA](http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf)).
+
+Knet implements [KnetArray](@ref) as a Julia data type that wraps GPU
+array pointers. KnetArray is based on the more standard
+[CudaArray](https://github.com/JuliaGPU/CUDArt.jl) with a few
+important differences: (i) KnetArrays have a custom memory manager,
+similar to [ArrayFire](http://arrayfire.com), which reuse pointers
+garbage collected by Julia to reduce the number of GPU memory
+allocations, (ii) array ranges (e.g. `a[:,3:5]`) are handled as views
+with shared pointers instead of copies when possible, and (iii) a
+number of custom CUDA kernels written for KnetArrays implement
+element-wise, broadcasting, and scalar and vector reduction operations
+efficiently. As a result Knet allows users to implement their models
+using high-level code, yet be competitive in performance with other
+frameworks as demonstrated in the benchmarks section.
 
 ### AutoGrad
 
@@ -641,34 +651,8 @@ elementary operations and derivatives can be defined concisely using
 Julia's macro and meta-programming facilities. See
 [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) for details.
 
-### KnetArray
 
-GPUs have become indispensable for training large deep learning models.
-Even the small examples implemented here run up to 17x faster on the GPU
-compared to the 8 core CPU architecture we use for benchmarking. However
-GPU implementations have a few potential pitfalls: (i) GPU memory
-allocation is slow, (ii) GPU-RAM memory transfer is slow, (iii)
-reduction operations (like `sum`) can be very slow unless implemented
-properly (See [Optimizing Parallel Reduction in
-CUDA](http://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf)).
-
-Knet implements
-[KnetArray](https://github.com/denizyuret/Knet.jl/blob/master/src/karray.jl)
-as a Julia data type that wraps GPU array pointers. KnetArray is based
-on the more standard [CudaArray](https://github.com/JuliaGPU/CUDArt.jl)
-with a few important differences: (i) KnetArrays have a custom memory
-manager, similar to [ArrayFire](http://arrayfire.com), which reuse
-pointers garbage collected by Julia to reduce the number of GPU memory
-allocations, (ii) array ranges (e.g. `a[:,3:5]`) are handled as views
-with shared pointers instead of copies when possible, and (iii) a number
-of custom CUDA kernels written for KnetArrays implement element-wise,
-broadcasting, and scalar and vector reduction operations efficiently. As
-a result Knet allows users to implement their models using high-level
-code, yet be competitive in performance with other frameworks as
-demonstrated in the benchmarks section.
-
-Contributing
-------------
+## Contributing
 
 Knet is an open-source project and we are always open to new
 contributions: bug reports and fixes, feature requests and
@@ -684,14 +668,14 @@ list and [Tips for developers](@ref).
 
 Current contributors:
 
--   Deniz Yuret
--   Ozan Arkan Can
--   Onur Kuru
--   Emre Ünal
--   Erenay Dayanık
--   Ömer Kırnap
--   İlker Kesen
--   Emre Yolcu
--   Meriç Melike Softa
--   Ekrem Emre Yurdakul
+- Deniz Yuret
+- Ozan Arkan Can
+- Onur Kuru
+- Emre Ünal
+- Erenay Dayanık
+- Ömer Kırnap
+- İlker Kesen
+- Emre Yolcu
+- Meriç Melike Softa
+- Ekrem Emre Yurdakul
 
