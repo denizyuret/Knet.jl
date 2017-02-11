@@ -115,11 +115,34 @@ function mat(x)
 end
 
 
-import Base: permutedims
+import Base: permutedims, ipermutedims
 function permutedims{T,N}(x::KnetArray{T,N}, dims)
-    length(dims) != ndims(x) && error("Dimensions mismatch")
-    (N < 2 || N > 5) && error("Unsupported number of dimensions")
+    if length(dims) != N; throw(DimensionMismatch()); end
+    if N == 2
+        # use individual == to cover row col vecs tuples etc
+        if dims[1]==1 && dims[2]==2
+            return copy(x)
+        elseif dims[1]==2 && dims[2]==1
+            return transpose(x)
+        else
+            throw(ArgumentError("no valid permutation of dimensions"))
+        end
+    elseif N == 3
+        if dims[1]==1 && dims[2]==2 && dims[3]==3
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
+            return y
+        end
+    elseif N == 4 || N == 5
+        error("Not yet implemented")
+    end
+end
 
+function permutefunc{T,N}(x::KnetArray{T,N}, dims)
     funcName = "permutedims$(N)D_"
     for i=1:N
         funcName = funcName * "$(dims[i])_"
@@ -132,23 +155,13 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         error("$T not supported")
     end
     funcName = funcName * "_44"
-    
-    if N == 2
-        if dims == [1 2]
-            return x
-        elseif dims == [2 1]
-            return transpose(x)
-        end
-    elseif N == 3
-        if dims == [1 2 3]
-            return x
-        else
-            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                                                    $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
-            return y
-        end
-    elseif N == 4 || N == 5
-        error("Not yet implemented")
+    return funcName
+end    
+
+function ipermutedims(A::KnetArray,perm)
+    iperm = Array{Int}(length(perm))
+    for (i,p) = enumerate(perm)
+        iperm[p] = i
     end
+    return permutedims(A,iperm)
 end
