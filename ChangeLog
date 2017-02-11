@@ -6,11 +6,11 @@
 	+ reduction.jl
 	+ karray.jl
 	+ linalg.jl
+	+ update.jl
 	... conv.jl
 	kptr.jl
 	gpu.jl
 	distributions.jl
-	update.jl
 	AutoGrad: run all tests with KnetArrays
 	runtests.jl: switch to new tests
 

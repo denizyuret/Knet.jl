@@ -69,7 +69,7 @@ end
 
 #GPU Tests
     if gpu() >= 0
-        w = KnetArray(randn(dims))
+        w = KnetArray(w)
         @time test_sgd(copy(w))
         @time test_momentum(copy(w))
         @time test_adam(copy(w))
