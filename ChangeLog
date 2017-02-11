@@ -16,13 +16,14 @@
 	* DONE:
 
 	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
+	# figure out rtfd doc setup or forwarding.
 
 	* TODO8:
 
 	# implement better unit testing.
 	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 	# add back cpu convolution
-	# figure out rtfd doc setup or forwarding.
+	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
 	# fix unclear docs for optimization, tutorial example?
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# grad of convert (AutoGrad issue)

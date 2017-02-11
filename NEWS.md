@@ -10,6 +10,7 @@ General
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
 * KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
+* Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
 
 Documentation and Testing
 -------------------------

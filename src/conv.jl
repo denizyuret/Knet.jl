@@ -40,7 +40,7 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T};
     y = similar(x, cdims(w,x;o...))
     @cuda(cudnn, cudnnConvolutionForward,
           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(alpha),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(y),y)
+          handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(y),y)
     return y
 end
 
@@ -51,15 +51,15 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
+              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(dx),dx)
     elseif cudnnVersion >= 3000
         @cuda(cudnn,cudnnConvolutionBackwardData_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),TD(dx),dx)
+              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(dx),dx)
     else
         @cuda(cudnn,cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(beta),TD(dx),dx)
+              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),TD(dx),dx)
     end
     return dx
 end
@@ -71,15 +71,15 @@ function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),FD(dw),dw)
+              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),FD(dw),dw)
     elseif cudnnVersion >= 3000
         @cuda(cudnn,cudnnConvolutionBackwardFilter_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(beta),FD(dw),dw)
+              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),FD(dw),dw)
     else
         @cuda(cudnn,cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(alpha),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(beta),FD(dw),dw)
+              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),FD(dw),dw)
     end
     return dw
 end
@@ -125,7 +125,7 @@ function pool{T}(x::KnetArray{T}; handle=cudnnhandle, alpha=one(T), beta=zero(T)
     y = similar(x, pdims(x; o...))
     @cuda(cudnn, cudnnPoolingForward,
           (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
-          handle,PD(x;o...),Ref(alpha),TD(x),x,    Ref(beta),TD(y),y)
+          handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
     return y
 end
 
@@ -134,7 +134,7 @@ function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T};
     dx = similar(x)
     @cuda(cudnn,cudnnPoolingBackward,
           (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
-          handle,PD(x;o...),Ref(alpha),TD(y),y,TD(dy),dy,TD(x),x,Ref(beta),TD(dx),dx)
+          handle,PD(x;o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
     return dx
 end
 
@@ -221,7 +221,7 @@ type FD; ptr
 end
 
 type CD; ptr
-    function CD(w::KnetArray,x::KnetArray; padding=padsize(w), stride=1, upscale=1, mode=0)
+    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
