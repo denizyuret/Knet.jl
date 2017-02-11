@@ -5,20 +5,24 @@
     Array(k::KnetArray)
 
 Container for GPU arrays that supports most of the AbstractArray
-interface.  KnetArrays and Arrays can be converted to each other as
-shown above, which involves copying to and from the GPU memory.
-Important differences from the alternative CudaArray are: (1) a custom
-memory manager that minimizes the number of calls to the slow
-cudaMalloc by reusing already allocated but garbage collected GPU
-pointers.  (2) a custom getindex that handles ranges such as `a[5:10]`
-as views with shared memory instead of copies.
+interface.  Only Float32/64 KnetArrays fully supported. KnetArrays and
+Arrays can be converted to each other as shown above, which involves
+copying to and from the GPU memory.  Important differences from the
+alternative CudaArray are: (1) a custom memory manager that minimizes
+the number of calls to the slow cudaMalloc by reusing already
+allocated but garbage collected GPU pointers.  (2) a custom getindex
+that handles ranges such as `a[5:10]` as views with shared memory
+instead of copies.
 
 # Supported functions:
 
-* Array operations: cat, convert, copy, display, eachindex,
-  eltype, endof, fill!, first, getindex, hcat, isempty, length,
+* Array operations: cat, convert, copy, display, eachindex, eltype,
+  endof, fill!, first, getindex, hcat, isempty, length,
   linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
-  similar, size, stride, strides, summary, vcat, vec, zeros
+  similar, size, stride, strides, summary, vcat, vec, zeros.  (Only
+  Integer, Colon, and UnitRange indices supported for get/setindex.
+  CartesianIndex, StepRange, Array, and Bool indices not supported.
+  cat(i,x,y) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -27,7 +31,8 @@ as views with shared memory instead of copies.
 
 * Broadcasting operators: (.*), (.+), (.-), (./), (.<), (.<=), (.!=),
   (.==), (.>), (.>=), (.^), max, min.  (Only Array-Scalar and
-  Array-Vector broadcasting are supported)
+  Array-Vector broadcasting are supported. Boolean operators generate
+  outputs with same type as inputs; no support for KnetArray{Bool}.)
 
 * Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
   sumabs2, vecnorm.  (Only Array->Scalar and Array->Vector reductions
@@ -36,8 +41,8 @@ as views with shared memory instead of copies.
 * Linear algebra: (*), axpy!, permutedims (only 2D and 3D), transpose
 
 * Knet extras: cpu2gpu, gpu2cpu, relu, sigm, invx, logp, logsumexp,
-  conv4, pool, deconv4, unpool, mat, update!
-    
+  conv4, pool, deconv4, unpool, mat, update! (Only 4D/5D, Float32/64
+  KnetArrays support conv4, pool, deconv4, unpool)
 
 """
 type KnetArray{T,N}
