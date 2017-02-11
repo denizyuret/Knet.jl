@@ -1,3 +1,7 @@
+macro gcinfo(x); end
+# Uncomment to print gc information:
+#macro gcinfo(x); esc(:(println(($x)))); end
+
 # KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
@@ -76,11 +80,11 @@ function KnetPtr(nbytes::Integer)
         ptrs.used += 1
         return KnetPtr(ptr,nbytes,dev)
     end
-    gc(); print(".")
+    gc(); @gcinfo(".")
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
-    knetgc(); print("+")
+    knetgc(); @gcinfo("+")
     ptr = knetMalloc(nbytes)
     if ptr != nothing
         ptrs.used += 1
