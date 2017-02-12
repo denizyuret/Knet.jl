@@ -2,7 +2,7 @@ for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 using Knet
-!isdefined(:MNIST) && include(Knet.dir("examples","mnist.jl"))
+!isdefined(Main,:MNIST) && include(Knet.dir("examples","mnist.jl"))
 
 """
 
@@ -25,8 +25,8 @@ will be returned.
 
 """
 module LeNet
-using Knet,ArgParse
-using Main.MNIST: minibatch, accuracy
+using Knet,ArgParse,Main
+using MNIST: minibatch, accuracy
 
 
 function predict(w,x,n=length(w)-4)

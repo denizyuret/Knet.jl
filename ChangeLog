@@ -1,32 +1,40 @@
 2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
-	* unit-test-todo:
-	+ broadcast.jl
-	cuda44.jl
-	distributions.jl
-	gpu.jl
-	+ karray.jl
-	kptr.jl
-	+ linalg.jl
-	+ reduction.jl
-	x runtests.jl
+	* unit-test-TODO:
 	+ unary.jl
-	update.jl
+	+ broadcast.jl
+	+ reduction.jl
+	+ karray.jl
+	+ linalg.jl
+	+ update.jl
+	+ kptr.jl
+	+ gpu.jl
+	+ distributions.jl
+	... conv.jl: debug unpool, add cpuconv
+	runtests.jl: switch to new tests, figure out why so slow
+	AutoGrad: run all tests with KnetArrays
 
 	* DONE:
+
+	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
+	# figure out rtfd doc setup or forwarding.
 
 	* TODO8:
 
 	# implement better unit testing.
 	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 	# add back cpu convolution
-	# figure out rtfd doc setup or forwarding.
+	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
+	# figure out no KnetArray in cpu problem
 	# fix unclear docs for optimization, tutorial example?
-	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
 	# override KnetArray and Array instead of cpu2gpu etc.
+	# grad of convert (AutoGrad issue)
 	# KnetArray does not work on cpu-only (should it?)
 	# KnetArray ==, ===, isapprox etc. missing.
-	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad?)
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email.
+
+	# docs todo: Julia tutorial. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
 	# charlm: try indexing op instead of sparse matmul.

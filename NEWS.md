@@ -10,6 +10,9 @@ General
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
 * KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
+* Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
+* GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
+* It is now an error to try to create a KnetArray when the active device is not a gpu.
 
 Documentation and Testing
 -------------------------
@@ -17,6 +20,7 @@ Documentation and Testing
 * gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
 * All documentation moved to Markdown using Documenter.jl.
 * Documentation for examples and a reference section added.
+* Unsupported ops documented in KnetArray doc.
 
 Examples
 --------

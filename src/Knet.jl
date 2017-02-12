@@ -12,8 +12,8 @@ include("karray.jl");           export KnetArray, cpu2gpu, gpu2cpu
 include("unary.jl");            export relu, sigm, invx, logp
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        export logsumexp
-include("linalg.jl");           # linear algebra functions
-include("conv.jl");             export conv4, pool, deconv4, unpool, mat
+include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
+include("conv.jl");             export conv4, pool, deconv4, unpool
 include("update.jl"); 		export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 

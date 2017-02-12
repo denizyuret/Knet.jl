@@ -1,16 +1,16 @@
 macro gcinfo(x); end
 # Uncomment to print gc information:
-#macro gcinfo(x); esc(:(println(($x)))); end
+#macro gcinfo(x); esc(:(print(($x)))); end
 
 # KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
 
 type KnetPtr
-    ptr::Cptr
-    len::Int
-    dev::Int
-    parent
+    ptr::Cptr                   # actual pointer
+    len::Int                    # size in bytes
+    dev::Int                    # id of the device the pointer belongs to
+    parent                      # used to implement shared memory pointers
 end
 
 # We use the KnetPtrs type to keep track of allocated and garbage
@@ -23,8 +23,8 @@ type KnetPtrs
 end
 
 # KnetFree[dev+2] will hold a dictionary from sizes to KnetPtrs for
-# device dev.  KnetFree[1] reserved for the cpu.  It is initialized in
-# KnetPtr(nbytes).
+# device dev.  KnetFree[1] reserved for the cpu in case we decide to
+# support it in the future.  It is initialized in KnetPtr(nbytes).
 
 KnetFree = nothing
 initKnetFree()=(global KnetFree=[ Dict{Int,KnetPtrs}() for i=1:gpuCount()+1 ])
@@ -71,6 +71,9 @@ end
 function KnetPtr(nbytes::Integer)
     KnetFree==nothing && initKnetFree()
     dev = gpu()
+    if dev < 0
+        error("KnetPtr: bad device id $dev.")
+    end
     ptrs = get!(KnetPtrs,KnetFree[dev+2],nbytes)
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
@@ -95,9 +98,10 @@ end
 
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)
-    gpu() >= 0 || return(convert(Cptr, pointer(Array(UInt8,nbytes))))
+    # we no longer support cpu pointers, all overloaded ops rely on KnetPtr being on a GPU
+    # gpu() >= 0 || return(convert(Cptr, pointer(Array(UInt8,nbytes))))
     ptr = Cptr[0]
-    ret = ccall(("cudaMalloc","libcudart"),UInt32,(Ptr{Cptr},Csize_t),ptr,nbytes)
+    ret = @cuda1(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
     if ret == 0
         return ptr[1]
     else # error("cudaMalloc($nbytes) error $ret")
