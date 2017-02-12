@@ -69,12 +69,13 @@ The exact algorithm for allocation is:
    μs)
 
 3. If not successful, try running gc() and see if we get a pointer of
-   the right size. (75 ms)
+   the right size. (75 ms, but this should be amortized over all
+   reusable pointers that become available due to the gc)
 
 4. Finally if all else fails, clean up all saved pointers in the
-   current device using cudaFree and try allocation one last time. (70
-   ms and the additional cost of the elimination of all reusable
-   pointers)
+   current device using cudaFree and try allocation one last
+   time. (25-70 ms, however this causes the elimination of all
+   reusable pointers)
 
 """
 type KnetArray{T,N}

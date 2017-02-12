@@ -7,12 +7,12 @@
 	+ karray.jl
 	+ linalg.jl
 	+ update.jl
-	kptr.jl
-	gpu.jl
+	+ kptr.jl
+	+ gpu.jl
 	distributions.jl
 	AutoGrad: run all tests with KnetArrays
 	... conv.jl: debug unpool, add cpuconv
-	runtests.jl: switch to new tests
+	runtests.jl: switch to new tests, figure out why so slow
 
 	* DONE:
 
@@ -25,6 +25,7 @@
 	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
 	# add back cpu convolution
 	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
+	# figure out no KnetArray in cpu problem
 	# fix unclear docs for optimization, tutorial example?
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# grad of convert (AutoGrad issue)
