@@ -5,14 +5,18 @@
     Array(k::KnetArray)
 
 Container for GPU arrays that supports most of the AbstractArray
-interface.  Only Float32/64 KnetArrays fully supported. KnetArrays and
-Arrays can be converted to each other as shown above, which involves
-copying to and from the GPU memory.  Important differences from the
-alternative CudaArray are: (1) a custom memory manager that minimizes
-the number of calls to the slow cudaMalloc by reusing already
-allocated but garbage collected GPU pointers.  (2) a custom getindex
-that handles ranges such as `a[5:10]` as views with shared memory
-instead of copies.
+interface.  The constructor allocates a KnetArray in the currently
+active device, as specified by `gpu()`.  KnetArrays and Arrays can be
+converted to each other as shown above, which involves copying to and
+from the GPU memory.  Only Float32/64 KnetArrays are fully supported.
+
+Important differences from the alternative CudaArray are: (1) a custom
+memory manager that minimizes the number of calls to the slow
+cudaMalloc by reusing already allocated but garbage collected GPU
+pointers.  (2) a custom getindex that handles ranges such as `a[5:10]`
+as views with shared memory instead of copies.  (3) custom CUDA
+kernels that implement elementwise, broadcasting, and reduction
+operations.
 
 # Supported functions:
 
@@ -43,6 +47,34 @@ instead of copies.
 * Knet extras: cpu2gpu, gpu2cpu, relu, sigm, invx, logp, logsumexp,
   conv4, pool, deconv4, unpool, mat, update! (Only 4D/5D, Float32/64
   KnetArrays support conv4, pool, deconv4, unpool)
+
+# Memory management
+
+Knet models do not overwrite arrays which need to be preserved for
+gradient calculation.  This leads to a lot of allocation and regular
+GPU memory allocation is prohibitively slow. Fortunately most models
+use identically sized arrays over and over again, so we can minimize
+the number of actual allocations by reusing preallocated but garbage
+collected pointers.
+
+When Julia gc reclaims a KnetArray, a special finalizer keeps its
+pointer in a table instead of releasing the memory.  If an array with
+the same size in bytes is later requested, the same pointer is reused.
+The exact algorithm for allocation is:
+
+1. Try to find a previously allocated and garbage collected pointer in
+   the current device. (0.5 μs)
+
+2. If not available, try to allocate a new array using cudaMalloc. (10
+   μs)
+
+3. If not successful, try running gc() and see if we get a pointer of
+   the right size. (75 ms)
+
+4. Finally if all else fails, clean up all saved pointers in the
+   current device using cudaFree and try allocation one last time. (70
+   ms and the additional cost of the elimination of all reusable
+   pointers)
 
 """
 type KnetArray{T,N}

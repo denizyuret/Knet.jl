@@ -7,11 +7,11 @@
 	+ karray.jl
 	+ linalg.jl
 	+ update.jl
-	... conv.jl
 	kptr.jl
 	gpu.jl
 	distributions.jl
 	AutoGrad: run all tests with KnetArrays
+	... conv.jl: debug unpool, add cpuconv
 	runtests.jl: switch to new tests
 
 	* DONE:

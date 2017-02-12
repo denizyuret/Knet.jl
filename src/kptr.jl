@@ -1,16 +1,16 @@
 macro gcinfo(x); end
 # Uncomment to print gc information:
-#macro gcinfo(x); esc(:(println(($x)))); end
+#macro gcinfo(x); esc(:(print(($x)))); end
 
 # KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
 
 type KnetPtr
-    ptr::Cptr
-    len::Int
-    dev::Int
-    parent
+    ptr::Cptr                   # actual pointer
+    len::Int                    # size in bytes
+    dev::Int                    # device on which it resides, -1 for RAM, id>=0 for GPU
+    parent                      # used to implement shared memory pointers
 end
 
 # We use the KnetPtrs type to keep track of allocated and garbage
