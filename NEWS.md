@@ -12,6 +12,7 @@ General
 * KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
 * Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
+* It is now an error to try to create a KnetArray when the active device is not a gpu.
 
 Documentation and Testing
 -------------------------

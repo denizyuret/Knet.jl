@@ -1,9 +1,11 @@
 using Base.Test, Knet
 using Knet: KnetFree, KnetPtr, gpuCount
 
-sizes = randperm(1000)[1:10]
-ptrs = map(KnetPtr, sizes)
+if gpu() >= 0
+
 kf = KnetFree[gpu()+2]
+sizes = randperm(1000)[1:10]
+ptrs = map(KnetPtr, sizes)      # things get messed up if this is inside the testset, multiple eval?
 
 @testset "kptr" begin
     @test length(KnetFree) == gpuCount()+1
@@ -16,3 +18,5 @@ kf = KnetFree[gpu()+2]
     ptrs = map(KnetPtr, sizes)
     @test all(v.used==1 && isempty(v.free) for (k,v) in kf)
 end
+
+end # if gpu() >= 0
