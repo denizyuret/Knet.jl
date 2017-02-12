@@ -9,10 +9,10 @@
 	+ update.jl
 	+ kptr.jl
 	+ gpu.jl
-	distributions.jl
-	AutoGrad: run all tests with KnetArrays
+	+ distributions.jl
 	... conv.jl: debug unpool, add cpuconv
 	runtests.jl: switch to new tests, figure out why so slow
+	AutoGrad: run all tests with KnetArrays
 
 	* DONE:
 
