@@ -1,4 +1,4 @@
-2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+2017-02-12  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
 	* unit-test-TODO:
 	+ unary.jl: cpu=25s gpu=41s
@@ -11,26 +11,18 @@
 	+ gpu.jl: cpu=3s gpu=2.4s
 	+ distributions.jl: cpu=3s gpu=3s
 	+ conv.jl: cpu=(fail) gpu=13s (10 broken)
-	- conv.jl: debug unpool, add cpuconv
-	- runtests.jl: switch to new tests, figure out why so slow
+	+ runtests.jl: switch to new tests, figure out why so slow
+	+ karray,linalg: cpu tests failing
+	+ reduction: gpu tests failing
+	+ conv.jl: debug unpool, add cpuconv
 	- AutoGrad: run all tests with KnetArrays
-	- karray,linalg: cpu tests failing
-	- reduction: gpu tests failing
-
-	* DONE:
-
-	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
-	# figure out rtfd doc setup or forwarding.
 
 	* TODO8:
 
-	# add back cpu convolution
 	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
-	# figure out no KnetArray in cpu problem
 	# fix unclear docs for optimization, tutorial example?
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# grad of convert (AutoGrad issue)
-	# KnetArray does not work on cpu-only (should it?)
 	# KnetArray ==, ===, isapprox etc. missing.
 	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email.
@@ -57,6 +49,16 @@
 	# resolve issues
 	# check old todo list
 	# deepcopy does not work for KnetArray
+
+2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* DONE:
+
+	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
+	# figure out rtfd doc setup or forwarding.
+	# figure out no KnetArray in cpu problem
+	# KnetArray does not work on cpu-only (should it? no. operators overloaded assuming gpu)
+	# add back cpu convolution
 
 2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
