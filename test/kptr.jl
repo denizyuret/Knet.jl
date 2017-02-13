@@ -1,4 +1,11 @@
-using Base.Test, Knet
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 using Knet: KnetFree, KnetPtr, gpuCount
 
 # Messes up gc if used with `if gpu()>=0`
@@ -14,11 +21,11 @@ if gpu() >= 0
     @test length(kf) == 10
     @test length(KnetFree) == gpuCount()+1
     @test sort(collect(keys(kf))) == sort(sizes)
-    @test all(v.used==1 && isempty(v.free) for (k,v) in kf)
+    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])
     # gc doesn't work inside a testset
     ptrs = nothing
     gc()
-    @test all(v.used==1 && length(v.free)==1 for (k,v) in kf)
+    @test all(Bool[v.used==1 && length(v.free)==1 for (k,v) in kf])
     ptrs = map(KnetPtr, sizes)
-    @test all(v.used==1 && isempty(v.free) for (k,v) in kf)
+    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])
 end

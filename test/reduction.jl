@@ -1,10 +1,16 @@
-using Base.Test, Knet
-using Knet: reduction_ops
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 
 reduction_fns = Any[logsumexp]
-for f in reduction_ops
+for f in Knet.reduction_ops
     if isa(f,Tuple); f=f[2]; end
     push!(reduction_fns, eval(parse(f)))
 end
@@ -43,7 +49,7 @@ end
                 if gpu() >= 0
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx, p)
-                    @test isapprox(f(ax,p), f(gx,p))
+                    @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
                 end            
             end
         end

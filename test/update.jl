@@ -1,11 +1,18 @@
-using Knet, Base.Test
-srand(123456789)
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 
 # x* = f(1, · · · , 1)
 # f(x*) = 0
 
 rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
 rosengrad = gradloss(rosenbrock)
+srand(123456789)
 dims = 6
 
 function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)

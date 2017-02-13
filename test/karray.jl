@@ -1,4 +1,12 @@
-using Base.Test, Knet
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
+import Base: (==)
 
 # Test KnetArray operations: cat, convert, copy, display, eachindex,
 # eltype, endof, fill!, first, getindex, hcat, isempty, length,
@@ -6,7 +14,7 @@ using Base.Test, Knet
 # similar, size, stride, strides, summary, vcat, vec, zeros
 
 if gpu() >= 0
-    Base.:(==)(a::Array,k::KnetArray)=(a==Array(k))
+    (==)(a::Array,k::KnetArray)=(a==Array(k))
     @testset "karray" begin
         a = rand(3,4)
         k = KnetArray(a)

@@ -1,5 +1,11 @@
-using Base.Test, Knet
-using Knet: unary_ops
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 
 function frand(f,t,d...)
     r = rand(t,d...)*t(0.8)+t(0.1)
@@ -11,7 +17,7 @@ function frand(f,t,d...)
 end
 
 unary_fns = Any[]
-for f in unary_ops
+for f in Knet.unary_ops
     if isa(f,Tuple); f=f[2]; end
     push!(unary_fns, eval(parse(f)))
 end

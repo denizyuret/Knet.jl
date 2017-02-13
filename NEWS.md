@@ -14,6 +14,7 @@ General
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
 * It is now an error to try to create a KnetArray when the active device is not a gpu.
 * CPU convolution and pooling operations implemented (@kuruonur1).
+* Updated AutoGrad requirement to v0.0.5.
 
 Documentation and Testing
 -------------------------

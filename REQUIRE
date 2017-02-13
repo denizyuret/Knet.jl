@@ -1,14 +1,10 @@
-# These are required, the rest is optional.
 julia 0.4
 AutoGrad 0.0.5
+Compat 0.16.0   # for @views
 
-# We need these for some examples:
+# We need these for some examples. They get automatically installed when needed.
 # ArgParse
 # JLD
 # GZip    # for mnist
 # Images  # for vgg
 # MAT     # for vgg
-
-# We will need this for 0.6 compat:
-# Compat 0.7.15 # for sin.(x) etc.
-# Compat 0.7.9  # for readbytes->read.

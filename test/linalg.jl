@@ -1,4 +1,11 @@
-using Knet, Base.Test
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 
 @testset "linalg" begin
     for t in (Float32,Float64)

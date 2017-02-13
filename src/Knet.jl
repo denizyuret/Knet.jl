@@ -1,10 +1,12 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
+using Compat
 
 const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
 
 using AutoGrad; export grad, gradloss, gradcheck
+
 
 include("gpu.jl");              export gpu
 include("kptr.jl");             # KnetPtr

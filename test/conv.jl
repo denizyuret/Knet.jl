@@ -1,14 +1,16 @@
-# TODO: implement cpu versions and compare
-# TODO: any way to compare conv4 vs deconv4 or pool vs unpool?
-# TODO: unpool gradient broken
-# TODO: pool with alpha=2 broken
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
 
-using Base.Test, Knet
+using Knet
 
 conv41(a;o...)=conv4(a[1],a[2];o...)
 deconv41(a;o...)=deconv4(a[1],a[2];o...)
 rand41(d...)=reshape(0.01*collect(Float64,1:prod(d)),d)
-Base.isapprox(k::KnetArray,a::Array;o...)=isapprox(Array(k),a;o...)
+Base.isapprox(k::KnetArray,a::AbstractArray;o...)=isapprox(Array(k),a;o...)
 
 ax = rand41(5,4,3,2)
 aw = rand41(3,3,3,3)

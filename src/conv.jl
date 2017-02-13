@@ -377,9 +377,9 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 ### CPU convolution from Onur Kuru's CNN.jl
 
-function conv4{T}(w::Array{T,4}, x::Array{T,4};
-                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+@views function conv4{T}(w::Array{T,4}, x::Array{T,4};
+                         padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                         o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
@@ -392,13 +392,13 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
     stride = psize(stride,x)
     y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
-        axpy!(1, convy(view(x,:,:,c,n), view(w,:,:,c,k), padding, stride, mode), view(y,:,:,k,n))
+        axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), y[:,:,k,n])
     end
     if alpha != 1; y *= alpha; end
     return y
 end
 
-function convy{T}(x0::SubArray{T,2}, w::SubArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode)
+@views function convy{T}(x0::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode)
     x=x0
     if any(padding .> 0) # this could be handled better....
         x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
@@ -409,13 +409,13 @@ function convy{T}(x0::SubArray{T,2}, w::SubArray{T,2}, padding::Array{Int,1}, st
     widx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:size(x,1)-size(w,1)+1, j in 1:stride[2]:size(x,2)-size(w,2)+1] # linear indexes of filter positions in x
     oidx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)] # linear indexes of elements in a filter window
     destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    return reshape(view(x,destidx)*w1,row_extend,col_extend)
+    return reshape(x[destidx]*w1,row_extend,col_extend)
 end
 
 # dw = rot180(xcorr(x,dy))
-function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+@views function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+                          padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                          o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     padding = psize(padding,x)
@@ -427,14 +427,14 @@ function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
     Wx,Hx,C,Nx = size(x)
     Wy,Hy,K,Ny = size(dy)
     @inbounds for c in 1:C, k in 1:K, n in 1:Ny
-        axpy!(1, convdw(view(x,:,:,c,n), view(dy,:,:,k,n), view(dw,:,:,c,k), padding, stride, mode), view(dw,:,:,c,k))
+        axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), dw[:,:,c,k])
     end
     if alpha != 1; dw *= alpha; end
     return dw
 end
 
 # dw = rot180(xcorr(x,dy))
-function convdw{T}(x0::SubArray{T,2}, dy::SubArray{T,2}, w::SubArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
+@views function convdw{T}(x0::AbstractArray{T,2}, dy::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
     if any(padding .> 0) # this could be handled better...
         x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
         x[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]] = x0
@@ -446,15 +446,15 @@ function convdw{T}(x0::SubArray{T,2}, dy::SubArray{T,2}, w::SubArray{T,2}, paddi
     widx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)]
     oidx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:x1l, j in 1:stride[2]:x2l] # linear indexes of elements in a filter window
     destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    y = reshape(view(x,destidx)*vec(dy),size(w))
+    y = reshape(x[destidx]*vec(dy),size(w))
     if mode == 0; y = rot180(y); end
     return y
 end
 
 # dx = xcorr(dy, w, 'full')
-function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+@views function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+                          padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                          o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     Wy,Hy,Ky,N = size(dy)
@@ -464,21 +464,21 @@ function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
     stride  = psize(stride, x)
     dx = fill!(similar(x),0)
     @inbounds for n in 1:N, c in 1:C, k in 1:Kw
-        dx[:,:,c,n] += convdx(view(dy,:,:,k,n), view(w,:,:,c,k), view(dx,:,:,c,n), padding, stride, mode)
+        dx[:,:,c,n] += convdx(dy[:,:,k,n], w[:,:,c,k], dx[:,:,c,n], padding, stride, mode)
     end
     if alpha != 1; dx *= alpha; end
     return dx
 end
 
 # dx = xcorr(dy, w, 'full')
-function convdx{T}(dy::SubArray{T,2}, w::SubArray{T,2}, dx::SubArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
+@views function convdx{T}(dy::AbstractArray{T,2}, w::AbstractArray{T,2}, dx::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
     size_tdy = collect(size(dx)) + collect(size(w)) - 1 + 2padding
     tdy = zeros(T, size_tdy...)
     pad1, pad2 = map(x->x-1,size(w))
     for (i,idy) in zip(countfrom(pad1+1,stride[1]), 1:size(dy,1)), (j,jdy) in zip(countfrom(pad2+1,stride[2]), 1:size(dy,2))
         tdy[i,j] = dy[idy,jdy]
     end
-    res = convy(view(tdy,:,:), view(w,:,:), [0,0], [1,1], 1-mode)
+    res = convy(tdy, w, [0,0], [1,1], 1-mode)
     if all(padding .== 0)
         return res
     else
@@ -511,7 +511,7 @@ end
 ### CPU pooling from Onur Kuru's CNN.jl
 
 
-function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+@views function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
     if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
     y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
     stride = psize(stride, x)
@@ -532,7 +532,7 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
             i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
             wx_end = min(i+window[1]-1,Wx)
             hx_end = min(j+window[2]-1,Hx)
-            y[iy,jy,c,n] = maximum(view(x,i:wx_end,j:hx_end,c,n))
+            y[iy,jy,c,n] = maximum(x[i:wx_end,j:hx_end,c,n])
         end
     elseif mode == 1 || (mode == 2 && all(padding .== 0))
         @inbounds for n in 1:Nx, c in 1:C, jy in 1:Hy, iy in 1:Wy
@@ -540,7 +540,7 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
             i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
             wx_end = min(i+window[1]-1, Wx)
             hx_end = min(j+window[2]-1, Hx)
-            y[iy,jy,c,n] = mean(view(x,i:wx_end,j:hx_end,c,n))
+            y[iy,jy,c,n] = mean(x[i:wx_end,j:hx_end,c,n])
         end
     else
         throw(ArgumentError("mode $mode not supported by cpu pool"))
@@ -549,8 +549,8 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
     return y
 end
 
-function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
-                  window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+@views function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
+                         window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
     if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
     stride = psize(stride, x)
     window = psize(window, x)
@@ -568,7 +568,7 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
     if mode == 0
         @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
             iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            a = view(x, i+1:i+window[1], j+1:j+window[2], c, n)
+            a = x[i+1:i+window[1], j+1:j+window[2], c, n]
             m = (a .== maximum(a))
             for im in find(m)
                 (di,dj) = ind2sub(m, im)
@@ -585,7 +585,7 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
         throw(ArgumentError("mode $mode not supported by cpu pool"))
     end
     if any(padding .> 0)
-        dx = dx[1+padding[1]:end-padding[1],1+padding[2]:end-padding[2],:,:]
+        dx = Array(dx[1+padding[1]:end-padding[1],1+padding[2]:end-padding[2],:,:])
     end
     if alpha!=1
         dx = alpha * dx

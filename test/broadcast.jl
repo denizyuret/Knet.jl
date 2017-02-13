@@ -1,11 +1,17 @@
-using Base.Test, Knet
-using Knet: broadcast_ops
+if VERSION >= v"0.5.0-dev+7720"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
+
+using Knet
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
 
 broadcast_fns = Any[]
-for f in broadcast_ops
+for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
     in(f, ("invxback", "reluback", "sigmback", "tanhback", "rpow")) && continue
     push!(broadcast_fns, eval(parse(f)))
@@ -20,12 +26,12 @@ end
                 # @show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
-                @test gradcheck(f1, [a1, a2])
+                @test gradcheck(f1, Any[a1, a2])
                 if gpu() >= 0
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
                     @test isapprox(Array{t}(f(a1,a2)),Array{t}(f(g1,g2)))
-                    @test gradcheck(f1, [g1, g2])
+                    @test gradcheck(f1, Any[g1, g2])
                 end
             end
             # Scalar broadcast
@@ -33,14 +39,14 @@ end
                 # @show f,t,n,0
                 a = rand11(f,t,n)
                 s = rand11(f,t)+t(1)
-                @test gradcheck(f1, [a, s])
-                @test gradcheck(f1, [s, a])
+                @test gradcheck(f1, Any[a, s])
+                @test gradcheck(f1, Any[s, a])
                 if gpu() >= 0
                     g = KnetArray(a)
                     @test isapprox(Array{t}(f(a,s)),Array{t}(f(g,s)))
                     @test isapprox(Array{t}(f(s,a)),Array{t}(f(s,g)))
-                    @test gradcheck(f1, [g, s])
-                    @test gradcheck(f1, [s, g])
+                    @test gradcheck(f1, Any[g, s])
+                    @test gradcheck(f1, Any[s, g])
                 end
             end
         end
