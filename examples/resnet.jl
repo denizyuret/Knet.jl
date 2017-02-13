@@ -206,6 +206,10 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia vgg.jl cat.jpg
 # julia> ResNet.main("cat.jpg")
-PROGRAM_FILE=="resnet.jl" && main(ARGS)
+if VERSION >= v"0.5.0-dev+7720"
+    PROGRAM_FILE=="resnet.jl" && main(ARGS)
+else
+    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+end
 
 end # module

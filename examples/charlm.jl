@@ -305,7 +305,11 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia charlm.jl --epochs 10
 # julia> CharLM.main("--epochs 10")
-PROGRAM_FILE=="charlm.jl" && main(ARGS)
+if VERSION >= v"0.5.0-dev+7720"
+    PROGRAM_FILE=="charlm.jl" && main(ARGS)
+else
+    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+end
 
 end  # module
 
