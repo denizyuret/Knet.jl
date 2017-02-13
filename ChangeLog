@@ -1,12 +1,15 @@
 2017-02-13  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
-	* TODO8:
+	* DONE:
 
 	# Latest master failing on Julia 0.4 (convtest) and nightly distros.
-	# permutedims ambiguity in AutoGrad in Julia 0.4.
-	# Contents does not show on README.md, @ref doesn't work etc.
 	# TonyKelman on Compat: If you use Compat in your tests, it needs to be in test/REQUIRE or REQUIRE.
 	# TonyKelman on removing nightly from travis: you can make this an allowed failure so it'll run but won't make your status red
+
+	* TODO8:
+
+	# permutedims ambiguity in AutoGrad in Julia 0.4.
+	# Contents does not show on README.md, @ref doesn't work etc.
 	# AutoGrad: run all tests with KnetArrays
 	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
 	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.

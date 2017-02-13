@@ -377,7 +377,9 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 ### CPU convolution from Onur Kuru's CNN.jl
 
-@views function conv4{T}(w::Array{T,4}, x::Array{T,4};
+#import Compat.view
+#@views
+function conv4{T}(w::Array{T,4}, x::Array{T,4};
                          padding=0, stride=1, upscale=1, mode=0, alpha=1,
                          o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # x: (W,H,C,N)
@@ -392,13 +394,15 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
     stride = psize(stride,x)
     y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
-        axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), y[:,:,k,n])
+        # axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), view(y,:,:,k,n))
+        y[:,:,k,n] += convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode)
     end
     if alpha != 1; y *= alpha; end
     return y
 end
 
-@views function convy{T}(x0::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode)
+#@views
+function convy{T}(x0::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode)
     x=x0
     if any(padding .> 0) # this could be handled better....
         x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
@@ -413,7 +417,8 @@ end
 end
 
 # dw = rot180(xcorr(x,dy))
-@views function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+#@views
+function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
                           padding=0, stride=1, upscale=1, mode=0, alpha=1,
                           o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -427,14 +432,16 @@ end
     Wx,Hx,C,Nx = size(x)
     Wy,Hy,K,Ny = size(dy)
     @inbounds for c in 1:C, k in 1:K, n in 1:Ny
-        axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), dw[:,:,c,k])
+        # axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), view(dw,:,:,c,k))
+        dw[:,:,c,k] += convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode)
     end
     if alpha != 1; dw *= alpha; end
     return dw
 end
 
 # dw = rot180(xcorr(x,dy))
-@views function convdw{T}(x0::AbstractArray{T,2}, dy::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
+#@views
+function convdw{T}(x0::AbstractArray{T,2}, dy::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
     if any(padding .> 0) # this could be handled better...
         x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
         x[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]] = x0
@@ -452,7 +459,8 @@ end
 end
 
 # dx = xcorr(dy, w, 'full')
-@views function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+#@views
+function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
                           padding=0, stride=1, upscale=1, mode=0, alpha=1,
                           o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -471,7 +479,8 @@ end
 end
 
 # dx = xcorr(dy, w, 'full')
-@views function convdx{T}(dy::AbstractArray{T,2}, w::AbstractArray{T,2}, dx::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
+#@views
+function convdx{T}(dy::AbstractArray{T,2}, w::AbstractArray{T,2}, dx::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
     size_tdy = collect(size(dx)) + collect(size(w)) - 1 + 2padding
     tdy = zeros(T, size_tdy...)
     pad1, pad2 = map(x->x-1,size(w))
@@ -511,7 +520,8 @@ end
 ### CPU pooling from Onur Kuru's CNN.jl
 
 
-@views function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+#@views
+function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
     if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
     y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
     stride = psize(stride, x)
@@ -549,7 +559,8 @@ end
     return y
 end
 
-@views function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
+#@views
+function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
                          window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
     if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
     stride = psize(stride, x)

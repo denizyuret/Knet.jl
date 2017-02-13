@@ -36,9 +36,7 @@ end
             end
         end
     end
-end
 
-@testset "vecnorm" begin
     f = vecnorm
     for t in (Float32, Float64)
         for n in (1,(1,1),2,(2,1),(1,2),(2,2))

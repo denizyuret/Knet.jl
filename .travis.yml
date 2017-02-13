@@ -1,7 +1,4 @@
 language: julia
-os:
-  - linux
-  - osx
 julia:
   - 0.4
   - release
@@ -25,3 +22,7 @@ after_success:
 # julia:
 #   - release
 #   - nightly
+
+# os:
+#   - linux
+#   - osx
