@@ -1,18 +1,16 @@
 language: julia
-
 os:
   - linux
-# - osx
-
+  - osx
 julia:
   - 0.4
   - release
+  - nightly
+matrix:
   allow_failures:
-  - nightly  ## getting too many warnings
-
+    - julia: nightly  ## getting too many warnings
 notifications:
   email: false
-
 after_success:
   - julia -e 'Pkg.add("Documenter")'
   - julia -e 'cd(Pkg.dir("Knet")); include(joinpath("docs", "make.jl"))'
