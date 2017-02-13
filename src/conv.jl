@@ -5,8 +5,8 @@
 Execute convolutions or cross-correlations using filters specified
 with `w` over tensor `x`.
 
-Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
-entries are supported.  If `w` has dimensions `(W1,W2,...,I,O)` and
+Currently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are
+supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,I,O)` and
 `x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
 dimensions `(Y1,Y2,...,O,N)` where
 
@@ -33,9 +33,10 @@ dimension.
 
 """
 function conv4{T}(w::KnetArray{T},x::KnetArray{T};
-                  handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                  algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
+                  handle=cudnnhandle(), algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, alpha=1,
+                  o...) # padding=0, stride=1, upscale=1, mode=0
     y = similar(x, cdims(w,x;o...))
+    beta=0 # nonzero beta does not make sense when we create y
     @cuda(cudnn, cudnnConvolutionForward,
           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
           handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(y),y)
@@ -43,8 +44,9 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T};
 end
 
 function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                   handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                   algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
+                   handle=cudnnhandle(), alpha=1, algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
+                   o...) # padding=0, stride=1, upscale=1, mode=0
+    beta = 0
     dx = similar(x)
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardData,
@@ -63,8 +65,9 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
 end
 
 function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                   handle=cudnnhandle, alpha=one(T), beta=zero(T),
-                   algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, o...)
+                   handle=cudnnhandle(), alpha=1, algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
+                   o...) # padding=0, stride=1, upscale=1, mode=0
+    beta = 0
     dw = similar(w)
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardFilter,
@@ -119,20 +122,24 @@ with entries for each spatial dimension.
 * `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool{T}(x::KnetArray{T}; handle=cudnnhandle, alpha=one(T), beta=zero(T), o...)
+function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+                 o...) # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
+    beta = 0
     @cuda(cudnn, cudnnPoolingForward,
           (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
           handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
     return y
 end
 
-function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T};
-                  handle=cudnnhandle, alpha=one(T), beta=zero(T), o...)
+function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
+                  o...) # window=2, padding=0, stride=window, maxpoolingNanOpt=0
+    if alpha!=1 && mode==0; error("Gradient of pool(alpha!=1,mode=0) broken in CUDNN"); end
     dx = similar(x)
+    beta = 0
     @cuda(cudnn,cudnnPoolingBackward,
           (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
-          handle,PD(x;o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
+          handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
     return dx
 end
 
@@ -144,14 +151,19 @@ end
 Unpooling; `reverse` of pooling.
 
 """
-function unpool(x; window=2, o...)
-    if isa(window,Number); window=(window,window); end
-    y = similar(x,updims(x; window=window))
-    poolx(y,x,x.*prod(window); window=window, mode=1)
+function unpool(x; window=2, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+    w = prod(psize(window,x))
+    y = similar(x,updims(x; window=window, o...))
+    poolx(y,x,x.*w; o..., window=window, mode=1)
+end
+
+function unpoolx(dy; window=2, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+    w = prod(psize(window,dy))
+    pool(dy; o..., window=window, mode=1) * w
 end
 
 # @primitive unpool(x;o...),dy,y -pool(-dy;o...)
-@primitive  unpool(x;window=2,o...),dy,y  pool(dy;o...,window=window,mode=1)*prod(cdsize(window,ndims(x)-2))
+@primitive  unpool(x;o...),dy,y  unpoolx(dy;o...)
 
 
 """
@@ -274,13 +286,26 @@ unsafe_convert(::Type{Cptr}, fd::FD)=fd.ptr
 unsafe_convert(::Type{Cptr}, cd::CD)=cd.ptr
 unsafe_convert(::Type{Cptr}, pd::PD)=pd.ptr
 
+# fill and reverse Cint array with padding etc. for cudnn calls
 function cdsize(w, nd)
-    if isa(w,Integer)
+    if isa(w,Number)
         fill(Cint(w),nd)
     elseif length(w)==nd 
         [ Cint(w[nd-i+1]) for i=1:nd ]
     else
         throw(DimensionMismatch("$w $nd"))
+    end
+end
+
+# convert padding etc. size to an Int array of the right dimension
+function psize(p, x)
+    nd = ndims(x)-2
+    if isa(p,Number)
+        fill(Int(p),nd)
+    elseif length(p)==nd
+        collect(Int,p)
+    else
+        throw(DimensionMismatch("psize: $p $nd"))
     end
 end
 
@@ -332,12 +357,14 @@ function dcdims(w,x; padding=0, stride=1, o...)
     end
 end
 
-function updims(x; window=2)
-    if isa(window,Number); window=(window,window); end
+function updims(x; window=2, padding=0, stride=window, o...)
+    window = psize(window,x)
+    stride = psize(stride,x)
+    padding = psize(padding,x)
     N = ndims(x)
     ntuple(N) do i
         if i < N-1
-            size(x,i)*window[i]
+            (size(x,i)-1)*stride[i]+window[i]-2*padding[i]
         else
             size(x,i)
         end
@@ -351,18 +378,19 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 ### CPU convolution from Onur Kuru's CNN.jl
 
 function conv4{T}(w::Array{T,4}, x::Array{T,4};
-                  handle=nothing, alpha=1, beta=0,
-                  algo=0, workSpace=nothing, workSpaceSizeInBytes=0,
-                  padding=0, stride=1, upscale=1, mode=0)
+                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
-    padding = isa(padding, Integer) ? [padding,padding] : collect(padding)
-    stride = isa(stride, Integer) ? [stride,stride] : collect(stride)
-    y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
+    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     Wx,Hx,Cx,N = size(x)
     Ww,Hw,Cw,K = size(w)
     if Cx!=Cw; throw(DimensionMismatch()); end
+    padding = psize(padding,x)
+    stride = psize(stride,x)
+    y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
         y[:,:,k,n] += convy(view(x,:,:,c,n), view(w,:,:,c,k), padding, stride, mode)
     end
@@ -386,11 +414,12 @@ end
 
 # dw = rot180(xcorr(x,dy))
 function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                   handle=nothing, alpha=1, beta=0,
-                   algo=0, workSpace=nothing, workSpaceSizeInBytes=0,
-                   padding=0, stride=1, upscale=1, mode=0)
-    padding = isa(padding, Integer) ? [padding,padding] : collect(padding)
-    stride = isa(stride, Integer) ? [stride,stride] : collect(stride)
+                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
+    padding = psize(padding,x)
+    stride  = psize(stride, x)
     # x:    (Wx,Hx,Cx,N)
     # dy:   (Wy,Hy,K,N) 
     # dw:    (Ww,Hw,Cw,K) 
@@ -424,15 +453,16 @@ end
 
 # dx = xcorr(dy, w, 'full')
 function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                   handle=nothing, alpha=1, beta=0,
-                   algo=0, workSpace=nothing, workSpaceSizeInBytes=0,
-                   padding=0, stride=1, upscale=1, mode=0)
-    padding = isa(padding, Integer) ? [padding,padding] : collect(padding)
-    stride = isa(stride, Integer) ? [stride,stride] : collect(stride)
-    dx = fill!(similar(x),0)
+                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     Wy,Hy,Ky,N = size(dy)
     Ww,Hw,C,Kw = size(w)
     if Ky!=Kw; throw(DimensionMismatch()); end
+    padding = psize(padding, x)
+    stride  = psize(stride, x)
+    dx = fill!(similar(x),0)
     @inbounds for n in 1:N, c in 1:C, k in 1:Kw
         dx[:,:,c,n] += convdx(view(dy,:,:,k,n), view(w,:,:,c,k), view(dx,:,:,c,n), padding, stride, mode)
     end
@@ -449,7 +479,11 @@ function convdx{T}(dy::SubArray{T,2}, w::SubArray{T,2}, dx::SubArray{T,2}, paddi
         tdy[i,j] = dy[idy,jdy]
     end
     res = convy(view(tdy,:,:), view(w,:,:), [0,0], [1,1], 1-mode)
-    return all(padding .== 0) ? res : res[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]] 
+    if all(padding .== 0)
+        return res
+    else
+        return res[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]]
+    end
 end
 
 
@@ -477,18 +511,18 @@ end
 ### CPU pooling from Onur Kuru's CNN.jl
 
 
-function pool{T}(x::Array{T,4}; alpha=1, window=2, padding=0, stride=window, mode=0, o...)
-    # handle=nothing, beta=0, maxpoolingNanOpt=0,
-    stride = isa(stride, Integer) ? (stride, stride) : stride
-    window = isa(window, Integer) ? (window,window) : window
-    padding = isa(padding, Integer) ? (padding,padding) : padding
-    if any(map(x->x>0,padding))
+function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
+    y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
+    stride = psize(stride, x)
+    window = psize(window, x)
+    padding = psize(padding, x)
+    if any(padding .> 0)
         x0=x
         w,h,c,n = size(x0)
         x=zeros(eltype(x0),w+2padding[1],h+2padding[2],c,n)
         x[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x0
     end
-    y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
     # x: (W,H,C,N)
     Wx,Hx,C,Nx = size(x);
     Wy,Hy,K,Ny = size(y);
@@ -501,7 +535,7 @@ function pool{T}(x::Array{T,4}; alpha=1, window=2, padding=0, stride=window, mod
             wx_end = i+window[1]-1 > Wx ? Wx : i+window[1]-1
             y[iy,jy,c,n] = maximum(x[i:wx_end,j:hx_end,c,n])
         end
-    elseif mode == 1
+    elseif mode == 1 || (mode == 2 && all(padding .== 0))
         @inbounds for n in 1:Nx, c in 1:C, jy in 1:Hy, iy in 1:Wy
             # iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
             i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
@@ -510,32 +544,38 @@ function pool{T}(x::Array{T,4}; alpha=1, window=2, padding=0, stride=window, mod
             y[iy,jy,c,n] = mean(x[i:wx_end,j:hx_end,c,n])
         end
     else
-        error("mode $mode not supported by cpu pool")
+        throw(ArgumentError("mode $mode not supported by cpu pool"))
     end
     if alpha != 1; y *= alpha; end
     return y
 end
 
-function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4}; alpha=1, beta=0,
-                  window=2, stride=window, padding=0, mode=0, # 0:max, 1:avg+pad, 2:avg-pad
-                  maxpoolingNanOpt=0, o...) # handle=cudnnhandle
-    stride = isa(stride, Integer) ? (stride, stride) : stride
-    window = isa(window, Integer) ? (window,window) : window
-    padding = isa(padding, Integer) ? (padding,padding) : padding
-    dx = fill!(similar(x), 0)
+function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
+                  window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
+    stride = psize(stride, x)
+    window = psize(window, x)
+    padding = psize(padding, x)
     Wx,Hx,C,Nx = size(x);
     Wy,Hy,K,Ny = size(y);
+    if any(padding .> 0)
+        Wx += 2*padding[1]
+        Hx += 2*padding[2]
+        dx = fill!(similar(x, (Wx,Hx,C,Nx)), 0)
+    else
+        dx = fill!(similar(x), 0)
+    end
     if mode == 0
-        @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-stride[1], j in 0:stride[2]:Hx-stride[2]
+        @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
             iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
             wx_end = min(i+window[1], Wx)
             hx_end = min(j+window[2], Hx)
-            a = x[i+1:wx_end,j+1:hx_end,c,n]
+            a = x[(i+1:wx_end)-padding[1],(j+1:hx_end)-padding[2],c,n]
             di,dj = ind2sub(a,indmax(a))
             dx[i+di,j+dj,c,n] += dy[iy,jy,c,n]
         end
-    elseif mode == 1
-        @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-stride[1], j in 0:stride[2]:Hx-stride[2]
+    elseif mode == 1 || (mode == 2 && all(padding .== 0))
+        @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
             iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
             wx_end = min(i+window[1], Wx)
             hx_end = min(j+window[2], Hx)
@@ -543,9 +583,14 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4}; alpha=1, beta=0,
         end
         dx = dx ./ prod(window)
     else
-        error("mode $mode not supported by cpu pool")
+        throw(ArgumentError("mode $mode not supported by cpu pool"))
     end
-    if alpha!=1; dx = alpha * dx; end
+    if any(padding .> 0)
+        dx = dx[1+padding[1]:end-padding[1],1+padding[2]:end-padding[2],:,:]
+    end
+    if alpha!=1
+        dx = alpha * dx
+    end
     return dx
 end
 
@@ -554,9 +599,9 @@ end
 function poolx_buggy{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
                   handle=nothing, alpha=1, beta=0, maxpoolingNanOpt=0,
                   window=2, padding=0, stride=window, mode=0)
-    stride = isa(stride, Integer) ? (stride, stride) : stride
-    window = isa(window, Integer) ? (window,window) : window
-    padding = isa(padding, Integer) ? (padding,padding) : padding
+    if isa(stride,Number); stride=[stride,stride]; else; stride=collect(stride); end
+    window = isa(window, Number) ? (window,window) : window
+    padding = isa(padding, Number) ? (padding,padding) : padding
     dx = zeros(x)
     if mode != 0; error("mode $mode not supported by cpu pool"); end
     # x: (W,H,C,N)
@@ -592,9 +637,9 @@ end
 
 #=
 function getPoolingNdForwardOutputDim{T}(x::Array{T,4}; window=2, padding=0, stride=1, mode=0)
-    window = isa(window, Integer) ? (window,window) : window
-    padding = isa(padding, Integer) ? (padding,padding) : padding
-    stride = isa(stride, Integer) ? (stride,stride) : stride
+    window = isa(window, Number) ? (window,window) : window
+    padding = isa(padding, Number) ? (padding,padding) : padding
+    stride = isa(stride, Number) ? (stride,stride) : stride
     @assert reduce(&, [w>p for (p,w) in zip(padding,window)])
     dims = [size(x)...]
     for i=1:length(dims)-2
