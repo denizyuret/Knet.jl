@@ -2,11 +2,12 @@ language: julia
 
 os:
   - linux
-  - osx
+# - osx
 
 julia:
   - 0.4
   - 0.5
+# - nightly  ## getting too many warnings
 
 notifications:
   email: false
@@ -25,4 +26,3 @@ after_success:
 # julia:
 #   - release
 #   - nightly
-# - nightly  ## getting too many warnings
