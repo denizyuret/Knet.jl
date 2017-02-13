@@ -392,7 +392,7 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
     stride = psize(stride,x)
     y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
     @inbounds for n in 1:N, k in 1:K, c in 1:Cx
-        y[:,:,k,n] += convy(view(x,:,:,c,n), view(w,:,:,c,k), padding, stride, mode)
+        axpy!(1, convy(view(x,:,:,c,n), view(w,:,:,c,k), padding, stride, mode), view(y,:,:,k,n))
     end
     if alpha != 1; y *= alpha; end
     return y
@@ -409,7 +409,7 @@ function convy{T}(x0::SubArray{T,2}, w::SubArray{T,2}, padding::Array{Int,1}, st
     widx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:size(x,1)-size(w,1)+1, j in 1:stride[2]:size(x,2)-size(w,2)+1] # linear indexes of filter positions in x
     oidx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)] # linear indexes of elements in a filter window
     destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    return reshape(x[destidx]*w1,row_extend,col_extend)
+    return reshape(view(x,destidx)*w1,row_extend,col_extend)
 end
 
 # dw = rot180(xcorr(x,dy))
@@ -427,7 +427,7 @@ function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
     Wx,Hx,C,Nx = size(x)
     Wy,Hy,K,Ny = size(dy)
     @inbounds for c in 1:C, k in 1:K, n in 1:Ny
-        dw[:,:,c,k] += convdw(view(x,:,:,c,n), view(dy,:,:,k,n), view(dw,:,:,c,k), padding, stride, mode)
+        axpy!(1, convdw(view(x,:,:,c,n), view(dy,:,:,k,n), view(dw,:,:,c,k), padding, stride, mode), view(dw,:,:,c,k))
     end
     if alpha != 1; dw *= alpha; end
     return dw
@@ -446,7 +446,7 @@ function convdw{T}(x0::SubArray{T,2}, dy::SubArray{T,2}, w::SubArray{T,2}, paddi
     widx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)]
     oidx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:x1l, j in 1:stride[2]:x2l] # linear indexes of elements in a filter window
     destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    y = reshape(x[destidx]*vec(dy),size(w))
+    y = reshape(view(x,destidx)*vec(dy),size(w))
     if mode == 0; y = rot180(y); end
     return y
 end
@@ -517,31 +517,30 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
     stride = psize(stride, x)
     window = psize(window, x)
     padding = psize(padding, x)
-    if any(padding .> 0)
-        x0=x
-        w,h,c,n = size(x0)
-        x=zeros(eltype(x0),w+2padding[1],h+2padding[2],c,n)
-        x[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x0
-    end
-    # x: (W,H,C,N)
     Wx,Hx,C,Nx = size(x);
     Wy,Hy,K,Ny = size(y);
-    if !(Nx == Ny && C==K); throw(DimensionMismatch()); end
+    if any(padding .> 0)
+        Wx += 2*padding[1]
+        Hx += 2*padding[2]
+        x0 = fill!(similar(x, (Wx,Hx,C,Nx)), 0)
+        x0[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x
+        x = x0
+    end
     if mode == 0
         @inbounds for n in 1:Nx, c in 1:C, jy in 1:Hy, iy in 1:Wy
             # iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
             i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
-            hx_end = j+window[2]-1 > Hx ? Hx : j+window[2]-1
-            wx_end = i+window[1]-1 > Wx ? Wx : i+window[1]-1
-            y[iy,jy,c,n] = maximum(x[i:wx_end,j:hx_end,c,n])
+            wx_end = min(i+window[1]-1,Wx)
+            hx_end = min(j+window[2]-1,Hx)
+            y[iy,jy,c,n] = maximum(view(x,i:wx_end,j:hx_end,c,n))
         end
     elseif mode == 1 || (mode == 2 && all(padding .== 0))
         @inbounds for n in 1:Nx, c in 1:C, jy in 1:Hy, iy in 1:Wy
             # iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
             i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
-            hx_end = j+window[2]-1 > Hx ? Hx : j+window[2]-1
-            wx_end = i+window[1]-1 > Wx ? Wx : i+window[1]-1
-            y[iy,jy,c,n] = mean(x[i:wx_end,j:hx_end,c,n])
+            wx_end = min(i+window[1]-1, Wx)
+            hx_end = min(j+window[2]-1, Hx)
+            y[iy,jy,c,n] = mean(view(x,i:wx_end,j:hx_end,c,n))
         end
     else
         throw(ArgumentError("mode $mode not supported by cpu pool"))
@@ -561,25 +560,25 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
     if any(padding .> 0)
         Wx += 2*padding[1]
         Hx += 2*padding[2]
-        dx = fill!(similar(x, (Wx,Hx,C,Nx)), 0)
-    else
-        dx = fill!(similar(x), 0)
+        x0 = fill!(similar(x, (Wx,Hx,C,Nx)), 0)
+        x0[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x
+        x = x0
     end
+    dx = fill!(similar(x), 0)
     if mode == 0
         @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
             iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            wx_end = min(i+window[1], Wx)
-            hx_end = min(j+window[2], Hx)
-            a = x[(i+1:wx_end)-padding[1],(j+1:hx_end)-padding[2],c,n]
-            di,dj = ind2sub(a,indmax(a))
-            dx[i+di,j+dj,c,n] += dy[iy,jy,c,n]
+            a = view(x, i+1:i+window[1], j+1:j+window[2], c, n)
+            m = (a .== maximum(a))
+            for im in find(m)
+                (di,dj) = ind2sub(m, im)
+                dx[i+di,j+dj,c,n] += dy[iy,jy,c,n]
+            end
         end
     elseif mode == 1 || (mode == 2 && all(padding .== 0))
         @inbounds for n in 1:Nx, c in 1:C, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
             iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            wx_end = min(i+window[1], Wx)
-            hx_end = min(j+window[2], Hx)
-            dx[i+1:wx_end,j+1:hx_end,c,n] += dy[iy,jy,c,n]
+            dx[i+1:i+window[1],j+1:j+window[2],c,n] += dy[iy,jy,c,n]
         end
         dx = dx ./ prod(window)
     else

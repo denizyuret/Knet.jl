@@ -1,3 +1,36 @@
+2017-02-13  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* TODO8:
+
+	# AutoGrad: run all tests with KnetArrays
+	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
+	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
+	# override KnetArray and Array instead of cpu2gpu etc.
+	# grad of convert (AutoGrad issue)
+	# KnetArray ==, ===, isapprox etc. missing.
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
+	# deepcopy does not work for KnetArray
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker.
+	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# docs todo: Julia tutorial. Baris Bozkurt's comments.
+	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
+	# mnist2d: implement/test sparse arrays
+	# for general arrays: broadcast, get/setindex, h/v/cat.
+	# find out why benchmarks are slower on julia5/6.
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
+	# check old todo list
+
 2017-02-12  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
 	* unit-test-TODO:
@@ -15,40 +48,6 @@
 	+ karray,linalg: cpu tests failing
 	+ reduction: gpu tests failing
 	+ conv.jl: debug unpool, add cpuconv
-	- AutoGrad: run all tests with KnetArrays
-
-	* TODO8:
-
-	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
-	# fix unclear docs for optimization, tutorial example?
-	# override KnetArray and Array instead of cpu2gpu etc.
-	# grad of convert (AutoGrad issue)
-	# KnetArray ==, ===, isapprox etc. missing.
-	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
-	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email.
-	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-
-	# docs todo: Julia tutorial. Baris Bozkurt's comments.
-	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# optimization:
-	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	## optimize reduction and broadcasting kernels.
-	## optimize logp / softmax.
-	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
-	## try fusion: we can do layers in one kernel call: relu(wx+b).
-	## try streams or multiple gpus.
-	# mnist2d: implement/test sparse arrays
-	# for general arrays: broadcast, get/setindex, h/v/cat.
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
-	# gputests.jl and cputests.jl are broken.
-	# find out why benchmarks are slower on julia5/6.
-	# resolve issues
-	# check old todo list
-	# deepcopy does not work for KnetArray
 
 2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
 
@@ -59,6 +58,8 @@
 	# figure out no KnetArray in cpu problem
 	# KnetArray does not work on cpu-only (should it? no. operators overloaded assuming gpu)
 	# add back cpu convolution
+	# gputests.jl and cputests.jl are broken.
+	# resolve issues
 
 2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
 
