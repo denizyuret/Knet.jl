@@ -345,6 +345,30 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#AutoGrad.grad",
+    "page": "Reference",
+    "title": "AutoGrad.grad",
+    "category": "Function",
+    "text": "grad(fun, argnum=1)\n\nTake a function fun(X...)->Y and return another function gfun(X...)->dXi which computes its gradient with respect to positional argument number argnum. The function fun should be scalar-valued. The returned function gfun takes the same arguments as fun, but returns the gradient instead. The gradient has the same type and size as the target argument which can be a Number, Array, Tuple, or Dict.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#AutoGrad.gradloss",
+    "page": "Reference",
+    "title": "AutoGrad.gradloss",
+    "category": "Function",
+    "text": "gradloss(fun, argnum=1)\n\nAnother version of grad where the generated function returns a (gradient,value) pair.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#AutoGrad.gradcheck",
+    "page": "Reference",
+    "title": "AutoGrad.gradcheck",
+    "category": "Function",
+    "text": "gradcheck(f, w, x...; kwargs...)\n\nNumerically check the gradient of f(w,x...;o...) with respect to its first argument w and return a boolean result.\n\nThe argument w can be a Number, Array, Tuple or Dict which in turn can contain other Arrays etc.  Only the largest 10 entries in each numerical gradient array are checked by default.  If the output of f is not a number, gradcheck constructs and checks a scalar function by taking its dot product with a random vector.\n\nKeywords\n\ngcheck=10: number of largest entries from each numeric array in gradient dw=(grad(f))(w,x...;o...) compared to their numerical estimates.\nverbose=false: print detailed messages if true.\nkwargs=[]: keyword arguments to be passed to f.\ndelta=atol=rtol=cbrt(eps(w)): tolerance parameters.  See isapprox for their meaning.\n\n\n\n"
+},
+
+{
     "location": "reference.html#AutoGrad-1",
     "page": "Reference",
     "title": "AutoGrad",
@@ -453,7 +477,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.conv4",
     "category": "Function",
-    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently 4 or 5 dimensional KnetArrays with Float32 or Float64 entries are supported.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nalgo=0: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.\nworkSpace=C_NULL: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.\nworkSpaceSizeInBytes=0: the size in bytes of the provided workSpace. Default=0.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
+    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are supported as w and x.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nalgo=0: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.\nworkSpace=C_NULL: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.\nworkSpaceSizeInBytes=0: the size in bytes of the provided workSpace. Default=0.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
 },
 
 {
@@ -597,7 +621,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.@primitive",
     "category": "Macro",
-    "text": "@primitive fx g1 g2... can be used to define a new primitive and (optionally) its gradients.\n\nJulia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types.  AutoGrad supports multiple dispatch for primitives and gradients.  Thus fx is a typed method declaration such as:\n\n@primitive sin(x::Number)\n@primitive hypot(x1::Array,x2::Array),dy,y\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f{T<:Number}(x::T) cannot be used.\n\nThe @primitive macro turns the first example into:\n\nlocal sin_r = recorder(sin)\nsin{T<:Number}(x::Rec{T}) = sin_r(x)\n\nThis will cause any call to sin with a Rec{T<:Number} argument to be recorded.  With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nlocal hypot_r = recorder(hypot)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)\n\nWe want the recorder version to be called if any one of the arguments is a boxed Rec.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nThe method declaration can optionally be followed by gradient expressions.  Here are the same examples with gradients:\n\n@primitive sin(x::Number),dy (dy*cos(x))\n@primitive hypot(x1::Array,x2::Array),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nNote that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following signature:\n\nf(Grad{i},dy,y,x...) => dx[i]\n\nFor the first example here is the generated gradient method:\n\nsin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))\n\nFor the second example a different gradient method is generated for each argument:\n\nhypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y) hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\nNon-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\n\n\n"
+    "text": "@primitive fx g1 g2...\n\nDefine a new primitive operation for AutoGrad and (optionally) specify its gradients.  Non-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\nExamples\n\n@primitive sin(x::Number)\n@primitive hypot(x1::Array,x2::Array),dy,y\n\n@primitive sin(x::Number),dy  (dy*cos(x))\n@primitive hypot(x1::Array,x2::Array),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nThe first example shows that fx is a typed method declaration. Julia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types.  AutoGrad takes advantage of this and supports multiple dispatch for primitives and gradients.\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f{T<:Number}(x::T) cannot be used.\n\nThe method declaration can optionally be followed by gradient expressions.  The third and fourth examples show how gradients can be specified.  Note that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nUnder the hood\n\nThe @primitive macro turns the first example into:\n\nlocal sin_r = recorder(sin)\nsin{T<:Number}(x::Rec{T}) = sin_r(x)\n\nThis will cause calls to sin with a boxed argument (Rec{T<:Number}) to be recorded.  The recorded operations are used by grad to construct a dynamic computational graph.  With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nlocal hypot_r = recorder(hypot)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)\nhypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)\n\nWe want the recorder version to be called if any one of the arguments is a boxed Rec.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following signature:\n\nf(Grad{i},dy,y,x...) => dx[i]\n\nFor the third example here is the generated gradient method:\n\nsin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))\n\nFor the last example a different gradient method is generated for each argument:\n\nhypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y)\nhypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\n\n\n"
 },
 
 {
@@ -605,7 +629,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.@zerograd",
     "category": "Macro",
-    "text": "@zerograd f(args...; kwargs...) allows f to handle its Rec inputs by unboxing them like @primitive, but unlike @primitive it does not record its actions or return a Rec result.  Some functions, like sign(), have zero gradient.  Others, like length() have discrete or constant outputs.  These need to handle Rec inputs, but do not need to record anything and can return regular values.  Their output can be treated like a constant in the program.  Use the @zerograd macro for those.  Note that kwargs are NOT unboxed.\n\n\n\n"
+    "text": "@zerograd f(args...; kwargs...)\n\nDefine f as an AutoGrad primitive operation with zero gradient.\n\nExample:\n\n@zerograd floor(x::Float32)\n\n@zerograd allows f to handle boxed Rec inputs by unboxing them like a @primitive, but unlike @primitive it does not record its actions or return a boxed Rec result.  Some functions, like sign(), have zero gradient.  Others, like length() have discrete or constant outputs.  These need to handle Rec inputs, but do not need to record anything and can return regular values.  Their output can be treated like a constant in the program.  Use the @zerograd macro for those.  Note that kwargs are NOT unboxed.\n\n\n\n"
 },
 
 {
@@ -613,7 +637,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.getval",
     "category": "Function",
-    "text": "getval(x) unboxes x if it is a Rec, otherwise returns x.\n\n\n\n"
+    "text": "getval(x)\n\nUnbox x if it is a boxed value (Rec), otherwise return x.\n\n\n\n"
 },
 
 {
