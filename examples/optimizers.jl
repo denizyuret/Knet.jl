@@ -18,8 +18,8 @@ and optimized parameters will be returned.
 
 """
 module Optimizers
-using Knet,ArgParse
-using Main.MNIST: minibatch, accuracy
+using Knet,ArgParse,Main
+using MNIST: minibatch, accuracy
 
 function main(args=ARGS)
     s = ArgParseSettings()
