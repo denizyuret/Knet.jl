@@ -10,7 +10,6 @@ using Knet
 conv41(a;o...)=conv4(a[1],a[2];o...)
 deconv41(a;o...)=deconv4(a[1],a[2];o...)
 rand41(d...)=reshape(0.01*collect(Float64,1:prod(d)),d)
-Base.isapprox(k::KnetArray,a::AbstractArray;o...)=isapprox(Array(k),a;o...)
 
 ax = rand41(5,4,3,2)
 aw = rand41(3,3,3,3)

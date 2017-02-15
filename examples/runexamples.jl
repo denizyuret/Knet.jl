@@ -1,6 +1,6 @@
 using Knet
 
-Pkg.test("Knet")
+# Pkg.test("Knet")
 load_only = true
 
 for (p,f,o1,o2,o3) =

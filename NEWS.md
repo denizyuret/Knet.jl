@@ -6,10 +6,10 @@ General
 * Fixed bug in (scalar .> KnetArray) operation in cuda01.jl.
 * Added optional w arg to Sgd for consistency in update.jl.
 * KnetArray supports transpose and permutedims for 2-D and 3-D (@ekyurdakul).
-* cpu2gpu, gpu2cpu primitives with gradients in karray.jl (@ereday).
+* Gradients for KnetArray to Array conversion (@ereday).
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
-* KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
+* KnetArray now supports isempty, (.!=), (==), isapprox, copy!, deepcopy and more math functions (exp,log etc.), KnetArray{T}(dims) constructors.
 * Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
 * It is now an error to try to create a KnetArray when the active device is not a gpu.
