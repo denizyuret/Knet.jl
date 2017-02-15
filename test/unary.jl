@@ -1,11 +1,4 @@
-if VERSION >= v"0.5.0-dev+7720"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
-
-using Knet
+include("header.jl")
 
 function frand(f,t,d...)
     r = rand(t,d...)*t(0.8)+t(0.1)

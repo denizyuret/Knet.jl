@@ -6,19 +6,18 @@
 	# deepcopy does not work for KnetArray
 	# override KnetArray and Array instead of cpu2gpu etc.
 	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
+	# Make BaseTestNext conditional on julia version. If not possible, create header.jl in test/ and check version/pkg.
 
 	* TODO8:
 	# add x=unpool(pool(x)) test, add some test for deconv vs conv.
-	# Latest master failing on nightly.
+	# Latest master failing on nightly; AutoGrad also fails.
 	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
-
-	# Contents does not show on README.md, @ref doesn't work etc.
+	# Contents does not show on README.md, @ref doesn't work etc. New README?
 	# AutoGrad: run all tests with KnetArrays
 	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
 	# permutedims ambiguity in AutoGrad in Julia 0.4.
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
-	# Make BaseTestNext conditional on julia version.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
 	# docs todo: Julia tutorial. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.

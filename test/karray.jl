@@ -1,11 +1,4 @@
-if VERSION >= v"0.5.0-dev+7720"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
-
-using Knet
+include("header.jl")
 
 # Test KnetArray operations: cat, convert, copy, display, eachindex,
 # eltype, endof, fill!, first, getindex, hcat, isempty, length,

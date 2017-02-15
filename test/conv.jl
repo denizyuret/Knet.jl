@@ -1,11 +1,4 @@
-if VERSION >= v"0.5.0-dev+7720"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
-
-using Knet
+include("header.jl")
 
 conv41(a;o...)=conv4(a[1],a[2];o...)
 deconv41(a;o...)=deconv4(a[1],a[2];o...)

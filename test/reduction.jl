@@ -1,11 +1,4 @@
-if VERSION >= v"0.5.0-dev+7720"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
-
-using Knet
+include("header.jl")
 
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 

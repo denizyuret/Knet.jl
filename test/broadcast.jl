@@ -1,11 +1,4 @@
-if VERSION >= v"0.5.0-dev+7720"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
-
-using Knet
+include("header.jl")
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
