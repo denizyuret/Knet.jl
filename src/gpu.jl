@@ -77,7 +77,6 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
         else
             i = -1
-            cublashandle = cudnnhandle = nothing
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
         return (GPU = i)
@@ -107,6 +106,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cublashandle(dev=gpu())
+        if dev==-1; error("No cublashandle for CPU"); end
         i = dev+2
         if CUBLAS == nothing; CUBLAS=Array(Any,gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
@@ -114,6 +114,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cudnnhandle(dev=gpu())
+        if dev==-1; error("No cudnnhandle for CPU"); end
         i = dev+2
         if CUDNN == nothing; CUDNN=Array(Any,gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
