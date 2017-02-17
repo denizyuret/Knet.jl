@@ -6,12 +6,14 @@
 	```@raw html
 	<img src="..." height="..." width="...">
 	```
+	# add x=unpool(pool(x)) test,
+	# add davide fix to knet before release
+	# Contents does not show on README.md, @ref doesn't work etc. New README?
+	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
 
 	* TODO8:
-	# add x=unpool(pool(x)) test, add some test for deconv vs conv.
-	# add davide fix to knet before release
-	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
-	# Contents does not show on README.md, @ref doesn't work etc. New README?
+	# add some test for deconv vs conv.
+	# add tests for new update interface.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
 
 	# Latest master failing on nightly; AutoGrad also fails.
