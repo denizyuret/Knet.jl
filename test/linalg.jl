@@ -26,11 +26,38 @@ include("header.jl")
         end
 
         @test gradcheck(transpose, a)
+        at = a'
+        bt = b'
+        s = a[1]
+        mmul1(w)=w[1]'*w[2]
+        mmul2(w)=w[1]*w[2]'
+        mmul3(w)=w[1]'*w[2]'
+        @test gradcheck(mmul1, Any[at,b])
+        @test gradcheck(mmul2, Any[a,bt])
+        @test gradcheck(mmul3, Any[at,bt])
+        @test gradcheck(mmul1, Any[a,s])
+        @test gradcheck(mmul1, Any[s,b])
+        @test gradcheck(mmul2, Any[a,s])
+        @test gradcheck(mmul2, Any[s,b])
+        @test gradcheck(mmul3, Any[a,s])
+        @test gradcheck(mmul3, Any[s,b])
         if gpu() >= 0
-            t = a'
-            kt = ka'
-            @test isapprox(t, Array(kt))
+            kat = ka'
+            kbt = kb'
+            @test isapprox(at, Array(kat))
             @test gradcheck(transpose, ka)
+            @test isapprox(kat'*kb, at'*b)
+            @test isapprox(ka*kbt', a*bt')
+            @test isapprox(kat'*kbt', at'*bt')
+            @test gradcheck(mmul1, Any[kat,kb])
+            @test gradcheck(mmul2, Any[ka,kbt])
+            @test gradcheck(mmul3, Any[kat,kbt])
+            @test gradcheck(mmul1, Any[ka,s])
+            @test gradcheck(mmul1, Any[s,kb])
+            @test gradcheck(mmul2, Any[ka,s])
+            @test gradcheck(mmul2, Any[s,kb])
+            @test gradcheck(mmul3, Any[ka,s])
+            @test gradcheck(mmul3, Any[s,kb])
         end
 
         @test gradcheck(mat, a)
