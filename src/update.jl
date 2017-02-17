@@ -252,7 +252,7 @@ individual weight array should have a corresponding params object.  In
 the iterator case, `gradients` and `params` should be iterators of the
 same length as `weights` with corresponding elements.  In the
 dictionary case, `gradients` and `params` should be dictionaries with
-the same keys as `weights`.  See [`Optimizers`](@ref) for a usage
+the same keys as `weights`.  See [Optimizers](@ref) for a usage
 example.
 
 Individual optimization parameters can be one of the following types:

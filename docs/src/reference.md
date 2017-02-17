@@ -18,8 +18,6 @@ AutoGrad.gradcheck
 
 ```@docs
 Knet.KnetArray
-Knet.cpu2gpu
-Knet.gpu2cpu
 ```
 
 ## Utilities
