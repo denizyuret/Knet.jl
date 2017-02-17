@@ -16,13 +16,12 @@ include("header.jl")
         end
 
         if gpu() >= 0
-            # cannot gradcheck axpy!, overwriting
+            # cannot gradcheck axpy!, scal! overwriting
             d = rand(t,3,5)
             kd = KnetArray(d)
             r = rand()
-            axpy!(r,a,d)
-            axpy!(r,ka,kd)
-            @test isapprox(d, Array(kd))
+            @test isapprox(axpy!(r,a,d), axpy!(r,ka,kd))
+            @test isapprox(scale!(r,d), scale!(r,kd))
         end
 
         @test gradcheck(transpose, a)

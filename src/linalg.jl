@@ -3,7 +3,7 @@ import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
 import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
 import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
 import Base.LinAlg.BLAS: gemm!
-import Base.LinAlg: axpy!
+import Base.LinAlg: axpy!, scale!
 export axpy!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
@@ -69,6 +69,21 @@ end
 
 axpy!{T}(alpha::Number, x::KnetArray{T}, y::KnetArray{T})=axpy!(length(x),alpha,x,1,y,1)
 
+
+function scal!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer)
+    alpha = T[alpha]
+    if T<:Float32
+        @cuda(cublas, cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+    elseif T<:Float64
+        @cuda(cublas, cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+    else
+        error("$T not supported")
+    end
+    return x
+end
+
+scale!{T}(alpha::Number, x::KnetArray{T})=scal!(length(x),alpha,x,1)
+scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
 
 function transpose{T}(x::KnetArray{T})
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")

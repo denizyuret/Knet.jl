@@ -9,7 +9,7 @@ General
 * Gradients for KnetArray to Array conversion (@ereday).
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
-* KnetArray now supports isempty, (.!=), (==), isapprox, copy!, deepcopy and more math functions (exp,log etc.), KnetArray{T}(dims) constructors.
+* KnetArray now supports isempty, (.!=), (==), isapprox, copy!, scale!, deepcopy, more math functions (exp,log etc.), and KnetArray{T}(dims) constructors.
 * Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
 * It is now an error to try to create a KnetArray when the active device is not a gpu.
