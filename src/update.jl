@@ -68,7 +68,7 @@ Momentum(; lr=0.001, gamma=0.9)=Momentum(lr, gamma, nothing)
 
 """
 
-    Adagrad(;lr=0.001, eps=1e-6)
+    Adagrad(;lr=0.1, eps=1e-6)
     update(w,g,p::Adagrad)
 
 Container for parameters of the Adagrad optimization algorithm used by
@@ -104,12 +104,12 @@ type Adagrad
     G
 end
 
-Adagrad(; lr=0.001, eps=1e-6)=Adagrad(lr, eps, nothing)
+Adagrad(; lr=0.1, eps=1e-6)=Adagrad(lr, eps, nothing)
 
 
 """
 
-    Adadelta(;lr=0.001, rho=0.9, eps=1e-6)
+    Adadelta(;lr=0.01, rho=0.9, eps=1e-6)
     update(w,g,p::Adadelta)
 
 Container for parameters of the Adadelta optimization algorithm used by
@@ -147,7 +147,7 @@ type Adadelta
 	delta
 end
 
-Adadelta(; lr=0.001, rho=0.9, eps=1e-6)=Adadelta(lr, rho, eps, nothing, nothing)
+Adadelta(; lr=0.01, rho=0.9, eps=1e-6)=Adadelta(lr, rho, eps, nothing, nothing)
 
 
 """
@@ -172,10 +172,10 @@ denominator.  `rho` is the momentum parameter and `delta` is an array
 with the same size and type of `w` and holds the sum of the squared
 updates.
 
-Reference: Tieleman, Tijmen, and Geoffrey Hinton. "Lecture
+Reference: [Tijmen Tieleman and Geoffrey Hinton
+(2012)](https://dirtysalt.github.io/images/nn-class-lec6.pdf). "Lecture
 6.5-rmsprop: Divide the gradient by a running average of its recent
-magnitude."  COURSERA: Neural Networks for Machine Learning 4.2
-(2012).
+magnitude."  COURSERA: Neural Networks for Machine Learning 4.2.
 
 """
 type Rmsprop
@@ -215,7 +215,8 @@ squares of the gradients. `eps` is a small constant to prevent a zero
 denominator. `beta1` and `beta2` are the parameters to calculate bias
 corrected first and second moments. `t` is the update count.
 
-Reference: Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for
+Reference: [Kingma, D. P., & Ba,
+J. L. (2015)](https://arxiv.org/abs/1412.6980). Adam: a Method for
 Stochastic Optimization. International Conference on Learning
 Representations, 1–13.
 
@@ -251,29 +252,30 @@ individual weight array should have a corresponding params object.  In
 the iterator case, `gradients` and `params` should be iterators of the
 same length as `weights` with corresponding elements.  In the
 dictionary case, `gradients` and `params` should be dictionaries with
-the same keys as `weights`.
+the same keys as `weights`.  See [`Optimizers`](@ref) for a usage
+example.
 
 Individual optimization parameters can be one of the following types:
-* [`Sgd`](@ref)(;lr=0.001)
-* [`Momentum`](@ref)(;lr=0.001, gamma=0.9)
-* [`Rmsprop`](@ref)(;lr=0.001, rho=0.9, eps=1e-6)
-* [`Adagrad`](@ref)(;lr=0.001, eps=1e-6)
-* [`Adadelta`](@ref)(;lr=0.001, rho=0.9, eps=1e-6)
-* [`Adam`](@ref)(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)
+* [`Sgd`](@ref)`(;lr=0.001)`
+* [`Momentum`](@ref)`(;lr=0.001, gamma=0.9)`
+* [`Rmsprop`](@ref)`(;lr=0.001, rho=0.9, eps=1e-6)`
+* [`Adagrad`](@ref)`(;lr=0.1, eps=1e-6)`
+* [`Adadelta`](@ref)`(;lr=0.01, rho=0.9, eps=1e-6)`
+* [`Adam`](@ref)`(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)`
 
 """
-function update!(w, g, p::Sgd)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Sgd)
     axpy!(-p.lr, g, w)
 end
 
-function update!(w, g, p::Momentum)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Momentum)
     if p.velocity===nothing; p.velocity=zeros(w); end
     scale!(p.gamma, p.velocity)
     axpy!(p.lr, g, p.velocity)
     axpy!(-1, p.velocity, w)
 end
 
-function update!(w, g, p::Adam)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adam)
     if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
     p.t += 1
     scale!(p.beta1, p.fstm)
@@ -285,13 +287,13 @@ function update!(w, g, p::Adam)
     axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
 end
 
-function update!(w, g, p::Adagrad)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adagrad)
     if p.G===nothing; p.G=zeros(w); end
     axpy!(1, g .* g, p.G)
     axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
 end
 
-function update!(w, g, p::Adadelta)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adadelta)
     if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
     scale!(p.rho, p.G)
     axpy!(1-p.rho, g .* g, p.G)
@@ -301,7 +303,7 @@ function update!(w, g, p::Adadelta)
     axpy!(-p.lr, dw, w)
 end
 
-function update!(w, g, p::Rmsprop)
+function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Rmsprop)
     if p.G===nothing; p.G=zeros(w); end
     scale!(p.rho, p.G)
     axpy!(1-p.rho, g .* g, p.G)
@@ -347,5 +349,4 @@ function update!(w::Associative,g::Associative;lr=SGDLR)
 end
 
 # To distinuish the two-arg update! for the numeric weight arrays:
-update!{T<:AbstractFloat}(w::Array{T},g::Array{T};lr=SGDLR)=update!(w,g,Sgd(lr))
-update!{T<:AbstractFloat}(w::KnetArray{T},g::KnetArray{T};lr=SGDLR)=update!(w,g,Sgd(lr))
+update!{T<:AbstractFloat}(w::KorA{T},g::KorA{T};lr=SGDLR)=update!(w,g,Sgd(lr))

@@ -48,13 +48,16 @@ end
 
 lossgradient = grad(loss)
 
-function train(w, data; lr=.1, epochs=20, nxy=0)
+function train(w, data; lr=.1, epochs=3, iters=1800)
     for epoch=1:epochs
         for (x,y) in data
             g = lossgradient(w, x, y)
             for i in 1:length(w)
                 # w[i] -= lr * g[i]
                 axpy!(-lr, g[i], w[i])
+            end
+            if (iters -= 1) <= 0
+                return w
             end
         end
     end
@@ -111,6 +114,7 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
+        ("--iters"; arg_type=Int; default=1800; help="maximum number of updates for training")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
@@ -129,15 +133,17 @@ function main(args=ARGS)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
 
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], iters=o[:iters]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
+        iters = o[:iters]
         @time for epoch=1:o[:epochs]
-            train(w, dtrn; lr=o[:lr], epochs=1)
+            train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
             report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)
             end
+            if (iters -= length(dtrn)) <= 0; break; end
         end
     end
     return w

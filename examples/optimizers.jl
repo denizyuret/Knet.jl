@@ -35,6 +35,7 @@ function main(args=ARGS)
 	("--beta1"; arg_type=Float64; default=0.9; help="beta1 parameter used in adam")
 	("--beta2"; arg_type=Float64; default=0.95; help="beta2 parameter used in adam")
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
+        ("--iters"; arg_type=Int; default=6000; help="number of updates for training")
 	("--optim"; default="Sgd"; help="optimization method (Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop)")
     end
     println(s.description)
@@ -50,25 +51,28 @@ function main(args=ARGS)
     w = weights()
     prms = params(w, o)
     
-    log = Any[]
-    report(epoch)=push!(log, (:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
-
+    # log = Any[]
+    # report(epoch)=push!(log, (:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
     report(0)
+    iters = o[:iters]
     @time for epoch=1:o[:epochs]
-	    train(w, prms, dtrn; lr=o[:lr], epochs=1)
-	    report(epoch)
+	train(w, prms, dtrn; epochs=1, iters=iters)
+	report(epoch)
+        (iters -= length(dtrn)) <= 0 && break
     end
 
-    for t in log; println(t); end
+    # for t in log; println(t); end
     return w
 end
 
-function train(w, prms, data; lr=.1, epochs=20, nxy=0)
+function train(w, prms, data; epochs=10, iters=6000)
     for epoch=1:epochs
         for (x,y) in data
             g = lossgradient(w, x, y)
-            for i in 1:length(w)
-		    w[i], prms[i] = update!(w[i], g[i], prms[i])
+            update!(w, g, prms)
+            if (iters -= 1) <= 0
+                return w
             end
         end
     end
@@ -116,15 +120,15 @@ function params(ws, o)
 		if o[:optim] == "Sgd"
 			prm = Sgd(;lr=o[:lr])
 		elseif o[:optim] == "Momentum"
-			prm = Momentum(w; lr=o[:lr], gamma=o[:gamma])
+			prm = Momentum(lr=o[:lr], gamma=o[:gamma])
 		elseif o[:optim] == "Adam"
-			prm = Adam(w; lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
+			prm = Adam(lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
 		elseif o[:optim] == "Adagrad"
-			prm = Adagrad(w; lr=o[:lr], eps=o[:eps])
+			prm = Adagrad(lr=o[:lr], eps=o[:eps])
 		elseif o[:optim] == "Adadelta"
-			prm = Adadelta(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
+			prm = Adadelta(lr=o[:lr], rho=o[:rho], eps=o[:eps])
 		elseif o[:optim] == "Rmsprop"
-			prm = Rmsprop(w; lr=o[:lr], rho=o[:rho], eps=o[:eps])
+			prm = Rmsprop(lr=o[:lr], rho=o[:rho], eps=o[:eps])
 		else
 			error("Unknown optimization method!")
 		end
