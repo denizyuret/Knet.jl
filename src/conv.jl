@@ -150,16 +150,18 @@ end
 
 Unpooling; `reverse` of pooling.
 
+    x == pool(unpool(x;o...); o...)
+
 """
-function unpool(x; window=2, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+function unpool(x; window=2, alpha=1, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     w = prod(psize(window,x))
     y = similar(x,updims(x; window=window, o...))
-    poolx(y,x,x.*w; o..., window=window, mode=1)
+    poolx(y,x,x.*w; o..., window=window, mode=1, alpha=1/alpha)
 end
 
-function unpoolx(dy; window=2, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+function unpoolx(dy; window=2, alpha=1, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     w = prod(psize(window,dy))
-    pool(dy; o..., window=window, mode=1) * w
+    pool(dy; o..., window=window, mode=1, alpha=1/alpha) * w
 end
 
 # @primitive unpool(x;o...),dy,y -pool(-dy;o...)
