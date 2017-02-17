@@ -120,6 +120,7 @@ function main(args=ARGS)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
+    if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
     isdefined(MNIST,:xtrn) || MNIST.loaddata()
     dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize]; atype=atype)
