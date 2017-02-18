@@ -1,28 +1,21 @@
-2017-02-16  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-02-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# permutedims ambiguity in AutoGrad in Julia 0.4.
-	# docs imagesize: The ![]() syntax doesn't support image size. However, you should be able to use the @raw block to insert custom HTML with an <img> tag as follows:
-	```@raw html
-	<img src="..." height="..." width="...">
-	```
-	# add x=unpool(pool(x)) test,
-	# add davide fix to knet before release
-	# Contents does not show on README.md, @ref doesn't work etc. New README?
-	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
+	# add tests for new update interface.
 
 	* TODO8:
 	# add some test for deconv vs conv.
-	# add tests for new update interface.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# use mocha for cpu conv/pool.
 
 	# Latest master failing on nightly; AutoGrad also fails.
 	# AutoGrad: run all tests with KnetArrays
 	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
+	# AutoGrad: support for keys, values, next for dictionaries.
 	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
-	# docs todo: Julia tutorial. Baris Bozkurt's comments.
+	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
 	# charlm: try indexing op instead of sparse matmul.
@@ -40,6 +33,19 @@
 	# mnist2d: implement/test sparse arrays
 	# for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+
+2017-02-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# permutedims ambiguity in AutoGrad in Julia 0.4.
+	# docs imagesize: The ![]() syntax doesn't support image size. However, you should be able to use the @raw block to insert custom HTML with an <img> tag as follows:
+	```@raw html
+	<img src="..." height="..." width="...">
+	```
+	# add x=unpool(pool(x)) test,
+	# add davide fix to knet before release
+	# Contents does not show on README.md, @ref doesn't work etc. New README?
+	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
 
 2017-02-15  Deniz Yuret  <dyuret@ku.edu.tr>
 

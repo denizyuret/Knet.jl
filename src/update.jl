@@ -248,12 +248,13 @@ defaults to the [`Sgd`](@ref) algorithm with learning rate `lr`.  The
 represented by an iterator or dictionary.  In the individual case,
 `gradients` should be a similar numeric array of `size(weights)` and
 `params` should be a single object.  In the collection case, each
-individual weight array should have a corresponding params object.  In
-the iterator case, `gradients` and `params` should be iterators of the
-same length as `weights` with corresponding elements.  In the
-dictionary case, `gradients` and `params` should be dictionaries with
-the same keys as `weights`.  See [Optimizers](@ref) for a usage
-example.
+individual weight array should have a corresponding params object.
+This way different weight arrays can have their own optimization
+state, different learning rates, or even different optimization
+algorithms running in parallel.  In the iterator case, `gradients` and
+`params` should be iterators of the same length as `weights` with
+corresponding elements.  In the dictionary case, `gradients` and
+`params` should be dictionaries with the same keys as `weights`.
 
 Individual optimization parameters can be one of the following types:
 * [`Sgd`](@ref)`(;lr=0.001)`
@@ -262,6 +263,29 @@ Individual optimization parameters can be one of the following types:
 * [`Adagrad`](@ref)`(;lr=0.1, eps=1e-6)`
 * [`Adadelta`](@ref)`(;lr=0.01, rho=0.9, eps=1e-6)`
 * [`Adam`](@ref)`(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)`
+
+# Example:
+
+    w = rand(d)                 # an individual weight array
+    g = lossgradient(w)         # gradient g has the same shape as w
+    update!(w, g)               # update w in-place with Sgd()
+    update!(w, g; lr=0.1)       # update w in-place with Sgd(lr=0.1)
+    update!(w, g, Sgd(lr=0.1))  # update w in-place with Sgd(lr=0.1)
+
+    w = (rand(d1), rand(d2))    # a tuple of weight arrays
+    g = lossgradient2(w)        # g will also be a tuple
+    p = (Adam(), Sgd())         # p has params for each w[i]
+    update!(w, g, p)            # update each w[i] in-place with g[i],p[i]
+
+    w = Any[rand(d1), rand(d2)] # any iterator can be used
+    g = lossgradient3(w)        # g will be similar to w
+    p = Any[Adam(), Sgd()]      # p should be an iterator of same length
+    update!(w, g, p)            # update each w[i] in-place with g[i],p[i]
+
+    w = Dict(:a => rand(d1), :b => rand(d2)) # dictionaries can be used
+    g = lossgradient4(w)
+    p = Dict(:a => Adam(), :b => Sgd())
+    update!(w, g, p)
 
 """
 function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Sgd)
