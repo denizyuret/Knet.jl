@@ -6,13 +6,14 @@
 	* TODO8:
 	# add some test for deconv vs conv.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-	# use mocha for cpu conv/pool.
+	# use mocha for cpu conv/pool. wip.
 
 	# Latest master failing on nightly; AutoGrad also fails.
 	# AutoGrad: run all tests with KnetArrays
 	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
 	# AutoGrad: support for keys, values, next for dictionaries.
+	# automatically generate README.md from tutorial.md.
 	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
 	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
