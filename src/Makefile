@@ -1,9 +1,12 @@
 CFLAGS=-O3 -use_fast_math -Wno-deprecated-gpu-targets
 
-libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o
+libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o im2col.o pooling.o
 	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -o $@
 
 %.o: %.cu
+	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@
+
+%.o: %.cpp
 	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@
 
 cuda1.cu: cuda1.jl unary.jl

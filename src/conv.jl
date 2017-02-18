@@ -1,3 +1,13 @@
+# cpuconv todo:
+# need separate cpu and gpu libraries
+# need to get rid of mask in pool_back
+# try `#pragma omp parallel for` in im2col
+# time doing a single im2col instead of N
+# reimplement conv4 in terms of im2col
+# need low level blas call with pointers
+# reimplement conv4x conv4w using col2im?
+
+
 """
 
     conv4(w, x; kwargs...)
@@ -382,8 +392,8 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 #import Compat.view
 #@views
 function conv4{T}(w::Array{T,4}, x::Array{T,4};
-                         padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                         o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
@@ -399,8 +409,50 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
         # axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), view(y,:,:,k,n))
         y[:,:,k,n] += convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode)
     end
-    if alpha != 1; y *= alpha; end
+    if alpha != 1; scale!(alpha,y); end
     return y
+end
+
+function conv41{T}(w::Array{T,4}, x::Array{T,4};
+                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+    # x: (W,H,C,N)
+    # w: (W,H,C,K) 
+    # y: (W,H,K,N) 
+    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
+    Wx,Hx,Cx,N = size(x)
+    Ww,Hw,Cw,K = size(w)
+    if Cx!=Cw; throw(DimensionMismatch()); end
+    (p1,p2) = psize(padding,x)
+    (s1,s2) = psize(stride,x)
+    ydims = cdims(w,x;padding=(p1,p2),stride=(s1,s2))
+    y = similar(x, ydims)
+    zdims = im2coldims(w,x;padding=(p1,p2),stride=(s1,s2))
+    z = similar(x, zdims)
+    @inbounds for n in 1:N
+        im2col!(z, w, x, p1, p2, s1, s2)
+        gemm!('N','N',T(1),mat(w),z,T(0),mat(view(y,:,:,:,n)))
+        # A_mul_B!(mat(view(y,:,:,:,n)), mat(w), z)
+    end
+    if alpha != 1; scale!(alpha,y); end
+    return y
+end
+
+function im2col!{T}(z::Array{T,2}, w::Array{T,4}, x::Array{T,4}, p1=0, p2=0, s1=1, s2=1)
+    Wx,Hx,Cx,Nx = size(x)
+    Ww,Hw,Cw,Cy = size(w)
+    if T<:Float32
+        ccall((:im2col_float,libknet8),Void,
+              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              x,z,Wx,Hx,Cx,Ww,Wh,p1,p2,s1,s2)
+    elseif T<:Float64
+        ccall((:im2col_double,libknet8),Void,
+              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              x,z,Wx,Hx,Cx,Ww,Wh,p1,p2,s1,s2)
+    else
+        error("$T not supported")
+    end
 end
 
 #@views
@@ -437,7 +489,7 @@ function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
         # axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), view(dw,:,:,c,k))
         dw[:,:,c,k] += convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode)
     end
-    if alpha != 1; dw *= alpha; end
+    if alpha != 1; scale!(alpha, dw); end
     return dw
 end
 
@@ -476,7 +528,7 @@ function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
     @inbounds for n in 1:N, c in 1:C, k in 1:Kw
         dx[:,:,c,n] += convdx(dy[:,:,k,n], w[:,:,c,k], dx[:,:,c,n], padding, stride, mode)
     end
-    if alpha != 1; dx *= alpha; end
+    if alpha != 1; scale!(alpha, dx); end
     return dx
 end
 
@@ -523,7 +575,7 @@ end
 
 
 #@views
-function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+function pool1{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
     if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
     y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
     stride = psize(stride, x)
@@ -557,7 +609,48 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
     else
         throw(ArgumentError("mode $mode not supported by cpu pool"))
     end
-    if alpha != 1; y *= alpha; end
+    if alpha != 1; scale!(alpha,y); end
+    return y
+end
+
+function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
+    ydims = pdims(x;window=window,padding=padding,stride=stride)
+    y = similar(x, ydims)
+    (w1,w2) = psize(window, x)
+    (p1,p2) = psize(padding, x)
+    (s1,s2) = psize(stride, x)
+    Wx,Hx,C,Nx = size(x);
+    Wy,Hy,K,Ny = size(y);
+    if mode == 0
+        m = Array(Csize_t, ydims)
+        if T<:Float32
+            ccall((:max_pooling_fwd_float,libknet8),Void,
+                  (Ptr{T},Ptr{T},Ptr{Csize_t},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  x,y,m,Wx,Hx,C,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+        elseif T<:Float64
+            ccall((:max_pooling_fwd_double,libknet8),Void,
+                  (Ptr{T},Ptr{T},Ptr{Csize_t},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  x,y,m,Wx,Hx,C,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+        else
+            error("$T not supported")
+        end
+    elseif mode == 1 || (mode == 2 && p1==p2==0)
+        if T<:Float32
+            ccall((:mean_pooling_fwd_float,libknet8),Void,
+                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  x,y,Wx,Hx,C,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+        elseif T<:Float64
+            ccall((:mean_pooling_fwd_double,libknet8),Void,
+                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  x,y,Wx,Hx,C,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+        else
+            error("$T not supported")
+        end
+    else
+        throw(ArgumentError("mode $mode not supported by cpu pool"))
+    end
+    if alpha != 1; scale!(alpha,y); end
     return y
 end
 
