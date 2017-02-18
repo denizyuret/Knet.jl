@@ -60,7 +60,7 @@ In Knet, a machine learning model is defined using plain Julia code. A typical m
 Here is the prediction function and the corresponding quadratic loss function for a simple linear regression model:
 
 
-```
+```julia
 predict(w,x) = w[1]*x .+ w[2]
 
 loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
@@ -70,20 +70,20 @@ loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
 The variable `w` is a list of parameters (it could be a Tuple, Array, or Dict), `x` is the input and `y` is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function [`grad`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.grad) from [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute the gradient direction:
 
 
-```
+```julia
 using Knet
 
 lossgradient = grad(loss)
 ```
 
 
-Note that `grad` is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`. 
+Note that `grad` is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`.
 
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can train this model:
 
 
-```
+```julia
 function train(w, data; lr=.1)
     for (x,y) in data
         dw = lossgradient(w, x, y)
@@ -106,7 +106,7 @@ We simply iterate over the input-output pairs in data, calculate the lossgradien
 Let's train this model on the [Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset from the UCI Machine Learning Repository.
 
 
-```
+```julia
 julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
 julia> rawdata = readdlm(download(url))
 julia> x = rawdata[:,1:13]'
@@ -144,7 +144,7 @@ In this example we build a simple classification model for the [MNIST](http://ya
 Classification models handle discrete outputs, as opposed to regression models which handle numeric outputs. We typically use the cross entropy loss function in classification models:
 
 
-```
+```julia
 function loss(w,x,ygold)
     ypred = predict(w,x)
     ynorm = ypred .- log(sum(exp(ypred),1))
@@ -156,7 +156,7 @@ end
 Other than the change of loss function, the softmax model is identical to the linear regression model. We use the same `predict`, same `train` and set `lossgradient=grad(loss)` as before. To see how well our model classifies let's define an `accuracy` function which returns the percentage of instances classified correctly:
 
 
-```
+```julia
 function accuracy(w, data)
     ncorrect = ninstance = 0
     for (x, ygold) in data
@@ -172,7 +172,7 @@ end
 Now let's train a model on the MNIST data:
 
 
-```
+```julia
 julia> include(Knet.dir("examples","mnist.jl"))
 julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
 julia> dtrn = minibatch(xtrn, ytrn, 100)
@@ -212,7 +212,7 @@ A multi-layer perceptron, i.e. a fully connected feed-forward neural network, is
 We can define a MLP by slightly modifying the predict function:
 
 
-```
+```julia
 function predict(w,x)
     for i=1:2:length(w)-2
         x = max(0, w[i]*x .+ w[i+1])
@@ -225,7 +225,7 @@ end
 Here `w[2k-1]` is the weight matrix and `w[2k]` is the bias vector for the k'th layer. max(0,a) implements the popular rectifier non-linearity. Note that if w only has two entries, this is equivalent to the linear and softmax models. By adding more entries to w, we can define multi-layer perceptrons of arbitrary depth. Let's define one with a single hidden layer of 64 units:
 
 
-```
+```julia
 w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
          -0.1+0.2*rand(Float32,10,64),  zeros(Float32,10,1) ]
 ```
@@ -234,7 +234,7 @@ w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
 The rest of the code is the same as the softmax model. We use the same cross-entropy loss function and the same training script. The code for this example is available in [mnist.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/mnist.jl). The multi-layer perceptron does significantly better than the softmax model:
 
 
-```
+```julia
 (:epoch,0,:trn,0.10166667f0,:tst,0.0977f0)
 (:epoch,1,:trn,0.9389167f0,:tst,0.9407f0)
 ...
@@ -260,7 +260,7 @@ To improve the performance further, we can use a convolutional neural networks (
 Knet provides the [`conv4`](http://denizyuret.github.io/Knet.jl/latest/reference.html#Knet.conv4) and [`pool`](http://denizyuret.github.io/Knet.jl/latest/reference.html#Knet.pool) functions for the implementation of convolutional nets:
 
 
-```
+```julia
 function predict(w,x0)
     x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))
     x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))
@@ -273,7 +273,7 @@ end
 The weights for the convolutional net can be initialized as follows:
 
 
-```
+```julia
 w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
          -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
          -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),
@@ -284,7 +284,7 @@ w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
 Currently convolution and pooling are only supported on the GPU for 4-D and 5-D arrays. So we reshape our data and transfer it to the GPU along with the parameters by converting them into [`KnetArray`](http://denizyuret.github.io/Knet.jl/latest/reference.html#Knet.KnetArray)s:
 
 
-```
+```julia
 dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
 dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
 w = map(KnetArray, w)
@@ -294,7 +294,7 @@ w = map(KnetArray, w)
 The training proceeds as before giving us even better results. The code for the LeNet example can be found in [lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet.jl).
 
 
-```
+```julia
 (:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
 (:epoch,1,:trn,0.96963334f0,:tst,0.971f0)
 ...
@@ -333,7 +333,7 @@ It turns out simple RNNs are not very good at remembering things for a very long
 The code below shows one way to define an LSTM in Knet. The first two arguments are the parameters, the weight matrix and the bias vector. The next two arguments hold the internal state of the LSTM: the hidden and cell arrays. The last argument is the input. Note that for performance reasons we lump all the parameters of the LSTM into one matrix-vector pair instead of using separate parameters for each gate. This way we can perform a single matrix multiplication, and recover the gates using array indexing. We represent input, hidden and cell as row vectors rather than column vectors for more efficient concatenation and indexing. [`sigm`](http://denizyuret.github.io/Knet.jl/latest/reference.html#Knet.sigm) and `tanh` are the sigmoid and the hyperbolic tangent activation functions. The LSTM returns the updated state variables `hidden` and `cell`.
 
 
-```
+```julia
 function lstm(weight,bias,hidden,cell,input)
     gates   = hcat(input,hidden) * weight .+ bias
     hsize   = size(hidden,2)
@@ -357,7 +357,7 @@ If an input gate element is close to 0, the corresponding element in the new `in
 To build a language model, we need to predict the next character in a piece of text given the current character and recent history as encoded in the internal state. The `predict` function below implements a multi-layer LSTM model. `s[2k-1:2k]` hold the hidden and cell arrays and `w[2k-1:2k]` hold the weight and bias parameters for the k'th LSTM layer. The last three elements of `w` are the embedding matrix and the weight/bias for the final prediction. `predict` takes the current character encoded in `x` as a one-hot row vector, multiplies it with the embedding matrix, passes it through a number of LSTM layers, and converts the output of the final layer to the same number of dimensions as the input using a linear transformation. The state variable `s` is modified in-place.
 
 
-```
+```julia
 function predict(w, s, x)
     x = x * w[end-2]
     for i = 1:2:length(s)
@@ -372,7 +372,7 @@ end
 To train the language model we will use Backpropagation Through Time (BPTT) which basically means running the network on a given sequence and updating the parameters based on the total loss. Here is a function that calculates the total cross-entropy loss for a given (sub)sequence:
 
 
-```
+```julia
 function loss(param,state,sequence,range=1:length(sequence)-1)
     total = 0.0; count = 0
     atype = typeof(getval(param[1]))
@@ -396,7 +396,7 @@ Here `param` and `state` hold the parameters and the state of the model, `sequen
 To generate text we sample each character randomly using the probabilities predicted by the model based on the previous character:
 
 
-```
+```julia
 function generate(param, state, vocab, nchar)
     index_to_char = Array(Char, length(vocab))
     for (k,v) in vocab; index_to_char[v] = k; end
@@ -551,4 +551,3 @@ Current contributors:
   * Emre Yolcu
   * Meriç Melike Softa
   * Ekrem Emre Yurdakul
-
