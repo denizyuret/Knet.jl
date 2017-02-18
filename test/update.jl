@@ -22,7 +22,7 @@ rosengrad = gradloss(rosenmulti)
 srand(123456789)
 dims = 6
 
-function rosenopt(w, params; verbose=true, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)
+function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)
     i = 1
     prev = 0
     current = 1
