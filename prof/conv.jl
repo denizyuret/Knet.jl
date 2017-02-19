@@ -1,38 +1,43 @@
 using BenchmarkTools, Base.Test, Knet
-macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
+# @show uses print, disp uses display which prints out details of benchmark
 macro disp(x); :(println($(string(x)));display($(esc(x)));println()); end
+macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end
+macro benchmarx(x); :(@benchmark ($x;sync())); end
+macro gpu(x); if gpu()>=0; esc(x); end; end
 
-using Knet: pool1, poolx, poolx1, im2col!, im2col_dims
-sync()=Knet.cudaDeviceSynchronize()
+using Knet: poolx, im2col!, col2im!, im2col_dims, conv4x, conv4w
+@gpu sync()=Knet.cudaDeviceSynchronize()
+o = []
 
-conv4gpu(w,x;o...)=(y=conv4(w,x;o...);sync();y)
-mode = 0
 ax = rand(100,100,100,10)
-kx = KnetArray(ax)
 aw = rand(3,3,100,100)
-kw = KnetArray(aw)
-ky = conv4(kw,kx;mode=mode)
-ay = conv4(aw,ax;mode=mode)
-@test isapprox(ky,ay)
+@gpu kx = KnetArray(ax)
+@gpu kw = KnetArray(aw)
+
+@gpu @show @test isapprox(pool(ax;o...), pool(kx;o...))
+@gpu @show @benchmarx pool($kx;$o...) # 0.766ms
+@show @benchmark pool($ax;$o...) # 3.407ms, 22.362ms (with and without omp on ai-test)
+
+ap = pool(ax;o...)
+@gpu kp = pool(kx;o...)
+@gpu @show @test isapprox(poolx(ax,ap,ap;o...), poolx(kx,kp,kp;o...))
+@gpu @show @benchmarx poolx($kx,$kp,$kp;$o...) # 2.638ms
+@show @benchmark poolx($ax,$ap,$ap;$o...) # 30.780ms, 67.446ms
+
+@gpu @show @test isapprox(conv4(aw,ax;o...), conv4(kw,kx;o...))
+@gpu @show @benchmarx conv4($kw,$kx;$o...) # 24.614ms
+@show @benchmark conv4($aw,$ax;$o...) # 269.747ms, 346.614ms
+
+ay = conv4(aw,ax;o...)
+@gpu ky = conv4(kw,kx;o...)
+@gpu @show @test isapprox(conv4w(aw,ax,ay;o...), conv4w(kw,kx,ky;o...))
+@gpu @show @benchmarx conv4w($kw,$kx,$ky;$o...) # 28.509ms
+@show @benchmark conv4w($aw,$ax,$ay;$o...) # 190.270ms, 287.182ms
+
+@gpu @show @test isapprox(conv4x(aw,ax,ay;o...), conv4x(kw,kx,ky;o...))
+@gpu @show @benchmarx conv4x($kw,$kx,$ky;$o...) # 45.799ms
+@show @benchmark conv4x($aw,$ax,$ay;$o...) # 221.181ms, 245.694ms
+
 x2 = similar(ax, im2col_dims(aw,ax,ay))
-@disp @benchmark im2col!($aw, $ax, $x2, 1, 0, 0, 1, 1, mode)
-@disp @benchmark conv4gpu($kw,$kx;mode=mode)
-@disp @benchmark conv4($aw,$ax;mode=mode)
-error(:ok)
-
-pool2(x;o...)=(y=pool(x;o...);sync();y)
-poolx2(x,y,dy;o...)=(dx=poolx(x,y,dy;o...);sync();dx)
-o = [(:mode,0)]
-ax = rand(100,100,100,10)
-kx = KnetArray(ax)
-ay = pool(ax;o...)
-ky = pool(kx;o...)
-@test isapprox(ay,ky)
-adx = poolx(ax,ay,ay;o...)
-kdx = poolx2(kx,ky,ky;o...)
-@test isapprox(adx,kdx)
-
-@disp @benchmark pool($ax;($o)...)
-@disp @benchmark pool2($kx;($o)...)
-@disp @benchmark poolx($ax,$ay,$ay;($o)...)
-@disp @benchmark poolx2($kx,$ky,$ky;($o)...)
+@show @benchmark im2col!($aw, $ax, $x2, 1, 0, 0, 1, 1, 0) # 0.326ms, 10.509ms
+@show @benchmark col2im!($aw, $ax, $x2, 1, 0, 0, 1, 1, 0) # 3.367ms, 10.144ms

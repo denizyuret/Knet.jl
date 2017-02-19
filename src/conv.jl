@@ -2,10 +2,9 @@
 # ok: need to get rid of mask in pool_back
 # ok: reimplement conv4 in terms of im2col
 # ok: need low level blas call with pointers
-# reimplement conv4x conv4w using col2im?
-# time doing a single im2col instead of N
-# try `#pragma omp parallel for` in im2col
+# ok: reimplement conv4x conv4w using col2im?
 # need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
+# time doing a single im2col instead of N
 # replace T<: functions with generated code for each type
 
 
@@ -479,312 +478,79 @@ end
 
 im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
 
-for (T,S) in ((Float32,32), (Float64,64))
-    @eval begin
-        function im2col!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
-                         n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
-            Wx,Hx,Cx,Nx = size(x)
-            Ww,Hw,C1,C2 = size(w)
-            xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-            ccall(($("im2col$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-            return x2
-        end
-        function col2im!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
-                         n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
-            Wx,Hx,Cx,Nx = size(x)
-            Ww,Hw,C1,C2 = size(w)
-            xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-            ccall(($("col2im$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-            return x
-        end
+# Functions from conv.cpp:
+
+for (T,S) in ((Float32,32), (Float64,64)); @eval begin
+
+    function im2col!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+                     n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
+        Wx,Hx,Cx,Nx = size(x)
+        Ww,Hw,C1,C2 = size(w)
+        xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
+        ccall(($("im2col$S"),libknet8),Void,
+              (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+        return x2
     end
-end
 
-#@views
-function convy{T}(x0::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode)
-    x=x0
-    if any(padding .> 0) # this could be handled better....
-        x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
-        x[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]] = x0
+    function col2im!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+                     n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
+        Wx,Hx,Cx,Nx = size(x)
+        Ww,Hw,C1,C2 = size(w)
+        xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
+        ccall(($("col2im$S"),libknet8),Void,
+              (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+        return x
     end
-    w1 = vec(w); if mode==0; w1 = reverse(w1); end
-    row_extend, col_extend = floor(Int, 1 + (collect(size(x)) - collect(size(w))) ./ stride)
-    widx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:size(x,1)-size(w,1)+1, j in 1:stride[2]:size(x,2)-size(w,2)+1] # linear indexes of filter positions in x
-    oidx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)] # linear indexes of elements in a filter window
-    destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    return reshape(x[destidx]*w1,row_extend,col_extend)
-end
 
-# dw = rot180(xcorr(x,dy))
-#@views
-function conv4w1{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                          padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                          o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    padding = psize(padding,x)
-    stride  = psize(stride, x)
-    # x:    (Wx,Hx,Cx,N)
-    # dy:   (Wy,Hy,K,N) 
-    # dw:    (Ww,Hw,Cw,K) 
-    dw = fill!(similar(w),0)
-    Wx,Hx,C,Nx = size(x)
-    Wy,Hy,Cy,Ny = size(dy)
-    @inbounds for c in 1:C, k in 1:Cy, n in 1:Ny
-        # axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), view(dw,:,:,c,k))
-        dw[:,:,c,k] += convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode)
-    end
-    if alpha != 1; scale!(alpha, dw); end
-    return dw
-end
+    ### CPU pooling from Mocha.jl
 
-# dw = rot180(xcorr(x,dy))
-#@views
-function convdw{T}(x0::AbstractArray{T,2}, dy::AbstractArray{T,2}, w::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
-    if any(padding .> 0) # this could be handled better...
-        x=zeros(eltype(x0), 2*padding+collect(size(x0))...)
-        x[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]] = x0
-    else
-        x=x0
-    end
-    x1l = last(collect(take(countfrom(1,stride[1]),size(dy,1))))
-    x2l = last(collect(take(countfrom(1,stride[2]),size(dy,2))))
-    widx = Int[sub2ind(size(x),i,j) for i in 1:size(w,1), j in 1:size(w,2)]
-    oidx = Int[sub2ind(size(x),i,j) for i in 1:stride[1]:x1l, j in 1:stride[2]:x2l] # linear indexes of elements in a filter window
-    destidx = Int[i+(j-1) for i in vec(widx), j in vec(oidx)]
-    y = reshape(x[destidx]*vec(dy),size(w))
-    if mode == 0; y = rot180(y); end
-    return y
-end
-
-# dx = xcorr(dy, w, 'full')
-#@views
-function conv4x1{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
-                          padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                          o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wy,Hy,Ky,Nx = size(dy)
-    Ww,Hw,C,Kw = size(w)
-    if Ky!=Kw; throw(DimensionMismatch()); end
-    padding = psize(padding, x)
-    stride  = psize(stride, x)
-    dx = fill!(similar(x),0)
-    @inbounds for n in 1:Nx, c in 1:C, k in 1:Kw
-        dx[:,:,c,n] += convdx(dy[:,:,k,n], w[:,:,c,k], dx[:,:,c,n], padding, stride, mode)
-    end
-    if alpha != 1; scale!(alpha, dx); end
-    return dx
-end
-
-# dx = xcorr(dy, w, 'full')
-#@views
-function convdx{T}(dy::AbstractArray{T,2}, w::AbstractArray{T,2}, dx::AbstractArray{T,2}, padding::Array{Int,1}, stride::Array{Int,1}, mode::Int)
-    size_tdy = collect(size(dx)) + collect(size(w)) - 1 + 2padding
-    tdy = zeros(T, size_tdy...)
-    pad1, pad2 = map(x->x-1,size(w))
-    for (i,idy) in zip(countfrom(pad1+1,stride[1]), 1:size(dy,1)), (j,jdy) in zip(countfrom(pad2+1,stride[2]), 1:size(dy,2))
-        tdy[i,j] = dy[idy,jdy]
-    end
-    res = convy(tdy, w, [0,0], [1,1], 1-mode)
-    if all(padding .== 0)
-        return res
-    else
-        return res[padding[1]+1:end-padding[1],padding[2]+1:end-padding[2]]
-    end
-end
-
-
-#=
-function _conv2{T}(x::Array{T,2}, w::Array{T,2}; pad=0, stride=1, xcorr=false)
-    max_pad = map(x->x-1-pad,size(w))
-    y = conv2(x, xcorr ? rot180(w) : w)
-    return y[1+max_pad[1]:stride:end-max_pad[1], 1+max_pad[2]:stride:end-max_pad[2]]
-end
-=#
-
-#=
-function getConvolutionNdForwardOutputDim{T}(x::Array{T,4}, w::Array{T,4}; padding=padding,stride=stride)
-    padding = isa(padding, Integer) ? [padding,padding] : collect(padding)
-    stride = isa(stride, Integer) ? [stride,stride] : collect(stride)
-    Wx,Hx,Cx,N = size(x)
-    Ww,Hw,Cw,K = size(w)
-    @assert Cx==Cw
-    Wy,Hy = floor(Int, 1 + (Int[Wx,Hx] + 2*padding - Int[Ww,Hw]) ./ stride)
-    return (Wy,Hy,K,N)
-end
-=#
-
-
-### CPU pooling from Mocha.jl
-
-
-#@views
-function pool1{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-    y = fill!(similar(x, pdims(x;window=window,padding=padding,stride=stride)), 0)
-    stride = psize(stride, x)
-    window = psize(window, x)
-    padding = psize(padding, x)
-    Wx,Hx,Cx,Nx = size(x);
-    Wy,Hy,Cy,Ny = size(y);
-    if any(padding .> 0)
-        Wx += 2*padding[1]
-        Hx += 2*padding[2]
-        x0 = fill!(similar(x, (Wx,Hx,Cx,Nx)), 0)
-        x0[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x
-        x = x0
-    end
-    if mode == 0
-        @inbounds for n in 1:Nx, c in 1:Cx, jy in 1:Hy, iy in 1:Wy
-            # iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
-            wx_end = min(i+window[1]-1,Wx)
-            hx_end = min(j+window[2]-1,Hx)
-            y[iy,jy,c,n] = maximum(x[i:wx_end,j:hx_end,c,n])
-        end
-    elseif mode == 1 || (mode == 2 && all(padding .== 0))
-        @inbounds for n in 1:Nx, c in 1:Cx, jy in 1:Hy, iy in 1:Wy
-            # iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            i, j = 1+stride[1]*(iy-1), 1+stride[2]*(jy-1)
-            wx_end = min(i+window[1]-1, Wx)
-            hx_end = min(j+window[2]-1, Hx)
-            y[iy,jy,c,n] = mean(x[i:wx_end,j:hx_end,c,n])
-        end
-    else
-        throw(ArgumentError("mode $mode not supported by cpu pool"))
-    end
-    if alpha != 1; scale!(alpha,y); end
-    return y
-end
-
-function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-    ydims = pdims(x;window=window,padding=padding,stride=stride)
-    y = similar(x, ydims)
-    (w1,w2) = psize(window, x)
-    (p1,p2) = psize(padding, x)
-    (s1,s2) = psize(stride, x)
-    Wx,Hx,Cx,Nx = size(x);
-    Wy,Hy,Cy,Ny = size(y);
-    if mode == 0
-        if T<:Float32
-            ccall((:max_pooling_fwd32,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+    function pool(x::Array{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+        if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
+        Wx,Hx,Cx,Nx = size(x);
+        Wy,Hy,Cy,Ny = pdims(x;window=window,padding=padding,stride=stride)
+        y = similar(x, (Wy,Hy,Cy,Ny))
+        (w1,w2) = psize(window, x)
+        (p1,p2) = psize(padding, x)
+        (s1,s2) = psize(stride, x)
+        if mode == 0
+            ccall(($("max_pooling_fwd$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif T<:Float64
-            ccall((:max_pooling_fwd64,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+        elseif mode == 1 || (mode == 2 && p1==p2==0)
+            ccall(($("mean_pooling_fwd$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
-            error("$T not supported")
+            throw(ArgumentError("mode $mode not supported by cpu pool"))
         end
-    elseif mode == 1 || (mode == 2 && p1==p2==0)
-        if T<:Float32
-            ccall((:mean_pooling_fwd32,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif T<:Float64
-            ccall((:mean_pooling_fwd64,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        else
-            error("$T not supported")
-        end
-    else
-        throw(ArgumentError("mode $mode not supported by cpu pool"))
+        if alpha != 1; scale!(alpha,y); end
+        return y
     end
-    if alpha != 1; scale!(alpha,y); end
-    return y
-end
 
-function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
-                  window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-    if alpha != 1; y = y ./ alpha; end
-    dx = similar(x)
-    (w1,w2) = psize(window, x)
-    (p1,p2) = psize(padding, x)
-    (s1,s2) = psize(stride, x)
-    Wx,Hx,Cx,Nx = size(x);
-    Wy,Hy,Cy,Ny = size(y);
-    if mode == 0
-        if T<:Float32
-            ccall((:max_pooling_bwd32,libknet8),Void,
-                  (Ptr{T},Ptr{T},Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+    function poolx(x::Array{$T,4}, y::Array{$T,4}, dy::Array{$T,4};
+                   window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+        if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
+        Wx,Hx,Cx,Nx = size(x);
+        Wy,Hy,Cy,Ny = size(y);
+        dx = similar(x)
+        (w1,w2) = psize(window, x)
+        (p1,p2) = psize(padding, x)
+        (s1,s2) = psize(stride, x)
+        if mode == 0
+            if alpha != 1; y = y ./ alpha; end
+            ccall(($("max_pooling_bwd$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif T<:Float64
-            ccall((:max_pooling_bwd64,libknet8),Void,
-                  (Ptr{T},Ptr{T},Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        else
-            error("$T not supported")
-        end
-    elseif mode == 1 || (mode == 2 && p1==p2==0)
-        if T<:Float32
-            ccall((:mean_pooling_bwd32,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif T<:Float64
-            ccall((:mean_pooling_bwd64,libknet8),Void,
-                  (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+        elseif mode == 1 || (mode == 2 && p1==p2==0)
+            ccall(($("mean_pooling_bwd$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
-            error("$T not supported")
+            throw(ArgumentError("mode $mode not supported by cpu pool"))
         end
-    else
-        throw(ArgumentError("mode $mode not supported by cpu pool"))
+        if alpha != 1; scale!(alpha,dx); end
+        return dx
     end
-    if alpha != 1; scale!(alpha,dx); end
-    return dx
-end
-
-#@views
-function poolx1{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
-                         window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-    if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-    stride = psize(stride, x)
-    window = psize(window, x)
-    padding = psize(padding, x)
-    Wx,Hx,Cx,Nx = size(x);
-    Wy,Hy,Cy,Ny = size(y);
-    if any(padding .> 0)
-        Wx += 2*padding[1]
-        Hx += 2*padding[2]
-        x0 = fill!(similar(x, (Wx,Hx,Cx,Nx)), 0)
-        x0[padding[1]+1:end-padding[1], padding[2]+1:end-padding[2],:,:] = x
-        x = x0
-    end
-    dx = fill!(similar(x), 0)
-    if mode == 0
-        @inbounds for n in 1:Nx, c in 1:Cx, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
-            iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            a = x[i+1:i+window[1], j+1:j+window[2], c, n]
-            m = (a .== maximum(a))
-            for im in find(m)
-                (di,dj) = ind2sub(m, im)
-                dx[i+di,j+dj,c,n] += dy[iy,jy,c,n]
-            end
-        end
-    elseif mode == 1 || (mode == 2 && all(padding .== 0))
-        @inbounds for n in 1:Nx, c in 1:Cx, i in 0:stride[1]:Wx-window[1], j in 0:stride[2]:Hx-window[2]
-            iy, jy = div(i,stride[1])+1, div(j,stride[2])+1
-            dx[i+1:i+window[1],j+1:j+window[2],c,n] += dy[iy,jy,c,n]
-        end
-        dx = dx ./ prod(window)
-    else
-        throw(ArgumentError("mode $mode not supported by cpu pool"))
-    end
-    if any(padding .> 0)
-        dx = Array(dx[1+padding[1]:end-padding[1],1+padding[2]:end-padding[2],:,:])
-    end
-    if alpha!=1
-        dx = alpha * dx
-    end
-    return dx
-end
-
+end;end

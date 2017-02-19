@@ -1,4 +1,4 @@
-// Based on https://github.com/pluskid/Mocha.jl/tree/master/deps/pooling.cpp
+// Based on https://github.com/pluskid/Mocha.jl/tree/master/deps/pooling.cpp and im2col.cpp
 // Modified by Deniz Yuret, 2017-02-18.
 // Converted pooling backward pass to a maskless implementation.
 // Added im2col mode argument to support conv (mode=0) and xcorr (mode=1).
@@ -87,6 +87,7 @@ void max_pooling_bwd(const T* global_input, const T *global_output, const T* gra
             for (int w = wstart; w < wend; ++w) {
               int index = h * width + w;
               if (input[index] == maxval) {
+		#pragma omp atomic
 		d_input[index] += d_maxval;
               }
             }
@@ -129,6 +130,7 @@ void mean_pooling_fwd(const T* global_input, T *global_output,
           for (int h = hstart; h < hend; ++h) {
             for (int w = wstart; w < wend; ++w) {
 	      T ival = input[h * width + w];
+	      #pragma omp atomic
               meanval += ival;
             }
           }
@@ -171,6 +173,7 @@ void mean_pooling_bwd(T* global_input, const T *global_output,
             for (int w = wstart; w < wend; ++w) {
 	      T oval = output[pool_index] / kernel_size;
 	      int iidx = h * width + w;
+	      #pragma omp atomic
               input[iidx] += oval;
             }
           }

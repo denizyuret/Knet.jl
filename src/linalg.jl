@@ -209,7 +209,8 @@ using AutoGrad: unbroadcast
 # Low level gemm! call with pointers
 
 using Base.LinAlg
-using Base.LinAlg.BLAS: libblas, @blasfunc, BlasInt
+using Base.LinAlg.BLAS: libblas, BlasInt
+using Compat: @blasfunc
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,

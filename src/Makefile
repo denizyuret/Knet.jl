@@ -1,22 +1,21 @@
-NVCCFLAGS=-O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options '-fPIC -fopenmp -O3 -Wall'
-GPPFLAGS= -O3 -Wall -fPIC -fopenmp
+ifneq ($(shell which nvcc),)
+  CC=nvcc
+  CFLAGS=-O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options '-fPIC -fopenmp -O3 -Wall'
+  OBJ=cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o conv.o
+else
+  CC=g++
+  CFLAGS=-O3 -Wall -fPIC -fopenmp
+  OBJ=conv.o
+endif
 
-all: libknet8.so
-
-libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o conv.o
-	nvcc --shared $(NVCCFLAGS) $^ -o $@
+libknet8.so: $(OBJ)
+	$(CC) --shared $(CFLAGS) $^ -o $@
 
 %.o: %.cu
-	nvcc -c $(NVCCFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@
 
 %.o: %.cpp
-	nvcc -c $(NVCCFLAGS) $< -o $@
-
-# libknet8cpu.so: im2col.o pooling.o
-# 	g++ $(GPPFLAGS) -shared $^ -o $@
-
-# %.o: %.cpp
-# 	g++ -c $(GPPFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@
 
 cuda1.cu: cuda1.jl unary.jl
 	julia $< > $@
