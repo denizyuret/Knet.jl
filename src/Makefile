@@ -3,7 +3,7 @@ GPPFLAGS= -O3 -Wall -fPIC -fopenmp
 
 all: libknet8.so
 
-libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o im2col.o pooling.o
+libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o conv.o
 	nvcc --shared $(NVCCFLAGS) $^ -o $@
 
 %.o: %.cu

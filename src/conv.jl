@@ -1,12 +1,13 @@
 # cpuconv todo:
-# need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
-# need to get rid of mask in pool_back: done
-# reimplement conv4 in terms of im2col
-# need low level blas call with pointers
+# ok: need to get rid of mask in pool_back
+# ok: reimplement conv4 in terms of im2col
+# ok: need low level blas call with pointers
 # reimplement conv4x conv4w using col2im?
-# try `#pragma omp parallel for` in im2col
 # time doing a single im2col instead of N
-# openmp pragmas make no difference in benchmark?
+# try `#pragma omp parallel for` in im2col
+# need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
+# replace T<: functions with generated code for each type
+
 
 """
 
@@ -387,31 +388,7 @@ end
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 
-### CPU convolution from Onur Kuru's CNN.jl
-
-#import Compat.view
-#@views
-function conv41{T}(w::Array{T,4}, x::Array{T,4};
-                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    # x: (W,H,C,N)
-    # w: (W,H,C,K) 
-    # y: (W,H,K,N) 
-    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wx,Hx,Cx,Nx = size(x)
-    Ww,Hw,Cw,Cy = size(w)
-    if Cx!=Cw; throw(DimensionMismatch()); end
-    padding = psize(padding,x)
-    stride = psize(stride,x)
-    y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
-    @inbounds for n in 1:Nx, k in 1:Cy, c in 1:Cx
-        # axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), view(y,:,:,k,n))
-        y[:,:,k,n] += convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode)
-    end
-    if alpha != 1; scale!(alpha,y); end
-    return y
-end
+### CPU convolution using im2col from Mocha.jl
 
 # w=Ww,Hw,Cx,Cy
 # x=Wx,Hx,Cx,Nx
@@ -446,24 +423,85 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
     return y
 end
 
+function conv4w{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+    # dw = x'*dy
+    Wx,Hx,Cx,Nx = size(x)
+    Ww,Hw,C1,C2 = size(w)
+    Wy,Hy,Cy,Ny = size(dy)
+    # if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    # if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
+    # @assert Cx==C1 && Cy==C2 && Ny==Nx
+    dw = zeros(w)
+    x2dims = im2col_dims(w,x,dy)
+    x2 = similar(x, x2dims)
+    # op(A) is an m-by-k matrix, op(B) is a k-by-n matrix, C is an m-by-n matrix.
+    Y,M,N,K = Wy*Hy*Cy,Ww*Hw*Cx,Cy,Wy*Hy
+    alpha,beta = T(alpha),T(1)
+    (p1,p2) = psize(padding,x)
+    (s1,s2) = psize(stride,x)
+    dyi = 1
+    @inbounds for n in 1:Nx
+        im2col!(w, x, x2, n, p1, p2, s1, s2, mode)
+        gemm!('T','N',M,N,K,alpha,pointer(x2),pointer(dy,dyi),beta,pointer(dw))
+        dyi += Y
+    end
+    return dw
+end
+
+function conv4x{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+    # dx = dy*w'
+    Wx,Hx,Cx,Nx = size(x)
+    Ww,Hw,C1,C2 = size(w)
+    Wy,Hy,Cy,Ny = size(dy)
+    # if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
+    # if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
+    @assert Cx==C1 && Cy==C2 && Ny==Nx
+    dx = similar(x)
+    x2dims = im2col_dims(w,x,dy)
+    x2 = similar(x, x2dims)
+    # op(A) is an m-by-k matrix, op(B) is a k-by-n matrix, C is an m-by-n matrix.
+    Y,M,N,K = Wy*Hy*Cy,Wy*Hy,Ww*Hw*Cx,Cy
+    alpha,beta = T(alpha),T(0)
+    (p1,p2) = psize(padding,x)
+    (s1,s2) = psize(stride,x)
+    dyi = 1
+    @inbounds for n in 1:Nx
+        gemm!('N','T',M,N,K,alpha,pointer(dy,dyi),pointer(w),beta,pointer(x2))
+        col2im!(w,dx,x2,n,p1,p2,s1,s2,mode)
+        dyi += Y
+    end
+    return dx
+end
+
 im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
 
-function im2col!{T}(w::Array{T,4}, x::Array{T,4}, x2::Array{T,2}, n, p1=0, p2=0, s1=1, s2=1, mode=0)
-    Wx,Hx,Cx,Nx = size(x)
-    Ww,Hw,Cw,Cy = size(w)
-    xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-    if T<:Float32
-        ccall((:im2col_float,libknet8),Void,
-              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-    elseif T<:Float64
-        ccall((:im2col_double,libknet8),Void,
-              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-    else
-        error("$T not supported")
+for (T,S) in ((Float32,32), (Float64,64))
+    @eval begin
+        function im2col!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+                         n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
+            Wx,Hx,Cx,Nx = size(x)
+            Ww,Hw,C1,C2 = size(w)
+            xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
+            ccall(($("im2col$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+            return x2
+        end
+        function col2im!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+                         n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
+            Wx,Hx,Cx,Nx = size(x)
+            Ww,Hw,C1,C2 = size(w)
+            xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
+            ccall(($("col2im$S"),libknet8),Void,
+                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                  x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+            return x
+        end
     end
-    return x2
 end
 
 #@views
@@ -483,7 +521,7 @@ end
 
 # dw = rot180(xcorr(x,dy))
 #@views
-function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+function conv4w1{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
                           padding=0, stride=1, upscale=1, mode=0, alpha=1,
                           o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -525,7 +563,7 @@ end
 
 # dx = xcorr(dy, w, 'full')
 #@views
-function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
+function conv4x1{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
                           padding=0, stride=1, upscale=1, mode=0, alpha=1,
                           o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -635,11 +673,11 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
     Wy,Hy,Cy,Ny = size(y);
     if mode == 0
         if T<:Float32
-            ccall((:max_pooling_fwd_float,libknet8),Void,
+            ccall((:max_pooling_fwd32,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif T<:Float64
-            ccall((:max_pooling_fwd_double,libknet8),Void,
+            ccall((:max_pooling_fwd64,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
@@ -647,11 +685,11 @@ function pool{T}(x::Array{T,4}; window=2, padding=0, stride=window, mode=0, maxp
         end
     elseif mode == 1 || (mode == 2 && p1==p2==0)
         if T<:Float32
-            ccall((:mean_pooling_fwd_float,libknet8),Void,
+            ccall((:mean_pooling_fwd32,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif T<:Float64
-            ccall((:mean_pooling_fwd_double,libknet8),Void,
+            ccall((:mean_pooling_fwd64,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
@@ -676,11 +714,11 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
     Wy,Hy,Cy,Ny = size(y);
     if mode == 0
         if T<:Float32
-            ccall((:max_pooling_bwd_float,libknet8),Void,
+            ccall((:max_pooling_bwd32,libknet8),Void,
                   (Ptr{T},Ptr{T},Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif T<:Float64
-            ccall((:max_pooling_bwd_double,libknet8),Void,
+            ccall((:max_pooling_bwd64,libknet8),Void,
                   (Ptr{T},Ptr{T},Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
@@ -688,11 +726,11 @@ function poolx{T}(x::Array{T,4}, y::Array{T,4}, dy::Array{T,4};
         end
     elseif mode == 1 || (mode == 2 && p1==p2==0)
         if T<:Float32
-            ccall((:mean_pooling_bwd_float,libknet8),Void,
+            ccall((:mean_pooling_bwd32,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif T<:Float64
-            ccall((:mean_pooling_bwd_double,libknet8),Void,
+            ccall((:mean_pooling_bwd64,libknet8),Void,
                   (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                   dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else

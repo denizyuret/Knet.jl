@@ -1,6 +1,7 @@
 // Based on https://github.com/pluskid/Mocha.jl/tree/master/deps/pooling.cpp
 // Modified by Deniz Yuret, 2017-02-18.
-// Converted backward pass to a maskless implementation.
+// Converted pooling backward pass to a maskless implementation.
+// Added im2col mode argument to support conv (mode=0) and xcorr (mode=1).
 
 #include <algorithm>
 #include <limits>
@@ -127,7 +128,8 @@ void mean_pooling_fwd(const T* global_input, T *global_output,
           T meanval = 0;
           for (int h = hstart; h < hend; ++h) {
             for (int w = wstart; w < wend; ++w) {
-              meanval += input[h * width + w];
+	      T ival = input[h * width + w];
+              meanval += ival;
             }
           }
           output[pool_index] = meanval / kernel_size;
@@ -167,7 +169,9 @@ void mean_pooling_bwd(T* global_input, const T *global_output,
           int pool_index = ph * pooled_width + pw;
           for (int h = hstart; h < hend; ++h) {
             for (int w = wstart; w < wend; ++w) {
-              input[h * width + w] += output[pool_index] / kernel_size;
+	      T oval = output[pool_index] / kernel_size;
+	      int iidx = h * width + w;
+              input[iidx] += oval;
             }
           }
         }
@@ -176,9 +180,76 @@ void mean_pooling_bwd(T* global_input, const T *global_output,
   }
 }
 
+template <typename T>
+void im2col(const T *img, T *col, int width, int height, int channels,
+	    int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+
+  int height_col = (height + 2 * pad_h - kernel_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - kernel_w) / stride_w + 1;
+  int channels_col = channels * kernel_h * kernel_w;
+
+  #pragma omp parallel for
+  for (int c = 0; c < channels_col; ++c) {
+    int w_offset = c % kernel_w;
+    int h_offset = (c / kernel_w) % kernel_h;
+    int c_im = c / (kernel_h * kernel_w);
+    if (mode == 0) {
+      w_offset = kernel_w - 1 - w_offset;
+      h_offset = kernel_h - 1 - h_offset;
+    }
+    for (int h = 0; h < height_col; ++h) {
+      for (int w = 0; w < width_col; ++w) {
+	int h_pad = h*stride_h - pad_h + h_offset;
+	int w_pad = w*stride_w - pad_w + w_offset;
+	if (h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width) {
+	  col[(c*height_col+h) * width_col + w] =
+	    img[(c_im * height + h_pad) * width + w_pad];
+	} else {
+	  col[(c*height_col+h) * width_col + w] = 0;
+	}
+      }
+    }
+  }
+}
+
+
+template <typename T>
+void col2im(const T *col, T *img, int width, int height, int channels,
+	    int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+
+  int height_col = (height + 2 * pad_h - kernel_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - kernel_w) / stride_w + 1;
+  int channels_col = channels * kernel_h * kernel_w;
+
+  memset(img, 0, width*height*channels*sizeof(T));
+  #pragma omp parallel for
+  for (int c = 0; c < channels_col; ++c) {
+    int w_offset = c % kernel_w;
+    int h_offset = (c / kernel_w) % kernel_h;
+    int c_im = c / (kernel_h * kernel_w);
+    if (mode == 0) {
+      w_offset = kernel_w - 1 - w_offset;
+      h_offset = kernel_h - 1 - h_offset;
+    }
+    for (int h = 0; h < height_col; ++h) {
+      for (int w = 0; w < width_col; ++w) {
+	int h_pad = h*stride_h - pad_h + h_offset;
+	int w_pad = w*stride_w - pad_w + w_offset;
+	if (h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width) {
+	  T cval = col[(c * height_col + h) * width_col + w];
+	  int iidx = (c_im * height + h_pad) * width + w_pad;
+          #pragma omp atomic
+	  img[iidx] += cval;
+	}
+      }
+    }
+  }
+}
+
+
 extern "C" {
 
-void max_pooling_fwd_float(const float* global_input, float *global_output,
+void max_pooling_fwd32(const float* global_input, float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -187,7 +258,7 @@ void max_pooling_fwd_float(const float* global_input, float *global_output,
       pooled_width, pooled_height,
       kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void max_pooling_fwd_double(const double* global_input, double *global_output, 
+void max_pooling_fwd64(const double* global_input, double *global_output, 
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -197,7 +268,7 @@ void max_pooling_fwd_double(const double* global_input, double *global_output,
       kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
 
-void max_pooling_bwd_float(float* global_input, const float *global_output, const float *grad_output, float *grad_input,
+void max_pooling_bwd32(float* global_input, const float *global_output, const float *grad_output, float *grad_input,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -205,7 +276,7 @@ void max_pooling_bwd_float(float* global_input, const float *global_output, cons
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void max_pooling_bwd_double(double* global_input, const double *global_output, const double *grad_output, double *grad_input,
+void max_pooling_bwd64(double* global_input, const double *global_output, const double *grad_output, double *grad_input,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -214,7 +285,7 @@ void max_pooling_bwd_double(double* global_input, const double *global_output, c
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
 
-void mean_pooling_fwd_float(const float* global_input, float *global_output,
+void mean_pooling_fwd32(const float* global_input, float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -222,7 +293,7 @@ void mean_pooling_fwd_float(const float* global_input, float *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void mean_pooling_fwd_double(const double* global_input, double *global_output,
+void mean_pooling_fwd64(const double* global_input, double *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -231,7 +302,7 @@ void mean_pooling_fwd_double(const double* global_input, double *global_output,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
 
-void mean_pooling_bwd_float(float* global_input, const float *global_output,
+void mean_pooling_bwd32(float* global_input, const float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -239,13 +310,31 @@ void mean_pooling_bwd_float(float* global_input, const float *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void mean_pooling_bwd_double(double* global_input, const double *global_output,
+void mean_pooling_bwd64(double* global_input, const double *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
   mean_pooling_bwd(global_input, global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
+}
+
+void im2col32(const float *img, float *col, int width, int height, int channels,
+		    int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+  im2col(img, col, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
+}
+void im2col64(const double *img, double *col, int width, int height, int channels,
+		     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+  im2col(img, col, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
+}
+
+void col2im32(const float *col, float *img, int width, int height, int channels,
+	      int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+  col2im(col, img, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
+}
+void col2im64(const double *col, double *img, int width, int height, int channels,
+	      int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
+  col2im(col, img, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
 }
 
 } // extern "C"
