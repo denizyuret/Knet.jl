@@ -4,7 +4,7 @@ Knet v0.8.2 Release Notes
 General
 -------
 * update! now supports iterators and dictionaries of weight arrays.
-* CPU convolution and pooling operations implemented (@kuruonur1).
+* CPU convolution and pooling operations implemented based on CPP kernels from Mocha.jl.
 * gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
 * KnetArray now supports isempty, (.!=), (==), isapprox, copy!, scale!, deepcopy, more math functions (exp,log etc.), and KnetArray{T}(dims) constructors.
 * KnetArray supports transpose and permutedims for 2-D and 3-D (@ekyurdakul).

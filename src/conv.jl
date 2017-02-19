@@ -1,13 +1,3 @@
-# cpuconv todo:
-# ok: need to get rid of mask in pool_back
-# ok: reimplement conv4 in terms of im2col
-# ok: need low level blas call with pointers
-# ok: reimplement conv4x conv4w using col2im?
-# need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
-# time doing a single im2col instead of N
-# replace T<: functions with generated code for each type
-
-
 """
 
     conv4(w, x; kwargs...)
