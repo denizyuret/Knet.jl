@@ -41,3 +41,5 @@ ay = conv4(aw,ax;o...)
 x2 = similar(ax, im2col_dims(aw,ax,ay))
 @show @benchmark im2col!($aw, $ax, $x2, 1, 0, 0, 1, 1, 0) # 0.326ms, 10.509ms
 @show @benchmark col2im!($aw, $ax, $x2, 1, 0, 0, 1, 1, 0) # 3.367ms, 10.144ms
+
+nothing
