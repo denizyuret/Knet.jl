@@ -1,12 +1,12 @@
 # cpuconv todo:
-# need separate cpu and gpu libraries: condition makefile on finding nvcc
+# need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
 # need to get rid of mask in pool_back: done
 # reimplement conv4 in terms of im2col
 # need low level blas call with pointers
 # reimplement conv4x conv4w using col2im?
 # try `#pragma omp parallel for` in im2col
 # time doing a single im2col instead of N
-
+# openmp pragmas make no difference in benchmark?
 
 """
 
@@ -391,21 +391,21 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 #import Compat.view
 #@views
-function conv4{T}(w::Array{T,4}, x::Array{T,4};
-                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+function conv41{T}(w::Array{T,4}, x::Array{T,4};
+                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
+                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # x: (W,H,C,N)
     # w: (W,H,C,K) 
     # y: (W,H,K,N) 
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wx,Hx,Cx,N = size(x)
-    Ww,Hw,Cw,K = size(w)
+    Wx,Hx,Cx,Nx = size(x)
+    Ww,Hw,Cw,Cy = size(w)
     if Cx!=Cw; throw(DimensionMismatch()); end
     padding = psize(padding,x)
     stride = psize(stride,x)
     y = fill!(similar(x, cdims(w,x;padding=padding,stride=stride)),0)
-    @inbounds for n in 1:N, k in 1:K, c in 1:Cx
+    @inbounds for n in 1:Nx, k in 1:Cy, c in 1:Cx
         # axpy!(1, convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode), view(y,:,:,k,n))
         y[:,:,k,n] += convy(x[:,:,c,n], w[:,:,c,k], padding, stride, mode)
     end
@@ -413,46 +413,57 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
     return y
 end
 
-function conv41{T}(w::Array{T,4}, x::Array{T,4};
+# w=Ww,Hw,Cx,Cy
+# x=Wx,Hx,Cx,Nx
+# y=Wy,Hy,Cy,Nx
+# if we apply im2col to a single image:
+# w2=(Ww*Hw*Cx),Cy  ;; simple reshape
+# x2=(Wy*Hy),(Ww*Hw*Cx)
+# y2=(Wy*Hy),Cy     ;; simple reshape after y2=x2*w2
+
+function conv4{T}(w::Array{T,4}, x::Array{T,4};
                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    # x: (W,H,C,N)
-    # w: (W,H,C,K) 
-    # y: (W,H,K,N) 
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wx,Hx,Cx,N = size(x)
-    Ww,Hw,Cw,K = size(w)
-    if Cx!=Cw; throw(DimensionMismatch()); end
+    Wx,Hx,Cx,Nx = size(x)
+    Ww,Hw,C1,C2 = size(w)
+    if Cx!=C1; throw(DimensionMismatch()); end
+    Wy,Hy,Cy,Ny = cdims(w,x;padding=padding,stride=stride)
+    # @assert Cy==C2 && Ny==Nx
+    y = similar(x, (Wy,Hy,Cy,Ny))
+    x2dims = im2col_dims(w,x,y)
+    x2 = similar(x, x2dims)
     (p1,p2) = psize(padding,x)
     (s1,s2) = psize(stride,x)
-    ydims = cdims(w,x;padding=(p1,p2),stride=(s1,s2))
-    y = similar(x, ydims)
-    zdims = im2coldims(w,x;padding=(p1,p2),stride=(s1,s2))
-    z = similar(x, zdims)
-    @inbounds for n in 1:N
-        im2col!(z, w, x, p1, p2, s1, s2)
-        gemm!('N','N',T(1),mat(w),z,T(0),mat(view(y,:,:,:,n)))
-        # A_mul_B!(mat(view(y,:,:,:,n)), mat(w), z)
+    M,N,K,Y = Wy*Hy,Cy,Ww*Hw*Cx,Wy*Hy*Cy
+    alpha,beta,yidx = T(alpha),T(0),1
+    @inbounds for n in 1:Nx
+        im2col!(w, x, x2, n, p1, p2, s1, s2, mode)
+        gemm!('N','N',M,N,K,alpha,pointer(x2),pointer(w),beta,pointer(y,yidx))
+        yidx += Y
     end
-    if alpha != 1; scale!(alpha,y); end
     return y
 end
 
-function im2col!{T}(z::Array{T,2}, w::Array{T,4}, x::Array{T,4}, p1=0, p2=0, s1=1, s2=1)
+im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
+
+function im2col!{T}(w::Array{T,4}, x::Array{T,4}, x2::Array{T,2}, n, p1=0, p2=0, s1=1, s2=1, mode=0)
     Wx,Hx,Cx,Nx = size(x)
     Ww,Hw,Cw,Cy = size(w)
+    xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
     if T<:Float32
         ccall((:im2col_float,libknet8),Void,
-              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              x,z,Wx,Hx,Cx,Ww,Wh,p1,p2,s1,s2)
+              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
     elseif T<:Float64
         ccall((:im2col_double,libknet8),Void,
-              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              x,z,Wx,Hx,Cx,Ww,Wh,p1,p2,s1,s2)
+              (Ptr{T},Ptr{T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
     else
         error("$T not supported")
     end
+    return x2
 end
 
 #@views
@@ -484,8 +495,8 @@ function conv4w{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
     # dw:    (Ww,Hw,Cw,K) 
     dw = fill!(similar(w),0)
     Wx,Hx,C,Nx = size(x)
-    Wy,Hy,K,Ny = size(dy)
-    @inbounds for c in 1:C, k in 1:K, n in 1:Ny
+    Wy,Hy,Cy,Ny = size(dy)
+    @inbounds for c in 1:C, k in 1:Cy, n in 1:Ny
         # axpy!(1, convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode), view(dw,:,:,c,k))
         dw[:,:,c,k] += convdw(x[:,:,c,n], dy[:,:,k,n], dw[:,:,c,k], padding, stride, mode)
     end
@@ -519,13 +530,13 @@ function conv4x{T}(w::Array{T,4}, x::Array{T,4}, dy::Array{T,4};
                           o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wy,Hy,Ky,N = size(dy)
+    Wy,Hy,Ky,Nx = size(dy)
     Ww,Hw,C,Kw = size(w)
     if Ky!=Kw; throw(DimensionMismatch()); end
     padding = psize(padding, x)
     stride  = psize(stride, x)
     dx = fill!(similar(x),0)
-    @inbounds for n in 1:N, c in 1:C, k in 1:Kw
+    @inbounds for n in 1:Nx, c in 1:C, k in 1:Kw
         dx[:,:,c,n] += convdx(dy[:,:,k,n], w[:,:,c,k], dx[:,:,c,n], padding, stride, mode)
     end
     if alpha != 1; scale!(alpha, dx); end

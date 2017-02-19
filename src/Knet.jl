@@ -4,6 +4,7 @@ module Knet
 using Compat
 
 const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
+const libknet8cpu = Libdl.find_library(["libknet8cpu"], [dirname(@__FILE__)])
 
 using AutoGrad; export grad, gradloss, gradcheck, getval
 
