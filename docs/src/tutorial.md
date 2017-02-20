@@ -117,7 +117,7 @@ train this model:
 We simply iterate over the input-output pairs in data, calculate the
 lossgradient for each example, and move the parameters in the negative
 gradient direction with a step size determined by the learning rate
-`lr`.
+`lr`.  See [Optimization](@ref) for more advanced optimization methods.
 
 > [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/housing.jpeg?raw=true)](https://archive.ics.uci.edu/ml/datasets/Housing)
 

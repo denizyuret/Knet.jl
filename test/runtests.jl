@@ -1,63 +1,11 @@
-# This takes too long on Travis:
-# Pkg.add("ArgParse")
-# load_only=true
-# include(Knet.dir("examples","charlm.jl"))
-# CharLM.main("--gcheck 3")
-
-using Knet
-srand(42)
-
-predict(w,x)=(w*x)
-
-loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
-
-lossgradient = grad(loss)
-
-function train(w, data; lr=.02, epochs=10)
-    for epoch=1:epochs
-        for (x,y) in data
-            g = lossgradient(w, x, y)
-            w -= lr * g
-        end
-    end
-    return w
-end
-
-function test(w, data)
-    sumloss = numloss = 0
-    for (x,y) in data
-        sumloss += loss(w,x,y)
-        numloss += 1
-    end
-    return sumloss/numloss
-end
-
-# Data generator:
-import Base: start, next, done
-
-type Data; w; batchsize; epochsize; noise; rng; atype; end
-
-function Data(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG, atype=Array)
-    Data(convert(atype, randn(rng,outputdims,inputdims)),batchsize,epochsize,noise,rng,atype)
-end
-
-function next(l::Data, n)
-    (outputdims, inputdims) = size(l.w)
-    x = convert(l.atype, rand(l.rng, inputdims, l.batchsize))
-    y = l.w * x + convert(l.atype, l.noise * randn(l.rng, outputdims, l.batchsize))
-    return ((x,y), n+l.batchsize)
-end
-
-start(l::Data)=0
-done(l::Data,n)=(n >= l.epochsize)
-
-
-# Run:
-
-data = Data(10,100)
-w = 0.1*randn(10,100)
-println((:epoch,0,:loss,test(w,data)))
-@time for epoch=1:10
-    w = train(w, data; epochs=1, lr=0.02)
-    println((:epoch,epoch,:loss,test(w,data)))
-end
+#                                   ai  ai4 tr  tr4 aws osx os4
+@time include("kptr.jl")          # 1   1   0   0   2   0   0
+@time include("gpu.jl")           # 1   1   0   0   1   0   0
+@time include("distributions.jl") # 1   1   2   1   2   3   2
+@time include("karray.jl")        # 10  6   0   0   15  0   0
+@time include("linalg.jl")        # 13  8   -   -   -   24  16
+@time include("update.jl")        # 31  29  -   -   -   29  24
+@time include("broadcast.jl")     # 19  9   19  7   29  31  15
+@time include("reduction.jl")     # 21  8   16  6   31  33  16
+@time include("unary.jl")         # 30  4   27  4   43  52  9
+@time include("conv.jl")          # 33  13  57  13  37  58  29

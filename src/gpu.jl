@@ -46,7 +46,7 @@ on arrays of an inactive device will result in error.
 """
 function gpu end
 
-let GPU=-1, GPUCNT=-1, handles=Dict()
+let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
     gpu()=GPU
@@ -73,13 +73,10 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
         (GPU == i) && return i
         if 0 <= i < gpuCount()
             @cuda(cudart,cudaSetDevice, (Cint,), i)
-            cublashandle = get!(cublasCreate, handles, (:cublas,i))
-            cudnnhandle  = get!(cudnnCreate,  handles, (:cudnn,i))
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
             cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
         else
             i = -1
-            cublashandle = cudnnhandle = nothing
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
         return (GPU = i)
@@ -106,6 +103,22 @@ let GPU=-1, GPUCNT=-1, handles=Dict()
             end
             gpu(-1)
         end
+    end
+
+    function cublashandle(dev=gpu())
+        if dev==-1; error("No cublashandle for CPU"); end
+        i = dev+2
+        if CUBLAS == nothing; CUBLAS=Array(Any,gpuCount()+1); end
+        if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
+        return CUBLAS[i]
+    end
+
+    function cudnnhandle(dev=gpu())
+        if dev==-1; error("No cudnnhandle for CPU"); end
+        i = dev+2
+        if CUDNN == nothing; CUDNN=Array(Any,gpuCount()+1); end
+        if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
+        return CUDNN[i]
     end
 end
 

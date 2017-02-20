@@ -1,22 +1,24 @@
-using Base.Test, Knet
+include("header.jl")
 using Knet: KnetFree, KnetPtr, gpuCount
 
-if gpu() >= 0
-
-kf = KnetFree[gpu()+2]
-sizes = randperm(1000)[1:10]
-ptrs = map(KnetPtr, sizes)      # things get messed up if this is inside the testset, multiple eval?
-
+# Messes up gc if used with `if gpu()>=0`
+# This is just for printing the name
 @testset "kptr" begin
-    @test length(KnetFree) == gpuCount()+1
-    @test length(kf) == 10
-    @test sort(collect(keys(kf))) == sort(sizes)
-    @test all(v.used==1 && isempty(v.free) for (k,v) in kf)
-    ptrs = nothing
-    gc()
-    @test all(v.used==1 && length(v.free)==1 for (k,v) in kf)
-    ptrs = map(KnetPtr, sizes)
-    @test all(v.used==1 && isempty(v.free) for (k,v) in kf)
+    @test true
 end
 
-end # if gpu() >= 0
+if gpu() >= 0
+    sizes = randperm(1000)[1:10]
+    ptrs = map(KnetPtr, sizes)
+    kf = KnetFree[gpu()+2]
+    @test length(kf) == 10
+    @test length(KnetFree) == gpuCount()+1
+    @test sort(collect(keys(kf))) == sort(sizes)
+    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])
+    # gc doesn't work inside a testset
+    ptrs = nothing
+    gc()
+    @test all(Bool[v.used==1 && length(v.free)==1 for (k,v) in kf])
+    ptrs = map(KnetPtr, sizes)
+    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])
+end

@@ -1,6 +1,13 @@
+#          osx4 osx5 ai4  ai5
+# linreg   1.03 1.51 0.94 1.08
+# housing  0.01 0.01 0.01 0.01
+# mnist    4.66 4.96 1.57 1.73
+# lenet    -    -    6.55 7.18
+# charlm   20.0 22.7 0.33 0.34
+
 using Knet
 
-Pkg.test("Knet")
+# Pkg.test("Knet")
 load_only = true
 
 for (p,f,o1,o2,o3) =

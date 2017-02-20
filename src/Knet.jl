@@ -1,14 +1,15 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
+using Compat
 
-const libknet8 = Libdl.find_library(["libknet8"], [dirname(@__FILE__)])
+const libknet8 = Libdl.find_library(["libknet8.so"], [dirname(@__FILE__)])
 
-using AutoGrad; export grad, gradloss, gradcheck
+using AutoGrad; export grad, gradloss, gradcheck, getval
 
 include("gpu.jl");              export gpu
 include("kptr.jl");             # KnetPtr
-include("karray.jl");           export KnetArray, cpu2gpu, gpu2cpu
+include("karray.jl");           export KnetArray
 include("unary.jl");            export relu, sigm, invx, logp
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        export logsumexp

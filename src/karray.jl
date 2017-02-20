@@ -1,6 +1,6 @@
 """
 
-    KnetArray(T, dims)
+    KnetArray{T}(dims)
     KnetArray(a::AbstractArray)
     Array(k::KnetArray)
 
@@ -20,13 +20,13 @@ operations.
 
 # Supported functions:
 
-* Array operations: cat, convert, copy, display, eachindex, eltype,
-  endof, fill!, first, getindex, hcat, isempty, length,
-  linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
-  similar, size, stride, strides, summary, vcat, vec, zeros.  (Only
-  Integer, Colon, and UnitRange indices supported for get/setindex.
-  CartesianIndex, StepRange, Array, and Bool indices not supported.
-  cat(i,x,y) supported for i=1,2.)
+* Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
+  display, eachindex, eltype, endof, fill!, first, getindex, hcat,
+  isapprox, isempty, length, linearindexing, ndims, ones, pointer,
+  rand!, reshape, setindex!, similar, size, stride, strides, summary,
+  vcat, vec, zeros.  (Only Integer, Colon, and UnitRange indices
+  supported for get/setindex.  CartesianIndex, StepRange, Array, and
+  Bool indices not supported.  cat(i,x,y) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -44,9 +44,9 @@ operations.
     
 * Linear algebra: (*), axpy!, permutedims (only 2D and 3D), transpose
 
-* Knet extras: cpu2gpu, gpu2cpu, relu, sigm, invx, logp, logsumexp,
-  conv4, pool, deconv4, unpool, mat, update! (Only 4D/5D, Float32/64
-  KnetArrays support conv4, pool, deconv4, unpool)
+* Knet extras: relu, sigm, invx, logp, logsumexp, conv4, pool,
+  deconv4, unpool, mat, update! (Only 4D/5D, Float32/64 KnetArrays
+  support conv4, pool, deconv4, unpool)
 
 # Memory management
 
@@ -95,9 +95,32 @@ typealias KnetVector{T} KnetArray{T,1}
 typealias KnetVecOrMat{T} Union{KnetVector{T}, KnetMatrix{T}}
 
 # Constructors:
-KnetArray{T,N}(::Type{T}, dims::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(dims)), dims)
-KnetArray(T::Type, dims::Int...)=KnetArray(T,dims)
-KnetArray(T::Type, d::Integer...)=KnetArray(T,convert(Tuple{Vararg{Int}}, d))
+import Base: convert
+# Internal constructor defines KnetArray{T,N}(ptr,dims)
+# These define KnetArray{T,N}(dims) and KnetArray{T,N}(d...)
+if VERSION >= v"0.5.0-dev+7720"; @eval begin
+    (::Type{KnetArray{T,N}}){T,N}(d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
+    (::Type{KnetArray{T,N}}){T,N}(d::Int...) = KnetArray{T,N}(d)
+    (::Type{KnetArray{T,N}}){T,N}(d::Integer...) = KnetArray{T,N}(convert(Tuple{Vararg{Int}}, d))
+end; else; @eval begin
+    convert{T,N}(::Type{KnetArray{T,N}},d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
+    convert{T,N}(::Type{KnetArray{T,N}},d::Int...)=convert(KnetArray{T,N},d)
+    convert{T,N}(::Type{KnetArray{T,N}},d::Integer...)=convert(KnetArray{T,N},convert(Tuple{Vararg{Int}}, d))
+end; end
+# These define KnetArray{T}(dims) and KnetArray{T}(d...)
+if VERSION >= v"0.5.0-dev+7720"; @eval begin
+    (::Type{KnetArray{T}}){T,N}(d::NTuple{N,Int}) = KnetArray{T,N}(d)
+    (::Type{KnetArray{T}}){T}(d::Int...) = KnetArray{T}(d)
+    (::Type{KnetArray{T}}){T}(d::Integer...) = KnetArray{T}(convert(Tuple{Vararg{Int}}, d))
+end; else; @eval begin
+    convert{T,N}(::Type{KnetArray{T}},d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
+    convert{T}(::Type{KnetArray{T}},d::Int...)=KnetArray{T}(d)
+    convert{T}(::Type{KnetArray{T}},d::Integer...)=KnetArray{T}(convert(Tuple{Vararg{Int}}, d))
+end; end
+# These define KnetArray(T,dims) and KnetArray(T,d...)
+KnetArray{T,N}(::Type{T}, d::NTuple{N,Int}) = KnetArray{T,N}(d)
+KnetArray{T}(::Type{T}, d::Int...)=KnetArray(T,d)
+KnetArray{T}(::Type{T}, d::Integer...)=KnetArray(T,convert(Tuple{Vararg{Int}},d))
 
 # Conversions:
 import Base: convert, reshape, vec, unsafe_convert, pointer
@@ -113,18 +136,18 @@ vec(a::KnetArray) = reshape(a, length(a))
 # KnetArray <- AbstractArray
 convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T}}, x::AbstractArray{S,N}) = convert(KnetArray{T,N}, x)
-convert{T,N,S}(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) = unsafe_copy!(KnetArray(T, size(x)), 1, convert(Array{T,N},x), 1, length(x))
+convert{T,N,S}(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) = unsafe_copy!(KnetArray{T}(size(x)), 1, convert(Array{T,N},x), 1, length(x))
 # Array <- KnetArray
 convert{T,N}(::Type{Array}, x::KnetArray{T,N}) = convert(Array{T,N}, x)
 convert{T,N,S}(::Type{Array{T}}, x::KnetArray{S,N}) = convert(Array{T,N}, x)
-convert{T,N,S}(::Type{Array{T,N}}, x::KnetArray{S,N}) = convert(Array{T,N},unsafe_copy!(Array(S, size(x)), 1, x, 1, length(x)))
+convert{T,N,S}(::Type{Array{T,N}}, x::KnetArray{S,N}) = convert(Array{T,N},unsafe_copy!(Array{S}(size(x)), 1, x, 1, length(x)))
 # Ptr <- KnetArray
 unsafe_convert{T}(::Type{Ptr{T}}, a::KnetArray) = unsafe_convert(Ptr{T}, pointer(a))
 pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros
+import Base: eachindex, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros, (==), isapprox
 eachindex(a::KnetArray) = (1:length(a))
 eltype{T}(::KnetArray{T})=T
 eltype{T}(::Type{KnetArray{T}}) = T
@@ -150,6 +173,15 @@ size{T,N}(a::KnetArray{T,N},i::Integer)=(if i>N; 1; else; size(a)[i]; end)
 stride{T,N}(a::KnetArray{T,N},i::Integer)=(if i>N; length(a); else; s=1; for n=1:(i-1); s*=size(a,n); end; s; end)
 strides{T,N}(a::KnetArray{T,N})=ntuple(n->stride(a,n), N)
 zeros{T}(a::KnetArray{T})=fill!(similar(a),zero(T))
+
+# Comparisons
+(==){T}(a::KnetArray{T},b::KnetArray{T})=(size(a)==size(b) && vecnorm(a-b)==0)
+(==)(a::AbstractArray,b::KnetArray)=(size(a)==size(b) && a==Array(b))
+(==)(a::KnetArray,b::AbstractArray)=(size(a)==size(b) && Array(a)==b)
+# Adapted from base/linalg/generic.jl:589
+isapprox{T}(a::KnetArray{T}, b::KnetArray{T}; rtol=sqrt(eps(T)), atol=T(0))=(size(a)==size(b) && vecnorm(a-b) <= atol + rtol * max(vecnorm(a), vecnorm(b)))
+isapprox(a::AbstractArray,b::KnetArray;o...)=(size(a)==size(b) && isapprox(a,Array(b);o...))
+isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array(a),b;o...))
 
 
 # Indexing:
@@ -396,8 +428,25 @@ end
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
 import Base: unsafe_copy!, copy, copy!
+typealias KorA{T} Union{KnetArray{T},Array{T}}
 
-function unsafe_copy!{T}(dest::Union{KnetArray{T},Array{T}}, doffs, src::Union{KnetArray{T},Array{T}}, soffs, n; stream=C_NULL)
+function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer; stream=C_NULL)
+    n == 0 && return dest
+    n > 0 || throw(ArgumentError(string("tried to copy n=", n, " elements, but n should be nonnegative")))
+    if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
+        throw(BoundsError())
+    end
+    unsafe_copy!(dest, doffs, src, soffs, n; stream=stream)
+end
+
+copy!{T}(dest::KorA{T}, src::KorA{T}) = copy!(dest, 1, src, 1, length(src))
+
+copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
+
+# This will make deepcopy work properly
+Base.deepcopy_internal(x::KnetArray, s::ObjectIdDict)=if haskey(s,x); s[x]; else; copy(x); end
+
+function unsafe_copy!{T}(dest::KorA{T}, doffs, src::KorA{T}, soffs, n; stream=C_NULL)
     @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src), stream)
     return dest
@@ -412,9 +461,6 @@ function cudadir(a,b)
     elseif deva && devb;  return 3
     end
 end
-
-copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
-# TODO: copy!
 
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
@@ -461,20 +507,30 @@ end
 end
 
 # Array/KnetArray Transfer
-"""
-Transfer from regular Array to KnetArray.
-"""
-function cpu2gpu(x::Array)
-    KnetArray(x)
+
+# This works but unnecessarily defines new functions:
+# cpu2gpu(x::Array)=KnetArray(x)
+# @primitive cpu2gpu(x),dy,y (gpu2cpu(dy))
+# gpu2cpu(x::KnetArray)=Array(x)
+# @primitive gpu2cpu(x),dy,y (cpu2gpu(dy))
+
+# This does not work because !isa(Array,Function)
+# @primitive  KnetArray(x::Array),dy  Array(dy)
+# @primitive  Array(x::KnetArray),dy  KnetArray(dy)
+
+# This does not work, parametric methods not yet supported, also unnecessary first arg gradient.
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{K}, x::Rec{A}),dy 0 Array(dy)
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Rec{K}),dy 0 KnetArray(dy)
+
+# So we will define gradients for convert, KnetArray, Array manually:
+Base.Array{K<:KnetArray}(x::Rec{K})=convert(Array,x)
+KnetArray{A<:AbstractArray}(x::Rec{A})=convert(KnetArray,x)
+# TODO: This should move to AutoGrad
+let convert_r = recorder(convert)
+    global convert
+    convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
+    # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version until AutoGrad updated
+    # convert(T::Type, x::Rec) = convert_r(T,x)
+    convert{A<:AbstractArray,K<:KnetArray}(::Type{A},x::Rec{K})=convert_r(A,x)
+    convert{A<:AbstractArray,K<:KnetArray}(::Type{K},x::Rec{A})=convert_r(K,x)
 end
-
-@primitive cpu2gpu(x),dy,y (gpu2cpu(dy))
-
-"""
-Transfer from KnetArray to regular Array.
-"""
-function gpu2cpu(x::KnetArray)
-    Array(x)
-end
-
-@primitive gpu2cpu(x),dy,y (cpu2gpu(dy))

@@ -3,30 +3,32 @@ Knet v0.8.2 Release Notes
 
 General
 -------
-* Fixed bug in (scalar .> KnetArray) operation in cuda01.jl.
-* Added optional w arg to Sgd for consistency in update.jl.
+* update! now supports iterators and dictionaries of weight arrays.
+* CPU convolution and pooling operations implemented based on CPP kernels from Mocha.jl.
+* gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
+* KnetArray now supports isempty, (.!=), (==), isapprox, copy!, scale!, deepcopy, more math functions (exp,log etc.), and KnetArray{T}(dims) constructors.
 * KnetArray supports transpose and permutedims for 2-D and 3-D (@ekyurdakul).
-* cpu2gpu, gpu2cpu primitives with gradients in karray.jl (@ereday).
+* Gradients for KnetArray to Array conversion (@ereday).
 * gaussian, xavier, bilinear initializers in distributions.jl (@ekyurdakul).
 * New deconvolution and unpool operations in cuda44.jl (@ekyurdakul).
-* KnetArray now supports isempty, (.!=), and some more math functions like sin,log etc.
-* Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute input size preserving padding.
+* Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute size-preserving padding.
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
 * It is now an error to try to create a KnetArray when the active device is not a gpu.
+* Updated AutoGrad requirement to v0.0.5.
+* Fixed bug in (scalar .> KnetArray) operation in cuda01.jl.
 
 Documentation and Testing
 -------------------------
-* New links added to opt and rl docs.
-* gradcheck automatically handles non-scalar functions, stays quiet by default, returns true/false. Moved to AutoGrad.
+* Comprehensive unit-testing implemented.
 * All documentation moved to Markdown using Documenter.jl.
 * Documentation for examples and a reference section added.
 * Unsupported ops documented in KnetArray doc.
 
 Examples
 --------
-* optimizers.jl padding bug fixed.
-* vgg.jl now supports D and E models (@ilkerkesen).
 * Batch Normalization/ResNet example (resnet.jl) added. (@ilkerkesen)
+* vgg.jl now supports D and E models (@ilkerkesen).
+* optimizers.jl padding bug fixed.
 
 
 Knet v0.8.1 Release Notes

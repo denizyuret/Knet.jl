@@ -1,10 +1,9 @@
-using Base.Test, Knet
-using Knet: reduction_ops
+include("header.jl")
 
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 
 reduction_fns = Any[logsumexp]
-for f in reduction_ops
+for f in Knet.reduction_ops
     if isa(f,Tuple); f=f[2]; end
     push!(reduction_fns, eval(parse(f)))
 end
@@ -30,9 +29,7 @@ end
             end
         end
     end
-end
 
-@testset "vecnorm" begin
     f = vecnorm
     for t in (Float32, Float64)
         for n in (1,(1,1),2,(2,1),(1,2),(2,2))
@@ -43,7 +40,7 @@ end
                 if gpu() >= 0
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx, p)
-                    @test isapprox(f(ax,p), f(gx,p))
+                    @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
                 end            
             end
         end

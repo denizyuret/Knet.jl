@@ -1,82 +1,75 @@
-using Knet, Base.Test
-srand(123456789)
+include("header.jl")
+
+using Knet
 
 # x* = f(1, · · · , 1)
 # f(x*) = 0
 
 rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
 
-grads = gradloss(rosenbrock)
-dims = 10
-ftol = 1e-3
-xtol = 1e-10
-maxiter = 25000
+function rosenmulti(x)
+    v = AutoGrad.getval(x)
+    if isbits(eltype(v))
+        rosenbrock(x)
+    elseif isa(v, Associative)
+        rosenbrock(x[:a]) + rosenbrock(x[:b])
+    else
+        rosenbrock(x[1]) + rosenbrock(x[2])
+    end
+end
 
-function test_base(w, params)
+rosengrad = gradloss(rosenmulti)
+srand(123456789)
+dims = 6
+
+function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)
     i = 1
     prev = 0
     current = 1
+    t0 = time()
     while i <= maxiter && abs(current - prev) > xtol && current > ftol
 	prev = current
-	g, current = grads(w)
-	w, params  = update!(w, g, params)
+	g, current = rosengrad(w)
+	update!(w, g, params)
 	i += 1
     end
-    @test current <= ftol
-    info("$(typeof(params)) for $(typeof(w)) $(current <= ftol ? "Passed" : "Failed")!\nConverged to $(current) at epoch $(i-1)")
-end
-
-function test_sgd(w)
-    params = Sgd(;lr=0.0005)
-    test_base(w, params)
-end
-
-function test_momentum(w)
-    params = Momentum(w;lr=0.00025, gamma=0.95)
-    test_base(w, params)
-end
-
-function test_adam(w)
-    params = Adam(w; lr=0.005, beta1=0.9, beta2=0.95, t=1, eps=1e-8)
-    test_base(w, params)
-end
-
-function test_adagrad(w)
-    params = Adagrad(w; lr=0.35, eps=1e-6)
-    test_base(w, params)
-end
-
-function test_adadelta(w)
-    params = Adadelta(w; lr=0.01, rho=0.5, eps=1e-6)
-    test_base(w, params)
-end
-
-function test_rmsprop(w)
-    params = Rmsprop(w; lr=0.0005, rho=0.9, eps=1e-6)
-    test_base(w, params)
+    t1 = time()
+    if verbose
+        @printf("%s: f=%f iter=%-5d time=%.2f type=%s opt=%s\n",
+                (current <= ftol ? "PASS" : "FAIL"), 
+                current, i-1, t1-t0, typeof(w), typeof(params))
+    end
+    return current <= ftol
 end
 
 @testset "update!" begin
-
-#CPU Tests
     w = randn(dims)
-    @time test_sgd(copy(w))
-    @time test_momentum(copy(w))
-    @time test_adam(copy(w))
-    @time test_adagrad(copy(w))
-    @time test_adadelta(copy(w))
-    @time test_rmsprop(copy(w))
-
-#GPU Tests
+    # CPU Tests
+    @test rosenopt(copy(w),Sgd(lr=0.0005))
+    @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
+    @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
+    @test rosenopt(copy(w),Adagrad(lr=0.35, eps=1e-6))
+    @test rosenopt(copy(w),Adadelta(lr=0.01, rho=0.5, eps=1e-6))
+    @test rosenopt(copy(w),Rmsprop(lr=0.0005, rho=0.9, eps=1e-6))
+    adam() = Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8)
+    v = 10*randn(dims)
+    @test rosenopt((copy(w),copy(v)), (adam(),adam()))
+    @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
+    @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
     if gpu() >= 0
-        w = KnetArray(w)
-        @time test_sgd(copy(w))
-        @time test_momentum(copy(w))
-        @time test_adam(copy(w))
-        @time test_adagrad(copy(w))
-        @time test_adadelta(copy(w))
-        @time test_rmsprop(copy(w))
+        w = KnetArray(w) #GPU Tests
+        @test rosenopt(copy(w),Sgd(lr=0.0005))
+        @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
+        @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
+        @test rosenopt(copy(w),Adagrad(lr=0.35, eps=1e-6))
+        @test rosenopt(copy(w),Adadelta(lr=0.01, rho=0.5, eps=1e-6))
+        @test rosenopt(copy(w),Rmsprop(lr=0.0005, rho=0.9, eps=1e-6))
+        v = KnetArray(v)
+        @test rosenopt((copy(w),copy(v)), (adam(),adam()))
+        @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
+        @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
     end
 end
 
 nothing
+

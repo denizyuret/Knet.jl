@@ -1,4 +1,4 @@
-using Base.Test, Knet
+include("header.jl")
 
 # Test KnetArray operations: cat, convert, copy, display, eachindex,
 # eltype, endof, fill!, first, getindex, hcat, isempty, length,
@@ -6,7 +6,6 @@ using Base.Test, Knet
 # similar, size, stride, strides, summary, vcat, vec, zeros
 
 if gpu() >= 0
-    Base.:(==)(a::Array,k::KnetArray)=(a==Array(k))
     @testset "karray" begin
         a = rand(3,4)
         k = KnetArray(a)
@@ -44,11 +43,12 @@ if gpu() >= 0
         # AbstractArray interface
         @testset "abstractarray" begin
 
-            for f in (copy, eachindex, eltype, endof, first, isempty,
-                      length, Base.linearindexing, ndims, ones, size,
-                      strides, vec, zeros, a->cat(1,a,a), a->cat(2,a,a),
-                      a->hcat(a,a), a->vcat(a,a), a->reshape(a,2,6),
-                      a->reshape(a,(2,6)), a->size(a,1), a->size(a,2),
+            for f in (copy, endof, first, isempty, length, ndims, ones, vec, zeros, 
+                      a->(eachindex(a);0), a->(eltype(a);0), a->(Base.linearindexing(a);0),
+                      a->collect(Float64,size(a)), a->collect(Float64,strides(a)), 
+                      a->cat(1,a,a), a->cat(2,a,a), a->hcat(a,a), a->vcat(a,a), 
+                      a->reshape(a,2,6), a->reshape(a,(2,6)), 
+                      a->size(a,1), a->size(a,2),
                       a->stride(a,1), a->stride(a,2), )
 
                 # @show f
@@ -65,12 +65,25 @@ if gpu() >= 0
             @test isa(pointer(k,3), Ptr{Float64})
             @test isempty(KnetArray(Float32,0))
             @test rand!(copy(a)) != rand!(copy(k))
+            @test k == k
+            @test a == k
+            @test k == a
+            @test isapprox(k,k)
+            @test isapprox(a,k)
+            @test isapprox(k,a)
+            @test a == copy!(similar(a),k)
+            @test k == copy!(similar(k),a)
+            @test k == copy!(similar(k),k)
+            @test k == copy(k)
+            @test pointer(k) != pointer(copy(k))
+            @test k == deepcopy(k)
+            @test pointer(k) != pointer(deepcopy(k))
         end
 
         @testset "cpu2gpu" begin
             # cpu/gpu xfer with grad support
-            @test gradcheck(x->gpu2cpu(sin(cpu2gpu(x))),a)
-            @test gradcheck(x->cpu2gpu(sin(gpu2cpu(x))),k)
+            @test gradcheck(x->Array(sin(KnetArray(x))),a)
+            @test gradcheck(x->KnetArray(sin(Array(x))),k)
         end
     end
 end

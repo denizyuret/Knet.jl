@@ -48,7 +48,7 @@ end
 
 lossgradient = grad(loss)
 
-function train(w, data; lr=.1, epochs=20, nxy=0)
+function train(w, data; lr=.1, epochs=3, iters=1800)
     for epoch=1:epochs
         for (x,y) in data
             g = lossgradient(w, x, y)
@@ -56,21 +56,24 @@ function train(w, data; lr=.1, epochs=20, nxy=0)
                 # w[i] -= lr * g[i]
                 axpy!(-lr, g[i], w[i])
             end
+            if (iters -= 1) <= 0
+                return w
+            end
         end
     end
     return w
 end
 
-function weights(;ftype=Float32,atype=KnetArray)
+function weights(;atype=KnetArray{Float32})
     w = Array(Any,8)
-    w[1] = xavier(Float32,5,5,1,20)
-    w[2] = zeros(Float32,1,1,20,1)
-    w[3] = xavier(Float32,5,5,20,50)
-    w[4] = zeros(Float32,1,1,50,1)
-    w[5] = xavier(Float32,500,800)
-    w[6] = zeros(Float32,500,1)
-    w[7] = xavier(Float32,10,500)
-    w[8] = zeros(Float32,10,1)
+    w[1] = xavier(5,5,1,20)
+    w[2] = zeros(1,1,20,1)
+    w[3] = xavier(5,5,20,50)
+    w[4] = zeros(1,1,50,1)
+    w[5] = xavier(500,800)
+    w[6] = zeros(500,1)
+    w[7] = xavier(10,500)
+    w[8] = zeros(10,1)
     return map(a->convert(atype,a), w)
 end
 
@@ -111,31 +114,36 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
+        ("--iters"; arg_type=Int; default=1800; help="maximum number of updates for training")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
     println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    gpu() >= 0 || error("LeNet only works on GPU machines.")
+    atype = eval(parse(o[:atype]))
+    if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
     isdefined(MNIST,:xtrn) || MNIST.loaddata()
-    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize])
-    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize])
-    w = weights()
+    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize]; atype=atype)
+    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize]; atype=atype)
+    w = weights(atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
 
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], iters=o[:iters]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
+        iters = o[:iters]
         @time for epoch=1:o[:epochs]
-            train(w, dtrn; lr=o[:lr], epochs=1)
+            train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
             report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)
             end
+            if (iters -= length(dtrn)) <= 0; break; end
         end
     end
     return w
@@ -145,7 +153,11 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia lenet.jl --epochs 10
 # julia> LeNet.main("--epochs 10")
-PROGRAM_FILE == "lenet.jl" && main(ARGS)
+if VERSION >= v"0.5.0-dev+7720"
+    PROGRAM_FILE == "lenet.jl" && main(ARGS)
+else
+    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
+end
 
 end # module
 

@@ -1,10 +1,26 @@
-CFLAGS=-O3 -use_fast_math -Wno-deprecated-gpu-targets
+NVCC := $(shell nvcc --version > /dev/null 2>&1; echo $$?)
+FOMP := $(shell $(CXX) -fopenmp -c conv.cpp -o /dev/null > /dev/null 2>&1; echo $$?)
+CFLAGS := -O3 -Wall -fPIC
+OBJ := conv.o
 
-libknet8.so: cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o
-	nvcc $(CFLAGS) --shared --compiler-options -fPIC $^ -o $@
+ifeq ($(FOMP),0)
+  CFLAGS := $(CFLAGS) -fopenmp
+endif
+
+ifeq ($(NVCC),0)
+  CXX := nvcc
+  CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options "$(CFLAGS)"
+  OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o $(OBJ)
+endif
+
+libknet8.so: $(OBJ)
+	$(CXX) --shared $(CFLAGS) $^ -o $@
 
 %.o: %.cu
-	nvcc -c $(CFLAGS) --compiler-options -fPIC $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
+
+%.o: %.cpp
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 cuda1.cu: cuda1.jl unary.jl
 	julia $< > $@

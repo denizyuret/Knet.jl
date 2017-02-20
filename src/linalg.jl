@@ -3,7 +3,7 @@ import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
 import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
 import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
 import Base.LinAlg.BLAS: gemm!
-import Base.LinAlg: axpy!
+import Base.LinAlg: axpy!, scale!
 export axpy!
 
 A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
@@ -20,7 +20,7 @@ Ac_mul_B!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_
 Ac_mul_B{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B(A,B)
 
 At_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','T',one(T),A,B,zero(T),C)
-At_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(similar(A,(size(A,2),size(B,2))),A,B)
+At_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(similar(A,(size(A,2),size(B,1))),A,B)
 Ac_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(C,A,B)
 Ac_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt(A,B)
 
@@ -43,11 +43,11 @@ function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B:
     alpha = T[alpha]; beta = T[beta]
     lda = size2(A,1); ldb = size2(B,1); ldc = size2(C,1)
     if T<:Float64
-        @cuda(cublas, cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        @cuda(cublas, cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     elseif T<:Float32
-        @cuda(cublas, cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        @cuda(cublas, cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     # elseif T<:Float16
-    #     @cuda(cublas, cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+    #     @cuda(cublas, cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     else
         error("CUBLAS does not support $T")
     end
@@ -58,9 +58,9 @@ function axpy!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::
     length(x) == length(y) || throw(DimensionMismatch("$(map(size,(x,y)))"))
     alpha = T[alpha]
     if T<:Float32
-        @cuda(cublas, cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle, n, alpha, x, incx, y, incy)
+        @cuda(cublas, cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     elseif T<:Float64
-        @cuda(cublas, cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle, n, alpha, x, incx, y, incy)
+        @cuda(cublas, cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     else
         error("$T not supported")
     end
@@ -70,16 +70,31 @@ end
 axpy!{T}(alpha::Number, x::KnetArray{T}, y::KnetArray{T})=axpy!(length(x),alpha,x,1,y,1)
 
 
+function scal!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer)
+    alpha = T[alpha]
+    if T<:Float32
+        @cuda(cublas, cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+    elseif T<:Float64
+        @cuda(cublas, cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+    else
+        error("$T not supported")
+    end
+    return x
+end
+
+scale!{T}(alpha::Number, x::KnetArray{T})=scal!(length(x),alpha,x,1)
+scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
+
 function transpose{T}(x::KnetArray{T})
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
     sz = size(x)
     y = similar(x,(sz[2],sz[1]))
     if T<:Float32
         @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     elseif T<:Float64
         @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-            cublashandle,1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     else
         error("CUBLAS does not support $T")
     end
@@ -164,4 +179,60 @@ function ipermutedims(A::KnetArray,perm)
         iperm[p] = i
     end
     return permutedims(A,iperm)
+end
+
+
+# Fixing scalar handling in Ac_mul_B etc.
+# TODO: move these to AutoGrad next version.
+
+using AutoGrad: unbroadcast
+@primitive Ac_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive Ac_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
+@primitive Ac_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
+@primitive A_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive A_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
+@primitive A_mul_Bc(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
+@primitive Ac_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive Ac_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
+@primitive Ac_mul_Bc(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
+@primitive At_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive At_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
+@primitive At_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
+@primitive A_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive A_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
+@primitive A_mul_Bt(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
+@primitive At_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
+@primitive At_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
+@primitive At_mul_Bt(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
+
+
+# Low level gemm! call with pointers
+
+using Base.LinAlg
+using Base.LinAlg.BLAS: libblas, BlasInt
+using Compat: @blasfunc
+
+# C := alpha*op(A)*op(B) + beta*C, where:
+# op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,
+# alpha and beta are scalars,
+# A, B and C are matrices:
+# op(A) is an m-by-k matrix,
+# op(B) is a k-by-n matrix,
+# C is an m-by-n matrix.
+
+for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
+    @eval begin
+        function gemm!(transA::Char, transB::Char, M::Int, N::Int, K::Int, alpha::($elty), A::Ptr{$elty}, B::Ptr{$elty}, beta::($elty), C::Ptr{$elty})
+            if transA=='N'; lda=M; else; lda=K; end
+            if transB=='N'; ldb=K; else; ldb=N; end
+            ldc = M;
+            ccall((@blasfunc($gemm), libblas), Void,
+                  (Ptr{UInt8}, Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt},
+                   Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
+                   Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty},
+                   Ptr{BlasInt}),
+                  &transA, &transB, &M, &N, &K,
+                  &alpha, A, &lda, B, &ldb, &beta, C, &ldc)
+        end
+    end
 end

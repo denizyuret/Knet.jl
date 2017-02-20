@@ -1,44 +1,33 @@
-2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
-
-	* unit-test-TODO:
-	+ unary.jl
-	+ broadcast.jl
-	+ reduction.jl
-	+ karray.jl
-	+ linalg.jl
-	+ update.jl
-	+ kptr.jl
-	+ gpu.jl
-	+ distributions.jl
-	... conv.jl: debug unpool, add cpuconv
-	runtests.jl: switch to new tests, figure out why so slow
-	AutoGrad: run all tests with KnetArrays
+2017-02-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-
-	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
-	# figure out rtfd doc setup or forwarding.
+	# use mocha for cpu conv/pool. wip.
+	# cpuconv todo:
+	# ok: need to get rid of mask in pool_back
+	# ok: reimplement conv4 in terms of im2col
+	# ok: need low level blas call with pointers
+	# ok: reimplement conv4x conv4w using col2im?
+	# ok: need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
 
 	* TODO8:
-
-	# implement better unit testing.
-	## autograd.jl: add enough primitives to knetarray to pass the autograd tests converted to knetarrays.
-	# add back cpu convolution
-	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
-	# figure out no KnetArray in cpu problem
-	# fix unclear docs for optimization, tutorial example?
-	# override KnetArray and Array instead of cpu2gpu etc.
-	# grad of convert (AutoGrad issue)
-	# KnetArray does not work on cpu-only (should it?)
-	# KnetArray ==, ===, isapprox etc. missing.
-	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
-	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email.
-
-	# docs todo: Julia tutorial. Baris Bozkurt's comments.
+	# add some test for deconv vs conv.
+	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# Latest master failing on nightly; AutoGrad also fails.
+	# AutoGrad: run all tests with KnetArrays
+	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
+	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
+	# AutoGrad: support for keys, values, next for dictionaries.
+	# automatically generate README.md from tutorial.md.
+	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
+	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
 	# charlm: try indexing op instead of sparse matmul.
 	# charlm: try lstm time concatenation.
+	# time doing a single im2col instead of N for conv4
+	# replace T<: functions with generated code for each type
+
 	# optimization:
 	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
@@ -47,14 +36,76 @@
 	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
 	## try fusion: we can do layers in one kernel call: relu(wx+b).
 	## try streams or multiple gpus.
+
 	# mnist2d: implement/test sparse arrays
-	# for general arrays: broadcast, get/setindex, h/v/cat.
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat.
-	# gputests.jl and cputests.jl are broken.
-	# find out why benchmarks are slower on julia5/6.
-	# resolve issues
-	# check old todo list
+	# for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+
+2017-02-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# add tests for new update interface.
+
+2017-02-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# permutedims ambiguity in AutoGrad in Julia 0.4.
+	# docs imagesize: The ![]() syntax doesn't support image size. However, you should be able to use the @raw block to insert custom HTML with an <img> tag as follows:
+	```@raw html
+	<img src="..." height="..." width="...">
+	```
+	# add x=unpool(pool(x)) test,
+	# add davide fix to knet before release
+	# Contents does not show on README.md, @ref doesn't work etc. New README?
+	# fix unclear docs for optimization, tutorial example? better yet, impl improved update interface.
+
+2017-02-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# KnetArray ==, ===, isapprox etc. missing.
+	# copy! for KnetArray missing. (we have fill!, rand! etc. is copy! supported by AutoGrad? should refuse for Rec)
 	# deepcopy does not work for KnetArray
+	# override KnetArray and Array instead of cpu2gpu etc.
+	# add KnetArray{Float32}(3) type init like Array and deprecate the other.
+	# Make BaseTestNext conditional on julia version. If not possible, create header.jl in test/ and check version/pkg.
+
+2017-02-13  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* DONE:
+
+	# Latest master failing on Julia 0.4 (convtest) and nightly distros.
+	# TonyKelman on Compat: If you use Compat in your tests, it needs to be in test/REQUIRE or REQUIRE.
+	# TonyKelman on removing nightly from travis: you can make this an allowed failure so it'll run but won't make your status red
+
+2017-02-12  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* unit-test-TODO:
+	+ unary.jl: cpu=25s gpu=41s
+	+ broadcast.jl: cpu=19s gpu=34s
+	+ reduction.jl: cpu=18s gpu=28s (6 fail)
+	+ karray.jl: cpu=(fail) gpu=12s
+	+ linalg.jl: cpu=(fail) gpu=15s
+	+ update.jl: cpu=6.6s gpu=19s
+	+ kptr.jl: cpu=2.5s gpu=2.5s
+	+ gpu.jl: cpu=3s gpu=2.4s
+	+ distributions.jl: cpu=3s gpu=3s
+	+ conv.jl: cpu=(fail) gpu=13s (10 broken)
+	+ runtests.jl: switch to new tests, figure out why so slow
+	+ karray,linalg: cpu tests failing
+	+ reduction: gpu tests failing
+	+ conv.jl: debug unpool, add cpuconv
+
+2017-02-10  Deniz Yuret  <dyuret@ai-test.hpc.ku.edu.tr>
+
+	* DONE:
+
+	# doc warnings about missing broadcast, reduction, restricted cat, indexing, no bool array etc.
+	# figure out rtfd doc setup or forwarding.
+	# figure out no KnetArray in cpu problem
+	# KnetArray does not work on cpu-only (should it? no. operators overloaded assuming gpu)
+	# add back cpu convolution
+	# gputests.jl and cputests.jl are broken.
+	# resolve issues
 
 2017-02-09  Deniz Yuret  <dyuret@ku.edu.tr>
 

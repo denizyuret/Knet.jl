@@ -18,8 +18,6 @@ AutoGrad.gradcheck
 
 ```@docs
 Knet.KnetArray
-Knet.cpu2gpu
-Knet.gpu2cpu
 ```
 
 ## Utilities
@@ -46,8 +44,6 @@ Knet.unpool
 
 ## Optimization
 
-TODO: need blurb here about how optimization works, need to apply update! to individual weight arrays etc.
-
 ```@docs
 Knet.update!
 Knet.Sgd
@@ -67,8 +63,6 @@ Knet.bilinear
 ```
 
 ## AutoGrad (advanced)
-
-TODO: blurb here about how AutoGrad works, what the `Rec` type is etc.
 
 ```@docs
 AutoGrad.@primitive
