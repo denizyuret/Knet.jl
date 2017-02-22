@@ -329,6 +329,22 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "examples.html#Hyperband-1",
+    "page": "Examples",
+    "title": "Hyperband",
+    "category": "section",
+    "text": "hyperband"
+},
+
+{
+    "location": "examples.html#Overfitting,-underfitting,-regularization,-dropout-1",
+    "page": "Examples",
+    "title": "Overfitting, underfitting, regularization, dropout",
+    "category": "section",
+    "text": "softmax.ipynb is an IJulia notebook demonstrating overfitting, underfitting, regularization, and dropout."
+},
+
+{
     "location": "reference.html#",
     "page": "Reference",
     "title": "Reference",
