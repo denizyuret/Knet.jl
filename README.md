@@ -21,18 +21,18 @@
 
 **Contents**
 
-    - [Philosophy](#Philosophy-1)
-    - [Tutorial](#Tutorial-1)
-        - [Linear regression](#Linear-regression-1)
-        - [Softmax classification](#Softmax-classification-1)
-        - [Multi-layer perceptron](#Multi-layer-perceptron-1)
-        - [Convolutional neural network](#Convolutional-neural-network-1)
-        - [Recurrent neural network](#Recurrent-neural-network-1)
-    - [Benchmarks](#Benchmarks-1)
-    - [Under the hood](#Under-the-hood-1)
-        - [KnetArrays](#KnetArrays-1)
-        - [AutoGrad](#AutoGrad-1)
-    - [Contributing](#Contributing-1)
+- [Philosophy](#Philosophy-1)
+- [Tutorial](#Tutorial-1)
+    - [Linear regression](#Linear-regression-1)
+    - [Softmax classification](#Softmax-classification-1)
+    - [Multi-layer perceptron](#Multi-layer-perceptron-1)
+    - [Convolutional neural network](#Convolutional-neural-network-1)
+    - [Recurrent neural network](#Recurrent-neural-network-1)
+- [Benchmarks](#Benchmarks-1)
+- [Under the hood](#Under-the-hood-1)
+    - [KnetArrays](#KnetArrays-1)
+    - [AutoGrad](#AutoGrad-1)
+- [Contributing](#Contributing-1)
 
 
 <a id='Philosophy-1'></a>

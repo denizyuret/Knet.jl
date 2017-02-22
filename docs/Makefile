@@ -1,6 +1,6 @@
 all:
 
-../README.md: src/tutorial.md
+../README.md: src/tutorial.md makemd.jl mkreadme.pl
 	julia makemd.jl
 	perl mkreadme.pl build/tutorial.md > ../README.md
 
