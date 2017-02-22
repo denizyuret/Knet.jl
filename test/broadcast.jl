@@ -2,11 +2,20 @@ include("header.jl")
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
+# max and min do not have broadcasting versions defined in Base
+# 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
+# Fix this as part of general 0.6 compat work
+# For now we will temporarily define them so the tests work
+Base.max(x::Array,y::Array)=broadcast(max,x,y)
+Base.min(x::Array,y::Array)=broadcast(min,x,y)
+# These are helper functions for gradients and rpow is used to define Array.^Number
+# The former is tested during gradcheck, rpow is tested with .^ operation
+exclude = ("invxback", "reluback", "sigmback", "tanhback", "rpow")
 
 broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
-    in(f, ("invxback", "reluback", "sigmback", "tanhback", "rpow")) && continue
+    in(f, exclude) && continue
     push!(broadcast_fns, eval(parse(f)))
 end
 
