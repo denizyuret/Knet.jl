@@ -5,7 +5,7 @@ Atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
     hyperband(getconfig, getloss, maxresource=27, reduction=3)
 
-Hyperparameter optimization using [Lisha et al. 2016](https://arxiv.org/abs/1603.06560).
+Hyperparameter optimization using the hyperband algorithm from ([Lisha et al. 2016](https://arxiv.org/abs/1603.06560)).
 You can try a simple MNIST example using `hyperband(getconfig1,getloss1)` after loading this example.
 
 ## Arguments

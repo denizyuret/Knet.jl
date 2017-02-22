@@ -1,3 +1,5 @@
+
+
 # Introduction to Knet
 
 
@@ -19,18 +21,18 @@
 
 **Contents**
 
-- [Philosophy](#Philosophy-1)
-- [Tutorial](#Tutorial-1)
-    - [Linear regression](#Linear-regression-1)
-    - [Softmax classification](#Softmax-classification-1)
-    - [Multi-layer perceptron](#Multi-layer-perceptron-1)
-    - [Convolutional neural network](#Convolutional-neural-network-1)
-    - [Recurrent neural network](#Recurrent-neural-network-1)
-- [Benchmarks](#Benchmarks-1)
-- [Under the hood](#Under-the-hood-1)
-    - [KnetArrays](#KnetArrays-1)
-    - [AutoGrad](#AutoGrad-1)
-- [Contributing](#Contributing-1)
+    - [Philosophy](#Philosophy-1)
+    - [Tutorial](#Tutorial-1)
+        - [Linear regression](#Linear-regression-1)
+        - [Softmax classification](#Softmax-classification-1)
+        - [Multi-layer perceptron](#Multi-layer-perceptron-1)
+        - [Convolutional neural network](#Convolutional-neural-network-1)
+        - [Recurrent neural network](#Recurrent-neural-network-1)
+    - [Benchmarks](#Benchmarks-1)
+    - [Under the hood](#Under-the-hood-1)
+        - [KnetArrays](#KnetArrays-1)
+        - [AutoGrad](#AutoGrad-1)
+    - [Contributing](#Contributing-1)
 
 
 <a id='Philosophy-1'></a>
@@ -77,7 +79,7 @@ lossgradient = grad(loss)
 ```
 
 
-Note that `grad` is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`.
+Note that `grad` is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`. 
 
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can train this model:
@@ -96,7 +98,7 @@ end
 ```
 
 
-We simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate `lr`. See [Optimization](http://denizyuret.github.io/Knet.jl/latest/reference.html#Optimization-1) for more advanced optimization methods.
+We simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate `lr`.  See [Optimization methods](http://denizyuret.github.io/Knet.jl/latest/reference.html#Optimization-methods-1) for more advanced algorithms.
 
 
 > [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/housing.jpeg?raw=true)](https://archive.ics.uci.edu/ml/datasets/Housing)
@@ -551,3 +553,4 @@ Current contributors:
   * Emre Yolcu
   * Meriç Melike Softa
   * Ekrem Emre Yurdakul
+

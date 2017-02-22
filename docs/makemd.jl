@@ -19,7 +19,7 @@ makedocs(
     # Including Main in the list leads to too many warnings
     # modules = [Knet,AutoGrad,LinReg,Housing,MNIST,LeNet,CharLM,Optimizers,VGG,ResNet],
     clean = false,              # do we clean build dir
-    format = :html,
+#    format = :html,
     sitename = "Knet.jl",
     authors = "Deniz Yuret and contributors.",
 #    analytics = "UA-89508993-1",
