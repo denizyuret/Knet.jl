@@ -109,7 +109,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Linear regression",
     "category": "section",
-    "text": "Here is the prediction function and the corresponding quadratic loss function for a simple linear regression model:predict(w,x) = w[1]*x .+ w[2]\n\nloss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)The variable w is a list of parameters (it could be a Tuple, Array, or Dict), x is the input and y is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function grad from AutoGrad.jl to compute the gradient direction:using Knet\n\nlossgradient = grad(loss)Note that grad is a higher-order function that takes and returns other functions. The lossgradient function takes the same arguments as loss, e.g. dw = lossgradient(w,x,y). Instead of returning a loss value, lossgradient returns dw, the gradient of the loss with respect to its first argument w. The type and size of dw is identical to w, each entry in dw gives the derivative of the loss with respect to the corresponding entry in w. Given some training data = [(x1,y1),(x2,y2),...], here is how we can train this model:function train(w, data; lr=.1)\n    for (x,y) in data\n        dw = lossgradient(w, x, y)\n        for i in 1:length(w)\n            w[i] -= lr * dw[i]\n        end\n    end\n    return w\nendWe simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate lr.  See Optimization for more advanced optimization methods.(Image: image)Let's train this model on the Housing dataset from the UCI Machine Learning Repository.julia> url = \"https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data\"\njulia> rawdata = readdlm(download(url))\njulia> x = rawdata[:,1:13]'\njulia> x = (x .- mean(x,2)) ./ std(x,2)\njulia> y = rawdata[:,14:14]'\njulia> w = Any[ 0.1*randn(1,13), 0 ]\njulia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end\n366.0463078055053\n...\n29.63709385230451The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood is represented using 13 attributes such as crime rate or distance to employment centers. The goal is to predict the median value of the houses given in $1000's. After downloading, splitting and normalizing the data, we initialize the parameters randomly and take 10 steps in the negative gradient direction. We can see the loss dropping from 366.0 to 29.6. See housing.jl for more information on this example.Note that grad was the only function used that is not in the Julia standard library. This is typical of models defined in Knet."
+    "text": "Here is the prediction function and the corresponding quadratic loss function for a simple linear regression model:predict(w,x) = w[1]*x .+ w[2]\n\nloss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)The variable w is a list of parameters (it could be a Tuple, Array, or Dict), x is the input and y is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function grad from AutoGrad.jl to compute the gradient direction:using Knet\n\nlossgradient = grad(loss)Note that grad is a higher-order function that takes and returns other functions. The lossgradient function takes the same arguments as loss, e.g. dw = lossgradient(w,x,y). Instead of returning a loss value, lossgradient returns dw, the gradient of the loss with respect to its first argument w. The type and size of dw is identical to w, each entry in dw gives the derivative of the loss with respect to the corresponding entry in w. Given some training data = [(x1,y1),(x2,y2),...], here is how we can train this model:function train(w, data; lr=.1)\n    for (x,y) in data\n        dw = lossgradient(w, x, y)\n        for i in 1:length(w)\n            w[i] -= lr * dw[i]\n        end\n    end\n    return w\nendWe simply iterate over the input-output pairs in data, calculate the lossgradient for each example, and move the parameters in the negative gradient direction with a step size determined by the learning rate lr.  See Optimization methods for more advanced algorithms.(Image: image)Let's train this model on the Housing dataset from the UCI Machine Learning Repository.julia> url = \"https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data\"\njulia> rawdata = readdlm(download(url))\njulia> x = rawdata[:,1:13]'\njulia> x = (x .- mean(x,2)) ./ std(x,2)\njulia> y = rawdata[:,14:14]'\njulia> w = Any[ 0.1*randn(1,13), 0 ]\njulia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end\n366.0463078055053\n...\n29.63709385230451The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood is represented using 13 attributes such as crime rate or distance to employment centers. The goal is to predict the median value of the houses given in $1000's. After downloading, splitting and normalizing the data, we initialize the parameters randomly and take 10 steps in the negative gradient direction. We can see the loss dropping from 366.0 to 29.6. See housing.jl for more information on this example.Note that grad was the only function used that is not in the Julia standard library. This is typical of models defined in Knet."
 },
 
 {
@@ -326,6 +326,14 @@ var documenterSearchIndex = {"docs": [
     "title": "Optimizers",
     "category": "section",
     "text": "Optimizers"
+},
+
+{
+    "location": "examples.html#hyperband",
+    "page": "Examples",
+    "title": "hyperband",
+    "category": "Function",
+    "text": "hyperband(getconfig, getloss, maxresource=27, reduction=3)\n\nHyperparameter optimization using the hyperband algorithm from (Lisha et al. 2016). You can try a simple MNIST example using hyperband(getconfig1,getloss1) after loading this example.\n\nArguments\n\ngetconfig() returns random configurations with a user defined type and distribution.\ngetloss(c,n) returns loss for configuration c and number of resources (e.g. epochs) n.\nmaxresource is the maximum number of resources any one configuration should be given.\nreduction is an algorithm parameter (see paper), 3 is a good value.\n\n\n\n"
 },
 
 {
@@ -577,9 +585,9 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Optimization-1",
+    "location": "reference.html#Optimization-methods-1",
     "page": "Reference",
-    "title": "Optimization",
+    "title": "Optimization methods",
     "category": "section",
     "text": "Knet.update!\nKnet.Sgd\nKnet.Momentum\nKnet.Adagrad\nKnet.Adadelta\nKnet.Rmsprop\nKnet.Adam"
 },
