@@ -131,8 +131,9 @@ import Base: +, -, *, /, \
 #(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
 
 # Broadcast max/min haven't been defined in Base:
-max(a::Array,b::Array)=broadcast(max,a,b)
-min(a::Array,b::Array)=broadcast(min,a,b)
+# max(a::Array,b::Array)=broadcast(max,a,b)
+# min(a::Array,b::Array)=broadcast(min,a,b)
+# tkelman: These two methods aren't necessary, and overwrite Base. You can get this behavior via max.(a,b), with @compat needed on 0.4.
 
 # Ambiguity fixes:
 max{T<:Real,S<:Real}(a::KnetArray{T},s::S)=max(T(s),a)

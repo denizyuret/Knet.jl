@@ -243,7 +243,7 @@ type CD; ptr
             @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
-        elseif cudnnVersion >= 3000
+        elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
             @cuda(cudnn,cudnnSetConvolutionNdDescriptor_v3,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
