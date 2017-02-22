@@ -6,6 +6,8 @@
 	## no easy way to do it without effecting source links.
 
 	* TODO8:
+	# bug in AutoGrad: broadcast.jl: $f(x1::Rec,x2::AbstractArray)=$f(x1,x2.value)
+	# gradcheck fails on: bmax(x,y)=broadcast(max,x,y) or bmin(x,y)=((y.<x).*y+(x.<y).*x)
 	# add some test for deconv vs conv.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
 	# Latest master failing on nightly; AutoGrad also fails.

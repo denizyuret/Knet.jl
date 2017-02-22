@@ -2,20 +2,14 @@ include("header.jl")
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
-# max and min do not have broadcasting versions defined in Base
-# 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
-# Fix this as part of general 0.6 compat work
-# For now we will temporarily define them so the tests work
-Base.max(x::Array,y::Array)=broadcast(max,x,y)
-Base.min(x::Array,y::Array)=broadcast(min,x,y)
 # These are helper functions for gradients and rpow is used to define Array.^Number
 # The former is tested during gradcheck, rpow is tested with .^ operation
-exclude = ("invxback", "reluback", "sigmback", "tanhback", "rpow")
+exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "rpow")
 
 broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
-    in(f, exclude) && continue
+    in(f, exclude11) && continue
     push!(broadcast_fns, eval(parse(f)))
 end
 
@@ -28,11 +22,13 @@ end
                 # @show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
-                @test gradcheck(f1, Any[a1, a2])
+                if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
+                    @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
+                end                                   # Fix this as part of general 0.6 compat work
                 if gpu() >= 0
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
-                    @test isapprox(Array{t}(f(a1,a2)),Array{t}(f(g1,g2)))
+                    @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
                     @test gradcheck(f1, Any[g1, g2])
                 end
             end
@@ -53,6 +49,7 @@ end
             end
         end
     end
+
 end
 
 nothing

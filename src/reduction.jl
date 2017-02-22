@@ -59,6 +59,8 @@ for f in reduction_ops
     reduction_op(f...)
 end
 
+@zerograd countnz(a,d...)
+
 # Norm primitives:
 
 import Base.LinAlg: norm, vecnorm
