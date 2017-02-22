@@ -28,6 +28,8 @@ Examples
 --------
 * Batch Normalization/ResNet example (resnet.jl) added. (@ilkerkesen)
 * vgg.jl now supports D and E models (@ilkerkesen).
+* hyperband.jl hyperparameter optimization example added.
+* softmax.ipynb IJulia notebook about underfitting, overfitting, regularization and dropout.
 * optimizers.jl padding bug fixed.
 
 
