@@ -15,6 +15,9 @@ matrix:
 notifications:
   email: false
 
+before_script:  ## always test with the latest AutoGrad
+  - julia -e 'Pkg.add("AutoGrad"); Pkg.checkout("AutoGrad")'
+
 ## uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
