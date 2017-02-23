@@ -525,11 +525,10 @@ end
 # So we will define gradients for convert, KnetArray, Array manually:
 Base.Array{K<:KnetArray}(x::Rec{K})=convert(Array,x)
 KnetArray{A<:AbstractArray}(x::Rec{A})=convert(KnetArray,x)
-# TODO: This should move to AutoGrad
 let convert_r = recorder(convert)
     global convert
     convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
-    # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version until AutoGrad updated
+    # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version.
     # convert(T::Type, x::Rec) = convert_r(T,x)
     convert{A<:AbstractArray,K<:KnetArray}(::Type{A},x::Rec{K})=convert_r(A,x)
     convert{A<:AbstractArray,K<:KnetArray}(::Type{K},x::Rec{A})=convert_r(K,x)
