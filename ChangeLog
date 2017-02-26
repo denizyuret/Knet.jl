@@ -1,9 +1,7 @@
-2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-02-26  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# bug in AutoGrad: broadcast.jl: $f(x1::Rec,x2::AbstractArray)=$f(x1,x2.value)
-	# gradcheck fails on: bmax(x,y)=broadcast(max,x,y) or bmin(x,y)=((y.<x).*y+(x.<y).*x)
-	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
+	# Issue 88: better handling of difft elt types on data vs weights in update!
 
 	* TODO8:
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
@@ -33,6 +31,13 @@
 	## try fusion: we can do layers in one kernel call: relu(wx+b).
 	## try streams or multiple gpus.
 	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
+2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# bug in AutoGrad: broadcast.jl: $f(x1::Rec,x2::AbstractArray)=$f(x1,x2.value)
+	# gradcheck fails on: bmax(x,y)=broadcast(max,x,y) or bmin(x,y)=((y.<x).*y+(x.<y).*x)
+	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
 
 2017-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
