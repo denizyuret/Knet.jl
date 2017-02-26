@@ -76,9 +76,11 @@ Julia.
 Here is the prediction function and the corresponding quadratic loss
 function for a simple linear regression model:
 
-    predict(w,x) = w[1]*x .+ w[2]
+```julia
+predict(w,x) = w[1]*x .+ w[2]
 
-    loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
+loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
+```
 
 The variable `w` is a list of parameters (it could be a Tuple, Array, or
 Dict), `x` is the input and `y` is the desired output. To train this
@@ -89,9 +91,11 @@ Knet uses the higher-order function [`grad`](@ref) from
 [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute the
 gradient direction:
 
-    using Knet
+```julia
+using Knet
 
-    lossgradient = grad(loss)
+lossgradient = grad(loss)
+```
 
 Note that `grad` is a higher-order function that takes and returns other
 functions. The `lossgradient` function takes the same arguments as
@@ -104,20 +108,22 @@ with respect to the corresponding entry in `w`.
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
 
-    function train(w, data; lr=.1)
-        for (x,y) in data
-            dw = lossgradient(w, x, y)
-            for i in 1:length(w)
-                w[i] -= lr * dw[i]
-            end
+```julia
+function train(w, data; lr=.1)
+    for (x,y) in data
+        dw = lossgradient(w, x, y)
+        for i in 1:length(w)
+            w[i] -= lr * dw[i]
         end
-        return w
     end
+    return w
+end
+```
 
 We simply iterate over the input-output pairs in data, calculate the
 lossgradient for each example, and move the parameters in the negative
 gradient direction with a step size determined by the learning rate
-`lr`.  See [Optimization](@ref) for more advanced optimization methods.
+`lr`.  See [Optimization methods](@ref) for more advanced algorithms.
 
 > [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/housing.jpeg?raw=true)](https://archive.ics.uci.edu/ml/datasets/Housing)
 
@@ -125,16 +131,18 @@ Let's train this model on the
 [Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset from
 the UCI Machine Learning Repository.
 
-    julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-    julia> rawdata = readdlm(download(url))
-    julia> x = rawdata[:,1:13]'
-    julia> x = (x .- mean(x,2)) ./ std(x,2)
-    julia> y = rawdata[:,14:14]'
-    julia> w = Any[ 0.1*randn(1,13), 0 ]
-    julia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end
-    366.0463078055053
-    ...
-    29.63709385230451
+```julia
+julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
+julia> rawdata = readdlm(download(url))
+julia> x = rawdata[:,1:13]'
+julia> x = (x .- mean(x,2)) ./ std(x,2)
+julia> y = rawdata[:,14:14]'
+julia> w = Any[ 0.1*randn(1,13), 0 ]
+julia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end
+366.0463078055053
+...
+29.63709385230451
+```
 
 The dataset has housing related information for 506 neighborhoods in
 Boston from 1978. Each neighborhood is represented using 13 attributes
@@ -166,11 +174,13 @@ Classification models handle discrete outputs, as opposed to regression
 models which handle numeric outputs. We typically use the cross entropy
 loss function in classification models:
 
-    function loss(w,x,ygold)
-        ypred = predict(w,x)
-        ynorm = ypred .- log(sum(exp(ypred),1))
-        -sum(ygold .* ynorm) / size(ygold,2)
-    end
+```julia
+function loss(w,x,ygold)
+    ypred = predict(w,x)
+    ynorm = ypred .- log(sum(exp(ypred),1))
+    -sum(ygold .* ynorm) / size(ygold,2)
+end
+```
 
 Other than the change of loss function, the softmax model is identical
 to the linear regression model. We use the same `predict`, same `train`
@@ -178,33 +188,37 @@ and set `lossgradient=grad(loss)` as before. To see how well our model
 classifies let's define an `accuracy` function which returns the
 percentage of instances classified correctly:
 
-    function accuracy(w, data)
-        ncorrect = ninstance = 0
-        for (x, ygold) in data
-            ypred = predict(w,x)
-            ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
-            ninstance += size(ygold,2)
-        end
-        return ncorrect/ninstance
+```julia
+function accuracy(w, data)
+    ncorrect = ninstance = 0
+    for (x, ygold) in data
+        ypred = predict(w,x)
+        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
+        ninstance += size(ygold,2)
     end
+    return ncorrect/ninstance
+end
+```
 
 Now let's train a model on the MNIST data:
 
-    julia> include(Knet.dir("examples","mnist.jl"))
-    julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
-    julia> dtrn = minibatch(xtrn, ytrn, 100)
-    julia> dtst = minibatch(xtst, ytst, 100)
-    julia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]
-    julia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
-    julia> for epoch=1:10
-               train(w, dtrn; lr=0.5)
-               println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
-           end
+```julia
+julia> include(Knet.dir("examples","mnist.jl"))
+julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
+julia> dtrn = minibatch(xtrn, ytrn, 100)
+julia> dtst = minibatch(xtst, ytst, 100)
+julia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]
+julia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
+julia> for epoch=1:10
+           train(w, dtrn; lr=0.5)
+           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
+       end
 
-    (:epoch,0,:trn,0.11761667f0,:tst,0.121f0)
-    (:epoch,1,:trn,0.9005f0,:tst,0.9048f0)
-    ...
-    (:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
+(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)
+(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)
+...
+(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
+```
 
 Including `mnist.jl` loads the MNIST data, downloading it from the
 internet if necessary, and provides a training set (xtrn,ytrn), test set
@@ -227,12 +241,14 @@ with non-linearities in between.
 
 We can define a MLP by slightly modifying the predict function:
 
-    function predict(w,x)
-        for i=1:2:length(w)-2
-            x = max(0, w[i]*x .+ w[i+1])
-        end
-        return w[end-1]*x .+ w[end]
+```julia
+function predict(w,x)
+    for i=1:2:length(w)-2
+        x = max(0, w[i]*x .+ w[i+1])
     end
+    return w[end-1]*x .+ w[end]
+end
+```
 
 Here `w[2k-1]` is the weight matrix and `w[2k]` is the bias vector for
 the k'th layer. max(0,a) implements the popular rectifier non-linearity.
@@ -241,8 +257,10 @@ and softmax models. By adding more entries to w, we can define
 multi-layer perceptrons of arbitrary depth. Let's define one with a
 single hidden layer of 64 units:
 
-    w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
-             -0.1+0.2*rand(Float32,10,64),  zeros(Float32,10,1) ]
+```julia
+w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
+         -0.1+0.2*rand(Float32,10,64),  zeros(Float32,10,1) ]
+```
 
 The rest of the code is the same as the softmax model. We use the same
 cross-entropy loss function and the same training script. The code for
@@ -251,10 +269,12 @@ this example is available in
 The multi-layer perceptron does significantly better than the softmax
 model:
 
-    (:epoch,0,:trn,0.10166667f0,:tst,0.0977f0)
-    (:epoch,1,:trn,0.9389167f0,:tst,0.9407f0)
-    ...
-    (:epoch,10,:trn,0.9866f0,:tst,0.9735f0)
+```julia
+(:epoch,0,:trn,0.10166667f0,:tst,0.0977f0)
+(:epoch,1,:trn,0.9389167f0,:tst,0.9407f0)
+...
+(:epoch,10,:trn,0.9866f0,:tst,0.9735f0)
+```
 
 ### Convolutional neural network
 
@@ -273,36 +293,44 @@ source](http://www.dataiku.com/blog/2015/08/18/Deep_Learning.html))
 Knet provides the [`conv4`](@ref) and [`pool`](@ref) functions for the
 implementation of convolutional nets:
 
-    function predict(w,x0)
-        x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))
-        x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))
-        x3 = max(0, w[5]*mat(x2) .+ w[6])
-        return w[7]*x3 .+ w[8]
-    end
+```julia
+function predict(w,x0)
+    x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))
+    x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))
+    x3 = max(0, w[5]*mat(x2) .+ w[6])
+    return w[7]*x3 .+ w[8]
+end
+```
 
 The weights for the convolutional net can be initialized as follows:
 
-    w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
-             -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
-             -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),
-             -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]
+```julia
+w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
+         -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
+         -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),
+         -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]
+```
 
 Currently convolution and pooling are only supported on the GPU for 4-D
 and 5-D arrays. So we reshape our data and transfer it to the GPU along
 with the parameters by converting them into [`KnetArray`](@ref)s:
 
-    dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
-    dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
-    w = map(KnetArray, w)
+```julia
+dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
+dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
+w = map(KnetArray, w)
+```
 
 The training proceeds as before giving us even better results. The code
 for the LeNet example can be found in
 [lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet.jl).
 
-    (:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
-    (:epoch,1,:trn,0.96963334f0,:tst,0.971f0)
-    ...
-    (:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)
+```julia
+(:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
+(:epoch,1,:trn,0.96963334f0,:tst,0.971f0)
+...
+(:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)
+```
 
 ### Recurrent neural network
 
@@ -351,17 +379,19 @@ concatenation and indexing. [`sigm`](@ref) and `tanh` are the sigmoid
 and the hyperbolic tangent activation functions. The LSTM returns the
 updated state variables `hidden` and `cell`.
 
-    function lstm(weight,bias,hidden,cell,input)
-        gates   = hcat(input,hidden) * weight .+ bias
-        hsize   = size(hidden,2)
-        forget  = sigm(gates[:,1:hsize])
-        ingate  = sigm(gates[:,1+hsize:2hsize])
-        outgate = sigm(gates[:,1+2hsize:3hsize])
-        change  = tanh(gates[:,1+3hsize:end])
-        cell    = cell .* forget + ingate .* change
-        hidden  = outgate .* tanh(cell)
-        return (hidden,cell)
-    end
+```julia
+function lstm(weight,bias,hidden,cell,input)
+    gates   = hcat(input,hidden) * weight .+ bias
+    hsize   = size(hidden,2)
+    forget  = sigm(gates[:,1:hsize])
+    ingate  = sigm(gates[:,1+hsize:2hsize])
+    outgate = sigm(gates[:,1+2hsize:3hsize])
+    change  = tanh(gates[:,1+3hsize:end])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    return (hidden,cell)
+end
+```
 
 The LSTM has an input gate, forget gate and an output gate that control
 information flow. Each gate depends on the current `input` value, and
@@ -390,34 +420,38 @@ converts the output of the final layer to the same number of dimensions
 as the input using a linear transformation. The state variable `s` is
 modified in-place.
 
-    function predict(w, s, x)
-        x = x * w[end-2]
-        for i = 1:2:length(s)
-            (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
-            x = s[i]
-        end
-        return x * w[end-1] .+ w[end]
+```julia
+function predict(w, s, x)
+    x = x * w[end-2]
+    for i = 1:2:length(s)
+        (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
+        x = s[i]
     end
+    return x * w[end-1] .+ w[end]
+end
+```
 
 To train the language model we will use Backpropagation Through Time
 (BPTT) which basically means running the network on a given sequence and
 updating the parameters based on the total loss. Here is a function that
 calculates the total cross-entropy loss for a given (sub)sequence:
 
-    function loss(param,state,sequence,range=1:length(sequence)-1)
-        total = 0.0; count = 0
-        atype = typeof(getval(param[1]))
-        input = convert(atype,sequence[first(range)])
-        for t in range
-            ypred = predict(param,state,input)
-            ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
-            ygold = convert(atype,sequence[t+1])
-            total += sum(ygold .* ynorm)
-            count += size(ygold,1)
-            input = ygold
-        end
-        return -total / count
+```julia
+function loss(param,state,sequence,range=1:length(sequence)-1)
+    total = 0.0; count = 0
+    atype = typeof(getval(param[1]))
+    input = convert(atype,sequence[first(range)])
+    for t in range
+        ypred = predict(param,state,input)
+        ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
+        ygold = convert(atype,sequence[t+1])
+        total += sum(ygold .* ynorm)
+        count += size(ygold,1)
+        input = ygold
     end
+    return -total / count
+end
+```
 
 Here `param` and `state` hold the parameters and the state of the model,
 `sequence` and `range` give us the input sequence and a possible range
@@ -429,20 +463,22 @@ next token. The average cross-entropy loss per token is returned.
 To generate text we sample each character randomly using the
 probabilities predicted by the model based on the previous character:
 
-    function generate(param, state, vocab, nchar)
-        index_to_char = Array(Char, length(vocab))
-        for (k,v) in vocab; index_to_char[v] = k; end
-        input = oftype(param[1], zeros(1,length(vocab)))
-        index = 1
-        for t in 1:nchar
-            ypred = predict(param,state,input)
-            input[index] = 0
-            index = sample(exp(logp(ypred)))
-            print(index_to_char[index])
-            input[index] = 1
-        end
-        println()
+```julia
+function generate(param, state, vocab, nchar)
+    index_to_char = Array(Char, length(vocab))
+    for (k,v) in vocab; index_to_char[v] = k; end
+    input = oftype(param[1], zeros(1,length(vocab)))
+    index = 1
+    for t in 1:nchar
+        ypred = predict(param,state,input)
+        input[index] = 0
+        index = sample(exp(logp(ypred)))
+        print(index_to_char[index])
+        input[index] = 1
     end
+    println()
+end
+```
 
 Here `param` and `state` hold the parameters and state variables as
 usual. `vocab` is a Char-\>Int dictionary of the characters that can be

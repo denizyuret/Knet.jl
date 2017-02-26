@@ -2,9 +2,15 @@ include("header.jl")
 
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 
+# This is missing from base
+countnz2{T}(a::AbstractArray{T},region)=Array{T}(sum(a.!=0,region))
+using AutoGrad
+@zerograd countnz2(a,d...)
+
 reduction_fns = Any[logsumexp]
 for f in Knet.reduction_ops
     if isa(f,Tuple); f=f[2]; end
+    if f == "countnz"; continue; end
     push!(reduction_fns, eval(parse(f)))
 end
 
@@ -45,6 +51,29 @@ end
             end
         end
     end
+
+    # 2-arg countnz is missing in base so we write custom tests for countnz
+    f = countnz
+    f2 = countnz2
+    for t in (Float32, Float64)
+        for n in (1,(1,1),2,(2,1),(1,2),(2,2))
+            # @show f,t,n
+            ax = rand21(f,t,n)
+            @test gradcheck(f, ax)
+            @test gradcheck(f2, ax, 1)
+            @test gradcheck(f2, ax, 2)
+            if gpu() >= 0
+                gx = KnetArray(ax)
+                @test gradcheck(f, gx)
+                @test gradcheck(f, gx, 1)
+                @test gradcheck(f, gx, 2)
+                @test isapprox(f(ax),f(gx))
+                @test isapprox(f2(ax,1),Array(f(gx,1)))
+                @test isapprox(f2(ax,2),Array(f(gx,2)))
+            end
+        end
+    end
+
 end
 
 nothing

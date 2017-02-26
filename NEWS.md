@@ -14,8 +14,8 @@ General
 * Default conv4 padding changed back to 0. Knet.padsize(w) still available to compute size-preserving padding.
 * GPU garbage collection does not print '.', '+' unless user modifies gcinfo macro.
 * It is now an error to try to create a KnetArray when the active device is not a gpu.
-* Updated AutoGrad requirement to v0.0.5.
 * Fixed bug in (scalar .> KnetArray) operation in cuda01.jl.
+* Updated AutoGrad requirement to v0.0.6.
 
 Documentation and Testing
 -------------------------
@@ -28,6 +28,8 @@ Examples
 --------
 * Batch Normalization/ResNet example (resnet.jl) added. (@ilkerkesen)
 * vgg.jl now supports D and E models (@ilkerkesen).
+* hyperband.jl hyperparameter optimization example added.
+* softmax.ipynb IJulia notebook about underfitting, overfitting, regularization and dropout.
 * optimizers.jl padding bug fixed.
 
 

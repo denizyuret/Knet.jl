@@ -59,9 +59,6 @@ for f in reduction_ops
     reduction_op(f...)
 end
 
-# This is missing from Base:
-import Base: countnz
-countnz{T}(a::AbstractArray{T},region)=Array{T}(sum(a.!=0,region))
 @zerograd countnz(a,d...)
 
 # Norm primitives:

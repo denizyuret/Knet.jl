@@ -1,28 +1,28 @@
 language: julia
+
+## https://docs.travis-ci.com/user/languages/julia
+## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
 julia:
   - 0.4
-  - release
+  - 0.5
   - nightly
+os:
+  - linux
+  - osx
 matrix:
   allow_failures:
     - julia: nightly  ## getting too many warnings
 notifications:
   email: false
-after_success:
-  - julia -e 'Pkg.add("Documenter")'
-  - julia -e 'cd(Pkg.dir("Knet")); include(joinpath("docs", "make.jl"))'
+
+before_script:  ## always test with the latest AutoGrad
+  - julia -e 'Pkg.add("AutoGrad"); Pkg.checkout("AutoGrad")'
 
 ## uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("Knet"); Pkg.test("Knet"; coverage=true)'
 
-## https://docs.travis-ci.com/user/languages/julia
-## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
-# julia:
-#   - release
-#   - nightly
-
-# os:
-#   - linux
-#   - osx
+after_success:
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("Knet")); include(joinpath("docs", "make.jl"))'

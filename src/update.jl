@@ -288,51 +288,68 @@ Individual optimization parameters can be one of the following types:
     update!(w, g, p)
 
 """
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Sgd)
-    axpy!(-p.lr, g, w)
-end
+function update! end
 
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Momentum)
-    if p.velocity===nothing; p.velocity=zeros(w); end
-    scale!(p.gamma, p.velocity)
-    axpy!(p.lr, g, p.velocity)
-    axpy!(-1, p.velocity, w)
-end
+for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adam)
-    if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
-    p.t += 1
-    scale!(p.beta1, p.fstm)
-    axpy!(1-p.beta1, g, p.fstm)
-    scale!(p.beta2, p.scndm)
-    axpy!(1-p.beta2, g .* g, p.scndm)
-    fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t) 
-    scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
-    axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
-end
+    function update!(w::$T, g::$T, p::Sgd)
+        axpy!(-p.lr, g, w)
+    end
 
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adagrad)
-    if p.G===nothing; p.G=zeros(w); end
-    axpy!(1, g .* g, p.G)
-    axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
-end
+    function update!(w::$T, g::$T, p::Momentum)
+        if p.velocity===nothing; p.velocity=zeros(w); end
+        scale!(p.gamma, p.velocity)
+        axpy!(p.lr, g, p.velocity)
+        axpy!(-1, p.velocity, w)
+    end
 
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Adadelta)
-    if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
-    scale!(p.rho, p.G)
-    axpy!(1-p.rho, g .* g, p.G)
-    dw = g .* sqrt(p.delta + p.eps) ./ sqrt(p.G + p.eps)
-    scale!(p.rho, p.delta)
-    axpy!(1-p.rho, dw .* dw , p.delta)
-    axpy!(-p.lr, dw, w)
-end
+    function update!(w::$T, g::$T, p::Adam)
+        if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
+        p.t += 1
+        scale!(p.beta1, p.fstm)
+        axpy!(1-p.beta1, g, p.fstm)
+        scale!(p.beta2, p.scndm)
+        axpy!(1-p.beta2, g .* g, p.scndm)
+        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t) 
+        scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
+        axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
+    end
 
-function update!{T<:AbstractFloat}(w::KorA{T}, g::KorA{T}, p::Rmsprop)
-    if p.G===nothing; p.G=zeros(w); end
-    scale!(p.rho, p.G)
-    axpy!(1-p.rho, g .* g, p.G)
-    axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
-end
+    function update!(w::$T, g::$T, p::Adagrad)
+        if p.G===nothing; p.G=zeros(w); end
+        axpy!(1, g .* g, p.G)
+        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+    end
+
+    function update!(w::$T, g::$T, p::Adadelta)
+        if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
+        scale!(p.rho, p.G)
+        axpy!(1-p.rho, g .* g, p.G)
+        dw = g .* sqrt(p.delta + p.eps) ./ sqrt(p.G + p.eps)
+        scale!(p.rho, p.delta)
+        axpy!(1-p.rho, dw .* dw , p.delta)
+        axpy!(-p.lr, dw, w)
+    end
+
+    function update!(w::$T, g::$T, p::Rmsprop)
+        if p.G===nothing; p.G=zeros(w); end
+        scale!(p.rho, p.G)
+        axpy!(1-p.rho, g .* g, p.G)
+        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+    end
+
+    # Two arg defaults to SGD
+    update!(w::$T, g::$T; lr=SGDLR)=axpy!(-lr, g, w)
+
+    # AutoGrad may return Void for a zero gradient
+    update!(w::$T, g::Void, p)=w
+    update!(w::$T, g::Void; o...)=w
+
+    # If type of g does not match, something may be wrong
+    update!(w::$T, g, p)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
+    update!(w::$T, g; o...)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
+
+end; end
 
 # This takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
@@ -349,28 +366,31 @@ end
 
 # We still need an extra method for Dict.
 function update!(w::Associative,g::Associative,p::Associative)
+    if !(length(w)==length(g)==length(p))
+        error("weight, gradient, and optimization parameters not the same length.")
+    end
     for k in keys(w)
         update!(w[k],g[k],p[k])
     end
 end
 
-# Two arg version for the simple default Sgd update.
+# Two arg version defaults to SGD.
 function update!(w,g;lr=SGDLR)
     if !(length(w)==length(g))
         error("weight, gradient not the same length.")
     end
-    sgd = Sgd(lr)
     for (wi,gi) in zip(w,g)
-        update!(wi,gi,sgd)
+        update!(wi,gi;lr=lr)
     end
 end
 
+# Two arg version defaults to SGD.
 function update!(w::Associative,g::Associative;lr=SGDLR)
-    sgd = Sgd(lr)
+    if !(length(w)==length(g))
+        error("weight, gradient not the same length.")
+    end
     for k in keys(w)
-        update!(w[k],g[k],sgd)
+        update!(w[k],g[k];lr=lr)
     end
 end
 
-# To distinuish the two-arg update! for the numeric weight arrays:
-update!{T<:AbstractFloat}(w::KorA{T},g::KorA{T};lr=SGDLR)=update!(w,g,Sgd(lr))

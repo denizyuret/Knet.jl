@@ -42,7 +42,7 @@ Knet.deconv4
 Knet.unpool
 ```
 
-## Optimization
+## Optimization methods
 
 ```@docs
 Knet.update!

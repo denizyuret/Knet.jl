@@ -1,3 +1,51 @@
+2017-02-26  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Issue 88: better handling of difft elt types on data vs weights in update!
+
+	* TODO8:
+	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
+	# add some test for deconv vs conv.
+	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# Latest master failing on nightly; AutoGrad also fails.
+	# AutoGrad: run all tests with KnetArrays
+	# AutoGrad: support for keys, values, next for dictionaries.
+	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
+	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
+	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# mnist2d: implement/test sparse arrays
+	# time doing a single im2col instead of N for conv4
+	# replace T<: conditions in functions with generated code for each type
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms? fft paper from https://arxiv.org/abs/1601.06815.
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
+	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
+2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# bug in AutoGrad: broadcast.jl: $f(x1::Rec,x2::AbstractArray)=$f(x1,x2.value)
+	# gradcheck fails on: bmax(x,y)=broadcast(max,x,y) or bmin(x,y)=((y.<x).*y+(x.<y).*x)
+	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
+
+2017-02-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# automatically generate README.md from tutorial.md.
+	# make examples easier to load (turn off Pkg install for vgg etc, docs take too long)
+	## no easy way to do it without effecting source links.
+
 2017-02-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -8,38 +56,6 @@
 	# ok: need low level blas call with pointers
 	# ok: reimplement conv4x conv4w using col2im?
 	# ok: need separate cpu and gpu libraries: condition makefile on finding nvcc, also cond openmpi like mocha/dep
-
-	* TODO8:
-	# add some test for deconv vs conv.
-	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-	# Latest master failing on nightly; AutoGrad also fails.
-	# AutoGrad: run all tests with KnetArrays
-	# grad of convert (AutoGrad issue), implemented in karray.jl, need to port.
-	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
-	# AutoGrad: support for keys, values, next for dictionaries.
-	# automatically generate README.md from tutorial.md.
-	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
-	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
-	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
-	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# time doing a single im2col instead of N for conv4
-	# replace T<: functions with generated code for each type
-
-	# optimization:
-	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	## optimize reduction and broadcasting kernels.
-	## optimize logp / softmax.
-	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms?
-	## try fusion: we can do layers in one kernel call: relu(wx+b).
-	## try streams or multiple gpus.
-
-	# mnist2d: implement/test sparse arrays
-	# for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
 
 2017-02-18  Deniz Yuret  <dyuret@ku.edu.tr>
 

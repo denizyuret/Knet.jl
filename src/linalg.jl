@@ -181,31 +181,6 @@ function ipermutedims(A::KnetArray,perm)
     return permutedims(A,iperm)
 end
 
-
-# Fixing scalar handling in Ac_mul_B etc.
-# TODO: move these to AutoGrad next version.
-
-using AutoGrad: unbroadcast
-@primitive Ac_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive Ac_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
-@primitive Ac_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive A_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive A_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive A_mul_Bc(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
-@primitive Ac_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive Ac_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive Ac_mul_Bc(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive At_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive At_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
-@primitive At_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive A_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive A_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive A_mul_Bt(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
-@primitive At_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive At_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive At_mul_Bt(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-
-
 # Low level gemm! call with pointers
 
 using Base.LinAlg
