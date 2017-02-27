@@ -4,6 +4,8 @@
 	# Issue 88: better handling of difft elt types on data vs weights in update!
 
 	* TODO8:
+	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue.
+	# Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
 	# add some test for deconv vs conv.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
