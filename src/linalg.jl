@@ -87,18 +87,7 @@ scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
 
 function transpose{T}(x::KnetArray{T})
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
-    sz = size(x)
-    y = similar(x,(sz[2],sz[1]))
-    if T<:Float32
-        @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
-    elseif T<:Float64
-        @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
-    else
-        error("CUBLAS does not support $T")
-    end
-    return y
+    permutedims(x,[2 1])
 end
 
 
