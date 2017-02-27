@@ -134,31 +134,24 @@ import Base: permutedims, ipermutedims
 function permutedims{T,N}(x::KnetArray{T,N}, dims)
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
-        # use individual == to cover row col vecs tuples etc
-        if dims[1]==1 && dims[2]==2
-            return copy(x)
-        elseif dims[1]==2 && dims[2]==1
-            return transpose(x)
-        else
-            throw(ArgumentError("no valid permutation of dimensions"))
-        end
+        funcName = permutefunc(x,dims)
+        y = similar(x, size(x,dims[1]), size(x,dims[2]))
+        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint),
+                    $x,size($x,1),size($x,2),$y,size($y,1),size($y,2))
+        return y
     elseif N == 3
-        if dims[1]==1 && dims[2]==2 && dims[3]==3
-            return copy(x)
-        else
-            funcName = permutefunc(x,dims)
-            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                        $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
-            return y
-        end
+        funcName = permutefunc(x,dims)
+        y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
+        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                    $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
+        return y
     elseif N == 4 || N == 5
         error("Not yet implemented")
     end
 end
 
 function permutefunc{T,N}(x::KnetArray{T,N}, dims)
-    funcName = "permutedims$(N)D_"
+    funcName = "permutedims_$(N)D_"
     for i=1:N
         funcName = funcName * "$(dims[i])_"
     end
@@ -169,7 +162,6 @@ function permutefunc{T,N}(x::KnetArray{T,N}, dims)
     else
         error("$T not supported")
     end
-    funcName = funcName * "_44"
     return funcName
 end    
 
