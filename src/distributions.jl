@@ -25,8 +25,9 @@ calls it `GlorotUniform`.
 """
 function xavier(a...)
     w = rand(a...)
-    if ndims(w) < 2
-        error("ndims=$(ndims(w)) in xavier")
+    if ndims(w) == 1
+        fanout = 1
+        fanin = length(w)
     elseif ndims(w) == 2
         fanout = size(w,1)
         fanin = size(w,2)
