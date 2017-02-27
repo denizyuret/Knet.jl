@@ -87,7 +87,21 @@ scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
 
 function transpose{T}(x::KnetArray{T})
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
-    permutedims(x,[2 1])
+    # Using CUBLAS
+    sz = size(x)
+    y = similar(x,(sz[2],sz[1]))
+    if T<:Float32
+        @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    elseif T<:Float64
+        @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    else
+        error("CUBLAS does not support $T")
+    end
+    # Using CUDA kernel; performs worse than CUBLAS
+    # y = permutedims(x,[2 1])
+    return y
 end
 
 
@@ -123,29 +137,53 @@ import Base: permutedims, ipermutedims
 function permutedims{T,N}(x::KnetArray{T,N}, dims)
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
+        # Using CUBLAS
+        # use individual == to cover row col vecs tuples etc
+        if dims[1]==1 && dims[2]==2
+            return copy(x)
+        elseif dims[1]==2 && dims[2]==1
+            return transpose(x)
+        else
+            throw(ArgumentError("no valid permutation of dimensions"))
+        end
+        # Using CUDA kernel; performs worse
+        #=
         funcName = permutefunc(x,dims)
         y = similar(x, size(x,dims[1]), size(x,dims[2]))
         @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
                     $x,size($x,1),size($x,2),$y,size($y,1))
         return y
+        =#
     elseif N == 3
-        funcName = permutefunc(x,dims)
-        y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
-                    $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
-        return y
+        if dims[1]==1 && dims[2]==2 && dims[3]==3
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
+            return y
+        end
     elseif N == 4
-        funcName = permutefunc(x,dims)
-        y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
-        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                    $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
-        return y
+        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
+            return y
+        end
     elseif N == 5
-        funcName = permutefunc(x,dims)
-        y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
-        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
-                    $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
-        return y
+        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4 && dims[5]==5
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
+            return y
+        end
     else
         error("Unsupported number of dimensions")
     end
