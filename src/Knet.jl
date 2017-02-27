@@ -1,7 +1,7 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
-using Compat
+using Compat, Combinatorics
 
 const libknet8 = Libdl.find_library(["libknet8.so"], [dirname(@__FILE__)])
 

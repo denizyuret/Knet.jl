@@ -65,7 +65,7 @@ include("header.jl")
             @test gradcheck(mat, ka)
         end
 
-        for p in ([1,2], [2,1])
+        for p in collect(permutations([1,2],2))
             p2(x) = permutedims(x,p)
             @test gradcheck(p2, a)
             if gpu() >= 0
@@ -76,7 +76,7 @@ include("header.jl")
 
         a3 = rand(2,3,4)
         if gpu() >= 0; k3 = KnetArray(a3); end
-        for p in ([1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1])
+        for p in collect(permutations([1,2,3],3))
             p3(x) = permutedims(x,p)
             @test gradcheck(p3, a3)
             if gpu() >= 0
