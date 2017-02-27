@@ -145,7 +145,13 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
                     $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
         return y
-    elseif N == 4 || N == 5
+    elseif N == 4
+        funcName = permutefunc(x,dims)
+        y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
+        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+                    $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3),size($y,4))
+        return y
+    elseif N == 5
         error("Not yet implemented")
     end
 end
