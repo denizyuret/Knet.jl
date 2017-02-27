@@ -137,23 +137,23 @@ import Base: permutedims, ipermutedims
 function permutedims{T,N}(x::KnetArray{T,N}, dims)
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
-        # Using CUBLAS
         # use individual == to cover row col vecs tuples etc
         if dims[1]==1 && dims[2]==2
             return copy(x)
         elseif dims[1]==2 && dims[2]==1
+            # Using CUDA kernel; performs worse
+            #=
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+                        $x,size($x,1),size($x,2),$y,size($y,1))
+            return y
+            =#
+            # Using CUBLAS
             return transpose(x)
         else
             throw(ArgumentError("no valid permutation of dimensions"))
         end
-        # Using CUDA kernel; performs worse
-        #=
-        funcName = permutefunc(x,dims)
-        y = similar(x, size(x,dims[1]), size(x,dims[2]))
-        @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
-                    $x,size($x,1),size($x,2),$y,size($y,1))
-        return y
-        =#
     elseif N == 3
         if dims[1]==1 && dims[2]==2 && dims[3]==3
             return copy(x)
