@@ -114,7 +114,7 @@ function main(args=ARGS)
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
-        ("--iters"; arg_type=Int; default=1800; help="maximum number of updates for training")
+        ("--iters"; arg_type=Int; default=typemax(Int); help="maximum number of updates for training")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end

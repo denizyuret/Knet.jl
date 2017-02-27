@@ -32,7 +32,7 @@ Knet.relu
 Knet.sigm
 ```
 
-## Convolution
+## Convolution and Pooling
 
 ```@docs
 Knet.conv4
