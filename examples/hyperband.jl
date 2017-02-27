@@ -149,15 +149,13 @@ function zeroone(w,data,model)
     return 1 - ncorr/ninst
 end
 
-if !isdefined(:MNIST)
+function load_mnist()
     include(Knet.dir("examples","mnist.jl"))
     MNIST.loaddata()
     using MNIST: xtrn,ytrn,xtst,ytst,minibatch
     dtst = minibatch(xtst,ytst,100;atype=Atype)
     dtrn = minibatch(xtrn,ytrn,100;atype=Atype)
 end
-
-info("Usage: hyperband(getconfig1, getloss1)")
 
 # For a winit(64) MLP:
 # best winit=0.01 tst=.0894 trn=.0422 epoch=13
