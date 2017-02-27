@@ -341,10 +341,6 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     # Two arg defaults to SGD
     update!(w::$T, g::$T; lr=SGDLR)=axpy!(-lr, g, w)
 
-    # AutoGrad may return Void for a zero gradient
-    update!(w::$T, g::Void, p)=w
-    update!(w::$T, g::Void; o...)=w
-
     # If type of g does not match, something may be wrong
     update!(w::$T, g, p)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
     update!(w::$T, g; o...)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
@@ -394,3 +390,6 @@ function update!(w::Associative,g::Associative;lr=SGDLR)
     end
 end
 
+# AutoGrad may return Void for a zero gradient
+update!(w, g::Void, p)=w
+update!(w, g::Void; o...)=w
