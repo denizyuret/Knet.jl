@@ -95,6 +95,17 @@ include("header.jl")
                 @test gradcheck(p4, k4)
             end
         end
+
+        a5 = rand(2,3,4,5,6)
+        if gpu() >= 0; k5 = KnetArray(a5); end
+        for p in collect(permutations([1,2,3,4,5],5))
+            p5(x) = permutedims(x,p)
+            @test gradcheck(p5, a5)
+            if gpu() >= 0
+                @test isapprox(p5(a5), Array(p5(k5)))
+                @test gradcheck(p5, k5)
+            end
+        end
     end
 end
 

@@ -194,9 +194,39 @@ extern "C" {
     end
 end
 
+function permutedims5Dsrc(f,i1,i2,i3,i4,i5; BLK=256,THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)32"),("double","$(f)64")]
+            print(s,
+"""
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4, int dimy5) {
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3*dimx4*dimx5; v += blockDim.x * gridDim.x) {
+
+    //From 1D to 5D indices
+    int i = v % dimx1;
+    int j = ((v - i) / dimx1) % dimx2;
+    int k = ((v - i - j * dimx1) / (dimx1*dimx2)) % dimx3;
+    int l = ((v - i - j * dimx1 - k * dimx1 * dimx2) / (dimx1*dimx2*dimx3)) % dimx4;
+    int m = ((v - i - j * dimx1 - k * dimx1 * dimx2 - l * dimx1 * dimx2 * dimx3) / (dimx1*dimx2*dimx3*dimx4)) % dimx5;
+
+    //Calculate destination
+    int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2 + $i4*dimy1*dimy2*dimy3 + $i5*dimy1*dimy2*dimy3*dimy4;
+    y[destIndex] = x[v];
+	}
+}
+extern "C" {
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4, int dimy5) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4,dimy5);
+  }    
+}
+""")
+        end
+    end
+end
+
 function cuda1permutedims()
-  cudaPerms = [permutedims2Dsrc,permutedims3Dsrc,permutedims4Dsrc]
-  for i=2:4
+  cudaPerms = [permutedims2Dsrc,permutedims3Dsrc,permutedims4Dsrc,permutedims5Dsrc]
+  for i=2:5
       dims = collect(permutations([1:i...],i))
       indnames = collect(permutations(["i","j","k","l","m"][1:i],i))
       for j=1:length(dims)
