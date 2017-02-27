@@ -115,12 +115,12 @@ function permutedims2Dsrc(f,i1,i2; BLK=256,THR=256)
         for (T,F) in [("float","$(f)32"),("double","$(f)64")]
             print(s,
 """
-__global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1, int dimy2) {
+__global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
   for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2; v += blockDim.x * gridDim.x) {
 
     //From 1D to 2D indices
     int i = v % dimx1;
-    int j = ((v - i) / dimx1) % dimx2;
+    int j = (v-i) / dimx1;
 
     //Calculate destination
     int destIndex = $i1 + $i2*dimy1;
@@ -128,8 +128,8 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1, int dimy2) 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1, int dimy2) {
-    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1,dimy2);
+  void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
   }    
 }
 """)
@@ -142,13 +142,13 @@ function permutedims3Dsrc(f,i1,i2,i3; BLK=256,THR=256)
         for (T,F) in [("float","$(f)32"),("double","$(f)64")]
             print(s,
 """
-__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
   for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3; v += blockDim.x * gridDim.x) {
 
     //From 1D to 3D indices
     int i = v % dimx1;
-    int j = ((v - i) / dimx1) % dimx2;
-    int k = ((v - i - j * dimx1) / (dimx1*dimx2)) % dimx3;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = (v-i-j*dimx1) / (dimx1*dimx2);
 
     //Calculate destination
     int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2;
@@ -156,8 +156,8 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
-    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2,dimy3);
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
   }    
 }
 """)
@@ -170,14 +170,14 @@ function permutedims4Dsrc(f,i1,i2,i3,i4; BLK=256,THR=256)
         for (T,F) in [("float","$(f)32"),("double","$(f)64")]
             print(s,
 """
-__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
   for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3*dimx4; v += blockDim.x * gridDim.x) {
 
     //From 1D to 4D indices
     int i = v % dimx1;
-    int j = ((v - i) / dimx1) % dimx2;
-    int k = ((v - i - j * dimx1) / (dimx1*dimx2)) % dimx3;
-    int l = ((v - i - j * dimx1 - k * dimx1 * dimx2) / (dimx1*dimx2*dimx3)) % dimx4;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = ((v-i-j*dimx1) / (dimx1*dimx2)) % dimx3;
+    int l = (v-i-j*dimx1-k*dimx1*dimx2) / (dimx1*dimx2*dimx3);
 
     //Calculate destination
     int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2 + $i4*dimy1*dimy2*dimy3;
@@ -185,8 +185,8 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
-    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3,dimy4);
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
   }    
 }
 """)
@@ -199,15 +199,15 @@ function permutedims5Dsrc(f,i1,i2,i3,i4,i5; BLK=256,THR=256)
         for (T,F) in [("float","$(f)32"),("double","$(f)64")]
             print(s,
 """
-__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4, int dimy5) {
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
   for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3*dimx4*dimx5; v += blockDim.x * gridDim.x) {
 
     //From 1D to 5D indices
     int i = v % dimx1;
-    int j = ((v - i) / dimx1) % dimx2;
-    int k = ((v - i - j * dimx1) / (dimx1*dimx2)) % dimx3;
-    int l = ((v - i - j * dimx1 - k * dimx1 * dimx2) / (dimx1*dimx2*dimx3)) % dimx4;
-    int m = ((v - i - j * dimx1 - k * dimx1 * dimx2 - l * dimx1 * dimx2 * dimx3) / (dimx1*dimx2*dimx3*dimx4)) % dimx5;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = ((v-i-j*dimx1) / (dimx1*dimx2)) % dimx3;
+    int l = ((v-i-j*dimx1-k*dimx1*dimx2) / (dimx1*dimx2*dimx3)) % dimx4;
+    int m = (v-i-j*dimx1-k*dimx1*dimx2-l*dimx1*dimx2*dimx3) / (dimx1*dimx2*dimx3*dimx4);
 
     //Calculate destination
     int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2 + $i4*dimy1*dimy2*dimy3 + $i5*dimy1*dimy2*dimy3*dimy4;
@@ -215,8 +215,8 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dim
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4, int dimy5) {
-    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4,dimy5);
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
   }    
 }
 """)
