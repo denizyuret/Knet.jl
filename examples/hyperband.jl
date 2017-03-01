@@ -117,7 +117,7 @@ function dropout(x,p)
     if p == 0
         x
     else
-        x .* (rand!(similar(AutoGrad.getval(x))) .> p)
+        x .* (rand!(similar(x)) .> p) ./ (1-p)
     end
 end
 
