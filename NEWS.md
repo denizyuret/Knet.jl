@@ -1,3 +1,20 @@
+Knet v0.8.3 Release Notes
+=========================
+
+General
+-------
+* Added per weight gradient clip to `update!`.
+* Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
+* Added `setseed` to do `srand` in both cpu and gpu.
+
+Documentation and Testing
+-------------------------
+
+Examples
+--------
+* Fixed vgg and resnet demos to use the new version of Images.jl.
+
+
 Knet v0.8.2 Release Notes
 =========================
 

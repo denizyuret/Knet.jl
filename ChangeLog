@@ -1,9 +1,11 @@
-2017-02-26  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-02-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# Issue 88: better handling of difft elt types on data vs weights in update!
 
 	* TODO8:
+	# Add dropout as a primitive.
+	# Setup attobot for next release: https://github.com/attobot/attobot.
+	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base.
 	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue.
 	# Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
@@ -33,6 +35,11 @@
 	## try fusion: we can do layers in one kernel call: relu(wx+b).
 	## try streams or multiple gpus.
 	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
+2017-02-26  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Issue 88: better handling of difft elt types on data vs weights in update!
 
 2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
