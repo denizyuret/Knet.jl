@@ -1,6 +1,6 @@
 """
 
-    Sgd(;lr=0.001)
+    Sgd(;lr=0.001,gclip=0)
     update!(w,g,p::Sgd)
     update!(w,g;lr=0.001)
 
@@ -17,22 +17,26 @@ weights with the following formula:
 where `w` is a weight array, `g` is the gradient of the loss function
 w.r.t `w` and `lr` is the learning rate.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 SGD is used by default if no algorithm is specified in the two
 argument version of `update!`[@ref].
 
 """
 type Sgd
     lr::AbstractFloat
+    gclip::AbstractFloat
 end
 
 const SGDLR=0.001
 
-Sgd(;lr=SGDLR)=Sgd(lr)
+Sgd(;lr=SGDLR,gclip=0)=Sgd(lr,gclip)
 
 
 """
 
-    Momentum(;lr=0.001, gamma=0.9)
+    Momentum(;lr=0.001, gclip=0, gamma=0.9)
     update(w,g,p::Momentum)
 
 Container for parameters of the Momentum optimization algorithm used
@@ -50,6 +54,9 @@ function w.r.t `w`, `lr` is the learning rate, `gamma` is the momentum
 parameter, `velocity` is an array with the same size and type of `w`
 and holds the accelerated gradients.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 Reference: [Qian,
 N. (1999)](http://doi.org/10.1016/S0893-6080(98)00116-6). On the
 momentum term in gradient descent learning algorithms.  Neural
@@ -59,16 +66,17 @@ Society, 12(1), 145–151.
 """
 type Momentum
     lr::AbstractFloat
+    gclip::AbstractFloat
     gamma::AbstractFloat
     velocity
 end
 
-Momentum(; lr=0.001, gamma=0.9)=Momentum(lr, gamma, nothing)
+Momentum(; lr=0.001, gclip=0, gamma=0.9)=Momentum(lr, gclip, gamma, nothing)
 
 
 """
 
-    Adagrad(;lr=0.1, eps=1e-6)
+    Adagrad(;lr=0.1, gclip=0, eps=1e-6)
     update(w,g,p::Adagrad)
 
 Container for parameters of the Adagrad optimization algorithm used by
@@ -92,6 +100,9 @@ size and type of `w` and holds the sum of the squares of the
 gradients. `eps` is a small constant to prevent a zero value in the
 denominator.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 Reference: [Duchi, J., Hazan, E., & Singer,
 Y. (2011)](http://jmlr.org/papers/v12/duchi11a.html). Adaptive
 Subgradient Methods for Online Learning and Stochastic Optimization.
@@ -100,16 +111,17 @@ Journal of Machine Learning Research, 12, 2121–2159.
 """
 type Adagrad
     lr::AbstractFloat
+    gclip::AbstractFloat
     eps::AbstractFloat
     G
 end
 
-Adagrad(; lr=0.1, eps=1e-6)=Adagrad(lr, eps, nothing)
+Adagrad(; lr=0.1, gclip=0, eps=1e-6)=Adagrad(lr, gclip, eps, nothing)
 
 
 """
 
-    Adadelta(;lr=0.01, rho=0.9, eps=1e-6)
+    Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)
     update(w,g,p::Adadelta)
 
 Container for parameters of the Adadelta optimization algorithm used by
@@ -134,25 +146,29 @@ denominator.  `rho` is the momentum parameter and `delta` is an array
 with the same size and type of `w` and holds the sum of the squared
 updates.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 Reference: [Zeiler,
 M. D. (2012)](http://arxiv.org/abs/1212.5701). ADADELTA: An Adaptive
 Learning Rate Method.
 
 """
 type Adadelta
-	lr::AbstractFloat
-	rho::AbstractFloat
-	eps::AbstractFloat
-	G
-	delta
+    lr::AbstractFloat
+    gclip::AbstractFloat
+    rho::AbstractFloat
+    eps::AbstractFloat
+    G
+    delta
 end
 
-Adadelta(; lr=0.01, rho=0.9, eps=1e-6)=Adadelta(lr, rho, eps, nothing, nothing)
+Adadelta(; lr=0.01, gclip=0, rho=0.9, eps=1e-6)=Adadelta(lr, gclip, rho, eps, nothing, nothing)
 
 
 """
 
-    Rmsprop(;lr=0.001, rho=0.9, eps=1e-6)
+    Rmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)
     update(w,g,p::Rmsprop)
 
 Container for parameters of the Rmsprop optimization algorithm used by
@@ -172,6 +188,9 @@ denominator.  `rho` is the momentum parameter and `delta` is an array
 with the same size and type of `w` and holds the sum of the squared
 updates.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 Reference: [Tijmen Tieleman and Geoffrey Hinton
 (2012)](https://dirtysalt.github.io/images/nn-class-lec6.pdf). "Lecture
 6.5-rmsprop: Divide the gradient by a running average of its recent
@@ -179,18 +198,19 @@ magnitude."  COURSERA: Neural Networks for Machine Learning 4.2.
 
 """
 type Rmsprop
-	lr::AbstractFloat
-	rho::AbstractFloat
-	eps::AbstractFloat
-	G
+    lr::AbstractFloat
+    gclip::AbstractFloat
+    rho::AbstractFloat
+    eps::AbstractFloat
+    G
 end
 
-Rmsprop(; lr=0.001, rho=0.9, eps=1e-6)=Rmsprop(lr, rho, eps, nothing)
+Rmsprop(; lr=0.001, gclip=0, rho=0.9, eps=1e-6)=Rmsprop(lr, gclip, rho, eps, nothing)
 
 
 """
 
-    Adam(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)
+    Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
     update(w,g,p::Adam)
 
 Container for parameters of the Adam optimization algorithm used by
@@ -215,6 +235,9 @@ squares of the gradients. `eps` is a small constant to prevent a zero
 denominator. `beta1` and `beta2` are the parameters to calculate bias
 corrected first and second moments. `t` is the update count.
 
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip==0` no scaling takes place.
+
 Reference: [Kingma, D. P., & Ba,
 J. L. (2015)](https://arxiv.org/abs/1412.6980). Adam: a Method for
 Stochastic Optimization. International Conference on Learning
@@ -223,6 +246,7 @@ Representations, 1–13.
 """
 type Adam
     lr::AbstractFloat
+    gclip::AbstractFloat
     beta1::AbstractFloat
     beta2::AbstractFloat
     eps::AbstractFloat
@@ -231,18 +255,19 @@ type Adam
     scndm
 end
 
-Adam(; lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, beta1, beta2, eps, 0, nothing, nothing)
+Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta1, beta2, eps, 0, nothing, nothing)
 
 
 """
 
     update!(weights, gradients, params)
-    update!(weights, gradients; lr=0.001)
+    update!(weights, gradients; lr=0.001, gclip=0)
 
 Update the `weights` using their `gradients` and the optimization
 algorithm parameters specified by `params`.  The 2-arg version
-defaults to the [`Sgd`](@ref) algorithm with learning rate `lr`.  The
-`weights` and possibly `params` are modified in-place.
+defaults to the [`Sgd`](@ref) algorithm with learning rate `lr` and
+gradient clip `gclip`.  `gclip==0` indicates no clipping. The
+`weights` and possibly `gradients` and `params` are modified in-place.
 
 `weights` can be an individual numeric array or a collection of arrays
 represented by an iterator or dictionary.  In the individual case,
@@ -256,13 +281,16 @@ algorithms running in parallel.  In the iterator case, `gradients` and
 corresponding elements.  In the dictionary case, `gradients` and
 `params` should be dictionaries with the same keys as `weights`.
 
-Individual optimization parameters can be one of the following types:
-* [`Sgd`](@ref)`(;lr=0.001)`
-* [`Momentum`](@ref)`(;lr=0.001, gamma=0.9)`
-* [`Rmsprop`](@ref)`(;lr=0.001, rho=0.9, eps=1e-6)`
-* [`Adagrad`](@ref)`(;lr=0.1, eps=1e-6)`
-* [`Adadelta`](@ref)`(;lr=0.01, rho=0.9, eps=1e-6)`
-* [`Adam`](@ref)`(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8)`
+Individual optimization parameters can be one of the following
+types. The keyword arguments for each type's constructor and their
+default values are listed as well.
+
+* [`Sgd`](@ref)`(;lr=0.001, gclip=0)`
+* [`Momentum`](@ref)`(;lr=0.001, gclip=0, gamma=0.9)`
+* [`Rmsprop`](@ref)`(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)`
+* [`Adagrad`](@ref)`(;lr=0.1, gclip=0, eps=1e-6)`
+* [`Adadelta`](@ref)`(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)`
+* [`Adam`](@ref)`(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)`
 
 # Example:
 
@@ -293,10 +321,18 @@ function update! end
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
     function update!(w::$T, g::$T, p::Sgd)
+        gclip!(g, p.gclip)
         axpy!(-p.lr, g, w)
     end
 
+    # Two arg defaults to SGD
+    function update!(w::$T, g::$T; lr=SGDLR, gclip=0)
+        gclip!(g, gclip)
+        axpy!(-lr, g, w)
+    end
+
     function update!(w::$T, g::$T, p::Momentum)
+        gclip!(g, p.gclip)
         if p.velocity===nothing; p.velocity=zeros(w); end
         scale!(p.gamma, p.velocity)
         axpy!(p.lr, g, p.velocity)
@@ -304,6 +340,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     end
 
     function update!(w::$T, g::$T, p::Adam)
+        gclip!(g, p.gclip)
         if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
         p.t += 1
         scale!(p.beta1, p.fstm)
@@ -316,12 +353,14 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     end
 
     function update!(w::$T, g::$T, p::Adagrad)
+        gclip!(g, p.gclip)
         if p.G===nothing; p.G=zeros(w); end
         axpy!(1, g .* g, p.G)
         axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
     end
 
     function update!(w::$T, g::$T, p::Adadelta)
+        gclip!(g, p.gclip)
         if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
@@ -332,14 +371,12 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     end
 
     function update!(w::$T, g::$T, p::Rmsprop)
+        gclip!(g, p.gclip)
         if p.G===nothing; p.G=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
         axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
     end
-
-    # Two arg defaults to SGD
-    update!(w::$T, g::$T; lr=SGDLR)=axpy!(-lr, g, w)
 
     # If type of g does not match, something may be wrong
     update!(w::$T, g, p)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
@@ -379,22 +416,34 @@ function update!(w::Associative,g::Associative,p::Associative)
 end
 
 # Two arg version defaults to SGD.
-function update!(w,g;lr=SGDLR)
+function update!(w,g;lr=SGDLR,gclip=0)
     if !(length(w)==length(g))
         error("weight, gradient not the same length.")
     end
     for (wi,gi) in zip(w,g)
-        update!(wi,gi;lr=lr)
+        update!(wi,gi;lr=lr,gclip=gclip)
     end
 end
 
 # Two arg version defaults to SGD.
-function update!(w::Associative,g::Associative;lr=SGDLR)
+function update!(w::Associative,g::Associative;lr=SGDLR,gclip=0)
     if !(length(w)==length(g))
         error("weight, gradient not the same length.")
     end
     for k in keys(w)
-        update!(w[k],g[k];lr=lr)
+        update!(w[k],g[k];lr=lr,gclip=gclip)
     end
 end
 
+function gclip!(g, gclip)
+    if gclip == 0
+        g
+    else
+        gnorm = vecnorm(g)
+        if gnorm <= gclip
+            g
+        else
+            scale!(gclip/gnorm, g)
+        end
+    end
+end
