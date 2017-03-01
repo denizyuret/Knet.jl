@@ -189,3 +189,29 @@ end
 # dy should be -p and y=logq so this should give us -p+q
 @primitive  logp(x,d...),dy,y  logpback(x,y,dy,d...)
 
+
+#=
+
+# Dropout: work in progress
+
+function dropout(x,p)
+    if p > 0
+        x .* (rand!(similar(x)) .> p) ./ (1-p)
+    else
+        x
+    end
+end
+
+function dropback(x,p,y,dy)
+    if x===y
+        dy
+    else
+        dy .* (y .!== 0) ./ (1-p)  # TODO: test this
+    end
+end
+
+@primitive  dropout(x,p),dy,y  dropback(x,p,y,dy)
+
+# TODO: write efficient gpu kernel
+
+=#
