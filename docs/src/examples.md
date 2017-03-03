@@ -36,10 +36,6 @@ ResNet
 ```@docs
 Optimizers
 ```
-## Hyperband
-```@docs
-hyperband
-```
 ## Overfitting, underfitting, regularization, dropout
 [softmax.ipynb](https://github.com/denizyuret/Knet.jl/tree/master/examples/softmax.ipynb)
 is an IJulia notebook demonstrating overfitting, underfitting,

@@ -8,7 +8,7 @@ using Documenter, Knet
 
 # Load examples
 load_only = true
-for ex in ("linreg","housing","mnist","lenet","charlm","optimizers","vgg","resnet","hyperband")
+for ex in ("linreg","housing","mnist","lenet","charlm","optimizers","vgg","resnet")
     println("$ex.jl")
     include(Knet.dir("examples","$ex.jl"))
 end
