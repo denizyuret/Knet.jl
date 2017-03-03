@@ -129,19 +129,21 @@ function main(args="")
         # ("--xtype"; help="input array type: defaults to atype")
         # ("--ytype"; help="output array type: defaults to atype")
     end
-    println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
-    println("opts=",[(k,v) for (k,v) in o]...)
+    if !o[:fast]
+        println(s.description)
+        println("opts=",[(k,v) for (k,v) in o]...)
+    end
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
     if !isdefined(MNIST,:xtrn); loaddata(); end
-    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
-    dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]
