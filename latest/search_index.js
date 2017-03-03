@@ -329,22 +329,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "examples.html#hyperband",
-    "page": "Examples",
-    "title": "hyperband",
-    "category": "Function",
-    "text": "hyperband(getconfig, getloss, maxresource=27, reduction=3)\n\nHyperparameter optimization using the hyperband algorithm from (Lisha et al. 2016). You can try a simple MNIST example using hyperband(getconfig1,getloss1) after loading this example.\n\nArguments\n\ngetconfig() returns random configurations with a user defined type and distribution.\ngetloss(c,n) returns loss for configuration c and number of resources (e.g. epochs) n.\nmaxresource is the maximum number of resources any one configuration should be given.\nreduction is an algorithm parameter (see paper), 3 is a good value.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#Hyperband-1",
-    "page": "Examples",
-    "title": "Hyperband",
-    "category": "section",
-    "text": "hyperband"
-},
-
-{
     "location": "examples.html#Overfitting,-underfitting,-regularization,-dropout-1",
     "page": "Examples",
     "title": "Overfitting, underfitting, regularization, dropout",
@@ -590,6 +574,30 @@ var documenterSearchIndex = {"docs": [
     "title": "Optimization methods",
     "category": "section",
     "text": "Knet.update!\nKnet.Sgd\nKnet.Momentum\nKnet.Adagrad\nKnet.Adadelta\nKnet.Rmsprop\nKnet.Adam"
+},
+
+{
+    "location": "reference.html#Knet.goldensection",
+    "page": "Reference",
+    "title": "Knet.goldensection",
+    "category": "Function",
+    "text": "goldensection(f,n;kwargs) => (fmin,xmin)\n\nFind the minimum of f using concurrent golden section search in n dimensions. See Knet.goldensection_demo() for an example.\n\nf is a function from Vector{Float64} of length n to a Number. The initial input to f will be a zero vector, and the initial step size will be 1 in each dimension.  The user should define f to scale x into a vector meaningful for their application. f can return NaN for out of range inputs.\n\nI designed this algorithm combining ideas from Golden Section Search and Hill Climbing Search. It essentially runs golden section search concurrently in each dimension, picking the next step based on estimated gain.\n\nKeyword arguments\n\ndxmin=0.1: smallest step size.\naccel=φ: acceleration rate. Golden ratio φ=1.618... is best.\nverbose=false: use true to print individual steps.\nhistory=[]: cache of [(x,f(x)),...] function evaluations.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.hyperband",
+    "page": "Reference",
+    "title": "Knet.hyperband",
+    "category": "Function",
+    "text": "hyperband(getconfig, getloss, maxresource=27, reduction=3)\n\nHyperparameter optimization using the hyperband algorithm from (Lisha et al. 2016).  You can try a simple MNIST example using Knet.hyperband_demo(). \n\nArguments\n\ngetconfig() returns random configurations with a user defined type and distribution.\ngetloss(c,n) returns loss for configuration c and number of resources (e.g. epochs) n.\nmaxresource is the maximum number of resources any one configuration should be given.\nreduction is an algorithm parameter (see paper), 3 is a good value.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Hyperparameter-optimization-1",
+    "page": "Reference",
+    "title": "Hyperparameter optimization",
+    "category": "section",
+    "text": "Knet.goldensection\nKnet.hyperband"
 },
 
 {
