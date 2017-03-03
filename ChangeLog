@@ -1,15 +1,21 @@
-2017-02-28  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-03-03  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
+	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue. Wikipedia has good pseudocode. Bandits may work better.
 
 	* TODO8:
-	# Add dropout as a primitive.
+	# docs: write rnn chapter. fix earlier chapters.
+	# navigation: implement world represenation.
+	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# Add dropout as a primitive. Need kernel.
+	# s2s: Add a generic s2s example to Knet/examples. Need to solve minibatching / concat first.
 	# Setup attobot for next release: https://github.com/attobot/attobot.
 	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base.
-	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue.
-	# Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention.
-	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual.
-	# add some test for deconv vs conv.
+	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
+	# add some test for deconv vs conv. dropout, gclip.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
 	# Latest master failing on nightly; AutoGrad also fails.
 	# AutoGrad: run all tests with KnetArrays
@@ -18,9 +24,6 @@
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
 	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
 	# mnist2d: implement/test sparse arrays
 	# time doing a single im2col instead of N for conv4
 	# replace T<: conditions in functions with generated code for each type
@@ -35,6 +38,11 @@
 	## try fusion: we can do layers in one kernel call: relu(wx+b).
 	## try streams or multiple gpus.
 	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
+2017-03-01  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Add gclip to update!.
 
 2017-02-26  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -54,6 +54,13 @@ Knet.Rmsprop
 Knet.Adam
 ```
 
+## Hyperparameter optimization
+
+```@docs
+Knet.goldensection
+Knet.hyperband
+```
+
 ## Initialization
 
 ```@docs

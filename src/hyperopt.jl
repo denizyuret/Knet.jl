@@ -1,14 +1,115 @@
-using Knet
-Atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
+"""
+
+    goldensection(f,n;kwargs) => (fmin,xmin)
+
+Find the minimum of `f` using concurrent golden section search in `n`
+dimensions. See `Knet.goldensection_demo()` for an example.
+
+`f` is a function from `Vector{Float64}` of length `n` to a `Number`.
+The initial input to `f` will be a zero vector, and the initial step
+size will be 1 in each dimension.  The user should define `f` to scale
+`x` into a vector meaningful for their application. `f` can return
+`NaN` for out of range inputs.
+
+I designed this algorithm combining ideas from [Golden Section
+Search](http://apps.nrbook.com/empanel/index.html?pg=492) and [Hill
+Climbing Search](https://en.wikipedia.org/wiki/Hill_climbing). It
+essentially runs golden section search concurrently in each dimension,
+picking the next step based on estimated gain.
+
+# Keyword arguments    
+* `dxmin=0.1`: smallest step size.
+* `accel=φ`: acceleration rate. Golden ratio `φ=1.618...` is best.
+* `verbose=false`: use `true` to print individual steps.
+* `history=[]`: cache of `[(x,f(x)),...]` function evaluations.
+
+"""
+function goldensection(f,n; dxmin=0.1, accel=golden, history=[], verbose=false)
+
+    function feval(x)           # so we don't repeat function evaluations
+        for (k,v) in history
+            if isapprox(x,k)
+                return v
+            end
+        end
+        fx = f(x)
+        push!(history, (x,fx))
+        return fx
+    end
+
+    function setindex(x,v,d)    # non-mutating setindex
+        y = copy(x)
+        y[d] = v
+        return y
+    end
+
+    x0 = zeros(n)               # initial point
+    f0 = feval(x0)              # initial value
+    dx = ones(n)                # step sizes
+    df = Inf * ones(n)          # expected gains
+    while maximum(abs(dx)) >= dxmin
+        i = indmax(df)
+        x1 = setindex(x0,x0[i]+dx[i],i)
+        f1 = feval(x1)
+        if verbose; println((:f0,f0,:x0,x0,:f1,f1,:x1,x1,:dx,dx,:df,df)); end
+        isnan(f1) && (f1=f0+eps(f0))
+        if f1 < f0
+            dx[i] = accel * dx[i]
+            df[i] = accel * (f0-f1)
+            x0,f0 = x1,f1
+            for j = 1:length(df)
+                if abs(dx[j]) < dxmin * accel
+                    dx[j] = sign(dx[j]) * dxmin * accel
+                    df[j] = max(df[j],0) # max(df[j],-1-df[j])
+                end
+            end
+        else
+            dx[i] = -dx[i] / accel
+            df[i] = (f1-f0) / accel
+            if abs(dx[i]) < dxmin
+                df[i] = -1 # -1-df[i]
+            end
+        end
+    end
+    return (f0,x0)
+end
+
+function goldensection_demo()
+    include(Knet.dir("examples","mnist.jl"))
+    neval = 0
+
+    function f(x)
+        neval += 1
+        winit,lr,hidden = xform(x)
+        if hidden < 10000
+            w = MNIST.main("--winit $winit --lr $lr --hidden $hidden --seed 1 --epochs 1 --fast")
+            corr,loss = MNIST.accuracy(w,MNIST.dtst)
+        else
+            corr,loss = NaN,NaN # prevent huge weights
+        end
+        println((:neval,neval,:loss,loss,:corr,corr,:winit,winit,:lr,lr,:hidden,hidden))
+        return loss
+    end
+
+    function xform(x)
+        winit,lr,hidden = exp(x) .* [ 0.01, 0.01, 100.0 ]
+        hidden = ceil(Int, hidden)
+        (winit,lr,hidden)
+    end
+
+    goldensection(f,3)
+end
+
 
 """
 
     hyperband(getconfig, getloss, maxresource=27, reduction=3)
 
-Hyperparameter optimization using the hyperband algorithm from ([Lisha et al. 2016](https://arxiv.org/abs/1603.06560)).
-You can try a simple MNIST example using `hyperband(getconfig1,getloss1)` after loading this example.
+Hyperparameter optimization using the hyperband algorithm from ([Lisha
+et al. 2016](https://arxiv.org/abs/1603.06560)).  You can try a simple
+MNIST example using `Knet.hyperband_demo()`. 
 
-## Arguments
+# Arguments
 * `getconfig()` returns random configurations with a user defined type and distribution.
 * `getloss(c,n)` returns loss for configuration `c` and number of resources (e.g. epochs) `n`.
 * `maxresource` is the maximum number of resources any one configuration should be given.
@@ -28,136 +129,53 @@ function hyperband(getconfig, getloss, maxresource=27, reduction=3)
     return best
 end
 
+# TODO: document Successive/Sequential Halving:
+# http://www.jmlr.org/proceedings/papers/v51/jamieson16.pdf,
+# http://www.jmlr.org/proceedings/papers/v28/karnin13.pdf,
+# Successive  Reject:
+# http://certis.enpc.fr/~audibert/Mes%20articles/COLT10.pdf
 function halving(getconfig, getloss, n, r=1, reduction=3, s=round(Int, log(n)/log(reduction)))
     best = (Inf,)
     T = [ getconfig() for i=1:n ]
     for i in 0:s
         ni = floor(Int,n/(reduction^i))
         ri = r*(reduction^i)
-        println((:s,s,:n,n,:r,r,:i,i,:ni,ni,:ri,ri,:T,length(T)))
+        # println((:s,s,:n,n,:r,r,:i,i,:ni,ni,:ri,ri,:T,length(T)))
         L = [ getloss(t, ri) for t in T ]
         l = sortperm(L); l1=l[1]
-        L[l1] < best[1] && (best = (L[l1],ri,T[l1]); println("best1: $best"))
+        L[l1] < best[1] && (best = (L[l1],ri,T[l1])) # ;println("best1: $best"))
         T = T[l[1:floor(Int,ni/reduction)]]
     end
-    println("best2: $best")
+    # println("best2: $best")
     return best
 end
 
-# An example getconfig and getloss pair that can be used with hyperband:
-# Usage: hyperband(getconfig1,getloss1)
-
-function getconfig1()
-    pmax = 0.5
-    hmin,hmax = 32,512
-    pdrop = (rand() < 1/3 ? (rand()*pmax,rand()*pmax) :
-             rand() < 1/2 ? (rand()*pmax, 0) : (0, rand()*pmax))
-    h = round(Int, hmin+(hmax-hmin)^rand())
-    nlayer = rand() < 2/3 ? 1 : rand() < 2/3 ? 2 : 3
-    hidden = ntuple(x->h, nlayer)
-    return (hidden, pdrop)
-end
-
-function getloss1(c,n)
-    w = winit(c[1]...)
-    p = [ Adam() for wi in w ]
-    (epoch,ltrn,ltst) = train(w,p,dtrn,dtst,mlp; epochs=n, pdrop=c[2])
-    println((:n,n,:e,epoch,:ltrn,ltrn,:ltst,ltst,:c,c))
-    return ltst
-end
-
-# Train for `epochs` epochs and return information about the epoch when test loss was best
-
-function train(w,p,dtrn,dtst,model; epochs=100, loss=avgloss, o...)
-    best = (0,deepcopy(w),loss(w,dtst,model))
-    for epoch in 1:epochs
-        for (x,y) in dtrn
-            g = softgrad(w,x,y,model; o...)
-            update!(w,g,p)
-        end
-        ltst = loss(w,dtst,model)
-        if ltst < best[3]
-            best = (epoch,deepcopy(w),ltst)
-        end
-    end
-    (epoch,wbest,ltst) = best
-    ltrn = loss(wbest,dtrn,model)
-    return (epoch,ltrn,ltst)
-end
-
-function winit(h...; atype=Atype, std=0.01, seed=1)
-    r = MersenneTwister(seed)
-    h = [784, h..., 10]
-    w = Any[]
-    for i=1:length(h)-1
-        push!(w, std*randn(r,h[i+1],h[i]))
-        push!(w, zeros(h[i+1],1))
-    end
-    map(atype, w)
-end
-
-function softloss(w,x,p,model;l1=0,l2=0,o...)
-    y = model(w,x;o...)
-    y = y .- maximum(y,1) # for numerical stability
-    expy = exp(y)
-    logphat = y .- log(sum(expy,1))
-    J = -sum(p .* logphat) / size(x,2)
-    if l1 != 0; J += l1 * sum(sumabs(wi)  for wi in w[1:2:end]); end
-    if l2 != 0; J += l2 * sum(sumabs2(wi) for wi in w[1:2:end]); end
-    return J
-end
-
-softgrad = grad(softloss)
-
-function linear(w,x)
-    w[1]*x .+ w[2]
-end
-
-function dropout(x,p)
-    if p == 0
-        x
-    else
-        x .* (rand!(similar(x)) .> p) ./ (1-p)
-    end
-end
-
-function mlp(w,x; pdrop=(0,0))
-    x = dropout(x,pdrop[1])
-    for i=1:2:length(w)-2
-        x = relu(w[i]*x .+ w[i+1])
-        x = dropout(x,pdrop[2])
-    end
-    return w[end-1]*x .+ w[end]
-end
-
-function avgloss(w,data,model)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += softloss(w,x,y,model)
-        cnt += 1
-    end
-    return sum/cnt
-end
-
-function zeroone(w,data,model)
-    ncorr = ninst = 0
-    for (x,y) in data
-        ypred = model(w,x)
-        ncorr += sum(y .* (ypred .== maximum(ypred,1)))
-        ninst += size(x,2)
-    end
-    return 1 - ncorr/ninst
-end
-
-function load_mnist()
+function hyperband_demo()
     include(Knet.dir("examples","mnist.jl"))
-    MNIST.loaddata()
-    using MNIST: xtrn,ytrn,xtst,ytst,minibatch
-    dtst = minibatch(xtst,ytst,100;atype=Atype)
-    dtrn = minibatch(xtrn,ytrn,100;atype=Atype)
+    best = (Inf,)
+    neval = 0
+
+    function getloss(config,epochs)
+        neval += 1
+        winit,lr,hidden = config
+        epochs = round(Int,epochs)
+        w = MNIST.main("--winit $winit --lr $lr --hidden $hidden --epochs $epochs --seed 1 --fast")
+        corr,loss = MNIST.accuracy(w,MNIST.dtst)
+        println((:epochs,epochs,:corr,corr,:loss,loss,:winit,winit,:lr,lr,:hidden,hidden))
+        if loss < best[1]
+            best = (loss, config, epochs)
+        end
+        return loss
+    end
+
+    function getconfig()
+        winit = 0.001^rand()
+        lr = 0.001^rand()
+        hidden = 16 + floor(Int, 10000^rand())
+        return (winit,lr,hidden)
+    end
+
+    hyperband(getconfig, getloss)
+    println((:neval,neval,:minloss,best[1],:epochs,best[3],:winit,best[2][1],:lr,best[2][2],:hidden,best[2][3]))
 end
 
-# For a winit(64) MLP:
-# best winit=0.01 tst=.0894 trn=.0422 epoch=13
-# best l1=4e-5 tst=.0785 trn=.0408 epoch=26
-# best l2=6e-5 tst=.0825 trn=.0293 epoch=26

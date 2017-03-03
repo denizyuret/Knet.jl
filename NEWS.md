@@ -3,6 +3,7 @@ Knet v0.8.3 Release Notes
 
 General
 -------
+* Implemented `hyperband` and `goldensection` hyperparameter optimization algorithms.
 * Added per weight gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
 * Added `setseed` to do `srand` in both cpu and gpu.

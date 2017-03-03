@@ -18,6 +18,7 @@ include("conv.jl");             export conv4, pool, deconv4, unpool
 include("update.jl"); 		export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
+include("hyperopt.jl");         export hyperband, goldensection
 
 """
     Knet.dir(path...)
