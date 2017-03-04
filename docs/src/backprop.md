@@ -347,4 +347,7 @@ References
 ----------
 
 - [UFLDL Tutorial, Linear Regression](http://ufldl.stanford.edu/tutorial/supervised/LinearRegression)
-
+- [cs231n Optimization Notes](http://cs231n.github.io/optimization-1)
+- [cs229 Convex optimization overview](http://cs229.stanford.edu/section/cs229-cvxopt.pdf), [Part 2](http://cs229.stanford.edu/section/cs229-cvxopt2.pdf)
+- [cs229 Linear algebra review and reference](http://cs229.stanford.edu/section/cs229-linalg.pdf)
+- [cs229 Review of probability theory](http://cs229.stanford.edu/section/cs229-prob.pdf)

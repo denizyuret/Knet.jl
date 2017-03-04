@@ -1,3 +1,47 @@
+2017-03-04  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+
+	- cnn: add example architectures, finish normalization, add visualization.
+	- cnn: interdigitate conv and pool, do not repeat stride etc.
+	- minibatching: => linear (show helps speed)
+	- data normalization: => linear (show helps convergence)
+	- overfitting,underfitting: => linear (wait for mlp?)
+	- trn/tst split: => linear (to measure overfitting)
+	- regularization: => linear (does it work?)
+	- basis functions: => mlp
+	- hyperparameter optimization: => mlp (optimize hidden units)
+	- trn/dev/tst split: => mlp (to aid in hyperparameter optimization)
+	- dropout: => mlp
+	- optimization methods, Adam etc: => cnn
+	- metrics and hypo testing: => rnn
+	- ensembles: => rnn
+	- ml advice (ng book handout, deeplearningbook 11): => after rnn
+
+	Softmax chapter:
+	- derive the simple gradient of J->y instead of J->p.
+	- do regularization: rep. power for underfitting, trn-tst diff for overfitting, regularization and dropout as solutions.
+	- derive the actual gradient at least in class.
+	- separate predict and loss functions?  i.e. loss function calls predict rather than predict calling loss?
+	- cover minibatching in this or previous section.  maybe regularization in this section, dropout in the next section
+
+	Multilayer perceptrons:
+	- separate predict and loss functions? (multilinear does both)
+	- use max(0,x) instead of relu (at least define it)?
+	- is soft() in math softloss or softmax?
+	- revise/remove the programming example.
+	- clean up references and add whatever is missing.
+	- cover underfitting and hyperparameter (hidden layer) optimization in this section.
+
+	Lecture plan:
+	- implement softmax model backward pass?
+	- compare and contrast with Knet grad.
+	- train on MNIST and show underfitting and overfitting.
+	- introduce MLP to deal with underfitting.
+	- introduce regularization and dropout to deal with overfitting.
+
+	
+
 2016-03-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO: okirnap has recommendations on dropout and sparse docs:
