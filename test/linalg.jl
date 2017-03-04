@@ -65,7 +65,7 @@ include("header.jl")
             @test gradcheck(mat, ka)
         end
 
-        for p in ([1,2], [2,1])
+        for p in collect(permutations([1,2],2))
             p2(x) = permutedims(x,p)
             @test gradcheck(p2, a)
             if gpu() >= 0
@@ -76,12 +76,34 @@ include("header.jl")
 
         a3 = rand(2,3,4)
         if gpu() >= 0; k3 = KnetArray(a3); end
-        for p in ([1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1])
+        for p in collect(permutations([1,2,3],3))
             p3(x) = permutedims(x,p)
             @test gradcheck(p3, a3)
             if gpu() >= 0
                 @test isapprox(p3(a3), Array(p3(k3)))
                 @test gradcheck(p3, k3)
+            end
+        end
+
+        a4 = rand(2,3,4,5)
+        if gpu() >= 0; k4 = KnetArray(a4); end
+        for p in collect(permutations([1,2,3,4],4))
+            p4(x) = permutedims(x,p)
+            @test gradcheck(p4, a4)
+            if gpu() >= 0
+                @test isapprox(p4(a4), Array(p4(k4)))
+                @test gradcheck(p4, k4)
+            end
+        end
+
+        a5 = rand(2,3,4,5,6)
+        if gpu() >= 0; k5 = KnetArray(a5); end
+        for p in collect(permutations([1,2,3,4,5],5))
+            p5(x) = permutedims(x,p)
+            @test gradcheck(p5, a5)
+            if gpu() >= 0
+                @test isapprox(p5(a5), Array(p5(k5)))
+                @test gradcheck(p5, k5)
             end
         end
     end
