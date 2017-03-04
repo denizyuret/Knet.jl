@@ -733,7 +733,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Backpropagation",
     "title": "References",
     "category": "section",
-    "text": "UFLDL Tutorial, Linear Regression"
+    "text": "UFLDL Tutorial, Linear Regression\ncs231n Optimization Notes\ncs229 Convex optimization overview, Part 2\ncs229 Linear algebra review and reference\ncs229 Review of probability theory"
 },
 
 {
@@ -1105,11 +1105,67 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "rnn.html#Motivation-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Motivation",
+    "category": "section",
+    "text": "fixed size api from karpathy\nturing completeness, program analogy\nparameter sharing perspective, goodfellow: compare with 1-D convolution.\nsimple examples with irnn: adding, mnist-by-pixel, lm, timit (do we have data?)\nother possible examples: postag, charner."
+},
+
+{
+    "location": "rnn.html#Architectures-(s2s-vs),-Examples-(lm,mt-vs)-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Architectures (s2s vs), Examples (lm,mt vs)",
+    "category": "section",
+    "text": "Modeling sequences: (hinton)input to output sequence (speech, synched, unsynched, when does output start/stop if unsynched (ctc))\npredict next token (lm)\nsequence classification\ns2s models\nKarpathy's graph is more clear\nHinton's providing input and teaching signals variations\ndeeplearningbook 379 (fig 10.3,4,5) has example design patterns\ngraves book chap 2 has a classification, \nGoodfellow 10.5 Seq->Tok, 10.9 Tok->Seq (Tok=Initial and/or Tok=>Input), 10.3,4,10,11 SeqN->SeqN, Sec 10.4 S2S.Models: (hinton)memoryless models, bengios language model\nstart with a regular mlp converted to rnn like Goodfellow."
+},
+
+{
+    "location": "rnn.html#Modules-(lstm-gru-vs)-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Modules (lstm gru vs)",
+    "category": "section",
+    "text": "motivation: why do mlp rnns have a hard time learning? vanishing gradients relevant according to (DL 10.7)\nlstm/gru: http://colah.github.io/posts/2015-08-Understanding-LSTMs/ (DL 10.10)\nhttp://www.wildml.com/2015/10/recurrent-neural-network-tutorial-part-4-implementing-a-grulstm-rnn-with-python-and-theano/\ninput and output (word Embedding and prediction) layers"
+},
+
+{
+    "location": "rnn.html#Backpropagation-through-time-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Backpropagation through time",
+    "category": "section",
+    "text": "Hinton 7b\nUnfolding picture"
+},
+
+{
+    "location": "rnn.html#Practical-concerns-(minibatching,-gclip-etc)-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Practical concerns (minibatching, gclip etc)",
+    "category": "section",
+    "text": "Hinton 7d: why bptt is difficult, back pass linear.\nhttp://www.wildml.com/2015/10/recurrent-neural-networks-tutorial-part-3-backpropagation-through-time-and-vanishing-gradients/\nAdam and gclip (DL 10.11)\nminibatching\ndecoding and generating: greedy, beam, stochastic."
+},
+
+{
+    "location": "rnn.html#Code-examples-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Code examples",
+    "category": "section",
+    "text": ""
+},
+
+{
+    "location": "rnn.html#Advanced-1",
+    "page": "Recurrent Neural Networks",
+    "title": "Advanced",
+    "category": "section",
+    "text": "multilayer (DL 10.5)\nbidirectional\nattention: http://distill.pub/2016/augmented-rnns/\nspeech, handwriting, mt\nimage captioning, vqa\nntm, memory networks: (DL 10.12) http://distill.pub/2016/augmented-rnns/\n2D rnns: graves chap 8. DL end of 10.3.\nrecursive nets? (DL 10.6)\ndifferent length input/output sequences: graves a chapter 7 on ctc, chap 6 on hmm hybrids., olah and carter on adaptive computation time. DL 10.4 on s2s.\ncomparison to LDS and HMM (Hinton)\ndiscussion of teacher forcing and its potential problems (DL 10.2.1)\necho state networks (DL 10.8) just fix the h->h weights.\nskip connections in time, leaky units (DL 10.9)"
+},
+
+{
     "location": "rnn.html#References-1",
     "page": "Recurrent Neural Networks",
     "title": "References",
     "category": "section",
-    "text": "<https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec7.pdf>   (coursera hinton)\n<http://karpathy.github.io/2015/05/21/rnn-effectiveness/>\n<http://colah.github.io/posts/2015-08-Understanding-LSTMs>\n<http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-1-introduction-to-rnns>\n<https://en.wikipedia.org/wiki/Recurrent_neural_network>\n<https://www.willamette.edu/~gorr/classes/cs449/rnn1.html>\n<http://www.deeplearningbook.org/contents/rnn.html>\n<http://cs224d.stanford.edu/> (socher class on deep learning for   nlp)"
+    "text": "Karpathy 2015. The Unreasonable Effectiveness of Recurrent Neural Networks.\nOlah 2015. Understanding LSTMs.\nHinton 2012. RNN lecture slides.\nOlah and Carter 2016. Augmented RNNs.\nGoodfellow 2016. Deep Learning Chapter 10. Sequence modeling: recurrent and recursive nets.\nGraves 2012., Supervised Sequence Labelling with Recurrent Neural Networks (textbook)\nBritz 2015. Recurrent neural networks tutorial.\nManning and Socher 2017. CS224n: Natural Language Processing with Deep Learning.\nWikipedia. Recurrent neural network.\nOrr 1999. RNN lecture notes.\nLe et al. 2015. A simple way to initialize recurrent networks of rectified linear units"
 },
 
 {
