@@ -133,7 +133,7 @@ examples are:
 ## RNN vs MLP
 
 For comparison here is the code for MLP with one hidden layer vs. the
-code for a comparable RNN: [](how about a linear rnn?)
+code for a comparable RNN. [](how about a linear rnn?)
 
 ```julia
 function mlp1(w,x)
@@ -265,12 +265,29 @@ There are several possible solutions to these problems:
 
 ## LSTM and GRU
 
+[](lstm/gru: http://colah.github.io/posts/2015-08-Understanding-LSTMs/ DL 10.10)
+
 The Long Short Term Memory (LSTM) and the Gated Recurrent Unit (GRU)
 are two of the modules designed as building blocks for RNNs to address
 vanishing gradients and better learn long term dependencies. These
 units replace the simple `tanh` unit used in `rnn1`.
 
-[](lstm/gru: http://colah.github.io/posts/2015-08-Understanding-LSTMs/ DL 10.10)
+... To be continued
+
+
+```julia
+function lstm(weight,bias,hidden,cell,input)
+    gates   = hcat(input,hidden) * weight .+ bias
+    h       = size(hidden,2)
+    forget  = sigm(gates[:,1:h])
+    ingate  = sigm(gates[:,1+h:2h])
+    outgate = sigm(gates[:,1+2h:3h])
+    change  = tanh(gates[:,1+3h:end])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    return (hidden,cell)
+end
+```
 
 ## Practical issues
 
@@ -294,7 +311,7 @@ units replace the simple `tanh` unit used in `rnn1`.
 - (skip connections in time, leaky units DL 10.9)
 
 ## Further reading
-
+   	   
 - [Karpathy 2015.](http://karpathy.github.io/2015/05/21/rnn-effectiveness/) The Unreasonable Effectiveness of Recurrent Neural Networks.
 - [Olah 2015.](http://colah.github.io/posts/2015-08-Understanding-LSTMs) Understanding LSTMs.
 - [Hinton 2012.](https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec7.pdf) RNN lecture slides.
