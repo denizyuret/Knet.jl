@@ -1125,7 +1125,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Recurrent Neural Networks",
     "title": "RNN vs MLP",
     "category": "section",
-    "text": "For comparison here is the code for MLP with one hidden layer vs. the code for a comparable RNN: function mlp1(w,x)\n    h = tanh(w[1]*x .+ w[2])\n    y = w[3]*h .+ w[4]\n    return y\nend\n\nfunction rnn1(w,x,h)\n    h = tanh(w[1]*vcat(x,h) .+ w[2])\n    y = w[3]*h .+ w[4]\n    return (y,h)\nendNote two crucial differences: First, RNN takes h, the hidden state from the previous time step, in addition to the regular input x. Second, it returns the new value of h in addition to the regular output y."
+    "text": "For comparison here is the code for MLP with one hidden layer vs. the code for a comparable RNN. function mlp1(w,x)\n    h = tanh(w[1]*x .+ w[2])\n    y = w[3]*h .+ w[4]\n    return y\nend\n\nfunction rnn1(w,x,h)\n    h = tanh(w[1]*vcat(x,h) .+ w[2])\n    y = w[3]*h .+ w[4]\n    return (y,h)\nendNote two crucial differences: First, RNN takes h, the hidden state from the previous time step, in addition to the regular input x. Second, it returns the new value of h in addition to the regular output y."
 },
 
 {
@@ -1149,7 +1149,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Recurrent Neural Networks",
     "title": "LSTM and GRU",
     "category": "section",
-    "text": "The Long Short Term Memory (LSTM) and the Gated Recurrent Unit (GRU) are two of the modules designed as building blocks for RNNs to address vanishing gradients and better learn long term dependencies. These units replace the simple tanh unit used in rnn1."
+    "text": "The Long Short Term Memory (LSTM) and the Gated Recurrent Unit (GRU) are two of the modules designed as building blocks for RNNs to address vanishing gradients and better learn long term dependencies. These units replace the simple tanh unit used in rnn1.... To be continuedfunction lstm(weight,bias,hidden,cell,input)\n    gates   = hcat(input,hidden) * weight .+ bias\n    h       = size(hidden,2)\n    forget  = sigm(gates[:,1:h])\n    ingate  = sigm(gates[:,1+h:2h])\n    outgate = sigm(gates[:,1+2h:3h])\n    change  = tanh(gates[:,1+3h:end])\n    cell    = cell .* forget + ingate .* change\n    hidden  = outgate .* tanh(cell)\n    return (hidden,cell)\nend"
 },
 
 {
