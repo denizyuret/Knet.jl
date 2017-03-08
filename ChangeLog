@@ -4,6 +4,7 @@
 	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue. Wikipedia has good pseudocode. Bandits may work better.
 
 	* TODO8:
+	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
 	# docs: write rnn chapter. fix earlier chapters.
 	# navigation: implement world represenation.
 	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
