@@ -156,7 +156,7 @@ endof(a::KnetArray) = length(a)
 fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
-@primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(dy,x,1)
+@primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(x,dy,1)
 isempty(a::KnetArray) = (0==length(a))
 length(a::KnetArray)=prod(size(a))
 linearindexing(::KnetArray)=Base.LinearFast()
@@ -470,12 +470,13 @@ for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
 end
 
 # AutoGrad functions:
-import AutoGrad: zeroslike, sum_outgrads, OneHot, unary_nd, indexed_function, isequivalent
+import AutoGrad: zeroslike, sum_outgrads, UngetIndex, unary_nd, indexed_function, isequivalent, _dbg, ssize
 zeroslike(a::KnetArray)=zeros(a)
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
-sum_outgrads(a::KnetArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
+sum_outgrads(a::KnetArray,b::UngetIndex)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
 unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
 isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
+_dbg(a::KnetArray) = "K"*_dbg(a[1])*ssize(a)
 
 # Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
 import Base: display, summary
@@ -485,7 +486,6 @@ size(a::KnetDisplay) = size(a.a)
 summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
-AutoGrad._dbg(a::KnetArray) = "K$(join([AutoGrad.id2(a),size(a)...],'_'))"
 
 # Array/KnetArray Transfer
 
