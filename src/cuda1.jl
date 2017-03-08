@@ -150,3 +150,37 @@ for a in permutedims3D_ops
     if !isa(a,Tuple); a=(a,); end
     print(permutedims3Dsrc(a...))
 end
+
+function cuda1icat(; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","32"),("double","64")]
+            print(s,
+"""
+__global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
+  int row, col, yidx;
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = i % nrows;
+    col = i / nrows;
+    if (col >= ncols) break;
+    yidx = row + col * nrows;
+    y[yidx] = x[col][row];
+    i += blockDim.x * gridDim.x;
+  }
+}
+extern "C" {
+  void icat_$F(int nrows, int ncols, $T **x, $T *y) {
+    $T **xx;   
+    size_t s = ncols * sizeof($T *);
+    cudaMalloc(&xx, s);
+    cudaMemcpy(xx, x, s, cudaMemcpyHostToDevice);
+    _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
+    cudaFree(xx);
+  }    
+}
+""")
+        end
+    end
+end
+
+print(cuda1icat())
