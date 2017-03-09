@@ -4,6 +4,10 @@
 # knetarray Array{Int} indexing, transfer ints to gpu using KnetArray(::Array{Int})
 # a single embed array with a single pointer is always going to be more efficient to pass around, if we can use it without constructing large gradients.
 # in that case no need for concat, just indexing.
+# can we traverse types and box their elements for autograd? check out deepcopy code again.
+
+# mode=0  mode=1   mode=2   version (time in ms with default args)
+# 86.367  156.640  160.112  0ddef27 2017-03-09 s2s benchmark added
 
 using Knet,AutoGrad,BenchmarkTools
 
@@ -37,7 +41,7 @@ function main(;
     else
         error("mode=$mode")
     end
-    # Knet.cudaDeviceSynchronize()
+    Knet.cudaDeviceSynchronize()
     return (model, opts, sequence)
 end
 
@@ -72,10 +76,12 @@ function s2s(model, inputs, outputs)
     for input in reverse(inputs)
         input = onehotrows(input, model[:embed1])
         input = input * model[:embed1]
+        ##input = model[:embed1][input,:]
         state = lstm(model[:encode], state, input)
     end
     EOS = eosmatrix(outputs[1], model[:embed2])
     input = EOS * model[:embed2]
+    ##input = model[:embed2][ones(Int, length(outputs[1])),:]
     sumlogp = 0
     for output in outputs
         state = lstm(model[:decode], state, input)
@@ -83,6 +89,7 @@ function s2s(model, inputs, outputs)
         ygold = onehotrows(output, model[:embed2])
         sumlogp += logprob(ygold, ypred)
         input = ygold * model[:embed2]
+        ##input = model[:embed2][output,:]
     end
     state = lstm(model[:decode], state, input)
     ypred = predict(model[:output], state[1])

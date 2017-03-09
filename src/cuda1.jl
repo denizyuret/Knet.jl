@@ -184,3 +184,70 @@ extern "C" {
 end
 
 print(cuda1icat())
+
+
+function cuda1getcols(; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","32"),("double","64")]
+            print(s,
+"""
+__global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % xrows;
+    col = yidx / xrows;
+    if (col >= ncols) break;
+    xidx = row + (cols[col]-1) * xrows;              
+    y[yidx] = x[xidx];
+    yidx += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % xrows;
+    col = yidx / xrows;
+    if (col >= ncols) break;
+    xidx = row + (cols[col]-1) * xrows;              
+    x[xidx] = y[yidx];
+    yidx += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % nrows;
+    col = yidx / nrows;
+    if (col >= xcols) break;
+    xidx = rows[row] - 1 + col * xrows;              
+    y[yidx] = x[xidx];
+    yidx += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % nrows;
+    col = yidx / nrows;
+    if (col >= xcols) break;
+    xidx = rows[row] - 1 + col * xrows;              
+    x[xidx] = y[yidx];
+    yidx += blockDim.x * gridDim.x;
+  }
+}
+extern "C" {
+void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+}
+""")
+        end
+    end
+end
+
+print(cuda1getcols())
