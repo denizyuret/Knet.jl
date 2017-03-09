@@ -368,16 +368,22 @@ end
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
 
-    function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        y = similar(x, size(x,1), length(i))
-        ccall(($("getcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
+    function getindex(x::KnetArray{$T}, i::KnetArray{Int32})
+        y = similar(x, size(i))
+        ccall(($("getents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              length(i), i, x, y)
         return y
     end
 
-    function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        y = similar(x, length(i), size(x,2))
-        ccall(($("getrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+    function setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
+        ccall(($("setents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              length(i), i, x, y)
+        return x
+    end
+
+    function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
+        y = similar(x, size(x,1), length(i))
+        ccall(($("getcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
         return y
     end
@@ -388,6 +394,13 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return x
     end
 
+    function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
+        y = similar(x, length(i), size(x,2))
+        ccall(($("getrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              size(x,1), size(x,2), length(i), i, x, y)
+        return y
+    end
+
     function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         ccall(($("setrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
@@ -396,6 +409,10 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
 end; end
 
+function getindex{T,I<:Integer}(x::KnetArray{T}, i::Array{I})
+    all(1 .<= i .<= length(x)) || throw(BoundsError(x,i))
+    getindex(x,KnetArray{Int32}(i))
+end
 function getindex{T,I<:Integer}(x::KnetMatrix{T}, c::Colon, i::Vector{I})
     all(1 .<= i .<= size(x,2)) || throw(BoundsError(x,i))
     getindex(x,c,KnetArray{Int32}(i))
@@ -403,6 +420,11 @@ end
 function getindex{T,I<:Integer}(x::KnetMatrix{T}, i::Vector{I}, c::Colon)
     all(1 .<= i .<= size(x,1)) || throw(BoundsError(x,i))
     getindex(x,KnetArray{Int32}(i),c)
+end
+function setindex!{T,I<:Integer}(x::KnetArray{T}, y::KnetArray{T}, i::Array{I})
+    size(y) == size(i) || throw(DimensionMismatch())
+    all(1 .<= i .<= length(x)) || throw(BoundsError(x,i))
+    setindex!(x,y,KnetArray{Int32}(i))
 end
 function setindex!{T,I<:Integer}(x::KnetMatrix{T}, y::KnetMatrix{T}, c::Colon, i::Vector{I})
     size(x,1)==size(y,1) || throw(DimensionMismatch())

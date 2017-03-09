@@ -239,11 +239,27 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
+__global__ void _getents_$F(int n, int *ents, $T *x, $T *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    y[i] = x[ents[i]-1];
+    i += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _setents_$F(int n, int *ents, $T *x, $T *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    x[ents[i]-1] = y[i];
+    i += blockDim.x * gridDim.x;
+  }
+}
 extern "C" {
 void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void getents_$F(int n, int *ents, $T *x, $T *y) { _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void setents_$F(int n, int *ents, $T *x, $T *y) { _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
         end

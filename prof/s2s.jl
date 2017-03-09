@@ -5,9 +5,11 @@
 # a single embed array with a single pointer is always going to be more efficient to pass around, if we can use it without constructing large gradients.
 # in that case no need for concat, just indexing.
 # can we traverse types and box their elements for autograd? check out deepcopy code again.
+# add tests for new karray indexing ops
 
 # mode=0  mode=1   mode=2   version (time in ms with default args)
 # 86.367  156.640  160.112  0ddef27 2017-03-09 s2s benchmark added
+# 30.134   90.061   93.959
 
 using Knet,AutoGrad,BenchmarkTools
 
@@ -74,22 +76,17 @@ end
 function s2s(model, inputs, outputs)
     state = initstate(inputs[1], model[:state0])
     for input in reverse(inputs)
-        input = onehotrows(input, model[:embed1])
-        input = input * model[:embed1]
-        ##input = model[:embed1][input,:]
+        input = model[:embed1][input,:]
         state = lstm(model[:encode], state, input)
     end
-    EOS = eosmatrix(outputs[1], model[:embed2])
-    input = EOS * model[:embed2]
-    ##input = model[:embed2][ones(Int, length(outputs[1])),:]
+    EOS = ones(Int, length(outputs[1]))
+    input = model[:embed2][EOS,:]
     sumlogp = 0
     for output in outputs
         state = lstm(model[:decode], state, input)
         ypred = predict(model[:output], state[1])
-        ygold = onehotrows(output, model[:embed2])
-        sumlogp += logprob(ygold, ypred)
-        input = ygold * model[:embed2]
-        ##input = model[:embed2][output,:]
+        sumlogp += logprob(output, ypred)
+        input = model[:embed2][output,:]
     end
     state = lstm(model[:decode], state, input)
     ypred = predict(model[:output], state[1])
@@ -113,9 +110,14 @@ function lstm(param, state, input)
     return (hidden,cell)
 end
 
-function logprob(ygold, ypred)
+function logprob(output, ypred)
+    nrows,ncols = size(ypred)
+    index = similar(output)
+    @inbounds for i=1:length(output)
+        index[i] = i + (output[i]-1)*nrows
+    end
     o1 = logp(ypred,2)
-    o2 = ygold .* o1
+    o2 = o1[index]
     o3 = sum(o2)
     return o3
 end
@@ -132,6 +134,8 @@ function initstate(idx, state0)
     c = c .+ fill!(similar(AutoGrad.getval(c), length(idx), length(c)), 0)
     return (h,c)
 end
+
+#=
 
 let z=nothing; global onehotrows
 function onehotrows(idx, embeddings)
@@ -151,7 +155,7 @@ end
 let EOS=nothing; global eosmatrix
 function eosmatrix(idx, embeddings)
     nrows,ncols = length(idx), size(embeddings,1)
-    if EOS==nothing || size(EOS) != (nrows,ncols)
+    if EOS==nothing || size(EOS) != (nrows,ncols) || typeof(EOS) != typeof(AutoGrad.getval(embeddings))
         info("alloc eos")
         EOS = zeros(Float32,nrows,ncols)
         EOS[:,1] = 1
@@ -160,8 +164,6 @@ function eosmatrix(idx, embeddings)
     return EOS
 end
 end
-
-#=
 
 function logprob(param, state, output)
     pred = predict(param, state)
