@@ -9,7 +9,7 @@
 
 # mode=0  mode=1   mode=2   version (time in ms with default args)
 # 86.367  156.640  160.112  0ddef27 2017-03-09 s2s benchmark added
-# 30.134   90.061   93.959
+# 30.134   90.061   93.959  a164664 2017-03-10 s2s with indexing for embedding
 
 using Knet,AutoGrad,BenchmarkTools
 
