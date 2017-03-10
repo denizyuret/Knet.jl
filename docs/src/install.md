@@ -1,5 +1,4 @@
-Setting up Knet
-===============
+# Setting up Knet
 
 Knet.jl is a deep learning package implemented in Julia, so you should
 be able to run it on any machine that can run Julia. It has been
@@ -16,8 +15,7 @@ need help, or would like to request a feature, please consider joining
 the [knet-users](https://groups.google.com/forum/#!forum/knet-users)
 mailing list.
 
-Installation
-------------
+## Installation
 
 First download and install the latest version of Julia from
 [julialang.org](http://julialang.org/downloads). As of this writing
@@ -51,8 +49,26 @@ section, if not you can get help at the
 [knet-users](https://groups.google.com/forum/#!forum/knet-users)
 mailing list.
 
-Tips for developers
--------------------
+### Installation problems
+
+Sometimes when Knet or CUDA libraries are updated or moved, the
+precompiled binaries get out of sync and you may get errors like:
+
+    ccall: could not find function xxx in library libknet8.so
+
+I recommend the following steps to refresh everything:
+
+    shell> rm ~/.julia/lib/v0.5/*.ji
+    shell> cd ~/.julia/v0.5/Knet/src
+    shell> make clean; make
+    shell> julia
+    julia> Pkg.build("Knet")
+
+This refreshes all precompiled binaries and should typically solve the
+problem. If problems continue, you can get support from
+[knet-users](https://groups.google.com/forum/#!forum/knet-users).
+
+## Tips for developers
 
 Knet is an open-source project and we are always open to new
 contributions: bug fixes, new machine learning models and operators,
@@ -79,8 +95,7 @@ list and follow these tips:
 -   Please submit your contribution using a [pull
     request](https://help.github.com/articles/using-pull-requests).
 
-Using Amazon AWS
-----------------
+## Using Amazon AWS
 
 If you don't have access to a GPU machine, but would like to experiment
 with one, [Amazon Web Services](https://aws.amazon.com) is a possible
