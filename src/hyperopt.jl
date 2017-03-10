@@ -5,11 +5,16 @@
 Find the minimum of `f` using concurrent golden section search in `n`
 dimensions. See `Knet.goldensection_demo()` for an example.
 
-`f` is a function from `Vector{Float64}` of length `n` to a `Number`.
-The initial input to `f` will be a zero vector, and the initial step
-size will be 1 in each dimension.  The user should define `f` to scale
-`x` into a vector meaningful for their application. `f` can return
-`NaN` for out of range inputs.
+`f` is a function from a `Vector{Float64}` of length `n` to a
+`Number`.  It can return `NaN` for out of range inputs.  Goldensection
+will always start with a zero vector as the initial input to `f`, and
+the initial step size will be 1 in each dimension.  The user should
+define `f` to scale and shift this input range into a vector
+meaningful for their application. For positive inputs like learning
+rate or hidden size, you can use a transformation such as `x0*exp(x)`
+where `x` is a value `goldensection` passes to `f` and `x0` is your
+initial guess for this value. This will effectively start the search
+at `x0`, then move with multiplicative steps.
 
 I designed this algorithm combining ideas from [Golden Section
 Search](http://apps.nrbook.com/empanel/index.html?pg=492) and [Hill
