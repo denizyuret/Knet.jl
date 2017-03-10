@@ -20,11 +20,10 @@ operations.
 
 # Supported functions:
 
-* Indexing: getindex, setindex! (getindex returns a view rather than
-  copy when possible. Supported index types: Int, Colon, UnitRange,
-  StepRange, CartesianIndex, Array{Int}, Array{Bool},
-  Array{CartesianIndex}. Multidimensional indexing support
-  incomplete.)
+* Indexing: getindex, setindex! with the following index types:
+  * 1-D:  Int, Colon, UnitRange, StepRange, Array{Int}, BitArray, CartesianIndex, Array{CartesianIndex} (1-D includes linear indexing of multidimensional arrays)
+  * 2-D: (Colon,Union{Int,Colon,UnitRange,StepRange,Array{Int}}), (Union{Int,UnitRange,Colon}...) (in any order)
+  * N-D: (Int...)
 
 * Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
