@@ -215,6 +215,18 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
+__global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % xrows;
+    col = yidx / xrows;
+    if (col >= ncols) break;
+    xidx = row + (cols[col]-1) * xrows;              
+    x[xidx] = y;
+    yidx += blockDim.x * gridDim.x;
+  }
+}
 __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -239,6 +251,18 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
+__global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % nrows;
+    col = yidx / nrows;
+    if (col >= xcols) break;
+    xidx = rows[row] - 1 + col * xrows;              
+    x[xidx] = y;
+    yidx += blockDim.x * gridDim.x;
+  }
+}
 __global__ void _getents_$F(int n, int *ents, $T *x, $T *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -253,13 +277,23 @@ __global__ void _setents_$F(int n, int *ents, $T *x, $T *y) {
     i += blockDim.x * gridDim.x;
   }
 }
+__global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    x[ents[i]-1] = y;
+    i += blockDim.x * gridDim.x;
+  }
+}
 extern "C" {
 void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y) { _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y) { _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void getents_$F(int n, int *ents, $T *x, $T *y) { _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 void setents_$F(int n, int *ents, $T *x, $T *y) { _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void setent1_$F(int n, int *ents, $T *x, $T  y) { _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
         end

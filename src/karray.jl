@@ -20,13 +20,17 @@ operations.
 
 # Supported functions:
 
+* Indexing: getindex, setindex! (getindex returns a view rather than
+  copy when possible. Supported index types: Int, Colon, UnitRange,
+  StepRange, CartesianIndex, Array{Int}, Array{Bool},
+  Array{CartesianIndex}. Multidimensional indexing support
+  incomplete.)
+
 * Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
-  display, eachindex, eltype, endof, fill!, first, getindex, hcat,
-  isapprox, isempty, length, linearindexing, ndims, ones, pointer,
-  rand!, reshape, setindex!, similar, size, stride, strides, summary,
-  vcat, vec, zeros.  (Only Integer, Colon, and UnitRange indices
-  supported for get/setindex.  CartesianIndex, StepRange, Array, and
-  Bool indices not supported.  cat(i,x,y) supported for i=1,2.)
+  display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
+  isempty, length, linearindexing, ndims, ones, pointer, rand!,
+  reshape, similar, size, stride, strides, summary, vcat, vec, zeros.
+  (cat(i,x,y) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -184,259 +188,6 @@ isapprox(a::AbstractArray,b::KnetArray;o...)=(size(a)==size(b) && isapprox(a,Arr
 isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array(a),b;o...))
 
 
-# Indexing:
-import Base: getindex, setindex!
-
-# We will implement indexing ranges as views not copies, if possible (when contiguous).
-# For contiguous memory without stride all but the last >1 dimension must be full
-
-# The original getindex(a,i:j...) for AbstractArray copies:
-# function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
-# in abstractarray.jl:487,multidimensional.jl:184.
-
-# which getindex ops does array implement?
-# getindex(A::Array, i1::Real)
-# getindex(A::Array, i1::Real, i2::Real, I::Real...)
-# getindex(A::Array, I::UnitRange{Int})
-# getindex(A::Array, c::Colon)
-# getindex{T<:Real}(A::Array, I::Range{T})
-
-# Julia #14770
-# If I is shorter than ndims(A) but longer than 1 the remaining indices assumed =1
-# Also extra 1's at the end of I are ignored
-
-# These two are not sufficient in spite of what the documentation says:
-# display goes into an infinite loop!
-# getindex{T}(A::KnetArray{T}, i::Int)=unsafe_copy!(T[0], 1, A, i, 1)[1]
-# setindex!{T}(A::KnetArray{T}, v, i::Int)=unsafe_copy!(A, i, T[v], 1, 1)
-
-# First deal with the easy cases: integer indices, a Colon or a UnitRange.
-
-function getindex{T}(A::KnetArray{T}, I::Real)
-    J = Int(I)
-    1 <= J <= length(A) || throw(BoundsError(A,J))
-    unsafe_copy!(T[0], 1, A, J, 1)[1]
-end
-
-function setindex!{T}(A::KnetArray{T}, v, I::Real)
-    J = Int(I)
-    1 <= J <= length(A) || throw(BoundsError(A,J))
-    unsafe_copy!(A, J, T[v], 1, 1)
-end
-
-function getindex{T}(A::KnetArray{T}, I::Real...)
-    J = Base.to_indexes(I...)
-    @inbounds for j=1:length(J)
-        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
-    end
-    i = sub2ind(size(A), J...)
-    unsafe_copy!(T[0], 1, A, i, 1)[1]
-end
-
-function setindex!{T}(A::KnetArray{T}, v, I::Real...)
-    J = Base.to_indexes(I...)
-    @inbounds for j=1:length(J)
-        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
-    end
-    i = sub2ind(size(A), J...)
-    unsafe_copy!(A, i, T[v], 1, 1)
-end
-
-function getindex{T}(A::KnetArray{T}, I::UnitRange)
-    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
-    off = 1+(first(I)-1)*sizeof(T)
-    len = length(I)*sizeof(T)
-    ptr = KnetPtr(A.ptr, off, len)
-    KnetArray{T,1}(ptr, (length(I),))
-end
-
-function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
-    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
-    if isa(v,Number)
-        knetfill!(A,T(v),first(I),length(I))
-    elseif (isa(v,KnetArray) || isa(v,Array))
-        length(v)==length(I) || throw(DimensionMismatch())
-        eltype(v)==T || (v = convert(Array{T},v))
-        unsafe_copy!(A,first(I),v,1,length(I))
-    else
-        throw(MethodError(setindex!, A, v, I))
-    end
-end
-
-function getindex(A::KnetArray, I::Colon)
-    reshape(A,length(A))
-end
-
-function setindex!{T}(A::KnetArray{T}, v, I::Colon)
-    if isa(v,Number)
-        knetfill!(A,T(v),1,length(A))
-    elseif (isa(v,KnetArray) || isa(v,Array))
-        length(v)==length(A) || throw(DimensionMismatch())
-        eltype(v)==T || (v = convert(Array{T},v))
-        unsafe_copy!(A,1,v,1,length(A))
-    else
-        throw(MethodError(setindex!, A, v, I))
-    end
-end
-
-# TODO: the following getindex, setindex! work for 1 and 2 dimensions only, write general versions.
-
-function getindex{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
-    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
-    B1 = isa(I[1],Colon) ? size(A,1) : length(I[1])
-    B2 = isa(I[2],Colon) ? size(A,2) : length(I[2])
-    if ncols == 1
-        off = 1+(firstindex-1)*sizeof(T)
-        len = nrows*sizeof(T)
-        ptr = KnetPtr(A.ptr, off, len)
-        KnetArray{T,2}(ptr, (B1,B2))
-    else
-        B = similar(A, (B1,B2))
-        nrows *= sizeof(T); astep *= sizeof(T)
-        ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint),
-              nrows, ncols, pointer(A,firstindex), astep, B, nrows)
-        return B
-    end
-end
-
-function setindex!{T,N}(A::KnetArray{T,N}, B, I::Union{Real, UnitRange, Colon}...)
-    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
-    aptr0 = pointer(A, firstindex)
-    if isa(B,Number)
-        B = T(B)
-        if ncols == 1
-            if T <: Float32;    ccall((:fill_32,libknet8),Void,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
-            elseif T<: Float64; ccall((:fill_64,libknet8),Void,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
-            else error("$T not supported"); end
-        else
-            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
-            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
-            else error("$T not supported"); end
-        end
-    else
-        length(B) == nelts || throw(DimensionMismatch())
-        B = convert(KnetArray{T},B)
-        if ncols == 1
-            @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
-                  aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
-        else
-            nrows *= sizeof(T); astep *= sizeof(T)
-            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
-        end
-    end
-    return A
-end
-
-function indexparams{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
-    N > 2 && error("setindex for ndims > 2 not implemented yet")
-    skipped = false
-    nrows = nelts = 1
-    subs1 = ones(Int,2)
-    astep = length(A)
-    for i=1:length(I)
-        Ii = I[i]
-        Ai = size(A,i)
-        if isa(Ii, Colon)
-            Li = Ai
-            subs1[i] = 1
-        elseif isa(Ii, Real)
-            1 <= Ii <= Ai || throw(DimensionMismatch())
-            Li = 1
-            subs1[i] = Int(Ii)
-        else
-            1 <= first(Ii) <= last(Ii) <= Ai || throw(DimensionMismatch())
-            Li = length(Ii)
-            subs1[i] = first(Ii)
-        end
-        nelts *= Li
-        if !skipped
-            nrows *= Li
-            if Li < Ai
-                skipped = true
-                astep = stride(A,i+1)
-            end
-        end
-    end
-    ncols = div(nelts, nrows)
-    firstindex = sub2ind(size(A),subs1...)
-    return (nelts,nrows,ncols,firstindex,astep)
-end
-
-
-# Just special case rows and columns until we have a more general solution
-# for Array{Int} indices
-
-for F in (32,64); T=Symbol("Float$F"); @eval begin
-
-    function getindex(x::KnetArray{$T}, i::KnetArray{Int32})
-        y = similar(x, size(i))
-        ccall(($("getents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              length(i), i, x, y)
-        return y
-    end
-
-    function setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
-        ccall(($("setents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              length(i), i, x, y)
-        return x
-    end
-
-    function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        y = similar(x, size(x,1), length(i))
-        ccall(($("getcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return y
-    end
-
-    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        ccall(($("setcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return x
-    end
-
-    function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        y = similar(x, length(i), size(x,2))
-        ccall(($("getrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return y
-    end
-
-    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        ccall(($("setrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return x
-    end
-
-end; end
-
-function getindex{T,I<:Integer}(x::KnetArray{T}, i::Array{I})
-    all(1 .<= i .<= length(x)) || throw(BoundsError(x,i))
-    getindex(x,KnetArray{Int32}(i))
-end
-function getindex{T,I<:Integer}(x::KnetMatrix{T}, c::Colon, i::Vector{I})
-    all(1 .<= i .<= size(x,2)) || throw(BoundsError(x,i))
-    getindex(x,c,KnetArray{Int32}(i))
-end
-function getindex{T,I<:Integer}(x::KnetMatrix{T}, i::Vector{I}, c::Colon)
-    all(1 .<= i .<= size(x,1)) || throw(BoundsError(x,i))
-    getindex(x,KnetArray{Int32}(i),c)
-end
-function setindex!{T,I<:Integer}(x::KnetArray{T}, y::KnetArray{T}, i::Array{I})
-    size(y) == size(i) || throw(DimensionMismatch())
-    all(1 .<= i .<= length(x)) || throw(BoundsError(x,i))
-    setindex!(x,y,KnetArray{Int32}(i))
-end
-function setindex!{T,I<:Integer}(x::KnetMatrix{T}, y::KnetMatrix{T}, c::Colon, i::Vector{I})
-    size(x,1)==size(y,1) || throw(DimensionMismatch())
-    all(1 .<= i .<= size(x,2)) || throw(BoundsError(x,i))
-    setindex!(x,y,c,KnetArray{Int32}(i))
-end
-function setindex!{T,I<:Integer}(x::KnetMatrix{T}, y::KnetMatrix{T}, i::Vector{I}, c::Colon)
-    size(x,2)==size(y,2) || throw(DimensionMismatch())
-    all(1 .<= i .<= size(x,1)) || throw(BoundsError(x,i))
-    setindex!(x,y,KnetArray{Int32}(i),c)
-end
-
 
 # Concatenation:
 import Base: hcat, vcat, cat
@@ -554,7 +305,7 @@ isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray
 _dbg(a::KnetArray) = "K"*_dbg(a[1])*ssize(a)
 
 # Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
-import Base: display, summary
+import Base: display, summary, getindex, size
 type KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
 getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
 size(a::KnetDisplay) = size(a.a)
@@ -589,3 +340,431 @@ let convert_r = recorder(convert)
     convert{A<:AbstractArray,K<:KnetArray}(::Type{A},x::Rec{K})=convert_r(A,x)
     convert{A<:AbstractArray,K<:KnetArray}(::Type{K},x::Rec{A})=convert_r(K,x)
 end
+
+
+### INDEXING
+## Indexing with Real
+## Indexing with Tuple{Real}
+## Indexing with CartesianIndex: calls Tuple{Real}
+## Indexing with UnitRange
+## Indexing with Colon
+## Indexing with KnetArray{Int32}: only Int32 supported, no bound checking
+## Indexing with Tuple{:,KnetArray{Int32}}
+## Indexing with Tuple{KnetArray{Int32},:}
+## Indexing with Array{Real} calls KnetArray{Int32} after boundchecking
+## Indexing with Array{CartesianIndex} calls Array{Real}
+## Indexing with Empty Array
+## Indexing with Tuple{:,Vector{Real}} calls Tuple{:,KnetArray{Int32}} after bound checking
+## Indexing with Tuple{Vector{Real},:} calls Tuple{KnetArray{Int32},:} after bound checking
+## Indexing with StepRange calls Array{Real}
+## Indexing with Tuple{StepRange,:} calls Tuple{Array{Real},:}
+## Indexing with Tuple{:,StepRange} calls Tuple{:,Array{Real}}
+## Indexing with BitArray calls KnetArray{Int32}; no need for bound checking
+## Indexing with KnetArray{T} calls KnetArray{Int32}: (k.<0) returns KnetArray{T} instead of BitArray
+## Indexing with Tuple{Union{Int,UnitRange,Colon}}
+
+
+import Base: getindex, setindex!
+
+## Indexing with Real
+
+function getindex{T}(A::KnetArray{T}, I::Real)
+    J = Int(I)
+    1 <= J <= length(A) || throw(BoundsError(A,J))
+    unsafe_copy!(T[0], 1, A, J, 1)[1]
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::Real)
+    J = Int(I)
+    1 <= J <= length(A) || throw(BoundsError(A,J))
+    unsafe_copy!(A, J, T[v], 1, 1)
+end
+
+## Indexing with Tuple{Real}
+# Julia #14770
+# If I is shorter than ndims(A) but longer than 1 the remaining indices assumed =1
+# Also extra 1's at the end of I are ignored
+
+function getindex{T}(A::KnetArray{T}, I::Real...)
+    J = Base.to_indexes(I...)
+    @inbounds for j=1:length(J)
+        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
+    end
+    i = sub2ind(size(A), J...)
+    unsafe_copy!(T[0], 1, A, i, 1)[1]
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::Real...)
+    J = Base.to_indexes(I...)
+    @inbounds for j=1:length(J)
+        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
+    end
+    i = sub2ind(size(A), J...)
+    unsafe_copy!(A, i, T[v], 1, 1)
+end
+
+## Indexing with CartesianIndex: calls Tuple{Real}
+
+function getindex{T}(A::KnetArray{T}, c::CartesianIndex)
+    getindex(A, c.I...)
+end
+
+function setindex!{T}(A::KnetArray{T}, v, c::CartesianIndex)
+    setindex!(A, v, c.I...)
+end
+
+## Indexing with UnitRange
+# We will implement indexing ranges as views not copies, if possible (when contiguous).
+# For contiguous memory without stride all but the last >1 dimension must be full
+# The original getindex(a,i:j...) for AbstractArray copies:
+# function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
+# in abstractarray.jl:487,multidimensional.jl:184.
+
+function getindex{T}(A::KnetArray{T}, I::UnitRange)
+    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
+    off = 1+(first(I)-1)*sizeof(T)
+    len = length(I)*sizeof(T)
+    ptr = KnetPtr(A.ptr, off, len)
+    KnetArray{T,1}(ptr, (length(I),))
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::UnitRange)
+    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
+    if isa(v,Number)
+        knetfill!(A,T(v),first(I),length(I))
+    elseif (isa(v,KnetArray) || isa(v,Array))
+        length(v)==length(I) || throw(DimensionMismatch())
+        eltype(v)==T || (v = convert(Array{T},v))
+        unsafe_copy!(A,first(I),v,1,length(I))
+    else
+        throw(MethodError(setindex!, A, v, I))
+    end
+end
+
+## Indexing with Colon
+# Note that getindex(a,:) returns a view not a copy
+
+function getindex(A::KnetArray, I::Colon)
+    reshape(A,length(A))
+end
+
+function setindex!{T}(A::KnetArray{T}, v::Number, I::Colon)
+    knetfill!(A,T(v),1,length(A))
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::Colon)
+    length(v)==length(A) || throw(DimensionMismatch())
+    eltype(v)==T || (v = convert(Array{T},v))
+    unsafe_copy!(A,1,v,1,length(A))
+end
+
+for F in (32,64); T=Symbol("Float$F"); @eval begin
+
+## Indexing with KnetArray{Int32}: only Int32 supported, no bound checking
+
+    function getindex(x::KnetArray{$T}, i::KnetArray{Int32})
+        y = similar(x, size(i))
+        ccall(($("getents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              length(i), i, x, y)
+        return y
+    end
+
+    function setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
+        ccall(($("setents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              length(i), i, x, y)
+        return x
+    end
+
+    function setindex!(x::KnetArray{$T}, y::Number, i::KnetArray{Int32})
+        ccall(($("setent1_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},$T),
+              length(i), i, x, $T(y))
+        return x
+    end
+
+## Indexing with Tuple{:,KnetArray{Int32}}
+# TODO: Just special case rows and columns in matrices until we have a more general solution
+
+    function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
+        y = similar(x, size(x,1), length(i))
+        ccall(($("getcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              size(x,1), size(x,2), length(i), i, x, y)
+        return y
+    end
+
+    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
+        ccall(($("setcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              size(x,1), size(x,2), length(i), i, x, y)
+        return x
+    end
+
+    function setindex!(x::KnetMatrix{$T}, y::Number, ::Colon, i::KnetVector{Int32})
+        ccall(($("setcol1_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+              size(x,1), size(x,2), length(i), i, x, $T(y))
+        return x
+    end
+
+## Indexing with Tuple{KnetArray{Int32},:}
+
+    function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
+        y = similar(x, length(i), size(x,2))
+        ccall(($("getrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              size(x,1), size(x,2), length(i), i, x, y)
+        return y
+    end
+
+    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
+        ccall(($("setrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+              size(x,1), size(x,2), length(i), i, x, y)
+        return x
+    end
+
+    function setindex!(x::KnetMatrix{$T}, y::Number, i::KnetVector{Int32}, ::Colon)
+        ccall(($("setrow1_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+              size(x,1), size(x,2), length(i), i, x, $T(y))
+        return x
+    end
+
+end; end
+
+# bound checking
+
+function checkbetween{I<:Integer,L<:Integer,H<:Integer}(i::Array{I},lo::L,hi::H)
+    checkbetween(Array{Int32}(i),Int32(lo),Int32(hi))
+end
+
+function checkbetween(i::Array{Int32},lo::Int32,hi::Int32)
+    @inbounds for ii in i
+        if !(lo <= ii <= hi)
+            throw(BoundsError())
+        end
+    end
+end
+
+## Indexing with Array{Real} calls KnetArray{Int32} after boundchecking
+
+function getindex{T,I<:Real}(x::KnetArray{T}, i::Array{I})
+    i = Array{Int32}(i)
+    checkbetween(i, 1, length(x))
+    getindex(x,KnetArray{Int32}(i))
+end
+
+function setindex!{T,I<:Real}(x::KnetArray{T}, y::Number, i::Array{I})
+    i = Array{Int32}(i)
+    checkbetween(i, 1, length(x))
+    setindex!(x,y,KnetArray{Int32}(i))
+end
+
+function setindex!{T,I<:Real}(x::KnetArray{T}, y, i::Array{I})
+    if size(y) != size(i); throw(DimensionMismatch()); end
+    i = Array{Int32}(i)
+    checkbetween(i, 1, length(x))
+    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i))
+end
+
+## Indexing with Array{CartesianIndex} calls Array{Real}
+
+c2i{I<:CartesianIndex}(d::Dims,i::Array{I})=Int32[sub2ind(d,c.I...) for c in i]
+getindex{T,I<:CartesianIndex}(x::KnetArray{T}, i::Array{I})=getindex(x, c2i(size(x),i))
+setindex!{T,I<:CartesianIndex}(x::KnetArray{T}, y, i::Array{I})=setindex!(x, y, c2i(size(x),i))
+
+## Indexing with Empty Array
+
+getindex{T}(x::KnetArray{T}, i::Array)=getindex(x, Array{Int32}(i))
+setindex!{T}(x::KnetArray{T}, y, i::Array)=setindex!(x, y, Array{Int32}(i))
+
+## Indexing with Tuple{:,Vector{Real}} calls Tuple{:,KnetArray{Int32}} after bound checking
+
+function getindex{T,I<:Real}(x::KnetMatrix{T}, c::Colon, i::Vector{I})
+    checkbetween(i, 1, size(x,2))
+    getindex(x,c,KnetArray{Int32}(i))
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, c::Colon, i::Vector{I})
+    checkbetween(i, 1, size(x,2))
+    setindex!(x,y,c,KnetArray{Int32}(i))
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, c::Colon, i::Vector{I})
+    if size(x,1)!=size(y,1); throw(DimensionMismatch()); end
+    checkbetween(i, 1, size(x,2))
+    setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(i))
+end
+
+## Indexing with Tuple{Vector{Real},:} calls Tuple{KnetArray{Int32},:} after bound checking
+
+function getindex{T,I<:Real}(x::KnetMatrix{T}, i::Vector{I}, c::Colon)
+    checkbetween(i, 1, size(x,1))
+    getindex(x,KnetArray{Int32}(i),c)
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, i::Vector{I}, c::Colon)
+    checkbetween(i, 1, size(x,1))
+    setindex!(x,y,KnetArray{Int32}(i),c)
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, i::Vector{I}, c::Colon)
+    if size(x,2)!=size(y,2); throw(DimensionMismatch()); end
+    checkbetween(i, 1, size(x,1))
+    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i),c)
+end
+
+## Indexing with StepRange calls Array{Real}
+
+function getindex{T}(A::KnetArray{T}, I::StepRange)
+    getindex(A, collect(I))
+end
+
+function setindex!{T}(A::KnetArray{T}, v, I::StepRange)
+    setindex!(A, v, collect(I))
+end
+
+## Indexing with Tuple{StepRange,:} calls Tuple{Array{Real},:}
+
+function getindex{T}(A::KnetMatrix{T}, I::StepRange, c::Colon)
+    getindex(A, collect(I), c)
+end
+
+function setindex!{T}(A::KnetMatrix{T}, v, I::StepRange, c::Colon)
+    setindex!(A, v, collect(I), c)
+end
+
+## Indexing with Tuple{:,StepRange} calls Tuple{:,Array{Real}}
+
+function getindex{T}(A::KnetMatrix{T}, c::Colon, I::StepRange)
+    getindex(A, c, collect(I))
+end
+
+function setindex!{T}(A::KnetMatrix{T}, v, c::Colon, I::StepRange)
+    setindex!(A, v, c, collect(I))
+end
+
+## Indexing with BitArray calls KnetArray{Int32}; no need for bound checking
+
+function getindex{T}(x::KnetArray{T}, i::BitArray)
+    if length(i) != length(x); throw(BoundsError(x,i)); end
+    getindex(x,KnetArray{Int32}(find(i)))
+end
+
+function setindex!{T}(x::KnetArray{T}, y::Number, i::BitArray)
+    if length(i) != length(x); throw(DimensionMismatch()); end
+    setindex!(x,y,KnetArray{Int32}(find(i)))
+end
+
+function setindex!{T}(x::KnetArray{T}, y, i::BitArray)
+    if length(i) != length(x); throw(DimensionMismatch()); end
+    j = find(i)
+    if length(j) != length(y); throw(BoundsError(y,j)); end
+    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j))
+end
+
+## Indexing with KnetArray{T} calls KnetArray{Int32}: (k.<0) returns KnetArray{T} instead of BitArray
+
+function getindex{T}(x::KnetArray{T}, i::KnetArray{T})
+    if length(i) != length(x); throw(BoundsError(x,i)); end
+    getindex(x,KnetArray{Int32}(find(Array(i))))
+end
+
+function setindex!{T}(x::KnetArray{T}, y::Number, i::KnetArray{T})
+    if length(i) != length(x); throw(DimensionMismatch()); end
+    setindex!(x,y,KnetArray{Int32}(find(Array(i))))
+end
+
+function setindex!{T}(x::KnetArray{T}, y, i::KnetArray{T})
+    if length(i) != length(x); throw(DimensionMismatch()); end
+    j = find(Array(i))
+    if length(j) != length(y); throw(BoundsError(y,j)); end
+    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j))
+end
+
+## Indexing with Tuple{Union{Int,UnitRange,Colon}}
+# TODO: the following getindex, setindex! work for 1 and 2 dimensions only, write general versions.
+
+function getindex{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
+    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
+    B1 = isa(I[1],Colon) ? size(A,1) : length(I[1])
+    B2 = isa(I[2],Colon) ? size(A,2) : length(I[2])
+    Bsize = isa(I[1],Real) ? (B2,) : isa(I[2],Real) ? (B1,) : (B1,B2)
+    Bdims = length(Bsize)
+    if ncols == 1
+        off = 1+(firstindex-1)*sizeof(T)
+        len = nrows*sizeof(T)
+        ptr = KnetPtr(A.ptr, off, len)
+        KnetArray{T,Bdims}(ptr, Bsize)
+    else
+        B = similar(A, Bsize)
+        nrows *= sizeof(T); astep *= sizeof(T)
+        ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint),
+              nrows, ncols, pointer(A,firstindex), astep, B, nrows)
+        return B
+    end
+end
+
+function setindex!{T,N}(A::KnetArray{T,N}, B, I::Union{Real, UnitRange, Colon}...)
+    (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I...)
+    aptr0 = pointer(A, firstindex)
+    if isa(B,Number)
+        B = T(B)
+        if ncols == 1
+            if T <: Float32;    ccall((:fill_32,libknet8),Void,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
+            elseif T<: Float64; ccall((:fill_64,libknet8),Void,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
+            else error("$T not supported"); end
+        else
+            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
+            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
+            else error("$T not supported"); end
+        end
+    else
+        length(B) == nelts || throw(DimensionMismatch())
+        B = convert(KnetArray{T},B)
+        if ncols == 1
+            @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
+                  aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
+        else
+            nrows *= sizeof(T); astep *= sizeof(T)
+            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
+        end
+    end
+    return A
+end
+
+function indexparams{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
+    N > 2 && error("setindex for ndims > 2 not implemented yet")
+    skipped = false
+    nrows = nelts = 1
+    subs1 = ones(Int,2)
+    astep = length(A)
+    for i=1:length(I)
+        Ii = I[i]
+        Ai = size(A,i)
+        if isa(Ii, Colon)
+            Li = Ai
+            subs1[i] = 1
+        elseif isa(Ii, Real)
+            1 <= Ii <= Ai || throw(DimensionMismatch())
+            Li = 1
+            subs1[i] = Int(Ii)
+        else
+            1 <= first(Ii) <= last(Ii) <= Ai || throw(DimensionMismatch())
+            Li = length(Ii)
+            subs1[i] = first(Ii)
+        end
+        nelts *= Li
+        if !skipped
+            nrows *= Li
+            if Li < Ai
+                skipped = true
+                astep = stride(A,i+1)
+            end
+        end
+    end
+    ncols = div(nelts, nrows)
+    firstindex = sub2ind(size(A),subs1...)
+    return (nelts,nrows,ncols,firstindex,astep)
+end
+
+
+# These two are not sufficient in spite of what the documentation says:
+# display goes into an infinite loop!
+# getindex{T}(A::KnetArray{T}, i::Int)=unsafe_copy!(T[0], 1, A, i, 1)[1]
+# setindex!{T}(A::KnetArray{T}, v, i::Int)=unsafe_copy!(A, i, T[v], 1, 1)
+

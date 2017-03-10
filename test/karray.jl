@@ -13,21 +13,42 @@ if gpu() >= 0
         # getindex, setindex!
         # Index types: Integer, CartesianIndex, Vector{Int}, Array{Int}, EmptyArray, a:c, a:b:c, Colon, Bool
         # See http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
-        # TODO: check out http://docs.julialang.org/en/latest/manual/arrays.html#Cartesian-indices-1
+        # check out http://docs.julialang.org/en/latest/manual/arrays.html#Cartesian-indices-1
         @testset "indexing" begin
-            @test a == k
-            for i in ((3,), (2,3), (:,), (:,:), (3:5,), (1:2,3:4), )
+            @test a == k                     		# Supported index types:
+            for i in ((:,), (:,:),                      # Colon, Tuple{Colon}
+                      (3,), (2,3),              	# Int, Tuple{Int}
+                      (3:5,), (1:2,3:4),                # UnitRange, Tuple{UnitRange}
+                      (2,:), (:,2),                     # Int, Colon
+                      (1:2,:), (:,1:2),                 # UnitRange,Colon
+                      (1:2,2), (2,1:2),                 # Int, UnitRange
+                      (1:2:3,),                         # StepRange
+                      (1:2:3,:), (:,1:2:3),             # StepRange,Colon
+                      ([1,3],), ([2,2],),               # Vector{Int}
+                      ([1,3],:), (:,[1,3]),             # Vector{Int},Colon
+                      ([],),                            # Empty Array
+                      ((a.>0.5),),                      # BitArray
+                      ([1 3; 2 4],),                    # Array{Int}
+                      (CartesianIndex(3,),), (CartesianIndex(2,3),), # CartesianIndex
+                      ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex}
+                      )
                 # @show i
                 @test a[i...] == k[i...]
-                tmp = a[i...]; a[i...] = 0; k[i...] = 0
+                ai = a[i...]
+                a[i...] = 0
+                k[i...] = 0
                 @test a == k
-                a[i...] = tmp; k[i...] = tmp
+                a[i...] = ai
+                k[i...] = ai
+                @test a == k
                 @test gradcheck(getindex, a, i...)
                 @test gradcheck(getindex, k, i...)
             end
             # make sure end works
             @test a[2:end] == k[2:end]
             @test a[2:end,2:end] == k[2:end,2:end]
+            # k.>0.5 returns KnetArray{T}, we don't support BitArrays yet
+            @test a[a.>0.5] == k[k.>0.5]
         end
 
         # Unsupported indexing etc.:

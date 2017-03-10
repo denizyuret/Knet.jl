@@ -1,7 +1,7 @@
-2017-03-03  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-03-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue. Wikipedia has good pseudocode. Bandits may work better.
+	# Added KnetArray indexing support for: Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Multidimensional indexing incomplete.
 
 	* TODO8:
 	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
@@ -39,6 +39,11 @@
 	## try fusion: we can do layers in one kernel call: relu(wx+b).
 	## try streams or multiple gpus.
 	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
+2017-03-03  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Implement a decent hill climbing algorithm for hyperopt: do not repeat, have acceleration, independent step sizes, guarantee local minima, one dimension at a time, pick dimension/move using bandits or a smart queue. Wikipedia has good pseudocode. Bandits may work better.
 
 2017-03-01  Deniz Yuret  <dyuret@ku.edu.tr>
 

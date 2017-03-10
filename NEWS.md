@@ -3,6 +3,7 @@ Knet v0.8.3 Release Notes
 
 General
 -------
+* KnetArray indexing support for Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Multidimensional indexing incomplete.
 * Implemented `hyperband` and `goldensection` hyperparameter optimization algorithms.
 * Added per weight gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
