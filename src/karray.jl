@@ -683,6 +683,9 @@ function getindex{T,N}(A::KnetArray{T,N}, I::Union{Real, UnitRange, Colon}...)
     B1 = isa(I[1],Colon) ? size(A,1) : length(I[1])
     B2 = isa(I[2],Colon) ? size(A,2) : length(I[2])
     Bsize = isa(I[1],Real) ? (B2,) : isa(I[2],Real) ? (B1,) : (B1,B2)
+    if VERSION < v"0.5.0" && isa(I[1],Real)
+        Bsize = (B1,B2)
+    end
     Bdims = length(Bsize)
     if ncols == 1
         off = 1+(firstindex-1)*sizeof(T)

@@ -26,13 +26,14 @@ if gpu() >= 0
                       (1:2:3,:), (:,1:2:3),             # StepRange,Colon
                       ([1,3],), ([2,2],),               # Vector{Int}
                       ([1,3],:), (:,[1,3]),             # Vector{Int},Colon
+                # FAILING ([2,2],:), (:,[2,2]),             # Repeated index
                       ([],),                            # Empty Array
                       ((a.>0.5),),                      # BitArray
                       ([1 3; 2 4],),                    # Array{Int}
                       (CartesianIndex(3,),), (CartesianIndex(2,3),), # CartesianIndex
-                      ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex}
+                      ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAILING for v0.4
                       )
-                # @show i
+                @show i
                 @test a[i...] == k[i...]
                 ai = a[i...]
                 a[i...] = 0

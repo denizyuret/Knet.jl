@@ -7,6 +7,7 @@
 # can we traverse types and box their elements for autograd? check out deepcopy code again.
 # add tests for new karray indexing ops
 # fix charlm after finding optimum design.
+# test repeated indices for getcols or getrows.
 
 # mode=0  mode=1   mode=2   version (time in ms with default args)
 # 86.367  156.640  160.112  0ddef27 2017-03-09 s2s benchmark added

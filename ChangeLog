@@ -1,3 +1,115 @@
+2017-03-11  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* indexing: repeated indices are not handled properly by
+	ungetindex, they need to be summed in backward pass but setindex
+	just overwrites. Let's understand how Julia indexing works:
+
+	a[:,i]
+	522 ./abstractarray.jl:752; getindex(::Array{Float64,2}, ::Colon, ::Array{Int64,1})
+	?   ./multidimensional.jl:270; _getindex(::Base.LinearFast, ::Array{Float64,2},...
+	522 ./multidimensional.jl:291; _unsafe_getindex(::Base.LinearFast, ::Array{Float64,2},...
+        149 ./multidimensional.jl:296; macro expansion
+        373 ./multidimensional.jl:298; macro expansion
+        373 ./multidimensional.jl:340; _unsafe_getindex!
+        373 ./multidimensional.jl:348; macro expansion
+        6   ./cartesian.jl:62; macro expansion
+        367 ./cartesian.jl:64; macro expansion
+        45  ./cartesian.jl:62; macro expansion
+        7   ./multidimensional.jl:349; macro expansion
+        315 ./multidimensional.jl:350; macro expansion
+
+	_unsafe_getindex is a @generated function which uses @nexprs, @ncall, to_index.
+
+	http://docs.julialang.org/en/latest/manual/metaprogramming.html#Generated-functions-1
+
+	@generated functions return quoted expressions that get compiled
+	at runtime. Only the types of expressions can be accessed in their
+	body.
+
+	@ncall 3 func a
+	==> func(a_1, a_2, a_3)
+	@ncall 2 func a b i->c[i]
+	==> func(a, b, c[1], c[2])
+
+	@nexprs 4 i -> y[i] = A[i+j]
+	==> y[1]=A[1+j]; y[2]=A[2+j]...
+
+	to_index defined in operators.jl, converts to Array,Colon,Int
+	Numbers -> Int
+	Colon is kept
+	BitArray -> find(I) -> Vector{Int} # although there is a special _unsafe_getindex which skips using find
+	Other arrays are kept (int or cartesianindex)
+
+	index_shape(A,I_1,I_2,...) gives the destination shape
+
+	indices(b) => (Base.OneTo(10000),Base.OneTo(10000))
+	eachindex(b) => Base.OneTo(100000000)
+
+	Finally we call _unsafe_getindex!(dest,A,I_1,I_2,...) at multidimensional.jl:340
+	J = decolon(src,I_1,I_2,...) converts colons to explicit indices.
+
+	@nloops N itersym rangeexpr bodyexpr
+	@nloops N itersym rangeexpr preexpr bodyexpr
+	@nloops N itersym rangeexpr preexpr postexpr bodyexpr
+
+	# this indexes dest with linear, src with cartesian indices
+        D = eachindex(dest)
+        Ds = start(D)
+	for j_2 in J_2
+	  for j_1 in J_1
+	    d,Ds = next(D,Ds)
+	    dest[d] = getindex(src,j_1,j_2)
+	  end
+	end
+
+	We need to write an accumulating version of setindex! (addindex!) for ungetindex.
+	_setindex! for N-D indices L364
+	_setindex! for 1-D indices L368 uses _maybe_reshape(A)
+	_unsafe_setindex! is called
+	_unsafe_batchsetindex! is called with (A,_iterable(x),to_indexes(J...)...)  L420
+
+	Here is macroexpanded version for N=2:
+	X is iterated over. A is called with individual indices.
+	We just need to zero out A and add for AutoGrad.
+	We need to write a KnetArray specific version in Knet.
+
+quote  # none, line 2:
+    begin 
+        I_1 = I[1]
+        I_2 = I[2]
+    end # none, line 3:
+    idxlens = index_lengths(A,I_1,I_2) # none, line 4:
+    setindex_shape_check(X,idxlens[1],idxlens[2]) # none, line 5:
+    J = decolon(A,I_1,I_2) # none, line 6:
+    begin 
+        J_1 = J[1]
+        J_2 = J[2]
+    end # none, line 7:
+    Xs = start(X) # none, line 8:
+    begin 
+        $(Expr(:inbounds, true))
+        begin  # cartesian.jl, line 62:
+            for j_2 = J_2 # cartesian.jl, line 63:
+                nothing # cartesian.jl, line 64:
+                begin  # cartesian.jl, line 62:
+                    for j_1 = J_1 # cartesian.jl, line 63:
+                        nothing # cartesian.jl, line 64:
+                        begin  # none, line 9:
+                            (v,Xs) = next(X,Xs) # none, line 10:
+                            setindex!(A,v,j_1,j_2)
+                        end # cartesian.jl, line 65:
+                        nothing
+                    end
+                end # cartesian.jl, line 65:
+                nothing
+            end
+        end
+        $(Expr(:inbounds, :pop))
+    end # none, line 12:
+    A
+end
+
+
 2017-03-10  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
