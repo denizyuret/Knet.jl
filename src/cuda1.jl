@@ -185,6 +185,24 @@ end
 
 print(cuda1icat())
 
+# This is for missing double atomicAdd()
+print("""
+#include <cuda.h>
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
+static __inline__ __device__ double atomicAdd(double *address, double val) {
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  if (val==0.0)
+    return __longlong_as_double(old);
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val +__longlong_as_double(assumed)));
+  } while (assumed != old);
+  return __longlong_as_double(old);
+}
+#endif
+""")
 
 function cuda1getcols(; BLK=256, THR=256)
     sprint() do s
@@ -212,6 +230,18 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     if (col >= ncols) break;
     xidx = row + (cols[col]-1) * xrows;              
     x[xidx] = y[yidx];
+    yidx += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % xrows;
+    col = yidx / xrows;
+    if (col >= ncols) break;
+    xidx = row + (cols[col]-1) * xrows;              
+    atomicAdd(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
 }
@@ -251,6 +281,18 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
+__global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  int row, col, xidx;
+  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  while (1) {
+    row = yidx % nrows;
+    col = yidx / nrows;
+    if (col >= xcols) break;
+    xidx = rows[row] - 1 + col * xrows;              
+    atomicAdd(&x[xidx], y[yidx]);
+    yidx += blockDim.x * gridDim.x;
+  }
+}
 __global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -277,6 +319,13 @@ __global__ void _setents_$F(int n, int *ents, $T *x, $T *y) {
     i += blockDim.x * gridDim.x;
   }
 }
+__global__ void _addents_$F(int n, int *ents, $T *x, $T *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    atomicAdd(&x[ents[i]-1], y[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
 __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -287,12 +336,15 @@ __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
 extern "C" {
 void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y) { _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
 void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y) { _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
 void getents_$F(int n, int *ents, $T *x, $T *y) { _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 void setents_$F(int n, int *ents, $T *x, $T *y) { _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void addents_$F(int n, int *ents, $T *x, $T *y) { _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 void setent1_$F(int n, int *ents, $T *x, $T  y) { _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
