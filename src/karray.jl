@@ -255,13 +255,13 @@ end
 import Base: unsafe_copy!, copy, copy!
 typealias KorA{T} Union{KnetArray{T},Array{T}}
 
-function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer; stream=C_NULL)
+function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer)
     n == 0 && return dest
     n > 0 || throw(ArgumentError(string("tried to copy n=", n, " elements, but n should be nonnegative")))
     if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
         throw(BoundsError())
     end
-    unsafe_copy!(dest, doffs, src, soffs, n; stream=stream)
+    unsafe_copy!(dest, doffs, src, soffs, n)
 end
 
 copy!{T}(dest::KorA{T}, src::KorA{T}) = copy!(dest, 1, src, 1, length(src))
@@ -271,9 +271,9 @@ copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
 # This will make deepcopy work properly
 Base.deepcopy_internal(x::KnetArray, s::ObjectIdDict)=if haskey(s,x); s[x]; else; copy(x); end
 
-function unsafe_copy!{T}(dest::KorA{T}, doffs, src::KorA{T}, soffs, n; stream=C_NULL)
-    @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
-          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src), stream)
+function unsafe_copy!{T}(dest::KorA{T}, doffs, src::KorA{T}, soffs, n)
+    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src))
     return dest
 end
 
@@ -792,8 +792,8 @@ function setindex2!{T}(A::KnetMatrix{T}, B, I1::Index3, I2::Index3)
         length(B) == nelts || throw(DimensionMismatch())
         B = convert(KnetArray{T},B)
         if ncols == 1
-            @cuda(cudart,cudaMemcpyAsync,(Cptr,Cptr,Csize_t,UInt32,Cptr),
-                  aptr0, B, nelts*sizeof(T), cudadir(A,B), C_NULL)
+            @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+                  aptr0, B, nelts*sizeof(T), cudadir(A,B))
         else
             nrows *= sizeof(T); astep *= sizeof(T)
             ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
