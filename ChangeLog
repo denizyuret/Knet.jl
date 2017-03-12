@@ -1,3 +1,45 @@
+2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# fix repeated index gradient bug.
+
+	* TODO8:
+	# s2s: Add a generic s2s example to Knet/examples. Need to solve minibatching / concat first.
+	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
+	# docs: write rnn chapter. fix earlier chapters.
+	# navigation: implement world represenation.
+	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
+	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# Add dropout as a primitive. Need kernel.
+	# Setup attobot for next release: https://github.com/attobot/attobot.
+	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base.
+	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
+	# add some test for deconv vs conv. dropout, gclip.
+	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# Latest master failing on nightly; AutoGrad also fails.
+	# AutoGrad: run all tests with KnetArrays
+	# AutoGrad: support for keys, values, next for dictionaries.
+	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
+	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
+	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
+	# mnist2d: implement/test sparse arrays
+	# time doing a single im2col instead of N for conv4
+	# replace T<: conditions in functions with generated code for each type
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms? fft paper from https://arxiv.org/abs/1601.06815.
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
+	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
 2017-03-11  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* indexing: repeated indices are not handled properly by
@@ -114,43 +156,6 @@ end
 
 	* DONE:
 	# Added KnetArray indexing support for: Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Multidimensional indexing incomplete.
-
-	* TODO8:
-	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
-	# docs: write rnn chapter. fix earlier chapters.
-	# navigation: implement world represenation.
-	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
-	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# Add dropout as a primitive. Need kernel.
-	# s2s: Add a generic s2s example to Knet/examples. Need to solve minibatching / concat first.
-	# Setup attobot for next release: https://github.com/attobot/attobot.
-	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base.
-	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
-	# add some test for deconv vs conv. dropout, gclip.
-	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-	# Latest master failing on nightly; AutoGrad also fails.
-	# AutoGrad: run all tests with KnetArrays
-	# AutoGrad: support for keys, values, next for dictionaries.
-	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
-	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
-	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
-	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# mnist2d: implement/test sparse arrays
-	# time doing a single im2col instead of N for conv4
-	# replace T<: conditions in functions with generated code for each type
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
-
-	# optimization:
-	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	## optimize reduction and broadcasting kernels.
-	## optimize logp / softmax.
-	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms? fft paper from https://arxiv.org/abs/1601.06815.
-	## try fusion: we can do layers in one kernel call: relu(wx+b).
-	## try streams or multiple gpus.
-	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
 
 2017-03-03  Deniz Yuret  <dyuret@ku.edu.tr>
 

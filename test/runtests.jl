@@ -2,10 +2,10 @@
 @time include("kptr.jl")          # 1   1   0   0   2   0   0
 @time include("gpu.jl")           # 1   1   0   0   1   0   0
 @time include("distributions.jl") # 1   1   2   1   2   3   2
-@time include("karray.jl")        # 10  6   0   0   15  0   0
 @time include("linalg.jl")        # 13  8   -   -   -   24  16
-@time include("broadcast.jl")     # 21  9   19  7   29  31  15
-@time include("reduction.jl")     # 21  8   16  6   31  33  16
-@time include("conv.jl")          # 23  13  57  13  37  58  29
+@time include("karray.jl")        # 19 :: new indexing types
+@time include("reduction.jl")     # 22  8   16  6   31  33  16
+@time include("broadcast.jl")     # 23  9   19  7   29  31  15
+@time include("conv.jl")          # 24  13  57  13  37  58  29
 @time include("unary.jl")         # 30  4   27  4   43  52  9
-@time include("update.jl")        # 30  29  -   -   -   29  24
+@time include("update.jl")        # 61 :: this was 30?
