@@ -189,7 +189,7 @@ print(cuda1icat())
 print("""
 #include <cuda.h>
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
+#if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ < 600
 static __inline__ __device__ double atomicAdd(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
