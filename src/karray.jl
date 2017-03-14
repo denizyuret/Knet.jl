@@ -305,21 +305,31 @@ copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
 # This will make deepcopy work properly
 Base.deepcopy_internal(x::KnetArray, s::ObjectIdDict)=if haskey(s,x); s[x]; else; copy(x); end
 
-function unsafe_copy!{T}(dest::KorA{T}, doffs, src::KorA{T}, soffs, n)
+function unsafe_copy!{T}(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int)
     @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
-          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), cudadir(dest,src))
+          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 1)
+    return dest
+end
+function unsafe_copy!{T}(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int)
+    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 2)
+    return dest
+end
+function unsafe_copy!{T}(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int)
+    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+          pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 3)
     return dest
 end
 
-function cudadir(a,b)
-    deva = isa(a,KnetArray) && a.ptr.dev >= 0
-    devb = isa(b,KnetArray) && b.ptr.dev >= 0
-    if !deva && !devb; return 0
-    elseif deva && !devb; return 1
-    elseif !deva && devb; return 2
-    elseif deva && devb;  return 3
-    end
-end
+# function cudadir(a,b)
+#     deva = isa(a,KnetArray) && a.ptr.dev >= 0
+#     devb = isa(b,KnetArray) && b.ptr.dev >= 0
+#     if !deva && !devb; return 0
+#     elseif deva && !devb; return 1
+#     elseif !deva && devb; return 2
+#     elseif deva && devb;  return 3
+#     end
+# end
 
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
