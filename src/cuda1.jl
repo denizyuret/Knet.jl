@@ -187,6 +187,14 @@ print(cuda1icat())
 
 # This is for missing double atomicAdd()
 print("""
+static __inline__ __device__ float atomicAdd2(float *address, float val) {
+  return atomicAdd(address, val);
+}
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
+static __inline__ __device__ double atomicAdd2(double *address, double val) {
+  return atomicAdd(address, val);
+}
+#else      
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -198,9 +206,7 @@ static __inline__ __device__ double atomicAdd2(double *address, double val) {
   } while (assumed != old);
   return __longlong_as_double(old);
 }
-static __inline__ __device__ float atomicAdd2(float *address, float val) {
-    return atomicAdd(address, val);
-}
+#endif
 """)
 
 function cuda1getcols(; BLK=256, THR=256)

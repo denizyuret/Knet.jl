@@ -208,36 +208,70 @@ import Base: hcat, vcat, cat
 # hcat(m,m): I = (Colon(),1:5) I = (Colon(),6:10)
 # vcat(m,m): I = (1:3,Colon()) I = (4:6,Colon())
 
-function hcat{T}(a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
-    size(a,1)==size(b,1) || throw(DimensionMismatch())
-    c1 = size(a,1)
-    c2 = size(a,2) + size(b,2)
-    c = KnetArray(T, (c1,c2))
-    c[:,1:size(a,2)] = a
-    c[:,1+size(a,2):end] = b
-    return c
+# based on typed_hcat{T}(::Type{T}, A::AbstractVecOrMat...) in base/abstractarray.jl:996
+function hcat{T}(A::KnetVecOrMat{T}...)
+    nargs = length(A)
+    nrows = size(A[1], 1)
+    ncols = 0
+    for j = 1:nargs
+        Aj = A[j]
+        if size(Aj, 1) != nrows
+            throw(ArgumentError("number of rows of each array must match (got $(map(x->size(x,1), A)))"))
+        end
+        nd = ndims(Aj)
+        ncols += (nd==2 ? size(Aj,2) : 1)
+    end
+    B = similar(A[1], nrows, ncols)
+    pos = 1
+    for k = 1:nargs
+        Ak = A[k]
+        n = length(Ak)
+        copy!(B, pos, Ak, 1, n)
+        pos += n
+    end
+    return B
 end
 
-function vcat{T}(a::KnetVector{T}, b::KnetVector{T})
-    c = KnetArray(T, length(a)+length(b))
-    c[1:length(a)] = a
-    c[1+length(a):end] = b
-    return c
+function vcat{T}(A::KnetVector{T}...)
+    nargs = length(A)
+    nrows = 0
+    for a in A
+        nrows += length(a)
+    end
+    B = similar(A[1], nrows)
+    pos = 1
+    for k = 1:nargs
+        Ak = A[k]
+        n = length(Ak)
+        copy!(B, pos, Ak, 1, n)
+        pos += n
+    end
+    return B
 end
 
-function vcat{T}(a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
-    size(a,2)==size(b,2) || throw(DimensionMismatch())
-    c1 = size(a,1) + size(b,1)
-    c2 = size(a,2)
-    c = KnetArray(T, (c1,c2))
-    c[1:size(a,1),:] = a
-    c[1+size(a,1):end,:] = b
-    return c
+function vcat{T}(A::KnetVecOrMat{T}...)
+    nargs = length(A)
+    nrows = sum(a->size(a, 1), A)::Int
+    ncols = size(A[1], 2)
+    for j = 2:nargs
+        if size(A[j], 2) != ncols
+            throw(ArgumentError("number of columns of each array must match (got $(map(x->size(x,2), A)))"))
+        end
+    end
+    B = similar(A[1], nrows, ncols)
+    pos = 1
+    for k = 1:nargs
+        Ak = A[k]
+        p1 = pos+size(Ak,1)-1
+        B[pos:p1, :] = Ak
+        pos = p1+1
+    end
+    return B
 end
 
-function cat{T}(d, a::KnetVecOrMat{T}, b::KnetVecOrMat{T})
-    if     d==1; vcat(a,b)
-    elseif d==2; hcat(a,b)
+function cat{T}(d, a::KnetVecOrMat{T}...)
+    if     d==1; vcat(a...)
+    elseif d==2; hcat(a...)
     else error("cat($d) not implemented.")
     end
 end
