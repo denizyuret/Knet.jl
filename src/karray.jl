@@ -321,15 +321,15 @@ function unsafe_copy!{T}(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soff
     return dest
 end
 
-# function cudadir(a,b)
-#     deva = isa(a,KnetArray) && a.ptr.dev >= 0
-#     devb = isa(b,KnetArray) && b.ptr.dev >= 0
-#     if !deva && !devb; return 0
-#     elseif deva && !devb; return 1
-#     elseif !deva && devb; return 2
-#     elseif deva && devb;  return 3
-#     end
-# end
+function cudadir(a,b)
+    deva = isa(a,KnetArray) && a.ptr.dev >= 0
+    devb = isa(b,KnetArray) && b.ptr.dev >= 0
+    if !deva && !devb; return 0
+    elseif deva && !devb; return 1
+    elseif !deva && devb; return 2
+    elseif deva && devb;  return 3
+    end
+end
 
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"

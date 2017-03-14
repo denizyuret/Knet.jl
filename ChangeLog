@@ -2,11 +2,13 @@
 
 	* DONE:
 	# fix repeated index gradient bug.
+	# s2s: Add a generic s2s example to Knet/examples. Need to solve minibatching / concat first.
+	# docs: write rnn chapter. fix earlier chapters.
 
 	* TODO8:
-	# s2s: Add a generic s2s example to Knet/examples. Need to solve minibatching / concat first.
+	# s2s profile.
+	# implement nce.
 	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
-	# docs: write rnn chapter. fix earlier chapters.
 	# navigation: implement world represenation.
 	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
 	# charlm: add dropout, add adam, functional lstm interface defining multi-output grad2 function.

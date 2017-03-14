@@ -3,7 +3,8 @@ Knet v0.8.3 Release Notes
 
 General
 -------
-* KnetArray indexing support for Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Most combinations work for 2-D.  N-D indexing incomplete.
+* KnetArray indexing support for Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Most combinations work for 2-D.  N-D indexing incomplete.  See `@doc KnetArray` for details.
+* KnetArray multi-argument `hcat` and `vcat` implemented.
 * Implemented `hyperband` and `goldensection` hyperparameter optimization algorithms.
 * Added per weight gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
@@ -18,6 +19,7 @@ Examples
 --------
 * Fixed vgg and resnet demos to use the new version of Images.jl.
 * Added prof/s2s.jl, a sequence-to-sequence RNN model, for profiling.
+* Added prof/karray.jl, profiling concatenation.
 
 
 Knet v0.8.2 Release Notes
