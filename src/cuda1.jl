@@ -187,10 +187,7 @@ print(cuda1icat())
 
 # This is for missing double atomicAdd()
 print("""
-#include <cuda.h>
-
-#if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ < 600
-static __inline__ __device__ double atomicAdd(double *address, double val) {
+static __inline__ __device__ double atomicAdd2(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
   if (val==0.0)
@@ -201,7 +198,9 @@ static __inline__ __device__ double atomicAdd(double *address, double val) {
   } while (assumed != old);
   return __longlong_as_double(old);
 }
-#endif
+static __inline__ __device__ float atomicAdd2(float *address, float val) {
+    return atomicAdd(address, val);
+}
 """)
 
 function cuda1getcols(; BLK=256, THR=256)
@@ -241,7 +240,7 @@ __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     col = yidx / xrows;
     if (col >= ncols) break;
     xidx = row + (cols[col]-1) * xrows;              
-    atomicAdd(&x[xidx], y[yidx]);
+    atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
 }
@@ -289,7 +288,7 @@ __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     col = yidx / nrows;
     if (col >= xcols) break;
     xidx = rows[row] - 1 + col * xrows;              
-    atomicAdd(&x[xidx], y[yidx]);
+    atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
 }
@@ -322,7 +321,7 @@ __global__ void _setents_$F(int n, int *ents, $T *x, $T *y) {
 __global__ void _addents_$F(int n, int *ents, $T *x, $T *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    atomicAdd(&x[ents[i]-1], y[i]);
+    atomicAdd2(&x[ents[i]-1], y[i]);
     i += blockDim.x * gridDim.x;
   }
 }
