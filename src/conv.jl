@@ -477,9 +477,9 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
         xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-        ccall(($("im2col$S"),libknet8),Void,
-              (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+        @knet8($("im2col$S"),
+               (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+               xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
         return x2
     end
 
@@ -488,9 +488,9 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
         xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-        ccall(($("col2im$S"),libknet8),Void,
-              (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-              x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
+        @knet8($("col2im$S"),
+               (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+               x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
         return x
     end
 
@@ -505,13 +505,13 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         (p1,p2) = psize(padding, x)
         (s1,s2) = psize(stride, x)
         if mode == 0
-            ccall(($("max_pooling_fwd$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+            @knet8($("max_pooling_fwd$S"),
+                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif mode == 1 || (mode == 2 && p1==p2==0)
-            ccall(($("mean_pooling_fwd$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+            @knet8($("mean_pooling_fwd$S"),
+                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
             throw(ArgumentError("mode $mode not supported by cpu pool"))
         end
@@ -530,13 +530,13 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         (s1,s2) = psize(stride, x)
         if mode == 0
             if alpha != 1; y = y ./ alpha; end
-            ccall(($("max_pooling_bwd$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+            @knet8($("max_pooling_bwd$S"),
+                   (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                   x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         elseif mode == 1 || (mode == 2 && p1==p2==0)
-            ccall(($("mean_pooling_bwd$S"),libknet8),Void,
-                  (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                  dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
+            @knet8($("mean_pooling_bwd$S"),
+                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                   dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
         else
             throw(ArgumentError("mode $mode not supported by cpu pool"))
         end

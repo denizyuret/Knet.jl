@@ -3,6 +3,10 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 module Knet
 using Compat
 
+# utilities for debugging and profiling.
+macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
+macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+
 const libknet8 = Libdl.find_library(["libknet8.so"], [dirname(@__FILE__)])
 
 using AutoGrad; export grad, gradloss, gradcheck, getval

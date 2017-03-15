@@ -76,7 +76,7 @@ function unary_op(f, j=f, o...)
         @eval begin
             function $J(x::KnetArray{$T})
                 y = similar(x)
-                ccall(($F,$libknet8),Void,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
+                @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
         end
@@ -170,8 +170,16 @@ function logp(x,d...)
     elseif isempty(x)
         return x
     else
-        x = x .- maximum(x,d...)
-        return (x .- log(sum(exp(x),d...)))
+        # x = x .- maximum(x,d...)
+        # return (x .- log(sum(exp(x),d...)))
+        # Expanding for profiling:
+        x1 = maximum(x,d...)
+        x2 = x .- x1
+        x3 = exp(x2)
+        x4 = sum(x3,d...)
+        x5 = log(x4)
+        x6 = x2 .- x5
+        return x6
     end
 end
 
@@ -182,7 +190,13 @@ function logpback(x,y,dy,d...)
     elseif isempty(x)
         return x
     else
-        return (dy - exp(y).*sum(dy,d...))
+        # return (dy - exp(y).*sum(dy,d...))
+        # Expanding for profiling:
+        dx1 = sum(dy,d...)
+        dx2 = exp(y)
+        dx3 = dx2 .* dx1
+        dx4 = dy - dx3
+        return dx4
     end
 end
 

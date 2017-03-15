@@ -1,3 +1,59 @@
+2017-03-15  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* profile: %41 forw (%20 logp), %44 back (%21 logp), %14 sum_outgrads
+	* flat: 2027 logp, 1761 sum, 1410 gemm, 1373 sum_outgrads
+
+          4115 ...et/.julia/v0.5/AutoGrad/src/core.jl:88; forward_pass(::Function, ::Tuple{Dict{Symbol,Any},Arr...
+           12   /Users/dyuret/knet/master/prof/s2s.jl:83; state = initstate(inputs[1], model[:state0]) # 14
+           92   /Users/dyuret/knet/master/prof/s2s.jl:86; input = lstm_input(model[:embed1], input) # 85
+           717  /Users/dyuret/knet/master/prof/s2s.jl:87; state = lstm(model[:encode], state, input) # 723
+           9    /Users/dyuret/knet/master/prof/s2s.jl:91; input = lstm_input(model[:embed2], EOS) # 3
+           692  /Users/dyuret/knet/master/prof/s2s.jl:95; state = lstm(model[:decode], state, input) # 702
+           80   /Users/dyuret/knet/master/prof/s2s.jl:100; input = lstm_input(model[:embed2],output) # 61
+           39   /Users/dyuret/knet/master/prof/s2s.jl:102; state = lstm(model[:decode], state, input) # 30
+           1    /Users/dyuret/knet/master/prof/s2s.jl:106; gold = vcat(outputs..., EOS) # 1
+           2473 /Users/dyuret/knet/master/prof/s2s.jl:107; sumlogp = lstm_output(model[:output], preds, gold) # 2441
+            43   /Users/dyuret/knet/master/prof/s2s.jl:114; pred1 = vcat(preds...) # 46
+            248  /Users/dyuret/knet/master/prof/s2s.jl:115; pred2 = pred1 * param[1] # 242
+            144  /Users/dyuret/knet/master/prof/s2s.jl:116; pred3 = pred2 .+ param[2] # 145
+            2037 /Users/dyuret/knet/master/prof/s2s.jl:117; sumlogp = logprob(gold, pred3) # 2006
+             2027 ...rs/dyuret/knet/master/prof/s2s.jl:135; o1 = logp(ypred,2)     # 1999
+               833 ...ret/.julia/v0.5/Knet/src/unary.jl:176; x1 = maximum(x,d...)
+               120 ...ret/.julia/v0.5/Knet/src/unary.jl:177; x2 = x .- x1
+               122 ...ret/.julia/v0.5/Knet/src/unary.jl:178; x3 = exp(x2)
+               827 ...ret/.julia/v0.5/Knet/src/unary.jl:179; x4 = sum(x3,d...)
+               1   ...ret/.julia/v0.5/Knet/src/unary.jl:180; x5 = log(x4)
+               123 ...ret/.julia/v0.5/Knet/src/unary.jl:181; x6 = x2 .- x5
+             6    ...rs/dyuret/knet/master/prof/s2s.jl:136; o2 = o1[index]         # 4
+             4    ...rs/dyuret/knet/master/prof/s2s.jl:137; o3 = sum(o2)           # 2
+
+          4409 ...et/.julia/v0.5/AutoGrad/src/core.jl:231; backward_pass(::AutoGrad.Rec{Dict{Symbol,Any}}, ::Aut...
+           932  ./<missing>:0; *(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float32...
+           1    ./<missing>:0; +(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Float32...
+           410  ./<missing>:0; .*(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float3...
+           148  ./<missing>:0; .+(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float3...
+           21   ./<missing>:0; getindex(::Type{AutoGrad.Grad{1}}, ::Array{Any,1}, :...
+           2142 ./<missing>:0; logp(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+            818  ...uret/.julia/v0.5/Knet/src/unary.jl:195; dx1 = sum(dy,d...)
+            120  ...uret/.julia/v0.5/Knet/src/unary.jl:196; dx2 = exp(y)
+            1038 ...uret/.julia/v0.5/Knet/src/unary.jl:197; dx3 = dx2 .* dx1
+            166  ...uret/.julia/v0.5/Knet/src/unary.jl:198; dx4 = dy - dx3
+           245  ./<missing>:0; lstm_input(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArra...
+           143  ./<missing>:0; sigm(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+           6    ./<missing>:0; sum(::Type{AutoGrad.Grad{1}}, ::Float32, ::Float32, ...
+           106  ./<missing>:0; tanh(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+           10   ./base.jl:151; vector_any()
+           2    ...AutoGrad/src/base/abstractarray.jl:0; cat(::Type{AutoGrad.Grad{17}}, ::Knet.KnetArray{Floa...
+           85   ...AutoGrad/src/base/abstractarray.jl:85; cat(::Type{AutoGrad.Grad{11}}, ::Knet.KnetArray{Floa...
+
+          1373 ...et/.julia/v0.5/AutoGrad/src/core.jl:233; backward_pass(::AutoGrad.Rec{Dict{Symbol,Any}}, ::Aut...
+           360 ...lia/v0.5/AutoGrad/src/interfaces.jl:71; sum_outgrads(::Void, ::AutoGrad.UngetIndex)
+           569 ...lia/v0.5/AutoGrad/src/interfaces.jl:87; sum_outgrads(::Dict{Symbol,Any}, ::AutoGrad.UngetIndex)
+           3   ...lia/v0.5/AutoGrad/src/interfaces.jl:92; sum_outgrads(::Array{Any,1}, ::AutoGrad.UngetIndex)
+           77  ...uret/.julia/v0.5/Knet/src/karray.jl:905; sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
+           346 ...uret/.julia/v0.5/Knet/src/karray.jl:908; c = sum_outgrads_karray(a, b.value, b.index...)
+
+
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -31,6 +87,7 @@
 	# time doing a single im2col instead of N for conv4
 	# replace T<: conditions in functions with generated code for each type
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+	# DL439: If one has access to numerical computation on complex numbers, then there isa very eﬃcient way to numerically estimate	the gradient by using complex numbersas input to the function (Squire and Trapp, 1998)
 
 	# optimization:
 	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.

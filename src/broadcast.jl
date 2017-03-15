@@ -50,18 +50,18 @@ function broadcast_op(f, j=f, o...)
         @eval begin
             function $J(x::$T,y::KnetArray{$T})
                 z = similar(y)
-                ccall(($F01,$libknet8),Void,(Cint,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
+                @knet8($F01,(Cint,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
                 return z
             end
             function $J(x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
                     z = similar(x)
-                    ccall(($F11,$libknet8),Void,(Cint,$Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
+                    @knet8($F11,(Cint,$Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
                     return z
                 else
                     (dz,sx,nx,sy,ny) = vbroadcast_shape(x,y)
                     z = similar(x,dz)
-                    ccall(($F12,$libknet8),Void,(Cint,$Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
+                    @knet8($F12,(Cint,$Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
                     return z
                 end
             end

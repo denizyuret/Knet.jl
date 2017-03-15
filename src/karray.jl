@@ -334,7 +334,7 @@ end
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     @eval function knetfill!(a::KnetArray{$T},v::$T,off,len)
-        ccall(($F,$libknet8),Void,(Cint,$T,Ptr{$T}),len,v,pointer(a,off))
+        @knet8($F,(Cint,$T,Ptr{$T}),len,v,pointer(a,off))
     end
 end
 
@@ -500,20 +500,20 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
     function getindex(x::KnetArray{$T}, i::KnetArray{Int32})
         y = similar(x, size(i))
-        ccall(($("getents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              length(i), i, x, y)
+        @knet8($("getents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               length(i), i, x, y)
         return y
     end
 
     function setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
-        ccall(($("setents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              length(i), i, x, y)
+        @knet8($("setents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               length(i), i, x, y)
         return x
     end
 
     function setindex!(x::KnetArray{$T}, y::Number, i::KnetArray{Int32})
-        ccall(($("setent1_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},$T),
-              length(i), i, x, $T(y))
+        @knet8($("setent1_$F"),(Cint,Ptr{Int},Ptr{$T},$T),
+               length(i), i, x, $T(y))
         return x
     end
 
@@ -522,19 +522,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
     function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
         y = similar(x, size(x,1), length(i))
-        ccall(($("getcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("getcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
         return y
     end
 
     function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        ccall(($("setcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("setcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
 
     function setindex!(x::KnetMatrix{$T}, y::Number, ::Colon, i::KnetVector{Int32})
-        ccall(($("setcol1_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+        @knet8($("setcol1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
               size(x,1), size(x,2), length(i), i, x, $T(y))
         return x
     end
@@ -543,19 +543,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
     function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         y = similar(x, length(i), size(x,2))
-        ccall(($("getrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("getrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
         return y
     end
 
     function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        ccall(($("setrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("setrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
               size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
 
     function setindex!(x::KnetMatrix{$T}, y::Number, i::KnetVector{Int32}, ::Colon)
-        ccall(($("setrow1_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+        @knet8($("setrow1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
               size(x,1), size(x,2), length(i), i, x, $T(y))
         return x
     end
@@ -812,8 +812,8 @@ function getindex2{T}(A::KnetMatrix{T}, I1::Index3, I2::Index3)
     else
         B = similar(A, Bsize)
         nrows *= sizeof(T); astep *= sizeof(T)
-        ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint),
-              nrows, ncols, pointer(A,firstindex), astep, B, nrows)
+        @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint),
+               nrows, ncols, pointer(A,firstindex), astep, B, nrows)
         return B
     end
 end
@@ -824,13 +824,21 @@ function setindex2!{T}(A::KnetMatrix{T}, B, I1::Index3, I2::Index3)
     if isa(B,Number)
         B = T(B)
         if ncols == 1
-            if T <: Float32;    ccall((:fill_32,libknet8),Void,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
-            elseif T<: Float64; ccall((:fill_64,libknet8),Void,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
-            else error("$T not supported"); end
+            if T <: Float32
+                @knet8(fill_32,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
+            elseif T<: Float64
+                @knet8(fill_64,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
+            else
+                error("$T not supported")
+            end
         else
-            if T <: Float32;    ccall((:xfill_32,libknet8),Void,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
-            elseif T<: Float64; ccall((:xfill_64,libknet8),Void,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
-            else error("$T not supported"); end
+            if T <: Float32
+                @knet8(xfill_32,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
+            elseif T<: Float64
+                @knet8(xfill_64,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
+            else
+                error("$T not supported")
+            end
         end
     else
         length(B) == nelts || throw(DimensionMismatch())
@@ -840,7 +848,7 @@ function setindex2!{T}(A::KnetMatrix{T}, B, I1::Index3, I2::Index3)
                   aptr0, B, nelts*sizeof(T), cudadir(A,B))
         else
             nrows *= sizeof(T); astep *= sizeof(T)
-            ccall((:xcopy,libknet8),Void,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
+            @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
         end
     end
     return A
@@ -897,7 +905,8 @@ _dbg(a::KnetArray) = "K"*_dbg(Array(a))
 sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
 
 function sum_outgrads(a::KnetArray,b::UngetIndex)
-    sum_outgrads_karray(a, b.value, b.index...)
+    c = sum_outgrads_karray(a, b.value, b.index...)
+    return c
 end
 
 # This only works when there are no repeated indices. This is true for index types:
@@ -915,24 +924,24 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function sum_outgrads_karray{R<:Real}(A::KnetArray{$T}, X, I::AbstractArray{R})
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        ccall(($("addents_$F"),libknet8),Void,(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              length(I), I, A, X)
+        @knet8($("addents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               length(I), I, A, X)
         return A
     end
 
     function sum_outgrads_karray{R<:Real}(A::KnetArray{$T}, X, ::Colon, I::AbstractArray{R})
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        ccall(($("addcols_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(A,1), size(A,2), length(I), I, A, X)
+        @knet8($("addcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               size(A,1), size(A,2), length(I), I, A, X)
         return A
     end
 
     function sum_outgrads_karray{R<:Real}(A::KnetArray{$T}, X, I::AbstractArray{R}, ::Colon)
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        ccall(($("addrows_$F"),libknet8),Void,(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(A,1), size(A,2), length(I), I, A, X)
+        @knet8($("addrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               size(A,1), size(A,2), length(I), I, A, X)
         return A
     end
 
