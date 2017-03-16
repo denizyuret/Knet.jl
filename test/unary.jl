@@ -1,7 +1,7 @@
 include("header.jl")
 
 function frand(f,t,d...)
-    r = rand(t,d...)*t(0.8)+t(0.1)
+    r = rand(t,d...)*t(0.5)+t(0.25)
     if in(f,(acosh,asec))
         return 1 ./ r
     else
