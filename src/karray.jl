@@ -348,6 +348,14 @@ summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
 
+# Hack for JLD file load/save of KnetArrays:
+if Pkg.installed("JLD") != nothing
+    import JLD: writeas, readas
+    type KnetJLD; a::Array; end
+    writeas(c::KnetArray) = KnetJLD(Array(c))
+    readas(d::KnetJLD) = KnetArray(d.a)
+end
+
 # Array/KnetArray Transfer
 
 # This works but unnecessarily defines new functions:
