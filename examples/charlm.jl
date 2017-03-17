@@ -7,8 +7,8 @@ end
 This example implements an LSTM network for training and testing
 character-level language models inspired by ["The Unreasonable
 Effectiveness of Recurrent Neural
-Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness) from
-the Andrej Karpathy blog.  The model can be trained with different
+Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness)
+from Andrej Karpathy's blog.  The model can be trained with different
 genres of text, and can be used to generate original text in the same
 style.
 
@@ -34,171 +34,20 @@ Example usage:
     
 """
 module CharLM
-
 using Knet,AutoGrad,ArgParse,Compat
 
-function main(args=ARGS)
-    s = ArgParseSettings()
-    s.description="charlm.jl (c) Emre Yolcu, Deniz Yuret, 2016. Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness."
-    s.exc_handler=ArgParse.debug_handler
-    @add_arg_table s begin
-        ("--datafiles"; nargs='+'; help="If provided, use first file for training, second for dev, others for test.")
-        ("--loadfile"; help="Initialize model from file")
-        ("--savefile"; help="Save final model to file")
-        ("--bestfile"; help="Save best model to file")
-        ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of characters.")
-        ("--hidden"; nargs='+'; arg_type=Int; default=[256]; help="Sizes of one or more LSTM layers.")
-        ("--embed"; arg_type=Int; default=256; help="Size of the embedding vector.")
-        ("--epochs"; arg_type=Int; default=3; help="Number of epochs for training.")
-        ("--batchsize"; arg_type=Int; default=128; help="Number of sequences to train on in parallel.")
-        ("--seqlength"; arg_type=Int; default=100; help="Number of steps to unroll the network for.")
-        ("--decay"; arg_type=Float64; default=0.9; help="Learning rate decay.")
-        ("--lr"; arg_type=Float64; default=4.0; help="Initial learning rate.")
-        ("--gclip"; arg_type=Float64; default=3.0; help="Value to clip the gradient norm at.")
-        ("--winit"; arg_type=Float64; default=0.3; help="Initial weights set to winit*randn().")
-        ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
-        ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
-        ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
-    end
-    println(s.description)
-    isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s; as_symbols=true)
-    println("opts=",[(k,v) for (k,v) in o]...)
-    o[:seed] > 0 && srand(o[:seed])
-    o[:atype] = eval(parse(o[:atype]))
-    if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
-        Pkg.installed("JLD")==nothing && Pkg.add("JLD") # error("Please Pkg.add(\"JLD\") to load or save files.")
-        eval(Expr(:using,:JLD))
-    end
 
-    # we initialize a model from loadfile, train using datafiles (both optional).
-    # if the user specifies neither, train a model using the charlm.jl source code.
-    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],@__FILE__) # shakespeare()
-
-    # read text and report lengths
-    text = map((@compat readstring), o[:datafiles])
-    !isempty(text) && info("Chars read: $(map((f,c)->(basename(f),length(c)),o[:datafiles],text))")
-
-    # vocab (char_to_index) comes from the initial model if there is one, otherwise from the datafiles.
-    # if there is an initial model make sure the data has no new vocab
-    if o[:loadfile]==nothing
-        vocab = Dict{Char,Int}()
-        for t in text, c in t; get!(vocab, c, 1+length(vocab)); end
-        model = initweights(o[:atype], o[:hidden], length(vocab), o[:embed], o[:winit])
-    else
-        info("Loading model from $(o[:loadfile])")
-        vocab = load(o[:loadfile], "vocab") 
-        for t in text, c in t; haskey(vocab, c) || error("Unknown char $c"); end
-        model = map(p->convert(o[:atype],p), load(o[:loadfile], "model"))
-    end
-    info("$(length(vocab)) unique chars.")
-    if !isempty(text)
-        train!(model, text, vocab, o)
-    end
-    if o[:savefile] != nothing
-        info("Saving last model to $(o[:savefile])")
-        save(o[:savefile], "model", model, "vocab", vocab)
-    end
-    if o[:generate] > 0
-        state = initstate(o[:atype],o[:hidden],1)
-        generate(model, state, vocab, o[:generate])
-    end
-end
-
-
-function train!(model, text, vocab, o)
-    s0 = initstate(o[:atype], o[:hidden], o[:batchsize])
-    data = map(t->minibatch(t, vocab, o[:batchsize]), text)
-    lr = o[:lr]
-    if o[:fast]
-        @time (for epoch=1:o[:epochs]
-               train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-               end; gpu()>=0 && Knet.cudaDeviceSynchronize())
-        return
-    end
-    losses = map(d->loss(model,copy(s0),d), data)
-    println((:epoch,0,:loss,losses...))
-    devset = ifelse(length(data) > 1, 2, 1)
-    devlast = devbest = losses[devset]
-    for epoch=1:o[:epochs]
-        @time train1(model, copy(s0), data[1]; slen=o[:seqlength], lr=lr, gclip=o[:gclip])
-        @time losses = map(d->loss(model,copy(s0),d), data)
-        println((:epoch,epoch,:loss,losses...))
-        if o[:gcheck] > 0
-            gradcheck(loss, model, copy(s0), data[1], 1:o[:seqlength]; gcheck=o[:gcheck], verbose=true)
-        end
-        devloss = losses[devset]
-        if devloss < devbest
-            devbest = devloss
-            if o[:bestfile] != nothing
-                info("Saving best model to $(o[:bestfile])")
-                save(o[:bestfile], "model", model, "vocab", vocab)
-            end
-        end
-        if devloss > devlast
-            lr *= o[:decay]
-            info("New learning rate: $lr")
-        end
-        devlast = devloss
-    end
-end    
-
-
-# sequence[t]: input token at time t
-# state is modified in place
-function train1(param, state, sequence; slen=100, lr=1.0, gclip=0.0)
-    for t = 1:slen:length(sequence)-slen
-        range = t:t+slen-1
-        gloss = lossgradient(param, state, sequence, range)
-        gscale = lr
-        if gclip > 0
-            gnorm = sqrt(mapreduce(sumabs2, +, 0, gloss))
-            if gnorm > gclip
-                gscale *= gclip / gnorm
-            end
-        end
-        for k in 1:length(param)
-            # param[k] -= gscale * gloss[k]
-            axpy!(-gscale, gloss[k], param[k])
-        end
-        isa(state,Vector{Any}) || error("State should not be Boxed.")
-        # The following is needed in case AutoGrad boxes state values during gradient calculation
-        for i = 1:length(state)
-            state[i] = AutoGrad.getval(state[i])
-        end
-    end
-end
-
-# param[2k-1,2k]: weight and bias for the k'th lstm layer
-# param[end-2]: embedding matrix
-# param[end-1,end]: weight and bias for final prediction
-function initweights(atype, hidden, vocab, embed, winit)
-    param = Array(Any, 2*length(hidden)+3)
-    input = embed
-    for k = 1:length(hidden)
-        param[2k-1] = winit*randn(input+hidden[k], 4*hidden[k])
-        param[2k]   = zeros(1, 4*hidden[k])
-        param[2k][1:hidden[k]] = 1 # forget gate bias
-        input = hidden[k]
-    end
-    param[end-2] = winit*randn(vocab,embed)
-    param[end-1] = winit*randn(hidden[end],vocab)
-    param[end] = zeros(1,vocab)
-    return map(p->convert(atype,p), param)
-end
-
-# state[2k-1,2k]: hidden and cell for the k'th lstm layer
-function initstate(atype, hidden, batchsize)
-    state = Array(Any, 2*length(hidden))
-    for k = 1:length(hidden)
-        state[2k-1] = zeros(batchsize,hidden[k])
-        state[2k] = zeros(batchsize,hidden[k])
-    end
-    return map(s->convert(atype,s), state)
-end
-
+# LSTM implementation with a single matrix multiplication with
+# instances in rows rather than columns.  Julia is column major, so
+# horizontal concatenation and column based slicing are contiguous and
+# more efficient compared to vertical concatenation and row
+# slicing. In this implementation I wanted to perform a single matrix
+# multiplication for all four gates rather than four (or eight)
+# separate matrix multiplications for performance. Thus I concatenate
+# the input and the hidden, then slice out the four gates.  Both
+# operations are more efficient if instances are in rows rather than
+# columns.
+    
 function lstm(weight,bias,hidden,cell,input)
     gates   = hcat(input,hidden) * weight .+ bias
     hsize   = size(hidden,2)
@@ -211,52 +60,184 @@ function lstm(weight,bias,hidden,cell,input)
     return (hidden,cell)
 end
 
-# s[2k-1,2k]: hidden and cell for the k'th lstm layer
-# w[2k-1,2k]: weight and bias for k'th lstm layer
-# w[end-2]: embedding matrix
-# w[end-1,end]: weight and bias for final prediction
-# state is modified in place
-function predict(w, s, x)
-    x = x * w[end-2]
-    for i = 1:2:length(s)
-        (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
-        x = s[i]
+# generate model parameters for k=1:length(hidden) lstm layers
+# instances are in rows, vectors are row vectors
+# model[2k-1]: weight matrix for the k'th lstm layer
+# model[2k]: bias vector for the k'th lstm layer
+# model[end-2]: embedding matrix
+# model[end-1,end]: weight and bias for final prediction
+function initmodel(atype, hidden, vocab, embed)
+    init(d...)=atype(xavier(d...))
+    bias(d...)=atype(zeros(d...))
+    model = Array(Any, 2*length(hidden)+3)
+    X = embed
+    for k = 1:length(hidden)
+        H = hidden[k]
+        model[2k-1] = init(X+H, 4H)
+        model[2k] = bias(1, 4H)
+        model[2k][1:H] = 1 # forget gate bias = 1
+        X = H
     end
-    return x * w[end-1] .+ w[end]
+    model[end-2] = init(vocab,embed)
+    model[end-1] = init(hidden[end],vocab)
+    model[end] = bias(1,vocab)
+    return model
 end
 
-# sequence[t]: input token at time t
-# state is modified in place
-function loss(param,state,sequence,range=1:length(sequence)-1)
-    total = 0.0; count = 0
-    atype = typeof(AutoGrad.getval(param[1]))
-    input = convert(atype,sequence[first(range)])
-    for t in range
-        ypred = predict(param,state,input)
-        ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
-        ygold = convert(atype,sequence[t+1])
-        total += sum(ygold .* ynorm)
-        count += size(ygold,1)
-        input = ygold
+# state[2k-1]: hidden for the k'th lstm layer
+# state[2k]: cell for the k'th lstm layer
+let blank = nothing; global initstate
+function initstate(model, batch)
+    nlayers = div(length(model)-3,2)
+    state = Array(Any, 2*nlayers)
+    for k = 1:nlayers
+        bias = model[2k]
+        hidden = div(length(bias),4)
+        if typeof(blank)!=typeof(bias) || size(blank)!=(batch,hidden)
+            blank = fill!(similar(bias, batch, hidden),0)
+        end
+        state[2k-1] = state[2k] = blank
     end
-    return -total / count
+    return state
+end
+end
+
+# initoptim creates optimization parameters for each numeric weight
+# array in the model.  This should work for a model consisting of any
+# combination of tuple/array/dict.
+initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
+initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
+initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+initoptim(a,otype)=map(x->initoptim(x,otype), a)
+
+# input: Dense token-minibatch input
+# returns (B,H) hidden output and newstate
+function predict(model, state, input)
+    nlayers = div(length(model)-3,2)
+    newstate = similar(state)
+    for k = 1:nlayers
+        (newstate[2k-1],newstate[2k]) = lstm(model[2k-1],model[2k],state[2k-1],state[2k],input)
+        input = newstate[2k-1]
+    end
+    return input,newstate
+end
+
+function generate(model, tok2int, nchar)
+    int2tok = Array(Char, length(tok2int))
+    for (k,v) in tok2int; int2tok[v] = k; end
+    input = tok2int[' ']
+    state = initstate(model, 1)
+    for t in 1:nchar
+        embed = model[end-2][[input],:]
+        ypred,state = predict(model,state,embed)
+        ypred = ypred * model[end-1] .+ model[end]
+        input = sample(exp(logp(ypred)))
+        print(int2tok[input])
+    end
+    println()
+end
+
+# sequence[t]: Vector{Int} token-minibatch input at time t
+function loss(model, state, sequence, range=1:length(sequence)-1; newstate=nothing)
+    preds = []
+    for t in range
+        input = model[end-2][sequence[t],:]
+        pred,state = predict(model,state,input)
+        push!(preds,pred)
+    end
+    if newstate != nothing
+        copy!(newstate, map(AutoGrad.getval,state))
+    end
+    pred1 = vcat(preds...)
+    pred2 = pred1 * model[end-1]
+    pred3 = pred2 .+ model[end]
+    nrows,ncols = size(pred3)
+    golds = vcat(sequence[range[1]+1:range[end]+1]...)
+    index = similar(golds)
+    @inbounds for i=1:length(golds)
+        index[i] = i + (golds[i]-1)*nrows
+    end
+    # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
+    logp1 = logp(pred3,2)
+    logp2 = logp1[index]
+    logp3 = sum(logp2)
+    return -logp3 / length(golds)
 end
 
 lossgradient = grad(loss)
 
-function generate(param, state, vocab, nchar)
-    index_to_char = Array(Char, length(vocab))
-    for (k,v) in vocab; index_to_char[v] = k; end
-    input = oftype(param[1], zeros(1,length(vocab)))
-    index = 1
-    for t in 1:nchar
-        ypred = predict(param,state,input)
-        input[index] = 0
-        index = sample(exp(logp(ypred)))
-        print(index_to_char[index])
-        input[index] = 1
+function avgloss(model, sequence, S)
+    T = length(sequence)
+    B = length(sequence[1])
+    state = initstate(model, B)
+    total = count = 0
+    for i in 1:S:T-1
+        j = min(i+S-1,T-1)
+        n = j-i+1
+        total += n * loss(model, state, sequence, i:j; newstate=state)
+        count += n
     end
-    println()
+    return total / count
+end
+
+function bptt(model, sequence, optim, S)
+    T = length(sequence)
+    B = length(sequence[1])
+    state = initstate(model, B)
+    for i in 1:S:T-1
+        j = min(i+S-1,T-1)
+        grads = lossgradient(model, state, sequence, i:j; newstate=state)
+        update!(model, grads, optim)
+    end
+end
+
+# It turns out convergence is much faster if we keep bptt length small
+# initially. So we take user's o[:seqlength] as the upper limit and
+# bound the bptt length by the epoch number.
+function train!(model, data, tok2int, o)
+    global optim = initoptim(model,o[:optimization])
+    if o[:fast]
+        for epoch=1:o[:epochs]
+            bptt(model, data[1], optim, min(epoch,o[:seqlength]))
+        end
+        return
+    end
+    report(ep)=(l=map(d->avgloss(model,d,100), data);println((:epoch,ep,:loss,l...));l)
+    @time losses = report(0)
+    devset = ifelse(length(data) > 1, 2, 1)
+    devlast = devbest = losses[devset]
+    for epoch=1:o[:epochs]
+        @time bptt(model, data[1], optim, min(epoch,o[:seqlength]))
+        @time losses = report(epoch)
+        if o[:gcheck] > 0
+            gradcheck(loss, model, data[1], 1:min(o[:seqlength],length(data[1])-1); gcheck=o[:gcheck], verbose=true)
+        end
+        devloss = losses[devset]
+        if devloss < devbest
+            devbest = devloss
+            if o[:bestfile] != nothing
+                info("Saving best model to $(o[:bestfile])")
+                save(o[:bestfile], "model", model, "vocab", tok2int)
+            end
+        end
+        devlast = devloss
+    end
+    if o[:savefile] != nothing
+        info("Saving final model to $(o[:savefile])")
+        save(o[:savefile], "model", model, "vocab", tok2int)
+    end
+end    
+
+function minibatch(chars, tok2int, batch_size)
+    nbatch = div(length(chars), batch_size)
+    data = [ zeros(Int,batch_size) for i=1:nbatch ]
+    for n = 1:nbatch
+        for b = 1:batch_size
+            char = chars[(b-1)*nbatch + n]
+            data[n][b] = tok2int[char]
+        end
+    end
+    return data
 end
 
 function sample(p)
@@ -278,29 +259,74 @@ function shakespeare()
     return file
 end
 
-function minibatch(chars, char_to_index, batch_size)
-    nbatch = div(length(chars), batch_size)
-    vocab_size = length(char_to_index)
-    data = [ falses(batch_size, vocab_size) for i=1:nbatch ] # using BitArrays
-    cidx = 0
-    for c in chars            # safest way to iterate over utf-8 text
-        idata = 1 + cidx % nbatch
-        row = 1 + div(cidx, nbatch)
-        row > batch_size && break
-        col = char_to_index[c]
-        data[idata][row,col] = 1
-        cidx += 1
+function main(args=ARGS)
+    global model, text, data, tok2int, o
+    s = ArgParseSettings()
+    s.description="charlm.jl: Character level language model based on http://karpathy.github.io/2015/05/21/rnn-effectiveness. (c) Emre Yolcu, Deniz Yuret, 2017."
+    s.exc_handler=ArgParse.debug_handler
+    @add_arg_table s begin
+        ("--datafiles"; nargs='+'; help="If provided, use first file for training, second for dev, others for test.")
+        ("--loadfile"; help="Initialize model from file")
+        ("--savefile"; help="Save final model to file")
+        ("--bestfile"; help="Save best model to file")
+        ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of characters.")
+        ("--epochs"; arg_type=Int; default=1; help="Number of epochs for training.")
+        ("--hidden"; nargs='+'; arg_type=Int; default=[334]; help="Sizes of one or more LSTM layers.")
+        ("--embed"; arg_type=Int; default=168; help="Size of the embedding vector.")
+        ("--batchsize"; arg_type=Int; default=256; help="Number of sequences to train on in parallel.")
+        ("--seqlength"; arg_type=Int; default=100; help="Maximum number of steps to unroll the network for bptt. Initial epochs will use the epoch number as bptt length for faster convergence.")
+        ("--optimization"; default="Sgd(lr=3.5)"; help="Optimization algorithm and parameters.")
+        ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
+        ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--fast"; action=:store_true; help="skip loss printing for faster run")
+        #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
     end
-    return data
+    isa(args, AbstractString) && (args=split(args))
+    o = parse_args(args, s; as_symbols=true)
+    if !o[:fast]
+        println(s.description)
+        println("opts=",[(k,v) for (k,v) in o]...)
+    end
+    o[:seed] > 0 && srand(o[:seed])
+    o[:atype] = eval(parse(o[:atype]))
+    if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
+        Pkg.installed("JLD")==nothing && error("Please do Pkg.add(\"JLD\");Pkg.build(\"Knet\") to load or save files.")
+        # Pkg.add("JLD") will not work, need Pkg.build("Knet") to add JLD support.
+        eval(Expr(:using,:JLD))
+    end
+
+    # we initialize a model from loadfile, train using datafiles (both optional).
+    # if the user specifies neither, train a model using the charlm.jl source code.
+    isempty(o[:datafiles]) && o[:loadfile]==nothing && push!(o[:datafiles],@__FILE__) # shakespeare()
+
+    # read text and report lengths
+    text = map((@compat readstring), o[:datafiles])
+    !isempty(text) && !o[:fast] && info("Chars read: $(map((f,c)->(basename(f),length(c)),o[:datafiles],text))")
+
+    # tok2int (char_to_index) comes from the initial model if there is one, otherwise from the datafiles.
+    # if there is an initial model make sure the data has no new vocab
+    if o[:loadfile]==nothing
+        tok2int = Dict{Char,Int}()
+        for t in text, c in t; get!(tok2int, c, 1+length(tok2int)); end
+        model = initmodel(o[:atype], o[:hidden], length(tok2int), o[:embed])
+    else
+        info("Loading model from $(o[:loadfile])")
+        tok2int = load(o[:loadfile], "vocab") 
+        for t in text, c in t; haskey(tok2int, c) || error("Unknown char $c"); end
+        model = map(p->convert(o[:atype],p), load(o[:loadfile], "model"))
+    end
+    !o[:fast] && info("$(length(tok2int)) unique chars.")
+    if !isempty(text)
+        data = map(t->minibatch(t, tok2int, o[:batchsize]), text)
+        train!(model, data, tok2int, o)
+    end
+    if o[:generate] > 0
+        generate(model, tok2int, o[:generate])
+    end
+    return model
 end
 
-# To be able to load/save KnetArrays:
-if Pkg.installed("JLD") != nothing
-    import JLD: writeas, readas
-    type KnetJLD; a::Array; end
-    writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = KnetArray(d.a)
-end
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia charlm.jl --epochs 10
