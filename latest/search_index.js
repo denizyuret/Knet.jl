@@ -417,6 +417,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.dropout",
+    "page": "Reference",
+    "title": "Knet.dropout",
+    "category": "Function",
+    "text": "dropout(x, p; seed=0)\n\nGiven an array x and probability 0<=p<=1, return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p.  See (Srivastava et al. 2014) for a reference.\n\n\n\n"
+},
+
+{
     "location": "reference.html#Knet.gpu",
     "page": "Reference",
     "title": "Knet.gpu",
@@ -457,6 +465,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.setseed",
+    "page": "Reference",
+    "title": "Knet.setseed",
+    "category": "Function",
+    "text": "setseed(n::Integer)\n\nRun srand(n) on both cpu and gpu.\n\n\n\n"
+},
+
+{
     "location": "reference.html#Knet.sigm",
     "page": "Reference",
     "title": "Knet.sigm",
@@ -469,7 +485,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Utilities",
     "category": "section",
-    "text": "Knet.dir\nKnet.gpu\nKnet.logp\nKnet.logsumexp\nKnet.invx\nKnet.relu\nKnet.sigm"
+    "text": "Knet.dir\nKnet.dropout\nKnet.gpu\nKnet.logp\nKnet.logsumexp\nKnet.invx\nKnet.relu\nKnet.setseed\nKnet.sigm"
 },
 
 {
@@ -481,11 +497,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.pool",
+    "location": "reference.html#Knet.deconv4",
     "page": "Reference",
-    "title": "Knet.pool",
+    "title": "Knet.deconv4",
     "category": "Function",
-    "text": "pool(x; kwargs...)\n\nCompute pooling of input values (i.e., the maximum or average of several adjacent values) to produce an output with smaller height and/or width.  \n\nCurrently 4 or 5 dimensional KnetArrays with Float32 or Float64 entries are supported.  If x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,I,N) where\n\nYi=1+floor((Xi+2*padding[i]-window[i])/stride[i])\n\nHere I is the number of input channels, N is the number of instances, and Xi,Yi are spatial dimensions.  window, padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords:\n\nwindow=2: the pooling window size for each dimension.\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=window: the number of elements to slide to reach the next pooling window.\nmode=0: 0 for max, 1 for average including padded values, 2 for average excluding padded values.\nmaxpoolingNanOpt=0: Nan numbers are not propagated if 0, they are propagated if 1.\nalpha=1: can be used to scale the result.\nhandle: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
+    "text": "Deconvolution; reverse of convolution.\n\n\n\n"
 },
 
 {
@@ -497,11 +513,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.deconv4",
+    "location": "reference.html#Knet.pool",
     "page": "Reference",
-    "title": "Knet.deconv4",
+    "title": "Knet.pool",
     "category": "Function",
-    "text": "Deconvolution; reverse of convolution.\n\n\n\n"
+    "text": "pool(x; kwargs...)\n\nCompute pooling of input values (i.e., the maximum or average of several adjacent values) to produce an output with smaller height and/or width.  \n\nCurrently 4 or 5 dimensional KnetArrays with Float32 or Float64 entries are supported.  If x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,I,N) where\n\nYi=1+floor((Xi+2*padding[i]-window[i])/stride[i])\n\nHere I is the number of input channels, N is the number of instances, and Xi,Yi are spatial dimensions.  window, padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords:\n\nwindow=2: the pooling window size for each dimension.\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=window: the number of elements to slide to reach the next pooling window.\nmode=0: 0 for max, 1 for average including padded values, 2 for average excluding padded values.\nmaxpoolingNanOpt=0: Nan numbers are not propagated if 0, they are propagated if 1.\nalpha=1: can be used to scale the result.\nhandle: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
 },
 
 {
@@ -517,7 +533,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Convolution and Pooling",
     "category": "section",
-    "text": "Knet.conv4\nKnet.pool\nKnet.mat\nKnet.deconv4\nKnet.unpool"
+    "text": "Knet.conv4\nKnet.deconv4\nKnet.mat\nKnet.pool\nKnet.unpool"
 },
 
 {
@@ -529,19 +545,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.Sgd",
+    "location": "reference.html#Knet.Adadelta",
     "page": "Reference",
-    "title": "Knet.Sgd",
+    "title": "Knet.Adadelta",
     "category": "Type",
-    "text": "Sgd(;lr=0.001,gclip=0)\nupdate!(w,g,p::Sgd)\nupdate!(w,g;lr=0.001)\n\nContainer for parameters of the Stochastic gradient descent (SGD) optimization algorithm used by update!.\n\nSGD is an optimization technique to minimize an objective function by updating its weights in the opposite direction of their gradient. The learning rate (lr) determines the size of the step.  SGD updates the weights with the following formula:\n\nw = w - lr * g\n\nwhere w is a weight array, g is the gradient of the loss function w.r.t w and lr is the learning rate.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nSGD is used by default if no algorithm is specified in the two argument version of update![@ref].\n\n\n\n"
-},
-
-{
-    "location": "reference.html#Knet.Momentum",
-    "page": "Reference",
-    "title": "Knet.Momentum",
-    "category": "Type",
-    "text": "Momentum(;lr=0.001, gclip=0, gamma=0.9)\nupdate(w,g,p::Momentum)\n\nContainer for parameters of the Momentum optimization algorithm used by update!.\n\nThe Momentum method tries to accelerate SGD by adding a velocity term to the update.  This also decreases the oscillation between successive steps. It updates the weights with the following formulas:\n\nvelocity = gamma * velocity + lr * g\nw = w - velocity\n\nwhere w is a weight array, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter, velocity is an array with the same size and type of w and holds the accelerated gradients.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Qian, N. (1999). On the momentum term in gradient descent learning algorithms.  Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151.\n\n\n\n"
+    "text": "Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nupdate(w,g,p::Adadelta)\n\nContainer for parameters of the Adadelta optimization algorithm used by update!.\n\nAdadelta is an extension of Adagrad that tries to prevent the decrease of the learning rates to zero as training progresses. It scales the learning rate based on the accumulated gradients like Adagrad and holds the acceleration term like Momentum. It updates the weights with the following formulas:\n\nG = (1-rho) * g .^ 2 + rho * G\nupdate = g .* sqrt(delta + eps) ./ sqrt(G + eps)\nw = w - lr * update\ndelta = rho * delta + (1-rho) * update .^ 2\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method.\n\n\n\n"
 },
 
 {
@@ -553,11 +561,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.Adadelta",
+    "location": "reference.html#Knet.Adam",
     "page": "Reference",
-    "title": "Knet.Adadelta",
+    "title": "Knet.Adam",
     "category": "Type",
-    "text": "Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nupdate(w,g,p::Adadelta)\n\nContainer for parameters of the Adadelta optimization algorithm used by update!.\n\nAdadelta is an extension of Adagrad that tries to prevent the decrease of the learning rates to zero as training progresses. It scales the learning rate based on the accumulated gradients like Adagrad and holds the acceleration term like Momentum. It updates the weights with the following formulas:\n\nG = (1-rho) * g .^ 2 + rho * G\nupdate = g .* sqrt(delta + eps) ./ sqrt(G + eps)\nw = w - lr * update\ndelta = rho * delta + (1-rho) * update .^ 2\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method.\n\n\n\n"
+    "text": "Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\nupdate(w,g,p::Adam)\n\nContainer for parameters of the Adam optimization algorithm used by update!.\n\nAdam is one of the methods that compute the adaptive learning rate. It stores accumulated gradients (first moment) and the sum of the squared of gradients (second).  It scales the first and second moment as a function of time. Here is the update formulas:\n\nm = beta1 * m + (1 - beta1) * g\nv = beta2 * v + (1 - beta2) * g .* g\nmhat = m ./ (1 - beta1 ^ t)\nvhat = v ./ (1 - beta2 ^ t)\nw = w - (lr / (sqrt(vhat) + eps)) * mhat\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, m is an array with the same size and type of w and holds the accumulated gradients. v is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero denominator. beta1 and beta2 are the parameters to calculate bias corrected first and second moments. t is the update count.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Momentum",
+    "page": "Reference",
+    "title": "Knet.Momentum",
+    "category": "Type",
+    "text": "Momentum(;lr=0.001, gclip=0, gamma=0.9)\nupdate(w,g,p::Momentum)\n\nContainer for parameters of the Momentum optimization algorithm used by update!.\n\nThe Momentum method tries to accelerate SGD by adding a velocity term to the update.  This also decreases the oscillation between successive steps. It updates the weights with the following formulas:\n\nvelocity = gamma * velocity + lr * g\nw = w - velocity\n\nwhere w is a weight array, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter, velocity is an array with the same size and type of w and holds the accelerated gradients.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Qian, N. (1999). On the momentum term in gradient descent learning algorithms.  Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151.\n\n\n\n"
 },
 
 {
@@ -569,11 +585,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.Adam",
+    "location": "reference.html#Knet.Sgd",
     "page": "Reference",
-    "title": "Knet.Adam",
+    "title": "Knet.Sgd",
     "category": "Type",
-    "text": "Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\nupdate(w,g,p::Adam)\n\nContainer for parameters of the Adam optimization algorithm used by update!.\n\nAdam is one of the methods that compute the adaptive learning rate. It stores accumulated gradients (first moment) and the sum of the squared of gradients (second).  It scales the first and second moment as a function of time. Here is the update formulas:\n\nm = beta1 * m + (1 - beta1) * g\nv = beta2 * v + (1 - beta2) * g .* g\nmhat = m ./ (1 - beta1 ^ t)\nvhat = v ./ (1 - beta2 ^ t)\nw = w - (lr / (sqrt(vhat) + eps)) * mhat\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, m is an array with the same size and type of w and holds the accumulated gradients. v is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero denominator. beta1 and beta2 are the parameters to calculate bias corrected first and second moments. t is the update count.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.\n\n\n\n"
+    "text": "Sgd(;lr=0.001,gclip=0)\nupdate!(w,g,p::Sgd)\nupdate!(w,g;lr=0.001)\n\nContainer for parameters of the Stochastic gradient descent (SGD) optimization algorithm used by update!.\n\nSGD is an optimization technique to minimize an objective function by updating its weights in the opposite direction of their gradient. The learning rate (lr) determines the size of the step.  SGD updates the weights with the following formula:\n\nw = w - lr * g\n\nwhere w is a weight array, g is the gradient of the loss function w.r.t w and lr is the learning rate.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nSGD is used by default if no algorithm is specified in the two argument version of update![@ref].\n\n\n\n"
 },
 
 {
@@ -581,7 +597,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Optimization methods",
     "category": "section",
-    "text": "Knet.update!\nKnet.Sgd\nKnet.Momentum\nKnet.Adagrad\nKnet.Adadelta\nKnet.Rmsprop\nKnet.Adam"
+    "text": "Knet.update!\nKnet.Adadelta\nKnet.Adagrad\nKnet.Adam\nKnet.Momentum\nKnet.Rmsprop\nKnet.Sgd"
 },
 
 {
@@ -609,6 +625,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.bilinear",
+    "page": "Reference",
+    "title": "Knet.bilinear",
+    "category": "Function",
+    "text": "Bilinear interpolation filter weights; used for initializing deconvolution layers.\n\nAdapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33\n\nArguments:\n\nT : Data Type\n\nfw: Width upscale factor\n\nfh: Height upscale factor\n\nIN: Number of input filters\n\nON: Number of output filters\n\nExample usage:\n\nw = bilinear(Float32,2,2,128,128)\n\n\n\n"
+},
+
+{
     "location": "reference.html#Knet.gaussian",
     "page": "Reference",
     "title": "Knet.gaussian",
@@ -625,19 +649,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.bilinear",
-    "page": "Reference",
-    "title": "Knet.bilinear",
-    "category": "Function",
-    "text": "Bilinear interpolation filter weights; used for initializing deconvolution layers.\n\nAdapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33\n\nArguments:\n\nT : Data Type\n\nfw: Width upscale factor\n\nfh: Height upscale factor\n\nIN: Number of input filters\n\nON: Number of output filters\n\nExample usage:\n\nw = bilinear(Float32,2,2,128,128)\n\n\n\n"
-},
-
-{
     "location": "reference.html#Initialization-1",
     "page": "Reference",
     "title": "Initialization",
     "category": "section",
-    "text": "Knet.gaussian\nKnet.xavier\nKnet.bilinear"
+    "text": "Knet.bilinear\nKnet.gaussian\nKnet.xavier"
+},
+
+{
+    "location": "reference.html#AutoGrad.getval",
+    "page": "Reference",
+    "title": "AutoGrad.getval",
+    "category": "Function",
+    "text": "getval(x)\n\nUnbox x if it is a boxed value (Rec), otherwise return x.\n\n\n\n"
 },
 
 {
@@ -657,19 +681,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#AutoGrad.getval",
-    "page": "Reference",
-    "title": "AutoGrad.getval",
-    "category": "Function",
-    "text": "getval(x)\n\nUnbox x if it is a boxed value (Rec), otherwise return x.\n\n\n\n"
-},
-
-{
     "location": "reference.html#AutoGrad-(advanced)-1",
     "page": "Reference",
     "title": "AutoGrad (advanced)",
     "category": "section",
-    "text": "AutoGrad.@primitive\nAutoGrad.@zerograd\nAutoGrad.getval"
+    "text": "AutoGrad.getval\nAutoGrad.@primitive\nAutoGrad.@zerograd"
 },
 
 {
