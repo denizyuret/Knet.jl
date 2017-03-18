@@ -269,10 +269,14 @@ function vcat{T}(A::KnetVecOrMat{T}...)
     return B
 end
 
+if VERSION < v"0.5.0"           # julia4 ambiguity fix
+cat(d)=error("cat($d) not implemented.")
+end
+
 function cat{T}(d, a::KnetVecOrMat{T}...)
     if     d==1; vcat(a...)
     elseif d==2; hcat(a...)
-    else error("cat($d) not implemented.")
+    else error("cat($d,a...) not implemented.")
     end
 end
 
@@ -464,6 +468,10 @@ end
 # The original getindex(a,i:j...) for AbstractArray copies:
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
+
+if VERSION < v"0.5.0"
+    typealias AbstractUnitRange UnitRange
+end
 
 function getindex{T}(A::KnetArray{T}, I::AbstractUnitRange)
     1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
@@ -658,11 +666,11 @@ function getindex{T}(A::KnetArray{T}, I::StepRange)
     getindex(A, collect(I))
 end
 
-function setindex!{T}(A::KnetArray{T}, v, I::StepRange)
+function setindex!{T}(A::KnetArray{T}, v::Number, I::StepRange)
     setindex!(A, v, collect(I))
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::StepRange)
+function setindex!{T}(A::KnetArray{T}, v, I::StepRange)
     setindex!(A, v, collect(I))
 end
 
@@ -672,11 +680,11 @@ function getindex{T}(A::KnetMatrix{T}, I::StepRange, c::Colon)
     getindex(A, collect(I), c)
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v, I::StepRange, c::Colon)
+function setindex!{T}(A::KnetMatrix{T}, v::Number, I::StepRange, c::Colon)
     setindex!(A, v, collect(I), c)
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v::Number, I::StepRange, c::Colon)
+function setindex!{T}(A::KnetMatrix{T}, v, I::StepRange, c::Colon)
     setindex!(A, v, collect(I), c)
 end
 
@@ -686,11 +694,11 @@ function getindex{T}(A::KnetMatrix{T}, c::Colon, I::StepRange)
     getindex(A, c, collect(I))
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v, c::Colon, I::StepRange)
+function setindex!{T}(A::KnetMatrix{T}, v::Number, c::Colon, I::StepRange)
     setindex!(A, v, c, collect(I))
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v::Number, c::Colon, I::StepRange)
+function setindex!{T}(A::KnetMatrix{T}, v, c::Colon, I::StepRange)
     setindex!(A, v, c, collect(I))
 end
 
