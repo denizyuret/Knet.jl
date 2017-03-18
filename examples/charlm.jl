@@ -1,7 +1,14 @@
-for p in ("Knet","AutoGrad","ArgParse","Compat")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+let _build = false
+    for p in ("AutoGrad","ArgParse","Compat","JLD","Knet")
+        if Pkg.installed(p) == nothing
+            Pkg.add(p)
+            _build = true
+        end
+    end
+    if _build
+        Pkg.build("Knet")
+    end
 end
-
 """
 
 This example implements an LSTM network for training and testing
@@ -34,7 +41,7 @@ Example usage:
     
 """
 module CharLM
-using Knet,AutoGrad,ArgParse,Compat
+using Knet,AutoGrad,ArgParse,Compat,JLD
 
 
 # LSTM implementation with a single matrix multiplication with
@@ -112,10 +119,11 @@ initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # input: Dense token-minibatch input
 # returns (B,H) hidden output and newstate
-function predict(model, state, input)
+function predict(model, state, input; pdrop=0)
     nlayers = div(length(model)-3,2)
     newstate = similar(state)
     for k = 1:nlayers
+        input = dropout(input, pdrop)
         (newstate[2k-1],newstate[2k]) = lstm(model[2k-1],model[2k],state[2k-1],state[2k],input)
         input = newstate[2k-1]
     end
@@ -138,19 +146,21 @@ function generate(model, tok2int, nchar)
 end
 
 # sequence[t]: Vector{Int} token-minibatch input at time t
-function loss(model, state, sequence, range=1:length(sequence)-1; newstate=nothing)
+function loss(model, state, sequence, range=1:length(sequence)-1; newstate=nothing, pdrop=0)
     preds = []
     for t in range
         input = model[end-2][sequence[t],:]
-        pred,state = predict(model,state,input)
+        pred,state = predict(model,state,input; pdrop=pdrop)
         push!(preds,pred)
     end
     if newstate != nothing
         copy!(newstate, map(AutoGrad.getval,state))
     end
-    pred1 = vcat(preds...)
+    pred0 = vcat(preds...)
+    pred1 = dropout(pred0,pdrop)
     pred2 = pred1 * model[end-1]
     pred3 = pred2 .+ model[end]
+    logp1 = logp(pred3,2)
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range[1]+1:range[end]+1]...)
     index = similar(golds)
@@ -158,7 +168,6 @@ function loss(model, state, sequence, range=1:length(sequence)-1; newstate=nothi
         index[i] = i + (golds[i]-1)*nrows
     end
     # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
-    logp1 = logp(pred3,2)
     logp2 = logp1[index]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -180,13 +189,13 @@ function avgloss(model, sequence, S)
     return total / count
 end
 
-function bptt(model, sequence, optim, S)
+function bptt(model, sequence, optim, S; pdrop=0)
     T = length(sequence)
     B = length(sequence[1])
     state = initstate(model, B)
     for i in 1:S:T-1
         j = min(i+S-1,T-1)
-        grads = lossgradient(model, state, sequence, i:j; newstate=state)
+        grads = lossgradient(model, state, sequence, i:j; newstate=state, pdrop=pdrop)
         update!(model, grads, optim)
     end
 end
@@ -198,7 +207,7 @@ function train!(model, data, tok2int, o)
     global optim = initoptim(model,o[:optimization])
     if o[:fast]
         for epoch=1:o[:epochs]
-            bptt(model, data[1], optim, min(epoch,o[:seqlength]))
+            bptt(model, data[1], optim, min(epoch,o[:seqlength]); pdrop=o[:dropout])
         end
         return
     end
@@ -207,7 +216,7 @@ function train!(model, data, tok2int, o)
     devset = ifelse(length(data) > 1, 2, 1)
     devlast = devbest = losses[devset]
     for epoch=1:o[:epochs]
-        @time bptt(model, data[1], optim, min(epoch,o[:seqlength]))
+        @time bptt(model, data[1], optim, min(epoch,o[:seqlength]); pdrop=o[:dropout])
         @time losses = report(epoch)
         if o[:gcheck] > 0
             gradcheck(loss, model, data[1], 1:min(o[:seqlength],length(data[1])-1); gcheck=o[:gcheck], verbose=true)
@@ -275,12 +284,12 @@ function main(args=ARGS)
         ("--embed"; arg_type=Int; default=168; help="Size of the embedding vector.")
         ("--batchsize"; arg_type=Int; default=256; help="Number of sequences to train on in parallel.")
         ("--seqlength"; arg_type=Int; default=100; help="Maximum number of steps to unroll the network for bptt. Initial epochs will use the epoch number as bptt length for faster convergence.")
-        ("--optimization"; default="Sgd(lr=3.5)"; help="Optimization algorithm and parameters.")
+        ("--optimization"; default="Adam()"; help="Optimization algorithm and parameters.")
         ("--gcheck"; arg_type=Int; default=0; help="Check N random gradients.")
         ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        #TODO ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
+        ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
@@ -290,11 +299,6 @@ function main(args=ARGS)
     end
     o[:seed] > 0 && srand(o[:seed])
     o[:atype] = eval(parse(o[:atype]))
-    if any(f->(o[f]!=nothing), (:loadfile, :savefile, :bestfile))
-        Pkg.installed("JLD")==nothing && error("Please do Pkg.add(\"JLD\");Pkg.build(\"Knet\") to load or save files.")
-        # Pkg.add("JLD") will not work, need Pkg.build("Knet") to add JLD support.
-        eval(Expr(:using,:JLD))
-    end
 
     # we initialize a model from loadfile, train using datafiles (both optional).
     # if the user specifies neither, train a model using the charlm.jl source code.

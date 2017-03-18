@@ -9,6 +9,7 @@ General
 * Added per weight gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
 * Added `setseed` to do `srand` in both cpu and gpu.
+* Added `dropout(a,p)` as a Knet primitive.
 
 Documentation and Testing
 -------------------------
@@ -20,6 +21,7 @@ Examples
 * Fixed vgg and resnet demos to use the new version of Images.jl.
 * Added prof/s2s.jl, a sequence-to-sequence RNN model, for profiling.
 * Added prof/karray.jl, profiling concatenation.
+* Fixed charlm demo to use indexing operations, Adam, and dropout.
 
 
 Knet v0.8.2 Release Notes

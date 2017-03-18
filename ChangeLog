@@ -4,25 +4,25 @@
 	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
 	# charlm: try indexing op instead of sparse matmul.
 	# charlm: try lstm time concatenation.
-	# charlm: add adam.
+	# charlm: add adam: sgd(3.5) works faster. short bptt in initial epochs works faster.
+	# Add dropout as a primitive. Need kernel.
+	# charlm: add dropout
+	# s2s profile.
 
 	* TODO8:
-	# recover kuparser.
-	# fix reduction kernels for large matrices (10K-100K rows start giving bad answers)
-	# check julia4 and julia6 compat, find out why julia pkgs marks	knet as broken
-	# s2s profile.
-	# implement nce.
 	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
+	# recover kuparser.
 	# navigation: implement world represenation.
-	# charlm: add dropout
+	# fix reduction kernels for large matrices (10K-100K rows start giving bad answers): enis looking
+	# check julia4 and julia6 compat, find out why julia pkgs marks	knet as broken
+	# Latest master failing on nightly; AutoGrad also fails.
+	# implement nce.
 	# functional lstm interface defining multi-output grad2 function.
-	# Add dropout as a primitive. Need kernel.
 	# Setup attobot for next release: https://github.com/attobot/attobot.
 	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base.
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
-	# add some test for deconv vs conv. dropout, gclip.
+	# add some test for deconv vs conv, gclip.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-	# Latest master failing on nightly; AutoGrad also fails.
 	# AutoGrad: run all tests with KnetArrays
 	# AutoGrad: support for keys, values, next for dictionaries.
 	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?

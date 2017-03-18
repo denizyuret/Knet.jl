@@ -204,28 +204,83 @@ end
 @primitive  logp(x,d...),dy,y  logpback(x,y,dy,d...)
 
 
-#=
+for S in (32,64)
+    T = Symbol("Float$S")
+    forw = Symbol("dropout_$S")
+    back = Symbol("dropback_$S")
+    @eval begin
+        function dropout!(p::Number, x::KnetArray{$T}, y::KnetArray{$T})
+            rand!(y)
+            @knet8($forw,(Cint,$T,Ptr{$T},Ptr{$T}),length(y),$T(p),x,y)
+            return y
+        end
+        function dropback!(p::Number, x::KnetArray{$T}, y::KnetArray{$T}, dy::KnetArray{$T}, dx::KnetArray{$T})
+            @knet8($back,(Cint,$T,Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T}),length(dx),$T(p),x,y,dy,dx)
+            return dx
+        end
+    end
+end
 
-# Dropout: work in progress
+function dropout!(p,x,y)
+    rand!(y)
+    p = convert(eltype(y),p)
+    q = 1-p
+    @inbounds for i=1:length(y)
+        if y[i] > p
+            y[i] = x[i] / q
+        else
+            y[i] = 0
+        end
+    end
+    return y
+end
 
-function dropout(x,p)
-    if p > 0
-        x .* (rand!(similar(x)) .> p) ./ (1-p)
-    else
+function dropback!(p,x,y,dy,dx)
+    p = convert(eltype(y),p)
+    q = 1-p
+    @inbounds for i=1:length(dx)
+        if y[i] == 0
+            dx[i] = 0
+        else
+            dx[i] = dy[i] / q
+        end
+    end
+    return dx
+end
+
+"""
+    dropout(x, p; seed=0)
+
+Given an array `x` and probability `0<=p<=1`, return an array `y` in
+which each element is 0 with probability `p` or `x[i]/(1-p)` with
+probability `1-p`.  See [(Srivastava et al. 2014)](http://jmlr.org/papers/v15/srivastava14a.html) for a reference.
+
+"""
+function dropout(x,p; seed=0)
+    if 0 < p < 1
+        if seed != 0; setseed(seed); end
+        dropout!(p,x,similar(x))
+    elseif p == 0
         x
+    elseif p == 1
+        zeros(x)
+    else
+        error("Dropout probability not in [0:1]: $p")
     end
 end
 
 function dropback(x,p,y,dy)
-    if x===y
+    if 0 < p < 1
+        dropback!(p,x,y,dy,similar(x))
+    elseif p == 0
         dy
+    elseif p == 1
+        zeros(x)
     else
-        dy .* (y .!== 0) ./ (1-p)  # TODO: test this
+        error("Dropout probability not in [0:1]: $p")
     end
 end
 
-@primitive  dropout(x,p),dy,y  dropback(x,p,y,dy)
+@primitive dropout(x,p;o...),dy,y dropback(x,p,y,dy)
+@zerograd dropback(x,p,y,dy)
 
-# TODO: write efficient gpu kernel
-
-=#

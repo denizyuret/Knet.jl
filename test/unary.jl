@@ -20,6 +20,7 @@ push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
 
 @testset "unary" begin
     for f in unary_fns
+        @show f
         for t in (Float32, Float64)
             # @show f,t
             sx = frand(f,t)
@@ -39,6 +40,10 @@ push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
             end
         end
     end
+    a = rand(10,10)
+    @test gradcheck(dropout,a,0.5,kwargs=[:seed=>1])
+    k = KnetArray(a)
+    @test gradcheck(dropout,k,0.5,kwargs=[:seed=>1])
 end
 
 nothing

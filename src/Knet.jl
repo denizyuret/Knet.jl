@@ -14,7 +14,7 @@ using AutoGrad; export grad, gradloss, gradcheck, getval
 include("gpu.jl");              export gpu
 include("kptr.jl");             # KnetPtr
 include("karray.jl");           export KnetArray
-include("unary.jl");            export relu, sigm, invx, logp
+include("unary.jl");            export relu, sigm, invx, logp, dropout
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        export logsumexp
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims

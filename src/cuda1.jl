@@ -358,3 +358,48 @@ void setent1_$F(int n, int *ents, $T *x, $T  y) { _setent1_$F<<<$BLK,$THR>>>(n,e
 end
 
 print(cuda1getcols())
+
+
+# Dropout
+
+function cuda1dropout(; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","32"),("double","64")]
+            print(s,
+"""
+__global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    if (y[i] > p) {                  
+      y[i] = x[i] * q;
+    } else {
+      y[i] = 0;
+    }
+    i += blockDim.x * gridDim.x;
+  }
+}
+__global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    if (y[i] == 0) {
+        dx[i] = 0;
+    } else {
+        dx[i] = dy[i] * q;
+    }
+    i += blockDim.x * gridDim.x;
+  }
+}
+extern "C" {
+  void dropout_$F(int n, $T p, $T *x, $T *y) {
+    _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
+  }    
+  void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
+    _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
+  }    
+}
+""")
+        end
+    end
+end
+
+print(cuda1dropout())

@@ -24,11 +24,13 @@ Knet.KnetArray
 
 ```@docs
 Knet.dir
+Knet.dropout
 Knet.gpu
 Knet.logp
 Knet.logsumexp
 Knet.invx
 Knet.relu
+Knet.setseed
 Knet.sigm
 ```
 
@@ -36,9 +38,9 @@ Knet.sigm
 
 ```@docs
 Knet.conv4
-Knet.pool
-Knet.mat
 Knet.deconv4
+Knet.mat
+Knet.pool
 Knet.unpool
 ```
 
@@ -46,12 +48,12 @@ Knet.unpool
 
 ```@docs
 Knet.update!
-Knet.Sgd
-Knet.Momentum
-Knet.Adagrad
 Knet.Adadelta
-Knet.Rmsprop
+Knet.Adagrad
 Knet.Adam
+Knet.Momentum
+Knet.Rmsprop
+Knet.Sgd
 ```
 
 ## Hyperparameter optimization
@@ -64,17 +66,17 @@ Knet.hyperband
 ## Initialization
 
 ```@docs
+Knet.bilinear
 Knet.gaussian
 Knet.xavier
-Knet.bilinear
 ```
 
 ## AutoGrad (advanced)
 
 ```@docs
+AutoGrad.getval
 AutoGrad.@primitive
 AutoGrad.@zerograd
-AutoGrad.getval
 ```
 
 ## Function Index
