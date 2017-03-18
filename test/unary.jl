@@ -42,8 +42,10 @@ push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
     end
     a = rand(10,10)
     @test gradcheck(dropout,a,0.5,kwargs=[:seed=>1])
-    k = KnetArray(a)
-    @test gradcheck(dropout,k,0.5,kwargs=[:seed=>1])
+    if gpu() >= 0
+        k = KnetArray(a)
+        @test gradcheck(dropout,k,0.5,kwargs=[:seed=>1])
+    end
 end
 
 nothing
