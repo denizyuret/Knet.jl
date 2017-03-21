@@ -18,7 +18,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
 extern "C" {
   void $F(int n, $T *x, $T *y) {
     _$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
@@ -47,7 +47,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
 extern "C" {
   void fill_$F(int n, $T x, $T *y) {
     _fill_$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
@@ -64,6 +64,7 @@ function cuda1xfill(; BLK=256, THR=256)
 __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
   int row, col, yidx;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -76,7 +77,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
 extern "C" {
   void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
-  }    
+  }
 }
 """)
         end
@@ -90,6 +91,7 @@ function cuda1xcopy(; BLK=256, THR=256)
 __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, int incy) {
   int row, col, xidx, yidx;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -103,7 +105,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
 extern "C" {
   void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
-  }    
+  }
 }
 """
 end
@@ -139,7 +141,7 @@ __global__ void _$(F)_44($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy
 extern "C" {
   void $(F)_44($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
     _$(F)_44<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2,dimy3);
-  }    
+  }
 }
 """)
         end
@@ -159,6 +161,7 @@ function cuda1icat(; BLK=256, THR=256)
 __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
   int row, col, yidx;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -170,13 +173,13 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
 }
 extern "C" {
   void icat_$F(int nrows, int ncols, $T **x, $T *y) {
-    $T **xx;   
+    $T **xx;
     size_t s = ncols * sizeof($T *);
     cudaMalloc(&xx, s);
     cudaMemcpy(xx, x, s, cudaMemcpyHostToDevice);
     _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
     cudaFree(xx);
-  }    
+  }
 }
 """)
         end
@@ -194,7 +197,7 @@ static __inline__ __device__ float atomicAdd2(float *address, float val) {
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   return atomicAdd(address, val);
 }
-#else      
+#else
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -217,11 +220,12 @@ function cuda1getcols(; BLK=256, THR=256)
 __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (xrows == 0) return;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -229,11 +233,12 @@ __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
 __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (xrows == 0) return;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -241,11 +246,12 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
 __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (xrows == 0) return;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -253,11 +259,12 @@ __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
 __global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (xrows == 0) return;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -265,11 +272,12 @@ __global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
 __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -277,11 +285,12 @@ __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
 __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -289,11 +298,12 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
 __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -301,11 +311,12 @@ __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
 __global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T y) {
   int row, col, xidx;
   int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (nrows == 0) return;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -370,7 +381,7 @@ function cuda1dropout(; BLK=256, THR=256)
 __global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    if (y[i] > p) {                  
+    if (y[i] > p) {
       y[i] = x[i] * q;
     } else {
       y[i] = 0;
@@ -392,10 +403,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
 extern "C" {
   void dropout_$F(int n, $T p, $T *x, $T *y) {
     _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
-  }    
+  }
   void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
-  }    
+  }
 }
 """)
         end
