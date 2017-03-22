@@ -158,9 +158,9 @@ function broadcast_op(f, j=f, o...)
                                 kernel_input_2= string(kernel_input_2,",$stride_z[$i]")
                               end
                               kernel_input_2=kernel_input_2[2:end]
-                              kernel_input_2= string(kernel_input_2,",length(z), ndims(z)")
+                              # kernel_input_2= string(kernel_input_2,",length(z), ndims(z)")
 
-                              @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...),x,y,z,eval(parse(kernel_input_2))...);
+                              @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...),x,y,z,eval(parse(kernel_input_2))...,length(z),ndims(z));
                           end
                       end
 
