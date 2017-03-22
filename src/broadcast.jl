@@ -147,7 +147,6 @@ function broadcast_op(f, j=f, o...)
                               # delete the first comma
                               kernel_input_1=kernel_input_1[2:end]
 
-
                               stride_x=collect(Int32,strides(x));
                               stride_y=collect(Int32,strides(y));
                               stride_z=collect(Int32,strides(z));
@@ -160,7 +159,7 @@ function broadcast_op(f, j=f, o...)
                               kernel_input_2=kernel_input_2[2:end]
                               # kernel_input_2= string(kernel_input_2,",length(z), ndims(z)")
 
-                              @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...),x,y,z,eval(parse(kernel_input_2))...,length(z),ndims(z));
+                              @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...,Cint,Cint),x,y,z,eval(parse(kernel_input_2))...,length(z),ndims(z));
                           end
                       end
 
