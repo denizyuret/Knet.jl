@@ -156,7 +156,7 @@ eltype{T}(::KnetArray{T})=T
 eltype{T}(::Type{KnetArray{T}}) = T
 eltype{T,n}(::Type{KnetArray{T,n}}) = T
 endof(a::KnetArray) = length(a)
-fill!{T}(a::KnetArray{T},x)=(knetfill!(a,T(x),1,length(a));a)
+fill!{T}(a::KnetArray{T},x)=(a[:]=T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
 @primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(x,dy,1)
@@ -294,21 +294,24 @@ import Base: unsafe_copy!, copy, copy!
 typealias KorA{T} Union{KnetArray{T},Array{T}}
 
 function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer)
-    n == 0 && return dest
-    n > 0 || throw(ArgumentError(string("tried to copy n=", n, " elements, but n should be nonnegative")))
+    if n == 0; return dest; end
+    if n < 0; throw(ArgumentError()); end
     if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
         throw(BoundsError())
     end
     unsafe_copy!(dest, doffs, src, soffs, n)
 end
 
-copy!{T}(dest::KorA{T}, src::KorA{T}) = copy!(dest, 1, src, 1, length(src))
+function copy!{T}(dest::KorA{T}, src::KorA{T})
+    if length(dest) < length(src); throw(BoundsError()); end
+    copy!(dest, 1, src, 1, length(src))
+end
 
-copy(a::KnetArray)=unsafe_copy!(similar(a),1,a,1,length(a))
+function copy(a::KnetArray)
+    unsafe_copy!(similar(a),1,a,1,length(a))
+end
 
-# This will make deepcopy work properly
-Base.deepcopy_internal(x::KnetArray, s::ObjectIdDict)=if haskey(s,x); s[x]; else; copy(x); end
-
+# unsafe_copy! does no bounds checking, the callers must.
 function unsafe_copy!{T}(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int)
     @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 1)
@@ -325,6 +328,9 @@ function unsafe_copy!{T}(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soff
     return dest
 end
 
+# This will make deepcopy work properly
+Base.deepcopy_internal(x::KnetArray, s::ObjectIdDict)=if haskey(s,x); s[x]; else; copy(x); end
+
 function cudadir(a,b)
     deva = isa(a,KnetArray) && a.ptr.dev >= 0
     devb = isa(b,KnetArray) && b.ptr.dev >= 0
@@ -332,13 +338,6 @@ function cudadir(a,b)
     elseif deva && !devb; return 1
     elseif !deva && devb; return 2
     elseif deva && devb;  return 3
-    end
-end
-
-# Efficient fill:
-for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
-    @eval function knetfill!(a::KnetArray{$T},v::$T,off,len)
-        @knet8($F,(Cint,$T,Ptr{$T}),len,v,pointer(a,off))
     end
 end
 
@@ -413,19 +412,19 @@ end
 ## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
 
 
-import Base: getindex, setindex!
+import Base: getindex, setindex!, unsafe_getindex, unsafe_setindex!
 
 ## Indexing with Real
 
 function getindex{T}(A::KnetArray{T}, I::Real)
     J = Int(I)
-    1 <= J <= length(A) || throw(BoundsError(A,J))
+    if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
     unsafe_copy!(T[0], 1, A, J, 1)[1]
 end
 
 function setindex!{T}(A::KnetArray{T}, v::Number, I::Real)
     J = Int(I)
-    1 <= J <= length(A) || throw(BoundsError(A,J))
+    if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
     unsafe_copy!(A, J, T[v], 1, 1)
 end
 
@@ -437,7 +436,7 @@ end
 function getindex{T}(A::KnetArray{T}, I::Real...)
     J = Base.to_indexes(I...)
     @inbounds for j=1:length(J)
-        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
+        if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = sub2ind(size(A), J...)
     unsafe_copy!(T[0], 1, A, i, 1)[1]
@@ -446,7 +445,7 @@ end
 function setindex!{T}(A::KnetArray{T}, v::Number, I::Real...)
     J = Base.to_indexes(I...)
     @inbounds for j=1:length(J)
-        1 <= J[j] <= size(A,j) || throw(BoundsError(A,J))
+        if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = sub2ind(size(A), J...)
     unsafe_copy!(A, i, T[v], 1, 1)
@@ -474,22 +473,31 @@ if VERSION < v"0.5.0"
 end
 
 function getindex{T}(A::KnetArray{T}, I::AbstractUnitRange)
-    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
+    if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
     off = 1+(first(I)-1)*sizeof(T)
     len = length(I)*sizeof(T)
     ptr = KnetPtr(A.ptr, off, len)
     KnetArray{T,1}(ptr, (length(I),))
 end
 
+# Efficient fill:
+for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
+    @eval function unsafe_setindex!(a::KnetArray{$T},v::$T,I::AbstractUnitRange)
+        @knet8($F,(Cint,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
+    end
+end
+
 function setindex!{T}(A::KnetArray{T}, v::Number, I::AbstractUnitRange)
-    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
-    knetfill!(A,T(v),first(I),length(I))
+    if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
+    if length(I)==0; return A; end
+    unsafe_setindex!(A,T(v),I)
 end
 
 function setindex!{T}(A::KnetArray{T}, v, I::AbstractUnitRange)
-    1 <= first(I) <= last(I) <= length(A) || throw(BoundsError(A,I))
-    length(v)==length(I) || throw(DimensionMismatch())
-    eltype(v)==T || (v = convert(Array{T},v))
+    if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
+    if length(v)!=length(I); throw(DimensionMismatch()); end
+    if length(I)==0; return A; end
+    if eltype(v)!=T; v = convert(Array{T},v); end
     unsafe_copy!(A,first(I),v,1,length(I))
 end
 
@@ -501,79 +509,66 @@ function getindex(A::KnetArray, I::Colon)
 end
 
 function setindex!{T}(A::KnetArray{T}, v::Number, I::Colon)
-    knetfill!(A,T(v),1,length(A))
+    if length(A)==0; return A; end
+    unsafe_setindex!(A, T(v), 1:length(A))
 end
 
 function setindex!{T}(A::KnetArray{T}, v, I::Colon)
-    length(v)==length(A) || throw(DimensionMismatch())
-    eltype(v)==T || (v = convert(Array{T},v))
+    if length(v)!=length(A); throw(DimensionMismatch()); end
+    if length(v)==0; return A; end
+    if eltype(v)!=T; v = convert(Array{T},v); end
     unsafe_copy!(A,1,v,1,length(A))
 end
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
 
-## Indexing with KnetArray{Int32}: low level, only Int32 supported, no bound checking
+## Indexing with KnetArray{Int32}: low level, only Int32 supported, no bounds checking
 
-    function getindex(x::KnetArray{$T}, i::KnetArray{Int32})
-        y = similar(x, size(i))
-        @knet8($("getents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-               length(i), i, x, y)
-        return y
+    function unsafe_getindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
+        @knet8($("getents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
     end
 
-    function setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
-        @knet8($("setents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-               length(i), i, x, y)
-        return x
+    function unsafe_setindex!(x::KnetArray{$T}, y::$T, i::KnetArray{Int32})
+        @knet8($("setent1_$F"),(Cint,Ptr{Int},Ptr{$T},$T), length(i), i, x, y)
     end
 
-    function setindex!(x::KnetArray{$T}, y::Number, i::KnetArray{Int32})
-        @knet8($("setent1_$F"),(Cint,Ptr{Int},Ptr{$T},$T),
-               length(i), i, x, $T(y))
-        return x
+    function unsafe_setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
+        @knet8($("setents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
     end
 
 ## Indexing with (Colon,KnetArray{Int32})
 # TODO: Just special case rows and columns in matrices until we have a more general solution
 
-    function getindex(x::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        y = similar(x, size(x,1), length(i))
+    function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
         @knet8($("getcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return y
+               size(x,1), size(x,2), length(i), i, x, y)
     end
 
-    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        @knet8($("setcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return x
-    end
-
-    function setindex!(x::KnetMatrix{$T}, y::Number, ::Colon, i::KnetVector{Int32})
+    function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, ::Colon, i::KnetVector{Int32})
         @knet8($("setcol1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
-              size(x,1), size(x,2), length(i), i, x, $T(y))
-        return x
+               size(x,1), size(x,2), length(i), i, x, y)
+    end
+
+    function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
+        @knet8($("setcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+               size(x,1), size(x,2), length(i), i, x, y)
     end
 
 ## Indexing with (KnetArray{Int32},Colon)
 
-    function getindex(x::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        y = similar(x, length(i), size(x,2))
+    function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         @knet8($("getrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return y
+               size(x,1), size(x,2), length(i), i, x, y)
     end
 
-    function setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
+    function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         @knet8($("setrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
-              size(x,1), size(x,2), length(i), i, x, y)
-        return x
+               size(x,1), size(x,2), length(i), i, x, y)
     end
 
-    function setindex!(x::KnetMatrix{$T}, y::Number, i::KnetVector{Int32}, ::Colon)
+    function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, i::KnetVector{Int32}, ::Colon)
         @knet8($("setrow1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
-              size(x,1), size(x,2), length(i), i, x, $T(y))
-        return x
+               size(x,1), size(x,2), length(i), i, x, y)
     end
 
 end; end
@@ -595,22 +590,95 @@ end
 ## Indexing with AbstractArray{Real} calls KnetArray{Int32} after boundchecking
 
 function getindex{T,I<:Real}(x::KnetArray{T}, i::AbstractArray{I})
+    y = similar(x, size(i))
+    if isempty(y); return y; end
     i = Array{Int32}(i)
     checkbetween(i, 1, length(x))
-    getindex(x,KnetArray{Int32}(i))
+    unsafe_getindex!(x,y,KnetArray{Int32}(i))
+    return y
 end
 
 function setindex!{T,I<:Real}(x::KnetArray{T}, y::Number, i::AbstractArray{I})
+    if isempty(i); return x; end
     i = Array{Int32}(i)
     checkbetween(i, 1, length(x))
-    setindex!(x,y,KnetArray{Int32}(i))
+    unsafe_setindex!(x,T(y),KnetArray{Int32}(i))
+    return x
 end
 
 function setindex!{T,I<:Real}(x::KnetArray{T}, y, i::AbstractArray{I})
-    if size(y) != size(i); throw(DimensionMismatch()); end
+    if length(y) != length(i); throw(DimensionMismatch()); end
+    if isempty(i); return x; end
     i = Array{Int32}(i)
     checkbetween(i, 1, length(x))
-    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i))
+    unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i))
+    return x
+end
+
+## Indexing with (Colon,AbstractVector{Real}) calls (Colon,KnetArray{Int32}) after bound checking
+
+function getindex{T,I<:Real}(x::KnetMatrix{T}, c::Colon, i::AbstractVector{I})
+    xrows,xcols = size(x); ycols = length(i)
+    y = similar(x, xrows, ycols)
+    if isempty(y); return y; end
+    i = Array{Int32}(i)
+    checkbetween(i,1,xcols)
+    unsafe_getindex!(x,y,c,KnetArray{Int32}(i))
+    return y
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, c::Colon, i::AbstractVector{I})
+    if isempty(i); return x; end
+    xrows,xcols = size(x); ycols=length(i)
+    i = Array{Int32}(i)
+    checkbetween(i,1,xcols)
+    unsafe_setindex!(x,T(y),c,KnetArray{Int32}(i))
+    return x
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{I})
+    if ndims(y) != 2; throw(DimensionMismatch()); end
+    xrows,xcols = size(x); yrows,ycols=size(y)
+    if yrows != xrows; throw(DimensionMismatch()); end
+    if ycols != length(i); throw(DimensionMismatch()); end
+    if isempty(y); return x; end
+    i = Array{Int32}(i)
+    checkbetween(i,1,xcols)
+    unsafe_setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(i))
+    return x
+end
+
+## Indexing with (AbstractVector{Real},Colon) calls (KnetArray{Int32},Colon) after bound checking
+
+function getindex{T,I<:Real}(x::KnetMatrix{T}, i::AbstractVector{I}, c::Colon)
+    xrows,xcols = size(x); yrows = length(i)
+    y = similar(x, yrows, xcols)
+    if isempty(y); return y; end
+    i = Array{Int32}(i)
+    checkbetween(i,1,xrows)
+    unsafe_getindex!(x,y,KnetArray{Int32}(i),c)
+    return y
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, i::AbstractVector{I}, c::Colon)
+    if isempty(i); return x; end
+    xrows,xcols = size(x); yrows=length(i)
+    i = Array{Int32}(i)
+    checkbetween(i,1,xrows)
+    unsafe_setindex!(x,T(y),KnetArray{Int32}(i),c)
+    return x
+end
+
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::Colon)
+    if ndims(y) != 2; throw(DimensionMismatch()); end
+    xrows,xcols = size(x); yrows,ycols=size(y)
+    if ycols != xcols; throw(DimensionMismatch()); end
+    if yrows != length(i); throw(DimensionMismatch()); end
+    if isempty(y); return x; end
+    i = Array{Int32}(i)
+    checkbetween(i,1,xrows)
+    unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i),c)
+    return x
 end
 
 ## Indexing with AbstractArray{CartesianIndex} calls AbstractArray{Real}
@@ -623,42 +691,6 @@ setindex!{T,I<:CartesianIndex}(x::KnetArray{T}, y, i::AbstractArray{I})=setindex
 
 getindex{T}(x::KnetArray{T}, i::AbstractArray)=getindex(x, Array{Int32}(i))
 setindex!{T}(x::KnetArray{T}, y, i::AbstractArray)=setindex!(x, y, Array{Int32}(i))
-
-## Indexing with (Colon,AbstractVector{Real}) calls (Colon,KnetArray{Int32}) after bound checking
-
-function getindex{T,I<:Real}(x::KnetMatrix{T}, c::Colon, i::AbstractVector{I})
-    checkbetween(i, 1, size(x,2))
-    getindex(x,c,KnetArray{Int32}(i))
-end
-
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, c::Colon, i::AbstractVector{I})
-    checkbetween(i, 1, size(x,2))
-    setindex!(x,y,c,KnetArray{Int32}(i))
-end
-
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{I})
-    if size(x,1)!=size(y,1); throw(DimensionMismatch()); end
-    checkbetween(i, 1, size(x,2))
-    setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(i))
-end
-
-## Indexing with (AbstractVector{Real},Colon) calls (KnetArray{Int32},Colon) after bound checking
-
-function getindex{T,I<:Real}(x::KnetMatrix{T}, i::AbstractVector{I}, c::Colon)
-    checkbetween(i, 1, size(x,1))
-    getindex(x,KnetArray{Int32}(i),c)
-end
-
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, i::AbstractVector{I}, c::Colon)
-    checkbetween(i, 1, size(x,1))
-    setindex!(x,y,KnetArray{Int32}(i),c)
-end
-
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::Colon)
-    if size(x,2)!=size(y,2); throw(DimensionMismatch()); end
-    checkbetween(i, 1, size(x,1))
-    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i),c)
-end
 
 ## Indexing with StepRange calls AbstractArray{Real}
 
@@ -706,57 +738,85 @@ end
 
 function getindex{T}(x::KnetArray{T}, i::AbstractArray{Bool})
     if length(i) != length(x); throw(BoundsError(x,i)); end
-    getindex(x,KnetArray{Int32}(find(i)))
+    j = find(i)
+    y = similar(x, length(j))
+    if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j)); end
+    return y
 end
 
 function setindex!{T}(x::KnetArray{T}, y::Number, i::AbstractArray{Bool})
     if length(i) != length(x); throw(DimensionMismatch()); end
-    setindex!(x,y,KnetArray{Int32}(find(i)))
+    j = find(i)
+    if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
+    return x
 end
 
 function setindex!{T}(x::KnetArray{T}, y, i::AbstractArray{Bool})
     if length(i) != length(x); throw(DimensionMismatch()); end
     j = find(i)
     if length(j) != length(y); throw(BoundsError(y,j)); end
-    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j))
+    if !isempty(j); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j)); end
+    return x
 end
 
 ## Indexing with (Colon,AbstractVector{Bool}) calls (Colon,KnetArray{Int32}); no need for bound checking
 
 function getindex{T}(x::KnetMatrix{T}, c::Colon, i::AbstractVector{Bool})
-    if length(i) != size(x,2); throw(BoundsError(x,(:,i))); end
-    getindex(x,c,KnetArray{Int32}(find(i)))
+    xrows,xcols = size(x)
+    if length(i) != xcols; throw(BoundsError(x,(:,i))); end
+    j = find(i); ycols = length(j)
+    y = similar(x, xrows, ycols)
+    if !isempty(y); unsafe_getindex!(x,y,c,KnetArray{Int32}(j)); end
+    return y
 end
 
 function setindex!{T}(x::KnetMatrix{T}, y::Number, c::Colon, i::AbstractVector{Bool})
-    if length(i) != size(x,2); throw(DimensionMismatch()); end
-    setindex!(x,y,c,KnetArray{Int32}(find(i)))
+    xrows,xcols = size(x)
+    if length(i) != xcols; throw(BoundsError(x,(:,i))); end
+    j = find(i)
+    if !isempty(j); unsafe_setindex!(x,T(y),c,KnetArray{Int32}(j)); end
+    return x
 end
 
 function setindex!{T}(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{Bool})
-    if length(i) != size(x,2); throw(DimensionMismatch()); end
+    if ndims(y) != 2; throw(DimensionMismatch()); end
+    xrows,xcols = size(x); yrows,ycols=size(y)
+    if yrows != xrows; throw(DimensionMismatch()); end
+    if length(i) != xcols; throw(BoundsError(x,(:,i))); end
     j = find(i)
-    if length(j)*size(x,1) != length(y); throw(BoundsError(y,j)); end
-    setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(j))
+    if ycols != length(j); throw(DimensionMismatch()); end
+    if !isempty(y); unsafe_setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(j)); end
+    return x
 end
 
 ## Indexing with (AbstractVector{Bool},Colon) calls (KnetArray{Int32},Colon); no need for bound checking
 
 function getindex{T}(x::KnetMatrix{T}, i::AbstractVector{Bool}, c::Colon)
-    if length(i) != size(x,1); throw(BoundsError(x,(i,c))); end
-    getindex(x,KnetArray{Int32}(find(i)),c)
+    xrows,xcols = size(x)
+    if length(i) != xrows; throw(BoundsError(x,(i,:))); end
+    j = find(i); yrows = length(j)
+    y = similar(x, yrows, xcols)
+    if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j),c); end
+    return y
 end
 
 function setindex!{T}(x::KnetMatrix{T}, y::Number, i::AbstractVector{Bool}, c::Colon)
-    if length(i) != size(x,1); throw(DimensionMismatch()); end
-    setindex!(x,y,KnetArray{Int32}(find(i)),c)
+    xrows,xcols = size(x)
+    if length(i) != xrows; throw(BoundsError(x,(i,:))); end
+    j = find(i)
+    if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j),c); end
+    return x
 end
 
 function setindex!{T}(x::KnetMatrix{T}, y, i::AbstractVector{Bool}, c::Colon)
-    if length(i) != size(x,1); throw(DimensionMismatch()); end
+    if ndims(y) != 2; throw(DimensionMismatch()); end
+    xrows,xcols = size(x); yrows,ycols=size(y)
+    if ycols != xcols; throw(DimensionMismatch()); end
+    if length(i) != xrows; throw(BoundsError(x,(i,:))); end
     j = find(i)
-    if length(j)*size(x,2) != length(y); throw(BoundsError(y,j)); end
-    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j),c)
+    if yrows != length(j); throw(DimensionMismatch()); end
+    if !isempty(y); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j),c); end
+    return x
 end
 
 ## Indexing with KnetArray{T} for logicals calls KnetArray{Int32}
@@ -764,25 +824,26 @@ end
 
 function getindex{T}(x::KnetArray{T}, i::KnetArray{T})
     if length(i) != length(x); throw(BoundsError(x,i)); end
-    getindex(x,KnetArray{Int32}(find(Array(i))))
+    j = find(Array(i))
+    y = similar(x, length(j))
+    if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j)); end
+    return y
 end
 
 function setindex!{T}(x::KnetArray{T}, y::Number, i::KnetArray{T})
     if length(i) != length(x); throw(DimensionMismatch()); end
-    setindex!(x,y,KnetArray{Int32}(find(Array(i))))
+    j = find(Array(i))
+    if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
+    return x
 end
 
 function setindex!{T}(x::KnetArray{T}, y, i::KnetArray{T})
     if length(i) != length(x); throw(DimensionMismatch()); end
     j = find(Array(i))
     if length(j) != length(y); throw(BoundsError(y,j)); end
-    setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j))
+    if !isempty(j); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j)); end
+    return x
 end
-
-## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
-# TODO: the following getindex, setindex! work for 1 and 2 dimensions only, write general versions.
-
-typealias Index3 Union{Real,AbstractUnitRange,Colon}
 
 # To avoid ambiguity with previous definitions we have these
 # TODO: clean this up...
@@ -811,6 +872,11 @@ getindex(A::KnetMatrix, I1::Real, I2::Colon)=getindex2(A,I1,I2)
 setindex!(A::KnetMatrix, B, I1::Real, I2::Colon)=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B::Number, I1::Real, I2::Colon)=setindex2!(A,B,I1,I2)
 
+## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
+# TODO: the following getindex, setindex! work for 1 and 2 dimensions only, write general versions.
+
+typealias Index3 Union{Real,AbstractUnitRange,Colon}
+
 function getindex2{T}(A::KnetMatrix{T}, I1::Index3, I2::Index3)
     (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I1,I2)
     B1 = isa(I1,Colon) ? size(A,1) : length(I1)
@@ -827,6 +893,7 @@ function getindex2{T}(A::KnetMatrix{T}, I1::Index3, I2::Index3)
         KnetArray{T,Bdims}(ptr, Bsize)
     else
         B = similar(A, Bsize)
+        if isempty(B); return B; end
         nrows *= sizeof(T); astep *= sizeof(T)
         @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint),
                nrows, ncols, pointer(A,firstindex), astep, B, nrows)
@@ -840,14 +907,16 @@ function setindex2!{T}(A::KnetMatrix{T}, B, I1::Index3, I2::Index3)
     if isa(B,Number)
         B = T(B)
         if ncols == 1
-            if T <: Float32
-                @knet8(fill_32,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
-            elseif T<: Float64
-                @knet8(fill_64,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
-            else
-                error("$T not supported")
+            if nelts > 0
+                if T <: Float32
+                    @knet8(fill_32,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
+                elseif T<: Float64
+                    @knet8(fill_64,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
+                else
+                    error("$T not supported")
+                end
             end
-        else
+        elseif nrows > 0 && ncols > 0
             if T <: Float32
                 @knet8(xfill_32,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
             elseif T<: Float64
@@ -860,9 +929,11 @@ function setindex2!{T}(A::KnetMatrix{T}, B, I1::Index3, I2::Index3)
         length(B) == nelts || throw(DimensionMismatch())
         B = convert(KnetArray{T},B)
         if ncols == 1
-            @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
-                  aptr0, B, nelts*sizeof(T), cudadir(A,B))
-        else
+            if nelts > 0
+                @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+                      aptr0, B, nelts*sizeof(T), cudadir(A,B))
+            end
+        elseif nrows > 0 && ncols > 0
             nrows *= sizeof(T); astep *= sizeof(T)
             @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
         end
