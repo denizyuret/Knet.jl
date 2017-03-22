@@ -137,8 +137,6 @@ function broadcast_op(f, j=f, o...)
                                 end
                             end
                             lz=length(z);nmz=ndims(z);
-                            # println("stride_x:$stride_x,stride_y:$stride_y,stride_z:$stride_z,lengthz:$lz,nmz:$nmz ")
-                            # stride_x=KnetArray(stride_x);stride_y=KnetArray(stride_y);stride_z=KnetArray(stride_z);
                             @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
 
                           else
@@ -148,17 +146,18 @@ function broadcast_op(f, j=f, o...)
                               kernel_input_1=",Cint"^(dimcount_z*3)
                               # delete the first comma
                               kernel_input_1=kernel_input_1[2:end]
-                              kernel_input_2=""
-                              for i=1:dimcount_z
-                                kernel_input_2= string(kernel_input_2,",stride_x[$i]")
-                                kernel_input_2= string(kernel_input_2,",stride_y[$i]")
-                                kernel_input_2= string(kernel_input_2,",stride_z[$i]")
-                              end
-                              kernel_input_2=kernel_input_2[2:end]
+
 
                               stride_x=collect(Int32,strides(x));
                               stride_y=collect(Int32,strides(y));
                               stride_z=collect(Int32,strides(z));
+                              kernel_input_2=""
+                              for i=1:dimcount_z
+                                kernel_input_2= string(kernel_input_2,",$stride_x[$i]")
+                                kernel_input_2= string(kernel_input_2,",$stride_y[$i]")
+                                kernel_input_2= string(kernel_input_2,",$stride_z[$i]")
+                              end
+                              kernel_input_2=kernel_input_2[2:end]
                               kernel_input_2= string(kernel_input_2,",length(z), ndims(z)")
 
                               @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...),x,y,z,eval(parse(kernel_input_2))...);
