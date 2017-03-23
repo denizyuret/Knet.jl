@@ -989,7 +989,9 @@ zeroslike(a::KnetArray)=zeros(a)
 unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
 isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 _dbg(a::KnetArray) = "K"*_dbg(Array(a))
-sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=(a+b)
+
+# Note that KnetArray sum_outgrads is overwriting, i.e. does not support higher order gradients.
+sum_outgrads{T}(a::KnetArray{T},b::KnetArray{T})=axpy!(1,b,a) # (a+b)
 
 function sum_outgrads(a::KnetArray,b::UngetIndex)
     c = sum_outgrads_karray(a, b.value, b.index...)
