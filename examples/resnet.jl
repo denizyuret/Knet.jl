@@ -32,14 +32,14 @@ function main(args)
         ("--model"; default=Knet.dir("data", "imagenet-resnet-101-dag.mat");
          help="resnet MAT file path")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
 
     println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-
-    gpu() >= 0 || error("ResNet only works on GPU machines.")
+    atype = eval(parse(o[:atype]))
     if !isfile(o[:model])
         println("Should I download the ResNet-101 model (160MB)?",
                 " Enter 'y' to download, anything else to quit.")
@@ -52,10 +52,11 @@ function main(args)
     avgimg = model["meta"]["normalization"]["averageImage"]
     avgimg = convert(Array{Float32}, avgimg)
     description = model["meta"]["classes"]["description"]
-    w, ms = get_params(model["params"])
+    w, ms = get_params(model["params"], atype)
 
     info("Reading $(o[:image])")
     img = data(o[:image], avgimg)
+    img = convert(atype, img)
 
     # get model by length of parameters
     modeldict = Dict(
@@ -180,7 +181,7 @@ function reslayerx5(w,x,ms; strides=[2,2,1,1], mode=1)
     return x
 end
 
-function get_params(params)
+function get_params(params, atype)
     len = length(params["value"])
     ws, ms = [], []
     for k = 1:len
@@ -200,7 +201,8 @@ function get_params(params)
             push!(ws, value)
         end
     end
-    map(KnetArray, ws), map(KnetArray, ms)
+    map(wi->convert(atype, wi), ws),
+    map(mi->convert(atype, mi), ms)
 end
 
 # This allows both non-interactive (shell command) and interactive calls like:

@@ -31,12 +31,13 @@ function main(args=ARGS)
         ("image"; default=imgurl; help="Image file or URL.")
         ("--model"; default=Knet.dir("data","imagenet-vgg-verydeep-16.mat"); help="Location of the model file")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
     println(s.description)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-    gpu() >= 0 || error("VGG only works on GPU machines.")
+    atype = eval(parse(o[:atype]))
     if !isfile(o[:model])
         println("Should I download the VGG model (492MB)? Enter 'y' to download, anything else to quit.")
         readline() == "y\n" || return
@@ -44,12 +45,13 @@ function main(args=ARGS)
     end
     info("Reading $(o[:model])")
     vgg = matread(o[:model])
-    params = get_params(vgg)
+    params = get_params(vgg, atype)
     convnet = get_convnet(params...)
     description = vgg["meta"]["classes"]["description"]
     averageImage = convert(Array{Float32},vgg["meta"]["normalization"]["averageImage"])
     info("Reading $(o[:image])")
     image = data(o[:image], averageImage)
+    image = convert(atype, image)
     info("Classifying")
     @time y1 = convnet(image)
     z1 = vec(Array(y1))
@@ -75,12 +77,11 @@ function data(img, averageImage)
     e1 = reshape(d1[:,:,1:3], (224,224,3,1))
     f1 = (255 * e1 .- averageImage)
     g1 = permutedims(f1, [2,1,3,4])
-    x1 = KnetArray(g1)
 end
 
 # This procedure makes pretrained MatConvNet VGG parameters convenient for Knet
 # Also, if you want to extract features, specify the last layer you want to use
-function get_params(CNN; last_layer="prob")
+function get_params(CNN, atype; last_layer="prob")
     layers = CNN["layers"]
     weights, operations, derivatives = [], [], []
 
@@ -103,7 +104,7 @@ function get_params(CNN; last_layer="prob")
         last_layer != nothing && get_layer_type(last_layer) && break
     end
 
-    map(w -> map(KnetArray, w), weights), operations, derivatives
+    map(w -> map(wi->convert(atype,wi), w), weights), operations, derivatives
 end
 
 # get convolutional network by interpreting parameters
