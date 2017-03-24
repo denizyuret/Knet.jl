@@ -19,12 +19,7 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
                   int index_z = threadIdx.x + blockIdx.x * blockDim.x;
                   int index_x,index_y;
               """)
-              # print(s,"\tint stridex_0,stridey_0,stridez_0")
-              # for counter=1:dim_count-1
-              #   print(s,",stridex_$counter")
-              #   print(s,",stridey_$counter")
-              #   print(s,",stridez_$counter")
-              # end
+
               print(s,";")
               print(s,
               """

@@ -117,49 +117,38 @@ function broadcast_op(f, j=f, o...)
                         end
                     # multi dimensional broadcast
                     else
-                        dimcount_z=ndims(z);
-
-                        if dimcount_z>10
-                            stride_x=collect(Int32,strides(x));
-                            stride_y=collect(Int32,strides(y));
-                            stride_z=collect(Int32,strides(z));
-                            dims_x=size(x)
-                            dims_y=size(y)
-                            # set broadcast dim strides of x and y to zero
-                            # if they are not same and if dimsize is 1 then broadcast dim
-                            for i in eachindex(size(x))
-                                if dims_x[i]!=dims_y[i]
-                                    if dims_x[i]==1
-                                        stride_x[i]=0
-                                    else
-                                        stride_y[i]=0
-                                    end
+                        # dimcount_z=ndims(z);
+                        stride_x=collect(Int32,strides(x));
+                        stride_y=collect(Int32,strides(y));
+                        stride_z=collect(Int32,strides(z));
+                        dims_x=size(x)
+                        dims_y=size(y)
+                        # set broadcast dim strides of x and y to zero
+                        # if they are not same and if dimsize is 1 then broadcast dim
+                        for i in eachindex(size(x))
+                            if dims_x[i]!=dims_y[i]
+                                if dims_x[i]==1
+                                    stride_x[i]=0
+                                else
+                                    stride_y[i]=0
                                 end
                             end
-                            lz=length(z);nmz=ndims(z);
-                            @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
+                        end
 
-                          else
-                              # each kernel name ends with dimension count of result array
-                              F16=string($F16,"_$dimcount_z")
-                              # kernel input_1 will be Cint as many as dim count
-                              kernel_input_1=",Cint"^(dimcount_z*3)
-                              # delete the first comma
-                              kernel_input_1=kernel_input_1[2:end]
+                        if ndims(z)>3
+                          println("F17 xlast:$xlast ylast:$ylast dz $dz,sx $sx,nx $nx,sy $sy,ny $ny,xdims $xdims,ydims $ydims stride_x:$stride_x stride_y:$stride_y stride_z:$stride_z")
+                            @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, convert(Int32, length(z)), convert(Int32, ndims(z)))
+                        else
+                            # stride_x=collect(Int32,strides(x));
+                            # stride_y=collect(Int32,strides(y));
+                            # stride_z=collect(Int32,strides(z));
+                            # each kernel name ends with dimension count of result array
+                            println("F16 xlast:$xlast ylast:$ylast dz $dz,sx $sx,nx $nx,sy $sy,ny $ny,xdims $xdims,ydims $ydims stride_x:$stride_x stride_y:$stride_y stride_z:$stride_z")
 
-                              stride_x=collect(Int32,strides(x));
-                              stride_y=collect(Int32,strides(y));
-                              stride_z=collect(Int32,strides(z));
-                              kernel_input_2=""
-                              for i=1:dimcount_z
-                                kernel_input_2= string(kernel_input_2,",$stride_x[$i]")
-                                kernel_input_2= string(kernel_input_2,",$stride_y[$i]")
-                                kernel_input_2= string(kernel_input_2,",$stride_z[$i]")
-                              end
-                              kernel_input_2=kernel_input_2[2:end]
-                              # kernel_input_2= string(kernel_input_2,",length(z), ndims(z)")
-
-                              @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},eval(parse(kernel_input_1))...,Cint,Cint),x,y,z,eval(parse(kernel_input_2))...,length(z),ndims(z));
+                            fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
+                            types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
+                            expr=Expr(:ccall,fname,Void,types,x,y,z,strides(x)..., strides(y)..., strides(z)..., convert(Int32, ndims(z)))
+                            eval(expr)
                           end
                       end
 
