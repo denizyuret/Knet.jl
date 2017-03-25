@@ -16,7 +16,7 @@
 #  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
 # 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
 #  16.155  37.103  38.175   725b18b 2017-03-25 sum_outgrads uses axpy! 33529 best, 26743 sustained wps.
-#   9.610  29.865  30.677   
+#   9.610  29.865  30.677   d3ea7d9 2017-03-26 41725 best, 35442 sustained wps. rnnlm with column major instances and split/merge inputs and outputs
 
 using Knet,AutoGrad,BenchmarkTools
 
@@ -47,8 +47,8 @@ function main(;
         end
     elseif mode == 2
         for i in 1:iters
-            grads = rnnlmgrad(model, state, sequence; pdrop=dropout) # 1:6223 forw:2585 back:3636
-            update!(model, grads, optim) # 1:943
+            grads = rnnlmgrad(model, state, sequence; pdrop=dropout) # 2:1830:3358  1:2585:3636
+            update!(model, grads, optim)                             # 2:934 1:943
         end
     else
         error("mode=$mode")
@@ -57,35 +57,35 @@ function main(;
 end
 
 # sequence[t]: Vector{Int} token-minibatch input at time t
-function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 1:2585
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
     index = vcat(sequence[range]...)
-    input = Wm(model)[:,index]
+    input = Wm(model)[:,index]                                              # 2:15
     for n = 1:nlayers(model)
         input = dropout(input, pdrop)
-        input = Wx(model,n) * input
+        input = Wx(model,n) * input                                         # 2:26
         w,b,h,c = Wh(model,n),bh(model,n),hdd(state,n),cll(state,n)
         output = []
         j1 = j2 = 0
         for t in range
             j1 = j2 + 1
             j2 = j1 + length(sequence[t]) - 1
-            input_t = input[:,j1:j2]
-            (h,c) = lstm(w,b,h,c,input_t)
+            input_t = input[:,j1:j2]                                        # 2:35
+            (h,c) = lstm(w,b,h,c,input_t)                                   # 2:991
             push!(output,h)
         end
-        input = hcat(output...)
+        input = hcat(output...)                                             # 2:39
     end
     pred1 = dropout(input,pdrop)
-    pred2 = Wy(model) * pred1                                # 1:277:1132
-    pred3 = pred2 .+ by(model)                                # 1:84:33
+    pred2 = Wy(model) * pred1                                               # 2:260  1:277:1132
+    pred3 = pred2 .+ by(model)                                              # 2:72  1:84:33
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range+1]...)
     index = similar(golds)
-    @inbounds for i=1:length(golds)       # TODO: check this
-        index[i] = i + (golds[i]-1)*ncols                       # 1:17
+    @inbounds for i=1:length(golds)                                         # TODO: check this
+        index[i] = i + (golds[i]-1)*ncols                                   # 2:26 1:17
     end
     # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
-    logp1 = logp(pred3,1)                                       # 1:1067:673
+    logp1 = logp(pred3,1)                                                   # 2:354  1:1067:673
     logp2 = logp1[index]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -93,15 +93,15 @@ end
 
 rnnlmgrad = grad(rnnlm)
 
-function lstm(weight,bias,hidden,cell,input)                    # 1:992:1617 (id:forw:back)
-    gates   = weight * hidden .+ input .+ bias                  # 1:129:499 (43+381+75) (cat+mmul+badd)
+function lstm(weight,bias,hidden,cell,input)                    # 2:991  1:992:1617 (id:forw:back)
+    gates   = weight * hidden .+ input .+ bias                  # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,1)                                    # 
-    forget  = sigm(gates[1:h,:])                                # 1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[1+h:2h,:])                             # 1:73:123 (77+46)
-    outgate = sigm(gates[1+2h:3h,:])                            # 1:66:124 (87+37)
-    change  = tanh(gates[1+3h:4h,:])                            # 1:51:179 (130+49) replace end with 4h?
-    cell    = cell .* forget + ingate .* change                 # 1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                             # 1:69:194 (73+121) (tanh+bmul)
+    forget  = sigm(gates[1:h,:])                                # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[1+h:2h,:])                             # 2:99   1:73:123 (77+46)
+    outgate = sigm(gates[1+2h:3h,:])                            # 2:113  1:66:124 (87+37)
+    change  = tanh(gates[1+3h:4h,:])                            # 2:94   1:51:179 (130+49) replace end with 4h?
+    cell    = cell .* forget + ingate .* change                 # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                             # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -170,6 +170,8 @@ function randseq(V,B,T)
 end
 
 nothing
+
+### RUN-1
 
 # Forward pass profile (2585/7166 of total)
 # 2585 ./<missing>:0; (::#kw##rnnlm)(::Array{Any,1}, ::#rnnlm, ::AutoGrad.R...
