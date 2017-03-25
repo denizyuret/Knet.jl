@@ -15,7 +15,8 @@
 #  mode=0  mode=1  mode=2   notes (times in ms with default args)
 #  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
 # 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
-#  15.986  36.634  37.168   725b18b 2017-03-25 sum_outgrads uses axpy!
+#  16.155  37.103  38.175   725b18b 2017-03-25 sum_outgrads uses axpy! 33529 best, 26743 sustained wps.
+#   9.610  29.865  30.677   
 
 using Knet,AutoGrad,BenchmarkTools
 
@@ -55,44 +56,97 @@ function main(;
     return (model, state, sequence, optim)
 end
 
-# generate model parameters for k=1:length(hidden) lstm layers
-# instances are in rows, vectors are row vectors
-# model[2k-1]: weight matrix for the k'th lstm layer
-# model[2k]: bias vector for the k'th lstm layer
-# model[end-2]: embedding matrix
-# model[end-1,end]: weight and bias for final prediction
+# sequence[t]: Vector{Int} token-minibatch input at time t
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 1:2585
+    index = vcat(sequence[range]...)
+    input = Wm(model)[:,index]
+    for n = 1:nlayers(model)
+        input = dropout(input, pdrop)
+        input = Wx(model,n) * input
+        w,b,h,c = Wh(model,n),bh(model,n),hdd(state,n),cll(state,n)
+        output = []
+        j1 = j2 = 0
+        for t in range
+            j1 = j2 + 1
+            j2 = j1 + length(sequence[t]) - 1
+            input_t = input[:,j1:j2]
+            (h,c) = lstm(w,b,h,c,input_t)
+            push!(output,h)
+        end
+        input = hcat(output...)
+    end
+    pred1 = dropout(input,pdrop)
+    pred2 = Wy(model) * pred1                                # 1:277:1132
+    pred3 = pred2 .+ by(model)                                # 1:84:33
+    nrows,ncols = size(pred3)
+    golds = vcat(sequence[range+1]...)
+    index = similar(golds)
+    @inbounds for i=1:length(golds)       # TODO: check this
+        index[i] = i + (golds[i]-1)*ncols                       # 1:17
+    end
+    # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
+    logp1 = logp(pred3,1)                                       # 1:1067:673
+    logp2 = logp1[index]
+    logp3 = sum(logp2)
+    return -logp3 / length(golds)
+end
+
+rnnlmgrad = grad(rnnlm)
+
+function lstm(weight,bias,hidden,cell,input)                    # 1:992:1617 (id:forw:back)
+    gates   = weight * hidden .+ input .+ bias                  # 1:129:499 (43+381+75) (cat+mmul+badd)
+    h       = size(hidden,1)                                    # 
+    forget  = sigm(gates[1:h,:])                                # 1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[1+h:2h,:])                             # 1:73:123 (77+46)
+    outgate = sigm(gates[1+2h:3h,:])                            # 1:66:124 (87+37)
+    change  = tanh(gates[1+3h:4h,:])                            # 1:51:179 (130+49) replace end with 4h?
+    cell    = cell .* forget + ingate .* change                 # 1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                             # 1:69:194 (73+121) (tanh+bmul)
+    return (hidden,cell)
+end
+
+nlayers(model)=div(length(model)-3,3)
+Wm(model)=model[1]
+Wx(model,n)=model[3n-1]
+Wh(model,n)=model[3n]
+bh(model,n)=model[3n+1]
+Wy(model)=model[end-1]
+by(model)=model[end]
+hdd(state,n)=state[2n-1]
+cll(state,n)=state[2n]
+
 function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
-    model = Array(Any, 2*length(hidden)+3)
+    N = length(hidden)
+    model = Array(Any, 3N+3)
+    model[1] = init(embed,vocab) # Wm
     X = embed
-    for k = 1:length(hidden)
-        H = hidden[k]
-        model[2k-1] = init(X+H, 4H)
-        model[2k] = bias(1, 4H)
-        model[2k][1:H] = 1 # forget gate bias = 1
+    for n = 1:N
+        H = hidden[n]
+        model[3n-1] = init(4H,X) # Wx
+        model[3n]   = init(4H,H) # Wh
+        model[3n+1] = bias(4H,1) # bh
+        model[3n+1][1:H] = 1     # forget gate bias = 1
         X = H
     end
-    model[end-2] = init(vocab,embed)
-    model[end-1] = init(hidden[end],vocab)
-    model[end] = bias(1,vocab)
+    model[3N+2] = init(vocab,hidden[end]) # Wy
+    model[3N+3] = bias(vocab,1)           # by
     return model
 end
 
-# TODO: consider learning the initial state
-# state[2k-1]: hidden for the k'th lstm layer
-# state[2k]: cell for the k'th lstm layer
+# TODO: consider learning the initial state instead of setting to 0
 let blank = nothing; global initstate
 function initstate(model, batch)
-    nlayers = div(length(model)-3,2)
-    state = Array(Any, 2*nlayers)
-    for k = 1:nlayers
-        bias = model[2k]
+    N = nlayers(model)
+    state = Array(Any, 2N)
+    for n = 1:N
+        bias = bh(model,n)
         hidden = div(length(bias),4)
-        if typeof(blank)!=typeof(bias) || size(blank)!=(batch,hidden)
-            blank = fill!(similar(bias, batch, hidden),0)
+        if typeof(blank)!=typeof(bias) || size(blank)!=(hidden,batch)
+            blank = fill!(similar(bias, hidden, batch),0)
         end
-        state[2k-1] = state[2k] = blank
+        state[2n-1] = state[2n] = blank
     end
     return state
 end
@@ -110,77 +164,10 @@ initoptim(a,otype)=map(x->initoptim(x,otype), a)
 function randseq(V,B,T)
     s = Vector{Vector{Int}}()
     for t in 1:T
-        push!(s, rand(2:V,B))   # Using 1 for EOS
+        push!(s, rand(1:V,B))   # no EOS token
     end
     return s
 end
-
-# LSTM implementation with a single matrix multiplication with
-# instances in rows rather than columns.  Julia is column major, so
-# horizontal concatenation and column based slicing are contiguous and
-# more efficient compared to vertical concatenation and row
-# slicing. In this implementation I wanted to perform a single matrix
-# multiplication for all four gates rather than four (or eight)
-# separate matrix multiplications for performance. Thus I concatenate
-# the input and the hidden, then slice out the four gates.  Both
-# operations are more efficient if instances are in rows rather than
-# columns.
-    
-function lstm(weight,bias,hidden,cell,input)                    # 1:992:1617 (id:forw:back)
-    gates   = hcat(input,hidden) * weight .+ bias               # 1:129:499 (43+381+75) (cat+mmul+badd)
-    h       = size(hidden,2)                                    # 
-    forget  = sigm(gates[:,1:h])                                # 1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[:,1+h:2h])                             # 1:73:123 (77+46)
-    outgate = sigm(gates[:,1+2h:3h])                            # 1:66:124 (87+37)
-    change  = tanh(gates[:,1+3h:4h])                            # 1:51:179 (130+49) replace end with 4h?
-    cell    = cell .* forget + ingate .* change                 # 1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                             # 1:69:194 (73+121) (tanh+bmul)
-    return (hidden,cell)
-end
-
-# input: Matrix{Float} token-minibatch input
-# returns (B,H) hidden output and newstate
-function predict(model, state, input; pdrop=0)
-    nlayers = div(length(model)-3,2)
-    newstate = similar(state)
-    for k = 1:nlayers
-        input = dropout(input, pdrop)
-        (newstate[2k-1],newstate[2k]) = lstm(model[2k-1],model[2k],state[2k-1],state[2k],input)
-        input = newstate[2k-1]
-    end
-    return input,newstate
-end
-
-# sequence[t]: Vector{Int} token-minibatch input at time t
-function rnnlm(model, state, sequence, range=1:length(sequence)-1; newstate=nothing, pdrop=0) # 1:2585
-    preds = []
-    embed = model[end-2]
-    for t in range
-        input = embed[sequence[t],:]                            # 1:86:92
-        pred,state = predict(model,state,input; pdrop=pdrop) 	# 1:999:1617
-        push!(preds,pred)
-    end
-    if newstate != nothing
-        copy!(newstate, map(AutoGrad.getval,state))
-    end
-    pred0 = vcat(preds...)                                      # 1:51:35
-    pred1 = dropout(pred0,pdrop)
-    pred2 = pred1 * model[end-1]                                # 1:277:1132
-    pred3 = pred2 .+ model[end]                                 # 1:84:33
-    logp1 = logp(pred3,2)                                       # 1:1067:673
-    nrows,ncols = size(pred3)
-    golds = vcat(sequence[range[1]+1:range[end]+1]...)
-    index = similar(golds)
-    @inbounds for i=1:length(golds)
-        index[i] = i + (golds[i]-1)*nrows                       # 1:17
-    end
-    # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
-    logp2 = logp1[index]
-    logp3 = sum(logp2)
-    return -logp3 / length(golds)
-end
-
-rnnlmgrad = grad(rnnlm)
 
 nothing
 
