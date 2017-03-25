@@ -13,8 +13,8 @@
 # nothing
 
 #  mode=0  mode=1  mode=2   notes (times in ms with default args)
-#  16.227  36.886  39.329   32546 wps on aitest-gpu
-# 249.359 505.947 552.944   2315  wps on aitest-cpu
+#  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
+# 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
 
 using Knet,AutoGrad,BenchmarkTools
 
@@ -45,8 +45,8 @@ function main(;
         end
     elseif mode == 2
         for i in 1:iters
-            grads = rnnlmgrad(model, state, sequence; pdrop=dropout)
-            update!(model, grads, optim)
+            grads = rnnlmgrad(model, state, sequence; pdrop=dropout) # 1:6223 forw:2585 back:3636
+            update!(model, grads, optim) # 1:943
         end
     else
         error("mode=$mode")
@@ -125,15 +125,15 @@ end
 # operations are more efficient if instances are in rows rather than
 # columns.
     
-function lstm(weight,bias,hidden,cell,input)
-    gates   = hcat(input,hidden) * weight .+ bias
-    hsize   = size(hidden,2)
-    forget  = sigm(gates[:,1:hsize])
-    ingate  = sigm(gates[:,1+hsize:2hsize])
-    outgate = sigm(gates[:,1+2hsize:3hsize])
-    change  = tanh(gates[:,1+3hsize:end])
-    cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+function lstm(weight,bias,hidden,cell,input)                    # 1:992:1617 (id:forw:back)
+    gates   = hcat(input,hidden) * weight .+ bias               # 1:129:499 (43+381+75) (cat+mmul+badd)
+    hsize   = size(hidden,2)                                    # 
+    forget  = sigm(gates[:,1:hsize])                            # 1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[:,1+hsize:2hsize])                     # 1:73:123 (77+46)
+    outgate = sigm(gates[:,1+2hsize:3hsize])                    # 1:66:124 (87+37)
+    change  = tanh(gates[:,1+3hsize:end])                       # 1:51:179 (130+49) replace end with 4hsize?
+    cell    = cell .* forget + ingate .* change                 # 1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                             # 1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -151,27 +151,27 @@ function predict(model, state, input; pdrop=0)
 end
 
 # sequence[t]: Vector{Int} token-minibatch input at time t
-function rnnlm(model, state, sequence, range=1:length(sequence)-1; newstate=nothing, pdrop=0)
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; newstate=nothing, pdrop=0) # 1:2585
     preds = []
     embed = model[end-2]
     for t in range
-        input = embed[sequence[t],:]
-        pred,state = predict(model,state,input; pdrop=pdrop)
+        input = embed[sequence[t],:]                            # 1:86:92
+        pred,state = predict(model,state,input; pdrop=pdrop) 	# 1:999:1617
         push!(preds,pred)
     end
     if newstate != nothing
         copy!(newstate, map(AutoGrad.getval,state))
     end
-    pred0 = vcat(preds...)
+    pred0 = vcat(preds...)                                      # 1:51:35
     pred1 = dropout(pred0,pdrop)
-    pred2 = pred1 * model[end-1]
-    pred3 = pred2 .+ model[end]
-    logp1 = logp(pred3,2)
+    pred2 = pred1 * model[end-1]                                # 1:277:1132
+    pred3 = pred2 .+ model[end]                                 # 1:84:33
+    logp1 = logp(pred3,2)                                       # 1:1067:673
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range[1]+1:range[end]+1]...)
     index = similar(golds)
     @inbounds for i=1:length(golds)
-        index[i] = i + (golds[i]-1)*nrows
+        index[i] = i + (golds[i]-1)*nrows                       # 1:17
     end
     # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
     logp2 = logp1[index]
@@ -182,3 +182,55 @@ end
 rnnlmgrad = grad(rnnlm)
 
 nothing
+
+# Forward pass profile (2585/7166 of total)
+# 2585 ./<missing>:0; (::#kw##rnnlm)(::Array{Any,1}, ::#rnnlm, ::AutoGrad.R...
+#  86   .../dyuret/knet/master/prof/rnnlm.jl:158; input = embed[sequence[t],:]
+#  999  .../dyuret/knet/master/prof/rnnlm.jl:159; pred,state = predict(model,state,input; pdrop=pdrop)
+#   992 .../dyuret/knet/master/prof/rnnlm.jl:147; (newstate[2k-1],newstate[2k]) = lstm(model[2k-1],model[2k],state[2k-1],state[2k],input)
+#    505 .../dyuret/knet/master/prof/rnnlm.jl:129; gates   = hcat(input,hidden) * weight .+ bias
+#    98  .../dyuret/knet/master/prof/rnnlm.jl:131; forget  = sigm(gates[:,1:hsize])
+#    73  .../dyuret/knet/master/prof/rnnlm.jl:132; ingate  = sigm(gates[:,1+hsize:2hsize])
+#    66  .../dyuret/knet/master/prof/rnnlm.jl:133; outgate = sigm(gates[:,1+2hsize:3hsize])
+#    51  .../dyuret/knet/master/prof/rnnlm.jl:134; change  = tanh(gates[:,1+3hsize:end])
+#    106 .../dyuret/knet/master/prof/rnnlm.jl:135; cell    = cell .* forget + ingate .* change
+#    69  .../dyuret/knet/master/prof/rnnlm.jl:136; hidden  = outgate .* tanh(cell)
+#  51   .../dyuret/knet/master/prof/rnnlm.jl:165; pred0 = vcat(preds...)
+#  277  .../dyuret/knet/master/prof/rnnlm.jl:167; pred2 = pred1 * model[end-1]
+#  84   .../dyuret/knet/master/prof/rnnlm.jl:168; pred3 = pred2 .+ model[end]
+#  1067 .../dyuret/knet/master/prof/rnnlm.jl:169; logp1 = logp(pred3,2)
+#   424 ...ret/.julia/v0.5/Knet/src/unary.jl:176; x1 = maximum(x,d...)
+#   53  ...ret/.julia/v0.5/Knet/src/unary.jl:177; x2 = x .- x1
+#   88  ...ret/.julia/v0.5/Knet/src/unary.jl:178; x3 = exp(x2)
+#   414 ...ret/.julia/v0.5/Knet/src/unary.jl:179; x4 = sum(x3,d...)
+#   1   ...ret/.julia/v0.5/Knet/src/unary.jl:180; x5 = log(x4)
+#   85  ...ret/.julia/v0.5/Knet/src/unary.jl:181; x6 = x2 .- x5
+#  17   .../dyuret/knet/master/prof/rnnlm.jl:174; index[i] = i + (golds[i]-1)*nrows
+
+# Backward pass profile (3636/7166 of total)
+# 3636 ...et/.julia/v0.5/AutoGrad/src/core.jl:40; (::AutoGrad.##gradfun#1#3{#rnnlm,Int64})(::Array{Any,1...
+#  2948 core.jl:231 og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...)
+#   1512 ./<missing>:0; *(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float32...
+#   679  ./<missing>:0; logp(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+#   286  ./<missing>:0; .*(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Float3...
+#   109  ./<missing>:0; sigm(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+#   95   ./<missing>:0; tanh(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{Floa...
+#   92   ./<missing>:0; .+(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float3...
+#   60   ...AutoGrad/src/base/abstractarray.jl:85; cat(::Type{AutoGrad.Grad{2}}, ::Knet.KnetArray{Float...
+#   13   ./<missing>:0; getindex(::Type{AutoGrad.Grad{1}}, ::Knet.KnetArray{...
+#   13   ./essentials.jl:216; vector_any()
+#  684  ...et/.julia/v0.5/AutoGrad/src/core.jl:233; backward_pass(::AutoGrad.Rec{Array{Any,1}}, ::AutoGra...
+#   271 ...uret/.julia/v0.5/Knet/src/karray.jl:995; sum_outgrads(::Knet.KnetArray{Float32,2}, ::AutoGrad....
+#   168 ...lia/v0.5/AutoGrad/src/interfaces.jl:71; sum_outgrads(::Void, ::AutoGrad.UngetIndex)
+#   167 ...lia/v0.5/AutoGrad/src/interfaces.jl:92; sum_outgrads(::Array{Any,1}, ::AutoGrad.UngetIndex)
+#   72  ...uret/.julia/v0.5/Knet/src/karray.jl:992; sum_outgrads(::Knet.KnetArray{Float32,2}, ::Knet.Knet...
+
+# Update profile (943/7166 of total)
+# 940 ...yuret/.julia/v0.5/Knet/src/update.jl:404; update!(wi,gi,pi)
+#  31  ...uret/.julia/v0.5/Knet/src/update.jl:346; scale!(p.beta1, p.fstm)
+#  53  ...uret/.julia/v0.5/Knet/src/update.jl:347; axpy!(1-p.beta1, g, p.fstm)
+#  35  ...uret/.julia/v0.5/Knet/src/update.jl:348; scale!(p.beta2, p.scndm)
+#  82  ...uret/.julia/v0.5/Knet/src/update.jl:349; axpy!(1-p.beta2, g .* g, p.scndm)
+#  29  ...uret/.julia/v0.5/Knet/src/update.jl:350; fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
+#  27  ...uret/.julia/v0.5/Knet/src/update.jl:351; scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
+#  683 ...uret/.julia/v0.5/Knet/src/update.jl:352; axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
