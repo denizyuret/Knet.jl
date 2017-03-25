@@ -15,6 +15,7 @@
 #  mode=0  mode=1  mode=2   notes (times in ms with default args)
 #  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
 # 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
+#  15.986  36.634  37.168   725b18b 2017-03-25 sum_outgrads uses axpy!
 
 using Knet,AutoGrad,BenchmarkTools
 
