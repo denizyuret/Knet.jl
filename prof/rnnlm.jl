@@ -25,7 +25,7 @@ function main(;
               batch=64,
               embed=128,
               hidden=[256],
-              seqlen=20,        # mikolov ptb avg is 21
+              seqlen=20,        # mikolov ptb avg is 21+eos
               otype="Adam()",
               atype=(gpu()>=0 ? KnetArray{Float32} : Array{Float32}),
               model=initmodel(atype, hidden, vocab, embed),
@@ -127,11 +127,11 @@ end
     
 function lstm(weight,bias,hidden,cell,input)                    # 1:992:1617 (id:forw:back)
     gates   = hcat(input,hidden) * weight .+ bias               # 1:129:499 (43+381+75) (cat+mmul+badd)
-    hsize   = size(hidden,2)                                    # 
-    forget  = sigm(gates[:,1:hsize])                            # 1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[:,1+hsize:2hsize])                     # 1:73:123 (77+46)
-    outgate = sigm(gates[:,1+2hsize:3hsize])                    # 1:66:124 (87+37)
-    change  = tanh(gates[:,1+3hsize:end])                       # 1:51:179 (130+49) replace end with 4hsize?
+    h       = size(hidden,2)                                    # 
+    forget  = sigm(gates[:,1:h])                                # 1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[:,1+h:2h])                             # 1:73:123 (77+46)
+    outgate = sigm(gates[:,1+2h:3h])                            # 1:66:124 (87+37)
+    change  = tanh(gates[:,1+3h:4h])                            # 1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change                 # 1:106:202 (104+93+5) (bmul+bmul+add)
     hidden  = outgate .* tanh(cell)                             # 1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
