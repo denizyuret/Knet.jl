@@ -1,10 +1,13 @@
 using Knet,AutoGrad,BenchmarkTools
+MODEL=1
 
-#  mode=0  mode=1  mode=2   notes (times in ms with default args)
+#  mode=0  mode=1  mode=2   notes (times in ms with default args unless specified)
 #  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
 # 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
 #  16.155  37.103  38.175   725b18b 2017-03-25 sum_outgrads uses axpy! 33529 best, 26743 sustained wps.
-#   9.610  29.865  30.677   d3ea7d9 2017-03-26 41725 best, 35442 sustained wps. rnnlm with column major instances and split/merge inputs and outputs
+#   9.811  28.947  30.108   d3ea7d9 2017-03-26 41725 best, 35442 sustained wps. rnnlm with column major instances and split/merge inputs and outputs
+#   3.269  11.644  12.728   vocab=100 MODEL=1 (column-major is worse with small vocab)
+#   3.032  11.666  12.259   vocab=100 MODEL=2 (row-major is better with small vocab)
 
 # Usage:
 #
@@ -25,7 +28,7 @@ using Knet,AutoGrad,BenchmarkTools
 # sequence[t]: Vector{Int} token-minibatch input at time t
 # TODO: consider learning the initial state instead of setting to 0
 # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
-# TODO: add gclip
+# TODO: add gclip, gcheck
 
 function main(;
               mode=0,
@@ -79,9 +82,12 @@ function randseq(V,B,T)
     return s
 end
 
+if MODEL==1; @eval begin
+
 ### Model 1: column-major, merge/split input/output
 #  mode=0  mode=1  mode=2
-#   9.863  28.947  30.300
+#   9.811  28.947  30.108   vocab=10K
+#   3.269  11.644  12.728   vocab=100 MODEL=1 (column-major is worse with small vocab)
 
 function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
     index = vcat(sequence[range]...)
@@ -172,9 +178,11 @@ function initstate(model, batch)
     return state
 end
 end
-###
 
-#= ### Model 2: Row major, merge/split input/output
+
+end; elseif MODEL==2; @eval begin    
+
+### Model 2: Row major, merge/split input/output
 #  mode=0  mode=1  mode=2
 #  16.501  36.352  37.112
 
@@ -267,27 +275,206 @@ function initstate(model, batch)
     return state
 end
 end
-=# 
 
-#= ### Model 3: column-major, merge output, concat hidden/input
+end; elseif MODEL==3; @eval begin    
 
-=#
+### Model 3: column-major, concat hidden/input, merge output
+#  mode=0  mode=1  mode=2
+#  10.458  32.010  33.764   vocab=10K
+#   3.837  12.536  13.083   vocba=100    
 
-#= ### Model 4: column-major, no split/merge, concat hidden/input
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
+    input = []
+    for t in range
+        push!(input, Wm(model)[:,sequence[t]])
+    end
+    for n = 1:nlayers(model)
+        w,b,h,c = Wh(model,n),bh(model,n),hdd(state,n),cll(state,n)
+        for i in 1:length(range)
+            t = range[i]
+            input_t = input[i]
+            input_t = dropout(input_t, pdrop)
+            (h,c) = lstm(w,b,h,c,input_t)               # 2:991
+            input[i] = h
+        end
+    end
+    pred0 = hcat(input...)
+    pred1 = dropout(pred0,pdrop)
+    pred2 = Wy(model) * pred1                           # 2:260  1:277:1132
+    pred3 = pred2 .+ by(model)                          # 2:72  1:84:33
+    nrows,ncols = size(pred3)
+    golds = vcat(sequence[range+1]...)
+    golds += nrows*(0:(length(golds)-1))
+    logp1 = logp(pred3,1)                               # 2:354  1:1067:673
+    logp2 = logp1[golds]
+    logp3 = sum(logp2)
+    return -logp3 / length(golds)
+end
 
-=#
+rnnlmgrad = grad(rnnlm)
 
-#= ### Model 5: Column major, no split/merge, no concat hidden/input
+function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
+    gates   = weight * vcat(hidden, input) .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
+    h       = size(hidden,1)                            # 
+    forget  = sigm(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
+    change  = tanh(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    return (hidden,cell)
+end
 
-=#
+nlayers(model)=div(length(model)-3,2)
+Wm(model)=model[1]
+Wx(model,n)=nothing
+Wh(model,n)=model[2n]
+bh(model,n)=model[2n+1]
+Wy(model)=model[end-1]
+by(model)=model[end]
+hdd(state,n)=state[2n-1]
+cll(state,n)=state[2n]
 
-#= ### Model 6: Column major, no split/merge, no concat hidden/input, no merging gates
+function initmodel(atype, hidden, vocab, embed)
+    init(d...)=atype(xavier(Float32,d...))
+    bias(d...)=atype(zeros(Float32,d...))
+    N = length(hidden)
+    model = Array(Any, 2N+3)
+    model[1] = init(embed,vocab) # Wm
+    X = embed
+    for n = 1:N
+        H = hidden[n]
+        model[2n]   = init(4H,H+X) # Wh
+        model[2n+1] = bias(4H,1) # bh
+        model[2n+1][1:H] = 1     # forget gate bias = 1
+        X = H
+    end
+    model[2N+2] = init(vocab,hidden[end]) # Wy
+    model[2N+3] = bias(vocab,1)           # by
+    return model
+end
 
-=# 
+let blank = nothing; global initstate
+function initstate(model, batch)
+    N = nlayers(model)
+    state = Array(Any, 2N)
+    for n = 1:N
+        bias = bh(model,n)
+        hidden = div(length(bias),4)
+        if typeof(blank)!=typeof(bias) || size(blank)!=(hidden,batch)
+            blank = fill!(similar(bias, hidden, batch),0)
+        end
+        state[2n-1] = state[2n] = blank
+    end
+    return state
+end
+end
+
+end; elseif MODEL==4; @eval begin    
+
+### Model 4: row-major, concat hidden/input, merge output
+#  mode=0  mode=1  mode=2
+#  16.298  39.139  39.879  vocab=10K
+#   3.173  11.715  12.223  vocab=100
+
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
+    input = []
+    for t in range
+        push!(input, Wm(model)[sequence[t],:])
+    end
+    for n = 1:nlayers(model)
+        w,b,h,c = Wh(model,n),bh(model,n),hdd(state,n),cll(state,n)
+        for i in 1:length(range)
+            t = range[i]
+            input_t = input[i]
+            input_t = dropout(input_t, pdrop)
+            (h,c) = lstm(w,b,h,c,input_t)               # 2:991
+            input[i] = h
+        end
+    end
+    pred0 = vcat(input...)
+    pred1 = dropout(pred0,pdrop)
+    pred2 = pred1 * Wy(model)                           # 2:260  1:277:1132
+    pred3 = pred2 .+ by(model)                          # 2:72  1:84:33
+    nrows,ncols = size(pred3)
+    golds = vcat(sequence[range+1]...)
+    golds = (golds-1)*nrows + (1:length(golds))
+    logp1 = logp(pred3,2)                               # 2:354  1:1067:673
+    logp2 = logp1[golds]
+    logp3 = sum(logp2)
+    return -logp3 / length(golds)
+end
+
+rnnlmgrad = grad(rnnlm)
+
+function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
+    gates   = hcat(hidden, input) * weight .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
+    h       = size(hidden,2)                            # 
+    forget  = sigm(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
+    change  = tanh(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    return (hidden,cell)
+end
+
+nlayers(model)=div(length(model)-3,2)
+Wm(model)=model[1]
+Wx(model,n)=nothing
+Wh(model,n)=model[2n]
+bh(model,n)=model[2n+1]
+Wy(model)=model[end-1]
+by(model)=model[end]
+hdd(state,n)=state[2n-1]
+cll(state,n)=state[2n]
+
+function initmodel(atype, hidden, vocab, embed)
+    init(d...)=atype(xavier(Float32,d...))
+    bias(d...)=atype(zeros(Float32,d...))
+    N = length(hidden)
+    model = Array(Any, 2N+3)
+    model[1] = init(vocab,embed) # Wm
+    X = embed
+    for n = 1:N
+        H = hidden[n]
+        model[2n]   = init(H+X,4H) # Wh
+        model[2n+1] = bias(1,4H) # bh
+        model[2n+1][1:H] = 1     # forget gate bias = 1
+        X = H
+    end
+    model[2N+2] = init(hidden[end],vocab) # Wy
+    model[2N+3] = bias(1,vocab)           # by
+    return model
+end
+
+let blank = nothing; global initstate
+function initstate(model, batch)
+    N = nlayers(model)
+    state = Array(Any, 2N)
+    for n = 1:N
+        bias = bh(model,n)
+        hidden = div(length(bias),4)
+        if typeof(blank)!=typeof(bias) || size(blank)!=(batch,hidden)
+            blank = fill!(similar(bias, batch, hidden),0)
+        end
+        state[2n-1] = state[2n] = blank
+    end
+    return state
+end
+end
+
+### Model X: Column-major, no split/merge, concat hidden/input
+
+### Model X: Column major, no split/merge, no concat hidden/input
+
+### Model X: Column major, no split/merge, no concat hidden/input, no merging gates
+
+end; end # if MODEL==1
 
 nothing
 
-### RUN-1: row-major, merge output, concat hidden/input
+### MODEL=2: row-major, merge output, concat hidden/input
 
 # Forward pass profile (2585/7166 of total)
 # 2585 ./<missing>:0; (::#kw##rnnlm)(::Array{Any,1}, ::#rnnlm, ::AutoGrad.R...
