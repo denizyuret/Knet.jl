@@ -48,6 +48,7 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
         $T xi = x[index_x];
         $T yi = y[index_y];
         z[index_z]=$ex;
+        //z[index_z]=index_z;
         index_z+=(blockDim.x * gridDim.x);
     }
     free(coords);
