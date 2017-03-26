@@ -1,3 +1,11 @@
+using Knet,AutoGrad,BenchmarkTools
+
+#  mode=0  mode=1  mode=2   notes (times in ms with default args)
+#  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
+# 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
+#  16.155  37.103  38.175   725b18b 2017-03-25 sum_outgrads uses axpy! 33529 best, 26743 sustained wps.
+#   9.610  29.865  30.677   d3ea7d9 2017-03-26 41725 best, 35442 sustained wps. rnnlm with column major instances and split/merge inputs and outputs
+
 # Usage:
 #
 # include("rnnlm.jl")
@@ -12,13 +20,12 @@
 # gc(); println(@benchmark main(model=$m,state=$s,sequence=$x,optim=$o,mode=2))
 # nothing
 
-#  mode=0  mode=1  mode=2   notes (times in ms with default args)
-#  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
-# 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
-#  16.155  37.103  38.175   725b18b 2017-03-25 sum_outgrads uses axpy! 33529 best, 26743 sustained wps.
-#   9.610  29.865  30.677   d3ea7d9 2017-03-26 41725 best, 35442 sustained wps. rnnlm with column major instances and split/merge inputs and outputs
-
-using Knet,AutoGrad,BenchmarkTools
+# Notes:
+#
+# sequence[t]: Vector{Int} token-minibatch input at time t
+# TODO: consider learning the initial state instead of setting to 0
+# pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
+# TODO: add gclip
 
 function main(;
               mode=0,
@@ -35,7 +42,6 @@ function main(;
               sequence=randseq(vocab,batch,seqlen),
               optim=initoptim(model,otype),
               dropout=0,
-              # gclip
               )
     if mode == 0
         for i in 1:iters
@@ -56,7 +62,27 @@ function main(;
     return (model, state, sequence, optim)
 end
 
-# sequence[t]: Vector{Int} token-minibatch input at time t
+# initoptim creates optimization parameters for each numeric weight
+# array in the model.  This should work for a model consisting of any
+# combination of tuple/array/dict.
+initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
+initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
+initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+initoptim(a,otype)=map(x->initoptim(x,otype), a)
+
+# Create a random minibatch of sequences
+function randseq(V,B,T)
+    s = Vector{Vector{Int}}()
+    for t in 1:T
+        push!(s, rand(1:V,B))   # no EOS token
+    end
+    return s
+end
+
+### Model 1: column-major, merge/split input/output
+#  mode=0  mode=1  mode=2
+#   9.863  28.947  30.300
+
 function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
     index = vcat(sequence[range]...)
     input = Wm(model)[:,index]                          # 2:15
@@ -80,13 +106,9 @@ function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:
     pred3 = pred2 .+ by(model)                          # 2:72  1:84:33
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range+1]...)
-    index = similar(golds)
-    @inbounds for i=1:length(golds) # TODO: check this
-        index[i] = i + (golds[i]-1)*ncols               # 2:26 1:17
-    end
-    # pred3 = Array(pred3) #TODO: FIX BUGGY REDUCTION CODE FOR KNETARRAY IF PRED3 TOO BIG
+    golds += nrows*(0:(length(golds)-1))
     logp1 = logp(pred3,1)                               # 2:354  1:1067:673
-    logp2 = logp1[index]
+    logp2 = logp1[golds]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
 end
@@ -135,7 +157,6 @@ function initmodel(atype, hidden, vocab, embed)
     return model
 end
 
-# TODO: consider learning the initial state instead of setting to 0
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
@@ -151,27 +172,122 @@ function initstate(model, batch)
     return state
 end
 end
+###
 
-# initoptim creates optimization parameters for each numeric weight
-# array in the model.  This should work for a model consisting of any
-# combination of tuple/array/dict.
-initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
-initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
-initoptim(a,otype)=map(x->initoptim(x,otype), a)
+#= ### Model 2: Row major, merge/split input/output
+#  mode=0  mode=1  mode=2
+#  16.501  36.352  37.112
 
-# Create a random minibatch of sequences
-function randseq(V,B,T)
-    s = Vector{Vector{Int}}()
-    for t in 1:T
-        push!(s, rand(1:V,B))   # no EOS token
+function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:1830 1:2585
+    index = vcat(sequence[range]...)
+    input = Wm(model)[index,:]                          # 2:15
+    for n = 1:nlayers(model)
+        input = dropout(input, pdrop)
+        input = input * Wx(model,n)                     # 2:26
+        w,b,h,c = Wh(model,n),bh(model,n),hdd(state,n),cll(state,n)
+        output = []
+        j1 = j2 = 0
+        for t in range
+            j1 = j2 + 1
+            j2 = j1 + length(sequence[t]) - 1
+            input_t = input[j1:j2,:]                    # 2:35
+            (h,c) = lstm(w,b,h,c,input_t)               # 2:991
+            push!(output,h)
+        end
+        input = vcat(output...)                         # 2:39
     end
-    return s
+    pred1 = dropout(input,pdrop)
+    pred2 = pred1 * Wy(model)                           # 2:260  1:277:1132
+    pred3 = pred2 .+ by(model)                          # 2:72  1:84:33
+    nrows,ncols = size(pred3)
+    golds = vcat(sequence[range+1]...)
+    golds = (golds-1)*nrows + (1:length(golds))
+    logp1 = logp(pred3,2)                               # 2:354  1:1067:673
+    logp2 = logp1[golds]
+    logp3 = sum(logp2)
+    return -logp3 / length(golds)
 end
+
+rnnlmgrad = grad(rnnlm)
+
+function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
+    gates   = hidden * weight .+ input .+ bias          # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
+    h       = size(hidden,2)                            # 
+    forget  = sigm(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
+    change  = tanh(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
+    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    return (hidden,cell)
+end
+
+nlayers(model)=div(length(model)-3,3)
+Wm(model)=model[1]
+Wx(model,n)=model[3n-1]
+Wh(model,n)=model[3n]
+bh(model,n)=model[3n+1]
+Wy(model)=model[end-1]
+by(model)=model[end]
+hdd(state,n)=state[2n-1]
+cll(state,n)=state[2n]
+
+function initmodel(atype, hidden, vocab, embed)
+    init(d...)=atype(xavier(Float32,d...))
+    bias(d...)=atype(zeros(Float32,d...))
+    N = length(hidden)
+    model = Array(Any, 3N+3)
+    model[1] = init(vocab,embed) # Wm
+    X = embed
+    for n = 1:N
+        H = hidden[n]
+        model[3n-1] = init(X,4H) # Wx
+        model[3n]   = init(H,4H) # Wh
+        model[3n+1] = bias(1,4H) # bh
+        model[3n+1][1:H] = 1     # forget gate bias = 1
+        X = H
+    end
+    model[3N+2] = init(hidden[end],vocab) # Wy
+    model[3N+3] = bias(1,vocab)           # by
+    return model
+end
+
+let blank = nothing; global initstate
+function initstate(model, batch)
+    N = nlayers(model)
+    state = Array(Any, 2N)
+    for n = 1:N
+        bias = bh(model,n)
+        hidden = div(length(bias),4)
+        if typeof(blank)!=typeof(bias) || size(blank)!=(batch,hidden)
+            blank = fill!(similar(bias, batch,hidden),0)
+        end
+        state[2n-1] = state[2n] = blank
+    end
+    return state
+end
+end
+=# 
+
+#= ### Model 3: column-major, merge output, concat hidden/input
+
+=#
+
+#= ### Model 4: column-major, no split/merge, concat hidden/input
+
+=#
+
+#= ### Model 5: Column major, no split/merge, no concat hidden/input
+
+=#
+
+#= ### Model 6: Column major, no split/merge, no concat hidden/input, no merging gates
+
+=# 
 
 nothing
 
-### RUN-1
+### RUN-1: row-major, merge output, concat hidden/input
 
 # Forward pass profile (2585/7166 of total)
 # 2585 ./<missing>:0; (::#kw##rnnlm)(::Array{Any,1}, ::#rnnlm, ::AutoGrad.R...
