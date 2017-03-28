@@ -1,6 +1,15 @@
 using Knet,AutoGrad,BenchmarkTools,Distributions
 if !isdefined(:MODEL); MODEL=1; end
 
+# Design choices:
+# 1. time first vs layers fist
+# 2. row major vs col major
+# 3. merge inputs in t and single mmul Wx before lstm
+# 4. do not merge inputs but cat(hidden,input) before mmul in lstm
+# 5. do not merge and do Wx*input + Wh*hidden
+# 6. combine gates in single mmul
+# 7. merge outputs in t and single mmul Wy after each layer
+
 #  mode=0  mode=1  mode=2   notes (min benchmark in ms with default args unless specified)
 #  16.227  36.886  39.329   32b63d3 2017-03-25 32546 wps on aitest-gpu
 # 249.359 505.947 552.944   32b63d3 2017-03-25 2315  wps on aitest-cpu
@@ -18,7 +27,7 @@ if !isdefined(:MODEL); MODEL=1; end
 # Usage:
 #
 # include("rnnlm.jl")
-# m,s,x,o = main(iters=0)
+# m,x,o = main(iters=0)
 # for i=1:2
 # gc(); @time main(model=m,state=s,optim=o,mode=0,iters=10)
 # gc(); @time main(model=m,state=s,optim=o,mode=1,iters=10)

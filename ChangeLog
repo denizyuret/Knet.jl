@@ -1,3 +1,30 @@
+2017-03-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/rnnlm.jl: Trying to replicate one of:
+	http://www.fit.vutbr.cz/research/groups/speech/publi/2010/mikolov_interspeech2010_IS100722.pdf
+	http://www.fit.vutbr.cz/~imikolov/rnnlm/asru_large_v4.pdf
+	https://arxiv.org/abs/1312.6026
+	https://arxiv.org/abs/1409.2329
+	https://arxiv.org/abs/1508.06615
+
+	(:epoch,28,:perp,103.928986f0,173.2658f0,157.65414f0) RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 200 --embed 200 --batch 100 --best foo.jld")
+	(:epoch,14,:perp,52.10398f0,140.70792f0,130.77716f0)  RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 650 --embed 650 --batch 100 --best foo650.jld")
+	(:epoch,27,:perp,75.37883f0,135.43819f0,127.377f0)    RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 200 --embed 200 --batch 100 --optim Adagrad()")
+	(:epoch,5,:perp,69.288506f0,184.24977f0,171.84555f0)  RNNLM.main("--seed 1 --epochs 30 --hidden 200 --embed 200 --batch 100 --optim Adagrad()")
+	(:epoch,30,:perp,113.68978f0,166.22272f0,154.77658f0) RNNLM.main("--seed 1 --epochs 30 --hidden 200 200 --embed 200 --batch 100 --dropout 0.5 --optim Adagrad()")
+	(:epoch,25,:perp,181.603f0,239.55917f0,225.10878f0)   RNNLM.main("--seed 1 --epochs 30 --hidden 200 200 --embed 200 --batch 100 --dropout 0.5 --optim Sgd(lr=1,gclip=5)")
+
+	Paper claims perp < 100. Potential reasons we don't get this:
+	x Dropout not working. significant drop when turned off.
+	- Difft way to measure (exclude eos etc)
+	- Adam bad, sgd/gclip good. (adagrad works better). Paper uses SGD(lr=1,gclip=5) halving lr if devperp does not go down by 1.
+	- Difft lstm type?
+	- Initialization different. [-0.05,0.05]
+	- Batchsize different = 20.
+	- Highway network.
+	- BPTT 35 time steps: charlm style not sentence bound?
+	- Number of layers = 2! Table 2 gives 2x300 for char model. 2x200 for word model?
+
 2017-03-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
