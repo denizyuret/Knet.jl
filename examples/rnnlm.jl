@@ -7,7 +7,7 @@ macro msg(_x) :(if logging>0; join(STDERR,[Dates.format(now(),"HH:MM:SS"), $_x,'
 macro log(_x) :(@msg($(string(_x))); $(esc(_x))) end
 
 # sequence[t]::Vector{Int} minibatch of tokens
-function rnnlm(model, sequence; pdrop=0) # 2:1830 1:2585
+function rnnlm(model, sequence; pdrop=0, rat=nothing) # 2:1830 1:2585
     T = length(sequence)
     N = nlayers(model)
     batch = length(sequence[1])
@@ -31,14 +31,22 @@ function rnnlm(model, sequence; pdrop=0) # 2:1830 1:2585
         index = index[golds .!= PAD]
         logp2 = logp1[index]
         total += sum(logp2)
-        count += length(golds)
+        count += length(index)
     end
-    return -total / count   # per token loss: scale does not depend on sequence length or minibatch
+    if rat != nothing; rat[1]=total; rat[2]=count; end
+    # return -total / count # per token loss: scale does not depend on sequence length or minibatch
     # return -total / batch # per sequence loss: does not depend on minibatch, larger loss for longer seq
-    # return -total 	    # total loss: longer sequences and larger minibatches have higher loss
+    return -total 	    # total loss: longer sequences and larger minibatches have higher loss
 end
 
-rnnlmgrad = grad(rnnlm)
+function perplexity(model, data)
+    rat=zeros(2); tot=zeros(2)
+    for sequence in data
+        rnnlm(model, sequence; rat=rat)
+        tot += rat
+    end
+    return exp(-tot[1] / tot[2])
+end
 
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * vcat(hidden, input) .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
@@ -108,26 +116,27 @@ initoptim(a,otype)=map(x->initoptim(x,otype), a)
 # Q: charlm minibatch style or sort sentences? => sort
 # Q: padding or masking? => pad
 # Q: initial state zero or learnt? => zero
+# Q: partial batches => pad to full size
 
-function minibatch(data, batchsize; partial=false)
+function minibatch(data, B)
     data = sort(data, by=length)
-    output = Any[]
-    for d1=1:batchsize:length(data)
-        d2=min(length(data), d1+batchsize-1)
-        S = d2-d1+1
-        if !partial && S<batchsize; break; end
-        T = length(data[d2])+1
-        sbatch = Any[]
-        for t=0:T
-            tbatch=Array(Int32,S)
-            for s=1:S
-                d=d1-1+s
-                n=length(data[d])
-                tbatch[s] = (t==0 ? EOS : t<=n ? data[d][t] : t==n+1 ? EOS : PAD)
+    D = length(data)
+    O = ceil(Int, D/B)
+    output = Array(Any, O)
+    for o in 1:O
+        d = min(length(data), o*B) # idx of longest seq
+        T = length(data[d])+1   # +1 for final EOS
+        sbatch = Array(Any,T+1) # +1 for initial EOS
+        for t in 0:T
+            wbatch=Array(Int32,B)
+            for b in 1:B
+                d = (o-1)*B+b
+                n = (d > length(data) ? 0 : length(data[d]))
+                wbatch[b] = (d > length(data) ? PAD : t==0 ? EOS : t<=n ? data[d][t] : t==n+1 ? EOS : PAD)
             end
-            push!(sbatch, tbatch)
+            sbatch[t+1] = wbatch
         end
-        push!(output,sbatch)
+        output[o] = sbatch
     end
     return output
 end
@@ -167,16 +176,7 @@ function mikolovptb()
     return files
 end
 
-function avgloss(model, data)
-    total = count = 0
-    for sequence in data
-        golds = vcat(sequence[2:end]...)
-        npred = sum(golds .!= PAD)
-        total += npred * rnnlm(model, sequence)
-        count += npred
-    end
-    return total / count
-end
+rnnlmgrad = grad(rnnlm)
 
 function bptt(model, data, optim; pdrop=0)
     for sequence in data
@@ -216,11 +216,12 @@ function main(args=ARGS)
     atype = eval(parse(o[:atype]))
     global text,vocab; (text,vocab) = loaddata(o[:datafiles]...)
     global data = map(t->minibatch(t, o[:batchsize]), text)
-    model = initmodel(atype, o[:hidden], length(vocab), o[:embed])
-    report(ep)=(l=map(d->avgloss(model,d), data);@msg((:epoch,ep,:loss,l...));l)
+    global model = initmodel(atype, o[:hidden], length(vocab), o[:embed])
+    report(ep)=(l=Float32[perplexity(model,d) for d in data];@msg((:epoch,ep,:perp,l...));l)
     if length(data) > 1; devset=2; else devset=1; end
     if !o[:fast]; @log losses = report(0); devbest = losses[devset]; end
     global optim = initoptim(model,o[:optimization])
+    Knet.knetgc(); gc() # TODO: fix this otherwise curand cannot initialize no memory left!
     for epoch=1:o[:epochs]
         @log bptt(model, data[1], optim; pdrop=o[:dropout])
         if o[:fast]; continue; end
@@ -230,7 +231,7 @@ function main(args=ARGS)
             @log save(o[:bestfile], "model", model, "vocab", vocab)
         end
         if o[:gcheck] > 0
-            gradcheck(rnnlm, model, data[1][1:1]; gcheck=o[:gcheck], verbose=true)
+            gradcheck(rnnlm, model, rand(data[1]); gcheck=o[:gcheck], verbose=true)
         end
     end
     if o[:savefile] != nothing
