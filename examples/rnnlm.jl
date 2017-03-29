@@ -5,8 +5,11 @@ end
 module RNNLM
 using ArgParse,JLD,Knet
 using AutoGrad: getval
-macro msg(_x) :(if logging>0; join(STDERR,[Dates.format(now(),"HH:MM:SS"), $_x,'\n'],' '); end) end
-macro log(_x) :(@msg($(string(_x))); $(esc(_x))) end
+logprint(x)=join(STDERR,[Dates.format(now(),"HH:MM:SS"),x,'\n'],' ')
+macro run(i,x) :(if loglevel>=$i; $(esc(x)); end) end
+macro msg(i,x) :(if loglevel>=$i; logprint($(esc(x))); end) end
+macro log(i,x) :(if loglevel>=$i; logprint($(string(x))); end; $(esc(x))) end
+
 
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * hidden .+ input .+ bias          # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
@@ -21,7 +24,7 @@ function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:
 end
 
 # sequence[t]::Vector{Int} minibatch of tokens
-function rnnlm(model, state, sequence; pdrop=0, range=1:(length(sequence)-1), outstate=nothing, stats=nothing)
+function rnnlm(model, state, sequence; pdrop=0, range=1:(length(sequence)-1), keepstate=nothing, stats=nothing)
     index = vcat(sequence[range]...)
     input = Wm(model)[:,index]                          # 2:15
     for n = 1:nlayers(model)
@@ -37,9 +40,9 @@ function rnnlm(model, state, sequence; pdrop=0, range=1:(length(sequence)-1), ou
             (h,c) = lstm(w,b,h,c,input_t)               # 2:991
             push!(output,h)
         end
-        if outstate != nothing
-            outstate[2n-1] = getval(h)
-            outstate[2n] = getval(c)
+        if keepstate != nothing
+            keepstate[2n-1] = getval(h)
+            keepstate[2n] = getval(c)
         end
         input = hcat(output...)                         # 2:39
     end
@@ -55,9 +58,10 @@ function rnnlm(model, state, sequence; pdrop=0, range=1:(length(sequence)-1), ou
         stats[1]=total
         stats[2]=count
     end
+    batch = length(sequence[1])
     # return -total / count # per token loss: scale does not depend on sequence length or minibatch
-    # return -total / batch # per sequence loss: does not depend on minibatch, larger loss for longer seq
-    return -total 	    # total loss: longer sequences and larger minibatches have higher loss
+    return -total / batch # per sequence loss: does not depend on minibatch, larger loss for longer seq
+    # return -total 	    # total loss: longer sequences and larger minibatches have higher loss
 end
 
 rnnlmgrad = grad(rnnlm)
@@ -67,12 +71,24 @@ function bptt(model, data, optim; pdrop=0, slen=20)
     T = length(data)
     B = length(data[1])
     state = initstate(model,B)
+    @run 2 begin
+        wnorm = zeros(length(model))
+        gnorm = zeros(length(model))
+        count = 0
+    end
     for i = 1:slen:(T-1)
         j = i+slen-1
         if j >= T; break; end
-        grads = rnnlmgrad(model, state, data; pdrop=pdrop, range=i:j, outstate=state)
+        grads = rnnlmgrad(model, state, data; pdrop=pdrop, range=i:j, keepstate=state)
         update!(model, grads, optim)
+        @run 2 begin
+            gnorm += map(vecnorm,grads)
+            wnorm += map(vecnorm,model)
+            count += 1
+        end
     end
+    @msg 2 string("wnorm=",wnorm./count)
+    @msg 2 string("gnorm=",gnorm./count)
 end
 
 function loss(model, data; slen=20)
@@ -83,7 +99,7 @@ function loss(model, data; slen=20)
     for i = 1:slen:(T-1)
         j = i+slen-1
         if j >= T; break; end
-        rnnlm(model, state, data; stats=rat, range=i:j, outstate=state)
+        rnnlm(model, state, data; stats=rat, range=i:j, keepstate=state)
         tot += rat
     end
     return (-tot[1],tot[2])
@@ -174,7 +190,7 @@ function loaddata(file, vocab)
         end
         push!(data,EOS)
     end
-    @msg("$file: $ns sentences, $nw words, vocab=$(length(vocab)), corpus=$(length(data))")
+    @msg 1 "$file: $ns sentences, $nw words, vocab=$(length(vocab)), corpus=$(length(data))"
     return data
 end
 
@@ -201,7 +217,6 @@ function main(args=ARGS)
         ("--loadfile"; help="Initialize model from file")
         ("--savefile"; help="Save final model to file")
         ("--bestfile"; help="Save best model to file")
-        # TODO: ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of tokens.")
         ("--epochs"; arg_type=Int; default=1; help="Number of epochs for training.")
         ("--hidden"; nargs='+'; arg_type=Int; default=[256]; help="Sizes of one or more LSTM layers.")
         ("--embed"; arg_type=Int; default=128; help="Size of the embedding vector.")
@@ -213,44 +228,49 @@ function main(args=ARGS)
         ("--seed"; arg_type=Int; default=-1; help="Random number seed.")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--logging"; arg_type=Int; default=1; help="display progress messages")
+        ("--loglevel"; arg_type=Int; default=1; help="display progress messages")
+        # TODO: ("--generate"; arg_type=Int; default=0; help="If non-zero generate given number of tokens.")
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
-    global logging = o[:logging]
+    global loglevel = o[:loglevel]
     if o[:seed] > 0; setseed(o[:seed]); end
     if isempty(o[:datafiles]); o[:datafiles] = mikolovptb(); end
-    @msg(string(s.description,"opts=",[(k,v) for (k,v) in o]...))
+    @msg 1 string(s.description,"opts=",[(k,v) for (k,v) in o]...)
     global vocab = initvocab()
     global text = map(f->loaddata(f,vocab), o[:datafiles])
     global data = map(t->minibatch(t, o[:batchsize]), text)
-    @msg((:usable_data,[length(d[1]) * o[:bptt] * div(length(d),o[:bptt]) for d in data]...))
     global model = initmodel(eval(parse(o[:atype])), o[:hidden], length(vocab), o[:embed])
     function report(ep)
         l = [ loss(model,d;slen=o[:bptt]) for d in data ]
-        l1 = [ exp(x[1]/x[2]) for x in l ]
+        l1 = Float32[ exp(x[1]/x[2]) for x in l ]
         l2 = [ x[2] for x in l ]
-        @msg((:epoch,ep,:perp,l1...)) # ,:size,l2...))
+        if ep==0; @msg 1 (:epoch,ep,:perp,l1...,:size,l2...)
+        else; @msg 1 (:epoch,ep,:perp,l1...); end
         return l1
     end
     if length(data) > 1; devset=2; else devset=1; end
-    if !o[:fast]; @log losses = report(0); devbest = losses[devset]; end
+    if !o[:fast]; @log 1 (losses = report(0)); devbest = devlast = losses[devset]; end
     global optim = initoptim(model,o[:optimization])
     Knet.knetgc(); gc() # TODO: fix this otherwise curand cannot initialize no memory left!
     for epoch=1:o[:epochs]
-        @log bptt(model, data[1], optim; pdrop=o[:dropout], slen=o[:bptt])
+        @log 1 bptt(model, data[1], optim; pdrop=o[:dropout], slen=o[:bptt])
         if o[:fast]; continue; end
-        @log losses = report(epoch)
+        @log 1 (losses = report(epoch))
         if o[:bestfile] != nothing && losses[devset] < devbest
             devbest = losses[devset]
-            @log save(o[:bestfile], "model", model, "vocab", vocab)
+            @log 1 save(o[:bestfile], "model", model, "vocab", vocab)
         end
+        # if epoch > 6 # losses[devset] > devlast && isa(optim[1], Sgd)
+        #     for p in optim; p.lr /= 1.2; end; @msg 1 "lr=$(optim[1].lr)"
+        # end
+        devlast = losses[devset]
         if o[:gcheck] > 0
-            gradcheck(rnnlm, model, initstate(model,o[:batchsize]), data[1]; gcheck=o[:gcheck], verbose=true, kwargs=[(range=>1:o[:bptt])])
+            gradcheck(rnnlm, model, initstate(model,o[:batchsize]), data[1]; gcheck=o[:gcheck], verbose=true, kwargs=[(:range,1:o[:bptt])])
         end
     end
     if o[:savefile] != nothing
-        @log save(o[:savefile], "model", model, "vocab", vocab)
+        @log 1 save(o[:savefile], "model", model, "vocab", vocab)
     end
     return model
 end
