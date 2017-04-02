@@ -65,8 +65,7 @@ end
 
 function gradloss(f, data, loss; grad=false, seed=42)
     data_rng = data.rng
-    data.rng = MersenneTwister()
-    srand(data.rng, seed)
+    data.rng = MersenneTwister(seed)
     reset!(f)
     myforw = grad ? sforw : forw
     loss1 = 0
@@ -93,7 +92,7 @@ import Base: start, next, done
 
 type Data; len; batchsize; epochsize; batch; sum; cnt; rng;
     Data(len, batchsize, epochsize; rng=Base.GLOBAL_RNG) =
-    new(len, batchsize, epochsize, zeros(Float32,2,batchsize), 
+    new(len, batchsize, epochsize, zeros(Float32,2,batchsize),
         zeros(Float32,1,batchsize), zeros(Int,1,batchsize), rng)
 end
 
@@ -109,7 +108,7 @@ function next(a::Data, s)
     fill!(sub(a.batch,2,:),0)
     togo = a.len - t
     for b=1:a.batchsize
-        if (a.cnt[b]==0 ? rand(a.rng) <= 2/togo : 
+        if (a.cnt[b]==0 ? rand(a.rng) <= 2/togo :
             a.cnt[b]==1 ? rand(a.rng) <= 1/togo : false)
             a.batch[2,b] = 1
             a.cnt[b] += 1
@@ -407,7 +406,7 @@ end #module
 #     return(xx, yy)
 # end
 # net0 = (args["type"] == "irnn" ? Net(irnn(nh),quadlosslayer(ny)) :
-#         args["type"] == "lstm" ? Net(lstm(nh),quadlosslayer(ny)) : 
+#         args["type"] == "lstm" ? Net(lstm(nh),quadlosslayer(ny)) :
 #         error("Unknown network type "*args["type"]))
 # setparam!(net; lr=args["lr"], gc=args["gc"])  # do a global gclip instead of per parameter
         # "--test"
@@ -529,7 +528,7 @@ end #module
 
 # OLD GENERATOR FOR COMPARISON:
 
-# type Adding1; len; batchsize; epochsize; b; x; y; 
+# type Adding1; len; batchsize; epochsize; b; x; y;
 #     Adding1(len, batchsize, epochsize; o...)=new(len,batchsize,epochsize,Adding0(len,batchsize,epochsize; o...))
 # end
 
@@ -548,7 +547,7 @@ end #module
 # end
 
 # type Adding0; len; batchsize; epochsize; rng;
-#     Adding0(len, batchsize, epochsize; rng=MersenneTwister())=new(len, batchsize, epochsize, rng)
+#     Adding0(len, batchsize, epochsize; rng=MersenneTwister(0))=new(len, batchsize, epochsize, rng)
 # end
 
 # start(a::Adding0)=0
@@ -574,7 +573,7 @@ end #module
 
 
     # p1 = (opts["nettype"] == "irnn" ? Net(irnn; out=opts["hidden"], winit=Gaussian(0,opts["winit"])) :
-    #       opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) : 
+    #       opts["nettype"] == "lstm" ? Net(lstm; out=opts["hidden"], fbias=opts["fbias"]) :
     #       error("Unknown network type "*opts["nettype"]))
     # p2 = Net(wb; out=1, winit=Gaussian(0,opts["winit"]))
 
@@ -585,4 +584,3 @@ end #module
 # @knet function p2(x; o...)
 #     y = wb(x; o..., out=1)
 # end
-
