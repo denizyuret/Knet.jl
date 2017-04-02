@@ -1,8 +1,8 @@
 function gradcheck(m, grad, loss; gcheck=10, _eps=cbrt(eps(eltype(m))), delta=_eps, atol=_eps, rtol=_eps, o...)
     # 6e-6 for Float64, 5e-3 for Float32 works best
     # rnum = 42 # time_ns() #DBG
-    # isdefined(data,:rng) && (data_rng_save = data.rng; data.rng=MersenneTwister(); srand(data.rng,rnum))
-    # isdefined(m,:rng) && (m_rng_save = m.rng; m.rng=MersenneTwister(); srand(m.rng,rnum))
+    # isdefined(data,:rng) && (data_rng_save = data.rng; data.rng=MersenneTwister(0); srand(data.rng,rnum))
+    # isdefined(m,:rng) && (m_rng_save = m.rng; m.rng=MersenneTwister(0); srand(m.rng,rnum))
     # l = zeros(2)
     # train(m, data, loss; gcheck=true, losscnt=fill!(l,0), o...)
     # loss0 = l[1]

@@ -86,8 +86,7 @@ end
 
 function gradloss(f, data, loss; grad=false, seed=42)
     data_rng = data.rng
-    data.rng = MersenneTwister()
-    srand(data.rng, seed)
+    data.rng = MersenneTwister(seed)
     reset!(f)
     myforw = grad ? sforw : forw
     loss1 = 0
@@ -118,7 +117,7 @@ import Base: start, next, done
 # the last pixel should be served as x(1,batch), y(10,batch)
 
 type Pixels; x; y; rng; datasize; epochsize; batchsize; bootstrap; shuffle; xbatch; ybatch; images;
-    function Pixels(x, y; rng=MersenneTwister(), epoch=ccount(x), batch=16, bootstrap=false, shuffle=false)
+    function Pixels(x, y; rng=MersenneTwister(0), epoch=ccount(x), batch=16, bootstrap=false, shuffle=false)
         nx = ccount(x)
         nx == ccount(y) || error("Item count mismatch")
         shuf = (shuffle ? shuffle!(rng,[1:nx;]) : nothing)
@@ -176,7 +175,7 @@ function parse_commandline(args)
         "--lrate"
         help = "learning rate"
         arg_type = Float64
-        default = 0.005          # paper says 1e-8? 
+        default = 0.005          # paper says 1e-8?
         "--gclip"
         help = "gradient clip"
         arg_type = Float64
@@ -277,6 +276,6 @@ end # module
 
 # S2C no longer accepts Net, it expects kfun:
     # p1 = (nettype == "irnn" ? Net(irnn; out=hidden, winit=Gaussian(0,winit)) :
-    #       nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) : 
+    #       nettype == "lstm" ? Net(lstm; out=hidden, fbias=fbias) :
     #       error("Unknown network type "*nettype))
     # p2 = Net(wbf; out=10, winit=Gaussian(0,winit), f=soft)
