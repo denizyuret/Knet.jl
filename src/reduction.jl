@@ -19,6 +19,7 @@ function reduction_op(f, j=f, o...)
         T = Symbol("Float$S")
         F20 = "$(f)_$(S)_20"
         F21 = "$(f)_$(S)_21"
+        F22 = "$(f)_$(S)_22"
         @eval begin
             # Array->Scalar reduction:
             function $J(x::KnetArray{$T})
@@ -47,8 +48,16 @@ function reduction_op(f, j=f, o...)
                     nx = length(x); ny = length(y); sy = stride(x,i0)
                     @knet8($F21,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
                     return y
+                elseif vdims+1 == ndims(x)
+                    y = similar(x, rdims)
+                    d = region[1]
+                    nx = length(x); ny = length(y); s1 = stride(x,d)
+                    s2 = stride(x,d+1); xd1 = size(x,d)-1
+                    @knet8($F22,(Cint,Cint,Ptr{$T},Cint,Cint,Cint,Ptr{$T}),
+                                 nx, xd1, x, s1, s2, ny, y)
+                    return y
                 else
-                    error("Only scalar and vector reductions supported: $((size(x),region))")
+                    error("This kind of reduction is not supported: $((size(x),region))")
                 end
             end
         end
