@@ -29,7 +29,10 @@ function reduction_op(f, j=f, o...)
             # Array->Vector reduction:
             function $J(x::KnetArray{$T}, region)
                 rdims = Base.reduced_dims(size(x), region)
-                vdims = count(x->x>1,rdims)
+                vdims = ndims(x)-length(region)
+                if length(region) != 1
+                    vdims = count(x->x>1,rdims)
+                end
                 if vdims == 0   # falls back to Array->Scalar reduction
                     return fill!(similar(x,rdims), $J(x))
                 elseif vdims == 1
@@ -48,7 +51,7 @@ function reduction_op(f, j=f, o...)
                     nx = length(x); ny = length(y); sy = stride(x,i0)
                     @knet8($F21,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
                     return y
-                elseif vdims+1 == ndims(x)
+                elseif vdims == ndims(x)-1
                     y = similar(x, rdims)
                     d = region[1]
                     nx = length(x); ny = length(y); s1 = stride(x,d)
@@ -57,7 +60,11 @@ function reduction_op(f, j=f, o...)
                                  nx, xd1, x, s1, s2, ny, y)
                     return y
                 else
-                    error("This kind of reduction is not supported: $((size(x),region))")
+                    y = $J(x,region[1])
+                    for k=2:length(region)
+                        y = $J(y,region[k])
+                    end
+                    return y
                 end
             end
         end
