@@ -61,8 +61,9 @@ function reduction_op(f, j=f, o...)
                     return y
                 else
                     y = $J(x,region[1])
+                    f = $J==sumabs2?sum:$J
                     for k=2:length(region)
-                        y = $J(y,region[k])
+                        y = f(y,region[k])
                     end
                     return y
                 end
