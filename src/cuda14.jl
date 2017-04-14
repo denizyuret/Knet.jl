@@ -28,18 +28,19 @@ using Knet: broadcast_ops
 
 function cuda14src(f, j=f, ex="$f(xi,yi)")
   sprint() do s
-    print(s,"#define BLOCK_SIZE_x 32\n#define BLOCK_SIZE_y 32")
+    print(s,"#define BLOCK_SIZE_x 32\n#define BLOCK_SIZE_y 32\n")
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,
 
 """
+
 __global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
 {
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
     #if (__CUDA_ARCH__ < 300 )
-      __shared__ $T Ys[BLOCK_SIZE];
+      __shared__ $T Ys[BLOCK_SIZE_y];
     #endif
 
     int index_x = BLOCK_SIZE_x*bx+tx;
