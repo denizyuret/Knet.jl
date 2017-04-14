@@ -1,4 +1,3 @@
-
 # Multi dimensional array broadcast
 # this kernel can handle all arrays with different dimensions and broadcasting multiple dimensions
 # x and y expected to be an array
@@ -27,30 +26,30 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
                                 int *stride_z,int N_z,int dimlen_z) {
 
     int index_z = threadIdx.x + (blockIdx.x * blockDim.x);
-    int index_x,index_y;
-    int* coords = (int*)malloc(sizeof(int)*dimlen_z);
+    int index_x,index_y,coords;
     int temp_index;
 
     while (index_z < N_z) {
         temp_index = index_z;
-        for (int i=dimlen_z-1; i>=0; i--)
-        {
-            coords[i] = temp_index / stride_z[i];
-            temp_index = temp_index % stride_z[i];
-        }
+
+        // TODO replace (i/n) == (i>>log2(n)) also %
         index_x =0;
         index_y = 0;
-        for (int i=0; i<dimlen_z; i++)
+        for (int i=dimlen_z-1; i>0; i--)
         {
-            index_x+= stride_x[i]*coords[i];
-            index_y+= stride_y[i]*coords[i];
+            coords = temp_index / stride_z[i];
+            index_x+= stride_x[i]*coords;
+            index_y+= stride_y[i]*coords;
+            temp_index = temp_index % stride_z[i];
         }
+        index_x+= temp_index;
+        index_y+= temp_index;
+
         $T xi = x[index_x];
         $T yi = y[index_y];
-        z[index_z]=$ex;
+        z[index_z]=$ex;;
         index_z+=(blockDim.x * gridDim.x);
     }
-    free(coords);
 }
 
 

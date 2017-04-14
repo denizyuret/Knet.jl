@@ -28,51 +28,66 @@ using Knet: broadcast_ops
 
 function cuda14src(f, j=f, ex="$f(xi,yi)")
   sprint() do s
-    print(s,"#define BLOCK_SIZE 32")
+    print(s,"#define BLOCK_SIZE_x 32\n#define BLOCK_SIZE_y 32")
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,
 
 """
-// n = total number of elements in the Matrix(x),
-// x is matrix, y is vector, wX= first dimsize of x
-__global__ void _$(F)_14($T *x, $T *y,$T *z, int wX, int N)
+__global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
 {
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
+    #if (__CUDA_ARCH__ < 300 )
+      __shared__ $T Ys[BLOCK_SIZE];
+    #endif
 
-    __shared__ $T Ys[BLOCK_SIZE];
+    int index_x = BLOCK_SIZE_x*bx+tx;
 
-    int thread_index_x = BLOCK_SIZE*bx+tx;
-
-    while((thread_index_x)<wX)
+    while((index_x)<firstdimsize)
     {
+      #if (__CUDA_ARCH__ >= 300 )
+        int laneId = threadIdx.x & 0x1f;
+        int value;
+        if (laneId == 0)    // all threads except lane 0, like ty==0
+            {
+              value = y[index_x];// first thread in each wrap loads one element
+            }
+        value = __shfl(value, 0);   // Get "value" from lane 0
+
+      #else
         if( ty==0 )
         {
-            Ys[tx]=y[thread_index_x];
+            Ys[tx]=y[index_x];
         }
         __syncthreads();
+      #endif
 
-        int Start = (ty * wX) + thread_index_x;
+      int Start = (ty * firstdimsize) + index_x;
+      int Step = firstdimsize * BLOCK_SIZE_y;
 
-        int Step = wX * BLOCK_SIZE;
-
-        for (int k= Start; k<N; k+=Step)
+        for (int k= Start; k<x_N; k+=Step)
         {
             $T xi = x[k];
-            $T yi = Ys[tx];
+            #if (__CUDA_ARCH__ >= 300 )
+              $T yi = value;
+            #else
+              $T yi = Ys[tx];
+            #endif
             z[k]=$ex;
         }
-        thread_index_x += BLOCK_SIZE*gridDim.x;
+        index_x += BLOCK_SIZE_x*gridDim.x;
     }
 }
 
 extern "C" {
-  void $(F)_14($T *x,$T *y,$T *z, int size1, int Nx) {
-    // size1= first dimsize of x
-    int n_block = (size1+BLOCK_SIZE-1)/BLOCK_SIZE;
-    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-    _$(F)_14<<<n_block,dimBlock>>>(x,y,z,size1,Nx);
+  void $(F)_14($T *x,$T *y,$T *z, int firstdimsize, int x_N) {
+    int n_block = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    dim3 dimGrid(n_block, 1);
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    //x_N size of the x
+    //firstdimsize is size of y
+    _$(F)_14<<<n_block,dimBlock>>>(x,y,z,firstdimsize,x_N);
   }
 }
 """)

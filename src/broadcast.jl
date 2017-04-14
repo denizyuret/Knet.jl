@@ -77,43 +77,40 @@ function broadcast_op(f, j=f, o...)
                     z = similar(x,dz)
                     # if it is not multi dimension broadcast, that can be applied vector oprimisations
                     if !multi
+                      #  broadcasting first dimension and broadcast stride more than 128
+                      if ((xdims==1 && xlast==1 &&  sx>127 ) || (ydims==1 && ylast==1 && sy>127 ))
                         # for one dim array to matrix broadcast, 447 for good performance
-                        if ((ndims(x)==2 && ndims(y)==1 && length(y)>447 )||(ndims(x)==1 && length(x)>447 && ndims(y)==2  ) )
-                            if (ndims(x)==2)
-                              println("col broadcast1")
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,size(x,1),length(x))
+                        # if ((ndims(x)==2 && ndims(y)==1 && length(y)>447 )||(ndims(x)==1 && length(x)>447 && ndims(y)==2  ) )
+                            if (xdims==1)
+                              # x is vector to be broadcasted,
+                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,size(y,1),length(y))
                             else
-                              println("col broadcast2")
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,size(y,1),length(y))
+                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,size(x,1),length(x))
                             end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
-                        # if it one have just one element, or broadcasting first dimension,or broadcast dimsize small than 448,call old-kernel
-                        elseif (nx==1 || ny==1 || ((xdims==1 && xlast==1) || (ydims==1 && ylast==1)) || (xdims==1 && nx<448) || (ydims==1 && ny<448))
-                            # println("F122 xlast:$xlast ylast:$ylast dz $dz,sx $sx,nx $nx,sy $sy,ny $ny,xdims $xdims,ydims $ydims ylast:$ylast xlast:$xlast")
-                            # println("ylast:$ylast xlast:$xlast")
+                        # if it is just one element, or broadcasting first dimension(or broadcast stride less than 128) ,or broadcast dimsize small than 285,call old-kernel
+                      elseif (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || sx<128 )) || (ydims==1 && (ylast==1 || sy<128 ))) || (xdims==1 && nx<285) || (ydims==1 && ny<285))
                             @knet8($F12,(Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
                         # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
 
-                        else
+                      else
                             # x is vector to be broadcasted, then xlast is broadcasted dim
                             if (xdims==1)
                                 brdcastdimstride = strides(y)[xlast]
                                 # if broadcast dim is last dimension, nextstride is zero
                                 brdcastnextstride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
                                 multidimsize = prod(size(y)[xlast+1:end])
-                                # inputs to kernel explained in src/cuda13.jl
-                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint),y,x,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x))
+                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),y,x,z,brdcastdimstride,brdcastnextstride,multidimsize,length(y),length(x))
                             # y is vector to be broadcasted, then ylast is broadcasted dim
                             elseif (ydims==1)
                                 brdcastdimstride = strides(x)[ylast]
                                 # if broadcast last dimension, nextstride is zero
                                 brdcastnextstride = ((ylast+1) > ndims(x) ? 0: strides(x)[ylast+1])
                                 multidimsize = prod(size(x)[ylast+1:end])
-                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(y))
+                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y))
                             else
                                 error("Broadcasting error,caused by new kernel setup")
                             end
-
                         end
                     # multi dimensional broadcast
                     else
@@ -135,23 +132,18 @@ function broadcast_op(f, j=f, o...)
                             end
                         end
 
-                        if ndims(z)>3
-                          println("F17 xlast:$xlast ylast:$ylast dz $dz,sx $sx,nx $nx,sy $sy,ny $ny,xdims $xdims,ydims $ydims stride_x:$stride_x stride_y:$stride_y stride_z:$stride_z")
-                            @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, convert(Int32, length(z)), convert(Int32, ndims(z)))
-                        else
-                            # stride_x=collect(Int32,strides(x));
-                            # stride_y=collect(Int32,strides(y));
-                            # stride_z=collect(Int32,strides(z));
-                            # each kernel name ends with dimension count of result array
-                            println("F16 xlast:$xlast ylast:$ylast dz $dz,sx $sx,nx $nx,sy $sy,ny $ny,xdims $xdims,ydims $ydims stride_x:$stride_x stride_y:$stride_y stride_z:$stride_z")
+                        if ndims(z)>5
+                          # currently NOT WORKING
 
+                            @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
+                        else
+                            # each kernel name ends with dimension count of result array
                             fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
                             types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
-                            expr=Expr(:ccall,fname,Void,types,x,y,z,strides(x)..., strides(y)..., strides(z)..., convert(Int32, ndims(z)))
+                            expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
                             eval(expr)
                           end
                       end
-
 
                     return z
                 end
@@ -196,8 +188,6 @@ function vbroadcast_shape(x,y)
     end
     # now all broadcast dims are supported
     # set $multi True, if other vector optimised kernels cannot be used
-    # xsame == nz || xdims <= 1 || error("Only vector broadcasting supported")
-    # ysame == nz || ydims <= 1 || error("Only vector broadcasting supported")
     multi=false
     if (xsame != nz && xdims > 1) || (ysame != nz && ydims > 1)
         multi = true
@@ -208,6 +198,8 @@ function vbroadcast_shape(x,y)
         sx = zlen; nx = 1
     #x is a vector
     elseif xdims == 1
+        #in that case xlast is broadcasting dim
+        #so sx is stride of broadcasting dim in the z
         sx = prod(dz[1:xlast-1]); nx=dz[xlast]
     # x is the N dim array
     elseif xsame == nz
