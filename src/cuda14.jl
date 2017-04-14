@@ -1,4 +1,4 @@
-# broadcasting vector y(w) to a matrix x(w,k)
+# broadcasting vector y(w) to a N-dim array x(w,k,m,l...)
 # y is expected to be a vector to broadcast over x
 # this kernel tries to take advantage of data reuse of broadcast operation
 # y vector devided by BLOCK_SIZE number of elements between each thread block,

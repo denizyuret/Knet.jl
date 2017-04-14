@@ -77,15 +77,15 @@ function broadcast_op(f, j=f, o...)
                     z = similar(x,dz)
                     # if it is not multi dimension broadcast, that can be applied vector oprimisations
                     if !multi
-                      #  broadcasting first dimension and broadcast stride more than 128
-                      if ((xdims==1 && xlast==1 &&  sx>127 ) || (ydims==1 && ylast==1 && sy>127 ))
+                      #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
+                      if ((xdims==1 && xlast==1 &&  length(x)>127 && (length(y)/length(x)>511) ) || (ydims==1 && ylast==1 && length(y)>127 && (length(x)/length(y)>511) ))
                         # for one dim array to matrix broadcast, 447 for good performance
                         # if ((ndims(x)==2 && ndims(y)==1 && length(y)>447 )||(ndims(x)==1 && length(x)>447 && ndims(y)==2  ) )
                             if (xdims==1)
                               # x is vector to be broadcasted,
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,size(y,1),length(y))
+                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,length(x),length(y))
                             else
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,size(x,1),length(x))
+                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,length(y),length(x))
                             end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
                         # if it is just one element, or broadcasting first dimension(or broadcast stride less than 128) ,or broadcast dimsize small than 285,call old-kernel
@@ -133,7 +133,6 @@ function broadcast_op(f, j=f, o...)
                         end
 
                         if ndims(z)>5
-                          # currently NOT WORKING
                             stride_x=KnetArray(stride_x);
                             stride_y=KnetArray(stride_y);
                             stride_z=KnetArray(stride_z);
@@ -199,7 +198,7 @@ function vbroadcast_shape(x,y)
     #x is only one element array
     if xdims == 0
         sx = zlen; nx = 1
-    #x is a vector
+    #x is a vector than sx=1 because xlast-1 is zero
     elseif xdims == 1
         #in that case xlast is broadcasting dim
         #so sx is stride of broadcasting dim in the z
