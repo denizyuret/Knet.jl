@@ -1,7 +1,7 @@
 include("header.jl")
 
 const MIN_DIM  = 3
-const MAX_DIM  = 5
+const MAX_DIM  = 4
 const MIN_SIZE = 3
 
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
@@ -82,17 +82,16 @@ end
     for f in reduction_fns
         for t in (Float32, Float64)
             for dim = MIN_DIM:MAX_DIM
-                # @show f,t,dim
                 xsize = tuple(dim+MIN_SIZE-1:-1:MIN_SIZE...)
                 ax = rand21(f,t,xsize)
                 gx = nothing
 
+                # @show f,t,dim,xsize
                 @test gradcheck(f,ax)
                 if gpu() >= 0
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx)
                     @test isapprox(f(ax),f(gx))
-                    @test isapprox(f(ax),Array(f(gx)))
                 end
 
                 # test all combinations

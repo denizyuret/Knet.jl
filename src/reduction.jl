@@ -30,7 +30,7 @@ function reduction_op(f, j=f, o...)
             function $J(x::KnetArray{$T}, region)
                 rdims = Base.reduced_dims(size(x), region)
                 vdims = ndims(x)-length(region)
-                if length(region) != 1
+                if length(region) != 1 || ndims(x) == 1
                     vdims = count(x->x>1,rdims)
                 end
                 if vdims == 0   # falls back to Array->Scalar reduction
