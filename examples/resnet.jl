@@ -134,9 +134,11 @@ function batchnorm(w, x, ms; mode=1, epsilon=1e-5)
     mu, sigma = nothing, nothing
     if mode == 0
         d = ndims(x) == 4 ? (1,2,4) : (2,)
-        s = prod(size(x)[[d...]])
+        s = prod(size(x,d...))
         mu = sum(x,d) / s
-        sigma = sqrt(epsilon + (sum((x.-mu).^2, d)) / s)
+        x0 = x .- mu
+        x1 = x0 .* x0
+        sigma = sqrt(epsilon + (sum(x1, d)) / s)
     elseif mode == 1
         mu = shift!(ms)
         sigma = shift!(ms)
