@@ -18,7 +18,7 @@ end
     for f in reduction_fns
         for t in (Float32, Float64)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                # @show f,t,n
+                #@show f,t,n
                 ax = rand21(f,t,n)
                 @test gradcheck(f, ax)
                 @test gradcheck(f, ax, 1)
@@ -37,7 +37,7 @@ end
             # gradcheck difficult to pass on large arrays due to numerical error
             if gpu() >= 0
                 for n in ((10,100000),(100000,10))
-                    @show f,t,n
+                    #@show f,t,n
                     ax = rand21(f,t,n)
                     gx = KnetArray(ax)
                     @test isapprox(f(ax),f(gx))
