@@ -1,3 +1,46 @@
+2017-04-07  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+
+	* TODO8:
+	# implement nce. debug nce8 branch. try on large data/vocab. why doesn't it converge on ptb?
+	# broadcast kernels: debug 16/17, add tests, add benchmarks.
+	# check batch normalization in resnet, add it to src. -- waiting for ilker.
+	# document load/save via JLD.
+	# recover kuparser.
+	# navigation: implement world represenation.
+	# apply new rnn ideas to doc, readme, tutorial, slides, ijulia.
+	# fix reduction kernels for large matrices (10K-100K rows start giving bad answers): enis looking
+	# Latest master julia6 failing on nightly; AutoGrad also fails.
+	# try feeding rnnlm subset of embed matrix as weight.
+	# functional lstm interface defining multi-output grad2 function.
+	# Setup attobot for next release: https://github.com/attobot/attobot.
+	# prepare and submit julia4/5 benchmarks: find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
+	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base. Other examples: to_indexes, dims2string, deepcopy_internal, LinearFast, show_backtrace, decolon (in AutoGrad).
+	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
+	# AutoGrad tests convert to the new test system.
+	# add some test for deconv vs conv, gclip.
+	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
+	# AutoGrad: run all tests with KnetArrays
+	# AutoGrad: support for keys, values, next for dictionaries.
+	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
+	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
+	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
+	# mnist2d: implement/test sparse arrays
+	# time doing a single im2col instead of N for conv4
+	# replace T<: conditions in functions with generated code for each type
+	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
+	# DL439: If one has access to numerical computation on complex numbers, then there isa very eﬃcient way to numerically estimate	the gradient by using complex numbersas input to the function (Squire and Trapp, 1998)
+	# optimization:
+	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
+	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
+	## optimize reduction and broadcasting kernels.
+	## optimize logp / softmax.
+	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms? fft paper from https://arxiv.org/abs/1601.06815.
+	## try fusion: we can do layers in one kernel call: relu(wx+b).
+	## try streams or multiple gpus.
+	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
+
 2017-03-28  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* examples/rnnlm.jl: Trying to replicate one of:
@@ -28,42 +71,6 @@
 2017-03-19  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-
-	* TODO8:
-	# recover kuparser.
-	# navigation: implement world represenation.
-	# apply new rnn ideas to doc, readme, tutorial, slides, ijulia.
-	# fix reduction kernels for large matrices (10K-100K rows start giving bad answers): enis looking
-	# Latest master julia6 failing on nightly; AutoGrad also fails.
-	# implement nce.
-	# try feeding rnnlm subset of embed matrix as weight.
-	# functional lstm interface defining multi-output grad2 function.
-	# Setup attobot for next release: https://github.com/attobot/attobot.
-	# prepare and submit julia4/5 benchmarks: find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
-	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base. Other examples: to_indexes, dims2string, deepcopy_internal, LinearFast, show_backtrace, decolon (in AutoGrad).
-	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
-	# AutoGrad tests convert to the new test system.
-	# add some test for deconv vs conv, gclip.
-	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
-	# AutoGrad: run all tests with KnetArrays
-	# AutoGrad: support for keys, values, next for dictionaries.
-	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
-	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
-	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
-	# mnist2d: implement/test sparse arrays
-	# time doing a single im2col instead of N for conv4
-	# replace T<: conditions in functions with generated code for each type
-	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
-	# DL439: If one has access to numerical computation on complex numbers, then there isa very eﬃcient way to numerically estimate	the gradient by using complex numbersas input to the function (Squire and Trapp, 1998)
-	# optimization:
-	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
-	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
-	## optimize reduction and broadcasting kernels.
-	## optimize logp / softmax.
-	## optimize conv4 / matmul - arrayfire? cudnn conv instead of matmul? cudnn conv algorithms? fft paper from https://arxiv.org/abs/1601.06815.
-	## try fusion: we can do layers in one kernel call: relu(wx+b).
-	## try streams or multiple gpus.
-	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
 
 
 2017-03-17  Deniz Yuret  <dyuret@ku.edu.tr>
