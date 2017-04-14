@@ -134,6 +134,9 @@ function broadcast_op(f, j=f, o...)
 
                         if ndims(z)>5
                           # currently NOT WORKING
+                            stride_x=KnetArray(stride_x);
+                            stride_y=KnetArray(stride_y);
+                            stride_z=KnetArray(stride_z);
 
                             @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
                         else
