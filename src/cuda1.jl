@@ -17,7 +17,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
 }
 extern "C" {
   void $F(int n, $T *x, $T *y) {
-    _$F<<<$BLK,$THR>>>(n,x,y);
+    if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
 """)
@@ -46,7 +46,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
 }
 extern "C" {
   void fill_$F(int n, $T x, $T *y) {
-    _fill_$F<<<$BLK,$THR>>>(n,x,y);
+    if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
 """)
@@ -75,7 +75,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
 }
 extern "C" {
   void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
-    _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
+    if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
   }    
 }
 """)
@@ -102,7 +102,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
 }
 extern "C" {
   void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
-    _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
+    if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }    
 }
 """
@@ -111,34 +111,28 @@ end
 print(cuda1xcopy())
 
 
-permutedims3D_ops = [
-#("permutedims3D_1_2_3","i","j","k"),#noop
-("permutedims3D_1_3_2","i","k","j"),
-("permutedims3D_2_1_3","j","i","k"),
-("permutedims3D_2_3_1","k","i","j"),
-("permutedims3D_3_1_2","j","k","i"),
-("permutedims3D_3_2_1","k","j","i"),
-]
+### Kernels for permutedims by Ekrem Emre Yurdakul 2017-02-27
 
-function permutedims3Dsrc(f, i1, i2, i3; BLK=256, THR=256)
+function permutedims2Dsrc(f,i1,i2; BLK=256,THR=256)
     sprint() do s
-        for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+        for (T,F) in [("float","$(f)32"),("double","$(f)64")]
             print(s,
 """
-__global__ void _$(F)_44($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
-  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimy1*dimy2*dimy3; v += blockDim.x * gridDim.x) {
+__global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2; v += blockDim.x * gridDim.x) {
 
-		int i = v % dimy1;
-		int j = ((v - i) / dimy1) % dimy2;
-		int k = ((v - j * dimy1 - i) / (dimy1 * dimy2)) % dimy3;
+    //From 1D to 2D indices
+    int i = v % dimx1;
+    int j = (v-i) / dimx1;
 
-		int srcIndex = $i1 + dimx1*$i2 + dimx1*dimx2*$i3;
-		y[v] = x[srcIndex];
+    //Calculate destination
+    int destIndex = $i1 + $i2*dimy1;
+    y[destIndex] = x[v];
 	}
 }
 extern "C" {
-  void $(F)_44($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2, int dimy3) {
-    _$(F)_44<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2,dimy3);
+  void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
   }    
 }
 """)
@@ -146,10 +140,109 @@ extern "C" {
     end
 end
 
-for a in permutedims3D_ops
-    if !isa(a,Tuple); a=(a,); end
-    print(permutedims3Dsrc(a...))
+function permutedims3Dsrc(f,i1,i2,i3; BLK=256,THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)32"),("double","$(f)64")]
+            print(s,
+"""
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3; v += blockDim.x * gridDim.x) {
+
+    //From 1D to 3D indices
+    int i = v % dimx1;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = (v-i-j*dimx1) / (dimx1*dimx2);
+
+    //Calculate destination
+    int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2;
+    y[destIndex] = x[v];
+	}
+}
+extern "C" {
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
+  }    
+}
+""")
+        end
+    end
 end
+
+function permutedims4Dsrc(f,i1,i2,i3,i4; BLK=256,THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)32"),("double","$(f)64")]
+            print(s,
+"""
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3*dimx4; v += blockDim.x * gridDim.x) {
+
+    //From 1D to 4D indices
+    int i = v % dimx1;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = ((v-i-j*dimx1) / (dimx1*dimx2)) % dimx3;
+    int l = (v-i-j*dimx1-k*dimx1*dimx2) / (dimx1*dimx2*dimx3);
+
+    //Calculate destination
+    int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2 + $i4*dimy1*dimy2*dimy3;
+    y[destIndex] = x[v];
+	}
+}
+extern "C" {
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
+  }    
+}
+""")
+        end
+    end
+end
+
+function permutedims5Dsrc(f,i1,i2,i3,i4,i5; BLK=256,THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)32"),("double","$(f)64")]
+            print(s,
+"""
+__global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+  for (int v = threadIdx.x + blockIdx.x * blockDim.x; v < dimx1*dimx2*dimx3*dimx4*dimx5; v += blockDim.x * gridDim.x) {
+
+    //From 1D to 5D indices
+    int i = v % dimx1;
+    int j = ((v-i) / dimx1) % dimx2;
+    int k = ((v-i-j*dimx1) / (dimx1*dimx2)) % dimx3;
+    int l = ((v-i-j*dimx1-k*dimx1*dimx2) / (dimx1*dimx2*dimx3)) % dimx4;
+    int m = (v-i-j*dimx1-k*dimx1*dimx2-l*dimx1*dimx2*dimx3) / (dimx1*dimx2*dimx3*dimx4);
+
+    //Calculate destination
+    int destIndex = $i1 + $i2*dimy1 + $i3*dimy1*dimy2 + $i4*dimy1*dimy2*dimy3 + $i5*dimy1*dimy2*dimy3*dimy4;
+    y[destIndex] = x[v];
+	}
+}
+extern "C" {
+  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+    _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
+  }    
+}
+""")
+        end
+    end
+end
+
+using Combinatorics
+
+function cuda1permutedims()
+  cudaPerms = [permutedims2Dsrc,permutedims3Dsrc,permutedims4Dsrc,permutedims5Dsrc]
+  for i=2:5
+      dims = collect(permutations([1:i...],i))
+      indnames = collect(permutations(["i","j","k","l","m"][1:i],i))
+      for j=1:length(dims)
+          fname = string("permutedims_",i,"D",replace(replace(replace(string(dims[j][:]),"[","_"),"]","_"),",","_"))
+          print(cudaPerms[i-1](fname,indnames[j]...))
+      end
+  end
+end
+
+cuda1permutedims()
+
 
 function cuda1icat(; BLK=256, THR=256)
     sprint() do s
@@ -171,11 +264,13 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
 extern "C" {
   void icat_$F(int nrows, int ncols, $T **x, $T *y) {
     $T **xx;   
-    size_t s = ncols * sizeof($T *);
-    cudaMalloc(&xx, s);
-    cudaMemcpy(xx, x, s, cudaMemcpyHostToDevice);
-    _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
-    cudaFree(xx);
+    if (nrows>0 && ncols>0) {
+      size_t s = ncols * sizeof($T *);
+      cudaMalloc(&xx, s);
+      cudaMemcpy(xx, x, s, cudaMemcpyHostToDevice);
+      _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
+      cudaFree(xx);
+    }
   }    
 }
 """)
@@ -339,18 +434,30 @@ __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
   }
 }
 extern "C" {
-void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y) { _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) { _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y) { _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void getents_$F(int n, int *ents, $T *x, $T *y) { _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setents_$F(int n, int *ents, $T *x, $T *y) { _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void addents_$F(int n, int *ents, $T *x, $T *y) { _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setent1_$F(int n, int *ents, $T *x, $T  y) { _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+{ if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+{ if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+{ if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
+{ if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
+void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+{ if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+{ if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+{ if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
+{ if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
+void getents_$F(int n, int *ents, $T *x, $T *y)
+{ if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void setents_$F(int n, int *ents, $T *x, $T *y)
+{ if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void addents_$F(int n, int *ents, $T *x, $T *y)
+{ if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+void setent1_$F(int n, int *ents, $T *x, $T  y)
+{ if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
         end
@@ -391,10 +498,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
 }
 extern "C" {
   void dropout_$F(int n, $T p, $T *x, $T *y) {
-    _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
+    if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
   }    
   void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
-    _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
+    if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
   }    
 }
 """)
@@ -403,3 +510,5 @@ extern "C" {
 end
 
 print(cuda1dropout())
+
+

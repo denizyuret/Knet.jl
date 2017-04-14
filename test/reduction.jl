@@ -18,7 +18,7 @@ end
     for f in reduction_fns
         for t in (Float32, Float64)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                # @show f,t,n
+                #@show f,t,n
                 ax = rand21(f,t,n)
                 @test gradcheck(f, ax)
                 @test gradcheck(f, ax, 1)
@@ -28,6 +28,18 @@ end
                     @test gradcheck(f, gx)
                     @test gradcheck(f, gx, 1)
                     @test gradcheck(f, gx, 2)
+                    @test isapprox(f(ax),f(gx))
+                    @test isapprox(f(ax,1),Array(f(gx,1)))
+                    @test isapprox(f(ax,2),Array(f(gx,2)))
+                end
+            end
+            # test for kernel bug with dims > 64K
+            # gradcheck difficult to pass on large arrays due to numerical error
+            if gpu() >= 0
+                for n in ((10,100000),(100000,10))
+                    #@show f,t,n
+                    ax = rand21(f,t,n)
+                    gx = KnetArray(ax)
                     @test isapprox(f(ax),f(gx))
                     @test isapprox(f(ax,1),Array(f(gx,1)))
                     @test isapprox(f(ax,2),Array(f(gx,2)))

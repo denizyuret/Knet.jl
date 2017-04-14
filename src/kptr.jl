@@ -127,7 +127,7 @@ function knetgc(dev=gpu())
 end
 
 # Some utilities
-meminfo(i=gpu())=[(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]]
+meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])
 gpufree(i=gpu())=nvmlDeviceGetMemoryInfo(i)[2]
 
 function gpuinfo(msg="",dev=gpu())

@@ -42,10 +42,10 @@ dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 function __init__()
     try
         r = gpu(true)
-        info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
+        # info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
-        warn("Knet using the CPU: $e")
         gpu(false)
+        # warn("Knet using the CPU: $e")
     end
 end
 

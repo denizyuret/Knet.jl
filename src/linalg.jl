@@ -87,6 +87,7 @@ scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
 
 function transpose{T}(x::KnetArray{T})
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
+    # Using CUBLAS
     sz = size(x)
     y = similar(x,(sz[2],sz[1]))
     if T<:Float32
@@ -98,6 +99,8 @@ function transpose{T}(x::KnetArray{T})
     else
         error("CUBLAS does not support $T")
     end
+    # Using CUDA kernel; performs worse than CUBLAS
+    # y = permutedims(x,[2 1])
     return y
 end
 
@@ -138,6 +141,15 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         if dims[1]==1 && dims[2]==2
             return copy(x)
         elseif dims[1]==2 && dims[2]==1
+            # Using CUDA kernel; performs worse
+            #=
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+                        $x,size($x,1),size($x,2),$y,size($y,1))
+            return y
+            =#
+            # Using CUBLAS
             return transpose(x)
         else
             throw(ArgumentError("no valid permutation of dimensions"))
@@ -148,18 +160,37 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            # TODO: why do we have @eval here?
-            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2),size($y,3))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
             return y
         end
-    elseif N == 4 || N == 5
-        error("Not yet implemented")
+    elseif N == 4
+        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
+            return y
+        end
+    elseif N == 5
+        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4 && dims[5]==5
+            return copy(x)
+        else
+            funcName = permutefunc(x,dims)
+            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
+            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+                        $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
+            return y
+        end
+    else
+        error("Unsupported number of dimensions")
     end
 end
 
 function permutefunc{T,N}(x::KnetArray{T,N}, dims)
-    funcName = "permutedims$(N)D_"
+    funcName = "permutedims_$(N)D_"
     for i=1:N
         funcName = funcName * "$(dims[i])_"
     end
@@ -170,7 +201,6 @@ function permutefunc{T,N}(x::KnetArray{T,N}, dims)
     else
         error("$T not supported")
     end
-    funcName = funcName * "_44"
     return funcName
 end    
 

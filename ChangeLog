@@ -1,31 +1,28 @@
-2017-03-17  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-04-07  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
-	# charlm: try indexing op instead of sparse matmul.
-	# charlm: try lstm time concatenation.
-	# charlm: add adam: sgd(3.5) works faster. short bptt in initial epochs works faster.
-	# Add dropout as a primitive. Need kernel.
-	# charlm: add dropout
-	# s2s profile.
 
 	* TODO8:
-	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
+	# implement nce. debug nce8 branch. try on large data/vocab. why doesn't it converge on ptb?
+	# broadcast kernels: debug 16/17, add tests, add benchmarks.
+	# check batch normalization in resnet, add it to src. -- waiting for ilker.
+	# document load/save via JLD.
 	# recover kuparser.
 	# navigation: implement world represenation.
+	# apply new rnn ideas to doc, readme, tutorial, slides, ijulia.
 	# fix reduction kernels for large matrices (10K-100K rows start giving bad answers): enis looking
-	# check julia4 and julia6 compat, find out why julia pkgs marks	knet as broken
-	# Latest master failing on nightly; AutoGrad also fails.
-	# implement nce.
+	# Latest master julia6 failing on nightly; AutoGrad also fails.
+	# try feeding rnnlm subset of embed matrix as weight.
 	# functional lstm interface defining multi-output grad2 function.
 	# Setup attobot for next release: https://github.com/attobot/attobot.
+	# prepare and submit julia4/5 benchmarks: find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
 	# Issue 89: reduced_dims -> reduced_indices in 0.5.1, stop using unexported functions from base. Other examples: to_indexes, dims2string, deepcopy_internal, LinearFast, show_backtrace, decolon (in AutoGrad).
 	# AutoGrad docs convert from comments to docstrings in core.jl and include in Knet manual. wip in newdocs branch.
+	# AutoGrad tests convert to the new test system.
 	# add some test for deconv vs conv, gclip.
 	# gpu switching back and forth does not seem to work. do we really need multiple handles for cublas, cudnn? do we need them for libknet8?
 	# AutoGrad: run all tests with KnetArrays
 	# AutoGrad: support for keys, values, next for dictionaries.
-	# find out why benchmarks are slower on julia5/6: https://github.com/JuliaLang/julia/issues/18135 ?
 	# add benchmarks with new dynamic frameworks: Yoav tweet, Volkan email. assigned to Ilker, Enis.
 	# docs todo: Julia tutorial. simplify examples. Baris Bozkurt's comments.
 	# docs todo: perceptron. kernel perceptron. svm. lenet and vgg in cnn section.
@@ -34,7 +31,6 @@
 	# replace T<: conditions in functions with generated code for each type
 	# 0.7: rename the 73 functions, cpu tests (add conv), v0.5 compat. check old todo list
 	# DL439: If one has access to numerical computation on complex numbers, then there isa very eﬃcient way to numerically estimate	the gradient by using complex numbersas input to the function (Squire and Trapp, 1998)
-
 	# optimization:
 	## make BLK,THR dependent on the input size? may improve final sum which is only 10x100 in this example.
 	## extend benchmark tests to cover all combinations of 10,100,1000 dimensions.
@@ -45,6 +41,50 @@
 	## try streams or multiple gpus.
 	## for general arrays: broadcast, get/setindex, h/v/cat. Enis working on this.
 
+2017-03-28  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* examples/rnnlm.jl: Trying to replicate one of:
+	http://www.fit.vutbr.cz/research/groups/speech/publi/2010/mikolov_interspeech2010_IS100722.pdf
+	http://www.fit.vutbr.cz/~imikolov/rnnlm/asru_large_v4.pdf
+	https://arxiv.org/abs/1312.6026
+	https://arxiv.org/abs/1409.2329
+	https://arxiv.org/abs/1508.06615
+
+	(:epoch,28,:perp,103.928986f0,173.2658f0,157.65414f0) RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 200 --embed 200 --batch 100 --best foo.jld")
+	(:epoch,14,:perp,52.10398f0,140.70792f0,130.77716f0)  RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 650 --embed 650 --batch 100 --best foo650.jld")
+	(:epoch,27,:perp,75.37883f0,135.43819f0,127.377f0)    RNNLM.main("--seed 1 --epochs 30 --dropout 0.5 --hidden 200 --embed 200 --batch 100 --optim Adagrad()")
+	(:epoch,5,:perp,69.288506f0,184.24977f0,171.84555f0)  RNNLM.main("--seed 1 --epochs 30 --hidden 200 --embed 200 --batch 100 --optim Adagrad()")
+	(:epoch,30,:perp,113.68978f0,166.22272f0,154.77658f0) RNNLM.main("--seed 1 --epochs 30 --hidden 200 200 --embed 200 --batch 100 --dropout 0.5 --optim Adagrad()")
+	(:epoch,25,:perp,181.603f0,239.55917f0,225.10878f0)   RNNLM.main("--seed 1 --epochs 30 --hidden 200 200 --embed 200 --batch 100 --dropout 0.5 --optim Sgd(lr=1,gclip=5)")
+
+	Paper claims perp < 100. Potential reasons we don't get this:
+	x Dropout not working. significant drop when turned off.
+	- Difft way to measure (exclude eos etc)
+	- Adam bad, sgd/gclip good. (adagrad works better). Paper uses SGD(lr=1,gclip=5) halving lr if devperp does not go down by 1.
+	- Difft lstm type?
+	- Initialization different. [-0.05,0.05]
+	- Batchsize different = 20.
+	- Highway network.
+	- BPTT 35 time steps: charlm style not sentence bound?
+	- Number of layers = 2! Table 2 gives 2x300 for char model. 2x200 for word model?
+
+2017-03-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+
+
+2017-03-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# charlm: Implement rnns using separate embedding vectors and a @primitive concat operation: fix charlm demo, implement efficient s2s demo, s2s with attention. Need to first solve minibatching. Is v/hcat efficient?  KnetArray implements only 2-arg version. AutoGrad calls cat, supports multiple args, grad uses uncat which uses getindex with an array of indices.  KnetArray probably does not support an array of indices.
+	# charlm: try indexing op instead of sparse matmul.
+	# charlm: try lstm time concatenation.
+	# charlm: add adam: sgd(3.5) works faster. short bptt in initial epochs works faster.
+	# Add dropout as a primitive. Need kernel.
+	# charlm: add dropout
+	# s2s profile.
+	# check julia4 and julia6 compat, find out why julia pkgs marks	knet as broken.
+	# fix intermittent test errors: https://github.com/JuliaLang/julia/pull/20736#issuecomment-283834724
 
 2017-03-15  Deniz Yuret  <dyuret@ku.edu.tr>
 

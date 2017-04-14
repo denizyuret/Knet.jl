@@ -18,7 +18,7 @@ gnorm(m::Model,g=0)=(for p in params(m); g += vnorm(p.dif); end; g)           # 
 item2xy(item)=(isa(item, Tuple) ? (item[1:end-1],item[end]) : item==nothing ? (nothing,nothing) : ((),item))
 
 # So gradient checking does not mess up random seed:
-const gradcheck_rng = MersenneTwister()
+const gradcheck_rng = MersenneTwister(0)
 
 
 # train(m, d; seq=false, a...)=(!seq ? train1(m,d;a...) : train2(m,d;a...))
@@ -48,7 +48,7 @@ const gradcheck_rng = MersenneTwister()
 # end
 
 # NO: make the model interface more functional:
-# back and loss rely on hidden state info.  
+# back and loss rely on hidden state info.
 # forw has to allocate.
 # purely functional models are impossible.
 # forw needs to compute intermediate values.
@@ -71,7 +71,7 @@ const gradcheck_rng = MersenneTwister()
 # end
 
 # Use test with percloss instead:
-# 
+#
 # function accuracy(m::Model, d) # TODO: this only works if y is a single item
 #     numcorr = numinst = 0
 #     z = nothing
@@ -108,4 +108,3 @@ const gradcheck_rng = MersenneTwister()
 #     end
 #     return sumloss/numloss
 # end
-

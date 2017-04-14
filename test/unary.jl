@@ -20,7 +20,7 @@ push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
 
 @testset "unary" begin
     for f in unary_fns
-        @show f
+        # @show f
         for t in (Float32, Float64)
             # @show f,t
             sx = frand(f,t)
