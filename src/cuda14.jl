@@ -39,32 +39,35 @@ __global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
+    //shufle is slow due to index Access pattern
+
     #if (__CUDA_ARCH__ < 300 )
       __shared__ $T Ys[BLOCK_SIZE_y];
-    #endif
-
-    int index_x = BLOCK_SIZE_x*bx+tx;
+      int index_x = BLOCK_SIZE_x*bx+tx;
+    //#else
+      //int index_x = BLOCK_SIZE_x*bx+ty;
+    //#endif
 
     while((index_x)<firstdimsize)
     {
-      #if (__CUDA_ARCH__ >= 300 )
-        int laneId = threadIdx.x & 0x1f;
-        int value;
-        if (laneId == 0)    // all threads except lane 0, like ty==0
+      //#if (__CUDA_ARCH__ >= 300 )
+        //int laneId = threadIdx.x & 0x1f;
+        //int value;
+        //if (laneId == 0)    // all threads except lane 0, like ty==0
             {
-              value = y[index_x];// first thread in each wrap loads one element
+              //value = y[index_x];// first thread in each wrap loads one element
             }
-        value = __shfl(value, 0);   // Get "value" from lane 0
-
-      #else
+        //value = __shfl(value, 0);   // Get "value" from lane 0
+        //int Start = (tx * firstdimsize) + index_x;
+      //#else
         if( ty==0 )
         {
             Ys[tx]=y[index_x];
         }
         __syncthreads();
-      #endif
+        int Start = (ty * firstdimsize) + index_x;
+      //#endif
 
-      int Start = (ty * firstdimsize) + index_x;
       int Step = firstdimsize * BLOCK_SIZE_y;
 
         for (int k= Start; k<x_N; k+=Step)

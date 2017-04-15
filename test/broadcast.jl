@@ -1,6 +1,8 @@
 include("header.jl")
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
+#                 cuda13             cuda14                 cuda16                        cuda17
+size12 = (((512,1024),(1,1024)),((256),(256,1024)),((8,8,16,4),(8,8,1,4)),((5,1,2,2,4,4,2),(5,5,1,2,4,4,1)))
 size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
 # These are helper functions for gradients and rpow is used to define Array.^Number
 # The former is tested during gradcheck, rpow is tested with .^ operation
@@ -17,6 +19,22 @@ end
     for f in broadcast_fns
         f1(x) = f(x[1],x[2])
         for t in (Float32, Float64)
+            # multidim array broadcast
+            # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
+            for (n1,n2) in size12
+                # @show f,t,n1,n2
+                a1 = rand11(f,t,n1)
+                a2 = rand11(f,t,n2)+t(1)
+                # if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
+                #     @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
+                # end                                   # Fix this as part of general 0.6 compat work
+                if gpu() >= 0
+                    g1 = KnetArray(a1)
+                    g2 = KnetArray(a2)
+                    @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
+                    # @test gradcheck(f1, Any[g1, g2])
+                end
+            end
             # Array broadcast
             for n1 in size11, n2 in size11
                 # @show f,t,n1,n2
