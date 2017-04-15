@@ -19,6 +19,7 @@ function reduction_op(f, j=f, o...)
         T = Symbol("Float$S")
         F20 = "$(f)_$(S)_20"
         F21 = "$(f)_$(S)_21"
+        F22 = "$(f)_$(S)_22"
         @eval begin
             # Array->Scalar reduction:
             function $J(x::KnetArray{$T})
@@ -28,7 +29,10 @@ function reduction_op(f, j=f, o...)
             # Array->Vector reduction:
             function $J(x::KnetArray{$T}, region)
                 rdims = Base.reduced_dims(size(x), region)
-                vdims = count(x->x>1,rdims)
+                vdims = ndims(x)-length(region)
+                if length(region) != 1 || ndims(x) == 1
+                    vdims = count(x->x>1,rdims)
+                end
                 if vdims == 0   # falls back to Array->Scalar reduction
                     return fill!(similar(x,rdims), $J(x))
                 elseif vdims == 1
@@ -47,8 +51,21 @@ function reduction_op(f, j=f, o...)
                     nx = length(x); ny = length(y); sy = stride(x,i0)
                     @knet8($F21,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
                     return y
+                elseif vdims == ndims(x)-1
+                    y = similar(x, rdims)
+                    d = region[1]
+                    nx = length(x); ny = length(y); s1 = stride(x,d)
+                    s2 = stride(x,d+1); xd1 = size(x,d)-1
+                    @knet8($F22,(Cint,Cint,Ptr{$T},Cint,Cint,Cint,Ptr{$T}),
+                                 nx, xd1, x, s1, s2, ny, y)
+                    return y
                 else
-                    error("Only scalar and vector reductions supported: $((size(x),region))")
+                    y = $J(x,region[1])
+                    f = $J==sumabs2?sum:$J
+                    for k=2:length(region)
+                        y = f(y,region[k])
+                    end
+                    return y
                 end
             end
         end

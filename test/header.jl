@@ -6,4 +6,4 @@ else
 end
 
 using Knet
-
+using Combinatorics

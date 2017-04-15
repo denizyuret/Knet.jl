@@ -10,7 +10,7 @@ endif
 ifeq ($(NVCC),0)
   CXX := nvcc
   CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options "$(CFLAGS)"
-  OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o $(OBJ)
+  OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda20.o cuda21.o cuda22.o $(OBJ)
 endif
 
 libknet8.so: $(OBJ)
@@ -38,6 +38,9 @@ cuda20.cu: cuda20.jl reduction.jl
 	julia $< > $@
 
 cuda21.cu: cuda21.jl reduction.jl
+	julia $< > $@
+
+cuda22.cu: cuda22.jl reduction.jl
 	julia $< > $@
 
 clean:
