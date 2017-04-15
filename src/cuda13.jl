@@ -45,15 +45,15 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
+    //shufle is slow due to index Access pattern
+    //#if (__CUDA_ARCH__ >= 300 )
+      //int laneId = threadIdx.x & 0x1f;
+      //$T value;
+      //if (laneId == 0)
+          //value = y[BLOCK_SIZE_y*bx+ty];
+      //value = __shfl(value, 0);
 
-    #if (__CUDA_ARCH__ >= 300 )
-      int laneId = threadIdx.x & 0x1f;
-      $T value;
-      if (laneId == 0)
-          value = y[BLOCK_SIZE_y*bx+ty];
-      value = __shfl(value, 0);
-
-    #else
+    //#else
       __shared__ $T Bs[BLOCK_SIZE_x];
       if( ty==0 )
       {
@@ -62,7 +62,7 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
       }
     __syncthreads();
 
-    #endif
+    //#endif
 
     int Start = (((BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
     int Step = BLOCK_SIZE_x;
@@ -73,11 +73,11 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
         for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
         {
           $T xi = x[i];
-          #if (__CUDA_ARCH__ >= 300 )
-            $T yi = value;
-          #else
+          //#if (__CUDA_ARCH__ >= 300 )
+            //$T yi = value;
+          //#else
             $T yi = Bs[ty];
-          #endif
+          //#endif
           z[i]=xi+yi;
         }
         Start +=brdcastnextstride;
