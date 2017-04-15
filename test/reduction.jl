@@ -1,5 +1,9 @@
 include("header.jl")
 
+const MIN_DIM  = 3
+const MAX_DIM  = 4
+const MIN_SIZE = 3
+
 rand21(f,t,d...)=rand(t,d...)*t(10)-t(5)
 
 # This is missing from base
@@ -59,7 +63,7 @@ end
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx, p)
                     @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
-                end            
+                end
             end
         end
     end
@@ -86,6 +90,34 @@ end
         end
     end
 
+    # all kind of reductions
+    for f in reduction_fns
+        for t in (Float32, Float64)
+            for dim = MIN_DIM:MAX_DIM
+                xsize = tuple(dim+MIN_SIZE-1:-1:MIN_SIZE...)
+                ax = rand21(f,t,xsize)
+                gx = nothing
+
+                # @show f,t,dim,xsize
+                @test gradcheck(f,ax)
+                if gpu() >= 0
+                    gx = KnetArray(ax)
+                    @test gradcheck(f, gx)
+                    @test isapprox(f(ax),f(gx))
+                end
+
+                # test all combinations
+                for c in mapreduce(i->[combinations(1:dim,i)...], vcat, 1:dim)
+                    # @show f,t,dim,c
+                    @test gradcheck(f, ax, c)
+                    if gpu() >= 0 && gx != nothing
+                        @test gradcheck(f,gx,c)
+                        @test isapprox(f(ax,c),Array(f(gx,c)))
+                    end
+                end
+            end
+        end
+    end
 end
 
 nothing
