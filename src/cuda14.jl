@@ -41,7 +41,7 @@ __global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
     int ty = threadIdx.y;
     //shufle is slow due to index Access pattern
 
-    #if (__CUDA_ARCH__ < 300 )
+    //#if (__CUDA_ARCH__ < 300 )
       __shared__ $T Ys[BLOCK_SIZE_y];
       int index_x = BLOCK_SIZE_x*bx+tx;
     //#else
@@ -73,11 +73,11 @@ __global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
         for (int k= Start; k<x_N; k+=Step)
         {
             $T xi = x[k];
-            #if (__CUDA_ARCH__ >= 300 )
-              $T yi = value;
-            #else
+            //#if (__CUDA_ARCH__ >= 300 )
+              //$T yi = value;
+            //#else
               $T yi = Ys[tx];
-            #endif
+            //#endif
             z[k]=$ex;
         }
         index_x += BLOCK_SIZE_x*gridDim.x;

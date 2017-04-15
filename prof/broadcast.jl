@@ -1,5 +1,5 @@
 using BenchmarkTools,Knet
-sizes = (1,10,100,1000)
+sizes = (1,10,100,128,512,1000,1024,2048)
 for r in (0,1,2)
     println(r==0 ? "a[m,n].+b" : r==1 ? "a[m,n].+b[1,n]" : "a[m,n].+b[m,1]")
     for s in sizes; print("\t$s"); end; println()
@@ -15,4 +15,3 @@ for r in (0,1,2)
         println()
     end
 end
-

@@ -78,7 +78,7 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
           //#else
             $T yi = Bs[ty];
           //#endif
-          z[i]=xi+yi;
+          z[i]=$ex;
         }
         Start +=brdcastnextstride;
     }
