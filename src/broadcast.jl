@@ -50,8 +50,11 @@ function broadcast_op(f, j=f, o...)
         F01 = "$(f)_$(S)_01"    # Scalar,Array->Array
         F11 = "$(f)_$(S)_11"    # Array,Array->Array (same size) (not broadcast)
         F12 = "$(f)_$(S)_12"    # Array,Array->Array (different size) (one have to be vector)
-        F13 = "$(f)_$(S)_13"    # M-Array,N-Array->M-Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
-        F14 = "$(f)_$(S)_14"    # Array,Array->Array (M(w,t), N(w)) (matrix, column vector)
+        F13_x_y = "$(f)_$(S)_13_x_y"    # M-Array,N-Array->M-Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
+        F13_y_x = "$(f)_$(S)_13_y_x"   # x_y for correct ordering for compare operations,(kernel expects vector as second one)
+        F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array (M(w,t), N(w)) (matrix, column vector)
+        F14_y_x = "$(f)_$(S)_14_y_x"    # x_y for correct ordering for compare operations,(kernel expects vector as second one)
+
         # F15 reserved for another kernel, eliminated later and combined with F16
         # loop unrolling (up to $unroll=ten dimensions)
         F16 = "$(f)_$(S)_16"    # Array,Array->Array (Multi dimensional broadcast)
@@ -78,17 +81,19 @@ function broadcast_op(f, j=f, o...)
                     # if it is not multi dimension broadcast, that can be applied vector oprimisations
                     if !multi
                       #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
+                      # if you change those numbers update tests as well
                       if ((xdims==1 && xlast==1 &&  length(x)>127 && (length(y)/length(x)>511) ) || (ydims==1 && ylast==1 && length(y)>127 && (length(x)/length(y)>511) ))
                         # for one dim array to matrix broadcast, 447 for good performance
                         # if ((ndims(x)==2 && ndims(y)==1 && length(y)>447 )||(ndims(x)==1 && length(x)>447 && ndims(y)==2  ) )
                             if (xdims==1)
                               # x is vector to be broadcasted,
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,length(x),length(y))
+                              @knet8($F14_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,length(x),length(y))
                             else
-                              @knet8($F14,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,length(y),length(x))
+                              @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,length(y),length(x))
                             end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
                         # if it is just one element, or broadcasting first dimension(or broadcast stride less than 128) ,or broadcast dimsize small than 285,call old-kernel
+                        # if you change those numbers update tests as well
                       elseif (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || sx<128 )) || (ydims==1 && (ylast==1 || sy<128 ))) || (xdims==1 && nx<285) || (ydims==1 && ny<285))
                             @knet8($F12,(Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
                         # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
@@ -100,14 +105,14 @@ function broadcast_op(f, j=f, o...)
                                 # if broadcast dim is last dimension, nextstride is zero
                                 brdcastnextstride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
                                 multidimsize = prod(size(y)[xlast+1:end])
-                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),y,x,z,brdcastdimstride,brdcastnextstride,multidimsize,length(y),length(x))
+                                @knet8($F13_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),y,x,z,brdcastdimstride,brdcastnextstride,multidimsize,length(y),length(x))
                             # y is vector to be broadcasted, then ylast is broadcasted dim
                             elseif (ydims==1)
                                 brdcastdimstride = strides(x)[ylast]
                                 # if broadcast last dimension, nextstride is zero
                                 brdcastnextstride = ((ylast+1) > ndims(x) ? 0: strides(x)[ylast+1])
                                 multidimsize = prod(size(x)[ylast+1:end])
-                                @knet8($F13,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y))
+                                @knet8($F13_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y))
                             else
                                 error("Broadcasting error,caused by new kernel setup")
                             end

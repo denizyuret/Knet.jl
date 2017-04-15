@@ -40,20 +40,12 @@ function cuda13src(f, j=f, ex="$f(xi,yi)")
         print(s,
 
 """
-__global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N) {
+__global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N) {
 
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-    //shufle is slow due to index Access pattern
-    //#if (__CUDA_ARCH__ >= 300 )
-      //int laneId = threadIdx.x & 0x1f;
-      //$T value;
-      //if (laneId == 0)
-          //value = y[BLOCK_SIZE_y*bx+ty];
-      //value = __shfl(value, 0);
 
-    //#else
       __shared__ $T Bs[BLOCK_SIZE_x];
       if( ty==0 )
       {
@@ -61,8 +53,6 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
         Bs[tx]=y[vector_index];
       }
     __syncthreads();
-
-    //#endif
 
     int Start = (((BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
     int Step = BLOCK_SIZE_x;
@@ -72,12 +62,55 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
       {
         for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
         {
-          $T xi = x[i];
-          //#if (__CUDA_ARCH__ >= 300 )
-            //$T yi = value;
-          //#else
+            $T xi = x[i];
             $T yi = Bs[ty];
-          //#endif
+
+            z[i]=$ex;
+        }
+        Start +=brdcastnextstride;
+    }
+  }
+}
+
+extern "C" {
+  void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    int n_block = (B_N+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    dim3 dimGrid(n_block);
+    _$(F)_13_x_y<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
+  }
+}
+""")
+    end
+    for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+        print(s,
+
+"""
+__global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N) {
+
+    int bx = blockIdx.x;
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+
+      __shared__ $T Bs[BLOCK_SIZE_x];
+      if( ty==0 )
+      {
+        int vector_index = BLOCK_SIZE_y*bx+tx;
+        Bs[tx]=y[vector_index];
+      }
+    __syncthreads();
+
+
+    int Start = (((BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
+    int Step = BLOCK_SIZE_x;
+    if (tx<brdcastdimstride && Start<A_N)
+    {
+      for (int k=0; k< multidimsize; k++)
+      {
+        for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
+        {
+          $T yi = x[i];
+          $T xi = Bs[ty];
           z[i]=$ex;
         }
         Start +=brdcastnextstride;
@@ -86,15 +119,15 @@ __global__ void _$(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnex
 }
 
 extern "C" {
-  void $(F)_13($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+  void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     int n_block = (B_N+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
-    _$(F)_13<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
+    _$(F)_13_y_x<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
   }
 }
 """)
-    end
+   end
   end
 end
 

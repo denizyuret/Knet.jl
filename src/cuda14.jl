@@ -24,6 +24,8 @@
 # explanation of kernel code is not added to prevent increase size of cuda14.cu
 # (TODO-enis) provide a link to explanation of kernel index calculations for development
 
+# shufle is slow due to index Access pattern, so removed
+
 using Knet: broadcast_ops
 
 function cuda14src(f, j=f, ex="$f(xi,yi)")
@@ -34,64 +36,91 @@ function cuda14src(f, j=f, ex="$f(xi,yi)")
 
 """
 
-__global__ void _$(F)_14($T *x, $T *y,$T *z, int firstdimsize, int x_N)
+__global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N)
 {
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-    //shufle is slow due to index Access pattern
 
-    //#if (__CUDA_ARCH__ < 300 )
-      __shared__ $T Ys[BLOCK_SIZE_y];
-      int index_x = BLOCK_SIZE_x*bx+tx;
-    //#else
-      //int index_x = BLOCK_SIZE_x*bx+ty;
-    //#endif
+    __shared__ $T Ys[BLOCK_SIZE_y];
+    int index_x = BLOCK_SIZE_x*bx+tx;
 
     while((index_x)<firstdimsize)
     {
-      //#if (__CUDA_ARCH__ >= 300 )
-        //int laneId = threadIdx.x & 0x1f;
-        //int value;
-        //if (laneId == 0)    // all threads except lane 0, like ty==0
-            {
-              //value = y[index_x];// first thread in each wrap loads one element
-            }
-        //value = __shfl(value, 0);   // Get "value" from lane 0
-        //int Start = (tx * firstdimsize) + index_x;
-      //#else
-        if( ty==0 )
-        {
-            Ys[tx]=y[index_x];
-        }
-        __syncthreads();
-        int Start = (ty * firstdimsize) + index_x;
-      //#endif
-
+      if( ty==0 )
+      {
+          Ys[tx]=y[index_x];
+      }
+      __syncthreads();
+      int Start = (ty * firstdimsize) + index_x;
       int Step = firstdimsize * BLOCK_SIZE_y;
 
-        for (int k= Start; k<x_N; k+=Step)
-        {
-            $T xi = x[k];
-            //#if (__CUDA_ARCH__ >= 300 )
-              //$T yi = value;
-            //#else
-              $T yi = Ys[tx];
-            //#endif
-            z[k]=$ex;
-        }
-        index_x += BLOCK_SIZE_x*gridDim.x;
+      for (int k= Start; k<x_N; k+=Step)
+      {
+          $T xi = x[k];
+          $T yi = Ys[tx];
+          z[k]=$ex;
+      }
+      index_x += BLOCK_SIZE_x*gridDim.x;
     }
 }
 
 extern "C" {
-  void $(F)_14($T *x,$T *y,$T *z, int firstdimsize, int x_N) {
+  void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N) {
     int n_block = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
     dim3 dimGrid(n_block, 1);
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     //x_N size of the x
     //firstdimsize is size of y
-    _$(F)_14<<<n_block,dimBlock>>>(x,y,z,firstdimsize,x_N);
+    _$(F)_14_x_y<<<n_block,dimBlock>>>(x,y,z,firstdimsize,x_N);
+  }
+}
+""")
+    end
+
+
+    for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+        print(s,
+
+"""
+
+__global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N)
+{
+    int bx = blockIdx.x;
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+
+    __shared__ $T Ys[BLOCK_SIZE_y];
+    int index_x = BLOCK_SIZE_x*bx+tx;
+
+    while((index_x)<firstdimsize)
+    {
+      if( ty==0 )
+      {
+          Ys[tx]=y[index_x];
+      }
+      __syncthreads();
+      int Start = (ty * firstdimsize) + index_x;
+      int Step = firstdimsize * BLOCK_SIZE_y;
+
+      for (int k= Start; k<x_N; k+=Step)
+      {
+          $T yi = x[k];
+          $T xi = Ys[tx];
+          z[k]= $ex;
+      }
+      index_x += BLOCK_SIZE_x*gridDim.x;
+    }
+}
+
+extern "C" {
+  void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N) {
+    int n_block = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    dim3 dimGrid(n_block, 1);
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    //x_N size of the x
+    //firstdimsize is size of y
+    _$(F)_14_y_x<<<n_block,dimBlock>>>(x,y,z,firstdimsize,x_N);
   }
 }
 """)
