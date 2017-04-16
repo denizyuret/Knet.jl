@@ -42,10 +42,9 @@ operations.
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
 * Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
-  sumabs2, vecnorm.  (Only Array->Scalar and Array->Vector reductions
-  are supported)
+  sumabs2, vecnorm.
     
-* Linear algebra: (*), axpy!, permutedims (only 2D and 3D), transpose
+* Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
 
 * Knet extras: relu, sigm, invx, logp, logsumexp, conv4, pool,
   deconv4, unpool, mat, update! (Only 4D/5D, Float32/64 KnetArrays

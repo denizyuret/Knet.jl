@@ -3,25 +3,28 @@ Knet v0.8.3 Release Notes
 
 General
 -------
+* KnetArray support for general reduction operations (@ilkerkesen).
+* KnetArray support for permutedims up to 5D (@ekyurdakul).
 * KnetArray indexing support for Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Most combinations work for 2-D.  N-D indexing incomplete.  See `@doc KnetArray` for details.
-* KnetArray multi-argument `hcat` and `vcat` implemented.
+* KnetArray support for multi-argument `hcat` and `vcat`.
+* KnetArray support for saving to and loading from JLD files.
 * Implemented `hyperband` and `goldensection` hyperparameter optimization algorithms.
-* Added per weight gradient clip to `update!`.
+* Added per weight-array gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
 * Added `setseed` to do `srand` in both cpu and gpu.
 * Added `dropout(a,p)` as a Knet primitive.
 
-Documentation and Testing
--------------------------
+Testing and Benchmarking
+------------------------
+* Benchmarks added under prof/ for reduction, broadcast, concat, conv operations; rnnlm, s2s models.
+
+Documentation and Examples
+--------------------------
 * RNN chapter and IJulia notebook added.
 * Solutions to installation problems documented.
-
-Examples
---------
-* Fixed vgg and resnet demos to use the new version of Images.jl.
-* Added prof/s2s.jl, a sequence-to-sequence RNN model, for profiling.
-* Added prof/karray.jl, profiling concatenation.
+* Fixed vgg and resnet demos to use the new version of Images.jl and to work on CPU-only machines. Fixed batch normalization bug in resnet. (@ilkerkesen)
 * Fixed charlm demo to use indexing operations, Adam, and dropout.
+* Added rnnlm demo.
 
 
 Knet v0.8.2 Release Notes
