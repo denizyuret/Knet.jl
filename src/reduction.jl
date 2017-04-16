@@ -150,3 +150,4 @@ end
 # @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
 
 Base.mean(a::KnetArray)=sum(a)/length(a)
+Base.mean(a::KnetArray,r)=(b=sum(a,r);scale!(b,length(b)/length(a)))
