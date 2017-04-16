@@ -284,3 +284,6 @@ end
 @primitive dropout(x,p;o...),dy,y dropback(x,p,y,dy)
 @zerograd dropback(x,p,y,dy)
 
+# Unary plus
+Base.:+(a::KnetArray)=a
+Base.:.+(a::KnetArray)=a
