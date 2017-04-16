@@ -3,6 +3,9 @@
 	* DONE:
 
 	* TODO8:
+	# handle KnetFree==nothing in knetgc()
+	# gpu(false) does not clear out Knet memory structures?
+	# add mean/std for KnetArray.
 	# implement nce. debug nce8 branch. try on large data/vocab. why doesn't it converge on ptb?
 	# broadcast kernels: debug 16/17, add tests, add benchmarks.
 	# check batch normalization in resnet, add it to src. -- waiting for ilker.
