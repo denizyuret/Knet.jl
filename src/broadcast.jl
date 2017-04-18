@@ -52,7 +52,7 @@ function broadcast_op(f, j=f, o...)
         F12 = "$(f)_$(S)_12"    # Array,Array->Array (different size) (one have to be vector)
         F13_x_y = "$(f)_$(S)_13_x_y"    # M-Array,N-Array->M-Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
         F13_y_x = "$(f)_$(S)_13_y_x"   # x_y for correct ordering for compare operations,(kernel expects vector as second one)
-        F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array (M(w,t), N(w)) (matrix, column vector)
+        F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array ((M(x,y,z,w,t...), N(w,1,1,1...)) 
         F14_y_x = "$(f)_$(S)_14_y_x"    # x_y for correct ordering for compare operations,(kernel expects vector as second one)
 
         # F15 reserved for another kernel, eliminated later and combined with F16

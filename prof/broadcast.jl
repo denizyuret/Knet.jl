@@ -12,22 +12,56 @@ function f01(a,b)
 end
 
 function f12(x,y)
-    (dz,sx,nx,sy,ny) = Knet.vbroadcast_shape(x,y)
+
+    (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
     nz = length(z)
     for i=1:N; ccall(("add_32_12",Knet.libknet8),Void,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nz,x,sx,nx,y,sy,ny,z); end
     Knet.cudaDeviceSynchronize()
 end
 
-for r in (0,1,2)
+# other than first dim broadcast
+# y is vector to be broadcasted, then ylast is broadcasted dim
+function f13_x_y(x,y)
+    (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
+    z = similar(x,dz)
+    brdcastdimstride = strides(x)[ylast]
+    # if broadcast last dimension, nextstride is zero
+    brdcastnextstride = ((ylast+1) > ndims(x) ? 0: strides(x)[ylast+1])
+    multidimsize = prod(size(x)[ylast+1:end])
+    for i=1:N; ccall(("add_32_13_x_y",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y)) end
+    Knet.cudaDeviceSynchronize()
+end
+
+#y is matrix x is vector
+# function f14_x_y(y,x)
+#     for i=1:N; ccall(("add_32_14_y_x",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint),y,x,z,length(x),length(y)) end
+#     Knet.cudaDeviceSynchronize()
+# end
+
+#x is matrix y is vector
+function f14_x_y(x,y)
+
+    (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
+    z = similar(x,dz)
+    for i=1:N; ccall(("add_32_14_x_y",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint),x,y,z,length(y),length(x)) end
+    Knet.cudaDeviceSynchronize()
+end
+
+
+#r=1 f13_x_y, r=2 f13_x_y
+# for r in (0,1,2)
+# m=nrows n=ncols
+for r in (1,2)
     println(r==0 ? "a[m,n].+b" : r==1 ? "a[m,n].+b[1,n]" : r==2 ? "a[m,n].+b[m,1]" : error())
-    for s in sizes; print("\t$s"); end; println()
-    for nrows in sizes
+    for s in sizes2; print("\t$s"); end; println()
+    for nrows in sizes2
         print(nrows)
-        for ncols in sizes
+        for ncols in sizes2
             a = KnetArray(rand(Float32,nrows,ncols))
             b = (r==0 ? rand(Float32) : r==1 ? KnetArray(rand(Float32,1,ncols)) : KnetArray(rand(Float32,nrows,1)))
-            bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : (@benchmark f12($a,$b) seconds=1))
+            # bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : (@benchmark f12($a,$b) seconds=1))
+            bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : (nrows==ncols || (r==1 && ncols==1) || (r==2 && nrows==1)) ? (@benchmark f12($a,$b) seconds=1) : r==1 ? (@benchmark f13_x_y($a,$b) seconds=1) : (@benchmark f14_x_y($a,$b) seconds=1) )
             m = round(Int, minimum(bm.times)/N)
             print("\t$m")
             a=b=nothing; gc(); Knet.knetgc(); gc()
