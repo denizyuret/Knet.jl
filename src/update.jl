@@ -407,10 +407,11 @@ end
 
 # We still need an extra method for Dict.
 function update!(w::Associative,g::Associative,p::Associative)
-    if !(length(w)==length(g)==length(p))
-        error("weight, gradient, and optimization parameters not the same length.")
-    end
-    for k in keys(w)
+    # g may have some keys missing!
+    # if !(length(w)==length(g)==length(p))
+    #     error("weight, gradient, and optimization parameters not the same length.")
+    # end
+    for k in keys(g)
         update!(w[k],g[k],p[k])
     end
 end
@@ -427,10 +428,11 @@ end
 
 # Two arg version defaults to SGD.
 function update!(w::Associative,g::Associative;lr=SGDLR,gclip=0)
-    if !(length(w)==length(g))
-        error("weight, gradient not the same length.")
-    end
-    for k in keys(w)
+    # g may have some keys missing!
+    # if !(length(w)==length(g))
+    #     error("weight, gradient not the same length.")
+    # end
+    for k in keys(g)
         update!(w[k],g[k];lr=lr,gclip=gclip)
     end
 end
