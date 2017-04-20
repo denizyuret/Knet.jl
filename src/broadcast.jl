@@ -52,7 +52,7 @@ function broadcast_op(f, j=f, o...)
         F12 = "$(f)_$(S)_12"    # Array,Array->Array (different size) (one have to be vector)
         F13_x_y = "$(f)_$(S)_13_x_y"    # M-Array,N-Array->M-Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
         F13_y_x = "$(f)_$(S)_13_y_x"   # x_y for correct ordering for compare operations,(kernel expects vector as second one)
-        F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array ((M(x,y,z,w,t...), N(w,1,1,1...)) 
+        F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array ((M(x,y,z,w,t...), N(w,1,1,1...))
         F14_y_x = "$(f)_$(S)_14_y_x"    # x_y for correct ordering for compare operations,(kernel expects vector as second one)
 
         # F15 reserved for another kernel, eliminated later and combined with F16
@@ -80,6 +80,7 @@ function broadcast_op(f, j=f, o...)
                     z = similar(x,dz)
                     # if it is not multi dimension broadcast, that can be applied vector oprimisations
                     if !multi
+
                       #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
                       # if you change those numbers update tests as well
                       if ((xdims==1 && xlast==1 &&  length(x)>127 && (length(y)/length(x)>511) ) || (ydims==1 && ylast==1 && length(y)>127 && (length(x)/length(y)>511) ))
@@ -92,9 +93,13 @@ function broadcast_op(f, j=f, o...)
                               @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,length(y),length(x))
                             end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
-                        # if it is just one element, or broadcasting first dimension(or broadcast stride less than 128) ,or broadcast dimsize small than 285,call old-kernel
+                        # if it is just one element, or broadcasting first dimension(or broadcast stride less than 512) ,or broadcast dimsize small than 704,call old-kernel
                         # if you change those numbers update tests as well
-                      elseif (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || sx<128 )) || (ydims==1 && (ylast==1 || sy<128 ))) || (xdims==1 && nx<285) || (ydims==1 && ny<285))
+                        #half_BLOCK_SIZE_y=16
+                        # n_block_13 = (B_N+(BLOCK_SIZE_y/2)-1)/(BLOCK_SIZE_y/2);
+                        # if div((ny+15),16)<45
+                        # div(brdcastdimstride,64)<8)
+                      elseif (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || 512<sx )) || (ydims==1 && (ylast==1 || sy<512 ))) || (xdims==1 && nx<704) || (ydims==1 && (ny<704)))
                             @knet8($F12,(Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
                         # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
 

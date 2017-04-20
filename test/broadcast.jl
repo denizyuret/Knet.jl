@@ -3,7 +3,7 @@ include("header.jl")
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 # we need symetric ones as well to test compare operations
 #broadcast dim sizes chosen in the lower limits of given kernels
-size12 = (((512,1024),(1,1024)),((1,1024),(512,1024)),#cuda13 vector-Ndim, first dim
+size12 = (((513,1025),(1,1025)),((1,1025),(513,1025)),#cuda13 vector-Ndim, first dim
           ((256,1),(256,1024)),((256,1024),(256,1)),#cuda14 vector-Ndim, other than first dim
           ((8,8,16,4),(8,8,1,4)),((8,8,16,4),(8,8,16,4)),#cuda16 3,4,5 dims generalised
           ((5,1,2,2,4,4,2),(5,5,1,2,4,4,1)),((5,5,1,2,4,4,1),(5,1,2,2,4,4,2)))#cuda17  more than 5 dim, generalised
@@ -27,17 +27,17 @@ end
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
             for (n1,n2) in size12
-                # @show f,t,n1,n2
+                @show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
-                if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
-                    @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
-                end                                   # Fix this as part of general 0.6 compat work
+                # if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
+                #     @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
+                # end                                   # Fix this as part of general 0.6 compat work
                 if gpu() >= 0
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
                     @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
-                    @test gradcheck(f1, Any[g1, g2])
+                    # @test gradcheck(f1, Any[g1, g2])
                 end
             end
             # Array broadcast

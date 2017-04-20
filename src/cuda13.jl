@@ -23,7 +23,7 @@
 # so if we have less than 1344 elements in broadcast dim, performance will sour
 #  worst 448
 #
-# this kernel can handle vector size of 65535*32 = 2.097.120 elements
+# this kernel can handle vector size of 65535*16 = 1M elements
 # handling everything might have cause extra overflow, TODO-enis add support for limitless
 # warning y cannot be a vector in the first dimension like (x,1,1,1..)
 # this is handled by cuda14
@@ -35,7 +35,7 @@ using Knet: broadcast_ops
 
 function cuda13src(f, j=f, ex="$f(xi,yi)")
   sprint() do s
-    print(s,"#define BLOCK_SIZE_x 32\n#define BLOCK_SIZE_y 32\n")
+    print(s,"#define BLOCK_SIZE_x 32\n#define BLOCK_SIZE_y 32\n#define half_BLOCK_SIZE_y 16\n")
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,
 
@@ -45,17 +45,19 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
+    tx=tx+((ty&1)*32);
+    ty/=2;
 
-      __shared__ $T Bs[BLOCK_SIZE_x];
-      if( ty==0 )
-      {
-        int vector_index = BLOCK_SIZE_y*bx+tx;
-        Bs[tx]=y[vector_index];
-      }
+    __shared__ $T Bs[half_BLOCK_SIZE_y];
+    if( ty==0 )
+    {
+      int vector_index = half_BLOCK_SIZE_y*bx+tx;
+      Bs[tx]=y[vector_index];
+    }
     __syncthreads();
 
-    int Start = (((BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
-    int Step = BLOCK_SIZE_x;
+    int Start = (((half_BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
+    int Step = BLOCK_SIZE_x*2;
     if (tx<brdcastdimstride && Start<A_N)
     {
       for (int k=0; k< multidimsize; k++)
@@ -64,7 +66,6 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
         {
             $T xi = x[i];
             $T yi = Bs[ty];
-
             z[i]=$ex;
         }
         Start +=brdcastnextstride;
@@ -75,7 +76,7 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
 extern "C" {
   void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
-    int n_block = (B_N+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
     _$(F)_13_x_y<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
   }
@@ -91,37 +92,39 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
+    tx=tx+((ty%2)*32);
+    ty=ty/2;
 
-      __shared__ $T Bs[BLOCK_SIZE_x];
-      if( ty==0 )
-      {
-        int vector_index = BLOCK_SIZE_y*bx+tx;
-        Bs[tx]=y[vector_index];
-      }
+    __shared__ $T Bs[half_BLOCK_SIZE_y];
+    if( ty==0 )
+    {
+      int vector_index = half_BLOCK_SIZE_y*bx+tx;
+      Bs[tx]=y[vector_index];
+    }
     __syncthreads();
 
-
-    int Start = (((BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
-    int Step = BLOCK_SIZE_x;
+    int Start = (((half_BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
+    int Step = BLOCK_SIZE_x*2;
     if (tx<brdcastdimstride && Start<A_N)
     {
       for (int k=0; k< multidimsize; k++)
       {
         for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
         {
-          $T yi = x[i];
-          $T xi = Bs[ty];
-          z[i]=$ex;
+            $T yi = x[i];
+            $T xi = Bs[ty];
+            z[i]=$ex;
         }
         Start +=brdcastnextstride;
     }
   }
 }
 
+
 extern "C" {
   void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
-    int n_block = (B_N+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
     _$(F)_13_y_x<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
   }
