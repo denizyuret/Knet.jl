@@ -27,7 +27,7 @@ if !isdefined(:MODEL); MODEL=1; end
 # Usage:
 #
 # include("rnnlm.jl")
-# m,x,o = main(iters=0)
+# m,s,o = main(iters=0)
 # for i=1:2
 # gc(); @time main(model=m,state=s,optim=o,mode=0,iters=10)
 # gc(); @time main(model=m,state=s,optim=o,mode=1,iters=10)
