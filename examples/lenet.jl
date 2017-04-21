@@ -110,7 +110,7 @@ function main(args=ARGS)
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
-        ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
+        ("--batchsize"; arg_type=Int; default=128; help="minibatch size")
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
