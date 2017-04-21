@@ -1,6 +1,4 @@
-macro gcinfo(x); end
-# Uncomment to print gc information:
-#macro gcinfo(x); esc(:(print(($x)))); end
+GCDEBUG=false; gcdebug(b::Bool)=(global GCDEBUG=b)
 
 # KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
 # We try to minimize the number of actual allocations, which are slow,
@@ -83,11 +81,11 @@ function KnetPtr(nbytes::Integer)
         ptrs.used += 1
         return KnetPtr(ptr,nbytes,dev)
     end
-    gc(); @gcinfo(".")
+    gc(); if GCDEBUG; print('-'); end
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
-    knetgc(); @gcinfo("+")
+    knetgc(); if GCDEBUG; print('+'); end
     ptr = knetMalloc(nbytes)
     if ptr != nothing
         ptrs.used += 1
@@ -130,13 +128,17 @@ end
 meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])
 gpufree(i=gpu())=nvmlDeviceGetMemoryInfo(i)[2]
 
-function gpuinfo(msg="",dev=gpu())
+function gpuinfo(msg="",dev=gpu();n=10)
     msg != "" && print("$msg ")
     g = nvmlDeviceGetMemoryInfo(dev)
     println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
-    for (s,u,f) in sort(meminfo(dev), by=(x->x[1]), rev=true)
-        println((:size,s,:alloc,u,:avail,f))
+    total = k = 0
+    for (s,u,f) in sort(meminfo(dev), by=(x->x[1]*x[2]), rev=true)
+        total += s*u; k += 1
+        if k <= n; println((:total,s*u,:size,s,:alloc,u,:avail,f)); end
     end
+    if n < k; println('⋮'); end
+    println((:final,total))
 end
 
 function memdbg(msg="")
@@ -147,6 +149,10 @@ function memdbg(msg="")
         x[1] += s*u
         x[2] += s*f
     end
-    println("$msg: ntotal: $(m[1]) nfree: $(m[2]) nused: $(m[3]) ktotal: $(x[1]) kfree: $(x[2])\n nfree+used: $(m[2]+m[3]) ctotal: $(c[2]) cfree: $(c[1]) ktotal-kfree: $(x[1]-x[2]) nused-ktotal: $(m[3]-x[1])")
+    println("""$msg:
+cudaGetMemInfo: ctotal: $(c[2]) cfree: $(c[1]) ctotal-cfree: $(c[2]-c[1])
+nvmlDeviceGetMemoryInfo: ntotal: $(m[1]) nfree: $(m[2]) nused: $(m[3]) nfree+used: $(m[2]+m[3])
+KnetPtr: ktotal: $(x[1]) kavail: $(x[2]) ktotal-kavail: $(x[1]-x[2])
+nused-ktotal: $(m[3]-x[1])
+""")
 end
-
