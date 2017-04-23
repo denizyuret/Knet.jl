@@ -54,15 +54,15 @@ end
 # m=nrows n=ncols
 for r in (1,2)
     println(r==0 ? "a[m,n].+b" : r==1 ? "a[m,n].+b[1,n]" : r==2 ? "a[m,n].+b[m,1]" : error())
-    for s in sizes2; print("\t$s"); end; println()
-    for nrows in sizes2
+    for s in sizes; print("\t$s"); end; println()
+    for nrows in sizes
         print(nrows)
-        for ncols in sizes2
+        for ncols in sizes
             a = KnetArray(rand(Float32,nrows,ncols))
             b = (r==0 ? rand(Float32) : r==1 ? KnetArray(rand(Float32,1,ncols)) : KnetArray(rand(Float32,nrows,1)))
             # bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : (@benchmark f12($a,$b) seconds=1))
-            bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : (nrows==ncols || (r==1 && ncols==1) || (r==2 && nrows==1)) ? (@benchmark f12($a,$b) seconds=1) : r==1 ? (@benchmark f13_x_y($a,$b) seconds=1) : (@benchmark f14_x_y($a,$b) seconds=1) )
-            m = round(Int, minimum(bm.times)/N)
+            bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : ((r==1 && (ncols<704 || nrows<512)) || (r==2 && (nrows<704 || ncols<512))) ? (@benchmark f12($a,$b) seconds=1) : r==1 ? (@benchmark f13_x_y($a,$b) seconds=1) : (@benchmark f14_x_y($a,$b) seconds=1) )
+            m = (ncols*nrows*4)/(round(Int, minimum(bm.times)/N))
             print("\t$m")
             a=b=nothing; gc(); Knet.knetgc(); gc()
         end

@@ -45,16 +45,29 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-    tx=tx+((ty&1)*32);
-    ty/=2;
+    tx+=(ty&1)*32;
+    ty=ty>>1;
 
-    __shared__ $T Bs[half_BLOCK_SIZE_y];
-    if( ty==0 )
-    {
-      int vector_index = half_BLOCK_SIZE_y*bx+tx;
-      Bs[tx]=y[vector_index];
-    }
-    __syncthreads();
+    #if (__CUDA_ARCH__ >= 300 )
+      int laneId = threadIdx.x & 0x1f;
+      $T value;
+      if (laneId == 0)
+      {    // all threads except lane 0
+          value = y[half_BLOCK_SIZE_y*bx+ty];   // first thread in each wrap loads one element
+      }
+      value = __shfl(value, 0);   // Get "value" from lane 0
+
+    #else
+
+      __shared__ $T Bs[half_BLOCK_SIZE_y];
+      if( ty==0 && tx<half_BLOCK_SIZE_y)
+      {
+        int vector_index = half_BLOCK_SIZE_y*bx+tx;
+        Bs[tx]=y[vector_index];
+      }
+      __syncthreads();
+
+    #endif
 
     int Start = (((half_BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
     int Step = BLOCK_SIZE_x*2;
@@ -65,7 +78,11 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
         for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
         {
             $T xi = x[i];
-            $T yi = Bs[ty];
+            #if (__CUDA_ARCH__ >= 300 )
+              $T yi = value;
+            #else
+              $T yi = Bs[ty];
+            #endif
             z[i]=$ex;
         }
         Start +=brdcastnextstride;
@@ -92,16 +109,29 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
     int bx = blockIdx.x;
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-    tx=tx+((ty%2)*32);
-    ty=ty/2;
+    tx+=(ty&1)*32;
+    ty=ty>>1;
 
-    __shared__ $T Bs[half_BLOCK_SIZE_y];
-    if( ty==0 )
-    {
-      int vector_index = half_BLOCK_SIZE_y*bx+tx;
-      Bs[tx]=y[vector_index];
-    }
-    __syncthreads();
+    #if (__CUDA_ARCH__ >= 300 )
+      int laneId = threadIdx.x & 0x1f;
+      $T value;
+      if (laneId == 0)
+      {    // all threads except lane 0
+          value = y[half_BLOCK_SIZE_y*bx+ty];   // first thread in each wrap loads one element
+      }
+      value = __shfl(value, 0);   // Get "value" from lane 0
+
+    #else
+
+      __shared__ $T Bs[half_BLOCK_SIZE_y];
+      if( ty==0 && tx<half_BLOCK_SIZE_y)
+      {
+        int vector_index = half_BLOCK_SIZE_y*bx+tx;
+        Bs[tx]=y[vector_index];
+      }
+      __syncthreads();
+
+    #endif
 
     int Start = (((half_BLOCK_SIZE_y*bx)+ty)* brdcastdimstride)+tx;
     int Step = BLOCK_SIZE_x*2;
@@ -112,14 +142,17 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
         for (int i=Start; i < Start+brdcastdimstride-tx; i+=Step)
         {
             $T yi = x[i];
-            $T xi = Bs[ty];
+            #if (__CUDA_ARCH__ >= 300 )
+              $T xi = value;
+            #else
+              $T xi = Bs[ty];
+            #endif
             z[i]=$ex;
         }
         Start +=brdcastnextstride;
     }
   }
 }
-
 
 extern "C" {
   void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
