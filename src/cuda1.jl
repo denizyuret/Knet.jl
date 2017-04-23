@@ -511,4 +511,64 @@ end
 
 print(cuda1dropout())
 
+# This is still too slow compared to concat on cpu and copy to gpu
+# Tested for 25 arrays of 200
+function cuda1concat(; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","32"),("double","64")]
+            print(s,
+"""
+__global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
+  int array = blockIdx.x;
+  int nelts = lengths[array];                  
+  int offset = starts[array];
+  for (int i = threadIdx.x; i < nelts; i += blockDim.x) {
+    y[i+offset] = x[array][i];
+  }
+}
+extern "C" {
+  // julia is responsible for copying args to gpu
+  void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
+    _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
+  }    
+}
+""")
+        end
+    end
+end
 
+print(cuda1concat())
+
+# Here is the test script for cuda1concat:
+# using Knet, BenchmarkTools
+# using Knet: @knet8
+
+# for S in (32,64); T = Symbol("Float$S"); F = "concat_$S"
+# @eval function concat(A::KnetArray{$T}...)
+#     nargs = length(A)
+#     S = Array(Int32, nargs)
+#     L = Array(Int32, nargs)
+#     nelts = 0
+#     @inbounds for i in 1:nargs
+#         n = length(A[i])
+#         S[i] = nelts
+#         L[i] = n
+#         nelts += n
+#     end
+#     S = KnetArray(S)
+#     L = KnetArray(L)
+#     X = KnetArray([map(pointer,A)...])
+#     Y = KnetArray{$T}(nelts)
+#     @knet8($F,(Cint,Ptr{Cint},Ptr{Cint},Ptr{Ptr{$T}},Ptr{$T}),nargs,S,L,X,Y)
+#     return Y
+# end
+# end
+
+# a = [ rand(Float32,200) for i=1:25 ]
+# k = map(KnetArray,a)
+# @show vcat(a...) == vcat(k...)
+# @show vcat(a...) == concat(k...)
+# @show @benchmark vcat(a...)
+# @show @benchmark vcat(k...)
+# @show @benchmark concat(k...)
+# @show @benchmark KnetArray(vcat(a...))
