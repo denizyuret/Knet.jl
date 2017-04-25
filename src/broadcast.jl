@@ -83,14 +83,22 @@ function broadcast_op(f, j=f, o...)
 
                       #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
                       # if you change those numbers update tests as well
-                      if ((xdims==1 && xlast==1 &&  length(x)>127 && (length(y)/length(x)>511) ) || (ydims==1 && ylast==1 && length(y)>127 && (length(x)/length(y)>511) ))
-                        # for one dim array to matrix broadcast, 447 for good performance
-                        # if ((ndims(x)==2 && ndims(y)==1 && length(y)>447 )||(ndims(x)==1 && length(x)>447 && ndims(y)==2  ) )
+                      firstdimFlag= (xdims==1 && xlast==1) || (ydims==1 && ylast==1)
+
+                      if firstdimFlag
+                        flat_dimsize=((xdims==1) ? (length(y)/length(x)) : (ydims==1) ? (length(x)/length(y)): -1)
+                        # if   100<=flat_dimsize<128, if 128<=flat_dimsize<512, if 512<=flat_dimsize
+                        #then      first_dimsize>2048,        first_dimsize>512,  first_dimsize>100 should be
+                        # true if x is a vector that satisfies requirements
+                        xvectorFlag= (xdims==1) ? ((length(x)>=2048 && (100<=flat_dimsize<128 )) || (length(x)>=512 && (128<=flat_dimsize<512 )) || (length(x)>=100 && (512<=flat_dimsize ))) : false
+                        yvectorFlag= (ydims==1) ? ((length(y)>=2048 && (100<=flat_dimsize<128 )) || (length(y)>=512 && (128<=flat_dimsize<512 )) || (length(y)>=100 && (512<=flat_dimsize ))) : false
+                      end
+                      if (firstdimFlag && (xvectorFlag || yvectorFlag))
                             if (xdims==1)
                               # x is vector to be broadcasted,
-                              @knet8($F14_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),y,x,z,length(x),length(y))
+                              @knet8($F14_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),y,x,z,length(x),length(y),flat_dimsize)
                             else
-                              @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint),x,y,z,length(y),length(x))
+                              @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize)
                             end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
                         # if it is just one element, or broadcasting first dimension(or broadcast stride less than 512) ,or broadcast dimsize small than 704,call old-kernel
