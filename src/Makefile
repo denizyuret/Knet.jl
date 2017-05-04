@@ -10,7 +10,7 @@ endif
 ifeq ($(NVCC),0)
   CXX := nvcc
   CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets -arch=compute_30 -code=sm_30 --compiler-options "$(CFLAGS)"
-  OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda13.o cuda14.o cuda16.o cuda17.o cuda20.o cuda21.o cuda22.o $(OBJ)
+  OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda13.o cuda16.o cuda17.o cuda20.o cuda21.o cuda22.o $(OBJ)
 
 endif
 
@@ -38,8 +38,6 @@ cuda12.cu: cuda12.jl broadcast.jl
 cuda13.cu: cuda13.jl broadcast.jl
 	julia $< > $@
 
-cuda14.cu: cuda14.jl broadcast.jl
-		julia $< > $@
 
 cuda16.cu: cuda16.jl broadcast.jl
 		julia $< > $@

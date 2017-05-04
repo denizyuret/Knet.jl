@@ -27,7 +27,7 @@ end
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
             for (n1,n2) in size12
-                @show f,t,n1,n2
+                # @show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
                 # if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base

@@ -33,13 +33,9 @@ function f13_x_y(x,y)
     Knet.cudaDeviceSynchronize()
 end
 
-# #y is matrix x is vector
-# function f14_x_y(y,x)
-#     for i=1:N; ccall(("add_32_14_y_x",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint),y,x,z,length(x),length(y)) end
-#     Knet.cudaDeviceSynchronize()
-# end
 
-#x is matrix y is vector
+
+#x is N-dim y is vector
 function f14_x_y(x,y)
     (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
@@ -50,9 +46,8 @@ end
 
 
 #r=1 f13_x_y, r=2 f14
-# for r in (0,1,2)
 # m=nrows n=ncols
-for r in (2)
+for r in (0,1,2)
     println(r==0 ? "a[m,n].+b" : r==1 ? "a[m,n].+b[1,n]" : r==2 ? "a[m,n].+b[m,1]" : error())
     for s in sizes; print("\t$s"); end; println()
     for nrows in sizes
@@ -64,16 +59,16 @@ for r in (2)
             yvectorFlag= (nrows>=2048 && (100<=ncols<128 )) || (nrows>=512 && (128<=ncols<512 )) || (nrows>=100 && (512<=ncols ))
             if r==0
               bm=(@benchmark f01($a,$b) seconds=1)
-            elseif (r==1 && (ncols<704 || nrows<512)) || (r==2 && (!yvectorFlag))
+            elseif (r==1 && (ncols<704 || nrows<512)) || (r==2)
+            # elseif (r==1 && (ncols<704 || nrows<512)) || (r==2 && (!yvectorFlag))
               bm=(@benchmark f12($a,$b) seconds=1)
             elseif r==1
               bm=(@benchmark f13_x_y($a,$b) seconds=1)
-            else
-              bm=(@benchmark f14_x_y($a,$b) seconds=1)
+            # else
+            #   bm=(@benchmark f14_x_y($a,$b) seconds=1)
             end
-
-            # bm = (r==0 ? (@benchmark f01($a,$b) seconds=1) : ((r==1 && (ncols<704 || nrows<512)) || (r==2 && (!yvectorFlag))) ? (@benchmark f12($a,$b) seconds=1) : r==1 ? (@benchmark f13_x_y($a,$b) seconds=1) : (@benchmark f14_x_y($a,$b) seconds=1) )
             m = (round(Int, minimum(bm.times)/N))
+            # 
             # m = (ncols*nrows*4)/(round(Int, minimum(bm.times)/N))
             print("\t$m")
             a=b=nothing; gc(); Knet.knetgc(); gc()
