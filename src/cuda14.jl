@@ -40,8 +40,8 @@ __global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 {
     int bx = blockIdx.x;
     int by = blockIdx.y;
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
+    int tx = threadIdx.y;
+    int ty = threadIdx.x;
 
     //row and col of matrix that thread will work on
     int row = by * blockDim.y * (sf+1) + ty;
@@ -107,15 +107,14 @@ __global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 {
     int bx = blockIdx.x;
     int by = blockIdx.y;
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
+    int tx = threadIdx.y;
+    int ty = threadIdx.x;
 
     //row and col of matrix that thread will work on
     int row = by * blockDim.y * (sf+1) + ty;
     int col = bx * blockDim.y + tx;
 
     __shared__ $T Ys[BLOCK_SIZE_y];
-
 
     while((col)<firstdimsize)
     {
