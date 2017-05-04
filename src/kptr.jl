@@ -111,6 +111,7 @@ end
 # that this only cleans the current device.  It frees all pointers
 # previously allocated and garbage collected.
 function knetgc(dev=gpu())
+    if KnetFree == nothing; return; end
     gc_enable(false)
     for v in values(KnetFree[dev+2])
         if dev >= 0
