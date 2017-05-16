@@ -355,7 +355,7 @@ if Pkg.installed("JLD") != nothing
     import JLD: writeas, readas
     type KnetJLD; a::Array; end
     writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = KnetArray(d.a)
+    readas(d::KnetJLD) = (gpu() >= 0 ? KnetArray(d.a) : d.a)
 end
 
 # Array/KnetArray Transfer
