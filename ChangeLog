@@ -1,3 +1,10 @@
+2017-05-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO-KUparser:
+	Speed issues with KUparser.
+	First epoch slower: do we need to pre-allocate and not use cudaMalloc?
+	Slow-down of long runs: is it gpu copy or parsing algorithm? (dynamic-oracle gives clues)
+
 2017-04-07  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:

@@ -29,6 +29,7 @@ for f in Knet.reduction_ops
     push!(reduction_fns, eval(parse(f)))
 end
 
+srand(42)
 
 #DBG global f,t,dim,xsize,c,ax,gx,p
 @testset "reduction" begin
