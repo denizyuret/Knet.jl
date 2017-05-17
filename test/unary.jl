@@ -1,4 +1,5 @@
 include("header.jl")
+srand(42)
 
 function frand(f,t,d...)
     r = rand(t,d...)*t(0.5)+t(0.25)

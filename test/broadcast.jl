@@ -28,21 +28,23 @@ srand(42)
         for t in (Float32, Float64)
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
-            for (n1,n2) in size12
-                #@show f,t,n1,n2
-                a1 = rand11(f,t,n1)
-                a2 = rand11(f,t,n2)+t(1)
-                if !(f in (max,min) && n1 != n2)
-                    if t == Float64 # Float32 does not have enough precision for large arrays
-                        @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
+            if f == .+          # this takes too much time to perform on all functions
+                for (n1,n2) in size12
+                    #@show f,t,n1,n2
+                    a1 = rand11(f,t,n1)
+                    a2 = rand11(f,t,n2)+t(1)
+                    if !(f in (max,min) && n1 != n2)
+                        if t == Float64 # Float32 does not have enough precision for large arrays
+                            @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
+                        end
                     end
-                end
-                if gpu() >= 0
-                    g1 = KnetArray(a1)
-                    g2 = KnetArray(a2)
-                    @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
-                    if t == Float64
-                        @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
+                    if gpu() >= 0
+                        g1 = KnetArray(a1)
+                        g2 = KnetArray(a2)
+                        @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
+                        if t == Float64
+                            @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
+                        end
                     end
                 end
             end

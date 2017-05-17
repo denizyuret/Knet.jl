@@ -3,7 +3,7 @@ include("header.jl")
 const MIN_DIM  = 3
 const MAX_DIM  = 5
 const MIN_SIZE = 2
-const TOL = 0.01
+const TOL1 = 0.01
 
 function rand21(f,t,d...)
     if f==maximum || f==minimum || f==vecnorm || f==sumabs2
@@ -38,14 +38,14 @@ srand(42)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
                 #@show f,t,n
                 ax = rand21(f,t,n)
-                @test gradcheck(f, ax; rtol=TOL)
-                @test gradcheck(f, ax, 1; rtol=TOL)
-                @test gradcheck(f, ax, 2; rtol=TOL)
+                @test gradcheck(f, ax; rtol=TOL1)
+                @test gradcheck(f, ax, 1; rtol=TOL1)
+                @test gradcheck(f, ax, 2; rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
-                    @test gradcheck(f, gx; rtol=TOL)
-                    @test gradcheck(f, gx, 1; rtol=TOL)
-                    @test gradcheck(f, gx, 2; rtol=TOL)
+                    @test gradcheck(f, gx; rtol=TOL1)
+                    @test gradcheck(f, gx, 1; rtol=TOL1)
+                    @test gradcheck(f, gx, 2; rtol=TOL1)
                     @test isapprox(f(ax),f(gx))
                     @test isapprox(f(ax,1),Array(f(gx,1)))
                     @test isapprox(f(ax,2),Array(f(gx,2)))
@@ -72,10 +72,10 @@ srand(42)
             ax = rand21(f,t,n)
             for p in (0,1,2,Inf,-Inf,1/pi,-1/pi,0+pi,-pi)
                 #@show f,t,n,p
-                @test gradcheck(f, ax, p; rtol=TOL)
+                @test gradcheck(f, ax, p; rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
-                    @test gradcheck(f, gx, p; rtol=TOL)
+                    @test gradcheck(f, gx, p; rtol=TOL1)
                     @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
                 end
             end
@@ -89,14 +89,14 @@ srand(42)
         for n in (1,(1,1),2,(2,1),(1,2),(2,2))
             #@show f,t,n
             ax = rand21(f,t,n)
-            @test gradcheck(f, ax; rtol=TOL)
-            @test gradcheck(f2, ax, 1; rtol=TOL)
-            @test gradcheck(f2, ax, 2; rtol=TOL)
+            @test gradcheck(f, ax; rtol=TOL1)
+            @test gradcheck(f2, ax, 1; rtol=TOL1)
+            @test gradcheck(f2, ax, 2; rtol=TOL1)
             if gpu() >= 0
                 gx = KnetArray(ax)
-                @test gradcheck(f, gx; rtol=TOL)
-                @test gradcheck(f, gx, 1; rtol=TOL)
-                @test gradcheck(f, gx, 2; rtol=TOL)
+                @test gradcheck(f, gx; rtol=TOL1)
+                @test gradcheck(f, gx, 1; rtol=TOL1)
+                @test gradcheck(f, gx, 2; rtol=TOL1)
                 @test isapprox(f(ax),f(gx))
                 @test isapprox(f2(ax,1),Array(f(gx,1)))
                 @test isapprox(f2(ax,2),Array(f(gx,2)))
@@ -104,10 +104,8 @@ srand(42)
         end
     end
 
-    shift!(reduction_fns) #TODO: put logsumexp back in when broadcast fixed
-
     # all kind of reductions
-    for f in reduction_fns
+    for f in (sum,) # reduction_fns takes too much time
         for t in (Float32, Float64)
             for dim = MIN_DIM:MAX_DIM
                 # xsize = tuple(dim+MIN_SIZE-1:-1:MIN_SIZE...)
@@ -116,19 +114,19 @@ srand(42)
                 gx = nothing
 
                 #@show f,t,dim,xsize
-                @test gradcheck(f,ax; rtol=TOL)
+                @test gradcheck(f,ax; rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
-                    @test gradcheck(f, gx; rtol=TOL)
+                    @test gradcheck(f, gx; rtol=TOL1)
                     @test isapprox(f(ax),f(gx))
                 end
 
                 # test all combinations
                 for c in mapreduce(i->[combinations(1:dim,i)...], vcat, 1:dim)
                     #@show f,t,dim,xsize,c
-                    @test gradcheck(f, ax, c; rtol=TOL)
+                    @test gradcheck(f, ax, c; rtol=TOL1)
                     if gpu() >= 0 && gx != nothing
-                        # @test gradcheck(f,gx,c; rtol=TOL) #TODO: uncomment when broadcast fixed
+                        @test gradcheck(f,gx,c; rtol=TOL1)
                         @test isapprox(f(ax,c),Array(f(gx,c)))
                     end
                 end

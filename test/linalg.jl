@@ -1,4 +1,6 @@
 include("header.jl")
+srand(42)
+nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
 @testset "linalg" begin
     for t in (Float32,Float64)
@@ -65,7 +67,7 @@ include("header.jl")
             @test gradcheck(mat, ka)
         end
 
-        for p in collect(permutations([1,2]))
+        for p in collect(permutations(1:2))
             p2(x) = permutedims(x,p)
             @test gradcheck(p2, a)
             if gpu() >= 0
@@ -76,7 +78,7 @@ include("header.jl")
 
         a3 = rand(2,3,4)
         if gpu() >= 0; k3 = KnetArray(a3); end
-        for p in collect(permutations([1,2,3]))
+        for p in collect(permutations(1:3))
             p3(x) = permutedims(x,p)
             @test gradcheck(p3, a3)
             if gpu() >= 0
@@ -87,7 +89,7 @@ include("header.jl")
 
         a4 = rand(2,3,4,5)
         if gpu() >= 0; k4 = KnetArray(a4); end
-        for p in collect(permutations([1,2,3,4]))
+        for p in nsample(permutations(1:4),6)
             p4(x) = permutedims(x,p)
             @test gradcheck(p4, a4)
             if gpu() >= 0
@@ -98,7 +100,7 @@ include("header.jl")
 
         a5 = rand(2,3,4,5,6)
         if gpu() >= 0; k5 = KnetArray(a5); end
-        for p in collect(permutations([1,2,3,4,5]))
+        for p in nsample(permutations(1:5),6)
             p5(x) = permutedims(x,p)
             @test gradcheck(p5, a5)
             if gpu() >= 0
