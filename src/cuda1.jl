@@ -227,13 +227,40 @@ extern "C" {
     end
 end
 
-using Combinatorics
+# avoid dependency, copy permutations from julia4 base
+# using Combinatorics
+
+import Base: start, next, done, length
+immutable Perms; a; end
+perms(a) = Perms(a)
+start(p::Perms) = [1:length(p.a);]
+length(p::Perms) = factorial(length(p.a))
+function next(p::Perms, s)
+    perm = [p.a[si] for si in s]
+    if length(p.a) == 0
+        # special case to generate 1 result for len==0
+        return (perm,[1])
+    end
+    s = copy(s)
+    k = length(s)-1
+    while k > 0 && s[k] > s[k+1];  k -= 1;  end
+    if k == 0
+        s[1] = length(s)+1   # done
+    else
+        l = length(s)
+        while s[k] >= s[l];  l -= 1;  end
+        s[k],s[l] = s[l],s[k]
+        reverse!(s,k+1)
+    end
+    (perm,s)
+end
+done(p::Perms, s) = !isempty(s) && s[1] > length(p.a)
 
 function cuda1permutedims()
   cudaPerms = [permutedims2Dsrc,permutedims3Dsrc,permutedims4Dsrc,permutedims5Dsrc]
   for i=2:5
-      dims = collect(permutations([1:i...],i))
-      indnames = collect(permutations(["i","j","k","l","m"][1:i],i))
+      dims = collect(perms(1:i))
+      indnames = collect(perms(["i","j","k","l","m"][1:i]))
       for j=1:length(dims)
           fname = string("permutedims_",i,"D",replace(replace(replace(string(dims[j][:]),"[","_"),"]","_"),",","_"))
           print(cudaPerms[i-1](fname,indnames[j]...))

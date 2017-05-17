@@ -1,7 +1,6 @@
 julia 0.4
-AutoGrad 0.0.6
+AutoGrad 0.0.7
 Compat 0.16.0         # for @views
-Combinatorics 0.4.0   # for permutedims
 
 # We need these for some examples. They get automatically installed when needed.
 # ArgParse

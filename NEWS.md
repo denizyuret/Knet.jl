@@ -3,6 +3,7 @@ Knet v0.8.3 Release Notes
 
 General
 -------
+* KnetArray support for general broadcasting operations (@EnisBerk).
 * KnetArray support for general reduction operations (@ilkerkesen).
 * KnetArray support for permutedims up to 5D (@ekyurdakul).
 * KnetArray indexing support for Int, Colon, UnitRange, StepRange, CartesianIndex, Array{Int}, Array{Bool}, Array{CartesianIndex}. Most combinations work for 2-D.  N-D indexing incomplete.  See `@doc KnetArray` for details.
@@ -11,8 +12,10 @@ General
 * Implemented `hyperband` and `goldensection` hyperparameter optimization algorithms.
 * Added per weight-array gradient clip to `update!`.
 * Fixed `update!` issues with `grad::Void` and other mismatched `w,grad` types.
+* Fixed `update!` issues with `grad::Dict` missing keys.
 * Added `setseed` to do `srand` in both cpu and gpu.
 * Added `dropout(a,p)` as a Knet primitive.
+* Implemented `mean(::KnetArray,r)`.
 
 Testing and Benchmarking
 ------------------------
@@ -21,6 +24,7 @@ Testing and Benchmarking
 Documentation and Examples
 --------------------------
 * RNN chapter and IJulia notebook added.
+* Updated the CNN chapter.
 * Solutions to installation problems documented.
 * Fixed vgg and resnet demos to use the new version of Images.jl and to work on CPU-only machines. Fixed batch normalization bug in resnet. (@ilkerkesen)
 * Fixed charlm demo to use indexing operations, Adam, and dropout.
@@ -29,6 +33,7 @@ Documentation and Examples
 
 Knet v0.8.2 Release Notes
 =========================
+8f77f85 on Feb 23, 2017
 
 General
 -------
@@ -64,6 +69,7 @@ Examples
 
 Knet v0.8.1 Release Notes
 =========================
+c9556d4 on Dec 7, 2016
 
 General
 -------

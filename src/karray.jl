@@ -37,8 +37,7 @@ operations.
   round, sign, sin, sinh, sinpi, sqrt, tan, tanh, trunc
 
 * Broadcasting operators: (.*), (.+), (.-), (./), (.<), (.<=), (.!=),
-  (.==), (.>), (.>=), (.^), max, min.  (Only Array-Scalar and
-  Array-Vector broadcasting are supported. Boolean operators generate
+  (.==), (.>), (.>=), (.^), max, min.  (Boolean operators generate
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
 * Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
