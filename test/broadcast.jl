@@ -20,6 +20,8 @@ for f in Knet.broadcast_ops
     push!(broadcast_fns, eval(parse(f)))
 end
 
+srand(42)
+
 @testset "broadcast" begin
     for f in broadcast_fns
         f1(x) = f(x[1],x[2])
@@ -27,27 +29,31 @@ end
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
             for (n1,n2) in size12
-                # @show f,t,n1,n2
+                #@show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
-                # if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
-                #     @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
-                # end                                   # Fix this as part of general 0.6 compat work
+                if !(f in (max,min) && n1 != n2)
+                    if t == Float64 # Float32 does not have enough precision for large arrays
+                        @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
+                    end
+                end
                 if gpu() >= 0
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
                     @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
-                    # @test gradcheck(f1, Any[g1, g2])
+                    if t == Float64
+                        @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
+                    end
                 end
             end
-            # Array broadcast
+            # Array-vector broadcast
             for n1 in size11, n2 in size11
-                # @show f,t,n1,n2
+                #@show f,t,n1,n2
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
                 if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
                     @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
-                end                                   # Fix this as part of general 0.6 compat work
+                end                                   # TODO: Fix this as part of general 0.6 compat work
                 if gpu() >= 0
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
@@ -57,7 +63,7 @@ end
             end
             # Scalar broadcast
             for n in size11
-                # @show f,t,n,0
+                #@show f,t,n,0
                 a = rand11(f,t,n)
                 s = rand11(f,t)+t(1)
                 @test gradcheck(f1, Any[a, s])
