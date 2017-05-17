@@ -285,5 +285,6 @@ end
 @zerograd dropback(x,p,y,dy)
 
 # Unary plus
-Base.:+(a::KnetArray)=a
-Base.:.+(a::KnetArray)=a
+import Base: +, .+
++(a::KnetArray)=a
+.+(a::KnetArray)=a

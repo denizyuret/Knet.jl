@@ -140,7 +140,7 @@ function broadcast_op(f, j=f, o...)
                         dims_y=size(y)
                         # set broadcast dim strides of x and y to zero
                         # if they are not same and if dimsize is 1 then broadcast dim
-                        for i in eachindex(size(x))
+                        for i in 1:ndims(x)
                             if dims_x[i]!=dims_y[i]
                                 if dims_x[i]==1
                                     stride_x[i]=0
