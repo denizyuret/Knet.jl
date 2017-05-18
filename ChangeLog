@@ -4,6 +4,10 @@
 	Speed issues with KUparser.
 	First epoch slower: do we need to pre-allocate and not use cudaMalloc?
 	Slow-down of long runs: is it gpu copy or parsing algorithm? (dynamic-oracle gives clues)
+	update! slows down in runtests if at the end!
+	Fix dynet benchmarks, incorporate more (lstm, logp) from cudnn.
+	Check out GPUArray and ReverseDiff.
+	Start testing with Julia6 maybe better with speed.
 
 2017-04-07  Deniz Yuret  <dyuret@ku.edu.tr>
 

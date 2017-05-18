@@ -1,4 +1,7 @@
 include("header.jl")
+date(x)=(join(STDOUT,[Dates.format(now(),"HH:MM:SS"), x,'\n'],' '); flush(STDOUT))
+macro dbg(_x); end
+#macro dbg(_x); :(@show $(esc(_x))); end
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 # we need symetric ones as well to test compare operations
@@ -17,70 +20,87 @@ broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
     in(f, exclude11) && continue
-    push!(broadcast_fns, eval(parse(f)))
+    f2 = eval(parse(f))
+    f1 = x->f2(x[1],x[2])
+    push!(broadcast_fns, (f1,f2))
 end
 
 srand(42)
 
 @testset "broadcast" begin
-    for f in broadcast_fns
-        f1(x) = f(x[1],x[2])
-        for t in (Float32, Float64)
-            # multidim array broadcast
-            # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
-            if f == .+          # this takes too much time to perform on all functions
-                for (n1,n2) in size12
-                    #@show f,t,n1,n2
-                    a1 = rand11(f,t,n1)
-                    a2 = rand11(f,t,n2)+t(1)
-                    if !(f in (max,min) && n1 != n2)
-                        if t == Float64 # Float32 does not have enough precision for large arrays
-                            @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
-                        end
-                    end
+    @testset "array-scalar" begin
+        date("broadcast: array-scalar")
+        for (f1,f) in broadcast_fns
+            for t in (Float32, Float64)
+                for n in size11
+                    @dbg f,t,n,0
+                    a = rand11(f,t,n)
+                    s = rand11(f,t)+t(1)
+                    @test gradcheck(f1, Any[a,s])
+                    @test gradcheck(f1, Any[s,a])
                     if gpu() >= 0
-                        g1 = KnetArray(a1)
-                        g2 = KnetArray(a2)
-                        @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
-                        if t == Float64
-                            @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
-                        end
+                        g = KnetArray(a)
+                        @test isapprox(f(a,s), f(g,s))
+                        @test isapprox(f(s,a), f(s,g))
+                        @test gradcheck(f1, Any[g,s])
+                        @test gradcheck(f1, Any[s,g])
                     end
-                end
-            end
-            # Array-vector broadcast
-            for n1 in size11, n2 in size11
-                #@show f,t,n1,n2
-                a1 = rand11(f,t,n1)
-                a2 = rand11(f,t,n2)+t(1)
-                if !(f in (max,min) && n1 != n2)      # max and min do not have broadcasting (different sized) versions defined in Base
-                    @test gradcheck(f1, Any[a1, a2])  # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
-                end                                   # TODO: Fix this as part of general 0.6 compat work
-                if gpu() >= 0
-                    g1 = KnetArray(a1)
-                    g2 = KnetArray(a2)
-                    @test isapprox(Array{t}(broadcast(f,a1,a2)),Array{t}(f(g1,g2)))
-                    @test gradcheck(f1, Any[g1, g2])
-                end
-            end
-            # Scalar broadcast
-            for n in size11
-                #@show f,t,n,0
-                a = rand11(f,t,n)
-                s = rand11(f,t)+t(1)
-                @test gradcheck(f1, Any[a, s])
-                @test gradcheck(f1, Any[s, a])
-                if gpu() >= 0
-                    g = KnetArray(a)
-                    @test isapprox(Array{t}(f(a,s)),Array{t}(f(g,s)))
-                    @test isapprox(Array{t}(f(s,a)),Array{t}(f(s,g)))
-                    @test gradcheck(f1, Any[g, s])
-                    @test gradcheck(f1, Any[s, g])
                 end
             end
         end
     end
 
+    @testset "array-vector" begin
+        date("broadcast: array-vector")
+        for (f1,f) in broadcast_fns
+            for t in (Float32, Float64)
+                for n1 in size11, n2 in size11
+                    # max and min do not have broadcasting (different sized) versions defined in Base
+                    # 0.5 and 0.6 use max.(x,y) syntax, 0.4 can also using @compat
+                    # TODO: Fix this as part of general 0.6 compat work
+                    if (f in (max,min) && n1 != n2); continue; end
+                    @dbg f,t,n1,n2
+                    a1 = rand11(f,t,n1)
+                    a2 = rand11(f,t,n2)+t(1)
+                    @test gradcheck(f1, Any[a1, a2])
+                    if gpu() >= 0 
+                        g1 = KnetArray(a1) 
+                        g2 = KnetArray(a2)
+                        @test isapprox(f(a1,a2),f(g1,g2))
+                        @test gradcheck(f1, Any[g1, g2])
+                    end
+                end
+            end
+        end
+    end
+
+    @testset "array-array" begin
+        date("broadcast: array-array")
+        # for (f1,f) in broadcast_fns # takes too much time
+        f = .+
+        f1 = x->(x[1].+x[2])
+        for t in (Float32, Float64)
+            # multidim array broadcast
+            # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
+            for (n1,n2) in size12
+                @dbg f,t,n1,n2
+                a1 = rand11(f,t,n1)
+                a2 = rand11(f,t,n2)+t(1)
+                if t == Float64 # Float32 does not have enough precision for large arrays
+                    @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
+                end
+                if gpu() >= 0
+                    g1 = KnetArray(a1)
+                    g2 = KnetArray(a2)
+                    @test isapprox(f(a1,a2),f(g1,g2))
+                    if t == Float64
+                        @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
+                    end
+                end
+            end
+        end
+    end
 end
 
+date("broadcast: done")
 nothing
