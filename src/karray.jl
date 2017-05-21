@@ -267,13 +267,9 @@ function vcat{T}(A::KnetVecOrMat{T}...)
     return B
 end
 
-if VERSION < v"0.5.0"           # julia4 ambiguity fix
-cat(d)=error("cat($d) not implemented.")
-end
-
-function cat{T}(d, a::KnetVecOrMat{T}...)
-    if     d==1; vcat(a...)
-    elseif d==2; hcat(a...)
+function cat{T}(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)
+    if     d==1; vcat(a1, a...)
+    elseif d==2; hcat(a1, a...)
     else error("cat($d,a...) not implemented.")
     end
 end
