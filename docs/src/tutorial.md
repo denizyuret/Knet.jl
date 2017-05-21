@@ -13,7 +13,14 @@ supports GPU operation and automatic differentiation using dynamic
 computational graphs for models defined in plain Julia.  This document
 is a tutorial introduction to Knet.  Check out the [full
 documentation](https://denizyuret.github.io/Knet.jl/latest) and
-[Examples](@ref) for more information. If you use Knet in academic
+[Examples](@ref) for more information. If you need help or would like
+to request a feature, please consider joining the
+[knet-users](https://groups.google.com/forum/#!forum/knet-users)
+mailing list. If you find a bug, please open a [GitHub
+issue](https://github.com/denizyuret/Knet.jl/issues). If you would
+like to contribute to Knet development, check out the
+[knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing
+list and [Tips for developers](@ref). If you use Knet in academic
 work, [here is a paper](https://goo.gl/zeUBFr) that can be cited:
 
     @inproceedings{knet2016mlsys,
@@ -693,12 +700,8 @@ Julia's macro and meta-programming facilities. See
 Knet is an open-source project and we are always open to new
 contributions: bug reports and fixes, feature requests and
 contributions, new machine learning models and operators, inspiring
-examples, benchmarking results are all welcome. If you need help or
-would like to request a feature, please consider joining the
-[knet-users](https://groups.google.com/forum/#!forum/knet-users) mailing
-list. If you find a bug, please open a [GitHub
-issue](https://github.com/denizyuret/Knet.jl/issues). If you would like
-to contribute to Knet development, check out the
+examples, benchmarking results are all welcome. If you would like to
+contribute to Knet development, check out the
 [knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing
 list and [Tips for developers](@ref).
 
@@ -714,4 +717,4 @@ Current contributors:
 - Emre Yolcu
 - Meriç Melike Softa
 - Ekrem Emre Yurdakul
-
+- Enis Berk

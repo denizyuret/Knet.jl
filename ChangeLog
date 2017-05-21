@@ -8,6 +8,8 @@
 	Fix dynet benchmarks, incorporate more (lstm, logp) from cudnn.
 	Check out GPUArray and ReverseDiff.
 	Start testing with Julia6 maybe better with speed.
+	Need to figure out the new Julia6 broadcasting syntax.
+	Also try the recommendation to detect one-out-of-k argument signature.
 
 2017-04-07  Deniz Yuret  <dyuret@ku.edu.tr>
 
