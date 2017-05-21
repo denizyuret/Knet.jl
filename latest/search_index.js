@@ -93,7 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Introduction to Knet",
     "category": "section",
-    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and Examples for more information. If you use Knet in academic work, here is a paper that can be cited:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}ContentsPages = [\"tutorial.md\"]\nDepth = 5"
+    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and Examples for more information. If you need help or would like to request a feature, please consider joining the knet-users mailing list. If you find a bug, please open a GitHub issue. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers. If you use Knet in academic work, here is a paper that can be cited:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}ContentsPages = [\"tutorial.md\"]\nDepth = 5"
 },
 
 {
@@ -189,7 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Contributing",
     "category": "section",
-    "text": "Knet is an open-source project and we are always open to new contributions: bug reports and fixes, feature requests and contributions, new machine learning models and operators, inspiring examples, benchmarking results are all welcome. If you need help or would like to request a feature, please consider joining the knet-users mailing list. If you find a bug, please open a GitHub issue. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers.Current contributors:Deniz Yuret\nOzan Arkan Can\nOnur Kuru\nEmre Ünal\nErenay Dayanık\nÖmer Kırnap\nİlker Kesen\nEmre Yolcu\nMeriç Melike Softa\nEkrem Emre Yurdakul"
+    "text": "Knet is an open-source project and we are always open to new contributions: bug reports and fixes, feature requests and contributions, new machine learning models and operators, inspiring examples, benchmarking results are all welcome. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers.Current contributors:Deniz Yuret\nOzan Arkan Can\nOnur Kuru\nEmre Ünal\nErenay Dayanık\nÖmer Kırnap\nİlker Kesen\nEmre Yolcu\nMeriç Melike Softa\nEkrem Emre Yurdakul\nEnis Berk"
 },
 
 {
