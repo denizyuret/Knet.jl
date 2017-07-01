@@ -110,8 +110,8 @@ end
 """
 function main(;
         seed = -1,
-        batchsize = 100,
-        optimizer = Momentum(lr=0.01),
+        batchsize = 128,
+        optimizer = Momentum(lr=0.1),
         epochs = 100,
         infotime = 1,  # report every `infotime` epochs
         atype = gpu() >= 0 ? KnetArray{Float32} : Array{Float32},
