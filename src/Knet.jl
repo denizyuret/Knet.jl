@@ -23,6 +23,7 @@ include("update.jl"); 		export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, 
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
+include("modules.jl");          export batchnorm, BatchMoments
 
 """
     Knet.dir(path...)
