@@ -319,7 +319,7 @@ default values are listed as well.
 function update! end
 
 # TODO: could this be abstractarray?
-using KArrays: KnetArray
+using KArrays: KnetArray, axpy!
 
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
