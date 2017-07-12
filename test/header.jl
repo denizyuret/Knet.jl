@@ -8,4 +8,4 @@ else
     Base.randn{T}(::Type{T},dims::Dims)=convert(Array{T},randn(dims...))
 end
 
-using Knet
+using Knet, KArrays
