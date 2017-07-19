@@ -6,7 +6,7 @@
 
 Container for parameters of the Stochastic gradient descent (SGD)
 optimization algorithm used by [`update!`](@ref).
-    
+
 SGD is an optimization technique to minimize an objective function by
 updating its weights in the opposite direction of their gradient. The
 learning rate (lr) determines the size of the step.  SGD updates the
@@ -318,6 +318,9 @@ default values are listed as well.
 """
 function update! end
 
+# TODO: could this be abstractarray?
+using KArrays: KnetArray, axpy!
+
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
     function update!(w::$T, g::$T, p::Sgd)
@@ -347,7 +350,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(1-p.beta1, g, p.fstm)
         scale!(p.beta2, p.scndm)
         axpy!(1-p.beta2, g .* g, p.scndm)
-        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t) 
+        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
         scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
         axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
     end

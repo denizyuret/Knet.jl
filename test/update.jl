@@ -36,13 +36,13 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     t1 = time()
     if verbose
         @printf("%s: f=%f iter=%-5d time=%.2f type=%s opt=%s\n",
-                (current <= ftol ? "PASS" : "FAIL"), 
+                (current <= ftol ? "PASS" : "FAIL"),
                 current, i-1, t1-t0, typeof(w), typeof(params))
     end
     return current <= ftol
 end
 
-gc(); Knet.knetgc(); gc()
+gc(); KArrays.knetgc(); gc()
 
 @testset "update!" begin
     w = randn(dims)
@@ -74,4 +74,3 @@ gc(); Knet.knetgc(); gc()
 end
 
 nothing
-
