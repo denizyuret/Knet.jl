@@ -121,7 +121,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     function cublashandle(dev=gpu())
         if dev==-1; error("No cublashandle for CPU"); end
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array(Any,gpuCount()+1); end
+        if CUBLAS == nothing; CUBLAS=Array{Any}(gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
         return CUBLAS[i]
     end
@@ -129,7 +129,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     function cudnnhandle(dev=gpu())
         if dev==-1; error("No cudnnhandle for CPU"); end
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array(Any,gpuCount()+1); end
+        if CUDNN == nothing; CUDNN=Array{Any}(gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
         return CUDNN[i]
     end
@@ -144,7 +144,7 @@ cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
 function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
-    mem = Array(Culonglong,3)
+    mem = Array{Culonglong}(3)
     @cuda("nvidia-ml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
     @cuda("nvidia-ml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))

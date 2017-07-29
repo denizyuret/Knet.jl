@@ -17,7 +17,7 @@ end
 type KnetPtrs
     used::Int                   # number of allocated pointers
     free::Array{Cptr,1}         # pointers available for reuse
-    KnetPtrs()=new(0,Array(Cptr,0))
+    KnetPtrs()=new(0,Array{Cptr}(0))
 end
 
 # KnetFree[dev+2] will hold a dictionary from sizes to KnetPtrs for
@@ -97,7 +97,7 @@ end
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)
     # we no longer support cpu pointers, all overloaded ops rely on KnetPtr being on a GPU
-    # gpu() >= 0 || return(convert(Cptr, pointer(Array(UInt8,nbytes))))
+    # gpu() >= 0 || return(convert(Cptr, pointer(Array{UInt8}(nbytes))))
     ptr = Cptr[0]
     ret = @cuda1(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
     if ret == 0

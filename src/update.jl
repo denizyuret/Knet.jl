@@ -349,14 +349,14 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(1-p.beta2, g .* g, p.scndm)
         fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t) 
         scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
-        axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
+        @compat axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) + p.eps)), w)
     end
 
     function update!(w::$T, g::$T, p::Adagrad)
         gclip!(g, p.gclip)
         if p.G===nothing; p.G=zeros(w); end
         axpy!(1, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+        @compat axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
     end
 
     function update!(w::$T, g::$T, p::Adadelta)
@@ -364,7 +364,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        dw = g .* sqrt(p.delta + p.eps) ./ sqrt(p.G + p.eps)
+        @compat dw = g .* sqrt.(p.delta + p.eps) ./ sqrt.(p.G + p.eps)
         scale!(p.rho, p.delta)
         axpy!(1-p.rho, dw .* dw , p.delta)
         axpy!(-p.lr, dw, w)
@@ -375,7 +375,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         if p.G===nothing; p.G=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+        @compat axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
     end
 
     # If type of g does not match, something may be wrong

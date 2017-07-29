@@ -1,3 +1,12 @@
+2017-07-29  dyuret  <dyuret@cn6.kuacc.ku.edu.tr>
+
+	* julia6-compat-todo:
+	- fix precompile warnings: WARNING: deprecated syntax "Expr(:ccall)". Use "Expr(:call, :ccall)" instead.
+	- Pkg.test passes: kptr, gpu, distributions, conv
+	- fix Pkg.test warnings: linalg
+	- fix Pkg.test errors: update, karray, broadcast, reduction, unary
+	- fix Pkg.build errors: Pkg.build does not work.
+
 2017-05-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO-KUparser:

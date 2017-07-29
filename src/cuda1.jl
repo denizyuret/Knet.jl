@@ -573,8 +573,8 @@ print(cuda1concat())
 # for S in (32,64); T = Symbol("Float$S"); F = "concat_$S"
 # @eval function concat(A::KnetArray{$T}...)
 #     nargs = length(A)
-#     S = Array(Int32, nargs)
-#     L = Array(Int32, nargs)
+#     S = Array{Int32}(nargs)
+#     L = Array{Int32}(nargs)
 #     nelts = 0
 #     @inbounds for i in 1:nargs
 #         n = length(A[i])

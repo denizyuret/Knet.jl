@@ -76,7 +76,7 @@ function bilinear(T,fw,fh,IN,ON)
     r = linspace(0,sz-1,sz)
     c = linspace(0,sz-1,sz)'
 
-    kernel = (1-abs(r-center)/f)*(1-abs(c-center)/f)
+    @compat kernel = (1-abs.(r-center)/f)*(1-abs.(c-center)/f)
     w = zeros(T,sz,sz,N,N);
     for i=1:N
         w[:,:,i,i] = kernel
