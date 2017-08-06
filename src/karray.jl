@@ -27,9 +27,9 @@ operations.
 
 * Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
-  isempty, length, linearindexing, ndims, ones, pointer, rand!,
-  reshape, similar, size, stride, strides, summary, vcat, vec, zeros.
-  (cat(i,x,y) supported for i=1,2.)
+  isempty, length, ndims, ones, pointer, rand!, reshape, similar,
+  size, stride, strides, summary, vcat, vec, zeros.  (cat(i,x,y)
+  supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -91,9 +91,10 @@ end
 
 
 # Aliases:
-typealias KnetMatrix{T} KnetArray{T,2}
-typealias KnetVector{T} KnetArray{T,1}
-typealias KnetVecOrMat{T} Union{KnetVector{T}, KnetMatrix{T}}
+
+@typealias6 KnetMatrix{T} KnetArray{T,2}
+@typealias6 KnetVector{T} KnetArray{T,1}
+@typealias6 KnetVecOrMat{T} Union{KnetVector{T}, KnetMatrix{T}}
 
 # Constructors:
 import Base: convert
@@ -148,7 +149,7 @@ pointer{T}(a::KnetArray{T})=convert(Ptr{T}, a.ptr.ptr)
 pointer{T}(a::KnetArray{T},i)=convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, eltype, endof, fill!, first, isempty, length, linearindexing, ndims, ones, similar, size, stride, strides, zeros, (==), isapprox
+import Base: eachindex, eltype, endof, fill!, first, isempty, length, ndims, ones, similar, size, stride, strides, zeros, (==), isapprox #, linearindexing
 eachindex(a::KnetArray) = (1:length(a))
 eltype{T}(::KnetArray{T})=T
 eltype{T}(::Type{KnetArray{T}}) = T
@@ -160,7 +161,7 @@ first(a::KnetArray) = a[1]
 @primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(x,dy,1)
 isempty(a::KnetArray) = (0==length(a))
 length(a::KnetArray)=prod(size(a))
-linearindexing(::KnetArray)=Base.LinearFast()
+# linearindexing(::KnetArray)=Base.LinearFast() # deprecated in Julia6
 ndims{T,N}(a::KnetArray{T,N})=N
 ones{T}(a::KnetArray{T})=fill!(similar(a),one(T))
 similar(a::KnetArray, T, dims::Dims)      = KnetArray(T, dims)
@@ -285,7 +286,7 @@ end
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
 import Base: unsafe_copy!, copy, copy!
-typealias KorA{T} Union{KnetArray{T},Array{T}}
+@typealias6 KorA{T} Union{KnetArray{T},Array{T}}
 
 function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer)
     if n == 0; return dest; end
@@ -416,7 +417,7 @@ function getindex{T}(A::KnetArray{T}, I::Real)
     unsafe_copy!(T[0], 1, A, J, 1)[1]
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::Real)
+function setindex!{T}(A::KnetArray{T}, v, I::Real)
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
     unsafe_copy!(A, J, T[v], 1, 1)
@@ -436,7 +437,7 @@ function getindex{T}(A::KnetArray{T}, I::Real...)
     unsafe_copy!(T[0], 1, A, i, 1)[1]
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::Real...)
+function setindex!{T}(A::KnetArray{T}, v, I::Real...)
     J = Base.to_indexes(I...)
     @inbounds for j=1:length(J)
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
@@ -451,7 +452,7 @@ function getindex{T}(A::KnetArray{T}, c::CartesianIndex)
     getindex(A, c.I...)
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, c::CartesianIndex)
+function setindex!{T}(A::KnetArray{T}, v, c::CartesianIndex)
     setindex!(A, v, c.I...)
 end
 
@@ -462,8 +463,8 @@ end
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
 
-if VERSION < v"0.5.0"
-    typealias AbstractUnitRange UnitRange
+if VERSION < v"0.5-"
+    @typealias6 AbstractUnitRange UnitRange
 end
 
 function getindex{T}(A::KnetArray{T}, I::AbstractUnitRange)
@@ -481,7 +482,13 @@ for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     end
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::AbstractUnitRange)
+function setindex!{T}(A::KnetArray{T}, v::Real, I::AbstractUnitRange)
+    if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
+    if length(I)==0; return A; end
+    unsafe_setindex!(A,T(v),I)
+end
+
+function setindex!{T}(A::KnetArray{T}, v::Real, I::AbstractUnitRange{Bool}) # julia4 ambig fix
     if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
     if length(I)==0; return A; end
     unsafe_setindex!(A,T(v),I)
@@ -502,7 +509,7 @@ function getindex(A::KnetArray, I::Colon)
     reshape(A,length(A))
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::Colon)
+function setindex!{T}(A::KnetArray{T}, v::Real, I::Colon)
     if length(A)==0; return A; end
     unsafe_setindex!(A, T(v), 1:length(A))
 end
@@ -592,7 +599,7 @@ function getindex{T,I<:Real}(x::KnetArray{T}, i::AbstractArray{I})
     return y
 end
 
-function setindex!{T,I<:Real}(x::KnetArray{T}, y::Number, i::AbstractArray{I})
+function setindex!{T,I<:Real}(x::KnetArray{T}, y::Real, i::AbstractArray{I})
     if isempty(i); return x; end
     i = Array{Int32}(i)
     checkbetween(i, 1, length(x))
@@ -621,7 +628,7 @@ function getindex{T,I<:Real}(x::KnetMatrix{T}, c::Colon, i::AbstractVector{I})
     return y
 end
 
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, c::Colon, i::AbstractVector{I})
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Real, c::Colon, i::AbstractVector{I})
     if isempty(i); return x; end
     xrows,xcols = size(x); ycols=length(i)
     i = Array{Int32}(i)
@@ -654,7 +661,7 @@ function getindex{T,I<:Real}(x::KnetMatrix{T}, i::AbstractVector{I}, c::Colon)
     return y
 end
 
-function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Number, i::AbstractVector{I}, c::Colon)
+function setindex!{T,I<:Real}(x::KnetMatrix{T}, y::Real, i::AbstractVector{I}, c::Colon)
     if isempty(i); return x; end
     xrows,xcols = size(x); yrows=length(i)
     i = Array{Int32}(i)
@@ -692,7 +699,11 @@ function getindex{T}(A::KnetArray{T}, I::StepRange)
     getindex(A, collect(I))
 end
 
-function setindex!{T}(A::KnetArray{T}, v::Number, I::StepRange)
+function setindex!{T,R<:Real}(A::KnetArray{T}, v::Real, I::StepRange{R}) # julia4 ambiguity fix
+    setindex!(A, v, collect(I))
+end
+
+function setindex!{T}(A::KnetArray{T}, v::Real, I::StepRange{Bool}) # julia4 ambiguity fix
     setindex!(A, v, collect(I))
 end
 
@@ -706,7 +717,11 @@ function getindex{T}(A::KnetMatrix{T}, I::StepRange, c::Colon)
     getindex(A, collect(I), c)
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v::Number, I::StepRange, c::Colon)
+function setindex!{T,R<:Real}(A::KnetMatrix{T}, v::Real, I::StepRange{R}, c::Colon) # julia4 ambig fix
+    setindex!(A, v, collect(I), c)
+end
+
+function setindex!{T}(A::KnetMatrix{T}, v::Real, I::StepRange{Bool}, c::Colon) # julia4 ambig fix
     setindex!(A, v, collect(I), c)
 end
 
@@ -720,7 +735,11 @@ function getindex{T}(A::KnetMatrix{T}, c::Colon, I::StepRange)
     getindex(A, c, collect(I))
 end
 
-function setindex!{T}(A::KnetMatrix{T}, v::Number, c::Colon, I::StepRange)
+function setindex!{T,R<:Real}(A::KnetMatrix{T}, v::Real, c::Colon, I::StepRange{R}) # julia4 ambig fix
+    setindex!(A, v, c, collect(I))
+end
+
+function setindex!{T}(A::KnetMatrix{T}, v::Real, c::Colon, I::StepRange{Bool}) # julia4 ambig fix
     setindex!(A, v, c, collect(I))
 end
 
@@ -738,7 +757,7 @@ function getindex{T}(x::KnetArray{T}, i::AbstractArray{Bool})
     return y
 end
 
-function setindex!{T}(x::KnetArray{T}, y::Number, i::AbstractArray{Bool})
+function setindex!{T}(x::KnetArray{T}, y::Real, i::AbstractArray{Bool})
     if length(i) != length(x); throw(DimensionMismatch()); end
     j = find(i)
     if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
@@ -764,7 +783,7 @@ function getindex{T}(x::KnetMatrix{T}, c::Colon, i::AbstractVector{Bool})
     return y
 end
 
-function setindex!{T}(x::KnetMatrix{T}, y::Number, c::Colon, i::AbstractVector{Bool})
+function setindex!{T}(x::KnetMatrix{T}, y::Real, c::Colon, i::AbstractVector{Bool})
     xrows,xcols = size(x)
     if length(i) != xcols; throw(BoundsError(x,(:,i))); end
     j = find(i)
@@ -794,7 +813,7 @@ function getindex{T}(x::KnetMatrix{T}, i::AbstractVector{Bool}, c::Colon)
     return y
 end
 
-function setindex!{T}(x::KnetMatrix{T}, y::Number, i::AbstractVector{Bool}, c::Colon)
+function setindex!{T}(x::KnetMatrix{T}, y::Real, i::AbstractVector{Bool}, c::Colon)
     xrows,xcols = size(x)
     if length(i) != xrows; throw(BoundsError(x,(i,:))); end
     j = find(i)
@@ -824,7 +843,7 @@ function getindex{T}(x::KnetArray{T}, i::KnetArray{T})
     return y
 end
 
-function setindex!{T}(x::KnetArray{T}, y::Number, i::KnetArray{T})
+function setindex!{T}(x::KnetArray{T}, y::Real, i::KnetArray{T})
     if length(i) != length(x); throw(DimensionMismatch()); end
     j = find(Array(i))
     if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
@@ -848,9 +867,13 @@ getindex(A::KnetMatrix, I1::AbstractUnitRange, I2::AbstractUnitRange)=getindex2(
 setindex!(A::KnetMatrix, B, I1::AbstractUnitRange, I2::AbstractUnitRange)=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B::Number, I1::AbstractUnitRange, I2::AbstractUnitRange)=setindex2!(A,B,I1,I2)
 getindex(A::KnetMatrix, I1::Colon, I2::AbstractUnitRange)=getindex2(A,I1,I2)
+setindex!(A::KnetMatrix, B::Real, I1::Colon, I2::AbstractUnitRange{Bool})=setindex2!(A,B,I1,I2)
+setindex!{T<:Real}(A::KnetMatrix, B::Real, I1::Colon, I2::AbstractUnitRange{T})=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B, I1::Colon, I2::AbstractUnitRange)=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B::Number, I1::Colon, I2::AbstractUnitRange)=setindex2!(A,B,I1,I2)
 getindex(A::KnetMatrix, I1::AbstractUnitRange, I2::Colon)=getindex2(A,I1,I2)
+setindex!(A::KnetMatrix, B::Real, I1::AbstractUnitRange{Bool}, I2::Colon)=setindex2!(A,B,I1,I2)
+setindex!{R<:Real}(A::KnetMatrix, B::Real, I1::AbstractUnitRange{R}, I2::Colon)=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B, I1::AbstractUnitRange, I2::Colon)=setindex2!(A,B,I1,I2)
 setindex!(A::KnetMatrix, B::Number, I1::AbstractUnitRange, I2::Colon)=setindex2!(A,B,I1,I2)
 getindex(A::KnetMatrix, I1::Real, I2::AbstractUnitRange)=getindex2(A,I1,I2)
@@ -869,7 +892,7 @@ setindex!(A::KnetMatrix, B::Number, I1::Real, I2::Colon)=setindex2!(A,B,I1,I2)
 ## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
 # TODO: the following getindex, setindex! work for 1 and 2 dimensions only, write general versions.
 
-typealias Index3 Union{Real,AbstractUnitRange,Colon}
+const Index3 = Union{Real,AbstractUnitRange,Colon}
 
 function getindex2{T}(A::KnetMatrix{T}, I1::Index3, I2::Index3)
     (nelts,nrows,ncols,firstindex,astep) = indexparams(A,I1,I2)

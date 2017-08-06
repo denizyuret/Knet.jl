@@ -285,6 +285,10 @@ end
 @zerograd dropback(x,p,y,dy)
 
 # Unary plus
-import Base: +, .+
+import Base: +, .+, broadcast
 +(a::KnetArray)=a
-.+(a::KnetArray)=a
+if VERSION >= v"0.6-"
+    broadcast(::typeof(+), a::KnetArray)=a
+else; @eval begin
+    .+(a::KnetArray)=a
+end; end

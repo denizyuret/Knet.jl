@@ -2,7 +2,11 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     if Libdl.find_library(["lib$lib"], []) != ""
-        fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
+        if VERSION >= v"0.6-"
+            fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
+        else
+            fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
+        end
         msg = "$lib.$fun error "
         err = gensym()
         # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
@@ -14,7 +18,11 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     if Libdl.find_library(["lib$lib"], []) != ""
-        fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
+        if VERSION >= v"0.6-"
+            fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
+        else
+            fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
+        end
         err = gensym()
         esc(:($err=$fx; Knet.@gs; $err))
     else
@@ -24,7 +32,11 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        fx = Expr(:ccall, ("$fun",libknet8), :Void, x...)
+        if VERSION >= v"0.6-"
+            fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
+        else
+            fx = Expr(:ccall, ("$fun",libknet8), :Void, x...)
+        end
         err = gensym()
         esc(:($err=$fx; Knet.@gs; $err))
     else
@@ -32,7 +44,7 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     end
 end
 
-typealias Cptr Ptr{Void}
+const Cptr = Ptr{Void}
 
 """
 

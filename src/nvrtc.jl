@@ -13,7 +13,7 @@ void saxpy(float a, float *x, float *y, float *out, size_t n)
 }
 """
 
-typealias Cptr Ptr{Void}
+const Cptr = Ptr{Void}
 
 progP = Cptr[1]
 

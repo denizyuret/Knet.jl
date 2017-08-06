@@ -322,5 +322,5 @@ min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
 (\){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a)
 
 #(/){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a) # not defined in base
-#(^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s)) # linalg
-#(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # linalg
+#(^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s)) # non-elementwise definition in linalg
+#(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # non-elementwise definition in linalg
