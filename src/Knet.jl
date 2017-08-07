@@ -25,6 +25,8 @@ include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
 
+VERSION > v"0.6-" && include("model.jl")
+
 """
     Knet.dir(path...)
 
