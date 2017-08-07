@@ -238,6 +238,7 @@ function train!(model, data, tok2int, o)
 end    
 
 function minibatch(chars, tok2int, batch_size)
+    chars = collect(chars)
     nbatch = div(length(chars), batch_size)
     data = [ zeros(Int,batch_size) for i=1:nbatch ]
     for n = 1:nbatch
