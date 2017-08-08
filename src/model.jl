@@ -8,6 +8,7 @@ abstract type Model end
 """
 
 """
+track(x::AutoGrad.Rec) = track(x.value)
 track(x, tape::AutoGrad.Tape=AutoGrad.Tape()) = AutoGrad.Rec(x, tape)
 track(x, y::AutoGrad.Rec) = AutoGrad.Rec(x, y.tapes[])
 track(x::AutoGrad.Rec, y) = x.value
@@ -54,18 +55,71 @@ function setgrad!(x::AutoGrad.Rec, Δ)
     x.nodes[].outgrad = Δ
 end
 
+"""
+Get a list of tracked parameters from a model.
+A model's paremeters can be tracked by running with a tracked input.
+Complex models should override this method for efficiency.
+"""
+function params(m::Model)
+    set = ObjectIdDict()
 
-export Affine
+    traverse(m::AutoGrad.Rec) = set[m] = true
+    traverse(m) = try
+        foreach(traverse, m)
+    catch
+        for attr in fieldnames(typeof(m))
+            traverse(getfield(m, attr))
+        end
+    end
+
+    traverse(m)
+
+    collect(AutoGrad.Rec, keys(set))
+end
+
+
+export Affine, MLP
 
 mutable struct Affine <: Model
     W
     b
 end
 
-Affine(a::Integer, b::Integer, init=rand) = Affine(rand(b, a), rand(b))
+Affine(a::Integer, b::Integer; init=xavier) = Affine(init(b, a), init(b))
 
 function (m::Affine)(x)
     m.W = track(m.W, x)
     m.b = track(m.b, x)
     m.W * x .+ m.b
+end
+
+mutable struct Chain <: Model
+    layers::Vector
+end
+
+Chain(x...) = Chain(collect(x))
+
+function (m::Chain)(x)
+    foldl((m, x) -> m(x), x, m.layers)
+end
+
+mutable struct LSTM <: Model
+    weight
+    bias
+end
+
+function LSTM(a::Integer, b::Integer; init=rand)
+    LSTM(init(a+b, 4b), init(1, 4b))
+end
+
+function (m::LSTM)(x, hidden, cell)
+    gates   = [x hidden] * m.weight .+ m.bias
+    hsize   = size(hidden,2)
+    forget  = sigm(gates[:,1:hsize])
+    ingate  = sigm(gates[:,1+hsize:2hsize])
+    outgate = sigm(gates[:,1+2hsize:3hsize])
+    change  = tanh(gates[:,1+3hsize:end])
+    cell    = cell .* forget + ingate .* change
+    hidden  = outgate .* tanh(cell)
+    hidden, cell
 end
