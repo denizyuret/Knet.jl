@@ -1,4 +1,4 @@
-export Model, track, back!, getgrad, setgrad!
+export Model, track, back!, getgrad, setgrad!, params
 
 """
 
@@ -10,6 +10,7 @@ abstract type Model end
 """
 track(x::AutoGrad.Rec) = track(x.value)
 track(x, tape::AutoGrad.Tape=AutoGrad.Tape()) = AutoGrad.Rec(x, tape)
+track(x, y) = x
 track(x, y::AutoGrad.Rec) = AutoGrad.Rec(x, y.tapes[])
 track(x::AutoGrad.Rec, y) = x.value
 track(x::AutoGrad.Rec, y::AutoGrad.Rec) = track(x.value, y)
@@ -60,10 +61,10 @@ Get a list of tracked parameters from a model.
 A model's paremeters can be tracked by running with a tracked input.
 Complex models should override this method for efficiency.
 """
-function params(m::Model)
+function params(m)
     set = ObjectIdDict()
 
-    traverse(m::AutoGrad.Rec) = set[m] = true
+    traverse(m::AutoGrad.Rec) = set[m] = nothing
     traverse(m) = try
         foreach(traverse, m)
     catch
@@ -78,19 +79,19 @@ function params(m::Model)
 end
 
 
-export Affine, MLP
+export Affine, Chain, LSTM, Embedding
 
 mutable struct Affine <: Model
-    W
-    b
+    weight
+    bias
 end
 
-Affine(a::Integer, b::Integer; init=xavier) = Affine(init(b, a), init(b))
+Affine(a::Integer, b::Integer; init=xavier) = Affine(init(a, b), init(1, b))
 
 function (m::Affine)(x)
-    m.W = track(m.W, x)
-    m.b = track(m.b, x)
-    m.W * x .+ m.b
+    m.weight = track(m.weight, x)
+    m.bias   = track(m.bias, x)
+    x * m.weight .+ m.bias
 end
 
 mutable struct Chain <: Model
@@ -99,9 +100,7 @@ end
 
 Chain(x...) = Chain(collect(x))
 
-function (m::Chain)(x)
-    foldl((m, x) -> m(x), x, m.layers)
-end
+(m::Chain)(x) = foldl((x, m) -> m(x), x, m.layers)
 
 mutable struct LSTM <: Model
     weight
@@ -109,10 +108,16 @@ mutable struct LSTM <: Model
 end
 
 function LSTM(a::Integer, b::Integer; init=rand)
-    LSTM(init(a+b, 4b), init(1, 4b))
+    LSTM(init(a+b, 4b), zeros(1, 4b))
 end
 
+# patch for ambiguity of Base/abstractarray.jl:1067 and AutoGrad/abstractarray.jl:168
+Base.hcat(a::AutoGrad.Rec, b::AutoGrad.Rec, c::AutoGrad.Rec...) = AutoGrad.cat(2, a, b, c...)
+
 function (m::LSTM)(x, hidden, cell)
+    m.weight = track(m.weight, x)
+    m.bias   = track(m.bias, x)
+
     gates   = [x hidden] * m.weight .+ m.bias
     hsize   = size(hidden,2)
     forget  = sigm(gates[:,1:hsize])
@@ -122,4 +127,24 @@ function (m::LSTM)(x, hidden, cell)
     cell    = cell .* forget + ingate .* change
     hidden  = outgate .* tanh(cell)
     hidden, cell
+end
+
+"""
+`back!` through Embedding will lose all gradients
+"""
+mutable struct Embedding <: Model
+    mat
+end
+
+function Embedding(a::Integer, b::Integer; init=rand)
+    Embedding(init(a, b))
+end
+
+function (m::Embedding)(x::AutoGrad.Rec)
+    m.mat = track(m.mat, track(0))
+    m.mat[x.value, :]
+end
+
+function (m::Embedding)(x)
+    m.mat[x, :]
 end
