@@ -122,6 +122,7 @@ for (f,g,y,dx) in
         end
         $f{T<:Number}(xi::T)=$y
         $g{T<:Number}(dyi::T,yi::T)=$dx
+        $g(dy::AutoGrad.Rec,y)=$g(dy.value,y)
         @primitive $f(x),dy,y $g(dy,y)
     end
 end

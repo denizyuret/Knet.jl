@@ -13,7 +13,7 @@ track(x, tape::AutoGrad.Tape=AutoGrad.Tape()) = AutoGrad.Rec(x, tape)
 track(x, y) = x
 track(x, y::AutoGrad.Rec) = AutoGrad.Rec(x, y.tapes[])
 track(x::AutoGrad.Rec, y) = x.value
-track(x::AutoGrad.Rec, y::AutoGrad.Rec) = track(x.value, y)
+track(x::AutoGrad.Rec, y::AutoGrad.Rec) = x in y.tapes[] ? x : track(x.value, y)
 
 """
 
@@ -141,10 +141,11 @@ function Embedding(a::Integer, b::Integer; init=rand)
 end
 
 function (m::Embedding)(x::AutoGrad.Rec)
-    m.mat = track(m.mat, track(0))
+    m.mat = track(m.mat, x)
     m.mat[x.value, :]
 end
 
 function (m::Embedding)(x)
+    m.mat = track(m.mat, x)
     m.mat[x, :]
 end
