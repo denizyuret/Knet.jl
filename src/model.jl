@@ -79,14 +79,14 @@ function params(m)
 end
 
 
-export Affine, Chain, LSTM, Embedding
+export Affine, Chain, LSTM, Embedding, RNN, GRU
 
 mutable struct Affine <: Model
     weight
     bias
 end
 
-Affine(a::Integer, b::Integer; init=xavier) = Affine(init(a, b), init(1, b))
+Affine(a::Integer, b::Integer; init=xavier) = Affine(init(a, b), zeros(1, b))
 
 function (m::Affine)(x)
     m.weight = track(m.weight, x)
@@ -148,4 +148,51 @@ end
 function (m::Embedding)(x)
     m.mat = track(m.mat, x)
     m.mat[x, :]
+end
+
+mutable struct RNN <: Model
+    weight
+    bias
+end
+
+function RNN(a::Integer, b::Integer; init=rand)
+    RNN(init(a+b, b), zeros(1, b))
+end
+
+function (m::RNN)(x, h)
+    m.weight = track(m.weight, x)
+    m.bias   = track(m.bias, x)
+
+    tanh([x h] * m.weight .+ m.bias)
+end
+
+mutable struct GRU <: Model
+    Wih
+    Whh
+    bih
+    bhh
+end
+
+function GRU(a::Integer, b::Integer; init=rand)
+    GRU(init(a, 3b), init(b, 3b), zeros(1, 3b), zeros(1, 3b))
+end
+
+function (m::GRU)(x, h)
+    m.Wih = track(m.Wih, x)
+    m.Whh = track(m.Whh, x)
+    m.bih = track(m.bih, x)
+    m.bhh = track(m.bhh, x)
+
+    gi = x * m.Wih .+ m.bih
+    gh = h * m.Whh .+ m.bhh
+
+    hsize = size(h, 2)
+
+    ir, ii, in = gi[:, 1:hsize], gi[:, 1+hsize:2hsize], gi[:, 1+2hsize:3hsize]
+    hr, hi, hn = gh[:, 1:hsize], gh[:, 1+hsize:2hsize], gh[:, 1+2hsize:3hsize]
+
+    rgate = sigm(ir + hr)
+    igate = sigm(ii + hi)
+    ngate = tanh(in + rgate .* hn)
+    ngate + igate .* (h - ngate)
 end
