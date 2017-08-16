@@ -1,12 +1,15 @@
-export Model, track, back!, getgrad, setgrad!, params
+export track, back!, getgrad, setgrad!, params
 
-"""
-
-"""
 abstract type Model end
 
 """
+    tracked_x = track(x)
 
+track an input, `x` can be tuple, array or dict. If x is already tracked, it will be replaced with a new tape.
+
+    tracked_p = track(p, x)
+
+track p on the same tape of x, return tracked p. If x is not tracked, it will also untrack p.
 """
 track(x::AutoGrad.Rec) = track(x.value)
 track(x, tape::AutoGrad.Tape=AutoGrad.Tape()) = AutoGrad.Rec(x, tape)
@@ -16,7 +19,17 @@ track(x::AutoGrad.Rec, y) = x.value
 track(x::AutoGrad.Rec, y::AutoGrad.Rec) = x in y.tapes[] ? x : track(x.value, y)
 
 """
+run backward pass of a tracked output, returns the gradient of input.
 
+example:
+
+```
+x = track([1,-1,1])
+p = track([2,3,4], x)
+y = x .* p
+back!(y, [1,1,1]) // =>[2,3,4]
+getgrad(p) // =>[1,-1,1]
+```
 """
 function back!(x::AutoGrad.Rec)
     tape = x.tapes[]
@@ -43,14 +56,14 @@ function back!(x::AutoGrad.Rec, Δ)
 end
 
 """
-
+Get the gradient of a tracked variable. Return nothing if `x` is not used.
 """
 function getgrad(x::AutoGrad.Rec)
     x.nodes[].outgrad
 end
 
 """
-
+Set the gradient of a tracked variable.
 """
 function setgrad!(x::AutoGrad.Rec, Δ)
     x.nodes[].outgrad = Δ

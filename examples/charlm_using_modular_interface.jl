@@ -31,14 +31,13 @@ end
 
 # train model
 
-function bptt(seq, seqlen=length(seq), batchsize=length(seq[1]), lr=.005)
+function bptt!(seq, seqlen=length(seq), batchsize=length(seq[1]))
     seq = track(seq) # enable auto diff
-
-    h = ntuple(i->zeros(batchsize, 256), 4)
+    h   = ntuple(i->zeros(batchsize, 256), 4)
 
     loss = 0
     for i in 1:seqlen-1
-        y = seq.value[i+1]
+        y = getval(seq)[i+1]
         pred, h = model(seq[i], h)
         index = map(1:batchsize) do i
             batchsize * (y[i] - 1) + i
@@ -46,27 +45,27 @@ function bptt(seq, seqlen=length(seq), batchsize=length(seq[1]), lr=.005)
         loss += -sum(pred[index])
     end
 
-    println("loss: ", loss.value)
+    println("loss: ", getval(loss))
 
     back!(loss, 1)
-
-    for p in params(model)
-        p.value -= lr * getgrad(p)
-    end
 end
 
-for epoch in 1:20
+for epoch in 1:1000
     println("epoch: $epoch")
 
-    seqlen = min(20 + 10epoch, 150)
-    batchsize = 64
+    seqlen = min(20 + epoch, 150+rand(0:5))
+    batchsize = 32
 
     for nbatch in 0:length(data)÷(batchsize*seqlen)-2
         seq = map(1:seqlen) do i
             [findfirst(dict, data[nbatch*batchsize*seqlen + j*seqlen + i]) for j in 0:batchsize-1]
         end
 
-        bptt(seq)
+        bptt!(seq)
+
+        for p in params(model)
+            update!(getval(p), getgrad(p), lr=.001)
+        end
     end
 end
 
