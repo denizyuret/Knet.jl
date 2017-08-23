@@ -66,15 +66,16 @@ suspend GPU use temporarily, use `gpu(-1)`.
 
 `gpu(d::Int)` does not reset the devices.  You can select a previous
 device and find allocated memory preserved.  However trying to operate
-on arrays of an inactive device will result in error.
+on arrays of an inactive device will result in error unless p2p access is
+enabled (see uva.jl).
 
 """
 function gpu end
 
-let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
+let GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
-    gpu()=GPU
+    gpu()=(gpuCount() > 0) ? Int(cudaGetDevice()) : -1
 
     function gpuCount() # should not bomb when there is no gpu or nvidia libs
         if GPUCNT == -1
@@ -95,7 +96,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function gpu(i::Int)
-        (GPU == i) && return i
+        (gpu() == i) && return i
         if 0 <= i < gpuCount()
             @cuda(cudart,cudaSetDevice, (Cint,), i)
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
@@ -104,7 +105,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             i = -1
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
-        return (GPU = i)
+        return i
     end
 
     function gpu(usegpu::Bool)
