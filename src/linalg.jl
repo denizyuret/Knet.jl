@@ -216,7 +216,11 @@ end
 
 using Base.LinAlg
 using Base.LinAlg.BLAS: libblas, BlasInt
-using Compat: @blasfunc
+if VERSION >= v"0.5-"
+    using Base.LinAlg.BLAS: @blasfunc
+else
+    using Compat: @blasfunc
+end
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,

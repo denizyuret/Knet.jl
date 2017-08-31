@@ -11,7 +11,7 @@ function rand21(f,t,d...)
     elseif f==countnz || f==countnz2
         t(0.01)+rand(t,d...)
     elseif f==prod
-        exp(t(0.01)*randn(t,d...))
+        @compat exp.(t(0.01)*randn(t,d...))
     else
         randn(t,d...)
     end

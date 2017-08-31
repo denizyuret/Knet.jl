@@ -429,7 +429,7 @@ end
 # Also extra 1's at the end of I are ignored
 
 function getindex{T}(A::KnetArray{T}, I::Real...)
-    J = Base.to_indexes(I...)
+    J = ntuple(i->Int(I[i]), length(I)) # deprecated: Base.to_indexes(I...)
     @inbounds for j=1:length(J)
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
@@ -438,7 +438,7 @@ function getindex{T}(A::KnetArray{T}, I::Real...)
 end
 
 function setindex!{T}(A::KnetArray{T}, v, I::Real...)
-    J = Base.to_indexes(I...)
+    J = ntuple(i->Int(I[i]), length(I)) # deprecated: Base.to_indexes(I...)
     @inbounds for j=1:length(J)
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
@@ -1056,3 +1056,61 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=sum_outgrads_karray(A,X,find(I),c)
 
 end; end
+
+
+# The Broadcasted stuff below is a trick by @ylxdzsw to support julia v0.6.
+# https://github.com/JuliaLang/julia/issues/22060#issuecomment-304294397
+
+
+import Base: broadcast
+using AutoGrad: Broadcasted # , broadcast_func
+
+if VERSION >= v"0.6-"; @eval begin
+    # This works in conjunction with broadcast methods in AutoGrad/src/util.jl:
+    broadcast(f, x::Union{Number,AbstractArray,Rec,KnetArray}...)=f(Broadcasted.(x)...).value
+end; end
+
+# broadcast(f, x::KnetArray) = f(Broadcasted(x)).value
+# broadcast(f, x1::KnetArray, x2::KnetArray) = f(Broadcasted(x1), Broadcasted(x2)).value
+# broadcast(f, x1::KnetArray, x2) = f(Broadcasted(x1), x2).value
+# broadcast(f, x1, x2::KnetArray) = f(x1, Broadcasted(x2)).value
+
+# # Ambiguity fix
+# broadcast(f, x1::KnetArray, x2::AutoGrad.Rec) = f(Broadcasted(x1), AutoGrad.Broadcasted(x2)).value
+# broadcast(f, x1::AutoGrad.Rec, x2::KnetArray) = f(AutoGrad.Broadcasted(x1), Broadcasted(x2)).value
+
+function broadcast_func(f)
+    if VERSION >= v"0.6-"
+        bf = Symbol("broadcast#", lstrip(string(f), '.'))
+        if isdefined(Knet, bf)
+            # ok
+        elseif isdefined(AutoGrad, bf)
+            eval(Expr(:import, :AutoGrad, bf))
+        else
+            f = Symbol(f)
+            if isdefined(Base, f)
+                eval(Expr(:import, :Base, f))
+            end
+            @eval begin
+                $bf(x...) = broadcast($f, x...)
+                $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
+            end
+        end
+    else
+        bf = Symbol(f)
+        if isdefined(Base, bf)
+            eval(Expr(:import, :Base, bf))
+        else
+            warn("Base.$bf not defined")
+        end
+    end
+    return bf
+end
+
+# Single function example:
+# => sqrt.(x::KnetArray)   ## user
+# => broadcast(sqrt, x)    ## base
+# => sqrt(Broadcasted(x))  ## karray.jl:1070
+# => broadcast#sqrt(x)     ## karray.jl:1084
+# => sqrt(x)               ## unary.jl:84
+

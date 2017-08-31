@@ -12,6 +12,12 @@ reduction_ops = [
 ("countnz","countnz","ai+xi","(xi!=0)","0"),
 ]
 
+if VERSION >= v"0.6-"
+    reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+else
+    reduced_dims_compat(dims,region)=Base.reduced_dims(dims,region)
+end
+
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
     if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
@@ -28,7 +34,7 @@ function reduction_op(f, j=f, o...)
             end
             # Array->Vector reduction:
             function $J(x::KnetArray{$T}, region)
-                rdims = Base.reduced_dims(size(x), region)
+                rdims = reduced_dims_compat(size(x), region)
                 vdims = ndims(x)-length(region)
                 if length(region) != 1 || ndims(x) == 1
                     vdims = count(x->x>1,rdims)
@@ -89,17 +95,17 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
     if length(x) == 0
         zero(T)
     elseif p == 2
-        sqrt(sumabs2(x))
+        sqrt(sum(abs2,x))
     elseif p == 1
-        sumabs(x)
+        sum(abs,x)
     elseif p == Inf
-        maximum(abs(x))
+        maximum(abs,x)
     elseif p == 0
         countnz(x)
     elseif p == -Inf
-        minimum(abs(x))
+        minimum(abs,x)
     else
-        sum(abs(x).^p)^(1/p)
+        @compat sum(abs.(x).^p)^(1/p)
     end
 end
 
@@ -117,10 +123,10 @@ of `x` and `dims=2` sums rows of `x`.
 """
 function logsumexp(x,d...)
     xmax = maximum(x,d...)
-    xmax + log(sum(exp(x .- xmax),d...))
+    @compat xmax + log.(sum(exp.(x .- xmax),d...))
 end
 
-@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
+@primitive logsumexp(x,d...),dy,y  (@compat dy .* exp.(x .- y))
 
 # # The xentloss interface is no good because of double normalization.
 

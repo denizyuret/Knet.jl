@@ -40,11 +40,12 @@ broadcast_ops = [
 ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
 ]
 
-# broadcast_op overloads a Julia function for KnetArrays.
+# broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
 function broadcast_op(f, j=f, o...)
-    J=Symbol(j)
-    if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    J=broadcast_func(j)
+    # @show J
+    # if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
     for S in (32,64)
         T = Symbol("Float$S")
         F01 = "$(f)_$(S)_01"    # Scalar,Array->Array
@@ -160,17 +161,21 @@ function broadcast_op(f, j=f, o...)
                             # each kernel name ends with dimension count of result array
                             fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
                             types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
-                            expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
+                            if VERSION >= v"0.6-"
+                                expr=Expr(:call,:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
+                            else
+                                expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
+                            end
                             eval(expr)
                           end
                       end
 
                     return z
-                end
-            end
-        end
-    end
-end
+                end # if size(x)==size(y)
+            end # function $J
+        end # @eval
+    end # for
+end # function
 
 # TODO-enis, rewrite vbroadcast_shape or a similar but more general function
 # so that kernel branching is cleaner
@@ -266,50 +271,88 @@ import Base: +, -, *, /, \
 # tkelman: These two methods aren't necessary, and overwrite Base. You can get this behavior via max.(a,b), with @compat needed on 0.4.
 
 # Ambiguity fixes:
-max{T<:Real,S<:Real}(a::KnetArray{T},s::S)=max(T(s),a)
-max{T<:Real,S<:Real}(s::S,a::KnetArray{T})=max(T(s),a)
-min{T<:Real,S<:Real}(a::KnetArray{T},s::S)=min(T(s),a)
-min{T<:Real,S<:Real}(s::S,a::KnetArray{T})=min(T(s),a)
-max{T<:Real,S<:Number}(a::KnetArray{T},s::S)=max(T(s),a)
-max{T<:Real,S<:Number}(s::S,a::KnetArray{T})=max(T(s),a)
-min{T<:Real,S<:Number}(a::KnetArray{T},s::S)=min(T(s),a)
-min{T<:Real,S<:Number}(s::S,a::KnetArray{T})=min(T(s),a)
-(+)(a::KnetArray{Bool},s::Bool)=(.+)(s,a)
-(+)(s::Bool,a::KnetArray{Bool})=(.+)(s,a)
-(-)(a::KnetArray{Bool},s::Bool)=(.+)(-s,a)
-(-)(s::Bool,a::KnetArray{Bool})=(.-)(s,a)
-(.^)(x::Base.Irrational{:e}, a::KnetArray)=(.^)(float(x),a)
+if VERSION < v"0.6-"; @eval begin
+    max{T<:Real,S<:Real}(a::KnetArray{T},s::S)=max(T(s),a)
+    max{T<:Real,S<:Real}(s::S,a::KnetArray{T})=max(T(s),a)
+    min{T<:Real,S<:Real}(a::KnetArray{T},s::S)=min(T(s),a)
+    min{T<:Real,S<:Real}(s::S,a::KnetArray{T})=min(T(s),a)
+    max{T<:Real,S<:Number}(a::KnetArray{T},s::S)=max(T(s),a)
+    max{T<:Real,S<:Number}(s::S,a::KnetArray{T})=max(T(s),a)
+    min{T<:Real,S<:Number}(a::KnetArray{T},s::S)=min(T(s),a)
+    min{T<:Real,S<:Number}(s::S,a::KnetArray{T})=min(T(s),a)
+    (+)(a::KnetArray{Bool},s::Bool)=(.+)(s,a)
+    (+)(s::Bool,a::KnetArray{Bool})=(.+)(s,a)
+    (-)(a::KnetArray{Bool},s::Bool)=(.+)(-s,a)
+    (-)(s::Bool,a::KnetArray{Bool})=(.-)(s,a)
+    (.^)(x::Base.Irrational{:e}, a::KnetArray)=(.^)(float(x),a)
+end; end
+
+import Base: broadcast
 
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
-(.+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
-(.+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
-(.-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
-(.-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
-(.*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
-(.*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
-(./){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
-(./){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
-max{T}(a::KnetArray{T},s::Number)=max(T(s),a)
-max{T}(s::Number,a::KnetArray{T})=max(T(s),a)
-min{T}(a::KnetArray{T},s::Number)=min(T(s),a)
-min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
-(.^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
-# Pow is the one exception, we need to define a separate kernel:
-(.^){T}(a::KnetArray{T},s::Number)=rpow(T(s),a)
+if VERSION < v"0.6-"; @eval begin
+    (.+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
+    (.+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
+    (.-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
+    (.-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
+    (.*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
+    (.*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
+    (./){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
+    (./){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
+    max{T}(a::KnetArray{T},s::Number)=max(T(s),a)
+    max{T}(s::Number,a::KnetArray{T})=max(T(s),a)
+    min{T}(a::KnetArray{T},s::Number)=min(T(s),a)
+    min{T}(s::Number,a::KnetArray{T})=min(T(s),a)
+    (.^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
+    # Pow is the one exception, we need to define a separate kernel:
+    (.^){T}(a::KnetArray{T},s::Number)=rpow(T(s),a)
+end; else; @eval begin
+    $(broadcast_func(+)){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
+    $(broadcast_func(+)){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
+    $(broadcast_func(-)){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
+    $(broadcast_func(-)){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
+    $(broadcast_func(*)){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
+    $(broadcast_func(*)){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
+    $(broadcast_func(/)){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
+    $(broadcast_func(/)){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
+    $(broadcast_func(max)){T}(a::KnetArray{T},s::Number)=max.(T(s),a)
+    $(broadcast_func(max)){T}(s::Number,a::KnetArray{T})=max.(T(s),a)
+    $(broadcast_func(min)){T}(a::KnetArray{T},s::Number)=min.(T(s),a)
+    $(broadcast_func(min)){T}(s::Number,a::KnetArray{T})=min.(T(s),a)
+    $(broadcast_func(^)){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
+    # Pow is the one exception, we need to define a separate kernel:
+    rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
+    $(broadcast_func(^)){T}(a::KnetArray{T},s::Number)=rpow.(T(s),a)
+end; end
 
-.=={T}(a::KnetArray{T},s::Number)=(T(s).==a)
-.=={T}(s::Number,a::KnetArray{T})=(T(s).==a)
-.!={T}(a::KnetArray{T},s::Number)=(T(s).!=a)
-.!={T}(s::Number,a::KnetArray{T})=(T(s).!=a)
-.>{T}(a::KnetArray{T},s::Number)=(T(s).<a)
-.>{T}(s::Number,a::KnetArray{T})=(T(s).>a)
-.>={T}(a::KnetArray{T},s::Number)=(T(s).<=a)
-.>={T}(s::Number,a::KnetArray{T})=(T(s).>=a)
-.<{T}(a::KnetArray{T},s::Number)=(T(s).>a)
-.<{T}(s::Number,a::KnetArray{T})=(T(s).<a)
-.<={T}(a::KnetArray{T},s::Number)=(T(s).>=a)
-.<={T}(s::Number,a::KnetArray{T})=(T(s).<=a)
+if VERSION < v"0.6-"; @eval begin
+    .=={T}(a::KnetArray{T},s::Number)=(T(s).==a)
+    .=={T}(s::Number,a::KnetArray{T})=(T(s).==a)
+    .!={T}(a::KnetArray{T},s::Number)=(T(s).!=a)
+    .!={T}(s::Number,a::KnetArray{T})=(T(s).!=a)
+    .>{T}(a::KnetArray{T},s::Number)=(T(s).<a)
+    .>{T}(s::Number,a::KnetArray{T})=(T(s).>a)
+    .>={T}(a::KnetArray{T},s::Number)=(T(s).<=a)
+    .>={T}(s::Number,a::KnetArray{T})=(T(s).>=a)
+    .<{T}(a::KnetArray{T},s::Number)=(T(s).>a)
+    .<{T}(s::Number,a::KnetArray{T})=(T(s).<a)
+    .<={T}(a::KnetArray{T},s::Number)=(T(s).>=a)
+    .<={T}(s::Number,a::KnetArray{T})=(T(s).<=a)
+end; else; @eval begin
+    $(broadcast_func(==)){T}(a::KnetArray{T},s::Number)=(T(s).==a)
+    $(broadcast_func(==)){T}(s::Number,a::KnetArray{T})=(T(s).==a)
+    $(broadcast_func(!=)){T}(a::KnetArray{T},s::Number)=(T(s).!=a)
+    $(broadcast_func(!=)){T}(s::Number,a::KnetArray{T})=(T(s).!=a)
+    $(broadcast_func(>)){T}(a::KnetArray{T},s::Number)=(T(s).<a)
+    $(broadcast_func(>)){T}(s::Number,a::KnetArray{T})=(T(s).>a)
+    $(broadcast_func(>=)){T}(a::KnetArray{T},s::Number)=(T(s).<=a)
+    $(broadcast_func(>=)){T}(s::Number,a::KnetArray{T})=(T(s).>=a)
+    $(broadcast_func(<)){T}(a::KnetArray{T},s::Number)=(T(s).>a)
+    $(broadcast_func(<)){T}(s::Number,a::KnetArray{T})=(T(s).<a)
+    $(broadcast_func(<=)){T}(a::KnetArray{T},s::Number)=(T(s).>=a)
+    $(broadcast_func(<=)){T}(s::Number,a::KnetArray{T})=(T(s).<=a)
+end; end
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
 (+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
