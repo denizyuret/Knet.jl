@@ -7,15 +7,25 @@ reduction_ops = [
 ("prod","prod","ai*xi","xi","1"),
 ("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
 ("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
-("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
+("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
+("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
+#("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
+#("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
 ("countnz","countnz","ai+xi","(xi!=0)","0"),
 ]
 
 if VERSION >= v"0.6-"
     reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+    Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);     sumabs_(x,d...)=sum(abs,x,d...)
+    Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);   sumabs2_(x,d...)=sum(abs2,x,d...)
+#    Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...); minabs_(x,d...)=minimum(abs,x,d...)
+#    Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...); maxabs_(x,d...)=maximum(abs,x,d...)
 else
     reduced_dims_compat(dims,region)=Base.reduced_dims(dims,region)
+    Base.sumabs(x::KnetArray,d...)=sumabs_(x,d...);   sumabs_(x,d...)=sumabs(x,d...)
+    Base.sumabs2(x::KnetArray,d...)=sumabs2_(x,d...); sumabs2_(x,d...)=sumabs2(x,d...)
+#    Base.minabs(x::KnetArray,d...)=minabs_(x,d...);   minabs_(x,d...)=minabs(x,d...)
+#    Base.maxabs(x::KnetArray,d...)=maxabs_(x,d...);   maxabs_(x,d...)=maxabs(x,d...)
 end
 
 function reduction_op(f, j=f, o...)
@@ -91,21 +101,21 @@ import Base.LinAlg: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 
-function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+@compat function vecnorm{T}(x::KnetArray{T}, p::Real=2)
     if length(x) == 0
         zero(T)
     elseif p == 2
-        sqrt(sum(abs2,x))
+        sqrt(sumabs2_(x))
     elseif p == 1
-        sum(abs,x)
+        sumabs_(x)
     elseif p == Inf
-        maximum(abs,x)
+        maximum(abs.(x))
     elseif p == 0
         countnz(x)
     elseif p == -Inf
-        minimum(abs,x)
+        minimum(abs.(x))
     else
-        @compat sum(abs.(x).^p)^(1/p)
+        sum(abs.(x).^p)^(1/p)
     end
 end
 

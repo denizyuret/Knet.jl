@@ -11,7 +11,11 @@ function rand21(f,t,d...)
     elseif f==countnz || f==countnz2
         t(0.01)+rand(t,d...)
     elseif f==prod
-        @compat exp.(t(0.01)*randn(t,d...))
+        if VERSION >= v"0.6-"
+            exp.(t(0.01)*randn(t,d...))
+        else
+            exp(t(0.01)*randn(t,d...))
+        end
     else
         randn(t,d...)
     end
@@ -26,7 +30,7 @@ reduction_fns = Any[logsumexp]
 for f in Knet.reduction_ops
     if isa(f,Tuple); f=f[2]; end
     if f == "countnz"; continue; end
-    push!(reduction_fns, eval(parse(f)))
+    push!(reduction_fns, eval(Knet,parse(f)))
 end
 
 srand(42)

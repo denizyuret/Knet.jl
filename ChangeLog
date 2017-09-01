@@ -1,3 +1,18 @@
+2017-09-01  EC2 Default User  <ec2-user@ip-172-31-10-154.us-east-2.compute.internal>
+
+	* julia6-compat-todo:
+			julia4	julia5	julia6
+	kptr				1
+	gpu				1
+	distributions			1
+	update				1
+	karray				1
+	linalg				1
+	conv				1
+	broadcast			1
+	reduction			0 sumabs,sumabs2
+	unary				1
+
 2017-07-29  dyuret  <dyuret@cn6.kuacc.ku.edu.tr>
 
 	* julia6-compat-todo:
