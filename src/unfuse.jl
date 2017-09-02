@@ -32,7 +32,7 @@ function broadcast_func(f)
         if isdefined(Base, bf)
             eval(Expr(:import, :Base, bf))
         else
-            warn("Base.$bf not defined")
+            # warn("Base.$bf not defined")
         end
     end
     return bf
