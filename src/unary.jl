@@ -182,9 +182,9 @@ function logp(x,d...)
         # Expanding for profiling:
         x1 = maximum(x,d...)
         x2 = x .- x1
-        @compat x3 = exp.(x2)
+        x3 = exp_dot(x2)
         x4 = sum(x3,d...)
-        @compat x5 = log.(x4)
+        x5 = log_dot(x4)
         x6 = x2 .- x5
         return x6
     end
@@ -200,7 +200,7 @@ function logpback(x,y,dy,d...)
         # return (dy - exp(y).*sum(dy,d...))
         # Expanding for profiling:
         dx1 = sum(dy,d...)
-        @compat dx2 = exp.(y)
+        dx2 = exp_dot(y)
         dx3 = dx2 .* dx1
         dx4 = dy - dx3
         return dx4

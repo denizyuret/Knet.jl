@@ -2,16 +2,16 @@
 
 	* julia6-compat-todo:
 			julia4	julia5	julia6
-	kptr		cpu	cpu	1
-	gpu		-	-	1
-	distributions	cpu	cpu	1
-	update		cpu	cpu	1
-	karray		-	-	1
-	linalg		cpu	cpu	1
-	conv		cpu	cpu	1
-	broadcast	cpu	cpu	1
-	unary		cpu	cpu	1
-	reduction	cpu	cpu	cpu sumabs,sumabs2
+	kptr		1	1	1
+	gpu		1	1	1
+	distributions	1	1	1
+	update		1	1	1
+	karray		1	1	1
+	linalg		1	1	1
+	conv		1	1	1
+	broadcast	1	1	1
+	unary		1	1	1
+	reduction	1	1	1
 
 2017-07-29  dyuret  <dyuret@cn6.kuacc.ku.edu.tr>
 

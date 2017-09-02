@@ -40,7 +40,7 @@ srand(42)
     for f in reduction_fns
         for t in (Float32, Float64)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                @show f,t,n
+                #@show f,t,n
                 ax = rand21(f,t,n)
                 @test gradcheck(f, ax; rtol=TOL1)
                 @test gradcheck(f, ax, 1; rtol=TOL1)
@@ -59,7 +59,7 @@ srand(42)
             # gradcheck difficult to pass on large arrays due to numerical error
             if gpu() >= 0
                 for n in ((10,100000),(100000,10))
-                    @show f,t,n
+                    #@show f,t,n
                     ax = rand21(f,t,n)
                     gx = KnetArray(ax)
                     @test isapprox(f(ax),f(gx))
@@ -75,7 +75,7 @@ srand(42)
         for n in (1,(1,1),2,(2,1),(1,2),(2,2))
             ax = rand21(f,t,n)
             for p in (0,1,2,Inf,-Inf,1/pi,-1/pi,0+pi,-pi)
-                @show f,t,n,p
+                #@show f,t,n,p
                 @test gradcheck(f, ax, p; rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
@@ -91,7 +91,7 @@ srand(42)
     f2 = countnz2
     for t in (Float32, Float64)
         for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-            @show f,t,n
+            #@show f,t,n
             ax = rand21(f,t,n)
             @test gradcheck(f, ax; rtol=TOL1)
             @test gradcheck(f2, ax, 1; rtol=TOL1)
@@ -117,7 +117,7 @@ srand(42)
                 ax = rand21(f,t,xsize)
                 gx = nothing
 
-                @show f,t,dim,xsize
+                #@show f,t,dim,xsize
                 @test gradcheck(f,ax; rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
@@ -127,7 +127,7 @@ srand(42)
 
                 # test all combinations
                 for c in mapreduce(i->collect(combinations(1:dim,i)), vcat, 1:dim)
-                    @show f,t,dim,xsize,c
+                    #@show f,t,dim,xsize,c
                     @test gradcheck(f, ax, c; rtol=TOL1)
                     if gpu() >= 0 && gx != nothing
                         @test gradcheck(f,gx,c; rtol=TOL1)

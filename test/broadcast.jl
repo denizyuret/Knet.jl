@@ -94,7 +94,7 @@ srand(42)
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
             for (n1,n2) in size12
-                @show f,t,n1,n2 # Travis gives timeout here if no output
+                #@show f,t,n1,n2 # Travis gives timeout here if no output
                 a1 = rand11(f,t,n1)
                 a2 = rand11(f,t,n2)+t(1)
                 if t == Float64 # Float32 does not have enough precision for large arrays

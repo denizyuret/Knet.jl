@@ -160,10 +160,10 @@ of `x` and `dims=2` sums rows of `x`.
 """
 function logsumexp(x,d...)
     xmax = maximum(x,d...)
-    @compat xmax + log.(sum(exp.(x .- xmax),d...))
+    xmax + log_dot(sum(exp_dot(x .- xmax),d...))
 end
 
-@primitive logsumexp(x,d...),dy,y  (@compat dy .* exp.(x .- y))
+@primitive logsumexp(x,d...),dy,y  (dy .* exp_dot(x .- y))
 
 # # The xentloss interface is no good because of double normalization.
 

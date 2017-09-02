@@ -8,3 +8,7 @@ macro typealias6(t1,t2)
         Expr(:typealias, t1, t2)
     end
 end
+
+# @compat has issues, using the _dot functions from AutoGrad that work with Julia 4,5,6:
+
+using AutoGrad: exp_dot, log_dot, sqrt_dot, abs_dot, abs2_dot, sign_dot
