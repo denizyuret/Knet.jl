@@ -84,10 +84,12 @@ function unary_op(f, j=f, o...)
     end
 end
 
+#=
 for f in unary_ops
     if !isa(f,Tuple); f=(f,); end
     unary_op(f...)
 end
+=#
 
 # Define some common operations as primitives for efficiency:
 # 1. Avoid creating intermediate arrays
@@ -211,6 +213,7 @@ end
 @primitive  logp(x,d...),dy,y  logpback(x,y,dy,d...)
 
 
+#=
 for S in (32,64)
     T = Symbol("Float$S")
     forw = Symbol("dropout_$S")
@@ -227,6 +230,7 @@ for S in (32,64)
         end
     end
 end
+=#
 
 function dropout!(p,x,y)
     rand!(y)

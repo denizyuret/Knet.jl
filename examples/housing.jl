@@ -21,6 +21,7 @@ epoch and optimized parameters will be returned.
 """
 module Housing
 using Knet,ArgParse
+using Base: axpy!
 
 predict(w,x)=(w[1]*x.+w[2])
 

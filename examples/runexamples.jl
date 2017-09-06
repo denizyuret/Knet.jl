@@ -1,3 +1,12 @@
+using Knet
+include(Knet.dir("examples/linreg.jl"));  LinReg.main()
+include(Knet.dir("examples/housing.jl")); Housing.main()
+include(Knet.dir("examples/mnist.jl"));   MNIST.main()
+include(Knet.dir("examples/lenet.jl"));   LeNet.main()
+include(Knet.dir("examples/charlm.jl"));  CharLM.main()
+
+
+#=
 #          osx4 osx5 ai4  ai5
 # linreg   1.03 1.51 0.94 1.08
 # housing  0.01 0.01 0.01 0.01
@@ -26,3 +35,4 @@ for (p,f,o1,o2,o3) =
     m(o1); m(o2); m(o3)
     gc(); gpu() >= 0 && Knet.knetgc()
 end
+=#

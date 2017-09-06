@@ -13,14 +13,14 @@ using AutoGrad; export grad, gradloss, gradcheck, getval
 
 include("compat.jl");           # julia6 compat fixes
 include("gpu.jl");              export gpu
-include("cuarrays.jl")
+include("gpuarrays.jl");        export mat, logsumexp
 #include("kptr.jl");             # KnetPtr
 #include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx, logp, dropout
-include("broadcast.jl");        # elementwise broadcasting operations
-include("reduction.jl");        export logsumexp
-include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
+#include("broadcast.jl");        # elementwise broadcasting operations
+#include("reduction.jl");        export logsumexp
+#include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 #include("conv.jl");             export conv4, pool, deconv4, unpool
 include("update.jl"); 		export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!
 include("distributions.jl"); 	export gaussian, xavier, bilinear
