@@ -269,8 +269,8 @@ function vcat{T}(A::KnetVecOrMat{T}...)
 end
 
 function cat{T}(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)
-    if     d==1; vcat(a1, a...)
-    elseif d==2; hcat(a1, a...)
+    if     d==1 || d==Val{1}; vcat(a1, a...)
+    elseif d==2 || d==Val{2}; hcat(a1, a...)
     else error("cat($d,a...) not implemented.")
     end
 end

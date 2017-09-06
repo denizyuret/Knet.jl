@@ -16,7 +16,9 @@ for (p,f,o1,o2,o3) =
      (:Housing, "housing.jl", "--gcheck 2 --atype Array{Float64}", "--fast", "--fast"),
      (:MNIST, "mnist.jl", "--gcheck 2", "--fast", "--fast"),
      (:LeNet, "lenet.jl", "--gcheck 2", "--fast", "--fast"),
-     (:CharLM, "charlm.jl", "--gcheck 2 --winit 0.01", "--fast", "--fast"),
+     #(:CharLM, "charlm.jl", "--gcheck 2 --winit 0.01", "--fast", "--fast"),
+     # TODO: gcheck errors for charlm
+     (:CharLM, "charlm.jl", "--gcheck 2", "--fast", "--fast"),
     )
     gpu() < 0 && p == :LeNet && continue
     include(f)

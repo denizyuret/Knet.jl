@@ -62,7 +62,7 @@ function accuracy(w, dtst, pred=predict)
     ncorrect = ninstance = nloss = 0
     for (x, ygold) in dtst
         ypred = pred(w, x)
-        ynorm = ypred .- log(sum(exp(ypred),1))
+        ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
         nloss += -sum(ygold .* ynorm)
         ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
         ninstance += size(ygold,2)

@@ -43,6 +43,13 @@ Example usage:
 module CharLM
 using Knet,AutoGrad,ArgParse,Compat,JLD
 
+if VERSION >= v"0.6-"
+    sigm_dot(x)=sigm.(x)
+    tanh_dot(x)=tanh.(x)
+else
+    sigm_dot(x)=sigm(x)
+    tanh_dot(x)=tanh(x)
+end
 
 # LSTM implementation with a single matrix multiplication with
 # instances in rows rather than columns.  Julia is column major, so
@@ -58,12 +65,12 @@ using Knet,AutoGrad,ArgParse,Compat,JLD
 function lstm(weight,bias,hidden,cell,input)
     gates   = hcat(input,hidden) * weight .+ bias
     hsize   = size(hidden,2)
-    forget  = sigm(gates[:,1:hsize])
-    ingate  = sigm(gates[:,1+hsize:2hsize])
-    outgate = sigm(gates[:,1+2hsize:3hsize])
-    change  = tanh(gates[:,1+3hsize:end])
+    forget  = sigm_dot(gates[:,1:hsize])
+    ingate  = sigm_dot(gates[:,1+hsize:2hsize])
+    outgate = sigm_dot(gates[:,1+2hsize:3hsize])
+    change  = tanh_dot(gates[:,1+3hsize:end])
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+    hidden  = outgate .* tanh_dot(cell)
     return (hidden,cell)
 end
 
@@ -76,7 +83,7 @@ end
 function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(d...))
     bias(d...)=atype(zeros(d...))
-    model = Array(Any, 2*length(hidden)+3)
+    model = Array{Any}(2*length(hidden)+3)
     X = embed
     for k = 1:length(hidden)
         H = hidden[k]
@@ -96,7 +103,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     nlayers = div(length(model)-3,2)
-    state = Array(Any, 2*nlayers)
+    state = Array{Any}(2*nlayers)
     for k = 1:nlayers
         bias = model[2k]
         hidden = div(length(bias),4)
@@ -114,7 +121,8 @@ end
 # combination of tuple/array/dict.
 initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
 initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+# TODO: This breaks Julia4 parser:
+# initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a)
 initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # input: Dense token-minibatch input
@@ -131,7 +139,7 @@ function predict(model, state, input; pdrop=0)
 end
 
 function generate(model, tok2int, nchar)
-    int2tok = Array(Char, length(tok2int))
+    int2tok = Array{Char}(length(tok2int))
     for (k,v) in tok2int; int2tok[v] = k; end
     input = tok2int[' ']
     state = initstate(model, 1)
