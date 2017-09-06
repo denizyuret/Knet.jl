@@ -42,7 +42,7 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     return current <= ftol
 end
 
-gc(); Knet.knetgc(); gc()
+# gc(); Knet.knetgc(); gc()
 
 @testset "update!" begin
     w = randn(dims)
