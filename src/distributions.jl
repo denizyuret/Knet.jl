@@ -7,7 +7,9 @@ Return a Gaussian array with a given mean and standard deviation.  The
 
 """
 function gaussian(a...; mean=0.0, std=0.01)
-	return randn(a...) * std + mean;
+    r = randn(a...)
+    T = eltype(r)
+    r * T(std) + T(mean)
 end
 
 """
@@ -35,7 +37,7 @@ function xavier(a...)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = sqrt(2 / (fanin + fanout))
+    s = convert(eltype(w), sqrt(2 / (fanin + fanout)))
     w = 2s*w-s
 end
 
