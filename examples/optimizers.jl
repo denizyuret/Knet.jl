@@ -79,13 +79,19 @@ function train(w, prms, data; epochs=10, iters=6000)
     return w
 end
 
+if VERSION >= v"0.6-"
+    relu_dot(x)=relu.(x)
+else
+    relu_dot(x)=relu(x)
+end
+
 function predict(w,x,n=length(w)-4)
     for i=1:2:n
-        x = pool(relu(conv4(w[i],x; padding=0) .+ w[i+1]))
+        x = pool(relu_dot(conv4(w[i],x; padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2
-        x = relu(w[i]*x .+ w[i+1])
+        x = relu_dot(w[i]*x .+ w[i+1])
     end
     return w[end-1]*x .+ w[end]
 end
@@ -98,8 +104,8 @@ end
 
 lossgradient = grad(loss)
 
-function weights(;ftype=Float32,atype=KnetArray)
-    w = Array(Any,8)
+function weights(;atype=KnetArray{Float32})
+    w = Array{Any}(8)
     w[1] = xavier(Float32,5,5,1,20)
     w[2] = zeros(Float32,1,1,20,1)
     w[3] = xavier(Float32,5,5,20,50)
@@ -147,6 +153,7 @@ function minibatch4(x, y, batchsize; atype=KnetArray{Float32})
     return data
 end
 
+#= This is in Knet now
 function xavier(a...)
     w = rand(a...)
      # The old implementation was not right for fully connected layers:
@@ -164,7 +171,7 @@ function xavier(a...)
     s = sqrt(2 / (fanin + fanout))
     w = 2s*w-s
 end
-
+=#
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia optimizers.jl --epochs 10
