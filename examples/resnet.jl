@@ -19,6 +19,7 @@ Shaoqing Ren, Jian Sun, arXiv technical report 1512.03385, 2015.
 """
 module ResNet
 using Knet, AutoGrad, ArgParse, MAT, Images
+using Knet: exp_dot, relu_dot
 using Main.VGG: data, imgurl
 const modelurl =
     "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-101-dag.mat"
@@ -43,7 +44,7 @@ function main(args)
     if !isfile(o[:model])
         println("Should I download the ResNet-101 model (160MB)?",
                 " Enter 'y' to download, anything else to quit.")
-        readline() == "y\n" || return
+        readline()[1] == 'y' || return
         download(modelurl,o[:model])
     end
 
@@ -70,7 +71,7 @@ function main(args)
     @time y1 = resnet(w,img,ms)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)
-    p1 = exp(logp(z1))
+    p1 = exp_dot(logp(z1))
     display(hcat(p1[s1[1:o[:top]]], description[s1[1:o[:top]]]))
     println()
 end
@@ -156,7 +157,7 @@ function reslayerx0(w,x,ms; padding=0, stride=1, mode=1)
 end
 
 function reslayerx1(w,x,ms; padding=0, stride=1, mode=1)
-    relu(reslayerx0(w,x,ms; padding=padding, stride=stride, mode=mode))
+    relu_dot(reslayerx0(w,x,ms; padding=padding, stride=stride, mode=mode))
 end
 
 function reslayerx2(w,x,ms; pads=[0,1,0], strides=[1,1,1], mode=1)
@@ -168,11 +169,11 @@ end
 function reslayerx3(w,x,ms; pads=[0,0,1,0], strides=[2,2,1,1], mode=1) # 12
     a = reslayerx0(w[1:3],x,ms; stride=strides[1], padding=pads[1], mode=mode)
     b = reslayerx2(w[4:12],x,ms; strides=strides[2:4], pads=pads[2:4], mode=mode)
-    relu(a .+ b)
+    relu_dot(a .+ b)
 end
 
 function reslayerx4(w,x,ms; pads=[0,1,0], strides=[1,1,1], mode=1)
-    relu(x .+ reslayerx2(w,x,ms; pads=pads, strides=strides, mode=mode))
+    relu_dot(x .+ reslayerx2(w,x,ms; pads=pads, strides=strides, mode=mode))
 end
 
 function reslayerx5(w,x,ms; strides=[2,2,1,1], mode=1)

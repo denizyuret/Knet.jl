@@ -40,7 +40,7 @@ function main(args=ARGS)
     atype = eval(parse(o[:atype]))
     if !isfile(o[:model])
         println("Should I download the VGG model (492MB)? Enter 'y' to download, anything else to quit.")
-        readline() == "y\n" || return
+        readline()[1] == 'y' || return
         download(vggurl,o[:model])
     end
     info("Reading $(o[:model])")
