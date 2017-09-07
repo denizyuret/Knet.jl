@@ -1,3 +1,9 @@
+2017-09-06  EC2 Default User  <ec2-user@ip-172-31-24-9.us-east-2.compute.internal>
+
+	* julia6-compat-todo:
+	- examples/optimizers.jl too slow.
+	- examples/charlm.jl does not pass gradcheck.
+
 2017-09-01  EC2 Default User  <ec2-user@ip-172-31-10-154.us-east-2.compute.internal>
 
 	* julia6-compat-todo:
