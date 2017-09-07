@@ -3,7 +3,8 @@ for p in ("ArgParse","JLD","Knet")
 end
 
 module RNNLM; using ArgParse,JLD,Knet
-macro msg(_x) :(if logging>0; join(STDERR,[Dates.format(now(),"HH:MM:SS"), $_x,'\n'],' '); end) end
+using Knet: sigm_dot, tanh_dot
+macro msg(_x) :(if logging>0; join(STDERR,[Dates.format(now(),"HH:MM:SS"), $(esc(_x)),'\n'],' '); end) end
 macro log(_x) :(@msg($(string(_x))); $(esc(_x))) end
 
 # sequence[t]::Vector{Int} minibatch of tokens
@@ -51,12 +52,12 @@ end
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * vcat(hidden, input) .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,1)                            # 
-    forget  = sigm(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm_dot(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm_dot(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm_dot(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
+    change  = tanh_dot(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh_dot(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -74,7 +75,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 2N+3)
+    model = Array{Any}(2N+3)
     model[1] = init(embed,vocab+1) # Wm
     X = embed
     for n = 1:N
@@ -92,7 +93,7 @@ end
 let blank = nothing; global initstate; using AutoGrad
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = AutoGrad.getval(bh(model,n))
         hidden = div(length(bias),4)
@@ -122,13 +123,13 @@ function minibatch(data, B)
     data = sort(data, by=length)
     D = length(data)
     O = ceil(Int, D/B)
-    output = Array(Any, O)
+    output = Array{Any}(O)
     for o in 1:O
         d = min(length(data), o*B) # idx of longest seq
         T = length(data[d])+1   # +1 for final EOS
-        sbatch = Array(Any,T+1) # +1 for initial EOS
+        sbatch = Array{Any}(T+1) # +1 for initial EOS
         for t in 0:T
-            wbatch=Array(Int32,B)
+            wbatch=Array{Int32}(B)
             for b in 1:B
                 d = (o-1)*B+b
                 n = (d > length(data) ? 0 : length(data[d]))
