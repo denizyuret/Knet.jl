@@ -18,7 +18,7 @@ specify any model.
 
 """
 module VGG
-using Knet,ArgParse,Images,MAT
+using Knet,ArgParse,Images,MAT,Compat
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
 const vggurl = "http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-16.mat"
 const LAYER_TYPES = ["conv", "relu", "pool", "fc", "prob"]
@@ -56,7 +56,7 @@ function main(args=ARGS)
     @time y1 = convnet(image)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)
-    p1 = exp(logp(z1))
+    @compat p1 = exp.(logp(z1))
     display(hcat(p1[s1[1:o[:top]]], description[s1[1:o[:top]]]))
     println()
 end
@@ -128,7 +128,11 @@ end
 
 # convolutional network operations
 convx(x,w) = conv4(w[1], x; padding=1, mode=1) .+ w[2]
-relux = relu
+if VERSION >= v"0.6-"
+    relux(x) = relu.(x)
+else
+    relux(x) = relu(x)
+end
 poolx = pool
 probx(x) = x
 fcx(x,w) = w[1] * mat(x) .+ w[2]
