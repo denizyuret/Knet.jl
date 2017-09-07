@@ -1,8 +1,22 @@
 2017-09-06  EC2 Default User  <ec2-user@ip-172-31-24-9.us-east-2.compute.internal>
 
 	* julia6-compat-todo:
+	+ branches for cuarrays and gpu arrays
+	+ checkout autograd master in travis
+	- need to figure out how to handle cat in autograd.
+	- notebooks, vgg. resnet, prof
+	- test autocad examples
+	- test all examples on 4,5,6
+	- branch for reversediff?
+	- update news
+	- test on latest
+	- go thru issues
+	- speed test
 	- examples/optimizers.jl too slow.
 	- examples/charlm.jl does not pass gradcheck.
+	- new autograd interface
+	- broadcast without broadcast_func symbols
+
 
 2017-09-01  EC2 Default User  <ec2-user@ip-172-31-10-154.us-east-2.compute.internal>
 

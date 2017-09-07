@@ -17,8 +17,8 @@ notifications:
   email: false
 
 ## uncomment to test with the latest AutoGrad
-before_script:
-  - julia -e 'Pkg.add("AutoGrad"); Pkg.checkout("AutoGrad")'
+# before_script:
+#  - julia -e 'Pkg.add("AutoGrad"); Pkg.checkout("AutoGrad")'
 
 ## uncomment the following lines to override the default test script
 #script:

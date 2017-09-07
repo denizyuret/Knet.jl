@@ -3,9 +3,16 @@
 # Introduction to Knet
 
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) [![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet) [![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet) [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
 
-[![][buildbot-julia05-img]][buildbot-julia05-url] [![][buildbot-julia06-img]][buildbot-julia06-url] [![][buildbot-juliadev-img]][buildbot-juliadev-url]
+[![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet)
+
+[![][buildbot-julia05-img]][buildbot-julia05-url] 
+[![][buildbot-julia06-img]][buildbot-julia06-url] 
+[![][buildbot-juliadev-img]][buildbot-juliadev-url]
 
 [buildbot-julia05-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-julia05-x86-64bit&name=julia%200.5
 [buildbot-julia05-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-julia05-x86-64bit
