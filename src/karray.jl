@@ -190,6 +190,12 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 # Concatenation:
 import Base: hcat, vcat, cat
 
+# Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
+const NARK = Union{Number,AbstractArray,Rec,KnetArray}
+cat(::Type{Grad{1}},a::NARK...)=nothing # ambiguity fix
+cat{N}(::Type{Grad{N}},y1::NARK,y::NARK,dims::NARK,x::NARK...)=AutoGrad.uncat(y1,N-1,dims,x...) # ambiguity fix
+cat(dims, X::NARK...)=AutoGrad.cat_r(dims, X...)
+
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
 # hcat(a,a)	2350	225	16160
@@ -267,6 +273,8 @@ function vcat{T}(A::KnetVecOrMat{T}...)
     end
     return B
 end
+
+cat{T}(d::Type{Grad{1}}, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)=nothing # ambiguity fix
 
 function cat{T}(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)
     if     d==1 || d==Val{1}; vcat(a1, a...)
