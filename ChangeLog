@@ -3,14 +3,14 @@
 	* julia6-compat-todo:
 	+ branches for cuarrays and gpu arrays
 	+ checkout autograd master in travis
-	- need to figure out how to handle cat in autograd.
-	- notebooks, vgg. resnet, prof
-	- test autocad examples
-	- test all examples on 4,5,6
+	+ need to figure out how to handle cat in autograd.
+	+ notebooks, vgg. resnet, prof
+	+ test autocad examples
+	x test all examples on 4,5,6
+	+ update news: autograd done, knet done.
+	- go thru issues: autograd done, issues left.
 	- branch for reversediff?
-	- update news
 	- test on latest
-	- go thru issues
 	- speed test
 	- examples/optimizers.jl too slow.
 	- examples/charlm.jl does not pass gradcheck.

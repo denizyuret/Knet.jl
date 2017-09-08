@@ -1,5 +1,14 @@
+Knet v0.8.4 Release Notes
+=========================
+
+* Julia 0.6 compatibility fixes.
+* Fixed compiler flags in Makefile for compatibility.
+* charlm unicode character problem fixed.
+
+
 Knet v0.8.3 Release Notes
 =========================
+48d4924 on 2017-05-18
 
 General
 -------
