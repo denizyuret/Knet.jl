@@ -161,7 +161,7 @@ function broadcast_op(f, j=f, o...)
                             # each kernel name ends with dimension count of result array
                             fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
                             types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
-                            if VERSION >= v"0.6-"
+                            if VERSION >= v"0.6.0"
                                 expr=Expr(:call,:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
                             else
                                 expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
@@ -271,7 +271,7 @@ import Base: +, -, *, /, \
 # tkelman: These two methods aren't necessary, and overwrite Base. You can get this behavior via max.(a,b), with @compat needed on 0.4.
 
 # Ambiguity fixes:
-if VERSION < v"0.6-"; @eval begin
+if VERSION < v"0.6.0"; @eval begin
     max{T<:Real,S<:Real}(a::KnetArray{T},s::S)=max(T(s),a)
     max{T<:Real,S<:Real}(s::S,a::KnetArray{T})=max(T(s),a)
     min{T<:Real,S<:Real}(a::KnetArray{T},s::S)=min(T(s),a)
@@ -291,7 +291,7 @@ import Base: broadcast
 
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
-if VERSION < v"0.6-"; @eval begin
+if VERSION < v"0.6.0"; @eval begin
     (.+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
     (.+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
     (.-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
@@ -326,7 +326,7 @@ end; else; @eval begin
     $(broadcast_func(^)){T}(a::KnetArray{T},s::Number)=rpow.(T(s),a)
 end; end
 
-if VERSION < v"0.6-"; @eval begin
+if VERSION < v"0.6.0"; @eval begin
     .=={T}(a::KnetArray{T},s::Number)=(T(s).==a)
     .=={T}(s::Number,a::KnetArray{T})=(T(s).==a)
     .!={T}(a::KnetArray{T},s::Number)=(T(s).!=a)

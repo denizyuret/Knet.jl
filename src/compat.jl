@@ -2,7 +2,7 @@
 # const A{T} = B{T} only works after 0.6.
 # This does the right thing without causing warnings
 macro typealias6(t1,t2)
-    if VERSION >= v"0.6-"
+    if VERSION >= v"0.6.0"
         esc(:(const $t1 = $t2))
     else
         Expr(:typealias, t1, t2)
@@ -13,7 +13,7 @@ end
 
 using AutoGrad: exp_dot, log_dot, sqrt_dot, abs_dot, abs2_dot, sign_dot, tanh_dot
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     @eval relu_dot(x) = relu.(x)
     @eval sigm_dot(x) = sigm.(x)
 else

@@ -2,7 +2,7 @@
 
 # The entry format is (cudaname, julianame, merge, item, init)
 # ai is the accumulator, xi is the array element
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     import AutoGrad: sumabs_, sumabs2_, minabs_, maxabs_
     Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
     Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
@@ -20,7 +20,7 @@ if VERSION >= v"0.6-"
     ("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
     ("countnz","countnz","ai+xi","(xi!=0)","0"),
     ]
-else # if VERSION < v"0.6-"
+else # if VERSION < v"0.6.0"
     reduced_dims_compat(dims,region)=Base.reduced_dims(dims,region)
     reduction_ops = [
     ("sum","sum","ai+xi","xi","0"),
@@ -108,7 +108,7 @@ import Base.LinAlg: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     function vecnorm{T}(x::KnetArray{T}, p::Real=2)
         if length(x) == 0
             zero(T)

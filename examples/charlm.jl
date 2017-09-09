@@ -43,7 +43,7 @@ Example usage:
 module CharLM
 using Knet,AutoGrad,ArgParse,Compat,JLD
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     sigm_dot(x)=sigm.(x)
     tanh_dot(x)=tanh.(x)
 else

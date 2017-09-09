@@ -79,7 +79,7 @@ function train(w, prms, data; epochs=10, iters=6000)
     return w
 end
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     relu_dot(x)=relu.(x)
 else
     relu_dot(x)=relu(x)

@@ -11,7 +11,7 @@ function rand21(f,t,d...)
     elseif f==countnz || f==countnz2
         t(0.01)+rand(t,d...)
     elseif f==prod
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             exp.(t(0.01)*randn(t,d...))
         else
             exp(t(0.01)*randn(t,d...))

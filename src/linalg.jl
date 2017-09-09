@@ -216,7 +216,7 @@ end
 
 using Base.LinAlg
 using Base.LinAlg.BLAS: libblas, BlasInt
-if VERSION >= v"0.5-"
+if VERSION >= v"0.5.0"
     using Base.LinAlg.BLAS: @blasfunc
 else
     using Compat: @blasfunc

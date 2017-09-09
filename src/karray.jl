@@ -471,7 +471,7 @@ end
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
 
-if VERSION < v"0.5-"
+if VERSION < v"0.5.0"
     @typealias6 AbstractUnitRange UnitRange
 end
 

@@ -2,7 +2,7 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
         else
             fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
@@ -18,7 +18,7 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
         else
             fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
@@ -32,7 +32,7 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
         else
             fx = Expr(:ccall, ("$fun",libknet8), :Void, x...)

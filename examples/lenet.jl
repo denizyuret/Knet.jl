@@ -28,7 +28,7 @@ module LeNet
 using Knet,ArgParse,Main
 using MNIST: minibatch, accuracy
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     relu_dot(x)=relu.(x)
 else
     relu_dot(x)=relu(x)

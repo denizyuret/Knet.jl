@@ -20,7 +20,7 @@ broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
     in(f, exclude11) && continue
-    if VERSION >= v"0.6-"
+    if VERSION >= v"0.6.0"
         f0 = eval(parse(lstrip(f,'.')))
         f1 = x->broadcast(f0,x[1],x[2])
         f2 = (x1,x2)->broadcast(f0,x1,x2)
@@ -83,7 +83,7 @@ srand(42)
     @testset "array-array" begin
         date("broadcast: array-array")
         # for (f1,f) in broadcast_fns # takes too much time
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             f = (x1,x2)->broadcast(+,x1,x2)
             f1 = x->broadcast(+,x[1],x[2])
         else

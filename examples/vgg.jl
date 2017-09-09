@@ -128,7 +128,7 @@ end
 
 # convolutional network operations
 convx(x,w) = conv4(w[1], x; padding=1, mode=1) .+ w[2]
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     relux(x) = relu.(x)
 else
     relux(x) = relu(x)

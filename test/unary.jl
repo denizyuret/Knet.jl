@@ -10,7 +10,7 @@ function frand(f,t,d...)
     end
 end
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     bcast(f)=(x->broadcast(f,x))
 else
     bcast(f)=f

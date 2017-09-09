@@ -6,12 +6,12 @@
 import Base: broadcast
 using AutoGrad: Broadcasted # , broadcast_func
 
-if VERSION >= v"0.6-"; @eval begin
+if VERSION >= v"0.6.0"; @eval begin
     broadcast(f, x::Union{Number,AbstractArray,Rec,KnetArray}...)=f(Broadcasted.(x)...).value
 end; end
 
 function broadcast_func(f)
-    if VERSION >= v"0.6-"
+    if VERSION >= v"0.6.0"
         bf = Symbol("broadcast#", lstrip(string(f), '.'))
         if isdefined(Knet, bf)
             # ok

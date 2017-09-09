@@ -107,7 +107,7 @@ if gpu() >= 0
 
         @testset "cpu2gpu" begin
             # cpu/gpu xfer with grad support
-            if VERSION >= v"0.6-"
+            if VERSION >= v"0.6.0"
                 @test gradcheck(x->Array(sin.(KnetArray(x))),a)
                 @test gradcheck(x->KnetArray(sin.(Array(x))),k)
             else

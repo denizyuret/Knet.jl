@@ -293,7 +293,7 @@ end
 
 # Unary plus and minus
 import Base: +, .+, -, .-, broadcast
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     broadcast(::typeof(+), a::KnetArray)=a
     +(a::KnetArray)=a
     -(a::KnetArray)=broadcast(-,a)
