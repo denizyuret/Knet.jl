@@ -147,7 +147,7 @@ function generate(model, tok2int, nchar)
         embed = model[end-2][[input],:]
         ypred,state = predict(model,state,embed)
         ypred = ypred * model[end-1] .+ model[end]
-        input = sample(exp(logp(ypred)))
+        input = sample(exp.(logp(ypred)))
         print(int2tok[input])
     end
     println()
