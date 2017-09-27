@@ -6,6 +6,7 @@ Knet v0.8.5 Release Notes
 
 Knet v0.8.4 Release Notes
 =========================
+2a2cba3 on 2017-09-09
 
 * Julia 0.6 compatibility fixes.
 * Fixed compiler flags in Makefile for compatibility.
