@@ -1,3 +1,9 @@
+Knet v0.8.5 Release Notes
+=========================
+
+* Fixed dropout efficiency bug introduced in 0.8.4.
+* Fixed julia6 compat problem in examples/mnist.jl.
+
 Knet v0.8.4 Release Notes
 =========================
 
