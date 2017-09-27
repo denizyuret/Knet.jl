@@ -42,14 +42,7 @@ Example usage:
 """
 module CharLM
 using Knet,AutoGrad,ArgParse,Compat,JLD
-
-if VERSION >= v"0.6.0"
-    sigm_dot(x)=sigm.(x)
-    tanh_dot(x)=tanh.(x)
-else
-    sigm_dot(x)=sigm(x)
-    tanh_dot(x)=tanh(x)
-end
+using Knet: sigm_dot, tanh_dot
 
 # LSTM implementation with a single matrix multiplication with
 # instances in rows rather than columns.  Julia is column major, so
