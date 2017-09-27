@@ -97,14 +97,14 @@ function broadcast_op(f, j=f, o...)
                     # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
                 elseif !multi && xdims == 1
                     # x is vector to be broadcasted, then xlast is broadcasted dim
-                    brdcastdimstride = strides(y)[xlast]
+                    dim_stride = strides(y)[xlast]
                     # if broadcast dim is last dimension, nextstride is zero
-                    brdcastnextstride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
-                    multidimsize = prod(size(y)[xlast+1:end])
+                    next_stride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
+                    dim_size = prod(size(y)[xlast+1:end])
                     @knet8($F13_y_x,
                            (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
-                           y,x,z,brdcastdimstride,brdcastnextstride,
-                           multidimsize,length(y),length(x))
+                           y,x,z,dim_stride,next_stride,
+                           dim_size,length(y),length(x))
                     # y is vector to be broadcasted, then ylast is broadcasted dim
                 elseif !multi && ydims == 1
                     dim_stride = strides(x)[ylast]
@@ -113,8 +113,8 @@ function broadcast_op(f, j=f, o...)
                         0 : strides(x)[ylast+1]
                     dim_size = prod(size(x)[ylast+1:end])
                     @knet8($F13_x_y,
-                           (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,
-                            Cint),x,y,z,dim_stride,next_stride,dim_size,
+                           (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
+                           x,y,z,dim_stride,next_stride,dim_size,
                            length(x), length(y))
                 elseif multi && ndims(z) <= 5
                     sx,sy,sz = get_strides(x,y,z)
@@ -129,7 +129,6 @@ function broadcast_op(f, j=f, o...)
                                   sy..., sz..., length(z))
                     end
                     eval(expr)
-                    # error("Broadcasting error,caused by new kernel setup")
                 elseif multi && ndims(z) > 5
                     stridexyz = get_strides(x,y,z)
                     sx,sy,sz = map(s->convert(KnetArray, s), stridexyz)
@@ -170,9 +169,10 @@ function vbroadcast_shape(x,y)
             # if x is 1 in that dim than no problem for broadcast
             if dz[i] == 1
                 dz[i] = size(y,i)
-            else
+            elseif dz[i] != size(y,i)
                 #  if also ydim is not 1 at the same position than cannot broadcast
-                dz[i] == size(y,i) || throw(DimensionMismatch("arrays could not be broadcast to a common size"))
+                throw(DimensionMismatch(
+                    "arrays could not be broadcast to a common size"))
             end
         end
         # x-ysame counts how many dimsize of z same with theirs
