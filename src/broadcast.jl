@@ -7,37 +7,37 @@
 # as much as I know that should affect performance for small data
 
 broadcast_ops = [
-("add",".+","xi+yi"),
-("sub",".-","xi-yi"),
-("mul",".*","xi*yi"),
-("div","./","xi/yi"),
-("pow",".^","pow(xi,yi)"),
-("max","max","(xi>yi?xi:yi)"),
-("min","min","(xi<yi?xi:yi)"),
-("eq",".==","xi==yi"),
-("ne",".!=","xi!=yi"),
-("gt",".>","xi>yi"),
-("ge",".>=","xi>=yi"),
-("lt",".<","xi<yi"),
-("le",".<=","xi<=yi"),
-# "hypot",
-# "rhypot",
-# "atan2",
-# "frexp",
-# "ldexp",
-# "scalbn",
-# "scalbln",
-# "jn",
-# "yn",
-# "fmod",
-# "remainder",
-# "mod",
-# "fdim",
-("invxback","invxback","(-xi*yi*yi)"),
-("reluback","reluback","(yi>0?xi:0)"),
-("sigmback","sigmback","(xi*yi*(1-yi))"),
-("tanhback","tanhback","(xi*(1-yi*yi))"),
-("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
+    ("add",".+","xi+yi"),
+    ("sub",".-","xi-yi"),
+    ("mul",".*","xi*yi"),
+    ("div","./","xi/yi"),
+    ("pow",".^","pow(xi,yi)"),
+    ("max","max","(xi>yi?xi:yi)"),
+    ("min","min","(xi<yi?xi:yi)"),
+    ("eq",".==","xi==yi"),
+    ("ne",".!=","xi!=yi"),
+    ("gt",".>","xi>yi"),
+    ("ge",".>=","xi>=yi"),
+    ("lt",".<","xi<yi"),
+    ("le",".<=","xi<=yi"),
+    # "hypot",
+    # "rhypot",
+    # "atan2",
+    # "frexp",
+    # "ldexp",
+    # "scalbn",
+    # "scalbln",
+    # "jn",
+    # "yn",
+    # "fmod",
+    # "remainder",
+    # "mod",
+    # "fdim",
+    ("invxback","invxback","(-xi*yi*yi)"),
+    ("reluback","reluback","(yi>0?xi:0)"),
+    ("sigmback","sigmback","(xi*yi*(1-yi))"),
+    ("tanhback","tanhback","(xi*(1-yi*yi))"),
+    ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
 ]
 
 # broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
@@ -82,25 +82,25 @@ function broadcast_op(f, j=f, o...)
                     # if it is not multi dimension broadcast, that can be applied vector oprimisations
                     if !multi
 
-                      #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
-                      # if you change those numbers update tests as well
-                      # firstdimFlag= (xdims==1 && xlast==1) || (ydims==1 && ylast==1)
-                      #
-                      # if firstdimFlag
-                      #   flat_dimsize=((xdims==1) ? (length(y)/length(x)) : (ydims==1) ? (length(x)/length(y)): -1)
-                      #   # if   100<=flat_dimsize<128, if 128<=flat_dimsize<512, if 512<=flat_dimsize
-                      #   #then      first_dimsize>2048,        first_dimsize>512,  first_dimsize>100 should be
-                      #   # true if x is a vector that satisfies requirements
-                      #   xvectorFlag= (xdims==1) ? ((length(x)>=2048 && (100<=flat_dimsize<128 )) || (length(x)>=512 && (128<=flat_dimsize<512 )) || (length(x)>=100 && (512<=flat_dimsize ))) : false
-                      #   yvectorFlag= (ydims==1) ? ((length(y)>=2048 && (100<=flat_dimsize<128 )) || (length(y)>=512 && (128<=flat_dimsize<512 )) || (length(y)>=100 && (512<=flat_dimsize ))) : false
-                      # end
-                      # if (firstdimFlag && (xvectorFlag || yvectorFlag))
-                      #       if (xdims==1)
-                      #         # x is vector to be broadcasted,
-                      #         @knet8($F14_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),y,x,z,length(x),length(y),flat_dimsize)
-                      #       else
-                      #         @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize)
-                      #       end
+                        #  broadcasting first dimension and broadcast dim more than 127 and bigger dims are bigger than 511
+                        # if you change those numbers update tests as well
+                        # firstdimFlag= (xdims==1 && xlast==1) || (ydims==1 && ylast==1)
+                        #
+                        # if firstdimFlag
+                        #   flat_dimsize=((xdims==1) ? (length(y)/length(x)) : (ydims==1) ? (length(x)/length(y)): -1)
+                        #   # if   100<=flat_dimsize<128, if 128<=flat_dimsize<512, if 512<=flat_dimsize
+                        #   #then      first_dimsize>2048,        first_dimsize>512,  first_dimsize>100 should be
+                        #   # true if x is a vector that satisfies requirements
+                        #   xvectorFlag= (xdims==1) ? ((length(x)>=2048 && (100<=flat_dimsize<128 )) || (length(x)>=512 && (128<=flat_dimsize<512 )) || (length(x)>=100 && (512<=flat_dimsize ))) : false
+                        #   yvectorFlag= (ydims==1) ? ((length(y)>=2048 && (100<=flat_dimsize<128 )) || (length(y)>=512 && (128<=flat_dimsize<512 )) || (length(y)>=100 && (512<=flat_dimsize ))) : false
+                        # end
+                        # if (firstdimFlag && (xvectorFlag || yvectorFlag))
+                        #       if (xdims==1)
+                        #         # x is vector to be broadcasted,
+                        #         @knet8($F14_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),y,x,z,length(x),length(y),flat_dimsize)
+                        #       else
+                        #         @knet8($F14_x_y,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize)
+                        #       end
                         # TODO-enis, broadcasting one element array might have done faster, like scalar to array broadcast
                         # if it is just one element, or broadcasting first dimension(or broadcast stride less than 512) ,or broadcast dimsize small than 704,call old-kernel
                         # if you change those numbers update tests as well
@@ -108,11 +108,11 @@ function broadcast_op(f, j=f, o...)
                         # n_block_13 = (B_N+(BLOCK_SIZE_y/2)-1)/(BLOCK_SIZE_y/2);
                         # if div((ny+15),16)<45
                         # div(brdcastdimstride,64)<8)
-                      if (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || 512<sx )) || (ydims==1 && (ylast==1 || sy<512 ))) || (xdims==1 && nx<704) || (ydims==1 && (ny<704)))
+                        if (nx==1 || ny==1 || ((xdims==1 && (xlast==1 || 512<sx )) || (ydims==1 && (ylast==1 || sy<512 ))) || (xdims==1 && nx<704) || (ydims==1 && (ny<704)))
                             @knet8($F12,(Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),length(z),x,sx,nx,y,sy,ny,z)
-                        # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
+                            # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
 
-                      else
+                        else
                             # x is vector to be broadcasted, then xlast is broadcasted dim
                             if (xdims==1)
                                 brdcastdimstride = strides(y)[xlast]
@@ -120,7 +120,7 @@ function broadcast_op(f, j=f, o...)
                                 brdcastnextstride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
                                 multidimsize = prod(size(y)[xlast+1:end])
                                 @knet8($F13_y_x,(Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),y,x,z,brdcastdimstride,brdcastnextstride,multidimsize,length(y),length(x))
-                            # y is vector to be broadcasted, then ylast is broadcasted dim
+                                # y is vector to be broadcasted, then ylast is broadcasted dim
                             elseif (ydims==1)
                                 brdcastdimstride = strides(x)[ylast]
                                 # if broadcast last dimension, nextstride is zero
@@ -131,7 +131,7 @@ function broadcast_op(f, j=f, o...)
                                 error("Broadcasting error,caused by new kernel setup")
                             end
                         end
-                    # multi dimensional broadcast
+                        # multi dimensional broadcast
                     else
                         # dimcount_z=ndims(z);
                         stride_x=collect(Int32,strides(x));
@@ -151,30 +151,30 @@ function broadcast_op(f, j=f, o...)
                             end
                         end
 
-                        if ndims(z)>5
-                            stride_x=KnetArray(stride_x);
-                            stride_y=KnetArray(stride_y);
-                            stride_z=KnetArray(stride_z);
+if ndims(z)>5
+    stride_x=KnetArray(stride_x);
+    stride_y=KnetArray(stride_y);
+    stride_z=KnetArray(stride_z);
 
-                            @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
-                        else
-                            # each kernel name ends with dimension count of result array
-                            fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
-                            types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
-                            if VERSION >= v"0.6.0"
-                                expr=Expr(:call,:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
-                            else
-                                expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
-                            end
-                            eval(expr)
-                          end
-                      end
+    @knet8($F17,(Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),x,y,z, stride_x, stride_y,stride_z, length(z), ndims(z))
+else
+    # each kernel name ends with dimension count of result array
+    fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
+    types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},ntuple(i->Cint,ndims(z)*3+1)...)
+    if VERSION >= v"0.6.0"
+        expr=Expr(:call,:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
+    else
+        expr=Expr(:ccall,fname,Void,types,x,y,z,stride_x..., stride_y..., stride_z..., length(z))
+    end
+    eval(expr)
+end
+end
 
-                    return z
-                end # if size(x)==size(y)
-            end # function $J
-        end # @eval
-    end # for
+return z
+end # if size(x)==size(y)
+end # function $J
+end # @eval
+end # for
 end # function
 
 # TODO-enis, rewrite vbroadcast_shape or a similar but more general function
@@ -221,18 +221,18 @@ function vbroadcast_shape(x,y)
     #x is only one element array
     if xdims == 0
         sx = zlen; nx = 1
-    #x is a vector than sx=1 because xlast-1 is zero
+        #x is a vector than sx=1 because xlast-1 is zero
     elseif xdims == 1
         #in that case xlast is broadcasting dim
         #so sx is stride of broadcasting dim in the z
         sx = prod(dz[1:xlast-1]); nx=dz[xlast]
-    # x is the N dim array
+        # x is the N dim array
     elseif xsame == nz
         sx = 1; nx=zlen
     else
         if !multi
-          sx=-1
-          error("Broadcasting error")
+            sx=-1
+            error("Broadcasting error")
         end
     end
     if ydims == 0
@@ -242,9 +242,9 @@ function vbroadcast_shape(x,y)
     elseif ysame == nz
         sy = 1; ny=zlen
     else
-      if !multi
-        error("Broadcasting error")
-      end
+        if !multi
+            error("Broadcasting error")
+        end
     end
     return (tuple(dz...), sx, nx, sy, ny,xlast,ylast,xdims,ydims,multi)
 end
@@ -259,8 +259,8 @@ end
 # Additional imports: fns in broadcast_ops are imported in broadcast_op()
 import Base: +, -, *, /, \
 
-# Here we'll just define some functions that specifically do not have broadcasting.
-(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
+    # Here we'll just define some functions that specifically do not have broadcasting.
+    (+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
 (-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
 #(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
 #(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
