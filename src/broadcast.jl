@@ -152,69 +152,61 @@ function vbroadcast_shape(x,y)
     nz = max(ndims(x),ndims(y))
     dz = ones(Int,nz)
     xdims = ydims = xsame = ysame = xlast = ylast = 0; zlen = 1;
-    # define for multi=true case
-    sx=sy=-1;nx=ny=-1;
-    # for each dimension
-    for i=1:nz
+    sx = sy = -1;
+    nx = ny = -1;
+
+    for i = 1:nz
         # xdims: number of xdims != 1
         # xlast: last index != 1
-        # dz: is filled with biggest dim sizes from each array
-        #  if size of a dim in X bigger than 1
+
         if size(x,i) > 1
             xdims += 1; xlast = i
             dz[i] = size(x,i)
         end
         if size(y,i) > 1
             ydims += 1; ylast = i
-            # if x is 1 in that dim than no problem for broadcast
             if dz[i] == 1
                 dz[i] = size(y,i)
             elseif dz[i] != size(y,i)
-                #  if also ydim is not 1 at the same position than cannot broadcast
                 throw(DimensionMismatch(
                     "arrays could not be broadcast to a common size"))
             end
         end
-        # x-ysame counts how many dimsize of z same with theirs
+
         xsame += (dz[i] == size(x,i))
         ysame += (dz[i] == size(y,i))
         zlen *= dz[i]
     end
-    # now all broadcast dims are supported
-    # set $multi True, if other vector optimised kernels cannot be used
-    multi=false
+
+    multi = false
     if (xsame != nz && xdims > 1) || (ysame != nz && ydims > 1)
         multi = true
     end
 
-    #x is only one element array
     if xdims == 0
         sx = zlen; nx = 1
-        #x is a vector than sx=1 because xlast-1 is zero
     elseif xdims == 1
-        #in that case xlast is broadcasting dim
-        #so sx is stride of broadcasting dim in the z
         sx = prod(dz[1:xlast-1]); nx=dz[xlast]
-        # x is the N dim array
     elseif xsame == nz
-        sx = 1; nx=zlen
-    else
-        if !multi
-            sx=-1
-            error("Broadcasting error")
-        end
+        sx = 1
+        nx = zlen
+    elseif !multi
+        error("Broadcasting error")
     end
+
     if ydims == 0
-        sy = zlen; ny = 1
+        sy = zlen
+        ny = 1
     elseif ydims == 1
-        sy = prod(dz[1:ylast-1]); ny=dz[ylast]
+        sy = prod(dz[1:ylast-1])
+        ny = dz[ylast]
     elseif ysame == nz
-        sy = 1; ny=zlen
-    else
-        if !multi
-            error("Broadcasting error")
-        end
+        sy = 1
+        ny = zlen
+    elseif !multi
+        error("Broadcasting error")
     end
+
     return (tuple(dz...), sx, nx, sy, ny,xlast,ylast,xdims,ydims,multi)
 end
 
@@ -246,8 +238,8 @@ end
 # Additional imports: fns in broadcast_ops are imported in broadcast_op()
 import Base: +, -, *, /, \
 
-    # Here we'll just define some functions that specifically do not have broadcasting.
-    (+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
+# Here we'll just define some functions that specifically do not have broadcasting.
+(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
 (-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
 #(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
 #(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
