@@ -5,7 +5,9 @@ using Knet
 # x* = f(1, · · · , 1)
 # f(x*) = 0
 
-rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
+function rosenbrock(x::AbstractArray{T}) where T
+    sum((T(1).- x[1:end-1]).^T(2) + T(100) * (x[2:end]-x[1:end-1].^T(2)).^T(2))
+end
 
 function rosenmulti(x)
     v = AutoGrad.getval(x)
@@ -28,15 +30,15 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     current = 1
     t0 = time()
     while i <= maxiter && abs(current - prev) > xtol && current > ftol
-	prev = current
-	g, current = rosengrad(w)
-	update!(w, g, params)
-	i += 1
+        prev = current
+        g, current = rosengrad(w)
+        update!(w, g, params)
+        i += 1
     end
     t1 = time()
     if verbose
         @printf("%s: f=%f iter=%-5d time=%.2f type=%s opt=%s\n",
-                (current <= ftol ? "PASS" : "FAIL"), 
+                (current <= ftol ? "PASS" : "FAIL"),
                 current, i-1, t1-t0, typeof(w), typeof(params))
     end
     return current <= ftol
@@ -74,4 +76,3 @@ end
 end
 
 nothing
-

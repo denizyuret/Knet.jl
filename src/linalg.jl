@@ -107,7 +107,7 @@ end
 
 """
 
-    mat(x) 
+    mat(x)
 
 Reshape x into a two-dimensional matrix.
 
@@ -202,7 +202,7 @@ function permutefunc{T,N}(x::KnetArray{T,N}, dims)
         error("$T not supported")
     end
     return funcName
-end    
+end
 
 function ipermutedims(A::KnetArray,perm)
     iperm = Array{Int}(length(perm))

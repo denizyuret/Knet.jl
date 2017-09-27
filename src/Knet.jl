@@ -18,8 +18,52 @@ include("gpuarrays.jl");        export mat, logsumexp
 #include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx, logp, dropout
-#include("broadcast.jl");        # elementwise broadcasting operations
-#include("reduction.jl");        export logsumexp
+broadcast_ops = [
+("add",".+","xi+yi"),
+("sub",".-","xi-yi"),
+("mul",".*","xi*yi"),
+("div","./","xi/yi"),
+("pow",".^","pow(xi,yi)"),
+("max","max","(xi>yi?xi:yi)"),
+("min","min","(xi<yi?xi:yi)"),
+("eq",".==","xi==yi"),
+("ne",".!=","xi!=yi"),
+("gt",".>","xi>yi"),
+("ge",".>=","xi>=yi"),
+("lt",".<","xi<yi"),
+("le",".<=","xi<=yi"),
+# "hypot",
+# "rhypot",
+# "atan2",
+# "frexp",
+# "ldexp",
+# "scalbn",
+# "scalbln",
+# "jn",
+# "yn",
+# "fmod",
+# "remainder",
+# "mod",
+# "fdim",
+("invxback","invxback","(-xi*yi*yi)"),
+("reluback","reluback","(yi>0?xi:0)"),
+("sigmback","sigmback","(xi*yi*(1-yi))"),
+("tanhback","tanhback","(xi*(1-yi*yi))"),
+("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
+]
+
+reduction_ops = [
+("sum","sum","ai+xi","xi","0"),
+("prod","prod","ai*xi","xi","1"),
+("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
+("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
+("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
+("maxabs","maxabs","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
+("minabs","minabs","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+("countnz","countnz","ai+xi","(xi!=0)","0"),
+]
+export logsumexp
 #include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 #include("conv.jl");             export conv4, pool, deconv4, unpool
 include("update.jl"); 		export Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop, update!

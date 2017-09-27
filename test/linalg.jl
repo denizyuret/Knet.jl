@@ -1,6 +1,7 @@
 include("header.jl")
 srand(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
+using Base.BLAS: axpy!
 
 @testset "linalg" begin
     for t in (Float32,Float64)

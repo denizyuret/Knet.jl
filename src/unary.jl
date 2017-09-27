@@ -99,7 +99,7 @@ for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
      (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
      (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
-     (:sigm, :sigmback, 
+     (:sigm, :sigmback,
       # Numerically stable implementation from
       # http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
       :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
@@ -182,7 +182,7 @@ function logp(x,d...)
         # x = x .- maximum(x,d...)
         # return (x .- log(sum(exp(x),d...)))
         # Expanding for profiling:
-        x1 = maximum(x,d...)
+        x1 = maximum(x, d...)
         x2 = x .- x1
         x3 = exp_dot(x2)
         x4 = sum(x3,d...)
@@ -234,29 +234,25 @@ end
 
 function dropout!(p,x,y)
     rand!(y)
-    p = convert(eltype(y),p)
-    q = 1-p
-    @inbounds for i=1:length(y)
-        if y[i] > p
-            y[i] = x[i] / q
+    T = eltype(y)
+    p̂ = convert(T, p)
+    q = T(1) - p
+    broadcast!(y, y, x, p̂, q) do a, b, _p, _q
+        if a > _p
+            b / _q
         else
-            y[i] = 0
+            oftype(a, 0)
         end
     end
-    return y
 end
 
 function dropback!(p,x,y,dy,dx)
-    p = convert(eltype(y),p)
-    q = 1-p
-    @inbounds for i=1:length(dx)
-        if y[i] == 0
-            dx[i] = 0
-        else
-            dx[i] = dy[i] / q
-        end
+    T = eltype(y)
+    p̂ = convert(T, p)
+    q = T(1) - p
+    broadcast!(dx, dx, dy, q) do a, b, _q
+        b == 0 ? b : b / _q
     end
-    return dx
 end
 
 """
@@ -267,7 +263,7 @@ which each element is 0 with probability `p` or `x[i]/(1-p)` with
 probability `1-p`.  See [(Srivastava et al. 2014)](http://jmlr.org/papers/v15/srivastava14a.html) for a reference.
 
 """
-function dropout(x,p; seed=0)
+function dropout(x, p; seed=0)
     if 0 < p < 1
         if seed != 0; setseed(seed); end
         dropout!(p,x,similar(x))

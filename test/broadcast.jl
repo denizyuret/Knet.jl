@@ -1,7 +1,7 @@
 include("header.jl")
 date(x)=(join(STDOUT,[Dates.format(now(),"HH:MM:SS"), x,'\n'],' '); flush(STDOUT))
-macro dbg(_x); end
-#macro dbg(_x); :(@show $(esc(_x))); end
+# macro dbg(_x); end
+macro dbg(_x); :(@show $(esc(_x))); end
 
 rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
 # we need symetric ones as well to test compare operations
@@ -69,8 +69,8 @@ srand(42)
                     a1 = rand11(f,t,n1)
                     a2 = rand11(f,t,n2)+t(1)
                     @test gradcheck(f1, Any[a1, a2])
-                    if gpu() >= 0 
-                        g1 = KnetArray(a1) 
+                    if gpu() >= 0
+                        g1 = KnetArray(a1)
                         g2 = KnetArray(a2)
                         @test isapprox(f(a1,a2),f(g1,g2))
                         @test gradcheck(f1, Any[g1, g2])
@@ -101,12 +101,14 @@ srand(42)
                     @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
                 end
                 if gpu() >= 0
+                    gc()
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
                     @test isapprox(f(a1,a2),f(g1,g2))
                     if t == Float64
                         @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
                     end
+                    gc()
                 end
             end
         end

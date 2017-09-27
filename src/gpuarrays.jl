@@ -1,8 +1,9 @@
-using GPUArrays
+using GPUArrays, CLArrays
+using Base.BLAS: axpy!
 #CuArrays.allowslow(false)
-const KnetArray = GPUArray
-const KnetVector{T} = GPUArray{T,1}
-const KnetMatrix{T} = GPUArray{T,2}
+const KnetArray = CLArray
+const KnetVector{T} = KnetArray{T,1}
+const KnetMatrix{T} = KnetArray{T,2}
 export KnetArray, KnetVector, KnetMatrix
 
 function logsumexp(x,d...)
