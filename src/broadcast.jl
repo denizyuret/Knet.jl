@@ -48,19 +48,17 @@ function broadcast_op(f, j=f, o...)
     # if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
     for S in (32,64)
         T = Symbol("Float$S")
-        F01 = "$(f)_$(S)_01"    # Scalar,Array->Array
-        F11 = "$(f)_$(S)_11"    # Array,Array->Array (same size) (not broadcast)
-        F12 = "$(f)_$(S)_12"    # Array,Array->Array (different size) (one have to be vector)
-        F13_x_y = "$(f)_$(S)_13_x_y"    # M-Array,N-Array->M-Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
-        F13_y_x = "$(f)_$(S)_13_y_x"   # x_y for correct ordering for compare operations,(kernel expects vector as second one)
-        # F14_x_y = "$(f)_$(S)_14_x_y"    # Array,Array->Array ((M(x,y,z,w,t...), N(w,1,1,1...))
-        # F14_y_x = "$(f)_$(S)_14_y_x"    # x_y for correct ordering for compare operations,(kernel expects vector as second one)
 
+        F01 = "$(f)_$(S)_01" # Scalar,Array->Array
+        F11 = "$(f)_$(S)_11" # Array,Array->Array (same size) (not broadcast)
+        F12 = "$(f)_$(S)_12" # Array,Array->Array (one have to be vector)
+        F13_x_y = "$(f)_$(S)_13_x_y" # e.g. (A(x,y,z,w,t...), B(1,1,1,w,1...))
+        F13_y_x = "$(f)_$(S)_13_y_x" # different versions for efficiency
+        # F14_x_y = "$(f)_$(S)_14_x_y" # e.g. (M(x,y,z,w,t...), N(w,1,1,1...)
+        # F14_y_x = "$(f)_$(S)_14_y_x" # different versions for efficiency
         # F15 reserved for another kernel, eliminated later and combined with F16
-        # loop unrolling (up to $unroll=ten dimensions)
-        F16 = "$(f)_$(S)_16"    # Array,Array->Array (Multi dimensional broadcast)
-        # for loop used, stride arrays passed
-        F17 = "$(f)_$(S)_17"    # Array,Array->Array (Multi dimensional broadcast)
+        F16 = "$(f)_$(S)_16" # multi-dimensional bcast unrolled up to 10 dims
+        F17 = "$(f)_$(S)_17" # multi-dimensional bcast with loops
 
         @eval begin
             # Scalar,Array->Array
@@ -70,7 +68,6 @@ function broadcast_op(f, j=f, o...)
                 return z
             end
             function $J(x::KnetArray{$T},y::KnetArray{$T})
-                # Array,Array->Array (same size) (not broadcast)
                 if size(x)==size(y)
                     z = similar(x)
                     @knet8($F11,(Cint,Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
@@ -81,8 +78,6 @@ function broadcast_op(f, j=f, o...)
                 (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) =
                     vbroadcast_shape(x,y)
                 z = similar(x,dz)
-                # if it is not multi dimension broadcast,
-                # that can be applied vector optimizations
 
                 if !multi &&
                     (nx == 1
@@ -94,21 +89,17 @@ function broadcast_op(f, j=f, o...)
                     @knet8($F12,
                            (Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),
                            length(z),x,sx,nx,y,sy,ny,z)
-                    # Array,Array->Array (M(x,y,z,w,t...), N(1,1,1,w,1...))
                 elseif !multi && xdims == 1
-                    # x is vector to be broadcasted, then xlast is broadcasted dim
                     dim_stride = strides(y)[xlast]
-                    # if broadcast dim is last dimension, nextstride is zero
-                    next_stride = ((xlast+1) > ndims(y) ? 0: strides(y)[xlast+1])
+                    next_stride = (xlast+1) > ndims(y) ?
+                        0 : strides(y)[xlast+1]
                     dim_size = prod(size(y)[xlast+1:end])
                     @knet8($F13_y_x,
                            (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
-                           y,x,z,dim_stride,next_stride,
-                           dim_size,length(y),length(x))
-                    # y is vector to be broadcasted, then ylast is broadcasted dim
+                           y,x,z,dim_stride,next_stride,dim_size,
+                           length(y),length(x))
                 elseif !multi && ydims == 1
                     dim_stride = strides(x)[ylast]
-                    # if broadcast last dimension, nextstride is zero
                     next_stride = (ylast+1) > ndims(x) ?
                         0 : strides(x)[ylast+1]
                     dim_size = prod(size(x)[ylast+1:end])
@@ -141,6 +132,7 @@ function broadcast_op(f, j=f, o...)
                 else
                     error("Broadcasting error,caused by new kernel setup")
                 end # if !multi ...
+
                 return z
             end # function $J
         end # @eval
