@@ -3,9 +3,6 @@
 # With single name entries cudaname=julianame and kernelcode=name(xi,yi).
 # I commented out functions if I don't know the Julia equivalent.
 
-#(TODO-enis) all kernels creating fix size of thread blocks,
-# as much as I know that should affect performance for small data
-
 broadcast_ops = [
     ("add",".+","xi+yi"),
     ("sub",".-","xi-yi"),
