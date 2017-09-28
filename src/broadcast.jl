@@ -54,7 +54,9 @@ function broadcast_op(f, j=f, o...)
         # F14_x_y = "$(f)_$(S)_14_x_y" # e.g. (M(x,y,z,w,t...), N(w,1,1,1...)
         # F14_y_x = "$(f)_$(S)_14_y_x" # different versions for efficiency
         # F15 reserved for another kernel, eliminated later and combined with F16
-        F16 = "$(f)_$(S)_16" # multi-dimensional bcast unrolled up to 10 dims
+        F16_3 = "$(f)_$(S)_16_3" # multi-dimensional bcast unrolled up to 5 dims
+        F16_4 = "$(f)_$(S)_16_4" # multi-dimensional bcast unrolled up to 5 dims
+        F16_5 = "$(f)_$(S)_16_5" # multi-dimensional bcast unrolled up to 5 dims
         F17 = "$(f)_$(S)_17" # multi-dimensional bcast with loops
 
         @eval begin
@@ -69,24 +71,34 @@ function broadcast_op(f, j=f, o...)
                     z = similar(x)
                     @knet8($F11,(Cint,Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
                     return z
+                else
+                    bs = vbroadcast_shape(x,y)
+                    z = similar(x,bs[1])
+                    $J(x,y,z,bs)
                 end
-
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
+                if length(x) == 1
+                    $J(x[1],y)
+                elseif length(y) == 1
+                    $J(x,y[1])
+                else # length(x) == length(y) was handled above
+                    throw(DimensionMismatch("$(map(size,(x,y,z)))"))
+                end
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,2},bs)
                 # xlast or ylast will be broadcasting dimension
-                (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) =
-                    vbroadcast_shape(x,y)
-                z = similar(x,dz)
-
-                if !multi &&
-                    (nx == 1
-                     || ny == 1
-                     || ((xdims == 1 && (xlast==1 || 512 < sx )) ||
-                         (ydims == 1 && (ylast==1 || sy < 512 )))
-                     || (xdims==1 && nx<704)
-                     || (ydims==1 && (ny<704)))
+                (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = bs
+                if (nx == 1
+                    || ny == 1
+                    || ((xdims == 1 && (xlast==1 || 512 < sx )) ||
+                        (ydims == 1 && (ylast==1 || sy < 512 )))
+                    || (xdims==1 && nx<704)
+                    || (ydims==1 && (ny<704)))
                     @knet8($F12,
                            (Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),
                            length(z),x,sx,nx,y,sy,ny,z)
-                elseif !multi && xdims == 1
+                elseif xdims == 1
                     dim_stride = strides(y)[xlast]
                     next_stride = (xlast+1) > ndims(y) ?
                         0 : strides(y)[xlast+1]
@@ -95,7 +107,7 @@ function broadcast_op(f, j=f, o...)
                            (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
                            y,x,z,dim_stride,next_stride,dim_size,
                            length(y),length(x))
-                elseif !multi && ydims == 1
+                elseif ydims == 1
                     dim_stride = strides(x)[ylast]
                     next_stride = (ylast+1) > ndims(x) ?
                         0 : strides(x)[ylast+1]
@@ -104,34 +116,40 @@ function broadcast_op(f, j=f, o...)
                            (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
                            x,y,z,dim_stride,next_stride,dim_size,
                            length(x), length(y))
-                elseif multi && ndims(z) <= 5
-                    sx,sy,sz = get_strides(x,y,z)
-                    fname=Expr(:tuple,string($F16,"_",ndims(z)),:libknet8)
-                    types=Expr(:tuple,Ptr{$T},Ptr{$T},Ptr{$T},
-                               ntuple(i->Cint,ndims(z)*3+1)...)
-                    if VERSION >= v"0.6.0"
-                        expr=Expr(:call,:ccall,fname,Void,types,x,y,z,
-                                  sx..., sy..., sz..., length(z))
-                    else
-                        expr=Expr(:ccall,fname,Void,types,x,y,z, sx...,
-                                  sy..., sz..., length(z))
-                    end
-                    eval(expr)
-                elseif multi && ndims(z) > 5
-                    stridexyz = get_strides(x,y,z)
-                    sx,sy,sz = map(s->convert(KnetArray, s), stridexyz)
-
-                    @knet8($F17,
-                           (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},
-                            Ptr{Cint},Cint,Cint),
-                           x,y,z, sx, sy, sz,
-                           length(z), ndims(z))
                 else
-                    error("Broadcasting error,caused by new kernel setup")
-                end # if !multi ...
-
+                    throw(DimensionMismatch("$(map(size,(x,y,z)))"))
+                end
                 return z
-            end # function $J
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
+                sx,sy,sz = get_strides(x,y,z)
+                @knet8($F16_3,
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       x,y,z, sx[1],sx[2],sx[3], sy[1],sy[2],sy[3], sz[1],sz[2],sz[3], length(z))
+                return z
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
+                sx,sy,sz = get_strides(x,y,z)
+                @knet8($F16_4,
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       x,y,z, sx[1],sx[2],sx[3],sx[4], sy[1],sy[2],sy[3],sy[4], sz[1],sz[2],sz[3],sz[4], length(z))
+                return z
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
+                sx,sy,sz = get_strides(x,y,z)
+                @knet8($F16_5,
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       x,y,z, sx[1],sx[2],sx[3],sx[4],sx[5], sy[1],sy[2],sy[3],sy[4],sy[5], sz[1],sz[2],sz[3],sz[4],sz[5], length(z))
+                return z
+            end
+            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T},bs)
+                # ndims(z) <= 5 handled above, this is for > 5
+                sx,sy,sz = map(s->convert(KnetArray, s), get_strides(x,y,z))
+                @knet8($F17,
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),
+                       x,y,z, sx, sy, sz, length(z), ndims(z))
+                return z
+            end
         end # @eval
     end # for
 end # function broadcast_op
