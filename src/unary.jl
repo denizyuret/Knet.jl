@@ -21,12 +21,6 @@ unary_ops = [
 # "cyl_bessel_i0",
 # "cyl_bessel_i1",
 
-# "erf",     # Removed from base in julia6
-# "erfc",
-# "erfcinv",
-# "erfcx",
-# "erfinv",
-
 "exp",
 "exp10",
 "exp2",
@@ -69,6 +63,15 @@ unary_ops = [
 # "y1",
 ]
 
+if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
+    push!(unary_ops,
+        "erf",     # Removed from base in julia6
+        "erfc",
+        "erfcinv",
+        "erfcx",
+        "erfinv")
+end
+
 function unary_op(f, j=f, o...)
     J=broadcast_func(j)
     for S in (32,64)
@@ -97,7 +100,7 @@ for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
      (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
      (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
-     (:sigm, :sigmback, 
+     (:sigm, :sigmback,
       # Numerically stable implementation from
       # http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
       :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),

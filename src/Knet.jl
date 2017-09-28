@@ -2,6 +2,9 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
 using Compat
+if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
+    using SpecialFunctions
+end
 
 # utilities for debugging and profiling.
 macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
