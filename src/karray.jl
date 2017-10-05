@@ -42,7 +42,7 @@ operations.
 
 * Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
   sumabs2, vecnorm.
-    
+
 * Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
 
 * Knet extras: relu, sigm, invx, logp, logsumexp, conv4, pool,
@@ -354,12 +354,12 @@ summary(a::KnetDisplay) = summary(a.a)
 summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
 
-# Hack for JLD file load/save of KnetArrays:
-if Pkg.installed("JLD") != nothing
-    import JLD: writeas, readas
+using Requires
+
+@require JLD begin
     type KnetJLD; a::Array; end
-    writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = (gpu() >= 0 ? KnetArray(d.a) : d.a)
+    JLD.writeas(c::KnetArray) = KnetJLD(Array(c))
+    JLD.readas(d::KnetJLD) = (gpu() >= 0 ? KnetArray(d.a) : d.a)
 end
 
 # Array/KnetArray Transfer
