@@ -6,6 +6,7 @@ General
 * Fixed memory leak with certain broadcast kernels (@ilkerkesen).
 * Fixed dropout efficiency bug introduced in 0.8.4.
 * Added conditional support for SpecialFunctions.
+* Added Nesterov optimizer (@CarloLucibello).
 
 Documentation and Examples
 --------------------------
