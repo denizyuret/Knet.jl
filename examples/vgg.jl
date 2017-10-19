@@ -72,7 +72,7 @@ function data(img, averageImage)
     i1 = div(size(a1,1)-224,2)
     j1 = div(size(a1,2)-224,2)
     b1 = a1[i1+1:i1+224,j1+1:j1+224]
-    c1 = permutedims(channelview(b1), (3,2,1))
+    c1 = permutedims(collect(channelview(b1)), (3,2,1))
     d1 = convert(Array{Float32}, c1)
     e1 = reshape(d1[:,:,1:3], (224,224,3,1))
     f1 = (255 * e1 .- averageImage)
