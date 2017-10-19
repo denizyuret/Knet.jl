@@ -36,7 +36,7 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     t1 = time()
     if verbose
         @printf("%s: f=%f iter=%-5d time=%.2f type=%s opt=%s\n",
-                (current <= ftol ? "PASS" : "FAIL"), 
+                (current <= ftol ? "PASS" : "FAIL"),
                 current, i-1, t1-t0, typeof(w), typeof(params))
     end
     return current <= ftol
@@ -49,6 +49,7 @@ gc(); Knet.knetgc(); gc()
     # CPU Tests
     @test rosenopt(copy(w),Sgd(lr=0.0005))
     @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
+    @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
     @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
     @test rosenopt(copy(w),Adagrad(lr=0.35, eps=1e-6))
     @test rosenopt(copy(w),Adadelta(lr=0.01, rho=0.5, eps=1e-6))
@@ -62,6 +63,7 @@ gc(); Knet.knetgc(); gc()
         w = KnetArray(w) #GPU Tests
         @test rosenopt(copy(w),Sgd(lr=0.0005))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
+        @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
         @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
         @test rosenopt(copy(w),Adagrad(lr=0.35, eps=1e-6))
         @test rosenopt(copy(w),Adadelta(lr=0.01, rho=0.5, eps=1e-6))
@@ -74,4 +76,3 @@ gc(); Knet.knetgc(); gc()
 end
 
 nothing
-

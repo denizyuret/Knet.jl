@@ -30,13 +30,13 @@ function main(args=ARGS)
         ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
 	("--eps"; arg_type=Float64; default=1e-6; help="epsilon parameter used in adam, adagrad, adadelta")
-	("--gamma"; arg_type=Float64; default=0.95; help="gamma parameter used in momentum")
+	("--gamma"; arg_type=Float64; default=0.95; help="gamma parameter used in momentum and nesterov")
 	("--rho"; arg_type=Float64; default=0.9; help="rho parameter used in adadelta and rmsprop")
 	("--beta1"; arg_type=Float64; default=0.9; help="beta1 parameter used in adam")
 	("--beta2"; arg_type=Float64; default=0.95; help="beta2 parameter used in adam")
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--iters"; arg_type=Int; default=6000; help="number of updates for training")
-	("--optim"; default="Sgd"; help="optimization method (Sgd, Momentum, Adam, Adagrad, Adadelta, Rmsprop)")
+	("--optim"; default="Sgd"; help="optimization method (Sgd, Momentum, Nesterov, Adagrad, Adadelta, Rmsprop, Adam)")
     end
     println(s.description)
     isa(args, AbstractString) && (args=split(args))
@@ -123,14 +123,16 @@ function params(ws, o)
 			prm = Sgd(;lr=o[:lr])
 		elseif o[:optim] == "Momentum"
 			prm = Momentum(lr=o[:lr], gamma=o[:gamma])
-		elseif o[:optim] == "Adam"
-			prm = Adam(lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
+		elseif o[:optim] == "Nesterov"
+			prm = Nesterov(lr=o[:lr], gamma=o[:gamma])
 		elseif o[:optim] == "Adagrad"
 			prm = Adagrad(lr=o[:lr], eps=o[:eps])
 		elseif o[:optim] == "Adadelta"
 			prm = Adadelta(lr=o[:lr], rho=o[:rho], eps=o[:eps])
 		elseif o[:optim] == "Rmsprop"
 			prm = Rmsprop(lr=o[:lr], rho=o[:rho], eps=o[:eps])
+		elseif o[:optim] == "Adam"
+			prm = Adam(lr=o[:lr], beta1=o[:beta1], beta2=o[:beta2], eps=o[:eps])
 		else
 			error("Unknown optimization method!")
 		end
