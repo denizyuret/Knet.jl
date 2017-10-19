@@ -283,6 +283,11 @@ function cat{T}(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)
     end
 end
 
+# Avoid using Base for unimplemented cat methods:
+
+cat(d, a::KnetArray, as::KnetArray...)=throw(MethodError(cat, (a, as...)))
+hcat(a::KnetArray, as::KnetArray...)=throw(MethodError(hcat, (a, as...)))
+vcat(a::KnetArray, as::KnetArray...)=throw(MethodError(vcat, (a, as...)))
 
 # Utilities:
 
