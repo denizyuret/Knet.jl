@@ -224,6 +224,7 @@ Now let's train a model on the MNIST data:
 
 ```julia
 julia> include(Knet.dir("examples","mnist.jl"))
+julia> MNIST.loaddata()
 julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
 julia> dtrn = minibatch(xtrn, ytrn, 100)
 julia> dtst = minibatch(xtst, ytst, 100)
