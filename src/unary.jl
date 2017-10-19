@@ -292,7 +292,6 @@ function dropback(x,p,y,dy)
 end
 
 @primitive dropout(x,p;o...),dy,y dropback(x,p,y,dy)
-#TODO: this breaks compile: 
 @zerograd dropback(x,p,y,dy)
 
 # Unary plus and minus
@@ -305,3 +304,8 @@ else; @eval begin
     +(a::KnetArray)=a
     .+(a::KnetArray)=a
 end; end
+
+# Fix for the exp.(::KnetArray) dot notation in Julia5 (#173)
+if v"0.5-" <= VERSION < v"0.6-"
+    broadcast(f, a::KnetArray...)=f(a...)
+end
