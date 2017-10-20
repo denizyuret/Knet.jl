@@ -13,7 +13,7 @@ arch = CUDAapi.shader(cap)
 #     Pkg.checkout("AutoGrad")
 # end
 
-cd("../src") do
+cd(joinpath(dirname(@__DIR__), "src")) do
     flags = join(toolchain.flags, " ")
     run(`make NVCC=$(toolchain.nvcc) NVCCFLAGS="$flags --gpu-architecture $arch"`)
 end
