@@ -41,7 +41,7 @@ dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
 
 # See if we have a gpu at initialization:
-function __init__()
+@init begin
     try
         r = gpu(true)
         # info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
