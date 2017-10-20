@@ -1,4 +1,4 @@
-for p in ("Knet","ArgParse","ImageMagick","MAT","Images")
+for p in ("Knet","ArgParse","Images","MAT","Compat")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
