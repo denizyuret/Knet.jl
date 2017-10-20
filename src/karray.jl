@@ -192,6 +192,7 @@ import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NARK = Union{Number,AbstractArray,Rec,KnetArray}
+cat(::Type{Grad{1}},a::KnetArray,as::KnetArray...)=nothing # ambiguity fix
 cat(::Type{Grad{1}},a::NARK...)=nothing # ambiguity fix
 cat{N}(::Type{Grad{N}},y1::NARK,y::NARK,dims::NARK,x::NARK...)=AutoGrad.uncat(y1,N-1,dims,x...) # ambiguity fix
 cat(dims, X::NARK...)=AutoGrad.cat_r(dims, X...)
