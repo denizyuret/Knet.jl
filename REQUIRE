@@ -1,5 +1,6 @@
 julia 0.4
 AutoGrad 0.0.9
+CUDAapi 0.1.3
 
 # We need these for some examples. They get automatically installed when needed.
 # ArgParse

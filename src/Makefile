@@ -1,17 +1,20 @@
-NVCC := $(shell nvcc --version > /dev/null 2>&1; echo $$?)
-FOMP := $(shell $(CXX) -fopenmp -c conv.cpp -o /dev/null > /dev/null 2>&1; echo $$?)
+NVCC := "nvcc"
+NVCCFLAGS :=
+
 CFLAGS := -O3 -Wall -fPIC
 OBJ := conv.o
 
-ifeq ($(FOMP),0)
-  CFLAGS := $(CFLAGS) -fopenmp
+NO_NVCC := $(shell $(NVCC) --version > /dev/null 2>&1; echo $$?)
+NO_FOMP := $(shell $(CXX) -fopenmp -c conv.cpp -o /dev/null > /dev/null 2>&1; echo $$?)
+
+ifeq ($(NO_FOMP),0)
+  CFLAGS += -fopenmp
 endif
 
-ifeq ($(NVCC),0)
-  CXX := nvcc
-  CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options "$(CFLAGS)"
+ifeq ($(NO_NVCC),0)
+  CXX := $(NVCC)
+  CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets $(NVCCFLAGS) --compiler-options "$(CFLAGS)"
   OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda13.o cuda16.o cuda17.o cuda20.o cuda21.o cuda22.o $(OBJ)
-
 endif
 
 libknet8.so: $(OBJ)

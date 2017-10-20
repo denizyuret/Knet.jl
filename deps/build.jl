@@ -1,12 +1,16 @@
-try success(`nvcc --version`)
-    info("Compiling CUDA kernels.")
-catch
-    warn("Cannot find nvcc, GPU support will not be available.")
-end
+using CUDAapi
+
+# properties of the installation
+toolkit_path = find_toolkit()
+toolchain = find_toolchain(toolkit_path)
+
 # if haskey(ENV,"CI")
 #     Pkg.checkout("AutoGrad")
 # end
+
 cd("../src") do
-    run(`make`)
+    flags = join(toolchain.flags, " ")
+    run(`make NVCC=$(toolchain.nvcc) NVCCFLAGS="$flags"`)
 end
+
 Base.compilecache("Knet")
