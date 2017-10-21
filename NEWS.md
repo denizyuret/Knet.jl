@@ -1,5 +1,6 @@
 Knet v0.8.5 Release Notes
 =========================
+308ab57 2017-10-20
 
 General
 -------
@@ -7,12 +8,17 @@ General
 * Fixed dropout efficiency bug introduced in 0.8.4.
 * Added conditional support for SpecialFunctions.
 * Added Nesterov optimizer (@CarloLucibello).
+* Removed Compat dependency.
+* Proper handling of concat KnetArrays of incompatible eltypes (#175).
+* Fixed dotted function handling in Julia5 (#173).
 
 Documentation and Examples
 --------------------------
 * Fixed julia6 compat problem in examples/mnist.jl.
 * charlm.jl can now save generated text (@DoguD).
 * Added fashion-mnist.jl example (@quaertym).
+* Added missing `MNIST.loaddata()` to tutorial.jl.
+* Fixed julia4 compat problem in examples/vgg.jl.
 
 
 Knet v0.8.4 Release Notes
