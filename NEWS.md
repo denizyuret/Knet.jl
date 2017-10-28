@@ -1,6 +1,12 @@
+Knet v0.8.6 Release Notes
+=========================
+
+* Improved convolution performance using cudnnFind.
+
+
 Knet v0.8.5 Release Notes
 =========================
-308ab57 2017-10-20
+8ea130e 2017-10-21
 
 General
 -------
