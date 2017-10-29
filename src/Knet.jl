@@ -2,9 +2,15 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module Knet
 
-# utilities for debugging and profiling.
-macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
-macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+# To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
+# can be used to show a subset of dbg messages indicated by the `bit`
+# argument to the `dbg` macro.
+const DBGFLAGS = 0
+macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
+
+# To perform profiling, set PROFILING to true.
+const PROFILING = false
+macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
 const libknet8 = Libdl.find_library(["libknet8.so"], [dirname(@__FILE__)])
 
