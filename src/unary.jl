@@ -20,13 +20,6 @@ unary_ops = [
 "cospi",
 # "cyl_bessel_i0",
 # "cyl_bessel_i1",
-
-# "erf",     # Removed from base in julia6
-# "erfc",
-# "erfcinv",
-# "erfcx",
-# "erfinv",
-
 "exp",
 "exp10",
 "exp2",
@@ -68,6 +61,16 @@ unary_ops = [
 # "y0",
 # "y1",
 ]
+
+if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
+    append!(unary_ops, [
+"erf",     # Removed from base in julia6
+"erfc",
+"erfcinv",
+"erfcx",
+"erfinv",
+                        ])
+end
 
 function unary_op(f, j=f, o...)
     J=broadcast_func(j)
@@ -289,7 +292,6 @@ function dropback(x,p,y,dy)
 end
 
 @primitive dropout(x,p;o...),dy,y dropback(x,p,y,dy)
-#TODO: this breaks compile: 
 @zerograd dropback(x,p,y,dy)
 
 # Unary plus and minus
@@ -302,3 +304,8 @@ else; @eval begin
     +(a::KnetArray)=a
     .+(a::KnetArray)=a
 end; end
+
+# Fix for the exp.(::KnetArray) dot notation in Julia5 (#173)
+if v"0.5-" <= VERSION < v"0.6-"
+    broadcast(f, a::KnetArray...)=f(a...)
+end

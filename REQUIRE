@@ -1,6 +1,5 @@
 julia 0.4
-AutoGrad 0.0.8
-Compat 0.16.0         # for @views
+AutoGrad 0.0.9
 
 # We need these for some examples. They get automatically installed when needed.
 # ArgParse
@@ -8,3 +7,4 @@ Compat 0.16.0         # for @views
 # GZip    # for mnist
 # Images  # for vgg
 # MAT     # for vgg
+# Compat  # for mnist,vgg,charlm
