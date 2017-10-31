@@ -1,3 +1,52 @@
+using Knet
+using Knet: @cuda, Cptr, cudnnhandle, cudnnVersion, bytes
+
+type DD; ptr; states; end       # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
+function DD(; handle=cudnnhandle(), dropout=0.0, seed=42)
+    d = Cptr[0]; s = Csize_t[0]
+    @cuda(cudnn,cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
+    @cuda(cudnn,cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
+    states = KnetArray{UInt8}(s[1]) # TODO: Can this be shared? 638976 bytes.
+    @cuda(cudnn,cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
+          d[1],handle,dropout,states,bytes(states),seed)
+    dd = DD(d[1],states)
+    finalizer(dd, x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr))
+    return dd
+end
+
+type RD; ptr; dropoutDesc; end
+function RD(;
+            handle=cudnnhandle(),
+            hiddenSize=100,
+            numLayers=1,
+            dropout=0.0,
+            inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+            direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+            mode=0,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+            algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+            dataType=0,     # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+            seed=42
+            )
+    dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
+    d = Cptr[0]
+    @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    if cudnnVersion >= 7000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,algo,dataType)
+    elseif cudnnVersion >= 6000
+        @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,algo,dataType)
+    elseif cudnnVersion >= 5000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+              d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,dataType)
+    else
+        error("CUDNN $cudnnVersion does not support RNNs")
+    end
+    rd = RD(d[1],dropoutDesc)
+    finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
+    return rd
+end
+
 #= CUDNN Interface:
 
 cudnnStatus_t CUDNNWINAPI cudnnSetRNNDescriptor(cudnnHandle_t handle,
