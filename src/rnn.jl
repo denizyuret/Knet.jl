@@ -1,5 +1,76 @@
 using Knet
-using Knet: @cuda, Cptr, cudnnhandle, cudnnVersion, bytes
+using Knet: @cuda, Cptr, cudnnhandle, cudnnVersion, bytes, TD, FD
+
+function rnn(s, w, x, hx, cx; training=false)  # returns (y, hy, cy, rs)
+    (x, xDesc) = rnnInput(x,s)
+    (inputSize,batchSize,seqLength) = size(x)
+    (hx, hxDesc) = rnnHidden(hx,s,batchSize)
+    (cx, cxDesc) = rnnHidden(cx,s,batchSize)
+    (w, wDesc) = rnnWeights(w)
+    (y, yDesc) = rnnOutput()
+    (hy, hyDesc) = rnnHidden(s,batchSize)
+    (cy, cyDesc) = rnnHidden(s,batchSize)
+    workSpace = rnnWorkSpace()
+    if training               # TODO
+        reserveSpace = rnnReserveSpace()
+        @cuda(cudnn,cudnnRNNForwardTraining,
+              (   Cptr,     Cptr,     Cint, Cptr,Cptr,  Cptr,Cptr,  Cptr,Cptr, Cptr,Cptr, Cptr,Cptr,  Cptr,Cptr,  Cptr,Cptr,     Cptr,             Csize_t,        Cptr,                Csize_t),
+              s.handle,s.rnnDesc,seqLength,xDesc,   x,hxDesc,  hx,cxDesc,  cx,wDesc,   w,yDesc,   y,hyDesc,  hy,cyDesc,  cy,workspace,workspaceSizeInBytes,reserveSpace,reserveSpaceSizeInBytes)
+    else
+        reserveSpace = nothing
+        @cuda(cudnn,cudnnRNNForwardInference,
+              (   Cptr,     Cptr,     Cint, Cptr,Cptr,  Cptr,Cptr,  Cptr,Cptr, Cptr,Cptr, Cptr,Cptr,  Cptr,Cptr,  Cptr,Cptr,     Cptr,             Csize_t),
+              s.handle,s.rnnDesc,seqLength,xDesc,   x,hxDesc,  hx,cxDesc,  cx,wDesc,   w,yDesc,   y,hyDesc,  hy,cyDesc,  cy,workspace,workspaceSizeInBytes)
+    end
+    return (y, hy, cy, reserveSpace)
+end
+
+rnn_r=recorder(rnn)
+
+rnn(w::Rec, x, hx, cx, s)=(rnn_r(w,x,hx,cx,s; training=true))
+
+rnn(::Type{Grad{1}},dr,r,w,x,hx,cx,s)=((y,hy,cy,rs)=r; (dy,dhy,dcy,drs)=dr; backData(); backWeights(); record in s; return dw)
+rnn(::Type{Grad{2}},dr,r,w,x,hx,cx,s)=s.dx
+rnn(::Type{Grad{3}},dr,r,w,x,hx,cx,s)=s.dhx
+rnn(::Type{Grad{4}},dr,r,w,x,hx,cx,s)=s.dcx
+
+
+function reshape3d(x)
+    n = ndims(x)
+    if n==3; x
+    elseif n==2; reshape(x, (size(x,1),size(x,2),1))
+    elseif n==1; reshape(x, (length(x),1,1))
+    else; throw(DimensionMismatch())
+    end
+end
+
+function rnnInput(x,s)
+    x = reshape3d(x)            # input dims: (X,B,T); B (batchsize) and T (seqLength) optional with default=1
+    
+
+    xDesc = TD(x)               # TODO: need to create T separate TD(x)'s! Each with cudnnSetTensorNdDescriptor(xDesc[i], CUDNN_DATA_FLOAT, 3, dimA, strideA)
+end    
+
+function rnnHidden(hx,s,batchSize)
+    if hx == nothing
+        hx = hxDesc = C_NULL
+    else
+        hx = reshape3d(hx)      # hidden dims: (H,B,L) or (H,B,2L) if bidirectional
+        @assert size(hx,1) == s.hiddenSize
+        @assert size(hx,2) == batchSize
+        @assert ((s.direction == 0 && size(hx,3) == s.numLayers) ||
+                 (s.direction == 1 && size(hx,3) == 2*s.numLayers))
+        hxDesc = TD(hx)
+    end
+    return (hx,hxDesc)
+end    
+
+function rnnWeights(w)
+    wDesc = s.wDesc
+    w = s.w                     # w dims: (W,1,1); W given by cudnnGetRNNParamSize
+    return (w, wDesc)
+end
+    
 
 type DD; ptr; states; end       # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
 function DD(; handle=cudnnhandle(), dropout=0.0, seed=42)
