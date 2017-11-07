@@ -5,7 +5,8 @@ LOW LEVEL API USER WON'T ACCESS
 =#
 # TODO: remove this
 Knet.cudnnhandle() #without calling this, cudnnVersion is not generated
-using Knet: @cuda, cudnnhandle,Cptr, bytes, cudnnVersion
+using Knet: @cuda, cudnnhandle,Cptr, cudnnVersion
+#bytes(a) = length(a) * sizeof(eltype(a))
 using AutoGrad: Rec, Grad, recorder
 include("cudnn.jl")
 
@@ -46,7 +47,7 @@ type RNNCache
     dx; dhx; dcx
 end
 
-_xtdims(input_size::Int) = (input_size, 1)
+_xtdims(input_size::Int) = (1,input_size, 1)
 # the assumption is parameter size should not depend on sequence
 # or batch dimensions
 function nparams(rc::RNNCache;
@@ -147,33 +148,36 @@ end
     
 
 function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
-                gets=true,
+                gets=false,
                 training=false,
                 handle=cudnnhandle(),
                 o...)
     # initialize workspace and reserved space
     seqlength = size(x,3)
-    xtdims = _xtdims(cache.inputSize)#(size(x,1,2)..., 1)
+    #xtdims = _xtdims(cache.inputSize)#(size(x,1,2)..., 1)
     # TODO: should we share tensor desriptors
     # TODO: padding?
-    cT = cache.dataType
-    xtds = [TD(xtdims, cT).ptr for i=1:seqlength]
+    cT = cache.rd.dataType
+    xtdims = (size(x,1), size(x,2),1)
+    xtds = [TD(xtdims, cT) for i=1:seqlength]
     # allocate the workspace
-    ws = getws(wss, xtds; o...)
+    wss = workspace_size(cache.rd, xtds;o...)
+    ws = getws(wss; o...)
     # allocata the reserved spave
     # TODO: can we do better in terms of memory?
-    rss = reserved_size(cache.rd, tds;o...)
+    rss = reserved_size(cache.rd, xtds;o...)
     rs = training ? nothing : KnetArray{Int8}(rss)
     # Allocate the output data
     output_size = (cache.rd.hiddenSize*(1+Int(cache.rd.direction)),
                    xtdims[2], seqlength)
-    hidden_size = (output_size[1:2]..., 1)
+    hidden_size = (cache.rd.hiddenSize, xtdims[2], cache.rd.numLayers
+                   * (1+Int(cache.rd.direction)))
     if hx == nothing; hx=C_NULL; end
     if cx == nothing; cx=C_NULL; end
     #T = eltype(x)
     #x = KnetArray{T}(hidden_size)
     y = KnetArray{T}(output_size)
-    ytds = [TD(hidden_size, cT).ptr for i=1:seqlength]
+    ytds = [TD(hidden_size, cT) for i=1:seqlength]
     if gets
         hy = KnetArray{T}(hidden_size)
         # only lstms
@@ -183,7 +187,7 @@ function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
         cy = C_NULL
     end
     if training
-        @cuda(cudnn, cudnnRNNForwardTrainig,
+        @cuda(cudnn, cudnnRNNForwardTraining,
               (Cptr, Cptr, Cint,
                Ptr{Cptr}, Ptr{T}, #x
                Cptr, Ptr{T}, #h
@@ -206,7 +210,7 @@ function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
               ws, bytes(ws),
               rs, bytes(rs))
     else
-        @cuda(cudnn, cudnnRNNForwardInferece,
+        @cuda(cudnn, cudnnRNNForwardInference,
               (Cptr, Cptr, Cint,
                Ptr{Cptr}, Ptr{T}, #x
                Cptr, Ptr{T}, #h
@@ -227,6 +231,8 @@ function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
               TD(hidden_size, cT), cy,
               ws, bytes(ws))
     end
+    if hy == C_NULL; hy = nothing; end
+    if cy == C_NULL; cy = nothing; end
     return y, hy, cy, rs
 end
 
@@ -240,7 +246,7 @@ function rnn_backw{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache
     
     seqlength = size(x,3)
     #T = eltype(dy)
-    cT = cache.dataType
+    cT = cache.rd.dataType
     # The derivative output buffers
     dx = KnetArray{T}(size(x))
     dw = KnetArray{T}(size(w))

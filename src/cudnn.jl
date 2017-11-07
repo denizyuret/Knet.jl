@@ -140,8 +140,8 @@ function FD(sizea, dtype; set=true)
         @cuda(cudnn,cudnnSetFilterNdDescriptor,
               (Cptr,UInt32,Cint,Ptr{Cint}),
               d[1], dtype,    n,   sz)
-        fd = FD(d[1], sizea, dtype)
     end
+    fd = FD(d[1], sizea, dtype)
     finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
     return fd
 end
@@ -156,8 +156,8 @@ function FD()
 end
 
 function FD(a::KnetArray)
-    eltype = eltype(a)
-    dtype = DT(eltype)
+    etype = eltype(a)
+    dtype = DT(etype)
     s = size(a)
     if ndims(a) == 1 #rnn accepts 3d tensors
         s = (1, 1, length(a))
@@ -171,26 +171,28 @@ import Base.unsafe_convert
 unsafe_convert(::Type{Cptr}, td::TD)=td.ptr
 unsafe_convert(::Type{Cptr}, td::RD)=td.ptr
 unsafe_convert(::Type{Cptr}, td::DD)=td.ptr
+unsafe_convert(::Type{Cptr}, td::FD)=td.ptr
 
-
+bytes(a) = length(a) * sizeof(eltype(a))
 # The workspace abstraction
 let
     # TODO: make this shared with cnns?
-    wsdict = Dict{Integer, Any}()
+    workspace = nothing
+    #wsdict = Dict{Integer, Any}()
 
     # only weight backward will be enoguh due to caching
-    global getws, cleanws!, wssizes
+    global getws, cleanws!, wssize
     
-    function getws(rd, xtds;o...)
-        wss = workspace_size(cache.rd, xtds; o...)
-        return haskey(wsdict, wss) ? wsdict[wss] : (wsdict[wss]=KnetArray{Int8}(wss))
+    function getws(wss;o...)
+        if workspace == nothing || bytes(workspace) < wss
+            workspace = KnetArray{Int8}(wss)
+        end
+        return workspace
     end
 
     function cleanws!()
-        for k in keys(wsdict)
-            delete!(wsdict, k)
-        end
+        workspace=nothing
     end
 
-    wssizes() = [k for k in keys(wsdict)]
+    wssize() = (workspace == nothing) ? 0 : bytes(workspace)
 end
