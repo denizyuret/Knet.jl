@@ -486,3 +486,20 @@ function gclip!(g, gclip)
         end
     end
 end
+
+"""
+    oparams(model, otype; options...)
+
+Given parameters of a `model`, initialize and return corresponding
+optimization parameters for a given optimization type `otype` and
+optimization options `options`. This is useful because each numeric
+array in model needs its own distinct optimization
+parameter. `oparams` makes the creation of optimization parameters
+that parallel model parameters easy when all of them use the same type
+and options.
+
+"""
+oparams{T<:Number}(::KnetArray{T},otype; o...)=otype(;o...)
+oparams{T<:Number}(::Array{T},otype; o...)=otype(;o...)
+oparams(a::Associative,otype; o...)=Dict([ k=>oparams(v,otype;o...) for (k,v) in a ])
+oparams(a,otype; o...)=map(x->oparams(x,otype;o...), a)
