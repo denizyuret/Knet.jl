@@ -20,11 +20,6 @@ unary_ops = [
 "cospi",
 # "cyl_bessel_i0",
 # "cyl_bessel_i1",
-"erf",
-"erfc",
-"erfcinv",
-"erfcx",
-"erfinv",
 "exp",
 "exp10",
 "exp2",
@@ -67,9 +62,18 @@ unary_ops = [
 # "y1",
 ]
 
+if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
+    append!(unary_ops, [
+"erf",     # Removed from base in julia6
+"erfc",
+"erfcinv",
+"erfcx",
+"erfinv",
+                        ])
+end
+
 function unary_op(f, j=f, o...)
-    J=Symbol(j)
-    if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    J=broadcast_func(j)
     for S in (32,64)
         T = Symbol("Float$S")
         F = "$(f)_$S"
@@ -102,8 +106,10 @@ for (f,g,y,dx) in
       :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
       :(dyi*yi*(one(T)-yi))),
      )
+    bf = broadcast_func(f)
+    bg = broadcast_func(g)
     @eval begin
-        function $f{T<:AbstractFloat}(x::Array{T})
+        function $bf{T<:AbstractFloat}(x::Array{T})
             y = similar(x)
             @inbounds for i=1:length(y)
                 xi = x[i]
@@ -111,7 +117,7 @@ for (f,g,y,dx) in
             end
             return y
         end
-        function $g{T<:AbstractFloat}(dy::Array{T},y::Array{T})
+        function $bg{T<:AbstractFloat}(dy::Array{T},y::Array{T})
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
@@ -123,6 +129,9 @@ for (f,g,y,dx) in
         $f{T<:Number}(xi::T)=$y
         $g{T<:Number}(dyi::T,yi::T)=$dx
         @primitive $f(x),dy,y $g(dy,y)
+        if $f != $bf
+            @primitive $bf(x),dy,y $bg(dy,y)
+        end
     end
 end
 
@@ -131,10 +140,11 @@ end
 "`sigm(x) = (1./(1+exp(-x)))`" sigm
 
 # To avoid conflict with AutoGrad:
+# TODO: test this in Julia6, do we need to fix broadcast_func(tanh)?
+import Base: tanh
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
 @primitive tanh(x::KnetArray),dy,y tanhback(dy,y)
 @primitive tanhback(dy,y),ddx  ddx.*(1.-y.*y)  ddx.*(-2.*dy.*y)
-
 
 """
 
@@ -175,9 +185,9 @@ function logp(x,d...)
         # Expanding for profiling:
         x1 = maximum(x,d...)
         x2 = x .- x1
-        x3 = exp(x2)
+        x3 = exp_dot(x2)
         x4 = sum(x3,d...)
-        x5 = log(x4)
+        x5 = log_dot(x4)
         x6 = x2 .- x5
         return x6
     end
@@ -193,7 +203,7 @@ function logpback(x,y,dy,d...)
         # return (dy - exp(y).*sum(dy,d...))
         # Expanding for profiling:
         dx1 = sum(dy,d...)
-        dx2 = exp(y)
+        dx2 = exp_dot(y)
         dx3 = dx2 .* dx1
         dx4 = dy - dx3
         return dx4
@@ -284,11 +294,18 @@ end
 @primitive dropout(x,p;o...),dy,y dropback(x,p,y,dy)
 @zerograd dropback(x,p,y,dy)
 
-# Unary plus
-import Base: +, .+, broadcast
-+(a::KnetArray)=a
-if VERSION >= v"0.6-"
+# Unary plus and minus
+import Base: +, .+, -, .-, broadcast
+if VERSION >= v"0.6.0"
     broadcast(::typeof(+), a::KnetArray)=a
+    +(a::KnetArray)=a
+    -(a::KnetArray)=broadcast(-,a)
 else; @eval begin
+    +(a::KnetArray)=a
     .+(a::KnetArray)=a
 end; end
+
+# Fix for the exp.(::KnetArray) dot notation in Julia5 (#173)
+if v"0.5-" <= VERSION < v"0.6-"
+    broadcast(f, a::KnetArray...)=f(a...)
+end

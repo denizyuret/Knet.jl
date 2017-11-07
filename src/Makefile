@@ -9,7 +9,7 @@ endif
 
 ifeq ($(NVCC),0)
   CXX := nvcc
-  CFLAGS := -O3 --default-stream per-thread --use_fast_math -Wno-deprecated-gpu-targets --compiler-options "$(CFLAGS)"
+  CFLAGS := -O3 --use_fast_math -Wno-deprecated-gpu-targets --compiler-options "$(CFLAGS)"
   OBJ := cuda1.o cuda01.o cuda11.o cuda12.o cuda13.o cuda16.o cuda17.o cuda20.o cuda21.o cuda22.o $(OBJ)
 
 endif

@@ -2,15 +2,38 @@
 
 # The entry format is (cudaname, julianame, merge, item, init)
 # ai is the accumulator, xi is the array element
-reduction_ops = [
-("sum","sum","ai+xi","xi","0"),
-("prod","prod","ai*xi","xi","1"),
-("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
-("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
-("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
-("countnz","countnz","ai+xi","(xi!=0)","0"),
-]
+if VERSION >= v"0.6.0"
+    import AutoGrad: sumabs_, sumabs2_, minabs_, maxabs_
+    Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
+    Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
+    Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...);
+    Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...);
+    reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+    reduction_ops = [
+    ("sum","sum","ai+xi","xi","0"),
+    ("prod","prod","ai*xi","xi","1"),
+    ("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
+    ("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+    ("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
+    ("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
+    ("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
+    ("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+    ("countnz","countnz","ai+xi","(xi!=0)","0"),
+    ]
+else # if VERSION < v"0.6.0"
+    reduced_dims_compat(dims,region)=Base.reduced_dims(dims,region)
+    reduction_ops = [
+    ("sum","sum","ai+xi","xi","0"),
+    ("prod","prod","ai*xi","xi","1"),
+    ("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
+    ("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+    ("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
+    ("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
+    ("maxabs","maxabs","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
+    ("minabs","minabs","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+    ("countnz","countnz","ai+xi","(xi!=0)","0"),
+    ]
+end
 
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
@@ -28,7 +51,7 @@ function reduction_op(f, j=f, o...)
             end
             # Array->Vector reduction:
             function $J(x::KnetArray{$T}, region)
-                rdims = Base.reduced_dims(size(x), region)
+                rdims = reduced_dims_compat(size(x), region)
                 vdims = ndims(x)-length(region)
                 if length(region) != 1 || ndims(x) == 1
                     vdims = count(x->x>1,rdims)
@@ -85,21 +108,41 @@ import Base.LinAlg: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 
-function vecnorm{T}(x::KnetArray{T}, p::Real=2)
-    if length(x) == 0
-        zero(T)
-    elseif p == 2
-        sqrt(sumabs2(x))
-    elseif p == 1
-        sumabs(x)
-    elseif p == Inf
-        maximum(abs(x))
-    elseif p == 0
-        countnz(x)
-    elseif p == -Inf
-        minimum(abs(x))
-    else
-        sum(abs(x).^p)^(1/p)
+if VERSION >= v"0.6.0"
+    function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+        if length(x) == 0
+            zero(T)
+        elseif p == 2
+            sqrt(sum(abs2,x))
+        elseif p == 1
+            sum(abs,x)
+        elseif p == Inf
+            maximum(abs,x)
+        elseif p == 0
+            countnz(x)
+        elseif p == -Inf
+            minimum(abs,x)
+        else
+            sum(abs.(x).^p)^(1/p)
+        end
+    end
+else
+    function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+        if length(x) == 0
+            zero(T)
+        elseif p == 2
+            sqrt(sumabs2(x))
+        elseif p == 1
+            sumabs(x)
+        elseif p == Inf
+            maxabs(x)
+        elseif p == 0
+            countnz(x)
+        elseif p == -Inf
+            minabs(x)
+        else
+            sum(abs(x).^p)^(1/p)
+        end
     end
 end
 
@@ -117,10 +160,10 @@ of `x` and `dims=2` sums rows of `x`.
 """
 function logsumexp(x,d...)
     xmax = maximum(x,d...)
-    xmax + log(sum(exp(x .- xmax),d...))
+    xmax + log_dot(sum(exp_dot(x .- xmax),d...))
 end
 
-@primitive logsumexp(x,d...),dy,y  (dy .* exp(x .- y))
+@primitive logsumexp(x,d...),dy,y  (dy .* exp_dot(x .- y))
 
 # # The xentloss interface is no good because of double normalization.
 

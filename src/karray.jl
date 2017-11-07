@@ -190,6 +190,13 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 # Concatenation:
 import Base: hcat, vcat, cat
 
+# Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
+const NARK = Union{Number,AbstractArray,Rec,KnetArray}
+cat(::Type{Grad{1}},a::KnetArray,as::KnetArray...)=nothing # ambiguity fix
+cat(::Type{Grad{1}},a::NARK...)=nothing # ambiguity fix
+cat{N}(::Type{Grad{N}},y1::NARK,y::NARK,dims::NARK,x::NARK...)=AutoGrad.uncat(y1,N-1,dims,x...) # ambiguity fix
+cat(dims, X::NARK...)=AutoGrad.cat_r(dims, X...)
+
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
 # hcat(a,a)	2350	225	16160
@@ -268,13 +275,20 @@ function vcat{T}(A::KnetVecOrMat{T}...)
     return B
 end
 
+cat{T}(d::Type{Grad{1}}, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)=nothing # ambiguity fix
+
 function cat{T}(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...)
-    if     d==1; vcat(a1, a...)
-    elseif d==2; hcat(a1, a...)
+    if     d==1 || d==Val{1}; vcat(a1, a...)
+    elseif d==2 || d==Val{2}; hcat(a1, a...)
     else error("cat($d,a...) not implemented.")
     end
 end
 
+# Avoid using Base for unimplemented cat methods:
+
+cat(d, a::KnetArray, as::KnetArray...)=throw(MethodError(cat, (a, as...)))
+hcat(a::KnetArray, as::KnetArray...)=throw(MethodError(hcat, (a, as...)))
+vcat(a::KnetArray, as::KnetArray...)=throw(MethodError(vcat, (a, as...)))
 
 # Utilities:
 
@@ -429,7 +443,7 @@ end
 # Also extra 1's at the end of I are ignored
 
 function getindex{T}(A::KnetArray{T}, I::Real...)
-    J = Base.to_indexes(I...)
+    J = ntuple(i->Int(I[i]), length(I)) # deprecated: Base.to_indexes(I...)
     @inbounds for j=1:length(J)
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
@@ -438,7 +452,7 @@ function getindex{T}(A::KnetArray{T}, I::Real...)
 end
 
 function setindex!{T}(A::KnetArray{T}, v, I::Real...)
-    J = Base.to_indexes(I...)
+    J = ntuple(i->Int(I[i]), length(I)) # deprecated: Base.to_indexes(I...)
     @inbounds for j=1:length(J)
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
@@ -463,7 +477,7 @@ end
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
 
-if VERSION < v"0.5-"
+if VERSION < v"0.5.0"
     @typealias6 AbstractUnitRange UnitRange
 end
 
@@ -1056,3 +1070,5 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=sum_outgrads_karray(A,X,find(I),c)
 
 end; end
+
+

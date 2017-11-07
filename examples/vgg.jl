@@ -1,4 +1,4 @@
-for p in ("Knet","ArgParse","ImageMagick","MAT","Images")
+for p in ("Knet","ArgParse","Images","MAT","Compat")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
@@ -18,7 +18,7 @@ specify any model.
 
 """
 module VGG
-using Knet,ArgParse,Images,MAT
+using Knet,ArgParse,Images,MAT,Compat
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
 const vggurl = "http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-16.mat"
 const LAYER_TYPES = ["conv", "relu", "pool", "fc", "prob"]
@@ -40,7 +40,7 @@ function main(args=ARGS)
     atype = eval(parse(o[:atype]))
     if !isfile(o[:model])
         println("Should I download the VGG model (492MB)? Enter 'y' to download, anything else to quit.")
-        readline() == "y\n" || return
+        readline()[1] == 'y' || return
         download(vggurl,o[:model])
     end
     info("Reading $(o[:model])")
@@ -56,7 +56,7 @@ function main(args=ARGS)
     @time y1 = convnet(image)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)
-    p1 = exp(logp(z1))
+    @compat p1 = exp.(logp(z1))
     display(hcat(p1[s1[1:o[:top]]], description[s1[1:o[:top]]]))
     println()
 end
@@ -72,7 +72,11 @@ function data(img, averageImage)
     i1 = div(size(a1,1)-224,2)
     j1 = div(size(a1,2)-224,2)
     b1 = a1[i1+1:i1+224,j1+1:j1+224]
-    c1 = permutedims(channelview(b1), (3,2,1))
+    if VERSION >= v"0.5.0"
+        c1 = permutedims(channelview(b1), (3,2,1))
+    else
+        c1 = separate(b1)
+    end
     d1 = convert(Array{Float32}, c1)
     e1 = reshape(d1[:,:,1:3], (224,224,3,1))
     f1 = (255 * e1 .- averageImage)
@@ -128,7 +132,11 @@ end
 
 # convolutional network operations
 convx(x,w) = conv4(w[1], x; padding=1, mode=1) .+ w[2]
-relux = relu
+if VERSION >= v"0.6.0"
+    relux(x) = relu.(x)
+else
+    relux(x) = relu(x)
+end
 poolx = pool
 probx(x) = x
 fcx(x,w) = w[1] * mat(x) .+ w[2]

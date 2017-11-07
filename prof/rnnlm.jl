@@ -1,4 +1,4 @@
-using Knet,AutoGrad,BenchmarkTools,Distributions
+using Compat,Knet,AutoGrad,BenchmarkTools,Distributions
 if !isdefined(:MODEL); MODEL=1; end
 
 # Design choices:
@@ -94,7 +94,7 @@ initoptim(a,otype)=map(x->initoptim(x,otype), a)
 # Create a random minibatch of sequences
 function randseq(V,B,T)
     T = ceil(Int,T)
-    s = Array(Vector{Int},T)
+    s = Array{Vector{Int}}(T)
     for t in 1:T
         s[t] = rand(1:V,B)
     end
@@ -144,12 +144,12 @@ rnnlmgrad = grad(rnnlm)
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * hidden .+ input .+ bias          # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,1)                            # 
-    forget  = sigm(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm.(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm.(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm.(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
+    change  = tanh.(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh.(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -167,7 +167,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 3N+3)
+    model = Array{Any}(3N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -186,7 +186,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -242,12 +242,12 @@ rnnlmgrad = grad(rnnlm)
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = hidden * weight .+ input .+ bias          # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,2)                            # 
-    forget  = sigm(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm.(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm.(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm.(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
+    change  = tanh.(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh.(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -265,7 +265,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 3N+3)
+    model = Array{Any}(3N+3)
     model[1] = init(vocab,embed) # Wm
     X = embed
     for n = 1:N
@@ -284,7 +284,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -338,12 +338,12 @@ rnnlmgrad = grad(rnnlm)
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * vcat(hidden, input) .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,1)                            # 
-    forget  = sigm(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm.(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm.(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm.(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
+    change  = tanh.(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh.(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -361,7 +361,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 2N+3)
+    model = Array{Any}(2N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -379,7 +379,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -433,12 +433,12 @@ rnnlmgrad = grad(rnnlm)
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = hcat(hidden, input) * weight .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,2)                            # 
-    forget  = sigm(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm.(gates[:,1:h])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm.(gates[:,1+h:2h])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm.(gates[:,1+2h:3h])                    # 2:113  1:66:124 (87+37)
+    change  = tanh.(gates[:,1+3h:4h])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh.(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -456,7 +456,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 2N+3)
+    model = Array{Any}(2N+3)
     model[1] = init(vocab,embed) # Wm
     X = embed
     for n = 1:N
@@ -474,7 +474,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -526,7 +526,7 @@ end
 #=  ### alternative implementation
 function rnnlm(model, state, sequence; pdrop=0)
     T = length(sequence)
-    input = Array(Any,T-1)
+    input = Array{Any}(T-1)
     for t in 1:(T-1)
         input[t] = Wm(model)[:,sequence[t]]
     end
@@ -563,12 +563,12 @@ rnnlmgrad = grad(rnnlm)
 function lstm(weight,bias,hidden,cell,input)            # 2:991  1:992:1617 (id:forw:back)
     gates   = weight * vcat(hidden, input) .+ bias      # 2:312  1:434:499 (43+381+75) (cat+mmul+badd)
     h       = size(hidden,1)                            # 
-    forget  = sigm(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
-    ingate  = sigm(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
-    outgate = sigm(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
-    change  = tanh(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
+    forget  = sigm.(gates[1:h,:])                        # 2:134  1:98:99  (62+37) (index+sigm)
+    ingate  = sigm.(gates[1+h:2h,:])                     # 2:99   1:73:123 (77+46)
+    outgate = sigm.(gates[1+2h:3h,:])                    # 2:113  1:66:124 (87+37)
+    change  = tanh.(gates[1+3h:4h,:])                    # 2:94   1:51:179 (130+49) replace end with 4h?
     cell    = cell .* forget + ingate .* change         # 2:137  1:106:202 (104+93+5) (bmul+bmul+add)
-    hidden  = outgate .* tanh(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
+    hidden  = outgate .* tanh.(cell)                     # 2:100  1:69:194 (73+121) (tanh+bmul)
     return (hidden,cell)
 end
 
@@ -586,7 +586,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array(Any, 2N+3)
+    model = Array{Any}(2N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -604,7 +604,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array(Any, 2N)
+    state = Array{Any}(2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)

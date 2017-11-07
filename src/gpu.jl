@@ -2,7 +2,7 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
         else
             fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
@@ -18,7 +18,7 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
         else
             fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
@@ -32,7 +32,7 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        if VERSION >= v"0.6-"
+        if VERSION >= v"0.6.0"
             fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
         else
             fx = Expr(:ccall, ("$fun",libknet8), :Void, x...)
@@ -66,16 +66,15 @@ suspend GPU use temporarily, use `gpu(-1)`.
 
 `gpu(d::Int)` does not reset the devices.  You can select a previous
 device and find allocated memory preserved.  However trying to operate
-on arrays of an inactive device will result in error unless p2p access is
-enabled (see uva.jl).
+on arrays of an inactive device will result in error.
 
 """
 function gpu end
 
-let GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
+let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
 
-    gpu()=(gpuCount() > 0) ? Int(cudaGetDevice()) : -1
+    gpu()=GPU
 
     function gpuCount() # should not bomb when there is no gpu or nvidia libs
         if GPUCNT == -1
@@ -96,7 +95,7 @@ let GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function gpu(i::Int)
-        (gpu() == i) && return i
+        (GPU == i) && return i
         if 0 <= i < gpuCount()
             @cuda(cudart,cudaSetDevice, (Cint,), i)
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
@@ -105,7 +104,7 @@ let GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             i = -1
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
-        return i
+        return (GPU = i)
     end
 
     function gpu(usegpu::Bool)

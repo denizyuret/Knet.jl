@@ -34,15 +34,17 @@ Example usage:
   model (according to validation set) to foo.jld, last model to
   bar.jld.
 
-* `julia charlm.jl --load foo.jld --generate 1000`: generates 1000
-  characters from the model in foo.jld.
+* `julia charlm.jl --load foo.jld --generate 1000 --sresult generated.txt`:
+  generates 1000 characters from the model in foo.jld and saves it to
+  generated.txt.
+
 
 * `julia charlm.jl --help`: describes all available options.
-    
+
 """
 module CharLM
 using Knet,AutoGrad,ArgParse,Compat,JLD
-
+using Knet: sigm_dot, tanh_dot
 
 # LSTM implementation with a single matrix multiplication with
 # instances in rows rather than columns.  Julia is column major, so
@@ -54,16 +56,16 @@ using Knet,AutoGrad,ArgParse,Compat,JLD
 # the input and the hidden, then slice out the four gates.  Both
 # operations are more efficient if instances are in rows rather than
 # columns.
-    
+
 function lstm(weight,bias,hidden,cell,input)
     gates   = hcat(input,hidden) * weight .+ bias
     hsize   = size(hidden,2)
-    forget  = sigm(gates[:,1:hsize])
-    ingate  = sigm(gates[:,1+hsize:2hsize])
-    outgate = sigm(gates[:,1+2hsize:3hsize])
-    change  = tanh(gates[:,1+3hsize:end])
+    forget  = sigm_dot(gates[:,1:hsize])
+    ingate  = sigm_dot(gates[:,1+hsize:2hsize])
+    outgate = sigm_dot(gates[:,1+2hsize:3hsize])
+    change  = tanh_dot(gates[:,1+3hsize:end])
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+    hidden  = outgate .* tanh_dot(cell)
     return (hidden,cell)
 end
 
@@ -76,7 +78,7 @@ end
 function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(d...))
     bias(d...)=atype(zeros(d...))
-    model = Array(Any, 2*length(hidden)+3)
+    model = Array{Any}(2*length(hidden)+3)
     X = embed
     for k = 1:length(hidden)
         H = hidden[k]
@@ -96,7 +98,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     nlayers = div(length(model)-3,2)
-    state = Array(Any, 2*nlayers)
+    state = Array{Any}(2*nlayers)
     for k = 1:nlayers
         bias = model[2k]
         hidden = div(length(bias),4)
@@ -114,7 +116,8 @@ end
 # combination of tuple/array/dict.
 initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
 initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+# TODO: This breaks Julia4 parser:
+# initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a)
 initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # input: Dense token-minibatch input
@@ -131,16 +134,28 @@ function predict(model, state, input; pdrop=0)
 end
 
 function generate(model, tok2int, nchar)
-    int2tok = Array(Char, length(tok2int))
+    int2tok = Array{Char}(length(tok2int))
     for (k,v) in tok2int; int2tok[v] = k; end
     input = tok2int[' ']
     state = initstate(model, 1)
+    # Open file for saving
+    if o[:sresult] != nothing
+        f = open(o[:sresult],"w")
+    end
     for t in 1:nchar
         embed = model[end-2][[input],:]
         ypred,state = predict(model,state,embed)
         ypred = ypred * model[end-1] .+ model[end]
-        input = sample(exp(logp(ypred)))
+        input = sample(exp.(logp(ypred)))
         print(int2tok[input])
+        # Save character to file
+        if o[:sresult] != nothing
+            write(f, int2tok[input])
+        end
+    end
+    # Close file if opened
+    if o[:sresult] != nothing
+        close(f)
     end
     println()
 end
@@ -235,7 +250,7 @@ function train!(model, data, tok2int, o)
         info("Saving final model to $(o[:savefile])")
         save(o[:savefile], "model", model, "vocab", tok2int)
     end
-end    
+end
 
 function minibatch(chars, tok2int, batch_size)
     chars = collect(chars)
@@ -291,6 +306,7 @@ function main(args=ARGS)
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--dropout"; arg_type=Float64; default=0.0; help="Dropout probability.")
+        ("--sresult"; help = "Save generated text to file" )
     end
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
@@ -317,7 +333,7 @@ function main(args=ARGS)
         model = initmodel(o[:atype], o[:hidden], length(tok2int), o[:embed])
     else
         info("Loading model from $(o[:loadfile])")
-        tok2int = load(o[:loadfile], "vocab") 
+        tok2int = load(o[:loadfile], "vocab")
         for t in text, c in t; haskey(tok2int, c) || error("Unknown char $c"); end
         model = map(p->convert(o[:atype],p), load(o[:loadfile], "model"))
     end
@@ -448,4 +464,3 @@ end  # module
 #   2.352389 seconds (2.34 M allocations: 239.381 MB, 1.51% gc time)
 #   6.211946 seconds (9.55 M allocations: 575.568 MB, 2.21% gc time)
 # (3,3.226540256084356)
-

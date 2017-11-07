@@ -24,7 +24,11 @@ using Knet,ArgParse
 
 predict(w,x)=(w[1]*x.+w[2])
 
-loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
+if VERSION >= v"0.6.0"
+    loss(w,x,y)=(sum(abs2,y-predict(w,x)) / size(x,2))
+else
+    loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
+end
 
 lossgradient = grad(loss)
 

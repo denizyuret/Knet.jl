@@ -3,7 +3,23 @@
 # Introduction to Knet
 
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) [![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet) [![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet) [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
+
+[![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet)
+
+[![][buildbot-julia05-img]][buildbot-julia05-url] 
+[![][buildbot-julia06-img]][buildbot-julia06-url] 
+[![][buildbot-juliadev-img]][buildbot-juliadev-url]
+
+[buildbot-julia05-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-julia05-x86-64bit&name=julia%200.5
+[buildbot-julia05-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-julia05-x86-64bit
+[buildbot-julia06-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-julia06-x86-64bit&name=julia%200.6
+[buildbot-julia06-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-julia06-x86-64bit
+[buildbot-juliadev-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-juliadev-x86-64bit&name=julia%20dev
+[buildbot-juliadev-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-juliadev-x86-64bit
 
 
 [Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced "kay-net") is the [Koç University](http://www.ku.edu.tr/en) deep learning framework implemented in [Julia](http://docs.julialang.org) by [Deniz Yuret](http://www.denizyuret.com) and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the [full documentation](https://denizyuret.github.io/Knet.jl/latest) and [Examples](http://denizyuret.github.io/Knet.jl/latest/examples.html#Examples-1) for more information. If you need help or would like to request a feature, please consider joining the [knet-users](https://groups.google.com/forum/#!forum/knet-users) mailing list. If you find a bug, please open a [GitHub issue](https://github.com/denizyuret/Knet.jl/issues). If you would like to contribute to Knet development, check out the [knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing list and [Tips for developers](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1). If you use Knet in academic work, [here is a paper](https://goo.gl/zeUBFr) that can be cited:
@@ -176,6 +192,7 @@ Now let's train a model on the MNIST data:
 
 ```julia
 julia> include(Knet.dir("examples","mnist.jl"))
+julia> MNIST.loaddata()
 julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
 julia> dtrn = minibatch(xtrn, ytrn, 100)
 julia> dtst = minibatch(xtst, ytst, 100)

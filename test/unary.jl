@@ -10,18 +10,22 @@ function frand(f,t,d...)
     end
 end
 
+if VERSION >= v"0.6.0"
+    bcast(f)=(x->broadcast(f,x))
+else
+    bcast(f)=f
+end
+
 unary_fns = Any[]
 for f in Knet.unary_ops
     if isa(f,Tuple); f=f[2]; end
     push!(unary_fns, eval(parse(f)))
 end
-push!(unary_fns, logp)
-push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,1))
-push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
 
 @testset "unary" begin
     for f in unary_fns
         # @show f
+        bf = bcast(f)
         for t in (Float32, Float64)
             # @show f,t
             sx = frand(f,t)
@@ -30,22 +34,29 @@ push!(unary_fns, x->isa(x,Number)?zero(x):logp(x,2))
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
                 # @show f,t,n
                 ax = frand(f,t,n)
-                @test gradcheck(f, ax)
+                @test gradcheck(bf, ax)
                 if gpu() >= 0
                     gx = KnetArray(ax)
-                    cy = f(ax)
-                    gy = f(gx)
+                    cy = bf(ax)
+                    gy = bf(gx)
                     @test isapprox(cy,Array(gy))
-                    @test gradcheck(f, gx)
+                    @test gradcheck(bf, gx)
                 end
             end
         end
     end
+    # Non-broadcasting functions
     a = rand(10,10)
     @test gradcheck(dropout,a,0.5,kwargs=Dict(:seed=>1))
+    @test gradcheck(logp,a)
+    @test gradcheck(logp,a,1)
+    @test gradcheck(logp,a,2)
     if gpu() >= 0
         k = KnetArray(a)
         @test gradcheck(dropout,k,0.5,kwargs=Dict(:seed=>1))
+        @test gradcheck(logp,k)
+        @test gradcheck(logp,k,1)
+        @test gradcheck(logp,k,2)
     end
 end
 

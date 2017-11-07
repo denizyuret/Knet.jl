@@ -27,15 +27,15 @@ will be returned.
 module LeNet
 using Knet,ArgParse,Main
 using MNIST: minibatch, accuracy
-
+using Knet: relu_dot
 
 function predict(w,x,n=length(w)-4)
     for i=1:2:n
-        x = pool(relu(conv4(w[i],x;padding=0) .+ w[i+1]))
+        x = pool(relu_dot(conv4(w[i],x;padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2
-        x = relu(w[i]*x .+ w[i+1])
+        x = relu_dot(w[i]*x .+ w[i+1])
     end
     return w[end-1]*x .+ w[end]
 end
@@ -65,7 +65,7 @@ function train(w, data; lr=.1, epochs=3, iters=1800)
 end
 
 function weights(;atype=KnetArray{Float32})
-    w = Array(Any,8)
+    w = Array{Any}(8)
     w[1] = xavier(5,5,1,20)
     w[2] = zeros(1,1,20,1)
     w[3] = xavier(5,5,20,50)
@@ -137,8 +137,8 @@ function main(args=ARGS)
     else
         report(0)
         iters = o[:iters]
-        @time for epoch=1:o[:epochs]
-            train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
+        for epoch=1:o[:epochs]
+            @time train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
             report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)

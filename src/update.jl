@@ -1,12 +1,11 @@
 """
-
     Sgd(;lr=0.001,gclip=0)
     update!(w,g,p::Sgd)
     update!(w,g;lr=0.001)
 
 Container for parameters of the Stochastic gradient descent (SGD)
 optimization algorithm used by [`update!`](@ref).
-    
+
 SGD is an optimization technique to minimize an objective function by
 updating its weights in the opposite direction of their gradient. The
 learning rate (lr) determines the size of the step.  SGD updates the
@@ -22,22 +21,20 @@ to `gclip`.  If `gclip==0` no scaling takes place.
 
 SGD is used by default if no algorithm is specified in the two
 argument version of `update!`[@ref].
-
 """
 type Sgd
     lr::AbstractFloat
     gclip::AbstractFloat
 end
 
-const SGDLR=0.001
+const SGDLR = 0.001
 
-Sgd(;lr=SGDLR,gclip=0)=Sgd(lr,gclip)
+Sgd(; lr=SGDLR, gclip=0) = Sgd(lr,gclip)
 
 
 """
-
     Momentum(;lr=0.001, gclip=0, gamma=0.9)
-    update(w,g,p::Momentum)
+    update!(w,g,p::Momentum)
 
 Container for parameters of the Momentum optimization algorithm used
 by [`update!`](@ref).
@@ -75,9 +72,42 @@ Momentum(; lr=0.001, gclip=0, gamma=0.9)=Momentum(lr, gclip, gamma, nothing)
 
 
 """
+    Nesterov(; lr=0.001, gclip=0, gamma=0.9)
+    update!(w,g,p::Momentum)
 
+Container for parameters of Nesterov's momentum optimization algorithm used
+by [`update!`](@ref).
+
+It is similar to standard [`Momentum`](@ref) but with a slightly different update
+rule:
+
+    velocity = gamma * velocity_old - lr * g
+    w = w_old - velocity_old + (1+gamma) * velocity
+
+where `w` is a weight array, `g` is the gradient of the objective
+function w.r.t `w`, `lr` is the learning rate, `gamma` is the momentum
+parameter, `velocity` is an array with the same size and type of `w`
+and holds the accelerated gradients.
+
+If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+to `gclip`.  If `gclip == 0` no scaling takes place.
+
+Reference Implementation : [Yoshua Bengio, Nicolas Boulanger-Lewandowski and Razvan P
+ascanu](https://arxiv.org/pdf/1212.0901.pdf)
+"""
+type Nesterov
+    lr::AbstractFloat
+    gclip::AbstractFloat
+    gamma::AbstractFloat
+    velocity
+end
+
+Nesterov(; lr=0.001, gclip=0, gamma=0.9) = Nesterov(lr, gclip, gamma, nothing)
+
+
+"""
     Adagrad(;lr=0.1, gclip=0, eps=1e-6)
-    update(w,g,p::Adagrad)
+    update!(w,g,p::Adagrad)
 
 Container for parameters of the Adagrad optimization algorithm used by
 [`update!`](@ref).
@@ -120,9 +150,8 @@ Adagrad(; lr=0.1, gclip=0, eps=1e-6)=Adagrad(lr, gclip, eps, nothing)
 
 
 """
-
     Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)
-    update(w,g,p::Adadelta)
+    update!(w,g,p::Adadelta)
 
 Container for parameters of the Adadelta optimization algorithm used by
 [`update!`](@ref).
@@ -167,9 +196,8 @@ Adadelta(; lr=0.01, gclip=0, rho=0.9, eps=1e-6)=Adadelta(lr, gclip, rho, eps, no
 
 
 """
-
     Rmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)
-    update(w,g,p::Rmsprop)
+    update!(w,g,p::Rmsprop)
 
 Container for parameters of the Rmsprop optimization algorithm used by
 [`update!`](@ref).
@@ -209,9 +237,8 @@ Rmsprop(; lr=0.001, gclip=0, rho=0.9, eps=1e-6)=Rmsprop(lr, gclip, rho, eps, not
 
 
 """
-
     Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
-    update(w,g,p::Adam)
+    update!(w,g,p::Adam)
 
 Container for parameters of the Adam optimization algorithm used by
 [`update!`](@ref).
@@ -259,7 +286,6 @@ Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta
 
 
 """
-
     update!(weights, gradients, params)
     update!(weights, gradients; lr=0.001, gclip=0)
 
@@ -287,6 +313,7 @@ default values are listed as well.
 
 * [`Sgd`](@ref)`(;lr=0.001, gclip=0)`
 * [`Momentum`](@ref)`(;lr=0.001, gclip=0, gamma=0.9)`
+* [`Nesterov`](@ref)`(;lr=0.001, gclip=0, gamma=0.9)`
 * [`Rmsprop`](@ref)`(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)`
 * [`Adagrad`](@ref)`(;lr=0.1, gclip=0, eps=1e-6)`
 * [`Adadelta`](@ref)`(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)`
@@ -339,6 +366,16 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(-1, p.velocity, w)
     end
 
+    # https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
+    function update!(w::$T, g::$T, p::Nesterov)
+        gclip!(g, p.gclip)
+        p.velocity ===nothing && (p.velocity = zeros(w))
+        scale!(p.gamma, p.velocity)
+        axpy!(-1, p.velocity, w)
+        axpy!(-p.lr, g, p.velocity)
+        axpy!(1+p.gamma, p.velocity, w)
+    end
+
     function update!(w::$T, g::$T, p::Adam)
         gclip!(g, p.gclip)
         if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
@@ -347,18 +384,16 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(1-p.beta1, g, p.fstm)
         scale!(p.beta2, p.scndm)
         axpy!(1-p.beta2, g .* g, p.scndm)
-        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t) 
+        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
         scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
-        # @compat axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) + p.eps)), w)
-        axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
+        axpy!(-p.lr, (fstm_corrected ./ (sqrt_dot(scndm_corrected) + p.eps)), w)
     end
 
     function update!(w::$T, g::$T, p::Adagrad)
         gclip!(g, p.gclip)
         if p.G===nothing; p.G=zeros(w); end
         axpy!(1, g .* g, p.G)
-        # @compat axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
-        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+        axpy!(-p.lr, g ./ sqrt_dot(p.G + p.eps), w)
     end
 
     function update!(w::$T, g::$T, p::Adadelta)
@@ -366,8 +401,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        # @compat dw = g .* sqrt.(p.delta + p.eps) ./ sqrt.(p.G + p.eps)
-        dw = g .* sqrt(p.delta + p.eps) ./ sqrt(p.G + p.eps)
+        dw = g .* sqrt_dot(p.delta + p.eps) ./ sqrt_dot(p.G + p.eps)
         scale!(p.rho, p.delta)
         axpy!(1-p.rho, dw .* dw , p.delta)
         axpy!(-p.lr, dw, w)
@@ -378,8 +412,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         if p.G===nothing; p.G=zeros(w); end
         scale!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        # @compat axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
-        axpy!(-p.lr, g ./ sqrt(p.G + p.eps), w)
+        axpy!(-p.lr, g ./ sqrt_dot(p.G + p.eps), w)
     end
 
     # If type of g does not match, something may be wrong

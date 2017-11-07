@@ -32,30 +32,32 @@ dimension.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function conv4{T}(w::KnetArray{T},x::KnetArray{T};
-                  handle=cudnnhandle(), algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, alpha=1,
+function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                  # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, 
                   o...) # padding=0, stride=1, upscale=1, mode=0
-    y = similar(x, cdims(w,x;o...))
     beta=0 # nonzero beta does not make sense when we create y
+    y = similar(x, cdims(w,x;o...))
+    (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
     @cuda(cudnn, cudnnConvolutionForward,
           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(y),y)
+          handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
     return y
 end
 
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                   handle=cudnnhandle(), alpha=1, algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
+function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+                   # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dx = similar(x)
+    (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(dx),dx)
+              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     elseif cudnnVersion >= 3000
         @cuda(cudnn,cudnnConvolutionBackwardData_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),TD(dx),dx)
+              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     else
         @cuda(cudnn,cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
@@ -64,19 +66,20 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
     return dx
 end
 
-function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T};
-                   handle=cudnnhandle(), alpha=1, algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
+function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                   # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dw = similar(w)
+    (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
     if cudnnVersion >= 4000
         @cuda(cudnn,cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),FD(dw),dw)
+              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     elseif cudnnVersion >= 3000
         @cuda(cudnn,cudnnConvolutionBackwardFilter_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,workSpaceSizeInBytes,Ref(T(beta)),FD(dw),dw)
+              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     else
         @cuda(cudnn,cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
@@ -544,3 +547,114 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         return dx
     end
 end;end
+
+
+# Utilities to find a fast algorithm
+
+immutable cudnnConvolutionFwdAlgoPerf_t
+    algo::Cint
+    status::Cint
+    time::Cfloat
+    memory::Csize_t
+    determinism::Cint
+    mathType::Cint
+    r1::Cint; r2::Cint; r3::Cint
+end
+
+const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
+const requestedAlgoCount = 10
+const returnedAlgoCount = Cint[0]
+const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(requestedAlgoCount)
+bytes{T}(x::KnetArray{T})=length(x)*sizeof(T)
+
+const conv4_algos = Dict()
+function conv4_algo{T}(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cudnnhandle(), o...)
+    global conv4_algos, requestedAlgoCount, returnedAlgoCount, perfResults
+    key = (T,size(w),size(x),o...)
+    if haskey(conv4_algos, key)
+        p = conv4_algos[key]
+        return (p.algo, cudnnWorkSpace(p.memory))
+    elseif length(conv4_algos) >= CUDNN_MAX_FIND
+        return (0, cudnnWorkSpace())
+    else
+        gc(); knetgc()          # TODO: fix memory management
+        @cuda(cudnn, cudnnFindConvolutionForwardAlgorithm,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
+              handle,TD(x),FD(w),CD(w,x;o...),TD(y),requestedAlgoCount,returnedAlgoCount,perfResults)
+        p = perfChoose(perfResults, returnedAlgoCount[1])
+        conv4_algos[key] = p
+        return (p.algo, cudnnWorkSpace(p.memory))
+    end
+end
+
+const conv4w_algos = Dict()
+function conv4w_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=cudnnhandle(), o...)
+    global conv4w_algos, requestedAlgoCount, returnedAlgoCount, perfResults
+    key = (T,size(w),size(x),o...)
+    if haskey(conv4w_algos, key)
+        p = conv4w_algos[key]
+        return (p.algo, cudnnWorkSpace(p.memory))
+    elseif length(conv4w_algos) >= CUDNN_MAX_FIND
+        return (0, cudnnWorkSpace())
+    else
+        gc(); knetgc()
+        @cuda(cudnn, cudnnFindConvolutionBackwardFilterAlgorithm,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
+              handle,TD(x),TD(dy),CD(w,x;o...),FD(dw),requestedAlgoCount,returnedAlgoCount,perfResults)
+        p = perfChoose(perfResults, returnedAlgoCount[1])
+        conv4w_algos[key] = p
+        return (p.algo, cudnnWorkSpace(p.memory))
+    end
+end
+
+const conv4x_algos = Dict()
+function conv4x_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=cudnnhandle(), o...)
+    global conv4x_algos, requestedAlgoCount, returnedAlgoCount, perfResults
+    key = (T,size(w),size(x),o...)
+    if haskey(conv4x_algos, key)
+        p = conv4x_algos[key]
+        return (p.algo, cudnnWorkSpace(p.memory))
+    elseif length(conv4x_algos) >= CUDNN_MAX_FIND
+        return (0, cudnnWorkSpace())
+    else
+        gc(); knetgc()
+        @cuda(cudnn, cudnnFindConvolutionBackwardDataAlgorithm,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
+              handle,FD(w),TD(dy),CD(w,x;o...),TD(dx),requestedAlgoCount,returnedAlgoCount,perfResults)
+        p = perfChoose(perfResults, returnedAlgoCount[1])
+        conv4x_algos[key] = p
+        return (p.algo, cudnnWorkSpace(p.memory))
+    end
+end
+
+CUDNN_WORKSPACE_MAXSIZE = 0     # Will be set to 20% of available gpu memory
+function perfChoose(ps, n)
+    global CUDNN_WORKSPACE_MAXSIZE
+    if n==ps
+        warn("returnedAlgoCount==requestedAlgoCount")
+    end
+    if CUDNN_WORKSPACE_MAXSIZE == 0
+        CUDNN_WORKSPACE_MAXSIZE = div(gpufree(),5)
+    end
+    (ibest,mbest,tbest) = (0,CUDNN_WORKSPACE_MAXSIZE,Inf)
+    for i = 1:n
+        if ps[i].status == 0 && ps[i].memory < mbest && ps[i].time < tbest * 1.1
+            (ibest,mbest,tbest) = (i,ps[i].memory,ps[i].time)
+        end
+    end
+    if ibest == 0; error("No good algo found."); end
+    return ps[ibest]
+end
+
+# TODO: this assumes one workspace per gpu. What about streams?
+const CUDNN_WORKSPACE = []
+function cudnnWorkSpace(len=0;dev=gpu())
+    global CUDNN_WORKSPACE
+    if dev==-1; error("No cudnnWorkSpace for CPU"); end
+    i = dev+2
+    if isempty(CUDNN_WORKSPACE); resize!(CUDNN_WORKSPACE,gpuCount()+1); end
+    if !isassigned(CUDNN_WORKSPACE,i) || length(CUDNN_WORKSPACE[i]) < len
+        CUDNN_WORKSPACE[i]=KnetArray{UInt8}(len);
+    end
+    return CUDNN_WORKSPACE[i]
+end

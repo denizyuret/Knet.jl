@@ -262,7 +262,7 @@ function cuda1permutedims()
       dims = collect(perms(1:i))
       indnames = collect(perms(["i","j","k","l","m"][1:i]))
       for j=1:length(dims)
-          fname = string("permutedims_",i,"D",replace(replace(replace(string(dims[j][:]),"[","_"),"]","_"),",","_"))
+          fname = string("permutedims_",i,"D_",join(dims[j],"_"),"_")
           print(cudaPerms[i-1](fname,indnames[j]...))
       end
   end

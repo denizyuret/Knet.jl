@@ -4,32 +4,45 @@ end
 
 """
 
-This example learns to classify hand-written digits from the
-[MNIST](http://yann.lecun.com/exdb/mnist) dataset.  There are 60000
-training and 10000 test examples. Each input x consists of 784 pixels
-representing a 28x28 image.  The pixel values are normalized to
-[0,1]. Each output y is converted to a ten-dimensional one-hot vector
-(a vector that has a single non-zero component) indicating the correct
-class (0-9) for a given image.  10 is used to represent 0.
+This example learns to classify images of fashion products(trousers, shirts, bags...) 
+from the [Fashion-MNIST](https://github.com/zalandoresearch/fashion-mnist) dataset.  
+There are 60000 training and 10000 test examples. Each input x 
+consists of 784 pixels representing a 28x28 image. The pixel values are 
+normalized to [0,1]. Each output y is converted to a ten-dimensional 
+one-hot vector (a vector that has a single non-zero component) indicating 
+the correct class (0-9) for a given image. 10 is used instead of 0.
+Labels and descriptions are shown below.
 
-You can run the demo using `julia mnist.jl` on the command line or
-`julia> MNIST.main()` at the Julia prompt.  Options can be used like
-`julia mnist.jl --epochs 3` or `julia> MNIST.main("--epochs 3")`.  Use
-`julia mnist.jl --help` for a list of options.  The dataset will be
-automatically downloaded.  By default a softmax model will be trained
-for 10 epochs.  You can also train a multi-layer perceptron by
-specifying one or more --hidden sizes.  The accuracy for the training
-and test sets will be printed at every epoch and optimized parameters
-will be returned.
+Label   Description
+0/10    T-shirt/top
+1       Trouser
+2       Pullover
+3       Dress
+4       Coat
+5       Sandal
+6       Shirt
+7       Sneaker
+8       Bag
+9       Ankle boot
+
+You can run the demo using `julia fashion-mnist.jl` on the command line or
+by first including `julia> include("fashion-mnist.jl")` and typing `julia> FashionMNIST.main()` 
+at the Julia prompt.  Options can be used like `julia fashion-mnist.jl --epochs 3` 
+or `julia> FashionMNIST.main("--epochs 3")`. Use `julia fashion-mnist.jl --help` 
+for a list of options.  The dataset will be automatically downloaded.  
+By default a softmax model will be trained for 10 epochs. You can also 
+train a multi-layer perceptron by specifying one or more --hidden sizes. 
+The accuracy for the training and test sets will be printed at every epoch 
+and optimized parameters will be returned.
 
 """
-module MNIST
+module FashionMNIST
 using Knet,ArgParse,Compat,GZip
 using Knet: relu_dot
 
-function predict(w,x)
+function predict(w,x; pdrop=0)
     for i=1:2:length(w)
-        x = w[i]*x .+ w[i+1]
+        x = w[i]*dropout(x, pdrop) .+ w[i+1]
         if i<length(w)-1
             x = relu_dot(x) # max(0,x)
         end
@@ -37,18 +50,18 @@ function predict(w,x)
     return x
 end
 
-function loss(w,x,ygold)
-    ypred = predict(w,x)
+function loss(w,x,ygold; pdrop=0)
+    ypred = predict(w,x; pdrop=pdrop)
     ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
     -sum(ygold .* ynorm) / size(ygold,2)
 end
 
 lossgradient = grad(loss)
 
-function train(w, dtrn; lr=.5, epochs=10)
+function train(w, dtrn; lr=.5, epochs=10, pdrop=0)
     for epoch=1:epochs
         for (x,y) in dtrn
-            g = lossgradient(w, x, y)
+            g = lossgradient(w, x, y; pdrop=pdrop)
             for i in 1:length(w)
                 # w[i] -= lr * g[i]
                 axpy!(-lr, g[i], w[i])
@@ -83,14 +96,17 @@ end
 
 function loaddata()
     global xtrn,ytrn,xtst,ytst
-    info("Loading MNIST...")
+    info("Loading Fashion-MNIST...")
     xtrn = gzload("train-images-idx3-ubyte.gz")[17:end]
     xtst = gzload("t10k-images-idx3-ubyte.gz")[17:end]
     ytrn = gzload("train-labels-idx1-ubyte.gz")[9:end]
     ytst = gzload("t10k-labels-idx1-ubyte.gz")[9:end]
+    info("Loaded Fashion-MNIST...")
 end
 
-function gzload(file; path=Knet.dir("data",file), url="http://yann.lecun.com/exdb/mnist/$file")
+function gzload(file; path=Knet.dir("data/fashion-mnist",file), url="https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/$file")
+    download_dir = Knet.dir("data/fashion-mnist")
+    ispath(download_dir) || mkpath(download_dir)
     isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)
@@ -113,18 +129,19 @@ end
 
 function main(args="")
     s = ArgParseSettings()
-    s.description="mnist.jl (c) Deniz Yuret, 2016. Multi-layer perceptron model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
+    s.description="fashion-mnist.jl (c) 2017 Adapted by Emre Unal based on Deniz Yuret’s MNIST example(https://github.com/denizyuret/Knet.jl/tree/master/examples/mnist.jl).\nMulti-layer perceptron model on the Fashion-MNIST dataset from https://github.com/zalandoresearch/fashion-mnist.\n"
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
         ("--batchsize"; arg_type=Int; default=100; help="minibatch size")
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--hidden"; nargs='*'; arg_type=Int; help="sizes of hidden layers, e.g. --hidden 128 64 for a net with two hidden layers")
-        ("--lr"; arg_type=Float64; default=0.5; help="learning rate")
+        ("--lr"; arg_type=Float64; default=0.15; help="learning rate")
         ("--winit"; arg_type=Float64; default=0.1; help="w initialized with winit*randn()")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
+        ("--dropout"; arg_type=Float64; default=0.5; help="Dropout probability.")
         # These are to experiment with sparse arrays
         # ("--xtype"; help="input array type: defaults to atype")
         # ("--ytype"; help="output array type: defaults to atype")
@@ -138,12 +155,12 @@ function main(args="")
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    if !isdefined(MNIST,:xtrn); loaddata(); end
+    if !isdefined(FashionMNIST,:xtrn); loaddata(); end
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
     global dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
     if o[:fast]
-        (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]
@@ -159,19 +176,11 @@ end
 
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia mnist.jl --epochs 10
-# julia> MNIST.main("--epochs 10")
+# julia> FashionMNIST.main("--epochs 10")
 if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE == "mnist.jl" && main(ARGS)
+    PROGRAM_FILE == "fashion-mnist.jl" && main(ARGS)
 else
     !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
 end
 
 end # module
-
-# SAMPLE RUN 65f57ff+ Wed Sep 14 10:02:30 EEST 2016
-#
-# mnist2d.jl (c) Deniz Yuret, 2016. Multi-layer perceptron model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
-# opts=(:seed,-1)(:batchsize,100)(:hidden,Int64[])(:epochs,10)(:lr,0.5)(:atype,"KnetArray{Float32}")(:gcheck,0)(:winit,0.1)(:fast,true)
-# (:epoch,0,:trn,0.079066664f0,:tst,0.0842f0)
-#   2.168927 seconds (2.95 M allocations: 115.993 MB, 1.84% gc time)
-# (:epoch,10,:trn,0.9195333f0,:tst,0.9158f0)
