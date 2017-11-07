@@ -732,3 +732,6 @@ Current contributors:
 - Meriç Melike Softa
 - Ekrem Emre Yurdakul
 - Enis Berk
+- Can Gümeli
+- Carlo Lucibello
+- 张实唯 (@ylxdzsw)
