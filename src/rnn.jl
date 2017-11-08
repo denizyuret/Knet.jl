@@ -1,13 +1,31 @@
+### TODO: get rid of these when integrated ################
 using Knet
 
 Knet.cudnnhandle()
 using Knet: @cuda, cudnnhandle, Cptr, cudnnVersion, bytes, FD, DT, TD
 using AutoGrad: Rec, Grad, recorder
 import Knet.DT
+### TODO: get rid of these when integrated ##################
 
-type DD; ptr; states; end       # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
+# Size chart (Julia sizes)
+#
+# x: (1,X,B,T) where X = inputSize, B = miniBatch, T = seqLength
+# xDesc: Array of T (1,X,B) descriptors
+# y: (1,Y,B,T) where Y = hiddenSize * (bidirectional ? 2 : 1)
+# yDesc: Array of T (1,Y,B) descriptors
+# w: (1,1,W) where W = cudnnGetRNNParamsSize()
+# hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
+#
+# Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
+
+
+"Dropout descriptor"
+type DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
+
+Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
+
 function DD(; handle=cudnnhandle(), dropout=0.0, seed=42, o...)
-    d = Cptr[0]; s = Csize_t[0]
+    d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
     @cuda(cudnn,cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
     @cuda(cudnn,cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
     states = KnetArray{UInt8}(s[1]) # TODO: Can this be shared? 638976 bytes.
@@ -18,125 +36,132 @@ function DD(; handle=cudnnhandle(), dropout=0.0, seed=42, o...)
     return dd
 end
 
-type RD
-    ptr
-    dropoutDesc
-    # store metadata here
-    hiddenSize
-    numLayers
-    mode
-    dataType
-    inputMode
-    direction
-    # add stuff as needed
+
+"RNN descriptor"
+type RD; ptr::Cptr;
+    function RD(ptr::Cptr)
+        rd = new(ptr)
+        finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
+        return rd
+    end
+end
+Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
+
+
+"RNN config"
+type RNN
+    inputSize::Cint
+    hiddenSize::Cint
+    numLayers::Cint
+    dropout::Float64
+    inputMode::Cint
+    direction::Cint
+    mode::Cint
+    algo::Cint
+    dataType::DataType
+    rnnDesc::RD
+    dropoutDesc::DD
+    dx
+    dhx
+    dcx
 end
 
-function RD(;
-            handle=cudnnhandle(),
-            hiddenSize=100,
-            numLayers=1,
-            dropout=0.0,
-            inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
-            direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
-            mode=0,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-            algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
-            dataType=0,     # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-            seed=42,
-            o...
-            )
+function initrnn(inputSize, hiddenSize;
+                 handle=cudnnhandle(),
+                 numLayers=1,
+                 dropout=0.0,
+                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+                 direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+                 mode=0,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+                 algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+                 dataType=Float32, # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+                 seed=42,
+                 o...
+                 )
+    # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
-    d = Cptr[0]
-    @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    d = Cptr[0]; @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    rnnDesc = RD(d[1])
     if cudnnVersion >= 7000
         @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,algo,dataType)
-
-
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
     elseif cudnnVersion >= 6000
         @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,algo,dataType)
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
     elseif cudnnVersion >= 5000
         @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-              d[1],hiddenSize,numLayers,dropoutDesc.ptr,inputMode,direction,mode,dataType)
+              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
     else
         error("CUDNN $cudnnVersion does not support RNNs")
     end
-    rd = RD(d[1], dropoutDesc, hiddenSize, numLayers, mode, dataType,inputMode,direction)
-    finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
-    return rd
+    r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
+    # TODO: initialize weights
+    return (w,r)
 end
 
-DT(::Type{Float32}) = 0
-DT(::Type{Float64}) = 1
-DT(::Type{Float16}) = 2
-import Base.unsafe_convert
-unsafe_convert(::Type{Cptr}, td::RD)=td.ptr
-unsafe_convert(::Type{Cptr}, td::DD)=td.ptr
+DT(::Type{Float32}) = Cint(0)
+DT(::Type{Float64}) = Cint(1)
+DT(::Type{Float16}) = Cint(2)
 
-JDT(cudnndtype) = (Float32, Float64, Float16)[cudnndtype+1]
-
-type RTD
-    ptr
-    dims
-    dtype
+function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
+    res = Csize_t[0]
+    xd = Cptr[0]    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
+    xs = r.inputSize
+    dt = DT(r.dataType)
+    ds = sizeof(r.dataType)
+    rd = r.rnnDesc
+    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),xd)
+    @cuda(cudnn,cudnnSetTensorNdDescriptor,
+          # td, dataType, nbDims, dimA, strideA
+          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
+          xd[1], dt, 3, Cint[1,xs,1], Cint[xs,1,1])
+    @cuda(cudnn, cudnnGetRNNParamsSize,
+          # handle, rnndesc, seqlength, xdesc, res
+          (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
+          handle, rd, xd[1], res, dt)
+    @cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),xd[1])
+    div(res[1], ds)
 end
 
-function RTD(dims, dtype;
-            fpacked=true,
-            o...)
-    #=if length(dims) == 3 && fpacked
-        #    info("dims is 3")
-        # fix of the batch dimension
-        # for 3d tensors in rnns
-        dims = (dims[2], dims[1], dims[3])
-    end=#
-    d = Cptr[0]
+"Keeps an array of 3D tensor descriptors"
+immutable TDs; pvec::Vector{Cptr}; end
+
+Base.unsafe_convert(::Type{Cptr}, tds::TDs)=pointer(tds.pvec)
+Base.length(tds::TDs)=length(tds.pvec)
+
+function TDs(a::KnetArray)
+    n = ndims(a); @assert n==4  # (1,X,B,T)
+    d = Vector{Cptr}(size(a,n))
     @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
-    sz = [Cint(dims[i]) for i=1:length(dims)]
-    st = Cint[]
-    stride = 1
-    for i = 1:length(dims)
-        push!(st, Cint(stride))
-        stride *= dims[i] 
-    end
-    reverse!(sz)
-    reverse!(st)
+    sz = [Cint(size(a,n-i)) for i=1:n-1]
+    st = [Cint(stride(a,n-i)) for i=1:n-1]
     @cuda(cudnn,cudnnSetTensorNdDescriptor,
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          d[1], dtype, length(dims), sz, st)
-    td = RTD(d[1], dims, dtype)
-    finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
-    return td
+          d[1], DT(a), n-1, sz, st)
+    for i=2:length(d); d[i]=d[1]; end
+    tds = TDs(d)
+    finalizer(tds, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.pvec[1]))
+    return tds
 end
 
-unsafe_convert(::Type{Cptr}, td::RTD)=td.ptr
-
-function workspace_size(rd::RD, tds;
-                        handle=cudnnhandle(),
-                        o...)
-    seqlength = length(tds)
+function cudnnGetRNNWorkspaceSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
-    tds = Cptr[td.ptr for td in tds]
     @cuda(cudnn, cudnnGetRNNWorkspaceSize,
           # handle, rnndesc, seqlength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
-          handle, rd.ptr, seqlength, tds, res)
+          handle, rd, length(tds), tds, res)
     return Int(res[1])
 end
 
-function reserved_size(rd::RD, tds,
-                       handle=cudnnhandle(),o...)
-    seqlength = length(tds)
+function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
-    tds = Cptr[td.ptr for td in tds]
     @cuda(cudnn, cudnnGetRNNTrainingReserveSize,
           # handle, rnndesc, seqlength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
-          handle, rd.ptr, seqlength, tds, res)
+          handle, rd, length(tds), tds, res)
     return Int(res[1])
 end
-
-
 
 # This datatype should only
 # contain the read only buffers
@@ -582,3 +607,44 @@ void * dw,
 const void * reserveSpace,
 size_t reserveSpaceSizeInBytes );
 =#
+
+#=
+JDT(cudnndtype) = (Float32, Float64, Float16)[cudnndtype+1]
+
+type RTD
+    ptr
+    dims
+    dtype
+end
+
+function RTD(dims, dtype;
+            fpacked=true,
+            o...)
+    #=if length(dims) == 3 && fpacked
+        #    info("dims is 3")
+        # fix of the batch dimension
+        # for 3d tensors in rnns
+        dims = (dims[2], dims[1], dims[3])
+    end=#
+    d = Cptr[0]
+    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
+    sz = [Cint(dims[i]) for i=1:length(dims)]
+    st = Cint[]
+    stride = 1
+    for i = 1:length(dims)
+        push!(st, Cint(stride))
+        stride *= dims[i] 
+    end
+    reverse!(sz)
+    reverse!(st)
+    @cuda(cudnn,cudnnSetTensorNdDescriptor,
+          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
+          d[1], dtype, length(dims), sz, st)
+    td = RTD(d[1], dims, dtype)
+    finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
+    return td
+end
+
+unsafe_convert(::Type{Cptr}, td::RTD)=td.ptr
+=#
+
