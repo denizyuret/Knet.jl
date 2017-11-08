@@ -2,12 +2,12 @@
 using Knet
 
 Knet.cudnnhandle()
-using Knet: @cuda, cudnnhandle, Cptr, cudnnVersion, bytes, FD, DT, TD
+using Knet: @cuda, cudnnhandle, Cptr, cudnnVersion, bytes, FD, DT, TD, cudnnWorkSpace
 using AutoGrad: Rec, Grad, recorder
 import Knet.DT
 ### TODO: get rid of these when integrated ##################
 
-# Size chart (Julia sizes)
+### Size chart (Julia sizes for CUDNN calls)
 #
 # x: (1,X,B,T) where X = inputSize, B = miniBatch, T = seqLength
 # xDesc: Array of T (1,X,B) descriptors
@@ -17,7 +17,7 @@ import Knet.DT
 # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
-
+# For Julia calls, x and y do not need the initial 1 dimension and B,T are optional.
 
 "Dropout descriptor"
 type DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
@@ -38,14 +38,17 @@ end
 
 
 "RNN descriptor"
-type RD; ptr::Cptr;
-    function RD(ptr::Cptr)
-        rd = new(ptr)
-        finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
-        return rd
-    end
-end
+type RD; ptr::Cptr; end
+
 Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
+
+function RD()
+    d = Cptr[0]
+    @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    rd = RD(d[1])
+    finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
+    return rd
+end
 
 
 "RNN config"
@@ -66,40 +69,6 @@ type RNN
     dcx
 end
 
-function initrnn(inputSize, hiddenSize;
-                 handle=cudnnhandle(),
-                 numLayers=1,
-                 dropout=0.0,
-                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
-                 direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
-                 mode=0,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-                 algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
-                 dataType=Float32, # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-                 seed=42,
-                 o...
-                 )
-    # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-    dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
-    d = Cptr[0]; @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
-    rnnDesc = RD(d[1])
-    if cudnnVersion >= 7000
-        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 6000
-        @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 5000
-        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
-    else
-        error("CUDNN $cudnnVersion does not support RNNs")
-    end
-    r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
-    # TODO: initialize weights
-    return (w,r)
-end
-
 DT(::Type{Float32}) = Cint(0)
 DT(::Type{Float64}) = Cint(1)
 DT(::Type{Float16}) = Cint(2)
@@ -117,7 +86,7 @@ function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
           xd[1], dt, 3, Cint[1,xs,1], Cint[xs,1,1])
     @cuda(cudnn, cudnnGetRNNParamsSize,
-          # handle, rnndesc, seqlength, xdesc, res
+          # handle, rnndesc, xdesc, result, dataType
           (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
           handle, rd, xd[1], res, dt)
     @cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),xd[1])
@@ -125,30 +94,48 @@ function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
 end
 
 "Keeps an array of 3D tensor descriptors"
-immutable TDs; pvec::Vector{Cptr}; end
+type TDs; pvec::Vector{Cptr}; end
 
-Base.unsafe_convert(::Type{Cptr}, tds::TDs)=pointer(tds.pvec)
+Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 
-function TDs(a::KnetArray)
-    n = ndims(a); @assert n==4  # (1,X,B,T)
-    d = Vector{Cptr}(size(a,n))
-    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
-    sz = [Cint(size(a,n-i)) for i=1:n-1]
-    st = [Cint(stride(a,n-i)) for i=1:n-1]
+function TDs(a::KnetArray)         # Treat a: (X,B,T) as a 4D array: (1,X,B,T)
+    a = reshape(a, 1, size(a,1), size(a,2), size(a,3))
+    pvec = Vector{Cptr}(size(a,4))
+    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),pvec)
+    sz = [Cint(size(a,i)) for i=3:-1:1]
+    st = [Cint(stride(a,i)) for i=3:-1:1]
     @cuda(cudnn,cudnnSetTensorNdDescriptor,
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          d[1], DT(a), n-1, sz, st)
-    for i=2:length(d); d[i]=d[1]; end
-    tds = TDs(d)
+          pvec[1], DT(a), 3, sz, st)
+    for i=2:length(pvec); pvec[i]=pvec[1]; end # All descriptors are the same
+    tds = TDs(pvec)
     finalizer(tds, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.pvec[1]))
     return tds
+end
+
+function TD3(a::KnetArray) # Treat a as a 3D array, pad from right
+    n = ndims(a)
+    if n==3; TD(a)
+    elseif n==2; TD(reshape(a, size(a,1), size(a,2), 1))
+    elseif n==1; TD(reshape(a, size(a,1), 1, 1))
+    else; throw(DimensionMismatch())
+    end
+end
+
+function FD3(a::KnetArray) # Treat a as a 3D array, pad from left
+    n = ndims(a)
+    if n==3; FD(a)
+    elseif n==2; FD(reshape(a, 1, size(a,1), size(a,2)))
+    elseif n==1; FD(reshape(a, 1, 1, size(a,1)))
+    else; throw(DimensionMismatch())
+    end
 end
 
 function cudnnGetRNNWorkspaceSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
     @cuda(cudnn, cudnnGetRNNWorkspaceSize,
-          # handle, rnndesc, seqlength, xdesc, res        ,
+          # handle, rnndesc, seqLength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
           handle, rd, length(tds), tds, res)
     return Int(res[1])
@@ -157,191 +144,78 @@ end
 function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
     @cuda(cudnn, cudnnGetRNNTrainingReserveSize,
-          # handle, rnndesc, seqlength, xdesc, res        ,
+          # handle, rnndesc, seqLength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
           handle, rd, length(tds), tds, res)
     return Int(res[1])
 end
 
-# This datatype should only
-# contain the read only buffers
-# user shouldn't call constructor of this fn
-# but rather a high-level function like init_rnn
-# should create this
-type RNNCache
-    rd # rnn descriptor for gpu
-    inputSize
-    dx; dhx; dcx
-end
 
-_xtdims(input_size::Int) = (1,input_size, 1)
-# the assumption is parameter size should not depend on sequence
-# or batch dimensions
-function nparams(rc::RNNCache;
-                 xtdims=nothing, #for debugging
-                 handle=cudnnhandle(),o...)
-    if xtdims==nothing; xtdims = _xtdims(rc.inputSize); end
-    eltype = JDT(rc.rd.dataType)
-    res = Csize_t[1]
-    #tds = Cptr[TD(xtdims).ptr]
-    @cuda(cudnn, cudnnGetRNNParamsSize,
-          # handle, rnndesc, seqlength, xdesc, res
-          (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
-          handle, rc.rd, RTD(xtdims, rc.rd.dataType), res, rc.rd.dataType)
-    return div(Int(res[1]), sizeof(eltype))
-end
-
-function init_params(rc::RNNCache; handle=cudnnhandle(),o...)
-    eltype = JDT(rc.rd.dataType)
-    params = KnetArray{eltype}(1,1,nparams(rc; handle=handle,o...))
-    return params
-end
-
-# Parameter collection and re-collection stuff
-# INCOMPLETE
-function get_params{T}(w::KnetArray{T}, rc::RNNCache;
-                    handle=cudnnhandle(),
-                    o...)
-    if rc.rnnType in (0,1)
-        nmats = 1
-    elseif rc.rnnType == 2
-        nmats = 4
-    else #gru
-        nmats = 3
-    end
-    if rc.inputMode == 0; nmats = 2nmats; end
-    weights = []#Ref{Ptr{Void}}()
-    biases = []#Ref{Ptr{Void}}()
-    dtype = eltype(params)
-    #hweight_size = (rc.hiddenSize, rc.hiddenSize)
-    #iweight_size = (rc.inputSize, rc.hiddenSize)
-    #sizes = (hweight_size, iweight_size)
-    #=for fn in (:cudnnGetRNNLinLayerMatrixParams, :cudnnGetRNNLinLayerBiasParams)
-        
-        
-    end=#
-    #=for layer = 1:rc.numLayers
-        # existence of a linar layer
-        for lid = 1:nmats
-                eval(:(
-                    widesc = FD() #init w/o set
-                    wi = Ref{Ptr{Void}}()
-                    widims = Cint[0,0,0]
-                    widims2 = Cint[0,0,0]
-                    @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
-                          (Cptr, Cptr, Cint,
-                           Cptr, Cptr, Ptr{T},
-                           Cint, Cptr, Ptr{Ptr{T}}),
-                          handle, rc.rd, layer,
-                          TD(shape, rc.rd.dataType), FD(w), w,
-                          lid, bidesc, bi)
-                ))
-            end
-            # dummy descriptor (will be overwritten by the fn)
-            
-            
-            @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,cudnnGetFilterNdDescriptor,
-                  Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}
-                  )
-            
-            # collect weights and biases
-            
-        end
-    end=#
-end
-
-
-function _init_cudnn_rnn(;o...)
-    rd = RD(;o...)
-    fnames = fieldnames(RNNCache)
-    cache = RNNCache([nothing for f in fnames]...)
-    cache.rd = rd           
-    for (name, value) in o
-        if name in fnames
-            setfield!(cache, name, value)
-        end
-    end
-    params = init_params(cache; o...)
-    return params, cache
-end
-
-# initializetion functions
-for (mode, fn_name) in zip(Array(0:3),
-                           [:init_rnn_relu, :init_rnn_tanh, :init_lstm, :init_gru])
-    eval(:(
-        ($fn_name)(hidden::Int, input::Int; o...)
-            = _init_cudnn_rnn(;o..., mode=($mode), hiddenSize=hidden, inputSize=input)))
-end
-    
-
-# workspace scope
-let
-    # TODO: make this shared with cnns?
-    workspace = nothing
-
-    # only weight backward will be enoguh due to caching
-    global getws, cleanws!, wssize
-    
-    function getws(wss;o...)
-        if workspace == nothing || bytes(workspace) < wss
-            workspace = KnetArray{Int8}(wss)
-        end
-        return workspace
-    end
-
-    function cleanws!()
-        workspace=nothing
-    end
-
-    wssize() = (workspace == nothing) ? 0 : bytes(workspace)
-end
-
-
-function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
-                gets=false,
-                training=false,
-                handle=cudnnhandle(),
-                o...)
-    # initialize workspace and reserved space
-    seqlength = size(x,3)
-    #xtdims = _xtdims(cache.inputSize)#(size(x,1,2)..., 1)
-    # TODO: should we share tensor desriptors
-    # TODO: padding?
-    cT = cache.rd.dataType
-    xtdims = (size(x,1), size(x,2),1)
-    xtds = [RTD(xtdims, cT) for i=1:seqlength]
-    # allocate the workspace
-    wss = workspace_size(cache.rd, xtds;o...)
-    ws = getws(wss; o...)
-    # allocata the reserved spave
-    # TODO: can we do better in terms of memory?
-    rss = reserved_size(cache.rd, xtds;o...)
-    rs = training ? KnetArray{Int8}(rss) : nothing
-    # Allocate the output data
-    output_size = (cache.rd.hiddenSize*(1+Int(cache.rd.direction)),
-                   xtdims[2], seqlength)
-    hidden_size = (cache.rd.hiddenSize, xtdims[2], cache.rd.numLayers
-                   * (1+Int(cache.rd.direction)))
-    if hx == nothing; hx=C_NULL; end
-    if cx == nothing; cx=C_NULL; end
-    #T = eltype(x)
-    #x = KnetArray{T}(hidden_size)
-    y = KnetArray{T}(output_size)
-    ytds = [RTD(hidden_size, cT) for i=1:seqlength]
-    if gets
-        hy = KnetArray{T}(hidden_size)
-        # only lstms
-        cy = (cache.rd.mode==2) ? KnetArray{T}(hidden_size) : C_NULL
+function rnninit(inputSize, hiddenSize;
+                 handle=cudnnhandle(),
+                 numLayers=1,
+                 dropout=0.0,
+                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+                 direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+                 mode=2,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+                 algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+                 dataType=Float32, # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+                 seed=42
+                 )
+    # Need to keep dropoutDesc in RNN so it does not get gc'ed.
+    dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
+    rnnDesc = RD()
+    if cudnnVersion >= 7000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 6000
+        @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 5000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
     else
-        hy = C_NULL
-        cy = C_NULL
+        error("CUDNN $cudnnVersion does not support RNNs")
     end
+    r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
+    # TODO: initialize weights
+    return (r,w)
+end
+
+function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, hx=nothing, cx=nothing;
+                    handle=cudnnhandle(), training=false)
+    seqLength = size(x,4)
+    xtds = TDs(x)               # (1,X,B,T)
+    wDesc = FD3(w)              # (1,1,W)
+    ysize = collect(size(x))
+    ysize[1] = r.hiddenSize * (r.direction == 1 ? 2 : 1)
+    y = KnetArray{T}(ysize...)
+    ytds = TDs(y)               # (1,H/2H,B,T)
+    if hx == nothing            # (H,B,L/2L)
+        hx = hxDesc = hy = hyDesc = C_NULL
+    else
+        hxDesc = TD3(hx)
+        hy = similar(hx)
+        hyDesc = TD3(hy)
+    end
+    if cx == nothing
+        cx = cxDesc = cy = cyDesc = C_NULL
+    else
+        cxDesc = TD3(cx)
+        cy = similar(cx)
+        cyDesc = TD3(cy)
+    end
+    wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
+    ws = cudnnWorkSpace(wss)
     if training
+        rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
+        rs = KnetArray{UInt8}(rss)
         @cuda(cudnn, cudnnRNNForwardTraining,
-              (Cptr, Cptr, Cint,
+              (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x
-               Cptr, Ptr{T}, #h
-               Cptr, Ptr{T}, #c
+               Cptr, Ptr{T}, #hx
+               Cptr, Ptr{T}, #cx
                Cptr, Ptr{T}, #w
                Ptr{Cptr}, Ptr{T}, #y
                Cptr, Ptr{T}, #hy
@@ -349,19 +223,20 @@ function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
                Cptr, Csize_t, #ws
                Cptr ,Csize_t#rs
                ),
-              handle, cache.rd, seqlength,
+              handle, r.rnnDesc, seqLength,
               xtds, x,
-              RTD(hidden_size, cT), hx,
-              RTD(hidden_size, cT), cx,
-              FD(w), w,
+              hxDesc, hx,
+              cxDesc, cx,
+              wDesc, w,
               ytds, y,
-              RTD(hidden_size, cT), hy,
-              RTD(hidden_size, cT), cy,
-              ws, bytes(ws),
-              rs, bytes(rs))
+              hyDesc, hy,
+              cyDesc, cy,
+              ws, wss,
+              rs, rss)
     else
+        rs = nothing
         @cuda(cudnn, cudnnRNNForwardInference,
-              (Cptr, Cptr, Cint,
+              (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x
                Cptr, Ptr{T}, #h
                Cptr, Ptr{T}, #c
@@ -371,30 +246,30 @@ function rnn{T}(w::KnetArray{T}, x::KnetArray{T}, hx, cx, cache;
                Cptr, Ptr{T}, #cy
                Cptr, Csize_t, #ws
                ),
-              handle, cache.rd, seqlength,
+              handle, r.rnnDesc, seqLength,
               xtds, x,
-              RTD(hidden_size, cT), hx,
-              RTD(hidden_size, cT), cx,
-              FD(w), w,
+              hxDesc, hx,
+              cxDesc, cx,
+              wDesc, w,
               ytds, y,
-              RTD(hidden_size, cT), hy,
-              RTD(hidden_size, cT), cy,
-              ws, bytes(ws))
+              hyDesc, hy,
+              cyDesc, cy,
+              ws, wss)
     end
     if hy == C_NULL; hy = nothing; end
     if cy == C_NULL; cy = nothing; end
     return y, hy, cy, rs
 end
 
-    
-function rnn_backw{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache, rs;
+#=    
+function rnnback{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache, rs;
                       handle=cudnnhandle(),
                       o...)
     #Allocate the necessary buffers
     if dhy == nothing; dhy=C_NULL; end
     if dcy == nothing; dcy=C_NULL; end
     
-    seqlength = size(x,3)
+    seqLength = size(x,3)
     #T = eltype(dy)
     cT = cache.rd.dataType
     # The derivative output buffers
@@ -409,9 +284,9 @@ function rnn_backw{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache
         dcx == KnetArray{T}(size(cx))
     end
     xtdims = (size(x,1,2)..., 1)
-    xtds = [RTD(xtdims, cT).ptr for i=1:seqlength]
-    ytds = [RTD(hidden_size, cT).ptr for i=1:seqlength]
-    dytds = [RTD(hidden_size, cT).ptr for i=1:seqlength]
+    xtds = [RTD(xtdims, cT).ptr for i=1:seqLength]
+    ytds = [RTD(hidden_size, cT).ptr for i=1:seqLength]
+    dytds = [RTD(hidden_size, cT).ptr for i=1:seqLength]
     ws = getws(cache.rd, xtds; o...)
     # data backward
     @cuda(cudnn, cudnnRNNBackwardData,
@@ -429,7 +304,7 @@ function rnn_backw{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache
            Cptr, Csize_t, #ws
            Cptr, Csize_t), #rs
           # Use rtd with nullables
-          handle, cache.rd, seqlength,
+          handle, cache.rd, seqLength,
           ytds, y,
           dytds, dy,
           TD(dhy), dhy,
@@ -451,7 +326,7 @@ function rnn_backw{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache
            Cptr, Csize_t, #ws
            Cptr, Ptr{T},#w
            Ptr{Cptr}, Csize_t),
-          handle, cache.rd, seqlength,
+          handle, cache.rd, seqLength,
           xtds, x,
           RTD(hidden_size, cT), hx,
           ytds, y,
@@ -481,7 +356,7 @@ let rnn_r = recorder(rnn)
     rnn(::Type{Grad{3}},dr,r,w,x,hx,cx,cache) = cache.dhx
     rnn(::Type{Grad{3}},dr,r,w,x,hx,cx,cache) = cache.dcx
 end
-
+=#
 
 
 
@@ -646,5 +521,141 @@ function RTD(dims, dtype;
 end
 
 unsafe_convert(::Type{Cptr}, td::RTD)=td.ptr
+
+# This datatype should only
+# contain the read only buffers
+# user shouldn't call constructor of this fn
+# but rather a high-level function like init_rnn
+# should create this
+type RNNCache
+    rd # rnn descriptor for gpu
+    inputSize
+    dx; dhx; dcx
+end
+
+_xtdims(input_size::Int) = (1,input_size, 1)
+# the assumption is parameter size should not depend on sequence
+# or batch dimensions
+function nparams(rc::RNNCache;
+                 xtdims=nothing, #for debugging
+                 handle=cudnnhandle(),o...)
+    if xtdims==nothing; xtdims = _xtdims(rc.inputSize); end
+    eltype = JDT(rc.rd.dataType)
+    res = Csize_t[1]
+    #tds = Cptr[TD(xtdims).ptr]
+    @cuda(cudnn, cudnnGetRNNParamsSize,
+          # handle, rnndesc, seqlength, xdesc, res
+          (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
+          handle, rc.rd, RTD(xtdims, rc.rd.dataType), res, rc.rd.dataType)
+    return div(Int(res[1]), sizeof(eltype))
+end
+
+function init_params(rc::RNNCache; handle=cudnnhandle(),o...)
+    eltype = JDT(rc.rd.dataType)
+    params = KnetArray{eltype}(1,1,nparams(rc; handle=handle,o...))
+    return params
+end
+
+# Parameter collection and re-collection stuff
+# INCOMPLETE
+function get_params{T}(w::KnetArray{T}, rc::RNNCache;
+                    handle=cudnnhandle(),
+                    o...)
+    if rc.rnnType in (0,1)
+        nmats = 1
+    elseif rc.rnnType == 2
+        nmats = 4
+    else #gru
+        nmats = 3
+    end
+    if rc.inputMode == 0; nmats = 2nmats; end
+    weights = []#Ref{Ptr{Void}}()
+    biases = []#Ref{Ptr{Void}}()
+    dtype = eltype(params)
+    #hweight_size = (rc.hiddenSize, rc.hiddenSize)
+    #iweight_size = (rc.inputSize, rc.hiddenSize)
+    #sizes = (hweight_size, iweight_size)
+    #=for fn in (:cudnnGetRNNLinLayerMatrixParams, :cudnnGetRNNLinLayerBiasParams)
+        
+        
+    end=#
+    #=for layer = 1:rc.numLayers
+        # existence of a linar layer
+        for lid = 1:nmats
+                eval(:(
+                    widesc = FD() #init w/o set
+                    wi = Ref{Ptr{Void}}()
+                    widims = Cint[0,0,0]
+                    widims2 = Cint[0,0,0]
+                    @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
+                          (Cptr, Cptr, Cint,
+                           Cptr, Cptr, Ptr{T},
+                           Cint, Cptr, Ptr{Ptr{T}}),
+                          handle, rc.rd, layer,
+                          TD(shape, rc.rd.dataType), FD(w), w,
+                          lid, bidesc, bi)
+                ))
+            end
+            # dummy descriptor (will be overwritten by the fn)
+            
+            
+            @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,cudnnGetFilterNdDescriptor,
+                  Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}
+                  )
+            
+            # collect weights and biases
+            
+        end
+    end=#
+end
+
+
+function _init_cudnn_rnn(;o...)
+    rd = RD(;o...)
+    fnames = fieldnames(RNNCache)
+    cache = RNNCache([nothing for f in fnames]...)
+    cache.rd = rd           
+    for (name, value) in o
+        if name in fnames
+            setfield!(cache, name, value)
+        end
+    end
+    params = init_params(cache; o...)
+    return params, cache
+end
+
+# initializetion functions
+for (mode, fn_name) in zip(Array(0:3),
+                           [:init_rnn_relu, :init_rnn_tanh, :init_lstm, :init_gru])
+    eval(:(
+        ($fn_name)(hidden::Int, input::Int; o...)
+            = _init_cudnn_rnn(;o..., mode=($mode), hiddenSize=hidden, inputSize=input)))
+end
+    
+
+# workspace scope
+let
+    # TODO: make this shared with cnns?
+    workspace = nothing
+
+    # only weight backward will be enoguh due to caching
+    global getws, cleanws!, wssize
+    
+    function getws(wss;o...)
+        if workspace == nothing || bytes(workspace) < wss
+            workspace = KnetArray{Int8}(wss)
+        end
+        return workspace
+    end
+
+    function cleanws!()
+        workspace=nothing
+    end
+
+    wssize() = (workspace == nothing) ? 0 : bytes(workspace)
+end
+
+
+
 =#
 

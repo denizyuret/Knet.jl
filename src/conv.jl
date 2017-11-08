@@ -26,14 +26,10 @@ dimension.
 * `upscale=1`: upscale factor for each dimension.
 * `mode=0`: 0 for convolution and 1 for cross-correlation.
 * `alpha=1`: can be used to scale the result.
-* `algo=0`: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.
-* `workSpace=C_NULL`: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.
-* `workSpaceSizeInBytes=0`: the size in bytes of the provided workSpace. Default=0.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
 function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                  # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0, 
                   o...) # padding=0, stride=1, upscale=1, mode=0
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
@@ -45,7 +41,6 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1
 end
 
 function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
-                   # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dx = similar(x)
@@ -67,7 +62,6 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudn
 end
 
 function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                   # algo=0, workSpace=C_NULL, workSpaceSizeInBytes=0,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dw = similar(w)
