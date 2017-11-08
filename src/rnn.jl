@@ -183,31 +183,29 @@ function rnninit(inputSize, hiddenSize;
     return (r,w)
 end
 
-function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, hx=nothing, cx=nothing;
-                    handle=cudnnhandle(), training=false)
-    seqLength = size(x,4)
-    xtds = TDs(x)               # (1,X,B,T)
+function rnn{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, hx=nothing, cx=nothing;
+                handle=cudnnhandle(), training=false)
+    # TODO: add some asserts
+    seqLength = size(x,3)       # (X,B,T)
+
+    # Input descriptors
     wDesc = FD3(w)              # (1,1,W)
+    xtds = TDs(x)               # (1,X,B) x T
+    if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
+    if cx==nothing; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
+
+    # Output arrays and descriptors
     ysize = collect(size(x))
     ysize[1] = r.hiddenSize * (r.direction == 1 ? 2 : 1)
-    y = KnetArray{T}(ysize...)
-    ytds = TDs(y)               # (1,H/2H,B,T)
-    if hx == nothing            # (H,B,L/2L)
-        hx = hxDesc = hy = hyDesc = C_NULL
-    else
-        hxDesc = TD3(hx)
-        hy = similar(hx)
-        hyDesc = TD3(hy)
-    end
-    if cx == nothing
-        cx = cxDesc = cy = cyDesc = C_NULL
-    else
-        cxDesc = TD3(cx)
-        cy = similar(cx)
-        cyDesc = TD3(cy)
-    end
+    y = similar(x, ysize...)    # (H/2H,B,T)
+    ytds = TDs(y)               # (1,H/2H,B) x T
+    if hx==C_NULL; hy=hyDesc=C_NULL; else; hy=similar(hx); hyDesc=TD3(hy); end
+    if cx==C_NULL; cy=cyDesc=C_NULL; else; cy=similar(cx); cyDesc=TD3(cy); end
+
+    # workSpace and reserveSpace
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
     ws = cudnnWorkSpace(wss)
+
     if training
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
         rs = KnetArray{UInt8}(rss)
@@ -261,36 +259,36 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, hx=nothing, cx=not
     return y, hy, cy, rs
 end
 
-#=    
-function rnnback{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache, rs;
-                      handle=cudnnhandle(),
-                      o...)
-    #Allocate the necessary buffers
-    if dhy == nothing; dhy=C_NULL; end
-    if dcy == nothing; dcy=C_NULL; end
+function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, dy::KnetArray{T},
+                    hx, cx, dhy, dcy, rs; handle=cunnhandle(), o...)
+    seqLength = size(x,3)       # (X,B,T)
+
+    # Input descriptors:
+    wDesc = FD3(w)              # (1,1,W)
+    xtds = TDs(x)               # (X,B,T) -> (1,X,B) x T
+    ytds = TDs(y)               # (H/2H,B,T) -> (1,H/2H,B) x T
+    dytds = TDs(dy)             # TODO: can we use ytds here?
+    if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
+    if cx == nothing; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
+    if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
+    if dcy == nothing; dcy=dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
     
-    seqLength = size(x,3)
-    #T = eltype(dy)
-    cT = cache.rd.dataType
-    # The derivative output buffers
-    dx = KnetArray{T}(size(x))
-    dw = KnetArray{T}(size(w))
-    hidden_size = (output_size[1:2]..., 1)
-    dhx, dcx = C_NULL, C_NULL
-    if hx !== nothing
-        dhx = KnetArray{T}(size(hx))
-    end
-    if cx !== nothing
-        dcx == KnetArray{T}(size(cx))
-    end
-    xtdims = (size(x,1,2)..., 1)
-    xtds = [RTD(xtdims, cT).ptr for i=1:seqLength]
-    ytds = [RTD(hidden_size, cT).ptr for i=1:seqLength]
-    dytds = [RTD(hidden_size, cT).ptr for i=1:seqLength]
-    ws = getws(cache.rd, xtds; o...)
+    # Output arrays and descriptors:
+    dx = similar(x)             # (X,B,T)
+    dxtds = TDs(dx)             # TODO: can we use xtds here?
+    dw = similar(w)
+    dwDesc = FD3(dw)
+    if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
+    if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
+
+    # workSpace and reserveSpace
+    ws = cudnnWorkSpace()
+    wss = bytes(ws)
+    rss = bytes(rs)
+    
     # data backward
     @cuda(cudnn, cudnnRNNBackwardData,
-          (Cptr, Cptr, Cint,
+          (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
            Ptr{Cptr}, Ptr{T}, #y
            Ptr{Cptr}, Ptr{T}, #dy
            Cptr, Ptr{T}, #dhy
@@ -298,46 +296,64 @@ function rnnback{T}(dy::KnetArray{T}, dhy, dcy, y, w, x, hx, cx, hy, cy, cache, 
            Cptr, Ptr{T}, #w
            Cptr, Ptr{T}, #hx
            Cptr, Ptr{T}, #cx
-           Cptr, Ptr{T}, #dx
+           Ptr{Cptr}, Ptr{T}, #dx
            Cptr, Ptr{T}, #dhx
            Cptr, Ptr{T}, #dcx
            Cptr, Csize_t, #ws
            Cptr, Csize_t), #rs
           # Use rtd with nullables
-          handle, cache.rd, seqLength,
+          handle, r.rnnDesc, seqLength,
           ytds, y,
           dytds, dy,
-          TD(dhy), dhy,
-          TD(dhy), dcy,
-          FD(w), w,
-          RTD(hidden_size, cT), hx,
-          RTD(hidden_size, cT), cx,
-          TD(dx), dx,
-          RTD(hidden_size, cT), dhx,
-          RTD(size(dcx), cT), dcx,
-          ws, bytes(ws),
-          rs, bytes(rs))
+          dhyDesc, dhy,
+          dcyDesc, dcy,
+          wDesc, w,
+          hxDesc, hx,
+          cxDesc, cx,
+          dxtds, dx,
+          dhxDesc, dhx,
+          dcxDesc, dcx,
+          ws, wss,
+          rs, rss)
     # weights backward
     @cuda(cudnn, cudnnRNNBackwardWeights,
-          (Cptr, Cptr, Cint,
+          (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
            Ptr{Cptr}, Ptr{T}, #x
            Cptr, Ptr{T}, #hx
            Ptr{Cptr}, Ptr{T}, #y
            Cptr, Csize_t, #ws
-           Cptr, Ptr{T},#w
-           Ptr{Cptr}, Csize_t),
-          handle, cache.rd, seqLength,
+           Cptr, Ptr{T}, #dw
+           Ptr{Cptr}, Csize_t), #rs
+          handle, r.rnnDesc, seqLength,
           xtds, x,
-          RTD(hidden_size, cT), hx,
+          hxDesc, hx,
           ytds, y,
-          ws, bytes(ws),
-          FD(dw), dw,
-          rs, bytes(rs))
+          ws, wss,
+          dwDesc, dw,
+          rs, rss)
     # Update the cache
-    cache.dx, cache.dhx, cache.dcx = dx, dhx, dcx
+    if dhx==C_NULL; dhx=nothing; end
+    if dcx==C_NULL; dcx=nothing; end
+    r.dx, r.dhx, r.dcx = dx, dhx, dcx
     return dw
 end
 
+function rnn(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+    y,hy,cy,rs = getval(t)
+    dy,dhy,dcy,drs = getval(dt)
+    w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
+    rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
+end
+
+rnn(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
+rnn(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
+rnn(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
+
+rnn_r = recorder(rnn)
+rnn(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnn_r(r, w, x...; handle=handle, training=true)
+
+
+#=    
 
 
 let rnn_r = recorder(rnn)
