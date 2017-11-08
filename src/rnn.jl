@@ -179,13 +179,12 @@ function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}, layer::Int; handle=cudnnh
     format = UInt32[0]
     ndims = Cint[0]
     dims = Cint[0 for i = 1:3]
+    @cuda(cudnn, cudnnCreateFilterDescriptor, (Ptr{Cptr},), matdesc)
     readdims!() = @cuda(cudnn, cudnnGetFilterNdDescriptor,
                        (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, #wd, reqdims, dtype, format
                         Ptr{Cint}, Ptr{Cint}), #ndims, dims
                        matdesc[1], 3, dtype, format, ndims, dims)
     for i = 0:nws-1
-        # TODO: move them outside of the loop
-        @cuda(cudnn, cudnnCreateFilterDescriptor, (Ptr{Cptr},), matdesc)
         # Read the biases
         @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
