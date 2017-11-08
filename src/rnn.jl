@@ -158,7 +158,7 @@ function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}, layer::Int; handle=cudnnh
     elseif r.mode==3
         nws = 6
     else
-        nws = 4
+        nws = 2
     end
     xd = Cptr[0]    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
     xs = r.inputSize
@@ -210,8 +210,8 @@ function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}, layer::Int; handle=cudnnh
             ptr = Knet.KnetPtr(matptr[1], *(sz...), gpu(), w)
             push!(weights, KnetArray{T,2}(ptr, sz))
         end
-        
-        # Read the biases                             
+
+        # Read the biases
         @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
@@ -238,7 +238,7 @@ function rnninit(inputSize, hiddenSize;
                  handle=cudnnhandle(),
                  numLayers=1,
                  dropout=0.0,
-                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
                  direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
                  mode=2,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
                  algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
@@ -365,7 +365,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, d
     if cx == nothing; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
     if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
     if dcy == nothing; dcy=dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
-    
+
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T)
     dxtds = TDs(dx)             # TODO: can we use xtds here?
@@ -378,7 +378,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, d
     ws = cudnnWorkSpace()
     wss = bytes(ws)
     rss = bytes(rs)
-    
+
     # data backward
     @cuda(cudnn, cudnnRNNBackwardData,
           (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
@@ -446,7 +446,7 @@ rnn_r = recorder(rnn)
 rnn(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnn_r(r, w, x...; handle=handle, training=true)
 
 
-#=    
+#=
 
 
 let rnn_r = recorder(rnn)
@@ -617,7 +617,7 @@ function RTD(dims, dtype;
     stride = 1
     for i = 1:length(dims)
         push!(st, Cint(stride))
-        stride *= dims[i] 
+        stride *= dims[i]
     end
     reverse!(sz)
     reverse!(st)
@@ -685,8 +685,8 @@ function get_params{T}(w::KnetArray{T}, rc::RNNCache;
     #iweight_size = (rc.inputSize, rc.hiddenSize)
     #sizes = (hweight_size, iweight_size)
     #=for fn in (:cudnnGetRNNLinLayerMatrixParams, :cudnnGetRNNLinLayerBiasParams)
-        
-        
+
+
     end=#
     #=for layer = 1:rc.numLayers
         # existence of a linar layer
@@ -706,14 +706,14 @@ function get_params{T}(w::KnetArray{T}, rc::RNNCache;
                 ))
             end
             # dummy descriptor (will be overwritten by the fn)
-            
-            
+
+
             @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,cudnnGetFilterNdDescriptor,
                   Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}
                   )
-            
+
             # collect weights and biases
-            
+
         end
     end=#
 end
@@ -723,7 +723,7 @@ function _init_cudnn_rnn(;o...)
     rd = RD(;o...)
     fnames = fieldnames(RNNCache)
     cache = RNNCache([nothing for f in fnames]...)
-    cache.rd = rd           
+    cache.rd = rd
     for (name, value) in o
         if name in fnames
             setfield!(cache, name, value)
@@ -740,7 +740,7 @@ for (mode, fn_name) in zip(Array(0:3),
         ($fn_name)(hidden::Int, input::Int; o...)
             = _init_cudnn_rnn(;o..., mode=($mode), hiddenSize=hidden, inputSize=input)))
 end
-    
+
 
 # workspace scope
 let
@@ -749,7 +749,7 @@ let
 
     # only weight backward will be enoguh due to caching
     global getws, cleanws!, wssize
-    
+
     function getws(wss;o...)
         if workspace == nothing || bytes(workspace) < wss
             workspace = KnetArray{Int8}(wss)
@@ -767,4 +767,3 @@ end
 
 
 =#
-
