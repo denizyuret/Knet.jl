@@ -185,7 +185,7 @@ function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}, layer::Int; handle=cudnnh
                         Ptr{Cint}, Ptr{Cint}), #ndims, dims
                        matdesc[1], 3, dtype, format, ndims, dims)
     for i = 0:nws-1
-        # Read the biases
+        # Read the weights
         @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
@@ -265,7 +265,7 @@ function rnninit(inputSize, hiddenSize;
     w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
     # Initialize weights
     for i = 0:(r.numLayers * (1 + r.direction) -1)
-        mats, bs = cudnnGetRNNParams(r, w, i; handle=cudnnhandle())
+        mats, bs = cudnnGetRNNParams(r, w, i; handle=handle)
         for (m, b) in zip(mats, bs)
             copy!(m, winit(eltype(m), size(m)...))
             copy!(b, binit(eltype(b), size(b)...))
