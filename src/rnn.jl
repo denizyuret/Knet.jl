@@ -167,7 +167,8 @@ The effect of inputMode: Let I=0 for RELU/TANH, 0:2 for GRU, 0:3 for LSTM
 
 """
 
-function cudnnGetRNNParam{T}(r::RNN, w::KnetArray{T}, layer, id, matrix=true; handle=cudnnhandle())
+function cudnnGetRNNParam(r::RNN, w, layer, id, matrix=true; handle=cudnnhandle())
+    T = eltype(w) # w could be a Rec so w::KnetArray{T} is not an option
     xDesc = TD(T,1,r.inputSize,1)
     wDesc = FD(T,1,1,length(w))
     paramDesc = FD(T,1,1,1,1)
@@ -175,18 +176,18 @@ function cudnnGetRNNParam{T}(r::RNN, w::KnetArray{T}, layer, id, matrix=true; ha
     if matrix
         @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
-               Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
+               Cptr, Cptr, Cptr, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
               handle, r.rnnDesc, layer,
-              xDesc, wDesc, w,
+              xDesc, wDesc, getval(w),
               id, paramDesc, param)
     else
         @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
-               Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
+               Cptr, Cptr, Cptr, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
               handle, r.rnnDesc, layer,
-              xDesc, wDesc, w,
+              xDesc, wDesc, getval(w),
               id, paramDesc, param)
     end
     dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
@@ -206,7 +207,7 @@ end
 
 """
 
-    cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T})
+    cudnnGetRNNParams(r::RNN, w)
 
 Split w into individual parameters and return them as an array.
 
@@ -217,7 +218,7 @@ The order of params returned (subject to change):
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
 """
-function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}; handle=cudnnhandle())
+function cudnnGetRNNParams(r::RNN, w; handle=cudnnhandle())
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []
