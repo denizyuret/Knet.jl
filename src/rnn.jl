@@ -69,49 +69,27 @@ type RNN
     dcx
 end
 
-DT(::Type{Float32}) = Cint(0)
-DT(::Type{Float64}) = Cint(1)
-DT(::Type{Float16}) = Cint(2)
-
 function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
     res = Csize_t[0]
-    xd = Cptr[0]    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-    xs = r.inputSize
-    dt = DT(r.dataType)
-    ds = sizeof(r.dataType)
-    rd = r.rnnDesc
-    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),xd)
-    @cuda(cudnn,cudnnSetTensorNdDescriptor,
-          # td, dataType, nbDims, dimA, strideA
-          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          xd[1], dt, 3, Cint[1,xs,1], Cint[xs,1,1])
+    xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
     @cuda(cudnn, cudnnGetRNNParamsSize,
           # handle, rnndesc, xdesc, result, dataType
           (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
-          handle, rd, xd[1], res, dt)
-    @cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),xd[1])
-    div(res[1], ds)
+          handle, r.rnnDesc, xDesc, res, DT(r.dataType))
+    div(res[1], sizeof(r.dataType))
 end
 
 "Keeps an array of 3D tensor descriptors"
-type TDs; pvec::Vector{Cptr}; end
+type TDs; pvec::Vector{Cptr}; xDesc::TD; end
 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 
-function TDs(a::KnetArray)         # Treat a: (X,B,T) as a 4D array: (1,X,B,T)
-    a = reshape(a, 1, size(a,1), size(a,2), size(a,3))
-    pvec = Vector{Cptr}(size(a,4))
-    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),pvec)
-    sz = [Cint(size(a,i)) for i=3:-1:1]
-    st = [Cint(stride(a,i)) for i=3:-1:1]
-    @cuda(cudnn,cudnnSetTensorNdDescriptor,
-          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          pvec[1], DT(a), 3, sz, st)
-    for i=2:length(pvec); pvec[i]=pvec[1]; end # All descriptors are the same
-    tds = TDs(pvec)
-    finalizer(tds, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.pvec[1]))
-    return tds
+function TDs{T}(x::KnetArray{T})         # Treat x: (X,B,T) as a 4D array: (1,X,B,T)
+    xDesc = TD(T,1,size(x,1),size(x,2))
+    pvec = Vector{Cptr}(size(x,3))
+    pvec[:] = xDesc.ptr
+    return TDs(pvec, xDesc)     # Keep xDesc in TDs so it does not get gc'ed
 end
 
 function TD3(a::KnetArray) # Treat a as a 3D array, pad from right
@@ -150,86 +128,107 @@ function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=cudnnhandle())
     return Int(res[1])
 end
 
-# layer=numLayers+i+layerid for bidirectionals
-# if inputMode=1, first half of the buffers become nothing (no input transform)
-function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}, layer::Int; handle=cudnnhandle())
-    if r.mode == 2
-        nws = 8
-    elseif r.mode==3
-        nws = 6
+# Return eltype,size
+function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
+    dataType = Cint[0]
+    format = Cint[0]
+    nbDims = Cint[0]
+    filterDimA = Vector{Cint}(nbDimsRequested)
+    @cuda(cudnn, cudnnGetFilterNdDescriptor,
+          (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}),
+          wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
+    if nbDims[1] > nbDimsRequested
+        cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = nbDims[1])
     else
-        nws = 2
+        (Float32,Float64,Float16)[1+dataType[1]],
+        (filterDimA[nbDims[1]:-1:1]...)
     end
-    xd = Cptr[0]    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-    xs = r.inputSize
-    dt = DT(r.dataType)
-    ds = sizeof(r.dataType)
-    rd = r.rnnDesc
-    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),xd)
-    @cuda(cudnn,cudnnSetTensorNdDescriptor,
-          # td, dataType, nbDims, dimA, strideA
-          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          xd[1], dt, 3, Cint[1,xs,1], Cint[xs,1,1])
-    weights, biases = [], []
-    wdesc = FD(w)
-    # The buffers that are overwritten
-    matdesc = Cptr[0]
-    matptr = Cptr[0]
-    dtype = UInt32[0]
-    format = UInt32[0]
-    ndims = Cint[0]
-    dims = Cint[0 for i = 1:3]
-    @cuda(cudnn, cudnnCreateFilterDescriptor, (Ptr{Cptr},), matdesc)
-    readdims!() = @cuda(cudnn, cudnnGetFilterNdDescriptor,
-                       (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, #wd, reqdims, dtype, format
-                        Ptr{Cint}, Ptr{Cint}), #ndims, dims
-                       matdesc[1], 3, dtype, format, ndims, dims)
-    for i = 0:nws-1
-        # Read the weights
+end
+
+"""
+
+    cudnnGetRNNParam{T}(r::RNN, w::KnetArray{T}, layer, id, matrix=true)
+
+Return a single weight matrix or bias vector as a subarray of w.
+
+Valid `id` values:
+* For RELU and TANH RNNs, input = 0, hidden = 1.
+* For GRU reset = 0,3; update = 1,4; newmem = 2,5; 0:2 for input, 3:5 for hidden
+* For LSTM inputgate = 0,4; forget = 1,5; newmem = 2,6; output = 3,7; 0:3 for input, 4:7 for hidden
+
+Valid `layer` values:
+* For direction=0 (uni) RNNs 0:(numLayers-1)
+* For direction=1 (bi)  RNNs 0:(2*numLayers-1), forw and back layers alternate.
+
+The effect of inputMode: Let I=0 for RELU/TANH, 0:2 for GRU, 0:3 for LSTM
+* For inputMode=0, param(0,I) is a (hiddenSize,inputSize) matrix.
+* For inputMode=1, param(0,I) is empty.
+* For direction=1 (bi), the same applies to param(1,I): the first back layer.
+
+"""
+
+function cudnnGetRNNParam{T}(r::RNN, w::KnetArray{T}, layer, id, matrix=true; handle=cudnnhandle())
+    xDesc = TD(T,1,r.inputSize,1)
+    wDesc = FD(T,1,1,length(w))
+    paramDesc = FD(T,1,1,1,1)
+    param = Cptr[0]
+    if matrix
         @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
               handle, r.rnnDesc, layer,
-              xd[1], wdesc, w,
-              i, matdesc[1], matptr)
-        readdims!()
-        if sum(dims) == 0
-            push!(weights, nothing)
-        else
-            sz = Int64.(dims)
-            lt = *(sz...)
-            if lt == r.hiddenSize^2
-                sz = (r.hiddenSize, r.hiddenSize)
-            elseif lt == r.hiddenSize*r.inputSize
-                sz = (r.hiddenSize, r.inputSize)
-            else
-                error("Malformed weight array is read")
-            end
-            ptr = Knet.KnetPtr(matptr[1], *(sz...), gpu(), w)
-            push!(weights, KnetArray{T,2}(ptr, sz))
-        end
-
-        # Read the biases
+              xDesc, wDesc, w,
+              id, paramDesc, param)
+    else
         @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Ptr{T}, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
               handle, r.rnnDesc, layer,
-              xd[1], wdesc, w,
-              i, matdesc[1], matptr)
-        readdims!()
-        if sum(dims) == 0
-            push!(biases, nothing)
-        else
-            sz = Int64.(dims)
-            ptr = Knet.KnetPtr(matptr[1], *(sz...), gpu(), w)
-            push!(biases, KnetArray{T,2}(ptr, (sz[1],1)))
+              xDesc, wDesc, w,
+              id, paramDesc, param)
+    end
+    dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
+    len = prod(sz)
+    i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
+    i2 = i1 + len - 1
+    if len == 1 # empty weights when inputMode=1 show up as size (1,1,1)
+        nothing
+    elseif matrix
+        h = Int(r.hiddenSize)
+        reshape(w[i1:i2], (h, div(len,h)))
+    else # bias
+        w[i1:i2]
+    end
+end
+
+
+"""
+
+    cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T})
+
+Split w into individual parameters and return them as an array.
+
+The order of params returned (subject to change):
+* All weight matrices come before all bias vectors.
+* Matrices and biases are sorted lexically based on (layer,id).
+* See @doc cudnnGetRNNParam for valid layer and id values.
+* Input multiplying matrices are `nothing` if r.inputMode = 1.
+
+"""
+function cudnnGetRNNParams{T}(r::RNN, w::KnetArray{T}; handle=cudnnhandle())
+    layers = r.numLayers * (r.direction == 1 ? 2 : 1)
+    ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
+    ws = []
+    for m in (true, false)
+        for l in 0:layers-1
+            for i in 0:ids-1
+                push!(ws, cudnnGetRNNParam(r, w, l, i, m; handle=handle))
+            end
         end
     end
-    @cuda(cudnn, cudnnDestroyFilterDescriptor, (Cptr,), matdesc[1])
-    @cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),xd[1])
-    return weights, biases
+    return ws
 end
 
 
@@ -244,7 +243,7 @@ function rnninit(inputSize, hiddenSize;
                  dataType=Float32, # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
                  seed=42,
                  winit=xavier,
-                 binit=zeros
+                 binit=ones
                  )
     # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
@@ -263,12 +262,15 @@ function rnninit(inputSize, hiddenSize;
     end
     r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
     w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
-    # Initialize weights
-    for i = 0:(r.numLayers * (1 + r.direction) -1)
-        mats, bs = cudnnGetRNNParams(r, w, i; handle=handle)
-        for (m, b) in zip(mats, bs)
-            copy!(m, winit(eltype(m), size(m)...))
-            copy!(b, binit(eltype(b), size(b)...))
+    for a in cudnnGetRNNParams(r,w; handle=handle)
+        if a == nothing
+            continue
+        elseif ndims(a) == 2
+            copy!(a, winit(dataType, size(a)))
+        elseif ndims(a) == 1
+            copy!(a, binit(dataType, size(a)))
+        else
+            error()
         end
     end
     return (r,w)
@@ -443,7 +445,6 @@ rnn(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
 
 rnn_r = recorder(rnn)
 rnn(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnn_r(r, w, x...; handle=handle, training=true)
-
 
 #=
 

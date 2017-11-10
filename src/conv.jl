@@ -190,45 +190,48 @@ end
 
 # cudnn descriptors
 
-type TD; ptr
-    function TD(a::KnetArray)
-        d = Cptr[0]
-        @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
-        n = ndims(a)
-        sz = [Cint(size(a,n-i+1)) for i=1:n]
-        st = [Cint(stride(a,n-i+1)) for i=1:n]
-        @cuda(cudnn,cudnnSetTensorNdDescriptor,
-              (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-              d[1], DT(a), n, sz, st)
-        td = new(d[1])
-        finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
-        return td
-    end
+type TD; ptr; end
+TD{T}(a::KnetArray{T}) = TD(T,size(a))
+TD(T::Type, dims::Integer...) = TD(T, dims)
+function TD(T::Type, dims)
+    d = Cptr[0]
+    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
+    n = length(dims)
+    sz = [Cint(dims[i]) for i=n:-1:1]
+    st = similar(sz); st[n] = 1
+    for i=(n-1):-1:1; st[i] = st[i+1] * sz[i+1]; end
+    @cuda(cudnn,cudnnSetTensorNdDescriptor,
+          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
+          d[1], DT(T), n, sz, st)
+    td = TD(d[1])
+    finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
+    return td
 end
 
-type FD; ptr
-    function FD(a::KnetArray)
-        d = Cptr[0]
-        @cuda(cudnn,cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
-        n = ndims(a)
-        sz = [Cint(size(a,n-i+1)) for i=1:n]
-        if cudnnVersion >= 5000
-            @cuda(cudnn,cudnnSetFilterNdDescriptor,
-                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-                  d[1], DT(a), 0,     n,   sz)
-        elseif cudnnVersion >= 4000
-            @cuda(cudnn,cudnnSetFilterNdDescriptor_v4,
-                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-                  d[1], DT(a), 0,     n,   sz)
-        else
-            @cuda(cudnn,cudnnSetFilterNdDescriptor,
-                  (Cptr,UInt32,Cint,Ptr{Cint}),
-                  d[1], DT(a),    n,   sz)
-        end
-        fd = new(d[1])
-        finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
-        return fd
+type FD; ptr; end
+FD{T}(a::KnetArray{T})=FD(T,size(a))
+FD(T::Type, dims::Integer...) = FD(T,dims)
+function FD(T::Type, dims)
+    d = Cptr[0]
+    @cuda(cudnn,cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
+    n = length(dims)
+    sz = [Cint(dims[i]) for i=n:-1:1]
+    if cudnnVersion >= 5000
+        @cuda(cudnn,cudnnSetFilterNdDescriptor,
+              (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+              d[1], DT(T), 0,     n,   sz)
+    elseif cudnnVersion >= 4000
+        @cuda(cudnn,cudnnSetFilterNdDescriptor_v4,
+              (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+              d[1], DT(T), 0,     n,   sz)
+    else
+        @cuda(cudnn,cudnnSetFilterNdDescriptor,
+              (Cptr,UInt32,Cint,Ptr{Cint}),
+              d[1], DT(T),    n,   sz)
     end
+    fd = FD(d[1])
+    finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
+    return fd
 end
 
 type CD; ptr
@@ -308,9 +311,12 @@ function psize(p, x)
     end
 end
 
-DT(::KnetArray{Float32})=UInt32(0)
-DT(::KnetArray{Float64})=UInt32(1)
-DT(::KnetArray{Float16})=UInt32(2)
+DT(::KnetArray{Float32})=Cint(0)
+DT(::KnetArray{Float64})=Cint(1)
+DT(::KnetArray{Float16})=Cint(2)
+DT(::Type{Float32}) = Cint(0)
+DT(::Type{Float64}) = Cint(1)
+DT(::Type{Float16}) = Cint(2)
 
 function cdims(w,x; padding=0, stride=1, o...)
     N = ndims(x)
