@@ -370,7 +370,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, d
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T)
     dxtds = TDs(dx)             # TODO: can we use xtds here?
-    dw = similar(w)
+    dw = zeros(w)               # dw is used additively
     dwDesc = FD3(dw)
     if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
     if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
