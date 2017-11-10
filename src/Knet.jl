@@ -26,6 +26,7 @@ include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        export logsumexp
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
+include("rnn.jl");              export rnn, rnninit
 include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, oparams
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed

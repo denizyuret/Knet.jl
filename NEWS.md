@@ -1,7 +1,22 @@
 Knet v0.8.6 Release Notes
 =========================
 
+TODO
+----
+* RNNs: documentation, benchmarking, use in examples, better interface.
+* Use Knet/data/mnist.jl in examples.
+* CUDNN: add batchnorm, test dropout, softmax etc. for speed.
+
+General
+-------
+* Implemented cudnn RNNs (@cangumeli).
 * Improved convolution performance using cudnnFind.
+* Added DBGFLAGS and PROFILING constants to Knet.jl.
+* Implemented `oparams` to easily create optimization structs for the whole model.
+
+Documentation and Examples
+--------------------------
+* Using Knet/data/mnist.jl to load MNIST data.
 
 
 Knet v0.8.5 Release Notes
