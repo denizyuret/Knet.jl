@@ -1,8 +1,8 @@
 "Where to download cifar from"
-const cifarurl = "http://www.cs.toronto.edu/~kriz"
+cifarurl = "http://www.cs.toronto.edu/~kriz"
 
 "Where to download cifar to"
-const cifardir = Pkg.dir("Knet","data")
+cifardir = Pkg.dir("Knet","data")
 
 "cifar10() => (xtrn,ytrn,xtst,ytst,labels)"
 function cifar10(;
@@ -67,7 +67,7 @@ function _cifar_read_file(dir,file)
     a = read(joinpath(dir,file))
     d = contains(dir,"cifar-100") ? 1 : 0
     a = reshape(a, (3073+d, div(length(a),3073+d)))
-    y = a[1+d,:] + 1 # first row (second for cifar100) is Int8 index representation of correct answers
+    y = a[1+d,:] + 0x1 # first row (second for cifar100) is Int8 index representation of correct answers
     x = a[2+d:end,:] # rows 2:end (3:end for cifar100) give 32,32,3,N images
     # y = full(sparse(y,1:length(y),1f0,10,length(y))) # one-hot vector representation
     # maybe convert y to int?
