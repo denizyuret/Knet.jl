@@ -165,5 +165,5 @@ end # module
 #
 # lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist.
 # opts=(:seed,-1)(:batchsize,100)(:epochs,3)(:lr,0.1)(:gcheck,0)(:fast,true)
-# ..................  
+# ..................
 # 9.319163 seconds (5.84 M allocations: 277.927 MB, 7.37% gc time)
