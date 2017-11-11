@@ -3,7 +3,7 @@ Knet v0.8.6 Release Notes
 
 TODO
 ----
-* RNNs: documentation, benchmarking, use in examples, better interface.
+* RNNs: documentation, benchmarking, new mask mechanism, use in examples, better interface.
 * Use Knet/data/mnist.jl in examples. Put other data there. 
 * Split examples into directories. Build model zoo.
 * CUDNN: add batchnorm, test dropout, softmax etc. for speed.
