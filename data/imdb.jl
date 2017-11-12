@@ -1,3 +1,6 @@
+# Based on https://github.com/fchollet/keras/blob/master/keras/datasets/imdb.py
+# Also see https://github.com/fchollet/keras/blob/master/examples/imdb_lstm.py
+
 using PyCall,JSON
 
 "IMDB Movie reviews sentiment classification dataset from https://keras.io/datasets"

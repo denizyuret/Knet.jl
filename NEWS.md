@@ -4,7 +4,7 @@ Knet v0.8.6 Release Notes
 TODO
 ----
 * RNNs: documentation, benchmarking, new mask mechanism, use in examples, better interface.
-* Use Knet/data/mnist.jl in examples. Put other data there. 
+* Use Knet/data/mnist.jl in examples. Put other data there: https://keras.io/datasets, https://deeplearning4j.org/opendata
 * Split examples into directories. Build model zoo.
 * CUDNN: add batchnorm, test dropout, softmax etc. for speed.
 * Modular interface.
@@ -24,8 +24,7 @@ General
 
 Documentation and Examples
 --------------------------
-* Using Knet/data/mnist.jl to load MNIST data.
-* New under Knet/mdata: cifar.jl
+* New under Knet/data: mnist.jl, cifar.jl, imdb.jl
 
 
 Knet v0.8.5 Release Notes
