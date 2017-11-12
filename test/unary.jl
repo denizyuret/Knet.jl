@@ -45,19 +45,6 @@ end
             end
         end
     end
-    # Non-broadcasting functions
-    a = rand(10,10)
-    @test gradcheck(dropout,a,0.5,kwargs=Dict(:seed=>1))
-    @test gradcheck(logp,a)
-    @test gradcheck(logp,a,1)
-    @test gradcheck(logp,a,2)
-    if gpu() >= 0
-        k = KnetArray(a)
-        @test gradcheck(dropout,k,0.5,kwargs=Dict(:seed=>1))
-        @test gradcheck(logp,k)
-        @test gradcheck(logp,k,1)
-        @test gradcheck(logp,k,2)
-    end
 end
 
 nothing

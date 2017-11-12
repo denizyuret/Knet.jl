@@ -3,6 +3,8 @@
 @time include("kptr.jl")          #   1   1   0   0  20   0   0
 @time include("gpu.jl")           #   1   1   0   0   2   0   0  0
 @time include("distributions.jl") #   1   1   2   1   3   3   2  0
+@time include("dropout.jl")
+@time include("loss.jl")
 @time include("rnn.jl")           #                  12
 @time include("karray.jl")        #  19  12   -   -  21   -   0  5/236 :: new indexing types
 @time include("conv.jl")          #  22  12  62  47  26  44  16  0

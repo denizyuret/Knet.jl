@@ -1071,4 +1071,6 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
 end; end
 
-
+# To prevent RSI
+ka = KnetArray
+export ka

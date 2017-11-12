@@ -9,17 +9,23 @@ TODO
 * CUDNN: add batchnorm, test dropout, softmax etc. for speed.
 * Modular interface.
 * CUDAapi, windows compat, Tim Besard's CI.
+* Documentation and unit testing for new functions.
 
 General
 -------
-* Implemented cudnn RNNs (@cangumeli).
+* `rnn` and `rnninit` implement cudnn RNNs (@cangumeli).
 * Improved convolution performance using cudnnFind.
-* Added DBGFLAGS and PROFILING constants to Knet.jl.
-* Implemented `oparams` to easily create optimization structs for the whole model.
+* `DBGFLAGS` and `PROFILING` constants defined in Knet.jl.
+* `optimizers` creates optimization structs for the whole model.
+* `dropout` now detects training mode automatically.
+* `nll` returns negative log likelihood given score matrix and answer index vector.
+* `accuracy` returns ratio of correct answers given score matrix and answer index vector.
+* `minibatch(x,y,b)` returns a batch iterator.
 
 Documentation and Examples
 --------------------------
 * Using Knet/data/mnist.jl to load MNIST data.
+* New under Knet/mdata: cifar.jl
 
 
 Knet v0.8.5 Release Notes

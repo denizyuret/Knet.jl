@@ -26,7 +26,7 @@ countnz2{T}(a::AbstractArray{T},region)=Array{T}(sum(a.!=0,region))
 using AutoGrad
 @zerograd countnz2(a,d...)
 
-reduction_fns = Any[logsumexp]
+reduction_fns = []
 for f in Knet.reduction_ops
     if isa(f,Tuple); f=f[2]; end
     if f == "countnz"; continue; end
