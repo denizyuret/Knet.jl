@@ -117,7 +117,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
             cache.ivar = ivar
         end
     else
-        @assert (moments==nothing) "You must provide moments for the test mode!"
+        @assert (moments!==nothing) "You must provide moments for the test mode!"
         @cuda(cudnn, cudnnBatchNormalizationForwardInference,
               # Types
               (Cptr, UInt32,
