@@ -14,8 +14,8 @@ type BNCache
     mean
     ivar
     dx
-    dgamma
-    dbeta
+    dg
+    db
 end
 
 BNCache() = BNCache(nothing, nothing, nothing, nothing, nothing)
