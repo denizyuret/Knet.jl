@@ -520,3 +520,6 @@ function setindex!{T}(x::KnetArray{T,3}, y, ::Colon, ::Colon, I::Index3)
     reshape(x, stride(x,3), size(x,3))[:,I] = y
     return x
 end
+function getindex{T,I<:Integer}(x::KnetArray{T,2}, ::Colon, m::Array{I,2})
+    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
+end
