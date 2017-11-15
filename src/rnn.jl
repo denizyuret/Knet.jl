@@ -511,8 +511,12 @@ end
 
 # We need x[:,:,t] and hx[:,:,l]
 using Knet: Index3
-import Base: getindex
-function getindex{T}(A::KnetArray{T}, ::Colon, ::Colon, I::Index3)
+import Base: getindex, setindex!
+function getindex{T}(A::KnetArray{T,3}, ::Colon, ::Colon, I::Index3)
     B = reshape(A, stride(A,3), size(A,3))
     reshape(B[:,I], size(A,1), size(A,2))
+end
+function setindex!{T}(x::KnetArray{T,3}, y, ::Colon, ::Colon, I::Index3)
+    reshape(x, stride(x,3), size(x,3))[:,I] = y
+    return x
 end
