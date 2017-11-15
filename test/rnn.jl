@@ -103,15 +103,18 @@ hx = ka(randn(D,H,B,1))
 cx = ka(randn(D,H,B,1))
 
 @testset "rnn" begin
-    for M=0:3, L=1:2, I=0:1
-        (r,w) = rnninit(X, H; dataType=D, mode=M, numLayers=L, inputMode=I)
+    for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true)
+        (r,w) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I)
         hx = ka(randn(D,H,B,L))
         cx = ka(randn(D,H,B,L))
         @test eq(rnn(r,w,x1),rnntest(r,w,x1))
+        @test eq(rnn(r,w,x1;batchSizes=[1]),rnntest(r,w,x1))
         @test gchk(rnn1,[w,x1],r)
         @test eq(rnn(r,w,x2,hx,cx),rnntest(r,w,x2,hx,cx))
+        @test eq(rnn(r,w,x2,hx,cx;batchSizes=[B]),rnntest(r,w,x2,hx,cx))
         @test r.mode==2 ? gchk(rnn1,[w,x2,hx,cx],r) : gchk(rnn1,[w,x2,hx],r)
         @test eq(rnn(r,w,x3,hx,cx),rnntest(r,w,x3,hx,cx))
+        @test eq(rnn(r,w,x3,hx,cx;batchSizes=[B for t=1:T]),rnntest(r,w,x3,hx,cx))
         @test r.mode==2 ? gchk(rnn1,[w,x3,hx,cx],r) : gchk(rnn1,[w,x3,hx],r)
     end
 end

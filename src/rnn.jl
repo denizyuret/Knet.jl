@@ -1,6 +1,7 @@
 # TODO: document exported functions
 
 ### Size chart (Julia sizes for CUDNN calls)
+# Note: For Julia calls, x and y do not need the initial 1 dimension and B,T are optional.
 #
 # x: (1,X,B,T) where X = inputSize, B = miniBatch, T = seqLength
 # xDesc: Array of T (1,X,B) descriptors
@@ -10,14 +11,14 @@
 # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
-# For Julia calls, x and y do not need the initial 1 dimension and B,T are optional.
 
 "Dropout descriptor"
 type DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
 
 Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 
-function DD(; handle=cudnnhandle(), dropout=0.0, seed=42, o...)
+function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
+    if seed==0; seed=floor(Culonglong,time()); end
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
     @cuda(cudnn,cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
     @cuda(cudnn,cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
@@ -73,16 +74,24 @@ function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
 end
 
 "Keeps an array of 3D tensor descriptors"
-type TDs; pvec::Vector{Cptr}; xDesc::TD; end
+type TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc in TDs so it does not get gc'ed
 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 
-function TDs{T}(x::KnetArray{T})         # Treat x: (X,B,T) as a 4D array: (1,X,B,T)
-    xDesc = TD(T,1,size(x,1),size(x,2))
+function TDs{A}(x::KnetArray{A},::Void) # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
+    xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
     pvec = Vector{Cptr}(size(x,3))
     pvec[:] = xDesc.ptr
-    return TDs(pvec, xDesc)     # Keep xDesc in TDs so it does not get gc'ed
+    return TDs(pvec, [xDesc])
+end
+
+function TDs{A}(x::KnetArray{A},batchSizes::Vector{Int}) # x: (X,B*), batchSizes gives us Bt sizes
+    @assert sum(batchSizes) == div(length(x),size(x,1))
+    X = size(x,1)
+    xs = [ TD(A,1,X,B) for B in batchSizes ]
+    ps = [ xd.ptr for xd in xs ]
+    return TDs(ps,xs)
 end
 
 function TD3(a::KnetArray) # Treat a as a 3D array, pad from right
@@ -226,21 +235,45 @@ function cudnnGetRNNParams(r::RNN, w; handle=cudnnhandle())
 end
 
 
+"""
+
+    rnninit(inputSize, hiddenSize; opts...)
+
+Return an `(r,w)` pair where `r` is a RNN struct and `w` is a single weight
+array that includes all matrices and biases for the RNN.
+
+# Keyword Arguments:
+- `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
+- `numLayers=1`: Number of RNN layers.
+- `bidirectional=false`: Create a bidirectional RNN if `true`.
+- `dropout=0.0`: Dropout probability. Ignored if `numLayers==1`.
+- `skipInput=false`: Do not multiply the input with a matrix if `true`.
+- `dataType=Float32`: Data type to use for weights.
+- `algo=0`: Algorithm to use, see CUDNN docs for details.
+- `seed=0`: Random number seed. Uses `time()` if 0.
+- `winit=xavier`: Weight initialization method for matrices.
+- `bias=ones`: Weight initialization method for bias vectors.
+
+"""
 function rnninit(inputSize, hiddenSize;
                  handle=cudnnhandle(),
                  numLayers=1,
                  dropout=0.0,
-                 inputMode=0,    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
-                 direction=0,    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
-                 mode=2,         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-                 algo=0,         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
-                 dataType=Float32, # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-                 seed=42,
+                 skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
+                 bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+                 rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+                 dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+                 algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+                 seed=0,              # seed=0 for random init, positive integer for replicability
                  winit=xavier,
                  binit=ones
                  )
     # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
+    inputMode = skipInput ? 1 : 0
+    direction = bidirectional ? 1 : 0
+    mode = findfirst((:relu,:tanh,:lstm,:gru), rnnType) - 1
+    if mode < 0; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
     rnnDesc = RD()
     if cudnnVersion >= 7000
         @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
@@ -271,16 +304,49 @@ function rnninit(inputSize, hiddenSize;
 end
 
 
+"""
+
+    rnn(r, w, x[, hx, cx]; batchSizes=nothing)
+
+Returns a tuple (y,hy,cy,rs) given rnn `r`, weights `w`, input `x` and
+optionally the hidden state `hx` and cell state `cx`.  `r` and `w` should
+come from a previous call to `rnninit`. `cx` is only used in LSTMs.  Both
+`hx` and `cx` are optional, they are treated as zero arrays if not provided.
+`hy` and `cy` will be `nothing` if `hx` and `cx` are not explicitly provided.
+`rs` is a buffer the RNN needs for its gradient calculation.  The input and
+output dimensions are:
+
+- `x`: (X,[B,T])
+- `y`: (H/2H,[B,T])
+- `hx`,`cx`,`hy`,`cy`: (H,B,L/2L)
+- `batchSizes`: `nothing` or `Vector{Int}(T)`
+
+where W is the length of RNN weights, X is inputSize, H is hiddenSize, B is
+batchSize, T is seqLength, L is numLayers.  `x` can be 1, 2, or 3
+dimensional.  If `batchSizes==nothing`, a 1-D `x` represents a single
+instance, a 2-D `x` represents a single minibatch, and a 3-D `x` represents a
+sequence of identically sized minibatches.  If `batchSizes` is an array of
+(non-increasing) integers, it gives us the batch size for each time step in a
+sequence.  In that case `div(length(x),size(x,1))` should equal
+`sum(batchSizes)`. `y` gives us the hidden vector at each time step and has
+the same dimensionality as `x`, differing only in its first dimension, which
+is H if the rnn is unidirectional, 2H if bidirectional.  Hidden vectors
+`hx`,`cx` etc. are size (H,B,L) for unidirectional RNNs, and (H,B,2L) for
+bidirectional RNNs.  
+
+"""
 function rnn{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                 hx::Union{KnetArray{T},Void}=nothing,
                 cx::Union{KnetArray{T},Void}=nothing;
+                batchSizes=nothing,
                 handle=cudnnhandle(), training=false)
     # TODO: add some asserts
-    seqLength = size(x,3)       # (X,B,T)
+
+    seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
 
     # Input descriptors
     wDesc = FD3(w)              # (1,1,W)
-    xtds = TDs(x)               # (1,X,B) x T
+    xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
     if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
     if cx==nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
 
@@ -288,7 +354,7 @@ function rnn{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     ysize = collect(size(x))
     ysize[1] = r.hiddenSize * (r.direction == 1 ? 2 : 1)
     y = similar(x, ysize...)    # (H/2H,B,T)
-    ytds = TDs(y)               # (1,H/2H,B) x T
+    ytds = TDs(y,batchSizes)    # (1,H/2H,B) x T
     if hx==C_NULL; hy=hyDesc=C_NULL; else; hy=similar(hx); hyDesc=TD3(hy); end
     if cx==C_NULL; cy=cyDesc=C_NULL; else; cy=similar(cx); cyDesc=TD3(cy); end
 
@@ -350,14 +416,14 @@ function rnn{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
 end
 
 function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, dy::KnetArray{T},
-                    hx, cx, dhy, dcy, rs; handle=cunnhandle(), o...)
+                    hx, cx, dhy, dcy, rs; handle=cunnhandle(), batchSizes=nothing, o...)
     seqLength = size(x,3)       # (X,B,T)
 
     # Input descriptors:
     wDesc = FD3(w)              # (1,1,W)
-    xtds = TDs(x)               # (X,B,T) -> (1,X,B) x T
-    ytds = TDs(y)               # (H/2H,B,T) -> (1,H/2H,B) x T
-    dytds = TDs(dy)             # TODO: can we use ytds here?
+    xtds = TDs(x,batchSizes)    # (X,B,T) -> (1,X,B) x T
+    ytds = TDs(y,batchSizes)    # (H/2H,B,T) -> (1,H/2H,B) x T
+    dytds = TDs(dy,batchSizes)  # TODO: can we use ytds here?
     if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
     if cx == nothing; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
     if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
@@ -365,7 +431,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, d
 
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T)
-    dxtds = TDs(dx)             # TODO: can we use xtds here?
+    dxtds = TDs(dx,batchSizes)  # TODO: can we use xtds here?
     dw = zeros(w)               # dw is used additively
     dwDesc = FD3(dw)
     if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
