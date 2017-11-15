@@ -1,3 +1,7 @@
+for p in ("GZip",)
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 using GZip
 
 "Where to download mnist from"
@@ -20,9 +24,9 @@ class.  10 is used to represent the digit 0.
 include(Pkg.dir("Knet/data/mnist.jl"))
 xtrn, ytrn, xtst, ytst = mnist()
 # xtrn: 28×28×1×60000 Array{Float32,4}
+# ytrn: 60000-element Array{UInt8,1}
 # xtst: 28×28×1×10000 Array{Float32,4}
-# ytrn: 10×60000 Array{Float32,2}
-# ytst: 10×10000 Array{Float32,2}
+# ytst: 10000-element Array{UInt8,1}
 ```
 
 """
