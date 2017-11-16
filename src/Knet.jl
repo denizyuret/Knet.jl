@@ -18,7 +18,7 @@ using AutoGrad; export grad, gradloss, gradcheck, getval
 
 include("compat.jl");           # julia6 compat fixes
 include("gpu.jl");              export gpu
-include("kptr.jl");             # KnetPtr
+include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx
