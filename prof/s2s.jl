@@ -64,12 +64,6 @@ function initmodel(H, V, atype)
     return model
 end
 
-# This should work for any combination of tuple/array/dict
-oparams{T<:Number}(::KnetArray{T},otype; o...)=otype(;o...)
-oparams{T<:Number}(::Array{T},otype; o...)=otype(;o...)
-oparams(a::Associative,otype; o...)=Dict(k=>oparams(v,otype;o...) for (k,v) in a)
-oparams(a,otype; o...)=map(x->oparams(x,otype;o...), a)
-
 function randseq(V,B,T)
     s = Vector{Vector{Int}}()
     for t in 1:T

@@ -146,51 +146,5 @@ else
     end
 end
 
-"""
-
-    logsumexp(x,[dims])
-
-Compute `log(sum(exp(x),dims))` in a numerically stable manner.
-
-`dims` is an optional argument, if not specified the summation is over
-the whole `x`, otherwise the summation is performed over the given
-dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
-of `x` and `dims=2` sums rows of `x`.
-
-"""
-function logsumexp(x,d...)
-    xmax = maximum(x,d...)
-    xmax + log_dot(sum(exp_dot(x .- xmax),d...))
-end
-
-@primitive logsumexp(x,d...),dy,y  (dy .* exp_dot(x .- y))
-
-# # The xentloss interface is no good because of double normalization.
-
-# """
-# xentloss(x, p [,dims])
-
-# Compute cross-entropy loss for unnormalized log probability estimates
-# x and normalized probabilities p normalizing over the given
-# dimensions.  By default normalization is over the whole array, dims=1
-# normalizes over the columns, dims=2 normalizes over the rows of a 2-D
-# array.
-
-# """
-# function xentloss(x,p,d...)
-#     x = x .- maximum(x,d...)
-#     z = log(sum(exp(x),d...))
-#     return sum(p .* (x .- z)) / length(z)
-# end
-
-# function xentback(x,p,d...)
-#     x = x .- maximum(x,d...)
-#     x = exp(x)
-#     z = sum(x,d...)
-#     return x./z - p
-# end
-
-# @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
-
-Base.mean(a::KnetArray)=sum(a)/length(a)
-Base.mean(a::KnetArray,r)=(b=sum(a,r);scale!(b,length(b)/length(a)))
+Base.mean(a::Union{KnetArray,Rec})=sum(a)/length(a)
+Base.mean(a::Union{KnetArray,Rec},r)=(b=sum(a,r);(b*(length(b)/length(a))))

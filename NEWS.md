@@ -1,5 +1,35 @@
+Knet v0.8.6 Release Notes
+=========================
+
+TODO
+----
+* RNNs: documentation, benchmarking, new mask mechanism, use in examples, better interface.
+* Use Knet/data/mnist.jl in examples. Put other data there: https://keras.io/datasets, https://deeplearning4j.org/opendata
+* Split examples into directories. Build model zoo.
+* CUDNN: add batchnorm, test dropout, softmax etc. for speed.
+* Modular interface.
+* CUDAapi, windows compat, Tim Besard's CI.
+* Documentation and unit testing for new functions.
+
+General
+-------
+* `rnn` and `rnninit` implement cudnn RNNs (@cangumeli).
+* Improved convolution performance using cudnnFind.
+* `DBGFLAGS` and `PROFILING` constants defined in Knet.jl.
+* `optimizers` creates optimization structs for the whole model.
+* `dropout` now detects training mode automatically.
+* `nll` returns negative log likelihood given score matrix and answer index vector.
+* `accuracy` returns ratio of correct answers given score matrix and answer index vector.
+* `minibatch(x,y,b)` returns a batch iterator.
+
+Documentation and Examples
+--------------------------
+* New under Knet/data: mnist.jl, cifar.jl, imdb.jl
+
+
 Knet v0.8.5 Release Notes
 =========================
+8ea130e 2017-10-21
 
 General
 -------
@@ -7,12 +37,17 @@ General
 * Fixed dropout efficiency bug introduced in 0.8.4.
 * Added conditional support for SpecialFunctions.
 * Added Nesterov optimizer (@CarloLucibello).
+* Removed Compat dependency.
+* Proper handling of concat KnetArrays of incompatible eltypes (#175).
+* Fixed dotted function handling in Julia5 (#173).
 
 Documentation and Examples
 --------------------------
 * Fixed julia6 compat problem in examples/mnist.jl.
 * charlm.jl can now save generated text (@DoguD).
 * Added fashion-mnist.jl example (@quaertym).
+* Added missing `MNIST.loaddata()` to tutorial.jl.
+* Fixed julia4 compat problem in examples/vgg.jl.
 
 
 Knet v0.8.4 Release Notes

@@ -137,8 +137,8 @@ function main(args=ARGS)
     else
         report(0)
         iters = o[:iters]
-        @time for epoch=1:o[:epochs]
-            train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
+        for epoch=1:o[:epochs]
+            @time train(w, dtrn; lr=o[:lr], epochs=1, iters=iters)
             report(epoch)
             if o[:gcheck] > 0
                 gradcheck(loss, w, first(dtrn)...; gcheck=o[:gcheck], verbose=true)

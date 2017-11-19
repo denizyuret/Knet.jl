@@ -112,7 +112,7 @@ end
 # previously allocated and garbage collected.
 function knetgc(dev=gpu())
     if KnetFree == nothing; return; end
-    gc_enable(false)
+    gc(); gc_enable(false)
     for v in values(KnetFree[dev+2])
         if dev >= 0
             for p in v.free
@@ -122,7 +122,7 @@ function knetgc(dev=gpu())
         v.used -= length(v.free)
         empty!(v.free)
     end
-    gc_enable(true)
+    gc_enable(true); gc()
 end
 
 # Some utilities
