@@ -17,7 +17,7 @@ if Pkg.installed("CUDAapi") != nothing
     end
 end
 
-if NVCC == nothing
+if NVCC == ""
     try success(`nvcc --version`)
         NVCC = "nvcc"
     end
@@ -48,10 +48,8 @@ end
 # end
 
 cd(joinpath(dirname(@__DIR__), "src")) do
-    MAKE = "make"
-    if NVCC != ""; MAKE *= " NVCC=\"$NVCC\""; end
-    if NVCCFLAGS != ""; MAKE *= " NVCCFLAGS=\"$NVCCFLAGS\""; end
-    run(`$MAKE`)
+    if NVCC==""; NVCC="nvcc"; end # to get make working
+    run(`make NVCC=$NVCC NVCCFLAGS=$NVCCFLAGS`)
 end
 
 Base.compilecache("Knet")
