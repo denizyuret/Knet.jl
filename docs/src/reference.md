@@ -48,7 +48,7 @@ Knet.unpool
 
 ```@docs
 Knet.update!
-Knet.oparams
+Knet.optimizers
 Knet.Adadelta
 Knet.Adagrad
 Knet.Adam

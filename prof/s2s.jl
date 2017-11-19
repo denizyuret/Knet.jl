@@ -28,7 +28,7 @@ function main(;
               atype=KnetArray{Float32},
               otype=Adam,
               model=initmodel(hidden, vocab, atype),
-              opts=oparams(model,otype),
+              opts=optimizers(model,otype),
               sequence=randseq(vocab,batch,seqlen),
               mode=0,
               # dropout, gclip, layers, embedsize
