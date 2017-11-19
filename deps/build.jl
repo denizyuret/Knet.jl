@@ -48,7 +48,11 @@ end
 # end
 
 cd(joinpath(dirname(@__DIR__), "src")) do
-    if NVCC==""; NVCC="nvcc"; end # to get make working
+    global NVCC, NVCCFLAGS
+    if NVCC==""
+        warn("Cannot find nvcc, GPU support will not be available.")
+        NVCC="nvcc" # to get make working
+    end
     run(`make NVCC=$NVCC NVCCFLAGS=$NVCCFLAGS`)
 end
 
