@@ -451,11 +451,11 @@ rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
 rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
 
 let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnnforw_r(r, w, x...; handle=handle, training=true)
+    rnnforw(r::RNN, w::Rec, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
 end
 
 function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
-                    dy, hx, cx, dhy, dcy, rs; handle=cunnhandle(), batchSizes=nothing, o...)
+                    dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...)
     seqLength = size(x,3)       # (X,B,T)
 
     # Input descriptors:
