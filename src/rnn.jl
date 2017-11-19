@@ -456,23 +456,23 @@ end
 
 function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                     dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...)
-    seqLength = size(x,3)       # (X,B,T)
 
     # Input descriptors:
+    seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (X,B,T) -> (1,X,B) x T
     ytds = TDs(y,batchSizes)    # (H/2H,B,T) -> (1,H/2H,B) x T
-    # dytds = TDs(dy,batchSizes)  # TODO: can we use ytds here?
+    # dytds = TDs(dy,batchSizes)  # we use ytds for dytds
     if dy == nothing; dy=zeros(y); end
     if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
-    if cx == nothing; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
+    if cx == nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
     if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
-    if dcy == nothing; dcy=dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
+    if dcy == nothing || r.mode != 2; dcy=dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
 
     # Output arrays and descriptors:
-    dx = similar(x)             # (X,B,T)
-    # dxtds = TDs(dx,batchSizes)  # TODO: can we use xtds here?
-    dw = zeros(w)               # dw is used additively
+    dx = similar(x)             # (X,B,T) or (X,B+) with batchSizes
+    # dxtds = TDs(dx,batchSizes)  # we use xtds here
+    dw = zeros(w)               # dw is used additively, so we need zeros
     dwDesc = FD3(dw)
     if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
     if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
