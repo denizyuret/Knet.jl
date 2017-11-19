@@ -308,45 +308,60 @@ end
 
 """
 
-    rnnforw(r, w, x[, hx, cx]; batchSizes=nothing)
+    rnnforw(r, w, x[, hx, cx]; batchSizes, hy, cy)
 
-Returns a tuple (y,hy,cy,rs) given rnn `r`, weights `w`, input `x` and
-optionally the hidden state `hx` and cell state `cx`.  `r` and `w` should
-come from a previous call to `rnninit`. `cx` is only used in LSTMs.  Both
-`hx` and `cx` are optional, they are treated as zero arrays if not provided.
-`hy` and `cy` will be `nothing` if `hx` and `cx` are not explicitly provided.
-`rs` is a buffer the RNN needs for its gradient calculation.  The input and
-output dimensions are:
+Returns a tuple (y,hyout,cyout,rs) given rnn `r`, weights `w`, input
+`x` and optionally the initial hidden and cell states `hx` and `cx`
+(`cx` is only used in LSTMs).  `r` and `w` should come from a previous
+call to `rnninit`.  Both `hx` and `cx` are optional, they are treated
+as zero arrays if not provided.  The output `y` contains the hidden
+states of the final layer for each time step, `hyout` and `cyout` give
+the final hidden and cell states, `rs` is a buffer the RNN needs for
+its gradient calculation.
+
+The boolean keyword arguments `hy` and `cy` control whether `hyout`
+and `cyout` will be output.  By default `hy = (hx!=nothing)` and `cy =
+(cx!=nothing && r.mode==2)`, i.e. a hidden state will be output if one
+is provided as input, for cell state we also require an LSTM.  If `hy`
+or `cy` is `false`, `hyout` and `cyout` will be output as `nothing`
+respectively. `batchSizes` can be an integer array that specifies
+non-uniform batch sizes as explained below. By default
+`batchSizes=nothing` and the same batch size, `size(x,2)`, is used for
+all time steps.
+
+The input and output dimensions are:
 
 - `x`: (X,[B,T])
 - `y`: (H/2H,[B,T])
-- `hx`,`cx`,`hy`,`cy`: (H,B,L/2L)
+- `hx`,`cx`,`hyout`,`cyout`: (H,B,L/2L)
 - `batchSizes`: `nothing` or `Vector{Int}(T)`
 
-where W is the length of RNN weights, X is inputSize, H is hiddenSize, B is
-batchSize, T is seqLength, L is numLayers.  `x` can be 1, 2, or 3
-dimensional.  If `batchSizes==nothing`, a 1-D `x` represents a single
-instance, a 2-D `x` represents a single minibatch, and a 3-D `x` represents a
-sequence of identically sized minibatches.  If `batchSizes` is an array of
-(non-increasing) integers, it gives us the batch size for each time step in a
-sequence.  In that case `div(length(x),size(x,1))` should equal
-`sum(batchSizes)`. `y` gives us the hidden vector at each time step and has
-the same dimensionality as `x`, differing only in its first dimension, which
-is H if the rnn is unidirectional, 2H if bidirectional.  Hidden vectors
-`hx`,`cx` etc. are size (H,B,L) for unidirectional RNNs, and (H,B,2L) for
-bidirectional RNNs.  
+where X is inputSize, H is hiddenSize, B is batchSize, T is seqLength,
+L is numLayers.  `x` can be 1, 2, or 3 dimensional.  If
+`batchSizes==nothing`, a 1-D `x` represents a single instance, a 2-D
+`x` represents a single minibatch, and a 3-D `x` represents a sequence
+of identically sized minibatches.  If `batchSizes` is an array of
+(non-increasing) integers, it gives us the batch size for each time
+step in the sequence, in which case `div(length(x),size(x,1))` should
+equal `sum(batchSizes)`. `y` has the same dimensionality as `x`,
+differing only in its first dimension, which is H if the RNN is
+unidirectional, 2H if bidirectional.  Hidden vectors `hx`, `cx`,
+`hyout`, `cyout` all have size (H,B1,L) for unidirectional RNNs, and
+(H,B1,2L) for bidirectional RNNs where B1 is the size of the first
+minibatch.
 
 """
 function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                     hx::Union{KnetArray{T},Void}=nothing,
                     cx::Union{KnetArray{T},Void}=nothing;
+                    handle=cudnnhandle(), training=false,
                     batchSizes=nothing,
-                    handle=cudnnhandle(), training=false)
-    # TODO: add some asserts
-
-    seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
+                    hy = (hx != nothing),
+                    cy = (cx != nothing && r.mode == 2),
+                    )
 
     # Input descriptors
+    seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
     if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
@@ -355,10 +370,17 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     # Output arrays and descriptors
     ysize = collect(size(x))
     ysize[1] = r.hiddenSize * (r.direction == 1 ? 2 : 1)
-    y = similar(x, ysize...)    # (H/2H,B,T)
-    ytds = TDs(y,batchSizes)    # (1,H/2H,B) x T
-    if hx==C_NULL; hy=hyDesc=C_NULL; else; hy=similar(hx); hyDesc=TD3(hy); end
-    if cx==C_NULL; cy=cyDesc=C_NULL; else; cy=similar(cx); cyDesc=TD3(cy); end
+    y = similar(x, ysize...)    # (H/2H,B,T) or (H/2H,B+) -- y mirrors x except for the first dimension
+    ytds = TDs(y,batchSizes)    # (1,H/2H,Bt) x T
+    
+    # Optionally output hidden and cell of last step
+    hyout = hyDesc = cyout = cyDesc = C_NULL
+    if hy || cy
+        firstBatchSize = batchSizes==nothing ? size(x,2) : batchSizes[1]
+        hsize = Int[r.hiddenSize, firstBatchSize, r.numLayers * (r.direction == 1 ? 2 : 1)] # (H,B,L/2L)
+        if hy; hyout=similar(y,hsize...); hyDesc=TD3(hyout); end
+        if cy && r.mode==2; cyout=similar(y,hsize...); cyDesc=TD3(cyout); end
+    end
 
     # workSpace and reserveSpace
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
@@ -385,8 +407,8 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
               cxDesc, cx,
               wDesc, w,
               ytds, y,
-              hyDesc, hy,
-              cyDesc, cy,
+              hyDesc, hyout,
+              cyDesc, cyout,
               ws, wss,
               rs, rss)
     else
@@ -408,13 +430,28 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
               cxDesc, cx,
               wDesc, w,
               ytds, y,
-              hyDesc, hy,
-              cyDesc, cy,
+              hyDesc, hyout,
+              cyDesc, cyout,
               ws, wss)
     end
-    if hy == C_NULL; hy = nothing; end
-    if cy == C_NULL; cy = nothing; end
-    return y, hy, cy, rs
+    if hyout == C_NULL; hyout = nothing; end
+    if cyout == C_NULL; cyout = nothing; end
+    return y, hyout, cyout, rs
+end
+
+function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+    y,hy,cy,rs = getval(t)
+    dy,dhy,dcy,drs = getval(dt)
+    w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
+    rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
+end
+
+rnnforw(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
+rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
+rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
+
+let rnnforw_r = recorder(rnnforw); global rnnforw
+    rnnforw(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnnforw_r(r, w, x...; handle=handle, training=true)
 end
 
 function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
@@ -497,21 +534,6 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     return dw
 end
 
-function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
-    y,hy,cy,rs = getval(t)
-    dy,dhy,dcy,drs = getval(dt)
-    w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
-    rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
-end
-
-rnnforw(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
-rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
-rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
-
-let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw(r::RNN, w::Rec, x...; handle=cudnnhandle(), o...)=rnnforw_r(r, w, x...; handle=handle, training=true)
-end
-
 
 # CPU implementation:
 function cudnnGetRNNParams(r::RNN, w::Array; o...)
@@ -529,7 +551,8 @@ function cudnnGetRNNParams(r::RNN, w::Array; o...)
     return ws
 end
 
-function rnnforw(r::RNN, ws::Array, x::Array, hx=nothing, cx=nothing; batchSizes=nothing, o...)
+# TODO: rnnforwCPU is work in progress...
+function rnnforwCPU(r::RNN, ws::Array, x::Array, hx=nothing, cx=nothing; batchSizes=nothing, o...)
     if r.direction == 1; error("CPU rnnforw bidirectional not implemented yet"); end
     if batchSizes != nothing; error("CPU rnnforw batchSizes not implemented yet"); end
     w = cudnnGetRNNParams(r,ws)
