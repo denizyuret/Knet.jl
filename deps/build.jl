@@ -13,7 +13,7 @@ if Pkg.installed("CUDAapi") != nothing
         tk = find_toolkit()
         tc = find_toolchain(tk)
         NVCC = tc.cuda_compiler
-        NVCCFLAGS = "$NVCCFLAGS --compiler-bindir $(tc.host_compiler)"
+        NVCCFLAGS *= " --compiler-bindir $(tc.host_compiler)"
     end
 end
 
@@ -34,7 +34,7 @@ if Pkg.installed("CUDAdrv") != nothing
         dev = CuDevice(0)
         cap = capability(dev)
         arch = CUDAapi.shader(cap)
-        NVCCFLAGS = "$NVCCFLAGS --gpu-architecture $arch"
+        NVCCFLAGS *= " --gpu-architecture $arch"
     end
 end
 
@@ -48,7 +48,10 @@ end
 # end
 
 cd(joinpath(dirname(@__DIR__), "src")) do
-    run(`make NVCC="$NVCC" NVCCFLAGS="$NVCCFLAGS"`)
+    MAKE = "make"
+    if NVCC != ""; MAKE *= " NVCC=\"$NVCC\""; end
+    if NVCCFLAGS != ""; MAKE *= " NVCCFLAGS=\"$NVCCFLAGS\""; end
+    run(`$MAKE`)
 end
 
 Base.compilecache("Knet")
