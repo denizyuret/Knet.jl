@@ -1,22 +1,10 @@
 # Introduction to Knet
 
-[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
-
-[![](http://pkg.julialang.org/badges/Knet_0.4.svg)](http://pkg.julialang.org/?pkg=Knet)
-[![](http://pkg.julialang.org/badges/Knet_0.5.svg)](http://pkg.julialang.org/?pkg=Knet)
+[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 [![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet)
-
-[![][buildbot-julia05-img]][buildbot-julia05-url] 
-[![][buildbot-julia06-img]][buildbot-julia06-url] 
-[![][buildbot-juliadev-img]][buildbot-juliadev-url]
-
-[buildbot-julia05-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-julia05-x86-64bit&name=julia%200.5
-[buildbot-julia05-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-julia05-x86-64bit
-[buildbot-julia06-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-julia06-x86-64bit&name=julia%200.6
-[buildbot-julia06-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-julia06-x86-64bit
-[buildbot-juliadev-img]: http://ci.maleadt.net/shields/build.php?builder=Knet-juliadev-x86-64bit&name=julia%20dev
-[buildbot-juliadev-url]: http://ci.maleadt.net/shields/url.php?builder=Knet-juliadev-x86-64bit
+[![](http://ci.maleadt.net/shields/build.php?builder=Knet-julia06-x86-64bit&name=julia%200.6)](http://ci.maleadt.net/shields/url.php?builder=Knet-julia06-x86-64bit)
+[![](http://ci.maleadt.net/shields/build.php?builder=Knet-juliadev-x86-64bit&name=julia%20dev)](http://ci.maleadt.net/shields/url.php?builder=Knet-juliadev-x86-64bit)
 
 [Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced
 "kay-net") is the [Koç University](http://www.ku.edu.tr/en) deep
