@@ -242,9 +242,8 @@ end
     rnninit(inputSize, hiddenSize; opts...)
 
 Return an `(r,w)` pair where `r` is a RNN struct and `w` is a single weight
-array that includes all matrices and biases for the RNN.
+array that includes all matrices and biases for the RNN. Keyword arguments:
 
-# Keyword Arguments:
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
 - `numLayers=1`: Number of RNN layers.
 - `bidirectional=false`: Create a bidirectional RNN if `true`.
@@ -255,6 +254,30 @@ array that includes all matrices and biases for the RNN.
 - `seed=0`: Random number seed. Uses `time()` if 0.
 - `winit=xavier`: Weight initialization method for matrices.
 - `bias=ones`: Weight initialization method for bias vectors.
+
+RNNs compute the output h[t] for a given iteration from the recurrent
+input h[t-1] and the previous layer input x[t] given matrices W, R and
+biases bW, bR from the following equations:
+
+`:relu` and `:tanh`: Single gate RNN with activation function f:
+
+    h[t] = f(W * x[t] .+ R * h[t-1] .+ bW .+ bR)
+
+`:gru`: Gated recurrent unit:
+
+    i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
+    r[t] = sigm(Wr * x[t] .+ Rr * h[t-1] .+ bWr .+ bRr) # reset gate
+    n[t] = tanh(Wn * x[t] .+ r[t] .* (Rn * h[t-1] .+ bRn) .+ bWn) # new gate
+    h[t] = (1 - i[t]) .* n[t] .+ i[t] .* h[t-1]
+
+`:lstm`: Long short term memory unit with no peephole connections:
+
+    i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
+    f[t] = sigm(Wf * x[t] .+ Rf * h[t-1] .+ bWf .+ bRf) # forget gate
+    o[t] = sigm(Wo * x[t] .+ Ro * h[t-1] .+ bWo .+ bRo) # output gate
+    n[t] = tanh(Wn * x[t] .+ Rn * h[t-1] .+ bWn .+ bRn) # new gate
+    c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
+    h[t] = o[t] .* tanh(c[t])
 
 """
 function rnninit(inputSize, hiddenSize;
@@ -316,18 +339,17 @@ Returns a tuple (y,hyout,cyout,rs) given rnn `r`, weights `w`, input
 call to `rnninit`.  Both `hx` and `cx` are optional, they are treated
 as zero arrays if not provided.  The output `y` contains the hidden
 states of the final layer for each time step, `hyout` and `cyout` give
-the final hidden and cell states, `rs` is a buffer the RNN needs for
-its gradient calculation.
+the final hidden and cell states for all layers, `rs` is a buffer the
+RNN needs for its gradient calculation.
 
 The boolean keyword arguments `hy` and `cy` control whether `hyout`
 and `cyout` will be output.  By default `hy = (hx!=nothing)` and `cy =
 (cx!=nothing && r.mode==2)`, i.e. a hidden state will be output if one
-is provided as input, for cell state we also require an LSTM.  If `hy`
-or `cy` is `false`, `hyout` and `cyout` will be output as `nothing`
-respectively. `batchSizes` can be an integer array that specifies
-non-uniform batch sizes as explained below. By default
-`batchSizes=nothing` and the same batch size, `size(x,2)`, is used for
-all time steps.
+is provided as input and for cell state we also require an LSTM.  If
+`hy`/`cy` is `false`, `hyout`/`cyout` will be `nothing`. `batchSizes`
+can be an integer array that specifies non-uniform batch sizes as
+explained below. By default `batchSizes=nothing` and the same batch
+size, `size(x,2)`, is used for all time steps.
 
 The input and output dimensions are:
 
@@ -342,8 +364,8 @@ L is numLayers.  `x` can be 1, 2, or 3 dimensional.  If
 `x` represents a single minibatch, and a 3-D `x` represents a sequence
 of identically sized minibatches.  If `batchSizes` is an array of
 (non-increasing) integers, it gives us the batch size for each time
-step in the sequence, in which case `div(length(x),size(x,1))` should
-equal `sum(batchSizes)`. `y` has the same dimensionality as `x`,
+step in the sequence, in which case `sum(batchSizes)` should equal
+`div(length(x),size(x,1))`. `y` has the same dimensionality as `x`,
 differing only in its first dimension, which is H if the RNN is
 unidirectional, 2H if bidirectional.  Hidden vectors `hx`, `cx`,
 `hyout`, `cyout` all have size (H,B1,L) for unidirectional RNNs, and
