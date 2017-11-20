@@ -93,7 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Introduction to Knet",
     "category": "section",
-    "text": "(Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and Examples for more information. If you need help or would like to request a feature, please consider joining the knet-users mailing list. If you find a bug, please open a GitHub issue. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers. If you use Knet in academic work, here is a paper that can be cited:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}ContentsPages = [\"tutorial.md\"]\nDepth = 5"
+    "text": "(Image: ) (Image: ) (Image: ) (Image: ) (Image: )Knet (pronounced \"kay-net\") is the Koç University deep learning framework implemented in Julia by Deniz Yuret and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the full documentation and Examples for more information. If you need help or would like to request a feature, please consider joining the knet-users mailing list. If you find a bug, please open a GitHub issue. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers. If you use Knet in academic work, here is a paper that can be cited:@inproceedings{knet2016mlsys,\n  author={Yuret, Deniz},\n  title={Knet: beginning deep learning with 100 lines of Julia},\n  year={2016},\n  booktitle={Machine Learning Systems Workshop at NIPS 2016}\n}ContentsPages = [\"tutorial.md\"]\nDepth = 5"
 },
 
 {
@@ -125,7 +125,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Softmax classification",
     "category": "section",
-    "text": "In this example we build a simple classification model for the MNIST handwritten digit recognition dataset. MNIST has 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image. The corresponding output indicates the identity of the digit 0..9.(Image: image)(image source)Classification models handle discrete outputs, as opposed to regression models which handle numeric outputs. We typically use the cross entropy loss function in classification models:function loss(w,x,ygold)\n    ypred = predict(w,x)\n    ynorm = ypred .- log(sum(exp(ypred),1))\n    -sum(ygold .* ynorm) / size(ygold,2)\nendOther than the change of loss function, the softmax model is identical to the linear regression model. We use the same predict, same train and set lossgradient=grad(loss) as before. To see how well our model classifies let's define an accuracy function which returns the percentage of instances classified correctly:function accuracy(w, data)\n    ncorrect = ninstance = 0\n    for (x, ygold) in data\n        ypred = predict(w,x)\n        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))\n        ninstance += size(ygold,2)\n    end\n    return ncorrect/ninstance\nendNow let's train a model on the MNIST data:julia> include(Knet.dir(\"examples\",\"mnist.jl\"))\njulia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch\njulia> dtrn = minibatch(xtrn, ytrn, 100)\njulia> dtst = minibatch(xtst, ytst, 100)\njulia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]\njulia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\njulia> for epoch=1:10\n           train(w, dtrn; lr=0.5)\n           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\n       end\n\n(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)\n(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)\n...\n(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)Including mnist.jl loads the MNIST data, downloading it from the internet if necessary, and provides a training set (xtrn,ytrn), test set (xtst,ytst) and a minibatch utility which we use to rearrange the data into chunks of 100 instances. After randomly initializing the parameters we train for 10 epochs, printing out training and test set accuracy at every epoch. The final accuracy of about 92% is close to the limit of what we can achieve with this type of model. To improve further we must look beyond linear models."
+    "text": "In this example we build a simple classification model for the MNIST handwritten digit recognition dataset. MNIST has 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image. The corresponding output indicates the identity of the digit 0..9.(Image: image)(image source)Classification models handle discrete outputs, as opposed to regression models which handle numeric outputs. We typically use the cross entropy loss function in classification models:function loss(w,x,ygold)\n    ypred = predict(w,x)\n    ynorm = ypred .- log(sum(exp(ypred),1))\n    -sum(ygold .* ynorm) / size(ygold,2)\nendOther than the change of loss function, the softmax model is identical to the linear regression model. We use the same predict, same train and set lossgradient=grad(loss) as before. To see how well our model classifies let's define an accuracy function which returns the percentage of instances classified correctly:function accuracy(w, data)\n    ncorrect = ninstance = 0\n    for (x, ygold) in data\n        ypred = predict(w,x)\n        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))\n        ninstance += size(ygold,2)\n    end\n    return ncorrect/ninstance\nendNow let's train a model on the MNIST data:julia> include(Knet.dir(\"examples\",\"mnist.jl\"))\njulia> MNIST.loaddata()\njulia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch\njulia> dtrn = minibatch(xtrn, ytrn, 100)\njulia> dtst = minibatch(xtst, ytst, 100)\njulia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]\njulia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\njulia> for epoch=1:10\n           train(w, dtrn; lr=0.5)\n           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))\n       end\n\n(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)\n(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)\n...\n(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)Including mnist.jl loads the MNIST data, downloading it from the internet if necessary, and provides a training set (xtrn,ytrn), test set (xtst,ytst) and a minibatch utility which we use to rearrange the data into chunks of 100 instances. After randomly initializing the parameters we train for 10 epochs, printing out training and test set accuracy at every epoch. The final accuracy of about 92% is close to the limit of what we can achieve with this type of model. To improve further we must look beyond linear models."
 },
 
 {
@@ -189,159 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Contributing",
     "category": "section",
-    "text": "Knet is an open-source project and we are always open to new contributions: bug reports and fixes, feature requests and contributions, new machine learning models and operators, inspiring examples, benchmarking results are all welcome. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers.Current contributors:Deniz Yuret\nOzan Arkan Can\nOnur Kuru\nEmre Ünal\nErenay Dayanık\nÖmer Kırnap\nİlker Kesen\nEmre Yolcu\nMeriç Melike Softa\nEkrem Emre Yurdakul\nEnis Berk"
-},
-
-{
-    "location": "examples.html#",
-    "page": "Examples",
-    "title": "Examples",
-    "category": "page",
-    "text": ""
-},
-
-{
-    "location": "examples.html#Examples-1",
-    "page": "Examples",
-    "title": "Examples",
-    "category": "section",
-    "text": "The following examples can be found in the Knet/examples directory."
-},
-
-{
-    "location": "examples.html#LinReg",
-    "page": "Examples",
-    "title": "LinReg",
-    "category": "Module",
-    "text": "LinReg is a simple linear regression example using artificially generated data. You can run the demo using julia linreg.jl on the command line or julia> LinReg.main() at the Julia prompt.  Use julia linreg.jl --help or julia> LinReg.main(\"--help\") for a list of options.  The quadratic loss will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#LinReg-1",
-    "page": "Examples",
-    "title": "LinReg",
-    "category": "section",
-    "text": "LinReg"
-},
-
-{
-    "location": "examples.html#Housing",
-    "page": "Examples",
-    "title": "Housing",
-    "category": "Module",
-    "text": "This example uses the Housing dataset from the UCI Machine Learning Repository to demonstrate a linear regression model. The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood has 14 attributes, the goal is to use the first 13, such as average number of rooms per house, or distance to employment centers, to predict the 14’th attribute: median dollar value of the houses.\n\nYou can run the demo using julia housing.jl.  Use julia housing.jl --help for a list of options.  The dataset will be automatically downloaded and randomly split into training and test sets.  The quadratic loss for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#Housing-1",
-    "page": "Examples",
-    "title": "Housing",
-    "category": "section",
-    "text": "Housing"
-},
-
-{
-    "location": "examples.html#MNIST",
-    "page": "Examples",
-    "title": "MNIST",
-    "category": "Module",
-    "text": "This example learns to classify hand-written digits from the MNIST dataset.  There are 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image.  The pixel values are normalized to [0,1]. Each output y is converted to a ten-dimensional one-hot vector (a vector that has a single non-zero component) indicating the correct class (0-9) for a given image.  10 is used to represent 0.\n\nYou can run the demo using julia mnist.jl on the command line or julia> MNIST.main() at the Julia prompt.  Options can be used like julia mnist.jl --epochs 3 or julia> MNIST.main(\"--epochs 3\").  Use julia mnist.jl --help for a list of options.  The dataset will be automatically downloaded.  By default a softmax model will be trained for 10 epochs.  You can also train a multi-layer perceptron by specifying one or more –hidden sizes.  The accuracy for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#MNIST-1",
-    "page": "Examples",
-    "title": "MNIST",
-    "category": "section",
-    "text": "MNIST"
-},
-
-{
-    "location": "examples.html#LeNet",
-    "page": "Examples",
-    "title": "LeNet",
-    "category": "Module",
-    "text": "This example learns to classify hand-written digits from the MNIST dataset.  There are 60000 training and 10000 test examples. Each input x consists of 784 pixels representing a 28x28 image.  The pixel values are normalized to [0,1]. Each output y is converted to a ten-dimensional one-hot vector (a vector that has a single non-zero component) indicating the correct class (0-9) for a given image.  10 is used to represent 0.\n\nYou can run the demo using julia lenet.jl at the command line or julia> LeNet.main() at the Julia prompt.  Use julia lenet.jl --help or julia> LeNet.main(\"--help\") for a list of options.  The dataset will be automatically downloaded.  By default the LeNet convolutional neural network model will be trained for 10 epochs.  The accuracy for the training and test sets will be printed at every epoch and optimized parameters will be returned.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#LeNet-1",
-    "page": "Examples",
-    "title": "LeNet",
-    "category": "section",
-    "text": "LeNet"
-},
-
-{
-    "location": "examples.html#CharLM",
-    "page": "Examples",
-    "title": "CharLM",
-    "category": "Module",
-    "text": "This example implements an LSTM network for training and testing character-level language models inspired by \"The Unreasonable Effectiveness of Recurrent Neural Networks\" from Andrej Karpathy's blog.  The model can be trained with different genres of text, and can be used to generate original text in the same style.\n\nExample usage:\n\njulia charlm.jl: trains a model using its own code.\njulia charlm.jl --data foo.txt: uses foo.txt to train instead.\njulia charlm.jl --data foo.txt bar.txt: uses foo.txt for training and bar.txt for validation.  Any number of files can be specified, the first two will be used for training and validation, the rest for testing.\njulia charlm.jl --best foo.jld --save bar.jld: saves the best model (according to validation set) to foo.jld, last model to bar.jld.\njulia charlm.jl --load foo.jld --generate 1000: generates 1000 characters from the model in foo.jld.\njulia charlm.jl --help: describes all available options.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#CharLM-1",
-    "page": "Examples",
-    "title": "CharLM",
-    "category": "section",
-    "text": "CharLM"
-},
-
-{
-    "location": "examples.html#VGG",
-    "page": "Examples",
-    "title": "VGG",
-    "category": "Module",
-    "text": "julia vgg.jl image-file-or-url\n\nThis example implements the VGG model from `Very Deep Convolutional Networks for Large-Scale Image Recognition', Karen Simonyan and Andrew Zisserman, arXiv technical report 1409.1556, 2014. This example works for D and E models currently. VGG-D is the default model if you do not specify any model.\n\nPaper url: https://arxiv.org/abs/1409.1556\nProject page: http://www.robots.ox.ac.uk/~vgg/research/very_deep\nMatConvNet weights used here: http://www.vlfeat.org/matconvnet/pretrained\n\n\n\n"
-},
-
-{
-    "location": "examples.html#VGG-1",
-    "page": "Examples",
-    "title": "VGG",
-    "category": "section",
-    "text": "VGG"
-},
-
-{
-    "location": "examples.html#ResNet",
-    "page": "Examples",
-    "title": "ResNet",
-    "category": "Module",
-    "text": "julia resnet.jl image-file-or-url\n\nThis example implements the ResNet-50, ResNet-101 and ResNet-152 models from 'Deep Residual Learning for Image Regocnition', Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun, arXiv technical report 1512.03385, 2015.\n\nPaper url: https://arxiv.org/abs/1512.03385\nProject page: https://github.com/KaimingHe/deep-residual-networks\nMatConvNet weights used here: http://www.vlfeat.org/matconvnet/pretrained\n\n\n\n"
-},
-
-{
-    "location": "examples.html#ResNet-1",
-    "page": "Examples",
-    "title": "ResNet",
-    "category": "section",
-    "text": "ResNet"
-},
-
-{
-    "location": "examples.html#Optimizers",
-    "page": "Examples",
-    "title": "Optimizers",
-    "category": "Module",
-    "text": "This example demonstrates the usage of stochastic gradient descent(sgd) based optimization methods. We train LeNet model on MNIST dataset similar to lenet.jl.\n\nYou can run the demo using julia optimizers.jl.  Use julia optimizers.jl --help for a list of options. By default the LeNet convolutional neural network model will be trained using sgd for 10 epochs. At the end of the training accuracy for the training and test sets for each epoch will be printed  and optimized parameters will be returned.\n\n\n\n"
-},
-
-{
-    "location": "examples.html#Optimizers-1",
-    "page": "Examples",
-    "title": "Optimizers",
-    "category": "section",
-    "text": "Optimizers"
-},
-
-{
-    "location": "examples.html#Overfitting,-underfitting,-regularization,-dropout-1",
-    "page": "Examples",
-    "title": "Overfitting, underfitting, regularization, dropout",
-    "category": "section",
-    "text": "softmax.ipynb is an IJulia notebook demonstrating overfitting, underfitting, regularization, and dropout."
+    "text": "Knet is an open-source project and we are always open to new contributions: bug reports and fixes, feature requests and contributions, new machine learning models and operators, inspiring examples, benchmarking results are all welcome. If you would like to contribute to Knet development, check out the knet-dev mailing list and Tips for developers.Current contributors:Deniz Yuret\nOzan Arkan Can\nOnur Kuru\nEmre Ünal\nErenay Dayanık\nÖmer Kırnap\nİlker Kesen\nEmre Yolcu\nMeriç Melike Softa\nEkrem Emre Yurdakul\nEnis Berk\nCan Gümeli\nCarlo Lucibello\n张实唯 (@ylxdzsw)"
 },
 
 {
@@ -409,6 +257,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.accuracy",
+    "page": "Reference",
+    "title": "Knet.accuracy",
+    "category": "Function",
+    "text": "accuracy(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the ratio of instances where the correct answer has the maximum score. d=1 means instances are in columns, d=2 means instances are in rows. Use average=false to return the number of correct answers instead of the ratio.\n\n\n\naccuracy(data, model, predict; average=true)\n\nCompute accuracy(predict(model,x), y) for (x,y) in data and return the ratio (if average=true) or the count (if average=false) of correct answers.\n\n\n\n"
+},
+
+{
     "location": "reference.html#Knet.dir",
     "page": "Reference",
     "title": "Knet.dir",
@@ -421,7 +277,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.dropout",
     "category": "Function",
-    "text": "dropout(x, p; seed=0)\n\nGiven an array x and probability 0<=p<=1, return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p.  See (Srivastava et al. 2014) for a reference.\n\n\n\n"
+    "text": "dropout(x, p)\n\nGiven an array x and probability 0<=p<=1, just return x if testing, return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p if training. Training mode is detected automatically based on the type of x, which is AutoGrad.Rec during gradient calculation.  Use the keyword argument training::Bool to change the default mode and seed::Number to set the random number seed for reproducible results. See (Srivastava et al. 2014)  for reference.\n\n\n\n"
 },
 
 {
@@ -430,6 +286,22 @@ var documenterSearchIndex = {"docs": [
     "title": "Knet.gpu",
     "category": "Function",
     "text": "gpu() returns the id of the active GPU device or -1 if none are active.\n\ngpu(true) resets all GPU devices and activates the one with the most available memory.\n\ngpu(false) resets and deactivates all GPU devices.\n\ngpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.\n\ngpu(true/false) resets all devices.  If there are any allocated KnetArrays their pointers will be left dangling.  Thus gpu(true/false) should only be used during startup.  If you want to suspend GPU use temporarily, use gpu(-1).\n\ngpu(d::Int) does not reset the devices.  You can select a previous device and find allocated memory preserved.  However trying to operate on arrays of an inactive device will result in error.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.invx",
+    "page": "Reference",
+    "title": "Knet.invx",
+    "category": "Function",
+    "text": "invx(x) = (1./x)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.knetgc",
+    "page": "Reference",
+    "title": "Knet.knetgc",
+    "category": "Function",
+    "text": "knetgc(dev=gpu())\n\ncudaFree all pointers allocated on device dev that were previously allocated and garbage collected. Normally Knet holds on to all garbage collected pointers for reuse. Try this if you run out of GPU memory.\n\n\n\n"
 },
 
 {
@@ -449,11 +321,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference.html#Knet.invx",
+    "location": "reference.html#Knet.minibatch",
     "page": "Reference",
-    "title": "Knet.invx",
+    "title": "Knet.minibatch",
     "category": "Function",
-    "text": "invx(x) = (1./x)\n\n\n\n"
+    "text": "minibatch(x, y, batchsize; shuffle, partial, xtype, ytype)\n\nReturn an iterable of minibatches [(xi,yi)...] given data tensors x, y and batchsize.  The last dimension of x and y should match and give the number of instances. Keyword arguments:\n\nshuffle=false: Shuffle the instances before minibatching.\npartial=false: If true include the last partial minibatch < batchsize.\nxtype=typeof(x): Convert xi in minibatches to this type.\nytype=typeof(y): Convert yi in minibatches to this type.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.nll",
+    "page": "Reference",
+    "title": "Knet.nll",
+    "category": "Function",
+    "text": "nll(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the per-instance negative log likelihood. d=1 means instances are in columns, d=2 means instances are in rows.  Use average=false to return the sum instead of per-instance average.\n\n\n\nnll(data, model, predict; average=true)\n\nCompute nll(predict(model,x), y) for (x,y) in data and return the per-instance average (if average=true) or total (if average=false) negative log likelihood.\n\n\n\n"
 },
 
 {
@@ -485,7 +365,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Utilities",
     "category": "section",
-    "text": "Knet.dir\nKnet.dropout\nKnet.gpu\nKnet.logp\nKnet.logsumexp\nKnet.invx\nKnet.relu\nKnet.setseed\nKnet.sigm"
+    "text": "Knet.accuracy\nKnet.dir\nKnet.dropout\nKnet.gpu\nKnet.invx\nKnet.knetgc\nKnet.logp\nKnet.logsumexp\nKnet.minibatch\nKnet.nll\nKnet.relu\nKnet.setseed\nKnet.sigm"
 },
 
 {
@@ -493,7 +373,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.conv4",
     "category": "Function",
-    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are supported as w and x.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nalgo=0: specifies which convolution algorithm shoud be used to compute the results. See the CUDNN User Guide for details.\nworkSpace=C_NULL: data pointer to GPU memory to a workspace needed to able to execute the specified algorithm.\nworkSpaceSizeInBytes=0: the size in bytes of the provided workSpace. Default=0.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
+    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are supported as w and x.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n"
 },
 
 {
@@ -537,11 +417,43 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.rnninit",
+    "page": "Reference",
+    "title": "Knet.rnninit",
+    "category": "Function",
+    "text": "rnninit(inputSize, hiddenSize; opts...)\n\nReturn an (r,w) pair where r is a RNN struct and w is a single weight array that includes all matrices and biases for the RNN. Keyword arguments:\n\nrnnType=:lstm Type of RNN: One of :relu, :tanh, :lstm, :gru.\nnumLayers=1: Number of RNN layers.\nbidirectional=false: Create a bidirectional RNN if true.\ndropout=0.0: Dropout probability. Ignored if numLayers==1.\nskipInput=false: Do not multiply the input with a matrix if true.\ndataType=Float32: Data type to use for weights.\nalgo=0: Algorithm to use, see CUDNN docs for details.\nseed=0: Random number seed. Uses time() if 0.\nwinit=xavier: Weight initialization method for matrices.\nbias=ones: Weight initialization method for bias vectors.\n\nRNNs compute the output h[t] for a given iteration from the recurrent input h[t-1] and the previous layer input x[t] given matrices W, R and biases bW, bR from the following equations:\n\n:relu and :tanh: Single gate RNN with activation function f:\n\nh[t] = f(W * x[t] .+ R * h[t-1] .+ bW .+ bR)\n\n:gru: Gated recurrent unit:\n\ni[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate\nr[t] = sigm(Wr * x[t] .+ Rr * h[t-1] .+ bWr .+ bRr) # reset gate\nn[t] = tanh(Wn * x[t] .+ r[t] .* (Rn * h[t-1] .+ bRn) .+ bWn) # new gate\nh[t] = (1 - i[t]) .* n[t] .+ i[t] .* h[t-1]\n\n:lstm: Long short term memory unit with no peephole connections:\n\ni[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate\nf[t] = sigm(Wf * x[t] .+ Rf * h[t-1] .+ bWf .+ bRf) # forget gate\no[t] = sigm(Wo * x[t] .+ Ro * h[t-1] .+ bWo .+ bRo) # output gate\nn[t] = tanh(Wn * x[t] .+ Rn * h[t-1] .+ bWn .+ bRn) # new gate\nc[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output\nh[t] = o[t] .* tanh(c[t])\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.rnnforw",
+    "page": "Reference",
+    "title": "Knet.rnnforw",
+    "category": "Function",
+    "text": "rnnforw(r, w, x[, hx, cx]; batchSizes, hy, cy)\n\nReturns a tuple (y,hyout,cyout,rs) given rnn r, weights w, input x and optionally the initial hidden and cell states hx and cx (cx is only used in LSTMs).  r and w should come from a previous call to rnninit.  Both hx and cx are optional, they are treated as zero arrays if not provided.  The output y contains the hidden states of the final layer for each time step, hyout and cyout give the final hidden and cell states for all layers, rs is a buffer the RNN needs for its gradient calculation.\n\nThe boolean keyword arguments hy and cy control whether hyout and cyout will be output.  By default hy = (hx!=nothing) and cy = (cx!=nothing && r.mode==2), i.e. a hidden state will be output if one is provided as input and for cell state we also require an LSTM.  If hy/cy is false, hyout/cyout will be nothing. batchSizes can be an integer array that specifies non-uniform batch sizes as explained below. By default batchSizes=nothing and the same batch size, size(x,2), is used for all time steps.\n\nThe input and output dimensions are:\n\nx: (X,[B,T])\ny: (H/2H,[B,T])\nhx,cx,hyout,cyout: (H,B,L/2L)\nbatchSizes: nothing or Vector{Int}(T)\n\nwhere X is inputSize, H is hiddenSize, B is batchSize, T is seqLength, L is numLayers.  x can be 1, 2, or 3 dimensional.  If batchSizes==nothing, a 1-D x represents a single instance, a 2-D x represents a single minibatch, and a 3-D x represents a sequence of identically sized minibatches.  If batchSizes is an array of (non-increasing) integers, it gives us the batch size for each time step in the sequence, in which case sum(batchSizes) should equal div(length(x),size(x,1)). y has the same dimensionality as x, differing only in its first dimension, which is H if the RNN is unidirectional, 2H if bidirectional.  Hidden vectors hx, cx, hyout, cyout all have size (H,B1,L) for unidirectional RNNs, and (H,B1,2L) for bidirectional RNNs where B1 is the size of the first minibatch.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Recurrent-neural-networks-1",
+    "page": "Reference",
+    "title": "Recurrent neural networks",
+    "category": "section",
+    "text": "Knet.rnninit\nKnet.rnnforw"
+},
+
+{
     "location": "reference.html#Knet.update!",
     "page": "Reference",
     "title": "Knet.update!",
     "category": "Function",
-    "text": "update!(weights, gradients, params)\nupdate!(weights, gradients; lr=0.001, gclip=0)\n\nUpdate the weights using their gradients and the optimization algorithm parameters specified by params.  The 2-arg version defaults to the Sgd algorithm with learning rate lr and gradient clip gclip.  gclip==0 indicates no clipping. The weights and possibly gradients and params are modified in-place.\n\nweights can be an individual numeric array or a collection of arrays represented by an iterator or dictionary.  In the individual case, gradients should be a similar numeric array of size(weights) and params should be a single object.  In the collection case, each individual weight array should have a corresponding params object. This way different weight arrays can have their own optimization state, different learning rates, or even different optimization algorithms running in parallel.  In the iterator case, gradients and params should be iterators of the same length as weights with corresponding elements.  In the dictionary case, gradients and params should be dictionaries with the same keys as weights.\n\nIndividual optimization parameters can be one of the following types. The keyword arguments for each type's constructor and their default values are listed as well.\n\nSgd(;lr=0.001, gclip=0)\nMomentum(;lr=0.001, gclip=0, gamma=0.9)\nRmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)\nAdagrad(;lr=0.1, gclip=0, eps=1e-6)\nAdadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nAdam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\n\nExample:\n\nw = rand(d)                 # an individual weight array\ng = lossgradient(w)         # gradient g has the same shape as w\nupdate!(w, g)               # update w in-place with Sgd()\nupdate!(w, g; lr=0.1)       # update w in-place with Sgd(lr=0.1)\nupdate!(w, g, Sgd(lr=0.1))  # update w in-place with Sgd(lr=0.1)\n\nw = (rand(d1), rand(d2))    # a tuple of weight arrays\ng = lossgradient2(w)        # g will also be a tuple\np = (Adam(), Sgd())         # p has params for each w[i]\nupdate!(w, g, p)            # update each w[i] in-place with g[i],p[i]\n\nw = Any[rand(d1), rand(d2)] # any iterator can be used\ng = lossgradient3(w)        # g will be similar to w\np = Any[Adam(), Sgd()]      # p should be an iterator of same length\nupdate!(w, g, p)            # update each w[i] in-place with g[i],p[i]\n\nw = Dict(:a => rand(d1), :b => rand(d2)) # dictionaries can be used\ng = lossgradient4(w)\np = Dict(:a => Adam(), :b => Sgd())\nupdate!(w, g, p)\n\n\n\n"
+    "text": "update!(weights, gradients, params)\nupdate!(weights, gradients; lr=0.001, gclip=0)\n\nUpdate the weights using their gradients and the optimization algorithm parameters specified by params.  The 2-arg version defaults to the Sgd algorithm with learning rate lr and gradient clip gclip.  gclip==0 indicates no clipping. The weights and possibly gradients and params are modified in-place.\n\nweights can be an individual numeric array or a collection of arrays represented by an iterator or dictionary.  In the individual case, gradients should be a similar numeric array of size(weights) and params should be a single object.  In the collection case, each individual weight array should have a corresponding params object. This way different weight arrays can have their own optimization state, different learning rates, or even different optimization algorithms running in parallel.  In the iterator case, gradients and params should be iterators of the same length as weights with corresponding elements.  In the dictionary case, gradients and params should be dictionaries with the same keys as weights.\n\nIndividual optimization parameters can be one of the following types. The keyword arguments for each type's constructor and their default values are listed as well.\n\nSgd(;lr=0.001, gclip=0)\nMomentum(;lr=0.001, gclip=0, gamma=0.9)\nNesterov(;lr=0.001, gclip=0, gamma=0.9)\nRmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)\nAdagrad(;lr=0.1, gclip=0, eps=1e-6)\nAdadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nAdam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\n\nExample:\n\nw = rand(d)                 # an individual weight array\ng = lossgradient(w)         # gradient g has the same shape as w\nupdate!(w, g)               # update w in-place with Sgd()\nupdate!(w, g; lr=0.1)       # update w in-place with Sgd(lr=0.1)\nupdate!(w, g, Sgd(lr=0.1))  # update w in-place with Sgd(lr=0.1)\n\nw = (rand(d1), rand(d2))    # a tuple of weight arrays\ng = lossgradient2(w)        # g will also be a tuple\np = (Adam(), Sgd())         # p has params for each w[i]\nupdate!(w, g, p)            # update each w[i] in-place with g[i],p[i]\n\nw = Any[rand(d1), rand(d2)] # any iterator can be used\ng = lossgradient3(w)        # g will be similar to w\np = Any[Adam(), Sgd()]      # p should be an iterator of same length\nupdate!(w, g, p)            # update each w[i] in-place with g[i],p[i]\n\nw = Dict(:a => rand(d1), :b => rand(d2)) # dictionaries can be used\ng = lossgradient4(w)\np = Dict(:a => Adam(), :b => Sgd())\nupdate!(w, g, p)\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.optimizers",
+    "page": "Reference",
+    "title": "Knet.optimizers",
+    "category": "Function",
+    "text": "optimizers(model, otype; options...)\n\nGiven parameters of a model, initialize and return corresponding optimization parameters for a given optimization type otype and optimization options options. This is useful because each numeric array in model needs its own distinct optimization parameter. optimizers makes the creation of optimization parameters that parallel model parameters easy when all of them use the same type and options.\n\n\n\n"
 },
 
 {
@@ -549,7 +461,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.Adadelta",
     "category": "Type",
-    "text": "Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nupdate(w,g,p::Adadelta)\n\nContainer for parameters of the Adadelta optimization algorithm used by update!.\n\nAdadelta is an extension of Adagrad that tries to prevent the decrease of the learning rates to zero as training progresses. It scales the learning rate based on the accumulated gradients like Adagrad and holds the acceleration term like Momentum. It updates the weights with the following formulas:\n\nG = (1-rho) * g .^ 2 + rho * G\nupdate = g .* sqrt(delta + eps) ./ sqrt(G + eps)\nw = w - lr * update\ndelta = rho * delta + (1-rho) * update .^ 2\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method.\n\n\n\n"
+    "text": "Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)\nupdate!(w,g,p::Adadelta)\n\nContainer for parameters of the Adadelta optimization algorithm used by update!.\n\nAdadelta is an extension of Adagrad that tries to prevent the decrease of the learning rates to zero as training progresses. It scales the learning rate based on the accumulated gradients like Adagrad and holds the acceleration term like Momentum. It updates the weights with the following formulas:\n\nG = (1-rho) * g .^ 2 + rho * G\nupdate = g .* sqrt(delta + eps) ./ sqrt(G + eps)\nw = w - lr * update\ndelta = rho * delta + (1-rho) * update .^ 2\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Zeiler, M. D. (2012). ADADELTA: An Adaptive Learning Rate Method.\n\n\n\n"
 },
 
 {
@@ -557,7 +469,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.Adagrad",
     "category": "Type",
-    "text": "Adagrad(;lr=0.1, gclip=0, eps=1e-6)\nupdate(w,g,p::Adagrad)\n\nContainer for parameters of the Adagrad optimization algorithm used by update!.\n\nAdagrad is one of the methods that adapts the learning rate to each of the weights.  It stores the sum of the squares of the gradients to scale the learning rate.  The learning rate is adapted for each weight by the value of current gradient divided by the accumulated gradients. Hence, the learning rate is greater for the parameters where the accumulated gradients are small and the learning rate is small if the accumulated gradients are large. It updates the weights with the following formulas:\n\nG = G + g .^ 2\nw = w - g .* lr ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Duchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization. Journal of Machine Learning Research, 12, 2121–2159.\n\n\n\n"
+    "text": "Adagrad(;lr=0.1, gclip=0, eps=1e-6)\nupdate!(w,g,p::Adagrad)\n\nContainer for parameters of the Adagrad optimization algorithm used by update!.\n\nAdagrad is one of the methods that adapts the learning rate to each of the weights.  It stores the sum of the squares of the gradients to scale the learning rate.  The learning rate is adapted for each weight by the value of current gradient divided by the accumulated gradients. Hence, the learning rate is greater for the parameters where the accumulated gradients are small and the learning rate is small if the accumulated gradients are large. It updates the weights with the following formulas:\n\nG = G + g .^ 2\nw = w - g .* lr ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Duchi, J., Hazan, E., & Singer, Y. (2011). Adaptive Subgradient Methods for Online Learning and Stochastic Optimization. Journal of Machine Learning Research, 12, 2121–2159.\n\n\n\n"
 },
 
 {
@@ -565,7 +477,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.Adam",
     "category": "Type",
-    "text": "Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\nupdate(w,g,p::Adam)\n\nContainer for parameters of the Adam optimization algorithm used by update!.\n\nAdam is one of the methods that compute the adaptive learning rate. It stores accumulated gradients (first moment) and the sum of the squared of gradients (second).  It scales the first and second moment as a function of time. Here is the update formulas:\n\nm = beta1 * m + (1 - beta1) * g\nv = beta2 * v + (1 - beta2) * g .* g\nmhat = m ./ (1 - beta1 ^ t)\nvhat = v ./ (1 - beta2 ^ t)\nw = w - (lr / (sqrt(vhat) + eps)) * mhat\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, m is an array with the same size and type of w and holds the accumulated gradients. v is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero denominator. beta1 and beta2 are the parameters to calculate bias corrected first and second moments. t is the update count.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.\n\n\n\n"
+    "text": "Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)\nupdate!(w,g,p::Adam)\n\nContainer for parameters of the Adam optimization algorithm used by update!.\n\nAdam is one of the methods that compute the adaptive learning rate. It stores accumulated gradients (first moment) and the sum of the squared of gradients (second).  It scales the first and second moment as a function of time. Here is the update formulas:\n\nm = beta1 * m + (1 - beta1) * g\nv = beta2 * v + (1 - beta2) * g .* g\nmhat = m ./ (1 - beta1 ^ t)\nvhat = v ./ (1 - beta2 ^ t)\nw = w - (lr / (sqrt(vhat) + eps)) * mhat\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, m is an array with the same size and type of w and holds the accumulated gradients. v is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero denominator. beta1 and beta2 are the parameters to calculate bias corrected first and second moments. t is the update count.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Kingma, D. P., & Ba, J. L. (2015). Adam: a Method for Stochastic Optimization. International Conference on Learning Representations, 1–13.\n\n\n\n"
 },
 
 {
@@ -573,7 +485,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.Momentum",
     "category": "Type",
-    "text": "Momentum(;lr=0.001, gclip=0, gamma=0.9)\nupdate(w,g,p::Momentum)\n\nContainer for parameters of the Momentum optimization algorithm used by update!.\n\nThe Momentum method tries to accelerate SGD by adding a velocity term to the update.  This also decreases the oscillation between successive steps. It updates the weights with the following formulas:\n\nvelocity = gamma * velocity + lr * g\nw = w - velocity\n\nwhere w is a weight array, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter, velocity is an array with the same size and type of w and holds the accelerated gradients.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Qian, N. (1999). On the momentum term in gradient descent learning algorithms.  Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151.\n\n\n\n"
+    "text": "Momentum(;lr=0.001, gclip=0, gamma=0.9)\nupdate!(w,g,p::Momentum)\n\nContainer for parameters of the Momentum optimization algorithm used by update!.\n\nThe Momentum method tries to accelerate SGD by adding a velocity term to the update.  This also decreases the oscillation between successive steps. It updates the weights with the following formulas:\n\nvelocity = gamma * velocity + lr * g\nw = w - velocity\n\nwhere w is a weight array, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter, velocity is an array with the same size and type of w and holds the accelerated gradients.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Qian, N. (1999). On the momentum term in gradient descent learning algorithms.  Neural Networks : The Official Journal of the International Neural Network Society, 12(1), 145–151.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.Nesterov",
+    "page": "Reference",
+    "title": "Knet.Nesterov",
+    "category": "Type",
+    "text": "Nesterov(; lr=0.001, gclip=0, gamma=0.9)\nupdate!(w,g,p::Momentum)\n\nContainer for parameters of Nesterov's momentum optimization algorithm used by update!.\n\nIt is similar to standard Momentum but with a slightly different update rule:\n\nvelocity = gamma * velocity_old - lr * g\nw = w_old - velocity_old + (1+gamma) * velocity\n\nwhere w is a weight array, g is the gradient of the objective function w.r.t w, lr is the learning rate, gamma is the momentum parameter, velocity is an array with the same size and type of w and holds the accelerated gradients.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip == 0 no scaling takes place.\n\nReference Implementation : Yoshua Bengio, Nicolas Boulanger-Lewandowski and Razvan P ascanu\n\n\n\n"
 },
 
 {
@@ -581,7 +501,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.Rmsprop",
     "category": "Type",
-    "text": "Rmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)\nupdate(w,g,p::Rmsprop)\n\nContainer for parameters of the Rmsprop optimization algorithm used by update!.\n\nRmsprop scales the learning rates by dividing the root mean squared of the gradients. It updates the weights with the following formula:\n\nG = (1-rho) * g .^ 2 + rho * G\nw = w - lr * g ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Tijmen Tieleman and Geoffrey Hinton (2012). \"Lecture 6.5-rmsprop: Divide the gradient by a running average of its recent magnitude.\"  COURSERA: Neural Networks for Machine Learning 4.2.\n\n\n\n"
+    "text": "Rmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)\nupdate!(w,g,p::Rmsprop)\n\nContainer for parameters of the Rmsprop optimization algorithm used by update!.\n\nRmsprop scales the learning rates by dividing the root mean squared of the gradients. It updates the weights with the following formula:\n\nG = (1-rho) * g .^ 2 + rho * G\nw = w - lr * g ./ sqrt(G + eps)\n\nwhere w is the weight, g is the gradient of the objective function w.r.t w, lr is the learning rate, G is an array with the same size and type of w and holds the sum of the squares of the gradients. eps is a small constant to prevent a zero value in the denominator.  rho is the momentum parameter and delta is an array with the same size and type of w and holds the sum of the squared updates.\n\nIf vecnorm(g) > gclip > 0, g is scaled so that its norm is equal to gclip.  If gclip==0 no scaling takes place.\n\nReference: Tijmen Tieleman and Geoffrey Hinton (2012). \"Lecture 6.5-rmsprop: Divide the gradient by a running average of its recent magnitude.\"  COURSERA: Neural Networks for Machine Learning 4.2.\n\n\n\n"
 },
 
 {
@@ -597,7 +517,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Optimization methods",
     "category": "section",
-    "text": "Knet.update!\nKnet.Adadelta\nKnet.Adagrad\nKnet.Adam\nKnet.Momentum\nKnet.Rmsprop\nKnet.Sgd"
+    "text": "Knet.update!\nKnet.optimizers\nKnet.Adadelta\nKnet.Adagrad\nKnet.Adam\nKnet.Momentum\nKnet.Nesterov\nKnet.Rmsprop\nKnet.Sgd"
 },
 
 {
@@ -1213,7 +1133,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reinforcement Learning",
     "title": "References",
     "category": "section",
-    "text": "<http://www0.cs.ucl.ac.uk/staff/d.silver/web/Teaching.html>\n<https://www.youtube.com/watch?v=2pWv7GOvuf0&list=PL7-jPKtc4r78-wCZcQn5IqyuWhBZ8fOxT>\n<http://videolectures.net/rldm2015_silver_reinforcement_learning/?q=david%20silver>\n<https://webdocs.cs.ualberta.ca/~sutton/book/the-book.html>\n<https://sites.ualberta.ca/~szepesva/RLBook.html>\n<http://banditalgs.com/print/>\n<http://karpathy.github.io/2016/05/31/rl/>\n<http://cs229.stanford.edu/notes/cs229-notes12.pdf>\n<http://cs.stanford.edu/people/karpathy/reinforcejs/index.html>\n<https://www.udacity.com/course/machine-learning-reinforcement-learning>–ud820\n<http://www.nature.com/nature/journal/v518/n7540/full/nature14236.html>\n<http://people.csail.mit.edu/regina/my_papers/TG15.pdf>\nIn <http://karpathy.github.io/2015/05/21/rnn-effectiveness>: For   more about REINFORCE and more generally Reinforcement Learning and   policy gradient methods (which REINFORCE is a special case of) David   Silver's class, or one of Pieter Abbeel's classes. This is very much   ongoing work but these hard attention models have been explored, for   example, in Inferring Algorithmic Patterns with Stack-Augmented   Recurrent Nets, Reinforcement Learning Neural Turing Machines, and   Show Attend and Tell.\nIn <http://www.deeplearningbook.org/contents/ml.html>: Please see   Sutton and Barto (1998) or Bertsekasand Tsitsiklis (1996) for   information about reinforcement learning, and Mnih et al.(2013) for   the deep learning approach to reinforcement learning."
+    "text": "http://www0.cs.ucl.ac.uk/staff/d.silver/web/Teaching.html\nhttps://www.youtube.com/watch?v=2pWv7GOvuf0&list=PL7-jPKtc4r78-wCZcQn5IqyuWhBZ8fOxT\nhttp://videolectures.net/rldm2015_silver_reinforcement_learning/?q=david%20silver\nhttps://webdocs.cs.ualberta.ca/~sutton/book/the-book.html\nhttps://sites.ualberta.ca/~szepesva/RLBook.html\nhttp://banditalgs.com/print/\nhttp://karpathy.github.io/2016/05/31/rl/\nhttp://cs229.stanford.edu/notes/cs229-notes12.pdf\nhttp://cs.stanford.edu/people/karpathy/reinforcejs/index.html\nhttps://www.udacity.com/course/machine-learning-reinforcement-learning–ud820\nhttp://www.nature.com/nature/journal/v518/n7540/full/nature14236.html\nhttp://people.csail.mit.edu/regina/my_papers/TG15.pdf\nIn http://karpathy.github.io/2015/05/21/rnn-effectiveness: For   more about REINFORCE and more generally Reinforcement Learning and   policy gradient methods (which REINFORCE is a special case of) David   Silver's class, or one of Pieter Abbeel's classes. This is very much   ongoing work but these hard attention models have been explored, for   example, in Inferring Algorithmic Patterns with Stack-Augmented   Recurrent Nets, Reinforcement Learning Neural Turing Machines, and   Show Attend and Tell.\nIn http://www.deeplearningbook.org/contents/ml.html: Please see   Sutton and Barto (1998) or Bertsekasand Tsitsiklis (1996) for   information about reinforcement learning, and Mnih et al.(2013) for   the deep learning approach to reinforcement learning."
 },
 
 {
@@ -1237,7 +1157,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Optimization",
     "title": "References",
     "category": "section",
-    "text": "<http://videolectures.net/deeplearning2015_goodfellow_network_optimization/>   (Ian Goodfellow's tutorial on neural network optimization at Deep   Learning Summer School 2015).\n<http://int8.io/comparison-of-optimization-techniques-stochastic-gradient-descent-momentum-adagrad-and-adadelta>   (implementation and comparison of popular methods)\n<http://www.deeplearningbook.org/contents/numerical.html> (basic   intro in 4.3)\n<http://www.deeplearningbook.org/contents/optimization.html> (8.1   generalization, 8.2 problems, 8.3 algorithms, 8.4 init, 8.5 adaptive   lr, 8.6 approx 2nd order, 8.7 meta)\n<http://andrew.gibiansky.com/blog/machine-learning/gauss-newton-matrix/>   (great posts on optimization)\n<https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf>   (excellent tutorial on cg, gd, eigens etc)\n<http://arxiv.org/abs/1412.6544> (Goodfellow paper)\n<https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec6.pdf>   (hinton slides)\n<https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec8.pdf>   (hinton slides)\n<http://www.denizyuret.com/2015/03/alec-radfords-animations-for.html>\n<http://machinelearning.wustl.edu/mlpapers/paper_files/icml2010_Martens10.pdf>\n<http://arxiv.org/abs/1503.05671>\n<http://arxiv.org/abs/1412.1193>\n<http://www.springer.com/us/book/9780387303031> (nocedal and wright)\n<http://www.nrbook.com> (numerical recipes)\n<https://maths-people.anu.edu.au/~brent/pub/pub011.html> (without   derivatives)\n<http://stanford.edu/~boyd/cvxbook/> (only convex optimization)"
+    "text": "http://videolectures.net/deeplearning2015_goodfellow_network_optimization/   (Ian Goodfellow's tutorial on neural network optimization at Deep   Learning Summer School 2015).\nhttp://int8.io/comparison-of-optimization-techniques-stochastic-gradient-descent-momentum-adagrad-and-adadelta   (implementation and comparison of popular methods)\nhttp://www.deeplearningbook.org/contents/numerical.html (basic   intro in 4.3)\nhttp://www.deeplearningbook.org/contents/optimization.html (8.1   generalization, 8.2 problems, 8.3 algorithms, 8.4 init, 8.5 adaptive   lr, 8.6 approx 2nd order, 8.7 meta)\nhttp://andrew.gibiansky.com/blog/machine-learning/gauss-newton-matrix/   (great posts on optimization)\nhttps://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf   (excellent tutorial on cg, gd, eigens etc)\nhttp://arxiv.org/abs/1412.6544 (Goodfellow paper)\nhttps://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec6.pdf   (hinton slides)\nhttps://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec8.pdf   (hinton slides)\nhttp://www.denizyuret.com/2015/03/alec-radfords-animations-for.html\nhttp://machinelearning.wustl.edu/mlpapers/paper_files/icml2010_Martens10.pdf\nhttp://arxiv.org/abs/1503.05671\nhttp://arxiv.org/abs/1412.1193\nhttp://www.springer.com/us/book/9780387303031 (nocedal and wright)\nhttp://www.nrbook.com (numerical recipes)\nhttps://maths-people.anu.edu.au/~brent/pub/pub011.html (without   derivatives)\nhttp://stanford.edu/~boyd/cvxbook/ (only convex optimization)"
 },
 
 {
@@ -1261,7 +1181,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generalization",
     "title": "References",
     "category": "section",
-    "text": "<http://www.deeplearningbook.org/contents/regularization.html>\n<https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec9.pdf>\n<https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec10.pdf>\n<http://blog.cambridgecoding.com/2016/03/24/misleading-modelling-overfitting-cross-validation-and-the-bias-variance-trade-off/>"
+    "text": "http://www.deeplearningbook.org/contents/regularization.html\nhttps://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec9.pdf\nhttps://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec10.pdf\nhttp://blog.cambridgecoding.com/2016/03/24/misleading-modelling-overfitting-cross-validation-and-the-bias-variance-trade-off/"
 },
 
 ]}
