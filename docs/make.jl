@@ -7,12 +7,12 @@ using Documenter, Knet
 # include("exampledocs.jl")
 
 # Load examples
-load_only = true
-for ex in ("linreg","housing","mnist","lenet","charlm","optimizers","vgg","resnet")
-    println("$ex.jl")
-    include(Knet.dir("examples","$ex.jl"))
-end
-println("Examples loaded")
+# load_only = true
+# for ex in ("linreg","housing","mnist","lenet","charlm","optimizers","vgg","resnet")
+#     println("$ex.jl")
+#     include(Knet.dir("examples","$ex.jl"))
+# end
+# println("Examples loaded")
 
 makedocs(
     # Including modules prevents getting docstrings from Main 
@@ -29,7 +29,7 @@ makedocs(
         "Manual" => Any[
             "install.md",
             "tutorial.md",
-            "examples.md",
+#           "examples.md",
             "reference.md",
         ],
         "Textbook" => Any[

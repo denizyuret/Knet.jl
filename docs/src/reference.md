@@ -64,6 +64,7 @@ Knet.Adadelta
 Knet.Adagrad
 Knet.Adam
 Knet.Momentum
+Knet.Nesterov
 Knet.Rmsprop
 Knet.Sgd
 ```
