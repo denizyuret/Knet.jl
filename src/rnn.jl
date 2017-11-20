@@ -551,10 +551,26 @@ function cudnnGetRNNParams(r::RNN, w::Array; o...)
     return ws
 end
 
-# TODO: rnnforwCPU is work in progress...
-function rnnforwCPU(r::RNN, ws::Array, x::Array, hx=nothing, cx=nothing; batchSizes=nothing, o...)
-    if r.direction == 1; error("CPU rnnforw bidirectional not implemented yet"); end
-    if batchSizes != nothing; error("CPU rnnforw batchSizes not implemented yet"); end
+# CPU version
+function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
+                    hx::Union{Array{T},Void}=nothing,
+                    cx::Union{Array{T},Void}=nothing;
+                    # handle=cudnnhandle(), training=false,
+                    batchSizes=nothing,
+                    hy = (hx != nothing),
+                    cy = (cx != nothing && r.mode == 2),
+                    o...)
+    rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
+end
+
+# non-CUDNN cpu/gpu version
+function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
+                 batchSizes=nothing,
+                 hy = (hx != nothing),
+                 cy = (cx != nothing && r.mode == 2),
+                 o...)
+    if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
+    if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
     w = cudnnGetRNNParams(r,ws)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
     @assert X == r.inputSize
@@ -632,10 +648,10 @@ function rnnforwCPU(r::RNN, ws::Array, x::Array, hx=nothing, cx=nothing; batchSi
     else
         error("RNN not supported")
     end
-    hy = hx==nothing ? nothing : reshape(hcat(hs...), hsize)
-    cy = r.mode != 2 || cx==nothing ? nothing : reshape(hcat(cs...), hsize)
     y = reshape(hcat(ys...), ysize)
-    return (y,hy,cy,nothing)
+    hyout = hy ? reshape(hcat(hs...), hsize) : nothing
+    cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
+    return (y,hyout,cyout,nothing)
 end
 
 
