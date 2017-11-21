@@ -49,14 +49,14 @@ end
 
 
 """
-    nll(data, model, predict; average=true)
+    nll(model, data, predict; average=true)
 
 Compute `nll(predict(model,x), y)` for `(x,y)` in `data` and return
 the per-instance average (if average=true) or total (if average=false)
 negative log likelihood.
 
 """
-function nll(data::MB,model,predict; average=true)
+function nll(model,data::MB,predict; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += nll(predict(model,x),y; average=false)
@@ -67,14 +67,14 @@ end
 
 
 """
-    accuracy(data, model, predict; average=true)
+    accuracy(model, data, predict; average=true)
 
 Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
 return the ratio (if average=true) or the count (if average=false) of
 correct answers.
 
 """
-function accuracy(data::MB,model,predict; average=true)
+function accuracy(model,data::MB,predict; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += accuracy(predict(model,x),y; average=false)

@@ -28,7 +28,7 @@ https://keras.io/datasets and return (xtrn,ytrn,xtst,ytst,dict) tuple.
 """
 function imdb(;
               url = "https://s3.amazonaws.com/text-datasets",
-              dir = Pkg.dir("Knet","data"),
+              dir = Pkg.dir("Knet","data","imdb"),
               data="imdb.npz",
               dict="imdb_word_index.json",
               jld2="imdb.jld2",
@@ -38,6 +38,7 @@ function imdb(;
               )
     global _imdb_xtrn,_imdb_ytrn,_imdb_xtst,_imdb_ytst,_imdb_dict
     if !isdefined(:_imdb_xtrn)
+        isdir(dir) || mkpath(dir)
         jld2path = joinpath(dir,jld2)
         if !isfile(jld2path)
             info("Downloading IMDB...")

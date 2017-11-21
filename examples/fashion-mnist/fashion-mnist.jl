@@ -1,6 +1,7 @@
-for p in ("Knet","ArgParse","Compat","GZip")
+for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
+include(Knet.dir("data","fashion-mnist.jl"))
 
 """
 
@@ -13,17 +14,17 @@ one-hot vector (a vector that has a single non-zero component) indicating
 the correct class (0-9) for a given image. 10 is used instead of 0.
 Labels and descriptions are shown below.
 
-Label   Description
-0/10    T-shirt/top
-1       Trouser
-2       Pullover
-3       Dress
-4       Coat
-5       Sandal
-6       Shirt
-7       Sneaker
-8       Bag
-9       Ankle boot
+    Label   Description
+    1       T-shirt/top
+    2       Trouser
+    3       Pullover
+    4       Dress
+    5       Coat
+    6       Sandal
+    7       Shirt
+    8       Sneaker
+    9       Bag
+    10      Ankle boot
 
 You can run the demo using `julia fashion-mnist.jl` on the command line or
 by first including `julia> include("fashion-mnist.jl")` and typing `julia> FashionMNIST.main()` 
@@ -37,24 +38,20 @@ and optimized parameters will be returned.
 
 """
 module FashionMNIST
-using Knet,ArgParse,Compat,GZip
-using Knet: relu_dot
+using Knet,ArgParse
 
 function predict(w,x; pdrop=0)
+    x = mat(x)
     for i=1:2:length(w)
         x = w[i]*dropout(x, pdrop) .+ w[i+1]
         if i<length(w)-1
-            x = relu_dot(x) # max(0,x)
+            x = relu.(x) # max(0,x)
         end
     end
     return x
 end
 
-function loss(w,x,ygold; pdrop=0)
-    ypred = predict(w,x; pdrop=pdrop)
-    ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
+loss(w,x,ygold;pdrop=0) = nll(predict(w,x;pdrop=pdrop), ygold)
 
 lossgradient = grad(loss)
 
@@ -62,25 +59,10 @@ function train(w, dtrn; lr=.5, epochs=10, pdrop=0)
     for epoch=1:epochs
         for (x,y) in dtrn
             g = lossgradient(w, x, y; pdrop=pdrop)
-            for i in 1:length(w)
-                # w[i] -= lr * g[i]
-                axpy!(-lr, g[i], w[i])
-            end
+            update!(w, g, lr=lr)
         end
     end
     return w
-end
-
-function accuracy(w, dtst, pred=predict)
-    ncorrect = ninstance = nloss = 0
-    for (x, ygold) in dtst
-        ypred = pred(w, x)
-        ynorm = logp(ypred,1) # ypred .- log(sum(exp(ypred),1))
-        nloss += -sum(ygold .* ynorm)
-        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
-        ninstance += size(ygold,2)
-    end
-    return (ncorrect/ninstance, nloss/ninstance)
 end
 
 function weights(h...; atype=Array{Float32}, winit=0.1)
@@ -94,42 +76,9 @@ function weights(h...; atype=Array{Float32}, winit=0.1)
     return w
 end
 
-function loaddata()
-    global xtrn,ytrn,xtst,ytst
-    info("Loading Fashion-MNIST...")
-    xtrn = gzload("train-images-idx3-ubyte.gz")[17:end]
-    xtst = gzload("t10k-images-idx3-ubyte.gz")[17:end]
-    ytrn = gzload("train-labels-idx1-ubyte.gz")[9:end]
-    ytst = gzload("t10k-labels-idx1-ubyte.gz")[9:end]
-    info("Loaded Fashion-MNIST...")
-end
-
-function gzload(file; path=Knet.dir("data/fashion-mnist",file), url="https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/$file")
-    download_dir = Knet.dir("data/fashion-mnist")
-    ispath(download_dir) || mkpath(download_dir)
-    isfile(path) || download(url, path)
-    f = gzopen(path)
-    a = @compat read(f)
-    close(f)
-    return(a)
-end
-
-function minibatch(x, y, batchsize; atype=Array{Float32}, xrows=784, yrows=10, xscale=255)
-    xbatch(a)=convert(atype, reshape(a./xscale, xrows, div(length(a),xrows)))
-    ybatch(a)=(a[a.==0]=10; convert(atype, sparse(convert(Vector{Int},a),1:length(a),one(eltype(a)),yrows,length(a))))
-    xcols = div(length(x),xrows)
-    xcols == length(y) || throw(DimensionMismatch())
-    data = Any[]
-    for i=1:batchsize:xcols-batchsize+1
-        j=i+batchsize-1
-        push!(data, (xbatch(x[1+(i-1)*xrows:j*xrows]), ybatch(y[i:j])))
-    end
-    return data
-end
-
 function main(args="")
     s = ArgParseSettings()
-    s.description="fashion-mnist.jl (c) 2017 Adapted by Emre Unal based on Deniz Yuret’s MNIST example(https://github.com/denizyuret/Knet.jl/tree/master/examples/mnist.jl).\nMulti-layer perceptron model on the Fashion-MNIST dataset from https://github.com/zalandoresearch/fashion-mnist.\n"
+    s.description="fashion-mnist.jl (c) 2017 Adapted by Emre Unal based on Deniz Yuret’s MNIST example https://github.com/denizyuret/Knet.jl/tree/master/examples/mnist-mlp/mlp.jl.\nMulti-layer perceptron model on the Fashion-MNIST dataset from https://github.com/zalandoresearch/fashion-mnist.\n"
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
@@ -147,6 +96,10 @@ function main(args="")
         # ("--ytype"; help="output array type: defaults to atype")
     end
     isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
     o = parse_args(args, s; as_symbols=true)
     if !o[:fast]
         println(s.description)
@@ -155,10 +108,10 @@ function main(args="")
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    if !isdefined(FashionMNIST,:xtrn); loaddata(); end
-    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; atype=atype)
-    global dtst = minibatch(xtst, ytst, o[:batchsize]; atype=atype)
-    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn),:tst,accuracy(w,dtst)))
+    xtrn,ytrn,xtst,ytst = Main.fmnist()
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
     if o[:fast]
         (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
@@ -177,10 +130,6 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia mnist.jl --epochs 10
 # julia> FashionMNIST.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE == "fashion-mnist.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE == "fashion-mnist.jl" && main(ARGS)
 
 end # module

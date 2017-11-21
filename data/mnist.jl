@@ -8,7 +8,7 @@ using GZip
 mnisturl = "http://yann.lecun.com/exdb/mnist"
 
 "Where to download mnist to"
-mnistdir = Pkg.dir("Knet","data")
+mnistdir = Pkg.dir("Knet","data","mnist")
 
 """
 
@@ -42,7 +42,7 @@ function mnist()
     return _mnist_xtrn,_mnist_ytrn,_mnist_xtst,_mnist_ytst
 end
 
-"Utility to view a cifar image, requires the Images package"
+"Utility to view a MNIST image, requires the Images package"
 mnistview(x,i)=colorview(Gray,permutedims(x[:,:,1,i],(2,1)))
 
 function _mnist_xdata(file)
@@ -58,7 +58,10 @@ function _mnist_ydata(file)
 end
 
 function _mnist_gzload(file)
-    path = "$mnistdir/$file"
+    if !isdir(mnistdir)
+        mkpath(mnistdir)
+    end
+    path = joinpath(mnistdir,file)
     if !isfile(path)
         url = "$mnisturl/$file"
         download(url, path)

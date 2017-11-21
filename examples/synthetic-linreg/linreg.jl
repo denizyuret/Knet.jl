@@ -15,14 +15,9 @@ optimized parameters will be returned.
 module LinReg
 using Knet, ArgParse
 
-
 predict(w,x)=(w*x)
 
-if VERSION >= v"0.6.0"
-    loss(w,x,y)=(sum(abs2,y-predict(w,x)) / size(x,2))
-else
-    loss(w,x,y)=(sumabs2(y-predict(w,x)) / size(x,2))
-end
+loss(w,x,y)=(sum(abs2,y-predict(w,x)) / size(x,2))
 
 lossgradient = grad(loss)
 
@@ -86,9 +81,13 @@ function main(args=ARGS)
         ("--seed"; arg_type=Int; default=-1; help="random number seed: use a nonnegative int for repeatable results")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
-    println(s.description)
     isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
     o = parse_args(args,s; as_symbols=true)
+    println(s.description)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
@@ -113,11 +112,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia linreg.jl --epochs 10
 # julia> LinReg.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE == "linreg.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE == "linreg.jl" && main(ARGS)
 
 end
 

@@ -19,7 +19,7 @@
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
 [LeNet]: http://yann.lecun.com/exdb/lenet
-[Boston Housing]: https://archive.ics.uci.edu/ml/datasets/Housing
+[Boston Housing]: https://archive.ics.uci.edu/ml/machine-learning-databases/housing
 [CIFAR-10]: http://www.cs.toronto.edu/~kriz/cifar.html
 [IMDB]: http://ai.stanford.edu/~amaas/data/sentiment
 [Shakespeare]: http://www.gutenberg.org/ebooks/100
