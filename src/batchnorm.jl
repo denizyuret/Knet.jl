@@ -1,6 +1,6 @@
 using Knet, AutoGrad
 using Knet: @cuda, Cptr, DT, TD, cudnnhandle
-using AutoGrad: @primitive, @zerograd
+using AutoGrad: @primitive, @zerograd, getval
 
 
 const BN_MODE_SPATIAL = 1
@@ -36,9 +36,11 @@ BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing
 # TODO: consider automatic type conversion
 # TODO: other dimensionalities
 function _lazy_init!(m::BNMoments, x)
+    x = getval(x)
     buf_size = (ndims(x) == 4) ? (1, 1, size(x, 3), 1) : (size(x,1), 1)
     tx = typeof(x)
     ex = eltype(x)
+    m.momentum = ex(m.momentum)
     if m.mean == nothing
         m.mean = tx(m.meaninit(ex, buf_size...))
     end
