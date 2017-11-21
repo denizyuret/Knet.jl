@@ -5,11 +5,10 @@ using AutoGrad: @primitive, @zerograd
 
 const BN_MODE_SPATIAL = 1
 const BN_MODE_ACTIVATION = 0
-# Const min epsilon
 const CUDNN_BN_MIN_EPS = 1e-5
 
 
-# A black box ADT for storing the bn state
+# A black box data type for storing the bn state
 type BNCache
     mean
     ivar
@@ -37,7 +36,7 @@ BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing
 # TODO: consider automatic type conversion
 # TODO: other dimensionalities
 function _lazy_init!(m::BNMoments, x)
-    buf_size = (ndims(x) == 4) ? (1, 1, size(x, 3), 1) : (1, size(x,2))
+    buf_size = (ndims(x) == 4) ? (1, 1, size(x, 3), 1) : (size(x,1), 1)
     tx = typeof(x)
     ex = eltype(x)
     if m.mean == nothing
@@ -80,7 +79,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         momentum = moments.momentum
     else
         running_mean, running_var = C_NULL, C_NULL
-        momentum = .1
+        momentum = .1 # dummy value
     end
     # The training mode
     if training
@@ -319,9 +318,8 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
         end
         m = *(size(x, dims...)...)
         dsigma2 = -T(0.5) .* sum(dy .* x_mu .* ivar.^3, dims)
-        dmu = sum(dy .* -ivar, dims) .-
+        dmu = -sum(dy .* ivar, dims) .-
             2dsigma2 .* sum(x_mu, dims) ./ m
-        
         dx = dy .* ivar .+
             (dsigma2 .* 2x_mu .+ dmu) ./ m
     else #same reasoning with the gpu version
@@ -351,18 +349,18 @@ end
 
 function batchnorm2(g, b, x; moments=nothing, o...)
     @inline _pad4(x) = reshape(x, (1,1,size(x,1,2)...))
+     # process moments
+    if moments !== nothing
+        _lazy_init!(moments, x)
+        moments.mean = _pad4(moments.mean)
+        moments.var = _pad4(moments.var)
+    end
     x = _pad4(x)
     args = (x,)
     if g !== nothing
         g = _pad4(g)
         b = _pad4(b)
         args = (g, b, x)
-    end
-    # process moments
-    if moments !== nothing
-        _lazy_init!(moments, x)    
-        moments.mean = _pad4(moments.mean)
-        moments.var = _pad4(moments.var)
     end
     y = mat(batchnorm4(args...;
                        moments=moments,
@@ -375,3 +373,5 @@ function batchnorm2(g, b, x; moments=nothing, o...)
 end
 
 batchnorm2(x;o...) = batchnorm2(nothing, nothing, x; o...)
+
+# TODO: add a single batchnorm for all dimensionalities
