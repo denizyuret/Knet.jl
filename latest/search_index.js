@@ -261,7 +261,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.accuracy",
     "category": "Function",
-    "text": "accuracy(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the ratio of instances where the correct answer has the maximum score. d=1 means instances are in columns, d=2 means instances are in rows. Use average=false to return the number of correct answers instead of the ratio.\n\n\n\naccuracy(data, model, predict; average=true)\n\nCompute accuracy(predict(model,x), y) for (x,y) in data and return the ratio (if average=true) or the count (if average=false) of correct answers.\n\n\n\n"
+    "text": "accuracy(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the ratio of instances where the correct answer has the maximum score. d=1 means instances are in columns, d=2 means instances are in rows. Use average=false to return the number of correct answers instead of the ratio.\n\n\n\naccuracy(model, data, predict; average=true)\n\nCompute accuracy(predict(model,x), y) for (x,y) in data and return the ratio (if average=true) or the count (if average=false) of correct answers.\n\n\n\n"
 },
 
 {
@@ -333,7 +333,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.nll",
     "category": "Function",
-    "text": "nll(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the per-instance negative log likelihood. d=1 means instances are in columns, d=2 means instances are in rows.  Use average=false to return the sum instead of per-instance average.\n\n\n\nnll(data, model, predict; average=true)\n\nCompute nll(predict(model,x), y) for (x,y) in data and return the per-instance average (if average=true) or total (if average=false) negative log likelihood.\n\n\n\n"
+    "text": "nll(scores, answers, d=1; average=true)\n\nGiven an unnormalized scores matrix and an Integer array of correct answers, return the per-instance negative log likelihood. d=1 means instances are in columns, d=2 means instances are in rows.  Use average=false to return the sum instead of per-instance average.\n\n\n\nnll(model, data, predict; average=true)\n\nCompute nll(predict(model,x), y) for (x,y) in data and return the per-instance average (if average=true) or total (if average=false) negative log likelihood.\n\n\n\n"
 },
 
 {
