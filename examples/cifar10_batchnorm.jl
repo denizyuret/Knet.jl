@@ -189,7 +189,6 @@ function train(;iters=10000)
     dtrn, dtst = loaddata()
     opt = [Sgd(lr=.1) for _ in w]
     for i = 1:iters
-        if iters % 1000; (o.lr=min(0.001, .1o.lr) for o in opt); end
         ((i-1) % 200 == 0) && report()
         ((i-1) % 100 == 0) && println("iter: ", i)
         x, y = next_batch(dtrn[1], dtrn[2], 64)
