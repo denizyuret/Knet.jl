@@ -14,8 +14,9 @@ supports GPU operation and automatic differentiation using dynamic
 computational graphs for models defined in plain Julia.  This document
 is a tutorial introduction to Knet.  Check out the [full
 documentation](https://denizyuret.github.io/Knet.jl/latest) and
-[Examples](@ref) for more information. If you need help or would like
-to request a feature, please consider joining the
+[Examples](https://github.com/denizyuret/Knet.jl/tree/master/examples)
+for more information. If you need help or would like to request a
+feature, please consider joining the
 [knet-users](https://groups.google.com/forum/#!forum/knet-users)
 mailing list. If you find a bug, please open a [GitHub
 issue](https://github.com/denizyuret/Knet.jl/issues). If you would
@@ -159,7 +160,7 @@ predict the median value of the houses given in \$1000's. After
 downloading, splitting and normalizing the data, we initialize the
 parameters randomly and take 10 steps in the negative gradient
 direction. We can see the loss dropping from 366.0 to 29.6. See
-[housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing.jl)
+[housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing-linreg/housing.jl)
 for more information on this example.
 
 Note that `grad` was the only function used that is not in the Julia
@@ -274,7 +275,7 @@ w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
 The rest of the code is the same as the softmax model. We use the same
 cross-entropy loss function and the same training script. The code for
 this example is available in
-[mnist.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/mnist.jl).
+[mlp.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/mnist-mlp/mlp.jl).
 The multi-layer perceptron does significantly better than the softmax
 model:
 
@@ -332,7 +333,7 @@ w = map(KnetArray, w)
 
 The training proceeds as before giving us even better results. The code
 for the LeNet example can be found in
-[lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet.jl).
+[lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet/lenet.jl).
 
 ```julia
 (:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
@@ -499,11 +500,11 @@ the normalized probabilities output by the model.
 At this point we can train the network on any given piece of text (or
 other discrete sequence). For efficiency it is best to minibatch the
 training data and run BPTT on small subsequences. See
-[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm.jl)
+[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm/charlm.jl)
 for details. Here is a sample run on 'The Complete Works of William
 Shakespeare':
 
-    $ cd .julia/Knet/examples
+    $ cd .julia/v0.6/Knet/examples/charlm
     $ wget http://www.gutenberg.org/files/100/100.txt
     $ julia charlm.jl --data 100.txt --epochs 10 --winit 0.3 --save shakespeare.jld
     ... takes about 10 minutes on a GPU machine
