@@ -88,7 +88,7 @@ function for a simple linear regression model:
 ```julia
 predict(w,x) = w[1]*x .+ w[2]
 
-loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
+loss(w,x,y) = sum(abs2, y - predict(w,x)) / size(y,2)
 ```
 
 The variable `w` is a list of parameters (it could be a Tuple, Array, or
