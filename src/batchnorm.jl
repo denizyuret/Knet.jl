@@ -1,7 +1,123 @@
+# TODO: remove these during integration
 using Knet, AutoGrad
 using Knet: @cuda, Cptr, DT, TD, cudnnhandle
 using AutoGrad: @primitive, @zerograd, getval
 
+#TODO: add 5d support
+
+
+"""
+`batchnorm(g, b, x; kwargs...)` performs batch normalization to `x`
+with scaling factor `g` and bias `b`. 
+Operation performed is spatial batch normalization if x is 4d and 
+featurewise batch normalization if `x` is 2d.
+    
+`batchnorm(x; kwargs...)` performs batch normalization to `x`. Output is
+expected to have approximately zero mean and unit variance.
+Operation performed is spatial batch normalization if `x` is 4d and 
+featurewise batch normalization if `x` is 2d.
+
+# Keywords
+
+ `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0
+
+ `moments=nothing`: The BNMoments object that stores the running statistics. It
+ can be nothing when `training` is true, but required when `training` is false.
+ 
+ `training=true`: When training is true, the mean and variance of x is used and moments
+ object is modified if it is provided. When `training` is false, mean and variance stored in 
+ the `moments` keyword argument is used.
+
+"""
+function batchnorm(a...; o...)
+    cache = BNCache()
+    x = a[end]
+    if ndims(x) == 2
+        return batchnorm2(a...; o..., cache=BNCache())
+    elseif ndims(x) == 4 #5d will also be supported by bathnorm4
+        return batchnorm4(a...; o..., cache=BNCache())
+    else
+        error("Unsupported input dimension ", ndims(x))
+    end
+end
+
+
+"""
+
+`BNMoments` is a high-level data structure used to store running mean and running variance
+of batch normalization.
+
+# Fields
+ `momentum::AbstractFloat`: A real number between 0 and 1 to be used as the scale of
+  last mean and variance. The existing running mean or variance is multiplied with 
+  (1-momentum).
+ 
+ `mean`: The running mean.
+
+ `var`: The running variance.
+ 
+ `meaninit`: The function used for initialize the running mean. Should either be `nothing` or
+form `(eltype, dims...) -> data`. `zeros` is a good option.
+
+ `varinit`: The function used for initialize the running variance. Should either be `nothing` or
+`(eltype, dims...) -> data`. `ones` is a good option.
+
+# Constructors
+ `BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones)` sets `mean` and `var` to nothing.
+When this constructor is used, `batchnorm` functions will initialize `mean` and `var` during
+the first training iteration to have relevant dimensions and match the data type of the input.
+
+ `BNMoments(momentum, mean, var)` can be used directly load moments from data. `meaninit` and
+`varinit` are made nothing and they won't be called by `batchnorm`. Users are responsible
+ to initialize mean and var with right dimensions and types.
+
+"""
+type BNMoments
+    momentum::AbstractFloat
+    mean
+    var
+    meaninit
+    varinit
+end
+
+BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones, o...) =
+    BNMoments(momentum, nothing, nothing, meaninit, varinit)
+
+BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing)
+
+
+"""
+------------------------------------------------
+
+`batchnorm(m::BNMoments, g, b, x; kwargs...)` performs batch normalization to x
+with scaling factor g and bias b. 
+Operation performed is spatial batch normalization if x is 4d and 
+featurewise batch normalization if `x` is 2d. The running statistics are
+stored in `m`.
+    
+`batchnorm(m::BNMoments x; kwargs...)` performs batch normalization to x. Output is
+expected to have zero mean and unit variance.
+Operation performed is spatial batch normalization if x is 4d and 
+featurewise batch normalization if x is 2d. The running statistics are
+stored in `m`.
+
+# Keywords
+
+`eps=1e-5`: The epsilon parameter added to the variance to avoid divide by 0.
+
+`training=true`: When training is true, the mean and variance of `x` is used and `m`
+ is modified. When it is false, mean and variance stored in `m` is used. 
+
+"""
+function batchnorm(m::BNMoments, a...; o...)
+    return batchnorm(a...; o..., moments=m)
+end
+
+
+
+#= 
+LOW-LEVEL API that won't be exported by default
+=#
 
 const BN_MODE_SPATIAL = 1
 const BN_MODE_ACTIVATION = 0
@@ -19,19 +135,6 @@ end
 
 BNCache() = BNCache(nothing, nothing, nothing, nothing, nothing)
 
-
-type BNMoments
-    momentum::AbstractFloat
-    mean
-    var
-    meaninit
-    varinit
-end
-
-BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones, o...) =
-    BNMoments(momentum, nothing, nothing, meaninit, varinit)
-
-BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing)
 
 # TODO: consider automatic type conversion
 # TODO: other dimensionalities
@@ -81,7 +184,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         momentum = moments.momentum
     else
         running_mean, running_var = C_NULL, C_NULL
-        momentum = .1 # dummy value
+        momentum = .1
     end
     # The training mode
     if training
@@ -375,5 +478,3 @@ function batchnorm2(g, b, x; moments=nothing, o...)
 end
 
 batchnorm2(x;o...) = batchnorm2(nothing, nothing, x; o...)
-
-# TODO: add a single batchnorm for all dimensionalities
