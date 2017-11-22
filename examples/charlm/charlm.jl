@@ -1,14 +1,8 @@
-let _build = false
-    for p in ("AutoGrad","ArgParse","Compat","JLD","Knet")
-        if Pkg.installed(p) == nothing
-            Pkg.add(p)
-            _build = true
-        end
-    end
-    if _build
-        Pkg.build("Knet")
-    end
+for p in ("ArgParse","JLD","Knet")
+    Pkg.installed(p) == nothing && Pkg.add(p)
 end
+
+
 """
 
 This example implements an LSTM network for training and testing
@@ -43,8 +37,7 @@ Example usage:
 
 """
 module CharLM
-using Knet,AutoGrad,ArgParse,Compat,JLD
-using Knet: sigm_dot, tanh_dot
+using Knet,AutoGrad,ArgParse,JLD
 
 # LSTM implementation with a single matrix multiplication with
 # instances in rows rather than columns.  Julia is column major, so
@@ -60,12 +53,12 @@ using Knet: sigm_dot, tanh_dot
 function lstm(weight,bias,hidden,cell,input)
     gates   = hcat(input,hidden) * weight .+ bias
     hsize   = size(hidden,2)
-    forget  = sigm_dot(gates[:,1:hsize])
-    ingate  = sigm_dot(gates[:,1+hsize:2hsize])
-    outgate = sigm_dot(gates[:,1+2hsize:3hsize])
-    change  = tanh_dot(gates[:,1+3hsize:end])
+    forget  = sigm.(gates[:,1:hsize])
+    ingate  = sigm.(gates[:,1+hsize:2hsize])
+    outgate = sigm.(gates[:,1+2hsize:3hsize])
+    change  = tanh.(gates[:,1+3hsize:end])
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh_dot(cell)
+    hidden  = outgate .* tanh.(cell)
     return (hidden,cell)
 end
 
@@ -274,16 +267,6 @@ function sample(p)
     end
 end
 
-function shakespeare()
-    file = Knet.dir("data","100.txt")
-    if !isfile(file)
-        info("Downloading 'The Complete Works of William Shakespeare'")
-        url = "http://www.gutenberg.org/files/100/100.txt"
-        download(url,file)
-    end
-    return file
-end
-
 function main(args=ARGS)
     global model, text, data, tok2int, o
     s = ArgParseSettings()
@@ -309,6 +292,10 @@ function main(args=ARGS)
         ("--sresult"; help = "Save generated text to file" )
     end
     isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
     o = parse_args(args, s; as_symbols=true)
     if !o[:fast]
         println(s.description)
@@ -352,11 +339,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia charlm.jl --epochs 10
 # julia> CharLM.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE=="charlm.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE=="charlm.jl" && main(ARGS)
 
 end  # module
 
