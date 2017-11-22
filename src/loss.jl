@@ -97,7 +97,7 @@ instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll{T<:Integer}(y,a::Vector{T},d=1; average=true)
+function nll{T<:Integer}(y,a::Array{T},d=1; average=true)
     indices = findindices(y,a,d)
     lp = logp(y,d)[indices]
     average ? -mean(lp) : -sum(lp)
@@ -115,26 +115,29 @@ answer has the maximum score. `d=1` means instances are in columns,
 the number of correct answers instead of the ratio.
 
 """
-function accuracy{T<:Integer}(y,a::Vector{T},d=1; average=true)
+function accuracy{T<:Integer}(y,a::Array{T},d=1; average=true)
     indices = findindices(y,a,d)
     (maxval,maxind) = findmax(Array(y),d)
     correct = (maxind .== indices)
     average ? mean(correct) : sum(correct)
 end
 
-function findindices{T<:Integer}(y,a::Vector{T},d=1)
+function findindices{T<:Integer}(y,a::Array{T},d=1)
     n = length(a)
-    nrows = size(y,1)
     indices = Vector{Int}(n)
-    if d == 1                   # instances in columns
-        if n != size(y,2); throw(DimensionMismatch()); end
+    if d == 1                   # instances in first dimension
+        y1 = size(y,1)
+        y2 = div(length(y),y1)
+        if n != y2; throw(DimensionMismatch()); end
         @inbounds for j=1:n
-            indices[j] = (j-1)*nrows + a[j]
+            indices[j] = (j-1)*y1 + a[j]
         end
-    elseif d == 2               # instances in rows
-        if n != size(y,1); throw(DimensionMismatch()); end
+    elseif d == 2               # instances in last dimension
+        y2 = size(y,ndims(y))
+        y1 = div(length(y),y2)
+        if n != y1; throw(DimensionMismatch()); end
         @inbounds for j=1:n
-            indices[j] = (a[j]-1)*nrows + j
+            indices[j] = (a[j]-1)*y1 + j
         end
     else
         error("findindices only supports d = 1 or 2")
