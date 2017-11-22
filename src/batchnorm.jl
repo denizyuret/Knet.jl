@@ -22,20 +22,20 @@ featurewise batch normalization if `x` is 2d.
  `moments=nothing`: The BNMoments object that stores the running statistics. It
  can be nothing when `training` is true, but required when `training` is false.
  
- `training=true`: When training is true, the mean and variance of x is used and moments
+ `training=true`: When training is true, the mean and variance of x are used and moments
  object is modified if it is provided. When `training` is false, mean and variance stored in 
- the `moments` keyword argument is used.
+ the `moments` keyword argument are used.
 
 """
 function batchnorm(a...; o...)
     cache = BNCache()
-    x = a[end]
-    if ndims(x) == 2
+    xnd = ndims(a[end])
+    if xnd == 2
         return batchnorm2(a...; o..., cache=BNCache())
-    elseif ndims(x) in [4, 5] #5d will also be supported by bathnorm4
+    elseif xnd in [4, 5]
         return batchnorm4(a...; o..., cache=BNCache())
     else
-        error("Unsupported input dimension ", ndims(x))
+        error("Unsupported input dimension ", xnd)
     end
 end
 
@@ -55,7 +55,7 @@ of batch normalization.
  `var`: The running variance.
  
  `meaninit`: The function used for initialize the running mean. Should either be `nothing` or
-form `(eltype, dims...) -> data`. `zeros` is a good option.
+of the form `(eltype, dims...) -> data`. `zeros` is a good option.
 
  `varinit`: The function used for initialize the running variance. Should either be `nothing` or
 `(eltype, dims...) -> data`. `ones` is a good option.
@@ -107,9 +107,7 @@ stored in `m`.
  is modified. When it is false, mean and variance stored in `m` is used. 
 
 """
-function batchnorm(m::BNMoments, a...; o...)
-    return batchnorm(a...; o..., moments=m)
-end
+batchnorm(m::BNMoments, a...; o...) = batchnorm(a...; o..., moments=m)
 
 
 
