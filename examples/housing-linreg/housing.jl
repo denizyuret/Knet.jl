@@ -1,6 +1,7 @@
 for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
+include(Pkg.dir("Knet","data","housing.jl"))
 
 """
 This example uses the
@@ -21,7 +22,6 @@ epoch and optimized parameters will be returned.
 """
 module Housing
 using Knet,ArgParse
-include(Knet.dir("data/housing.jl"))
 
 predict(w,x)=(w[1]*x.+w[2])
 
@@ -62,7 +62,7 @@ Repository."
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     w = map(atype, [ 0.1*randn(1,13), 0.1*randn(1,1) ])
-    (xtrn,ytrn,xtst,ytst) = map(atype, housing(o[:test]))
+    (xtrn,ytrn,xtst,ytst) = map(atype, Main.housing(o[:test]))
     report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
         @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())

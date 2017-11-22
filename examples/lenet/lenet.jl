@@ -1,7 +1,7 @@
 for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
-include(Knet.dir("data","mnist.jl"))
+include(Pkg.dir("Knet","data","mnist.jl"))
 
 
 """
