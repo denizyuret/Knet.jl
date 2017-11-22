@@ -253,7 +253,7 @@ array that includes all matrices and biases for the RNN. Keyword arguments:
 - `algo=0`: Algorithm to use, see CUDNN docs for details.
 - `seed=0`: Random number seed. Uses `time()` if 0.
 - `winit=xavier`: Weight initialization method for matrices.
-- `bias=ones`: Weight initialization method for bias vectors.
+- `binit=zeros`: Weight initialization method for bias vectors.
 
 RNNs compute the output h[t] for a given iteration from the recurrent
 input h[t-1] and the previous layer input x[t] given matrices W, R and
@@ -291,7 +291,7 @@ function rnninit(inputSize, hiddenSize;
                  algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
                  seed=0,              # seed=0 for random init, positive integer for replicability
                  winit=xavier,
-                 binit=ones
+                 binit=zeros
                  )
     # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
