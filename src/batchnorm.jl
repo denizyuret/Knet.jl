@@ -3,8 +3,6 @@ using Knet, AutoGrad
 using Knet: @cuda, Cptr, DT, TD, cudnnhandle
 using AutoGrad: @primitive, @zerograd, getval
 
-#TODO: add 5d support
-
 
 """
 `batchnorm(g, b, x; kwargs...)` performs batch normalization to `x`
@@ -34,7 +32,7 @@ function batchnorm(a...; o...)
     x = a[end]
     if ndims(x) == 2
         return batchnorm2(a...; o..., cache=BNCache())
-    elseif ndims(x) == 4 #5d will also be supported by bathnorm4
+    elseif ndims(x) in [4, 5] #5d will also be supported by bathnorm4
         return batchnorm4(a...; o..., cache=BNCache())
     else
         error("Unsupported input dimension ", ndims(x))
@@ -91,8 +89,8 @@ BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing
 
 `batchnorm(m::BNMoments, g, b, x; kwargs...)` performs batch normalization to x
 with scaling factor g and bias b. 
-Operation performed is spatial batch normalization if x is 4d and 
-featurewise batch normalization if `x` is 2d. The running statistics are
+Operation performed is spatial batch normalization if x is 4d or 5d and 
+regular batch normalization if `x` is 2d. The running statistics are
 stored in `m`.
     
 `batchnorm(m::BNMoments x; kwargs...)` performs batch normalization to x. Output is
@@ -123,7 +121,6 @@ const BN_MODE_SPATIAL = 1
 const BN_MODE_ACTIVATION = 0
 const CUDNN_BN_MIN_EPS = 1e-5
 
-
 # A black box data type for storing the bn state
 type BNCache
     mean
@@ -136,11 +133,14 @@ end
 BNCache() = BNCache(nothing, nothing, nothing, nothing, nothing)
 
 
+# Dimension helpers
+@inline _wsize(y) = ((1 for _=1:ndims(y)-2)..., size(y)[end-1], 1)
+@inline _reddims(y) = ((i for i=1:ndims(y)-2)..., ndims(y))
+
 # TODO: consider automatic type conversion
-# TODO: other dimensionalities
 function _lazy_init!(m::BNMoments, x)
     x = getval(x)
-    buf_size = (ndims(x) == 4) ? (1, 1, size(x, 3), 1) : (size(x,1), 1)
+    buf_size = (ndims(x) > 2) ? _wsize(x) : (size(x,1), 1)
     tx = typeof(x)
     ex = eltype(x)
     m.momentum = ex(m.momentum)
@@ -155,7 +155,6 @@ end
 
 # Only spatial mode is supported
 # TODO: support per-activation mode
-# TODO: support 5d arrays
 function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
                        training=true,
                        cache=nothing,
@@ -166,7 +165,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
                        cache_verbose=false, #reporting cache uses
                        o...)
     y = KnetArray{T}(size(x))
-    weight_size = (1, 1, size(y, 3), 1)
+    weight_size = _wsize(y)
     # TODO: implement other bn mode
     bnmode = BN_MODE_SPATIAL
     # epsilon fix
@@ -246,8 +245,8 @@ function batchnorm4{T}(x::KnetArray{T};o...)
     # Dummy buffers
     #  (cudnn doesn't support bn w/o affine
     #  although it is used in many applications)
-    g = KnetArray{T}(ones(1,1,size(x,ndims(x)-1), 1))
-    b = KnetArray{T}(zeros(1,1,size(x,ndims(x)-1), 1))
+    g = KnetArray{T}(ones(_wsize(x)...))
+    b = KnetArray{T}(zeros(_wsize(x)...))
     return batchnorm4(g, b, x; o...)
 end
 
@@ -264,7 +263,7 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
                             o...)
     if training
         dx = KnetArray{T}(size(x))
-        weight_size = (1, 1, size(dy, 3), 1)
+        weight_size = _wsize(dy)
         if g==nothing; g=KnetArray{T}(ones(weight_size)); end
         dg = KnetArray{T}(weight_size)
         db = KnetArray{T}(weight_size)
@@ -305,7 +304,7 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
         dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g!==nothing
             dg = dy .* (x .- moments.mean) .* ivar
-            db = sum(dy, (1,2,4))
+            db = sum(dy, _reddims(dy))
         else
             dg, db = nothing, nothing
         end
@@ -330,7 +329,7 @@ end
 
 function batchnorm4b{T}(dy::Union{KnetArray{T}, Array{T}};
                         cache=nothing, o...)
-    (cache == nothing || cache.db == nothing) && return sum(dy, (1,2,4))
+    (cache == nothing || cache.db == nothing) && return sum(dy, _reddims(dy))
     return cache.db
 end
 
@@ -374,10 +373,11 @@ function batchnorm4{T}(x::Array{T};
     if moments!==nothing
         _lazy_init!(moments, x)
     end
+    dims = _reddims(x)
     if training
-        mu = mean(x, (1,2,4))
-        x_mu = x .- mean(x, (1,2,4))
-        sigma2 = mean(x_mu .* x_mu, (1,2,4))
+        mu = mean(x, dims)
+        x_mu = x .- mean(x, dims)
+        sigma2 = mean(x_mu .* x_mu, dims)
         ivar = 1 ./ sqrt.(sigma2 .+ eps)
         _update_moments!(moments, mu, sigma2)
         # Cache the resulting values
@@ -399,9 +399,9 @@ function _get_cache_data(cache, x, eps)
         x_mu = x .- mu
         ivar = cache.ivar
     else
-        mu = mean(x, (1,2,4))
+        mu = mean(x, _reddims(x))
         x_mu = x .- mu
-        ivar = 1 ./ sqrt.(mean(x_mu.*x_mu, (1,2,4)) .+ eps)
+        ivar = 1 ./ sqrt.(mean(x_mu.*x_mu, _reddims(x)) .+ eps)
     end
     return x_mu, ivar
 end
@@ -410,13 +410,13 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
                             eps=1e-5, training=true,
                             cache=nothing, moments=nothing,  o...)
     eps = T(eps)
+    dims = _reddims(x)
     if training
-        dims = (1, 2, 4)
         x_mu, ivar = _get_cache_data(cache, x, eps)
         # equations from the original paper
         if g !== nothing
-            dg = sum(x_mu .* ivar .* dy, (1,2,4))
-            db = sum(dy, (1,2,4))
+            dg = sum(x_mu .* ivar .* dy, dims)
+            db = sum(dy, dims)
             dy = g .* dy
         else
             dg, db = nothing, nothing
@@ -432,7 +432,7 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
         dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g!==nothing
             dg = dy .* (x .- moments.mean) .* ivar
-            db = sum(dy, (1,2,4))
+            db = sum(dy, dims)
         else
             dg, db = nothing, nothing
         end
