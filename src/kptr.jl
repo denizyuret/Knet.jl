@@ -107,12 +107,19 @@ function knetMalloc(nbytes::Int)
     end
 end
 
-# If you really want to clean up memory you need to call knetgc: Note
-# that this only cleans the current device.  It frees all pointers
-# previously allocated and garbage collected.
+
+"""
+
+    knetgc(dev=gpu())
+
+cudaFree all pointers allocated on device `dev` that were previously
+allocated and garbage collected. Normally Knet holds on to all garbage
+collected pointers for reuse. Try this if you run out of GPU memory.
+
+"""
 function knetgc(dev=gpu())
     if KnetFree == nothing; return; end
-    gc_enable(false)
+    gc(); gc_enable(false)
     for v in values(KnetFree[dev+2])
         if dev >= 0
             for p in v.free
@@ -122,7 +129,7 @@ function knetgc(dev=gpu())
         v.used -= length(v.free)
         empty!(v.free)
     end
-    gc_enable(true)
+    gc_enable(true); gc()
 end
 
 # Some utilities

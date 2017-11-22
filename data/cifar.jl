@@ -2,7 +2,7 @@
 cifarurl = "http://www.cs.toronto.edu/~kriz"
 
 "Where to download cifar to"
-cifardir = Pkg.dir("Knet","data")
+cifardir = Pkg.dir("Knet","data","cifar")
 
 "cifar10() => (xtrn,ytrn,xtst,ytst,labels)"
 function cifar10(;
@@ -39,9 +39,12 @@ cifarview(x,i)=colorview(RGB,permutedims(x[:,:,:,i],(3,2,1)))
 
 function _cifar_read_tgz(tgz,dir,trn,tst,labels)
     info("Reading $tgz...")
-    dirpath = "$cifardir/$dir"
+    if !isdir(cifardir)
+        mkpath(cifardir)
+    end
+    dirpath = joinpath(cifardir,dir)
     if !isdir(dirpath)
-        tgzpath = "$cifardir/$tgz"
+        tgzpath = joinpath(cifardir,tgz)
         if !isfile(tgzpath)
             url = "$cifarurl/$tgz"
             download(url, tgzpath)

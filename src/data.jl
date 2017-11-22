@@ -1,6 +1,20 @@
 "Minibatched data"
 type MB; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
 
+"""
+
+    minibatch(x, y, batchsize; shuffle, partial, xtype, ytype)
+
+Return an iterable of minibatches [(xi,yi)...] given data tensors x, y
+and batchsize.  The last dimension of x and y should match and give
+the number of instances. Keyword arguments:
+
+- `shuffle=false`: Shuffle the instances before minibatching.
+- `partial=false`: If true include the last partial minibatch < batchsize.
+- `xtype=typeof(x)`: Convert xi in minibatches to this type.
+- `ytype=typeof(y)`: Convert yi in minibatches to this type.
+
+"""
 function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),ytype=typeof(y))
     xsize = collect(size(x))
     ysize = collect(size(y))
@@ -33,7 +47,16 @@ function Base.length(m::MB)
     m.partial ? ceil(Int,n) : floor(Int,n)
 end
 
-function nll(data::MB,model,predict; average=true)
+
+"""
+    nll(model, data, predict; average=true)
+
+Compute `nll(predict(model,x), y)` for `(x,y)` in `data` and return
+the per-instance average (if average=true) or total (if average=false)
+negative log likelihood.
+
+"""
+function nll(model,data::MB,predict; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += nll(predict(model,x),y; average=false)
@@ -42,7 +65,16 @@ function nll(data::MB,model,predict; average=true)
     average ? sum / cnt : sum
 end
 
-function accuracy(data::MB,model,predict; average=true)
+
+"""
+    accuracy(model, data, predict; average=true)
+
+Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
+return the ratio (if average=true) or the count (if average=false) of
+correct answers.
+
+"""
+function accuracy(model,data::MB,predict; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += accuracy(predict(model,x),y; average=false)

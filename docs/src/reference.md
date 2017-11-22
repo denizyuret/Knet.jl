@@ -23,12 +23,16 @@ Knet.KnetArray
 ## Utilities
 
 ```@docs
+Knet.accuracy
 Knet.dir
 Knet.dropout
 Knet.gpu
+Knet.invx
+Knet.knetgc
 Knet.logp
 Knet.logsumexp
-Knet.invx
+Knet.minibatch
+Knet.nll
 Knet.relu
 Knet.setseed
 Knet.sigm
@@ -44,15 +48,23 @@ Knet.pool
 Knet.unpool
 ```
 
+## Recurrent neural networks
+
+```@docs
+Knet.rnninit
+Knet.rnnforw
+```
+
 ## Optimization methods
 
 ```@docs
 Knet.update!
-Knet.oparams
+Knet.optimizers
 Knet.Adadelta
 Knet.Adagrad
 Knet.Adam
 Knet.Momentum
+Knet.Nesterov
 Knet.Rmsprop
 Knet.Sgd
 ```

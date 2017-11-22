@@ -18,7 +18,7 @@ using AutoGrad; export grad, gradloss, gradcheck, getval
 
 include("compat.jl");           # julia6 compat fixes
 include("gpu.jl");              export gpu
-include("kptr.jl");             # KnetPtr
+include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx
@@ -26,7 +26,7 @@ include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
-include("rnn.jl");              export rnn, rnninit
+include("rnn.jl");              export rnnforw, rnninit
 include("loss.jl");             export logp, logsumexp, nll, accuracy
 include("dropout.jl");          export dropout
 include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers

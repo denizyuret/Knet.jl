@@ -1,4 +1,4 @@
-julia 0.4
+julia 0.6
 AutoGrad 0.0.9
 
 # We need these for some examples. They get automatically installed when needed.

@@ -1,8 +1,8 @@
 for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
-using Knet
-!isdefined(Main,:MNIST) && include(Knet.dir("examples","mnist.jl"))
+include(Pkg.dir("Knet","data","mnist.jl"))
+
 
 """
 
@@ -25,26 +25,21 @@ will be returned.
 
 """
 module LeNet
-using Knet,ArgParse,Main
-using MNIST: minibatch, accuracy
-using Knet: relu_dot
+using Knet,ArgParse
 
-function predict(w,x,n=length(w)-4)
+function predict(w,x)
+    n=length(w)-4
     for i=1:2:n
-        x = pool(relu_dot(conv4(w[i],x;padding=0) .+ w[i+1]))
+        x = pool(relu.(conv4(w[i],x;padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2
-        x = relu_dot(w[i]*x .+ w[i+1])
+        x = relu.(w[i]*x .+ w[i+1])
     end
     return w[end-1]*x .+ w[end]
 end
 
-function loss(w,x,ygold)
-    ypred = predict(w,x)
-    ynorm = logp(ypred,1)  # ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
+loss(w,x,ygold) = nll(predict(w,x), ygold)
 
 lossgradient = grad(loss)
 
@@ -52,10 +47,7 @@ function train(w, data; lr=.1, epochs=3, iters=1800)
     for epoch=1:epochs
         for (x,y) in data
             g = lossgradient(w, x, y)
-            for i in 1:length(w)
-                # w[i] -= lr * g[i]
-                axpy!(-lr, g[i], w[i])
-            end
+            update!(w, g, lr=lr)
             if (iters -= 1) <= 0
                 return w
             end
@@ -77,33 +69,6 @@ function weights(;atype=KnetArray{Float32})
     return map(a->convert(atype,a), w)
 end
 
-function minibatch4(x, y, batchsize; atype=KnetArray{Float32})
-    data = minibatch(x,y,batchsize; atype=atype)
-    for i=1:length(data)
-        (x,y) = data[i]
-        data[i] = (reshape(x, (28,28,1,batchsize)), y)
-    end
-    return data
-end
-
-function xavier(a...)
-    w = rand(a...)
-     # The old implementation was not right for fully connected layers:
-     # (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
-    if ndims(w) < 2
-        error("ndims=$(ndims(w)) in xavier")
-    elseif ndims(w) == 2
-        fanout = size(w,1)
-        fanin = size(w,2)
-    else
-        fanout = size(w, ndims(w)) # Caffe disagrees: http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details
-        fanin = div(length(w), fanout)
-    end
-    # See: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
-    s = sqrt(2 / (fanin + fanout))
-    w = 2s*w-s
-end
-
 function main(args=ARGS)
     s = ArgParseSettings()
     s.description="lenet.jl (c) Deniz Yuret, 2016. The LeNet model on the MNIST handwritten digit recognition problem from http://yann.lecun.com/exdb/mnist."
@@ -118,17 +83,21 @@ function main(args=ARGS)
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
-    println(s.description)
     isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
+    println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
     atype = eval(parse(o[:atype]))
     if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
-    isdefined(MNIST,:xtrn) || MNIST.loaddata()
-    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize]; atype=atype)
-    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize]; atype=atype)
+    xtrn,ytrn,xtst,ytst = Main.mnist()
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
     w = weights(atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
 
@@ -153,11 +122,7 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia lenet.jl --epochs 10
 # julia> LeNet.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE == "lenet.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE == "lenet.jl" && main(ARGS)
 
 end # module
 
