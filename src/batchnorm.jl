@@ -1,9 +1,3 @@
-# TODO: remove these during integration
-using Knet, AutoGrad
-using Knet: @cuda, Cptr, DT, TD, cudnnhandle
-using AutoGrad: @primitive, @zerograd, getval
-
-
 """
 `batchnorm(g, b, x; kwargs...)` performs batch normalization to `x`
 with scaling factor `g` and bias `b`. 
@@ -25,7 +19,6 @@ featurewise batch normalization if `x` is 2d.
  `training=true`: When training is true, the mean and variance of x are used and moments
  object is modified if it is provided. When `training` is false, mean and variance stored in 
  the `moments` keyword argument are used.
-
 """
 function batchnorm(a...; o...)
     cache = BNCache()
