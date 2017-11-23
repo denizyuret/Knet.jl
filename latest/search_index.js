@@ -433,11 +433,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.rnnparam",
+    "page": "Reference",
+    "title": "Knet.rnnparam",
+    "category": "Function",
+    "text": "rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)\n\nReturn a single weight matrix or bias vector as a subarray of w.\n\nValid layer values:\n\nFor unidirectional RNNs 1:numLayers\nFor bidirectional RNNs 1:2*numLayers, forw and back layers alternate.\n\nValid id values:\n\nFor RELU and TANH RNNs, input = 1, hidden = 2.\nFor GRU reset = 1,4; update = 2,5; newmem = 3,6; 1:3 for input, 4:6 for hidden\nFor LSTM inputgate = 1,5; forget = 2,6; newmem = 3,7; output = 4,8; 1:4 for input, 5:8 for hidden\n\nValid param values:\n\nReturn the weight matrix (transposed!) if param==1.\nReturn the bias vector if param==2.\n\nThe effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM\n\nFor skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.\nFor skipInput=true, rnnparam(r,w,1,I,1) is nothing.\nFor bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.rnnparams",
+    "page": "Reference",
+    "title": "Knet.rnnparams",
+    "category": "Function",
+    "text": "rnnparams(r::RNN, w)\n\nSplit w into individual parameters and return them as an array.\n\nThe order of params returned (subject to change):\n\nAll weight matrices come before all bias vectors.\nMatrices and biases are sorted lexically based on (layer,id).\nSee @doc rnnparam for valid layer and id values.\nInput multiplying matrices are nothing if r.inputMode = 1.\n\n\n\n"
+},
+
+{
     "location": "reference.html#Recurrent-neural-networks-1",
     "page": "Reference",
     "title": "Recurrent neural networks",
     "category": "section",
-    "text": "Knet.rnninit\nKnet.rnnforw"
+    "text": "Knet.rnninit\nKnet.rnnforw\nKnet.rnnparam\nKnet.rnnparams"
 },
 
 {
