@@ -1,8 +1,7 @@
 for p in ("Knet","ArgParse")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
-using Knet
-!isdefined(:MNIST) && include(Knet.dir("examples","mnist.jl"))
+include(Pkg.dir("Knet","data","mnist.jl"))
 
 
 """
@@ -18,8 +17,7 @@ and optimized parameters will be returned.
 
 """
 module Optimizers
-using Knet,ArgParse,Main
-using MNIST: minibatch, accuracy
+using Knet,ArgParse
 
 function main(args=ARGS)
     s = ArgParseSettings()
@@ -37,18 +35,24 @@ function main(args=ARGS)
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--iters"; arg_type=Int; default=6000; help="number of updates for training")
 	("--optim"; default="Sgd"; help="optimization method (Sgd, Momentum, Nesterov, Adagrad, Adadelta, Rmsprop, Adam)")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
+    end
+    isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
     end
     println(s.description)
-    isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    gpu() >= 0 || error("LeNet only works on GPU machines.")
+    atype = eval(parse(o[:atype]))
+    if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
-    isdefined(MNIST,:xtrn) || MNIST.loaddata()
-    dtrn = minibatch4(MNIST.xtrn, MNIST.ytrn, o[:batchsize])
-    dtst = minibatch4(MNIST.xtst, MNIST.ytst, o[:batchsize])
-    w = weights()
+    xtrn,ytrn,xtst,ytst = Main.mnist()
+    dtrn = minibatch(xtrn, ytrn, o[:batchsize], xtype=atype)
+    dtst = minibatch(xtst, ytst, o[:batchsize], xtype=atype)
+    w = weights(atype=atype)
     prms = params(w, o)
     
     # log = Any[]
@@ -79,24 +83,19 @@ function train(w, prms, data; epochs=10, iters=6000)
     return w
 end
 
-using Knet: relu_dot
-
-function predict(w,x,n=length(w)-4)
+function predict(w,x)
+    n=length(w)-4
     for i=1:2:n
-        x = pool(relu_dot(conv4(w[i],x; padding=0) .+ w[i+1]))
+        x = pool(relu.(conv4(w[i],x; padding=0) .+ w[i+1]))
     end
     x = mat(x)
     for i=n+1:2:length(w)-2
-        x = relu_dot(w[i]*x .+ w[i+1])
+        x = relu.(w[i]*x .+ w[i+1])
     end
     return w[end-1]*x .+ w[end]
 end
 
-function loss(w,x,ygold)
-    ypred = predict(w,x)
-    ynorm = logp(ypred,1)  # ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
+loss(w,x,ygold) = nll(predict(w,x), ygold)
 
 lossgradient = grad(loss)
 
@@ -142,43 +141,10 @@ function params(ws, o)
 	return prms
 end
 
-function minibatch4(x, y, batchsize; atype=KnetArray{Float32})
-    data = minibatch(x,y,batchsize; atype=atype)
-    for i=1:length(data)
-        (x,y) = data[i]
-        data[i] = (reshape(x, (28,28,1,batchsize)), y)
-    end
-    return data
-end
-
-#= This is in Knet now
-function xavier(a...)
-    w = rand(a...)
-     # The old implementation was not right for fully connected layers:
-     # (fanin = length(y) / (size(y)[end]); scale = sqrt(3 / fanin); axpb!(rand!(y); a=2*scale, b=-scale)) :
-    if ndims(w) < 2
-        error("ndims=$(ndims(w)) in xavier")
-    elseif ndims(w) == 2
-        fanout = size(w,1)
-        fanin = size(w,2)
-    else
-        fanout = size(w, ndims(w)) # Caffe disagrees: http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details
-        fanin = div(length(w), fanout)
-    end
-    # See: http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
-    s = sqrt(2 / (fanin + fanout))
-    w = 2s*w-s
-end
-=#
-
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia optimizers.jl --epochs 10
 # julia> Optim.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE == "optimizers.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE == "optimizers.jl" && main(ARGS)
 
 end # module
 

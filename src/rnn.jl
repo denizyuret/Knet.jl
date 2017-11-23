@@ -65,7 +65,7 @@ type RNN
     dcx
 end
 
-function cudnnGetRNNParamsLength(r::RNN; handle=cudnnhandle())
+function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
     res = Csize_t[0]
     xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
     @cuda(cudnn, cudnnGetRNNParamsSize,
@@ -151,48 +151,58 @@ end
 
 """
 
-    cudnnGetRNNParam{T}(r::RNN, w::KnetArray{T}, layer, id, matrix=true)
+    rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
 
 Return a single weight matrix or bias vector as a subarray of w.
 
-Valid `id` values:
-* For RELU and TANH RNNs, input = 0, hidden = 1.
-* For GRU reset = 0,3; update = 1,4; newmem = 2,5; 0:2 for input, 3:5 for hidden
-* For LSTM inputgate = 0,4; forget = 1,5; newmem = 2,6; output = 3,7; 0:3 for input, 4:7 for hidden
-
 Valid `layer` values:
-* For direction=0 (uni) RNNs 0:(numLayers-1)
-* For direction=1 (bi)  RNNs 0:(2*numLayers-1), forw and back layers alternate.
+* For unidirectional RNNs 1:numLayers
+* For bidirectional RNNs 1:2*numLayers, forw and back layers alternate.
 
-The effect of inputMode: Let I=0 for RELU/TANH, 0:2 for GRU, 0:3 for LSTM
-* For inputMode=0, param(0,I) is a (hiddenSize,inputSize) matrix.
-* For inputMode=1, param(0,I) is empty.
-* For direction=1 (bi), the same applies to param(1,I): the first back layer.
+Valid `id` values:
+* For RELU and TANH RNNs, input = 1, hidden = 2.
+* For GRU reset = 1,4; update = 2,5; newmem = 3,6; 1:3 for input, 4:6 for hidden
+* For LSTM inputgate = 1,5; forget = 2,6; newmem = 3,7; output = 4,8; 1:4 for input, 5:8 for hidden
+
+Valid `param` values:
+* Return the weight matrix (transposed!) if `param==1`.
+* Return the bias vector if `param==2`.
+
+The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
+* For skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.
+* For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
+* For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 
 """
-
-function cudnnGetRNNParam(r::RNN, w, layer, id, matrix=true; handle=cudnnhandle())
-    T = eltype(w) # w could be a Rec so w::KnetArray{T} is not an option
+function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=cudnnhandle())
+    ((1 <= par <= 2) &&
+     ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
+      (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
+     ((r.mode == 0 && 1 <= id <= 2) ||
+      (r.mode == 1 && 1 <= id <= 2) ||
+      (r.mode == 2 && 1 <= id <= 8) ||
+      (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
+    T = eltype(w) # w could be a Rec so typing w::KnetArray{T} is not an option
     xDesc = TD(T,1,r.inputSize,1)
     wDesc = FD(T,1,1,length(w))
     paramDesc = FD(T,1,1,1,1)
     param = Cptr[0]
-    if matrix
+    if par == 1 # matrix
         @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Cptr, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-              handle, r.rnnDesc, layer,
+              handle, r.rnnDesc, layer-1,
               xDesc, wDesc, getval(w),
-              id, paramDesc, param)
-    else
+              id-1, paramDesc, param)
+    else # bias
         @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
               (Cptr, Cptr, Cint, #handle,rdesc, layer
                Cptr, Cptr, Cptr, #xDesc, wDesc, w
                Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-              handle, r.rnnDesc, layer,
+              handle, r.rnnDesc, layer-1,
               xDesc, wDesc, getval(w),
-              id, paramDesc, param)
+              id-1, paramDesc, param)
     end
     dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
     len = prod(sz)
@@ -200,9 +210,9 @@ function cudnnGetRNNParam(r::RNN, w, layer, id, matrix=true; handle=cudnnhandle(
     i2 = i1 + len - 1
     if len == 1 # empty weights when inputMode=1 show up as size (1,1,1)
         nothing
-    elseif matrix
+    elseif par == 1 # matrix
         h = Int(r.hiddenSize)
-        reshape(w[i1:i2], (div(len,h),h)) # weight matrices are transposed?
+        reshape(w[i1:i2], (div(len,h),h)) # weight matrices are transposed
     else # bias
         w[i1:i2]
     end
@@ -211,25 +221,25 @@ end
 
 """
 
-    cudnnGetRNNParams(r::RNN, w)
+    rnnparams(r::RNN, w)
 
 Split w into individual parameters and return them as an array.
 
 The order of params returned (subject to change):
 * All weight matrices come before all bias vectors.
 * Matrices and biases are sorted lexically based on (layer,id).
-* See @doc cudnnGetRNNParam for valid layer and id values.
+* See @doc rnnparam for valid layer and id values.
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
 """
-function cudnnGetRNNParams(r::RNN, w::KnetArray; handle=cudnnhandle())
+function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle())
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []
-    for m in (true, false)
-        for l in 0:layers-1
-            for i in 0:ids-1
-                push!(ws, cudnnGetRNNParam(r, w, l, i, m; handle=handle))
+    for m in (1,2)
+        for l in 1:layers
+            for i in 1:ids
+                push!(ws, rnnparam(r, w, l, i, m; handle=handle))
             end
         end
     end
@@ -313,8 +323,8 @@ function rnninit(inputSize, hiddenSize;
         error("CUDNN $cudnnVersion does not support RNNs")
     end
     r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsLength(r))
-    for a in cudnnGetRNNParams(r,w; handle=handle)
+    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
+    for a in rnnparams(r,w; handle=handle)
         if a == nothing
             continue
         elseif ndims(a) == 2
@@ -557,8 +567,8 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
 end
 
 
-# CPU implementation:
-function cudnnGetRNNParams(r::RNN, w::Array; o...)
+# TODO: CPU implementation:
+function rnnparams(r::RNN, w::Array; o...)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []; wi = 0
@@ -593,7 +603,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  o...)
     if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
     if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
-    w = cudnnGetRNNParams(r,ws)
+    w = rnnparams(r,ws)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
     @assert X == r.inputSize
     Y = Int(r.hiddenSize * (r.direction == 1 ? 2 : 1))
@@ -676,6 +686,13 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     return (y,hyout,cyout,nothing)
 end
 
+# Hack for JLD file load/save of RNNs:
+if Pkg.installed("JLD") != nothing
+    import JLD: writeas, readas
+    type RNNJLD; inputSize; hiddenSize; numLayers; dropout; inputMode; direction; mode; algo; dataType; end
+    writeas(r::RNN) = RNNJLD(r.inputSize, r.hiddenSize, r.numLayers, r.dropout, r.inputMode, r.direction, r.mode, r.algo, r.dataType)
+    readas(r::RNNJLD) = rnninit(r.inputSize, r.hiddenSize, numLayers=r.numLayers, dropout=r.dropout, skipInput=(r.inputMode==1), bidirectional=(r.direction==1), rnnType=(:relu,:tanh,:lstm,:gru)[1+r.mode], algo=r.algo, dataType=r.dataType)[1]
+end
 
 # We need x[:,:,t] and hx[:,:,l]
 using Knet: Index3

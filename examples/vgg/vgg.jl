@@ -1,6 +1,7 @@
 for p in ("Knet","ArgParse","Images","MAT","Compat")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
+include(Pkg.dir("Knet","data","matconvnet.jl"))
 
 """
 
@@ -18,33 +19,31 @@ specify any model.
 
 """
 module VGG
-using Knet,ArgParse,Images,MAT,Compat
+using Knet,ArgParse,Images
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
 const vggurl = "http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-16.mat"
 const LAYER_TYPES = ["conv", "relu", "pool", "fc", "prob"]
 
 function main(args=ARGS)
     s = ArgParseSettings()
-    s.description="vgg.jl (c) Deniz Yuret, 2016. Classifying images with the VGG model from http://www.robots.ox.ac.uk/~vgg/research/very_deep."
+    s.description="vgg.jl (c) Deniz Yuret, İlker Kesen, 2016. Classifying images with the VGG model from http://www.robots.ox.ac.uk/~vgg/research/very_deep."
     # s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("image"; default=imgurl; help="Image file or URL.")
-        ("--model"; default=Knet.dir("data","imagenet-vgg-verydeep-16.mat"); help="Location of the model file")
+        ("--model"; default="imagenet-vgg-verydeep-16"; help="Model name")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
-    println(s.description)
     isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
+    println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     atype = eval(parse(o[:atype]))
-    if !isfile(o[:model])
-        println("Should I download the VGG model (492MB)? Enter 'y' to download, anything else to quit.")
-        readline()[1] == 'y' || return
-        download(vggurl,o[:model])
-    end
-    info("Reading $(o[:model])")
-    vgg = matread(o[:model])
+    vgg = Main.matconvnet(o[:model])
     params = get_params(vgg, atype)
     convnet = get_convnet(params...)
     description = vgg["meta"]["classes"]["description"]
@@ -56,7 +55,7 @@ function main(args=ARGS)
     @time y1 = convnet(image)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)
-    @compat p1 = exp.(logp(z1))
+    p1 = exp.(logp(z1))
     display(hcat(p1[s1[1:o[:top]]], description[s1[1:o[:top]]]))
     println()
 end
@@ -72,11 +71,7 @@ function data(img, averageImage)
     i1 = div(size(a1,1)-224,2)
     j1 = div(size(a1,2)-224,2)
     b1 = a1[i1+1:i1+224,j1+1:j1+224]
-    if VERSION >= v"0.5.0"
-        c1 = permutedims(channelview(b1), (3,2,1))
-    else
-        c1 = separate(b1)
-    end
+    c1 = permutedims(channelview(b1), (3,2,1))
     d1 = convert(Array{Float32}, c1)
     e1 = reshape(d1[:,:,1:3], (224,224,3,1))
     f1 = (255 * e1 .- averageImage)
@@ -147,10 +142,6 @@ forw(x,op,w) = tofunc(op)(x,w)
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia vgg.jl cat.jpg
 # julia> VGG.main("cat.jpg")
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE=="vgg.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+PROGRAM_FILE=="vgg.jl" && main(ARGS)
 
 end # module

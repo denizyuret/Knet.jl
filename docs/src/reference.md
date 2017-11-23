@@ -53,6 +53,8 @@ Knet.unpool
 ```@docs
 Knet.rnninit
 Knet.rnnforw
+Knet.rnnparam
+Knet.rnnparams
 ```
 
 ## Optimization methods
