@@ -96,4 +96,5 @@ bn1(a) = batchnorm(a)
     # TODO: test other dimensionalities
 end
 
-Void() #surpass the return
+# suppress the return
+nothing
