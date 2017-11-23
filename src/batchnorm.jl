@@ -1,13 +1,13 @@
 """
 `batchnorm(g, b, x; kwargs...)` performs batch normalization to `x`
 with scaling factor `g` and bias `b`. 
-Operation performed is spatial batch normalization if x is 4d and 
-featurewise batch normalization if `x` is 2d.
+Operation performed is spatial batch normalization if x is 4d or 5d and 
+regular batch normalization if `x` is 2d.
     
 `batchnorm(x; kwargs...)` performs batch normalization to `x`. Output is
 expected to have approximately zero mean and unit variance.
-Operation performed is spatial batch normalization if `x` is 4d and 
-featurewise batch normalization if `x` is 2d.
+Operation performed is spatial batch normalization if `x` is 4d or 5d and 
+regular batch normalization if `x` is 2d.
 
 # Keywords
 
@@ -59,7 +59,7 @@ When this constructor is used, `batchnorm` functions will initialize `mean` and 
 the first training iteration to have relevant dimensions and match the data type of the input.
 
  `BNMoments(momentum, mean, var)` can be used directly load moments from data. `meaninit` and
-`varinit` are made nothing and they won't be called by `batchnorm`. Users are responsible
+`varinit` are made nothing and they won't be called by `batchnorm`. Its user's responsibility
  to initialize mean and var with right dimensions and types.
 
 """
@@ -81,23 +81,23 @@ BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing
 ------------------------------------------------
 
 `batchnorm(m::BNMoments, g, b, x; kwargs...)` performs batch normalization to x
-with scaling factor g and bias b. 
+with scaling factor g and bias b.
 Operation performed is spatial batch normalization if x is 4d or 5d and 
 regular batch normalization if `x` is 2d. The running statistics are
 stored in `m`.
     
 `batchnorm(m::BNMoments x; kwargs...)` performs batch normalization to x. Output is
 expected to have zero mean and unit variance.
-Operation performed is spatial batch normalization if x is 4d and 
-featurewise batch normalization if x is 2d. The running statistics are
+Operation performed is spatial batch normalization if x is 4d or 5d and 
+regular batch normalization if x is 2d. The running statistics are
 stored in `m`.
 
 # Keywords
 
 `eps=1e-5`: The epsilon parameter added to the variance to avoid divide by 0.
 
-`training=true`: When training is true, the mean and variance of `x` is used and `m`
- is modified. When it is false, mean and variance stored in `m` is used. 
+`training=true`: When training is true, the mean and variance of `x` are used and `m`
+ is modified. When it is false, mean and variance stored in `m` are used. 
 
 """
 batchnorm(m::BNMoments, a...; o...) = batchnorm(a...; o..., moments=m)
