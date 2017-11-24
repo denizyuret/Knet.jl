@@ -41,7 +41,7 @@ end
 
 function conv_layer(w, m, x; training=true, maxpool=true)
     o = conv4(w[1], x; padding=1)
-    o = batchnorm(m, w[2], w[3], o;
+    o = batchnorm(m, o, w[2], w[3];
                   training=training)
     o = relu.(o)
     if maxpool; o=pool(o); end
@@ -50,7 +50,7 @@ end
 
 function lin_layer(w, m, x; training=true)
     o = w[1] * x
-    o = batchnorm(m, w[2], w[3], o; training=training)
+    o = batchnorm(m, o, w[2], w[3]; training=training)
     return relu.(o)
 end
 

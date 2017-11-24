@@ -1,13 +1,8 @@
 """
-`batchnorm(g, b, x; kwargs...)` performs batch normalization to `x`
-with scaling factor `g` and bias `b`. 
-Operation performed is spatial batch normalization if x is 4d or 5d and 
-regular batch normalization if `x` is 2d.
-    
-`batchnorm(x; kwargs...)` performs batch normalization to `x`. Output is
-expected to have approximately zero mean and unit variance.
-Operation performed is spatial batch normalization if `x` is 4d or 5d and 
-regular batch normalization if `x` is 2d.
+
+`batchnorm(x[, g, b]; kwargs...)` performs batch normalization to `x`
+with scaling factor `g` and bias `b`. Operation performed is spatial 
+batch normalization if x is 4d or 5d.
 
 # Keywords
 
@@ -19,10 +14,12 @@ regular batch normalization if `x` is 2d.
  `training=true`: When training is true, the mean and variance of x are used and moments
  object is modified if it is provided. When `training` is false, mean and variance stored in 
  the `moments` keyword argument are used.
+
 """
-function batchnorm(a...; o...)
+function batchnorm(x, g=nothing, b=nothing; o...)
     cache = BNCache()
-    xnd = ndims(a[end])
+    xnd = ndims(x)
+    a = (g == nothing) ? (x, ) : (g, b, x)
     if xnd == 2
         return batchnorm2(a...; o..., cache=BNCache())
     elseif xnd in [4, 5]
@@ -80,16 +77,10 @@ BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing
 """
 ------------------------------------------------
 
-`batchnorm(m::BNMoments, g, b, x; kwargs...)` performs batch normalization to x
-with scaling factor g and bias b.
+`batchnorm(m::BNMoments, x[, g, b]; kwargs...)` performs batch normalization to x
+with scaling factor g and bias b. 
 Operation performed is spatial batch normalization if x is 4d or 5d and 
 regular batch normalization if `x` is 2d. The running statistics are
-stored in `m`.
-    
-`batchnorm(m::BNMoments x; kwargs...)` performs batch normalization to x. Output is
-expected to have zero mean and unit variance.
-Operation performed is spatial batch normalization if x is 4d or 5d and 
-regular batch normalization if x is 2d. The running statistics are
 stored in `m`.
 
 # Keywords

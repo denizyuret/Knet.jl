@@ -33,7 +33,7 @@ bn1(a) = batchnorm(a)
     
     @testset "cpu-grads4d" begin
         @test gradcheck(bn1, ax4; rtol=TOL)
-        @test gradcheck(bn3, (ag4, ab4, ax4); rtol=TOL)
+        @test gradcheck(bn3, (ax4, ag4, ab4); rtol=TOL)
     end
     
     if gpu() >= 0
@@ -45,7 +45,7 @@ bn1(a) = batchnorm(a)
 
         @testset "gpu-grads4d" begin
             @test gradcheck(bn1, kax4; rtol=TOL)
-            @test gradcheck(bn3, (kag4, kab4, kax4); rtol=TOL)
+            @test gradcheck(bn3, (kax4, kag4, kab4); rtol=TOL)
         end
 
         @testset "dev-consistency" begin
