@@ -118,7 +118,7 @@ the number of correct answers instead of the ratio.
 function accuracy{T<:Integer}(y,a::Array{T},d=1; average=true)
     indices = findindices(y,a,d)
     (maxval,maxind) = findmax(Array(y),d)
-    correct = (maxind .== indices)
+    correct = (vec(maxind) .== indices)
     average ? mean(correct) : sum(correct)
 end
 
