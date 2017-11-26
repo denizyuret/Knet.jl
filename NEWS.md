@@ -3,19 +3,17 @@ Knet v0.8.6 Release Notes
 
 TODO
 ----
-* RNNs: documentation, benchmarking, new mask mechanism, use in examples, better interface.
-* Use Knet/data/mnist.jl in examples. Put other data there: https://keras.io/datasets, https://deeplearning4j.org/opendata
-* Split examples into directories. Build model zoo.
 * CUDNN: add batchnorm, test dropout, softmax etc. for speed.
 * Modular interface.
 * CUDAapi, windows compat, Tim Besard's CI.
-* Documentation and unit testing for new functions.
+* Get rid of Combinatorics dependency.
+* Fix @ilkarman links in tutorial.md.
 
 General
 -------
 * Pre-0.6 Julia versions no longer supported.
 * `rnninit` and `rnnforw` implement cudnn RNNs (with @cangumeli).
-* `conv4` performance improved using cudnnFind.
+* `conv4` performance significantly improved using cudnnFind.
 * `DBGFLAGS` and `PROFILING` constants defined in Knet.jl.
 * `optimizers` creates optimization structs for the whole model.
 * `dropout` now detects training mode automatically.
@@ -27,7 +25,8 @@ General
 
 Documentation and Examples
 --------------------------
-* New under Knet/data: mnist.jl, cifar.jl, imdb.jl
+* New under Knet/data: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl.
+* All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
 
 
 Knet v0.8.5 Release Notes

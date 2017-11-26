@@ -77,7 +77,7 @@ training functions for five models: linear regression, softmax
 classification, fully-connected, convolutional and recurrent neural
 networks.  It would be best to copy paste and modify these examples on
 your own computer.  They are also available as an [IJulia
-notebook](https://github.com/denizyuret/Knet.jl/tree/master/examples/knet-tutorial)
+notebook](https://github.com/denizyuret/Knet.jl/tree/master/examples/knet-tutorial).
 You can install Knet using `Pkg.add("Knet")` in Julia.
 
 
@@ -107,13 +107,13 @@ gradient direction:
 lossgradient = grad(loss)
 ```
 
-Note that `grad` is a higher-order function that takes and returns other
-functions. The `lossgradient` function takes the same arguments as
-`loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss
-value, `lossgradient` returns `dw`, the gradient of the loss with
-respect to its first argument `w`. The type and size of `dw` is
-identical to `w`, each entry in `dw` gives the derivative of the loss
-with respect to the corresponding entry in `w`. 
+Note that [`grad`](@ref) is a higher-order function that takes and
+returns other functions. The `lossgradient` function takes the same
+arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of
+returning a loss value, `lossgradient` returns `dw`, the gradient of
+the loss with respect to its first argument `w`. The type and size of
+`dw` is identical to `w`, each entry in `dw` gives the derivative of
+the loss with respect to the corresponding entry in `w`.
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
@@ -196,7 +196,7 @@ compared to the correct answers.  Here, we assume `ygold` is an array
 of N integers indicating the correct answers for N instances (we use
 ygold=10 to represent the 0 answer) and `predict()` gives us a (10,N)
 matrix of scores for each answer. [`mat`](@ref) is needed to convert
-the (28,28,1,N) x array to a (784,N) matrix so it can be used in
+the (28,28,1,N) `x` array to a (784,N) matrix so it can be used in
 matrix multiplication.  Other than the change of loss function, the
 softmax model is identical to the linear regression model. We use the
 same `predict` (except for `mat` reshaping), `train` and set
@@ -256,7 +256,7 @@ end
 
 Here `w[2k-1]` is the weight matrix and `w[2k]` is the bias vector for
 the k'th layer. [`relu`](@ref) implements the popular rectifier
-non-linearity: `relu.(x) = max.(0,x)`.  Note that if w only has two
+non-linearity: `relu.(x) = max.(0,x)`.  Note that if `w` only has two
 entries, this is equivalent to the linear and softmax models. By
 adding more entries to w, we can define multi-layer perceptrons of
 arbitrary depth. Let's define one with a single hidden layer of 64
@@ -268,9 +268,9 @@ w = Any[ 0.1f0*randn(Float32,64,784), zeros(Float32,64,1),
 ```
 
 The rest of the code is the same as the softmax model. We can use the
-same cross-entropy loss function and the same training script. To
-introduce alternative optimizers, let us use a different train
-function:
+same cross-entropy loss function and the same training
+script. However, we will use a different train function to introduce
+alternative optimizers:
 
 ```julia
 function train(model, data, optim)
@@ -282,12 +282,12 @@ end
 ```
 
 Here the `optim` argument specifies the optimization algorithm and
-state for each model parameter, see [Optimization methods](@ref) for
-available algorithms.  [`update!`](@ref) uses `optim` to update each
+state for each model parameter (see [Optimization methods](@ref) for
+available algorithms).  [`update!`](@ref) uses `optim` to update each
 model parameter and optimization state.  `optim` has the same size and
 shape as `model`, i.e. we have a separate optimizer for each model
 parameter. For simplicity we will use the [`optimizers`](@ref)
-function to use the [`Adam`](@ref) optimizer with all parameters:
+function to create an [`Adam`](@ref) optimizer for each parameter:
 
 ```julia
 o = optimizers(w, Adam)
@@ -351,11 +351,11 @@ Here we used [`xavier`](@ref) instead of `randn` which initializes
 weights based on their input and output widths.  
 
 This model is larger and more expensive to train compared to the
-previous models we have seen. To perform the operations on the GPU,
-all we need to do is to convert our data and weights to
-[`KnetArray`](@ref)s. [`minibatch`](@ref) takes an extra keyword
-argument `xtype` for this purpose, and we do it manually for the `w`
-weights:
+previous models we have seen and it would be nice to use our GPU. To
+perform the operations on the GPU, all we need to do is to convert our
+data and weights to [`KnetArray`](@ref)s. [`minibatch`](@ref) takes an
+extra keyword argument `xtype` for this purpose, and we do it manually
+for the `w` weights:
 
 ```julia
 dtrn = minibatch(xtrn,ytrn,100,xtype=KnetArray)
@@ -363,9 +363,10 @@ dtst = minibatch(xtst,ytst,100,xtype=KnetArray)
 w = map(KnetArray, w)
 ```
 
-The training proceeds as before giving us even better results. The code
-for the LeNet example can be found under
-[examples](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet).
+The training proceeds as before giving us even better results. The
+code for the LeNet example can be found under the
+[examples](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet)
+directory.
 
 ```julia
 (:epoch, 0, :trn, 0.10435, :tst, 0.103)
@@ -395,7 +396,8 @@ Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness) from
 the Andrej Karpathy blog. The model can be trained with different genres
 of text, and can be used to generate original text in the same style.
 
-We will use "The Complete Works of William Shakespeare" to train our
+We will use [The Complete Works of William
+Shakespeare](http://www.gutenberg.org/ebooks/100) to train our
 model. The `shakespeare()` function defined in `gutenberg.jl`
 downloads the book and splits the data into 5M chars for training and
 0.5M chars for testing.
@@ -411,9 +413,7 @@ There are 84 unique characters in the data and they are mapped to
 UInt8 values in 1:84. The `chars` array can be used to recover the
 original text:
 
-```julia
-println(string(chars[trn[1020:1210]]...))
-```
+    julia> println(string(chars[trn[1020:1210]]...))
 
     Cheated of feature by dissembling nature,
     Deform'd, unfinish'd, sent before my time
@@ -463,11 +463,12 @@ end
 
 A character based language model needs to predict the next character
 in a piece of text given the current character and recent history as
-encoded in the internal state of the RNN. The `predict` function below
-takes weights `ws`, inputs `xs`, the initial hidden and cell states
-`hx` and `cx` and returns output scores `ys` along with the final
-hidden and cell states `hy` and `cy`. See [`rnnforw`](@ref) for
-available options and the exact computations performed.
+encoded in the internal state of the RNN. Note that LSTMs have two
+state variables typically called hidden and cell.  The `predict`
+function below takes weights `ws`, inputs `xs`, the initial hidden and
+cell states `hx` and `cx` and returns output scores `ys` along with
+the final hidden and cell states `hy` and `cy`. See [`rnnforw`](@ref)
+for available options and the exact computations performed.
 
 ```julia
 function predict(ws,xs,hx,cx)
@@ -502,22 +503,22 @@ set to nothing, [`rnnforw`](@ref) assumes zero vectors.
 ```julia
 function train(model,data,optim)
     hiddens = Any[nothing,nothing]
-    Σ,N=0,0
+    losses = []
     for (x,y) in data
         grads,loss1 = lossgradient(model,x,y,hiddens)
         update!(model, grads, optim)
-        Σ,N=Σ+loss1,N+1
+	push!(losses, loss1)
     end
-    return Σ/N
+    return mean(losses)
 end
 
 function test(model,data)
     hiddens = Any[nothing,nothing]
-    Σ,N=0,0
+    losses = []
     for (x,y) in data
-        Σ,N = Σ+loss(model,x,y,hiddens),N+1
+        push!(losses, loss(model,x,y,hiddens))
     end
-    return Σ/N
+    return mean(losses)
 end
 ```
 
@@ -534,6 +535,13 @@ optim = optimizers(model, Adam)
     @time tstloss = test(model,dtst)        # ~0.5 seconds
     println((:epoch, epoch, :trnppl, exp(trnloss), :tstppl, exp(tstloss)))
 end
+
+# 17.228594 seconds (243.32 k allocations: 131.754 MiB, 0.05% gc time)
+#  0.713869 seconds (208.56 k allocations: 19.673 MiB, 0.50% gc time)
+# (:epoch, 1, :trnppl, 13.917706f0, :tstppl, 7.7539396f0)
+# ...
+# (:epoch, 30, :trnppl, 3.0681787f0, :tstppl, 3.350249f0)
+# 533.660206 seconds (7.69 M allocations: 4.132 GiB, 0.03% gc time)
 ```
 
 To generate text we sample each character randomly using the
@@ -679,13 +687,13 @@ array pointers. KnetArray is based on the more standard
 important differences: (i) KnetArrays have a custom memory manager,
 similar to [ArrayFire](http://arrayfire.com), which reuse pointers
 garbage collected by Julia to reduce the number of GPU memory
-allocations, (ii) array ranges (e.g. `a[:,3:5]`) are handled as views
-with shared pointers instead of copies when possible, and (iii) a
-number of custom CUDA kernels written for KnetArrays implement
-element-wise, broadcasting, and scalar and vector reduction operations
-efficiently. As a result Knet allows users to implement their models
-using high-level code, yet be competitive in performance with other
-frameworks as demonstrated in the benchmarks section.
+allocations, (ii) contiguous array ranges (e.g. `a[:,3:5]`) are
+handled as views with shared pointers instead of copies when possible,
+and (iii) a number of custom CUDA kernels written for KnetArrays
+implement element-wise, broadcasting, and scalar and vector reduction
+operations efficiently. As a result Knet allows users to implement
+their models using high-level code, yet be competitive in performance
+with other frameworks as demonstrated in the benchmarks section.
 
 ### AutoGrad
 
