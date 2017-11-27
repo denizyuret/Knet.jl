@@ -6,8 +6,6 @@ TODO
 * CUDNN: add batchnorm, test dropout, softmax etc. for speed.
 * Modular interface.
 * CUDAapi, windows compat, Tim Besard's CI.
-* Get rid of Combinatorics dependency.
-* Fix @ilkarman links in tutorial.md.
 
 General
 -------
@@ -22,12 +20,14 @@ General
 * `minibatch(x,y,b)` returns a batch iterator.
 * `knetgc` is now exported to cudaFree garbage collected pointers.
 * Using CUDAapi and CUDAdrv in build.jl if installed.
+* Got rid of the Combinatorics dependency in test.
+* libnvidia-ml only used when available (it is not available in OSX).
 
 Documentation and Examples
 --------------------------
+* New benchmarking results in tutorial.md and README.md (from @ilkarman).
 * New under Knet/data: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl.
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
-
 
 Knet v0.8.5 Release Notes
 =========================

@@ -635,30 +635,30 @@ Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
 
 | DL Library                               | Test Accuracy (%) | Training Time (s) |
 | ---------------------------------------- | ----------------- | ----------------- |
-| [MXNet](MXNet_CNN.ipynb)                 | 77                | 145               |
-| [Caffe2](Caffe2_CNN.ipynb)               | 79                | 148               |
-| [Gluon](Gluon_CNN.ipynb)                 | 76                | 152               |
-| [Knet(Julia)](Knet_CNN.ipynb)            | 78                | 153               |
-| [Chainer](Chainer_CNN.ipynb)             | 79                | 162               |
-| [CNTK](CNTK_CNN.ipynb)                   | 78                | 163               |
-| [PyTorch](PyTorch_CNN.ipynb)             | 78                | 169               |
-| [Tensorflow](Tensorflow_CNN.ipynb)       | 78                | 173               |
-| [Keras(CNTK)](Keras_CNTK_CNN.ipynb)      | 77                | 194               |
-| [Keras(TF)](Keras_TF_CNN.ipynb)          | 77                | 241               |
-| [Lasagne(Theano)](Theano_Lasagne_CNN.ipynb) | 77                | 253               |
-| [Keras(Theano)](Keras_Theano_CNN.ipynb)  | 78                | 269               |
+| [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_CNN.ipynb)                 | 77                | 145               |
+| [Caffe2](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Caffe2_CNN.ipynb)               | 79                | 148               |
+| [Gluon](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Gluon_CNN.ipynb)                 | 76                | 152               |
+| [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_CNN.ipynb)            | 78                | 153               |
+| [Chainer](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Chainer_CNN.ipynb)             | 79                | 162               |
+| [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_CNN.ipynb)                   | 78                | 163               |
+| [PyTorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_CNN.ipynb)             | 78                | 169               |
+| [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Tensorflow_CNN.ipynb)       | 78                | 173               |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_CNN.ipynb)      | 77                | 194               |
+| [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_CNN.ipynb)          | 77                | 241               |
+| [Lasagne(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Theano_Lasagne_CNN.ipynb) | 77                | 253               |
+| [Keras(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_Theano_CNN.ipynb)  | 78                | 269               |
 
 Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Nov 24, 2017)
 
 | DL Library                          | Test Accuracy (%) | Training Time (s) | Using CuDNN? |
 | ----------------------------------- | ----------------- | ----------------- | ------------ |
-| [MXNet](MXNet_RNN.ipynb)            | 86                | 29                | Yes          |
-| [Tensorflow](Tensorflow_RNN.ipynb)  | 86                | 30                | Yes          |
-| [Knet(Julia)](Knet_RNN.ipynb)       | 85                | 30                | Yes          |
-| [Pytorch](PyTorch_RNN.ipynb)        | 86                | 31                | Yes          |
-| [CNTK](CNTK_RNN.ipynb)              | 85                | 32                | Yes          |
-| [Keras(TF)](Keras_TF_RNN.ipynb)     | 86                | 35                | Yes          |
-| [Keras(CNTK)](Keras_CNTK_RNN.ipynb) | 86                | 86                | No Available |
+| [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_RNN.ipynb)            | 86                | 29                | Yes          |
+| [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Tensorflow_RNN.ipynb)  | 86                | 30                | Yes          |
+| [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_RNN.ipynb)       | 85                | 30                | Yes          |
+| [Pytorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_RNN.ipynb)        | 86                | 31                | Yes          |
+| [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_RNN.ipynb)              | 85                | 32                | Yes          |
+| [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb)     | 86                | 35                | Yes          |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) | 86                | 86                | No Available |
 
 
 ## Under the hood

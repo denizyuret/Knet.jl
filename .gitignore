@@ -1,7 +1,6 @@
 docs/build/
 docs/site/
 .DS_Store
-data/
 *.mem
 *.bak
 *.cnt
