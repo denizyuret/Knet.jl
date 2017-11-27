@@ -26,7 +26,7 @@ include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
-include("batchnorm.jl");        export batchnorm, BNMoments
+include("batchnorm.jl");        export batchnorm, BNMoments, bnparam, bnscale, bnbias
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
 include("loss.jl");             export logp, logsumexp, nll, accuracy
 include("dropout.jl");          export dropout

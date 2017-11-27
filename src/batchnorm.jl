@@ -1,37 +1,5 @@
 """
 
-`batchnorm(x[, g, b]; kwargs...)` performs batch normalization to `x`
-with scaling factor `g` and bias `b`. Operation performed is spatial 
-batch normalization if x is 4d or 5d.
-
-# Keywords
-
- `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0
-
- `moments=nothing`: The BNMoments object that stores the running statistics. It
- can be nothing when `training` is true, but required when `training` is false.
- 
- `training=true`: When training is true, the mean and variance of x are used and moments
- object is modified if it is provided. When `training` is false, mean and variance stored in 
- the `moments` keyword argument are used.
-
-"""
-function batchnorm(x, g=nothing, b=nothing; o...)
-    cache = BNCache()
-    xnd = ndims(x)
-    a = (g == nothing) ? (x, ) : (g, b, x)
-    if xnd == 2
-        return batchnorm2(a...; o..., cache=BNCache())
-    elseif xnd in [4, 5]
-        return batchnorm4(a...; o..., cache=BNCache())
-    else
-        error("Unsupported input dimension ", xnd)
-    end
-end
-
-
-"""
-
 `BNMoments` is a high-level data structure used to store running mean and running variance
 of batch normalization.
 
@@ -74,25 +42,80 @@ BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones, o...) =
 BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing)
 
 
+#TODO: improve the documentation. Explain what batchnorm is.
 """
-------------------------------------------------
 
-`batchnorm(m::BNMoments, x[, g, b]; kwargs...)` performs batch normalization to x
-with scaling factor g and bias b. 
-Operation performed is spatial batch normalization if x is 4d or 5d and 
-regular batch normalization if `x` is 2d. The running statistics are
-stored in `m`.
+`batchnorm(x[, moments, param]; kwargs...)` performs batch normalization to `x`
+with optional scaling factor and bias stored in `w`. Operation performed is spatial 
+batch normalization if x is 4d or 5d. `moments` is a `BNMoments` object that stores 
+running mean and variance to be used in testing. It is optional in training mode, 
+but mendatory in test mode. `param` stores the optional affine parameters gamma and beta.
+`bnparam` can be used to initialize `param`.
 
 # Keywords
 
-`eps=1e-5`: The epsilon parameter added to the variance to avoid divide by 0.
-
-`training=true`: When training is true, the mean and variance of `x` are used and `m`
- is modified. When it is false, mean and variance stored in `m` are used. 
+ `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0
+ 
+ `training=nothing`: When `training` is true, the mean and variance of `x` are used and `moments`
+ argument is modified if it is provided. When `training` is false, mean and variance stored in 
+ the `moments` argument are used. When training is kept `nothing`, the mode is determined
+ based on inputs' being recorded.
 
 """
-batchnorm(m::BNMoments, a...; o...) = batchnorm(a...; o..., moments=m)
+function batchnorm(x, moments::Union{BNMoments, Void}=nothing, param=nothing;
+                   training=nothing, o...)
+    xnd = ndims(x)
+    a = (x,)
+    if param !== nothing
+        g = reshape(bnscale(param), _wsize(x))
+        b = reshape(bnbias(param), _wsize(x))
+        a = (g, b, x)
+    end
+    if ~isa(training, Bool)
+        training = isa(x, Rec) || isa(param, Rec)
+    end
+    if xnd == 2
+        return batchnorm2(a...; o...,
+                          moments=moments,
+                          training=training,
+                          cache=BNCache())
+    elseif xnd in [4, 5]
+        return batchnorm4(a...; o...,
+                          moments=moments,
+                          training=training,
+                          cache=BNCache())
+    else
+        error("Unsupported input dimension ", xnd)
+    end
+end
 
+
+"""
+`bnparam(etype, channels)` creates a single 1d array that contains both 
+scale and bias of batchnorm
+
+`bnparam(channels)` calls `bnparam` with `etype=Float64`, following julia convention
+"""
+function bnparam(etype, channels::Integer)
+    buf = Array{etype}(2channels)
+    buf[1:channels] = 1
+    buf[channels+1:end] = 0
+    return buf
+end
+
+bnparam(channels::Integer) = bnparam(Float64, channels)
+
+
+"""
+`bnscale(param)`: returns a 1d view of batchnorn scale from `param` initialized with `bnparam`"
+"""
+bnscale(param) = param[1:div(length(param),2)]
+
+
+"""
+`bnbias(param)`: returns a 1d view of batchnorm bias from `param` initialized with `bnparam`
+"""
+bnbias(param) = param[div(length(param),2)+1:end]
 
 
 #= 
