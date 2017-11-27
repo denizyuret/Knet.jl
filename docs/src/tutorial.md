@@ -629,7 +629,12 @@ minibatched and transferred to GPU prior to benchmarking when possible.
 More recently (Nov 24, 2017), @ilkarman has published CNN and RNN
 [benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on
 Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual
-Machine for Linux (Ubuntu):
+Machine for Linux (Ubuntu). The results are copied below.  You can
+find versions of the Knet notebooks used for these benchmarks in the
+Knet/examples directory:
+[cifar10-cnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/cifar10-cnn)
+and
+[imdb-rnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/imdb-rnn).
 
 Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
 
