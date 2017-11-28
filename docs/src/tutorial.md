@@ -776,11 +776,11 @@ doubles the total time as expected.
 |:--|:---|
 |`a1=w1*x`|0.67|
 |`a2=w2.+a1`|0.71|
-|`a3=max(0,a2)`|0.75|
+|`a3=max.(0,a2)`|0.75|
 |`a4=w3*a3`|0.81|
 |`a5=w4.+a4`|0.85|
 |`a6=a5-y`|0.89|
-|`a7=sumabs2(a6)`|1.18|
+|`a7=sum(abs2,a6)`|1.18|
 |+recording|1.33|
 |+backprop|2.79|
 
