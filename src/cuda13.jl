@@ -119,8 +119,11 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
       {    // all threads except lane 0
           value = y[half_BLOCK_SIZE_y*bx+ty];   // first thread in each wrap loads one element
       }
-      value = __shfl(value, 0);   // Get "value" from lane 0
-
+      #if (CUDART_VERSION >= 9000)
+        value = __shfl_sync(0xFFFFFFFF, value, 0);   //use shuffle_sync for 9+    
+      #else
+        value = __shfl(value, 0);   // Get "value" from lane 0
+      #endif
     #else
 
       __shared__ $T Bs[half_BLOCK_SIZE_y];
