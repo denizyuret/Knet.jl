@@ -286,9 +286,14 @@ end
 
 # Avoid using Base for unimplemented cat methods:
 
-cat(d, a::KnetArray, as::KnetArray...)=throw(MethodError(cat, (a, as...)))
-hcat(a::KnetArray, as::KnetArray...)=throw(MethodError(hcat, (a, as...)))
-vcat(a::KnetArray, as::KnetArray...)=throw(MethodError(vcat, (a, as...)))
+using AutoGrad: NA # Union{Number,AbstractArray}
+const NAK = Union{Number,AbstractArray,KnetArray}
+# cat(d, a::NA, as::NA...)=Base.cat_t(d, prom_(a...), a...) # defined in AutoGrad
+cat(d, a::NAK, as::NAK...)=throw(MethodError(cat, (a, as...)))
+hcat(a::NA, as::NA...)=cat(2,a,as...)
+hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
+vcat(a::NA, as::NA...)=cat(1,a,as...)
+vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
 # Utilities:
 
