@@ -19,6 +19,7 @@ test1
 test2
 *.so
 *.o
+*.cu
 foo*
 unused
 v0.3
