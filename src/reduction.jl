@@ -147,4 +147,4 @@ else
 end
 
 Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}) = sum(a) / length(a)
-Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}, r) = (b=sum(a,r); (b*(length(b)/length(a))))
+Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}, r) = (b=sum(a,r); (b*convert(eltype(b),length(b)/length(a))))
