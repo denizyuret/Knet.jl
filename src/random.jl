@@ -1,8 +1,20 @@
 # curand functions:
 
-import Base: rand!
+import Base: rand!, randn!
 rand!(a::KnetArray{Float32})=(@cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
 rand!(a::KnetArray{Float64})=(@cuda(curand,curandGenerateUniformDouble,(Cptr,Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
+
+function randn!(a::KnetArray{Float32}, mean = 0, stdev = 1)
+    @cuda(curand,curandGenerateNormal,(Cptr,Ptr{Cfloat},Csize_t, Cfloat, Cfloat),
+        rng(), a, length(a), Cfloat(mean), Cfloat(stdev))
+    a
+end
+
+function randn!(a::KnetArray{Float64}, mean = 0, stdev = 1)
+    @cuda(curand,curandGenerateNormalDouble,(Cptr,Ptr{Cdouble},Csize_t, Cdouble, Cdouble),
+        rng(), a, length(a), Cdouble(mean), Cdouble(stdev))
+    a
+end
 
 let RNG=0
 global rng
