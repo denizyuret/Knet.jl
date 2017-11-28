@@ -277,7 +277,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.dropout",
     "category": "Function",
-    "text": "dropout(x, p)\n\nGiven an array x and probability 0<=p<=1, just return x if testing, return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p if training. Training mode is detected automatically based on the type of x, which is AutoGrad.Rec during gradient calculation.  Use the keyword argument training::Bool to change the default mode and seed::Number to set the random number seed for reproducible results. See (Srivastava et al. 2014)  for reference.\n\n\n\n"
+    "text": "dropout(x, p)\n\nGiven an array x and probability 0<=p<=1, just return x if testing, return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p if training. Training mode is detected automatically based on the type of x, which is AutoGrad.Rec during gradient calculation.  Use the keyword argument training::Bool to change the default mode and seed::Number to set the random number seed for reproducible results. See (Srivastava et al. 2014)  for a reference.\n\n\n\n"
 },
 
 {
