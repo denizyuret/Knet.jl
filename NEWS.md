@@ -19,6 +19,7 @@ General
 * `accuracy` returns ratio of correct answers given score matrix and answer index vector.
 * `minibatch(x,y,b)` returns a batch iterator.
 * `knetgc` is now exported to cudaFree garbage collected pointers.
+* `randn!` and `mean(a,dims)` is supported by KnetArray (@CarloLucibello).
 * Using CUDAapi and CUDAdrv in build.jl if installed.
 * Got rid of the Combinatorics dependency in test.
 * libnvidia-ml only used when available (it is not available in OSX).

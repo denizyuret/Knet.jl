@@ -27,9 +27,9 @@ operations.
 
 * Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
-  isempty, length, ndims, ones, pointer, rand!, reshape, similar,
-  size, stride, strides, summary, vcat, vec, zeros.  (cat(i,x,y)
-  supported for i=1,2.)
+  isempty, length, ndims, ones, pointer, rand!, randn!, reshape,
+  similar, size, stride, strides, summary, vcat, vec, zeros.
+  (cat(i,x,y) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -40,8 +40,8 @@ operations.
   (.==), (.>), (.>=), (.^), max, min.  (Boolean operators generate
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
-* Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
-  sumabs2, vecnorm.
+* Reduction operators: countnz, maximum, mean, minimum, prod, sum,
+  sumabs, sumabs2, vecnorm.
     
 * Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
 
