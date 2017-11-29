@@ -106,16 +106,20 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function gpu(i::Int)
-        (GPU == i) && return i
-        if 0 <= i < gpuCount()
+        if GPU == i
+            # nothing to do 
+        elseif 0 <= i < gpuCount()
+            GPU = i
             @cuda(cudart,cudaSetDevice, (Cint,), i)
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
             cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
+            # Initialize curand to guard against gpu memory fillup before first dropout (#181)
+            rand!(KnetArray(Float32,1))
         else
-            i = -1
+            GPU = -1
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
-        return (GPU = i)
+        return GPU
     end
 
     function gpu(usegpu::Bool)
