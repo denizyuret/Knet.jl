@@ -1,11 +1,16 @@
 """
+`bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used
+ directly load moments from data. `meaninit` and `varinit` are called if `mean` and `var` 
+are nothing. Type and size of the `mean` and `var` are determined automatically from the inputs
+in the `batchnorm` calls. A `BNMoments` object is returned.
+
 
 `BNMoments` is a high-level data structure used to store running mean and running variance
 of batch normalization.
 
 # Fields
  `momentum::AbstractFloat`: A real number between 0 and 1 to be used as the scale of
-  last mean and variance. The existing running mean or variance is multiplied with 
+  last mean and variance. The existing running mean or variance is multiplied by 
   (1-momentum).
  
  `mean`: The running mean.
@@ -17,17 +22,10 @@ of the form `(eltype, dims...) -> data`. `zeros` is a good option.
 
  `varinit`: The function used for initialize the running variance. Should either be `nothing` or
 `(eltype, dims...) -> data`. `ones` is a good option.
-
-# Constructors
- `BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones)` sets `mean` and `var` to nothing.
-When this constructor is used, `batchnorm` functions will initialize `mean` and `var` during
-the first training iteration to have relevant dimensions and match the data type of the input.
-
- `BNMoments(momentum, mean, var)` can be used directly load moments from data. `meaninit` and
-`varinit` are made nothing and they won't be called by `batchnorm`. Its user's responsibility
- to initialize mean and var with right dimensions and types.
-
 """
+bnmoments(;momentum=0.1, meaninit=zeros, varinit=ones, mean=nothing, var=nothing) =
+    BNMoments(momentum, mean, var, meaninit, varinit)
+
 type BNMoments
     momentum::AbstractFloat
     mean
@@ -36,21 +34,32 @@ type BNMoments
     varinit
 end
 
-BNMoments(;momentum=0.1, meaninit=zeros, varinit=ones, o...) =
-    BNMoments(momentum, nothing, nothing, meaninit, varinit)
-
-BNMoments(momentum, mean, var) = BNMoments(momentum, mean, var, nothing, nothing)
-
-
 #TODO: improve the documentation. Explain what batchnorm is.
 """
 
-`batchnorm(x[, moments, param]; kwargs...)` performs batch normalization to `x`
-with optional scaling factor and bias stored in `w`. Operation performed is spatial 
-batch normalization if x is 4d or 5d. `moments` is a `BNMoments` object that stores 
-running mean and variance to be used in testing. It is optional in training mode, 
-but mendatory in test mode. `param` stores the optional affine parameters gamma and beta.
-`bnparam` can be used to initialize `param`.
+`batchnorm(x[, moments, params]; kwargs...)` performs batch normalization to `x`
+with optional scaling factor and bias stored in `params`.
+
+2d, 4d and 5d inputs are supported. Operation averages (1,), (1,2,4) and (1,2,4,5) for 
+these dimensions, respectively. 
+
+
+`moments` stores running mean and variance to be used in testing. It is optional in training mode, but mendatory in test mode. 
+
+`param` stores the optional affine parameters gamma and beta.
+`bnparams` function can be used to initialize `param`.
+
+# Example
+
+    ```
+    # Inilization, C is an integer
+    moments = bnmoments()
+    params = bnparams(C)
+    ...
+    # x -> (H, W, C, N)
+    y = batchnorm(x, moments, params)
+    # y -> (H, W, C, N)
+    ```
 
 # Keywords
 
@@ -62,17 +71,17 @@ but mendatory in test mode. `param` stores the optional affine parameters gamma 
  based on inputs' being recorded.
 
 """
-function batchnorm(x, moments::Union{BNMoments, Void}=nothing, param=nothing;
+function batchnorm(x, moments::Union{BNMoments, Void}=nothing, params=nothing;
                    training=nothing, o...)
     xnd = ndims(x)
     a = (x,)
-    if param !== nothing
-        g = reshape(bnscale(param), _wsize(x))
-        b = reshape(bnbias(param), _wsize(x))
+    if params !== nothing
+        g = reshape(_bnscale(params), _wsize(x))
+        b = reshape(_bnbias(params), _wsize(x))
         a = (g, b, x)
     end
     if ~isa(training, Bool)
-        training = isa(x, Rec) || isa(param, Rec)
+        training = isa(x, Rec) || isa(params, Rec)
     end
     if xnd == 2
         return batchnorm2(a...; o...,
@@ -91,36 +100,26 @@ end
 
 
 """
-`bnparam(etype, channels)` creates a single 1d array that contains both 
+`bnparams(etype, channels)` creates a single 1d array that contains both 
 scale and bias of batchnorm
 
-`bnparam(channels)` calls `bnparam` with `etype=Float64`, following julia convention
+`bnparams(channels)` calls `bnparam` with `etype=Float64`, following julia convention
+
 """
-function bnparam(etype, channels::Integer)
+function bnparams(etype, channels::Integer)
     buf = Array{etype}(2channels)
     buf[1:channels] = 1
     buf[channels+1:end] = 0
     return buf
 end
 
-bnparam(channels::Integer) = bnparam(Float64, channels)
-
-
-"""
-`bnscale(param)`: returns a 1d view of batchnorn scale from `param` initialized with `bnparam`"
-"""
-bnscale(param) = param[1:div(length(param),2)]
-
-
-"""
-`bnbias(param)`: returns a 1d view of batchnorm bias from `param` initialized with `bnparam`
-"""
-bnbias(param) = param[div(length(param),2)+1:end]
-
+bnparams(channels::Integer) = bnparams(Float64, channels)
 
 #= 
 LOW-LEVEL API that won't be exported by default
 =#
+@inline _bnscale(param) = param[1:div(length(param), 2)]
+@inline _bnbias(param) = param[div(length(param), 2)+1:end]
 
 const BN_MODE_SPATIAL = 1
 const BN_MODE_ACTIVATION = 0
@@ -308,7 +307,7 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g!==nothing
-            dg = dy .* (x .- moments.mean) .* ivar
+            dg = sum(dy .* (x .- moments.mean) .* ivar, _reddims(dy))
             db = sum(dy, _reddims(dy))
         else
             dg, db = nothing, nothing
@@ -436,7 +435,7 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g!==nothing
-            dg = dy .* (x .- moments.mean) .* ivar
+            dg = sum(dy .* (x .- moments.mean) .* ivar, dims)
             db = sum(dy, dims)
         else
             dg, db = nothing, nothing
