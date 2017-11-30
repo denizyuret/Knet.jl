@@ -105,9 +105,7 @@ function epoch!(w, m, o, xtrn, ytrn;  mbatch=64)
                    xtype=atype())
     for (x, y) in data
         g = lossgrad(w, m, x, y)
-        for (wi, gi, oi) in zip(w, g, o)
-            update!(wi, gi, oi) 
-        end
+        update!(w, g, o)
     end
 end
 
