@@ -1,3 +1,24 @@
+#=
+This example classifies CIFAR 10(https://www.cs.toronto.edu/~kriz/cifar.html)
+dataset using a convolutional neural network with batch normalization
+
+For details of applying batch normalization, see:
+"Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift"
+Sergey Ioffe  & Christian Szegedy 
+https://arxiv.org/abs/1502.03167
+
+The trained architecture has the form of:
+conv -> bn -> relu -> pool -> 
+conv -> bn -> relu -> pool ->
+conv -> bn -> relu ->
+fc -> bn  -> relu -> output
+
+=#
+
+for p in ("Knet", )
+    (Pkg.installed(p) == nothing) && Pkg.add(p)
+end
+
 using Knet
 include(Pkg.dir("Knet", "data", "cifar.jl"))
 
@@ -67,7 +88,6 @@ function predict(w, m, x)
     o = conv_layer(w[3:4] , m[2], o)
     o = conv_layer(w[5:6] , m[3], o; maxpool=false)
     o = lin_layer( w[7:8] , m[4], mat(o))
-    o = dropout(o, 0.2) # use mild dropouts only
     return w[9] * o .+ w[10]
 end
 
@@ -102,9 +122,11 @@ function acc(w, m, xtst, ytst; mbatch=64)
                     average=true)
 end
 
-function train(;epochs=5)
+# TODO: add command line options
+function train(;optim=Momentum, epochs=5,
+               lr=0.1, oparams...)
     w, m = init_model()
-    o = map(_->Momentum(;lr=0.1), w)
+    o = map(_->Momentum(;lr=lr, oparams...), w)
     (xtrn, ytrn), (xtst, ytst) = loaddata()   
     for epoch = 1:epochs
         println("epoch: ", epoch)
@@ -114,9 +136,4 @@ function train(;epochs=5)
     end
 end
 
-# TODO: add command line options
-function main(ARGS=nothing)
-    train()
-end
-
-main()
+endswith(string(PROGRAM_FILE), "cnn_batchnorm.jl") && train()
