@@ -28,8 +28,8 @@ gpu_av = gpu() >= 0
             C = sz[end-1]
             aw = bnparams(et, C)
             # GPU buffers
-            kax = KnetArray{et}(5rand(sz...));
-            kaw = KnetArray{et}(bnparams(C));
+            kax = gpu_av ? KnetArray{et}(5rand(sz...)) : nothing
+            kaw = gpu_av ? KnetArray{et}(bnparams(C)) : nothing
 
             # Array types
             at = typeof(ax)
