@@ -421,19 +421,18 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
     if training
         x_mu, ivar = _get_cache_data(cache, x, eps)
         # equations from the original paper
+        dyivar = dy .* ivar
         if g !== nothing
-            dg = sum(x_mu .* ivar .* dy, dims)
+            dg = sum(x_mu .* dyivar, dims)
             db = sum(dy, dims)
             dy = g .* dy
         else
             dg, db = nothing, nothing
         end
-        m = *(size(x, dims...)...)
-        dsigma2 = -T(0.5) .* sum(dy .* x_mu .* ivar.^3, dims)
-        dmu = -sum(dy .* ivar, dims) .-
-            2dsigma2 .* sum(x_mu, dims) ./ m
-        dx = dy .* ivar .+
-            (dsigma2 .* 2x_mu .+ dmu) ./ m
+        m = prod(size(x, dims...))
+        dsigma2 = -T(0.5) .* sum(dyivar .* x_mu .* ivar.^2, dims)
+        dmu = -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
+        dx = dyivar .+ (dsigma2 .* 2x_mu .+ dmu) ./ m
     else #same reasoning with the gpu version
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
