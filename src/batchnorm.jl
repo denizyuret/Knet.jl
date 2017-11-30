@@ -5,10 +5,10 @@ are nothing. Type and size of the `mean` and `var` are determined automatically 
 in the `batchnorm` calls. A `BNMoments` object is returned.
 
 
-`BNMoments` is a high-level data structure used to store running mean and running variance
-of batch normalization.
+# BNMoments
+A high-level data structure used to store running mean and running variance
+of batch normalization with the following fields:
 
-# Fields
  `momentum::AbstractFloat`: A real number between 0 and 1 to be used as the scale of
   last mean and variance. The existing running mean or variance is multiplied by 
   (1-momentum).
@@ -18,10 +18,10 @@ of batch normalization.
  `var`: The running variance.
  
  `meaninit`: The function used for initialize the running mean. Should either be `nothing` or
-of the form `(eltype, dims...) -> data`. `zeros` is a good option.
+of the form `(eltype, dims...)->data`. `zeros` is a good option.
 
  `varinit`: The function used for initialize the running variance. Should either be `nothing` or
-`(eltype, dims...) -> data`. `ones` is a good option.
+`(eltype, dims...)->data`. `ones` is a good option.
 """
 bnmoments(;momentum=0.1, meaninit=zeros, varinit=ones, mean=nothing, var=nothing) =
     BNMoments(momentum, mean, var, meaninit, varinit)
@@ -40,37 +40,38 @@ end
 `batchnorm(x[, moments, params]; kwargs...)` performs batch normalization to `x`
 with optional scaling factor and bias stored in `params`.
 
-2d, 4d and 5d inputs are supported. Operation averages (1,), (1,2,4) and (1,2,4,5) for 
-these dimensions, respectively. 
+2d, 4d and 5d inputs are supported. Mean and variance are computed over 
+dimensions (2,), (1,2,4) and (1,2,3,5) for 2d, 4d and 5d arrays, respectively.
 
 
-`moments` stores running mean and variance to be used in testing. It is optional in training mode, but mendatory in test mode. 
+`moments` stores running mean and variance to be used in testing. 
+It is optional in the training mode, but mendatory in the test mode.
+Training and test modes are controlled by the `training` keyword argument.
 
-`param` stores the optional affine parameters gamma and beta.
-`bnparams` function can be used to initialize `param`.
+`params` stores the optional affine parameters gamma and beta.
+`bnparams` function can be used to initialize `params`.
 
 # Example
-
-    ```
+    
     # Inilization, C is an integer
     moments = bnmoments()
     params = bnparams(C)
     ...
-    # x -> (H, W, C, N)
+    # size(x) -> (H, W, C, N)
     y = batchnorm(x, moments, params)
-    # y -> (H, W, C, N)
-    ```
+    # size(y) -> (H, W, C, N)
+    
 
 # Keywords
 
- `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0
+ `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0.
  
- `training=nothing`: When `training` is true, the mean and variance of `x` are used and `moments`
+ `training`: When `training` is true, the mean and variance of `x` are used and `moments`
  argument is modified if it is provided. When `training` is false, mean and variance stored in 
- the `moments` argument are used. When training is kept `nothing`, the mode is determined
- based on inputs' being recorded.
-
+ the `moments` argument are used. Default value is `true` when at least one of `x` and `params`
+ is `AutoGrad.Rec`, `false` otherwise.
 """
+
 function batchnorm(x, moments::Union{BNMoments, Void}=nothing, params=nothing;
                    training=nothing, o...)
     xnd = ndims(x)
@@ -101,9 +102,10 @@ end
 
 """
 `bnparams(etype, channels)` creates a single 1d array that contains both 
-scale and bias of batchnorm
+scale and bias of batchnorm, where the first half is scale and the
+second half is bias.
 
-`bnparams(channels)` calls `bnparam` with `etype=Float64`, following julia convention
+`bnparams(channels)` calls `bnparams` with `etype=Float64`, following Julia convention
 
 """
 function bnparams(etype, channels::Integer)
@@ -114,6 +116,7 @@ function bnparams(etype, channels::Integer)
 end
 
 bnparams(channels::Integer) = bnparams(Float64, channels)
+
 
 #= 
 LOW-LEVEL API that won't be exported by default
@@ -300,13 +303,13 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
     else
         # At test mode, g .*( x ./ sqrt(var) - mean ./ sqrt(var)) .+ beta
         # is performed;
-        # so the derivative is dy .* g./sqrt(var + x) since mean and var
+        # so the derivative dx = dy .* g. / sqrt(var + eps) since mean and var
         # are constants
         # TODO: Test this operation
         # Note: moments must exist since otherwise forward pass fails
         ivar = 1 ./ sqrt.(moments.var .+ eps)
-        dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
-        if g!==nothing
+        dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
+        if g !== nothing
             dg = sum(dy .* (x .- moments.mean) .* ivar, _reddims(dy))
             db = sum(dy, _reddims(dy))
         else
@@ -433,8 +436,8 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
             (dsigma2 .* 2x_mu .+ dmu) ./ m
     else #same reasoning with the gpu version
         ivar = 1 ./ sqrt.(moments.var .+ eps)
-        dx = (g!==nothing) ? (dy .* g .* ivar) : (dy .* ivar)
-        if g!==nothing
+        dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
+        if g !== nothing
             dg = sum(dy .* (x .- moments.mean) .* ivar, dims)
             db = sum(dy, dims)
         else
