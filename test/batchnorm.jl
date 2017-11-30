@@ -104,7 +104,7 @@ gpu_av = gpu() >= 0
                         @test ~isapprox(v, mg.var; rtol=1e-20)
                     end 
                 end
-                
+                # TODO: Remove this if after 2d mode test backward supported
                 if d > 2
                     @testset "cpu-grads-testing" begin
                         m1 = bnmoments()
@@ -119,7 +119,6 @@ gpu_av = gpu() >= 0
                         end
                     end
                 end
-                # TODO: add test mode gradchecks
             end #end of {dim, type} testset
         end
     end
