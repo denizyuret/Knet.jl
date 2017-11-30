@@ -1,7 +1,7 @@
 include("header.jl")
 
 srand(42)
-TOL=1e-2
+TOL=1e-1
 
 # utils
 std2(x) = let x_mu = x .- mean(x)
@@ -14,6 +14,8 @@ dims = [2, 4, 5]
 # gradcheck functions
 bn3(a) = batchnorm(a[1], nothing, a[2]; training=true)
 bn1(a) = batchnorm(a; training=true)
+bn3ts(a) = batchnorm(a[1], bnmoments(), a[2]; training=false)
+bn1ts(a) = batchnorm(a, bnmoments(); training=false)
 gpu_av = gpu() >= 0
 
 @testset "batchnorm" begin
@@ -103,6 +105,20 @@ gpu_av = gpu() >= 0
                     end 
                 end
                 
+                if d > 2
+                    @testset "cpu-grads-testing" begin
+                        m1 = bnmoments()
+                        @test gradcheck(bn1ts, ax; rtol=TOL)
+                        @test gradcheck(bn3ts, (ax, aw); rtol=TOL)
+                    end
+                
+                    if gpu_av
+                        @testset "gpu-grads-testing" begin
+                            @test gradcheck(bn1ts, kax; rtol=TOL)
+                            @test gradcheck(bn3ts, (kax, kaw); rtol=TOL)
+                        end
+                    end
+                end
                 # TODO: add test mode gradchecks
             end #end of {dim, type} testset
         end

@@ -459,6 +459,10 @@ end
 # Implement batchnorm2 using batchnorm4, with autograd
 
 function batchnorm2(g, b, x; moments=nothing, o...)
+    # TODO: This support should be added when needed
+    if training == false && (isa(g, Rec) || isa(x, Rec) || isa(b, Rec))
+        error("Test mode backward is not supported with 2d")
+    end
     @inline _pad4(x) = reshape(x, (1,1,size(x,1,2)...))
      # process moments
     if moments !== nothing
