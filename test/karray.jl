@@ -115,6 +115,14 @@ if gpu() >= 0
                 @test gradcheck(x->KnetArray(sin(Array(x))),k)
             end
         end
+
+        @testset "reshape" begin
+            a = KnetArray(Float32, 2, 2, 2)
+            
+            @test size(reshape(a, 4, :)) == size(reshape(a, (4, :)) == (4, 2)
+            @test size(reshape(a, :, 4)) == size(reshape(a, (:, 4)) == (2, 4)
+            @test size(reshape(a, :, 1, 4)) == (2, 1,  4)
+        end
     end
 end
 

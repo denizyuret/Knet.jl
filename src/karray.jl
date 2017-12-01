@@ -132,8 +132,20 @@ convert{T,N}(::Type{KnetArray{T}}, x::KnetArray{T,N}) = x
 convert{T,N}(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) = x
 convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},unsafe_copy!(Array{S}(size(x)), 1, x, 1, length(x)))
-reshape{T}(a::KnetArray{T},dims::Dims)=(if dims==size(a); a; elseif prod(dims)!=length(a); throw(DimensionMismatch()); else; KnetArray{T,length(dims)}(a.ptr,dims); end)
-reshape(a::KnetArray, dims::Int...) = reshape(a, dims)
+
+reshape{T}(a::KnetArray{T}, dims::Dims)
+    if dims==size(a) 
+        a
+    elseif prod(dims) != length(a) 
+        throw(DimensionMismatch())
+    else
+        KnetArray{T,length(dims)}(a.ptr, dims)
+    end
+end
+
+reshape(a::KnetArray, dims::Union{Int,Colon}...) = reshape(a, dims)
+reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._reshape_uncolon(a, dims))
+
 vec(a::KnetArray) = reshape(a, length(a))
 # KnetArray <- AbstractArray
 convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
