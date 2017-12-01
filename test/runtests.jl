@@ -13,3 +13,4 @@
 @time include("broadcast.jl")     #  34  19 491 119  51  53  25  0
 @time include("unary.jl")         #  42   6  36   4  56  67  11  0
 @time include("reduction.jl")     #  40  21  29  11  57  55  29  348/1260: sumabs issues, need to fix both in AG and KN
+@time include("batchnorm.jl")
