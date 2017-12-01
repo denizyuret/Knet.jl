@@ -133,7 +133,7 @@ convert{T,N}(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) = x
 convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},unsafe_copy!(Array{S}(size(x)), 1, x, 1, length(x)))
 
-reshape{T}(a::KnetArray{T}, dims::Dims)
+function reshape{T}(a::KnetArray{T}, dims::Dims)
     if dims==size(a) 
         a
     elseif prod(dims) != length(a) 
