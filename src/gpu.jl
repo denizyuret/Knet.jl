@@ -114,7 +114,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
             cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
-            rand!(KnetArray(Float32,1))
+            curandInit()
         else
             GPU = -1
             # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
@@ -209,3 +209,11 @@ function cudnnCreate()
     return handle
 end
 
+function curandInit()
+    p = Cptr[0]; r = Cptr[0]; 
+    @cuda(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
+    @cuda(curand,curandCreateGenerator,(Cptr,Cint),r,100)
+    @cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
+    @cuda(curand,curandDestroyGenerator,(Cptr,),r[1])
+    @cuda(cudart,cudaFree,(Cptr,),p[1])
+end
