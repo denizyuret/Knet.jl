@@ -68,10 +68,7 @@ CIFAR models can be used as:
     
    `y = resnetcifar(w, m, x)`
   
-
 """
-
-
 module ResNetLib
 
 using Knet, MAT
