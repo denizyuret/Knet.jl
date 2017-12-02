@@ -47,6 +47,10 @@ function Base.length(m::MB)
     m.partial ? ceil(Int,n) : floor(Int,n)
 end
 
+function Base.rand(m::MB)
+    i = rand(0:(m.length-m.batchsize))
+    return next(m, i)[1]
+end
 
 """
     nll(model, data, predict; average=true)
