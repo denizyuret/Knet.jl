@@ -1,17 +1,12 @@
 Knet v0.8.6 Release Notes
 =========================
 
-TODO
-----
-* CUDNN: add batchnorm, test dropout, softmax etc. for speed.
-* Modular interface.
-* CUDAapi, windows compat, Tim Besard's CI.
-
 General
 -------
 * Pre-0.6 Julia versions no longer supported.
 * `rnninit` and `rnnforw` implement cudnn RNNs (with @cangumeli).
 * `conv4` performance significantly improved using cudnnFind.
+* `batchnorm` implemented using CUDNN (@cangumeli).
 * `DBGFLAGS` and `PROFILING` constants defined in Knet.jl.
 * `optimizers` creates optimization structs for the whole model.
 * `dropout` now detects training mode automatically.
@@ -19,16 +14,19 @@ General
 * `accuracy` returns ratio of correct answers given score matrix and answer index vector.
 * `minibatch(x,y,b)` returns a batch iterator.
 * `knetgc` is now exported to cudaFree garbage collected pointers.
-* `randn!` and `mean(a,dims)` is supported by KnetArray (@CarloLucibello).
+* `randn!`, `mean(a,dims)`, `reshape` with `Colon` is now supported by KnetArray (@CarloLucibello).
 * Using CUDAapi and CUDAdrv in build.jl if installed.
 * Got rid of the Combinatorics dependency in test.
 * libnvidia-ml only used when available (it is not available in OSX).
+* `curandInit` called at initialization to prevent memory fill before first dropout.
 
 Documentation and Examples
 --------------------------
-* New benchmarking results in tutorial.md and README.md (from @ilkarman).
-* New under Knet/data: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl.
+* New benchmarking results in tutorial.md and README.md (with @kirnap, @ilkarman).
+* Knet/data now has download utilities: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl.
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
+* New variational autoencoder example (@CarloLucibello).
+
 
 Knet v0.8.5 Release Notes
 =========================
