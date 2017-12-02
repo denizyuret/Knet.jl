@@ -1,4 +1,4 @@
-for p in ("Knet","ArgParse")
+for p in ("Knet","ArgParse","PyPlot")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
@@ -9,7 +9,6 @@ module VAE
 using Knet
 using PyPlot # comment out if not plotting
 using ArgParse
-import AutoGrad: getval
 include(Pkg.dir("Knet","data","mnist.jl"))
 
 const F = Float32
