@@ -93,8 +93,7 @@ function weights(nz, nh; atype=Array{F})
 end
 
 
-function plot_reconstruction(θ, ϕ, data)
-    nimg = 10
+function plot_reconstruction(θ, ϕ, data, nimg=10)
     x, _ = rand(data)
     x = mat(x)
     x = x[:, rand(1:size(x,2), nimg)]
@@ -124,8 +123,7 @@ function plot_reconstruction(θ, ϕ, data)
     # tight_layout()
 end
 
-function plot_dream(θ)
-    nimg = 20
+function plot_dream(θ, nimg=20)
     nh, nz = size(θ[1])
     atype = θ[1] isa KnetArray ? KnetArray : Array
 
