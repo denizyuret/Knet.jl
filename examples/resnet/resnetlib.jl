@@ -251,7 +251,7 @@ end
 function bneckinit(input, output; downsample=false, etype=Float32)
     planes = div(output, 4)
     w = Any[
-        (downsample ? [cinit([1, 1, input, output]), bnparams(etype,output)] : [])...,
+        (downsample ? [cinit([1, 1, input, output], etype), bnparams(etype,output)] : [])...,
         cinit([1, 1, input,  planes],  etype),  bnparams(etype, planes),
         cinit([3, 3, planes, planes],  etype),  bnparams(etype, planes),
         cinit([1, 1, planes, output],  etype),  bnparams(etype, output)
@@ -278,7 +278,7 @@ end
 # BASIC BLOCK
 function basicinit(input, output; downsample=false, etype=Float32)
     w = Any[
-        (downsample ? [cinit([1, 1, input, output]), bnparams(etype,output)] : [])...,
+        (downsample ? [cinit([1, 1, input, output], etype), bnparams(etype,output)] : [])...,
         cinit([3, 3, input,  output],  etype),  bnparams(etype, output),
         cinit([3, 3, output, output],  etype),  bnparams(etype, output)
     ]
