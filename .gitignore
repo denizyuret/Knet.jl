@@ -32,3 +32,4 @@ setup.sh
 *.run
 *.log
 *.prof
+*.gz
