@@ -34,7 +34,8 @@ models are initialized from scratch.
 
  `stage=0`: Used when an earlier stage of the input used as feature. `stage=0` means full
 classification is desired. `stage=n` means the output after the nth residual layer group
-is desided, when `1<=n<=4`. For `n>=5`, operation is undefined and an error is thrown.  
+is desided, when 1<=n<=4. For n=5, global average pooling is also included. 
+An error is thrown for n > 5.  
 
 -------------------------------
 
@@ -122,7 +123,7 @@ function resnetinit(repeats;
                     stage=0,
                     dataset=:imagenet)
     @assert (dataset in [:imagenet, :cifar10, :cifar100]) "dataset kwarg should be :imagenet, :cifar10, or :cifar100"
-    @assert (stage <= length(repeats)) "Use stage=0 to perform classification"
+    @assert (stage <= length(repeats)+1) "Use stage=0 to perform classification"
     ws = []
     ms = []
     if dataset === :imagenet
@@ -149,12 +150,13 @@ function resnetinit(repeats;
         push!(ws, xavier(etype, nclasses, channels[end]))
         push!(ws, zeros(etype, nclasses, 1))
     end
-    ws = map(atype, ws)
     if trained
         depth = sum(repeats .* (blockinit == bneckinit ? 3 : 2)) + 2
         metadata = load_resnet!(ws, ms; atype=atype, stage=stage, depth=depth)
-        return ws, ms, metadata
+    else
+        metadata = nothing
     end
+    ws = map(atype, ws)
     return ws, ms, nothing #todo: add non-matconvnet metadata
 end
 
@@ -198,6 +200,7 @@ function resnet(ws, ms, x, repeats;
     end
     # global average pooling & output
     o = pool(o; window=size(o,1,2), mode=2)
+    stage == length(repeats)+1 && return o
     return ws[end-1] * mat(o) .+ ws[end]
 end
 
@@ -355,6 +358,7 @@ function load_params!(weights, moments, matparams;
         mc += 1
         stage !== 0 && wc > length(weights) && return
     end
+    (stage == 5) && return
     w, b = params[end-1], params[end]
     copy!(weights[wc], mat(w)')
     copy!(weights[wc+1], b)
