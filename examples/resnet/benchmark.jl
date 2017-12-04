@@ -1,5 +1,5 @@
 using Knet
-include("resnetlib.jl")
+include(Pkg.dir("Knet", "examples", "resnet", "resnetlib.jl"))
 using ResNetLib: resnet50init, resnet50
 
 
@@ -50,7 +50,7 @@ function benchmark_cpu()
     cold_start = predictfn(w, m, x, BATCH_SIZE; atype=Array)
     info("running benchmark")
     @time begin
-       y = predictfn(w, m, x, BATCH_SIZE)
+       y = predictfn(w, m, x, BATCH_SIZE; atype=Array)
     end
     gpu(temp)
 end
