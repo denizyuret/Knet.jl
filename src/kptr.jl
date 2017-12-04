@@ -134,12 +134,18 @@ end
 
 # Some utilities
 meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])
-gpufree(i=gpu())=nvmlDeviceGetMemoryInfo(i)[2]
 
 function gpuinfo(msg="",dev=gpu();n=10)
     msg != "" && print("$msg ")
-    g = nvmlDeviceGetMemoryInfo(dev)
-    println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
+    if Libdl.find_library(["libnvidia-ml"],[]) != ""
+        g = nvmlDeviceGetMemoryInfo(dev)
+        println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
+    else
+        dev0 = gpu(); gpu(dev)
+        (free,total) = cudaMemGetInfo()
+        gpu(dev0)
+        println((:dev,dev,:total,total,:free,free,:used,total-free))
+    end
     total = k = 0
     for (s,u,f) in sort(meminfo(dev), by=(x->x[1]*x[2]), rev=true)
         total += s*u; k += 1
@@ -150,15 +156,19 @@ function gpuinfo(msg="",dev=gpu();n=10)
 end
 
 function memdbg(msg="")
-    m = nvmlDeviceGetMemoryInfo()
-    c = cudaGetMemInfo()
+    if Libdl.find_library(["libnvidia-ml"],[]) != ""
+        m = nvmlDeviceGetMemoryInfo()
+    else
+        m = (0,0,0)
+    end
+    c = cudaMemGetInfo()
     x = [0,0]
     for (s,u,f) in meminfo()
         x[1] += s*u
         x[2] += s*f
     end
     println("""$msg:
-cudaGetMemInfo: ctotal: $(c[2]) cfree: $(c[1]) ctotal-cfree: $(c[2]-c[1])
+cudaMemGetInfo: ctotal: $(c[2]) cfree: $(c[1]) ctotal-cfree: $(c[2]-c[1])
 nvmlDeviceGetMemoryInfo: ntotal: $(m[1]) nfree: $(m[2]) nused: $(m[3]) nfree+used: $(m[2]+m[3])
 KnetPtr: ktotal: $(x[1]) kavail: $(x[2]) ktotal-kavail: $(x[1]-x[2])
 nused-ktotal: $(m[3]-x[1])
