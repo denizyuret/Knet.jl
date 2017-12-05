@@ -157,7 +157,7 @@ function resnetinit(repeats;
         metadata = nothing
     end
     ws = map(atype, ws)
-    return ws, ms, nothing #todo: add non-matconvnet metadata
+    return ws, ms, metadata #todo: add non-matconvnet metadata
 end
 
 
