@@ -155,7 +155,7 @@ end
 
 # treenn loss function
 function loss(w, tree, values=[])
-    hs, ygolds = traverse(w, tree)
+    hs, ygold = traverse(w, tree)
     ypred = w[end-1] * hcat(hs...)
     len = length(ygold)
     lossval = nll(ypred,ygold; average=false)
