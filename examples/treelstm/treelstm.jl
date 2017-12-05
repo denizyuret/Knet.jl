@@ -1,10 +1,25 @@
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
+"""
+
+julia treelstm.jl
+
+This example implements a binary tree-structured LSTM networks proposed
+in 'Improved Semantic Representations From Tree-Structured Long Short-Term
+Memory Networks', Kai Sheng Tai, Richard Socher, Christopher D. Manning,
+arXiv technical report 1503.00075, 2015.
+
+* Paper url: https://arxiv.org/pdf/1503.00075.pdf
+* Project page: https://github.com/stanfordnlp/treelstm
+
+"""
 module TreeLSTM
 using Knet
 using AutoGrad
 using ArgParse
 
-const train_file = "data/trees/train.txt"
-const dev_file = "data/trees/dev.txt"
 const UNK = "_UNK_"
 t00 = now()
 const F = Float32
@@ -19,8 +34,6 @@ function main(args)
          help="array type: Array for cpu, KnetArray for gpu")
         ("--embed"; arg_type=Int; default=128; help="embedding size")
         ("--hidden"; arg_type=Int; default=128; help="hidden size")
-        ("--train"; default=train_file; help="train file")
-        ("--dev"; default=dev_file; help="dev file")
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=3; help="epochs")
         ("--minoccur"; arg_type=Int; default=0)
@@ -50,8 +63,7 @@ function main(args)
     all_time = 0
     sents = 0
     for epoch = 1:o[:epochs]
-        closs = 0.0
-        cwords = 0
+        closs = cwords = 0
         shuffle!(trn)
         t0 = now()
         for k = 1:length(trn)
@@ -64,8 +76,7 @@ function main(args)
 
             if iter % 1000 == 0
                 @printf("%f\n", closs/cwords); flush(STDOUT)
-                closs = 0.0
-                cwords = 0
+                closs = cwords = 0
             end
         end
         all_time += Int(now()-t0)*0.001

@@ -19,14 +19,29 @@ const TREEBANK_ZIPPATH = joinpath(TREEBANK_DIR, TREEBANK_ZIPNAME)
 
 """
 
-This utility loads [Stanford Sentiment Treebank](https://nlp.stanford.edu/sentiment/index.html) sentiment classification dataset. There are 8544, 1101 and 2210 trees in train, dev and test splits respectively. Each tree represented as a s-expression. There are 5 different scales to represent sentiment negativity/positivity.
+This utility loads [Stanford Sentiment Treebank](https://nlp.stanford.edu/sentiment/index.html)
+sentiment classification dataset. There are 8544, 1101 and 2210 trees in train,
+dev and test splits respectively. Each tree represented as a s-expression in raw
+data. There are 5 different scales to represent sentiment negativity/positivity.
 
 ```
 # Usage:
 include(Pkg.dir("Knet/data/treebank.jl"))
-dtrn = load_treebank_data(splits=["train"]) # possible splits: train,dev,test
-dtrn = load_treebank_data("train")
-# typeof(dtrn[1]) == StanfordSentimentTree
+trn = load_treebank_data(splits=["train"]) # possible splits: train,dev,test
+trn = load_treebank_data("train")
+
+# each instance is a SentimentTree
+# typeof(trn[1]) == SentimentTree
+
+# build word/tag vocabularies
+l2i, w2i, i2l, i2w = build_treebank_vocabs(trn)
+
+# make_data! overwrites the data - replaces words/tags with assigned indices
+make_data!(trn, w2i, l2i)
+
+# see the data loader source code and the example for further documentation
+```
+
 """
 
 mutable struct SentimentTree
