@@ -179,10 +179,12 @@ function resnet(ws, ms, x, repeats;
             ws = ws[1:end-1]
         end
         o = batchnorm(o, ms[1], ws[2])
+        o = relu.(o)
         o = pool(o; window=3, stride=2)
     else
         o = conv4(ws[1], x; padding=1)
         o = batchnorm(o, ms[1], ws[2])
+        o = relu.(o)
     end
     wstart = 3
     mstart = 2
