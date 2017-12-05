@@ -9,7 +9,7 @@ which is `AutoGrad.Rec` during gradient calculation.  Use the keyword
 argument `training::Bool` to change the default mode and
 `seed::Number` to set the random number seed for reproducible
 results. See [(Srivastava et al. 2014)](http://jmlr.org/papers/v15/srivastava14a.html) 
-for reference.
+for a reference.
 
 """
 function dropout(x,p; seed=0, training=false)
@@ -41,7 +41,7 @@ end
 
 # Turn dropout into an AutoGrad primitive
 dropout_r = recorder(dropout)
-dropout(x::Rec,p; seed=0, o...)=dropout_r(x,p;seed=seed,training=true)
+dropout(x::Rec,p;seed=0,training=true)=dropout_r(x,p;seed=seed,training=training)
 dropout(::Type{Grad{1}},d...;o...)=dropback(getval.(d)...) # d=dy,y,x,p
 
 for S in (32,64)

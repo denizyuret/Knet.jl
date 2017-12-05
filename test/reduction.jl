@@ -1,4 +1,5 @@
 include("header.jl")
+include("combinatorics.jl")
 
 const MIN_DIM  = 3
 const MAX_DIM  = 5
@@ -126,7 +127,7 @@ srand(42)
                 end
 
                 # test all combinations
-                for c in mapreduce(i->collect(combinations(1:dim,i)), vcat, 1:dim)
+                for c in mapreduce(i->collect(combinas(1:dim,i)), vcat, 1:dim)
                     #@show f,t,dim,xsize,c
                     @test gradcheck(f, ax, c; rtol=TOL1)
                     if gpu() >= 0 && gx != nothing

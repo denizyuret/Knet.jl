@@ -88,7 +88,7 @@ function TDs{A}(x::KnetArray{A},::Void) # Treat x: (X,B?,T?) as a 4D array: (1,X
     return TDs(pvec, [xDesc])
 end
 
-function TDs{A}(x::KnetArray{A},batchSizes::Vector{Int}) # x: (X,B*), batchSizes gives us Bt sizes
+function TDs{A}(x::KnetArray{A},batchSizes) # x: (X,B*), batchSizes gives us Bt sizes
     @assert sum(batchSizes) == div(length(x),size(x,1))
     X = size(x,1)
     xs = [ TD(A,1,X,B) for B in batchSizes ]
@@ -471,6 +471,12 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
+rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
+
+let rnnforw_r = recorder(rnnforw); global rnnforw
+    rnnforw(r::RNN, w::Rec, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
+end
+
 function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     y,hy,cy,rs = getval(t)
     dy,dhy,dcy,drs = getval(dt)
@@ -481,10 +487,6 @@ end
 rnnforw(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
 rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
 rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
-
-let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw(r::RNN, w::Rec, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
-end
 
 function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                     dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...)

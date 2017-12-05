@@ -72,53 +72,54 @@ on arrays of an inactive device will result in error.
 function gpu end
 
 let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
-    global gpu, gpuCount, cublashandle, cudnnhandle, cudaRuntimeVersion, cudaDriverVersion
+    global gpu, gpuCount, cublashandle, cudnnhandle
 
     gpu()=GPU
 
-    function gpuCount() # should not bomb when there is no gpu or nvidia libs
-        if GPUCNT == -1
-            GPUCNT = try
-	        p=Cuint[0]
-                # @cuda does not stay quiet so we use @cuda1 here
-                # This code is only run once if successful, so nvmlInit here is ok
-                @cuda1("nvidia-ml",nvmlInit,())
-                @cuda1("nvidia-ml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
-                # Let us keep nvml initialized for future ops such as meminfo
-                # @cuda1("nvidia-ml",nvmlShutdown,())
-	        Int(p[1])
-            catch
-	        0
+    function gpu(usegpu::Bool)
+        global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
+        if !isdefined(:cudartfound)
+            if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
+                cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
+                cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
             end
         end
-        return GPUCNT
-    end
-
-    function gpu(i::Int)
-        (GPU == i) && return i
-        if 0 <= i < gpuCount()
-            @cuda(cudart,cudaSetDevice, (Cint,), i)
-            cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
-            cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
-        else
-            i = -1
-            # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
+        if !isdefined(:nvmlfound)
+            if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
+                # This code is only run once if successful, so nvmlInit here is ok
+                @cuda("nvidia-ml",nvmlInit,())
+                s = zeros(UInt8,80)
+                @cuda("nvidia-ml",nvmlSystemGetDriverVersion,(Ptr{Cchar},Cuint),s,80)
+                nvmlDriverVersion = unsafe_string(pointer(s))
+                @cuda("nvidia-ml",nvmlSystemGetNVMLVersion,(Ptr{Cchar},Cuint),s,80)
+                nvmlVersion = unsafe_string(pointer(s))
+                # Let us keep nvml initialized for future ops such as meminfo
+                # @cuda("nvidia-ml",nvmlShutdown,())
+            end
         end
-        return (GPU = i)
-    end
-
-    function gpu(usegpu::Bool)
         if usegpu && gpuCount() > 0
-            pick = free = same = -1
-            for i=0:gpuCount()-1
-                mem = nvmlDeviceGetMemoryInfo(i)
-                if mem[2] > free
-                    pick = i
-                    free = mem[2]
-                    same = 1
-                elseif mem[2] == free
-                    # pick one of equal devices randomly
-                    rand(1:(same+=1)) == 1 && (pick = i)
+            if GPU >= 0
+                return
+            elseif gpuCount() == 1
+                pick = 0
+            else # Pick based on memory usage
+                pick = free = same = -1
+                for i=0:gpuCount()-1
+                    if nvmlfound
+                        freemem = nvmlDeviceGetMemoryInfo(i)[2]
+                    else
+                        @cuda(cudart,cudaSetDevice, (Cint,), i)
+                        freemem = cudaMemGetInfo()[1]
+                        @cuda(cudart,cudaDeviceReset,()) # otherwise we leave a memory footprint
+                    end
+                    if freemem > free
+                        pick = i
+                        free = freemem
+                        same = 1
+                    elseif freemem == free
+                        # pick one of equal devices randomly
+                        rand(1:(same+=1)) == 1 && (pick = i)
+                    end
                 end
             end
             gpu(pick)
@@ -128,6 +129,41 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             end
             gpu(-1)
         end
+    end
+
+    function gpu(i::Int)
+        if GPU == i
+            # nothing to do 
+        elseif 0 <= i < gpuCount()
+            GPU = i
+            @cuda(cudart,cudaSetDevice, (Cint,), i)
+            # Initialize curand to guard against gpu memory fillup before first dropout (#181)
+            curandInit()
+        else
+            GPU = -1
+            # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
+        end
+        return GPU
+    end
+
+    function gpuCount() # should not bomb when there is no gpu or nvidia libs
+        if GPUCNT == -1
+            GPUCNT = try
+	        p=Cuint[0]
+                if nvmlfound
+                    # @cuda does not stay quiet so we use @cuda1 here
+                    @cuda1("nvidia-ml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
+                elseif cudartfound
+                    # OSX does not have the nvidia-ml library!
+                    # We prefer nvml because cudart takes up memory even if we don't use a device
+                    @cuda1(cudart,cudaGetDeviceCount,(Ptr{Cuint},),p)
+                end
+	        Int(p[1])
+            catch
+	        0
+            end
+        end
+        return GPUCNT
     end
 
     function cublashandle(dev=gpu())
@@ -150,9 +186,11 @@ end
 # cudaGetDeviceCount is deprecated, use gpuCount instead:
 cudaGetDeviceCount()=(try; p=Cint[0]; eval(:(ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),$p))); p[1]; catch; 0; end) # will not bomb when there is no gpu
 cudaGetDevice()=(d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);d[1])
-cudaGetMemInfo()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
+"Returns free,total memory."
+cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
 
+"Returns total,free,used memory."
 function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
@@ -161,6 +199,23 @@ function nvmlDeviceGetMemoryInfo(i=gpu())
     @cuda("nvidia-ml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))
 end
+
+function gpumem(i=gpu())
+    if i < 0 || i >= gpuCount()
+        return (0,0,0)
+    elseif nvmlfound
+        return nvmlDeviceGetMemoryInfo(i)
+    elseif cudartfound
+        dev=gpu(); gpu(i)
+        free,total = cudaMemGetInfo()
+        gpu(dev)
+        return (total,free,total-free)
+    else
+        error("gpumem cannot find nvml or cudart.")
+    end
+end
+
+gpufree(i=gpu())=gpumem(i)[2]
 
 function cublasCreate()
     handleP = Cptr[0]
@@ -180,3 +235,11 @@ function cudnnCreate()
     return handle
 end
 
+function curandInit()
+    p = Cptr[0]; r = Cptr[0]; 
+    @cuda(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
+    @cuda(curand,curandCreateGenerator,(Cptr,Cint),r,100)
+    @cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
+    @cuda(curand,curandDestroyGenerator,(Cptr,),r[1])
+    @cuda(cudart,cudaFree,(Cptr,),p[1])
+end

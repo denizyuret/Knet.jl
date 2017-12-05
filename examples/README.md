@@ -16,6 +16,7 @@
 - [overfitting](overfitting): Notebook on underfitting, overfitting, regularization, dropout.
 - [resnet](resnet): Knet implementation of [ResNet] 50, 101, and 152 models.
 - [vgg](vgg): Knet implementation of [VGG] D and E models.
+- [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
 [LeNet]: http://yann.lecun.com/exdb/lenet

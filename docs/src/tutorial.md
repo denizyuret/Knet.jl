@@ -76,8 +76,9 @@ the loss. In this section we will see the prediction, loss, and
 training functions for five models: linear regression, softmax
 classification, fully-connected, convolutional and recurrent neural
 networks.  It would be best to copy paste and modify these examples on
-your own computer.  You can install Knet using `Pkg.add("Knet")` in
-Julia.
+your own computer.  They are also available as an [IJulia
+notebook](https://github.com/denizyuret/Knet.jl/tree/master/examples/knet-tutorial).
+You can install Knet using `Pkg.add("Knet")` in Julia.
 
 
 ### Linear regression
@@ -86,9 +87,11 @@ Here is the prediction function and the corresponding quadratic loss
 function for a simple linear regression model:
 
 ```julia
+using Knet
+
 predict(w,x) = w[1]*x .+ w[2]
 
-loss(w,x,y) = sumabs2(y - predict(w,x)) / size(y,2)
+loss(w,x,y) = mean(abs2,y-predict(w,x))
 ```
 
 The variable `w` is a list of parameters (it could be a Tuple, Array, or
@@ -101,18 +104,16 @@ Knet uses the higher-order function [`grad`](@ref) from
 gradient direction:
 
 ```julia
-using Knet
-
 lossgradient = grad(loss)
 ```
 
-Note that `grad` is a higher-order function that takes and returns other
-functions. The `lossgradient` function takes the same arguments as
-`loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss
-value, `lossgradient` returns `dw`, the gradient of the loss with
-respect to its first argument `w`. The type and size of `dw` is
-identical to `w`, each entry in `dw` gives the derivative of the loss
-with respect to the corresponding entry in `w`. 
+Note that [`grad`](@ref) is a higher-order function that takes and
+returns other functions. The `lossgradient` function takes the same
+arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of
+returning a loss value, `lossgradient` returns `dw`, the gradient of
+the loss with respect to its first argument `w`. The type and size of
+`dw` is identical to `w`, each entry in `dw` gives the derivative of
+the loss with respect to the corresponding entry in `w`.
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can
 train this model:
@@ -121,9 +122,9 @@ train this model:
 function train(w, data; lr=.1)
     for (x,y) in data
         dw = lossgradient(w, x, y)
-        for i in 1:length(w)
-            w[i] -= lr * dw[i]
-        end
+	for i in 1:length(w)
+	    w[i] -= lr * dw[i]
+	end	    
     end
     return w
 end
@@ -132,39 +133,38 @@ end
 We simply iterate over the input-output pairs in data, calculate the
 lossgradient for each example, and move the parameters in the negative
 gradient direction with a step size determined by the learning rate
-`lr`.  See [Optimization methods](@ref) for more advanced algorithms.
+`lr`.  
 
 > [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/housing.jpeg?raw=true)](https://archive.ics.uci.edu/ml/datasets/Housing)
 
-Let's train this model on the
-[Housing](https://archive.ics.uci.edu/ml/datasets/Housing) dataset from
-the UCI Machine Learning Repository.
+Let's train this model on the [Boston
+Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing)
+dataset from the UCI Machine Learning Repository.
 
 ```julia
-julia> url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-julia> rawdata = readdlm(download(url))
-julia> x = rawdata[:,1:13]'
-julia> x = (x .- mean(x,2)) ./ std(x,2)
-julia> y = rawdata[:,14:14]'
-julia> w = Any[ 0.1*randn(1,13), 0 ]
-julia> for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end
-366.0463078055053
-...
-29.63709385230451
+include(Knet.dir("data","housing.jl"))
+x,y = housing()
+w = Any[ 0.1*randn(1,13), 0.0 ]
+for i=1:10; train(w, [(x,y)]); println(loss(w,x,y)); end
+# 366.0463078055053
+# ...
+# 29.63709385230451
 ```
 
 The dataset has housing related information for 506 neighborhoods in
 Boston from 1978. Each neighborhood is represented using 13 attributes
 such as crime rate or distance to employment centers. The goal is to
-predict the median value of the houses given in \$1000's. After
-downloading, splitting and normalizing the data, we initialize the
-parameters randomly and take 10 steps in the negative gradient
-direction. We can see the loss dropping from 366.0 to 29.6. See
-[housing.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing-linreg/housing.jl)
-for more information on this example.
+predict the median value of the houses given in \$1000's. The
+`housing()` function from `housing.jl` downloads, splits and
+normalizes the data.  We initialize the parameters randomly and take
+10 steps in the negative gradient direction. We can see the loss
+dropping from 366.0 to 29.6. See the
+[housing](https://github.com/denizyuret/Knet.jl/blob/master/examples/housing-linreg)
+example for more information on this model.
 
 Note that `grad` was the only function used that is not in the Julia
-standard library. This is typical of models defined in Knet.
+standard library. This is typical of models defined in Knet, where
+most of the code is written in plain Julia.
 
 ### Softmax classification
 
@@ -184,60 +184,53 @@ models which handle numeric outputs. We typically use the cross entropy
 loss function in classification models:
 
 ```julia
-function loss(w,x,ygold)
-    ypred = predict(w,x)
-    ynorm = ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
+predict(w,x) = w[1]*mat(x) .+ w[2]
+
+loss(w,x,ygold) = nll(predict(w,x), ygold)
+
+lossgradient = grad(loss)
 ```
 
-Other than the change of loss function, the softmax model is identical
-to the linear regression model. We use the same `predict`, same `train`
-and set `lossgradient=grad(loss)` as before. To see how well our model
-classifies let's define an `accuracy` function which returns the
-percentage of instances classified correctly:
-
-```julia
-function accuracy(w, data)
-    ncorrect = ninstance = 0
-    for (x, ygold) in data
-        ypred = predict(w,x)
-        ncorrect += sum(ygold .* (ypred .== maximum(ypred,1)))
-        ninstance += size(ygold,2)
-    end
-    return ncorrect/ninstance
-end
-```
+[`nll`](@ref) computes the negative log likelihood of your predictions
+compared to the correct answers.  Here, we assume `ygold` is an array
+of N integers indicating the correct answers for N instances (we use
+ygold=10 to represent the 0 answer) and `predict()` gives us a (10,N)
+matrix of scores for each answer. [`mat`](@ref) is needed to convert
+the (28,28,1,N) `x` array to a (784,N) matrix so it can be used in
+matrix multiplication.  Other than the change of loss function, the
+softmax model is identical to the linear regression model. We use the
+same `predict` (except for `mat` reshaping), `train` and set
+`lossgradient=grad(loss)` as before.
 
 Now let's train a model on the MNIST data:
 
 ```julia
-julia> include(Knet.dir("examples","mnist.jl"))
-julia> MNIST.loaddata()
-julia> using MNIST: xtrn, ytrn, xtst, ytst, minibatch
-julia> dtrn = minibatch(xtrn, ytrn, 100)
-julia> dtst = minibatch(xtst, ytst, 100)
-julia> w = Any[ -0.1+0.2*rand(Float32,10,784), zeros(Float32,10,1) ]
-julia> println((:epoch, 0, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
-julia> for epoch=1:10
-           train(w, dtrn; lr=0.5)
-           println((:epoch, epoch, :trn, accuracy(w,dtrn), :tst, accuracy(w,dtst)))
-       end
+include(Knet.dir("data","mnist.jl"))
+xtrn, ytrn, xtst, ytst = mnist()
+dtrn = minibatch(xtrn, ytrn, 100)
+dtst = minibatch(xtst, ytst, 100)
+w = Any[ 0.1f0*randn(Float32,10,784), zeros(Float32,10,1) ]
+println((:epoch, 0, :trn, accuracy(w,dtrn,predict), :tst, accuracy(w,dtst,predict)))
+for epoch=1:10
+    train(w, dtrn; lr=0.5)
+    println((:epoch, epoch, :trn, accuracy(w,dtrn,predict), :tst, accuracy(w,dtst,predict)))
+end
 
-(:epoch,0,:trn,0.11761667f0,:tst,0.121f0)
-(:epoch,1,:trn,0.9005f0,:tst,0.9048f0)
-...
-(:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
+# (:epoch,0,:trn,0.11761667f0,:tst,0.121f0)
+# (:epoch,1,:trn,0.9005f0,:tst,0.9048f0)
+# ...
+# (:epoch,10,:trn,0.9196f0,:tst,0.9153f0)
 ```
 
-Including `mnist.jl` loads the MNIST data, downloading it from the
-internet if necessary, and provides a training set (xtrn,ytrn), test set
-(xtst,ytst) and a `minibatch` utility which we use to rearrange the data
-into chunks of 100 instances. After randomly initializing the parameters
-we train for 10 epochs, printing out training and test set accuracy at
-every epoch. The final accuracy of about 92% is close to the limit of
-what we can achieve with this type of model. To improve further we must
-look beyond linear models.
+Calling `mnist()` from `mnist.jl` loads the MNIST data, downloading it
+from the internet if necessary, and provides a training set
+(xtrn,ytrn) and a test set (xtst,ytst). [`minibatch`](@ref) is used to
+rearrange the data into chunks of 100 instances. After randomly
+initializing the parameters we train for 10 epochs, printing out
+training and test set [`accuracy`](@ref) at every epoch. The final
+accuracy of about 92% is close to the limit of what we can achieve
+with this type of model. To improve further we must look beyond linear
+models.
 
 ### Multi-layer perceptron
 
@@ -253,31 +246,64 @@ We can define a MLP by slightly modifying the predict function:
 
 ```julia
 function predict(w,x)
+    x = mat(x)
     for i=1:2:length(w)-2
-        x = max(0, w[i]*x .+ w[i+1])
+        x = relu.(w[i]*x .+ w[i+1])
     end
     return w[end-1]*x .+ w[end]
 end
 ```
 
 Here `w[2k-1]` is the weight matrix and `w[2k]` is the bias vector for
-the k'th layer. max(0,a) implements the popular rectifier non-linearity.
-Note that if w only has two entries, this is equivalent to the linear
-and softmax models. By adding more entries to w, we can define
-multi-layer perceptrons of arbitrary depth. Let's define one with a
-single hidden layer of 64 units:
+the k'th layer. [`relu`](@ref) implements the popular rectifier
+non-linearity: `relu.(x) = max.(0,x)`.  Note that if `w` only has two
+entries, this is equivalent to the linear and softmax models. By
+adding more entries to w, we can define multi-layer perceptrons of
+arbitrary depth. Let's define one with a single hidden layer of 64
+units:
 
 ```julia
-w = Any[ -0.1+0.2*rand(Float32,64,784), zeros(Float32,64,1),
-         -0.1+0.2*rand(Float32,10,64),  zeros(Float32,10,1) ]
+w = Any[ 0.1f0*randn(Float32,64,784), zeros(Float32,64,1),
+         0.1f0*randn(Float32,10,64),  zeros(Float32,10,1) ]
 ```
 
-The rest of the code is the same as the softmax model. We use the same
-cross-entropy loss function and the same training script. The code for
-this example is available in
-[mlp.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/mnist-mlp/mlp.jl).
-The multi-layer perceptron does significantly better than the softmax
-model:
+The rest of the code is the same as the softmax model. We can use the
+same cross-entropy loss function and the same training
+script. However, we will use a different train function to introduce
+alternative optimizers:
+
+```julia
+function train(model, data, optim)
+    for (x,y) in data
+        grads = lossgradient(model,x,y)
+        update!(model, grads, optim)
+    end
+end
+```
+
+Here the `optim` argument specifies the optimization algorithm and
+state for each model parameter (see [Optimization methods](@ref) for
+available algorithms).  [`update!`](@ref) uses `optim` to update each
+model parameter and optimization state.  `optim` has the same size and
+shape as `model`, i.e. we have a separate optimizer for each model
+parameter. For simplicity we will use the [`optimizers`](@ref)
+function to create an [`Adam`](@ref) optimizer for each parameter:
+
+```julia
+o = optimizers(w, Adam)
+println((:epoch, 0, :trn, accuracy(w,dtrn,predict), :tst, accuracy(w,dtst,predict)))
+for epoch=1:10
+    train(w, dtrn, o)
+    println((:epoch, epoch, :trn, accuracy(w,dtrn,predict), :tst, accuracy(w,dtst,predict)))
+end
+```
+
+The code for this example is available in the
+[mnist-mlp](https://github.com/denizyuret/Knet.jl/blob/master/examples/mnist-mlp)
+example or the
+[knet-tutorial](https://github.com/denizyuret/Knet.jl/blob/master/examples/knet-tutorial)
+notebook.  The multi-layer perceptron does significantly better than
+the softmax model:
 
 ```julia
 (:epoch,0,:trn,0.10166667f0,:tst,0.0977f0)
@@ -305,51 +331,59 @@ implementation of convolutional nets:
 
 ```julia
 function predict(w,x0)
-    x1 = pool(max(0, conv4(w[1],x0) .+ w[2]))
-    x2 = pool(max(0, conv4(w[3],x1) .+ w[4]))
-    x3 = max(0, w[5]*mat(x2) .+ w[6])
+    x1 = pool(relu.(conv4(w[1],x0) .+ w[2]))
+    x2 = pool(relu.(conv4(w[3],x1) .+ w[4]))
+    x3 = relu.(w[5]*mat(x2) .+ w[6])
     return w[7]*x3 .+ w[8]
 end
 ```
 
-The weights for the convolutional net can be initialized as follows:
+The weights for the convolutional net can be initialized as follows. 
 
 ```julia
-w = Any[ -0.1+0.2*rand(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
-         -0.1+0.2*rand(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
-         -0.1+0.2*rand(Float32,500,800),   zeros(Float32,500,1),
-         -0.1+0.2*rand(Float32,10,500),    zeros(Float32,10,1) ]
+w = Any[ xavier(Float32,5,5,1,20),  zeros(Float32,1,1,20,1),
+         xavier(Float32,5,5,20,50), zeros(Float32,1,1,50,1),
+         xavier(Float32,500,800),   zeros(Float32,500,1),
+         xavier(Float32,10,500),    zeros(Float32,10,1) ]
 ```
 
-Currently convolution and pooling are only supported on the GPU for 4-D
-and 5-D arrays. So we reshape our data and transfer it to the GPU along
-with the parameters by converting them into [`KnetArray`](@ref)s:
+Here we used [`xavier`](@ref) instead of `randn` which initializes
+weights based on their input and output widths.  
+
+This model is larger and more expensive to train compared to the
+previous models we have seen and it would be nice to use our GPU. To
+perform the operations on the GPU, all we need to do is to convert our
+data and weights to [`KnetArray`](@ref)s. [`minibatch`](@ref) takes an
+extra keyword argument `xtype` for this purpose, and we do it manually
+for the `w` weights:
 
 ```julia
-dtrn = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtrn)
-dtst = map(d->(KnetArray(reshape(d[1],(28,28,1,100))), KnetArray(d[2])), dtst)
+dtrn = minibatch(xtrn,ytrn,100,xtype=KnetArray)
+dtst = minibatch(xtst,ytst,100,xtype=KnetArray)
 w = map(KnetArray, w)
 ```
 
-The training proceeds as before giving us even better results. The code
-for the LeNet example can be found in
-[lenet.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet/lenet.jl).
+The training proceeds as before giving us even better results. The
+code for the LeNet example can be found under the
+[examples](https://github.com/denizyuret/Knet.jl/blob/master/examples/lenet)
+directory.
 
 ```julia
-(:epoch,0,:trn,0.12215f0,:tst,0.1263f0)
-(:epoch,1,:trn,0.96963334f0,:tst,0.971f0)
+(:epoch, 0, :trn, 0.10435, :tst, 0.103)
+(:epoch, 1, :trn, 0.98385, :tst, 0.9836)
 ...
-(:epoch,10,:trn,0.99553335f0,:tst,0.9879f0)
+(:epoch, 10, :trn, 0.9955166666666667, :tst, 0.9902)
 ```
 
 ### Recurrent neural network
 
-In this section we will see how to implement a recurrent neural network
-(RNN) in Knet. An RNN is a class of neural network where connections
-between units form a directed cycle, which allows them to keep a
-persistent state over time. This gives them the ability to process
-sequences of arbitrary length one element at a time, while keeping track
-of what happened at previous elements.
+In this section we will see how to implement a recurrent neural
+network (RNN) in Knet. This example, like the last one, requires a
+GPU.  An RNN is a class of neural network where connections between
+units form a directed cycle, which allows them to keep a persistent
+state over time. This gives them the ability to process sequences of
+arbitrary length one element at a time, while keeping track of what
+happened at previous elements.
 
 > [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/RNN-unrolled.png?raw=true)](http://colah.github.io/posts/2015-08-Understanding-LSTMs)
 
@@ -362,153 +396,186 @@ Networks"](http://karpathy.github.io/2015/05/21/rnn-effectiveness) from
 the Andrej Karpathy blog. The model can be trained with different genres
 of text, and can be used to generate original text in the same style.
 
-It turns out simple RNNs are not very good at remembering things for a
-very long time. Currently the most popular solution is to use a more
-complicated unit like the Long Short Term Memory (LSTM). An LSTM
-controls the information flow into and out of the unit using gates
-similar to digital circuits and can model long term dependencies. See
-[Understanding LSTM
-Networks](http://colah.github.io/posts/2015-08-Understanding-LSTMs) by
-Christopher Olah for a good overview of LSTMs.
-
-> [![image](https://github.com/denizyuret/Knet.jl/blob/master/docs/src/images/LSTM3-chain.png?raw=true)](http://colah.github.io/posts/2015-08-Understanding-LSTMs)
-
-([image
-source](http://colah.github.io/posts/2015-08-Understanding-LSTMs))
-
-The code below shows one way to define an LSTM in Knet. The first two
-arguments are the parameters, the weight matrix and the bias
-vector. The next two arguments hold the internal state of the LSTM:
-the hidden and cell arrays. The last argument is the input. Note that
-for performance reasons we lump all the parameters of the LSTM into
-one matrix-vector pair instead of using separate parameters for each
-gate. This way we can perform a single matrix multiplication, and
-recover the gates using array indexing. We represent input, hidden and
-cell as row vectors rather than column vectors for more efficient
-concatenation and indexing. [`sigm`](@ref) and `tanh` are the sigmoid
-and the hyperbolic tangent activation functions. The LSTM returns the
-updated state variables `hidden` and `cell`.
+We will use [The Complete Works of William
+Shakespeare](http://www.gutenberg.org/ebooks/100) to train our
+model. The `shakespeare()` function defined in `gutenberg.jl`
+downloads the book and splits the data into 5M chars for training and
+0.5M chars for testing.
 
 ```julia
-function lstm(weight,bias,hidden,cell,input)
-    gates   = hcat(input,hidden) * weight .+ bias
-    hsize   = size(hidden,2)
-    forget  = sigm(gates[:,1:hsize])
-    ingate  = sigm(gates[:,1+hsize:2hsize])
-    outgate = sigm(gates[:,1+2hsize:3hsize])
-    change  = tanh(gates[:,1+3hsize:end])
-    cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
-    return (hidden,cell)
+include(Knet.dir("data","gutenberg.jl"))
+trn,tst,chars = shakespeare()
+map(summary,(trn,tst,chars))
+# ("4925284-element Array{UInt8,1}", "525665-element Array{UInt8,1}", "84-element Array{Char,1}")
+```
+
+There are 84 unique characters in the data and they are mapped to
+UInt8 values in 1:84. The `chars` array can be used to recover the
+original text:
+
+    julia> println(string(chars[trn[1020:1210]]...))
+
+    Cheated of feature by dissembling nature,
+    Deform'd, unfinish'd, sent before my time
+    Into this breathing world scarce half made up,
+    And that so lamely and unfashionable
+
+We minibatch the data into (256,100) blocks:
+
+```julia
+BATCHSIZE = 256  # number of sequences per minibatch
+SEQLENGTH = 100  # sequence length for bptt
+
+function mb(a)
+    N = div(length(a),BATCHSIZE)
+    x = reshape(a[1:N*BATCHSIZE],N,BATCHSIZE)' # reshape full data to (B,N) with contiguous rows
+    minibatch(x[:,1:N-1], x[:,2:N], SEQLENGTH) # split into (B,T) blocks 
+end
+
+dtrn,dtst = mb(trn),mb(tst)
+map(length, (dtrn,dtst))
+# (192, 20)
+```
+
+The `initmodel` function below initializes the weights for an RNN
+language model.  It returns a tuple where `r,w` are the RNN spec and
+weights, `wx` is the input embedding matrix, `wy,by` are the weight
+matrix and bias to produce the output from the hidden state. See
+[`rnninit`](@ref) for a full description of available options.
+
+```julia
+RNNTYPE = :lstm  # can be :lstm, :gru, :tanh, :relu
+NUMLAYERS = 1    # number of RNN layers
+INPUTSIZE = 168  # size of the input character embedding
+HIDDENSIZE = 334 # size of the hidden layers
+VOCABSIZE = 84   # number of unique characters in data
+
+function initmodel()
+    w(d...)=KnetArray(xavier(Float32,d...))
+    b(d...)=KnetArray(zeros(Float32,d...))
+    r,wr = rnninit(INPUTSIZE,HIDDENSIZE,rnnType=RNNTYPE,numLayers=NUMLAYERS)
+    wx = w(INPUTSIZE,VOCABSIZE)
+    wy = w(VOCABSIZE,HIDDENSIZE)
+    by = b(VOCABSIZE,1)
+    return r,wr,wx,wy,by
 end
 ```
 
-The LSTM has an input gate, forget gate and an output gate that control
-information flow. Each gate depends on the current `input` value, and
-the last hidden state `hidden`. The memory value `cell` is computed by
-blending a new value `change` with the old `cell` value under the
-control of input and forget gates. The output gate decides how much of
-the `cell` is shared with the outside world.
-
-If an input gate element is close to 0, the corresponding element in the
-new `input` will have little effect on the memory cell. If a forget gate
-element is close to 1, the contents of the corresponding memory cell can
-be preserved for a long time. Thus the LSTM has the ability to pay
-attention to the current input, or reminisce in the past, and it can
-learn when to do which based on the problem.
-
-To build a language model, we need to predict the next character in a
-piece of text given the current character and recent history as encoded
-in the internal state. The `predict` function below implements a
-multi-layer LSTM model. `s[2k-1:2k]` hold the hidden and cell arrays and
-`w[2k-1:2k]` hold the weight and bias parameters for the k'th LSTM
-layer. The last three elements of `w` are the embedding matrix and the
-weight/bias for the final prediction. `predict` takes the current
-character encoded in `x` as a one-hot row vector, multiplies it with the
-embedding matrix, passes it through a number of LSTM layers, and
-converts the output of the final layer to the same number of dimensions
-as the input using a linear transformation. The state variable `s` is
-modified in-place.
+A character based language model needs to predict the next character
+in a piece of text given the current character and recent history as
+encoded in the internal state of the RNN. Note that LSTMs have two
+state variables typically called hidden and cell.  The `predict`
+function below takes weights `ws`, inputs `xs`, the initial hidden and
+cell states `hx` and `cx` and returns output scores `ys` along with
+the final hidden and cell states `hy` and `cy`. See [`rnnforw`](@ref)
+for available options and the exact computations performed.
 
 ```julia
-function predict(w, s, x)
-    x = x * w[end-2]
-    for i = 1:2:length(s)
-        (s[i],s[i+1]) = lstm(w[i],w[i+1],s[i],s[i+1],x)
-        x = s[i]
+function predict(ws,xs,hx,cx)
+    r,wr,wx,wy,by = ws
+    x = wx[:,xs]                                         # xs=(B,T) x=(X,B,T)
+    y,hy,cy = rnnforw(r,wr,x,hx,cx,hy=true,cy=true)      # y=(H,B,T) hy=cy=(H,B,L)
+    ys = by.+wy*reshape(y,size(y,1),size(y,2)*size(y,3)) # ys=(H,B*T)
+    return ys, hy, cy
+end
+```
+
+The loss function returns the negative-log-likelihood from the
+predicted scores and updates the hidden and cell states `h`
+in-place. [`getval`](@ref) is necessary to prevent AutoGrad state
+leaking from one minibatch to the next. We use [`gradloss`](@ref)
+instead of [`grad`](@ref) so that `lossgradient` returns both the
+gradient and the loss for reporting.
+
+```julia
+function loss(w,x,y,h)
+    py,hy,cy = predict(w,x,h...)
+    h[1],h[2] = getval(hy),getval(cy)
+    return nll(py,y)
+end
+
+lossgradient = gradloss(loss)
+```
+
+Here is the `train` and `test` loops.  When hidden and cell values are
+set to nothing, [`rnnforw`](@ref) assumes zero vectors.
+
+```julia
+function train(model,data,optim)
+    hiddens = Any[nothing,nothing]
+    losses = []
+    for (x,y) in data
+        grads,loss1 = lossgradient(model,x,y,hiddens)
+        update!(model, grads, optim)
+	push!(losses, loss1)
     end
-    return x * w[end-1] .+ w[end]
+    return mean(losses)
+end
+
+function test(model,data)
+    hiddens = Any[nothing,nothing]
+    losses = []
+    for (x,y) in data
+        push!(losses, loss(model,x,y,hiddens))
+    end
+    return mean(losses)
 end
 ```
 
-To train the language model we will use Backpropagation Through Time
-(BPTT) which basically means running the network on a given sequence and
-updating the parameters based on the total loss. Here is a function that
-calculates the total cross-entropy loss for a given (sub)sequence:
+We are ready to initialize and train our model. We report train and
+test perplexity after every epoch. 30 epochs take less than 10 minutes
+with a K80 GPU:
 
 ```julia
-function loss(param,state,sequence,range=1:length(sequence)-1)
-    total = 0.0; count = 0
-    atype = typeof(getval(param[1]))
-    input = convert(atype,sequence[first(range)])
-    for t in range
-        ypred = predict(param,state,input)
-        ynorm = logp(ypred,2) # ypred .- log(sum(exp(ypred),2))
-        ygold = convert(atype,sequence[t+1])
-        total += sum(ygold .* ynorm)
-        count += size(ygold,1)
-        input = ygold
-    end
-    return -total / count
+EPOCHS = 30
+model = initmodel()
+optim = optimizers(model, Adam)
+@time for epoch in 1:EPOCHS
+    @time trnloss = train(model,dtrn,optim) # ~18 seconds
+    @time tstloss = test(model,dtst)        # ~0.5 seconds
+    println((:epoch, epoch, :trnppl, exp(trnloss), :tstppl, exp(tstloss)))
 end
-```
 
-Here `param` and `state` hold the parameters and the state of the model,
-`sequence` and `range` give us the input sequence and a possible range
-over it to process. We convert the entries in the sequence to inputs
-that have the same type as the parameters one at a time (to conserve GPU
-memory). We use each token in the given range as an input to predict the
-next token. The average cross-entropy loss per token is returned.
+# 17.228594 seconds (243.32 k allocations: 131.754 MiB, 0.05% gc time)
+#  0.713869 seconds (208.56 k allocations: 19.673 MiB, 0.50% gc time)
+# (:epoch, 1, :trnppl, 13.917706f0, :tstppl, 7.7539396f0)
+# ...
+# (:epoch, 30, :trnppl, 3.0681787f0, :tstppl, 3.350249f0)
+# 533.660206 seconds (7.69 M allocations: 4.132 GiB, 0.03% gc time)
+```
 
 To generate text we sample each character randomly using the
-probabilities predicted by the model based on the previous character:
+probabilities predicted by the model based on the previous
+character. The helper function `sample` takes unnormalized scores `y`
+and samples an index based on normalized probabilities based on
+`y`. The first character is initialized to newline and `n` characters
+are sampled based on the model.
 
 ```julia
-function generate(param, state, vocab, nchar)
-    index_to_char = Array(Char, length(vocab))
-    for (k,v) in vocab; index_to_char[v] = k; end
-    input = oftype(param[1], zeros(1,length(vocab)))
-    index = 1
-    for t in 1:nchar
-        ypred = predict(param,state,input)
-        input[index] = 0
-        index = sample(exp(logp(ypred)))
-        print(index_to_char[index])
-        input[index] = 1
+function generate(model,n)
+    function sample(y)
+        p,r=Array(exp.(y-logsumexp(y))),rand()
+        for j=1:length(p); (r -= p[j]) < 0 && return j; end
+    end
+    h,c = nothing,nothing
+    x = findfirst(chars,'\n')
+    for i=1:n
+        y,h,c = predict(model,[x],h,c)
+        x = sample(y)
+        print(chars[x])
     end
     println()
 end
+
+generate(model,1000)
 ```
 
-Here `param` and `state` hold the parameters and state variables as
-usual. `vocab` is a Char-\>Int dictionary of the characters that can be
-produced by the model, and `nchar` gives the number of characters to
-generate. We initialize the input as a zero vector and use `predict` to
-predict subsequent characters. `sample` picks a random index based on
-the normalized probabilities output by the model.
-
-At this point we can train the network on any given piece of text (or
-other discrete sequence). For efficiency it is best to minibatch the
-training data and run BPTT on small subsequences. See
-[charlm.jl](https://github.com/denizyuret/Knet.jl/blob/master/examples/charlm/charlm.jl)
-for details. Here is a sample run on 'The Complete Works of William
-Shakespeare':
-
-    $ cd .julia/v0.6/Knet/examples/charlm
-    $ wget http://www.gutenberg.org/files/100/100.txt
-    $ julia charlm.jl --data 100.txt --epochs 10 --winit 0.3 --save shakespeare.jld
-    ... takes about 10 minutes on a GPU machine
-    $ julia charlm.jl --load shakespeare.jld --generate 1000
+Here is a random sample of 1000 characters from the model.  Note that
+the model has learnt to generate person names, correct indentation and
+mostly English words only by reading Shakespeare one letter at a time!
+The code for this example is available in the
+[charlm](https://github.com/denizyuret/Knet.jl/tree/master/examples/charlm)
+notebook.
 
         Pand soping them, my lord, if such a foolish?
       MARTER. My lord, and nothing in England's ground to new comp'd.
@@ -524,13 +591,17 @@ Shakespeare':
       BOTTOM. My lord, good mine eyest, then: I will not set up.
       LUCILIUS. Who shall
 
+
 ## Benchmarks
 
-Each of the examples above was used as a benchmark to compare Knet with
-other frameworks. The table below shows the number of seconds it takes
-to train a given model for a particular dataset, number of epochs and
-minibatch size for Knet, Theano, Torch, Caffe and TensorFlow. Knet has
-comparable performance to other commonly used frameworks.
+Each of the examples above was used as a benchmark to compare Knet
+with other frameworks. The table below shows the number of seconds it
+takes to train a given model for a particular dataset, number of
+epochs and minibatch size for Knet, Theano, Torch, Caffe and
+TensorFlow. Knet had comparable performance to other commonly used
+frameworks.
+
+Knet Benchmarks (Sep 30, 2016):
 
 |model|dataset|epochs|batch|Knet|Theano|Torch|Caffe|TFlow|
 |:----|:------|:-----|:----|:---|:-----|:----|:----|:----|
@@ -554,6 +625,46 @@ single hidden layer of 64 units. CharLM uses a single layer LSTM
 language model with embedding and hidden layer sizes set to 256 and
 trained using BPTT with a sequence length of 100. Each dataset was
 minibatched and transferred to GPU prior to benchmarking when possible.
+
+More recently (Nov 24, 2017), @ilkarman has published CNN and RNN
+[benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on
+Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual
+Machine for Linux (Ubuntu). The results are copied below.  You can
+find versions of the Knet notebooks used for these benchmarks in the
+Knet/examples directory:
+[cifar10-cnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/cifar10-cnn)
+and
+[imdb-rnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/imdb-rnn).
+
+Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
+
+| DL Library                               | Test Accuracy (%) | Training Time (s) |
+| ---------------------------------------- | ----------------- | ----------------- |
+| [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_CNN.ipynb)                 | 77                | 145               |
+| [Caffe2](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Caffe2_CNN.ipynb)               | 79                | 148               |
+| [Gluon](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Gluon_CNN.ipynb)                 | 76                | 152               |
+| [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_CNN.ipynb)            | 78                | 153               |
+| [Chainer](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Chainer_CNN.ipynb)             | 79                | 162               |
+| [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_CNN.ipynb)                   | 78                | 163               |
+| [PyTorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_CNN.ipynb)             | 78                | 169               |
+| [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Tensorflow_CNN.ipynb)       | 78                | 173               |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_CNN.ipynb)      | 77                | 194               |
+| [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_CNN.ipynb)          | 77                | 241               |
+| [Lasagne(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Theano_Lasagne_CNN.ipynb) | 77                | 253               |
+| [Keras(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_Theano_CNN.ipynb)  | 78                | 269               |
+
+Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Nov 24, 2017)
+
+| DL Library                          | Test Accuracy (%) | Training Time (s) | Using CuDNN? |
+| ----------------------------------- | ----------------- | ----------------- | ------------ |
+| [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_RNN.ipynb)            | 86                | 29                | Yes          |
+| [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Tensorflow_RNN.ipynb)  | 86                | 30                | Yes          |
+| [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_RNN.ipynb)       | 85                | 30                | Yes          |
+| [Pytorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_RNN.ipynb)        | 86                | 31                | Yes          |
+| [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_RNN.ipynb)              | 85                | 32                | Yes          |
+| [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb)     | 86                | 35                | Yes          |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) | 86                | 86                | No Available |
+
 
 ## Under the hood
 
@@ -581,13 +692,13 @@ array pointers. KnetArray is based on the more standard
 important differences: (i) KnetArrays have a custom memory manager,
 similar to [ArrayFire](http://arrayfire.com), which reuse pointers
 garbage collected by Julia to reduce the number of GPU memory
-allocations, (ii) array ranges (e.g. `a[:,3:5]`) are handled as views
-with shared pointers instead of copies when possible, and (iii) a
-number of custom CUDA kernels written for KnetArrays implement
-element-wise, broadcasting, and scalar and vector reduction operations
-efficiently. As a result Knet allows users to implement their models
-using high-level code, yet be competitive in performance with other
-frameworks as demonstrated in the benchmarks section.
+allocations, (ii) contiguous array ranges (e.g. `a[:,3:5]`) are
+handled as views with shared pointers instead of copies when possible,
+and (iii) a number of custom CUDA kernels written for KnetArrays
+implement element-wise, broadcasting, and scalar and vector reduction
+operations efficiently. As a result Knet allows users to implement
+their models using high-level code, yet be competitive in performance
+with other frameworks as demonstrated in the benchmarks section.
 
 ### AutoGrad
 
@@ -665,11 +776,11 @@ doubles the total time as expected.
 |:--|:---|
 |`a1=w1*x`|0.67|
 |`a2=w2.+a1`|0.71|
-|`a3=max(0,a2)`|0.75|
+|`a3=max.(0,a2)`|0.75|
 |`a4=w3*a3`|0.81|
 |`a5=w4.+a4`|0.85|
 |`a6=a5-y`|0.89|
-|`a7=sumabs2(a6)`|1.18|
+|`a7=sum(abs2,a6)`|1.18|
 |+recording|1.33|
 |+backprop|2.79|
 

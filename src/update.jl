@@ -502,4 +502,6 @@ and options.
 optimizers{T<:Number}(::KnetArray{T},otype; o...)=otype(;o...)
 optimizers{T<:Number}(::Array{T},otype; o...)=otype(;o...)
 optimizers(a::Associative,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
-optimizers(a,otype; o...)=map(x->optimizers(x,otype;o...), a)
+optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
+optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
+optimizers(a,otype;o...)=nothing

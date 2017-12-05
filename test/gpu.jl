@@ -8,8 +8,11 @@ if gpu() >= 0
         @test Knet.cudaDeviceSynchronize() == nothing
         @test all(p->p>Knet.Cptr(0), (Knet.cublashandle(), Knet.cudnnhandle()))
         @test all(v->v>0, @show (Knet.cudaDriverVersion, Knet.cudaRuntimeVersion, Knet.cublasVersion, Knet.cudnnVersion))
-        @test all(m->m>0, Knet.cudaGetMemInfo())
-        @test all(m->m>0, Knet.nvmlDeviceGetMemoryInfo())
+        @test all(m->m>0, Knet.cudaMemGetInfo())
+        if Libdl.find_library(["libnvidia-ml"],[]) != ""
+            @test all(m->m>0, Knet.nvmlDeviceGetMemoryInfo())
+            @show Knet.nvmlDriverVersion, Knet.nvmlVersion
+        end
     end
 end
 

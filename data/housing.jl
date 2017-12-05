@@ -18,9 +18,10 @@ deviation.
 
 """
 function housing(test=0.0;
-                 file=Knet.dir("data","housing.data"),
+                 file=Pkg.dir("Knet","data","housing","housing.data"),
                  url="https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data")
     if !isfile(file)
+        isdir(dirname(file)) || mkpath(dirname(file))
         info("Downloading $url to $file")
         download(url, file)
     end

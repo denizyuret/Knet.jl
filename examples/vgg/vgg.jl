@@ -1,7 +1,7 @@
-for p in ("Knet","ArgParse","Images","MAT","Compat")
+for p in ("Knet","ArgParse","Images")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
-include(Pkg.dir("Knet","data","matconvnet.jl"))
+include(Pkg.dir("Knet","data","imagenet.jl"))
 
 """
 
@@ -19,7 +19,7 @@ specify any model.
 
 """
 module VGG
-using Knet,ArgParse,Images
+using Knet,ArgParse
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
 const vggurl = "http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-16.mat"
 const LAYER_TYPES = ["conv", "relu", "pool", "fc", "prob"]
@@ -43,13 +43,21 @@ function main(args=ARGS)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     atype = eval(parse(o[:atype]))
-    vgg = Main.matconvnet(o[:model])
-    params = get_params(vgg, atype)
-    convnet = get_convnet(params...)
-    description = vgg["meta"]["classes"]["description"]
-    averageImage = convert(Array{Float32},vgg["meta"]["normalization"]["averageImage"])
-    info("Reading $(o[:image])")
-    image = data(o[:image], averageImage)
+
+    global _vggcache
+    if !isdefined(:_vggcache); _vggcache=Dict(); end
+    if !haskey(_vggcache,o[:model])
+        vgg = Main.matconvnet(o[:model])
+        params = get_params(vgg, atype)
+        convnet = get_convnet(params...)
+        description = vgg["meta"]["classes"]["description"]
+        averageImage = convert(Array{Float32},vgg["meta"]["normalization"]["averageImage"])
+        _vggcache[o[:model]] = vgg, params, convnet, description, averageImage
+    else
+        vgg, params, convnet, description, averageImage = _vggcache[o[:model]]
+    end
+
+    image = Main.imgdata(o[:image], averageImage)
     image = convert(atype, image)
     info("Classifying")
     @time y1 = convnet(image)
@@ -58,24 +66,6 @@ function main(args=ARGS)
     p1 = exp.(logp(z1))
     display(hcat(p1[s1[1:o[:top]]], description[s1[1:o[:top]]]))
     println()
-end
-
-function data(img, averageImage)
-    if contains(img,"://")
-        info("Downloading $img")
-        img = download(img)
-    end
-    a0 = load(img)
-    new_size = ntuple(i->div(size(a0,i)*224,minimum(size(a0))),2)
-    a1 = Images.imresize(a0, new_size)
-    i1 = div(size(a1,1)-224,2)
-    j1 = div(size(a1,2)-224,2)
-    b1 = a1[i1+1:i1+224,j1+1:j1+224]
-    c1 = permutedims(channelview(b1), (3,2,1))
-    d1 = convert(Array{Float32}, c1)
-    e1 = reshape(d1[:,:,1:3], (224,224,3,1))
-    f1 = (255 * e1 .- averageImage)
-    g1 = permutedims(f1, [2,1,3,4])
 end
 
 # This procedure makes pretrained MatConvNet VGG parameters convenient for Knet
@@ -91,7 +81,7 @@ function get_params(CNN, atype; last_layer="prob")
         push!(derivatives, haskey(l, "weights") && length(l["weights"]) != 0)
 
         if derivatives[end]
-            w = l["weights"]
+            w = copy(l["weights"])
             if operation == "conv"
                 w[2] = reshape(w[2], (1,1,length(w[2]),1))
             elseif operation == "fc"

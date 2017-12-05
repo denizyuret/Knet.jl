@@ -1,7 +1,6 @@
 docs/build/
 docs/site/
 .DS_Store
-data/
 *.mem
 *.bak
 *.cnt
@@ -33,3 +32,4 @@ setup.sh
 *.run
 *.log
 *.prof
+*.gz

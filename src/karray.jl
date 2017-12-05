@@ -27,9 +27,9 @@ operations.
 
 * Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
-  isempty, length, ndims, ones, pointer, rand!, reshape, similar,
-  size, stride, strides, summary, vcat, vec, zeros.  (cat(i,x,y)
-  supported for i=1,2.)
+  isempty, length, ndims, ones, pointer, rand!, randn!, reshape,
+  similar, size, stride, strides, summary, vcat, vec, zeros.
+  (cat(i,x,y) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -40,8 +40,8 @@ operations.
   (.==), (.>), (.>=), (.^), max, min.  (Boolean operators generate
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
-* Reduction operators: countnz, maximum, minimum, prod, sum, sumabs,
-  sumabs2, vecnorm.
+* Reduction operators: countnz, maximum, mean, minimum, prod, sum,
+  sumabs, sumabs2, vecnorm.
     
 * Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
 
@@ -132,8 +132,20 @@ convert{T,N}(::Type{KnetArray{T}}, x::KnetArray{T,N}) = x
 convert{T,N}(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) = x
 convert{T,N,S}(::Type{KnetArray{T}}, x::KnetArray{S,N}) = convert(KnetArray{T,N}, x)
 convert{T,N,S}(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) = convert(KnetArray{T,N},unsafe_copy!(Array{S}(size(x)), 1, x, 1, length(x)))
-reshape{T}(a::KnetArray{T},dims::Dims)=(if dims==size(a); a; elseif prod(dims)!=length(a); throw(DimensionMismatch()); else; KnetArray{T,length(dims)}(a.ptr,dims); end)
-reshape(a::KnetArray, dims::Int...) = reshape(a, dims)
+
+function reshape{T}(a::KnetArray{T}, dims::Dims)
+    if dims==size(a) 
+        a
+    elseif prod(dims) != length(a) 
+        throw(DimensionMismatch())
+    else
+        KnetArray{T,length(dims)}(a.ptr, dims)
+    end
+end
+
+reshape(a::KnetArray, dims::Union{Int,Colon}...) = reshape(a, dims)
+reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._reshape_uncolon(a, dims))
+
 vec(a::KnetArray) = reshape(a, length(a))
 # KnetArray <- AbstractArray
 convert{T,N}(::Type{KnetArray}, x::AbstractArray{T,N}) = convert(KnetArray{T,N}, x)
@@ -286,9 +298,14 @@ end
 
 # Avoid using Base for unimplemented cat methods:
 
-cat(d, a::KnetArray, as::KnetArray...)=throw(MethodError(cat, (a, as...)))
-hcat(a::KnetArray, as::KnetArray...)=throw(MethodError(hcat, (a, as...)))
-vcat(a::KnetArray, as::KnetArray...)=throw(MethodError(vcat, (a, as...)))
+using AutoGrad: NA # Union{Number,AbstractArray}
+const NAK = Union{Number,AbstractArray,KnetArray}
+# cat(d, a::NA, as::NA...)=Base.cat_t(d, prom_(a...), a...) # defined in AutoGrad
+cat(d, a::NAK, as::NAK...)=throw(MethodError(cat, (a, as...)))
+hcat(a::NA, as::NA...)=cat(2,a,as...)
+hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
+vcat(a::NA, as::NA...)=cat(1,a,as...)
+vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
 # Utilities:
 
