@@ -7,6 +7,7 @@ General
 * `rnninit` and `rnnforw` implement cudnn RNNs (with @cangumeli).
 * `conv4` performance significantly improved using cudnnFind.
 * `batchnorm` implemented using CUDNN (@cangumeli).
+* `logp` performance significantly improved using cudnnSoftmaxForward.
 * `DBGFLAGS` and `PROFILING` constants defined in Knet.jl.
 * `optimizers` creates optimization structs for the whole model.
 * `dropout` now detects training mode automatically.
