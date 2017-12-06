@@ -325,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.minibatch",
     "category": "Function",
-    "text": "minibatch(x, y, batchsize; shuffle, partial, xtype, ytype)\n\nReturn an iterable of minibatches [(xi,yi)...] given data tensors x, y and batchsize.  The last dimension of x and y should match and give the number of instances. Keyword arguments:\n\nshuffle=false: Shuffle the instances before minibatching.\npartial=false: If true include the last partial minibatch < batchsize.\nxtype=typeof(x): Convert xi in minibatches to this type.\nytype=typeof(y): Convert yi in minibatches to this type.\n\n\n\n"
+    "text": "minibatch(x, y, batchsize; shuffle, partial, xtype, ytype)\n\nReturn an iterable of minibatches [(xi,yi)...] given data tensors x, y and batchsize.  The last dimension of x and y should match and give the number of instances. Keyword arguments:\n\nshuffle=false: Shuffle the instances before minibatching.\npartial=false: If true include the last partial minibatch < batchsize.\nxtype=typeof(x): Convert xi in minibatches to this type.\nytype=typeof(y): Convert yi in minibatches to this type.\n\n\n\nminibatch(x, batchsize; shuffle, partial, xtype, ytype)\n\nReturn an iterable of minibatches [x1,x2,...] given data tensor x and batchsize.  The last dimension of x gives the number of instances. Keyword arguments:\n\nshuffle=false: Shuffle the instances before minibatching.\npartial=false: If true include the last partial minibatch < batchsize.\nxtype=typeof(x): Convert xi in minibatches to this type.\n\n\n\n"
 },
 
 {
