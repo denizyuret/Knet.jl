@@ -1,6 +1,7 @@
-for p in ("Knet", "MAT")
+for p in ("Knet",)
     (Pkg.installed(p) == nothing) && Pkg.add(p)
 end
+include(Pkg.dir("Knet","data","imagenet.jl"))
 
 # TODO: improve example and document metadata return type further
 # TODO: document low-level API
@@ -72,7 +73,7 @@ CIFAR models can be used as:
 """
 module ResNetLib
 
-using Knet, MAT
+using Knet
 
 resnet50init(;  o...)  = resnetinit([3, 4, 6,  3]; o...)
 resnet101init(; o...)  = resnetinit([3, 4, 23, 3]; o...)
@@ -314,18 +315,20 @@ function load_resnet!(weights, moments;
                       stage=0, depth=101,
                       o...)
     info("Loading pretrained weights...")
-    urls = Dict([
-        50  => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-50-dag.mat",
-        101 => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-101-dag.mat",
-        152 => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-152-dag.mat",
-    ])
-    filename = "imagenet-resnet-$depth-dag.mat"
-    dest = joinpath(modeldir, filename)
-    if ~isfile(dest)
-        info("Downloading resnet ", depth, " weights to ", dest)
-        download(urls[depth], dest)
-    end
-    r = matread(dest)
+    # All of this is implemented in Knet/data/imagenet.jl
+    # urls = Dict([
+    #     50  => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-50-dag.mat",
+    #     101 => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-101-dag.mat",
+    #     152 => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-152-dag.mat",
+    # ])
+    # filename = "imagenet-resnet-$depth-dag.mat"
+    # dest = joinpath(modeldir, filename)
+    # if ~isfile(dest)
+    #     info("Downloading resnet ", depth, " weights to ", dest)
+    #     download(urls[depth], dest)
+    # end
+    # r = matread(dest)
+    r = Main.matconvnet("imagenet-resnet-$depth-dag")
     load_params!(weights, moments, r["params"];
                  first_bias=depth==50,
                  stage=stage,
