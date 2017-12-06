@@ -1,11 +1,27 @@
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
+"""
+
+julia bilstm-tagger.jl
+
+This example implements a named entity tagger built on top of a BiLSTM
+neural network similar to the model defined in 'Bidirectional LSTM-CRF Models
+for Sequence Tagging', Zhiheng Huang, Wei Xu, Kai Yu, arXiv technical report
+1508.01991, 2015. Originally, this model implemented for dynet-benchmarks.
+
+* Paper url: https://arxiv.org/pdf/1508.01991.pdf
+* DyNet report: https://arxiv.org/abs/1701.03980
+* Benchmark repo: https://github.com/neulab/dynet-benchmark
+
+"""
 module Tagger
 using Knet
-using AutoGrad
 using ArgParse
 
-const train_file = "data/tags/train.txt"
-const test_file = "data/tags/dev.txt"
-const UNK = "_UNK_"
+include(Pkg.dir("Knet","data","wikiner.jl"))
+const F = Float32
 t00 = now()
 
 function main(args)
@@ -13,78 +29,59 @@ function main(args)
     s.description = "Bidirectional LSTM Tagger in Knet"
 
     @add_arg_table s begin
-        ("--gpu"; action=:store_true; help="use GPU or not")
-        ("EMBED_SIZE"; arg_type=Int; help="embedding size")
-        ("HIDDEN_SIZE"; arg_type=Int; help="hidden size")
-        ("MLP_SIZE"; arg_type=Int; help="MLP size")
-        ("SPARSE"; arg_type=Int; help="sparse update 0/1")
-        ("TIMEOUT"; arg_type=Int; help="max timeout")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}");
+         help="array type: Array for cpu, KnetArray for gpu")
+        ("--embed"; arg_type=Int; default=128; help="embedding size")
+        ("--hidden"; arg_type=Int; default=50; help="hidden size")
+        ("--mlp"; arg_type=Int; default=32; help="MLP size")
         ("--batchsize"; arg_type=Int; help="minibatch size"; default=1)
-        ("--train"; default=train_file; help="train file")
-        ("--test"; default=test_file; help="test file")
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=100; help="epochs")
         ("--minoccur"; arg_type=Int; default=6)
+        ("--report"; arg_type=Int; default=500; help="report period in iters")
+        ("--validation"; arg_type=Int; default=10000;
+         help="validation period in iters")
     end
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = o[:gpu] ? KnetArray{Float32} : Array{Float32}
+    atype = eval(parse(o[:atype])); o[:atype] = atype
 
-    # read data
-    trn = read_file(o[:train])
-    tst = read_file(o[:test])
-
-    # get words and tags from train set
-    words, tags = [], []
-    for sample in trn
-        for (word,tag) in sample
-            push!(words, word)
-            push!(tags, tag)
-        end
-    end
-
-    # count words and build vocabulary
-    wordcounts = count_words(words)
-    nwords = length(wordcounts)+1
-    wordcounts = filter((w,c)-> c >= o[:minoccur], wordcounts)
-    words = collect(keys(wordcounts))
-    !in(UNK, words) && push!(words, UNK)
-    w2i, i2w = build_vocabulary(words)
-    t2i, i2t = build_vocabulary(tags)
-    ntags = length(t2i)
-    !haskey(w2i, UNK) && error("...")
+    # load WikiNER data
+    data = WikiNERData(o[:minoccur])
 
     # build model
-    w, srnn = initweights(atype, o[:HIDDEN_SIZE], length(w2i), length(t2i),
-                    o[:MLP_SIZE], o[:EMBED_SIZE])
+    w, srnn = initweights(
+        atype, o[:hidden], length(data.w2i), data.ntags, o[:mlp], o[:embed])
     opt = optimizers(w, Adam)
 
     # train bilstm tagger
+    nwords = data.nwords; ntags = data.ntags
     println("nwords=$nwords, ntags=$ntags"); flush(STDOUT)
     println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
     t0 = now()
     all_time = dev_time = all_tagged = this_tagged = this_loss = 0
     for epoch = 1:o[:epochs]
-        shuffle!(trn)
-        for k = 1:length(trn)
-            iter = (epoch-1)*length(trn) + k
-            if iter % 500 == 0
+        shuffle!(data.trn)
+        for k = 1:length(data.trn)
+            iter = (epoch-1)*length(data.trn) + k
+            if o[:report] > 0 && iter % o[:report] == 0
                 @printf("%f\n", this_loss/this_tagged); flush(STDOUT)
                 all_tagged += this_tagged
                 this_loss = this_tagged = 0
                 all_time = Int(now()-t0)*0.001
             end
 
-            if iter % 10000 == 0 || all_time > o[:TIMEOUT]
+            if o[:validation] > 0 && iter % o[:validation] == 0
                 dev_start = now()
                 good_sent = bad_sent = good = bad = 0.0
-                for sent in tst
-                    seq = make_input(sent, w2i)
+                for sent in data.dev
+                    seq = make_input(sent, data.w2i)
                     nwords = length(sent)
                     ypred,_ = predict(w, seq, srnn)
-                    ypred = map(x->i2t[x], mapslices(indmax,Array(ypred),1))
+                    ypred = map(
+                        x->data.i2t[x], mapslices(indmax,Array(ypred),1))
                     ygold = map(x -> x[2], sent)
                     same = true
                     for (y1,y2) in zip(ypred, ygold)
@@ -108,54 +105,19 @@ function main(args)
                     "tag_acc=%.4f, sent_acc=%.4f, time=%.4f, word_per_sec=%.4f\n",
                     good/(good+bad), good_sent/(good_sent+bad_sent), train_time,
                     all_tagged/train_time); flush(STDOUT)
-
-                all_time > o[:TIMEOUT] && return
             end
 
             # train on minibatch
-            x = make_input(trn[k], w2i)
-            y = make_output(trn[k], t2i)
-
+            x = make_input(data.trn[k], data.w2i)
+            y = make_output(data.trn[k], data.t2i)
             batch_loss = train!(w,x,y,srnn,opt)
             this_loss += batch_loss
-            this_tagged += length(trn[k])
+            this_tagged += length(data.trn[k])
         end
         @printf("epoch %d finished\n", epoch-1); flush(STDOUT)
     end
 end
 
-# parse line
-function parse_line(line)
-    return map(x->split(x,"|"), split(replace(line,"\n",""), " "))
-end
-
-# read file
-function read_file(file)
-    data = open(file, "r") do f
-        map(parse_line, readlines(f))
-    end
-end
-
-function count_words(words)
-    wordcounts = Dict()
-    for word in words
-        wordcounts[word] = get(wordcounts, word, 0) + 1
-    end
-    return wordcounts
-end
-
-function build_vocabulary(words)
-    words = collect(Set(words))
-    w2i = Dict(); i2w = Dict()
-    counter = 1
-    for (i,word) in enumerate(words)
-        w2i[word] = i
-        i2w[i] = word
-    end
-    w2i, i2w
-end
-
-# make input
 function make_input(sample, w2i)
     nwords = length(sample)
     x = map(i->get(w2i, sample[i][1], w2i[UNK]), [1:nwords...])
@@ -163,7 +125,6 @@ function make_input(sample, w2i)
     x = convert(Array{Int64}, x)
 end
 
-# make output
 function make_output(sample, t2i)
     nwords = length(sample)
     y = map(i->t2i[sample[i][2]], [1:nwords...])
@@ -171,11 +132,9 @@ function make_output(sample, t2i)
     y = convert(Array{Int64}, y)
 end
 
-# initialize all weights of the language model
-# w[1:2] => weight/bias params for forward LSTM network
-# w[3:4] => weight/bias params for backward LSTM network
-# w[5:8] => weight/bias params for MLP network
-# w[9]   => word embeddings
+# w[1]   => weight/bias params for forward LSTM network
+# w[2:5] => weight/bias params for MLP+softmax network
+# w[6]   => word embeddings
 function initweights(atype, hidden, words, tags, embed, mlp, winit=0.01)
     w = Array(Any, 6)
     input = embed
@@ -215,10 +174,5 @@ function train!(w,x,y,srnn,opt,h=nothing,c=nothing)
     return lossval*size(x,2)
 end
 
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE=="knet/bilstm-tagger.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
-
+splitdir(PROGRAM_FILE)[end] == "bilstm-tagger.jl" && main(ARGS)
 end # module
