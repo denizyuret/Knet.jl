@@ -37,6 +37,7 @@ function main(args)
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=3; help="epochs")
         ("--minoccur"; arg_type=Int; default=0)
+        ("--report"; arg_type=Int; default=1000)
     end
 
     isa(args, AbstractString) && (args=split(args))
@@ -74,7 +75,7 @@ function main(args)
             closs += this_loss
             cwords += this_words
 
-            if iter % 1000 == 0
+            if o[:report] > 0 && iter % o[:report] == 0
                 @printf("%f\n", closs/cwords); flush(STDOUT)
                 closs = cwords = 0
             end
