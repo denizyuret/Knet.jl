@@ -1,5 +1,6 @@
 # cuda21: Kernels for Array->Array reduction.
 
+fp = open("cuda22.cu","w")
 using Knet: reduction_ops
 
 function cuda22src(f, j, op, f1, v0; BLK=128, THR=128) # BLK not used, determined by ny
@@ -67,5 +68,7 @@ end
 
 for a in reduction_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda22src(a...))
+    print(fp,cuda22src(a...))
 end
+
+close(fp)

@@ -1,5 +1,6 @@
 # Kernels for unary array operations
 
+fp = open("cuda1.cu","w")
 using Knet: unary_ops
 
 function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
@@ -27,7 +28,7 @@ end
 
 for a in unary_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda1src(a...))
+    print(fp,cuda1src(a...))
 end
 
 # Kernels used by setindex! and getindex: fill, xfill, xcopy:
@@ -54,7 +55,7 @@ extern "C" {
     end
 end
 
-print(cuda1fill())
+print(fp,cuda1fill())
 
 function cuda1xfill(; BLK=256, THR=256)
     sprint() do s
@@ -83,7 +84,7 @@ extern "C" {
     end
 end
 
-print(cuda1xfill())
+print(fp,cuda1xfill())
 
 function cuda1xcopy(; BLK=256, THR=256)
 """
@@ -108,7 +109,7 @@ extern "C" {
 """
 end
 
-print(cuda1xcopy())
+print(fp,cuda1xcopy())
 
 
 ### Kernels for permutedims by Ekrem Emre Yurdakul 2017-02-27
@@ -263,7 +264,7 @@ function cuda1permutedims()
       indnames = collect(perms(["i","j","k","l","m"][1:i]))
       for j=1:length(dims)
           fname = string("permutedims_",i,"D_",join(dims[j],"_"),"_")
-          print(cudaPerms[i-1](fname,indnames[j]...))
+          print(fp,cudaPerms[i-1](fname,indnames[j]...))
       end
   end
 end
@@ -305,10 +306,10 @@ extern "C" {
     end
 end
 
-print(cuda1icat())
+print(fp,cuda1icat())
 
 # This is for missing double atomicAdd()
-print("""
+print(fp,"""
 static __inline__ __device__ float atomicAdd2(float *address, float val) {
   return atomicAdd(address, val);
 }
@@ -491,7 +492,7 @@ void setent1_$F(int n, int *ents, $T *x, $T  y)
     end
 end
 
-print(cuda1getcols())
+print(fp,cuda1getcols())
 
 
 # Dropout
@@ -536,7 +537,7 @@ extern "C" {
     end
 end
 
-print(cuda1dropout())
+print(fp,cuda1dropout())
 
 # This is still too slow compared to concat on cpu and copy to gpu
 # Tested for 25 arrays of 200
@@ -564,7 +565,9 @@ extern "C" {
     end
 end
 
-print(cuda1concat())
+print(fp,cuda1concat())
+
+close(fp)
 
 # Here is the test script for cuda1concat:
 # using Knet, BenchmarkTools

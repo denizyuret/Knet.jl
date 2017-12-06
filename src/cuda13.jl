@@ -31,6 +31,7 @@
 # explanation of kernel code is not added to prevent increase size of cuda13.cu
 # (TODO-enis) provide a link to explanation of kernel index calculations for development
 
+fp = open("cuda13.cu","w")
 using Knet: broadcast_ops
 
 function cuda13src(f, j=f, ex="$f(xi,yi)")
@@ -176,5 +177,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda13src(a...))
+    print(fp,cuda13src(a...))
 end
+
+close(fp)

@@ -1,5 +1,6 @@
 # cuda20: Kernels for Array->Scalar reduction.
 
+fp = open("cuda20.cu","w")
 using Knet: reduction_ops
 
 # Reduction to a scalar
@@ -97,5 +98,7 @@ end
 
 for a in reduction_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda20src(a...))
+    print(fp,cuda20src(a...))
 end
+
+close(fp)

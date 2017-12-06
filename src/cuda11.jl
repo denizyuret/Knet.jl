@@ -1,6 +1,7 @@
 # Kernels for elementwise Array,Array->Array ops with equal sized
 # arrays.
 
+fp = open("cuda11.cu","w")
 using Knet: broadcast_ops
 
 function cuda11src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
@@ -29,5 +30,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda11src(a...))
+    print(fp,cuda11src(a...))
 end
+
+close(fp)
