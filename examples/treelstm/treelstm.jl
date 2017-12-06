@@ -99,7 +99,6 @@ function main(args)
     end
 end
 
-# initialize all weights of the language model
 function initweights(atype, hidden, words, labels, embed, winit=0.01)
     w = Array{Any}(9)
     w[1] = winit*randn(3*hidden, embed)
