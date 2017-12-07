@@ -305,7 +305,6 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
         # is performed;
         # so the derivative dx = dy .* g. / sqrt(var + eps) since mean and var
         # are constants
-        # TODO: Test this operation
         # Note: moments must exist since otherwise forward pass fails
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
@@ -357,69 +356,73 @@ function batchnorm4x{T}(x::Union{KnetArray{T}, Array{T}},
 end
 
 
-# CPU implementation
-function _update_moments!(moments, mu, sigma2)
-    moments === nothing && return
-    moments.mean = moments.momentum .* mu .+
-        (1 .- moments.momentum) .* moments.mean
-    moments.var = moments.momentum .* sigma2 .+
-        (1 .- moments.momentum) .* moments.var
-end
-
+# CPU Implementation
 function batchnorm4{T}(g::Array{T}, b::Array{T}, x::Array{T};
                        o...)
-    xhat = batchnorm4(x; o...)
-    return g .* xhat .+ b
+    return _batchnorm4_fused(g, b, x; o...)
 end
 
 function batchnorm4{T}(x::Array{T};
-                       eps=1e-5, training=true,
-                       cache=nothing, moments=nothing,
                        o...)
+    return _batchnorm4_fused(nothing,nothing,x; o...)
+end
+
+function _batchnorm4_fused{T}(g, b, x::Array{T};
+                              eps=1e-5, training=true,
+                              cache=nothing, moments=nothing,
+                              o...)
+    y = copy(x)
     eps = T(eps)
+    dims = _reddims(y)
     if moments!==nothing
         _lazy_init!(moments, x)
     end
-    dims = _reddims(x)
+    affine = (g !== nothing)
     if training
-        mu = mean(x, dims)
-        x_mu = x .- mean(x, dims)
-        sigma2 = mean(x_mu .* x_mu, dims)
-        ivar = 1 ./ sqrt.(sigma2 .+ eps)
+        mu = mean(y, dims)
+        sigma2 = var(y, dims; corrected=false, mean=mu)
         _update_moments!(moments, mu, sigma2)
-        # Cache the resulting values
+        sigma2 .= 1 ./ sqrt.(sigma2 .+ eps)
+        ivar = sigma2
+        if affine
+            y .= g .* (y .- mu) .* ivar .+ b
+        else
+            y .= (y .- mu) .* ivar
+        end
         if cache !== nothing
             cache.ivar = ivar
             cache.mean = mu
         end
-    else #test mode
-        @assert (moments!==nothing)  "Moments must be provided in test mode"
-        x_mu = x .- moments.mean
-        ivar = 1 ./ sqrt.(moments.var .+ eps)
-    end
-    return x_mu .* ivar
-end
-
-function _get_cache_data(cache, x, eps)
-    if cache !== nothing
-        mu = cache.mean
-        x_mu = x .- mu
-        ivar = cache.ivar
     else
-        mu = mean(x, _reddims(x))
-        x_mu = x .- mu
-        ivar = 1 ./ sqrt.(mean(x_mu.*x_mu, _reddims(x)) .+ eps)
+        @assert (moments!==nothing)  "Moments must be provided in test mode"
+        ivar = 1 ./ sqrt.(moments.var .+ eps)
+        if affine
+            y .= g .* (y .- moments.mean) .* ivar .+ b
+        else
+            y .= (y .- moments.mean) .* ivar
+        end
     end
-    return x_mu, ivar
+    return y
 end
 
+function _update_moments!(moments, mu, sigma2)
+    moments === nothing && return
+    moments.mean .= moments.momentum .* mu .+
+        (1 .- moments.momentum) .* moments.mean
+    moments.var .= moments.momentum .* sigma2 .+
+        (1 .- moments.momentum) .* moments.var
+end
+
+# CPU backward
 function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
                             eps=1e-5, training=true,
                             cache=nothing, moments=nothing,  o...)
     eps = T(eps)
     dims = _reddims(x)
+    dx = similar(x)
     if training
-        x_mu, ivar = _get_cache_data(cache, x, eps)
+        mu, ivar = _get_cache_data(cache, x, eps)
+        x_mu = x .- mu
         # equations from the original paper
         dyivar = dy .* ivar
         if g !== nothing
@@ -430,9 +433,10 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
             dg, db = nothing, nothing
         end
         m = prod(size(x, dims...))
-        dsigma2 = -T(0.5) .* sum(dyivar .* x_mu .* ivar.^2, dims)
-        dmu = -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
-        dx = dyivar .+ (dsigma2 .* 2x_mu .+ dmu) ./ m
+        dsigma2, dmu = similar(ivar), similar(mu) 
+        dsigma2 .= -T(0.5) .* sum(dyivar .* x_mu .* ivar.^2, dims)
+        dmu .= -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
+        dx .= dyivar .+ dsigma2 .* 2x_mu ./ m .+ dmu ./ m
     else #same reasoning with the gpu version
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
@@ -445,6 +449,18 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
     end
     return dg, db, dx
 end
+
+function _get_cache_data(cache, x, eps)
+    if cache !== nothing
+        mu = cache.mean
+        ivar = cache.ivar
+    else
+        mu = mean(x, _reddims(x))
+        ivar = 1 ./ sqrt.(var(x, _reddims(x); mean=mu, correct=false) .+ eps)
+    end
+    return mu, ivar
+end
+
 
 
 @primitive batchnorm4(x;o...),dy batchnorm4x(x, dy; o...)
