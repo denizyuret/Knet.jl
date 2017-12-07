@@ -27,6 +27,7 @@ Documentation and Examples
 * Knet/data now has download utilities: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl.
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
 * New variational autoencoder example (@CarloLucibello).
+* New BiLSTM NER taggers added (@ilkerkesen).
 
 
 Knet v0.8.5 Release Notes
