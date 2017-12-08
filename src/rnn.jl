@@ -58,8 +58,8 @@ type RNN
     mode::Cint
     algo::Cint
     dataType::DataType
-    rnnDesc::RD
-    dropoutDesc::DD
+    rnnDesc::Union{RD, Void}
+    dropoutDesc::Union{DD, Void}
     dx
     dhx
     dcx
@@ -174,7 +174,7 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 
 """
-function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=cudnnhandle())
+function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=cudnnhandle(), o...)
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -218,6 +218,18 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=c
     end
 end
 
+# Only for API consistency
+function rnnparam(r::RNN, w::Array, layer::Integer, id::Integer, par::Integer; o...)
+    nids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
+    ws = rnnparams(r, w; o...)
+    if par == 1
+        ws = ws[1:div(length(ws), 2)]
+    else
+        ws = ws[div(length(ws), 2)+1:end]
+    end
+    return ws[(layer-1) * nids + nids]
+end
+
 
 """
 
@@ -231,8 +243,21 @@ The order of params returned (subject to change):
 * See @doc rnnparam for valid layer and id values.
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
+# Keywords
+  * `useview=false`: If you want to override w using returned params and w is an `Array`,
+ it should be true.
+  For AutoGrad operations to be performed using returned params, it should be `false`. 
+  The keyword is ineffective if `w` is a `KnetArray`, where viewing is the default behavior.
 """
-function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle())
+function rnnparams(r::RNN, w; o...)
+    if isa(w, KnetArray)
+        return rnnparams_gpu(r, w; o...)
+    else
+        return rnnparams_cpu(r, w; o...)
+    end
+end
+
+function rnnparams_gpu(r::RNN, w::KnetArray; handle=cudnnhandle(), o...)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []
@@ -241,6 +266,50 @@ function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle())
             for i in 1:ids
                 push!(ws, rnnparam(r, w, l, i, m; handle=handle))
             end
+        end
+    end
+    return ws
+end
+
+# CPU Implementation (TODO: support bidirectional)
+function rnnparams_cpu(r::RNN, w; useview=false, o...)
+    layers = r.numLayers
+    #ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
+    ws = []; wi = 0
+    inputSize, hiddenSize = r.inputSize, r.hiddenSize
+    inputMode = r.inputMode
+    nmats = r.mode == 2 ? 4 : r.mode == 3 ? 3 : 1
+    start = 1
+    # view is not differentable
+    @inline access(a, rngs...) = useview ? view(a, rngs...) : getindex(a, rngs...)
+    # Matrix params
+    for l in 0:layers-1
+        if inputMode == 0
+            for i = 1:nmats
+                push!(ws, reshape(access(w, :, :, start:start+inputSize*hiddenSize-1),
+                                  (inputSize, hiddenSize)))
+                start += inputSize * hiddenSize
+            end
+        else
+            push!(ws, [nothing for _=1:nmats]...)
+        end
+        for i = 1:nmats
+            push!(ws, reshape(access(w, :, :, start:start+hiddenSize*hiddenSize-1),
+                              (hiddenSize, hiddenSize)))
+            start += hiddenSize * hiddenSize
+        end
+        # loop variants
+        inputSize = hiddenSize
+        inputMode = 0
+    end
+    
+    # Bias params
+    for l in 0:layers-1
+        # All biases have the same length
+        for i = 1:2nmats
+            push!(ws, reshape(access(w, :, :, start:start+hiddenSize-1),
+                              (hiddenSize,)))
+            start += hiddenSize
         end
     end
     return ws
@@ -290,7 +359,16 @@ biases bW, bR from the following equations:
     h[t] = o[t] .* tanh(c[t])
 
 """
-function rnninit(inputSize, hiddenSize;
+
+function rnninit(inputSize, hiddenSize; atype= gpu()>=0 ? KnetArray: Array, o...)
+    if atype == KnetArray
+        return rnninit_gpu(inputSize, hiddenSize; o...)
+    else
+        return rnninit_cpu(inputSize, hiddenSize; o...)
+    end
+end
+
+function rnninit_gpu(inputSize, hiddenSize;
                  handle=cudnnhandle(),
                  numLayers=1,
                  dropout=0.0,
@@ -301,8 +379,7 @@ function rnninit(inputSize, hiddenSize;
                  algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
                  seed=0,              # seed=0 for random init, positive integer for replicability
                  winit=xavier,
-                 binit=zeros
-                 )
+                 binit=zeros)
     # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
     inputMode = skipInput ? 1 : 0
@@ -338,6 +415,52 @@ function rnninit(inputSize, hiddenSize;
     return (r,w)
 end
 
+function rnninit_cpu(inputSize, hiddenSize;
+                     numLayers=1,
+                     dropout=0.0,
+                     skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
+                     bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+                     rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+                     dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+                     algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+                     seed=0,              # seed=0 for random init, positive integer for replicability
+                     winit=xavier,
+                     binit=zeros,
+                     o... #compat
+                     )
+    @assert (bidirectional==false) "Bidirectional RNNs are not supported in CPU"
+    mode = findfirst((:relu,:tanh,:lstm,:gru), rnnType) - 1
+    whidden = hiddenSize * hiddenSize
+    winput =  skipInput ? 0 : hiddenSize * inputSize
+    bhidden = hiddenSize
+    binput =  bhidden#skipInput ? 0 : hiddenSize
+    inputMode = skipInput ? 1 : 0
+    direction = bidirectional ? 1 : 0
+    # compute the number of weights
+    # TODO: support bidirectional
+    len = 0
+    coef = mode == 2 ? 4 : mode == 3 ? 3 : 1
+    for i = 1:numLayers
+        len += coef * (whidden + winput + bhidden + binput)
+        winput = whidden
+        binput = bhidden
+    end
+    r = RNN(inputSize,hiddenSize,numLayers,dropout,
+            inputMode,direction,mode,algo,dataType,
+            nothing,nothing,nothing,nothing,nothing)
+    w =  Array{dataType}(1, 1 ,len)    
+    # init params
+    for mat in rnnparams(r, w; useview=true)
+        if mat == nothing
+            continue
+        elseif ndims(mat) == 1 #bias
+            copy!(mat, binit(dataType, size(mat)...))
+        else # weight
+            copy!(mat, winit(dataType, size(mat)...))
+        end
+    end
+    return r, w
+end
 
 """
 
@@ -569,21 +692,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
 end
 
 
-# TODO: CPU implementation:
-function rnnparams(r::RNN, w::Array; o...)
-    layers = r.numLayers * (r.direction == 1 ? 2 : 1)
-    ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
-    ws = []; wi = 0
-    for m in (true, false)
-        for l in 0:layers-1
-            for i in 0:ids-1
-                # push!(ws, cudnnGetRNNParam(r, w, l, i, m; handle=handle))
-                error("wip")
-            end
-        end
-    end
-    return ws
-end
+
 
 # CPU version
 function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
@@ -625,10 +734,12 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         # ht = f(W_i * x_t + R_i h_t-1 + b_Wi + b_Ri)
         f = r.mode == 0 ? relu : tanh
         for t = 1:T
+            inputMode = r.inputMode
             for l = 1:L
                 wx,wh,bx,bh = w[2l-1],w[2l],w[2L+2l-1],w[2L+2l]
-                wxt = (l > 1 ? wx' * hs[l-1] : r.inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
+                wxt = (l > 1 ? wx' * hs[l-1] : inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
                 hs[l] = f.(wxt .+ wh' * hs[l] .+ bx .+ bh)
+                inputMode = 0
             end
             push!(ys, hs[L])
         end
@@ -643,19 +754,21 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         c = cx==nothing ? fill!(similar(x,hsize),0) : cx
         cs = [ c[:,:,l] for l=1:L ]
         for t = 1:T
+            inputMode = r.inputMode
             for l = 1:L
                 Wi,Wf,Wc,Wo,Ri,Rf,Rc,Ro = w[1+8*(l-1):8l]
                 bWi,bWf,bWc,bWo,bRi,bRf,bRc,bRo = w[8L+1+8*(l-1):8L+8l]
-                Wixt = (l > 1 ? Wi' * hs[l-1] : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
-                Wfxt = (l > 1 ? Wf' * hs[l-1] : r.inputMode==0 ? Wf' * x[:,:,t] : x[:,:,t])
-                Wcxt = (l > 1 ? Wc' * hs[l-1] : r.inputMode==0 ? Wc' * x[:,:,t] : x[:,:,t])
-                Woxt = (l > 1 ? Wo' * hs[l-1] : r.inputMode==0 ? Wo' * x[:,:,t] : x[:,:,t])
+                Wixt = (l > 1 ? Wi' * hs[l-1] : inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
+                Wfxt = (l > 1 ? Wf' * hs[l-1] : inputMode==0 ? Wf' * x[:,:,t] : x[:,:,t])
+                Wcxt = (l > 1 ? Wc' * hs[l-1] : inputMode==0 ? Wc' * x[:,:,t] : x[:,:,t])
+                Woxt = (l > 1 ? Wo' * hs[l-1] : inputMode==0 ? Wo' * x[:,:,t] : x[:,:,t])
                 it = sigm.(Wixt .+ Ri' * hs[l] .+ bWi .+ bRi)
                 ft = sigm.(Wfxt .+ Rf' * hs[l] .+ bWf .+ bRf)
                 ot = sigm.(Woxt .+ Ro' * hs[l] .+ bWo .+ bRo)
                 cn = tanh.(Wcxt .+ Rc' * hs[l] .+ bWc .+ bRc)
                 cs[l] = ft .* cs[l] .+ it .* cn
                 hs[l] = ot .* tanh.(cs[l])
+                inputMode = 0
             end
             push!(ys, hs[L])
         end
@@ -666,16 +779,18 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         # h't = tanh(Whxt + rt◦(Rhht-1 + bRh) + bWh)
         # ht = (1 - it)◦h't + it◦ht-1
         for t = 1:T
+            inputMode = r.inputMode
             for l = 1:L
                 Wr,Wi,Wh,Rr,Ri,Rh = w[1+6*(l-1):6l]
                 bWr,bWi,bWh,bRr,bRi,bRh = w[6L+1+6*(l-1):6L+6l]
-                Wrxt = (l > 1 ? Wr' * hs[l-1] : r.inputMode==0 ? Wr' * x[:,:,t] : x[:,:,t])
-                Wixt = (l > 1 ? Wi' * hs[l-1] : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
-                Whxt = (l > 1 ? Wh' * hs[l-1] : r.inputMode==0 ? Wh' * x[:,:,t] : x[:,:,t])
+                Wrxt = (l > 1 ? Wr' * hs[l-1] : inputMode==0 ? Wr' * x[:,:,t] : x[:,:,t])
+                Wixt = (l > 1 ? Wi' * hs[l-1] : inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
+                Whxt = (l > 1 ? Wh' * hs[l-1] : inputMode==0 ? Wh' * x[:,:,t] : x[:,:,t])
                 rt = sigm.(Wrxt .+ Rr' * hs[l] .+ bWr .+ bRr)
                 it = sigm.(Wixt .+ Ri' * hs[l] .+ bWi .+ bRi)
                 ht = tanh.(Whxt .+ rt .* (Rh' * hs[l] .+ bRh) .+ bWh)
                 hs[l] = (1 .- it) .* ht .+ it .* hs[l]
+                inputMode = 0
             end
             push!(ys, hs[L])
         end
