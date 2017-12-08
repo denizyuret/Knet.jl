@@ -79,13 +79,16 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
         if !isdefined(:cudartfound)
-            if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
+            try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
+                cudartfound = true
+            catch
+                cudartfound = false
             end
         end
         if !isdefined(:nvmlfound)
-            if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
+            try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @cuda("nvidia-ml",nvmlInit,())
                 s = zeros(UInt8,80)
@@ -95,6 +98,9 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 nvmlVersion = unsafe_string(pointer(s))
                 # Let us keep nvml initialized for future ops such as meminfo
                 # @cuda("nvidia-ml",nvmlShutdown,())
+                nvmlfound = true
+            catch
+                nvmlfound = false
             end
         end
         if usegpu && gpuCount() > 0
