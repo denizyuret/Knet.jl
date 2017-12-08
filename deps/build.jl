@@ -1,11 +1,10 @@
 NVCC = CXX = ""
-CFLAGS = is_windows() ? ["/Ox","/openmp","/LD"] : ["-O3","-Wall","-fPIC","-fopenmp"] # TODO: what if no openmp
+CFLAGS = is_windows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--compiler-options", join(CFLAGS,' ')]
 const OBJEXT = is_windows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
 inforun(cmd)=(info(cmd);run(cmd))
-
 
 function build()
     if NVCC != ""
@@ -16,6 +15,7 @@ function build()
     else
         warn("no compilers found, libknet8 will not be built.")
     end
+    info("Compiling Knet cache.")
     Base.compilecache("Knet")
 end
 
@@ -31,9 +31,9 @@ function build_cxx()
     end
     if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
         if is_windows()
-            inforun(`$CXX $CFLAGS /LD /Fe:libknet8 $OBJ`)
+            inforun(`$CXX $CFLAGS /LD /Fe:$LIBKNET8 $OBJ`)
         else
-            inforun(`$CXX $CFLAGS --shared -o libknet8 $OBJ`)
+            inforun(`$CXX $CFLAGS --shared -o $LIBKNET8 $OBJ`)
         end
     end
 end
@@ -81,7 +81,7 @@ function build_nvcc()
     end
 
     if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
-        inforun(`$NVCC $NVCCFLAGS --shared -o libknet8 $OBJ`)
+        inforun(`$NVCC $NVCCFLAGS --shared -o $LIBKNET8 $OBJ`)
     end
 end
 
@@ -121,11 +121,25 @@ end
 
 if CXX == ""
     try
-        CXX = find_host_compiler()
+        include("find_compiler.jl") # until CUDAapi is updated
+        CXX = find_compiler()
     end
 end
 
+if CXX != "" # test openmp
+    cp("conv.cpp","foo.cpp",remove_destination=true)
+    if is_windows()
+        if success(`$CXX /openmp /c foo.cpp`)
+            push!(CFLAGS, "/openmp")
+        end
+    else
+        if success(`$CXX -fopenmp -c foo.cpp`)
+            push!(CFLAGS, "-fopenmp")
+        end
+    end
+end
 
+build()
 
 # OK let's compile
 

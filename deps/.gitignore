@@ -1,6 +1,4 @@
 *.cu
 *.obj
-*.so
-*.dll
-*.exp
-*.lib
+*.o
+libknet8*
