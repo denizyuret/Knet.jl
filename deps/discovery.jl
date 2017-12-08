@@ -22,8 +22,13 @@ function find_library(name, prefixes=String[])
 
     # figure out names
     if Compat.Sys.iswindows()
+        names = [name] # nvcuda.dll does not have numbers
         tag = Sys.WORD_SIZE == 64 ? "64" : "32"
-        names = map(ver->"$name$(tag)_$(ver.major)$(ver.minor)", toolkits)
+        append!(names, map(ver->"$name$(tag)_$(ver.major)$(ver.minor)", toolkits))
+        if name == "cudnn"
+	    append!(names, map(ver->"$name$(tag)_$(ver.major)", cudnns)) # cudnn64_7.dll has single version digit
+	end
+	push!(names, name) # nvcuda.dll is found without extras
     else
         names = ["lib$name"]
     end
@@ -39,8 +44,8 @@ function find_library(name, prefixes=String[])
     end
 
     @trace("Checking for $names in $locations")
-    name = Libdl.find_library(names, locations)
-    if isempty(name)
+    namefound = Libdl.find_library(names, locations)
+    if isempty(namefound)
         error("Could not find $name library")
     end
 
@@ -48,7 +53,7 @@ function find_library(name, prefixes=String[])
     # NOTE: we could just as well use the result of `find_library,
     # but the user might have run this script with eg. LD_LIBRARY_PATH set
     # so we save the full path in order to always be able to load the correct library
-    path = Libdl.dlpath(name)
+    path = Libdl.dlpath(namefound)
     @debug("Using $name library at $path")
     return path
 end
