@@ -137,7 +137,7 @@ meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) 
 
 function gpuinfo(msg="",dev=gpu();n=10)
     msg != "" && print("$msg ")
-    if Libdl.find_library(["libnvidia-ml"],[]) != ""
+    if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
         g = nvmlDeviceGetMemoryInfo(dev)
         println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
     else
@@ -156,7 +156,7 @@ function gpuinfo(msg="",dev=gpu();n=10)
 end
 
 function memdbg(msg="")
-    if Libdl.find_library(["libnvidia-ml"],[]) != ""
+    if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
         m = nvmlDeviceGetMemoryInfo()
     else
         m = (0,0,0)

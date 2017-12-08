@@ -1,42 +1,47 @@
+using CUDAapi: find_library, libnvml
+
 macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
-macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
-    if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6.0"
-            fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
-        else
-            fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
-        end
+macro libcall(lib,fun,ret,x...)
+    try 
+        path = find_library(lib)
+        fx = Expr(:call, :ccall, ("$fun",path), x...)
         msg = "$lib.$fun error "
         err = gensym()
         # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
         esc(:(if ($err=$fx) != 0; error($msg, $err); end; Knet.@gs))
-    else
-        Expr(:call,:error,"Cannot find lib$lib, please install it and rerun Pkg.build(\"Knet\").")
+    catch
+        Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
+    end
+end
+
+macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
+    try 
+        path = find_library(lib)
+        fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
+        msg = "$lib.$fun error "
+        err = gensym()
+        # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
+        esc(:(if ($err=$fx) != 0; error($msg, $err); end; Knet.@gs))
+    catch
+        Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
     end
 end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
-    if Libdl.find_library(["lib$lib"], []) != ""
-        if VERSION >= v"0.6.0"
-            fx = Expr(:call, :ccall, ("$fun","lib$lib"), :UInt32, x...)
-        else
-            fx = Expr(:ccall, ("$fun","lib$lib"), :UInt32, x...)
-        end
+    try
+        path = find_library(lib)
+        fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
         esc(:($err=$fx; Knet.@gs; $err))
-    else
+    catch
         -1
     end
 end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        if VERSION >= v"0.6.0"
-            fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
-        else
-            fx = Expr(:ccall, ("$fun",libknet8), :Void, x...)
-        end
+        fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
         err = gensym()
         esc(:($err=$fx; Knet.@gs; $err))
     else
@@ -90,14 +95,14 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
         if !isdefined(:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
-                @cuda("nvidia-ml",nvmlInit,())
+                @cuda("$libnvml",nvmlInit,())
                 s = zeros(UInt8,80)
-                @cuda("nvidia-ml",nvmlSystemGetDriverVersion,(Ptr{Cchar},Cuint),s,80)
+                @cuda("$libnvml",nvmlSystemGetDriverVersion,(Ptr{Cchar},Cuint),s,80)
                 nvmlDriverVersion = unsafe_string(pointer(s))
-                @cuda("nvidia-ml",nvmlSystemGetNVMLVersion,(Ptr{Cchar},Cuint),s,80)
+                @cuda("$libnvml",nvmlSystemGetNVMLVersion,(Ptr{Cchar},Cuint),s,80)
                 nvmlVersion = unsafe_string(pointer(s))
                 # Let us keep nvml initialized for future ops such as meminfo
-                # @cuda("nvidia-ml",nvmlShutdown,())
+                # @cuda("$libnvml",nvmlShutdown,())
                 nvmlfound = true
             catch
                 nvmlfound = false
@@ -158,7 +163,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 	        p=Cuint[0]
                 if nvmlfound
                     # @cuda does not stay quiet so we use @cuda1 here
-                    @cuda1("nvidia-ml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
+                    @cuda1("$libnvml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
                 elseif cudartfound
                     # OSX does not have the nvidia-ml library!
                     # We prefer nvml because cudart takes up memory even if we don't use a device
@@ -190,8 +195,8 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 end
 
 # cudaGetDeviceCount is deprecated, use gpuCount instead:
-cudaGetDeviceCount()=(try; p=Cint[0]; eval(:(ccall(("cudaGetDeviceCount","libcudart"),UInt32,(Ptr{Cint},),$p))); p[1]; catch; 0; end) # will not bomb when there is no gpu
-cudaGetDevice()=(d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);d[1])
+cudaGetDeviceCount()=(p=Cuint[0];@cuda1(cudart,cudaGetDeviceCount,(Ptr{Cuint},),p);Int(p[1])) # will not bomb when there is no gpu
+cudaGetDevice()=(d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);Int(d[1]))
 "Returns free,total memory."
 cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
@@ -201,8 +206,8 @@ function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(3)
-    @cuda("nvidia-ml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
-    @cuda("nvidia-ml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
+    @cuda("$libnvml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
+    @cuda("$libnvml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))
 end
 
@@ -233,11 +238,12 @@ function cublasCreate()
 end
 
 function cudnnCreate()
+    path = find_library("cudnn")
     handleP = Cptr[0]
     @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
     atexit(()->@cuda(cudnn,cudnnDestroy,(Cptr,), handle))
-    global cudnnVersion = Int(ccall((:cudnnGetVersion,:libcudnn),Csize_t,()))
+    global cudnnVersion = Int(eval(Expr(:call,:ccall,(:cudnnGetVersion,path),:Csize_t,())))
     return handle
 end
 
