@@ -88,8 +88,14 @@ end
 
 # Try to find NVCC
 
-if Pkg.installed("CUDAapi") != nothing
-    eval(Expr(:using,:CUDAapi))
+#if Pkg.installed("CUDAapi") != nothing # use this once CUDAapi is fixed
+#    eval(Expr(:using,:CUDAapi))
+
+# edit copy of CUDAapi here for now
+using Compat
+include("logging.jl")
+include("compatibility.jl")
+include("discovery.jl")
     try
         tk = find_toolkit()
         tc = find_toolchain(tk)
@@ -97,15 +103,15 @@ if Pkg.installed("CUDAapi") != nothing
         CXX = tc.host_compiler
         push!(NVCCFLAGS, "--compiler-bindir", CXX)
     end
-end
+#end
 
-# CUDAapi checks path, but if no CUDAapi this acts as backup
+# CUDAapi checks path, but if no CUDAapi this acts as backup (no need for now)
 
-if NVCC == ""
-    try success(`nvcc --version`)
-        NVCC = "nvcc"
-    end
-end
+# if NVCC == ""
+#     try success(`nvcc --version`)
+#         NVCC = "nvcc"
+#     end
+# end
 
 if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
     eval(Expr(:using,:CUDAdrv))
@@ -121,8 +127,9 @@ end
 
 if CXX == ""
     try
-        include("find_compiler.jl") # until CUDAapi is updated
-        CXX = find_compiler()
+        # include("find_compiler.jl") # until CUDAapi is updated
+        # CXX = find_compiler()
+        CXX = find_host_compiler()
     end
 end
 
