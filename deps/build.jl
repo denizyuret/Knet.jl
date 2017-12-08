@@ -1,6 +1,6 @@
 NVCC = CXX = ""
 CFLAGS = is_windows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
-NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--compiler-options", join(CFLAGS,' ')]
+NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
 const OBJEXT = is_windows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
@@ -139,24 +139,7 @@ if CXX != "" # test openmp
     end
 end
 
+push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
+
 build()
 
-# OK let's compile
-
-# TODO: get rid of Makefile, or just leave clean in it.
-# TODO: get rid of cuda14?
-
-
-# if haskey(ENV,"CI")
-#     Pkg.checkout("AutoGrad")
-# end
-
-# cd(joinpath(dirname(@__DIR__), "src")) do
-#     flags = join(toolchain.flags, " ")
-#     run(`make NVCC=$(toolchain.nvcc) NVCCFLAGS="$flags --gpu-architecture $arch"`)
-# end
-
-# if NVCC==""
-#     warn("Cannot find nvcc, GPU support will not be available.")
-#     NVCC="nvcc" # to get make working
-# end
