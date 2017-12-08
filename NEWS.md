@@ -23,10 +23,11 @@ General
 
 Documentation and Examples
 --------------------------
+* New benchmarking notebooks under examples in cifar10-cnn, imdb-rnn, resnet.
 * New benchmarking results in tutorial.md and README.md (with @kirnap, @ilkarman).
-* Knet/data now has download utilities: mnist.jl, cifar.jl, imdb.jl, gutenberg.jl, mikolovptb.jl, treebank.jl.
+* Knet/data now has download utilities: cifar.jl, fashion-mnist.jl, gutenberg.jl, housing.jl, imagenet.jl, imdb.jl, mikolovptb.jl, mnist.jl, treebank.jl
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
-* New variational autoencoder example (@CarloLucibello).
+* New variational-autoencoder example (@CarloLucibello).
 * New Tree-structured LSTM network example (@ilkerkesen).
 
 

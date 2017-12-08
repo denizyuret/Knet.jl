@@ -546,7 +546,7 @@ The benchmarking was done on g2.2xlarge GPU instances on Amazon AWS. The code is
 More recently (Nov 24, 2017), @ilkarman has published CNN and RNN [benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual Machine for Linux (Ubuntu). The results are copied below.  You can find versions of the Knet notebooks used for these benchmarks in the Knet/examples directory: [cifar10-cnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/cifar10-cnn) and [imdb-rnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/imdb-rnn).
 
 
-Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
+Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Dec 7, 2017)
 
 
 |                                                                                                 DL Library | Test Accuracy (%) | Training Time (s) |
@@ -554,7 +554,7 @@ Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
 |                    [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_CNN.ipynb) |                77 |               145 |
 |                  [Caffe2](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Caffe2_CNN.ipynb) |                79 |               148 |
 |                    [Gluon](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Gluon_CNN.ipynb) |                76 |               152 |
-|               [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_CNN.ipynb) |                78 |               153 |
+|               [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_CNN.ipynb) |                78 |               159 |
 |                [Chainer](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Chainer_CNN.ipynb) |                79 |               162 |
 |                      [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_CNN.ipynb) |                78 |               163 |
 |                [PyTorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_CNN.ipynb) |                78 |               169 |
@@ -565,18 +565,35 @@ Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Nov 24, 2017)
 |     [Keras(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_Theano_CNN.ipynb) |                78 |               269 |
 
 
-Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Nov 24, 2017)
+Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Dec 7, 2017)
 
 
 |                                                                                         DL Library | Test Accuracy (%) | Training Time (s) | Using CuDNN? |
 | --------------------------------------------------------------------------------------------------:| -----------------:| -----------------:| ------------:|
 |            [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/MXNet_RNN.ipynb) |                86 |                29 |          Yes |
+|       [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_RNN.ipynb) |                85 |                29 |          Yes |
 |  [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Tensorflow_RNN.ipynb) |                86 |                30 |          Yes |
-|       [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Knet_RNN.ipynb) |                85 |                30 |          Yes |
 |        [Pytorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_RNN.ipynb) |                86 |                31 |          Yes |
 |              [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_RNN.ipynb) |                85 |                32 |          Yes |
 |     [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb) |                86 |                35 |          Yes |
 | [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 | No Available |
+
+
+Inference ResNet-50 (Feature Extraction) (Dec 7, 2017)
+
+
+|                                                                                                         DL Library | Images/s GPU | Images/s CPU |
+| ------------------------------------------------------------------------------------------------------------------:| ------------:| ------------:|
+|        [Knet(Julia)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-Knet.ipynb) |          160 |            2 |
+|           [Tensorflow](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-TF.ipynb) |          155 |           11 |
+|         [PyTorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-PyTorch.ipynb) |          130 |            6 |
+|             [MXNet](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-MXNet.ipynb) |          130 |            8 |
+|  [MXNet(w/mkl)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-MXNet-mkl.ipynb) |          129 |           25 |
+|               [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-CNTK.ipynb) |          117 |            8 |
+|         [Chainer](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-Chainer.ipynb) |          107 |            3 |
+|     [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-Keras(TF).ipynb) |           98 |            5 |
+|           [Caffe2](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-Caffe2.ipynb) |           71 |            6 |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/inference/ResNet50-Keras(CNTK).ipynb) |           46 |            4 |
 
 
 <a id='Under-the-hood-1'></a>
@@ -627,17 +644,17 @@ To implement automatic differentiation the target function needs to be decompose
 There is an alternative: high-level languages, like Julia and Python, already know how to decompose functions into their elementary operations. If we let the users define their models directly in a high-level language, then record the elementary operations during loss calculation at run-time, a dynamic computational graph can be constructed from the recorded operations. The cost of recording is not prohibitive: The table below gives cumulative times for elementary operations of an MLP with quadratic loss. Recording only adds 15% to the raw cost of the forward computation. Backpropagation roughly doubles the total time as expected.
 
 
-| op               | secs |
-|:---------------- |:---- |
-| `a1=w1*x`        | 0.67 |
-| `a2=w2.+a1`      | 0.71 |
-| `a3=max(0,a2)`   | 0.75 |
-| `a4=w3*a3`       | 0.81 |
-| `a5=w4.+a4`      | 0.85 |
-| `a6=a5-y`        | 0.89 |
-| `a7=sumabs2(a6)` | 1.18 |
-| +recording       | 1.33 |
-| +backprop        | 2.79 |
+| op                | secs |
+|:----------------- |:---- |
+| `a1=w1*x`         | 0.67 |
+| `a2=w2.+a1`       | 0.71 |
+| `a3=max.(0,a2)`   | 0.75 |
+| `a4=w3*a3`        | 0.81 |
+| `a5=w4.+a4`       | 0.85 |
+| `a6=a5-y`         | 0.89 |
+| `a7=sum(abs2,a6)` | 1.18 |
+| +recording        | 1.33 |
+| +backprop         | 2.79 |
 
 
 This is the approach taken by the popular [autograd](https://github.com/HIPS/autograd) Python package and its Julia port [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) used by Knet. Recently, other machine learning frameworks have been adapting dynamic computational graphs: [Chainer](http://docs.chainer.org/en/stable/index.html), [DyNet](https://arxiv.org/abs/1701.03980), [PyTorch](https://github.com/pytorch/pytorch), [TensorFlow Fold](https://research.googleblog.com/2017/02/announcing-tensorflow-fold-deep.html).

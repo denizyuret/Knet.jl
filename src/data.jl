@@ -27,6 +27,27 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),yt
     MB(x2,y2,batchsize,nx,partial,indices,xsize,ysize,xtype,ytype)
 end
 
+"""
+
+    minibatch(x, batchsize; shuffle, partial, xtype, ytype)
+
+Return an iterable of minibatches [x1,x2,...] given data tensor x and
+batchsize.  The last dimension of x gives the number of instances.
+Keyword arguments:
+
+- `shuffle=false`: Shuffle the instances before minibatching.
+- `partial=false`: If true include the last partial minibatch < batchsize.
+- `xtype=typeof(x)`: Convert xi in minibatches to this type.
+
+"""
+function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x))
+    xsize = collect(size(x))
+    nx = xsize[end]
+    x2 = reshape(x, div(length(x),nx), nx)
+    indices = shuffle ? randperm(nx) : 1:nx
+    MB(x2,nothing,batchsize,nx,partial,indices,xsize,nothing,xtype,nothing)
+end
+
 Base.start(m::MB)=0
 
 function Base.done(m::MB,i)
@@ -36,10 +57,15 @@ end
 function Base.next(m::MB,i)     # return i+1:i+batchsize
     j=min(i+m.batchsize, m.length)
     ids = m.indices[i+1:j]
-    m.xsize[end] = m.ysize[end] = length(ids)
+    m.xsize[end] = length(ids)
     xbatch = convert(m.xtype, reshape(m.x[:,ids],m.xsize...))
-    ybatch = convert(m.ytype, reshape(m.y[:,ids],m.ysize...))
-    return ((xbatch,ybatch),j)
+    if m.y == nothing
+        return (xbatch,j)
+    else
+        m.ysize[end] = length(ids)
+        ybatch = convert(m.ytype, reshape(m.y[:,ids],m.ysize...))
+        return ((xbatch,ybatch),j)
+    end
 end
 
 function Base.length(m::MB)
