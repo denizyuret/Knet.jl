@@ -12,7 +12,7 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 const PROFILING = false
 macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
-const libknet8 = Libdl.find_library(["libknet8.so"], [joinpath(dirname(@__DIR__),"deps")])
+const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
 using AutoGrad; export grad, gradloss, gradcheck, getval
 

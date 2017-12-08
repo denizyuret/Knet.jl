@@ -66,7 +66,7 @@ __global__ void _$(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
   }
 }
 
-extern "C" { void $(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
+extern "C" { $DLLEXPORT void $(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
   // x[i] goes into y[(i/sy)%ny]
   _$(F)_21<<<$BLK,$THR>>>(nx,x,sy,ny,y);
 }}

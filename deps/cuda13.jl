@@ -96,7 +96,7 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
 }
 
 extern "C" {
-  void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+  $DLLEXPORT void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
@@ -163,7 +163,7 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
 }
 
 extern "C" {
-  void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+  $DLLEXPORT void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);

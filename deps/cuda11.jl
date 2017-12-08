@@ -19,7 +19,7 @@ __global__ void _$(F)_11(int n, $T *x, $T *y, $T *z) {
   }
 }
 extern "C" {
-  void $(F)_11(int n, $T *x, $T *y, $T *z) {
+  $DLLEXPORT void $(F)_11(int n, $T *x, $T *y, $T *z) {
     _$(F)_11<<<$BLK,$THR>>>(n,x,y,z);
   }    
 }

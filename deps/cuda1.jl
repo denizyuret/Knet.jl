@@ -17,7 +17,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
   }
 }
 extern "C" {
-  void $F(int n, $T *x, $T *y) {
+  $DLLEXPORT void $F(int n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
@@ -46,7 +46,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
   }
 }
 extern "C" {
-  void fill_$F(int n, $T x, $T *y) {
+  $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
@@ -75,7 +75,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
   }
 }
 extern "C" {
-  void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
+  $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
   }    
 }
@@ -102,7 +102,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
   }
 }
 extern "C" {
-  void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
+  $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }    
 }
@@ -132,7 +132,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
   }    
 }
@@ -160,7 +160,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
   }    
 }
@@ -189,7 +189,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
   }    
 }
@@ -219,7 +219,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dim
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
   }    
 }
@@ -290,7 +290,7 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
   }
 }
 extern "C" {
-  void icat_$F(int nrows, int ncols, $T **x, $T *y) {
+  $DLLEXPORT void icat_$F(int nrows, int ncols, $T **x, $T *y) {
     $T **xx;   
     if (nrows>0 && ncols>0) {
       size_t s = ncols * sizeof($T *);
@@ -462,29 +462,29 @@ __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
   }
 }
 extern "C" {
-void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
+$DLLEXPORT void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
+$DLLEXPORT void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void getents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void getents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void setents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void addents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void addents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setent1_$F(int n, int *ents, $T *x, $T  y)
+$DLLEXPORT void setent1_$F(int n, int *ents, $T *x, $T  y)
 { if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
@@ -525,10 +525,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
   }
 }
 extern "C" {
-  void dropout_$F(int n, $T p, $T *x, $T *y) {
+  $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
   }    
-  void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
+  $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
   }    
 }
@@ -556,7 +556,7 @@ __global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y
 }
 extern "C" {
   // julia is responsible for copying args to gpu
-  void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
+  $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
   }    
 }

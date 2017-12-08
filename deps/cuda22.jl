@@ -57,7 +57,7 @@ __global__ void _$(F)_22(int nx, int xd1, $T *x, int s1, int s2, int ny, $T *y) 
   }
 }
 
-extern "C" { void $(F)_22(int nx, int xd1, $T *x, int s1, int s2, int ny, $T *y) {
+extern "C" { $DLLEXPORT void $(F)_22(int nx, int xd1, $T *x, int s1, int s2, int ny, $T *y) {
   _$(F)_22<<<$BLK,$THR>>>(nx,xd1,x,s1,s2,ny,y);
 }}
 

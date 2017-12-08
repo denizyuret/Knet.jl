@@ -58,7 +58,7 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
               }
 
               extern "C" {
-                void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
+                $DLLEXPORT void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
               for counter=0:dim_count-1
                 print(s,"int stridex_$counter,")
               end

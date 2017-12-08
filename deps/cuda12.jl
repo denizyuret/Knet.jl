@@ -25,7 +25,7 @@ __global__ void _$(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T
   }
 }
 extern "C" {
-  void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
+  $DLLEXPORT void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
     _$(F)_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
   }    
 }

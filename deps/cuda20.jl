@@ -79,7 +79,7 @@ __global__ void _$(F)_20_2($T *y,$T *z) {   // sum block results in y
   }
 }
 
-extern "C" { $T $(F)_20(int n, $T *x) {
+extern "C" { $DLLEXPORT $T $(F)_20(int n, $T *x) {
   $T r;
   static $T *y;
   static $T *z;

@@ -1,16 +1,92 @@
-# Let's do some discovery first.
+NVCC = CXX = ""
+CFLAGS = is_windows() ? ["/Ox","/openmp","/LD"] : ["-O3","-Wall","-fPIC","-fopenmp"] # TODO: what if no openmp
+NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--compiler-options", join(CFLAGS,' ')]
+const OBJEXT = is_windows() ? ".obj" : ".o"
+const LIBKNET8 = "libknet8."*Libdl.dlext
+const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
+inforun(cmd)=(info(cmd);run(cmd))
 
-CXX = NVCC = ""
 
-if is_windows()
-    # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-options
-    CFLAGS = ["/Ox","/openmp","/LD"] # TODO: test this
-else
-    CFLAGS = ["-O3","-Wall","-fPIC","-fopenmp"] # TODO: what if no openmp
+function build()
+    if NVCC != ""
+        build_nvcc()
+    elseif CXX != ""
+        warn("nvcc not found, gpu kernels will not be compiled.")
+        build_cxx()
+    else
+        warn("no compilers found, libknet8 will not be built.")
+    end
+    Base.compilecache("Knet")
 end
 
-NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets",
-             "--compiler-options", join(CFLAGS,' ')]
+function build_cxx()
+    SRC = ["conv"]
+    OBJ = []
+    for name in SRC
+        obj = name*OBJEXT
+        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
+            inforun(`$CXX $CFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
+        end
+        push!(OBJ, obj)
+    end
+    if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
+        if is_windows()
+            inforun(`$CXX $CFLAGS /LD /Fe:libknet8 $OBJ`)
+        else
+            inforun(`$CXX $CFLAGS --shared -o libknet8 $OBJ`)
+        end
+    end
+end
+
+function build_nvcc()
+    SRC = [("cuda1","../src/unary"),
+           ("cuda01","../src/broadcast"),
+           ("cuda11","../src/broadcast"),
+           ("cuda12","../src/broadcast"),
+           ("cuda13","../src/broadcast"),
+           ("cuda16","../src/broadcast"),
+           ("cuda17","../src/broadcast"),
+           ("cuda20","../src/reduction"),
+           ("cuda21","../src/reduction"),
+           ("cuda22","../src/reduction")]
+
+    CPP = ["conv"]
+
+    OBJ = []
+
+    for names in SRC
+        for name in names
+            if !isfile("$name.jl")
+                error("$name.jl not found")
+            end
+        end
+        name = names[1]
+        if !isfile("$name.cu") || any(d->(mtime("$d.jl") > mtime("$name.cu")), names)
+            info("$name.jl")
+            include("$name.jl")     # outputs name.cu
+        end
+        obj = name*OBJEXT
+        if !isfile(obj) || mtime("$name.cu") > mtime(obj)
+            inforun(`$NVCC $NVCCFLAGS -c $name.cu`)
+        end
+        push!(OBJ,obj)
+    end
+
+    for name in CPP
+        obj = name*OBJEXT
+        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
+            inforun(`$NVCC $NVCCFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
+        end
+        push!(OBJ,obj)
+    end
+
+    if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
+        inforun(`$NVCC $NVCCFLAGS --shared -o libknet8 $OBJ`)
+    end
+end
+
+
+# Try to find NVCC
 
 if Pkg.installed("CUDAapi") != nothing
     eval(Expr(:using,:CUDAapi))
@@ -23,7 +99,15 @@ if Pkg.installed("CUDAapi") != nothing
     end
 end
 
-if Pkg.installed("CUDAdrv") != nothing
+# CUDAapi checks path, but if no CUDAapi this acts as backup
+
+if NVCC == ""
+    try success(`nvcc --version`)
+        NVCC = "nvcc"
+    end
+end
+
+if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
     eval(Expr(:using,:CUDAdrv))
     try
         dev = CuDevice(0)
@@ -33,71 +117,17 @@ if Pkg.installed("CUDAdrv") != nothing
     end
 end
 
-# In case CUDAapi fails, try to find executables the old fashioned way
-
-if NVCC == ""
-    try success(`nvcc --version`)
-        NVCC = "nvcc"
-    end
-end
+# In case there is no nvcc we can still compile the cpu kernels
 
 if CXX == ""
-    if is_windows()
-        try success(`cl.exe`)
-            CXX = "cl.exe"      # TODO: test this
-        end
-    else
-        try success(`gcc --version`)
-            CXX = "gcc"         # TODO: there may be other compilers, check cudart
-        end
+    try
+        CXX = find_host_compiler()
     end
 end
+
+
 
 # OK let's compile
-
-SRC = [("cuda1","../src/unary"),
-       ("cuda01","../src/broadcast"),
-       ("cuda11","../src/broadcast"),
-       ("cuda12","../src/broadcast"),
-       ("cuda13","../src/broadcast"),
-       ("cuda16","../src/broadcast"),
-       ("cuda17","../src/broadcast"),
-       ("cuda20","../src/reduction"),
-       ("cuda21","../src/reduction"),
-       ("cuda22","../src/reduction")]
-
-OBJ = map(x->x[1]*".o", SRC)
-
-for names in SRC
-    for name in names
-        if !isfile("$name.jl")
-            error("$name.jl not found")
-        end
-    end
-    name = names[1]
-    if !isfile("$name.cu") || any(d->(mtime("$d.jl") > mtime("$name.cu")), names)
-        info("$name.jl")
-        include("$name.jl")     # outputs name.cu
-    end
-    if !isfile("$name.o") || mtime("$name.cu") > mtime("$name.o")
-        info("$NVCC $NVCCFLAGS -c $name.cu -o $name.o")
-        run(`$NVCC $NVCCFLAGS -c $name.cu -o $name.o`)
-    end
-end
-
-if !isfile("conv.o") || mtime("conv.cpp") > mtime("conv.o")
-    info("$NVCC $NVCCFLAGS -c conv.cpp -o conv.o") # TODO: use CXX if NVCC not available.
-    run(`$NVCC $NVCCFLAGS -c conv.cpp -o conv.o`)  # test on non-gpu machines
-end
-
-push!(OBJ,"conv.o")             # TODO: is .o the suffix for windows?
-
-if any(f->(mtime(f) > mtime("libknet8.so")), OBJ) # TODO: is .so the suffix for windows/osx?
-    info("$NVCC $NVCCFLAGS --shared -o libknet8.so $OBJ")
-    run(`$NVCC $NVCCFLAGS --shared -o libknet8.so $OBJ`)
-end
-
-Base.compilecache("Knet")
 
 # TODO: get rid of Makefile, or just leave clean in it.
 # TODO: get rid of cuda14?

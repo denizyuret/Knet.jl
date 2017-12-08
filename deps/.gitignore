@@ -1,1 +1,6 @@
 *.cu
+*.obj
+*.so
+*.dll
+*.exp
+*.lib

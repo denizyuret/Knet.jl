@@ -76,7 +76,7 @@ __global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
+  $DLLEXPORT void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
     //int flat_dims=x_N/firstdimsize;
     int sf;
     if(flat_dims<129)
@@ -142,7 +142,7 @@ __global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
+  $DLLEXPORT void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
     //int flat_dims=x_N/firstdimsize;
     int sf;
     if(flat_dims<129)
