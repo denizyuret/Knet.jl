@@ -249,7 +249,15 @@ The order of params returned (subject to change):
   For AutoGrad operations to be performed using returned params, it should be `false`. 
   The keyword is ineffective if `w` is a `KnetArray`, where viewing is the default behavior.
 """
-function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle(), o...)
+function rnnparams(r::RNN, w; o...)
+    if isa(w, KnetArray)
+        return rnnparams_gpu(r, w; o...)
+    else
+        return rnnparams_cpu(r, w; o...)
+    end
+end
+
+function rnnparams_gpu(r::RNN, w::KnetArray; handle=cudnnhandle(), o...)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []
@@ -264,14 +272,13 @@ function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle(), o...)
 end
 
 # CPU Implementation (TODO: support bidirectional)
-function rnnparams(r::RNN, w::Array; useview=false, o...)
+function rnnparams_cpu(r::RNN, w; useview=false, o...)
     layers = r.numLayers
     #ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
     ws = []; wi = 0
     inputSize, hiddenSize = r.inputSize, r.hiddenSize
     inputMode = r.inputMode
     nmats = r.mode == 2 ? 4 : r.mode == 3 ? 3 : 1
-    w = getval(w)
     start = 1
     # view is not differentable
     @inline access(a, rngs...) = useview ? view(a, rngs...) : getindex(a, rngs...)
