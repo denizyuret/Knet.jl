@@ -17,6 +17,7 @@
 - [resnet](resnet): Knet implementation of [ResNet] 50, 101, and 152 models.
 - [vgg](vgg): Knet implementation of [VGG] D and E models.
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
+- [treelstm](treelstm): On [Stanford Sentiment Treebank] data, train a Tree-structured LSTM network that performs sentiment classification.
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
 [LeNet]: http://yann.lecun.com/exdb/lenet
@@ -29,3 +30,4 @@
 [Karpathy]: http://karpathy.github.io/2015/05/21/rnn-effectiveness
 [ResNet]: https://github.com/KaimingHe/deep-residual-networks
 [VGG]: http://www.robots.ox.ac.uk/~vgg/research/very_deep
+[Stanford Sentiment Treebank]: https://nlp.stanford.edu/sentiment/
