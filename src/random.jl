@@ -36,7 +36,9 @@ Run srand(n) on both cpu and gpu.
 """
 function setseed(n::Integer)
     # need to regenerate RNG for the seed to take effect for some reason
-    @cuda1(curand,curandSetPseudoRandomGeneratorSeed,(Cptr,Culonglong),rng(true),n)
+    if gpu() >= 0
+        @cuda1(curand,curandSetPseudoRandomGeneratorSeed,(Cptr,Culonglong),rng(true),n)
+    end
     srand(n)
 end
 
