@@ -26,6 +26,7 @@
 
 # shufle is slow due to index Access pattern, so removed
 
+fp = open("cuda14.cu","w")
 using Knet: broadcast_ops
 
 function cuda14src(f, j=f, ex="$f(xi,yi)")
@@ -75,7 +76,7 @@ __global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
+  $DLLEXPORT void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
     //int flat_dims=x_N/firstdimsize;
     int sf;
     if(flat_dims<129)
@@ -141,7 +142,7 @@ __global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
+  $DLLEXPORT void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
     //int flat_dims=x_N/firstdimsize;
     int sf;
     if(flat_dims<129)
@@ -167,5 +168,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda14src(a...))
+    print(fp,cuda14src(a...))
 end
+
+close(fp)

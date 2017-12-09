@@ -1,0 +1,18 @@
+- Install "Visual Studio Community 2015", choose "Custom", "Visual C++".
+- Alternatively install "Visual C++ Build Tools", it is smaller.
+- Install CUDA toolkit 9.0.176 from https://developer.nvidia.com/cuda-downloads
+- Reboot to set environment variables
+
+https://docs.microsoft.com/en-us/cpp/build/walkthrough-compile-a-c-program-on-the-command-line
+https://docs.microsoft.com/en-us/cpp/build/reference/setting-compiler-options
+https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line
+https://docs.microsoft.com/en-us/cpp/build/setting-the-path-and-environment-variables-for-command-line-builds
+
+
+- Latest Visual Studio 2017 is not supported by the latest CUDA toolkit as of 2017-12-06!
+- From https://www.visualstudio.com/downloads install ONE of:
+  - "Visual Studio Community 2017" with "Desktop Development with C++"
+  - "Build Tools for Visual Studio 2017" with "Visual C++ Build Tools" 
+  ! Just installing Visual Studio will not install the C compiler cl.exe !
+  ! 9.0.176 only supports cl.exe versions 16.00 through 19.11, the newest VS has 19.12 !
+  - For detailed version info: https://en.wikipedia.org/wiki/Microsoft_Visual_C%2B%2B

@@ -7,6 +7,7 @@
 # i_n=mod(div(i,stride(a,n)),size(a,n)) with 0 indexing.  So we can just pass in
 # stride(a,n) and size(a,n) as an argument for each input.
 
+fp = open("cuda12.cu","w")
 using Knet: broadcast_ops
 
 function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
@@ -24,7 +25,7 @@ __global__ void _$(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T
   }
 }
 extern "C" {
-  void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
+  $DLLEXPORT void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
     _$(F)_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
   }    
 }
@@ -35,5 +36,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda12src(a...))
+    print(fp,cuda12src(a...))
 end
+
+close(fp)

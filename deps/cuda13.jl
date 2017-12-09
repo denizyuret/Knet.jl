@@ -31,6 +31,7 @@
 # explanation of kernel code is not added to prevent increase size of cuda13.cu
 # (TODO-enis) provide a link to explanation of kernel index calculations for development
 
+fp = open("cuda13.cu","w")
 using Knet: broadcast_ops
 
 function cuda13src(f, j=f, ex="$f(xi,yi)")
@@ -95,7 +96,7 @@ __global__ void _$(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
 }
 
 extern "C" {
-  void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+  $DLLEXPORT void $(F)_13_x_y($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
@@ -162,7 +163,7 @@ __global__ void _$(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcas
 }
 
 extern "C" {
-  void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
+  $DLLEXPORT void $(F)_13_y_x($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N) {
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
@@ -176,5 +177,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda13src(a...))
+    print(fp,cuda13src(a...))
 end
+
+close(fp)

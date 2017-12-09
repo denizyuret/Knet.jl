@@ -1,5 +1,6 @@
 # Kernels for Scalar,Array->Array
 
+fp = open("cuda01.cu","w")
 using Knet: broadcast_ops
 
 function cuda01src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
@@ -16,7 +17,7 @@ __global__ void _$(F)_01(int n, $T xi, $T *y, $T *z) {
   }
 }
 extern "C" {
-  void $(F)_01(int n, $T xi, $T *y, $T *z) {
+  $DLLEXPORT void $(F)_01(int n, $T xi, $T *y, $T *z) {
     _$(F)_01<<<$BLK,$THR>>>(n,xi,y,z);
   }    
 }
@@ -27,5 +28,6 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda01src(a...))
+    print(fp, cuda01src(a...))
 end
+close(fp)

@@ -1,0 +1,4 @@
+*.cu
+*.obj
+*.o
+libknet8*

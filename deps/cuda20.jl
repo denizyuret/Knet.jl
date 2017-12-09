@@ -1,5 +1,6 @@
 # cuda20: Kernels for Array->Scalar reduction.
 
+fp = open("cuda20.cu","w")
 using Knet: reduction_ops
 
 # Reduction to a scalar
@@ -78,7 +79,7 @@ __global__ void _$(F)_20_2($T *y,$T *z) {   // sum block results in y
   }
 }
 
-extern "C" { $T $(F)_20(int n, $T *x) {
+extern "C" { $DLLEXPORT $T $(F)_20(int n, $T *x) {
   $T r;
   static $T *y;
   static $T *z;
@@ -97,5 +98,7 @@ end
 
 for a in reduction_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda20src(a...))
+    print(fp,cuda20src(a...))
 end
+
+close(fp)

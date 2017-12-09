@@ -8,6 +8,12 @@
 #include <cstring>
 #include <cstdio>
 
+#ifdef _WIN32
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT
+#endif
+
 template <typename T>
 void max_pooling_fwd(const T* global_input, T *global_output, 
     int width, int height, int channels, int num,
@@ -252,7 +258,7 @@ void col2im(const T *col, T *img, int width, int height, int channels,
 
 extern "C" {
 
-void max_pooling_fwd32(const float* global_input, float *global_output,
+DLLEXPORT void max_pooling_fwd32(const float* global_input, float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -261,7 +267,7 @@ void max_pooling_fwd32(const float* global_input, float *global_output,
       pooled_width, pooled_height,
       kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void max_pooling_fwd64(const double* global_input, double *global_output, 
+DLLEXPORT void max_pooling_fwd64(const double* global_input, double *global_output, 
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -270,8 +276,7 @@ void max_pooling_fwd64(const double* global_input, double *global_output,
       pooled_width, pooled_height,
       kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-
-void max_pooling_bwd32(float* global_input, const float *global_output, const float *grad_output, float *grad_input,
+DLLEXPORT void max_pooling_bwd32(float* global_input, const float *global_output, const float *grad_output, float *grad_input,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -279,7 +284,7 @@ void max_pooling_bwd32(float* global_input, const float *global_output, const fl
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void max_pooling_bwd64(double* global_input, const double *global_output, const double *grad_output, double *grad_input,
+DLLEXPORT void max_pooling_bwd64(double* global_input, const double *global_output, const double *grad_output, double *grad_input,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -287,8 +292,7 @@ void max_pooling_bwd64(double* global_input, const double *global_output, const 
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-
-void mean_pooling_fwd32(const float* global_input, float *global_output,
+DLLEXPORT void mean_pooling_fwd32(const float* global_input, float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -296,7 +300,7 @@ void mean_pooling_fwd32(const float* global_input, float *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void mean_pooling_fwd64(const double* global_input, double *global_output,
+DLLEXPORT void mean_pooling_fwd64(const double* global_input, double *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -304,8 +308,7 @@ void mean_pooling_fwd64(const double* global_input, double *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-
-void mean_pooling_bwd32(float* global_input, const float *global_output,
+DLLEXPORT void mean_pooling_bwd32(float* global_input, const float *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -313,7 +316,7 @@ void mean_pooling_bwd32(float* global_input, const float *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-void mean_pooling_bwd64(double* global_input, const double *global_output,
+DLLEXPORT void mean_pooling_bwd64(double* global_input, const double *global_output,
     int width, int height, int channels, int num,
     int pooled_width, int pooled_height,
     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h) {
@@ -321,21 +324,19 @@ void mean_pooling_bwd64(double* global_input, const double *global_output,
     width, height, channels, num, pooled_width, pooled_height,
     kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h);
 }
-
-void im2col32(const float *img, float *col, int width, int height, int channels,
+DLLEXPORT void im2col32(const float *img, float *col, int width, int height, int channels,
 		    int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
   im2col(img, col, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
 }
-void im2col64(const double *img, double *col, int width, int height, int channels,
+DLLEXPORT void im2col64(const double *img, double *col, int width, int height, int channels,
 		     int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
   im2col(img, col, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
 }
-
-void col2im32(const float *col, float *img, int width, int height, int channels,
+DLLEXPORT void col2im32(const float *col, float *img, int width, int height, int channels,
 	      int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
   col2im(col, img, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
 }
-void col2im64(const double *col, double *img, int width, int height, int channels,
+DLLEXPORT void col2im64(const double *col, double *img, int width, int height, int channels,
 	      int kernel_w, int kernel_h, int pad_w, int pad_h, int stride_w, int stride_h, int mode) {
   col2im(col, img, width, height, channels, kernel_w, kernel_h, pad_w, pad_h, stride_w, stride_h, mode);
 }

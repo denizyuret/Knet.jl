@@ -12,6 +12,7 @@
 # TODO-enis understand heap memory and dynamic allocation for possible bug cause with arrays of >100 dims
 # http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#heap-memory-allocation
 
+fp = open("cuda17.cu","w")
 using Knet: broadcast_ops
 
 function cuda17src(f, j=f, ex="$f(xi,yi)")
@@ -54,7 +55,7 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
 
 
 extern "C" {
-  void $(F)_17($T *x,$T *y,$T *z, int *stride_x, int *stride_y,int *stride_z,int N_z,int dimlen_z) {
+  $DLLEXPORT void $(F)_17($T *x,$T *y,$T *z, int *stride_x, int *stride_y,int *stride_z,int N_z,int dimlen_z) {
 
     _$(F)_17<<<256,256>>>(x,y,z,stride_x,stride_y,stride_z,N_z,dimlen_z);
 
@@ -67,5 +68,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda17src(a...))
+    print(fp,cuda17src(a...))
 end
+
+close(fp)

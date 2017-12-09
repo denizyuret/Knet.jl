@@ -1,5 +1,6 @@
 # Kernels for unary array operations
 
+fp = open("cuda1.cu","w")
 using Knet: unary_ops
 
 function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
@@ -16,7 +17,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
   }
 }
 extern "C" {
-  void $F(int n, $T *x, $T *y) {
+  $DLLEXPORT void $F(int n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
@@ -27,7 +28,7 @@ end
 
 for a in unary_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda1src(a...))
+    print(fp,cuda1src(a...))
 end
 
 # Kernels used by setindex! and getindex: fill, xfill, xcopy:
@@ -45,7 +46,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
   }
 }
 extern "C" {
-  void fill_$F(int n, $T x, $T *y) {
+  $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
   }    
 }
@@ -54,7 +55,7 @@ extern "C" {
     end
 end
 
-print(cuda1fill())
+print(fp,cuda1fill())
 
 function cuda1xfill(; BLK=256, THR=256)
     sprint() do s
@@ -74,7 +75,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
   }
 }
 extern "C" {
-  void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
+  $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
   }    
 }
@@ -83,7 +84,7 @@ extern "C" {
     end
 end
 
-print(cuda1xfill())
+print(fp,cuda1xfill())
 
 function cuda1xcopy(; BLK=256, THR=256)
 """
@@ -101,14 +102,14 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
   }
 }
 extern "C" {
-  void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
+  $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }    
 }
 """
 end
 
-print(cuda1xcopy())
+print(fp,cuda1xcopy())
 
 
 ### Kernels for permutedims by Ekrem Emre Yurdakul 2017-02-27
@@ -131,7 +132,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
   }    
 }
@@ -159,7 +160,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
   }    
 }
@@ -188,7 +189,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, 
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
   }    
 }
@@ -218,7 +219,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dim
 	}
 }
 extern "C" {
-  void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
+  $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
   }    
 }
@@ -263,7 +264,7 @@ function cuda1permutedims()
       indnames = collect(perms(["i","j","k","l","m"][1:i]))
       for j=1:length(dims)
           fname = string("permutedims_",i,"D_",join(dims[j],"_"),"_")
-          print(cudaPerms[i-1](fname,indnames[j]...))
+          print(fp,cudaPerms[i-1](fname,indnames[j]...))
       end
   end
 end
@@ -289,7 +290,7 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
   }
 }
 extern "C" {
-  void icat_$F(int nrows, int ncols, $T **x, $T *y) {
+  $DLLEXPORT void icat_$F(int nrows, int ncols, $T **x, $T *y) {
     $T **xx;   
     if (nrows>0 && ncols>0) {
       size_t s = ncols * sizeof($T *);
@@ -305,10 +306,10 @@ extern "C" {
     end
 end
 
-print(cuda1icat())
+print(fp,cuda1icat())
 
 # This is for missing double atomicAdd()
-print("""
+print(fp,"""
 static __inline__ __device__ float atomicAdd2(float *address, float val) {
   return atomicAdd(address, val);
 }
@@ -461,29 +462,29 @@ __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
   }
 }
 extern "C" {
-void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
+$DLLEXPORT void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
+$DLLEXPORT void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-void getents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void getents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void setents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void addents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void addents_$F(int n, int *ents, $T *x, $T *y)
 { if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-void setent1_$F(int n, int *ents, $T *x, $T  y)
+$DLLEXPORT void setent1_$F(int n, int *ents, $T *x, $T  y)
 { if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
@@ -491,7 +492,7 @@ void setent1_$F(int n, int *ents, $T *x, $T  y)
     end
 end
 
-print(cuda1getcols())
+print(fp,cuda1getcols())
 
 
 # Dropout
@@ -524,10 +525,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
   }
 }
 extern "C" {
-  void dropout_$F(int n, $T p, $T *x, $T *y) {
+  $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
   }    
-  void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
+  $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
   }    
 }
@@ -536,7 +537,7 @@ extern "C" {
     end
 end
 
-print(cuda1dropout())
+print(fp,cuda1dropout())
 
 # This is still too slow compared to concat on cpu and copy to gpu
 # Tested for 25 arrays of 200
@@ -555,7 +556,7 @@ __global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y
 }
 extern "C" {
   // julia is responsible for copying args to gpu
-  void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
+  $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
   }    
 }
@@ -564,7 +565,9 @@ extern "C" {
     end
 end
 
-print(cuda1concat())
+print(fp,cuda1concat())
+
+close(fp)
 
 # Here is the test script for cuda1concat:
 # using Knet, BenchmarkTools

@@ -1,4 +1,5 @@
 # cuda16 # Array,Array->Array (Multi dimensional broadcast up to some dimension with loop unrolling)
+fp = open("cuda16.cu","w")
 using Knet: broadcast_ops
 
 function cuda16src(f, j=f, ex="$f(xi,yi)")
@@ -57,7 +58,7 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
               }
 
               extern "C" {
-                void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
+                $DLLEXPORT void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
               for counter=0:dim_count-1
                 print(s,"int stridex_$counter,")
               end
@@ -93,5 +94,7 @@ end
 
 for a in broadcast_ops
     if !isa(a,Tuple); a=(a,); end
-    print(cuda16src(a...))
+    print(fp,cuda16src(a...))
 end
+
+close(fp)
