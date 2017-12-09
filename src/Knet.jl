@@ -8,9 +8,9 @@ module Knet
 const DBGFLAGS = 0
 macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
 
-# To perform profiling, set PROFILING to true.
-const PROFILING = false
-macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+# To perform profiling, set PROFILING to true. (moved this to gpu.jl)
+# const PROFILING = false
+# macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
