@@ -28,7 +28,6 @@ function find_library(name, prefixes=String[])
         if name == "cudnn"
 	    append!(names, map(ver->"$name$(tag)_$(ver.major)", cudnns)) # cudnn64_7.dll has single version digit
 	end
-	push!(names, name) # nvcuda.dll is found without extras
     else
         names = ["lib$name"]
     end

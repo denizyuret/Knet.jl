@@ -1,28 +1,22 @@
-using CUDAapi: find_library, libnvml
+# using CUDAapi: find_library, libnvml # using the following until CUDAapi fixed:
+include("../deps/cudaapi2.jl")
+const libnvml = CUDAapi2.libnvml
+const find_library = CUDAapi2.find_library
+
+# moved this to gpu.jl to make it self contained for testing
+const PROFILING = false
+macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
 macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
-macro libcall(lib,fun,ret,x...)
-    try 
-        path = find_library(lib)
-        fx = Expr(:call, :ccall, ("$fun",path), x...)
-        msg = "$lib.$fun error "
-        err = gensym()
-        # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
-        esc(:(if ($err=$fx) != 0; error($msg, $err); end; Knet.@gs))
-    catch
-        Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
-    end
-end
-
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     try 
-        path = find_library(lib)
+        path = find_library("$lib")
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
         # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
-        esc(:(if ($err=$fx) != 0; error($msg, $err); end; Knet.@gs))
+        esc(:(if ($err=$fx) != 0; error($msg, $err); end; @gs))
     catch
         Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
     end
@@ -30,10 +24,10 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     try
-        path = find_library(lib)
+        path = find_library("$lib")
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
-        esc(:($err=$fx; Knet.@gs; $err))
+        esc(:($err=$fx; @gs; $err))
     catch
         -1
     end
@@ -43,7 +37,7 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
         fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
         err = gensym()
-        esc(:($err=$fx; Knet.@gs; $err))
+        esc(:($err=$fx; @gs; $err))
     else
         Expr(:call,:error,"Cannot find libknet8, please rerun Pkg.build(\"Knet\").")
     end
@@ -243,7 +237,7 @@ function cudnnCreate()
     @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
     atexit(()->@cuda(cudnn,cudnnDestroy,(Cptr,), handle))
-    global cudnnVersion = Int(eval(Expr(:call,:ccall,(:cudnnGetVersion,path),:Csize_t,())))
+    global cudnnVersion = Int(eval(:(ccall(("cudnnGetVersion",$path),Csize_t,()))))
     return handle
 end
 
