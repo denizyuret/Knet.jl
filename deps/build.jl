@@ -92,17 +92,15 @@ end
 #    eval(Expr(:using,:CUDAapi))
 
 # edit copy of CUDAapi here for now
-using Compat
-include("logging.jl")
-include("compatibility.jl")
-include("discovery.jl")
-    try
-        tk = find_toolkit()
-        tc = find_toolchain(tk)
-        NVCC = tc.cuda_compiler
-        CXX = tc.host_compiler
-        push!(NVCCFLAGS, "--compiler-bindir", CXX)
-    end
+include("cudaapi2.jl")
+
+try
+    tk = CUDAapi2.find_toolkit()
+    tc = CUDAapi2.find_toolchain(tk)
+    NVCC = tc.cuda_compiler
+    CXX = tc.host_compiler
+    push!(NVCCFLAGS, "--compiler-bindir", CXX)
+end
 #end
 
 # CUDAapi checks path, but if no CUDAapi this acts as backup (no need for now)
@@ -113,13 +111,16 @@ include("discovery.jl")
 #     end
 # end
 
-if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
+if NVCC != "" && Pkg.installed("CUDAdrv") != nothing && Pkg.installed("CUDAapi") != nothing
+    eval(Expr(:using,:CUDAapi))
     eval(Expr(:using,:CUDAdrv))
     try
         dev = CuDevice(0)
         cap = capability(dev)
         arch = CUDAapi.shader(cap)
         push!(NVCCFLAGS,"--gpu-architecture",arch)
+    catch e
+        warn("CUDAdrv failed with $e")
     end
 end
 
@@ -127,7 +128,7 @@ end
 
 if CXX == ""
     try
-        CXX,CXXVER = find_host_compiler()
+        CXX,CXXVER = CUDAapi2.find_host_compiler()
     end
 end
 
