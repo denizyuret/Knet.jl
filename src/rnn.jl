@@ -240,6 +240,9 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
             for l = 1:layer, i = 1:ids
                 if inputLayer(r,l) && i <= inputIds
                     len = (r.inputMode==0 ? XH : 0)
+                elseif l>2 && r.direction==1 && i <= div(ids, 2)
+                    # bidirectional weight
+                    len = 2HH
                 else
                     len = HH
                 end
