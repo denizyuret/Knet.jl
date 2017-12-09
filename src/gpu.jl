@@ -1,7 +1,6 @@
 # using CUDAapi: find_library, libnvml # using the following until CUDAapi fixed:
 include("../deps/cudaapi2.jl")
-const libnvml = CUDAapi2.libnvml
-const find_library = CUDAapi2.find_library
+find_library = CUDAapi2.find_library
 
 # moved this to gpu.jl to make it self contained for testing
 const PROFILING = false
@@ -41,6 +40,10 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     else
         Expr(:call,:error,"Cannot find libknet8, please rerun Pkg.build(\"Knet\").")
     end
+end
+
+macro nvml(fun,x...)
+    esc(Expr(:macrocall,Symbol("@cuda"),CUDAapi2.libnvml,fun,x...))
 end
 
 const Cptr = Ptr{Void}
@@ -89,14 +92,14 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
         if !isdefined(:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
-                @cuda("$libnvml",nvmlInit,())
+                @nvml(nvmlInit,())
                 s = zeros(UInt8,80)
-                @cuda("$libnvml",nvmlSystemGetDriverVersion,(Ptr{Cchar},Cuint),s,80)
+                @nvml(nvmlSystemGetDriverVersion,(Ptr{Cchar},Cuint),s,80)
                 nvmlDriverVersion = unsafe_string(pointer(s))
-                @cuda("$libnvml",nvmlSystemGetNVMLVersion,(Ptr{Cchar},Cuint),s,80)
+                @nvml(nvmlSystemGetNVMLVersion,(Ptr{Cchar},Cuint),s,80)
                 nvmlVersion = unsafe_string(pointer(s))
                 # Let us keep nvml initialized for future ops such as meminfo
-                # @cuda("$libnvml",nvmlShutdown,())
+                # @nvml(nvmlShutdown,())
                 nvmlfound = true
             catch
                 nvmlfound = false
@@ -157,7 +160,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 	        p=Cuint[0]
                 if nvmlfound
                     # @cuda does not stay quiet so we use @cuda1 here
-                    @cuda1("$libnvml",nvmlDeviceGetCount,(Ptr{Cuint},),p)
+                    @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
                 elseif cudartfound
                     # OSX does not have the nvidia-ml library!
                     # We prefer nvml because cudart takes up memory even if we don't use a device
@@ -200,8 +203,8 @@ function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(3)
-    @cuda("$libnvml","nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
-    @cuda("$libnvml","nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
+    @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
+    @nvml("nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))
 end
 
