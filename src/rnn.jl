@@ -159,6 +159,11 @@ function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
     end
 end
 
+
+# call gpu everytime to reflect device changes
+gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
+
+
 """
 
     rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
@@ -184,7 +189,7 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 
 """
-function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=cudnnhandle())
+function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle())
     # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
@@ -275,7 +280,7 @@ The order of params returned (subject to change):
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
 """
-function rnnparams(r::RNN, w; handle=cudnnhandle())
+function rnnparams(r::RNN, w; handle=gethandle())
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = rnnids(r)
     ws = []
@@ -335,7 +340,7 @@ biases bW, bR from the following equations:
 
 """
 function rnninit(inputSize, hiddenSize;
-                 handle=cudnnhandle(),
+                 handle=gethandle(),
                  numLayers=1,
                  dropout=0.0,
                  skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
@@ -371,9 +376,23 @@ function rnninit(inputSize, hiddenSize;
         w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
     else
         r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
-        w = Array{dataType}(1,1,cudnnGetRNNParamsSize(r))
+        # TODO: make this a separate function?
+        w = begin
+            whidden = hiddenSize * hiddenSize
+            winput =  skipInput ? 0 : hiddenSize * inputSize
+            bhidden = hiddenSize
+            binput =  bhidden
+            coef = (mode == 2 ? 4 : mode == 3 ? 3 : 1) * (1 + direction)
+            nparams = 0
+            for i = 1:r.numLayers
+                nparams += coef * (whidden + winput + bhidden + binput)
+                winput = (1 + direction) * whidden
+                binput = bhidden
+            end
+            Array{dataType}(1,1,nparams)
+        end
     end
-    for a in rnnparams(r,w; handle=handle)
+    #=for a in rnnparams(r,w; handle=handle)
         if a == nothing
             continue
         elseif ndims(a) == 2
@@ -383,7 +402,7 @@ function rnninit(inputSize, hiddenSize;
         else
             error()
         end
-    end
+    end=#
     return (r,w)
 end
 
