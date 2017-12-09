@@ -293,10 +293,9 @@ function find_host_compiler(toolkit_version=nothing)
     elseif Compat.Sys.isapple()
         # GCC is no longer supported on MacOS so let's just use clang
         # TODO: proper version matching, etc
-        clang_path = find_binary("clang")
-
-        host_compiler = clang_path
-        host_version = v"0"
+        host_compiler = find_binary("clang")
+        versionstring = match(r"version (\d+(\.\d+)*)", readstring(`$host_compiler --version`))[1]
+        host_version = VersionNumber(versionstring)
     end
     @debug("Selected host compiler version $host_version at $host_compiler")
     return host_compiler, host_version
