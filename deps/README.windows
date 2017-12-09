@@ -1,7 +1,7 @@
 - Install "Visual Studio Community 2015", choose "Custom", "Visual C++".
+- Alternatively install "Visual C++ Build Tools", it is smaller.
 - Install CUDA toolkit 9.0.176 from https://developer.nvidia.com/cuda-downloads
 - Reboot to set environment variables
-- nvcc cannot find cl.exe
 
 https://docs.microsoft.com/en-us/cpp/build/walkthrough-compile-a-c-program-on-the-command-line
 https://docs.microsoft.com/en-us/cpp/build/reference/setting-compiler-options

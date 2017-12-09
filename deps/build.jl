@@ -127,9 +127,7 @@ end
 
 if CXX == ""
     try
-        # include("find_compiler.jl") # until CUDAapi is updated
-        # CXX = find_compiler()
-        CXX = find_host_compiler()
+        CXX,CXXVER = find_host_compiler()
     end
 end
 
