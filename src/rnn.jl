@@ -189,7 +189,7 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 
 """
-function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle())
+function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
     # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
@@ -256,13 +256,15 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
             i2 = i1 + len - 1
         end
     end
+    @inline access(a, rng) = (isa(a, KnetArray) || ~useview) ? a[rng] : view(a, rng)
     if len == 1 # empty weights when inputMode=1 show up as size (1,1,1)
         nothing
     elseif par == 1 # matrix
         h = Int(r.hiddenSize)
-        reshape(w[i1:i2], (div(len,h),h)) # weight matrices are transposed
+        reshape(access(w, i1:i2),
+                (div(len,h),h)) # weight matrices are transposed
     else # bias
-        w[i1:i2]
+        access(w, i1:i2)
     end
 end
 
@@ -280,14 +282,14 @@ The order of params returned (subject to change):
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
 """
-function rnnparams(r::RNN, w; handle=gethandle())
+function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = rnnids(r)
     ws = []
     for m in (1,2)
         for l in 1:layers
             for i in 1:ids
-                push!(ws, rnnparam(r, w, l, i, m; handle=handle))
+                push!(ws, rnnparam(r, w, l, i, m; handle=handle, useview=useview))
             end
         end
     end
@@ -392,7 +394,7 @@ function rnninit(inputSize, hiddenSize;
             Array{dataType}(1,1,nparams)
         end
     end
-    #=for a in rnnparams(r,w; handle=handle)
+    for a in rnnparams(r,w; handle=handle, useview=true)
         if a == nothing
             continue
         elseif ndims(a) == 2
@@ -402,7 +404,7 @@ function rnninit(inputSize, hiddenSize;
         else
             error()
         end
-    end=#
+    end
     return (r,w)
 end
 
