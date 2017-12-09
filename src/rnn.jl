@@ -53,26 +53,36 @@ type RNN
     hiddenSize::Cint
     numLayers::Cint
     dropout::Float64
-    inputMode::Cint
-    direction::Cint
-    mode::Cint
-    algo::Cint
-    dataType::DataType
-    rnnDesc::RD
-    dropoutDesc::DD
+    inputMode::Cint    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+    direction::Cint    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+    mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+    algo::Cint         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+    dataType::DataType # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+    rnnDesc::Union{RD,Void}
+    dropoutDesc::Union{DD,Void}
     dx
     dhx
     dcx
 end
 
+rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
+
 function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
-    res = Csize_t[0]
-    xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-    @cuda(cudnn, cudnnGetRNNParamsSize,
-          # handle, rnndesc, xdesc, result, dataType
-          (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
-          handle, r.rnnDesc, xDesc, res, DT(r.dataType))
-    div(res[1], sizeof(r.dataType))
+    if r.rnnDesc != nothing
+        res = Csize_t[0]
+        xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
+        @cuda(cudnn, cudnnGetRNNParamsSize,
+              # handle, rnndesc, xdesc, result, dataType
+              (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
+              handle, r.rnnDesc, xDesc, res, DT(r.dataType))
+        div(res[1], sizeof(r.dataType))
+    else # on CPU, so we guess the size
+        X,H,L,I = r.inputSize, r.hiddenSize, r.numLayers, rnnids(r)
+        biases = L*I
+        inputMatrices = (r.inputMode == 1 ? 0 : r.direction == 1 ? I : div(I,2))
+        hiddenMatrices = (r.direction == 1 ? (L-1)*I : (L-1)*I + div(I,2))
+        biases * H + inputMatrices * X * H + hiddenMatrices * H * H
+    end
 end
 
 "Keeps an array of 3D tensor descriptors"
@@ -153,7 +163,7 @@ end
 
     rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
 
-Return a single weight matrix or bias vector as a subarray of w.
+Return a single weight matrix or bias vector as a slice of w.
 
 Valid `layer` values:
 * For unidirectional RNNs 1:numLayers
@@ -175,6 +185,7 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 
 """
 function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=cudnnhandle())
+    # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -182,32 +193,64 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=c
       (r.mode == 1 && 1 <= id <= 2) ||
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
-    T = eltype(w) # w could be a Rec so typing w::KnetArray{T} is not an option
-    xDesc = TD(T,1,r.inputSize,1)
-    wDesc = FD(T,1,1,length(w))
-    paramDesc = FD(T,1,1,1,1)
-    param = Cptr[0]
-    if par == 1 # matrix
-        @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
-              (Cptr, Cptr, Cint, #handle,rdesc, layer
-               Cptr, Cptr, Cptr, #xDesc, wDesc, w
-               Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-              handle, r.rnnDesc, layer-1,
-              xDesc, wDesc, getval(w),
-              id-1, paramDesc, param)
-    else # bias
-        @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
-              (Cptr, Cptr, Cint, #handle,rdesc, layer
-               Cptr, Cptr, Cptr, #xDesc, wDesc, w
-               Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-              handle, r.rnnDesc, layer-1,
-              xDesc, wDesc, getval(w),
-              id-1, paramDesc, param)
+    if isa(getval(w), KnetArray)
+        T = eltype(w)
+        xDesc = TD(T,1,r.inputSize,1)
+        wDesc = FD(T,1,1,length(w))
+        paramDesc = FD(T,1,1,1,1)
+        param = Cptr[0]
+        if par == 1 # matrix
+            @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
+                  (Cptr, Cptr, Cint, #handle,rdesc, layer
+                   Cptr, Cptr, Cptr, #xDesc, wDesc, w
+                   Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
+                  handle, r.rnnDesc, layer-1,
+                  xDesc, wDesc, getval(w),
+                  id-1, paramDesc, param)
+        else # bias
+            @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
+                  (Cptr, Cptr, Cint, #handle,rdesc, layer
+                   Cptr, Cptr, Cptr, #xDesc, wDesc, w
+                   Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
+                  handle, r.rnnDesc, layer-1,
+                  xDesc, wDesc, getval(w),
+                  id-1, paramDesc, param)
+        end
+        dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
+        len = prod(sz)
+        i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
+        i2 = i1 + len - 1
+    else
+        # guess i1,i2,len from layer,id,par and rnn specs
+        ids = rnnids(r)
+        if par == 1 # matrix
+            # input matrices are (inputSize,hiddenSize) all others (hiddenSize,hiddenSize)
+            # if inputMode==1 then input matrices are empty
+            # I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM are input matrices with L=1 for uni and L=1,2 for bi
+            inputLayer(r,l)=(l==1 || (l==2 && r.direction==1))
+            X, H = r.inputSize, r.hiddenSize
+            XH, HH = X*H, H*H
+            inputIds = div(ids,2)
+            i1 = i2 = len = 0
+            for l = 1:layer, i = 1:ids
+                if inputLayer(r,l) && i <= inputIds
+                    len = (r.inputMode==0 ? XH : 0)
+                else
+                    len = HH
+                end
+                i2 += len
+                if l==layer && i==id; break; end
+            end
+            if len==0; len=1; end # cudnn uses size (1,1,1) for empty weights
+            i1 = i2 - len + 1
+        else # bias
+            # all biases are length=hidden and there are always numLayers * numIds of them
+            len = r.hiddenSize
+            layers = r.numLayers * (r.direction == 1 ? 2 : 1)
+            i1 = 1 + length(w) - layers * ids * len + ((id-1) + ids * (layer-1)) * len
+            i2 = i1 + len - 1
+        end
     end
-    dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
-    len = prod(sz)
-    i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
-    i2 = i1 + len - 1
     if len == 1 # empty weights when inputMode=1 show up as size (1,1,1)
         nothing
     elseif par == 1 # matrix
@@ -232,9 +275,9 @@ The order of params returned (subject to change):
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
 """
-function rnnparams(r::RNN, w::KnetArray; handle=cudnnhandle())
+function rnnparams(r::RNN, w; handle=cudnnhandle())
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
-    ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
+    ids = rnnids(r)
     ws = []
     for m in (1,2)
         for l in 1:layers
@@ -264,6 +307,7 @@ array that includes all matrices and biases for the RNN. Keyword arguments:
 - `seed=0`: Random number seed. Uses `time()` if 0.
 - `winit=xavier`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
+- `usegpu=(gpu()>=0): GPU used by default if one exists.
 
 RNNs compute the output h[t] for a given iteration from the recurrent
 input h[t-1] and the previous layer input x[t] given matrices W, R and
@@ -301,29 +345,34 @@ function rnninit(inputSize, hiddenSize;
                  algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
                  seed=0,              # seed=0 for random init, positive integer for replicability
                  winit=xavier,
-                 binit=zeros
+                 binit=zeros,
+                 usegpu=(gpu()>=0),
                  )
-    # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-    dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed)
     inputMode = skipInput ? 1 : 0
     direction = bidirectional ? 1 : 0
     mode = findfirst((:relu,:tanh,:lstm,:gru), rnnType) - 1
     if mode < 0; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
-    rnnDesc = RD()
-    if cudnnVersion >= 7000
-        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 6000
-        @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 5000
-        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
+    if usegpu
+        rnnDesc = RD()
+        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
+        if cudnnVersion >= 7000
+            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+        elseif cudnnVersion >= 6000
+            @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+        elseif cudnnVersion >= 5000
+            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+                  rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
+        else
+            error("CUDNN $cudnnVersion does not support RNNs")
+        end
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+        w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
     else
-        error("CUDNN $cudnnVersion does not support RNNs")
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
+        w = Array{dataType}(1,1,cudnnGetRNNParamsSize(r))
     end
-    r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-    w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
     for a in rnnparams(r,w; handle=handle)
         if a == nothing
             continue
@@ -474,7 +523,7 @@ end
 rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
 
 let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw(r::RNN, w::Rec, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
+    rnnforw{K<:KnetArray}(r::RNN, w::Rec{K}, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
 end
 
 function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
@@ -568,23 +617,6 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     return dw
 end
 
-
-# TODO: CPU implementation:
-function rnnparams(r::RNN, w::Array; o...)
-    layers = r.numLayers * (r.direction == 1 ? 2 : 1)
-    ids = r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2
-    ws = []; wi = 0
-    for m in (true, false)
-        for l in 0:layers-1
-            for i in 0:ids-1
-                # push!(ws, cudnnGetRNNParam(r, w, l, i, m; handle=handle))
-                error("wip")
-            end
-        end
-    end
-    return ws
-end
-
 # CPU version
 function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
                     hx::Union{Array{T},Void}=nothing,
@@ -604,6 +636,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  cy = (cx != nothing && r.mode == 2),
                  o...)
     if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
+    if r.dropout != 0; error("rnntest dropout not implemented yet"); end
     if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
     w = rnnparams(r,ws)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
@@ -710,3 +743,4 @@ end
 function getindex{T,I<:Integer}(x::KnetArray{T,2}, ::Colon, m::Array{I,2})
     reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
 end
+
