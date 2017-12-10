@@ -3,36 +3,57 @@
 Knet.jl is a deep learning package implemented in Julia, so you should
 be able to run it on any machine that can run Julia. It has been
 extensively tested on Linux machines with NVIDIA GPUs and CUDA
-libraries, but most of it works on vanilla Linux and OSX machines as
-well (currently cpu-only support for some operations is
-incomplete). If you would like to try it on your own computer, please
-follow the instructions on [Installation](@ref). If you would like to
-try working with a GPU and do not have access to one, take a look at
-[Using Amazon AWS](@ref). If you find a bug, please open a [GitHub
+libraries, and it has been reported to work on OSX and Windows.  If
+you would like to try it on your own computer, please follow the
+instructions on [Installation](@ref). If you would like to try working
+with a GPU and do not have access to one, take a look at [Using Amazon
+AWS](@ref). If you find a bug, please open a [GitHub
 issue](https://github.com/denizyuret/Knet.jl/issues). If you would
 like to contribute to Knet, see [Tips for developers](@ref). If you
-need help, or would like to request a feature, please consider joining
-the [knet-users](https://groups.google.com/forum/#!forum/knet-users)
+need help, or would like to request a feature, please use the
+[knet-users](https://groups.google.com/forum/#!forum/knet-users)
 mailing list.
 
 ## Installation
 
-First download and install the latest version of Julia from
+For best results install (1) a host compiler, (2) GPU support, (3)
+Julia, and (4) Knet in that order.
+
+Host compiler: On Linux, the gcc compiler that comes standard with all
+distributions is supported.  On Mac you need to install
+[Xcode](https://developer.apple.com/xcode/) which provides the clang
+compiler.  On Windows you need the Visual C++ compiler which comes
+with Visual Studio or Build Tools (I have tested with VS 2015 because
+VS 2017 was not supported by the CUDA toolkit as of December 10,
+2017).  If you don't have a compiler, most of Knet will still work on
+CPU (slow) and without convolution support.
+
+GPU support: If your machine has an NVIDIA GPU, Knet will
+automatically discover it and compile support code if you have the
+required host compiler,
+[driver](http://www.nvidia.com/Download/index.aspx?lang=en-us),
+[toolkit](https://developer.nvidia.com/cuda-downloads) and [cuDNN
+library](https://developer.nvidia.com/cudnn) pre-installed.
+
+Julia: Download and install the latest version of Julia from
 [julialang.org](http://julialang.org/downloads). As of this writing
-the latest version is 0.5.0 and I have tested Knet using 64-bit
-Generic Linux binaries and the Mac OS X package (dmg). Once Julia is
-installed, type `julia` at the command prompt to start the Julia
-interpreter. To install Knet just use `Pkg.add("Knet")`:
+the latest version is 0.6.1 and I have tested Knet using 64-bit
+Generic Linux binaries, the macOS package (10.8+ 64-bit dmg), and
+64-bit Windows Self Extracting Archive (exe). 
+
+Knet: Once Julia is installed, type `julia` at the command prompt to
+start the Julia interpreter. To install Knet just use
+`Pkg.add("Knet")`:
 
     $ julia
                    _
        _       _ _(_)_     |  A fresh approach to technical computing
-      (_)     | (_) (_)    |  Documentation: http://docs.julialang.org
+      (_)     | (_) (_)    |  Documentation: https://docs.julialang.org
        _ _   _| |_  __ _   |  Type "?help" for help.
       | | | | | | |/ _` |  |
-      | | |_| | | | (_| |  |  Version 0.5.0 (2016-09-19 18:14 UTC)
+      | | |_| | | | (_| |  |  Version 0.6.1 (2017-10-24 22:15 UTC)
      _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
-    |__/                   |  x86_64-apple-darwin13.4.0
+    |__/                   |  x86_64-pc-linux-gnu
 
     julia> Pkg.add("Knet")
 
@@ -44,7 +65,7 @@ Pkg.add("PkgName").
 To make sure everything has installed correctly, type
 `Pkg.test("Knet")` which should take a minute kicking the tires. You
 may need to run `Pkg.build("Knet")` to make sure the CUDA kernels are
-up to date when using a GPU.  If all is OK, continue with the next
+up to date when using a GPU.  If all is OK, continue with the tutorial
 section, if not you can get help at the
 [knet-users](https://groups.google.com/forum/#!forum/knet-users)
 mailing list.

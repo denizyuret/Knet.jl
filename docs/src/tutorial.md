@@ -631,12 +631,9 @@ More recently (Nov 24, 2017), @ilkarman has published CNN and RNN
 Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual
 Machine for Linux (Ubuntu). The results are copied below.  You can
 find versions of the Knet notebooks used for these benchmarks in the
-Knet/examples directory:
-[cifar10-cnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/cifar10-cnn)
-and
-[imdb-rnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/imdb-rnn).
+Knet/examples/DeepLearningFrameworks directory.
 
-Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Dec 7, 2017)
+Training CNN (VGG-style) on CIFAR-10 - Image Recognition
 
 | DL Library                               | Test Accuracy (%) | Training Time (s) |
 | ---------------------------------------- | ----------------- | ----------------- |
@@ -653,7 +650,7 @@ Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Dec 7, 2017)
 | [Lasagne(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Theano_Lasagne_CNN.ipynb) | 77                | 253               |
 | [Keras(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_Theano_CNN.ipynb)  | 78                | 269               |
 
-Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Dec 7, 2017)
+Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)
 
 | DL Library                          | Test Accuracy (%) | Training Time (s) | Using CuDNN? |
 | ----------------------------------- | ----------------- | ----------------- | ------------ |
@@ -665,7 +662,7 @@ Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (D
 | [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb)     | 86                | 35                | Yes          |
 | [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) | 86                | 86                | No Available |
 
-Inference ResNet-50 (Feature Extraction) (Dec 7, 2017)
+Inference ResNet-50 (Feature Extraction)
 
 | DL Library                                          | Images/s GPU      | Images/s CPU      |
 | ----------------------------------------            | ----------------- | ----------------- |

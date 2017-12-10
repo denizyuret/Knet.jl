@@ -1,25 +1,21 @@
 # DeepLearningFrameworks (last updated Dec 7, 2017)
 
-- [Knet_CNN.ipynb]: Convolutional neural network trained on [CIFAR-10].
-- [Knet_RNN.ipynb]: RNN trained on [IMDB] movie reviews sentiment classification.
-- [ResNet50-Knet.ipynb]: Knet implementation of [ResNet] 50, 101, and 152 models.
+- [Knet_CNN.ipynb](Knet_CNN.ipynb): Convolutional neural network trained on [CIFAR-10].
+- [Knet_RNN.ipynb](Knet_RNN.ipynb): RNN trained on [IMDB] movie reviews sentiment classification.
+- [ResNet50-Knet.ipynb](ResNet50-Knet.ipynb): Knet implementation of [ResNet] 50, 101, and 152 models.
 
+This directory contains the Knet notebooks submitted to
+[DeepLearningFrameworks]. Many thanks to [Ilia
+Karmanov](https://github.com/ilkarman) for creating and maintaining
+this benchmark. The same models have been implemented with CNTK,
+Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch and
+TensorFlow to give both coding style and speed comparisons.  Here are
+the results with links to the original sources and hardware specs:
+
+[DeepLearningFrameworks]: https://github.com/ilkarman/DeepLearningFrameworks
 [IMDB]: http://ai.stanford.edu/~amaas/data/sentiment
 [CIFAR-10]: http://www.cs.toronto.edu/~kriz/cifar.html
 [ResNet]: https://github.com/KaimingHe/deep-residual-networks
-
-This directory contains the Knet notebooks submitted to
-[https://github.com/ilkarman/DeepLearningFrameworks]. Great thanks to
-[Ilia Karmanov](https://github.com/ilkarman) for creating and
-maintaining this benchmark. The same models have been implemented with
-CNTK, Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch and
-TensorFlow to give both coding style and speed comparisons.  The
-benchmarks were run on (half) an Nvidia K80 GPU, on [Microsoft Azure
-Deep Learning Virtual
-Machine](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/microsoft-ads.dsvm-deep-learning?tab=Overview),
-[NC6](https://azure.microsoft.com/en-gb/blog/azure-n-series-preview-availability/),
-where frameworks have been updated to the latest version.  Here are
-the results and links to the original sources:
 
 ## Training CNN (VGG-style) on CIFAR-10 - Image Recognition
 
@@ -67,6 +63,14 @@ the results and links to the original sources:
 
 ## Hardware specs
 
+The benchmarks were run on (half) an Nvidia K80 GPU, on [Microsoft
+Azure Deep Learning Virtual
+Machine](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/microsoft-ads.dsvm-deep-learning?tab=Overview),
+[NC6](https://azure.microsoft.com/en-gb/blog/azure-n-series-preview-availability/),
+where frameworks have been updated to the latest version.
+
+| Type   | Spec |
+|:-------|:-----|
 | Cores  | 6 x E5-2690v3 |
 | GPU    | 1 x K80 (1/2 Physical Card) |
 | Memory | 56 GB |
