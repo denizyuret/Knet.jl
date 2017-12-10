@@ -166,29 +166,29 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
 """
 
-    rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
+        rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
 
-Return a single weight matrix or bias vector as a slice of w.
+    Return a single weight matrix or bias vector as a slice of w.
 
-Valid `layer` values:
-* For unidirectional RNNs 1:numLayers
-* For bidirectional RNNs 1:2*numLayers, forw and back layers alternate.
+    Valid `layer` values:
+    * For unidirectional RNNs 1:numLayers
+    * For bidirectional RNNs 1:2*numLayers, forw and back layers alternate.
 
-Valid `id` values:
-* For RELU and TANH RNNs, input = 1, hidden = 2.
-* For GRU reset = 1,4; update = 2,5; newmem = 3,6; 1:3 for input, 4:6 for hidden
-* For LSTM inputgate = 1,5; forget = 2,6; newmem = 3,7; output = 4,8; 1:4 for input, 5:8 for hidden
+    Valid `id` values:
+    * For RELU and TANH RNNs, input = 1, hidden = 2.
+    * For GRU reset = 1,4; update = 2,5; newmem = 3,6; 1:3 for input, 4:6 for hidden
+    * For LSTM inputgate = 1,5; forget = 2,6; newmem = 3,7; output = 4,8; 1:4 for input, 5:8 for hidden
 
-Valid `param` values:
-* Return the weight matrix (transposed!) if `param==1`.
-* Return the bias vector if `param==2`.
+    Valid `param` values:
+    * Return the weight matrix (transposed!) if `param==1`.
+    * Return the bias vector if `param==2`.
 
-The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
-* For skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.
-* For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
-* For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
+    The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
+    * For skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.
+    * For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
+    * For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 
-"""
+    """
 function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
     # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
@@ -274,17 +274,17 @@ end
 
 """
 
-    rnnparams(r::RNN, w)
+        rnnparams(r::RNN, w)
 
-Split w into individual parameters and return them as an array.
+    Split w into individual parameters and return them as an array.
 
-The order of params returned (subject to change):
-* All weight matrices come before all bias vectors.
-* Matrices and biases are sorted lexically based on (layer,id).
-* See @doc rnnparam for valid layer and id values.
-* Input multiplying matrices are `nothing` if r.inputMode = 1.
+    The order of params returned (subject to change):
+    * All weight matrices come before all bias vectors.
+    * Matrices and biases are sorted lexically based on (layer,id).
+    * See @doc rnnparam for valid layer and id values.
+    * Input multiplying matrices are `nothing` if r.inputMode = 1.
 
-"""
+    """
 function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = rnnids(r)
@@ -302,48 +302,48 @@ end
 
 """
 
-    rnninit(inputSize, hiddenSize; opts...)
+        rnninit(inputSize, hiddenSize; opts...)
 
-Return an `(r,w)` pair where `r` is a RNN struct and `w` is a single weight
-array that includes all matrices and biases for the RNN. Keyword arguments:
+    Return an `(r,w)` pair where `r` is a RNN struct and `w` is a single weight
+    array that includes all matrices and biases for the RNN. Keyword arguments:
 
-- `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
-- `numLayers=1`: Number of RNN layers.
-- `bidirectional=false`: Create a bidirectional RNN if `true`.
-- `dropout=0.0`: Dropout probability. Ignored if `numLayers==1`.
-- `skipInput=false`: Do not multiply the input with a matrix if `true`.
-- `dataType=Float32`: Data type to use for weights.
-- `algo=0`: Algorithm to use, see CUDNN docs for details.
-- `seed=0`: Random number seed. Uses `time()` if 0.
-- `winit=xavier`: Weight initialization method for matrices.
-- `binit=zeros`: Weight initialization method for bias vectors.
-- `usegpu=(gpu()>=0): GPU used by default if one exists.
+    - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
+    - `numLayers=1`: Number of RNN layers.
+    - `bidirectional=false`: Create a bidirectional RNN if `true`.
+    - `dropout=0.0`: Dropout probability. Ignored if `numLayers==1`.
+    - `skipInput=false`: Do not multiply the input with a matrix if `true`.
+    - `dataType=Float32`: Data type to use for weights.
+    - `algo=0`: Algorithm to use, see CUDNN docs for details.
+    - `seed=0`: Random number seed. Uses `time()` if 0.
+    - `winit=xavier`: Weight initialization method for matrices.
+    - `binit=zeros`: Weight initialization method for bias vectors.
+    - `usegpu=(gpu()>=0): GPU used by default if one exists.
 
-RNNs compute the output h[t] for a given iteration from the recurrent
-input h[t-1] and the previous layer input x[t] given matrices W, R and
-biases bW, bR from the following equations:
+    RNNs compute the output h[t] for a given iteration from the recurrent
+    input h[t-1] and the previous layer input x[t] given matrices W, R and
+    biases bW, bR from the following equations:
 
-`:relu` and `:tanh`: Single gate RNN with activation function f:
+    `:relu` and `:tanh`: Single gate RNN with activation function f:
 
-    h[t] = f(W * x[t] .+ R * h[t-1] .+ bW .+ bR)
+        h[t] = f(W * x[t] .+ R * h[t-1] .+ bW .+ bR)
 
-`:gru`: Gated recurrent unit:
+    `:gru`: Gated recurrent unit:
 
-    i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
-    r[t] = sigm(Wr * x[t] .+ Rr * h[t-1] .+ bWr .+ bRr) # reset gate
-    n[t] = tanh(Wn * x[t] .+ r[t] .* (Rn * h[t-1] .+ bRn) .+ bWn) # new gate
-    h[t] = (1 - i[t]) .* n[t] .+ i[t] .* h[t-1]
+        i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
+        r[t] = sigm(Wr * x[t] .+ Rr * h[t-1] .+ bWr .+ bRr) # reset gate
+        n[t] = tanh(Wn * x[t] .+ r[t] .* (Rn * h[t-1] .+ bRn) .+ bWn) # new gate
+        h[t] = (1 - i[t]) .* n[t] .+ i[t] .* h[t-1]
 
-`:lstm`: Long short term memory unit with no peephole connections:
+    `:lstm`: Long short term memory unit with no peephole connections:
 
-    i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
-    f[t] = sigm(Wf * x[t] .+ Rf * h[t-1] .+ bWf .+ bRf) # forget gate
-    o[t] = sigm(Wo * x[t] .+ Ro * h[t-1] .+ bWo .+ bRo) # output gate
-    n[t] = tanh(Wn * x[t] .+ Rn * h[t-1] .+ bWn .+ bRn) # new gate
-    c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
-    h[t] = o[t] .* tanh(c[t])
+        i[t] = sigm(Wi * x[t] .+ Ri * h[t-1] .+ bWi .+ bRi) # input gate
+        f[t] = sigm(Wf * x[t] .+ Rf * h[t-1] .+ bWf .+ bRf) # forget gate
+        o[t] = sigm(Wo * x[t] .+ Ro * h[t-1] .+ bWo .+ bRo) # output gate
+        n[t] = tanh(Wn * x[t] .+ Rn * h[t-1] .+ bWn .+ bRn) # new gate
+        c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
+        h[t] = o[t] .* tanh(c[t])
 
-"""
+    """
 function rnninit(inputSize, hiddenSize;
                  handle=gethandle(),
                  numLayers=1,
@@ -414,48 +414,48 @@ end
 
 """
 
-    rnnforw(r, w, x[, hx, cx]; batchSizes, hy, cy)
+        rnnforw(r, w, x[, hx, cx]; batchSizes, hy, cy)
 
-Returns a tuple (y,hyout,cyout,rs) given rnn `r`, weights `w`, input
-`x` and optionally the initial hidden and cell states `hx` and `cx`
-(`cx` is only used in LSTMs).  `r` and `w` should come from a previous
-call to `rnninit`.  Both `hx` and `cx` are optional, they are treated
-as zero arrays if not provided.  The output `y` contains the hidden
-states of the final layer for each time step, `hyout` and `cyout` give
-the final hidden and cell states for all layers, `rs` is a buffer the
-RNN needs for its gradient calculation.
+    Returns a tuple (y,hyout,cyout,rs) given rnn `r`, weights `w`, input
+    `x` and optionally the initial hidden and cell states `hx` and `cx`
+    (`cx` is only used in LSTMs).  `r` and `w` should come from a previous
+    call to `rnninit`.  Both `hx` and `cx` are optional, they are treated
+    as zero arrays if not provided.  The output `y` contains the hidden
+    states of the final layer for each time step, `hyout` and `cyout` give
+    the final hidden and cell states for all layers, `rs` is a buffer the
+    RNN needs for its gradient calculation.
 
-The boolean keyword arguments `hy` and `cy` control whether `hyout`
-and `cyout` will be output.  By default `hy = (hx!=nothing)` and `cy =
-(cx!=nothing && r.mode==2)`, i.e. a hidden state will be output if one
-is provided as input and for cell state we also require an LSTM.  If
-`hy`/`cy` is `false`, `hyout`/`cyout` will be `nothing`. `batchSizes`
-can be an integer array that specifies non-uniform batch sizes as
-explained below. By default `batchSizes=nothing` and the same batch
-size, `size(x,2)`, is used for all time steps.
+    The boolean keyword arguments `hy` and `cy` control whether `hyout`
+    and `cyout` will be output.  By default `hy = (hx!=nothing)` and `cy =
+    (cx!=nothing && r.mode==2)`, i.e. a hidden state will be output if one
+    is provided as input and for cell state we also require an LSTM.  If
+    `hy`/`cy` is `false`, `hyout`/`cyout` will be `nothing`. `batchSizes`
+    can be an integer array that specifies non-uniform batch sizes as
+    explained below. By default `batchSizes=nothing` and the same batch
+    size, `size(x,2)`, is used for all time steps.
 
-The input and output dimensions are:
+    The input and output dimensions are:
 
-- `x`: (X,[B,T])
-- `y`: (H/2H,[B,T])
-- `hx`,`cx`,`hyout`,`cyout`: (H,B,L/2L)
-- `batchSizes`: `nothing` or `Vector{Int}(T)`
+    - `x`: (X,[B,T])
+    - `y`: (H/2H,[B,T])
+    - `hx`,`cx`,`hyout`,`cyout`: (H,B,L/2L)
+    - `batchSizes`: `nothing` or `Vector{Int}(T)`
 
-where X is inputSize, H is hiddenSize, B is batchSize, T is seqLength,
-L is numLayers.  `x` can be 1, 2, or 3 dimensional.  If
-`batchSizes==nothing`, a 1-D `x` represents a single instance, a 2-D
-`x` represents a single minibatch, and a 3-D `x` represents a sequence
-of identically sized minibatches.  If `batchSizes` is an array of
-(non-increasing) integers, it gives us the batch size for each time
-step in the sequence, in which case `sum(batchSizes)` should equal
-`div(length(x),size(x,1))`. `y` has the same dimensionality as `x`,
-differing only in its first dimension, which is H if the RNN is
-unidirectional, 2H if bidirectional.  Hidden vectors `hx`, `cx`,
-`hyout`, `cyout` all have size (H,B1,L) for unidirectional RNNs, and
-(H,B1,2L) for bidirectional RNNs where B1 is the size of the first
-minibatch.
+    where X is inputSize, H is hiddenSize, B is batchSize, T is seqLength,
+    L is numLayers.  `x` can be 1, 2, or 3 dimensional.  If
+    `batchSizes==nothing`, a 1-D `x` represents a single instance, a 2-D
+    `x` represents a single minibatch, and a 3-D `x` represents a sequence
+    of identically sized minibatches.  If `batchSizes` is an array of
+    (non-increasing) integers, it gives us the batch size for each time
+    step in the sequence, in which case `sum(batchSizes)` should equal
+    `div(length(x),size(x,1))`. `y` has the same dimensionality as `x`,
+    differing only in its first dimension, which is H if the RNN is
+    unidirectional, 2H if bidirectional.  Hidden vectors `hx`, `cx`,
+    `hyout`, `cyout` all have size (H,B1,L) for unidirectional RNNs, and
+    (H,B1,2L) for bidirectional RNNs where B1 is the size of the first
+    minibatch.
 
-"""
+    """
 function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                     hx::Union{KnetArray{T},Void}=nothing,
                     cx::Union{KnetArray{T},Void}=nothing;
@@ -659,7 +659,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  o...)
-    if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
+    #if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
     if r.dropout != 0; error("rnntest dropout not implemented yet"); end
     if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
     w = rnnparams(r,ws)
@@ -669,26 +669,54 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     ysize = ntuple(i->(i==1 ? Y : size(x,i)), ndims(x)) # to match ndims(y) to ndims(x)
     H = Int(r.hiddenSize)
     @assert (r.inputMode == 0 || H == X)
-    L = Int(r.numLayers * (r.direction == 1 ? 2 : 1))
-    hsize = (H,B,L)
+    L = Int(r.numLayers) * (r.direction == 1 ? 2 : 1)
+    hsize = (H, B, L)
     @assert hx == nothing || size(hx) == hsize
     @assert cx == nothing || size(cx) == hsize
     h = hx==nothing ? fill!(similar(x,hsize),0) : hx
-
-    ys = []
     hs = [ h[:,:,l] for l=1:L ]
+    ys = []
+    direction = r.direction
     if r.mode <= 1
         @assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
-        # ht = f(W_i * x_t + R_i h_t-1 + b_Wi + b_Ri)
         f = r.mode == 0 ? relu : tanh
-        for t = 1:T
-            for l = 1:L
-                wx,wh,bx,bh = w[2l-1],w[2l],w[2L+2l-1],w[2L+2l]
-                wxt = (l > 1 ? wx' * hs[l-1] : r.inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
-                hs[l] = f.(wxt .+ wh' * hs[l] .+ bx .+ bh)
+        if direction == 0
+            for t = 1:T
+                for l = 1:L
+                    wx,wh,bx,bh = w[2l-1],w[2l],w[2L+2l-1],w[2L+2l]
+                    wxt = (l > 1 ? wx' * hs[l-1] : r.inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
+                    hs[l] = f.(wxt .+ wh' * hs[l] .+ bx .+ bh)
+                end
+                push!(ys, hs[L])
             end
-            push!(ys, hs[L])
+        else
+            # each layer's input is previous layer's output
+            X = x
+            for l = 1:(1+direction):L
+                skip = l==1 && r.inputMode==1
+                hts = []
+                for t = 1:T
+                    for (i,ti) in zip([l, l+1], [t, T-t+1])
+                        wx,wh,bx,bh = w[2i-1],w[2i],w[2L+2i-1],w[2L+2i]
+                        wxt =  skip ? X[:,:,ti] : wx' * X[:,:,ti]
+                        hs[i] = f.(wxt .+ wh' * hs[i] .+ bx .+ bh)
+                        push!(hts, hs[i])
+                    end
+                end
+                # construct the next layer output
+                yforw = Array{Any}(hts[1:2:end-1])
+                yback = Array{Any}(reverse(hts[2:2:end]))
+                ybs = []
+                for (yf, yb) in zip(yforw, yback)
+                    push!(ybs, vcat(yf, yb))
+                end
+                # now ybs contans (2 * hiddenSize, batchSize) matrices
+                # so cat them to add time dimension
+                X = reshape(hcat(ybs...), (2r.hiddenSize, size(x,2), length(ybs)))
+            end
+            ys = X
         end
+        
     elseif r.mode == 2           # LSTM
         @assert r.inputMode == 0 || all(w[1:4*(1+r.direction)] .== nothing)
         # it = σ(Wixt + Riht-1 + bWi + bRi) 
@@ -739,11 +767,12 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     else
         error("RNN not supported")
     end
-    y = reshape(hcat(ys...), ysize)
+    y = r.direction == 0 ? reshape(hcat(ys...), ysize) : ys
     hyout = hy ? reshape(hcat(hs...), hsize) : nothing
     cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
     return (y,hyout,cyout,nothing)
 end
+
 
 # Hack for JLD file load/save of RNNs:
 if Pkg.installed("JLD") != nothing
