@@ -175,7 +175,10 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cublashandle(dev=gpu())
-        if dev==-1; error("No cublashandle for CPU"); end
+        if dev==-1
+            # error("No cublashandle for CPU")
+            return nothing
+        end
         i = dev+2
         if CUBLAS == nothing; CUBLAS=Array{Any}(gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
@@ -183,7 +186,10 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cudnnhandle(dev=gpu())
-        if dev==-1; error("No cudnnhandle for CPU"); end
+        if dev==-1
+            # error("No cudnnhandle for CPU")
+            return nothing
+        end
         i = dev+2
         if CUDNN == nothing; CUDNN=Array{Any}(gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end

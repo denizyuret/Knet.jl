@@ -2,7 +2,7 @@
 
 - [Knet_CNN.ipynb](Knet_CNN.ipynb): Convolutional neural network trained on [CIFAR-10].
 - [Knet_RNN.ipynb](Knet_RNN.ipynb): RNN trained on [IMDB] movie reviews sentiment classification.
-- [ResNet50-Knet.ipynb](ResNet50-Knet.ipynb): Knet implementation of [ResNet] 50, 101, and 152 models.
+- [ResNet50-Knet.ipynb](ResNet50-Knet.ipynb): Inference (feature extraction) with [ResNet-50].
 
 This directory contains the Knet notebooks submitted to
 [DeepLearningFrameworks]. Many thanks to [Ilia
@@ -15,7 +15,7 @@ the results with links to the original sources and hardware specs:
 [DeepLearningFrameworks]: https://github.com/ilkarman/DeepLearningFrameworks
 [IMDB]: http://ai.stanford.edu/~amaas/data/sentiment
 [CIFAR-10]: http://www.cs.toronto.edu/~kriz/cifar.html
-[ResNet]: https://github.com/KaimingHe/deep-residual-networks
+[ResNet-50]: https://github.com/KaimingHe/deep-residual-networks
 
 ## Training CNN (VGG-style) on CIFAR-10 - Image Recognition
 
