@@ -1,9 +1,14 @@
 Knet v0.8.6 Release Notes
 =========================
 
+Compatibility
+-------------
+* Windows GPU support implemented.
+* MacOS GPU support improved: libnvidia-ml only used when available.
+* Pre-0.6 Julia versions no longer supported.
+
 General
 -------
-* Pre-0.6 Julia versions no longer supported.
 * `rnninit` and `rnnforw` implement cudnn RNNs (with @cangumeli).
 * `conv4` performance significantly improved using cudnnFind.
 * `batchnorm` implemented using CUDNN (@cangumeli).
@@ -18,13 +23,11 @@ General
 * `randn!`, `mean(a,dims)`, `reshape` with `Colon` is now supported by KnetArray (@CarloLucibello).
 * Using CUDAapi and CUDAdrv in build.jl if installed.
 * Got rid of the Combinatorics dependency in test.
-* libnvidia-ml only used when available (it is not available in OSX).
 * `curandInit` called at initialization to prevent memory fill before first dropout.
 
 Documentation and Examples
 --------------------------
-* New benchmarking notebooks under examples in cifar10-cnn, imdb-rnn, resnet.
-* New benchmarking results in tutorial.md and README.md (with @kirnap, @ilkarman).
+* New benchmarking notebooks under examples/DeepLearningFrameworks (with @kirnap, @ilkarman).
 * Knet/data now has download utilities: cifar.jl, fashion-mnist.jl, gutenberg.jl, housing.jl, imagenet.jl, imdb.jl, mikolovptb.jl, mnist.jl
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
 * New variational-autoencoder example (@CarloLucibello).

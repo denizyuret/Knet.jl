@@ -118,12 +118,13 @@ list and follow these tips:
 
 ## Using Amazon AWS
 
-If you don't have access to a GPU machine, but would like to experiment
-with one, [Amazon Web Services](https://aws.amazon.com) is a possible
-solution. I have prepared a machine image
+If you don't have access to a GPU machine, but would like to
+experiment with one, [Amazon Web Services](https://aws.amazon.com) is
+a possible solution. I have prepared a machine image
 ([AMI](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html))
-with everything you need to run Knet. Here are step by step instructions
-for launching a GPU instance with a Knet image:
+with everything you need to run Knet. Here are step by step
+instructions for launching a GPU instance with a Knet image (the
+screens may have changed slightly since this writing):
 
 1\. First, you need to sign up and create an account following the
 instructions on [Setting Up with Amazon
@@ -137,7 +138,7 @@ the following screen:
 2\. Make sure you select the "N. California" region in the upper right
 corner, then click on AMIs on the lower left menu. At the search box,
 choose "Public images" and search for "Knet". Click on the latest Knet
-image (Knet-0.8.1 as of this writing). You should see the following
+image (Knet-0.8.6 as of this writing). You should see the following
 screen with information about the Knet AMI. Click on the "Launch" button
 on the upper left.
 
@@ -149,11 +150,9 @@ get a lower price. You may also qualify for an [educational
 grant](https://aws.amazon.com/grants) if you are a student or
 researcher.
 
-3\. You should see the "Step 2: Choose an Instance Type" page. Next to
-"Filter by:" change "All instance types" to "GPU instances". This should
-reduce the number of instance types displayed to a few. Pick the
-"g2.2xlarge" instance ("g2.8xlarge" has multiple GPUs and is more
-expensive) and click on "Review and Launch".
+3\. You should see the "Step 2: Choose an Instance Type" page. Pick
+one of the GPU instances (I have tested with the g2 series and the p2
+series). Click on "Review and Launch".
 
 ![image](images/aws03.png)
 

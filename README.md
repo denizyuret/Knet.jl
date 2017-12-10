@@ -543,10 +543,10 @@ Knet Benchmarks (Sep 30, 2016):
 The benchmarking was done on g2.2xlarge GPU instances on Amazon AWS. The code is available at [github](https://github.com/ozanarkancan/Knet8-Benchmarks) and as machine image `deep_AMI_v6` at AWS N.California. See the section on [Using Amazon AWS](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1) for more information. The datasets are available online using the following links: [Housing](https://archive.ics.uci.edu/ml/datasets/Housing), [MNIST](http://yann.lecun.com/exdb/mnist), [Hiawatha](http://www.gutenberg.org/files/19/19.txt). The MLP uses a single hidden layer of 64 units. CharLM uses a single layer LSTM language model with embedding and hidden layer sizes set to 256 and trained using BPTT with a sequence length of 100. Each dataset was minibatched and transferred to GPU prior to benchmarking when possible.
 
 
-More recently (Nov 24, 2017), @ilkarman has published CNN and RNN [benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual Machine for Linux (Ubuntu). The results are copied below.  You can find versions of the Knet notebooks used for these benchmarks in the Knet/examples directory: [cifar10-cnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/cifar10-cnn) and [imdb-rnn](https://github.com/denizyuret/Knet.jl/tree/master/examples/imdb-rnn).
+More recently (Nov 24, 2017), @ilkarman has published CNN and RNN [benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual Machine for Linux (Ubuntu). The results are copied below.  You can find versions of the Knet notebooks used for these benchmarks in the Knet/examples/DeepLearningFrameworks directory.
 
 
-Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Dec 7, 2017)
+Training CNN (VGG-style) on CIFAR-10 - Image Recognition
 
 
 |                                                                                                 DL Library | Test Accuracy (%) | Training Time (s) |
@@ -565,7 +565,7 @@ Training CNN (VGG-style) on CIFAR-10 - Image Recognition (Dec 7, 2017)
 |     [Keras(Theano)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_Theano_CNN.ipynb) |                78 |               269 |
 
 
-Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (Dec 7, 2017)
+Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)
 
 
 |                                                                                         DL Library | Test Accuracy (%) | Training Time (s) | Using CuDNN? |
@@ -579,7 +579,7 @@ Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis) (D
 | [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 | No Available |
 
 
-Inference ResNet-50 (Feature Extraction) (Dec 7, 2017)
+Inference ResNet-50 (Feature Extraction)
 
 
 |                                                                                                         DL Library | Images/s GPU | Images/s CPU |
