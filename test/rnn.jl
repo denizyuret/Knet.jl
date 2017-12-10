@@ -77,7 +77,36 @@ D,X,H,B,T = Float64,32,32,16,10 # Keep X==H to test skipInput
         @test all(map(==, rnnparams(r,w), rnnparams(r,wcpu)))
     end # for
 end # @testset begin
-
+@testset "rnn-bidirectional" begin
+    for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(false,true), etype=(Float64,)
+        @testset "type=$M layers=$L skip=$I dataType=$etype" begin
+            X, H = I ? (5,5) : (5,4)
+            rgpu,wgpu = rnninit(X,H; rnnType=M, numLayers=L, skipInput=I, dataType=etype,
+                                bidirectional=true)
+            rcpu,wcpu = rnninit(X,H; rnnType=M, numLayers=L, skipInput=I, dataType=etype,
+                                bidirectional=true, usegpu=false)
+            szgpu = map(rnnparams(rgpu, wgpu)) do w; w==nothing ? w : size(w) ; end
+            szcpu = map(rnnparams(rcpu, wcpu)) do w; w==nothing ? w : size(w); end
+            @test all([sc==sg for (sg,sc) in zip(szgpu, szcpu)])
+            xcpu = Array{etype}(randn(X,3,2))
+            xgpu = ka(xcpu)
+            @test eq(rnnforw(rcpu, wcpu, xcpu; hy=true, cy=true),
+                     rnnforw(rgpu, ka(wcpu), xgpu; hy=true, cy=true))
+            # produce properly sized hidden states
+            _, hycpu, cycpu = rnnforw(rcpu, wcpu, xcpu; hy=true, cy=true)
+            @test eq(rnnforw(rcpu, wcpu, xcpu, hycpu, cycpu; hy=true, cy=true),
+                     rnnforw(rgpu, ka(wcpu), xgpu, ka(hycpu),
+                             M==:lstm ? ka(cycpu) : nothing; hy=true, cy=true))
+            # TODO: perform gradchecks
+            #@test gradcheck(x->rnnforw(rgpu, x...)[1], [wgpu, xgpu]; rtol=0.2)
+            #println(typeof(rnnforw(rcpu, wcpu, xcpu)[1]))
+            #@test gradcheck(x->rnnforw(rcpu, x...)[1], [wcpu, xcpu]; rtol=0.01)
+            #=@test gchk(rnn1, (wgpu, xgpu), rgpu)
+            @test gchk(rnn1, (wcpu, xcpu), rcpu)=#
+        end
+    end
+end
+    
 end # if gpu() >= 0
 
 nothing

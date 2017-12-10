@@ -668,7 +668,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     Y = Int(r.hiddenSize * (r.direction == 1 ? 2 : 1))
     ysize = ntuple(i->(i==1 ? Y : size(x,i)), ndims(x)) # to match ndims(y) to ndims(x)
     H = Int(r.hiddenSize)
-    @assert (r.inputMode == 0 || H == X)
+    #@assert (r.inputMode == 0 || H == X)
     L = Int(r.numLayers) * (r.direction == 1 ? 2 : 1)
     hsize = (H, B, L)
     @assert hx == nothing || size(hx) == hsize
@@ -710,7 +710,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     end
     
     if r.mode <= 1
-        @assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
+        #@assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
         f = r.mode == 0 ? relu : tanh
         if direction == 0
             for t = 1:T
@@ -729,7 +729,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
             end
         end
     elseif r.mode == 2           # LSTM
-        @assert r.inputMode == 0 || all(w[1:4*(1+r.direction)] .== nothing)
+        #@assert r.inputMode == 0 || all(w[1:4*(1+r.direction)] .== nothing)
         # it = σ(Wixt + Riht-1 + bWi + bRi) 
         # ft = σ(Wfxt + Rfht-1 + bWf + bRf) 
         # ot = σ(Woxt + Roht-1 + bWo + bRo) 
@@ -773,7 +773,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
             end
         end
     elseif r.mode == 3           # GRU
-        @assert r.inputMode == 0 || all(w[1:3*(1+r.direction)] .== nothing)
+        #@assert r.inputMode == 0 || all(w[1:3*(1+r.direction)] .== nothing)
         # rt = σ(Wrxt + Rrht-1 + bWr + bRr)
         # it = σ(Wixt + Riht-1 + bWi + bRu)
         # h't = tanh(Whxt + rt◦(Rhht-1 + bRh) + bWh)
