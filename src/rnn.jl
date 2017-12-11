@@ -663,7 +663,6 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  cy = (cx != nothing && r.mode == 2),
                  o...)
     #if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
-    if r.dropout != 0; error("rnntest dropout not implemented yet"); end
     if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
     w = rnnparams(r,ws)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
@@ -700,7 +699,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                     push!(hts, hs[i])
                 end
             end
-            # construct the next layer output
+            # construct the next layer input
             yforw = Array{Any}(hts[1:2:end-1])
             yback = Array{Any}(reverse(hts[2:2:end]))
             ybs = []
@@ -713,6 +712,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         end
         ys = xl
     end
+    
     if r.mode <= 1
         #@assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
         f = r.mode == 0 ? relu : tanh
