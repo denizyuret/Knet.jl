@@ -680,6 +680,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     hs = [ h[:,:,l] for l=1:L ]
     ys = []
     direction = r.direction
+    pdrop = r.dropout
     #=
     All complexity of bidirectional execution
     is packed inside this inline function.
@@ -687,14 +688,15 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     touching the existing unidirectional test code
     =#
     @inline bidirect(update_h!) = begin
-        X = x
+        xl = x
         for l = 1:(1+direction):L
             skip = l==1 && r.inputMode==1
             hts = []
+            if l>1; xl = dropout(xl, pdrop); end
             for t = 1:T
                 for (i,ti) in zip([l, l+1], [t, T-t+1])
                     # this function updates h[i]
-                    update_h!(X, i, ti, skip) 
+                    update_h!(xl, i, ti, skip) 
                     push!(hts, hs[i])
                 end
             end
@@ -707,27 +709,27 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
             end
             # now ybs contans (2 * hiddenSize, batchSize) matrices
             # so cat them to add time dimension
-            X = reshape(hcat(ybs...), (2r.hiddenSize, size(x,2), length(ybs)))
+            xl = reshape(hcat(ybs...), (2r.hiddenSize, size(x,2), length(ybs)))
         end
-        ys = X
+        ys = xl
     end
-    
     if r.mode <= 1
         #@assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
         f = r.mode == 0 ? relu : tanh
         if direction == 0
             for t = 1:T
                 for l = 1:L
+                    xl = l>1 ? dropout(hs[l-1], pdrop) : nothing
                     wx,wh,bx,bh = w[2l-1],w[2l],w[2L+2l-1],w[2L+2l]
-                    wxt = (l > 1 ? wx' * hs[l-1] : r.inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
+                    wxt = (l > 1 ? wx' * xl : r.inputMode==0 ? wx' * x[:,:,t] : x[:,:,t])
                     hs[l] = f.(wxt .+ wh' * hs[l] .+ bx .+ bh)
                 end
                 push!(ys, hs[L])
             end
         else
-            bidirect() do X, i, ti, skip
+            bidirect() do xl, i, ti, skip
                 wx,wh,bx,bh = w[2i-1],w[2i],w[2L+2i-1],w[2L+2i]
-                wxt =  skip ? X[:,:,ti] : wx' * X[:,:,ti]
+                wxt =  skip ? xl[:,:,ti] : wx' * xl[:,:,ti]
                 hs[i] = f.(wxt .+ wh' * hs[i] .+ bx .+ bh)
             end
         end
@@ -744,12 +746,13 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         if direction == 0
             for t = 1:T
                 for l = 1:L
+                    xl = l>1 ? dropout(hs[l-1], pdrop) : nothing
                     Wi,Wf,Wc,Wo,Ri,Rf,Rc,Ro = w[1+8*(l-1):8l]
                     bWi,bWf,bWc,bWo,bRi,bRf,bRc,bRo = w[8L+1+8*(l-1):8L+8l]
-                    Wixt = (l > 1 ? Wi' * hs[l-1] : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
-                    Wfxt = (l > 1 ? Wf' * hs[l-1] : r.inputMode==0 ? Wf' * x[:,:,t] : x[:,:,t])
-                    Wcxt = (l > 1 ? Wc' * hs[l-1] : r.inputMode==0 ? Wc' * x[:,:,t] : x[:,:,t])
-                    Woxt = (l > 1 ? Wo' * hs[l-1] : r.inputMode==0 ? Wo' * x[:,:,t] : x[:,:,t])
+                    Wixt = (l > 1 ? Wi' * xl : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
+                    Wfxt = (l > 1 ? Wf' * xl : r.inputMode==0 ? Wf' * x[:,:,t] : x[:,:,t])
+                    Wcxt = (l > 1 ? Wc' * xl : r.inputMode==0 ? Wc' * x[:,:,t] : x[:,:,t])
+                    Woxt = (l > 1 ? Wo' * xl : r.inputMode==0 ? Wo' * x[:,:,t] : x[:,:,t])
                     it = sigm.(Wixt .+ Ri' * hs[l] .+ bWi .+ bRi)
                     ft = sigm.(Wfxt .+ Rf' * hs[l] .+ bWf .+ bRf)
                     ot = sigm.(Woxt .+ Ro' * hs[l] .+ bWo .+ bRo)
@@ -760,13 +763,13 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                 push!(ys, hs[L])
             end
         else
-            bidirect() do X, i, ti, skip
+            bidirect() do xl, i, ti, skip
                 Wi,Wf,Wc,Wo,Ri,Rf,Rc,Ro = w[1+8*(i-1):8i]
                 bWi,bWf,bWc,bWo,bRi,bRf,bRc,bRo = w[8L+1+8*(i-1):8L+8i]
-                Wixt = skip ? X[:,:,ti] : Wi' * X[:,:,ti]
-                Wfxt = skip ? X[:,:,ti] : Wf' * X[:,:,ti]
-                Wcxt = skip ? X[:,:,ti] : Wc' * X[:,:,ti]
-                Woxt = skip ? X[:,:,ti] : Wo' * X[:,:,ti]
+                Wixt = skip ? xl[:,:,ti] : Wi' * xl[:,:,ti]
+                Wfxt = skip ? xl[:,:,ti] : Wf' * xl[:,:,ti]
+                Wcxt = skip ? xl[:,:,ti] : Wc' * xl[:,:,ti]
+                Woxt = skip ? xl[:,:,ti] : Wo' * xl[:,:,ti]
                 it = sigm.(Wixt .+ Ri' * hs[i] .+ bWi .+ bRi)
                 ft = sigm.(Wfxt .+ Rf' * hs[i] .+ bWf .+ bRf)
                 ot = sigm.(Woxt .+ Ro' * hs[i] .+ bWo .+ bRo)
@@ -784,11 +787,12 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         if direction == 0
             for t = 1:T
                 for l = 1:L
+                    xl = l>1 ? dropout(hs[l-1], pdrop) : nothing
                     Wr,Wi,Wh,Rr,Ri,Rh = w[1+6*(l-1):6l]
                     bWr,bWi,bWh,bRr,bRi,bRh = w[6L+1+6*(l-1):6L+6l]
-                    Wrxt = (l > 1 ? Wr' * hs[l-1] : r.inputMode==0 ? Wr' * x[:,:,t] : x[:,:,t])
-                    Wixt = (l > 1 ? Wi' * hs[l-1] : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
-                    Whxt = (l > 1 ? Wh' * hs[l-1] : r.inputMode==0 ? Wh' * x[:,:,t] : x[:,:,t])
+                    Wrxt = (l > 1 ? Wr' * xl : r.inputMode==0 ? Wr' * x[:,:,t] : x[:,:,t])
+                    Wixt = (l > 1 ? Wi' * xl : r.inputMode==0 ? Wi' * x[:,:,t] : x[:,:,t])
+                    Whxt = (l > 1 ? Wh' * xl : r.inputMode==0 ? Wh' * x[:,:,t] : x[:,:,t])
                     rt = sigm.(Wrxt .+ Rr' * hs[l] .+ bWr .+ bRr)
                     it = sigm.(Wixt .+ Ri' * hs[l] .+ bWi .+ bRi)
                     ht = tanh.(Whxt .+ rt .* (Rh' * hs[l] .+ bRh) .+ bWh)
@@ -797,12 +801,12 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                 push!(ys, hs[L])
             end
         else
-            bidirect() do X, i, ti, skip
+            bidirect() do xl, i, ti, skip
                 Wr,Wi,Wh,Rr,Ri,Rh = w[1+6*(i-1):6i]
                 bWr,bWi,bWh,bRr,bRi,bRh = w[6L+1+6*(i-1):6L+6i]
-                Wrxt = skip ? X[:, :, ti] : Wr' * X[:, :, ti]
-                Wixt = skip ? X[:, :, ti] : Wi' * X[:, :, ti]
-                Whxt = skip ? X[:, :, ti] : Wh' * X[:, :, ti]
+                Wrxt = skip ? xl[:, :, ti] : Wr' * xl[:, :, ti]
+                Wixt = skip ? xl[:, :, ti] : Wi' * xl[:, :, ti]
+                Whxt = skip ? xl[:, :, ti] : Wh' * xl[:, :, ti]
                 rt = sigm.(Wrxt .+ Rr' * hs[i] .+ bWr .+ bRr)
                 it = sigm.(Wixt .+ Ri' * hs[i] .+ bWi .+ bRi)
                 ht = tanh.(Whxt .+ rt .* (Rh' * hs[i] .+ bRh) .+ bWh)
