@@ -51,7 +51,7 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
             hx2 = ka(randn(D,H,b[1],HL))
             cx2 = ka(randn(D,H,b[1],HL))
             @test gchk(rnn1,[w,x2,hx2,cx2],r,b)
-            # @test gchk(rnn1,[wcpu,x2cpu,hx2cpu,cx2cpu],rcpu,b) # TODO
+            #@test gchk(rnn1,[wcpu,x2cpu,hx2cpu,cx2cpu],rcpu,b) # TODO
         end
 
         x3cpu = randn(D,X,B,T); x3 = ka(x3cpu)

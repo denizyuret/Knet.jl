@@ -656,14 +656,16 @@ end
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
 rnnforw{A<:Array}(r::RNN, w::Rec{A}, x...; o...)=rnntest(r,w,x...;o...)
 
+
 # non-CUDNN cpu/gpu version
 function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  o...)
-    #if r.direction == 1; error("rnntest bidirectional not implemented yet"); end
-    if batchSizes != nothing; error("rnntest batchSizes not implemented yet"); end
+    if batchSizes != nothing
+        return rnntest_bs(batchSizes,r, ws, x, hx, cx; hy=hy, cy=cy, o...)
+    end
     w = rnnparams(r,ws)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
     @assert X == r.inputSize
@@ -820,6 +822,73 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     hyout = hy ? reshape(hcat(hs...), hsize) : nothing
     cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
     return (y,hyout,cyout,nothing)
+end
+
+# TODO: WIP
+function rnntest_bs(batchSizes, r::RNN, w, x,
+                    hx=nothing, cx=nothing;
+                    # handle=cudnnhandle(), training=false,
+                    hy = (hx != nothing),
+                    cy = (cx != nothing && r.mode == 2),
+                    o...)
+    # TODO: fix this implementation
+    error("Implementation of batchSizes is not completed in CPU")
+    # Here needs reshaping hidden sizes
+    if length(Set{Int}(batchSizes)) == 1
+        x_ = reshape(x, (r.inputSize, div(size(x,2), batchSizes[1]), batchSizes[1]))
+        y,hy,cy,rs = rnntest(r, w, x_, hx, cx; hy=hy, cy=cy, o...)
+        y = reshape(y, (size(y, 1), size(y,2) * size(y,3)))
+        return y, hy, cy, rs
+    end
+    hrem(h, bs1, bs2) = (bs2 < bs1) ? (h[:, 1:bs1-bs2+1, l] for l=1:size(h,3)) : nothing
+    hnext(h, bs1, bs2) = (bs2 < bs1) ? h[:, 1:bs2, :] : h
+    hrems = []
+    ys = []
+    crems = []
+    ind = 1
+    for i = 1:length(batchSizes)
+        xt = x[:, ind:ind+batchSizes[i]-1]
+        xt = reshape(xt, size(xt)..., 1)
+        y, hx, cx = rnntest(r, w, xt, hx, cx;
+                            hy=true, cy=true)
+        if i > 1
+            hr = hrem(hx,batchSizes[i],batchSizes[i+1])
+            if hr !== nothing
+                hy && push!(hrems, hr...)
+                hx = hnext(hx, batchSizes[i],batchSizes[i+1])
+            end
+            if r.mode == 2
+                cr = crem(h,batchSizes[i], batchSizes[i+1])
+                if cr !== nothing 
+                    cy && push!(crems, cr...)
+                    cx = hnext(cx, batchSizes[i],batchSizes[i+1])
+                end
+            end
+        end
+        ind += batchSizes[i]
+        push!(ys, reshape(y, size(y,1,2))) #only last layer output
+    end
+    # reconstruct the output
+    ## hx has size (h,bs[end],l)
+    ## hrems has (hs,bsi) dimensional matrices
+    hout(hx, hy, hrems) = begin
+        nlayers = size(hx, 3)
+        if hy
+            hts = []
+            for i = 1:nlayers
+                push!(hts, hy[:,:,i])
+            end
+            hyouts = []
+            for l = 1:nlayers
+                push!(hyouts, hcat(hts[l], reverse(hrems[l:nlayers:end-nlayers+l])...))
+            end
+            hsize = (size(hyouts[end])..., nlayers)
+            reshape(length(hyouts) > 1 ? hcat(hyouts...): hyouts[1], hsize)
+        else
+            nothing
+        end
+    end
+    return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
 end
 
 
