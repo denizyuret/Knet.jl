@@ -653,6 +653,9 @@ function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
+# rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
+rnnforw{A<:Array}(r::RNN, w::Rec{A}, x...; o...)=rnntest(r,w,x...;o...)
+
 # non-CUDNN cpu/gpu version
 function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  batchSizes=nothing,
@@ -809,7 +812,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     else
         error("RNN not supported")
     end
-    y = r.direction == 0 ? reshape(hcat(ys...), ysize) : ys
+    y = r.direction == 0 ? reshape(hcat(ys...), ysize) : reshape(ys,ysize)
     hyout = hy ? reshape(hcat(hs...), hsize) : nothing
     cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
     return (y,hyout,cyout,nothing)
