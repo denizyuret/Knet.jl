@@ -30,10 +30,10 @@ function main(args)
     s.description = "treelstm.jl (c) Ilker Kesen, 2017. Tree-structured LSTM network in Knet."
 
     @add_arg_table s begin
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}");
-         help="array type: Array for cpu, KnetArray for gpu")
+        ("--usegpu"; action=:store_true; help="use GPU or not")
         ("--embed"; arg_type=Int; default=128; help="embedding size")
         ("--hidden"; arg_type=Int; default=128; help="hidden size")
+        ("--timeout"; arg_type=Int; default=600)
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=3; help="epochs")
         ("--minoccur"; arg_type=Int; default=0)
@@ -43,7 +43,9 @@ function main(args)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = eval(parse(o[:atype])); o[:atype] = atype
+    atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
+    datadir = abspath(joinpath(@__DIR__, "../data/trees"))
+    datadir = isdir(datadir) ? datadir : WIKINER_DIR
 
     # read data
     trn, dev = load_treebank_data(["train","dev"])
@@ -96,6 +98,8 @@ function main(args)
         @printf(
             "acc=%.4f, time=%.4f, sent_per_sec=%.4f\n",
             good/(good+bad), all_time, sents/all_time); flush(STDOUT)
+
+        all_time > o[:timeout]
     end
 end
 

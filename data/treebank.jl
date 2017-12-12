@@ -11,11 +11,7 @@ const TREEBANK_URL = "https://nlp.stanford.edu/sentiment/trainDevTestTrees_PTB.z
 const TREEBANK_DIR = Pkg.dir("Knet","data","treebank")
 
 const TREEBANK_ZIPNAME = "trainDevTestTrees_PTB.zip"
-const TREEBANK_ZIPPATH = joinpath(TREEBANK_DIR, TREEBANK_ZIPNAME)
-
-# download data for the first time
-!isdir(TREEBANK_DIR) && mkpath(TREEBANK_DIR)
-!isfile(TREEBANK_ZIPPATH) && download(TREEBANK_URL, TREEBANK_ZIPPATH)
+const TREEBANK_SPLITS = ("train", "dev", "test")
 
 """
 
@@ -106,11 +102,21 @@ end
 # data load function(s)
 let
     global load_treebank_data
-    function load_treebank_data(splits=["train","dev","test"])
-        data = map(load_treebank_data, splits)
+    function load_treebank_data(datadir=TREEBANK_DIR, splits=["train","dev"])
+        datadir = abspath(datadir)
+        if !isdatadir(datadir)
+            mkpath(datadir)
+        end
+
+        if !isdata(datadir)
+            !iszip(datadir) && download_zip(datadir)
+            extract_files(datadir)
+        end
+
+        data = map(s->load_treebank_data(datadir, s), splits)
     end
 
-    function load_treebank_data(split::T) where T <: String
+    function load_treebank_data(datadir, split::T) where T <: String
         filename = split*".txt"
         r = ZipFile.Reader(TREEBANK_ZIPPATH)
         data = nothing
@@ -123,6 +129,51 @@ let
         close(r)
         data == nothing && error("no such split/file in zip archive")
         return data
+    end
+
+    function extract_files(datadir)
+        r = ZipFile.Reader(joinpath(datadir, TREEBANK_ZIPNAME))
+        for f in r.files
+            _, this_file = splitdir(f.name)
+            split, _ = splitext(this_file)
+            if split in TREEBANK_SPLITS
+                lines = readlines(f)
+                text = join(lines, "\n")
+                file = joinpath(datadir, split*".txt")
+                open(file, "w") do f
+                    write(f, text)
+                end
+            end
+        end
+        close(r)
+    end
+
+    function isdata(datadir)
+        for split in TREEBANK_SPLITS
+            splitfile = joinpath(datadir, split*".txt")
+            !isfile(splitfile) && return false
+        end
+        return true
+    end
+
+    function iszip(datadir)
+        fullpath = joinpath(datadir, TREEBANK_ZIPNAME)
+        return isfile(fullpath)
+    end
+
+    function download_zip(datadir)
+        dest = joinpath(datadir, TREEBANK_ZIPNAME)
+        download(TREEBANK_URL, dest)
+    end
+
+    function isdatadir(datadir)
+        return isdir(datadir)
+    end
+
+    function read_file(file)
+        data = open(file, "r") do f
+            map(parse_line, readlines(f))
+        end
     end
 
     function parse_line(line)
