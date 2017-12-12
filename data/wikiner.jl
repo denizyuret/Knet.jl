@@ -5,13 +5,6 @@ const WIKINER_FILES = ("train.txt","dev.txt")
 const UNK = "_UNK_"
 const PAD = "<*>"
 
-!isdir(WIKINER_DIR) && mkpath(WIKINER_DIR)
-for filename in WIKINER_FILES
-    download_url = WIKINER_DOWNLOAD_PREFIX*filename
-    destination = joinpath(WIKINER_DIR, filename)
-    !isfile(destination) && download(download_url, destination)
-end
-
 """
 
 This utility loads [WikiNER](https://github.com/neulab/dynet-benchmark/tree/master/data/tags)
@@ -59,8 +52,9 @@ mutable struct WikiNERData
     c2i
     i2c
 
-    function WikiNERData(minoccur=6)
-        trn,dev,words,tags,chars,wc,fwords,vocab = load_wikiner_data(minoccur)
+    function WikiNERData(datadir=WIKINER_DIR,minoccur=6)
+        (trn,dev,words,tags,chars,wc,fwords,vocab) =
+            load_wikiner_data(datadir,minoccur)
         w2i, i2w, t2i, i2t, c2i, i2c = vocab
         nwords = length(wc)
         ntags = length(t2i)
@@ -73,8 +67,8 @@ end
 
 let
     global load_wikiner_data
-    function load_wikiner_data(minoccur)
-        trn,dev = read_wikiner_data()
+    function load_wikiner_data(datadir,minoccur)
+        trn,dev = read_wikiner_data(datadir)
         words, tags, chars = get_words_tags_chars(trn)
         wordcounts = count_words(words)
         fwords = filter_words(wordcounts,minoccur)
@@ -82,16 +76,26 @@ let
         return trn, dev, words, tags, chars, wordcounts, fwords, vocab
     end
 
-    function read_wikiner_data(splits=["train","dev"])
-        data = map(read_wikiner_data, splits)
+    function read_wikiner_data(datadir, splits=["train","dev"])
+        make_wikiner_data(datadir)
+        data = map(s->read_wikiner_data(datadir,s), splits)
     end
 
-    function read_wikiner_data(split::T) where T <: String
+    function read_wikiner_data(datadir, split::T) where T <: String
         filename = split*".txt"
-        filepath = joinpath(WIKINER_DIR, filename)
+        filepath = joinpath(datadir, filename)
         !isfile(filepath) && error("no such split/file in the dataset")
         data = open(filepath, "r") do f
             map(parse_line, readlines(f))
+        end
+    end
+
+    function make_wikiner_data(datadir=WIKINER_DIR)
+        !isdir(datadir) && mkpath(datadir)
+        for filename in WIKINER_FILES
+            download_url = WIKINER_DOWNLOAD_PREFIX*filename
+            destination = joinpath(datadir, filename)
+            !isfile(destination) && download(download_url, destination)
         end
     end
 

@@ -31,28 +31,29 @@ function main(args)
     s.description = "Bidirectional LSTM Tagger (with chars) in Knet"
 
     @add_arg_table s begin
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}");
-         help="array type: Array for cpu, KnetArray for gpu")
+        ("--usegpu"; action=:store_true; help="use GPU or not")
         ("--cembed"; arg_type=Int; default=20; help="char embedding size")
         ("--wembed"; arg_type=Int; default=128; help="embedding size")
         ("--hidden"; arg_type=Int; default=50; help="hidden size")
         ("--mlp"; arg_type=Int; default=32; help="MLP size")
         ("--batchsize"; arg_type=Int; help="minibatch size"; default=1)
+        ("--timeout"; arg_type=Int; help="timeout (in seconds)"; default=600)
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=100; help="epochs")
         ("--minoccur"; arg_type=Int; default=6)
         ("--report"; arg_type=Int; default=500; help="report period in iters")
-        ("--validation"; arg_type=Int; default=10000;
-         help="validation period in iters")
+        ("--valid"; arg_type=Int; default=10000; help="valid period in iters")
     end
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = eval(parse(o[:atype])); o[:atype] = atype
+    atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
+    datadir = abspath(joinpath(@__DIR__, "../data/tags"))
+    datadir = isdir(datadir) ? datadir : WIKINER_DIR
 
     # load WikiNER data
-    data = WikiNERData(o[:minoccur])
+    data = WikiNERData(datadir, o[:minoccur])
 
     # build model
     w, srnns = initweights(
@@ -77,7 +78,7 @@ function main(args)
                 all_time = Int(now()-t0)*0.001
             end
 
-            if o[:validation] > 0 && iter % o[:validation] == 0
+            if all_time > o[:timeout] || o[:valid] > 0 && iter % o[:valid] == 0
                 dev_start = now()
                 good_sent = bad_sent = good = bad = 0.0
                 for sent in data.dev
@@ -109,6 +110,7 @@ function main(args)
                     "tag_acc=%.4f, sent_acc=%.4f, time=%.4f, word_per_sec=%.4f\n",
                     good/(good+bad), good_sent/(good_sent+bad_sent), train_time,
                     all_tagged/train_time); flush(STDOUT)
+                all_time > o[:timeout] && return
             end
 
             # train with instance
