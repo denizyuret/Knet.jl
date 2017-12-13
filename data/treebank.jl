@@ -117,18 +117,10 @@ let
     end
 
     function load_treebank_data(datadir, split::T) where T <: String
+        !in(split, TREEBANK_SPLITS) && error("no such split as $split")
         filename = split*".txt"
-        r = ZipFile.Reader(TREEBANK_ZIPPATH)
-        data = nothing
-        for f in r.files
-            if f.name == "trees/"*filename
-                data = map(parse_line, readlines(f))
-                break
-            end
-        end
-        close(r)
-        data == nothing && error("no such split/file in zip archive")
-        return data
+        filepath = joinpath(datadir, filename)
+        data = read_file(filepath)
     end
 
     function extract_files(datadir)

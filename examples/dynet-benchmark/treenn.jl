@@ -45,10 +45,10 @@ function main(args)
     o[:seed] > 0 && Knet.setseed(o[:seed])
     atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
     datadir = abspath(joinpath(@__DIR__, "../data/trees"))
-    datadir = isdir(datadir) ? datadir : WIKINER_DIR
+    datadir = isdir(datadir) ? datadir : TREEBANK_DIR
 
     # read data
-    trn, dev = load_treebank_data(["train","dev"])
+    trn, dev = load_treebank_data(datadir)
 
     # build vocabs
     l2i, w2i, i2l, i2w = build_treebank_vocabs(trn)
@@ -63,8 +63,8 @@ function main(args)
 
     # main loop
     println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
-    all_time = 0
-    sents = 0
+    all_time = sents = 0
+    o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
     for epoch = 1:o[:epochs]
         closs = cwords = 0
         shuffle!(trn)
@@ -99,7 +99,7 @@ function main(args)
             "acc=%.4f, time=%.4f, sent_per_sec=%.4f\n",
             good/(good+bad), all_time, sents/all_time); flush(STDOUT)
 
-        all_time > o[:timeout]
+        all_time > o[:timeout] && return
     end
 end
 
@@ -196,6 +196,6 @@ function train!(w,tree,opt)
     return (values...)
 end
 
-splitdir(PROGRAM_FILE)[end] == "treelstm.jl" && main(ARGS)
+splitdir(PROGRAM_FILE)[end] == "treenn.jl" && main(ARGS)
 
 end # module

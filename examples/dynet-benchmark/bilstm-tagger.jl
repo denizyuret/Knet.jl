@@ -62,6 +62,7 @@ function main(args)
     println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
     t0 = now()
     all_time = dev_time = all_tagged = this_tagged = this_loss = 0
+    o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
     for epoch = 1:o[:epochs]
         shuffle!(data.trn)
         for k = 1:length(data.trn)
