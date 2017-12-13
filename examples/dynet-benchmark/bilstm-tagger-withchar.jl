@@ -64,7 +64,7 @@ function main(args)
     # train bilstm tagger
     nwords = data.nwords; ntags = data.ntags; nchars = data.nchars
     println("nwords=$nwords, ntags=$ntags, nchars=$nchars"); flush(STDOUT)
-    println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
     t0 = now()
     all_time = dev_time = all_tagged = this_tagged = this_loss = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
@@ -76,7 +76,7 @@ function main(args)
                 @printf("%f\n", this_loss/this_tagged); flush(STDOUT)
                 all_tagged += this_tagged
                 this_loss = this_tagged = 0
-                all_time = Int(now()-t0)*0.001
+                all_time = Int((now()-t0).value)*0.001
             end
 
             if all_time > o[:timeout] || o[:valid] > 0 && iter % o[:valid] == 0
@@ -104,8 +104,8 @@ function main(args)
                         bad_sent += 1
                     end
                 end
-                dev_time += Int(now()-dev_start)*0.001
-                train_time = Int(now()-t0)*0.001-dev_time
+                dev_time += Int((now()-dev_start).value)*0.001
+                train_time = Int((now()-t0).value)*0.001-dev_time
 
                 @printf(
                     "tag_acc=%.4f, sent_acc=%.4f, time=%.4f, word_per_sec=%.4f\n",
@@ -153,7 +153,7 @@ function make_input(sample, w2i, c2i)
     end
 
     cinds = find(is_word)
-    rinds = find(!is_word)
+    rinds = find(.!is_word)
     cwords = seq[is_word]
     cwords = reshape(cwords, 1, length(cwords))
     cwords = convert(Array{Int32}, cwords)

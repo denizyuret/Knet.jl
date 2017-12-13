@@ -62,7 +62,7 @@ function main(args)
     opt = optimizers(w, Adam)
 
     # main loop
-    println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
     all_time = sents = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
     for epoch = 1:o[:epochs]
@@ -82,7 +82,7 @@ function main(args)
                 closs = cwords = 0
             end
         end
-        all_time += Int(now()-t0)*0.001
+        all_time += Int((now()-t0).value)*0.001
 
         good = bad = 0
         for tree in dev

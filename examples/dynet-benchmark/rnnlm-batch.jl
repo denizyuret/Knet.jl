@@ -63,7 +63,7 @@ function main(args=ARGS)
     opt = optimizers(w, Adam)
 
     # train language model
-    println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
     t0 = now()
     all_time = dev_time = all_tagged = this_words = this_loss = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
@@ -75,7 +75,7 @@ function main(args=ARGS)
                 @printf("%f\n", this_loss/this_words); flush(STDOUT)
                 all_tagged += this_words
                 this_loss = this_words = 0
-                all_time = Int(now()-t0)*0.001
+                all_time = Int((now()-t0).value)*0.001
             end
 
             if iter % div(10000, o[:batchsize]) == 0
@@ -86,8 +86,8 @@ function main(args=ARGS)
                     dev_loss += loss(w,x,y,srnn)*nwords
                     dev_words += nwords
                 end
-                dev_time += Int(now()-dev_start)*0.001
-                train_time = Int(now()-t0)*0.001-dev_time
+                dev_time += Int((now()-dev_start).value)*0.001
+                train_time = Int((now()-t0).value)*0.001-dev_time
 
                 @printf(
                     "nll=%.4f, ppl=%.4f, words=%d, time=%.4f, word_per_sec=%.4f\n",

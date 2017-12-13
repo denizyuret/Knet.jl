@@ -10,7 +10,7 @@ This directory contains examples implemented for [dynet-benchmark](https://githu
 ## Results on K80
 
 | Model                                               | Metric    |  Knet    | DyNet     | Chainer     |
-| ----------------------------------------------------| -------------------- | --------- |------------ |
+| ----------------------------------------------------| --------- | -------- | --------- |------------ |
 | [rnnlm-batch](rnnlm-batch.jl)                       | words/sec | 28500    | 18700     | 16000       |
 | [bilstm-tagger](bilstm-tagger.jl)                   | words/sec | 6800     | 1200      | 157         |
 | [bilstm-tagger-withchar](bilstm-tagger-withchar.jl) | words/sec | 1300     | 900       | 128         |
