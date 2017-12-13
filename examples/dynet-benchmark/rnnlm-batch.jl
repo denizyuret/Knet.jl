@@ -1,6 +1,19 @@
+for p in ("Knet","ArgParse")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
+"""
+
+julia rnnlm-batch.jl
+
+This example implements a standard RNN language model on top of LSTM cells.
+This example is originally implemented for dynet-benchmark repo.
+
+* Benchmark repo: https://github.com/neulab/dynet-benchmark
+
+"""
 module RNNLM
 using Knet
-using AutoGrad
 using ArgParse
 
 const SOS = "<s>"
@@ -147,7 +160,7 @@ end
 # w[3:4] => weight/bias params for softmax layer
 # w[5]   => word embeddings
 function initweights(atype, hidden, vocab, embed, winit=0.01)
-    w = Array(Any, 4)
+    w = Array{Any}(4)
     input = embed
 
     # rnn
