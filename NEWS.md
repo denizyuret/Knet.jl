@@ -31,6 +31,7 @@ Documentation and Examples
 * Knet/data now has download utilities: cifar.jl, fashion-mnist.jl, gutenberg.jl, housing.jl, imagenet.jl, imdb.jl, mikolovptb.jl, mnist.jl, treebank.jl
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
 * New variational-autoencoder example (@CarloLucibello).
+* DyNet benchmark examples added (@ilkerkesen).
 
 
 Knet v0.8.5 Release Notes
