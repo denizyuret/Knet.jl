@@ -3,9 +3,8 @@ using Knet
 using AutoGrad
 using ArgParse
 
-const train_file = "data/text/train.txt"
-const test_file = "data/text/dev.txt"
 const SOS = "<s>"
+include(Pkg.dir("Knet","data","mikolovptb.jl"))
 t00 = now()
 
 function main(args=ARGS)
@@ -14,14 +13,12 @@ function main(args=ARGS)
     s.exc_handler=ArgParse.debug_handler
 
     @add_arg_table s begin
-        ("--gpu"; action=:store_true; help="use GPU or not")
-        ("MB_SIZE"; arg_type=Int; help="minibatch_size")
-        ("EMBED_SIZE"; arg_type=Int; help="embedding size")
-        ("HIDDEN_SIZE"; arg_type=Int; help="hidden size")
-        ("SPARSE"; arg_type=Int; help="sparse update 0/1")
-        ("TIMEOUT"; arg_type=Int; help="max timeout")
-        ("--train"; default=train_file; help="train file")
-        ("--test"; default=test_file; help="test file")
+        ("--usegpu"; action=:store_true; help="use GPU or not")
+        ("--batchsize"; arg_type=Int; help="minibatch_size"; default=64)
+        ("--embed"; arg_type=Int; help="embedding size"; default=256)
+        ("--hidden"; arg_type=Int; help="hidden size"; default=128)
+        ("--sparse"; arg_type=Int; help="sparse update 0/1"; default=0)
+        ("--timeout"; arg_type=Int; help="max timeout"; default=600)
         ("--seed"; arg_type=Int; default=-1; help="random seed")
         ("--epochs"; arg_type=Int; default=100; help="epochs")
     end
@@ -29,40 +26,50 @@ function main(args=ARGS)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = o[:gpu] ? KnetArray{Float32} : Array{Float32}
+    atype = o[:usegpu] ? KnetArray{Float32} : Array{Float32}
+    datadir = abspath(joinpath(@__DIR__, "../data/text"))
 
-    # build data
-    w2i = Dict()
-    trn = read_data(o[:train], w2i)
-    tst = read_data(o[:test], w2i)
-    sort!(trn, by=length, rev=true)
-    sort!(tst, by=length, rev=true)
-    trn, tst = map(split->make_batches(split, w2i, o[:MB_SIZE]), [trn, tst])
+    trn = dev = nothing; vocabsize = 0;
+    if isdir(datadir)
+        w2i = Dict()
+        trnfile = abspath(joinpath(datadir, "train.txt"))
+        devfile = abspath(joinpath(datadir, "dev.txt"))
+        trn = read_data(trnfile, w2i)
+        dev = read_data(devfile, w2i)
+        vocabsize = length(w2i)+1
+    else
+        trn, dev, _, i2w = mikolovptb()
+        vocabsize = length(i2w)+1
+        sort!(trn, by=length, rev=true)
+        sort!(dev, by=length, rev=true)
+    end
+    trn, dev = map(s->make_batches(s, vocabsize, o[:batchsize]), [trn, dev])
 
     # build model
-    w,srnn = initweights(atype, o[:HIDDEN_SIZE], length(w2i), o[:EMBED_SIZE])
+    w,srnn = initweights(atype, o[:hidden], vocabsize, o[:embed])
     opt = optimizers(w, Adam)
 
     # train language model
     println("startup time: ", Int(now()-t00)*0.001); flush(STDOUT)
     t0 = now()
     all_time = dev_time = all_tagged = this_words = this_loss = 0
+    o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
     for epoch = 1:o[:epochs]
         shuffle!(trn)
         for k = 1:length(trn)
             iter = (epoch-1)*length(trn) + k
-            if iter % div(500, o[:MB_SIZE]) == 0
+            if iter % div(500, o[:batchsize]) == 0
                 @printf("%f\n", this_loss/this_words); flush(STDOUT)
                 all_tagged += this_words
                 this_loss = this_words = 0
                 all_time = Int(now()-t0)*0.001
             end
 
-            if iter % div(10000, o[:MB_SIZE]) == 0
+            if iter % div(10000, o[:batchsize]) == 0
                 dev_start = now()
                 dev_loss = dev_words = 0
-                for i = 1:length(tst)
-                    x, y, nwords = tst[i]
+                for i = 1:length(dev)
+                    x, y, nwords = dev[i]
                     dev_loss += loss(w,x,y,srnn)*nwords
                     dev_words += nwords
                 end
@@ -74,7 +81,7 @@ function main(args=ARGS)
                     dev_loss/dev_words, exp(dev_loss/dev_words), dev_words,
                     train_time, all_tagged/train_time); flush(STDOUT)
 
-                if all_time > o[:TIMEOUT]
+                if all_time > o[:timeout]
                     return
                 end
             end
@@ -91,7 +98,7 @@ end
 
 # build vocabulary, training and test data
 function read_data(file, w2i)
-    get_tokens(line) = [split(line, " ")[2:end-1]; SOS]
+    get_tokens(line) = split(line, " ")[2:end-1]
     data = open(file, "r") do f
         data = []
         for ln in readlines(f)
@@ -107,10 +114,11 @@ function read_data(file, w2i)
         end
         data
     end
+    sort!(data, by=length, rev=true)
 end
 
 # make minibatches
-function make_batches(data, w2i, batchsize)
+function make_batches(data, vocabsize, batchsize)
     batches = []
     for k = 1:batchsize:length(data)
         samples = data[k:min(k+batchsize-1, length(data))]
@@ -118,10 +126,12 @@ function make_batches(data, w2i, batchsize)
         longest = reduce(max, lengths)
         nwords = sum(lengths)
         nsamples = length(samples)
-        pad = length(w2i)
+        pad = vocabsize
         seq = pad*ones(nsamples,longest+1)
         for i = 1:nsamples
-            map!(t->seq[i,t] = samples[i][t], [1:length(samples[i])...])
+            for t = 1:length(samples[i])
+                seq[i,t] = samples[i][t]
+            end
         end
         x = seq[:,1:end-1]
         x = convert(Array{Int64}, x)
@@ -177,10 +187,5 @@ function train!(w,x,y,opt,srnn,h=nothing,c=nothing)
     return lossval
 end
 
-if VERSION >= v"0.5.0-dev+7720"
-    PROGRAM_FILE=="knet/rnnlm-batch.jl" && main(ARGS)
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
-
+splitdir(PROGRAM_FILE)[end] == "rnnlm-batch.jl" && main(ARGS)
 end # module
