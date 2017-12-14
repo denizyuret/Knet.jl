@@ -61,7 +61,7 @@ function main(args=ARGS)
     trn, dev = map(s->make_batches(s, vocabsize, o[:batchsize]), [trn, dev])
 
     # build model
-    w,srnn = initweights(atype, o[:hidden], vocabsize, o[:embed])
+    w,srnn = initweights(atype, o[:hidden], vocabsize, o[:embed], o[:usegpu])
     opt = optimizers(w, Adam)
 
     # train language model
@@ -161,7 +161,7 @@ end
 # w[1:2] => weight/bias params for LSTM network
 # w[3:4] => weight/bias params for softmax layer
 # w[5]   => word embeddings
-function initweights(atype, hidden, vocab, embed, winit=0.01)
+function initweights(atype, hidden, vocab, embed, usegpu, winit=0.01)
     w = Array{Any}(4)
     input = embed
 
@@ -169,7 +169,7 @@ function initweights(atype, hidden, vocab, embed, winit=0.01)
     # w[1] = winit*randn(4*hidden, hidden+input)
     # w[2] = zeros(4*hidden, 1)
     # w[2][1:hidden] = 1 # forget gate bias
-    srnn,wrnn = rnninit(input,hidden)
+    srnn,wrnn = rnninit(input,hidden; usegpu=usegpu)
     w[1] = wrnn
 
     # softmax

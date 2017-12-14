@@ -59,7 +59,7 @@ function main(args)
     # build model
     w, srnns = initweights(
         atype, o[:hidden], length(data.w2i), data.ntags, data.nchars,
-        o[:wembed], o[:cembed], o[:mlp])
+        o[:wembed], o[:cembed], o[:mlp], o[:usegpu])
     opt = optimizers(w, Adam)
 
     # train bilstm tagger
@@ -168,13 +168,14 @@ function make_output(sample,t2i)
 end
 
 function initweights(
-    atype, hidden, words, tags, chars, wembed, cembed, mlp, winit=0.01)
+    atype, hidden, words, tags, chars, wembed, cembed, mlp, usegpu, winit=0.01)
     w = Array{Any}(8)
+    _birnninit(x,y) = rnninit(x,y; bidirectional=true, usegpu=usegpu)
 
     # init rnns
-    srnn1, wrnn1 = rnninit(wembed, hidden; bidirectional=true)
+    srnn1, wrnn1 = _birnninit(wembed, hidden)
     w[1] = wrnn1
-    srnn2, wrnn2 = rnninit(cembed, div(wembed,2); bidirectional=true)
+    srnn2, wrnn2 = _birnninit(cembed, div(wembed,2))
     w[2] = wrnn2
 
     # weight/bias params for MLP network

@@ -53,8 +53,9 @@ function main(args)
     data = WikiNERData(datadir, o[:minoccur])
 
     # build model
+    nwords = length(data.w2i); ntags = data.ntags
     w, srnn = initweights(
-        atype, o[:hidden], length(data.w2i), data.ntags, o[:mlp], o[:embed])
+        atype, o[:hidden], nwords, ntags, o[:mlp], o[:embed], o[:usegpu])
     opt = optimizers(w, Adam)
 
     # train bilstm tagger
@@ -139,10 +140,10 @@ end
 # w[1]   => weight/bias params for forward LSTM network
 # w[2:5] => weight/bias params for MLP+softmax network
 # w[6]   => word embeddings
-function initweights(atype, hidden, words, tags, embed, mlp, winit=0.01)
+function initweights(atype, hidden, words, tags, embed, mlp, usegpu, winit=0.01)
     w = Array{Any}(6)
     input = embed
-    srnn, wrnn = rnninit(input, hidden; bidirectional=true)
+    srnn, wrnn = rnninit(input, hidden; bidirectional=true, usegpu=usegpu)
     w[1] = wrnn
     w[2] = convert(atype, winit*randn(mlp, 2*hidden))
     w[3] = convert(atype, zeros(mlp, 1))
