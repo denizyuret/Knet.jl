@@ -4,7 +4,9 @@ end
 
 """
 
-julia treelstm.jl
+julia treenn.jl # to use with default options on CPU
+julia treenn.jl --usegpu # to use with default options on GPU
+julia treenn.jl -h # to see all options with default values
 
 This example implements a binary tree-structured LSTM networks proposed
 in 'Improved Semantic Representations From Tree-Structured Long Short-Term
@@ -17,27 +19,25 @@ arXiv technical report 1503.00075, 2015.
 """
 module TreeLSTM
 using Knet
-using AutoGrad
 using ArgParse
 
 const UNK = "_UNK_"
 t00 = now()
-const F = Float32
 include(Pkg.dir("Knet","data","treebank.jl"))
 
 function main(args)
     s = ArgParseSettings()
-    s.description = "treelstm.jl (c) Ilker Kesen, 2017. Tree-structured LSTM network in Knet."
+    s.description = "Tree-structured LSTM network in Knet."
 
     @add_arg_table s begin
         ("--usegpu"; action=:store_true; help="use GPU or not")
-        ("--embed"; arg_type=Int; default=128; help="embedding size")
-        ("--hidden"; arg_type=Int; default=128; help="hidden size")
-        ("--timeout"; arg_type=Int; default=600)
+        ("--embed"; arg_type=Int; default=128; help="word embedding size")
+        ("--hidden"; arg_type=Int; default=128; help="LSTM hidden size")
+        ("--timeout"; arg_type=Int; default=600; help="max timeout (in seconds)")
+        ("--epochs"; arg_type=Int; default=3; help="number of training epochs")
+        ("--minoccur"; arg_type=Int; default=0; help="word min occurence limit")
+        ("--report"; arg_type=Int; default=1000; help="report period (in iters)")
         ("--seed"; arg_type=Int; default=-1; help="random seed")
-        ("--epochs"; arg_type=Int; default=3; help="epochs")
-        ("--minoccur"; arg_type=Int; default=0)
-        ("--report"; arg_type=Int; default=1000)
     end
 
     isa(args, AbstractString) && (args=split(args))

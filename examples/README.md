@@ -15,9 +15,9 @@
 - [overfitting](overfitting): Notebook on underfitting, overfitting, regularization, dropout.
 - [resnet](resnet): Knet implementation of [ResNet] 50, 101, and 152 models.
 - [vgg](vgg): Knet implementation of [VGG] D and E models.
-- [bilstm-taggers](bilstm-taggers) Two different BiLSTM taggers on [WikiNER] data. [One](bilstm-taggers/bilstm-tagger.jl) has the word UNK in its vocab, [the other one](bilstm-taggers/bilstm-tagger-withchar.jl) generates UNK words' embeddings by using an another BiLSTM network which takes characters as input.
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
 - [DeepLearningFrameworks](DeepLearningFrameworks): Notebooks comparing CNTK, Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch, TensorFlow on CNN and RNN examples.
+- [dynet-benchmark](dynet-benchmark): 4 different dynamic neural network examples in Knet implemented for [dynet-benchmark](https://github.com/neulab/dynet-benchmark).
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
 [LeNet]: http://yann.lecun.com/exdb/lenet
@@ -30,4 +30,3 @@
 [Karpathy]: http://karpathy.github.io/2015/05/21/rnn-effectiveness
 [ResNet]: https://github.com/KaimingHe/deep-residual-networks
 [VGG]: http://www.robots.ox.ac.uk/~vgg/research/very_deep
-[WIKINER]: https://github.com/neulab/dynet-benchmark/tree/master/data/tags

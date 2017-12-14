@@ -4,7 +4,9 @@ end
 
 """
 
-julia rnnlm-batch.jl
+julia rnnlm-batch.jl # to use with default options on CPU
+julia rnnlm-batch.jl --usegpu # to use with default options on GPU
+julia rnnlm-batch.jl -h # to see all options with default values
 
 This example implements a standard RNN language model on top of LSTM cells.
 This example is originally implemented for dynet-benchmark repo.
@@ -28,12 +30,12 @@ function main(args=ARGS)
     @add_arg_table s begin
         ("--usegpu"; action=:store_true; help="use GPU or not")
         ("--batchsize"; arg_type=Int; help="minibatch_size"; default=64)
-        ("--embed"; arg_type=Int; help="embedding size"; default=256)
-        ("--hidden"; arg_type=Int; help="hidden size"; default=128)
+        ("--embed"; arg_type=Int; help="word embedding size"; default=256)
+        ("--hidden"; arg_type=Int; help="lstm hidden size"; default=128)
         ("--sparse"; arg_type=Int; help="sparse update 0/1"; default=0)
-        ("--timeout"; arg_type=Int; help="max timeout"; default=600)
+        ("--timeout"; arg_type=Int; default=600; help="max timeout (in seconds)")
+        ("--epochs"; arg_type=Int; default=100; help="number of training epochs")
         ("--seed"; arg_type=Int; default=-1; help="random seed")
-        ("--epochs"; arg_type=Int; default=100; help="epochs")
     end
 
     isa(args, AbstractString) && (args=split(args))

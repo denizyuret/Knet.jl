@@ -4,7 +4,9 @@ end
 
 """
 
-julia bilstm-tagger.jl
+julia bilstm-tagger.jl # to use with default options on CPU
+julia bilstm-tagger.jl --usegpu # to use with default options on GPU
+julia bilstm-tagger.jl -h # to see all options with default values
 
 This example implements a named entity tagger built on top of a BiLSTM
 neural network similar to the model defined in 'Bidirectional LSTM-CRF Models
@@ -29,16 +31,15 @@ function main(args)
 
     @add_arg_table s begin
         ("--usegpu"; action=:store_true; help="use GPU or not")
-        ("--embed"; arg_type=Int; default=128; help="embedding size")
-        ("--hidden"; arg_type=Int; default=50; help="hidden size")
+        ("--embed"; arg_type=Int; default=128; help="word embedding size")
+        ("--hidden"; arg_type=Int; default=50; help="LSTM hidden size")
         ("--mlp"; arg_type=Int; default=32; help="MLP size")
-        ("--batchsize"; arg_type=Int; help="minibatch size"; default=1)
-        ("--timeout"; arg_type=Int; help="timeout (in seconds)"; default=600)
-        ("--seed"; arg_type=Int; default=-1; help="random seed")
-        ("--epochs"; arg_type=Int; default=100; help="epochs")
-        ("--minoccur"; arg_type=Int; default=6)
+        ("--timeout"; arg_type=Int; default=600; help="max timeout (in seconds)")
+        ("--epochs"; arg_type=Int; default=100; help="number of training epochs")
+        ("--minoccur"; arg_type=Int; default=6; help="word min occurence limit")
         ("--report"; arg_type=Int; default=500; help="report period in iters")
         ("--valid"; arg_type=Int; default=10000; help="valid period in iters")
+        ("--seed"; arg_type=Int; default=-1; help="random seed")
     end
 
     isa(args, AbstractString) && (args=split(args))
