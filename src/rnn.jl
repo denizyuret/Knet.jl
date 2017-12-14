@@ -1,4 +1,4 @@
-# TODO: 
+# TODO:
 # finish cpu implementation.
 # make RNN objects callable?
 
@@ -53,7 +53,7 @@ type RNN
     hiddenSize::Cint
     numLayers::Cint
     dropout::Float64
-    inputMode::Cint    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1    
+    inputMode::Cint    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
     direction::Cint    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
     mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
     algo::Cint         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
@@ -477,7 +477,7 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     ysize[1] = r.hiddenSize * (r.direction == 1 ? 2 : 1)
     y = similar(x, ysize...)    # (H/2H,B,T) or (H/2H,B+) -- y mirrors x except for the first dimension
     ytds = TDs(y,batchSizes)    # (1,H/2H,Bt) x T
-    
+
     # Optionally output hidden and cell of last step
     hyout = hyDesc = cyout = cyDesc = C_NULL
     if hy || cy
@@ -677,8 +677,12 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     hsize = (H, B, L)
     @assert hx == nothing || size(hx) == hsize
     @assert cx == nothing || size(cx) == hsize
-    h = hx==nothing ? fill!(similar(x,hsize),0) : hx
-    hs = [ h[:,:,l] for l=1:L ]
+    h = hx==nothing ? fill!(similar(getval(x),hsize),0) : hx
+    #  hs = Array{Any}[ h[:,:,l] for l=1:L ]
+    hs = Array{Any}(L)
+    for l = 1:L
+        hs[l] = h[:,:,l]
+    end
     ys = []
     direction = r.direction
     pdrop = r.dropout
@@ -697,7 +701,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
             for t = 1:T
                 for (i,ti) in zip([l, l+1], [t, T-t+1])
                     # this function updates h[i]
-                    update_h!(xl, i, ti, skip) 
+                    update_h!(xl, i, ti, skip)
                     push!(hts, hs[i])
                 end
             end
@@ -714,7 +718,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         end
         ys = xl
     end
-    
+
     if r.mode <= 1
         #@assert r.inputMode == 0 || all(w[1:1+r.direction] .== nothing)
         f = r.mode == 0 ? relu : tanh
@@ -737,14 +741,17 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         end
     elseif r.mode == 2           # LSTM
         #@assert r.inputMode == 0 || all(w[1:4*(1+r.direction)] .== nothing)
-        # it = σ(Wixt + Riht-1 + bWi + bRi) 
-        # ft = σ(Wfxt + Rfht-1 + bWf + bRf) 
-        # ot = σ(Woxt + Roht-1 + bWo + bRo) 
-        # c't = tanh(Wcxt + Rcht-1 + bWc + bRc) 
-        # ct = ft◦ct-1 + it◦c't 
+        # it = σ(Wixt + Riht-1 + bWi + bRi)
+        # ft = σ(Wfxt + Rfht-1 + bWf + bRf)
+        # ot = σ(Woxt + Roht-1 + bWo + bRo)
+        # c't = tanh(Wcxt + Rcht-1 + bWc + bRc)
+        # ct = ft◦ct-1 + it◦c't
         # ht = ot◦tanh(ct)
-        c = cx==nothing ? fill!(similar(x,hsize),0) : cx
-        cs = [ c[:,:,l] for l=1:L ]
+        c = cx==nothing ? fill!(similar(getval(x),hsize),0) : cx
+        cs = Array{Any}(L)
+        for l = 1:L
+            cs[l] = c[:,:,l]
+        end
         if direction == 0
             for t = 1:T
                 for l = 1:L
@@ -859,7 +866,7 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
             end
             if r.mode == 2
                 cr = crem(h,batchSizes[i], batchSizes[i+1])
-                if cr !== nothing 
+                if cr !== nothing
                     cy && push!(crems, cr...)
                     cx = hnext(cx, batchSizes[i],batchSizes[i+1])
                 end
@@ -914,4 +921,3 @@ end
 function getindex{T,I<:Integer}(x::KnetArray{T,2}, ::Colon, m::Array{I,2})
     reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
 end
-
