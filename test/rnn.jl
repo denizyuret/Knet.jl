@@ -31,10 +31,13 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
         @test eq(rnnforw(r,w,x1),rnnforw(rcpu,wcpu,x1cpu))
         @test eq(rnnforw(r,w,x1,hx1,cx1),rnntest(r,w,x1,hx1,cx1))
         @test eq(rnnforw(r,w,x1,hx1,cx1),rnnforw(rcpu,wcpu,x1cpu,hx1cpu,cx1cpu))
-        @test eq(rnnforw(r,w,x1,hx1,cx1;batchSizes=[1]),rnntest(r,w,x1,hx1,cx1)) 
+        @test eq(rnnforw(r,w,x1,hx1,cx1;batchSizes=[1]),rnntest(r,w,x1,hx1,cx1))
         @test gchk(rnn1,[w,x1,hx1,cx1],r)
         @test gchk(rnn1,[w,x1,hx1,cx1],r,[1])
         @test gchk(rnn1,[wcpu,x1cpu,hx1cpu,cx1cpu],rcpu)
+        @test gchk(rnn1,[w,x1],r)
+        @test gchk(rnn1,[w,x1],r,[1])
+        @test gchk(rnn1,[wcpu,x1cpu],rcpu)
         # @test gchk(rnn1,[wcpu,x1cpu,hx1cpu,cx1cpu],rcpu,[1]) # TODO
 
         x2cpu =  randn(D,X,B); x2 = ka(x2cpu)
@@ -47,10 +50,13 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
         @test eq(rnnforw(r,w,x2,hx2,cx2;batchSizes=[B]),rnntest(r,w,x2,hx2,cx2))
         @test gchk(rnn1,[w,x2,hx2,cx2],r)
         @test gchk(rnn1,[wcpu,x2cpu,hx2cpu,cx2cpu],rcpu)
+        @test gchk(rnn1,[w,x2],r)
+        @test gchk(rnn1,[wcpu,x2cpu],rcpu)
         for b in ([16],[8,8],[10,4,2])
             hx2 = ka(randn(D,H,b[1],HL))
             cx2 = ka(randn(D,H,b[1],HL))
             @test gchk(rnn1,[w,x2,hx2,cx2],r,b)
+            @test gchk(rnn1,[w,x2],r,b)
             #@test gchk(rnn1,[wcpu,x2cpu,hx2cpu,cx2cpu],rcpu,b) # TODO
         end
 
@@ -68,6 +74,7 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
             hx3 = ka(randn(D,H,b[1],HL))
             cx3 = ka(randn(D,H,b[1],HL))
             @test gchk(rnn1,[w,x3,hx3,cx3],r,b)
+            @test gchk(rnn1,[w,x3],r,b)
             # @test gchk(rnn1,[wcpu,x3cpu,hx3cpu,cx3cpu],rcpu,b) # TODO
         end
 
@@ -83,8 +90,7 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
         @test all(map(==, rnnparams(r,w), rnnparams(r,wcpu)))
     end # for
 end # @testset begin
-    
+
 end # if gpu() >= 0
 
 nothing
-
