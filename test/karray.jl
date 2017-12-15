@@ -123,6 +123,26 @@ if gpu() >= 0
             @test size(reshape(a, :, 4)) == size(reshape(a, (:, 4))) == (2, 4)
             @test size(reshape(a, :, 1, 4)) == (2, 1,  4)
         end
+
+        @testset "general indexing" begin
+        # TODO
+        #
+        #julia> a=KnetArray(rand(3,3,2));
+        #
+        #julia> grad(a->sum(a[1:2,:,1]))(a)
+        #3×3×2 Knet.KnetArray{Float64,3}:
+        #[:, :, 1] =
+        # 1.0  1.0  1.0
+        # 1.0  1.0  1.0
+        # 0.0  0.0  0.0
+        #
+        #[:, :, 2] =
+        # 0.0  0.0  0.0
+        # 0.0  0.0  0.0
+        # 0.0  0.0  0.0
+        end
+        
+        
     end
 end
 

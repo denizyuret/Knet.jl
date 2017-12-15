@@ -494,9 +494,6 @@ end
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
 
-if VERSION < v"0.5.0"
-    @typealias6 AbstractUnitRange UnitRange
-end
 
 function getindex{T}(A::KnetArray{T}, I::AbstractUnitRange)
     if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
@@ -550,6 +547,22 @@ function setindex!{T}(A::KnetArray{T}, v, I::Colon)
     if length(v)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
     unsafe_copy!(A,1,v,1,length(A))
+end
+
+## General Indexing Fallback to linear indexing
+
+function getindex(a::KnetArray, I...) 
+    crange = CartesianRange(to_indices(a, I))
+    linind = [sub2ind(size(a), t.I...) for t in crange]
+    b = getindex(a, vec(linind))
+    shape = size(crange) # TODO drop scalar dimension
+    reshape(b, shape)
+end
+
+function setindex!(a::KnetArray, v, I...) 
+    crange = CartesianRange(to_indices(a, I))
+    linind = [sub2ind(size(a), t.I...) for t in crange]
+    setindex!(a, v, vec(linind))
 end
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
