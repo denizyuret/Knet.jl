@@ -157,7 +157,31 @@ var documenterSearchIndex = {"docs": [
     "page": "Introduction to Knet",
     "title": "Benchmarks",
     "category": "section",
-    "text": "Each of the examples above was used as a benchmark to compare Knet with other frameworks. The table below shows the number of seconds it takes to train a given model for a particular dataset, number of epochs and minibatch size for Knet, Theano, Torch, Caffe and TensorFlow. Knet had comparable performance to other commonly used frameworks.Knet Benchmarks (Sep 30, 2016):model dataset epochs batch Knet Theano Torch Caffe TFlow\nLinReg Housing 10K 506 2.84 1.88 2.66 2.35 5.92\nSoftmax MNIST 10 100 2.35 1.40 2.88 2.45 5.57\nMLP MNIST 10 100 3.68 2.31 4.03 3.69 6.94\nLeNet MNIST 1 100 3.59 3.03 1.69 3.54 8.77\nCharLM Hiawatha 1 128 2.25 2.42 2.23 1.43 2.86The benchmarking was done on g2.2xlarge GPU instances on Amazon AWS. The code is available at github and as machine image deep_AMI_v6 at AWS N.California. See the section on Using Amazon AWS for more information. The datasets are available online using the following links: Housing, MNIST, Hiawatha. The MLP uses a single hidden layer of 64 units. CharLM uses a single layer LSTM language model with embedding and hidden layer sizes set to 256 and trained using BPTT with a sequence length of 100. Each dataset was minibatched and transferred to GPU prior to benchmarking when possible.More recently (Nov 24, 2017), @ilkarman has published CNN and RNN benchmarks on Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual Machine for Linux (Ubuntu). The results are copied below.  You can find versions of the Knet notebooks used for these benchmarks in the Knet/examples/DeepLearningFrameworks directory.Training CNN (VGG-style) on CIFAR-10 - Image RecognitionDL Library Test Accuracy (%) Training Time (s)\nMXNet 77 145\nCaffe2 79 148\nGluon 76 152\nKnet(Julia) 78 159\nChainer 79 162\nCNTK 78 163\nPyTorch 78 169\nTensorflow 78 173\nKeras(CNTK) 77 194\nKeras(TF) 77 241\nLasagne(Theano) 77 253\nKeras(Theano) 78 269Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)DL Library Test Accuracy (%) Training Time (s) Using CuDNN?\nMXNet 86 29 Yes\nKnet(Julia) 85 29 Yes\nTensorflow 86 30 Yes\nPytorch 86 31 Yes\nCNTK 85 32 Yes\nKeras(TF) 86 35 Yes\nKeras(CNTK) 86 86 No AvailableInference ResNet-50 (Feature Extraction)DL Library Images/s GPU Images/s CPU\nKnet(Julia) 160 2\nTensorflow 155 11\nPyTorch 130 6\nMXNet 130 8\nMXNet(w/mkl) 129 25\nCNTK 117 8\nChainer 107 3\nKeras(TF) 98 5\nCaffe2 71 6\nKeras(CNTK) 46 4"
+    "text": ""
+},
+
+{
+    "location": "tutorial.html#Knet-Benchmarks-(Sep-30,-2016)-1",
+    "page": "Introduction to Knet",
+    "title": "Knet Benchmarks (Sep 30, 2016)",
+    "category": "section",
+    "text": "Each of the examples above was used as a benchmark to compare Knet with other frameworks. The table below shows the number of seconds it takes to train a given model for a particular dataset, number of epochs and minibatch size for Knet, Theano, Torch, Caffe and TensorFlow. Knet had comparable performance to other commonly used frameworks.model dataset epochs batch Knet Theano Torch Caffe TFlow\nLinReg Housing 10K 506 2.84 1.88 2.66 2.35 5.92\nSoftmax MNIST 10 100 2.35 1.40 2.88 2.45 5.57\nMLP MNIST 10 100 3.68 2.31 4.03 3.69 6.94\nLeNet MNIST 1 100 3.59 3.03 1.69 3.54 8.77\nCharLM Hiawatha 1 128 2.25 2.42 2.23 1.43 2.86The benchmarking was done on g2.2xlarge GPU instances on Amazon AWS. The code is available at github and as machine image deep_AMI_v6 at AWS N.California. See the section on Using Amazon AWS for more information. The datasets are available online using the following links: Housing, MNIST, Hiawatha. The MLP uses a single hidden layer of 64 units. CharLM uses a single layer LSTM language model with embedding and hidden layer sizes set to 256 and trained using BPTT with a sequence length of 100. Each dataset was minibatched and transferred to GPU prior to benchmarking when possible."
+},
+
+{
+    "location": "tutorial.html#DyNet-Benchmarks-(Dec-15,-2017)-1",
+    "page": "Introduction to Knet",
+    "title": "DyNet Benchmarks (Dec 15, 2017)",
+    "category": "section",
+    "text": "We implemented dynamic neural network examples from the dynet-benchmark repo to compare Knet with DyNet and Chainer. See DyNet technical report for the architectural details of the implemented examples and the github repo for the source code.rnnlm-batch: A recurrent neural network language model on PTB corpus.\nbilstm-tagger: A bidirectional LSTM network that predicts a tag for each word. It is trained on WikiNER dataset.\nbilstm-tagger-withchar: Similar to bilstm-tagger, but uses characer-based embeddings for unknown words.\ntreenn: A tree-structured LSTM sentiment classifier trained on Stanford Sentiment Treebank dataset.Benchmarks were run on a server with Intel(R) Xeon(R) CPU E5-2695 v4 @ 2.10GHz and Tesla K80.Model Metric Knet DyNet Chainer\nrnnlm-batch words/sec 28.5k 18.7k 16k\nbilstm-tagger words/sec 6800 1200 157\nbilstm-tagger-withchar words/sec 1300 900 128\ntreenn sents/sec 43 68 10"
+},
+
+{
+    "location": "tutorial.html#DeepLearningFrameworks-(Nov-24,-2017)-1",
+    "page": "Introduction to Knet",
+    "title": "DeepLearningFrameworks (Nov 24, 2017)",
+    "category": "section",
+    "text": "More recently, @ilkarman has published CNN and RNN benchmarks on Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual Machine for Linux (Ubuntu). The results are copied below.  You can find versions of the Knet notebooks used for these benchmarks in the Knet/examples/DeepLearningFrameworks directory.Training CNN (VGG-style) on CIFAR-10 - Image RecognitionDL Library Test Accuracy (%) Training Time (s)\nMXNet 77 145\nCaffe2 79 148\nGluon 76 152\nKnet(Julia) 78 159\nChainer 79 162\nCNTK 78 163\nPyTorch 78 169\nTensorflow 78 173\nKeras(CNTK) 77 194\nKeras(TF) 77 241\nLasagne(Theano) 77 253\nKeras(Theano) 78 269Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)DL Library Test Accuracy (%) Training Time (s) Using CuDNN?\nMXNet 86 29 Yes\nKnet(Julia) 85 29 Yes\nTensorflow 86 30 Yes\nPytorch 86 31 Yes\nCNTK 85 32 Yes\nKeras(TF) 86 35 Yes\nKeras(CNTK) 86 86 No AvailableInference ResNet-50 (Feature Extraction)DL Library Images/s GPU Images/s CPU\nKnet(Julia) 160 2\nTensorflow 155 11\nPyTorch 130 6\nMXNet 130 8\nMXNet(w/mkl) 129 25\nCNTK 117 8\nChainer 107 3\nKeras(TF) 98 5\nCaffe2 71 6\nKeras(CNTK) 46 4"
 },
 
 {
