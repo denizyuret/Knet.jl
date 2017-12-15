@@ -1,23 +1,39 @@
 # Examples
 
+## Tutorials
 - [julia-tutorial](julia-tutorial): Julia examples demonstrating arrays, tuples, dictionaries, indexing etc.
 - [knet-tutorial](knet-tutorial): Notebook with Knet models for linreg, softmax, mlp, cnn, rnn.
-- [synthetic-linreg](synthetic-linreg): Simple linear regression example using artificial data.
-- [housing-linreg](housing-linreg): Linear regression on the [Boston Housing] dataset.
-- [mnist-mlp](mnist-mlp): Multi-layer perceptron trained on [MNIST].
-- [fashion-mnist](fashion-mnist): Multi-layer perceptron trained on [Fashion-MNIST].
-- [lenet](lenet): The [LeNet] model trained on [MNIST].
-- [cifar10-cnn](cifar10-cnn): CNN model for [CIFAR-10] with batchnorm.
-- [rnn-tutorial](rnn-tutorial): RNN tutorial notebook with BPTT, LSTM, S2S.
-- [charlm](charlm): Character-level RNN language model from [Karpathy].
-- [rnnlm](rnnlm): Word-level RNN language model trained on the [Mikolov-PTB] corpus.
 - [optimizers](optimizers): Try various optimizers (SGD, Momentum, Adam...) on [LeNet].
 - [overfitting](overfitting): Notebook on underfitting, overfitting, regularization, dropout.
+- [rnn-tutorial](rnn-tutorial): RNN tutorial notebook with BPTT, LSTM, S2S.
+
+## Benchmarks
+- [DeepLearningFrameworks](DeepLearningFrameworks): Notebooks comparing CNTK, Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch, TensorFlow on CNN and RNN examples.
+- [dynet-benchmark](dynet-benchmark): Four dynamic neural network examples comparing Knet with DyNet and Chainer from [dynet-benchmark](https://github.com/neulab/dynet-benchmark).
+
+## Models
+
+### Linear
+- [synthetic-linreg](synthetic-linreg): Simple linear regression example using artificial data.
+- [housing-linreg](housing-linreg): Linear regression on the [Boston Housing] dataset.
+
+### MLP
+- [mnist-mlp](mnist-mlp): Multi-layer perceptron trained on [MNIST].
+- [fashion-mnist](fashion-mnist): Multi-layer perceptron trained on [Fashion-MNIST].
+
+### CNN
+- [lenet](lenet): The [LeNet] model trained on [MNIST].
+- [cifar10-cnn](cifar10-cnn): CNN model for [CIFAR-10] with batchnorm.
 - [resnet](resnet): Knet implementation of [ResNet] 50, 101, and 152 models.
 - [vgg](vgg): Knet implementation of [VGG] D and E models.
+
+### RNN
+- [charlm](charlm): Character-level RNN language model from [Karpathy].
+- [rnnlm](rnnlm): Word-level RNN language model trained on the [Mikolov-PTB] corpus.
+
+### Other
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
-- [DeepLearningFrameworks](DeepLearningFrameworks): Notebooks comparing CNTK, Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch, TensorFlow on CNN and RNN examples.
-- [dynet-benchmark](dynet-benchmark): 4 different dynamic neural network examples in Knet implemented for [dynet-benchmark](https://github.com/neulab/dynet-benchmark).
+
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
 [LeNet]: http://yann.lecun.com/exdb/lenet

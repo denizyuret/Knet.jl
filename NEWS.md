@@ -4,7 +4,8 @@ Knet v0.8.6 Release Notes
 Compatibility
 -------------
 * Windows GPU support implemented.
-* MacOS GPU support improved: libnvidia-ml only used when available.
+* MacOS GPU support improved: nvml only used when available.
+* CUDA up to v"9.1" and cuDNN up to v"7.0.5" are tested.
 * Pre-0.6 Julia versions no longer supported.
 
 General

@@ -594,14 +594,14 @@ notebook.
 
 ## Benchmarks
 
+### Knet Benchmarks (Sep 30, 2016)
+
 Each of the examples above was used as a benchmark to compare Knet
 with other frameworks. The table below shows the number of seconds it
 takes to train a given model for a particular dataset, number of
 epochs and minibatch size for Knet, Theano, Torch, Caffe and
 TensorFlow. Knet had comparable performance to other commonly used
 frameworks.
-
-Knet Benchmarks (Sep 30, 2016):
 
 |model|dataset|epochs|batch|Knet|Theano|Torch|Caffe|TFlow|
 |:----|:------|:-----|:----|:---|:-----|:----|:----|:----|
@@ -626,7 +626,35 @@ language model with embedding and hidden layer sizes set to 256 and
 trained using BPTT with a sequence length of 100. Each dataset was
 minibatched and transferred to GPU prior to benchmarking when possible.
 
-More recently (Nov 24, 2017), @ilkarman has published CNN and RNN
+
+### DyNet Benchmarks (Dec 15, 2017)
+
+We implemented dynamic neural network examples from the
+[dynet-benchmark](https://github.com/neulab/dynet-benchmark) repo to
+compare Knet with DyNet and Chainer. See [DyNet technical
+report](https://arxiv.org/abs/1701.03980) for the architectural
+details of the implemented examples and the [github
+repo](https://github.com/neulab/dynet-benchmark) for the source code.
+
+- [rnnlm-batch](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/rnnlm-batch.jl): A recurrent neural network language model on [PTB](https://catalog.ldc.upenn.edu/ldc99t42) corpus.
+- [bilstm-tagger](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/bilstm-tagger.jl): A bidirectional LSTM network that predicts a tag for each word. It is trained on [WikiNER](https://github.com/neulab/dynet-benchmark/tree/master/data/tags) dataset.
+- [bilstm-tagger-withchar](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/bilstm-tagger-withchar.jl): Similar to bilstm-tagger, but uses characer-based embeddings for unknown words.
+- [treenn](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/treenn.jl): A tree-structured LSTM sentiment classifier trained on [Stanford Sentiment Treebank](https://nlp.stanford.edu/sentiment/index.html) dataset.
+
+Benchmarks were run on a server with Intel(R) Xeon(R) CPU E5-2695 v4 @
+2.10GHz and Tesla K80.
+
+| Model                                               | Metric    |  Knet    | DyNet     | Chainer     |
+| ----------------------------------------------------| --------- | -------- | --------- |------------ |
+| [rnnlm-batch](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/rnnlm-batch.jl)                       | words/sec | 28.5k    | 18.7k     | 16k         |
+| [bilstm-tagger](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/bilstm-tagger.jl)                   | words/sec | 6800     | 1200      | 157         |
+| [bilstm-tagger-withchar](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/bilstm-tagger-withchar.jl) | words/sec | 1300     | 900       | 128         |
+| [treenn](https://github.com/denizyuret/Knet.jl/blob/master/examples/dynet-benchmark/treenn.jl)                                 | sents/sec | 43       | 68        | 10          |
+
+
+### DeepLearningFrameworks (Nov 24, 2017)
+
+More recently, @ilkarman has published CNN and RNN
 [benchmarks](https://github.com/ilkarman/DeepLearningFrameworks) on
 Nvidia K80 GPUs, using the Microsoft Azure Data Science Virtual
 Machine for Linux (Ubuntu). The results are copied below.  You can
