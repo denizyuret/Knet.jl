@@ -1,4 +1,4 @@
-for p in ("Knet","ArgParse","PyPlot")
+for p in ("Knet","ArgParse","Images")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
@@ -7,8 +7,8 @@ Train a Variational Autoencoder on the MNIST dataset.
 """
 module VAE
 using Knet
-using PyPlot # comment out if not plotting
 using ArgParse
+using Images
 include(Pkg.dir("Knet","data","mnist.jl"))
 
 const F = Float32
@@ -91,55 +91,15 @@ function weights(nz, nh; atype=Array{F})
     return θ, ϕ
 end
 
-
-function plot_reconstruction(θ, ϕ, data, nimg=10)
-    x, _ = rand(data)
-    x = mat(x)
-    x = x[:, rand(1:size(x,2), nimg)]
-    
-    μ, logσ² = encode(ϕ, x)
-    z = μ .+ randn!(similar(μ)) .* exp.(logσ²./2)
-    x̂ = decode(θ, z)
-
-    x = Array(reshape(x, 28, 28, length(x) ÷ 28^2))
-    x̂ = Array(reshape(x̂, 28, 28, length(x̂) ÷ 28^2))
-
-    fig = figure("reconstruction", figsize=(10,3))
-    clf()
-    for i=1:nimg
-        subplot(2, nimg, i)
-        imshow(x[:,:,i]', cmap="gray") #notice the transpose
-        ax = gca()
-        ax[:xaxis][:set_visible](false)
-        ax[:yaxis][:set_visible](false)
-
-        subplot(2, nimg, nimg+i)
-        imshow(x̂[:,:,i]', cmap="gray") #notice the transpose
-        ax = gca()
-        ax[:xaxis][:set_visible](false)
-        ax[:yaxis][:set_visible](false)
-    end
-    # tight_layout()
-end
-
-function plot_dream(θ, nimg=20)
+function plot_dream(θ; gridsize=(5,5), scale=3.0)
     nh, nz = size(θ[1])
     atype = θ[1] isa KnetArray ? KnetArray : Array
-
+    m, n = gridsize
+    nimg = m*n
     z = convert(atype, randn(F, nz, nimg))
-    x̂ = decode(θ, z)
-
-    x̂ = Array(reshape(x̂, 28, 28, length(x̂) ÷ 28^2))
-
-    fig = figure("dream",figsize=(6,5))
-    clf()
-    for i=1:nimg
-        subplot(4, nimg÷4, i)
-        imshow(x̂[:,:,i]', cmap="gray") #notice the transpose
-        ax = gca()
-        ax[:xaxis][:set_visible](false)
-        ax[:yaxis][:set_visible](false)
-    end
+    x̂ = Array(decode(θ, z))
+    grid = mnistgrid(x̂; gridsize=gridsize, scale=scale)
+    display(colorview(Gray, grid))
 end
 
 function main(args="")
@@ -154,7 +114,6 @@ function main(args="")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
         ("--lr"; arg_type=Float64; default=1e-3; help="learning rate")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
-        ("--verb"; arg_type=Int; default=1; help="plot dream and reconstruction if verb > 1")
         ("--infotime"; arg_type=Int; default=2; help="report every infotime epochs")
     end
     isa(args, String) && (args=split(args))
@@ -163,18 +122,18 @@ function main(args="")
         return
     end
     o = parse_args(args, s; as_symbols=true)
-    
+
     atype = eval(parse(o[:atype]))
     info("using ", atype)
     o[:seed] > 0 && srand(o[:seed])
-    atype <: KnetArray && rand!(KnetArray(ones(10))) # bug #181 of Knet    
-    
+    atype <: KnetArray && rand!(KnetArray(ones(10))) # bug #181 of Knet
+
     θ, ϕ = weights(o[:nz], o[:nh], atype=atype)
     w = [θ; ϕ]
     opt = optimizers(w, Adam, lr=o[:lr])
 
     xtrn, ytrn, xtst, ytst = mnist()
-    
+
 
     report(epoch) = begin
             dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
@@ -182,10 +141,6 @@ function main(args="")
             println((:epoch, epoch,
                      :trn, aveloss(θ, ϕ, dtrn),
                      :tst, aveloss(θ, ϕ, dtst)))
-            if o[:verb] > 1
-                plot_reconstruction(θ, ϕ, dtrn)
-                plot_dream(θ)
-            end
         end
 
     report(0); tic()
