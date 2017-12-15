@@ -7,7 +7,7 @@ const toolkits = [v"1.0", v"1.1",
                   v"6.0", v"6.5",
                   v"7.0", v"7.5",
                   v"8.0",
-                  v"9.0"]
+                  v"9.0", v"9.1"]
 
 
 const cudnns = [v"1.0", v"2.0", v"3.0", v"4.0", v"5.0", v"5.1", v"6.0", v"7.0"]
@@ -39,7 +39,8 @@ const cuda_gcc_db = Dict(
     v"7.0" => lowest:v"4.10-",  # (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 9)) && #error
     v"7.5" => lowest:v"4.10-",  # (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 9)) && #error
     v"8.0" => lowest:v"6-",     # (__GNUC__ > 5)                                          && #error
-    v"9.0" => lowest:v"7-"      # (__GNUC__ > 6)                                          && #error
+    v"9.0" => lowest:v"7-",     # (__GNUC__ > 6)                                          && #error
+    v"9.1" => lowest:v"7-",     # (__GNUC__ > 6)                                          && #error
 )
 
 function gcc_for_cuda(ver::VersionNumber)
