@@ -40,7 +40,7 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1
     return y
 end
 
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dx = similar(x)
@@ -90,11 +90,11 @@ end
 
 """
 
-    pool(x; kwargs...) 
+    pool(x; kwargs...)
 
 Compute pooling of input values (i.e., the maximum or average of
 several adjacent values) to produce an output with smaller height
-and/or width.  
+and/or width.
 
 Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
 entries are supported.  If `x` has dimensions `(X1,X2,...,I,N)`, the
@@ -119,7 +119,7 @@ with entries for each spatial dimension.
 * `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
                  o...) # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
     beta = 0
@@ -292,7 +292,7 @@ unsafe_convert(::Type{Cptr}, pd::PD)=pd.ptr
 function cdsize(w, nd)
     if isa(w,Number)
         fill(Cint(w),nd)
-    elseif length(w)==nd 
+    elseif length(w)==nd
         [ Cint(w[nd-i+1]) for i=1:nd ]
     else
         throw(DimensionMismatch("$w $nd"))
@@ -355,7 +355,7 @@ function dcdims(w,x; padding=0, stride=1, o...)
             si = (if isa(stride,Number); stride; else stride[i]; end)
             si*(size(x,i)-1) + size(w,i) - 2*pi
         elseif i == N-1
-            size(w,N)
+            size(w,N-1)
         else
             size(x,N)
         end
