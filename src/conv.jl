@@ -172,7 +172,7 @@ end
 Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is equivalent to backward pass of a convolution (gradients with respect to input tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent to forward pass of a convolution. Since it swaps forward and backward passes of convolution operation, padding and stride options belong to output tensor. See [this report](https://arxiv.org/abs/1603.07285) for further explanation.
 
 Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are
-supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,I,O)` and
+supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,O,I)` and
 `x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
 dimensions `(Y1,Y2,...,O,N)` where
 
@@ -187,6 +187,7 @@ Here I is the number of input channels, O is the number of output channels, N is
 * `mode=0`: 0 for convolution and 1 for cross-correlation.
 * `alpha=1`: can be used to scale the result.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
+
 """
 function deconv4(w,x; o...)
     y = similar(x,dcdims(w,x;o...))
@@ -367,6 +368,7 @@ end
 
 function dcdims(w,x; padding=0, stride=1, o...)
     N = ndims(x)
+    @assert size(x,N-1) == size(w,N)
     ntuple(N) do i
         if i < N-1
             pi = (if isa(padding,Number); padding; else padding[i]; end)
