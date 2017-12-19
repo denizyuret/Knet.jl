@@ -167,8 +167,26 @@ end
 
 """
 
-Deconvolution; `reverse` of convolution.
+    y = deconv4(w, x; kwargs...)
 
+Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is equivalent to backward pass of a convolution (gradients with respect to input tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent to forward pass of a convolution. Since it swaps forward and backward passes of convolution operation, padding and stride options belong to output tensor. See [this report](https://arxiv.org/abs/1603.07285) for further explanation.
+
+Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are
+supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,I,O)` and
+`x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
+dimensions `(Y1,Y2,...,O,N)` where
+
+Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
+
+Here I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions. padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.
+
+# Keywords
+
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `stride=1`: the number of elements to slide to reach the next filtering window.
+* `mode=0`: 0 for convolution and 1 for cross-correlation.
+* `alpha=1`: can be used to scale the result.
+* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 """
 function deconv4(w,x; o...)
     y = similar(x,dcdims(w,x;o...))
