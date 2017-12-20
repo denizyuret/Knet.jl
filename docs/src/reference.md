@@ -57,6 +57,14 @@ Knet.rnnparam
 Knet.rnnparams
 ```
 
+## Batch Normalization
+
+```@docs
+Knet.bnmoments
+Knet.bnparams
+Knet.batchnorm
+```
+
 ## Optimization methods
 
 ```@docs
@@ -99,4 +107,3 @@ AutoGrad.@zerograd
 ```@index
 Pages = ["reference.md"]
 ```
-
