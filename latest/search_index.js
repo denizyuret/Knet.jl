@@ -481,6 +481,38 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.bnmoments",
+    "page": "Reference",
+    "title": "Knet.bnmoments",
+    "category": "Function",
+    "text": "bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones) can be used  directly load moments from data. meaninit and varinit are called if mean and var are nothing. Type and size of the mean and var are determined automatically from the inputs in the batchnorm calls. A BNMoments object is returned.\n\nBNMoments\n\nA high-level data structure used to store running mean and running variance of batch normalization with the following fields:\n\nmomentum::AbstractFloat: A real number between 0 and 1 to be used as the scale of   last mean and variance. The existing running mean or variance is multiplied by   (1-momentum).\n\nmean: The running mean.\n\nvar: The running variance.\n\nmeaninit: The function used for initialize the running mean. Should either be nothing or of the form (eltype, dims...)->data. zeros is a good option.\n\nvarinit: The function used for initialize the running variance. Should either be nothing or (eltype, dims...)->data. ones is a good option.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.bnparams",
+    "page": "Reference",
+    "title": "Knet.bnparams",
+    "category": "Function",
+    "text": "bnparams(etype, channels) creates a single 1d array that contains both scale and bias of batchnorm, where the first half is scale and the second half is bias.\n\nbnparams(channels) calls bnparams with etype=Float64, following Julia convention\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.batchnorm",
+    "page": "Reference",
+    "title": "Knet.batchnorm",
+    "category": "Function",
+    "text": "batchnorm(x[, moments, params]; kwargs...) performs batch normalization to x with optional scaling factor and bias stored in params.\n\n2d, 4d and 5d inputs are supported. Mean and variance are computed over dimensions (2,), (1,2,4) and (1,2,3,5) for 2d, 4d and 5d arrays, respectively.\n\nmoments stores running mean and variance to be used in testing. It is optional in the training mode, but mandatory in the test mode. Training and test modes are controlled by the training keyword argument.\n\nparams stores the optional affine parameters gamma and beta. bnparams function can be used to initialize params.\n\nExample\n\n# Inilization, C is an integer\nmoments = bnmoments()\nparams = bnparams(C)\n...\n# size(x) -> (H, W, C, N)\ny = batchnorm(x, moments, params)\n# size(y) -> (H, W, C, N)\n\nKeywords\n\neps=1e-5: The epsilon parameter added to the variance to avoid division by 0.\n\ntraining: When training is true, the mean and variance of x are used and moments  argument is modified if it is provided. When training is false, mean and variance stored in  the moments argument are used. Default value is true when at least one of x and params  is AutoGrad.Rec, false otherwise.\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Batch-Normalization-1",
+    "page": "Reference",
+    "title": "Batch Normalization",
+    "category": "section",
+    "text": "Knet.bnmoments\nKnet.bnparams\nKnet.batchnorm"
+},
+
+{
     "location": "reference.html#Knet.update!",
     "page": "Reference",
     "title": "Knet.update!",
