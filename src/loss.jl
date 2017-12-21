@@ -13,11 +13,7 @@ normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 """
 function logp(x,d...)
     if isa(getval(x), KnetArray)
-        if d==(1,)
-            cudnnSoftmaxForward(x,algo=2)
-        elseif d==(2,)
-            cudnnSoftmaxForward(x.',algo=2).'
-        elseif d==()
+        if d==()
             n = length(x)
             (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
              reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
@@ -27,6 +23,14 @@ function logp(x,d...)
     else
         _logp(x,d...) # fall back on old implementation if not KnetArray
     end
+end
+
+function logp(x::A, d::Integer) where A <: Union{KnetArray, Rec{KnetArray}}
+    @assert 1 <= d <= ndims(x)  
+    sz = size(x)
+    x = reshape(x, (prod(sz[1:d-1]), 1, sz[d], prod(sz[d+1:end])))
+    x = cudnnSoftmaxForward(x, mode=1, algo=2)
+    x = reshape(x, sz)
 end
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
