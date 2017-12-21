@@ -1,5 +1,5 @@
 using Knet, AutoGrad
-using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, TD4, _logp
+using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, _logp
 using BenchmarkTools
 
 # algo=2 corresponds to logp(x,1)

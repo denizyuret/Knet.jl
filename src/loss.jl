@@ -11,27 +11,28 @@ given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
-function logp(x,d...)
-    if isa(getval(x), KnetArray)
-        if d==()
-            n = length(x)
-            (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
-        else
-            _logp(x,d...)
-        end
+logp(x) = logp(x, tuple(1:ndims(x)...)) 
+logp(x, d::Int) = logp(x, (d,))
+logp(x, dims::Dims) = _logp(x, dims) # generic fallback
+
+function logp(x::A, dims::Dims) where A <: Union{KnetArray, Rec{KnetArray}}
+    d = sort(union(dims))
+    @assert all(1 <= d <= ndims(x) for d in d)  
+    if length(d) == 0
+        n = length(x)
+        (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
+            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
+    elseif areconsecutives(d)
+        sz = size(x)
+        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
+        x = cudnnSoftmaxForward(x, mode=1, algo=2)
+        reshape(x, sz)
     else
-        _logp(x,d...) # fall back on old implementation if not KnetArray
+        _logp(x, dims)
     end
 end
 
-function logp(x::A, d::Integer) where A <: Union{KnetArray, Rec{KnetArray}}
-    @assert 1 <= d <= ndims(x)  
-    sz = size(x)
-    x = reshape(x, (prod(sz[1:d-1]), 1, sz[d], prod(sz[d+1:end])))
-    x = cudnnSoftmaxForward(x, mode=1, algo=2)
-    x = reshape(x, sz)
-end
+areconsecutives(d) = all(d[i+1] == d[i]+1 for i=1:length(d)-1)
 
 logsoftmax = logp
 softmax(x, d...) = exp.(logsoftmax(x, d...)) 
@@ -52,15 +53,20 @@ softmax(x, d...) = exp.(logsoftmax(x, d...))
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
-function _logp(x,d...)
+
+_logp(x) = _logp(x, tuple(1:ndims(x)...))
+_logp(x, d::Int) = _logp(x, (d,))
+
+function _logp(x, dims::Dims)
+    @assert all(1 <= d <= ndims(x) for d in dims)  
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        x = x .- maximum(x,d...)
-        return (x .- log.(sum(exp.(x),d...)))
+        x = x .- maximum(x, dims)
+        return (x .- log.(sum(exp.(x), dims)))
         # Expanding for profiling:
         # x1 = maximum(x,d...)
         # x2 = x .- x1
@@ -72,14 +78,14 @@ function _logp(x,d...)
     end
 end
 
-function _logpback(x,y,dy,d...)
+function _logpback(x,y,dy,dims::Dims)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        return (dy - exp.(y).*sum(dy,d...))
+        return (dy - exp.(y).*sum(dy, dims))
         # Expanding for profiling:
         # dx1 = sum(dy,d...)
         # dx2 = exp_dot(y)
@@ -90,7 +96,7 @@ function _logpback(x,y,dy,d...)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x,d...),dy,y  _logpback(x,y,dy,d...)
+@primitive  _logp(x,dims::Dims),dy,y  _logpback(x,y,dy,dims)
 
 #=
 typedef enum
@@ -113,7 +119,7 @@ function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle
     y = similar(x)
     @cuda(cudnn, cudnnSoftmaxForward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
-          handle, algo, mode, Ref(T(alpha)), TD4(x), x, Ref(T(beta)), TD4(y), y)
+          handle, algo, mode, Ref(T(alpha)), TD(x), x, Ref(T(beta)), TD(y), y)
     return y
 end
 
@@ -122,24 +128,12 @@ function cudnnSoftmaxBackward{T}(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode
     dx = similar(dy)
     @cuda(cudnn, cudnnSoftmaxBackward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
-          handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
+          handle, algo, mode, Ref(T(alpha)), TD(y), y, TD(dy), dy, Ref(T(beta)), TD(dx), dx)
     return dx
 end
 
 @primitive cudnnSoftmaxForward(x;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
 @zerograd cudnnSoftmaxBackward(y,dy;o...)
-
-function TD4(x::KnetArray)
-    d = ndims(x)
-    if d == 4 || d == 5
-        TD(x)
-    else
-        n = size(x,d)
-        m = div(length(x),n)
-        TD(reshape(x,(1,1,m,n)))
-    end
-end
-
 
 """
 
