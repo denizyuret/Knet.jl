@@ -1,6 +1,6 @@
 """
 `bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used
- directly load moments from data. `meaninit` and `varinit` are called if `mean` and `var` 
+ directly load moments from data. `meaninit` and `varinit` are called if `mean` and `var`
 are nothing. Type and size of the `mean` and `var` are determined automatically from the inputs
 in the `batchnorm` calls. A `BNMoments` object is returned.
 
@@ -10,18 +10,19 @@ A high-level data structure used to store running mean and running variance
 of batch normalization with the following fields:
 
  `momentum::AbstractFloat`: A real number between 0 and 1 to be used as the scale of
-  last mean and variance. The existing running mean or variance is multiplied by 
+  last mean and variance. The existing running mean or variance is multiplied by
   (1-momentum).
- 
+
  `mean`: The running mean.
 
  `var`: The running variance.
- 
+
  `meaninit`: The function used for initialize the running mean. Should either be `nothing` or
 of the form `(eltype, dims...)->data`. `zeros` is a good option.
 
  `varinit`: The function used for initialize the running variance. Should either be `nothing` or
 `(eltype, dims...)->data`. `ones` is a good option.
+
 """
 bnmoments(;momentum=0.1, meaninit=zeros, varinit=ones, mean=nothing, var=nothing) =
     BNMoments(momentum, mean, var, meaninit, varinit)
@@ -40,19 +41,18 @@ end
 `batchnorm(x[, moments, params]; kwargs...)` performs batch normalization to `x`
 with optional scaling factor and bias stored in `params`.
 
-2d, 4d and 5d inputs are supported. Mean and variance are computed over 
+2d, 4d and 5d inputs are supported. Mean and variance are computed over
 dimensions (2,), (1,2,4) and (1,2,3,5) for 2d, 4d and 5d arrays, respectively.
 
-
-`moments` stores running mean and variance to be used in testing. 
-It is optional in the training mode, but mendatory in the test mode.
+`moments` stores running mean and variance to be used in testing.
+It is optional in the training mode, but mandatory in the test mode.
 Training and test modes are controlled by the `training` keyword argument.
 
 `params` stores the optional affine parameters gamma and beta.
 `bnparams` function can be used to initialize `params`.
 
 # Example
-    
+
     # Inilization, C is an integer
     moments = bnmoments()
     params = bnparams(C)
@@ -60,18 +60,18 @@ Training and test modes are controlled by the `training` keyword argument.
     # size(x) -> (H, W, C, N)
     y = batchnorm(x, moments, params)
     # size(y) -> (H, W, C, N)
-    
+
 
 # Keywords
 
  `eps=1e-5`: The epsilon parameter added to the variance to avoid division by 0.
- 
+
  `training`: When `training` is true, the mean and variance of `x` are used and `moments`
- argument is modified if it is provided. When `training` is false, mean and variance stored in 
+ argument is modified if it is provided. When `training` is false, mean and variance stored in
  the `moments` argument are used. Default value is `true` when at least one of `x` and `params`
  is `AutoGrad.Rec`, `false` otherwise.
-"""
 
+"""
 function batchnorm(x, moments::Union{BNMoments, Void}=nothing, params=nothing;
                    training=nothing, o...)
     xnd = ndims(x)
@@ -101,7 +101,7 @@ end
 
 
 """
-`bnparams(etype, channels)` creates a single 1d array that contains both 
+`bnparams(etype, channels)` creates a single 1d array that contains both
 scale and bias of batchnorm, where the first half is scale and the
 second half is bias.
 
@@ -118,7 +118,7 @@ end
 bnparams(channels::Integer) = bnparams(Float64, channels)
 
 
-#= 
+#=
 LOW-LEVEL API that won't be exported by default
 =#
 @inline _bnscale(param) = param[1:div(length(param), 2)]
@@ -299,7 +299,7 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
               TD(x), x, TD(dy), dy, TD(dx), dx,
               TD(g), g, dg, db,
               eps, mean, ivar)
-       
+
     else
         # At test mode, g .*( x ./ sqrt(var) - mean ./ sqrt(var)) .+ beta
         # is performed;
@@ -433,7 +433,7 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
             dg, db = nothing, nothing
         end
         m = prod(size(x, dims...))
-        dsigma2, dmu = similar(ivar), similar(mu) 
+        dsigma2, dmu = similar(ivar), similar(mu)
         dsigma2 .= -T(0.5) .* sum(dyivar .* x_mu .* ivar.^2, dims)
         dmu .= -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
         dx .= dyivar .+ dsigma2 .* 2x_mu ./ m .+ dmu ./ m
