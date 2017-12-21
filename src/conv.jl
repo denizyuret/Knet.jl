@@ -40,7 +40,7 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1
     return y
 end
 
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
                    o...) # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dx = similar(x)
@@ -90,11 +90,11 @@ end
 
 """
 
-    pool(x; kwargs...) 
+    pool(x; kwargs...)
 
 Compute pooling of input values (i.e., the maximum or average of
 several adjacent values) to produce an output with smaller height
-and/or width.  
+and/or width.
 
 Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
 entries are supported.  If `x` has dimensions `(X1,X2,...,I,N)`, the
@@ -119,7 +119,7 @@ with entries for each spatial dimension.
 * `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
+function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
                  o...) # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
     beta = 0
@@ -167,7 +167,26 @@ end
 
 """
 
-Deconvolution; `reverse` of convolution.
+    y = deconv4(w, x; kwargs...)
+
+Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is equivalent to backward pass of a convolution (gradients with respect to input tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent to forward pass of a convolution. Since it swaps forward and backward passes of convolution operation, padding and stride options belong to output tensor. See [this report](https://arxiv.org/abs/1603.07285) for further explanation.
+
+Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are
+supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,O,I)` and
+`x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
+dimensions `(Y1,Y2,...,O,N)` where
+
+Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
+
+Here I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions. padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.
+
+# Keywords
+
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `stride=1`: the number of elements to slide to reach the next filtering window.
+* `mode=0`: 0 for convolution and 1 for cross-correlation.
+* `alpha=1`: can be used to scale the result.
+* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
 function deconv4(w,x; o...)
@@ -292,7 +311,7 @@ unsafe_convert(::Type{Cptr}, pd::PD)=pd.ptr
 function cdsize(w, nd)
     if isa(w,Number)
         fill(Cint(w),nd)
-    elseif length(w)==nd 
+    elseif length(w)==nd
         [ Cint(w[nd-i+1]) for i=1:nd ]
     else
         throw(DimensionMismatch("$w $nd"))
@@ -349,13 +368,14 @@ end
 
 function dcdims(w,x; padding=0, stride=1, o...)
     N = ndims(x)
+    @assert size(x,N-1) == size(w,N)
     ntuple(N) do i
         if i < N-1
             pi = (if isa(padding,Number); padding; else padding[i]; end)
             si = (if isa(stride,Number); stride; else stride[i]; end)
             si*(size(x,i)-1) + size(w,i) - 2*pi
         elseif i == N-1
-            size(w,N)
+            size(w,N-1)
         else
             size(x,N)
         end
