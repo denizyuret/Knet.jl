@@ -552,12 +552,14 @@ end
 ## General Indexing Fallback to linear indexing
 
 function getindex(a::KnetArray, I...) 
-    crange = CartesianRange(to_indices(a, I))
+    indx = to_indices(a, I)
+    crange = CartesianRange(indx)
     linind = [sub2ind(size(a), t.I...) for t in crange]
     b = getindex(a, vec(linind))
-    shape = size(crange) # TODO drop scalar dimension
-    reshape(b, shape)
+    reshape(b, length.(Base.index_shape(indx...)))
 end
+
+getindex(a::KnetArray, ::Colon, ::Colon, ::Colon) = a # fix ambiguity with method in rnn.jl 
 
 function setindex!(a::KnetArray, v, I...) 
     crange = CartesianRange(to_indices(a, I))
