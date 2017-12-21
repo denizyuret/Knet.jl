@@ -33,6 +33,9 @@ function logp(x::A, d::Integer) where A <: Union{KnetArray, Rec{KnetArray}}
     x = reshape(x, sz)
 end
 
+logsoftmax = logp
+softmax(x, d...) = exp.(logsoftmax(x, d...)) 
+
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
 # down, right column (loss gradients) back up.
