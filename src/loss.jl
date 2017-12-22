@@ -1,3 +1,5 @@
+const DimsOrVec = Union{Dims, Vector}
+
 """
 
     logp(x,[dims])
@@ -10,12 +12,23 @@ over the whole `x`, otherwise the normalization is performed over the
 given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
+Calls to `logsoftmax(x)` is `logp(x, 1)`, and `softmax(x)` is 
+equivalent to `exp.(log(x,1)`. 
 """
 logp(x) = logp(x, tuple(1:ndims(x)...)) 
+logp(x, dims::DimsOrVec) = _logp(x, dims) # generic fallback
 logp(x, d::Int) = logp(x, (d,))
-logp(x, dims::Dims) = _logp(x, dims) # generic fallback
 
-function logp(x::A, dims::Dims) where A <: Union{KnetArray, Rec{KnetArray}}
+# specialized version avoid a little overhead of logp(x::A, dims)
+function logp(x::A, d::Int) where A <: Union{KnetArray, Rec{KnetArray}}
+    @assert 1 <= d <= ndims(x)  
+    sz = size(x)
+    x = reshape(x, (prod(sz[1:d-1]), 1, sz[d], prod(sz[d+1:end])))
+    x = cudnnSoftmaxForward(x, mode=1, algo=2)
+    reshape(x, sz)
+end
+
+function logp(x::A, dims::DimsOrVec) where A <: Union{KnetArray, Rec{KnetArray}}
     d = sort(union(dims))
     @assert all(1 <= d <= ndims(x) for d in d)  
     if length(d) == 0
@@ -24,7 +37,7 @@ function logp(x::A, dims::Dims) where A <: Union{KnetArray, Rec{KnetArray}}
             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
     elseif areconsecutives(d)
         sz = size(x)
-        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
+        @inbounds  x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
         x = cudnnSoftmaxForward(x, mode=1, algo=2)
         reshape(x, sz)
     else
@@ -34,8 +47,21 @@ end
 
 areconsecutives(d) = all(d[i+1] == d[i]+1 for i=1:length(d)-1)
 
-logsoftmax = logp
-softmax(x, d...) = exp.(logsoftmax(x, d...)) 
+"""
+    logsoftmax(x)
+
+Equivalent to `logp(x, 1)`. See also `sotfmax`. 
+"""
+logsoftmax(x) = logp(x, 1)
+
+"""
+    softmax(x)
+
+The softmax function typically used in classification.
+It is equivalen to `exp.(logp(x, 1))`. 
+See also `logsoftmax`.
+"""
+softmax(x) = exp.(logsoftmax(x)) 
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
@@ -57,7 +83,7 @@ softmax(x, d...) = exp.(logsoftmax(x, d...))
 _logp(x) = _logp(x, tuple(1:ndims(x)...))
 _logp(x, d::Int) = _logp(x, (d,))
 
-function _logp(x, dims::Dims)
+function _logp(x, dims::DimsOrVec)
     @assert all(1 <= d <= ndims(x) for d in dims)  
     xval = getval(x)
     if isa(xval,Number)
@@ -78,7 +104,7 @@ function _logp(x, dims::Dims)
     end
 end
 
-function _logpback(x,y,dy,dims::Dims)
+function _logpback(x,y,dy,dims::DimsOrVec)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
@@ -96,7 +122,7 @@ function _logpback(x,y,dy,dims::Dims)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x,dims::Dims),dy,y  _logpback(x,y,dy,dims)
+@primitive  _logp(x,dims::DimsOrVec),dy,y  _logpback(x,y,dy,dims)
 
 #=
 typedef enum

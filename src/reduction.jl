@@ -40,7 +40,7 @@ function reduction_op(f, j=f, o...)
             $J(x::KnetArray{$T}, d::Int) = $J(x, (d,))
 
             # Array->Vector reduction:
-            function $J(x::KnetArray{$T}, region::Dims)
+            function $J(x::KnetArray{$T}, region::R) where R<:Union{Dims, Vector}
                 length(region) == 0 && return $J(x)
                 rdims = reduced_dims_compat(size(x), region)
                 vdims = ndims(x)-length(region)

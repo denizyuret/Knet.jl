@@ -20,14 +20,9 @@ broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
     in(f, exclude11) && continue
-    if VERSION >= v"0.6.0"
-        f0 = eval(parse(lstrip(f,'.')))
-        f1 = x->broadcast(f0,x[1],x[2])
-        f2 = (x1,x2)->broadcast(f0,x1,x2)
-    else
-        f2 = eval(parse(f))
-        f1 = x->f2(x[1],x[2])
-    end
+    f0 = eval(parse(lstrip(f,'.')))
+    f1 = x->broadcast(f0,x[1],x[2])
+    f2 = (x1,x2)->broadcast(f0,x1,x2)
     push!(broadcast_fns, (f1,f2))
 end
 
@@ -68,12 +63,12 @@ srand(42)
                     @dbg f,t,n1,n2
                     a1 = rand11(f,t,n1)
                     a2 = rand11(f,t,n2)+t(1)
-                    @test gradcheck(f1, Any[a1, a2])
+                    @test gradcheck(f1, [a1, a2])
                     if gpu() >= 0 
                         g1 = KnetArray(a1) 
                         g2 = KnetArray(a2)
                         @test isapprox(f(a1,a2),f(g1,g2))
-                        @test gradcheck(f1, Any[g1, g2])
+                        @test gradcheck(f1, [g1, g2])
                     end
                 end
             end
@@ -83,13 +78,8 @@ srand(42)
     @testset "array-array" begin
         date("broadcast: array-array")
         # for (f1,f) in broadcast_fns # takes too much time
-        if VERSION >= v"0.6.0"
-            f = (x1,x2)->broadcast(+,x1,x2)
-            f1 = x->broadcast(+,x[1],x[2])
-        else
-            f = .+
-            f1 = x->(x[1].+x[2])
-        end
+        f = (x1,x2)->broadcast(+,x1,x2)
+        f1 = x->broadcast(+,x[1],x[2])
         for t in (Float32, Float64)
             # multidim array broadcast
             # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
