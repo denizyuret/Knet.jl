@@ -218,13 +218,14 @@ function vbroadcast_shape(x,y)
 end
 
 function get_strides(x,y,z)
-    stride_x = collect(Int32,strides(x));
-    stride_y = collect(Int32,strides(y));
-    stride_z = collect(Int32,strides(z));
-    dims_x = size(x)
-    dims_y = size(y)
-
-    for i in 1:ndims(x)
+    # x,y,z may have different ndims, work with the max
+    n = max(ndims(x), ndims(y), ndims(z))
+    stride_x = Int32[ stride(x,i) for i=1:n ]
+    stride_y = Int32[ stride(y,i) for i=1:n ]
+    stride_z = Int32[ stride(z,i) for i=1:n ]
+    dims_x = Int32[ size(x,i) for i=1:n ]
+    dims_y = Int32[ size(y,i) for i=1:n ]
+    for i in 1:n
         dims_x[i] == dims_y[i] && continue
         if dims_x[i]==1
             stride_x[i]=0
