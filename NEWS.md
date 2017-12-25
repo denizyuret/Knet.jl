@@ -25,6 +25,7 @@ General
 * Using CUDAapi and CUDAdrv in build.jl if installed.
 * Got rid of the Combinatorics dependency in test.
 * `curandInit` called at initialization to prevent memory fill before first dropout.
+* `deconv4` bug fixed (@ilkerkesen).
 
 Documentation and Examples
 --------------------------
@@ -33,6 +34,7 @@ Documentation and Examples
 * All examples updated to use the new RNNs and replaced/supported with IJulia notebooks.
 * New variational-autoencoder example (@CarloLucibello).
 * DyNet benchmark examples added (@ilkerkesen).
+* Deep Convolutional Generative Adversarial Networks example added (@ilkerkesen).
 
 
 Knet v0.8.5 Release Notes

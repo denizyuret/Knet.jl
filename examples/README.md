@@ -33,6 +33,7 @@
 
 ### Other
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
+- [dcgan-mnist](dcgan-mnist): Train a [DCGAN](https://arxiv.org/abs/1511.06434) (Deep Convolutional Generative Adversarial Network) on [MNIST].
 
 
 [MNIST]: http://yann.lecun.com/exdb/mnist
