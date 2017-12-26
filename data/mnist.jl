@@ -1,4 +1,4 @@
-for p in ("GZip",)
+for p in ("GZip","Images")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
