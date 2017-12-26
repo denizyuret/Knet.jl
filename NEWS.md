@@ -1,5 +1,6 @@
-Knet v0.8.6 Release Notes
+Knet v0.9.0 Release Notes
 =========================
+48ca185 2017-12-25
 
 Compatibility
 -------------
