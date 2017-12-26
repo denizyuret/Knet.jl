@@ -72,33 +72,4 @@ function _mnist_gzload(file)
     return(a)
 end
 
-function mnistgrid(y; gridsize=(4,4), scale=2.0, shape=(28,28))
-    y = reshape(y, shape..., size(y)[end])
-    y = map(x->y[:,:,x]', [1:size(y,3)...])
-    shp = map(x->Int(round(x*scale)), shape)
-    y = map(x->Images.imresize(x,shp), y)
-    gridx, gridy = gridsize
-    outdims = (gridx*shp[1]+gridx+1,gridy*shp[2]+gridy+1)
-    out = zeros(outdims...)
-    for k = 1:gridx+1; out[(k-1)*(shp[1]+1)+1,:] = 1.0; end
-    for k = 1:gridy+1; out[:,(k-1)*(shp[2]+1)+1] = 1.0; end
-
-    x0 = y0 = 2
-    for k = 1:length(y)
-        x1 = x0+shp[1]-1
-        y1 = y0+shp[2]-1
-        out[x0:x1,y0:y1] = y[k]
-
-        y0 = y1+2
-        if k % gridy == 0
-            x0 = x1+2
-            y0 = 2
-        else
-            y0 = y1+2
-        end
-    end
-
-    return convert(Array{Float64,2}, map(x->isnan(x)?0:x, out))
-end
-
 nothing
