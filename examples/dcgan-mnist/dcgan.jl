@@ -2,6 +2,7 @@ for p in ("Knet","ArgParse","Images")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 include(Pkg.dir("Knet","data","mnist.jl"))
+include(Pkg.dir("Knet","data","imagenet.jl"))
 
 """
 
@@ -295,8 +296,9 @@ function plot_generations(
         atype = wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
         z = sample_noise(atype,zdim,nimg)
     end
-    generated = Array(0.5*(1+gnet(wg,z,mg; training=false)))
-    grid = Main.mnistgrid(generated; gridsize=gridsize, scale=scale)
+    output = Array(0.5*(1+gnet(wg,z,mg; training=false)))
+    images = map(i->output[:,:,:,i], 1:size(output,4))
+    grid = Main.make_image_grid(images; gridsize=gridsize, scale=scale)
     if savefile == nothing
         display(colorview(Gray, grid))
     else

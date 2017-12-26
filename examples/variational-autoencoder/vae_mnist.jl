@@ -10,6 +10,7 @@ using Knet
 using ArgParse
 using Images
 include(Pkg.dir("Knet","data","mnist.jl"))
+include(Pkg.dir("Knet","data","imagenet.jl"))
 
 const F = Float32
 
@@ -98,7 +99,8 @@ function plot_dream(θ; gridsize=(5,5), scale=1.0)
     nimg = m*n
     z = convert(atype, randn(F, nz, nimg))
     x̂ = Array(decode(θ, z))
-    grid = mnistgrid(x̂; gridsize=gridsize, scale=scale)
+    images = map(i->reshape(x̂[:,i], (28,28,1)), 1:nimg)
+    grid = make_image_grid(images; gridsize=gridsize, scale=scale)
     display(colorview(Gray, grid))
 end
 
