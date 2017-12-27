@@ -611,7 +611,7 @@ Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)
 |        [Pytorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_RNN.ipynb) |                86 |                31 |          Yes |
 |              [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_RNN.ipynb) |                85 |                32 |          Yes |
 |     [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb) |                86 |                35 |          Yes |
-| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 | No Available |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 | Not Available |
 
 
 Inference ResNet-50 (Feature Extraction)
