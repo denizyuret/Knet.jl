@@ -99,7 +99,7 @@ typedef enum
     CUDNN_SOFTMAX_MODE_CHANNEL = 1     /* compute the softmax over all C for each H, W, N */
 } cudnnSoftmaxMode_t;
 
-=#          
+=#
 
 function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle())
     beta = 0 # nonzero beta does not make sense when we create y
@@ -213,7 +213,22 @@ function findindices{T<:Integer}(y,a::Array{T},d=1)
     return indices
 end
 
+"""
+    logisticloss(yhat,ygold;mode=1)
 
+Computes logistic loss
+If `mode=1` `ygold` values should be {-1,1}, then it returns `sum(log(1 + exp(-ygold*yhat)))`
+If `mode=2` `ygold` values should be {0,1}, then it returns negative of `sum(ygold.*log(p) .+ (1-ygold).*log(1-p))`
+where 'p' is equal to (1 .+ exp(-yhat))^-1
+"""
+function logisticloss(yhat,ygold;mode=1)
+    if mode==1
+        return sum(log.(1 .+ exp.(-ygold.*yhat)))
+    else
+        p = 1./(1 .+ exp.(-yhat))
+        return -sum(ygold.*log.(p) .+ (1.-ygold).*log.(1.-p))
+    end
+end
 
 # # The xentloss interface is no good because of double normalization.
 
@@ -241,4 +256,3 @@ end
 # end
 
 # @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
-
