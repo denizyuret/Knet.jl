@@ -216,10 +216,10 @@ end
 """
     logisticloss(yhat,ygold;mode=1)
 
-Computes logistic loss
+Computes logistic loss given yhat(predicted values) and ygold labels.
 If `mode=1` `ygold` values should be {-1,1}, then it returns `sum(log(1 + exp(-ygold*yhat)))`
 If `mode=2` `ygold` values should be {0,1}, then it returns negative of `sum(ygold.*log(p) .+ (1-ygold).*log(1-p))`
-where 'p' is equal to (1 .+ exp(-yhat))^-1
+where `p` is equal to `1./(1 .+ exp.(-yhat))`
 """
 function logisticloss(yhat,ygold;mode=1)
     if mode==1
