@@ -1,43 +1,25 @@
-const DimsOrVec = Union{Dims, Vector}
-
 """
-
-    logp(x,[dims])
+    logp(x, dims=1)
 
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
 
 `dims` is an optional argument, if not specified the normalization is
-over the whole `x`, otherwise the normalization is performed over the
+over the first dimension of `x`, otherwise the normalization is performed over the
 given dimensions.  In particular, if `x` is a matrix, `dims=1`
-normalizes columns of `x` and `dims=2` normalizes rows of `x`.
+normalizes columns of `x`, `dims=2` normalizes rows of `x` and
+`dims=(1,2)` normalizes the whole matrix.  
 
-Calls to `logsoftmax(x)` is `logp(x, 1)`, and `softmax(x)` is 
-equivalent to `exp.(log(x,1)`. 
+Calls to `logsoftmax` are equivalent to `logp`, and `softmax(x,dims)` is 
+equivalent to `exp.(logp(x,dims)`. 
 """
-logp(x) = logp(x, tuple(1:ndims(x)...)) 
-logp(x, dims::DimsOrVec) = _logp(x, dims) # generic fallback
-logp(x, d::Int) = logp(x, (d,))
+logp(x, dims=1) = _logp(x, dims) # generic fallback
 
-# specialized version avoid a little overhead of logp(x::A, dims)
-function logp(x::A, d::Int) where A <: Union{KnetArray, Rec{KnetArray}}
-    @assert 1 <= d <= ndims(x)  
-    sz = size(x)
-    x = reshape(x, (prod(sz[1:d-1]), 1, sz[d], prod(sz[d+1:end])))
-    x = cudnnSoftmaxForward(x, mode=1, algo=2)
-    reshape(x, sz)
-end
-
-function logp(x::A, dims::DimsOrVec) where A <: Union{KnetArray, Rec{KnetArray}}
-    d = sort(union(dims))
-    @assert all(1 <= d <= ndims(x) for d in d)  
-    if length(d) == 0
-        n = length(x)
-        (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
-    elseif areconsecutives(d)
+function logp(x::A, dims=1) where A <: Union{KnetArray, Rec{KnetArray}}
+    d = sortunion(dims)
+    if areconsecutives(d)
         sz = size(x)
-        @inbounds  x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
+        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
         x = cudnnSoftmaxForward(x, mode=1, algo=2)
         reshape(x, sz)
     else
@@ -46,22 +28,10 @@ function logp(x::A, dims::DimsOrVec) where A <: Union{KnetArray, Rec{KnetArray}}
 end
 
 areconsecutives(d) = all(d[i+1] == d[i]+1 for i=1:length(d)-1)
-
-"""
-    logsoftmax(x)
-
-Equivalent to `logp(x, 1)`. See also `sotfmax`. 
-"""
-logsoftmax(x) = logp(x, 1)
-
-"""
-    softmax(x)
-
-The softmax function typically used in classification.
-It is equivalen to `exp.(logp(x, 1))`. 
-See also `logsoftmax`.
-"""
-softmax(x) = exp.(logsoftmax(x)) 
+areconsecutives(d::Number) = true
+sortunion(dims) = sort(union(dims))
+sortunion(dims::Number) = dims
+ 
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
@@ -80,11 +50,7 @@ softmax(x) = exp.(logsoftmax(x))
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
 
-_logp(x) = _logp(x, tuple(1:ndims(x)...))
-_logp(x, d::Int) = _logp(x, (d,))
-
-function _logp(x, dims::DimsOrVec)
-    @assert all(1 <= d <= ndims(x) for d in dims)  
+function _logp(x, dims)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
@@ -104,14 +70,14 @@ function _logp(x, dims::DimsOrVec)
     end
 end
 
-function _logpback(x,y,dy,dims::DimsOrVec)
+function _logpback(x,y,dy,dims)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        return (dy - exp.(y).*sum(dy, dims))
+        return dy .- exp.(y).*sum(dy, dims)
         # Expanding for profiling:
         # dx1 = sum(dy,d...)
         # dx2 = exp_dot(y)
@@ -122,7 +88,56 @@ function _logpback(x,y,dy,dims::DimsOrVec)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x,dims::DimsOrVec),dy,y  _logpback(x,y,dy,dims)
+@primitive  _logp(x,dims),dy,y  _logpback(x,y,dy,dims)
+
+"""
+    logsoftmax(x, dims=1)
+
+Equivalent to `logp(x, dims)`. See also `sotfmax`. 
+"""
+const logsoftmax = logp
+
+"""
+    softmax(x, dims=1; algo=1)
+
+The softmax function typically used in classification.
+Gives the same results as to `exp.(logp(x, dims))`. 
+
+If `algo=1` computation is more accurate, if `algo=0` it is 
+faster. 
+
+See also `logsoftmax`.
+"""
+softmax(x, dims=1; algo=1) = _softmax(x, dims; algo=algo) # generic fallback
+
+function softmax(x::A, dims=1; algo=1) where A <: Union{KnetArray, Rec{KnetArray}}
+    @assert algo ∈ [0, 1]
+    d = sortunion(dims)
+    if areconsecutives(d)
+        sz = size(x)
+        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
+        x = cudnnSoftmaxForward(x, mode=1, algo=algo)
+        reshape(x, sz)
+    else
+        _softmax(x, dims)
+    end
+end 
+
+function _softmax(x, dims; algo=1)
+    @assert algo ∈ [0, 1]
+    if algo == 1
+        x = x .- maximum(x, dims)
+    end    
+    x = exp.(x)
+    return x ./ sum(x, dims)
+end
+
+function _softback(x,y,dy,dims)
+    return y .* dy .- y .* sum(y .* dy, dims)
+end
+
+@primitive  _softmax(x,dims; algo=1),dy,y  _softback(x,y,dy,dims)
+
 
 #=
 typedef enum
