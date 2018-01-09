@@ -15,23 +15,27 @@ equivalent to `exp.(logp(x,dims)`.
 """
 logp(x, dims=1) = _logp(x, dims) # generic fallback
 
-function logp(x::A, dims=1) where A <: Union{KnetArray, Rec{KnetArray}}
-    d = sortunion(dims)
-    if areconsecutives(d)
+function logp(x::A, dims=1) where A <: Union{<:KnetArray, Rec{<:KnetArray}}
+    d = sort(union(dims))
+    if ndims(x) == length(d)
+        n = length(x)		 
+        if n > 20000 
+            _logp(x, dims)
+        else
+            sz = size(x)
+            x = cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2)
+            reshape(x, sz)
+        end 
+    elseif d == [1]
         sz = size(x)
-        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
-        x = cudnnSoftmaxForward(x, mode=1, algo=2)
+        x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=2)
         reshape(x, sz)
+    elseif ndims(x) == 2 && d == [2]
+        logp(x.', 1).' 
     else
         _logp(x, dims)
     end
 end
-
-areconsecutives(d) = all(d[i+1] == d[i]+1 for i=1:length(d)-1)
-areconsecutives(d::Number) = true
-sortunion(dims) = sort(union(dims))
-sortunion(dims::Number) = dims
- 
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
@@ -50,7 +54,7 @@ sortunion(dims::Number) = dims
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
 
-function _logp(x, dims)
+function _logp(x, dims=1)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
@@ -110,14 +114,19 @@ See also `logsoftmax`.
 """
 softmax(x, dims=1; algo=1) = _softmax(x, dims; algo=algo) # generic fallback
 
-function softmax(x::A, dims=1; algo=1) where A <: Union{KnetArray, Rec{KnetArray}}
+function softmax(x::A, dims=1; algo=1) where A <: Union{<:KnetArray, Rec{<:KnetArray}}
     @assert algo ∈ [0, 1]
-    d = sortunion(dims)
-    if areconsecutives(d)
+    d = sort(union(dims))
+    if ndims(x) == length(d)
         sz = size(x)
-        x = reshape(x, (prod(sz[1:d[1]-1]), 1, prod(sz[d]), prod(sz[d[end]+1:end])))
-        x = cudnnSoftmaxForward(x, mode=1, algo=algo)
+        x = cudnnSoftmaxForward(reshape(x,(1,1,:,1)),algo=algo)
         reshape(x, sz)
+    elseif d == [1]
+        sz = size(x)
+        x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
+        reshape(x, sz)
+    elseif ndims(x) == 2 && d == [2]
+        softmax(x.', 1, algo=algo).'
     else
         _softmax(x, dims)
     end
