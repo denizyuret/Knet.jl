@@ -214,21 +214,26 @@ function findindices{T<:Integer}(y,a::Array{T},d=1)
 end
 
 """
-    logisticloss(yhat,ygold;mode=1)
+    logisticloss(yhat,ygold;mode=1,average=true)
 
 Computes logistic loss given yhat(predicted values) and ygold labels.
 If `mode=1` `ygold` values should be {-1,1}, then it returns `sum(log(1 + exp(-ygold*yhat)))`
 If `mode=2` `ygold` values should be {0,1}, then it returns negative of `sum(ygold.*log(p) .+ (1-ygold).*log(1-p))`
 where `p` is equal to `1./(1 .+ exp.(-yhat))`
+
 """
-function logisticloss(yhat,ygold;mode=1)
+function logisticloss(yhat,ygold;mode=1,average=true)
     if mode==1
-        return sum(log.(1 .+ exp.(-ygold.*yhat)))
+        logp = log.(1 .+ exp.(-ygold.*yhat))
     else
         p = 1./(1 .+ exp.(-yhat))
-        return -sum(ygold.*log.(p) .+ (1.-ygold).*log.(1.-p))
+        logp = -(ygold.*log.(p) .+ (1.-ygold).*log.(1.-p))
     end
+    average ? mean(logp):sum(logp)
 end
+
+# binary_cross_entropy(yhat, y; average=true)
+binary_cross_entropy(yhat, ygold;average=true) = logisticloss(yhat,ygold; mode=2, average=average)
 
 # # The xentloss interface is no good because of double normalization.
 

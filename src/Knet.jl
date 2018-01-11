@@ -28,7 +28,7 @@ include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permut
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
-include("loss.jl");             export logp, logsumexp, nll, accuracy, logisticloss
+include("loss.jl");             export logp, logsumexp, nll, accuracy, logisticloss, binary_cross_entropy
 include("dropout.jl");          export dropout
 include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
