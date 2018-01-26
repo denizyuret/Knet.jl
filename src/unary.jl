@@ -153,3 +153,36 @@ broadcast(::typeof(+), a::KnetArray)=a
 +(a::KnetArray)=a
 -(a::KnetArray)=broadcast(-,a)
 
+"""
+    elu(x, alpha=1)
+
+Exponential Linear Unit. Returns
+`max(0,x) + alpha*(exp(min(x,0)) - 1)
+
+Paper Ref. :
+"Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs) (ICLR 2016)"
+"""
+function elu(x, alpha=1)
+    p = relu(x)
+    m = -relu(-x)
+    return p + alpha*(exp(m) - 1)
+end
+
+"""
+    selu(x)
+
+Self-Normalizing Exponential Linear Unit. Returns
+`scale*(max(0,x) + alpha*(exp(min(x,0)) - 1))`
+where `scale=1.0507009` and `alpha=1.6732632`.
+
+Paper Ref. :
+Self-Normalizing Neural Networks
+https://arxiv.org/abs/1706.02515
+"""
+function selu(x)
+    alpha = 1.6732632f
+    scale = 1.0507009f
+    p = relu(x)
+    m = -relu(-x)
+    return scale*(p + alpha*(exp(m) - 1))
+end
