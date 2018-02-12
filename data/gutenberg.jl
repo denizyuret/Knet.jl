@@ -5,12 +5,14 @@ gutenbergurl = "http://www.gutenberg.org/files"
 gutenbergdir = Pkg.dir("Knet","data","gutenberg")
 
 "Download text from Project Gutenberg and return contents as String."
-function gutenberg(name)
+function gutenberg(name, fdir=nothing)
+    (fdir == nothing) && (fdir = name)
+    fname = split(fdir, "/")[end]
     isdir(gutenbergdir) || mkpath(gutenbergdir)
-    path = joinpath(gutenbergdir, "$name.txt")
+    path = joinpath(gutenbergdir, "$fname.txt")
     if !isfile(path)
-        info("Downloading Gutenberg $name")
-        url = "$gutenbergurl/$name/$name.txt"
+        info("Downloading Gutenberg $fname")
+        url = "$gutenbergurl/$name/$fdir.txt"
         download(url,path)
     end
     return readstring(path)
@@ -20,7 +22,7 @@ end
 function shakespeare()
     global _shakespeare_trn, _shakespeare_tst, _shakespeare_chars
     if !isdefined(:_shakespeare_trn)
-        s = gutenberg(100)
+        s = gutenberg(100, "old/shaks12")
         a = []
         pos1 = 1
         while true
