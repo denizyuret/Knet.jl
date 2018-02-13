@@ -29,7 +29,7 @@ end
 
 const SGDLR = 0.001
 
-Sgd(; lr=SGDLR, gclip=0) = Sgd(lr, gclip)
+Sgd(; lr=SGDLR, gclip=0) = Sgd(lr,gclip)
 
 
 """
