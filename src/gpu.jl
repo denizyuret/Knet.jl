@@ -1,8 +1,7 @@
-# using CUDAapi: find_library, libnvml # using the following until CUDAapi fixed:
-include("../deps/cudaapi2.jl")
-find_library = CUDAapi2.find_library
+using CUDAapi
+const tk = find_toolkit()
 
-# moved this to gpu.jl to make it self contained for testing
+# moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const PROFILING = false
 macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
@@ -10,7 +9,7 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     try 
-        path = find_library("$lib")
+        path = find_cuda_library("$lib",tk)
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
@@ -23,7 +22,7 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     try
-        path = find_library("$lib")
+        path = find_cuda_library("$lib",tk)
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
@@ -43,7 +42,7 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
 end
 
 macro nvml(fun,x...)
-    esc(Expr(:macrocall,Symbol("@cuda"),CUDAapi2.libnvml,fun,x...))
+    esc(Expr(:macrocall,Symbol("@cuda"),"nvml",fun,x...))
 end
 
 const Cptr = Ptr{Void}
@@ -241,7 +240,7 @@ function cublasCreate()
 end
 
 function cudnnCreate()
-    path = find_library("cudnn")
+    path = find_cuda_library("cudnn",tk)
     handleP = Cptr[0]
     @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
