@@ -19,18 +19,21 @@ try
 end
 
 # If CUDAdrv is available add architecture optimization flags
+# Uncomment this for better compiler optimization
+# We keep it commented to compile for multiple gpu types
 
-if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
-    eval(Expr(:using,:CUDAdrv))
-    try
-        dev = CuDevice(0)
-        cap = capability(dev)
-        arch = CUDAapi.shader(cap)
-        push!(NVCCFLAGS,"--gpu-architecture",arch)
-    catch e
-        warn("CUDAdrv failed with $e")
-    end
-end
+# if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
+#     eval(Expr(:using,:CUDAdrv))
+#     try
+#         dev = CuDevice(0)
+#         cap = capability(dev)
+#         arch = CUDAapi.shader(cap)
+#         push!(NVCCFLAGS,"--gpu-architecture",arch)
+#     catch e
+#         warn("CUDAdrv failed with $e")
+#     end
+# end
+
 
 # In case there is no nvcc, find host_compiler to compile the cpu kernels
 
