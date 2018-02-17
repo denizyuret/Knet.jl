@@ -9,7 +9,6 @@ const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go
 inforun(cmd)=(info(cmd);run(cmd))
 
 # Try to find NVCC
-
 try
     tk = CUDAapi.find_toolkit()
     tc = CUDAapi.find_toolchain(tk)
@@ -129,6 +128,12 @@ function build_cxx()
 end
 
 function build()
+    global CXX
+    # OSX hack
+    if CXX == "" && is_apple() && isfile("/usr/bin/clang")
+        CXX = "/usr/bin/clang"
+    end
+    
     if NVCC != ""
         build_nvcc()
     elseif CXX != ""

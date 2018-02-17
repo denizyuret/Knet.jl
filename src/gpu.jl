@@ -10,6 +10,7 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     try 
         path = find_cuda_library("$lib",tk)
+        path == nothing && error("")
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
@@ -23,6 +24,7 @@ end
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     try
         path = find_cuda_library("$lib",tk)
+        path == nothing && error("")
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
@@ -83,6 +85,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
+                #macroexpand(esc(:(@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p))))
                 cudartfound = true
             catch
                 cudartfound = false
