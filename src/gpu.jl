@@ -85,7 +85,6 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
-                #macroexpand(esc(:(@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p))))
                 cudartfound = true
             catch
                 cudartfound = false
