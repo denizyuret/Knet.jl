@@ -1,3 +1,5 @@
+using CUDAapi
+
 NVCC = CXX = ""
 CFLAGS = is_windows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
@@ -6,37 +8,59 @@ const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
 inforun(cmd)=(info(cmd);run(cmd))
 
-function build()
-    if NVCC != ""
-        build_nvcc()
-    elseif CXX != ""
-        warn("nvcc not found, gpu kernels will not be compiled.")
-        build_cxx()
-    else
-        warn("no compilers found, libknet8 will not be built.")
-    end
-    info("Compiling Knet cache.")
-    Base.compilecache("Knet")
+# Try to find NVCC
+
+try
+    tk = CUDAapi.find_toolkit()
+    tc = CUDAapi.find_toolchain(tk)
+    CXX = tc.host_compiler
+    NVCC = tc.cuda_compiler
+    push!(NVCCFLAGS, "--compiler-bindir", CXX)
 end
 
-function build_cxx()
-    SRC = ["conv"]
-    OBJ = []
-    for name in SRC
-        obj = name*OBJEXT
-        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
-            inforun(`$CXX $CFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
-        end
-        push!(OBJ, obj)
+# If CUDAdrv is available add architecture optimization flags
+# Uncomment this for better compiler optimization
+# We keep it commented to compile for multiple gpu types
+
+# if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
+#     eval(Expr(:using,:CUDAdrv))
+#     try
+#         dev = CuDevice(0)
+#         cap = capability(dev)
+#         arch = CUDAapi.shader(cap)
+#         push!(NVCCFLAGS,"--gpu-architecture",arch)
+#     catch e
+#         warn("CUDAdrv failed with $e")
+#     end
+# end
+
+
+# In case there is no nvcc, find host_compiler to compile the cpu kernels
+
+if CXX == ""
+    try
+        CXX,CXXVER = CUDAapi.find_host_compiler()
     end
-    if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
-        if is_windows()
-            inforun(`$CXX $CFLAGS /LD /Fe:$LIBKNET8 $OBJ`)
-        else
-            inforun(`$CXX $CFLAGS --shared -o $LIBKNET8 $OBJ`)
+end
+
+# If openmp is available, use it:
+
+if CXX != "" 
+    cp("conv.cpp","foo.cpp",remove_destination=true)
+    if is_windows()
+        if success(`$CXX /openmp /c foo.cpp`)
+            push!(CFLAGS, "/openmp")
+        end
+    else
+        if success(`$CXX -fopenmp -c foo.cpp`)
+            push!(CFLAGS, "-fopenmp")
         end
     end
 end
+
+push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
+
+# Build scripts
 
 function build_nvcc()
     SRC = [("cuda1","../src/unary"),
@@ -85,67 +109,37 @@ function build_nvcc()
     end
 end
 
-
-# Try to find NVCC
-
-#if Pkg.installed("CUDAapi") != nothing # use this once CUDAapi is fixed
-#    eval(Expr(:using,:CUDAapi))
-
-# edit copy of CUDAapi here for now
-include("cudaapi2.jl")
-
-try
-    tk = CUDAapi2.find_toolkit()
-    tc = CUDAapi2.find_toolchain(tk)
-    NVCC = tc.cuda_compiler
-    CXX = tc.host_compiler
-    push!(NVCCFLAGS, "--compiler-bindir", CXX)
-end
-#end
-
-# CUDAapi checks path, but if no CUDAapi this acts as backup (no need for now)
-
-# if NVCC == ""
-#     try success(`nvcc --version`)
-#         NVCC = "nvcc"
-#     end
-# end
-
-if NVCC != "" && Pkg.installed("CUDAdrv") != nothing && Pkg.installed("CUDAapi") != nothing
-    eval(Expr(:using,:CUDAapi))
-    eval(Expr(:using,:CUDAdrv))
-    try
-        dev = CuDevice(0)
-        cap = capability(dev)
-        arch = CUDAapi.shader(cap)
-        push!(NVCCFLAGS,"--gpu-architecture",arch)
-    catch e
-        warn("CUDAdrv failed with $e")
-    end
-end
-
-# In case there is no nvcc we can still compile the cpu kernels
-
-if CXX == ""
-    try
-        CXX,CXXVER = CUDAapi2.find_host_compiler()
-    end
-end
-
-if CXX != "" # test openmp
-    cp("conv.cpp","foo.cpp",remove_destination=true)
-    if is_windows()
-        if success(`$CXX /openmp /c foo.cpp`)
-            push!(CFLAGS, "/openmp")
+function build_cxx()
+    SRC = ["conv"]
+    OBJ = []
+    for name in SRC
+        obj = name*OBJEXT
+        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
+            inforun(`$CXX $CFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
         end
+        push!(OBJ, obj)
+    end
+    if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
+        if is_windows()
+            inforun(`$CXX $CFLAGS /LD /Fe:$LIBKNET8 $OBJ`)
+        else
+            inforun(`$CXX $CFLAGS --shared -o $LIBKNET8 $OBJ`)
+        end
+    end
+end
+
+function build()
+    if NVCC != ""
+        build_nvcc()
+    elseif CXX != ""
+        warn("nvcc not found, gpu kernels will not be compiled.")
+        build_cxx()
     else
-        if success(`$CXX -fopenmp -c foo.cpp`)
-            push!(CFLAGS, "-fopenmp")
-        end
+        warn("no compilers found, libknet8 will not be built.")
     end
+    info("Compiling Knet cache.")
+    Base.compilecache("Knet")
 end
-
-push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 
 build()
 
