@@ -129,6 +129,12 @@ function build_cxx()
 end
 
 function build()
+    # OSX hack
+    global CXX
+    if CXX == "" && is_apple() && isfile("/usr/bin/clang")
+        CXX = "/usr/bin/clang"
+    end
+    
     if NVCC != ""
         build_nvcc()
     elseif CXX != ""
