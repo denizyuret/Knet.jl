@@ -307,6 +307,11 @@ hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
 vcat(a::NA, as::NA...)=cat(1,a,as...)
 vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
+# Ambiguity fix for abstractarray.jl:1066-1072
+using Base: hvcat_fill, promote_typeof
+vcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(1+length(Xs)), (X, Xs...))
+hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(1,1+length(Xs)), (X, Xs...))
+
 # Utilities:
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
