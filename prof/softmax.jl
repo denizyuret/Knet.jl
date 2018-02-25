@@ -1,5 +1,5 @@
 using Knet, AutoGrad
-using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, TD4, _logp
+using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, _logp
 using BenchmarkTools
 
 # algo=2 corresponds to logp(x,1)
@@ -52,16 +52,13 @@ back2(x,d...)=(for i=1:rep(x); grad2(x,d...); end; cds())
 
 # dimensions: 0/1/2, forw/back, model0/1, x1:5
 
-for d in (0,1,2)
+for d in ((1,2),1,2)
     for f in (logp0, logp1, logp2, back0, back1, back2)
-        @printf("%s(x,%d)",f,d)
+        print("$f(x, $d)")
         for x in (x1,x2,x3,x4,x5)
             xt = x.'
             knetgc()
-            b = (d==0 ? (@benchmark $f($x)) :
-                 d==1 ? (@benchmark $f($x,1)) :
-                 d==2 ? (@benchmark $f($xt,2)) :
-                 error())
+            b = @benchmark $f($x, $d))
             times = b.times ./ rep(x)
             # @printf("\t%dx%d/%.1e/%.1e/%.1e", length(times), rep(x), minimum(times), median(times), mean(times))
             @printf("\t%.1e", minimum(times))
