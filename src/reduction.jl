@@ -1,39 +1,25 @@
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 
+import AutoGrad: sumabs_, sumabs2_, minabs_, maxabs_
+Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
+Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
+Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...);
+Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...);
+reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+
+reduction_ops = [
 # The entry format is (cudaname, julianame, merge, item, init)
 # ai is the accumulator, xi is the array element
-if VERSION >= v"0.6.0"
-    import AutoGrad: sumabs_, sumabs2_, minabs_, maxabs_
-    Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
-    Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
-    Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...);
-    Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...);
-    reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
-    reduction_ops = [
-    ("sum","sum","ai+xi","xi","0"),
-    ("prod","prod","ai*xi","xi","1"),
-    ("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
-    ("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-    ("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
-    ("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
-    ("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
-    ("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
-    ("countnz","countnz","ai+xi","(xi!=0)","0"),
-    ]
-else # if VERSION < v"0.6.0"
-    reduced_dims_compat(dims,region)=Base.reduced_dims(dims,region)
-    reduction_ops = [
-    ("sum","sum","ai+xi","xi","0"),
-    ("prod","prod","ai*xi","xi","1"),
-    ("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
-    ("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-    ("sumabs","sumabs","ai+xi","(xi<0?-xi:xi)","0"),
-    ("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
-    ("maxabs","maxabs","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
-    ("minabs","minabs","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
-    ("countnz","countnz","ai+xi","(xi!=0)","0"),
-    ]
-end
+("sum","sum","ai+xi","xi","0"),
+("prod","prod","ai*xi","xi","1"),
+("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
+("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
+("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
+("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
+("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
+("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+("countnz","countnz","ai+xi","(xi!=0)","0"),
+]
 
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
@@ -148,3 +134,4 @@ end
 
 Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}) = sum(a) / length(a)
 Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}, r) = (b=sum(a,r); (b*convert(eltype(b),length(b)/length(a))))
+Base.mean{T<:KnetArray}(f::Function, a::Union{T, Rec{T}}) = sum(f, a) / length(a)
