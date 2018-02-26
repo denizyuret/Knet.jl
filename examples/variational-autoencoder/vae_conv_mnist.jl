@@ -3,16 +3,17 @@ for p in ("Knet","ArgParse","Images")
 end
 
 """
-Train a Variational Autoencoder with convoltional layers 
+Train a Variational Autoencoder with convolutional layers
 on the MNIST dataset.
 """
 module VAE
 using Knet
 using ArgParse
-using Plots; gr()
+using Images
 import AutoGrad: getval
 
 include(joinpath(Pkg.dir("Knet"), "data", "mnist.jl"))
+include(Pkg.dir("Knet","data","imagenet.jl"))
 
 const F = Float32
 
@@ -27,21 +28,21 @@ function encode(ϕ, x)
 
     x = conv4(ϕ[1], x, padding=1)
     x = relu.(x .+ ϕ[2])
-    
+
     x = conv4(ϕ[3], x, padding=1, stride=2)
     x = relu.(x .+ ϕ[4])
     x = conv4(ϕ[5], x, padding=1)
     x = relu.(x .+ ϕ[6])
-    
+
     x = conv4(ϕ[7], x, padding=1, stride=2)
     x = relu.(x .+ ϕ[8])
-    
+
     x = mat(x)
     x = relu.(ϕ[9]*x .+ ϕ[10])
-    
+
     μ = ϕ[end-3]*x .+ ϕ[end-2]
     logσ² = ϕ[end-1]*x .+ ϕ[end]
-    
+
     return μ, logσ²
 end
 
@@ -52,7 +53,7 @@ function decode(θ, z)
     filters = size(θ[5], 4)
     width = Int(sqrt(size(z,1) ÷ filters))
     z = reshape(z, (width, width, filters, :))
-    
+
     z = deconv4(θ[5], z, padding=1, stride=2)
     z = relu.(z .+ θ[6])
 
@@ -61,7 +62,7 @@ function decode(θ, z)
 
     z = deconv4(θ[9], z, padding=1, stride=2)
     z = relu.(z .+ θ[10])
-    
+
     z = deconv4(θ[11], z, padding=1)
     z = sigm.(z .+ θ[12])
 
@@ -74,8 +75,8 @@ function binary_cross_entropy(x, x̂)
     return -sum(s) / length(x)
 end
 
-function loss(w, x, nθ; samples=1)
-    θ, ϕ = w[1:nθ], w[nθ+1:end]
+function loss(w, x; samples=1)
+    θ, ϕ = w[:decoder], w[:encoder]
     μ, logσ² = encode(ϕ, x)
     σ² = exp.(logσ²)
     σ = sqrt.(σ²)
@@ -97,14 +98,15 @@ function loss(w, x, nθ; samples=1)
     return BCE + KL
 end
 
-function aveloss(w, xtrn, nθ; samples=1, batchsize=100)
-    θ, ϕ = w[1:nθ], w[nθ+1:end]
+lossgradient = grad(loss)
+
+function aveloss(w, xtrn; samples=1, batchsize=100)
+    θ, ϕ = w[:decoder], w[:encoder]
     ls = F(0)
-    nθ = length(θ)
-    count = 0 
+    count = 0
     for x in minibatch(xtrn, batchsize; xtype=Atype)
         BINARIZE && (x = binarize(x))
-        ls += loss(w, x, nθ; samples=samples)
+        ls += loss(w, x; samples=samples)
         count += 1
     end
     N = length(xtrn) ÷ size(xtrn, ndims(xtrn))
@@ -119,7 +121,7 @@ function weights(nz, nh)
 
     push!(θ, xavier(64*7^2, nh))
     push!(θ, zeros(64*7^2))
-    
+
     push!(θ, xavier(4, 4, 32, 64))
     push!(θ, zeros(1,1,32,1))
 
@@ -142,7 +144,7 @@ function weights(nz, nh)
 
     push!(ϕ, xavier(4, 4,  16, 32))
     push!(ϕ, zeros(1, 1, 32, 1))
-    
+
     push!(ϕ, xavier(3, 3, 32, 32))
     push!(ϕ, zeros(1,1, 32, 1))
 
@@ -162,56 +164,23 @@ function weights(nz, nh)
     return θ, ϕ
 end
 
-function reconstruct(θ, ϕ, x)
-    μ, logσ² = encode(ϕ, x)
-    σ = @. exp(logσ² / 2)
-    # ϵ = randn!(similar(μ)) #slow?
-    ϵ = convert(Atype, randn(F, size(μ)))
-    z = @. μ + ϵ * σ
-    x̂ = decode(θ, z)
-end
-
-function plot_reconstruction(θ, ϕ, xtrn; outfile="")
-    nimg = 10
-    xtrn = reshape(xtrn, (28,28,:))
-    x = xtrn[:,:,1:nimg]
-    x = convert(Atype, x)
-    BINARIZE && binarize(x)
-    x̂ = reconstruct(θ, ϕ, x)
-    x = Array(reshape(x, (28, 28, :)))
-    x̂ = Array(reshape(x̂, (28, 28, :)))
-    BINARIZE && binarize(x̂)
-
-    img = vcat(hcat((x[:,:,i]' for i=1:nimg)...),
-               hcat((x̂[:,:,i]' for i=1:nimg)...))
-    img = flipdim(img,1)               
-               
-    fig = heatmap(img, 
-                legend=false,grid=false,border=false,
-                ticks=false,color=cgrad(:gray,:cmocean))
-    savefig(fig, outfile)
-end
-
-function plot_dream(θ; outfile="")
-    nimg = 16
+function plot_dream(w; gridsize=(5,5), scale=1.0, outfile=nothing)
+    θ = w[:decoder]
     nh, nz = size(θ[1])
-    z = convert(Atype, randn(F, nz, nimg))
-    x̂ = decode(θ, z)
-    x̂ = Array(reshape(x̂, (28, 28, :)))
-    BINARIZE && (x̂ = binarize(x̂))
-    
-    img = vcat(hcat((x̂[:,:,i]' for i=1:4)...),
-               hcat((x̂[:,:,i]' for i=5:8)...),
-               hcat((x̂[:,:,i]' for i=9:12)...),
-               hcat((x̂[:,:,i]' for i=13:16)...))
-    img = flipdim(img,1)               
+    atype = θ[1] isa KnetArray ? KnetArray : Array
+    m, n = gridsize
+    nimg = m*n
+    z = convert(atype, randn(F, nz, nimg))
+    x̂ = Array(decode(θ, z))
+    images = map(i->reshape(x̂[:,:,:,i], (28,28,1)), 1:nimg)
+    grid = make_image_grid(images; gridsize=gridsize, scale=scale)
 
-    fig = heatmap(img, 
-                legend=false,grid=false,border=false,
-                ticks=false,color=cgrad(:gray,:cmocean))
-    savefig(fig, outfile)
+    if outfile == nothing
+        display(colorview(Gray, grid))
+    else
+        save(outfile, colorview(Gray, grid))
+    end
 end
-
 
 function main(args="")
     s = ArgParseSettings()
@@ -223,10 +192,10 @@ function main(args="")
         ("--epochs"; arg_type=Int; default=100; help="number of epochs for training")
         ("--nh"; arg_type=Int; default=400; help="hidden layer dimension")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
-        ("--lr"; arg_type=Float64; default=1e-3; help="learning rate")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--infotime"; arg_type=Int; default=2; help="report every infotime epochs")
-       ("--binarize"; arg_type=Bool; default=false; help="dinamically binarize during training")
+        ("--binarize"; arg_type=Bool; default=false; help="dinamically binarize during training")
+        ("--optim"; default="Adam()"; help="optimizer")
     end
     isa(args, String) && (args=split(args))
     if in("--help", args) || in("-h", args)
@@ -238,36 +207,38 @@ function main(args="")
     global Atype = eval(parse(o[:atype]))
     global BINARIZE = o[:binarize]
     info("using ", Atype)
-    # gc(); knetgc(); 
+    # gc(); knetgc();
     o[:seed] > 0 && setseed(o[:seed])
 
     xtrn, ytrn, xtst, ytst = mnist()
-    θ, ϕ = weights(o[:nz], o[:nh])
-    w = [θ; ϕ]
-    nθ = length(θ)
-    opt = [Adam(lr=o[:lr]) for _=1:length(w)]
+    wdec, wenc = weights(o[:nz], o[:nh])
+    w = Dict(
+        :encoder => wenc,
+        :decoder => wdec)
+    opt = Dict(
+        :encoder => map(wi->eval(parse(o[:optim])), w[:encoder]),
+        :decoder => map(wi->eval(parse(o[:optim])), w[:decoder]),
+    )
 
     report(epoch) = begin
             println((:epoch, epoch,
-                     :trn, aveloss(w, xtrn, nθ; batchsize=o[:batchsize]),
-                     :tst, aveloss(w, xtst, nθ; batchsize=o[:batchsize])))
-            
-            plot_reconstruction(θ, ϕ, xtrn, outfile="res/reconstr_$epoch.png")
-            plot_dream(θ, outfile="res/dream_$epoch.png")
-        end
+                     :trn, aveloss(w, xtrn; batchsize=o[:batchsize]),
+                     :tst, aveloss(w, xtst; batchsize=o[:batchsize])))
+    end
 
     report(0); tic()
     @time for epoch=1:o[:epochs]
         for x  in minibatch(xtrn, o[:batchsize]; xtype=Atype, shuffle=true)
             BINARIZE && (x = binarize(x))
-            dw = grad(loss)(w, x, nθ)
+            dw = lossgradient(w, x)
             update!(w, dw, opt)
-        end    
+        end
         (epoch % o[:infotime] == 0) && (report(epoch); toc(); tic())
     end; toq()
+
+    return w
 end
 
 PROGRAM_FILE == "vae_conv_mnist.jl" && main(ARGS)
 
 end # module
-
