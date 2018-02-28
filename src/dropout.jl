@@ -1,21 +1,23 @@
+# Note that we tried and failed to automate the detection of "train"
+# mode looking at the type of argument.  The argument is of type Rec
+# only during training and only if it is a value influenced by model
+# weights.  However people typically apply dropout to the input which
+# is not a Rec.  So we are going back to no automation, make sure to
+# supply p=0 during testing to stop dropout.
+
 """
     dropout(x, p)
 
 Given an array `x` and probability `0<=p<=1`, just return `x` if
-testing, return an array `y` in which each element is 0 with
-probability `p` or `x[i]/(1-p)` with probability `1-p` if training.
-Training mode is detected automatically based on the type of `x`,
-which is `AutoGrad.Rec` during gradient calculation.  Use the keyword
-argument `training::Bool` to change the default mode and
+`p==0`, or return an array `y` in which each element is 0 with
+probability `p` or `x[i]/(1-p)` with probability `1-p`.  Use
 `seed::Number` to set the random number seed for reproducible
-results. See [(Srivastava et al. 2014)](http://jmlr.org/papers/v15/srivastava14a.html) 
+results. See [(Srivastava et al. 2014)](http://www.jmlr.org/papers/v15/srivastava14a.html)
 for a reference.
 
 """
-function dropout(x,p; seed=0, training=false)
-    if !training
-        x
-    elseif 0 < p < 1
+function dropout(x,p; seed=0)
+    if 0 < p < 1
         if seed != 0; setseed(seed); end
         dropout!(p,x,similar(x))
     elseif p == 0
@@ -41,9 +43,10 @@ end
 
 # Turn dropout into an AutoGrad primitive
 dropout_r = recorder(dropout)
-dropout(x::Rec,p;seed=0,training=true)=dropout_r(x,p;seed=seed,training=training)
+dropout(x::Rec,p;seed=0)=dropout_r(x,p;seed=seed)
 dropout(::Type{Grad{1}},d...;o...)=dropback(getval.(d)...) # d=dy,y,x,p
 
+# GPU implementation
 for S in (32,64)
     T = Symbol("Float$S")
     forw = Symbol("dropout_$S")
@@ -61,6 +64,7 @@ for S in (32,64)
     end
 end
 
+# CPU implementation
 function dropout!(p,x,y)
     rand!(y)
     p = convert(eltype(y),p)
