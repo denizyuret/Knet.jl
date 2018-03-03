@@ -6,6 +6,7 @@
 - [optimizers](optimizers): Try various optimizers (SGD, Momentum, Adam...) on [LeNet].
 - [overfitting](overfitting): Notebook on underfitting, overfitting, regularization, dropout.
 - [rnn-tutorial](rnn-tutorial): RNN tutorial notebook with BPTT, LSTM, S2S.
+- [dl-tutorial](dl-tutorial): Deep learning tutorial examples I use in class.
 
 ## Benchmarks
 - [DeepLearningFrameworks](DeepLearningFrameworks): Notebooks comparing CNTK, Caffe2, Chainer, Gluon, Keras, Knet, Lasagne, MXNet, PyTorch, TensorFlow on CNN and RNN examples.
