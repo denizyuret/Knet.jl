@@ -6,33 +6,22 @@
 import Base: broadcast
 using AutoGrad: Broadcasted # , broadcast_func
 
-if VERSION >= v"0.6.0"; @eval begin
-    broadcast(f, x::Union{Number,AbstractArray,Rec,KnetArray}...)=f(Broadcasted.(x)...).value
-end; end
+broadcast(f, x::Union{Number,AbstractArray,Rec,KnetArray}...)=f(Broadcasted.(x)...).value
 
 function broadcast_func(f)
-    if VERSION >= v"0.6.0"
-        bf = Symbol("broadcast#", lstrip(string(f), '.'))
-        if isdefined(Knet, bf)
-            # ok
-        elseif isdefined(AutoGrad, bf)
-            eval(Expr(:import, :AutoGrad, bf))
-        else
-            f = Symbol(f)
-            if isdefined(Base, f)
-                eval(Expr(:import, :Base, f))
-            end
-            @eval begin
-                $bf(x...) = broadcast($f, x...)
-                $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
-            end
-        end
+    bf = Symbol("broadcast#", lstrip(string(f), '.'))
+    if isdefined(Knet, bf)
+        # ok
+    elseif isdefined(AutoGrad, bf)
+        eval(Expr(:import, :AutoGrad, bf))
     else
-        bf = Symbol(f)
-        if isdefined(Base, bf)
-            eval(Expr(:import, :Base, bf))
-        else
-            # warn("Base.$bf not defined")
+        f = Symbol(f)
+        if isdefined(Base, f)
+            eval(Expr(:import, :Base, f))
+        end
+        @eval begin
+            $bf(x...) = broadcast($f, x...)
+            $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
         end
     end
     return bf

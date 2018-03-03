@@ -62,7 +62,7 @@ unary_ops = [
 # "y1",
 ]
 
-if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
+if Pkg.installed("SpecialFunctions") != nothing
     append!(unary_ops, [
 "erf",     # Removed from base in julia6
 "erfc",
@@ -148,16 +148,6 @@ import Base: tanh
 
 # Unary plus and minus
 import Base: +, .+, -, .-, broadcast
-if VERSION >= v"0.6.0"
-    broadcast(::typeof(+), a::KnetArray)=a
-    +(a::KnetArray)=a
-    -(a::KnetArray)=broadcast(-,a)
-else; @eval begin
-    +(a::KnetArray)=a
-    .+(a::KnetArray)=a
-end; end
-
-# Fix for the exp.(::KnetArray) dot notation in Julia5 (#173)
-if v"0.5-" <= VERSION < v"0.6-"
-    broadcast(f, a::KnetArray...)=f(a...)
-end
+broadcast(::typeof(+), a::KnetArray)=a
++(a::KnetArray)=a
+-(a::KnetArray)=broadcast(-,a)

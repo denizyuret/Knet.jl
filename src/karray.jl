@@ -92,33 +92,27 @@ end
 
 # Aliases:
 
-@typealias6 KnetMatrix{T} KnetArray{T,2}
-@typealias6 KnetVector{T} KnetArray{T,1}
-@typealias6 KnetVecOrMat{T} Union{KnetVector{T}, KnetMatrix{T}}
+const KnetMatrix{T} = KnetArray{T,2}
+const KnetVector{T} = KnetArray{T,1}
+const KnetVecOrMat{T} = Union{KnetVector{T}, KnetMatrix{T}}
 
 # Constructors:
 import Base: convert
 # Internal constructor defines KnetArray{T,N}(ptr,dims)
 # These define KnetArray{T,N}(dims) and KnetArray{T,N}(d...)
-if VERSION >= v"0.5.0-dev+7720"; @eval begin
+#TODO remove @eval
+@eval begin
     (::Type{KnetArray{T,N}}){T,N}(d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
     (::Type{KnetArray{T,N}}){T,N}(d::Int...) = KnetArray{T,N}(d)
     (::Type{KnetArray{T,N}}){T,N}(d::Integer...) = KnetArray{T,N}(convert(Tuple{Vararg{Int}}, d))
-end; else; @eval begin
-    convert{T,N}(::Type{KnetArray{T,N}},d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
-    convert{T,N}(::Type{KnetArray{T,N}},d::Int...)=convert(KnetArray{T,N},d)
-    convert{T,N}(::Type{KnetArray{T,N}},d::Integer...)=convert(KnetArray{T,N},convert(Tuple{Vararg{Int}}, d))
-end; end
+end
 # These define KnetArray{T}(dims) and KnetArray{T}(d...)
-if VERSION >= v"0.5.0-dev+7720"; @eval begin
+@eval begin
     (::Type{KnetArray{T}}){T,N}(d::NTuple{N,Int}) = KnetArray{T,N}(d)
     (::Type{KnetArray{T}}){T}(d::Int...) = KnetArray{T}(d)
     (::Type{KnetArray{T}}){T}(d::Integer...) = KnetArray{T}(convert(Tuple{Vararg{Int}}, d))
-end; else; @eval begin
-    convert{T,N}(::Type{KnetArray{T}},d::NTuple{N,Int})=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
-    convert{T}(::Type{KnetArray{T}},d::Int...)=KnetArray{T}(d)
-    convert{T}(::Type{KnetArray{T}},d::Integer...)=KnetArray{T}(convert(Tuple{Vararg{Int}}, d))
-end; end
+end
+
 # These define KnetArray(T,dims) and KnetArray(T,d...)
 KnetArray{T,N}(::Type{T}, d::NTuple{N,Int}) = KnetArray{T,N}(d)
 KnetArray{T}(::Type{T}, d::Int...)=KnetArray(T,d)
@@ -322,7 +316,7 @@ hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(1,1+
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
 import Base: unsafe_copy!, copy, copy!
-@typealias6 KorA{T} Union{KnetArray{T},Array{T}}
+const KorA{T} = Union{KnetArray{T},Array{T}}
 
 function copy!{T}(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer)
     if n == 0; return dest; end
@@ -498,10 +492,6 @@ end
 # The original getindex(a,i:j...) for AbstractArray copies:
 # function _getindex(l::LinearIndexing, A::AbstractArray, I::Union{Real, AbstractArray, Colon}...)
 # in abstractarray.jl:487,multidimensional.jl:184.
-
-if VERSION < v"0.5.0"
-    @typealias6 AbstractUnitRange UnitRange
-end
 
 function getindex{T}(A::KnetArray{T}, I::AbstractUnitRange)
     if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
@@ -935,9 +925,6 @@ function getindex2{T}(A::KnetMatrix{T}, I1::Index3, I2::Index3)
     B1 = isa(I1,Colon) ? size(A,1) : length(I1)
     B2 = isa(I2,Colon) ? size(A,2) : length(I2)
     Bsize = isa(I1,Real) ? (B2,) : isa(I2,Real) ? (B1,) : (B1,B2)
-    if VERSION < v"0.5.0" && isa(I1,Real)
-        Bsize = (B1,B2)
-    end
     Bdims = length(Bsize)
     if ncols == 1
         off = 1+(firstindex-1)*sizeof(T)

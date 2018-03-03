@@ -14,7 +14,6 @@
 
 using CUDArt
 using Base: arrayset
-VERSION < v"0.4-" && (nfields(a)=length(names(a)))
 
 cpucopy(x) = cpucopy_internal(x, ObjectIdDict())
 
