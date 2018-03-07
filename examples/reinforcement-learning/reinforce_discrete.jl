@@ -90,6 +90,7 @@ function main(ARGS)
     o["atype"] = eval(parse(o["atype"]))
 
     env = GymEnv(o["env_id"])
+    seed!(env, 12345)
 
     INPUT = env.observation_space.shape[1]
     OUTPUT = env.action_space.n

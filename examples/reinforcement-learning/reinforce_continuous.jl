@@ -5,8 +5,15 @@ end
 
 using Gym, ArgParse, Knet
 
+function lrelu(x, leak=0.2)
+    f1 = 0.5 * (1 + leak)
+    f2 = 0.5 * (1 - leak)
+    return f1 * x+ f2 *abs(x)
+end
+
 function predict_linear(w, ob)
-    linear = w["w"] * ob .+ w["b"]
+    hidden = lrelu.(w["w1"] * ob .+ w["b1"])
+    linear = w["w2"] * hidden .+ w["b2"]
     return linear
 end
 
@@ -33,10 +40,13 @@ function play(w, ob)
     return action
 end
 
-function init_params(input, output, atype)
+function init_params(input, hidden, output, atype)
     w = Dict()
-    w["w"] = xavier(output, input)
-    w["b"] = zeros(output, 1)
+    
+    w["w1"] = xavier(hidden, input)
+    w["b1"] = zeros(hidden, 1)
+    w["w2"] = xavier(output, hidden)
+    w["b2"] = zeros(output, 1)
 
     for k in keys(w)
         w[k] = convert(atype, w[k])
@@ -56,7 +66,7 @@ function discount(rewards; γ=0.9)
 end
 
 function train!(w, opts, observations, actions, rewards, atype; γ=0.9)
-    actions = convert(atype, reshape(actions, size(w["w"],1), length(actions)))
+    actions = convert(atype, reshape(actions, size(w["w2"],1), length(actions)))
 
     discounted = discount(rewards; γ=γ)
     discounted = discounted .- mean(discounted)#standardize the rewards to be unit normal
@@ -75,10 +85,11 @@ function main(ARGS)
     @add_arg_table s begin
         ("--env_id"; default="Pendulum-v0"; help="environment name")
         ("--episodes"; arg_type=Int; default=20; help="number of episodes")
-        ("--gamma"; arg_type=Float64; default=0.99; help="doscount factor")
+        ("--gamma"; arg_type=Float64; default=0.9; help="doscount factor")
         ("--threshold"; arg_type=Int; default=1000; help="stop the episode even it is not terminal after number of steps exceeds the threshold")
-        ("--lr"; arg_type=Float64; default=0.01; help="learning rate")
+        ("--lr"; arg_type=Float64; default=0.001; help="learning rate")
         ("--render"; help = "render the environment"; action = :store_true)
+        ("--hidden"; arg_type=Int; default=64; help="hidden units")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}":"Array{Float32}"))
     end
 
@@ -88,11 +99,12 @@ function main(ARGS)
     o["atype"] = eval(parse(o["atype"]))
 
     env = GymEnv(o["env_id"])
+    seed!(env, 12345)
 
     INPUT = env.observation_space.shape[1]
     OUTPUT = env.action_space.shape[1]
 
-    w = init_params(INPUT, OUTPUT, o["atype"])
+    w = init_params(INPUT, o["hidden"], OUTPUT, o["atype"])
     opts = Dict()
     for k in keys(w)
         opts[k] = Rmsprop(lr=o["lr"])
