@@ -887,4 +887,7 @@ and ResNet [(He et al. 2015)](http://arxiv.org/abs/1512.03385).
     convnets learn.
 -   [https://arxiv.org/abs/1603.07285](https://arxiv.org/abs/1603.07285) A guide to convolution arithmetic
     for deep learning
+-   Reading (architectures): [cs231n Architecture Slides](http://cs231n.stanford.edu/slides/2017/cs231n_2017_lecture9.pdf)
+-   Reading (visualization): [cs231n Visualization Slides](http://cs231n.stanford.edu/slides/2017/cs231n_2017_lecture12.pdf), [cs231n Visualization Notes](http://cs231n.github.io/understanding-cnn), [Distillpub visualization article](https://distill.pub/2018/building-blocks/), [Yosinski blog](http://yosinski.com/deepvis), [video](https://www.youtube.com/watch?v=AgkfIQ4IGaM), [paper](http://yosinski.com/media/papers/Yosinski__2015__ICML_DL__Understanding_Neural_Networks_Through_Deep_Visualization__.pdf), [repo](https://github.com/yosinski/deep-visualization-toolbox)
+
 
