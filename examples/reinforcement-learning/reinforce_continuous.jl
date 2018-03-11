@@ -3,6 +3,16 @@ for p in ("Gym","ArgParse", "Knet")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
+"""
+julia reinforce_continous.jl
+
+This example implements the REINFORCE algorithm from
+`Simple statistical gradient-following algorithms for
+connectionist reinforcement learning.`,  Williams, Ronald J.
+Machine learning, 8(3-4):229–256, 1992. This example also
+demonstrates the usage of the `@zerograd` function for
+stopping the gradient flow.
+"""
 module REINFORCE_CONTINOUS
 
 using Gym, ArgParse, Knet, AutoGrad
@@ -115,7 +125,7 @@ end
 
 function main(ARGS)
     s = ArgParseSettings()
-    s.description="(c) Ozan Arkan Can, 2018. REINFORCE Algorithm."
+    s.description="(c) Ozan Arkan Can, 2018. Demonstration of the REINFORCE algorithm on the continuous action space."
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--env_id"; default="Pendulum-v0"; help="environment name")
