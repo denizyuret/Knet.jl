@@ -3,7 +3,9 @@ for p in ("Gym","ArgParse", "Knet")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
-using Gym, ArgParse, Knet
+module REINFORCE_CONTINOUS
+
+using Gym, ArgParse, Knet, AutoGrad
 
 function lrelu(x, leak=0.2)
     f1 = 0.5 * (1 + leak)
@@ -17,32 +19,71 @@ function predict_linear(w, ob)
     return linear
 end
 
-function logpdf(mu, x; sigma=1.0)    
+function logpdf(μ, x; sigma=1.0)    
     fac = -log(sqrt(2pi))
-    r = (x-mu)/ sigma
+    r = (x-μ) / sigma
     return -r.* r.* 0.5 - log(sigma) + fac
 end
-
-function loss(w, observations, actions, discounted_rewards)
-    mus = predict_linear(w, observations)
-    -sum((logpdf(mus, actions) .* discounted_rewards)) / size(mus, 2)
-end
-
-lossgradient = grad(loss)
 
 function sample_action(mu; sigma=1.0)
     a = mu + randn() * sigma
 end
 
+@zerograd sample_action(mu)
+
 function play(w, ob)
-    linear = Array(predict_linear(w, ob))
-    action = sample_action(linear)
-    return action
+    linear = predict_linear(w, ob)
+    action = sample_action(Array(linear))
+    return action, linear
 end
+
+function play_episode(w, env, o)
+    ob = reset!(env)
+    rewards = Float32[]
+    linears = Any[]
+    actions = Array{Float32,1}()
+    total = 0
+
+    for t=1:env.spec.max_episode_steps
+        ob_inp = convert(o["atype"], reshape(ob, size(ob, 1), 1))
+        action, linear = play(w, ob_inp)
+        push!(linears, linear)
+        ob, reward, done, _ = step!(env, action-1)
+
+        total += reward[1]
+
+        push!(rewards, reward[1])
+        push!(actions, action[1])
+
+        if o["render"]
+            render(env)
+        end
+
+        if done
+            break
+        end
+    end
+    return linears, actions, rewards, total
+end
+
+function loss(w, env, o; totalr=nothing)
+    μs, actions, rewards, total = play_episode(w, env, o)
+    totalr[1] = total
+
+    actions = convert(o["atype"], reshape(actions, size(w["w2"],1), length(actions)))
+    discounted = discount(rewards; γ=o["gamma"])
+    discounted = discounted .- mean(discounted)#mean R as a baseline
+    discounted = discounted ./ (std(discounted) + 1e-6)
+
+    discounted = convert(o["atype"], reshape(discounted, 1, size(actions, 2)))
+    -sum((logpdf(hcat(μs...), actions) .* discounted)) / size(μs, 2)
+end
+
+lossgradient = grad(loss)
 
 function init_params(input, hidden, output, atype)
     w = Dict()
-    
+
     w["w1"] = xavier(hidden, input)
     w["b1"] = zeros(hidden, 1)
     w["w2"] = xavier(output, hidden)
@@ -65,17 +106,11 @@ function discount(rewards; γ=0.9)
     return discounted
 end
 
-function train!(w, opts, observations, actions, rewards, atype; γ=0.9)
-    actions = convert(atype, reshape(actions, size(w["w2"],1), length(actions)))
-
-    discounted = discount(rewards; γ=γ)
-    discounted = discounted .- mean(discounted)#standardize the rewards to be unit normal
-    discounted = discounted ./ (std(discounted) + 1e-6)
-
-    discounted = convert(atype, reshape(discounted, 1, size(actions, 2)))
-    observations = hcat(observations...)
-    g = lossgradient(w, observations, actions, discounted)
+function train!(w, opts, env, o)
+    totalr = [0.0]
+    g = lossgradient(w, env, o; totalr=totalr)
     update!(w, g, opts)
+    return totalr[1]
 end
 
 function main(ARGS)
@@ -111,36 +146,10 @@ function main(ARGS)
     end
 
     for i=1:o["episodes"]
-        ob = reset!(env)
-        rewards = Float32[]
-        observations = Any[]
-        means = Float32[]
-        total = 0
-
-        for t=1:env.spec.max_episode_steps
-            ob_inp = convert(o["atype"], reshape(ob, size(ob, 1), 1))
-            push!(observations, ob_inp)
-            action = play(w, ob_inp)
-            ob, reward, done, _ = step!(env, action)
-
-            total += reward[1]
-
-            push!(rewards, reward[1])
-            push!(means, action[1])
-
-            if o["render"]
-                render(env)
-            end
-
-            if done
-                break
-            end
-        end
-
-        train!(w, opts, observations, means, rewards, o["atype"]; γ=o["gamma"])
-
+        total = train!(w, opts, env, o)
         println("episode $i , total rewards: $total")
     end
 end
 
 main(ARGS)
+end
