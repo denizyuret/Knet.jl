@@ -13,14 +13,14 @@ Machine learning, 8(3-4):229–256, 1992. This example also
 demonstrates the usage of the `@zerograd` function for
 stopping the gradient flow.
 """
-module REINFORCE_CONTINOUS
+module REINFORCE_CONTINUOUS
 
 using Gym, ArgParse, Knet, AutoGrad
 
 function lrelu(x, leak=0.2)
-    f1 = 0.5 * (1 + leak)
-    f2 = 0.5 * (1 - leak)
-    return f1 * x+ f2 *abs(x)
+    f1 = Float32(0.5 * (1 + leak))
+    f2 = Float32(0.5 * (1 - leak))
+    return f1 * x + f2 * abs.(x)
 end
 
 function predict_linear(w, ob)
@@ -29,21 +29,22 @@ function predict_linear(w, ob)
     return linear
 end
 
-function logpdf(μ, x; sigma=1.0)    
-    fac = -log(sqrt(2pi))
-    r = (x-μ) / sigma
-    return -r.* r.* 0.5 - log(sigma) + fac
+function logpdf(μ, x; σ=Float32(1.0))    
+    fac = Float32(-log(sqrt(2pi)))
+    r = (x-μ) / σ
+    return -r.* r.* Float32(0.5) - Float32(log(σ)) + fac
 end
 
-function sample_action(mu; sigma=1.0)
-    a = mu + randn() * sigma
+function sample_action(μ; σ=1.0)
+    μ = convert(Array{Float32}, μ)
+    a = μ + randn() * σ
 end
 
 @zerograd sample_action(mu)
 
 function play(w, ob)
     linear = predict_linear(w, ob)
-    action = sample_action(Array(linear))
+    action = sample_action(linear)
     return action, linear
 end
 
@@ -123,10 +124,9 @@ function train!(w, opts, env, o)
     return totalr[1]
 end
 
-function main(ARGS)
+function main(args=ARGS)
     s = ArgParseSettings()
     s.description="(c) Ozan Arkan Can, 2018. Demonstration of the REINFORCE algorithm on the continuous action space."
-    s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--env_id"; default="Pendulum-v0"; help="environment name")
         ("--episodes"; arg_type=Int; default=20; help="number of episodes")
@@ -139,8 +139,16 @@ function main(ARGS)
     end
 
     srand(12345)
+    isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
+    
+    o = parse_args(args, s)
+    o["atype"] = eval(parse(o["atype"]))
 
-    o = parse_args(s)
+    o = parse_args(args, s)
     o["atype"] = eval(parse(o["atype"]))
 
     env = GymEnv(o["env_id"])
@@ -161,5 +169,6 @@ function main(ARGS)
     end
 end
 
-main(ARGS)
+PROGRAM_FILE=="reinforce_continuous.jl" && main(ARGS)
+
 end

@@ -4,7 +4,7 @@ for p in ("Gym","ArgParse", "Knet")
 end
 
 """
-julia reinforce_continous.jl
+julia reinforce_discrete.jl
 
 This example implements the REINFORCE algorithm from
 `Simple statistical gradient-following algorithms for
@@ -15,8 +15,7 @@ stopping the gradient flow.
 """
 module REINFORCE_DISCRETE
 
-using Gym, ArgParse, Knet
-using AutoGrad
+using Gym, ArgParse, Knet, AutoGrad
 
 function predict_linear(w, ob)
     linear = w["w"] * ob .+ w["b"]
@@ -24,6 +23,7 @@ function predict_linear(w, ob)
 end
 
 function sample_action(linear)
+    linear = Array(linear)
     probs = exp.(linear) ./ sum(exp.(linear), 1)
     c_probs = cumsum(probs)
     return indmax(c_probs .> rand())
@@ -33,7 +33,7 @@ end
 
 function play(w, ob)
     linear = predict_linear(w, ob)
-    action = sample_action(Array(linear))
+    action = sample_action(linear)
     return action, linear
 end
 
@@ -118,10 +118,9 @@ function train!(w, opts, env, o)
     return totalr[1]
 end
 
-function main(ARGS)
+function main(args=ARGS)
     s = ArgParseSettings()
     s.description="(c) Ozan Arkan Can, 2018. Demonstration of the REINFORCE algorithm on the discrete action space."
-    s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
         ("--env_id"; default="CartPole-v1"; help="environment name")
         ("--episodes"; arg_type=Int; default=20; help="number of episodes")
@@ -133,8 +132,13 @@ function main(ARGS)
     end
 
     srand(12345)
-
-    o = parse_args(s)
+    isa(args, AbstractString) && (args=split(args))
+    if in("--help", args) || in("-h", args)
+        ArgParse.show_help(s; exit_when_done=false)
+        return
+    end
+    
+    o = parse_args(args, s)
     o["atype"] = eval(parse(o["atype"]))
 
     env = GymEnv(o["env_id"])
@@ -155,5 +159,6 @@ function main(ARGS)
     end
 end
 
-main(ARGS)
+PROGRAM_FILE=="reinforce_discrete.jl" && main(ARGS)
+
 end
