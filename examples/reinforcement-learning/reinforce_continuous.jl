@@ -23,7 +23,7 @@ function lrelu(x, leak=0.2)
     return f1 * x + f2 * abs.(x)
 end
 
-function predict_linear(w, ob)
+function predict_μ(w, ob)
     hidden = lrelu.(w["w1"] * ob .+ w["b1"])
     linear = w["w2"] * hidden .+ w["b2"]
     return linear
@@ -37,28 +37,28 @@ end
 
 function sample_action(μ; σ=1.0)
     μ = convert(Array{Float32}, μ)
-    a = μ + randn() * σ
+    a = μ .+ randn(size(μ)) .* σ
 end
 
 @zerograd sample_action(mu)
 
 function play(w, ob)
-    linear = predict_linear(w, ob)
-    action = sample_action(linear)
-    return action, linear
+    μ = predict_μ(w, ob)
+    action = sample_action(μ)
+    return action, μ
 end
 
 function play_episode(w, env, o)
     ob = reset!(env)
     rewards = Float32[]
-    linears = Any[]
+    μs = Any[]
     actions = Array{Float32,1}()
     total = 0
 
     for t=1:env.spec.max_episode_steps
         ob_inp = convert(o["atype"], reshape(ob, size(ob, 1), 1))
-        action, linear = play(w, ob_inp)
-        push!(linears, linear)
+        action, μ = play(w, ob_inp)
+        push!(μs, μ)
         ob, reward, done, _ = step!(env, action-1)
 
         total += reward[1]
@@ -66,15 +66,11 @@ function play_episode(w, env, o)
         push!(rewards, reward[1])
         push!(actions, action[1])
 
-        if o["render"]
-            render(env)
-        end
+        o["render"] && render(env)
 
-        if done
-            break
-        end
+        done && break
     end
-    return linears, actions, rewards, total
+    return μs, actions, rewards, total
 end
 
 function loss(w, env, o; totalr=nothing)

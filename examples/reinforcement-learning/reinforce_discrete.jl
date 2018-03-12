@@ -55,13 +55,9 @@ function play_episode(w, env, o)
         push!(rewards, reward)
         push!(actions, action)
 
-        if o["render"]
-            render(env)
-        end
+        o["render"] && render(env)
 
-        if done
-            break
-        end
+        done && break
     end
     return linears, actions, rewards, total
 end
