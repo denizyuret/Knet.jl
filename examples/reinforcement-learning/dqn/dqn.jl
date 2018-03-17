@@ -1,3 +1,13 @@
+if Pkg.installed("Gym") == nothing
+    Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
+    ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
+    Pkb.build("Gym")
+end
+
+for p in ("ArgParse", "Knet", "JLD")
+    Pkg.installed(p) == nothing && Pkg.add(p)
+end
+
 """
 julia dqn.jl
 
