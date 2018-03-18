@@ -280,10 +280,6 @@ end
 # This allows both non-interactive (shell command) and interactive calls like:
 # $ julia rnnlm.jl --epochs 10
 # julia> RNNLM.main("--epochs 10")
-if VERSION >= v"0.5.0-dev+7720"
-    if basename(PROGRAM_FILE)==basename(@__FILE__); main(ARGS); end
-else
-    !isinteractive() && !isdefined(Core.Main,:load_only) && main(ARGS)
-end
+basename(PROGRAM_FILE)==basename(@__FILE__) && main(ARGS)
 
 end  # module

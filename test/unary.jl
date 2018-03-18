@@ -10,11 +10,7 @@ function frand(f,t,d...)
     end
 end
 
-if VERSION >= v"0.6.0"
-    bcast(f)=(x->broadcast(f,x))
-else
-    bcast(f)=f
-end
+bcast(f)=(x->broadcast(f,x))
 
 unary_fns = Any[]
 for f in Knet.unary_ops

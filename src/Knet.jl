@@ -1,4 +1,4 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__()
+__precompile__()
 
 module Knet
 
@@ -16,7 +16,6 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 
 using AutoGrad; export grad, gradloss, gradcheck, getval
 
-include("compat.jl");           # julia6 compat fixes
 include("gpu.jl");              export gpu
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
