@@ -12,7 +12,7 @@ const TREEBANK_DIR = Pkg.dir("Knet","data","treebank")
 
 const TREEBANK_ZIPNAME = "trainDevTestTrees_PTB.zip"
 const TREEBANK_SPLITS = ("train", "dev", "test")
-
+const UNK = "_UNK_"
 """
 
 This utility loads [Stanford Sentiment Treebank](https://nlp.stanford.edu/sentiment/index.html)
