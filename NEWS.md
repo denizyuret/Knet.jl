@@ -1,3 +1,27 @@
+Knet v0.9.1 Release Notes
+=========================
+
+Compatibility
+-------------
+* Library discovery now done using CUDAapi.
+* GPU direct peer access support (@cangumeli).
+* Removed gpu-architecture compiler flags from build.jl to support machines with heterogenous gpu types.
+* Added JuliaBox compatibility to Jupyter notebooks.
+
+General
+-------
+* Fixed default `dropout` behavior which was not applying dropout to input to obey the pdrop argument.
+* Added support for `mean(f::Function,x::KnetArray)`.
+* Added `vcat` support for scalar arguments.
+
+Documentation and Examples
+--------------------------
+* Grid image display support for notebooks (@ilkerkesen).
+* Convolutional VAE example (@CarloLucibello).
+* Reinforcement learning examples (@ozanarkancan).
+* dl-tutorial collects updated notebooks @denizyuret uses in class.
+
+
 Knet v0.9.0 Release Notes
 =========================
 48ca185 2017-12-25
