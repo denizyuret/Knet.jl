@@ -127,8 +127,7 @@ function main(args="")
 
     atype = eval(parse(o[:atype]))
     info("using ", atype)
-    o[:seed] > 0 && srand(o[:seed])
-    atype <: KnetArray && rand!(KnetArray(ones(10))) # bug #181 of Knet
+    o[:seed] > 0 && setseed(o[:seed])
 
     θ, ϕ = weights(o[:nz], o[:nh], atype=atype)
     w = [θ; ϕ]
@@ -143,7 +142,7 @@ function main(args="")
             println((:epoch, epoch,
                      :trn, aveloss(θ, ϕ, dtrn),
                      :tst, aveloss(θ, ϕ, dtst)))
-        end
+    end
 
     report(0); tic()
     @time for epoch=1:o[:epochs]
