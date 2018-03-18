@@ -3,7 +3,7 @@ try
 catch
     Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
     ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
-    Pkb.build("Gym")
+    Pkg.build("Gym")
 end
 
 for p in ("ArgParse", "Knet")
