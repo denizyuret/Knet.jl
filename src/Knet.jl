@@ -17,6 +17,7 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 using AutoGrad; export grad, gradloss, gradcheck, getval
 
 include("gpu.jl");              export gpu
+include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
