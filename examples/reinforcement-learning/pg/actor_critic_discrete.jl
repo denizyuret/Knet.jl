@@ -52,19 +52,11 @@ function loss(w, ob, t, env, o; output_of_step=nothing)
     v_s = critic(w, ob; nh=length(o["critic"]))
 
     ob, reward, done, _ = step!(env, action-1)
-    ob = convert(o["atype"], ob)
+    ob = convert(o["atype"], reshape(ob, size(ob, 1), 1))
     push!(output_of_step, (ob, reward, done))
     
     v_sp1 = done ? Float32(0.0) : critic(w, ob; nh=length(o["critic"]))
 
-    #reward shaping
-    #=
-    if done && t <= 195
-        reward = Float32(-1.0)
-    else
-        reward = Float32(reward)
-    end
-    =#
     reward = Float32(reward)
 
     δ = reward + o["gamma"] * v_sp1 - v_s
@@ -80,7 +72,7 @@ lossgradient = grad(loss)
 function play_episode!(w, opts, env, o)
     ob = reset!(env)
     total = 0
-    ob = convert(o["atype"], ob)
+    ob = convert(o["atype"], reshape(ob, size(ob, 1), 1))
     for t=1:env.spec.max_episode_steps
         output = Any[]
         g = lossgradient(w, ob, t, env, o; output_of_step=output)
