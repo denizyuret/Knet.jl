@@ -1,4 +1,6 @@
-if Pkg.installed("Gym") == nothing
+try
+    Pkg.installed("Gym")
+catch
     Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
     ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
     Pkb.build("Gym")
