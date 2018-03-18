@@ -32,6 +32,11 @@
 - [charlm](charlm): Character-level RNN language model from [Karpathy].
 - [rnnlm](rnnlm): Word-level RNN language model trained on the [Mikolov-PTB] corpus.
 
+### Reinforcement Learning
+- [dynamic programming](reinforcement-learning/dp) : Solving a Markov Decision process with Value Iteration and Policy Iteration.
+- [policy gradient](reinforcement-learning/pg) : Demonstration of the REINFORCE and Actor-Critic algorithms on simple environments.
+- [dqn](reinforcement-learning/dqn) : Train a DQN on the CartPole environment.
+
 ### Other
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].
 - [dcgan-mnist](dcgan-mnist): Train a [DCGAN](https://arxiv.org/abs/1511.06434) (Deep Convolutional Generative Adversarial Network) on [MNIST].
