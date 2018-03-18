@@ -1,9 +1,6 @@
 include("header.jl")
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
-if VERSION < v"0.5.0"
-    Base.IteratorsMD.CartesianIndex(i::Int...)=CartesianIndex(i)
-end
 
 # Test KnetArray operations: cat, convert, copy, display, eachindex,
 # eltype, endof, fill!, first, getindex, hcat, isempty, length,
@@ -36,10 +33,8 @@ if gpu() >= 0
                       ((a.>0.5),),                      # BitArray
                       ([1 3; 2 4],),                    # Array{Int}
                       (CartesianIndex(3,),), (CartesianIndex(2,3),), # CartesianIndex
-                      (if VERSION >= v"0.5.0"
-                           [(:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
-                            ([CartesianIndex(2,2), CartesianIndex(2,1)],)] # Array{CartesianIndex} # FAIL for julia4
-                       else [] end)...
+                      (:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
+                      ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
                 # @show i
                 @test a[i...] == k[i...]
@@ -107,13 +102,8 @@ if gpu() >= 0
 
         @testset "cpu2gpu" begin
             # cpu/gpu xfer with grad support
-            if VERSION >= v"0.6.0"
-                @test gradcheck(x->Array(sin.(KnetArray(x))),a)
-                @test gradcheck(x->KnetArray(sin.(Array(x))),k)
-            else
-                @test gradcheck(x->Array(sin(KnetArray(x))),a)
-                @test gradcheck(x->KnetArray(sin(Array(x))),k)
-            end
+            @test gradcheck(x->Array(sin.(KnetArray(x))),a)
+            @test gradcheck(x->KnetArray(sin.(Array(x))),k)
         end
 
         @testset "reshape" begin

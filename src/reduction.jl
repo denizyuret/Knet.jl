@@ -94,41 +94,21 @@ import Base.LinAlg: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 
-if VERSION >= v"0.6.0"
-    function vecnorm{T}(x::KnetArray{T}, p::Real=2)
-        if length(x) == 0
-            zero(T)
-        elseif p == 2
-            sqrt(sum(abs2,x))
-        elseif p == 1
-            sum(abs,x)
-        elseif p == Inf
-            maximum(abs,x)
-        elseif p == 0
-            countnz(x)
-        elseif p == -Inf
-            minimum(abs,x)
-        else
-            sum(abs.(x).^p)^(1/p)
-        end
-    end
-else
-    function vecnorm{T}(x::KnetArray{T}, p::Real=2)
-        if length(x) == 0
-            zero(T)
-        elseif p == 2
-            sqrt(sumabs2(x))
-        elseif p == 1
-            sumabs(x)
-        elseif p == Inf
-            maxabs(x)
-        elseif p == 0
-            countnz(x)
-        elseif p == -Inf
-            minabs(x)
-        else
-            sum(abs(x).^p)^(1/p)
-        end
+function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+    if length(x) == 0
+        zero(T)
+    elseif p == 2
+        sqrt(sum(abs2,x))
+    elseif p == 1
+        sum(abs,x)
+    elseif p == Inf
+        maximum(abs,x)
+    elseif p == 0
+        countnz(x)
+    elseif p == -Inf
+        minimum(abs,x)
+    else
+        sum(abs.(x).^p)^(1/p)
     end
 end
 

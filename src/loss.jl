@@ -57,9 +57,9 @@ function _logp(x,d...)
         # Expanding for profiling:
         # x1 = maximum(x,d...)
         # x2 = x .- x1
-        # x3 = exp_dot(x2)
+        # x3 = exp.(x2)
         # x4 = sum(x3,d...)
-        # x5 = log_dot(x4)
+        # x5 = log.(x4)
         # x6 = x2 .- x5
         # return x6
     end
@@ -75,7 +75,7 @@ function _logpback(x,y,dy,d...)
         return (dy - exp.(y).*sum(dy,d...))
         # Expanding for profiling:
         # dx1 = sum(dy,d...)
-        # dx2 = exp_dot(y)
+        # dx2 = exp.(y)
         # dx3 = dx2 .* dx1
         # dx4 = dy - dx3
         # return dx4
@@ -148,10 +148,10 @@ of `x` and `dims=2` sums rows of `x`.
 """
 function logsumexp(x,d...)
     xmax = maximum(x,d...)
-    xmax + log_dot(sum(exp_dot(x .- xmax),d...))
+    xmax + log.(sum(exp.(x .- xmax),d...))
 end
 
-@primitive logsumexp(x,d...),dy,y  (dy .* exp_dot(x .- y))
+@primitive logsumexp(x,d...),dy,y  (dy .* exp.(x .- y))
 
 
 """

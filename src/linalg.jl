@@ -216,15 +216,7 @@ end
 
 using Base.LinAlg
 using Base.LinAlg.BLAS: libblas, BlasInt
-if VERSION >= v"0.5.0-dev+4338"
-    using Base.LinAlg.BLAS: @blasfunc
-elseif VERSION >= v"0.5.0-dev+1871"
-    using Base: @blasfunc
-else
-    macro blasfunc(x)
-        Expr(:quote, Base.blasfunc(x))
-    end
-end
+using Base.LinAlg.BLAS: @blasfunc
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,
