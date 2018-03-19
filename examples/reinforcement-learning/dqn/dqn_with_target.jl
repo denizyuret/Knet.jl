@@ -119,13 +119,12 @@ function main(args=ARGS)
         ("--tupdate"; arg_type=Int; default=500; help="update frequency for the target network")
     end
     isa(args, AbstractString) && (args=split(args))
-    o = parse_args(args, s)
-    isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
         ArgParse.show_help(s; exit_when_done=false)
         return
     end
 
+    o = parse_args(args, s)
     o["atype"] = eval(parse(o["atype"]))
     srand(12345)
     env = GymEnv(o["env_id"])
