@@ -1,5 +1,6 @@
 include("header.jl")
 using Knet: KnetFree, KnetPtr, gpuCount
+using Compat.Random
 
 # Messes up gc if used with `if gpu()>=0`
 # This is just for printing the name
@@ -17,7 +18,7 @@ if gpu() >= 0
     @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])
     # gc doesn't work inside a testset
     ptrs = nothing
-    gc()
+    GC.gc()
     @test all(Bool[v.used==1 && length(v.free)==1 for (k,v) in kf])
     ptrs = map(KnetPtr, sizes)
     @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in kf])

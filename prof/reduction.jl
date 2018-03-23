@@ -10,10 +10,10 @@ function f2(x,r)
         for i=1:N; y=ccall(("sum_32_20",Knet.libknet8),Float32,(Cint,Ptr{Float32}),nx,x); end
     elseif r==1
         y = similar(x, 1, size(x,2)); ny = length(y); sy = stride(x,2)
-        for i=1:N; ccall(("sum_32_21",Knet.libknet8),Void,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nx,x,sy,ny,y); end
+        for i=1:N; ccall(("sum_32_21",Knet.libknet8),Nothing,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nx,x,sy,ny,y); end
     elseif r==2
         y = similar(x, size(x,1), 1); ny = length(y); sy = stride(x,1)
-        for i=1:N; ccall(("sum_32_21",Knet.libknet8),Void,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nx,x,sy,ny,y); end
+        for i=1:N; ccall(("sum_32_21",Knet.libknet8),Nothing,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nx,x,sy,ny,y); end
     else
         error("not supported")
     end
@@ -31,7 +31,7 @@ for region in (0,1,2)
             bm = @benchmark f2($a,$region) seconds=1
             m = round(Int, minimum(bm.times)/N)
             print("\t$m")
-            gc();Knet.knetgc();gc()
+            GC.gc();Knet.knetgc();GC.gc()
         end
         println()
     end

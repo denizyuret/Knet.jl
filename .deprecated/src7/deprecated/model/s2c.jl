@@ -1,4 +1,4 @@
-immutable S2C <: Model; rnn; fnn; params;
+struct S2C <: Model; rnn; fnn; params;
     function S2C(rnn::Function,fnn::Function; o...)
         r = Net(rnn; o...)
         f = Net(fnn; o...)

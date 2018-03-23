@@ -62,7 +62,8 @@ unary_ops = [
 # "y1",
 ]
 
-if Pkg.installed("SpecialFunctions") != nothing
+using Compat.Pkg
+if installed("SpecialFunctions") != nothing
     append!(unary_ops, [
 "erf",     # Removed from base in julia6
 "erfc",
@@ -109,7 +110,7 @@ for (f,g,y,dx) in
     bf = broadcast_func(f)
     bg = broadcast_func(g)
     @eval begin
-        function $bf{T<:AbstractFloat}(x::Array{T})
+        function $bf(x::Array{T}) where {T<:AbstractFloat}
             y = similar(x)
             @inbounds for i=1:length(y)
                 xi = x[i]
@@ -117,7 +118,7 @@ for (f,g,y,dx) in
             end
             return y
         end
-        function $bg{T<:AbstractFloat}(dy::Array{T},y::Array{T})
+        function $bg(dy::Array{T},y::Array{T}) where {T<:AbstractFloat}
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
@@ -126,8 +127,8 @@ for (f,g,y,dx) in
             end
             return dx
         end
-        $f{T<:Number}(xi::T)=$y
-        $g{T<:Number}(dyi::T,yi::T)=$dx
+        $f(xi::T) where {T<:Number}=$y
+        $g(dyi::T,yi::T) where {T<:Number}=$dx
         @primitive $f(x),dy,y $g(dy,y)
         if $f != $bf
             @primitive $bf(x),dy,y $bg(dy,y)
@@ -144,7 +145,7 @@ end
 import Base: tanh
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
 @primitive tanh(x::KnetArray),dy,y tanhback(dy,y)
-@primitive tanhback(dy,y),ddx  ddx.*(1.-y.*y)  ddx.*(-2.*dy.*y)
+@primitive tanhback(dy,y),ddx  ddx .* (1 .- y .* y)  ddx .* (-2 .* dy .* y)
 
 # Unary plus and minus
 import Base: +, .+, -, .-, broadcast

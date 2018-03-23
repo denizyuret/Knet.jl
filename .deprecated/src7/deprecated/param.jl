@@ -59,7 +59,7 @@ difnorm(a::KUparam)=(isdefined(a,:diff) ? vecnorm(a.diff) : 0)
 
 copy(x::KUparam)=deepcopy(x)
 
-function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
+function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::IdDict)
     haskey(d,x) && return d[x]
     y = KUparam{Array,T,N}()
     for n in fieldnames(x)
@@ -69,7 +69,7 @@ function cpucopy_internal{A<:CudaArray,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
     d[x] = y
 end
 
-function gpucopy_internal{A<:Array,T,N}(x::KUparam{A,T,N},d::ObjectIdDict)
+function gpucopy_internal{A<:Array,T,N}(x::KUparam{A,T,N},d::IdDict)
     haskey(d,x) && return d[x]
     y = KUparam{CudaArray,T,N}()
     for n in fieldnames(x)

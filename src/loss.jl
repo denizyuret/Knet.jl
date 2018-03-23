@@ -16,7 +16,7 @@ function logp(x,d...)
         if d==(1,)
             cudnnSoftmaxForward(x,algo=2)
         elseif d==(2,)
-            cudnnSoftmaxForward(x.',algo=2).'
+            copy(transpose(cudnnSoftmaxForward(copy(transpose(x)),algo=2)))
         elseif d==()
             n = length(x)
             (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
@@ -101,7 +101,7 @@ typedef enum
 
 =#          
 
-function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle())
+function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
     y = similar(x)
     @cuda(cudnn, cudnnSoftmaxForward,
@@ -110,7 +110,7 @@ function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle
     return y
 end
 
-function cudnnSoftmaxBackward{T}(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle())
+function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0
     dx = similar(dy)
     @cuda(cudnn, cudnnSoftmaxBackward,
@@ -165,7 +165,7 @@ instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll{T<:Integer}(y,a::Array{T},d=1; average=true)
+function nll(y,a::Array{T},d=1; average=true) where {T<:Integer}
     indices = findindices(y,a,d)
     lp = logp(y,d)[indices]
     average ? -mean(lp) : -sum(lp)
@@ -183,14 +183,14 @@ answer has the maximum score. `d=1` means instances are in columns,
 the number of correct answers instead of the ratio.
 
 """
-function accuracy{T<:Integer}(y,a::Array{T},d=1; average=true)
+function accuracy(y,a::Array{T},d=1; average=true) where {T<:Integer}
     indices = findindices(y,a,d)
     (maxval,maxind) = findmax(Array(y),d)
     correct = (vec(maxind) .== indices)
     average ? mean(correct) : sum(correct)
 end
 
-function findindices{T<:Integer}(y,a::Array{T},d=1)
+function findindices(y,a::Array{T},d=1) where {T<:Integer}
     n = length(a)
     indices = Vector{Int}(n)
     if d == 1                   # instances in first dimension

@@ -49,10 +49,10 @@ convert{A<:CudaArray}(::Type{A}, s::KUsparse)=convert(CudaArray, convert(SparseM
 copy(a::KUsparse)=deepcopy(a)
 # copy{A<:BaseArray,T}(a::KUsparse{A,T})=KUsparse{A,T}(a.m,a.n,copy(a.colptr),copy(a.rowval),copy(a.nzval))
 
-cpucopy_internal{A<:CudaArray,T}(s::KUsparse{A,T},d::ObjectIdDict)=
+cpucopy_internal{A<:CudaArray,T}(s::KUsparse{A,T},d::IdDict)=
     (haskey(d,s)||(d[s] = KUsparse{Array,T}(s.m, s.n, cpucopy_internal(s.colptr,d), cpucopy_internal(s.rowval,d), cpucopy_internal(s.nzval,d))); d[s])
                        
-gpucopy_internal{A<:Array,T}(s::KUsparse{A,T},d::ObjectIdDict)=
+gpucopy_internal{A<:Array,T}(s::KUsparse{A,T},d::IdDict)=
     (haskey(d,s)||(d[s] = KUsparse{CudaArray,T}(s.m, s.n, gpucopy_internal(s.colptr,d), gpucopy_internal(s.rowval,d), gpucopy_internal(s.nzval,d))); d[s])
 
 atype{A}(::KUsparse{A})=A
@@ -134,14 +134,14 @@ end
 
 # # Now we can construct a Sparse{CudaArray,T,I} using gpucopy:
 
-# cpucopy_internal{A<:CudaArray,T,I}(s::Sparse{A,T,I},d::ObjectIdDict)=
+# cpucopy_internal{A<:CudaArray,T,I}(s::Sparse{A,T,I},d::IdDict)=
 #     (haskey(d,s) ? d[s] : 
 #      Sparse{Array,T,I}(s.m, s.n,
 #                        cpucopy_internal(s.colptr,d),
 #                        cpucopy_internal(s.rowval,d),
 #                        cpucopy_internal(s.nzval,d)))
 
-# gpucopy_internal{A<:Array,T,I}(s::Sparse{A,T,I},d::ObjectIdDict)=
+# gpucopy_internal{A<:Array,T,I}(s::Sparse{A,T,I},d::IdDict)=
 #     (haskey(d,s) ? d[s] : 
 #      Sparse{CudaArray,T,I}(s.m,s.n,
 #                            gpucopy_internal(s.colptr,d),
@@ -207,14 +207,14 @@ end
 
 # # We need to fix cpu/gpu copy so the type changes appropriately:
 
-# cpucopy_internal{A<:CudaArray,T,I}(s::KUsparse0{A,T,I},d::ObjectIdDict)=
+# cpucopy_internal{A<:CudaArray,T,I}(s::KUsparse0{A,T,I},d::IdDict)=
 #     (haskey(d,s) ? d[s] :
 #      KUsparse0{Array,T,I}(s.m,s.n,
 #                          cpucopy_internal(s.colptr, d),
 #                          cpucopy_internal(s.rowval, d),
 #                          cpucopy_internal(s.nzval, d)))
 
-# gpucopy_internal{A<:Array,T,I}(s::KUsparse0{A,T,I},d::ObjectIdDict)=
+# gpucopy_internal{A<:Array,T,I}(s::KUsparse0{A,T,I},d::IdDict)=
 #     (haskey(d,s) ? d[s] : 
 #      KUsparse0{CudaArray,T,I}(s.m,s.n,
 #                              gpucopy_internal(s.colptr, d),

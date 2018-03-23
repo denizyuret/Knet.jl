@@ -123,9 +123,9 @@ end
 # Some common kernels
 # http://crsouza.com/2010/03/kernel-functions-for-machine-learning-applications
 
-klinear0(k, x, s, p)=(x.' * s)
-kpoly0(k, x, s, p)=((x.' * s + p[1]) .^ p[2])
-kgauss0(k, x, s, p)=exp(-p[1] * broadcast(+, sum(x.^2,1).', broadcast(+, sum(s.^2,1), -2*(x.' * s))))
+klinear0(k, x, s, p)=(transpose(x) * s)
+kpoly0(k, x, s, p)=((transpose(x) * s + p[1]) .^ p[2])
+kgauss0(k, x, s, p)=exp(-p[1] * broadcast(+, copy(transpose(sum(x.^2,1))), broadcast(+, sum(s.^2,1), -2*(transpose(x) * s))))
 
 # More efficient implementations:
 
@@ -383,5 +383,5 @@ end # if GPU
 #     return k
 # end
 
-# klinear4(x,s,p,k)=A_mul_B!(k,x.',s)
+# klinear4(x,s,p,k)=A_mul_B!(k,copy(transpose(x)),s)
 

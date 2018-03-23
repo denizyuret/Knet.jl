@@ -1,4 +1,4 @@
-immutable Tagger <: Model; forw; back; pred; params;
+struct Tagger <: Model; forw; back; pred; params;
     function Tagger(forw::Function, back::Function, pred::Function; o...)
         forw = Net(forw; o...)
         back = Net(back; o...)

@@ -2,12 +2,12 @@
 
 import Base: eltype, length, start, next, done
 
-immutable Combinas{T}
+struct Combinas{T}
     a::T
     t::Int
 end
 
-eltype{T}(::Type{Combinas{T}}) = Vector{eltype(T)}
+eltype(::Type{Combinas{T}}) where {T} = Vector{eltype(T)}
 
 length(c::Combinas) = binomial(length(c.a),c.t)
 
@@ -41,11 +41,11 @@ function next(c::Combinas, s)
 end
 done(c::Combinas, s) = !isempty(s) && s[1] > length(c.a)-c.t+1
 
-immutable Permutas{T}
+struct Permutas{T}
     a::T
 end
 
-eltype{T}(::Type{Permutas{T}}) = Vector{eltype(T)}
+eltype(::Type{Permutas{T}}) where {T} = Vector{eltype(T)}
 
 length(p::Permutas) = factorial(length(p.a))
 

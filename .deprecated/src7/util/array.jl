@@ -2,7 +2,7 @@ issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
 
 # Fix bug with deepcopy, where a shared bits array is copied multiple times:
 # TODO: check if this bug is still there
-Base.deepcopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+Base.deepcopy_internal{T<:Number}(x::Array{T}, s::IdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
 
 function Base.isapprox(x, y; 
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
@@ -30,9 +30,9 @@ fillsync!(a::AbstractArray,x)=fill!(a,x)
 
 import Base: randn!, GLOBAL_RNG
 
-randn!{T}(A::AbstractArray{T}, mean=zero(T), std=one(T)) = randn!(GLOBAL_RNG, A, mean, std)
+randn!(A::AbstractArray{T}, mean=zero(T), std=one(T)) where {T} = randn!(GLOBAL_RNG, A, mean, std)
 
-function randn!{T}(rng::AbstractRNG, A::AbstractArray{T}, mean=zero(T), std=one(T))
+function randn!(rng::AbstractRNG, A::AbstractArray{T}, mean=zero(T), std=one(T)) where {T}
     for i in eachindex(A)
         @inbounds A[i] = mean+std*randn(rng)
     end
@@ -45,12 +45,12 @@ using Base.LinAlg.BLAS: gemm!
 
 ### Add the ability to multiply arrays with other than 2 dimensions
 mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))
-A_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-A_mul_Bt!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
-At_mul_B!{T}(C::Array{T}, A::Array{T}, B::Array{T})=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_B!(C::Array{T}, A::Array{T}, B::Array{T}) where {T}=(gemm!('N','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+A_mul_Bt!(C::Array{T}, A::Array{T}, B::Array{T}) where {T}=(gemm!('N','T',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
+At_mul_B!(C::Array{T}, A::Array{T}, B::Array{T}) where {T}=(gemm!('T','N',one(T),mat2d(A),mat2d(B),zero(T),mat2d(C)); C)
 
 # y = w * x
-function Base.A_mul_B!{TX,TvA,TiA}(Y::StridedMatrix{TX}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA})
+function Base.A_mul_B!(Y::StridedMatrix{TX}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA}) where {TX,TvA,TiA}
     mX, nX = size(X)
     nX == A.m || throw(DimensionMismatch())
     size(Y) == (mX, A.n) || throw(DimensionMismatch())
@@ -64,7 +64,7 @@ function Base.A_mul_B!{TX,TvA,TiA}(Y::StridedMatrix{TX}, X::StridedMatrix{TX}, A
 end
 
 # dw = dy * x'
-function Base.A_mul_Bt!{TX,TvA,TiA}(Y::SparseMatrixCSC{TvA,TiA}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA})
+function Base.A_mul_Bt!(Y::SparseMatrixCSC{TvA,TiA}, X::StridedMatrix{TX}, A::SparseMatrixCSC{TvA,TiA}) where {TX,TvA,TiA}
     error(:cpu_sparse_not_implemented_yet)
 end
 

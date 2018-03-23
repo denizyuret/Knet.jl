@@ -19,7 +19,7 @@ function rand21(f,t,d...)
 end
 
 # This is missing from base
-countnz2{T}(a::AbstractArray{T},region)=Array{T}(sum(a.!=0,region))
+countnz2(a::AbstractArray{T},region) where {T}=Array{T}(undef,sum(a.!=0,region))
 using AutoGrad
 @zerograd countnz2(a,d...)
 

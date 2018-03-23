@@ -56,7 +56,7 @@ for d in (0,1,2)
     for f in (logp0, logp1, logp2, back0, back1, back2)
         @printf("%s(x,%d)",f,d)
         for x in (x1,x2,x3,x4,x5)
-            xt = x.'
+            xt = copy(transpose(x))
             knetgc()
             b = (d==0 ? (@benchmark $f($x)) :
                  d==1 ? (@benchmark $f($x,1)) :

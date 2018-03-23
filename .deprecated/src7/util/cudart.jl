@@ -65,10 +65,10 @@ convert{A<:CudaArray}(::Type{A}, a::SparseMatrixCSC)=CudaArray(full(a))
 convert{A<:Array}(::Type{A}, a::CudaArray)=to_host(a)
 convert{A<:SparseMatrixCSC}(::Type{A}, a::CudaArray)=sparse(to_host(a))
 
-deepcopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-cpucopy_internal(x::CudaArray, s::ObjectIdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])
-gpucopy_internal(x::CudaArray, s::ObjectIdDict)=deepcopy_internal(x,s)
-gpucopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaArray(x));s[x])
+deepcopy_internal(x::CudaArray, s::IdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+cpucopy_internal(x::CudaArray, s::IdDict)=(haskey(s,x)||(s[x]=to_host(x));s[x])
+gpucopy_internal(x::CudaArray, s::IdDict)=deepcopy_internal(x,s)
+gpucopy_internal{T<:Number}(x::Array{T}, s::IdDict)=(haskey(s,x)||(s[x]=CudaArray(x));s[x])
 
 # AbstractArray methods:
 
@@ -117,7 +117,7 @@ function _getbytes(x,d)
     return total
 end
 
-getbytes(x)=_getbytes(x, ObjectIdDict())
+getbytes(x)=_getbytes(x, IdDict())
 
 # Changing the way CudaArray prints:
 

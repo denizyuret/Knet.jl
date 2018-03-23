@@ -62,7 +62,7 @@ end
 # end
 
 
-function cslice!{T}(a::BaseArray{T}, b::BaseArray{T}, cols)
+function cslice!(a::BaseArray{T}, b::BaseArray{T}, cols) where {T}
     ncols = length(cols)
     clen = clength(b)
     n = clen * ncols
@@ -76,7 +76,7 @@ function cslice!{T}(a::BaseArray{T}, b::BaseArray{T}, cols)
     return a
 end
 
-function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
+function cslice!(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols) where {T}
     bptr = b.colptr
     nz = 0; for i in cols; nz += bptr[i+1]-bptr[i]; end
     a.m = b.m
@@ -98,7 +98,7 @@ function cslice!{T}(a::SparseMatrixCSC{T}, b::SparseMatrixCSC{T}, cols)
 end
 
 # TODO: write the non-contiguous sparse version
-# function cslice!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, r::UnitRange)
+# function cslice!(a::KUsparse{A,T}, b::KUsparse{B,T}, r::UnitRange) where {A,B,T}
 #     bptr = cpucopy(b.colptr)
 #     nz = 0; for i in r; nz += bptr[i+1]-bptr[i]; end
 #     a.m = b.m
@@ -126,10 +126,10 @@ end
 # starting at column di.  Used by predict to construct output.  
 # Don't need the sparse version, output always dense.
 
-# ccopy!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst,di,src.arr,si,n); dst)
-# ccopy!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(ccopy!(dst.arr,di,src.arr,si,n); dst)
+# ccopy!(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1) where {A,T,N}=(ccopy!(dst,di,src.arr,si,n); dst)
+# ccopy!(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1) where {A,B,T,N}=(ccopy!(dst.arr,di,src.arr,si,n); dst)
 
-function ccopy!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
+function ccopy!(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1) where {T,N}
     @assert csize(dst)==csize(src)
     clen = clength(src)
     d1 = 1 + clen * (di - 1)
@@ -144,10 +144,10 @@ end
 
 using Base.LinAlg: axpy!
 
-# cadd!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst,di,src.arr,si,n); dst)
-# cadd!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst.arr,di,src.arr,si,n); dst)
+# cadd!(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1) where {A,T,N}=(cadd!(dst,di,src.arr,si,n); dst)
+# cadd!(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1) where {A,B,T,N}=(cadd!(dst.arr,di,src.arr,si,n); dst)
 
-function cadd!{T,N}(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1)
+function cadd!(dst::BaseArray{T,N}, di, src::BaseArray{T,N}, si=1, n=ccount(src)-si+1) where {T,N}
     @assert csize(dst)==csize(src)
     @assert ccount(dst) >= di+n-1
     @assert ccount(src) >= si+n-1
@@ -163,9 +163,9 @@ end
 # ability to specify particular columns to append.  Used in
 # kperceptron to add support vectors.
 
-# ccat!{A,B,T,N}(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b)))=ccat!(a,b.arr,cols)
+# ccat!(a::KUdense{A,T,N}, b::KUdense{B,T,N}, cols=(1:ccount(b))) where {A,B,T,N}=ccat!(a,b.arr,cols)
 
-# function ccat!{A,T,N}(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b)))
+# function ccat!(a::KUdense{A,T,N}, b::BaseArray{T,N}, cols=(1:ccount(b))) where {A,T,N}
 #     @assert csize(a)==csize(b)
 #     alen = length(a)
 #     clen = clength(a)
@@ -181,9 +181,9 @@ end
 #     return a
 # end
 
-# ccat!{A,T}(a::KUsparse{A,T}, b::SparseMatrixCSC{T}, cols=(1:ccount(b)))=ccat!(a,convert(KUsparse,b),cols)
+# ccat!(a::KUsparse{A,T}, b::SparseMatrixCSC{T}, cols=(1:ccount(b))) where {A,T}=ccat!(a,convert(KUsparse,b),cols)
 
-# function ccat!{A,B,T}(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b)))
+# function ccat!(a::KUsparse{A,T}, b::KUsparse{B,T}, cols=(1:ccount(b))) where {A,B,T}
 #     # a: m, n, colptr, rowval, nzval
 #     # colptr[i]: starting index (in rowval,nzval) of column i
 #     # colptr[n+1]: nz+1
@@ -217,7 +217,7 @@ end
 ### corresponding columns in the remaining arguments.  Used by
 ### kperceptron in merging identical support vectors.
 
-# function uniq!{A<:Array}(s::KUdense{A}, ww::KUdense...)
+# function uniq!(s::KUdense{A}, ww::KUdense...) where {A<:Array}
 #     oldn = ccount(s)                                            # number of original support vectors
 #     for w in ww; @assert ccount(w) == oldn; end 
 #     ds = Dict{Any,Int}()                                        # support vector => new index
@@ -242,7 +242,7 @@ end
 #     return tuple(s, ww...)
 # end
 
-# function uniq!{A<:Array}(s::KUsparse{A}, ww::KUdense...)
+# function uniq!(s::KUsparse{A}, ww::KUdense...) where {A<:Array}
 #     oldn = ccount(s)                                            # number of original support vectors
 #     for w in ww; @assert ccount(w) == oldn; end 
 #     ds = Dict{Any,Int}()                                        # support vector => new index
@@ -281,9 +281,9 @@ end
 #     return tuple(s, ww...)
 # end
 
-# _colkey{A<:Array}(s::KUdense{A},j)=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
+# _colkey(s::KUdense{A},j) where {A<:Array}=sub(s.arr, ntuple(i->(i==ndims(s) ? (j:j) : Colon()), ndims(s))...)
 
-# function _colkey{A<:Array}(s::KUsparse{A},j)
+# function _colkey(s::KUsparse{A},j) where {A<:Array}
 #     a=s.colptr[j]
 #     b=s.colptr[j+1]-1
 #     r=sub(s.rowval, a:b)
@@ -293,18 +293,18 @@ end
 
 # Getting columns one at a time is expensive, just copy the whole array
 # CudaArray does not support sub, even if it did we would not be able to hash it
-# getcol{T}(s::KUdense{CudaArray,T}, j)=(n=clength(s);copysync!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
+# getcol(s::KUdense{CudaArray,T}, j) where {T}=(n=clength(s);copysync!(Array(T,csize(s,1)), 1, s.arr, (j-1)*n+1, n))
 
 # we need to look at the columns, might as well copy
 
-# function uniq!{A<:CudaArray}(s::KUdense{A}, ww::KUdense...)
+# function uniq!(s::KUdense{A}, ww::KUdense...) where {A<:CudaArray}
 #     ss = cpucopy(s)
 #     uniq!(ss, ww...)
 #     cslice!(s, ss, 1:ccount(ss))
 #     return tuple(s, ww...)
 # end
 
-# function uniq!{A<:CudaArray}(s::KUsparse{A}, ww::KUdense...)
+# function uniq!(s::KUsparse{A}, ww::KUdense...) where {A<:CudaArray}
 #     ss = cpucopy(s)
 #     uniq!(ss, ww...)
 #     cslice!(s, ss, 1:ccount(ss))
@@ -379,7 +379,7 @@ end
 #     return (ss,uu,vv)
 # end
 
-# function cslice!{A,T,I}(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange)
+# function cslice!(a::KUsparse{A,T,I}, b::SparseMatrixCSC{T,I}, r::UnitRange) where {A,T,I}
 #     nz = 0; for i in r; nz += b.colptr[i+1]-b.colptr[i]; end
 #     a.m = b.m
 #     a.n = length(r)

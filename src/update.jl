@@ -22,7 +22,7 @@ to `gclip`.  If `gclip==0` no scaling takes place.
 SGD is used by default if no algorithm is specified in the two
 argument version of `update!`[@ref].
 """
-type Sgd
+mutable struct Sgd
     lr::AbstractFloat
     gclip::AbstractFloat
 end
@@ -61,7 +61,7 @@ Networks : The Official Journal of the International Neural Network
 Society, 12(1), 145–151.
 
 """
-type Momentum
+mutable struct Momentum
     lr::AbstractFloat
     gclip::AbstractFloat
     gamma::AbstractFloat
@@ -95,7 +95,7 @@ to `gclip`.  If `gclip == 0` no scaling takes place.
 Reference Implementation : [Yoshua Bengio, Nicolas Boulanger-Lewandowski and Razvan P
 ascanu](https://arxiv.org/pdf/1212.0901.pdf)
 """
-type Nesterov
+mutable struct Nesterov
     lr::AbstractFloat
     gclip::AbstractFloat
     gamma::AbstractFloat
@@ -139,7 +139,7 @@ Subgradient Methods for Online Learning and Stochastic Optimization.
 Journal of Machine Learning Research, 12, 2121–2159.
 
 """
-type Adagrad
+mutable struct Adagrad
     lr::AbstractFloat
     gclip::AbstractFloat
     eps::AbstractFloat
@@ -183,7 +183,7 @@ M. D. (2012)](http://arxiv.org/abs/1212.5701). ADADELTA: An Adaptive
 Learning Rate Method.
 
 """
-type Adadelta
+mutable struct Adadelta
     lr::AbstractFloat
     gclip::AbstractFloat
     rho::AbstractFloat
@@ -225,7 +225,7 @@ Reference: [Tijmen Tieleman and Geoffrey Hinton
 magnitude."  COURSERA: Neural Networks for Machine Learning 4.2.
 
 """
-type Rmsprop
+mutable struct Rmsprop
     lr::AbstractFloat
     gclip::AbstractFloat
     rho::AbstractFloat
@@ -271,7 +271,7 @@ Stochastic Optimization. International Conference on Learning
 Representations, 1–13.
 
 """
-type Adam
+mutable struct Adam
     lr::AbstractFloat
     gclip::AbstractFloat
     beta1::AbstractFloat
@@ -419,15 +419,15 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     update!(w::$T, g, p)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
     update!(w::$T, g; o...)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
 
-    # AutoGrad may return Void for a zero gradient
-    update!(w::$T, g::Void, p)=w
-    update!(w::$T, g::Void; o...)=w
+    # AutoGrad may return Nothing for a zero gradient
+    update!(w::$T, g::Nothing, p)=w
+    update!(w::$T, g::Nothing; o...)=w
 
 end; end
 
-# AutoGrad may return Void for a zero gradient
-update!(w, g::Void, p)=w
-update!(w, g::Void; o...)=w
+# AutoGrad may return Nothing for a zero gradient
+update!(w, g::Nothing, p)=w
+update!(w, g::Nothing; o...)=w
 
 # This takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
@@ -443,7 +443,7 @@ function update!(w,g,p)
 end
 
 # We still need an extra method for Dict.
-function update!(w::Associative,g::Associative,p::Associative)
+function update!(w::AbstractDict,g::AbstractDict,p::AbstractDict)
     # g may have some keys missing!
     # if !(length(w)==length(g)==length(p))
     #     error("weight, gradient, and optimization parameters not the same length.")
@@ -464,7 +464,7 @@ function update!(w,g;lr=SGDLR,gclip=0)
 end
 
 # Two arg version defaults to SGD.
-function update!(w::Associative,g::Associative;lr=SGDLR,gclip=0)
+function update!(w::AbstractDict,g::AbstractDict;lr=SGDLR,gclip=0)
     # g may have some keys missing!
     # if !(length(w)==length(g))
     #     error("weight, gradient not the same length.")
@@ -499,9 +499,9 @@ that parallel model parameters easy when all of them use the same type
 and options.
 
 """
-optimizers{T<:Number}(::KnetArray{T},otype; o...)=otype(;o...)
-optimizers{T<:Number}(::Array{T},otype; o...)=otype(;o...)
-optimizers(a::Associative,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
+optimizers(::KnetArray{T},otype; o...) where {T<:Number}=otype(;o...)
+optimizers(::Array{T},otype; o...) where {T<:Number}=otype(;o...)
+optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
 optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing

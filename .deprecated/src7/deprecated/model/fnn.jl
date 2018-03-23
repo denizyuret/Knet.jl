@@ -1,4 +1,4 @@
-immutable FNN <: Model; net; FNN(a...;o...)=new(Net(a...;o...)); end
+struct FNN <: Model; net; FNN(a...;o...)=new(Net(a...;o...)); end
 params(m::FNN)=params(m.net)
 
 function train(m::FNN, data, loss; gclip=0, gcheck=false, maxnorm=nothing, losscnt=nothing, o...)

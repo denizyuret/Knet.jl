@@ -1,5 +1,5 @@
 "Minibatched data"
-type MB; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
+mutable struct MB; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
 
 """
 

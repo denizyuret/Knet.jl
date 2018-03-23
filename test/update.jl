@@ -11,7 +11,7 @@ function rosenmulti(x)
     v = AutoGrad.getval(x)
     if isbits(eltype(v))
         rosenbrock(x)
-    elseif isa(v, Associative)
+    elseif isa(v, AbstractDict)
         rosenbrock(x[:a]) + rosenbrock(x[:b])
     else
         rosenbrock(x[1]) + rosenbrock(x[2])
@@ -42,7 +42,7 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     return current <= ftol
 end
 
-gc(); Knet.knetgc(); gc()
+GC.gc(); Knet.knetgc(); GC.gc()
 
 @testset "update!" begin
     w = randn(dims)

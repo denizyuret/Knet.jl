@@ -5,7 +5,7 @@ learning with neural networks. Advances in neural information
 processing systems, 3104-3112.  The @knet function `net` is duplicated
 to create an encoder and a decoder.  See `S2SData` for data format.
 """
-immutable S2S <: Model; encoder; decoder; params;
+struct S2S <: Model; encoder; decoder; params;
     function S2S(kfun::Function; o...)
         enc = Net(encoder; o..., f=kfun)
         dec = Net(decoder; o..., f=kfun)
@@ -145,7 +145,7 @@ end
 
 using Base.Collections
 
-function topn{T}(a::Array{T},n::Int)
+function topn(a::Array{T},n::Int) where {T}
     p = PriorityQueue{Int,T,Base.Order.ForwardOrdering}()
     plen::Int = 0
     pmin::T = typemax(T)

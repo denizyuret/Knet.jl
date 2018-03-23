@@ -16,30 +16,30 @@ using CUDArt
 using Base: arrayset
 VERSION < v"0.4-" && (nfields(a)=length(names(a)))
 
-cpucopy(x) = cpucopy_internal(x, ObjectIdDict())
+cpucopy(x) = cpucopy_internal(x, IdDict())
 
 cpucopy_internal(x::Union{Symbol,LambdaStaticData,TopNode,GlobalRef,
                  DataType,Union,Task},
-                 stackdict::ObjectIdDict) = x
-cpucopy_internal(x::Tuple, stackdict::ObjectIdDict) =
+                 stackdict::IdDict) = x
+cpucopy_internal(x::Tuple, stackdict::IdDict) =
     ntuple(i->cpucopy_internal(x[i], stackdict), length(x))
-cpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("cpucopy of Modules not supported")
+cpucopy_internal(x::Module, stackdict::IdDict) = error("cpucopy of Modules not supported")
 
-function cpucopy_internal(x::Function, stackdict::ObjectIdDict)
+function cpucopy_internal(x::Function, stackdict::IdDict)
     if isa(x.env, Union{MethodTable, Symbol}) || x.env === ()
         return x
     end
-    invoke(cpucopy_internal, Tuple{Any, ObjectIdDict}, x, stackdict)
+    invoke(cpucopy_internal, Tuple{Any, IdDict}, x, stackdict)
 end
 
-function cpucopy_internal(x, stackdict::ObjectIdDict)
+function cpucopy_internal(x, stackdict::IdDict)
     if haskey(stackdict, x)
         return stackdict[x]
     end
     _cpucopy_t(x, typeof(x), stackdict)
 end
 
-function _cpucopy_t(x, T::DataType, stackdict::ObjectIdDict)
+function _cpucopy_t(x, T::DataType, stackdict::IdDict)
     nf = nfields(T)
     (isbits(T) || nf == 0) && return x
     if T.mutable
@@ -58,14 +58,14 @@ function _cpucopy_t(x, T::DataType, stackdict::ObjectIdDict)
     return y::T
 end
 
-function cpucopy_internal(x::Array, stackdict::ObjectIdDict)
+function cpucopy_internal(x::Array, stackdict::IdDict)
     if haskey(stackdict, x)
         return stackdict[x]
     end
     _cpucopy_array_t(x, eltype(x), stackdict)
 end
 
-function _cpucopy_array_t(x, T, stackdict::ObjectIdDict)
+function _cpucopy_array_t(x, T, stackdict::IdDict)
     if isbits(T)
         return (stackdict[x]=copy(x))
     end
@@ -79,30 +79,30 @@ function _cpucopy_array_t(x, T, stackdict::ObjectIdDict)
     return dest
 end
 
-gpucopy(x) = gpucopy_internal(x, ObjectIdDict())
+gpucopy(x) = gpucopy_internal(x, IdDict())
 
 gpucopy_internal(x::Union{Symbol,LambdaStaticData,TopNode, # GlobalRef,
                             DataType,Union,Task},
-                   stackdict::ObjectIdDict) = x
-gpucopy_internal(x::Tuple, stackdict::ObjectIdDict) =
+                   stackdict::IdDict) = x
+gpucopy_internal(x::Tuple, stackdict::IdDict) =
     ntuple(i->gpucopy_internal(x[i], stackdict), length(x))
-gpucopy_internal(x::Module, stackdict::ObjectIdDict) = error("gpucopy of Modules not supported")
+gpucopy_internal(x::Module, stackdict::IdDict) = error("gpucopy of Modules not supported")
 
-function gpucopy_internal(x::Function, stackdict::ObjectIdDict)
+function gpucopy_internal(x::Function, stackdict::IdDict)
     if isa(x.env, Union{MethodTable, Symbol}) || x.env === ()
         return x
     end
-    invoke(gpucopy_internal, Tuple{Any, ObjectIdDict}, x, stackdict)
+    invoke(gpucopy_internal, Tuple{Any, IdDict}, x, stackdict)
 end
 
-function gpucopy_internal(x, stackdict::ObjectIdDict)
+function gpucopy_internal(x, stackdict::IdDict)
     if haskey(stackdict, x)
         return stackdict[x]
     end
     _gpucopy_t(x, typeof(x), stackdict)
 end
 
-function _gpucopy_t(x, T::DataType, stackdict::ObjectIdDict)
+function _gpucopy_t(x, T::DataType, stackdict::IdDict)
     nf = nfields(T)
     (isbits(T) || nf == 0) && return x
     if T.mutable
@@ -121,14 +121,14 @@ function _gpucopy_t(x, T::DataType, stackdict::ObjectIdDict)
     return y::T
 end
 
-function gpucopy_internal(x::Array, stackdict::ObjectIdDict)
+function gpucopy_internal(x::Array, stackdict::IdDict)
     if haskey(stackdict, x)
         return stackdict[x]
     end
     _gpucopy_array_t(x, eltype(x), stackdict)
 end
 
-function _gpucopy_array_t(x, T, stackdict::ObjectIdDict)
+function _gpucopy_array_t(x, T, stackdict::IdDict)
     if isbits(T)
         return (stackdict[x]=copy(x))
     end

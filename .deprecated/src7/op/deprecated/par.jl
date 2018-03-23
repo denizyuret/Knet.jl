@@ -116,7 +116,7 @@ end
 
 # copy(x::Par)=deepcopy(x)
 
-# function cpucopy_internal{A<:CudaArray,T,N}(x::Par{A,T,N},d::ObjectIdDict)
+# function cpucopy_internal{A<:CudaArray,T,N}(x::Par{A,T,N},d::IdDict)
 #     haskey(d,x) && return d[x]
 #     y = Par{Array,T,N}()
 #     for n in fieldnames(x)
@@ -126,7 +126,7 @@ end
 #     d[x] = y
 # end
 
-# function gpucopy_internal{A<:Array,T,N}(x::Par{A,T,N},d::ObjectIdDict)
+# function gpucopy_internal{A<:Array,T,N}(x::Par{A,T,N},d::IdDict)
 #     haskey(d,x) && return d[x]
 #     y = Par{CudaArray,T,N}()
 #     for n in fieldnames(x)

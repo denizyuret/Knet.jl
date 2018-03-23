@@ -1,5 +1,5 @@
 using Compat,Knet,AutoGrad,BenchmarkTools,Distributions
-if !isdefined(:MODEL); MODEL=1; end
+if !@isdefined(MODEL); MODEL=1; end
 
 # Design choices:
 # 1. time first vs layers fist
@@ -88,7 +88,7 @@ end
 # combination of tuple/array/dict.
 initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
 initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+initoptim(a::AbstractDict,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
 initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # Create a random minibatch of sequences
@@ -665,7 +665,7 @@ nothing
 #   13   ./essentials.jl:216; vector_any()
 #  684  ...et/.julia/v0.5/AutoGrad/src/core.jl:233; backward_pass(::AutoGrad.Rec{Array{Any,1}}, ::AutoGra...
 #   271 ...uret/.julia/v0.5/Knet/src/karray.jl:995; sum_outgrads(::Knet.KnetArray{Float32,2}, ::AutoGrad....
-#   168 ...lia/v0.5/AutoGrad/src/interfaces.jl:71; sum_outgrads(::Void, ::AutoGrad.UngetIndex)
+#   168 ...lia/v0.5/AutoGrad/src/interfaces.jl:71; sum_outgrads(::Nothing, ::AutoGrad.UngetIndex)
 #   167 ...lia/v0.5/AutoGrad/src/interfaces.jl:92; sum_outgrads(::Array{Any,1}, ::AutoGrad.UngetIndex)
 #   72  ...uret/.julia/v0.5/Knet/src/karray.jl:992; sum_outgrads(::Knet.KnetArray{Float32,2}, ::Knet.Knet...
 

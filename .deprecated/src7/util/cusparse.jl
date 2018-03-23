@@ -176,15 +176,15 @@ function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSCU{T})
     return sparse(rowval, colval, nzval, m, n)
 end
 
-deepcopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=deepcopy_internal(x,s)
+deepcopy_internal(x::CudaSparseMatrixCSRU, s::IdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSRU, s::IdDict)=deepcopy_internal(x,s)
 
-deepcopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=deepcopy_internal(x,s)
+deepcopy_internal(x::CudaSparseMatrixCSCU, s::IdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSCU, s::IdDict)=deepcopy_internal(x,s)
 
-deepcopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=deepcopy_internal(x,s)
-gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
+deepcopy_internal(x::CudaSparseMatrix, s::IdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrix, s::IdDict)=deepcopy_internal(x,s)
+gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::IdDict)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
 
 # We need cpu versions of CudaSparseMatrices for cpu/gpucopy to work
 if !isdefined(:SparseMatrixCSR0)
@@ -235,8 +235,8 @@ end
 isdefined(:SparseMatrix0) || (typealias SparseMatrix0 Union{SparseMatrixCSC0,SparseMatrixCSR0,SparseMatrixCSCU,SparseMatrixCSRU})
 isdefined(:CudaSparseMatrix0) || typealias CudaSparseMatrix0 Union{CudaSparseMatrixCSC,CudaSparseMatrixCSR,CudaSparseMatrixCSCU,CudaSparseMatrixCSRU}
 
-cpucopy_internal(x::CudaSparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
-gpucopy_internal(x::SparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
+cpucopy_internal(x::CudaSparseMatrix0, s::IdDict)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
+gpucopy_internal(x::SparseMatrix0, s::IdDict)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
 
 cpucopy_sparse{T}(x::CudaSparseMatrixCSC{T})=SparseMatrixCSC0{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
 cpucopy_sparse{T}(x::CudaSparseMatrixCSCU{T})=SparseMatrixCSCU{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
