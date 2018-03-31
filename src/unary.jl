@@ -29,7 +29,10 @@ unary_ops = [
 ("invx", "invx", "1/xi"),
 # "j0",
 # "j1",
-# "lgamma", # missing digamma for derivative
+("gamma_impl", "gamma", "gamma_impl(xi)"),
+"lgamma", # missing digamma for derivative
+("digamma_impl", "digamma", "digamma_impl(xi)"),
+("trigamma_impl", "trigamma", "trigamma_impl(xi)"),
 # "llrint",
 # "llround",
 "log",
