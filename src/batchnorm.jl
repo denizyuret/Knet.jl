@@ -419,7 +419,6 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
                             cache=nothing, moments=nothing,  o...)
     eps = T(eps)
     dims = _reddims(x)
-    dx = similar(x)
     if training
         mu, ivar = _get_cache_data(cache, x, eps)
         x_mu = x .- mu
@@ -428,15 +427,14 @@ function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
         if g !== nothing
             dg = sum(x_mu .* dyivar, dims)
             db = sum(dy, dims)
-            dy = g .* dy
+            dyivar .*= g
         else
             dg, db = nothing, nothing
         end
         m = prod(size(x, dims...))
-        dsigma2, dmu = similar(ivar), similar(mu)
-        dsigma2 .= -T(0.5) .* sum(dyivar .* x_mu .* ivar.^2, dims)
-        dmu .= -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
-        dx .= dyivar .+ dsigma2 .* 2x_mu ./ m .+ dmu ./ m
+        dsigma2 = -sum(dyivar .* x_mu .* ivar.^2, dims) ./ 2
+        dmu = -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
+        dx = dyivar .+ dsigma2 .* 2x_mu ./ m .+ dmu ./ m
     else #same reasoning with the gpu version
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
