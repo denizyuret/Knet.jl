@@ -271,7 +271,7 @@ nav.toc ul.internal {
 }
 
 nav.toc ul.internal li.toplevel {
-    border-top: 1px solid #c9c9c9;
+    border-top: 1px solid #909090;
     font-weight: bold;
 }
 
@@ -458,10 +458,6 @@ article section.docstring a.source-link {
 /* Search page */
 #search-results .category {
     font-size: smaller;
-}
-
-#search-results .category:before {
-    content: " ";
 }
 
 /* Overriding the <code> block style of highligh.js.
