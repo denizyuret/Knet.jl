@@ -13,6 +13,7 @@ General
 * Fixed default `dropout` behavior which was not applying dropout to input to obey the pdrop argument.
 * Added support for `mean(f::Function,x::KnetArray)`.
 * Added `vcat` support for scalar arguments.
+* Fixed `batchnorm` cpu backward pass (@CarloLucibello)
 
 Documentation and Examples
 --------------------------
