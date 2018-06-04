@@ -198,6 +198,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
       (r.mode == 1 && 1 <= id <= 2) ||
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
+    i1 = i2 = len = 0
     if isa(getval(w), KnetArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
@@ -223,8 +224,10 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
         len = prod(sz)
-        i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
-        i2 = i1 + len - 1
+        if len > 1
+            i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
+            i2 = i1 + len - 1
+        end
     else
         # guess i1,i2,len from layer,id,par and rnn specs
         ids = rnnids(r)
@@ -236,7 +239,6 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
             X, H = r.inputSize, r.hiddenSize
             XH, HH = X*H, H*H
             inputIds = div(ids,2)
-            i1 = i2 = len = 0
             for l = 1:layer, i = 1:ids
                 if inputLayer(r,l) && i <= inputIds
                     len = (r.inputMode==0 ? XH : 0)
