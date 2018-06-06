@@ -3,7 +3,7 @@
 # Introduction to Knet
 
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) [![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet) [![](https://gitlab.com/JuliaGPU/Knet.jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/Knet.jl/commits/master)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) [![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet) [![](https://gitlab.com/JuliaGPU/Knet.jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/Knet.jl/pipelines)
 
 
 
