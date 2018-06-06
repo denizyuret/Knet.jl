@@ -37,6 +37,17 @@ include("header.jl")
                 @test isapprox(f(a,dims),f(k,dims))
             end
         end
+
+        a = rand(10,10, 10)
+        for d in [1, 2, 3, (1,2), (1,3), [2,3], [1,2,3]]
+            @test softmax(a, d) ≈ exp.(logsoftmax(a, d))
+            @test all(sum(softmax(a, d), d) .≈ 1)
+            if gpu() > 0
+                k = KnetArray(a)
+                @test softmax(k, d) ≈ exp.(logsoftmax(k, d))
+                @test all(sum(softmax(k, d), d) .≈ 1)
+            end
+        end
     end
 
     a = rand(10,10)
