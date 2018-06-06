@@ -37,7 +37,7 @@ function xavier(a...)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = convert(eltype(w), sqrt(2 / (fanin + fanout)))
+    s = convert(eltype(w), sqrt(6 / (fanin + fanout)))
     w = 2s*w-s
 end
 
