@@ -43,6 +43,27 @@ end
 
 """
 
+    kaiming(a...)
+
+Kaiming He initialization.  The `a` arguments are passed to `rand`.
+See ([He et al. 2015](https://arxiv.org/abs/1502.01852)) for a description.
+"""
+function kaiming(a...)
+    w = rand(a...)
+    if ndims(w) == 1
+        fanin = length(w)
+    elseif ndims(w) == 2
+        fanin = size(w,2)
+    else
+        fanout = size(w, ndims(w))
+        fanin = div(length(w), fanout)
+    end
+    s = convert(eltype(w), sqrt(3 / fanin))
+    w = 2s*w-s
+end
+
+"""
+
 Bilinear interpolation filter weights; used for initializing deconvolution layers.
 
 Adapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33
