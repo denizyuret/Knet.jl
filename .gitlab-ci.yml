@@ -1,0 +1,46 @@
+before_script:
+  - julia -e 'versioninfo()'
+
+variables:
+  JULIA_PKGDIR: "$CI_PROJECT_DIR/.julia/"
+  package: 'Knet'
+
+stages:
+  - test
+  - postprocess
+
+
+## testing
+
+.test_template: &pkg2_test_template
+  script:
+    - julia -e "Pkg.init();
+                symlink(\"$CI_PROJECT_DIR\", joinpath(Pkg.dir(), \"$package\"));
+                Pkg.resolve();
+                Pkg.build(\"$package\");
+                Pkg.test(\"$package\"; coverage=true)"
+  artifacts:
+    paths:
+      - .julia/
+      - deps/
+      - src/*.cov
+
+test:v0.6:
+  stage: test
+  image: juliagpu/julia:v0.6
+  <<: *pkg2_test_template
+
+
+## post-processing
+
+coverage:
+  stage: postprocess
+  image: juliagpu/julia:v0.6
+  dependencies:
+    - test:v0.6
+  script:
+    - julia -e 'Pkg.add("Coverage")'
+    - julia -e 'using Coverage;
+                cl, tl = get_summary(process_folder());
+                println("(", cl/tl*100, "%) covered")'
+  coverage: '/\(\d+.\d+\%\) covered/'
