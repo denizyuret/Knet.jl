@@ -25,7 +25,7 @@ implements this slightly differently.
 calls it `GlorotUniform`.
 
 """
-function xavier(a...)
+function xavier(a...; gain=6)
     w = rand(a...)
     if ndims(w) == 1
         fanout = 1
@@ -37,7 +37,7 @@ function xavier(a...)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = convert(eltype(w), sqrt(6 / (fanin + fanout)))
+    s = convert(eltype(w), sqrt(gain / (fanin + fanout)))
     w = 2s*w-s
 end
 
@@ -48,7 +48,7 @@ end
 Kaiming He initialization.  The `a` arguments are passed to `rand`.
 See ([He et al. 2015](https://arxiv.org/abs/1502.01852)) for a description.
 """
-function kaiming(a...)
+function kaiming(a...; gain=3)
     w = rand(a...)
     if ndims(w) == 1
         fanin = length(w)
@@ -58,7 +58,7 @@ function kaiming(a...)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = convert(eltype(w), sqrt(3 / fanin))
+    s = convert(eltype(w), sqrt(gain / fanin))
     w = 2s*w-s
 end
 
