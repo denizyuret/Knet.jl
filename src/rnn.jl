@@ -319,7 +319,7 @@ end
     - `seed=0`: Random number seed. Uses `time()` if 0.
     - `winit=xavier`: Weight initialization method for matrices.
     - `binit=zeros`: Weight initialization method for bias vectors.
-    - `usegpu=(gpu()>=0): GPU used by default if one exists.
+    - `usegpu=(gpu()>=0)`: GPU used by default if one exists.
 
     RNNs compute the output h[t] for a given iteration from the recurrent
     input h[t-1] and the previous layer input x[t] given matrices W, R and
