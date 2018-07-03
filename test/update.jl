@@ -75,4 +75,13 @@ gc(); Knet.knetgc(); gc()
     end
 end
 
+mutable struct A305 <: AbstractArray{Float32,1} end
+
+@testset "optimisers" begin
+    opt = optimizers(A305(), Adam)
+    @test typeof(opt) == Adam
+    opt = optimizers([A305(), A305()], Adam)
+    @test typeof.(opt) == [Adam, Adam]
+end
+
 nothing
