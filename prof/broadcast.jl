@@ -7,7 +7,7 @@ const sizes = (1,10,100,128,512,1000,1024,2048)
 function f01(a,b)
     c=similar(a)
     n=length(a)
-    for i=1:N; ccall(("add_32_01",Knet.libknet8),Nothing,(Cint,Float32,Ptr{Float32},Ptr{Float32}),n,b,a,c); end
+    for i=1:N; ccall(("add_32_01",Knet.libknet8),Cvoid,(Cint,Float32,Ptr{Float32},Ptr{Float32}),n,b,a,c); end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -16,7 +16,7 @@ function f12(x,y)
     (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
     nz = length(z)
-    for i=1:N; ccall(("add_32_12",Knet.libknet8),Nothing,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nz,x,sx,nx,y,sy,ny,z); end
+    for i=1:N; ccall(("add_32_12",Knet.libknet8),Cvoid,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nz,x,sx,nx,y,sy,ny,z); end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -29,7 +29,7 @@ function f13_x_y(x,y)
     # if broadcast last dimension, nextstride is zero
     brdcastnextstride = ((ylast+1) > ndims(x) ? 0: strides(x)[ylast+1])
     multidimsize = prod(size(x)[ylast+1:end])
-    for i=1:N; ccall(("add_32_13_x_y",Knet.libknet8),Nothing,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y)) end
+    for i=1:N; ccall(("add_32_13_x_y",Knet.libknet8),Cvoid,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y)) end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -40,7 +40,7 @@ function f14_x_y(x,y)
     (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
     flat_dimsize=(length(x)/length(y))
-    for i=1:N; ccall(("add_32_14_x_y",Knet.libknet8),Nothing,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize) end
+    for i=1:N; ccall(("add_32_14_x_y",Knet.libknet8),Cvoid,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize) end
     Knet.cudaDeviceSynchronize()
 end
 
