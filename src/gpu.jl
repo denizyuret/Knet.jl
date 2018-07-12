@@ -47,7 +47,7 @@ macro nvml(fun,x...)
     esc(Expr(:macrocall,Symbol("@cuda"),"nvml",fun,x...))
 end
 
-const Cptr = Ptr{Nothing}
+const Cptr = Ptr{Cvoid}
 
 """
 
