@@ -1,0 +1,5 @@
+[deps]
+AutoGrad = "87f375c9-9a48-40e3-9860-abb945b7e0cf"
+CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
+CUDArt = "58537def-5585-50ba-9aa0-2cfa4b6fa1b7"
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
