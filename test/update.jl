@@ -11,7 +11,7 @@ function rosenmulti(x)
     v = AutoGrad.getval(x)
     if isbits(eltype(v))
         rosenbrock(x)
-    elseif isa(v, Associative)
+    elseif isa(v, AbstractDict)
         rosenbrock(x[:a]) + rosenbrock(x[:b])
     else
         rosenbrock(x[1]) + rosenbrock(x[2])

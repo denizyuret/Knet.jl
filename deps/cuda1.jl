@@ -232,7 +232,7 @@ end
 # using Combinatorics
 
 import Base: start, next, done, length
-immutable Perms; a; end
+struct Perms; a; end
 perms(a) = Perms(a)
 start(p::Perms) = [1:length(p.a);]
 length(p::Perms) = factorial(length(p.a))

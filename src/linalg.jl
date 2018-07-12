@@ -1,31 +1,31 @@
-import Base: *, transpose, permutedims, A_mul_B!
-import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
-import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
-import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
-import Base.LinAlg.BLAS: gemm!
-import Base.LinAlg: axpy!, scale!
+import Base: *, transpose, permutedims
+import Compat.LinearAlgebra: A_mul_B!, A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
+import Compat.LinearAlgebra: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
+import Compat.LinearAlgebra: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
+import Compat.LinearAlgebra.BLAS: gemm!
+import Compat.LinearAlgebra: axpy!, scale!
 export axpy!
 
-A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
-(*){T}(A::KnetMatrix{T},B::KnetMatrix{T})=A_mul_B!(similar(A,(size(A,1),size(B,2))),A,B)
+A_mul_B!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=gemm!('N','N',one(T),A,B,zero(T),C)
+(*)(A::KnetMatrix{T},B::KnetMatrix{T}) where {T}=A_mul_B!(similar(A,(size(A,1),size(B,2))),A,B)
 
-A_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
-A_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(similar(A,(size(A,1),size(B,1))),A,B)
-A_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(C,A,B)
-A_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt(A,B)
+A_mul_Bt!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=gemm!('N','T',one(T),A,B,zero(T),C)
+A_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=A_mul_Bt!(similar(A,(size(A,1),size(B,1))),A,B)
+A_mul_Bc!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=A_mul_Bt!(C,A,B)
+A_mul_Bc(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=A_mul_Bt(A,B)
 
-At_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
-At_mul_B{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(similar(A,(size(A,2),size(B,2))),A,B)
-Ac_mul_B!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(C,A,B)
-Ac_mul_B{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B(A,B)
+At_mul_B!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=gemm!('T','N',one(T),A,B,zero(T),C)
+At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=At_mul_B!(similar(A,(size(A,2),size(B,2))),A,B)
+Ac_mul_B!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=At_mul_B!(C,A,B)
+Ac_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=At_mul_B(A,B)
 
-At_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','T',one(T),A,B,zero(T),C)
-At_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(similar(A,(size(A,2),size(B,1))),A,B)
-Ac_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(C,A,B)
-Ac_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt(A,B)
+At_mul_Bt!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=gemm!('T','T',one(T),A,B,zero(T),C)
+At_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=At_mul_Bt!(similar(A,(size(A,2),size(B,1))),A,B)
+Ac_mul_Bc!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=At_mul_Bt!(C,A,B)
+Ac_mul_Bc(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T<:Real}=At_mul_Bt(A,B)
 
 
-function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T})
+function gemm!(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
     cublasop(c::Char)=(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
     size2(x,i)=(if ndims(x)<=2; size(x,i); elseif i==1; div(length(x),size(x,ndims(x))); elseif i==2; size(x,ndims(x)); else 1; end)
     if transA == 'N'
@@ -54,7 +54,7 @@ function gemm!{T}(transA::Char, transB::Char, alpha::Number, A::KnetArray{T}, B:
     return C
 end
 
-function axpy!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::KnetArray{T}, incy::Integer)
+function axpy!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::KnetArray{T}, incy::Integer) where {T}
     length(x) == length(y) || throw(DimensionMismatch("$(map(size,(x,y)))"))
     alpha = T[alpha]
     if T<:Float32
@@ -67,10 +67,10 @@ function axpy!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::
     return y
 end
 
-axpy!{T}(alpha::Number, x::KnetArray{T}, y::KnetArray{T})=axpy!(length(x),alpha,x,1,y,1)
+axpy!(alpha::Number, x::KnetArray{T}, y::KnetArray{T}) where {T}=axpy!(length(x),alpha,x,1,y,1)
 
 
-function scal!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer)
+function scal!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer) where {T}
     alpha = T[alpha]
     if T<:Float32
         @cuda(cublas, cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
@@ -82,10 +82,10 @@ function scal!{T}(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer)
     return x
 end
 
-scale!{T}(alpha::Number, x::KnetArray{T})=scal!(length(x),alpha,x,1)
-scale!{T}(x::KnetArray{T}, alpha::Number)=scal!(length(x),alpha,x,1)
+scale!(alpha::Number, x::KnetArray{T}) where {T}=scal!(length(x),alpha,x,1)
+scale!(x::KnetArray{T}, alpha::Number) where {T}=scal!(length(x),alpha,x,1)
 
-function transpose{T}(x::KnetArray{T})
+function transpose(x::KnetArray{T}) where {T}
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
     # Using CUBLAS
     sz = size(x)
@@ -133,8 +133,9 @@ function mat(x)
 end
 
 
-import Base: permutedims, ipermutedims
-function permutedims{T,N}(x::KnetArray{T,N}, dims)
+import Base: permutedims
+
+function permutedims(x::KnetArray{T,N}, dims) where {T,N}
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
         # use individual == to cover row col vecs tuples etc
@@ -145,7 +146,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
             #=
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
                         $x,size($x,1),size($x,2),$y,size($y,1))
             return y
             =#
@@ -160,7 +161,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
             return y
         end
@@ -170,7 +171,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
             return y
         end
@@ -180,7 +181,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
             return y
         end
@@ -189,7 +190,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
     end
 end
 
-function permutefunc{T,N}(x::KnetArray{T,N}, dims)
+function permutefunc(x::KnetArray{T,N}, dims) where {T,N}
     funcName = "permutedims_$(N)D_"
     for i=1:N
         funcName = funcName * "$(dims[i])_"
@@ -204,19 +205,22 @@ function permutefunc{T,N}(x::KnetArray{T,N}, dims)
     return funcName
 end    
 
-function ipermutedims(A::KnetArray,perm)
-    iperm = Array{Int}(length(perm))
-    for (i,p) = enumerate(perm)
-        iperm[p] = i
+if VERSION < v"0.6.0-dev.951"
+    import Base.ipermutedims
+    function ipermutedims(A::KnetArray,perm)
+        iperm = Array{Int}(length(perm))
+        for (i,p) = enumerate(perm)
+            iperm[p] = i
+        end
+        return permutedims(A,iperm)
     end
-    return permutedims(A,iperm)
 end
 
 # Low level gemm! call with pointers
 
-using Base.LinAlg
-using Base.LinAlg.BLAS: libblas, BlasInt
-using Base.LinAlg.BLAS: @blasfunc
+using Compat.LinearAlgebra
+using Compat.LinearAlgebra.BLAS: libblas, BlasInt
+using Compat.LinearAlgebra.BLAS: @blasfunc
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,
@@ -232,13 +236,13 @@ for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
             if transA=='N'; lda=M; else; lda=K; end
             if transB=='N'; ldb=K; else; ldb=N; end
             ldc = M;
-            ccall((@blasfunc($gemm), libblas), Void,
-                  (Ptr{UInt8}, Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt},
-                   Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
-                   Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty},
-                   Ptr{BlasInt}),
-                  &transA, &transB, &M, &N, &K,
-                  &alpha, A, &lda, B, &ldb, &beta, C, &ldc)
+            ccall((@blasfunc($gemm), libblas), Nothing,
+                  (Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt},
+                   Ref{BlasInt}, Ref{$elty}, Ref{$elty}, Ref{BlasInt},
+                   Ref{$elty}, Ref{BlasInt}, Ref{$elty}, Ref{$elty},
+                   Ref{BlasInt}),
+                  transA, transB, M, N, K,
+                  alpha, A, lda, B, ldb, beta, C, ldc)
         end
     end
 end

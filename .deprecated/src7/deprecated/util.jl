@@ -16,7 +16,7 @@ function isequal(a::Net, b::Net)
 end
 
 # Do not copy everything to gpu
-function gpucopy_internal(x::Net, s::ObjectIdDict)
+function gpucopy_internal(x::Net, s::IdType)
     haskey(s,x) && return s[x]
     n = Net()
     for f in (:netinputs, :sp)
@@ -775,7 +775,7 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 
 # # Do not copy inputs to gpu:
 
-# function gpucopy_internal(x::Net, stackdict::ObjectIdDict)
+# function gpucopy_internal(x::Net, stackdict::IdType)
 #     if haskey(stackdict, x)
 #         return stackdict[x]
 #     end

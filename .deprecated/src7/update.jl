@@ -1,4 +1,4 @@
-using Base.LinAlg: axpy!, scale!
+using Compat.LinearAlgebra: axpy!, scale!
 
 function update!(r::Reg; gscale=1, o...)
     initupdate(r)

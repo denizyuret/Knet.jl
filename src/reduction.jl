@@ -12,12 +12,12 @@ reduction_ops = [
 # ai is the accumulator, xi is the array element
 ("sum","sum","ai+xi","xi","0"),
 ("prod","prod","ai*xi","xi","1"),
-("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
-("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
+("maximum","maximum","(ai>xi ? ai : xi)","xi","(-INFINITY)"),
+("minimum","minimum","(ai<xi ? ai : xi)","xi","INFINITY"),
+("sumabs","sumabs_","ai+xi","(xi<0 ? -xi : xi)","0"),
 ("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
-("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
-("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+("maxabs","maxabs_","(ai>xi ? ai : xi)","(xi<0 ? -xi : xi)","0"),
+("minabs","minabs_","(ai<xi ? ai : xi)","(xi<0 ? -xi : xi)","INFINITY"),
 ("countnz","countnz","ai+xi","(xi!=0)","0"),
 ]
 
@@ -70,7 +70,7 @@ function reduction_op(f, j=f, o...)
                     return y
                 else
                     y = $J(x,region[1])
-                    f = $J==sumabs2?sum:$J
+                    f = $J==sumabs2 ? sum : $J
                     for k=2:length(region)
                         y = f(y,region[k])
                     end
@@ -90,11 +90,11 @@ end
 
 # Norm primitives:
 
-import Base.LinAlg: norm, vecnorm
+import Compat.LinearAlgebra: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 
-function vecnorm{T}(x::KnetArray{T}, p::Real=2)
+function vecnorm(x::KnetArray{T}, p::Real=2) where {T}
     if length(x) == 0
         zero(T)
     elseif p == 2
@@ -112,6 +112,6 @@ function vecnorm{T}(x::KnetArray{T}, p::Real=2)
     end
 end
 
-Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}) = sum(a) / length(a)
-Base.mean{T<:KnetArray}(a::Union{T, Rec{T}}, r) = (b=sum(a,r); (b*convert(eltype(b),length(b)/length(a))))
-Base.mean{T<:KnetArray}(f::Function, a::Union{T, Rec{T}}) = sum(f, a) / length(a)
+Base.mean(a::Union{T, Rec{T}}) where {T<:KnetArray} = sum(a) / length(a)
+Base.mean(a::Union{T, Rec{T}}, r) where {T<:KnetArray} = (b=sum(a,r); (b*convert(eltype(b),length(b)/length(a))))
+Base.mean(f::Function, a::Union{T, Rec{T}}) where {T<:KnetArray} = sum(f, a) / length(a)

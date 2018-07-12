@@ -63,7 +63,7 @@ end
 # TODO: explain back and update
 # TODO: what if we froze the SV and used regular updates (copy sv into mmul)?
 
-# using Base.LinAlg.BLAS: gemm!
+# using Compat.LinearAlgebra.BLAS: gemm!
 
 # OK forget about cuda, just do Array and SparseArray for now.
 # Use generic code, forget about efficiency.

@@ -35,7 +35,7 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
+        fx = Expr(:call, :ccall, ("$fun",libknet8), :Nothing, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
     else
@@ -47,7 +47,7 @@ macro nvml(fun,x...)
     esc(Expr(:macrocall,Symbol("@cuda"),"nvml",fun,x...))
 end
 
-const Cptr = Ptr{Void}
+const Cptr = Ptr{Nothing}
 
 """
 

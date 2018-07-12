@@ -1,10 +1,10 @@
-GCDEBUG=false; gcdebug(b::Bool)=(global GCDEBUG=b)
+# GCDEBUG=false; gcdebug(b::Bool)=(global GCDEBUG=b)
 
 # KnetPtr type holds a gpu (dev>=0) or cpu (dev=-1) allocated pointer.
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
 
-type KnetPtr
+mutable struct KnetPtr
     ptr::Cptr                   # actual pointer
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
@@ -14,10 +14,10 @@ end
 # We use the KnetPtrs type to keep track of allocated and garbage
 # collected pointers: We keep one KnetPtrs struct per size per device.
 
-type KnetPtrs
+mutable struct KnetPtrs
     used::Int                   # number of allocated pointers
     free::Array{Cptr,1}         # pointers available for reuse
-    KnetPtrs()=new(0,Array{Cptr}(0))
+    KnetPtrs()=new(0,Array{Cptr}(undef,0))
 end
 
 # KnetFree[dev+2] will hold a dictionary from sizes to KnetPtrs for
@@ -42,7 +42,11 @@ end
 
 function KnetPtr(ptr::Cptr,len::Int,dev::Int)
     kp = KnetPtr(ptr,len,dev,nothing)
-    finalizer(kp, freeKnetPtr)
+    if VERSION < v"0.7.0-DEV.2562"
+        finalizer(kp, freeKnetPtr)
+    else
+        finalizer(freeKnetPtr, kp)
+    end
     return kp
 end
 
@@ -81,7 +85,7 @@ function KnetPtr(nbytes::Integer)
         ptrs.used += 1
         return KnetPtr(ptr,nbytes,dev)
     end
-    gc(); if GCDEBUG; print('-'); end
+    GC.gc(); if GCDEBUG; print('-'); end
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
@@ -119,7 +123,7 @@ collected pointers for reuse. Try this if you run out of GPU memory.
 """
 function knetgc(dev=gpu())
     if KnetFree == nothing; return; end
-    gc(); gc_enable(false)
+    GC.gc(); GC.enable(false)
     for v in values(KnetFree[dev+2])
         if dev >= 0
             for p in v.free
@@ -129,7 +133,7 @@ function knetgc(dev=gpu())
         v.used -= length(v.free)
         empty!(v.free)
     end
-    gc_enable(true); gc()
+    GC.enable(true); GC.gc()
 end
 
 # Some utilities
