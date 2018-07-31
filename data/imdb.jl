@@ -2,11 +2,11 @@
 # Also see https://github.com/fchollet/keras/raw/master/examples/imdb_lstm.py
 # Also see https://github.com/ilkarman/DeepLearningFrameworks/raw/master/common/utils.py
 
-for p in ("PyCall","JSON","JLD2")
+for p in ("PyCall","JSON","JLD")
     Pkg.installed(p) == nothing && Pkg.add(p)
 end
 
-using PyCall,JSON,JLD2
+using PyCall,JSON,JLD
 
 """
 
@@ -31,7 +31,7 @@ function imdb(;
               dir = Pkg.dir("Knet","data","imdb"),
               data="imdb.npz",
               dict="imdb_word_index.json",
-              jld2="imdb.jld2",
+              jld="imdb.jld",
               maxval=nothing,
               maxlen=nothing,
               seed=0, oov=true, stoken=true, pad=true
@@ -39,8 +39,8 @@ function imdb(;
     global _imdb_xtrn,_imdb_ytrn,_imdb_xtst,_imdb_ytst,_imdb_dict
     if !isdefined(:_imdb_xtrn)
         isdir(dir) || mkpath(dir)
-        jld2path = joinpath(dir,jld2)
-        if !isfile(jld2path)
+        jldpath = joinpath(dir,jld)
+        if !isfile(jldpath)
             info("Downloading IMDB...")
             datapath = joinpath(dir,data)
             dictpath = joinpath(dir,dict)
@@ -53,12 +53,12 @@ function imdb(;
             _imdb_xtst = map(a->np.asarray(a,dtype=np.int32), get(d, "x_test"))
             _imdb_ytst = Array{Int8}(get(d, "y_test") .+ 1)
             _imdb_dict = Dict{String,Int32}(JSON.parsefile(dictpath))
-            JLD2.@save jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
+            JLD.@save jldpath _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
             #rm(datapath)
             #rm(dictpath)
         end
         info("Loading IMDB...")
-        JLD2.@load jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
+        JLD.@load jldpath _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
     end
     if seed != 0; srand(seed); end
     xs = [_imdb_xtrn;_imdb_xtst]
