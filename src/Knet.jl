@@ -36,6 +36,8 @@ include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
 include("data.jl");             export minibatch
 
+VERSION > v"0.6-" && include("model.jl")
+
 """
     Knet.dir(path...)
 
