@@ -142,7 +142,7 @@ end
 # starting at column di.  Used by uniq!  Don't need sparse version,
 # weights always dense.
 
-using Base.LinAlg: axpy!
+using Compat.LinearAlgebra: axpy!
 
 # cadd!{A,T,N}(dst::BaseArray{T,N}, di, src::KUdense{A,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst,di,src.arr,si,n); dst)
 # cadd!{A,B,T,N}(dst::KUdense{A,T,N}, di, src::KUdense{B,T,N}, si=1, n=ccount(src)-si+1)=(cadd!(dst.arr,di,src.arr,si,n); dst)

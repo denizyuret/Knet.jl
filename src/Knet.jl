@@ -1,6 +1,10 @@
-__precompile__()
+#__precompile__() rened
 
 module Knet
+
+using Compat, Compat.Libdl, Compat.Random, Compat.Pkg, Compat.LinearAlgebra
+
+IdType = VERSION < v"0.7.0-DEV.3439" ? ObjectIdDict : IdDict
 
 # To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
 # can be used to show a subset of dbg messages indicated by the `bit`

@@ -2,7 +2,7 @@ issimilar(a,b)=((typeof(a)==typeof(b)) && (size(a)==size(b)))
 
 # Fix bug with deepcopy, where a shared bits array is copied multiple times:
 # TODO: check if this bug is still there
-Base.deepcopy_internal{T<:Number}(x::Array{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
+Base.deepcopy_internal{T<:Number}(x::Array{T}, s::IdType)=(haskey(s,x)||(s[x]=copy(x));s[x])
 
 function Base.isapprox(x, y; 
                        maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
@@ -41,7 +41,7 @@ end
 
 # This is missing from sparse/linalg.jl: modified from (*) line 100.
 import Base: A_mul_B!, A_mul_Bt!, At_mul_B!
-using Base.LinAlg.BLAS: gemm!
+using Compat.LinearAlgebra.BLAS: gemm!
 
 ### Add the ability to multiply arrays with other than 2 dimensions
 mat2d(x)=(ndims(x)==2 ? x : (x2=reshape(x, size2(x));pointer(x2)===pointer(x)||error();x2))

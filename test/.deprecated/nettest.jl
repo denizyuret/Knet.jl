@@ -1,7 +1,7 @@
 using CUDArt, CUSPARSE, CUDNN, CUBLAS
 #using Knet, 
 #import Knet: forw, back, loss, ninputs, overwrites, back_reads_x, back_reads_y, gpu, axpb!, @gpu, issimilar, mul2!
-#using Base.LinAlg: axpy!, scale!
+#using Compat.LinearAlgebra: axpy!, scale!
 
 include("util/gpu.jl")
 include("util/cudart.jl")

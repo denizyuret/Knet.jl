@@ -247,10 +247,10 @@ end
 import Base: +, -, *, /, \
 
 # Here we'll just define some functions that specifically do not have broadcasting.
-(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
-(-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
-#(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
-#(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
+(+)(x::KnetArray{T},y::KnetArray{T}) where {T}=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
+(-)(x::KnetArray{T},y::KnetArray{T}) where {T}=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
+#(*)(x::KnetArray{T},y::KnetArray{T}) where {T}=(.*)(x,y) # This is matmul
+#(/)(x::KnetArray{T},y::KnetArray{T}) where {T}=(./)(x,y) # This is another linalg op
 
 # Broadcast max/min haven't been defined in Base:
 # max(a::Array,b::Array)=broadcast(max,a,b)
@@ -262,49 +262,49 @@ import Base: broadcast
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
 @eval begin
-    $(broadcast_func(+)){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
-    $(broadcast_func(+)){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
-    $(broadcast_func(-)){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
-    $(broadcast_func(-)){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
-    $(broadcast_func(*)){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
-    $(broadcast_func(*)){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
-    $(broadcast_func(/)){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
-    $(broadcast_func(/)){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
-    $(broadcast_func(max)){T}(a::KnetArray{T},s::Number)=max.(T(s),a)
-    $(broadcast_func(max)){T}(s::Number,a::KnetArray{T})=max.(T(s),a)
-    $(broadcast_func(min)){T}(a::KnetArray{T},s::Number)=min.(T(s),a)
-    $(broadcast_func(min)){T}(s::Number,a::KnetArray{T})=min.(T(s),a)
-    $(broadcast_func(^)){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
+    $(broadcast_func(+))(a::KnetArray{T},s::Number) where {T}=(.+)(T(s),a)
+    $(broadcast_func(+))(s::Number,a::KnetArray{T}) where {T}=(.+)(T(s),a)
+    $(broadcast_func(-))(a::KnetArray{T},s::Number) where {T}=(.+)(T(-s),a)
+    $(broadcast_func(-))(s::Number,a::KnetArray{T}) where {T}=(.-)(T(s),a)
+    $(broadcast_func(*))(a::KnetArray{T},s::Number) where {T}=(.*)(T(s),a)
+    $(broadcast_func(*))(s::Number,a::KnetArray{T}) where {T}=(.*)(T(s),a)
+    $(broadcast_func(/))(a::KnetArray{T},s::Number) where {T}=(.*)(T(1/s),a)
+    $(broadcast_func(/))(s::Number,a::KnetArray{T}) where {T}=(./)(T(s),a)
+    $(broadcast_func(max))(a::KnetArray{T},s::Number) where {T}=max.(T(s),a)
+    $(broadcast_func(max))(s::Number,a::KnetArray{T}) where {T}=max.(T(s),a)
+    $(broadcast_func(min))(a::KnetArray{T},s::Number) where {T}=min.(T(s),a)
+    $(broadcast_func(min))(s::Number,a::KnetArray{T}) where {T}=min.(T(s),a)
+    $(broadcast_func(^))(s::Number,a::KnetArray{T}) where {T}=(.^)(T(s),a)
     # Pow is the one exception, we need to define a separate kernel:
     rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
-    $(broadcast_func(^)){T}(a::KnetArray{T},s::Number)=rpow.(T(s),a)
+    $(broadcast_func(^))(a::KnetArray{T},s::Number) where {T}=rpow.(T(s),a)
 end
 
 @eval begin
-    $(broadcast_func(==)){T}(a::KnetArray{T},s::Number)=(T(s).==a)
-    $(broadcast_func(==)){T}(s::Number,a::KnetArray{T})=(T(s).==a)
-    $(broadcast_func(!=)){T}(a::KnetArray{T},s::Number)=(T(s).!=a)
-    $(broadcast_func(!=)){T}(s::Number,a::KnetArray{T})=(T(s).!=a)
-    $(broadcast_func(>)){T}(a::KnetArray{T},s::Number)=(T(s).<a)
-    $(broadcast_func(>)){T}(s::Number,a::KnetArray{T})=(T(s).>a)
-    $(broadcast_func(>=)){T}(a::KnetArray{T},s::Number)=(T(s).<=a)
-    $(broadcast_func(>=)){T}(s::Number,a::KnetArray{T})=(T(s).>=a)
-    $(broadcast_func(<)){T}(a::KnetArray{T},s::Number)=(T(s).>a)
-    $(broadcast_func(<)){T}(s::Number,a::KnetArray{T})=(T(s).<a)
-    $(broadcast_func(<=)){T}(a::KnetArray{T},s::Number)=(T(s).>=a)
-    $(broadcast_func(<=)){T}(s::Number,a::KnetArray{T})=(T(s).<=a)
+    $(broadcast_func(==))(a::KnetArray{T},s::Number) where {T}=(T(s).==a)
+    $(broadcast_func(==))(s::Number,a::KnetArray{T}) where {T}=(T(s).==a)
+    $(broadcast_func(!=))(a::KnetArray{T},s::Number) where {T}=(T(s).!=a)
+    $(broadcast_func(!=))(s::Number,a::KnetArray{T}) where {T}=(T(s).!=a)
+    $(broadcast_func(>))(a::KnetArray{T},s::Number) where {T}=(T(s).<a)
+    $(broadcast_func(>))(s::Number,a::KnetArray{T}) where {T}=(T(s).>a)
+    $(broadcast_func(>=))(a::KnetArray{T},s::Number) where {T}=(T(s).<=a)
+    $(broadcast_func(>=))(s::Number,a::KnetArray{T}) where {T}=(T(s).>=a)
+    $(broadcast_func(<))(a::KnetArray{T},s::Number) where {T}=(T(s).>a)
+    $(broadcast_func(<))(s::Number,a::KnetArray{T}) where {T}=(T(s).<a)
+    $(broadcast_func(<=))(a::KnetArray{T},s::Number) where {T}=(T(s).>=a)
+    $(broadcast_func(<=))(s::Number,a::KnetArray{T}) where {T}=(T(s).<=a)
 end
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
-(+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
-(+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
-(-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
-(-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
-(*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
-(*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
-(/){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
-(\){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a)
+(+)(a::KnetArray{T},s::Number) where {T}=(.+)(T(s),a)
+(+)(s::Number,a::KnetArray{T}) where {T}=(.+)(T(s),a)
+(-)(a::KnetArray{T},s::Number) where {T}=(.+)(T(-s),a)
+(-)(s::Number,a::KnetArray{T}) where {T}=(.-)(T(s),a)
+(*)(a::KnetArray{T},s::Number) where {T}=(.*)(T(s),a)
+(*)(s::Number,a::KnetArray{T}) where {T}=(.*)(T(s),a)
+(/)(a::KnetArray{T},s::Number) where {T}=(.*)(T(1/s),a)
+(\)(s::Number,a::KnetArray{T}) where {T}=(.*)(T(1/s),a)
 
-#(/){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a) # not defined in base
-#(^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s)) # non-elementwise definition in linalg
-#(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # non-elementwise definition in linalg
+#(/)(s::Number,a::KnetArray{T}) where {T}=(.*)(T(1/s),a) # not defined in base
+#(^)(a::KnetArray{T},s::Number) where {T}=(.^)(a,T(s)) # non-elementwise definition in linalg
+#(^)(s::Number,a::KnetArray{T}) where {T}=(.^)(T(s),a) # non-elementwise definition in linalg

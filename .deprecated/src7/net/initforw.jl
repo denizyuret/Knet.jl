@@ -79,7 +79,7 @@ end
 isvoid(x,n)=(!isdefined(x,n) || isa(x.(n),Void))
 
 function checkshare(f::Net)
-    d = ObjectIdDict()
+    d = IdType()
     for i=1:length(f)
         ri=f.reg[i]
         getp(ri,:forw) || continue

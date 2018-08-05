@@ -1,20 +1,23 @@
-using CUDAapi
+using Compat, CUDAapi
+import Compat.@info
 
-NVCC = CXX = ""
-CFLAGS = is_windows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
-NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
-const OBJEXT = is_windows() ? ".obj" : ".o"
-const LIBKNET8 = "libknet8."*Libdl.dlext
-const DLLEXPORT = is_windows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
-inforun(cmd)=(info(cmd);run(cmd))
+global NVCC = ""
+global CXX = ""
+global CFLAGS = Compat.Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
+global NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
+const OBJEXT = Compat.Sys.iswindows() ? ".obj" : ".o"
+const LIBKNET8 = "libknet8."*Compat.Libdl.dlext
+const DLLEXPORT = Compat.Sys.iswindows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
+inforun(cmd)=(@info(cmd);run(cmd))
 
 # Try to find NVCC
 
 try
     tk = CUDAapi.find_toolkit()
     tc = CUDAapi.find_toolchain(tk)
-    CXX = tc.host_compiler
-    NVCC = tc.cuda_compiler
+    global CXX = tc.host_compiler
+    global NVCC = tc.cuda_compiler
+    global NVCCFLAGS
     push!(NVCCFLAGS, "--compiler-bindir", CXX)
 end
 
@@ -39,6 +42,7 @@ end
 
 if CXX == ""
     try
+        global CXX, CXXVER
         CXX,CXXVER = CUDAapi.find_host_compiler()
     end
 end
@@ -46,8 +50,13 @@ end
 # If openmp is available, use it:
 
 if CXX != "" 
-    cp("conv.cpp","foo.cpp",remove_destination=true)
-    if is_windows()
+    global CXX
+    if VERSION < v"0.7.0-DEV.3995"
+        cp("conv.cpp","foo.cpp",remove_destination=true)
+    else
+        cp("conv.cpp","foo.cpp",force=true)
+    end
+    if Compat.Sys.iswindows()
         if success(`$CXX /openmp /c foo.cpp`)
             push!(CFLAGS, "/openmp")
         end
@@ -79,14 +88,14 @@ function build_nvcc()
     OBJ = []
 
     for names in SRC
-        for name in names
-            if !isfile("$name.jl")
-                error("$name.jl not found")
+        for x in names
+            if !isfile("$x.jl")
+                error("$x.jl not found")
             end
         end
         name = names[1]
         if !isfile("$name.cu") || any(d->(mtime("$d.jl") > mtime("$name.cu")), names)
-            info("$name.jl")
+            @info("$name.jl")
             include("$name.jl")     # outputs name.cu
         end
         obj = name*OBJEXT
@@ -120,7 +129,7 @@ function build_cxx()
         push!(OBJ, obj)
     end
     if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
-        if is_windows()
+        if Compat.Sys.iswindows()
             inforun(`$CXX $CFLAGS /LD /Fe:$LIBKNET8 $OBJ`)
         else
             inforun(`$CXX $CFLAGS --shared -o $LIBKNET8 $OBJ`)
@@ -137,8 +146,12 @@ function build()
     else
         warn("no compilers found, libknet8 will not be built.")
     end
-    info("Compiling Knet cache.")
-    Base.compilecache("Knet")
+    @info("Compiling Knet cache.")
+    if VERSION < v"0.7.0-DEV.3483"
+        Base.compilecache("Knet")
+    else
+        Base.compilecache(Base.PkgId("Knet"))
+    end
 end
 
 build()

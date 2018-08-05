@@ -39,13 +39,13 @@ srand(42)
                     s = rand11(f,t)+t(1)
                     @test gradcheck(f1, Any[a,s])
                     @test gradcheck(f1, Any[s,a])
-                    if gpu() >= 0
-                        g = KnetArray(a)
-                        @test isapprox(f(a,s), f(g,s))
-                        @test isapprox(f(s,a), f(s,g))
-                        @test gradcheck(f1, Any[g,s])
-                        @test gradcheck(f1, Any[s,g])
-                    end
+                    # if gpu() >= 0
+                        # g = KnetArray(a)
+                        # @test isapprox(f(a,s), f(g,s))
+                        # @test isapprox(f(s,a), f(s,g))
+                        # @test gradcheck(f1, Any[g,s])
+                        # @test gradcheck(f1, Any[s,g])
+                    # end
                 end
             end
         end
@@ -64,12 +64,12 @@ srand(42)
                     a1 = rand11(f,t,n1)
                     a2 = rand11(f,t,n2)+t(1)
                     @test gradcheck(f1, Any[a1, a2])
-                    if gpu() >= 0 
-                        g1 = KnetArray(a1) 
-                        g2 = KnetArray(a2)
-                        @test isapprox(f(a1,a2),f(g1,g2))
-                        @test gradcheck(f1, Any[g1, g2])
-                    end
+                    # if gpu() >= 0 
+                    #     g1 = KnetArray(a1) 
+                    #     g2 = KnetArray(a2)
+                    #     @test isapprox(f(a1,a2),f(g1,g2))
+                    #     @test gradcheck(f1, Any[g1, g2])
+                    # end
                 end
             end
         end
@@ -90,29 +90,29 @@ srand(42)
                 if t == Float64 # Float32 does not have enough precision for large arrays
                     @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
                 end
-                if gpu() >= 0
-                    g1 = KnetArray(a1)
-                    g2 = KnetArray(a2)
-                    @test isapprox(f(a1,a2),f(g1,g2))
-                    if t == Float64
-                        @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
-                    end
-                end
+                # if gpu() >= 0
+                #     g1 = KnetArray(a1)
+                #     g2 = KnetArray(a2)
+                #     @test isapprox(f(a1,a2),f(g1,g2))
+                #     if t == Float64
+                #         @test gradcheck(f1, Any[g1, g2]; rtol=0.01)
+                #     end
+                # end
             end
         end
     end
 
-    @testset "ndims" begin # Issue #235
-        if gpu() >= 0
-            date("broadcast: ndims")
-            a=rand(2,2,2) |> KnetArray
-            b=rand(2,2) |> KnetArray
-            c=rand(2) |> KnetArray
-            @test a.*b == Array(a) .* Array(b)
-            @test a.*c == Array(a) .* Array(c)
-            @test b.*c == Array(b) .* Array(c)
-        end
-    end
+    # @testset "ndims" begin # Issue #235
+    #     if gpu() >= 0
+    #         date("broadcast: ndims")
+    #         a=rand(2,2,2) |> KnetArray
+    #         b=rand(2,2) |> KnetArray
+    #         c=rand(2) |> KnetArray
+    #         @test a.*b == Array(a) .* Array(b)
+    #         @test a.*c == Array(a) .* Array(c)
+    #         @test b.*c == Array(b) .* Array(c)
+    #     end
+    # end
 end
 
 date("broadcast: done")

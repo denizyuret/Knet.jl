@@ -31,7 +31,7 @@ for region in (0,1,2)
             bm = @benchmark f2($a,$region) seconds=1
             m = round(Int, minimum(bm.times)/N)
             print("\t$m")
-            gc();Knet.knetgc();gc()
+            GC.gc();Knet.knetgc();GC.gc()
         end
         println()
     end

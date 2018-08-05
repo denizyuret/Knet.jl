@@ -11,8 +11,8 @@ gchk(a...)=gradcheck(a...; rtol=0.01)
 rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
 D,X,H,B,T = Float64,32,32,16,10 # Keep X==H to test skipInput
 
-r=w=x1=x2=x3=hx1=cx1=hx2=cx2=hx3=cx3=nothing
-rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
+# r=w=x1=x2=x3=hx1=cx1=hx2=cx2=hx3=cx3=nothing
+# rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
 @testset "rnn" begin
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)
         (r,w) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier) # binit=zeros does not pass gchk
@@ -20,7 +20,7 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
         wcpu = Array(w)
-        HL = BI?2L:L
+        HL = BI ? 2L : L
 
         # rnntest tests cudnn vs my implementation on gpu
         # rnnforw(rcpu...) compares cpu vs gpu

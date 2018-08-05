@@ -3,7 +3,7 @@
 import Knet: params, forw, back
 using Knet: initback
 
-immutable S2C <: Model; net1; net2; params;
+struct S2C <: Model; net1; net2; params;
     S2C(a,b)=new(a,b,vcat(params(a),params(b)))
 end
 

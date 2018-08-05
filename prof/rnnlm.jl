@@ -88,7 +88,7 @@ end
 # combination of tuple/array/dict.
 initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
 initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+initoptim(a::AbstractDict,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
 initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # Create a random minibatch of sequences

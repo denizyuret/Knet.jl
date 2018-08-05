@@ -251,9 +251,9 @@ vecnorm0(x)=(@sprintf("%.8f",vecnorm(x))) #floor(1e6*vecnorm(x))/1e6
 #     return a
 # end
 
-# inc!(p::ObjectIdDict,k)=(p[k]=1+getp(p,k,0))
+# inc!(p::IdType,k)=(p[k]=1+getp(p,k,0))
 
-# function dec!(p::ObjectIdDict,k)
+# function dec!(p::IdType,k)
 #     haskey(p,k) || (warn("Object not in dict"); return)
 #     n = getp(p,k,0)
 #     if n > 1

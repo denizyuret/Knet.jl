@@ -1,8 +1,8 @@
 # TODO: deprecate KUdense in this file.
 
-using Base.LinAlg.BLAS: gemm!, scal!, nrm2
+using Compat.LinearAlgebra.BLAS: gemm!, scal!, nrm2
 import Base: A_mul_B!, A_mul_Bt!, At_mul_B!, vecnorm, sum
-import Base.LinAlg: axpy!, scale!
+import Compat.LinearAlgebra: axpy!, scale!
 
 ### VEC functions
 axpy!{T}(a::Number,x::CudaArray{T},y::CudaArray{T})=(n=length(x); n==length(y)||error(); axpy!(n,T(a),x,1,y,1); gpusync(); y)

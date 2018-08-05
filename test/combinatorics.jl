@@ -2,7 +2,7 @@
 
 import Base: eltype, length, start, next, done
 
-immutable Combinas{T}
+struct Combinas{T}
     a::T
     t::Int
 end
@@ -41,7 +41,7 @@ function next(c::Combinas, s)
 end
 done(c::Combinas, s) = !isempty(s) && s[1] > length(c.a)-c.t+1
 
-immutable Permutas{T}
+struct Permutas{T}
     a::T
 end
 

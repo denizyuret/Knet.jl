@@ -15,7 +15,7 @@ Base.stride(g::CudaSparseMatrix,i)=(i==1 ? 1 : i==2 ? g.dims[1] : length(g))
 Base.strides(g::CudaSparseMatrix)=(1,g.dims[1])
 # Base.summary(a::CudaSparseMatrix) = string(Base.dims2string(size(a)), " ", typeof(a))
 Base.vecnorm(a::CudaSparseMatrix) = vecnorm(a.nzVal)
-Base.LinAlg.BLAS.nrm2(a::CudaSparseMatrix) = Base.LinAlg.BLAS.nrm2(a.nzVal)
+Compat.LinearAlgebra.BLAS.nrm2(a::CudaSparseMatrix) = Compat.LinearAlgebra.BLAS.nrm2(a.nzVal)
 
 function copysync!{T}(a::CudaSparseMatrixCSC{T}, b::SparseMatrixCSC{T})
     a.dims = (b.m,b.n)
@@ -176,15 +176,15 @@ function CUDArt.to_host{T}(Mat::CudaSparseMatrixCSCU{T})
     return sparse(rowval, colval, nzval, m, n)
 end
 
-deepcopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrixCSRU, s::ObjectIdDict)=deepcopy_internal(x,s)
+deepcopy_internal(x::CudaSparseMatrixCSRU, s::IdType)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSRU, s::IdType)=deepcopy_internal(x,s)
 
-deepcopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrixCSCU, s::ObjectIdDict)=deepcopy_internal(x,s)
+deepcopy_internal(x::CudaSparseMatrixCSCU, s::IdType)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrixCSCU, s::IdType)=deepcopy_internal(x,s)
 
-deepcopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=(haskey(s,x)||(s[x]=copy(x));s[x])
-gpucopy_internal(x::CudaSparseMatrix, s::ObjectIdDict)=deepcopy_internal(x,s)
-gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::ObjectIdDict)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
+deepcopy_internal(x::CudaSparseMatrix, s::IdType)=(haskey(s,x)||(s[x]=copy(x));s[x])
+gpucopy_internal(x::CudaSparseMatrix, s::IdType)=deepcopy_internal(x,s)
+gpucopy_internal{T<:Number}(x::SparseMatrixCSC{T}, s::IdType)=(haskey(s,x)||(s[x]=CudaSparseMatrixCSC(x));s[x])
 
 # We need cpu versions of CudaSparseMatrices for cpu/gpucopy to work
 if !isdefined(:SparseMatrixCSR0)
@@ -235,8 +235,8 @@ end
 isdefined(:SparseMatrix0) || (typealias SparseMatrix0 Union{SparseMatrixCSC0,SparseMatrixCSR0,SparseMatrixCSCU,SparseMatrixCSRU})
 isdefined(:CudaSparseMatrix0) || typealias CudaSparseMatrix0 Union{CudaSparseMatrixCSC,CudaSparseMatrixCSR,CudaSparseMatrixCSCU,CudaSparseMatrixCSRU}
 
-cpucopy_internal(x::CudaSparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
-gpucopy_internal(x::SparseMatrix0, s::ObjectIdDict)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
+cpucopy_internal(x::CudaSparseMatrix0, s::IdType)=(haskey(s,x)||(s[x]=cpucopy_sparse(x));s[x])
+gpucopy_internal(x::SparseMatrix0, s::IdType)=(haskey(s,x)||(s[x]=gpucopy_sparse(x));s[x])
 
 cpucopy_sparse{T}(x::CudaSparseMatrixCSC{T})=SparseMatrixCSC0{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
 cpucopy_sparse{T}(x::CudaSparseMatrixCSCU{T})=SparseMatrixCSCU{T}(to_host(x.colPtr),to_host(x.rowVal),to_host(x.nzVal),x.dims,x.nnz,x.dev)
@@ -262,7 +262,7 @@ function Base.isequal(a::Union{CudaSparseMatrix0,SparseMatrix0},b::Union{CudaSpa
 end
 
 
-import Base.LinAlg.BLAS: gemm!
+import Compat.LinearAlgebra.BLAS: gemm!
 using CUSPARSE: SparseChar, cusparseop, cusparseindex,
     cusparseMatDescr_t, CUSPARSE_MATRIX_TYPE_GENERAL, CUSPARSE_FILL_MODE_LOWER, CUSPARSE_DIAG_TYPE_NON_UNIT,
     statuscheck, libcusparse, cusparseStatus_t, cusparseHandle_t, cusparseOperation_t, cusparsehandle

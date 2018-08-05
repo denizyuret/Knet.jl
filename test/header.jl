@@ -1,1 +1,1 @@
-using Base.Test, Knet
+using Compat, Compat.Test, Knet, Compat.Random
