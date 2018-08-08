@@ -92,3 +92,25 @@ function dropback!(p,x,y,dy,dx)
     return dx
 end
 
+
+"""
+    alpha_dropout(x, p)
+
+Dropout associated to the `selu` activation. 
+
+Paper Ref.:
+Self-Normalizing Neural Networks
+https://arxiv.org/abs/1706.02515
+"""
+function alpha_dropout(x, p)
+    training = x isa Rec
+    (p == 0 || !training) && return x
+
+    alpha = Float32(-1.758099)
+    q = Float32(1-p)
+    x = q*dropout(x .- alpha, p) .+ alpha #set dropped input to alpha
+    a = 1 / sqrt(q + alpha^2 * q*p)
+    b = -a * alpha * p
+    return a*x + b
+end
+

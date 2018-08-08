@@ -21,7 +21,7 @@ include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("unfuse.jl");           # julia6 broadcast fixes
-include("unary.jl");            export relu, sigm, invx
+include("unary.jl");            export relu, sigm, invx, elu, selu
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims

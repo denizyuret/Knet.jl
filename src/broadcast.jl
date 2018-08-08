@@ -32,6 +32,7 @@ broadcast_ops = [
     # "fdim",
     ("invxback","invxback","(-xi*yi*yi)"),
     ("reluback","reluback","(yi>0?xi:0)"),
+    ("eluback", "eluback", "ifelse(yi>0,dyi,yi+1)"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
     ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar

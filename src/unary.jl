@@ -45,6 +45,7 @@ unary_ops = [
 # "normcdfinv",
 # "rcbrt",
 ("relu", "relu", "(xi>0?xi:0)"),
+("elu", "elu", "(xi>0?xi:exp(xi)-1)"),
 # "rint",
 "round",
 # "rsqrt",
@@ -99,6 +100,7 @@ end
 for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
      (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+     (:elu, :eluback, :(ifelse(xi>0,xi,exp(xi)-1)), :(ifelse(yi>0,dyi,yi+1))),
      (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
      (:sigm, :sigmback, 
       # Numerically stable implementation from
@@ -153,3 +155,21 @@ broadcast(::typeof(+), a::KnetArray)=a
 +(a::KnetArray)=a
 -(a::KnetArray)=broadcast(-,a)
 
+"""
+    selu(x)
+
+Self-Normalizing Exponential Linear Unit. Returns
+`scale*(max(0,x) + alpha*(exp(min(x,0)) - 1))`
+where `scale=1.0507009` and `alpha=1.6732632`.
+
+Paper Ref. :
+Self-Normalizing Neural Networks
+https://arxiv.org/abs/1706.02515
+"""
+function selu(x)
+    alpha = 1.6732632f0
+    scale = 1.0507009f0
+    p = relu(x)
+    m = -relu(-x)
+    return scale*(p + alpha*(exp(m) - 1))
+end
