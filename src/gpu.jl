@@ -1,4 +1,5 @@
 using CUDAapi
+using Libdl
 const tk = find_toolkit()
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
@@ -81,7 +82,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
-        if !@isdefined(cudartfound)
+        if !isdefined(:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
@@ -90,7 +91,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 cudartfound = false
             end
         end
-        if !@isdefined(nvmlfound)
+        if !isdefined(:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @nvml(nvmlInit,())
@@ -181,7 +182,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array{Any}(gpuCount()+1); end
+        if CUBLAS == nothing; CUBLAS=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
         return CUBLAS[i]
     end
@@ -192,7 +193,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array{Any}(gpuCount()+1); end
+        if CUDNN == nothing; CUDNN=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
         return CUDNN[i]
     end
@@ -209,7 +210,7 @@ cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
 function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
-    mem = Array{Culonglong}(3)
+    mem = Array{Culonglong}(undef,3)
     @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
     @nvml("nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))

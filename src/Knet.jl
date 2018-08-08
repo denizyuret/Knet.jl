@@ -1,8 +1,6 @@
-# __precompile__()
-
 module Knet
 
-using Compat, Compat.Libdl
+using Libdl, LinearAlgebra, Random
 
 # To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
 # can be used to show a subset of dbg messages indicated by the `bit`

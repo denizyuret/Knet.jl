@@ -1,4 +1,3 @@
-using Compat
 using KUnet
 using HDF5,JLD
 typealias LUP Union(Op,UpdateParam)

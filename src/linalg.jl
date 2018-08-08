@@ -1,9 +1,9 @@
-import Compat.LinearAlgebra: *, transpose, permutedims, A_mul_B!
-import Compat.LinearAlgebra: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
-import Compat.LinearAlgebra: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
-import Compat.LinearAlgebra: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
-import Compat.LinearAlgebra.BLAS: gemm!
-import Compat.LinearAlgebra: axpy!, scale!
+import LinearAlgebra: *, transpose, permutedims, A_mul_B!
+import LinearAlgebra: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
+import LinearAlgebra: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
+import LinearAlgebra: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
+import LinearAlgebra.BLAS: gemm!
+import LinearAlgebra: axpy!, scale!
 export axpy!
 
 A_mul_B!(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T}) where {T}=gemm!('N','N',one(T),A,B,zero(T),C)
@@ -205,7 +205,7 @@ function permutefunc(x::KnetArray{T,N}, dims) where {T,N}
 end    
 
 # function ipermutedims(A::KnetArray,perm)
-#     iperm = Array{Int}(length(perm))
+#     iperm = Array{Int}(undef,length(perm))
 #     for (i,p) = enumerate(perm)
 #         iperm[p] = i
 #     end
@@ -214,9 +214,9 @@ end
 
 # Low level gemm! call with pointers
 
-using Compat.LinearAlgebra
-using Compat.LinearAlgebra.BLAS: libblas, BlasInt
-using Compat.LinearAlgebra.BLAS: @blasfunc
+using LinearAlgebra
+using LinearAlgebra.BLAS: libblas, BlasInt
+using LinearAlgebra.BLAS: @blasfunc
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,

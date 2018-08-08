@@ -1,3 +1,5 @@
+if VERSION < v"0.7.0-DEV.4064"
+
 """
 
     logp(x,[dims])
@@ -29,6 +31,41 @@ function logp(x,d...)
     end
 end
 
+else
+
+"""
+
+    logp(x, dims = :)
+
+Treat entries in `x` as as unnormalized log probabilities and return
+normalized log probabilities.
+
+`dims` is an optional argument, if not specified the normalization is
+over the whole `x`, otherwise the normalization is performed over the
+given dimensions.  In particular, if `x` is a matrix, `dims=1`
+normalizes columns of `x` and `dims=2` normalizes rows of `x`.
+
+"""
+function logp(x; dims = :)
+    if isa(getval(x), KnetArray)
+        if d==(1,)
+            cudnnSoftmaxForward(x,algo=2)
+        elseif d==(2,)
+            copy(transpose(cudnnSoftmaxForward(copy(transpose(x)),algo=2)))
+        elseif d==()
+            n = length(x)
+            (n > 20000 ? _logp(x, dims = dims) : # see Knet/prof/softmax.jl for timing info
+             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
+        else
+            _logp(x, dims = dims)
+        end
+    else
+        _logp(x, dims = dims) # fall back on old implementation if not KnetArray
+    end
+end
+
+end
+
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
 # down, right column (loss gradients) back up.
@@ -45,6 +82,9 @@ end
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
+
+if VERSION < v"0.7.0-DEV.4064"
+
 function _logp(x,d...)
     xval = getval(x)
     if isa(xval,Number)
@@ -84,6 +124,51 @@ end
 
 # dy should be -p and y=logq so this should give us -p+q
 @primitive  _logp(x,d...),dy,y  _logpback(x,y,dy,d...)
+
+else
+
+using InteractiveUtils
+function _logp(x; dims = :)
+    xval = getval(x)
+    if isa(xval,Number)
+        return zero(xval)
+    elseif isempty(xval)
+        return xval
+    else
+        x = x .- Base.maximum(x, dims = dims)
+        return (x .- log.(Base.sum(exp.(x), dims = dims)))
+        # Expanding for profiling:
+        # x1 = Base.maximum(x,dims = dims)
+        # x2 = x .- x1
+        # x3 = exp.(x2)
+        # x4 = sum(x3, dims = dims)
+        # x5 = log.(x4)
+        # x6 = x2 .- x5
+        # return x6
+    end
+end
+
+function _logpback(x,y,dy; dims = :)
+    xval = getval(x)
+    if isa(xval,Number)
+        return zero(xval)
+    elseif isempty(xval)
+        return xval
+    else
+        return (dy - exp.(y).*Base.sum(dy, dims = dims))
+        # Expanding for profiling:
+        # dx1 = Base.sum(dy, dims = dims)
+        # dx2 = exp.(y)
+        # dx3 = dx2 .* dx1
+        # dx4 = dy - dx3
+        # return dx4
+    end
+end
+
+# dy should be -p and y=logq so this should give us -p+q
+@primitive  _logp(x; dims = :),dy,y  _logpback(x,y,dy; dims = :)
+
+end
 
 #=
 typedef enum
@@ -133,6 +218,7 @@ function TD4(x::KnetArray)
     end
 end
 
+if VERSION < v"0.7.0-DEV.4064"
 
 """
 
@@ -153,6 +239,28 @@ end
 
 @primitive logsumexp(x,d...),dy,y  (dy .* exp.(x .- y))
 
+else
+
+"""
+
+    logsumexp(x; dims = :)
+
+Compute `log(sum(exp(x), dims = dims))` in a numerically stable manner.
+
+`dims` is an optional argument, if not specified the summation is over
+the whole `x`, otherwise the summation is performed over the given
+dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
+of `x` and `dims=2` sums rows of `x`.
+
+"""
+function logsumexp(x; dims = :)
+    xmax = maximum(x, dims = dims)
+    xmax + log.(sum(exp.(x .- xmax), dims = dims))
+end
+
+@primitive logsumexp(x; dims = :),dy,y  (dy .* exp.(x .- y))
+
+end
 
 """
 

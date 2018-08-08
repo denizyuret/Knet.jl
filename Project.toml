@@ -1,0 +1,10 @@
+[deps]
+AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
+CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
+CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"

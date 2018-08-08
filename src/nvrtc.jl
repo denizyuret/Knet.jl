@@ -28,7 +28,7 @@ ptxSizeP = Csize_t[1]
 ccall((:nvrtcGetPTXSize,libnvrtc),Cint,(nvrtcProgram,Ptr{Csize_t}),prog,ptxSizeP)
 
 ptxSize = ptxSizeP[1]
-ptx = Array{Cchar}(ptxSize)
+ptx = Array{Cchar}(undef,ptxSize)
 
 ccall((:nvrtcGetPTX,libnvrtc),Cint,(nvrtcProgram,Ptr{Cchar}),prog,ptx)
 

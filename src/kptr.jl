@@ -42,7 +42,7 @@ end
 
 function KnetPtr(ptr::Cptr,len::Int,dev::Int)
     kp = KnetPtr(ptr,len,dev,nothing)
-    finalizer(freeKnetPtr, kp)
+    VERSION < v"0.7.0-DEV.2562" ?  Base.finalizer(kp, freeKnetPtr) : finalizer(freeKnetPtr, kp)
     return kp
 end
 
@@ -97,7 +97,7 @@ end
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)
     # we no longer support cpu pointers, all overloaded ops rely on KnetPtr being on a GPU
-    # gpu() >= 0 || return(convert(Cptr, pointer(Array{UInt8}(nbytes))))
+    # gpu() >= 0 || return(convert(Cptr, pointer(Array{UInt8}(undef,nbytes))))
     ptr = Cptr[0]
     ret = @cuda1(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
     if ret == 0

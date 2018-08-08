@@ -584,7 +584,7 @@ end
 const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
 const requestedAlgoCount = 10
 const returnedAlgoCount = Cint[0]
-const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(requestedAlgoCount)
+const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
 bytes(x::KnetArray{T}) where {T}=length(x)*sizeof(T)
 
 const conv4_algos = Dict()

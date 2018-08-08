@@ -1,5 +1,5 @@
 using Compat,Knet,AutoGrad,BenchmarkTools,Distributions
-if !@isdefined(MODEL); MODEL=1; end
+if !isdefined(@__MODULE__,MODEL); MODEL=1; end
 
 # Design choices:
 # 1. time first vs layers fist
@@ -94,7 +94,7 @@ initoptim(a,otype)=map(x->initoptim(x,otype), a)
 # Create a random minibatch of sequences
 function randseq(V,B,T)
     T = ceil(Int,T)
-    s = Array{Vector{Int}}(T)
+    s = Array{Vector{Int}}(undef,T)
     for t in 1:T
         s[t] = rand(1:V,B)
     end

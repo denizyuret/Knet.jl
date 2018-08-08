@@ -1,10 +1,17 @@
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 
 import AutoGrad: sumabs_, sumabs2_, minabs_, maxabs_
-Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
-Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
-Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...);
-Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...);
+if VERSION < v"0.7.0-DEV.4064"
+    Base.sum(::typeof(abs), x::KnetArray, d...) = sumabs_(x,d...);
+    Base.sum(::typeof(abs2), x::KnetArray, d...) = sumabs2_(x,d...);
+    Base.maximum(::typeof(abs), x::KnetArray, d...) = maxabs_(x,d...);
+    Base.minimum(::typeof(abs), x::KnetArray, d...) = minabs_(x,d...);
+else
+    Base.sum(::typeof(abs), x::KnetArray; dims = :) = sumabs_(x, dims = dims);
+    Base.sum(::typeof(abs2), x::KnetArray, dims = :) = sumabs2_(x, dims = dims);
+    Base.maximum(::typeof(abs), x::KnetArray, dims = :) = maxabs_(x, dims = dims);
+    Base.minimum(::typeof(abs), x::KnetArray, dims = :) = minabs_(x, dims = dims);
+end
 reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
 
 reduction_ops = [
@@ -12,18 +19,20 @@ reduction_ops = [
 # ai is the accumulator, xi is the array element
 ("sum","sum","ai+xi","xi","0"),
 ("prod","prod","ai*xi","xi","1"),
-("maximum","maximum","(ai>xi?ai:xi)","xi","(-INFINITY)"),
-("minimum","minimum","(ai<xi?ai:xi)","xi","INFINITY"),
-("sumabs","sumabs_","ai+xi","(xi<0?-xi:xi)","0"),
+("maximum","maximum","(ai>xi ? ai : xi)","xi","(-INFINITY)"),
+("minimum","minimum","(ai<xi ? ai : xi)","xi","INFINITY"),
+("sumabs","sumabs_","ai+xi","(xi<0 ? -xi : xi)","0"),
 ("sumabs2","sumabs2_","ai+xi","(xi*xi)","0"),
-("maxabs","maxabs_","(ai>xi?ai:xi)","(xi<0?-xi:xi)","0"),
-("minabs","minabs_","(ai<xi?ai:xi)","(xi<0?-xi:xi)","INFINITY"),
+("maxabs","maxabs_","(ai>xi ? ai : xi)","(xi<0 ? -xi : xi)","0"),
+("minabs","minabs_","(ai<xi ? ai : xi)","(xi<0 ? -xi : xi)","INFINITY"),
 ("countnz","countnz","ai+xi","(xi!=0)","0"),
 ]
 
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
-    if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    if isdefined(Base, J);
+        eval(Expr(:import,:Base,J));
+    end
     for S in (32,64)
         T = Symbol("Float$S")
         F20 = "$(f)_$(S)_20"
@@ -31,12 +40,16 @@ function reduction_op(f, j=f, o...)
         F22 = "$(f)_$(S)_22"
         @eval begin
             # Array->Scalar reduction:
-            function $J(x::KnetArray{$T})
-                y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Void
-                @gs; return y
-            end
+            # function $J(x::KnetArray{$T})
+                # y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Void
+                # @gs; return y
+            # end
             # Array->Vector reduction:
-            function $J(x::KnetArray{$T}, region)
+            function $J(x::KnetArray{$T}, region = :; dims = region)
+                if dims == :(:)
+                    y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Void
+                    @gs; return y
+                end
                 rdims = reduced_dims_compat(size(x), region)
                 vdims = ndims(x)-length(region)
                 if length(region) != 1 || ndims(x) == 1
@@ -90,7 +103,7 @@ end
 
 # Norm primitives:
 
-import Compat.LinearAlgebra: norm, vecnorm
+import LinearAlgebra: norm, vecnorm
 
 norm(x::KnetVector, p::Real=2) = vecnorm(x, p)
 

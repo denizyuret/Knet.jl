@@ -109,7 +109,7 @@ second half is bias.
 
 """
 function bnparams(etype, channels::Integer)
-    buf = Array{etype}(2channels)
+    buf = Array{etype}(undef, 2channels)
     buf[1:channels] = 1
     buf[channels+1:end] = 0
     return buf

@@ -101,6 +101,7 @@ import Base: convert
 # Internal constructor defines KnetArray{T,N}(ptr,dims)
 # These define KnetArray{T,N}(dims) and KnetArray{T,N}(d...)
 
+import Base: prod
 (::Type{KnetArray{T,N}})(d::NTuple{N,Int}) where {T,N}=KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
 (::Type{KnetArray{T,N}})(d::Int...) where {T,N} = KnetArray{T,N}(d)
 (::Type{KnetArray{T,N}})(d::Integer...) where {T,N} = KnetArray{T,N}(convert(Tuple{Vararg{Int}}, d))
@@ -302,8 +303,8 @@ vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
 # Ambiguity fix for abstractarray.jl:1066-1072
 using Base: hvcat_fill, promote_typeof
-vcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(1+length(Xs)), (X, Xs...))
-hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(1,1+length(Xs)), (X, Xs...))
+vcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1+length(Xs)), (X, Xs...))
+hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1,1+length(Xs)), (X, Xs...))
 
 # Utilities:
 
@@ -353,7 +354,8 @@ function unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::
 end
 
 # This will make deepcopy work properly
-Base.deepcopy_internal(x::KnetArray, s::IdDict)=if haskey(s,x); s[x]; else; copy(x); end
+IdDictType = VERSION < v"0.7.0-DEV.3439" ? ObjectIdDict : IdDict
+Base.deepcopy_internal(x::KnetArray, s::IdDictType)=if haskey(s,x); s[x]; else; copy(x); end
 
 function cudadir(a,b)
     deva = isa(a,KnetArray) && a.ptr.dev >= 0
@@ -376,8 +378,8 @@ summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
 display(a::KnetArray) = display(KnetDisplay(a))
 
 # Hack for JLD file load/save of KnetArrays:
-using Compat.Pkg
-if installed("JLD") != nothing
+using Pkg
+if haskey(Pkg.installed(), "JLD")
     import JLD: writeas, readas
     mutable struct KnetJLD; a::Array; end
     writeas(c::KnetArray) = KnetJLD(Array(c))

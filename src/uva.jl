@@ -54,7 +54,7 @@ let p2pdevs = Set()
     function enableP2P(gpuList::Union{Array{Int, 1}, Nothing}=nothing; 
                        verbose::Bool=false)::Bool
         if gpuList == nothing
-            gpuList = Array{Int, 1}(0:(gpuCount()-1))
+            gpuList = Array{Int, 1}(undef, 0:(gpuCount()-1))
         end
         # check the access status
         check = true

@@ -7,6 +7,7 @@ include("header.jl")
 # linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
 # similar, size, stride, strides, summary, vcat, vec, zeros
 
+@show gpu()
 if gpu() >= 0
     @testset "karray" begin
         a = rand(3,4)
@@ -36,7 +37,7 @@ if gpu() >= 0
                       (:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
                       ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
-                # @show i
+                @show i
                 @test a[i...] == k[i...]
                 ai = a[i...]
                 a[i...] = 0

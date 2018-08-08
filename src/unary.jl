@@ -62,8 +62,8 @@ unary_ops = [
 # "y1",
 ]
 
-using Compat.Pkg
-if installed("SpecialFunctions") != nothing
+using Pkg
+if haskey(Pkg.installed(), "SpecialFunctions")
     append!(unary_ops, [
 "erf",     # Removed from base in julia6
 "erfc",

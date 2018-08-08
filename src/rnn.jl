@@ -394,7 +394,7 @@ function rnninit(inputSize, hiddenSize;
                 winput = (1 + direction) * whidden
                 binput = bhidden
             end
-            Array{dataType}(1,1,nparams)
+            Array{dataType}(undef,1,1,nparams)
         end
     end
     for a in rnnparams(r,w; handle=handle, useview=true)
@@ -900,8 +900,8 @@ end
 
 
 # Hack for JLD file load/save of RNNs:
-using Compat.Pkg
-if installed("JLD") != nothing
+using Pkg
+if haskey(Pkg.installed(), "JLD")
     import JLD: writeas, readas
     mutable struct RNNJLD; inputSize; hiddenSize; numLayers; dropout; inputMode; direction; mode; algo; dataType; end
     writeas(r::RNN) = RNNJLD(r.inputSize, r.hiddenSize, r.numLayers, r.dropout, r.inputMode, r.direction, r.mode, r.algo, r.dataType)

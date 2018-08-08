@@ -33,3 +33,4 @@ setup.sh
 *.log
 *.prof
 *.gz
+dev

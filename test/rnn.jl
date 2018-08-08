@@ -20,7 +20,7 @@ rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
         wcpu = Array(w)
-        HL = BI?2L:L
+        HL = BI ? 2L : L
 
         # rnntest tests cudnn vs my implementation on gpu
         # rnnforw(rcpu...) compares cpu vs gpu
