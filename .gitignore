@@ -34,3 +34,4 @@ setup.sh
 *.prof
 *.gz
 dev
+Manifest.toml
