@@ -86,14 +86,14 @@ end
 @primitive  _logp(x,d...),dy,y  _logpback(x,y,dy,d...)
 
 #=
-typedef enum
+mutable structdef enum
 {
     CUDNN_SOFTMAX_FAST     = 0,         /* straightforward implementation */
     CUDNN_SOFTMAX_ACCURATE = 1,         /* subtract max from every point to avoid overflow */
     CUDNN_SOFTMAX_LOG      = 2
 } cudnnSoftmaxAlgorithm_t;
 
-typedef enum
+mutable structdef enum
 {
     CUDNN_SOFTMAX_MODE_INSTANCE = 0,   /* compute the softmax over all C, H, W for each N */
     CUDNN_SOFTMAX_MODE_CHANNEL = 1     /* compute the softmax over all C for each H, W, N */

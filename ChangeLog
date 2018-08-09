@@ -1,3 +1,15 @@
+2018-08-09  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* broadcast: we override broadcast and broadcasted for Rec and KnetArray.
+	- dot operations turn into broadcasted expressions.
+	- Rec overrides broadcasted to call broadcast_r directly.
+	- KnetArray should override broadcasted to call broadcast directly.
+
+	* julia7-compat-todo:
+	- fix JLD.
+	- unsafe_copy! is not in base any more?
+	- unary_nd, indexed_function, isequivalent, _dbg, ssize not in AutoGrad any more.
+
 2017-09-06  EC2 Default User  <ec2-user@ip-172-31-24-9.us-east-2.compute.internal>
 
 	* julia6-compat-todo:

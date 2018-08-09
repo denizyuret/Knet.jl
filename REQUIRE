@@ -1,7 +1,8 @@
-julia 0.6
+julia 0.7
 AutoGrad 0.0.9
 Compat 0.33.0
 CUDAapi 0.4.0
+SpecialFunctions
 
 # The following are used by the build script if installed.
 # CUDAdrv, Documenter

@@ -209,7 +209,7 @@ end
 
 # cudnn descriptors
 
-type TD; ptr; end
+mutable struct TD; ptr; end
 TD{T}(a::KnetArray{T}) = TD(T,size(a))
 TD(T::Type, dims::Integer...) = TD(T, dims)
 function TD(T::Type, dims)
@@ -227,7 +227,7 @@ function TD(T::Type, dims)
     return td
 end
 
-type FD; ptr; end
+mutable struct FD; ptr; end
 FD{T}(a::KnetArray{T})=FD(T,size(a))
 FD(T::Type, dims::Integer...) = FD(T,dims)
 function FD(T::Type, dims)
@@ -253,7 +253,7 @@ function FD(T::Type, dims)
     return fd
 end
 
-type CD; ptr
+mutable struct CD; ptr
     function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
@@ -277,7 +277,7 @@ type CD; ptr
     end
 end
 
-type PD; ptr
+mutable struct PD; ptr
     function PD(x::KnetArray; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)

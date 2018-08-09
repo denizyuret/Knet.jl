@@ -145,7 +145,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
             #=
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
                         $x,size($x,1),size($x,2),$y,size($y,1))
             return y
             =#
@@ -160,7 +160,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
             return y
         end
@@ -170,7 +170,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
             return y
         end
@@ -180,7 +180,7 @@ function permutedims{T,N}(x::KnetArray{T,N}, dims)
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
-            @eval ccall(($funcName,libknet8),Void,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
             return y
         end
@@ -232,7 +232,7 @@ for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
             if transA=='N'; lda=M; else; lda=K; end
             if transB=='N'; ldb=K; else; ldb=N; end
             ldc = M;
-            ccall((@blasfunc($gemm), libblas), Void,
+            ccall((@blasfunc($gemm), libblas), Nothing,
                   (Ptr{UInt8}, Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt},
                    Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
                    Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty},

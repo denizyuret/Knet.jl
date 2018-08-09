@@ -62,7 +62,7 @@ unary_ops = [
 # "y1",
 ]
 
-if Pkg.installed("SpecialFunctions") != nothing
+if true #TODO Pkg.installed("SpecialFunctions") != nothing
     append!(unary_ops, [
 "erf",     # Removed from base in julia6
 "erfc",
@@ -73,23 +73,18 @@ if Pkg.installed("SpecialFunctions") != nothing
 end
 
 function unary_op(f, j=f, o...)
-    J=broadcast_func(j)
+    J=Symbol(j)
     for S in (32,64)
         T = Symbol("Float$S")
         F = "$(f)_$S"
         @eval begin
-            function $J(x::KnetArray{$T})
+            function broadcast(::typeof($J),x::KnetArray{$T})
                 y = similar(x)
                 @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
         end
     end
-end
-
-for f in unary_ops
-    if !isa(f,Tuple); f=(f,); end
-    unary_op(f...)
 end
 
 # Define some common operations as primitives for efficiency:
@@ -106,10 +101,10 @@ for (f,g,y,dx) in
       :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
       :(dyi*yi*(one(T)-yi))),
      )
-    bf = broadcast_func(f)
-    bg = broadcast_func(g)
     @eval begin
-        function $bf{T<:AbstractFloat}(x::Array{T})
+        $f(xi::T) where {T<:Number}=$y
+        $g(dyi::T,yi::T) where {T<:Number}=$dx
+        function broadcast(::typeof($f),x::Array{T}) where {T<:AbstractFloat}
             y = similar(x)
             @inbounds for i=1:length(y)
                 xi = x[i]
@@ -117,7 +112,7 @@ for (f,g,y,dx) in
             end
             return y
         end
-        function $bg{T<:AbstractFloat}(dy::Array{T},y::Array{T})
+        function broadcast(::typeof($g),dy::Array{T},y::Array{T}) where {T<:AbstractFloat}
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
@@ -126,12 +121,7 @@ for (f,g,y,dx) in
             end
             return dx
         end
-        $f{T<:Number}(xi::T)=$y
-        $g{T<:Number}(dyi::T,yi::T)=$dx
         @primitive $f(x),dy,y $g(dy,y)
-        if $f != $bf
-            @primitive $bf(x),dy,y $bg(dy,y)
-        end
     end
 end
 
@@ -144,12 +134,17 @@ end
 import Base: tanh
 @primitive tanh(x::Array),dy,y     tanhback(dy,y)
 @primitive tanh(x::KnetArray),dy,y tanhback(dy,y)
-@primitive tanhback(dy,y),ddx  ddx.*(1.-y.*y)  ddx.*(-2.*dy.*y)
+@primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
 
 # Unary plus and minus
-import Base: +, .+, -, .-, broadcast
+import Base: +, -
 
 broadcast(::typeof(+), a::KnetArray)=a
 +(a::KnetArray)=a
 -(a::KnetArray)=broadcast(-,a)
+
+for f in unary_ops
+    if !isa(f,Tuple); f=(f,); end
+    unary_op(f...)
+end
 

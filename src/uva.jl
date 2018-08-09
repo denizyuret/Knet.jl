@@ -46,12 +46,12 @@ let p2pdevs = Set()
     end
 
     """
-    `enableP2P(gpuList::Union{Array{Int, 1}, Void}=nothing)::Bool`
+    `enableP2P(gpuList::Union{Array{Int, 1}, Nothing}=nothing)::Bool`
     Checks and enables peer access between all gpus whose ids are in the `gpuList`.
     Returns `false` if peer access does not exist between any gpu pair, `true` otherwise.
     If `gpuList =  nothing`, `[0:gpuCount()-1]` is used as the gpuList.
     """
-    function enableP2P(gpuList::Union{Array{Int, 1}, Void}=nothing; 
+    function enableP2P(gpuList::Union{Array{Int, 1}, Nothing}=nothing; 
                        verbose::Bool=false)::Bool
         if gpuList == nothing
             gpuList = Array{Int, 1}(0:(gpuCount()-1))

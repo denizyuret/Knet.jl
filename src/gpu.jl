@@ -35,7 +35,7 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
+        fx = Expr(:call, :ccall, ("$fun",libknet8), :Nothing, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
     else
@@ -47,7 +47,7 @@ macro nvml(fun,x...)
     esc(Expr(:macrocall,Symbol("@cuda"),"nvml",fun,x...))
 end
 
-const Cptr = Ptr{Void}
+const Cptr = Ptr{Nothing}
 
 """
 
@@ -81,7 +81,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
-        if !isdefined(:cudartfound)
+        if !isdefined(Knet,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
@@ -90,7 +90,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 cudartfound = false
             end
         end
-        if !isdefined(:nvmlfound)
+        if !isdefined(Knet,:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @nvml(nvmlInit,())

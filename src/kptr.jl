@@ -4,7 +4,7 @@ GCDEBUG=false; gcdebug(b::Bool)=(global GCDEBUG=b)
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
 
-type KnetPtr
+mutable struct KnetPtr
     ptr::Cptr                   # actual pointer
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
@@ -14,7 +14,7 @@ end
 # We use the KnetPtrs type to keep track of allocated and garbage
 # collected pointers: We keep one KnetPtrs struct per size per device.
 
-type KnetPtrs
+mutable struct KnetPtrs
     used::Int                   # number of allocated pointers
     free::Array{Cptr,1}         # pointers available for reuse
     KnetPtrs()=new(0,Array{Cptr}(0))

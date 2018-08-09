@@ -27,7 +27,7 @@ of the form `(eltype, dims...)->data`. `zeros` is a good option.
 bnmoments(;momentum=0.1, meaninit=zeros, varinit=ones, mean=nothing, var=nothing) =
     BNMoments(momentum, mean, var, meaninit, varinit)
 
-type BNMoments
+mutable struct BNMoments
     momentum::AbstractFloat
     mean
     var
@@ -72,7 +72,7 @@ Training and test modes are controlled by the `training` keyword argument.
  is `AutoGrad.Rec`, `false` otherwise.
 
 """
-function batchnorm(x, moments::Union{BNMoments, Void}=nothing, params=nothing;
+function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing;
                    training=nothing, o...)
     xnd = ndims(x)
     a = (x,)
@@ -129,7 +129,7 @@ const BN_MODE_ACTIVATION = 0
 const CUDNN_BN_MIN_EPS = 1e-5
 
 # A black box data type for storing the bn state
-type BNCache
+mutable struct BNCache
     mean
     ivar
     dx
@@ -257,7 +257,7 @@ function batchnorm4{T}(x::KnetArray{T};o...)
     return batchnorm4(g, b, x; o...)
 end
 
-function batchnorm4_back{T}(g::Union{KnetArray{T}, Void},
+function batchnorm4_back{T}(g::Union{KnetArray{T}, Nothing},
                             x::KnetArray{T}, dy::KnetArray{T};
                             training=true,
                             cache=nothing,
@@ -414,7 +414,7 @@ function _update_moments!(moments, mu, sigma2)
 end
 
 # CPU backward
-function batchnorm4_back{T}(g::Union{Array{T}, Void}, x::Array{T}, dy::Array{T};
+function batchnorm4_back{T}(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{T};
                             eps=1e-5, training=true,
                             cache=nothing, moments=nothing,  o...)
     eps = T(eps)

@@ -15,7 +15,7 @@
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
 "Dropout descriptor"
-type DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
+mutable struct DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
 
 Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 
@@ -34,7 +34,7 @@ end
 
 
 "RNN descriptor"
-type RD; ptr::Cptr; end
+mutable struct RD; ptr::Cptr; end
 
 Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
 
@@ -48,7 +48,7 @@ end
 
 
 "RNN config"
-type RNN
+mutable struct RNN
     inputSize::Cint
     hiddenSize::Cint
     numLayers::Cint
@@ -58,8 +58,8 @@ type RNN
     mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
     algo::Cint         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
     dataType::DataType # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-    rnnDesc::Union{RD,Void}
-    dropoutDesc::Union{DD,Void}
+    rnnDesc::Union{RD,Nothing}
+    dropoutDesc::Union{DD,Nothing}
     dx
     dhx
     dcx
@@ -86,12 +86,12 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
 end
 
 "Keeps an array of 3D tensor descriptors"
-type TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc in TDs so it does not get gc'ed
+mutable struct TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc in TDs so it does not get gc'ed
 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 
-function TDs{A}(x::KnetArray{A},::Void) # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
+function TDs{A}(x::KnetArray{A},::Nothing) # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
     xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
     pvec = Vector{Cptr}(size(x,3))
     pvec[:] = xDesc.ptr
@@ -459,8 +459,8 @@ end
 
     """
 function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
-                    hx::Union{KnetArray{T},Void}=nothing,
-                    cx::Union{KnetArray{T},Void}=nothing;
+                    hx::Union{KnetArray{T},Nothing}=nothing,
+                    cx::Union{KnetArray{T},Nothing}=nothing;
                     handle=cudnnhandle(), training=false,
                     batchSizes=nothing,
                     hy = (hx != nothing),
@@ -645,8 +645,8 @@ end
 
 # CPU version
 function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
-                    hx::Union{Array{T},Void}=nothing,
-                    cx::Union{Array{T},Void}=nothing;
+                    hx::Union{Array{T},Nothing}=nothing,
+                    cx::Union{Array{T},Nothing}=nothing;
                     # handle=cudnnhandle(), training=false,
                     batchSizes=nothing,
                     hy = (hx != nothing),

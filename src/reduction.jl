@@ -32,7 +32,7 @@ function reduction_op(f, j=f, o...)
         @eval begin
             # Array->Scalar reduction:
             function $J(x::KnetArray{$T})
-                y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Void
+                y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Nothing
                 @gs; return y
             end
             # Array->Vector reduction:
