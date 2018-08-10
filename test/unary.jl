@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 if Pkg.installed("SpecialFunctions") != nothing
     eval(Expr(:using,:SpecialFunctions))
 end

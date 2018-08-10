@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 include("combinatorics.jl")
 srand(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]

@@ -1,6 +1,6 @@
 # TODO: test bidirectional rnns
 
-include("header.jl")
+using Test,Knet
 
 if gpu() >= 0
 

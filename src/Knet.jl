@@ -33,7 +33,7 @@ include("unary.jl");            export relu, sigm, invx
 # include("loss.jl");             export logp, logsumexp, nll, accuracy
 # include("dropout.jl");          export dropout
 # include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
-# include("distributions.jl"); 	export gaussian, xavier, bilinear
+include("distributions.jl"); 	export gaussian, xavier, bilinear
 # include("random.jl");           export setseed
 # include("hyperopt.jl");         export hyperband, goldensection
 # include("data.jl");             export minibatch

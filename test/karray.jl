@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 

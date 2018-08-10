@@ -44,10 +44,12 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
 end
 
 macro nvml(fun,x...)
-    esc(Expr(:macrocall,Symbol("@cuda"),"nvml",fun,x...))
+    ex = :(@cuda("nvml",$fun,))
+    append!(ex.args, x)
+    esc(ex)
 end
 
-const Cptr = Ptr{Nothing}
+const Cptr = Ptr{Cvoid}
 
 """
 
@@ -181,7 +183,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array{Any}(gpuCount()+1); end
+        if CUBLAS == nothing; CUBLAS=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
         return CUBLAS[i]
     end
@@ -192,7 +194,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array{Any}(gpuCount()+1); end
+        if CUDNN == nothing; CUDNN=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
         return CUDNN[i]
     end
@@ -209,7 +211,7 @@ cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
 function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
-    mem = Array{Culonglong}(3)
+    mem = Array{Culonglong}(undef,3)
     @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
     @nvml("nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))

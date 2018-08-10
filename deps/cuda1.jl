@@ -231,12 +231,14 @@ end
 # avoid dependency, copy permutations from julia4 base
 # using Combinatorics
 
-import Base: start, next, done, length
-immutable Perms; a; end
+import Base: iterate, length
+struct Perms; a; end
 perms(a) = Perms(a)
-start(p::Perms) = [1:length(p.a);]
 length(p::Perms) = factorial(length(p.a))
-function next(p::Perms, s)
+#start(p::Perms) = [1:length(p.a);]
+#done(p::Perms, s) = !isempty(s) && s[1] > length(p.a)
+function iterate(p::Perms, s=[1:length(p.a);])
+    if !isempty(s) && s[1] > length(p.a); return nothing; end
     perm = [p.a[si] for si in s]
     if length(p.a) == 0
         # special case to generate 1 result for len==0
@@ -255,7 +257,6 @@ function next(p::Perms, s)
     end
     (perm,s)
 end
-done(p::Perms, s) = !isempty(s) && s[1] > length(p.a)
 
 function cuda1permutedims()
   cudaPerms = [permutedims2Dsrc,permutedims3Dsrc,permutedims4Dsrc,permutedims5Dsrc]

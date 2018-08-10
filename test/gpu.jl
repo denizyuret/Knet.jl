@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Libdl,Knet
 
 if gpu() >= 0
     @testset "gpu" begin
@@ -9,7 +9,7 @@ if gpu() >= 0
         @test all(p->p>Knet.Cptr(0), (Knet.cublashandle(), Knet.cudnnhandle()))
         @test all(v->v>0, @show (Knet.cudaDriverVersion, Knet.cudaRuntimeVersion, Knet.cublasVersion, Knet.cudnnVersion))
         @test all(m->m>0, Knet.cudaMemGetInfo())
-        if Libdl.find_library(["libnvidia-ml"],[]) != ""
+        if Knet.nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
             @test all(m->m>0, Knet.nvmlDeviceGetMemoryInfo())
             @show Knet.nvmlDriverVersion, Knet.nvmlVersion
         end

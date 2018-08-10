@@ -9,7 +9,7 @@ Return a Gaussian array with a given mean and standard deviation.  The
 function gaussian(a...; mean=0.0, std=0.01)
     r = randn(a...)
     T = eltype(r)
-    r * T(std) + T(mean)
+    r .* T(std) .+ T(mean)
 end
 
 """
@@ -38,7 +38,7 @@ function xavier(a...)
         fanin = div(length(w), fanout)
     end
     s = convert(eltype(w), sqrt(2 / (fanin + fanout)))
-    w = 2s*w-s
+    w = 2s .* w .- s
 end
 
 """
@@ -75,10 +75,10 @@ function bilinear(T,fw,fh,IN,ON)
     if sz%2 == 1
         center = f-1
     end
-    r = linspace(0,sz-1,sz)
-    c = linspace(0,sz-1,sz)'
+    r = range(0,stop=sz-1,length=sz)
+    c = range(0,stop=sz-1,length=sz)'
 
-    kernel = (1-abs.(r-center)/f)*(1-abs.(c-center)/f)
+    kernel = (1 .- abs.(r .- center) ./ f) .* (1 .- abs.(c .- center) ./ f)
     w = zeros(T,sz,sz,N,N);
     for i=1:N
         w[:,:,i,i] = kernel

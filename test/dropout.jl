@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 
 @testset "dropout" begin
     dropout1(x,p)=dropout(x,p;seed=1)

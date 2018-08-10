@@ -380,7 +380,7 @@ function rnninit(inputSize, hiddenSize;
             error("CUDNN $cudnnVersion does not support RNNs")
         end
         r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-        w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
+        w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
     else
         r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
@@ -396,7 +396,7 @@ function rnninit(inputSize, hiddenSize;
                 winput = (1 + direction) * whidden
                 binput = bhidden
             end
-            Array{dataType}(1,1,nparams)
+            Array{dataType}(undef,1,1,nparams)
         end
     end
     for a in rnnparams(r,w; handle=handle, useview=true)
@@ -495,7 +495,7 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
 
     if training
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
-        rs = KnetArray{UInt8}(rss)
+        rs = KnetArray{UInt8}(undef,rss)
         @cuda(cudnn, cudnnRNNForwardTraining,
               (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x

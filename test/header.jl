@@ -1,1 +1,1 @@
-using Base.Test, Knet
+using Test, Random, Knet

@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 
 @testset "distributions" begin
     @test isa(gaussian(10),Array)

@@ -584,7 +584,7 @@ end
 const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
 const requestedAlgoCount = 10
 const returnedAlgoCount = Cint[0]
-const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(requestedAlgoCount)
+const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
 bytes{T}(x::KnetArray{T})=length(x)*sizeof(T)
 
 const conv4_algos = Dict()
@@ -674,7 +674,7 @@ function cudnnWorkSpace(len=0;dev=gpu())
     i = dev+2
     if isempty(CUDNN_WORKSPACE); resize!(CUDNN_WORKSPACE,gpuCount()+1); end
     if !isassigned(CUDNN_WORKSPACE,i) || length(CUDNN_WORKSPACE[i]) < len
-        CUDNN_WORKSPACE[i]=KnetArray{UInt8}(len);
+        CUDNN_WORKSPACE[i]=KnetArray{UInt8}(undef,len);
     end
     return CUDNN_WORKSPACE[i]
 end

@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 
 srand(42)
 TOL=1e-1

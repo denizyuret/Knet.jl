@@ -205,7 +205,7 @@ function permutefunc{T,N}(x::KnetArray{T,N}, dims)
 end    
 
 function ipermutedims(A::KnetArray,perm)
-    iperm = Array{Int}(length(perm))
+    iperm = Array{Int}(undef,length(perm))
     for (i,p) = enumerate(perm)
         iperm[p] = i
     end

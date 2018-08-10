@@ -1,4 +1,4 @@
-include("header.jl")
+using Test,Knet
 date(x)=(join(STDOUT,[Dates.format(now(),"HH:MM:SS"), x,'\n'],' '); flush(STDOUT))
 macro dbg(_x); end
 #macro dbg(_x); :(@show $(esc(_x))); end

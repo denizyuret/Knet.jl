@@ -109,7 +109,7 @@ second half is bias.
 
 """
 function bnparams(etype, channels::Integer)
-    buf = Array{etype}(2channels)
+    buf = Array{etype}(undef,2channels)
     buf[1:channels] = 1
     buf[channels+1:end] = 0
     return buf
@@ -171,7 +171,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
                        handle = cudnnhandle(),
                        cache_verbose=false, #reporting cache uses
                        o...)
-    y = KnetArray{T}(size(x))
+    y = KnetArray{T}(undef,size(x))
     weight_size = _wsize(y)
     # TODO: implement other bn mode
     bnmode = BN_MODE_SPATIAL
@@ -196,8 +196,8 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
     if training
         # Cache the mean and ivar for later
         if cache !== nothing
-            mean = KnetArray{T}(weight_size)
-            ivar = KnetArray{T}(weight_size)
+            mean = KnetArray{T}(undef,weight_size)
+            ivar = KnetArray{T}(undef,weight_size)
         else
             mean = C_NULL
             ivar = C_NULL
@@ -269,11 +269,11 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Nothing},
                             cache_verbose=false,
                             o...)
     if training
-        dx = KnetArray{T}(size(x))
+        dx = KnetArray{T}(undef,size(x))
         weight_size = _wsize(dy)
         if g==nothing; g=KnetArray{T}(ones(weight_size)); end
-        dg = KnetArray{T}(weight_size)
-        db = KnetArray{T}(weight_size)
+        dg = KnetArray{T}(undef,weight_size)
+        db = KnetArray{T}(undef,weight_size)
         # TODO: support other modes
         bnmode = BN_MODE_SPATIAL
         if cache !== nothing # (Assume cache still exists)
