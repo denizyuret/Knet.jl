@@ -70,9 +70,9 @@ function build_nvcc()
            # ("cuda13","../src/broadcast"),
            # ("cuda16","../src/broadcast"),
            # ("cuda17","../src/broadcast"),
-           # ("cuda20","../src/reduction"),
-           # ("cuda21","../src/reduction"),
-           # ("cuda22","../src/reduction"),
+           ("cuda20","../src/reduction"),
+           ("cuda21","../src/reduction"),
+           ("cuda22","../src/reduction"),
            ]
 
     CPP = ["conv"]

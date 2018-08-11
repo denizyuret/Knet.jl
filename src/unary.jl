@@ -1,3 +1,5 @@
+import .Broadcast: broadcasted
+
 # unary.jl: Unary Array->Array operations.
 # The following list comes from the NVIDIA math docs with some extras.
 # http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#mathematical-functions-appendix
@@ -78,7 +80,7 @@ function unary_op(f, j=f, o...)
         T = Symbol("Float$S")
         F = "$(f)_$S"
         @eval begin
-            function broadcast(::typeof($J),x::KnetArray{$T})
+            function broadcasted(::typeof($J),x::KnetArray{$T})
                 y = similar(x)
                 @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
@@ -104,7 +106,7 @@ for (f,g,y,dx) in
     @eval begin
         $f(xi::T) where {T<:Number}=$y
         $g(dyi::T,yi::T) where {T<:Number}=$dx
-        function broadcast(::typeof($f),x::Array{T}) where {T<:AbstractFloat}
+        function broadcasted(::typeof($f),x::Array{T}) where {T<:AbstractFloat}
             y = similar(x)
             @inbounds for i=1:length(y)
                 xi = x[i]
@@ -112,7 +114,7 @@ for (f,g,y,dx) in
             end
             return y
         end
-        function broadcast(::typeof($g),dy::Array{T},y::Array{T}) where {T<:AbstractFloat}
+        function broadcasted(::typeof($g),dy::Array{T},y::Array{T}) where {T<:AbstractFloat}
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
@@ -139,9 +141,9 @@ import Base: tanh
 # Unary plus and minus
 import Base: +, -
 
-broadcast(::typeof(+), a::KnetArray)=a
+broadcasted(::typeof(+), a::KnetArray)=a
 +(a::KnetArray)=a
--(a::KnetArray)=broadcast(-,a)
+-(a::KnetArray)=broadcasted(-,a)
 
 for f in unary_ops
     if !isa(f,Tuple); f=(f,); end

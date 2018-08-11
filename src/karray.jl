@@ -179,7 +179,7 @@ length(a::KnetArray)=prod(size(a))
 # linearindexing(::KnetArray)=Base.LinearFast() # deprecated in Julia6
 ndims(a::KnetArray{T,N}) where {T,N}=N
 ones(a::KnetArray{T}) where {T}=fill!(similar(a),one(T))
-similar(a::KnetArray, T, dims::Dims)      = KnetArray(T, dims)
+similar(a::KnetArray, T, dims::Dims)      = KnetArray{T}(undef,dims)
 similar(a::KnetArray, T, dims::Int...)    = similar(a, T, dims)
 similar(a::KnetArray, T)                  = similar(a, T, size(a))
 similar(a::KnetArray{T}) where {T}               = similar(a, T, size(a))
@@ -1096,13 +1096,13 @@ ka = KnetArray
 export ka
 
 # To stop fusing the following is needed.
-# Primitives just need to override broadcast for KnetArray types.
-import .Broadcast: broadcast, broadcasted
-broadcasted(f, x::KnetArray) = broadcast(f,x)
-broadcasted(f, x::KnetArray, y...) = broadcast(f,x,y...)
-broadcasted(f, x::KnetArray, y) = broadcast(f,x,y)
-broadcasted(f, x, y::KnetArray) = broadcast(f,x,y)
-broadcasted(f, x::KnetArray, y::KnetArray) = broadcast(f,x,y)
+# Primitives just need to override broadcasted for KnetArray types.
+import .Broadcast: broadcasted
+broadcasted(f, x::KnetArray) = throw(MethodError(f,x))
+broadcasted(f, x::KnetArray, y...) = throw(MethodError(f,x,y...))
+broadcasted(f, x::KnetArray, y) = throw(MethodError(f,x,y))
+broadcasted(f, x, y::KnetArray) = throw(MethodError(f,x,y))
+broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(f,x,y))
 
 
 import .Broadcast: copyto!, Broadcasted

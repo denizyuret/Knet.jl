@@ -1,7 +1,5 @@
-__precompile__()
-
 module Knet
-using Libdl, SpecialFunctions
+using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 import .Broadcast: broadcast, broadcasted
 
 # To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
@@ -25,7 +23,7 @@ include("karray.jl");           export KnetArray
 # include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx
 # include("broadcast.jl");        # elementwise broadcasting operations
-# include("reduction.jl");        # sum, max, mean, etc.
+include("reduction.jl");        # sum, max, mean, etc.
 # include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 # include("conv.jl");             export conv4, pool, deconv4, unpool
 # include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
