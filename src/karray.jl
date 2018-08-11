@@ -114,10 +114,18 @@ KnetArray{T}(::UndefInitializer, d::Vararg{Integer,N}) where {T,N} = KnetArray{T
 KnetArray{T}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), convert(NTuple{N,Int},d))
 
 # These define KnetArray(T,dims) and KnetArray(T,d...) -- deprecated
-
 # KnetArray(::Type{T}, d::NTuple{N,Int}) where {T,N} = KnetArray{T,N}(d)
 # KnetArray(::Type{T}, d::Int...) where {T} = KnetArray(T,d)
 # KnetArray(::Type{T}, d::Integer...) where {T} = KnetArray(T,convert(Tuple{Vararg{Int}},d))
+
+# These define KnetArray <-> Array constructors
+KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
+KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
+KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+
+Array(A::KnetArray{T,N})    where {T,N}   = Array{T,N}(A)
+Array{T}(A::KnetArray{S,N}) where {T,N,S} = Array{T,N}(A)
+Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
 # Conversions:
 import Base: convert, reshape, vec, unsafe_convert, pointer
@@ -1087,7 +1095,8 @@ end; end
 ka = KnetArray
 export ka
 
-# To stop fusing
+# To stop fusing the following is needed.
+# Primitives just need to override broadcast for KnetArray types.
 import .Broadcast: broadcast, broadcasted
 broadcasted(f, x::KnetArray) = broadcast(f,x)
 broadcasted(f, x::KnetArray, y...) = broadcast(f,x,y...)
@@ -1095,4 +1104,9 @@ broadcasted(f, x::KnetArray, y) = broadcast(f,x,y)
 broadcasted(f, x, y::KnetArray) = broadcast(f,x,y)
 broadcasted(f, x::KnetArray, y::KnetArray) = broadcast(f,x,y)
 
-# Primitives just need to override broadcast for KnetArray types.
+
+import .Broadcast: copyto!, Broadcasted
+# This takes care of k[:] = 0
+copyto!(a::KnetArray,b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}})=setindex!(a, first(b), :)
+# This is for all other k[:] = a
+copyto!(a::KnetArray,b::Broadcasted)=setindex!(a, copy(b), :)

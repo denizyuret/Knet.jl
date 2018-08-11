@@ -1,4 +1,5 @@
-using Test,Knet
+using Test,AutoGrad,Knet
+include(AutoGrad.dir("test/gradcheck.jl"))
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 
@@ -36,14 +37,14 @@ if gpu() >= 0
                       (:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
                       ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
-                # @show i
+                @show i
                 @test a[i...] == k[i...]
                 ai = a[i...]
-                a[i...] = 0
-                k[i...] = 0
+                a[i...] .= 0
+                k[i...] .= 0
                 @test a == k
-                a[i...] = ai
-                k[i...] = ai
+                a[i...] .= ai
+                k[i...] .= ai
                 @test a == k
                 @test gradcheck(getindex, a, i...)
                 @test gradcheck(getindex, k, i...)

@@ -9,6 +9,8 @@
 	- fix JLD.
 	- unsafe_copy! is not in base any more?
 	- unary_nd, indexed_function, isequivalent, _dbg, ssize not in AutoGrad any more.
+	- fix KnetDisplay (summary line should show KnetArray).
+	- separate and move KnetArray to KnetML.
 
 2017-09-06  EC2 Default User  <ec2-user@ip-172-31-24-9.us-east-2.compute.internal>
 
