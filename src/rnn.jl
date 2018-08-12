@@ -28,7 +28,7 @@ function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
     @cuda(cudnn,cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
           d[1],handle,dropout,states,bytes(states),seed)
     dd = DD(d[1],states)
-    finalizer(dd, x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
     return dd
 end
 
@@ -42,7 +42,7 @@ function RD()
     d = Cptr[0]
     @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
     rd = RD(d[1])
-    finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
     return rd
 end
 
@@ -93,8 +93,8 @@ Base.length(tds::TDs)=length(tds.pvec)
 
 function TDs(x::KnetArray{A},::Nothing) where {A} # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
     xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
-    pvec = Vector(size(x,3) where {Cptr})
-    pvec[:] = xDesc.ptr
+    pvec = Vector{Cptr}(undef, size(x,3))
+    pvec[:] .= xDesc.ptr
     return TDs(pvec, [xDesc])
 end
 
@@ -362,8 +362,9 @@ function rnninit(inputSize, hiddenSize;
                  )
     inputMode = skipInput ? 1 : 0
     direction = bidirectional ? 1 : 0
-    mode = findfirst((:relu,:tanh,:lstm,:gru), rnnType) - 1
-    if mode < 0; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
+    if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = mode - 1
     if usegpu
         rnnDesc = RD()
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
@@ -403,9 +404,9 @@ function rnninit(inputSize, hiddenSize;
         if a == nothing
             continue
         elseif ndims(a) == 2
-            copy!(a, winit(dataType, size(a)))
+            copyto!(a, winit(dataType, size(a)))
         elseif ndims(a) == 1
-            copy!(a, binit(dataType, size(a)))
+            copyto!(a, binit(dataType, size(a)))
         else
             error()
         end

@@ -1,5 +1,5 @@
 using SpecialFunctions
-import .Broadcast: broadcasted
+import Base.Broadcast: broadcasted
 
 # unary.jl: Unary Array->Array operations.
 # The following list comes from the NVIDIA math docs with some extras.
@@ -46,6 +46,7 @@ unary_ops = [
 ("neg", "-", "-xi"),
 # "normcdf",
 # "normcdfinv",
+("one", "one", "(xi=1)"),       # using xi here to avoid nvcc warnings
 # "rcbrt",
 ("relu", "relu", "(xi>0?xi:0)"),
 # "rint",
@@ -63,6 +64,7 @@ unary_ops = [
 "trunc",
 # "y0",
 # "y1",
+("zero", "zero", "(xi=0)"), # using xi here to avoid nvcc warnings
 ]
 
 if true #TODO Pkg.installed("SpecialFunctions") != nothing
@@ -124,7 +126,7 @@ for (f,g,y,dx) in
             end
             return dx
         end
-        @primitive $f(x),dy,y $g(dy,y)
+        @primitive $f(x),dy,y $g.(dy,y)
     end
 end
 
@@ -151,3 +153,6 @@ for f in unary_ops
     unary_op(f...)
 end
 
+# Unbroadcasted zero works on arrays:
+import Base: zero
+zero(x::KnetArray)=zero.(x)

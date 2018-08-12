@@ -1,7 +1,6 @@
 module Knet
 using Libdl
 # using LinearAlgebra, Statistics, SpecialFunctions, Libdl
-# import .Broadcast: broadcast, broadcasted
 
 # To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
 # can be used to show a subset of dbg messages indicated by the `bit`

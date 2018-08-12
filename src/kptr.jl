@@ -8,7 +8,25 @@ mutable struct KnetPtr
     ptr::Cptr                   # actual pointer
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
-    parent                      # used to implement shared memory pointers
+    parent::KnetPtr             # used to implement shared memory pointers
+
+    # This is the low level KnetPtr constructor, it adds the finalizer and
+    # sets parent to `nothing` which is only needed for shared pointers.
+
+    function KnetPtr(ptr::Cptr,len::Int,dev::Int)
+        kp = new(ptr,len,dev)
+        finalizer(freeKnetPtr, kp)
+    end
+
+    # This constructor is used to create a shared pointer.  We need to
+    # keep the parent field to prevent premature gc of the parent.  The
+    # child does not need a special finalizer.
+
+    function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
+        if len < 0 || offs < 1 || offs+len-1 > parent.len; throw(BoundsError()); end
+        new(parent.ptr+offs-1, len, parent.dev, parent)
+    end
+
 end
 
 # We use the KnetPtrs type to keep track of allocated and garbage
@@ -37,26 +55,6 @@ function freeKnetPtr(p::KnetPtr)
     push!(ptrs.free,p.ptr)
 end
 
-# This is the low level KnetPtr constructor, it adds the finalizer and
-# sets parent to `nothing` which is only needed for shared pointers.
-
-function KnetPtr(ptr::Cptr,len::Int,dev::Int)
-    kp = KnetPtr(ptr,len,dev,nothing)
-    finalizer(freeKnetPtr, kp)
-    return kp
-end
-
-# This constructor is used to create a shared pointer.  We need to
-# keep the parent field to prevent premature gc of the parent.  The
-# child does not need a special finalizer.
-
-function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
-    if len < 0 || offs < 1 || offs+len-1 > parent.len
-        throw(BoundsError())
-    end
-    KnetPtr(parent.ptr+offs-1, len, parent.dev, parent)
-end
-
 # This the main KnetPtr constructor.  It tries to avoid actual
 # allocation which is slow.  First it tries to find a previously
 # allocated and garbage collected pointer in KnetFree[dev+2].  If not
@@ -66,7 +64,7 @@ end
 # allocated and garbage collected KnetPtrs on the current device and
 # tries allocation one last time.
 
-function KnetPtr(nbytes::Integer)
+function KnetPtr(nbytes::Int)
     KnetFree==nothing && initKnetFree()
     dev = gpu()
     if dev < 0
@@ -93,6 +91,8 @@ function KnetPtr(nbytes::Integer)
     end
     error("Out of gpu memory")
 end
+
+KnetPtr(n::Integer)=KnetPtr(Int(n))
 
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)

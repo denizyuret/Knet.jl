@@ -18,7 +18,7 @@ for a reference.
 """
 function dropout(x,p; seed=0)
     if 0 < p < 1
-        if seed != 0; setseed(seed); end
+        if seed != 0; Knet.seed!(seed); end
         dropout!(p,x,similar(x))
     elseif p == 0
         x

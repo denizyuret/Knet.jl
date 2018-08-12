@@ -226,7 +226,7 @@ function TD(T::Type, dims)
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
           d[1], DT(T), n, sz, st)
     td = TD(d[1])
-    finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
     return td
 end
 
@@ -252,7 +252,7 @@ function FD(T::Type, dims)
               d[1], DT(T),    n,   sz)
     end
     fd = FD(d[1])
-    finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
     return fd
 end
 
@@ -275,7 +275,7 @@ mutable struct CD; ptr
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode)
         end
         cd = new(d[1])
-        finalizer(cd, x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr))
+        finalizer(x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
         return cd
     end
 end
@@ -299,7 +299,7 @@ mutable struct PD; ptr
                   d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         end
         pd = new(d[1])
-        finalizer(pd, x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr))
+        finalizer(x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
         return pd
     end
 end

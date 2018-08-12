@@ -91,7 +91,7 @@ lmul!(alpha::Number, x::KnetArray{T}) where {T} = scal!(length(x),alpha,x,1)
 rmul!(x::KnetArray{T}, alpha::Number) where {T} =scal!(length(x),alpha,x,1)
 
 transpose(x::KnetArray)=Transpose(x)
-adjoing(x::KnetArray)=Adjoint(x)
+adjoint(x::KnetArray)=Adjoint(x)
 
 function _transpose(x::KnetArray{T}) where {T} # trying the lazy version first
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")

@@ -1,4 +1,4 @@
-import .Broadcast: broadcasted
+import Base.Broadcast: broadcasted
 
 # broadcast.jl: Elementwise broadcasting binary functions for arrays and scalars.
 # The entry format is (cudaname, julianame, kernelcode)
@@ -76,19 +76,19 @@ function broadcast_op(f, j=f, o...)
                 else
                     bs = vbroadcast_shape(x,y)
                     z = similar(x,bs[1])
-                    $J(x,y,z,bs)
+                    _broadcasted($J,x,y,z,bs)
                 end
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
                 if length(x) == 1
-                    $J(x[1],y)
+                    broadcasted($J,x[1],y)
                 elseif length(y) == 1
-                    $J(x,y[1])
+                    broadcasted($J,x,y[1])
                 else # length(x) == length(y) was handled above
                     throw(DimensionMismatch("$(map(size,(x,y,z)))"))
                 end
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,2},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,2},bs)
                 # xlast or ylast will be broadcasting dimension
                 (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = bs
                 if (nx == 1
@@ -123,28 +123,28 @@ function broadcast_op(f, j=f, o...)
                 end
                 return z
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_3,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3], sy[1],sy[2],sy[3], sz[1],sz[2],sz[3], length(z))
                 return z
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_4,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3],sx[4], sy[1],sy[2],sy[3],sy[4], sz[1],sz[2],sz[3],sz[4], length(z))
                 return z
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_5,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3],sx[4],sx[5], sy[1],sy[2],sy[3],sy[4],sy[5], sz[1],sz[2],sz[3],sz[4],sz[5], length(z))
                 return z
             end
-            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T},bs)
+            function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T},bs)
                 # ndims(z) <= 5 handled above, this is for > 5
                 sx,sy,sz = map(s->convert(KnetArray, s), get_strides(x,y,z))
                 @knet8($F17,

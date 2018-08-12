@@ -25,7 +25,7 @@ operations.
   * 2-D: (Colon,Union{Real,Colon,OrdinalRange,AbstractVector{Real},AbstractVector{Bool},KnetVector{Int32}}), (Union{Real,AbstractUnitRange,Colon}...) (in any order)
   * N-D: (Real...)
 
-* Array operations: ==, !=, cat, convert, copy, copy!, deepcopy,
+* Array operations: ==, !=, cat, convert, copy, copyto!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
   isempty, length, ndims, ones, pointer, rand!, randn!, reshape,
   similar, size, stride, strides, summary, vcat, vec, zeros.
@@ -170,7 +170,7 @@ eltype(::KnetArray{T}) where {T}=T
 eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
-fill!(a::KnetArray{T},x) where {T}=(a[:]=T(x);a)
+fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
 @primitive  first(x::KnetArray),dy,y  AutoGrad.ungetindex(x,dy,1)
@@ -247,7 +247,7 @@ function hcat(A::KnetVecOrMat{T}...) where {T}
     for k = 1:nargs
         Ak = A[k]
         n = length(Ak)
-        copy!(B, pos, Ak, 1, n)
+        copyto!(B, pos, Ak, 1, n)
         pos += n
     end
     return B
@@ -264,7 +264,7 @@ function vcat(A::KnetVector{T}...) where {T}
     for k = 1:nargs
         Ak = A[k]
         n = length(Ak)
-        copy!(B, pos, Ak, 1, n)
+        copyto!(B, pos, Ak, 1, n)
         pos += n
     end
     return B
@@ -318,16 +318,16 @@ hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(unde
 # Utilities:
 
 # Generalizing low level copy using linear indexing to/from gpu arrays:
-# copy!{T}(dest::Array{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer)
+# copyto!{T}(dest::Array{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer)
 # Note that this is an unsafe operation, no argument or bounds checking performed.
 # Defined in Base:
 # unsafe_copy!{T}(dest::Ptr{T}, src::Ptr{T}, n) at array.jl:73
 # unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
-import Base: copy, copy! #TODO unsafe_copy!
+import Base: copy, copyto! #TODO unsafe_copy!
 const KorA{T} = Union{KnetArray{T},Array{T}}
 
-function copy!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer) where {T}
+function copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer) where {T}
     if n == 0; return dest; end
     if n < 0; throw(ArgumentError()); end
     if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
@@ -336,9 +336,9 @@ function copy!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::I
     unsafe_copy!(dest, doffs, src, soffs, n)
 end
 
-function copy!(dest::KorA{T}, src::KorA{T}) where {T}
+function copyto!(dest::KorA{T}, src::KorA{T}) where {T}
     if length(dest) < length(src); throw(BoundsError()); end
-    copy!(dest, 1, src, 1, length(src))
+    copyto!(dest, 1, src, 1, length(src))
 end
 
 function copy(a::KnetArray)
@@ -1098,15 +1098,22 @@ export ka
 # To stop fusing the following is needed.
 # Primitives just need to override broadcasted for KnetArray types.
 import .Broadcast: broadcasted
-broadcasted(f, x::KnetArray) = throw(MethodError(f,x))
-broadcasted(f, x::KnetArray, y...) = throw(MethodError(f,x,y...))
-broadcasted(f, x::KnetArray, y) = throw(MethodError(f,x,y))
-broadcasted(f, x, y::KnetArray) = throw(MethodError(f,x,y))
-broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(f,x,y))
+broadcasted(f, x::KnetArray) = (@warn("broadcasted($f,$x)"); throw(MethodError(broadcasted,(f,x))))
+broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
+broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
+broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
+broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
 
-
-import .Broadcast: copyto!, Broadcasted
-# This takes care of k[:] = 0
+import .Broadcast: copyto!
+using .Broadcast: Broadcasted
+# This takes care of k[:] .= 0
 copyto!(a::KnetArray,b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}})=setindex!(a, first(b), :)
-# This is for all other k[:] = a
+# This is for all other k[:] .= a
 copyto!(a::KnetArray,b::Broadcasted)=setindex!(a, copy(b), :)
+# This fixes (x .- log.(sum(exp.(x),dims=dims)))
+broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
+broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
+# This fixes ambiguity with AutoGrad
+using AutoGrad: broadcast_r
+broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
+broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
