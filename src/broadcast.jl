@@ -1,22 +1,24 @@
+import .Broadcast: broadcasted
+
 # broadcast.jl: Elementwise broadcasting binary functions for arrays and scalars.
 # The entry format is (cudaname, julianame, kernelcode)
 # With single name entries cudaname=julianame and kernelcode=name(xi,yi).
 # I commented out functions if I don't know the Julia equivalent.
 
 broadcast_ops = [
-    ("add",".+","xi+yi"),
-    ("sub",".-","xi-yi"),
-    ("mul",".*","xi*yi"),
-    ("div","./","xi/yi"),
-    ("pow",".^","pow(xi,yi)"),
+    ("add","+","xi+yi"),
+    ("sub","-","xi-yi"),
+    ("mul","*","xi*yi"),
+    ("div","/","xi/yi"),
+    ("pow","^","pow(xi,yi)"),
     ("max","max","(xi>yi?xi:yi)"),
     ("min","min","(xi<yi?xi:yi)"),
-    ("eq",".==","xi==yi"),
-    ("ne",".!=","xi!=yi"),
-    ("gt",".>","xi>yi"),
-    ("ge",".>=","xi>=yi"),
-    ("lt",".<","xi<yi"),
-    ("le",".<=","xi<=yi"),
+    ("eq","==","xi==yi"),
+    ("ne","!=","xi!=yi"),
+    ("gt",">","xi>yi"),
+    ("ge",">=","xi>=yi"),
+    ("lt","<","xi<yi"),
+    ("le","<=","xi<=yi"),
     # "hypot",
     # "rhypot",
     # "atan2",
@@ -40,7 +42,7 @@ broadcast_ops = [
 # broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
 function broadcast_op(f, j=f, o...)
-    J=broadcast_func(j)
+    J=Symbol(j)
     # @show J
     # if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
     for S in (32,64)
@@ -61,12 +63,12 @@ function broadcast_op(f, j=f, o...)
 
         @eval begin
             # Scalar,Array->Array
-            function $J(x::$T,y::KnetArray{$T})
+            function broadcasted(::typeof($J),x::$T,y::KnetArray{$T})
                 z = similar(y)
                 @knet8($F01,(Cint,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
                 return z
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T})
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
                     z = similar(x)
                     @knet8($F11,(Cint,Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
@@ -77,7 +79,7 @@ function broadcast_op(f, j=f, o...)
                     $J(x,y,z,bs)
                 end
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
                 if length(x) == 1
                     $J(x[1],y)
                 elseif length(y) == 1
@@ -86,7 +88,7 @@ function broadcast_op(f, j=f, o...)
                     throw(DimensionMismatch("$(map(size,(x,y,z)))"))
                 end
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,2},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,2},bs)
                 # xlast or ylast will be broadcasting dimension
                 (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = bs
                 if (nx == 1
@@ -121,28 +123,28 @@ function broadcast_op(f, j=f, o...)
                 end
                 return z
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_3,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3], sy[1],sy[2],sy[3], sz[1],sz[2],sz[3], length(z))
                 return z
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_4,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3],sx[4], sy[1],sy[2],sy[3],sy[4], sz[1],sz[2],sz[3],sz[4], length(z))
                 return z
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_5,
                        (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
                        x,y,z, sx[1],sx[2],sx[3],sx[4],sx[5], sy[1],sy[2],sy[3],sy[4],sy[5], sz[1],sz[2],sz[3],sz[4],sz[5], length(z))
                 return z
             end
-            function $J(x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T},bs)
+            function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T},bs)
                 # ndims(z) <= 5 handled above, this is for > 5
                 sx,sy,sz = map(s->convert(KnetArray, s), get_strides(x,y,z))
                 @knet8($F17,
@@ -236,19 +238,12 @@ function get_strides(x,y,z)
     return stride_x, stride_y, stride_z
 end
 
-# Define all overloaded Julia functions for KnetArrays:
-
-for f in broadcast_ops
-    if !isa(f,Tuple); f=(f,); end
-    broadcast_op(f...)
-end
-
-# Additional imports: fns in broadcast_ops are imported in broadcast_op()
+# Additional imports: fns in broadcast_ops are defined using broadcasted.
 import Base: +, -, *, /, \
 
 # Here we'll just define some functions that specifically do not have broadcasting.
-(+){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
-(-){T}(x::KnetArray{T},y::KnetArray{T})=(size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
+(+)(x::KnetArray{T},y::KnetArray{T}) where {T} = (size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
+(-)(x::KnetArray{T},y::KnetArray{T}) where {T} = (size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.-)(x,y))
 #(*){T}(x::KnetArray{T},y::KnetArray{T})=(.*)(x,y) # This is matmul
 #(/){T}(x::KnetArray{T},y::KnetArray{T})=(./)(x,y) # This is another linalg op
 
@@ -257,54 +252,62 @@ import Base: +, -, *, /, \
 # min(a::Array,b::Array)=broadcast(min,a,b)
 # tkelman: These two methods aren't necessary, and overwrite Base. You can get this behavior via max.(a,b), with @compat needed on 0.4.
 
-import Base: broadcast
+# import Base: broadcast
 
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
 @eval begin
-    $(broadcast_func(+)){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
-    $(broadcast_func(+)){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
-    $(broadcast_func(-)){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
-    $(broadcast_func(-)){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
-    $(broadcast_func(*)){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
-    $(broadcast_func(*)){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
-    $(broadcast_func(/)){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
-    $(broadcast_func(/)){T}(s::Number,a::KnetArray{T})=(./)(T(s),a)
-    $(broadcast_func(max)){T}(a::KnetArray{T},s::Number)=max.(T(s),a)
-    $(broadcast_func(max)){T}(s::Number,a::KnetArray{T})=max.(T(s),a)
-    $(broadcast_func(min)){T}(a::KnetArray{T},s::Number)=min.(T(s),a)
-    $(broadcast_func(min)){T}(s::Number,a::KnetArray{T})=min.(T(s),a)
-    $(broadcast_func(^)){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a)
+    broadcasted(::typeof(+),a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)
+    broadcasted(::typeof(+),s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)
+    broadcasted(::typeof(-),a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a)
+    broadcasted(::typeof(-),s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)
+    broadcasted(::typeof(*),a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
+    broadcasted(::typeof(*),s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
+    broadcasted(::typeof(/),a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
+    broadcasted(::typeof(/),s::Number,a::KnetArray{T}) where {T} = (./)(T(s),a)
+    broadcasted(::typeof(max),a::KnetArray{T},s::Number) where {T} = max.(T(s),a)
+    broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T} = max.(T(s),a)
+    broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T} = min.(T(s),a)
+    broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T} = min.(T(s),a)
+    broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a)
     # Pow is the one exception, we need to define a separate kernel:
     rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
-    $(broadcast_func(^)){T}(a::KnetArray{T},s::Number)=rpow.(T(s),a)
+    broadcasted(::typeof(^),a::KnetArray{T},s::Number) where {T} = rpow.(T(s),a)
 end
 
 @eval begin
-    $(broadcast_func(==)){T}(a::KnetArray{T},s::Number)=(T(s).==a)
-    $(broadcast_func(==)){T}(s::Number,a::KnetArray{T})=(T(s).==a)
-    $(broadcast_func(!=)){T}(a::KnetArray{T},s::Number)=(T(s).!=a)
-    $(broadcast_func(!=)){T}(s::Number,a::KnetArray{T})=(T(s).!=a)
-    $(broadcast_func(>)){T}(a::KnetArray{T},s::Number)=(T(s).<a)
-    $(broadcast_func(>)){T}(s::Number,a::KnetArray{T})=(T(s).>a)
-    $(broadcast_func(>=)){T}(a::KnetArray{T},s::Number)=(T(s).<=a)
-    $(broadcast_func(>=)){T}(s::Number,a::KnetArray{T})=(T(s).>=a)
-    $(broadcast_func(<)){T}(a::KnetArray{T},s::Number)=(T(s).>a)
-    $(broadcast_func(<)){T}(s::Number,a::KnetArray{T})=(T(s).<a)
-    $(broadcast_func(<=)){T}(a::KnetArray{T},s::Number)=(T(s).>=a)
-    $(broadcast_func(<=)){T}(s::Number,a::KnetArray{T})=(T(s).<=a)
+    broadcasted(::typeof(==),a::KnetArray{T},s::Number) where {T} = (T(s).==a)
+    broadcasted(::typeof(==),s::Number,a::KnetArray{T}) where {T} = (T(s).==a)
+    broadcasted(::typeof(!=),a::KnetArray{T},s::Number) where {T} = (T(s).!=a)
+    broadcasted(::typeof(!=),s::Number,a::KnetArray{T}) where {T} = (T(s).!=a)
+    broadcasted(::typeof(>),a::KnetArray{T},s::Number) where {T} = (T(s).<a)
+    broadcasted(::typeof(>),s::Number,a::KnetArray{T}) where {T} = (T(s).>a)
+    broadcasted(::typeof(>=),a::KnetArray{T},s::Number) where {T} = (T(s).<=a)
+    broadcasted(::typeof(>=),s::Number,a::KnetArray{T}) where {T} = (T(s).>=a)
+    broadcasted(::typeof(<),a::KnetArray{T},s::Number) where {T} = (T(s).>a)
+    broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T} = (T(s).<a)
+    broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T} = (T(s).>=a)
+    broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
 end
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
-(+){T}(a::KnetArray{T},s::Number)=(.+)(T(s),a)
-(+){T}(s::Number,a::KnetArray{T})=(.+)(T(s),a)
-(-){T}(a::KnetArray{T},s::Number)=(.+)(T(-s),a)
-(-){T}(s::Number,a::KnetArray{T})=(.-)(T(s),a)
-(*){T}(a::KnetArray{T},s::Number)=(.*)(T(s),a)
-(*){T}(s::Number,a::KnetArray{T})=(.*)(T(s),a)
-(/){T}(a::KnetArray{T},s::Number)=(.*)(T(1/s),a)
-(\){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a)
+# (+)(a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)  -- deprecated
+# (+)(s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)  -- deprecated
+# (-)(a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a) -- deprecated
+# (-)(s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)  -- deprecated
+(*)(a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
+(*)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
+(/)(a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
+(\)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(1/s),a)
 
-#(/){T}(s::Number,a::KnetArray{T})=(.*)(T(1/s),a) # not defined in base
-#(^){T}(a::KnetArray{T},s::Number)=(.^)(a,T(s)) # non-elementwise definition in linalg
-#(^){T}(s::Number,a::KnetArray{T})=(.^)(T(s),a) # non-elementwise definition in linalg
+#(/)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
+#(^)(a::KnetArray{T},s::Number) where {T} = (.^)(a,T(s)) # non-elementwise definition in linalg
+#(^)(s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a) # non-elementwise definition in linalg
+
+# Define all overloaded Julia functions for KnetArrays:
+
+for f in broadcast_ops
+    if !isa(f,Tuple); f=(f,); end
+    broadcast_op(f...)
+end
+

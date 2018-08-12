@@ -1,13 +1,13 @@
 # Eliminate Combinatorics dependency. These are based on Julia4 source.
 
-import Base: eltype, length, start, next, done
+import Base: eltype, length, iterate 
 
-immutable Combinas{T}
+struct Combinas{T}
     a::T
     t::Int
 end
 
-eltype{T}(::Type{Combinas{T}}) = Vector{eltype(T)}
+eltype(::Type{Combinas{T}}) where {T} = Vector{eltype(T)}
 
 length(c::Combinas) = binomial(length(c.a),c.t)
 
@@ -19,8 +19,8 @@ function combinas(a, t::Integer)
     Combinas(a, t)
 end
 
-start(c::Combinas) = [1:c.t;]
-function next(c::Combinas, s)
+function iterate(c::Combinas, s=[1:c.t;])
+    if !isempty(s) && s[1] > length(c.a)-c.t+1; return nothing; end
     comb = [c.a[si] for si in s]
     if c.t == 0
         # special case to generate 1 result for t==0
@@ -39,20 +39,19 @@ function next(c::Combinas, s)
     end
     (comb,s)
 end
-done(c::Combinas, s) = !isempty(s) && s[1] > length(c.a)-c.t+1
 
-immutable Permutas{T}
+struct Permutas{T}
     a::T
 end
 
-eltype{T}(::Type{Permutas{T}}) = Vector{eltype(T)}
+eltype(::Type{Permutas{T}}) where {T} = Vector{eltype(T)}
 
 length(p::Permutas) = factorial(length(p.a))
 
 permutas(a) = Permutas(a)
 
-start(p::Permutas) = [1:length(p.a);]
-function next(p::Permutas, s)
+function iterate(p::Permutas, s=[1:length(p.a);])
+    if !isempty(s) && s[1] > length(p.a); return nothing; end
     perm = [p.a[si] for si in s]
     if length(p.a) == 0
         # special case to generate 1 result for len==0
@@ -71,4 +70,3 @@ function next(p::Permutas, s)
     end
     (perm,s)
 end
-done(p::Permutas, s) = !isempty(s) && s[1] > length(p.a)

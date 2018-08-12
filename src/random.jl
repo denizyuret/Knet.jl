@@ -1,6 +1,7 @@
 # curand functions:
 
-import Base: rand!, randn!
+using Random
+import Random: rand!, randn!
 rand!(a::KnetArray{Float32})=(@cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
 rand!(a::KnetArray{Float64})=(@cuda(curand,curandGenerateUniformDouble,(Cptr,Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
 
@@ -30,15 +31,16 @@ end
 end
 
 """
-    setseed(n::Integer)
+    Knet.seed!(n::Integer)
 
-Run srand(n) on both cpu and gpu.
+Run seed!(n) on both cpu and gpu.
 """
-function setseed(n::Integer)
+function seed!(n::Integer)
     # need to regenerate RNG for the seed to take effect for some reason
     if gpu() >= 0
         @cuda1(curand,curandSetPseudoRandomGeneratorSeed,(Cptr,Culonglong),rng(true),n)
     end
-    srand(n)
+    Random.seed!(n)
 end
 
+@deprecate setseed Knet.seed!

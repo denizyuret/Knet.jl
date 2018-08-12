@@ -1,6 +1,7 @@
 module Knet
-using LinearAlgebra, Statistics, SpecialFunctions, Libdl
-import .Broadcast: broadcast, broadcasted
+using Libdl
+# using LinearAlgebra, Statistics, SpecialFunctions, Libdl
+# import .Broadcast: broadcast, broadcasted
 
 # To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
 # can be used to show a subset of dbg messages indicated by the `bit`
@@ -14,27 +15,26 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad; export grad, gradloss, gradcheck, getval
+using AutoGrad; export grad, getval # , gradloss, gradcheck
 
 include("gpu.jl");              export gpu
 include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
-# include("unfuse.jl");           # julia6 broadcast fixes
 include("unary.jl");            export relu, sigm, invx
-# include("broadcast.jl");        # elementwise broadcasting operations
+include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
-# include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
-# include("conv.jl");             export conv4, pool, deconv4, unpool
-# include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
-# include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
-# include("loss.jl");             export logp, logsumexp, nll, accuracy
-# include("dropout.jl");          export dropout
-# include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
+include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
+include("conv.jl");             export conv4, pool, deconv4, unpool
+include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
+include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
+include("loss.jl");             export logp, logsumexp, nll, accuracy
+include("dropout.jl");          export dropout
+include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
-# include("random.jl");           export setseed
-# include("hyperopt.jl");         export hyperband, goldensection
-# include("data.jl");             export minibatch
+include("random.jl");           export setseed
+include("hyperopt.jl");         export hyperband, goldensection
+include("data.jl");             export minibatch
 
 """
     Knet.dir(path...)

@@ -443,7 +443,7 @@ function update!(w,g,p)
 end
 
 # We still need an extra method for Dict.
-function update!(w::Associative,g::Associative,p::Associative)
+function update!(w::AbstractDict,g::AbstractDict,p::AbstractDict)
     # g may have some keys missing!
     # if !(length(w)==length(g)==length(p))
     #     error("weight, gradient, and optimization parameters not the same length.")
@@ -464,7 +464,7 @@ function update!(w,g;lr=SGDLR,gclip=0)
 end
 
 # Two arg version defaults to SGD.
-function update!(w::Associative,g::Associative;lr=SGDLR,gclip=0)
+function update!(w::AbstractDict,g::AbstractDict;lr=SGDLR,gclip=0)
     # g may have some keys missing!
     # if !(length(w)==length(g))
     #     error("weight, gradient not the same length.")
@@ -499,9 +499,9 @@ that parallel model parameters easy when all of them use the same type
 and options.
 
 """
-optimizers{T<:Number}(::KnetArray{T},otype; o...)=otype(;o...)
-optimizers{T<:Number}(::Array{T},otype; o...)=otype(;o...)
-optimizers(a::Associative,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
+optimizers(::KnetArray{T},otype; o...) where {T<:Number} = otype(;o...)
+optimizers(::Array{T},otype; o...) where {T<:Number} = otype(;o...)
+optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
 optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing

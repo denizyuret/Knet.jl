@@ -1,3 +1,5 @@
+using Statistics
+
 """
 `bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used
  directly load moments from data. `meaninit` and `varinit` are called if `mean` and `var`
@@ -110,8 +112,8 @@ second half is bias.
 """
 function bnparams(etype, channels::Integer)
     buf = Array{etype}(undef,2channels)
-    buf[1:channels] = 1
-    buf[channels+1:end] = 0
+    buf[1:channels] .= 1
+    buf[channels+1:end] .= 0
     return buf
 end
 
@@ -162,15 +164,15 @@ end
 
 # Only spatial mode is supported
 # TODO: support per-activation mode
-function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
-                       training=true,
-                       cache=nothing,
-                       moments=nothing,
-                       eps=1e-5,
-                       alpha=1, beta=0,
-                       handle = cudnnhandle(),
-                       cache_verbose=false, #reporting cache uses
-                       o...)
+function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
+                    training=true,
+                    cache=nothing,
+                    moments=nothing,
+                    eps=1e-5,
+                    alpha=1, beta=0,
+                    handle = cudnnhandle(),
+                    cache_verbose=false, #reporting cache uses
+                    o...) where {T}
     y = KnetArray{T}(undef,size(x))
     weight_size = _wsize(y)
     # TODO: implement other bn mode
@@ -248,7 +250,7 @@ function batchnorm4{T}(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
     return y
 end
 
-function batchnorm4{T}(x::KnetArray{T};o...)
+function batchnorm4(x::KnetArray{T};o...) where {T}
     # Dummy buffers
     #  (cudnn doesn't support bn w/o affine
     #  although it is used in many applications)
@@ -257,17 +259,17 @@ function batchnorm4{T}(x::KnetArray{T};o...)
     return batchnorm4(g, b, x; o...)
 end
 
-function batchnorm4_back{T}(g::Union{KnetArray{T}, Nothing},
-                            x::KnetArray{T}, dy::KnetArray{T};
-                            training=true,
-                            cache=nothing,
-                            moments=nothing,
-                            grad_cache_disabled=false,
-                            eps=1e-5, alpha=1, beta=0,
-                            dalpha=1, dbeta=0,
-                            handle = cudnnhandle(),
-                            cache_verbose=false,
-                            o...)
+function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
+                         x::KnetArray{T}, dy::KnetArray{T};
+                         training=true,
+                         cache=nothing,
+                         moments=nothing,
+                         grad_cache_disabled=false,
+                         eps=1e-5, alpha=1, beta=0,
+                         dalpha=1, dbeta=0,
+                         handle = cudnnhandle(),
+                         cache_verbose=false,
+                         o...) where {T}
     if training
         dx = KnetArray{T}(undef,size(x))
         weight_size = _wsize(dy)
@@ -309,8 +311,8 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Nothing},
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g !== nothing
-            dg = sum(dy .* (x .- moments.mean) .* ivar, _reddims(dy))
-            db = sum(dy, _reddims(dy))
+            dg = sum(dy .* (x .- moments.mean) .* ivar, dims=_reddims(dy))
+            db = sum(dy, dims=_reddims(dy))
         else
             dg, db = nothing, nothing
         end
@@ -319,10 +321,10 @@ function batchnorm4_back{T}(g::Union{KnetArray{T}, Nothing},
 end
 
 
-function batchnorm4g{T}(g::Union{KnetArray{T}, Array{T}},
-                        x::Union{KnetArray{T}, Array{T}},
-                        dy::Union{KnetArray{T}, Array{T}};
-                        cache=nothing, o...)
+function batchnorm4g(g::Union{KnetArray{T}, Array{T}},
+                     x::Union{KnetArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, Array{T}};
+                     cache=nothing, o...) where {T}
     dg, db, dx = batchnorm4_back(g, x, dy; cache=cache, o...)
     if cache !== nothing
         cache.dx, cache.db = dx, db
@@ -333,44 +335,44 @@ function batchnorm4g{T}(g::Union{KnetArray{T}, Array{T}},
     return dg
 end
 
-function batchnorm4b{T}(dy::Union{KnetArray{T}, Array{T}};
-                        cache=nothing, o...)
-    (cache == nothing || cache.db == nothing) && return sum(dy, _reddims(dy))
+function batchnorm4b(dy::Union{KnetArray{T}, Array{T}};
+                     cache=nothing, o...) where {T}
+    (cache == nothing || cache.db == nothing) && return sum(dy, dims=_reddims(dy))
     return cache.db
 end
 
-function batchnorm4x{T}(g::Union{KnetArray{T}, Array{T}},
-                        x::Union{KnetArray{T}, Array{T}},
-                        dy::Union{KnetArray{T}, Array{T}};
-                        cache=nothing, o...)
+function batchnorm4x(g::Union{KnetArray{T}, Array{T}},
+                     x::Union{KnetArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, Array{T}};
+                     cache=nothing, o...) where {T}
     if cache !== nothing && cache.dx !== nothing
         return cache.dx
     end
     return batchnorm4_back(g, x, dy; cache=cache, o...)[3]
 end
 
-function batchnorm4x{T}(x::Union{KnetArray{T}, Array{T}},
-                        dy::Union{KnetArray{T}, Array{T}}
-                        ;o...)
+function batchnorm4x(x::Union{KnetArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, Array{T}}
+                     ;o...) where {T}
     return batchnorm4_back(nothing, x, dy; o...)[3]
 end
 
 
 # CPU Implementation
-function batchnorm4{T}(g::Array{T}, b::Array{T}, x::Array{T};
-                       o...)
+function batchnorm4(g::Array{T}, b::Array{T}, x::Array{T};
+                    o...) where {T}
     return _batchnorm4_fused(g, b, x; o...)
 end
 
-function batchnorm4{T}(x::Array{T};
-                       o...)
+function batchnorm4(x::Array{T};
+                    o...) where {T}
     return _batchnorm4_fused(nothing,nothing,x; o...)
 end
 
-function _batchnorm4_fused{T}(g, b, x::Array{T};
-                              eps=1e-5, training=true,
-                              cache=nothing, moments=nothing,
-                              o...)
+function _batchnorm4_fused(g, b, x::Array{T};
+                           eps=1e-5, training=true,
+                           cache=nothing, moments=nothing,
+                           o...) where {T}
     y = copy(x)
     eps = T(eps)
     dims = _reddims(y)
@@ -379,8 +381,8 @@ function _batchnorm4_fused{T}(g, b, x::Array{T};
     end
     affine = (g !== nothing)
     if training
-        mu = mean(y, dims)
-        sigma2 = var(y, dims; corrected=false, mean=mu)
+        mu = mean(y, dims=dims)
+        sigma2 = var(y, dims=dims, corrected=false, mean=mu)
         _update_moments!(moments, mu, sigma2)
         sigma2 .= 1 ./ sqrt.(sigma2 .+ eps)
         ivar = sigma2
@@ -414,9 +416,9 @@ function _update_moments!(moments, mu, sigma2)
 end
 
 # CPU backward
-function batchnorm4_back{T}(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{T};
-                            eps=1e-5, training=true,
-                            cache=nothing, moments=nothing,  o...)
+function batchnorm4_back(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{T};
+                         eps=1e-5, training=true,
+                         cache=nothing, moments=nothing,  o...) where {T}
     eps = T(eps)
     dims = _reddims(x)
     if training
@@ -425,22 +427,22 @@ function batchnorm4_back{T}(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{
         # equations from the original paper
         dyivar = dy .* ivar
         if g !== nothing
-            dg = sum(x_mu .* dyivar, dims)
-            db = sum(dy, dims)
+            dg = sum(x_mu .* dyivar, dims=dims)
+            db = sum(dy, dims=dims)
             dyivar .*= g
         else
             dg, db = nothing, nothing
         end
-        m = prod(size(x, dims...))
-        dsigma2 = -sum(dyivar .* x_mu .* ivar.^2, dims) ./ 2
-        dmu = -sum(dyivar, dims) .- 2dsigma2 .* sum(x_mu, dims) ./ m
+        m = prod(d->size(x,d), dims) # size(x, dims...))
+        dsigma2 = -sum(dyivar .* x_mu .* ivar.^2, dims=dims) ./ 2
+        dmu = -sum(dyivar, dims=dims) .- 2dsigma2 .* sum(x_mu, dims=dims) ./ m
         dx = dyivar .+ dsigma2 .* 2x_mu ./ m .+ dmu ./ m
     else #same reasoning with the gpu version
         ivar = 1 ./ sqrt.(moments.var .+ eps)
         dx = (g !== nothing) ? (dy .* g .* ivar) : (dy .* ivar)
         if g !== nothing
-            dg = sum(dy .* (x .- moments.mean) .* ivar, dims)
-            db = sum(dy, dims)
+            dg = sum(dy .* (x .- moments.mean) .* ivar, dims=dims)
+            db = sum(dy, dims=dims)
         else
             dg, db = nothing, nothing
         end
@@ -453,8 +455,8 @@ function _get_cache_data(cache, x, eps)
         mu = cache.mean
         ivar = cache.ivar
     else
-        mu = mean(x, _reddims(x))
-        ivar = 1 ./ sqrt.(var(x, _reddims(x); mean=mu, correct=false) .+ eps)
+        mu = mean(x, dims=_reddims(x))
+        ivar = 1 ./ sqrt.(var(x, dims=_reddims(x); mean=mu, correct=false) .+ eps)
     end
     return mu, ivar
 end
@@ -477,7 +479,7 @@ function batchnorm2(g, b, x; moments=nothing, training=false, o...)
     if training == false && (isa(g, Rec) || isa(x, Rec) || isa(b, Rec))
         error("Test mode backward is not supported with 2d inputs")
     end
-    @inline _pad4(x) = reshape(x, (1,1,size(x,1,2)...))
+    @inline _pad4(x) = reshape(x, (1,1,size(x,1),size(x,2)))
      # process moments
     if moments !== nothing
         _lazy_init!(moments, x)

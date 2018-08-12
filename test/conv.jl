@@ -1,6 +1,6 @@
-using Test,Knet
+include("header.jl")
 
-srand(42)
+Random.seed!(42)
 TOL=0.1
 conv41(a;o...)=conv4(a[1],a[2];o...)
 deconv41(a;o...)=deconv4(a[1],a[2];o...)

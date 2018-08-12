@@ -1,3 +1,4 @@
+using SpecialFunctions
 import .Broadcast: broadcasted
 
 # unary.jl: Unary Array->Array operations.

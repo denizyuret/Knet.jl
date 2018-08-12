@@ -1,6 +1,5 @@
-using Test,Knet
-
-using Knet
+include("header.jl")
+using Printf
 
 # x* = f(1, · · · , 1)
 # f(x*) = 0
@@ -11,7 +10,7 @@ function rosenmulti(x)
     v = AutoGrad.getval(x)
     if isbits(eltype(v))
         rosenbrock(x)
-    elseif isa(v, Associative)
+    elseif isa(v, AbstractDict)
         rosenbrock(x[:a]) + rosenbrock(x[:b])
     else
         rosenbrock(x[1]) + rosenbrock(x[2])
@@ -19,7 +18,7 @@ function rosenmulti(x)
 end
 
 rosengrad = gradloss(rosenmulti)
-srand(123456789)
+Random.seed!(123456789)
 dims = 6
 
 function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)
@@ -42,8 +41,6 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     return current <= ftol
 end
 
-gc(); Knet.knetgc(); gc()
-
 @testset "update!" begin
     w = randn(dims)
     # CPU Tests
@@ -60,6 +57,7 @@ gc(); Knet.knetgc(); gc()
     @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
     @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
     if gpu() >= 0
+        Knet.gc()
         w = KnetArray(w) #GPU Tests
         @test rosenopt(copy(w),Sgd(lr=0.0005))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))

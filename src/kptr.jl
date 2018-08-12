@@ -62,7 +62,7 @@ end
 # allocated and garbage collected pointer in KnetFree[dev+2].  If not
 # available it tries to allocate a new one (about 10 μs).  Otherwise
 # it tries running gc() and see if we get a pointer back (about 75
-# ms).  Finally if all else fails, it calls knetgc which cleans up all
+# ms).  Finally if all else fails, it calls Knet.gc which cleans up all
 # allocated and garbage collected KnetPtrs on the current device and
 # tries allocation one last time.
 
@@ -85,7 +85,7 @@ function KnetPtr(nbytes::Integer)
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
-    knetgc(); if GCDEBUG; print('+'); end
+    Knet.gc(); if GCDEBUG; print('+'); end
     ptr = knetMalloc(nbytes)
     if ptr != nothing
         ptrs.used += 1
@@ -110,14 +110,14 @@ end
 
 """
 
-    knetgc(dev=gpu())
+    Knet.gc(dev=gpu())
 
 cudaFree all pointers allocated on device `dev` that were previously
 allocated and garbage collected. Normally Knet holds on to all garbage
 collected pointers for reuse. Try this if you run out of GPU memory.
 
 """
-function knetgc(dev=gpu())
+function gc(dev=gpu())
     if KnetFree == nothing; return; end
     GC.gc(); GC.enable(false)
     for v in values(KnetFree[dev+2])
@@ -131,6 +131,9 @@ function knetgc(dev=gpu())
     end
     GC.enable(true); GC.gc()
 end
+
+@deprecate knetgc Knet.gc
+# knetgc(dev=gpu())=Knet.gc(dev)  # TODO: deprecate knetgc
 
 # Some utilities
 meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])

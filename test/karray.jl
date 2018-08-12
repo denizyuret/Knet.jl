@@ -1,5 +1,4 @@
-using Test,AutoGrad,Knet
-include(AutoGrad.dir("test/gradcheck.jl"))
+include("header.jl")
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 

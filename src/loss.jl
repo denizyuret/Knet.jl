@@ -1,6 +1,6 @@
 """
 
-    logp(x,[dims])
+    logp(x;[dims])
 
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
@@ -11,21 +11,21 @@ given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
-function logp(x,d...)
+function logp(x;dims=:)
     if isa(getval(x), KnetArray)
-        if d==(1,)
+        if dims==(1,)
             cudnnSoftmaxForward(x,algo=2)
-        elseif d==(2,)
-            cudnnSoftmaxForward(x.',algo=2).'
-        elseif d==()
+        elseif dims==(2,)
+            cudnnSoftmaxForward(x',algo=2)'
+        elseif dims==(:,)
             n = length(x)
             (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
              reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
         else
-            _logp(x,d...)
+            _logp(x,dims=dims)
         end
     else
-        _logp(x,d...) # fall back on old implementation if not KnetArray
+        _logp(x,dims=dims) # fall back on old implementation if not KnetArray
     end
 end
 
@@ -45,15 +45,15 @@ end
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
-function _logp(x,d...)
+function _logp(x;dims=:)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        x = x .- maximum(x,d...)
-        return (x .- log.(sum(exp.(x),d...)))
+        x = x .- maximum(x,dims=dims)
+        return (x .- log.(sum(exp.(x),dims=dims)))
         # Expanding for profiling:
         # x1 = maximum(x,d...)
         # x2 = x .- x1
@@ -65,14 +65,14 @@ function _logp(x,d...)
     end
 end
 
-function _logpback(x,y,dy,d...)
+function _logpback(x,y,dy;dims)
     xval = getval(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        return (dy - exp.(y).*sum(dy,d...))
+        return (dy - exp.(y).*sum(dy;dims=dims))
         # Expanding for profiling:
         # dx1 = sum(dy,d...)
         # dx2 = exp.(y)
@@ -83,7 +83,7 @@ function _logpback(x,y,dy,d...)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x,d...),dy,y  _logpback(x,y,dy,d...)
+@primitive  _logp(x;dims=:),dy,y  _logpback(x,y,dy,dims=dims)
 
 #=
 mutable structdef enum
@@ -101,7 +101,7 @@ mutable structdef enum
 
 =#          
 
-function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle())
+function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
     y = similar(x)
     @cuda(cudnn, cudnnSoftmaxForward,
@@ -110,7 +110,7 @@ function cudnnSoftmaxForward{T}(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle
     return y
 end
 
-function cudnnSoftmaxBackward{T}(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle())
+function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0
     dx = similar(dy)
     @cuda(cudnn, cudnnSoftmaxBackward,
@@ -136,9 +136,9 @@ end
 
 """
 
-    logsumexp(x,[dims])
+    logsumexp(x;dims=:)
 
-Compute `log(sum(exp(x),dims))` in a numerically stable manner.
+Compute `log(sum(exp(x);dims))` in a numerically stable manner.
 
 `dims` is an optional argument, if not specified the summation is over
 the whole `x`, otherwise the summation is performed over the given
@@ -146,12 +146,12 @@ dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
 of `x` and `dims=2` sums rows of `x`.
 
 """
-function logsumexp(x,d...)
-    xmax = maximum(x,d...)
-    xmax + log.(sum(exp.(x .- xmax),d...))
+function logsumexp(x;dims=:)
+    xmax = maximum(x,dims=dims)
+    xmax + log.(sum(exp.(x .- xmax),dims=dims))
 end
 
-@primitive logsumexp(x,d...),dy,y  (dy .* exp.(x .- y))
+@primitive logsumexp(x;dims=:),dy,y  (dy .* exp.(x .- y))
 
 
 """
@@ -165,7 +165,7 @@ instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll{T<:Integer}(y,a::Array{T},d=1; average=true)
+function nll(y,a::Array{T},d=1; average=true) where {T<:Integer}
     indices = findindices(y,a,d)
     lp = logp(y,d)[indices]
     average ? -mean(lp) : -sum(lp)
@@ -183,16 +183,16 @@ answer has the maximum score. `d=1` means instances are in columns,
 the number of correct answers instead of the ratio.
 
 """
-function accuracy{T<:Integer}(y,a::Array{T},d=1; average=true)
+function accuracy(y,a::Array{T},d=1; average=true) where {T<:Integer}
     indices = findindices(y,a,d)
     (maxval,maxind) = findmax(Array(y),d)
     correct = (vec(maxind) .== indices)
     average ? mean(correct) : sum(correct)
 end
 
-function findindices{T<:Integer}(y,a::Array{T},d=1)
+function findindices(y,a::Array{T},d=1) where {T<:Integer}
     n = length(a)
-    indices = Vector{Int}(n)
+    indices = Vector{Int}(undef,n)
     if d == 1                   # instances in first dimension
         y1 = size(y,1)
         y2 = div(length(y),y1)

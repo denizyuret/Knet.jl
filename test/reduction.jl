@@ -1,4 +1,4 @@
-using Test,Knet
+include("header.jl")
 include("combinatorics.jl")
 
 const MIN_DIM  = 3

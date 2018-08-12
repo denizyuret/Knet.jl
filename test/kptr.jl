@@ -1,4 +1,4 @@
-using Test,Random,Knet
+include("header.jl")
 using Knet: KnetFree, KnetPtr, gpuCount
 
 # Messes up gc if used with `if gpu()>=0`

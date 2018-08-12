@@ -1,6 +1,6 @@
-using Test,Knet
+include("header.jl")
 include("combinatorics.jl")
-srand(42)
+Random.seed!(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
 @testset "linalg" begin

@@ -1,4 +1,4 @@
-using Test,Libdl,Knet
+include("header.jl")
 
 if gpu() >= 0
     @testset "gpu" begin

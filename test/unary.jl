@@ -1,11 +1,9 @@
-using Test,Knet
-if Pkg.installed("SpecialFunctions") != nothing
-    eval(Expr(:using,:SpecialFunctions))
-end
-srand(42)
+include("header.jl")
+using SpecialFunctions
+Random.seed!(42)
 
 function frand(f,t,d...)
-    r = rand(t,d...)*t(0.5)+t(0.25)
+    r = rand(t,d...) .* t(0.5) .+ t(0.25)
     if in(f,(acosh,asec))
         return 1 ./ r
     else
@@ -18,7 +16,7 @@ bcast(f)=(x->broadcast(f,x))
 unary_fns = Any[]
 for f in Knet.unary_ops
     if isa(f,Tuple); f=f[2]; end
-    push!(unary_fns, eval(parse(f)))
+    push!(unary_fns, eval(Meta.parse(f)))
 end
 
 @testset "unary" begin

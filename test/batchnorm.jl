@@ -1,6 +1,7 @@
-using Test,Knet
+include("header.jl")
+using Statistics
 
-srand(42)
+Random.seed!(42)
 TOL=1e-1
 
 # utils

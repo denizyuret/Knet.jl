@@ -1,9 +1,10 @@
-using Test,Knet
-date(x)=(join(STDOUT,[Dates.format(now(),"HH:MM:SS"), x,'\n'],' '); flush(STDOUT))
+include("header.jl")
+using Dates
+date(x)=(join(stdout,[Dates.format(Dates.now(),"HH:MM:SS"), x,'\n'],' '); flush(stdout))
 macro dbg(_x); end
 #macro dbg(_x); :(@show $(esc(_x))); end
 
-rand11(f,t,d...)=rand(t,d...)*t(0.8)+t(0.1)
+rand11(f,t,d...)=rand(t,d...) .* t(0.8) .+ t(0.1)
 # we need symetric ones as well to test compare operations
 #broadcast dim sizes chosen in the lower limits of given kernels
 size12 = (((513,1025),(1,1025)),((1,1025),(513,1025)),#cuda13 vector-Ndim, first dim
@@ -20,13 +21,13 @@ broadcast_fns = Any[]
 for f in Knet.broadcast_ops
     if isa(f,Tuple); f=f[2]; end
     in(f, exclude11) && continue
-    f0 = eval(parse(lstrip(f,'.')))
+    f0 = eval(Meta.parse(lstrip(f,'.')))
     f1 = x->broadcast(f0,x[1],x[2])
     f2 = (x1,x2)->broadcast(f0,x1,x2)
     push!(broadcast_fns, (f1,f2))
 end
 
-srand(42)
+Random.seed!(42)
 
 @testset "broadcast" begin
     @testset "array-scalar" begin
@@ -36,7 +37,7 @@ srand(42)
                 for n in size11
                     @dbg f,t,n,0
                     a = rand11(f,t,n)
-                    s = rand11(f,t)+t(1)
+                    s = rand11(f,t) .+ t(1)
                     @test gradcheck(f1, Any[a,s])
                     @test gradcheck(f1, Any[s,a])
                     if gpu() >= 0
@@ -62,7 +63,7 @@ srand(42)
                     if (f in (max,min) && n1 != n2); continue; end
                     @dbg f,t,n1,n2
                     a1 = rand11(f,t,n1)
-                    a2 = rand11(f,t,n2)+t(1)
+                    a2 = rand11(f,t,n2) .+ t(1)
                     @test gradcheck(f1, Any[a1, a2])
                     if gpu() >= 0 
                         g1 = KnetArray(a1) 
@@ -86,7 +87,7 @@ srand(42)
             for (n1,n2) in size12
                 #@show f,t,n1,n2 # Travis gives timeout here if no output
                 a1 = rand11(f,t,n1)
-                a2 = rand11(f,t,n2)+t(1)
+                a2 = rand11(f,t,n2) .+ t(1)
                 if t == Float64 # Float32 does not have enough precision for large arrays
                     @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
                 end

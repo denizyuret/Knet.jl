@@ -1,3 +1,5 @@
+using Random
+
 "Minibatched data"
 mutable struct MB; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
 
@@ -48,13 +50,8 @@ function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x))
     MB(x2,nothing,batchsize,nx,partial,indices,xsize,nothing,xtype,nothing)
 end
 
-Base.start(m::MB)=0
-
-function Base.done(m::MB,i)
-    i >= m.length || (!m.partial && i + m.batchsize > m.length)
-end
-
-function Base.next(m::MB,i)     # return i+1:i+batchsize
+function Base.iterate(m::MB,i=0)     # return i+1:i+batchsize
+    if i >= m.length || (!m.partial && i + m.batchsize > m.length); return nothing; end
     j=min(i+m.batchsize, m.length)
     ids = m.indices[i+1:j]
     m.xsize[end] = length(ids)
@@ -73,7 +70,7 @@ function Base.length(m::MB)
     m.partial ? ceil(Int,n) : floor(Int,n)
 end
 
-function Base.rand(m::MB)
+function Random.rand(m::MB)
     i = rand(0:(m.length-m.batchsize))
     return next(m, i)[1]
 end
