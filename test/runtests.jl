@@ -6,7 +6,7 @@
 @time include("dropout.jl")       #                   2
 @time include("loss.jl")          #                   4
 # @time include("rnn.jl")           #                  12
-# @time include("karray.jl")        #  19  12   -   -  21   -   0  5/236 :: new indexing types
+@time include("karray.jl")        #  19  12   -   -  21   -   0  5/236 :: new indexing types
 # # @time include("update.jl")        #  29  26 100  22  72  25  23  7/18  :: this was 30 at ai? slower if last? travis=100?
 @time include("conv.jl")          #  22  12  62  47  26  44  16  0
 # @time include("linalg.jl")        #  24  14  22   7  28  33  19  0

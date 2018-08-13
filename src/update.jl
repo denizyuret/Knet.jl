@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 """
     Sgd(;lr=0.001,gclip=0)
     update!(w,g,p::Sgd)
@@ -16,7 +18,7 @@ weights with the following formula:
 where `w` is a weight array, `g` is the gradient of the loss function
 w.r.t `w` and `lr` is the learning rate.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 SGD is used by default if no algorithm is specified in the two
@@ -51,7 +53,7 @@ function w.r.t `w`, `lr` is the learning rate, `gamma` is the momentum
 parameter, `velocity` is an array with the same size and type of `w`
 and holds the accelerated gradients.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 Reference: [Qian,
@@ -89,7 +91,7 @@ function w.r.t `w`, `lr` is the learning rate, `gamma` is the momentum
 parameter, `velocity` is an array with the same size and type of `w`
 and holds the accelerated gradients.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip == 0` no scaling takes place.
 
 Reference Implementation : [Yoshua Bengio, Nicolas Boulanger-Lewandowski and Razvan P
@@ -130,7 +132,7 @@ size and type of `w` and holds the sum of the squares of the
 gradients. `eps` is a small constant to prevent a zero value in the
 denominator.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 Reference: [Duchi, J., Hazan, E., & Singer,
@@ -175,7 +177,7 @@ denominator.  `rho` is the momentum parameter and `delta` is an array
 with the same size and type of `w` and holds the sum of the squared
 updates.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 Reference: [Zeiler,
@@ -216,7 +218,7 @@ denominator.  `rho` is the momentum parameter and `delta` is an array
 with the same size and type of `w` and holds the sum of the squared
 updates.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 Reference: [Tijmen Tieleman and Geoffrey Hinton
@@ -262,7 +264,7 @@ squares of the gradients. `eps` is a small constant to prevent a zero
 denominator. `beta1` and `beta2` are the parameters to calculate bias
 corrected first and second moments. `t` is the update count.
 
-If `vecnorm(g) > gclip > 0`, `g` is scaled so that its norm is equal
+If `norm(g) > gclip > 0`, `g` is scaled so that its norm is equal
 to `gclip`.  If `gclip==0` no scaling takes place.
 
 Reference: [Kingma, D. P., & Ba,
@@ -360,8 +362,8 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
 
     function update!(w::$T, g::$T, p::Momentum)
         gclip!(g, p.gclip)
-        if p.velocity===nothing; p.velocity=zeros(w); end
-        scale!(p.gamma, p.velocity)
+        if p.velocity===nothing; p.velocity=zero(w); end
+        lmul!(p.gamma, p.velocity)
         axpy!(p.lr, g, p.velocity)
         axpy!(-1, p.velocity, w)
     end
@@ -369,8 +371,8 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     # https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
     function update!(w::$T, g::$T, p::Nesterov)
         gclip!(g, p.gclip)
-        p.velocity ===nothing && (p.velocity = zeros(w))
-        scale!(p.gamma, p.velocity)
+        p.velocity ===nothing && (p.velocity = zero(w))
+        lmul!(p.gamma, p.velocity)
         axpy!(-1, p.velocity, w)
         axpy!(-p.lr, g, p.velocity)
         axpy!(1+p.gamma, p.velocity, w)
@@ -378,41 +380,41 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
 
     function update!(w::$T, g::$T, p::Adam)
         gclip!(g, p.gclip)
-        if p.fstm===nothing; p.fstm=zeros(w); p.scndm=zeros(w); end
+        if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
         p.t += 1
-        scale!(p.beta1, p.fstm)
+        lmul!(p.beta1, p.fstm)
         axpy!(1-p.beta1, g, p.fstm)
-        scale!(p.beta2, p.scndm)
+        lmul!(p.beta2, p.scndm)
         axpy!(1-p.beta2, g .* g, p.scndm)
         fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
         scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
-        axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) + p.eps)), w)
+        axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) .+ p.eps)), w)
     end
 
     function update!(w::$T, g::$T, p::Adagrad)
         gclip!(g, p.gclip)
-        if p.G===nothing; p.G=zeros(w); end
+        if p.G===nothing; p.G=zero(w); end
         axpy!(1, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
+        axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
     end
 
     function update!(w::$T, g::$T, p::Adadelta)
         gclip!(g, p.gclip)
-        if p.G===nothing; p.G=zeros(w); p.delta=zeros(w); end
-        scale!(p.rho, p.G)
+        if p.G===nothing; p.G=zero(w); p.delta=zero(w); end
+        lmul!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        dw = g .* sqrt.(p.delta + p.eps) ./ sqrt.(p.G + p.eps)
-        scale!(p.rho, p.delta)
+        dw = g .* sqrt.(p.delta .+ p.eps) ./ sqrt.(p.G .+ p.eps)
+        lmul!(p.rho, p.delta)
         axpy!(1-p.rho, dw .* dw , p.delta)
         axpy!(-p.lr, dw, w)
     end
 
     function update!(w::$T, g::$T, p::Rmsprop)
         gclip!(g, p.gclip)
-        if p.G===nothing; p.G=zeros(w); end
-        scale!(p.rho, p.G)
+        if p.G===nothing; p.G=zero(w); end
+        lmul!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt.(p.G + p.eps), w)
+        axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
     end
 
     # If type of g does not match, something may be wrong
@@ -478,11 +480,11 @@ function gclip!(g, gclip)
     if gclip == 0
         g
     else
-        gnorm = vecnorm(g)
+        gnorm = norm(g)
         if gnorm <= gclip
             g
         else
-            scale!(gclip/gnorm, g)
+            lmul!(gclip/gnorm, g)
         end
     end
 end

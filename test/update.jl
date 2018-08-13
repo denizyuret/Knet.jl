@@ -4,11 +4,11 @@ using Printf
 # x* = f(1, · · · , 1)
 # f(x*) = 0
 
-rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
+rosenbrock(x) = sum(abs2.(1 .- x[1:end-1]) .+ 100 .* abs2.(x[2:end] .- abs2.(x[1:end-1])))
 
 function rosenmulti(x)
     v = AutoGrad.getval(x)
-    if isbits(eltype(v))
+    if isbitstype(eltype(v))
         rosenbrock(x)
     elseif isa(v, AbstractDict)
         rosenbrock(x[:a]) + rosenbrock(x[:b])

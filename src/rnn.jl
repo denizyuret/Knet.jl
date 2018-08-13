@@ -573,7 +573,7 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     xtds = TDs(x,batchSizes)    # (X,B,T) -> (1,X,B) x T
     ytds = TDs(y,batchSizes)    # (H/2H,B,T) -> (1,H/2H,B) x T
     # dytds = TDs(dy,batchSizes)  # we use ytds for dytds
-    if dy == nothing; dy=zeros(y); end
+    if dy == nothing; dy=zero(y); end
     if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
     if cx == nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
     if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
@@ -582,7 +582,7 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T) or (X,B+) with batchSizes
     # dxtds = TDs(dx,batchSizes)  # we use xtds here
-    dw = zeros(w)               # dw is used additively, so we need zeros
+    dw = zero(w)               # dw is used additively, so we need zero
     dwDesc = FD3(dw)
     if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
     if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end

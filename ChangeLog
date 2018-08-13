@@ -17,7 +17,9 @@
 	- src: CPU:20/20
 	- test: CPU:11/14
 	- limit max memory allocated by kptr
-	- AutoGrad only uses broadcasted now, compare performance with using broadcast
+	- AutoGrad only uses broadcasted now, compare performance with	using broadcast
+	- fix unsafe_copy!, unsafe_convert in karray looking in base
+	- try making karray <: AbstractArray and overriding get/setindex.
 
 2018-08-09  Deniz Yuret  <dyuret@ku.edu.tr>
 

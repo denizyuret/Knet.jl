@@ -23,7 +23,7 @@ function dropout(x,p; seed=0)
     elseif p == 0
         x
     elseif p == 1
-        zeros(x)
+        zero(x)
     else
         error("Dropout probability not in [0:1]: $p")
     end
@@ -35,7 +35,7 @@ function dropback(dy,y,x,p)
     elseif p == 0
         dy
     elseif p == 1
-        zeros(x)
+        zero(x)
     else
         error("Dropout probability not in [0:1]: $p")
     end

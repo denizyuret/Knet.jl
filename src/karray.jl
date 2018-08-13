@@ -27,9 +27,9 @@ operations.
 
 * Array operations: ==, !=, cat, convert, copy, copyto!, deepcopy,
   display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
-  isempty, length, ndims, ones, pointer, rand!, randn!, reshape,
-  similar, size, stride, strides, summary, vcat, vec, zeros.
-  (cat(i,x,y) supported for i=1,2.)
+  isempty, length, ndims, one, ones, pointer, rand!, randn!, reshape,
+  similar, size, stride, strides, summary, vcat, vec, zero.
+  (cat(x,y,dims=i) supported for i=1,2.)
 
 * Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
   atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
@@ -41,7 +41,7 @@ operations.
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
 * Reduction operators: countnz, maximum, mean, minimum, prod, sum,
-  sumabs, sumabs2, vecnorm.
+  sumabs, sumabs2, norm.
     
 * Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
 
@@ -79,7 +79,7 @@ The exact algorithm for allocation is:
    reusable pointers)
 
 """
-mutable struct KnetArray{T,N}
+mutable struct KnetArray{T,N} # <: AbstractArray{T,N} (TODO)
     ptr::KnetPtr
     dims::NTuple{N,Int}
 end
@@ -89,6 +89,13 @@ end
 # It is better to define a few extra methods to keep a tighter control
 # on what methods exactly get called for KnetArrays.
 
+# TODO: Let's see if this keeps it under control:
+import Base: getindex, setindex!, iterate, IndexStyle
+getindex(A::KnetArray,I...)=throw(MethodError(getindex,A,I...))
+setindex!(A::KnetArray,I...)=throw(MethodError(setindex!,A,I...))
+iterate(A::KnetArray,I...)=throw(MethodError(iterate,A,I...))
+IndexStyle(::Type{<:KnetArray})=IndexLinear()
+# TODO: do we need more defensive methods here?  broadcasted, materialize etc?
 
 # Aliases:
 
@@ -97,38 +104,38 @@ const KnetVector{T} = KnetArray{T,1}
 const KnetVecOrMat{T} = Union{KnetVector{T}, KnetMatrix{T}}
 
 # Constructors:
-import Base: convert
 # Internal constructor defines KnetArray{T,N}(ptr,dims)
-# These define KnetArray{T,N}(undef,dims) and KnetArray{T,N}(undef,d...)
 
+# These define KnetArray{T,N}(undef,dims) and KnetArray{T,N}(undef,d...)
 KnetArray{T,N}(::UndefInitializer, d::Vararg{Int,N}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
 KnetArray{T,N}(::UndefInitializer, d::NTuple{N,Int}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
 KnetArray{T,N}(::UndefInitializer, d::Vararg{Integer,N}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), convert(NTuple{N,Int},d))
 KnetArray{T,N}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), convert(NTuple{N,Int},d))
 
 # These define KnetArray{T}(undef,dims) and KnetArray{T}(undef,d...)
-
 KnetArray{T}(::UndefInitializer, d::Vararg{Int,N}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
 KnetArray{T}(::UndefInitializer, d::NTuple{N,Int}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), d)
 KnetArray{T}(::UndefInitializer, d::Vararg{Integer,N}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), convert(NTuple{N,Int},d))
 KnetArray{T}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T,N}(KnetPtr(sizeof(T)*prod(d)), convert(NTuple{N,Int},d))
 
-# These define KnetArray(T,dims) and KnetArray(T,d...) -- deprecated
-# KnetArray(::Type{T}, d::NTuple{N,Int}) where {T,N} = KnetArray{T,N}(d)
-# KnetArray(::Type{T}, d::Int...) where {T} = KnetArray(T,d)
-# KnetArray(::Type{T}, d::Integer...) where {T} = KnetArray(T,convert(Tuple{Vararg{Int}},d))
+# KnetArray(::KnetArray) creates a copy, convert returns an alias if possible
+KnetArray(A::KnetArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
+KnetArray{T}(A::KnetArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
+KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
-# These define KnetArray <-> Array constructors
+# KnetArray(::AbstractArray)
 KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
 KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
+# Array(::KnetArray)
+import Base: Array
 Array(A::KnetArray{T,N})    where {T,N}   = Array{T,N}(A)
 Array{T}(A::KnetArray{S,N}) where {T,N,S} = Array{T,N}(A)
 Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
 # Conversions:
-import Base: convert, reshape, vec, unsafe_convert, pointer
+import Base: convert
 # KnetArray <- KnetArray
 convert(::Type{KnetArray}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{T,N}) where {T,N} = x
@@ -136,6 +143,24 @@ convert(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
 convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
+# KnetArray <- AbstractArray
+convert(::Type{KnetArray}, x::AbstractArray{T,N}) where {T,N} = convert(KnetArray{T,N}, x)
+convert(::Type{KnetArray{T}}, x::AbstractArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
+convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+
+# Array <- KnetArray
+convert(::Type{Array}, x::KnetArray{T,N}) where {T,N} = convert(Array{T,N}, x)
+convert(::Type{Array{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, x)
+convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
+
+# Ptr <- KnetArray
+import Base: unsafe_convert, pointer
+unsafe_convert(::Type{Ptr{T}}, a::KnetArray) where {T} = unsafe_convert(Ptr{T}, pointer(a))
+pointer(a::KnetArray{T}) where {T} = convert(Ptr{T}, a.ptr.ptr)
+pointer(a::KnetArray{T},i) where {T} = convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
+
+# Reshape:
+import Base: reshape, vec
 function reshape(a::KnetArray{T}, dims::Dims) where T
     if dims==size(a) 
         a
@@ -150,26 +175,15 @@ reshape(a::KnetArray, dims::Union{Int,Colon}...) = reshape(a, dims)
 reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._reshape_uncolon(a, dims))
 
 vec(a::KnetArray) = reshape(a, length(a))
-# KnetArray <- AbstractArray
-convert(::Type{KnetArray}, x::AbstractArray{T,N}) where {T,N} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T}}, x::AbstractArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
-# Array <- KnetArray
-convert(::Type{Array}, x::KnetArray{T,N}) where {T,N} = convert(Array{T,N}, x)
-convert(::Type{Array{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, x)
-convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
-# Ptr <- KnetArray
-unsafe_convert(::Type{Ptr{T}}, a::KnetArray) where {T} = unsafe_convert(Ptr{T}, pointer(a))
-pointer(a::KnetArray{T}) where {T} = convert(Ptr{T}, a.ptr.ptr)
-pointer(a::KnetArray{T},i) where {T} = convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(T))
 
 # AbstractArray interface
-import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, ones, similar, size, stride, strides, zeros, (==), isapprox #, linearindexing
+import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox #, linearindexing
 eachindex(a::KnetArray) = (1:length(a))
 eltype(::KnetArray{T}) where {T}=T
 eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
+lastindex(a::KnetArray,d) = size(a,d)
 fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
@@ -189,14 +203,14 @@ size(a::KnetArray)=a.dims
 size(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; 1; else; size(a)[i]; end)
 stride(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; length(a); else; s=1; for n=1:(i-1); s*=size(a,n); end; s; end)
 strides(a::KnetArray{T,N}) where {T,N}=ntuple(n->stride(a,n), N)
-zeros(a::KnetArray{T}) where {T}=fill!(similar(a),zero(T))
+zero(a::KnetArray{T}) where {T}=fill!(similar(a),zero(T))
 
 # Comparisons
-(==)(a::KnetArray{T},b::KnetArray{T}) where {T}=(size(a)==size(b) && vecnorm(a-b)==0)
+(==)(a::KnetArray{T},b::KnetArray{T}) where {T}=(size(a)==size(b) && norm(a-b)==0)
 (==)(a::AbstractArray,b::KnetArray)=(size(a)==size(b) && a==Array(b))
 (==)(a::KnetArray,b::AbstractArray)=(size(a)==size(b) && Array(a)==b)
 # Adapted from base/linalg/generic.jl:589
-isapprox(a::KnetArray{T}, b::KnetArray{T}; rtol=sqrt(eps(T)), atol=T(0)) where {T} =(size(a)==size(b) && vecnorm(a-b) <= atol + rtol * max(vecnorm(a), vecnorm(b)))
+isapprox(a::KnetArray{T}, b::KnetArray{T}; rtol=sqrt(eps(T)), atol=T(0)) where {T} =(size(a)==size(b) && norm(a-b) <= atol + rtol * max(norm(a), norm(b)))
 isapprox(a::AbstractArray,b::KnetArray;o...)=(size(a)==size(b) && isapprox(a,Array(b);o...))
 isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array(a),b;o...))
 
@@ -207,10 +221,8 @@ import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NARK = Union{Number,AbstractArray,Rec,KnetArray}
-cat(::Type{Grad{1}},a::KnetArray,as::KnetArray...)=nothing # ambiguity fix
-cat(::Type{Grad{1}},a::NARK...)=nothing # ambiguity fix
-cat(::Type{Grad{N}},y1::NARK,y::NARK,dims::NARK,x::NARK...) where {N}=AutoGrad.uncat(y1,N-1,dims,x...) # ambiguity fix
-cat(dims, X::NARK...)=AutoGrad.cat_r(dims, X...)
+cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
+cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -290,12 +302,10 @@ function vcat(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
-cat(d::Type{Grad{1}}, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...) where {T}=nothing # ambiguity fix
-
-function cat(d, a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...) where {T}
-    if     d==1 || d==Val{1}; vcat(a1, a...)
-    elseif d==2 || d==Val{2}; hcat(a1, a...)
-    else error("cat($d,a...) not implemented.")
+function cat(a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...; dims) where {T}
+    if     dims==1 || dims==Val(1); vcat(a1, a...)
+    elseif dims==2 || dims==Val(2); hcat(a1, a...)
+    else error("cat(a...;dims=$dims) not implemented.")
     end
 end
 
@@ -303,11 +313,11 @@ end
 
 using AutoGrad: NA # Union{Number,AbstractArray}
 const NAK = Union{Number,AbstractArray,KnetArray}
-# cat(d, a::NA, as::NA...)=Base.cat_t(d, prom_(a...), a...) # defined in AutoGrad
-cat(d, a::NAK, as::NAK...)=throw(MethodError(cat, (a, as...)))
-hcat(a::NA, as::NA...)=cat(2,a,as...)
+cat(a::NA, as::NA...; dims)=Base._cat(dims, a, as...)
+cat(a::NAK, as::NAK...; dims)=throw(MethodError(cat, (a, as...)))
+hcat(a::NA, as::NA...)=cat(a,as...; dims=2)
 hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
-vcat(a::NA, as::NA...)=cat(1,a,as...)
+vcat(a::NA, as::NA...)=cat(a,as...; dims=1)
 vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
 # Ambiguity fix for abstractarray.jl:1066-1072
@@ -649,7 +659,7 @@ function setindex!(x::KnetArray{T}, y, i::AbstractArray{I}) where {T,I<:Real}
     if isempty(i); return x; end
     i = Array{Int32}(i)
     checkbetween(i, 1, length(x))
-    unsafe_setindex!(x,KnetArray{T}(undef,y),KnetArray{Int32}(i))
+    unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i))
     return x
 end
 
@@ -682,8 +692,16 @@ function setindex!(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{I}) where {T
     if isempty(y); return x; end
     i = Array{Int32}(i)
     checkbetween(i,1,xcols)
-    unsafe_setindex!(x,KnetArray{T}(undef,y),c,KnetArray{Int32}(i))
+    unsafe_setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(i))
     return x
+end
+
+function setindex!(x::KnetMatrix{T}, y, c::AbstractUnitRange, i::AbstractVector{I}) where {T,I<:Real}
+    if c == 1:size(x,1)
+        setindex!(x, y, :, i)
+    else
+        throw(MethodError(setindex!,x,y,c,i))
+    end
 end
 
 ## Indexing with (AbstractVector{Real},Colon) calls (KnetArray{Int32},Colon) after bound checking
@@ -715,8 +733,16 @@ function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::Colon) where {T
     if isempty(y); return x; end
     i = Array{Int32}(i)
     checkbetween(i,1,xrows)
-    unsafe_setindex!(x,KnetArray{T}(undef,y),KnetArray{Int32}(i),c)
+    unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(i),c)
     return x
+end
+
+function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::AbstractUnitRange) where {T,I<:Real}
+    if c == 1:size(x,2)
+        setindex!(x, y, i, :)
+    else
+        throw(MethodError(setindex!,x,y,i,c))
+    end
 end
 
 ## Indexing with AbstractArray{CartesianIndex} calls AbstractArray{Real}
@@ -766,6 +792,14 @@ function setindex!(A::KnetMatrix{T}, v, I::StepRange, c::Colon) where {T}
     setindex!(A, v, collect(I), c)
 end
 
+function setindex!(A::KnetMatrix, v, I::StepRange, r::AbstractUnitRange)
+    if r == 1:size(A,2)
+        setindex!(A,v,I,:)
+    else
+        throw(MethodError(setindex!, A, v, I, r))
+    end
+end
+
 ## Indexing with (Colon,StepRange) calls (Colon,AbstractArray{Real})
 
 function getindex(A::KnetMatrix{T}, c::Colon, I::StepRange) where {T}
@@ -784,11 +818,19 @@ function setindex!(A::KnetMatrix{T}, v, c::Colon, I::StepRange) where {T}
     setindex!(A, v, c, collect(I))
 end
 
+function setindex!(A::KnetMatrix, v, r::AbstractUnitRange, I::StepRange)
+    if r == 1:size(A,1)
+        setindex!(A,v,:,I)
+    else
+        throw(MethodError(setindex!, A, v, r, I))
+    end
+end
+
 ## Indexing with AbstractArray{Bool} calls KnetArray{Int32}; no need for bound checking
 
 function getindex(x::KnetArray{T}, i::AbstractArray{Bool}) where {T}
     if length(i) != length(x); throw(BoundsError(x,i)); end
-    j = find(i)
+    j = findall(vec(i))
     y = similar(x, length(j))
     if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j)); end
     return y
@@ -796,14 +838,14 @@ end
 
 function setindex!(x::KnetArray{T}, y::Real, i::AbstractArray{Bool}) where {T}
     if length(i) != length(x); throw(DimensionMismatch()); end
-    j = find(i)
+    j = findall(vec(i))
     if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
     return x
 end
 
 function setindex!(x::KnetArray{T}, y, i::AbstractArray{Bool}) where {T}
     if length(i) != length(x); throw(DimensionMismatch()); end
-    j = find(i)
+    j = findall(vec(i))
     if length(j) != length(y); throw(BoundsError(y,j)); end
     if !isempty(j); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j)); end
     return x
@@ -814,7 +856,7 @@ end
 function getindex(x::KnetMatrix{T}, c::Colon, i::AbstractVector{Bool}) where {T}
     xrows,xcols = size(x)
     if length(i) != xcols; throw(BoundsError(x,(:,i))); end
-    j = find(i); ycols = length(j)
+    j = findall(vec(i)); ycols = length(j)
     y = similar(x, xrows, ycols)
     if !isempty(y); unsafe_getindex!(x,y,c,KnetArray{Int32}(j)); end
     return y
@@ -823,7 +865,7 @@ end
 function setindex!(x::KnetMatrix{T}, y::Real, c::Colon, i::AbstractVector{Bool}) where {T}
     xrows,xcols = size(x)
     if length(i) != xcols; throw(BoundsError(x,(:,i))); end
-    j = find(i)
+    j = findall(vec(i))
     if !isempty(j); unsafe_setindex!(x,T(y),c,KnetArray{Int32}(j)); end
     return x
 end
@@ -833,10 +875,18 @@ function setindex!(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{Bool}) where
     xrows,xcols = size(x); yrows,ycols=size(y)
     if yrows != xrows; throw(DimensionMismatch()); end
     if length(i) != xcols; throw(BoundsError(x,(:,i))); end
-    j = find(i)
+    j = findall(vec(i))
     if ycols != length(j); throw(DimensionMismatch()); end
     if !isempty(y); unsafe_setindex!(x,KnetArray{T}(y),c,KnetArray{Int32}(j)); end
     return x
+end
+
+function setindex!(x::KnetMatrix, y, c::AbstractUnitRange, i::AbstractVector{Bool})
+    if c == 1:size(x,1)
+        setindex!(x,y,:,i)
+    else
+        throw(MethodError(setindex!,x,y,c,i))
+    end
 end
 
 ## Indexing with (AbstractVector{Bool},Colon) calls (KnetArray{Int32},Colon); no need for bound checking
@@ -844,7 +894,7 @@ end
 function getindex(x::KnetMatrix{T}, i::AbstractVector{Bool}, c::Colon) where {T}
     xrows,xcols = size(x)
     if length(i) != xrows; throw(BoundsError(x,(i,:))); end
-    j = find(i); yrows = length(j)
+    j = findall(vec(i)); yrows = length(j)
     y = similar(x, yrows, xcols)
     if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j),c); end
     return y
@@ -853,7 +903,7 @@ end
 function setindex!(x::KnetMatrix{T}, y::Real, i::AbstractVector{Bool}, c::Colon) where {T}
     xrows,xcols = size(x)
     if length(i) != xrows; throw(BoundsError(x,(i,:))); end
-    j = find(i)
+    j = findall(vec(i))
     if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j),c); end
     return x
 end
@@ -863,10 +913,18 @@ function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{Bool}, c::Colon) where
     xrows,xcols = size(x); yrows,ycols=size(y)
     if ycols != xcols; throw(DimensionMismatch()); end
     if length(i) != xrows; throw(BoundsError(x,(i,:))); end
-    j = find(i)
+    j = findall(vec(i))
     if yrows != length(j); throw(DimensionMismatch()); end
     if !isempty(y); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j),c); end
     return x
+end
+
+function setindex!(x::KnetMatrix, y, i::AbstractVector{Bool}, c::AbstractUnitRange)
+    if c == 1:size(x,2)
+        setindex!(x,y,i,:)
+    else
+        throw(MethodError(setindex!,x,y,i,c))
+    end
 end
 
 ## Indexing with KnetArray{T} for logicals calls KnetArray{Int32}
@@ -874,7 +932,7 @@ end
 
 function getindex(x::KnetArray{T}, i::KnetArray{T}) where {T}
     if length(i) != length(x); throw(BoundsError(x,i)); end
-    j = find(Array(i))
+    j = findall(Array(i))
     y = similar(x, length(j))
     if !isempty(y); unsafe_getindex!(x,y,KnetArray{Int32}(j)); end
     return y
@@ -882,14 +940,14 @@ end
 
 function setindex!(x::KnetArray{T}, y::Real, i::KnetArray{T}) where {T}
     if length(i) != length(x); throw(DimensionMismatch()); end
-    j = find(Array(i))
+    j = findall(Array(i))
     if !isempty(j); unsafe_setindex!(x,T(y),KnetArray{Int32}(j)); end
     return x
 end
 
 function setindex!(x::KnetArray{T}, y, i::KnetArray{T}) where {T}
     if length(i) != length(x); throw(DimensionMismatch()); end
-    j = find(Array(i))
+    j = findall(Array(i))
     if length(j) != length(y); throw(BoundsError(y,j)); end
     if !isempty(j); unsafe_setindex!(x,KnetArray{T}(y),KnetArray{Int32}(j)); end
     return x
@@ -1036,7 +1094,7 @@ end
 
 # AutoGrad functions:
 import AutoGrad: zeroslike, sum_outgrads, UngetIndex # , unary_nd, indexed_function, isequivalent, _dbg, ssize
-zeroslike(a::KnetArray)=zeros(a)
+zeroslike(a::KnetArray)=zero(a)
 # unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
 # isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 # _dbg(a::KnetArray) = "K"*_dbg(Array(a))
@@ -1085,9 +1143,9 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,find(I))
-    sum_outgrads_karray(A::KnetArray{$T}, X, c::Colon, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,c,find(I))
-    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=sum_outgrads_karray(A,X,find(I),c)
+    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,findall(vec(I)))
+    sum_outgrads_karray(A::KnetArray{$T}, X, c::Colon, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,c,findall(vec(I)))
+    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=sum_outgrads_karray(A,X,findall(vec(I)),c)
 
 end; end
 
@@ -1104,12 +1162,8 @@ broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
 broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
 broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
 
-import .Broadcast: copyto!
+import .Broadcast: copyto!, broadcasted
 using .Broadcast: Broadcasted
-# This takes care of k[:] .= 0
-copyto!(a::KnetArray,b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}})=setindex!(a, first(b), :)
-# This is for all other k[:] .= a
-copyto!(a::KnetArray,b::Broadcasted)=setindex!(a, copy(b), :)
 # This fixes (x .- log.(sum(exp.(x),dims=dims)))
 broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
 broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
@@ -1117,3 +1171,58 @@ broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
 using AutoGrad: broadcast_r
 broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
 broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+
+### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
+
+# The following adapted from base: views.jl broadcast.jl subarray.jl
+# Much of this will be unnecessary if we can inherit from AbstractArray
+import Base: dotview, view, unsafe_view, copyto!, eachindex, _maybe_reshape_parent, reshape, to_shape, SubArray, compute_stride1, axes, check_parent_index_match, IndexStyle
+using Base: unalias, index_ndims, @_inline_meta, @boundscheck, ViewIndex, OneTo, rdims, viewindexing, ensure_indexable, index_dimsum, fill_to_length
+using Base.Broadcast: Broadcasted
+
+dotview(A::KnetArray,I...) = view(A,I...)
+
+function view(A::KnetArray, I::Vararg{Any,N}) where {N}
+    @_inline_meta
+    J = map(i->unalias(A,i), to_indices(A, I))
+    #TODO: @boundscheck checkbounds(A, J...)
+    unsafe_view(_maybe_reshape_parent(A, index_ndims(J...)), J...)
+end
+
+function unsafe_view(A::KnetArray, I::Vararg{ViewIndex,N}) where {N}
+    @_inline_meta
+    SubArray(A, I)
+end
+
+eachindex(::IndexLinear, A::KnetArray) = (@_inline_meta; OneTo(length(A)))
+
+_maybe_reshape_parent(A::KnetArray, ::NTuple{1, Bool}) = reshape(A, Val(1))
+_maybe_reshape_parent(A::KnetArray{<:Any,1}, ::NTuple{1, Bool}) = reshape(A, Val(1))
+_maybe_reshape_parent(A::KnetArray{<:Any,N}, ::NTuple{N, Bool}) where {N} = A
+_maybe_reshape_parent(A::KnetArray, ::NTuple{N, Bool}) where {N} = reshape(A, Val(N))
+
+reshape(parent::KnetArray{T,N}, ndims::Val{N}) where {T,N} = parent
+reshape(parent::KnetArray, ndims::Val{N}) where N = reshape(parent, rdims(Val(N), axes(parent)))
+reshape(parent::KnetArray, shp::Tuple{Union{Integer,OneTo}, Vararg{Union{Integer,OneTo}}}) = reshape(parent, to_shape(shp))
+
+function SubArray(parent::KnetArray, indices::Tuple)
+    @_inline_meta
+    SubArray(IndexStyle(viewindexing(indices), IndexStyle(parent)), parent, ensure_indexable(indices), index_dimsum(indices...))
+end
+
+IndexStyle(::KnetArray)=IndexLinear()
+
+compute_stride1(parent::KnetArray, I::NTuple{N,Any}) where {N} =
+    (@_inline_meta; compute_stride1(1, fill_to_length(axes(parent), OneTo(1), Val(N)), I))
+
+function axes(A::KnetArray{T,N}, d) where {T,N}
+    @_inline_meta
+    d <= N ? axes(A)[d] : OneTo(1)
+end
+
+check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
+
+# dotview(P::KnetArray{T,N},I...) where {T,N} =SubArray{T,N,typeof(P),typeof(I),false}(P,I,0,0)
+# check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
+copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
+copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)

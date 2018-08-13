@@ -153,6 +153,6 @@ for f in unary_ops
     unary_op(f...)
 end
 
-# Unbroadcasted zero works on arrays:
-import Base: zero
-zero(x::KnetArray)=zero.(x)
+# Unbroadcasted zero works on arrays: this moved to karray.jl
+# import Base: zero
+# zero(x::KnetArray)=zero.(x)
