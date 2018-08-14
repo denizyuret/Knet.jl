@@ -1,5 +1,13 @@
+Knet v0.9.2 Release Notes
+=========================
+
+* Bounded package requirements, in particular julia at 0.6 0.7- in REQUIRE.
+* Updated dl-tutorial.
+* CUDNN 7.1.4 compatibility fixes.
+
 Knet v0.9.1 Release Notes
 =========================
+26562f5 2018-05-28
 
 Compatibility
 -------------
@@ -25,7 +33,7 @@ Documentation and Examples
 
 Knet v0.9.0 Release Notes
 =========================
-48ca185 2017-12-25
+ab1ae23 2017-12-26
 
 Compatibility
 -------------
