@@ -1,13 +1,17 @@
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 
 import Base: sum, prod, minimum, maximum # , countnz
-import LinearAlgebra: norm
+import LinearAlgebra: norm, lmul!
 import Statistics: mean
 
 sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims);
 sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims);
 maximum(::typeof(abs), x::KnetArray; dims=:) = maxabs(x,dims=dims);
 minimum(::typeof(abs), x::KnetArray; dims=:) = minabs(x,dims=dims);
+sumabs(x;dims=:)=sum(abs,x;dims=dims)
+sumabs2(x;dims=:)=sum(abs2,x;dims=dims)
+maxabs(x;dims=:)=maximum(abs,x;dims=dims)
+minabs(x;dims=:)=minimum(abs,x;dims=dims)
 
 reduction_ops = [
 # The entry format is (cudaname, julianame, merge, item, init)
@@ -71,10 +75,10 @@ function reduction_op(f, j=f, o...)
                                  nx, xd1, x, s1, s2, ny, y)
                     return y
                 else
-                    y = $J(x,dims[1])
+                    y = $J(x,dims=dims[1])
                     f = $J==sumabs2 ? sum : $J
                     for k=2:length(dims)
-                        y = f(y,dims[k])
+                        y = f(y,dims=dims[k])
                     end
                     return y
                 end
@@ -106,7 +110,7 @@ function norm(x::KnetArray{T}, p::Real=2) where {T}
     end
 end
 
-mean(a::Union{T, Rec{T}};dims=:) where {T<:KnetArray} = sum(a,dims=dims) .* convert(eltype(b), length(b)/length(a))
+mean(a::Union{T, Rec{T}};dims=:) where {T<:KnetArray} = (b=sum(a,dims=dims); b .* convert(eltype(b),(length(b)/length(a))))
 mean(f::Function, a::Union{T, Rec{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
 
 # TODO: move these to AutoGrad

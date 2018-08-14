@@ -20,6 +20,7 @@
 	- AutoGrad only uses broadcasted now, compare performance with	using broadcast
 	- fix unsafe_copy!, unsafe_convert in karray looking in base
 	- try making karray <: AbstractArray and overriding get/setindex.
+	- search for TODOs.
 
 2018-08-09  Deniz Yuret  <dyuret@ku.edu.tr>
 

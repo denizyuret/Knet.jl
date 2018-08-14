@@ -1156,21 +1156,28 @@ export ka
 # To stop fusing the following is needed.
 # Primitives just need to override broadcasted for KnetArray types.
 import .Broadcast: broadcasted
-broadcasted(f, x::KnetArray) = (@warn("broadcasted($f,$x)"); throw(MethodError(broadcasted,(f,x))))
-broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
-broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
-broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
+broadcasted(f, x::KnetArray) = throw(MethodError(broadcasted,(f,x)))
 broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
+### These cause ambiguity with AutoGrad:
+# broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
+# broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
+# broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
 
 import .Broadcast: copyto!, broadcasted
 using .Broadcast: Broadcasted
 # This fixes (x .- log.(sum(exp.(x),dims=dims)))
 broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
 broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
-# This fixes ambiguity with AutoGrad
-using AutoGrad: broadcast_r
-broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
-broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+
+# # This fixes ambiguity with AutoGrad
+# # But then creates more ambiguity as given next
+# using AutoGrad: broadcast_r
+# broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+# # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
+# # TODO: Do we have to do this for each f?
+# broadcasted(f::typeof(*), x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::Rec, y::KnetArray) = broadcast_r(f,x,y)
 
 ### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
 

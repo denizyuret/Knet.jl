@@ -32,7 +32,7 @@ function iterate(c::Combinas, s=[1:c.t;])
         if s[i] > (length(c.a) - (length(s)-i))
             continue
         end
-        for j = i+1:endof(s)
+        for j = i+1:lastindex(s)
             s[j] = s[j-1]+1
         end
         break

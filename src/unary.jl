@@ -137,8 +137,8 @@ end
 # To avoid conflict with AutoGrad:
 # TODO: test this in Julia6, do we need to fix broadcast_func(tanh)?
 import Base: tanh
-@primitive tanh(x::Array),dy,y     tanhback(dy,y)
-@primitive tanh(x::KnetArray),dy,y tanhback(dy,y)
+@primitive tanh(x::Array),dy,y     tanhback.(dy,y)
+@primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
 @primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
 
 # Unary plus and minus

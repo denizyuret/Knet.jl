@@ -21,15 +21,15 @@ end
 
 @testset "unary" begin
     for f in unary_fns
-        # @show f
+        #@show f
         bf = bcast(f)
         for t in (Float32, Float64)
-            # @show f,t
+            #@show f,t
             sx = frand(f,t)
             @test isa(f(sx),t)
             @test gradcheck(f, sx)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
-                # @show f,t,n
+                #@show f,t,n
                 ax = frand(f,t,n)
                 @test gradcheck(bf, ax)
                 if gpu() >= 0

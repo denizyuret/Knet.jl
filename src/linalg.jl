@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-import Base: *, transpose, adjoint, permutedims 
+import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
 # import Base: A_mul_B!
 # import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
 # import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
@@ -88,10 +88,26 @@ function scal!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer) where 
 end
 
 lmul!(alpha::Number, x::KnetArray{T}) where {T} = scal!(length(x),alpha,x,1)
-rmul!(x::KnetArray{T}, alpha::Number) where {T} =scal!(length(x),alpha,x,1)
+rmul!(x::KnetArray{T}, alpha::Number) where {T} = scal!(length(x),alpha,x,1)
 
+transpose(x::KnetArray)=_transpose(x)
+adjoint(x::KnetArray)=_transpose(x)
+
+#= TODO: use the lazy transpose:
+using LinearAlgebra: Adjoint, Transpose, AdjOrTrans
 transpose(x::KnetArray)=Transpose(x)
 adjoint(x::KnetArray)=Adjoint(x)
+const AdjointKnetVec{T} = Adjoint{T,<:KnetVector}
+const TransposeKnetVec{T} = Transpose{T,<:KnetVector}
+const AdjOrTransKnetVec{T} = AdjOrTrans{T,<:KnetVector}
+const AdjOrTransKnetMat{T} = AdjOrTrans{T,<:KnetMatrix}
+size(v::AdjOrTransKnetVec) = (1, length(v.parent))
+size(A::AdjOrTransKnetMat) = reverse(size(A.parent))
+axes(v::AdjOrTransKnetVec) = (Base.OneTo(1), axes(v.parent)...)
+axes(A::AdjOrTransKnetMat) = reverse(axes(A.parent))
+IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
+IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
+=#
 
 function _transpose(x::KnetArray{T}) where {T} # trying the lazy version first
     ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
