@@ -1,14 +1,10 @@
-for p in ("GZip",)
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-
-using GZip
+using GZip,Knet
 
 "Where to download mnist from"
 mnisturl = "http://yann.lecun.com/exdb/mnist"
 
 "Where to download mnist to"
-mnistdir = Pkg.dir("Knet","data","mnist")
+mnistdir = Knet.dir("data","mnist")
 
 """
 
@@ -21,7 +17,7 @@ class.  10 is used to represent the digit 0.
 
 ```
 # Usage:
-include(Pkg.dir("Knet/data/mnist.jl"))
+include("mnist.jl")
 xtrn, ytrn, xtst, ytst = mnist()
 # xtrn: 28×28×1×60000 Array{Float32,4}
 # ytrn: 60000-element Array{UInt8,1}
@@ -32,8 +28,8 @@ xtrn, ytrn, xtst, ytst = mnist()
 """
 function mnist()
     global _mnist_xtrn,_mnist_ytrn,_mnist_xtst,_mnist_ytst
-    if !isdefined(:_mnist_xtrn)
-        info("Loading MNIST...")
+    if !@isdefined(_mnist_xtrn)
+        @info("Loading MNIST...")
         _mnist_xtrn = _mnist_xdata("train-images-idx3-ubyte.gz")
         _mnist_xtst = _mnist_xdata("t10k-images-idx3-ubyte.gz")
         _mnist_ytrn = _mnist_ydata("train-labels-idx1-ubyte.gz")
@@ -52,7 +48,7 @@ end
 
 function _mnist_ydata(file)
     a = _mnist_gzload(file)[9:end]
-    a[a.==0] = 10
+    a[a.==0] .= 10
     # full(sparse(a,1:length(a),1f0,10,length(a)))
     return a
 end

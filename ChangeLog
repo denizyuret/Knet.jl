@@ -2,25 +2,26 @@
 
 	* julia7-compat-todo:
 	- fix JLD.
-	- unsafe_copy! is not in base any more?
+	- unsafe_copy! is not in base any more? fix unsafe_copy!, unsafe_convert in karray looking in base
 	- unary_nd, indexed_function, isequivalent, _dbg, ssize not in AutoGrad any more.
-	- fix KnetDisplay (summary line should show KnetArray).
+	- fix KnetDisplay (summary line should show KnetArray) and other display/show problems.
 	- separate and move KnetArray to KnetML.
 	- reorganize unary.jl and broadcast.jl
 	- check TODO.
 	+ seed! gc dir -- just use the same names but have Knet versions.
 	- data
-	- deps
+	+ deps
 	- docs
 	- examples
 	- prof
-	- src: CPU:20/20
-	- test: CPU:11/14
+	+ src: CPU:20/20
+	+ test: CPU:14/14
 	- limit max memory allocated by kptr
-	- AutoGrad only uses broadcasted now, compare performance with	using broadcast
-	- fix unsafe_copy!, unsafe_convert in karray looking in base
+	- AutoGrad only uses broadcasted now, compare performance with using broadcast
 	- try making karray <: AbstractArray and overriding get/setindex.
 	- search for TODOs.
+	- new AutoGrad interface.
+	- test on other AD and GPUarray pkgs.
 
 2018-08-09  Deniz Yuret  <dyuret@ku.edu.tr>
 

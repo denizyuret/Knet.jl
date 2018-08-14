@@ -121,18 +121,18 @@ KnetArray{T}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T
 # KnetArray(::KnetArray) creates a copy, convert returns an alias if possible
 KnetArray(A::KnetArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::KnetArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
-KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # KnetArray(::AbstractArray)
 KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
-KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Array(::KnetArray)
 import Base: Array
 Array(A::KnetArray{T,N})    where {T,N}   = Array{T,N}(A)
 Array{T}(A::KnetArray{S,N}) where {T,N,S} = Array{T,N}(A)
-Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
+Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, _unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
 # Conversions:
 import Base: convert
@@ -141,17 +141,17 @@ convert(::Type{KnetArray}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
+convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},_unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
 # KnetArray <- AbstractArray
 convert(::Type{KnetArray}, x::AbstractArray{T,N}) where {T,N} = convert(KnetArray{T,N}, x)
 convert(::Type{KnetArray{T}}, x::AbstractArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Array <- KnetArray
 convert(::Type{Array}, x::KnetArray{T,N}) where {T,N} = convert(Array{T,N}, x)
 convert(::Type{Array{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, x)
-convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
+convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},_unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
 
 # Ptr <- KnetArray
 import Base: unsafe_convert, pointer
@@ -331,10 +331,10 @@ hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(unde
 # copyto!{T}(dest::Array{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer)
 # Note that this is an unsafe operation, no argument or bounds checking performed.
 # Defined in Base:
-# unsafe_copy!{T}(dest::Ptr{T}, src::Ptr{T}, n) at array.jl:73
-# unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
+# _unsafe_copy!{T}(dest::Ptr{T}, src::Ptr{T}, n) at array.jl:73
+# _unsafe_copy!{T}(dest::Array{T,N}, doffs, src::Array{T,N}, soffs, n) at array.jl:79
 
-import Base: copy, copyto! #TODO unsafe_copy!
+import Base: copy, copyto! #TODO _unsafe_copy!
 const KorA{T} = Union{KnetArray{T},Array{T}}
 
 function copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer) where {T}
@@ -343,7 +343,7 @@ function copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n:
     if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
         throw(BoundsError())
     end
-    unsafe_copy!(dest, doffs, src, soffs, n)
+    _unsafe_copy!(dest, doffs, src, soffs, n)
 end
 
 function copyto!(dest::KorA{T}, src::KorA{T}) where {T}
@@ -352,21 +352,21 @@ function copyto!(dest::KorA{T}, src::KorA{T}) where {T}
 end
 
 function copy(a::KnetArray)
-    unsafe_copy!(similar(a),1,a,1,length(a))
+    _unsafe_copy!(similar(a),1,a,1,length(a))
 end
 
-# unsafe_copy! does no bounds checking, the callers must.
-function unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int) where {T}
+# _unsafe_copy! does no bounds checking, the callers must.
+function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int) where {T}
     @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 1)
     return dest
 end
-function unsafe_copy!(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
+function _unsafe_copy!(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
     @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 2)
     return dest
 end
-function unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
+function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
     @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 3)
     return dest
@@ -465,13 +465,13 @@ import Base: getindex, setindex!, unsafe_getindex, unsafe_setindex!
 function getindex(A::KnetArray{T}, I::Real) where {T}
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
-    unsafe_copy!(T[0], 1, A, J, 1)[1]
+    _unsafe_copy!(T[0], 1, A, J, 1)[1]
 end
 
 function setindex!(A::KnetArray{T}, v, I::Real) where {T}
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
-    unsafe_copy!(A, J, T[v], 1, 1)
+    _unsafe_copy!(A, J, T[v], 1, 1)
 end
 
 ## Indexing with Tuple{Real}
@@ -485,7 +485,7 @@ function getindex(A::KnetArray{T}, I::Real...) where {T}
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = (LinearIndices(size(A)))[J...]
-    unsafe_copy!(T[0], 1, A, i, 1)[1]
+    _unsafe_copy!(T[0], 1, A, i, 1)[1]
 end
 
 function setindex!(A::KnetArray{T}, v, I::Real...) where {T}
@@ -494,7 +494,7 @@ function setindex!(A::KnetArray{T}, v, I::Real...) where {T}
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = (LinearIndices(size(A)))[J...]
-    unsafe_copy!(A, i, T[v], 1, 1)
+    _unsafe_copy!(A, i, T[v], 1, 1)
 end
 
 ## Indexing with CartesianIndex: calls Tuple{Real}
@@ -546,7 +546,7 @@ function setindex!(A::KnetArray{T}, v, I::AbstractUnitRange) where {T}
     if length(v)!=length(I); throw(DimensionMismatch()); end
     if length(I)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
-    unsafe_copy!(A,first(I),v,1,length(I))
+    _unsafe_copy!(A,first(I),v,1,length(I))
 end
 
 ## Indexing with Colon
@@ -565,7 +565,7 @@ function setindex!(A::KnetArray{T}, v, I::Colon) where {T}
     if length(v)!=length(A); throw(DimensionMismatch()); end
     if length(v)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
-    unsafe_copy!(A,1,v,1,length(A))
+    _unsafe_copy!(A,1,v,1,length(A))
 end
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
@@ -1088,8 +1088,8 @@ end
 
 # These two are not sufficient in spite of what the documentation says:
 # display goes into an infinite loop!
-# getindex{T}(A::KnetArray{T}, i::Int)=unsafe_copy!(T[0], 1, A, i, 1)[1]
-# setindex!{T}(A::KnetArray{T}, v, i::Int)=unsafe_copy!(A, i, T[v], 1, 1)
+# getindex{T}(A::KnetArray{T}, i::Int)=_unsafe_copy!(T[0], 1, A, i, 1)[1]
+# setindex!{T}(A::KnetArray{T}, v, i::Int)=_unsafe_copy!(A, i, T[v], 1, 1)
 
 
 # AutoGrad functions:
