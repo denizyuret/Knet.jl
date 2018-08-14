@@ -3,39 +3,39 @@ include("combinatorics.jl")
 using Knet: sumabs, sumabs2, minabs, maxabs, countnz
 using LinearAlgebra: norm
 
-const MIN_DIM  = 3
-const MAX_DIM  = 5
-const MIN_SIZE = 2
-const TOL1 = 0.01
-
-function rand21(f,t,d...)
-    if f==maximum || f==minimum || f==norm || f==sumabs2
-        reshape(shuffle(t(0.01)*t[1:prod(d...)...]), d...)
-    # elseif f==countnz || f==countnz2
-    #     t(0.01)+rand(t,d...)
-    elseif f==prod
-        exp.(t(0.01)*randn(t,d...))
-    else
-        randn(t,d...)
-    end
-end
-
-### countnz is deprecated
-# countnz2(a::AbstractArray{T}; dims=:) where {T}=Array{T}(sum(a.!=0,dims=dims))
-# using AutoGrad
-# @zerograd countnz2(a,d...)
-
-reduction_fns = []
-for f in Knet.reduction_ops
-    if isa(f,Tuple); f=f[2]; end
-    if f == "countnz"; continue; end # deprecated
-    push!(reduction_fns, eval(Meta.parse(f)))
-end
-
-Knet.seed!(42)
-
-#DBG global f,t,dim,xsize,c,ax,gx,p
 @testset "reduction" begin
+
+    MIN_DIM  = 3
+    MAX_DIM  = 5
+    MIN_SIZE = 2
+    TOL1 = 0.01
+
+    function rand21(f,t,d...)
+        if f==maximum || f==minimum || f==norm || f==sumabs2
+            reshape(shuffle(t(0.01)*t[1:prod(d...)...]), d...)
+            # elseif f==countnz || f==countnz2
+            #     t(0.01)+rand(t,d...)
+        elseif f==prod
+            exp.(t(0.01)*randn(t,d...))
+        else
+            randn(t,d...)
+        end
+    end
+
+    ### countnz is deprecated
+    # countnz2(a::AbstractArray{T}; dims=:) where {T}=Array{T}(sum(a.!=0,dims=dims))
+    # using AutoGrad
+    # @zerograd countnz2(a,d...)
+
+    reduction_fns = []
+    for f in Knet.reduction_ops
+        if isa(f,Tuple); f=f[2]; end
+        if f == "countnz"; continue; end # deprecated
+        push!(reduction_fns, eval(Meta.parse(f)))
+    end
+
+    #Knet.seed!(42)
+
     for f in reduction_fns
         for t in (Float32, Float64)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))

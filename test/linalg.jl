@@ -1,7 +1,7 @@
 include("header.jl")
 include("combinatorics.jl")
 using LinearAlgebra
-Random.seed!(42)
+#Random.seed!(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
 @testset "linalg" begin

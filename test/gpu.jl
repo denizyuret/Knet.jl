@@ -1,6 +1,7 @@
 include("header.jl")
 
 if gpu() >= 0
+    @show gpu()
     @testset "gpu" begin
         @test Knet.gpuCount() > 0
         @test Knet.cudaGetDeviceCount() > 0

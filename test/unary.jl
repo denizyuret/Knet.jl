@@ -1,25 +1,25 @@
 include("header.jl")
 using SpecialFunctions
-Random.seed!(42)
-
-function frand(f,t,d...)
-    r = rand(t,d...) .* t(0.5) .+ t(0.25)
-    if in(f,(acosh,asec))
-        return 1 ./ r
-    else
-        return r
-    end
-end
-
-bcast(f)=(x->broadcast(f,x))
-
-unary_fns = Any[]
-for f in Knet.unary_ops
-    if isa(f,Tuple); f=f[2]; end
-    push!(unary_fns, eval(Meta.parse(f)))
-end
 
 @testset "unary" begin
+
+    function frand(f,t,d...)
+        r = rand(t,d...) .* t(0.5) .+ t(0.25)
+        if in(f,(acosh,asec))
+            return 1 ./ r
+        else
+            return r
+        end
+    end
+
+    bcast(f)=(x->broadcast(f,x))
+
+    unary_fns = Any[]
+    for f in Knet.unary_ops
+        if isa(f,Tuple); f=f[2]; end
+        push!(unary_fns, eval(Meta.parse(f)))
+    end
+
     for f in unary_fns
         #@show f
         bf = bcast(f)

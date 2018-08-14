@@ -1,21 +1,21 @@
 # TODO: test bidirectional rnns
 
 include("header.jl")
-
-if gpu() >= 0
-
 using Knet: rnntest
 
-eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
-gchk(a...)=gradcheck(a...; rtol=0.01)
-rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
-D,X,H,B,T = Float64,32,32,16,10 # Keep X==H to test skipInput
+if gpu() >= 0; @testset "rnn" begin
 
-r=w=x1=x2=x3=hx1=cx1=hx2=cx2=hx3=cx3=nothing
-rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
-@testset "rnn" begin
+    eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
+    gchk(a...)=gradcheck(a...; rtol=0.01)
+    rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
+    D,X,H,B,T = Float64,32,32,16,10 # Keep X==H to test skipInput
+
+    r=w=x1=x2=x3=hx1=cx1=hx2=cx2=hx3=cx3=nothing
+    rcpu=wcpu=x1cpu=x2cpu=x3cpu=hx1cpu=cx1cpu=hx2cpu=cx2cpu=hx3cpu=cx3cpu=nothing
+
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)
         # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit,xavier))
+
         (r,w) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier) # binit=zeros does not pass gchk
         (rcpu,wcpu) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier, usegpu=false)
         @test eltype(wcpu) == eltype(w)

@@ -436,7 +436,7 @@ function update!(w,g,p)
     if !(length(w)==length(g)==length(p))
         error("weight, gradient, and optimization parameters not the same length.")
     end
-    if isbits(eltype(w))
+    if isbitstype(eltype(w))
         error("Bad args: $((typeof(w),typeof(g),typeof(p)))")
     end
     for (wi,gi,pi) in zip(w,g,p)
