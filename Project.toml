@@ -1,0 +1,8 @@
+name = "Knet"
+uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
+
+[deps]
+AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
+CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
