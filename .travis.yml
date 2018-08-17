@@ -27,3 +27,4 @@ notifications:
 after_success:
   - julia -e 'Pkg.add("Documenter")'
   - julia -e 'cd(Pkg.dir("Knet")); include(joinpath("docs", "make.jl"))'
+  - julia -e 'cd(Pkg.dir("Knet")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder()); Coveralls.submit(process_folder())'
