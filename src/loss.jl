@@ -156,18 +156,18 @@ end
 
 """
 
-    nll(scores, answers, d=1; average=true)
+    nll(scores, answers; dims=1 average=true)
 
 Given an unnormalized `scores` matrix and an `Integer` array of
 correct `answers`, return the per-instance negative log
-likelihood. `d=1` means instances are in columns, `d=2` means
+likelihood. `dims=1` means instances are in columns, `dims=2` means
 instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll(y,a::Array{T},d=1; average=true) where {T<:Integer}
-    indices = findindices(y,a,d)
-    lp = logp(y,d)[indices]
+function nll(y,a::Array{T}; dims=1, average=true) where {T<:Integer}
+    indices = findindices(y,a,dims)
+    lp = logp(y,dims=dims)[indices]
     average ? -mean(lp) : -sum(lp)
 end
 

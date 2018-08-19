@@ -16,5 +16,17 @@ include("header.jl")
             @test isapprox(f(a,dims=2),f(k,dims=2))
         end
     end
+
+    a = rand(10,10)
+    indices = rand(1:10,10)
+    @test gradcheck(nll, a, indices, kwargs=(:dims=>1,))
+    @test gradcheck(nll, a, indices, kwargs=(:dims=>2,))
+    if gpu() >= 0
+        k = KnetArray(a)
+        @test gradcheck(nll, k, indices, kwargs=(:dims=>1,))
+        @test gradcheck(nll, k, indices, kwargs=(:dims=>2,))
+        @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
+        @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
+    end
 end
 
