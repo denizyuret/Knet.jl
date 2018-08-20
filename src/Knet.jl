@@ -14,7 +14,7 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad; export grad, getval # , gradloss, gradcheck
+using AutoGrad; export grad, gradloss, getval
 
 include("gpu.jl");              export gpu
 include("uva.jl")

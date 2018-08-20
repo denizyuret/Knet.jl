@@ -1,6 +1,7 @@
+using Knet
 const WIKINER_DOWNLOAD_PREFIX =
     "https://github.com/neulab/dynet-benchmark/raw/master/data/tags/"
-const WIKINER_DIR = Pkg.dir("Knet","data","wikiner")
+const WIKINER_DIR = Knet.dir("data","wikiner")
 const WIKINER_FILES = ("train.txt","dev.txt")
 const UNK = "_UNK_"
 const PAD = "<*>"
@@ -35,7 +36,6 @@ data = WikiNERData()
 ```
 
 """
-
 mutable struct WikiNERData
     trn
     dev
@@ -100,7 +100,7 @@ let
     end
 
     function parse_line(line)
-        return map(x->split(x,"|"), split(replace(line,"\n",""), " "))
+        return map(x->split(x,"|"), split(replace(line,"\n"=>""), " "))
     end
 
     function get_words_tags_chars(trn)
@@ -109,7 +109,7 @@ let
             for (word,tag) in sample
                 push!(words, word)
                 push!(tags, tag)
-                push!(chars, convert(Array{UInt8,1}, word)...)
+                push!(chars, convert(Array{UInt8,1}, codeunits(word))...)
             end
         end
         push!(chars, PAD)
@@ -117,7 +117,7 @@ let
     end
 
     function filter_words(wordcounts,minoccur)
-        filtered_words = filter((w,c)-> c >= minoccur, wordcounts)
+        filtered_words = filter(x-> x[2] >= minoccur, wordcounts)
         filtered_words = collect(keys(filtered_words))
         !in(UNK, filtered_words) && push!(filtered_words, UNK)
         return filtered_words

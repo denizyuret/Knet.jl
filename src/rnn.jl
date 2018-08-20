@@ -547,22 +547,21 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
-rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
+@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) getval(r).dx getval(r).dhx getval(r).dcx
 
-let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw(r::RNN, w::Rec{K}, x...; o...) where {K<:KnetArray}=rnnforw_r(r, w, x...; o..., training=true)
-end
-
-function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     y,hy,cy,rs = getval(t)
     dy,dhy,dcy,drs = getval(dt)
-    w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
+    r=getval(r); w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
 end
 
-rnnforw(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
-rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
-rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
+# import AutoGrad: Rec, forw, back
+# rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
+# rnnforw(r::RNN, w::Rec{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
+# back(::typeof(rnnforw),::Val{3}, dt, t, r, w...; o...)=r.dx
+# back(::typeof(rnnforw),::Val{4}, dt, t, r, w...; o...)=r.dhx
+# back(::typeof(rnnforw),::Val{5}, dt, t, r, w...; o...)=r.dcx
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                  dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
@@ -657,7 +656,7 @@ function rnnforw(r::RNN, w::Array{T}, x::Array{T},
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
-rnnforw(r::RNN, w::Rec{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::AutoGrad.Rec{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version

@@ -156,7 +156,7 @@ end
 
 """
 
-    nll(scores, answers; dims=1 average=true)
+    nll(scores, answers; dims=1, average=true)
 
 Given an unnormalized `scores` matrix and an `Integer` array of
 correct `answers`, return the per-instance negative log
@@ -174,18 +174,20 @@ end
 
 """
 
-    accuracy(scores, answers, d=1; average=true)
+    accuracy(scores, answers; dims=1, average=true)
 
 Given an unnormalized `scores` matrix and an `Integer` array of
 correct `answers`, return the ratio of instances where the correct
-answer has the maximum score. `d=1` means instances are in columns,
-`d=2` means instances are in rows. Use `average=false` to return
+answer has the maximum score. `dims=1` means instances are in columns,
+`dims=2` means instances are in rows. Use `average=false` to return
 the number of correct answers instead of the ratio.
 
 """
-function accuracy(y,a::Array{T},d=1; average=true) where {T<:Integer}
-    indices = findindices(y,a,d)
-    (maxval,maxind) = findmax(Array(y),d)
+function accuracy(y,a::Array{T}; dims=1, average=true) where {T<:Integer}
+    indices = findindices(y,a,dims)
+    ycpu = Array(y)
+    (maxval,maxind) = findmax(ycpu,dims=dims)
+    maxind = LinearIndices(ycpu)[maxind]
     correct = (vec(maxind) .== indices)
     average ? mean(correct) : sum(correct)
 end

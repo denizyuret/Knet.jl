@@ -1,9 +1,3 @@
-for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","mnist.jl"))
-
-
 """
 
 This example learns to classify hand-written digits from the
@@ -26,6 +20,7 @@ will be returned.
 """
 module LeNet
 using Knet,ArgParse
+include(Knet.dir("data","mnist.jl"))
 
 function predict(w,x)
     n=length(w)-4
@@ -57,7 +52,7 @@ function train(w, data; lr=.1, epochs=3, iters=1800)
 end
 
 function weights(;atype=KnetArray{Float32})
-    w = Array{Any}(8)
+    w = Array{Any}(undef,8)
     w[1] = xavier(5,5,1,20)
     w[2] = zeros(1,1,20,1)
     w[3] = xavier(5,5,20,50)
@@ -92,10 +87,10 @@ function main(args=ARGS)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
+    atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
-    xtrn,ytrn,xtst,ytst = Main.mnist()
+    xtrn,ytrn,xtst,ytst = mnist()
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
     w = weights(atype=atype)

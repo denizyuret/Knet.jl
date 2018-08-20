@@ -1,14 +1,10 @@
-for p in ("GZip",)
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-
-using GZip
+using GZip, Knet
 
 "Where to download fmnist from"
 fmnisturl = "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion"
 
 "Where to download fmnist to"
-fmnistdir = Pkg.dir("Knet","data","fashion-mnist")
+fmnistdir = Knet.dir("data","fashion-mnist")
 
 """
 
@@ -36,8 +32,8 @@ descriptions are shown below.
 
 function fmnist()
     global _fmnist_xtrn,_fmnist_ytrn,_fmnist_xtst,_fmnist_ytst,_fmnist_lbls
-    if !isdefined(:_fmnist_xtrn)
-        info("Loading FMNIST...")
+    if !(@isdefined _fmnist_xtrn)
+        @info("Loading FMNIST...")
         _fmnist_xtrn = _fmnist_xdata("train-images-idx3-ubyte.gz")
         _fmnist_xtst = _fmnist_xdata("t10k-images-idx3-ubyte.gz")
         _fmnist_ytrn = _fmnist_ydata("train-labels-idx1-ubyte.gz")
@@ -56,7 +52,7 @@ function _fmnist_xdata(file)
 end
 
 function _fmnist_ydata(file)
-    _fmnist_gzload(file)[9:end] + 0x1
+    _fmnist_gzload(file)[9:end] .+ 0x1
 end
 
 function _fmnist_gzload(file)

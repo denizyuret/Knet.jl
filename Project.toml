@@ -1,12 +1,24 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
+author = ["Deniz Yuret <denizyuret@gmail.com>"]
+version = "1.0.0"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
 CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
-Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
-SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+AutoGrad = "1.0.0"
+CUDAapi = "0.5.0"
+SpecialFunctions = "0.7.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

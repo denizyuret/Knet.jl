@@ -1,8 +1,10 @@
+using Knet
+
 "Where to download cifar from"
 cifarurl = "http://www.cs.toronto.edu/~kriz"
 
 "Where to download cifar to"
-cifardir = Pkg.dir("Knet","data","cifar")
+cifardir = Knet.dir("data", "cifar")
 
 "cifar10() => (xtrn,ytrn,xtst,ytst,labels)"
 function cifar10(;
@@ -13,7 +15,7 @@ function cifar10(;
                  lbl="batches.meta.txt",
                  )
     global _cifar10_xtrn, _cifar10_ytrn, _cifar10_xtst, _cifar10_ytst, _cifar10_lbls
-    if !isdefined(:_cifar10_xtrn)
+    if !(@isdefined _cifar10_xtrn)
         _cifar10_xtrn, _cifar10_ytrn, _cifar10_xtst, _cifar10_ytst, _cifar10_lbls = _cifar_read_tgz(tgz,dir,trn,tst,lbl)
     end
     return _cifar10_xtrn, _cifar10_ytrn, _cifar10_xtst, _cifar10_ytst, _cifar10_lbls
@@ -28,7 +30,7 @@ function cifar100(;
                   lbl="fine_label_names.txt",
                   )
     global _cifar100_xtrn, _cifar100_ytrn, _cifar100_xtst, _cifar100_ytst, _cifar100_lbls
-    if !isdefined(:_cifar100_xtrn)
+    if !(@isdefined _cifar100_xtrn)
         _cifar100_xtrn, _cifar100_ytrn, _cifar100_xtst, _cifar100_ytst, _cifar100_lbls = _cifar_read_tgz(tgz,dir,trn,tst,lbl)
     end
     return _cifar100_xtrn, _cifar100_ytrn, _cifar100_xtst, _cifar100_ytst, _cifar100_lbls
@@ -38,7 +40,7 @@ end
 cifarview(x,i)=colorview(RGB,permutedims(x[:,:,:,i],(3,2,1)))
 
 function _cifar_read_tgz(tgz,dir,trn,tst,labels)
-    info("Reading $tgz...")
+    @info("Reading $tgz...")
     if !isdir(cifardir)
         mkpath(cifardir)
     end
@@ -63,14 +65,14 @@ function _cifar_read_files(dir,files)
         x,y = _cifar_read_file(dir,file)
         push!(xs,x); push!(ys,y)
     end
-    return cat(4, xs...), vcat(ys...)
+    return cat(xs..., dims=4), vcat(ys...)
 end
 
 function _cifar_read_file(dir,file)
     a = read(joinpath(dir,file))
-    d = contains(dir,"cifar-100") ? 1 : 0
+    d = occursin("cifar-100",dir) ? 1 : 0
     a = reshape(a, (3073+d, div(length(a),3073+d)))
-    y = a[1+d,:] + 0x1 # first row (second for cifar100) is Int8 index representation of correct answers
+    y = a[1+d,:] .+ 0x1 # first row (second for cifar100) is Int8 index representation of correct answers
     x = a[2+d:end,:] # rows 2:end (3:end for cifar100) give 32,32,3,N images
     # y = full(sparse(y,1:length(y),1f0,10,length(y))) # one-hot vector representation
     # maybe convert y to int?

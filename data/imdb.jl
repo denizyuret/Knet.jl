@@ -2,11 +2,8 @@
 # Also see https://github.com/fchollet/keras/raw/master/examples/imdb_lstm.py
 # Also see https://github.com/ilkarman/DeepLearningFrameworks/raw/master/common/utils.py
 
-for p in ("PyCall","JSON","JLD")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-
-using PyCall,JSON,JLD
+using PyCall,JSON,JLD2,Random,Knet
+@pyimport numpy as np
 
 """
 
@@ -28,37 +25,36 @@ https://keras.io/datasets and return (xtrn,ytrn,xtst,ytst,dict) tuple.
 """
 function imdb(;
               url = "https://s3.amazonaws.com/text-datasets",
-              dir = Pkg.dir("Knet","data","imdb"),
+              dir = Knet.dir("data", "imdb"),
               data="imdb.npz",
               dict="imdb_word_index.json",
-              jld="imdb.jld",
+              jld2="imdb.jld2",
               maxval=nothing,
               maxlen=nothing,
               seed=0, oov=true, stoken=true, pad=true
               )
     global _imdb_xtrn,_imdb_ytrn,_imdb_xtst,_imdb_ytst,_imdb_dict
-    if !isdefined(:_imdb_xtrn)
+    if !(@isdefined _imdb_xtrn)
         isdir(dir) || mkpath(dir)
-        jldpath = joinpath(dir,jld)
-        if !isfile(jldpath)
-            info("Downloading IMDB...")
+        jld2path = joinpath(dir,jld2)
+        if !isfile(jld2path)
+            @info("Downloading IMDB...")
             datapath = joinpath(dir,data)
             dictpath = joinpath(dir,dict)
             isfile(datapath) || download("$url/$data",datapath)
             isfile(dictpath) || download("$url/$dict",dictpath)
-            @pyimport numpy as np
             d = np.load(datapath)
             _imdb_xtrn = map(a->np.asarray(a,dtype=np.int32), get(d, "x_train"))
             _imdb_ytrn = Array{Int8}(get(d, "y_train") .+ 1)
             _imdb_xtst = map(a->np.asarray(a,dtype=np.int32), get(d, "x_test"))
             _imdb_ytst = Array{Int8}(get(d, "y_test") .+ 1)
             _imdb_dict = Dict{String,Int32}(JSON.parsefile(dictpath))
-            JLD.@save jldpath _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
+            JLD2.@save jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
             #rm(datapath)
             #rm(dictpath)
         end
-        info("Loading IMDB...")
-        JLD.@load jldpath _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
+        @info("Loading IMDB...")
+        JLD2.@load jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
     end
     if seed != 0; srand(seed); end
     xs = [_imdb_xtrn;_imdb_xtst]
@@ -85,7 +81,7 @@ function imdb(;
                 xi = xi[end-maxlen+1:end]
             end
             if pad && length(xi) < maxlen
-                xi = append!(repmat([pad_token], maxlen-length(xi)), xi)
+                xi = append!(repeat([pad_token], maxlen-length(xi)), xi)
             end
             newx[i] = xi
         end

@@ -1,5 +1,6 @@
+using Knet
 mikolovptburl = "http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz"
-mikolovptbdir = Pkg.dir("Knet","data","mikolovptb")
+mikolovptbdir = Knet.dir("data","mikolovptb")
 mikolovptbtrn = "ptb.train.txt"
 mikolovptbdev = "ptb.valid.txt"
 mikolovptbtst = "ptb.test.txt"
@@ -21,10 +22,10 @@ been lowercased and reduced to a 10K vocabulary size.  Return a tuple
 """
 function mikolovptb()
     global _mptb_trn, _mptb_dev, _mptb_tst, _mptb_vocab
-    if !isdefined(:_mptb_trn)
+    if !(@isdefined _mptb_trn)
         isdir(mikolovptbdir) || mkpath(mikolovptbdir)
         if !isfile(joinpath(mikolovptbdir, "ptb.train.txt"))
-            info("Downloading $mikolovptburl")
+            @info("Downloading $mikolovptburl")
             tgz = download(mikolovptburl)
             run(`tar --strip-components 3 -C $mikolovptbdir -xzf $tgz ./simple-examples/data/ptb.train.txt ./simple-examples/data/ptb.valid.txt ./simple-examples/data/ptb.test.txt`)
         end
@@ -43,7 +44,7 @@ function mikolovptb()
             push!(data, sentences)
         end
         _mptb_trn, _mptb_dev, _mptb_tst = data
-        _mptb_vocab = Array{String}(length(dict))
+        _mptb_vocab = Array{String}(undef, length(dict))
         for (k,v) in dict; _mptb_vocab[v] = k; end
     end
     return _mptb_trn, _mptb_dev, _mptb_tst, _mptb_vocab

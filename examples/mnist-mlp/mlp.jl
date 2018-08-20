@@ -1,8 +1,3 @@
-for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","mnist.jl"))
-
 """
 
 This example learns to classify hand-written digits from the
@@ -26,6 +21,7 @@ will be returned.
 """
 module MLP
 using Knet,ArgParse
+include(Knet.dir("data","mnist.jl"))
 
 function predict(w,x)
     for i=1:2:length(w)
@@ -91,9 +87,9 @@ function main(args="")
         println("opts=",[(k,v) for (k,v) in o]...)
     end
     o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
+    atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    xtrn,ytrn,xtst,ytst = Main.mnist()
+    xtrn,ytrn,xtst,ytst = mnist()
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))

@@ -1,3 +1,5 @@
+using DelimitedFiles, Statistics, Knet
+
 """
 
     housing([test]; [url, file])
@@ -18,18 +20,18 @@ deviation.
 
 """
 function housing(test=0.0;
-                 file=Pkg.dir("Knet","data","housing","housing.data"),
+                 file=Knet.dir("data", "housing", "housing.data"),
                  url="https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data")
     if !isfile(file)
         isdir(dirname(file)) || mkpath(dirname(file))
-        info("Downloading $url to $file")
+        @info("Downloading $url to $file")
         download(url, file)
     end
     data = readdlm(file)'
     # @show size(data) # (14,506)
     x = data[1:13,:]
     y = data[14:14,:]
-    x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
+    x = (x .- mean(x,dims=2)) ./ std(x,dims=2) # Data normalization
     if test == 0
         xtrn = xtst = x
         ytrn = ytst = y

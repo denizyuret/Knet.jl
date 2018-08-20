@@ -184,6 +184,8 @@ eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
 lastindex(a::KnetArray,d) = size(a,d)
+# TODO: move this to AutoGrad
+@zerograd lastindex(a,i...)
 fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
@@ -223,6 +225,12 @@ import Base: hcat, vcat, cat
 const NARK = Union{Number,AbstractArray,Rec,KnetArray}
 cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
 cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+
+# TODO: switch to new style
+# using AutoGrad: Rec, forw
+# import AutoGrad: back
+# cat(X::NARK...; dims) = forw(cat,X...;dims=dims)
+# back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -433,6 +441,14 @@ let convert_r = recorder(convert)
     convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
 end
 
+# TODO: switch to new style:
+# convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+# convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+# back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(getval(x)),dy)
+
+# This gives ambiguity errors:
+# @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
+# @primitive convert(t::Type{KnetArray},x::AbstractArray),dy  nothing  convert(Array,dy)
 
 ### INDEXING
 ## Indexing with Real
