@@ -1,7 +1,7 @@
 # Kernels for unary array operations
 
 fp = open("cuda1.cu","w")
-using Knet: unary_ops
+#using Knet: unary_ops
 
 function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
     sprint() do s

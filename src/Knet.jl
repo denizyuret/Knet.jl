@@ -20,6 +20,7 @@ include("gpu.jl");              export gpu
 include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
+include("ops.jl");
 include("unary.jl");            export relu, sigm, invx
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.

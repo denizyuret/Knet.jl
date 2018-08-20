@@ -1,43 +1,7 @@
-import Base.Broadcast: broadcasted
-
 # broadcast.jl: Elementwise broadcasting binary functions for arrays and scalars.
-# The entry format is (cudaname, julianame, kernelcode)
-# With single name entries cudaname=julianame and kernelcode=name(xi,yi).
-# I commented out functions if I don't know the Julia equivalent.
+# uses broadcast_ops from broadcast.jl.
 
-broadcast_ops = [
-    ("add","+","xi+yi"),
-    ("sub","-","xi-yi"),
-    ("mul","*","xi*yi"),
-    ("div","/","xi/yi"),
-    ("pow","^","pow(xi,yi)"),
-    ("max","max","(xi>yi?xi:yi)"),
-    ("min","min","(xi<yi?xi:yi)"),
-    ("eq","==","xi==yi"),
-    ("ne","!=","xi!=yi"),
-    ("gt",">","xi>yi"),
-    ("ge",">=","xi>=yi"),
-    ("lt","<","xi<yi"),
-    ("le","<=","xi<=yi"),
-    # "hypot",
-    # "rhypot",
-    # "atan2",
-    # "frexp",
-    # "ldexp",
-    # "scalbn",
-    # "scalbln",
-    # "jn",
-    # "yn",
-    # "fmod",
-    # "remainder",
-    # "mod",
-    # "fdim",
-    ("invxback","invxback","(-xi*yi*yi)"),
-    ("reluback","reluback","(yi>0?xi:0)"),
-    ("sigmback","sigmback","(xi*yi*(1-yi))"),
-    ("tanhback","tanhback","(xi*(1-yi*yi))"),
-    ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
-]
+import Base.Broadcast: broadcasted
 
 # broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.

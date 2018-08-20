@@ -1,7 +1,7 @@
 # cuda20: Kernels for Array->Scalar reduction.
 
 fp = open("cuda20.cu","w")
-using Knet: reduction_ops
+#using Knet: reduction_ops
 
 # Reduction to a scalar
 # CUBLAS nrm2 is extremely slow.  The following is based on code from Barret Zoph.

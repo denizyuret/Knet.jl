@@ -1,4 +1,5 @@
 # reduction.jl: Array->Scalar and Array->Vector reductions.
+# uses reduction_ops from ops.jl
 
 import Base: sum, prod, minimum, maximum # , countnz
 import LinearAlgebra: norm, lmul!
@@ -12,20 +13,6 @@ sumabs(x;dims=:)=sum(abs,x;dims=dims)
 sumabs2(x;dims=:)=sum(abs2,x;dims=dims)
 maxabs(x;dims=:)=maximum(abs,x;dims=dims)
 minabs(x;dims=:)=minimum(abs,x;dims=dims)
-
-reduction_ops = [
-# The entry format is (cudaname, julianame, merge, item, init)
-# ai is the accumulator, xi is the array element
-("sum","sum","ai+xi","xi","0"),
-("prod","prod","ai*xi","xi","1"),
-("maximum","maximum","(ai>xi ? ai : xi)","xi","(-INFINITY)"),
-("minimum","minimum","(ai<xi ? ai : xi)","xi","INFINITY"),
-("sumabs","sumabs","ai+xi","(xi<0 ? -xi : xi)","0"),
-("sumabs2","sumabs2","ai+xi","(xi*xi)","0"),
-("maxabs","maxabs","(ai>xi ? ai : xi)","(xi<0 ? -xi : xi)","0"),
-("minabs","minabs","(ai<xi ? ai : xi)","(xi<0 ? -xi : xi)","INFINITY"),
-("countnz","countnz","ai+xi","(xi!=0)","0"),
-]
 
 reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
 

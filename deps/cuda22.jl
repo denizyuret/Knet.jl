@@ -1,7 +1,7 @@
 # cuda21: Kernels for Array->Array reduction.
 
 fp = open("cuda22.cu","w")
-using Knet: reduction_ops
+#using Knet: reduction_ops
 
 function cuda22src(f, j, op, f1, v0; BLK=128, THR=128) # BLK not used, determined by ny
     sprint() do s
