@@ -1,5 +1,22 @@
+Knet v1.0.0 Release Notes
+=========================
+6324446 2018-08-20
+
+* Julia 1.0 compatibility fixes.
+
+
+Knet v0.9.2 Release Notes
+=========================
+4aa5f92 2018-08-14
+
+* Fixed rnnparam cudnn-7.1.4 compat issue.
+* Updated dl-tutorial.
+* updated REQUIRE to upper bound Julia version.
+
+
 Knet v0.9.1 Release Notes
 =========================
+26562f5 2018-05-28
 
 Compatibility
 -------------
