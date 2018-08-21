@@ -911,19 +911,3 @@ if Pkg.installed("JLD") != nothing
 end
 =#
 
-# TODO: move these to karray.jl
-
-# We need x[:,:,t] and hx[:,:,l]
-using Knet: Index3
-import Base: getindex, setindex!
-function getindex(A::KnetArray, ::Colon, ::Colon, I::Index3)
-    B = reshape(A, stride(A,3), size(A,3))
-    reshape(B[:,I], size(A,1), size(A,2))
-end
-function setindex!(x::KnetArray, y, ::Colon, ::Colon, I::Index3)
-    reshape(x, stride(x,3), size(x,3))[:,I] = y
-    return x
-end
-function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
-    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
-end

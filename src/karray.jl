@@ -185,7 +185,7 @@ eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
 lastindex(a::KnetArray,d) = size(a,d)
 # TODO: move this to AutoGrad
-@zerograd lastindex(a,i...)
+# @zerograd lastindex(a,i...)
 fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
@@ -220,17 +220,17 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 
 # Concatenation:
 import Base: hcat, vcat, cat
+using AutoGrad: Rec
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NARK = Union{Number,AbstractArray,Rec,KnetArray}
-cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
-cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-
-# TODO: switch to new style
-# using AutoGrad: Rec, forw
-# import AutoGrad: back
-# cat(X::NARK...; dims) = forw(cat,X...;dims=dims)
-# back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
+    cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
+    cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; else; @eval begin
+    cat(X::NARK...; dims) = AutoGrad.forw(cat,X...;dims=dims)
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -432,19 +432,20 @@ end
 # So we will define gradients for convert, KnetArray, Array manually:
 Base.Array(x::Rec{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Rec{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-let convert_r = recorder(convert)
-    global convert
-    convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
-    # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version.
-    # convert(T::Type, x::Rec) = convert_r(T,x)
-    convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
-    convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
-end
-
-# TODO: switch to new style:
-# convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-# convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-# back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(getval(x)),dy)
+if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
+    let convert_r = recorder(convert)
+        global convert
+        convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
+        # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version.
+        # convert(T::Type, x::Rec) = convert_r(T,x)
+        convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
+        convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
+    end
+end; else; @eval begin
+    convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,A,x)
+    convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,K,x)
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(getval(x)),dy)
+end; end
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1249,3 +1250,16 @@ check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} 
 # check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
 copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
 copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
+
+# We need x[:,:,t] and hx[:,:,l] for RNNs
+function getindex(A::KnetArray, ::Colon, ::Colon, I::Index3)
+    B = reshape(A, stride(A,3), size(A,3))
+    reshape(B[:,I], size(A,1), size(A,2))
+end
+function setindex!(x::KnetArray, y, ::Colon, ::Colon, I::Index3)
+    reshape(x, stride(x,3), size(x,3))[:,I] = y
+    return x
+end
+function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
+    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
+end

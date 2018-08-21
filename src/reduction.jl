@@ -100,6 +100,3 @@ end
 mean(a::Union{T, Rec{T}};dims=:) where {T<:KnetArray} = (b=sum(a,dims=dims); b .* convert(eltype(b),(length(b)/length(a))))
 mean(f::Function, a::Union{T, Rec{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
 
-# TODO: move these to AutoGrad
-# @zerograd count(x::KnetArray)
-# @zerograd count(pred, x::KnetArray)
