@@ -49,8 +49,8 @@ makedocs(
 
 deploydocs(
     repo = "github.com/denizyuret/Knet.jl.git",
-    julia = "",
-    osname = "",
+    julia = "release",
+    osname = "linux",
     target = "build",
     make = nothing,
     deps = nothing,
