@@ -41,8 +41,12 @@ sequence processing applications like language modeling and speech
 recognition where the output of one time step may depend on the inputs
 and outputs from other time steps.
 
+```@raw html
+<!--
 [](TODO: Applying a fixed number of computational steps: why limiting?when a single layer is universal?  check the proofs.)  
 [](fixed size api from karpathy)
+-->
+```
 
 Another option is to treat the whole sequence as a single input:
 
@@ -51,15 +55,21 @@ Another option is to treat the whole sequence as a single input:
 The first problem with this approach is that the inputs are of varying
 length.  We could potentially address this issue using a convolutional
 architecture, and this is a viable alternative for sequence
-classification problems.[](Potential research topic!)  However we have
-a more serious problem with variable length outputs: The space of
-possible outputs grow exponentially with length and output tokens have
-possible dependencies between them.[](Can we tie this to fixed number
-of computational steps?)  Problems of this type are known as
-"structured prediction", see [(Smith
-2011)](http://www.cs.cmu.edu/~nasmith/LSP) for a good introduction. It
-is not clear how to generate and score variable sized outputs in a
-single shot with a single feed-forward model.
+classification problems.  However we have a more serious problem with
+variable length outputs: The space of possible outputs grow
+exponentially with length and output tokens have possible dependencies
+between them.  Problems of this type are known as "structured
+prediction", see [(Smith 2011)](http://www.cs.cmu.edu/~nasmith/LSP)
+for a good introduction. It is not clear how to generate and score
+variable sized outputs in a single shot with a single feed-forward
+model.
+
+```@raw html
+<!--
+[](convolutions for sequences: Potential research topic!)
+[](exponential output growth: Can we tie this to fixed number of computational steps?)
+-->
+```
 
 Finally we can generate each output token separately, but take a fixed
 sized window around the corresponding input token to take into account
@@ -68,11 +78,12 @@ more context:
 ![image](images/fnnseq3.jpg)
 
 This is the approach taken by, e.g. n-gram language models, and
-Bengio's MLP language model [](Ref?).  The problem with this approach
-is that we don't know how large the window needs to be.  In fact
-different tokens may require different sized windows, e.g. long range
-dependencies between words in a sentence.  RNNs provide a more elegant
-solution.
+[Bengio's MLP language
+model](http://www.jmlr.org/papers/v3/bengio03a.html).  The problem
+with this approach is that we don't know how large the window needs to
+be.  In fact different tokens may require different sized windows,
+e.g. long range dependencies between words in a sentence.  RNNs
+provide a more elegant solution.
 
 RNNs process the input sequence one token at a time.  However, each
 output is not only a function of the current input, but some internal
@@ -86,17 +97,26 @@ state determined by previous time steps:
 
 The state ``h_t`` can be thought of as analogous to a memory device
 storing variables in a computer program.  In fact, RNNs have been
-proven to be Turing complete machines [](ref?).  At each time step,
-the RNN processes the current input ``x_t`` using the "program"
-specified by parameters ``w`` and the internal "variables" specified
-by ``h_{t-1}``.  The program stores new values in its internal
-variables with ``h_t`` and possibly produces an output
-``\hat{y}_t``. [](turing completeness, program analogy, but first
-figure out universality of mlp vs turing completeness of rnn)
+proven to be [Turing complete
+machines](http://binds.cs.umass.edu/papers/1995_Siegelmann_Science.pdf)
+(however see
+[this](https://www.reddit.com/r/MachineLearning/comments/6il5rk/d_rnns_are_not_really_turing_complete_in_any/)
+and
+[this](http://metarecursive.com/writings/RNNs_are_probably_not_practically_Turing_Complete..htm)
+for a discussion).  At each time step, the RNN processes the current
+input ``x_t`` using the "program" specified by parameters ``w`` and
+the internal "variables" specified by ``h_{t-1}``.  The program stores
+new values in its internal variables with ``h_t`` and possibly
+produces an output ``\hat{y}_t``.
 
+```@raw html
+<!--
+[](turing completeness, program analogy, but first figure out universality of mlp vs turing completeness of rnn)
 [](parameter sharing perspective, goodfellow: compare with 1-D convolution.)
 [](simple examples with irnn: adding, mnist-by-pixel, lm, timit, do we have data?)
 [](other possible examples: postag, charner.)
+-->
+```
 
 ## Architectures
 
@@ -116,6 +136,8 @@ examples are:
   mechanism.
 ![image](images/rnns2s.jpg)
 
+```@raw html
+<!--
 [](Modeling sequences: hinton)
 [](input to output sequence speech, synched, unsynched, when does output start/stop if unsynched ctc)
 [](predict next token lm)
@@ -129,6 +151,7 @@ examples are:
 [](Models: hinton)
 [](memoryless models, bengios language model)
 [](start with a regular mlp converted to rnn like Goodfellow.)
+-->
 
 ## RNN vs MLP
 

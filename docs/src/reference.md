@@ -28,13 +28,13 @@ Knet.dir
 Knet.dropout
 Knet.gpu
 Knet.invx
-Knet.knetgc
+Knet.gc
 Knet.logp
 Knet.logsumexp
 Knet.minibatch
 Knet.nll
 Knet.relu
-Knet.setseed
+Knet.seed!
 Knet.sigm
 ```
 
