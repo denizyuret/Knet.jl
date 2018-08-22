@@ -1,7 +1,8 @@
-for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+using Pkg
+for p in ("Knet","ArgParse", "GZip")
+    !in(p, keys(Pkg.installed())) && Pkg.add(p)
 end
-include(Pkg.dir("Knet","data","mnist.jl"))
+import Knet; include(joinpath(dirname(pathof(Knet)), "..", "data", "mnist.jl"))
 
 
 """
@@ -17,7 +18,7 @@ and optimized parameters will be returned.
 
 """
 module Optimizers
-using Knet,ArgParse
+using Knet,ArgParse, Random
 
 function main(args=ARGS)
     s = ArgParseSettings()
@@ -100,7 +101,7 @@ loss(w,x,ygold) = nll(predict(w,x), ygold)
 lossgradient = grad(loss)
 
 function weights(;atype=KnetArray{Float32})
-    w = Array{Any}(8)
+    w = Array{Any}(undef, 8)
     w[1] = xavier(Float32,5,5,1,20)
     w[2] = zeros(Float32,1,1,20,1)
     w[3] = xavier(Float32,5,5,20,50)
