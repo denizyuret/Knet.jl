@@ -3,7 +3,7 @@ language: julia
 ## https://docs.travis-ci.com/user/languages/julia
 ## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
 julia:
-  - release
+  - 1.0
   - nightly
 os:
   - linux
