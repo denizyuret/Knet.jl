@@ -99,7 +99,7 @@ mutable structdef enum
     CUDNN_SOFTMAX_MODE_CHANNEL = 1     /* compute the softmax over all C for each H, W, N */
 } cudnnSoftmaxMode_t;
 
-=#          
+=#
 
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
@@ -215,7 +215,27 @@ function findindices(y,a::Array{T},d=1) where {T<:Integer}
     return indices
 end
 
+"""
+    logisticloss(yhat,ygold;mode=1,average=true)
 
+Computes logistic loss given yhat(predicted values) and ygold labels.
+If `mode=1` `ygold` values should be {-1,1}, then it returns `sum(log(1 + exp(-ygold*yhat)))`
+If `mode=2` `ygold` values should be {0,1}, then it returns negative of `sum(ygold.*log(p) .+ (1-ygold).*log(1-p))`
+where `p` is equal to `1./(1 .+ exp.(-yhat))`
+
+"""
+function logisticloss(yhat,ygold;mode=1,average=true)
+    if mode==1
+        logp = log.(1 .+ exp.(-ygold.*yhat))
+    else
+        p = 1./(1 .+ exp.(-yhat))
+        logp = -(ygold.*log.(p) .+ (1.-ygold).*log.(1.-p))
+    end
+    average ? mean(logp):sum(logp)
+end
+
+# binary_cross_entropy(yhat, y; average=true)
+binary_cross_entropy(yhat, ygold;average=true) = logisticloss(yhat,ygold; mode=2, average=average)
 
 # # The xentloss interface is no good because of double normalization.
 
@@ -243,4 +263,3 @@ end
 # end
 
 # @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
-
