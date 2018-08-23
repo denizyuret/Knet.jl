@@ -47,6 +47,9 @@ include("header.jl")
         Knet.save(fn,"model",Dict("model"=>model,"model2"=>model2))
         models = Knet.load(fn,"model")
         test3 = all(typeof.(models["model"]).==typeof.(model))
+        Knet.save(fn,Dict("model"=>model,"model2"=>model2))
+        models = Knet.load(fn)
+        test3 = all(typeof.(models["model"]).==typeof.(model))
         test1 && test2 && test3
     end
 

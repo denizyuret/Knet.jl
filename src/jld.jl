@@ -7,11 +7,11 @@ function save(fname,args...;kwargs...)
      FileIO.save(fname,serialize.(args)...;kwargs...)
 end
 function load(fname,args...;kwargs...)
-     serialize(FileIO.load(fname,serialize.(args)...;kwargs...))
+     serialize(FileIO.load(fname,args...;kwargs...))
 end
-function load(fname;kwargs...)
-     serialize(FileIO.load(fname;kwargs...))
-end
+# function load(fname;kwargs...)
+#      serialize(FileIO.load(fname;kwargs...))
+# end
 
 macro save(filename, vars...)
     if isempty(vars)
