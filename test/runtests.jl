@@ -14,3 +14,4 @@
 @time include("unary.jl")         # 122  42   6  36   4  56  67  11
 @time include("reduction.jl")     # 106  40  21  29  11  57  55  29
 @time include("batchnorm.jl")     #  93                            
+@time include("jld.jl")
