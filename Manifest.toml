@@ -1,0 +1,5 @@
+[[JLD2]]
+deps = ["CodecZlib", "DataStructures", "FileIO", "LinearAlgebra", "Mmap", "Printf", "Random", "Test"]
+path = "/Users/ekin/.julia/dev/JLD2"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.1.0

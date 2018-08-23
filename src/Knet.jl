@@ -35,6 +35,7 @@ include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
 include("data.jl");             export minibatch
+include("jld.jl");              export RnnJLD,KnetJLD
 
 """
     Knet.dir(path...)
