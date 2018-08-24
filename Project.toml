@@ -15,7 +15,7 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 
 [compat]
-AutoGrad = "1.0.0"
+AutoGrad = "1.0.1"
 CUDAapi = "0.5.0"
 SpecialFunctions = "0.7.0"
 

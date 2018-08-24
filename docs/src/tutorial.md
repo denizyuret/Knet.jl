@@ -861,17 +861,18 @@ list and [Tips for developers](@ref).
 
 Current contributors:
 
-- Deniz Yuret
-- Ozan Arkan Can
-- Onur Kuru
-- Emre Ünal
-- Erenay Dayanık
-- Ömer Kırnap
-- İlker Kesen
-- Emre Yolcu
-- Meriç Melike Softa
-- Ekrem Emre Yurdakul
-- Enis Berk
-- Can Gümeli
-- Carlo Lucibello
-- 张实唯 (@ylxdzsw)
+  * Deniz Yuret
+  * Can Gümeli
+  * Carlo Lucibello
+  * Ekin Akyürek
+  * Ekrem Emre Yurdakul
+  * Emre Yolcu
+  * Emre Ünal
+  * Enis Berk
+  * Erenay Dayanık
+  * Meriç Melike Softa
+  * Onur Kuru
+  * Ozan Arkan Can
+  * Ömer Kırnap
+  * İlker Kesen
+  * 张实唯 (@ylxdzsw)

@@ -74,7 +74,7 @@ loss(w,x,y) = mean(abs2,y-predict(w,x))
 ```
 
 
-The variable `w` is a list of parameters (it could be a Tuple, Array, or Dict), `x` is the input and `y` is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function [`grad`](@ref) from [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute the gradient direction:
+The variable `w` is a list of parameters (it could be a Tuple, Array, or Dict), `x` is the input and `y` is the desired output. To train this model, we want to adjust its parameters to reduce the loss on given training examples. The direction in the parameter space in which the loss reduction is maximum is given by the negative gradient of the loss. Knet uses the higher-order function [`grad`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.grad) from [AutoGrad.jl](https://github.com/denizyuret/AutoGrad.jl) to compute the gradient direction:
 
 
 ```julia
@@ -82,7 +82,7 @@ lossgradient = grad(loss)
 ```
 
 
-Note that [`grad`](@ref) is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`.
+Note that [`grad`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.grad) is a higher-order function that takes and returns other functions. The `lossgradient` function takes the same arguments as `loss`, e.g. `dw = lossgradient(w,x,y)`. Instead of returning a loss value, `lossgradient` returns `dw`, the gradient of the loss with respect to its first argument `w`. The type and size of `dw` is identical to `w`, each entry in `dw` gives the derivative of the loss with respect to the corresponding entry in `w`.
 
 
 Given some training `data = [(x1,y1),(x2,y2),...]`, here is how we can train this model:
@@ -418,7 +418,7 @@ end
 ```
 
 
-The loss function returns the negative-log-likelihood from the predicted scores and updates the hidden and cell states `h` in-place. [`getval`](@ref) is necessary to prevent AutoGrad state leaking from one minibatch to the next. We use [`gradloss`](@ref) instead of [`grad`](@ref) so that `lossgradient` returns both the gradient and the loss for reporting.
+The loss function returns the negative-log-likelihood from the predicted scores and updates the hidden and cell states `h` in-place. [`getval`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.getval) is necessary to prevent AutoGrad state leaking from one minibatch to the next. We use [`gradloss`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.gradloss) instead of [`grad`](http://denizyuret.github.io/Knet.jl/latest/reference.html#AutoGrad.grad) so that `lossgradient` returns both the gradient and the loss for reporting.
 
 
 ```julia
@@ -710,17 +710,18 @@ Current contributors:
 
 
   * Deniz Yuret
-  * Ozan Arkan Can
-  * Onur Kuru
-  * Emre Ünal
-  * Erenay Dayanık
-  * Ömer Kırnap
-  * İlker Kesen
-  * Emre Yolcu
-  * Meriç Melike Softa
-  * Ekrem Emre Yurdakul
-  * Enis Berk
   * Can Gümeli
   * Carlo Lucibello
+  * Ekin Akyürek
+  * Ekrem Emre Yurdakul
+  * Emre Yolcu
+  * Emre Ünal
+  * Enis Berk
+  * Erenay Dayanık
+  * Meriç Melike Softa
+  * Onur Kuru
+  * Ozan Arkan Can
+  * Ömer Kırnap
+  * İlker Kesen
   * 张实唯 (@ylxdzsw)
 

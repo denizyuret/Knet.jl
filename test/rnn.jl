@@ -6,7 +6,7 @@ using Knet: rnntest
 if gpu() >= 0; @testset "rnn" begin
 
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
-    gchk(a...)=gradcheck(a...; rtol=0.01)
+    gchk(a...)=gradcheck(a...; rtol=0.1, atol=0.05, args=1)
     rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
     D,X,H,B,T = Float64,32,32,16,10 # Keep X==H to test skipInput
 

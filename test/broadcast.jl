@@ -70,7 +70,7 @@ macro dbg(_x); end
                         g1 = KnetArray(a1) 
                         g2 = KnetArray(a2)
                         @test isapprox(f(a1,a2),f(g1,g2))
-                        @test gradcheck(f1, Any[g1, g2])
+                        @test gradcheck(f1, Any[g1, g2], rtol=0.1)
                     end
                 end
             end

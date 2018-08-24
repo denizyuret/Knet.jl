@@ -53,8 +53,8 @@ if gpu() >= 0
                     k[i...] .= ai
                 end
                 @test a == k
-                @test gradcheck(getindex, a, i...)
-                @test gradcheck(getindex, k, i...)
+                @test gradcheck(getindex, a, i...; args=1)
+                @test gradcheck(getindex, k, i...; args=1)
             end
             # make sure end works
             @test a[2:end] == k[2:end]
