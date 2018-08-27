@@ -75,37 +75,3 @@ function Random.rand(m::MB)
     return next(m, i)[1]
 end
 
-"""
-    nll(model, data, predict; average=true)
-
-Compute `nll(predict(model,x), y)` for `(x,y)` in `data` and return
-the per-instance average (if average=true) or total (if average=false)
-negative log likelihood.
-
-"""
-function nll(model,data::MB,predict; average=true)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += nll(predict(model,x),y; average=false)
-        cnt += length(y)
-    end
-    average ? sum / cnt : sum
-end
-
-
-"""
-    accuracy(model, data, predict; average=true)
-
-Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
-return the ratio (if average=true) or the count (if average=false) of
-correct answers.
-
-"""
-function accuracy(model,data::MB,predict; average=true)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += accuracy(predict(model,x),y; average=false)
-        cnt += length(y)
-    end
-    average ? sum / cnt : sum
-end

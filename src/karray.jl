@@ -184,8 +184,6 @@ eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
 lastindex(a::KnetArray,d) = size(a,d)
-# TODO: move this to AutoGrad
-# @zerograd lastindex(a,i...)
 fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
@@ -220,16 +218,15 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 
 # Concatenation:
 import Base: hcat, vcat, cat
-using AutoGrad: Rec
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
-const NARK = Union{Number,AbstractArray,Rec,KnetArray}
+const NAVK = Union{Number,AbstractArray,Value,KnetArray}
 if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
-    cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
-    cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+    cat(X::NAVK...; dims) = AutoGrad.cat_r(X...;dims=dims)
+    cat(::Type{Grad{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 end; else; @eval begin
-    cat(X::NARK...; dims) = AutoGrad.forw(cat,X...;dims=dims)
-    AutoGrad.back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+    cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
@@ -426,25 +423,25 @@ end
 # @primitive  Array(x::KnetArray),dy  KnetArray(dy)
 
 # This does not work, parametric methods not yet supported, also unnecessary first arg gradient.
-# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{K}, x::Rec{A}),dy 0 Array(dy)
-# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Rec{K}),dy 0 KnetArray(dy)
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{K}, x::Value{A}),dy 0 Array(dy)
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Value{K}),dy 0 KnetArray(dy)
 
 # So we will define gradients for convert, KnetArray, Array manually:
-Base.Array(x::Rec{K}) where {K<:KnetArray}=convert(Array,x)
-KnetArray(x::Rec{A}) where {A<:AbstractArray}=convert(KnetArray,x)
+Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
+KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
 if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
     let convert_r = recorder(convert)
         global convert
-        convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
-        # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version.
-        # convert(T::Type, x::Rec) = convert_r(T,x)
-        convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
-        convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
+        convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
+        # This does not work, it breaks the Node(::Value) constructor, so we define Knet specific version.
+        # convert(T::Type, x::Value) = convert_r(T,x)
+        convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
+        convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
     end
 end; else; @eval begin
-    convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,A,x)
-    convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,K,x)
-    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(getval(x)),dy)
+    convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+    convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
 end; end
 
 # This gives ambiguity errors:
@@ -1189,12 +1186,12 @@ broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
 # # This fixes ambiguity with AutoGrad
 # # But then creates more ambiguity as given next
 # using AutoGrad: broadcast_r
-# broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
-# broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+# broadcasted(f, x::Value, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f, x::KnetArray, y::Value) = broadcast_r(f,x,y)
 # # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
 # # TODO: Do we have to do this for each f?
-# broadcasted(f::typeof(*), x::KnetArray, y::Rec) = broadcast_r(f,x,y)
-# broadcasted(f::typeof(*), x::Rec, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::KnetArray, y::Value) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::Value, y::KnetArray) = broadcast_r(f,x,y)
 
 ### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
 

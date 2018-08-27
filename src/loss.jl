@@ -12,7 +12,7 @@ normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
 function logp(x;dims=:)
-    if isa(getval(x), KnetArray)
+    if isa(value(x), KnetArray)
         if dims==(1,)
             cudnnSoftmaxForward(x,algo=2)
         elseif dims==(2,)
@@ -46,7 +46,7 @@ end
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
 function _logp(x;dims=:)
-    xval = getval(x)
+    xval = value(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
@@ -66,7 +66,7 @@ function _logp(x;dims=:)
 end
 
 function _logpback(x,y,dy;dims)
-    xval = getval(x)
+    xval = value(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
@@ -217,30 +217,48 @@ end
 
 
 
-# # The xentloss interface is no good because of double normalization.
+"""
+    nll(f, data; average=true)
 
-# """
-# xentloss(x, p [,dims])
+Compute `nll(f(x), y)` for `(x,y)` in `data` and return the
+per-instance average (if average=true) or total (if average=false)
+negative log likelihood.
 
-# Compute cross-entropy loss for unnormalized log probability estimates
-# x and normalized probabilities p normalizing over the given
-# dimensions.  By default normalization is over the whole array, dims=1
-# normalizes over the columns, dims=2 normalizes over the rows of a 2-D
-# array.
+"""
+function nll(f::Model,data::MB; average=true)
+    sum = cnt = 0
+    for (x,y) in data
+        sum += nll(f(x),y; average=false)
+        cnt += length(y)
+    end
+    average ? sum / cnt : sum
+end
 
-# """
-# function xentloss(x,p,d...)
-#     x = x .- maximum(x,d...)
-#     z = log(sum(exp(x),d...))
-#     return sum(p .* (x .- z)) / length(z)
-# end
 
-# function xentback(x,p,d...)
-#     x = x .- maximum(x,d...)
-#     x = exp(x)
-#     z = sum(x,d...)
-#     return x./z - p
-# end
+"""
+    accuracy(model, data, predict; average=true)
 
-# @primitive xentloss(x,p,d...),dy,y  (dy.*xentback(x,p,d...))
+Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
+return the ratio (if average=true) or the count (if average=false) of
+correct answers.
 
+"""
+function accuracy(f::Model,data::MB; average=true)
+    sum = cnt = 0
+    for (x,y) in data
+        sum += accuracy(f(x),y; average=false)
+        cnt += length(y)
+    end
+    average ? sum / cnt : sum
+end
+
+zeroone(x...) = 1 - accuracy(x...)
+
+function loss(f::Model,data::MB)
+    sum = cnt = 0
+    for (x,y) in data
+        sum += f(x,y)*length(y)
+        cnt += length(y)
+    end
+    average ? sum / cnt : sum
+end
