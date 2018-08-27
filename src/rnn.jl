@@ -911,3 +911,5 @@ if Pkg.installed("JLD") != nothing
 end
 =#
 
+show(io::IO, a::RNN) = print(("RELURNN","TANHRNN","LSTM","GRU")[a.mode+1], (input = a.inputSize, hidden = a.hiddenSize))
+#show(io::IO, m::MIME"text/plain", a::RNN) = show(io, a)

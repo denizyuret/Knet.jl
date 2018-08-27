@@ -7,7 +7,7 @@ using Printf
 rosenbrock(x) = sum(abs2.(1 .- x[1:end-1]) .+ 100 .* abs2.(x[2:end] .- abs2.(x[1:end-1])))
 
 function rosenmulti(x)
-    v = AutoGrad.getval(x)
+    v = value(x)
     if isbitstype(eltype(v))
         rosenbrock(x)
     elseif isa(v, AbstractDict)

@@ -14,8 +14,16 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad; export grad, gradloss, getval, value, Param, differentiate, gradient
-using AutoGrad: Value, Tape, forw, back
+using AutoGrad
+using AutoGrad: forw, back, Rec, Tape
+export grad, gradloss, getval, value
+if isdefined(AutoGrad,:Param); @eval begin
+    using AutoGrad: Value
+    export Param, differentiate, gradient
+end; else; @eval begin    
+    const value = getval
+    const Value = Rec
+end; end
 
 include("gpu.jl");              export gpu
 include("uva.jl")
@@ -29,7 +37,7 @@ include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permut
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
-include("data.jl");             export minibatch
+include("data.jl");             export Data, minibatch
 include("model.jl");		export Model
 include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout

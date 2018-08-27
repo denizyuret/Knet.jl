@@ -390,26 +390,6 @@ function cudadir(a,b)
     end
 end
 
-
-# Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
-import Base: display, summary, getindex, size
-mutable struct KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
-getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
-size(a::KnetDisplay) = size(a.a)
-summary(a::KnetDisplay) = summary(a.a)
-summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
-display(a::KnetArray) = display(KnetDisplay(a))
-
-# TODO: Hack for JLD file load/save of KnetArrays:
-#= 
-if Pkg.installed("JLD") != nothing
-    import JLD: writeas, readas
-    type KnetJLD; a::Array; end
-    writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = (gpu() >= 0 ? KnetArray(d.a) : d.a)
-end
-=#
-
 # Array/KnetArray Transfer
 
 # This works but unnecessarily defines new functions:
@@ -1260,3 +1240,23 @@ end
 function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
     reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
 end
+
+
+# https://docs.julialang.org/en/stable/manual/types/#man-custom-pretty-printing-1
+# Base.show(io::IO, z): single line format used in show, print, inside other objects.
+# Base.show(io::IO, ::MIME"text/plain", z): multi-line format used by display.
+# Base.show(io::IO, ::MIME"text/html", z): multi-line format for html output.
+# get(io, :compact, false), show(IOContext(stdout, :compact=>true),z) for compact (array) printing.
+# summary(io::IO, x) = print(io, typeof(x))
+# string(z): uses print_to_string.
+
+import Base: show, summary, display, size, getindex
+
+# Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
+struct KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
+getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
+size(a::KnetDisplay) = size(a.a)
+summary(io::IO, a::KnetDisplay) = summary(io, a.a)
+summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
+show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
+show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))

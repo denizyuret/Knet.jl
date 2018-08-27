@@ -510,7 +510,7 @@ optimizers(a,otype;o...)=nothing
 
 
 function update!(f::Model,J::Tape; o...)
-    for w in params(f)
+    for w in f()
         g = gradient(J,w)
         update!(value(w),g; o...)
     end

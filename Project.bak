@@ -18,6 +18,8 @@ FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 AutoGrad = "1.0.1"
 CUDAapi = "0.5.0"
 SpecialFunctions = "0.7.0"
+JLD2 = "0.1.1"
+FileIO = "0.5.0"
 
 [extras]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
