@@ -19,7 +19,7 @@ using AutoGrad: forw, back, Rec, Tape
 export grad, gradloss, getval, value
 if isdefined(AutoGrad,:Param); @eval begin
     using AutoGrad: Value
-    export Param, differentiate, gradient
+    export Param, differentiate, gradient, pa, df, gr
 end; else; @eval begin    
     const value = getval
     const Value = Rec

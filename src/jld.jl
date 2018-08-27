@@ -2,6 +2,7 @@ using JLD2, FileIO
 
 struct RnnJLD; inputSize; hiddenSize; numLayers; dropout; inputMode; direction; mode; algo; dataType; end
 struct KnetJLD; a::Array ; end
+struct ParamJLD; value; end
 
 function save(fname,args...;kwargs...)
      FileIO.save(fname,serialize.(args)...;kwargs...)
@@ -89,8 +90,10 @@ end
 
 serialize(x) = serialize_internal(x, IdDict())
 serialize_internal(x::KnetArray,stackdict::IdDict)      = KnetJLD(Array(x))
-serialize_internal(x::RNN,stackdict::IdDict)            = RnnJLD(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.inputMode, x.direction, x.mode, x.algo, x.dataType)
 serialize_internal(d::KnetJLD,stackdict::IdDict)        = (gpu() >= 0 ? KnetArray(d.a) : d.a)
+serialize_internal(x::Param,stackdict::IdDict) = ParamJLD(serialize_internal(x.value,stackdict))
+serialize_internal(x::ParamJLD,stackdict::IdDict) = Param(serialize_internal(x.value,stackdict))
+serialize_internal(x::RNN,stackdict::IdDict)            = RnnJLD(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.inputMode, x.direction, x.mode, x.algo, x.dataType)
 serialize_internal(r::RnnJLD,stackdict::IdDict)         = rnninit(r.inputSize, r.hiddenSize, numLayers=r.numLayers, dropout=r.dropout,
                                                                   skipInput=(r.inputMode==1), bidirectional=(r.direction==1),
                                                                   rnnType=(:relu,:tanh,:lstm,:gru)[1+r.mode], algo=r.algo, dataType=r.dataType)[1]
