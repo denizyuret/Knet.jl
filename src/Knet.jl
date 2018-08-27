@@ -72,4 +72,17 @@ function __init__()
     end
 end
 
+# @use X,Y,Z calls using on packages installing them if necessary. (WIP)
+# 1. still need "using Knet"
+# 2. Pkg.insalled gives false for stdlib packages.
+# macro use(ps)
+#     if isa(ps, Symbol); ps = Expr(:tuple,ps); end
+#     a = map(ps.args) do p
+#         s=string(p) 
+#         esc(:(haskey(Pkg.installed(),$s)||Pkg.add($s); using $p))
+#     end
+#     Expr(:block,:(using Pkg),a...)
+# end
+# export @use
+
 end # module
