@@ -476,6 +476,13 @@ function update!(w::AbstractDict,g::AbstractDict;lr=SGDLR,gclip=0)
     end
 end
 
+function update!(f::Model,J::Tape; o...)
+    for w in f
+        g = gradient(J,w)
+        update!(value(w),g; o...)
+    end
+end
+
 function gclip!(g, gclip)
     if gclip == 0
         g
@@ -509,9 +516,3 @@ optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
 
 
-function update!(f::Model,J::Tape; o...)
-    for w in f()
-        g = gradient(J,w)
-        update!(value(w),g; o...)
-    end
-end
