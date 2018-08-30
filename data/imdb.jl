@@ -2,7 +2,7 @@
 # Also see https://github.com/fchollet/keras/raw/master/examples/imdb_lstm.py
 # Also see https://github.com/ilkarman/DeepLearningFrameworks/raw/master/common/utils.py
 
-using PyCall,JSON,JLD2,Random,Knet
+using PyCall,JSON,JLD2,Random
 @pyimport numpy as np
 
 """
@@ -25,7 +25,7 @@ https://keras.io/datasets and return (xtrn,ytrn,xtst,ytst,dict) tuple.
 """
 function imdb(;
               url = "https://s3.amazonaws.com/text-datasets",
-              dir = Knet.dir("data", "imdb"),
+              dir = joinpath(@__DIR__, "imdb"),
               data="imdb.npz",
               dict="imdb_word_index.json",
               jld2="imdb.jld2",

@@ -1,4 +1,4 @@
-using DelimitedFiles, Statistics, Knet
+using DelimitedFiles, Statistics
 
 """
 
@@ -20,7 +20,7 @@ deviation.
 
 """
 function housing(test=0.0;
-                 file=Knet.dir("data", "housing", "housing.data"),
+                 file=joinpath(@__DIR__, "housing", "housing.data"),
                  url="https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data")
     if !isfile(file)
         isdir(dirname(file)) || mkpath(dirname(file))

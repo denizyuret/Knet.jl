@@ -1,23 +1,11 @@
 abstract type Model end
 
-# The following should be defined for a model:
-# (f::Model)() # deprecate in favor of model iterator.
-# (f::Model)(x) # inconvenient for multiple inputs.
-# (f::Model)(x,y) # how do we distinguish loss vs predict?
-# (f::Model)(d::Data) # this is definitely loss.
-# it would be clean if we always compute loss, but then we need a predict method.
-# keyword argument with gold answer? not as elegant.
-
-# Alternative functions:
-# params(f::Model)    where {T<:Model} = try f(); catch e; error("params(::$T) should give an iterator over parameters."); end
-# predict(f::Model,x) where {T<:Model} = try f(x); catch e; error("(::$T)(x) should be implemented as the predict function."); end
-# loss(f::Model,x,y)  where {T<:Model} = try f(x,y); catch e; error("(::$T)(x,y) should be implemented as a loss function."); end
-# loss(f::Model,d::Data) = mean(f(x[1],x[2]) for x in d)
+param(d...; init=xavier, atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32}))=Param(atype(init(d...)))
 
 # We should take care of iterating over parameters automatically:
 # So `for param in model` works for any model.
 
-Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s;(p[i],(p,i+1)))
+Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
 
 params(f::Model) = (ps=Param[]; params_internal(f,ps,IdDict()); ps)
 params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end

@@ -1,7 +1,6 @@
-using Knet
 const WIKINER_DOWNLOAD_PREFIX =
     "https://github.com/neulab/dynet-benchmark/raw/master/data/tags/"
-const WIKINER_DIR = Knet.dir("data","wikiner")
+const WIKINER_DIR = joinpath(@__DIR__,"wikiner")
 const WIKINER_FILES = ("train.txt","dev.txt")
 const UNK = "_UNK_"
 const PAD = "<*>"

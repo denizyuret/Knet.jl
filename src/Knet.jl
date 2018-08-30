@@ -16,10 +16,10 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 
 using AutoGrad
 using AutoGrad: forw, back, Rec, Tape
-export grad, gradloss, getval, value
+export grad, gradloss, getval
 if isdefined(AutoGrad,:Param); @eval begin
     using AutoGrad: Value
-    export Param, differentiate, gradient, pa, df, gr
+    export Param, @diff, gradient, value
 end; else; @eval begin    
     const value = getval
     const Value = Rec
@@ -38,10 +38,10 @@ include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
 include("data.jl");             export Data, minibatch
-include("model.jl");		export Model
+include("model.jl");		export Model, param
 include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout
-include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
+include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers, train!
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
@@ -58,7 +58,7 @@ julia> Knet.dir("examples","mnist.jl")
 "/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl"
 ```
 """
-dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
+dir(path...) = joinpath(dirname(@__DIR__),path...)
 
 
 # See if we have a gpu at initialization:

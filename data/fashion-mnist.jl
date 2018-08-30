@@ -1,10 +1,10 @@
-using GZip, Knet
+using GZip
 
 "Where to download fmnist from"
 fmnisturl = "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion"
 
 "Where to download fmnist to"
-fmnistdir = Knet.dir("data","fashion-mnist")
+fmnistdir = joinpath(@__DIR__, "fashion-mnist")
 
 """
 

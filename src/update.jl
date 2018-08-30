@@ -1,8 +1,8 @@
 using LinearAlgebra
 
 """
-    Sgd(;lr=0.001,gclip=0)
-    update!(w,g,p::Sgd)
+    SGD(;lr=0.001,gclip=0)
+    update!(w,g,p::SGD)
     update!(w,g;lr=0.001)
 
 Container for parameters of the Stochastic gradient descent (SGD)
@@ -24,15 +24,16 @@ to `gclip`.  If `gclip==0` no scaling takes place.
 SGD is used by default if no algorithm is specified in the two
 argument version of `update!`[@ref].
 """
-mutable struct Sgd
+mutable struct SGD
     lr::AbstractFloat
     gclip::AbstractFloat
 end
 
 const SGDLR = 0.001
 
-Sgd(; lr=SGDLR, gclip=0) = Sgd(lr,gclip)
+SGD(; lr=SGDLR, gclip=0) = SGD(lr,gclip)
 
+@deprecate Sgd SGD
 
 """
     Momentum(;lr=0.001, gclip=0, gamma=0.9)
@@ -293,7 +294,7 @@ Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta
 
 Update the `weights` using their `gradients` and the optimization
 algorithm parameters specified by `params`.  The 2-arg version
-defaults to the [`Sgd`](@ref) algorithm with learning rate `lr` and
+defaults to the [`SGD`](@ref) algorithm with learning rate `lr` and
 gradient clip `gclip`.  `gclip==0` indicates no clipping. The
 `weights` and possibly `gradients` and `params` are modified in-place.
 
@@ -313,7 +314,7 @@ Individual optimization parameters can be one of the following
 types. The keyword arguments for each type's constructor and their
 default values are listed as well.
 
-* [`Sgd`](@ref)`(;lr=0.001, gclip=0)`
+* [`SGD`](@ref)`(;lr=0.001, gclip=0)`
 * [`Momentum`](@ref)`(;lr=0.001, gclip=0, gamma=0.9)`
 * [`Nesterov`](@ref)`(;lr=0.001, gclip=0, gamma=0.9)`
 * [`Rmsprop`](@ref)`(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)`
@@ -325,23 +326,23 @@ default values are listed as well.
 
     w = rand(d)                 # an individual weight array
     g = lossgradient(w)         # gradient g has the same shape as w
-    update!(w, g)               # update w in-place with Sgd()
-    update!(w, g; lr=0.1)       # update w in-place with Sgd(lr=0.1)
-    update!(w, g, Sgd(lr=0.1))  # update w in-place with Sgd(lr=0.1)
+    update!(w, g)               # update w in-place with SGD()
+    update!(w, g; lr=0.1)       # update w in-place with SGD(lr=0.1)
+    update!(w, g, SGD(lr=0.1))  # update w in-place with SGD(lr=0.1)
 
     w = (rand(d1), rand(d2))    # a tuple of weight arrays
     g = lossgradient2(w)        # g will also be a tuple
-    p = (Adam(), Sgd())         # p has params for each w[i]
+    p = (Adam(), SGD())         # p has params for each w[i]
     update!(w, g, p)            # update each w[i] in-place with g[i],p[i]
 
     w = Any[rand(d1), rand(d2)] # any iterator can be used
     g = lossgradient3(w)        # g will be similar to w
-    p = Any[Adam(), Sgd()]      # p should be an iterator of same length
+    p = Any[Adam(), SGD()]      # p should be an iterator of same length
     update!(w, g, p)            # update each w[i] in-place with g[i],p[i]
 
     w = Dict(:a => rand(d1), :b => rand(d2)) # dictionaries can be used
     g = lossgradient4(w)
-    p = Dict(:a => Adam(), :b => Sgd())
+    p = Dict(:a => Adam(), :b => SGD())
     update!(w, g, p)
 
 """
@@ -349,7 +350,7 @@ function update! end
 
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
-    function update!(w::$T, g::$T, p::Sgd)
+    function update!(w::$T, g::$T, p::SGD)
         gclip!(g, p.gclip)
         axpy!(-p.lr, g, w)
     end
@@ -516,3 +517,16 @@ optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
 
 
+function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=epochs(1), o...)
+    for param in f
+        param.opt = optimizer(;o...)
+    end
+    while !terminate(f)
+        for (x,y) in data
+            J = @diff loss(f(x),y)
+            update!(f, J)
+        end
+    end
+end
+
+epochs(n)=(f->(n == 0 || (n -= 1; false)))

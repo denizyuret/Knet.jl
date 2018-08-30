@@ -1,10 +1,10 @@
-using ZipFile, Knet
+using ZipFile
 
 "Where to download dataset from"
 const TREEBANK_URL = "https://nlp.stanford.edu/sentiment/trainDevTestTrees_PTB.zip"
 
 "Where to download dataset to"
-const TREEBANK_DIR = Knet.dir("data","treebank")
+const TREEBANK_DIR = joinpath(@__DIR__,"treebank")
 
 const TREEBANK_ZIPNAME = "trainDevTestTrees_PTB.zip"
 const TREEBANK_SPLITS = ("train", "dev", "test")
