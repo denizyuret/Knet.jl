@@ -19,10 +19,11 @@ using AutoGrad: forw, back, Rec, Tape
 export grad, gradloss, getval, value
 if isdefined(AutoGrad,:Param); @eval begin
     using AutoGrad: Value
-    export Param, differentiate, gradient, pa, df, gr
+    export Param, differentiate, gradient, @diff
 end; else; @eval begin    
     const value = getval
     const Value = Rec
+    const Param = Rec
 end; end
 
 include("gpu.jl");              export gpu
