@@ -517,16 +517,17 @@ optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
 
 
-function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=epochs(1), o...)
+function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=ncount(length(data)), o...)
     for param in f
         param.opt = optimizer(;o...)
     end
-    while !terminate(f)
+    while true
         for (x,y) in data
             J = @diff loss(f(x),y)
+            terminate(value(J),f,x,y) && return
             update!(f, J)
         end
     end
 end
 
-epochs(n)=(f->(n == 0 || (n -= 1; false)))
+ncount(n)=((x...)->(n == 0 || (n -= 1; false)))

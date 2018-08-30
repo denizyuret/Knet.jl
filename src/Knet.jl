@@ -41,7 +41,7 @@ include("data.jl");             export Data, minibatch
 include("model.jl");		export Model, param
 include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout
-include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers, train!
+include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers #, train!, ncount
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection

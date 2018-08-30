@@ -7,16 +7,20 @@ param(d...; init=xavier, atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32}
 
 Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
 
-params(f::Model) = (ps=Param[]; params_internal(f,ps,IdDict()); ps)
-params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end
+# params(f) Based on deepcopy_internal:
 
-# Based on deepcopy_internal:
+params(f) = (ps=Param[]; params_internal(f,ps,IdDict()); ps)
+
+params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end
 
 params_internal(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,Task},
                 ps::Vector{Param}, stackdict::IdDict) = return
 params_internal(x::Tuple, ps::Vector{Param}, stackdict::IdDict) =
     for p in x; params_internal(p, ps, stackdict); end
+
 params_internal(x::Module, ps::Vector{Param}, stackdict::IdDict) = return
+
+params_internal(x::String, ps::Vector{Param}, stackdict::IdDict) = return
 
 function params_internal(x::Core.SimpleVector, ps::Vector{Param}, stackdict::IdDict)
     if haskey(stackdict, x)
@@ -25,8 +29,6 @@ function params_internal(x::Core.SimpleVector, ps::Vector{Param}, stackdict::IdD
     stackdict[x] = true
     for p in x; params_internal(x, ps, stackdict); end
 end
-
-params_internal(x::String, ps::Vector{Param}, stackdict::IdDict) = return
 
 function params_internal(@nospecialize(x), ps::Vector{Param}, stackdict::IdDict)
     T = typeof(x)::DataType
