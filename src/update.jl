@@ -477,13 +477,6 @@ function update!(w::AbstractDict,g::AbstractDict;lr=SGDLR,gclip=0)
     end
 end
 
-function update!(f::Model,J::Tape; o...)
-    for w in f
-        g = gradient(J,w)
-        update!(value(w),g; o...)
-    end
-end
-
 function gclip!(g, gclip)
     if gclip == 0
         g
@@ -531,3 +524,11 @@ function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=ncount(
 end
 
 ncount(n)=((x...)->(n == 0 || (n -= 1; false)))
+
+function update!(f::Model,J::Tape)
+    for w in f
+        g = gradient(J,w)
+        update!(value(w),g,w.opt)
+    end
+end
+
