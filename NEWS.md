@@ -1,6 +1,18 @@
+Knet v1.0.1 Release Notes
+=========================
+348a2fe 2018-08-31
+
+* Improved gpu diagnostics.
+* build.jl no longer depends on Knet.
+* AutoGrad 1.0.1 compatibility fixes.
+* Fixed some examples and notebooks.
+* Fixed Documenter, avoiding python dependency.
+* JLD2 FileIO interface (@ekinakyurek).
+
+
 Knet v1.0.0 Release Notes
 =========================
-6324446 2018-08-20
+249540a 2018-08-20
 
 * Julia 1.0 compatibility fixes.
 
