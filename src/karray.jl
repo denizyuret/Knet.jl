@@ -184,8 +184,6 @@ eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
 lastindex(a::KnetArray,d) = size(a,d)
-# TODO: move this to AutoGrad
-@zerograd lastindex(a,i...)
 fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
@@ -223,8 +221,8 @@ import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NARK = Union{Number,AbstractArray,Rec,KnetArray}
-cat(X::NARK...; dims) = AutoGrad.cat_r(X...;dims=dims)
-cat(::Type{Grad{N}},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+cat(X::NARK...; dims) = forw(cat,X...;dims=dims)
+AutoGrad.back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 
 # TODO: switch to new style
 # using AutoGrad: Rec, forw
@@ -432,14 +430,9 @@ end
 # So we will define gradients for convert, KnetArray, Array manually:
 Base.Array(x::Rec{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Rec{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-let convert_r = recorder(convert)
-    global convert
-    convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(AutoGrad.getval(x)),dy)
-    # This does not work, it breaks the Node(::Rec) constructor, so we define Knet specific version.
-    # convert(T::Type, x::Rec) = convert_r(T,x)
-    convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
-    convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
-end
+convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
 
 # TODO: switch to new style:
 # convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)

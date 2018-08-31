@@ -42,11 +42,7 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-dropout_r = recorder(dropout)
-dropout(x::Rec,p;seed=0)=dropout_r(x,p;seed=seed)
-dropout(::Type{Grad{1}},d...;o...)=dropback(getval.(d)...) # d=dy,y,x,p
-# TODO: use the new style, but the following doesn't seem to work:
-# @primitive dropout(x,p;seed=0),dy,y dropback(getval.(dy,y,x,p)...)
+@primitive dropout(x,p;seed=0),dy,y dropback(getval.((dy,y,x,p))...)
 
 # GPU implementation
 for S in (32,64)
