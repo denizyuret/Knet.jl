@@ -225,7 +225,7 @@ per-instance average (if average=true) or total (if average=false)
 negative log likelihood.
 
 """
-function nll(f::Model,data::Data; average=true)
+function nll(f,data::Data; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += nll(f(x),y; average=false)
@@ -243,7 +243,7 @@ return the ratio (if average=true) or the count (if average=false) of
 correct answers.
 
 """
-function accuracy(f::Model,data::Data; average=true)
+function accuracy(f,data::Data; average=true)
     sum = cnt = 0
     for (x,y) in data
         sum += accuracy(f(x),y; average=false)

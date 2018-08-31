@@ -507,11 +507,3 @@ optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (
 optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
-
-
-function update!(f::Model,J::Tape; o...)
-    for w in f()
-        g = gradient(J,w)
-        update!(value(w),g; o...)
-    end
-end

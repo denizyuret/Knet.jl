@@ -39,7 +39,6 @@ include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
 include("data.jl");             export Data, minibatch
-include("model.jl");		export Model
 include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout
 include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
