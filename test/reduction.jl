@@ -8,7 +8,7 @@ using LinearAlgebra: norm
     MIN_DIM  = 3
     MAX_DIM  = 5
     MIN_SIZE = 2
-    TOL1 = 0.01
+    TOL1 = 0.05
 
     function rand21(f,t,d...)
         if f==maximum || f==minimum || f==norm || f==sumabs2
@@ -42,13 +42,13 @@ using LinearAlgebra: norm
                 #@show f,t,n
                 ax = rand21(f,t,n)
                 @test gradcheck(f, ax; rtol=TOL1)
-                @test gradcheck(f, ax; kwargs=(:dims=>1,), rtol=TOL1)
-                @test gradcheck(f, ax; kwargs=(:dims=>2,), rtol=TOL1)
+                @test gradcheck(f, ax; kw=(:dims=>1,), rtol=TOL1)
+                @test gradcheck(f, ax; kw=(:dims=>2,), rtol=TOL1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx; rtol=TOL1)
-                    @test gradcheck(f, gx; kwargs=(:dims=>1,), rtol=TOL1)
-                    @test gradcheck(f, gx; kwargs=(:dims=>2,), rtol=TOL1)
+                    @test gradcheck(f, gx; kw=(:dims=>1,), rtol=TOL1)
+                    @test gradcheck(f, gx; kw=(:dims=>2,), rtol=TOL1)
                     @test isapprox(f(ax),f(gx))
                     @test isapprox(f(ax,dims=1),Array(f(gx,dims=1)))
                     @test isapprox(f(ax,dims=2),Array(f(gx,dims=2)))
@@ -75,10 +75,10 @@ using LinearAlgebra: norm
             ax = rand21(f,t,n)
             for p in (0,1,2,Inf,-Inf,1/pi,-1/pi,0+pi,-pi)
                 #@show f,t,n,p
-                @test gradcheck(f, ax, p; rtol=TOL1)
+                @test gradcheck(f, ax, p; rtol=TOL1, args=1)
                 if gpu() >= 0
                     gx = KnetArray(ax)
-                    @test gradcheck(f, gx, p; rtol=TOL1)
+                    @test gradcheck(f, gx, p; rtol=TOL1, args=1)
                     @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
                 end
             end
@@ -95,13 +95,13 @@ using LinearAlgebra: norm
     #         #@show f,t,n
     #         ax = rand21(f,t,n)
     #         @test gradcheck(f, ax; rtol=TOL1)
-    #         @test gradcheck(f2, ax; kwargs=(:dims=>1,), rtol=TOL1)
-    #         @test gradcheck(f2, ax; kwargs=(:dims=>2,), rtol=TOL1)
+    #         @test gradcheck(f2, ax; kw=(:dims=>1,), rtol=TOL1)
+    #         @test gradcheck(f2, ax; kw=(:dims=>2,), rtol=TOL1)
     #         if gpu() >= 0
     #             gx = KnetArray(ax)
     #             @test gradcheck(f, gx; rtol=TOL1)
-    #             @test gradcheck(f, gx; kwargs=(:dims=>1,), rtol=TOL1)
-    #             @test gradcheck(f, gx; kwargs=(:dims=>2,), rtol=TOL1)
+    #             @test gradcheck(f, gx; kw=(:dims=>1,), rtol=TOL1)
+    #             @test gradcheck(f, gx; kw=(:dims=>2,), rtol=TOL1)
     #             @test isapprox(f(ax),f(gx))
     #             @test isapprox(f2(ax,dims=1),Array(f(gx,dims=1)))
     #             @test isapprox(f2(ax,dims=2),Array(f(gx,dims=2)))
@@ -129,9 +129,9 @@ using LinearAlgebra: norm
                 # test all combinations
                 for c in mapreduce(i->collect(combinas(1:dim,i)), vcat, 1:dim)
                     #@show f,t,dim,xsize,c
-                    @test gradcheck(f, ax; kwargs=(:dims=>c,), rtol=TOL1)
+                    @test gradcheck(f, ax; kw=(:dims=>c,), rtol=TOL1)
                     if gpu() >= 0 && gx != nothing
-                        @test gradcheck(f,gx; kwargs=(:dims=>c,), rtol=TOL1)
+                        @test gradcheck(f,gx; kw=(:dims=>c,), rtol=TOL1)
                         @test isapprox(f(ax,dims=c),Array(f(gx,dims=c)))
                     end
                 end

@@ -190,7 +190,7 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
     """
 function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
-    # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
+    # w could be a Value, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -199,7 +199,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
     i1 = i2 = len = 0
-    if isa(getval(w), KnetArray)
+    if isa(value(w), KnetArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
         wDesc = FD(T,1,1,length(w))
@@ -211,7 +211,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, getval(w),
+                  xDesc, wDesc, value(w),
                   id-1, paramDesc, param)
         else # bias
             @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
@@ -219,7 +219,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, getval(w),
+                  xDesc, wDesc, value(w),
                   id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
@@ -547,18 +547,18 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
-@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) getval(r).dx getval(r).dhx getval(r).dcx
+@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
-    y,hy,cy,rs = getval(t)
-    dy,dhy,dcy,drs = getval(dt)
-    r=getval(r); w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
+    y,hy,cy,rs = value(t)
+    dy,dhy,dcy,drs = value(dt)
+    r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
 end
 
-# import AutoGrad: Rec, forw, back
-# rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
-# rnnforw(r::RNN, w::Rec{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
+# import AutoGrad: Value, forw, back
+# rnnforw(r::Value{RNN}, w...; o...)=rnnforw(value(r), w...; o...)
+# rnnforw(r::RNN, w::Value{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
 # back(::typeof(rnnforw),::Val{3}, dt, t, r, w...; o...)=r.dx
 # back(::typeof(rnnforw),::Val{4}, dt, t, r, w...; o...)=r.dhx
 # back(::typeof(rnnforw),::Val{5}, dt, t, r, w...; o...)=r.dcx
@@ -656,7 +656,7 @@ function rnnforw(r::RNN, w::Array{T}, x::Array{T},
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
-rnnforw(r::RNN, w::AutoGrad.Rec{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
@@ -679,7 +679,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     hsize = (H, B, L)
     @assert hx == nothing || size(hx) == hsize
     @assert cx == nothing || size(cx) == hsize
-    h = hx==nothing ? fill!(similar(getval(x),hsize),0) : hx
+    h = hx==nothing ? fill!(similar(value(x),hsize),0) : hx
     #  hs = Array{Any}[ h[:,:,l] for l=1:L ]
     hs = Array{Any}(undef,L)
     for l = 1:L
@@ -749,7 +749,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         # c't = tanh(Wcxt + Rcht-1 + bWc + bRc)
         # ct = ft◦ct-1 + it◦c't
         # ht = ot◦tanh(ct)
-        c = cx==nothing ? fill!(similar(getval(x),hsize),0) : cx
+        c = cx==nothing ? fill!(similar(value(x),hsize),0) : cx
         cs = Array{Any}(undef,L)
         for l = 1:L
             cs[l] = c[:,:,l]
@@ -911,19 +911,5 @@ if Pkg.installed("JLD") != nothing
 end
 =#
 
-# TODO: move these to karray.jl
-
-# We need x[:,:,t] and hx[:,:,l]
-using Knet: Index3
-import Base: getindex, setindex!
-function getindex(A::KnetArray, ::Colon, ::Colon, I::Index3)
-    B = reshape(A, stride(A,3), size(A,3))
-    reshape(B[:,I], size(A,1), size(A,2))
-end
-function setindex!(x::KnetArray, y, ::Colon, ::Colon, I::Index3)
-    reshape(x, stride(x,3), size(x,3))[:,I] = y
-    return x
-end
-function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
-    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
-end
+show(io::IO, a::RNN) = print(("RELURNN","TANHRNN","LSTM","GRU")[a.mode+1], (input = a.inputSize, hidden = a.hiddenSize))
+#show(io::IO, m::MIME"text/plain", a::RNN) = show(io, a)

@@ -1,6 +1,6 @@
 # cuda16 # Array,Array->Array (Multi dimensional broadcast up to some dimension with loop unrolling)
 fp = open("cuda16.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda16src(f, j=f, ex="$f(xi,yi)")
   sprint() do s

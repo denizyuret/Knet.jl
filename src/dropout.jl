@@ -1,8 +1,8 @@
 # Note that we tried and failed to automate the detection of "train"
-# mode looking at the type of argument.  The argument is of type Rec
+# mode looking at the type of argument.  The argument is of type Value
 # only during training and only if it is a value influenced by model
 # weights.  However people typically apply dropout to the input which
-# is not a Rec.  So we are going back to no automation, make sure to
+# is not a Value.  So we are going back to no automation, make sure to
 # supply p=0 during testing to stop dropout.
 
 """
@@ -42,7 +42,7 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-@primitive dropout(x,p;seed=0),dy,y dropback(getval.((dy,y,x,p))...)
+@primitive dropout(x,p;seed=0),dy,y dropback(value.((dy,y,x,p))...)
 
 # GPU implementation
 for S in (32,64)

@@ -71,7 +71,7 @@ Training and test modes are controlled by the `training` keyword argument.
  `training`: When `training` is true, the mean and variance of `x` are used and `moments`
  argument is modified if it is provided. When `training` is false, mean and variance stored in
  the `moments` argument are used. Default value is `true` when at least one of `x` and `params`
- is `AutoGrad.Rec`, `false` otherwise.
+ is `AutoGrad.Value`, `false` otherwise.
 
 """
 function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing;
@@ -84,7 +84,7 @@ function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing
         a = (g, b, x)
     end
     if ~isa(training, Bool)
-        training = isa(x, Rec) || isa(params, Rec)
+        training = isa(x, Value) || isa(params, Value)
     end
     if xnd == 2
         return batchnorm2(a...; o...,
@@ -148,7 +148,7 @@ BNCache() = BNCache(nothing, nothing, nothing, nothing, nothing)
 
 # TODO: consider automatic type conversion
 function _lazy_init!(m::BNMoments, x)
-    x = getval(x)
+    x = value(x)
     buf_size = (ndims(x) > 2) ? _wsize(x) : (size(x,1), 1)
     tx = typeof(x)
     ex = eltype(x)
@@ -476,7 +476,7 @@ end
 
 function batchnorm2(g, b, x; moments=nothing, training=false, o...)
     # TODO: This support should be added when needed
-    if training == false && (isa(g, Rec) || isa(x, Rec) || isa(b, Rec))
+    if training == false && (isa(g, Value) || isa(x, Value) || isa(b, Value))
         error("Test mode backward is not supported with 2d inputs")
     end
     @inline _pad4(x) = reshape(x, (1,1,size(x,1),size(x,2)))

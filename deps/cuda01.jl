@@ -1,7 +1,7 @@
 # Kernels for Scalar,Array->Array
 
 fp = open("cuda01.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda01src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
   sprint() do s

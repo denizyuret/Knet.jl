@@ -32,7 +32,7 @@
 # (TODO-enis) provide a link to explanation of kernel index calculations for development
 
 fp = open("cuda13.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda13src(f, j=f, ex="$f(xi,yi)")
   sprint() do s

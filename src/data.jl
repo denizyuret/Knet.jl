@@ -1,7 +1,7 @@
 using Random
 
 "Minibatched data"
-mutable struct MB; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
+mutable struct Data; x; y; batchsize; length; partial; indices; xsize; ysize; xtype; ytype; end
 
 """
 
@@ -26,7 +26,7 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),yt
     x2 = reshape(x, div(length(x),nx), nx)
     y2 = reshape(y, div(length(y),ny), ny)
     indices = shuffle ? randperm(nx) : 1:nx
-    MB(x2,y2,batchsize,nx,partial,indices,xsize,ysize,xtype,ytype)
+    Data(x2,y2,batchsize,nx,partial,indices,xsize,ysize,xtype,ytype)
 end
 
 """
@@ -47,10 +47,10 @@ function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x))
     nx = xsize[end]
     x2 = reshape(x, div(length(x),nx), nx)
     indices = shuffle ? randperm(nx) : 1:nx
-    MB(x2,nothing,batchsize,nx,partial,indices,xsize,nothing,xtype,nothing)
+    Data(x2,nothing,batchsize,nx,partial,indices,xsize,nothing,xtype,nothing)
 end
 
-function Base.iterate(m::MB,i=0)     # return i+1:i+batchsize
+function Base.iterate(m::Data,i=0)     # return i+1:i+batchsize
     if i >= m.length || (!m.partial && i + m.batchsize > m.length); return nothing; end
     j=min(i+m.batchsize, m.length)
     ids = m.indices[i+1:j]
@@ -65,47 +65,13 @@ function Base.iterate(m::MB,i=0)     # return i+1:i+batchsize
     end
 end
 
-function Base.length(m::MB)
+function Base.length(m::Data)
     n = m.length / m.batchsize
     m.partial ? ceil(Int,n) : floor(Int,n)
 end
 
-function Random.rand(m::MB)
+function Random.rand(m::Data)
     i = rand(0:(m.length-m.batchsize))
     return next(m, i)[1]
 end
 
-"""
-    nll(model, data, predict; average=true)
-
-Compute `nll(predict(model,x), y)` for `(x,y)` in `data` and return
-the per-instance average (if average=true) or total (if average=false)
-negative log likelihood.
-
-"""
-function nll(model,data::MB,predict; average=true)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += nll(predict(model,x),y; average=false)
-        cnt += length(y)
-    end
-    average ? sum / cnt : sum
-end
-
-
-"""
-    accuracy(model, data, predict; average=true)
-
-Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
-return the ratio (if average=true) or the count (if average=false) of
-correct answers.
-
-"""
-function accuracy(model,data::MB,predict; average=true)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += accuracy(predict(model,x),y; average=false)
-        cnt += length(y)
-    end
-    average ? sum / cnt : sum
-end

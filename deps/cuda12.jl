@@ -8,7 +8,7 @@
 # stride(a,n) and size(a,n) as an argument for each input.
 
 fp = open("cuda12.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
   sprint() do s

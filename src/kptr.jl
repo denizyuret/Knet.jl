@@ -133,7 +133,6 @@ function gc(dev=gpu())
 end
 
 @deprecate knetgc Knet.gc
-# knetgc(dev=gpu())=Knet.gc(dev)  # TODO: deprecate knetgc
 
 # Some utilities
 meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])

@@ -79,6 +79,8 @@ function build_nvcc()
 
     OBJ = []
 
+    include("../src/ops.jl")
+
     for names in SRC
         for name in names
             if !isfile("$name.jl")
@@ -138,8 +140,8 @@ function build()
     else
         @warn("no compilers found, libknet8 will not be built.")
     end
-    @info("Compiling Knet cache.")
-    Base.compilecache(Base.PkgId("Knet"))
+    #@info("Compiling Knet cache.")
+    #Base.compilecache(Base.PkgId("Knet"))
 end
 
 build()

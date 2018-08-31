@@ -220,15 +220,14 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
-const NARK = Union{Number,AbstractArray,Rec,KnetArray}
-cat(X::NARK...; dims) = forw(cat,X...;dims=dims)
-AutoGrad.back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-
-# TODO: switch to new style
-# using AutoGrad: Rec, forw
-# import AutoGrad: back
-# cat(X::NARK...; dims) = forw(cat,X...;dims=dims)
-# back(::typeof(cat),::Val{N},y1::NARK,y::NARK,x::NARK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+const NAVK = Union{Number,AbstractArray,Value,KnetArray}
+if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
+    cat(X::NAVK...; dims) = AutoGrad.cat_r(X...;dims=dims)
+    cat(::Type{Grad{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; else; @eval begin
+    cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -391,26 +390,6 @@ function cudadir(a,b)
     end
 end
 
-
-# Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
-import Base: display, summary, getindex, size
-mutable struct KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
-getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
-size(a::KnetDisplay) = size(a.a)
-summary(a::KnetDisplay) = summary(a.a)
-summary(a::KnetArray) = string(Base.dims2string(size(a)), " ", typeof(a))
-display(a::KnetArray) = display(KnetDisplay(a))
-
-# TODO: Hack for JLD file load/save of KnetArrays:
-#= 
-if Pkg.installed("JLD") != nothing
-    import JLD: writeas, readas
-    type KnetJLD; a::Array; end
-    writeas(c::KnetArray) = KnetJLD(Array(c))
-    readas(d::KnetJLD) = (gpu() >= 0 ? KnetArray(d.a) : d.a)
-end
-=#
-
 # Array/KnetArray Transfer
 
 # This works but unnecessarily defines new functions:
@@ -424,20 +403,26 @@ end
 # @primitive  Array(x::KnetArray),dy  KnetArray(dy)
 
 # This does not work, parametric methods not yet supported, also unnecessary first arg gradient.
-# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{K}, x::Rec{A}),dy 0 Array(dy)
-# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Rec{K}),dy 0 KnetArray(dy)
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{K}, x::Value{A}),dy 0 Array(dy)
+# @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Value{K}),dy 0 KnetArray(dy)
 
 # So we will define gradients for convert, KnetArray, Array manually:
-Base.Array(x::Rec{K}) where {K<:KnetArray}=convert(Array,x)
-KnetArray(x::Rec{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
-
-# TODO: switch to new style:
-# convert(::Type{A},x::Rec{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-# convert(::Type{K},x::Rec{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-# back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(getval(x)),dy)
+Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
+KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
+if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
+    let convert_r = recorder(convert)
+        global convert
+        convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
+        # This does not work, it breaks the Node(::Value) constructor, so we define Knet specific version.
+        # convert(T::Type, x::Value) = convert_r(T,x)
+        convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
+        convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
+    end
+end; else; @eval begin
+    convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+    convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; end
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1181,12 +1166,12 @@ broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
 # # This fixes ambiguity with AutoGrad
 # # But then creates more ambiguity as given next
 # using AutoGrad: broadcast_r
-# broadcasted(f, x::Rec, y::KnetArray) = broadcast_r(f,x,y)
-# broadcasted(f, x::KnetArray, y::Rec) = broadcast_r(f,x,y)
+# broadcasted(f, x::Value, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f, x::KnetArray, y::Value) = broadcast_r(f,x,y)
 # # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
 # # TODO: Do we have to do this for each f?
-# broadcasted(f::typeof(*), x::KnetArray, y::Rec) = broadcast_r(f,x,y)
-# broadcasted(f::typeof(*), x::Rec, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::KnetArray, y::Value) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::Value, y::KnetArray) = broadcast_r(f,x,y)
 
 ### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
 
@@ -1242,3 +1227,36 @@ check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} 
 # check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
 copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
 copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
+
+# We need x[:,:,t] and hx[:,:,l] for RNNs
+function getindex(A::KnetArray, ::Colon, ::Colon, I::Index3)
+    B = reshape(A, stride(A,3), size(A,3))
+    reshape(B[:,I], size(A,1), size(A,2))
+end
+function setindex!(x::KnetArray, y, ::Colon, ::Colon, I::Index3)
+    reshape(x, stride(x,3), size(x,3))[:,I] = y
+    return x
+end
+function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
+    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
+end
+
+
+# https://docs.julialang.org/en/stable/manual/types/#man-custom-pretty-printing-1
+# Base.show(io::IO, z): single line format used in show, print, inside other objects.
+# Base.show(io::IO, ::MIME"text/plain", z): multi-line format used by display.
+# Base.show(io::IO, ::MIME"text/html", z): multi-line format for html output.
+# get(io, :compact, false), show(IOContext(stdout, :compact=>true),z) for compact (array) printing.
+# summary(io::IO, x) = print(io, typeof(x))
+# string(z): uses print_to_string.
+
+import Base: show, summary, display, size, getindex
+
+# Hack for printing without copying the whole KnetArray and without inheriting AbstractArray:
+struct KnetDisplay{T,N} <: AbstractArray{T,N}; a::KnetArray{T,N}; end
+getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
+size(a::KnetDisplay) = size(a.a)
+summary(io::IO, a::KnetDisplay) = summary(io, a.a)
+summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
+show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
+show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))

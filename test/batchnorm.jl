@@ -2,7 +2,7 @@ include("header.jl")
 using Statistics
 @testset "batchnorm" begin
 
-    #Random.seed!(42)
+    # Random.seed!(42)
 
     # utils
     std2(x) = let x_mu = x .- mean(x)
@@ -15,9 +15,8 @@ using Statistics
     bn3ts(a) = batchnorm(a[1], bnmoments(), a[2]; training=false)
     bn1ts(a) = batchnorm(a, bnmoments(); training=false)
 
-    TOL=1e-1
+    types = (Float64,) #TODO: [Float32, Float64]
     sizes = Dict([2=>(5,10), 4=>(3,4,5,3), 5=>(4,3,4,5,2)])
-    types = [Float32, Float64]
     dims = [2, 4, 5]
     gpu_av = gpu() >= 0
 
@@ -45,8 +44,8 @@ using Statistics
                 end
                 
                 @testset "cpu-grads" begin
-                    @test gradcheck(bn1, ax; rtol=TOL, atol=0.005) #TODO: check this, it is failing without the ATOL
-                    @test gradcheck(bn3, (ax, aw); rtol=TOL)
+                    @test gradcheck(bn1, ax)
+                    @test gradcheck(bn3, (ax, aw))
                 end
                 
                 if gpu_av
@@ -57,8 +56,8 @@ using Statistics
                     end
 
                     @testset "gpu-grads" begin
-                        @test gradcheck(bn1, kax; rtol=TOL)
-                        @test gradcheck(bn3, (kax, kaw); rtol=TOL)
+                        @test gradcheck(bn1, kax)
+                        @test gradcheck(bn3, (kax, kaw))
                     end
                     
                     @testset "dev-consistency" begin
@@ -66,9 +65,9 @@ using Statistics
                         mg = bnmoments() #gpu
                         y1 = batchnorm(ax, mc)
                         y2 = batchnorm(kat(ax), mg) #use the same array
-                        @test isapprox(mc.mean, at(mg.mean); rtol=TOL)
-                        @test isapprox(mc.var, at(mg.var); rtol=TOL)
-                        @test isapprox(y1, at(y2); rtol=TOL)
+                        @test isapprox(mc.mean, at(mg.mean))
+                        @test isapprox(mc.var, at(mg.var))
+                        @test isapprox(y1, at(y2))
                     end
                 end
 
@@ -110,14 +109,14 @@ using Statistics
                 if d > 2
                     @testset "cpu-grads-testing" begin
                         m1 = bnmoments()
-                        @test gradcheck(bn1ts, ax; rtol=TOL)
-                        @test gradcheck(bn3ts, (ax, aw); rtol=TOL)
+                        @test gradcheck(bn1ts, ax)
+                        @test gradcheck(bn3ts, (ax, aw))
                     end
                 
                     if gpu_av
                         @testset "gpu-grads-testing" begin
-                            @test gradcheck(bn1ts, kax; rtol=TOL)
-                            @test gradcheck(bn3ts, (kax, kaw); rtol=TOL)
+                            @test gradcheck(bn1ts, kax)
+                            @test gradcheck(bn3ts, (kax, kaw))
                         end
                     end
                 end

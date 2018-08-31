@@ -355,7 +355,7 @@ function load_params!(weights, moments, matparams;
         m = params[i+3]
         sz = (1, 1, size(m, 1), 1)
         moments[mc].mean = reshape(atype(m[:, 1]), sz) 
-        moments[mc].var  = reshape(atype(m[:, 2]), sz)
+        moments[mc].var  = reshape(atype(m[:, 2].^2), sz)
         wc += 2
         mc += 1
         stage !== 0 && wc > length(weights) && return

@@ -16,7 +16,7 @@ epoch and optimized parameters will be returned.
 
 """
 module Housing
-using Knet,ArgParse
+using Knet,ArgParse, Random
 include(Knet.dir("data","housing.jl"))
 
 predict(w,x)=(w[1]*x.+w[2])

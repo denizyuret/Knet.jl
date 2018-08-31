@@ -14,13 +14,23 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad; export grad, gradloss, getval
-using AutoGrad: Rec
+using AutoGrad
+using AutoGrad: forw, back, Rec, Tape
+export grad, gradloss, getval, value
+if isdefined(AutoGrad,:Param); @eval begin
+    using AutoGrad: Value
+    export Param, differentiate, gradient, @diff
+end; else; @eval begin    
+    const value = getval
+    const Value = Rec
+    const Param = Rec
+end; end
 
 include("gpu.jl");              export gpu
 include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
+include("ops.jl");
 include("unary.jl");            export relu, sigm, invx
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
@@ -28,13 +38,14 @@ include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permut
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams
-include("loss.jl");             export logp, logsumexp, nll, accuracy
+include("data.jl");             export Data, minibatch
+include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout
 include("update.jl"); 		export Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
-include("data.jl");             export minibatch
+include("jld.jl");              export RnnJLD,KnetJLD
 
 """
     Knet.dir(path...)
@@ -60,5 +71,18 @@ function __init__()
         # warn("Knet using the CPU: $e")
     end
 end
+
+# @use X,Y,Z calls using on packages installing them if necessary. (WIP)
+# 1. still need "using Knet"
+# 2. Pkg.insalled gives false for stdlib packages.
+# macro use(ps)
+#     if isa(ps, Symbol); ps = Expr(:tuple,ps); end
+#     a = map(ps.args) do p
+#         s=string(p) 
+#         esc(:(haskey(Pkg.installed(),$s)||Pkg.add($s); using $p))
+#     end
+#     Expr(:block,:(using Pkg),a...)
+# end
+# export @use
 
 end # module
