@@ -254,3 +254,5 @@ end
 
 zeroone(x...) = 1 - accuracy(x...)
 
+# We need this interface to implement regularization:
+nll(f,x,y)=nll(f(x),y)

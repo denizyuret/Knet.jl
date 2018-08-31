@@ -516,7 +516,7 @@ function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=ncount(
     end
     while true
         for (x,y) in data
-            J = @diff loss(f(x),y)
+            J = @diff loss(f,x,y)
             terminate(value(J),f,x,y) && return
             update!(f, J)
         end
