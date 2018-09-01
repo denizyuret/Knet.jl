@@ -10,6 +10,7 @@ FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -19,6 +20,7 @@ AutoGrad = "1.0.1"
 CUDAapi = "0.5.0"
 FileIO = "1.0.1"
 JLD2 = "0.1.1"
+ProgressMeter = "0.6.0"
 SpecialFunctions = "0.7.0"
 
 [extras]
@@ -27,4 +29,4 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Printf", "Dates"]
+test = ["Test", "Printf", "Dates", "SpecialFunctions"]

@@ -218,17 +218,16 @@ end
 
 
 """
-    nll(f, data; average=true)
+    nll(model, data; average=true, o...)
 
-Compute `nll(f(x), y)` for `(x,y)` in `data` and return the
+Compute `nll(model(x; o...), y)` for `(x,y)` in `data` and return the
 per-instance average (if average=true) or total (if average=false)
 negative log likelihood.
-
 """
-function nll(f,data::Data; average=true)
+function nll(model,data::Data; average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += nll(f(x),y; average=false)
+        sum += nll(model(x; o...), y; average=false)
         cnt += length(y)
     end
     average ? sum / cnt : sum
@@ -236,23 +235,23 @@ end
 
 
 """
-    accuracy(model, data, predict; average=true)
+    accuracy(model, data; average=true, o...)
 
-Compute `accuracy(predict(model,x), y)` for `(x,y)` in `data` and
+Compute `accuracy(model(x; o...), y)` for `(x,y)` in `data` and
 return the ratio (if average=true) or the count (if average=false) of
 correct answers.
-
 """
-function accuracy(f,data::Data; average=true)
+function accuracy(model,data::Data; average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += accuracy(f(x),y; average=false)
+        sum += accuracy(model(x; o...), y; average=false)
         cnt += length(y)
     end
     average ? sum / cnt : sum
 end
 
-zeroone(x...) = 1 - accuracy(x...)
+zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
-# We need this interface to implement regularization:
-nll(f,x,y)=nll(f(x),y)
+# We need the (model,x,y) interface to implement regularization:
+nll(model,x,y;o...)=nll(model(x;o...),y)
+accuracy(model,x,y;o...)=accuracy(model(x;o...),y)

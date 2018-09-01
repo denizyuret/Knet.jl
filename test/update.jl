@@ -45,7 +45,7 @@ end
     dims = 6
     w = randn(dims)
     # CPU Tests
-    @test rosenopt(copy(w),Sgd(lr=0.0005))
+    @test rosenopt(copy(w),SGD(lr=0.0005))
     @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
     @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
     @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
@@ -60,7 +60,7 @@ end
     if gpu() >= 0
         Knet.gc()
         w = KnetArray(w) #GPU Tests
-        @test rosenopt(copy(w),Sgd(lr=0.0005))
+        @test rosenopt(copy(w),SGD(lr=0.0005))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
         @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
         @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))

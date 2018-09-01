@@ -221,13 +221,8 @@ import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NAVK = Union{Number,AbstractArray,Value,KnetArray}
-if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
-    cat(X::NAVK...; dims) = AutoGrad.cat_r(X...;dims=dims)
-    cat(::Type{Grad{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-end; else; @eval begin
-    cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
-    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-end; end
+cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
+AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -409,20 +404,9 @@ end
 # So we will define gradients for convert, KnetArray, Array manually:
 Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-if isdefined(AutoGrad,:Grad); @eval begin #TODO: deprecate
-    let convert_r = recorder(convert)
-        global convert
-        convert(::Type{Grad{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
-        # This does not work, it breaks the Node(::Value) constructor, so we define Knet specific version.
-        # convert(T::Type, x::Value) = convert_r(T,x)
-        convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=convert_r(A,x)
-        convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=convert_r(K,x)
-    end
-end; else; @eval begin
-    convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-    convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
-end; end
+convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1260,3 +1244,4 @@ summary(io::IO, a::KnetDisplay) = summary(io, a.a)
 summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
 show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
+summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))

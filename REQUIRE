@@ -1,9 +1,10 @@
 julia 0.7
 AutoGrad 1.0.1
 CUDAapi 0.5.0
-SpecialFunctions 0.7.0
-JLD2 0.1.1
 FileIO 1.0.1
+JLD2 0.1.1
+ProgressMeter 0.6.0
+SpecialFunctions 0.7.0
 
 # The following are used by the build script if installed.
 # CUDAdrv, Documenter

@@ -508,26 +508,3 @@ optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (
 optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a::Array,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
-
-
-function train!(f::Model, data::Data; loss=nll, optimizer=SGD, terminate=ncount(length(data)), o...)
-    for param in f
-        param.opt = optimizer(;o...)
-    end
-    while true
-        for (x,y) in data
-            J = @diff loss(f,x,y)
-            terminate(value(J),f,x,y) && return
-            update!(f, J)
-        end
-    end
-end
-
-ncount(n)=((x...)->(n == 0 || (n -= 1; false)))
-
-function update!(f::Model,J::Tape)
-    for w in f
-        g = gradient(J,w)
-        update!(value(w),g,w.opt)
-    end
-end

@@ -1,11 +1,55 @@
-abstract type Model end
+#abstract type Model end  # do we really need a Model type?
+#just iterate on params(f)
+#Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
 
 param(d...; init=xavier, atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32}))=Param(atype(init(d...)))
 
-# We should take care of iterating over parameters automatically:
-# So `for param in model` works for any model.
+# Keyword argument problem:
+# optimizer, loss, model can all take keyword args; how do we specify them through train?
+# We can give a constructed optimizer and deepcopy it for each param.
+# We don't call model directly, only through loss (because it may need model params for regularization).
+# So we pass all unrecognized kwargs to loss and let it sort out.
+function train!(model, data::Data; loss=nll, optimizer=SGD(), callback=ncount(length(data)), o...)
+    for param in params(model)
+        param.opt = deepcopy(optimizer)
+    end
+    while true
+        for (x,y) in data
+            J = @diff loss(model,x,y; o...)
+            callback(model,x,y,value(J)) || return
+            update!(model, J)
+        end
+    end
+end
 
-Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
+ncount(n)=((x...)->(n > 0 && (n -= 1; true)))
+
+function update!(model,J::Tape)
+    for w in params(model)
+        g = gradient(J,w)
+        update!(value(w),g,w.opt)
+    end
+end
+
+import ProgressMeter            # don't want to import update!
+
+mutable struct Training
+    whentorecord; datasets; losses; errors; updatecount; progress
+    Training(w,ds...)=new(w, ds, [Float64[] for d in ds], [Float64[] for d in ds], 0, ProgressMeter.Progress(w[end],1))
+end
+
+function (t::Training)(model,x,y,loss)
+    if t.updatecount ∈ t.whentorecord
+        ProgressMeter.update!(t.progress, t.updatecount)
+        for (data,loss,err) in zip(t.datasets, t.losses, t.errors)
+            push!(loss, nll(model,data))
+            push!(err, zeroone(model,data))
+        end
+    end
+    t.updatecount += 1
+    return t.updatecount <= t.whentorecord[end]
+end
+
 
 # params(f) Based on deepcopy_internal:
 

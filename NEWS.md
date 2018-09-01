@@ -1,6 +1,16 @@
+Knet v1.1.0 Release Notes
+=========================
+
+* Introducing callable object models, param, params, train!, Training.
+* Loss functions (nll, accuracy) now accept callable objects as models.
+* Updated dl-tutorial notebooks to use callable objects.
+* Using ProgressMeter for training.
+
+
+
 Knet v1.0.1 Release Notes
 =========================
-348a2fe 2018-08-31
+43421754 2018-08-31
 
 * Improved gpu diagnostics.
 * build.jl no longer depends on Knet.
