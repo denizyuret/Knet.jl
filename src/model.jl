@@ -2,7 +2,9 @@
 #just iterate on params(f)
 #Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
 
-param(d...; init=xavier, atype=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32}))=Param(atype(init(d...)))
+atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
+param(d...; init=xavier, atype=atype())=Param(atype(init(d...)))
+param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
 
 # Keyword argument problem:
 # optimizer, loss, model can all take keyword args; how do we specify them through train?
