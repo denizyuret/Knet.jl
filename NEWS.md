@@ -1,11 +1,40 @@
 Knet v1.1.0 Release Notes
 =========================
 
-* Introducing callable object models, param, params, train!, Training.
-* Loss functions (nll, accuracy) now accept callable objects as models.
-* Updated dl-tutorial notebooks to use callable objects.
-* Using ProgressMeter for training.
+The new suggested way to define models/layers is as [callable objects](https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects-1).
 
+    struct Linear; w; b; end
+    (m::Linear)(x) = m.w * x .+ m.b
+
+This way a model acts as a (predict) function as well as a collection of parameters:
+
+    m = Linear(randn(10,784), zeros(10))
+    y = m(x)             # gives the prediction
+    for p in params(m)   # iterates over parameters
+
+For training the parameters should be marked as AutoGrad.Param objects:
+
+    m = Linear(Param(randn(10,784)), Param(zeros(10)))
+    y = m(x)             # returns the same y value as above (test mode)
+    y = @diff m(x)       # gives an object with prediction as well as grad info
+    value(y)  		 # gives the prediction value
+    gradient(y, m.w)     # gives the gradient of value(y) wrt m.w
+
+This interface is not mandatory, everything should be backwardly compatible and old Knet
+code should continue to work.  However the new interface should allow people to easily
+define their layer/model collections and thus address Issues #144, #147, #341.
+
+I am working on a minimal set of utilities for the new interface on the dy/1.1 branch:
+* A new `train!` function that works with the new interface.
+* `param` and `param0` make declaring parameters easier.
+* `params` recursively finds all Params in a given object.
+* Additional loss and update methods can handle callable objects.
+* Better RNN interface: m=LSTM(input,hidden); m(x) => y
+* Possibly other layers/models defined for MLP and CNNs.
+
+I am not sure about the last item because I'd rather keep the Knet interface minimal and let
+people work on their own model/layer collections.  I am updating Knet/examples/dl-tutorial
+notebooks as I work on the new interface if you want to see examples.
 
 
 Knet v1.0.1 Release Notes

@@ -63,6 +63,7 @@ mutable struct RNN
     dx
     dhx
     dcx
+    w
 end
 
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
@@ -345,7 +346,7 @@ end
         c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
         h[t] = o[t] .* tanh(c[t])
 
-    """
+"""
 function rnninit(inputSize, hiddenSize;
                  handle=gethandle(),
                  numLayers=1,
@@ -380,10 +381,10 @@ function rnninit(inputSize, hiddenSize;
         else
             error("CUDNN $cudnnVersion does not support RNNs")
         end
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
         w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
     else
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
         w = begin
             whidden = hiddenSize * hiddenSize
@@ -458,7 +459,7 @@ end
     (H,B1,2L) for bidirectional RNNs where B1 is the size of the first
     minibatch.
 
-    """
+"""
 function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
@@ -901,7 +902,7 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
 end
 
 
-# Hack for JLD file load/save of RNNs:
+# Hack for JLD file load/save of RNNs: --> moved to jld.jl
 #= TODO
 if Pkg.installed("JLD") != nothing
     import JLD: writeas, readas
@@ -911,5 +912,29 @@ if Pkg.installed("JLD") != nothing
 end
 =#
 
-show(io::IO, a::RNN) = print(("RELURNN","TANHRNN","LSTM","GRU")[a.mode+1], (input = a.inputSize, hidden = a.hiddenSize))
+show(io::IO, a::RNN) = print(io, ("RNNRELU","RNNTANH","LSTM","GRU")[a.mode+1], (input = a.inputSize, hidden = a.hiddenSize))
 #show(io::IO, m::MIME"text/plain", a::RNN) = show(io, a)
+
+
+# New interface: added w as an extra field to the RNN struct. Did not change anything else
+# above for backward compatibility.
+
+LSTM(i::Int,h::Int;o...)=   ((r,w)=rnninit(i,h;o...,rnnType=:lstm); r.w=param(w); r)
+GRU(i::Int,h::Int;o...)=    ((r,w)=rnninit(i,h;o...,rnnType=:gru);  r.w=param(w); r)
+RNNRELU(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...,rnnType=:relu); r.w=param(w); r)
+RNNTANH(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...,rnnType=:tanh); r.w=param(w); r)
+
+# For hidden input and output: Optional arguments following x can be used to specify hx and
+# hy as in rnnforw.  I really don't want to return a tuple this time. So instead if hout=[]
+# push the hidden(s) into it, if hout=nothing, don't.
+# How do we handle the training argument?  Look at the tape?
+
+function (r::RNN)(x,h...; hout=nothing, batchSizes=nothing)
+    tr = !isempty(AutoGrad._tapes)
+    hy = (hout != nothing)
+    cy = (hout != nothing && r.mode == 2)
+    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
+    if hy; push!(hout, hyout); end
+    if cy; push!(hout, cyout); end
+    return y
+end

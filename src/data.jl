@@ -34,7 +34,7 @@ function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x),xsiz
 end
 
 function Base.iterate(d::Data,i=0)     # returns data in d.indices[i+1:i+batchsize]
-    if i == 0 && d.shuffle; d.indices = randperm(nx); end
+    if i == 0 && d.shuffle; d.indices = randperm(d.length); end
     if i >= d.length || (!d.partial && i + d.batchsize > d.length); return nothing; end
     j=min(i+d.batchsize, d.length)
     ids = d.indices[i+1:j]
