@@ -27,7 +27,7 @@
 # shufle is slow due to index Access pattern, so removed
 
 fp = open("cuda14.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda14src(f, j=f, ex="$f(xi,yi)")
   sprint() do s

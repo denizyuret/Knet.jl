@@ -1,7 +1,3 @@
-for p in ("MAT","Images")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-
 using MAT,Images
 
 _mcnurl = "http://www.vlfeat.org/matconvnet/models"

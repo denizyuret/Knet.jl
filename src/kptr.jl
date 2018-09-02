@@ -4,20 +4,38 @@ GCDEBUG=false; gcdebug(b::Bool)=(global GCDEBUG=b)
 # We try to minimize the number of actual allocations, which are slow,
 # by reusing preallocated but garbage collected pointers.
 
-type KnetPtr
+mutable struct KnetPtr
     ptr::Cptr                   # actual pointer
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
-    parent                      # used to implement shared memory pointers
+    parent::KnetPtr             # used to implement shared memory pointers
+
+    # This is the low level KnetPtr constructor, it adds the finalizer and
+    # sets parent to `nothing` which is only needed for shared pointers.
+
+    function KnetPtr(ptr::Cptr,len::Int,dev::Int)
+        kp = new(ptr,len,dev)
+        finalizer(freeKnetPtr, kp)
+    end
+
+    # This constructor is used to create a shared pointer.  We need to
+    # keep the parent field to prevent premature gc of the parent.  The
+    # child does not need a special finalizer.
+
+    function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
+        if len < 0 || offs < 1 || offs+len-1 > parent.len; throw(BoundsError()); end
+        new(parent.ptr+offs-1, len, parent.dev, parent)
+    end
+
 end
 
 # We use the KnetPtrs type to keep track of allocated and garbage
 # collected pointers: We keep one KnetPtrs struct per size per device.
 
-type KnetPtrs
+mutable struct KnetPtrs
     used::Int                   # number of allocated pointers
     free::Array{Cptr,1}         # pointers available for reuse
-    KnetPtrs()=new(0,Array{Cptr}(0))
+    KnetPtrs()=new(0,Array{Cptr}(undef,0))
 end
 
 # KnetFree[dev+2] will hold a dictionary from sizes to KnetPtrs for
@@ -37,36 +55,16 @@ function freeKnetPtr(p::KnetPtr)
     push!(ptrs.free,p.ptr)
 end
 
-# This is the low level KnetPtr constructor, it adds the finalizer and
-# sets parent to `nothing` which is only needed for shared pointers.
-
-function KnetPtr(ptr::Cptr,len::Int,dev::Int)
-    kp = KnetPtr(ptr,len,dev,nothing)
-    finalizer(kp, freeKnetPtr)
-    return kp
-end
-
-# This constructor is used to create a shared pointer.  We need to
-# keep the parent field to prevent premature gc of the parent.  The
-# child does not need a special finalizer.
-
-function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
-    if len < 0 || offs < 1 || offs+len-1 > parent.len
-        throw(BoundsError())
-    end
-    KnetPtr(parent.ptr+offs-1, len, parent.dev, parent)
-end
-
 # This the main KnetPtr constructor.  It tries to avoid actual
 # allocation which is slow.  First it tries to find a previously
 # allocated and garbage collected pointer in KnetFree[dev+2].  If not
 # available it tries to allocate a new one (about 10 μs).  Otherwise
 # it tries running gc() and see if we get a pointer back (about 75
-# ms).  Finally if all else fails, it calls knetgc which cleans up all
+# ms).  Finally if all else fails, it calls Knet.gc which cleans up all
 # allocated and garbage collected KnetPtrs on the current device and
 # tries allocation one last time.
 
-function KnetPtr(nbytes::Integer)
+function KnetPtr(nbytes::Int)
     KnetFree==nothing && initKnetFree()
     dev = gpu()
     if dev < 0
@@ -81,11 +79,11 @@ function KnetPtr(nbytes::Integer)
         ptrs.used += 1
         return KnetPtr(ptr,nbytes,dev)
     end
-    gc(); if GCDEBUG; print('-'); end
+    GC.gc(); if GCDEBUG; print('-'); end
     if !isempty(ptrs.free)
         return KnetPtr(pop!(ptrs.free),nbytes,dev)
     end
-    knetgc(); if GCDEBUG; print('+'); end
+    Knet.gc(); if GCDEBUG; print('+'); end
     ptr = knetMalloc(nbytes)
     if ptr != nothing
         ptrs.used += 1
@@ -94,10 +92,12 @@ function KnetPtr(nbytes::Integer)
     error("Out of gpu memory")
 end
 
+KnetPtr(n::Integer)=KnetPtr(Int(n))
+
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)
     # we no longer support cpu pointers, all overloaded ops rely on KnetPtr being on a GPU
-    # gpu() >= 0 || return(convert(Cptr, pointer(Array{UInt8}(nbytes))))
+    # gpu() >= 0 || return(convert(Cptr, pointer(Array{UInt8}(undef,nbytes))))
     ptr = Cptr[0]
     ret = @cuda1(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
     if ret == 0
@@ -110,16 +110,16 @@ end
 
 """
 
-    knetgc(dev=gpu())
+    Knet.gc(dev=gpu())
 
 cudaFree all pointers allocated on device `dev` that were previously
 allocated and garbage collected. Normally Knet holds on to all garbage
 collected pointers for reuse. Try this if you run out of GPU memory.
 
 """
-function knetgc(dev=gpu())
+function gc(dev=gpu())
     if KnetFree == nothing; return; end
-    gc(); gc_enable(false)
+    GC.gc(); GC.enable(false)
     for v in values(KnetFree[dev+2])
         if dev >= 0
             for p in v.free
@@ -129,8 +129,10 @@ function knetgc(dev=gpu())
         v.used -= length(v.free)
         empty!(v.free)
     end
-    gc_enable(true); gc()
+    GC.enable(true); GC.gc()
 end
+
+@deprecate knetgc Knet.gc
 
 # Some utilities
 meminfo(i=gpu())=(KnetFree==nothing ? [] : [(k,v.used,length(v.free)) for (k,v) in KnetFree[i+2]])

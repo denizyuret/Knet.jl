@@ -15,7 +15,7 @@
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
 "Dropout descriptor"
-type DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
+mutable struct DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
 
 Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 
@@ -24,17 +24,17 @@ function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
     @cuda(cudnn,cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
     @cuda(cudnn,cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
-    states = KnetArray{UInt8}(s[1]) # TODO: Can this be shared? 638976 bytes.
+    states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
     @cuda(cudnn,cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
           d[1],handle,dropout,states,bytes(states),seed)
     dd = DD(d[1],states)
-    finalizer(dd, x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
     return dd
 end
 
 
 "RNN descriptor"
-type RD; ptr::Cptr; end
+mutable struct RD; ptr::Cptr; end
 
 Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
 
@@ -42,13 +42,13 @@ function RD()
     d = Cptr[0]
     @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
     rd = RD(d[1])
-    finalizer(rd, x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
     return rd
 end
 
 
 "RNN config"
-type RNN
+mutable struct RNN
     inputSize::Cint
     hiddenSize::Cint
     numLayers::Cint
@@ -58,8 +58,8 @@ type RNN
     mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
     algo::Cint         # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
     dataType::DataType # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-    rnnDesc::Union{RD,Void}
-    dropoutDesc::Union{DD,Void}
+    rnnDesc::Union{RD,Nothing}
+    dropoutDesc::Union{DD,Nothing}
     dx
     dhx
     dcx
@@ -86,19 +86,19 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
 end
 
 "Keeps an array of 3D tensor descriptors"
-type TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc in TDs so it does not get gc'ed
+mutable struct TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc in TDs so it does not get gc'ed
 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 
-function TDs{A}(x::KnetArray{A},::Void) # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
+function TDs(x::KnetArray{A},::Nothing) where {A} # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
     xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
-    pvec = Vector{Cptr}(size(x,3))
-    pvec[:] = xDesc.ptr
+    pvec = Vector{Cptr}(undef, size(x,3))
+    pvec[:] .= xDesc.ptr
     return TDs(pvec, [xDesc])
 end
 
-function TDs{A}(x::KnetArray{A},batchSizes) # x: (X,B*), batchSizes gives us Bt sizes
+function TDs(x::KnetArray{A},batchSizes) where {A} # x: (X,B*), batchSizes gives us Bt sizes
     @assert sum(batchSizes) == div(length(x),size(x,1))
     X = size(x,1)
     xs = [ TD(A,1,X,B) for B in batchSizes ]
@@ -147,7 +147,7 @@ function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
     dataType = Cint[0]
     format = Cint[0]
     nbDims = Cint[0]
-    filterDimA = Vector{Cint}(nbDimsRequested)
+    filterDimA = Vector{Cint}(undef,nbDimsRequested)
     @cuda(cudnn, cudnnGetFilterNdDescriptor,
           (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}),
           wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
@@ -155,7 +155,7 @@ function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
         cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = nbDims[1])
     else
         (Float32,Float64,Float16)[1+dataType[1]],
-        (filterDimA[nbDims[1]:-1:1]...)
+        (filterDimA[nbDims[1]:-1:1]...,)
     end
 end
 
@@ -166,7 +166,7 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
 """
 
-        rnnparam{T}(r::RNN, w::KnetArray{T}, layer, id, param)
+        rnnparam(r::RNN, w, layer, id, param)
 
     Return a single weight matrix or bias vector as a slice of w.
 
@@ -190,7 +190,7 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
     """
 function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
-    # w could be a Rec, KnetArray, or Array so typing w::KnetArray{T} is not an option
+    # w could be a Value, KnetArray, or Array so typing w::KnetArray{T} is not an option
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -198,7 +198,8 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
       (r.mode == 1 && 1 <= id <= 2) ||
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
-    if isa(getval(w), KnetArray)
+    i1 = i2 = len = 0
+    if isa(value(w), KnetArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
         wDesc = FD(T,1,1,length(w))
@@ -210,7 +211,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, getval(w),
+                  xDesc, wDesc, value(w),
                   id-1, paramDesc, param)
         else # bias
             @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
@@ -218,13 +219,15 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, getval(w),
+                  xDesc, wDesc, value(w),
                   id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
         len = prod(sz)
-        i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
-        i2 = i1 + len - 1
+        if len > 1
+            i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
+            i2 = i1 + len - 1
+        end
     else
         # guess i1,i2,len from layer,id,par and rnn specs
         ids = rnnids(r)
@@ -236,7 +239,6 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
             X, H = r.inputSize, r.hiddenSize
             XH, HH = X*H, H*H
             inputIds = div(ids,2)
-            i1 = i2 = len = 0
             for l = 1:layer, i = 1:ids
                 if inputLayer(r,l) && i <= inputIds
                     len = (r.inputMode==0 ? XH : 0)
@@ -317,7 +319,7 @@ end
     - `seed=0`: Random number seed. Uses `time()` if 0.
     - `winit=xavier`: Weight initialization method for matrices.
     - `binit=zeros`: Weight initialization method for bias vectors.
-    - `usegpu=(gpu()>=0): GPU used by default if one exists.
+    - `usegpu=(gpu()>=0)`: GPU used by default if one exists.
 
     RNNs compute the output h[t] for a given iteration from the recurrent
     input h[t-1] and the previous layer input x[t] given matrices W, R and
@@ -360,8 +362,9 @@ function rnninit(inputSize, hiddenSize;
                  )
     inputMode = skipInput ? 1 : 0
     direction = bidirectional ? 1 : 0
-    mode = findfirst((:relu,:tanh,:lstm,:gru), rnnType) - 1
-    if mode < 0; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
+    if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = mode - 1
     if usegpu
         rnnDesc = RD()
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
@@ -378,7 +381,7 @@ function rnninit(inputSize, hiddenSize;
             error("CUDNN $cudnnVersion does not support RNNs")
         end
         r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-        w = KnetArray{dataType}(1,1,cudnnGetRNNParamsSize(r))
+        w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
     else
         r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
@@ -394,16 +397,16 @@ function rnninit(inputSize, hiddenSize;
                 winput = (1 + direction) * whidden
                 binput = bhidden
             end
-            Array{dataType}(1,1,nparams)
+            Array{dataType}(undef,1,1,nparams)
         end
     end
     for a in rnnparams(r,w; handle=handle, useview=true)
         if a == nothing
             continue
         elseif ndims(a) == 2
-            copy!(a, winit(dataType, size(a)))
+            copyto!(a, winit(dataType, size(a)))
         elseif ndims(a) == 1
-            copy!(a, binit(dataType, size(a)))
+            copyto!(a, binit(dataType, size(a)))
         else
             error()
         end
@@ -456,14 +459,14 @@ end
     minibatch.
 
     """
-function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
-                    hx::Union{KnetArray{T},Void}=nothing,
-                    cx::Union{KnetArray{T},Void}=nothing;
-                    handle=cudnnhandle(), training=false,
-                    batchSizes=nothing,
-                    hy = (hx != nothing),
-                    cy = (cx != nothing && r.mode == 2),
-                    )
+function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
+                 hx::Union{KnetArray{T},Nothing}=nothing,
+                 cx::Union{KnetArray{T},Nothing}=nothing;
+                 handle=cudnnhandle(), training=false,
+                 batchSizes=nothing,
+                 hy = (hx != nothing),
+                 cy = (cx != nothing && r.mode == 2),
+                 ) where {T}
 
     # Input descriptors
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
@@ -493,7 +496,7 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
 
     if training
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
-        rs = KnetArray{UInt8}(rss)
+        rs = KnetArray{UInt8}(undef,rss)
         @cuda(cudnn, cudnnRNNForwardTraining,
               (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x
@@ -544,25 +547,24 @@ function rnnforw{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
-rnnforw(r::Rec{RNN}, w...; o...)=rnnforw(getval(r), w...; o...)
+@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
-let rnnforw_r = recorder(rnnforw); global rnnforw
-    rnnforw{K<:KnetArray}(r::RNN, w::Rec{K}, x...; o...)=rnnforw_r(r, w, x...; o..., training=true)
-end
-
-function rnnforw(::Type{Grad{2}}, dt, t, r, w, x, hx=nothing, cx=nothing; o...)
-    y,hy,cy,rs = getval(t)
-    dy,dhy,dcy,drs = getval(dt)
-    w=getval(w); x=getval(x); hx=getval(hx); cx=getval(cx)
+function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+    y,hy,cy,rs = value(t)
+    dy,dhy,dcy,drs = value(dt)
+    r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
 end
 
-rnnforw(::Type{Grad{3}}, dt, t, r, w...; o...)=r.dx
-rnnforw(::Type{Grad{4}}, dt, t, r, w...; o...)=r.dhx
-rnnforw(::Type{Grad{5}}, dt, t, r, w...; o...)=r.dcx
+# import AutoGrad: Value, forw, back
+# rnnforw(r::Value{RNN}, w...; o...)=rnnforw(value(r), w...; o...)
+# rnnforw(r::RNN, w::Value{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
+# back(::typeof(rnnforw),::Val{3}, dt, t, r, w...; o...)=r.dx
+# back(::typeof(rnnforw),::Val{4}, dt, t, r, w...; o...)=r.dhx
+# back(::typeof(rnnforw),::Val{5}, dt, t, r, w...; o...)=r.dcx
 
-function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
-                    dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...)
+function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
+                 dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
 
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
@@ -570,7 +572,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     xtds = TDs(x,batchSizes)    # (X,B,T) -> (1,X,B) x T
     ytds = TDs(y,batchSizes)    # (H/2H,B,T) -> (1,H/2H,B) x T
     # dytds = TDs(dy,batchSizes)  # we use ytds for dytds
-    if dy == nothing; dy=zeros(y); end
+    if dy == nothing; dy=zero(y); end
     if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
     if cx == nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
     if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
@@ -579,7 +581,7 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T) or (X,B+) with batchSizes
     # dxtds = TDs(dx,batchSizes)  # we use xtds here
-    dw = zeros(w)               # dw is used additively, so we need zeros
+    dw = zero(w)               # dw is used additively, so we need zero
     dwDesc = FD3(dw)
     if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
     if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
@@ -642,19 +644,19 @@ function rnnback{T}(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
 end
 
 # CPU version
-function rnnforw{T}(r::RNN, w::Array{T}, x::Array{T},
-                    hx::Union{Array{T},Void}=nothing,
-                    cx::Union{Array{T},Void}=nothing;
-                    # handle=cudnnhandle(), training=false,
-                    batchSizes=nothing,
-                    hy = (hx != nothing),
-                    cy = (cx != nothing && r.mode == 2),
-                    o...)
+function rnnforw(r::RNN, w::Array{T}, x::Array{T},
+                 hx::Union{Array{T},Nothing}=nothing,
+                 cx::Union{Array{T},Nothing}=nothing;
+                 # handle=cudnnhandle(), training=false,
+                 batchSizes=nothing,
+                 hy = (hx != nothing),
+                 cy = (cx != nothing && r.mode == 2),
+                 o...) where {T}
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
-rnnforw{A<:Array}(r::RNN, w::Rec{A}, x...; o...)=rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
@@ -677,9 +679,9 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     hsize = (H, B, L)
     @assert hx == nothing || size(hx) == hsize
     @assert cx == nothing || size(cx) == hsize
-    h = hx==nothing ? fill!(similar(getval(x),hsize),0) : hx
+    h = hx==nothing ? fill!(similar(value(x),hsize),0) : hx
     #  hs = Array{Any}[ h[:,:,l] for l=1:L ]
-    hs = Array{Any}(L)
+    hs = Array{Any}(undef,L)
     for l = 1:L
         hs[l] = h[:,:,l]
     end
@@ -747,8 +749,8 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
         # c't = tanh(Wcxt + Rcht-1 + bWc + bRc)
         # ct = ft◦ct-1 + it◦c't
         # ht = ot◦tanh(ct)
-        c = cx==nothing ? fill!(similar(getval(x),hsize),0) : cx
-        cs = Array{Any}(L)
+        c = cx==nothing ? fill!(similar(value(x),hsize),0) : cx
+        cs = Array{Any}(undef,L)
         for l = 1:L
             cs[l] = c[:,:,l]
         end
@@ -890,7 +892,7 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
                 push!(hyouts, hcat(hts[l], reverse(hrems[l:nlayers:end-nlayers+l])...))
             end
             hsize = (size(hyouts[end])..., nlayers)
-            reshape(length(hyouts) > 1 ? hcat(hyouts...): hyouts[1], hsize)
+            reshape(length(hyouts) > 1 ? hcat(hyouts...) : hyouts[1], hsize)
         else
             nothing
         end
@@ -900,24 +902,14 @@ end
 
 
 # Hack for JLD file load/save of RNNs:
+#= TODO
 if Pkg.installed("JLD") != nothing
     import JLD: writeas, readas
     type RNNJLD; inputSize; hiddenSize; numLayers; dropout; inputMode; direction; mode; algo; dataType; end
     writeas(r::RNN) = RNNJLD(r.inputSize, r.hiddenSize, r.numLayers, r.dropout, r.inputMode, r.direction, r.mode, r.algo, r.dataType)
     readas(r::RNNJLD) = rnninit(r.inputSize, r.hiddenSize, numLayers=r.numLayers, dropout=r.dropout, skipInput=(r.inputMode==1), bidirectional=(r.direction==1), rnnType=(:relu,:tanh,:lstm,:gru)[1+r.mode], algo=r.algo, dataType=r.dataType)[1]
 end
+=#
 
-# We need x[:,:,t] and hx[:,:,l]
-using Knet: Index3
-import Base: getindex, setindex!
-function getindex(A::KnetArray, ::Colon, ::Colon, I::Index3)
-    B = reshape(A, stride(A,3), size(A,3))
-    reshape(B[:,I], size(A,1), size(A,2))
-end
-function setindex!(x::KnetArray, y, ::Colon, ::Colon, I::Index3)
-    reshape(x, stride(x,3), size(x,3))[:,I] = y
-    return x
-end
-function getindex{T,I<:Integer}(x::KnetArray{T,2}, ::Colon, m::Array{I,2})
-    reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
-end
+show(io::IO, a::RNN) = print(("RELURNN","TANHRNN","LSTM","GRU")[a.mode+1], (input = a.inputSize, hidden = a.hiddenSize))
+#show(io::IO, m::MIME"text/plain", a::RNN) = show(io, a)

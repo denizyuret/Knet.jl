@@ -1,17 +1,16 @@
 include("header.jl")
-
-using Knet
+using Printf
 
 # x* = f(1, · · · , 1)
 # f(x*) = 0
 
-rosenbrock(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
+rosenbrock(x) = sum(abs2.(1 .- x[1:end-1]) .+ 100 .* abs2.(x[2:end] .- abs2.(x[1:end-1])))
 
 function rosenmulti(x)
-    v = AutoGrad.getval(x)
-    if isbits(eltype(v))
+    v = value(x)
+    if isbitstype(eltype(v))
         rosenbrock(x)
-    elseif isa(v, Associative)
+    elseif isa(v, AbstractDict)
         rosenbrock(x[:a]) + rosenbrock(x[:b])
     else
         rosenbrock(x[1]) + rosenbrock(x[2])
@@ -19,8 +18,7 @@ function rosenmulti(x)
 end
 
 rosengrad = gradloss(rosenmulti)
-srand(123456789)
-dims = 6
+Random.seed!(123456789) # TODO: tests sensitive to random seed ???
 
 function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter = 12000)
     i = 1
@@ -42,9 +40,9 @@ function rosenopt(w, params; verbose=false, ftol = 1e-3, xtol = 1e-10, maxiter =
     return current <= ftol
 end
 
-gc(); Knet.knetgc(); gc()
-
 @testset "update!" begin
+
+    dims = 6
     w = randn(dims)
     # CPU Tests
     @test rosenopt(copy(w),Sgd(lr=0.0005))
@@ -60,6 +58,7 @@ gc(); Knet.knetgc(); gc()
     @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
     @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
     if gpu() >= 0
+        Knet.gc()
         w = KnetArray(w) #GPU Tests
         @test rosenopt(copy(w),Sgd(lr=0.0005))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))

@@ -1,3 +1,6 @@
+using LinearAlgebra: lmul!
+using LinearAlgebra.BLAS: gemm!
+
 """
 
     conv4(w, x; kwargs...)
@@ -29,8 +32,8 @@ dimension.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                  o...) # padding=0, stride=1, upscale=1, mode=0
+function conv4(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                  o...) where {T} # padding=0, stride=1, upscale=1, mode=0
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
     (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
@@ -40,8 +43,8 @@ function conv4{T}(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1
     return y
 end
 
-function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                   o...) # padding=0, stride=1, upscale=1, mode=0
+function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                   o...) where {T} # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dx = similar(x)
     (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
@@ -61,8 +64,8 @@ function conv4x{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudn
     return dx
 end
 
-function conv4w{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                   o...) # padding=0, stride=1, upscale=1, mode=0
+function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                   o...) where {T} # padding=0, stride=1, upscale=1, mode=0
     beta = 0
     dw = similar(w)
     (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
@@ -119,8 +122,8 @@ with entries for each spatial dimension.
 * `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                 o...) # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+function pool(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+                 o...) where {T} # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
     beta = 0
     @cuda(cudnn, cudnnPoolingForward,
@@ -129,8 +132,8 @@ function pool{T}(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
     return y
 end
 
-function poolx{T}(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
-                  o...) # window=2, padding=0, stride=window, maxpoolingNanOpt=0
+function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
+                  o...) where {T} # window=2, padding=0, stride=window, maxpoolingNanOpt=0
     if alpha!=1 && mode==0; error("Gradient of pool(alpha!=1,mode=0) broken in CUDNN"); end
     dx = similar(x)
     beta = 0
@@ -209,8 +212,8 @@ end
 
 # cudnn descriptors
 
-type TD; ptr; end
-TD{T}(a::KnetArray{T}) = TD(T,size(a))
+mutable struct TD; ptr; end
+TD(a::KnetArray{T}) where {T} = TD(T,size(a))
 TD(T::Type, dims::Integer...) = TD(T, dims)
 function TD(T::Type, dims)
     d = Cptr[0]
@@ -223,12 +226,12 @@ function TD(T::Type, dims)
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
           d[1], DT(T), n, sz, st)
     td = TD(d[1])
-    finalizer(td, x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
     return td
 end
 
-type FD; ptr; end
-FD{T}(a::KnetArray{T})=FD(T,size(a))
+mutable struct FD; ptr; end
+FD(a::KnetArray{T}) where {T}=FD(T,size(a))
 FD(T::Type, dims::Integer...) = FD(T,dims)
 function FD(T::Type, dims)
     d = Cptr[0]
@@ -249,11 +252,11 @@ function FD(T::Type, dims)
               d[1], DT(T),    n,   sz)
     end
     fd = FD(d[1])
-    finalizer(fd, x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr))
+    finalizer(x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
     return fd
 end
 
-type CD; ptr
+mutable struct CD; ptr
     function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
@@ -272,12 +275,12 @@ type CD; ptr
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode)
         end
         cd = new(d[1])
-        finalizer(cd, x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr))
+        finalizer(x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
         return cd
     end
 end
 
-type PD; ptr
+mutable struct PD; ptr
     function PD(x::KnetArray; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0)
         d = Cptr[0]
         @cuda(cudnn,cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
@@ -296,7 +299,7 @@ type PD; ptr
                   d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         end
         pd = new(d[1])
-        finalizer(pd, x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr))
+        finalizer(x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
         return pd
     end
 end
@@ -410,9 +413,9 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 # x2=(Wy*Hy),(Ww*Hw*Cx)
 # y2=(Wy*Hy),Cy     ;; simple reshape after y2=x2*w2
 
-function conv4{T}(w::Array{T,4}, x::Array{T,4};
+function conv4(w::Array{T,4}, x::Array{T,4};
                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                  o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+                  o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     Wx,Hx,Cx,Nx = size(x)
@@ -435,9 +438,9 @@ function conv4{T}(w::Array{T,4}, x::Array{T,4};
     return y
 end
 
-function conv4w{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4w(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dw = x'*dy
     Wx,Hx,Cx,Nx = size(x)
     Ww,Hw,C1,C2 = size(w)
@@ -445,7 +448,7 @@ function conv4w{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
     # if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
     # if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
     # @assert Cx==C1 && Cy==C2 && Ny==Nx
-    dw = zeros(w)
+    dw = zero(w)
     x2dims = im2col_dims(w,x,dy)
     x2 = similar(x, x2dims)
     # op(A) is an m-by-k matrix, op(B) is a k-by-n matrix, C is an m-by-n matrix.
@@ -462,9 +465,9 @@ function conv4w{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
     return dw
 end
 
-function conv4x{T}(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4x(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
+                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dx = dy*w'
     Wx,Hx,Cx,Nx = size(x)
     Ww,Hw,C1,C2 = size(w)
@@ -538,7 +541,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         else
             throw(ArgumentError("mode $mode not supported by cpu pool"))
         end
-        if alpha != 1; scale!(alpha,y); end
+        if alpha != 1; lmul!(alpha,y); end
         return y
     end
 
@@ -563,7 +566,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         else
             throw(ArgumentError("mode $mode not supported by cpu pool"))
         end
-        if alpha != 1; scale!(alpha,dx); end
+        if alpha != 1; lmul!(alpha,dx); end
         return dx
     end
 end;end
@@ -571,7 +574,7 @@ end;end
 
 # Utilities to find a fast algorithm
 
-immutable cudnnConvolutionFwdAlgoPerf_t
+struct cudnnConvolutionFwdAlgoPerf_t
     algo::Cint
     status::Cint
     time::Cfloat
@@ -584,11 +587,11 @@ end
 const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
 const requestedAlgoCount = 10
 const returnedAlgoCount = Cint[0]
-const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(requestedAlgoCount)
-bytes{T}(x::KnetArray{T})=length(x)*sizeof(T)
+const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
+bytes(x::KnetArray{T}) where {T}=length(x)*sizeof(T)
 
 const conv4_algos = Dict()
-function conv4_algo{T}(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cudnnhandle(), o...)
+function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
     global conv4_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4_algos, key)
@@ -597,7 +600,7 @@ function conv4_algo{T}(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle
     elseif length(conv4_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        gc(); knetgc()          # TODO: fix memory management
+        Knet.gc()          # TODO: fix memory management
         @cuda(cudnn, cudnnFindConvolutionForwardAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),FD(w),CD(w,x;o...),TD(y),requestedAlgoCount,returnedAlgoCount,perfResults)
@@ -608,7 +611,7 @@ function conv4_algo{T}(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle
 end
 
 const conv4w_algos = Dict()
-function conv4w_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=cudnnhandle(), o...)
+function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
     global conv4w_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4w_algos, key)
@@ -617,7 +620,7 @@ function conv4w_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::Kne
     elseif length(conv4w_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        gc(); knetgc()
+        Knet.gc()
         @cuda(cudnn, cudnnFindConvolutionBackwardFilterAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),TD(dy),CD(w,x;o...),FD(dw),requestedAlgoCount,returnedAlgoCount,perfResults)
@@ -628,7 +631,7 @@ function conv4w_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::Kne
 end
 
 const conv4x_algos = Dict()
-function conv4x_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=cudnnhandle(), o...)
+function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
     global conv4x_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4x_algos, key)
@@ -637,7 +640,7 @@ function conv4x_algo{T}(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::Kne
     elseif length(conv4x_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        gc(); knetgc()
+        Knet.gc()
         @cuda(cudnn, cudnnFindConvolutionBackwardDataAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,FD(w),TD(dy),CD(w,x;o...),TD(dx),requestedAlgoCount,returnedAlgoCount,perfResults)
@@ -674,7 +677,7 @@ function cudnnWorkSpace(len=0;dev=gpu())
     i = dev+2
     if isempty(CUDNN_WORKSPACE); resize!(CUDNN_WORKSPACE,gpuCount()+1); end
     if !isassigned(CUDNN_WORKSPACE,i) || length(CUDNN_WORKSPACE[i]) < len
-        CUDNN_WORKSPACE[i]=KnetArray{UInt8}(len);
+        CUDNN_WORKSPACE[i]=KnetArray{UInt8}(undef,len);
     end
     return CUDNN_WORKSPACE[i]
 end

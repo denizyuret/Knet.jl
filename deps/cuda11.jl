@@ -2,7 +2,7 @@
 # arrays.
 
 fp = open("cuda11.cu","w")
-using Knet: broadcast_ops
+#using Knet: broadcast_ops
 
 function cuda11src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
   sprint() do s

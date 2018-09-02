@@ -3,7 +3,7 @@
 # Introduction to Knet
 
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) [![](http://pkg.julialang.org/badges/Knet_0.6.svg)](http://pkg.julialang.org/?pkg=Knet) [![](http://ci.maleadt.net/shields/build.php?builder=Knet-julia06-x86-64bit&name=julia%200.6)](http://ci.maleadt.net/shields/url.php?builder=Knet-julia06-x86-64bit) [![](http://ci.maleadt.net/shields/build.php?builder=Knet-juliadev-x86-64bit&name=julia%20dev)](http://ci.maleadt.net/shields/url.php?builder=Knet-juliadev-x86-64bit)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)  [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)  [![](https://gitlab.com/JuliaGPU/Knet.jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/Knet.jl/pipelines) [![](https://coveralls.io/repos/github/denizyuret/Knet.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/Knet.jl?branch=master) [![](https://codecov.io/gh/denizyuret/Knet.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/Knet.jl)
 
 
 [Knet](https://denizyuret.github.io/Knet.jl/latest) (pronounced "kay-net") is the [Koç University](http://www.ku.edu.tr/en) deep learning framework implemented in [Julia](http://docs.julialang.org) by [Deniz Yuret](http://www.denizyuret.com) and collaborators.  It supports GPU operation and automatic differentiation using dynamic computational graphs for models defined in plain Julia.  This document is a tutorial introduction to Knet.  Check out the [full documentation](https://denizyuret.github.io/Knet.jl/latest) and [Examples](https://github.com/denizyuret/Knet.jl/tree/master/examples) for more information. If you need help or would like to request a feature, please consider joining the [knet-users](https://groups.google.com/forum/#!forum/knet-users) mailing list. If you find a bug, please open a [GitHub issue](https://github.com/denizyuret/Knet.jl/issues). If you would like to contribute to Knet development, check out the [knet-dev](https://groups.google.com/forum/#!forum/knet-dev) mailing list and [Tips for developers](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1). If you use Knet in academic work, [here is a paper](https://goo.gl/zeUBFr) that can be cited:
@@ -611,7 +611,7 @@ Training RNN (GRU) on IMDB - Natural Language Processing (Sentiment Analysis)
 |        [Pytorch](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/PyTorch_RNN.ipynb) |                86 |                31 |          Yes |
 |              [CNTK](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/CNTK_RNN.ipynb) |                85 |                32 |          Yes |
 |     [Keras(TF)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_TF_RNN.ipynb) |                86 |                35 |          Yes |
-| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 | No Available |
+| [Keras(CNTK)](https://github.com/ilkarman/DeepLearningFrameworks/blob/master/Keras_CNTK_RNN.ipynb) |                86 |                86 |          N/A |
 
 
 Inference ResNet-50 (Feature Extraction)
@@ -710,17 +710,18 @@ Current contributors:
 
 
   * Deniz Yuret
-  * Ozan Arkan Can
-  * Onur Kuru
-  * Emre Ünal
-  * Erenay Dayanık
-  * Ömer Kırnap
-  * İlker Kesen
-  * Emre Yolcu
-  * Meriç Melike Softa
-  * Ekrem Emre Yurdakul
-  * Enis Berk
   * Can Gümeli
   * Carlo Lucibello
+  * Ekin Akyürek
+  * Ekrem Emre Yurdakul
+  * Emre Yolcu
+  * Emre Ünal
+  * Enis Berk
+  * Erenay Dayanık
+  * Meriç Melike Softa
+  * Onur Kuru
+  * Ozan Arkan Can
+  * Ömer Kırnap
+  * İlker Kesen
   * 张实唯 (@ylxdzsw)
 

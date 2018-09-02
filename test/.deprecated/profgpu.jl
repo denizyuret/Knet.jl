@@ -111,7 +111,7 @@ end
 
 isdefined(:dtrn) || loaddata()
 
-using AutoGrad: recorder,Node,Grad,getval
+using AutoGrad: recorder,Node,Grad,value
 
 tmplike(a::Node,i...)=tmplike(a.value,i...)
 zimilar(a...)=tmplike(a...)
@@ -154,8 +154,8 @@ end
 # # in the short run we need warnings.  right now we get wrong answers for (.-)
 
 importall AutoGrad
-using AutoGrad: matmul2arg, recorder, Node, Grad, broadcast2arg, unbroadcast, math1arg, getval, isfloat, tofloat, _dbg, id2
-import AutoGrad: matmul2arg, recorder, Node, Grad, broadcast2arg, unbroadcast, math1arg, getval, isfloat, tofloat, _dbg, id2
+using AutoGrad: matmul2arg, recorder, Node, Grad, broadcast2arg, unbroadcast, math1arg, value, isfloat, tofloat, _dbg, id2
+import AutoGrad: matmul2arg, recorder, Node, Grad, broadcast2arg, unbroadcast, math1arg, value, isfloat, tofloat, _dbg, id2
 _dbg(x::CudaArray)=Symbol("C$(join([id2(x),size(x)...],'_'))")
 isfloat{T<:AbstractFloat}(x::CudaArray{T})=true
 isfloat(x::CudaArray)=false

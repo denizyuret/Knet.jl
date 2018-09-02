@@ -15,31 +15,27 @@ fc -> bn  -> relu -> output
 
 =#
 
-for p in ("Knet", )
-    (Pkg.installed(p) == nothing) && Pkg.add(p)
-end
-
-using Knet
-include(Pkg.dir("Knet", "data", "cifar.jl"))
+using Knet, Statistics
+include(Knet.dir("data", "cifar.jl"))
 
 function loaddata()
-    info("Loading CIFAR 10...")
+    @info("Loading CIFAR 10...")
     xtrn, ytrn, xtst, ytst, = cifar10()
     #= Subtract mean of each feature
     where each channel is considered as
     a single feature following the CNN
     convention=#
-    mn = mean(xtrn, (1,2,4))
+    mn = mean(xtrn, dims=(1,2,4))
     xtrn = xtrn .- mn
     xtst = xtst .- mn
-    info("Loaded CIFAR 10")
+    @info("Loaded CIFAR 10")
     return (xtrn, ytrn), (xtst, ytst)
 end
 
 # The global device setting (to reduce gpu() calls)
 let at = nothing
     global atype
-    atype() = (at == nothing) ? (at = (gpu() >= 0 ? KnetArray: Array)) : at
+    atype() = (at == nothing) ? (at = (gpu() >= 0 ? KnetArray : Array)) : at
 end
 
 

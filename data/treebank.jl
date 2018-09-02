@@ -1,18 +1,14 @@
-for p in ("ZipFile",)
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-
-using ZipFile
+using ZipFile, Knet
 
 "Where to download dataset from"
 const TREEBANK_URL = "https://nlp.stanford.edu/sentiment/trainDevTestTrees_PTB.zip"
 
 "Where to download dataset to"
-const TREEBANK_DIR = Pkg.dir("Knet","data","treebank")
+const TREEBANK_DIR = Knet.dir("data","treebank")
 
 const TREEBANK_ZIPNAME = "trainDevTestTrees_PTB.zip"
 const TREEBANK_SPLITS = ("train", "dev", "test")
-
+const UNK = "_UNK_"
 """
 
 This utility loads [Stanford Sentiment Treebank](https://nlp.stanford.edu/sentiment/index.html)
@@ -39,7 +35,6 @@ make_data!(trn, w2i, l2i)
 ```
 
 """
-
 mutable struct SentimentTree
     label
     children

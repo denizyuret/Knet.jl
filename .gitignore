@@ -15,6 +15,7 @@ log
 *.job
 *.h5
 *.jld
+*.jld2
 test1
 test2
 *.so
@@ -33,3 +34,4 @@ setup.sh
 *.log
 *.prof
 *.gz
+Manifest.toml

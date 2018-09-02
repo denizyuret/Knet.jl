@@ -1,8 +1,7 @@
-# using CUDAapi: find_library, libnvml # using the following until CUDAapi fixed:
-include("../deps/cudaapi2.jl")
-find_library = CUDAapi2.find_library
+using CUDAapi
+const tk = find_toolkit()
 
-# moved this to gpu.jl to make it self contained for testing
+# moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const PROFILING = false
 macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
@@ -10,7 +9,8 @@ macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
     try 
-        path = find_library("$lib")
+        path = find_cuda_library("$lib",tk)
+        if path==nothing; error(); end
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         msg = "$lib.$fun error "
         err = gensym()
@@ -23,7 +23,8 @@ end
 
 macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
     try
-        path = find_library("$lib")
+        path = find_cuda_library("$lib",tk)
+        if path==nothing; error(); end
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
@@ -34,7 +35,7 @@ end
 
 macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
-        fx = Expr(:call, :ccall, ("$fun",libknet8), :Void, x...)
+        fx = Expr(:call, :ccall, ("$fun",libknet8), :Nothing, x...)
         err = gensym()
         esc(:($err=$fx; @gs; $err))
     else
@@ -43,10 +44,12 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
 end
 
 macro nvml(fun,x...)
-    esc(Expr(:macrocall,Symbol("@cuda"),CUDAapi2.libnvml,fun,x...))
+    ex = :(@cuda("nvml",$fun,))
+    append!(ex.args, x)
+    esc(ex)
 end
 
-const Cptr = Ptr{Void}
+const Cptr = Ptr{Cvoid}
 
 """
 
@@ -80,7 +83,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
-        if !isdefined(:cudartfound)
+        if !isdefined(Knet,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
@@ -89,7 +92,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 cudartfound = false
             end
         end
-        if !isdefined(:nvmlfound)
+        if !isdefined(Knet,:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @nvml(nvmlInit,())
@@ -180,7 +183,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array{Any}(gpuCount()+1); end
+        if CUBLAS == nothing; CUBLAS=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
         return CUBLAS[i]
     end
@@ -191,7 +194,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             return nothing
         end
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array{Any}(gpuCount()+1); end
+        if CUDNN == nothing; CUDNN=Array{Any}(undef,gpuCount()+1); end
         if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
         return CUDNN[i]
     end
@@ -208,7 +211,7 @@ cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
 function nvmlDeviceGetMemoryInfo(i=gpu())
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
-    mem = Array{Culonglong}(3)
+    mem = Array{Culonglong}(undef,3)
     @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
     @nvml("nvmlDeviceGetMemoryInfo",(Cptr,Ptr{Culonglong}),dev[1],mem)
     ntuple(i->Int(mem[i]),length(mem))
@@ -241,7 +244,8 @@ function cublasCreate()
 end
 
 function cudnnCreate()
-    path = find_library("cudnn")
+    path = find_cuda_library("cudnn",tk)
+    if path==nothing; error("Cannot find cudnn"); end
     handleP = Cptr[0]
     @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]

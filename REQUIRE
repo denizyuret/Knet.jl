@@ -1,9 +1,12 @@
-julia 0.6
-AutoGrad 0.0.9
-Compat 0.33.0
+julia 0.7
+AutoGrad 1.0.1
+CUDAapi 0.5.0
+SpecialFunctions 0.7.0
+JLD2 0.1.1
+FileIO 1.0.1
 
 # The following are used by the build script if installed.
-# CUDAapi, CUDAdrv, Documenter
+# CUDAdrv, Documenter
 
-# We need the following for some examples. They get automatically installed when needed.
+# We need the following for some examples.  They get automatically installed when needed.
 # ArgParse, JLD, JLD2, Images, GZip, MAT, PyCall, JSON, IJulia, BenchmarkTools, Distributions

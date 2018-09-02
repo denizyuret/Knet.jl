@@ -1,9 +1,3 @@
-for p in ("Knet","ArgParse","Images")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","mnist.jl"))
-include(Pkg.dir("Knet","data","imagenet.jl"))
-
 """
 
 julia dcgan.jl --outdir ~/dcgan-out
@@ -16,9 +10,11 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 """
 module DCGAN
 using Knet
-using Images
+using Images,MAT # broken
 using ArgParse
 using JLD2, FileIO
+include(Knet.dir("data","mnist.jl"))
+include(Knet.dir("data","imagenet.jl"))
 
 function main(args)
     o = parse_options(args)
@@ -26,10 +22,10 @@ function main(args)
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
-    xtrn,ytrn,xtst,ytst = Main.mnist()
+    xtrn,ytrn,xtst,ytst = mnist()
     dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype])
-    optd = map(wi->eval(parse(o[:optim])), wd)
-    optg = map(wi->eval(parse(o[:optim])), wg)
+    optd = map(wi->eval(Meta.parse(o[:optim])), wd)
+    optg = map(wi->eval(Meta.parse(o[:optim])), wg)
     z = sample_noise(o[:atype],o[:zdim],prod(o[:gridsize]))
 
     if o[:outdir] != nothing && !isdir(o[:outdir])
@@ -75,7 +71,7 @@ function parse_options(args)
         "Deep Convolutional Generative Adversarial Networks on MNIST."
 
     @add_arg_table s begin
-        ("--atype"; default=(gpu()>=0?"KnetArray{Float32}":"Array{Float32}");
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}");
          help="array and float type to use")
         ("--batchsize"; arg_type=Int; default=100; help="batch size")
         ("--zdim"; arg_type=Int; default=100; help="noise dimension")
@@ -90,7 +86,7 @@ function parse_options(args)
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
-    o[:atype] = eval(parse(o[:atype]))
+    o[:atype] = eval(Meta.parse(o[:atype]))
     if o[:outdir] != nothing
         o[:outdir] = abspath(o[:outdir])
     end
@@ -298,7 +294,7 @@ function plot_generations(
     end
     output = Array(0.5*(1+gnet(wg,z,mg; training=false)))
     images = map(i->output[:,:,:,i], 1:size(output,4))
-    grid = Main.make_image_grid(images; gridsize=gridsize, scale=scale)
+    grid = make_image_grid(images; gridsize=gridsize, scale=scale)
     if savefile == nothing
         display(colorview(Gray, grid))
     else

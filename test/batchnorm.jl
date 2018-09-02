@@ -1,24 +1,25 @@
 include("header.jl")
-
-srand(42)
-TOL=1e-1
-
-# utils
-std2(x) = let x_mu = x .- mean(x)
-    mean(x_mu .* x_mu)
-end
-
-sizes = Dict([2=>(5,10), 4=>(3,4,5,3), 5=>(4,3,4,5,2)])
-types = [Float32, Float64]
-dims = [2, 4, 5]
-# gradcheck functions
-bn3(a) = batchnorm(a[1], nothing, a[2]; training=true)
-bn1(a) = batchnorm(a; training=true)
-bn3ts(a) = batchnorm(a[1], bnmoments(), a[2]; training=false)
-bn1ts(a) = batchnorm(a, bnmoments(); training=false)
-gpu_av = gpu() >= 0
-
+using Statistics
 @testset "batchnorm" begin
+
+    # Random.seed!(42)
+
+    # utils
+    std2(x) = let x_mu = x .- mean(x)
+        mean(x_mu .* x_mu)
+    end
+
+    # gradcheck functions
+    bn3(a) = batchnorm(a[1], nothing, a[2]; training=true)
+    bn1(a) = batchnorm(a; training=true)
+    bn3ts(a) = batchnorm(a[1], bnmoments(), a[2]; training=false)
+    bn1ts(a) = batchnorm(a, bnmoments(); training=false)
+
+    types = (Float64,) #TODO: [Float32, Float64]
+    sizes = Dict([2=>(5,10), 4=>(3,4,5,3), 5=>(4,3,4,5,2)])
+    dims = [2, 4, 5]
+    gpu_av = gpu() >= 0
+
     for d in dims
         for et in types
             sz = sizes[d]
@@ -43,8 +44,8 @@ gpu_av = gpu() >= 0
                 end
                 
                 @testset "cpu-grads" begin
-                    @test gradcheck(bn1, ax; rtol=TOL)
-                    @test gradcheck(bn3, (ax, aw); rtol=TOL)
+                    @test gradcheck(bn1, ax)
+                    @test gradcheck(bn3, (ax, aw))
                 end
                 
                 if gpu_av
@@ -55,8 +56,8 @@ gpu_av = gpu() >= 0
                     end
 
                     @testset "gpu-grads" begin
-                        @test gradcheck(bn1, kax; rtol=TOL)
-                        @test gradcheck(bn3, (kax, kaw); rtol=TOL)
+                        @test gradcheck(bn1, kax)
+                        @test gradcheck(bn3, (kax, kaw))
                     end
                     
                     @testset "dev-consistency" begin
@@ -64,9 +65,9 @@ gpu_av = gpu() >= 0
                         mg = bnmoments() #gpu
                         y1 = batchnorm(ax, mc)
                         y2 = batchnorm(kat(ax), mg) #use the same array
-                        @test isapprox(mc.mean, at(mg.mean); rtol=TOL)
-                        @test isapprox(mc.var, at(mg.var); rtol=TOL)
-                        @test isapprox(y1, at(y2); rtol=TOL)
+                        @test isapprox(mc.mean, at(mg.mean))
+                        @test isapprox(mc.var, at(mg.var))
+                        @test isapprox(y1, at(y2))
                     end
                 end
 
@@ -108,14 +109,14 @@ gpu_av = gpu() >= 0
                 if d > 2
                     @testset "cpu-grads-testing" begin
                         m1 = bnmoments()
-                        @test gradcheck(bn1ts, ax; rtol=TOL)
-                        @test gradcheck(bn3ts, (ax, aw); rtol=TOL)
+                        @test gradcheck(bn1ts, ax)
+                        @test gradcheck(bn3ts, (ax, aw))
                     end
                 
                     if gpu_av
                         @testset "gpu-grads-testing" begin
-                            @test gradcheck(bn1ts, kax; rtol=TOL)
-                            @test gradcheck(bn3ts, (kax, kaw); rtol=TOL)
+                            @test gradcheck(bn1ts, kax)
+                            @test gradcheck(bn3ts, (kax, kaw))
                         end
                     end
                 end

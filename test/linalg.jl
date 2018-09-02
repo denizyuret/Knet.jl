@@ -1,6 +1,7 @@
 include("header.jl")
 include("combinatorics.jl")
-srand(42)
+using LinearAlgebra
+#Random.seed!(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
 @testset "linalg" begin
@@ -24,7 +25,8 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
             kd = KnetArray(d)
             r = rand()
             @test isapprox(axpy!(r,a,d), axpy!(r,ka,kd))
-            @test isapprox(scale!(r,d), scale!(r,kd))
+            @test isapprox(lmul!(r,d), lmul!(r,kd))
+            @test isapprox(rmul!(d,r), rmul!(kd,r))
         end
 
         @test gradcheck(transpose, a)

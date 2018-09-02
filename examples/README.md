@@ -1,6 +1,7 @@
 # Examples
 
 ## Tutorials
+- [dl-tutorial](dl-tutorial): Deep learning tutorial notebooks I use in class.
 - [julia-tutorial](julia-tutorial): Julia examples demonstrating arrays, tuples, dictionaries, indexing etc.
 - [knet-tutorial](knet-tutorial): Notebook with Knet models for linreg, softmax, mlp, cnn, rnn.
 - [optimizers](optimizers): Try various optimizers (SGD, Momentum, Adam...) on [LeNet].
@@ -30,6 +31,11 @@
 ### RNN
 - [charlm](charlm): Character-level RNN language model from [Karpathy].
 - [rnnlm](rnnlm): Word-level RNN language model trained on the [Mikolov-PTB] corpus.
+
+### Reinforcement Learning
+- [dynamic programming](reinforcement-learning/dp) : Solving a Markov Decision process with Value Iteration and Policy Iteration.
+- [policy gradient](reinforcement-learning/pg) : Demonstration of the REINFORCE and Actor-Critic algorithms on simple environments.
+- [dqn](reinforcement-learning/dqn) : Train a DQN on the CartPole environment.
 
 ### Other
 - [variational-autoencoder](variational-autoencoder): Train a Variational Autoencoder on [MNIST].

@@ -4,3 +4,4 @@
 *.gz
 *.txt
 *-dbg.jl
+*-Copy*.ipynb

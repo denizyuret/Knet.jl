@@ -1,8 +1,3 @@
-for p in ("Knet","ArgParse","Images")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","imagenet.jl"))
-
 """
 
 julia vgg.jl image-file-or-url
@@ -20,6 +15,8 @@ specify any model.
 """
 module VGG
 using Knet,ArgParse
+include(Knet.dir("data","imagenet.jl"))
+
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
 const vggurl = "http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-16.mat"
 const LAYER_TYPES = ["conv", "relu", "pool", "fc", "prob"]
@@ -42,12 +39,12 @@ function main(args=ARGS)
     println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-    atype = eval(parse(o[:atype]))
+    atype = eval(Meta.parse(o[:atype]))
 
     global _vggcache
     if !isdefined(:_vggcache); _vggcache=Dict(); end
     if !haskey(_vggcache,o[:model])
-        vgg = Main.matconvnet(o[:model])
+        vgg = matconvnet(o[:model])
         params = get_params(vgg, atype)
         convnet = get_convnet(params...)
         description = vgg["meta"]["classes"]["description"]
@@ -57,7 +54,7 @@ function main(args=ARGS)
         vgg, params, convnet, description, averageImage = _vggcache[o[:model]]
     end
 
-    image = Main.imgdata(o[:image], averageImage)
+    image = imgdata(o[:image], averageImage)
     image = convert(atype, image)
     info("Classifying")
     @time y1 = convnet(image)
@@ -117,15 +114,11 @@ end
 
 # convolutional network operations
 convx(x,w) = conv4(w[1], x; padding=1, mode=1) .+ w[2]
-if VERSION >= v"0.6.0"
-    relux(x) = relu.(x)
-else
-    relux(x) = relu(x)
-end
+relux(x) = relu.(x)
 poolx = pool
 probx(x) = x
 fcx(x,w) = w[1] * mat(x) .+ w[2]
-tofunc(op) = eval(parse(string(op, "x")))
+tofunc(op) = eval(Meta.parse(string(op, "x")))
 forw(x,op) = tofunc(op)(x)
 forw(x,op,w) = tofunc(op)(x,w)
 

@@ -1,3 +1,57 @@
+Knet v1.0.1 Release Notes
+=========================
+348a2fe 2018-08-31
+
+* Improved gpu diagnostics.
+* build.jl no longer depends on Knet.
+* AutoGrad 1.0.1 compatibility fixes.
+* Fixed some examples and notebooks.
+* Fixed Documenter, avoiding python dependency.
+* JLD2 FileIO interface (@ekinakyurek).
+
+
+Knet v1.0.0 Release Notes
+=========================
+249540a 2018-08-20
+
+* Julia 1.0 compatibility fixes.
+
+
+Knet v0.9.2 Release Notes
+=========================
+4aa5f92 2018-08-14
+
+* Fixed rnnparam cudnn-7.1.4 compat issue.
+* Updated dl-tutorial.
+* updated REQUIRE to upper bound Julia version.
+
+
+Knet v0.9.1 Release Notes
+=========================
+26562f5 2018-05-28
+
+Compatibility
+-------------
+* Library discovery now done using CUDAapi.
+* GPU direct peer access support (@cangumeli).
+* Removed gpu-architecture compiler flags from build.jl to support machines with heterogenous gpu types.
+* Added JuliaBox compatibility to Jupyter notebooks.
+
+General
+-------
+* Fixed default `dropout` behavior which was not applying dropout to input to obey the pdrop argument.
+* Added support for `mean(f::Function,x::KnetArray)`.
+* Added `vcat` support for scalar arguments.
+* Fixed `batchnorm` cpu backward pass (@CarloLucibello)
+
+Documentation and Examples
+--------------------------
+* Grid image display support for notebooks (@ilkerkesen).
+* Convolutional VAE example (@CarloLucibello).
+* Reinforcement learning examples (@ozanarkancan).
+* dl-tutorial collects updated notebooks @denizyuret uses in class.
+
+
 Knet v0.9.0 Release Notes
 =========================
 48ca185 2017-12-25

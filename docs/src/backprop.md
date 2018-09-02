@@ -229,6 +229,7 @@ i.e. the vector $b$ will be added to each column of the matrix $z$ to
 get $\hat{y}$. In the backward pass, we'll need to add the columns of
 $\nabla_\hat{y} J$ to get the gradient $\nabla_b J$.
 
+
 Stochastic Gradient Descent
 ---------------------------
 
@@ -239,10 +240,15 @@ in the gradient direction will increase the error, steps in the opposite
 direction will decrease the error.
 
 In fact, we can show that the gradient is the direction of steepest
-ascent. Consider a unit vector $v$ pointing in some arbitrary direction.
-The rate of change in this direction is given by the projection of $v$
-onto the gradient, i.e. their dot product $\nabla J \cdot v$. What
-direction maximizes this dot product? Recall that:
+ascent. Consider a unit vector $v$ pointing in some arbitrary
+direction.  The rate of change in this direction, $\nabla_v J$ ([directional
+derivative](http://mathworld.wolfram.com/DirectionalDerivative.html)),
+is given by the projection of $v$ onto the gradient,
+$\nabla J$, i.e. their dot product $\nabla J \cdot v$:
+
+$$\nabla_v J = \frac{\partial J}{\partial x_1} v_1 + \frac{\partial J}{\partial x_2} v_2 + \cdots = \nabla J \cdot v$$
+
+What direction maximizes this dot product? Recall that:
 
 $$\nabla J \cdot v = | \nabla J |\,\, | v | \cos(\theta)$$
 
@@ -261,8 +267,59 @@ the backpropagation algorithm to calculate the error gradients. Update
 the weights and biases in the opposite direction of these gradients.
 Rinse and repeat...
 
-Over the years, people have noted many subtle problems with this
-approach and suggested improvements:
+Housing Example
+---------------
+
+We will use the [Boston
+Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing)
+dataset from the UCI Machine Learning Repository to train a linear
+regression model using backprop and SGD. The dataset has housing
+related information for 506 neighborhoods in Boston from 1978. Each
+neighborhood has 14 attributes, the goal is to use the first 13, such
+as average number of rooms per house, or distance to employment
+centers, to predict the 14’th attribute: median dollar value of the
+houses.
+
+First we download and split the data:
+```
+using Knet
+include(Knet.dir("data","housing.jl"))
+x,y = housing()  # x is (13,506); y is (1,506)
+```
+
+Then we define our linear regression model and the squared error loss.
+Note that backprop is implemented by the `grad` function in Knet:
+`grad(f)` returns a function `g` that takes the same inputs as `f` and
+returns the gradient with respect to the first argument:
+```
+predict(w,x) = w[1]*x .+ w[2]
+loss(w,x,y) = mean(abs2,y-predict(w,x))
+lossgradient = grad(loss)	# grad gives the gradient function wrt w
+w = [ 0.1*rand(1,13), 0.0 ]	# initialize the weight vector and bias
+```
+
+Finally, here is the SGD training loop (see the full example in the [Knet
+tutorial](https://github.com/denizyuret/Knet.jl/blob/master/examples/knet-tutorial/tutorial.ipynb)):
+```
+for epoch in 1:10
+    dw = lossgradient(w, x, y)
+    for i in 1:length(w)
+        w[i] -= lr * dw[i]
+    end
+end
+```
+
+Here is a plot of the loss value vs training epochs (an epoch is a
+single pass over the whole training set):
+
+![image](images/housing-linreg.png)
+
+
+Problems with SGD
+-----------------
+
+Over the years, people have noted many subtle problems with the SGD
+algorithm and suggested improvements:
 
 **Step size:** If the step sizes are too small, the SGD algorithm will
 take too long to converge. If they are too big it will overshoot the
@@ -312,7 +369,7 @@ step direction. Instead of multiplying each component of the gradient
 with the same learning rate, these methods scale them separately using
 their running average (momentum, Nesterov), or RMS (Adagrad, Rmsprop).
 Some even cap the gradients at an arbitrary upper limit (gradient
-clipping) to prevent unstabilities.
+clipping) to prevent instabilities.
 
 You may wonder whether these methods still give us directions that
 consistently increase/decrease the objective function. If we do not
@@ -351,3 +408,11 @@ References
 - [cs229 Convex optimization overview](http://cs229.stanford.edu/section/cs229-cvxopt.pdf), [Part 2](http://cs229.stanford.edu/section/cs229-cvxopt2.pdf)
 - [cs229 Linear algebra review and reference](http://cs229.stanford.edu/section/cs229-linalg.pdf)
 - [cs229 Review of probability theory](http://cs229.stanford.edu/section/cs229-prob.pdf)
+
+Notes
+-----
+
+- Linear regression with a scalar input and output is called **simple
+  linear regression**, if the input is a vector we have **multiple
+  linear regression**, and if the output is a vector we have
+  **multivariate linear regression**.

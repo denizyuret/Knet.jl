@@ -1,8 +1,3 @@
-for p in ("Knet",)
-    (Pkg.installed(p) == nothing) && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","imagenet.jl"))
-
 # TODO: improve example and document metadata return type further
 # TODO: document low-level API
 """This module implements the ResNet 50,101,150 and CIFAR models from
@@ -74,6 +69,8 @@ CIFAR models can be used as:
 module ResNetLib
 
 using Knet
+include(Knet.dir("data","imagenet.jl"))
+
 
 resnet50init(;  o...)  = resnetinit([3, 4, 6,  3]; o...)
 resnet101init(; o...)  = resnetinit([3, 4, 23, 3]; o...)
@@ -239,8 +236,8 @@ function layer(w, m, x, repeat, block;
     wstart = 1
     mstart = 1
     for i = 1:repeat
-        winc = nparams + (downsample?2:0)
-        minc = nmoments + (downsample?1:0)
+        winc = nparams + (downsample ? 2 : 0)
+        minc = nmoments + (downsample ? 1 : 0)
         # run the block
         x = block(w[wstart:wstart+winc-1], m[mstart:mstart+minc-1], x;
                   downsample=downsample, stride=stride)
@@ -358,7 +355,7 @@ function load_params!(weights, moments, matparams;
         m = params[i+3]
         sz = (1, 1, size(m, 1), 1)
         moments[mc].mean = reshape(atype(m[:, 1]), sz) 
-        moments[mc].var  = reshape(atype(m[:, 2]), sz)
+        moments[mc].var  = reshape(atype(m[:, 2].^2), sz)
         wc += 2
         mc += 1
         stage !== 0 && wc > length(weights) && return

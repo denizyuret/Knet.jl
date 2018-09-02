@@ -30,7 +30,7 @@ change in one of the parameters either has no effect on the loss, or can
 turn one or more of the predictions from false to true or true to false,
 causing a discontinuous jump in the objective. This means the gradient
 of the zero-one loss with respect to the parameters is either undefined
-or not helpful.
+or zero, thus not helpful.
 
 A more commonly used objective for classification is conditional
 likelihood: the probability of the observed data given our model *and
@@ -50,9 +50,11 @@ L(\theta) = P(\mathcal{Y}|\mathcal{X},\theta)
 ```
 
 The second equation assumes that the data instances were generated
-independently. We usually work with log likelihood for mathematical
-convenience: log is a monotonically increasing function, so maximizing
-likelihood is the same as maximizing log likelihood:
+independently. 
+
+We usually work with log likelihood for mathematical convenience: log
+is a monotonically increasing function, so maximizing likelihood is
+the same as maximizing log likelihood:
 
 ```math
 \ell(\theta) = \log P(\mathcal{Y}|\mathcal{X},\theta) 
@@ -67,18 +69,21 @@ or **cross-entropy loss**.
 Softmax
 -------
 
-The linear regression model we have seen earlier produces unbounded ``y``
-values. To go from arbitrary values ``y\in\mathbb{R}^C`` to normalized
-probability estimates ``p\in\mathbb{R}^C`` for a single instance, we use
-exponentiation and normalization:
+A classification model for a problem with ``C`` classes typically
+generates ``y\in\mathbb{R}^C``, a vector of ``C`` scores (e.g. we
+might use multivariate linear regression with a vector output as seen
+in the last chapter).  In general these scores will be arbitrary real
+numbers.  To go from arbitrary scores ``y\in\mathbb{R}^C`` to
+normalized probability estimates ``p\in\mathbb{R}^C`` for a single
+instance, we use exponentiation and normalization:
 
 ```math
 p_i = \frac{\exp y_i}{\sum_{c=1}^C \exp y_c}
 ```
 
 
-where ``i,c\in\{1,\ldots,C\}`` range over classes, and ``p_i,
-y_i, y_c`` refer to class probabilities and values for a single instance.
+where ``i,c\in\{1,\ldots,C\}`` range over classes, and ``p_i, y_i,
+y_c`` refer to class probabilities and scores for a single instance.
 This is called the **softmax function**. A model that converts the
 unnormalized values at the end of a linear regression to normalized
 probabilities for classification is called the **softmax classifier**.
@@ -92,7 +97,7 @@ to one component of ``y``:
 
 ```math
 \frac{\partial p_i}{\partial y_j} 
-= \frac{[i=j] \exp y_i \sum_c \exp y_c - \exp y_i \exp y_j}{(\sum_c \exp y_c)^2}
+= \frac{[i=j] \exp y_i (\sum_c \exp y_c) - \exp y_i \exp y_j}{(\sum_c \exp y_c)^2}
 = \,[i=j]\, p_i - p_i p_j
 ```
 
@@ -121,7 +126,7 @@ entries are '0' except a single '1'. If the correct class is
 ``c\in\{1,\ldots,C\}``, we represent this with a one-hot vector
 ``p\in\mathbb{R}^C`` where ``p_c = 1`` and ``p_{i\neq c}
 = 0``. Note that ``p`` can be viewed as a probability vector where all the
-probability mass is concentrated at c. This representation also allows
+probability mass is concentrated at class c. This representation also allows
 us to have probabilistic targets where there is not a single answer but
 target probabilities associated with each answer. Given a one-hot (or
 probabilistic) ``p``, and the model prediction ``\hat{p}``, we can write the
@@ -141,7 +146,7 @@ normalization of ``\hat{p}`` explicit:
 ```math
 \begin{align*}
 \ell &= \sum_c p_c \log \frac{\hat{p}_c}{\sum_k\hat{p}_k} \\
-&= \sum_c p_c \log{\hat{p}_c} - \sum_c p_c \log \sum_k\hat{p}_k \\
+&= (\sum_c p_c \log{\hat{p}_c}) - (\sum_c p_c \log \sum_k\hat{p}_k) \\
 &= (\sum_c p_c \log{\hat{p}_c}) - (\log \sum_k\hat{p}_k) \\
 \frac{\partial \ell}{\partial \hat{p}_i} &=
 \frac{p_i}{\hat{p}_i} - \frac{1}{\sum_k\hat{p}_k}
@@ -150,8 +155,8 @@ normalization of ``\hat{p}`` explicit:
 ```
 
 
-The gradient with respect to unnormalized y takes a particularly simple
-form:
+The gradient with respect to unnormalized y scores takes a
+particularly simple form:
 
 ```math
 \begin{align*}
@@ -160,7 +165,7 @@ form:
 \frac{\partial \hat{p}_i}{\partial y_j} \\
 &= \sum_i (\frac{p_i}{\hat{p}_i} - 1)(\,[i=j]\, \hat{p}_i - \hat{p}_i \hat{p}_j) \\
 &= \, p_j - \hat{p}_j \\
-\nabla\ell &= \, p - \hat{p}
+\nabla_y \ell &= \, p - \hat{p}
 \end{align*}
 ```
 
@@ -181,55 +186,52 @@ is to look at the pixels and classify each image as one of the digits
 
 ![image](images/firsteightimages.jpg)
 
-See training-with-minibatches for more information about the MNIST task,
-loading and minibatching data, and simple train and test scripts.
-
-Here is the softmax classifier in Julia:
-
-``` {.sourceCode .}
-function softmax(w,x,ygold)
-    ypred = w[1] * x .+ w[2]
-    return softloss(ygold, ypred)
-end
-
-function softloss(ygold, ypred)
-    ynorm = ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
-
-softmax_gradient = grad(softmax)
+Load and minibatch the data. `dtrn` and `dtst` consist of xy pairs `[
+(x1,y1), (x2,y2), ... ]` where `xi,yi` are minibatches of 100
+instances:
+```
+using Knet
+include(Knet.dir("data","mnist.jl"))
+xtrn,ytrn,xtst,ytst = mnist()
+dtst = minibatch(xtst,ytst,100)
+dtrn = minibatch(xtrn,ytrn,100)
 ```
 
-``` {.sourceCode .:hide:}
-...
+Here is the softmax classifier in Knet:
+```
+predict(w,x) = w[1]*mat(x) .+ w[2]	  # mat converts x to 2D
+loss(w,x,ygold) = nll(predict(w,x),ygold) # nll computes negative log likelihood
+lossgradient = grad(loss)                 # grad returns gradient function
+wsoft=[ 0.1*randn(10,784), zeros(10,1) ]  # initial weights and bias
 ```
 
-Let us train our model for 100 epochs and print out the classification
-error on the training and test sets after every epoch (see the full
-example in Pkg.dir("Knet/examples/mnist.jl")):
+Here is the SGD training loop (see the full example in the [Knet
+tutorial](https://github.com/denizyuret/Knet.jl/blob/master/examples/knet-tutorial/tutorial.ipynb)):
 
-``` {.sourceCode .}
-w = Any[0.1*randn(10,784), zeros(10,1)]
-for epoch=1:nepochs
-    for (x,y) in dtrn  # dtrn is a list of minibatches
-        g = softmax_gradient(w, x, y)
+```
+function train!(w, data; lr=.1)
+    for (x,y) in data
+        dw = lossgradient(w, x, y)
         for i in 1:length(w)
-            w[i] -= lr * g[i]
+            w[i] -= lr * dw[i]
         end
     end
-# Print accuracy
+    return w
 end
 ```
 
-Here is a plot of the losses vs training epochs:
+Here are the plots of the negative log likelihood and
+misclassification error vs training epochs:
 
 ![image](images/mnist_softmax.png)
 
 We can observe a few things. First the training losses are better than
-the test losses. This means there is some **overfitting**. Second, it
-does not look like the training loss is going down to zero. This means
-the softmax model is not flexible enough to fit the training data
-exactly.
+the test losses. This means there is some **overfitting**, i.e. the
+model is learning spurious regularities in the training data that do
+not generalize to test data. Second, it does not look like the
+training loss is going down to zero. This means there is also
+**underfitting**, i.e. the softmax model is not flexible enough to fit
+the training data exactly.
 
 Representational power
 ----------------------
@@ -254,7 +256,7 @@ p_i = \frac{\exp y_i}{\sum_{c=1}^C \exp y_c}
 where ``y_i`` is a linear function of the input ``x``. Note that ``p_i`` is a
 monotonically increasing function of ``y_i``, so for two classes ``i`` and
 ``j``, ``p_i >
-p_j`` if ``y_i > y_j``. The boundary between two classes ``i`` and ``j`` is the
+p_j`` iff ``y_i > y_j``. The boundary between two classes ``i`` and ``j`` is the
 set of inputs for which the probability of the two classes are equal:
 
 ```math
