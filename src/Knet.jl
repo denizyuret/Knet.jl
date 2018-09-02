@@ -16,10 +16,10 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 
 using AutoGrad
 using AutoGrad: forw, back, Rec, Tape
-export grad, gradloss, getval
+export grad, gradloss, getval, value, Param
 if isdefined(AutoGrad,:Param); @eval begin
     using AutoGrad: Value
-    export @diff, differentiate, gradient, value, Param
+    export @diff, differentiate, gradient
 end; else; @eval begin    
     const value = getval
     const Value = Rec

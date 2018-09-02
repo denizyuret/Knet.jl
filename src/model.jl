@@ -1,17 +1,46 @@
-#abstract type Model end  # do we really need a Model type?
-#just iterate on params(f)
-#Base.iterate(f::Model, s=(params(f),1)) = ((p,i)=s; i<=length(p) ? (p[i],(p,i+1)) : nothing)
+# We assume a model is just a callable object (https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects-1)
+# model(x) will give us a prediction, and params(model) will iterate over the parameters.
 
-atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
+"""
+    param(dims...; init, atype)
+    param0(dims...; atype)
+
+Return a randomly initialized `Param(atype(init(dims...)))` with given dimensions.
+
+By default, `init` is `xavier` and `atype` is `KnetArray{Float32}` if `gpu() >= 0`,
+otherwise `Array{Float32}`. `param0` is an alias for `param(dims..., init=zeros)`.
+"""
+param,param0
+
 param(d...; init=xavier, atype=atype())=Param(atype(init(d...)))
 param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
+atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
 # Keyword argument problem:
 # optimizer, loss, model can all take keyword args; how do we specify them through train?
 # We can give a constructed optimizer and deepcopy it for each param.
 # We don't call model directly, only through loss (because it may need model params for regularization).
 # So we pass all unrecognized kwargs to loss and let it sort out.
-function train!(model, data::Data; loss=nll, optimizer=SGD(), callback=ncount(length(data)), o...)
+if isdefined(AutoGrad,:gradient); @eval begin #TODO: remove when AutoGrad 1.1 released
+
+"""
+    train!(model, data; loss, optimizer, callback, o...)
+
+Train a model with given data.
+
+* `model`: A callable object. `model(x; o...)` should return a prediction. `params(model)`
+   will automatically iterate over model parameters.
+* `data`: An iterator. `for (x,y) in data` should iterate over input-output pairs.
+* `loss=nll`: A loss function, called with `loss(model,x,y; o...)`.
+* `optimizer=SGD()`: An optimizer object that will be copied for each parameter and used by
+  `[update!]`(@ref).
+* `callback`: To facilitate reporting and termination, a callback function is called
+   before every update with `callback(model,x,y,loss)`. Training continues if the return value
+   is true, terminates if it is false.  See the [`Training`](@ref) object as an example
+   callback. The default callback quits after one epoch.
+* other keyword arguments will be passed to `loss` and possibly by `loss` to `model`.
+"""
+function train!(model, data; loss=nll, optimizer=SGD(), callback=ncount(length(data)), o...)
     for param in params(model)
         param.opt = deepcopy(optimizer)
     end
@@ -24,17 +53,31 @@ function train!(model, data::Data; loss=nll, optimizer=SGD(), callback=ncount(le
     end
 end
 
-ncount(n)=((x...)->(n > 0 && (n -= 1; true)))
-
 function update!(model,J::Tape)
     for w in params(model)
         g = gradient(J,w)
         update!(value(w),g,w.opt)
     end
 end
+end; end
+
+ncount(n)=((x...)->(n > 0 && (n -= 1; true)))
 
 import ProgressMeter            # don't want to import update!
 
+"""
+    Training(howlong, datasets...)
+
+Create a callback function that can be used with [`train!`](@ref).
+
+`howlong` can be an integer, an array of integers, or a `StepRange` such as 0:100:1000
+representing the number of updates for reporting, testing and termination. The training will
+terminate when the number of updates exceed howlong[end]. If the update count ∈ `howlong`, a
+progress bar will be updated and the model will be tested on the datasets if any are
+provided. The `losses` and `errors` fields of the `Training` object will contain the results
+of these tests.
+
+"""
 mutable struct Training
     whentorecord; datasets; losses; errors; updatecount; progress
     Training(w,ds...)=new(w, ds, [Float64[] for d in ds], [Float64[] for d in ds], 0, ProgressMeter.Progress(w[end],1))
@@ -55,6 +98,7 @@ end
 
 # params(f) Based on deepcopy_internal:
 
+"Return an array of Params found by a recursive search of the given object."
 params(f) = (ps=Param[]; params_internal(f,ps,IdDict()); ps)
 
 params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end
