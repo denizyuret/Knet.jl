@@ -37,12 +37,12 @@ include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
-include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, LSTM, GRU, RNNRELU, RNNTANH
+include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN
 include("data.jl");             export Data, minibatch
 include("model.jl");		export param, param0, params, train!, Train
 include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
 include("dropout.jl");          export dropout
-include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers #, train!, ncount
+include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed
 include("hyperopt.jl");         export hyperband, goldensection
