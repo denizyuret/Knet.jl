@@ -74,4 +74,15 @@ end
     end
 end
 
+# Issue 305: Using Knet with StaticArrays
+# PR 306: optimizer for AbstractArrays
+mutable struct A305 <: AbstractArray{Float32,1} end
+
+@testset "optimizers" begin
+    opt = optimizers(A305(), Adam)
+    @test typeof(opt) == Adam
+    opt = optimizers([A305(), A305()], Adam)
+    @test typeof.(opt) == [Adam, Adam]
+end
+
 nothing
