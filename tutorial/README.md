@@ -16,16 +16,16 @@ IJulia by typing the following at the `julia>` prompt: (see
     julia> notebook()
 
 You can also just view the notebooks on github and type the examples manually at a Julia
-prompt.
+prompt. The later examples require a GPU machine to train in a reasonable amount of time.
 
 **Contents:**
-* 00.Julia_is_fast: compare Julia's speed to C, Python and numpy.
-* 01.Getting_to_know_Julia: basic Julia tutorial from [juliabox.com](http://juliabox.com).
-* 02.mnist: introducing the MNIST handwritten digit recognition dataset.
-* 03.lin: define, train, visualize simple linear models, introduce gradients, SGD, using the GPU.
-* 04.mlp: multi layer perceptrons, nonlinearities, model capacity, overfitting, regularization, dropout.
-* 05.cnn: convolutional neural networks, sparse and shared weights using conv4 and pool operations.
-* 06.rnn: introducing recurrent neural networks.
-* 07.imdb: a simple RNN sequence classification model for sentiment analysis of IMDB movie reviews.
-* 08.charlm: a character based RNN language model that can write Shakespeare sonnets and Julia programs.
-* 09.s2s: a sequence to sequence RNN model typically used for machine translation.
+* [00.Julia_is_fast:](00.Julia_is_fast.ipynb) comparison of Julia's speed to C, Python and numpy.
+* [01.Getting_to_know_Julia:](01.Getting_to_know_Julia.ipynb) basic Julia tutorial from [juliabox.com](http://juliabox.com).
+* [02.mnist:](02.mnist.ipynb) introduction to the MNIST handwritten digit recognition dataset.
+* [03.lin:](03.lin.ipynb) define, train, visualize simple linear models, introduce gradients, SGD, using the GPU.
+* [04.mlp:](04.mlp.ipynb) multi layer perceptrons, nonlinearities, model capacity, overfitting, regularization, dropout.
+* [05.cnn:](05.cnn.ipynb) convolutional neural networks, sparse and shared weights using conv4 and pool operations.
+* [06.rnn:](06.rnn.ipynb) introduction to recurrent neural networks.
+* [07.imdb:](07.imdb.ipynb) a simple RNN sequence classification model for sentiment analysis of IMDB movie reviews.
+* [08.charlm:](08.charlm.ipynb) a character based RNN language model that can write Shakespeare sonnets and Julia programs.
+* [09.s2s:](09.s2s.ipynb) a sequence to sequence RNN model typically used for machine translation.
