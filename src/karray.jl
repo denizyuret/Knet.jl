@@ -121,12 +121,13 @@ KnetArray{T}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T
 # KnetArray(::KnetArray) creates a copy, convert returns an alias if possible
 KnetArray(A::KnetArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::KnetArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
+KnetArray{T,N}(x::KnetArray{T,N}) where {T,N} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, x, 1, length(x))
 KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # KnetArray(::AbstractArray)
-KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
-KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
-KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+KnetArray(A::AbstractArray{T,N})    where {T,N}   = (@show(1); KnetArray{T,N}(A))
+KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = (@show(2); KnetArray{T,N}(A))
+KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = (@show(3); _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x)))
 
 # Array(::KnetArray)
 import Base: Array
@@ -141,12 +142,12 @@ convert(::Type{KnetArray}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},_unsafe_copy!(Array{S}(undef,size(x)), 1, x, 1, length(x)))
+convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},_unsafe_copy!(Array{S,N}(undef,size(x)), 1, x, 1, length(x)))
 
 # KnetArray <- AbstractArray
 convert(::Type{KnetArray}, x::AbstractArray{T,N}) where {T,N} = convert(KnetArray{T,N}, x)
 convert(::Type{KnetArray{T}}, x::AbstractArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T,N}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Array <- KnetArray
 convert(::Type{Array}, x::KnetArray{T,N}) where {T,N} = convert(Array{T,N}, x)

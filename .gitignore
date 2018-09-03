@@ -35,3 +35,5 @@ setup.sh
 *.prof
 *.gz
 Manifest.toml
+.ipynb_checkpoints
+*-Copy*ipynb

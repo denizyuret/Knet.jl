@@ -1,7 +1,6 @@
 # Examples
 
 ## Tutorials
-- [dl-tutorial](dl-tutorial): Deep learning tutorial notebooks I use in class.
 - [julia-tutorial](julia-tutorial): Julia examples demonstrating arrays, tuples, dictionaries, indexing etc.
 - [knet-tutorial](knet-tutorial): Notebook with Knet models for linreg, softmax, mlp, cnn, rnn.
 - [optimizers](optimizers): Try various optimizers (SGD, Momentum, Adam...) on [LeNet].
