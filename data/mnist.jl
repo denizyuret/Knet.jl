@@ -1,4 +1,4 @@
-using GZip
+using CodecZlib
 
 "Where to download mnist from"
 mnisturl = "http://yann.lecun.com/exdb/mnist"
@@ -69,7 +69,7 @@ function _mnist_gzload(file)
         url = "$mnisturl/$file"
         download(url, path)
     end
-    f = gzopen(path)
+    f = GzipDecompressorStream(open(path))
     a = read(f)
     close(f)
     return(a)

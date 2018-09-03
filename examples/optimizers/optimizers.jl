@@ -1,5 +1,5 @@
 using Pkg
-for p in ("Knet","ArgParse", "GZip")
+for p in ("Knet","ArgParse","CodecZlib")
     !in(p, keys(Pkg.installed())) && Pkg.add(p)
 end
 import Knet; include(joinpath(dirname(pathof(Knet)), "..", "data", "mnist.jl"))

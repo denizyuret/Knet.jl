@@ -26,41 +26,41 @@ compiler.  On Windows you need the Visual C++ compiler which comes
 with Visual Studio or Build Tools (I have tested with VS 2015 because
 VS 2017 was not supported by the CUDA toolkit as of December 10,
 2017).  If you don't have a compiler, most of Knet will still work on
-CPU (slow) and without convolution support.
+CPU (slow).
 
-GPU support: If your machine has an NVIDIA GPU, Knet will
-automatically discover it and compile support code if you have the
-required host compiler,
+GPU support: If your machine has an NVIDIA GPU, Knet will automatically discover it and
+compile support code if you have the required host compiler,
 [driver](http://www.nvidia.com/Download/index.aspx?lang=en-us),
 [toolkit](https://developer.nvidia.com/cuda-downloads) and [cuDNN
-library](https://developer.nvidia.com/cudnn) pre-installed.
+library](https://developer.nvidia.com/cudnn) pre-installed. Knet uses the
+[CUDAapi](https://github.com/JuliaGPU/CUDAapi.jl) library for discovery.
 
 Julia: Download and install the latest version of Julia from
 [julialang.org](http://julialang.org/downloads). As of this writing
-the latest version is 0.6.1 and I have tested Knet using 64-bit
+the latest version is 1.0.0 and I have tested Knet using 64-bit
 Generic Linux binaries, the macOS package (10.8+ 64-bit dmg), and
 64-bit Windows Self Extracting Archive (exe). 
 
 Knet: Once Julia is installed, type `julia` at the command prompt to
 start the Julia interpreter. To install Knet just use
-`Pkg.add("Knet")`:
+`using Pkg; Pkg.add("Knet")`:
 
     $ julia
                    _
-       _       _ _(_)_     |  A fresh approach to technical computing
-      (_)     | (_) (_)    |  Documentation: https://docs.julialang.org
-       _ _   _| |_  __ _   |  Type "?help" for help.
+       _       _ _(_)_     |  Documentation: https://docs.julialang.org
+      (_)     | (_) (_)    |
+       _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
       | | | | | | |/ _` |  |
-      | | |_| | | | (_| |  |  Version 0.6.1 (2017-10-24 22:15 UTC)
-     _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
-    |__/                   |  x86_64-pc-linux-gnu
+      | | |_| | | | (_| |  |  Version 1.0.0 (2018-08-08)
+     _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
+    |__/                   |
+    
+    julia> using Pkg; Pkg.add("Knet")
 
-    julia> Pkg.add("Knet")
-
-Some Knet examples use additional packages such as ArgParse, GZip and
-JLD. These are not required by Knet, and are installed automatically
+Some Knet examples use additional packages such as ArgParse and
+JSON. These are not required by Knet, and are installed automatically
 when needed. You can install any extra packages manually using
-Pkg.add("PkgName").
+`using Pkg; Pkg.add("PkgName")`.
 
 To make sure everything has installed correctly, type
 `Pkg.test("Knet")` which should take a minute kicking the tires. You
@@ -79,9 +79,9 @@ precompiled binaries get out of sync and you may get errors like:
 
 I recommend the following steps to refresh everything:
 
-    shell> rm ~/.julia/lib/v0.5/*.ji
-    shell> cd ~/.julia/v0.5/Knet/src
-    shell> make clean; make
+    shell> rm ~/.julia/compiled/v1.0/Knet/*.ji
+    shell> cd ~/.julia/packages/Knet/*/deps
+    shell> make clean
     shell> julia
     julia> Pkg.build("Knet")
 
@@ -108,8 +108,9 @@ list and follow these tips:
 -   Make sure your [fork is
     up-to-date](https://help.github.com/articles/syncing-a-fork).
 -   Retrieve the latest version of the master branch using
-    `Pkg.checkout("Knet")`.
+    `git pull` in the Knet directory.
 -   Implement your contribution.  This typically involves:
+    - Creating a git branch.
     - Writing your code.
     - Adding documentation under doc/src and a summary in NEWS.md.
     - Adding unit tests in the test directory and using `Pkg.test("Knet")`.
@@ -135,10 +136,10 @@ the following screen:
 
 ![image](images/aws01.png)
 
-2\. Make sure you select the "N. California" region in the upper right
+2\. Make sure you select the "Ohio" region in the upper right
 corner, then click on AMIs on the lower left menu. At the search box,
 choose "Public images" and search for "Knet". Click on the latest Knet
-image (Knet-0.8.6 as of this writing). You should see the following
+image (Knet-1.0.0 as of this writing). You should see the following
 screen with information about the Knet AMI. Click on the "Launch" button
 on the upper left.
 
@@ -191,27 +192,26 @@ Replacing `knetkey.pem` with the path to your key file and
 `ec2-54-153-5-184` with the address of your machine. If all goes well
 you should get a shell prompt on your machine instance.
 
-9\. There you can type `julia`, and at the julia prompt `Pkg.update()`
-and `Pkg.build("Knet")` to get the latest versions of the packages, as
-the versions in the AMI may be out of date:
+9\. There you can type `julia`, and at the julia prompt `using Pkg`, `Pkg.update()` and
+`Pkg.build("Knet")` to get the latest versions of the packages, as the versions in the AMI
+may be out of date:
 
-    [ec2-user@ip-172-31-6-90 ~]$ julia
+    [ec2-user@ip-172-31-24-60 deps]$ julia
                    _
-       _       _ _(_)_     |  A fresh approach to technical computing
-      (_)     | (_) (_)    |  Documentation: http://docs.julialang.org
-       _ _   _| |_  __ _   |  Type "?help" for help.
+       _       _ _(_)_     |  Documentation: https://docs.julialang.org
+      (_)     | (_) (_)    |
+       _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
       | | | | | | |/ _` |  |
-      | | |_| | | | (_| |  |  Version 0.4.2 (2015-12-06 21:47 UTC)
-     _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
-    |__/                   |  x86_64-unknown-linux-gnu
-
-    WARNING: Terminal not fully functional
+      | | |_| | | | (_| |  |  Version 1.0.0 (2018-08-08)
+     _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
+    |__/                   |
+    
+    julia> using Pkg
     julia> Pkg.update()
     julia> Pkg.build("Knet")
 
-Finally you can run `Pkg.test("Knet")` to make sure all is good. This
-should take about a minute. If all tests pass, you are ready to work
-with Knet:
+Finally you can run `Pkg.test("Knet")` to make sure all is good. This should take about
+10-15 minutes. If all tests pass, you are ready to work with Knet:
 
 
     julia> Pkg.test("Knet")
