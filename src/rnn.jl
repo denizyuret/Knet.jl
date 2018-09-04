@@ -21,7 +21,7 @@ mutable struct DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
 
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
-    rnn(x, h...; hout, batchSizes) => y
+    rnn(x; hidden, batchSizes) => y
 
 `RNN` returns a callable RNN object `rnn`. Given a minibatch of sequences `x`, `rnn(x)`
 returns `y`, the hidden states of the final layer for each time step.
@@ -42,13 +42,16 @@ different lengths). In this case `x` will typically be 2-D with the second dimen
 representing variable size batches for time steps. If `batchSizes` is used,
 `sum(batchSizes)` should equal `length(x) ÷ size(x,1)`.
 
-**Hidden states:** Additional arguments to rnn, `h...`, can optionally be used to specify
-the initial hidden and cell states (cell state is only used by LSTMs). Initial states are
-assumed to be zero if not specified.  Final hidden states (for all layers) will be discarded
-if `hout=nothing` (default), or pushed into `hout` (which should be Any[]) otherwise. All
-hidden and cell states have dimensionality (H,B,L) for unidirectional and (H,B,2L) for
-bidirectional RNNs.  If `batchSizes` is used and minibatch sizes change over time, B is
-always taken to be the size of the first minibatch for hidden sizes.
+**Hidden states:** If `hidden=nothing` (default), initial hidden states are assumed zero and
+final hidden states are discarded. If `hidden=Any[]`, initial hidden states are assumed zero
+and final hidden states are pushed into hidden.  If `hidden=Any[h,c]` (for LSTM) or
+`hidden=Any[h]` (for others), the values in the hidden array are taken to be the initial
+hidden states and are replaced by the final hidden states on return.  Note that the final
+time step of `y` always contains the final hidden state of the last layer, so `hidden` will
+return no extra information for a single layer network.  All hidden and cell states have
+dimensionality (H,B,L) for unidirectional and (H,B,2L) for bidirectional RNNs.  If
+`batchSizes` is used and minibatch sizes change over time, B is always taken to be the size
+of the first minibatch for hidden sizes.
 
 **Keyword arguments for RNN:**
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
@@ -110,18 +113,24 @@ RNN(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...); r.w=param(w); r)
 # New interface: added w as an extra field to the RNN struct. Did not change anything else
 # above for backward compatibility.
 
-# For hidden input and output: Optional arguments following x can be used to specify hx and
-# hy as in rnnforw.  I really don't want to return a tuple this time. So instead if hout=[]
-# push the hidden(s) into it, if hout=nothing, don't.
-# How do we handle the training argument?  Look at the tape?
+# For hidden input and output: if hidden=nothing (default) do not initialize hx or return
+# hy. If hidden=Array{Any}, initialize hx from it, empty and push value(hy) back into
+# it. This runs the risk of the user using hy in the loss, resulting in incorrect gradients
+# because its Result struct was lost to value(). Alternatives:
+## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
+## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
+## use it in loss, except using it as hx for another rnn call.
+# making hidden a regular arg may be more meaningful (but one that gets overwritten?)
 
-function (r::RNN)(x,h...; hout=nothing, batchSizes=nothing)
+function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
     tr = !isempty(AutoGrad._tapes)
-    hy = (hout != nothing)
-    cy = (hout != nothing && r.mode == 2)
+    hy = (hidden != nothing)
+    cy = (hidden != nothing && r.mode == 2)
+    h = (hidden != nothing ? value.(hidden) : ())
     (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
-    if hy; push!(hout, hyout); end
-    if cy; push!(hout, cyout); end
+    if hidden != nothing; empty!(hidden); end
+    if hy; push!(hidden, hyout); end
+    if cy; push!(hidden, cyout); end
     return y
 end
 

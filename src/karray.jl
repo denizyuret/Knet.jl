@@ -125,9 +125,9 @@ KnetArray{T,N}(x::KnetArray{T,N}) where {T,N} = _unsafe_copy!(KnetArray{T}(undef
 KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # KnetArray(::AbstractArray)
-KnetArray(A::AbstractArray{T,N})    where {T,N}   = (@show(1); KnetArray{T,N}(A))
-KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = (@show(2); KnetArray{T,N}(A))
-KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = (@show(3); _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x)))
+KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
+KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
+KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Array(::KnetArray)
 import Base: Array
