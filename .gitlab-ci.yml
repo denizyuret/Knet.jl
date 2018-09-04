@@ -15,3 +15,6 @@ include:
 
 test:dev:
   allow_failure: true
+
+test:v0.7:
+  allow_failure: true
