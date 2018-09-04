@@ -58,4 +58,4 @@ Current contributors:
   * Ömer Kırnap
   * Rene Donner
   * Tim Besard
-  * Zhang Shi
+  * Zhang Shiwei
