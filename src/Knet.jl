@@ -15,15 +15,18 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
 using AutoGrad
-using AutoGrad: forw, back, Rec, Tape
-export grad, gradloss, getval, value, Param
+using AutoGrad: forw, back, Tape
+using AutoGrad: Rec             # TODO; deprecate after AutoGrad 1.1
+export grad, value, Param
+export gradloss, getval         # TODO: deprecate after AutoGrad 1.1?
 if isdefined(AutoGrad,:Param); @eval begin
     using AutoGrad: Value
-    export @diff, differentiate, gradient
-end; else; @eval begin    
+    export @diff
+end; else; @eval begin          # TODO: deprecate after AutoGrad 1.1
     const value = getval
     const Value = Rec
     const Param = Rec
+    macro diff(x) :(throw(UndefVarError(:@diff))) end
 end; end
 
 include("gpu.jl");              export gpu
@@ -37,14 +40,14 @@ include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
-include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN
+include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN # TODO: deprecate old interface
 include("data.jl");             export Data, minibatch
-include("model.jl");		export param, param0, params, train!, Train
-include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone
+include("model.jl");		export param, param0, train!, Train
+include("loss.jl");             export logp, logsumexp, nll, accuracy, zeroone # TODO: PR
 include("dropout.jl");          export dropout
 include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
-include("random.jl");           export setseed
+include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection
 include("jld.jl");              export RnnJLD,KnetJLD
 
