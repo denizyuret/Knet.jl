@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 
 This example learns to classify hand-written digits from the

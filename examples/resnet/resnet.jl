@@ -1,7 +1,7 @@
+using Pkg
 for p in ("Knet","ArgParse","Images")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
-include(Pkg.dir("Knet","data","imagenet.jl"))
 
 """
 
@@ -18,6 +18,7 @@ Shaoqing Ren, Jian Sun, arXiv technical report 1512.03385, 2015.
 """
 module ResNet
 using Knet, ArgParse
+include(Knet.dir("data","imagenet.jl"))
 
 const modelurl = "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-101-dag.mat"
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
@@ -41,15 +42,15 @@ function main(args)
     println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-    atype = eval(parse(o[:atype]))
-    model = Main.matconvnet(o[:model])
+    atype = eval(Meta.parse(o[:atype]))
+    model = matconvnet(o[:model])
     avgimg = model["meta"]["normalization"]["averageImage"]
     avgimg = convert(Array{Float32}, avgimg)
     description = model["meta"]["classes"]["description"]
     w, ms = get_params(model["params"], atype)
 
-    info("Reading $(o[:image])")
-    img = Main.imgdata(o[:image], avgimg)
+    @info("Reading $(o[:image])")
+    img = imgdata(o[:image], avgimg)
     img = convert(atype, img)
 
     # get model by length of parameters
@@ -60,7 +61,7 @@ function main(args)
     !haskey(modeldict, length(w)) && error("wrong resnet MAT file")
     resnet, name = modeldict[length(w)]
 
-    info("Classifying with ", name)
+    @info("Classifying with $name")
     @time y1 = resnet(w,img,ms)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)
@@ -134,12 +135,12 @@ function batchnorm(w, x, ms; mode=1, epsilon=1e-5)
         x1 = x0 .* x0
         sigma = sqrt(epsilon + (sum(x1, d)) / s)
     elseif mode == 1
-        mu = shift!(ms)
-        sigma = shift!(ms)
+        mu = popfirst!(ms)
+        sigma = popfirst!(ms)
     end
 
-    # we need getval in backpropagation
-    push!(ms, getval(mu), getval(sigma))
+    # we need value in backpropagation
+    push!(ms, value(mu), value(sigma))
     xhat = (x.-mu) ./ sigma
     return w[1] .* xhat .+ w[2]
 end
@@ -190,7 +191,7 @@ function get_params(params, atype)
         elseif startswith(name, "bn")
             push!(ws, reshape(value, (1,1,length(value),1)))
         elseif startswith(name, "fc") && endswith(name, "filter")
-            push!(ws, transpose(reshape(value,size(value,3,4))))
+            push!(ws, transpose(reshape(value,(size(value,3),size(value,4)))))
         elseif startswith(name, "conv") && endswith(name, "bias")
             push!(ws, reshape(value, (1,1,length(value),1)))
         else

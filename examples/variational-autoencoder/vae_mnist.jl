@@ -1,16 +1,15 @@
+using Pkg
 for p in ("Knet","ArgParse","Images")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
 """
 Train a Variational Autoencoder on the MNIST dataset.
 """
 module VAE
-using Knet
-using ArgParse
-using Images
-include(Pkg.dir("Knet","data","mnist.jl"))
-include(Pkg.dir("Knet","data","imagenet.jl"))
+using Knet, ArgParse, Images, Random, Statistics
+include(Knet.dir("data","mnist.jl"))
+include(Knet.dir("data","imagenet.jl"))
 
 const F = Float32
 
@@ -125,9 +124,9 @@ function main(args="")
     end
     o = parse_args(args, s; as_symbols=true)
 
-    atype = eval(parse(o[:atype]))
-    info("using ", atype)
-    o[:seed] > 0 && setseed(o[:seed])
+    atype = eval(Meta.parse(o[:atype]))
+    @info("using $atype")
+    o[:seed] > 0 && Knet.seed!(o[:seed])
 
     θ, ϕ = weights(o[:nz], o[:nh], atype=atype)
     w = [θ; ϕ]
@@ -144,14 +143,14 @@ function main(args="")
                      :tst, aveloss(θ, ϕ, dtst)))
     end
 
-    report(0); tic()
+    report(0)
     @time for epoch=1:o[:epochs]
         for (x, y) in  minibatch(xtrn, ytrn, o[:batchsize], shuffle=true, xtype=atype)
             dw = grad(loss)(w, x, length(θ))
             update!(w, dw, opt)
         end
-        (epoch % o[:infotime] == 0) && (report(epoch); toc(); tic())
-    end; toq()
+        (epoch % o[:infotime] == 0) && report(epoch)
+    end
 
     return θ, ϕ
 end

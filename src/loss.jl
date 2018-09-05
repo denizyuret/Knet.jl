@@ -255,3 +255,7 @@ zeroone(x...; o...) = 1 - accuracy(x...; o...)
 # We need the (model,x,y) interface to implement regularization:
 nll(model,x,y;o...)=nll(model(x;o...),y)
 accuracy(model,x,y;o...)=accuracy(model(x;o...),y)
+
+# We need the following to support the old interface:
+nll(w,d::Data,f::Function;average=true)=nll(x->f(w,x), d; average=average)
+accuracy(w,d::Data,f::Function;average=true)=accuracy(x->f(w,x), d; average=average)

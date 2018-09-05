@@ -1,5 +1,6 @@
+using Pkg
 for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
 """
@@ -13,7 +14,7 @@ optimized parameters will be returned.
 
 """
 module LinReg
-using Knet, ArgParse
+using Knet, ArgParse, Random
 
 predict(w,x)=(w*x)
 
@@ -43,23 +44,19 @@ end
 
 # Data generator:
 
-import Base: start, next, done
+struct LRData; w; batchsize; epochsize; noise; rng; atype; end
 
-type Data; w; batchsize; epochsize; noise; rng; atype; end
-
-function Data(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Base.GLOBAL_RNG, atype=Array)
-    Data(convert(atype, randn(rng,outputdims,inputdims)),batchsize,epochsize,noise,rng,atype)
+function LRData(outputdims,inputdims; batchsize=20, epochsize=10000, noise=.01, rng=Random.GLOBAL_RNG, atype=Array)
+    LRData(convert(atype, randn(rng,outputdims,inputdims)),batchsize,epochsize,noise,rng,atype)
 end
 
-function next(l::Data, n)
+function Base.iterate(l::LRData, n=0)
+    if n >= l.epochsize; return nothing; end
     (outputdims, inputdims) = size(l.w)
     x = convert(l.atype, rand(l.rng, inputdims, l.batchsize))
     y = l.w * x + convert(l.atype, l.noise * randn(l.rng, outputdims, l.batchsize))
     return ((x,y), n+l.batchsize)
 end
-
-start(l::Data)=0
-done(l::Data,n)=(n >= l.epochsize)
 
 
 # Main loop:
@@ -90,8 +87,8 @@ function main(args=ARGS)
     println(s.description)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
-    data = Data(o[:outputdims], o[:inputdims]; batchsize=o[:batchsize], epochsize=o[:epochsize], noise=o[:noise], atype=atype)
+    atype = eval(Meta.parse(o[:atype]))
+    data = LRData(o[:outputdims], o[:inputdims]; batchsize=o[:batchsize], epochsize=o[:epochsize], noise=o[:noise], atype=atype)
     w = convert(atype, 0.1*randn(o[:outputdims], o[:inputdims]))
     println((:epoch,0,:loss,test(w,data)))
     if o[:fast]

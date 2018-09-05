@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 This example uses the
 [Boston Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing) dataset

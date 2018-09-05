@@ -1,8 +1,8 @@
 using Pkg
 for p in ("Knet","ArgParse","CodecZlib")
-    !in(p, keys(Pkg.installed())) && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
-import Knet; include(joinpath(dirname(pathof(Knet)), "..", "data", "mnist.jl"))
+import Knet; include(Knet.dir("data","mnist.jl"))
 
 
 """
@@ -35,7 +35,7 @@ function main(args=ARGS)
 	("--beta2"; arg_type=Float64; default=0.95; help="beta2 parameter used in adam")
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--iters"; arg_type=Int; default=6000; help="number of updates for training")
-	("--optim"; default="Sgd"; help="optimization method (Sgd, Momentum, Nesterov, Adagrad, Adadelta, Rmsprop, Adam)")
+	("--optim"; default="SGD"; help="optimization method (SGD, Momentum, Nesterov, Adagrad, Adadelta, Rmsprop, Adam)")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
     end
     isa(args, AbstractString) && (args=split(args))
@@ -47,7 +47,7 @@ function main(args=ARGS)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
     o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
+    atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 
     xtrn,ytrn,xtst,ytst = Main.mnist()
@@ -119,8 +119,8 @@ function params(ws, o)
 	
 	for i=1:length(ws)
 		w = ws[i]
-		if o[:optim] == "Sgd"
-			prm = Sgd(;lr=o[:lr])
+		if o[:optim] == "SGD"
+			prm = SGD(;lr=o[:lr])
 		elseif o[:optim] == "Momentum"
 			prm = Momentum(lr=o[:lr], gamma=o[:gamma])
 		elseif o[:optim] == "Nesterov"

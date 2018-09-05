@@ -1,3 +1,5 @@
+using Pkg; haskey(Pkg.installed(),"Knet") || Pkg.add("Knet")
+
 # TODO: improve example and document metadata return type further
 # TODO: document low-level API
 """This module implements the ResNet 50,101,150 and CIFAR models from
@@ -199,7 +201,7 @@ function resnet(ws, ms, x, repeats;
         (stage == i) && return o
     end
     # global average pooling & output
-    o = pool(o; window=size(o,1,2), mode=2)
+    o = pool(o; window=(size(o,1),size(o,2)), mode=2)
     stage == length(repeats)+1 && return o
     return ws[end-1] * mat(o) .+ ws[end]
 end
@@ -311,7 +313,7 @@ function load_resnet!(weights, moments;
                       modeldir=Knet.dir("data"),
                       stage=0, depth=101,
                       o...)
-    info("Loading pretrained weights...")
+    @info("Loading pretrained weights...")
     # All of this is implemented in Knet/data/imagenet.jl
     # urls = Dict([
     #     50  => "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-50-dag.mat",
@@ -325,7 +327,7 @@ function load_resnet!(weights, moments;
     #     download(urls[depth], dest)
     # end
     # r = matread(dest)
-    r = Main.matconvnet("imagenet-resnet-$depth-dag")
+    r = matconvnet("imagenet-resnet-$depth-dag")
     load_params!(weights, moments, r["params"];
                  first_bias=depth==50,
                  stage=stage,
@@ -349,9 +351,9 @@ function load_params!(weights, moments, matparams;
     wc = 1
     mc = 1
     for i = 1:4:len-2
-        copy!(weights[wc], params[i])
+        copyto!(weights[wc], params[i])
         bnw = weights[wc+1]
-        copy!(bnw, vcat(params[i+1][:], params[i+2][:]))
+        copyto!(bnw, vcat(params[i+1][:], params[i+2][:]))
         m = params[i+3]
         sz = (1, 1, size(m, 1), 1)
         moments[mc].mean = reshape(atype(m[:, 1]), sz) 
@@ -362,8 +364,8 @@ function load_params!(weights, moments, matparams;
     end
     (stage == 5) && return
     w, b = params[end-1], params[end]
-    copy!(weights[wc], mat(w)')
-    copy!(weights[wc+1], b)
+    copyto!(weights[wc], mat(w)')
+    copyto!(weights[wc+1], b)
 end
 
 end #module

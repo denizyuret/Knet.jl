@@ -1,7 +1,5 @@
-for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
-end
-include(Pkg.dir("Knet","data","fashion-mnist.jl"))
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+include(Knet.dir("data","fashion-mnist.jl"))
 
 """
 
@@ -106,7 +104,7 @@ function main(args="")
         println("opts=",[(k,v) for (k,v) in o]...)
     end
     o[:seed] > 0 && srand(o[:seed])
-    atype = eval(parse(o[:atype]))
+    atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
     xtrn,ytrn,xtst,ytst = Main.fmnist()
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)

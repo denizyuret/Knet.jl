@@ -1,3 +1,4 @@
+using Pkg; haskey(Pkg.installed(),"CodecZlib") || Pkg.add("CodecZlib")
 using CodecZlib
 
 "Where to download mnist from"
