@@ -1,5 +1,6 @@
+using Pkg
 for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
 """
@@ -18,12 +19,11 @@ arXiv technical report 1503.00075, 2015.
 
 """
 module TreeLSTM
-using Knet
-using ArgParse
+using Knet, ArgParse, Dates, Printf, Random
 
 const UNK = "_UNK_"
 t00 = now()
-include(Pkg.dir("Knet","data","treebank.jl"))
+include(Knet.dir("data","treebank.jl"))
 
 function main(args)
     s = ArgParseSettings()
@@ -62,7 +62,7 @@ function main(args)
     opt = optimizers(w, Adam)
 
     # main loop
-    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(stdout)
     all_time = sents = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
     for epoch = 1:o[:epochs]
@@ -78,7 +78,7 @@ function main(args)
             cwords += this_words
 
             if o[:report] > 0 && iter % o[:report] == 0
-                @printf("%f\n", closs/cwords); flush(STDOUT)
+                @printf("%f\n", closs/cwords); flush(stdout)
                 closs = cwords = 0
             end
         end
@@ -97,14 +97,14 @@ function main(args)
         end
         @printf(
             "acc=%.4f, time=%.4f, sent_per_sec=%.4f\n",
-            good/(good+bad), all_time, sents/all_time); flush(STDOUT)
+            good/(good+bad), all_time, sents/all_time); flush(stdout)
 
         all_time > o[:timeout] && return
     end
 end
 
 function initweights(atype, hidden, words, labels, embed, winit=0.01)
-    w = Array{Any}(9)
+    w = Array{Any}(undef,9)
     w[1] = winit*randn(3*hidden, embed)
     w[2] = zeros(3*hidden, 1)
     w[3] = winit*randn(3*hidden, 2*hidden)
@@ -184,7 +184,7 @@ function predict(w,tree)
     hs, ys = traverse(w, tree)
     ypred = w[end-1] * hs[end]
     ypred = convert(Array{Float32}, ypred)[:]
-    return (indmax(ypred),length(ys))
+    return (argmax(ypred),length(ys))
 end
 
 lossgradient = grad(loss)
@@ -193,7 +193,7 @@ function train!(w,tree,opt)
     values = []
     gloss = lossgradient(w, tree, values)
     update!(w,gloss,opt)
-    return (values...)
+    return (values...,)
 end
 
 splitdir(PROGRAM_FILE)[end] == "treenn.jl" && main(ARGS)

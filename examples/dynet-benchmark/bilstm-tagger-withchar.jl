@@ -1,5 +1,6 @@
+using Pkg
 for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
 """
@@ -21,10 +22,9 @@ which takes characters as input.
 
 """
 module CharTagger
-using Knet
-using ArgParse
+using Knet, ArgParse, Dates, Random, Printf
 
-include(Pkg.dir("Knet","data","wikiner.jl"))
+include(Knet.dir("data","wikiner.jl"))
 const F = Float32
 t00 = now()
 
@@ -64,8 +64,8 @@ function main(args)
 
     # train bilstm tagger
     nwords = data.nwords; ntags = data.ntags; nchars = data.nchars
-    println("nwords=$nwords, ntags=$ntags, nchars=$nchars"); flush(STDOUT)
-    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
+    println("nwords=$nwords, ntags=$ntags, nchars=$nchars"); flush(stdout)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(stdout)
     t0 = now()
     all_time = dev_time = all_tagged = this_tagged = this_loss = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
@@ -74,7 +74,7 @@ function main(args)
         for k = 1:length(data.trn)
             iter = (epoch-1)*length(data.trn) + k
             if o[:report] > 0 && iter % o[:report] == 0
-                @printf("%f\n", this_loss/this_tagged); flush(STDOUT)
+                @printf("%f\n", this_loss/this_tagged); flush(stdout)
                 all_tagged += this_tagged
                 this_loss = this_tagged = 0
                 all_time = Int((now()-t0).value)*0.001
@@ -88,7 +88,7 @@ function main(args)
                     nwords = length(sent)
                     ypred,_ = predict(w, input, srnns)
                     ypred = map(
-                        x->data.i2t[x], mapslices(indmax,Array(ypred),1))
+                        x->data.i2t[x], mapslices(argmax,Array(ypred),dims=1))
                     ygold = map(x -> x[2], sent)
                     same = true
                     for (y1,y2) in zip(ypred, ygold)
@@ -111,7 +111,7 @@ function main(args)
                 @printf(
                     "tag_acc=%.4f, sent_acc=%.4f, time=%.4f, word_per_sec=%.4f\n",
                     good/(good+bad), good_sent/(good_sent+bad_sent), train_time,
-                    all_tagged/train_time); flush(STDOUT)
+                    all_tagged/train_time); flush(stdout)
                 all_time > o[:timeout] && return
             end
 
@@ -122,7 +122,7 @@ function main(args)
             this_loss += batch_loss
             this_tagged += length(data.trn[k])
         end
-        @printf("epoch %d finished\n", epoch-1); flush(STDOUT)
+        @printf("epoch %d finished\n", epoch-1); flush(stdout)
     end
 end
 
@@ -134,7 +134,7 @@ function make_input(sample, w2i, c2i)
         if is_word[end]
             push!(seq, w2i[word])
         else
-            chars = [PAD; convert(Array{UInt8,1}, word); PAD]
+            chars = [PAD; codeunits(word); PAD]
             push!(seq, convert(Array{Int32}, map(c->c2i[c], chars)))
         end
     end
@@ -153,8 +153,8 @@ function make_input(sample, w2i, c2i)
         end
     end
 
-    cinds = find(is_word)
-    rinds = find(.!is_word)
+    cinds = findall(is_word)
+    rinds = findall(.!is_word)
     cwords = seq[is_word]
     cwords = reshape(cwords, 1, length(cwords))
     cwords = convert(Array{Int32}, cwords)
@@ -169,7 +169,7 @@ end
 
 function initweights(
     atype, hidden, words, tags, chars, wembed, cembed, mlp, usegpu, winit=0.01)
-    w = Array{Any}(8)
+    w = Array{Any}(undef,8)
     _birnninit(x,y) = rnninit(x,y; bidirectional=true, usegpu=usegpu)
 
     # init rnns

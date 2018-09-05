@@ -1,3 +1,4 @@
+using Pkg; haskey(Pkg.installed(),"ZipFile") || Pkg.add("ZipFile")
 using ZipFile
 
 "Where to download dataset from"
@@ -164,22 +165,22 @@ let
     end
 
     function parse_line(line)
-        ln = replace(line, "\n", "")
+        ln = replace(line, "\n"=>"")
         tokens = tokenize_sexpr(ln)
-        shift!(tokens)
+        popfirst!(tokens)
         return within_bracket(tokens)[1]
     end
 
     function tokenize_sexpr(sexpr)
         tokker = r" +|[()]|[^ ()]+"
-        filter(t -> t != " ", matchall(tokker, sexpr))
+        filter(t -> t != " ", collect(m.match for m = eachmatch(tokker, sexpr)))
     end
 
     function within_bracket(tokens, state=1)
-        (label, state) = next(tokens, state)
+        (label, state) = iterate(tokens, state)
         children = []
-        while !done(tokens, state)
-            (token, state) = next(tokens, state)
+        while iterate(tokens, state) != nothing
+            (token, state) = iterate(tokens, state)
             if token == "("
                 (child, state) = within_bracket(tokens, state)
                 push!(children, child)
