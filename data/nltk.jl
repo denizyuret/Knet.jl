@@ -5,6 +5,14 @@ using ZipFile, FileIO
 nltkurl = "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages"
 nltkdir = joinpath(@__DIR__, "nltk")
 
+"""
+    brown()
+
+Return (data, words, tags) where data is an array of (x,y) pairs, each pair represents a
+sentence, x is an UInt16 array of word ids, y is an UInt16 array of postag ids. words and
+tags are String arrays to convert word and tag ids to strings. Ids are assigned in order of
+frequency, i.e. words[1] is the most frequent word.
+"""
 function brown()
     ispath(nltkdir) || mkpath(nltkdir)
     jldfile = joinpath(nltkdir,"brown.jld2")
@@ -36,7 +44,6 @@ function brown()
         n = 1; for (c,w) in sort(collect(zip(values(wdict),keys(wdict))), rev=true); wdict[w] = n; words[n] = w; n+=1; end
         n = 1; for (c,t) in sort(collect(zip(values(tdict),keys(tdict))), rev=true); tdict[t] = n; tags[n] = t; n+=1; end
         data = map(data) do xy; (UInt16[ wdict[x] for x in xy[1] ], UInt16[ tdict[y] for y in xy[2] ]); end
-        return data,words,tags
         save(jldfile, "data", data, "words", words, "tags", tags)
     end
     load(jldfile, "data", "words", "tags")
