@@ -165,8 +165,8 @@ instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll(y,a::Array{T}; dims=1, average=true) where {T<:Integer}
-    indices = findindices(y,a,dims)
+function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
+    indices = findindices(y,a,dims=dims)
     lp = logp(y,dims=dims)[indices]
     average ? -mean(lp) : -sum(lp)
 end
@@ -183,8 +183,8 @@ answer has the maximum score. `dims=1` means instances are in columns,
 the number of correct answers instead of the ratio.
 
 """
-function accuracy(y,a::Array{T}; dims=1, average=true) where {T<:Integer}
-    indices = findindices(y,a,dims)
+function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
+    indices = findindices(y,a,dims=dims)
     ycpu = Array(y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
     maxind = LinearIndices(ycpu)[maxind]
@@ -192,17 +192,17 @@ function accuracy(y,a::Array{T}; dims=1, average=true) where {T<:Integer}
     average ? mean(correct) : sum(correct)
 end
 
-function findindices(y,a::Array{T},d=1) where {T<:Integer}
+function findindices(y,a::AbstractArray{<:Integer}; dims=1)
     n = length(a)
     indices = Vector{Int}(undef,n)
-    if d == 1                   # instances in first dimension
+    if dims == 1                   # instances in first dimension
         y1 = size(y,1)
         y2 = div(length(y),y1)
         if n != y2; throw(DimensionMismatch()); end
         @inbounds for j=1:n
             indices[j] = (j-1)*y1 + a[j]
         end
-    elseif d == 2               # instances in last dimension
+    elseif dims == 2               # instances in last dimension
         y2 = size(y,ndims(y))
         y1 = div(length(y),y2)
         if n != y1; throw(DimensionMismatch()); end
@@ -210,7 +210,7 @@ function findindices(y,a::Array{T},d=1) where {T<:Integer}
             indices[j] = (a[j]-1)*y1 + j
         end
     else
-        error("findindices only supports d = 1 or 2")
+        error("findindices only supports dims = 1 or 2")
     end
     return indices
 end
@@ -218,16 +218,15 @@ end
 
 
 """
-    nll(model, data; average=true, o...)
+    nll(model, data; dims=1, average=true, o...)
 
-Compute `nll(model(x; o...), y)` for `(x,y)` in `data` and return the
-per-instance average (if average=true) or total (if average=false)
-negative log likelihood.
+Compute `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and return the per-instance
+average (if average=true) or total (if average=false) negative log likelihood.
 """
-function nll(model,data::Data; average=true, o...)
+function nll(model, data; dims=1, average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += nll(model(x; o...), y; average=false)
+        sum += nll(model(x; o...), y; dims=dims, average=false)
         cnt += length(y)
     end
     average ? sum / cnt : sum
@@ -235,16 +234,15 @@ end
 
 
 """
-    accuracy(model, data; average=true, o...)
+    accuracy(model, data; dims=1, average=true, o...)
 
-Compute `accuracy(model(x; o...), y)` for `(x,y)` in `data` and
-return the ratio (if average=true) or the count (if average=false) of
-correct answers.
+Compute `accuracy(model(x; o...), y; dims)` for `(x,y)` in `data` and return the ratio (if
+average=true) or the count (if average=false) of correct answers.
 """
-function accuracy(model,data::Data; average=true, o...)
+function accuracy(model, data; dims=1, average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += accuracy(model(x; o...), y; average=false)
+        sum += accuracy(model(x; o...), y; dims=dims, average=false)
         cnt += length(y)
     end
     average ? sum / cnt : sum
@@ -253,9 +251,9 @@ end
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:
-nll(model,x,y;o...)=nll(model(x;o...),y)
-accuracy(model,x,y;o...)=accuracy(model(x;o...),y)
+nll(f, x, y; dims=1, average=true, o...)=nll(f(x; o...), y; dims=dims, average=average)
+accuracy(f, x, y; dims=1, average=true, o...)=accuracy(f(x; o...), y; dims=dims, average=average)
 
-# We need the following to support the old interface:
-nll(w,d::Data,f::Function;average=true)=nll(x->f(w,x), d; average=average)
-accuracy(w,d::Data,f::Function;average=true)=accuracy(x->f(w,x), d; average=average)
+# We need the (weights,data,predict) interface to support the old interface:
+nll(w, data, f::Function; dims=1, average=true, o...)=nll(x->f(w,x;o...), data; dims=dims, average=average)
+accuracy(w, data, f::Function; dims=1, average=true, o...)=accuracy(x->f(w,x;o...), data; dims=dims, average=average)
