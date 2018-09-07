@@ -75,6 +75,9 @@ broadcasted(::typeof(+), a::KnetArray)=a
 +(a::KnetArray)=a
 -(a::KnetArray)=broadcasted(-,a)
 
+# Identity: Issue #335
+broadcasted(::typeof(identity), a::KnetArray)=a
+
 for f in unary_ops
     if !isa(f,Tuple); f=(f,); end
     unary_op(f...)
