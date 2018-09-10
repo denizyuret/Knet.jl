@@ -97,6 +97,8 @@ function norm(x::KnetArray{T}, p::Real=2) where {T}
     end
 end
 
-mean(a::Union{T, Value{T}};dims=:) where {T<:KnetArray} = (b=sum(a,dims=dims); b .* convert(eltype(b),(length(b)/length(a))))
-mean(f::Function, a::Union{T, Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
-
+mean(a::Union{T, Value{T}}; dims=:) where {T<:KnetArray} = (b=sum(a,dims=dims); b .* convert(eltype(b),(length(b)/length(a))))
+mean(f::Base.Callable, a::Union{T, Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
+# fixing ambiguity with AutoGrad
+mean(f::typeof(abs), a::Union{T, Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
+mean(f::typeof(abs2), a::Union{T, Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
