@@ -60,6 +60,7 @@ __device__ __host__ double digamma_impl_maybe_poly_64(const double s) {
         for (T,F) in [("float","32"),("double","64")]
             floor_str = (T == "float") ? "floorf" : "floor"
             tan_str = (T == "float") ? "tanf" : "tan"
+  	    log_str = (T == "float") ? "logf" : "log"	
             max_str = (T == "float") ? "FLT_MAX" : "DBL_MAX"
             pow_str = (T == "float") ? "powf" : "pow"
             fabs_str = (T == "float") ? "fabsf" : "fabs"
@@ -68,7 +69,7 @@ __device__ __host__ double digamma_impl_maybe_poly_64(const double s) {
             
             print(s,
 """
-__device__ __host__ $T digamma_impl(const $T u) {
+__device__ __host__ $T digamma_impl_$F(const $T u) {
 
   $T xi = u;
   $T p, q, nz, s, w, yi;
@@ -117,13 +118,13 @@ __device__ __host__ $T digamma_impl(const $T u) {
 
   yi = digamma_impl_maybe_poly_$F(s);
 
-  yi = logf(s) - (half / s) - yi - w;
+  yi = $log_str(s) - (half / s) - yi - w;
 
   return (negative) ? yi - nz : yi;
 
 }
 
-__device__ __host__ int zeta_impl_series($T *a, $T *b, $T *s, const $T x,
+__device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
                                          const $T machep) {
   int i = 0;
   while ((i < 9)$zeta_impl_series_2nd_cond) {
@@ -140,7 +141,7 @@ __device__ __host__ int zeta_impl_series($T *a, $T *b, $T *s, const $T x,
   return false;
 }
 
-__device__ __host__ $T zeta_impl($T x, $T q) {
+__device__ __host__ $T zeta_impl_$F($T x, $T q) {
   int i;
   $T p, r, a, b, k, s, t, w;
 
@@ -189,7 +190,7 @@ __device__ __host__ $T zeta_impl($T x, $T q) {
 
   // Run the summation in a helper function that is specific to the floating
   // precision
-  if (zeta_impl_series(&a, &b, &s, x, machep)) {
+  if (zeta_impl_series_$F(&a, &b, &s, x, machep)) {
     return s;
   }
 
@@ -213,9 +214,9 @@ __device__ __host__ $T zeta_impl($T x, $T q) {
   return s;
 };
 
-__device__ __host__ $T polygamma_impl(int n, $T x) {
+__device__ __host__ $T polygamma_impl_$F(int n, $T x) {
   if (n == 0) {
-    return digamma_impl(x);
+    return digamma_impl_$F(x);
   }
 
   // dumb code to calculate factorials
@@ -224,15 +225,15 @@ __device__ __host__ $T polygamma_impl(int n, $T x) {
     factorial *= (i + 1);
   }
 
-  return $pow_str(-1.0, n + 1) * factorial * zeta_impl(n + 1, x);
+  return $pow_str(-1.0, n + 1) * factorial * zeta_impl_$F(n + 1, x);
 }
 
-__device__ __host__ $T gamma_impl($T x) {
+__device__ __host__ $T gamma_impl_$F($T x) {
   return exp(lgamma(x));
 }
 
-__device__ __host__ $T trigamma_impl($T x) {
-  return polygamma_impl(1, x);
+__device__ __host__ $T trigamma_impl_$F($T x) {
+  return polygamma_impl_$F(1, x);
 }
 """)
         end
