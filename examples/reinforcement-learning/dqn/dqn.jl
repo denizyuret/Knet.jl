@@ -1,6 +1,6 @@
 using Pkg
 
-for p in ("ArgParse", "Knet", "JLD2", "Gym")
+for p in ("ArgParse", "Knet", "JLD2", "Gym", "FileIO")
     if !haskey(Pkg.installed(),p)
         Pkg.add(p)
         if p == "Gym"
