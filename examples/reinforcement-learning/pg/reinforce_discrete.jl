@@ -1,13 +1,13 @@
-try
-    Pkg.installed("Gym")
-catch
-    Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
-    ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
-    Pkg.build("Gym")
-end
+using Pkg
 
-for p in ("ArgParse", "Knet")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+for p in ("ArgParse", "Knet", "AutoGrad", "Gym")
+    if !haskey(Pkg.installed(),p)
+        Pkg.add(p)
+        if p == "Gym"
+            ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
+            Pkg.build("Gym")
+        end
+    end
 end
 
 """
@@ -22,7 +22,7 @@ stopping the gradient flow.
 """
 module REINFORCE_DISCRETE
 
-using Gym, ArgParse, Knet, AutoGrad
+using Gym, ArgParse, Knet, AutoGrad, Statistics
 
 function predict_linear(w, ob)
     linear = w["w"] * ob .+ w["b"]
@@ -31,12 +31,12 @@ end
 
 function sample_action(linear)
     linear = Array(linear)
-    probs = exp.(linear) ./ sum(exp.(linear), 1)
+    probs = vec(exp.(linear) ./ sum(exp.(linear); dims=1))
     c_probs = cumsum(probs)
-    return indmax(c_probs .> rand())
+    return findmax(c_probs .> rand())[2]
 end
 
-@zerograd sample_action(linear)
+AutoGrad.@zerograd sample_action(linear)
 
 function play(w, ob)
     linear = predict_linear(w, ob)
@@ -86,7 +86,7 @@ function loss(w, env, o; totalr=nothing)
 
     discounted = convert(o["atype"], reshape(discounted, 1, size(actions, 2)))
 
-    logps = sum(logp(hcat(linears...), 1) .* actions, 1)
+    logps = sum(logp(hcat(linears...); dims=1) .* actions; dims=1)
     -sum(logps .* discounted) ./ size(actions, 2)
 end
 
@@ -131,10 +131,10 @@ function main(args=ARGS)
         ("--threshold"; arg_type=Int; default=1000; help="stop the episode even it is not terminal after number of steps exceeds the threshold")
         ("--lr"; arg_type=Float64; default=0.01; help="learning rate")
         ("--render"; help = "render the environment"; action = :store_true)
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}":"Array{Float32}"))
+        ("--usegpu"; action=:store_true; help="use GPU or not")
     end
 
-    srand(12345)
+    Knet.seed!(12345)
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
         ArgParse.show_help(s; exit_when_done=false)
@@ -142,7 +142,7 @@ function main(args=ARGS)
     end
     
     o = parse_args(args, s)
-    o["atype"] = eval(parse(o["atype"]))
+    o["atype"] = !o["usegpu"] ? Array{Float32} : KnetArray{Float32}
 
     env = GymEnv(o["env_id"])
     seed!(env, 12345)
