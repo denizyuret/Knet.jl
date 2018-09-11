@@ -66,10 +66,10 @@ unary_ops = [
 ("invx", "invx", "1/xi"),
 # "j0",
 # "j1",
-("gamma_impl", "gamma", "gamma_impl(xi)"),
+("gamma_impl_64", "gamma", "gamma_impl_64(xi)"),
 "lgamma", # missing digamma for derivative
-("digamma_impl", "digamma", "digamma_impl(xi)"),
-("trigamma_impl", "trigamma", "trigamma_impl(xi)"),
+("digamma_impl_64", "digamma", "digamma_impl_64(xi)"),
+("trigamma_impl_64", "trigamma", "trigamma_impl_64(xi)"),
 #
 # "llrint",
 # "llround",
