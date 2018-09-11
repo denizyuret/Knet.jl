@@ -1,10 +1,9 @@
 # Examples
 
 ## Tutorials
+- [knet-tutorial](../tutorial): Linear, MLP, CNN, RNN models; gradients and SGD; overfitting and dropout; sequences and minibatching etc.
 - [julia-tutorial](julia-tutorial): Julia examples demonstrating arrays, tuples, dictionaries, indexing etc.
-- [knet-tutorial](knet-tutorial): Notebook with Knet models for linreg, softmax, mlp, cnn, rnn.
 - [optimizers](optimizers): Try various optimizers (SGD, Momentum, Adam...) on [LeNet].
-- [overfitting](overfitting): Notebook on underfitting, overfitting, regularization, dropout.
 - [rnn-tutorial](rnn-tutorial): RNN tutorial notebook with BPTT, LSTM, S2S.
 
 ## Benchmarks
@@ -28,7 +27,6 @@
 - [vgg](vgg): Knet implementation of [VGG] D and E models.
 
 ### RNN
-- [charlm](charlm): Character-level RNN language model from [Karpathy].
 - [rnnlm](rnnlm): Word-level RNN language model trained on the [Mikolov-PTB] corpus.
 
 ### Reinforcement Learning
