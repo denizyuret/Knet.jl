@@ -1,13 +1,12 @@
-try
-    Pkg.installed("Gym")
-catch
-    Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
-    ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
-    Pkg.build("Gym")
-end
-
-for p in ("ArgParse", "Knet")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+using Pkg
+ for p in ("ArgParse", "Knet", "AutoGrad", "Gym")
+    if !haskey(Pkg.installed(),p)
+        Pkg.add(p)
+        if p == "Gym"
+            ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
+            Pkg.build("Gym")
+        end
+    end
 end
 
 """
@@ -19,7 +18,7 @@ used as the advantage function.
 """
 module ACTOR_CRITIC
 
-using Gym, ArgParse, Knet, AutoGrad
+using Gym, ArgParse, Knet, AutoGrad, Statistics
 
 function predict(w, x, name; nh=1)
     inp = x
@@ -32,12 +31,12 @@ end
 
 function sample_action(linear)
     linear = Array(linear)
-    probs = exp.(linear) ./ sum(exp.(linear), 1)
+    probs = vec(exp.(linear) ./ sum(exp.(linear); dims=1))
     c_probs = cumsum(probs)
-    return indmax(c_probs .> rand())
+    return findmax(c_probs .> rand())[2]
 end
 
-@zerograd sample_action(linear)
+AutoGrad.@zerograd sample_action(linear)
 
 function actor(w, ob; nh=1)
     linear = predict(w, ob, "actor";nh=nh)
@@ -59,10 +58,10 @@ function loss(w, ob, t, env, o; output_of_step=nothing)
 
     reward = Float32(reward)
 
-    δ = reward + o["gamma"] * v_sp1 - v_s
+    δ = reward .+ o["gamma"] .* v_sp1 .- v_s
 
     critic_loss = sum(δ .* δ)# size of δ is (1,1)
-    actor_loss = sum(-logp(linear, 1)[action] .*  AutoGrad.getval(δ)) / size(linear, 2)
+    actor_loss = sum(-logp(linear; dims=1)[action] .*  AutoGrad.getval(δ)) / size(linear, 2)
     
     return actor_loss + critic_loss
 end
@@ -119,10 +118,10 @@ function main(args=ARGS)
         ("--gamma"; arg_type=Float32; default=Float32(0.99); help="doscount factor")
         ("--lr"; arg_type=Float32; default=Float32(0.01); help="learning rate")
         ("--render"; help = "render the environment"; action = :store_true)
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}":"Array{Float32}"))
+        ("--usegpu"; action=:store_true; help="use GPU or not")
     end
 
-    srand(12345)
+    Knet.seed!(12345)
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
         ArgParse.show_help(s; exit_when_done=false)
@@ -130,7 +129,7 @@ function main(args=ARGS)
     end
     
     o = parse_args(args, s)
-    o["atype"] = eval(parse(o["atype"]))
+    o["atype"] = !o["usegpu"] ? Array{Float32} : KnetArray{Float32}
 
     env = GymEnv(o["env_id"])
     seed!(env, 12345)

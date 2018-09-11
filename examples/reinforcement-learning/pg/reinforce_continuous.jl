@@ -133,7 +133,7 @@ function main(args=ARGS)
     @add_arg_table s begin
         ("--env_id"; default="MountainCarContinuous-v0"; help="environment name")
         ("--episodes"; arg_type=Int; default=100; help="number of episodes")
-        ("--gamma"; arg_type=Float64; default=0.9; help="doscount factor")
+        ("--gamma"; arg_type=Float64; default=0.9; help="discount factor")
         ("--threshold"; arg_type=Int; default=1000; help="stop the episode even it is not terminal after number of steps exceeds the threshold")
         ("--lr"; arg_type=Float64; default=0.001; help="learning rate")
         ("--render"; help = "render the environment"; action = :store_true)
