@@ -1,13 +1,13 @@
-try
-    Pkg.installed("Gym")
-catch
-    Pkg.clone("https://github.com/ozanarkancan/Gym.jl")
-    ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
-    Pkg.build("Gym")
-end
+using Pkg
 
-for p in ("ArgParse", "Knet")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+for p in ("ArgParse", "Knet", "AutoGrad", "Gym")
+    if !haskey(Pkg.installed(),p)
+        Pkg.add(p)
+        if p == "Gym"
+            ENV["GYM_ENVS"] = "atari:algorithmic:box2d:classic_control"
+            Pkg.build("Gym")
+        end
+    end
 end
 
 """
@@ -22,24 +22,24 @@ stopping the gradient flow.
 """
 module REINFORCE_CONTINUOUS
 
-using Gym, ArgParse, Knet, AutoGrad
+using Gym, ArgParse, Knet, AutoGrad, Statistics
 
 function lrelu(x, leak=0.2)
     f1 = Float32(0.5 * (1 + leak))
     f2 = Float32(0.5 * (1 - leak))
-    return f1 * x + f2 * abs.(x)
+    return f1 .* x .+ f2 .* abs.(x)
 end
 
 function predict_μ(w, ob)
-    hidden = lrelu.(w["w1"] * ob .+ w["b1"])
+    hidden = lrelu(w["w1"] * ob .+ w["b1"])
     linear = w["w2"] * hidden .+ w["b2"]
     return linear
 end
 
 function logpdf(μ, x; σ=Float32(1.0))    
     fac = Float32(-log(sqrt(2pi)))
-    r = (x-μ) / σ
-    return -r.* r.* Float32(0.5) - Float32(log(σ)) + fac
+    r = (x.-μ) / σ
+    return -r.* r.* Float32(0.5) .- Float32(log(σ)) .+ fac
 end
 
 function sample_action(μ; σ=1.0)
@@ -47,7 +47,7 @@ function sample_action(μ; σ=1.0)
     a = μ .+ randn(size(μ)) .* σ
 end
 
-@zerograd sample_action(mu)
+AutoGrad.@zerograd sample_action(mu)
 
 function play(w, ob)
     μ = predict_μ(w, ob)
@@ -66,7 +66,7 @@ function play_episode(w, env, o)
         ob_inp = convert(o["atype"], reshape(ob, size(ob, 1), 1))
         action, μ = play(w, ob_inp)
         push!(μs, μ)
-        ob, reward, done, _ = step!(env, action-1)
+        ob, reward, done, _ = step!(env, action.-1)
 
         total += reward[1]
 
@@ -131,28 +131,25 @@ function main(args=ARGS)
     s = ArgParseSettings()
     s.description="(c) Ozan Arkan Can, 2018. Demonstration of the REINFORCE algorithm on the continuous action space."
     @add_arg_table s begin
-        ("--env_id"; default="Pendulum-v0"; help="environment name")
-        ("--episodes"; arg_type=Int; default=20; help="number of episodes")
+        ("--env_id"; default="MountainCarContinuous-v0"; help="environment name")
+        ("--episodes"; arg_type=Int; default=100; help="number of episodes")
         ("--gamma"; arg_type=Float64; default=0.9; help="doscount factor")
         ("--threshold"; arg_type=Int; default=1000; help="stop the episode even it is not terminal after number of steps exceeds the threshold")
         ("--lr"; arg_type=Float64; default=0.001; help="learning rate")
         ("--render"; help = "render the environment"; action = :store_true)
-        ("--hidden"; arg_type=Int; default=64; help="hidden units")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}":"Array{Float32}"))
+        ("--hidden"; arg_type=Int; default=120; help="hidden units")
+        ("--usegpu"; action=:store_true; help="use GPU or not")
     end
 
-    srand(12345)
+    Knet.seed!(12345)
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
         ArgParse.show_help(s; exit_when_done=false)
         return
     end
-    
-    o = parse_args(args, s)
-    o["atype"] = eval(parse(o["atype"]))
 
     o = parse_args(args, s)
-    o["atype"] = eval(parse(o["atype"]))
+    o["atype"] = !o["usegpu"] ? Array{Float32} : KnetArray{Float32}
 
     env = GymEnv(o["env_id"])
     seed!(env, 12345)
