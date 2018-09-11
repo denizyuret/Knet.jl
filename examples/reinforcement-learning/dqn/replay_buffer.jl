@@ -1,10 +1,12 @@
 import Base.length
 import Base.push!
 
+using Random
+
 """
 Replay buffer implementation based on https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
 """
-type ReplayBuffer
+mutable struct ReplayBuffer
     size
     storage
     next_idx

@@ -1,3 +1,5 @@
+using FileIO
+
 function predict_q(w, x; nh=1)
     inp = x
     for i=1:nh
@@ -30,11 +32,11 @@ function save_model(w, fname)
     for k in keys(w)
         tmp[k] = convert(Array{Float32}, w[k])
     end
-    save(fname, "model", tmp)
+    save(fname, tmp)
 end
 
 function load_model(fname, atype)
-    w = load(fname, "model")
+    w = load(fname)
     for k in keys(w)
         w[k] = convert(atype, w[k])
     end

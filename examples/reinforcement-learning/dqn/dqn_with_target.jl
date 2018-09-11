@@ -9,7 +9,7 @@ the target q value predictions.
 """
 module DQNWITHTARGET
 
-using Gym, ArgParse, Knet, JLD
+using Gym, ArgParse, Knet
 
 include("replay_buffer.jl")
 include("mlp.jl")
@@ -51,7 +51,7 @@ function dqn_learn(w, opts, env, buffer, exploration, o)
             obses_t = encode_recent(buffer, ob_t_reshaped; stack=o["stack"])
             inp = convert(o["atype"], obses_t)
             qvals = predict_q(w, inp; nh=length(o["hiddens"]))
-            a = indmax(Array(qvals)) - 1
+            a = findmax(vec(Array(qvals)))[2] - 1
         end
         
         ob_t, reward, done, _ = step!(env, a)
@@ -68,8 +68,8 @@ function dqn_learn(w, opts, env, buffer, exploration, o)
                 #predict next q values with the target network
                 nextq = predict_q(target_w, obses_tp1; nh=length(o["hiddens"]))
                 nextq = Array(nextq)
-                maxs = maximum(nextq,1)
-                nextmax = sum(nextq .* (nextq.==maxs), 1)
+                maxs = maximum(nextq; dims=1)
+                nextmax = sum(nextq .* (nextq.==maxs); dims=1)
                 nextmax = reshape(nextmax, 1, length(nextmax))
                 targets = reshape(rewards,1,length(rewards)) .+ (o["gamma"] .* nextmax .* dones)
                 obses_t = convert(o["atype"], obses_t)
@@ -113,7 +113,7 @@ function main(args=ARGS)
         ("--stack"; arg_type=Int; default=4; help="length of the frame history")
         ("--save"; default=""; help="model name")
         ("--load"; default=""; help="model name")
-        ("--atype";default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"))
+        ("--usegpu"; action=:store_true; help="use GPU or not")
         ("--play"; action=:store_true; help="only play")
         ("--printinfo"; action=:store_true; help="print the training messages")
         ("--tupdate"; arg_type=Int; default=500; help="update frequency for the target network")
@@ -125,8 +125,8 @@ function main(args=ARGS)
     end
 
     o = parse_args(args, s)
-    o["atype"] = eval(parse(o["atype"]))
-    srand(12345)
+    o["atype"] = !o["usegpu"] ? Array{Float32} : KnetArray{Float32}
+    Knet.seed!(12345)
     env = GymEnv(o["env_id"])
     seed!(env, 12345)
 
