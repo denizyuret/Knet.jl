@@ -92,7 +92,7 @@ end
 
 dtrn,dtst = mb(trn),mb(tst)
 map(length, (dtrn,dtst))
-# (192, 20)</code></pre><p>The <code>initmodel</code> function below initializes the weights for an RNN language model.  It returns a tuple where <code>r,w</code> are the RNN spec and weights, <code>wx</code> is the input embedding matrix, <code>wy,by</code> are the weight matrix and bias to produce the output from the hidden state. See <a href="reference.html#Knet.rnninit"><code>rnninit</code></a> for a full description of available options.</p><pre><code class="language-julia">RNNTYPE = :lstm  # can be :lstm, :gru, :tanh, :relu
+# (192, 20)</code></pre><p>The <code>initmodel</code> function below initializes the weights for an RNN language model.  It returns a tuple where <code>r,w</code> are the RNN spec and weights, <code>wx</code> is the input embedding matrix, <code>wy,by</code> are the weight matrix and bias to produce the output from the hidden state. See <a href="@ref"><code>rnninit</code></a> for a full description of available options.</p><pre><code class="language-julia">RNNTYPE = :lstm  # can be :lstm, :gru, :tanh, :relu
 NUMLAYERS = 1    # number of RNN layers
 INPUTSIZE = 168  # size of the input character embedding
 HIDDENSIZE = 334 # size of the hidden layers
@@ -106,7 +106,7 @@ function initmodel()
     wy = w(VOCABSIZE,HIDDENSIZE)
     by = b(VOCABSIZE,1)
     return r,wr,wx,wy,by
-end</code></pre><p>A character based language model needs to predict the next character in a piece of text given the current character and recent history as encoded in the internal state of the RNN. Note that LSTMs have two state variables typically called hidden and cell.  The <code>predict</code> function below takes weights <code>ws</code>, inputs <code>xs</code>, the initial hidden and cell states <code>hx</code> and <code>cx</code> and returns output scores <code>ys</code> along with the final hidden and cell states <code>hy</code> and <code>cy</code>. See <a href="reference.html#Knet.rnnforw"><code>rnnforw</code></a> for available options and the exact computations performed.</p><pre><code class="language-julia">function predict(ws,xs,hx,cx)
+end</code></pre><p>A character based language model needs to predict the next character in a piece of text given the current character and recent history as encoded in the internal state of the RNN. Note that LSTMs have two state variables typically called hidden and cell.  The <code>predict</code> function below takes weights <code>ws</code>, inputs <code>xs</code>, the initial hidden and cell states <code>hx</code> and <code>cx</code> and returns output scores <code>ys</code> along with the final hidden and cell states <code>hy</code> and <code>cy</code>. See <a href="@ref"><code>rnnforw</code></a> for available options and the exact computations performed.</p><pre><code class="language-julia">function predict(ws,xs,hx,cx)
     r,wr,wx,wy,by = ws
     x = wx[:,xs]                                         # xs=(B,T) x=(X,B,T)
     y,hy,cy = rnnforw(r,wr,x,hx,cx,hy=true,cy=true)      # y=(H,B,T) hy=cy=(H,B,L)
@@ -118,7 +118,7 @@ end</code></pre><p>The loss function returns the negative-log-likelihood from th
     return nll(py,y)
 end
 
-lossgradient = gradloss(loss)</code></pre><p>Here is the <code>train</code> and <code>test</code> loops.  When hidden and cell values are set to nothing, <a href="reference.html#Knet.rnnforw"><code>rnnforw</code></a> assumes zero vectors.</p><pre><code class="language-julia">function train(model,data,optim)
+lossgradient = gradloss(loss)</code></pre><p>Here is the <code>train</code> and <code>test</code> loops.  When hidden and cell values are set to nothing, <a href="@ref"><code>rnnforw</code></a> assumes zero vectors.</p><pre><code class="language-julia">function train(model,data,optim)
     hiddens = Any[nothing,nothing]
     losses = []
     for (x,y) in data
