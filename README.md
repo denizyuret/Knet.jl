@@ -14,17 +14,17 @@ computational graphs for models defined in plain Julia. You can install Knet wit
 following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting points:
 
 * [Tutorial:](tutorial) 
-  introduces Julia and Knet via examples.
-* [Introduction:](http://denizyuret.github.io/Knet.jl/latest/tutorial.html)
-  design philosophy and benchmarks.
+  introduces Julia and Knet via examples. Currently the most up-to-date resource, some of the documentation and examples below may be out of date.
 * [Documentation:](https://denizyuret.github.io/Knet.jl/latest)
-  full reference and deep learning chapters.
+  installation, introduction, design, implementation, full reference and deep learning chapters.
+* [Examples:](examples)
+  more tutorials and example models.
+* [Benchmarks:](http://denizyuret.github.io/Knet.jl/latest/tutorial.html#Benchmarks-1)
+  comparison of Knet's speed with TensorFlow, PyTorch, DyNet etc.
 * [Paper:](https://goo.gl/zeUBFr)
   Yuret, D. "Knet: beginning deep learning with 100 lines of julia." In *Machine Learning Systems Workshop* at NIPS 2016.
 * [KnetML:](https://github.com/KnetML)
   github organization with Knet repos of models, tutorials, layer collections and other resources.
-* [Examples:](examples)
-  more tutorials, examples, models, benchmarks.
 * [Images:](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1)
   Knet machine images are available for [AWS](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1), [Singularity](https://github.com/KnetML/singularity-images) and [Docker](https://github.com/JuliaGPU/docker).
 * [Issues:](https://github.com/denizyuret/Knet.jl/issues)
@@ -34,6 +34,39 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
 * [knet-dev:](https://groups.google.com/forum/#!forum/knet-dev)
   if you would like to contribute to Knet development, please join this mailing list and check out these [tips](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1).
 * Related work: Please check out [Flux](https://github.com/FLuxML), [Mocha](https://github.com/pluskid/Mocha.jl), [JuliaML](https://github.com/JuliaML), [JuliaDiff](https://github.com/JuliaDiff), [JuliaGPU](https://github.com/JuliaGPU), [JuliaOpt](https://github.com/JuliaOpt) for related packages.
+
+## Example
+
+Here is a simple example where we define, train and test the
+[LeNet](http://yann.lecun.com/exdb/lenet) model for the
+[MNIST](http://yann.lecun.com/exdb/mnist) handwritten digit recognition dataset from scratch
+using 13 lines of code and 30 seconds of GPU computation.
+
+    using Knet
+
+    # Define convolutional layer:
+    struct Conv; w; b; f; end
+    (c::Conv)(x) = c.f.(pool(conv4(c.w, x) .+ c.b))
+    Conv(w1,w2,cx,cy,f=relu) = Conv(param(w1,w2,cx,cy), param0(1,1,cy,1), f)
+
+    # Define dense layer:
+    struct Dense; w; b; f; end
+    (d::Dense)(x) = d.f.(d.w * mat(x) .+ d.b)
+    Dense(i::Int,o::Int,f=relu) = Dense(param(o,i), param0(o), f)
+
+    # Define a chain of layers:
+    struct Chain; layers; end
+    (c::Chain)(x) = (for l in c.layers; x = l(x); end; x)
+
+    # Define the LeNet model
+    LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity)))
+
+    # Train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
+    include(Knet.dir("data","mnist.jl"))
+    dtrn, dtst = mnistdata()
+    train!(LeNet, dtrn)
+    accuracy(LeNet, dtst)
+
 
 ## Contributing
 
