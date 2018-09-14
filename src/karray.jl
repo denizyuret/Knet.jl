@@ -177,6 +177,10 @@ reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._
 
 vec(a::KnetArray) = reshape(a, length(a))
 
+if isdefined(AutoGrad,:Arg); @eval begin  # TODO: deprecate in next AutoGrad version.
+    using AutoGrad: Arg
+end; end
+
 # AbstractArray interface
 import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox #, linearindexing
 eachindex(a::KnetArray) = (1:length(a))
@@ -223,7 +227,11 @@ import Base: hcat, vcat, cat
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NAVK = Union{Number,AbstractArray,Value,KnetArray}
 cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
-AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; else; @eval begin
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -407,7 +415,11 @@ Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
 convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
 convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; else; @eval begin
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; end
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
