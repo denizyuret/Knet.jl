@@ -31,6 +31,7 @@ broadcast_ops = [
     # "fdim",
     ("invxback","invxback","(-xi*yi*yi)"),
     ("reluback","reluback","(yi>0?xi:0)"),
+    ("eluback","eluback","(yi>0?xi:xi*(1+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
     ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
@@ -82,6 +83,7 @@ unary_ops = [
 # "normcdfinv",
 ("one", "one", "1"),
 # "rcbrt",
+("elu", "elu", "(xi>0?xi:exp(xi)-1)"),
 ("relu", "relu", "(xi>0?xi:0)"),
 # "rint",
 "round",

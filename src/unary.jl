@@ -26,6 +26,7 @@ end
 for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
      (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+     (:elu,  :eluback,  :(xi >= 0 ? xi : exp(xi)-1), :(yi >= 0 ? dyi : dyi * (1+yi))),
      (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
      (:sigm, :sigmback, 
       # Numerically stable implementation from

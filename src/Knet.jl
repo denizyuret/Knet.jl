@@ -34,7 +34,7 @@ include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("ops.jl");
-include("unary.jl");            export relu, sigm, invx
+include("unary.jl");            export relu, sigm, invx, elu
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
@@ -50,6 +50,7 @@ include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection
 include("jld.jl");              export RnnJLD,KnetJLD
+#include("cudnn.jl");		export cudnnsigm, cudnnrelu, cudnntanh, cudnncrelu, cudnnelu, cudnnidentity
 
 """
     Knet.dir(path...)
