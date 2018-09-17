@@ -19,6 +19,11 @@ function unary_op(f, j=f, o...)
     end
 end
 
+# Constants for selu activation from https://arxiv.org/abs/1706.02515
+const λ01 = (1-erfc(1/sqrt(2))*sqrt(exp(1)))*sqrt(2pi)*(2*erfc(sqrt(2))*exp(2)+pi*erfc(1/sqrt(2))^2*exp(1)-2*(2+pi)*erfc(1/sqrt(2))*sqrt(exp(1))+pi+2)^(-0.5)
+const α01 = -sqrt(2/pi)/(erfc(1/sqrt(2))*exp(1/2)-1)
+const λα01 = λ01 * α01
+
 # Define some common operations as primitives for efficiency:
 # 1. Avoid creating intermediate arrays
 # 2. Avoid taking derivatives of intermediate operations
@@ -26,6 +31,7 @@ end
 for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
      (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+     (:selu, :seluback, :(xi >= 0 ? T(λ01)*xi : T(λα01)*(exp(xi)-1)), :(yi >= 0 ? dyi * T(λ01) : dyi * (yi + T(λα01)))),
      (:elu,  :eluback,  :(xi >= 0 ? xi : exp(xi)-1), :(yi >= 0 ? dyi : dyi * (1+yi))),
      (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
      (:sigm, :sigmback, 
@@ -59,8 +65,33 @@ for (f,g,y,dx) in
 end
 
 "`invx(x) = (1./x)`" invx
-"`relu(x) = max(0,x)`" relu
 "`sigm(x) = (1./(1+exp(-x)))`" sigm
+
+"""
+    relu(x)
+Return `max(0,x)`.
+
+Reference: Rectified Linear Units Improve Restricted Boltzmann Machines (https://icml.cc/Conferences/2010/abstracts.html#432).
+"""
+relu
+
+"""
+    elu(x)
+
+Return `(x > 0 ? x : exp(x)-1)`.
+
+Reference: Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs) (https://arxiv.org/abs/1511.07289).
+"""
+elu
+
+"""
+    selu(x)
+
+Return `λ01 * (x > 0 ? x : α01 * (exp(x)-1))` where `λ01=1.0507009873554805` and `α01=1.6732632423543778`.
+
+Reference: Self-Normalizing Neural Networks (https://arxiv.org/abs/1706.02515).
+"""
+selu
 
 # To avoid conflict with AutoGrad:
 # TODO: test this in Julia6, do we need to fix broadcast_func(tanh)?
