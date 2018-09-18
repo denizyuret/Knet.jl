@@ -10,7 +10,15 @@ import LinearAlgebra: rmul!, lmul!, axpy!
 # import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
 export axpy!
 
+# AutoGrad defines: @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
+# We specialize it below to avoid transposes
+# Full-scale lazy transpose requires a lot more things to work with Adjoint(::KnetArray)
 (*)(A::KnetMatrix{T},B::KnetMatrix{T}) where {T} = gemm!('N','N',one(T),A,B,zero(T),similar(A,(size(A,1),size(B,2))))
+A_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('N','T',one(T),A,B,zero(T),similar(A,size(A,1),size(B,1)))
+At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,B,zero(T),similar(A,size(A,2),size(B,2)))
+@primitive1 *(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  At_mul_B(x1,dy)
+@primitive1 A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(x1,dy)
+@primitive1 At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  (x1*dy)
 
 # deprecated:
 # A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
