@@ -1,26 +1,33 @@
 include("header.jl")
-using Knet: KnetFree, KnetPtr, gpuCount
+using Knet: KnetMems, KnetPtr, gpuCount, blocksize
 
-if gpu() >= 0
-    _sizes = randperm(1000)[1:10]
-    _ptrs = map(KnetPtr, _sizes)
-    _kf = KnetFree[gpu()+2]
-    @test length(_kf) == 10
-    @test length(KnetFree) == gpuCount()+1
-    @test sort(collect(keys(_kf))) == sort(_sizes)
-    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in _kf])
-    # gc doesn't work inside a testset
-    _ptrs = nothing
-    GC.gc()
-    @test all(Bool[v.used==1 && length(v.free)==1 for (k,v) in _kf])
-    _ptrs = map(KnetPtr, _sizes)
-    @test all(Bool[v.used==1 && isempty(v.free) for (k,v) in _kf])
-end
+if gpu() >= 0; let arraysizes = 2 .^ (1:10), blocksizes = blocksize.(arraysizes), kptrs = map(KnetPtr, arraysizes), mem = KnetMems[gpu()+1]
+    (mem.limit, mem.bytes, mem.avail, mem.calls, length(mem.pools), sum(p->p.nptr, values(mem.pools)))
+    (p->p.len).(kptrs)
 
-# Messes up gc if used with `if gpu()>=0`
-# This is just for printing the name
-@testset "kptr" begin
-    @test true
-end
+    @testset "kptr" begin
+        
+        function testkptr(ncalls, navail, nfree)
+            @test length(KnetMems) == gpuCount()
+            @test length(mem.pools) == 10
+            @test sort(collect(keys(mem.pools))) == blocksizes
+            @test mem.limit >= mem.bytes
+            @test mem.bytes == sum(blocksizes)
+            @test mem.calls == ncalls
+            @test mem.avail == navail
+            @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
+            if nfree == 0
+                @test (p->p.len).(kptrs) == blocksizes
+            end
+        end
+
+        testkptr(10, 0, 0)
+        kptrs = nothing; GC.gc()
+        testkptr(10, sum(blocksizes), 1)
+        kptrs = map(KnetPtr, arraysizes)
+        testkptr(20, 0, 0)
+
+    end
+end; end
 
 nothing
