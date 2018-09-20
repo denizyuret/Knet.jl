@@ -1,4 +1,4 @@
-GCDBG=true; macro gcdbg(expr); if GCDBG; esc(expr); end; end
+GCDBG=false; macro gcdbg(expr); if GCDBG; esc(expr); end; end
 
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
@@ -47,7 +47,7 @@ mutable struct KnetPool
     KnetPool()=new(Cptr[],0,0)
 end
 
-const KNETMEMLIMIT = 1<<30      # increase limit 1GB at a time
+const KNETMEMINIT = 1<<24       # initial gpu memory limit
 
 # KnetMem type keeps memory information for one device.
 mutable struct KnetMem
@@ -56,7 +56,7 @@ mutable struct KnetMem
     bytes::Int                  # total bytes allocated (inuse + avail)
     avail::Int                  # total bytes freed and available
     calls::Int                  # timer to measure pool age
-    KnetMem()=new(Dict{Int,KnetPool}(),0,0,0,0)
+    KnetMem()=new(Dict{Int,KnetPool}(),KNETMEMINIT,0,0,0)
 end
 
 # KnetMems[dev+1] holds memory information for device dev.
@@ -65,68 +65,74 @@ initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
 
 # Blocksize determines the actual allocation size given the array size in bytes, and can be
 # larger than what the array needs for increased reuse.
-blocksize(n::Int)=n
+# blocksize(n::Int)=n
 # function blocksize(n::Int)
+#     b = sizeof(n)<<3
 #     z = leading_zeros(n-1)
-#     1<<(sizeof(n)*8-z)
+#     1<<(b-z)
 # end
+blocksize(n::Int,b=sqrt(2))=ceil(Int,b^ceil(log(b,n)))
 
 @gcdbg (arraysizes = Int[]; allocs = Int[]; blocksizes = Int[])
 
-# This description is out-of-date, rewrite (TODO):
-# This the main KnetPtr constructor.  It tries to avoid actual allocation which is slow.
-# First it tries to find a previously allocated and garbage collected pointer in
-# KnetFree[dev+1].  If not available it tries to allocate a new one (about 10 μs).
-# Otherwise it tries running gc() and see if we get a pointer back (about 75 ms).  Finally
-# if all else fails, it calls Knet.gc which cleans up all allocated and garbage collected
-# KnetPool on the current device and tries allocation one last time.
-
-function trypool(mem::KnetMem, pool::KnetPool, blockbytes::Int, dev::Int, a::Int=0)
-    if !isempty(pool.free)
-        @gcdbg push!(allocs, a+1)
-        mem.avail -= blockbytes
-        return KnetPtr(pop!(pool.free),blockbytes,dev)
-    end
-    if mem.bytes + blockbytes <= mem.limit
-        ptr = knetMalloc(blockbytes)
-        if ptr != nothing
-            @gcdbg push!(allocs, a+2)
-            mem.bytes += blockbytes
-            pool.nptr += 1
-            return KnetPtr(ptr,blockbytes,dev)
-        end
+function inclimit!(m::KnetMem, minlimit=m.limit*6÷5)
+    maxlimit = gpumem()[1]*9÷10 # m.bytes + gpufree()
+    minlimit = min(maxlimit, minlimit)
+    if m.limit < minlimit
+        m.limit = minlimit
+        @gcdbg println((:limit, m.limit, :alloc, m.bytes, :avail, m.avail, :pools, length(m.pools), :blocks, sum(p->p.nptr,values(m.pools))))
     end
 end
 
+# This the main KnetPtr constructor.  It tries to avoid actual
+# allocation which is slow.  Reusing a pointer is very fast.
+# Allocating a new one is about 10 μs.  gc() is about 75 ms.
+
 function KnetPtr(arraybytes::Int)
-    if KnetMems==nothing; initKnetMems(); end
     dev = gpu(); if dev < 0; error("KnetPtr: bad device id $dev."); end
+    if KnetMems==nothing; initKnetMems(); end
     mem = KnetMems[dev+1]
     mem.calls += 1
     blockbytes = blocksize(arraybytes)
     @gcdbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
     pool.last = mem.calls
-    ptr = trypool(mem,pool,blockbytes,dev)
-    if ptr != nothing; return ptr; end
-    GC.gc();  @gcdbg print('-')
-    memfree = gpufree(dev)
-    if blockbytes > mem.avail + memfree; error("Not enough space for $blockbytes bytes"); end
-    maxlimit = mem.bytes + memfree
-    if mem.avail < (KNETMEMLIMIT >> 1)
-        mem.limit = min(maxlimit, mem.limit + KNETMEMLIMIT)
-        @gcdbg (@show mem.limit, mem.bytes, mem.avail)
+    if !isempty(pool.free)      # 1. best case we have one available in pool
+        @gcdbg push!(allocs, 1)
+        mem.avail -= blockbytes
+        return KnetPtr(pop!(pool.free),blockbytes,dev)
     end
-    while mem.limit < maxlimit && mem.avail + mem.limit - mem.bytes < blockbytes
-        mem.limit = min(maxlimit, mem.limit + KNETMEMLIMIT)
-        @gcdbg (@show mem.limit, mem.bytes, mem.avail)
+    if mem.bytes + blockbytes <= mem.limit # 2. allocate if we are within limit
+        ptr = knetMalloc(blockbytes)
+        if ptr != nothing
+            @gcdbg push!(allocs, 2)
+            mem.bytes += blockbytes
+            pool.nptr += 1
+            return KnetPtr(ptr,blockbytes,dev)
+        end
     end
-    ptr = trypool(mem,pool,blockbytes,dev,2)
-    if ptr != nothing; return ptr; end
-    Knet.gc(dev, mem.bytes + blockbytes - mem.limit); @gcdbg print('+')
-    ptr = trypool(mem,pool,blockbytes,dev,4)
-    if ptr != nothing; return ptr; end
-    error("Out of gpu memory")
+    if pool.nptr > 0            # 3. try gc if we had allocated this size before
+        GC.gc();  @gcdbg print('-')
+        # inclimit!(mem, (mem.bytes-mem.avail)*3) # *4=>18s *3=>16s *5÷2=>16s *2=>22s *6÷5=>30s
+        inclimit!(mem, mem.limit*6÷5)
+        if !isempty(pool.free)
+            @gcdbg push!(allocs, 3)
+            mem.avail -= blockbytes
+            return KnetPtr(pop!(pool.free),blockbytes,dev)
+        end
+    end
+    # At this point we have to either free old ptrs or increase limit
+    # Let's just try limit increase for now
+    inclimit!(mem, (mem.bytes + blockbytes*2)); @gcdbg print('+')
+    ptr = knetMalloc(blockbytes)
+    if ptr != nothing
+        @gcdbg push!(allocs, 4)
+        mem.bytes += blockbytes
+        pool.nptr += 1
+        return KnetPtr(ptr,blockbytes,dev)
+    else
+        error("Out of gpu memory")
+    end
 end
 
 KnetPtr(n::Integer)=KnetPtr(Int(n))
@@ -205,8 +211,10 @@ function gpuinfo(msg="",dev=gpu();n=10)
     end
     if n < k; println('⋮'); end
     println((:totbytes,bytes,:avail,avail,:ptrs,ptrs))
-    mem = KnetMems[dev+1]
-    println((:membytes,mem.bytes,:avail,mem.avail,:limit,mem.limit,:calls,mem.calls,:pools,length(mem.pools)))
+    if KnetMems != nothing
+        mem = KnetMems[dev+1]
+        println((:membytes,mem.bytes,:avail,mem.avail,:limit,mem.limit,:calls,mem.calls,:pools,length(mem.pools)))
+    end
 end
 
 function memdbg(msg="")
