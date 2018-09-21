@@ -10,9 +10,6 @@ end
 function load(fname,args...;kwargs...)
      serialize(FileIO.load(fname,args...;kwargs...))
 end
-# function load(fname;kwargs...)
-#      serialize(FileIO.load(fname;kwargs...))
-# end
 
 macro save(filename, vars...)
     if isempty(vars)
@@ -166,7 +163,7 @@ function serialize_internal(x::Union{Dict,IdDict}, stackdict::IdDict)
         return (stackdict[x] = x)
     end
 
-    dest = Dict()
+    dest = x <: Dict ? Dict() : IdDict()
     stackdict[x] = dest
     for (k, v) in x
         dest[serialize_internal(k, stackdict)] = serialize_internal(v, stackdict)
