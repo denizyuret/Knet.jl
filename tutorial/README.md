@@ -15,17 +15,11 @@ IJulia by typing the following at the `julia>` prompt: (see
     julia> using IJulia
     julia> notebook()
 
-Alternatively you can just view the notebooks on github and type the examples manually at a
-Julia prompt.  The later examples require a GPU to train models from scratch in a reasonable
-amount of time. The notebooks have the option to download pretrained models as a faster
-alternative. If you do not have a GPU but would like to use one, you can rent a GPU box from
-[Amazon AWS](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1) or
-[Google GCP](https://cloud.google.com), or use notebook servers such as
-[JuliaBox](https://juliabox.com) and [Google
-Colab](https://colab.research.google.com/notebooks/welcome.ipynb).  Colab does not support
-Julia out of the box as of September 2018, but the
-[colab_install_julia](colab_install_julia.ipynb) notebook provided here can be used to add
-Julia support in 10-15 minutes.
+These notebooks are also available in [Google
+Drive](https://drive.google.com/drive/folders/19D-R31unxZV_PUYYYpCfd-gnbdUiZfNb?usp=sharing)
+which should let you run them on [Google
+Colab](https://colab.research.google.com/notebooks/welcome.ipynb) provided you add Julia
+support first using the [colab_install_julia](colab_install_julia.ipynb) notebook.
 
 **Contents:**
 * [00.Julia_is_fast:](00.Julia_is_fast.ipynb) comparison of Julia's speed to C, Python and numpy.
