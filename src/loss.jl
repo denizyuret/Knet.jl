@@ -120,8 +120,8 @@ function generic_softmax(x,algo::Int,fallback;dims=:)
             sz = size(x)
             x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
             reshape(x, sz)
-        elseif dims==2 && ndims==2
-            genericloss(x',algo,fallback;dims=1)'
+        elseif dims==2 && ndims(x)==2
+            generic_softmax(x',algo,fallback;dims=1)'
         elseif dims==:;
             n = length(x)
             (n > 20000 ? fallback(x) : # see Knet/prof/softmax.jl for timing info
@@ -206,7 +206,7 @@ function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
 end
 
 """
-    logistic(scores,answers;average=true)
+    logistic(scores, answers; average=true)
 Computes logistic loss given scores(predicted values) and answer labels.
 answer values should be {-1,1}, then it returns `mean|sum(log(1 + exp(-answers*scores)))`. See also `bce`.
 """
