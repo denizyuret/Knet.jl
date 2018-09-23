@@ -1,3 +1,10 @@
+# squeeze any allowed dims argument into a sorted vec with no repetitions
+function dimvec(x, dims)
+    sz = size(x)
+    dims = dims == Colon() ? size(x) : dims
+    sort(union(dims))  # handles duplicate dimensions and integer/vector/tuple dims
+end
+
 """
     logp(x; dims=:)
 
@@ -14,13 +21,11 @@ equivalent to `exp.(logp(x)`.
 logp(x; dims=:) = _logp(x; dims=dims)
 
 function logp(x::A; dims=:) where A <: Union{<:KnetArray, Param{<:KnetArray}}
-    sz = size(x)
-    dims = dims == Colon() ? size(x) : dims
-    d = sort(union(dims))  # allows for duplicate dimensions and integer/vector/tuple dims
+    d = dimvec(x, dims)
     if ndims(x) == length(d) # normalizing over all dimensions
         n = length(x)		 
         if n > 20000 
-            _logp(x, dims)
+            _logp(x, dims=dims)
         else
             x = cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2)
             reshape(x, sz)
@@ -29,9 +34,9 @@ function logp(x::A; dims=:) where A <: Union{<:KnetArray, Param{<:KnetArray}}
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=2)
         reshape(x, sz)
     elseif ndims(x) == 2 && d == [2]
-        logp(x', 1)' 
+        logp(x', dims=1)' 
     else
-        _logp(x, dims)
+        _logp(x, dims=dims)
     end
 end
 
@@ -51,7 +56,7 @@ end
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
-function _logp(x; dims=:)
+function _logp(x; dims)
     xval = value(x)
     if isa(xval,Number)
         return zero(xval)
@@ -109,13 +114,11 @@ faster.
 
 See also `logsoftmax`.
 """
-softmax(x; dims=:, algo=1) = _softmax(x, dims; algo=algo) # generic fallback
+softmax(x; dims=:, algo=1) = _softmax(x; dims=dims, algo=algo) # generic fallback
 
 function softmax(x::A; dims=:, algo=1) where A <: Union{<:KnetArray, Param{<:KnetArray}}
     @assert algo ∈ [0, 1]
-    sz = size(x)
-    dims = dims == Colon() ? size(x) : dims
-    d = sort(union(dims))  # allows for duplicate dimensions and integer/vector/tuple dims
+    d = dimvec(x, dims)
     if ndims(x) == length(d)
         x = cudnnSoftmaxForward(reshape(x,(1,1,:,1)),algo=algo)
         reshape(x, sz)
@@ -123,24 +126,24 @@ function softmax(x::A; dims=:, algo=1) where A <: Union{<:KnetArray, Param{<:Kne
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
         reshape(x, sz)
     elseif ndims(x) == 2 && d == [2]
-        softmax(x', 1, algo=algo)'
+        softmax(x', dims=1, algo=algo)'
     else
-        _softmax(x, dims)
+        _softmax(x; dims=dims, algo=algo)
     end
 end 
 
 # softmax fallback
-function _softmax(x, dims; algo=1)
+function _softmax(x; dims, algo)
     @assert algo ∈ [0, 1]
     if algo == 1
-        x = x .- maximum(x, dims)
+        x = x .- maximum(x, dims=dims)
     end    
     x = exp.(x)
-    return x ./ sum(x, dims)
+    return x ./ sum(x, dims=dims)
 end
 
 function _softback(x,y,dy,dims)
-    return y .* dy .- y .* sum(y .* dy, dims)
+    return y .* dy .- y .* sum(y .* dy, dims=dims)
 end
 
 #=
@@ -192,7 +195,7 @@ of `x` and `dims=2` sums rows of `x`.
 """
 function logsumexp(x; dims=:)
     xmax = maximum(x, dims=dims)
-    xmax + log.(sum(exp.(x .- xmax),dims=dims))
+    xmax + log.(sum(exp.(x .- xmax), dims=dims))
 end
 
 @primitive logsumexp(x;dims=:),dy,y  (dy .* exp.(x .- y))
