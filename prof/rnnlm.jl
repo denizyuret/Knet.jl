@@ -679,29 +679,20 @@ nothing
 #  27  ...uret/.julia/v0.5/Knet/src/update.jl:351; scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
 #  683 ...uret/.julia/v0.5/Knet/src/update.jl:352; axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
 
-
-# include("rnnlm.jl")
-# m,s,o = main(iters=0)
-# for i=1:2
-# GC.gc(); @time main(model=m,state=s,optim=o,mode=0,iters=10)
-# GC.gc(); @time main(model=m,state=s,optim=o,mode=1,iters=10)
-# GC.gc(); @time main(model=m,state=s,optim=o,mode=2,iters=10)
+# using Knet
+# include(Knet.dir("prof/rnnlm.jl"))
+# (m,s,o) = main(iters=0)
+# for i in 1:10
+#     @time main(model=m,optim=o,state=s,mode=0,iters=10)
+#     @time main(model=m,optim=o,state=s,mode=1,iters=10)
+#     @time main(model=m,optim=o,state=s,mode=2,iters=10)
+#     println()
 # end
-# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=0))
-# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=1))
-# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=2))
-
 
 # commit 359d3646 2018-09-22, julia 1.0.0   vs commit 4aa5f92f 2018-08-14, julia 0.6.4
 # GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
 # MODEL = 1
 #
-#   2.684270 seconds (3.05 M allocations: 149.960 MiB, 38.94% gc time)		2.528902 seconds (724.15 k allocations: 37.464 MiB, 0.23% gc time) 
-#   6.862235 seconds (10.35 M allocations: 535.274 MiB, 12.68% gc time)         2.607298 seconds (986.24 k allocations: 50.815 MiB, 0.47% gc time) ---
-#   2.979474 seconds (3.84 M allocations: 196.428 MiB, 29.56% gc time)          0.997739 seconds (378.47 k allocations: 19.655 MiB)		 ---
-#   0.038200 seconds (63.18 k allocations: 1.902 MiB)                           0.033293 seconds (43.12 k allocations: 1.591 MiB)		     
-#   0.666444 seconds (1.12 M allocations: 54.478 MiB, 19.89% gc time)           0.177425 seconds (138.32 k allocations: 6.591 MiB)		 --- 
-#   0.913057 seconds (1.30 M allocations: 63.748 MiB, 30.41% gc time)           0.295364 seconds (191.39 k allocations: 9.073 MiB)               ---  
-# Trial(731.357 μs)	Trial(1.350 ms) +++
-# Trial(3.734 ms)       Trial(3.357 ms)
-# Trial(7.515 ms)       Trial(8.128 ms)
+# 0.043899 seconds (79.10 k allocations: 2.382 MiB)			0.042887 seconds (50.72 k allocations: 1.868 MiB)		    
+# 0.256060 seconds (280.02 k allocations: 8.785 MiB, 35.70% gc time)    0.219261 seconds (160.46 k allocations: 7.654 MiB)		    
+# 0.294070 seconds (335.07 k allocations: 11.161 MiB, 28.79% gc time)   0.308199 seconds (197.60 k allocations: 7.673 MiB, 55.45% gc time)

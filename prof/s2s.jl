@@ -195,14 +195,19 @@ end
 
 nothing
 
+# using Knet
+# include(Knet.dir("prof/s2s.jl"))
 # (m,o,s) = main()
-# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=0))
-# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=1))
-# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=2))
+# for i in 1:3
+#     @time main(model=m,opts=o,sequence=s,mode=0)
+#     @time main(model=m,opts=o,sequence=s,mode=1)
+#     @time main(model=m,opts=o,sequence=s,mode=2)
+#     println()
+# end
 
 # commit 359d3646 2018-09-22, julia 1.0.0 vs commit 4aa5f92f 2018-08-14, julia 0.6.4
 # GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
 #
-# Trial(8.104 ms)  Trial(5.821 ms)  ----
-# Trial(1.909 s)   Trial(24.304 ms) ----
-# Trial(1.318 s)   Trial(25.013 ms) ----
+# 0.008300 seconds (12.62 k allocations: 397.063 KiB)	0.006707 seconds (8.25 k allocations: 308.891 KiB)
+# 0.033560 seconds (49.80 k allocations: 1.703 MiB)     0.027931 seconds (33.55 k allocations: 1.485 MiB) 
+# 0.040496 seconds (51.13 k allocations: 1.733 MiB)     0.028537 seconds (34.09 k allocations: 1.500 MiB) 
