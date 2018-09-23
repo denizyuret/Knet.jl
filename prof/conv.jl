@@ -1,4 +1,4 @@
-using BenchmarkTools, Base.Test, Knet
+using BenchmarkTools, Test, Knet
 # @show uses print, disp uses display which prints out details of benchmark
 macro disp(x); :(println($(string(x)));display($(esc(x)));println()); end
 macro date(_x) :(println("$(now()) "*$(string(_x)));flush(STDOUT);@time $(esc(_x))) end

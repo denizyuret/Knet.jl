@@ -1,4 +1,4 @@
-using BenchmarkTools, Base.Test, Knet
+using BenchmarkTools, Test, Knet
 
 m=rand(1000,1000)
 c=rand(1000)
@@ -18,14 +18,15 @@ km = KnetArray(m)
 kc = KnetArray(c)
 kr = KnetArray(r)
 gs() = Knet.cudaDeviceSynchronize()
+macro benchmarx(x); :(@benchmark ($x;gs())); end
 
-@show @benchmark (hcat($km,$km);gs()) # 225
-@show @benchmark (hcat($km,$kc);gs()) # 122
-@show @benchmark (hcat($kc,$km);gs()) # 126
-@show @benchmark (hcat($kc,$kc);gs()) # 22
-@show @benchmark (vcat($km,$km);gs()) # 602
-@show @benchmark (vcat($km,$kr);gs()) # 316
-@show @benchmark (vcat($kr,$km);gs()) # 316
-@show @benchmark (vcat($kc,$kc);gs()) # 18
+@show @benchmarkx hcat($km,$km) # 225
+@show @benchmarkx hcat($km,$kc) # 122
+@show @benchmarkx hcat($kc,$km) # 126
+@show @benchmarkx hcat($kc,$kc) # 22
+@show @benchmarkx vcat($km,$km) # 602
+@show @benchmarkx vcat($km,$kr) # 316
+@show @benchmarkx vcat($kr,$km) # 316
+@show @benchmarkx vcat($kc,$kc) # 18
 
 nothing

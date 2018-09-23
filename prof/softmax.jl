@@ -1,20 +1,20 @@
-using Knet, AutoGrad
+using Knet, AutoGrad, Printf
 using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, TD4, _logp
 using BenchmarkTools
 
 # algo=2 corresponds to logp(x,1)
-function logp_(x,d...)
+function logp_(x;dims=:)
     if isa(x,Number)
         return zero(x)
     elseif isempty(x)
         return x
-    elseif isempty(d)
+    elseif dims == Colon()
         x1 = reshape(x, (1,1,length(x),1))
         y1 = cudnnSoftmaxForward(x1,algo=2)
         reshape(y1,size(x))
-    elseif d == (1,)
+    elseif dims == 1
         cudnnSoftmaxForward(x,algo=2)
-    elseif d == (2,)
+    elseif dims == 2
         x1 = transpose(x)
         y1 = cudnnSoftmaxForward(x1,algo=2)
         transpose(y1)
@@ -31,24 +31,24 @@ x5 = ka(randn(Float32,100000,100))
 
 cds()=@cuda(cudart, cudaDeviceSynchronize, ())
 rep(x)=clamp(div(10^8,length(x)),10,1000)
-logp0(x,d...)=(for i=1:rep(x); _logp(x,d...); end; cds()) # old implementation
-logp1(x,d...)=(for i=1:rep(x); logp_(x,d...); end; cds()) # test implementation
-logp2(x,d...)=(for i=1:rep(x); logp(x,d...); end; cds())  # new (hybrid) implementation, should be best of the other two
-sump0(x,d...)=sum(_logp(x,d...)[1,:]); grad0 = grad(sump0)
-sump1(x,d...)=sum(logp_(x,d...)[1,:]); grad1 = grad(sump1)
-sump2(x,d...)=sum(logp(x,d...)[1,:]);  grad2 = grad(sump2)
-back0(x,d...)=(for i=1:rep(x); grad0(x,d...); end; cds())
-back1(x,d...)=(for i=1:rep(x); grad1(x,d...); end; cds())
-back2(x,d...)=(for i=1:rep(x); grad2(x,d...); end; cds())
+logp0(x;dims=:)=(for i=1:rep(x); _logp(x;dims=dims); end; cds()) # old implementation
+logp1(x;dims=:)=(for i=1:rep(x); logp_(x;dims=dims); end; cds()) # test implementation
+logp2(x;dims=:)=(for i=1:rep(x); logp(x;dims=dims); end; cds())  # new (hybrid) implementation, should be best of the other two
+sump0(x;dims=:)=sum(_logp(x;dims=dims)[1,:]); grad0 = grad(sump0)
+sump1(x;dims=:)=sum(logp_(x;dims=dims)[1,:]); grad1 = grad(sump1)
+sump2(x;dims=:)=sum(logp(x;dims=dims)[1,:]);  grad2 = grad(sump2)
+back0(x;dims=:)=(for i=1:rep(x); grad0(x;dims=dims); end; cds())
+back1(x;dims=:)=(for i=1:rep(x); grad1(x;dims=dims); end; cds())
+back2(x;dims=:)=(for i=1:rep(x); grad2(x;dims=dims); end; cds())
 # macro bm(ex); :(println($(sprint(Base.show_unquoted,ex)));show(@benchmark $ex)) end
 
 @show logp(x1) ≈ logp_(x1) ≈ _logp(x1)
-@show logp(x1,1) ≈ logp_(x1,1) ≈ _logp(x1,1)
-@show logp(x1',2) ≈ logp_(x1',2) ≈ _logp(x1',2)
+@show logp(x1,dims=1) ≈ logp_(x1,dims=1) ≈ _logp(x1,dims=1)
+@show logp(x1',dims=2) ≈ logp_(x1',dims=2) ≈ _logp(x1',dims=2)
 
 @show grad0(x1) ≈ grad1(x1) ≈ grad2(x1)
-@show grad0(x1,1) ≈ grad1(x1,1) ≈ grad2(x1,1)
-@show grad0(x1',2) ≈ grad1(x1',2) ≈ grad2(x1',2)
+@show grad0(x1,dims=1) ≈ grad1(x1,dims=1) ≈ grad2(x1,dims=1)
+@show grad0(x1',dims=2) ≈ grad1(x1',dims=2) ≈ grad2(x1',dims=2)
 
 # dimensions: 0/1/2, forw/back, model0/1, x1:5
 
@@ -56,11 +56,11 @@ for d in (0,1,2)
     for f in (logp0, logp1, logp2, back0, back1, back2)
         @printf("%s(x,%d)",f,d)
         for x in (x1,x2,x3,x4,x5)
-            xt = x.'
-            knetgc()
+            xt = permutedims(x)
+            Knet.gc()
             b = (d==0 ? (@benchmark $f($x)) :
-                 d==1 ? (@benchmark $f($x,1)) :
-                 d==2 ? (@benchmark $f($xt,2)) :
+                 d==1 ? (@benchmark $f($x,dims=1)) :
+                 d==2 ? (@benchmark $f($xt,dims=2)) :
                  error())
             times = b.times ./ rep(x)
             # @printf("\t%dx%d/%.1e/%.1e/%.1e", length(times), rep(x), minimum(times), median(times), mean(times))
@@ -106,7 +106,7 @@ for dir in (0,1)
         for mode in (0,1)
             @printf("%s%d%d",dir,algo,mode)
             for x in (x1,x2,x3,x4,x5)
-                knetgc()
+                Knet.gc()
                 b = (@benchmark $timesoftmax($x,$dir,$algo,$mode))
                 times = b.times ./ rep(x)
                 @printf("\t%.1e", minimum(times))

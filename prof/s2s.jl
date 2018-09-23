@@ -126,7 +126,7 @@ function logprob(output, ypred)
     @inbounds for i=1:length(output)
         index[i] = i + (output[i]-1)*nrows
     end
-    o1 = logp(ypred,2)     # 1999
+    o1 = logp(ypred,dims=2)     # 1999
     o2 = o1[index]         # 4
     o3 = sum(o2)           # 2
     return o3
@@ -138,7 +138,7 @@ function lstm_input(param, input)
 end
 
 function lstm_input_back(param, input, grads)
-    dparam = zeros(param)  # 157
+    dparam = zero(param)  # 157
     dparam[input,:]=grads  # 121
     return dparam
 end
@@ -150,12 +150,12 @@ function lstm(param, state, input)
     hidden,cell = state
     h       = size(hidden,2)
     gates   = hcat(input,hidden) * weight .+ bias
-    forget  = sigm(gates[:,1:h])
-    ingate  = sigm(gates[:,1+h:2h])
-    outgate = sigm(gates[:,1+2h:3h])
-    change  = tanh(gates[:,1+3h:4h])
+    forget  = sigm.(gates[:,1:h])
+    ingate  = sigm.(gates[:,1+h:2h])
+    outgate = sigm.(gates[:,1+2h:3h])
+    change  = tanh.(gates[:,1+3h:4h])
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+    hidden  = outgate .* tanh.(cell)
     return (hidden,cell)
 end
 
@@ -167,8 +167,8 @@ end
 
 function initstate(idx, state0)
     h,c = state0
-    h = h .+ fill!(similar(AutoGrad.getval(h), length(idx), length(h)), 0)
-    c = c .+ fill!(similar(AutoGrad.getval(c), length(idx), length(c)), 0)
+    h = h .+ fill!(similar(AutoGrad.value(h), length(idx), length(h)), 0)
+    c = c .+ fill!(similar(AutoGrad.value(c), length(idx), length(c)), 0)
     return (h,c)
 end
 
