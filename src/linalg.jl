@@ -166,6 +166,9 @@ end
 
 
 import Base: permutedims # ipermutedims
+
+permutedims(x::KnetMatrix)=permutedims(x,(2,1))
+
 function permutedims(x::KnetArray{T,N}, dims) where {T,N}
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
