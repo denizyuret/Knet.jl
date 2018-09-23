@@ -11,23 +11,7 @@ given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
-function logp(x;dims=:)
-    if isa(value(x), KnetArray)
-        if dims==1
-            cudnnSoftmaxForward(x,algo=2)
-        elseif dims==2 && ndims(x)==2
-            cudnnSoftmaxForward(x',algo=2)'
-        elseif dims==:;
-            n = length(x)
-            (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
-        else
-            _logp(x,dims=dims)
-        end
-    else
-        _logp(x,dims=dims) # fall back on old implementation if not KnetArray
-    end
-end
+logp(x;dims=:,algo=2) = generic_softmax(x,algo,_logp;dims=dims)
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
@@ -109,31 +93,10 @@ The softmax function typically used in classification.
 Gives the same results as to `exp.(logp(x, dims))`.   
 See also `logsoftmax`.   
 """
-function softmax(x;dims=:,algo=1)
-    @assert algo ∈ [0, 1]
-    if isa(value(x), KnetArray)
-        if dims==1
-            cudnnSoftmaxForward(x,algo=algo)
-        elseif dims==2 && ndims==2
-            cudnnSoftmaxForward(x',algo=algo)'
-        elseif dims==:;
-            n = length(x)
-            (n > 20000 ? _softmax(x) : # see Knet/prof/softmax.jl for timing info
-            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
-        else
-            _softmax(x;dims=dims)
-        end
-    else
-        _softmax(x;dims=dims) # fall back on old implementation if not KnetArray
-    end
-end
+softmax(x;dims=:,algo=1)=generic_softmax(x,algo,_softmax;dims=dims)
 
-
-function _softmax(x; dims=:, algo=1)
-    @assert algo ∈ [0, 1]
-    if algo == 1
-        x = x .- maximum(x;dims=dims)
-    end
+function _softmax(x; dims=:)
+    x = x .- maximum(x;dims=dims)
     x = exp.(x)
     return x ./ sum(x;dims=dims)
 end
@@ -142,14 +105,34 @@ function _softback(x,y,dy;dims=:)
     return y .* dy .- y .* sum(y .* dy; dims=dims)
 end
 
-@primitive  _softmax(x;dims=:,algo=1),dy,y  _softback(x,y,dy,dims=dims)
+@primitive  _softmax(x;dims=:),dy,y  _softback(x,y,dy,dims=dims)
 
 """
      logsoftmax(x;[dims])
 
  Equivalent to `logp(x;[dims])`. See also `sotfmax`. 
- """
- const logsoftmax = logp
+"""
+const logsoftmax = logp
+
+function generic_softmax(x,algo::Int,fallback;dims=:)
+    if isa(value(x), KnetArray)
+        if dims==1
+            sz = size(x)
+            x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
+            reshape(x, sz)
+        elseif dims==2 && ndims==2
+            genericloss(x',algo,fallback;dims=1)'
+        elseif dims==:;
+            n = length(x)
+            (n > 20000 ? fallback(x) : # see Knet/prof/softmax.jl for timing info
+            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
+        else
+            fallback(x;dims=dims)
+        end
+    else
+        fallback(x;dims=dims) # fall back on old implementation if not KnetArray
+    end
+end
 
 
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
