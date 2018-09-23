@@ -13,14 +13,14 @@ normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 """
 function logp(x;dims=:)
     if isa(value(x), KnetArray)
-        if dims==(1,)
+        if dims==1
             cudnnSoftmaxForward(x,algo=2)
-        elseif dims==(2,)
+        elseif dims==2 && ndims(x)==2
             cudnnSoftmaxForward(x',algo=2)'
-        elseif dims==(:,)
+        elseif dims==:;
             n = length(x)
             (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
+            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
         else
             _logp(x,dims=dims)
         end
@@ -100,6 +100,57 @@ mutable structdef enum
 } cudnnSoftmaxMode_t;
 
 =#          
+
+
+"""
+    softmax(x;[dims])
+
+The softmax function typically used in classification.   
+Gives the same results as to `exp.(logp(x, dims))`.   
+See also `logsoftmax`.   
+"""
+function softmax(x;dims=:,algo=1)
+    @assert algo ∈ [0, 1]
+    if isa(value(x), KnetArray)
+        if dims==1
+            cudnnSoftmaxForward(x,algo=algo)
+        elseif dims==2 && ndims==2
+            cudnnSoftmaxForward(x',algo=algo)'
+        elseif dims==:;
+            n = length(x)
+            (n > 20000 ? _softmax(x) : # see Knet/prof/softmax.jl for timing info
+            reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
+        else
+            _softmax(x;dims=dims)
+        end
+    else
+        _softmax(x;dims=dims) # fall back on old implementation if not KnetArray
+    end
+end
+
+
+function _softmax(x; dims=:, algo=1)
+    @assert algo ∈ [0, 1]
+    if algo == 1
+        x = x .- maximum(x;dims=dims)
+    end
+    x = exp.(x)
+    return x ./ sum(x;dims=dims)
+end
+
+function _softback(x,y,dy;dims=:)
+    return y .* dy .- y .* sum(y .* dy; dims=dims)
+end
+
+@primitive  _softmax(x;dims=:,algo=1),dy,y  _softback(x,y,dy,dims=dims)
+
+"""
+     logsoftmax(x;[dims])
+
+ Equivalent to `logp(x;[dims])`. See also `sotfmax`. 
+ """
+ const logsoftmax = logp
+
 
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
