@@ -1,8 +1,8 @@
 include("header.jl")
 
 @testset "loss" begin
-    for f in (logp, logsumexp)
-        a = rand(10,10)
+    for f in (logp, logsumexp, softmax)
+        a = rand(10,10,10)
         @test gradcheck(f,a)
         @test gradcheck(f,a,kw=(:dims=>1,))
         @test gradcheck(f,a,kw=(:dims=>2,))
@@ -28,5 +28,7 @@ include("header.jl")
         @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
         @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
     end
+    @test gradcheck(logistic,a[:],a[:])
+    @test gradcheck(bce,a[:],a[:])
 end
 

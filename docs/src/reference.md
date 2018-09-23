@@ -29,8 +29,12 @@ Knet.dropout
 Knet.gpu
 Knet.invx
 Knet.gc
+Knet.softmax
 Knet.logp
+Knet.logsoftmax
 Knet.logsumexp
+Knet.logistic
+Knet.bce
 Knet.minibatch
 Knet.nll
 Knet.relu
