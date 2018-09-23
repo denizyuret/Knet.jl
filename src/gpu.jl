@@ -15,7 +15,7 @@ macro cuda(lib,fun,x...)        # give an error if library missing, or if error 
         msg = "$lib.$fun error "
         err = gensym()
         # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
-        esc(:(if ($err=$fx) != 0; error($msg, $err); end; @gs))
+        esc(:(if ($err=$fx) != 0; error($msg, $err); end; Knet.@gs))
     catch
         Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
     end
@@ -27,7 +27,7 @@ macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if ru
         if path==nothing; error(); end
         fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
         err = gensym()
-        esc(:($err=$fx; @gs; $err))
+        esc(:($err=$fx; Knet.@gs; $err))
     catch
         -1
     end
@@ -37,7 +37,7 @@ macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
     if libknet8 != ""
         fx = Expr(:call, :ccall, ("$fun",libknet8), :Nothing, x...)
         err = gensym()
-        esc(:($err=$fx; @gs; $err))
+        esc(:($err=$fx; Knet.@gs; $err))
     else
         Expr(:call,:error,"Cannot find libknet8, please rerun Pkg.build(\"Knet\").")
     end
