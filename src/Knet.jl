@@ -43,7 +43,7 @@ include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN # TODO: deprecate old interface
 include("data.jl");             export Data, minibatch
 include("model.jl");		export param, param0, train!, Train
-include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, accuracy, zeroone # TODO: PR
+include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          export dropout
 include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
