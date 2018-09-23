@@ -120,7 +120,7 @@ function serialize_internal(x::Union{Dict,IdDict}, stackdict::IdDict)
         return (stackdict[x] = x)
     end
 
-    dest = x <: Dict ? Dict() : IdDict()
+    dest = typeof(x) <: Dict ? Dict() : IdDict()
     stackdict[x] = dest
     for (k, v) in x
         dest[serialize_internal(k, stackdict)] = serialize_internal(v, stackdict)
