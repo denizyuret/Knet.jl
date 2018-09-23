@@ -11,9 +11,11 @@ normalizes columns of `x`, `dims=2` normalizes rows of `x` and
 Calls to `logsoftmax` are equivalent to  calls `logp`, and `softmax(x)` is 
 equivalent to `exp.(logp(x)`. 
 """
-function logp(x::A; dims=:) where A <: Union{<:KnetArray, Rec{<:KnetArray}}
+logp(x; dims=:) = _logp(x; dims=dims)
+
+function logp(x::A; dims=:) where A <: Union{<:KnetArray, Param{<:KnetArray}}
     sz = size(x)
-    dims = dims == : ? size(x) : dims
+    dims = dims == Colon() ? size(x) : dims
     d = sort(union(dims))  # allows for duplicate dimensions and integer/vector/tuple dims
     if ndims(x) == length(d) # normalizing over all dimensions
         n = length(x)		 
@@ -27,7 +29,7 @@ function logp(x::A; dims=:) where A <: Union{<:KnetArray, Rec{<:KnetArray}}
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=2)
         reshape(x, sz)
     elseif ndims(x) == 2 && d == [2]
-        logp(x.', 1).' 
+        logp(x', 1)' 
     else
         _logp(x, dims)
     end
@@ -107,26 +109,27 @@ faster.
 
 See also `logsoftmax`.
 """
-softmax(x, dims=1; algo=1) = _softmax(x, dims; algo=algo) # generic fallback
+softmax(x; dims=:, algo=1) = _softmax(x, dims; algo=algo) # generic fallback
 
-function softmax(x::A, dims=1; algo=1) where A <: Union{<:KnetArray, Rec{<:KnetArray}}
+function softmax(x::A; dims=:, algo=1) where A <: Union{<:KnetArray, Param{<:KnetArray}}
     @assert algo ∈ [0, 1]
-    d = sort(union(dims))
+    sz = size(x)
+    dims = dims == Colon() ? size(x) : dims
+    d = sort(union(dims))  # allows for duplicate dimensions and integer/vector/tuple dims
     if ndims(x) == length(d)
-        sz = size(x)
         x = cudnnSoftmaxForward(reshape(x,(1,1,:,1)),algo=algo)
         reshape(x, sz)
     elseif d == [1]
-        sz = size(x)
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
         reshape(x, sz)
     elseif ndims(x) == 2 && d == [2]
-        softmax(x.', 1, algo=algo).'
+        softmax(x', 1, algo=algo)'
     else
         _softmax(x, dims)
     end
 end 
 
+# softmax fallback
 function _softmax(x, dims; algo=1)
     @assert algo ∈ [0, 1]
     if algo == 1
@@ -178,7 +181,7 @@ end
 
 """
 
-    logsumexp(x;dims=:)
+    logsumexp(x; dims=:)
 
 Compute `log(sum(exp(x);dims))` in a numerically stable manner.
 
@@ -187,8 +190,8 @@ the whole `x`, otherwise the summation is performed over the given
 dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
 of `x` and `dims=2` sums rows of `x`.
 """
-function logsumexp(x;dims=:)
-    xmax = maximum(x,dims=dims)
+function logsumexp(x; dims=:)
+    xmax = maximum(x, dims=dims)
     xmax + log.(sum(exp.(x .- xmax),dims=dims))
 end
 
