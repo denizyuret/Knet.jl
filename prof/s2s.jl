@@ -194,14 +194,15 @@ function _s2s(model, inputs, outputs)
 end
 
 nothing
+
 # (m,o,s) = main()
-# b = @benchmark main(model=$m,opts=$o,sequence=$s,mode=2)
-# display(b)
-# println()
+# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=0))
+# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=1))
+# println(@benchmark main(model=$m,opts=$o,sequence=$s,mode=2))
 
-#=
-Profiling results:
-
-Forward (mode=0):
-
-=#
+# commit 359d3646 2018-09-22, julia 1.0.0 vs commit 4aa5f92f 2018-08-14, julia 0.6.4
+# GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
+#
+# Trial(8.104 ms)  Trial(5.821 ms)  ----
+# Trial(1.909 s)   Trial(24.304 ms) ----
+# Trial(1.318 s)   Trial(25.013 ms) ----
