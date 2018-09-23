@@ -1,5 +1,3 @@
-GCDBG=false; macro gcdbg(expr); if GCDBG; esc(expr); end; end
-
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
 
@@ -73,14 +71,15 @@ initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
 # end
 blocksize(n::Int,b=sqrt(2))=ceil(Int,b^ceil(log(b,n)))
 
-@gcdbg (arraysizes = Int[]; allocs = Int[]; blocksizes = Int[])
+# The following used for debugging and record every request
+arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
 
 function inclimit!(m::KnetMem, minlimit=m.limit*6÷5)
     maxlimit = gpumem()[1]*9÷10 # m.bytes + gpufree()
     minlimit = min(maxlimit, minlimit)
     if m.limit < minlimit
         m.limit = minlimit
-        @gcdbg println((:limit, m.limit, :alloc, m.bytes, :avail, m.avail, :pools, length(m.pools), :blocks, sum(p->p.nptr,values(m.pools))))
+        @debug "inclimit!" m.limit m.bytes m.avail pools=length(m.pools) blocks=(sum(p->p.nptr,values(m.pools)))
     end
 end
 
@@ -94,45 +93,48 @@ function KnetPtr(arraybytes::Int)
     mem = KnetMems[dev+1]
     mem.calls += 1
     blockbytes = blocksize(arraybytes)
-    @gcdbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
+    @dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
     pool.last = mem.calls
     if !isempty(pool.free)      # 1. best case we have one available in pool
-        @gcdbg push!(allocs, 1)
+        @dbg push!(allocs, 1)
         mem.avail -= blockbytes
         return KnetPtr(pop!(pool.free),blockbytes,dev)
     end
     if mem.bytes + blockbytes <= mem.limit # 2. allocate if we are within limit
         ptr = knetMalloc(blockbytes)
         if ptr != nothing
-            @gcdbg push!(allocs, 2)
+            @dbg push!(allocs, 2)
             mem.bytes += blockbytes
             pool.nptr += 1
             return KnetPtr(ptr,blockbytes,dev)
         end
     end
     if pool.nptr > 0            # 3. try gc if we had allocated this size before
-        GC.gc();  @gcdbg print('-')
+        GC.gc();  @dbg print('-')
         # inclimit!(mem, (mem.bytes-mem.avail)*3) # *4=>18s *3=>16s *5÷2=>16s *2=>22s *6÷5=>30s
         inclimit!(mem, mem.limit*6÷5)
         if !isempty(pool.free)
-            @gcdbg push!(allocs, 3)
+            @dbg push!(allocs, 3)
             mem.avail -= blockbytes
             return KnetPtr(pop!(pool.free),blockbytes,dev)
         end
     end
     # At this point we have to either free old ptrs or increase limit
     # Let's just try limit increase for now
-    inclimit!(mem, (mem.bytes + blockbytes*2)); @gcdbg print('+')
+    inclimit!(mem, (mem.bytes + blockbytes*2))
     ptr = knetMalloc(blockbytes)
+    if ptr == nothing
+        Knet.gc(); @dbg print('+')  # last ditch effort
+        ptr = knetMalloc(blockbytes)
+    end
     if ptr != nothing
-        @gcdbg push!(allocs, 4)
+        @dbg push!(allocs, 4)
         mem.bytes += blockbytes
         pool.nptr += 1
         return KnetPtr(ptr,blockbytes,dev)
-    else
-        error("Out of gpu memory")
     end
+    error("Out of gpu memory")
 end
 
 KnetPtr(n::Integer)=KnetPtr(Int(n))
@@ -169,12 +171,15 @@ function gc(dev=gpu())
 end
 
 # this version cudaFree's n bytes from oldest pointers (TODO: do this faster with a heap)
+# TODO: we may need ages not just for pools but for individual arrays to detect unused extra arrays at the bottom of the pool stacks.
 function gc(dev::Int, nbytes::Int)
     mem = KnetMems[dev+1]
     pools = sort(collect(mem.pools),by=(x->x[2].last))
     freed = 0
     for (n,v) in pools
-        @gcdbg (!isempty(v.free) && println("pool($n): free=$(length(v.free)) nptr=$(v.nptr) last=$(v.last) memcalls=$(mem.calls)"))
+        if !isempty(v.free)
+            @debug "gc" pool=n free=length(v.free) v.nptr v.last mem.calls
+        end
         while !isempty(v.free)
             p = pop!(v.free)
             @cuda(cudart,cudaFree,(Cptr,),p)
