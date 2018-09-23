@@ -30,9 +30,13 @@ Knet.gpu
 Knet.invx
 Knet.gc
 Knet.logp
+Knet.logsoftmax
+Knet.softmax
 Knet.logsumexp
 Knet.minibatch
 Knet.nll
+Knet.logistic
+Knet.bce
 Knet.relu
 Knet.seed!
 Knet.sigm
