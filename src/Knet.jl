@@ -2,11 +2,8 @@ module Knet
 using Libdl
 # using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 
-# To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
-# can be used to show a subset of dbg messages indicated by the `bit`
-# argument to the `dbg` macro.
-const DBGFLAGS = 0
-macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
+# To see debug output, start julia with `JULIA_DEBUG=Knet julia`
+macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
 # To perform profiling, set PROFILING to true. (moved this to gpu.jl)
 # const PROFILING = false
