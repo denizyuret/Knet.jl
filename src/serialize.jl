@@ -10,7 +10,7 @@ serialize(x) = serialize_internal(x,IdDict(),JLDMODE)
 gpu(x)       = serialize_internal(x,IdDict(),GPUMODE)
 cpu(x)       = serialize_internal(x,IdDict(),CPUMODE)
 
-serialize_internal(x::KnetArray,stackdict::IdDict,::typeofa(JLDMODE)) = KnetJLD(Array(x))
+serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(JLDMODE)) = KnetJLD(Array(x))
 serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(GPUMODE))=x
 serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(CPUMODE))=Array(x)
 serialize_internal(x::Array,stackdict::IdDict,::typeof(GPUMODE))=KnetArray(x)
@@ -51,7 +51,7 @@ function serialize_internal(x::Core.SimpleVector, stackdict::IdDict,mode::Val)
     return y
 end
 
-function serialize_internal(x::String, stackdict::IdDict,mode::Val)
+function serialize_internal(x::String, stackdict::IdDict,::Val)
     if haskey(stackdict, x)
         return stackdict[x]
     end
