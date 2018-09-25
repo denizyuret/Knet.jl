@@ -1,6 +1,6 @@
 """
 
-    logp(x;[dims])
+    logp(x; dims=:)
 
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
@@ -11,7 +11,7 @@ given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
-logp(x;dims=:) = generic_softmax(x,2,_logp;dims=dims)
+logp(x; dims=:) = generic_softmax(x,2,_logp; dims=dims)
 
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
@@ -89,7 +89,7 @@ mutable structdef enum
 
 """
 
-    softmax(x, dims=1; algo=1)
+    softmax(x; dims=1, algo=1)
 
 The softmax function typically used in classification.
 Gives the same results as to `exp.(logp(x, dims))`. 
@@ -100,8 +100,8 @@ faster.
 See also `logsoftmax`.
 
 """
-function softmax(x;dims=:,algo=1)
-    generic_softmax(x,algo,_softmax;dims=dims)
+function softmax(x; dims=:, algo=1)
+    generic_softmax(x, algo, _softmax; dims=dims)
 end
 
 function _softmax(x; dims=:, algo=1)
@@ -120,24 +120,30 @@ end
 @primitive  _softmax(x;dims=:,algo=1),dy,y  _softback(x,y,dy,dims=dims)
 
 """
-     logsoftmax(x;[dims])
+     logsoftmax(x; dims=:)
 
- Equivalent to `logp(x;[dims])`. See also `sotfmax`. 
+ Equivalent to `logp(x; dims=:)`. See also `sotfmax`. 
 """
 const logsoftmax = logp
 
+function dimvec(x, dims)
+     sz = size(x)
+     dims = dims == Colon() ? sz : dims
+     sort(union(dims)),sz  # handles duplicate dimensions and integer/vector/tuple dims
+end
+
 generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
 function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, Value{<:KnetArray}}
-    if dims==1
-        sz = size(x)
+    d,sz = dimvec(x,dims)
+    if d==[1]
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
         reshape(x, sz)
-    elseif dims==2 && ndims(x)==2
+    elseif d==[2] && ndims(x)==2
         generic_softmax(x',algo,fallback;dims=1)'
-    elseif dims==:;
+    elseif length(d)==ndims(x);
         n = length(x)
         (n > 20000 ? fallback(x) : # see Knet/prof/softmax.jl for timing info
-         reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
+        reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
     else
         fallback(x;dims=dims)
     end
