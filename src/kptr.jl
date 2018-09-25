@@ -51,8 +51,7 @@ end
 mutable struct KnetPool
     free::Vector{Cptr}          # pointers available for reuse
     nptr::Int                   # number of allocated pointers
-    last::Int                   # last time this pool was used
-    KnetPool()=new(Cptr[],0,0)
+    KnetPool()=new(Cptr[],0)
 end
 
 const KNETMEMINIT = 1<<24       # initial gpu memory limit
@@ -63,8 +62,7 @@ mutable struct KnetMem
     limit::Int                  # current memory limit
     bytes::Int                  # total bytes allocated (inuse + avail)
     avail::Int                  # total bytes freed and available
-    calls::Int                  # timer to measure pool age
-    KnetMem()=new(Dict{Int,KnetPool}(),KNETMEMINIT,0,0,0)
+    KnetMem()=new(Dict{Int,KnetPool}(),KNETMEMINIT,0,0)
 end
 
 # KnetMems[dev+1] holds memory information for device dev.
@@ -101,11 +99,9 @@ function KnetPtr(arraybytes::Int)
     dev = gpu(); if dev < 0; error("KnetPtr: bad device id $dev."); end
     if KnetMems==nothing; initKnetMems(); end
     mem = KnetMems[dev+1]
-    mem.calls += 1
     blockbytes = blocksize(arraybytes)
     @dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
-    pool.last = mem.calls
     if !isempty(pool.free)      # 1. best case we have one available in pool
         @dbg push!(allocs, 1)
         mem.avail -= blockbytes
@@ -180,29 +176,6 @@ function gc(dev=gpu())
     GC.enable(true); GC.gc()
 end
 
-# this version cudaFree's n bytes from oldest pointers (TODO: do this faster with a heap)
-# TODO: we may need ages not just for pools but for individual arrays to detect unused extra arrays at the bottom of the pool stacks.
-function gc(dev::Int, nbytes::Int)
-    mem = KnetMems[dev+1]
-    pools = sort(collect(mem.pools),by=(x->x[2].last))
-    freed = 0
-    for (n,v) in pools
-        if !isempty(v.free)
-            @debug "pool=$n free=$(length(v.free)) nptr=$(v.nptr) last=$(v.last) calls=$(mem.calls)"
-        end
-        while !isempty(v.free)
-            p = pop!(v.free)
-            @cuda(cudart,cudaFree,(Cptr,),p)
-            v.nptr -= 1
-            mem.avail -= n
-            mem.bytes -= n
-            freed += n
-            if freed >= nbytes; return; end
-        end
-    end
-    error("Knet.gc could not free $nbytes bytes.")
-end
-
 @deprecate knetgc Knet.gc
 
 # Some utilities
@@ -228,7 +201,7 @@ function gpuinfo(msg="",dev=gpu();n=10)
     println((:totbytes,bytes,:avail,avail,:ptrs,ptrs))
     if KnetMems != nothing
         mem = KnetMems[dev+1]
-        println((:membytes,mem.bytes,:avail,mem.avail,:limit,mem.limit,:calls,mem.calls,:pools,length(mem.pools)))
+        println((:membytes,mem.bytes,:avail,mem.avail,:limit,mem.limit,:pools,length(mem.pools)))
     end
 end
 
