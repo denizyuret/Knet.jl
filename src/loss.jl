@@ -11,7 +11,7 @@ end
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
 `dims` is an optional argument, if not specified the normalization is
-over all of the dimension of `x`, otherwise the normalization is performed over the
+over all of the dimensions of `x`, otherwise the normalization is performed over the
 given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x`, `dims=2` normalizes rows of `x` and
 `dims=(1,2)` or `dims=:` normalizes the whole matrix.  
@@ -21,6 +21,7 @@ equivalent to `exp.(logp(x)`.
 logp(x; dims=:) = _logp(x; dims=dims)
 
 function logp(x::A; dims=:) where A <: Union{<:KnetArray, Param{<:KnetArray}}
+    sz = size(x)
     d = dimvec(x, dims)
     if ndims(x) == length(d) # normalizing over all dimensions
         n = length(x)		 
