@@ -2,18 +2,17 @@ include("header.jl")
 using Knet: KnetMems, KnetPtr, gpuCount, blocksize
 
 if gpu() >= 0; let arraysizes = 2 .^ (1:10), blocksizes = blocksize.(arraysizes), kptrs = map(KnetPtr, arraysizes), mem = KnetMems[gpu()+1]
-    (mem.limit, mem.bytes, mem.avail, mem.calls, length(mem.pools), sum(p->p.nptr, values(mem.pools)))
+    (mem.limit, mem.bytes, mem.avail, length(mem.pools), sum(p->p.nptr, values(mem.pools)))
     (p->p.len).(kptrs)
 
     @testset "kptr" begin
         
-        function testkptr(ncalls, navail, nfree)
+        function testkptr(navail, nfree)
             @test length(KnetMems) == gpuCount()
             @test length(mem.pools) == 10
             @test sort(collect(keys(mem.pools))) == blocksizes
             @test mem.limit >= mem.bytes
             @test mem.bytes == sum(blocksizes)
-            @test mem.calls == ncalls
             @test mem.avail == navail
             @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
             if nfree == 0
@@ -21,11 +20,11 @@ if gpu() >= 0; let arraysizes = 2 .^ (1:10), blocksizes = blocksize.(arraysizes)
             end
         end
 
-        testkptr(10, 0, 0)
+        testkptr(0, 0)
         kptrs = nothing; GC.gc()
-        testkptr(10, sum(blocksizes), 1)
+        testkptr(sum(blocksizes), 1)
         kptrs = map(KnetPtr, arraysizes)
-        testkptr(20, 0, 0)
+        testkptr(0, 0)
 
     end
 end; end
