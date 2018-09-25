@@ -1,31 +1,43 @@
-"""
+# squeeze any allowed dims argument into a sorted vec with no repetitions
+function dimvec(x, dims)
+    sz = size(x)
+    dims = dims == Colon() ? size(x) : dims
+    sort(union(dims))  # handles duplicate dimensions and integer/vector/tuple dims
+end
 
-    logp(x;[dims])
+"""
+    logp(x; dims=:)
 
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
-
 `dims` is an optional argument, if not specified the normalization is
-over the whole `x`, otherwise the normalization is performed over the
+over all of the dimensions of `x`, otherwise the normalization is performed over the
 given dimensions.  In particular, if `x` is a matrix, `dims=1`
-normalizes columns of `x` and `dims=2` normalizes rows of `x`.
-
+normalizes columns of `x`, `dims=2` normalizes rows of `x` and
+`dims=(1,2)` or `dims=:` normalizes the whole matrix.  
+Calls to `logsoftmax` are equivalent to  calls `logp`, and `softmax(x)` is 
+equivalent to `exp.(logp(x)`. 
 """
-function logp(x;dims=:)
-    if isa(value(x), KnetArray)
-        if dims==(1,)
-            cudnnSoftmaxForward(x,algo=2)
-        elseif dims==(2,)
-            cudnnSoftmaxForward(x',algo=2)'
-        elseif dims==(:,)
-            n = length(x)
-            (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
+logp(x; dims=:) = _logp(x; dims=dims)
+
+function logp(x::A; dims=:) where A <: Union{<:KnetArray, Param{<:KnetArray}}
+    sz = size(x)
+    d = dimvec(x, dims)
+    if ndims(x) == length(d) # normalizing over all dimensions
+        n = length(x)		 
+        if n > 20000 
+            _logp(x, dims=dims)
         else
-            _logp(x,dims=dims)
-        end
+            x = cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2)
+            reshape(x, sz)
+        end 
+    elseif d == [1]
+        x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=2)
+        reshape(x, sz)
+    elseif ndims(x) == 2 && d == [2]
+        logp(x', dims=1)' 
     else
-        _logp(x,dims=dims) # fall back on old implementation if not KnetArray
+        _logp(x, dims=dims)
     end
 end
 
@@ -45,7 +57,7 @@ end
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
-function _logp(x;dims=:)
+function _logp(x; dims)
     xval = value(x)
     if isa(xval,Number)
         return zero(xval)
@@ -55,7 +67,7 @@ function _logp(x;dims=:)
         x = x .- maximum(x,dims=dims)
         return (x .- log.(sum(exp.(x),dims=dims)))
         # Expanding for profiling:
-        # x1 = maximum(x,d...)
+        # x1 = maximum(x,dims)
         # x2 = x .- x1
         # x3 = exp.(x2)
         # x4 = sum(x3,d...)
@@ -65,16 +77,16 @@ function _logp(x;dims=:)
     end
 end
 
-function _logpback(x,y,dy;dims)
+function _logpback(x,y,dy; dims)
     xval = value(x)
     if isa(xval,Number)
         return zero(xval)
     elseif isempty(xval)
         return xval
     else
-        return (dy - exp.(y).*sum(dy;dims=dims))
+        return (dy .- exp.(y).*sum(dy;dims=dims))
         # Expanding for profiling:
-        # dx1 = sum(dy,d...)
+        # dx1 = sum(dy,dims)
         # dx2 = exp.(y)
         # dx3 = dx2 .* dx1
         # dx4 = dy - dx3
@@ -83,7 +95,57 @@ function _logpback(x,y,dy;dims)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x;dims=:),dy,y  _logpback(x,y,dy,dims=dims)
+@primitive  _logp(x; dims=:),dy,y  _logpback(x,y,dy,dims=dims)
+
+"""
+    logsoftmax(x, dims=1)
+
+Equivalent to `logp(x, dims)`. See also `sotfmax`. 
+"""
+const logsoftmax = logp
+
+"""
+    softmax(x, dims=1; algo=1)
+
+The softmax function typically used in classification.
+Gives the same results as to `exp.(logp(x, dims))`. 
+
+If `algo=1` computation is more accurate, if `algo=0` it is 
+faster. 
+
+See also `logsoftmax`.
+"""
+softmax(x; dims=:, algo=1) = _softmax(x; dims=dims, algo=algo) # generic fallback
+
+function softmax(x::A; dims=:, algo=1) where A <: Union{<:KnetArray, Param{<:KnetArray}}
+    @assert algo ∈ [0, 1]
+    d = dimvec(x, dims)
+    if ndims(x) == length(d)
+        x = cudnnSoftmaxForward(reshape(x,(1,1,:,1)),algo=algo)
+        reshape(x, sz)
+    elseif d == [1]
+        x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
+        reshape(x, sz)
+    elseif ndims(x) == 2 && d == [2]
+        softmax(x', dims=1, algo=algo)'
+    else
+        _softmax(x; dims=dims, algo=algo)
+    end
+end 
+
+# softmax fallback
+function _softmax(x; dims, algo)
+    @assert algo ∈ [0, 1]
+    if algo == 1
+        x = x .- maximum(x, dims=dims)
+    end    
+    x = exp.(x)
+    return x ./ sum(x, dims=dims)
+end
+
+function _softback(x,y,dy,dims)
+    return y .* dy .- y .* sum(y .* dy, dims=dims)
+end
 
 #=
 mutable structdef enum
@@ -98,7 +160,6 @@ mutable structdef enum
     CUDNN_SOFTMAX_MODE_INSTANCE = 0,   /* compute the softmax over all C, H, W for each N */
     CUDNN_SOFTMAX_MODE_CHANNEL = 1     /* compute the softmax over all C for each H, W, N */
 } cudnnSoftmaxMode_t;
-
 =#          
 
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
@@ -106,7 +167,7 @@ function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cu
     y = similar(x)
     @cuda(cudnn, cudnnSoftmaxForward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
-          handle, algo, mode, Ref(T(alpha)), TD4(x), x, Ref(T(beta)), TD4(y), y)
+          handle, algo, mode, Ref(T(alpha)), TD(x), x, Ref(T(beta)), TD(y), y)
     return y
 end
 
@@ -115,28 +176,16 @@ function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0,
     dx = similar(dy)
     @cuda(cudnn, cudnnSoftmaxBackward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
-          handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
+          handle, algo, mode, Ref(T(alpha)), TD(y), y, TD(dy), dy, Ref(T(beta)), TD(dx), dx)
     return dx
 end
 
 @primitive cudnnSoftmaxForward(x;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
 @zerograd cudnnSoftmaxBackward(y,dy;o...)
 
-function TD4(x::KnetArray)
-    d = ndims(x)
-    if d == 4 || d == 5
-        TD(x)
-    else
-        n = size(x,d)
-        m = div(length(x),n)
-        TD(reshape(x,(1,1,m,n)))
-    end
-end
-
-
 """
 
-    logsumexp(x;dims=:)
+    logsumexp(x; dims=:)
 
 Compute `log(sum(exp(x);dims))` in a numerically stable manner.
 
@@ -144,11 +193,10 @@ Compute `log(sum(exp(x);dims))` in a numerically stable manner.
 the whole `x`, otherwise the summation is performed over the given
 dimensions.  In particular if `x` is a matrix, `dims=1` sums columns
 of `x` and `dims=2` sums rows of `x`.
-
 """
-function logsumexp(x;dims=:)
-    xmax = maximum(x,dims=dims)
-    xmax + log.(sum(exp.(x .- xmax),dims=dims))
+function logsumexp(x; dims=:)
+    xmax = maximum(x, dims=dims)
+    xmax + log.(sum(exp.(x .- xmax), dims=dims))
 end
 
 @primitive logsumexp(x;dims=:),dy,y  (dy .* exp.(x .- y))
@@ -163,7 +211,6 @@ correct `answers`, return the per-instance negative log
 likelihood. `dims=1` means instances are in columns, `dims=2` means
 instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
-
 """
 function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
@@ -173,7 +220,6 @@ end
 
 
 """
-
     accuracy(scores, answers; dims=1, average=true)
 
 Given an unnormalized `scores` matrix and an `Integer` array of
@@ -181,7 +227,6 @@ correct `answers`, return the ratio of instances where the correct
 answer has the maximum score. `dims=1` means instances are in columns,
 `dims=2` means instances are in rows. Use `average=false` to return
 the number of correct answers instead of the ratio.
-
 """
 function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
