@@ -11,20 +11,9 @@ macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Deb
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad
-using AutoGrad: forw, back, Tape
-using AutoGrad: Rec             # TODO; deprecate after AutoGrad 1.1
-export grad, value, Param
-export gradloss, getval         # TODO: deprecate after AutoGrad 1.1?
-if isdefined(AutoGrad,:Param); @eval begin
-    using AutoGrad: Value
-    export @diff
-end; else; @eval begin          # TODO: deprecate after AutoGrad 1.1
-    const value = getval
-    const Value = Rec
-    const Param = Rec
-    macro diff(x) :(throw(UndefVarError(:@diff))) end
-end; end
+using AutoGrad # Param, params, grad, value, @diff, gradloss, getval, @primitive, @zerograd, @primitive1, @zerograd1, cat1d
+using AutoGrad: forw, back, Value
+export grad, gradloss, value, Param, @diff
 
 include("gpu.jl");              export gpu
 include("uva.jl")

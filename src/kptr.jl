@@ -30,9 +30,19 @@ end
 # release the memory, but inserts it back in the appropriate pool for reuse.
 
 function freeKnetPtr(p::KnetPtr)
+    if p.dev < 0 || isdefined(p,:parent); return; end
     mem = KnetMems[p.dev+1]
     mem.avail += p.len
     push!(mem.pools[p.len].free, p.ptr)
+    p.dev = -1 # to avoid double free by gcnode then gc
+end
+
+if isdefined(AutoGrad,:gcnode)  # TODO: keep until 1.1.1
+    function AutoGrad.gcnode(n::AutoGrad.Node)
+        if isa(n.outgrad, KnetArray); freeKnetPtr(n.outgrad.ptr); end
+        if isa(n.Value.value, KnetArray); freeKnetPtr(n.Value.value.ptr); end
+        n.outgrad=n.Value.value=nothing
+    end
 end
 
 # We use the KnetPool type to keep track of allocated and garbage collected pointers: We
@@ -75,11 +85,11 @@ blocksize(n::Int,b=sqrt(2))=ceil(Int,b^ceil(log(b,n)))
 arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
 
 function inclimit!(m::KnetMem, minlimit=m.limit*6÷5)
-    maxlimit = gpumem()[1]*9÷10 # m.bytes + gpufree()
+    maxlimit = gpumem()[1] - 500_000_000 # m.bytes + gpufree()
     minlimit = min(maxlimit, minlimit)
     if m.limit < minlimit
         m.limit = minlimit
-        @debug "inclimit!" m.limit m.bytes m.avail pools=length(m.pools) blocks=(sum(p->p.nptr,values(m.pools)))
+        @debug "limit=$(m.limit) bytes=$(m.bytes) avail=$(m.avail) pools=$(length(m.pools)) blocks=$(sum(p->p.nptr,values(m.pools)))"
     end
 end
 
@@ -178,7 +188,7 @@ function gc(dev::Int, nbytes::Int)
     freed = 0
     for (n,v) in pools
         if !isempty(v.free)
-            @debug "gc" pool=n free=length(v.free) v.nptr v.last mem.calls
+            @debug "pool=$n free=$(length(v.free)) nptr=$(v.nptr) last=$(v.last) calls=$(mem.calls)"
         end
         while !isempty(v.free)
             p = pop!(v.free)
