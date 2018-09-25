@@ -600,7 +600,6 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
     elseif length(conv4_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()          # TODO: fix memory management
         @cuda(cudnn, cudnnFindConvolutionForwardAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),FD(w),CD(w,x;o...),TD(y),requestedAlgoCount,returnedAlgoCount,perfResults)
@@ -620,7 +619,6 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
     elseif length(conv4w_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()
         @cuda(cudnn, cudnnFindConvolutionBackwardFilterAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),TD(dy),CD(w,x;o...),FD(dw),requestedAlgoCount,returnedAlgoCount,perfResults)
@@ -640,7 +638,6 @@ function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetAr
     elseif length(conv4x_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()
         @cuda(cudnn, cudnnFindConvolutionBackwardDataAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,FD(w),TD(dy),CD(w,x;o...),TD(dx),requestedAlgoCount,returnedAlgoCount,perfResults)
