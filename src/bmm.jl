@@ -49,11 +49,16 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
 end
 
 function bmm!(A, B, C)
-    m,n,bs = size(A)
-    n,k,bs = size(B)
+    if ndims(A) != 3 || ndims(B) != 3
+        throw(DimensionMismatch("$(map(size,(A,B,C)))"))
+    end
+    ma,ka,bsa = size(A)
+    kb,nb,bsb = size(B)
+
+    (bsa == bsb && ka == kb && size(C,1) == ma && size(C,2) == nb && size(C,3) == bsa) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     
     for i=1:bs
-        C[:,:,i] = reshape(A[:,:,i], m, n) * reshape(B[:, :, i], n, k)
+        C[:,:,i] = reshape(A[:,:,i], m, k) * reshape(B[:, :, i], k, n)
     end
     return C
 end
