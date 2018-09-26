@@ -39,8 +39,8 @@ end
 
 if isdefined(AutoGrad,:gcnode)  # TODO: keep until 1.1.1
     function AutoGrad.gcnode(n::AutoGrad.Node)
-        if isa(n.outgrad, KnetArray); freeKnetPtr(n.outgrad.ptr); end
-        if isa(n.Value.value, KnetArray); freeKnetPtr(n.Value.value.ptr); end
+        #DBG if isa(n.outgrad, KnetArray); freeKnetPtr(n.outgrad.ptr); end
+        #DBG if isa(n.Value.value, KnetArray); freeKnetPtr(n.Value.value.ptr); end
         n.outgrad=n.Value.value=nothing
     end
 end
