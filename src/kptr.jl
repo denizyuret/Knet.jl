@@ -34,15 +34,7 @@ function freeKnetPtr(p::KnetPtr)
     mem = KnetMems[p.dev+1]
     mem.avail += p.len
     push!(mem.pools[p.len].free, p.ptr)
-    p.dev = -1 # to avoid double free by gcnode then gc
-end
-
-if isdefined(AutoGrad,:gcnode)  # TODO: keep until 1.1.1
-    function AutoGrad.gcnode(n::AutoGrad.Node)
-        #DBG if isa(n.outgrad, KnetArray); freeKnetPtr(n.outgrad.ptr); end
-        #DBG if isa(n.Value.value, KnetArray); freeKnetPtr(n.Value.value.ptr); end
-        n.outgrad=n.Value.value=nothing
-    end
+    p.dev = -1 # to avoid double free by gcnode then gc. TODO: figure out why p.ptr=C_NULL does not work here.
 end
 
 # We use the KnetPool type to keep track of allocated and garbage collected pointers: We

@@ -1258,3 +1258,44 @@ summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof
 show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
 summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+
+
+
+# During the back pass we want to make pointers available as soon as we can to save memory
+# without waiting for gc. This is risky as we have to make sure the pointers are not going
+# to be used again.  We want to make sure there are no shared pointers with parents or
+# children in the computational graph. Results only get created at core.jl:100 in forw().
+# We have f, args, kwargs recorded so we have all the parents. The children are later
+# Results and outgrads of parents. We have no direct access to children!  Outgrads are only
+# created in core.jl:74 in back(). Both parents and children are accessible from the node.
+
+using AutoGrad: Node
+
+if isdefined(AutoGrad,:gcnode)  # TODO: remove after 1.1.1
+    function AutoGrad.gcnode(n::Node)
+        maybefree(n.outgrad, n)
+        maybefree(n.Value.value, n)
+        n.outgrad=n.Value.value=nothing
+    end
+end
+
+maybefree(x,n)=return
+
+function maybefree(x::KnetArray, n::Node)
+    @inbounds for i in 1:length(n.parents)
+        if isassigned(n.parents, i) && maysharepointer(x, n.parents[i].outgrad)
+            return
+        end
+    end
+    @inbounds for r in n.children
+        if maysharepointer(x, r.outgrad) || maysharepointer(x, r.Value.value)
+            return
+        end
+    end
+    freeKnetPtr(x.ptr)
+end
+
+# This returns false only if we are sure there is no shared pointer. It is conservative, may return true when it shouldn't.
+# Numbers, Nothing, unshared KnetArray with different pointer (98%) is safe.
+maysharepointer(x::KnetArray, p)=!(isbits(p) || (isa(p, KnetArray) && !isdefined(p,:parent) && pointer(p) != pointer(x)))
+
