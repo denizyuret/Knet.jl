@@ -237,7 +237,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.grad",
     "category": "function",
-    "text": "grad(fun, argnum=1)\n\nTake a function fun(X...)->Y and return another function gfun(X...)->dXi which computes its gradient with respect to positional argument number argnum. The function fun should be scalar-valued. The returned function gfun takes the same arguments as fun, but returns the gradient instead. The gradient has the same type and size as the target argument which can be a Number, Array, Tuple, or Dict.\n\n\n\n\n\n"
+    "text": "Usage:\n\nx = Param([1,2,3])          # user declares parameters\nx => P([1,2,3])             # they are wrapped in a struct\nvalue(x) => [1,2,3]         # we can get the original value\nsum(abs2,x) => 14           # they act like regular values outside of differentiation\ny = @diff sum(abs2,x)       # if you want the gradients\ny => T(14)                  # you get another struct\nvalue(y) => 14              # which represents the same value\ngrad(y,x) => [2,4,6]        # but also contains gradients for all Params\n\nParam(x) returns a struct that acts like x but marks it as a parameter you want to compute gradients with respect to.\n\n@diff expr evaluates an expression and returns a struct that contains its value (which should be a scalar) and gradient information.\n\ngrad(y, x) returns the gradient of y (output by @diff) with respect to any parameter x::Param, or  nothing if the gradient is 0.\n\nvalue(x) returns the value associated with x if x is a Param or the output of @diff, otherwise returns x.\n\nparams(x) returns an array of Params found by a recursive search of object x.\n\nAlternative usage:\n\nx = [1 2 3]\nf(x) = sum(abs2, x)\nf(x) => 14\ngrad(f)(x) => [2 4 6]\ngradloss(f)(x) => ([2 4 6], 14)\n\nGiven a scalar valued function f, grad(f,argnum=1) returns another function g which takes the same inputs as f and returns the gradient of the output with respect to the argnum\'th argument. gradloss is similar except the resulting function also returns f\'s output.\n\n\n\n\n\n"
 },
 
 {
@@ -245,7 +245,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.gradloss",
     "category": "function",
-    "text": "gradloss(fun, argnum=1)\n\nAnother version of grad where the generated function returns a (gradient,value) pair.\n\n\n\n\n\n"
+    "text": "Usage:\n\nx = Param([1,2,3])          # user declares parameters\nx => P([1,2,3])             # they are wrapped in a struct\nvalue(x) => [1,2,3]         # we can get the original value\nsum(abs2,x) => 14           # they act like regular values outside of differentiation\ny = @diff sum(abs2,x)       # if you want the gradients\ny => T(14)                  # you get another struct\nvalue(y) => 14              # which represents the same value\ngrad(y,x) => [2,4,6]        # but also contains gradients for all Params\n\nParam(x) returns a struct that acts like x but marks it as a parameter you want to compute gradients with respect to.\n\n@diff expr evaluates an expression and returns a struct that contains its value (which should be a scalar) and gradient information.\n\ngrad(y, x) returns the gradient of y (output by @diff) with respect to any parameter x::Param, or  nothing if the gradient is 0.\n\nvalue(x) returns the value associated with x if x is a Param or the output of @diff, otherwise returns x.\n\nparams(x) returns an array of Params found by a recursive search of object x.\n\nAlternative usage:\n\nx = [1 2 3]\nf(x) = sum(abs2, x)\nf(x) => 14\ngrad(f)(x) => [2 4 6]\ngradloss(f)(x) => ([2 4 6], 14)\n\nGiven a scalar valued function f, grad(f,argnum=1) returns another function g which takes the same inputs as f and returns the gradient of the output with respect to the argnum\'th argument. gradloss is similar except the resulting function also returns f\'s output.\n\n\n\n\n\n"
 },
 
 {
@@ -329,11 +329,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference.html#Knet.softmax",
+    "page": "Reference",
+    "title": "Knet.softmax",
+    "category": "function",
+    "text": "softmax(x; dims=1, algo=1)\n\nThe softmax function typically used in classification. Gives the same results as to exp.(logp(x, dims)). \n\nIf algo=1 computation is more accurate, if algo=0 it is  faster. \n\nSee also logsoftmax.\n\n\n\n\n\n"
+},
+
+{
     "location": "reference.html#Knet.logp",
     "page": "Reference",
     "title": "Knet.logp",
     "category": "function",
-    "text": "logp(x;[dims])\n\nTreat entries in x as as unnormalized log probabilities and return normalized log probabilities.\n\ndims is an optional argument, if not specified the normalization is over the whole x, otherwise the normalization is performed over the given dimensions.  In particular, if x is a matrix, dims=1 normalizes columns of x and dims=2 normalizes rows of x.\n\n\n\n\n\n"
+    "text": "logp(x; dims=:)\n\nTreat entries in x as as unnormalized log probabilities and return normalized log probabilities.\n\ndims is an optional argument, if not specified the normalization is over the whole x, otherwise the normalization is performed over the given dimensions.  In particular, if x is a matrix, dims=1 normalizes columns of x and dims=2 normalizes rows of x.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.logsoftmax",
+    "page": "Reference",
+    "title": "Knet.logsoftmax",
+    "category": "function",
+    "text": " logsoftmax(x; dims=:)\n\nEquivalent to logp(x; dims=:). See also sotfmax. \n\n\n\n\n\n"
 },
 
 {
@@ -342,6 +358,22 @@ var documenterSearchIndex = {"docs": [
     "title": "Knet.logsumexp",
     "category": "function",
     "text": "logsumexp(x;dims=:)\n\nCompute log(sum(exp(x);dims)) in a numerically stable manner.\n\ndims is an optional argument, if not specified the summation is over the whole x, otherwise the summation is performed over the given dimensions.  In particular if x is a matrix, dims=1 sums columns of x and dims=2 sums rows of x.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.logistic",
+    "page": "Reference",
+    "title": "Knet.logistic",
+    "category": "function",
+    "text": "logistic(scores, answers; average=true)\n\nComputes logistic loss given scores(predicted values) and answer labels. answer values should be {-1,1}, then it returns mean|sum(log(1 + exp(-answers*scores))). See also bce.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference.html#Knet.bce",
+    "page": "Reference",
+    "title": "Knet.bce",
+    "category": "function",
+    "text": "bce(scores,answers;average=true)\n\nComputes binary cross entropy given scores(predicted values) and answer labels. answer values should be {0,1}, then it returns negative of mean|sum(answers * log(p) + (1-answers)*log(1-p)) where p is equal to 1/(1 + exp.(scores)). See also logistic.\n\n\n\n\n\n"
 },
 
 {
@@ -389,7 +421,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Utilities",
     "category": "section",
-    "text": "Knet.accuracy\nKnet.dir\nKnet.dropout\nKnet.gpu\nKnet.invx\nKnet.gc\nKnet.logp\nKnet.logsumexp\nKnet.minibatch\nKnet.nll\nKnet.relu\nKnet.seed!\nKnet.sigm"
+    "text": "Knet.accuracy\nKnet.dir\nKnet.dropout\nKnet.gpu\nKnet.invx\nKnet.gc\nKnet.softmax\nKnet.logp\nKnet.logsoftmax\nKnet.logsumexp\nKnet.logistic\nKnet.bce\nKnet.minibatch\nKnet.nll\nKnet.relu\nKnet.seed!\nKnet.sigm"
 },
 
 {
@@ -542,30 +574,6 @@ var documenterSearchIndex = {"docs": [
     "title": "Initialization",
     "category": "section",
     "text": "Knet.bilinear\nKnet.gaussian\nKnet.xavier"
-},
-
-{
-    "location": "reference.html#AutoGrad.getval",
-    "page": "Reference",
-    "title": "AutoGrad.getval",
-    "category": "function",
-    "text": "getval(x)\n\nUnbox x if it is a boxed value (Rec), otherwise return x.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference.html#AutoGrad.@primitive",
-    "page": "Reference",
-    "title": "AutoGrad.@primitive",
-    "category": "macro",
-    "text": "@primitive  fx g1 g2...\n\nDefine a new primitive operation for AutoGrad and (optionally) specify its gradients.  Non-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\nExamples\n\n@primitive sin(x::Number)\n@primitive hypot(x1,x2),dy,y\n\n@primitive sin(x::Number),dy  (dy.*cos(x))\n@primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nThe first example shows that fx is a typed method declaration. Julia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types.  AutoGrad takes advantage of this and supports multiple dispatch for primitives and gradients.\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f(x::T) where {T<:Number} cannot be used.\n\nThe method declaration can optionally be followed by gradient expressions.  The third and fourth examples show how gradients can be specified.  Note that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nUnder the hood\n\nThe @primitive macro turns the first example into:\n\nsin(x::Rec{T}) where {T<:Number} = forw(sin, x)\n\nThis will cause calls to sin with a boxed argument (Rec{T<:Number}) to be recorded.  The recorded operations are used by AutoGrad to construct a dynamic computational graph.  With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nhypot(x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)\nhypot(x1::S, x2::Rec{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)\nhypot(x1::Rec{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)\n\nWe want the forw method to be called if any one of the arguments is a boxed Rec.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following pattern:\n\nback(f,Val(i),dy,y,x...) => dx[i]\n\nFor the third example here is the generated gradient method:\n\nback(::typeof(sin), ::Val{1}, dy, y, x::Rec{T}) where {T<:Number} = dy .* cos(x)\n\nFor the last example a different gradient method is generated for each argument:\n\nback(::typeof(hypot), ::Val{1}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y\nback(::typeof(hypot), ::Val{2}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\nBroadcasting\n\nBroadcasting is handled by extra forw and back methods. In broadcast.jl we define:\n\nbroadcasted(f, x::Rec) = forw(broadcast,f,x)\n\nand similar methods that match any function f, so that when a boxed value is in a broadcasting operation forw is called. The @primitive macro defines the back method for broadcasting of a particular primitive:\n\nback(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Rec{T}) where {T<:Number} = dy .* cos(x)\n\nIf you do not want the back method for broadcasting, you can use the @primitive1 macro which omits this final definition.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference.html#AutoGrad.@zerograd",
-    "page": "Reference",
-    "title": "AutoGrad.@zerograd",
-    "category": "macro",
-    "text": "@zerograd f(args...; kwargs...)\n\nDefine f as an AutoGrad primitive operation with zero gradient.\n\nExample:\n\n@zerograd  floor(x::Float32)\n\n@zerograd allows f to handle boxed Rec inputs by unboxing them like a @primitive, but unlike @primitive it does not record its actions or return a boxed Rec result.  Some functions, like sign(), have zero gradient.  Others, like length() have discrete or constant outputs.  These need to handle Rec inputs, but do not need to record anything and can return regular values.  Their output can be treated like a constant in the program.  Use the @zerograd macro for those.  Use the @zerograd1 variant if you don\'t want to define the broadcasting version. Note that kwargs are NOT unboxed.\n\n\n\n\n\n"
 },
 
 {

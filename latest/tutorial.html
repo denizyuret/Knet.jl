@@ -112,7 +112,7 @@ end</code></pre><p>A character based language model needs to predict the next ch
     y,hy,cy = rnnforw(r,wr,x,hx,cx,hy=true,cy=true)      # y=(H,B,T) hy=cy=(H,B,L)
     ys = by.+wy*reshape(y,size(y,1),size(y,2)*size(y,3)) # ys=(H,B*T)
     return ys, hy, cy
-end</code></pre><p>The loss function returns the negative-log-likelihood from the predicted scores and updates the hidden and cell states <code>h</code> in-place. <a href="reference.html#AutoGrad.getval"><code>getval</code></a> is necessary to prevent AutoGrad state leaking from one minibatch to the next. We use <a href="reference.html#AutoGrad.gradloss"><code>gradloss</code></a> instead of <a href="reference.html#AutoGrad.grad"><code>grad</code></a> so that <code>lossgradient</code> returns both the gradient and the loss for reporting.</p><pre><code class="language-julia">function loss(w,x,y,h)
+end</code></pre><p>The loss function returns the negative-log-likelihood from the predicted scores and updates the hidden and cell states <code>h</code> in-place. <a href="@ref"><code>getval</code></a> is necessary to prevent AutoGrad state leaking from one minibatch to the next. We use <a href="reference.html#AutoGrad.gradloss"><code>gradloss</code></a> instead of <a href="reference.html#AutoGrad.grad"><code>grad</code></a> so that <code>lossgradient</code> returns both the gradient and the loss for reporting.</p><pre><code class="language-julia">function loss(w,x,y,h)
     py,hy,cy = predict(w,x,h...)
     h[1],h[2] = getval(hy),getval(cy)
     return nll(py,y)
