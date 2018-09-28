@@ -2,7 +2,7 @@
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
 
 mutable struct KnetPtr
-    ptr::Cptr                   # actual pointer
+    ptr                         # actual pointer, removed type ::Cptr for serialization
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
     parent::KnetPtr             # used to implement shared memory pointers
@@ -10,7 +10,7 @@ mutable struct KnetPtr
     # This is the low level KnetPtr constructor, it adds the finalizer and
     # sets parent to `nothing` which is only needed for shared pointers.
 
-    function KnetPtr(ptr::Cptr,len::Int,dev::Int)
+    function KnetPtr(ptr,len::Int,dev::Int)
         kp = new(ptr,len,dev)
         finalizer(freeKnetPtr, kp)
     end
@@ -19,7 +19,7 @@ mutable struct KnetPtr
     # keep the parent field to prevent premature gc of the parent.  The
     # child does not need a special finalizer.
 
-    function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
+    function KnetPtr(parent::KnetPtr, offs::Int, len::Int)
         if len < 0 || offs < 1 || offs+len-1 > parent.len; throw(BoundsError()); end
         new(parent.ptr+offs-1, len, parent.dev, parent)
     end
@@ -69,7 +69,7 @@ initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
 #     z = leading_zeros(n-1)
 #     1<<(b-z)
 # end
-blocksize(n::Int,b=sqrt(2))=ceil(Int,b^ceil(log(b,n)))
+blocksize(n::Int,b=sqrt(2))=floor(Int,b^ceil(log(b,n)))
 
 # The following used for debugging and record every request
 arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
