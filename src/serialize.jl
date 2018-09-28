@@ -1,114 +1,102 @@
-struct RnnJLD; inputSize; hiddenSize; numLayers; dropout; inputMode; direction; mode; algo; dataType; w; end
-struct KnetJLD; a::Array ; end
-struct ParamJLD; value; opt; ParamJLD(x) = new(x); end
-
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
-serialize(x) = serialize_internal(x,IdDict(),JLDMODE)
-gpu(x)       = serialize_internal(x,IdDict(),GPUMODE)
-cpu(x)       = serialize_internal(x,IdDict(),CPUMODE)
+serialize(x) = _ser(x,IdDict(),JLDMODE)
+gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
+cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
-serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(JLDMODE)) = KnetJLD(Array(x))
-serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(GPUMODE))=x
-serialize_internal(x::KnetArray,stackdict::IdDict,::typeof(CPUMODE))=Array(x)
-serialize_internal(x::Array,stackdict::IdDict,::typeof(GPUMODE))=KnetArray(x)
-serialize_internal(x::Array,stackdict::IdDict,::typeof(CPUMODE))=x
-
-serialize_internal(d::KnetJLD,stackdict::IdDict,::typeof(JLDMODE))  =(gpu() >= 0 ? KnetArray(d.a) : d.a)
-
-serialize_internal(x::Param{<:KnetArray},stackdict::IdDict,::typeof(JLDMODE))=isdefined(x,:opt) ? ParamJLD(serialize_internal(x.value,stackdict,JLDMODE),serialize_internal(x.opt,stackdict,JLDMODE)) : ParamJLD(serialize_internal(x.value,stackdict,JLDMODE))        
-
-serialize_internal(x::Param{<:KnetArray},stackdict::IdDict,::typeof(CPUMODE))=isdefined(x,:opt) ? Param(serialize_internal(x.value,stackd\
-ict,JLDMODE),serialize_internal(x.opt,stackdict,JLDMODE)) : Param(serialize_internal(x.value,stackdict,CPUMODE))
-
-erialize_internal(x::Param{<:Array},stackdict::IdDict,::typeof(GPUMODE))=isdefined(x,:opt) ? Param(serialize_internal(x.value,stackd\
-ict,GPUMODE),serialize_internal(x.opt,stackdict,GPUMODE)) : Param(serialize_internal(x.value,stackdict,GPUMODE))
-
-serialize_internal(x::ParamJLD,stackdict::IdDict,::typeof(JLDMODE))=isdefined(x,:opt) ? Param(serialize_internal(x.value,stackdict,JLDMODE),serialize_internal(x.value,stackdict,JLDMODE)) : Param(serialize_internal(x.value,stackdict,JLDMODE))
-
-serialize_internal(x::RNN,stackdict::IdDict,::typeof(JLDMODE)) = RnnJLD(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.inputMode, x.direction, x.mode, x.algo, x.dataType, serialize_internal(x.w,stackdict,JLDMODE))        
-
-serialize_internal(x::RNN,stackdict::IdDict,mode::Val) = (x.w = serialize_internal(x.w,stackdict,mode); return x)
-
-serialize_internal(r::RnnJLD,stackdict::IdDict,::typeof(JLDMODE))         = ((x,w) = rnninit(r.inputSize, r.hiddenSize, numLayers=r.numLayers, dropout=r.dropout,
-                                                                           skipInput=(r.inputMode==1), bidirectional=(r.direction==1),
-                                                                           rnnType=(:relu,:tanh,:lstm,:gru)[1+r.mode], algo=r.algo, dataType=r.dataType); x.w = serialize_internal(r.w,stackdict,JLDMODE); x)
-
-serialize_internal(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,Task},
-                  stackdict::IdDict,::Val) = x
-serialize_internal(x::Tuple, stackdict::IdDict,mode::Val) =
-    ntuple(i->serialize_internal(x[i], stackdict, mode), length(x))
-serialize_internal(x::Module, stackdict::IdDict,::Val) = error("serialize of Modules not supported")
-
-function serialize_internal(x::Core.SimpleVector, stackdict::IdDict,mode::Val)
-    if haskey(stackdict, x)
-        return stackdict[x]
+function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
+    if !haskey(s,x)
+        if isa(x.ptr, Cptr) && (x.dev >= 0)
+            a = Array{UInt8}(undef,x.len)
+            @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
+            s[x] = KnetPtr(a,x.len,-1)
+        elseif isa(x.ptr, Array{UInt8,1})
+            if gpu() >= 0
+                g = knetMalloc(x.len); if g === nothing; error("No space left on GPU."); end
+                @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),g,pointer(x.ptr),x.len,1)
+                s[x] = KnetPtr(g,x.len,gpu())
+            else
+                s[x] = x  # Leave conversion to array to KnetArray
+            end
+        else
+            error("Unrecognized KnetPtr")
+        end
     end
-    y = Core.svec(Any[serialize_internal(x[i], stackdict, mode) for i = 1:length(x)]...)
-    stackdict[x] = y
-    return y
+    return s[x]
 end
 
-function serialize_internal(x::String, stackdict::IdDict,::Val)
-    if haskey(stackdict, x)
-        return stackdict[x]
+function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
+    if !haskey(s,x)
+        if isa(x.ptr.ptr, Array) && gpu() < 0
+            s[x] = reshape(reinterpret(eltype(x),view(x.ptr.ptr,1:sizeof(T)*length(x))),size(x))
+        else
+            s[x] = KnetArray{T,N}(_ser(x.ptr,s,m),x.dims)
+        end
     end
-    y = x
-    stackdict[x] = y
-    return y
+    return s[x]
 end
 
-function serialize_internal(@nospecialize(x), stackdict::IdDict,mode::Val)
+function _ser(x::RNN, s::IdDict, m::typeof(JLDMODE))
+    if !haskey(s,x)
+        dropoutDesc = (x.dropoutDesc != nothing || gpu() < 0 ? nothing : DD(handle=gethandle(),dropout=x.dropout,seed=x.seed))
+        rnnDesc = (x.rnnDesc != nothing || gpu() < 0 ? nothing : RD(x.hiddenSize,x.numLayers,dropoutDesc,x.inputMode,x.direction,x.mode,x.algo,x.dataType))
+        s[x] = RNN(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m), _ser(x.w,s,m))
+    end
+    return s[x]
+end
+
+# Partially fixes the issue: when KA converts to A because no gpu, surrounding parametric types remain Param{KA}.
+# However other container types that include KnetArray may still have an inconsistent parametric type problem.
+_ser(x::Param, s::IdDict, m::typeof(JLDMODE))=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))
+
+_ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
+_ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
+_ser(x::Array,s::IdDict,::typeof(GPUMODE))=(haskey(s,x) ? s[x] : s[x]=KnetArray(x))
+_ser(x::Array,s::IdDict,::typeof(CPUMODE))=x
+
+
+# Generic serialization rules from deepcopy.jl
+_ser(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,Task},::IdDict,::Val) = x
+_ser(x::Tuple, s::IdDict, m::Val) = ntuple(i->_ser(x[i], s, m), length(x))
+_ser(x::Module, ::IdDict, ::Val) = error("serialize of Modules not supported")
+_ser(x::Core.SimpleVector, s::IdDict,m::Val) = (haskey(s, x) ? s[x] : s[x] = Core.svec(Any[_ser(x[i], s, m) for i = 1:length(x)]...))
+_ser(x::String, s::IdDict,::Val) = (haskey(s, x) ? s[x] : s[x] = (GC.@preserve x unsafe_string(pointer(x), sizeof(x))))
+_ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
+_ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) = (isbitstype(T) ? x : map(xi->_ser(xi,s,m), x))
+
+function _ser(@nospecialize(x), s::IdDict, m::Val)
     T = typeof(x)::DataType
     nf = nfields(x)
     (isbitstype(T) || nf == 0) && return x
-    if haskey(stackdict, x)
-        return stackdict[x]
+    if haskey(s, x)
+        return s[x]
     end
     y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
     if T.mutable
-        stackdict[x] = y
+        s[x] = y
     end
     for i in 1:nf
         if isdefined(x,i)
             ccall(:jl_set_nth_field, Cvoid, (Any, Csize_t, Any), y, i-1,
-                  serialize_internal(getfield(x,i), stackdict,mode))
+                  _ser(getfield(x,i), s, m))
         end
     end
     return y::T
 end
 
-function serialize_internal(x::Array, stackdict::IdDict,mode::Val)
-    if haskey(stackdict, x)
-        return stackdict[x]
+function _ser(x::Union{Dict,IdDict}, s::IdDict,m::Val)
+    if haskey(s, x)
+        return s[x]
     end
-    _serialize_array_t(x, eltype(x), stackdict,mode)
-end
-
-function _serialize_array_t(@nospecialize(x), T, stackdict::IdDict,mode::Val)
-    if isbitstype(T)
-        return (stackdict[x]=x)
-    end
-    y = map(xi->serialize_internal(xi,stackdict,mode), x)
-    stackdict[x] = y
-    return y
-end
-
-function serialize_internal(x::Union{Dict,IdDict}, stackdict::IdDict,mode::Val)
-    if haskey(stackdict, x)
-        return stackdict[x]
-    end
-
     if isbitstype(eltype(x))
-        return (stackdict[x] = x)
+        return (s[x] = x)
     end
-
     dest = typeof(x) <: Dict ? Dict() : IdDict()
-    stackdict[x] = dest
+    s[x] = dest
     for (k, v) in x
-        dest[serialize_internal(k, stackdict,mode)] = serialize_internal(v, stackdict,mode)
+        dest[_ser(k, s, m)] = _ser(v, s, m)
     end
     dest
 end
