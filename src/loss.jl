@@ -259,7 +259,7 @@ the number of correct answers instead of the ratio.
 """
 function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
-    ycpu = Array(y)
+    ycpu = convert(Array,y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
     maxind = LinearIndices(ycpu)[maxind]
     correct = (vec(maxind) .== indices)
