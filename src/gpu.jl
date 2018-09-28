@@ -8,10 +8,10 @@ macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt
 
 macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
 
-function libcall(lib,fun,x...; notfound=:(error("Cannot find $lib")))
+function libcall(lib,fun,returntype,argtypes,argvalues...; notfound=:(error("Cannot find $lib")))
     fun = string(fun); lib = string(lib)
     path = (lib=="libknet8" ? libknet8 : find_cuda_library(lib,tk))
-    fx = Expr(:call, :ccall, (fun,path), x...)
+    fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
     if path==nothing || path==""
         notfound
     elseif PROFILING
@@ -21,11 +21,27 @@ function libcall(lib,fun,x...; notfound=:(error("Cannot find $lib")))
     end
 end
 
+cudaGetErrorString(r::Integer)=(s=eval(libcall("cudart","cudaGetErrorString",Cstring,(UInt8,),r)); s==-1 ? "Cannot find cudart" : unsafe_string(s))
 cudnnGetErrorString(r::Integer)=(s=eval(libcall("cudnn","cudnnGetErrorString",Cstring,(UInt8,),r)); s==-1 ? "Cannot find cudnn" : unsafe_string(s))
 
-macro cudnn(fun, x...)
-    fx = libcall("cudnn",fun,UInt32,x...)
+macro cudnn(fun, argtypes, argvalues...)
+    fx = libcall("cudnn",fun,UInt32,eval(argtypes),argvalues...)
     :(r=$(esc(fx)); if r != 0; error(cudnnGetErrorString(r)); end)
+end
+
+macro cudart(fun, argtypes, argvalues...)
+    fx = libcall("cudart",fun,UInt32,eval(argtypes),argvalues...)
+    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
+end
+
+macro cublas(fun, argtypes, argvalues...)
+    fx = libcall("cublas",fun,UInt32,eval(argtypes),argvalues...)
+    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
+end
+
+macro curand(fun, argtypes, argvalues...)
+    fx = libcall("curand",fun,UInt32,eval(argtypes),argvalues...)
+    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
 end
 
 macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
