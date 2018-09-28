@@ -49,7 +49,8 @@ include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adad
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection
-include("jld.jl");              export RnnJLD,KnetJLD
+include("serialize.jl");        export RnnJLD,KnetJLD,gpu,cpu
+include("jld.jl");             
 
 """
     Knet.dir(path...)
