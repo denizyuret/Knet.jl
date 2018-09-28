@@ -13,10 +13,10 @@
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
 "RNN descriptor"
-mutable struct RD; ptr::Cptr; end
+mutable struct RD; ptr; end
 
 "Dropout descriptor"
-mutable struct DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
+mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
 
 
 """
@@ -95,6 +95,7 @@ mutable struct RNN
     hiddenSize::Cint
     numLayers::Cint
     dropout::Float64
+    seed::Culonglong
     inputMode::Cint    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
     direction::Cint    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
     mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
@@ -170,6 +171,23 @@ function RD()
     rd = RD(d[1])
     finalizer(x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
     return rd
+end
+
+function RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType; handle=gethandle())
+    rnnDesc = RD()
+    if cudnnVersion >= 7000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 6000
+        @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 5000
+        @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
+    else
+        error("CUDNN $cudnnVersion does not support RNNs")
+    end
+    return rnnDesc
 end
 
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
@@ -404,7 +422,6 @@ function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
     return ws
 end
 
-
 function rnninit(inputSize, hiddenSize;
                  handle=gethandle(),
                  numLayers=1,
@@ -425,24 +442,12 @@ function rnninit(inputSize, hiddenSize;
     if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
     mode = mode - 1
     if usegpu
-        rnnDesc = RD()
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-        if cudnnVersion >= 7000
-            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-        elseif cudnnVersion >= 6000
-            @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-        elseif cudnnVersion >= 5000
-            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-                  rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
-        else
-            error("CUDNN $cudnnVersion does not support RNNs")
-        end
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
+        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
         w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
     else
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
         w = begin
             whidden = hiddenSize * hiddenSize
