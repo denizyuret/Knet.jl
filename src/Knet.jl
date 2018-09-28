@@ -13,7 +13,7 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 
 using AutoGrad # Param, params, grad, value, @diff, gradloss, getval, @primitive, @zerograd, @primitive1, @zerograd1, cat1d
 using AutoGrad: forw, back, Value
-export grad, gradloss, value, Param, @diff
+export AutoGrad, grad, gradloss, value, Param, @diff # need AutoGrad for Knet.load/save
 
 include("gpu.jl");              export gpu
 include("uva.jl")
@@ -35,9 +35,8 @@ include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adad
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection
-include("serialize.jl");        export RnnJLD,KnetJLD,gpu,cpu
-include("jld.jl");             
-#include("cudnn.jl");		export cudnnsigm, cudnnrelu, cudnntanh, cudnncrelu, cudnnelu, cudnnidentity
+include("serialize.jl");        export gpucopy,cpucopy
+include("jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
 
 
 """
