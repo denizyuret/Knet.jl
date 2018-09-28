@@ -177,6 +177,10 @@ reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._
 
 vec(a::KnetArray) = reshape(a, length(a))
 
+if isdefined(AutoGrad,:Arg); @eval begin  # TODO: deprecate in next AutoGrad version.
+    using AutoGrad: Arg
+end; end
+
 # AbstractArray interface
 import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox #, linearindexing
 eachindex(a::KnetArray) = (1:length(a))
@@ -223,7 +227,11 @@ import Base: hcat, vcat, cat
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NAVK = Union{Number,AbstractArray,Value,KnetArray}
 cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
-AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; else; @eval begin
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -407,7 +415,11 @@ Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
 convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
 convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; else; @eval begin
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; end
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1246,3 +1258,44 @@ summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof
 show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
 summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+
+
+
+# During the back pass we want to make pointers available as soon as we can to save memory
+# without waiting for gc. This is risky as we have to make sure the pointers are not going
+# to be used again.  We want to make sure there are no shared pointers with parents or
+# children in the computational graph. Results only get created at core.jl:100 in forw().
+# We have f, args, kwargs recorded so we have all the parents. The children are later
+# Results and outgrads of parents. We have no direct access to children!  Outgrads are only
+# created in core.jl:74 in back(). Both parents and children are accessible from the node.
+
+using AutoGrad: Node
+
+if isdefined(AutoGrad,:gcnode)  # TODO: remove after 1.1.1
+    function AutoGrad.gcnode(n::Node)
+        maybefree(n.outgrad, n)
+        maybefree(n.Value.value, n)
+        n.outgrad=n.Value.value=nothing
+    end
+end
+
+maybefree(x,n)=return
+
+function maybefree(x::KnetArray, n::Node)
+    @inbounds for i in 1:length(n.parents)
+        if isassigned(n.parents, i) && maysharepointer(x, n.parents[i].outgrad)
+            return
+        end
+    end
+    @inbounds for r in n.children
+        if maysharepointer(x, r.outgrad) || maysharepointer(x, r.Value.value)
+            return
+        end
+    end
+    freeKnetPtr(x.ptr)
+end
+
+# This returns false only if we are sure there is no shared pointer. It is conservative, may return true when it shouldn't.
+# Numbers, Nothing, unshared KnetArray with different pointer (98%) is safe.
+maysharepointer(x::KnetArray, p)=!(isbits(p) || (isa(p, KnetArray) && !isdefined(p,:parent) && pointer(p) != pointer(x)))
+

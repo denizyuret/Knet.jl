@@ -1,5 +1,5 @@
-using Compat,Knet,AutoGrad,BenchmarkTools,Distributions
-if !isdefined(:MODEL); MODEL=1; end
+using Knet,AutoGrad,BenchmarkTools,Distributions
+if !@isdefined(MODEL); MODEL=1; end
 
 # Design choices:
 # 1. time first vs layers fist
@@ -29,13 +29,13 @@ if !isdefined(:MODEL); MODEL=1; end
 # include("rnnlm.jl")
 # m,s,o = main(iters=0)
 # for i=1:2
-# gc(); @time main(model=m,state=s,optim=o,mode=0,iters=10)
-# gc(); @time main(model=m,state=s,optim=o,mode=1,iters=10)
-# gc(); @time main(model=m,state=s,optim=o,mode=2,iters=10)
+# GC.gc(); @time main(model=m,state=s,optim=o,mode=0,iters=10)
+# GC.gc(); @time main(model=m,state=s,optim=o,mode=1,iters=10)
+# GC.gc(); @time main(model=m,state=s,optim=o,mode=2,iters=10)
 # end
-# gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=0))
-# gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=1))
-# gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=2))
+# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=0))
+# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=1))
+# GC.gc(); println(@benchmark main(model=$m,state=$s,optim=$o,mode=2))
 # nothing
 
 # Notes:
@@ -86,15 +86,15 @@ end
 # initoptim creates optimization parameters for each numeric weight
 # array in the model.  This should work for a model consisting of any
 # combination of tuple/array/dict.
-initoptim{T<:Number}(::KnetArray{T},otype)=eval(parse(otype))
-initoptim{T<:Number}(::Array{T},otype)=eval(parse(otype))
-initoptim(a::Associative,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
+initoptim(::KnetArray{<:Number},otype)=eval(Meta.parse(otype))
+initoptim(::Array{<:Number},otype)=eval(Meta.parse(otype))
+initoptim(a::AbstractDict,otype)=Dict(k=>initoptim(v,otype) for (k,v) in a) 
 initoptim(a,otype)=map(x->initoptim(x,otype), a)
 
 # Create a random minibatch of sequences
 function randseq(V,B,T)
     T = ceil(Int,T)
-    s = Array{Vector{Int}}(T)
+    s = Array{Vector{Int}}(undef,T)
     for t in 1:T
         s[t] = rand(1:V,B)
     end
@@ -131,9 +131,9 @@ function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:
     pred2 = Wy(model) * pred1                           # 2:260  1:277:1132
     pred3 = pred2 .+ by(model)                          # 2:72  1:84:33
     nrows,ncols = size(pred3)
-    golds = vcat(sequence[range+1]...)
+    golds = vcat(sequence[range .+ 1]...)
     golds += nrows*(0:(length(golds)-1))
-    logp1 = logp(pred3,1)                               # 2:354  1:1067:673
+    logp1 = logp(pred3,dims=1)                               # 2:354  1:1067:673
     logp2 = logp1[golds]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -167,7 +167,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array{Any}(3N+3)
+    model = Array{Any}(undef,3N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -186,7 +186,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array{Any}(2N)
+    state = Array{Any}(undef,2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -231,7 +231,7 @@ function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range+1]...)
     golds = (golds-1)*nrows + (1:length(golds))
-    logp1 = logp(pred3,2)                               # 2:354  1:1067:673
+    logp1 = logp(pred3,dims=2)                               # 2:354  1:1067:673
     logp2 = logp1[golds]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -265,7 +265,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array{Any}(3N+3)
+    model = Array{Any}(undef,3N+3)
     model[1] = init(vocab,embed) # Wm
     X = embed
     for n = 1:N
@@ -284,7 +284,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array{Any}(2N)
+    state = Array{Any}(undef,2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -327,7 +327,7 @@ function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range+1]...)
     golds += nrows*(0:(length(golds)-1))
-    logp1 = logp(pred3,1)                               # 2:354  1:1067:673
+    logp1 = logp(pred3,dims=1)                               # 2:354  1:1067:673
     logp2 = logp1[golds]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -361,7 +361,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array{Any}(2N+3)
+    model = Array{Any}(undef,2N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -379,7 +379,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array{Any}(2N)
+    state = Array{Any}(undef,2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -422,7 +422,7 @@ function rnnlm(model, state, sequence, range=1:length(sequence)-1; pdrop=0) # 2:
     nrows,ncols = size(pred3)
     golds = vcat(sequence[range+1]...)
     golds = (golds-1)*nrows + (1:length(golds))
-    logp1 = logp(pred3,2)                               # 2:354  1:1067:673
+    logp1 = logp(pred3,dims=2)                               # 2:354  1:1067:673
     logp2 = logp1[golds]
     logp3 = sum(logp2)
     return -logp3 / length(golds)
@@ -456,7 +456,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array{Any}(2N+3)
+    model = Array{Any}(undef,2N+3)
     model[1] = init(vocab,embed) # Wm
     X = embed
     for n = 1:N
@@ -474,7 +474,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array{Any}(2N)
+    state = Array{Any}(undef,2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -513,7 +513,7 @@ function rnnlm(model, state, sequence; pdrop=0)
         end
         input = dropout(input,pdrop)
         logp0 = Wy(model) * input .+ by(model)
-        logp1 = logp(logp0,1)
+        logp1 = logp(logp0,dims=1)
         golds = sequence[t+1]
         index = golds + size(logp1,1)*(0:(length(golds)-1))
         logp2 = logp1[index]
@@ -526,7 +526,7 @@ end
 #=  ### alternative implementation
 function rnnlm(model, state, sequence; pdrop=0)
     T = length(sequence)
-    input = Array{Any}(T-1)
+    input = Array{Any}(undef,T-1)
     for t in 1:(T-1)
         input[t] = Wm(model)[:,sequence[t]]
     end
@@ -548,7 +548,7 @@ function rnnlm(model, state, sequence; pdrop=0)
         nrows,ncols = size(pred3)
         golds = sequence[t+1]
         index = golds + nrows*(0:(length(golds)-1))
-        logp1 = logp(pred3,1)                               # 2:354  1:1067:673
+        logp1 = logp(pred3,dims=1)                               # 2:354  1:1067:673
         logp2 = logp1[index]
         logp3 = sum(logp2)
         total += logp3
@@ -586,7 +586,7 @@ function initmodel(atype, hidden, vocab, embed)
     init(d...)=atype(xavier(Float32,d...))
     bias(d...)=atype(zeros(Float32,d...))
     N = length(hidden)
-    model = Array{Any}(2N+3)
+    model = Array{Any}(undef,2N+3)
     model[1] = init(embed,vocab) # Wm
     X = embed
     for n = 1:N
@@ -604,7 +604,7 @@ end
 let blank = nothing; global initstate
 function initstate(model, batch)
     N = nlayers(model)
-    state = Array{Any}(2N)
+    state = Array{Any}(undef,2N)
     for n = 1:N
         bias = bh(model,n)
         hidden = div(length(bias),4)
@@ -678,3 +678,21 @@ nothing
 #  29  ...uret/.julia/v0.5/Knet/src/update.jl:350; fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
 #  27  ...uret/.julia/v0.5/Knet/src/update.jl:351; scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
 #  683 ...uret/.julia/v0.5/Knet/src/update.jl:352; axpy!(-p.lr, (fstm_corrected ./ (sqrt(scndm_corrected) + p.eps)), w)
+
+# using Knet
+# include(Knet.dir("prof/rnnlm.jl"))
+# (m,s,o) = main(iters=0)
+# for i in 1:10
+#     @time main(model=m,optim=o,state=s,mode=0,iters=10)
+#     @time main(model=m,optim=o,state=s,mode=1,iters=10)
+#     @time main(model=m,optim=o,state=s,mode=2,iters=10)
+#     println()
+# end
+
+# commit 359d3646 2018-09-22, julia 1.0.0   vs commit 4aa5f92f 2018-08-14, julia 0.6.4
+# GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
+# MODEL = 1
+#
+# 0.043899 seconds (79.10 k allocations: 2.382 MiB)			0.042887 seconds (50.72 k allocations: 1.868 MiB)		    
+# 0.256060 seconds (280.02 k allocations: 8.785 MiB, 35.70% gc time)    0.219261 seconds (160.46 k allocations: 7.654 MiB)		    
+# 0.294070 seconds (335.07 k allocations: 11.161 MiB, 28.79% gc time)   0.308199 seconds (197.60 k allocations: 7.673 MiB, 55.45% gc time)

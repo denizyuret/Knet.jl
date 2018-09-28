@@ -2,11 +2,8 @@ module Knet
 using Libdl
 # using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 
-# To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
-# can be used to show a subset of dbg messages indicated by the `bit`
-# argument to the `dbg` macro.
-const DBGFLAGS = 0
-macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
+# To see debug output, start julia with `JULIA_DEBUG=Knet julia`
+macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
 # To perform profiling, set PROFILING to true. (moved this to gpu.jl)
 # const PROFILING = false
@@ -14,27 +11,16 @@ macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; e
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad
-using AutoGrad: forw, back, Tape
-using AutoGrad: Rec             # TODO; deprecate after AutoGrad 1.1
-export grad, value, Param
-export gradloss, getval         # TODO: deprecate after AutoGrad 1.1?
-if isdefined(AutoGrad,:Param); @eval begin
-    using AutoGrad: Value
-    export @diff
-end; else; @eval begin          # TODO: deprecate after AutoGrad 1.1
-    const value = getval
-    const Value = Rec
-    const Param = Rec
-    macro diff(x) :(throw(UndefVarError(:@diff))) end
-end; end
+using AutoGrad # Param, params, grad, value, @diff, gradloss, getval, @primitive, @zerograd, @primitive1, @zerograd1, cat1d
+using AutoGrad: forw, back, Value
+export grad, gradloss, value, Param, @diff
 
 include("gpu.jl");              export gpu
 include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("ops.jl");
-include("unary.jl");            export relu, sigm, invx
+include("unary.jl");            export relu, sigm, invx, elu, selu
 include("broadcast.jl");        # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
@@ -51,6 +37,8 @@ include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection
 include("serialize.jl");        export RnnJLD,KnetJLD,gpu,cpu
 include("jld.jl");             
+#include("cudnn.jl");		export cudnnsigm, cudnnrelu, cudnntanh, cudnncrelu, cudnnelu, cudnnidentity
+
 
 """
     Knet.dir(path...)

@@ -1,3 +1,15 @@
+2018-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* gc: The current gc has three problems:
+	1. Waiting until memory is out to call gc.
+	- try to GC at 1GB, if you don't get half the memory back, increase to 2GB etc.
+	- need to keep track of how much available.
+	2. Hanging on to arrays that do not get reused.
+	- need a way to measure last used age for each bucket.
+	3. Not being able to reuse arrays for slightly smaller arrays.
+	- exponential buckets waste too much memory.
+	- we may not need this if #2 resolved.
+
 2018-09-05  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* examples:

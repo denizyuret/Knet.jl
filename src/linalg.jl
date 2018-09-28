@@ -10,7 +10,15 @@ import LinearAlgebra: rmul!, lmul!, axpy!
 # import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
 export axpy!
 
+# AutoGrad defines: @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
+# We specialize it below to avoid transposes
+# Full-scale lazy transpose requires a lot more things to work with Adjoint(::KnetArray)
 (*)(A::KnetMatrix{T},B::KnetMatrix{T}) where {T} = gemm!('N','N',one(T),A,B,zero(T),similar(A,(size(A,1),size(B,2))))
+A_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('N','T',one(T),A,B,zero(T),similar(A,size(A,1),size(B,1)))
+At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,B,zero(T),similar(A,size(A,2),size(B,2)))
+@primitive1 *(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  At_mul_B(x1,dy)
+@primitive1 A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(x1,dy)
+@primitive1 At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  (x1*dy)
 
 # deprecated:
 # A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
@@ -158,6 +166,9 @@ end
 
 
 import Base: permutedims # ipermutedims
+
+permutedims(x::KnetMatrix)=permutedims(x,(2,1))
+
 function permutedims(x::KnetArray{T,N}, dims) where {T,N}
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
@@ -171,7 +182,7 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
             y = similar(x, size(x,dims[1]), size(x,dims[2]))
             @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
                         $x,size($x,1),size($x,2),$y,size($y,1))
-            return y
+            @gs; return y
             =#
             # Using CUBLAS
             return _transpose(x)
@@ -186,7 +197,7 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
             @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
-            return y
+            @gs; return y
         end
     elseif N == 4
         if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4
@@ -196,7 +207,7 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
             @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
-            return y
+            @gs; return y
         end
     elseif N == 5
         if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4 && dims[5]==5
@@ -206,7 +217,7 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
             @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
                         $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
-            return y
+            @gs; return y
         end
     else
         error("Unsupported number of dimensions")
@@ -273,6 +284,7 @@ for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
                   alpha, A, lda,
                   B, ldb, 
                   beta, C, ldc)
+            @gs
         end
     end
 end
