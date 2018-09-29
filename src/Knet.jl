@@ -19,6 +19,7 @@ include("gpu.jl");              export gpu
 include("uva.jl")
 include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
+include("gcnode.jl");
 include("ops.jl");
 include("unary.jl");            export relu, sigm, invx, elu, selu
 include("broadcast.jl");        # elementwise broadcasting operations

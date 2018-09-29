@@ -8,9 +8,9 @@ mutable struct KnetPtr
     parent::KnetPtr             # used to implement shared memory pointers
 
     # This is the low level KnetPtr constructor, it adds the finalizer and
-    # sets parent to `nothing` which is only needed for shared pointers.
+    # does not assign parent which is only needed for shared pointers.
 
-    function KnetPtr(ptr,len::Int,dev::Int)
+    function KnetPtr(ptr::Cptr,len::Int,dev::Int)
         kp = new(ptr,len,dev)
         finalizer(freeKnetPtr, kp)
     end
@@ -24,17 +24,20 @@ mutable struct KnetPtr
         new(parent.ptr+offs-1, len, parent.dev, parent)
     end
 
+    # This one is used by serialize:
+    KnetPtr(ptr::Array{UInt8},len::Int)=new(ptr,len,-1)
+
 end
 
 # When Julia gc reclaims a KnetPtr object, the following special finalizer does not actually
 # release the memory, but inserts it back in the appropriate pool for reuse.
 
 function freeKnetPtr(p::KnetPtr)
-    if p.dev < 0 || isdefined(p,:parent); return; end
+    if p.ptr == C_NULL || isdefined(p,:parent); return; end
     mem = KnetMems[p.dev+1]
     mem.avail += p.len
     push!(mem.pools[p.len].free, p.ptr)
-    p.dev = -1 # to avoid double free by gcnode then gc. TODO: figure out why p.ptr=C_NULL does not work here.
+    p.ptr = C_NULL # to avoid double free by gcnode then gc.
 end
 
 # We use the KnetPool type to keep track of allocated and garbage collected pointers: We
@@ -69,7 +72,7 @@ initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
 #     z = leading_zeros(n-1)
 #     1<<(b-z)
 # end
-blocksize(n::Int,b=sqrt(2))=floor(Int,b^ceil(log(b,n)))
+blocksize(n::Int,b=cbrt(2))=floor(Int,b^ceil(log(b,n)))
 
 # The following used for debugging and record every request
 arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
