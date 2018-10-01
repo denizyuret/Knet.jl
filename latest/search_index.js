@@ -397,7 +397,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.relu",
     "category": "function",
-    "text": "relu(x) = max(0,x)\n\n\n\n\n\n"
+    "text": "relu(x)\n\nReturn max(0,x).\n\nReference: Rectified Linear Units Improve Restricted Boltzmann Machines (https://icml.cc/Conferences/2010/abstracts.html#432).\n\n\n\n\n\n"
 },
 
 {
