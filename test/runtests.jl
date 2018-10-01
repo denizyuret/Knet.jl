@@ -1,4 +1,4 @@
-#                            commit 9c8 9.2 8.3 8.3 6cb 6cb 8.6 6cb 6cb
+#                            commit e3a 9.2 8.3 8.3 6cb 6cb 8.6 6cb 6cb
 #                           machine  sc tig ai5 ai4 tr5 tr4 aws osx os4
 @time include("kptr.jl")          #   8  16   1   1   0   0  20   0   0
 @time include("gpu.jl")           #   2   6   1   1   0   0   2   0   0
