@@ -1,92 +1,45 @@
 using CUDAapi, TimerOutputs
 const tk = find_toolkit()
 const to = TimerOutput()
+const Cptr = Ptr{Cvoid}
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
-const PROFILING = false
-macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+const TIMER = haskey(ENV,"KNET_TIMER")
 
-macro gpu(_ex); if gpu()>=0; esc(_ex); end; end
-
-function libcall(lib,fun,returntype,argtypes,argvalues...; notfound=:(error("Cannot find $lib")))
-    fun = string(fun); lib = string(lib)
-    path = (lib=="libknet8" ? libknet8 : find_cuda_library(lib,tk))
+macro cudacall(lib,fun,returntype,argtypes,argvalues,errstr="",notfound=:(error("Cannot find $lib")))
+    lib = string(lib); fun = string(fun); errstr=string(errstr)
+    if isa(argtypes,Expr); argtypes = argtypes.args; end
+    if isa(argvalues,Expr); argvalues = argvalues.args; end
+    path = (lib=="knet8" ? libknet8 : find_cuda_library(lib,tk))
+    if path==nothing || path==""; return notfound; end
     fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
-    if path==nothing || path==""
-        notfound
-    elseif PROFILING
-        :(@timeit to $fun (r=$fx; ccall(("cudaDeviceSynchronize","libcudart"),UInt32,())); r)
-    else
-        fx
+    r = gensym()
+    fx = Expr(:block,esc(:($r=$fx)))
+    if errstr != "" || TIMER
+        if TIMER
+            push!(fx.args, esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))))
+        end
+        if errstr != ""
+            push!(fx.args, esc(:(if $r!=0; error(unsafe_string(ccall(($errstr,$path),Cstring,(UInt8,),$r))); end)))
+        else
+            push!(fx.args, esc(r))
+        end
+        if TIMER
+            fx = :(@timeit to $fun ($fx))
+        end
     end
+    esc(fx)
 end
 
-cudaGetErrorString(r::Integer)=(s=eval(libcall("cudart","cudaGetErrorString",Cstring,(UInt8,),r)); s==-1 ? "Cannot find cudart" : unsafe_string(s))
-cudnnGetErrorString(r::Integer)=(s=eval(libcall("cudnn","cudnnGetErrorString",Cstring,(UInt8,),r)); s==-1 ? "Cannot find cudnn" : unsafe_string(s))
+macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues,"cudnnGetErrorString")); end
+macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
+macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,"",-1)); end # don't throw error
+macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
+macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
+macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues,"nvmlErrorString")); end
+macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues)); end
+macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues)); end # specify return type
 
-macro cudnn(fun, argtypes, argvalues...)
-    fx = libcall("cudnn",fun,UInt32,eval(argtypes),argvalues...)
-    :(r=$(esc(fx)); if r != 0; error(cudnnGetErrorString(r)); end)
-end
-
-macro cudart(fun, argtypes, argvalues...)
-    fx = libcall("cudart",fun,UInt32,eval(argtypes),argvalues...)
-    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
-end
-
-macro cublas(fun, argtypes, argvalues...)
-    fx = libcall("cublas",fun,UInt32,eval(argtypes),argvalues...)
-    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
-end
-
-macro curand(fun, argtypes, argvalues...)
-    fx = libcall("curand",fun,UInt32,eval(argtypes),argvalues...)
-    :(r=$(esc(fx)); if r != 0; error(cudaGetErrorString(r)); end)
-end
-
-macro cuda(lib,fun,x...)        # give an error if library missing, or if error code!=0
-    try 
-        path = find_cuda_library("$lib",tk)
-        if path==nothing; error(); end
-        fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
-        msg = "$lib.$fun error "
-        err = gensym()
-        # esc(:(if ($err=$fx) != 0; warn($msg, $err); Base.show_backtrace(STDOUT, backtrace()); end))
-        esc(:(if ($err=$fx) != 0; error($msg, $err); end; @gs))
-    catch
-        Expr(:call,:error,"Cannot find library $lib, please install it and rerun Pkg.build(\"Knet\").")
-    end
-end
-
-macro cuda1(lib,fun,x...)       # return -1 if library missing, error code if run
-    try
-        path = find_cuda_library("$lib",tk)
-        if path==nothing; error(); end
-        fx = Expr(:call, :ccall, ("$fun",path), :UInt32, x...)
-        err = gensym()
-        esc(:($err=$fx; @gs; $err))
-    catch
-        -1
-    end
-end
-
-macro knet8(fun,x...)       # error if libknet8 missing, nothing if run
-    if libknet8 != ""
-        fx = Expr(:call, :ccall, ("$fun",libknet8), :Nothing, x...)
-        err = gensym()
-        esc(:($err=$fx; @gs; $err))
-    else
-        Expr(:call,:error,"Cannot find libknet8, please rerun Pkg.build(\"Knet\").")
-    end
-end
-
-macro nvml(fun,x...)
-    ex = :(@cuda("nvml",$fun,))
-    append!(ex.args, x)
-    esc(ex)
-end
-
-const Cptr = Ptr{Cvoid}
 
 """
 
@@ -122,8 +75,8 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
         if !isdefined(Knet,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
-                cudaRuntimeVersion = (p=Cint[0];@cuda(cudart,cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
-                cudaDriverVersion  = (p=Cint[0];@cuda(cudart,cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
+                cudaRuntimeVersion = (p=Cint[0];@cudart(cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
+                cudaDriverVersion  = (p=Cint[0];@cudart(cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
                 cudartfound = true
             catch
                 cudartfound = false
@@ -156,9 +109,9 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                     if nvmlfound
                         freemem = nvmlDeviceGetMemoryInfo(i)[2]
                     else
-                        @cuda(cudart,cudaSetDevice, (Cint,), i)
+                        @cudart(cudaSetDevice, (Cint,), i)
                         freemem = cudaMemGetInfo()[1]
-                        @cuda(cudart,cudaDeviceReset,()) # otherwise we leave a memory footprint
+                        @cudart(cudaDeviceReset,()) # otherwise we leave a memory footprint
                     end
                     if freemem > free
                         pick = i
@@ -173,7 +126,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             gpu(pick)
         else
             for i=0:gpuCount()-1
-                @cuda(cudart,cudaDeviceReset,())
+                @cudart(cudaDeviceReset,())
             end
             gpu(-1)
         end
@@ -184,12 +137,12 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             # nothing to do 
         elseif 0 <= i < gpuCount()
             GPU = i
-            @cuda(cudart,cudaSetDevice, (Cint,), i)
+            @cudart(cudaSetDevice, (Cint,), i)
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
             curandInit()
         else
             GPU = -1
-            # @cuda(cudart,cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
+            # @cudart(cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
         end
         return GPU
     end
@@ -199,12 +152,11 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             GPUCNT = try
 	        p=Cuint[0]
                 if nvmlfound
-                    # @cuda does not stay quiet so we use @cuda1 here
                     @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
                 elseif cudartfound
                     # OSX does not have the nvidia-ml library!
                     # We prefer nvml because cudart takes up memory even if we don't use a device
-                    @cuda1(cudart,cudaGetDeviceCount,(Ptr{Cuint},),p)
+                    @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
                 end
 	        Int(p[1])
             catch
@@ -238,11 +190,11 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 end
 
 # cudaGetDeviceCount is deprecated, use gpuCount instead:
-cudaGetDeviceCount()=(p=Cuint[0];@cuda1(cudart,cudaGetDeviceCount,(Ptr{Cuint},),p);Int(p[1])) # will not bomb when there is no gpu
-cudaGetDevice()=(d=Cint[-1];@cuda(cudart,cudaGetDevice,(Ptr{Cint},),d);Int(d[1]))
+cudaGetDeviceCount()=(p=Cuint[0];@cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p);Int(p[1])) # will not bomb when there is no gpu
+cudaGetDevice()=(d=Cint[-1];@cudart(cudaGetDevice,(Ptr{Cint},),d);Int(d[1]))
 "Returns free,total memory."
-cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cuda(cudart,cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
-cudaDeviceSynchronize()=@cuda(cudart,cudaDeviceSynchronize,())
+cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cudart(cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
+cudaDeviceSynchronize()=@cudart(cudaDeviceSynchronize,())
 
 "Returns total,free,used memory."
 function nvmlDeviceGetMemoryInfo(i=gpu())
@@ -273,10 +225,10 @@ gpufree(i=gpu())=gpumem(i)[2]
 
 function cublasCreate()
     handleP = Cptr[0]
-    @cuda(cublas,cublasCreate_v2, (Ptr{Cptr},), handleP)
+    @cublas(cublasCreate_v2, (Ptr{Cptr},), handleP)
     handle = handleP[1]
-    atexit(()->@cuda(cublas,cublasDestroy_v2, (Cptr,), handle))
-    global cublasVersion = (p=Cint[0];@cuda(cublas,cublasGetVersion_v2,(Cptr,Ptr{Cint}),handle,p);Int(p[1]))
+    atexit(()->@cublas(cublasDestroy_v2, (Cptr,), handle))
+    global cublasVersion = (p=Cint[0];@cublas(cublasGetVersion_v2,(Cptr,Ptr{Cint}),handle,p);Int(p[1]))
     return handle
 end
 
@@ -284,18 +236,18 @@ function cudnnCreate()
     path = find_cuda_library("cudnn",tk)
     if path==nothing; error("Cannot find cudnn"); end
     handleP = Cptr[0]
-    @cuda(cudnn,cudnnCreate,(Ptr{Cptr},), handleP)
+    @cudnn(cudnnCreate,(Ptr{Cptr},), handleP)
     handle = handleP[1]
-    atexit(()->@cuda(cudnn,cudnnDestroy,(Cptr,), handle))
+    atexit(()->@cudnn(cudnnDestroy,(Cptr,), handle))
     global cudnnVersion = Int(eval(:(ccall(("cudnnGetVersion",$path),Csize_t,()))))
     return handle
 end
 
 function curandInit()
     p = Cptr[0]; r = Cptr[0]; 
-    @cuda(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
-    @cuda(curand,curandCreateGenerator,(Cptr,Cint),r,100)
-    @cuda(curand,curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
-    @cuda(curand,curandDestroyGenerator,(Cptr,),r[1])
-    @cuda(cudart,cudaFree,(Cptr,),p[1])
+    @cudart(cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
+    @curand(curandCreateGenerator,(Cptr,Cint),r,100)
+    @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
+    @curand(curandDestroyGenerator,(Cptr,),r[1])
+    @cudart(cudaFree,(Cptr,),p[1])
 end

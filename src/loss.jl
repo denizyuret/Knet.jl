@@ -153,7 +153,7 @@ end
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
     y = similar(x)
-    @cuda(cudnn, cudnnSoftmaxForward,
+    @cudnn(cudnnSoftmaxForward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
           handle, algo, mode, Ref(T(alpha)), TD4(x), x, Ref(T(beta)), TD4(y), y)
     return y
@@ -162,7 +162,7 @@ end
 function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0
     dx = similar(dy)
-    @cuda(cudnn, cudnnSoftmaxBackward,
+    @cudnn(cudnnSoftmaxBackward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
           handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
     return dx

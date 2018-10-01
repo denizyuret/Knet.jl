@@ -366,17 +366,17 @@ end
 
 # _unsafe_copy! does no bounds checking, the callers must.
 function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 1)
     return dest
 end
 function _unsafe_copy!(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 2)
     return dest
 end
 function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 3)
     return dest
 end
@@ -1030,7 +1030,7 @@ function setindex2!(A::KnetMatrix{T}, B, I1::Index3, I2::Index3) where {T}
         B = convert(KnetArray{T},B)
         if ncols == 1
             if nelts > 0
-                @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
                       aptr0, B, nelts*sizeof(T), cudadir(A,B))
             end
         elseif nrows > 0 && ncols > 0

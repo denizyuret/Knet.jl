@@ -1,5 +1,5 @@
 using Knet, AutoGrad, Printf
-using Knet: @cuda, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, TD4, _logp
+using Knet: @cudart, cudnnhandle, Cptr, TD, cudnnSoftmaxForward, cudnnSoftmaxBackward, TD4, _logp
 using BenchmarkTools
 
 # algo=2 corresponds to logp(x,1)
@@ -29,7 +29,7 @@ x3 = ka(randn(Float32,1000,100))
 x4 = ka(randn(Float32,10000,100))
 x5 = ka(randn(Float32,100000,100))
 
-cds()=@cuda(cudart, cudaDeviceSynchronize, ())
+cds()=@cudart(cudaDeviceSynchronize, ())
 rep(x)=clamp(div(10^8,length(x)),10,1000)
 logp0(x;dims=:)=(for i=1:rep(x); _logp(x;dims=dims); end; cds()) # old implementation
 logp1(x;dims=:)=(for i=1:rep(x); logp_(x;dims=dims); end; cds()) # test implementation

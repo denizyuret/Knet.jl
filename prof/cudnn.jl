@@ -26,10 +26,10 @@ mutable struct AD; ptr; end
 Base.unsafe_convert(::Type{Cptr}, ad::AD)=ad.ptr
 function AD(; mode=0, coef=0, reluNanOpt=false)
     d = Cptr[0]
-    @cuda(cudnn,cudnnCreateActivationDescriptor,(Ptr{Cptr},),d)
-    @cuda(cudnn,cudnnSetActivationDescriptor,(Cptr,Cint,Cint,Cdouble),d[1],mode,(reluNanOpt ? 1 : 0), coef)
+    @cudnn(cudnnCreateActivationDescriptor,(Ptr{Cptr},),d)
+    @cudnn(cudnnSetActivationDescriptor,(Cptr,Cint,Cint,Cdouble),d[1],mode,(reluNanOpt ? 1 : 0), coef)
     ad = AD(d[1])
-    finalizer(x->@cuda(cudnn,cudnnDestroyActivationDescriptor,(Cptr,),x.ptr), ad)
+    finalizer(x->@cudnn(cudnnDestroyActivationDescriptor,(Cptr,),x.ptr), ad)
     return ad
 end
 
@@ -45,7 +45,7 @@ function cudnnActivationForward(x::KnetArray{T}; handle=cudnnhandle(), alpha=1, 
     ad = AD(;o...)
     td = t4d(x)
     y = similar(x)
-    @cuda(cudnn,cudnnActivationForward,(Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}), handle, ad, Ref(T(alpha)), td, x, Ref(T(beta)), td, y) # TODO: understand Ref
+    @cudnn(cudnnActivationForward,(Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}), handle, ad, Ref(T(alpha)), td, x, Ref(T(beta)), td, y) # TODO: understand Ref
     return y
 end
 
@@ -54,7 +54,7 @@ function cudnnActivationBackward(dy::KnetArray{T},y::KnetArray{T},x::KnetArray{T
     ad = AD(;o...)
     td = t4d(x)
     dx = similar(x)
-    @cuda(cudnn,cudnnActivationBackward,
+    @cudnn(cudnnActivationBackward,
           (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
           handle,ad, Ref(T(alpha)),td,y,td,dy,td,x,Ref(T(beta)),td,dx)
     return dx

@@ -27,8 +27,8 @@ function reduction_op(f, j=f, o...)
         @eval begin
             function $J(x::KnetArray{$T}; dims=:)
                 if dims == Colon()
-                    y=ccall(($F20,$libknet8),$T,(Cint,Ptr{$T}),length(x),x) # do not use @knet8, return not Nothing
-                    @gs; return y
+                    y=@knet8r($F20,$T,(Cint,Ptr{$T}),length(x),x)
+                    return y
                 end
                 rdims = reduced_dims_compat(size(x), dims)
                 vdims = ndims(x)-length(dims)

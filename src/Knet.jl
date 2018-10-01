@@ -3,17 +3,14 @@ using Libdl
 # using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 
 # To see debug output, start julia with `JULIA_DEBUG=Knet julia`
+# To perform profiling, set ENV["KNET_TIMER"] to "true" and rebuild Knet. (moved this to gpu.jl)
+# The @dbg macro below evaluates `ex` only when debugging. The @debug macro prints stuff as documented in Julia.
 macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
-
-# To perform profiling, set PROFILING to true. (moved this to gpu.jl)
-# const PROFILING = false
-# macro gs(); if PROFILING; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 
-using AutoGrad # Param, params, grad, value, @diff, gradloss, getval, @primitive, @zerograd, @primitive1, @zerograd1, cat1d
-using AutoGrad: forw, back, Value
-export AutoGrad, grad, gradloss, value, Param, @diff # need AutoGrad for Knet.load/save
+using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
+export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
 
 include("gpu.jl");              export gpu
 include("uva.jl")

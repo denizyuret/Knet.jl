@@ -143,7 +143,7 @@ KnetPtr(n::Integer)=KnetPtr(Int(n))
 # This does the actual allocation, returns `nothing` in case of error
 function knetMalloc(nbytes::Int)
     ptr = Cptr[0]
-    ret = @cuda1(cudart,cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
+    ret = @cudart1(cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
     ret == 0 ? ptr[1] : nothing
 end
 
@@ -161,7 +161,7 @@ function gc(dev=gpu())
     GC.gc(); GC.enable(false)
     for (n,v) in mem.pools
         for p in v.free
-            @cuda(cudart,cudaFree,(Cptr,),p)
+            @cudart(cudaFree,(Cptr,),p)
         end
         v.nptr -= length(v.free)
         mem.avail -= n * length(v.free)

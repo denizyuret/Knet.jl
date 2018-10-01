@@ -204,7 +204,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
             mean = C_NULL
             ivar = C_NULL
         end
-        @cuda(cudnn, cudnnBatchNormalizationForwardTraining,
+        @cudnn(cudnnBatchNormalizationForwardTraining,
               # Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T}, #alpha and beta
@@ -221,7 +221,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
               TD(y), y, #y
               TD(g), g, b, #params
               momentum, running_mean, running_var,
-              eps, mean, ivar) #end of @cuda
+              eps, mean, ivar)
         # Cache the resulting mean and inverse variance
         if cache != nothing
             cache_verbose && info("mean and ivar data saved to cache")
@@ -230,7 +230,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         end
     else
         @assert (moments!==nothing) "You must provide moments for the test mode!"
-        @cuda(cudnn, cudnnBatchNormalizationForwardInference,
+        @cudnn(cudnnBatchNormalizationForwardInference,
               # Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T},
@@ -284,7 +284,7 @@ function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
         else
             mean, ivar = C_NULL, C_NULL
         end
-        @cuda(cudnn, cudnnBatchNormalizationBackward,
+        @cudnn(cudnnBatchNormalizationBackward,
               # C Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T}, #data difs
