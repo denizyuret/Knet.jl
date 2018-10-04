@@ -1,4 +1,5 @@
 include("header.jl")
+struct M370; layer; end;
 
 @testset "serialize" begin
     M1 = RNN(2,3)
@@ -11,8 +12,7 @@ include("header.jl")
         @test M3.w.value == M2.w.value
 
         # 370-1
-        struct Model; layer; end;
-        m = Model(param(5,5,1,1))
+        m = M370(param(5,5,1,1))
         mcpu = m |> cpucopy
         @test Knet.save("foo.jld2","mcpu",mcpu) === nothing
 

@@ -1,5 +1,6 @@
 include("header.jl")
 Random.seed!(42)
+struct M370; layer; end;
 
 @testset "conv" begin
 
@@ -217,8 +218,7 @@ Random.seed!(42)
         @test gradcheck(deconv41, (kd,kx); rtol=TOL, kw=[(:alpha,2)])
 
         # 370-3
-        struct Model; layer; end;
-        m = Model(param(5,5,1,1))
+        m = M370(param(5,5,1,1))
         Knet.save("foo.jld2","m",m)
         gpusave = gpu()
         gpu(-1)
