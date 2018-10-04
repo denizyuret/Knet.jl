@@ -664,9 +664,9 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
 end
 
 # CPU version
-function rnnforw(r::RNN, w::Array{T}, x::Array{T},
-                 hx::Union{Array{T},Nothing}=nothing,
-                 cx::Union{Array{T},Nothing}=nothing;
+function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
+                 hx::Union{AbstractArray{T},Nothing}=nothing,
+                 cx::Union{AbstractArray{T},Nothing}=nothing;
                  # handle=cudnnhandle(), training=false,
                  batchSizes=nothing,
                  hy = (hx != nothing),
@@ -675,8 +675,8 @@ function rnnforw(r::RNN, w::Array{T}, x::Array{T},
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
-# rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
-rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
+# rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
+rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:AbstractArray} = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
