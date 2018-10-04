@@ -413,7 +413,7 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 # x2=(Wy*Hy),(Ww*Hw*Cx)
 # y2=(Wy*Hy),Cy     ;; simple reshape after y2=x2*w2
 
-function conv4(w::Array{T,4}, x::Array{T,4};
+function conv4(w::AbstractArray{T,4}, x::AbstractArray{T,4};
                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -438,7 +438,7 @@ function conv4(w::Array{T,4}, x::Array{T,4};
     return y
 end
 
-function conv4w(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4w(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
                    o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dw = x'*dy
@@ -465,7 +465,7 @@ function conv4w(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
     return dw
 end
 
-function conv4x(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4x(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
                    o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dx = dy*w'
@@ -498,7 +498,7 @@ im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
 
 for (T,S) in ((Float32,32), (Float64,64)); @eval begin
 
-    function im2col!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+    function im2col!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
                      n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
@@ -509,7 +509,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         return x2
     end
 
-    function col2im!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+    function col2im!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
                      n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
@@ -522,7 +522,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
 
     ### CPU pooling from Mocha.jl
 
-    function pool(x::Array{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+    function pool(x::AbstractArray{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
         if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
         Wx,Hx,Cx,Nx = size(x);
         Wy,Hy,Cy,Ny = pdims(x;window=window,padding=padding,stride=stride)
@@ -545,7 +545,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         return y
     end
 
-    function poolx(x::Array{$T,4}, y::Array{$T,4}, dy::Array{$T,4};
+    function poolx(x::AbstractArray{$T,4}, y::AbstractArray{$T,4}, dy::AbstractArray{$T,4};
                    window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
         if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
         Wx,Hx,Cx,Nx = size(x);

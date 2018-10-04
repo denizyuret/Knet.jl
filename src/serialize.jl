@@ -49,7 +49,7 @@ end
 
 # Partially fixes the issue: when KA converts to A because no gpu, surrounding parametric types remain Param{KA}.
 # However other container types that include KnetArray may still have an inconsistent parametric type problem.
-_ser(x::Param, s::IdDict, m::typeof(JLDMODE))=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))
+_ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))
 
 _ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
 _ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
