@@ -54,13 +54,15 @@ include("header.jl")
     indices = rand(1:10,10)
     @test gradcheck(nll, a, indices, kw=(:dims=>1,), args=1)
     @test gradcheck(nll, a, indices, kw=(:dims=>2,), args=1)
+    @test gradcheck(logistic,a[:,1],ones(10))
+    @test gradcheck(bce,a[:,1],ones(10))
     if gpu() >= 0
         k = KnetArray(a)
+	@test gradcheck(logistic,k[:,1],ones(10))
+    	@test gradcheck(bce,k[:,1],ones(10))
         @test gradcheck(nll, k, indices, kw=(:dims=>1,), args=1)
         @test gradcheck(nll, k, indices, kw=(:dims=>2,), args=1)
         @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
         @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
     end
-    @test gradcheck(logistic,a[:],a[:])
-    @test gradcheck(bce,a[:],a[:])
 end
