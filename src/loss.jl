@@ -227,6 +227,7 @@ answer values should be {-1,1}, then it returns `mean|sum(log(1 + exp(-answers*s
 """
 function logistic(x̂,x;average=true)
     ε = eltype(x̂)(1e-12)
+    x = convert(typeof(x̂),x)
     l = log.((1-ε) .+ exp.(-x .* x̂))
     average ? mean(l) : sum(l)
 end
@@ -242,6 +243,7 @@ where `p` is equal to `1/(1 + exp.(scores))`. See also `logistic`.
 function bce(x̂,x;average=true) 
     ε = eltype(x̂)(1e-12)
     p = 1 ./ (1 .+ exp.(-x̂))
+    x =	convert(typeof(x̂),x)
     l = x .* log.(p .+ ε) .+ (1 .- x).*log.((1-ε) .- p)
     average ? -mean(l) : -sum(l)
 end
