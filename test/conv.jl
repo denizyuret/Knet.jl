@@ -1,5 +1,6 @@
 include("header.jl")
 Random.seed!(42)
+struct M370; layer; end;
 
 @testset "conv" begin
 
@@ -215,6 +216,16 @@ Random.seed!(42)
         @test gradcheck(conv41, (kw,kx); rtol=TOL, kw=[(:alpha,2)])
         @test isapprox(deconv4(kd,kx;alpha=2), deconv4(ad,ax;alpha=2))
         @test gradcheck(deconv41, (kd,kx); rtol=TOL, kw=[(:alpha,2)])
+
+        # 370-3
+        m = M370(param(5,5,1,1))
+        Knet.save("foo.jld2","m",m)
+        gpusave = gpu()
+        gpu(-1)
+        mcpu = Knet.load("foo.jld2","m")
+        @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
+        gpu(gpusave)
+
     end
     end
 end
