@@ -221,31 +221,24 @@ function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
 end
 
 """
-    logistic(scores, answers; average=true)
-Computes logistic loss given scores(predicted values) and answer labels.
-answer values should be {-1,1}, then it returns `mean|sum(log(1 + exp(-answers*scores)))`. See also `bce`.
+    bce(scores,answers;average=true)
+
+Computes binary cross entropy loss given scores(predicted values) and answer labels.
+answer values should be {-1,1}, then it returns `mean|sum(log(1 + exp(-answers*scores)))`.
+
 """
-function logistic(x̂,x;average=true)
+function bce(x̂,x;average=true)
     x = oftype(value(x̂),x)
     l = log.(1 .+ exp.(-x .* x̂))
     average ? mean(l) : sum(l)
 end
 
 """
+    logistic(scores, answers; average=true)
 
-    bce(scores,answers;average=true)
-
-Computes binary cross entropy given scores(predicted values) and answer labels.
-answer values should be {0,1}, then it returns negative of `mean|sum(answers * log(p) + (1-answers)*log(1-p))`
-where `p` is equal to `1/(1 + exp.(scores))`. See also `logistic`.
+Alias for `bce`.
 """
-function bce(x̂,x;average=true) 
-    ε = eltype(x̂)(1e-12)
-    p = 1 ./ (1 .+ exp.(-x̂))
-    x =	oftype(value(x̂),x)
-    l = x .* log.(min.(p,ε)) .+ (1 .- x).*log.(1 .- max.(p,1-ε))
-    average ? -mean(l) : -sum(l)
-end
+logistic = bce
 
 """
 
