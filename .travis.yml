@@ -12,7 +12,7 @@ notifications:
   email: false
 
 after_success:
-  - julia -e 'using Pkg; Pkg.add("Documenter"); using Knet, Documenter; cd(Knet.dir("docs")); include("make.jl")'
+  - julia -e 'using Pkg; ps=Pkg.PackageSpec(name="Documenter", version="0.19"); Pkg.add(ps); Pkg.pin(ps); using Knet, Documenter; cd(Knet.dir("docs")); include("make.jl")'
 
 # Do coverage in gitlab:
 #   - julia -e 'using Pkg; Pkg.add("Coverage"); using Knet, Coverage; cd(Knet.dir()); Codecov.submit(process_folder()); Coveralls.submit(process_folder())'
