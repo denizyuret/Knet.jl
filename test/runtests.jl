@@ -15,3 +15,4 @@
 @time include("reduction.jl")     # 106  40  21  29  11  57  55  29
 @time include("batchnorm.jl")     #  93
 @time include("jld.jl")           #
+@time include("bmm.jl")           #

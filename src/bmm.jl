@@ -57,12 +57,12 @@ function bmm!(A, B, C)
 
     (bsa == bsb && ka == kb && size(C,1) == ma && size(C,2) == nb && size(C,3) == bsa) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     
-    for i=1:bs
-        C[:,:,i] = reshape(A[:,:,i], m, k) * reshape(B[:, :, i], k, n)
+    for i=1:bsa
+        C[:, :, i] = view(A, :, :, i) * view(B, :, :, i)
     end
     return C
 end
 
-@primitive bmm(x1,x2),dy,y bmm(dy,permutedims(x2, [2,1,3])) bmm(premutedims(x1,[2,1,3]), dy)
+@primitive bmm(x1,x2),dy,y bmm(dy,permutedims(x2, [2,1,3])) bmm(permutedims(x1,[2,1,3]), dy)
 @zerograd bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray, B::KnetArray, beta::Number, C::KnetArray)
 @zerograd bmm!(A, B, C)
