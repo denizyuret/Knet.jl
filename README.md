@@ -1,7 +1,7 @@
 # Knet
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) 
-[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) 
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest)
+[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl)
 [![](https://gitlab.com/JuliaGPU/Knet.jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/Knet.jl/pipelines)
 [![](https://coveralls.io/repos/github/denizyuret/Knet.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/Knet.jl?branch=master)
 [![](https://codecov.io/gh/denizyuret/Knet.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/Knet.jl)
@@ -10,10 +10,10 @@
 University](http://www.ku.edu.tr/en) deep learning framework implemented in
 [Julia](http://docs.julialang.org) by [Deniz Yuret](http://www.denizyuret.com) and
 collaborators.  It supports GPU operation and automatic differentiation using dynamic
-computational graphs for models defined in plain Julia. You can install Knet with the 
+computational graphs for models defined in plain Julia. You can install Knet with the
 following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting points:
 
-* [Tutorial:](tutorial) 
+* [Tutorial:](tutorial)
   introduces Julia and Knet via examples. Currently the most up-to-date resource, some of the documentation and examples below may be out of date.
 * [Documentation:](https://denizyuret.github.io/Knet.jl/latest)
   installation, introduction, design, implementation, full reference and deep learning chapters.
@@ -33,6 +33,8 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
   if you need help or would like to request a feature, please join this mailing list.
 * [knet-dev:](https://groups.google.com/forum/#!forum/knet-dev)
   if you would like to contribute to Knet development, please join this mailing list and check out these [tips](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1).
+* [slack:](https://julialang.slack.com)
+  there also exists #knet channel on [JuliaLang slack workspace](https://julialang.slack.com) (click [here](https://slackinvite.julialang.org) to get an invite).
 * Related work: Please check out [Flux](https://github.com/FLuxML), [Mocha](https://github.com/pluskid/Mocha.jl), [JuliaML](https://github.com/JuliaML), [JuliaDiff](https://github.com/JuliaDiff), [JuliaGPU](https://github.com/JuliaGPU), [JuliaOpt](https://github.com/JuliaOpt) for related packages.
 
 ## Example
