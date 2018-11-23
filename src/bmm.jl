@@ -1,13 +1,21 @@
-function bmm(A::KnetArray, B::KnetArray{T}) where {T}
-    m,n,bs = size(A)
-    n,k,bs = size(B)
-    return bmm!('N','N',one(T),A,B,zero(T),similar(A, (m, k, bs)))
-end
+"""
 
+`bmm(A, B))` performs a batch matrix-matrix product of matrices stored in `A`
+and `B`. `A` and `B` must be 3d and the last dimension represents the batch size.
+
+If A is a (m,n,b) tensor, B is a (n,k,b) tensor, and the output is a (m,k,b) tensor.
+
+"""
 function bmm(A, B)
     m,n,bs = size(A)
     n,k,bs = size(B)
     return bmm!(A, B, similar(A, (m, k, bs)))
+end
+
+function bmm(A::KnetArray, B::KnetArray{T}) where {T}
+    m,n,bs = size(A)
+    n,k,bs = size(B)
+    return bmm!('N','N',one(T),A,B,zero(T),similar(A, (m, k, bs)))
 end
 
 function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
