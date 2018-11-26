@@ -5,6 +5,7 @@ FileIO 1.0.1
 JLD2 0.1.1
 SpecialFunctions 0.7.0
 TimerOutputs 0.4.0
+CuArrays
 
 # The following are used by the build script if installed.
 # CUDAdrv, Documenter

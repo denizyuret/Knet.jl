@@ -154,7 +154,7 @@ function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
     @cudnn(cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
     @cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
-    states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
+    states = KnetArray{UInt8}(undef,Int(s[1])) # TODO: Can this be shared? 638976 bytes.
     @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
           d[1],handle,dropout,states,bytes(states),seed)
     dd = DD(d[1],states)
@@ -445,7 +445,7 @@ function rnninit(inputSize, hiddenSize;
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
         rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
         r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
-        w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
+        w = KnetArray{dataType}(undef,1,1,Int(cudnnGetRNNParamsSize(r)))
     else
         r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
@@ -919,5 +919,3 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
 end
-
-
