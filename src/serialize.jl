@@ -6,34 +6,9 @@ serialize(x) = _ser(x,IdDict(),JLDMODE)
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
-function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
-    if !haskey(s,x)
-        if isa(x.ptr, Cptr) && (x.dev >= 0)
-            a = Array{UInt8}(undef,x.len)
-            @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
-            s[x] = KnetPtr(a,x.len)
-        elseif isa(x.ptr, Array{UInt8,1})
-            if gpu() >= 0
-                g = knetMalloc(x.len); if g === nothing; error("No space left on GPU."); end
-                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),g,pointer(x.ptr),x.len,1)
-                s[x] = KnetPtr(g,x.len,gpu())
-            else
-                s[x] = x  # Leave conversion to array to KnetArray
-            end
-        else
-            error("Unrecognized KnetPtr")
-        end
-    end
-    return s[x]
-end
-
 function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     if !haskey(s,x)
-        if isa(x.ptr.ptr, Array) && gpu() < 0
-            s[x] = reshape(reinterpret(eltype(x),view(x.ptr.ptr,1:sizeof(T)*length(x))),size(x))
-        else
-            s[x] = KnetArray{T,N}(_ser(x.ptr,s,m),x.dims)
-        end
+        s[x] = Array(x)
     end
     return s[x]
 end

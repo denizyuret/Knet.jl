@@ -1,4 +1,5 @@
 module Knet
+using CuArrays
 using Libdl
 # using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 
@@ -14,7 +15,6 @@ export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive,
 
 include("gpu.jl");              export gpu
 include("uva.jl")
-include("kptr.jl");             export knetgc # KnetPtr
 include("karray.jl");           export KnetArray
 include("gcnode.jl");
 include("ops.jl");
@@ -68,7 +68,7 @@ end
 # macro use(ps)
 #     if isa(ps, Symbol); ps = Expr(:tuple,ps); end
 #     a = map(ps.args) do p
-#         s=string(p) 
+#         s=string(p)
 #         esc(:(haskey(Pkg.installed(),$s)||Pkg.add($s); using $p))
 #     end
 #     Expr(:block,:(using Pkg),a...)
