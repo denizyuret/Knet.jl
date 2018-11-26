@@ -33,6 +33,7 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
   if you need help or would like to request a feature, please join this mailing list.
 * [knet-dev:](https://groups.google.com/forum/#!forum/knet-dev)
   if you would like to contribute to Knet development, please join this mailing list and check out these [tips](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1).
+* [knet-slack:](https://julialang.slack.com/messages/CDLKQ92P3/details) Slack channel for Knet.
 * Related work: Please check out [Flux](https://github.com/FLuxML), [Mocha](https://github.com/pluskid/Mocha.jl), [JuliaML](https://github.com/JuliaML), [JuliaDiff](https://github.com/JuliaDiff), [JuliaGPU](https://github.com/JuliaGPU), [JuliaOpt](https://github.com/JuliaOpt) for related packages.
 
 ## Example
