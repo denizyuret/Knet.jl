@@ -14,10 +14,11 @@ end
 
 """
 
-    xavier(a...)
+    xavier(a...; gain=1)
 
-Xavier initialization.  The `a` arguments are passed to `rand`.  See
-([Glorot and Bengio 2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf))
+Xavier initialization.  The `a` arguments are passed to `rand`. You can
+change `gain` for different activation functions. `gain=1` at default.
+See ([Glorot and Bengio 2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf))
 for a description.
 [Caffe](http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details)
 implements this slightly differently.
@@ -25,7 +26,7 @@ implements this slightly differently.
 calls it `GlorotUniform`.
 
 """
-function xavier(a...; gain=6)
+function xavier(a...; gain=1)
     w = rand(a...)
     if ndims(w) == 1
         fanout = 1
@@ -37,18 +38,20 @@ function xavier(a...; gain=6)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = convert(eltype(w), sqrt(gain / (fanin + fanout)))
-    w = 2s*w-s
+    s = convert(eltype(w), sqrt( 2 / (fanin + fanout)))
+    s = sqrt(3) * gain * s
+    w = 2s .* w .- s
 end
 
 """
 
     kaiming(a...)
 
-Kaiming He initialization.  The `a` arguments are passed to `rand`.
+Kaiming He initialization.  The `a` arguments are passed to `rand`. You can
+change `gain` for different activation functions. `gain=sqrt(2)` at default.
 See ([He et al. 2015](https://arxiv.org/abs/1502.01852)) for a description.
 """
-function kaiming(a...; gain=3)
+function kaiming(a...; gain=sqrt(2))
     w = rand(a...)
     if ndims(w) == 1
         fanin = length(w)
@@ -58,8 +61,9 @@ function kaiming(a...; gain=3)
         fanout = size(w, ndims(w))
         fanin = div(length(w), fanout)
     end
-    s = convert(eltype(w), sqrt(gain / fanin))
-    w = 2s*w-s
+    s = convert(eltype(w), sqrt(1 / fanin))
+    s = sqrt(3) * gain * s
+    w = 2s .* w .- s
 end
 
 """
