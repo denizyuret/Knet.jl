@@ -127,7 +127,8 @@ function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
     tr = !isempty(AutoGrad._tapes)
     hy = (hidden != nothing)
     cy = (hidden != nothing && r.mode == 2)
-    h = (hidden != nothing ? value.(hidden) : ())
+    # h = (hidden != nothing ? value.(hidden) : ())  # value.() erases grad info if multiple consecutive calls within same forward.
+    h = (hidden != nothing ? hidden : ()) # hidden needs to be cleaned using value manually after back+update.
     (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
     if hidden != nothing; empty!(hidden); end
     if hy; push!(hidden, hyout); end

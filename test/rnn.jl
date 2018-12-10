@@ -1,4 +1,7 @@
-# TODO: test bidirectional rnns
+# TODO:
+# - test bidirectional rnns
+# - test new interface
+# - test keepstate
 
 include("header.jl")
 using Knet: rnntest
