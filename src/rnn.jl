@@ -44,7 +44,7 @@ representing variable size batches for time steps. If `batchSizes` is used,
 
 **Hidden states:** If `hidden=nothing` (default), initial hidden states are assumed zero and
 final hidden states are discarded. If `hidden=Any[]`, initial hidden states are assumed zero
-and final hidden states are pushed into hidden.  If `hidden=Any[h,c]` (for LSTM) or
+and final hidden states are pushed into hidden. If `hidden=Any[h,c]` (for LSTM) or
 `hidden=Any[h]` (for others), the values in the hidden array are taken to be the initial
 hidden states and are replaced by the final hidden states on return.  Note that the final
 time step of `y` always contains the final hidden state of the last layer, so `hidden` will
@@ -52,6 +52,11 @@ return no extra information for a single layer network.  All hidden and cell sta
 dimensionality (H,B,L) for unidirectional and (H,B,2L) for bidirectional RNNs.  If
 `batchSizes` is used and minibatch sizes change over time, B is always taken to be the size
 of the first minibatch for hidden sizes.
+
+In a differentiation context the returned final hidden states will be wrapped in `Result`
+types. This is necessary if the same RNN object is to be called multiple times in a single
+iteration. Between iterations (i.e. after diff/update) the hidden states need to be unboxed
+with `hidden=value.(hidden)` to prevent spurious dependencies.
 
 **Keyword arguments for RNN:**
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
@@ -115,9 +120,11 @@ RNN(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...); r.w=param(w); r)
 # above for backward compatibility.
 
 # For hidden input and output: if hidden=nothing (default) do not initialize hx or return
-# hy. If hidden=Array{Any}, initialize hx from it, empty and push value(hy) back into
-# it. This runs the risk of the user using hy in the loss, resulting in incorrect gradients
-# because its Result struct was lost to value(). Alternatives:
+# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
+# during diff hy will be a Result type and will need to be cleaned up with `hidden =
+# value.(hidden)` after the back/update.
+
+# Alternatives:
 ## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
 ## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
 ## use it in loss, except using it as hx for another rnn call.
