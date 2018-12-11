@@ -36,7 +36,6 @@ if gpu() >= 0
                       # (:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
                       # ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
-                @show i
                 @test a[i...] == k[i...]
                 ai = a[i...]
                 if isa(ai, Number)
