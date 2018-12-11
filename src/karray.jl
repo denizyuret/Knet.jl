@@ -410,7 +410,8 @@ function getindex(A::KnetArray, I...) where {T}
 end
 
 function setindex!(A::KnetArray, v, I...)
-  knetwrap(setindex!(A.ptr, knetunwrap(v), map(knetunwrap, I)...))
+  setindex!(A.ptr, knetunwrap(v), map(knetunwrap, I)...)
+  return A
 end
 
 # AutoGrad functions:
