@@ -53,6 +53,13 @@ macro dbg(_x); end
         end
     end
 
+    @testset "literal-pow" begin # issue #412
+        date("broadcast: literal-pow")
+        a = rand(3,5)
+        k = KnetArray(a)
+        @test isapprox(a .^ 2, k .^ 2)
+    end
+
     @testset "array-vector" begin
         date("broadcast: array-vector")
         for (f1,f) in broadcast_fns
