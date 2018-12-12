@@ -127,7 +127,8 @@ function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
     tr = !isempty(AutoGrad._tapes)
     hy = (hidden != nothing)
     cy = (hidden != nothing && r.mode == 2)
-    h = (hidden != nothing ? value.(hidden) : ())
+    # h = (hidden != nothing ? value.(hidden) : ())
+    h = (hidden != nothing ? hidden : ())
     (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
     if hidden != nothing; empty!(hidden); end
     if hy; push!(hidden, hyout); end
@@ -919,3 +920,6 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
 end
+
+# Hack to make this work with Kptr->CuArray (mji/cuarrays):
+getindex(x::KnetArray, r::UnitRange) = KnetArray(view(x.ptr, r))
