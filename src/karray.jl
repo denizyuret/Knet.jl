@@ -159,8 +159,8 @@ convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N
 
 # Ptr <- KnetArray
 import Base: cconvert, unsafe_convert, pointer
-cconvert(::Type{Ptr{T}}, a::KnetArray) where {T} = a.ptr.buf
-pointer(a::KnetArray{T}, i::Integer = 1) where {T} = convert(Ptr{T}, a.ptr.buf.ptr + i - 1)
+pointer(a::KnetArray{T}, i::Integer = 1) where {T} = convert(Ptr{T}, a.ptr.buf.ptr + a.ptr.offset + i - 1)
+cconvert(::Type{Ptr{T}}, a::KnetArray{T}) where {T} = pointer(a)
 unsafe_convert(::Type{Ptr{T}}, a::KnetArray{T}) where T = pointer(a)
 
 # Reshape:
