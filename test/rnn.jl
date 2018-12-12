@@ -11,6 +11,7 @@ if gpu() >= 0; @testset "rnn" begin
     Knet.seed!(1)
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
     gchk(a...)=gradcheck(a...; rtol=0.1, atol=0.05, args=1)
+    gnew(a...; o...)=gcheck(a...; kw=o, rtol=0.1, atol=0.05)
     rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
     D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
 
@@ -77,12 +78,44 @@ if gpu() >= 0; @testset "rnn" begin
         @test gchk(rnn1,[w,x3,hx3,cx3],r)
         @test gchk(rnn1,[wcpu,x3cpu,hx3cpu,cx3cpu],rcpu)
         for b in ([BT],[BT÷2,BT÷2],[BT÷2,BT÷4,BT÷4])
-            hx3 = ka(randn(D,H,b[1],HL))
-            cx3 = ka(randn(D,H,b[1],HL))
-            @test gchk(rnn1,[w,x3,hx3,cx3],r,b)
+            hx3a = ka(randn(D,H,b[1],HL))
+            cx3a = ka(randn(D,H,b[1],HL))
+            @test gchk(rnn1,[w,x3,hx3a,cx3a],r,b)
             @test gchk(rnn1,[w,x3],r,b)
             # @test gchk(rnn1,[wcpu,x3cpu,hx3cpu,cx3cpu],rcpu,b) # TODO
         end
+
+        # new interface
+        rnew = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier)
+        rnew.w = param(w)
+
+        yold1 = rnnforw(r,w,x3)
+        ynew1 = rnew(x3)
+        @test isapprox(yold1[1], ynew1)
+        @test gnew(rnew, x3)
+
+        yold2 = rnnforw(r,w,x3,hx3,cx3)
+        hnew2 = Any[hx3,cx3]
+        ynew2 = rnew(x3, hidden=hnew2)
+        @test isapprox(yold2[1], ynew2)
+        @test isapprox(yold2[2], hnew2[1])
+        if M == :lstm
+            @test isapprox(yold2[3], hnew2[2])
+        end
+        #TODO: @test gnew(rnew, x3; hidden=Any[hx3,cx3])
+
+        bs = [B for t=1:T]
+        yold3 = rnnforw(r,w,x3,hx3,cx3; batchSizes=bs)
+        hnew3 = Any[hx3,cx3]
+        ynew3 = rnew(x3, hidden=hnew3, batchSizes=bs)
+        @test isapprox(yold3[1], ynew3)
+        @test isapprox(yold3[2], hnew3[1])
+        if M == :lstm
+            @test isapprox(yold3[3], hnew3[2])
+        end
+        #TODO: @test gnew(rnew, x3; hidden=Any[hx3,cx3], batchSizes=bs)
+
+        #TODO: compare result and diff between multi-step and single-step
 
         # rnnparam, rnnparams
         for m in (1,2)
