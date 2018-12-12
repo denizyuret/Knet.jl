@@ -6,9 +6,9 @@ version = "0.3.2"
 
 [[Adapt]]
 deps = ["LinearAlgebra", "Test"]
-git-tree-sha1 = "04d15700419b6949d76be1428ab6e0277ff43b06"
+git-tree-sha1 = "036ce44a518b912c43df728bfae274f8d8de9059"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "0.4.1"
+version = "0.3.1"
 
 [[AutoGrad]]
 deps = ["Libdl", "LinearAlgebra", "Printf", "Random", "SpecialFunctions", "Statistics", "Test", "TimerOutputs"]
@@ -44,10 +44,10 @@ uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
 version = "0.8.6"
 
 [[CUDAnative]]
-deps = ["Adapt", "CUDAapi", "CUDAdrv", "InteractiveUtils", "LLVM", "Libdl", "Pkg", "Printf", "Statistics", "Test"]
-git-tree-sha1 = "ee585a140c32abb9d3d3a903145ce46c69bc4507"
+deps = ["CUDAapi", "CUDAdrv", "InteractiveUtils", "LLVM", "Libdl", "Logging", "Pkg", "Printf", "Statistics", "Test"]
+git-tree-sha1 = "debfe5af100e335b5df7109184e2e450f616dd1f"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "0.10.1"
+version = "0.9.1"
 
 [[CodecZlib]]
 deps = ["BinaryProvider", "Libdl", "Test", "TranscodingStreams"]
@@ -80,12 +80,10 @@ uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "1.0.0"
 
 [[CuArrays]]
-deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "DiffRules", "ForwardDiff", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "SparseArrays"]
-git-tree-sha1 = "218bca878dc038e997d1845b514847cfa6ffc8f8"
-repo-rev = "mji/free"
-repo-url = "https://github.com/JuliaGPU/CuArrays.jl.git"
+deps = ["AbstractFFTs", "Adapt", "CUDAapi", "CUDAdrv", "CUDAnative", "DiffRules", "ForwardDiff", "GPUArrays", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Test"]
+git-tree-sha1 = "50814c8f6de015f08a4fe2c01c87fb74f42c8a39"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "0.8.1+"
+version = "0.8.1"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
@@ -142,10 +140,10 @@ uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.1"
 
 [[GPUArrays]]
-deps = ["Adapt", "FFTW", "FillArrays", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "StaticArrays", "Test"]
-git-tree-sha1 = "f0016298a7c7c8f36a7a94694b6be5e8f663a948"
+deps = ["FFTW", "FillArrays", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "StaticArrays", "Test"]
+git-tree-sha1 = "ff1d9b711533c00bb3eb800546e764e2035e6ed8"
 uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "0.6.0"
+version = "0.5.0"
 
 [[InteractiveUtils]]
 deps = ["LinearAlgebra", "Markdown"]
