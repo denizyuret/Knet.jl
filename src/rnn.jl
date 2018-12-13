@@ -499,6 +499,9 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                  ) where {T}
 
     # Input descriptors
+    if size(x,1) != r.inputSize
+        throw(DimensionMismatch("size(x,1)=$(size(x,1)) does not match r.inputSize=$(r.inputSize)"))
+    end
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
@@ -515,9 +518,15 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     hyout = hyDesc = cyout = cyDesc = C_NULL
     if hy || cy
         firstBatchSize = batchSizes==nothing ? size(x,2) : batchSizes[1]
-        hsize = Int[r.hiddenSize, firstBatchSize, r.numLayers * (r.direction == 1 ? 2 : 1)] # (H,B,L/2L)
-        if hy; hyout=similar(y,hsize...); hyDesc=TD3(hyout); end
-        if cy && r.mode==2; cyout=similar(y,hsize...); cyDesc=TD3(cyout); end
+        hsize = (Int(r.hiddenSize), Int(firstBatchSize), Int(r.numLayers * (r.direction == 1 ? 2 : 1))) # (H,B,L/2L)
+        if hy; hyout=similar(y,hsize); hyDesc=TD3(hyout); end
+        if cy && r.mode==2; cyout=similar(y,hsize); cyDesc=TD3(cyout); end
+        if hx != nothing && any(size(hx,i)!=hsize[i] for i=1:3) # compare one by one in case hx is 1-D or 2-D
+            throw(DimensionMismatch("size(hx)=$(size(hx)) does not match hsize=$(hsize)"))
+        end
+        if cx != nothing && r.mode == 2 && any(size(cx,i)!=hsize[i] for i=1:3)
+            throw(DimensionMismatch("size(cx)=$(size(cx)) does not match hsize=$(hsize)"))
+        end
     end
 
     # workSpace and reserveSpace

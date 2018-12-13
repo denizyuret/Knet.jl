@@ -6,17 +6,17 @@
 include("header.jl")
 using Knet: rnntest
 
-#if gpu() >= 0; @testset "rnn" begin
+if gpu() >= 0; @testset "rnn" begin
 
-function rmulti(r,xs,hs...)
-    h = Any[hs...]
-    y = Any[]
-    for x in xs
-        push!(y, r(x; hidden=h))
+    function rmulti(r,xs,hs...)
+        h = Any[hs...]
+        y = Any[]
+        for x in xs
+            push!(y, r(x; hidden=h))
+        end
+        y = reshape(cat1d(y...), size(y[1],1), size(y[1],2), :)
+        return y,h
     end
-    y = reshape(cat1d(y...), size(y[1],1), size(y[1],2), :)
-    return y,h
-end
     rmulti1(x...)=rmulti(x...)[1]
     rnewh(r,x,h...;o...)=r(x; hidden=Any[h...], o...)
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
@@ -174,8 +174,7 @@ end
         end
         @test all(map(==, rnnparams(r,w), rnnparams(r,wcpu)))
     end # for
-#end # @testset begin
-
-#end # if gpu() >= 0
+end # @testset begin
+end # if gpu() >= 0
 
 nothing
