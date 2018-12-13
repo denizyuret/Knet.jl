@@ -56,7 +56,9 @@ of the first minibatch for hidden sizes.
 In a differentiation context the returned final hidden states will be wrapped in `Result`
 types. This is necessary if the same RNN object is to be called multiple times in a single
 iteration. Between iterations (i.e. after diff/update) the hidden states need to be unboxed
-with `hidden=value.(hidden)` to prevent spurious dependencies.
+with `hidden .= value.(hidden)` to prevent spurious dependencies. See the
+[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/08.charlm.ipynb)
+for an example.
 
 **Keyword arguments for RNN:**
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
