@@ -13,7 +13,7 @@ using Knet, Test
 @time include("batchnorm.jl")     #  22  93
 @time include("linalg.jl")        #  22  62  24  14  22   7  28  33  19
 # @time include("jld.jl")           #  26
-# @time include("rnn.jl")           #  41  81                  12
+@time include("rnn.jl")           #  41  81                  12
 @time include("conv.jl")          #  51 107  22  12  62  47  26  44  16
 @time include("reduction.jl")     #  55 106  40  21  29  11  57  55  29
 @time include("update.jl")        #  60  61  29  26 100  22  72  25  23
