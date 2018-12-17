@@ -505,6 +505,7 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
+    isnothing(a) = a == nothing || a == C_NULL
     if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
     if cx==nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
 
@@ -521,10 +522,10 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
         hsize = (Int(r.hiddenSize), Int(firstBatchSize), Int(r.numLayers * (r.direction == 1 ? 2 : 1))) # (H,B,L/2L)
         if hy; hyout=similar(y,hsize); hyDesc=TD3(hyout); end
         if cy && r.mode==2; cyout=similar(y,hsize); cyDesc=TD3(cyout); end
-        if hx != nothing && any(size(hx,i)!=hsize[i] for i=1:3) # compare one by one in case hx is 1-D or 2-D
+        if !isnothing(hx) && any(size(hx,i)!=hsize[i] for i=1:3) # compare one by one in case hx is 1-D or 2-D
             throw(DimensionMismatch("size(hx)=$(size(hx)) does not match hsize=$(hsize)"))
         end
-        if cx != nothing && r.mode == 2 && any(size(cx,i)!=hsize[i] for i=1:3)
+        if !isnothing(cx) && r.mode == 2 && any(size(cx,i)!=hsize[i] for i=1:3)
             throw(DimensionMismatch("size(cx)=$(size(cx)) does not match hsize=$(hsize)"))
         end
     end
@@ -938,5 +939,3 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
 end
-
-
