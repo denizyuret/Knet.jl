@@ -16,3 +16,4 @@
 @time include("update.jl")        #  60  61  29  26 100  22  72  25  23
 @time include("broadcast.jl")     #  80  56  34  19 491 119  51  53  25
 @time include("unary.jl")         # 103 122  42   6  36   4  56  67  11
+@time include("bmm.jl")
