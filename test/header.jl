@@ -1,2 +1,3 @@
 using Test, Random, AutoGrad, Knet
-include(AutoGrad.dir("test","gradcheck.jl"))
+using AutoGrad: gradcheck, gcheck
+# include(AutoGrad.dir("test","gradcheck.jl"))

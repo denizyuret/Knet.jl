@@ -130,6 +130,45 @@ if gpu() >= 0
             @test size(reshape(a, :, 4)) == size(reshape(a, (:, 4))) == (2, 4)
             @test size(reshape(a, :, 1, 4)) == (2, 1,  4)
         end
+
+        a = rand(3,4,5)
+        k = KnetArray(a)
+        @testset "3D" begin
+            for i in ((:,), (:,:,:),                    # Colon
+                      (3,), (2,3,4),              	# Int, Tuple{Int}
+                      (3:5,),                           # UnitRange
+                      (:,:,2),                          # Colon, Colon, Int
+                      (:,:,1:2),                        # Colon, Colon, UnitRange
+                      ([],),                            # Empty Array
+                      ((a.>0.5),),                      # BitArray
+                      )
+                #@show i
+                @test a[i...] == k[i...]
+                ai = a[i...]
+                if isa(ai, Number)
+                    a[i...] = 0
+                    k[i...] = 0
+                    @test a == k
+                    a[i...] = ai
+                    k[i...] = ai
+                else
+                    a[i...] .= 0
+                    k[i...] .= 0
+                    @test a == k
+                    a[i...] .= ai
+                    k[i...] .= ai
+                end
+                @test a == k
+                @test gradcheck(getindex, a, i...; args=1)
+                @test gradcheck(getindex, k, i...; args=1)
+            end
+            # make sure end works
+            @test a[2:end] == k[2:end]
+            @test a[:,:,2:end] == k[:,:,2:end]
+            # k.>0.5 returns KnetArray{T}, no Knet BitArrays yet
+            #TODO: @test a[a.>0.5] == k[k.>0.5]
+
+        end
     end
 end
 

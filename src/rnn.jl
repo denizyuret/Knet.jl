@@ -44,7 +44,7 @@ representing variable size batches for time steps. If `batchSizes` is used,
 
 **Hidden states:** If `hidden=nothing` (default), initial hidden states are assumed zero and
 final hidden states are discarded. If `hidden=Any[]`, initial hidden states are assumed zero
-and final hidden states are pushed into hidden.  If `hidden=Any[h,c]` (for LSTM) or
+and final hidden states are pushed into hidden. If `hidden=Any[h,c]` (for LSTM) or
 `hidden=Any[h]` (for others), the values in the hidden array are taken to be the initial
 hidden states and are replaced by the final hidden states on return.  Note that the final
 time step of `y` always contains the final hidden state of the last layer, so `hidden` will
@@ -52,6 +52,13 @@ return no extra information for a single layer network.  All hidden and cell sta
 dimensionality (H,B,L) for unidirectional and (H,B,2L) for bidirectional RNNs.  If
 `batchSizes` is used and minibatch sizes change over time, B is always taken to be the size
 of the first minibatch for hidden sizes.
+
+In a differentiation context the returned final hidden states will be wrapped in `Result`
+types. This is necessary if the same RNN object is to be called multiple times in a single
+iteration. Between iterations (i.e. after diff/update) the hidden states need to be unboxed
+with `hidden .= value.(hidden)` to prevent spurious dependencies. See the
+[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/08.charlm.ipynb)
+for an example.
 
 **Keyword arguments for RNN:**
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
@@ -115,9 +122,11 @@ RNN(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...); r.w=param(w); r)
 # above for backward compatibility.
 
 # For hidden input and output: if hidden=nothing (default) do not initialize hx or return
-# hy. If hidden=Array{Any}, initialize hx from it, empty and push value(hy) back into
-# it. This runs the risk of the user using hy in the loss, resulting in incorrect gradients
-# because its Result struct was lost to value(). Alternatives:
+# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
+# during diff hy will be a Result type and will need to be cleaned up with `hidden =
+# value.(hidden)` after the back/update.
+
+# Alternatives:
 ## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
 ## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
 ## use it in loss, except using it as hx for another rnn call.
@@ -127,7 +136,8 @@ function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
     tr = !isempty(AutoGrad._tapes)
     hy = (hidden != nothing)
     cy = (hidden != nothing && r.mode == 2)
-    h = (hidden != nothing ? value.(hidden) : ())
+    # h = (hidden != nothing ? value.(hidden) : ())  # value.() erases grad info if multiple consecutive calls within same forward.
+    h = (hidden != nothing ? hidden : ()) # hidden needs to be cleaned using value manually after back+update.
     (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
     if hidden != nothing; empty!(hidden); end
     if hy; push!(hidden, hyout); end
@@ -489,9 +499,13 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                  ) where {T}
 
     # Input descriptors
+    if size(x,1) != r.inputSize
+        throw(DimensionMismatch("size(x,1)=$(size(x,1)) does not match r.inputSize=$(r.inputSize)"))
+    end
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
+    isnothing(a) = a == nothing || a == C_NULL
     if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
     if cx==nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
 
@@ -505,9 +519,15 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     hyout = hyDesc = cyout = cyDesc = C_NULL
     if hy || cy
         firstBatchSize = batchSizes==nothing ? size(x,2) : batchSizes[1]
-        hsize = Int[r.hiddenSize, firstBatchSize, r.numLayers * (r.direction == 1 ? 2 : 1)] # (H,B,L/2L)
-        if hy; hyout=similar(y,hsize...); hyDesc=TD3(hyout); end
-        if cy && r.mode==2; cyout=similar(y,hsize...); cyDesc=TD3(cyout); end
+        hsize = (Int(r.hiddenSize), Int(firstBatchSize), Int(r.numLayers * (r.direction == 1 ? 2 : 1))) # (H,B,L/2L)
+        if hy; hyout=similar(y,hsize); hyDesc=TD3(hyout); end
+        if cy && r.mode==2; cyout=similar(y,hsize); cyDesc=TD3(cyout); end
+        if !isnothing(hx) && any(size(hx,i)!=hsize[i] for i=1:3) # compare one by one in case hx is 1-D or 2-D
+            throw(DimensionMismatch("size(hx)=$(size(hx)) does not match hsize=$(hsize)"))
+        end
+        if !isnothing(cx) && r.mode == 2 && any(size(cx,i)!=hsize[i] for i=1:3)
+            throw(DimensionMismatch("size(cx)=$(size(cx)) does not match hsize=$(hsize)"))
+        end
     end
 
     # workSpace and reserveSpace
@@ -919,5 +939,3 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
 end
-
-
