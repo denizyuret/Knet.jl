@@ -13,13 +13,16 @@
 
 using AutoGrad: Node
 
-if isdefined(AutoGrad,:set_gc_function)  # TODO: remove after 1.1.1
-    function gcnode(n::Node)
-        if maybefree(n.outgrad, n); n.outgrad = nothing; end
-        if maybefree(n.Value.value, n); n.Value.value = nothing; end
-        # n.outgrad=n.Value.value=nothing # this prevents later shared pointers from being discovered
-    end
-    AutoGrad.set_gc_function(gcnode)
+function knetgcnode(n::Node)
+    if maybefree(n.outgrad, n); n.outgrad = nothing; end
+    if maybefree(n.Value.value, n); n.Value.value = nothing; end
+    # n.outgrad=n.Value.value=nothing # this prevents later shared pointers from being discovered
+end
+
+if isdefined(AutoGrad,:set_gc_function)
+    AutoGrad.set_gc_function(knetgcnode)
+elseif isdefined(AutoGrad,:gcnode)
+    AutoGrad.gcnode(n::Node) = knetgcnode(n)
 end
 
 maybefree(x,n)=false
