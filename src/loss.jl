@@ -1,6 +1,6 @@
 """
 
-    logp(x;[dims])
+    logp(x; dims=:)
 
 Treat entries in `x` as as unnormalized log probabilities and return
 normalized log probabilities.
@@ -11,23 +11,8 @@ given dimensions.  In particular, if `x` is a matrix, `dims=1`
 normalizes columns of `x` and `dims=2` normalizes rows of `x`.
 
 """
-function logp(x;dims=:)
-    if isa(value(x), KnetArray)
-        if dims==(1,)
-            cudnnSoftmaxForward(x,algo=2)
-        elseif dims==(2,)
-            cudnnSoftmaxForward(x',algo=2)'
-        elseif dims==(:,)
-            n = length(x)
-            (n > 20000 ? _logp(x) : # see Knet/prof/softmax.jl for timing info
-             reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=2),size(x)))
-        else
-            _logp(x,dims=dims)
-        end
-    else
-        _logp(x,dims=dims) # fall back on old implementation if not KnetArray
-    end
-end
+logp(x; dims=:) = generic_softmax(x,2,_logp; dims=dims)
+
 
 # Math for the cross-entropy loss: x is unnormalized input, p is
 # target probabilities, q is estimated probabilities. Read left column
@@ -45,7 +30,7 @@ end
 
 # We keep the old implementation _logp for CPU arrays, slow cases and
 # cases of d not handled by cudnn.
-function _logp(x;dims=:)
+function _logp(x;dims=:,algo=2)
     xval = value(x)
     if isa(xval,Number)
         return zero(xval)
@@ -83,7 +68,7 @@ function _logpback(x,y,dy;dims)
 end
 
 # dy should be -p and y=logq so this should give us -p+q
-@primitive  _logp(x;dims=:),dy,y  _logpback(x,y,dy,dims=dims)
+@primitive  _logp(x;dims=:,algo=2),dy,y  _logpback(x,y,dy,dims=dims)
 
 #=
 mutable structdef enum
@@ -101,10 +86,74 @@ mutable structdef enum
 
 =#          
 
+
+"""
+
+    softmax(x; dims=1, algo=1)
+
+The softmax function typically used in classification.
+Gives the same results as to `exp.(logp(x, dims))`. 
+
+If `algo=1` computation is more accurate, if `algo=0` it is 
+faster. 
+
+See also `logsoftmax`.
+
+"""
+function softmax(x; dims=:, algo=1)
+    generic_softmax(x, algo, _softmax; dims=dims)
+end
+
+function _softmax(x; dims=:, algo=1)
+    @assert algo ∈ [0, 1]
+    if algo == 1
+        x = x .- maximum(x, dims=dims)
+    end    
+    x = exp.(x)
+    return x ./ sum(x;dims=dims)
+end
+
+function _softback(x,y,dy;dims=:)
+    return y .* dy .- y .* sum(y .* dy; dims=dims)
+end
+
+@primitive  _softmax(x;dims=:,algo=1),dy,y  _softback(x,y,dy,dims=dims)
+
+"""
+     logsoftmax(x; dims=:)
+
+ Equivalent to `logp(x; dims=:)`. See also `sotfmax`. 
+"""
+const logsoftmax = logp
+
+function dimvec(x, dims)
+     sz = size(x)
+     dims = dims == Colon() ? sz : dims
+     sort(union(dims)),sz  # handles duplicate dimensions and integer/vector/tuple dims
+end
+
+generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, Value{<:KnetArray}}
+    d,sz = dimvec(x,dims)
+    if d==[1]
+        x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
+        reshape(x, sz)
+    elseif d==[2] && ndims(x)==2
+        generic_softmax(x',algo,fallback;dims=1)'
+    elseif length(d)==ndims(x);
+        n = length(x)
+        (n > 20000 ? fallback(x) : # see Knet/prof/softmax.jl for timing info
+        reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
+    else
+        fallback(x;dims=dims)
+    end
+end
+
+
 function cudnnSoftmaxForward(x::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0 # nonzero beta does not make sense when we create y
     y = similar(x)
-    @cuda(cudnn, cudnnSoftmaxForward,
+    @cudnn(cudnnSoftmaxForward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
           handle, algo, mode, Ref(T(alpha)), TD4(x), x, Ref(T(beta)), TD4(y), y)
     return y
@@ -113,7 +162,7 @@ end
 function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
     beta = 0
     dx = similar(dy)
-    @cuda(cudnn, cudnnSoftmaxBackward,
+    @cudnn(cudnnSoftmaxBackward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
           handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
     return dx
@@ -171,6 +220,31 @@ function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     average ? -mean(lp) : -sum(lp)
 end
 
+"""
+    logistic(scores, answers; average=true)
+Computes logistic loss given scores(predicted values) and answer labels.
+answer values should be {-1,1}, then it returns `mean|sum(log(1 + exp(-answers*scores)))`. See also `bce`.
+"""
+function logistic(x̂,x;average=true)
+    ε = eltype(x̂)(1e-12)
+    l = log.((1-ε) .+ exp.(-x .* x̂))
+    average ? mean(l) : sum(l)
+end
+
+"""
+
+    bce(scores,answers;average=true)
+
+Computes binary cross entropy given scores(predicted values) and answer labels.
+answer values should be {0,1}, then it returns negative of `mean|sum(answers * log(p) + (1-answers)*log(1-p))`
+where `p` is equal to `1/(1 + exp.(scores))`. See also `logistic`.
+"""
+function bce(x̂,x;average=true) 
+    ε = eltype(x̂)(1e-12)
+    p = 1 ./ (1 .+ exp.(-x̂))
+    l = x .* log.(p .+ ε) .+ (1 .- x).*log.((1-ε) .- p)
+    average ? -mean(l) : -sum(l)
+end
 
 """
 
@@ -185,7 +259,7 @@ the number of correct answers instead of the ratio.
 """
 function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
-    ycpu = Array(y)
+    ycpu = convert(Array,y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
     maxind = LinearIndices(ycpu)[maxind]
     correct = (vec(maxind) .== indices)

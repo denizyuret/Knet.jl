@@ -1,5 +1,23 @@
+Knet v1.1.1 Release Notes
+=========================
+e3ab1f7f 2018-09-30
+
+* General performance improvements.
+* New GPU memory manager. (with @ekinakyurek)
+* New logging system using Base.CoreLogging.
+* New cuda macros and profiling system using TimerOutputs.
+* Tutorial available on Colab. (with @jekbradbury)
+* Added cpucopy, gpucopy serialization. (with @ekinakyurek)
+* Added softmax, logsoftmax, logistic loss and binary-cross-entropy. (@CarloLucibello, @ekinakyurek)
+* Added elu and selu. (with @CarloLucibello)
+* Speed up matmul gradient avoiding transpose.
+* Defined permutedims(::KnetMatrix)
+* Fixed scripts under Knet/prof, added new results.
+
+
 Knet v1.1.0 Release Notes
 =========================
+df820c53 2018-09-12
 
 The new suggested way to define models/layers is as [callable objects](https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects-1).
 

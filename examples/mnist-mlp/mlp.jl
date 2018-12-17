@@ -88,7 +88,7 @@ function main(args="")
         println(s.description)
         println("opts=",[(k,v) for (k,v) in o]...)
     end
-    o[:seed] > 0 && srand(o[:seed])
+    o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
     xtrn,ytrn,xtst,ytst = mnist()

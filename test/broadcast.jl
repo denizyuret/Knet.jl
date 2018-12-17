@@ -17,7 +17,7 @@ macro dbg(_x); end
     size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
     # These are helper functions for gradients and rpow is used to define Array.^Number
     # The former is tested during gradcheck, rpow is tested with .^ operation
-    exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "rpow")
+    exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "eluback", "seluback", "rpow")
 
     broadcast_fns = Any[]
     for f in Knet.broadcast_ops
@@ -51,6 +51,13 @@ macro dbg(_x); end
                 end
             end
         end
+    end
+
+    @testset "literal-pow" begin # issue #412
+        date("broadcast: literal-pow")
+        a = rand(3,5)
+        k = KnetArray(a)
+        @test isapprox(a .^ 2, k .^ 2)
     end
 
     @testset "array-vector" begin

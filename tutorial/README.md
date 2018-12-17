@@ -15,8 +15,11 @@ IJulia by typing the following at the `julia>` prompt: (see
     julia> using IJulia
     julia> notebook()
 
-You can also just view the notebooks on github and type the examples manually at a Julia
-prompt. The later examples require a GPU machine to train in a reasonable amount of time.
+These notebooks are also available in [Google
+Drive](https://drive.google.com/drive/folders/19D-R31unxZV_PUYYYpCfd-gnbdUiZfNb?usp=sharing)
+which should let you run them on [Google
+Colab](https://colab.research.google.com/notebooks/welcome.ipynb) provided you add Julia
+support first using the [colab_install_julia](colab_install_julia.ipynb) notebook.
 
 **Contents:**
 * [00.Julia_is_fast:](00.Julia_is_fast.ipynb) comparison of Julia's speed to C, Python and numpy.

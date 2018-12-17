@@ -13,10 +13,10 @@
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
 "RNN descriptor"
-mutable struct RD; ptr::Cptr; end
+mutable struct RD; ptr; end
 
 "Dropout descriptor"
-mutable struct DD; ptr::Cptr; states::KnetArray{UInt8,1}; end
+mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
 
 
 """
@@ -95,6 +95,7 @@ mutable struct RNN
     hiddenSize::Cint
     numLayers::Cint
     dropout::Float64
+    seed::Culonglong
     inputMode::Cint    # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
     direction::Cint    # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
     mode::Cint         # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
@@ -151,13 +152,13 @@ Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
     if seed==0; seed=floor(Culonglong,time()); end
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
-    @cuda(cudnn,cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
-    @cuda(cudnn,cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
+    @cudnn(cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
+    @cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
     states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
-    @cuda(cudnn,cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
+    @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
           d[1],handle,dropout,states,bytes(states),seed)
     dd = DD(d[1],states)
-    finalizer(x->@cuda(cudnn,cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
+    finalizer(x->@cudnn(cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
     return dd
 end
 
@@ -166,10 +167,27 @@ Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
 
 function RD()
     d = Cptr[0]
-    @cuda(cudnn,cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    @cudnn(cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
     rd = RD(d[1])
-    finalizer(x->@cuda(cudnn,cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
+    finalizer(x->@cudnn(cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
     return rd
+end
+
+function RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType; handle=gethandle())
+    rnnDesc = RD()
+    if cudnnVersion >= 7000
+        @cudnn(cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 6000
+        @cudnn(cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    elseif cudnnVersion >= 5000
+        @cudnn(cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
+    else
+        error("CUDNN $cudnnVersion does not support RNNs")
+    end
+    return rnnDesc
 end
 
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
@@ -178,7 +196,7 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
     if r.rnnDesc != nothing
         res = Csize_t[0]
         xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-        @cuda(cudnn, cudnnGetRNNParamsSize,
+        @cudnn(cudnnGetRNNParamsSize,
               # handle, rnndesc, xdesc, result, dataType
               (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
               handle, r.rnnDesc, xDesc, res, DT(r.dataType))
@@ -233,7 +251,7 @@ end
 
 function cudnnGetRNNWorkspaceSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
-    @cuda(cudnn, cudnnGetRNNWorkspaceSize,
+    @cudnn(cudnnGetRNNWorkspaceSize,
           # handle, rnndesc, seqLength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
           handle, rd, length(tds), tds, res)
@@ -242,7 +260,7 @@ end
 
 function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=cudnnhandle())
     res = Csize_t[1]
-    @cuda(cudnn, cudnnGetRNNTrainingReserveSize,
+    @cudnn(cudnnGetRNNTrainingReserveSize,
           # handle, rnndesc, seqLength, xdesc, res        ,
           (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
           handle, rd, length(tds), tds, res)
@@ -255,7 +273,7 @@ function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
     format = Cint[0]
     nbDims = Cint[0]
     filterDimA = Vector{Cint}(undef,nbDimsRequested)
-    @cuda(cudnn, cudnnGetFilterNdDescriptor,
+    @cudnn(cudnnGetFilterNdDescriptor,
           (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}),
           wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
     if nbDims[1] > nbDimsRequested
@@ -311,7 +329,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
         paramDesc = FD(T,1,1,1,1)
         param = Cptr[0]
         if par == 1 # matrix
-            @cuda(cudnn, cudnnGetRNNLinLayerMatrixParams,
+            @cudnn(cudnnGetRNNLinLayerMatrixParams,
                   (Cptr, Cptr, Cint, #handle,rdesc, layer
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
@@ -319,7 +337,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                   xDesc, wDesc, value(w),
                   id-1, paramDesc, param)
         else # bias
-            @cuda(cudnn, cudnnGetRNNLinLayerBiasParams,
+            @cudnn(cudnnGetRNNLinLayerBiasParams,
                   (Cptr, Cptr, Cint, #handle,rdesc, layer
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
@@ -404,7 +422,6 @@ function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
     return ws
 end
 
-
 function rnninit(inputSize, hiddenSize;
                  handle=gethandle(),
                  numLayers=1,
@@ -425,24 +442,12 @@ function rnninit(inputSize, hiddenSize;
     if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
     mode = mode - 1
     if usegpu
-        rnnDesc = RD()
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-        if cudnnVersion >= 7000
-            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-        elseif cudnnVersion >= 6000
-            @cuda(cudnn,cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-                  handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-        elseif cudnnVersion >= 5000
-            @cuda(cudnn,cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-                  rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
-        else
-            error("CUDNN $cudnnVersion does not support RNNs")
-        end
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
+        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
         w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
     else
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
+        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
         # TODO: make this a separate function?
         w = begin
             whidden = hiddenSize * hiddenSize
@@ -512,7 +517,7 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     if training
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
         rs = KnetArray{UInt8}(undef,rss)
-        @cuda(cudnn, cudnnRNNForwardTraining,
+        @cudnn(cudnnRNNForwardTraining,
               (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x
                Cptr, Ptr{T}, #hx
@@ -536,7 +541,7 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
               rs, rss)
     else
         rs = nothing
-        @cuda(cudnn, cudnnRNNForwardInference,
+        @cudnn(cudnnRNNForwardInference,
               (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
                Ptr{Cptr}, Ptr{T}, #x
                Cptr, Ptr{T}, #h
@@ -607,7 +612,7 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     rss = bytes(rs)
 
     # data backward
-    @cuda(cudnn, cudnnRNNBackwardData,
+    @cudnn(cudnnRNNBackwardData,
           (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
            Ptr{Cptr}, Ptr{T}, #y
            Ptr{Cptr}, Ptr{T}, #dy
@@ -636,7 +641,7 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
           ws, wss,
           rs, rss)
     # weights backward
-    @cuda(cudnn, cudnnRNNBackwardWeights,
+    @cudnn(cudnnRNNBackwardWeights,
           (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
            Ptr{Cptr}, Ptr{T}, #x
            Cptr, Ptr{T}, #hx
@@ -659,9 +664,9 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
 end
 
 # CPU version
-function rnnforw(r::RNN, w::Array{T}, x::Array{T},
-                 hx::Union{Array{T},Nothing}=nothing,
-                 cx::Union{Array{T},Nothing}=nothing;
+function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
+                 hx::Union{AbstractArray{T},Nothing}=nothing,
+                 cx::Union{AbstractArray{T},Nothing}=nothing;
                  # handle=cudnnhandle(), training=false,
                  batchSizes=nothing,
                  hy = (hx != nothing),
@@ -670,8 +675,8 @@ function rnnforw(r::RNN, w::Array{T}, x::Array{T},
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
-# rnnforw is an AutoGrad primitive for KnetArray, but a regular function for Array:
-rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:Array} = rnntest(r,w,x...;o...)
+# rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
+rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:AbstractArray} = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version

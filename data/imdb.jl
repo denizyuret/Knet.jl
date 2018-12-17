@@ -57,7 +57,7 @@ function imdb(;
         @info("Loading IMDB...")
         JLD2.@load jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
     end
-    if seed != 0; srand(seed); end
+    if seed != 0; Random.seed!(seed); end
     xs = [_imdb_xtrn;_imdb_xtst]
     if maxlen == nothing; maxlen = maximum(map(length,xs)); end
     if maxval == nothing; maxval = maximum(map(maximum,xs)) + pad + stoken; end

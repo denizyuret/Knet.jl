@@ -275,3 +275,5 @@ for f in broadcast_ops
     broadcast_op(f...)
 end
 
+# Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result
+broadcasted(::typeof(Base.literal_pow), ::typeof(^), k::KnetArray{T}, n::Val{N}) where {T,N} = broadcasted(^, k, N)

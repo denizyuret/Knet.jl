@@ -177,6 +177,10 @@ reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._
 
 vec(a::KnetArray) = reshape(a, length(a))
 
+if isdefined(AutoGrad,:Arg); @eval begin  # TODO: deprecate in next AutoGrad version.
+    using AutoGrad: Arg
+end; end
+
 # AbstractArray interface
 import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox #, linearindexing
 eachindex(a::KnetArray) = (1:length(a))
@@ -223,7 +227,11 @@ import Base: hcat, vcat, cat
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
 const NAVK = Union{Number,AbstractArray,Value,KnetArray}
 cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
-AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; else; @eval begin
+    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
+end; end
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -358,17 +366,17 @@ end
 
 # _unsafe_copy! does no bounds checking, the callers must.
 function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 1)
     return dest
 end
 function _unsafe_copy!(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 2)
     return dest
 end
 function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+    @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
           pointer(dest,doffs), pointer(src,soffs), n*sizeof(T), 3)
     return dest
 end
@@ -407,7 +415,11 @@ Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
 convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
 convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
-AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+if isdefined(AutoGrad,:Arg); @eval begin
+    AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; else; @eval begin
+    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
+end; end
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1018,7 +1030,7 @@ function setindex2!(A::KnetMatrix{T}, B, I1::Index3, I2::Index3) where {T}
         B = convert(KnetArray{T},B)
         if ncols == 1
             if nelts > 0
-                @cuda(cudart,cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
+                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),
                       aptr0, B, nelts*sizeof(T), cudadir(A,B))
             end
         elseif nrows > 0 && ncols > 0
