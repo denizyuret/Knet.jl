@@ -7,8 +7,12 @@ import Base.Broadcast: broadcasted
 # The corresponding kernel is defined in libknet8.
 function broadcast_op(f, j=f, o...)
     J=Symbol(j)
-    # @show J
-    # if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    M = which(@__MODULE__, J)
+    @eval begin
+        ($M).$J(x::Bcasted, y::Bcasted) = broadcasted($J, x.value, y.value) |> Bcasted
+        ($M).$J(x, y::Bcasted) = broadcasted($J, x, y.value) |> Bcasted
+        ($M).$J(x::Bcasted, y) = broadcasted($J, x.value, y) |> Bcasted
+    end
     for S in (32,64)
         T = Symbol("Float$S")
 

@@ -168,8 +168,13 @@ if gpu() >= 0
             # k.>0.5 returns KnetArray{T}, no Knet BitArrays yet
             #TODO: @test a[a.>0.5] == k[k.>0.5]
 
+        end # 3D
+
+        @testset "broadcast" begin # Fixing #342
+            zelu(x) = relu(x) + (exp(min(0,x)) - 1)
+            @test isa(zelu.(KnetArray(randn(Float32,5,5))), KnetArray)
         end
-    end
-end
+    end # karray
+end # gpu() >= 0
 
 nothing

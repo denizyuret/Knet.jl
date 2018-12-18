@@ -1144,31 +1144,6 @@ end; end
 ka = KnetArray
 export ka
 
-# To stop fusing the following is needed.
-# Primitives just need to override broadcasted for KnetArray types.
-import .Broadcast: broadcasted
-broadcasted(f, x::KnetArray) = throw(MethodError(broadcasted,(f,x)))
-broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
-### These cause ambiguity with AutoGrad:
-# broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
-# broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
-# broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
-
-import .Broadcast: copyto!, broadcasted
-using .Broadcast: Broadcasted
-# This fixes (x .- log.(sum(exp.(x),dims=dims)))
-broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
-broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
-
-# # This fixes ambiguity with AutoGrad
-# # But then creates more ambiguity as given next
-# using AutoGrad: broadcast_r
-# broadcasted(f, x::Value, y::KnetArray) = broadcast_r(f,x,y)
-# broadcasted(f, x::KnetArray, y::Value) = broadcast_r(f,x,y)
-# # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
-# # TODO: Do we have to do this for each f?
-# broadcasted(f::typeof(*), x::KnetArray, y::Value) = broadcast_r(f,x,y)
-# broadcasted(f::typeof(*), x::Value, y::KnetArray) = broadcast_r(f,x,y)
 
 ### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
 
@@ -1282,3 +1257,38 @@ summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof
 show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
 summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+
+
+# Broadcasting:
+
+# f.(x) turns into materialize(broadcasted(f,x)).
+# For primitive operations:
+# 1. broadcasted(primitive, ::KnetArray...) should be defined to call GPU kernels
+# 2. primitive(Bcasted(x)...) should be defined to call broadcasted(primitive, x.value...) |> Bcasted
+# The following handles user defined functions.
+import .Broadcast: broadcasted
+struct Bcasted; value; end
+broadcasted(f, x::KnetArray) = f(Bcasted(x)).value
+broadcasted(f, x::KnetArray, y::KnetArray) = f(Bcasted(x), Bcasted(y)).value
+broadcasted(f, x::KnetArray, y::Number) = f(Bcasted(x), y).value
+broadcasted(f, x::Number, y::KnetArray) = f(x, Bcasted(y)).value
+
+### These cause ambiguity with AutoGrad:
+# broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
+# broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
+# broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
+
+using .Broadcast: Broadcasted
+# This fixes (x .- log.(sum(exp.(x),dims=dims)))
+broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
+broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
+
+# # This fixes ambiguity with AutoGrad
+# # But then creates more ambiguity as given next
+# using AutoGrad: broadcast_r
+# broadcasted(f, x::Value, y::KnetArray) = broadcast_r(f,x,y)
+# broadcasted(f, x::KnetArray, y::Value) = broadcast_r(f,x,y)
+# # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
+# # TODO: Do we have to do this for each f?
+# broadcasted(f::typeof(*), x::KnetArray, y::Value) = broadcast_r(f,x,y)
+# broadcasted(f::typeof(*), x::Value, y::KnetArray) = broadcast_r(f,x,y)

@@ -6,6 +6,10 @@ import Base.Broadcast: broadcasted
 
 function unary_op(f, j=f, o...)
     J=Symbol(j)
+    M = which(@__MODULE__, J)
+    @eval begin
+        ($M).$J(x::Bcasted) = broadcasted($J, x.value) |> Bcasted
+    end
     for S in (32,64)
         T = Symbol("Float$S")
         F = "$(f)_$S"
