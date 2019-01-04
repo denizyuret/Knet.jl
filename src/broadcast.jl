@@ -12,6 +12,9 @@ function broadcast_op(f, j=f, o...)
         ($M).$J(x::Bcasted, y::Bcasted) = broadcasted($J, x.value, y.value) |> Bcasted
         ($M).$J(x, y::Bcasted) = broadcasted($J, x, y.value) |> Bcasted
         ($M).$J(x::Bcasted, y) = broadcasted($J, x.value, y) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted,y::Bcasted) = broadcasted($J, x.value, y.value) |> Bcasted
+        broadcasted(::typeof($J),x,y::Bcasted) = broadcasted($J, x, y.value) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted,y) = broadcasted($J, x.value, y) |> Bcasted
     end
     for S in (32,64)
         T = Symbol("Float$S")

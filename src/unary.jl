@@ -9,6 +9,7 @@ function unary_op(f, j=f, o...)
     M = which(@__MODULE__, J)
     @eval begin
         ($M).$J(x::Bcasted) = broadcasted($J, x.value) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted) = broadcasted($J, x.value) |> Bcasted
     end
     for S in (32,64)
         T = Symbol("Float$S")
