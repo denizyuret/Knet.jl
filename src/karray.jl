@@ -1276,7 +1276,7 @@ BroadcastStyle(k::Style{KnetArray}, s::BroadcastStyle) = k
 BroadcastStyle(k::Style{KnetArray}, v::Style{AutoGrad.Value}) = v
 
 # We use a different Bcasted type than AutoGrad to avoid infinite loops:
-mutable struct Bcasted{T}; value::T; end
+struct Bcasted{T}; value::T; end
 
 # This fixes (x .- log.(sum(exp.(x),dims=:))) where log.(::Number) gives a Broadcasted object
 Bcasted(x::Broadcasted) = Bcasted(copy(x))
