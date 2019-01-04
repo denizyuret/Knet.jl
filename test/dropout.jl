@@ -2,7 +2,7 @@ include("header.jl")
 
 @testset "dropout" begin
     dropout1(x,p)=dropout(x,p;seed=1)
-    a = rand(100,100)
+    a = rand(Random.MersenneTwister(2),100,100)
     @test gradcheck(dropout1,a,0.5; args=1)
     if gpu() >= 0
         k = KnetArray(a)
