@@ -55,8 +55,7 @@ Knet.unpool
 ## Recurrent neural networks
 
 ```@docs
-Knet.rnninit
-Knet.rnnforw
+Knet.RNN
 Knet.rnnparam
 Knet.rnnparams
 ```
@@ -80,7 +79,7 @@ Knet.Adam
 Knet.Momentum
 Knet.Nesterov
 Knet.Rmsprop
-Knet.Sgd
+Knet.SGD
 ```
 
 ## Hyperparameter optimization
