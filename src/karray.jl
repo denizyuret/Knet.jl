@@ -1265,7 +1265,7 @@ summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(s
 import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted, Broadcasted
 
 # Any call involving KnetArray should be unfused: (see AutoGrad/src/core.notes)
-broadcasted(::Style{KnetArray}, f, args...) = f(bcasted.(args)...).value
+broadcasted(::Style{KnetArray}, f, args...) = f(Bcasted.(args)...).value
 
 # The following should set the style for any call that involves a KnetArray:
 BroadcastStyle(::Type{<:KnetArray}) = Style{KnetArray}()
@@ -1277,11 +1277,9 @@ BroadcastStyle(k::Style{KnetArray}, v::Style{AutoGrad.Value}) = v
 
 # We use a different Bcasted type than AutoGrad to avoid infinite loops:
 mutable struct Bcasted{T}; value::T; end
-bcasted(x::KnetArray) = Bcasted(x)
-bcasted(x) = x
 
 # This fixes (x .- log.(sum(exp.(x),dims=:))) where log.(::Number) gives a Broadcasted object
-bcasted(x::Broadcasted) = copy(x) 
+Bcasted(x::Broadcasted) = Bcasted(copy(x))
 
 # For broadcasting Knet primitives the following needs to be defined (see unary.jl, broadcast.jl)
 # f(x::Bcasted) = broadcasted(f, x.value) |> Bcasted

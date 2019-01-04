@@ -8,8 +8,8 @@ function unary_op(f, j=f, o...)
     J=Symbol(j)
     M = which(@__MODULE__, J)
     @eval begin
-        ($M).$J(x::Bcasted) = broadcasted($J, x.value) |> Bcasted
-        broadcasted(::typeof($J),x::Bcasted) = broadcasted($J, x.value) |> Bcasted
+        ($M).$J(x::Bcasted) = bcasted($J, x.value) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted) = bcasted($J, x.value) |> Bcasted
     end
     for S in (32,64)
         T = Symbol("Float$S")
@@ -20,6 +20,7 @@ function unary_op(f, j=f, o...)
                 @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
+            bcasted(f::typeof($J),x::KnetArray{$T}) = broadcasted(f,x)
         end
     end
 end

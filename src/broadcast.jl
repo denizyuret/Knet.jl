@@ -9,12 +9,12 @@ function broadcast_op(f, j=f, o...)
     J=Symbol(j)
     M = which(@__MODULE__, J)
     @eval begin
-        ($M).$J(x::Bcasted, y::Bcasted) = broadcasted($J, x.value, y.value) |> Bcasted
-        ($M).$J(x, y::Bcasted) = broadcasted($J, x, y.value) |> Bcasted
-        ($M).$J(x::Bcasted, y) = broadcasted($J, x.value, y) |> Bcasted
-        broadcasted(::typeof($J),x::Bcasted,y::Bcasted) = broadcasted($J, x.value, y.value) |> Bcasted
-        broadcasted(::typeof($J),x,y::Bcasted) = broadcasted($J, x, y.value) |> Bcasted
-        broadcasted(::typeof($J),x::Bcasted,y) = broadcasted($J, x.value, y) |> Bcasted
+        ($M).$J(x::Bcasted, y::Bcasted) = bcasted($J, x.value, y.value) |> Bcasted
+        ($M).$J(x, y::Bcasted) = bcasted($J, x, y.value) |> Bcasted
+        ($M).$J(x::Bcasted, y) = bcasted($J, x.value, y) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted,y::Bcasted) = bcasted($J, x.value, y.value) |> Bcasted
+        broadcasted(::typeof($J),x,y::Bcasted) = bcasted($J, x, y.value) |> Bcasted
+        broadcasted(::typeof($J),x::Bcasted,y) = bcasted($J, x.value, y) |> Bcasted
     end
     for S in (32,64)
         T = Symbol("Float$S")
@@ -33,6 +33,9 @@ function broadcast_op(f, j=f, o...)
         F17 = "$(f)_$(S)_17" # multi-dimensional bcast with loops
 
         @eval begin
+            bcasted(f::typeof($J),x::$T,y::KnetArray{$T}) = broadcasted(f,x,y)
+            bcasted(f::typeof($J),x::KnetArray{$T},y::KnetArray{$T}) = broadcasted(f,x,y)
+
             # Scalar,Array->Array
             function broadcasted(::typeof($J),x::$T,y::KnetArray{$T})
                 z = similar(y)
@@ -259,6 +262,13 @@ end
     broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T} = (T(s).<a)
     broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T} = (T(s).>=a)
     broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
+end
+
+for f in (+, -, *, /, max, min, ^, ==, !=, >, >=, <, <=)
+    @eval begin
+        bcasted(::typeof($f),a::KnetArray,s::Number) = broadcasted($f,a,s)
+        bcasted(::typeof($f),s::Number,a::KnetArray) = broadcasted($f,s,a)
+    end
 end
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
