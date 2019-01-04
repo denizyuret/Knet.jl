@@ -19,7 +19,7 @@ include("karray.jl");           export KnetArray
 include("gcnode.jl");
 include("ops.jl");
 include("unary.jl");            export relu, sigm, invx, elu, selu
-include("broadcast.jl");        # elementwise broadcasting operations
+include("binary.jl");           # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
 include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
 include("bmm.jl");              export bmm # matmul, axpy!, transpose, (i)permutedims

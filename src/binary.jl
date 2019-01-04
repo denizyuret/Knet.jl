@@ -1,11 +1,11 @@
-# broadcast.jl: Elementwise broadcasting binary functions for arrays and scalars.
-# uses broadcast_ops from broadcast.jl.
+# binary.jl: Elementwise broadcasting binary functions for arrays and scalars.
+# uses binary_ops from broadcast.jl.
 
 import Base.Broadcast: broadcasted
 
-# broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
+# binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
-function broadcast_op(f, j=f, o...)
+function binary_op(f, j=f, o...)
     J=Symbol(j)
     M = which(@__MODULE__, J)
     for S in (32,64)
@@ -141,7 +141,7 @@ function broadcast_op(f, j=f, o...)
         broadcasted(::typeof($J),x, y::Bcasted) = throw(MethodError(broadcasted, ($J, x, y)))
         broadcasted(::typeof($J),x::Bcasted, y) = throw(MethodError(broadcasted, ($J, x, y)))
     end
-end # function broadcast_op
+end # function binary_op
 
 # vbroadcast_shape computes index/offset arguments for a broadcasting kernel call.
 function vbroadcast_shape(x,y)
@@ -225,7 +225,7 @@ function get_strides(x,y,z)
     return stride_x, stride_y, stride_z
 end
 
-# Additional imports: fns in broadcast_ops are defined using broadcasted.
+# Additional imports: fns in binary_ops are defined using broadcasted.
 import Base: +, -, *, /, \
 
 # Here we'll just define some functions that specifically do not have broadcasting.
@@ -313,9 +313,9 @@ end
 
 # Define all overloaded Julia functions for KnetArrays:
 
-for f in broadcast_ops
+for f in binary_ops
     if !isa(f,Tuple); f=(f,); end
-    broadcast_op(f...)
+    binary_op(f...)
 end
 
 # Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result

@@ -1281,6 +1281,6 @@ struct Bcasted{T}; value::T; end
 # This fixes (x .- log.(sum(exp.(x),dims=:))) where log.(::Number) gives a Broadcasted object
 Bcasted(x::Broadcasted) = Bcasted(copy(x))
 
-# For broadcasting Knet primitives the following needs to be defined (see unary.jl, broadcast.jl)
+# For broadcasting Knet primitives the following needs to be defined (see unary.jl, binary.jl)
 # f(x::Bcasted) = broadcasted(f, x.value) |> Bcasted
 # broadcasted(f,x::Bcasted) = broadcasted(f, x.value) |> Bcasted
