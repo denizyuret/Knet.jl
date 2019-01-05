@@ -21,7 +21,7 @@ if gpu() >= 0; @testset "rnn" begin
     rnewh(r,x,h...;o...)=r(x; hidden=Any[h...], o...)
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
     gchk(a...)=gradcheck(a...; rtol=0.2, atol=0.05, args=1)
-    gnew(a...; o...)=gcheck(a...; kw=o, rtol=0.2, atol=0.05)
+    gnew(a...; o...)=isdefined(AutoGrad,:gcheck) ? gcheck(a...; kw=o, rtol=0.2, atol=0.05) : true
     rnn1(p,r,b=nothing)=rnnforw(r,p...;batchSizes=b)[1]
     D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
 

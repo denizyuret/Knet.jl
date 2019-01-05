@@ -1,14 +1,13 @@
-# broadcast.jl: Elementwise broadcasting binary functions for arrays and scalars.
-# uses broadcast_ops from broadcast.jl.
+# binary.jl: Elementwise broadcasting binary functions for arrays and scalars.
+# uses binary_ops from broadcast.jl.
 
 import Base.Broadcast: broadcasted
 
-# broadcast_op defines the broadcast_func of a Julia function for KnetArrays.
+# binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
-function broadcast_op(f, j=f, o...)
+function binary_op(f, j=f, o...)
     J=Symbol(j)
-    # @show J
-    # if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    M = which(@__MODULE__, J)
     for S in (32,64)
         T = Symbol("Float$S")
 
@@ -32,6 +31,7 @@ function broadcast_op(f, j=f, o...)
                 @knet8($F01,(Cint,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
                 return z
             end
+            # Array,Array->Array
             function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
                     z = similar(x)
@@ -43,6 +43,7 @@ function broadcast_op(f, j=f, o...)
                     _broadcasted($J,x,y,z,bs)
                 end
             end
+            # Helpers
             function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,1},bs)
                 if length(x) == 1
                     broadcasted($J,x[1],y)
@@ -116,9 +117,31 @@ function broadcast_op(f, j=f, o...)
                        x,y,z, sx, sy, sz, length(z), ndims(z))
                 return z
             end
+
+            # Bcasted methods
+            ($M).$J(x::Bcasted{<:KnetArray{$T}}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
+            ($M).$J(x::KnetArray{$T}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x, y.value) |> Bcasted
+            ($M).$J(x::Bcasted{<:KnetArray{$T}}, y::KnetArray{$T}) = broadcasted($J, x.value, y) |> Bcasted
+            ($M).$J(x::Bcasted{$T}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
+            ($M).$J(x::$T, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x, y.value) |> Bcasted
+            ($M).$J(x::Bcasted{$T}, y::KnetArray{$T}) = broadcasted($J, x.value, y) |> Bcasted
+            broadcasted(::typeof($J),x::Bcasted{<:KnetArray{$T}}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
+            broadcasted(::typeof($J),x::KnetArray{$T}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x, y.value) |> Bcasted
+            broadcasted(::typeof($J),x::Bcasted{<:KnetArray{$T}}, y::KnetArray{$T}) = broadcasted($J, x.value, y) |> Bcasted
+            broadcasted(::typeof($J),x::Bcasted{$T}, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
+            broadcasted(::typeof($J),x::$T, y::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x, y.value) |> Bcasted
+            broadcasted(::typeof($J),x::Bcasted{$T}, y::KnetArray{$T}) = broadcasted($J, x.value, y) |> Bcasted
         end # @eval
     end # for
-end # function broadcast_op
+    @eval begin # so we do not trigger some default Base implementation 
+        ($M).$J(x::Bcasted, y::Bcasted) = throw(MethodError($J,(x,y)))
+        ($M).$J(x, y::Bcasted) = throw(MethodError($J,(x,y)))
+        ($M).$J(x::Bcasted, y) = throw(MethodError($J,(x,y)))
+        broadcasted(::typeof($J),x::Bcasted, y::Bcasted) = throw(MethodError(broadcasted, ($J, x, y)))
+        broadcasted(::typeof($J),x, y::Bcasted) = throw(MethodError(broadcasted, ($J, x, y)))
+        broadcasted(::typeof($J),x::Bcasted, y) = throw(MethodError(broadcasted, ($J, x, y)))
+    end
+end # function binary_op
 
 # vbroadcast_shape computes index/offset arguments for a broadcasting kernel call.
 function vbroadcast_shape(x,y)
@@ -202,7 +225,7 @@ function get_strides(x,y,z)
     return stride_x, stride_y, stride_z
 end
 
-# Additional imports: fns in broadcast_ops are defined using broadcasted.
+# Additional imports: fns in binary_ops are defined using broadcasted.
 import Base: +, -, *, /, \
 
 # Here we'll just define some functions that specifically do not have broadcasting.
@@ -254,6 +277,26 @@ end
     broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
 end
 
+# Bcasted methods
+
+for f in Symbol.((+,-,*,/,max,min,^,==,!=,>,>=,<,<=))
+    M = which(@__MODULE__, f)
+    @eval begin
+        broadcasted(::typeof($f),s::Bcasted{<:Number},a::Bcasted{<:KnetArray}) = broadcasted($f, s.value, a.value) |> Bcasted
+        broadcasted(::typeof($f),s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
+        broadcasted(::typeof($f),s::Number,a::Bcasted{<:KnetArray}) = broadcasted($f, s, a.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{<:KnetArray},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
+        broadcasted(::typeof($f),a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{<:KnetArray},s::Number) = broadcasted($f, a.value, s) |> Bcasted
+        ($M).$f(s::Bcasted{<:Number},a::Bcasted{<:KnetArray}) = broadcasted($f, s.value, a.value) |> Bcasted
+        ($M).$f(s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
+        ($M).$f(s::Number,a::Bcasted{<:KnetArray}) = broadcasted($f, s, a.value) |> Bcasted
+        ($M).$f(a::Bcasted{<:KnetArray},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
+        ($M).$f(a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
+        ($M).$f(a::Bcasted{<:KnetArray},s::Number) = broadcasted($f, a.value, s) |> Bcasted
+    end
+end
+
 # familiar aliases for broadcasting operations of array & scalar (#7226):
 # (+)(a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)  -- deprecated
 # (+)(s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)  -- deprecated
@@ -270,9 +313,9 @@ end
 
 # Define all overloaded Julia functions for KnetArrays:
 
-for f in broadcast_ops
+for f in binary_ops
     if !isa(f,Tuple); f=(f,); end
-    broadcast_op(f...)
+    binary_op(f...)
 end
 
 # Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result

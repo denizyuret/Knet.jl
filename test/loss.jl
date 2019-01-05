@@ -45,7 +45,7 @@ include("header.jl")
             if gpu() > 0
                 k = KnetArray(a)
                 @test softmax(k, dims=d) ≈ exp.(logsoftmax(k, dims=d))
-                @test all(sum(softmax(k, dims=d), dims=d) .≈ 1)
+                @test all(Array(sum(softmax(k, dims=d), dims=d)) .≈ 1)
             end
         end
     end
