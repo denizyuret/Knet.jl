@@ -324,8 +324,10 @@ using AutoGrad: NA # Union{Number,AbstractArray}
 const NAK = Union{Number,AbstractArray,KnetArray}
 cat(a::NA, as::NA...; dims)=Base._cat(dims, a, as...)
 cat(a::NAK, as::NAK...; dims)=throw(MethodError(cat, (a, as...)))
+hcat(a::AbstractArray, as::AbstractArray...)=cat(a,as...; dims=2) # ambiguity fix #321
 hcat(a::NA, as::NA...)=cat(a,as...; dims=2)
 hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
+vcat(a::AbstractArray, as::AbstractArray...)=cat(a,as...; dims=1) # ambiguity fix #321
 vcat(a::NA, as::NA...)=cat(a,as...; dims=1)
 vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 

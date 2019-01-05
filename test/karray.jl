@@ -174,6 +174,11 @@ if gpu() >= 0
             zelu(x) = relu(x) + (exp(min(0,x)) - 1)
             @test isa(zelu.(KnetArray(randn(Float32,5,5))), KnetArray)
         end
+
+        @testset "cat-ambiguity" begin # Fixing #321
+            x = rand(2,2,2,2)
+            @test isa(vcat(x,x,x), Array)
+        end
     end # karray
 end # gpu() >= 0
 
