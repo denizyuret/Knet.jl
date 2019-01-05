@@ -1,32 +1,37 @@
 include("header.jl")
-using Knet: KnetMems, KnetPtr, gpuCount, blocksize
+using Knet: KnetMems, KnetPtr, gpuCount, blocksize, initKnetMems
 
-if gpu() >= 0; let arraysizes = 2 .^ (1:10), blocksizes = blocksize.(arraysizes), kptrs = map(KnetPtr, arraysizes), mem = KnetMems[gpu()+1]
-    (mem.limit, mem.bytes, mem.avail, length(mem.pools), sum(p->p.nptr, values(mem.pools)))
-    (p->p.len).(kptrs)
-
-    @testset "kptr" begin
-        
-        function testkptr(navail, nfree)
-            @test length(KnetMems) == gpuCount()
-            @test length(mem.pools) == 10
-            @test sort(collect(keys(mem.pools))) == blocksizes
-            @test mem.limit >= mem.bytes
-            @test mem.bytes == sum(blocksizes)
-            @test mem.avail == navail
-            @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
-            if nfree == 0
-                @test (p->p.len).(kptrs) == blocksizes
-            end
-        end
-
-        testkptr(0, 0)
-        kptrs = nothing; GC.gc()
-        testkptr(sum(blocksizes), 1)
-        kptrs = map(KnetPtr, arraysizes)
-        testkptr(0, 0)
-
+function _testkptr(kptrs, navail, nfree)
+    # sump = sum(p->p.nptr, values(mem.pools))
+    # @show (mem.limit, mem.bytes, mem.avail, length(mem.pools), sump)
+    # klens = kptrs == nothing ? [] : (p->p.len).(kptrs)
+    # @show klens
+    mem = KnetMems[gpu()+1]
+    blocksizes = blocksize.(2 .^ (1:10))
+    @test length(KnetMems) == gpuCount()
+    @test length(mem.pools) == 10
+    @test sort(collect(keys(mem.pools))) == blocksizes
+    @test mem.limit >= mem.bytes
+    @test mem.bytes == sum(blocksizes)
+    @test mem.avail == navail
+    @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
+    if nfree == 0
+        @test (p->p.len).(kptrs) == blocksizes
     end
-end; end
+end
+
+if gpu() >= 0 && KnetMems === nothing
+    initKnetMems()
+    @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
+    _testingkptr = true
+end
+
+GC.gc() # gc does not work reliably inside function, module, let, if, @testset etc.
+
+if _testingkptr
+    @testset "kptr:gc"      begin; _testkptr(nothing, sum(blocksize.(2 .^ (1:10))), 1); end
+    @testset "kptr:realloc" begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
+    _testingkptr = false
+end
 
 nothing
