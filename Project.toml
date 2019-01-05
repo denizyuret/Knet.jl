@@ -15,7 +15,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-AutoGrad = "1.1.0"
+AutoGrad = "1.1.2"
 CUDAapi = "0.5.0"
 FileIO = "1.0.1"
 JLD2 = "0.1.1"

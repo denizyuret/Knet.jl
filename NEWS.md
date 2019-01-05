@@ -1,10 +1,11 @@
 Knet v1.1.2 Release Notes
 =========================
+20d91106 2019-01-04
 
 * Support for broadcasting user defined functions.
-* Added batch matrix multiplication.
+* Added batch matrix multiplication. (@ozanarkancan)
+* Improved serialization and JLD file I/O. (@ekinakyurek)
 * Added tests and docs for new RNN interface.
-* Improved serialization and JLD file I/O.
 * Added julia/base demo to tutorial/08.charlm
 * Renamed broadcast.jl -> binary.jl and broadcast_ops -> binary_ops.
 
