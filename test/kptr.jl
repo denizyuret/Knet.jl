@@ -20,6 +20,8 @@ function _testkptr(kptrs, navail, nfree)
     end
 end
 
+_testingkptr = false
+
 if gpu() >= 0 && KnetMems === nothing
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
