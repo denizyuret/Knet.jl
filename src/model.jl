@@ -1,6 +1,9 @@
 # We assume a model is just a callable object (https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects-1)
 # model(x) will give us a prediction, and params(model) will iterate over the parameters.
 
+# 20190105: Do we even need to assume this? train! can simply look at the Tape to find the
+# parameters! In that case optimizers would need to be set elsewhere.
+
 """
     param(array; atype)
     param(dims...; init, atype)
@@ -45,12 +48,18 @@ Train a model with given data.
 * `loss=nll`: A loss function, called with `J = @diff loss(model,x,y; o...)`.
 * `optimizer=Adam()`: An optimizer object that will be copied for each parameter and used by
   `[update!]`(@ref).
-* `callback`: To facilitate reporting and termination, a callback function is called before
-   every update with `callback(J)`. Training continues if the return value is true,
-   terminates if it is false.  The default callback runs until training loss convergence.
+* `callback=epochs(data,1)`: To facilitate reporting and termination, a callback function is
+   called before every update with `callback(J)`. Training continues if the return value is
+   true, terminates if it is false.  Some predefined ones listed below.
 * Other keyword arguments `(o...)` will be passed to `loss` and possibly by `loss` to `model`.
+
+Pre-defined callback function constructors:
+
+* converge(): Trains until convergence
+* updates(n): Stops after n updates
+* epochs(data,n): Trains for n epochs, equivalent to updates(n*length(data))
 """
-function train!(model, data; loss=nll, optimizer=Adam(), callback=converge(), o...)
+function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
     ps = params(model)
     for param in ps
         param.opt = deepcopy(optimizer)
@@ -69,24 +78,32 @@ function train!(model, data; loss=nll, optimizer=Adam(), callback=converge(), o.
     end
 end
 
-# import ProgressMeter            # don't want to import update!
-
 function converge(alpha = 0.001)
     avgx = Inf
     avgp = 0.0
-    # prog = ProgressMeter.ProgressThresh(0.0, "Training loss: ")
+    prog = Progress()
     function callback(x)
         x = value(x)
         if avgx == Inf; avgx = x; end
         p = x - avgx
         avgx = alpha * x + (1-alpha) * avgx
         avgp = alpha * p + (1-alpha) * avgp
-        # ProgressMeter.update!(prog,avgx)
+        progress!(prog, x)
         return avgp <= 0.0
     end
     return callback
 end
 
+function updates(n)
+    p = Progress(n)
+    function callback(x)
+        progress!(p, value(x))
+        n -= 1
+        return n > 0
+    end
+end
+
+epochs(d,n)=updates(n*length(d))
 
 # Issues:
 # What if we call train multiple times, and don't want to use the optimizers?

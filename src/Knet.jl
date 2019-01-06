@@ -27,7 +27,8 @@ include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN # TODO: deprecate old interface
 include("data.jl");             export Data, minibatch
-include("model.jl");		export param, param0, train!, Train
+include("progress.jl");         # simple progress bar
+include("model.jl");		export param, param0, train!, converge, updates, epochs
 include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          export dropout
 include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
