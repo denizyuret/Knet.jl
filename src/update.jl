@@ -240,7 +240,7 @@ Rmsprop(; lr=0.001, gclip=0, rho=0.9, eps=1e-6)=Rmsprop(lr, gclip, rho, eps, not
 
 
 """
-    Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
+    Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8, l2decay=0)
     update!(w,g,p::Adam)
 
 Container for parameters of the Adam optimization algorithm used by
@@ -283,9 +283,10 @@ mutable struct Adam
     t::Int
     fstm
     scndm
+    l2decay::AbstractFloat
 end
 
-Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta1, beta2, eps, 0, nothing, nothing)
+Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8, l2decay=0)=Adam(lr, gclip, beta1, beta2, eps, 0, nothing, nothing, l2decay)
 
 
 """
@@ -380,6 +381,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     end
 
     function update!(w::$T, g::$T, p::Adam)
+        l2decay!(w, g, p)
         gclip!(g, p.gclip)
         if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
         p.t += 1
@@ -489,6 +491,12 @@ function gclip!(g, gclip)
         end
     end
 end
+
+function l2decay!(w, g, o)
+    o.l2decay == 0 && return g
+    axpy!(o.l2decay, w, g)
+end
+
 
 """
     optimizers(model, otype; options...)
