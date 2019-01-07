@@ -1,4 +1,6 @@
 using Random
+import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslength, @propagate_inbounds, repeat, rand, tail
+import .Iterators: cycle, Cycle
 
 "Minibatched data"
 mutable struct Data; x; y; batchsize; length; partial; indices; shuffle; xsize; ysize; xtype; ytype; end
@@ -33,7 +35,7 @@ function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x),xsiz
     Data(x2,nothing,batchsize,nx,partial,1:nx,shuffle,xsize,nothing,xtype,nothing)
 end
 
-function Base.iterate(d::Data,i=0)     # returns data in d.indices[i+1:i+batchsize]
+@propagate_inbounds function iterate(d::Data,i=0)     # returns data in d.indices[i+1:i+batchsize]
     if i == 0 && d.shuffle; d.indices = randperm(d.length); end
     if i >= d.length || (!d.partial && i + d.batchsize > d.length); return nothing; end
     j=min(i+d.batchsize, d.length)
@@ -47,13 +49,34 @@ function Base.iterate(d::Data,i=0)     # returns data in d.indices[i+1:i+batchsi
     end
 end
 
-function Base.length(d::Data)
+function eltype(d::Data)
+    d.y === nothing ? d.xtype : Tuple{d.xtype, d.ytype}
+end
+
+function length(d::Data)
     n = d.length / d.batchsize
     d.partial ? ceil(Int,n) : floor(Int,n)
 end
 
-function Random.rand(d::Data)
+function rand(d::Data)
     i = rand(0:(d.length-d.batchsize))
     return next(d, i)[1]
 end
 
+# Use repeat(data,n) for multiple epochs:
+
+struct Repeat; data::Data; n::Int; end
+
+repeat(d::Data, n::Int) = (@assert n >= 0; Repeat(d,n))
+length(r::Repeat) = r.n * length(r.data)
+eltype(r::Repeat) = eltype(r.data)
+eltype(c::Cycle{Data}) = eltype(c.xs)
+eltype(c::Cycle{Repeat}) = eltype(c.xs)
+
+@propagate_inbounds function iterate(r::Repeat, s=(1,))
+    epoch, state = s[1], tail(s)
+    epoch > r.n && return nothing
+    next = iterate(r.data, state...)
+    next === nothing && return iterate(r, (epoch+1,))
+    (next[1], (epoch, next[2]))
+end

@@ -11,6 +11,8 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 
 using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
 export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
+using Base.Iterators: cycle, take
+export cycle, take
 
 include("gpu.jl");              export gpu
 include("uva.jl")
@@ -27,8 +29,8 @@ include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
 include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN # TODO: deprecate old interface
 include("data.jl");             export Data, minibatch
-include("progress.jl");         # simple progress bar
-include("model.jl");		export param, param0, train!, converge, updates, epochs
+include("progress.jl");         export progress, progress!
+include("train.jl");		export train, train!, minimize, minimize!, converge, converge!, param, param0
 include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          export dropout
 include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
