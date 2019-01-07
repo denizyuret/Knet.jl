@@ -1,14 +1,14 @@
 import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, haslength, SizeUnknown, @propagate_inbounds, HasEltype
 
 "Example: `progress!(train(f,repeat(data,10)))`"
-train(pred, data::I; loss=nll, optimizer=Adam(), params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,params,kw)
+train(pred, data::I; loss=nll, optimizer=Adam(), params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,params,kw,Any)
 train!(x...; o...) = for x in train(x...; o...); end
 
-struct Train{I}; data::I; pred; loss; algo; params; kw; end
+struct Train{I}; data::I; pred; loss; algo; params; kw; eltype; end
 
 length(c::Train) = length(c.data)
 size(c::Train) = size(c.data)
-eltype(c::Train) = typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))
+eltype(c::Train) = (c.eltype === Any ? (c.eltype=typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))) : c.eltype)
 IteratorSize(::Type{Train{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{<:Train}) = Base.HasEltype()
 
@@ -32,14 +32,14 @@ end
 # except applying gradient based updates to params at each step
 
 "Example: `minimize(f,repeat(data,10))`"
-minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params)
+minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params,Any)
 minimize!(x...; o...) = for x in minimize(x...; o...); end
 
-struct Minimize{I}; data::I; func; algo; params; end
+struct Minimize{I}; data::I; func; algo; params; eltype; end
 
 length(c::Minimize) = length(c.data)
 size(c::Minimize) = size(c.data)
-eltype(c::Minimize) = typeof(@diff c.func(first(c.data)...))
+eltype(c::Minimize) = (c.eltype === Any ? typeof(@diff c.func(first(c.data)...)) : c.eltype)
 IteratorSize(::Type{Minimize{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
 
