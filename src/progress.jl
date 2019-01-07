@@ -33,7 +33,7 @@ IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
         p.current += 1
         (x, s) = next
         if p.alpha > 0
-            p.avg = (p.avg === Inf ? x : p.alpha * x + (1-p.alpha) * p.avg)
+            p.avg = (p.avg === Inf ? value(x) : p.alpha * value(x) + (1-p.alpha) * p.avg)
         end
     end
     display_progress(p, next === nothing)
