@@ -53,8 +53,17 @@ _ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,
 
 _ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
 _ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
-_ser(x::Array,s::IdDict,::typeof(GPUMODE))=(haskey(s,x) ? s[x] : s[x]=KnetArray(x))
-_ser(x::Array,s::IdDict,::typeof(CPUMODE))=x
+_ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
+
+function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) 
+    if !isbitstype(T)
+        map(xi->_ser(xi,s,m), x)
+    elseif m === GPUMODE
+        KnetArray(x)
+    else
+        x
+    end
+end
 
 
 # Generic serialization rules from deepcopy.jl
@@ -63,8 +72,6 @@ _ser(x::Tuple, s::IdDict, m::Val) = ntuple(i->_ser(x[i], s, m), length(x))
 _ser(x::Module, ::IdDict, ::Val) = error("serialize of Modules not supported")
 _ser(x::Core.SimpleVector, s::IdDict,m::Val) = (haskey(s, x) ? s[x] : s[x] = Core.svec(Any[_ser(x[i], s, m) for i = 1:length(x)]...))
 _ser(x::String, s::IdDict,::Val) = (haskey(s, x) ? s[x] : s[x] = (GC.@preserve x unsafe_string(pointer(x), sizeof(x))))
-_ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
-_ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) = (isbitstype(T) ? x : map(xi->_ser(xi,s,m), x))
 
 function _ser(@nospecialize(x), s::IdDict, m::Val)
     T = typeof(x)::DataType
