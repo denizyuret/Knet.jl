@@ -33,7 +33,7 @@ include("progress.jl");         export progress, progress!
 include("train.jl");		export train, train!, minimize, minimize!, converge, converge!, param, param0
 include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          export dropout
-include("update.jl"); 		export SGD, Sgd, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop, update!, optimizers
+include("update.jl"); 		export SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
 include("distributions.jl"); 	export gaussian, xavier, bilinear
 include("random.jl");           export setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         export hyperband, goldensection

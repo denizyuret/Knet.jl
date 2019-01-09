@@ -1,10 +1,10 @@
 import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, haslength, SizeUnknown, @propagate_inbounds, HasEltype
 
 "Example: `progress!(train(f,repeat(data,10)))`"
-train(pred, data::I; loss=nll, optimizer=Adam(), params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,params,kw,Any)
+train(pred, data::I; loss=nll, optimizer=Adam(), callback=nothing, params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,callback,params,kw,Any)
 train!(x...; o...) = for x in train(x...; o...); end
 
-struct Train{I}; data::I; pred; loss; algo; params; kw; eltype; end
+struct Train{I}; data::I; pred; loss; optimizer; callback; params; kw; eltype; end
 
 length(c::Train) = length(c.data)
 size(c::Train) = size(c.data)
@@ -17,9 +17,10 @@ IteratorEltype(::Type{<:Train}) = Base.HasEltype()
     next === nothing && return nothing
     (args, s) = next
     y = @diff m.loss(m.pred, args...; m.kw...)
+    m.callback !== nothing && !m.callback(y) && return nothing
     for x in (m.params === nothing ? Params(y) : m.params)
         if x.opt === nothing
-            x.opt = deepcopy(m.algo)
+            x.opt = deepcopy(m.optimizer)
         end
         update!(x, grad(y,x))
     end
@@ -109,9 +110,6 @@ IteratorSize(::Type{Params}) = SizeUnknown()
     nothing
 end
 
-# TODO: move to update
-update!(x::Param, g) = update!(x.value, g, x.opt)
-
 
 """
     param(array; atype)
@@ -135,32 +133,66 @@ param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
 atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
 
-### DEAD CODE
+### DEPRECATED:
+
+"""
+    train!(model, data; loss, optimizer, callback, o...)
+
+Train a model with given data.
+
+* `model`: A callable object. `model(x; o...)` should return a prediction. `params(model)`
+   will automatically iterate over model parameters.
+* `data`: An iterator. `for (x,y) in data` should iterate over input-output pairs.
+* `loss=nll`: A loss function, called with `J = @diff loss(model,x,y; o...)`.
+* `optimizer=Adam()`: An optimizer object that will be copied for each parameter and used by
+  `[update!]`(@ref).
+* `callback`: To facilitate reporting and termination, a callback function is called before
+   every update with `callback(J)`. Training continues if the return value is true, terminates
+   if it is false. By default training will end after one pass over the data.
+* Other keyword arguments `(o...)` will be passed to `loss` and possibly by `loss` to `model`.
+"""
+train!
+
+"""
+Pre-defined callback function constructors:
+
+* converge(): Trains until convergence
+* updates(n): Stops after n updates
+* epochs(data,n): Trains for n epochs, equivalent to updates(n*length(data))
+"""
+converge, updates, epochs
+
+function converge(alpha::Number = 0.001)
+    avgx = Inf
+    avgp = 0.0
+    # prog = Progress()
+    function callback(x)
+        x = value(x)
+        if avgx == Inf; avgx = x; end
+        p = x - avgx
+        avgx = alpha * x + (1-alpha) * avgx
+        avgp = alpha * p + (1-alpha) * avgp
+        # display_progress!(prog, x)
+        return avgp <= 0.0
+    end
+    return callback
+end
+
+function updates(n)
+    # p = Progress(n)
+    function callback(x)
+        # display_progress!(p, value(x))
+        n -= 1
+        return n > 0
+    end
+end
+
+epochs(d,n)=updates(n*length(d))
 
 
-# """
-#     train!(model, data; loss, optimizer, callback, o...)
+### DEAD CODE:
 
-# Train a model with given data.
-
-# * `model`: A callable object. `model(x; o...)` should return a prediction. `params(model)`
-#    will automatically iterate over model parameters.
-# * `data`: An iterator. `for (x,y) in data` should iterate over input-output pairs.
-# * `loss=nll`: A loss function, called with `J = @diff loss(model,x,y; o...)`.
-# * `optimizer=Adam()`: An optimizer object that will be copied for each parameter and used by
-#   `[update!]`(@ref).
-# * `callback=epochs(data,1)`: To facilitate reporting and termination, a callback function is
-#    called before every update with `callback(J)`. Training continues if the return value is
-#    true, terminates if it is false.  Some predefined ones listed below.
-# * Other keyword arguments `(o...)` will be passed to `loss` and possibly by `loss` to `model`.
-
-# Pre-defined callback function constructors:
-
-# * converge(): Trains until convergence
-# * updates(n): Stops after n updates
-# * epochs(data,n): Trains for n epochs, equivalent to updates(n*length(data))
-# """
-# function oldtrain!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
+# function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
 #     ps = params(model)
 #     for param in ps
 #         if param.opt === nothing
@@ -180,34 +212,6 @@ atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 #         end
 #     end
 # end
-
-# function converge(alpha::Number = 0.001)
-#     avgx = Inf
-#     avgp = 0.0
-#     # prog = Progress()
-#     function callback(x)
-#         x = value(x)
-#         if avgx == Inf; avgx = x; end
-#         p = x - avgx
-#         avgx = alpha * x + (1-alpha) * avgx
-#         avgp = alpha * p + (1-alpha) * avgp
-#         # display_progress!(prog, x)
-#         return avgp <= 0.0
-#     end
-#     return callback
-# end
-
-# function updates(n)
-#     # p = Progress(n)
-#     function callback(x)
-#         # display_progress!(p, value(x))
-#         n -= 1
-#         return n > 0
-#     end
-# end
-
-# epochs(d,n)=updates(n*length(d))
-
 
     ## This may be slightly faster but risky if active params change
     # if m.params === nothing

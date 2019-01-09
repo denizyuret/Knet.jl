@@ -1,4 +1,13 @@
+# These types define per-parameter config and state for various optimization algorithms. The
+# lowercase functions create an optimization iterator and the bang versions run the iterator
+# both calling minimize. Minimize takes the given type as a global default and attaches a copy
+# of it to any parameter's Param.opt if not already set. One can override this default by
+# pre-setting Param.opt of a parameter, in which case it will not be overriden by minimize.
+
+# TODO: handle common tasks like gclip and decay in minimize?
+
 using LinearAlgebra
+
 
 """
     SGD(;lr=0.001,gclip=0)
@@ -26,12 +35,14 @@ argument version of `update!`[@ref].
 """
 mutable struct SGD
     lr::AbstractFloat
-    gclip::AbstractFloat
+    gclip::AbstractFloat        # TODO: should gclip, decay etc be global?
 end
 
 const SGDLR = 0.001
 
 SGD(; lr=SGDLR, gclip=0) = SGD(lr,gclip)
+sgd(f,d;lr=SGDLR, gclip=0, o...)=minimize(f,d,SGD(lr,gclip);o...)
+sgd!(x...;o...)=for y in sgd(x...;o...); end
 
 @deprecate Sgd SGD
 
@@ -67,11 +78,13 @@ Society, 12(1), 145–151.
 mutable struct Momentum
     lr::AbstractFloat
     gclip::AbstractFloat
-    gamma::AbstractFloat
+    gamma::AbstractFloat        # TODO: use more consistent field/option names.
     velocity
 end
 
 Momentum(; lr=0.001, gclip=0, gamma=0.9)=Momentum(lr, gclip, gamma, nothing)
+momentum(f,d;lr=0.001,gclip=0,gamma=0.9,o...)=minimize(f,d,Momentum(lr,gclip,gamma,nothing);o...)
+momentum!(x...;o...)=for y in momentum(x...;o...); end
 
 
 """
@@ -106,7 +119,8 @@ mutable struct Nesterov
 end
 
 Nesterov(; lr=0.001, gclip=0, gamma=0.9) = Nesterov(lr, gclip, gamma, nothing)
-
+nesterov(f,d;lr=0.001,gclip=0,gamma=0.9,o...)=minimize(f,d,Nesterov(lr,gclip,gamma,nothing);o...)
+nesterov!(x...;o...)=for y in nesterov(x...;o...); end
 
 """
     Adagrad(;lr=0.1, gclip=0, eps=1e-6)
@@ -150,6 +164,8 @@ mutable struct Adagrad
 end
 
 Adagrad(; lr=0.1, gclip=0, eps=1e-6)=Adagrad(lr, gclip, eps, nothing)
+adagrad(f,d;lr=0.1,gclip=0,eps=1e-6,o...)=minimize(f,d,Adagrad(lr,gclip,eps,nothing);o...)
+adagrad!(x...;o...)=for y in adagrad(x...;o...); end
 
 
 """
@@ -196,6 +212,8 @@ mutable struct Adadelta
 end
 
 Adadelta(; lr=0.01, gclip=0, rho=0.9, eps=1e-6)=Adadelta(lr, gclip, rho, eps, nothing, nothing)
+adadelta(f,d;lr=0.01,gclip=0,rho=0.9,eps=1e-6,o...)=minimize(f,d,Adadelta(lr,gclip,rho,eps,nothing,nothing);o...)
+adadelta!(x...;o...)=for y in adadelta(x...;o...); end
 
 
 """
@@ -237,6 +255,8 @@ mutable struct Rmsprop
 end
 
 Rmsprop(; lr=0.001, gclip=0, rho=0.9, eps=1e-6)=Rmsprop(lr, gclip, rho, eps, nothing)
+rmsprop(f,d;lr=0.001,gclip=0,rho=0.9,eps=1e-6,o...)=minimize(f,d,Rmsprop(lr,gclip,rho,eps,nothing);o...)
+rmsprop!(x...;o...)=for y in rmsprop(x...;o...); end
 
 
 """
@@ -286,7 +306,11 @@ mutable struct Adam
 end
 
 Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta1, beta2, eps, 0, nothing, nothing)
+adam(f,d;lr=0.001,gclip=0,beta1=0.9,beta2=0.999,eps=1e-8,o...)=minimize(f,d,Adam(lr,gclip,beta1,beta2,eps,0,nothing,nothing);o...)
+adam!(x...;o...)=for y in adam(x...;o...); end
 
+"Update parameter x using its gradient g, assumes x.opt is set."
+update!(x::Param, g) = update!(x.value, g, x.opt)
 
 """
     update!(weights, gradients, params)
@@ -508,3 +532,5 @@ optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (
 optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a::AbstractArray,otype; o...)=map(x->optimizers(x,otype;o...), a)
 optimizers(a,otype;o...)=nothing
+
+
