@@ -7,6 +7,7 @@ import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslen
 mutable struct Progress{I}
     iter::I
     current::Int
+    nprint::Int
     start_time::UInt
     print_time::UInt
     print_interval::UInt
@@ -16,7 +17,7 @@ mutable struct Progress{I}
 end
 
 progress(iter::I; width=max(64,displaysize()[2]), alpha=0.001, interval=0.1) where {I} =
-    Progress{I}(iter,0,time_ns(),0,Int(1e9*interval),width,alpha,Inf)
+    Progress{I}(iter,0,0,time_ns(),0,Int(1e9*interval),width,alpha,Inf)
 
 progress(i::Int; o...)=progress(1:n; o...)
 progress!(x...; o...)=for x in progress(x...; o...); end
@@ -46,6 +47,7 @@ function display_progress(p::Progress, force=false)
         return
     end
     p.print_time = curr_time
+    p.nprint += 1
     seconds   = (curr_time - p.start_time) * 1e-9
     speed     = p.current / seconds
     
@@ -85,10 +87,11 @@ function display_progress(p::Progress, force=false)
             print(repeat(" ", width - full_cells - 1))
         end
     else
-        offset = p.current % 10
+        offset = p.nprint % 8
         print(repeat(" ", offset))
-        segments, remain = divrem(width - offset, 10)
-        print(repeat("/         ", Int(segments)))
+        print("/")
+        segments, remain = divrem(width - offset - 1, 8)
+        print(repeat("       /", Int(segments)))
         print(repeat(" ", Int(remain)))
     end
     print("┫ ")
