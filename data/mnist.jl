@@ -45,8 +45,8 @@ mnistview(x,i)=colorview(Gray,permutedims(x[:,:,1,i],(2,1)))
 "Return minibatched mnist data, requires Knet."
 function mnistdata(;batchsize=100,xtype=(gpu()>=0 ? KnetArray{Float32} : Array{Float32}), o...)
     if !@isdefined(_mnist_xtrn); mnist(); end
-    minibatch(_mnist_xtrn, _mnist_ytrn, batchsize; xtype=xtype, o...),
-    minibatch(_mnist_xtst, _mnist_ytst, batchsize; xtype=xtype, o...)
+    Knet.minibatch(_mnist_xtrn, _mnist_ytrn, batchsize; xtype=xtype, o...),
+    Knet.minibatch(_mnist_xtst, _mnist_ytst, batchsize; xtype=xtype, o...)
 end
 
 function _mnist_xdata(file)
