@@ -1,5 +1,5 @@
 #model url: https://github.com/FluxML/Metalhead.jl/releases/download/v0.1.1/resnet.bson
-#install 
+#reference: https://github.com/FluxML/Metalhead.jl
 using Knet, KnetLayers, BSON, Images
 
 struct ResidualBlock
@@ -10,7 +10,7 @@ end
 function ResidualBlock(filters, kernels::Array{Tuple{Int,Int}}, pads::Array{Tuple{Int,Int}}, strides::Array{Tuple{Int,Int}}, shortcut = identity)
   layers = []
   for i in 2:length(filters)
-    push!(layers, Conv(activation=nothing, height=kernels[i-1][1], width=kernels[i-1][2], inout=filters[i-1]=>filters[i], padding = pads[i-1], stride = strides[i-1], mode=1))
+    push!(layers, Conv(activation=nothing, height=kernels[i-1][1], width=kernels[i-1][2], inout=filters[i-1]=>filters[i], padding = pads[i-1], stride = strides[i-1], mode=1, binit=nothing))
     if i != length(filters)
       push!(layers, Chain(BatchNorm(filters[i]),ReLU())) # I think we need batchnorm with relu activation
     else
@@ -31,7 +31,7 @@ function BasicBlock(filters::Int, downsample::Bool = false, res_top::Bool = fals
   if !downsample || res_top
     return ResidualBlock([filters for i in 1:3], [3,3], [1,1], [1,1])
   end
-  shortcut = Chain(Conv(activation=nothing, height=3, width=3, inout=filters÷2=>filters, padding = (1,1), stride = (2,2), mode=1), BatchNorm(filters))
+  shortcut = Chain(Conv(activation=nothing, height=3, width=3, inout=filters÷2=>filters, padding = (1,1), stride = (2,2), mode=1, binit=nothing), BatchNorm(filters))
   ResidualBlock([filters÷2, filters, filters], [3,3], [1,1], [1,2], shortcut)
 end
 
@@ -41,48 +41,51 @@ function Bottleneck(filters::Int, downsample::Bool = false, res_top::Bool = fals
   if !downsample && !res_top
     ResidualBlock([4 * filters, filters, filters, 4 * filters], [1,3,1], [0,1,0], [1,1,1])
   elseif downsample && res_top
-    ResidualBlock([filters, filters, filters, 4 * filters], [1,3,1], [0,1,0], [1,1,1], Chain(Conv(activation=nothing, height=1,width=1, inout=filters=>4 * filters, padding = (0,0), stride = (1,1), mode=1), BatchNorm(4 * filters)))
+    ResidualBlock([filters, filters, filters, 4 * filters], [1,3,1], [0,1,0], [1,1,1], Chain(Conv(activation=nothing, height=1,width=1, inout=filters=>4 * filters, padding = (0,0), stride = (1,1), mode=1, binit=nothing), BatchNorm(4 * filters)))
   else
-    shortcut = Chain(Conv(activation=nothing, height=1, width=1, inout=2 * filters=>4 * filters, padding = (0,0), stride = (2,2), mode=1), BatchNorm(4 * filters))
+    shortcut = Chain(Conv(activation=nothing, height=1, width=1, inout=2 * filters=>4 * filters, padding = (0,0), stride = (2,2), mode=1, binit=nothing), BatchNorm(4 * filters))
     ResidualBlock([2 * filters, filters, filters, 4 * filters], [1,3,1], [0,1,0], [1,1,2], shortcut)
   end
 end
 
-const KA = KnetArray
+const KA = KnetLayers.arrtype
 transfer!(p::Param, x)  = copyto!(p.value,x)
-transfer!(p, x) = copyto!(p,x) 
-to4d(x) = x# reshape(x,1,1,length(x),1)
-p21(x) = x#permutedims(x,(2,1,3,4))
-function trained_resnet50_layers()
-    weight = BSON.load("resnet.bson")
+transfer!(p, x) = copyto!(p,x)
+to4D(x) = reshape(x,1,1,length(x),1)
+
+function trained_resnet50_layers(model=KnetLayers.dir("examples","resnet.bson"))
+    if !isfile(model)
+        download("https://github.com/FluxML/Metalhead.jl/releases/download/v0.1.1/resnet.bson",model)
+    end
+    weight = BSON.load(model)
     weights = Dict{Any ,Any}()
     for ele in keys(weight)
         weights[string(ele)] = weight[ele]
     end
     ls = load_resnet(resnet_configs["resnet50"]...)
-    transfer!(ls[1][1].weight, weights["gpu_0/conv1_w_0"] |> p21)
-    ls[1][2].moments.var =  KA(weights["gpu_0/res_conv1_bn_riv_0"]|> to4d )
-    ls[1][2].moments.mean = KA(weights["gpu_0/res_conv1_bn_rm_0"] |> to4d )
+    transfer!(ls[1][1].weight, weights["gpu_0/conv1_w_0"])
+    ls[1][2].moments.var =  KA(weights["gpu_0/res_conv1_bn_riv_0"] |> to4D)
+    ls[1][2].moments.mean = KA(weights["gpu_0/res_conv1_bn_rm_0"] |> to4D)
     ls[1][2].params = KA(vcat(weights["gpu_0/res_conv1_bn_s_0"],weights["gpu_0/res_conv1_bn_b_0"]))
     count = 2
     for j in [3:5, 6:9, 10:15, 16:18]
         for p in j
-            transfer!(ls[p].layers[1].weight, weights["gpu_0/res$(count)_$(p-j[1])_branch2a_w_0"] |> p21)
-            ls[p].layers[2][1].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_riv_0"] |> to4d ) 
-            ls[p].layers[2][1].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_rm_0"] |> to4d)
+            transfer!(ls[p].layers[1].weight, weights["gpu_0/res$(count)_$(p-j[1])_branch2a_w_0"] )
+            ls[p].layers[2][1].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_riv_0"] |> to4D)
+            ls[p].layers[2][1].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_rm_0"] |> to4D)
             ls[p].layers[2][1].params =  KA(vcat(weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_s_0"],weights["gpu_0/res$(count)_$(p-j[1])_branch2a_bn_b_0"]))
-            transfer!(ls[p].layers[3].weight , weights["gpu_0/res$(count)_$(p-j[1])_branch2b_w_0"] |> p21 )
-            ls[p].layers[4][1].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_riv_0"] |> to4d) 
-            ls[p].layers[4][1].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_rm_0"] |> to4d )
+            transfer!(ls[p].layers[3].weight , weights["gpu_0/res$(count)_$(p-j[1])_branch2b_w_0"])
+            ls[p].layers[4][1].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_riv_0"] |> to4D)
+            ls[p].layers[4][1].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_rm_0"] |> to4D)
             ls[p].layers[4][1].params =  KA(vcat(weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_s_0"],weights["gpu_0/res$(count)_$(p-j[1])_branch2b_bn_b_0"]))
-            transfer!(ls[p].layers[5].weight ,weights["gpu_0/res$(count)_$(p-j[1])_branch2c_w_0"] |> p21 )
-            ls[p].layers[6].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_riv_0"] |> to4d)
-            ls[p].layers[6].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_rm_0"] |> to4d)
+            transfer!(ls[p].layers[5].weight , weights["gpu_0/res$(count)_$(p-j[1])_branch2c_w_0"])
+            ls[p].layers[6].moments.var = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_riv_0"] |> to4D)
+            ls[p].layers[6].moments.mean = KA(weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_rm_0"] |> to4D)
             ls[p].layers[6].params =  KA(vcat(weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_s_0"],weights["gpu_0/res$(count)_$(p-j[1])_branch2c_bn_b_0"]))
-            end
-        transfer!(ls[j[1]].shortcut[1].weight , weights["gpu_0/res$(count)_0_branch1_w_0"] |> p21 )
-        ls[j[1]].shortcut[2].moments.var = KA(weights["gpu_0/res$(count)_0_branch1_bn_riv_0"] |> to4d ) 
-        ls[j[1]].shortcut[2].moments.mean = KA(weights["gpu_0/res$(count)_0_branch1_bn_rm_0"] |> to4d )
+        end
+        transfer!(ls[j[1]].shortcut[1].weight , weights["gpu_0/res$(count)_0_branch1_w_0"])
+        ls[j[1]].shortcut[2].moments.var = KA(weights["gpu_0/res$(count)_0_branch1_bn_riv_0"] |> to4D)
+        ls[j[1]].shortcut[2].moments.mean = KA(weights["gpu_0/res$(count)_0_branch1_bn_rm_0"] |> to4D)
         ls[j[1]].shortcut[2].params =  KA(vcat(weights["gpu_0/res$(count)_0_branch1_bn_s_0"], weights["gpu_0/res$(count)_0_branch1_bn_b_0"]))
         count += 1
     end
@@ -96,7 +99,7 @@ function load_resnet(Block, layers, initial_filters::Int = 64, nclasses::Int = 1
   local residual = []
   local bottom = []
 
-  push!(top, Chain(Conv(activation=nothing, width=7, height=7, inout=3=>initial_filters, padding = (3,3), stride = (2,2), mode=1), BatchNorm(initial_filters)))
+  push!(top, Chain(Conv(activation=nothing, width=7, height=7, inout=3=>initial_filters, padding = (3,3), stride = (2,2), mode=1, binit=nothing), BatchNorm(initial_filters)))
   push!(top, Pool(window=(3,3), padding = (1,1), stride = (2,2)))
 
   for i in 1:length(layers)
@@ -126,7 +129,7 @@ resnet_configs =
        "resnet101" => (Bottleneck, [3, 4, 23, 3]),
        "resnet152" => (Bottleneck, [3, 8, 36, 3]))
 
-struct ResNet18 
+struct ResNet18
   layers::Chain
 end
 
@@ -138,7 +141,7 @@ Base.show(io::IO, ::ResNet18) = print(io, "ResNet18()")
 
 (m::ResNet18)(x) = m.layers(x)
 
-struct ResNet34 
+struct ResNet34
   layers::Chain
 end
 
@@ -150,7 +153,7 @@ Base.show(io::IO, ::ResNet34) = print(io, "ResNet34()")
 
 (m::ResNet34)(x) = m.layers(x)
 
-struct ResNet50 
+struct ResNet50
   layers::Chain
 end
 
@@ -162,7 +165,7 @@ Base.show(io::IO, ::ResNet50) = print(io, "ResNet50()")
 
 (m::ResNet50)(x) = m.layers(x)
 
-struct ResNet101 
+struct ResNet101
   layers::Chain
 end
 
