@@ -20,7 +20,7 @@ IteratorEltype(::Type{<:Train}) = Base.HasEltype()
     m.callback !== nothing && !m.callback(y) && return nothing
     for x in (m.params === nothing ? Params(y) : m.params)
         if x.opt === nothing
-            x.opt = deepcopy(m.optimizer)
+            x.opt = clone(m.optimizer)
         end
         update!(x, grad(y,x))
     end
@@ -51,7 +51,7 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
     y = @diff m.func(args...)
     for x in (m.params === nothing ? Params(y) : m.params)
         if x.opt === nothing
-            x.opt = deepcopy(m.algo)
+            x.opt = clone(m.algo)
         end
         update!(x, grad(y,x))
     end
@@ -196,7 +196,7 @@ epochs(d,n)=updates(n*length(d))
 #     ps = params(model)
 #     for param in ps
 #         if param.opt === nothing
-#             param.opt = deepcopy(optimizer)
+#             param.opt = clone(optimizer)
 #         end
 #     end
 #     while true
@@ -227,7 +227,7 @@ epochs(d,n)=updates(n*length(d))
 #         x = node.Value
 #         if isa(x, Param)
 #             if x.opt === nothing && optimizer !== nothing
-#                 x.opt = deepcopy(optimizer)
+#                 x.opt = clone(optimizer)
 #             end
 #             push!(p, x)
 #         end
@@ -246,7 +246,7 @@ epochs(d,n)=updates(n*length(d))
 #             x = node.Value
 #             if isa(x, Param)
 #                 g = grad(y,x)
-#                 if x.opt === nothing; x.opt = deepcopy(optimizer); end
+#                 if x.opt === nothing; x.opt = clone(optimizer); end
 #                 update!(x.value, g, x.opt)
 #             end
 #         end
@@ -270,7 +270,7 @@ epochs(d,n)=updates(n*length(d))
 
 # + Keyword argument problem:
 # - optimizer, loss, model can all take keyword args; how do we specify them through train?
-# + We can give a constructed optimizer and deepcopy it for each param.
+# + We can give a constructed optimizer and clone it for each param.
 # ? We don't call model directly, only through loss (because it may need model params for regularization).
 # ? So we pass all unrecognized kwargs to loss and let it sort out.
 

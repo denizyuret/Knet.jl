@@ -38,11 +38,13 @@ mutable struct SGD
     gclip::AbstractFloat        # TODO: should gclip, decay etc be global?
 end
 
-const SGDLR = 0.001
+const SGDLR = 0.1
 
 SGD(; lr=SGDLR, gclip=0) = SGD(lr,gclip)
 sgd(f,d;lr=SGDLR, gclip=0, o...)=minimize(f,d,SGD(lr,gclip);o...)
 sgd!(x...;o...)=for y in sgd(x...;o...); end
+
+clone(s::SGD)=SGD(s.lr,s.gclip)
 
 @deprecate Sgd SGD
 
@@ -86,6 +88,8 @@ Momentum(; lr=0.001, gclip=0, gamma=0.9)=Momentum(lr, gclip, gamma, nothing)
 momentum(f,d;lr=0.001,gclip=0,gamma=0.9,o...)=minimize(f,d,Momentum(lr,gclip,gamma,nothing);o...)
 momentum!(x...;o...)=for y in momentum(x...;o...); end
 
+clone(m::Momentum)=Momentum(m.lr,m.gclip,m.gamma,nothing)
+
 
 """
     Nesterov(; lr=0.001, gclip=0, gamma=0.9)
@@ -121,6 +125,8 @@ end
 Nesterov(; lr=0.001, gclip=0, gamma=0.9) = Nesterov(lr, gclip, gamma, nothing)
 nesterov(f,d;lr=0.001,gclip=0,gamma=0.9,o...)=minimize(f,d,Nesterov(lr,gclip,gamma,nothing);o...)
 nesterov!(x...;o...)=for y in nesterov(x...;o...); end
+
+clone(m::Nesterov)=Nesterov(m.lr,m.gclip,m.gamma,nothing)
 
 """
     Adagrad(;lr=0.1, gclip=0, eps=1e-6)
@@ -167,6 +173,7 @@ Adagrad(; lr=0.1, gclip=0, eps=1e-6)=Adagrad(lr, gclip, eps, nothing)
 adagrad(f,d;lr=0.1,gclip=0,eps=1e-6,o...)=minimize(f,d,Adagrad(lr,gclip,eps,nothing);o...)
 adagrad!(x...;o...)=for y in adagrad(x...;o...); end
 
+clone(a::Adagrad)=Adagrad(a.lr,a.gclip,a.eps,nothing)
 
 """
     Adadelta(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)
@@ -215,6 +222,7 @@ Adadelta(; lr=0.01, gclip=0, rho=0.9, eps=1e-6)=Adadelta(lr, gclip, rho, eps, no
 adadelta(f,d;lr=0.01,gclip=0,rho=0.9,eps=1e-6,o...)=minimize(f,d,Adadelta(lr,gclip,rho,eps,nothing,nothing);o...)
 adadelta!(x...;o...)=for y in adadelta(x...;o...); end
 
+clone(a::Adadelta)=Adadelta(a.lr,a.gclip,a.rho,a.eps,nothing,nothing)
 
 """
     Rmsprop(;lr=0.001, gclip=0, rho=0.9, eps=1e-6)
@@ -258,6 +266,7 @@ Rmsprop(; lr=0.001, gclip=0, rho=0.9, eps=1e-6)=Rmsprop(lr, gclip, rho, eps, not
 rmsprop(f,d;lr=0.001,gclip=0,rho=0.9,eps=1e-6,o...)=minimize(f,d,Rmsprop(lr,gclip,rho,eps,nothing);o...)
 rmsprop!(x...;o...)=for y in rmsprop(x...;o...); end
 
+clone(r::Rmsprop)=Rmsprop(r.lr,r.gclip,r.rho,r.eps,nothing)
 
 """
     Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
@@ -308,6 +317,8 @@ end
 Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, gclip, beta1, beta2, eps, 0, nothing, nothing)
 adam(f,d;lr=0.001,gclip=0,beta1=0.9,beta2=0.999,eps=1e-8,o...)=minimize(f,d,Adam(lr,gclip,beta1,beta2,eps,0,nothing,nothing);o...)
 adam!(x...;o...)=for y in adam(x...;o...); end
+
+clone(a::Adam)=Adam(a.lr,a.gclip,a.beta1,a.beta2,a.eps,0,nothing,nothing)
 
 "Update parameter x using its gradient g, assumes x.opt is set."
 update!(x::Param, g) = update!(x.value, g, x.opt)
