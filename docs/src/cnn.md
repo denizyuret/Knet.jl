@@ -859,6 +859,9 @@ and ResNet [(He et al. 2015)](http://arxiv.org/abs/1512.03385).
 -   Christopher Olah's blog has very good visual explanations (thanks to
     Melike Softa for the reference):
     [http://colah.github.io/posts/2014-07-Conv-Nets-Modular](http://colah.github.io/posts/2014-07-Conv-Nets-Modular)
+-   [http://yosinski.com/deepvis](Understanding Neural Networks Through Deep Visualization)
+-   [https://distill.pub/2017/feature-visualization/](Feature Visualization)
+-   [https://distill.pub/2018/building-blocks/](The Building Blocks of Interpretability)
 -   [UFLDL](http://ufldl.stanford.edu) (or its [old
     version](http://ufldl.stanford.edu/wiki/index.php/UFLDL_Tutorial))
     is an online tutorial with programming examples and explicit
