@@ -463,6 +463,7 @@ function setindex!(A::KnetArray{T}, v, I::Real) where {T}
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
     _unsafe_copy!(A, J, T[v], 1, 1)
+    return A
 end
 
 ## Indexing with Tuple{Real}
@@ -486,6 +487,7 @@ function setindex!(A::KnetArray{T}, v, I::Real...) where {T}
     end
     i = (LinearIndices(size(A)))[J...]
     _unsafe_copy!(A, i, T[v], 1, 1)
+    return A
 end
 
 ## Indexing with CartesianIndex: calls Tuple{Real}
@@ -517,6 +519,7 @@ end
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     @eval function unsafe_setindex!(a::KnetArray{$T},v::$T,I::AbstractUnitRange)
         @knet8($F,(Cint,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
+        return a
     end
 end
 
@@ -524,12 +527,14 @@ function setindex!(A::KnetArray{T}, v::Real, I::AbstractUnitRange) where {T}
     if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
     if length(I)==0; return A; end
     unsafe_setindex!(A,T(v),I)
+    return A
 end
 
 function setindex!(A::KnetArray{T}, v::Real, I::AbstractUnitRange{Bool}) where {T} # julia4 ambig fix
     if !(1 <= first(I) <= last(I) <= length(A)); throw(BoundsError(A,I)); end
     if length(I)==0; return A; end
     unsafe_setindex!(A,T(v),I)
+    return A
 end
 
 function setindex!(A::KnetArray{T}, v, I::AbstractUnitRange) where {T}
@@ -538,6 +543,7 @@ function setindex!(A::KnetArray{T}, v, I::AbstractUnitRange) where {T}
     if length(I)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
     _unsafe_copy!(A,first(I),v,1,length(I))
+    return A
 end
 
 ## Indexing with Colon
@@ -550,6 +556,7 @@ end
 function setindex!(A::KnetArray{T}, v::Real, I::Colon) where {T}
     if length(A)==0; return A; end
     unsafe_setindex!(A, T(v), 1:length(A))
+    return A
 end
 
 function setindex!(A::KnetArray{T}, v, I::Colon) where {T}
@@ -557,6 +564,7 @@ function setindex!(A::KnetArray{T}, v, I::Colon) where {T}
     if length(v)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
     _unsafe_copy!(A,1,v,1,length(A))
+    return A
 end
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
@@ -565,14 +573,17 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 
     function unsafe_getindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
         @knet8($("getents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
+        return y
     end
 
     function unsafe_setindex!(x::KnetArray{$T}, y::$T, i::KnetArray{Int32})
         @knet8($("setent1_$F"),(Cint,Ptr{Int},Ptr{$T},$T), length(i), i, x, y)
+        return x
     end
 
     function unsafe_setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
         @knet8($("setents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
+        return x
     end
 
 ## Indexing with (Colon,KnetArray{Int32})
@@ -581,16 +592,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
         @knet8($("getcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
+        return y
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, ::Colon, i::KnetVector{Int32})
         @knet8($("setcol1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
                size(x,1), size(x,2), length(i), i, x, y)
+        return x
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
         @knet8($("setcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
+        return x
     end
 
 ## Indexing with (KnetArray{Int32},Colon)
@@ -598,16 +612,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         @knet8($("getrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
+        return y
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
         @knet8($("setrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
+        return x
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, i::KnetVector{Int32}, ::Colon)
         @knet8($("setrow1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
                size(x,1), size(x,2), length(i), i, x, y)
+        return x
     end
 
 end; end
@@ -1197,8 +1214,6 @@ check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} 
 
 # dotview(P::KnetArray{T,N},I...) where {T,N} =SubArray{T,N,typeof(P),typeof(I),false}(P,I,0,0)
 # check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
-copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
-copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
 
 # We need x[:,:,t] and hx[:,:,l] for RNNs
 function getindex(A::KnetArray, ::Colon, ::Colon, I::Real)
@@ -1262,7 +1277,7 @@ summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(s
 ## Broadcasting:
 
 # Both f.(x...) and broadcast(f,x...) turn into materialize(broadcasted(::BroadcastStyle,f,x...)).
-import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted, Broadcasted
+import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted, Broadcasted, materialize!
 
 # Any call involving KnetArray should be unfused: (see AutoGrad/src/core.notes)
 broadcasted(::Style{KnetArray}, f, args...) = f(Bcasted.(args)...).value
@@ -1284,3 +1299,35 @@ Bcasted(x::Broadcasted) = Bcasted(copy(x))
 # For broadcasting Knet primitives the following needs to be defined (see unary.jl, binary.jl)
 # f(x::Bcasted) = broadcasted(f, x.value) |> Bcasted
 # broadcasted(f,x::Bcasted) = broadcasted(f, x.value) |> Bcasted
+
+# The following fixes in-place assignment operations:
+
+import Base: copyto!
+using Base.Broadcast: Broadcasted
+
+function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T<:Tuple{<:KnetArray}}
+    b = b.args[1]
+    if size(a) == size(b)
+        copyto!(a,b)
+    else
+        fill!(a,0)
+        a .+= b
+    end
+    return a
+end
+
+function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T<:Tuple{<:Number}}
+    fill!(a,b.args[1])
+end
+
+function copyto!(a::SubArray{A,B,C,D,E},b::Broadcasted{S,X,F,T}) where {A,B,C<:KnetArray,D,E,S,X,F<:typeof(identity),T<:Tuple{<:Number}}
+    setindex!(a.parent, b.args[1], a.indices...)
+end
+
+function copyto!(a::SubArray{A,B,C,D,E},b::Broadcasted{S,X,F,T}) where {A,B,C<:KnetArray,D,E,S,X,F<:typeof(identity),T<:Tuple{<:Any}}
+    setindex!(a.parent, b.args[1], a.indices...)
+end
+
+# copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
+# copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
+

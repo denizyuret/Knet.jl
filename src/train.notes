@@ -1,0 +1,54 @@
+PROGRESSBAR:
+
+- keywords: callback, optimizer, pdrop, hidden
++ epochs, iters
+- lr
+- pdrop
+- regularization
+- gclip
+- passing hidden to rnn
+- weight decay / gclip in optimizer?
+- optimizers instead of minimize?
+- optimizers as callable objects?
+- common params and behavior of optimizers?
+- how does keras and pytorch do it?
+- converge with dev set
+- decay only applied to non-bias weights?
+- gclip different for different layers?
+
+proposal:
+> optimizer is a callable object
+> when applied to model it acts like minimize
+>   copies itself to x.opt if not already set
+> when applied to param it does an update
+> SGD(lr=0.1)(model,data) ??
+> vs SGD(model,data;lr=0.1)
+> in both cases we have an iterable like minimize
+> what do we attach to each param?
+> is sgd an iterable with kwargs or container for param specific moments and options
+
+> right now we have: minimize(model,data,SGD(lr=0.1))
+
+> everything up to J is the same, we can define a diff iterator that produces J's
+> adam(diff(model,data))
+> still same in adam and sgd => iterating over params, copying info to params, everything until update.
+> still same: how gclip and decay are handled.
+
+optimization fields:
+- lr
+- gclip
+- decay?
+- [velocity], gamma (momentum)  velocity=gamma * velocity + lr * g; w -= velocity (first moment)
+- [velocity], gamma (nesterov)  velocity=gamma * velocity - lr * g; w = w - velocity_old + (1+gamma) * velocity ???
+- [G], eps (adagrad)            G = G + g.^2; w -= g * lr / sqrt(G + eps) (second moment)
+- [G], [delta], rho, eps (adadelta)  
+- [G], rho, eps (rmsprop)
+- [fstm],[scndm],beta1,beta2,eps,t (adam)
+
+> can we assume all numeric fields same for all Params and we just need to array fields specific to each Param?
+> i.e. we do not need to repeat beta1 beta2 etc for each param, i.e. no need to copy optimizer to each param...
+
+> pause and restart training any time (use take?)
+> model has state but when we restart goes back to beginning of data => data should have state too! Stateful iterator.
+-- do we need a reset? after calling first, collect doesn't work (last elt #undef), length should change...
+-- use stateful instead? stateful(cycle(d)) works but cycle(stateful(d)) doesn't?? juliabug.

@@ -174,6 +174,36 @@ if gpu() >= 0
             zelu(x) = relu(x) + (exp(min(0,x)) - 1)
             @test isa(zelu.(KnetArray(randn(Float32,5,5))), KnetArray)
         end
+
+        @testset "inplace" begin
+            a0 = rand();    k0 = a0
+            a1 = rand(1);   k1 = ka(a1)
+            a2 = rand(2);   k2 = ka(a2)
+            a3 = rand(2,2); k3 = ka(a3)
+            a4 = rand(2,2); k4 = ka(a4)
+
+            @test (a4 .+= a3) == (k4 .+= k3); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
+            @test (a4 .+= a2) == (k4 .+= k2); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
+            @test (a4 .+= a1) == (k4 .+= k1); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
+            @test (a4 .+= a0) == (k4 .+= k0); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
+
+            @test (a4 .= a3) == (k4 .= k3); @test a4 == k4   # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
+            @test (a4 .= a2) == (k4 .= k2); @test a4 == k4   # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}})
+            @test (a4 .= a1) == (k4 .= k1); @test a4 == k4   # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}})
+            @test (a4 .= a0) == (k4 .= k0); @test a4 == k4   # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{0},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{Float64}})
+
+            @test (a4[:] = a3) == (k4[:] = k3); 	@test a4 == k4 # pass: setindex!(k4,k3,:); return k3
+            #TODO @test (a4[:] .= a1) == (k4[:] .= k1); 	@test a4 == k4 # copyto!(::SubArray{Float64,1,KnetArray{Float64,1},Tuple{Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
+            @test (a4[:] .= a3[:]) == (k4[:] .= k3[:]); @test a4 == k4 # copyto!(::SubArray{Float64,1,KnetArray{Float64,1},Tuple{Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
+            @test (a4[:] .= a0) == (k4[:] .= k0); 	@test a4 == k4 # setindex!(k4,k0,:); return k0; fail: [0.428676, 0.428676, 0.428676, 0.428676] == nothing
+
+            @test (a4[:,:] = a3) == (k4[:,:] = k3);   @test a4 == k4 # setindex!(k4,k3,:,:); return k3
+            #TODO @test (a4[:,:] .= a2) == (k4[:,:] .= k2); @test a4 == k4 # copyto!(::SubArray{Float64,2,KnetArray{Float64,2},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
+            @test (a4[:,:] .= a3) == (k4[:,:] .= k3); @test a4 == k4 # copyto!(::SubArray{Float64,2,KnetArray{Float64,2},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
+            #TODO @test (a4[:,:] .= a1) == (k4[:,:] .= k1); @test a4 == k4 # copyto!(::SubArray{Float64,2,KnetArray{Float64,2},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
+            @test (a4[:,:] .= a0) == (k4[:,:] .= k0); @test a4 == k4 # setindex!(k4,k0,:,:); return k0
+        end
+
     end # karray
 end # gpu() >= 0
 
