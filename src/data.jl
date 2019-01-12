@@ -3,7 +3,7 @@ import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslen
 import .Iterators: cycle, Cycle
 
 "Minibatched data"
-mutable struct Data; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
+mutable struct Data{T}; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
 
 """
     minibatch(x, [y], batchsize; shuffle, partial, xtype, ytype, xsize, ysize)
@@ -34,7 +34,7 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),yt
     y2 = reshape(y, :, nx)
     # indices = shuffle ? randperm(nx) : 1:nx --> do this at the beginning of for loop
     imax = partial ? nx : nx - batchsize + 1
-    Data(x2,y2,batchsize,nx,partial,imax,1:nx,shuffle,xsize,ysize,xtype,ytype)
+    Data{Tuple{xtype,ytype}}(x2,y2,batchsize,nx,partial,imax,1:nx,shuffle,xsize,ysize,xtype,ytype)
 end
 
 function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x),xsize=size(x))
@@ -42,7 +42,7 @@ function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x),xsiz
     x2 = reshape(x, :, nx)
     # indices = shuffle ? randperm(nx) : 1:nx --> do this at the beginning of for loop
     imax = partial ? nx : nx - batchsize + 1
-    Data(x2,nothing,batchsize,nx,partial,imax,1:nx,shuffle,xsize,nothing,xtype,nothing)
+    Data{xtype}(x2,nothing,batchsize,nx,partial,imax,1:nx,shuffle,xsize,nothing,xtype,nothing)
 end
 
 @propagate_inbounds function iterate(d::Data, i=0)     # returns data in d.indices[i+1:i+batchsize]
@@ -63,9 +63,7 @@ end
     end
 end
 
-function eltype(d::Data)
-    d.y === nothing ? d.xtype : Tuple{d.xtype, d.ytype}
-end
+eltype(::Type{Data{T}}) where T = T
 
 function length(d::Data)
     n = d.length / d.batchsize
