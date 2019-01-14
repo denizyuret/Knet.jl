@@ -32,17 +32,22 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),yt
     if nx != size(y)[end]; throw(DimensionMismatch()); end
     x2 = reshape(x, :, nx)
     y2 = reshape(y, :, nx)
-    # indices = shuffle ? randperm(nx) : 1:nx --> do this at the beginning of for loop
     imax = partial ? nx : nx - batchsize + 1
-    Data{Tuple{xtype,ytype}}(x2,y2,batchsize,nx,partial,imax,1:nx,shuffle,xsize,ysize,xtype,ytype)
+    # xtype,ytype may be underspecified, here we infer the exact types from the first batch:
+    ids = 1:min(nx,batchsize)
+    xt = typeof(convert(xtype, reshape(x2[:,ids],xsize[1:end-1]...,length(ids))))
+    yt = typeof(convert(ytype, reshape(y2[:,ids],ysize[1:end-1]...,length(ids))))
+    Data{Tuple{xt,yt}}(x2,y2,batchsize,nx,partial,imax,1:nx,shuffle,xsize,ysize,xtype,ytype)
 end
 
 function minibatch(x,batchsize; shuffle=false,partial=false,xtype=typeof(x),xsize=size(x))
     nx = size(x)[end]
     x2 = reshape(x, :, nx)
-    # indices = shuffle ? randperm(nx) : 1:nx --> do this at the beginning of for loop
     imax = partial ? nx : nx - batchsize + 1
-    Data{xtype}(x2,nothing,batchsize,nx,partial,imax,1:nx,shuffle,xsize,nothing,xtype,nothing)
+    # xtype may be underspecified, here we infer the exact types from the first batch:
+    ids = 1:min(nx,batchsize)
+    xt = typeof(convert(xtype, reshape(x2[:,ids],xsize[1:end-1]...,length(ids))))
+    Data{xt}(x2,nothing,batchsize,nx,partial,imax,1:nx,shuffle,xsize,nothing,xtype,nothing)
 end
 
 @propagate_inbounds function iterate(d::Data, i=0)     # returns data in d.indices[i+1:i+batchsize]
@@ -92,3 +97,6 @@ eltype(c::Cycle{Repeat}) = eltype(c.xs)
     next === nothing && return iterate(r, (epoch+1,))
     (next[1], (epoch, next[2]))
 end
+
+# Give length info in summary:
+Base.summary(d::Data) = "$(length(d))-element $(typeof(d))"

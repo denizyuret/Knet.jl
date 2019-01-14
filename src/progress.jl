@@ -20,7 +20,7 @@ progress(iter::I; width=max(64,displaysize()[2]), alpha=0.001, interval=0.1) whe
     Progress{I}(iter,0,0,time_ns(),0,Int(1e9*interval),width,alpha,Inf)
 
 progress(i::Int; o...)=progress(1:n; o...)
-progress!(x...; o...)=for x in progress(x...; o...); end
+progress!(x...; o...)=(for x in progress(x...; o...) end)
 
 length(p::Progress) = length(p.iter)
 size(p::Progress) = size(p.iter)
@@ -33,7 +33,7 @@ IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
     if next !== nothing
         p.current += 1
         (x, s) = next
-        if p.alpha > 0
+        if p.alpha > 0 && x isa Number
             p.avg = (p.avg === Inf ? value(x) : p.alpha * value(x) + (1-p.alpha) * p.avg)
         end
     end
@@ -41,9 +41,9 @@ IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
     return next
 end
 
-function display_progress(p::Progress, force=false)
+function display_progress(p::Progress, last=false)
     curr_time = time_ns()
-    if !force && (curr_time < p.print_time + p.print_interval)
+    if !last && (curr_time < p.print_time + p.print_interval)
         return
     end
     p.print_time = curr_time
@@ -97,6 +97,7 @@ function display_progress(p::Progress, force=false)
     print("┫ ")
 
     print(status_string)
+    last && println()
 end
 
 function format_time(seconds)

@@ -18,7 +18,7 @@ IteratorEltype(::Type{<:Train}) = Base.HasEltype()
     (args, s) = next
     y = @diff m.loss(m.pred, args...; m.kw...)
     m.callback !== nothing && !m.callback(y) && return nothing
-    for x in (m.params === nothing ? Params(y) : m.params)
+    for x in (m.params === nothing ? params(y) : m.params)
         if x.opt === nothing
             x.opt = clone(m.optimizer)
         end
@@ -49,7 +49,7 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
     next === nothing && return nothing
     (args, s) = next
     y = @diff m.func(args...)
-    for x in (m.params === nothing ? Params(y) : m.params)
+    for x in (m.params === nothing ? params(y) : m.params)
         if x.opt === nothing
             x.opt = clone(m.algo)
         end
@@ -89,26 +89,6 @@ IteratorEltype(::Type{Converge{I}}) where {I} = IteratorEltype(I)
     (item, (avgp, avgx, state))
 end
 
-
-# TODO: move to AutoGrad
-"Returns an iterator over Params on Tape."
-struct Params; tape::AutoGrad.Tape; end
-
-eltype(::Type{Params}) = Param
-IteratorEltype(::Type{Params}) = HasEltype()
-IteratorSize(::Type{Params}) = SizeUnknown()
-
-@propagate_inbounds function iterate(p::Params, s::Int=1)
-    next = iterate(p.tape.list, s)
-    while next !== nothing
-        (n,s) = next
-        if isa(n.Value,Param)
-            return (n.Value,s)
-        end
-        next = iterate(p.tape.list, s)
-    end
-    nothing
-end
 
 
 """
@@ -252,6 +232,28 @@ epochs(d,n)=updates(n*length(d))
 #         end
 #     end
 # end
+
+# "Returns an iterator over Params on Tape."
+# struct Params; tape::AutoGrad.Tape; end
+
+# eltype(::Type{Params}) = Param
+# IteratorEltype(::Type{Params}) = HasEltype()
+# IteratorSize(::Type{Params}) = SizeUnknown()
+
+# @propagate_inbounds function iterate(p::Params, s::Int=1)
+#     next = iterate(p.tape.list, s)
+#     while next !== nothing
+#         (n,s) = next
+#         if isa(n.Value,Param)
+#             return (n.Value,s)
+#         end
+#         next = iterate(p.tape.list, s)
+#     end
+#     nothing
+# end
+
+# # Alternative simpler definition:
+# params(t::Tape) = (n.Value for n in t.list if n.Value isa Param)
 
 ### DEAD CODE
 
