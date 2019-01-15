@@ -12,11 +12,11 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
 export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
 using Base.Iterators: cycle, take
-export cycle, take
+# export cycle, take
 
 include("gpu.jl");              export gpu
 include("uva.jl")
-include("kptr.jl");             export knetgc # KnetPtr
+include("kptr.jl");
 include("karray.jl");           export KnetArray
 include("gcnode.jl");
 include("ops.jl");

@@ -9,9 +9,7 @@ Pages = ["reference.md"]
 ## AutoGrad
 
 ```@docs
-AutoGrad.grad
-AutoGrad.gradloss
-AutoGrad.gradcheck
+AutoGrad
 ```
 
 ## KnetArray
@@ -26,6 +24,7 @@ Knet.KnetArray
 Knet.accuracy
 Knet.dir
 Knet.dropout
+Knet.elu
 Knet.gpu
 Knet.invx
 Knet.gc
@@ -35,11 +34,14 @@ Knet.logsoftmax
 Knet.logsumexp
 Knet.logistic
 Knet.bce
+Knet.bmm
 Knet.minibatch
 Knet.nll
 Knet.relu
 Knet.seed!
+Knet.selu
 Knet.sigm
+Knet.zeroone
 ```
 
 ## Convolution and Pooling
@@ -63,9 +65,9 @@ Knet.rnnparams
 ## Batch Normalization
 
 ```@docs
+Knet.batchnorm
 Knet.bnmoments
 Knet.bnparams
-Knet.batchnorm
 ```
 
 ## Optimization methods
@@ -100,7 +102,6 @@ Knet.xavier
 ## AutoGrad (advanced)
 
 ```@docs
-AutoGrad.getval
 AutoGrad.@primitive
 AutoGrad.@zerograd
 ```

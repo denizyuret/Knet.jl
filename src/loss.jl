@@ -322,6 +322,7 @@ function accuracy(model, data; dims=1, average=true, o...)
     average ? sum / cnt : sum
 end
 
+"zeroone loss is equal to 1 - accuracy"
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:
