@@ -1238,7 +1238,7 @@ function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer
 end
 
 
-# https://docs.julialang.org/en/stable/manual/types/#man-custom-pretty-printing-1
+# https://docs.julialang.org/en/v1/manual/types/#man-custom-pretty-printing-1
 # Base.show(io::IO, z): single line format used in show, print, inside other objects.
 # Base.show(io::IO, ::MIME"text/plain", z): multi-line format used by display.
 # Base.show(io::IO, ::MIME"text/html", z): multi-line format for html output.
