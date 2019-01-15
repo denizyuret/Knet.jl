@@ -10,7 +10,7 @@ using LinearAlgebra
 
 
 """
-    SGD(;lr=0.001,gclip=0)
+    SGD(;lr=0.1,gclip=0)
     update!(w,g,p::SGD)
     update!(w,g;lr=0.001)
 
