@@ -37,4 +37,4 @@ setup.sh
 Manifest.toml
 .ipynb_checkpoints
 *-Copy*ipynb
-Untitled.ipynb
+Untitled*.ipynb
