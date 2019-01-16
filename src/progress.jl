@@ -33,7 +33,7 @@ IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
     if next !== nothing
         p.current += 1
         (x, s) = next
-        if p.alpha > 0 && x isa Number
+        if p.alpha > 0 && value(x) isa Number
             p.avg = (p.avg === Inf ? value(x) : p.alpha * value(x) + (1-p.alpha) * p.avg)
         end
     end
