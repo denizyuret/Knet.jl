@@ -49,7 +49,7 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-@primitive dropout(x,p;seed=0),dy,y dropback(value.((dy,y,x,p))...)
+@primitive dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
 
 # GPU implementation
 for S in (32,64)
