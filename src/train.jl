@@ -24,7 +24,7 @@ IteratorEltype(::Type{<:Train}) = Base.HasEltype()
         end
         update!(x, grad(y,x))
     end
-    return (y,s)
+    return (value(y),s)
 end
 
 # progress(minimize(f, repeat(data,10)))
@@ -55,7 +55,7 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
         end
         update!(x, grad(y,x))
     end
-    return (y,s)
+    return (value(y),s)
 end
 
 """
