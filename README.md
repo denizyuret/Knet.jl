@@ -41,7 +41,7 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
 Here is a simple example where we define, train and test the
 [LeNet](http://yann.lecun.com/exdb/lenet) model for the
 [MNIST](http://yann.lecun.com/exdb/mnist) handwritten digit recognition dataset from scratch
-using 13 lines of code and 30 seconds of GPU computation.
+using 15 lines of code and 30 seconds of GPU computation.
 
 ```julia
 using Knet
@@ -57,16 +57,17 @@ struct Dense; w; b; f; end
 Dense(i::Int,o::Int,f=relu) = Dense(param(o,i), param0(o), f)
 
 # Define a chain of layers:
-struct Chain; layers; end
+struct Chain; layers; Chain(args...) = new(args); end
 (c::Chain)(x) = (for l in c.layers; x = l(x); end; x)
+(c::Chain)(x,y) = nll(c(x),y)
 
-# Define the LeNet model
-LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity)))
-
-# Train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
+# Load MNIST data
 include(Knet.dir("data","mnist.jl"))
 dtrn, dtst = mnistdata()
-train!(LeNet, dtrn)
+
+# Train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
+LeNet = Chain(Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity))
+progress!(adam(LeNet, repeat(dtrn,10)))
 accuracy(LeNet, dtst)
 ```
 
