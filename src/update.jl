@@ -5,9 +5,22 @@
 # pre-setting Param.opt of a parameter, in which case it will not be overriden by minimize.
 
 # TODO: handle common tasks like gclip and decay in minimize?
+# TODO: use common/consistent keyword arg names.
+
+"""
+    sgd     (func, data; lr=0.1, kw...)
+    momentum(func, data; lr=0.001, gamma=0.9, kw...)
+    nesterov(func, data; lr=0.001, gamma=0.9, kw...)
+    adagrad (func, data; lr=0.1,   eps=1e-6, kw...)
+    adadelta(func, data; lr=0.01,  rho=0.9, eps=1e-6, kw...)
+    rmsprop (func, data; lr=0.001, rho=0.9, eps=1e-6, kw...)
+    adam    (func, data; lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, kw...)
+
+    kw = gclip, params
+"""
+sgd, sgd!
 
 using LinearAlgebra
-
 
 """
     SGD(;lr=0.1,gclip=0)

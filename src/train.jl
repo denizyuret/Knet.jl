@@ -1,32 +1,5 @@
 import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, haslength, SizeUnknown, @propagate_inbounds, HasEltype
 
-"Example: `progress!(train(f,repeat(data,10)))`"
-train(pred, data::I; loss=nll, optimizer=Adam(), callback=nothing, params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,callback,params,kw,Any)
-train!(x...; o...) = for x in train(x...; o...); end
-
-struct Train{I}; data::I; pred; loss; optimizer; callback; params; kw; eltype; end
-
-length(c::Train) = length(c.data)
-size(c::Train) = size(c.data)
-eltype(c::Train) = (c.eltype === Any ? (c.eltype=typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))) : c.eltype)
-IteratorSize(::Type{Train{I}}) where {I} = IteratorSize(I)
-IteratorEltype(::Type{<:Train}) = Base.HasEltype()
-
-@propagate_inbounds function iterate(m::Train, s...)
-    next = iterate(m.data, s...)
-    next === nothing && return nothing
-    (args, s) = next
-    y = @diff m.loss(m.pred, args...; m.kw...)
-    m.callback !== nothing && !m.callback(y) && return nothing
-    for x in (m.params === nothing ? params(y) : m.params)
-        if x.opt === nothing
-            x.opt = clone(m.optimizer)
-        end
-        update!(x, grad(y,x))
-    end
-    return (value(y),s)
-end
-
 # progress(minimize(f, repeat(data,10)))
 # A stream (iterator) based implementation: minimize works like map
 # taking a stream of args and generating a stream of func values
@@ -118,7 +91,7 @@ atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 """
     train!(model, data; loss, optimizer, callback, o...)
 
-Train a model with given data.
+Train a model with given data. This function is deprecated, please use `sgd`, `adam` etc.
 
 * `model`: A callable object. `model(x; o...)` should return a prediction. `params(model)`
    will automatically iterate over model parameters.
@@ -131,7 +104,26 @@ Train a model with given data.
    if it is false. By default training will end after one pass over the data.
 * Other keyword arguments `(o...)` will be passed to `loss` and possibly by `loss` to `model`.
 """
-train!
+function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
+    ps = params(model)
+    for param in ps
+        if param.opt === nothing
+            param.opt = clone(optimizer)
+        end
+    end
+    while true
+        for (x,y) in data
+            J = @diff loss(model,x,y; o...)
+            if !callback(J)
+                return
+            end
+            for param in ps
+                g = grad(J,param)
+                update!(value(param),g,param.opt)
+            end
+        end
+    end
+end
 
 """
 Pre-defined callback function constructors:
@@ -170,28 +162,39 @@ end
 epochs(d,n)=updates(n*length(d))
 
 
+# Iterator version:
+"Example: `progress!(train(f,repeat(data,10)))`"
+train(pred, data::I; loss=nll, optimizer=Adam(), callback=nothing, params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,callback,params,kw,Any)
+
+# Let's not overwrite old train! for backward compatibility
+#train!(x...; o...) = for x in train(x...; o...); end
+
+struct Train{I}; data::I; pred; loss; optimizer; callback; params; kw; eltype; end
+
+length(c::Train) = length(c.data)
+size(c::Train) = size(c.data)
+eltype(c::Train) = (c.eltype === Any ? (c.eltype=typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))) : c.eltype)
+IteratorSize(::Type{Train{I}}) where {I} = IteratorSize(I)
+IteratorEltype(::Type{<:Train}) = Base.HasEltype()
+
+@propagate_inbounds function iterate(m::Train, s...)
+    next = iterate(m.data, s...)
+    next === nothing && return nothing
+    (args, s) = next
+    y = @diff m.loss(m.pred, args...; m.kw...)
+    m.callback !== nothing && !m.callback(y) && return nothing
+    for x in (m.params === nothing ? params(y) : m.params)
+        if x.opt === nothing
+            x.opt = clone(m.optimizer)
+        end
+        update!(x, grad(y,x))
+    end
+    return (value(y),s)
+end
+
+
 ### DEAD CODE:
 
-# function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
-#     ps = params(model)
-#     for param in ps
-#         if param.opt === nothing
-#             param.opt = clone(optimizer)
-#         end
-#     end
-#     while true
-#         for (x,y) in data
-#             J = @diff loss(model,x,y; o...)
-#             if !callback(J)
-#                 return
-#             end
-#             for param in ps
-#                 g = grad(J,param)
-#                 update!(value(param),g,param.opt)
-#             end
-#         end
-#     end
-# end
 
     ## This may be slightly faster but risky if active params change
     # if m.params === nothing
