@@ -54,10 +54,12 @@ macro dbg(_x); end
     end
 
     @testset "literal-pow" begin # issue #412
-        date("binary: literal-pow")
-        a = rand(3,5)
-        k = KnetArray(a)
-        @test isapprox(a .^ 2, k .^ 2)
+        if gpu() >= 0
+            date("binary: literal-pow")
+            a = rand(3,5)
+            k = KnetArray(a)
+            @test isapprox(a .^ 2, k .^ 2)
+        end
     end
 
     @testset "array-vector" begin
