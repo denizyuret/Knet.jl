@@ -106,6 +106,14 @@ AutoGrad.@primitive
 AutoGrad.@zerograd
 ```
 
+## File I/O
+```@docs
+Knet.save
+Knet.load
+Knet.@save
+Knet.@load
+```
+
 ## Function Index
 
 ```@index
