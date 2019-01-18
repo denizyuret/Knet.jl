@@ -37,6 +37,7 @@ Knet.bce
 Knet.bmm
 Knet.minibatch
 Knet.nll
+Knet.progress
 Knet.relu
 Knet.seed!
 Knet.selu
