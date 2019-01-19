@@ -73,7 +73,7 @@ The first form returns `Param(atype(array))` where `atype=identity` is the defau
 
 The second form Returns a randomly initialized `Param(atype(init(dims...)))`.
 By default, `init` is `xavier` and `atype` is `KnetArray{Float32}` if `gpu() >= 0`,
-otherwise `Array{Float32}`. 
+`Array{Float32}` otherwise. 
 
 The third form `param0` is an alias for `param(dims...; init=zeros)`.
 """

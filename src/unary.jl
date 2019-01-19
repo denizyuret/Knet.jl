@@ -79,7 +79,9 @@ end
     relu(x)
 Return `max(0,x)`.
 
-Reference: Rectified Linear Units Improve Restricted Boltzmann Machines (https://icml.cc/Conferences/2010/abstracts.html#432).
+References: 
+* [Nair and Hinton, 2010](https://icml.cc/Conferences/2010/abstracts.html#432). Rectified Linear Units Improve Restricted Boltzmann Machines. ICML.
+* [Glorot, Bordes and Bengio, 2011](http://proceedings.mlr.press/v15/glorot11a). Deep Sparse Rectifier Neural Networks. AISTATS.
 """
 relu
 

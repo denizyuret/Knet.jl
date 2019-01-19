@@ -22,19 +22,18 @@ Knet.KnetArray
 
 ```@docs
 Knet.accuracy
+Knet.bce
+Knet.bmm
 Knet.dir
 Knet.dropout
 Knet.elu
+Knet.gc
 Knet.gpu
 Knet.invx
-Knet.gc
-Knet.softmax
+Knet.logistic
 Knet.logp
 Knet.logsoftmax
 Knet.logsumexp
-Knet.logistic
-Knet.bce
-Knet.bmm
 Knet.mat
 Knet.minibatch
 Knet.nll
@@ -43,6 +42,8 @@ Knet.relu
 Knet.seed!
 Knet.selu
 Knet.sigm
+Knet.softmax
+Knet.training
 Knet.zeroone
 ```
 
@@ -87,6 +88,7 @@ Knet.hyperband
 ## Initialization
 
 ```@docs
+Knet.param
 Knet.bilinear
 Knet.gaussian
 Knet.xavier
