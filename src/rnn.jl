@@ -300,9 +300,9 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
 
 """
-    rnnparam(r::RNN, w, layer, id, param)
+    rnnparam(r::RNN, layer, id, param)
 
-Return a single weight matrix or bias vector as a slice of w.
+Return a single weight matrix or bias vector as a slice of RNN weights.
 
 Valid `layer` values:
 * For unidirectional RNNs 1:numLayers
@@ -322,8 +322,8 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
 * For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
 """
-function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
-    # w could be a Value, KnetArray, or Array so typing w::KnetArray{T} is not an option
+function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
+    w = r.w
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -408,9 +408,9 @@ end
 
 
 """
-    rnnparams(r::RNN, w)
+    rnnparams(r::RNN)
 
-Split w into individual parameters and return them as an array.
+Return the RNN parameters as an Array{Any}.
 
 The order of params returned (subject to change):
 * All weight matrices come before all bias vectors.
@@ -418,14 +418,14 @@ The order of params returned (subject to change):
 * See @doc rnnparam for valid layer and id values.
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 """
-function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
+function rnnparams(r::RNN; handle=gethandle(), useview=false)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = rnnids(r)
     ws = []
     for m in (1,2)
         for l in 1:layers
             for i in 1:ids
-                push!(ws, rnnparam(r, w, l, i, m; handle=handle, useview=useview))
+                push!(ws, rnnparam(r, l, i, m; handle=handle, useview=useview))
             end
         end
     end
