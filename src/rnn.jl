@@ -12,12 +12,25 @@
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
+# New interface: added w as an extra field to the RNN struct. Did not change anything else
+# above for backward compatibility.
+
+# For hidden input and output: if hidden=nothing (default) do not initialize hx or return
+# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
+# during diff hy will be a Result type and will need to be cleaned up with `hidden =
+# value.(hidden)` after the back/update.
+
+# Alternatives:
+## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
+## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
+## use it in loss, except using it as hx for another rnn call.
+# making hidden a regular arg may be more meaningful (but one that gets overwritten?)
+
 "RNN descriptor"
 mutable struct RD; ptr; end
 
 "Dropout descriptor"
 mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
-
 
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
@@ -97,7 +110,8 @@ following equations:
     c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
     h[t] = o[t] .* tanh(c[t])
 """
-mutable struct RNN
+mutable struct RNN{T}
+    w::Param{T}
     inputSize::Cint
     hiddenSize::Cint
     numLayers::Cint
@@ -113,24 +127,64 @@ mutable struct RNN
     dx
     dhx
     dcx
-    w
 end
 
-RNN(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...); r.w=param(w); r)
+@deprecate rnninit RNN
+LSTM(x...; o...) = RNN(x...; o..., rnnType=:lstm)
+GRU(x...; o...) = RNN(x...; o..., rnnType=:gru)
+RNNRELU(x...; o...) = RNN(x...; o..., rnnType=:relu)
+RNNTANH(x...; o...) = RNN(x...; o..., rnnType=:tanh)
 
-# New interface: added w as an extra field to the RNN struct. Did not change anything else
-# above for backward compatibility.
-
-# For hidden input and output: if hidden=nothing (default) do not initialize hx or return
-# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
-# during diff hy will be a Result type and will need to be cleaned up with `hidden =
-# value.(hidden)` after the back/update.
-
-# Alternatives:
-## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
-## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
-## use it in loss, except using it as hx for another rnn call.
-# making hidden a regular arg may be more meaningful (but one that gets overwritten?)
+function RNN(inputSize, hiddenSize;
+             handle=gethandle(),
+             numLayers=1,
+             dropout=0.0,
+             skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
+             bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+             rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+             dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+             algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+             seed=0,              # seed=0 for random init, positive integer for replicability
+             winit=xavier,
+             binit=zeros,
+             usegpu=(gpu()>=0),
+             )
+    inputSize = Cint(inputSize)
+    hiddenSize = Cint(hiddenSize)
+    numLayers = Cint(numLayers)
+    dropout = Float64(dropout)
+    seed = Culonglong(seed)
+    inputMode = Cint(skipInput ? 1 : 0)
+    direction = Cint(bidirectional ? 1 : 0)
+    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
+    if mode == nothing; error("RNN: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = Cint(mode - 1)
+    algo = Cint(algo)
+    @assert dataType isa DataType
+    if usegpu
+        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
+        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
+        w = Param(KnetArray{dataType}(undef,1,1,1)) # to get the right type
+        r = RNN(w,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+        r.w = Param(KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
+    else
+        w = Param(Array{dataType}(undef,1,1,1)) # to get the right type
+        r = RNN(w,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
+        r.w = param(Array{dataType}(undef,1,1,getRNNParamsSize(r)))
+    end
+    for a in rnnparams(r; handle=handle, useview=true)
+        if a == nothing
+            continue
+        elseif ndims(a) == 2
+            copyto!(a, winit(dataType, size(a)))
+        elseif ndims(a) == 1
+            copyto!(a, binit(dataType, size(a)))
+        else
+            error("Invalid RNN param $(summary(a))")
+        end
+    end
+    return r
+end
 
 function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
     tr = !isempty(AutoGrad._tapes)
@@ -218,6 +272,21 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
         hiddenMatrices = (r.direction == 1 ? (L-1)*I : (L-1)*I + div(I,2))
         biases * H + inputMatrices * X * H + hiddenMatrices * H * H
     end
+end
+
+function getRNNParamsSize(r::RNN)
+    whidden = r.hiddenSize * r.hiddenSize
+    winput =  r.inputMode == 1 ? 0 : r.hiddenSize * r.inputSize
+    bhidden = r.hiddenSize
+    binput =  bhidden
+    coef = (r.mode == 2 ? 4 : r.mode == 3 ? 3 : 1) * (1 + r.direction)
+    nparams = 0
+    for i = 1:r.numLayers
+        nparams += coef * (whidden + winput + bhidden + binput)
+        winput = (1 + r.direction) * whidden
+        binput = bhidden
+    end
+    nparams
 end
 
 "Keeps an array of 3D tensor descriptors"
@@ -318,12 +387,11 @@ Valid `param` values:
 * Return the bias vector if `param==2`.
 
 The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
-* For skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.
-* For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
-* For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
+* For skipInput=false (default), rnnparam(r,1,I,1) is a (inputSize,hiddenSize) matrix.
+* For skipInput=true, rnnparam(r,1,I,1) is `nothing`.
+* For bidirectional, the same applies to rnnparam(r,2,I,1): the first back layer.
 """
 function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
-    w = r.w
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -332,7 +400,8 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
     i1 = i2 = len = 0
-    if isa(value(w), KnetArray)
+    w = value(r.w)
+    if isa(w, KnetArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
         wDesc = FD(T,1,1,length(w))
@@ -344,7 +413,7 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, value(w),
+                  xDesc, wDesc, w,
                   id-1, paramDesc, param)
         else # bias
             @cudnn(cudnnGetRNNLinLayerBiasParams,
@@ -352,7 +421,7 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, value(w),
+                  xDesc, wDesc, w,
                   id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
@@ -399,10 +468,10 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         nothing
     elseif par == 1 # matrix
         h = Int(r.hiddenSize)
-        reshape(access(w, i1:i2),
+        reshape(access(r.w, i1:i2),
                 (div(len,h),h)) # weight matrices are transposed
     else # bias
-        access(w, i1:i2)
+        access(r.w, i1:i2)
     end
 end
 
@@ -432,64 +501,7 @@ function rnnparams(r::RNN; handle=gethandle(), useview=false)
     return ws
 end
 
-function rnninit(inputSize, hiddenSize;
-                 handle=gethandle(),
-                 numLayers=1,
-                 dropout=0.0,
-                 skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
-                 bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
-                 rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-                 dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-                 algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
-                 seed=0,              # seed=0 for random init, positive integer for replicability
-                 winit=xavier,
-                 binit=zeros,
-                 usegpu=(gpu()>=0),
-                 )
-    inputMode = skipInput ? 1 : 0
-    direction = bidirectional ? 1 : 0
-    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
-    if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
-    mode = mode - 1
-    if usegpu
-        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
-        w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
-    else
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
-        # TODO: make this a separate function?
-        w = begin
-            whidden = hiddenSize * hiddenSize
-            winput =  skipInput ? 0 : hiddenSize * inputSize
-            bhidden = hiddenSize
-            binput =  bhidden
-            coef = (mode == 2 ? 4 : mode == 3 ? 3 : 1) * (1 + direction)
-            nparams = 0
-            for i = 1:r.numLayers
-                nparams += coef * (whidden + winput + bhidden + binput)
-                winput = (1 + direction) * whidden
-                binput = bhidden
-            end
-            Array{dataType}(undef,1,1,nparams)
-        end
-    end
-    for a in rnnparams(r,w; handle=handle, useview=true)
-        if a == nothing
-            continue
-        elseif ndims(a) == 2
-            copyto!(a, winit(dataType, size(a)))
-        elseif ndims(a) == 1
-            copyto!(a, binit(dataType, size(a)))
-        else
-            error()
-        end
-    end
-    return (r,w)
-end
-
-
-function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
+function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
                  handle=cudnnhandle(), training=false,
@@ -497,7 +509,7 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  ) where {T}
-
+    @assert value(r.w) === value(w)
     # Input descriptors
     if size(x,1) != r.inputSize
         throw(DimensionMismatch("size(x,1)=$(size(x,1)) does not match r.inputSize=$(r.inputSize)"))
@@ -590,6 +602,7 @@ end
 @primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+    @assert value(r.w) === value(w)
     y,hy,cy,rs = value(t)
     dy,dhy,dcy,drs = value(dt)
     r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
@@ -605,7 +618,7 @@ end
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                  dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
-
+    @assert value(r.w) === value(w)
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
@@ -692,11 +705,12 @@ function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  o...) where {T}
+    @assert value(r.w) === value(w)
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
-rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:AbstractArray} = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::Value{<:AbstractArray}, x...; o...) = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
@@ -708,7 +722,8 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     if batchSizes != nothing
         return rnntest_bs(batchSizes,r, ws, x, hx, cx; hy=hy, cy=cy, o...)
     end
-    w = rnnparams(r,ws)
+    @assert value(r.w) === value(ws)
+    w = rnnparams(r)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
     @assert X == r.inputSize
     Y = Int(r.hiddenSize * (r.direction == 1 ? 2 : 1))
@@ -882,6 +897,7 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
                     o...)
     # TODO: fix this implementation
     error("Implementation of batchSizes is not completed in CPU")
+    @assert value(r.w) === value(w)
     # Here needs reshaping hidden sizes
     if length(Set{Int}(batchSizes)) == 1
         x_ = reshape(x, (r.inputSize, div(size(x,2), batchSizes[1]), batchSizes[1]))

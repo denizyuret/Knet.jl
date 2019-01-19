@@ -4,7 +4,7 @@
 # - test keepstate
 
 include("header.jl")
-using Knet: rnntest
+using Knet: rnntest, rnnforw
 
 if gpu() >= 0; @testset "rnn" begin
 
@@ -34,11 +34,14 @@ if gpu() >= 0; @testset "rnn" begin
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
         Knet.seed!(2)
 
-        (r,w) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier) # binit=zeros does not pass gchk
-        (rcpu,wcpu) = rnninit(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier, usegpu=false)
+        r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier) # binit=zeros does not pass gchk
+        w = value(r.w)
+        rcpu = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier, usegpu=false)
+        wcpu = value(rcpu.w)
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
-        wcpu = Array(w)
+        wcpu = rcpu.w.value = Array(w)
+        @test value(rcpu.w) === wcpu
         HL = BI ? 2L : L
         BT = B*T
 
