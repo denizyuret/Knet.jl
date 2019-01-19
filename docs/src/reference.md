@@ -35,6 +35,7 @@ Knet.logsumexp
 Knet.logistic
 Knet.bce
 Knet.bmm
+Knet.mat
 Knet.minibatch
 Knet.nll
 Knet.progress
@@ -50,7 +51,6 @@ Knet.zeroone
 ```@docs
 Knet.conv4
 Knet.deconv4
-Knet.mat
 Knet.pool
 Knet.unpool
 ```
@@ -74,15 +74,7 @@ Knet.bnparams
 ## Optimization methods
 
 ```@docs
-Knet.update!
-Knet.optimizers
-Knet.Adadelta
-Knet.Adagrad
-Knet.Adam
-Knet.Momentum
-Knet.Nesterov
-Knet.Rmsprop
-Knet.SGD
+Knet.sgd
 ```
 
 ## Hyperparameter optimization
