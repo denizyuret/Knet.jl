@@ -27,7 +27,7 @@ include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permut
 include("bmm.jl");              export bmm # matmul, axpy!, transpose, (i)permutedims
 include("conv.jl");             export conv4, pool, deconv4, unpool
 include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
-include("rnn.jl");              export rnnforw, rnninit, rnnparam, rnnparams, RNN # TODO: deprecate old interface
+include("rnn.jl");              export RNN, rnnparam, rnnparams
 include("data.jl");             export Data, minibatch
 include("progress.jl");         export progress, progress!
 include("train.jl");		export train, train!, minimize, minimize!, converge, converge!, param, param0
