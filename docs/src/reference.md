@@ -89,9 +89,9 @@ Knet.hyperband
 
 ```@docs
 Knet.param
-Knet.bilinear
-Knet.gaussian
 Knet.xavier
+Knet.gaussian
+Knet.bilinear
 ```
 
 ## AutoGrad (advanced)
