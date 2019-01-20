@@ -5,7 +5,7 @@ import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, 
 # taking a stream of args and generating a stream of func values
 # except applying gradient based updates to params at each step
 
-"Example: `minimize(f,repeat(data,10))`"
+#"Example: `minimize(f,repeat(data,10))`"
 minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params,Any)
 minimize!(x...; o...) = for x in minimize(x...; o...); end
 
@@ -105,6 +105,7 @@ Train a model with given data. This function is deprecated, please use `sgd`, `a
 * Other keyword arguments `(o...)` will be passed to `loss` and possibly by `loss` to `model`.
 """
 function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1), o...)
+    @warn "train! is deprecated, use sgd!, adam! etc. instead." maxlog=1
     ps = params(model)
     for param in ps
         if param.opt === nothing
@@ -162,36 +163,35 @@ end
 epochs(d,n)=updates(n*length(d))
 
 
-# Iterator version:
-"Example: `progress!(train(f,repeat(data,10)))`"
-train(pred, data::I; loss=nll, optimizer=Adam(), callback=nothing, params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,callback,params,kw,Any)
+# # Iterator version:
+# "Example: `progress!(train(f,repeat(data,10)))`"
+# train(pred, data::I; loss=nll, optimizer=Adam(), callback=nothing, params=nothing, kw...) where {I} = Train{I}(data,pred,loss,optimizer,callback,params,kw,Any)
 
-# Let's not overwrite old train! for backward compatibility
-#train!(x...; o...) = for x in train(x...; o...); end
+# # Let's not overwrite old train! for backward compatibility
+# #train!(x...; o...) = for x in train(x...; o...); end
 
-struct Train{I}; data::I; pred; loss; optimizer; callback; params; kw; eltype; end
+# struct Train{I}; data::I; pred; loss; optimizer; callback; params; kw; eltype; end
 
-length(c::Train) = length(c.data)
-size(c::Train) = size(c.data)
-eltype(c::Train) = (c.eltype === Any ? (c.eltype=typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))) : c.eltype)
-IteratorSize(::Type{Train{I}}) where {I} = IteratorSize(I)
-IteratorEltype(::Type{<:Train}) = Base.HasEltype()
+# length(c::Train) = length(c.data)
+# size(c::Train) = size(c.data)
+# eltype(c::Train) = (c.eltype === Any ? (c.eltype=typeof(@diff c.loss(c.pred,first(c.data)...;c.kw...))) : c.eltype)
+# IteratorSize(::Type{Train{I}}) where {I} = IteratorSize(I)
+# IteratorEltype(::Type{<:Train}) = Base.HasEltype()
 
-@propagate_inbounds function iterate(m::Train, s...)
-    next = iterate(m.data, s...)
-    next === nothing && return nothing
-    (args, s) = next
-    y = @diff m.loss(m.pred, args...; m.kw...)
-    m.callback !== nothing && !m.callback(y) && return nothing
-    for x in (m.params === nothing ? params(y) : m.params)
-        if x.opt === nothing
-            x.opt = clone(m.optimizer)
-        end
-        update!(x, grad(y,x))
-    end
-    return (value(y),s)
-end
-
+# @propagate_inbounds function iterate(m::Train, s...)
+#     next = iterate(m.data, s...)
+#     next === nothing && return nothing
+#     (args, s) = next
+#     y = @diff m.loss(m.pred, args...; m.kw...)
+#     m.callback !== nothing && !m.callback(y) && return nothing
+#     for x in (m.params === nothing ? params(y) : m.params)
+#         if x.opt === nothing
+#             x.opt = clone(m.optimizer)
+#         end
+#         update!(x, grad(y,x))
+#     end
+#     return (value(y),s)
+# end
 
 ### DEAD CODE:
 

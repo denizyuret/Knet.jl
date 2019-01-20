@@ -171,7 +171,10 @@ function gc(dev=gpu())
     GC.enable(true); GC.gc()
 end
 
-@deprecate knetgc Knet.gc
+function knetgc()
+    @warn "knetgc is deprecated, use Knet.gc instead" maxlog=1
+    Knet.gc()
+end
 
 # Some utilities
 meminfo(i=gpu())=(KnetMems==nothing ? [] : [(k,v.nptr,length(v.free)) for (k,v) in KnetMems[i+1].pools])

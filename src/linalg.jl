@@ -8,7 +8,7 @@ import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
 import LinearAlgebra.BLAS: gemm!, scal!
 import LinearAlgebra: rmul!, lmul!, axpy!
 # import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
-export axpy!
+# export axpy!
 
 # AutoGrad defines: @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
 # We specialize it below to avoid transposes

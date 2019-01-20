@@ -127,12 +127,6 @@ mutable struct RNN{T}
     dcx
 end
 
-@deprecate rnninit RNN
-LSTM(x...; o...) = RNN(x...; o..., rnnType=:lstm)
-GRU(x...; o...) = RNN(x...; o..., rnnType=:gru)
-RNNRELU(x...; o...) = RNN(x...; o..., rnnType=:relu)
-RNNTANH(x...; o...) = RNN(x...; o..., rnnType=:tanh)
-
 function RNN(inputSize, hiddenSize;
              h=nothing, c=nothing,
              handle=gethandle(),
@@ -715,7 +709,7 @@ function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
-rnnforw(r::RNN, w::Value{<:AbstractArray}, x...; o...) = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::AutoGrad.Value{<:AbstractArray}, x...; o...) = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
@@ -959,4 +953,24 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
         end
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
+end
+
+
+## DEPRECATED:
+function rnninit(x...; o...)
+    @warn "rnninit is deprecated, use RNN instead" maxlog=1
+    r=RNN(x...; o...)
+    return (r,r.w)
+end
+
+function rnnparams(r,w;o...)
+    @warn "rnnparams(r,w) is deprecated, use rnnparams(r) instead" maxlog=1
+    @assert value(w)===value(r.w)
+    rnnparams(r;o...)
+end
+
+function rnnparam(r,w,l,i,d;o...)
+    @warn "rnnparam(r,w,l,i,d) is deprecated, use rnnparam(r,l,i,d) instead" maxlog=1
+    @assert value(w)===value(r.w)
+    rnnparam(r,l,i,d;o...)
 end

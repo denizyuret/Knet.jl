@@ -225,7 +225,7 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
-const NAVK = Union{Number,AbstractArray,Value,KnetArray}
+const NAVK = Union{Number,AbstractArray,AutoGrad.Value,KnetArray}
 cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
 if isdefined(AutoGrad,:Arg); @eval begin
     AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
@@ -411,10 +411,10 @@ end
 # @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Value{K}),dy 0 KnetArray(dy)
 
 # So we will define gradients for convert, KnetArray, Array manually:
-Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
-KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+Base.Array(x::AutoGrad.Value{K}) where {K<:KnetArray}=convert(Array,x)
+KnetArray(x::AutoGrad.Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
+convert(::Type{A},x::AutoGrad.Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
+convert(::Type{K},x::AutoGrad.Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
 if isdefined(AutoGrad,:Arg); @eval begin
     AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
 end; else; @eval begin
@@ -1271,7 +1271,7 @@ summary(io::IO, a::KnetDisplay) = summary(io, a.a)
 summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
 show(io::IO, a::KnetArray) = (print(io,"K"); show(io, KnetDisplay(a)))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
-summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+summary(io::IO, x::AutoGrad.Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
 
 
 ## Broadcasting:

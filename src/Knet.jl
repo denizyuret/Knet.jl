@@ -1,43 +1,132 @@
 module Knet
-using Libdl
-# using LinearAlgebra, Statistics, SpecialFunctions, Libdl
 
 # To see debug output, start julia with `JULIA_DEBUG=Knet julia`
 # To perform profiling, set ENV["KNET_TIMER"] to "true" and rebuild Knet. (moved this to gpu.jl)
 # The @dbg macro below evaluates `ex` only when debugging. The @debug macro prints stuff as documented in Julia.
 macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
-const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
+export
+    accuracy,	# ref
+    adadelta!,	# ref
+    Adadelta,	# ref
+    adadelta,	# ref
+    adagrad!,	# ref
+    Adagrad,	# ref
+    adagrad,	# ref
+    adam!,	# ref
+    Adam,	# ref
+    adam,	# ref
+    batchnorm,	# ref
+    bce,	# ref
+    bilinear,	# ref
+    bmm,	# ref
+    bnmoments,	# ref
+    bnparams,	# ref
+    cat1d,	# ref
+    conv4,	# ref
+    converge!,	# ref
+    converge,	# ref
+    cpucopy,	# ref
+    #Data,	# use Knet.Data
+    deconv4,	# ref
+    @diff,	# ref
+    #dir,	# ref, use Knet.dir
+    dropout,	# ref
+    elu,	# ref
+    #epochs,	# deprecated, use repeat(data,n)
+    gaussian,	# ref
+    #gc,  	# ref, use Knet.gc
+    #@gheck,	# ref, use AutoGrad.@gcheck
+    goldensection, # ref
+    gpu,	# ref
+    gpucopy,	# ref
+    grad,	# ref
+    gradloss,	# ref
+    hyperband,	# ref
+    invx,	# ref
+    KnetArray,	# ref
+    knetgc,     # deprecated, use Knet.gc
+    #load,	# ref
+    #@load,	# ref
+    logistic,	# ref
+    logp,	# ref
+    logsoftmax,	# ref
+    logsumexp,	# ref
+    mat,	# ref
+    minibatch,	# ref
+    #minimize!,	# use sgd!, adam! etc.
+    #minimize,	# use sgd, adam etc.
+    momentum!,	# ref
+    Momentum,	# ref
+    momentum,	# ref
+    nesterov!,	# ref
+    Nesterov,	# ref
+    nesterov,	# ref
+    nll,	# ref
+    optimizers,	# deprecated, use sgd etc.
+    Param,	# ref
+    param,	# ref
+    param0,	# ref
+    params,	# ref
+    pool,	# ref
+    #@primitive, # ref, use AutoGrad.@primitive
+    progress!,	# ref
+    progress,	# ref
+    relu,	# ref
+    rmsprop!,	# ref
+    Rmsprop,	# ref
+    rmsprop,	# ref
+    RNN,	# ref
+    rnninit,    # deprecated, use RNN
+    rnnparam,	# ref, rnnparam(r,w,l,i,d) deprecated, use rnnparam(r,l,i,d)
+    rnnparams,	# ref, rnnparams(r,w) deprecated, use rnnparams(r)
+    #save,	# ref, use Knet.save
+    #@save,	# ref, use Knet.@save
+    #seed!,	# ref, use Knet.seed!
+    selu,	# ref
+    setseed,	# deprecated, use Knet.seed!
+    sgd!,	# ref
+    SGD,	# ref
+    Sgd,	# deprecated, use SGD
+    sgd,	# ref
+    sigm,	# ref
+    softmax,	# ref
+    train!,	# deprecated, use sgd, adam etc.
+    #train,	# deprecated, use sgd, adam etc.
+    training,	# ref
+    unpool,	# ref
+    update!,	# ref
+    #updates,	# deprecated, use take(cycle(data),n)
+    value,	# ref
+    xavier,	# ref
+    #@zerograd, # ref, use AutoGrad.@zerograd
+    zeroone	# ref
 
-using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
-export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
-using Base.Iterators: cycle, take
-# export cycle, take
-
-include("gpu.jl");              export gpu
+using AutoGrad
+include("gpu.jl");              # gpu
 include("uva.jl")
 include("kptr.jl");
-include("karray.jl");           export KnetArray
+include("karray.jl");           # KnetArray
 include("gcnode.jl");
 include("ops.jl");
-include("unary.jl");            export relu, sigm, invx, elu, selu
+include("unary.jl");            # relu, sigm, invx, elu, selu
 include("binary.jl");           # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, mean, etc.
-include("linalg.jl");           export mat # matmul, axpy!, transpose, (i)permutedims
-include("bmm.jl");              export bmm # matmul, axpy!, transpose, (i)permutedims
-include("conv.jl");             export conv4, pool, deconv4, unpool
-include("batchnorm.jl");        export batchnorm, bnmoments, bnparams
-include("rnn.jl");              export RNN, rnnparam, rnnparams
-include("data.jl");             export Data, minibatch
-include("progress.jl");         export progress, progress!
-include("train.jl");		export train, train!, minimize, minimize!, converge, converge!, param, param0
-include("loss.jl");             export logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
-include("dropout.jl");          export dropout
-include("update.jl"); 		export SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
-include("distributions.jl"); 	export gaussian, xavier, bilinear
-include("random.jl");           export setseed  # TODO: deprecate setseed
-include("hyperopt.jl");         export hyperband, goldensection
-include("serialize.jl");        export gpucopy,cpucopy
+include("linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
+include("bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
+include("conv.jl");             # conv4, pool, deconv4, unpool
+include("batchnorm.jl");        # batchnorm, bnmoments, bnparams
+include("rnn.jl");              # RNN, rnnparam, rnnparams
+include("data.jl");             # Data, minibatch
+include("progress.jl");         # progress, progress!
+include("train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
+include("loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
+include("dropout.jl");          # dropout
+include("update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
+include("distributions.jl"); 	# gaussian, xavier, bilinear
+include("random.jl");           # setseed  # TODO: deprecate setseed
+include("hyperopt.jl");         # hyperband, goldensection
+include("serialize.jl");        # gpucopy,cpucopy
 include("jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
 
 
@@ -78,5 +167,8 @@ end
 #     Expr(:block,:(using Pkg),a...)
 # end
 # export @use
+
+#using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
+#export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
 
 end # module

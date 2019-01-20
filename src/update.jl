@@ -9,6 +9,7 @@
 # https://jlmelville.github.io/mize/nesterov.html
 
 """
+    minimize(func, data, optimizer=Adam(); params)
     sgd     (func, data; lr=0.1,  gclip, params)
     momentum(func, data; lr=0.05, gamma=0.95, gclip, params)
     nesterov(func, data; lr=0.05, gamma=0.95, gclip, params)
@@ -31,9 +32,9 @@ norm is equal to `gclip`. If not specified no gradient clipping is performed.
 
 These functions do not perform optimization, but return an iterator that can. Any function
 that produces values from an iterator can be used with such an object, e.g.
-`progress!(sgd(f,d))` iterates the sgd optimizer and displays a progress bar. For
-convenience, appending `!` to the name of the function iterates and returns `nothing`,
-i.e. `sgd!(...)` is equivalent to `(for x in sgd(...) end)`.
+`progress!(sgd(f,d))` iterates the sgd optimizer and displays a progress bar. For convenience,
+appending `!` to the name of the function iterates and returns `nothing`, i.e. `sgd!(...)` is
+equivalent to `(for x in sgd(...) end)`.
 
 We define optimizers as lazy iterators to have explicit control over them:
 * To report progress use `progress(sgd(f,d))`.
@@ -42,9 +43,18 @@ We define optimizers as lazy iterators to have explicit control over them:
 * To run a given number of iterations use `sgd(f,take(cycle(d),n))`.
 * To do a task every n iterations use `(task() for (i,j) in enumerate(sgd(f,d)) if i%n == 1)`.
 
-To use different algorithms or coefficients for different parameters you can set the `opt`
-field of the relevant `Param` to one of the optimization specs listed in `@doc update!`. The
-parameter specific optimization spec overrides the global algorithm and its options.
+These functions apply the same algorithm with the same configuration to every parameter by
+default. `minimize` takes an explicit optimizer argument, all others call `minimize` with an
+appropriate optimizer argument (see `@doc update!` for a list of possible optimizers). Before
+calling [`update!`](@ref) on a `Param`, `minimize` sets its `opt` field to a copy of this
+default optimizer if it is not already set. The `opt` field is used by the `update!` function
+to determine the type of update performed on that parameter.  If you need finer grained
+control, you can set the optimizer of an individual `Param` by setting its `opt` field before
+calling one of these functions. They will not override the `opt` field if it is already set,
+e.g. `sgd(model,data)` will perform an `Adam` update for a parameter whose `opt` field is an
+`Adam` object. This also means you can stop and start the training without losing optimization
+state, the first call will set the `opt` fields and the subsequent calls will not override
+them.
 
 Given a parameter `w` and its gradient `g` here are the updates applied by each optimizer:
 
@@ -82,7 +92,7 @@ Given a parameter `w` and its gradient `g` here are the updates applied by each 
     w = w - (lr / (sqrt(Ghat) + eps)) * vhat
 
 """
-sgd, sgd!, momentum, momentum!, nesterov, nesterov!, adagrad, adagrad!, rmsprop, rmsprop!, adadelta, adadelta!, adam, adam!
+minimize, minimize!, sgd, sgd!, momentum, momentum!, nesterov, nesterov!, adagrad, adagrad!, rmsprop, rmsprop!, adadelta, adadelta!, adam, adam!
 
 using LinearAlgebra
 
@@ -123,7 +133,10 @@ sgd!(x...;o...)=for y in sgd(x...;o...); end
 
 clone(s::SGD)=SGD(s.lr,s.gclip)
 
-@deprecate Sgd SGD
+function Sgd(x...;o...)
+    @warn "Sgd is deprecated, use SGD instead." maxlog=1
+    SGD(x...; o...)
+end
 
 """
     Momentum(;lr=0.05, gclip=0, gamma=0.95)
@@ -397,54 +410,48 @@ adam!(x...;o...)=for y in adam(x...;o...); end
 
 clone(a::Adam)=Adam(a.lr,a.beta1,a.beta2,a.eps,0,a.gclip,nothing,nothing)
 
-"Update parameter x using its gradient g, assumes x.opt is set."
-update!(x::Param, g) = update!(x.value, g, x.opt)
-
 """
-    update!(weights, gradients, params)
+    update!(weights::Param, gradients)
     update!(weights, gradients; lr=0.1, gclip=0)
+    update!(weights, gradients, optimizers)
 
-Update the `weights` using their `gradients` and the optimization
-algorithm parameters specified by `params`.  The 2-arg version
-defaults to the [`SGD`](@ref) algorithm with learning rate `lr` and
-gradient clip `gclip`.  `gclip==0` indicates no clipping. The
-`weights` and possibly `gradients` and `params` are modified in-place.
+Update the `weights` using their `gradients` and the optimization algorithms specified using
+(1) the `opt` field of a `Param`, (2) keyword arguments, (3) the third argument.
 
-`weights` can be an individual numeric array or a collection of arrays
-represented by an iterator or dictionary.  In the individual case,
-`gradients` should be a similar numeric array of `size(weights)` and
-`params` should be a single object.  In the collection case, each
-individual weight array should have a corresponding params object.
-This way different weight arrays can have their own optimization
-state, different learning rates, or even different optimization
-algorithms running in parallel.  In the iterator case, `gradients` and
-`params` should be iterators of the same length as `weights` with
-corresponding elements.  In the dictionary case, `gradients` and
-`params` should be dictionaries with the same keys as `weights`.
+`weights` can be an individual `Param`, numeric array, or a collection of arrays/Params
+represented by an iterator or dictionary. `gradients` should be a matching individual array or
+collection. In the first form, the optimizer should be specified in `weights.opt`. In the
+second form the optimizer defaults to [`SGD`](@ref) with learning rate `lr` and gradient clip
+`gclip`. In the third form `optimizers` should be a matching individual optimizer or
+collection of optimizers.  The `weights` and possibly `gradients` and `optimizers` are
+modified in-place.
 
-Individual optimization parameters can be one of the following
-types. The keyword arguments for each type's constructor and their
-default values are listed as well.
+Individual optimization parameters can be one of the following types. The keyword arguments
+for each constructor and their default values are listed as well.
 
 * [`SGD`](@ref)`(;lr=0.1, gclip=0)`
-* [`Momentum`](@ref)`(;lr=0.05, gclip=0, gamma=0.95)`
-* [`Nesterov`](@ref)`(;lr=0.05, gclip=0, gamma=0.95)`
-* [`Adagrad`](@ref)`(;lr=0.05, gclip=0, eps=1e-6)`
-* [`Rmsprop`](@ref)`(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)`
-* [`Adadelta`](@ref)`(;lr=1.0, gclip=0, rho=0.9, eps=1e-6)`
-* [`Adam`](@ref)`(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)`
+* [`Momentum`](@ref)`(;lr=0.05, gamma=0.95, gclip=0)`
+* [`Nesterov`](@ref)`(;lr=0.05, gamma=0.95, gclip=0)`
+* [`Adagrad`](@ref)`(;lr=0.05, eps=1e-6, gclip=0)`
+* [`Rmsprop`](@ref)`(;lr=0.01, rho=0.9, eps=1e-6, gclip=0)`
+* [`Adadelta`](@ref)`(;lr=1.0, rho=0.9, eps=1e-6, gclip=0)`
+* [`Adam`](@ref)`(;lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, gclip=0)`
 
 # Example:
 
+    w = Param(rand(d), Adam())  # a Param with a specified optimizer
+    g = lossgradient0(w)        # gradient g has the same shape as w
+    update!(w, g)               # update w in-place with Adam()
+
     w = rand(d)                 # an individual weight array
-    g = lossgradient(w)         # gradient g has the same shape as w
+    g = lossgradient1(w)        # gradient g has the same shape as w
     update!(w, g)               # update w in-place with SGD()
     update!(w, g; lr=0.1)       # update w in-place with SGD(lr=0.1)
     update!(w, g, SGD(lr=0.1))  # update w in-place with SGD(lr=0.1)
 
     w = (rand(d1), rand(d2))    # a tuple of weight arrays
     g = lossgradient2(w)        # g will also be a tuple
-    p = (Adam(), SGD())         # p has params for each w[i]
+    p = (Adam(), SGD())         # p has optimizers for each w[i]
     update!(w, g, p)            # update each w[i] in-place with g[i],p[i]
 
     w = Any[rand(d1), rand(d2)] # any iterator can be used
@@ -458,7 +465,7 @@ default values are listed as well.
     update!(w, g, p)
 
 """
-function update! end
+update!(x::Param, g) = update!(x.value, g, x.opt)
 
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
@@ -614,11 +621,16 @@ that parallel model parameters easy when all of them use the same type
 and options.
 
 """
-optimizers(::KnetArray{<:Number},otype; o...) = otype(;o...)
-optimizers(::AbstractArray{<:Number},otype; o...) = otype(;o...)
-optimizers(a::AbstractDict,otype; o...)=Dict([ k=>optimizers(v,otype;o...) for (k,v) in a ])
-optimizers(a::Tuple,otype; o...)=map(x->optimizers(x,otype;o...), a)
-optimizers(a::AbstractArray,otype; o...)=map(x->optimizers(x,otype;o...), a)
-optimizers(a,otype;o...)=nothing
+function optimizers(x...; o...)
+    @warn "optimizers is deprecated, use sgd, adam etc. instead." maxlog=1
+    _optimizers(x...; o...)
+end
+
+_optimizers(::KnetArray{<:Number},otype; o...) = otype(;o...)
+_optimizers(::AbstractArray{<:Number},otype; o...) = otype(;o...)
+_optimizers(a::AbstractDict,otype; o...)=Dict([ k=>_optimizers(v,otype;o...) for (k,v) in a ])
+_optimizers(a::Tuple,otype; o...)=map(x->_optimizers(x,otype;o...), a)
+_optimizers(a::AbstractArray,otype; o...)=map(x->_optimizers(x,otype;o...), a)
+_optimizers(a,otype;o...)=nothing
 
 

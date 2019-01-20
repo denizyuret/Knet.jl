@@ -3,7 +3,11 @@ const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 serialize(x) = _ser(x,IdDict(),JLDMODE)
+
+"Return a copy of `x` with all its arrays transferred to GPU."
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
+
+"Return a copy of `x` with all its arrays transferred to CPU."
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
 function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))

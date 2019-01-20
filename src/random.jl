@@ -43,4 +43,7 @@ function seed!(n::Integer)
     Random.seed!(n)
 end
 
-@deprecate setseed Knet.seed!
+function setseed(n)
+    @warn "setseed is deprecated, use Knet.seed! instead." maxlog=1
+    seed!(n)
+end

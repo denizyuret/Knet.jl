@@ -27,6 +27,8 @@ Keyword arguments:
 - `xsize=size(x)`: Convert xi in minibatches to this shape.
 - `ysize=size(y)`: Convert yi in minibatches to this shape.
 """
+minibatch, Data
+
 function minibatch(x,y,batchsize; shuffle=false,partial=false,xtype=typeof(x),ytype=typeof(y),xsize=size(x), ysize=size(y))
     nx = size(x)[end]
     if nx != size(y)[end]; throw(DimensionMismatch()); end
