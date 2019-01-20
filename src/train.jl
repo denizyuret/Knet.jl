@@ -32,7 +32,7 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
 end
 
 """
-    converge(itr, alpha=0.001)
+    converge(itr; alpha=0.001)
 
 Return an iterator which acts exactly like `itr`, but quits when values from `itr` stop
 decreasing. `itr` should produce numeric values.
@@ -49,7 +49,7 @@ It can be used to train a model with the data cycled:
 object created by `converge(...)` and returns `nothing`.
 
 """
-converge(iter::I, alpha=0.001) where {I} = Converge{I}(iter, alpha)
+converge(iter::I; alpha=0.001) where {I} = Converge{I}(iter, alpha)
 converge!(x...; o...) = for x in converge(x...; o...); end
 
 struct Converge{I}; iter::I; alpha::Float64; end
