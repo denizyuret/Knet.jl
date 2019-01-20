@@ -33,7 +33,7 @@ function dropout(x,p; seed=0, drop=training())
 end
 
 # Use a more meaningful name than `recording` for Knet.
-"`training()` returns `true` only inside a `@diff` context."
+"`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
 training() = AutoGrad.recording()
 
 function dropback(dy,y,x,p)

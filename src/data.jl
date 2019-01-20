@@ -2,7 +2,6 @@ using Random
 import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslength, @propagate_inbounds, repeat, rand, tail
 import .Iterators: cycle, Cycle
 
-"Minibatched data"
 mutable struct Data{T}; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
 
 """

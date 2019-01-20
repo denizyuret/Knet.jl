@@ -32,10 +32,22 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
 end
 
 """
-    converge(iter, alpha=0.001)
+    converge(itr, alpha=0.001)
 
-Copy the numeric iterator until values stop decreasing.
-Example: `progress!(converge(minimize(f,cycle(data))))`
+Return an iterator which acts exactly like `itr`, but quits when values from `itr` stop
+decreasing. `itr` should produce numeric values.
+
+It can be used to train a model with the data cycled:
+
+    progress!(converge(minimize(model,cycle(data))))
+
+`alpha` controls the exponential average of values to detect convergence:
+
+    avgx = alpha * x + (1-alpha) * avgx
+
+`converge!(...)` is equivalent to `(for x in converge(...) end)`, i.e.  iterates over the
+object created by `converge(...)` and returns `nothing`.
+
 """
 converge(iter::I, alpha=0.001) where {I} = Converge{I}(iter, alpha)
 converge!(x...; o...) = for x in converge(x...; o...); end
@@ -126,14 +138,14 @@ function train!(model, data; loss=nll, optimizer=Adam(), callback=epochs(data,1)
     end
 end
 
-"""
-Pre-defined callback function constructors:
+# """
+# Pre-defined callback function constructors:
 
-* converge(): Trains until convergence
-* updates(n): Stops after n updates
-* epochs(data,n): Trains for n epochs, equivalent to updates(n*length(data))
-"""
-converge, updates, epochs
+# * converge(): Trains until convergence
+# * updates(n): Stops after n updates
+# * epochs(data,n): Trains for n epochs, equivalent to updates(n*length(data))
+# """
+# converge, updates, epochs
 
 function converge(alpha::Number = 0.001)
     avgx = Inf
