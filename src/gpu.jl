@@ -1,4 +1,5 @@
-using CUDAapi, TimerOutputs
+using CUDAapi, TimerOutputs, Libdl
+const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 const tk = find_toolkit()
 const to = TimerOutput()
 const Cptr = Ptr{Cvoid}

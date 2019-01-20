@@ -12,59 +12,59 @@
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
-"RNN descriptor"
-mutable struct RD; ptr; end
-
-"Dropout descriptor"
-mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
-
-
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
-    rnn(x; hidden, batchSizes) => y
+    rnn(x; batchSizes) => y
+    rnn.h, rnn.c  # hidden and cell states
 
 `RNN` returns a callable RNN object `rnn`. Given a minibatch of sequences `x`, `rnn(x)`
-returns `y`, the hidden states of the final layer for each time step.
+returns `y`, the hidden states of the final layer for each time step. `rnn.h` and `rnn.c`
+fields can be used to set the initial hidden states and read the final hidden states of all
+layers.  Note that the final time step of `y` always contains the final hidden state of the
+last layer, equivalent to `rnn.h` for a single layer network.
 
-**Dimensions:** The input `x` can be 1, 2, or 3 dimensional and `y` will have the same
-number of dimensions as `x`. size(x)=(X,[B,T]) and size(y)=(H/2H,[B,T]) where X is
-inputSize, H is hiddenSize, B is batchSize, T is seqLength. By default a 1-D `x` represents
-a single instance for a single time step, a 2-D `x` represents a single minibatch for a
-single time step, and a 3-D `x` represents a sequence of identically sized minibatches for
-multiple time steps. The output `y` gives the hidden state (of the final layer for
-multi-layer RNNs) for each time step, its first dimension is H for unidirectional and 2H for
-bidirectional RNNs.
+**Dimensions:** The input `x` can be 1, 2, or 3 dimensional and `y` will have the same number
+of dimensions as `x`. size(x)=(X,[B,T]) and size(y)=(H/2H,[B,T]) where X is inputSize, B is
+batchSize, T is seqLength, H is hiddenSize, 2H is for bidirectional RNNs. By default a 1-D `x`
+represents a single instance for a single time step, a 2-D `x` represents a single minibatch
+for a single time step, and a 3-D `x` represents a sequence of identically sized minibatches
+for multiple time steps. The output `y` gives the hidden state (of the final layer for
+multi-layer RNNs) for each time step. The fields `rnn.h` and `rnn.c` represent the hidden
+states of all layers in a single time step and have size (H,B,L/2L) where L is numLayers and
+2L is for bidirectional RNNs.
 
-**batchSizes:** If `batchSizes=nothing` (default), all sequences in a minibatch are assumed
-to be the same length. If `batchSizes` is an array of (non-increasing) integers, it gives us
-the batch size for each time step (allowing different sequences in the minibatch to have
-different lengths). In this case `x` will typically be 2-D with the second dimension
-representing variable size batches for time steps. If `batchSizes` is used,
-`sum(batchSizes)` should equal `length(x) ÷ size(x,1)`.
+**batchSizes:** If `batchSizes=nothing` (default), all sequences in a minibatch are assumed to
+be the same length. If `batchSizes` is an array of (non-increasing) integers, it gives us the
+batch size for each time step (allowing different sequences in the minibatch to have different
+lengths). In this case `x` will typically be 2-D with the second dimension representing
+variable size batches for time steps. If `batchSizes` is used, `sum(batchSizes)` should equal
+`length(x) ÷ size(x,1)`. When the batch size is different in every time step, hidden states
+will have size (H,B,L/2L) where B is always the size of the first (largest) minibatch.
 
-**Hidden states:** If `hidden=nothing` (default), initial hidden states are assumed zero and
-final hidden states are discarded. If `hidden=Any[]`, initial hidden states are assumed zero
-and final hidden states are pushed into hidden. If `hidden=Any[h,c]` (for LSTM) or
-`hidden=Any[h]` (for others), the values in the hidden array are taken to be the initial
-hidden states and are replaced by the final hidden states on return.  Note that the final
-time step of `y` always contains the final hidden state of the last layer, so `hidden` will
-return no extra information for a single layer network.  All hidden and cell states have
-dimensionality (H,B,L) for unidirectional and (H,B,2L) for bidirectional RNNs.  If
-`batchSizes` is used and minibatch sizes change over time, B is always taken to be the size
-of the first minibatch for hidden sizes.
+**Hidden states:** The hidden and cell states are kept in `rnn.h` and `rnn.c` fields (the cell
+state is only used by LSTM). They can be initialized during construction using the `h` and `c`
+keyword arguments, or modified later by direct assignment. Valid values are `nothing`
+(default), `0`, or an array of the right type and size possibly wrapped in a `Param`. If the
+value is `nothing` the initial state is assumed to be zero and the final state is discarded
+keeping the value `nothing`. If the value is `0` the initial state is assumed to be zero and
+`0` is replaced by the final state on return. If the value is a valid state, it is used as the
+initial state and is replaced by the final state on return.
 
 In a differentiation context the returned final hidden states will be wrapped in `Result`
 types. This is necessary if the same RNN object is to be called multiple times in a single
 iteration. Between iterations (i.e. after diff/update) the hidden states need to be unboxed
-with `hidden .= value.(hidden)` to prevent spurious dependencies. See the
-[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/08.charlm.ipynb)
+with e.g. `rnn.h = value(rnn.h)` to prevent spurious dependencies. This happens automatically
+during the backward pass for GPU RNNs but needs to be done manually for CPU RNNs. See the
+[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/80.charlm.ipynb)
 for an example.
 
 **Keyword arguments for RNN:**
+- `h=nothing`: Initial hidden state.
+- `c=nothing`: Initial cell state.
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
 - `numLayers=1`: Number of RNN layers.
 - `bidirectional=false`: Create a bidirectional RNN if `true`.
-- `dropout=0`: Dropout probability. Ignored if `numLayers==1`.
+- `dropout=0`: Dropout probability. Applied to input and between layers.
 - `skipInput=false`: Do not multiply the input with a matrix if `true`.
 - `dataType=Float32`: Data type to use for weights.
 - `algo=0`: Algorithm to use, see CUDNN docs for details.
@@ -97,7 +97,19 @@ following equations:
     c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
     h[t] = o[t] .* tanh(c[t])
 """
-mutable struct RNN
+RNN
+
+
+"RNN descriptor"
+mutable struct RD; ptr; end
+
+"Dropout descriptor"
+mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
+
+mutable struct RNN{T}
+    w::Param{T}
+    h
+    c
     inputSize::Cint
     hiddenSize::Cint
     numLayers::Cint
@@ -113,35 +125,77 @@ mutable struct RNN
     dx
     dhx
     dcx
-    w
 end
 
-RNN(i::Int,h::Int;o...)=((r,w)=rnninit(i,h;o...); r.w=param(w); r)
+function RNN(inputSize, hiddenSize;
+             h=nothing, c=nothing,
+             handle=gethandle(),
+             numLayers=1,
+             dropout=0.0,
+             skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
+             bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
+             rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
+             dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+             algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
+             seed=0,              # seed=0 for random init, positive integer for replicability
+             winit=xavier,
+             binit=zeros,
+             usegpu=(gpu()>=0),
+             )
+    inputSize = Cint(inputSize)
+    hiddenSize = Cint(hiddenSize)
+    numLayers = Cint(numLayers)
+    dropout = Float64(dropout)
+    seed = Culonglong(seed)
+    inputMode = Cint(skipInput ? 1 : 0)
+    direction = Cint(bidirectional ? 1 : 0)
+    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
+    if mode == nothing; error("RNN: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    mode = Cint(mode - 1)
+    algo = Cint(algo)
+    @assert dataType isa DataType
+    if usegpu
+        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
+        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
+        w = Param(KnetArray{dataType}(undef,1,1,1)) # to get the right type
+        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+        r.w = Param(KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
+    else
+        w = Param(Array{dataType}(undef,1,1,1)) # to get the right type
+        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
+        r.w = param(Array{dataType}(undef,1,1,getRNNParamsSize(r)))
+    end
+    for a in rnnparams(r; handle=handle, useview=true)
+        if a == nothing
+            continue
+        elseif ndims(a) == 2
+            copyto!(a, winit(dataType, size(a)))
+        elseif ndims(a) == 1
+            copyto!(a, binit(dataType, size(a)))
+        else
+            error("Invalid RNN param $(summary(a))")
+        end
+    end
+    return r
+end
 
-# New interface: added w as an extra field to the RNN struct. Did not change anything else
-# above for backward compatibility.
-
-# For hidden input and output: if hidden=nothing (default) do not initialize hx or return
-# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
-# during diff hy will be a Result type and will need to be cleaned up with `hidden =
-# value.(hidden)` after the back/update.
-
-# Alternatives:
-## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
-## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
-## use it in loss, except using it as hx for another rnn call.
-# making hidden a regular arg may be more meaningful (but one that gets overwritten?)
-
-function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
-    tr = !isempty(AutoGrad._tapes)
-    hy = (hidden != nothing)
-    cy = (hidden != nothing && r.mode == 2)
-    # h = (hidden != nothing ? value.(hidden) : ())  # value.() erases grad info if multiple consecutive calls within same forward.
-    h = (hidden != nothing ? hidden : ()) # hidden needs to be cleaned using value manually after back+update.
-    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
-    if hidden != nothing; empty!(hidden); end
-    if hy; push!(hidden, hyout); end
-    if cy; push!(hidden, cyout); end
+function (r::RNN)(x; batchSizes=nothing)
+    # apply dropout to input: rnnforw only applies it between layers.
+    x = dropout(x,r.dropout)
+    # use hidden inputs if their types are correct
+    hx = (typeof(value(r.h)) == typeof(value(r.w)) ? r.h : nothing)
+    cx = (r.mode == 2 && typeof(value(r.c)) == typeof(value(r.w)) ? r.c : nothing)
+    # produce hidden outputs if hidden inputs != nothing
+    hy = (r.h != nothing)
+    cy = (r.mode == 2 && r.c != nothing)
+    # any type other than typeof(value(r.w)) or Nothing (e.g. h=true) can be used for simple 0 init
+    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, hx, cx; hy=hy, cy=cy, batchSizes=batchSizes)
+    # In a @diff context hyout and cyout will be Results
+    # This is necessary to keep dependencies if r is run several times during one forw pass
+    # However unless Results are cleared up before next iteration we will run out of memory
+    # I do the clearing in the back function when I know the iteration is done for sure.
+    if hy; r.h = hyout; end
+    if cy; r.c = cyout; end
     return y
 end
 
@@ -218,6 +272,21 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
         hiddenMatrices = (r.direction == 1 ? (L-1)*I : (L-1)*I + div(I,2))
         biases * H + inputMatrices * X * H + hiddenMatrices * H * H
     end
+end
+
+function getRNNParamsSize(r::RNN)
+    whidden = r.hiddenSize * r.hiddenSize
+    winput =  r.inputMode == 1 ? 0 : r.hiddenSize * r.inputSize
+    bhidden = r.hiddenSize
+    binput =  bhidden
+    coef = (r.mode == 2 ? 4 : r.mode == 3 ? 3 : 1) * (1 + r.direction)
+    nparams = 0
+    for i = 1:r.numLayers
+        nparams += coef * (whidden + winput + bhidden + binput)
+        winput = (1 + r.direction) * whidden
+        binput = bhidden
+    end
+    nparams
 end
 
 "Keeps an array of 3D tensor descriptors"
@@ -300,9 +369,9 @@ gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
 
 
 """
-    rnnparam(r::RNN, w, layer, id, param)
+    rnnparam(r::RNN, layer, id, param)
 
-Return a single weight matrix or bias vector as a slice of w.
+Return a single weight matrix or bias vector as a slice of RNN weights.
 
 Valid `layer` values:
 * For unidirectional RNNs 1:numLayers
@@ -318,12 +387,11 @@ Valid `param` values:
 * Return the bias vector if `param==2`.
 
 The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
-* For skipInput=false (default), rnnparam(r,w,1,I,1) is a (inputSize,hiddenSize) matrix.
-* For skipInput=true, rnnparam(r,w,1,I,1) is `nothing`.
-* For bidirectional, the same applies to rnnparam(r,w,2,I,1): the first back layer.
+* For skipInput=false (default), rnnparam(r,1,I,1) is a (inputSize,hiddenSize) matrix.
+* For skipInput=true, rnnparam(r,1,I,1) is `nothing`.
+* For bidirectional, the same applies to rnnparam(r,2,I,1): the first back layer.
 """
-function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
-    # w could be a Value, KnetArray, or Array so typing w::KnetArray{T} is not an option
+function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
@@ -332,7 +400,8 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
       (r.mode == 2 && 1 <= id <= 8) ||
       (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
     i1 = i2 = len = 0
-    if isa(value(w), KnetArray)
+    w = value(r.w)
+    if isa(w, KnetArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
         wDesc = FD(T,1,1,length(w))
@@ -344,7 +413,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, value(w),
+                  xDesc, wDesc, w,
                   id-1, paramDesc, param)
         else # bias
             @cudnn(cudnnGetRNNLinLayerBiasParams,
@@ -352,7 +421,7 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
                    Cptr, Cptr, Cptr, #xDesc, wDesc, w
                    Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
                   handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, value(w),
+                  xDesc, wDesc, w,
                   id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
@@ -399,18 +468,18 @@ function rnnparam(r::RNN, w, layer::Integer, id::Integer, par::Integer; handle=g
         nothing
     elseif par == 1 # matrix
         h = Int(r.hiddenSize)
-        reshape(access(w, i1:i2),
+        reshape(access(r.w, i1:i2),
                 (div(len,h),h)) # weight matrices are transposed
     else # bias
-        access(w, i1:i2)
+        access(r.w, i1:i2)
     end
 end
 
 
 """
-    rnnparams(r::RNN, w)
+    rnnparams(r::RNN)
 
-Split w into individual parameters and return them as an array.
+Return the RNN parameters as an Array{Any}.
 
 The order of params returned (subject to change):
 * All weight matrices come before all bias vectors.
@@ -418,86 +487,29 @@ The order of params returned (subject to change):
 * See @doc rnnparam for valid layer and id values.
 * Input multiplying matrices are `nothing` if r.inputMode = 1.
 """
-function rnnparams(r::RNN, w; handle=gethandle(), useview=false)
+function rnnparams(r::RNN; handle=gethandle(), useview=false)
     layers = r.numLayers * (r.direction == 1 ? 2 : 1)
     ids = rnnids(r)
     ws = []
     for m in (1,2)
         for l in 1:layers
             for i in 1:ids
-                push!(ws, rnnparam(r, w, l, i, m; handle=handle, useview=useview))
+                push!(ws, rnnparam(r, l, i, m; handle=handle, useview=useview))
             end
         end
     end
     return ws
 end
 
-function rnninit(inputSize, hiddenSize;
-                 handle=gethandle(),
-                 numLayers=1,
-                 dropout=0.0,
-                 skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
-                 bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
-                 rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-                 dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
-                 algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
-                 seed=0,              # seed=0 for random init, positive integer for replicability
-                 winit=xavier,
-                 binit=zeros,
-                 usegpu=(gpu()>=0),
-                 )
-    inputMode = skipInput ? 1 : 0
-    direction = bidirectional ? 1 : 0
-    mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
-    if mode == nothing; error("rnninit: Valid modes are :relu,:tanh,:lstm,:gru"); end
-    mode = mode - 1
-    if usegpu
-        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing,nothing)
-        w = KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r))
-    else
-        r = RNN(inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing,nothing)
-        # TODO: make this a separate function?
-        w = begin
-            whidden = hiddenSize * hiddenSize
-            winput =  skipInput ? 0 : hiddenSize * inputSize
-            bhidden = hiddenSize
-            binput =  bhidden
-            coef = (mode == 2 ? 4 : mode == 3 ? 3 : 1) * (1 + direction)
-            nparams = 0
-            for i = 1:r.numLayers
-                nparams += coef * (whidden + winput + bhidden + binput)
-                winput = (1 + direction) * whidden
-                binput = bhidden
-            end
-            Array{dataType}(undef,1,1,nparams)
-        end
-    end
-    for a in rnnparams(r,w; handle=handle, useview=true)
-        if a == nothing
-            continue
-        elseif ndims(a) == 2
-            copyto!(a, winit(dataType, size(a)))
-        elseif ndims(a) == 1
-            copyto!(a, binit(dataType, size(a)))
-        else
-            error()
-        end
-    end
-    return (r,w)
-end
-
-
-function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
+function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
-                 handle=cudnnhandle(), training=false,
+                 handle=cudnnhandle(),
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  ) where {T}
-
+    @assert w === value(r.w)
     # Input descriptors
     if size(x,1) != r.inputSize
         throw(DimensionMismatch("size(x,1)=$(size(x,1)) does not match r.inputSize=$(r.inputSize)"))
@@ -534,7 +546,7 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
     ws = cudnnWorkSpace(wss)
 
-    if training
+    if training()
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
         rs = KnetArray{UInt8}(undef,rss)
         @cudnn(cudnnRNNForwardTraining,
@@ -587,25 +599,25 @@ function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
-@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
+@primitive rnnforw(r::RNN, w::KnetArray, x...; o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
+    @assert r.w === w
     y,hy,cy,rs = value(t)
     dy,dhy,dcy,drs = value(dt)
     r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
+    # To prevent dependencies to next iteration we need to clear the Result type from r.h,r.c
+    # We can't do this during forward, because another forward may be run within the same iteration.
+    # Doing it here is safe, means the iteration is done and we are taking gradients.
+    # Note that this does not work on the cpu and these have to be cleaned by hand.
+    # The cpu version is not a primitive and has no back function. (TODO: find better solution)
+    r.h = value(r.h); r.c = value(r.c) 
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
 end
 
-# import AutoGrad: Value, forw, back
-# rnnforw(r::Value{RNN}, w...; o...)=rnnforw(value(r), w...; o...)
-# rnnforw(r::RNN, w::Value{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
-# back(::typeof(rnnforw),::Val{3}, dt, t, r, w...; o...)=r.dx
-# back(::typeof(rnnforw),::Val{4}, dt, t, r, w...; o...)=r.dhx
-# back(::typeof(rnnforw),::Val{5}, dt, t, r, w...; o...)=r.dcx
-
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                  dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
-
+    @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
@@ -692,11 +704,12 @@ function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  o...) where {T}
+    @assert w === value(r.w)
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
-rnnforw(r::RNN, w::Value{A}, x...; o...) where {A<:AbstractArray} = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::AutoGrad.Value{<:AbstractArray}, x...; o...) = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version
@@ -708,7 +721,8 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     if batchSizes != nothing
         return rnntest_bs(batchSizes,r, ws, x, hx, cx; hy=hy, cy=cy, o...)
     end
-    w = rnnparams(r,ws)
+    @assert value(r.w) === value(ws)
+    w = rnnparams(r)
     X,B,T = (size(x,i) for i=1:3) # ndims(x) may be 1,2 or 3
     @assert X == r.inputSize
     Y = Int(r.hiddenSize * (r.direction == 1 ? 2 : 1))
@@ -882,6 +896,7 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
                     o...)
     # TODO: fix this implementation
     error("Implementation of batchSizes is not completed in CPU")
+    @assert value(r.w) === value(w)
     # Here needs reshaping hidden sizes
     if length(Set{Int}(batchSizes)) == 1
         x_ = reshape(x, (r.inputSize, div(size(x,2), batchSizes[1]), batchSizes[1]))
@@ -938,4 +953,24 @@ function rnntest_bs(batchSizes, r::RNN, w, x,
         end
     end
     return (hcat(ys...), hout(hx, hy, hrems), r.mode==2 ? hout(cx, cy, crems) : nothing, nothing)
+end
+
+
+## DEPRECATED:
+function rnninit(x...; o...)
+    @warn "rnninit is deprecated, use RNN instead" maxlog=1
+    r=RNN(x...; o...)
+    return (r,r.w)
+end
+
+function rnnparams(r,w;o...)
+    @warn "rnnparams(r,w) is deprecated, use rnnparams(r) instead" maxlog=1
+    @assert value(w)===value(r.w)
+    rnnparams(r;o...)
+end
+
+function rnnparam(r,w,l,i,d;o...)
+    @warn "rnnparam(r,w,l,i,d) is deprecated, use rnnparam(r,l,i,d) instead" maxlog=1
+    @assert value(w)===value(r.w)
+    rnnparam(r,l,i,d;o...)
 end

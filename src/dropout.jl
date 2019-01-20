@@ -1,23 +1,26 @@
-# Note that we tried and failed to automate the detection of "train"
-# mode looking at the type of argument.  The argument is of type Value
-# only during training and only if it is a value influenced by model
-# weights.  However people typically apply dropout to the input which
-# is not a Value.  So we are going back to no automation, make sure to
-# supply p=0 during testing to stop dropout.
+# Note that we tried and failed to automate the detection of "train" mode looking at the type
+# of argument.  The argument is of type Value only during training and only if it is a value
+# influenced by model weights.  However people typically apply dropout to the input which is
+# not a Value.  So we are going back to no automation, make sure to supply p=0 during testing
+# to stop dropout.
+
+# In 1.1.3 trying to automate again, this time using the @diff context: By default drop if
+# AutoGrad is recording.
 
 """
-    dropout(x, p)
+    dropout(x, p; drop, seed)
 
-Given an array `x` and probability `0<=p<=1`, just return `x` if
-`p==0`, or return an array `y` in which each element is 0 with
-probability `p` or `x[i]/(1-p)` with probability `1-p`.  Use
-`seed::Number` to set the random number seed for reproducible
-results. See [(Srivastava et al. 2014)](http://www.jmlr.org/papers/v15/srivastava14a.html)
-for a reference.
+Given an array `x` and probability `0<=p<=1` return an array `y` in which each element is 0
+with probability `p` or `x[i]/(1-p)` with probability `1-p`. Just return `x` if `p==0`, or
+`drop=false`. By default `drop=true` in a `@diff` context, `drop=false` otherwise.  Specify a
+non-zero `seed::Number` to set the random number seed for reproducible results. See
+[(Srivastava et al. 2014)](http://www.jmlr.org/papers/v15/srivastava14a.html) for a reference.
 
 """
-function dropout(x,p; seed=0)
-    if 0 < p < 1
+function dropout(x,p; seed=0, drop=training())
+    if !drop
+        x
+    elseif 0 < p < 1
         if seed != 0; Knet.seed!(seed); end
         dropout!(p,x,similar(x))
     elseif p == 0
@@ -28,6 +31,10 @@ function dropout(x,p; seed=0)
         error("Dropout probability not in [0:1]: $p")
     end
 end
+
+# Use a more meaningful name than `recording` for Knet.
+"`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
+training() = AutoGrad.recording()
 
 function dropback(dy,y,x,p)
     if 0 < p < 1
@@ -42,7 +49,7 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-@primitive dropout(x,p;seed=0),dy,y dropback(value.((dy,y,x,p))...)
+@primitive dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
 
 # GPU implementation
 for S in (32,64)

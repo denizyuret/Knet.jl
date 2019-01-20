@@ -133,7 +133,7 @@ function dimvec(x, dims)
 end
 
 generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
-function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, Value{<:KnetArray}}
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}}
     d,sz = dimvec(x,dims)
     if d==[1]
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
@@ -322,6 +322,7 @@ function accuracy(model, data; dims=1, average=true, o...)
     average ? sum / cnt : sum
 end
 
+"zeroone loss is equal to 1 - accuracy"
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:

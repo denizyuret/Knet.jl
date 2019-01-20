@@ -1,12 +1,45 @@
 using JLD2, FileIO
 
+"""
+    Knet.save(filename, args...; kwargs...)
+
+Call `FileIO.save` after serializing Knet specific args. 
+
+File format is determined by the filename extension. JLD and JLD2 are supported. Other formats
+may work if supported by FileIO, please refer to the documentation of FileIO and the specific
+format.  Example:
+
+    Knet.save("foo.jld2", "name1", value1, "name2", value2)
+"""
 function save(fname,args...;kwargs...)
      FileIO.save(fname,serialize.(args)...;kwargs...)
 end
+
+"""
+    Knet.load(filename, args...; kwargs...)
+
+Call `FileIO.load` then deserialize Knet specific values.
+
+File format is determined by FileIO. JLD and JLD2 are supported. Other formats may work if
+supported by FileIO, please refer to the documentation of FileIO and the specific format.
+Example:
+
+    Knet.load("foo.jld2")           # returns a ("name"=>value) dictionary
+    Knet.load("foo.jld2", "name1")  # returns the value of "name1" in "foo.jld2"
+    Knet.load("foo.jld2", "name1", "name2")   # returns tuple (value1, value2)
+"""
 function load(fname,args...;kwargs...)
      serialize(FileIO.load(fname,args...;kwargs...))
 end
 
+"""
+    Knet.@save "filename" variable1 variable2...
+
+Save the values of the specified variables to filename in JLD2 format.
+
+When called with no variable arguments, write all variables in the global scope of the current
+module to filename.  See [JLD2](https://github.com/JuliaIO/JLD2.jl).
+"""
 macro save(filename, vars...)
     if isempty(vars)
         # Save all variables in the current module
@@ -53,6 +86,14 @@ macro save(filename, vars...)
     end
 end
 
+"""
+    Knet.@load "filename" variable1 variable2...
+
+Load the values of the specified variables from filename in JLD2 format.
+
+When called with no variable arguments, load all variables in filename.  See
+[JLD2](https://github.com/JuliaIO/JLD2.jl).
+"""
 macro load(filename, vars...)
     if isempty(vars)
         if isa(filename, Expr)

@@ -13,6 +13,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 AutoGrad = "1.1.2"
@@ -24,8 +25,7 @@ TimerOutputs = "0.4.0"
 
 [extras]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Printf", "Dates"]
+test = ["Test", "Dates"]

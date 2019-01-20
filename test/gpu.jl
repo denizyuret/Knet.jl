@@ -1,4 +1,4 @@
-include("header.jl")
+using Test, Knet
 
 @testset "gpu" begin
 

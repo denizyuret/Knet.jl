@@ -3,7 +3,11 @@ const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 serialize(x) = _ser(x,IdDict(),JLDMODE)
+
+"Return a copy of `x` with all its arrays transferred to GPU."
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
+
+"Return a copy of `x` with all its arrays transferred to CPU."
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
 function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
@@ -42,7 +46,7 @@ function _ser(x::RNN, s::IdDict, m::typeof(JLDMODE))
     if !haskey(s,x)
         dropoutDesc = (x.dropoutDesc != nothing || gpu() < 0 ? nothing : DD(handle=gethandle(),dropout=x.dropout,seed=x.seed))
         rnnDesc = (x.rnnDesc != nothing || gpu() < 0 ? nothing : RD(x.hiddenSize,x.numLayers,dropoutDesc,x.inputMode,x.direction,x.mode,x.algo,x.dataType))
-        s[x] = RNN(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m), _ser(x.w,s,m))
+        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m))
     end
     return s[x]
 end
