@@ -15,7 +15,7 @@
     adagrad (func, data; lr=0.05, eps=1e-6, gclip, params)
     rmsprop (func, data; lr=0.01, rho=0.9, eps=1e-6, gclip, params)
     adadelta(func, data; lr=1.0,  rho=0.9, eps=1e-6, gclip, params)
-    adam    (func, data; lr=0.005, beta1=0.9, beta2=0.999, eps=1e-8, gclip, params)
+    adam    (func, data; lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, gclip, params)
 
 Return an iterator which applies `func` to arguments in `data`, i.e.  `(func(args...) for
 args in data)`, and updates the parameters every iteration to minimize `func`.  `func`
@@ -346,7 +346,7 @@ adadelta!(x...;o...)=for y in adadelta(x...;o...); end
 clone(a::Adadelta)=Adadelta(a.lr,a.rho,a.eps,a.gclip,nothing,nothing)
 
 """
-    Adam(;lr=0.005, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
+    Adam(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)
     update!(w,g,p::Adam)
 
 Container for parameters of the Adam optimization algorithm used by
@@ -391,8 +391,8 @@ mutable struct Adam
     scndm
 end
 
-Adam(; lr=0.005, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, beta1, beta2, eps, 0, gclip, nothing, nothing)
-adam(f,d;lr=0.005,gclip=0,beta1=0.9,beta2=0.999,eps=1e-8,o...)=minimize(f,d,Adam(lr,beta1,beta2,eps,0,gclip,nothing,nothing);o...)
+Adam(; lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)=Adam(lr, beta1, beta2, eps, 0, gclip, nothing, nothing)
+adam(f,d;lr=0.001,gclip=0,beta1=0.9,beta2=0.999,eps=1e-8,o...)=minimize(f,d,Adam(lr,beta1,beta2,eps,0,gclip,nothing,nothing);o...)
 adam!(x...;o...)=for y in adam(x...;o...); end
 
 clone(a::Adam)=Adam(a.lr,a.beta1,a.beta2,a.eps,0,a.gclip,nothing,nothing)
@@ -432,7 +432,7 @@ default values are listed as well.
 * [`Adagrad`](@ref)`(;lr=0.05, gclip=0, eps=1e-6)`
 * [`Rmsprop`](@ref)`(;lr=0.01, gclip=0, rho=0.9, eps=1e-6)`
 * [`Adadelta`](@ref)`(;lr=1.0, gclip=0, rho=0.9, eps=1e-6)`
-* [`Adam`](@ref)`(;lr=0.005, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)`
+* [`Adam`](@ref)`(;lr=0.001, gclip=0, beta1=0.9, beta2=0.999, eps=1e-8)`
 
 # Example:
 

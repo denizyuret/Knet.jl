@@ -187,12 +187,11 @@ function RNN(inputSize, hiddenSize;
 end
 
 function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
-    tr = !isempty(AutoGrad._tapes)
     hy = (hidden != nothing)
     cy = (hidden != nothing && r.mode == 2)
     # h = (hidden != nothing ? value.(hidden) : ())  # value.() erases grad info if multiple consecutive calls within same forward.
     h = (hidden != nothing ? hidden : ()) # hidden needs to be cleaned using value manually after back+update.
-    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, training=tr, batchSizes=batchSizes)
+    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, batchSizes=batchSizes)
     if hidden != nothing; empty!(hidden); end
     if hy; push!(hidden, hyout); end
     if cy; push!(hidden, cyout); end
@@ -504,12 +503,12 @@ end
 function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
-                 handle=cudnnhandle(), training=false,
+                 handle=cudnnhandle(),
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  ) where {T}
-    @assert value(r.w) === value(w)
+    @assert w === value(r.w)
     # Input descriptors
     if size(x,1) != r.inputSize
         throw(DimensionMismatch("size(x,1)=$(size(x,1)) does not match r.inputSize=$(r.inputSize)"))
@@ -546,7 +545,7 @@ function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
     ws = cudnnWorkSpace(wss)
 
-    if training
+    if training()
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
         rs = KnetArray{UInt8}(undef,rss)
         @cudnn(cudnnRNNForwardTraining,
@@ -599,10 +598,10 @@ function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
     return y, hyout, cyout, rs
 end
 
-@primitive rnnforw(r::RNN, w::KnetArray, x...; training=true, o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
+@primitive rnnforw(r::RNN, w::KnetArray, x...; o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
-    @assert value(r.w) === value(w)
+    @assert r.w === w
     y,hy,cy,rs = value(t)
     dy,dhy,dcy,drs = value(dt)
     r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
@@ -618,7 +617,7 @@ end
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                  dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
-    @assert value(r.w) === value(w)
+    @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
@@ -705,7 +704,7 @@ function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
                  o...) where {T}
-    @assert value(r.w) === value(w)
+    @assert w === value(r.w)
     rnntest(r,w,x,hx,cx;batchSizes=batchSizes,hy=hy,cy=cy)
 end
 
