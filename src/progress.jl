@@ -28,7 +28,7 @@ An integer `itr` is treated as `1:itr`, i.e. `progress(n::Integer)` is equivalen
 Keyword arguments:
 * `width=max(64,displaysize()[2])`: controls display width. The default width can be
   controlled using `ENV["COLUMNS"]`.
-* `interval=0.1`: minimum time interval in seconds between progressbar updates.
+* `interval=1.0`: minimum time interval in seconds between progressbar updates.
 * `alpha=0.001`: controls the exponential average displayed for numeric iterators: 
   `avg = alpha * val + (1-alpha) * avg`
 """
@@ -46,7 +46,7 @@ mutable struct Progress{I}
     avg::Float64
 end
 
-progress(iter::I; width=max(64,displaysize()[2]), alpha=0.001, interval=0.1) where {I} =
+progress(iter::I; width=max(64,displaysize()[2]), alpha=0.001, interval=1.0) where {I} =
     Progress{I}(iter,0,0,time_ns(),0,Int(1e9*interval),width,alpha,Inf)
 
 progress(i::Integer; o...)=progress(1:n; o...)

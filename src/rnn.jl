@@ -12,72 +12,59 @@
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
-# New interface: added w as an extra field to the RNN struct. Did not change anything else
-# above for backward compatibility.
-
-# For hidden input and output: if hidden=nothing (default) do not initialize hx or return
-# hy. If hidden=Array{Any}, initialize hx from it, empty and push hy back into it. Note that
-# during diff hy will be a Result type and will need to be cleaned up with `hidden =
-# value.(hidden)` after the back/update.
-
-# Alternatives:
-## keyword keepstate::Bool and keep hx internally? user can't get to hy, can't specify hx.
-## return Result, but strip before next call (h = value.(hidden)). user can play with hy and
-## use it in loss, except using it as hx for another rnn call.
-# making hidden a regular arg may be more meaningful (but one that gets overwritten?)
-
-"RNN descriptor"
-mutable struct RD; ptr; end
-
-"Dropout descriptor"
-mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
-
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
-    rnn(x; hidden, batchSizes) => y
+    rnn(x; batchSizes) => y
+    rnn.h, rnn.c  # hidden and cell states
 
 `RNN` returns a callable RNN object `rnn`. Given a minibatch of sequences `x`, `rnn(x)`
-returns `y`, the hidden states of the final layer for each time step.
+returns `y`, the hidden states of the final layer for each time step. `rnn.h` and `rnn.c`
+fields can be used to set the initial hidden states and read the final hidden states of all
+layers.  Note that the final time step of `y` always contains the final hidden state of the
+last layer, equivalent to `rnn.h` for a single layer network.
 
-**Dimensions:** The input `x` can be 1, 2, or 3 dimensional and `y` will have the same
-number of dimensions as `x`. size(x)=(X,[B,T]) and size(y)=(H/2H,[B,T]) where X is
-inputSize, H is hiddenSize, B is batchSize, T is seqLength. By default a 1-D `x` represents
-a single instance for a single time step, a 2-D `x` represents a single minibatch for a
-single time step, and a 3-D `x` represents a sequence of identically sized minibatches for
-multiple time steps. The output `y` gives the hidden state (of the final layer for
-multi-layer RNNs) for each time step, its first dimension is H for unidirectional and 2H for
-bidirectional RNNs.
+**Dimensions:** The input `x` can be 1, 2, or 3 dimensional and `y` will have the same number
+of dimensions as `x`. size(x)=(X,[B,T]) and size(y)=(H/2H,[B,T]) where X is inputSize, B is
+batchSize, T is seqLength, H is hiddenSize, 2H is for bidirectional RNNs. By default a 1-D `x`
+represents a single instance for a single time step, a 2-D `x` represents a single minibatch
+for a single time step, and a 3-D `x` represents a sequence of identically sized minibatches
+for multiple time steps. The output `y` gives the hidden state (of the final layer for
+multi-layer RNNs) for each time step. The fields `rnn.h` and `rnn.c` represent the hidden
+states of all layers in a single time step and have size (H,B,L/2L) where L is numLayers and
+2L is for bidirectional RNNs.
 
-**batchSizes:** If `batchSizes=nothing` (default), all sequences in a minibatch are assumed
-to be the same length. If `batchSizes` is an array of (non-increasing) integers, it gives us
-the batch size for each time step (allowing different sequences in the minibatch to have
-different lengths). In this case `x` will typically be 2-D with the second dimension
-representing variable size batches for time steps. If `batchSizes` is used,
-`sum(batchSizes)` should equal `length(x) ÷ size(x,1)`.
+**batchSizes:** If `batchSizes=nothing` (default), all sequences in a minibatch are assumed to
+be the same length. If `batchSizes` is an array of (non-increasing) integers, it gives us the
+batch size for each time step (allowing different sequences in the minibatch to have different
+lengths). In this case `x` will typically be 2-D with the second dimension representing
+variable size batches for time steps. If `batchSizes` is used, `sum(batchSizes)` should equal
+`length(x) ÷ size(x,1)`. When the batch size is different in every time step, hidden states
+will have size (H,B,L/2L) where B is always the size of the first (largest) minibatch.
 
-**Hidden states:** If `hidden=nothing` (default), initial hidden states are assumed zero and
-final hidden states are discarded. If `hidden=Any[]`, initial hidden states are assumed zero
-and final hidden states are pushed into hidden. If `hidden=Any[h,c]` (for LSTM) or
-`hidden=Any[h]` (for others), the values in the hidden array are taken to be the initial
-hidden states and are replaced by the final hidden states on return.  Note that the final
-time step of `y` always contains the final hidden state of the last layer, so `hidden` will
-return no extra information for a single layer network.  All hidden and cell states have
-dimensionality (H,B,L) for unidirectional and (H,B,2L) for bidirectional RNNs.  If
-`batchSizes` is used and minibatch sizes change over time, B is always taken to be the size
-of the first minibatch for hidden sizes.
+**Hidden states:** The hidden and cell states are kept in `rnn.h` and `rnn.c` fields (the cell
+state is only used by LSTM). They can be initialized during construction using the `h` and `c`
+keyword arguments, or modified later by direct assignment. Valid values are `nothing`
+(default), `0`, or an array of the right type and size possibly wrapped in a `Param`. If the
+value is `nothing` the initial state is assumed to be zero and the final state is discarded
+keeping the value `nothing`. If the value is `0` the initial state is assumed to be zero and
+`0` is replaced by the final state on return. If the value is a valid state, it is used as the
+initial state and is replaced by the final state on return.
 
 In a differentiation context the returned final hidden states will be wrapped in `Result`
 types. This is necessary if the same RNN object is to be called multiple times in a single
 iteration. Between iterations (i.e. after diff/update) the hidden states need to be unboxed
-with `hidden .= value.(hidden)` to prevent spurious dependencies. See the
-[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/08.charlm.ipynb)
+with e.g. `rnn.h = value(rnn.h)` to prevent spurious dependencies. This happens automatically
+during the backward pass for GPU RNNs but needs to be done manually for CPU RNNs. See the
+[CharLM Tutorial](https://github.com/denizyuret/Knet.jl/blob/master/tutorial/80.charlm.ipynb)
 for an example.
 
 **Keyword arguments for RNN:**
+- `h=nothing`: Initial hidden state.
+- `c=nothing`: Initial cell state.
 - `rnnType=:lstm` Type of RNN: One of :relu, :tanh, :lstm, :gru.
 - `numLayers=1`: Number of RNN layers.
 - `bidirectional=false`: Create a bidirectional RNN if `true`.
-- `dropout=0`: Dropout probability. Ignored if `numLayers==1`.
+- `dropout=0`: Dropout probability. Applied to input and between layers.
 - `skipInput=false`: Do not multiply the input with a matrix if `true`.
 - `dataType=Float32`: Data type to use for weights.
 - `algo=0`: Algorithm to use, see CUDNN docs for details.
@@ -110,8 +97,19 @@ following equations:
     c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
     h[t] = o[t] .* tanh(c[t])
 """
+RNN
+
+
+"RNN descriptor"
+mutable struct RD; ptr; end
+
+"Dropout descriptor"
+mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
+
 mutable struct RNN{T}
     w::Param{T}
+    h
+    c
     inputSize::Cint
     hiddenSize::Cint
     numLayers::Cint
@@ -136,6 +134,7 @@ RNNRELU(x...; o...) = RNN(x...; o..., rnnType=:relu)
 RNNTANH(x...; o...) = RNN(x...; o..., rnnType=:tanh)
 
 function RNN(inputSize, hiddenSize;
+             h=nothing, c=nothing,
              handle=gethandle(),
              numLayers=1,
              dropout=0.0,
@@ -165,11 +164,11 @@ function RNN(inputSize, hiddenSize;
         dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
         rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
         w = Param(KnetArray{dataType}(undef,1,1,1)) # to get the right type
-        r = RNN(w,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
+        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
         r.w = Param(KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
     else
         w = Param(Array{dataType}(undef,1,1,1)) # to get the right type
-        r = RNN(w,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
+        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
         r.w = param(Array{dataType}(undef,1,1,getRNNParamsSize(r)))
     end
     for a in rnnparams(r; handle=handle, useview=true)
@@ -186,15 +185,23 @@ function RNN(inputSize, hiddenSize;
     return r
 end
 
-function (r::RNN)(x; batchSizes=nothing, hidden=nothing)
-    hy = (hidden != nothing)
-    cy = (hidden != nothing && r.mode == 2)
-    # h = (hidden != nothing ? value.(hidden) : ())  # value.() erases grad info if multiple consecutive calls within same forward.
-    h = (hidden != nothing ? hidden : ()) # hidden needs to be cleaned using value manually after back+update.
-    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, h...; hy=hy, cy=cy, batchSizes=batchSizes)
-    if hidden != nothing; empty!(hidden); end
-    if hy; push!(hidden, hyout); end
-    if cy; push!(hidden, cyout); end
+function (r::RNN)(x; batchSizes=nothing)
+    # apply dropout to input: rnnforw only applies it between layers.
+    x = dropout(x,r.dropout)
+    # use hidden inputs if their types are correct
+    hx = (typeof(value(r.h)) == typeof(value(r.w)) ? r.h : nothing)
+    cx = (r.mode == 2 && typeof(value(r.c)) == typeof(value(r.w)) ? r.c : nothing)
+    # produce hidden outputs if hidden inputs != nothing
+    hy = (r.h != nothing)
+    cy = (r.mode == 2 && r.c != nothing)
+    # any type other than typeof(value(r.w)) or Nothing (e.g. h=true) can be used for simple 0 init
+    (y, hyout, cyout, rs) = rnnforw(r, r.w, x, hx, cx; hy=hy, cy=cy, batchSizes=batchSizes)
+    # In a @diff context hyout and cyout will be Results
+    # This is necessary to keep dependencies if r is run several times during one forw pass
+    # However unless Results are cleared up before next iteration we will run out of memory
+    # I do the clearing in the back function when I know the iteration is done for sure.
+    if hy; r.h = hyout; end
+    if cy; r.c = cyout; end
     return y
 end
 
@@ -605,15 +612,14 @@ function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     y,hy,cy,rs = value(t)
     dy,dhy,dcy,drs = value(dt)
     r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
+    # To prevent dependencies to next iteration we need to clear the Result type from r.h,r.c
+    # We can't do this during forward, because another forward may be run within the same iteration.
+    # Doing it here is safe, means the iteration is done and we are taking gradients.
+    # Note that this does not work on the cpu and these have to be cleaned by hand.
+    # The cpu version is not a primitive and has no back function. (TODO: find better solution)
+    r.h = value(r.h); r.c = value(r.c) 
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
 end
-
-# import AutoGrad: Value, forw, back
-# rnnforw(r::Value{RNN}, w...; o...)=rnnforw(value(r), w...; o...)
-# rnnforw(r::RNN, w::Value{K}, x...; o...) where {K<:KnetArray}=forw(rnnforw, r, w, x...; o..., training=true)
-# back(::typeof(rnnforw),::Val{3}, dt, t, r, w...; o...)=r.dx
-# back(::typeof(rnnforw),::Val{4}, dt, t, r, w...; o...)=r.dhx
-# back(::typeof(rnnforw),::Val{5}, dt, t, r, w...; o...)=r.dcx
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
                  dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
