@@ -38,3 +38,4 @@ Manifest.toml
 .ipynb_checkpoints
 *-Copy*ipynb
 Untitled*.ipynb
+tutorial/words
