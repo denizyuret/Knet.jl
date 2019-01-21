@@ -56,17 +56,18 @@ struct Dense; w; b; f; end
 (d::Dense)(x) = d.f.(d.w * mat(x) .+ d.b)
 Dense(i::Int,o::Int,f=relu) = Dense(param(o,i), param0(o), f)
 
-# Define a chain of layers:
+# Define a chain of layers and a loss function:
 struct Chain; layers; end
 (c::Chain)(x) = (for l in c.layers; x = l(x); end; x)
+(c::Chain)(x,y) = nll(c(x),y)
 
-# Define the LeNet model
-LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity)))
-
-# Train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
+# Load MNIST data:
 include(Knet.dir("data","mnist.jl"))
 dtrn, dtst = mnistdata()
-train!(LeNet, dtrn)
+
+# Define, train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
+LeNet = Chain(Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity))
+adam!(LeNet, repeat(dtrn,10))
 accuracy(LeNet, dtst)
 ```
 
