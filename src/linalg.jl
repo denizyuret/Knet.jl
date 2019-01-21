@@ -139,31 +139,29 @@ end
 
 """
 
-    mat(x) 
+    mat(x; dims = ndims(x) - 1)
 
-Reshape x into a two-dimensional matrix.
+Reshape `x` into a two-dimensional matrix by joining the first dims dimensions, i.e. 
+`reshape(x, prod(size(x,i) for i in 1:dims), :)`
 
-This is typically used when turning the output of a 4-D convolution
-result into a 2-D input for a fully connected layer.  For 1-D inputs
-returns `reshape(x, (length(x),1))`.  For inputs with more than two
-dimensions of size `(X1,X2,...,XD)`, returns
+`dims=ndims(x)-1` (default) is typically used when turning the output of a 4-D convolution
+result into a 2-D input for a fully connected layer.
 
-    reshape(x, (X1*X2*...*X[D-1],XD))
+`dims=1` is typically used when turning the 3-D output of an RNN layer into a 2-D input for
+a fully connected layer.
+
+`dims=0` will turn the input into a row vector, `dims=ndims(x)` will turn it into a column
+vector.
 
 """
-function mat(x)
-    if ndims(x) > 2
-        xn = size(x,ndims(x))
-        reshape(x, (div(length(x),xn),xn))
-    elseif ndims(x)==2
-        x
-    elseif ndims(x)==1
-        reshape(x, (length(x),1))
-    else
-        throw(MethodError(mat,x))
-    end
-end
+mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:dims) : 1), :)
 
+# conv: reshape(x, (:,xn)): rowdims=ndims-1
+# rnns: reshape(x, (x1,:)): rowdims=1
+# general: reshape(x, (x1*x2..xi, x[i+1]*...*xn))
+# specify the first rowdims are joined, the remaining are joined
+# 1-D input can be turned into a rowvec (rowdims=0), or colvec (rowdims=1).
+# default dims=ndims(x)-1 will turn vec into a rowvec but dims=1 will not work for conv.
 
 import Base: permutedims # ipermutedims
 

@@ -5,8 +5,8 @@ module Knet
 # The @dbg macro below evaluates `ex` only when debugging. The @debug macro prints stuff as documented in Julia.
 macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
-export
-    accuracy,	# ref
+export		# ref:reference.md tut:tutorial
+    accuracy,	# ref, tut
     adadelta!,	# ref
     Adadelta,	# ref
     adadelta,	# ref
@@ -15,7 +15,7 @@ export
     adagrad,	# ref
     adam!,	# ref
     Adam,	# ref
-    adam,	# ref
+    adam,	# ref, tut
     batchnorm,	# ref
     bce,	# ref
     bilinear,	# ref
@@ -23,37 +23,37 @@ export
     bnmoments,	# ref
     bnparams,	# ref
     cat1d,	# ref
-    conv4,	# ref
+    conv4,	# ref, tut
     converge!,	# ref
-    converge,	# ref
+    converge,	# ref, tut
     cpucopy,	# ref
-    #Data,	# use Knet.Data
+    #Data,	# tut, use Knet.Data
     deconv4,	# ref
-    @diff,	# ref
-    #dir,	# ref, use Knet.dir
-    dropout,	# ref
+    @diff,	# ref, tut
+    #dir,	# ref, tut, use Knet.dir
+    dropout,	# ref, tut
     elu,	# ref
     #epochs,	# deprecated, use repeat(data,n)
     gaussian,	# ref
-    #gc,  	# ref, use Knet.gc
+    #gc,  	# ref, tut, use Knet.gc
     #@gheck,	# ref, use AutoGrad.@gcheck
     goldensection, # ref
-    gpu,	# ref
+    gpu,	# ref, tut
     gpucopy,	# ref
-    grad,	# ref
+    grad,	# ref, tut
     gradloss,	# ref
     hyperband,	# ref
     invx,	# ref
-    KnetArray,	# ref
+    KnetArray,	# ref, tut
     knetgc,     # deprecated, use Knet.gc
-    #load,	# ref
+    #load,	# ref, tut
     #@load,	# ref
     logistic,	# ref
     logp,	# ref
     logsoftmax,	# ref
     logsumexp,	# ref
-    mat,	# ref
-    minibatch,	# ref
+    mat,	# ref, tut
+    minibatch,	# ref, tut
     #minimize!,	# use sgd!, adam! etc.
     #minimize,	# use sgd, adam etc.
     momentum!,	# ref
@@ -62,25 +62,25 @@ export
     nesterov!,	# ref
     Nesterov,	# ref
     nesterov,	# ref
-    nll,	# ref
+    nll,	# ref, tut
     optimizers,	# deprecated, use sgd etc.
-    Param,	# ref
-    param,	# ref
-    param0,	# ref
-    params,	# ref
-    pool,	# ref
+    Param,	# ref, tut
+    param,	# ref, tut
+    param0,	# ref, tut
+    params,	# ref, tut
+    pool,	# ref, tut
     #@primitive, # ref, use AutoGrad.@primitive
-    progress!,	# ref
-    progress,	# ref
-    relu,	# ref
+    progress!,	# ref, tut
+    progress,	# ref, tut
+    relu,	# ref, tut
     rmsprop!,	# ref
     Rmsprop,	# ref
     rmsprop,	# ref
-    RNN,	# ref
+    RNN,	# ref, tut
     rnninit,    # deprecated, use RNN
     rnnparam,	# ref, rnnparam(r,w,l,i,d) deprecated, use rnnparam(r,l,i,d)
     rnnparams,	# ref, rnnparams(r,w) deprecated, use rnnparams(r)
-    #save,	# ref, use Knet.save
+    #save,	# ref, tut, use Knet.save
     #@save,	# ref, use Knet.@save
     #seed!,	# ref, use Knet.seed!
     selu,	# ref
@@ -88,19 +88,19 @@ export
     sgd!,	# ref
     SGD,	# ref
     Sgd,	# deprecated, use SGD
-    sgd,	# ref
+    sgd,	# ref, tut
     sigm,	# ref
     softmax,	# ref
     train!,	# deprecated, use sgd, adam etc.
     #train,	# deprecated, use sgd, adam etc.
-    training,	# ref
+    training,	# ref, tut
     unpool,	# ref
     update!,	# ref
     #updates,	# deprecated, use take(cycle(data),n)
-    value,	# ref
-    xavier,	# ref
+    value,	# ref, tut
+    xavier,	# ref, tut
     #@zerograd, # ref, use AutoGrad.@zerograd
-    zeroone	# ref
+    zeroone	# ref, tut
 
 using AutoGrad
 include("gpu.jl");              # gpu
