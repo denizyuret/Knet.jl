@@ -197,7 +197,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.AutoGrad",
     "category": "module",
-    "text": "Usage:\n\nx = Param([1,2,3])          # user declares parameters\nx => P([1,2,3])             # they are wrapped in a struct\nvalue(x) => [1,2,3]         # we can get the original value\nsum(abs2,x) => 14           # they act like regular values outside of differentiation\ny = @diff sum(abs2,x)       # if you want the gradients\ny => T(14)                  # you get another struct\nvalue(y) => 14              # which represents the same value\ngrad(y,x) => [2,4,6]        # but also contains gradients for all Params\n\nParam(x) returns a struct that acts like x but marks it as a parameter you want to compute gradients with respect to.\n\n@diff expr evaluates an expression and returns a struct that contains its value (which should be a scalar) and gradient information.\n\ngrad(y, x) returns the gradient of y (output by @diff) with respect to any parameter x::Param, or  nothing if the gradient is 0.\n\nvalue(x) returns the value associated with x if x is a Param or the output of @diff, otherwise returns x.\n\nparams(x) returns an array of Params found by a recursive search of object x.\n\nAlternative usage:\n\nx = [1 2 3]\nf(x) = sum(abs2, x)\nf(x) => 14\ngrad(f)(x) => [2 4 6]\ngradloss(f)(x) => ([2 4 6], 14)\n\nGiven a scalar valued function f, grad(f,argnum=1) returns another function g which takes the same inputs as f and returns the gradient of the output with respect to the argnum\'th argument. gradloss is similar except the resulting function also returns f\'s output.\n\n\n\n\n\n"
+    "text": "Usage:\n\nx = Param([1,2,3])          # user declares parameters with `Param`\nx => P([1,2,3])             # `Param` is just a struct wrapping a value\nvalue(x) => [1,2,3]         # `value` returns the thing wrapped\nsum(x .* x) => 14           # Params act like regular values\ny = @diff sum(x .* x)       # Except when we differentiate using `@diff`\ny => T(14)                  # you get another struct\nvalue(y) => 14              # which carries the same result\nparams(y) => [x]            # and the Params that it depends on \ngrad(y,x) => [2,4,6]        # and the gradients for all Params\n\nParam(x) returns a struct that acts like x but marks it as a parameter you want to compute gradients with respect to.\n\n@diff expr evaluates an expression and returns a struct that contains the result (which should be a scalar) and gradient information.\n\ngrad(y, x) returns the gradient of y (output by @diff) with respect to any parameter x::Param, or  nothing if the gradient is 0.\n\nvalue(x) returns the value associated with x if x is a Param or the output of @diff, otherwise returns x.\n\nparams(x) returns an iterator of Params found by a recursive search of object x.\n\nAlternative usage:\n\nx = [1 2 3]\nf(x) = sum(x .* x)\nf(x) => 14\ngrad(f)(x) => [2 4 6]\ngradloss(f)(x) => ([2 4 6], 14)\n\nGiven a scalar valued function f, grad(f,argnum=1) returns another function g which takes the same inputs as f and returns the gradient of the output with respect to the argnum\'th argument. gradloss is similar except the resulting function also returns f\'s output.\n\n\n\n\n\n"
 },
 
 {
@@ -601,6 +601,94 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference/#Knet.bmm",
+    "page": "Reference",
+    "title": "Knet.bmm",
+    "category": "function",
+    "text": "bmm(A, B)) performs a batch matrix-matrix product of matrices stored in A and B. A and B must be 3d and the last dimension represents the batch size.\n\nIf A is a (m,n,b) tensor, B is a (n,k,b) tensor, and the output is a (m,k,b) tensor.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#AutoGrad.cat1d",
+    "page": "Reference",
+    "title": "AutoGrad.cat1d",
+    "category": "function",
+    "text": "cat1d(args...)\n\nReturn vcat(vec.(args)...) but possibly more efficiently. Can be used to concatenate the contents of arrays with different shapes and sizes.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.cpucopy",
+    "page": "Reference",
+    "title": "Knet.cpucopy",
+    "category": "function",
+    "text": "Return a copy of x with all its arrays transferred to CPU.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.dir",
+    "page": "Reference",
+    "title": "Knet.dir",
+    "category": "function",
+    "text": "Knet.dir(path...)\n\nConstruct a path relative to Knet root.\n\nExample\n\njulia> Knet.dir(\"examples\",\"mnist.jl\")\n\"/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl\"\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.dropout",
+    "page": "Reference",
+    "title": "Knet.dropout",
+    "category": "function",
+    "text": "dropout(x, p; drop, seed)\n\nGiven an array x and probability 0<=p<=1 return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p. Just return x if p==0, or drop=false. By default drop=true in a @diff context, drop=false otherwise.  Specify a non-zero seed::Number to set the random number seed for reproducible results. See (Srivastava et al. 2014) for a reference.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.gc",
+    "page": "Reference",
+    "title": "Knet.gc",
+    "category": "function",
+    "text": "Knet.gc(dev=gpu())\n\ncudaFree all pointers allocated on device dev that were previously allocated and garbage collected. Normally Knet holds on to all garbage collected pointers for reuse. Try this if you run out of GPU memory.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.gpu",
+    "page": "Reference",
+    "title": "Knet.gpu",
+    "category": "function",
+    "text": "gpu() returns the id of the active GPU device or -1 if none are active.\n\ngpu(true) resets all GPU devices and activates the one with the most available memory.\n\ngpu(false) resets and deactivates all GPU devices.\n\ngpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.\n\ngpu(true/false) resets all devices.  If there are any allocated KnetArrays their pointers will be left dangling.  Thus gpu(true/false) should only be used during startup.  If you want to suspend GPU use temporarily, use gpu(-1).\n\ngpu(d::Int) does not reset the devices.  You can select a previous device and find allocated memory preserved.  However trying to operate on arrays of an inactive device will result in error.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.gpucopy",
+    "page": "Reference",
+    "title": "Knet.gpucopy",
+    "category": "function",
+    "text": "Return a copy of x with all its arrays transferred to GPU.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.invx",
+    "page": "Reference",
+    "title": "Knet.invx",
+    "category": "function",
+    "text": "invx(x) = (1./x)\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.mat",
+    "page": "Reference",
+    "title": "Knet.mat",
+    "category": "function",
+    "text": "mat(x; dims = ndims(x) - 1)\n\nReshape x into a two-dimensional matrix by joining the first dims dimensions, i.e.  reshape(x, prod(size(x,i) for i in 1:dims), :)\n\ndims=ndims(x)-1 (default) is typically used when turning the output of a 4-D convolution result into a 2-D input for a fully connected layer.\n\ndims=1 is typically used when turning the 3-D output of an RNN layer into a 2-D input for a fully connected layer.\n\ndims=0 will turn the input into a row vector, dims=ndims(x) will turn it into a column vector.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.seed!",
+    "page": "Reference",
+    "title": "Knet.seed!",
+    "category": "function",
+    "text": "Knet.seed!(n::Integer)\n\nRun seed!(n) on both cpu and gpu.\n\n\n\n\n\n"
+},
+
+{
     "location": "reference/#Utilities-1",
     "page": "Reference",
     "title": "Utilities",
@@ -613,7 +701,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.@gcheck",
     "category": "macro",
-    "text": " x = Param(randn(10))\n @gcheck sum(exp.(x)) (nsample=20,)\n\n\n\n\n\n"
+    "text": "gcheck(f, x...; kw, o...)\n@gcheck f(x...; kw...) (opt1=val1,opt2=val2,...)\n\nNumerically check the gradient of f(x...; kw...) and return a boolean result.\n\nExample call: gcheck(nll,model,x,y) or @gcheck nll(model,x,y). The parameters should be marked as Param arrays in f, x, and/or kw.  Only 10 random entries in each large numeric array are checked by default.  If the output of f is not a number, we check the gradient of sum(f(x...; kw...)). Keyword arguments:\n\nkw=(): keyword arguments to be passed to f, i.e. f(x...; kw...)\nnsample=10: number of random entries from each param to check\natol=0.01,rtol=0.05: tolerance parameters.  See isapprox for their meaning.\ndelta=0.0001: step size for numerical gradient calculation.\nverbose=1: 0 prints nothing, 1 shows failing tests, 2 shows all tests.\n\n\n\n\n\n"
 },
 
 {
@@ -621,7 +709,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "AutoGrad.@primitive",
     "category": "macro",
-    "text": "@primitive  fx g1 g2...\n\nDefine a new primitive operation for AutoGrad and (optionally) specify its gradients. Non-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\nExamples\n\n@primitive sin(x::Number)\n@primitive hypot(x1,x2),dy,y\n\n@primitive sin(x::Number),dy  (dy.*cos(x))\n@primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nThe first example shows that fx is a typed method declaration.  Julia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types. AutoGrad takes advantage of this and supports multiple dispatch for primitives and gradients.\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f(x::T) where {T<:Number} cannot be used.\n\nThe method declaration can optionally be followed by gradient expressions.  The third and fourth examples show how gradients can be specified.  Note that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nUnder the hood\n\nThe @primitive macro turns the first example into:\n\nsin(x::Value{T}) where {T<:Number} = forw(sin, x)\n\nThis will cause calls to sin with a boxed argument (Value{T<:Number}) to be recorded. The recorded operations are used by AutoGrad to construct a dynamic computational graph. With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nhypot(x1::Value{S}, x2::Value{T}) where {S,T} = forw(hypot, x1, x2)\nhypot(x1::S, x2::Value{T})        where {S,T} = forw(hypot, x1, x2)\nhypot(x1::Value{S}, x2::T)        where {S,T} = forw(hypot, x1, x2)\n\nWe want the forw method to be called if any one of the arguments is a boxed Value.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following pattern:\n\nback(f,Arg{i},dy,y,x...) => dx[i]\n\nFor the third example here is the generated gradient method:\n\nback(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)\n\nFor the last example a different gradient method is generated for each argument:\n\nback(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x1) ./ y\nback(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x2) ./ y\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\nBroadcasting\n\nBroadcasting is handled by extra forw and back methods. @primitive defines the following  so that broadcasting of a primitive function with a boxed value triggers forw and back.\n\nbroadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcast,sin,x)\nback(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)\n\nIf you do not want the broadcasting methods, you can use the @primitive1 macro. If you only want the broadcasting methods use @primitive2. As a motivating example, here is how * is defined for non-scalars:\n\n@primitive1 *(x1,x2),dy  (dy*x2\')  (x1\'*dy)\n@primitive2 *(x1,x2),dy  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)\n\nRegular * is matrix multiplication, broadcasted * is elementwise multiplication and the two have different gradients as defined above. unbroadcast(a,b) reduces b to the same shape as a by performing the necessary summations.\n\n\n\n\n\n"
+    "text": "@primitive  fx g1 g2...\n\nDefine a new primitive operation for AutoGrad and (optionally) specify its gradients. Non-differentiable functions such as sign, and non-numeric functions such as size should be defined using the @zerograd macro instead.\n\nExamples\n\n@primitive sin(x::Number)\n@primitive hypot(x1,x2),dy,y\n\n@primitive sin(x::Number),dy  (dy.*cos(x))\n@primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)\n\nThe first example shows that fx is a typed method declaration.  Julia supports multiple dispatch, i.e. a single function can have multiple methods with different arg types. AutoGrad takes advantage of this and supports multiple dispatch for primitives and gradients.\n\nThe second example specifies variable names for the output gradient dy and the output y after the method declaration which can be used in gradient expressions.  Untyped, ellipsis and keyword arguments are ok as in f(a::Int,b,c...;d=1).  Parametric methods such as f(x::T) where {T<:Number} cannot be used.\n\nThe method declaration can optionally be followed by gradient expressions.  The third and fourth examples show how gradients can be specified.  Note that the parameters, the return variable and the output gradient of the original function can be used in the gradient expressions.\n\nUnder the hood\n\nThe @primitive macro turns the first example into:\n\nsin(x::Value{T}) where {T<:Number} = forw(sin, x)\n\nThis will cause calls to sin with a boxed argument (Value{T<:Number}) to be recorded. The recorded operations are used by AutoGrad to construct a dynamic computational graph. With multiple arguments things are a bit more complicated.  Here is what happens with the second example:\n\nhypot(x1::Value{S}, x2::Value{T}) where {S,T} = forw(hypot, x1, x2)\nhypot(x1::S, x2::Value{T})        where {S,T} = forw(hypot, x1, x2)\nhypot(x1::Value{S}, x2::T)        where {S,T} = forw(hypot, x1, x2)\n\nWe want the forw method to be called if any one of the arguments is a boxed Value.  There is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed argument combinations.\n\nIn AutoGrad, gradients are defined using gradient methods that have the following pattern:\n\nback(f,Arg{i},dy,y,x...) => dx[i]\n\nFor the third example here is the generated gradient method:\n\nback(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)\n\nFor the last example a different gradient method is generated for each argument:\n\nback(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x1) ./ y\nback(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x2) ./ y\n\nIn fact @primitive generates four more definitions for the other boxed/unboxed argument combinations.\n\nBroadcasting\n\nBroadcasting is handled by extra forw and back methods. @primitive defines the following  so that broadcasting of a primitive function with a boxed value triggers forw and back.\n\nbroadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcasted,sin,x)\nback(::typeof(broadcasted), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)\n\nIf you do not want the broadcasting methods, you can use the @primitive1 macro. If you only want the broadcasting methods use @primitive2. As a motivating example, here is how * is defined for non-scalars:\n\n@primitive1 *(x1,x2),dy  (dy*x2\')  (x1\'*dy)\n@primitive2 *(x1,x2),dy  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)\n\nRegular * is matrix multiplication, broadcasted * is elementwise multiplication and the two have different gradients as defined above. unbroadcast(a,b) reduces b to the same shape as a by performing the necessary summations.\n\n\n\n\n\n"
 },
 
 {
