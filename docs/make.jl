@@ -1,4 +1,4 @@
-using Documenter, Knet, AutoGrad
+using Documenter, Knet
 
 # Avoid loading examples and their requirements
 # Extract their docstrings instead

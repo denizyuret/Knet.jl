@@ -16,6 +16,7 @@ export		# ref:reference.md tut:tutorial
     adam!,	# ref
     Adam,	# ref
     adam,	# ref, tut
+    AutoGrad,	# ref, tut
     batchnorm,	# ref
     bce,	# ref
     bilinear,	# ref

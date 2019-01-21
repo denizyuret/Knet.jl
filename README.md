@@ -14,7 +14,7 @@ computational graphs for models defined in plain Julia. You can install Knet wit
 following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting points:
 
 * [Tutorial:](tutorial) 
-  introduces Julia and Knet via examples. Currently the most up-to-date resource, some of the documentation and examples below may be out of date.
+  introduces Julia and Knet via examples.
 * [Documentation:](https://denizyuret.github.io/Knet.jl/latest)
   installation, introduction, design, implementation, full reference and deep learning chapters.
 * [Examples:](examples)
