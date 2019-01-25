@@ -97,7 +97,7 @@ function _ser(x::Union{Dict,IdDict}, s::IdDict,m::Val)
     if isbitstype(eltype(x))
         return (s[x] = x)
     end
-    dest = typeof(x) <: Dict ? Dict() : IdDict()
+    dest = empty(x)
     s[x] = dest
     for (k, v) in x
         dest[_ser(k, s, m)] = _ser(v, s, m)
