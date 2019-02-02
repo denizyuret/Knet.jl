@@ -62,7 +62,7 @@ _ser(x::Array,s::IdDict,::typeof(CPUMODE))=x
 
 
 # Generic serialization rules from deepcopy.jl
-_ser(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,Task},::IdDict,::Val) = x
+_ser(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task},::IdDict,::Val) = x
 _ser(x::Tuple, s::IdDict, m::Val) = ntuple(i->_ser(x[i], s, m), length(x))
 _ser(x::Module, ::IdDict, ::Val) = error("serialize of Modules not supported")
 _ser(x::Core.SimpleVector, s::IdDict,m::Val) = (haskey(s, x) ? s[x] : s[x] = Core.svec(Any[_ser(x[i], s, m) for i = 1:length(x)]...))
