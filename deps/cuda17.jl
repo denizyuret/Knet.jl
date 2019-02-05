@@ -13,7 +13,7 @@
 # http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#heap-memory-allocation
 
 fp = open("cuda17.cu","w")
-#using Knet: broadcast_ops
+#using Knet: binary_ops
 
 function cuda17src(f, j=f, ex="$f(xi,yi)")
   sprint() do s
@@ -66,7 +66,7 @@ extern "C" {
   end
 end
 
-for a in broadcast_ops
+for a in binary_ops
     if !isa(a,Tuple); a=(a,); end
     print(fp,cuda17src(a...))
 end

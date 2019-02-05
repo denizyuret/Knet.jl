@@ -1,2 +1,7 @@
 using Test, Random, AutoGrad, Knet
-include(AutoGrad.dir("test","gradcheck.jl"))
+if isdefined(AutoGrad, :gradcheck); @eval begin
+    using AutoGrad: gradcheck
+end; end
+if isdefined(AutoGrad, :gcheck); @eval begin
+    using AutoGrad: gcheck, @gcheck
+end; end

@@ -16,8 +16,9 @@ mailing list.
 
 ## Installation
 
-For best results install (1) a host compiler, (2) GPU support, (3)
-Julia, and (4) Knet in that order.
+For best results install (1) a host compiler, (2) GPU support, (3) Julia, and (4) Knet in that
+order. Step (1) can be skipped if you do not need convolutions. Step (2) can be skipped if you
+do not have a GPU.
 
 Host compiler: On Linux, the gcc compiler that comes standard with all
 distributions is supported.  On Mac you need to install

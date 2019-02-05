@@ -6,6 +6,7 @@ import Base.Broadcast: broadcasted
 
 function unary_op(f, j=f, o...)
     J=Symbol(j)
+    M = which(@__MODULE__, J)
     for S in (32,64)
         T = Symbol("Float$S")
         F = "$(f)_$S"
@@ -15,7 +16,14 @@ function unary_op(f, j=f, o...)
                 @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
+            # Bcasted methods
+            ($M).$J(x::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value) |> Bcasted
+            broadcasted(::typeof($J),x::Bcasted{<:KnetArray{$T}}) = broadcasted($J, x.value) |> Bcasted
         end
+    end
+    @eval begin # so we do not trigger some default Base implementation
+        ($M).$J(x::Bcasted) = throw(MethodError($J,(x,)))
+        broadcasted(::typeof($J),x::Bcasted) = throw(MethodError($J,(x,)))
     end
 end
 
@@ -71,7 +79,9 @@ end
     relu(x)
 Return `max(0,x)`.
 
-Reference: Rectified Linear Units Improve Restricted Boltzmann Machines (https://icml.cc/Conferences/2010/abstracts.html#432).
+References: 
+* [Nair and Hinton, 2010](https://icml.cc/Conferences/2010/abstracts.html#432). Rectified Linear Units Improve Restricted Boltzmann Machines. ICML.
+* [Glorot, Bordes and Bengio, 2011](http://proceedings.mlr.press/v15/glorot11a). Deep Sparse Rectifier Neural Networks. AISTATS.
 """
 relu
 

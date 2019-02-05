@@ -1,4 +1,4 @@
-using Documenter, Knet, AutoGrad
+using Documenter, Knet
 
 # Avoid loading examples and their requirements
 # Extract their docstrings instead
@@ -19,11 +19,10 @@ makedocs(
     # Including Main in the list leads to too many warnings
     # modules = [Knet,AutoGrad,LinReg,Housing,MNIST,LeNet,CharLM,Optimizers,VGG,ResNet],
     modules = [Knet,AutoGrad],
+    format = Documenter.HTML(),
     clean = false,              # do we clean build dir
-    format = :html,
     sitename = "Knet.jl",
     authors = "Deniz Yuret and contributors.",
-    doctest = true,
     pages = Any[ # Compat: `Any` for 0.4 compat
         "Home" => "index.md",
         "Manual" => Any[
@@ -43,16 +42,17 @@ makedocs(
             "gen.md",
         ],
     ],
+#    doctest = true,
 #    analytics = "UA-89508993-1",
 #    linkcheck = !("skiplinks" in ARGS),
 )
 
 deploydocs(
     repo = "github.com/denizyuret/Knet.jl.git",
-    julia = "1.0",
-    osname = "linux",
     target = "build",
-    make = nothing,
-    deps = nothing,
-    #deps   = Deps.pip("mkdocs", "python-markdown-math"),
+    # julia = "1.0",
+    # osname = "linux",
+    # make = nothing,
+    # deps = nothing,
+    # deps   = Deps.pip("mkdocs", "python-markdown-math"),
 )

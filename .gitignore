@@ -36,3 +36,5 @@ setup.sh
 *.gz
 .ipynb_checkpoints
 *-Copy*ipynb
+Untitled*.ipynb
+tutorial/words

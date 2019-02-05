@@ -1,6 +1,37 @@
+Knet v1.2.0 Release Notes
+=========================
+b82f0ccf 2019-01-21
+
+* New training interface based on iterators.
+* Progressbar and converge utilities.
+* RNN unboxes hidden states in backward pass making `value(h)` unnecessary on GPU.
+* `rnnparam` and `rnnparams` no longer take a `w` argument.
+* RNN applies dropout to input like other layers.
+* `mat` takes a `dims` keyword argument that makes it useful for both RNNs and CNNs.
+* Dropout automatically figures out and does nothing outside of `@diff` context.
+* Fixed inplace assignment for Params and KnetArrays.
+* Julia 1.0 fixes for `goldensection`.
+* Improved default parameters for all optimizers tested on MLP, CNN, RNN.
+* All notebooks and documentation updated.
+* New iterator and quickstart notebooks.
+* Updated to Documenter 0.21.
+
+
+Knet v1.1.2 Release Notes
+=========================
+20d91106 2019-01-04
+
+* Support for broadcasting user defined functions.
+* Added batch matrix multiplication. (@ozanarkancan)
+* Improved serialization and JLD file I/O. (@ekinakyurek)
+* Added tests and docs for new RNN interface.
+* Added julia/base demo to tutorial/08.charlm
+* Renamed broadcast.jl -> binary.jl and broadcast_ops -> binary_ops.
+
+
 Knet v1.1.1 Release Notes
 =========================
-e3ab1f7f 2018-09-30
+6f27c1d5 2018-09-30
 
 * General performance improvements.
 * New GPU memory manager. (with @ekinakyurek)

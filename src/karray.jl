@@ -222,8 +222,8 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 import Base: hcat, vcat, cat
 
 # Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
-const NAVK = Union{Number,AbstractArray,Value,KnetArray}
-cat(X::NAVK...; dims) = forw(cat,X...;dims=dims)
+const NAVK = Union{Number,AbstractArray,AutoGrad.Value,KnetArray}
+cat(X::NAVK...; dims) = AutoGrad.forw(cat,X...;dims=dims)
 if isdefined(AutoGrad,:Arg); @eval begin
     AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 end; else; @eval begin
@@ -383,10 +383,10 @@ end
 # @primitive convert{A<:AbstractArray,K<:KnetArray}(T::Type{A}, x::Value{K}),dy 0 KnetArray(dy)
 
 # So we will define gradients for convert, KnetArray, Array manually:
-Base.Array(x::Value{K}) where {K<:KnetArray}=convert(Array,x)
-KnetArray(x::Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
-convert(::Type{A},x::Value{K}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,A,x)
-convert(::Type{K},x::Value{A}) where {A<:AbstractArray,K<:KnetArray}=forw(convert,K,x)
+Base.Array(x::AutoGrad.Value{K}) where {K<:KnetArray}=convert(Array,x)
+KnetArray(x::AutoGrad.Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
+convert(::Type{A},x::AutoGrad.Value{K}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,A,x)
+convert(::Type{K},x::AutoGrad.Value{A}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,K,x)
 if isdefined(AutoGrad,:Arg); @eval begin
     AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
 end; else; @eval begin
@@ -477,31 +477,6 @@ end; end
 ka = KnetArray
 export ka
 
-# To stop fusing the following is needed.
-# Primitives just need to override broadcasted for KnetArray types.
-import .Broadcast: broadcasted
-broadcasted(f, x::KnetArray) = throw(MethodError(broadcasted,(f,x)))
-broadcasted(f, x::KnetArray, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
-### These cause ambiguity with AutoGrad:
-# broadcasted(f, x::KnetArray, y...) = throw(MethodError(broadcasted,(f,x,y...)))
-# broadcasted(f, x::KnetArray, y) = throw(MethodError(broadcasted,(f,x,y)))
-# broadcasted(f, x, y::KnetArray) = throw(MethodError(broadcasted,(f,x,y)))
-
-import .Broadcast: copyto!, broadcasted
-using .Broadcast: Broadcasted
-# This fixes (x .- log.(sum(exp.(x),dims=dims)))
-broadcasted(f, x::KnetArray, y::Broadcasted) = broadcasted(f, x, copy(y))
-broadcasted(f, x::Broadcasted, y::KnetArray) = broadcasted(f, copy(x), y)
-
-# # This fixes ambiguity with AutoGrad
-# # But then creates more ambiguity as given next
-# using AutoGrad: broadcast_r
-# broadcasted(f, x::Value, y::KnetArray) = broadcast_r(f,x,y)
-# broadcasted(f, x::KnetArray, y::Value) = broadcast_r(f,x,y)
-# # This fixes (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
-# # TODO: Do we have to do this for each f?
-# broadcasted(f::typeof(*), x::KnetArray, y::Value) = broadcast_r(f,x,y)
-# broadcasted(f::typeof(*), x::Value, y::KnetArray) = broadcast_r(f,x,y)
 
 ### k[1:2,3:4] .= 0 => materialize!(dotview(k,1:2,3:4),broadcasted(identity,0))
 
@@ -555,11 +530,8 @@ check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} 
 
 # dotview(P::KnetArray{T,N},I...) where {T,N} =SubArray{T,N,typeof(P),typeof(I),false}(P,I,0,0)
 # check_parent_index_match(parent::KnetArray{T,N}, ::NTuple{N, Bool}) where {T,N} = nothing
-copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
-copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
 
-
-# https://docs.julialang.org/en/stable/manual/types/#man-custom-pretty-printing-1
+# https://docs.julialang.org/en/v1/manual/types/#man-custom-pretty-printing-1
 # Base.show(io::IO, z): single line format used in show, print, inside other objects.
 # Base.show(io::IO, ::MIME"text/plain", z): multi-line format used by display.
 # Base.show(io::IO, ::MIME"text/html", z): multi-line format for html output.
@@ -575,6 +547,64 @@ getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
 size(a::KnetDisplay) = size(a.a)
 summary(io::IO, a::KnetDisplay) = summary(io, a.a)
 summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
-show(io::IO, a::KnetArray) = show(io, KnetDisplay(a))
+show(io::IO, a::KnetArray) = (print(io,"K"); show(io, KnetDisplay(a)))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
-summary(io::IO, x::Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+summary(io::IO, x::AutoGrad.Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
+
+
+## Broadcasting:
+
+# Both f.(x...) and broadcast(f,x...) turn into materialize(broadcasted(::BroadcastStyle,f,x...)).
+import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted, Broadcasted, materialize!
+
+# Any call involving KnetArray should be unfused: (see AutoGrad/src/core.notes)
+broadcasted(::Style{KnetArray}, f, args...) = f(Bcasted.(args)...).value
+
+# The following should set the style for any call that involves a KnetArray:
+BroadcastStyle(::Type{<:KnetArray}) = Style{KnetArray}()
+broadcastable(x::KnetArray) = x  # This is necessary for the style stuff to work, default definition `collect(x)` turns x into Array.
+
+# Make sure the KnetArray style overrides others except the AutoGrad.Value style:
+BroadcastStyle(k::Style{KnetArray}, s::BroadcastStyle) = k
+BroadcastStyle(k::Style{KnetArray}, v::Style{AutoGrad.Value}) = v
+
+# We use a different Bcasted type than AutoGrad to avoid infinite loops:
+struct Bcasted{T}; value::T; end
+
+# This fixes (x .- log.(sum(exp.(x),dims=:))) where log.(::Number) gives a Broadcasted object
+Bcasted(x::Broadcasted) = Bcasted(copy(x))
+
+# For broadcasting Knet primitives the following needs to be defined (see unary.jl, binary.jl)
+# f(x::Bcasted) = broadcasted(f, x.value) |> Bcasted
+# broadcasted(f,x::Bcasted) = broadcasted(f, x.value) |> Bcasted
+
+# The following fixes in-place assignment operations:
+
+import Base: copyto!
+using Base.Broadcast: Broadcasted
+
+function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T<:Tuple{<:KnetArray}}
+    b = b.args[1]
+    if size(a) == size(b)
+        copyto!(a,b)
+    else
+        fill!(a,0)
+        a .+= b
+    end
+    return a
+end
+
+function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T<:Tuple{<:Number}}
+    fill!(a,b.args[1])
+end
+
+function copyto!(a::SubArray{A,B,C,D,E},b::Broadcasted{S,X,F,T}) where {A,B,C<:KnetArray,D,E,S,X,F<:typeof(identity),T<:Tuple{<:Number}}
+    setindex!(a.parent, b.args[1], a.indices...)
+end
+
+function copyto!(a::SubArray{A,B,C,D,E},b::Broadcasted{S,X,F,T}) where {A,B,C<:KnetArray,D,E,S,X,F<:typeof(identity),T<:Tuple{<:Any}}
+    setindex!(a.parent, b.args[1], a.indices...)
+end
+
+# copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
+# copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)

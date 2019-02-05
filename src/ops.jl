@@ -2,7 +2,7 @@
 # With single name entries cudaname=julianame and kernelcode=name(xi,yi).
 # I commented out functions if I don't know the Julia equivalent.
 
-broadcast_ops = [
+binary_ops = [
     ("add","+","xi+yi"),
     ("sub","-","xi-yi"),
     ("mul","*","xi*yi"),

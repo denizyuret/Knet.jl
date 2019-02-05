@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Knet = "1902f260-5fb4-5aff-8c31-6271790ab950"
+
+[compat]
+Documenter = "~0.21"

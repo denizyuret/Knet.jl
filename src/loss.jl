@@ -75,7 +75,7 @@ mutable structdef enum
 {
     CUDNN_SOFTMAX_FAST     = 0,         /* straightforward implementation */
     CUDNN_SOFTMAX_ACCURATE = 1,         /* subtract max from every point to avoid overflow */
-    CUDNN_SOFTMAX_LOG      = 2
+    CUDNN_SOFTMAX_LOG      = 2          /* this was introduced at cudnnVersion 3000 */
 } cudnnSoftmaxAlgorithm_t;
 
 mutable structdef enum
@@ -133,19 +133,21 @@ function dimvec(x, dims)
 end
 
 generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
-function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, Value{<:KnetArray}}
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}}
     d,sz = dimvec(x,dims)
-    if d==[1]
+    if algo == 2 && (cudnnhandle(); cudnnVersion < 3000) # algo=2 (logsoftmax) was introduced in cudnn 3000
+        fallback(x; dims=dims, algo=algo)
+    elseif d==[1]
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
         reshape(x, sz)
     elseif d==[2] && ndims(x)==2
         generic_softmax(x',algo,fallback;dims=1)'
     elseif length(d)==ndims(x);
         n = length(x)
-        (n > 20000 ? fallback(x) : # see Knet/prof/softmax.jl for timing info
+        (n > 20000 ? fallback(x;dims=dims,algo=algo) : # see Knet/prof/softmax.jl for timing info
         reshape(cudnnSoftmaxForward(reshape(x,(1,1,n,1)),algo=algo),size(x)))
     else
-        fallback(x;dims=dims)
+        fallback(x;dims=dims,algo=algo)
     end
 end
 
@@ -322,6 +324,7 @@ function accuracy(model, data; dims=1, average=true, o...)
     average ? sum / cnt : sum
 end
 
+"zeroone loss is equal to 1 - accuracy"
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:
