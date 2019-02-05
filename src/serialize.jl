@@ -3,11 +3,7 @@ const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 serialize(x) = _ser(x,IdDict(),JLDMODE)
-
-"Return a copy of `x` with all its arrays transferred to GPU."
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
-
-"Return a copy of `x` with all its arrays transferred to CPU."
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
 function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
@@ -46,7 +42,7 @@ function _ser(x::RNN, s::IdDict, m::typeof(JLDMODE))
     if !haskey(s,x)
         dropoutDesc = (x.dropoutDesc != nothing || gpu() < 0 ? nothing : DD(handle=gethandle(),dropout=x.dropout,seed=x.seed))
         rnnDesc = (x.rnnDesc != nothing || gpu() < 0 ? nothing : RD(x.hiddenSize,x.numLayers,dropoutDesc,x.inputMode,x.direction,x.mode,x.algo,x.dataType))
-        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m))
+        s[x] = RNN(x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m), _ser(x.w,s,m))
     end
     return s[x]
 end
@@ -57,8 +53,17 @@ _ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,
 
 _ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
 _ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
-_ser(x::Array,s::IdDict,::typeof(GPUMODE))=(haskey(s,x) ? s[x] : s[x]=KnetArray(x))
-_ser(x::Array,s::IdDict,::typeof(CPUMODE))=x
+_ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
+
+function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) 
+    if !isbitstype(T)
+        map(xi->_ser(xi,s,m), x)
+    elseif m === GPUMODE
+        KnetArray(x)
+    else
+        x
+    end
+end
 
 
 # Generic serialization rules from deepcopy.jl
@@ -67,8 +72,6 @@ _ser(x::Tuple, s::IdDict, m::Val) = ntuple(i->_ser(x[i], s, m), length(x))
 _ser(x::Module, ::IdDict, ::Val) = error("serialize of Modules not supported")
 _ser(x::Core.SimpleVector, s::IdDict,m::Val) = (haskey(s, x) ? s[x] : s[x] = Core.svec(Any[_ser(x[i], s, m) for i = 1:length(x)]...))
 _ser(x::String, s::IdDict,::Val) = (haskey(s, x) ? s[x] : s[x] = (GC.@preserve x unsafe_string(pointer(x), sizeof(x))))
-_ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
-_ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) = (isbitstype(T) ? x : map(xi->_ser(xi,s,m), x))
 
 function _ser(@nospecialize(x), s::IdDict, m::Val)
     T = typeof(x)::DataType
