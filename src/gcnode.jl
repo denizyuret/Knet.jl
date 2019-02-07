@@ -45,7 +45,7 @@ function maybefree(x::KnetArray, n::Node)
     #     error("Missed shared pointer $cp")
     # end
     #DBG
-    finalize(x.ptr)
+    CuArrays.unsafe_free!(x.ptr)
     return true
 end
 
