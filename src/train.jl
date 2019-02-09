@@ -6,14 +6,14 @@ import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, 
 # except applying gradient based updates to params at each step
 
 #"Example: `minimize(f,repeat(data,10))`"
-minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params,Any)
+minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params,typeof(f(first(d)...)))
 minimize!(x...; o...) = for x in minimize(x...; o...); end
 
 struct Minimize{I}; data::I; func; algo; params; eltype; end
 
-length(c::Minimize) = length(c.data)
-size(c::Minimize) = size(c.data)
-eltype(c::Minimize) = (c.eltype === Any ? typeof(@diff c.func(first(c.data)...)) : c.eltype)
+length(m::Minimize) = length(m.data)
+size(m::Minimize) = size(m.data)
+eltype(m::Minimize) = m.eltype
 IteratorSize(::Type{Minimize{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
 
@@ -58,11 +58,12 @@ converge!(x...; o...) = for x in converge(x...; o...); end
 
 struct Converge{I}; iter::I; alpha::Float64; end
 
-length(c::Converge) = length(c.iter)
-size(c::Converge) = size(c.iter)
+# Converge is large Filter, does not have known size
+# length(c::Converge) = length(c.iter)
+# size(c::Converge) = size(c.iter)
 eltype(c::Converge) = eltype(c.iter)
-IteratorSize(::Type{Converge{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{Converge{I}}) where {I} = IteratorEltype(I)
+IteratorSize(::Type{<:Converge}) = SizeUnknown()
 
 @propagate_inbounds function iterate(c::Converge, s=(0.0,Inf))
     avgp,avgx,state = s[1],s[2],tail(tail(s))
