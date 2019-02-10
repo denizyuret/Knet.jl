@@ -111,6 +111,15 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
                 @test gradcheck(p5, k5)
             end
         end
+        
+        # transpose and matmul should work with vectors
+        if gpu() >= 0
+            a6 = rand(t,3)
+            k6 = KnetArray(a6)
+            @test k6' == a6'
+            @test k6' * k6 == a6' * a6 # (a6'*a6)::Number, (Array(a6')*a6)::Vector (not Matrix), (k6'*k6)::Number.
+            @test k6 * k6' == a6 * a6'
+        end
     end
 end
 

@@ -20,6 +20,10 @@ At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,
 @primitive1 Knet.A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(x1,dy)
 @primitive1 Knet.At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  (x1*dy)
 
+# Allow 1-D vectors as (N,1) in matmul:
+(*)(A::KnetVector{T},B::KnetMatrix{T}) where {T} = reshape(A,:,1) * B
+(*)(A::KnetMatrix{T},B::KnetVector{T}) where {T} = (C = A * reshape(B,:,1); size(A,1) == 1 ? C[1] : C)
+
 # deprecated:
 # A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
 # A_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
@@ -117,8 +121,9 @@ IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
 IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 =#
 
-function _transpose(x::KnetArray{T}) where {T} # trying the lazy version first
-    ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
+_transpose(x::KnetVector) = _transpose(reshape(x,:,1))
+
+function _transpose(x::KnetMatrix{T}) where {T} # trying the lazy version first
     # Using CUBLAS
     sz = size(x)
     y = similar(x,(sz[2],sz[1]))
