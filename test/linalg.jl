@@ -115,10 +115,13 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
         # transpose and matmul should work with vectors
         if gpu() >= 0
             a6 = rand(t,3)
-            k6 = KnetArray(a6)
-            @test k6' == a6'
-            @test k6' * k6 == a6' * a6 # (a6'*a6)::Number, (Array(a6')*a6)::Vector (not Matrix), (k6'*k6)::Number.
-            @test k6 * k6' == a6 * a6'
+            b6 = rand(t,3,3)
+            c6 = KnetArray(a6)
+            d6 = KnetArray(b6)
+            @test c6' ≈ a6'
+            @test c6' * c6 ≈ a6' * a6 # (a6'*a6)::Number, (Array(a6')*a6)::Vector (not Matrix), (c6'*c6)::Number.
+            @test c6 * c6' ≈ a6 * a6'
+            @test b6 * a6 ≈ d6 * c6 # Matrix * Vector => Vector
         end
     end
 end

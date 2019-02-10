@@ -22,7 +22,7 @@ At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,
 
 # Allow 1-D vectors as (N,1) in matmul:
 (*)(A::KnetVector{T},B::KnetMatrix{T}) where {T} = reshape(A,:,1) * B
-(*)(A::KnetMatrix{T},B::KnetVector{T}) where {T} = (C = A * reshape(B,:,1); size(A,1) == 1 ? C[1] : C)
+(*)(A::KnetMatrix{T},B::KnetVector{T}) where {T} = (C = A * reshape(B,:,1); size(A,1) == 1 ? C[1] : vec(C))
 
 # deprecated:
 # A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
