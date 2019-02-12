@@ -8,6 +8,10 @@ julia:
   - 1.0
   - nightly
 
+matrix:
+  allow_failures:
+    - julia: nightly
+
 notifications:
   email: false
 
@@ -35,10 +39,6 @@ jobs:
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("Knet"); Pkg.test("Knet"; coverage=true)'
-
-# matrix:
-#   allow_failures:
-#     - julia: nightly  ## getting too many warnings
 
 ## https://docs.travis-ci.com/user/languages/julia
 ## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.

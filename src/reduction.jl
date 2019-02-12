@@ -5,27 +5,29 @@ import Base: sum, prod, minimum, maximum # , countnz
 import LinearAlgebra: norm, lmul!
 import Statistics: mean
 
-sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims);
-sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims);
-maximum(::typeof(abs), x::KnetArray; dims=:) = maxabs(x,dims=dims);
-minimum(::typeof(abs), x::KnetArray; dims=:) = minabs(x,dims=dims);
+sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims)
+sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims)
+sum(::typeof(!iszero), x::KnetArray; dims=:) = countnz(x,dims=dims)
+maximum(::typeof(abs), x::KnetArray; dims=:) = maxabs(x,dims=dims)
+minimum(::typeof(abs), x::KnetArray; dims=:) = minabs(x,dims=dims)
 sumabs(x;dims=:)=sum(abs,x;dims=dims)
 sumabs2(x;dims=:)=sum(abs2,x;dims=dims)
 maxabs(x;dims=:)=maximum(abs,x;dims=dims)
 minabs(x;dims=:)=minimum(abs,x;dims=dims)
+countnz(x;dims=:)=sum(!iszero,x;dims=dims)
 
 reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
 
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
-    if isdefined(Base, J); eval(Expr(:import,:Base,J)); end
+    M = which(@__MODULE__, J)
     for S in (32,64)
         T = Symbol("Float$S")
         F20 = "$(f)_$(S)_20"
         F21 = "$(f)_$(S)_21"
         F22 = "$(f)_$(S)_22"
         @eval begin
-            function $J(x::KnetArray{$T}; dims=:)
+            function ($M).$J(x::KnetArray{$T}; dims=:)
                 if dims == Colon()
                     y=@knet8r($F20,$T,(Cint,Ptr{$T}),length(x),x)
                     return y
