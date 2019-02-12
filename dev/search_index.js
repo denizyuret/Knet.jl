@@ -601,94 +601,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference/#Knet.bmm",
-    "page": "Reference",
-    "title": "Knet.bmm",
-    "category": "function",
-    "text": "bmm(A, B)) performs a batch matrix-matrix product of matrices stored in A and B. A and B must be 3d and the last dimension represents the batch size.\n\nIf A is a (m,n,b) tensor, B is a (n,k,b) tensor, and the output is a (m,k,b) tensor.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#AutoGrad.cat1d",
-    "page": "Reference",
-    "title": "AutoGrad.cat1d",
-    "category": "function",
-    "text": "cat1d(args...)\n\nReturn vcat(vec.(args)...) but possibly more efficiently. Can be used to concatenate the contents of arrays with different shapes and sizes.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.cpucopy",
-    "page": "Reference",
-    "title": "Knet.cpucopy",
-    "category": "function",
-    "text": "Return a copy of x with all its arrays transferred to CPU.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.dir",
-    "page": "Reference",
-    "title": "Knet.dir",
-    "category": "function",
-    "text": "Knet.dir(path...)\n\nConstruct a path relative to Knet root.\n\nExample\n\njulia> Knet.dir(\"examples\",\"mnist.jl\")\n\"/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl\"\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.dropout",
-    "page": "Reference",
-    "title": "Knet.dropout",
-    "category": "function",
-    "text": "dropout(x, p; drop, seed)\n\nGiven an array x and probability 0<=p<=1 return an array y in which each element is 0 with probability p or x[i]/(1-p) with probability 1-p. Just return x if p==0, or drop=false. By default drop=true in a @diff context, drop=false otherwise.  Specify a non-zero seed::Number to set the random number seed for reproducible results. See (Srivastava et al. 2014) for a reference.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.gc",
-    "page": "Reference",
-    "title": "Knet.gc",
-    "category": "function",
-    "text": "Knet.gc(dev=gpu())\n\ncudaFree all pointers allocated on device dev that were previously allocated and garbage collected. Normally Knet holds on to all garbage collected pointers for reuse. Try this if you run out of GPU memory.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.gpu",
-    "page": "Reference",
-    "title": "Knet.gpu",
-    "category": "function",
-    "text": "gpu() returns the id of the active GPU device or -1 if none are active.\n\ngpu(true) resets all GPU devices and activates the one with the most available memory.\n\ngpu(false) resets and deactivates all GPU devices.\n\ngpu(d::Int) activates the GPU device d if 0 <= d < gpuCount(), otherwise deactivates devices.\n\ngpu(true/false) resets all devices.  If there are any allocated KnetArrays their pointers will be left dangling.  Thus gpu(true/false) should only be used during startup.  If you want to suspend GPU use temporarily, use gpu(-1).\n\ngpu(d::Int) does not reset the devices.  You can select a previous device and find allocated memory preserved.  However trying to operate on arrays of an inactive device will result in error.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.gpucopy",
-    "page": "Reference",
-    "title": "Knet.gpucopy",
-    "category": "function",
-    "text": "Return a copy of x with all its arrays transferred to GPU.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.invx",
-    "page": "Reference",
-    "title": "Knet.invx",
-    "category": "function",
-    "text": "invx(x) = (1./x)\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.mat",
-    "page": "Reference",
-    "title": "Knet.mat",
-    "category": "function",
-    "text": "mat(x; dims = ndims(x) - 1)\n\nReshape x into a two-dimensional matrix by joining the first dims dimensions, i.e.  reshape(x, prod(size(x,i) for i in 1:dims), :)\n\ndims=ndims(x)-1 (default) is typically used when turning the output of a 4-D convolution result into a 2-D input for a fully connected layer.\n\ndims=1 is typically used when turning the 3-D output of an RNN layer into a 2-D input for a fully connected layer.\n\ndims=0 will turn the input into a row vector, dims=ndims(x) will turn it into a column vector.\n\n\n\n\n\n"
-},
-
-{
-    "location": "reference/#Knet.seed!",
-    "page": "Reference",
-    "title": "Knet.seed!",
-    "category": "function",
-    "text": "Knet.seed!(n::Integer)\n\nRun seed!(n) on both cpu and gpu.\n\n\n\n\n\n"
-},
-
-{
     "location": "reference/#Utilities-1",
     "page": "Reference",
     "title": "Utilities",
@@ -810,47 +722,55 @@ var documenterSearchIndex = {"docs": [
 
 {
     "location": "backprop/#",
-    "page": "Backpropagation",
-    "title": "Backpropagation",
+    "page": "Backpropagation and SGD",
+    "title": "Backpropagation and SGD",
     "category": "page",
     "text": ""
 },
 
 {
-    "location": "backprop/#Backpropagation-1",
-    "page": "Backpropagation",
-    "title": "Backpropagation",
+    "location": "backprop/#Backpropagation-and-SGD-1",
+    "page": "Backpropagation and SGD",
+    "title": "Backpropagation and SGD",
     "category": "section",
-    "text": "note: Concepts\nsupervised learning, training data, regression, squared error, linear regression, stochastic gradient descentArthur Samuel, the author of the first self-learning checkers program, defined machine learning as a \"field of study that gives computers the ability to learn without being explicitly programmed\". This leaves the definition of learning a bit circular. Tom M. Mitchell provided a more formal definition: \"A computer program is said to learn from experience E with respect to some class of tasks T and performance measure P if its performance at tasks in T, as measured by P, improves with experience E,\" where the task, the experience, and the performance measure are to be specified based on the problem.We will start with supervised learning, where the task is to predict the output of an unknown system given its input, and the experience consists of a set of example input-output pairs, also known as the training data. When the outputs are numeric such problems are called regression. In linear regression we use a linear function as our model:haty = W x + bHere x is the model input, haty is the model output, W is a matrix of weights, and b is a vector of biases. By adjusting the parameters of this model, i.e. the weights and the biases, we can make it compute any linear function of x.\"All models are wrong, but some models are useful.\" George Box famously said. We do not necessarily know that the system whose output we are trying to predict is governed by a linear relationship. All we know is a finite number of input-output examples:mathcalD=(x_1y_1)ldots(x_Ny_N)It is just that we have to start model building somewhere and the set of all linear functions is a good place to start for now.A commonly used performance measure in regression problems is the squared error, i.e. the average squared difference between the actual output values and the ones predicted by the model. So our goal is to find model parameters that minimize the squared error:argmin_Wb frac1N sum_n=1^N  haty_n - y_n ^2Where haty_n = W x_n + b denotes the output predicted by the model for the n th example.There are several methods to find the solution to the problem of minimizing squared error. Here we will present the stochastic gradient descent (SGD) method because it generalizes well to more complex models. In SGD, we take the training examples one at a time (or in small groups called minibatches), compute the gradient of the error with respect to the parameters, and move the parameters a small step in the direction that will decrease the error. First some notes on the math."
+    "text": "note: Prerequisites\nbasic Julia, linear algebra, calculusnote: Concepts\nsupervised learning, training data, loss function, prediction function, squared error, gradient, backpropagation, stochastic gradient descent "
+},
+
+{
+    "location": "backprop/#Supervised-learning-1",
+    "page": "Backpropagation and SGD",
+    "title": "Supervised learning",
+    "category": "section",
+    "text": "Arthur Samuel, the author of the first self-learning checkers program, defined machine learning as a \"field of study that gives computers the ability to learn without being explicitly programmed\". This leaves the definition of learning a bit circular. Tom M. Mitchell provided a more formal definition: \"A computer program is said to learn from experience E with respect to some class of tasks T and performance measure P if its performance at tasks in T, as measured by P, improves with experience E,\" where the task, the experience, and the performance measure are to be specified based on the problem.We will start with supervised learning, where the task is to predict the output of an unknown process given its input, the experience consists of training data, a set of example input-output pairs, and the performance measure is given by a loss function which tells us how far the predictions are from actual outputs.  We model the unknown process using a prediction function, a parametric function that predicts the output of the process given its input.  Here is an example:haty = W x + bHere x is the model input, haty is the model output, W is a matrix of weights, and b is a vector of biases. By adjusting the parameters of this model, i.e. the weights and the biases, we can make it compute any linear function of x.\"All models are wrong, but some models are useful.\" George Box famously said. We do not necessarily know that the system whose output we are trying to predict is governed by a linear relationship. All we know is a finite number of input-output examples in the training data:mathcalD=(x_1y_1)ldots(x_Ny_N)It is just that we have to start model building somewhere and the set of all linear functions is a good place to start for now.A commonly used loss function in problems with numeric outputs is the squared error, i.e. the average squared difference between the actual output values and the ones predicted by the model. So our goal is to find model parameters that minimize the squared error:argmin_Wb frac1N sum_n=1^N  haty_n - y_n ^2Where haty_n = W x_n + b denotes the output predicted by the model for the n th example.There are several methods to find the solution to the problem of minimizing squared error. Here we will present the stochastic gradient descent (SGD) method because it generalizes well to more complex models. In SGD, we take the training examples (individually or in groups), compute the gradient of the error for the current example(s) with respect to the parameters using the backpropagation algorithm, and move the parameters a small step in the direction that will decrease the error. First some notes on the math."
 },
 
 {
     "location": "backprop/#Partial-derivatives-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Partial derivatives",
     "category": "section",
-    "text": "When we have a function with several inputs and one output, we can look at how the function value changes in response to a small change in one of its inputs holding the rest fixed. This is called a partial derivative. Let us consider the squared error for the n th input as an example:J =  W x_n + b - y_n ^2So the partial derivative partial J  partial w_ij would tell us how many units J would move if we moved w_ij in W one unit (at least for small enough units). Here is a more graphical representation:(Image: image)In this figure, it is easier to see that the machinery that generates J has many \"inputs\". In particular we can talk about how J is effected by changing parameters W and b, as well as changing the input x, the model output haty, the desired output y, or intermediate values like z or r. So partial derivatives like partial J  partial x_i or partial J  partial haty_j are fair game and tell us how J would react in response to small changes in those quantities."
+    "text": "When we have a function with a scalar output, we can look at how its value changes in response to a small change in one of its inputs or parameters, holding the rest fixed. This is called a partial derivative. Let us consider the squared error for the n th input as an example:J =  W x_n + b - y_n ^2So the partial derivative partial J  partial w_ij would tell us how many units J would move if we moved w_ij in W one unit (at least for small enough units). Here is a more graphical representation:(Image: image)In this figure, it is easier to see that the machinery that generates J has many \"inputs\". In particular we can talk about how J is effected by changing parameters W and b, as well as changing the input x, the model output haty, the desired output y, or intermediate values like z or r. So partial derivatives like partial J  partial x_i or partial J  partial haty_j are fair game and tell us how J would react in response to small changes in those quantities."
 },
 
 {
-    "location": "backprop/#Chain-rule-1",
-    "page": "Backpropagation",
-    "title": "Chain rule",
+    "location": "backprop/#Chain-rule-and-backpropagation-1",
+    "page": "Backpropagation and SGD",
+    "title": "Chain rule and backpropagation",
     "category": "section",
-    "text": "The chain rule allows us to calculate partial derivatives in terms of other partial derivatives, simplifying the overall computation. We will go over it in some detail as it forms the basis of the backpropagation algorithm. For now let us assume that each of the variables in the above example are scalars. We will start by looking at the effect of r on J and move backward from there. Basic calculus tells us that:J = r^2 \npartial Jpartial r = 2rThus, if r=5 and we decrease r by a small epsilon, the squared error J will go down by 10epsilon. Now let\'s move back a step and look at haty:r = haty - y \npartial rpartial haty = 1So how much effect will a small epsilon decrease in haty have on J when r=5? Well, when haty goes down by epsilon, so will r, which means J will go down by 10epsilon again. The chain rule expresses this idea:fracpartial Jpartialhaty = \nfracpartial Jpartial r\nfracpartial rpartialhaty\n= 2rGoing back further, we have:haty = z + b \npartial hatypartial b = 1 \npartial hatypartial z = 1 Which means b and z have the same effect on J as haty and r, i.e. decreasing them by epsilon will decrease J by 2repsilon as well. Finally:z = w x \npartial zpartial x = w \npartial zpartial w = xThis allows us to compute the effect of w on J in several steps: moving w by epsilon will move z by xepsilon, haty and r will move exactly the same amount because their partials with z are 1, and finally since r moves by xepsilon, J will move by 2rxepsilon.fracpartial Jpartial w =\nfracpartial Jpartial r\nfracpartial rpartial haty\nfracpartial hatypartial z\nfracpartial zpartial w\n= 2rxWe can represent this process of computing partial derivatives as follows:(Image: image)Note that we have the same number of boxes and operations, but all the arrows are reversed. Let us call this the backward pass, and the original computation in the previous picture the forward pass. Each box in this backward-pass picture represents the partial derivative for the corresponding box in the previous forward-pass picture. Most importantly, each computation is local: each operation takes the partial derivative of its output, and multiplies it with a factor that only depends on the original input/output values to compute the partial derivative of its input(s). In fact we can implement the forward and backward passes for the linear regression model using the following local operations:(Image: image)(Image: image)(Image: image)(Image: image)"
+    "text": "The chain rule allows us to calculate partial derivatives in terms of other partial derivatives, simplifying the overall computation. We will go over it in some detail as it forms the basis of the backpropagation algorithm. For now let us assume that each of the variables in the above example are scalars. We will start by looking at the effect of r on J and move backward from there. Basic calculus tells us that:beginaligned\nJ = r^2 \npartial Jpartial r = 2r\nendalignedThus, if r=5 and we decrease r by a small epsilon, the squared error J will go down by 10epsilon. Now let\'s move back a step and look at haty:beginaligned\nr = haty - y \npartial rpartial haty = 1\nendalignedSo how much effect will a small epsilon decrease in haty have on J when r=5? Well, when haty goes down by epsilon, so will r, which means J will go down by 10epsilon again. The chain rule expresses this idea:fracpartial Jpartialhaty = \nfracpartial Jpartial r\nfracpartial rpartialhaty\n= 2rGoing back further, we have:beginaligned\nhaty = z + b \npartial hatypartial b = 1 \npartial hatypartial z = 1\nendalignedWhich means b and z have the same effect on J as haty and r, i.e. decreasing them by epsilon will decrease J by 2repsilon as well. Finally:beginaligned\nz = w x \npartial zpartial x = w \npartial zpartial w = x\nendalignedThis allows us to compute the effect of w on J in several steps: moving w by epsilon will move z by xepsilon, haty and r will move exactly the same amount because their partials with z are 1, and finally since r moves by xepsilon, J will move by 2rxepsilon.fracpartial Jpartial w =\nfracpartial Jpartial r\nfracpartial rpartial haty\nfracpartial hatypartial z\nfracpartial zpartial w\n= 2rxWe can represent this process of computing partial derivatives as follows:(Image: image)Note that we have the same number of boxes and operations, but all the arrows are reversed. Let us call this the backward pass, and the original computation in the previous picture the forward pass. Each box in this backward-pass picture represents the partial derivative for the corresponding box in the previous forward-pass picture. Most importantly, each computation is local: each operation takes the partial derivative of its output, and multiplies it with a factor that only depends on the original input/output values to compute the partial derivative of its input(s). In fact we can implement the forward and backward passes for the linear regression model using the following local operations:(Image: image)(Image: image)(Image: image)(Image: image)This is basically the backpropagation algorithm in a nutshell, i.e.  backpropagation can be viewed as the application of Leibniz\' chain rule from 1660s to machine learning in 1980s."
 },
 
 {
     "location": "backprop/#Multiple-dimensions-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Multiple dimensions",
     "category": "section",
-    "text": "Let\'s look at the case where the input and output are not scalars but vectors. In particular assume that x in mathbbR^D and y in mathbbR^C. This makes W in mathbbR^Ctimes D a matrix and zbhatyr vectors in mathbbR^C. During the forward pass, z=Wx operation is now a matrix-vector product, the additions and subtractions are elementwise operations. The squared error J=r^2=sum r_i^2 is still a scalar. For the backward pass we ask how much each element of these vectors or matrices effect J. Starting with r:J = sum r_i^2 \npartial Jpartial r_i = 2r_iWe see that when r is a vector, the partial derivative of each component is equal to twice that component. If we put these partial derivatives together in a vector, we obtain a gradient vector:nabla_r J\nequiv langle fracpartial Jpartial r_1 cdots fracpartial Jpartial r_C rangle\n= langle 2 r_1 ldots 2 r_C rangle \n= 2vecrThe addition, subtraction, and square norm operations work the same way as before except they act on each element. Moving back through the elementwise operations we see that:nabla_r J = nabla_haty J = nabla_b J = nabla_z J = 2vecrFor the operation z=Wx, a little algebra will show you that:nabla_W J = nabla_z J cdot x^T \nnabla_x J = W^T cdot nabla_z JNote that the gradient of a variable has the same shape as the variable itself. In particular nabla_W J is a Ctimes D matrix. Here is the graphical representation for matrix multiplication:(Image: image)"
+    "text": "Let\'s look at the case where the input and output are not scalars but vectors. In particular assume that x in mathbbR^D and y in mathbbR^C. This makes W in mathbbR^Ctimes D a matrix and zbhatyr vectors in mathbbR^C. During the forward pass, z=Wx operation is now a matrix-vector product, the additions and subtractions are elementwise operations. The squared error J=r^2=sum r_i^2 is still a scalar. For the backward pass we ask how much each element of these vectors or matrices effect J. Starting with r:beginaligned\nJ = sum r_i^2 \npartial Jpartial r_i = 2r_i\nendalignedWe see that when r is a vector, the partial derivative of each component is equal to twice that component. If we put these partial derivatives together in a vector, we obtain a gradient vector:nabla_r J\nequiv langle fracpartial Jpartial r_1 cdots fracpartial Jpartial r_C rangle\n= langle 2 r_1 ldots 2 r_C rangle \n= 2vecrThe addition, subtraction, and square norm operations work the same way as before except they act on each element. Moving back through the elementwise operations we see that:nabla_r J = nabla_haty J = nabla_b J = nabla_z J = 2vecrFor the operation z=Wx, a little algebra will show you that:beginaligned\nnabla_W J = nabla_z J cdot x^T \nnabla_x J = W^T cdot nabla_z J\nendalignedNote that the gradient of a variable has the same shape as the variable itself. In particular nabla_W J is a Ctimes D matrix. Here is the graphical representation for matrix multiplication:(Image: image)"
 },
 
 {
     "location": "backprop/#Multiple-instances-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Multiple instances",
     "category": "section",
     "text": "We will typically process data multiple instances at a time for efficiency. Thus, the input x will be a Dtimes N matrix, and the output y will be a Ctimes N matrix, the N columns representing N different instances. Please verify to yourself that the forward and backward operations as described above handle this case without much change: the elementwise operations act on the elements of the matrices just like vectors, and the matrix multiplication and its gradient remains the same. Here is a picture of the forward and backward passes:(Image: image)The only complication is at the addition of the bias vector. In the batch setting, we are adding binmathbbR^Ctimes 1 to zinmathbbR^Ctimes N. This will be a broadcasting operation, i.e. the vector b will be added to each column of the matrix z to get haty. In the backward pass, we\'ll need to add the columns of nabla_haty J to get the gradient nabla_b J."
@@ -858,31 +778,31 @@ var documenterSearchIndex = {"docs": [
 
 {
     "location": "backprop/#Stochastic-Gradient-Descent-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Stochastic Gradient Descent",
     "category": "section",
-    "text": "The gradients calculated by backprop, nabla_w J and nabla_b J, tell us how much small changes in corresponding entries in w and b will effect the error (for the last instance, or minibatch). Small steps in the gradient direction will increase the error, steps in the opposite direction will decrease the error.In fact, we can show that the gradient is the direction of steepest ascent. Consider a unit vector v pointing in some arbitrary direction.  The rate of change in this direction, nabla_v J (directional derivative), is given by the projection of v onto the gradient, nabla J, i.e. their dot product nabla J cdot v:nabla_v J = fracpartial Jpartial x_1 v_1 + fracpartial Jpartial x_2 v_2 + cdots = nabla J cdot vWhat direction maximizes this dot product? Recall that:nabla J cdot v =  nabla J   v  cos(theta)where theta is the angle between v and the gradient vector. cos(theta) is maximized when the two vectors point in the same direction. So if you are going to move a fixed (small) size step, the gradient direction gives you the biggest bang for the buck.This suggests the following update rule:w leftarrow w - nabla_w JThis is the basic idea behind Stochastic Gradient Descent (SGD): Go over the training set instance by instance (or minibatch by minibatch). Run the backpropagation algorithm to calculate the error gradients. Update the weights and biases in the opposite direction of these gradients. Rinse and repeat..."
+    "text": "The gradients calculated by backprop, nabla_w J and nabla_b J, tell us how much small changes in corresponding entries in w and b will effect the error (for the current example(s)). Small steps in the gradient direction will increase the error, steps in the opposite direction will decrease the error.In fact, we can show that the gradient is the direction of steepest ascent. Consider a unit vector v pointing in some arbitrary direction.  The rate of change in this direction, nabla_v J (directional derivative), is given by the projection of v onto the gradient, nabla J, i.e. their dot product nabla J cdot v:nabla_v J = fracpartial Jpartial x_1 v_1 + fracpartial Jpartial x_2 v_2 + cdots = nabla J cdot vWhat direction maximizes this dot product? Recall that:nabla J cdot v =  nabla J   v  cos(theta)where theta is the angle between v and the gradient vector.  cos(theta) is maximized when the two vectors point in the same direction. So if you are going to move a fixed (small) size step, the gradient direction gives you the biggest bang for the buck.This suggests the following update rule:w leftarrow w - nabla_w JThis is the basic idea behind Stochastic Gradient Descent (SGD): Go over the training set instance by instance (or minibatch by minibatch). Run the backpropagation algorithm to calculate the error gradients. Update the weights and biases in the opposite direction of these gradients.  Rinse and repeat..."
 },
 
 {
     "location": "backprop/#Housing-Example-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Housing Example",
     "category": "section",
-    "text": "We will use the Boston Housing dataset from the UCI Machine Learning Repository to train a linear regression model using backprop and SGD. The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood has 14 attributes, the goal is to use the first 13, such as average number of rooms per house, or distance to employment centers, to predict the 14’th attribute: median dollar value of the houses.First we download and split the data:using Knet\ninclude(Knet.dir(\"data\",\"housing.jl\"))\nx,y = housing()  # x is (13,506); y is (1,506)Then we define our linear regression model and the squared error loss. Note that backprop is implemented by the grad function in Knet: grad(f) returns a function g that takes the same inputs as f and returns the gradient with respect to the first argument:predict(w,x) = w[1]*x .+ w[2]\nloss(w,x,y) = mean(abs2,y-predict(w,x))\nlossgradient = grad(loss)	# grad gives the gradient function wrt w\nw = [ 0.1*rand(1,13), 0.0 ]	# initialize the weight vector and biasFinally, here is the SGD training loop (see the full example in the Knet tutorial):for epoch in 1:10\n    dw = lossgradient(w, x, y)\n    for i in 1:length(w)\n        w[i] -= lr * dw[i]\n    end\nendHere is a plot of the loss value vs training epochs (an epoch is a single pass over the whole training set):(Image: image)"
+    "text": "We will use the Boston Housing dataset from the UCI Machine Learning Repository to train a linear regression model using backprop and SGD. The dataset has housing related information for 506 neighborhoods in Boston from 1978. Each neighborhood has 14 attributes, the goal is to use the first 13, such as average number of rooms per house, or distance to employment centers, to predict the 14’th attribute: median dollar value of the houses.First, we download and convert the data into Julia arrays. The Knet package provides some utilities for this:using Knet\ninclude(Knet.dir(\"data\",\"housing.jl\"))\nx,y = housing()  # x is (13,506); y is (1,506)Second, we implement our loss calculation in Julia. Personally I think callable objects are the most natural way to represent parametric functions. But you can use any coding style you wish as long as you can calculate a scalar loss from parameters and data.struct Linear; w; b; end                  # new type that can be used as a function\n(f::Linear)(x) = f.w * x .+ f.b           # prediction function if one argument\n(f::Linear)(x,y) = mean(abs2, f(x) - y)   # loss function if two argumentsNow we can initialize a model, make some predictions, and calculate loss:julia> model = Linear(zeros(1,13), zeros(1))\nLinear([0.0 0.0 … 0.0 0.0], [0.0])\n\njulia> pred = model(x)          # predictions for 506 instances\n1×506 Array{Float64,2}:\n 0.0   0.0   0.0   …  0.0   0.0   0.0\n\njulia> y                        # not too close to real outputs\n1×506 Array{Float64,2}:\n 24.0  21.6  34.7  …  23.9  22.0  11.9\n\njulia> loss = model(x,y)        # average loss for 506 instances\n592.1469169960474The loss gradients with respect to the model parameters can be computed manually as described above:julia> r = (model(x) - y) / length(y)\n1×506 Array{Float64,2}:\n -0.0474308  -0.0426877  -0.0685771  …  -0.0472332  -0.0434783  -0.0235178\n\njulia> ∇w = 2r * x\'\n1×13 Array{Float64,2}:\n 7.12844  -6.617  8.88016  -3.2174  …  8.60132  9.32187  -6.12163  13.5419\n\njulia> ∇b = sum(2r)\n-45.06561264822134For larger models manual gradient calculation becomes impractical.  The Knet package can calculate gradients automatically for us: (1) mark the parameters with the Param type, (2) apply the @diff macro to the loss calculation, (3) the grad function calculates the gradients:julia> model = Linear(Param(zeros(1,13)), Param(zeros(1)))\nLinear(P(Array{Float64,2}(1,13)), P(Array{Float64,1}(1)))\n\njulia> loss = @diff model(x,y)\nT(592.1469169960474)\n\njulia> grad(loss, model.w)\n1×13 Array{Float64,2}:\n 7.12844  -6.617  8.88016  -3.2174  …  8.60132  9.32187  -6.12163  13.5419\n\njulia> grad(loss, model.b)\n1-element Array{Float64,1}:\n -45.06561264822134We can use the gradients to train our model:function sgdupdate(model, x, y)\n    loss = @diff model(x, y)\n    for p in params(model)\n        p .-= 0.1 * grad(loss, p)\n    end\n    return value(loss)\nendHere is a plot of the loss value vs the number of updates:julia> using Plots\njulia> plot([sgdupdate(model,x,y) for i in 1:20])(Image: image)The new predictions are a lot closer to the actual outputs:julia> [ model(x); y ]\n2×506 Array{Float64,2}:\n 30.4126  24.8121  30.7946  29.2931  …  27.6193  26.1515  21.9643\n 24.0     21.6     34.7     33.4        23.9     22.0     11.9   "
 },
 
 {
     "location": "backprop/#Problems-with-SGD-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Problems with SGD",
     "category": "section",
-    "text": "Over the years, people have noted many subtle problems with the SGD algorithm and suggested improvements:Step size: If the step sizes are too small, the SGD algorithm will take too long to converge. If they are too big it will overshoot the optimum and start to oscillate. So we scale the gradients with an adjustable parameter called the learning rate eta:w leftarrow w - eta nabla_w JStep direction: More importantly, it turns out the gradient (or its opposite) is often NOT the direction you want to go in order to minimize error. Let us illustrate with a simple picture:(Image: image)The figure on the left shows what would happen if you stood on one side of the long narrow valley and took the direction of steepest descent: this would point to the other side of the valley and you would end up moving back and forth between the two sides, instead of taking the gentle incline down as in the figure on the right. The direction across the valley has a high gradient but also a high curvature (second derivative) which means the descent will be sharp but short lived. On the other hand the direction following the bottom of the valley has a smaller gradient and low curvature, the descent will be slow but it will continue for a longer distance. Newton\'s method adjusts the direction taking into account the second derivative:(Image: image)In this figure, the two axes are w1 and w2, two parameters of our network, and the contour plot represents the error with a minimum at x. If we start at x0, the Newton direction (in red) points almost towards the minimum, whereas the gradient (in green), perpendicular to the contours, points to the right.Unfortunately Newton\'s direction is expensive to compute. However, it is also probably unnecessary for several reasons: (1) Newton gives us the ideal direction for second degree objective functions, which our objective function almost certainly is not, (2) The error function whose gradient backprop calculated is the error for the last minibatch/instance only, which at best is a very noisy approximation of the real error function, thus we shouldn\'t spend too much effort trying to get the direction exactly right.So people have come up with various approximate methods to improve the step direction. Instead of multiplying each component of the gradient with the same learning rate, these methods scale them separately using their running average (momentum, Nesterov), or RMS (Adagrad, Rmsprop). Some even cap the gradients at an arbitrary upper limit (gradient clipping) to prevent instabilities.You may wonder whether these methods still give us directions that consistently increase/decrease the objective function. If we do not insist on the maximum increase, any direction whose components have the same signs as the gradient vector is guaranteed to increase the function (for short enough steps). The reason is again given by the dot product nabla J cdot v. As long as these two vectors carry the same signs in the same components, the dot product, i.e. the rate of change along v, is guaranteed to be positive.Minimize what? The final problem with gradient descent, other than not telling us the ideal step size or direction, is that it is not even minimizing the right objective! We want small error on never before seen test data, not just on the training data. The truth is, a sufficiently large model with a good optimization algorithm can get arbitrarily low error on any finite training data (e.g. by just memorizing the answers). And it can typically do so in many different ways (typically many different local minima for training error in weight space exist). Some of those ways will generalize well to unseen data, some won\'t. And unseen data is (by definition) not seen, so how will we ever know which weight settings will do well on it?There are at least three ways people deal with this problem: (1) Bayes tells us that we should use all possible models and weigh their answers by how well they do on training data (see Radford Neal\'s fbm), (2) New methods like dropout that add distortions and noise to inputs, activations, or weights during training seem to help generalization, (3) Pressuring the optimization to stay in one corner of the weight space (e.g. L1, L2, maxnorm regularization) helps generalization."
+    "text": "Over the years, people have noted many subtle problems with the SGD algorithm and suggested improvements:Step size: If the step sizes are too small, the SGD algorithm will take too long to converge. If they are too big it will overshoot the optimum and start to oscillate. So we scale the gradients with an adjustable parameter called the learning rate eta:w leftarrow w - eta nabla_w JStep direction: More importantly, it turns out the gradient (or its opposite) is often NOT the direction you want to go in order to minimize error. Let us illustrate with a simple picture:(Image: image)The figure on the left shows what would happen if you stood on one side of the long narrow valley and took the direction of steepest descent: this would point to the other side of the valley and you would end up moving back and forth between the two sides, instead of taking the gentle incline down as in the figure on the right. The direction across the valley has a high gradient but also a high curvature (second derivative) which means the descent will be sharp but short lived. On the other hand the direction following the bottom of the valley has a smaller gradient and low curvature, the descent will be slow but it will continue for a longer distance. Newton\'s method adjusts the direction taking into account the second derivative:(Image: image)In this figure, the two axes are w1 and w2, two parameters of our network, and the contour plot represents the error with a minimum at x.  If we start at x0, the Newton direction (in red) points almost towards the minimum, whereas the gradient (in green), perpendicular to the contours, points to the right.Unfortunately Newton\'s direction is expensive to compute. However, it is also probably unnecessary for several reasons: (1) Newton gives us the ideal direction for second degree objective functions, which our objective function almost certainly is not, (2) The error function whose gradient backprop calculated is the error for the last minibatch/instance only, which at best is a very noisy approximation of the real error function, thus we shouldn\'t spend too much effort trying to get the direction exactly right.So people have come up with various approximate methods to improve the step direction. Instead of multiplying each component of the gradient with the same learning rate, these methods scale them separately using their running average (momentum, Nesterov), or RMS (Adagrad, Rmsprop).  Some even cap the gradients at an arbitrary upper limit (gradient clipping) to prevent instabilities.You may wonder whether these methods still give us directions that consistently increase/decrease the objective function. If we do not insist on the maximum increase, any direction whose components have the same signs as the gradient vector is guaranteed to increase the function (for short enough steps). The reason is again given by the dot product nabla J cdot v. As long as these two vectors carry the same signs in the same components, the dot product, i.e. the rate of change along v, is guaranteed to be positive.Minimize what? The final problem with gradient descent, other than not telling us the ideal step size or direction, is that it is not even minimizing the right objective! We want small error on never before seen test data, not just on the training data. The truth is, a sufficiently large model with a good optimization algorithm can get arbitrarily low error (down to the noise limit) on any finite training data (e.g. by just memorizing the answers). And it can typically do so in many different ways (typically many different local minima for training error in weight space exist). Some of those ways will generalize well to unseen data, some won\'t. And unseen data is (by definition) not seen, so how will we ever know which weight settings will do well on it?There are at least three ways people deal with this problem: (1) Bayes tells us that we should use all possible models and weigh their answers by how well they do on training data (see Radford Neal\'s fbm), (2) New methods like dropout that add distortions and noise to inputs, activations, or weights during training seem to help generalization, (3) Pressuring the optimization to stay in one corner of the weight space (e.g. L1, L2, maxnorm regularization) helps generalization."
 },
 
 {
     "location": "backprop/#References-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "References",
     "category": "section",
     "text": "UFLDL Tutorial, Linear Regression\ncs231n Optimization Notes\ncs229 Convex optimization overview, Part 2\ncs229 Linear algebra review and reference\ncs229 Review of probability theory"
@@ -890,10 +810,10 @@ var documenterSearchIndex = {"docs": [
 
 {
     "location": "backprop/#Notes-1",
-    "page": "Backpropagation",
+    "page": "Backpropagation and SGD",
     "title": "Notes",
     "category": "section",
-    "text": "Linear regression with a scalar input and output is called simple linear regression, if the input is a vector we have multiple linear regression, and if the output is a vector we have multivariate linear regression."
+    "text": "Supervised learning is also known as regression if the outputs are numeric and classification if they are discrete. \nLinear regression is a regression model with a linear prediction function.  Linear regression with a scalar input and output is called simple linear regression, if the input is a vector we have multiple linear regression, and if the output is a vector we have multivariate linear regression."
 },
 
 {
