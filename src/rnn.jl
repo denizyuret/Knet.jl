@@ -731,8 +731,8 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     #@assert (r.inputMode == 0 || H == X)
     L = Int(r.numLayers) * (r.direction == 1 ? 2 : 1)
     hsize = (H, B, L)
-    @assert hx == nothing || size(hx) == hsize
-    @assert cx == nothing || size(cx) == hsize
+    @assert hx == nothing || eqsize(size(hx), hsize)
+    @assert cx == nothing || eqsize(size(cx), hsize)
     h = hx==nothing ? fill!(similar(value(x),hsize),0) : hx
     #  hs = Array{Any}[ h[:,:,l] for l=1:L ]
     hs = Array{Any}(undef,L)
@@ -886,6 +886,16 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
     return (y,hyout,cyout,nothing)
 end
+
+# compare sizes ignoring trailing ones
+function eqsize(a, b)
+    na = length(a)
+    nb = length(b)
+    (na == nb ? a == b : na > nb ? 
+     a[1:nb] == b && all(a[nb+1:end] .== 1) :
+     b[1:na] == a && all(b[na+1:end] .== 1))
+end
+
 
 # TODO: WIP
 function rnntest_bs(batchSizes, r::RNN, w, x,
