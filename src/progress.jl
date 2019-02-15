@@ -89,7 +89,7 @@ function display_progress(p::Progress, last=false)
         ETA = (length(p) - p.current) / speed
         percentage_string = string(@sprintf("%.2f%%",p.current/length(p)*100))
         status_string = string(p.current, "/", length(p),
-                               " [", format_time(seconds), "/", format_time(seconds+ETA),
+                               " [", format_time(seconds), "/", format_time(ETA),
                                ", ", format_speed(speed),"]")
 
     else
