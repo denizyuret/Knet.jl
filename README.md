@@ -19,7 +19,7 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
   installation, introduction, design, implementation, full reference and deep learning chapters.
 * [Examples:](examples)
   more tutorials and example models.
-* [Benchmarks:](http://denizyuret.github.io/Knet.jl/latest/tutorial.html#Benchmarks-1)
+* [Benchmarks:](http://denizyuret.github.io/Knet.jl/latest/tutorial/#Benchmarks-1)
   comparison of Knet's speed with TensorFlow, PyTorch, DyNet etc.
 * [Paper:](https://goo.gl/zeUBFr)
   Yuret, D. "Knet: beginning deep learning with 100 lines of julia." In *Machine Learning Systems Workshop* at NIPS 2016.
