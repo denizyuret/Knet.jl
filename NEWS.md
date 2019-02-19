@@ -1,6 +1,17 @@
+Knet v1.2.1 Release Notes
+=========================
+
+* Serialization bug fix.
+* Fixed eltype, size etc. for Minimize, Converge etc.
+* Transpose and matmul now work with 1-D KnetArrays.
+* Added intro learning notebook.
+* RNN: Ignore trailing ones when comparing sizes.
+* Julia 1.2 compat fixes.
+
+
 Knet v1.2.0 Release Notes
 =========================
-b82f0ccf 2019-01-21
+3e5c7e0 2019-01-21
 
 * New training interface based on iterators.
 * Progressbar and converge utilities.
