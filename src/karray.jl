@@ -1107,12 +1107,14 @@ zeroslike(a::KnetArray)=zero(a)
 # isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 # _dbg(a::KnetArray) = "K"*_dbg(Array(a))
 
-# Note that KnetArray sum_outgrads is overwriting, i.e. does not support higher order gradients.
-sum_outgrads(a::KnetArray{T},b::KnetArray{T}) where {T}=axpy!(1,b,a) # (a+b)
+function sum_outgrads(a::KnetArray{T},b::KnetArray{T}) where {T}
+    if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
+    axpy!(1,b,a) # (a+b)
+end
 
 function sum_outgrads(a::KnetArray,b::UngetIndex)
-    c = sum_outgrads_karray(a, b.value, b.index...)
-    return c
+    if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
+    sum_outgrads_karray(a, b.value, b.index...)
 end
 
 # This only works when there are no repeated indices. This is true for index types:

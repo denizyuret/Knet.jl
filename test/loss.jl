@@ -63,4 +63,27 @@ include("header.jl")
     end
     @test gradcheck(logistic,a[:],a[:])
     @test gradcheck(bce,a[:],a[:])
+
+    # Issue 439: highorder derivatives
+    using Knet: _softmax, _softback, _logp, _logpback, cudnnSoftmaxForward, cudnnSoftmaxBackward
+    x = randn(3,4); y1 = _softmax(x,dims=1); y2 = _logp(x,dims=1); dy = randn(3,4)
+    @test @gcheck _softmax(Param(x),dims=1)
+    @test @gcheck _softback(Param(x),Param(y1),Param(dy),dims=1)
+    @test @gcheck _logp(Param(x),dims=1)
+    @test @gcheck _logpback(Param(x),Param(y2),Param(dy),dims=1)
+    if gpu() >= 0
+        x = KnetArray(x); y1 = KnetArray(y1); y2 = KnetArray(y2); dy = KnetArray(dy)
+        @test isapprox(_softmax(x,dims=1), cudnnSoftmaxForward(x,algo=0))
+        @test isapprox(_softmax(x,dims=1), cudnnSoftmaxForward(x,algo=1))
+        @test isapprox(_logp(x,dims=1), cudnnSoftmaxForward(x,algo=2))
+        @test isapprox(_softback(x,y1,dy,dims=1), cudnnSoftmaxBackward(y1,dy,algo=0))
+        @test isapprox(_softback(x,y1,dy,dims=1), cudnnSoftmaxBackward(y1,dy,algo=1))
+        @test isapprox(_logpback(x,y2,dy,dims=1), cudnnSoftmaxBackward(y2,dy,algo=2))
+        @test @gcheck cudnnSoftmaxForward(Param(x),algo=0)
+        @test @gcheck cudnnSoftmaxForward(Param(x),algo=1)
+        @test @gcheck cudnnSoftmaxForward(Param(x),algo=2)
+        @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=0)
+        @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=1)
+        @test @gcheck cudnnSoftmaxBackward(Param(y2),Param(dy),algo=2)
+    end
 end

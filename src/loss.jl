@@ -171,7 +171,27 @@ function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0,
 end
 
 @primitive cudnnSoftmaxForward(x;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
-@zerograd cudnnSoftmaxBackward(y,dy;o...)
+@primitive cudnnSoftmaxBackward(y,dy;o...),ddx,dx csb1(y,dy,dx,ddx;o...) csb2(y,dy,dx,ddx;o...)
+
+function csb1(y,dy,dx,ddx;algo=0,o...)
+    if algo==0 || algo==1
+        ddx .* dy - dy .* sum(y .* ddx, dims=1) - ddx .* sum(y .* dy, dims=1) 
+    elseif algo==2
+        ddx .* (-exp.(y)) .* sum(dy,dims=1)
+    else
+        error("Unknown algo: $algo")
+    end
+end
+
+function csb2(y,dy,dx,ddx;algo=0,o...)
+    if algo==0 || algo==1
+        y .* (ddx .- sum(y .* ddx, dims=1))
+    elseif algo==2
+        ddx .* (1 .- sum(exp.(y),dims=1))
+    else
+        error("Unknown algo: $algo")
+    end
+end
 
 function TD4(x::KnetArray)
     d = ndims(x)
