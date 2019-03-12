@@ -66,7 +66,7 @@ include(Knet.dir("data","mnist.jl"))
 dtrn, dtst = mnistdata()
 
 # Define, train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
-LeNet = Chain(Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity))
+LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity)))
 adam!(LeNet, repeat(dtrn,10))
 accuracy(LeNet, dtst)
 ```
