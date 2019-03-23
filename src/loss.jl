@@ -173,21 +173,25 @@ end
 @primitive cudnnSoftmaxForward(x;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
 @primitive cudnnSoftmaxBackward(y,dy;o...),ddx,dx csb1(y,dy,dx,ddx;o...) csb2(y,dy,dx,ddx;o...)
 
-function csb1(y,dy,dx,ddx;algo=0,o...)
+function csb1(y,dy,dx,ddx;algo=0,mode=0,o...)
+    cdim = ndims(y) - 1
+    dims = (mode == 0 ? ((1:cdim)...,) : (cdim,))
     if algo==0 || algo==1
-        ddx .* dy - dy .* sum(y .* ddx, dims=1) - ddx .* sum(y .* dy, dims=1) 
+        ddx .* dy - dy .* sum(y .* ddx, dims=dims) - ddx .* sum(y .* dy, dims=dims) 
     elseif algo==2
-        ddx .* (-exp.(y)) .* sum(dy,dims=1)
+        -ddx .* exp.(y) .* sum(dy,dims=dims)
     else
         error("Unknown algo: $algo")
     end
 end
 
-function csb2(y,dy,dx,ddx;algo=0,o...)
+function csb2(y,dy,dx,ddx;algo=0,mode=0,o...)
+    cdim = ndims(y) - 1
+    dims = (mode == 0 ? ((1:cdim)...,) : (cdim,))
     if algo==0 || algo==1
-        y .* (ddx .- sum(y .* ddx, dims=1))
+        y .* (ddx .- sum(y .* ddx, dims=dims))
     elseif algo==2
-        ddx .* (1 .- sum(exp.(y),dims=1))
+        ddx .- sum(ddx .* exp.(y), dims=dims)
     else
         error("Unknown algo: $algo")
     end
