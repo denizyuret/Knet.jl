@@ -85,5 +85,17 @@ include("header.jl")
         @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=0)
         @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=1)
         @test @gcheck cudnnSoftmaxBackward(Param(y2),Param(dy),algo=2)
+
+        # Broken example from Alkan's notebook:
+        f(w,x,y) = nll(w*x,y)
+        ∇f = grad(f)
+        ∇fj(w,x,y,j) = ∇f(w,x,y)[j]
+        ∇∇fj = grad(∇fj)
+        a = rand(10,10); b = rand(10,10); c = rand(1:10,10)
+        A = KnetArray(a); B = KnetArray(b); C = c
+        @test isapprox(f(a,b,c), f(A,B,C))
+        @test isapprox(∇f(a,b,c), ∇f(A,B,C))
+        i = 10; j = 20; d = 1e-4
+        @test isapprox(∇∇fj(a,b,c,i), ∇∇fj(A,B,C,i))
     end
 end
