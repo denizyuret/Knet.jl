@@ -14,16 +14,15 @@ using SpecialFunctions
 
     bcast(f)=(x->broadcast(f,x))
 
-    # unary_fns = Any[]
-    # for f in Knet.unary_ops
-    #     if isa(f,Tuple); f=f[2]; end
-    #     push!(unary_fns, eval(Meta.parse(f)))
-    # end
-    unary_fns = [gamma, lgamma, digamma]
+    unary_fns = Any[]
+    for f in Knet.unary_ops
+        if isa(f,Tuple); f=f[2]; end
+        push!(unary_fns, eval(Meta.parse(f)))
+    end
 
-    broken_grads = [trigamma]
+    skip_grads = [trigamma]
     for f in unary_fns
-        f in broken_grads && continue
+        f in skip_grads && continue
         #@show f
         bf = bcast(f)
         for t in (Float32, Float64)

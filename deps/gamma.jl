@@ -123,7 +123,7 @@ __device__ __host__ $T digamma_impl_$F(const $T u) {
 __device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
                                          const $T machep) {
   int i = 0;
-  while ((i < 9)$zeta_impl_series_2nd_cond) {
+  while ((i < 9) $zeta_impl_series_2nd_cond) {
     i += 1;
     *a += $one_str;
     *b = $pow_str(*a, -x);
@@ -220,12 +220,14 @@ __device__ __host__ $T polygamma_impl_$F(int n, $T x) {
   }
 
   // dumb code to calculate factorials
-  $T factorial = 1.0;
+  $T factorial = $one_str;
   for (int i = 0; i < n; i++) {
     factorial *= (i + 1);
   }
 
-  return $pow_str(-1.0, n + 1) * factorial * zeta_impl_$F(n + 1, x);
+  $T s = n % 2 == 0 ? -$one_str : $one_str;
+
+  return s * factorial * zeta_impl_$F(n + 1, x);
 }
 
 __device__ __host__ $T trigamma_impl_$F($T x) {
