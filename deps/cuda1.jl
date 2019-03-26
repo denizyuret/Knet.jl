@@ -3,244 +3,7 @@
 fp = open("cuda1.cu","w")
 #using Knet: unary_ops
 
-
-# Digamma
-
-function cuda1gammafamily(; BLK=256, THR=256)
-    sprint() do s
-        print(s,
-"""
-#include <float.h>
-#include <math.h>
-
-__device__ __host__ float polynomial_evaluation_32(float x, const float *f, int n) {
-  float result = 0.0;
-  for (int i = 0; i < n; i++) {
-    result *= x;
-    result += f[i];
-  }
-  return result;
-}
-
-__device__ __host__ double polynomial_evaluation_64(double x, const double *f, int n) {
-  double result = 0.0;
-  for (int i = 0; i < n; i++) {
-    result *= x;
-    result += f[i];
-  }
-  return result;
-}
-
-__device__ __host__ float digamma_impl_maybe_poly_32(const float s) {
-  const float A[] = {-4.16666666666666666667E-3f, 3.96825396825396825397E-3f,
-                     -8.33333333333333333333E-3f, 8.33333333333333333333E-2f};
-  float z;
-  if (s < 1.0e8f) {
-    z = 1.0f / (s * s);
-    return z * polynomial_evaluation_32(z, A, 4);
-  } else {
-    return 0.0f;
-  }
-}
-
-__device__ __host__ double digamma_impl_maybe_poly_64(const double s) {
-  const double A[] = {8.33333333333333333333E-2, -2.10927960927960927961E-2,
-                      7.57575757575757575758E-3, -4.16666666666666666667E-3,
-                      3.96825396825396825397E-3, -8.33333333333333333333E-3,
-                      8.33333333333333333333E-2};
-
-  double z;
-  if (s < 1.0e17) {
-    z = 1.0 / (s * s);
-    return z * polynomial_evaluation_64(z, A, 7);
-  } else
-    return 0.0;
-}
-""")
-        for (T,F) in [("float","32"),("double","64")]
-            floor_str = (T == "float") ? "floorf" : "floor"
-            tan_str = (T == "float") ? "tanf" : "tan"
-  	    log_str = (T == "float") ? "logf" : "log"	
-            max_str = (T == "float") ? "FLT_MAX" : "DBL_MAX"
-            pow_str = (T == "float") ? "powf" : "pow"
-            fabs_str = (T == "float") ? "fabsf" : "fabs"
-            one_str = (T == "float") ? "1.0f" : "1.0"
-            zeta_impl_series_2nd_cond = (T == "float") ? "" : "||(*a <= 9.0)"
-            
-            print(s,
-"""
-__device__ __host__ $T digamma_impl_$F(const $T u) {
-
-  $T xi = u;
-  $T p, q, nz, s, w, yi;
-  bool negative;
-
-  const $T maxnum = $max_str;
-  const $T m_pi = M_PI;
-
-  negative = 0;
-  nz = 0.0;
-
-  const $T zero = 0.0;
-  const $T one = 1.0;
-  const $T half = 0.5;
-
-  if (xi <= zero) {
-    negative = one;
-    q = xi;
-    p = $floor_str(q);
-    if (p == q) {
-      return maxnum;
-    }
-    /* Remove the zeros of tan(m_pi x)
-    * by subtracting the nearest integer from x
-    */
-    nz = q - p;
-    if (nz != half) {
-      if (nz > half) {
-        p += one;
-        nz = q - p;
-      }
-      nz = m_pi / $tan_str(m_pi * nz);
-    } else {
-      nz = zero;
-    }
-    xi = one - xi;
-  }
-
-  /* use the recurrence psi(x+1) = psi(x) + 1/x. */
-  s = xi;
-  w = zero;
-  while (s < 10.0) {
-    w += one / s;
-    s += one;
-  }
-
-  yi = digamma_impl_maybe_poly_$F(s);
-
-  yi = $log_str(s) - (half / s) - yi - w;
-
-  return (negative) ? yi - nz : yi;
-
-}
-
-__device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
-                                         const $T machep) {
-  int i = 0;
-  while ((i < 9)$zeta_impl_series_2nd_cond) {
-    i += 1;
-    *a += $one_str;
-    *b = $pow_str(*a, -x);
-    *s += *b;
-    if ($fabs_str(*b / *s) < machep) {
-      return true;
-    }
-  }
-
-  // Return whether we are done
-  return false;
-}
-
-__device__ __host__ $T zeta_impl_$F($T x, $T q) {
-  int i;
-  $T p, r, a, b, k, s, t, w;
-
-  const $T A[] = {
-      12.0,
-      -720.0,
-      30240.0,
-      -1209600.0,
-      47900160.0,
-      -1.8924375803183791606e9, /*1.307674368e12/691*/
-      7.47242496e10,
-      -2.950130727918164224e12,  /*1.067062284288e16/3617*/
-      1.1646782814350067249e14,  /*5.109094217170944e18/43867*/
-      -4.5979787224074726105e15, /*8.028576626982912e20/174611*/
-      1.8152105401943546773e17,  /*1.5511210043330985984e23/854513*/
-      -7.1661652561756670113e18  /*1.6938241367317436694528e27/236364091*/
-  };
-
-  const $T maxnum = $max_str;
-  const $T zero = 0.0, half = 0.5, one = 1.0;
-  const $T machep = 1e-15;
-
-  if (x == one) return maxnum;
-
-  if (x < one) {
-    return zero;
-  }
-
-  if (q <= zero) {
-    if (q == $floor_str(q)) {
-      return maxnum;
-    }
-    p = x;
-    r = $floor_str(p);
-    if (p != r) return zero;
-  }
-
-  /* Permit negative q but continue sum until n+q > +9 .
-   * This case should be handled by a reflection formula.
-   * If q<0 and x is an integer, there is a relation to
-   * the polygamma function.
-   */
-  s = $pow_str(q, -x);
-  a = q;
-  b = zero;
-
-  // Run the summation in a helper function that is specific to the floating
-  // precision
-  if (zeta_impl_series_$F(&a, &b, &s, x, machep)) {
-    return s;
-  }
-
-  w = a;
-  s += b * w / (x - one);
-  s -= half * b;
-  a = one;
-  k = zero;
-  for (i = 0; i < 12; i++) {
-    a *= x + k;
-    b /= w;
-    t = a * b / A[i];
-    s = s + t;
-    t = $fabs_str(t / s);
-    if (t < machep) return s;
-    k += one;
-    a *= x + k;
-    b /= w;
-    k += one;
-  }
-  return s;
-};
-
-__device__ __host__ $T polygamma_impl_$F(int n, $T x) {
-  if (n == 0) {
-    return digamma_impl_$F(x);
-  }
-
-  // dumb code to calculate factorials
-  $T factorial = 1.0;
-  for (int i = 0; i < n; i++) {
-    factorial *= (i + 1);
-  }
-
-  return $pow_str(-1.0, n + 1) * factorial * zeta_impl_$F(n + 1, x);
-}
-
-__device__ __host__ $T gamma_impl_$F($T x) {
-  return exp(lgamma(x));
-}
-
-__device__ __host__ $T trigamma_impl_$F($T x) {
-  return polygamma_impl_$F(1, x);
-}
-""")
-        end
-    end
-end
-
-print(fp,cuda1gammafamily())
+include("gamma_impl.jl")
 
 function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
     sprint() do s
@@ -258,7 +21,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
 extern "C" {
   $DLLEXPORT void $F(int n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
@@ -287,7 +50,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
 extern "C" {
   $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
@@ -316,7 +79,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
 extern "C" {
   $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
-  }    
+  }
 }
 """)
         end
@@ -343,7 +106,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
 extern "C" {
   $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
-  }    
+  }
 }
 """
 end
@@ -373,7 +136,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
-  }    
+  }
 }
 """)
         end
@@ -401,7 +164,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, 
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
-  }    
+  }
 }
 """)
         end
@@ -430,7 +193,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, 
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
-  }    
+  }
 }
 """)
         end
@@ -460,7 +223,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dim
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
-  }    
+  }
 }
 """)
         end
@@ -531,7 +294,7 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
 }
 extern "C" {
   $DLLEXPORT void icat_$F(int nrows, int ncols, $T **x, $T *y) {
-    $T **xx;   
+    $T **xx;
     if (nrows>0 && ncols>0) {
       size_t s = ncols * sizeof($T *);
       cudaMalloc(&xx, s);
@@ -539,7 +302,7 @@ extern "C" {
       _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
       cudaFree(xx);
     }
-  }    
+  }
 }
 """)
         end
@@ -557,7 +320,7 @@ static __inline__ __device__ float atomicAdd2(float *address, float val) {
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   return atomicAdd(address, val);
 }
-#else      
+#else
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -584,7 +347,7 @@ __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -596,7 +359,7 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -608,7 +371,7 @@ __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -620,7 +383,7 @@ __global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -632,7 +395,7 @@ __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -644,7 +407,7 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -656,7 +419,7 @@ __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -668,7 +431,7 @@ __global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -745,7 +508,7 @@ function cuda1dropout(; BLK=256, THR=256)
 __global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    if (y[i] > p) {                  
+    if (y[i] > p) {
       y[i] = x[i] * q;
     } else {
       y[i] = 0;
@@ -767,10 +530,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
 extern "C" {
   $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
-  }    
+  }
   $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
-  }    
+  }
 }
 """)
         end
@@ -788,7 +551,7 @@ function cuda1concat(; BLK=256, THR=256)
 """
 __global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
   int array = blockIdx.x;
-  int nelts = lengths[array];                  
+  int nelts = lengths[array];
   int offset = starts[array];
   for (int i = threadIdx.x; i < nelts; i += blockDim.x) {
     y[i+offset] = x[array][i];
@@ -798,7 +561,7 @@ extern "C" {
   // julia is responsible for copying args to gpu
   $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
-  }    
+  }
 }
 """)
         end
