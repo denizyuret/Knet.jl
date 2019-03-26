@@ -4,10 +4,12 @@ fp = open("cuda1.cu","w")
 #using Knet: unary_ops
 
 include("gamma.jl")
+print(fp,cuda1gammafamily())
 
-function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
+function cuda1src(f, j=f, ex="$f(xi)"; seperate_impl=false, BLK=256, THR=256)
     sprint() do s
         for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+            seperate_impl && (ex = "$F(xi)")
             print(s,
 """
 __global__ void _$F(int n, $T *x, $T *y) {
@@ -28,9 +30,10 @@ extern "C" {
     end
 end
 
+seperate_impl_ops = ["gamma_impl", "digamma_impl", "trigamma_impl"]
 for a in unary_ops
     if !isa(a,Tuple); a=(a,); end
-    print(fp,cuda1src(a...))
+    print(fp,cuda1src(a...; seperate_impl=(a[1] in seperate_impl_ops)))
 end
 
 # Kernels used by setindex! and getindex: fill, xfill, xcopy:

@@ -68,10 +68,10 @@ unary_ops = [
 ("invx", "invx", "1/xi"),
 # "j0",
 # "j1",
-("gamma_impl_64", "gamma", "gamma_impl_64(xi)"),
+("gamma_impl", "gamma"),
 "lgamma", # missing digamma for derivative
-("digamma_impl_64", "digamma", "digamma_impl_64(xi)"),
-("trigamma_impl_64", "trigamma", "trigamma_impl_64(xi)"),
+("digamma_impl", "digamma"),
+("trigamma_impl", "trigamma"),
 #
 # "llrint",
 # "llround",
@@ -132,4 +132,3 @@ reduction_ops = [
 ("minabs","minabs","(ai<xi ? ai : xi)","(xi<0 ? -xi : xi)","INFINITY"),
 ("countnz","countnz","ai+xi","(xi!=0)","0"),
 ]
-
