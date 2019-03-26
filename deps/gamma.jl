@@ -7,7 +7,7 @@ function cuda1gammafamily(; BLK=256, THR=256)
 #include <float.h>
 #include <math.h>
 
-__device__ __host__ float polynomial_evaluation_32(float x, const float *f, int n) {
+__global__ float polynomial_evaluation_32(float x, const float *f, int n) {
   float result = 0.0;
   for (int i = 0; i < n; i++) {
     result *= x;
@@ -16,7 +16,7 @@ __device__ __host__ float polynomial_evaluation_32(float x, const float *f, int 
   return result;
 }
 
-__device__ __host__ double polynomial_evaluation_64(double x, const double *f, int n) {
+__global__ double polynomial_evaluation_64(double x, const double *f, int n) {
   double result = 0.0;
   for (int i = 0; i < n; i++) {
     result *= x;
@@ -25,7 +25,7 @@ __device__ __host__ double polynomial_evaluation_64(double x, const double *f, i
   return result;
 }
 
-__device__ __host__ float digamma_impl_maybe_poly_32(const float s) {
+__global__ float digamma_impl_maybe_poly_32(const float s) {
   const float A[] = {-4.16666666666666666667E-3f, 3.96825396825396825397E-3f,
                      -8.33333333333333333333E-3f, 8.33333333333333333333E-2f};
   float z;
@@ -37,7 +37,7 @@ __device__ __host__ float digamma_impl_maybe_poly_32(const float s) {
   }
 }
 
-__device__ __host__ double digamma_impl_maybe_poly_64(const double s) {
+__global__ double digamma_impl_maybe_poly_64(const double s) {
   const double A[] = {8.33333333333333333333E-2, -2.10927960927960927961E-2,
                       7.57575757575757575758E-3, -4.16666666666666666667E-3,
                       3.96825396825396825397E-3, -8.33333333333333333333E-3,
@@ -63,7 +63,7 @@ __device__ __host__ double digamma_impl_maybe_poly_64(const double s) {
 
             print(s,
 """
-__device__ __host__ $T digamma_impl_$F(const $T u) {
+__global__ $T digamma_impl_$F(const $T u) {
 
   $T xi = u;
   $T p, q, nz, s, w, yi;
@@ -118,7 +118,7 @@ __device__ __host__ $T digamma_impl_$F(const $T u) {
 
 }
 
-__device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
+__global__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
                                          const $T machep) {
   int i = 0;
   while ((i < 9)$zeta_impl_series_2nd_cond) {
@@ -135,7 +135,7 @@ __device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
   return false;
 }
 
-__device__ __host__ $T zeta_impl_$F($T x, $T q) {
+__global__ $T zeta_impl_$F($T x, $T q) {
   int i;
   $T p, r, a, b, k, s, t, w;
 
@@ -208,7 +208,7 @@ __device__ __host__ $T zeta_impl_$F($T x, $T q) {
   return s;
 };
 
-__device__ __host__ $T polygamma_impl_$F(int n, $T x) {
+__global__ $T polygamma_impl_$F(int n, $T x) {
   if (n == 0) {
     return digamma_impl_$F(x);
   }
@@ -222,11 +222,11 @@ __device__ __host__ $T polygamma_impl_$F(int n, $T x) {
   return $pow_str(-1.0, n + 1) * factorial * zeta_impl_$F(n + 1, x);
 }
 
-__device__ __host__ $T gamma_impl_$F($T x) {
+__global__ $T gamma_impl_$F($T x) {
   return exp(lgamma(x));
 }
 
-__device__ __host__ $T trigamma_impl_$F($T x) {
+__global__ $T trigamma_impl_$F($T x) {
   return polygamma_impl_$F(1, x);
 }
 """)
