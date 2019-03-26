@@ -1,18 +1,32 @@
 language: julia
 
-## https://docs.travis-ci.com/user/languages/julia
-## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
-julia:
-  - 1.0
-  - nightly
 os:
   - linux
   - osx
+
+julia:
+  - 1.0
+  - nightly
+
+matrix:
+  allow_failures:
+    - julia: nightly
+
 notifications:
   email: false
 
-after_success:
-  - julia -e 'using Pkg; Pkg.add("Documenter"); using Knet, Documenter; cd(Knet.dir("docs")); include("make.jl")'
+jobs:
+  include:
+      - stage: "Documentation"
+        julia: 1.0
+        os: linux
+        script:
+          - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+          - julia --project=docs/ docs/make.jl
+        after_success: skip
+
+# after_success:
+#   - julia -e 'using Pkg; Pkg.add("Documenter"); using Knet, Documenter; cd(Knet.dir("docs")); include("make.jl")'
 
 # Do coverage in gitlab:
 #   - julia -e 'using Pkg; Pkg.add("Coverage"); using Knet, Coverage; cd(Knet.dir()); Codecov.submit(process_folder()); Coveralls.submit(process_folder())'
@@ -26,7 +40,5 @@ after_success:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("Knet"); Pkg.test("Knet"; coverage=true)'
 
-# matrix:
-#   allow_failures:
-#     - julia: nightly  ## getting too many warnings
-
+## https://docs.travis-ci.com/user/languages/julia
+## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.

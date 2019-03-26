@@ -64,12 +64,12 @@ push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 
 function build_nvcc()
     SRC = [("cuda1","../src/unary"),
-           ("cuda01","../src/broadcast"),
-           ("cuda11","../src/broadcast"),
-           ("cuda12","../src/broadcast"),
-           ("cuda13","../src/broadcast"),
-           ("cuda16","../src/broadcast"),
-           ("cuda17","../src/broadcast"),
+           ("cuda01","../src/binary"),
+           ("cuda11","../src/binary","../src/unary"),
+           ("cuda12","../src/binary"),
+           ("cuda13","../src/binary"),
+           ("cuda16","../src/binary"),
+           ("cuda17","../src/binary"),
            ("cuda20","../src/reduction"),
            ("cuda21","../src/reduction"),
            ("cuda22","../src/reduction"),

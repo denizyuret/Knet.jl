@@ -1,11 +1,11 @@
-using Random, Knet
+using Random
 
 "Where to download gutenberg from"
 gutenbergurl = "http://www.gutenberg.org/files"
 
 
 "Where to download gutenberg to"
-gutenbergdir = Knet.dir("data", "gutenberg")
+gutenbergdir = joinpath(@__DIR__, "gutenberg")
 
 
 "Download text from Project Gutenberg and return contents as String."

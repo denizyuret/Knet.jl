@@ -2,7 +2,8 @@
 # Also see https://github.com/fchollet/keras/raw/master/examples/imdb_lstm.py
 # Also see https://github.com/ilkarman/DeepLearningFrameworks/raw/master/common/utils.py
 
-using PyCall,JSON,JLD2,Random,Knet
+using Pkg; for p in ("PyCall","JSON","JLD2"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+using PyCall,JSON,JLD2,Random
 @pyimport numpy as np
 
 """
@@ -25,7 +26,7 @@ https://keras.io/datasets and return (xtrn,ytrn,xtst,ytst,dict) tuple.
 """
 function imdb(;
               url = "https://s3.amazonaws.com/text-datasets",
-              dir = Knet.dir("data", "imdb"),
+              dir = joinpath(@__DIR__, "imdb"),
               data="imdb.npz",
               dict="imdb_word_index.json",
               jld2="imdb.jld2",
@@ -56,7 +57,7 @@ function imdb(;
         @info("Loading IMDB...")
         JLD2.@load jld2path _imdb_xtrn _imdb_ytrn _imdb_xtst _imdb_ytst _imdb_dict
     end
-    if seed != 0; srand(seed); end
+    if seed != 0; Random.seed!(seed); end
     xs = [_imdb_xtrn;_imdb_xtst]
     if maxlen == nothing; maxlen = maximum(map(length,xs)); end
     if maxval == nothing; maxval = maximum(map(maximum,xs)) + pad + stoken; end

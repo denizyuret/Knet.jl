@@ -8,6 +8,7 @@ References
 -   <https://www.youtube.com/watch?v=2pWv7GOvuf0&list=PL7-jPKtc4r78-wCZcQn5IqyuWhBZ8fOxT>
 -   <http://videolectures.net/rldm2015_silver_reinforcement_learning/?q=david%20silver>
 -   <https://webdocs.cs.ualberta.ca/~sutton/book/the-book.html>
+-   <http://web.mit.edu/dimitrib/www/RLbook.html>
 -   <https://sites.ualberta.ca/~szepesva/RLBook.html>
 -   <http://banditalgs.com/print/>
 -   <http://karpathy.github.io/2016/05/31/rl/>

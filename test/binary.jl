@@ -4,7 +4,7 @@ date(x)=(join(stdout,[Dates.format(Dates.now(),"HH:MM:SS"), x,'\n'],' '); flush(
 macro dbg(_x); end
 #macro dbg(_x); :(@show $(esc(_x))); end
 
-@testset "broadcast" begin
+@testset "binary" begin
 
     rand11(f,t,d...)=rand(t,d...) .* t(0.8) .+ t(0.1)
     # we need symetric ones as well to test compare operations
@@ -17,23 +17,23 @@ macro dbg(_x); end
     size11 = (1,(1,1),2,(2,1),(1,2),(2,2))
     # These are helper functions for gradients and rpow is used to define Array.^Number
     # The former is tested during gradcheck, rpow is tested with .^ operation
-    exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "rpow")
+    exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "eluback", "seluback", "rpow")
 
-    broadcast_fns = Any[]
-    for f in Knet.broadcast_ops
+    binary_fns = Any[]
+    for f in Knet.binary_ops
         if isa(f,Tuple); f=f[2]; end
         in(f, exclude11) && continue
         f0 = eval(Meta.parse(lstrip(f,'.')))
         f1 = x->broadcast(f0,x[1],x[2])
         f2 = (x1,x2)->broadcast(f0,x1,x2)
-        push!(broadcast_fns, (f1,f2))
+        push!(binary_fns, (f1,f2))
     end
 
     #Random.seed!(42)
 
     @testset "array-scalar" begin
-        date("broadcast: array-scalar")
-        for (f1,f) in broadcast_fns
+        date("binary: array-scalar")
+        for (f1,f) in binary_fns
             for t in (Float32, Float64)
                 for n in size11
                     @dbg f,t,n,0
@@ -53,9 +53,18 @@ macro dbg(_x); end
         end
     end
 
+    @testset "literal-pow" begin # issue #412
+        if gpu() >= 0
+            date("binary: literal-pow")
+            a = rand(3,5)
+            k = KnetArray(a)
+            @test isapprox(a .^ 2, k .^ 2)
+        end
+    end
+
     @testset "array-vector" begin
-        date("broadcast: array-vector")
-        for (f1,f) in broadcast_fns
+        date("binary: array-vector")
+        for (f1,f) in binary_fns
             for t in (Float32, Float64)
                 for n1 in size11, n2 in size11
                     # max and min do not have broadcasting (different sized) versions defined in Base
@@ -78,13 +87,13 @@ macro dbg(_x); end
     end
 
     @testset "array-array" begin
-        date("broadcast: array-array")
-        # for (f1,f) in broadcast_fns # takes too much time
+        date("binary: array-array")
+        # for (f1,f) in binary_fns # takes too much time
         f = (x1,x2)->broadcast(+,x1,x2)
         f1 = x->broadcast(+,x[1],x[2])
         for t in (Float32, Float64)
             # multidim array broadcast
-            # vector broadcast which is size bigger than 127 (more detail in src/broadcast.jl)
+            # vector broadcast which is size bigger than 127 (more detail in src/binary.jl)
             for (n1,n2) in size12
                 @dbg f,t,n1,n2 # Travis gives timeout here if no output
                 a1 = rand11(f,t,n1)
@@ -106,7 +115,7 @@ macro dbg(_x); end
 
     @testset "ndims" begin # Issue #235
         if gpu() >= 0
-            date("broadcast: ndims")
+            date("binary: ndims")
             a=rand(2,2,2) |> KnetArray
             b=rand(2,2) |> KnetArray
             c=rand(2) |> KnetArray
@@ -117,5 +126,5 @@ macro dbg(_x); end
     end
 end
 
-date("broadcast: done")
+date("binary: done")
 nothing

@@ -29,23 +29,23 @@ libknet8.so: $(OBJ)
 cuda1.cu: cuda1.jl unary.jl
 	julia $< > $@
 
-cuda01.cu: cuda01.jl broadcast.jl
+cuda01.cu: cuda01.jl binary.jl
 	julia $< > $@
 
-cuda11.cu: cuda11.jl broadcast.jl
+cuda11.cu: cuda11.jl binary.jl
 	julia $< > $@
 
-cuda12.cu: cuda12.jl broadcast.jl
+cuda12.cu: cuda12.jl binary.jl
 	julia $< > $@
 
-cuda13.cu: cuda13.jl broadcast.jl
+cuda13.cu: cuda13.jl binary.jl
 	julia $< > $@
 
 
-cuda16.cu: cuda16.jl broadcast.jl
+cuda16.cu: cuda16.jl binary.jl
 		julia $< > $@
 
-cuda17.cu: cuda17.jl broadcast.jl
+cuda17.cu: cuda17.jl binary.jl
 		julia $< > $@
 
 cuda20.cu: cuda20.jl reduction.jl

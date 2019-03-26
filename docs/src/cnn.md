@@ -859,6 +859,9 @@ and ResNet [(He et al. 2015)](http://arxiv.org/abs/1512.03385).
 -   Christopher Olah's blog has very good visual explanations (thanks to
     Melike Softa for the reference):
     [http://colah.github.io/posts/2014-07-Conv-Nets-Modular](http://colah.github.io/posts/2014-07-Conv-Nets-Modular)
+-   [http://yosinski.com/deepvis](Understanding Neural Networks Through Deep Visualization)
+-   [https://distill.pub/2017/feature-visualization/](Feature Visualization)
+-   [https://distill.pub/2018/building-blocks/](The Building Blocks of Interpretability)
 -   [UFLDL](http://ufldl.stanford.edu) (or its [old
     version](http://ufldl.stanford.edu/wiki/index.php/UFLDL_Tutorial))
     is an online tutorial with programming examples and explicit
@@ -889,5 +892,6 @@ and ResNet [(He et al. 2015)](http://arxiv.org/abs/1512.03385).
     for deep learning
 -   Reading (architectures): [cs231n Architecture Slides](http://cs231n.stanford.edu/slides/2017/cs231n_2017_lecture9.pdf)
 -   Reading (visualization): [cs231n Visualization Slides](http://cs231n.stanford.edu/slides/2017/cs231n_2017_lecture12.pdf), [cs231n Visualization Notes](http://cs231n.github.io/understanding-cnn), [Distillpub visualization article](https://distill.pub/2018/building-blocks/), [Yosinski blog](http://yosinski.com/deepvis), [video](https://www.youtube.com/watch?v=AgkfIQ4IGaM), [paper](http://yosinski.com/media/papers/Yosinski__2015__ICML_DL__Understanding_Neural_Networks_Through_Deep_Visualization__.pdf), [repo](https://github.com/yosinski/deep-visualization-toolbox)
+-   [A Simple Guide to the Versions of the Inception Network](https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202)
 
 

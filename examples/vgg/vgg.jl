@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 
 julia vgg.jl image-file-or-url
@@ -42,7 +44,7 @@ function main(args=ARGS)
     atype = eval(Meta.parse(o[:atype]))
 
     global _vggcache
-    if !isdefined(:_vggcache); _vggcache=Dict(); end
+    if !@isdefined(_vggcache); _vggcache=Dict(); end
     if !haskey(_vggcache,o[:model])
         vgg = matconvnet(o[:model])
         params = get_params(vgg, atype)
@@ -56,7 +58,7 @@ function main(args=ARGS)
 
     image = imgdata(o[:image], averageImage)
     image = convert(atype, image)
-    info("Classifying")
+    @info("Classifying")
     @time y1 = convnet(image)
     z1 = vec(Array(y1))
     s1 = sortperm(z1,rev=true)

@@ -1,6 +1,105 @@
+Knet v1.2.1 Release Notes
+=========================
+
+* Serialization bug fix.
+* Fixed eltype, size etc. for Minimize, Converge etc.
+* Transpose and matmul now work with 1-D KnetArrays.
+* Added intro learning notebook.
+* RNN: Ignore trailing ones when comparing sizes.
+* Julia 1.2 compat fixes.
+
+
+Knet v1.2.0 Release Notes
+=========================
+3e5c7e0 2019-01-21
+
+* New training interface based on iterators.
+* Progressbar and converge utilities.
+* RNN unboxes hidden states in backward pass making `value(h)` unnecessary on GPU.
+* `rnnparam` and `rnnparams` no longer take a `w` argument.
+* RNN applies dropout to input like other layers.
+* `mat` takes a `dims` keyword argument that makes it useful for both RNNs and CNNs.
+* Dropout automatically figures out and does nothing outside of `@diff` context.
+* Fixed inplace assignment for Params and KnetArrays.
+* Julia 1.0 fixes for `goldensection`.
+* Improved default parameters for all optimizers tested on MLP, CNN, RNN.
+* All notebooks and documentation updated.
+* New iterator and quickstart notebooks.
+* Updated to Documenter 0.21.
+
+
+Knet v1.1.2 Release Notes
+=========================
+20d91106 2019-01-04
+
+* Support for broadcasting user defined functions.
+* Added batch matrix multiplication. (@ozanarkancan)
+* Improved serialization and JLD file I/O. (@ekinakyurek)
+* Added tests and docs for new RNN interface.
+* Added julia/base demo to tutorial/08.charlm
+* Renamed broadcast.jl -> binary.jl and broadcast_ops -> binary_ops.
+
+
+Knet v1.1.1 Release Notes
+=========================
+6f27c1d5 2018-09-30
+
+* General performance improvements.
+* New GPU memory manager. (with @ekinakyurek)
+* New logging system using Base.CoreLogging.
+* New cuda macros and profiling system using TimerOutputs.
+* Tutorial available on Colab. (with @jekbradbury)
+* Added cpucopy, gpucopy serialization. (with @ekinakyurek)
+* Added softmax, logsoftmax, logistic loss and binary-cross-entropy. (@CarloLucibello, @ekinakyurek)
+* Added elu and selu. (with @CarloLucibello)
+* Speed up matmul gradient avoiding transpose.
+* Defined permutedims(::KnetMatrix)
+* Fixed scripts under Knet/prof, added new results.
+
+
+Knet v1.1.0 Release Notes
+=========================
+df820c53 2018-09-12
+
+The new suggested way to define models/layers is as [callable objects](https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects-1).
+
+    struct Linear; w; b; end
+    (m::Linear)(x) = m.w * x .+ m.b
+
+This way a model acts as a (predict) function as well as a collection of parameters:
+
+    m = Linear(randn(10,784), zeros(10))
+    y = m(x)             # gives the prediction
+    for p in params(m)   # iterates over parameters
+
+For training the parameters should be marked as AutoGrad.Param objects:
+
+    m = Linear(Param(randn(10,784)), Param(zeros(10)))
+    y = m(x)             # returns the same y value as above (test mode)
+    y = @diff m(x)       # gives an object with prediction as well as grad info
+    value(y)  		 # gives the prediction value
+    gradient(y, m.w)     # gives the gradient of value(y) wrt m.w
+
+This interface is not mandatory, everything should be backwardly compatible and old Knet
+code should continue to work.  However the new interface should allow people to easily
+define their layer/model collections and thus address Issues #144, #147, #341.
+
+I am working on a minimal set of utilities for the new interface on the dy/1.1 branch:
+* A new `train!` function that works with the new interface.
+* `param` and `param0` make declaring parameters easier.
+* `params` recursively finds all Params in a given object.
+* Additional loss and update methods can handle callable objects.
+* Better RNN interface: m=LSTM(input,hidden); m(x) => y
+* Possibly other layers/models defined for MLP and CNNs.
+
+I am not sure about the last item because I'd rather keep the Knet interface minimal and let
+people work on their own model/layer collections.  I am updating Knet/examples/dl-tutorial
+notebooks as I work on the new interface if you want to see examples.
+
+
 Knet v1.0.1 Release Notes
 =========================
-348a2fe 2018-08-31
+43421754 2018-08-31
 
 * Improved gpu diagnostics.
 * build.jl no longer depends on Knet.

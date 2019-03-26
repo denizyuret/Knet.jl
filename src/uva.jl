@@ -10,9 +10,9 @@ let p2pdevs = Set()
     """
     function checkP2P(did1::Int, did2::Int)::Bool
         access = Cint[0]
-        @cuda(cudart, cudaDeviceCanAccessPeer, (Ptr{Cint}, Cint, Cint), access, did1, did2)
+        @cudart(cudaDeviceCanAccessPeer, (Ptr{Cint}, Cint, Cint), access, did1, did2)
         res1 = Bool(access[1])
-        @cuda(cudart, cudaDeviceCanAccessPeer, (Ptr{Cint}, Cint, Cint), access, did2, did1)
+        @cudart(cudaDeviceCanAccessPeer, (Ptr{Cint}, Cint, Cint), access, did2, did1)
         res2 = Bool(access[1])
         res1 && res2
     end
@@ -28,9 +28,9 @@ let p2pdevs = Set()
         end
         gpu_temp = gpu()
         gpu(did1)
-        @cuda(cudart, cudaDeviceEnablePeerAccess, (Cint, Cint), did2, 0)
+        @cudart(cudaDeviceEnablePeerAccess, (Cint, Cint), did2, 0)
         gpu(did2)
-        @cuda(cudart, cudaDeviceEnablePeerAccess, (Cint, Cint), did1, 0)
+        @cudart(cudaDeviceEnablePeerAccess, (Cint, Cint), did1, 0)
         gpu(gpu_temp)
         push!(p2pdevs, (did1, did2))
     end

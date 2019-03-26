@@ -8,9 +8,21 @@ import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
 import LinearAlgebra.BLAS: gemm!, scal!
 import LinearAlgebra: rmul!, lmul!, axpy!
 # import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
-export axpy!
+# export axpy!
 
+# AutoGrad defines: @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
+# We specialize it below to avoid transposes
+# Full-scale lazy transpose requires a lot more things to work with Adjoint(::KnetArray)
 (*)(A::KnetMatrix{T},B::KnetMatrix{T}) where {T} = gemm!('N','N',one(T),A,B,zero(T),similar(A,(size(A,1),size(B,2))))
+A_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('N','T',one(T),A,B,zero(T),similar(A,size(A,1),size(B,1)))
+At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,B,zero(T),similar(A,size(A,2),size(B,2)))
+@primitive1 *(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  At_mul_B(x1,dy)
+@primitive1 Knet.A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(x1,dy)
+@primitive1 Knet.At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  (x1*dy)
+
+# Allow 1-D vectors as (N,1) in matmul:
+(*)(A::KnetVector{T},B::KnetMatrix{T}) where {T} = reshape(A,:,1) * B
+(*)(A::KnetMatrix{T},B::KnetVector{T}) where {T} = (C = A * reshape(B,:,1); size(A,1) == 1 ? C[1] : vec(C))
 
 # deprecated:
 # A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
@@ -48,11 +60,11 @@ function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Kne
     alpha = T[alpha]; beta = T[beta]
     lda = size2(A,1); ldb = size2(B,1); ldc = size2(C,1)
     if T<:Float64
-        @cuda(cublas, cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        @cublas(cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     elseif T<:Float32
-        @cuda(cublas, cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        @cublas(cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     # elseif T<:Float16
-    #     @cuda(cublas, cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+    #     @cublas(cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     else
         error("CUBLAS does not support $T")
     end
@@ -63,9 +75,9 @@ function axpy!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::Kne
     length(x) == length(y) || throw(DimensionMismatch("$(map(size,(x,y)))"))
     alpha = T[alpha]
     if T<:Float32
-        @cuda(cublas, cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        @cublas(cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     elseif T<:Float64
-        @cuda(cublas, cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        @cublas(cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     else
         error("$T not supported")
     end
@@ -78,9 +90,9 @@ axpy!(alpha::Number, x::KnetArray{T}, y::KnetArray{T}) where {T} = axpy!(length(
 function scal!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer) where {T}
     alpha = T[alpha]
     if T<:Float32
-        @cuda(cublas, cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        @cublas(cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
     elseif T<:Float64
-        @cuda(cublas, cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        @cublas(cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
     else
         error("$T not supported")
     end
@@ -109,16 +121,17 @@ IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
 IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 =#
 
-function _transpose(x::KnetArray{T}) where {T} # trying the lazy version first
-    ndims(x) != 2 && error("Transpose is supported only for 2D KnetArrays")
+_transpose(x::KnetVector) = _transpose(reshape(x,:,1))
+
+function _transpose(x::KnetMatrix{T}) where {T} # trying the lazy version first
     # Using CUBLAS
     sz = size(x)
     y = similar(x,(sz[2],sz[1]))
     if T<:Float32
-        @cuda(cublas, cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+        @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
               cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     elseif T<:Float64
-        @cuda(cublas, cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+        @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
               cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     else
         error("CUBLAS does not support $T")
@@ -131,33 +144,34 @@ end
 
 """
 
-    mat(x) 
+    mat(x; dims = ndims(x) - 1)
 
-Reshape x into a two-dimensional matrix.
+Reshape `x` into a two-dimensional matrix by joining the first dims dimensions, i.e. 
+`reshape(x, prod(size(x,i) for i in 1:dims), :)`
 
-This is typically used when turning the output of a 4-D convolution
-result into a 2-D input for a fully connected layer.  For 1-D inputs
-returns `reshape(x, (length(x),1))`.  For inputs with more than two
-dimensions of size `(X1,X2,...,XD)`, returns
+`dims=ndims(x)-1` (default) is typically used when turning the output of a 4-D convolution
+result into a 2-D input for a fully connected layer.
 
-    reshape(x, (X1*X2*...*X[D-1],XD))
+`dims=1` is typically used when turning the 3-D output of an RNN layer into a 2-D input for
+a fully connected layer.
+
+`dims=0` will turn the input into a row vector, `dims=ndims(x)` will turn it into a column
+vector.
 
 """
-function mat(x)
-    if ndims(x) > 2
-        xn = size(x,ndims(x))
-        reshape(x, (div(length(x),xn),xn))
-    elseif ndims(x)==2
-        x
-    elseif ndims(x)==1
-        reshape(x, (length(x),1))
-    else
-        throw(MethodError(mat,x))
-    end
-end
+mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:dims) : 1), :)
 
+# conv: reshape(x, (:,xn)): rowdims=ndims-1
+# rnns: reshape(x, (x1,:)): rowdims=1
+# general: reshape(x, (x1*x2..xi, x[i+1]*...*xn))
+# specify the first rowdims are joined, the remaining are joined
+# 1-D input can be turned into a rowvec (rowdims=0), or colvec (rowdims=1).
+# default dims=ndims(x)-1 will turn vec into a rowvec but dims=1 will not work for conv.
 
 import Base: permutedims # ipermutedims
+
+permutedims(x::KnetMatrix)=permutedims(x,(2,1))
+
 function permutedims(x::KnetArray{T,N}, dims) where {T,N}
     if length(dims) != N; throw(DimensionMismatch()); end
     if N == 2
@@ -169,8 +183,10 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
             #=
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]))
-            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
-                        $x,size($x,1),size($x,2),$y,size($y,1))
+            #@eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+            #            $x,size($x,1),size($x,2),$y,size($y,1))
+            @eval @knet8(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
+                         $x,size($x,1),size($x,2),$y,size($y,1))
             return y
             =#
             # Using CUBLAS
@@ -184,8 +200,10 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
-                        $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
+            # @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+            #             $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
+            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
+                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
             return y
         end
     elseif N == 4
@@ -194,8 +212,10 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
-            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                        $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
+            # @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+            #             $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
+            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
+                         $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
             return y
         end
     elseif N == 5
@@ -204,8 +224,8 @@ function permutedims(x::KnetArray{T,N}, dims) where {T,N}
         else
             funcName = permutefunc(x,dims)
             y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
-            @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
-                        $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
+            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
+                         $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
             return y
         end
     else

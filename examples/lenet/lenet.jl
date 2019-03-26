@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 
 This example learns to classify hand-written digits from the
@@ -86,7 +88,7 @@ function main(args=ARGS)
     println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-    o[:seed] > 0 && srand(o[:seed])
+    o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; warn("CPU conv4 support is experimental and very slow."); end
 

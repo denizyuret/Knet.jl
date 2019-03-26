@@ -84,7 +84,7 @@ function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing
         a = (g, b, x)
     end
     if ~isa(training, Bool)
-        training = isa(x, Value) || isa(params, Value)
+        training = isa(x, AutoGrad.Value) || isa(params, AutoGrad.Value)
     end
     if xnd == 2
         return batchnorm2(a...; o...,
@@ -204,7 +204,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
             mean = C_NULL
             ivar = C_NULL
         end
-        @cuda(cudnn, cudnnBatchNormalizationForwardTraining,
+        @cudnn(cudnnBatchNormalizationForwardTraining,
               # Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T}, #alpha and beta
@@ -221,7 +221,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
               TD(y), y, #y
               TD(g), g, b, #params
               momentum, running_mean, running_var,
-              eps, mean, ivar) #end of @cuda
+              eps, mean, ivar)
         # Cache the resulting mean and inverse variance
         if cache != nothing
             cache_verbose && info("mean and ivar data saved to cache")
@@ -230,7 +230,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         end
     else
         @assert (moments!==nothing) "You must provide moments for the test mode!"
-        @cuda(cudnn, cudnnBatchNormalizationForwardInference,
+        @cudnn(cudnnBatchNormalizationForwardInference,
               # Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T},
@@ -284,7 +284,7 @@ function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
         else
             mean, ivar = C_NULL, C_NULL
         end
-        @cuda(cudnn, cudnnBatchNormalizationBackward,
+        @cudnn(cudnnBatchNormalizationBackward,
               # C Types
               (Cptr, UInt32,
                Ptr{T}, Ptr{T}, #data difs
@@ -476,7 +476,7 @@ end
 
 function batchnorm2(g, b, x; moments=nothing, training=false, o...)
     # TODO: This support should be added when needed
-    if training == false && (isa(g, Value) || isa(x, Value) || isa(b, Value))
+    if training == false && (isa(g, AutoGrad.Value) || isa(x, AutoGrad.Value) || isa(b, AutoGrad.Value))
         error("Test mode backward is not supported with 2d inputs")
     end
     @inline _pad4(x) = reshape(x, (1,1,size(x,1),size(x,2)))

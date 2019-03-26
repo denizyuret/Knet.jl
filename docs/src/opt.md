@@ -14,6 +14,7 @@ References
 -   <http://www.deeplearningbook.org/contents/optimization.html> (8.1
     generalization, 8.2 problems, 8.3 algorithms, 8.4 init, 8.5 adaptive
     lr, 8.6 approx 2nd order, 8.7 meta)
+-   [https://arxiv.org/abs/1412.6544](Qualitatively characterizing neural network optimization problems)
 -   <http://andrew.gibiansky.com/blog/machine-learning/gauss-newton-matrix/>
     (great posts on optimization)
 -   <https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf>

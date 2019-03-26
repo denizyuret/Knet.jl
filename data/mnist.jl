@@ -1,10 +1,11 @@
-using GZip,Knet
+using Pkg; haskey(Pkg.installed(),"CodecZlib") || Pkg.add("CodecZlib")
+using CodecZlib
 
 "Where to download mnist from"
 mnisturl = "http://yann.lecun.com/exdb/mnist"
 
 "Where to download mnist to"
-mnistdir = Knet.dir("data","mnist")
+mnistdir = joinpath(@__DIR__, "mnist")
 
 """
 
@@ -38,8 +39,15 @@ function mnist()
     return _mnist_xtrn,_mnist_ytrn,_mnist_xtst,_mnist_ytst
 end
 
-"Utility to view a MNIST image, requires the Images package"
+"Utility to view a MNIST image, requires Images."
 mnistview(x,i)=colorview(Gray,permutedims(x[:,:,1,i],(2,1)))
+
+"Return minibatched mnist data, requires Knet."
+function mnistdata(;batchsize=100,xtype=(Knet.gpu()>=0 ? Knet.KnetArray{Float32} : Array{Float32}), o...)
+    if !@isdefined(_mnist_xtrn); mnist(); end
+    Knet.minibatch(_mnist_xtrn, _mnist_ytrn, batchsize; xtype=xtype, o...),
+    Knet.minibatch(_mnist_xtst, _mnist_ytst, batchsize; xtype=xtype, o...)
+end
 
 function _mnist_xdata(file)
     a = _mnist_gzload(file)[17:end]
@@ -62,7 +70,7 @@ function _mnist_gzload(file)
         url = "$mnisturl/$file"
         download(url, path)
     end
-    f = gzopen(path)
+    f = GzipDecompressorStream(open(path))
     a = read(f)
     close(f)
     return(a)

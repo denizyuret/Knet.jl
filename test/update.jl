@@ -45,7 +45,7 @@ end
     dims = 6
     w = randn(dims)
     # CPU Tests
-    @test rosenopt(copy(w),Sgd(lr=0.0005))
+    @test rosenopt(copy(w),SGD(lr=0.0005))
     @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
     @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
     @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
@@ -60,7 +60,7 @@ end
     if gpu() >= 0
         Knet.gc()
         w = KnetArray(w) #GPU Tests
-        @test rosenopt(copy(w),Sgd(lr=0.0005))
+        @test rosenopt(copy(w),SGD(lr=0.0005))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))
         @test rosenopt(copy(w),Nesterov(lr=0.00025, gamma=0.95))
         @test rosenopt(copy(w),Adam(lr=0.005, beta1=0.9, beta2=0.95, eps=1e-8))
@@ -72,6 +72,17 @@ end
         @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
         @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
     end
+end
+
+# Issue 305: Using Knet with StaticArrays
+# PR 306: optimizer for AbstractArrays
+mutable struct A305 <: AbstractArray{Float32,1} end
+
+@testset "optimizers" begin
+    opt = optimizers(A305(), Adam)
+    @test typeof(opt) == Adam
+    opt = optimizers([A305(), A305()], Adam)
+    @test typeof.(opt) == [Adam, Adam]
 end
 
 nothing

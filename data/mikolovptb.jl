@@ -1,6 +1,5 @@
-using Knet
 mikolovptburl = "http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz"
-mikolovptbdir = Knet.dir("data","mikolovptb")
+mikolovptbdir = joinpath(@__DIR__,"mikolovptb")
 mikolovptbtrn = "ptb.train.txt"
 mikolovptbdev = "ptb.valid.txt"
 mikolovptbtst = "ptb.test.txt"

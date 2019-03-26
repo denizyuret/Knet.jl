@@ -1,5 +1,6 @@
+using Pkg
 for p in ("Knet","ArgParse")
-    Pkg.installed(p) == nothing && Pkg.add(p)
+    haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
 """
@@ -15,11 +16,10 @@ This example is originally implemented for dynet-benchmark repo.
 
 """
 module RNNLM
-using Knet
-using ArgParse
+using Knet, ArgParse, Dates, Printf, Random
 
 const SOS = "<s>"
-include(Pkg.dir("Knet","data","mikolovptb.jl"))
+include(Knet.dir("data","mikolovptb.jl"))
 t00 = now()
 
 function main(args=ARGS)
@@ -65,7 +65,7 @@ function main(args=ARGS)
     opt = optimizers(w, Adam)
 
     # train language model
-    println("startup time: ", Int((now()-t00).value)*0.001); flush(STDOUT)
+    println("startup time: ", Int((now()-t00).value)*0.001); flush(stdout)
     t0 = now()
     all_time = dev_time = all_tagged = this_words = this_loss = 0
     o[:timeout] = o[:timeout] <= 0 ? Inf : o[:timeout]
@@ -74,7 +74,7 @@ function main(args=ARGS)
         for k = 1:length(trn)
             iter = (epoch-1)*length(trn) + k
             if iter % div(500, o[:batchsize]) == 0
-                @printf("%f\n", this_loss/this_words); flush(STDOUT)
+                @printf("%f\n", this_loss/this_words); flush(stdout)
                 all_tagged += this_words
                 this_loss = this_words = 0
                 all_time = Int((now()-t0).value)*0.001
@@ -94,7 +94,7 @@ function main(args=ARGS)
                 @printf(
                     "nll=%.4f, ppl=%.4f, words=%d, time=%.4f, word_per_sec=%.4f\n",
                     dev_loss/dev_words, exp(dev_loss/dev_words), dev_words,
-                    train_time, all_tagged/train_time); flush(STDOUT)
+                    train_time, all_tagged/train_time); flush(stdout)
 
                 if all_time > o[:timeout]
                     return
@@ -107,7 +107,7 @@ function main(args=ARGS)
             this_loss += batch_loss*batch_words
             this_words += batch_words
         end
-        @printf("epoch %d finished\n", epoch-1); flush(STDOUT)
+        @printf("epoch %d finished\n", epoch-1); flush(stdout)
     end
 end
 
@@ -162,7 +162,7 @@ end
 # w[3:4] => weight/bias params for softmax layer
 # w[5]   => word embeddings
 function initweights(atype, hidden, vocab, embed, usegpu, winit=0.01)
-    w = Array{Any}(4)
+    w = Array{Any}(undef,4)
     input = embed
 
     # rnn

@@ -37,7 +37,7 @@ function conv4(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
     (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
-    @cuda(cudnn, cudnnConvolutionForward,
+    @cudnn(cudnnConvolutionForward,
           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
           handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
     return y
@@ -49,15 +49,15 @@ function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnha
     dx = similar(x)
     (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
     if cudnnVersion >= 4000
-        @cuda(cudnn,cudnnConvolutionBackwardData,
+        @cudnn(cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     elseif cudnnVersion >= 3000
-        @cuda(cudnn,cudnnConvolutionBackwardData_v3,
+        @cudnn(cudnnConvolutionBackwardData_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     else
-        @cuda(cudnn,cudnnConvolutionBackwardData,
+        @cudnn(cudnnConvolutionBackwardData,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),TD(dx),dx)
     end
@@ -70,15 +70,15 @@ function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnha
     dw = similar(w)
     (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
     if cudnnVersion >= 4000
-        @cuda(cudnn,cudnnConvolutionBackwardFilter,
+        @cudnn(cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     elseif cudnnVersion >= 3000
-        @cuda(cudnn,cudnnConvolutionBackwardFilter_v3,
+        @cudnn(cudnnConvolutionBackwardFilter_v3,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     else
-        @cuda(cudnn,cudnnConvolutionBackwardFilter,
+        @cudnn(cudnnConvolutionBackwardFilter,
               (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
               handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),FD(dw),dw)
     end
@@ -126,7 +126,7 @@ function pool(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
                  o...) where {T} # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
     beta = 0
-    @cuda(cudnn, cudnnPoolingForward,
+    @cudnn(cudnnPoolingForward,
           (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
           handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
     return y
@@ -137,7 +137,7 @@ function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhan
     if alpha!=1 && mode==0; error("Gradient of pool(alpha!=1,mode=0) broken in CUDNN"); end
     dx = similar(x)
     beta = 0
-    @cuda(cudnn,cudnnPoolingBackward,
+    @cudnn(cudnnPoolingBackward,
           (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
           handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
     return dx
@@ -217,16 +217,16 @@ TD(a::KnetArray{T}) where {T} = TD(T,size(a))
 TD(T::Type, dims::Integer...) = TD(T, dims)
 function TD(T::Type, dims)
     d = Cptr[0]
-    @cuda(cudnn,cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
+    @cudnn(cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
     n = length(dims)
     sz = [Cint(dims[i]) for i=n:-1:1]
     st = similar(sz); st[n] = 1
     for i=(n-1):-1:1; st[i] = st[i+1] * sz[i+1]; end
-    @cuda(cudnn,cudnnSetTensorNdDescriptor,
+    @cudnn(cudnnSetTensorNdDescriptor,
           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
           d[1], DT(T), n, sz, st)
     td = TD(d[1])
-    finalizer(x->@cuda(cudnn,cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
+    finalizer(x->@cudnn(cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
     return td
 end
 
@@ -235,47 +235,47 @@ FD(a::KnetArray{T}) where {T}=FD(T,size(a))
 FD(T::Type, dims::Integer...) = FD(T,dims)
 function FD(T::Type, dims)
     d = Cptr[0]
-    @cuda(cudnn,cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
+    @cudnn(cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
     n = length(dims)
     sz = [Cint(dims[i]) for i=n:-1:1]
     if cudnnVersion >= 5000
-        @cuda(cudnn,cudnnSetFilterNdDescriptor,
+        @cudnn(cudnnSetFilterNdDescriptor,
               (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
               d[1], DT(T), 0,     n,   sz)
     elseif cudnnVersion >= 4000
-        @cuda(cudnn,cudnnSetFilterNdDescriptor_v4,
+        @cudnn(cudnnSetFilterNdDescriptor_v4,
               (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
               d[1], DT(T), 0,     n,   sz)
     else
-        @cuda(cudnn,cudnnSetFilterNdDescriptor,
+        @cudnn(cudnnSetFilterNdDescriptor,
               (Cptr,UInt32,Cint,Ptr{Cint}),
               d[1], DT(T),    n,   sz)
     end
     fd = FD(d[1])
-    finalizer(x->@cuda(cudnn,cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
+    finalizer(x->@cudnn(cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
     return fd
 end
 
 mutable struct CD; ptr
     function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
         d = Cptr[0]
-        @cuda(cudnn,cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
+        @cudnn(cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
         if cudnnVersion >= 4000
-            @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
+            @cudnn(cudnnSetConvolutionNdDescriptor,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
         elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
-            @cuda(cudnn,cudnnSetConvolutionNdDescriptor_v3,
+            @cudnn(cudnnSetConvolutionNdDescriptor_v3,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
         else
-            @cuda(cudnn,cudnnSetConvolutionNdDescriptor,
+            @cudnn(cudnnSetConvolutionNdDescriptor,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
                   d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode)
         end
         cd = new(d[1])
-        finalizer(x->@cuda(cudnn,cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
+        finalizer(x->@cudnn(cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
         return cd
     end
 end
@@ -283,23 +283,23 @@ end
 mutable struct PD; ptr
     function PD(x::KnetArray; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0)
         d = Cptr[0]
-        @cuda(cudnn,cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
+        @cudnn(cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
         if cudnnVersion >= 5000
-            @cuda(cudnn,cudnnSetPoolingNdDescriptor,
+            @cudnn(cudnnSetPoolingNdDescriptor,
                   (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
                   d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         elseif cudnnVersion >= 4000
-            @cuda(cudnn,cudnnSetPoolingNdDescriptor_v4,
+            @cudnn(cudnnSetPoolingNdDescriptor_v4,
                   (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
                   d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         else
-            @cuda(cudnn,cudnnSetPoolingNdDescriptor,
+            @cudnn(cudnnSetPoolingNdDescriptor,
                   (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
                   d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         end
         pd = new(d[1])
-        finalizer(x->@cuda(cudnn,cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
+        finalizer(x->@cudnn(cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
         return pd
     end
 end
@@ -413,7 +413,7 @@ padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 # x2=(Wy*Hy),(Ww*Hw*Cx)
 # y2=(Wy*Hy),Cy     ;; simple reshape after y2=x2*w2
 
-function conv4(w::Array{T,4}, x::Array{T,4};
+function conv4(w::AbstractArray{T,4}, x::AbstractArray{T,4};
                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
@@ -438,7 +438,7 @@ function conv4(w::Array{T,4}, x::Array{T,4};
     return y
 end
 
-function conv4w(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4w(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
                    o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dw = x'*dy
@@ -465,7 +465,7 @@ function conv4w(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
     return dw
 end
 
-function conv4x(w::Array{T,4},x::Array{T,4},dy::Array{T,4};
+function conv4x(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
                    padding=0, stride=1, upscale=1, mode=0, alpha=1,
                    o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
     # dx = dy*w'
@@ -498,7 +498,7 @@ im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
 
 for (T,S) in ((Float32,32), (Float64,64)); @eval begin
 
-    function im2col!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+    function im2col!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
                      n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
@@ -509,7 +509,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         return x2
     end
 
-    function col2im!(w::Array{$T,4}, x::Array{$T,4}, x2::Array{$T,2},
+    function col2im!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
                      n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
         Wx,Hx,Cx,Nx = size(x)
         Ww,Hw,C1,C2 = size(w)
@@ -522,7 +522,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
 
     ### CPU pooling from Mocha.jl
 
-    function pool(x::Array{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
+    function pool(x::AbstractArray{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
         if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
         Wx,Hx,Cx,Nx = size(x);
         Wy,Hy,Cy,Ny = pdims(x;window=window,padding=padding,stride=stride)
@@ -545,7 +545,7 @@ for (T,S) in ((Float32,32), (Float64,64)); @eval begin
         return y
     end
 
-    function poolx(x::Array{$T,4}, y::Array{$T,4}, dy::Array{$T,4};
+    function poolx(x::AbstractArray{$T,4}, y::AbstractArray{$T,4}, dy::AbstractArray{$T,4};
                    window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
         if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
         Wx,Hx,Cx,Nx = size(x);
@@ -600,8 +600,8 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
     elseif length(conv4_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()          # TODO: fix memory management
-        @cuda(cudnn, cudnnFindConvolutionForwardAlgorithm,
+        Knet.gc(); @dbg print('*')
+        @cudnn(cudnnFindConvolutionForwardAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),FD(w),CD(w,x;o...),TD(y),requestedAlgoCount,returnedAlgoCount,perfResults)
         p = perfChoose(perfResults, returnedAlgoCount[1])
@@ -620,8 +620,8 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
     elseif length(conv4w_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()
-        @cuda(cudnn, cudnnFindConvolutionBackwardFilterAlgorithm,
+        Knet.gc(); @dbg print('*')
+        @cudnn(cudnnFindConvolutionBackwardFilterAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,TD(x),TD(dy),CD(w,x;o...),FD(dw),requestedAlgoCount,returnedAlgoCount,perfResults)
         p = perfChoose(perfResults, returnedAlgoCount[1])
@@ -640,8 +640,8 @@ function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetAr
     elseif length(conv4x_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc()
-        @cuda(cudnn, cudnnFindConvolutionBackwardDataAlgorithm,
+        Knet.gc(); @dbg print('*')
+        @cudnn(cudnnFindConvolutionBackwardDataAlgorithm,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
               handle,FD(w),TD(dy),CD(w,x;o...),TD(dx),requestedAlgoCount,returnedAlgoCount,perfResults)
         p = perfChoose(perfResults, returnedAlgoCount[1])

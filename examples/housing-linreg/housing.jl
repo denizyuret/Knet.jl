@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 This example uses the
 [Boston Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing) dataset
@@ -55,7 +57,7 @@ Repository."
     println(s.description)
     o = parse_args(args, s; as_symbols=true)
     println("opts=",[(k,v) for (k,v) in o]...)
-    o[:seed] > 0 && srand(o[:seed])
+    o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = map(atype, [ 0.1*randn(1,13), 0.1*randn(1,1) ])
     (xtrn,ytrn,xtst,ytst) = map(atype, housing(o[:test]))

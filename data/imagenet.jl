@@ -1,14 +1,17 @@
+using Pkg; for p in ("MAT","Images"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 using MAT,Images
+export matconvnet, imgdata, make_image_grid
 
 _mcnurl = "http://www.vlfeat.org/matconvnet/models"
-_mcndir = Pkg.dir("Knet","data","imagenet")
+_mcndir = joinpath(@__DIR__, "imagenet")
 
 function matconvnet(name)
     global _mcncache
-    if !isdefined(:_mcncache); _mcncache=Dict(); end
+    if !@isdefined(_mcncache); _mcncache=Dict(); end
     if !haskey(_mcncache,name)
         matfile = "$name.mat"
-        info("Loading $matfile...")
+        @info("Loading $matfile...")
         path = joinpath(_mcndir,matfile)
         if !isfile(path)
             println("Should I download $matfile?")
@@ -23,10 +26,10 @@ end
 
 function imgdata(img, averageImage)
     global _imgcache
-    if !isdefined(:_imgcache); _imgcache = Dict(); end
+    if !@isdefined(_imgcache); _imgcache = Dict(); end
     if !haskey(_imgcache,img)
-        if contains(img,"://")
-            info("Downloading $img")
+        if occursin("://",img)
+            @info("Downloading $img")
             a0 = load(download(img))
         else
             a0 = load(img)
@@ -57,14 +60,14 @@ function make_image_grid(images; gridsize=(8,8), scale=2.0, height=28, width=28)
     gridx, gridy = gridsize
     outdims = (gridx*shp[1]+gridx+1,gridy*shp[2]+gridy+1)
     out = zeros(outdims..., nchannels)
-    for k = 1:gridx+1; out[(k-1)*(shp[1]+1)+1,:,:] = 1.0; end
-    for k = 1:gridy+1; out[:,(k-1)*(shp[2]+1)+1,:] = 1.0; end
+    for k = 1:gridx+1; out[(k-1)*(shp[1]+1)+1,:,:] .= 1.0; end
+    for k = 1:gridy+1; out[:,(k-1)*(shp[2]+1)+1,:] .= 1.0; end
 
     x0 = y0 = 2
     for k = 1:length(y)
         x1 = x0+shp[1]-1
         y1 = y0+shp[2]-1
-        out[x0:x1,y0:y1,:] = y[k]
+        out[x0:x1,y0:y1,:] .= y[k]
 
         y0 = y1+2
         if k % gridy == 0
@@ -75,9 +78,9 @@ function make_image_grid(images; gridsize=(8,8), scale=2.0, height=28, width=28)
         end
     end
 
-    out = convert(Array{Float64}, map(x->isnan(x)?0:x, out))
+    out = convert(Array{Float64}, map(x->isnan(x) ? 0 : x, out))
     if nchannels == 1
-        out = reshape(out, size(out,1,2))
+        out = reshape(out, (size(out,1),size(out,2)))
         out = permutedims(out, (2,1))
     else
         out = permutedims(out, (3,1,2))

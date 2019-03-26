@@ -1,10 +1,8 @@
-using Knet
-
 "Where to download cifar from"
 cifarurl = "http://www.cs.toronto.edu/~kriz"
 
 "Where to download cifar to"
-cifardir = Knet.dir("data", "cifar")
+cifardir = joinpath(@__DIR__,"cifar")
 
 "cifar10() => (xtrn,ytrn,xtst,ytst,labels)"
 function cifar10(;

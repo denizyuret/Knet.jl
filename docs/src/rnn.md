@@ -152,6 +152,7 @@ examples are:
 [](memoryless models, bengios language model)
 [](start with a regular mlp converted to rnn like Goodfellow.)
 -->
+```
 
 ## RNN vs MLP
 
@@ -338,7 +339,7 @@ end
 - [Karpathy 2015.](http://karpathy.github.io/2015/05/21/rnn-effectiveness/) The Unreasonable Effectiveness of Recurrent Neural Networks.
 - [Olah 2015.](http://colah.github.io/posts/2015-08-Understanding-LSTMs) Understanding LSTMs.
 - [Hinton 2012.](https://d396qusza40orc.cloudfront.net/neuralnets/lecture_slides/lec7.pdf) RNN lecture slides.
-- [Olah and Carter 2016.](http://distill.pub/2016/augmented-rnns) Augmented RNNs.
+- [Olah and Carter 2016.](http://distill.pub/2016/augmented-rnns) Attention and Augmented Recurrent Neural Networks.
 - [Goodfellow 2016.](http://www.deeplearningbook.org/contents/rnn.html) Deep Learning, Chapter 10. Sequence modeling: recurrent and recursive nets.
 - [Graves 2012.](https://www.cs.toronto.edu/~graves/preprint.pdf), Supervised Sequence Labelling with Recurrent Neural Networks (textbook)
 - [Britz 2015.](http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-1-introduction-to-rnns) Recurrent neural networks tutorial.

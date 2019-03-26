@@ -16,9 +16,9 @@ end
 
     xavier(a...)
 
-Xavier initialization.  The `a` arguments are passed to `rand`.  See
-([Glorot and Bengio 2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf))
-for a description.
+Xavier initialization returns uniform random weights in the range `±sqrt(2 / (fanin +
+fanout))`.  The `a` arguments are passed to `rand`.  See ([Glorot and Bengio
+2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf)) for a description.
 [Caffe](http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details)
 implements this slightly differently.
 [Lasagne](http://lasagne.readthedocs.org/en/latest/modules/init.html#lasagne.init.GlorotUniform)

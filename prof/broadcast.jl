@@ -7,7 +7,7 @@ const sizes = (1,10,100,128,512,1000,1024,2048)
 function f01(a,b)
     c=similar(a)
     n=length(a)
-    for i=1:N; ccall(("add_32_01",Knet.libknet8),Void,(Cint,Float32,Ptr{Float32},Ptr{Float32}),n,b,a,c); end
+    for i=1:N; ccall(("add_32_01",Knet.libknet8),Nothing,(Cint,Float32,Ptr{Float32},Ptr{Float32}),n,b,a,c); end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -16,7 +16,7 @@ function f12(x,y)
     (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
     nz = length(z)
-    for i=1:N; ccall(("add_32_12",Knet.libknet8),Void,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nz,x,sx,nx,y,sy,ny,z); end
+    for i=1:N; ccall(("add_32_12",Knet.libknet8),Nothing,(Cint,Ptr{Float32},Cint,Cint,Ptr{Float32},Cint,Cint,Ptr{Float32}),nz,x,sx,nx,y,sy,ny,z); end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -27,9 +27,9 @@ function f13_x_y(x,y)
     z = similar(x,dz)
     brdcastdimstride = strides(x)[ylast]
     # if broadcast last dimension, nextstride is zero
-    brdcastnextstride = ((ylast+1) > ndims(x) ? 0: strides(x)[ylast+1])
+    brdcastnextstride = ((ylast+1) > ndims(x) ? 0 : strides(x)[ylast+1])
     multidimsize = prod(size(x)[ylast+1:end])
-    for i=1:N; ccall(("add_32_13_x_y",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y)) end
+    for i=1:N; ccall(("add_32_13_x_y",Knet.libknet8),Nothing,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint,Cint,Cint),x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,length(x),length(y)) end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -40,7 +40,7 @@ function f14_x_y(x,y)
     (dz,sx,nx,sy,ny,xlast,ylast,xdims,ydims,multi) = Knet.vbroadcast_shape(x,y)
     z = similar(x,dz)
     flat_dimsize=(length(x)/length(y))
-    for i=1:N; ccall(("add_32_14_x_y",Knet.libknet8),Void,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize) end
+    for i=1:N; ccall(("add_32_14_x_y",Knet.libknet8),Nothing,(Ptr{Float32},Ptr{Float32},Ptr{Float32},Cint,Cint,Cint),x,y,z,length(y),length(x),flat_dimsize) end
     Knet.cudaDeviceSynchronize()
 end
 
@@ -71,11 +71,46 @@ for r in (0,1,2)
             # 
             # m = (ncols*nrows*4)/(round(Int, minimum(bm.times)/N))
             print("\t$m")
-            a=b=nothing; gc(); Knet.knetgc(); gc()
+            a=b=nothing; Knet.gc()
         end
         println()
     end
 end
+
+# commit 359d3646 2018-09-22, julia 1.0.0                               commit 4aa5f92f 2018-08-14, julia 0.6.4
+# GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz               GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
+#
+# a[m,n].+b                                                     	a[m,n].+b							     
+# 	1	10	100	128	512	1000	1024	2048    	1	10	100	128	512	1000	1024	2048 
+# 1	3168	3007	3055	3321	3317	3321	3334	3316    1	3362	3349	3367	3353	3358	3350	3372	3645 
+# 10	3349	3290	3201	3186	3188	3199	3063	3081    10	3634	3629	3636	3622	3645	3633	3631	3571 
+# 100	3070	3067	3064	3074	3062	3236	3217	3232    100	3527	3365	3369	3348	3363	3379	3372	3384 
+# 128	3223	3342	3333	3352	3347	3338	3332	3329    128	3367	3370	3344	3372	3643	3631	3637	3656 
+# 512	3333	3294	3192	3348	3231	3776	3819	14590   512	3625	3622	3645	3653	3575	3714	3768	14632
+# 1000	3219	3226	3210	3027	3760	13998	14180	26367   1000	3486	3488	3375	3360	3731	13972	14175	26436
+# 1024	3312	3322	3413	3522	3807	14191	14671	26865   1024	3486	3632	3631	3624	3774	14196	14571	26947
+# 2048	3225	3064	3219	3217	14637	26230	27076	51566   2048	3370	3540	3484	3336	14600	26448	27023	51247
+# a[m,n].+b[1,n]                                                        a[m,n].+b[1,n]							     
+# 	1	10	100	128	512	1000	1024	2048    	1	10	100	128	512	1000	1024	2048 
+# 1	3361	3548	3561	3369	3361	3533	3292	3245    1	3262	3279	3555	3551	3573	3369	3373	3380 
+# 10	3232	3245	3220	3250	3221	3060	3222	3231    10	3368	3376	3382	3274	3086	3093	3082	3082 
+# 100	3242	3236	3245	3253	3550	3539	3558	4156    100	3096	3076	3106	3092	3396	3359	3381	4081 
+# 128	3554	3515	3491	3466	3378	3375	3378	4548    128	3475	3376	3378	3398	3380	3369	3315	4507 
+# 512	3239	3254	3237	3253	4546	4105	4106	12231   512	3298	3322	3266	3072	4502	4056	4054	12364
+# 1000	3241	3552	3554	3561	6783	15565	15766	25255   1000	3366	3388	3372	3370	6757	15579	15845	25196
+# 1024	3544	3390	3245	3297	7168	14399	14576	24069   1024	3101	3090	3084	3252	7094	14324	14512	24043
+# 2048	3244	3261	4134	4536	20508	26210	26678	45702   2048	3098	3090	4098	4524	20345	26623	26452	45965
+# a[m,n].+b[m,1]                                                        a[m,n].+b[m,1]							     
+# 	1	10	100	128	512	1000	1024	2048    	1	10	100	128	512	1000	1024	2048 
+# 1	3568	3569	3548	3544	3503	3396	3391	3390    1	3355	3355	3350	3353	3352	3351	3289	3293 
+# 10	3388	3234	3249	3256	3230	3237	3248	3235    10	3240	3254	3298	3071	3065	3071	3084	3075 
+# 100	3237	3236	3237	3250	3247	3546	3556	3783    100	3085	3350	3382	3380	3558	3583	3581	3743 
+# 128	3549	3555	3500	3484	3473	3372	3244	4016    128	3347	3311	3261	3244	3234	3234	3251	3968 
+# 512	3258	3237	3240	3237	4017	5433	5616	16587   512	3134	3150	3127	3116	3959	5406	5592	16779
+# 1000	3247	3247	3552	3567	5990	16724	16946	30295   1000	3616	3592	3301	3287	6003	16639	16962	30431
+# 1024	3554	3563	3059	3234	5418	16085	16515	30598   1024	3303	3285	3292	3300	5400	16201	16470	30657
+# 2048	3244	3240	3624	3814	16551	29967	30636	57885   2048	3314	3606	3617	3746	16658	30043	30680	58019
+
 
 # COMMIT 3d32e16 2017-05-17
 #

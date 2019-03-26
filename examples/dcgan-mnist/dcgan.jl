@@ -1,3 +1,5 @@
+using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+
 """
 
 julia dcgan.jl --outdir ~/dcgan-out
@@ -9,16 +11,14 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 
 """
 module DCGAN
-using Knet
-using Images,MAT # broken
-using ArgParse
-using JLD2, FileIO
+using Knet,ArgParse,Printf
+#using Images,MAT,JLD2,FileIO
 include(Knet.dir("data","mnist.jl"))
 include(Knet.dir("data","imagenet.jl"))
 
 function main(args)
     o = parse_options(args)
-    o[:seed] > 0 && Knet.setseed(o[:seed])
+    o[:seed] > 0 && Knet.seed!(o[:seed])
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
@@ -35,18 +35,18 @@ function main(args)
     end
 
     # training
-    println("training started..."); flush(STDOUT)
+    println("training started..."); flush(stdout)
     for epoch = 1:o[:epochs]
         dlossval = glossval = 0
         @time for (x,y) in dtrn
             noise = sample_noise(o[:atype],o[:zdim],length(y))
-            dlossval += train_discriminator!(wd,wg,md,mg,2x-1,y,noise,optd,o)
+            dlossval += train_discriminator!(wd,wg,md,mg,2x .- 1,y,noise,optd,o)
             noise = sample_noise(o[:atype],o[:zdim],length(y))
             glossval += train_generator!(wg,wd,mg,md,noise,y,optg,o)
         end
         dlossval /= length(dtrn); glossval /= length(dtrn)
         println((:epoch,epoch,:dloss,dlossval,:gloss,glossval))
-        flush(STDOUT)
+        flush(stdout)
 
         # save models and generations
         if o[:outdir] != nothing
@@ -98,7 +98,7 @@ function load_weights(atype,zdim,loadfile=nothing)
         wd, md = initwd(atype)
         wg, mg = initwg(atype,zdim)
     else
-        @load loadfile wd wg md mg
+        Knet.@load loadfile wd wg md mg
         wd = convert_weights(wd, atype)
         wg = convert_weights(wg, atype)
         md = convert_moments(md, atype)
@@ -108,11 +108,11 @@ function load_weights(atype,zdim,loadfile=nothing)
 end
 
 function save_weights(savefile,wd,wg,md,mg)
-    save(savefile,
-         "wd", convert_weights(wd),
-         "wg", convert_weights(wg),
-         "md", convert_moments(md),
-         "mg", convert_moments(mg))
+    Knet.save(savefile,
+              "wd", convert_weights(wd),
+              "wg", convert_weights(wg),
+              "md", convert_moments(md),
+              "mg", convert_moments(mg))
 end
 
 function convert_weights(w, atype=Array{Float32})
@@ -137,14 +137,14 @@ end
 
 
 function leaky_relu(x, alpha=0.2)
-    pos = max(0,x)
-    neg = min(0,x) * alpha
-    return pos + neg
+    pos = max.(0,x)
+    neg = min.(0,x) .* alpha
+    return pos .+ neg
 end
 
 function sample_noise(atype,zdim,nsamples,mu=0.5,sigma=0.5)
     noise = convert(atype, randn(zdim,nsamples))
-    normalized = (noise-mu)/sigma
+    normalized = (noise .- mu) ./ sigma
 end
 
 function initwd(atype, winit=0.01)
@@ -179,14 +179,14 @@ end
 function dlayer1(x0, w, m; stride=1, padding=0, alpha=0.2, training=true)
     x = conv4(w[1], x0; stride=stride, padding=padding)
     x = batchnorm(x, m, w[2]; training=training)
-    x = leaky_relu.(x,alpha)
+    x = leaky_relu(x,alpha)
     x = pool(x; mode=2)
 end
 
 function dlayer2(x, w, m; training=true, alpha=0.2)
     x = w[1] * x
     x = batchnorm(x, m, w[2]; training=training)
-    x = leaky_relu.(x, alpha)
+    x = leaky_relu(x, alpha)
 end
 
 function dloss(w,m,real_images,real_labels,fake_images,fake_labels)
@@ -292,13 +292,13 @@ function plot_generations(
         atype = wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
         z = sample_noise(atype,zdim,nimg)
     end
-    output = Array(0.5*(1+gnet(wg,z,mg; training=false)))
+    output = Array(0.5 .* (1 .+ gnet(wg,z,mg; training=false)))
     images = map(i->output[:,:,:,i], 1:size(output,4))
     grid = make_image_grid(images; gridsize=gridsize, scale=scale)
     if savefile == nothing
         display(colorview(Gray, grid))
     else
-        save(savefile, grid)
+        Knet.save(savefile, grid)
     end
 end
 

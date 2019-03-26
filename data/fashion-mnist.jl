@@ -1,10 +1,11 @@
-using GZip, Knet
+using Pkg; haskey(Pkg.installed(),"CodecZlib") || Pkg.add("CodecZlib")
+using CodecZlib
 
 "Where to download fmnist from"
 fmnisturl = "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion"
 
 "Where to download fmnist to"
-fmnistdir = Knet.dir("data","fashion-mnist")
+fmnistdir = joinpath(@__DIR__, "fashion-mnist")
 
 """
 
@@ -64,7 +65,7 @@ function _fmnist_gzload(file)
         url = "$fmnisturl/$file"
         download(url, path)
     end
-    f = gzopen(path)
+    f = GzipDecompressorStream(open(path))
     a = read(f)
     close(f)
     return(a)

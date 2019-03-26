@@ -126,7 +126,7 @@ function logprob(output, ypred)
     @inbounds for i=1:length(output)
         index[i] = i + (output[i]-1)*nrows
     end
-    o1 = logp(ypred,2)     # 1999
+    o1 = logp(ypred,dims=2)     # 1999
     o2 = o1[index]         # 4
     o3 = sum(o2)           # 2
     return o3
@@ -138,7 +138,7 @@ function lstm_input(param, input)
 end
 
 function lstm_input_back(param, input, grads)
-    dparam = zeros(param)  # 157
+    dparam = zero(param)  # 157
     dparam[input,:]=grads  # 121
     return dparam
 end
@@ -150,12 +150,12 @@ function lstm(param, state, input)
     hidden,cell = state
     h       = size(hidden,2)
     gates   = hcat(input,hidden) * weight .+ bias
-    forget  = sigm(gates[:,1:h])
-    ingate  = sigm(gates[:,1+h:2h])
-    outgate = sigm(gates[:,1+2h:3h])
-    change  = tanh(gates[:,1+3h:4h])
+    forget  = sigm.(gates[:,1:h])
+    ingate  = sigm.(gates[:,1+h:2h])
+    outgate = sigm.(gates[:,1+2h:3h])
+    change  = tanh.(gates[:,1+3h:4h])
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+    hidden  = outgate .* tanh.(cell)
     return (hidden,cell)
 end
 
@@ -167,8 +167,8 @@ end
 
 function initstate(idx, state0)
     h,c = state0
-    h = h .+ fill!(similar(AutoGrad.getval(h), length(idx), length(h)), 0)
-    c = c .+ fill!(similar(AutoGrad.getval(c), length(idx), length(c)), 0)
+    h = h .+ fill!(similar(AutoGrad.value(h), length(idx), length(h)), 0)
+    c = c .+ fill!(similar(AutoGrad.value(c), length(idx), length(c)), 0)
     return (h,c)
 end
 
@@ -194,14 +194,20 @@ function _s2s(model, inputs, outputs)
 end
 
 nothing
+
+# using Knet
+# include(Knet.dir("prof/s2s.jl"))
 # (m,o,s) = main()
-# b = @benchmark main(model=$m,opts=$o,sequence=$s,mode=2)
-# display(b)
-# println()
+# for i in 1:3
+#     @time main(model=m,opts=o,sequence=s,mode=0)
+#     @time main(model=m,opts=o,sequence=s,mode=1)
+#     @time main(model=m,opts=o,sequence=s,mode=2)
+#     println()
+# end
 
-#=
-Profiling results:
-
-Forward (mode=0):
-
-=#
+# commit 359d3646 2018-09-22, julia 1.0.0 vs commit 4aa5f92f 2018-08-14, julia 0.6.4
+# GPU:V100, CPU:Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
+#
+# 0.008300 seconds (12.62 k allocations: 397.063 KiB)	0.006707 seconds (8.25 k allocations: 308.891 KiB)
+# 0.033560 seconds (49.80 k allocations: 1.703 MiB)     0.027931 seconds (33.55 k allocations: 1.485 MiB) 
+# 0.040496 seconds (51.13 k allocations: 1.733 MiB)     0.028537 seconds (34.09 k allocations: 1.500 MiB) 

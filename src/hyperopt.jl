@@ -29,7 +29,7 @@ picking the next step based on estimated gain.
 * `history=[]`: cache of `[(x,f(x)),...]` function evaluations.
 
 """
-function goldensection(f,n; dxmin=0.1, accel=golden, history=[], verbose=false)
+function goldensection(f,n; dxmin=0.1, accel=1.618033988749895, history=[], verbose=false)
 
     function feval(x)           # so we don't repeat function evaluations
         for (k,v) in history
@@ -52,8 +52,8 @@ function goldensection(f,n; dxmin=0.1, accel=golden, history=[], verbose=false)
     f0 = feval(x0)              # initial value
     dx = ones(n)                # step sizes
     df = Inf * ones(n)          # expected gains
-    while maximum(abs(dx)) >= dxmin
-        i = indmax(df)
+    while maximum(abs.(dx)) > dxmin
+        i = argmax(df)
         x1 = setindex(x0,x0[i]+dx[i],i)
         f1 = feval(x1)
         if verbose; println((:f0,f0,:x0,x0,:f1,f1,:x1,x1,:dx,dx,:df,df)); end
