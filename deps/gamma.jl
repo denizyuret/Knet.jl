@@ -1,4 +1,7 @@
 # Gamma family
+# Acknowledgement:
+# This file is adapted from codes in https://github.com/rachtsingh/lgamma/blob/master/src/internals.c,
+# which is again ported from https://bitbucket.org/eigen/eigen/overview.
 
 function cuda1gammafamily()
     sprint() do s
