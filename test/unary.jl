@@ -20,7 +20,9 @@ using SpecialFunctions
         push!(unary_fns, eval(Meta.parse(f)))
     end
 
+    skip_grads = [trigamma]
     for f in unary_fns
+        f in skip_grads && continue
         #@show f
         bf = bcast(f)
         for t in (Float32, Float64)
@@ -45,4 +47,3 @@ using SpecialFunctions
 end
 
 nothing
-
