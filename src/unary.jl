@@ -72,8 +72,8 @@ for (f,g,y,dx) in
     end
 end
 
-"`invx(x) = (1./x)`" invx
-"`sigm(x) = (1./(1+exp(-x)))`" sigm
+"`invx(x) = 1/x`" invx
+"`sigm(x) = 1/(1+exp(-x))`" sigm
 
 """
     relu(x)
@@ -104,11 +104,17 @@ Reference: Self-Normalizing Neural Networks (https://arxiv.org/abs/1706.02515).
 selu
 
 # To avoid conflict with AutoGrad:
-# TODO: test this in Julia6, do we need to fix broadcast_func(tanh)?
 import Base: tanh
 @primitive tanh(x::Array),dy,y     tanhback.(dy,y)
 @primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
+
+# For 2nd derivatives:
 @primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
+@primitive reluback(dy,y),ddx  ddx.*(y.>0)       nothing
+@primitive invxback(dy,y),ddx  ddx.*(-y.*y)      ddx.*(-2 .* dy .* y)
+@primitive sigmback(dy,y),ddx  ddx.*y.*(1 .- y)  ddx.*dy.*(1 .- 2 .* y)
+@primitive seluback(dy,y),ddx  ddx.*((y.>=0).*λ01.+(y.<0).*(y.+λα01))  ddx.*dy.*(y.<0)
+@primitive  eluback(dy,y),ddx  ddx.*((y.>=0).+(y.<0).*(y.+1))          ddx.*dy.*(y.<0)
 
 # Unary plus and minus
 import Base: +, -
