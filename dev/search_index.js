@@ -333,7 +333,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.sigm",
     "category": "function",
-    "text": "sigm(x) = (1./(1+exp(-x)))\n\n\n\n\n\n"
+    "text": "sigm(x) = 1/(1+exp(-x))\n\n\n\n\n\n"
 },
 
 {
