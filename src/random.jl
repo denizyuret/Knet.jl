@@ -9,7 +9,7 @@ rand!(a::KnetArray{Float64})=(@curand(curandGenerateUniformDouble,(Cptr,Ptr{Cdou
 _randn!(a::KnetArray{Float32},n,mean,stdev)=@curand(curandGenerateNormal,(Cptr,Ptr{Cfloat},Csize_t, Cfloat, Cfloat), rng(), a, Csize_t(n), Cfloat(mean), Cfloat(stdev))
 _randn!(a::KnetArray{Float64},n,mean,stdev)=@curand(curandGenerateNormalDouble,(Cptr,Ptr{Cdouble},Csize_t, Cdouble, Cdouble), rng(), a, Csize_t(n), Cdouble(mean), Cdouble(stdev))
 
-function randn!(a::KnetArray{T}, mean = 0, stdev = 1)
+function randn!(a::KnetArray{<:AbstractFloat}, mean = 0, stdev = 1)
     n = length(a)
     if isodd(n)
         a[end] = randn()*stdev+mean
