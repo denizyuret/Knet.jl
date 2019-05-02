@@ -5,16 +5,20 @@ import Random: rand!, randn!
 rand!(a::KnetArray{Float32})=(@curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),rng(),a,length(a)); a)
 rand!(a::KnetArray{Float64})=(@curand(curandGenerateUniformDouble,(Cptr,Ptr{Cdouble},Csize_t),rng(),a,length(a)); a)
 
-function randn!(a::KnetArray{Float32}, mean = 0, stdev = 1)
-    @curand(curandGenerateNormal,(Cptr,Ptr{Cfloat},Csize_t, Cfloat, Cfloat),
-        rng(), a, length(a), Cfloat(mean), Cfloat(stdev))
-    a
-end
+# curandNormal functions only work with even length arrays
+_randn!(a::KnetArray{Float32},n,mean,stdev)=@curand(curandGenerateNormal,(Cptr,Ptr{Cfloat},Csize_t, Cfloat, Cfloat), rng(), a, Csize_t(n), Cfloat(mean), Cfloat(stdev))
+_randn!(a::KnetArray{Float64},n,mean,stdev)=@curand(curandGenerateNormalDouble,(Cptr,Ptr{Cdouble},Csize_t, Cdouble, Cdouble), rng(), a, Csize_t(n), Cdouble(mean), Cdouble(stdev))
 
-function randn!(a::KnetArray{Float64}, mean = 0, stdev = 1)
-    @curand(curandGenerateNormalDouble,(Cptr,Ptr{Cdouble},Csize_t, Cdouble, Cdouble),
-        rng(), a, length(a), Cdouble(mean), Cdouble(stdev))
-    a
+function randn!(a::KnetArray{T}, mean = 0, stdev = 1)
+    n = length(a)
+    if isodd(n)
+        a[end] = randn()*stdev+mean
+        n = n-1
+    end
+    if n > 0
+        _randn!(a,n,mean,stdev)
+    end
+    return a
 end
 
 let RNG=0

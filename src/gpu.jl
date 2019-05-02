@@ -3,12 +3,13 @@ const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"d
 const tk = find_toolkit()
 const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
+function getErrorString end
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
 
-macro cudacall(lib,fun,returntype,argtypes,argvalues,errstr="",notfound=:(error("Cannot find $lib")))
-    lib = string(lib); fun = string(fun); errstr=string(errstr)
+macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(error("Cannot find $lib")))
+    lib = string(lib); fun = string(fun)
     if isa(argtypes,Expr); argtypes = argtypes.args; end
     if isa(argvalues,Expr); argvalues = argvalues.args; end
     path = (lib=="knet8" ? libknet8 : find_cuda_library(lib,tk))
@@ -16,12 +17,12 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errstr="",notfound=:(error(
     fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
     r = gensym()
     fx = Expr(:block,esc(:($r=$fx)))
-    if errstr != "" || TIMER
+    if errmsg || TIMER
         if TIMER
             push!(fx.args, esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))))
         end
-        if errstr != ""
-            push!(fx.args, esc(:(if $r!=0; error(unsafe_string(ccall(($errstr,$path),Cstring,(UInt8,),$r))); end)))
+        if errmsg
+            push!(fx.args, esc(:(if $r!=0; error(Knet.getErrorString($lib,$fun,$r)); end)))
         else
             push!(fx.args, esc(r))
         end
@@ -32,14 +33,14 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errstr="",notfound=:(error(
     esc(fx)
 end
 
-macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues,"cudnnGetErrorString")); end
-macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
-macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,"",-1)); end # don't throw error
-macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
-macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues,"cudaGetErrorString")); end
-macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues,"nvmlErrorString")); end
-macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues)); end
-macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues)); end # specify return type
+macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues)); end
+macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues)); end
+macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,false,-1)); end # don't throw error
+macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
+macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues)); end
+macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues)); end
+macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues,false)); end
+macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues,false)); end # specify return type
 
 
 """
@@ -251,4 +252,51 @@ function curandInit()
     @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
     @curand(curandDestroyGenerator,(Cptr,),r[1])
     @cudart(cudaFree,(Cptr,),p[1])
+end
+
+
+const curanderrors = Dict(
+    0 => "No errors",
+    100 => "Header file and linked library version do not match",
+    101 => "Generator not initialized",
+    102 => "Memory allocation failed",
+    103 => "Generator is wrong type",
+    104 => "Argument out of range",
+    105 => "Length requested is not a multiple of dimension",
+    106 => "GPU does not have double precision required by MRG32k3a",
+    201 => "Kernel launch failure",
+    202 => "Preexisting failure on library entry",
+    203 => "Initialization of CUDA failed",
+    204 => "Architecture mismatch, GPU does not support requested feature",
+    999 => "Internal library error",
+)
+
+const cublaserrors = Dict(
+    0 => "CUBLAS_STATUS_SUCCESS",
+    1 => "CUBLAS_STATUS_NOT_INITIALIZED",
+    3 => "CUBLAS_STATUS_ALLOC_FAILED",
+    7 => "CUBLAS_STATUS_INVALID_VALUE",
+    8 => "CUBLAS_STATUS_ARCH_MISMATCH",
+    11 => "CUBLAS_STATUS_MAPPING_ERROR",
+    13 => "CUBLAS_STATUS_EXECUTION_FAILED",
+    14 => "CUBLAS_STATUS_INTERNAL_ERROR",
+    15 => "CUBLAS_STATUS_NOT_SUPPORTED",
+    16 => "CUBLAS_STATUS_LICENSE_ERROR",
+)
+
+function getErrorString(lib,fun,ret)
+    if lib == "cudart"
+        str = unsafe_string(ccall(("cudaGetErrorString","libcudart"),Cstring,(UInt32,),ret))
+    elseif lib == "cudnn"
+        str = unsafe_string(ccall(("cudnnGetErrorString","libcudnn"),Cstring,(UInt32,),ret))
+    elseif lib == "nvml"
+        str = unsafe_string(ccall(("nvmlErrorString","libnvidia-ml"),Cstring,(UInt32,),ret))
+    elseif lib == "curand"
+        str = get(curanderrors,ret,"Unknown $lib error in $fun")
+    elseif lib == "cublas"
+        str = get(cublaserrors,ret,"Unknown $lib error in $fun")
+    else
+        str = "Unknown $lib error in $fun"
+    end
+    string(fun, ": ", ret, ": ", str)
 end
