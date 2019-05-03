@@ -285,12 +285,13 @@ const cublaserrors = Dict(
 )
 
 function getErrorString(lib,fun,ret)
-    if lib == "cudart"
-        str = unsafe_string(ccall(("cudaGetErrorString","libcudart"),Cstring,(UInt32,),ret))
-    elseif lib == "cudnn"
-        str = unsafe_string(ccall(("cudnnGetErrorString","libcudnn"),Cstring,(UInt32,),ret))
-    elseif lib == "nvml"
-        str = unsafe_string(ccall(("nvmlErrorString","libnvidia-ml"),Cstring,(UInt32,),ret))
+    path = find_cuda_library(lib,tk)
+    if lib == "cudart" && path != nothing
+        str = unsafe_string(@eval(ccall(("cudaGetErrorString",$path),Cstring,(UInt32,),$ret)))
+    elseif lib == "cudnn" && path != nothing
+        str = unsafe_string(@eval(ccall(("cudnnGetErrorString",$path),Cstring,(UInt32,),$ret)))
+    elseif lib == "nvml" && path != nothing
+        str = unsafe_string(@eval(ccall(("nvmlErrorString",$path),Cstring,(UInt32,),$ret)))
     elseif lib == "curand"
         str = get(curanderrors,ret,"Unknown $lib error in $fun")
     elseif lib == "cublas"
