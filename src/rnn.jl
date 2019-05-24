@@ -180,15 +180,22 @@ function RNN(inputSize, hiddenSize;
 end
 
 function (r::RNN)(x; batchSizes=nothing)
+    # Check type/dims of inputs
+    WTYPE = typeof(vec(value(r.w)))
+    @assert vec(value(x)) isa WTYPE
+    @assert ndims(x) <= 3
+    @assert size(x,1) == r.inputSize
+    HSIZE = (r.hiddenSize, batchSizes == nothing ? size(x,2) : batchSizes[1], r.numLayers * (r.direction + 1))
+    @assert r.h == nothing || r.h == 0 || (vec(value(r.h)) isa WTYPE && ndims(r.h) <= 3 && (size(r.h,1),size(r.h,2),size(r.h,3)) == HSIZE)
+    @assert r.c == nothing || r.c == 0 || (vec(value(r.c)) isa WTYPE && ndims(r.c) <= 3 && (size(r.c,1),size(r.c,2),size(r.c,3)) == HSIZE)
     # apply dropout to input: rnnforw only applies it between layers.
     x = dropout(x,r.dropout)
-    # use hidden inputs if their types are correct
-    hx = (typeof(value(r.h)) == typeof(value(r.w)) ? r.h : nothing)
-    cx = (r.mode == 2 && typeof(value(r.c)) == typeof(value(r.w)) ? r.c : nothing)
+    # use hidden inputs unless nothing or 0
+    hx = (r.h == 0 ? nothing : r.h)
+    cx = (r.c == 0 ? nothing : r.c)
     # produce hidden outputs if hidden inputs != nothing
     hy = (r.h != nothing)
     cy = (r.mode == 2 && r.c != nothing)
-    # any type other than typeof(value(r.w)) or Nothing (e.g. h=true) can be used for simple 0 init
     (y, hyout, cyout, rs) = rnnforw(r, r.w, x, hx, cx; hy=hy, cy=cy, batchSizes=batchSizes)
     # In a @diff context hyout and cyout will be Results
     # This is necessary to keep dependencies if r is run several times during one forw pass
