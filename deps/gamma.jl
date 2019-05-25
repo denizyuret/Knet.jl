@@ -7,6 +7,7 @@ function cuda1gammafamily()
     sprint() do s
         print(s,
 """
+#define _USE_MATH_DEFINES
 #include <float.h>
 #include <math.h>
 

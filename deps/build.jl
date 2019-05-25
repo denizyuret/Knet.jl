@@ -63,7 +63,7 @@ push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 # Build scripts
 
 function build_nvcc()
-    SRC = [("cuda1","../src/unary"),
+    SRC = [("cuda1","gamma","../src/unary"),
            ("cuda01","../src/binary"),
            ("cuda11","../src/binary","../src/unary"),
            ("cuda12","../src/binary"),
