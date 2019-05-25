@@ -88,6 +88,7 @@ Current contributors:
   * Enis Berk
   * Erenay Dayanık
   * İlker Kesen
+  * Kai Xu
   * Meriç Melike Softa
   * Mike Innes
   * Onur Kuru
