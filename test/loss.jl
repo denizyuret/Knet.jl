@@ -15,7 +15,7 @@ include("header.jl")
             @test isapprox(f(a,dims=1),f(k,dims=1))
             @test isapprox(f(a,dims=2),f(k,dims=2))
         end
-        
+
         a = rand(10,10,10)
         @test gradcheck(f,a)
         @test gradcheck(f,a,kw=(:dims=>1,))
@@ -24,7 +24,7 @@ include("header.jl")
         @test gradcheck(f,a,kw=(:dims=>(1,2),))
         @test gradcheck(f,a,kw=(:dims=>(3,2),))
         @test gradcheck(f,a,kw=(:dims=>(1,3),))
-        
+
         if gpu() >= 0
             k = KnetArray(a)
             @test gradcheck(f,k)
@@ -50,17 +50,57 @@ include("header.jl")
         end
     end
 
-    a = rand(10,10)
+    as = Any[rand(10,10)]
+    gpu() >= 0 && push!(as, KnetArray(as[1]))
     indices = rand(1:10,10)
-    @test gradcheck(nll, a, indices, kw=(:dims=>1,), args=1)
-    @test gradcheck(nll, a, indices, kw=(:dims=>2,), args=1)
-    if gpu() >= 0
-        k = KnetArray(a)
-        @test gradcheck(nll, k, indices, kw=(:dims=>1,), args=1)
-        @test gradcheck(nll, k, indices, kw=(:dims=>2,), args=1)
-        @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
-        @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
+    indices[1:2] = [1,2];
+    ind = [1, [1,], [1,2], (1,2)]
+    msk = [indices .!= 1, indices .> 2]
+
+    for (i,ai) in enumerate(as), d in 1:2, avg in (true,false)
+        # gradcheck tests
+        kw = (:dims=>d,:average=>avg)
+        @test gradcheck(nll, ai, indices, kw=kw, args=1)
+        for (ki,k) in enumerate(vcat(ind,msk))
+            @test gradcheck(nll, ai, indices, k, kw=kw, args=1)
+        end
+
+        # test different array types
+        if length(as) > 1 && i == 1
+            aj = as[end]
+            @test isapprox(nll(ai, indices, dims=d, average=avg),
+                           nll(aj, indices, dims=d, average=avg))
+        end
+
+        # tests whether masking and averaging mechanism works or not
+        @test isapprox(nll(ai, indices, indices .!= 0, dims=d, average=avg),
+                       nll(ai, indices, dims=d, average=avg))
+        for (ki,k) in enumerate(msk)
+            @test !isapprox(nll(ai, indices, k, dims=d, average=avg),
+                            nll(ai, indices, dims=d, average=avg))
+            !avg && continue
+            @test isless(nll(ai, indices, k, dims=d, average=false),
+                         nll(ai, indices, dims=d, average=false))
+            @test isapprox(nll(ai, indices, k, dims=d) * sum(k),
+                           nll(ai, indices, k, dims=d, average=false))
+            @test isapprox(nll(ai, indices, dims=d) * length(indices),
+                           nll(ai, indices, dims=d, average=false))
+        end
+
+        # tests for different masking mechanisms with different array types
+        for (j,aj) in enumerate(as)
+            i == 2 && j == 1 && continue
+            @test isapprox(nll(ai, indices, ind[1], dims=d, average=avg),
+                           nll(aj, indices, ind[2], dims=d, average=avg))
+            @test isapprox(nll(ai, indices, ind[3], dims=d, average=avg),
+                           nll(aj, indices, ind[4], dims=d, average=avg))
+            @test isapprox(nll(ai, indices, msk[1], dims=d, average=avg),
+                           nll(aj, indices, ind[1], dims=d, average=avg))
+            @test isapprox(nll(ai, indices, msk[2], dims=d, average=avg),
+                           nll(aj, indices, ind[3], dims=d, average=avg))
+        end
     end
+
     @test gradcheck(logistic,a[:],a[:])
     @test gradcheck(bce,a[:],a[:])
 
