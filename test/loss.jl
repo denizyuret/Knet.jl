@@ -99,6 +99,17 @@ include("header.jl")
             @test isapprox(nll(ai, indices, msk[2], dims=d, average=avg),
                            nll(aj, indices, ind[3], dims=d, average=avg))
         end
+
+        # tests for nll(model, data, [ignore]; kw...)
+        model, data = identity, [(ai,indices)]
+        @test isapprox(nll(model, data, dims=d, average=avg),
+                       nll(ai, indices, dims=d, average=avg))
+        @test isapprox(nll(model, data, 0, dims=d, average=avg),
+                       nll(ai, indices, dims=d, average=avg))
+        for ignore in ind
+            @test isapprox(nll(model, data, ignore; dims=d, average=avg),
+                           nll(ai, indices, ignore; dims=d, average=avg))
+        end
     end
 
     @test gradcheck(logistic,a[:],a[:])
