@@ -84,7 +84,7 @@ mutable structdef enum
     CUDNN_SOFTMAX_MODE_CHANNEL = 1     /* compute the softmax over all C for each H, W, N */
 } cudnnSoftmaxMode_t;
 
-=#          
+=#
 
 
 """
@@ -92,10 +92,10 @@ mutable structdef enum
     softmax(x; dims=1, algo=1)
 
 The softmax function typically used in classification.
-Gives the same results as to `exp.(logp(x, dims))`. 
+Gives the same results as to `exp.(logp(x, dims))`.
 
-If `algo=1` computation is more accurate, if `algo=0` it is 
-faster. 
+If `algo=1` computation is more accurate, if `algo=0` it is
+faster.
 
 See also `logsoftmax`.
 
@@ -108,7 +108,7 @@ function _softmax(x; dims=:, algo=1)
     @assert algo ∈ [0, 1]
     if algo == 1
         x = x .- maximum(x, dims=dims)
-    end    
+    end
     x = exp.(x)
     return x ./ sum(x;dims=dims)
 end
@@ -122,7 +122,7 @@ end
 """
      logsoftmax(x; dims=:)
 
- Equivalent to `logp(x; dims=:)`. See also `sotfmax`. 
+ Equivalent to `logp(x; dims=:)`. See also `sotfmax`.
 """
 const logsoftmax = logp
 
@@ -177,7 +177,7 @@ function csb1(y,dy,dx,ddx;algo=0,mode=0,o...)
     cdim = ndims(y) - 1
     dims = (mode == 0 ? ((1:cdim)...,) : (cdim,))
     if algo==0 || algo==1
-        ddx .* dy - dy .* sum(y .* ddx, dims=dims) - ddx .* sum(y .* dy, dims=dims) 
+        ddx .* dy - dy .* sum(y .* ddx, dims=dims) - ddx .* sum(y .* dy, dims=dims)
     elseif algo==2
         -ddx .* exp.(y) .* sum(dy,dims=dims)
     else
@@ -240,11 +240,45 @@ instances are in rows.  Use `average=false` to return the sum instead
 of per-instance average.
 
 """
-function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
+function nll(y, a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
     lp = logp(y,dims=dims)[indices]
     average ? -mean(lp) : -sum(lp)
 end
+
+Mask = AbstractArray{<:Bool}
+"""
+
+    nll(scores, answers, mask::AbstractArray{<:Bool}; dims=1, average=true)
+
+Given an unnormalized `scores` matrix, an `Integer` array of correct `answers` and a `Bool` array of `mask` which has the same size with `answers`, return the masked per-instance negative log likelihood. If `mask[i]` is `false`, then `answers[i]` does not effect the computation. `dims=1` means instances are in columns, `dims=2` means instances are in rows.  Use `average=false` to return the sum instead of per-instance average.
+
+"""
+function nll(y, a::AbstractArray{<:Integer}, mask::Mask;
+             dims=1, average=true)
+    indices = findindices(y,a,dims=dims)
+    lp = logp(y,dims=dims)[indices]
+    lp = lp[mask]
+    average ? -mean(lp) : -sum(lp)
+end
+
+
+Ignore = Union{<:Integer,AbstractArray{<:Integer},
+               Tuple{<:Integer, Vararg{<:Integer}}}
+
+
+"""
+    nll(scores, answers, ignore; dims=1, average=true)
+
+Given an unnormalized `scores` matrix, an `Integer` array of correct `answers` and an `ignore` parameter, return the masked per-instance negative log likelihood. `ignore` can be `Integer`, `Integer` array or `Integer` tuple. If `ignore` contains `answers[i]` or ignore equals to `answers[i]`, then `answers[i]` does not affect the computation. `dims=1` means instances are in columns, `dims=2` means instances are in rows.  Use `average=false` to return the sum instead of per-instance average.
+
+"""
+function nll(y, a::AbstractArray{<:Integer}, ignore::Ignore;
+             dims=1, average=true)
+    mask = map(ai->ai ∉ ignore, a)
+    nll(y, a, mask; dims=dims, average=average)
+end
+
 
 """
     logistic(scores, answers; average=true)
@@ -265,7 +299,7 @@ Computes binary cross entropy given scores(predicted values) and answer labels.
 answer values should be {0,1}, then it returns negative of `mean|sum(answers * log(p) + (1-answers)*log(1-p))`
 where `p` is equal to `1/(1 + exp.(scores))`. See also `logistic`.
 """
-function bce(x̂,x;average=true) 
+function bce(x̂,x;average=true)
     ε = eltype(x̂)(1e-12)
     p = 1 ./ (1 .+ exp.(-x̂))
     l = x .* log.(p .+ ε) .+ (1 .- x).*log.((1-ε) .- p)
@@ -320,8 +354,7 @@ end
 """
     nll(model, data; dims=1, average=true, o...)
 
-Compute `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and return the per-instance
-average (if average=true) or total (if average=false) negative log likelihood.
+Compute `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and return the per-instance average (if average=true) or total (if average=false) negative log likelihood.
 """
 function nll(model, data; dims=1, average=true, o...)
     sum = cnt = 0
@@ -331,6 +364,22 @@ function nll(model, data; dims=1, average=true, o...)
     end
     average ? sum / cnt : sum
 end
+
+"""
+    nll(model, data, ignore; dims=1, average=true, o...)
+
+Compute `nll(model(x; o...), y, ignore; dims)` for `(x,y)` in `data` and return the per-instance average (if average=true) or total (if average=false) negative log likelihood. If `y[i]` is an element of `ignore`, it does not affect the computation. `ignore` can be an `Integer`, an `Integer` array or an `Integer` tuple.
+"""
+function nll(model, data, ignore::Ignore; dims=1, average=true, o...)
+    sum = cnt = 0
+    for (x,y) in data
+        sum += nll(model(x; o...), y, ignore; dims=dims, average=false)
+        N = mapreduce(yi->yi ∉ ignore, +, y)
+        cnt += N
+    end
+    average ? sum / cnt : sum
+end
+
 
 
 """
@@ -352,9 +401,13 @@ end
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:
-nll(f, x, y; dims=1, average=true, o...)=nll(f(x; o...), y; dims=dims, average=average)
+nll(f, x, y; dims=1, average=true, o...) = nll(
+    f(x; o...), y; dims=dims, average=average)
+nll(f, x, y, i::Ignore; dims=1, average=true, o...) = nll(
+    f(x; o...), y, i; dims=dims, average=average)
 accuracy(f, x, y; dims=1, average=true, o...)=accuracy(f(x; o...), y; dims=dims, average=average)
 
 # We need the (weights,data,predict) interface to support the old interface:
-nll(w, data, f::Function; dims=1, average=true, o...)=nll(x->f(w,x;o...), data; dims=dims, average=average)
+nll(w, data, f::Function; dims=1, average=true, o...) = nll(
+    x->f(w,x;o...), data; dims=dims, average=average)
 accuracy(w, data, f::Function; dims=1, average=true, o...)=accuracy(x->f(w,x;o...), data; dims=dims, average=average)
