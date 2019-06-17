@@ -229,54 +229,35 @@ end
 @primitive logsumexp(x;dims=:),dy,y  (dy .* exp.(x .- y))
 
 
-"""
-
-    nll(scores, answers; dims=1, average=true)
-
-Given an unnormalized `scores` matrix and an `Integer` array of
-correct `answers`, return the per-instance negative log
-likelihood. `dims=1` means instances are in columns, `dims=2` means
-instances are in rows.  Use `average=false` to return the sum instead
-of per-instance average.
-
-"""
-function nll(y, a::AbstractArray{<:Integer}; dims=1, average=true)
-    indices = findindices(y,a,dims=dims)
-    lp = logp(y,dims=dims)[indices]
-    average ? -mean(lp) : -sum(lp)
-end
-
-Mask = AbstractArray{<:Bool}
-"""
-
-    nll(scores, answers, mask::AbstractArray{<:Bool}; dims=1, average=true)
-
-Given an unnormalized `scores` matrix, an `Integer` array of correct `answers` and a `Bool` array of `mask` which has the same size with `answers`, return the masked per-instance negative log likelihood. If `mask[i]` is `false`, then `answers[i]` does not effect the computation. `dims=1` means instances are in columns, `dims=2` means instances are in rows.  Use `average=false` to return the sum instead of per-instance average.
-
-"""
-function nll(y, a::AbstractArray{<:Integer}, mask::Mask;
-             dims=1, average=true)
-    indices = findindices(y,a,dims=dims)
-    lp = logp(y,dims=dims)[indices]
-    lp = lp[mask]
-    average ? -mean(lp) : -sum(lp)
-end
-
-
-Ignore = Union{<:Integer,AbstractArray{<:Integer},
+Mask = Union{Nothing, AbstractArray{<:Bool}}
+Ignore = Union{Nothing,<:Integer,AbstractArray{<:Integer},
                Tuple{<:Integer, Vararg{<:Integer}}}
+Answers = AbstractArray{<:Integer}
+build_nll_mask(a::Answers, ignore::Nothing) = nothing
+build_nll_mask(a::Answers, ignore::Ignore) = map(ai->ai ∉ ignore, a)
+MaskError = DimensionMismatch("nll mask must have the same size with answers")
 
 
 """
-    nll(scores, answers, ignore; dims=1, average=true)
+    nll(scores, answers; dims=1, average=true, mask, ignore)
 
-Given an unnormalized `scores` matrix, an `Integer` array of correct `answers` and an `ignore` parameter, return the masked per-instance negative log likelihood. `ignore` can be `Integer`, `Integer` array or `Integer` tuple. If `ignore` contains `answers[i]` or ignore equals to `answers[i]`, then `answers[i]` does not affect the computation. `dims=1` means instances are in columns, `dims=2` means instances are in rows.  Use `average=false` to return the sum instead of per-instance average.
-
+Given an unnormalized `scores` matrix, an `Integer` array of correct `answers` return per-instance negative log likelihood. `dims=1` means instances are in columns, `dims=2` means instances are in rows. Use `average=false` to return the sum instead of per-instance average. Masked loss computation can be implemented by using `mask` and `ignore` keyword arguments and they cannot be used at the same time. `mask` can be `nothing` (default value, means no masking) or `Bool` array has same size with `answers`. If `mask[i]` is `false`, then `answers[i]` does not affect the computation. `ignore` can be `nothing` (default value, means no masking), `Integer`, `Integer` array or `Integer` tuple. If `ignore` contains `answers[i]` or ignore equals to `answers[i]`, then `answers[i]` does not affect the computation. `
+p
 """
-function nll(y, a::AbstractArray{<:Integer}, ignore::Ignore;
-             dims=1, average=true)
-    mask = map(ai->ai ∉ ignore, a)
-    nll(y, a, mask; dims=dims, average=average)
+function nll(y, a::Answers; dims=1, average=true, mask::Mask=nothing,
+             ignore::Ignore=nothing)
+    if !isnothing(ignore) && !isnothing(mask)
+        error("ignore and mask arguments cannot be used at the same time.")
+    elseif !isnothing(ignore)
+        mask = map(ai->ai ∉ ignore, a)
+    elseif !isnothing(mask) && size(a) != size(mask)
+        throw(DimensionMismatch("mask must have the same size with answers"))
+    end
+
+    indices = findindices(y,a,dims=dims)
+    lp = logp(y,dims=dims)[indices]
+    lp = isnothing(mask) ? lp : lp[mask]
+    average ? -mean(lp) : -sum(lp)
 end
 
 
@@ -317,7 +298,7 @@ answer has the maximum score. `dims=1` means instances are in columns,
 the number of correct answers instead of the ratio.
 
 """
-function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
+function accuracy(y, a::Answers; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
     ycpu = convert(Array,y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
@@ -326,7 +307,8 @@ function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     average ? mean(correct) : sum(correct)
 end
 
-function findindices(y,a::AbstractArray{<:Integer}; dims=1)
+
+function findindices(y, a::Answers; dims=1)
     n = length(a)
     indices = Vector{Int}(undef,n)
     if dims == 1                   # instances in first dimension
@@ -352,30 +334,15 @@ end
 
 
 """
-    nll(model, data; dims=1, average=true, o...)
+    nll(model, data; dims=1, average=true, ignore=nothing, o...)
 
-Compute `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and return the per-instance average (if average=true) or total (if average=false) negative log likelihood.
+Compute `nll(model(x; o...), y; dims, ignore)` for `(x,y)` in `data` and return the per-instance average (if average=true) or total (if average=false) negative log likelihood. If `y[i]` is an element of `ignore`, it does not affect the computation. `ignore` can be an `nothing` (default value, means no masking), `Integer`, an `Integer` array or an `Integer` tuple.
 """
-function nll(model, data; dims=1, average=true, o...)
+function nll(model, data; dims=1, average=true, ignore::Ignore=nothing, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += nll(model(x; o...), y; dims=dims, average=false)
-        cnt += length(y)
-    end
-    average ? sum / cnt : sum
-end
-
-"""
-    nll(model, data, ignore; dims=1, average=true, o...)
-
-Compute `nll(model(x; o...), y, ignore; dims)` for `(x,y)` in `data` and return the per-instance average (if average=true) or total (if average=false) negative log likelihood. If `y[i]` is an element of `ignore`, it does not affect the computation. `ignore` can be an `Integer`, an `Integer` array or an `Integer` tuple.
-"""
-function nll(model, data, ignore::Ignore; dims=1, average=true, o...)
-    sum = cnt = 0
-    for (x,y) in data
-        sum += nll(model(x; o...), y, ignore; dims=dims, average=false)
-        N = mapreduce(yi->yi ∉ ignore, +, y)
-        cnt += N
+        sum += nll(model(x; o...), y; dims=dims, average=false, ignore=ignore)
+        cnt += isnothing(ignore) ? length(y) : count(i->i ∉ ignore, y)
     end
     average ? sum / cnt : sum
 end
@@ -401,13 +368,13 @@ end
 zeroone(x...; o...) = 1 - accuracy(x...; o...)
 
 # We need the (model,x,y) interface to implement regularization:
-nll(f, x, y; dims=1, average=true, o...) = nll(
-    f(x; o...), y; dims=dims, average=average)
-nll(f, x, y, i::Ignore; dims=1, average=true, o...) = nll(
-    f(x; o...), y, i; dims=dims, average=average)
+function nll(f, x, y; ignore::Ignore=nothing, mask::Mask=nothing,
+             dims=1, average=true, o...)
+    nll(f(x; o...), y; ignore=ignore, mask=mask, dims=dims, average=average)
+end
 accuracy(f, x, y; dims=1, average=true, o...)=accuracy(f(x; o...), y; dims=dims, average=average)
 
 # We need the (weights,data,predict) interface to support the old interface:
-nll(w, data, f::Function; dims=1, average=true, o...) = nll(
-    x->f(w,x;o...), data; dims=dims, average=average)
+nll(w,data,f::Function;ignore::Ignore=nothing,dims=1,average=true,o...) = nll(
+    x->f(w,x;o...), data; ignore=ignore, dims=dims, average=average)
 accuracy(w, data, f::Function; dims=1, average=true, o...)=accuracy(x->f(w,x;o...), data; dims=dims, average=average)
