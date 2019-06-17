@@ -51,70 +51,87 @@ include("header.jl")
     end
 
     # nll tests
-    as = Any[rand(10,10)]
+    N = 10
+    as = Any[rand(N,N)]
     gpu() >= 0 && push!(as, KnetArray(as[1]))
-    indices = rand(1:10,10)
+    indices = rand(1:N,N)
     indices[1:2] = [1,2];
-    ind = [1, [1,], [1,2], (1,2)]
-    msk = [indices .!= 1, indices .> 2]
+    ignore = [1, [1,], [1,2], (1,2)]
+    mask = [indices .!= 1, indices .> 2]
     for (i,ai) in enumerate(as), d in 1:2, avg in (true,false)
         # gradcheck tests
-        kw = (:dims=>d,:average=>avg)
+        kw = (:dims => d,:average => avg)
         @test gradcheck(nll, ai, indices, kw=kw, args=1)
-        for (ki,k) in enumerate(vcat(ind,msk))
-            @test gradcheck(nll, ai, indices, k, kw=kw, args=1)
+        for (ki,k) in enumerate(ignore)
+            @test gradcheck(nll, ai, indices, kw=(:ignore => k, kw...), args=1)
+        end
+        for (ki,k) in enumerate(mask)
+            @test gradcheck(nll, ai, indices, kw=(:mask => k, kw...), args=1)
         end
 
         # test different array types
         if length(as) > 1 && i == 1
             aj = as[end]
-            @test isapprox(nll(ai, indices, dims=d, average=avg),
-                           nll(aj, indices, dims=d, average=avg))
+            @test isapprox(nll(ai, indices; kw...), nll(aj, indices; kw...))
         end
 
         # tests whether masking and averaging mechanism works or not
-        @test isapprox(nll(ai, indices, indices .!= 0, dims=d, average=avg),
-                       nll(ai, indices, dims=d, average=avg))
-        for (ki,k) in enumerate(msk)
-            @test !isapprox(nll(ai, indices, k, dims=d, average=avg),
-                            nll(ai, indices, dims=d, average=avg))
+        @test isapprox(nll(ai, indices; kw..., ignore=-1),
+                       nll(ai, indices; kw...))
+        for (ki,k) in enumerate(mask)
+            @test !isapprox(nll(ai, indices; kw..., mask=k),
+                            nll(ai, indices; kw...))
             !avg && continue
-            @test isless(nll(ai, indices, k, dims=d, average=false),
-                         nll(ai, indices, dims=d, average=false))
-            @test isapprox(nll(ai, indices, k, dims=d) * sum(k),
-                           nll(ai, indices, k, dims=d, average=false))
-            @test isapprox(nll(ai, indices, dims=d) * length(indices),
-                           nll(ai, indices, dims=d, average=false))
+            @test isless(nll(ai, indices; mask=k, dims=d, average=false),
+                         nll(ai, indices; dims=d, average=false))
+            @test isapprox(nll(ai, indices; mask=k, dims=d) * sum(k),
+                           nll(ai, indices; mask=k, dims=d, average=false))
+            @test isapprox(nll(ai, indices; dims=d) * length(indices),
+                           nll(ai, indices; dims=d, average=false))
         end
 
         # tests for different masking mechanisms with different array types
         for (j,aj) in enumerate(as)
             i == 2 && j == 1 && continue
-            @test isapprox(nll(ai, indices, ind[1], dims=d, average=avg),
-                           nll(aj, indices, ind[2], dims=d, average=avg))
-            @test isapprox(nll(ai, indices, ind[3], dims=d, average=avg),
-                           nll(aj, indices, ind[4], dims=d, average=avg))
-            @test isapprox(nll(ai, indices, msk[1], dims=d, average=avg),
-                           nll(aj, indices, ind[1], dims=d, average=avg))
-            @test isapprox(nll(ai, indices, msk[2], dims=d, average=avg),
-                           nll(aj, indices, ind[3], dims=d, average=avg))
+            @test isapprox(nll(ai, indices; kw..., ignore=ignore[1]),
+                           nll(aj, indices; kw..., ignore=ignore[2]))
+            @test isapprox(nll(ai, indices; kw..., ignore=ignore[3]),
+                           nll(aj, indices; kw..., ignore=ignore[4]))
+            @test isapprox(nll(aj, indices; kw..., ignore=ignore[1]),
+                           nll(ai, indices; kw..., mask=mask[1]))
+            @test isapprox(nll(aj, indices; kw..., ignore=ignore[3]),
+                               nll(ai, indices; kw..., mask=mask[2]))
         end
 
         # tests for nll(model, data, [ignore]; kw...)
         #           nll(model, x, y, [ignore]; kw...)
         model, data  = identity, [(ai,indices)]
         x, y = first(data)
-        desired = nll(ai, indices, dims=d, average=avg)
-        @test isapprox(nll(model, data, dims=d, average=avg), desired)
-        @test isapprox(nll(model, data, 0, dims=d, average=avg), desired)
-        @test isapprox(nll(model, ai, indices, dims=d, average=avg), desired)
-        @test isapprox(nll(model, x, y, 0, dims=d, average=avg), desired)
-        for ignore in ind
-            @test isapprox(nll(model, data, ignore; dims=d, average=avg),
-                           nll(ai, indices, ignore; dims=d, average=avg))
-            @test isapprox(nll(model, x, y, ignore; dims=d, average=avg),
-                           nll(ai, indices, ignore; dims=d, average=avg))
+        desired = nll(ai, indices; kw...)
+        @test isapprox(nll(model, data; kw...), desired)
+        @test isapprox(nll(model, data; ignore=0, kw...), desired)
+        @test isapprox(nll(model, x, y; kw...), desired)
+        @test isapprox(nll(model, x, y; ignore=0, kw...), desired)
+        @test isapprox(nll(model, x, y; kw..., mask=mask[1]),
+                       nll(model, x, y; kw..., ignore=ignore[1]))
+        for k in ignore
+            @test isapprox(nll(model, data; ignore=k, kw...),
+                           nll(ai, indices; ignore=k, kw...))
+            @test isapprox(nll(model, x, y; ignore=k, kw...),
+                           nll(ai, indices; ignore=k, kw...))
         end
+
+        # tests for mask/ignore errors
+        @test_throws ErrorException nll(ai, indices; kw...,
+                                        mask=mask[1], ignore=0)
+        @test_throws DimensionMismatch nll(ai, indices; kw...,
+                                           mask=mask[1][1:end-1])
+
+        # tests for old interface
+        f(w, x; o...) = identity(x)
+        w = nothing
+        @test isapprox(nll(w, data, f;  kw..., ignore=ignore[1]),
+                       nll(ai, indices; kw..., ignore=ignore[1]))
     end
 
     @test gradcheck(logistic,a[:],a[:])
