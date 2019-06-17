@@ -50,13 +50,13 @@ include("header.jl")
         end
     end
 
+    # nll tests
     as = Any[rand(10,10)]
     gpu() >= 0 && push!(as, KnetArray(as[1]))
     indices = rand(1:10,10)
     indices[1:2] = [1,2];
     ind = [1, [1,], [1,2], (1,2)]
     msk = [indices .!= 1, indices .> 2]
-
     for (i,ai) in enumerate(as), d in 1:2, avg in (true,false)
         # gradcheck tests
         kw = (:dims=>d,:average=>avg)
@@ -101,13 +101,18 @@ include("header.jl")
         end
 
         # tests for nll(model, data, [ignore]; kw...)
-        model, data = identity, [(ai,indices)]
-        @test isapprox(nll(model, data, dims=d, average=avg),
-                       nll(ai, indices, dims=d, average=avg))
-        @test isapprox(nll(model, data, 0, dims=d, average=avg),
-                       nll(ai, indices, dims=d, average=avg))
+        #           nll(model, x, y, [ignore]; kw...)
+        model, data  = identity, [(ai,indices)]
+        x, y = first(data)
+        desired = nll(ai, indices, dims=d, average=avg)
+        @test isapprox(nll(model, data, dims=d, average=avg), desired)
+        @test isapprox(nll(model, data, 0, dims=d, average=avg), desired)
+        @test isapprox(nll(model, ai, indices, dims=d, average=avg), desired)
+        @test isapprox(nll(model, x, y, 0, dims=d, average=avg), desired)
         for ignore in ind
             @test isapprox(nll(model, data, ignore; dims=d, average=avg),
+                           nll(ai, indices, ignore; dims=d, average=avg))
+            @test isapprox(nll(model, x, y, ignore; dims=d, average=avg),
                            nll(ai, indices, ignore; dims=d, average=avg))
         end
     end
