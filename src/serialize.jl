@@ -30,7 +30,7 @@ end
 function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     if !haskey(s,x)
         if isa(x.ptr.ptr, Array) && gpu() < 0
-            s[x] = reshape(reinterpret(eltype(x),view(x.ptr.ptr,1:sizeof(T)*length(x))),size(x))
+            s[x] = copy(reshape(reinterpret(eltype(x),view(x.ptr.ptr,1:sizeof(T)*length(x))),size(x)))
         else
             s[x] = KnetArray{T,N}(_ser(x.ptr,s,m),x.dims)
         end
