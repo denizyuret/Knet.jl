@@ -1,5 +1,18 @@
+Knet v1.2.2 Release Notes
+=========================
+
+* Highorder gradient bug fixes for linear and mlp models.
+* Removed compat section from Project.toml.
+* GPU support for gamma functions (@xukai92).
+* Fixed Knet.randn! to work with odd length arrays.
+* Fixed issues with gpu library error messages.
+* RNN checks input sizes and types more strictly.
+* Windows 10 installation tested and documentation updated.
+
+
 Knet v1.2.1 Release Notes
 =========================
+e81011ec 2019-02-18
 
 * Serialization bug fix.
 * Fixed eltype, size etc. for Minimize, Converge etc.

@@ -176,6 +176,14 @@ if gpu() >= 0; @testset "rnn" begin
         end
         @test all(map(==, rnnparams(r), rnnparams(rcpu)))
     end # for
+
+    # Issue #463: rnn hidden state gradients
+    r = RNN(10,20)
+    p = param(20)
+    x = param(10)
+    J = @diff (r.h = p; r.c = p; y = r(x); sum(y))
+    @test grad(J,p) != nothing
+
 end # @testset begin
 end # if gpu() >= 0
 

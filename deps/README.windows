@@ -1,19 +1,33 @@
-- Install "Visual Studio Community 2015", choose "Custom", "Visual C++".
-- Alternatively install "Visual C++ Build Tools", it is smaller.
-- Install CUDA toolkit 9.0.176 from https://developer.nvidia.com/cuda-downloads
-- Download and install cuDNN from https://developer.nvidia.com/cudnn
-- Reboot to set environment variables
+KNET WINDOWS 10 SETUP INSTRUCTIONS
 
-https://docs.microsoft.com/en-us/cpp/build/walkthrough-compile-a-c-program-on-the-command-line
-https://docs.microsoft.com/en-us/cpp/build/reference/setting-compiler-options
-https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line
-https://docs.microsoft.com/en-us/cpp/build/setting-the-path-and-environment-variables-for-command-line-builds
+1. download & install Julia 1.1.1 (or latest) for Windows from https://julialang.org/downloads/
 
+2. (optional) start Julia and run `using Pkg; Pkg.add("CUDAapi")` so we can test the next steps.
 
-- Latest Visual Studio 2017 is not supported by the latest CUDA toolkit as of 2017-12-06!
-- From https://www.visualstudio.com/downloads install ONE of:
-  - "Visual Studio Community 2017" with "Desktop Development with C++"
-  - "Build Tools for Visual Studio 2017" with "Visual C++ Build Tools" 
-  ! Just installing Visual Studio will not install the C compiler cl.exe !
-  ! 9.0.176 only supports cl.exe versions 16.00 through 19.11, the newest VS has 19.12 !
-  - For detailed version info: https://en.wikipedia.org/wiki/Microsoft_Visual_C%2B%2B
+3. download & install Build Tools for Visual Studio 2019 (or latest) from https://visualstudio.microsoft.com/downloads (67MB)
+
+4. on the resulting configuration screen download & install C++ build tools (1.15GB), reboot.
+
+5. (optional) start Julia and run `using CUDAapi; find_host_compiler()` to make sure the visual studio compiler is detected.
+
+Note: Steps 6-9 and 11 are only needed if you have an NVIDIA GPU:
+
+6. download & install CUDA Toolkit 10.1 (or latest) from https://developer.nvidia.com/cuda-downloads (2.5GB)
+
+7. (optional) start Julia and run `using CUDAapi; tk=find_toolkit()` to make sure the CUDA Toolkit is detected and `find_cuda_library("cudart",tk)` to make sure its libraries can be found.
+
+8. download & install cuDNN v7.6.0 (or latest) from https://developer.nvidia.com/cudnn (254MB). After downloading unzip the installation file, which should give:
+    cuda\bin\cudnn64_7.dll
+    cuda\include\cudnn.h
+    cuda\lib\x64\cudnn.lib
+These three files should be copied to the corresponding locations under the CUDA Toolkit installation from #6: in my installation the target location is
+    \Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1
+which has the corresponding bin, include, lib subfolders.
+
+9. (optional) start Julia and run `using CUDAapi; tk=find_toolkit(); find_cuda_library("cudnn",tk)` to make sure that cuDNN is found.
+
+10. Now you are ready to install and use Knet. Start Julia and run `using Pkg; Pkg.add("Knet")`.
+
+11. (optional) If you have a gpu, you can make sure Knet is set up properly for the gpu using `using Knet; include(Knet.dir("test/gpu.jl"))`.
+
+12. The best way to learn Knet is through the tutorial notebooks. You need the IJulia package to run the notebooks which can be installed with: `using Pkg; Pkg.add("IJulia")`. You can then interact with the tutorial notebooks using: `using IJulia; notebook(dir=Knet.dir("tutorial"))`. 

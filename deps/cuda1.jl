@@ -3,9 +3,13 @@
 fp = open("cuda1.cu","w")
 #using Knet: unary_ops
 
-function cuda1src(f, j=f, ex="$f(xi)"; BLK=256, THR=256)
+include("gamma.jl")
+print(fp,cuda1gammafamily())
+
+function cuda1src(f, j=f, ex="$f(xi)"; seperate_impl=false, BLK=256, THR=256)
     sprint() do s
         for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+            seperate_impl && (ex = "$F(xi)")
             print(s,
 """
 __global__ void _$F(int n, $T *x, $T *y) {
@@ -19,16 +23,17 @@ __global__ void _$F(int n, $T *x, $T *y) {
 extern "C" {
   $DLLEXPORT void $F(int n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
     end
 end
 
+seperate_impl_ops = ["gamma_impl", "digamma_impl", "trigamma_impl"]
 for a in unary_ops
     if !isa(a,Tuple); a=(a,); end
-    print(fp,cuda1src(a...))
+    print(fp,cuda1src(a...; seperate_impl=(a[1] in seperate_impl_ops)))
 end
 
 # Kernels used by setindex! and getindex: fill, xfill, xcopy:
@@ -48,7 +53,7 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
 extern "C" {
   $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
-  }    
+  }
 }
 """)
         end
@@ -77,7 +82,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
 extern "C" {
   $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
-  }    
+  }
 }
 """)
         end
@@ -104,7 +109,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
 extern "C" {
   $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
-  }    
+  }
 }
 """
 end
@@ -134,7 +139,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, $T* y, int dimy1) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,y,dimy1);
-  }    
+  }
 }
 """)
         end
@@ -162,7 +167,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, 
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, $T* y, int dimy1, int dimy2) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,y,dimy1,dimy2);
-  }    
+  }
 }
 """)
         end
@@ -191,7 +196,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, 
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, $T* y, int dimy1, int dimy2, int dimy3) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,y,dimy1,dimy2,dimy3);
-  }    
+  }
 }
 """)
         end
@@ -221,7 +226,7 @@ __global__ void _$(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dim
 extern "C" {
   $DLLEXPORT void $(F)($T* x, int dimx1, int dimx2, int dimx3, int dimx4, int dimx5, $T* y, int dimy1, int dimy2, int dimy3, int dimy4) {
     _$(F)<<<$BLK,$THR>>>(x,dimx1,dimx2,dimx3,dimx4,dimx5,y,dimy1,dimy2,dimy3,dimy4);
-  }    
+  }
 }
 """)
         end
@@ -292,7 +297,7 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
 }
 extern "C" {
   $DLLEXPORT void icat_$F(int nrows, int ncols, $T **x, $T *y) {
-    $T **xx;   
+    $T **xx;
     if (nrows>0 && ncols>0) {
       size_t s = ncols * sizeof($T *);
       cudaMalloc(&xx, s);
@@ -300,7 +305,7 @@ extern "C" {
       _icat_$F<<<$BLK,$THR>>>(nrows, ncols, xx, y);
       cudaFree(xx);
     }
-  }    
+  }
 }
 """)
         end
@@ -318,7 +323,7 @@ static __inline__ __device__ float atomicAdd2(float *address, float val) {
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   return atomicAdd(address, val);
 }
-#else      
+#else
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -345,7 +350,7 @@ __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -357,7 +362,7 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -369,7 +374,7 @@ __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -381,7 +386,7 @@ __global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     row = yidx % xrows;
     col = yidx / xrows;
     if (col >= ncols) break;
-    xidx = row + (cols[col]-1) * xrows;              
+    xidx = row + (cols[col]-1) * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -393,7 +398,7 @@ __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     y[yidx] = x[xidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -405,7 +410,7 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y[yidx];
     yidx += blockDim.x * gridDim.x;
   }
@@ -417,7 +422,7 @@ __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     atomicAdd2(&x[xidx], y[yidx]);
     yidx += blockDim.x * gridDim.x;
   }
@@ -429,7 +434,7 @@ __global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     row = yidx % nrows;
     col = yidx / nrows;
     if (col >= xcols) break;
-    xidx = rows[row] - 1 + col * xrows;              
+    xidx = rows[row] - 1 + col * xrows;
     x[xidx] = y;
     yidx += blockDim.x * gridDim.x;
   }
@@ -506,7 +511,7 @@ function cuda1dropout(; BLK=256, THR=256)
 __global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
-    if (y[i] > p) {                  
+    if (y[i] > p) {
       y[i] = x[i] * q;
     } else {
       y[i] = 0;
@@ -528,10 +533,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
 extern "C" {
   $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
-  }    
+  }
   $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
-  }    
+  }
 }
 """)
         end
@@ -549,7 +554,7 @@ function cuda1concat(; BLK=256, THR=256)
 """
 __global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
   int array = blockIdx.x;
-  int nelts = lengths[array];                  
+  int nelts = lengths[array];
   int offset = starts[array];
   for (int i = threadIdx.x; i < nelts; i += blockDim.x) {
     y[i+offset] = x[array][i];
@@ -559,7 +564,7 @@ extern "C" {
   // julia is responsible for copying args to gpu
   $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
-  }    
+  }
 }
 """)
         end
