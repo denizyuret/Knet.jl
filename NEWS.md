@@ -1,5 +1,13 @@
+Knet v1.2.3 Release Notes
+=========================
+
+* Tutorial notebook fixes.
+* Saved KnetArrays now load as regular Arrays on cpu, not reshaped/reinterpreted.
+
+
 Knet v1.2.2 Release Notes
 =========================
+caba6b7b 2019-05-25
 
 * Highorder gradient bug fixes for linear and mlp models.
 * Removed compat section from Project.toml.
