@@ -5,14 +5,15 @@ mutable struct KnetPtr
     ptr                         # actual pointer, removed type ::Cptr for serialization
     len::Int                    # size in bytes
     dev::Int                    # id of the device the pointer belongs to
-    parent::KnetPtr             # used to implement shared memory pointers
+    parent                      # used to implement shared memory pointers
 
     # This is the low level KnetPtr constructor, it adds the finalizer and
     # does not assign parent which is only needed for shared pointers.
 
-    function KnetPtr(ptr::Cptr,len::Int,dev::Int)
-        kp = new(ptr,len,dev)
-        finalizer(freeKnetPtr, kp)
+    function KnetPtr(ptr::Cptr,len::Int,dev::Int,parent=nothing)
+        kp = new(ptr,len,dev,parent)
+        if !isa(parent,Nothing); finalizer(freeKnetPtr, kp); end
+        return kp
     end
 
     # This constructor is used to create a shared pointer.  We need to
@@ -33,7 +34,7 @@ end
 # release the memory, but inserts it back in the appropriate pool for reuse.
 
 function freeKnetPtr(p::KnetPtr)
-    if p.ptr == C_NULL || isdefined(p,:parent); return; end
+    if p.ptr == C_NULL || !isa(p.parent,Nothing); return; end
     mem = KnetMems[p.dev+1]
     mem.avail += p.len
     push!(mem.pools[p.len].free, p.ptr)
