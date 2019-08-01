@@ -1333,3 +1333,24 @@ end
 # copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
 # copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
 
+### Use CuArrays kernels for unsupported operations.
+# Must be careful with memory management, for now we will let Knet manage memory.
+
+# Extend function cu to create a memory shared CuArray from KnetArray:
+using CuArrays
+
+function CuArrays.cu(x::KnetArray{T}) where {T}
+    p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
+    Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
+end
+
+# Do not extend function ka to create a memory shared KnetArray from CuArray:
+# best not to use CuArrays memory manager simultaneously with KnetArrays memory manager.
+# use cu(x) with overwriting kernels only.
+
+# function Knet.ka(x::CuArray{T,N}) where {T,N}
+#     p = Base.bitcast(Knet.Cptr, x.buf.ptr)
+#     k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
+#     # finalizer(identity, k) # hacky way to avoid gc? gives error in running finalizer
+#     KnetArray{T,N}(k, size(x))
+# end

@@ -124,11 +124,10 @@ IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 =#
 
 _transpose(x::KnetVector) = _transpose(reshape(x,:,1))
+_transpose(x::KnetMatrix) = _transpose!(similar(x,(size(x,2),size(x,1))),x)
 
-function _transpose(x::KnetMatrix{T}) where {T} # trying the lazy version first
+function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
     # Using CUBLAS
-    sz = size(x)
-    y = similar(x,(sz[2],sz[1]))
     if T<:Float32
         @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
               cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
@@ -170,92 +169,24 @@ mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:di
 # 1-D input can be turned into a rowvec (rowdims=0), or colvec (rowdims=1).
 # default dims=ndims(x)-1 will turn vec into a rowvec but dims=1 will not work for conv.
 
-import Base: permutedims # ipermutedims
+# Borrow permutedims! from CuArrays
 
-permutedims(x::KnetMatrix)=permutedims(x,(2,1))
+import Base: permutedims, permutedims!
+using CuArrays
 
-function permutedims(x::KnetArray{T,N}, dims) where {T,N}
-    if length(dims) != N; throw(DimensionMismatch()); end
-    if N == 2
-        # use individual == to cover row col vecs tuples etc
-        if dims[1]==1 && dims[2]==2
-            return copy(x)
-        elseif dims[1]==2 && dims[2]==1
-            # Using CUDA kernel; performs worse
-            #=
-            funcName = permutefunc(x,dims)
-            y = similar(x, size(x,dims[1]), size(x,dims[2]))
-            #@eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
-            #            $x,size($x,1),size($x,2),$y,size($y,1))
-            @eval @knet8(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Ptr{$T},Cint),
-                         $x,size($x,1),size($x,2),$y,size($y,1))
-            return y
-            =#
-            # Using CUBLAS
-            return _transpose(x)
-        else
-            throw(ArgumentError("no valid permutation of dimensions"))
-        end
-    elseif N == 3
-        if dims[1]==1 && dims[2]==2 && dims[3]==3
-            return copy(x)
-        else
-            funcName = permutefunc(x,dims)
-            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]))
-            # @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
-            #             $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
-            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Ptr{$T},Cint,Cint),
-                         $x,size($x,1),size($x,2),size($x,3),$y,size($y,1),size($y,2))
-            return y
-        end
-    elseif N == 4
-        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4
-            return copy(x)
-        else
-            funcName = permutefunc(x,dims)
-            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]))
-            # @eval ccall(($funcName,libknet8),Nothing,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-            #             $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
-            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint),
-                         $x,size($x,1),size($x,2),size($x,3),size($x,4),$y,size($y,1),size($y,2),size($y,3))
-            return y
-        end
-    elseif N == 5
-        if dims[1]==1 && dims[2]==2 && dims[3]==3 && dims[4]==4 && dims[5]==5
-            return copy(x)
-        else
-            funcName = permutefunc(x,dims)
-            y = similar(x, size(x,dims[1]), size(x,dims[2]), size(x,dims[3]), size(x,dims[4]), size(x,dims[5]))
-            @eval @knet8($funcName,(Ptr{$T},Cint,Cint,Cint,Cint,Cint,Ptr{$T},Cint,Cint,Cint,Cint),
-                         $x,size($x,1),size($x,2),size($x,3),size($x,4),size($x,5),$y,size($y,1),size($y,2),size($y,3),size($y,4))
-            return y
-        end
-    else
-        error("Unsupported number of dimensions")
-    end
-end
+permutedims!(y::KnetArray, x::KnetArray, perm) = (permutedims!(cu(y), cu(x), perm); y)
 
-function permutefunc(x::KnetArray{T,N}, dims) where {T,N}
-    funcName = "permutedims_$(N)D_"
-    for i=1:N
-        funcName = funcName * "$(dims[i])_"
-    end
-    if T<:Float32
-        funcName = funcName * "32"
-    elseif T<:Float64
-        funcName = funcName * "64"
-    else
-        error("$T not supported")
-    end
-    return funcName
-end    
+#permutedims(x::KnetMatrix)=permutedims(x,(2,1))  # CuArrays is %10 faster but has startup cost
+permutedims(x::KnetMatrix)=_transpose(x)          # cuDNN is %10 slower but no startup cost
 
-function _ipermutedims(A::KnetArray,perm) # deprecated
-    iperm = Array{Int}(undef,length(perm))
-    for (i,p) = enumerate(perm)
-        iperm[p] = i
-    end
-    return permutedims(A,iperm)
+# Alloc code based on base/multidimensional.jl:1306 (v1.1.1)
+function permutedims(B::KnetArray,perm)
+    dimsB = size(B)
+    ndimsB = length(dimsB)
+    (ndimsB == length(perm) && isperm(perm)) || throw(ArgumentError("no valid permutation of dimensions"))
+    dimsP = ntuple(i->dimsB[perm[i]], ndimsB)::typeof(dimsB)
+    P = similar(B, dimsP)
+    permutedims!(P,B,perm)
 end
 
 # Low level gemm! call with pointers: CPU conv4 uses this. Based on julia/stdlib/v1.0/LinearAlgebra/src/blas.jl:1105
