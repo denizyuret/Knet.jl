@@ -4,8 +4,9 @@
 @time include("gpu.jl")           #   1   2   2   6   1   1   0   0   2   0   0
 @time include("distributions.jl") #   1   1   1   2   1   1   2   1   3   3   2
 @time include("dropout.jl")       #   1   2   8   5                   2
-@time include("jld.jl")           #  11   9  26
 @time include("serialize.jl")     #   2  11   1
+@time include("bmm.jl")           #   3   9 
+@time include("jld.jl")           #  11   9  26
 @time include("loss.jl")          #  13  19  20  10                   4
 @time include("linalg.jl")        #  17  22  22  62  24  14  22   7  28  33  19
 @time include("batchnorm.jl")     #  14  23  22  93
@@ -16,4 +17,3 @@
 @time include("update.jl")        #  61  82  60  61  29  26 100  22  72  25  23
 @time include("binary.jl")        #  64  75  80  56  34  19 491 119  51  53  25
 @time include("unary.jl")         #  86 103 103 122  42   6  36   4  56  67  11
-@time include("bmm.jl")           #   3   9 

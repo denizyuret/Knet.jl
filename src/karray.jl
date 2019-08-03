@@ -1337,11 +1337,11 @@ end
 # Must be careful with memory management, for now we will let Knet manage memory.
 
 # Extend function cu to create a memory shared CuArray from KnetArray:
-using CuArrays
-
-function CuArrays.cu(x::KnetArray{T}) where {T}
-    p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
-    Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
+if isdefined(@__MODULE__, :CuArrays)
+    function CuArrays.cu(x::KnetArray{T}) where {T}
+        p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
+        Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
+    end
 end
 
 # Do not extend function ka to create a memory shared KnetArray from CuArray:

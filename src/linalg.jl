@@ -172,7 +172,8 @@ mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:di
 # Borrow permutedims! from CuArrays
 
 import Base: permutedims, permutedims!
-using CuArrays
+
+if isdefined(@__MODULE__, :CuArrays)
 
 permutedims!(y::KnetArray, x::KnetArray, perm) = (permutedims!(cu(y), cu(x), perm); y)
 
@@ -187,6 +188,8 @@ function permutedims(B::KnetArray,perm)
     dimsP = ntuple(i->dimsB[perm[i]], ndimsB)::typeof(dimsB)
     P = similar(B, dimsP)
     permutedims!(P,B,perm)
+end
+
 end
 
 # Low level gemm! call with pointers: CPU conv4 uses this. Based on julia/stdlib/v1.0/LinearAlgebra/src/blas.jl:1105
