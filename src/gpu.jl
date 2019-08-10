@@ -301,3 +301,13 @@ function getErrorString(lib,fun,ret)
     end
     string(fun, ": ", ret, ": ", str)
 end
+
+# This is from https://github.com/JuliaGPU/CUDAapi.jl/pull/84/files
+
+if find_cuda_library("cuda", tk) != nothing # has_cuda()
+    try
+        using CuArrays
+    catch ex
+        @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
+    end
+end
