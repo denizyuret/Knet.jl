@@ -1,5 +1,12 @@
+Knet v1.2.4 Release Notes
+=========================
+
+* Fixed permutedims speed using CuArrays.
+
+
 Knet v1.2.3 Release Notes
 =========================
+bb024b4 2019-07-25
 
 * Tutorial notebook fixes.
 * Saved KnetArrays now load as regular Arrays on cpu, not reshaped/reinterpreted.
