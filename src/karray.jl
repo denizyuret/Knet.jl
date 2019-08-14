@@ -1250,7 +1250,7 @@ function setindex!(x::KnetArray, y, i::AbstractUnitRange, j::AbstractUnitRange, 
     end
 end
 
-function getindex(x::KnetArray{T,2}, ::Colon, m::Array{I,2}) where {T,I<:Integer}
+function getindex(x::KnetArray{T,2}, ::Colon, m::AbstractArray{I,2}) where {T,I<:Integer}
     reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
 end
 
