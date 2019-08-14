@@ -81,11 +81,19 @@ function rand(d::Data)
     return iterate(d, i)[1]
 end
 
-# Use repeat(data,n) for multiple epochs; cycle(data) to go forever, take(data,n) for partial epochs
+# IterTools.ncycle(data,n) for multiple epochs
+# Base.Iterators.cycle(data) to go forever
+# Base.Iterators.take(data,n) for partial epochs
+# IterTools.takenth(itr,n) to report every n iterations
 
 struct Repeat; data::Data; n::Int; end
 
-repeat(d::Data, n::Int) = (@assert n >= 0; Repeat(d,n))
+function repeat(d::Data, n::Int)
+    @warn "repeat(d::Data,n) is deprecated, use IterTools.ncycle instead." maxlog=1
+    @assert n >= 0
+    Repeat(d,n)
+end
+
 length(r::Repeat) = r.n * length(r.data)
 eltype(r::Repeat) = eltype(r.data)
 eltype(c::Cycle{Data}) = eltype(c.xs)
