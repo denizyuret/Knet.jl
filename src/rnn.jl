@@ -106,8 +106,8 @@ mutable struct RD; ptr; end
 "Dropout descriptor"
 mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
 
-mutable struct RNN{T}
-    w::Param{T}
+mutable struct RNN
+    w
     h
     c
     inputSize::Cint
@@ -142,6 +142,7 @@ function RNN(inputSize, hiddenSize;
              binit=zeros,
              usegpu=(gpu()>=0),
              )
+    w = dx = dhx = dcx = nothing
     inputSize = Cint(inputSize)
     hiddenSize = Cint(hiddenSize)
     numLayers = Cint(numLayers)
@@ -150,21 +151,14 @@ function RNN(inputSize, hiddenSize;
     inputMode = Cint(skipInput ? 1 : 0)
     direction = Cint(bidirectional ? 1 : 0)
     mode = findfirst(isequal(rnnType), (:relu,:tanh,:lstm,:gru))
-    if mode == nothing; error("RNN: Valid modes are :relu,:tanh,:lstm,:gru"); end
+    @assert mode !== nothing "RNN: Valid modes are :relu,:tanh,:lstm,:gru"
     mode = Cint(mode - 1)
     algo = Cint(algo)
     @assert dataType isa DataType
-    if usegpu
-        dropoutDesc = DD(handle=handle,dropout=dropout,seed=seed) # Need to keep dropoutDesc in RNN so it does not get gc'ed.
-        rnnDesc = RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType)
-        w = Param(KnetArray{dataType}(undef,1,1,1)) # to get the right type
-        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,nothing,nothing,nothing)
-        r.w = Param(KnetArray{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
-    else
-        w = Param(Array{dataType}(undef,1,1,1)) # to get the right type
-        r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,nothing,nothing,nothing,nothing,nothing)
-        r.w = param(Array{dataType}(undef,1,1,getRNNParamsSize(r)))
-    end
+    dropoutDesc = usegpu ? DD(handle=handle,dropout=dropout,seed=seed) : nothing # Need to keep dropoutDesc in RNN so it does not get gc'ed.
+    rnnDesc = usegpu ? RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType) : nothing
+    r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,dx,dhx,dcx)
+    r.w = Param(Array{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
     for a in rnnparams(r; handle=handle, useview=true)
         if a == nothing
             continue
@@ -176,6 +170,8 @@ function RNN(inputSize, hiddenSize;
             error("Invalid RNN param $(summary(a))")
         end
     end
+    # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once
+    if usegpu; r.w = Param(KnetArray(value(r.w))); end
     return r
 end
 
@@ -281,7 +277,9 @@ function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
     end
 end
 
+# TODO: this function is redundant with cpu section of cudnnGetRNNParamsSize, compare test and deprecate
 function getRNNParamsSize(r::RNN)
+    @warn "getRNNParamsSize is deprecated, use cudnnGetRNNParamsSize instead" maxlog=1
     whidden = r.hiddenSize * r.hiddenSize
     winput =  r.inputMode == 1 ? 0 : r.hiddenSize * r.inputSize
     bhidden = r.hiddenSize
@@ -508,7 +506,7 @@ function rnnparams(r::RNN; handle=gethandle(), useview=false)
     return ws
 end
 
-function rnnforw(r::RNN{KnetArray{T,3}}, w::KnetArray{T,3}, x::KnetArray{T},
+function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
                  handle=cudnnhandle(),
