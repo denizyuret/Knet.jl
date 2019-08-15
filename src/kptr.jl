@@ -35,7 +35,8 @@ end
 function freeKnetPtr(p::KnetPtr)
     if p.ptr == C_NULL || isdefined(p,:parent); return; end
     mem = KnetMems[p.dev+1]
-    mem.avail += p.len
+    mem.bfree += p.len
+    mem.kfree += 1
     push!(mem.pools[p.len].free, p.ptr)
     p.ptr = C_NULL # to avoid double free by gcnode then gc.
 end
@@ -56,13 +57,16 @@ mutable struct KnetMem
     pools::Dict{Int,KnetPool}   # pointers of a given size
     limit::Int                  # current memory limit
     bytes::Int                  # total bytes allocated (inuse + avail)
-    avail::Int                  # total bytes freed and available
-    KnetMem()=new(Dict{Int,KnetPool}(),KNETMEMINIT,0,0)
+    bfree::Int                  # total bytes freed and available
+    kptrs::Int                  # number of arrays allocated (inuse + avail)
+    kfree::Int                  # number of arrays freed and available
 end
+KnetMem()=KnetMem(Dict{Int,KnetPool}(),KNETMEMINIT,0,0,0,0)
 
 # KnetMems[dev+1] holds memory information for device dev.
 KnetMems = nothing
 initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
+knetmem(dev=gpu()) = (if KnetMems == nothing; initKnetMems(); end; KnetMems[dev+1])
 
 # Blocksize determines the actual allocation size given the array size in bytes, and can be
 # larger than what the array needs for increased reuse.
@@ -82,7 +86,7 @@ function inclimit!(m::KnetMem, minlimit=m.limit*6÷5)
     minlimit = min(maxlimit, minlimit)
     if m.limit < minlimit
         m.limit = minlimit
-        @debug "limit=$(m.limit) bytes=$(m.bytes) avail=$(m.avail) pools=$(length(m.pools)) blocks=$(sum(p->p.nptr,values(m.pools)))"
+        @debug "limit=$(m.limit) bytes=$(m.bytes) avail=$(m.bfree) pools=$(length(m.pools)) blocks=$(sum(p->p.nptr,values(m.pools)))"
     end
 end
 
@@ -92,14 +96,14 @@ end
 
 function KnetPtr(arraybytes::Int)
     dev = gpu(); if dev < 0; error("KnetPtr: bad device id $dev."); end
-    if KnetMems==nothing; initKnetMems(); end
-    mem = KnetMems[dev+1]
+    mem = knetmem(dev)
     blockbytes = blocksize(arraybytes)
     @dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
     if !isempty(pool.free)      # 1. best case we have one available in pool
         @dbg push!(allocs, 1)
-        mem.avail -= blockbytes
+        mem.bfree -= blockbytes
+        mem.kfree -= 1
         return KnetPtr(pop!(pool.free),blockbytes,dev)
     end
     if mem.bytes + blockbytes <= mem.limit # 2. allocate if we are within limit
@@ -107,17 +111,19 @@ function KnetPtr(arraybytes::Int)
         if ptr != nothing
             @dbg push!(allocs, 2)
             mem.bytes += blockbytes
+            mem.kptrs += 1
             pool.nptr += 1
             return KnetPtr(ptr,blockbytes,dev)
         end
     end
     if pool.nptr > 0            # 3. try gc if we had allocated this size before
         GC.gc();  @dbg print('-')
-        # inclimit!(mem, (mem.bytes-mem.avail)*3) # *4=>18s *3=>16s *5÷2=>16s *2=>22s *6÷5=>30s
+        # inclimit!(mem, (mem.bytes-mem.bfree)*3) # *4=>18s *3=>16s *5÷2=>16s *2=>22s *6÷5=>30s
         inclimit!(mem, mem.limit*6÷5)
         if !isempty(pool.free)
             @dbg push!(allocs, 3)
-            mem.avail -= blockbytes
+            mem.bfree -= blockbytes
+            mem.kfree -= 1
             return KnetPtr(pop!(pool.free),blockbytes,dev)
         end
     end
@@ -132,6 +138,7 @@ function KnetPtr(arraybytes::Int)
     if ptr != nothing
         @dbg push!(allocs, 4)
         mem.bytes += blockbytes
+        mem.kptrs += 1
         pool.nptr += 1
         return KnetPtr(ptr,blockbytes,dev)
     end
@@ -157,14 +164,16 @@ you run out of GPU memory.
 """
 function gc(dev=gpu())
     if KnetMems == nothing; return; end
-    mem = KnetMems[dev+1]
+    mem = knetmem(dev)
     GC.gc(); GC.enable(false)
     for (n,v) in mem.pools
         for p in v.free
             @cudart(cudaFree,(Cptr,),p)
         end
         v.nptr -= length(v.free)
-        mem.avail -= n * length(v.free)
+        mem.kptrs -= length(v.free)
+        mem.kfree -= length(v.free)
+        mem.bfree -= n * length(v.free)
         mem.bytes -= n * length(v.free)
         empty!(v.free)
     end
@@ -177,7 +186,10 @@ function knetgc()
 end
 
 # Some utilities
-meminfo(i=gpu())=(KnetMems==nothing ? [] : [(k,v.nptr,length(v.free)) for (k,v) in KnetMems[i+1].pools])
+
+meminfo(i=gpu())=[(k,v.nptr,length(v.free)) for (k,v) in knetmem[i].pools]
+
+kmeminfo(i=gpu())=(m=knetmem(i); (pools=length(m.pools), kptrs=m.kptrs, kfree=m.kfree, bytes=m.bytes, bfree=m.bfree))
 
 function gpuinfo(msg="",dev=gpu();n=10)
     msg != "" && print("$msg ")
@@ -190,16 +202,16 @@ function gpuinfo(msg="",dev=gpu();n=10)
         gpu(dev0)
         println((:dev,dev,:total,total,:free,free,:used,total-free))
     end
-    bytes = avail = ptrs = k = 0
+    bytes = bfree = ptrs = k = 0
     for (s,u,f) in sort(meminfo(dev), by=(x->x[1]*x[2]), rev=true)
-        bytes += s*u; avail += s*f; ptrs += u; k += 1
-        if k <= n; println((:bytes,s*u,:size,s,:alloc,u,:avail,f)); end
+        bytes += s*u; bfree += s*f; ptrs += u; k += 1
+        if k <= n; println((:bytes,s*u,:size,s,:alloc,u,:bfree,f)); end
     end
     if n < k; println('⋮'); end
-    println((:totbytes,bytes,:avail,avail,:ptrs,ptrs))
+    println((:totbytes,bytes,:bfree,bfree,:ptrs,ptrs))
     if KnetMems != nothing
         mem = KnetMems[dev+1]
-        println((:membytes,mem.bytes,:avail,mem.avail,:limit,mem.limit,:pools,length(mem.pools)))
+        println((:membytes,mem.bytes,:bfree,mem.bfree,:limit,mem.limit,:pools,length(mem.pools)))
     end
 end
 
