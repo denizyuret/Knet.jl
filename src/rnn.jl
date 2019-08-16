@@ -158,7 +158,7 @@ function RNN(inputSize, hiddenSize;
     dropoutDesc = usegpu ? DD(handle=handle,dropout=dropout,seed=seed) : nothing # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     rnnDesc = usegpu ? RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType) : nothing
     r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,dx,dhx,dcx)
-    r.w = Param(Array{dataType}(undef,1,1,cudnnGetRNNParamsSize(r)))
+    r.w = Param(Array{dataType}(undef,1,1,getRNNParamsSize(r)))
     for a in rnnparams(r; handle=handle, useview=true)
         if a == nothing
             continue
@@ -260,26 +260,23 @@ end
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
 
 function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
-    if r.rnnDesc != nothing
-        res = Csize_t[0]
-        xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-        @cudnn(cudnnGetRNNParamsSize,
-              # handle, rnndesc, xdesc, result, dataType
-              (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
-              handle, r.rnnDesc, xDesc, res, DT(r.dataType))
-        div(res[1], sizeof(r.dataType))
-    else # on CPU, so we guess the size
-        X,H,L,I = r.inputSize, r.hiddenSize, r.numLayers, rnnids(r)
-        biases = L*I
-        inputMatrices = (r.inputMode == 1 ? 0 : r.direction == 1 ? I : div(I,2))
-        hiddenMatrices = (r.direction == 1 ? (L-1)*I : (L-1)*I + div(I,2))
-        biases * H + inputMatrices * X * H + hiddenMatrices * H * H
-    end
+    res = Csize_t[0]
+    xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
+    @cudnn(cudnnGetRNNParamsSize,
+           # handle, rnndesc, xdesc, result, dataType
+           (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
+           handle, r.rnnDesc, xDesc, res, DT(r.dataType))
+    div(res[1], sizeof(r.dataType))
 end
 
-# TODO: this function is redundant with cpu section of cudnnGetRNNParamsSize, compare test and deprecate
+# This is buggy, why?
+# X,H,L,I = r.inputSize, r.hiddenSize, r.numLayers, rnnids(r)
+# biases = L*I
+# inputMatrices = (r.inputMode == 1 ? 0 : r.direction == 1 ? I : div(I,2))
+# hiddenMatrices = (r.direction == 1 ? (L-1)*I : (L-1)*I + div(I,2))
+# biases * H + inputMatrices * X * H + hiddenMatrices * H * H
+
 function getRNNParamsSize(r::RNN)
-    @warn "getRNNParamsSize is deprecated, use cudnnGetRNNParamsSize instead" maxlog=1
     whidden = r.hiddenSize * r.hiddenSize
     winput =  r.inputMode == 1 ? 0 : r.hiddenSize * r.inputSize
     bhidden = r.hiddenSize
@@ -291,7 +288,10 @@ function getRNNParamsSize(r::RNN)
         winput = (1 + r.direction) * whidden
         binput = bhidden
     end
-    nparams
+    if r.rnnDesc != nothing
+        @assert nparams == cudnnGetRNNParamsSize(r)
+    end
+    return nparams
 end
 
 "Keeps an array of 3D tensor descriptors"
@@ -549,7 +549,7 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
 
     # workSpace and reserveSpace
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
-    ws = cudnnWorkSpace(wss)
+    ws = KnetArray{UInt8}(undef,wss) # cudnnWorkSpace(wss)
 
     if training()
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
@@ -601,15 +601,15 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
     end
     if hyout == C_NULL; hyout = nothing; end
     if cyout == C_NULL; cyout = nothing; end
-    return y, hyout, cyout, rs
+    return y, hyout, cyout, rs, ws
 end
 
 @primitive rnnforw(r::RNN, w::KnetArray, x...; o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     @assert r.w === w
-    y,hy,cy,rs = value(t)
-    dy,dhy,dcy,drs = value(dt)
+    y,hy,cy,rs,ws = value(t)
+    dy,dhy,dcy,drs,dws = value(dt)
     r=value(r); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
     # To prevent dependencies to next iteration we need to clear the Result type from r.h,r.c
     # We can't do this during forward, because another forward may be run within the same iteration.
@@ -617,11 +617,11 @@ function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     # Note that this does not work on the cpu and these have to be cleaned by hand.
     # The cpu version is not a primitive and has no back function. (TODO: find better solution)
     r.h = value(r.h); r.c = value(r.c) 
-    rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs; o...)
+    rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs, ws; o...)
 end
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
-                 dy, hx, cx, dhy, dcy, rs; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
+                 dy, hx, cx, dhy, dcy, rs, ws; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
     @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
@@ -644,7 +644,7 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
 
     # workSpace and reserveSpace
-    ws = cudnnWorkSpace()
+    # ws = cudnnWorkSpace()
     wss = bytes(ws)
     rss = bytes(rs)
 
@@ -889,7 +889,7 @@ function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
     y = r.direction == 0 ? reshape(hcat(ys...), ysize) : reshape(ys,ysize)
     hyout = hy ? reshape(hcat(hs...), hsize) : nothing
     cyout = cy && r.mode == 2 ? reshape(hcat(cs...), hsize) : nothing
-    return (y,hyout,cyout,nothing)
+    return (y,hyout,cyout,nothing,nothing)
 end
 
 # compare sizes ignoring trailing ones
