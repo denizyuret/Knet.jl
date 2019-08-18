@@ -230,20 +230,66 @@ end
 
 
 """
-
     nll(scores, answers; dims=1, average=true)
 
-Given an unnormalized `scores` matrix and an `Integer` array of
-correct `answers`, return the per-instance negative log
-likelihood. `dims=1` means instances are in columns, `dims=2` means
-instances are in rows.  Use `average=false` to return the sum instead
-of per-instance average.
+Given an unnormalized `scores` matrix and an `Integer` array of correct `answers`, return
+the negative log likelihood. The `scores` matrix should have size (classes,instances) if
+`dims=1` or (instances,classes) if `dims=2`. `answers[i]` should be in `1:classes` to
+indicate the correct class for instance i, or 0 to skip instance i. The return value is
+`(total/count)` if `average=true` and `(total,count)` if `average=false` where `count` is
+the number of instances not skipped and `total` is their total negative log likelihood.
 
 """
 function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
     lp = logp(y,dims=dims)[indices]
-    average ? -mean(lp) : -sum(lp)
+    average ? (-sum(lp) / length(lp)) : (-sum(lp), length(lp))
+end
+
+"""
+    accuracy(scores, answers; dims=1, average=true)
+
+Given an unnormalized `scores` matrix and an `Integer` array of correct `answers`, return
+the ratio of instances where the correct answer has the maximum score. `dims=1` means
+instances are in columns, `dims=2` means instances are in rows. Use `average=false` to
+return the pair (ncorrect,count) instead of the ratio (ncorrect/count). If `answers[i] == 0`,
+instance i is skipped.
+
+"""
+function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
+    indices = findindices(y,a,dims=dims)
+    ycpu = convert(Array,y)
+    (maxval,maxind) = findmax(ycpu,dims=dims)
+    maxind = LinearIndices(ycpu)[maxind]
+    maxind = vec(maxind)[a .!= 0]
+    correct = (maxind .== indices)
+    average ? (sum(correct) / length(correct)) : (sum(correct), length(correct))
+end
+
+function findindices(y,a::AbstractArray{<:Integer}; dims=1)
+    ninstances = length(a)
+    nindices = 0
+    indices = Vector{Int}(undef,ninstances)
+    if dims == 1                   # instances in first dimension
+        y1 = size(y,1)
+        y2 = div(length(y),y1)
+        if ninstances != y2; throw(DimensionMismatch()); end
+        @inbounds for j=1:ninstances
+            if a[j] == 0; continue; end
+            indices[nindices+=1] = (j-1)*y1 + a[j]
+        end
+    elseif dims == 2               # instances in last dimension
+        y2 = size(y,ndims(y))
+        y1 = div(length(y),y2)
+        if ninstances != y1; throw(DimensionMismatch()); end
+        @inbounds for j=1:ninstances
+            if a[j] == 0; continue; end
+            indices[nindices+=1] = (a[j]-1)*y1 + j
+        end
+    else
+        error("findindices only supports dims = 1 or 2")
+    end
+    return (nindices == ninstances ? indices : view(indices,1:nindices))
 end
 
 """
@@ -273,79 +319,37 @@ function bce(x̂,x;average=true)
 end
 
 """
-
-    accuracy(scores, answers; dims=1, average=true)
-
-Given an unnormalized `scores` matrix and an `Integer` array of
-correct `answers`, return the ratio of instances where the correct
-answer has the maximum score. `dims=1` means instances are in columns,
-`dims=2` means instances are in rows. Use `average=false` to return
-the number of correct answers instead of the ratio.
-
-"""
-function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
-    indices = findindices(y,a,dims=dims)
-    ycpu = convert(Array,y)
-    (maxval,maxind) = findmax(ycpu,dims=dims)
-    maxind = LinearIndices(ycpu)[maxind]
-    correct = (vec(maxind) .== indices)
-    average ? mean(correct) : sum(correct)
-end
-
-function findindices(y,a::AbstractArray{<:Integer}; dims=1)
-    n = length(a)
-    indices = Vector{Int}(undef,n)
-    if dims == 1                   # instances in first dimension
-        y1 = size(y,1)
-        y2 = div(length(y),y1)
-        if n != y2; throw(DimensionMismatch()); end
-        @inbounds for j=1:n
-            indices[j] = (j-1)*y1 + a[j]
-        end
-    elseif dims == 2               # instances in last dimension
-        y2 = size(y,ndims(y))
-        y1 = div(length(y),y2)
-        if n != y1; throw(DimensionMismatch()); end
-        @inbounds for j=1:n
-            indices[j] = (a[j]-1)*y1 + j
-        end
-    else
-        error("findindices only supports dims = 1 or 2")
-    end
-    return indices
-end
-
-
-
-"""
     nll(model, data; dims=1, average=true, o...)
 
-Compute `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and return the per-instance
-average (if average=true) or total (if average=false) negative log likelihood.
+Compute negative log likelihood `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and
+return `(total/count)` if `average=true` or `(total,count)` if `average=false`.
+
 """
 function nll(model, data; dims=1, average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += nll(model(x; o...), y; dims=dims, average=false)
-        cnt += length(y)
+        (z,n) = nll(model(x; o...), y; dims=dims, average=false) 
+        sum += z; cnt += n
     end
-    average ? sum / cnt : sum
+    average ? sum / cnt : (sum, cnt)
 end
 
 
 """
     accuracy(model, data; dims=1, average=true, o...)
 
-Compute `accuracy(model(x; o...), y; dims)` for `(x,y)` in `data` and return the ratio (if
-average=true) or the count (if average=false) of correct answers.
+Compute `accuracy(model(x; o...), y; dims)` for `(x,y)` in `data` and return (correct/total)
+if average=true or (correct,total) if average=false.
+
 """
 function accuracy(model, data; dims=1, average=true, o...)
     sum = cnt = 0
     for (x,y) in data
-        sum += accuracy(model(x; o...), y; dims=dims, average=false)
-        cnt += length(y)
+        (z,n) = accuracy(model(x; o...), y; dims=dims, average=false)
+        sum += z
+        cnt += n
     end
-    average ? sum / cnt : sum
+    average ? sum / cnt : (sum, cnt)
 end
 
 "zeroone loss is equal to 1 - accuracy"
