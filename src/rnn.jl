@@ -174,7 +174,9 @@ function RNN(inputSize, hiddenSize;
     if rnnType == :lstm         # separate initialization for lstm forget biases
         for layer in 1:(numLayers*(bidirectional ? 2 : 1)), id in (2,6), param in (2,)
             a = rnnparam(r, layer, id, param, useview=true, handle=handle)
-            copyto!(a, finit(dataType, size(a)))
+            if a != nothing
+                copyto!(a, finit(dataType, size(a)))
+            end
         end
     end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once
@@ -438,10 +440,8 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
         len = prod(sz)
-        if len > 1
-            i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
-            i2 = i1 + len - 1
-        end
+        i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
+        i2 = i1 + len - 1
     else
         # guess i1,i2,len from layer,id,par and rnn specs
         ids = rnnids(r)
@@ -476,7 +476,7 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         end
     end
     @inline access(a, rng) = (isa(a, KnetArray) || ~useview) ? a[rng] : view(a, rng)
-    if len == 1 # empty weights when inputMode=1 show up as size (1,1,1)
+    if len == 1 && r.inputMode == 1  # empty weights when inputMode=1 show up as size (1,1,1)
         nothing
     elseif par == 1 # matrix
         h = Int(r.hiddenSize)
