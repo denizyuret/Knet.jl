@@ -34,14 +34,15 @@ mutable struct Progress{I}
     func
     iter::I
     interval::UInt
-    nextprint::UInt
     starttime::UInt
-    completed::UInt
-    lastval
+    lasttime::UInt
+    lastiter::UInt
+    curriter::UInt
+    currval
 end
 
 progress(func::Base.Callable, iter::I, interval::Integer=100) where {I} =
-    Progress{I}(func,iter,interval,interval,0,0,nothing)
+    Progress{I}(func,iter,interval,0,0,0,0,nothing)
 
 progress(iter, interval::Integer=100)=progress((x)->"",iter,interval)
 progress!(x...)=(for _ in progress(x...) end)
@@ -51,34 +52,35 @@ IteratorEltype(::Type{Progress{I}}) where {I} = Base.EltypeUnknown()
 length(p::Progress) = length(p.iter)
 
 @propagate_inbounds function iterate(p::Progress, s...)
-    if p.starttime == 0; p.starttime = time_ns(); end
+    if p.starttime == 0
+        p.starttime = p.lasttime = time_ns()
+    end
     next = iterate(p.iter, s...)
     if next !== nothing
-        p.completed += 1
-        (p.lastval, s) = next
-    elseif p.completed == 0
+        p.curriter += 1
+        (p.currval, s) = next
+    elseif p.curriter == 0
         return next             # don't print anything if no iterations
     end
-    if 1 < p.completed < p.nextprint && next !== nothing
-        return next             # only print if first, last, or nextprint
-    elseif p.completed == p.nextprint
-        p.nextprint += p.interval
+    if next !== nothing && !(p.curriter ∈ (1, p.interval, p.lastiter + p.interval))
+        return next             # only print if first, last or multiples of interval
     end
-    fval_string = string(p.func(p.lastval))
-    curr_time = time_ns()
-    seconds   = (curr_time - p.starttime) * 1e-9
-    speed     = p.completed / seconds
+    fval_string = string(p.func(p.currval))
+    currtime = time_ns()
+    seconds = (currtime - p.starttime) * 1e-9
+    speed = (next === nothing ? p.curriter / seconds : (p.curriter - p.lastiter) / ((currtime - p.lasttime) * 1e-9))
+    p.lastiter, p.lasttime = p.curriter, currtime
 
     if haslength(p)
-        ETA = (length(p) - p.completed) / speed
-        percentage_string = string(@sprintf("%.2f%%",p.completed/length(p)*100))
+        ETA = (length(p) - p.curriter) / speed
+        percentage_string = string(@sprintf("%.2f%%",p.curriter/length(p)*100))
         status_string = string("[", percentage_string, 
-                               ", ", p.completed, "/", length(p), 
+                               ", ", p.curriter, "/", length(p), 
                                ", ", format_time(seconds), "/", format_time(seconds+ETA), 
                                ", ", format_speed(speed),
                                "] ")
     else
-        status_string = string("[", p.completed,
+        status_string = string("[", p.curriter,
                                ", ", format_time(seconds),
                                ", ", format_speed(speed),
                                "] ")
@@ -90,7 +92,7 @@ length(p::Progress) = length(p.iter)
         width = 20
         print("┣")
         cellvalue = length(p) / width
-        full_cells, remain = divrem(p.completed, cellvalue)
+        full_cells, remain = divrem(p.curriter, cellvalue)
         full_cells = round(Int, full_cells)
         print(repeat("█", full_cells))
         if (full_cells < width)
