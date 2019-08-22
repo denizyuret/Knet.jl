@@ -117,6 +117,7 @@ function progressbar(p::Progress, next)
     print(status_string)
     print(fval_string)
     next === nothing && println()
+    flush(stdout)
     return next
 end
 
