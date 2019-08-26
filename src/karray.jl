@@ -311,6 +311,14 @@ function vcat(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
+function vcat(A::KnetArray{T}...) where {T}
+    S = size(A[1])[2:end]
+    for a in A; size(a)[2:end] == S || throw(DimensionMismatch()); end
+    B = (reshape(a, size(a,1), :) for a in A)
+    C = vcat(B...)
+    reshape(C, size(C,1), S...)
+end
+
 function cat(a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...; dims) where {T}
     if     dims==1 || dims==Val(1); vcat(a1, a...)
     elseif dims==2 || dims==Val(2); hcat(a1, a...)
