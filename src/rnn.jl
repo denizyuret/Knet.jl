@@ -404,15 +404,28 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For skipInput=false (default), rnnparam(r,1,I,1) is a (inputSize,hiddenSize) matrix.
 * For skipInput=true, rnnparam(r,1,I,1) is `nothing`.
 * For bidirectional, the same applies to rnnparam(r,2,I,1): the first back layer.
+* The input biases (par=2) are returned even if skipInput=true.
 """
 function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=gethandle(), useview=false)
+    params_are_good = 
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
       (r.direction == 1 && 1 <= layer <= 2*r.numLayers)) &&
      ((r.mode == 0 && 1 <= id <= 2) ||
       (r.mode == 1 && 1 <= id <= 2) ||
       (r.mode == 2 && 1 <= id <= 8) ||
-      (r.mode == 3 && 1 <= id <= 6))) || error("Bad parameter index")
+      (r.mode == 3 && 1 <= id <= 6)))
+    params_are_good || throw(ArgumentError("Bad arguments for rnnparam, please see doc."))
+    should_return_nothing =
+        ((r.inputMode == 1) &&
+         (par == 1) &&
+         ((r.mode == 0 && id == 1) ||
+          (r.mode == 1 && id == 1) ||
+          (r.mode == 2 && 1 <= id <= 4) ||
+          (r.mode == 3 && 1 <= id <= 3)) &&
+         ((layer == 1) ||
+          (r.direction == 1 && layer == 2)))
+
     i1 = i2 = len = 0
     w = value(r.w)
     if isa(w, KnetArray)
@@ -439,10 +452,15 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
                   id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
+        if should_return_nothing
+            @assert param[1] === C_NULL
+            @assert sz == ()
+            return nothing
+        end
         len = prod(sz)
         i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
         i2 = i1 + len - 1
-    else
+    else # if isa(w, KnetArray)
         # guess i1,i2,len from layer,id,par and rnn specs
         ids = rnnids(r)
         if par == 1 # matrix
@@ -465,7 +483,6 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
                 i2 += len
                 if l==layer && i==id; break; end
             end
-            if len==0; len=1; end # cudnn uses size (1,1,1) for empty weights
             i1 = i2 - len + 1
         else # bias
             # all biases are length=hidden and there are always numLayers * numIds of them
@@ -476,12 +493,12 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         end
     end
     @inline access(a, rng) = (isa(a, KnetArray) || ~useview) ? a[rng] : view(a, rng)
-    if len == 1 && r.inputMode == 1  # empty weights when inputMode=1 show up as size (1,1,1)
+    if i1 > i2
+        @assert should_return_nothing
         nothing
-    elseif par == 1 # matrix
+    elseif par == 1 # matrix; weights are transposed
         h = Int(r.hiddenSize)
-        reshape(access(r.w, i1:i2),
-                (div(len,h),h)) # weight matrices are transposed
+        reshape(access(r.w, i1:i2),:,h)
     else # bias
         access(r.w, i1:i2)
     end
