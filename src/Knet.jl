@@ -108,6 +108,7 @@ include("gpu.jl");              # gpu
 include("uva.jl")
 include("kptr.jl");
 include("karray.jl");           # KnetArray
+include("cuarray.jl");
 include("gcnode.jl");
 include("ops.jl");
 include("unary.jl");            # relu, sigm, invx, elu, selu

@@ -91,8 +91,8 @@ end
 
 # TODO: Let's see if this keeps it under control:
 import Base: getindex, setindex!, iterate, IndexStyle
-getindex(A::KnetArray,I...)=throw(MethodError(getindex,A,I...))
-setindex!(A::KnetArray,I...)=throw(MethodError(setindex!,A,I...))
+# getindex(A::KnetArray,I...)=throw(MethodError(getindex,A,I...))   # CuArrays based fallback
+# setindex!(A::KnetArray,I...)=throw(MethodError(setindex!,A,I...)) # CuArrays based fallback
 iterate(A::KnetArray,I...)=throw(MethodError(iterate,A,I...))
 IndexStyle(::Type{<:KnetArray})=IndexLinear()
 # TODO: do we need more defensive methods here?  broadcasted, materialize etc?
@@ -224,14 +224,10 @@ isapprox(a::KnetArray,b::AbstractArray;o...)=(size(a)==size(b) && isapprox(Array
 # Concatenation:
 import Base: hcat, vcat, cat
 
-# Need to extend cat definitions from AutoGrad/src/base/abstractarray.jl:
+# Need to extend cat definitions from AutoGrad/src/cat.jl:
 const NAVK = Union{Number,AbstractArray,AutoGrad.Value,KnetArray}
 cat(X::NAVK...; dims) = AutoGrad.forw(cat,X...;dims=dims)
-if isdefined(AutoGrad,:Arg); @eval begin
-    AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-end; else; @eval begin
-    AutoGrad.back(::typeof(cat),::Val{N},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
-end; end
+AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) where {N}=AutoGrad.uncat(y1,N,dims,x...)
 
 # Benchmarks in μs for hcat and vcat: a=rand(1000,1000) v=rand(1000), t=v'
 #		cpu	gpu	g->c->g	vkernel
@@ -251,7 +247,7 @@ end; end
 # vcat(m,m): I = (1:3,Colon()) I = (4:6,Colon())
 
 # based on typed_hcat{T}(::Type{T}, A::AbstractVecOrMat...) in base/abstractarray.jl:996
-function hcat(A::KnetVecOrMat{T}...) where {T}
+function hcat_old(A::KnetVecOrMat{T}...) where {T}
     nargs = length(A)
     nrows = size(A[1], 1)
     ncols = 0
@@ -274,7 +270,7 @@ function hcat(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
-function vcat(A::KnetVector{T}...) where {T}
+function vcat_old(A::KnetVector{T}...) where {T}
     nargs = length(A)
     nrows = 0
     for a in A
@@ -291,7 +287,7 @@ function vcat(A::KnetVector{T}...) where {T}
     return B
 end
 
-function vcat(A::KnetVecOrMat{T}...) where {T}
+function vcat_old(A::KnetVecOrMat{T}...) where {T}
     nargs = length(A)
     nrows = sum(a->size(a, 1), A)::Int
     ncols = size(A[1], 2)
@@ -311,15 +307,15 @@ function vcat(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
-function vcat(A::KnetArray{T}...) where {T}
+function vcat_old(A::KnetArray{T}...) where {T}
     S = size(A[1])[2:end]
     for a in A; size(a)[2:end] == S || throw(DimensionMismatch()); end
     B = (reshape(a, size(a,1), :) for a in A)
-    C = vcat(B...)
+    C = vcat_old(B...)
     reshape(C, size(C,1), S...)
 end
 
-function cat(a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...; dims) where {T}
+function cat_old(a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...; dims) where {T}
     if     dims==1 || dims==Val(1); vcat(a1, a...)
     elseif dims==2 || dims==Val(2); hcat(a1, a...)
     else error("cat(a...;dims=$dims) not implemented.")
@@ -328,19 +324,19 @@ end
 
 # Avoid using Base for unimplemented cat methods:
 
-using AutoGrad: NA # Union{Number,AbstractArray}
-const NAK = Union{Number,AbstractArray,KnetArray}
-cat(a::NA, as::NA...; dims)=Base._cat(dims, a, as...)
-cat(a::NAK, as::NAK...; dims)=throw(MethodError(cat, (a, as...)))
-hcat(a::NA, as::NA...)=cat(a,as...; dims=2)
-hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
-vcat(a::NA, as::NA...)=cat(a,as...; dims=1)
-vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
+# using AutoGrad: NA # Union{Number,AbstractArray}
+# const NAK = Union{Number,AbstractArray,KnetArray}
+# cat(a::NA, as::NA...; dims)=Base._cat(dims, a, as...)
+# cat(a::NAK, as::NAK...; dims)=throw(MethodError(cat, (a, as...)))
+# hcat(a::NA, as::NA...)=cat(a,as...; dims=2)
+# hcat(a::NAK, as::NAK...)=throw(MethodError(hcat, (a, as...)))
+# vcat(a::NA, as::NA...)=cat(a,as...; dims=1)
+# vcat(a::NAK, as::NAK...)=throw(MethodError(vcat, (a, as...)))
 
-# Ambiguity fix for abstractarray.jl:1066-1072
-using Base: hvcat_fill, promote_typeof
-vcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1+length(Xs)), (X, Xs...))
-hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1,1+length(Xs)), (X, Xs...))
+# # Ambiguity fix for abstractarray.jl:1066-1072
+# using Base: hvcat_fill, promote_typeof
+# vcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1+length(Xs)), (X, Xs...))
+# hcat(X::Number, Xs::Number...) = hvcat_fill(Array{promote_typeof(X, Xs...)}(undef,1,1+length(Xs)), (X, Xs...))
 
 # Utilities:
 
@@ -712,13 +708,13 @@ function setindex!(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{I}) where {T
     return x
 end
 
-function setindex!(x::KnetMatrix{T}, y, c::AbstractUnitRange, i::AbstractVector{I}) where {T,I<:Real}
-    if c == 1:size(x,1)
-        setindex!(x, y, :, i)
-    else
-        throw(MethodError(setindex!,x,y,c,i))
-    end
-end
+# function setindex!(x::KnetMatrix{T}, y, c::AbstractUnitRange, i::AbstractVector{I}) where {T,I<:Real}
+#     if c == 1:size(x,1)
+#         setindex!(x, y, :, i)
+#     else
+#         throw(MethodError(setindex!,x,y,c,i))
+#     end
+# end
 
 ## Indexing with (AbstractVector{Real},Colon) calls (KnetArray{Int32},Colon) after bound checking
 
@@ -753,13 +749,13 @@ function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::Colon) where {T
     return x
 end
 
-function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::AbstractUnitRange) where {T,I<:Real}
-    if c == 1:size(x,2)
-        setindex!(x, y, i, :)
-    else
-        throw(MethodError(setindex!,x,y,i,c))
-    end
-end
+# function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{I}, c::AbstractUnitRange) where {T,I<:Real}
+#     if c == 1:size(x,2)
+#         setindex!(x, y, i, :)
+#     else
+#         throw(MethodError(setindex!,x,y,i,c))
+#     end
+# end
 
 ## Indexing with AbstractArray{CartesianIndex} calls AbstractArray{Real}
 
@@ -808,13 +804,13 @@ function setindex!(A::KnetMatrix{T}, v, I::StepRange, c::Colon) where {T}
     setindex!(A, v, collect(I), c)
 end
 
-function setindex!(A::KnetMatrix, v, I::StepRange, r::AbstractUnitRange)
-    if r == 1:size(A,2)
-        setindex!(A,v,I,:)
-    else
-        throw(MethodError(setindex!, A, v, I, r))
-    end
-end
+# function setindex!(A::KnetMatrix, v, I::StepRange, r::AbstractUnitRange)
+#     if r == 1:size(A,2)
+#         setindex!(A,v,I,:)
+#     else
+#         throw(MethodError(setindex!, A, v, I, r))
+#     end
+# end
 
 ## Indexing with (Colon,StepRange) calls (Colon,AbstractArray{Real})
 
@@ -834,13 +830,13 @@ function setindex!(A::KnetMatrix{T}, v, c::Colon, I::StepRange) where {T}
     setindex!(A, v, c, collect(I))
 end
 
-function setindex!(A::KnetMatrix, v, r::AbstractUnitRange, I::StepRange)
-    if r == 1:size(A,1)
-        setindex!(A,v,:,I)
-    else
-        throw(MethodError(setindex!, A, v, r, I))
-    end
-end
+# function setindex!(A::KnetMatrix, v, r::AbstractUnitRange, I::StepRange)
+#     if r == 1:size(A,1)
+#         setindex!(A,v,:,I)
+#     else
+#         throw(MethodError(setindex!, A, v, r, I))
+#     end
+# end
 
 ## Indexing with AbstractArray{Bool} calls KnetArray{Int32}; no need for bound checking
 
@@ -897,13 +893,13 @@ function setindex!(x::KnetMatrix{T}, y, c::Colon, i::AbstractVector{Bool}) where
     return x
 end
 
-function setindex!(x::KnetMatrix, y, c::AbstractUnitRange, i::AbstractVector{Bool})
-    if c == 1:size(x,1)
-        setindex!(x,y,:,i)
-    else
-        throw(MethodError(setindex!,x,y,c,i))
-    end
-end
+# function setindex!(x::KnetMatrix, y, c::AbstractUnitRange, i::AbstractVector{Bool})
+#     if c == 1:size(x,1)
+#         setindex!(x,y,:,i)
+#     else
+#         throw(MethodError(setindex!,x,y,c,i))
+#     end
+# end
 
 ## Indexing with (AbstractVector{Bool},Colon) calls (KnetArray{Int32},Colon); no need for bound checking
 
@@ -935,13 +931,13 @@ function setindex!(x::KnetMatrix{T}, y, i::AbstractVector{Bool}, c::Colon) where
     return x
 end
 
-function setindex!(x::KnetMatrix, y, i::AbstractVector{Bool}, c::AbstractUnitRange)
-    if c == 1:size(x,2)
-        setindex!(x,y,i,:)
-    else
-        throw(MethodError(setindex!,x,y,i,c))
-    end
-end
+# function setindex!(x::KnetMatrix, y, i::AbstractVector{Bool}, c::AbstractUnitRange)
+#     if c == 1:size(x,2)
+#         setindex!(x,y,i,:)
+#     else
+#         throw(MethodError(setindex!,x,y,i,c))
+#     end
+# end
 
 ## Indexing with KnetArray{T} for logicals calls KnetArray{Int32}
 # Need this because (k.<0) returns KnetArray{T} instead of BitArray
@@ -1250,13 +1246,13 @@ function setindex!(x::KnetArray, y, ::Colon, ::Colon, ::Colon)
     return x
 end
 
-function setindex!(x::KnetArray, y, i::AbstractUnitRange, j::AbstractUnitRange, k::Index3)
-    if first(i) == 1 && last(i) == size(x,1) && first(j) == 1 && last(j) == size(x,2)
-        setindex!(x, y, :, :, k)
-    else
-        throw(MethodError(setindex!, (x,y,i,j,k)))
-    end
-end
+# function setindex!(x::KnetArray, y, i::AbstractUnitRange, j::AbstractUnitRange, k::Index3)
+#     if first(i) == 1 && last(i) == size(x,1) && first(j) == 1 && last(j) == size(x,2)
+#         setindex!(x, y, :, :, k)
+#     else
+#         throw(MethodError(setindex!, (x,y,i,j,k)))
+#     end
+# end
 
 function getindex(x::KnetArray{T,2}, ::Colon, m::AbstractArray{I,2}) where {T,I<:Integer}
     reshape(x[:,vec(m)], size(x,1), size(m,1), size(m,2))
@@ -1341,24 +1337,3 @@ end
 # copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted) where {T,N,P<:KnetArray,I,L} = setindex!(a.parent, copy(b), a.indices...)
 # copyto!(a::SubArray{T,N,P,I,L},b::Broadcasted{<:Broadcast.AbstractArrayStyle{0}}) where {T,N,P<:KnetArray,I,L} = (if !isempty(b); setindex!(a.parent, first(b), a.indices...); end)
 
-### Use CuArrays kernels for unsupported operations.
-# Must be careful with memory management, for now we will let Knet manage memory.
-
-# Extend function cu to create a memory shared CuArray from KnetArray:
-if isdefined(@__MODULE__, :CuArrays)
-    function CuArrays.cu(x::KnetArray{T}) where {T}
-        p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
-        Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
-    end
-end
-
-# Do not extend function ka to create a memory shared KnetArray from CuArray:
-# best not to use CuArrays memory manager simultaneously with KnetArrays memory manager.
-# use cu(x) with overwriting kernels only.
-
-# function Knet.ka(x::CuArray{T,N}) where {T,N}
-#     p = Base.bitcast(Knet.Cptr, x.buf.ptr)
-#     k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
-#     # finalizer(identity, k) # hacky way to avoid gc? gives error in running finalizer
-#     KnetArray{T,N}(k, size(x))
-# end
