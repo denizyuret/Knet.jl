@@ -71,6 +71,7 @@ for an example.
 - `seed=0`: Random number seed for dropout. Uses `time()` if 0.
 - `winit=xavier`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
+- `finit=ones`: Weight initialization method for the bias of forget gates.
 - `usegpu=(gpu()>=0)`: GPU used by default if one exists.
 
 **Formulas:** RNNs compute the output h[t] for a given iteration from the recurrent input
