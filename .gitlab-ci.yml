@@ -5,7 +5,7 @@ variables:
 include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/common.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.2.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_dev.yml'
+# - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_dev.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/coverage_v1.2.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/documentation_v1.2.yml'
 
@@ -15,10 +15,7 @@ test:dev:
 coverage:
   allow_failure: true
 
-test:memchk:
-  extends: .test
-  variables:
-      CI_VERSION_TAG: 'v1.2'
+test:v1.2:
   script:
     - julia -e 'using InteractiveUtils; versioninfo()'
     - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
