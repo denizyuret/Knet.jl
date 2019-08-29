@@ -9,7 +9,7 @@
 @time include("dropout.jl")       #   1   2   8   5                   2
 @time include("serialize.jl")     #   2  11   1
 #@time include("bmm.jl")           #   3   9 
-@time include("cuarray.jl")
+#@time include("cuarray.jl")
 @time include("jld.jl")           #  11   9  26
 @time include("loss.jl")          #  13  19  20  10                   4
 @time include("linalg.jl")        #  17  22  22  62  24  14  22   7  28  33  19
