@@ -14,3 +14,18 @@ test:dev:
 
 coverage:
   allow_failure: true
+
+test:memchk:
+  extends: .test
+  variables:
+      CI_VERSION_TAG: 'v1.2'
+  script:
+    - julia -e 'using InteractiveUtils; versioninfo()'
+    - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
+    - julia -e 'using Pkg;
+                Pkg.develop([PackageSpec(path=pwd());
+                             [PackageSpec(name=pkg)
+                              for pkg in split(get(ENV,"CI_DEV_PKGS",""))]])'
+    - cuda-memcheck julia -e "using Pkg;
+                              pkg\"build ${CI_PROJECT_NAME}\";
+                              pkg\"test --coverage ${CI_PROJECT_NAME}\""
