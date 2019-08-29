@@ -1,5 +1,18 @@
+Knet v1.2.5 Release Notes
+=========================
+
+* Unsupported KnetArray shapes for getindex/setindex!, cat/hcat/vcat and permutedims have now fallback kernels from CuArrays. permutedims speed for ndims>=2 greatly improved.
+* Memory manager made faster and more robust using attention based nmt benchmarks.
+* RNN fixes: init speed improved, default forget bias=1, allocates own workspace, no longer a parametric type RNN{T}.
+* nll/accuracy now use a 0 value for masking, return (total,count) pair when average=false.
+* progress now takes a function argument and runs it periodically either every n seconds or n steps.
+* minimize and friends (adam etc.) return Result instead of plain loss to allow looking at gradients.
+* Use IterTools in tutorial instead of redefining the same functions.
+
+
 Knet v1.2.4 Release Notes
 =========================
+25f9078 2019-08-10
 
 * Fixed permutedims speed using CuArrays.
 
