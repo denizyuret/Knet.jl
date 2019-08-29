@@ -7,9 +7,9 @@
 @time include("gpu.jl")           #   1   2   2   6   1   1   0   0   2   0   0
 @time include("distributions.jl") #   1   1   1   2   1   1   2   1   3   3   2
 @time include("dropout.jl")       #   1   2   8   5                   2
-@time include("serialize.jl")     #   2  11   1
 @time include("bmm.jl")           #   3   9 
 @time include("cuarray.jl")
+# @time include("serialize.jl")     #   2  11   1
 # @time include("jld.jl")           #  11   9  26
 # @time include("loss.jl")          #  13  19  20  10                   4
 # @time include("linalg.jl")        #  17  22  22  62  24  14  22   7  28  33  19
