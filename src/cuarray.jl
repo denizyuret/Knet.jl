@@ -55,9 +55,9 @@ permutedims(x::KnetMatrix)=_transpose(x)          # cuDNN is %10 slower but no s
 permutedims(x::KnetVector)=copy(reshape(x,1,:))
 
 # TODO: delete this when fixed in AutoGrad:
-if isempty(methods(permutedims, (AutoGrad.Value,)))
-    @primitive permutedims(x),dy  reshape(permutedims(dy),size(x)) # need reshape for vectors
-end
+# if isempty(methods(permutedims, (AutoGrad.Value,))) # this does not work, it matches permutedims(x,d...)
+@primitive permutedims(x),dy  reshape(permutedims(dy),size(x)) # need reshape for vectors
+#end
 
 using Base: dims2cat, cat_shape, __cat
 
