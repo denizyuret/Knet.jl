@@ -19,7 +19,7 @@ include:
 coverage:
   allow_failure: true
 
-test:v1.2:
+test:v1.2:			# cuda-memcheck gets stuck
   script:
     - julia -e 'using InteractiveUtils; versioninfo()'
     - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
