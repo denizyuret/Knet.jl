@@ -19,14 +19,18 @@ include:
 coverage:
   allow_failure: true
 
-# test:v1.2:			# cuda-memcheck gets stuck
-#   script:
-#     - julia -e 'using InteractiveUtils; versioninfo()'
-#     - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
-#     - julia -e 'using Pkg;
-#                 Pkg.develop([PackageSpec(path=pwd());
-#                              [PackageSpec(name=pkg)
-#                               for pkg in split(get(ENV,"CI_DEV_PKGS",""))]])'
-#     - cuda-memcheck julia -e "using Pkg;
-#                               pkg\"build ${CI_PROJECT_NAME}\";
-#                               pkg\"test --coverage ${CI_PROJECT_NAME}\""
+test:v1.2:			# cuda-memcheck gets stuck
+  script:
+    - julia -e 'using InteractiveUtils; versioninfo()'
+    - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
+    - julia -e 'using Pkg;
+                Pkg.develop([PackageSpec(path=pwd());
+                             [PackageSpec(name=pkg)
+                              for pkg in split(get(ENV,"CI_DEV_PKGS",""))]])'
+    - julia -e "using Pkg;
+      	        pkg\"test CUDAapi\";
+      	        pkg\"test CUDAdrv\";
+      	        pkg\"test CUDAnative\";
+      	        pkg\"test CuArrays\";
+                pkg\"build ${CI_PROJECT_NAME}\";
+                pkg\"test --coverage ${CI_PROJECT_NAME}\""
