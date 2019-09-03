@@ -30,8 +30,7 @@ test:v1.2:			# cuda-memcheck gets stuck
     - julia -e "using Pkg;
       	        pkg\"test CUDAapi\";
       	        pkg\"test CUDAdrv\";
+		pkg\"test CUDAnative\";
       	        pkg\"test CuArrays\";
                 pkg\"build ${CI_PROJECT_NAME}\";
                 pkg\"test --coverage ${CI_PROJECT_NAME}\""
-
-# pkg\"test CUDAnative\";
