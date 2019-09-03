@@ -6,8 +6,8 @@
 @time include("dropout.jl")       #   7   1   2   8   5                   2
 @time include("serialize.jl")     #  17   2  11   1
 @time include("jld.jl")           #  20  11   9  26
-#@time include("cuarray.jl")       #  22
-#@time include("bmm.jl")           #  28   3   9 
+@time include("cuarray.jl")       #  22
+@time include("bmm.jl")           #  28   3   9 
 @time include("batchnorm.jl")     #  49  14  23  22  93
 @time include("loss.jl")          #  70  13  19  20  10                   4
 @time include("karray.jl")        #  80  20  27  21  55  19  12   -   -  21   -   0
