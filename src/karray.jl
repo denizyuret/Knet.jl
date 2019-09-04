@@ -246,8 +246,8 @@ AutoGrad.back(::typeof(cat),::Type{Arg{N}},y1::NAVK,y::NAVK,x::NAVK...; dims) wh
 # hcat(m,m): I = (Colon(),1:5) I = (Colon(),6:10)
 # vcat(m,m): I = (1:3,Colon()) I = (4:6,Colon())
 
-# based on typed_hcat{T}(::Type{T}, A::AbstractVecOrMat...) in base/abstractarray.jl:996
-function hcat_old(A::KnetVecOrMat{T}...) where {T}
+# based on _typed_hcat{T}(::Type{T}, A::AbstractVecOrMat...) in base/abstractarray.jl:1316 julia-1.2.0
+function hcat(A::KnetVecOrMat{T}...) where {T}
     nargs = length(A)
     nrows = size(A[1], 1)
     ncols = 0
@@ -270,7 +270,7 @@ function hcat_old(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
-function vcat_old(A::KnetVector{T}...) where {T}
+function vcat(A::KnetVector{T}...) where {T}
     nargs = length(A)
     nrows = 0
     for a in A
@@ -287,7 +287,8 @@ function vcat_old(A::KnetVector{T}...) where {T}
     return B
 end
 
-function vcat_old(A::KnetVecOrMat{T}...) where {T}
+# based on _typed_vcat{T}(::Type{T}, A::AbstractVecOrTuple{AbstractVecOrMat}) in base/abstractarray.jl:1353 julia-1.2.0
+function vcat(A::KnetVecOrMat{T}...) where {T}
     nargs = length(A)
     nrows = sum(a->size(a, 1), A)::Int
     ncols = size(A[1], 2)
@@ -296,7 +297,7 @@ function vcat_old(A::KnetVecOrMat{T}...) where {T}
             throw(ArgumentError("number of columns of each array must match (got $(map(x->size(x,2), A)))"))
         end
     end
-    B = similar(A[1], nrows, ncols)
+    B = similar(A[1], T, nrows, ncols)
     pos = 1
     for k = 1:nargs
         Ak = A[k]
@@ -307,12 +308,17 @@ function vcat_old(A::KnetVecOrMat{T}...) where {T}
     return B
 end
 
-function vcat_old(A::KnetArray{T}...) where {T}
-    S = size(A[1])[2:end]
-    for a in A; size(a)[2:end] == S || throw(DimensionMismatch()); end
-    B = (reshape(a, size(a,1), :) for a in A)
-    C = vcat_old(B...)
-    reshape(C, size(C,1), S...)
+function vcat(A::KnetArray{T}...) where {T}
+    nargs = length(A)
+    size2 = size(A[1])[2:end]
+    for j = 2:nargs
+        if size(A[j])[2:end] != size2
+            throw(ArgumentError("size(a)[2:end] of each array must match (got $(map(size, A)))"))
+        end
+    end
+    A2 = (reshape(a, size(a,1), :) for a in A)
+    B = vcat(A2...)
+    reshape(B, size(B,1), size2...)
 end
 
 function cat_old(a1::KnetVecOrMat{T}, a::KnetVecOrMat{T}...; dims) where {T}

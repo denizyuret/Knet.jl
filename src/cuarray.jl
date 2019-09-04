@@ -12,6 +12,18 @@ end
 
 import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat
 
+# Running this first improves stability on some devices:
+function init_cuarrays()
+    a = cu(rand(3,3,3))
+    getindex(a,1:2,1:2,1:2)
+    setindex!(a,0.0,1:2,1:2,1:2)
+    permutedims(a,(1,3,2))
+    hcat(a,a)
+    vcat(a,a)
+    cat(a,a,dims=1)
+    nothing
+end
+
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
 if isdefined(@__MODULE__, :CuArrays)
@@ -61,16 +73,16 @@ permutedims(x::KnetVector)=copy(reshape(x,1,:))
 
 using Base: dims2cat, cat_shape, __cat
 
-vcat(X::KnetArray...)=cat(X...; dims=Val(1))
-hcat(X::KnetArray...)=cat(X...; dims=Val(2))
+# vcat(X::KnetArray...)=cat(X...; dims=Val(1)) # karray.jl version is 30%-80% faster
+hcat(X::KnetArray...)=cat(X...; dims=Val(2))   # This should only kick in for dims > 2, karray.jl 1/2D versions are 100% faster
 
 # Based on _cat_t, abstractarray.jl:1439, julia 1.2.0
 function cat(X::KnetArray{T}...; dims) where {T}
     catdims = dims2cat(dims)
-    catdims == (true,) && return vcat_old(X...) # 10-30% faster
+    # catdims == (true,) && return vcat_old(X...) # 10-30% faster
     shape = cat_shape(catdims, (), map(size, X)...)
-    length(shape) <= 2 && catdims == (false,true) && return hcat_old(X...) # 50% faster
-    A = similar(X[1], shape) # cat_similar(X[1], T, shape)
+    # length(shape) <= 2 && catdims == (false,true) && return hcat_old(X...) # 50% faster
+    A = similar(X[1], T, shape) # cat_similar(X[1], T, shape)
     if T <: Number && count(!iszero, catdims) > 1
         fill!(A, zero(T))
     end
