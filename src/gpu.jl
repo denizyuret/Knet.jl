@@ -1,4 +1,10 @@
 using CUDAapi, TimerOutputs, Libdl
+const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
+const tk = find_toolkit()
+const to = TimerOutput()
+const Cptr = Ptr{Cvoid}
+function getErrorString end
+
 if find_cuda_library("cuda", tk) != nothing # has_cuda()
     try
         import CUDAdrv, CUDAnative
@@ -6,11 +12,6 @@ if find_cuda_library("cuda", tk) != nothing # has_cuda()
         @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
     end
 end
-const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
-const tk = find_toolkit()
-const to = TimerOutput()
-const Cptr = Ptr{Cvoid}
-function getErrorString end
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
