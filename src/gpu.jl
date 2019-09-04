@@ -5,6 +5,14 @@ const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
 
+if find_cuda_library("cuda", tk) != nothing # has_cuda()
+    try
+        import CUDAdrv, CUDAnative
+    catch ex
+        @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
+    end
+end
+
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
 
@@ -22,7 +30,7 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
             push!(fx.args, esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))))
         end
         if errmsg
-            push!(fx.args, esc(:(if $r!=0; error(Knet.getErrorString($lib,$fun,$r)); end)))
+            push!(fx.args, esc(:(if $r!=0; error($(@__MODULE__).getErrorString($lib,$fun,$r)); end)))
         else
             push!(fx.args, esc(r))
         end
@@ -34,6 +42,7 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
 end
 
 macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues)); end
+macro cuda(fun, argtypes, argvalues...); :(@cudacall("cuda",$fun,UInt32,$argtypes,$argvalues)); end
 macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues)); end
 macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,false,-1)); end # don't throw error
 macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
@@ -75,7 +84,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
-        if !isdefined(Knet,:cudartfound)
+        if !isdefined(@__MODULE__,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cudart(cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cudart(cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
@@ -84,7 +93,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 cudartfound = false
             end
         end
-        if !isdefined(Knet,:nvmlfound)
+        if !isdefined(@__MODULE__,:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @nvml(nvmlInit,())
@@ -109,7 +118,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 pick = free = same = -1
                 for i=0:gpuCount()-1
                     if nvmlfound
-                        freemem = nvmlDeviceGetMemoryInfo(i)[2]
+                        freemem = nvmlDeviceGetMemoryInfo(nvmlid(i))[2]
                     else
                         @cudart(cudaSetDevice, (Cint,), i)
                         freemem = cudaMemGetInfo()[1]
@@ -142,6 +151,11 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
             @cudart(cudaSetDevice, (Cint,), i)
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
             curandInit()
+            # Initializing CUDAnative helps with stability problems for some devices
+            # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
+            # We find the equivalent cu number from pciBusId: 
+            # https://stackoverflow.com/questions/13781738/how-does-cuda-assign-device-ids-to-gpus
+            CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
         else
             GPU = -1
             # @cudart(cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
@@ -198,8 +212,33 @@ cudaGetDevice()=(d=Cint[-1];@cudart(cudaGetDevice,(Ptr{Cint},),d);Int(d[1]))
 cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cudart(cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 cudaDeviceSynchronize()=@cudart(cudaDeviceSynchronize,())
 
+# cuda, cudart, nvml each number devices differntly
+# we are using the cudart ids, here is some converters:
+
+function cudaDeviceGetPCIBusId(i=gpu())
+    pciBusId = zeros(UInt8,16)
+    @cudart(cudaDeviceGetPCIBusId, (Cptr, Cint, Cint), pciBusId, length(pciBusId), i)
+    return unsafe_string(pointer(pciBusId))
+end
+
+function cuid(i=gpu())
+    pci = cudaDeviceGetPCIBusId(i)
+    id = Cint[0]
+    @cuda(cuDeviceGetByPCIBusId, (Cptr, Cptr), id, pointer(pci))
+    return Int(id[1])
+end
+
+function nvmlid(i=gpu())
+    pci = cudaDeviceGetPCIBusId(i)
+    hnd = Cptr[0]; idx = Cuint[0];
+    @nvml(nvmlDeviceGetHandleByPciBusId, (Cptr, Cptr), pointer(pci), hnd)
+    @nvml(nvmlDeviceGetIndex, (Cptr, Cptr), hnd[1], idx)
+    return Int(idx[1])
+end
+
+
 "Returns total,free,used memory."
-function nvmlDeviceGetMemoryInfo(i=gpu())
+function nvmlDeviceGetMemoryInfo(i=nvmlid(gpu()))
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(undef,3)
@@ -212,7 +251,7 @@ function gpumem(i=gpu())
     if i < 0 || i >= gpuCount()
         return (0,0,0)
     elseif nvmlfound
-        return nvmlDeviceGetMemoryInfo(i)
+        return nvmlDeviceGetMemoryInfo(nvmlid(i))
     elseif cudartfound
         dev=gpu(); gpu(i)
         free,total = cudaMemGetInfo()
@@ -302,12 +341,3 @@ function getErrorString(lib,fun,ret)
     string(fun, ": ", ret, ": ", str)
 end
 
-# This is from https://github.com/JuliaGPU/CUDAapi.jl/pull/84/files
-
-if find_cuda_library("cuda", tk) != nothing # has_cuda()
-    try
-        using CuArrays
-    catch ex
-        @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
-    end
-end

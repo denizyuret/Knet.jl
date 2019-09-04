@@ -134,3 +134,6 @@ end
 # Unbroadcasted zero works on arrays: this moved to karray.jl
 # import Base: zero
 # zero(x::KnetArray)=zero.(x)
+
+# `lgamma` deprecated, using loggamma. TODO: move this to AutoGrad
+@primitive loggamma(x),dy,y (dy.*(digamma.(x)))

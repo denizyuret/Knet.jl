@@ -108,6 +108,7 @@ include("gpu.jl");              # gpu
 include("uva.jl")
 include("kptr.jl");
 include("karray.jl");           # KnetArray
+include("cuarray.jl");
 include("gcnode.jl");
 include("ops.jl");
 include("unary.jl");            # relu, sigm, invx, elu, selu
@@ -149,10 +150,10 @@ dir(path...) = joinpath(dirname(@__DIR__),path...)
 function __init__()
     try
         r = gpu(true)
-        # info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
+        #@info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
         gpu(false)
-        # warn("Knet using the CPU: $e")
+        #@warn("Knet using the CPU: $e")
     end
 end
 

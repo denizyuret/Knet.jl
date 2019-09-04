@@ -1,11 +1,13 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.2.4"
+version = "1.2.5"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
 CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
+CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
+CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"

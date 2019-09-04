@@ -37,6 +37,7 @@ if gpu() >= 0
                       ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
                 #@show i
+                k = KnetArray(a)
                 @test a[i...] == k[i...]
                 ai = a[i...]
                 if isa(ai, Number)
@@ -143,6 +144,7 @@ if gpu() >= 0
                       ((a.>0.5),),                      # BitArray
                       )
                 #@show i
+                k = KnetArray(a)
                 @test a[i...] == k[i...]
                 ai = a[i...]
                 if isa(ai, Number)
@@ -202,6 +204,18 @@ if gpu() >= 0
             @test (a4[:,:] .= a3) == (k4[:,:] .= k3); @test a4 == k4 # copyto!(::SubArray{Float64,2,KnetArray{Float64,2},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
             #TODO @test (a4[:,:] .= a1) == (k4[:,:] .= k1); @test a4 == k4 # copyto!(::SubArray{Float64,2,KnetArray{Float64,2},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}}},true}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,1}}}) at /home/gridsan/dyuret/.julia/dev/Knet/src/karray.jl:1200
             @test (a4[:,:] .= a0) == (k4[:,:] .= k0); @test a4 == k4 # setindex!(k4,k0,:,:); return k0
+        end
+
+        @testset "vcat" begin
+            for (a,b) in ((rand(3), rand(4)),
+                          (rand(3,2), rand(4,2)),
+                          (rand(3,2,2), rand(4,2,2)),
+                          (rand(3,2,2,2), rand(4,2,2,2)))
+                c, d = ka(a), ka(b)
+                @test vcat(a, b) == vcat(c, d)
+                @test gradcheck(vcat, a, b)
+                @test gradcheck(vcat, c, d)
+            end
         end
 
     end # karray

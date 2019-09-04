@@ -173,7 +173,8 @@ function loss(w, tree, values=[])
     hs, ygold = traverse(w, tree)
     ypred = w[end-1] * hcat(hs...)
     len = length(ygold)
-    lossval = nll(ypred,ygold; average=false)
+    (lossval, cnt) = nll(ypred,ygold; average=false)
+    @assert len == cnt
     push!(values, lossval); push!(values, len)
     return lossval/len
 end

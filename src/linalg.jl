@@ -104,8 +104,24 @@ end
 lmul!(alpha::Number, x::KnetArray{T}) where {T} = scal!(length(x),alpha,x,1)
 rmul!(x::KnetArray{T}, alpha::Number) where {T} = scal!(length(x),alpha,x,1)
 
-transpose(x::KnetArray)=_transpose(x)
-adjoint(x::KnetArray)=_transpose(x)
+transpose(x::KnetVecOrMat)=_transpose(x)
+adjoint(x::KnetVecOrMat)=_transpose(x)
+_transpose(x::KnetVector) = copy(reshape(x,1,:))
+_transpose(x::KnetMatrix) = _transpose!(similar(x,(size(x,2),size(x,1))),x)
+
+function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
+    if T<:Float32
+        @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    elseif T<:Float64
+        @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    else
+        error("CUBLAS does not support $T")
+    end
+    return y
+end
+
 
 #= TODO: use the lazy transpose:
 using LinearAlgebra: Adjoint, Transpose, AdjOrTrans
@@ -122,26 +138,6 @@ axes(A::AdjOrTransKnetMat) = reverse(axes(A.parent))
 IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
 IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 =#
-
-_transpose(x::KnetVector) = _transpose(reshape(x,:,1))
-_transpose(x::KnetMatrix) = _transpose!(similar(x,(size(x,2),size(x,1))),x)
-
-function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
-    # Using CUBLAS
-    if T<:Float32
-        @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
-    elseif T<:Float64
-        @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
-    else
-        error("CUBLAS does not support $T")
-    end
-    # Using CUDA kernel; performs worse than CUBLAS
-    # y = permutedims(x,[2 1])
-    return y
-end
-
 
 """
 
@@ -168,29 +164,6 @@ mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:di
 # specify the first rowdims are joined, the remaining are joined
 # 1-D input can be turned into a rowvec (rowdims=0), or colvec (rowdims=1).
 # default dims=ndims(x)-1 will turn vec into a rowvec but dims=1 will not work for conv.
-
-# Borrow permutedims! from CuArrays
-
-import Base: permutedims, permutedims!
-
-if isdefined(@__MODULE__, :CuArrays)
-
-permutedims!(y::KnetArray, x::KnetArray, perm) = (permutedims!(cu(y), cu(x), perm); y)
-
-#permutedims(x::KnetMatrix)=permutedims(x,(2,1))  # CuArrays is %10 faster but has startup cost
-permutedims(x::KnetMatrix)=_transpose(x)          # cuDNN is %10 slower but no startup cost
-
-# Alloc code based on base/multidimensional.jl:1306 (v1.1.1)
-function permutedims(B::KnetArray,perm)
-    dimsB = size(B)
-    ndimsB = length(dimsB)
-    (ndimsB == length(perm) && isperm(perm)) || throw(ArgumentError("no valid permutation of dimensions"))
-    dimsP = ntuple(i->dimsB[perm[i]], ndimsB)::typeof(dimsB)
-    P = similar(B, dimsP)
-    permutedims!(P,B,perm)
-end
-
-end
 
 # Low level gemm! call with pointers: CPU conv4 uses this. Based on julia/stdlib/v1.0/LinearAlgebra/src/blas.jl:1105
 

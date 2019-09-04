@@ -4,7 +4,7 @@ macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 
 if gpu() >= 0; @testset "rnn" begin
 
-    eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a,b))
+    eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a[1:3],b[1:3]))
     rxhc(r,x,h,c;o...)=(r.h=h;r.c=c;r(x;o...))
     D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
     P = Param

@@ -13,7 +13,7 @@ function _testkptr(kptrs, navail, nfree)
     @test sort(collect(keys(mem.pools))) == blocksizes
     @test mem.limit >= mem.bytes
     @test mem.bytes == sum(blocksizes)
-    @test mem.avail == navail
+    @test mem.bfree == navail
     @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
     if nfree == 0
         @test (p->p.len).(kptrs) == blocksizes

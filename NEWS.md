@@ -1,5 +1,21 @@
+Knet v1.2.5 Release Notes
+=========================
+
+* Unsupported KnetArray shapes for getindex/setindex!, cat/hcat/vcat and permutedims have now fallback kernels from CuArrays. permutedims speed for ndims>=2 greatly improved. This addresses issues #198, #319, #368, #400, #470.
+* Memory manager made faster and more robust using attention based nmt benchmarks.
+* Improved stability problems with CuArrays on some devices (e.g. gitlab-ci) using CUDAnative.initialize().
+* Addressed different device ids used by cudart, cuda, and nvml using PCIBusIds with cuid() and nvmlid().
+* RNN fixes: init speed improved, default forget bias=1, allocates own workspace, no longer a parametric type RNN{T}, fixed issue #482 with size 1 input.
+* nll/accuracy now use a 0 value for masking, return (total,count) pair when average=false.
+* progress now takes a function argument and runs it periodically either every n seconds or n steps.
+* minimize and friends (adam etc.) return Result instead of plain loss to allow looking at gradients.
+* Use IterTools in tutorial instead of redefining the same functions.
+* Use loggamma instead of deprecated lgamma.
+
+
 Knet v1.2.4 Release Notes
 =========================
+25f9078 2019-08-10
 
 * Fixed permutedims speed using CuArrays.
 

@@ -1,3 +1,30 @@
+2019-09-04  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
+
+	* Knet.jl: Calling CuArrays on __init__ helps with the stability of some devices.
+
+2019-09-03  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
+
+	* cuarrays: failing on gitlab-ci sometimes, related to gpu type?
+	Tesla-K20m-sm_35.log: CUDAnative:pass CuArrays:fail(1)/pass(4451) Knet:pass
+	  gebrd!: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/solver.jl:172
+	Tesla-K80-sm_37.log: CUDAnative:pass CuArrays:pass Knet:pass
+	Quadro-M2000-sm_52.log: CUDAnative:pass CuArrays:pass Knet:pass
+	GeForce-GTX-1080-Ti-sm_61.log: CUDAnative:pass CuArrays:fail(1)/pass(4451) Knet:fail(1)/pass
+	  gebrd!: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/solver.jl:172
+	  cpuconv: Test Failed at /dev/shm/dyuret/julia/dev/Knet/test/conv.jl:44
+	Tesla-P4-sm_61.log: CUDAnative:pass CuArrays:pass Knet:hang/hang(11:18)
+	Tesla-V100-PCIE-32GB-sm_70.log: CUDAnative:pass CuArrays:fail(4446/5) Knet:pass
+	  Batch 2D (in 4D): Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/fft.jl:62
+	  2D: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/fft.jl:165 (Float32)
+	  3D: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/fft.jl:165 (Float32)
+	  2D: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/fft.jl:165 (Float64)
+	  3D: Test Failed at /dev/shm/dyuret/julia/packages/CuArrays/wXQp8/test/fft.jl:165 (Float64)
+	GeForce-RTX-2080-Ti-sm_70 *gitlab-ci* CUDAnative:fail/pass CuArrays:pass(4446 pass,5 broken) Knet:hang(10:56)
+	  https://gitlab.com/JuliaGPU/Knet.jl/pipelines/80040815
+	    /builds/JuliaGPU/Knet.jl/.julia/packages/CUDAnative/LkH1v/test/device/execution.jl:545
+	  https://gitlab.com/JuliaGPU/Knet.jl/pipelines/80044768, 80054621
+	    CuArrays:5-broken, Knet:hangs
+
 2018-09-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* gc: The current gc has three problems:
