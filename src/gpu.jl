@@ -1,4 +1,11 @@
-using CUDAapi, CUDAdrv, CUDAnative, TimerOutputs, Libdl
+using CUDAapi, TimerOutputs, Libdl
+if find_cuda_library("cuda", tk) != nothing # has_cuda()
+    try
+        import CUDAdrv, CUDAnative
+    catch ex
+        @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
+    end
+end
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 const tk = find_toolkit()
 const to = TimerOutput()

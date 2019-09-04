@@ -2,7 +2,6 @@
 
 if find_cuda_library("cuda", tk) != nothing # has_cuda()
     try
-        import CUDAdrv, CUDAnative, CuArrays
         import CuArrays: CuArray, CuPtr
     catch ex
         @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
