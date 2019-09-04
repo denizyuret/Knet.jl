@@ -10,6 +10,7 @@ Knet v1.2.5 Release Notes
 * progress now takes a function argument and runs it periodically either every n seconds or n steps.
 * minimize and friends (adam etc.) return Result instead of plain loss to allow looking at gradients.
 * Use IterTools in tutorial instead of redefining the same functions.
+* Use loggamma instead of deprecated lgamma.
 
 
 Knet v1.2.4 Release Notes

@@ -69,7 +69,7 @@ unary_ops = [
 # "j0",
 # "j1",
 ("gamma_impl", "gamma"),
-"lgamma", # missing digamma for derivative
+("lgamma", "loggamma"), # lgamma(x::Real)` is deprecated, use `(logabsgamma(x))[1]` instead. Other alternative is loggamma, throws a DomainError if gamma(x) is negative.
 ("digamma_impl", "digamma"),
 ("trigamma_impl", "trigamma"),
 #
