@@ -150,10 +150,11 @@ dir(path...) = joinpath(dirname(@__DIR__),path...)
 function __init__()
     try
         r = gpu(true)
-        # info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
+        permutedims(cu(rand(2,2,2)),(1,3,2)) # initializing CuArrays improves stability for some devices
+        #@info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
         gpu(false)
-        # warn("Knet using the CPU: $e")
+        #@warn("Knet using the CPU: $e")
     end
 end
 
