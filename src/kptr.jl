@@ -217,7 +217,7 @@ kmeminfo(i=gpu())=(m=knetmem(i); @sprintf("knetgc=%g gc=%g pools=%g kptrs=%g kfr
 function gpuinfo(msg="",dev=gpu();n=10)
     msg != "" && print("$msg ")
     if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
-        g = nvmlDeviceGetMemoryInfo(dev)
+        g = nvmlDeviceGetMemoryInfo(nvmlid(dev))
         println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
     else
         dev0 = gpu(); gpu(dev)

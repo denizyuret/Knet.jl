@@ -2,7 +2,8 @@
 
 if find_cuda_library("cuda", tk) != nothing # has_cuda()
     try
-        using CuArrays
+        import CUDAdrv, CUDAnative, CuArrays
+        import CuArrays: CuArray, CuPtr
     catch ex
         @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
     end
@@ -12,25 +13,11 @@ end
 
 import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat
 
-# Running this first improves stability on some devices:
-function init_cuarrays()
-    a = cu(rand(3,3,3))
-    getindex(a,1:2,1:2,1:2)
-    setindex!(a,0.0,1:2,1:2,1:2)
-    permutedims(a,(1,3,2))
-    hcat(a,a)
-    vcat(a,a)
-    cat(a,a,dims=1)
-    nothing
-end
-
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
-if isdefined(@__MODULE__, :CuArrays)
-    function CuArrays.CuArray(x::KnetArray{T}) where {T}
-        p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
-        Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
-    end
+function CuArray(x::KnetArray{T}) where {T}
+    p = CuPtr{T}(UInt(x.ptr.ptr))
+    Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
 end
 
 # Based on _unsafe_getindex, multidimensional.jl:679, julia 1.2.0
