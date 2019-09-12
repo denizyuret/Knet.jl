@@ -142,7 +142,7 @@ end
 
 function reuse(mem, pool, blockbytes, dbg; trygc=false)
     if trygc
-        @timeit to "gc" GC.gc()
+        if TIMER; @timeit to "gc" GC.gc(); end
         mem.gctime = time_ns(); mem.gc += 1
     end
     if !isempty(pool.free)
