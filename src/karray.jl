@@ -1281,10 +1281,15 @@ getindex(a::KnetDisplay, i...) = getindex(a.a, i...)
 size(a::KnetDisplay) = size(a.a)
 summary(io::IO, a::KnetDisplay) = summary(io, a.a)
 summary(io::IO, a::KnetArray) = print(io, Base.dims2string(size(a)), " ", typeof(a))
-show(io::IO, a::KnetArray) = (print(io,"K"); show(io, KnetDisplay(a)))
 show(io::IO, m::MIME"text/plain", a::KnetArray) = show(io, m, KnetDisplay(a))
 summary(io::IO, x::AutoGrad.Value{A}) where {A<:KnetArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
 
+function show(io::IO, a::KnetArray) # Compact display used by print
+    T = eltype(a)
+    print(io, T <: AbstractFloat ? "K$(sizeof(T)*8)" : "K{$T}")
+    print(io, "($(join(size(a),',')))")
+    print(io, isempty(a) ? "[]" : "[$(a[1])⋯]")
+end
 
 ## Broadcasting:
 
