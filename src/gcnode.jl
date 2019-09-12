@@ -45,6 +45,7 @@ function maybefree(x::KnetArray, n::Node)
     #     error("Missed shared pointer $cp")
     # end
     #DBG
+    @dbg (push!(arraysizes,0); push!(blocksizes,0))
     freeKnetPtr(x.ptr)
     return true
 end

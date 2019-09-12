@@ -34,6 +34,7 @@ end
 
 function freeKnetPtr(p::KnetPtr)
     if p.ptr == C_NULL || isdefined(p,:parent); return; end
+    @dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
     mem = KnetMems[p.dev+1]
     mem.bfree += p.len
     mem.kfree += 1
