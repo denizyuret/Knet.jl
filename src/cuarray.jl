@@ -88,3 +88,10 @@ end
 #     KnetArray{T,N}(k, size(x))
 # end
 
+
+# Testing the CuArrays allocator: set Knet.cuallocator()=true to use this
+function KnetPtrCu(len::Int)
+    c = CuArray{UInt8}(undef, len)
+    p = convert(Cptr, convert(Int, c.buf.ptr))
+    KnetPtr(p, len, gpu(), c)
+end
