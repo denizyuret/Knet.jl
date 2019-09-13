@@ -93,7 +93,7 @@ arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
 
 gc_interval() = 2*10^8  # gc interval in ns, optimized on seq2seq model, balancing costs of alloc, GC.gc, Knet.gc
 putc(c)=nothing         # putc(c)=print(c) to observe GC.gc, Knet.gc and inclimit
-cuallocator()=false     # switch to true to use the CuArrays allocator
+cuallocator()=true      # switch to true to use the CuArrays allocator, false to use Knet allocator
 
 function KnetPtr(arraybytes::Int)
     cuallocator() && return KnetPtrCu(arraybytes)
