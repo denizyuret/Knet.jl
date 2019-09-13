@@ -22,7 +22,7 @@ end
 
 _testingkptr = false
 
-if gpu() >= 0 && KnetMems === nothing
+if gpu() >= 0 && KnetMems === nothing && !Knet.cuallocator()
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
     _testingkptr = true
