@@ -3,7 +3,6 @@
 
 import Base: sum, prod, minimum, maximum # , countnz
 import LinearAlgebra: norm, lmul!
-import Statistics: mean
 
 sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims)
 sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims)
@@ -98,9 +97,3 @@ function norm(x::KnetArray{T}, p::Real=2) where {T}
         sum(abs.(x).^p)^(1/p)
     end
 end
-
-mean(a::Union{T, AutoGrad.Value{T}}; dims=:) where {T<:KnetArray} = (b=sum(a,dims=dims); b .* convert(eltype(b),(length(b)/length(a))))
-mean(f::Base.Callable, a::Union{T, AutoGrad.Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
-# fixing ambiguity with AutoGrad
-mean(f::typeof(abs), a::Union{T, AutoGrad.Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
-mean(f::typeof(abs2), a::Union{T, AutoGrad.Value{T}}) where {T<:KnetArray} = sum(f, a) / length(a)
