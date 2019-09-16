@@ -1,7 +1,7 @@
 include("header.jl")
 using Statistics, LinearAlgebra
 
-sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4),(8,2,4))]
+sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
 @testset "bmm" begin
     for t in (Float32, Float64)
         for s in sizes

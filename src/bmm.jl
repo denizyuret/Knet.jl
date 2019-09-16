@@ -1,21 +1,30 @@
 """
 
-`bmm(A, B))` performs a batch matrix-matrix product of matrices stored in `A`
-and `B`. `A` and `B` must be 3d and the last dimension represents the batch size.
+    bmm(A, B)
 
-If A is a (m,n,b) tensor, B is a (n,k,b) tensor, and the output is a (m,k,b) tensor.
+Perform a batch matrix-matrix product of matrices stored in `A` and `B`. size(A,2) ==
+size(B,1) and size(A)[3:end] and size(B)[3:end] must match.
+
+If A is a (m,n,b...) tensor, B is a (n,k,b...) tensor, and the output is a (m,k,b...)
+tensor.
 
 """
-function bmm(A, B)
-    m,n,bs = size(A)
-    n,k,bs = size(B)
-    return bmm!(A, B, similar(A, (m, k, bs)))
+function bmm(a, b)
+    sa,sb = size(a),size(b)
+    @assert sa[2] == sb[1] && sa[3:end] == sb[3:end]
+    a3,b3 = reshape(a,sa[1],sa[2],:), reshape(b,sb[1],sb[2],:)
+    c3 = similar(a,sa[1],sb[2],size(a3,3))
+    bmm!(a3, b3, c3)
+    reshape(c3, sa[1], sb[2:end]...)
 end
 
-function bmm(A::KnetArray, B::KnetArray{T}) where {T}
-    m,n,bs = size(A)
-    n,k,bs = size(B)
-    return bmm!('N','N',one(T),A,B,zero(T),similar(A, (m, k, bs)))
+function bmm(a::KnetArray{T}, b::KnetArray{T}) where T
+    sa,sb = size(a),size(b)
+    @assert sa[2] == sb[1] && sa[3:end] == sb[3:end]
+    a3,b3 = reshape(a,sa[1],sa[2],:), reshape(b,sb[1],sb[2],:)
+    c3 = similar(a,sa[1],sb[2],size(a3,3))
+    bmm!('N','N',one(T),a3,b3,zero(T),c3)
+    reshape(c3, sa[1], sb[2:end]...)
 end
 
 function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
@@ -71,6 +80,6 @@ function bmm!(A, B, C)
     return C
 end
 
-@primitive bmm(x1,x2),dy,y bmm(dy,permutedims(x2, [2,1,3])) bmm(permutedims(x1,[2,1,3]), dy)
+@primitive bmm(x1,x2),dy,y  bmm(dy, permutedims(x2, (2,1,(3:ndims(x2))...)))  bmm(permutedims(x1, (2,1,(3:ndims(x1))...)), dy)
 @zerograd bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray, B::KnetArray, beta::Number, C::KnetArray)
 @zerograd bmm!(A, B, C)
