@@ -177,9 +177,7 @@ reshape(a::KnetArray, dims::Tuple{Vararg{Union{Int,Colon}}}) = reshape(a, Base._
 
 vec(a::KnetArray) = reshape(a, length(a))
 
-if isdefined(AutoGrad,:Arg); @eval begin  # TODO: deprecate in next AutoGrad version.
-    using AutoGrad: Arg
-end; end
+using AutoGrad: Arg
 
 # AbstractArray interface
 import Base: eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox #, linearindexing
