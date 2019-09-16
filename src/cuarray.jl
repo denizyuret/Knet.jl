@@ -95,3 +95,16 @@ function KnetPtrCu(len::Int)
     p = convert(Cptr, convert(Int, c.buf.ptr))
     KnetPtr(p, len, gpu(), c)
 end
+
+# argmax, argmin etc. Fixes https://github.com/denizyuret/Knet.jl/issues/368.
+# Two options: argmax(Array(KnetArray)) vs argmax(CuArray)
+# Experiments: 10x10, 100x100, 1000x1000 with no dims, dims=1, dims=2
+# With no dims, CuArrays is better for 100x100, 1000x1000.
+# With all others, KnetArray is better.
+
+import Base: argmax, argmin, findmax, findmin
+argmaxarray(x,d)=((d===:) && length(x) > 4096 ? CuArray(x) : Array(x))
+argmax(x::KnetArray; dims=:)=argmax(argmaxarray(x,dims); dims=dims)
+argmin(x::KnetArray; dims=:)=argmin(argmaxarray(x,dims); dims=dims)
+findmax(x::KnetArray; dims=:)=findmax(argmaxarray(x,dims); dims=dims)
+findmin(x::KnetArray; dims=:)=findmin(argmaxarray(x,dims); dims=dims)

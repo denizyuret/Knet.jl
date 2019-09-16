@@ -42,6 +42,17 @@ if gpu() >= 0; @testset "cuarray" begin
             @test @gcheck cat(a3,b3,dims=i)
         end
         @test setindex!(a0,b0[idx...],idx...) == setindex!(a1,b1[idx...],idx...)
+
+        # https://github.com/denizyuret/Knet.jl/issues/368
+        @test argmax(a0) == argmax(a1)
+        @test argmin(a0) == argmin(a1)
+        @test findmax(a0) == findmax(a1)
+        @test findmin(a0) == findmin(a1)
+        for i in 1:nd
+            @test argmax(a0,dims=i) == argmax(a1,dims=i)
+            @test argmin(a0,dims=i) == argmin(a1,dims=i)
+            @test findmax(a0,dims=i) == findmax(a1,dims=i)
+            @test findmin(a0,dims=i) == findmin(a1,dims=i)
+        end
     end
 end; end
-    
