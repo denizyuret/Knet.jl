@@ -27,8 +27,9 @@ size(m::Minimize) = size(m.data)
         end
         update!(x, grad(y,x))
     end
-    #return (value(y),s)
-    return (y,s)
+    #Returning the tape is risky: prevents gc and causes >2x slowdown at memory limit
+    #return (y,s)
+    return (value(y),s)
 end
 
 """
