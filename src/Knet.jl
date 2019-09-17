@@ -151,6 +151,7 @@ dir(path...) = joinpath(dirname(@__DIR__),path...)
 function __init__()
     try
         r = gpu(true)
+        r >= 0 && AutoGrad.set_gc_function(knetgcnode)
         #@info(r >= 0 ? "Knet using GPU $r" : "No GPU found, Knet using the CPU")
     catch e
         gpu(false)

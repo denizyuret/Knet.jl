@@ -2,7 +2,8 @@
 
 if find_cuda_library("cuda", tk) != nothing # has_cuda()
     try
-        using CuArrays # CuArray, CuPtr, unsafe_free!
+        using CuArrays: CuPtr, unsafe_free!
+        import CuArrays: CuArray
     catch ex
         @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
     end
@@ -14,7 +15,7 @@ import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat
 
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
-function CuArrays.CuArray(x::KnetArray{T}) where {T}
+function CuArray(x::KnetArray{T}) where {T}
     p = CuPtr{T}(UInt(x.ptr.ptr))
     Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
 end
@@ -98,7 +99,7 @@ end
 
 function freeKnetPtrCu(p::KnetPtr)
     if p.parent isa CuArray
-        CuArrays.unsafe_free!(p.parent)
+        unsafe_free!(p.parent)
         p.ptr = C_NULL
         p.parent = nothing
     else
