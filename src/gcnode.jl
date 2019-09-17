@@ -19,7 +19,7 @@
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
 
-_tape = nothing                 # TODO: make this WeakRef for gc purposes
+_tape = nothing
 _nodes = IdDict{Node,Int}()
 _kptrs = PriorityQueue{KnetPtr,Int}()
 _param = IdDict{KnetPtr,Bool}()
@@ -47,7 +47,7 @@ end
 
 function knetgcnode(n::Node, tape=nothing)  # knetgcnode: 191ms, 16.5μs/call
     n.Value isa Result || return
-    tape != _tape.value && knetgcinit(tape) # knetgcinit: 33.0ms
+    tape != _tape && knetgcinit(tape) # knetgcinit: 33.0ms
     @inbounds for i in 1:length(n.parents)  # forloop: 60.8ms
         isassigned(n.parents, i) || continue
         p = n.parents[i]
@@ -61,7 +61,7 @@ function knetgcnode(n::Node, tape=nothing)  # knetgcnode: 191ms, 16.5μs/call
     index = _nodes[n]
     while !isempty(_kptrs) && DataStructures.peek(_kptrs)[2] <= index # while: 59.3ms
         (k,v) = dequeue_pair!(_kptrs)  # dequeue: 10.0ms
-        @assert v == index
+        if v != index; @warn("k=$((k.ptr,k.len)) v=$v index=$index", maxlog=1); end
         freeKnetPtr(k)                 # freeKnetPtr: 36.3ms
     end
     n.outgrad = n.Value.value = nothing
