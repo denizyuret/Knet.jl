@@ -2,7 +2,7 @@
 
 if find_cuda_library("cuda", tk) != nothing # has_cuda()
     try
-        import CuArrays: CuArray, CuPtr
+        using CuArrays # CuArray, CuPtr, unsafe_free!
     catch ex
         @warn "CUDA is installed, but CuArrays.jl fails to load" exception=(ex,catch_backtrace())
     end
@@ -14,7 +14,7 @@ import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat
 
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
-function CuArray(x::KnetArray{T}) where {T}
+function CuArrays.CuArray(x::KnetArray{T}) where {T}
     p = CuPtr{T}(UInt(x.ptr.ptr))
     Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
 end
@@ -94,6 +94,16 @@ function KnetPtrCu(len::Int)
     c = CuArray{UInt8}(undef, len)
     p = convert(Cptr, convert(Int, c.buf.ptr))
     KnetPtr(p, len, gpu(), c)
+end
+
+function freeKnetPtrCu(p::KnetPtr)
+    if p.parent isa CuArray
+        CuArrays.unsafe_free!(p.parent)
+        p.ptr = C_NULL
+        p.parent = nothing
+    else
+        error("Bad parent pointer $(p.parent)")
+    end
 end
 
 # argmax, argmin etc. Fixes https://github.com/denizyuret/Knet.jl/issues/368.

@@ -1,3 +1,5 @@
+cuallocator()=true      # set to true to use the CuArrays allocator, false to use Knet allocator
+
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
 
@@ -33,13 +35,20 @@ end
 # release the memory, but inserts it back in the appropriate pool for reuse.
 
 function freeKnetPtr(p::KnetPtr)
-    if p.ptr == C_NULL || (isdefined(p,:parent) && p.parent !== nothing); return; end
-    @dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
-    mem = KnetMems[p.dev+1]
-    mem.bfree += p.len
-    mem.kfree += 1
-    push!(mem.pools[p.len].free, p.ptr)
-    p.ptr = C_NULL # to avoid double free by gcnode then gc.
+    if p.ptr == C_NULL
+        # already freed, do nothing
+    elseif p.parent isa KnetPtr
+        # subarray, do nothing
+    elseif p.parent isa Nothing
+        @dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
+        mem = KnetMems[p.dev+1]
+        mem.bfree += p.len
+        mem.kfree += 1
+        push!(mem.pools[p.len].free, p.ptr)
+        p.ptr = C_NULL # to avoid double free by gcnode then gc.
+    else
+        freeKnetPtrCu(p)
+    end
 end
 
 # We use the KnetPool type to keep track of allocated and garbage collected pointers: We
@@ -93,7 +102,6 @@ arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
 
 gc_interval() = 2*10^8  # gc interval in ns, optimized on seq2seq model, balancing costs of alloc, GC.gc, Knet.gc
 putc(c)=nothing         # putc(c)=print(c) to observe GC.gc, Knet.gc and inclimit
-cuallocator()=true      # switch to true to use the CuArrays allocator, false to use Knet allocator
 
 function KnetPtr(arraybytes::Int)
     cuallocator() && return KnetPtrCu(arraybytes)
