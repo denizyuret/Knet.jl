@@ -1,7 +1,7 @@
 import Statistics: mean, std, stdm, var, varm
 
 mean(a::KnetArray; o...) = (b = sum(a; o...); b .* convert(eltype(b),(length(b)/length(a))))
-mean(f, a::KnetArray) = sum(f, a) / length(a)
+mean(f::Base.Callable, a::KnetArray) = sum(f, a) / length(a)
 std(x::KnetArray, args...; kws...) = sqrt.(var(x, args...; kws...))
 stdm(x::KnetArray, args...; kws...) = sqrt.(varm(x, args...; kws...))
 var(x::KnetArray; corrected::Bool=true, mean=nothing, dims=:)=_varm(x, mean; corrected=corrected, dims=dims)
