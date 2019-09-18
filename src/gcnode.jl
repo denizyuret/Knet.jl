@@ -6,116 +6,95 @@
 # Results and outgrads of parents. We have no direct access to children!  Outgrads are only
 # created in core.jl:74 in back(). Both parents and children are accessible from the node.
 
-# TODO: remove shared pointers after last use
-# TODO: improve maysharepointer
-# TODO: possibly do a full tape scan in the beginning
-# TODO: play with other blocksize functions
-
-# Currently we free only 1/3 of possible space.
-# We only want to track/free KnetArrays
-# Say we have a function to recursively search for KnetArrays.
-# We can have a last-used hash KnetArray->node.
-
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
 
 _tape = nothing
-_nodes = IdDict{Node,Int}()
-_kptrs = PriorityQueue{KnetPtr,Int}()
-_param = IdDict{KnetPtr,Bool}()
+_index = IdDict{Node,Int}()
+_queue = PriorityQueue{KnetPtr,Int}()
+incval!(q::PriorityQueue{KnetPtr,Int},k::KnetPtr,v::Int) = if get(q,k,0) < v; q[k]=v; end  ## 0.190μs
 
-function knetgcinit(tape)
-    global _tape, _nodes, _kptrs
+function knetgcinit(tape)  ## 2.35ms
+    global _tape, _index, _queue
     _tape = WeakRef(tape)
-    empty!(_nodes)
-    empty!(_kptrs)
-    if tape isa Tape
-        @inbounds for i in 1:length(tape.list)
-            node = tape.list[i]
-            _nodes[node] = i
-            index = (node.Value isa Result ? i : typemax(Int)) # protect Params
-            # In case of shared pointers, larger values of i will override smaller ones
-            for p in knetptrs(node.Value.value)
-                _kptrs[p] = index
-            end
-            for p in knetptrs(node.outgrad)
-                _kptrs[p] = index
-            end
+    empty!(_index)
+    empty!(_queue)
+    tape isa Tape || return
+    @inbounds for (i,n) in enumerate(tape.list)
+        _index[n] = i
+        index = (n.Value isa Result ? i : typemax(Int))
+        for k in knetptrs(n.Value.value); incval!(_queue,k,index); end ## knetptrs: 0.283μs
+        for k in knetptrs(n.outgrad); incval!(_queue,k,index); end     ## incval: 0.293μs
+    end
+end
+
+function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
+    tape != _tape && knetgcinit(tape) ## 2μs amortized
+    tape isa Tape || return
+    ni = _index[n]
+    if n.Value isa Result && n.outgrad isa KnetArray
+        incval!(_queue, n.outgrad.ptr, ni)
+    end
+    @inbounds for i in 1:length(n.parents);  ## 2.43μs
+        isassigned(n.parents, i) || continue
+        parent = n.parents[i]
+        pi = (parent.Value isa Result ? _index[parent] : typemax(Int)) # protect Params
+        for ptr in knetptrs(parent.outgrad)      ## 0.680μs
+            incval!(_queue, ptr, pi)             ## 0.486μs
+        end
+    end
+    while !isempty(_queue) && DataStructures.peek(_queue)[2] <= ni  ## 5.62μs
+        (k,v) = dequeue_pair!(_queue)  ## 0.787μs
+        if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
+        #DBG verifypointer(tape, ni, k) 
+        freeKnetPtr(k)  ## 4.06μs
+    end
+    if n.Value isa Result
+        n.outgrad = n.Value.value = nothing
+    end
+end
+
+function verifypointer(tape::Tape, ni::Int, k::KnetPtr) # for debugging
+    @show ni
+    gcpointers[1] += k.len
+    findk = false
+    for n in tape.list
+        if k in knetptrs(n.outgrad) || k in knetptrs(n.Value.value)
+            findk = true
+            @assert n.Value isa Result && n.Value.value isa KnetArray && n.outgrad isa KnetArray  (global _n=n; global _k=k; global _t=tape; "pointer $(k.ptr) found in $n")
+        end
+    end
+    @assert findk
+    for i in 1:length(tape.list)
+        p = tape.list[i]
+        if p.Value isa Param || i > ni
+            @assert !isa(p.Value.value,KnetArray) || (p.Value.value.ptr != k && p.Value.value.ptr.ptr != C_NULL && p.Value.value.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null value")
+            @assert !isa(p.outgrad,KnetArray) || (p.outgrad.ptr != k && p.outgrad.ptr.ptr != C_NULL && p.outgrad.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null outgrad")
         end
     end
 end
 
-function knetgcnode(n::Node, tape=nothing)  # knetgcnode: 191ms, 16.5μs/call
-    n.Value isa Result || return
-    tape != _tape && knetgcinit(tape) # knetgcinit: 33.0ms
-    @inbounds for i in 1:length(n.parents)  # forloop: 60.8ms
-        isassigned(n.parents, i) || continue
-        p = n.parents[i]
-        index = (p.Value isa Result ? _nodes[p] : typemax(Int)) # protect Params
-        for ptr in knetptrs(p.outgrad)      # knetptrs: 36.7ms
-            if get(_kptrs,ptr,0) < index    # get_kptrs: 3.16ms
-                _kptrs[ptr] = index         # set_kptrs: 7.39ms
-            end
-        end
-    end
-    index = _nodes[n]
-    while !isempty(_kptrs) && DataStructures.peek(_kptrs)[2] <= index # while: 59.3ms
-        (k,v) = dequeue_pair!(_kptrs)  # dequeue: 10.0ms
-        if v != index; @warn("k=$((k.ptr,k.len)) v=$v index=$index", maxlog=1); end
-        freeKnetPtr(k)                 # freeKnetPtr: 36.3ms
-    end
-    n.outgrad = n.Value.value = nothing
-end
 
 # Recursively search for KnetPtrs based on deepcopy_internal
 
-knetptrs(f) = (ps=KnetPtr[]; _knetptrs(f,ps,IdDict{Any,Bool}()); ps)
+knetptrs(x, c=KnetPtr[], d=IdDict{Any,Bool}()) = (_knetptrs(x,c,d); c)
 
-_knetptrs(p::KnetPtr, ps::Vector{KnetPtr}, d::IdDict{Any,Bool}) = if !haskey(d,p); d[p]=true; push!(ps,p); end
+_knetptrs(x::Tuple, c::Vector{KnetPtr}, d::IdDict{Any,Bool}) =
+    for xi in x; _knetptrs(xi, c, d); end
 
-_knetptrs(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task,Regex},
-          ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool}) = return
-_knetptrs(x::Tuple, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool}) =
-    for p in x; _knetptrs(p, ps, stackdict); end
+_knetptrs(x::Union{Module,String,Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task,Regex},
+          c::Vector{KnetPtr}, d::IdDict{Any,Bool}) = return
 
-_knetptrs(x::Module, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool}) = return
+_knetptrs(x::Core.SimpleVector, c::Vector{KnetPtr}, d::IdDict{Any,Bool}) =
+    if !haskey(d,x); d[x] = true; for xi in x; _knetptrs(xi, c, d); end; end
 
-_knetptrs(x::String, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool}) = return
+_knetptrs(x::Array, c::Vector{KnetPtr}, d::IdDict{Any,Bool}) =
+    if !haskey(d,x); d[x] = true; _knetptrs_array_t(x, eltype(x), c, d); end
 
-function _knetptrs(x::Core.SimpleVector, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool})
-    if haskey(stackdict, x)
-        return
-    end
-    stackdict[x] = true
-    for p in x; _knetptrs(p, ps, stackdict); end
-end
+_knetptrs(x::Union{Dict,IdDict}, c::Vector{KnetPtr}, d::IdDict{Any,Bool}) =
+    if !haskey(d,x); d[x] = true; for (k,v) in x; _knetptrs(k, c, d); _knetptrs(v, c, d); end; end
 
-function _knetptrs(@nospecialize(x), ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool})
-    T = typeof(x)::DataType
-    nf = nfields(x)
-    (isbitstype(T) || nf == 0) && return
-    if haskey(stackdict, x)
-        return
-    end
-    if T.mutable
-        stackdict[x] = true
-    end
-    for i in 1:nf
-        if isdefined(x,i)
-            _knetptrs(getfield(x,i), ps, stackdict)
-        end
-    end
-end
-
-function _knetptrs(x::Array, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool})
-    if haskey(stackdict, x)
-        return
-    end
-    _knetptrs_array_t(x, eltype(x), ps, stackdict)
-end
-
-function _knetptrs_array_t(@nospecialize(x), T, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool})
-    stackdict[x] = true
+function _knetptrs_array_t(@nospecialize(x), T, c::Vector{KnetPtr}, d::IdDict{Any,Bool})
     if isbitstype(T)
         return
     end
@@ -123,23 +102,31 @@ function _knetptrs_array_t(@nospecialize(x), T, ps::Vector{KnetPtr}, stackdict::
         if ccall(:jl_array_isassigned, Cint, (Any, Csize_t), x, i-1) != 0
             xi = ccall(:jl_arrayref, Any, (Any, Csize_t), x, i-1)
             if !isbits(xi)
-                xi = _knetptrs(xi, ps, stackdict)
+                _knetptrs(xi, c, d)
             end
         end
     end
 end
 
-function _knetptrs(x::Union{Dict,IdDict}, ps::Vector{KnetPtr}, stackdict::IdDict{Any,Bool})
-    if haskey(stackdict, x)
+function _knetptrs(@nospecialize(x), c::Vector{KnetPtr}, d::IdDict{Any,Bool})
+    T = typeof(x)::DataType
+    nf = nfields(x)
+    (isbitstype(T) || nf == 0) && return
+    if haskey(d, x)
         return
     end
-    stackdict[x] = true
-    for (k, v) in x
-        _knetptrs(k, ps, stackdict)
-        _knetptrs(v, ps, stackdict)
+    if T.mutable
+        d[x] = true
+    end
+    if T === KnetPtr
+        push!(c, x)
+    end
+    for i in 1:nf
+        if isdefined(x,i)
+            _knetptrs(getfield(x,i), c, d)
+        end
     end
 end
-
 
 # Old implementation: gets about half the pointers at about twice the speed (but the speed advantage is negligible)
 
@@ -201,3 +188,4 @@ function countpointer(x::KnetArray, tape::Tape)
 end
 
 gcpointers = [ 0., 0., 0., 0. ]     #DBG
+
