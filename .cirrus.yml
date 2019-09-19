@@ -1,0 +1,17 @@
+freebsd_instance:
+  image: freebsd-12-0-release-amd64
+task:
+  name: FreeBSD
+  env:
+    matrix:
+      - JULIA_VERSION: 1.2
+      - JULIA_VERSION: nightly
+  allow_failures: $JULIA_VERSION == "nightly"
+  install_script:
+    - sh -c "$(fetch https://raw.githubusercontent.com/ararslan/CirrusCI.jl/master/bin/install.sh -o -)"
+  build_script:
+    - cirrusjl build
+  test_script:
+    - cirrusjl test
+  coverage_script:
+    - cirrusjl coverage codecov coveralls

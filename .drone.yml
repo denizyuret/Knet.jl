@@ -1,0 +1,29 @@
+kind: pipeline
+name: linux-arm-1.2
+
+platform:
+ os: linux
+ arch: arm
+
+steps:
+- name: build
+  image: julia:1.2
+  commands:
+     - uname -a
+     - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
+
+---
+
+kind: pipeline
+name: linux-aarch64-1.2
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: julia:1.2
+  commands:
+      - uname -a
+      - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
