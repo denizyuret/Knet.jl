@@ -1,5 +1,23 @@
+Knet v1.2.6 Release Notes
+=========================
+
+GPU memory improvements
+-----------------------
+* cuallocator()::Bool can be used to switch between Knet and CuArrays allocators. CuArrays 2x faster, made default.
+* New knetgcnode() more aggressively frees GPU pointers during backward pass, decreasing memory footprint 2x.
+* minimize returns plain loss again, returning Result prevented gc and increased memory footprint.
+
+New KnetArray functions
+-----------------------
+* Generalize bmm to handle more than 3 dims.
+* KnetArray support for argmax,argmin,findmax,findmin.
+* KnetArray support for std,stdm,var,varm.
+* Support for both lgamma and loggamma as some people cannot upgrade to SpecialFunctions 0.8.
+
+
 Knet v1.2.5 Release Notes
 =========================
+46f9211 2019-09-04
 
 * Unsupported KnetArray shapes for getindex/setindex!, cat/hcat/vcat and permutedims have now fallback kernels from CuArrays. permutedims speed for ndims>=2 greatly improved. This addresses issues #198, #319, #368, #400, #470.
 * Memory manager made faster and more robust using attention based nmt benchmarks.

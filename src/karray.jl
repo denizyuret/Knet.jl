@@ -4,19 +4,14 @@
     KnetArray(a::AbstractArray)
     Array(k::KnetArray)
 
-Container for GPU arrays that supports most of the AbstractArray
-interface.  The constructor allocates a KnetArray in the currently
-active device, as specified by `gpu()`.  KnetArrays and Arrays can be
-converted to each other as shown above, which involves copying to and
-from the GPU memory.  Only Float32/64 KnetArrays are fully supported.
+Container for GPU arrays that supports most of the AbstractArray interface.  The constructor
+allocates a KnetArray in the currently active device, as specified by `gpu()`.  KnetArrays
+and Arrays can be converted to each other as shown above, which involves copying to and from
+the GPU memory.  Only Float32/64 KnetArrays are fully supported.
 
-Important differences from the alternative CudaArray are: (1) a custom
-memory manager that minimizes the number of calls to the slow
-cudaMalloc by reusing already allocated but garbage collected GPU
-pointers.  (2) a custom getindex that handles ranges such as `a[5:10]`
-as views with shared memory instead of copies.  (3) custom CUDA
-kernels that implement elementwise, broadcasting, and reduction
-operations.
+KnetArrays use the CuArrays package for allocation and some operations. Currently some of
+the custom CUDA kernels that implement elementwise, broadcasting, and reduction operations
+for KnetArrays work faster. Once these are improved in CuArrays, KnetArrays will be retired.
 
 # Supported functions:
 
@@ -25,58 +20,28 @@ operations.
   * 2-D: (Colon,Union{Real,Colon,OrdinalRange,AbstractVector{Real},AbstractVector{Bool},KnetVector{Int32}}), (Union{Real,AbstractUnitRange,Colon}...) (in any order)
   * N-D: (Real...)
 
-* Array operations: ==, !=, cat, convert, copy, copyto!, deepcopy,
-  display, eachindex, eltype, endof, fill!, first, hcat, isapprox,
-  isempty, length, ndims, one, ones, pointer, rand!, randn!, reshape,
-  similar, size, stride, strides, summary, vcat, vec, zero.
-  (cat(x,y,dims=i) supported for i=1,2.)
-
-* Math operators: (-), abs, abs2, acos, acosh, asin, asinh, atan,
-  atanh, cbrt, ceil, cos, cosh, cospi, erf, erfc, erfcinv, erfcx,
-  erfinv, exp, exp10, exp2, expm1, floor, log, log10, log1p, log2,
-  round, sign, sin, sinh, sinpi, sqrt, tan, tanh, trunc
-
-* Broadcasting operators: (.*), (.+), (.-), (./), (.<), (.<=), (.!=),
-  (.==), (.>), (.>=), (.^), max, min.  (Boolean operators generate
+* Array operations: ==, !=, adjoint, argmax, argmin, cat, convert, copy, copyto!, deepcopy,
+  display, eachindex, eltype, endof, fill!, findmax, findmin, first, hcat, isapprox,
+  isempty, length, ndims, one, ones, permutedims, pointer, rand!, randn!, reshape, similar,
+  size, stride, strides, summary, transpose, vcat, vec, zero.  (Boolean operators generate
   outputs with same type as inputs; no support for KnetArray{Bool}.)
 
-* Reduction operators: countnz, maximum, mean, minimum, prod, sum,
-  sumabs, sumabs2, norm.
+* Unary functions with broadcasting: -, abs, abs2, acos, acosh, asin, asinh, atan, atanh,
+  cbrt, ceil, cos, cosh, cospi, digamma, erf, erfc, erfcinv, erfcx, erfinv, exp, exp10,
+  exp2, expm1, floor, gamma, lgamma, log, log10, log1p, log2, loggamma, one, round, sign,
+  sin, sinh, sinpi, sqrt, tan, tanh, trigamma, trunc, zero
+
+* Binary functions with broadcasting: !=, *, +, -, /, <, <=, ==, >, >=, ^, max, min
+
+* Reduction operators: maximum, minimum, prod, sum
     
-* Linear algebra: (*), axpy!, permutedims (up to 5D), transpose
+* Statistics: mean, std, stdm, var, varm
 
-* Knet extras: relu, sigm, invx, logp, logsumexp, conv4, pool,
-  deconv4, unpool, mat, update! (Only 4D/5D, Float32/64 KnetArrays
-  support conv4, pool, deconv4, unpool)
+* Linear algebra: (*), axpy!, lmul!, norm, rmul!
 
-# Memory management
-
-Knet models do not overwrite arrays which need to be preserved for
-gradient calculation.  This leads to a lot of allocation and regular
-GPU memory allocation is prohibitively slow. Fortunately most models
-use identically sized arrays over and over again, so we can minimize
-the number of actual allocations by reusing preallocated but garbage
-collected pointers.
-
-When Julia gc reclaims a KnetArray, a special finalizer keeps its
-pointer in a table instead of releasing the memory.  If an array with
-the same size in bytes is later requested, the same pointer is reused.
-The exact algorithm for allocation is:
-
-1. Try to find a previously allocated and garbage collected pointer in
-   the current device. (0.5 μs)
-
-2. If not available, try to allocate a new array using cudaMalloc. (10
-   μs)
-
-3. If not successful, try running gc() and see if we get a pointer of
-   the right size. (75 ms, but this should be amortized over all
-   reusable pointers that become available due to the gc)
-
-4. Finally if all else fails, clean up all saved pointers in the
-   current device using cudaFree and try allocation one last
-   time. (25-70 ms, however this causes the elimination of all
-   reusable pointers)
+* Knet extras: batchnorm, bce, bmm, cat1d, conv4, cpucopy, deconv4, dropout, elu, gpucopy,
+  invx, logistic, logp, logsoftmax, logsumexp, mat, nll, pool, relu, RNN, selu, sigm,
+  softmax, unpool (Only 4D/5D, Float32/64 KnetArrays support conv4, pool, deconv4, unpool)
 
 """
 mutable struct KnetArray{T,N} # <: AbstractArray{T,N} (TODO)

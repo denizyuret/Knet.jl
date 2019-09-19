@@ -2,7 +2,6 @@
 # uses reduction_ops from ops.jl
 
 import Base: sum, prod, minimum, maximum # , countnz
-import LinearAlgebra: norm, lmul!
 
 sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims)
 sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims)
@@ -80,20 +79,3 @@ for f in reduction_ops
     reduction_op(f...)
 end
 
-function norm(x::KnetArray{T}, p::Real=2) where {T}
-    if length(x) == 0
-        zero(T)
-    elseif p == 2
-        sqrt(sum(abs2,x))
-    elseif p == 1
-        sum(abs,x)
-    elseif p == Inf
-        maximum(abs,x)
-    elseif p == 0
-        countnz(x)
-    elseif p == -Inf
-        minimum(abs,x)
-    else
-        sum(abs.(x).^p)^(1/p)
-    end
-end

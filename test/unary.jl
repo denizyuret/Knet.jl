@@ -1,6 +1,7 @@
 include("header.jl")
 using SpecialFunctions
 using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
+using Knet: lgamma, loggamma    # TODO: delete after everyone has SpecialFunctions 0.8
 
 @testset "unary" begin
 

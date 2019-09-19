@@ -114,7 +114,9 @@ end
 # With all others, KnetArray is better.
 
 import Base: argmax, argmin, findmax, findmin
-argmaxarray(x,d)=((d===:) && length(x) > 4096 ? CuArray(x) : Array(x))
+# TODO: try this again after https://github.com/JuliaGPU/CuArrays.jl/issues/304 is resolved
+# argmaxarray(x,d)=((d===:) && length(x) > 4096 ? CuArray(x) : Array(x))
+argmaxarray(x,d)=Array(x)
 argmax(x::KnetArray; dims=:)=argmax(argmaxarray(x,dims); dims=dims)
 argmin(x::KnetArray; dims=:)=argmin(argmaxarray(x,dims); dims=dims)
 findmax(x::KnetArray; dims=:)=findmax(argmaxarray(x,dims); dims=dims)

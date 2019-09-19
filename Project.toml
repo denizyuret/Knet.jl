@@ -1,7 +1,7 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.2.5"
+version = "1.2.6"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
@@ -25,8 +25,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 julia = "≥ 0.7.0"
 
 [extras]
-Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Dates"]
+test = ["Test"]

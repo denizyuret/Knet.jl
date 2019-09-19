@@ -6,7 +6,7 @@ import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
 # import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
 # import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
 import LinearAlgebra.BLAS: gemm!, scal!
-import LinearAlgebra: rmul!, lmul!, axpy!
+import LinearAlgebra: rmul!, lmul!, axpy!, norm
 # import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
 # export axpy!
 
@@ -206,3 +206,20 @@ for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
     end
 end
 
+function norm(x::KnetArray{T}, p::Real=2) where {T}
+    if length(x) == 0
+        zero(T)
+    elseif p == 2
+        sqrt(sum(abs2,x))
+    elseif p == 1
+        sum(abs,x)
+    elseif p == Inf
+        maximum(abs,x)
+    elseif p == 0
+        countnz(x)
+    elseif p == -Inf
+        minimum(abs,x)
+    else
+        sum(abs.(x).^p)^(1/p)
+    end
+end

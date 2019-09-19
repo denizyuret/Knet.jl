@@ -1,10 +1,12 @@
 # During the back pass we want to make pointers available as soon as we can to save memory
 # without waiting for gc. This is risky as we have to make sure the pointers are not going
-# to be used again.  We want to make sure there are no shared pointers with parents or
-# children in the computational graph. Results only get created at core.jl:100 in forw().
-# We have f, args, kwargs recorded so we have all the parents. The children are later
-# Results and outgrads of parents. We have no direct access to children!  Outgrads are only
-# created in core.jl:74 in back(). Both parents and children are accessible from the node.
+# to be used again.  We initialize a priority queue in knetgcinit() where KnetPtrs are
+# mapped to the last index of the tape they are used.  If a KnetPtr is part of a Param we do
+# not want to free it, so we map those to typemax(Int).  Every time knetgcnode() is called
+# after a back step, we update the queue with the pointers from the new outgrads of the node
+# and its parents. The values in the queue are only increased, never decreased. Finally we
+# free the pointers whose queue value is the current tape position. Note that tape indices
+# go backward in time from loss to parameters.
 
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
@@ -51,26 +53,6 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
     end
     if n.Value isa Result
         n.outgrad = n.Value.value = nothing
-    end
-end
-
-function verifypointer(tape::Tape, ni::Int, k::KnetPtr) # for debugging
-    @show ni
-    gcpointers[1] += k.len
-    findk = false
-    for n in tape.list
-        if k in knetptrs(n.outgrad) || k in knetptrs(n.Value.value)
-            findk = true
-            @assert n.Value isa Result && n.Value.value isa KnetArray && n.outgrad isa KnetArray  (global _n=n; global _k=k; global _t=tape; "pointer $(k.ptr) found in $n")
-        end
-    end
-    @assert findk
-    for i in 1:length(tape.list)
-        p = tape.list[i]
-        if p.Value isa Param || i > ni
-            @assert !isa(p.Value.value,KnetArray) || (p.Value.value.ptr != k && p.Value.value.ptr.ptr != C_NULL && p.Value.value.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null value")
-            @assert !isa(p.outgrad,KnetArray) || (p.outgrad.ptr != k && p.outgrad.ptr.ptr != C_NULL && p.outgrad.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null outgrad")
-        end
     end
 end
 
@@ -128,7 +110,8 @@ function _knetptrs(@nospecialize(x), c::Vector{KnetPtr}, d::IdDict{Any,Bool})
     end
 end
 
-# Old implementation: gets about half the pointers at about twice the speed (but the speed advantage is negligible)
+
+## Old implementation: gets about half the pointers at about twice the speed (but the speed advantage is negligible)
 
 function knetgcnode_old(n::Node, tape=nothing)
     if maybefree(n.outgrad, n, tape); n.outgrad = nothing; end
@@ -187,5 +170,27 @@ function countpointer(x::KnetArray, tape::Tape)
     return cnt
 end
 
+
+## Debugging utilities
+
 gcpointers = [ 0., 0., 0., 0. ]     #DBG
 
+function verifypointer(tape::Tape, ni::Int, k::KnetPtr) # for debugging
+    @show ni
+    gcpointers[1] += k.len
+    findk = false
+    for n in tape.list
+        if k in knetptrs(n.outgrad) || k in knetptrs(n.Value.value)
+            findk = true
+            @assert n.Value isa Result && n.Value.value isa KnetArray && n.outgrad isa KnetArray  (global _n=n; global _k=k; global _t=tape; "pointer $(k.ptr) found in $n")
+        end
+    end
+    @assert findk
+    for i in 1:length(tape.list)
+        p = tape.list[i]
+        if p.Value isa Param || i > ni
+            @assert !isa(p.Value.value,KnetArray) || (p.Value.value.ptr != k && p.Value.value.ptr.ptr != C_NULL && p.Value.value.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null value")
+            @assert !isa(p.outgrad,KnetArray) || (p.outgrad.ptr != k && p.outgrad.ptr.ptr != C_NULL && p.outgrad.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null outgrad")
+        end
+    end
+end

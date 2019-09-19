@@ -1,6 +1,7 @@
 include("header.jl")
-using Dates
-date(x)=(join(stdout,[Dates.format(Dates.now(),"HH:MM:SS"), x,'\n'],' '); flush(stdout))
+#using Dates
+#date(x)=(join(stdout,[Dates.format(Dates.now(),"HH:MM:SS"), x,'\n'],' '); flush(stdout))
+date(x)=(println(round(Int,time())%3600, ':', x); flush(stdout))
 macro dbg(_x); end
 #macro dbg(_x); :(@show $(esc(_x))); end
 
