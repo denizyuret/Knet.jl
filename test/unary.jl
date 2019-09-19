@@ -1,7 +1,6 @@
 include("header.jl")
 using SpecialFunctions
 using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
-using Knet: lgamma, loggamma    # TODO: delete after everyone has SpecialFunctions 0.8
 
 @testset "unary" begin
 
@@ -22,7 +21,7 @@ using Knet: lgamma, loggamma    # TODO: delete after everyone has SpecialFunctio
         push!(unary_fns, eval(Meta.parse(f)))
     end
 
-    skip_grads = [trigamma]
+    skip_grads = [trigamma,lgamma]
     for f in unary_fns
         f in skip_grads && continue
         #@show f
