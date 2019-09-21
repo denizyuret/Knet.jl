@@ -1,0 +1,61 @@
+kind: pipeline
+name: linux-arm-1.3
+
+platform:
+ os: linux
+ arch: arm
+
+steps:
+- name: build
+  image: julia:1.3
+  commands:
+     - uname -a
+     - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
+
+---
+
+kind: pipeline
+name: linux-aarch64-1.3
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: julia:1.3
+  commands:
+      - uname -a
+      - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
+
+---
+
+kind: pipeline
+name: linux-arm-nightly
+
+platform:
+ os: linux
+ arch: arm
+
+steps:
+- name: build
+  image: julia:nightly
+  commands:
+     - uname -a
+     - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
+
+---
+
+kind: pipeline
+name: linux-aarch64-nightly
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: julia:nightly
+  commands:
+      - uname -a
+      - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
