@@ -7,7 +7,6 @@ include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.2.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/coverage_v1.2.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/documentation_v1.2.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v0.7.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.0.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.1.yml'
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.3.yml'
@@ -16,16 +15,13 @@ include:
 test:dev:
   allow_failure: true
 
-coverage:
-  allow_failure: true
-
-test:v0.7:
-  allow_failure: true
-
 test:v1.3:
   allow_failure: true
 
-# test:v1.2:                      # cuda-memcheck gets stuck
+coverage:
+  allow_failure: true
+
+# test:v1.2:                      # cuda-memcheck version
 #   script:
 #     - julia -e 'using InteractiveUtils; versioninfo()'
 #     - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
