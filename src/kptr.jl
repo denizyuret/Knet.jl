@@ -111,26 +111,29 @@ function KnetPtr(arraybytes::Int)
     @dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
 
-    ptr = reuse(mem, pool, blockbytes, 1) # 1. best case we have one available in pool
+    ptr = reuse(mem, pool, blockbytes, 0) # 0. best case we have one available in pool
     ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
-    if pool.nptr > 0 && time_ns() - mem.gctime > gc_interval() # 2. try gc (~100 ms) if we had allocated this size before and enough time passed
-        ptr = reuse(mem, pool, blockbytes, 2, trygc=true); putc('-')
+    if pool.nptr > 0
+        ptr = reuse(mem, pool, blockbytes, 1, trygc=false) # 1. try fast gc (~0.5 ms)
+        ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
+    end        
+    if mem.bytes + blockbytes <= mem.limit # 2. allocate if within limit (~0.5 ms)
+        ptr = alloc(mem, pool, blockbytes, 2)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
     end
-    if mem.bytes + blockbytes <= mem.limit # 3. allocate if within limit
-        ptr = alloc(mem, pool, blockbytes, 3)
+    if pool.nptr > 0 && time_ns() - mem.gctime > gc_interval() # 3. try slow gc (~100 ms) if enough time passed
+        ptr = reuse(mem, pool, blockbytes, 3, trygc=true)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
     end
     if maybe_inclimit!(mem, max(mem.bytes + blockbytes*2, mem.limit*6÷5)) # 4. try to increase limit
-        ptr = alloc(mem, pool, blockbytes, 4); putc('^')
+        ptr = alloc(mem, pool, blockbytes, 4)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
     end
-    ### This does not prevent Knet.gc for too long:
-    # if pool.nptr > 0 && time_ns() - mem.gctime > gc_interval2()  # 5. One last gc before Knet.gc bomb
-    #     ptr = reuse(mem, pool, blockbytes, 5, trygc=true); putc('=')
-    #     ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
-    # end
-    Knet.gc(); putc('+')  # 6. last ditch effort: ~250 ms + future cost of lost pools
+    if pool.nptr > 0  # 5. try slow gc (~100ms)
+        ptr = reuse(mem, pool, blockbytes, 5, trygc=true)
+        ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
+    end
+    Knet.gc()  # 6. last ditch effort: ~250 ms + future cost of lost pools
     if mem.bytes + blockbytes <= mem.limit
         ptr = alloc(mem, pool, blockbytes, 6)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
@@ -151,10 +154,12 @@ function alloc(mem, pool, blockbytes, dbg)
     end
 end
 
-function reuse(mem, pool, blockbytes, dbg; trygc=false)
-    if trygc
-        if TIMER; @timeit to "gc" GC.gc(); end
-        mem.gctime = time_ns(); mem.gc += 1
+function reuse(mem, pool, blockbytes, dbg; trygc=nothing)
+    if trygc !== nothing
+        GC.gc(trygc)            # gc(true)=slow, gc(false)=fast
+        if trygc
+            mem.gctime = time_ns(); mem.gc += 1; putc('-')
+        end
     end
     if !isempty(pool.free)
         @dbg push!(allocs, dbg)
@@ -169,6 +174,7 @@ end
 function maybe_inclimit!(m::KnetMem, minlimit=m.limit*6÷5)
     maxlimit = m.bytes + gpufree() - 500_000_000 # gpumem()[1] - 500_000_000 # m.bytes + gpufree()
     if m.limit < minlimit <= maxlimit
+        putc('^')
         m.limit = minlimit
         @debug kmeminfo()
         return true
@@ -196,6 +202,7 @@ you run out of GPU memory.
 """
 function gc(dev=gpu())
     if KnetMems == nothing; return; end
+    putc('+')
     mem = knetmem(dev)
     mem.knetgc += 1
     GC.gc(); GC.enable(false)
