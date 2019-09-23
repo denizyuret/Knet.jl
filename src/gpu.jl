@@ -5,7 +5,7 @@ const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
 
-if find_cuda_library("cuda", tk) != nothing # has_cuda()
+if CUDAapi.has_cuda()
     try
         import CUDAdrv, CUDAnative
     catch ex
