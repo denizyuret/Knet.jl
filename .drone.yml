@@ -11,7 +11,7 @@ steps:
   commands:
      - uname -a
      - apt-get update
-     - apt-get install -y gcc
+     - apt-get install -y gcc g++
      - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
 
 ---
@@ -29,5 +29,5 @@ steps:
   commands:
       - uname -a
       - apt-get update
-      - aptget install -y gcc
+      - apt-get install -y gcc g++
       - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
