@@ -10,7 +10,7 @@ task:
       - JULIA_VERSION: nightly
   allow_failures: $JULIA_VERSION == "nightly"
   install_script:
-    - cd /usr/port/lang/gcc; make install clean
+    - cd /usr/ports/lang/gcc49/ && make install clean
     - sh -c "$(fetch https://raw.githubusercontent.com/ararslan/CirrusCI.jl/master/bin/install.sh -o -)"
   build_script:
     - cirrusjl build
