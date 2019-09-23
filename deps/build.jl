@@ -40,7 +40,9 @@ catch; end
 if CXX == ""
     try
         global CXX,CXXVER = CUDAapi.find_host_compiler()
-    catch; end
+    catch
+        @error "Host compiler not found via `CUDAapi.find_host_compiler()`. Check that a compiler is installed"
+    end
 end
 
 # If openmp is available, use it:
