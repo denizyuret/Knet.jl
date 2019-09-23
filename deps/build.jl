@@ -40,8 +40,8 @@ catch; end
 if CXX == ""
     try
         global CXX,CXXVER = CUDAapi.find_host_compiler()
-    catch
-        error("Neither CUDA nor a host compiler has been found. Check that a compiler is installed.")
+    catch e
+        error("Neither CUDA nor a host compiler has been found. Check that a compiler is installed.\nCUDAapi.find_host_compiler() error:\n$e")
     end
 end
 
