@@ -1074,8 +1074,10 @@ end
 
 
 # AutoGrad functions:
-import AutoGrad: zeroslike, sum_outgrads, UngetIndex # , unary_nd, indexed_function, isequivalent, _dbg, ssize
+using AutoGrad: Sparse
+import AutoGrad: zeroslike, sum_outgrads, matches # , unary_nd, indexed_function, isequivalent, _dbg, ssize
 zeroslike(a::KnetArray)=zero(a)
+matches(a::KnetArray,b::KnetArray)=(size(a)==size(b))
 # unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
 # isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 # _dbg(a::KnetArray) = "K"*_dbg(Array(a))
@@ -1085,10 +1087,22 @@ function sum_outgrads(a::KnetArray{T},b::KnetArray{T}) where {T}
     axpy!(1,b,a) # (a+b)
 end
 
-function sum_outgrads(a::KnetArray,b::UngetIndex)
+function sum_outgrads(a::KnetArray,b::Sparse)
+    @assert size(a) == size(b.container)
     if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
-    sum_outgrads_karray(a, b.value, b.index...)
+    for (idx,val) in zip(b.indices, b.values)
+        sum_outgrads_karray(a, val, idx...)
+    end
+    return a
 end
+
+sum_outgrads(a::Sparse, b::KnetArray) = sum_outgrads(b, a)
+
+import Base: +, -
++(a::KnetArray, s::Sparse) = sum_outgrads(a, s)
++(s::Sparse, a::KnetArray) = sum_outgrads(a, s)
+-(a::KnetArray, s::Sparse) = sum_outgrads(a, -s)
+-(s::Sparse, a::KnetArray) = sum_outgrads(-a, s)
 
 # This only works when there are no repeated indices. This is true for index types:
 # Real, (Real...), CartesianIndex, Colon, AbstractArray{Bool}, Range, EmptyArray
