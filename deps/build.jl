@@ -18,6 +18,8 @@ try
     push!(NVCCFLAGS, "--compiler-bindir", CXX)
 catch; end
 
+push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
+
 # If CUDAdrv is available add architecture optimization flags
 # Uncomment this for better compiler optimization
 # We keep it commented to compile for multiple gpu types
@@ -35,31 +37,6 @@ catch; end
 # end
 
 
-# In case there is no nvcc, find host_compiler to compile the cpu kernels
-
-if CXX == ""
-    try
-        global CXX,CXXVER = CUDAapi.find_host_compiler()
-    catch; end
-end
-
-# If openmp is available, use it:
-
-if CXX != "" 
-    cp("conv.cpp","foo.cpp",force=true)
-    if Sys.iswindows()
-        if success(`$CXX /openmp /c foo.cpp`)
-            push!(CFLAGS, "/openmp")
-        end
-    else
-        if success(`$CXX -fopenmp -c foo.cpp`)
-            push!(CFLAGS, "-fopenmp")
-        end
-    end
-end
-
-push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
-
 # Build scripts
 
 function build_nvcc()
@@ -74,8 +51,6 @@ function build_nvcc()
            ("cuda21","../src/reduction"),
            ("cuda22","../src/reduction"),
            ]
-
-    CPP = ["conv"]
 
     OBJ = []
 
@@ -99,49 +74,17 @@ function build_nvcc()
         push!(OBJ,obj)
     end
 
-    for name in CPP
-        obj = name*OBJEXT
-        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
-            inforun(`$NVCC $NVCCFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
-        end
-        push!(OBJ,obj)
-    end
-
     if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
         inforun(`$NVCC $NVCCFLAGS --shared -o $LIBKNET8 $OBJ`)
-    end
-end
-
-function build_cxx()
-    SRC = ["conv"]
-    OBJ = []
-    for name in SRC
-        obj = name*OBJEXT
-        if !isfile(obj) || mtime("$name.cpp") > mtime(obj)
-            inforun(`$CXX $CFLAGS -c $name.cpp`)  # TODO: test on non-gpu machines
-        end
-        push!(OBJ, obj)
-    end
-    if any(f->(mtime(f) > mtime(LIBKNET8)), OBJ)
-        if Sys.iswindows()
-            inforun(`$CXX $CFLAGS /LD /Fe:$LIBKNET8 $OBJ`)
-        else
-            inforun(`$CXX $CFLAGS --shared -o $LIBKNET8 $OBJ`)
-        end
     end
 end
 
 function build()
     if NVCC != ""
         build_nvcc()
-    elseif CXX != ""
-        @warn("nvcc not found, gpu kernels will not be compiled.")
-        build_cxx()
     else
         @warn("no compilers found, libknet8 will not be built.")
     end
-    #@info("Compiling Knet cache.")
-    #Base.compilecache(Base.PkgId("Knet"))
 end
 
 build()
