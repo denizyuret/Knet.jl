@@ -135,7 +135,6 @@ end
 
 function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
                   o...) where {T} # window=2, padding=0, stride=window, maxpoolingNanOpt=0
-    # if alpha!=1 && mode==0; error("Gradient of pool(alpha!=1,mode=0) broken in CUDNN"); end
     dx = similar(x)
     beta = 0
     @cudnn(cudnnPoolingBackward,
@@ -146,6 +145,75 @@ end
 
 @primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
 @zerograd  poolx(x,y,dy;o...)
+
+
+### CPU convolution using NNlib
+
+expand(N, i::Tuple) = i
+expand(N, i::Integer) = ntuple(_ -> i, N)
+
+function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
+               padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    y = conv(x, w, cdims)
+    alpha == 1 ? y : lmul!(alpha, y)
+end
+
+function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dw = ∇conv_filter(x, dy, cdims)
+    alpha == 1 ? dw : lmul!(alpha, dw)
+end
+
+function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dx = ∇conv_data(dy, w, cdims)
+    alpha == 1 ? dx : lmul!(alpha, dx)
+end
+
+# TODO: handle alpha, maxpoolingNanOpt, mode
+# TODO: pool(ka(x), stride=1) gives error
+
+function pool(x::AbstractArray{T,N}; handle=nothing,
+              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+    window = expand(Val(N-2), window)
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    y = (mode == 0 ? maxpool(x, pdims) :
+         mode == 1 ? meanpool(x, pdims) :
+         mode == 2 ? meanpool(x, pdims) :
+         error("mode=$mode is not supported for CPU pool."))
+    alpha == 1 ? y : lmul!(alpha, y)
+end
+
+function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; handle=nothing,
+               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+    if alpha != 1
+        y = y ./ T(alpha)
+    end
+    window = expand(Val(N-2), window)
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
+          mode == 1 ? ∇meanpool(dy, y, x, pdims) :
+          mode == 2 ? ∇meanpool(dy, y, x, pdims) :
+          error("mode=$mode is not supported for CPU pool."))
+    alpha == 1 ? dx : lmul!(alpha, dx)
+end
+
 
 """
 
@@ -417,68 +485,6 @@ end
 # convolution padding size that preserves the input size when filter size is odd and stride=1
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
-
-### CPU convolution using NNlib
-
-expand(N, i::Tuple) = i
-expand(N, i::Integer) = ntuple(_ -> i, N)
-
-function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
-               padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    y = conv(x, w, cdims)
-    alpha == 1 ? y : lmul!(alpha, y)
-end
-
-function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dw = ∇conv_filter(x, dy, cdims)
-    alpha == 1 ? dw : lmul!(alpha, dw)
-end
-
-function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dx = ∇conv_data(dy, w, cdims)
-    alpha == 1 ? dx : lmul!(alpha, dx)
-end
-
-# TODO: handle alpha, maxpoolingNanOpt, mode
-# TODO: pool(ka(x), stride=1) gives error
-
-function pool(x::AbstractArray{T,N}; handle=nothing,
-              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
-    window = expand(Val(N-2), window)
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    pdims = PoolDims(x, window; padding = padding, stride = stride)
-    y = (mode == 0 ? maxpool(x, pdims) :
-         mode == 1 ? meanpool(x, pdims) :
-         error("mode=$mode is not supported for CPU pool."))
-    alpha == 1 ? y : lmul!(alpha, y)
-end
-
-function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; handle=nothing,
-               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
-    window = expand(Val(N-2), window)
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    pdims = PoolDims(x, window; padding = padding, stride = stride)
-    dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
-          mode == 1 ? ∇meanpool(dy, y, x, dims) :
-          error("mode=$mode is not supported for CPU pool."))
-    alpha == 1 ? dx : lmul!(alpha, dx)
-end
 
 ## Utilities to find a fast algorithm
 
