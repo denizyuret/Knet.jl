@@ -3,6 +3,7 @@
 
 using SpecialFunctions
 import Base.Broadcast: broadcasted
+import NNlib: relu, selu, elu
 
 function unary_op(f, j=f, o...)
     J=Symbol(j)

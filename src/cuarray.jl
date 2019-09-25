@@ -1,6 +1,6 @@
 # This is from https://github.com/JuliaGPU/CUDAapi.jl/pull/84/files
 
-if find_cuda_library("cuda", tk) != nothing # has_cuda()
+if has_cuda()
     try
         using CuArrays: CuArrays, CuPtr, unsafe_free!, usage_limit
         import CuArrays: CuArray
