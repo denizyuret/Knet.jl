@@ -305,25 +305,25 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "reference/#Knet.elu",
+    "location": "reference/#NNlib.elu",
     "page": "Reference",
-    "title": "Knet.elu",
+    "title": "NNlib.elu",
     "category": "function",
     "text": "elu(x)\n\nReturn (x > 0 ? x : exp(x)-1).\n\nReference: Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs) (https://arxiv.org/abs/1511.07289).\n\n\n\n\n\n"
 },
 
 {
-    "location": "reference/#Knet.relu",
+    "location": "reference/#NNlib.relu",
     "page": "Reference",
-    "title": "Knet.relu",
+    "title": "NNlib.relu",
     "category": "function",
     "text": "relu(x)\n\nReturn max(0,x).\n\nReferences: \n\nNair and Hinton, 2010. Rectified Linear Units Improve Restricted Boltzmann Machines. ICML.\nGlorot, Bordes and Bengio, 2011. Deep Sparse Rectifier Neural Networks. AISTATS.\n\n\n\n\n\n"
 },
 
 {
-    "location": "reference/#Knet.selu",
+    "location": "reference/#NNlib.selu",
     "page": "Reference",
-    "title": "Knet.selu",
+    "title": "NNlib.selu",
     "category": "function",
     "text": "selu(x)\n\nReturn λ01 * (x > 0 ? x : α01 * (exp(x)-1)) where λ01=1.0507009873554805 and α01=1.6732632423543778.\n\nReference: Self-Normalizing Neural Networks (https://arxiv.org/abs/1706.02515).\n\n\n\n\n\n"
 },
@@ -429,7 +429,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Reference",
     "title": "Knet.conv4",
     "category": "function",
-    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are supported as w and x.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\nupscale=1: upscale factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n\n\n"
+    "text": "conv4(w, x; kwargs...)\n\nExecute convolutions or cross-correlations using filters specified with w over tensor x.\n\nCurrently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are supported as w and x.  If w has dimensions (W1,W2,...,I,O) and x has dimensions (X1,X2,...,I,N), the result y will have dimensions (Y1,Y2,...,O,N) where\n\nYi=1+floor((Xi+2*padding[i]-Wi)/stride[i])\n\nHere I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions.  padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.\n\nKeywords\n\npadding=0: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.\nstride=1: the number of elements to slide to reach the next filtering window.\ndilation=1: dilation factor for each dimension.\nmode=0: 0 for convolution and 1 for cross-correlation.\nalpha=1: can be used to scale the result.\nhandle: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.\n\n\n\n\n\n"
 },
 
 {
