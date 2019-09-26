@@ -1096,8 +1096,28 @@ end
 
 else # if AUTOGRAD_VERSION <= v"1.1.5"
 
-using AutoGrad: Sparse, Value, recording
-import AutoGrad: matches, ungetindex
+using Base.Broadcast: Broadcasted
+using AutoGrad: Value, recording
+import AutoGrad: Sparse, matches, ungetindex
+import Base: copyto!
+import LinearAlgebra: axpy!
+
+Sparse(a::KnetArray{T,N},v,i) where {T,N} = Sparse{T,N}(a,v,i)
+
+axpy!(a, x::Sparse, y::KnetArray) = sum_outgrads(y, a*x)
+
+function copyto!(a::KnetArray, bc::Broadcasted{S,A,F,X}) where
+    {S, A, F <: Union{typeof(+),typeof(-)}, X <: Tuple{Any,Sparse}}
+    (b,c) = bc.args
+    if !(size(a) == size(b) == size(c.container))
+        a .= bc.f.(b, full(c))
+        return a
+    end
+    a === b || copyto!(a, b)
+    F <: typeof(-) && (c = -c)
+    sum_outgrads(a, c)
+    return a
+end
 
 matches(a::KnetArray,b::KnetArray)=(size(a)==size(b))
 
@@ -1113,9 +1133,9 @@ end
 sum_outgrads(a::Sparse, b::KnetArray) = sum_outgrads(b, a)
 
 import Base: +, -
-+(a::KnetArray, s::Sparse) = sum_outgrads(a, s)
-+(s::Sparse, a::KnetArray) = sum_outgrads(a, s)
--(a::KnetArray, s::Sparse) = sum_outgrads(a, -s)
++(a::KnetArray, s::Sparse) = sum_outgrads(copy(a), s)
++(s::Sparse, a::KnetArray) = sum_outgrads(copy(a), s)
+-(a::KnetArray, s::Sparse) = sum_outgrads(copy(a), -s)
 -(s::Sparse, a::KnetArray) = sum_outgrads(-a, s)
 
 function ungetindex(x::KnetArray{T},dxi,i) where T
