@@ -51,7 +51,7 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
         n=kb; k==nb;
     end
     (m == size(C,1) && n == size(C,2) && bs == size(C,3)) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
-    lda,ldb,ldc=ma,ka,ma
+    lda,ldb,ldc=ma,kb,ma
     transa = cublasop(transA); transb = cublasop(transB)
     alpha = T[alpha]; beta = T[beta]
     strideA, strideB, strideC = m*k, k*n, m*n
