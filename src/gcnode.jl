@@ -11,6 +11,8 @@
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
 
+if AUTOGRAD_VERSION <= v"1.1.5"
+
 _tape = nothing
 _index = IdDict{Node,Int}()
 _queue = PriorityQueue{KnetPtr,Int}()
@@ -48,6 +50,68 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
     while !isempty(_queue) && DataStructures.peek(_queue)[2] <= ni  ## 5.62μs
         (k,v) = dequeue_pair!(_queue)  ## 0.787μs
         if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
+        #DBG verifypointer(tape, ni, k)
+        freeKnetPtr(k)  ## 4.06μs
+    end
+    if n.Value isa Result
+        n.outgrad = n.Value.value = nothing
+    end
+end
+
+
+else # if AUTOGRAD_VERSION <= v"1.1.5"
+
+# The _queue maps KnetPtrs to the first index on tape they have a reference to. We use
+# Base.Order.Reverse because we want to free the pointers with highest indices first.
+const _queue = PriorityQueue{KnetPtr,Int}(Base.Order.Reverse)
+    
+# During the backward step parents of a node (who have lower indices) may have their
+# outgrads modified, thus new KnetPtr references may appear. We want to keep the smallest
+# index for each KnetPtr.
+minidx!(q::PriorityQueue{KnetPtr,Int,typeof(Base.Order.Reverse)},k::KnetPtr,v::Int) =
+    if v < get(q,k,typemax(Int)); q[k]=v; end  ## 0.190μs
+
+const _index = IdDict{Node,Int}()
+_tape = nothing
+
+function knetgcinit(tape)  ## 2.35ms
+    global _tape, _index, _queue
+    _tape = WeakRef(tape)
+    empty!(_index)
+    empty!(_queue)
+    tape isa Tape || return
+    @inbounds for (i,n) in enumerate(tape.list)
+        _index[n] = i
+        if n.Value isa Result  # if a ptr already has an index, it is smaller.
+            for k in knetptrs(n.Value.value); get!(_queue,k,i); end ## knetptrs: 0.283μs
+            for k in knetptrs(n.outgrad);     get!(_queue,k,i); end ## incval: 0.293μs
+        else # n.Value isa Param: pointers with index 0 will never get gc'ed
+            for k in knetptrs(n.Value.value); _queue[k] = 0; end
+            for k in knetptrs(n.outgrad);     _queue[k] = 0; end
+        end
+    end
+end
+
+function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
+    tape != _tape && knetgcinit(tape) ## 2μs amortized
+    tape isa Tape || return
+    ni = _index[n]
+    if n.Value isa Result && n.outgrad isa KnetArray
+        minidx!(_queue, n.outgrad.ptr, ni)
+    end
+    @inbounds for i in 1:length(n.parents);  ## 2.43μs
+        isassigned(n.parents, i) || continue
+        parent = n.parents[i]
+        if parent.Value isa Result
+            pi = _index[parent]
+            for ptr in knetptrs(parent.outgrad); minidx!(_queue, ptr, pi); end
+        else
+            for ptr in knetptrs(parent.outgrad); _queue[ptr] = 0; end # protect Params
+        end
+    end
+    while !isempty(_queue) && DataStructures.peek(_queue)[2] >= ni  ## 5.62μs
+        (k,v) = dequeue_pair!(_queue)  ## 0.787μs
+        if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
         #DBG verifypointer(tape, ni, k) 
         freeKnetPtr(k)  ## 4.06μs
     end
@@ -55,6 +119,8 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
         n.outgrad = n.Value.value = nothing
     end
 end
+
+end # if AUTOGRAD_VERSION <= v"1.1.5"
 
 
 # Recursively search for KnetPtrs based on deepcopy_internal
@@ -188,7 +254,7 @@ function verifypointer(tape::Tape, ni::Int, k::KnetPtr) # for debugging
     @assert findk
     for i in 1:length(tape.list)
         p = tape.list[i]
-        if p.Value isa Param || i > ni
+        if p.Value isa Param || i < ni
             @assert !isa(p.Value.value,KnetArray) || (p.Value.value.ptr != k && p.Value.value.ptr.ptr != C_NULL && p.Value.value.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null value")
             @assert !isa(p.outgrad,KnetArray) || (p.outgrad.ptr != k && p.outgrad.ptr.ptr != C_NULL && p.outgrad.ptr.ptr != k.ptr)  (global _i=i; global _p=p; global _n=tape.list[ni]; global _ni=ni; "null outgrad")
         end
