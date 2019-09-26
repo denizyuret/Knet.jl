@@ -1074,37 +1074,36 @@ end
 
 
 # AutoGrad functions:
+
+if AUTOGRAD_VERSION <= v"1.1.5" # TODO: deprecate
+
+using AutoGrad: UngetIndex
+
 import AutoGrad: zeroslike, sum_outgrads
 
 zeroslike(a::KnetArray)=zero(a)
-# unary_nd(f, x::KnetArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), x[i], eps) for i in 1:length(x)], size(x))
-# isequivalent(x::Union{KnetArray,AbstractArray}, y::Union{KnetArray,AbstractArray}; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
-# _dbg(a::KnetArray) = "K"*_dbg(Array(a))
 
 function sum_outgrads(a::KnetArray{T},b::KnetArray{T}) where {T}
     if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
     axpy!(1,b,a) # (a+b)
 end
 
-if AUTOGRAD_VERSION <= v"1.1.5"
-
-using AutoGrad: UngetIndex
 function sum_outgrads(a::KnetArray,b::UngetIndex)
     if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
-    sum_outgrads_karray(a, b.value, b.index...)
+    addtoindex!(a, b.value, b.index...)
 end
 
 else # if AUTOGRAD_VERSION <= v"1.1.5"
 
 using Base.Broadcast: Broadcasted
 using AutoGrad: Value, recording
-import AutoGrad: Sparse, matches, ungetindex
+import AutoGrad: Sparse, matches, ungetindex, addto!, addtoindex!, zeroslike
 import Base: copyto!
 import LinearAlgebra: axpy!
 
 Sparse(a::KnetArray{T,N},v,i) where {T,N} = Sparse{T,N}(a,v,i)
 
-axpy!(a, x::Sparse, y::KnetArray) = sum_outgrads(y, a*x)
+axpy!(a, x::Sparse, y::KnetArray) = addto!(y, a*x)
 
 function copyto!(a::KnetArray, bc::Broadcasted{S,A,F,X}) where
     {S, A, F <: Union{typeof(+),typeof(-)}, X <: Tuple{Any,Sparse}}
@@ -1115,43 +1114,50 @@ function copyto!(a::KnetArray, bc::Broadcasted{S,A,F,X}) where
     end
     a === b || copyto!(a, b)
     F <: typeof(-) && (c = -c)
-    sum_outgrads(a, c)
+    addto!(a, c)
     return a
 end
 
 matches(a::KnetArray,b::KnetArray)=(size(a)==size(b))
 
-function sum_outgrads(a::KnetArray,b::Sparse)
+function addto!(a::KnetArray{T},b::KnetArray{T}) where {T}
+    if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
+    axpy!(1,b,a) # (a+b)
+end
+
+function addto!(a::KnetArray,b::Sparse)
     @assert size(a) == size(b.container)
     if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
     for (idx,val) in zip(b.indices, b.values)
-        sum_outgrads_karray(a, val, idx...)
+        addtoindex!(a, val, idx...)
     end
     return a
 end
 
-sum_outgrads(a::Sparse, b::KnetArray) = sum_outgrads(b, a)
+addto!(a::Sparse, b::KnetArray) = addto!(b, a)
 
 import Base: +, -
-+(a::KnetArray, s::Sparse) = sum_outgrads(copy(a), s)
-+(s::Sparse, a::KnetArray) = sum_outgrads(copy(a), s)
--(a::KnetArray, s::Sparse) = sum_outgrads(copy(a), -s)
--(s::Sparse, a::KnetArray) = sum_outgrads(-a, s)
++(a::KnetArray, s::Sparse) = addto!(copy(a), s)
++(s::Sparse, a::KnetArray) = addto!(copy(a), s)
+-(a::KnetArray, s::Sparse) = addto!(copy(a), -s)
+-(s::Sparse, a::KnetArray) = addto!(-a, s)
 
 function ungetindex(x::KnetArray{T},dxi,i) where T
     if isbitstype(T)
         if dxi isa Value
-            forw(sum_outgrads, zeroslike(x), forw(ungetindex, x, dxi, i))
+            forw(addto!, zeroslike(x), forw(ungetindex, x, dxi, i))
         elseif recording()
-            sum_outgrads_karray(zero(x), dxi, i...)
+            addtoindex!(zero(x), dxi, i...)
         else
             Sparse(x,[dxi],[i])
         end
     else
-        # Using sum_outgrads_array instead of setindex! to handle repeated indices
-        sum_outgrads_karray(Array{Union{T,Nothing}}(nothing, size(x)), dxi, i...)
+        # Using addtoindex! instead of setindex! to handle repeated indices
+        addtoindex!(Array{Union{T,Nothing}}(nothing, size(x)), dxi, i...)
     end
 end
+
+zeroslike(a::KnetArray)=zero(a) # Still need this because zero(::Array{!isbits}) is not defined
 
 end # if AUTOGRAD_VERSION <= v"1.1.5"
 
@@ -1159,16 +1165,16 @@ end # if AUTOGRAD_VERSION <= v"1.1.5"
 # This only works when there are no repeated indices. This is true for index types:
 # Real, (Real...), CartesianIndex, Colon, AbstractArray{Bool}, Range, EmptyArray
 # and pairs of Union{Real,AbstractUnitRange,Colon} and (Colon,Range)
-sum_outgrads_karray(A::KnetArray, X, I...)=setindex!(A, getindex(A,I...) .+ X, I...)
+addtoindex!(A::KnetArray, X, I...)=setindex!(A, getindex(A,I...) .+ X, I...)
 
 # The following index types may have repeated indices:
 # AbstractArray{Real}, AbstractArray{CartesianIndex}, (Colon,AbstractVector{Real}), (AbstractVector{Real},Colon)
 
-sum_outgrads_karray(A::KnetArray, X, I::AbstractArray{T}) where {T<:CartesianIndex}=sum_outgrads_karray(A,X,c2i(size(A),I))
+addtoindex!(A::KnetArray, X, I::AbstractArray{T}) where {T<:CartesianIndex}=addtoindex!(A,X,c2i(size(A),I))
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
 
-    function sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{R}) where {R<:Real}
+    function addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{R}) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
         @knet8($("addents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
@@ -1176,7 +1182,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    function sum_outgrads_karray(A::KnetArray{$T}, X, ::Colon, I::AbstractArray{R}) where {R<:Real}
+    function addtoindex!(A::KnetArray{$T}, X, ::Colon, I::AbstractArray{R}) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
         @knet8($("addcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
@@ -1184,7 +1190,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    function sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{R}, ::Colon) where {R<:Real}
+    function addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{R}, ::Colon) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
         @knet8($("addrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
@@ -1192,9 +1198,9 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,findall(vec(I)))
-    sum_outgrads_karray(A::KnetArray{$T}, X, c::Colon, I::AbstractArray{Bool})=sum_outgrads_karray(A,X,c,findall(vec(I)))
-    sum_outgrads_karray(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=sum_outgrads_karray(A,X,findall(vec(I)),c)
+    addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{Bool})=addtoindex!(A,X,findall(vec(I)))
+    addtoindex!(A::KnetArray{$T}, X, c::Colon, I::AbstractArray{Bool})=addtoindex!(A,X,c,findall(vec(I)))
+    addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=addtoindex!(A,X,findall(vec(I)),c)
 
 end; end
 
