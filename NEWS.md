@@ -1,5 +1,15 @@
+Knet v1.2.7 Release Notes
+=========================
+
+* Compatibility with the AutoGrad.Sparse type which can be returned as a gradient starting with v1.1.6.
+* Switched to pure CPU based conv/pool from NNlib for ease of installation on systems with no compiler.
+* CI has been expanded to include windows, arm etc. (@ianshmean)
+* Fixed newly introduced bug in kptr.jl preventing gc and slowing Knet allocator (still using CuArrays allocator by default).
+
+
 Knet v1.2.6 Release Notes
 =========================
+58c906f 2019-09-20
 
 GPU memory improvements
 -----------------------

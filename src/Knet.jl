@@ -103,7 +103,9 @@ export		# ref:reference.md tut:tutorial
     #@zerograd, # ref, use AutoGrad.@zerograd
     zeroone	# ref, tut
 
-using AutoGrad
+using AutoGrad, Pkg
+const AUTOGRAD_VERSION = Pkg.installed()["AutoGrad"]
+
 include("gpu.jl");              # gpu
 include("uva.jl")
 include("kptr.jl");
