@@ -1,6 +1,9 @@
 """
-`bmm(A, B; transA::Bool=false, transB::Bool=false)` performs a batch matrix-matrix product of matrices stored in `A` 
-and `B`. `A` and `B` must be 3d and the last dimension represents the batch size.
+    bmm(A, B ; transA=false, transB=false)
+Perform a batch matrix-matrix product of matrices stored in `A` and `B`. size(A,2) ==
+size(B,1) and size(A)[3:end] and size(B)[3:end] must match.
+If A is a (m,n,b...) tensor, B is a (n,k,b...) tensor, and the output is a (m,k,b...)
+tensor.
 """
 function bmm(A::AbstractArray{T}, B::AbstractArray{T}; transA::Bool = false, transB::Bool = false) where T
     sa, sb = size(A), size(B)
@@ -53,9 +56,9 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
     alpha = T[alpha]; beta = T[beta]
     strideA, strideB, strideC = m*k, k*n, m*n
     if T<:Float64
-        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), Knet.cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     elseif T<:Float32
-        @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), Knet.cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     else
         error("CUBLAS does not support $T")
     end

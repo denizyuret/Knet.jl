@@ -29,9 +29,9 @@ sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
     Bt = permutedims(B,(2,1,3))
     C  = KnetArray(rand(3,5,10))
     C =  bmm(A,B)
-    @test mean(bmm(A,Bt;transB=true) - C) < ϵ
-    @test mean(bmm(At,B;transA=true) - C) < ϵ
-    @test mean(bmm(At,Bt;transA=true,transB=true) - C) < ϵ
+    @test mean(abs,bmm(A,Bt;transB=true) - C) < ϵ
+    @test mean(abs,bmm(At,B;transA=true) - C) < ϵ
+    @test mean(abs,bmm(At,Bt;transA=true,transB=true) - C) < ϵ
 end #end of testset
 
 # suppress the return
