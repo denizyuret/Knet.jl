@@ -1,31 +1,28 @@
 """
-
-    bmm(A, B)
-
-Perform a batch matrix-matrix product of matrices stored in `A` and `B`. size(A,2) ==
-size(B,1) and size(A)[3:end] and size(B)[3:end] must match.
-
-If A is a (m,n,b...) tensor, B is a (n,k,b...) tensor, and the output is a (m,k,b...)
-tensor.
-
+`bmm(A, B; transA::Bool=false, transB::Bool=false)` performs a batch matrix-matrix product of matrices stored in `A` 
+and `B`. `A` and `B` must be 3d and the last dimension represents the batch size.
 """
-function bmm(a, b)
-    sa,sb = size(a),size(b)
-    @assert sa[2] == sb[1] && sa[3:end] == sb[3:end]
-    a3,b3 = reshape(a,sa[1],sa[2],:), reshape(b,sb[1],sb[2],:)
-    c3 = similar(a,sa[1],sb[2],size(a3,3))
-    bmm!(a3, b3, c3)
-    reshape(c3, sa[1], sb[2:end]...)
+function bmm(A::AbstractArray{T}, B::AbstractArray{T}; transA::Bool = false, transB::Bool = false) where T
+    sa, sb = size(A), size(B)
+    m, k   = transA ? (sa[2],sa[1]) : (sa[1],sa[2])
+    kb, n  = transB ? (sb[2],sb[1]) : (sb[1],sb[2])
+    @assert kb == k && sa[3:end]==sb[3:end]
+    a3, b3 = reshape(A,sa[1],sa[2],:), reshape(B,sb[1],sb[2],:)
+    C = similar(A, m, n, size(a3,3))
+    bmm!((transA ? 'T' : 'N'), (transB ? 'T' : 'N'), one(T), a3, b3, zero(T), C)
+    reshape(C,m,n,sb[3:end]...)
 end
 
-function bmm(a::KnetArray{T}, b::KnetArray{T}) where T
-    sa,sb = size(a),size(b)
-    @assert sa[2] == sb[1] && sa[3:end] == sb[3:end]
-    a3,b3 = reshape(a,sa[1],sa[2],:), reshape(b,sb[1],sb[2],:)
-    c3 = similar(a,sa[1],sb[2],size(a3,3))
-    bmm!('N','N',one(T),a3,b3,zero(T),c3)
-    reshape(c3, sa[1], sb[2:end]...)
-end
+function bmm(A::KnetArray{T}, B::KnetArray{T}; transA::Bool = false, transB::Bool = false) where {T}
+    sa, sb = size(A), size(B)
+    m, k   = transA ? (sa[2],sa[1]) : (sa[1],sa[2])
+    kb, n  = transB ? (sb[2],sb[1]) : (sb[1],sb[2])
+    @assert kb == k && sa[3:end]==sb[3:end]
+    a3, b3 = reshape(A,sa[1],sa[2],:), reshape(B,sb[1],sb[2],:)
+    C = similar(A, m, n, size(a3,3))    
+    bmm!((transA ? 'T' : 'N'), (transB ? 'T' : 'N'), one(T), a3, b3, zero(T), C)
+    reshape(C,m,n,sb[3:end]...)
+end 
 
 function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
     cublasop(c::Char)=(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
@@ -51,35 +48,68 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
         n=kb; k==nb;
     end
     (m == size(C,1) && n == size(C,2) && bs == size(C,3)) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
-    lda,ldb,ldc=ma,kb,ma
+    lda,ldb,ldc= ma,kb,m
     transa = cublasop(transA); transb = cublasop(transB)
     alpha = T[alpha]; beta = T[beta]
     strideA, strideB, strideC = m*k, k*n, m*n
     if T<:Float64
-        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), Knet.cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     elseif T<:Float32
-        @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), Knet.cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     else
         error("CUBLAS does not support $T")
     end
     return C
 end
 
-function bmm!(A, B, C)
-    if ndims(A) != 3 || ndims(B) != 3
-        throw(DimensionMismatch("$(map(size,(A,B,C)))"))
-    end
-    ma,ka,bsa = size(A)
-    kb,nb,bsb = size(B)
+for (gemm, elty) in
+    ((:dgemm_,:Float64),
+     (:sgemm_,:Float32),)
+    @eval begin
+        function bmm!(transA::AbstractChar,
+                               transB::AbstractChar,
+                               alpha::($elty),
+                               A::AbstractArray{$elty, 3},
+                               B::AbstractArray{$elty, 3},
+                               beta::($elty),
+                               C::AbstractArray{$elty, 3})
+            @assert !LinearAlgebra.BLAS.has_offset_axes(A, B, C)
+            @assert size(A, 3) == size(B, 3) == size(C, 3) "batch size mismatch"
+            m = size(A, transA == 'N' ? 1 : 2)
+            ka = size(A, transA == 'N' ? 2 : 1)
+            kb = size(B, transB == 'N' ? 1 : 2)
+            n = size(B, transB == 'N' ? 2 : 1)
+            if ka != kb || m != size(C,1) || n != size(C,2)
+                throw(DimensionMismatch("A has size ($m,$ka), B has size ($kb,$n), C has size $(size(C))"))
+            end
+            LinearAlgebra.BLAS.chkstride1(A)
+            LinearAlgebra.BLAS.chkstride1(B)
+            LinearAlgebra.BLAS.chkstride1(C)
 
-    (bsa == bsb && ka == kb && size(C,1) == ma && size(C,2) == nb && size(C,3) == bsa) || throw(DimensionMismatch("$(map(size,(A,B,C)))"))
+            ptrA = Base.unsafe_convert(Ptr{$elty}, A)
+            ptrB = Base.unsafe_convert(Ptr{$elty}, B)
+            ptrC = Base.unsafe_convert(Ptr{$elty}, C)
 
-    for i=1:bsa
-        C[:, :, i] = view(A, :, :, i) * view(B, :, :, i)
+            for k in 1:size(A, 3)
+                ccall((LinearAlgebra.BLAS.@blasfunc($gemm), LinearAlgebra.BLAS.libblas), Cvoid,
+                    (Ref{UInt8}, Ref{UInt8}, Ref{LinearAlgebra.BLAS.BlasInt}, Ref{LinearAlgebra.BLAS.BlasInt},
+                     Ref{LinearAlgebra.BLAS.BlasInt}, Ref{$elty}, Ptr{$elty}, Ref{LinearAlgebra.BLAS.BlasInt},
+                     Ptr{$elty}, Ref{LinearAlgebra.BLAS.BlasInt}, Ref{$elty}, Ptr{$elty},
+                     Ref{LinearAlgebra.BLAS.BlasInt}),
+                     transA, transB, m, n,
+                     ka, alpha, ptrA, max(1,stride(A,2)),
+                     ptrB, max(1,stride(B,2)), beta, ptrC,
+                     max(1,stride(C,2)))
+
+                ptrA += size(A, 1) * size(A, 2) * sizeof($elty)
+                ptrB += size(B, 1) * size(B, 2) * sizeof($elty)
+                ptrC += size(C, 1) * size(C, 2) * sizeof($elty)
+            end
+
+            C
+        end
     end
-    return C
 end
 
-@primitive bmm(x1,x2),dy,y  bmm(dy, permutedims(x2, (2,1,(3:ndims(x2))...)))  bmm(permutedims(x1, (2,1,(3:ndims(x1))...)), dy)
-@zerograd bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray, B::KnetArray, beta::Number, C::KnetArray)
-@zerograd bmm!(A, B, C)
+@primitive bmm(x1,x2; transA::Bool=false, transB::Bool=false),dy,y (transA ? bmm(x2, dy; transA=transB , transB=true) :  bmm(dy, x2;  transA=false, transB=!transB) )    (transB ? bmm(dy,x1; transA=true , transB= !transA) :  bmm(x1, dy;  transA=!transA , transB=false))
+@zerograd  bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A, B, beta::Number, C)
