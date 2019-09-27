@@ -34,7 +34,7 @@ macro dbg(_x); end
     #Random.seed!(42)
 
     @testset "array-scalar" begin
-        date("binary: array-scalar")
+        #date("binary: array-scalar")
         for (f1,f) in binary_fns
             for t in (Float32, Float64)
                 for n in size11
@@ -57,15 +57,25 @@ macro dbg(_x); end
 
     @testset "literal-pow" begin # issue #412
         if gpu() >= 0
-            date("binary: literal-pow")
+            #date("binary: literal-pow")
             a = rand(3,5)
             k = KnetArray(a)
             @test isapprox(a .^ 2, k .^ 2)
         end
     end
 
+    @testset "negative-pow" begin # issue #108
+        if gpu() >= 0
+            #date("binary: negative-pow")
+            a = randn(Float32,3,5)
+            k = KnetArray(a)
+            @test isapprox(a .^ 2, k .^ 2)
+            @test isapprox(a .^ 3, k .^ 3)
+        end
+    end
+
     @testset "array-vector" begin
-        date("binary: array-vector")
+        #date("binary: array-vector")
         for (f1,f) in binary_fns
             for t in (Float32, Float64)
                 for n1 in size11, n2 in size11
@@ -89,7 +99,7 @@ macro dbg(_x); end
     end
 
     @testset "array-array" begin
-        date("binary: array-array")
+        #date("binary: array-array")
         # for (f1,f) in binary_fns # takes too much time
         f = (x1,x2)->broadcast(+,x1,x2)
         f1 = x->broadcast(+,x[1],x[2])
@@ -117,7 +127,7 @@ macro dbg(_x); end
 
     @testset "ndims" begin # Issue #235
         if gpu() >= 0
-            date("binary: ndims")
+            #date("binary: ndims")
             a=rand(2,2,2) |> KnetArray
             b=rand(2,2) |> KnetArray
             c=rand(2) |> KnetArray
@@ -128,5 +138,5 @@ macro dbg(_x); end
     end
 end
 
-date("binary: done")
+#date("binary: done")
 nothing
