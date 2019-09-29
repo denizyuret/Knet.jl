@@ -5,6 +5,8 @@ Knet v1.2.7 Release Notes
 * CI has been expanded to include windows, arm etc. (@ianshmean)
 * Compatibility with the AutoGrad.Sparse type which can be returned as a gradient starting with v1.1.6.
 * Fixed newly introduced bug in kptr.jl preventing gc and slowing Knet allocator (still using CuArrays allocator by default).
+* Fixed bug regarding transposed bmm!.
+* Fixed integer powers of negative values in KnetArray{Float32}.
 
 
 Knet v1.2.6 Release Notes

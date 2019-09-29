@@ -243,39 +243,39 @@ import Base: +, -, *, /, \
 
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
-@eval begin
-    broadcasted(::typeof(+),a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)
-    broadcasted(::typeof(+),s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)
-    broadcasted(::typeof(-),a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a)
-    broadcasted(::typeof(-),s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)
-    broadcasted(::typeof(*),a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
-    broadcasted(::typeof(*),s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
-    broadcasted(::typeof(/),a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
-    broadcasted(::typeof(/),s::Number,a::KnetArray{T}) where {T} = (./)(T(s),a)
-    broadcasted(::typeof(max),a::KnetArray{T},s::Number) where {T} = max.(T(s),a)
-    broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T} = max.(T(s),a)
-    broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T} = min.(T(s),a)
-    broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T} = min.(T(s),a)
-    broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a)
-    # Pow is the one exception, we need to define a separate kernel:
-    rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
-    broadcasted(::typeof(^),a::KnetArray{T},s::Number) where {T} = rpow.(T(s),a)
-end
 
-@eval begin
-    broadcasted(::typeof(==),a::KnetArray{T},s::Number) where {T} = (T(s).==a)
-    broadcasted(::typeof(==),s::Number,a::KnetArray{T}) where {T} = (T(s).==a)
-    broadcasted(::typeof(!=),a::KnetArray{T},s::Number) where {T} = (T(s).!=a)
-    broadcasted(::typeof(!=),s::Number,a::KnetArray{T}) where {T} = (T(s).!=a)
-    broadcasted(::typeof(>),a::KnetArray{T},s::Number) where {T} = (T(s).<a)
-    broadcasted(::typeof(>),s::Number,a::KnetArray{T}) where {T} = (T(s).>a)
-    broadcasted(::typeof(>=),a::KnetArray{T},s::Number) where {T} = (T(s).<=a)
-    broadcasted(::typeof(>=),s::Number,a::KnetArray{T}) where {T} = (T(s).>=a)
-    broadcasted(::typeof(<),a::KnetArray{T},s::Number) where {T} = (T(s).>a)
-    broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T} = (T(s).<a)
-    broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T} = (T(s).>=a)
-    broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
-end
+broadcasted(::typeof(+),a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)
+broadcasted(::typeof(+),s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)
+broadcasted(::typeof(-),a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a)
+broadcasted(::typeof(-),s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)
+broadcasted(::typeof(*),a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
+broadcasted(::typeof(*),s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
+broadcasted(::typeof(/),a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
+broadcasted(::typeof(/),s::Number,a::KnetArray{T}) where {T} = (./)(T(s),a)
+broadcasted(::typeof(max),a::KnetArray{T},s::Number) where {T} = max.(T(s),a)
+broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T} = max.(T(s),a)
+broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T} = min.(T(s),a)
+broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T} = min.(T(s),a)
+
+# ^ does not work with cuda, trying to solve in cuarrays.jl (Issue #108)
+# broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a)
+# Pow is the one exception, we need to define a separate kernel:
+# rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
+# broadcasted(::typeof(^),a::KnetArray{T},s::Number) where {T} = rpow.(T(s),a)
+
+
+broadcasted(::typeof(==),a::KnetArray{T},s::Number) where {T} = (T(s).==a)
+broadcasted(::typeof(==),s::Number,a::KnetArray{T}) where {T} = (T(s).==a)
+broadcasted(::typeof(!=),a::KnetArray{T},s::Number) where {T} = (T(s).!=a)
+broadcasted(::typeof(!=),s::Number,a::KnetArray{T}) where {T} = (T(s).!=a)
+broadcasted(::typeof(>),a::KnetArray{T},s::Number) where {T} = (T(s).<a)
+broadcasted(::typeof(>),s::Number,a::KnetArray{T}) where {T} = (T(s).>a)
+broadcasted(::typeof(>=),a::KnetArray{T},s::Number) where {T} = (T(s).<=a)
+broadcasted(::typeof(>=),s::Number,a::KnetArray{T}) where {T} = (T(s).>=a)
+broadcasted(::typeof(<),a::KnetArray{T},s::Number) where {T} = (T(s).>a)
+broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T} = (T(s).<a)
+broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T} = (T(s).>=a)
+broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
 
 # Bcasted methods
 
