@@ -65,6 +65,10 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
     return C
 end
 
+using Base: has_offset_axes, unsafe_convert
+using LinearAlgebra: chkstride1, BlasInt
+using LinearAlgebra.BLAS: libblas, @blasfunc
+
 for (gemm, elty) in
     ((:dgemm_,:Float64),
      (:sgemm_,:Float32),)
@@ -76,7 +80,7 @@ for (gemm, elty) in
                                B::AbstractArray{$elty, 3},
                                beta::($elty),
                                C::AbstractArray{$elty, 3})
-            @assert !LinearAlgebra.BLAS.has_offset_axes(A, B, C)
+            @assert !has_offset_axes(A, B, C)
             @assert size(A, 3) == size(B, 3) == size(C, 3) "batch size mismatch"
             m = size(A, transA == 'N' ? 1 : 2)
             ka = size(A, transA == 'N' ? 2 : 1)
@@ -85,20 +89,20 @@ for (gemm, elty) in
             if ka != kb || m != size(C,1) || n != size(C,2)
                 throw(DimensionMismatch("A has size ($m,$ka), B has size ($kb,$n), C has size $(size(C))"))
             end
-            LinearAlgebra.BLAS.chkstride1(A)
-            LinearAlgebra.BLAS.chkstride1(B)
-            LinearAlgebra.BLAS.chkstride1(C)
+            chkstride1(A)
+            chkstride1(B)
+            chkstride1(C)
 
-            ptrA = Base.unsafe_convert(Ptr{$elty}, A)
-            ptrB = Base.unsafe_convert(Ptr{$elty}, B)
-            ptrC = Base.unsafe_convert(Ptr{$elty}, C)
+            ptrA = unsafe_convert(Ptr{$elty}, A)
+            ptrB = unsafe_convert(Ptr{$elty}, B)
+            ptrC = unsafe_convert(Ptr{$elty}, C)
 
             for k in 1:size(A, 3)
-                ccall((LinearAlgebra.BLAS.@blasfunc($gemm), LinearAlgebra.BLAS.libblas), Cvoid,
-                    (Ref{UInt8}, Ref{UInt8}, Ref{LinearAlgebra.BLAS.BlasInt}, Ref{LinearAlgebra.BLAS.BlasInt},
-                     Ref{LinearAlgebra.BLAS.BlasInt}, Ref{$elty}, Ptr{$elty}, Ref{LinearAlgebra.BLAS.BlasInt},
-                     Ptr{$elty}, Ref{LinearAlgebra.BLAS.BlasInt}, Ref{$elty}, Ptr{$elty},
-                     Ref{LinearAlgebra.BLAS.BlasInt}),
+                ccall((@blasfunc($gemm), libblas), Cvoid,
+                    (Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt},
+                     Ref{BlasInt}, Ref{$elty}, Ptr{$elty}, Ref{BlasInt},
+                     Ptr{$elty}, Ref{BlasInt}, Ref{$elty}, Ptr{$elty},
+                     Ref{BlasInt}),
                      transA, transB, m, n,
                      ka, alpha, ptrA, max(1,stride(A,2)),
                      ptrB, max(1,stride(B,2)), beta, ptrC,
