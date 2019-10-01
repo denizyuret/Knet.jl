@@ -14,9 +14,4 @@ function _varm(x, m; corrected::Bool=true, dims=:)
     s ./ r
 end
 
-if first(methods(varm, (AutoGrad.Value,Any))).module !== AutoGrad # TODO: delete after AutoGrad 1.1.4
-    stdm(x::AutoGrad.Value, args...; kws...) = sqrt.(varm(x, args...; kws...))
-    varm(x::AutoGrad.Value, m; corrected::Bool=true, dims=:)=_varm(x, m; corrected=corrected, dims=dims)
-end
-           
 # TODO: stdm, varm to be deprecated after Julia 1.x

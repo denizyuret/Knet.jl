@@ -53,11 +53,6 @@ end
 permutedims(x::KnetMatrix)=_transpose(x)          # cuDNN is %10 slower but no startup cost
 permutedims(x::KnetVector)=copy(reshape(x,1,:))
 
-# TODO: delete this when fixed in AutoGrad (after 1.1.4):
-if first(methods(permutedims, (AutoGrad.Value,))).nargs == 3 # old AutoGrad has permutedims(x,d...)
-    @primitive permutedims(x),dy  reshape(permutedims(dy),size(x)) # need reshape for vectors
-end
-
 using Base: dims2cat, cat_shape, __cat
 
 # vcat(X::KnetArray...)=cat(X...; dims=Val(1)) # karray.jl version is 30%-80% faster

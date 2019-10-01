@@ -103,8 +103,9 @@ export		# ref:reference.md tut:tutorial
     #@zerograd, # ref, use AutoGrad.@zerograd
     zeroone	# ref, tut
 
-using AutoGrad, Pkg
-const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
+using AutoGrad
+
+# using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
 
 include("gpu.jl");              # gpu
 include("uva.jl")

@@ -467,11 +467,7 @@ for each constructor and their default values are listed as well.
 """
 update!(x::Param, g) = update!(x.value, g, x.opt)
 
-if AUTOGRAD_VERSION <= v"1.1.5"
-    full(x) = x
-else
-    using AutoGrad: full
-end
+using AutoGrad: full
 
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 

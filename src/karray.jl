@@ -388,11 +388,7 @@ Base.Array(x::AutoGrad.Value{K}) where {K<:KnetArray}=convert(Array,x)
 KnetArray(x::AutoGrad.Value{A}) where {A<:AbstractArray}=convert(KnetArray,x)
 convert(::Type{A},x::AutoGrad.Value{K}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,A,x)
 convert(::Type{K},x::AutoGrad.Value{A}) where {A<:AbstractArray,K<:KnetArray}=AutoGrad.forw(convert,K,x)
-if isdefined(AutoGrad,:Arg); @eval begin
-    AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
-end; else; @eval begin
-    AutoGrad.back(::typeof(convert),::Val{2},dy,y,T,x) = convert(typeof(value(x)),dy)
-end; end
+AutoGrad.back(::typeof(convert),::Type{Arg{2}},dy,y,T,x) = convert(typeof(value(x)),dy)
 
 # This gives ambiguity errors:
 # @primitive convert(t::Type,x::KnetArray),dy  nothing  convert(KnetArray,dy)
@@ -1075,26 +1071,6 @@ end
 
 # AutoGrad functions:
 
-if AUTOGRAD_VERSION <= v"1.1.5" # TODO: deprecate
-
-using AutoGrad: UngetIndex
-
-import AutoGrad: zeroslike, sum_outgrads
-
-zeroslike(a::KnetArray)=zero(a)
-
-function sum_outgrads(a::KnetArray{T},b::KnetArray{T}) where {T}
-    if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
-    axpy!(1,b,a) # (a+b)
-end
-
-function sum_outgrads(a::KnetArray,b::UngetIndex)
-    if AutoGrad.recording(); a = copy(a); end  # support highorder gradients
-    addtoindex!(a, b.value, b.index...)
-end
-
-else # if AUTOGRAD_VERSION <= v"1.1.5"
-
 using Base.Broadcast: Broadcasted
 using AutoGrad: Value, recording
 import AutoGrad: Sparse, matches, ungetindex, addto!, addtoindex!, zeroslike
@@ -1158,8 +1134,6 @@ function ungetindex(x::KnetArray{T},dxi,i) where T
 end
 
 zeroslike(a::KnetArray)=zero(a) # Still need this because zero(::Array{!isbits}) is not defined
-
-end # if AUTOGRAD_VERSION <= v"1.1.5"
 
 
 # This only works when there are no repeated indices. This is true for index types:

@@ -11,56 +11,6 @@
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
 
-if AUTOGRAD_VERSION <= v"1.1.5"
-
-_tape = nothing
-_index = IdDict{Node,Int}()
-_queue = PriorityQueue{KnetPtr,Int}()
-incval!(q::PriorityQueue{KnetPtr,Int},k::KnetPtr,v::Int) = if get(q,k,0) < v; q[k]=v; end  ## 0.190μs
-
-function knetgcinit(tape)  ## 2.35ms
-    global _tape, _index, _queue
-    _tape = WeakRef(tape)
-    empty!(_index)
-    empty!(_queue)
-    tape isa Tape || return
-    @inbounds for (i,n) in enumerate(tape.list)
-        _index[n] = i
-        index = (n.Value isa Result ? i : typemax(Int))
-        for k in knetptrs(n.Value.value); incval!(_queue,k,index); end ## knetptrs: 0.283μs
-        for k in knetptrs(n.outgrad); incval!(_queue,k,index); end     ## incval: 0.293μs
-    end
-end
-
-function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
-    tape != _tape && knetgcinit(tape) ## 2μs amortized
-    tape isa Tape || return
-    ni = _index[n]
-    if n.Value isa Result && n.outgrad isa KnetArray
-        incval!(_queue, n.outgrad.ptr, ni)
-    end
-    @inbounds for i in 1:length(n.parents);  ## 2.43μs
-        isassigned(n.parents, i) || continue
-        parent = n.parents[i]
-        pi = (parent.Value isa Result ? _index[parent] : typemax(Int)) # protect Params
-        for ptr in knetptrs(parent.outgrad)      ## 0.680μs
-            incval!(_queue, ptr, pi)             ## 0.486μs
-        end
-    end
-    while !isempty(_queue) && DataStructures.peek(_queue)[2] <= ni  ## 5.62μs
-        (k,v) = dequeue_pair!(_queue)  ## 0.787μs
-        if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
-        #DBG verifypointer(tape, ni, k)
-        freeKnetPtr(k)  ## 4.06μs
-    end
-    if n.Value isa Result
-        n.outgrad = n.Value.value = nothing
-    end
-end
-
-
-else # if AUTOGRAD_VERSION <= v"1.1.5"
-
 # The _queue maps KnetPtrs to the first index on tape they have a reference to. We use
 # Base.Order.Reverse because we want to free the pointers with highest indices first.
 const _queue = PriorityQueue{KnetPtr,Int}(Base.Order.Reverse)
@@ -119,8 +69,6 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
         n.outgrad = n.Value.value = nothing
     end
 end
-
-end # if AUTOGRAD_VERSION <= v"1.1.5"
 
 
 # Recursively search for KnetPtrs based on deepcopy_internal
