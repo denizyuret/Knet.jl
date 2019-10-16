@@ -1,35 +1,43 @@
-# Library includes
-using Knet
-using PyPlot
-using AutoGrad
+# Package includes
+@info "Loading Packages..."
+using Pkg
+for p in ("Knet","PyPlot", "AutoGrad")
+    haskey(Pkg.installed(),p) || Pkg.add(p)
+end
+using Knet, PyPlot, AutoGrad
 
 
 # General Type definitions
 const F = Float32 # Data type for gpu usage
-const Atype = gpu() >= 0 ? KnetArray{F} : Array{F}
-const Itype = Union{KnetArray{F,4},AutoGrad.Result{KnetArray{F,4}}}
-abstract type Layer end;
+const GenType = gpu() >= 0 ? KnetArray{F} : Array{F} # General type
+const ConvType = gpu() >= 0 ? KnetArray{F,4} : Array{F,4} # Specific conv type
+const UnionType = Union{ConvType,AutoGrad.Result{ConvType}} # Union for backprop
+abstract type Layer end; # all layer types
 
 
 # Parameter definitions
-nz = 20 # Encoding dimension
+nz = 10 # Bottelneck
 nh = 400 # Size of hidden layer
+nc = 16 # Channel number in network
+epochs = 20 # Number of trainig epochs
+batch_size = 100 # Size of minibatch
+kl_β = 1 # Beta part for kl-divergence loss
 
 
 """
-The Convolution layer
+The Normal Convolution layer
 """
 struct Conv <: Layer; w; b; f::Function; pad::Int; str::Int; end
-(c::Conv)(x::Itype) = c.f.(conv4(c.w, x, padding = c.pad, stride = c.str) .+ c.b)
-Conv(w1, w2, cx, cy;f = relu,pad = 1,str = 1) = Conv(param(w1, w2, cx, cy), param0(1, 1, cy, 1), f, pad, str)
+(c::Conv)(x::UnionType) = c.f.(conv4(c.w, x, padding = c.pad, stride = c.str) .+ c.b)
+Conv(w1, w2, cx, cy;f = relu, pad=1,str=1) = Conv(param(w1, w2, cx, cy), param0(1, 1, cy, 1), f, pad, str)
 
 
 """
-The DeConvolution Layer = Reverse of Conv
+The Normal DeConvolution Layer = Reverse of Conv
 """
 struct DeConv <: Layer; w; b; f::Function; pad::Int; str::Int; end
 (c::DeConv)(x) = c.f.(deconv4(c.w, x, padding = c.pad, stride = c.str) .+ c.b)
-DeConv(w1, w2, cx, cy;f = relu,pad = 1,str = 1) = DeConv(param(w1, w2, cx, cy), param0(1, 1, cx, 1), f, pad, str)
+DeConv(w1, w2, cx, cy;f = relu, pad=1,str=1) = DeConv(param(w1, w2, cx, cy), param0(1, 1, cx, 1), f, pad, str)
 
 
 """
@@ -49,10 +57,10 @@ struct Chain; layers; end
 
 
 """
-Chain of Networks -> Autoencoder
+Chain of Networks - Autoencoder
 """
 struct Autoencoder; ϕ::Chain; θ::Chain; end
-function (ae::Autoencoder)(x; samples=1, β=1, F=Float32)
+function (ae::Autoencoder)(x; samples=1, β=kl_β, F=Float32)
     z_out = ae.ϕ(x)
     μ, logσ² = z_out[1:nz, :], z_out[nz + 1:end, :]
     σ² = exp.(logσ²)
@@ -64,7 +72,7 @@ function (ae::Autoencoder)(x; samples=1, β=1, F=Float32)
     BCE = F(0)
 
     for s = 1:samples
-        ϵ = convert(Atype, randn(F, size(μ)))
+        ϵ = convert(GenType, randn(F, size(μ)))
         z = @. μ + ϵ * σ
         x̂ = ae.θ(z)
         BCE += binary_cross_entropy(x, x̂)
@@ -75,6 +83,8 @@ function (ae::Autoencoder)(x; samples=1, β=1, F=Float32)
     return BCE + β * KL
 end
 
+
+# Autoencoder only pays attention to the first input
 (ae::Autoencoder)(x, y) = ae(x)
 
 
@@ -87,14 +97,14 @@ end
 
 # Definition of the Encoder
 ϕ = Chain((
-    Conv(3, 3, 1, 16, pad=1),
-    Conv(4, 4, 16, 32, pad=1, str=2),
-    Conv(3, 3, 32, 32, pad=1),
-    Conv(4, 4, 32, 64, pad=1, str=2),
+    Conv(3, 3, 1, nc, pad=1),
+    Conv(4, 4, 1*nc, 2*nc, pad=1, str=2),
+    Conv(3, 3, 2*nc, 2*nc, pad=1),
+    Conv(4, 4, 2*nc, 4*nc, pad=1, str=2),
 
     x->mat(x),
 
-    Dense(64 * 7^2, nh),
+    Dense(4*nc * 7^2, nh),
     Dense(nh, 2 * nz),
 ))
 
@@ -102,39 +112,47 @@ end
 # Definition of the Decoder
 θ = Chain((
     Dense(nz, nh),
-    Dense(nh, 64 * 7^2),
+    Dense(nh, 4*nc * 7^2),
 
-    x->reshape(x, (7, 7, 64, :)),
+    x->reshape(x, (7, 7, 4*nc, :)),
 
-    DeConv(4, 4, 32, 64, pad=1, str=2),
-    DeConv(3, 3, 32, 32, pad=1),
-    DeConv(4, 4, 16, 32, pad=1, str=2),
-    DeConv(3, 3, 1, 16, f=sigm, pad=1),
+    DeConv(4, 4, 2*nc, 4*nc, pad=1, str=2),
+    DeConv(3, 3, 2*nc, 2*nc, pad=1),
+    DeConv(4, 4, 1*nc, 2*nc, pad=1, str=2),
+    DeConv(3, 3, 1, nc, f=sigm, pad=1),
 ))
 
 # Initialize the autoencoder with Encoder and Decoder
 ae = Autoencoder(ϕ, θ)
 
-# Load dataset
+
+# Load dataset specific functionality
 include(Knet.dir("data", "mnist.jl"))
-dtrn, dtst = mnistdata()
+include(Knet.dir("data", "imagenet.jl"))
+dtrn, dtst = mnistdata(batchsize=100)
 
 
 """
 Visualize the progress during training
 """
-function cb_plot(ae, img, epoch)
-    img_o = convert(Array{Float64}, img)
-    img_r = convert(Array{Float64}, ae.θ(ae.ϕ(img)[1:nz, :]))
+function cb_plot(ae, imgs, epoch, dtrn; ns_img=5)
+    loss = round(ae(first(dtrn)...); digits=3) # loss on 1. batch
 
-    figure("Epoch $epoch")
+    img_o = convert(Array{Float64}, imgs)
+    img_o = map(i->reshape(img_o[:,:,:,i], (28,28,1)), 1:ns_img^2)
+
+    img_r = convert(Array{Float64}, ae.θ(ae.ϕ(imgs)[1:nz, :]))
+    img_r = map(i->reshape(img_r[:,:,:,i], (28,28,1)), 1:ns_img^2)
+
+
+    figure("Training batch: $epoch, Loss: $loss")
     clf()
     subplot(1, 2, 1)
     title("Original")
-    imshow(img_o[:, :, 1, 1])
+    imshow(make_image_grid(img_o; gridsize=(ns_img, ns_img), scale=1))
     subplot(1, 2, 2)
     title("Reproduced")
-    imshow(img_r[:, :, 1, 1])
+    imshow(make_image_grid(img_r; gridsize=(ns_img, ns_img), scale=1))
 end
 
 
@@ -142,23 +160,22 @@ end
 Main function for training
 Questions to: nikolas.wilhelm@tum.de
 """
-function train(ae, dtrn, iters)
-    img = convert(Atype, reshape(dtrn.x[:,1], (28, 28, 1, 1)))
-    for epoch = 1:iters
-        @time adam!(ae, dtrn)
+function train(ae, dtrn, epochs, ns_img=5; visualize=true, state_display=1000)
+    imgs = convert(GenType, reshape(dtrn.x[:,1:ns_img^2], (28, 28, 1, :)))
 
-        if (epoch % 20) == 0
-            @show ae(first(dtrn)...)
-            cb_plot(ae, img, epoch)
+    # Training
+    for (batch, _) in progress(enumerate(adam(ae, repeat(dtrn, epochs))))
+        if (batch % state_display) == 0 && visualize
+            cb_plot(ae, imgs, batch, dtrn, ns_img=5) # perform callback
         end
     end
 end
 
+
 # Precompile
-@info "Precompile"
-ae(first(dtrn)...)
+@info "Precompiling..."
 @time adam!(ae, dtrn)
 
 # Train
-@info "Start training!"
-@time train(ae, dtrn, 50)
+@info "Start training for $epochs epochs!"
+@time train(ae, dtrn, epochs)
