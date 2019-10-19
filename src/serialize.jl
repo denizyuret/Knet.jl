@@ -38,14 +38,23 @@ function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     return s[x]
 end
 
-function _ser(x::RNN, s::IdDict, m::typeof(JLDMODE))
+function _ser(x::RNN, s::IdDict, m::Val)
     if !haskey(s,x)
-        dropoutDesc = (x.dropoutDesc != nothing || gpu() < 0 ? nothing : DD(handle=gethandle(),dropout=x.dropout,seed=x.seed))
-        rnnDesc = (x.rnnDesc != nothing || gpu() < 0 ? nothing : RD(x.hiddenSize,x.numLayers,dropoutDesc,x.inputMode,x.direction,x.mode,x.algo,x.dataType))
-        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rnnDesc, dropoutDesc, _ser(x.dx,s,m), _ser(x.dhx,s,m), _ser(x.dcx,s,m))
+        # we need rd,dd only if there is a gpu, we are not in cpumode,
+        # and if we are in jldmode we are loading, not saving
+        if (gpu() >= 0 && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
+            dd = DD(handle=gethandle(),dropout=x.dropout,seed=x.seed)
+            rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
+        else
+            rd = dd = nothing
+        end
+        # dx, dhx, dcx are temporary fields used by rnnback, they do not need to be copied
+        # gcnode sets dx.ptr to C_NULL which breaks serialize, best not to try
+        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rd, dd, nothing, nothing, nothing)
     end
     return s[x]
 end
+
 # Partially fixes the issue: when KA converts to A because no gpu, surrounding parametric types remain Param{KA}.
 # However other container types that include KnetArray may still have an inconsistent parametric type problem.
 _ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))

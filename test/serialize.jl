@@ -1,5 +1,5 @@
 include("header.jl")
-import Knet: serialize
+using Knet: serialize
 struct M370; layer; end;
 
 @testset "serialize" begin
@@ -24,6 +24,31 @@ struct M370; layer; end;
         # 370-2
         @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
         
+        # 506
+        function m1test(M1,xgpu,xcpu)
+            Knet.save("/tmp/foo.jld2", "model", M1)
+            Ms = Knet.load("/tmp/foo.jld2", "model")
+            Mg = gpucopy(M1)
+            Mc = cpucopy(M1)
+            y,h,c = M1(xgpu),M1.h,M1.c
+            @test (y,h,c) == (Ms(xgpu),Ms.h,Ms.c)
+            @test (y,h,c) == (Mg(xgpu),Mg.h,Mg.c)
+            @test_broken (y,h,c) == (Mc(xcpu),Mc.h,Mc.c)
+        end
+        xcpu = randn(Float32,2,4,8)
+        xgpu = KnetArray(xcpu)
+        M1 = RNN(2,3)
+        M1.h = M1.c = 0
+        M1.dx = M1.dhx = M1.dcx = nothing
+        m1test(M1,xgpu,xcpu)  # sets M1.h,c
+        @test M1.h isa KnetArray
+        @test M1.c isa KnetArray
+        m1test(M1,xgpu,xcpu)
+        @diff sum(M1(xgpu)) # sets M1.dx,dhx,dcx
+        @test M1.dx isa KnetArray
+        @test M1.dhx isa KnetArray
+        @test M1.dcx isa KnetArray
+        m1test(M1,xgpu,xcpu)
     end
 end
 
