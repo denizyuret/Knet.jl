@@ -11,12 +11,11 @@ function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
         if isa(x.ptr, Cptr) && (x.dev >= 0)
             a = Array{UInt8}(undef,x.len)
             @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
-            s[x] = KnetPtr(a,x.len)
+            s[x] = KnetPtr(a,x.len,-1,nothing)
         elseif isa(x.ptr, Array{UInt8,1})
             if gpu() >= 0
-                g = knetMalloc(x.len); if g === nothing; error("No space left on GPU."); end
-                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),g,pointer(x.ptr),x.len,1)
-                s[x] = KnetPtr(g,x.len,gpu())
+                s[x] = KnetPtr(x.len)
+                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),s[x].ptr,pointer(x.ptr),x.len,1)
             else
                 s[x] = x  # Leave conversion to array to KnetArray
             end

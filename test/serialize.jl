@@ -28,12 +28,12 @@ struct M370; layer; end;
         function m1test(M1,xgpu,xcpu)
             Knet.save("/tmp/foo.jld2", "model", M1)
             Ms = Knet.load("/tmp/foo.jld2", "model")
-            Mg = gpucopy(M1)
+            Mg = gpucopy(deepcopy(M1))
             Mc = cpucopy(M1)
             y,h,c = M1(xgpu),M1.h,M1.c
             @test (y,h,c) == (Ms(xgpu),Ms.h,Ms.c)
             @test (y,h,c) == (Mg(xgpu),Mg.h,Mg.c)
-            @test_broken (y,h,c) == (Mc(xcpu),Mc.h,Mc.c)
+            @test all(isapprox(a,b) for (a,b) in ((y, Mc(xcpu)), (h, Mc.h), (c, Mc.c)))
         end
         xcpu = randn(Float32,2,4,8)
         xgpu = KnetArray(xcpu)
@@ -41,13 +41,10 @@ struct M370; layer; end;
         M1.h = M1.c = 0
         M1.dx = M1.dhx = M1.dcx = nothing
         m1test(M1,xgpu,xcpu)  # sets M1.h,c
-        @test M1.h isa KnetArray
-        @test M1.c isa KnetArray
+        @test all(p isa KnetArray for p in (M1.h, M1.c))
         m1test(M1,xgpu,xcpu)
         @diff sum(M1(xgpu)) # sets M1.dx,dhx,dcx
-        @test M1.dx isa KnetArray
-        @test M1.dhx isa KnetArray
-        @test M1.dcx isa KnetArray
+        @test all(p isa KnetArray for p in (M1.dx, M1.dhx, M1.dcx))
         m1test(M1,xgpu,xcpu)
     end
 end

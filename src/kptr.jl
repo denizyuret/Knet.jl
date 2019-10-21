@@ -10,8 +10,8 @@ mutable struct KnetPtr
     parent	                # used to implement shared memory pointers
 end
 
-# This is the low level KnetPtr constructor, it adds the finalizer and does not assign
-# parent which is only needed for shared pointers.
+# This is the low level KnetPtr constructor, it adds the finalizer and sets parent to
+# nothing, which is only needed for shared pointers.
 
 function KnetPtr(ptr::Cptr,len::Int,dev::Int)
     kp = KnetPtr(ptr,len,dev,nothing)
@@ -26,19 +26,12 @@ function KnetPtr(parent::KnetPtr, offs::Int, len::Int)
     KnetPtr(parent.ptr+offs-1, len, parent.dev, parent)
 end
 
-# This one is used by serialize:
-function KnetPtr(ptr::Array{UInt8},len::Int)
-    KnetPtr(ptr, len, -1, nothing)
-end
-
 # When Julia gc reclaims a KnetPtr object, the following special finalizer does not actually
 # release the memory, but inserts it back in the appropriate pool for reuse.
 
 function freeKnetPtr(p::KnetPtr)
     if p.ptr == C_NULL
         # already freed, do nothing
-    elseif p.parent isa KnetPtr
-        # subarray, do nothing
     elseif p.parent isa Nothing
         @dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
         mem = KnetMems[p.dev+1]
@@ -46,7 +39,9 @@ function freeKnetPtr(p::KnetPtr)
         mem.kfree += 1
         push!(mem.pools[p.len].free, p.ptr)
         p.ptr = C_NULL # to avoid double free by gcnode then gc.
-    else
+    elseif p.parent isa KnetPtr
+        # subarray, do nothing
+    else # p.parent isa CuArray
         freeKnetPtrCu(p)
     end
 end

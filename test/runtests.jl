@@ -1,3 +1,6 @@
+using Knet, Test
+@testset "Knet" begin
+
 #                            commit ee1 c6a 0b5 e3a 9.2 8.3 8.3 6cb 6cb 8.6 6cb 6cb
 #                           machine  ci rzr  sc  sc tig ai5 ai4 tr5 tr4 aws osx os4
 @time include("kptr.jl")          #   ?   4   3   8  16   1   1   0   0  20   0   0
@@ -26,3 +29,5 @@
 #TODO include("random.jl")
 #TODO include("train.jl")
 #TODO include("uva.jl")
+
+end

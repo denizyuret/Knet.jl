@@ -89,16 +89,23 @@ end
 function KnetPtrCu(len::Int)
     c = CuArray{UInt8}(undef, len)
     p = convert(Cptr, convert(Int, c.buf.ptr))
-    KnetPtr(p, len, gpu(), c)
+    kp = KnetPtr(p, len, gpu(), c)
+    finalizer(freeKnetPtrCu, kp)
 end
 
 function freeKnetPtrCu(p::KnetPtr)
+    # GC.gc comes here directly, manual calls come through freeKnetPtr()
+    # After a manual call, GC.gc may call the finalizer again, avoid double free
     if p.parent isa CuArray
         unsafe_free!(p.parent)
-        p.ptr = C_NULL
-        p.parent = nothing
+        p.ptr, p.parent = C_NULL, nothing
+    elseif p.parent isa Nothing
+        @assert p.ptr == C_NULL
+        # already freed, do nothing
+    elseif p.parent isa KnetPtr
+        # subarray, do nothing
     else
-        error("Bad parent pointer $(p.parent)")
+        error("Bad parent pointer $(typeof(p.parent))")
     end
 end
 
