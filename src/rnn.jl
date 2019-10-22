@@ -1014,3 +1014,13 @@ function rnnparam(r,w,l,i,d;o...)
     @assert value(w)===value(r.w)
     rnnparam(r,l,i,d;o...)
 end
+
+
+## #506: Because r.dx,dhx,dcx may be freed by gcnode, their C_NULL pointers cause trouble in deepcopy.
+import Base: deepcopy_internal
+function deepcopy_internal(x::RNN, s::IdDict)
+    if !haskey(s,x)
+        s[x] = RNN(deepcopy_internal(x.w,s), deepcopy_internal(x.h,s), deepcopy_internal(x.c,s), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, deepcopy_internal(x.rnnDesc,s), deepcopy_internal(x.dropoutDesc,s), nothing, nothing, nothing)
+    end
+    return s[x]
+end

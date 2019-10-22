@@ -44,10 +44,11 @@ mutable struct Progress{I}
     lastiter::UInt
     curriter::UInt
     currval
+    io::IO
 end
 
-progress(func::Base.Callable, iter::I; steps=0, seconds=0) where {I} =
-    Progress{I}(func,iter,steps,seconds,0,0,0,0,nothing)
+progress(func::Base.Callable, iter::I; steps=0, seconds=0, io=stderr) where {I} =
+    Progress{I}(func,iter,steps,seconds,0,0,0,0,nothing,io)
 
 progress(iter; o...)=progress((x)->"",iter; o...)
 progress!(x...; o...)=(for _ in progress(x...; o...) end)
@@ -97,27 +98,27 @@ function progressbar(p::Progress, next)
                                "] ")
     end
 
-    print("\r")
+    print(p.io, "\r")
 
     if (haslength(p))
         width = 20
-        print("┣")
+        print(p.io,"┣")
         cellvalue = length(p) / width
         full_cells, remain = divrem(p.curriter, cellvalue)
         full_cells = round(Int, full_cells)
-        print(repeat("█", full_cells))
+        print(p.io,repeat("█", full_cells))
         if (full_cells < width)
 	    part = floor(Int, 8 * remain / cellvalue)
-	    print(EIGHTS[part])
-            print(repeat(" ", width - full_cells - 1))
+	    print(p.io,EIGHTS[part])
+            print(p.io,repeat(" ", width - full_cells - 1))
         end
-        print("┫ ")
+        print(p.io,"┫ ")
     end
 
-    print(status_string)
-    print(fval_string)
-    next === nothing && println()
-    flush(stdout)
+    print(p.io,status_string)
+    print(p.io,fval_string)
+    next === nothing && println(p.io)
+    flush(p.io)
     return next
 end
 
