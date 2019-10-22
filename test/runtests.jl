@@ -1,3 +1,6 @@
+using Knet, Test
+@testset "Knet" begin
+
 #                            commit ee1 c6a 0b5 e3a 9.2 8.3 8.3 6cb 6cb 8.6 6cb 6cb
 #                           machine  ci rzr  sc  sc tig ai5 ai4 tr5 tr4 aws osx os4
 @time include("kptr.jl")          #   ?   4   3   8  16   1   1   0   0  20   0   0
@@ -6,6 +9,7 @@
 @time include("dropout.jl")       #   6   1   2   8   5                   2
 @time include("serialize.jl")     #  16   2  11   1
 @time include("jld.jl")           #  11  11   9  26
+@time include("gcnode.jl")
 @time include("statistics.jl")    #
 @time include("cuarray.jl")       #  25
 @time include("bmm.jl")           #  10   3   9 
@@ -20,9 +24,10 @@
 @time include("unary.jl")         # 172  86 103 103 122  42   6  36   4  56  67  11
 @time include("update.jl")        # 316  61  82  60  61  29  26 100  22  72  25  23
 #TODO include("data.jl")
-#TODO include("gcnode.jl")
 #TODO include("hyperopt.jl")
 #TODO include("progress.jl")
 #TODO include("random.jl")
 #TODO include("train.jl")
 #TODO include("uva.jl")
+
+end

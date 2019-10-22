@@ -1,15 +1,19 @@
 # During the back pass we want to make pointers available as soon as we can to save memory
 # without waiting for gc. This is risky as we have to make sure the pointers are not going
 # to be used again.  We initialize a priority queue in knetgcinit() where KnetPtrs are
-# mapped to the last index of the tape they are used.  If a KnetPtr is part of a Param we do
-# not want to free it, so we map those to typemax(Int).  Every time knetgcnode() is called
-# after a back step, we update the queue with the pointers from the new outgrads of the node
-# and its parents. The values in the queue are only increased, never decreased. Finally we
-# free the pointers whose queue value is the current tape position. Note that tape indices
-# go backward in time from loss to parameters.
+# mapped to the smallest index of the tape they are used.  If a KnetPtr is in a Param
+# value/outgrad Result value we do not want to free it, so we map those to 0. Only Result
+# outgrads can be safely freed, Result values are not safe because the user can assign them
+# to global variables (as is done in RNNs).  Every time knetgcnode() is called after a back
+# step, we update the queue with the pointers from the new outgrads of the node and its
+# parents. The values in the queue are only decreased, never increased. Finally we free the
+# pointers whose queue value is the current tape position. Note that tape indices go forward
+# in time from parameters to loss but are processed backward in time from loss to
+# parameters.
 
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
+const noresult = Result{Nothing}(nothing,nothing,nothing,nothing)
 
 # The _queue maps KnetPtrs to the first index on tape they have a reference to. We use
 # Base.Order.Reverse because we want to free the pointers with highest indices first.
@@ -32,10 +36,10 @@ function knetgcinit(tape)  ## 2.35ms
     tape isa Tape || return
     @inbounds for (i,n) in enumerate(tape.list)
         _index[n] = i
-        if n.Value isa Result  # if a ptr already has an index, it is smaller.
-            for k in knetptrs(n.Value.value); get!(_queue,k,i); end ## knetptrs: 0.283μs
-            for k in knetptrs(n.outgrad);     get!(_queue,k,i); end ## incval: 0.293μs
-        else # n.Value isa Param: pointers with index 0 will never get gc'ed
+        if n.Value isa Result
+            for k in knetptrs(n.Value.value); _queue[k] = 0; end # pointers with index 0 will never get gc'ed
+            for k in knetptrs(n.outgrad);  get!(_queue,k,i); end # this only sets _queue[k] if it does not have a value
+        else # n.Value isa Param
             for k in knetptrs(n.Value.value); _queue[k] = 0; end
             for k in knetptrs(n.outgrad);     _queue[k] = 0; end
         end
@@ -66,7 +70,7 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
         freeKnetPtr(k)  ## 4.06μs
     end
     if n.Value isa Result
-        n.outgrad = n.Value.value = nothing
+        n.Value, n.outgrad = noresult, nothing
     end
 end
 
