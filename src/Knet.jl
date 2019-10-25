@@ -155,7 +155,6 @@ function __init__()
     try
         dev = gpu(true)
         if dev >= 0
-            CuArrays.usage_limit[] = gpufree() - 100_000_000
             AutoGrad.set_gc_function(Knet.knetgcnode)
             @debug "Knet using GPU $dev"
         else

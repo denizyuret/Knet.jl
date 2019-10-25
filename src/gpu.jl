@@ -77,8 +77,8 @@ on arrays of an inactive device will result in error.
 """
 function gpu end
 
-let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
-    global gpu, gpuCount, cublashandle, cudnnhandle
+let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
+    global gpu, gpuCount, cublashandle, cudnnhandle, curandGenerator
 
     gpu()=GPU
 
@@ -149,8 +149,10 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
         elseif 0 <= i < gpuCount()
             GPU = i
             @cudart(cudaSetDevice, (Cint,), i)
+
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
-            curandInit()
+            curandGenerator()
+            
             # Initializing CUDAnative helps with stability problems for some devices
             # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
             # We find the equivalent cu number from pciBusId: 
@@ -183,25 +185,46 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cublashandle(dev=gpu())
-        if dev==-1
-            # error("No cublashandle for CPU")
-            return nothing
-        end
+        dev==-1 && return nothing
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array{Any}(undef,gpuCount()+1); end
-        if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
+        if CUBLAS === nothing
+            CUBLAS=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CUBLAS[i] === nothing
+            @assert dev == gpu()
+            CUBLAS[i]=cublasCreate()
+        end
         return CUBLAS[i]
     end
 
     function cudnnhandle(dev=gpu())
-        if dev==-1
-            # error("No cudnnhandle for CPU")
-            return nothing
-        end
+        dev==-1 && return nothing
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array{Any}(undef,gpuCount()+1); end
-        if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
+        if CUDNN === nothing
+            CUDNN=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CUDNN[i] === nothing
+            @assert dev == gpu()
+            CUDNN[i]=cudnnCreate()
+        end
         return CUDNN[i]
+    end
+
+    function curandGenerator(dev=gpu(); seed=nothing)
+        dev==-1 && return nothing
+        i = dev+2
+        if CURAND === nothing
+            CURAND=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CURAND[i] === nothing || seed !== nothing
+            @assert dev == gpu()
+            if CURAND[i] !== nothing
+                @curand(curandDestroyGenerator,(Cptr,),CURAND[i])
+                CURAND[i] = nothing  # to prevent double free if curandCreateGenerator errors
+            end
+            CURAND[i]=curandCreateGenerator(seed)
+        end
+        return CURAND[i]
     end
 end
 
@@ -284,15 +307,15 @@ function cudnnCreate()
     return handle
 end
 
-function curandInit()
-    p = Cptr[0]; r = Cptr[0]; 
-    @cudart(cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
-    @curand(curandCreateGenerator,(Cptr,Cint),r,100)
-    @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
-    @curand(curandDestroyGenerator,(Cptr,),r[1])
-    @cudart(cudaFree,(Cptr,),p[1])
+function curandCreateGenerator(seed = nothing)
+    CURAND_RNG_PSEUDO_DEFAULT = 100 # Default pseudorandom generator
+    r = Cptr[0]
+    @curand(curandCreateGenerator,(Cptr,Cint),r,CURAND_RNG_PSEUDO_DEFAULT)
+    seed !== nothing && @curand(curandSetPseudoRandomGeneratorSeed,(Cptr,Culonglong),r[1],seed)
+    # This call ensures memory buffer allocation. Without it we get "out of memory" later:
+    @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],C_NULL,0)
+    return r[1]
 end
-
 
 const curanderrors = Dict(
     0 => "No errors",
