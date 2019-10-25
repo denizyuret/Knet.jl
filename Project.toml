@@ -1,7 +1,7 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.2.8"
+version = "1.3.0"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
