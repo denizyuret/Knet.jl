@@ -88,7 +88,11 @@ end
 # Testing the CuArrays allocator: set Knet.cuallocator()=true to use this
 function KnetPtrCu(len::Int)
     c = CuArray{UInt8}(undef, len)
-    p = convert(Cptr, convert(Int, c.buf.ptr))
+    if :buf in fieldnames(CuArray)
+        p = convert(Cptr, convert(Int, c.buf.ptr)) # ver <= 1.2.1
+    else
+        p = convert(Cptr, convert(Int, c.ptr)) # ver >= 1.3.0
+    end
     kp = KnetPtr(p, len, gpu(), c)
     finalizer(freeKnetPtrCu, kp)
 end
