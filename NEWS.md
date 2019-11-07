@@ -1,5 +1,12 @@
+Knet v1.3.1 Release Notes
+=========================
+
+* Compatibility with CuArrays 1.3, 1.4.
+
+
 Knet v1.3.0 Release Notes
 =========================
+55c01f4 2019-10-25
 
 * Fixed #506: RNN serialization and gc issues.
 * Fixed #509: Default output for progress is now stderr.
