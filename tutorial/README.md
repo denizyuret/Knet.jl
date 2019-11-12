@@ -21,7 +21,7 @@ Colab](https://colab.research.google.com/notebooks/welcome.ipynb), or services l
 [AWS](http://aws.amazon.com). To run on JuliaBox, click the Git button in the Dashboard and
 clone `https://github.com/denizyuret/Knet.jl.git`. The tutorial should be available under
 `Knet/tutorial` on the Jupyter screen.  To run on Colab add Julia support first using the
-[colab_install_julia](colab_install_julia.ipynb) notebook, then open the notebooks in
+[JuliaOnColab.ipynb](JuliaOnColab.ipynb) notebook, then open the notebooks in
 [Google
 Drive](https://drive.google.com/drive/folders/19D-R31unxZV_PUYYYpCfd-gnbdUiZfNb?usp=sharing).
 To run on AWS follow the instructions in the [Knet Installation
