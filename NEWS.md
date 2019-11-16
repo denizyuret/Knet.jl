@@ -1,5 +1,6 @@
 Knet v1.3.1 Release Notes
 =========================
+c94c1aa 2019-11-07
 
 * Compatibility with CuArrays 1.3, 1.4.
 
