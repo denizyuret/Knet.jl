@@ -1,20 +1,38 @@
 variables:
   CI_IMAGE_TAG: 'cuda'
-
-stages:
-  - test
-  - postprocess
+  JULIA_NUM_THREADS: '4'
 
 include:
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/common.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/test_v0.7.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/test_v1.0.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/test_dev.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/postprocess_coverage.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v0/postprocess_documentation.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/common.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.2.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/coverage_v1.2.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/documentation_v1.2.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.0.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.1.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.3.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_dev.yml'
 
 test:dev:
   allow_failure: true
 
+test:v1.3:
+  allow_failure: true
+
 coverage:
   allow_failure: true
+
+# test:v1.2:                      # cuda-memcheck version
+#   script:
+#     - julia -e 'using InteractiveUtils; versioninfo()'
+#     - mkdir $JULIA_DEPOT_PATH # Pkg.jl#325
+#     - julia -e 'using Pkg;
+#                 Pkg.develop([PackageSpec(path=pwd());
+#                              [PackageSpec(name=pkg)
+#                               for pkg in split(get(ENV,"CI_DEV_PKGS",""))]])'
+#     - julia -e "using Pkg;
+#                 pkg\"test CUDAapi\";
+#                 pkg\"test CUDAdrv\";
+#                 pkg\"test CUDAnative\";
+#                 pkg\"test CuArrays\";
+#                 pkg\"build ${CI_PROJECT_NAME}\";
+#                 pkg\"test --coverage ${CI_PROJECT_NAME}\""

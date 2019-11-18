@@ -21,7 +21,7 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
         push!(unary_fns, eval(Meta.parse(f)))
     end
 
-    skip_grads = [trigamma]
+    skip_grads = [trigamma,lgamma]
     for f in unary_fns
         f in skip_grads && continue
         #@show f

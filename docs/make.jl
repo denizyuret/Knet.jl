@@ -40,6 +40,7 @@ makedocs(
             "rl.md",
             "opt.md",
             "gen.md",
+            "nce.md",
         ],
     ],
 #    doctest = true,

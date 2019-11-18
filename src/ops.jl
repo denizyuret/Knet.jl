@@ -35,7 +35,7 @@ binary_ops = [
     ("seluback","seluback","(yi>0?1.0507009873554805*xi:xi*(1.7580993408473773+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
-    ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar
+    # ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar -> cuda bug #108 switching to CuArrays for pow
 ]
 
 # The following list comes from the NVIDIA math docs with some extras.
@@ -59,6 +59,11 @@ unary_ops = [
 "cospi",
 # "cyl_bessel_i0",
 # "cyl_bessel_i1",
+"erf",
+"erfc",
+"erfcinv",
+"erfcx",
+"erfinv",
 "exp",
 "exp10",
 "exp2",
@@ -69,7 +74,7 @@ unary_ops = [
 # "j0",
 # "j1",
 ("gamma_impl", "gamma"),
-"lgamma", # missing digamma for derivative
+("lgamma", "lgamma"), # TODO: SpecialFunctions 0.8: lgamma(x::Real)` is deprecated, use `(logabsgamma(x))[1]` instead. Other alternative is loggamma, throws a DomainError if gamma(x) is negative.
 ("digamma_impl", "digamma"),
 ("trigamma_impl", "trigamma"),
 #
@@ -108,16 +113,6 @@ unary_ops = [
 # "y1",
 ("zero", "zero", "0"),
 ]
-
-if true #TODO Pkg.installed("SpecialFunctions") != nothing
-    append!(unary_ops, [
-"erf",     # Removed from base in julia6
-"erfc",
-"erfcinv",
-"erfcx",
-"erfinv",
-])
-end
 
 reduction_ops = [
 # The entry format is (cudaname, julianame, merge, item, init)

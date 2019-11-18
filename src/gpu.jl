@@ -5,6 +5,14 @@ const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
 
+if has_cuda()
+    try
+        import CUDAdrv, CUDAnative
+    catch ex
+        @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
+    end
+end
+
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
 
@@ -22,7 +30,7 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
             push!(fx.args, esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))))
         end
         if errmsg
-            push!(fx.args, esc(:(if $r!=0; error(Knet.getErrorString($lib,$fun,$r)); end)))
+            push!(fx.args, esc(:(if $r!=0; error($(@__MODULE__).getErrorString($lib,$fun,$r)); end)))
         else
             push!(fx.args, esc(r))
         end
@@ -34,6 +42,7 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
 end
 
 macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues)); end
+macro cuda(fun, argtypes, argvalues...); :(@cudacall("cuda",$fun,UInt32,$argtypes,$argvalues)); end
 macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues)); end
 macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,false,-1)); end # don't throw error
 macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
@@ -68,14 +77,14 @@ on arrays of an inactive device will result in error.
 """
 function gpu end
 
-let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
-    global gpu, gpuCount, cublashandle, cudnnhandle
+let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
+    global gpu, gpuCount, cublashandle, cudnnhandle, curandGenerator
 
     gpu()=GPU
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
-        if !isdefined(Knet,:cudartfound)
+        if !isdefined(@__MODULE__,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cudart(cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
                 cudaDriverVersion  = (p=Cint[0];@cudart(cudaDriverGetVersion, (Ptr{Cint},),p);Int(p[1]))
@@ -84,7 +93,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 cudartfound = false
             end
         end
-        if !isdefined(Knet,:nvmlfound)
+        if !isdefined(@__MODULE__,:nvmlfound)
             try #if (nvmlfound = (Libdl.find_library(["libnvidia-ml"],[]) != ""))
                 # This code is only run once if successful, so nvmlInit here is ok
                 @nvml(nvmlInit,())
@@ -109,7 +118,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
                 pick = free = same = -1
                 for i=0:gpuCount()-1
                     if nvmlfound
-                        freemem = nvmlDeviceGetMemoryInfo(i)[2]
+                        freemem = nvmlDeviceGetMemoryInfo(nvmlid(i))[2]
                     else
                         @cudart(cudaSetDevice, (Cint,), i)
                         freemem = cudaMemGetInfo()[1]
@@ -140,8 +149,15 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
         elseif 0 <= i < gpuCount()
             GPU = i
             @cudart(cudaSetDevice, (Cint,), i)
+
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
-            curandInit()
+            curandGenerator()
+            
+            # Initializing CUDAnative helps with stability problems for some devices
+            # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
+            # We find the equivalent cu number from pciBusId: 
+            # https://stackoverflow.com/questions/13781738/how-does-cuda-assign-device-ids-to-gpus
+            CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
         else
             GPU = -1
             # @cudart(cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu
@@ -169,25 +185,46 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing
     end
 
     function cublashandle(dev=gpu())
-        if dev==-1
-            # error("No cublashandle for CPU")
-            return nothing
-        end
+        dev==-1 && return nothing
         i = dev+2
-        if CUBLAS == nothing; CUBLAS=Array{Any}(undef,gpuCount()+1); end
-        if !isassigned(CUBLAS,i); CUBLAS[i]=cublasCreate(); end
+        if CUBLAS === nothing
+            CUBLAS=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CUBLAS[i] === nothing
+            @assert dev == gpu()
+            CUBLAS[i]=cublasCreate()
+        end
         return CUBLAS[i]
     end
 
     function cudnnhandle(dev=gpu())
-        if dev==-1
-            # error("No cudnnhandle for CPU")
-            return nothing
-        end
+        dev==-1 && return nothing
         i = dev+2
-        if CUDNN == nothing; CUDNN=Array{Any}(undef,gpuCount()+1); end
-        if !isassigned(CUDNN,i); CUDNN[i]=cudnnCreate(); end
+        if CUDNN === nothing
+            CUDNN=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CUDNN[i] === nothing
+            @assert dev == gpu()
+            CUDNN[i]=cudnnCreate()
+        end
         return CUDNN[i]
+    end
+
+    function curandGenerator(dev=gpu(); seed=nothing)
+        dev==-1 && return nothing
+        i = dev+2
+        if CURAND === nothing
+            CURAND=Array{Any}(nothing,gpuCount()+1)
+        end
+        if CURAND[i] === nothing || seed !== nothing
+            @assert dev == gpu()
+            if CURAND[i] !== nothing
+                @curand(curandDestroyGenerator,(Cptr,),CURAND[i])
+                CURAND[i] = nothing  # to prevent double free if curandCreateGenerator errors
+            end
+            CURAND[i]=curandCreateGenerator(seed)
+        end
+        return CURAND[i]
     end
 end
 
@@ -198,8 +235,33 @@ cudaGetDevice()=(d=Cint[-1];@cudart(cudaGetDevice,(Ptr{Cint},),d);Int(d[1]))
 cudaMemGetInfo()=(f=Csize_t[0];m=Csize_t[0]; @cudart(cudaMemGetInfo,(Ptr{Csize_t},Ptr{Csize_t}),f,m); (Int(f[1]),Int(m[1])))
 cudaDeviceSynchronize()=@cudart(cudaDeviceSynchronize,())
 
+# cuda, cudart, nvml each number devices differntly
+# we are using the cudart ids, here is some converters:
+
+function cudaDeviceGetPCIBusId(i=gpu())
+    pciBusId = zeros(UInt8,16)
+    @cudart(cudaDeviceGetPCIBusId, (Cptr, Cint, Cint), pciBusId, length(pciBusId), i)
+    return unsafe_string(pointer(pciBusId))
+end
+
+function cuid(i=gpu())
+    pci = cudaDeviceGetPCIBusId(i)
+    id = Cint[0]
+    @cuda(cuDeviceGetByPCIBusId, (Cptr, Cptr), id, pointer(pci))
+    return Int(id[1])
+end
+
+function nvmlid(i=gpu())
+    pci = cudaDeviceGetPCIBusId(i)
+    hnd = Cptr[0]; idx = Cuint[0];
+    @nvml(nvmlDeviceGetHandleByPciBusId, (Cptr, Cptr), pointer(pci), hnd)
+    @nvml(nvmlDeviceGetIndex, (Cptr, Cptr), hnd[1], idx)
+    return Int(idx[1])
+end
+
+
 "Returns total,free,used memory."
-function nvmlDeviceGetMemoryInfo(i=gpu())
+function nvmlDeviceGetMemoryInfo(i=nvmlid(gpu()))
     0 <= i < gpuCount() || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(undef,3)
@@ -212,7 +274,7 @@ function gpumem(i=gpu())
     if i < 0 || i >= gpuCount()
         return (0,0,0)
     elseif nvmlfound
-        return nvmlDeviceGetMemoryInfo(i)
+        return nvmlDeviceGetMemoryInfo(nvmlid(i))
     elseif cudartfound
         dev=gpu(); gpu(i)
         free,total = cudaMemGetInfo()
@@ -245,15 +307,15 @@ function cudnnCreate()
     return handle
 end
 
-function curandInit()
-    p = Cptr[0]; r = Cptr[0]; 
-    @cudart(cudaMalloc,(Ptr{Cptr},Csize_t),p,sizeof(Float32))
-    @curand(curandCreateGenerator,(Cptr,Cint),r,100)
-    @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],p[1],1)
-    @curand(curandDestroyGenerator,(Cptr,),r[1])
-    @cudart(cudaFree,(Cptr,),p[1])
+function curandCreateGenerator(seed = nothing)
+    CURAND_RNG_PSEUDO_DEFAULT = 100 # Default pseudorandom generator
+    r = Cptr[0]
+    @curand(curandCreateGenerator,(Cptr,Cint),r,CURAND_RNG_PSEUDO_DEFAULT)
+    seed !== nothing && @curand(curandSetPseudoRandomGeneratorSeed,(Cptr,Culonglong),r[1],seed)
+    # This call ensures memory buffer allocation. Without it we get "out of memory" later:
+    @curand(curandGenerateUniform,(Cptr,Ptr{Cfloat},Csize_t),r[1],C_NULL,0)
+    return r[1]
 end
-
 
 const curanderrors = Dict(
     0 => "No errors",
@@ -301,3 +363,4 @@ function getErrorString(lib,fun,ret)
     end
     string(fun, ": ", ret, ": ", str)
 end
+

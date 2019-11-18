@@ -1,5 +1,6 @@
 using LinearAlgebra: lmul!
 using LinearAlgebra.BLAS: gemm!
+using NNlib
 
 """
 
@@ -26,14 +27,14 @@ dimension.
 
 * `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
 * `stride=1`: the number of elements to slide to reach the next filtering window.
-* `upscale=1`: upscale factor for each dimension.
+* `dilation=1`: dilation factor for each dimension.
 * `mode=0`: 0 for convolution and 1 for cross-correlation.
 * `alpha=1`: can be used to scale the result.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
 function conv4(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                  o...) where {T} # padding=0, stride=1, upscale=1, mode=0
+               o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
     (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
@@ -44,7 +45,7 @@ function conv4(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
 end
 
 function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                   o...) where {T} # padding=0, stride=1, upscale=1, mode=0
+                   o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta = 0
     dx = similar(x)
     (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
@@ -65,7 +66,7 @@ function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnha
 end
 
 function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
-                   o...) where {T} # padding=0, stride=1, upscale=1, mode=0
+                   o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta = 0
     dw = similar(w)
     (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
@@ -134,7 +135,6 @@ end
 
 function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
                   o...) where {T} # window=2, padding=0, stride=window, maxpoolingNanOpt=0
-    if alpha!=1 && mode==0; error("Gradient of pool(alpha!=1,mode=0) broken in CUDNN"); end
     dx = similar(x)
     beta = 0
     @cudnn(cudnnPoolingBackward,
@@ -145,6 +145,75 @@ end
 
 @primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
 @zerograd  poolx(x,y,dy;o...)
+
+
+### CPU convolution using NNlib
+
+expand(N, i::Tuple) = i
+expand(N, i::Integer) = ntuple(_ -> i, N)
+
+function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
+               padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    y = conv(x, w, cdims)
+    alpha == 1 ? y : lmul!(alpha, y)
+end
+
+function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dw = ∇conv_filter(x, dy, cdims)
+    alpha == 1 ? dw : lmul!(alpha, dw)
+end
+
+function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dx = ∇conv_data(dy, w, cdims)
+    alpha == 1 ? dx : lmul!(alpha, dx)
+end
+
+# TODO: handle alpha, maxpoolingNanOpt, mode
+# TODO: pool(ka(x), stride=1) gives error
+
+function pool(x::AbstractArray{T,N}; handle=nothing,
+              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+    window = expand(Val(N-2), window)
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    y = (mode == 0 ? maxpool(x, pdims) :
+         mode == 1 ? meanpool(x, pdims) :
+         mode == 2 ? meanpool(x, pdims) :
+         error("mode=$mode is not supported for CPU pool."))
+    alpha == 1 ? y : lmul!(alpha, y)
+end
+
+function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; handle=nothing,
+               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+    if alpha != 1
+        y = y ./ T(alpha)
+    end
+    window = expand(Val(N-2), window)
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
+          mode == 1 ? ∇meanpool(dy, y, x, pdims) :
+          mode == 2 ? ∇meanpool(dy, y, x, pdims) :
+          error("mode=$mode is not supported for CPU pool."))
+    alpha == 1 ? dx : lmul!(alpha, dx)
+end
+
 
 """
 
@@ -172,16 +241,23 @@ end
 
     y = deconv4(w, x; kwargs...)
 
-Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is equivalent to backward pass of a convolution (gradients with respect to input tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent to forward pass of a convolution. Since it swaps forward and backward passes of convolution operation, padding and stride options belong to output tensor. See [this report](https://arxiv.org/abs/1603.07285) for further explanation.
+Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is
+equivalent to backward pass of a convolution (gradients with respect to input
+tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent
+to forward pass of a convolution. Since it swaps forward and backward passes of convolution
+operation, padding and stride options belong to output tensor. See [this
+report](https://arxiv.org/abs/1603.07285) for further explanation.
 
-Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are
-supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,O,I)` and
-`x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
-dimensions `(Y1,Y2,...,O,N)` where
+Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are supported as `w` and `x`.  If
+`w` has dimensions `(W1,W2,...,O,I)` and `x` has dimensions `(X1,X2,...,I,N)`, the result
+`y` will have dimensions `(Y1,Y2,...,O,N)` where
 
 Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
 
-Here I is the number of input channels, O is the number of output channels, N is the number of instances, and Wi,Xi,Yi are spatial dimensions. padding and stride are keyword arguments that can be specified as a single number (in which case they apply to all dimensions), or an array/tuple with entries for each spatial dimension.
+Here I is the number of input channels, O is the number of output channels, N is the number
+of instances, and Wi,Xi,Yi are spatial dimensions. padding and stride are keyword arguments
+that can be specified as a single number (in which case they apply to all dimensions), or an
+array/tuple with entries for each spatial dimension.
 
 # Keywords
 
@@ -257,22 +333,23 @@ function FD(T::Type, dims)
 end
 
 mutable struct CD; ptr
-    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, upscale=1, mode=0)
+    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, dilation=1, mode=0, upscale=nothing)
+        upscale !== nothing && error("upscale is deprecated, please use dilation instead.")
         d = Cptr[0]
         @cudnn(cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
         nd = ndims(x)-2
         if cudnnVersion >= 4000
             @cudnn(cudnnSetConvolutionNdDescriptor,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
         elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
             @cudnn(cudnnSetConvolutionNdDescriptor_v3,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode,DT(x))
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
         else
             @cudnn(cudnnSetConvolutionNdDescriptor,
                   (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(upscale,nd),mode)
+                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode)
         end
         cd = new(d[1])
         finalizer(x->@cudnn(cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
@@ -340,16 +417,38 @@ DT(::Type{Float32}) = Cint(0)
 DT(::Type{Float64}) = Cint(1)
 DT(::Type{Float16}) = Cint(2)
 
-function cdims(w,x; padding=0, stride=1, o...)
+# outputDim = 1 + ( inputDim + 2*pad - (((filterDim-1)*dilation)+1) )/convolutionStride;
+
+function cdims(w,x; padding=0, stride=1, dilation=1, o...)
     N = ndims(x)
     ntuple(N) do i
         if i < N-1
             pi = (if isa(padding,Number); padding; else padding[i]; end)
             si = (if isa(stride,Number); stride; else stride[i]; end)
-            1 + div(size(x,i) - size(w,i) + 2*pi, si)
+            di = (if isa(dilation,Number); dilation; else dilation[i]; end)
+            1 + (size(x,i) + 2*pi - (((size(w,i)-1)*di)+1)) ÷ si
         elseif i == N-1
             size(w,N)
         else # i == N
+            size(x,N)
+        end
+    end
+end
+
+function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
+    # TODO: handle dilation here
+    dilation != 1 && error("deconv4 cannot handle dilation!=1 yet.")
+    N = ndims(x)
+    @assert size(x,N-1) == size(w,N)
+    ntuple(N) do i
+        if i < N-1
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
+            # di = (if isa(dilation,Number); dilation; else dilation[i]; end)
+            si*(size(x,i)-1) + size(w,i) - 2*pi
+        elseif i == N-1
+            size(w,N-1)
+        else
             size(x,N)
         end
     end
@@ -365,22 +464,6 @@ function pdims(x; window=2, padding=0, stride=window, o...)
             1 + div(size(x,i) + 2*pi - wi, si)
         else
             size(x,i)
-        end
-    end
-end
-
-function dcdims(w,x; padding=0, stride=1, o...)
-    N = ndims(x)
-    @assert size(x,N-1) == size(w,N)
-    ntuple(N) do i
-        if i < N-1
-            pi = (if isa(padding,Number); padding; else padding[i]; end)
-            si = (if isa(stride,Number); stride; else stride[i]; end)
-            si*(size(x,i)-1) + size(w,i) - 2*pi
-        elseif i == N-1
-            size(w,N-1)
-        else
-            size(x,N)
         end
     end
 end
@@ -403,176 +486,7 @@ end
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
 
-### CPU convolution using im2col from Mocha.jl
-
-# w=Ww,Hw,Cx,Cy
-# x=Wx,Hx,Cx,Nx
-# y=Wy,Hy,Cy,Nx
-# if we apply im2col to a single image:
-# w2=(Ww*Hw*Cx),Cy  ;; simple reshape
-# x2=(Wy*Hy),(Ww*Hw*Cx)
-# y2=(Wy*Hy),Cy     ;; simple reshape after y2=x2*w2
-
-function conv4(w::AbstractArray{T,4}, x::AbstractArray{T,4};
-                  padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                  o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    Wx,Hx,Cx,Nx = size(x)
-    Ww,Hw,C1,C2 = size(w)
-    if Cx!=C1; throw(DimensionMismatch()); end
-    Wy,Hy,Cy,Ny = cdims(w,x;padding=padding,stride=stride)
-    # @assert Cy==C2 && Ny==Nx
-    y = similar(x, (Wy,Hy,Cy,Ny))
-    x2dims = im2col_dims(w,x,y)
-    x2 = similar(x, x2dims)
-    (p1,p2) = psize(padding,x)
-    (s1,s2) = psize(stride,x)
-    M,N,K,Y = Wy*Hy,Cy,Ww*Hw*Cx,Wy*Hy*Cy
-    alpha,beta,yidx = T(alpha),T(0),1
-    @inbounds for n in 1:Nx
-        im2col!(w, x, x2, n, p1, p2, s1, s2, mode)
-        gemm!('N','N',M,N,K,alpha,pointer(x2),pointer(w),beta,pointer(y,yidx))
-        yidx += Y
-    end
-    return y
-end
-
-function conv4w(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
-                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    # dw = x'*dy
-    Wx,Hx,Cx,Nx = size(x)
-    Ww,Hw,C1,C2 = size(w)
-    Wy,Hy,Cy,Ny = size(dy)
-    # if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    # if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    # @assert Cx==C1 && Cy==C2 && Ny==Nx
-    dw = zero(w)
-    x2dims = im2col_dims(w,x,dy)
-    x2 = similar(x, x2dims)
-    # op(A) is an m-by-k matrix, op(B) is a k-by-n matrix, C is an m-by-n matrix.
-    Y,M,N,K = Wy*Hy*Cy,Ww*Hw*Cx,Cy,Wy*Hy
-    alpha,beta = T(alpha),T(1)
-    (p1,p2) = psize(padding,x)
-    (s1,s2) = psize(stride,x)
-    dyi = 1
-    @inbounds for n in 1:Nx
-        im2col!(w, x, x2, n, p1, p2, s1, s2, mode)
-        gemm!('T','N',M,N,K,alpha,pointer(x2),pointer(dy,dyi),beta,pointer(dw))
-        dyi += Y
-    end
-    return dw
-end
-
-function conv4x(w::AbstractArray{T,4},x::AbstractArray{T,4},dy::AbstractArray{T,4};
-                   padding=0, stride=1, upscale=1, mode=0, alpha=1,
-                   o...) where {T} # Ignoring handle, algo, workSpace, workSpaceSizeInBytes
-    # dx = dy*w'
-    Wx,Hx,Cx,Nx = size(x)
-    Ww,Hw,C1,C2 = size(w)
-    Wy,Hy,Cy,Ny = size(dy)
-    # if upscale != 1; throw(ArgumentError("CPU conv4 only supports upscale=1.")); end
-    # if mode != 0 && mode != 1; throw(ArgumentError("conv4 only supports mode=0 or 1.")); end
-    @assert Cx==C1 && Cy==C2 && Ny==Nx
-    dx = similar(x)
-    x2dims = im2col_dims(w,x,dy)
-    x2 = similar(x, x2dims)
-    # op(A) is an m-by-k matrix, op(B) is a k-by-n matrix, C is an m-by-n matrix.
-    Y,M,N,K = Wy*Hy*Cy,Wy*Hy,Ww*Hw*Cx,Cy
-    alpha,beta = T(alpha),T(0)
-    (p1,p2) = psize(padding,x)
-    (s1,s2) = psize(stride,x)
-    dyi = 1
-    @inbounds for n in 1:Nx
-        gemm!('N','T',M,N,K,alpha,pointer(dy,dyi),pointer(w),beta,pointer(x2))
-        col2im!(w,dx,x2,n,p1,p2,s1,s2,mode)
-        dyi += Y
-    end
-    return dx
-end
-
-im2col_dims(w,x,y)=(size(y,1)*size(y,2), size(w,1)*size(w,2)*size(w,3))
-
-# Functions from conv.cpp:
-
-for (T,S) in ((Float32,32), (Float64,64)); @eval begin
-
-    function im2col!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
-                     n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
-        Wx,Hx,Cx,Nx = size(x)
-        Ww,Hw,C1,C2 = size(w)
-        xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-        @knet8($("im2col$S"),
-               (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-               xn,x2,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-        return x2
-    end
-
-    function col2im!(w::AbstractArray{$T,4}, x::AbstractArray{$T,4}, x2::AbstractArray{$T,2},
-                     n::Int, p1::Int, p2::Int, s1::Int, s2::Int, mode::Int)
-        Wx,Hx,Cx,Nx = size(x)
-        Ww,Hw,C1,C2 = size(w)
-        xn = pointer(x, Wx*Hx*Cx*(n-1)+1)
-        @knet8($("col2im$S"),
-               (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-               x2,xn,Wx,Hx,Cx,Ww,Hw,p1,p2,s1,s2,mode)
-        return x
-    end
-
-    ### CPU pooling from Mocha.jl
-
-    function pool(x::AbstractArray{$T,4}; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-        if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-        Wx,Hx,Cx,Nx = size(x);
-        Wy,Hy,Cy,Ny = pdims(x;window=window,padding=padding,stride=stride)
-        y = similar(x, (Wy,Hy,Cy,Ny))
-        (w1,w2) = psize(window, x)
-        (p1,p2) = psize(padding, x)
-        (s1,s2) = psize(stride, x)
-        if mode == 0
-            @knet8($("max_pooling_fwd$S"),
-                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif mode == 1 || (mode == 2 && p1==p2==0)
-            @knet8($("mean_pooling_fwd$S"),
-                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                   x,y,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        else
-            throw(ArgumentError("mode $mode not supported by cpu pool"))
-        end
-        if alpha != 1; lmul!(alpha,y); end
-        return y
-    end
-
-    function poolx(x::AbstractArray{$T,4}, y::AbstractArray{$T,4}, dy::AbstractArray{$T,4};
-                   window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0, alpha=1, handle=nothing)
-        if maxpoolingNanOpt!=0; throw(ArgumentError("CPU pool only supports maxpoolingNanOpt=0")); end
-        Wx,Hx,Cx,Nx = size(x);
-        Wy,Hy,Cy,Ny = size(y);
-        dx = similar(x)
-        (w1,w2) = psize(window, x)
-        (p1,p2) = psize(padding, x)
-        (s1,s2) = psize(stride, x)
-        if mode == 0
-            if alpha != 1; y = y ./ alpha; end
-            @knet8($("max_pooling_bwd$S"),
-                   (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                   x,y,dy,dx,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        elseif mode == 1 || (mode == 2 && p1==p2==0)
-            @knet8($("mean_pooling_bwd$S"),
-                   (Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
-                   dx,dy,Wx,Hx,Cx,Nx,Wy,Hy,w1,w2,p1,p2,s1,s2)
-        else
-            throw(ArgumentError("mode $mode not supported by cpu pool"))
-        end
-        if alpha != 1; lmul!(alpha,dx); end
-        return dx
-    end
-end;end
-
-
-# Utilities to find a fast algorithm
+## Utilities to find a fast algorithm
 
 struct cudnnConvolutionFwdAlgoPerf_t
     algo::Cint
@@ -681,3 +595,4 @@ function cudnnWorkSpace(len=0;dev=gpu())
     end
     return CUDNN_WORKSPACE[i]
 end
+

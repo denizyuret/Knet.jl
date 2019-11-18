@@ -1,5 +1,84 @@
+Knet v1.3.1 Release Notes
+=========================
+c94c1aa 2019-11-07
+
+* Compatibility with CuArrays 1.3, 1.4.
+
+
+Knet v1.3.0 Release Notes
+=========================
+55c01f4 2019-10-25
+
+* Fixed #506: RNN serialization and gc issues.
+* Fixed #509: Default output for progress is now stderr.
+* Solved curand out of memory problem.
+* Added NCE chapter to docs.
+
+
+Knet v1.2.7 Release Notes
+=========================
+9fe1e03 2019-09-29
+
+* Compatibility with the AutoGrad.Sparse type which can be returned as a gradient starting with v1.1.6.
+* Switched to pure CPU based conv/pool from NNlib for ease of installation on systems with no compiler.
+* CI has been expanded to include windows, arm etc. (@ianshmean)
+* Fixed newly introduced bug in kptr.jl preventing gc and slowing Knet allocator (still using CuArrays allocator by default).
+* Fixed bug regarding transposed bmm!. (@ekinakyurek)
+* Fixed integer powers of negative values in KnetArray{Float32}.
+
+
+Knet v1.2.6 Release Notes
+=========================
+58c906f 2019-09-20
+
+GPU memory improvements
+-----------------------
+* cuallocator()::Bool can be used to switch between Knet and CuArrays allocators. CuArrays 2x faster, made default.
+* New knetgcnode() more aggressively frees GPU pointers during backward pass, decreasing memory footprint 2x.
+* minimize returns plain loss again, returning Result prevented gc and increased memory footprint.
+
+New KnetArray functions
+-----------------------
+* Generalize bmm to handle more than 3 dims.
+* KnetArray support for argmax,argmin,findmax,findmin.
+* KnetArray support for std,stdm,var,varm.
+* Support for both lgamma and loggamma as some people cannot upgrade to SpecialFunctions 0.8.
+
+
+Knet v1.2.5 Release Notes
+=========================
+46f9211 2019-09-04
+
+* Unsupported KnetArray shapes for getindex/setindex!, cat/hcat/vcat and permutedims have now fallback kernels from CuArrays. permutedims speed for ndims>=2 greatly improved. This addresses issues #198, #319, #368, #400, #470.
+* Memory manager made faster and more robust using attention based nmt benchmarks.
+* Improved stability problems with CuArrays on some devices (e.g. gitlab-ci) using CUDAnative.initialize().
+* Addressed different device ids used by cudart, cuda, and nvml using PCIBusIds with cuid() and nvmlid().
+* RNN fixes: init speed improved, default forget bias=1, allocates own workspace, no longer a parametric type RNN{T}, fixed issue #482 with size 1 input.
+* nll/accuracy now use a 0 value for masking, return (total,count) pair when average=false.
+* progress now takes a function argument and runs it periodically either every n seconds or n steps.
+* minimize and friends (adam etc.) return Result instead of plain loss to allow looking at gradients.
+* Use IterTools in tutorial instead of redefining the same functions.
+* Use loggamma instead of deprecated lgamma.
+
+
+Knet v1.2.4 Release Notes
+=========================
+25f9078 2019-08-10
+
+* Fixed permutedims speed using CuArrays.
+
+
+Knet v1.2.3 Release Notes
+=========================
+bb024b4 2019-07-25
+
+* Tutorial notebook fixes.
+* Saved KnetArrays now load as regular Arrays on cpu, not reshaped/reinterpreted.
+
+
 Knet v1.2.2 Release Notes
 =========================
+caba6b7b 2019-05-25
 
 * Highorder gradient bug fixes for linear and mlp models.
 * Removed compat section from Project.toml.

@@ -6,16 +6,15 @@ import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, 
 # except applying gradient based updates to params at each step
 
 #"Example: `minimize(f,repeat(data,10))`"
-minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params,typeof(f(first(d)...)))
+minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params)
 minimize!(x...; o...) = for x in minimize(x...; o...); end
 
-struct Minimize{I}; data::I; func; algo; params; eltype; end
+struct Minimize{I}; data::I; func; algo; params; end
 
+IteratorSize(::Type{Minimize{I}}) where {I} = IteratorSize(I)
+IteratorEltype(::Type{<:Minimize}) = Base.EltypeUnknown()
 length(m::Minimize) = length(m.data)
 size(m::Minimize) = size(m.data)
-eltype(m::Minimize) = m.eltype
-IteratorSize(::Type{Minimize{I}}) where {I} = IteratorSize(I)
-IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
 
 @propagate_inbounds function iterate(m::Minimize, s...)
     next = iterate(m.data, s...)
@@ -28,6 +27,8 @@ IteratorEltype(::Type{<:Minimize}) = Base.HasEltype()
         end
         update!(x, grad(y,x))
     end
+    #Returning the tape is risky: prevents gc and causes >2x slowdown at memory limit
+    #return (y,s)
     return (value(y),s)
 end
 

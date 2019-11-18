@@ -13,7 +13,7 @@ function _testkptr(kptrs, navail, nfree)
     @test sort(collect(keys(mem.pools))) == blocksizes
     @test mem.limit >= mem.bytes
     @test mem.bytes == sum(blocksizes)
-    @test mem.avail == navail
+    @test mem.bfree == navail
     @test all(Bool[v.nptr==1 && length(v.free)==nfree for (k,v) in mem.pools])
     if nfree == 0
         @test (p->p.len).(kptrs) == blocksizes
@@ -22,7 +22,7 @@ end
 
 _testingkptr = false
 
-if gpu() >= 0 && KnetMems === nothing
+if gpu() >= 0 && KnetMems === nothing && !Knet.cuallocator()
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
     _testingkptr = true

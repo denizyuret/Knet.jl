@@ -467,20 +467,22 @@ for each constructor and their default values are listed as well.
 """
 update!(x::Param, g) = update!(x.value, g, x.opt)
 
+using AutoGrad: full
+
 for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
 
-    function update!(w::$T, g::$T, p::SGD)
+    function update!(w::$T, g, p::SGD)
         gclip!(g, p.gclip)
         axpy!(-p.lr, g, w)
     end
 
     # Two arg defaults to SGD
-    function update!(w::$T, g::$T; lr=SGDLR, gclip=0)
+    function update!(w::$T, g; lr=SGDLR, gclip=0)
         gclip!(g, gclip)
         axpy!(-lr, g, w)
     end
 
-    function update!(w::$T, g::$T, p::Momentum)
+    function update!(w::$T, g, p::Momentum)
         gclip!(g, p.gclip)
         if p.velocity===nothing; p.velocity=zero(w); end
         lmul!(p.gamma, p.velocity)
@@ -489,7 +491,7 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
     end
 
     # https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
-    function update!(w::$T, g::$T, p::Nesterov)
+    function update!(w::$T, g, p::Nesterov)
         gclip!(g, p.gclip)
         p.velocity ===nothing && (p.velocity = zero(w))
         lmul!(p.gamma, p.velocity)
@@ -498,23 +500,26 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(1+p.gamma, p.velocity, w)
     end
 
-    function update!(w::$T, g::$T, p::Adagrad)
+    function update!(w::$T, g, p::Adagrad)
         gclip!(g, p.gclip)
+        g = full(g)
         if p.G===nothing; p.G=zero(w); end
         axpy!(1, g .* g, p.G)
         axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
     end
 
-    function update!(w::$T, g::$T, p::Rmsprop)
+    function update!(w::$T, g, p::Rmsprop)
         gclip!(g, p.gclip)
+        g = full(g)
         if p.G===nothing; p.G=zero(w); end
         lmul!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
         axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
     end
 
-    function update!(w::$T, g::$T, p::Adadelta)
+    function update!(w::$T, g, p::Adadelta)
         gclip!(g, p.gclip)
+        g = full(g)
         if p.G===nothing; p.G=zero(w); p.delta=zero(w); end
         lmul!(p.rho, p.G)
         axpy!(1-p.rho, g .* g, p.G)
@@ -524,8 +529,9 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         axpy!(-p.lr, dw, w)
     end
 
-    function update!(w::$T, g::$T, p::Adam)
+    function update!(w::$T, g, p::Adam)
         gclip!(g, p.gclip)
+        g = full(g)
         if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
         p.t += 1
         lmul!(p.beta1, p.fstm)
@@ -536,10 +542,6 @@ for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); 
         scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
         axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) .+ p.eps)), w)
     end
-
-    # If type of g does not match, something may be wrong
-    update!(w::$T, g, p)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
-    update!(w::$T, g; o...)=error("Gradient type mismatch: w::$(typeof(w)) g::$(typeof(g))")
 
     # AutoGrad may return Nothing for a zero gradient
     update!(w::$T, g::Nothing, p)=w
