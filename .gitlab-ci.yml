@@ -1,25 +1,94 @@
-variables:
-  CI_IMAGE_TAG: 'cuda'
-  JULIA_NUM_THREADS: '4'
-
 include:
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/common.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.2.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/coverage_v1.2.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/documentation_v1.2.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.0.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.1.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.3.yml'
-  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_dev.yml'
+  - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v6.yml'
 
-test:dev:
-  allow_failure: true
+image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
 
-test:v1.3:
+variables:
+  JULIA_CUDA_VERBOSE: 'true'
+
+julia:1.0:
+  extends:
+    - .julia:1.0
+    - .test
+  tags:
+    - nvidia
+
+julia:1.1:
+  extends:
+    - .julia:1.1
+    - .test
+  tags:
+    - nvidia
+
+julia:1.2:
+  extends:
+    - .julia:1.2
+    - .test
+  tags:
+    - nvidia
+    - sm_75
+  variables:
+    CI_THOROUGH: 'true'
+
+julia:1.3:
+  extends:
+    - .julia:1.3
+    - .test
+  tags:
+    - nvidia
+
+julia:nightly:
+  extends:
+    - .julia:nightly
+    - .test
+  tags:
+    - nvidia
   allow_failure: true
 
 coverage:
-  allow_failure: true
+  extends:
+    - .julia:1.2
+    - .coverage
+
+# documentation:
+#   extends:
+#     - .julia:1.2
+#     - .documentation
+#   tags:
+#     - nvidia
+
+# pages:
+#   stage: deploy
+#   script:
+#     - mv docs/build public
+#   artifacts:
+#     paths:
+#     - public
+#   only:
+#     - master
+
+# variables:
+#   CI_IMAGE_TAG: 'cuda'
+#   JULIA_NUM_THREADS: '4'
+
+# include:
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/common.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.2.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/coverage_v1.2.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/documentation_v1.2.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.0.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.1.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_v1.3.yml'
+#   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/test_dev.yml'
+
+# test:dev:
+#   allow_failure: true
+
+# test:v1.3:
+#   allow_failure: true
+
+# coverage:
+#   allow_failure: true
 
 # test:v1.2:                      # cuda-memcheck version
 #   script:
