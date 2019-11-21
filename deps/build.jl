@@ -1,6 +1,6 @@
 using CUDAapi, Libdl
 
-NVCC = CXX = ""
+NVCC = ""
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
@@ -12,10 +12,13 @@ inforun(cmd)=(@info(cmd);run(cmd))
 
 try
     tk = CUDAapi.find_toolkit()
-    tc = CUDAapi.find_toolchain(tk)
-    global CXX = tc.host_compiler
-    global NVCC = tc.cuda_compiler
-    push!(NVCCFLAGS, "--compiler-bindir", CXX)
+    if isdefined(CUDAapi, :find_toolchain) # CUDAapi v1.x
+        tc = CUDAapi.find_toolchain(tk)
+        global NVCC = tc.cuda_compiler
+        push!(NVCCFLAGS, "--compiler-bindir", tc.host_compiler)
+    else                        # CUDAapi v2.x
+        global NVCC = CUDAapi.find_cuda_binary("nvcc")
+    end
 catch; end
 
 push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
