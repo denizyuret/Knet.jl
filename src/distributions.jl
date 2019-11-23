@@ -41,6 +41,40 @@ function xavier(a...)
     w = 2s .* w .- s
 end
 
+
+"""
+
+    xavier_uniform(a...)
+
+Xavier initialization returns uniform random weights in the range `±sqrt(6 / (fanin +
+fanout))`.  The `a` arguments are passed to `rand`.  See ([Glorot and Bengio
+2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf)) for a description.
+The function implements equation (16) of the referenced paper.
+
+Unlike the `xavier` function, `xavier_uniform` uses the same convention as
+TensorFlow and PyTorch.
+"""
+function xavier_uniform(a...)
+    w = rand(a...)
+    if ndims(w) == 1
+        fanout = 1
+        fanin = length(w)
+    elseif ndims(w) == 2
+        fanout = size(w,1)
+        fanin = size(w,2)
+    else
+        # if a is (3,3,16,8), then there are 16 input channels and 8
+        # output channels
+        # fanin = 3*3*16 = (3*3*16*8) ÷ 8
+        # fanout = 3*3*8 = (3*3*16*8) ÷ 16
+        fanin = div(length(w),  a[end])
+        fanout = div(length(w), a[end-1])
+    end
+    s = convert(eltype(w), sqrt(6 / (fanin + fanout)))
+    w = 2s .* w .- s
+end
+
+
 """
 
 Bilinear interpolation filter weights; used for initializing deconvolution layers.

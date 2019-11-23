@@ -100,6 +100,7 @@ export		# ref:reference.md tut:tutorial
     #updates,	# deprecated, use take(cycle(data),n)
     value,	# ref, tut
     xavier,	# ref, tut
+    xavier_uniform,	# ref
     #@zerograd, # ref, use AutoGrad.@zerograd
     zeroone	# ref, tut
 
