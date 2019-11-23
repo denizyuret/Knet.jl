@@ -69,7 +69,7 @@ for an example.
 - `dataType=Float32`: Data type to use for weights.
 - `algo=0`: Algorithm to use, see CUDNN docs for details.
 - `seed=0`: Random number seed for dropout. Uses `time()` if 0.
-- `winit=xavier`: Weight initialization method for matrices.
+- `winit=xavier_uniform`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
 - `finit=ones`: Weight initialization method for the bias of forget gates.
 - `usegpu=(gpu()>=0)`: GPU used by default if one exists.
@@ -139,7 +139,7 @@ function RNN(inputSize, hiddenSize;
              dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
              algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
              seed=0,              # seed=0 for random init, positive integer for replicability
-             winit=xavier,
+             winit=xavier_uniform,
              binit=zeros,
              finit=ones,        # forget bias for lstm
              usegpu=(gpu()>=0),

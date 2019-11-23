@@ -10,14 +10,14 @@ if gpu() >= 0; @testset "rnn" begin
     P = Param
 
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)
-        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit,xavier))
+        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, xavier_uniform))
         # global rnew,r,w,x1,x2,x3,hx1,cx1,hx2,cx2,hx3,cx3
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
         Knet.seed!(2)
 
-        r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier) # binit=zeros does not pass gchk
+        r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform) # binit=zeros does not pass gchk
         w = r.w
-        rcpu = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier, usegpu=false)
+        rcpu = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, usegpu=false)
         wcpu = rcpu.w
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
@@ -115,7 +115,7 @@ if gpu() >= 0; @testset "rnn" begin
         end
 
         ## Test new interface in 3-D
-        rnew = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier)
+        rnew = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform)
         copyto!(value(rnew.w), value(w))
         # x
         rnew.c = rnew.h = nothing
