@@ -515,9 +515,12 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
         return (0, cudnnWorkSpace())
     else
         Knet.gc(); @dbg print('*')
-        @cudnn(cudnnFindConvolutionForwardAlgorithm,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
-              handle,TD(x),FD(w),CD(w,x;o...),TD(y),requestedAlgoCount,returnedAlgoCount,perfResults)
+        # TODO: not sure how much space to allocate here without risking OOM, will figure out later.
+        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        wd, xd, yd, cd = FD(w), TD(x), TD(y), CD(w,x;o...)
+        @cudnn(cudnnFindConvolutionForwardAlgorithmEx,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+              handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -535,9 +538,11 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
         return (0, cudnnWorkSpace())
     else
         Knet.gc(); @dbg print('*')
-        @cudnn(cudnnFindConvolutionBackwardFilterAlgorithm,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
-              handle,TD(x),TD(dy),CD(w,x;o...),FD(dw),requestedAlgoCount,returnedAlgoCount,perfResults)
+        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        wd, xd, yd, cd = FD(dw), TD(x), TD(dy), CD(w,x;o...)
+        @cudnn(cudnnFindConvolutionBackwardFilterAlgorithmEx,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+              handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4w_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -555,9 +560,11 @@ function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetAr
         return (0, cudnnWorkSpace())
     else
         Knet.gc(); @dbg print('*')
-        @cudnn(cudnnFindConvolutionBackwardDataAlgorithm,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr),
-              handle,FD(w),TD(dy),CD(w,x;o...),TD(dx),requestedAlgoCount,returnedAlgoCount,perfResults)
+        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        wd, xd, yd, cd = FD(w), TD(dx), TD(dy), CD(w,x;o...)
+        @cudnn(cudnnFindConvolutionBackwardDataAlgorithmEx,
+              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+              handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4x_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -571,7 +578,7 @@ function perfChoose(ps, n)
         warn("returnedAlgoCount==requestedAlgoCount")
     end
     if CUDNN_WORKSPACE_MAXSIZE == 0
-        CUDNN_WORKSPACE_MAXSIZE = div(gpufree(),5)
+        CUDNN_WORKSPACE_MAXSIZE = gpufree()÷5
     end
     (ibest,mbest,tbest) = (0,CUDNN_WORKSPACE_MAXSIZE,Inf)
     for i = 1:n
@@ -583,9 +590,9 @@ function perfChoose(ps, n)
     return ps[ibest]
 end
 
-# TODO: this assumes one workspace per gpu. What about streams?
+# DEPRECATED -- this assumes one workspace per gpu. What about streams?
 const CUDNN_WORKSPACE = []
-function cudnnWorkSpace(len=0;dev=gpu())
+function cudnnWorkSpace_deprecated(len=0;dev=gpu())
     global CUDNN_WORKSPACE
     if dev==-1; error("No cudnnWorkSpace for CPU"); end
     i = dev+2
@@ -596,3 +603,5 @@ function cudnnWorkSpace(len=0;dev=gpu())
     return CUDNN_WORKSPACE[i]
 end
 
+# Fresh workspace for every op is safer:
+cudnnWorkSpace(len=0)=KnetArray{UInt8}(undef,len)

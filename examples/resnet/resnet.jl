@@ -1,5 +1,5 @@
 using Pkg
-for p in ("Knet","ArgParse","Images")
+for p in ("Knet","ArgParse","Images","ImageMagick")
     haskey(Pkg.installed(),p) || Pkg.add(p)
 end
 
