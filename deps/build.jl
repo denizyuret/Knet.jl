@@ -1,6 +1,6 @@
 using CUDAapi, Libdl
 
-NVCC = ""
+NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
@@ -27,7 +27,7 @@ push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 # Uncomment this for better compiler optimization
 # We keep it commented to compile for multiple gpu types
 
-# if NVCC != "" && Pkg.installed("CUDAdrv") != nothing
+# if NVCC !== nothing && Pkg.installed("CUDAdrv") != nothing
 #     eval(Expr(:using,:CUDAdrv))
 #     try
 #         dev = CuDevice(0)
@@ -83,7 +83,7 @@ function build_nvcc()
 end
 
 function build()
-    if NVCC != ""
+    if NVCC !== nothing
         build_nvcc()
     else
         @warn("no compilers found, libknet8 will not be built.")
