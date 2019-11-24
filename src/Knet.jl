@@ -100,6 +100,8 @@ export		# ref:reference.md tut:tutorial
     #updates,	# deprecated, use take(cycle(data),n)
     value,	# ref, tut
     xavier,	# ref, tut
+    xavier_uniform,	# ref
+    xavier_normal,	# ref
     #@zerograd, # ref, use AutoGrad.@zerograd
     zeroone	# ref, tut
 
@@ -129,7 +131,7 @@ include("train.jl");		# train, train!, minimize, minimize!, converge, converge!,
 include("loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          # dropout
 include("update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
-include("distributions.jl"); 	# gaussian, xavier, bilinear
+include("distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
 include("random.jl");           # setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         # hyperband, goldensection
 include("serialize.jl");        # gpucopy,cpucopy
