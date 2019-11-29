@@ -1,3 +1,13 @@
+Knet v1.3.2 Release Notes
+=========================
+
+* Compatibility with CUDAapi 2.0.
+* Updated colab script. (@ozanarkancan)
+* Fixed xavier = xavier_uniform and added xavier_normal distributions. (@Alexander-Barth)
+* Conv now allocates workspace on demand and prefers algorithms with no workspace. (Issue #518)
+* The progress bar function argument takes the Progress object as its argument instead of currval.
+
+
 Knet v1.3.1 Release Notes
 =========================
 c94c1aa 2019-11-07

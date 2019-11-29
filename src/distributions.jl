@@ -12,49 +12,22 @@ function gaussian(a...; mean=0.0, std=0.01)
     r .* T(std) .+ T(mean)
 end
 
-"""
-
-    xavier(a...)
-
-Xavier initialization returns uniform random weights in the range `±sqrt(2 / (fanin +
-fanout))`.  The `a` arguments are passed to `rand`.  See ([Glorot and Bengio
-2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf)) for a description.
-[Caffe](http://caffe.berkeleyvision.org/doxygen/classcaffe_1_1XavierFiller.html#details)
-implements this slightly differently.
-[Lasagne](http://lasagne.readthedocs.org/en/latest/modules/init.html#lasagne.init.GlorotUniform)
-calls it `GlorotUniform`.
-
-"""
-function xavier(a...)
-    @warn "xavier is deprecated, use xavier_uniform or xavier_normal instead" maxlog=1
-    w = rand(a...)
-    if ndims(w) == 1
-        fanout = 1
-        fanin = length(w)
-    elseif ndims(w) == 2
-        fanout = size(w,1)
-        fanin = size(w,2)
-    else
-        fanout = size(w, ndims(w))
-        fanin = div(length(w), fanout)
-    end
-    s = convert(eltype(w), sqrt(2 / (fanin + fanout)))
-    w = 2s .* w .- s
-end
-
 
 """
 
     xavier_uniform(a...; gain=1)
 
-Return uniform random weights in the range `±sqrt(6 / (fanin + fanout))`.  The `a` arguments
-are passed to `rand` to specify type and dimensions.  See ([Glorot and Bengio
+Return uniform random weights in the range `± gain * sqrt(6 / (fanin + fanout))`.  The `a`
+arguments are passed to `rand` to specify type and dimensions.  See ([Glorot and Bengio
 2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf)) or the [PyTorch
 docs](https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.xavier_uniform_) for a
 description.  The function implements equation (16) of the referenced paper. Also known as
-Glorot initialization.
+Glorot initialization. The function `xavier` is an alias for `xavier_uniform`. See also
+`xavier_normal`.
 
 """
+xavier, xavier_uniform
+
 function xavier_uniform(a...; gain=1)
     w = rand(a...)
     if ndims(w) == 1
@@ -74,6 +47,9 @@ function xavier_uniform(a...; gain=1)
     return 2s .* w .- s
 end
 
+const xavier = xavier_uniform
+
+
 """
 
     xavier_normal(a...; gain=1)
@@ -82,7 +58,7 @@ Return normal distributed random weights with mean 0 and std `gain * sqrt(2 / (f
 fanout))`.  The `a` arguments are passed to `rand`.  See ([Glorot and Bengio
 2010](http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf)) and [PyTorch
 docs](https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.xavier_normal_) for a
-description. Also known as Glorot initialization.
+description. Also known as Glorot initialization. See also `xavier_uniform`.
 
 """
 
