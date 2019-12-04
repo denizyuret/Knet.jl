@@ -16,6 +16,7 @@ end
 """
 
     xavier_uniform(a...; gain=1)
+    xavier(a...; gain=1)
 
 Return uniform random weights in the range `± gain * sqrt(6 / (fanin + fanout))`.  The `a`
 arguments are passed to `rand` to specify type and dimensions.  See ([Glorot and Bengio
@@ -61,7 +62,6 @@ docs](https://pytorch.org/docs/stable/nn.init.html#torch.nn.init.xavier_normal_)
 description. Also known as Glorot initialization. See also `xavier_uniform`.
 
 """
-
 function xavier_normal(a...; gain=1)
     w = randn(a...)
     if ndims(w) == 1
