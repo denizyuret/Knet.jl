@@ -265,6 +265,54 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "reference/#Knet.param",
+    "page": "Reference",
+    "title": "Knet.param",
+    "category": "function",
+    "text": "param(array; atype)\nparam(dims...; init, atype)\nparam0(dims...; atype)\n\nThe first form returns Param(atype(array)) where atype=identity is the default.\n\nThe second form Returns a randomly initialized Param(atype(init(dims...))).  By default, init is xavier_uniform and atype is KnetArray{Float32} if gpu() >= 0, Array{Float32} otherwise.\n\nThe third form param0 is an alias for param(dims...; init=zeros).\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.xavier",
+    "page": "Reference",
+    "title": "Knet.xavier",
+    "category": "function",
+    "text": "xavier_uniform(a...; gain=1)\nxavier(a...; gain=1)\n\nReturn uniform random weights in the range ± gain * sqrt(6 / (fanin + fanout)).  The a arguments are passed to rand to specify type and dimensions.  See (Glorot and Bengio 2010) or the PyTorch docs for a description.  The function implements equation (16) of the referenced paper. Also known as Glorot initialization. The function xavier is an alias for xavier_uniform. See also xavier_normal.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.xavier_uniform",
+    "page": "Reference",
+    "title": "Knet.xavier_uniform",
+    "category": "function",
+    "text": "xavier_uniform(a...; gain=1)\nxavier(a...; gain=1)\n\nReturn uniform random weights in the range ± gain * sqrt(6 / (fanin + fanout)).  The a arguments are passed to rand to specify type and dimensions.  See (Glorot and Bengio 2010) or the PyTorch docs for a description.  The function implements equation (16) of the referenced paper. Also known as Glorot initialization. The function xavier is an alias for xavier_uniform. See also xavier_normal.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.xavier_normal",
+    "page": "Reference",
+    "title": "Knet.xavier_normal",
+    "category": "function",
+    "text": "xavier_normal(a...; gain=1)\n\nReturn normal distributed random weights with mean 0 and std gain * sqrt(2 / (fanin + fanout)).  The a arguments are passed to rand.  See (Glorot and Bengio 2010) and PyTorch docs for a description. Also known as Glorot initialization. See also xavier_uniform.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.gaussian",
+    "page": "Reference",
+    "title": "Knet.gaussian",
+    "category": "function",
+    "text": "gaussian(a...; mean=0.0, std=0.01)\n\nReturn a Gaussian array with a given mean and standard deviation.  The a arguments are passed to randn.\n\n\n\n\n\n"
+},
+
+{
+    "location": "reference/#Knet.bilinear",
+    "page": "Reference",
+    "title": "Knet.bilinear",
+    "category": "function",
+    "text": "Bilinear interpolation filter weights; used for initializing deconvolution layers.\n\nAdapted from https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py#L33\n\nArguments:\n\nT : Data Type\n\nfw: Width upscale factor\n\nfh: Height upscale factor\n\nIN: Number of input filters\n\nON: Number of output filters\n\nExample usage:\n\nw = bilinear(Float32,2,2,128,128)\n\n\n\n\n\n"
+},
+
+{
     "location": "reference/#Parameter-initialization-1",
     "page": "Reference",
     "title": "Parameter initialization",
