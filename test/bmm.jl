@@ -7,9 +7,19 @@ sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
         for s in sizes
             a = t(0.1)*randn(t, s[1]...)
             b = t(0.1)*randn(t, s[2]...)
-            bmmul(w)=bmm(w[1],w[2])
+            bmmul1(w)=bmm(w[1],w[2])
+            bmmul2(w)=bmm(w[1],w[2]; transA=true)
+            bmmul3(w)=bmm(w[1],w[2]; transB=true)
+            bmmul4(w)=bmm(w[1],w[2]; transA=true, transB=true)
+            pm(w) = ndims(w)==3 ? permutedims(w, (2,1,3)) : permutedims(w, (2,1,3,4)) 
             w = [a,b]
-            @test gradcheck(bmmul, w)
+            @test gradcheck(bmmul1, w)
+            w = [pm(a),b]
+            @test gradcheck(bmmul2, w)
+            w = [a,pm(b)]
+            @test gradcheck(bmmul3, w)
+            w = [pm(a),pm(b)]
+            @test gradcheck(bmmul4, w)
             if gpu() >= 0
                 c = bmm(a, b)
                 ka = KnetArray(a)
