@@ -27,7 +27,7 @@ sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
                 kc = bmm(ka, kb)
                 @test isapprox(c, Array(kc))
                 w = [ka,kb]
-                @test gradcheck(bmmul, w)
+                @test gradcheck(bmmul1, w)
             end
         end
     end
