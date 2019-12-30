@@ -23,12 +23,12 @@ function cuda17src(f, j=f, ex="$f(xi,yi)")
 
 """
 __global__ void _$(F)_17($T *x,$T *y, $T *z,
-                                int *stride_x, int *stride_y,
-                                int *stride_z,int N_z,int dimlen_z) {
+                                size_t *stride_x, size_t *stride_y,
+                                size_t *stride_z,size_t N_z,size_t dimlen_z) {
 
-    int index_z = threadIdx.x + (blockIdx.x * blockDim.x);
-    int index_x,index_y,coords;
-    int temp_index;
+    size_t index_z = threadIdx.x + (blockIdx.x * blockDim.x);
+    size_t index_x,index_y,coords;
+    size_t temp_index;
 
     while (index_z < N_z) {
         temp_index = index_z;
@@ -36,7 +36,7 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
         // TODO replace (i/n) == (i>>log2(n)) also %
         index_x =0;
         index_y = 0;
-        for (int i=dimlen_z-1; i>0; i--)
+        for (size_t i=dimlen_z-1; i>0; i--)
         {
             coords = temp_index / stride_z[i];
             index_x+= stride_x[i]*coords;
@@ -55,7 +55,7 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
 
 
 extern "C" {
-  $DLLEXPORT void $(F)_17($T *x,$T *y,$T *z, int *stride_x, int *stride_y,int *stride_z,int N_z,int dimlen_z) {
+  $DLLEXPORT void $(F)_17($T *x,$T *y,$T *z, size_t *stride_x, size_t *stride_y,size_t *stride_z,size_t N_z,size_t dimlen_z) {
 
     _$(F)_17<<<256,256>>>(x,y,z,stride_x,stride_y,stride_z,N_z,dimlen_z);
 

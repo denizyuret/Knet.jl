@@ -14,7 +14,7 @@ function unary_op(f, j=f, o...)
         @eval begin
             function broadcasted(::typeof($J),x::KnetArray{$T})
                 y = similar(x)
-                @knet8($F,(Cint,Ptr{$T},Ptr{$T}),length(y),x,y)
+                @knet8($F,(Csize_t,Ptr{$T},Ptr{$T}),length(y),x,y)
                 return y
             end
             # Bcasted methods

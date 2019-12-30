@@ -37,16 +37,16 @@ function cuda14src(f, j=f, ex="$f(xi,yi)")
 
 """
 
-__global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int sf)
+__global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, size_t firstdimsize, size_t x_N,size_t sf)
 {
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
-    int tx = threadIdx.y;
-    int ty = threadIdx.x;
+    size_t bx = blockIdx.x;
+    size_t by = blockIdx.y;
+    size_t tx = threadIdx.y;
+    size_t ty = threadIdx.x;
 
     //row and col of matrix that thread will work on
-    int row = by * blockDim.y * (sf+1) + ty;
-    int col = bx * blockDim.y + tx;
+    size_t row = by * blockDim.y * (sf+1) + ty;
+    size_t col = bx * blockDim.y + tx;
 
     __shared__ $T Ys[BLOCK_SIZE_y];
 
@@ -58,10 +58,10 @@ __global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
           Ys[tx]=y[col];
       }
       __syncthreads();
-      int Start = (row * firstdimsize) + col;
-      int Step = firstdimsize * BLOCK_SIZE_y;
+      size_t Start = (row * firstdimsize) + col;
+      size_t Step = firstdimsize * BLOCK_SIZE_y;
 
-      for (int k= 0; k<(sf+1); k++)
+      for (size_t k= 0; k<(sf+1); k++)
       {
           if (Start<x_N)
           {
@@ -76,18 +76,18 @@ __global__ void _$(F)_14_x_y($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  $DLLEXPORT void $(F)_14_x_y($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
-    //int flat_dims=x_N/firstdimsize;
-    int sf;
+  $DLLEXPORT void $(F)_14_x_y($T *x,$T *y,$T *z, size_t firstdimsize, size_t x_N,size_t flat_dims) {
+    //size_t flat_dims=x_N/firstdimsize;
+    size_t sf;
     if(flat_dims<129)
       {sf=4;}
     else if(flat_dims<513)
       {sf=8;}
     else
       {sf=16;}
-    int thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
-    int thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
-    int thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
+    size_t thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    size_t thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    size_t thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
     dim3 dimGrid(thread_block_number4cover_x, thread_blockwsliding);
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     //x_N size of the x
@@ -104,16 +104,16 @@ extern "C" {
 
 """
 
-__global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int sf)
+__global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, size_t firstdimsize, size_t x_N,size_t sf)
 {
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
-    int tx = threadIdx.y;
-    int ty = threadIdx.x;
+    size_t bx = blockIdx.x;
+    size_t by = blockIdx.y;
+    size_t tx = threadIdx.y;
+    size_t ty = threadIdx.x;
 
     //row and col of matrix that thread will work on
-    int row = by * blockDim.y * (sf+1) + ty;
-    int col = bx * blockDim.y + tx;
+    size_t row = by * blockDim.y * (sf+1) + ty;
+    size_t col = bx * blockDim.y + tx;
 
     __shared__ $T Ys[BLOCK_SIZE_y];
 
@@ -124,10 +124,10 @@ __global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
           Ys[tx]=y[col];
       }
       __syncthreads();
-      int Start = (row * firstdimsize) + col;
-      int Step = firstdimsize * BLOCK_SIZE_y;
+      size_t Start = (row * firstdimsize) + col;
+      size_t Step = firstdimsize * BLOCK_SIZE_y;
 
-      for (int k= 0; k<(sf+1); k++)
+      for (size_t k= 0; k<(sf+1); k++)
       {
           if (Start<x_N)
           {
@@ -142,18 +142,18 @@ __global__ void _$(F)_14_y_x($T *x, $T *y,$T *z, int firstdimsize, int x_N,int s
 }
 
 extern "C" {
-  $DLLEXPORT void $(F)_14_y_x($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims) {
-    //int flat_dims=x_N/firstdimsize;
-    int sf;
+  $DLLEXPORT void $(F)_14_y_x($T *x,$T *y,$T *z, size_t firstdimsize, size_t x_N,size_t flat_dims) {
+    //size_t flat_dims=x_N/firstdimsize;
+    size_t sf;
     if(flat_dims<129)
       {sf=4;}
     else if(flat_dims<513)
       {sf=8;}
     else
       {sf=16;}
-    int thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
-    int thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
-    int thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
+    size_t thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    size_t thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    size_t thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
     dim3 dimGrid(thread_block_number4cover_x, thread_blockwsliding);
     dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
     //x_N size of the x

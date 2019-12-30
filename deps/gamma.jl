@@ -11,18 +11,18 @@ function cuda1gammafamily()
 #include <float.h>
 #include <math.h>
 
-__device__ __host__ float polynomial_evaluation_32(float x, const float *f, int n) {
+__device__ __host__ float polynomial_evaluation_32(float x, const float *f, size_t n) {
   float result = 0.0;
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     result *= x;
     result += f[i];
   }
   return result;
 }
 
-__device__ __host__ double polynomial_evaluation_64(double x, const double *f, int n) {
+__device__ __host__ double polynomial_evaluation_64(double x, const double *f, size_t n) {
   double result = 0.0;
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     result *= x;
     result += f[i];
   }
@@ -124,9 +124,9 @@ __device__ __host__ $T digamma_impl_$F(const $T u) {
 
 }
 
-__device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
+__device__ __host__ size_t zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
                                          const $T machep) {
-  int i = 0;
+  size_t i = 0;
   while ((i < 9) $zeta_impl_series_2nd_cond) {
     i += 1;
     *a += $one_str;
@@ -142,7 +142,7 @@ __device__ __host__ int zeta_impl_series_$F($T *a, $T *b, $T *s, const $T x,
 }
 
 __device__ __host__ $T zeta_impl_$F($T x, $T q) {
-  int i;
+  size_t i;
   $T p, r, a, b, k, s, t, w;
 
   const $T A[] = {
@@ -218,14 +218,14 @@ __device__ __host__ $T gamma_impl_$F($T x) {
   return tgamma(x);
 }
 
-__device__ __host__ $T polygamma_impl_$F(int n, $T x) {
+__device__ __host__ $T polygamma_impl_$F(size_t n, $T x) {
   if (n == 0) {
     return digamma_impl_$F(x);
   }
 
   // dumb code to calculate factorials
   $T factorial = $one_str;
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     factorial *= (i + 1);
   }
 

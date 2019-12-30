@@ -10,28 +10,28 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
           print(s,"__global__ void _$(F)_16_$(dim_count)($T *x,$T *y, $T *z,")
           # place input variables
           for counter=0:dim_count-1
-            print(s,"int stridex_$counter,")
+            print(s,"size_t stridex_$counter,")
           end
           for counter=0:dim_count-1
-            print(s,"int stridey_$counter,")
+            print(s,"size_t stridey_$counter,")
           end
           for counter=0:dim_count-1
-            print(s,"int stridez_$counter,")
+            print(s,"size_t stridez_$counter,")
           end
           # z is global index calculated from block and tread id
           print(s,
 
-              """int N_z) {
-                  int index_z = threadIdx.x + (blockIdx.x * blockDim.x);
-                  int index_x,index_y;
+              """size_t N_z) {
+                  size_t index_z = threadIdx.x + (blockIdx.x * blockDim.x);
+                  size_t index_x,index_y;
               """)
 
               print(s,
               """
-                  int coords[$(dim_count)];
+                  size_t coords[$(dim_count)];
 
                   while (index_z < N_z) {
-                      int temp_index = index_z;
+                      size_t temp_index = index_z;
               """)
               for counter=dim_count-1:-1:0
                 print(s,"\n\tcoords[$counter] = temp_index / stridez_$counter;")
@@ -60,17 +60,17 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
               extern "C" {
                 $DLLEXPORT void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
               for counter=0:dim_count-1
-                print(s,"int stridex_$counter,")
+                print(s,"size_t stridex_$counter,")
               end
               for counter=0:dim_count-1
-                print(s,"int stridey_$counter,")
+                print(s,"size_t stridey_$counter,")
               end
               for counter=0:dim_count-1
-                print(s,"int stridez_$counter,")
+                print(s,"size_t stridez_$counter,")
               end
 
               print(s,
-                """int Nz) {
+                """size_t Nz) {
 
                   _$(F)_16_$(dim_count)<<<256,256>>>(x,y,z,""")
               for counter=0:dim_count-1

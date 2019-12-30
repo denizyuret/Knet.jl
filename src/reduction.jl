@@ -27,7 +27,7 @@ function reduction_op(f, j=f, o...)
         @eval begin
             function ($M).$J(x::KnetArray{$T}; dims=:)
                 if dims == Colon()
-                    y=@knet8r($F20,$T,(Cint,Ptr{$T}),length(x),x)
+                    y=@knet8r($F20,$T,(Csize_t,Ptr{$T}),length(x),x)
                     return y
                 end
                 rdims = reduced_dims_compat(size(x), dims)
@@ -51,14 +51,14 @@ function reduction_op(f, j=f, o...)
                     end
                     y = similar(x, ysize)
                     nx = length(x); ny = length(y); sy = stride(x,i0)
-                    @knet8($F21,(Cint,Ptr{$T},Cint,Cint,Ptr{$T}),nx,x,sy,ny,y)
+                    @knet8($F21,(Csize_t,Ptr{$T},Csize_t,Csize_t,Ptr{$T}),nx,x,sy,ny,y)
                     return y
                 elseif vdims == ndims(x)-1
                     y = similar(x, rdims)
                     d = dims[1]
                     nx = length(x); ny = length(y); s1 = stride(x,d)
                     s2 = stride(x,d+1); xd1 = size(x,d)-1
-                    @knet8($F22,(Cint,Cint,Ptr{$T},Cint,Cint,Cint,Ptr{$T}),
+                    @knet8($F22,(Csize_t,Csize_t,Ptr{$T},Csize_t,Csize_t,Csize_t,Ptr{$T}),
                                  nx, xd1, x, s1, s2, ny, y)
                     return y
                 else

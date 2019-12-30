@@ -15,8 +15,8 @@ function cuda12src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,
 """
-__global__ void _$(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _$(F)_12(size_t n, $T *x, size_t sx, size_t nx, $T *y, size_t sy, size_t ny, $T *z) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     $T xi = (nx==n ? x[i] : sx==1 ? x[i%nx] : nx==1 ? x[0] : x[(i/sx)%nx]);
     $T yi = (ny==n ? y[i] : sy==1 ? y[i%ny] : ny==1 ? y[0] : y[(i/sy)%ny]);
@@ -25,7 +25,7 @@ __global__ void _$(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T
   }
 }
 extern "C" {
-  $DLLEXPORT void $(F)_12(int n, $T *x, int sx, int nx, $T *y, int sy, int ny, $T *z) {
+  $DLLEXPORT void $(F)_12(size_t n, $T *x, size_t sx, size_t nx, $T *y, size_t sy, size_t ny, $T *z) {
     _$(F)_12<<<$BLK,$THR>>>(n,x,sx,nx,y,sy,ny,z);
   }    
 }

@@ -487,7 +487,7 @@ end
 # Efficient fill:
 for S in (32,64); T = Symbol("Float$S"); F = "fill_$S"
     @eval function unsafe_setindex!(a::KnetArray{$T},v::$T,I::AbstractUnitRange)
-        @knet8($F,(Cint,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
+        @knet8($F,(Csize_t,$T,Ptr{$T}),length(I),v,pointer(a,first(I)))
         return a
     end
 end
@@ -541,17 +541,17 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 ## Indexing with KnetArray{Int32}: low level, only Int32 supported, no bounds checking
 
     function unsafe_getindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
-        @knet8($("getents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
+        @knet8($("getents_$F"),(Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
         return y
     end
 
     function unsafe_setindex!(x::KnetArray{$T}, y::$T, i::KnetArray{Int32})
-        @knet8($("setent1_$F"),(Cint,Ptr{Int},Ptr{$T},$T), length(i), i, x, y)
+        @knet8($("setent1_$F"),(Csize_t,Ptr{Int},Ptr{$T},$T), length(i), i, x, y)
         return x
     end
 
     function unsafe_setindex!(x::KnetArray{$T}, y::KnetArray{$T}, i::KnetArray{Int32})
-        @knet8($("setents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
+        @knet8($("setents_$F"),(Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}), length(i), i, x, y)
         return x
     end
 
@@ -559,19 +559,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 # TODO: Just special case rows and columns in matrices until we have a more general solution
 
     function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        @knet8($("getcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("getcols_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
         return y
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, ::Colon, i::KnetVector{Int32})
-        @knet8($("setcol1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+        @knet8($("setcol1_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},$T),
                size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, ::Colon, i::KnetVector{Int32})
-        @knet8($("setcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("setcols_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
@@ -579,19 +579,19 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
 ## Indexing with (KnetArray{Int32},Colon)
 
     function unsafe_getindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        @knet8($("getrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("getrows_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
         return y
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::KnetMatrix{$T}, i::KnetVector{Int32}, ::Colon)
-        @knet8($("setrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("setrows_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
 
     function unsafe_setindex!(x::KnetMatrix{$T}, y::$T, i::KnetVector{Int32}, ::Colon)
-        @knet8($("setrow1_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},$T),
+        @knet8($("setrow1_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},$T),
                size(x,1), size(x,2), length(i), i, x, y)
         return x
     end
@@ -981,7 +981,7 @@ function getindex2(A::KnetMatrix{T}, I1::Index3, I2::Index3) where {T}
         B = similar(A, Bsize)
         if isempty(B); return B; end
         nrows *= sizeof(T); astep *= sizeof(T)
-        @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint),
+        @knet8(xcopy,(Csize_t,Csize_t,Cptr,Csize_t,Cptr,Csize_t),
                nrows, ncols, pointer(A,firstindex), astep, B, nrows)
         return B
     end
@@ -995,18 +995,18 @@ function setindex2!(A::KnetMatrix{T}, B, I1::Index3, I2::Index3) where {T}
         if ncols == 1
             if nelts > 0
                 if T <: Float32
-                    @knet8(fill_32,(Cint,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
+                    @knet8(fill_32,(Csize_t,Cfloat, Ptr{Cfloat}), nelts,B,aptr0)
                 elseif T<: Float64
-                    @knet8(fill_64,(Cint,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
+                    @knet8(fill_64,(Csize_t,Cdouble,Ptr{Cdouble}),nelts,B,aptr0)
                 else
                     error("$T not supported")
                 end
             end
         elseif nrows > 0 && ncols > 0
             if T <: Float32
-                @knet8(xfill_32,(Cint,Cint,Cfloat, Ptr{Cfloat}, Cint),nrows,ncols,B,aptr0,astep)
+                @knet8(xfill_32,(Csize_t,Csize_t,Cfloat, Ptr{Cfloat}, Csize_t),nrows,ncols,B,aptr0,astep)
             elseif T<: Float64
-                @knet8(xfill_64,(Cint,Cint,Cdouble,Ptr{Cdouble},Cint),nrows,ncols,B,aptr0,astep)
+                @knet8(xfill_64,(Csize_t,Csize_t,Cdouble,Ptr{Cdouble},Csize_t),nrows,ncols,B,aptr0,astep)
             else
                 error("$T not supported")
             end
@@ -1021,7 +1021,7 @@ function setindex2!(A::KnetMatrix{T}, B, I1::Index3, I2::Index3) where {T}
             end
         elseif nrows > 0 && ncols > 0
             nrows *= sizeof(T); astep *= sizeof(T)
-            @knet8(xcopy,(Cint,Cint,Cptr,Cint,Cptr,Cint), nrows, ncols, B, nrows, aptr0, astep)
+            @knet8(xcopy,(Csize_t,Csize_t,Cptr,Csize_t,Cptr,Csize_t), nrows, ncols, B, nrows, aptr0, astep)
         end
     end
     return A
@@ -1151,7 +1151,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{R}) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        @knet8($("addents_$F"),(Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("addents_$F"),(Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                length(I), I, A, X)
         return A
     end
@@ -1159,7 +1159,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function addtoindex!(A::KnetArray{$T}, X, ::Colon, I::AbstractArray{R}) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        @knet8($("addcols_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("addcols_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(A,1), size(A,2), length(I), I, A, X)
         return A
     end
@@ -1167,7 +1167,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     function addtoindex!(A::KnetArray{$T}, X, I::AbstractArray{R}, ::Colon) where {R<:Real}
         I = KnetArray{Int32}(I)
         X = KnetArray{$T}(X)
-        @knet8($("addrows_$F"),(Cint,Cint,Cint,Ptr{Int},Ptr{$T},Ptr{$T}),
+        @knet8($("addrows_$F"),(Csize_t,Csize_t,Csize_t,Ptr{Int},Ptr{$T},Ptr{$T}),
                size(A,1), size(A,2), length(I), I, A, X)
         return A
     end

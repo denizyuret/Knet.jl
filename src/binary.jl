@@ -28,14 +28,14 @@ function binary_op(f, j=f, o...)
             # Scalar,Array->Array
             function broadcasted(::typeof($J),x::$T,y::KnetArray{$T})
                 z = similar(y)
-                @knet8($F01,(Cint,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
+                @knet8($F01,(Csize_t,$T,Ptr{$T},Ptr{$T}),length(z),x,y,z)
                 return z
             end
             # Array,Array->Array
             function broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T})
                 if size(x)==size(y)
                     z = similar(x)
-                    @knet8($F11,(Cint,Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
+                    @knet8($F11,(Csize_t,Ptr{$T},Ptr{$T},Ptr{$T}),length(z),x,y,z)
                     return z
                 else
                     bs = vbroadcast_shape(x,y)
@@ -63,7 +63,7 @@ function binary_op(f, j=f, o...)
                     || (xdims==1 && nx<704)
                     || (ydims==1 && (ny<704)))
                     @knet8($F12,
-                           (Cint,Ptr{$T},Cint,Cint,Ptr{$T},Cint,Cint,Ptr{$T}),
+                           (Csize_t,Ptr{$T},Csize_t,Csize_t,Ptr{$T},Csize_t,Csize_t,Ptr{$T}),
                            length(z),x,sx,nx,y,sy,ny,z)
                 elseif xdims == 1
                     dim_stride = strides(y)[xlast]
@@ -71,7 +71,7 @@ function binary_op(f, j=f, o...)
                         0 : strides(y)[xlast+1]
                     dim_size = prod(size(y)[xlast+1:end])
                     @knet8($F13_y_x,
-                           (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
+                           (Ptr{$T},Ptr{$T},Ptr{$T},Csize_t,Csize_t,Csize_t,Csize_t,Csize_t),
                            y,x,z,dim_stride,next_stride,dim_size,
                            length(y),length(x))
                 elseif ydims == 1
@@ -80,7 +80,7 @@ function binary_op(f, j=f, o...)
                         0 : strides(x)[ylast+1]
                     dim_size = prod(size(x)[ylast+1:end])
                     @knet8($F13_x_y,
-                           (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint),
+                           (Ptr{$T},Ptr{$T},Ptr{$T},Csize_t,Csize_t,Csize_t,Csize_t,Csize_t),
                            x,y,z,dim_stride,next_stride,dim_size,
                            length(x), length(y))
                 else
@@ -91,21 +91,21 @@ function binary_op(f, j=f, o...)
             function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,3},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_3,
-                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t),
                        x,y,z, sx[1],sx[2],sx[3], sy[1],sy[2],sy[3], sz[1],sz[2],sz[3], length(z))
                 return z
             end
             function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,4},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_4,
-                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t),
                        x,y,z, sx[1],sx[2],sx[3],sx[4], sy[1],sy[2],sy[3],sy[4], sz[1],sz[2],sz[3],sz[4], length(z))
                 return z
             end
             function _broadcasted(::typeof($J),x::KnetArray{$T},y::KnetArray{$T},z::KnetArray{$T,5},bs)
                 sx,sy,sz = get_strides(x,y,z)
                 @knet8($F16_5,
-                       (Ptr{$T},Ptr{$T},Ptr{$T},Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint,Cint),
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t,Csize_t),
                        x,y,z, sx[1],sx[2],sx[3],sx[4],sx[5], sy[1],sy[2],sy[3],sy[4],sy[5], sz[1],sz[2],sz[3],sz[4],sz[5], length(z))
                 return z
             end
@@ -113,7 +113,7 @@ function binary_op(f, j=f, o...)
                 # ndims(z) <= 5 handled above, this is for > 5
                 sx,sy,sz = map(s->convert(KnetArray, s), get_strides(x,y,z))
                 @knet8($F17,
-                       (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),
+                       (Ptr{$T},Ptr{$T},Ptr{$T},Ptr{Csize_t},Ptr{Csize_t},Ptr{Csize_t},Csize_t,Csize_t),
                        x,y,z, sx, sy, sz, length(z), ndims(z))
                 return z
             end
@@ -209,11 +209,11 @@ end
 function get_strides(x,y,z)
     # x,y,z may have different ndims, work with the max
     n = max(ndims(x), ndims(y), ndims(z))
-    stride_x = Int32[ stride(x,i) for i=1:n ]
-    stride_y = Int32[ stride(y,i) for i=1:n ]
-    stride_z = Int32[ stride(z,i) for i=1:n ]
-    dims_x = Int32[ size(x,i) for i=1:n ]
-    dims_y = Int32[ size(y,i) for i=1:n ]
+    stride_x = Csize_t[ stride(x,i) for i=1:n ]
+    stride_y = Csize_t[ stride(y,i) for i=1:n ]
+    stride_z = Csize_t[ stride(z,i) for i=1:n ]
+    dims_x = Csize_t[ size(x,i) for i=1:n ]
+    dims_y = Csize_t[ size(y,i) for i=1:n ]
     for i in 1:n
         dims_x[i] == dims_y[i] && continue
         if dims_x[i]==1

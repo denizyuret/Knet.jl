@@ -12,8 +12,8 @@ function cuda1src(f, j=f, ex="$f(xi)"; seperate_impl=false, BLK=256, THR=256)
             seperate_impl && (ex = "$F(xi)")
             print(s,
 """
-__global__ void _$F(int n, $T *x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _$F(size_t n, $T *x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     $T xi = x[i];
     y[i] = $ex;
@@ -21,7 +21,7 @@ __global__ void _$F(int n, $T *x, $T *y) {
   }
 }
 extern "C" {
-  $DLLEXPORT void $F(int n, $T *x, $T *y) {
+  $DLLEXPORT void $F(size_t n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
   }
 }
@@ -43,15 +43,15 @@ function cuda1fill(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _fill_$F(int n, $T x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _fill_$F(size_t n, $T x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     y[i] = x;
     i += blockDim.x * gridDim.x;
   }
 }
 extern "C" {
-  $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
+  $DLLEXPORT void fill_$F(size_t n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
   }
 }
@@ -67,9 +67,9 @@ function cuda1xfill(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
-  int row, col, yidx;
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _xfill_$F(size_t nrows, size_t ncols, $T x, $T *y, size_t incy) {
+  size_t row, col, yidx;
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -80,7 +80,7 @@ __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
   }
 }
 extern "C" {
-  $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
+  $DLLEXPORT void xfill_$F(size_t nrows, size_t ncols, $T x, $T *y, size_t incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
   }
 }
@@ -93,9 +93,9 @@ print(fp,cuda1xfill())
 
 function cuda1xcopy(; BLK=256, THR=256)
 """
-__global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, int incy) {
-  int row, col, xidx, yidx;
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _xcopy(size_t nrows, size_t ncols, const char *x, size_t incx, char *y, size_t incy) {
+  size_t row, col, xidx, yidx;
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -107,7 +107,7 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
   }
 }
 extern "C" {
-  $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
+  $DLLEXPORT void xcopy(size_t nrows, size_t ncols, const void *x, size_t incx, void *y, size_t incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }
 }
@@ -122,9 +122,9 @@ function cuda1icat(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
-  int row, col, yidx;
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _icat_$F(size_t nrows, size_t ncols, $T **x, $T *y) {
+  size_t row, col, yidx;
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = i % nrows;
     col = i / nrows;
@@ -135,7 +135,7 @@ __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
   }
 }
 extern "C" {
-  $DLLEXPORT void icat_$F(int nrows, int ncols, $T **x, $T *y) {
+  $DLLEXPORT void icat_$F(size_t nrows, size_t ncols, $T **x, $T *y) {
     $T **xx;
     if (nrows>0 && ncols>0) {
       size_t s = ncols * sizeof($T *);
@@ -182,9 +182,9 @@ function cuda1getcols(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _getcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
@@ -194,9 +194,9 @@ __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
@@ -206,9 +206,9 @@ __global__ void _setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _addcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
@@ -218,9 +218,9 @@ __global__ void _addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setcol1_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % xrows;
     col = yidx / xrows;
@@ -230,9 +230,9 @@ __global__ void _setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _getrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
@@ -242,9 +242,9 @@ __global__ void _getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
@@ -254,9 +254,9 @@ __global__ void _setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _addrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
@@ -266,9 +266,9 @@ __global__ void _addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T y) {
-  int row, col, xidx;
-  int yidx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setrow1_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T y) {
+  size_t row, col, xidx;
+  size_t yidx = threadIdx.x + blockIdx.x * blockDim.x;
   while (1) {
     row = yidx % nrows;
     col = yidx / nrows;
@@ -278,58 +278,58 @@ __global__ void _setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $
     yidx += blockDim.x * gridDim.x;
   }
 }
-__global__ void _getents_$F(int n, int *ents, $T *x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _getents_$F(size_t n, size_t *ents, $T *x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     y[i] = x[ents[i]-1];
     i += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setents_$F(int n, int *ents, $T *x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setents_$F(size_t n, size_t *ents, $T *x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     x[ents[i]-1] = y[i];
     i += blockDim.x * gridDim.x;
   }
 }
-__global__ void _addents_$F(int n, int *ents, $T *x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _addents_$F(size_t n, size_t *ents, $T *x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     atomicAdd2(&x[ents[i]-1], y[i]);
     i += blockDim.x * gridDim.x;
   }
 }
-__global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _setent1_$F(size_t n, size_t *ents, $T *x, $T y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     x[ents[i]-1] = y;
     i += blockDim.x * gridDim.x;
   }
 }
 extern "C" {
-$DLLEXPORT void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void getcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void setcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
+$DLLEXPORT void addcols_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T *y)
 { if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
+$DLLEXPORT void setcol1_$F(size_t xrows, size_t xcols, size_t ncols, size_t *cols, $T *x, $T  y)
 { if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void getrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void setrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
+$DLLEXPORT void addrows_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T *y)
 { if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
+$DLLEXPORT void setrow1_$F(size_t xrows, size_t xcols, size_t nrows, size_t *rows, $T *x, $T  y)
 { if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void getents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void getents_$F(size_t n, size_t *ents, $T *x, $T *y)
 { if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void setents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void setents_$F(size_t n, size_t *ents, $T *x, $T *y)
 { if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void addents_$F(int n, int *ents, $T *x, $T *y)
+$DLLEXPORT void addents_$F(size_t n, size_t *ents, $T *x, $T *y)
 { if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void setent1_$F(int n, int *ents, $T *x, $T  y)
+$DLLEXPORT void setent1_$F(size_t n, size_t *ents, $T *x, $T  y)
 { if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
 }
 """)
@@ -347,8 +347,8 @@ function cuda1dropout(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _dropout_$F(size_t n, $T p, $T q, $T *x, $T *y) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     if (y[i] > p) {
       y[i] = x[i] * q;
@@ -358,8 +358,8 @@ __global__ void _dropout_$F(int n, $T p, $T q, $T *x, $T *y) {
     i += blockDim.x * gridDim.x;
   }
 }
-__global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _dropback_$F(size_t n, $T q, $T *y, $T *dy, $T *dx) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     if (y[i] == 0) {
         dx[i] = 0;
@@ -370,10 +370,10 @@ __global__ void _dropback_$F(int n, $T q, $T *y, $T *dy, $T *dx) {
   }
 }
 extern "C" {
-  $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
+  $DLLEXPORT void dropout_$F(size_t n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
   }
-  $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
+  $DLLEXPORT void dropback_$F(size_t n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
   }
 }
@@ -391,17 +391,17 @@ function cuda1concat(; BLK=256, THR=256)
         for (T,F) in [("float","32"),("double","64")]
             print(s,
 """
-__global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
-  int array = blockIdx.x;
-  int nelts = lengths[array];
-  int offset = starts[array];
-  for (int i = threadIdx.x; i < nelts; i += blockDim.x) {
+__global__ void _concat_$F(size_t narrays, size_t *starts, size_t *lengths, $T **x, $T *y) {
+  size_t array = blockIdx.x;
+  size_t nelts = lengths[array];
+  size_t offset = starts[array];
+  for (size_t i = threadIdx.x; i < nelts; i += blockDim.x) {
     y[i+offset] = x[array][i];
   }
 }
 extern "C" {
   // julia is responsible for copying args to gpu
-  $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
+  $DLLEXPORT void concat_$F(size_t narrays, size_t *starts, size_t *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
   }
 }
@@ -421,8 +421,8 @@ close(fp)
 # for S in (32,64); T = Symbol("Float$S"); F = "concat_$S"
 # @eval function concat(A::KnetArray{$T}...)
 #     nargs = length(A)
-#     S = Array{Int32}(nargs)
-#     L = Array{Int32}(nargs)
+#     S = Array{Csize_t}(nargs)
+#     L = Array{Csize_t}(nargs)
 #     nelts = 0
 #     @inbounds for i in 1:nargs
 #         n = length(A[i])
@@ -434,7 +434,7 @@ close(fp)
 #     L = KnetArray(L)
 #     X = KnetArray([map(pointer,A)...])
 #     Y = KnetArray{$T}(nelts)
-#     @knet8($F,(Cint,Ptr{Cint},Ptr{Cint},Ptr{Ptr{$T}},Ptr{$T}),nargs,S,L,X,Y)
+#     @knet8($F,(Csize_t,Ptr{Csize_t},Ptr{Csize_t},Ptr{Ptr{$T}},Ptr{$T}),nargs,S,L,X,Y)
 #     return Y
 # end
 # end

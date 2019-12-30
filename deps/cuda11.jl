@@ -9,8 +9,8 @@ function cuda11src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,
 """
-__global__ void _$(F)_11(int n, $T *x, $T *y, $T *z) {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void _$(F)_11(size_t n, $T *x, $T *y, $T *z) {
+  size_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     $T xi=x[i];
     $T yi=y[i];
@@ -19,7 +19,7 @@ __global__ void _$(F)_11(int n, $T *x, $T *y, $T *z) {
   }
 }
 extern "C" {
-  $DLLEXPORT void $(F)_11(int n, $T *x, $T *y, $T *z) {
+  $DLLEXPORT void $(F)_11(size_t n, $T *x, $T *y, $T *z) {
     _$(F)_11<<<$BLK,$THR>>>(n,x,y,z);
   }    
 }

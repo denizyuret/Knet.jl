@@ -12,7 +12,7 @@ function cuda20src(f, j, op, f1, v0; BLK=128, THR=128)
         for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
             print(s,
 """
-__device__ void _$(F)_20_0(volatile $T *x, int i) {
+__device__ void _$(F)_20_0(volatile $T *x, size_t i) {
 //for optimizing warps
 //volatile must be used as register optimization will lead to wrong answers
   $T ai, xi;
@@ -24,24 +24,24 @@ __device__ void _$(F)_20_0(volatile $T *x, int i) {
   ai=x[i]; xi=x[i+ 1]; x[i]=$op;
 }
 
-__global__ void _$(F)_20_1(int n, $T *x, $T *y) {
+__global__ void _$(F)_20_1(size_t n, $T *x, $T *y) {
   __shared__ $T buffer[$THR];			   //all THR threads in the block write to buffer on their own tid
-  int i_start = threadIdx.x+blockIdx.x*blockDim.x; //start at the thread index
-  int i_end = n; //end at dim
-  int i_step = blockDim.x*gridDim.x; // step is the total number of threads in the system
-  int tid = threadIdx.x;
+  size_t i_start = threadIdx.x+blockIdx.x*blockDim.x; //start at the thread index
+  size_t i_end = n; //end at dim
+  size_t i_step = blockDim.x*gridDim.x; // step is the total number of threads in the system
+  size_t tid = threadIdx.x;
   $T ai, xi;
 
   // sum the elements assigned to this thread
   ai = $v0;
-  for(int i=i_start; i<i_end; i+=i_step) {
+  for(size_t i=i_start; i<i_end; i+=i_step) {
      xi=x[i]; xi=$f1; ai=$op;
   }
   buffer[tid] = ai;
   __syncthreads();
 
   // help sum the entries in the block
-  for(int stride=$THR/2; stride>32; stride>>=1) { 
+  for(size_t stride=$THR/2; stride>32; stride>>=1) { 
     if(tid < stride) {
       ai=buffer[tid]; xi=buffer[stride+tid]; buffer[tid]=$op;
     }
@@ -61,10 +61,10 @@ __global__ void _$(F)_20_1(int n, $T *x, $T *y) {
 __global__ void _$(F)_20_2($T *y,$T *z) {   // sum block results in y
   __shared__ $T buffer[$BLK];
   $T ai, xi;
-  int tid = threadIdx.x;
+  size_t tid = threadIdx.x;
   buffer[tid] = y[tid];
   __syncthreads();
-  for(int stride=$BLK/2; stride>32; stride>>=1) {
+  for(size_t stride=$BLK/2; stride>32; stride>>=1) {
     if(tid < stride) {
       ai=buffer[tid]; xi=buffer[stride+tid]; buffer[tid]=$op;
     }
@@ -79,7 +79,7 @@ __global__ void _$(F)_20_2($T *y,$T *z) {   // sum block results in y
   }
 }
 
-extern "C" { $DLLEXPORT $T $(F)_20(int n, $T *x) {
+extern "C" { $DLLEXPORT $T $(F)_20(size_t n, $T *x) {
   $T r;
   static $T *y;
   static $T *z;

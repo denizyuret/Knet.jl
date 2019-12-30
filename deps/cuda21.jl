@@ -8,7 +8,7 @@ function cuda21src(f, j, op, f1, v0; BLK=128, THR=128) # BLK not used, determine
         for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
             print(s,
 """
-__device__ void _$(F)_21_0(volatile $T *x, int i) {
+__device__ void _$(F)_21_0(volatile $T *x, size_t i) {
 //for optimizing warps, volatile must be used as register optimization will lead to wrong answers
   $T ai, xi;
   ai=x[i]; xi=x[i+32]; x[i]=$op;
@@ -19,27 +19,27 @@ __device__ void _$(F)_21_0(volatile $T *x, int i) {
   ai=x[i]; xi=x[i+ 1]; x[i]=$op;
 }
 
-__global__ void _$(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
+__global__ void _$(F)_21(size_t nx, $T *x, size_t sy, size_t ny, $T *y) {
   // x[i] goes into y[(i/sy)%ny]
   __shared__ $T buffer[$THR];
-  int t = threadIdx.x;
-  int b = blockIdx.x;
+  size_t t = threadIdx.x;
+  size_t b = blockIdx.x;
   $T ai, xi;
 
-  for (int bi = b; bi < ny; bi += blockDim.x) {
+  for (size_t bi = b; bi < ny; bi += blockDim.x) {
     // sum the elements assigned to this thread
     ai = $v0;
     if (sy == 1) {
-       int istep = $THR*ny;
-       for (int i=bi+t*ny; i<nx; i+=istep) {
+       size_t istep = $THR*ny;
+       for (size_t i=bi+t*ny; i<nx; i+=istep) {
           xi=x[i]; xi=$f1; ai=$op;
        }
     } else {
-      int jstep = sy*ny;
-      for (int j=0; j<nx; j+=jstep) {
-        int i0 = j+bi*sy;
-        int i1 = i0+sy;
-        for (int i=i0+t; i<i1; i+=$THR) {
+      size_t jstep = sy*ny;
+      for (size_t j=0; j<nx; j+=jstep) {
+        size_t i0 = j+bi*sy;
+        size_t i1 = i0+sy;
+        for (size_t i=i0+t; i<i1; i+=$THR) {
           xi=x[i]; xi=$f1; ai=$op;
         }
       }
@@ -48,7 +48,7 @@ __global__ void _$(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
     __syncthreads();
 
     // help sum the entries in the block
-    for(int stride=$THR/2; stride>32; stride>>=1) {
+    for(size_t stride=$THR/2; stride>32; stride>>=1) {
       if(t < stride) {
         ai=buffer[t]; xi=buffer[stride+t]; buffer[t]=$op;
       }
@@ -66,7 +66,7 @@ __global__ void _$(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
   }
 }
 
-extern "C" { $DLLEXPORT void $(F)_21(int nx, $T *x, int sy, int ny, $T *y) {
+extern "C" { $DLLEXPORT void $(F)_21(size_t nx, $T *x, size_t sy, size_t ny, $T *y) {
   // x[i] goes into y[(i/sy)%ny]
   _$(F)_21<<<$BLK,$THR>>>(nx,x,sy,ny,y);
 }}
