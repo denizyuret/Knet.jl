@@ -188,6 +188,7 @@ end
 function (r::RNN)(x; batchSizes=nothing)
     # Check type/dims of inputs
     WTYPE = typeof(vec(value(r.w)))
+    @assert length(x) > 0
     @assert vec(value(x)) isa WTYPE
     @assert ndims(x) <= 3
     @assert size(x,1) == r.inputSize

@@ -1,3 +1,51 @@
+2020-01-04  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
+
+	* issue#513: downloading artifacts: DataDeps.jl vs Artifacts.toml.
+
+	Shortcomings of Artifacts.toml:
+	- Can specify urls but automatic download only possible for tar.gz.
+	No multiple files, no binary files (mnist, iris etc).
+	- The nice artifact"iris" string only available from within package.
+
+	DataDeps.jl:
+	- Extra dependency.
+	- Solves the two issues above.
+	- Can optionally unpack.
+	- No unique hash etc.
+	- Should use Knet prefix for names?
+
+	* data-wishlist:
+	- mnist
+	- cifar
+	- ...
+
+	* model-wishlist:
+	- yolov
+	- lenet
+	- resnet
+	- rnnlm
+	- ...
+
+	* interface:
+	- using Knet: LeNet
+	- using Knet.LeNet
+	- using KnetModels.LeNet
+	- using Knet.Models: LeNet
+	- should come with init that can download or randomly initialize for various model sizes.
+	- standard predict / loss interface.
+	- data read/write functions? training functions?
+	- (sub)package name vs struct/constructor name?
+	- if single symbol sufficient, can go with the first one:
+	-- LeNet() or ResNet(:small) => pretrained model
+	-- LeNet(784, 128, 256, 10) => randomly initialized model
+	-- (m::LeNet)(x,y) => loss
+	-- (m::LeNet)(x) => predict
+	-- (m::LeNet)(d) => average loss over dataset: need to specify type for x above, or do this with separate func
+	-- what about accuracy?
+	-- RNNLM has single input. Need different interface for prediction.
+	-- use pred/loss? need to revise training routines like adam.
+	- any standard interface for datasets?
+
 2019-09-04  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
 
 	* Knet.jl: Calling CuArrays on __init__ helps with the stability of some devices.
