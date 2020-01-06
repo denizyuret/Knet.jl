@@ -88,8 +88,8 @@ function progressbar(p::Progress, next)
     p.lastiter, p.lasttime = p.curriter, currtime
 
     if haslength(p)
-        ETA = (length(p) - p.curriter) / (p.curriter / seconds)
-        percentage_string = string(@sprintf("%.2f%%",p.curriter/length(p)*100))
+        ETA = (p.curriter == 0 ? 0 : (length(p) - p.curriter) / (p.curriter / seconds))
+        percentage_string = string(@sprintf("%.2f%%",p.curriter/max(1,length(p))*100))
         status_string = string("[", percentage_string, 
                                ", ", p.curriter, "/", length(p), 
                                ", ", format_time(seconds), "/", format_time(seconds+ETA), 
@@ -107,7 +107,7 @@ function progressbar(p::Progress, next)
     if (haslength(p))
         width = 20
         print(p.io,"┣")
-        cellvalue = length(p) / width
+        cellvalue = max(1, length(p)) / width
         full_cells, remain = divrem(p.curriter, cellvalue)
         full_cells = round(Int, full_cells)
         print(p.io,repeat("█", full_cells))
@@ -140,7 +140,7 @@ function format_time(seconds)
     end
 end
 
-format_speed(s)=(s >= 1 ? @sprintf("%.2fi/s",s) : @sprintf("%.2fs/i",1/s))
+format_speed(s)=(s >= 1 || s == 0 ? @sprintf("%.2fi/s",s) : @sprintf("%.2fs/i",1/s))
 
 EIGHTS = Dict(0 => ' ',
 	      1 => '▏',
