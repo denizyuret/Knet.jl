@@ -75,13 +75,17 @@ length(p::Progress) = length(p.iter)
         p.curriter == 1 || p.curriter == p.steps ||
         (p.steps != 0 && p.curriter == p.lastiter + p.steps) ||
         (p.seconds != 0 && time_ns() > p.lasttime + p.seconds*1e9))
-        progressbar(p, next)
+        next = progressbar(p, next)
     end
     return next
 end
 
+const stop = "stop"
+
 function progressbar(p::Progress, next)
-    fval_string = string(p.func(p))
+    msg = p.func(p)
+    if msg === stop; next = nothing; end
+    fval_string = string(msg)
     currtime = time_ns()
     seconds = (currtime - p.starttime) * 1e-9
     speed = (next === nothing ? p.curriter / seconds : (p.curriter - p.lastiter) / ((currtime - p.lasttime) * 1e-9))
