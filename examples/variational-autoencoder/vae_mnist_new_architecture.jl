@@ -60,29 +60,28 @@ struct Chain; layers; end
 Chain of Networks - Autoencoder
 """
 struct Autoencoder; ϕ::Chain; θ::Chain; end
-function (ae::Autoencoder)(x; samples=1, β=kl_β, F=Float32)
+function (ae::Autoencoder)(x; β=kl_β)
     z_out = ae.ϕ(x)
     μ, logσ² = z_out[1:nz, :], z_out[nz + 1:end, :]
     σ² = exp.(logσ²)
     σ = sqrt.(σ²)
 
-    KL  =  -sum(@. 1 + logσ² - μ * μ - σ²) / 2
+    # Calculate KL-loss
+    KL  = -sum(@. 1 + logσ² - μ*μ - σ²) / 2
     KL /= length(x)
 
-    BCE = F(0)
+    # Sample z
+    ϵ = convert(GenType, randn(F, size(μ)))
+    z = @. μ + ϵ * σ
 
-    for s = 1:samples
-        ϵ = convert(GenType, randn(F, size(μ)))
-        z = @. μ + ϵ * σ
-        x̂ = ae.θ(z)
-        BCE += binary_cross_entropy(x, x̂)
-    end
+    # Calculate output picture
+    x̂ = ae.θ(z)
 
-    BCE /= samples
+    # Maintain BCE loss
+    BCE = binary_cross_entropy(x, x̂)
 
     return BCE + β * KL
 end
-
 
 # Autoencoder only pays attention to the first input
 (ae::Autoencoder)(x, y) = ae(x)
@@ -129,7 +128,7 @@ ae = Autoencoder(ϕ, θ)
 # Load dataset specific functionality
 include(Knet.dir("data", "mnist.jl"))
 include(Knet.dir("data", "imagenet.jl"))
-dtrn, dtst = mnistdata(batchsize=100)
+dtrn, dtst = mnistdata(batchsize=batch_size)
 
 
 """
