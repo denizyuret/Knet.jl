@@ -5,13 +5,14 @@ const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
 
-if has_cuda()
-    try
-        import CUDAdrv, CUDAnative
-    catch ex
-        @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
-    end
-end
+# 20200108: CUDAdrv 5.0 initializes to currently active device, so this is no longer needed.
+# if has_cuda()
+#     try
+#         import CUDAdrv, CUDAnative
+#     catch ex
+#         @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
+#     end
+# end
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
@@ -157,7 +158,8 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
             # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
             # We find the equivalent cu number from pciBusId: 
             # https://stackoverflow.com/questions/13781738/how-does-cuda-assign-device-ids-to-gpus
-            CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
+            # CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
+            # 20200108: CUDAdrv 5.0 initializes to currently active device, so this is no longer needed.
         else
             GPU = -1
             # @cudart(cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu

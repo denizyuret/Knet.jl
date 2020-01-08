@@ -25,16 +25,14 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [compat]
 julia = "1.0"
 AutoGrad = "1.2"
-CUDAapi = "1.0, 2.0"
-CUDAdrv = "3.0, 4.0"
-CUDAnative = "2.0"
-CuArrays = "1.2"
-DataStructures = "0.17"
-FileIO = "1.0"
-JLD2 = "0.1"
-NNlib = "0.6"
-SpecialFunctions = "0.8"
-TimerOutputs = "0.5"
+CUDAapi = "1.0, 2.0"		# 2.1.0
+CuArrays = "1.2"		# 1.6.0
+DataStructures = "0.17"		# 0.17.7
+FileIO = "1.0"			# 1.2.1
+JLD2 = "0.1"			# 0.1.11
+NNlib = "0.6"			# 0.6.2
+SpecialFunctions = "0.8, 0.9"	# 0.9.0
+TimerOutputs = "0.5"		# 0.5.3
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
