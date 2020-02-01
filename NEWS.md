@@ -1,5 +1,20 @@
+Knet v1.3.3 Release Notes
+=========================
+
+* Fixed bmm bug. (@ekinakyurek)
+* Document fixes. (@Alexander-Barth)
+* Broken conv tests now pass after NNLib fix.
+* Tutorial fixes.
+* RNN is robust against 0 input size.
+* Progress is robust against empty iterators.
+* Added special stop symbol to progress.
+* Updated JuliaOnColab. (@ozanarkancan)
+* Compatibility with new CUDA stack.
+
+
 Knet v1.3.2 Release Notes
 =========================
+b386430 2019-11-29
 
 * Compatibility with CUDAapi 2.0.
 * Updated colab script. (@ozanarkancan)
