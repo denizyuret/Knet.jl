@@ -134,6 +134,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
                     end
                 end
             end
+            @cudart(cudaDeviceReset,())
             gpu(pick)
         else
             for i=0:gpuCount()-1
@@ -169,13 +170,14 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
         if GPUCNT == -1
             GPUCNT = try
 	        p=Cuint[0]
-#                if nvmlfound
+#               if nvmlfound
 #                    @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
-#                elseif cudartfound
+                if cudartfound
                     # OSX does not have the nvidia-ml library!
                     # We prefer nvml because cudart takes up memory even if we don't use a device
-                @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
-#                end
+                    @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
+                    
+                end
 	        Int(p[1])
             catch
 	        0
