@@ -169,13 +169,13 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
         if GPUCNT == -1
             GPUCNT = try
 	        p=Cuint[0]
-                if nvmlfound
-                    @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
-                elseif cudartfound
+#                if nvmlfound
+#                    @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
+#                elseif cudartfound
                     # OSX does not have the nvidia-ml library!
                     # We prefer nvml because cudart takes up memory even if we don't use a device
-                    @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
-                end
+                @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
+#                end
 	        Int(p[1])
             catch
 	        0
@@ -262,7 +262,7 @@ end
 
 "Returns total,free,used memory."
 function nvmlDeviceGetMemoryInfo(i=nvmlid(gpu()))
-    0 <= i < gpuCount() || return nothing
+    0 <= i  || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(undef,3)
     @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
