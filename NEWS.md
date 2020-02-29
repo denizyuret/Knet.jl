@@ -1,5 +1,12 @@
+Knet v1.3.4 Release Notes
+=========================
+
+* Tutorial notebook fixes.
+
+
 Knet v1.3.3 Release Notes
 =========================
+239e838 2020-02-01
 
 * Fixed bmm bug. (@ekinakyurek)
 * Document fixes. (@Alexander-Barth)
