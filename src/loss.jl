@@ -284,7 +284,7 @@ function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     ycpu = convert(Array,y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
     maxind = LinearIndices(ycpu)[maxind]
-    maxind = vec(maxind)[a .!= 0]
+    maxind = vec(maxind)[vec(a) .!= 0]
     correct = (maxind .== indices)
     average ? (sum(correct) / length(correct)) : (sum(correct), length(correct))
 end
