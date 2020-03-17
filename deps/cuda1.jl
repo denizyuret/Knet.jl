@@ -1,10 +1,10 @@
 # Kernels for unary array operations
 
 fp = open("cuda1.cu","w")
-#using Knet: unary_ops
+println(fp,"#include <cuda_fp16.h>")
 
 include("gamma.jl")
-print(fp,cuda1gammafamily())
+println(fp,cuda1gammafamily())
 
 function cuda1src(f, j=f, ex="$f(xi)"; seperate_impl=false, BLK=256, THR=256)
     sprint() do s
@@ -40,7 +40,7 @@ end
 
 function cuda1fill(; BLK=256, THR=256)
     sprint() do s
-        for (T,F) in [("float","32"),("double","64")]
+        for (T,F) in [("float","32"),("double","64"),("half","16")]
             print(s,
 """
 __global__ void _fill_$F(int n, $T x, $T *y) {
@@ -64,7 +64,7 @@ print(fp,cuda1fill())
 
 function cuda1xfill(; BLK=256, THR=256)
     sprint() do s
-        for (T,F) in [("float","32"),("double","64")]
+        for (T,F) in [("float","32"),("double","64"),("half","16")]
             print(s,
 """
 __global__ void _xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
@@ -119,7 +119,7 @@ print(fp,cuda1xcopy())
 
 function cuda1icat(; BLK=256, THR=256)
     sprint() do s
-        for (T,F) in [("float","32"),("double","64")]
+        for (T,F) in [("float","32"),("double","64"),("half","16")]
             print(s,
 """
 __global__ void _icat_$F(int nrows, int ncols, $T **x, $T *y) {
@@ -153,11 +153,12 @@ end
 
 print(fp,cuda1icat())
 
-# This is for missing double atomicAdd()
+# This is for missing double/half atomicAdd()
 print(fp,"""
 static __inline__ __device__ float atomicAdd2(float *address, float val) {
   return atomicAdd(address, val);
 }
+
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
 static __inline__ __device__ double atomicAdd2(double *address, double val) {
   return atomicAdd(address, val);
@@ -175,11 +176,23 @@ static __inline__ __device__ double atomicAdd2(double *address, double val) {
   return __longlong_as_double(old);
 }
 #endif
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+static __inline__ __device__ half atomicAdd2(half *address, half val) {
+  return atomicAdd(address, val);
+}
+#else
+// TODO: this is not atomic, fix later.
+static __inline__ __device__ half atomicAdd2(half *address, half val) {
+  *address = __float2half(__half2float(*address) + __half2float(val));
+  return *address;
+}
+#endif
 """)
 
 function cuda1getcols(; BLK=256, THR=256)
     sprint() do s
-        for (T,F) in [("float","32"),("double","64")]
+        for (T,F) in [("float","32"),("double","64"),("half","16")]
             print(s,
 """
 __global__ void _getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
@@ -388,7 +401,7 @@ print(fp,cuda1dropout())
 # Tested for 25 arrays of 200
 function cuda1concat(; BLK=256, THR=256)
     sprint() do s
-        for (T,F) in [("float","32"),("double","64")]
+        for (T,F) in [("float","32"),("double","64"),("half","16")]
             print(s,
 """
 __global__ void _concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {

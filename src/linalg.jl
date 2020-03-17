@@ -65,8 +65,8 @@ function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Kne
         @cublas(cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     elseif T<:Float32
         @cublas(cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
-    # elseif T<:Float16
-    #     @cublas(cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+    elseif T<:Float16
+        @cublas(cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     else
         error("CUBLAS does not support $T")
     end
@@ -80,6 +80,8 @@ function axpy!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::Kne
         @cublas(cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     elseif T<:Float64
         @cublas(cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+    elseif T<:Float16
+        @cublas(cublasHaxpy, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
     else
         error("$T not supported")
     end
@@ -95,6 +97,8 @@ function scal!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer) where 
         @cublas(cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
     elseif T<:Float64
         @cublas(cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+    elseif T<:Float16
+        @cublas(cublasHscal, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
     else
         error("$T not supported")
     end
@@ -115,6 +119,9 @@ function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
               cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     elseif T<:Float64
         @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+    elseif T<:Float16
+        @cublas(cublasHgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
               cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     else
         error("CUBLAS does not support $T")
@@ -179,7 +186,7 @@ using LinearAlgebra.BLAS: @blasfunc
 # op(B) is a k-by-n matrix,
 # C is an m-by-n matrix.
 
-for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32))
+for (gemm, elty) in ((:dgemm_,:Float64), (:sgemm_,:Float32), (:hgemm_,:Float16))
     @eval begin
         function gemm!(transA::AbstractChar, transB::AbstractChar, M::Int, N::Int, K::Int, alpha::($elty), A::Ptr{$elty}, B::Ptr{$elty}, beta::($elty), C::Ptr{$elty})
             if transA=='N'; lda=M; else; lda=K; end
