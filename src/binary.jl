@@ -8,7 +8,7 @@ import Base.Broadcast: broadcasted
 function binary_op(f, j=f, o...)
     J=Symbol(j)
     M = which(@__MODULE__, J)
-    for S in (32,64)
+    for S in (32,64,16)
         T = Symbol("Float$S")
 
         F01 = "$(f)_$(S)_01" # Scalar,Array->Array

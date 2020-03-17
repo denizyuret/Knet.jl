@@ -2,11 +2,11 @@
 # arrays.
 
 fp = open("cuda11.cu","w")
-#using Knet: binary_ops
+println(fp,"#include <cuda_fp16.h>")
 
-function cuda11src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
+function cuda11src(f, j=f, ex="$f(xi,yi)", ex16=ex; BLK=256, THR=256)
   sprint() do s
-    for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+    for (T,F) in [("float","$(f)_32"),("double","$(f)_64"),("half","$(f)_16")]
         print(s,
 """
 __global__ void _$(F)_11(int n, $T *x, $T *y, $T *z) {
@@ -14,7 +14,7 @@ __global__ void _$(F)_11(int n, $T *x, $T *y, $T *z) {
   while (i < n) {
     $T xi=x[i];
     $T yi=y[i];
-    z[i] = $ex;
+    z[i] = $(T=="half" ? ex16 : ex);
     i += blockDim.x * gridDim.x;
   }
 }
