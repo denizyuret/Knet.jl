@@ -52,7 +52,7 @@ end
 @primitive dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
 
 # GPU implementation
-for S in (32,64)
+for S in (32,64,16)
     T = Symbol("Float$S")
     forw = Symbol("dropout_$S")
     back = Symbol("dropback_$S")

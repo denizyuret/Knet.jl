@@ -3,7 +3,7 @@
 fp = open("cuda01.cu","w")
 #using Knet: binary_ops
 
-function cuda01src(f, j=f, ex="$f(xi,yi)"; BLK=256, THR=256)
+function cuda01src(f, j=f, ex="$f(xi,yi)", ex16=ex; BLK=256, THR=256)
   sprint() do s
     for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
         print(s,

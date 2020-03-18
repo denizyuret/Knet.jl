@@ -55,10 +55,12 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
     transa = cublasop(transA); transb = cublasop(transB)
     alpha = T[alpha]; beta = T[beta]
     strideA, strideB, strideC = m*k, k*n, m*n
-    if T<:Float64
-        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
-    elseif T<:Float32
+    if T<:Float32
         @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+    elseif T<:Float64
+        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+    elseif T<:Float16
+        @cublas(cublasHgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     else
         error("CUBLAS does not support $T")
     end
@@ -70,8 +72,9 @@ using LinearAlgebra: chkstride1, BlasInt
 using LinearAlgebra.BLAS: libblas, @blasfunc
 
 for (gemm, elty) in
-    ((:dgemm_,:Float64),
-     (:sgemm_,:Float32),)
+    ((:sgemm_,:Float32),
+     (:dgemm_,:Float64),
+     (:hgemm_,:Float16))
     @eval begin
         function bmm!(transA::AbstractChar,
                                transB::AbstractChar,
