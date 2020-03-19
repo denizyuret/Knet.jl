@@ -472,18 +472,18 @@ using AutoGrad: full
 for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetArray{Float64},KnetArray{Float16}); @eval begin
 
     function update!(w::$T, g, p::SGD)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         axpy!(-p.lr, g, w)
     end
 
     # Two arg defaults to SGD
     function update!(w::$T, g; lr=SGDLR, gclip=0)
-        gclip!(g, gclip)
+        g = gclip!(g, gclip)
         axpy!(-lr, g, w)
     end
 
     function update!(w::$T, g, p::Momentum)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         if p.velocity===nothing; p.velocity=zero(w); end
         lmul!(p.gamma, p.velocity)
         axpy!(-p.lr, g, p.velocity)
@@ -492,7 +492,7 @@ for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetAr
 
     # https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
     function update!(w::$T, g, p::Nesterov)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         p.velocity ===nothing && (p.velocity = zero(w))
         lmul!(p.gamma, p.velocity)
         axpy!(-1, p.velocity, w)
@@ -501,7 +501,7 @@ for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetAr
     end
 
     function update!(w::$T, g, p::Adagrad)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         g = full(g)
         if p.G===nothing; p.G=zero(w); end
         axpy!(1, g .* g, p.G)
@@ -509,7 +509,7 @@ for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetAr
     end
 
     function update!(w::$T, g, p::Rmsprop)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         g = full(g)
         if p.G===nothing; p.G=zero(w); end
         lmul!(p.rho, p.G)
@@ -518,7 +518,7 @@ for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetAr
     end
 
     function update!(w::$T, g, p::Adadelta)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         g = full(g)
         if p.G===nothing; p.G=zero(w); p.delta=zero(w); end
         lmul!(p.rho, p.G)
@@ -530,7 +530,7 @@ for T in (Array{Float32},Array{Float64},Array{Float16},KnetArray{Float32},KnetAr
     end
 
     function update!(w::$T, g, p::Adam)
-        gclip!(g, p.gclip)
+        g = gclip!(g, p.gclip)
         g = full(g)
         if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
         p.t += 1
@@ -605,8 +605,10 @@ function gclip!(g, gclip)
         gnorm = norm(g)
         if gnorm <= gclip
             g
-        else
+        elseif isfinite(gnorm)
             lmul!(gclip/gnorm, g)
+        else
+            zero(full(g))
         end
     end
 end
