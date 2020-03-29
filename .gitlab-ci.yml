@@ -1,14 +1,10 @@
 include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v6.yml'
 
-# image: ubuntu:bionic
-# image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
-image: nvidia/cuda:10.1-devel
+image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
 
 variables:
   JULIA_NUM_THREADS: '4'
-  NVIDIA_VISIBLE_DEVICES: 'all'
-  NVIDIA_DRIVER_CAPABILITIES: 'all'
 
 julia:1.0:
   extends:
