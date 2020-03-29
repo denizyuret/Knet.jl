@@ -1,8 +1,8 @@
 environment:
   matrix:
   - julia_version: 1.0
-  - julia_version: 1.2
   - julia_version: 1.3
+  - julia_version: 1.4
   - julia_version: latest
 
 platform:
