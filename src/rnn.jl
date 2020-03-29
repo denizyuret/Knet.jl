@@ -136,13 +136,13 @@ function RNN(inputSize, hiddenSize;
              skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
              bidirectional=false, # CUDNN_UNIDIRECTIONAL = 0, CUDNN_BIDIRECTIONAL = 1
              rnnType=:lstm,       # CUDNN_RNN_RELU = 0, CUDNN_RNN_TANH = 1, CUDNN_LSTM = 2, CUDNN_GRU = 3
-             dataType=Float32,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
+             dataType=eltype(atype()),    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
              algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
              seed=0,              # seed=0 for random init, positive integer for replicability
              winit=xavier_uniform,
              binit=zeros,
              finit=ones,        # forget bias for lstm
-             usegpu=(gpu()>=0),
+             usegpu=(gpu()>=0 && atype() <: KnetArray),
              )
     w = dx = dhx = dcx = nothing
     inputSize = Cint(inputSize)
@@ -188,6 +188,7 @@ end
 function (r::RNN)(x; batchSizes=nothing)
     # Check type/dims of inputs
     WTYPE = typeof(vec(value(r.w)))
+    @assert length(x) > 0
     @assert vec(value(x)) isa WTYPE
     @assert ndims(x) <= 3
     @assert size(x,1) == r.inputSize

@@ -1,13 +1,11 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.3.2"
+version = "1.3.5"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
 CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
-CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
-CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
@@ -15,26 +13,23 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
-[compat]
-julia = "1.0"
-AutoGrad = "1.2"
-CUDAapi = "1.0, 2.0"
-CUDAdrv = "3.0, 4.0"
-CUDAnative = "2.0"
-CuArrays = "1.2"
-DataStructures = "0.17"
-FileIO = "1.0"
-JLD2 = "0.1"
-NNlib = "0.6"
-SpecialFunctions = "0.8"
-TimerOutputs = "0.5"
+[compat]			    	# last tested with:
+julia = "1.0"			    	# 1.4.0
+AutoGrad = "1.2"		    	# 1.2.1
+CUDAapi = "1.0, 2.0, 3.0, 4.0"		# 4.0.0
+CuArrays = "1.0, 2.0"			# 2.0.1
+DataStructures = "0.17"			# 0.17.10
+FileIO = "1.0"				# 1.2.4
+JLD2 = "0.1"				# 0.1.12
+NNlib = "0.6"			 	# 0.6.6
+SpecialFunctions = "0.8, 0.9, 0.10"	# 0.10.0
+TimerOutputs = "0.5"			# 0.5.3
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

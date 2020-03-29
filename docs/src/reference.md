@@ -35,6 +35,8 @@ Knet.@load
 ```@docs
 Knet.param
 Knet.xavier
+Knet.xavier_uniform
+Knet.xavier_normal
 Knet.gaussian
 Knet.bilinear
 ```

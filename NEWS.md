@@ -1,3 +1,35 @@
+Knet v1.3.4 Release Notes
+=========================
+
+* Tutorial notebook fixes.
+
+
+Knet v1.3.3 Release Notes
+=========================
+239e838 2020-02-01
+
+* Fixed bmm bug. (@ekinakyurek)
+* Document fixes. (@Alexander-Barth)
+* Broken conv tests now pass after NNLib fix.
+* Tutorial fixes.
+* RNN is robust against 0 input size.
+* Progress is robust against empty iterators.
+* Added special stop symbol to progress.
+* Updated JuliaOnColab. (@ozanarkancan)
+* Compatibility with new CUDA stack.
+
+
+Knet v1.3.2 Release Notes
+=========================
+b386430 2019-11-29
+
+* Compatibility with CUDAapi 2.0.
+* Updated colab script. (@ozanarkancan)
+* Fixed xavier = xavier_uniform and added xavier_normal distributions. (@Alexander-Barth)
+* Conv now allocates workspace on demand and prefers algorithms with no workspace. (Issue #518)
+* The progress bar function argument takes the Progress object as its argument instead of currval.
+
+
 Knet v1.3.1 Release Notes
 =========================
 c94c1aa 2019-11-07

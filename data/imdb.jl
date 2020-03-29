@@ -44,7 +44,7 @@ function imdb(;
             dictpath = joinpath(dir,dict)
             isfile(datapath) || download("$url/$data",datapath)
             isfile(dictpath) || download("$url/$dict",dictpath)
-            d = np.load(datapath)
+            d = np.load(datapath, allow_pickle=true)
             _imdb_xtrn = map(a->np.asarray(a,dtype=np.int32), get(d, "x_train"))
             _imdb_ytrn = Array{Int8}(get(d, "y_train") .+ 1)
             _imdb_xtst = map(a->np.asarray(a,dtype=np.int32), get(d, "x_test"))

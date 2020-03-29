@@ -239,6 +239,29 @@ indicate the correct class for instance i, or 0 to skip instance i. The return v
 `(total/count)` if `average=true` and `(total,count)` if `average=false` where `count` is
 the number of instances not skipped and `total` is their total negative log likelihood.
 
+## Example
+
+Let's assume that there are three classes (cat, dog, ostrich) and just 2 instances with
+the unnormalized score `scores[:,1]` and `scores[:,2]` respectively. The first instance
+is actually a cat and the second instance a dog:
+
+```julia
+scores = [12.2    0.3;
+           2.0   21.5;
+           0.0  -21.0]
+answers = [1, 2]
+Knet.nll(scores,answers)
+# returns 2.1657e-5
+```
+
+The probabilites are derived from the scores and the
+log-probabilities corresponding to the answers are averaged:
+
+```julia
+probabilites = exp.(scores) ./ sum(exp.(scores),dims=1)
+nnl = -(log(probabilites[answers[1],1]) + log(probabilites[answers[2],2]))/2
+# returns 2.1657e-5
+```
 """
 function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
@@ -261,7 +284,7 @@ function accuracy(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     ycpu = convert(Array,y)
     (maxval,maxind) = findmax(ycpu,dims=dims)
     maxind = LinearIndices(ycpu)[maxind]
-    maxind = vec(maxind)[a .!= 0]
+    maxind = vec(maxind)[vec(a) .!= 0]
     correct = (maxind .== indices)
     average ? (sum(correct) / length(correct)) : (sum(correct), length(correct))
 end

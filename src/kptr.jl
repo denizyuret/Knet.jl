@@ -99,6 +99,7 @@ gc_interval() = 2*10^8  # gc interval in ns, optimized on seq2seq model, balanci
 putc(c)=nothing         # putc(c)=print(c) to observe GC.gc, Knet.gc and inclimit
 
 function KnetPtr(arraybytes::Int)
+    @assert gpu() >= 0 "Cannot use KnetArray without a GPU."
     cuallocator() && return KnetPtrCu(arraybytes)
     dev = gpu(); @assert dev >= 0 "KnetPtr: bad device id $dev."
     mem = knetmem(dev)
