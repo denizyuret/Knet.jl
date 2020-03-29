@@ -2,6 +2,7 @@ const JLDMODE=Val(0)
 const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
+# Do not use type asserts because type may change
 serialize(x) = _ser(x,IdDict(),JLDMODE)
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
@@ -68,41 +69,56 @@ function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val)
     elseif m === GPUMODE
         KnetArray(x)
     else
-        x
+        x  # Note: deepcopy actually copies here, we don't
     end
 end
 
 
-# Generic serialization rules from deepcopy.jl
-_ser(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task},::IdDict,::Val) = x
+# Generic serialization rules from deepcopy.jl in julia/base:
+_ser(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task,Regex},::IdDict,::Val) = x
 _ser(x::Tuple, s::IdDict, m::Val) = ntuple(i->_ser(x[i], s, m), length(x))
 _ser(x::Module, ::IdDict, ::Val) = error("serialize of Modules not supported")
 _ser(x::Core.SimpleVector, s::IdDict,m::Val) = (haskey(s, x) ? s[x] : s[x] = Core.svec(Any[_ser(x[i], s, m) for i = 1:length(x)]...))
 _ser(x::String, s::IdDict,::Val) = (haskey(s, x) ? s[x] : s[x] = (GC.@preserve x unsafe_string(pointer(x), sizeof(x))))
 
-function _ser(@nospecialize(x), s::IdDict, m::Val)
+function _ser(@nospecialize(x), stackdict::IdDict, m::Val)
     T = typeof(x)::DataType
     nf = nfields(x)
-    (isbitstype(T) || nf == 0) && return x
-    if haskey(s, x)
-        return s[x]
-    end
-    y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
     if T.mutable
-        s[x] = y
-    end
-    for i in 1:nf
-        if isdefined(x,i)
-            ccall(:jl_set_nth_field, Cvoid, (Any, Csize_t, Any), y, i-1,
-                  _ser(getfield(x,i), s, m))
+        if haskey(stackdict, x)
+            return stackdict[x]
         end
+        y = ccall(:jl_new_struct_uninit, Any, (Any,), T)
+        stackdict[x] = y
+        for i in 1:nf
+            if isdefined(x, i)
+                xi = getfield(x, i)
+                xi = _ser(xi, stackdict, m)  # removed ::typeof(xi)
+                ccall(:jl_set_nth_field, Cvoid, (Any, Csize_t, Any), y, i-1, xi)
+            end
+        end
+    elseif nf == 0 || isbitstype(T)
+        y = x
+    else
+        flds = Vector{Any}(undef, nf)
+        for i in 1:nf
+            if isdefined(x, i)
+                xi = getfield(x, i)
+                xi = _ser(xi, stackdict, m)  # removed ::typeof(xi)
+                flds[i] = xi
+            else
+                nf = i - 1 # rest of tail must be undefined values
+                break
+            end
+        end
+        y = ccall(:jl_new_structv, Any, (Any, Ptr{Any}, UInt32), T, flds, nf)
     end
-    return y::T
+    return y
 end
 
-function _ser(x::Union{Dict,IdDict}, s::IdDict,m::Val)
+function _ser(x::Union{Dict,IdDict}, s::IdDict, m::Val)
     if haskey(s, x)
-        return s[x]
+        return s[x] # removed ::typeof(x)
     end
     if isbitstype(eltype(x))
         return (s[x] = x)
