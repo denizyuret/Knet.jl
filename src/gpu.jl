@@ -138,8 +138,10 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
             end
             @cudart(cudaDeviceReset,())  # #541: clear memory
             gpu(pick)
-        else
+        elseif gpuCount() > 0
             @cudart(cudaDeviceReset,())  # #541: clear memory
+            gpu(-1)
+        else
             gpu(-1)
         end
     end
