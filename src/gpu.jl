@@ -85,6 +85,7 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
 
     function gpu(usegpu::Bool)
         global cudaRuntimeVersion, cudaDriverVersion, nvmlDriverVersion, nvmlVersion, nvmlfound, cudartfound
+        ENV["CUDA_DEVICE_ORDER"]="PCI_BUS_ID" # From @ekinakyurek #541
         if !isdefined(@__MODULE__,:cudartfound)
             try #if (cudartfound = (Libdl.find_library(["libcudart"],[]) != ""))
                 cudaRuntimeVersion = (p=Cint[0];@cudart(cudaRuntimeGetVersion,(Ptr{Cint},),p);Int(p[1]))
@@ -135,11 +136,10 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
                     end
                 end
             end
+            @cudart(cudaDeviceReset,())  # #541: clear memory
             gpu(pick)
         else
-            for i=0:gpuCount()-1
-                @cudart(cudaDeviceReset,())
-            end
+            @cudart(cudaDeviceReset,())  # #541: clear memory
             gpu(-1)
         end
     end
@@ -171,11 +171,12 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
         if GPUCNT == -1
             GPUCNT = try
 	        p=Cuint[0]
-                if nvmlfound
-                    @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
-                elseif cudartfound
-                    # OSX does not have the nvidia-ml library!
-                    # We prefer nvml because cudart takes up memory even if we don't use a device
+                # if nvmlfound
+                # # We prefer nvml because cudart takes up memory even if we don't use a device
+                #   @nvml(nvmlDeviceGetCount,(Ptr{Cuint},),p)
+                # #541: nvml does not respect visible devices (@ekinakyurek)
+                # also OSX does not have the nvidia-ml library!
+                if cudartfound
                     @cudart1(cudaGetDeviceCount,(Ptr{Cuint},),p)
                 end
 	        Int(p[1])
@@ -264,7 +265,7 @@ end
 
 "Returns total,free,used memory."
 function nvmlDeviceGetMemoryInfo(i=nvmlid(gpu()))
-    0 <= i < gpuCount() || return nothing
+    0 <= i || return nothing
     dev = Cptr[0]
     mem = Array{Culonglong}(undef,3)
     @nvml("nvmlDeviceGetHandleByIndex",(Cuint,Ptr{Cptr}),i,dev)
