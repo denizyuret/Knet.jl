@@ -1,20 +1,25 @@
 include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v6.yml'
 
-# image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
-image: ubuntu:bionic
+image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
+# image: ubuntu:bionic
+# image: nvidia/cuda:10.1-devel
 
 variables:
-# JULIA_CUDA_VERBOSE: 'true'
   JULIA_NUM_THREADS: '4'
-  JULIA_DEBUG: 'CuArrays'
-  CI_APT_INSTALL: 'libgomp1'
   NVIDIA_VISIBLE_DEVICES: 'all'
-  NVIDIA_DRIVER_CAPABILITIES: 'compute,utility'
+  NVIDIA_DRIVER_CAPABILITIES: 'all'
 
 julia:1.0:
   extends:
     - .julia:1.0
+    - .test
+  tags:
+    - nvidia
+
+julia:1.3:
+  extends:
+    - .julia:1.3
     - .test
   tags:
     - nvidia
@@ -25,9 +30,9 @@ julia:1.4:
     - .test
   tags:
     - nvidia
-    - sm_75
-  variables:
-    CI_THOROUGH: 'true'
+#   - sm_75
+# variables:
+#   CI_THOROUGH: 'true'
 
 julia:nightly:
   extends:
@@ -108,13 +113,6 @@ coverage:
 # julia:1.2:
 #   extends:
 #     - .julia:1.2
-#     - .test
-#   tags:
-#     - nvidia
-
-# julia:1.3:
-#   extends:
-#     - .julia:1.3
 #     - .test
 #   tags:
 #     - nvidia
