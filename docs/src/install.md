@@ -7,7 +7,7 @@ libraries, and it has been reported to work on OSX and Windows.  If
 you would like to try it on your own computer, please follow the
 instructions on [Installation](@ref). If you would like to try working
 with a GPU and do not have access to one, take a look at [Using Amazon
-AWS](@ref). If you find a bug, please open a [GitHub
+AWS](@ref) or [Using Microsoft Azure](@ref). If you find a bug, please open a [GitHub
 issue](https://github.com/denizyuret/Knet.jl/issues). If you would
 like to contribute to Knet, see [Tips for developers](@ref). If you
 need help, or would like to request a feature, please use the
@@ -171,7 +171,7 @@ may be out of date:
       | | |_| | | | (_| |  |  Version 1.0.0 (2018-08-08)
      _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
     |__/                   |
-    
+
     julia> using Pkg
     julia> Pkg.update()
     julia> Pkg.build("Knet")
@@ -185,4 +185,60 @@ Finally you can run `Pkg.test("Knet")` to make sure all is good. This should tak
     ...
     INFO: Knet tests passed
 
-    julia> 
+    julia>
+
+
+## Using Microsoft Azure
+
+Knet can be used with Azure. For GPU support, you need to create a virtual machine with GPU, for instance [Standard_NC6](https://docs.microsoft.com/en-us/azure/virtual-machines/nc-series)
+with Ubuntu18.04 as operating system. Then follow [Using Ubuntu18.04](@ref).
+
+## Using Ubuntu18.04
+
+The CUDA stack can be installed using the following instructions:
+```shell
+################################################################################
+##### Prerequisites
+################################################################################
+
+sudo apt install make gcc g++ wget
+
+################################################################################
+##### driver
+################################################################################
+wget http://us.download.nvidia.com/tesla/440.64.00/NVIDIA-Linux-x86_64-440.64.00.run
+sudo sh NVIDIA-Linux-x86_64-440.64.00.run
+# sudo reboot now ?
+
+################################################################################
+##### toolkit
+################################################################################
+wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+sudo sh cuda_10.2.89_440.33.01_linux.run# Please make sure that
+
+
+# add the following two lines to ~/.bashrc
+PATH=$PATH:/usr/local/cuda-10.2/bin
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-10.2/lib64
+
+sudo reboot now
+
+################################################################################
+##### cudnnn
+################################################################################
+
+# download cudnn using the browser
+# https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html
+tar -xzvf cudnn-10.2-linux-x64-v7.6.5.32.tgzsudo cp cuda/include/cudnn.h /usr/local/cuda/include
+sudo cp cuda/lib64/libcudnn* /usr/local/cuda/lib64
+sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*
+```
+
+Afterwards Knet can be installed as usual:
+```julia
+julia> using Pkg
+julia> Pkg.update()
+julia> Pkg.add("Knet")
+julia> Pkg.build("Knet")
+julia> Pkg.test("Knet")
+```
