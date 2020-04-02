@@ -206,16 +206,22 @@ sudo apt install make gcc g++ wget
 ################################################################################
 ##### driver
 ################################################################################
+# The appropriate driver version can be selected here:
+# http://www.nvidia.com/Download/index.aspx
+# The following code is for Azure Standard_NC6 machines (K80 GPU)
+
 wget http://us.download.nvidia.com/tesla/440.64.00/NVIDIA-Linux-x86_64-440.64.00.run
 sudo sh NVIDIA-Linux-x86_64-440.64.00.run
-# sudo reboot now ?
 
 ################################################################################
 ##### toolkit
 ################################################################################
-wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
-sudo sh cuda_10.2.89_440.33.01_linux.run# Please make sure that
+# the appropriate toolkit version can be selected here:
+# https://developer.nvidia.com/cuda-downloads
+# The following code is for Azure Standard_NC6 machines (K80 GPU)
 
+wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+sudo sh cuda_10.2.89_440.33.01_linux.run
 
 # add the following two lines to ~/.bashrc
 PATH=$PATH:/usr/local/cuda-10.2/bin
@@ -229,6 +235,8 @@ sudo reboot now
 
 # download cudnn using the browser
 # https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html
+# The following code is for Azure Standard_NC6 machines (K80 GPU)
+
 tar -xzvf cudnn-10.2-linux-x64-v7.6.5.32.tgzsudo cp cuda/include/cudnn.h /usr/local/cuda/include
 sudo cp cuda/lib64/libcudnn* /usr/local/cuda/lib64
 sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*
@@ -240,5 +248,5 @@ julia> using Pkg
 julia> Pkg.update()
 julia> Pkg.add("Knet")
 julia> Pkg.build("Knet")
-julia> Pkg.test("Knet")
+julia> using Knet; include(Knet.dir("test/gpu.jl"))
 ```
