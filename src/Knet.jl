@@ -38,6 +38,7 @@ export		# ref:reference.md tut:tutorial
     gaussian,	# ref
     #gc,  	# ref, tut, use Knet.gc
     #@gheck,	# ref, use AutoGrad.@gcheck
+    gelu,
     goldensection, # ref
     gpu,	# ref, tut
     gpucopy,	# ref
