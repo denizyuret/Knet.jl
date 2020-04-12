@@ -22,13 +22,13 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
     lib = string(lib); fun = string(fun)
     if isa(argtypes,Expr); argtypes = argtypes.args; end
     if isa(argvalues,Expr); argvalues = argvalues.args; end
-	if lib=="cudnn" # cudnn version not read automatically. hardcoded to v7
-		path = find_cuda_library(lib,tk,[v"7"])
-	elseif lib=="knet8"
-		path = libknet8 
-	else
-		path = (lib=="knet8" ? libknet8 : find_cuda_library(lib,tk,[ver]))
-	end
+    if lib=="cudnn" # cudnn version not read automatically. hardcoded to v7
+        path = find_cuda_library(lib,tk,[v"7"])
+    elseif lib=="knet8"
+	path = libknet8 
+    else
+	path = (lib=="knet8" ? libknet8 : find_cuda_library(lib,tk,[ver]))
+    end
     if path==nothing || path==""; return notfound; end
     fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
     r = gensym()
@@ -359,11 +359,11 @@ const cublaserrors = Dict(
 )
 
 function getErrorString(lib,fun,ret)
-	if lib=="cudnn" # cudnn version not read automatically. hardcoded to v7
-		path = find_cuda_library(lib,tk,[v"7"])
-	else
-		path = find_cuda_library(lib,tk,[ver])
-	end
+    if lib=="cudnn" # cudnn version not read automatically. hardcoded to v7
+	path = find_cuda_library(lib,tk,[v"7"])
+    else
+    	path = find_cuda_library(lib,tk,[ver])
+    end
     if lib == "cudart" && path != nothing
         str = unsafe_string(@eval(ccall(("cudaGetErrorString",$path),Cstring,(UInt32,),$ret)))
     elseif lib == "cudnn" && path != nothing
