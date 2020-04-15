@@ -1,6 +1,8 @@
 using CUDAapi, TimerOutputs, Libdl
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 const tk = find_toolkit()
+const tkver = isempty(tk) ? v"0" : parse_toolkit_version(find_cuda_binary("ptxas", tk))# v"0" because "nothing" will crash precompilation
+const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
 const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
@@ -19,16 +21,15 @@ const TIMER = haskey(ENV,"KNET_TIMER")
 
 macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(error("Cannot find $lib")))
     lib = string(lib); fun = string(fun)
-    if isa(argtypes,Expr); argtypes = argtypes.args; end
+	if isa(argtypes,Expr); argtypes = argtypes.args; end
     if isa(argvalues,Expr); argvalues = argvalues.args; end
-    ver = parse_toolkit_version(find_cuda_binary("ptxas", tk))
-    if lib == "cudnn" # cudnn version not read automatically. hardcoded to v7
-        path = find_cuda_library(lib,tk,[v"7"])
-    elseif lib == "knet8"
-	path = libknet8 
-    else
-	path = find_cuda_library(lib,tk,[ver])
-    end
+	if lib == "cudnn"
+		path = find_cuda_library(lib,tk,[cudnnver])
+	elseif lib == "knet8"
+		path = libknet8 
+	else
+		path = find_cuda_library(lib,tk,[tkver])
+	end
     if path==nothing || path==""; return notfound; end
     fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
     r = gensym()
@@ -309,7 +310,7 @@ function cublasCreate()
 end
 
 function cudnnCreate()
-    path = find_cuda_library("cudnn",tk,[v"7"]) # hardcoded to v7
+    path = find_cuda_library("cudnn",tk,[cudnnver])
     if path==nothing; error("Cannot find cudnn"); end
     handleP = Cptr[0]
     @cudnn(cudnnCreate,(Ptr{Cptr},), handleP)
@@ -359,12 +360,11 @@ const cublaserrors = Dict(
 )
 
 function getErrorString(lib,fun,ret)
-    ver = parse_toolkit_version(find_cuda_binary("ptxas", tk))
-    if lib == "cudnn" # cudnn version not read automatically. hardcoded to v7
-	path = find_cuda_library(lib,tk,[v"7"])
-    else
-    	path = find_cuda_library(lib,tk,[ver])
-    end
+    if lib == "cudnn"
+		path = find_cuda_library(lib,tk,[cudnnver])
+	else
+		path = find_cuda_library(lib,tk,[tkver])
+	end
     if lib == "cudart" && path != nothing
         str = unsafe_string(@eval(ccall(("cudaGetErrorString",$path),Cstring,(UInt32,),$ret)))
     elseif lib == "cudnn" && path != nothing
