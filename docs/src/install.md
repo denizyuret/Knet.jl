@@ -16,19 +16,13 @@ mailing list.
 
 ## Installation
 
-For best results install (1) Julia, (2) a host compiler, (3) GPU support, and (4) Knet in that order. Step (2) can be skipped if you do not need convolutions or gpu support. Step (3) can be skipped if you do not have a GPU. An optional step (5) below describes how to interact with the Knet tutorial notebooks.
+For best results install (1) Julia, (2) a host compiler, (3) GPU tools, and (4) Knet in that order. Steps (2) and (3) can be skipped if you do not need GPU support. An optional step (5) below describes how to interact with the Knet tutorial notebooks.
 
-1. **Julia:** Download and install the latest version of Julia from [julialang.org](http://julialang.org/downloads). As of this writing the latest version is 1.1.1 and I have tested Knet using 64-bit Generic Linux binaries, the macOS package (10.8+ 64-bit dmg), and 64-bit Windows Self Extracting Archive (exe).
+1. **Julia:** Download and install the latest version of Julia from [julialang.org](http://julialang.org/downloads). As of this writing the latest version is 1.4.1 and I have tested Knet using 64-bit Generic Linux binaries, the macOS package (10.8+ 64-bit dmg), and 64-bit Windows Self Extracting Archive (exe).
 
-   (optional) Knet uses the [CUDAapi](https://github.com/JuliaGPU/CUDAapi.jl) library for discovery. Start Julia and run `using Pkg; Pkg.add("CUDAapi")` so we can test the next steps.
+2. **Host compiler:** On Linux, the gcc compiler that comes standard with all distributions is supported. On Mac you need to install [Xcode](https://developer.apple.com/xcode/) which provides the clang compiler. On Windows you need the Visual C++ compiler which comes with Visual Studio or Build Tools. I have tested on Windows 10 with [Build Tools for Visual Studio 2019](https://visualstudio.microsoft.com/downloads)  (67MB). On the setup screen I added "C++ build tools" (1.15GB) and I had to manually add the location of cl.exe to my PATH environment variable: `C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.25.28610\bin\Hostx64\x64`.
 
-2. **Host compiler:** On Linux, the gcc compiler that comes standard with all distributions is supported. On Mac you need to install [Xcode](https://developer.apple.com/xcode/) which provides the clang compiler. On Windows you need the Visual C++ compiler which comes with Visual Studio or Build Tools. I have tested on Windows 10 with [Build Tools for Visual Studio 2019](https://visualstudio.microsoft.com/downloads)  (67MB). On the setup screen I added "C++ build tools" (1.15GB) and rebooted the machine for settings to take effect. If you don't have a compiler, Knet will still work but will not support convolutions or GPU.
-
-   (optional) start Julia and run `using CUDAapi; find_host_compiler()` to make sure the host compiler is detected.
-
-3. **GPU support:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory.
-
-   (optional) Once you install the gpu components, start Julia and run `using CUDAapi; tk=find_toolkit()` to make sure the CUDA Toolkit is detected and `find_cuda_library("cudart",tk)` and `find_cuda_library("cudnn",tk)` to make sure the libraries can be found.
+3. **GPU tools:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory.
 
 4. **Knet:** to install Knet start Julia and run `using Pkg; Pkg.add("Knet")`.
 
@@ -45,9 +39,9 @@ precompiled binaries get out of sync and you may get errors like:
 
 I recommend the following steps to refresh everything:
 
-    shell> rm ~/.julia/compiled/v1.1/Knet/*.ji
+    shell> rm ~/.julia/compiled/v1.*/Knet/*.ji
     shell> cd ~/.julia/packages/Knet/*/deps
-    shell> make clean
+    shell> make clean  # or remove *.cu if you don't have make
     shell> julia
     julia> using Pkg; Pkg.build("Knet")
 
