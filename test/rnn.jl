@@ -1,6 +1,8 @@
 include("header.jl")
 using Knet: rnntest, rnnforw
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
+GC.gc()
+Knet.seed!(2)
 
 if gpu() >= 0; @testset "rnn" begin
 
@@ -13,7 +15,6 @@ if gpu() >= 0; @testset "rnn" begin
         # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, xavier_uniform))
         # global rnew,r,w,x1,x2,x3,hx1,cx1,hx2,cx2,hx3,cx3
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
-        Knet.seed!(2)
 
         r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform) # binit=zeros does not pass gchk
         w = r.w

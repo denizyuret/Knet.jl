@@ -19,15 +19,17 @@ struct M370; layer; end;
         # 370-1
         m = M370(param(5,5,1,1))
         mcpu = m |> cpucopy
-        @test Knet.save("foo.jld2","mcpu",mcpu) === nothing
+        path = tempname()*".jld2"
+        @test Knet.save(path,"mcpu",mcpu) === nothing
 
         # 370-2
         @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
         
         # 506
         function m1test(M1,xgpu,xcpu)
-            Knet.save("/tmp/foo.jld2", "model", M1)
-            Ms = Knet.load("/tmp/foo.jld2", "model")
+            path = tempname()*".jld2"
+            Knet.save(path, "model", M1)
+            Ms = Knet.load(path, "model")
             Mg = gpucopy(deepcopy(M1))
             Mc = cpucopy(M1)
             y,h,c = M1(xgpu),M1.h,M1.c
