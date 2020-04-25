@@ -73,17 +73,14 @@ function cat(X::KnetArray{T}...; dims) where {T}
 end
 
 # Must be careful with memory management, for now we will let Knet manage memory.
-# Do not extend function ka to create a memory shared KnetArray from CuArray:
-# best not to use CuArrays memory manager simultaneously with KnetArrays memory manager.
 # use CuArray(x) with overwriting kernels only.
+# use the following with caution.
 
-# function Knet.ka(x::CuArray{T,N}) where {T,N}
-#     p = Base.bitcast(Knet.Cptr, x.buf.ptr)
-#     k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
-#     # finalizer(identity, k) # hacky way to avoid gc? gives error in running finalizer
-#     KnetArray{T,N}(k, size(x))
-# end
-
+function KnetArray(x::CuArray{T,N}) where {T,N}
+    p = Base.bitcast(Knet.Cptr, x.ptr)
+    k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
+    KnetArray{T,N}(k, size(x))
+end
 
 # Testing the CuArrays allocator: set Knet.cuallocator()=true to use this
 function KnetPtrCu(len::Int)
