@@ -22,8 +22,8 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [compat]			    	# last tested with:
 julia = "1.0"			    	# 1.4.1
 AutoGrad = "1.2"		    	# 1.2.1
-CUDAapi = "1.0, 2.0, 3.0, 4.0"		# 4.0.0
-CuArrays = "1.0, 2.0"			# 2.1.0: has issues https://github.com/JuliaGPU/CuArrays.jl/issues/685
+CUDAapi = "3.0, 4.0"			# 4.0.0
+CuArrays = "1.0, 2.0"			# 2.1.0
 DataStructures = "0.17"			# 0.17.13
 FileIO = "1.0"				# 1.2.4
 JLD2 = "0.1"				# 0.1.13
