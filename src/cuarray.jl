@@ -76,10 +76,12 @@ end
 # use CuArray(x) with overwriting kernels only.
 # use the following with caution.
 
-function KnetArray(x::CuArray{T,N}) where {T,N}
-    p = Base.bitcast(Knet.Cptr, x.ptr)
-    k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
-    KnetArray{T,N}(k, size(x))
+if has_cuda()
+    function KnetArray(x::CuArray{T,N}) where {T,N}
+        p = Base.bitcast(Knet.Cptr, x.ptr)
+        k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 
+        KnetArray{T,N}(k, size(x))
+    end
 end
 
 # Testing the CuArrays allocator: set Knet.cuallocator()=true to use this
