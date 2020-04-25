@@ -1,5 +1,8 @@
+# Tests on linux arm and arm64, no gpu.
+# https://discourse.julialang.org/t/testing-on-arm-with-drone-ci/25871/2
+
 kind: pipeline
-name: linux-arm-1.3-RC2
+name: linux-arm-1.4
 
 platform:
  os: linux
@@ -7,7 +10,7 @@ platform:
 
 steps:
 - name: build
-  image: julia:1.3.0-rc2
+  image: julia:1.4
   commands:
      - uname -a
      - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'
@@ -15,7 +18,7 @@ steps:
 ---
 
 kind: pipeline
-name: linux-aarch64-1.3-RC2
+name: linux-arm64-1.4
 
 platform:
   os: linux
@@ -23,7 +26,7 @@ platform:
 
 steps:
 - name: build
-  image: julia:1.3.0-rc2
+  image: julia:1.4
   commands:
       - uname -a
       - julia --project=. -e 'using Pkg; Pkg.build(); Pkg.test(coverage=true)'

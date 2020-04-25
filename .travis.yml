@@ -1,3 +1,5 @@
+# Tests with linux/osx, no gpu.
+
 language: julia
 
 os:
