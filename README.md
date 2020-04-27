@@ -28,14 +28,14 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
   Yuret, D. "Knet: beginning deep learning with 100 lines of julia." In *Machine Learning Systems Workshop* at NIPS 2016.
 * [KnetML:](https://github.com/KnetML)
   github organization with Knet repos of models, tutorials, layer collections and other resources.
-* [Images:](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1)
-  Knet machine images are available for [AWS](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1), [Singularity](https://github.com/KnetML/singularity-images) and [Docker](https://github.com/JuliaGPU/docker).
+* [Images:](http://denizyuret.github.io/Knet.jl/latest/install/#Using-Amazon-AWS-1)
+  Knet machine images are available for [AWS](http://denizyuret.github.io/Knet.jl/latest/install/#Using-Amazon-AWS-1), [Singularity](https://github.com/KnetML/singularity-images) and [Docker](https://github.com/JuliaGPU/docker).
 * [Issues:](https://github.com/denizyuret/Knet.jl/issues)
   if you find a bug, please open a github issue.
 * [knet-users:](https://groups.google.com/forum/#!forum/knet-users)
   if you need help or would like to request a feature, please join this mailing list.
 * [knet-dev:](https://groups.google.com/forum/#!forum/knet-dev)
-  if you would like to contribute to Knet development, please join this mailing list and check out these [tips](http://denizyuret.github.io/Knet.jl/latest/install.html#Tips-for-developers-1).
+  if you would like to contribute to Knet development, please join this mailing list and check out these [tips](https://denizyuret.github.io/Knet.jl/latest/install/#Tips-for-developers-1).
 * [knet-slack:](https://julialang.slack.com/messages/CDLKQ92P3/details) Slack channel for Knet.
 * Related work: Please check out [Flux](https://github.com/FLuxML), [Mocha](https://github.com/pluskid/Mocha.jl), [JuliaML](https://github.com/JuliaML), [JuliaDiff](https://github.com/JuliaDiff), [JuliaGPU](https://github.com/JuliaGPU), [JuliaOpt](https://github.com/JuliaOpt) for related packages.
 
