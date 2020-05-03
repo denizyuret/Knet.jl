@@ -14,7 +14,7 @@ struct Minimize{I}; data::I; func; algo; params; end
 IteratorSize(::Type{Minimize{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{<:Minimize}) = Base.EltypeUnknown()
 length(m::Minimize) = length(m.data)
-size(m::Minimize) = size(m.data)
+size(m::Minimize,d...) = size(m.data,d...)
 
 @propagate_inbounds function iterate(m::Minimize, s...)
     next = iterate(m.data, s...)

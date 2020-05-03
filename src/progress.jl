@@ -58,8 +58,9 @@ progress(iter; o...)=progress((x)->"",iter; o...)
 progress!(x...; o...)=(for _ in progress(x...; o...) end)
 
 IteratorSize(::Type{Progress{I}}) where {I} = IteratorSize(I)
-IteratorEltype(::Type{Progress{I}}) where {I} = Base.EltypeUnknown()
+IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
 length(p::Progress) = length(p.iter)
+size(p::Progress,d...) = size(p.iter,d...)
 
 @propagate_inbounds function iterate(p::Progress, s...)
     if p.starttime == 0
