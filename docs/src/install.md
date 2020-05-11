@@ -22,7 +22,13 @@ For best results install (1) Julia, (2) a host compiler, (3) GPU tools, and (4) 
 
 2. **Host compiler:** On Linux, the gcc compiler that comes standard with all distributions is supported. On Mac you need to install [Xcode](https://developer.apple.com/xcode/) which provides the clang compiler. On Windows you need the Visual C++ compiler which comes with Visual Studio or Build Tools. I have tested on Windows 10 with [Build Tools for Visual Studio 2019](https://visualstudio.microsoft.com/downloads)  (67MB). On the setup screen I added "C++ build tools" (1.15GB) and I had to manually add the location of cl.exe to my PATH environment variable: `C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.25.28610\bin\Hostx64\x64`.
 
-3. **GPU tools:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory.
+3. **GPU tools:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory. 
+
+    It is expected that the `CUDAapi` package is installed in Julia. Ensure that all of its tests pass before expecting Knet to succeed in using the GPU. The extensive test list is `using Pkg; Pkg.test(["CUDAnative", "CUDAdrv", "CUDAapi", "CuArrays"])`.
+
+    If Knet was installed before the GPU tools, rebuild it with `using Pkg; Pkg.build("Knet")`.
+    
+    Building Knet with the GPU tools on Windows requires the Visual Studio `cl.exe` to be in the path, which means adding `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.22.27905\bin\Hostx86\x64` to the environment variables (for example).
 
 4. **Knet:** to install Knet start Julia and run `using Pkg; Pkg.add("Knet")`.
 
