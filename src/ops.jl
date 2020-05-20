@@ -23,8 +23,6 @@ binary_ops = [
     # "ldexp",
     # "scalbn",
     # "scalbln",
-    # "jn",
-    # "yn",
     # "fmod",
     # "remainder",
     # "mod",
@@ -36,6 +34,12 @@ binary_ops = [
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
     # ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar -> cuda bug #108 switching to CuArrays for pow
+]
+
+unary_ops_with_int_degree = [
+    # cuda does not define negative degrees for bessel, fix it here:
+    ("jn", "besselj", "(d>=0 ? jn(d,xi) : d%2==0 ? jn(-d,xi) : -jn(-d,xi))"),
+    ("yn", "bessely", "(d>=0 ? yn(d,xi) : d%2==0 ? yn(-d,xi) : -yn(-d,xi))"), # bessely not defined for negative x!
 ]
 
 # The following list comes from the NVIDIA math docs with some extras.
@@ -57,8 +61,8 @@ unary_ops = [
 "cos",
 "cosh",
 "cospi",
-# "cyl_bessel_i0",
-# "cyl_bessel_i1",
+# ("cyl_bessel_i0", "besseli0"),  # besseli0,i1 is not defined in SpecialFunctions
+# ("cyl_bessel_i1", "besseli1"),
 "erf",
 "erfc",
 "erfcinv",
@@ -71,8 +75,8 @@ unary_ops = [
 "floor",
 # "ilogb",
 ("invx", "invx", "1/xi"),
-# "j0",
-# "j1",
+("j0", "besselj0"),
+("j1", "besselj1"),
 ("gamma_impl", "gamma"),
 ("lgamma", "lgamma"), # TODO: SpecialFunctions 0.8: lgamma(x::Real)` is deprecated, use `(logabsgamma(x))[1]` instead. Other alternative is loggamma, throws a DomainError if gamma(x) is negative.
 ("digamma_impl", "digamma"),
@@ -109,8 +113,8 @@ unary_ops = [
 "tanh",
 # "tgamma",
 "trunc",
-# "y0",
-# "y1",
+("y0","bessely0"),
+("y1","bessely1"),
 ("zero", "zero", "0"),
 ]
 

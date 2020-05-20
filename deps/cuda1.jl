@@ -1,10 +1,14 @@
 # Kernels for unary array operations
 
 fp = open("cuda1.cu","w")
-#using Knet: unary_ops
+
+## Special implementations for gamma family
 
 include("gamma.jl")
 print(fp,cuda1gammafamily())
+
+
+## Unary ops (like sin, cos) 
 
 function cuda1src(f, j=f, ex="$f(xi)"; seperate_impl=false, BLK=256, THR=256)
     sprint() do s
@@ -34,6 +38,37 @@ seperate_impl_ops = ["gamma_impl", "digamma_impl", "trigamma_impl"]
 for a in unary_ops
     if !isa(a,Tuple); a=(a,); end
     print(fp,cuda1src(a...; seperate_impl=(a[1] in seperate_impl_ops)))
+end
+
+
+## Unary ops with integer degree d (like besselj):
+
+function cuda1src_with_int_degree(f, j=f, ex="$f(d,xi)"; BLK=256, THR=256)
+    sprint() do s
+        for (T,F) in [("float","$(f)_32"),("double","$(f)_64")]
+            print(s,
+"""
+__global__ void _$F(int n, int d, $T *x, $T *y) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  while (i < n) {
+    $T xi = x[i];
+    y[i] = $ex;
+    i += blockDim.x * gridDim.x;
+  }
+}
+extern "C" {
+  $DLLEXPORT void $F(int n, int d, $T *x, $T *y) {
+    if (n>0) _$F<<<$BLK,$THR>>>(n,d,x,y);
+  }
+}
+""")
+        end
+    end
+end
+
+for a in unary_ops_with_int_degree
+    if !isa(a,Tuple); a=(a,); end
+    print(fp,cuda1src_with_int_degree(a...))
 end
 
 # Kernels used by setindex! and getindex: fill, xfill, xcopy:

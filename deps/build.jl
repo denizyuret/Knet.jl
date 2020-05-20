@@ -43,16 +43,16 @@ push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 # Build scripts
 
 function build_nvcc()
-    SRC = [("cuda1","gamma","../src/unary"),
-           ("cuda01","../src/binary"),
-           ("cuda11","../src/binary","../src/unary"),
-           ("cuda12","../src/binary"),
-           ("cuda13","../src/binary"),
-           ("cuda16","../src/binary"),
-           ("cuda17","../src/binary"),
-           ("cuda20","../src/reduction"),
-           ("cuda21","../src/reduction"),
-           ("cuda22","../src/reduction"),
+    SRC = [("cuda1","gamma","../src/unary","../src/ops"),
+           ("cuda01","../src/binary","../src/ops"),
+           ("cuda11","../src/binary","../src/unary","../src/ops"),
+           ("cuda12","../src/binary","../src/ops"),
+           ("cuda13","../src/binary","../src/ops"),
+           ("cuda16","../src/binary","../src/ops"),
+           ("cuda17","../src/binary","../src/ops"),
+           ("cuda20","../src/reduction","../src/ops"),
+           ("cuda21","../src/reduction","../src/ops"),
+           ("cuda22","../src/reduction","../src/ops"),
            ]
 
     OBJ = []

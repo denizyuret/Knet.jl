@@ -21,6 +21,10 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
         push!(unary_fns, eval(Meta.parse(f)))
     end
 
+    # Add unary ops with int degree
+    push!(unary_fns, (x->besselj.(2,x)))
+    push!(unary_fns, (x->bessely.(2,x)))
+
     skip_grads = [trigamma,lgamma]
     for f in unary_fns
         f in skip_grads && continue
@@ -32,6 +36,7 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
             @test isa(f(sx),t)
             @test gradcheck(f, sx)
             for n in (1,(1,1),2,(2,1),(1,2),(2,2))
+                f == abs2 || n == (2,2) || continue # not all fns need to be tested with all dims
                 #@show f,t,n
                 ax = frand(f,t,n)
                 @test gradcheck(bf, ax)

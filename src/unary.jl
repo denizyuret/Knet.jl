@@ -150,3 +150,31 @@ for f in unary_ops
     if !isa(f,Tuple); f=(f,); end
     unary_op(f...)
 end
+
+function unary_op_with_int_degree(f, j=f, o...)
+    J=Symbol(j)
+    M = which(@__MODULE__, J)
+    for S in (32,64)
+        T = Symbol("Float$S")
+        F = "$(f)_$S"
+        @eval begin
+            function broadcasted(::typeof($J),d::Integer,x::KnetArray{$T})
+                y = similar(x)
+                @knet8($F,(Cint,Cint,Ptr{$T},Ptr{$T}),length(y),d,x,y)
+                return y
+            end
+            # Bcasted methods
+            ($M).$J(d,x::Bcasted{<:KnetArray{$T}}) = broadcasted($J, d, x.value) |> Bcasted
+            broadcasted(::typeof($J),d,x::Bcasted{<:KnetArray{$T}}) = broadcasted($J, d, x.value) |> Bcasted
+        end
+    end
+    @eval begin # so we do not trigger some default Base implementation
+        ($M).$J(d,x::Bcasted) = throw(MethodError($J,(x,)))
+        broadcasted(::typeof($J),d,x::Bcasted) = throw(MethodError($J,(x,)))
+    end
+end
+
+for f in unary_ops_with_int_degree
+    if !isa(f,Tuple); f=(f,); end
+    unary_op_with_int_degree(f...)
+end
