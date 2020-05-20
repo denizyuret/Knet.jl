@@ -552,6 +552,7 @@ end; end
 # AutoGrad may return Nothing for a zero gradient
 update!(w, g::Nothing, p)=w
 update!(w, g::Nothing; o...)=w
+update!(w::Param, g::Nothing)=w
 
 # This takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
