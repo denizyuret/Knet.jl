@@ -319,7 +319,7 @@ end
 import Base: copy, copyto! #TODO _unsafe_copy!
 const KorA{T} = Union{KnetArray{T},Array{T}}
 
-function copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer) where {T}
+function _copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n::Integer) where {T}
     if n == 0; return dest; end
     if n < 0; throw(ArgumentError()); end
     if soffs < 1 || doffs < 1 || soffs+n-1 > length(src) || doffs+n-1 > length(dest)
@@ -328,10 +328,19 @@ function copyto!(dest::KorA{T}, doffs::Integer, src::KorA{T}, soffs::Integer, n:
     _unsafe_copy!(dest, doffs, src, soffs, n)
 end
 
-function copyto!(dest::KorA{T}, src::KorA{T}) where {T}
+function _copyto!(dest::KorA{T}, src::KorA{T}) where {T}
     if length(dest) < length(src); throw(BoundsError()); end
     copyto!(dest, 1, src, 1, length(src))
 end
+
+# Avoid Array->Array to prevent base conflict.
+copyto!(dest::KnetArray{T}, doffs::Integer, src::KnetArray{T}, soffs::Integer, n::Integer) where {T} = _copyto!(dest, doffs, src, soffs, n)
+copyto!(dest::KnetArray{T}, doffs::Integer, src::Array{T}, soffs::Integer, n::Integer) where {T} = _copyto!(dest, doffs, src, soffs, n)
+copyto!(dest::Array{T}, doffs::Integer, src::KnetArray{T}, soffs::Integer, n::Integer) where {T} = _copyto!(dest, doffs, src, soffs, n)
+copyto!(dest::KnetArray{T}, src::KnetArray{T}) where {T} = _copyto!(dest, src)
+copyto!(dest::KnetArray{T}, src::Array{T}) where {T} = _copyto!(dest, src)
+copyto!(dest::Array{T}, src::KnetArray{T}) where {T} = _copyto!(dest, src)
+
 
 function copy(a::KnetArray)
     _unsafe_copy!(similar(a),1,a,1,length(a))
