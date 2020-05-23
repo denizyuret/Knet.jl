@@ -109,3 +109,5 @@ end
 
 # Give length info in summary:
 Base.summary(d::Data) = "$(length(d))-element $(typeof(d))"
+Base.show(io::IO, d::Data) = print(IOContext(io,:compact=>true), summary(d))
+Base.show(io::IO, ::MIME"text/plain", d::Data) = show(io, d)
