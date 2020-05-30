@@ -230,14 +230,23 @@ end
 
 
 """
-    nll(scores, answers; dims=1, average=true)
+    nll(scores, answers::Array{<:Integer}; dims=1, average=true)
+    nll(model, data; dims=1, average=true, o...)
 
-Given an unnormalized `scores` matrix and an `Integer` array of correct `answers`, return
-the negative log likelihood. The `scores` matrix should have size (classes,instances) if
-`dims=1` or (instances,classes) if `dims=2`. `answers[i]` should be in `1:classes` to
-indicate the correct class for instance i, or 0 to skip instance i. The return value is
-`(total/count)` if `average=true` and `(total,count)` if `average=false` where `count` is
-the number of instances not skipped and `total` is their total negative log likelihood.
+The first form calculates the negative log likelihood for a single batch given an
+unnormalized `scores` matrix and an `Integer` array of correct `answers`. The `scores`
+matrix should have size (classes,instances) if `dims=1` or (instances,classes) if
+`dims=2`. `answers[i]` should be in `1:classes` to indicate the correct class for instance
+i, or 0 to skip instance i.
+
+The second form calculates negative log likelihood for a model and dataset iterating over
+`nll(model(inputs; o...), answers; dims)` for `(inputs,answers)` in `data`. The `model`
+should be a function returning scores given inputs, and data should be an iterable of
+`(inputs,answers)` pairs.
+
+In both forms, the return value is `(total/count)` if `average=true` and `(total,count)` if
+`average=false` where `count` is the number of instances not skipped and `total` is their
+total negative log likelihood.
 
 ## Example
 
@@ -254,12 +263,12 @@ Knet.nll(scores,answers)
 # returns 2.1657e-5
 ```
 
-The probabilites are derived from the scores and the
-log-probabilities corresponding to the answers are averaged:
+The probabilites are derived from the scores and the log-probabilities corresponding to the
+answers are averaged:
 
 ```julia
 probabilites = exp.(scores) ./ sum(exp.(scores),dims=1)
-nnl = -(log(probabilites[answers[1],1]) + log(probabilites[answers[2],2]))/2
+-(log(probabilites[answers[1],1]) + log(probabilites[answers[2],2]))/2
 # returns 2.1657e-5
 ```
 """
@@ -267,6 +276,11 @@ function nll(y,a::AbstractArray{<:Integer}; dims=1, average=true)
     indices = findindices(y,a,dims=dims)
     lp = logp(y,dims=dims)[indices]
     average ? (-sum(lp) / length(lp)) : (-sum(lp), length(lp))
+end
+
+function nll(y,a::KnetArray{<:Integer}; dims=1, average=true)
+    @warn "nll(scores, answers::KnetArray{<:Integer} is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
+    nll(y, Array(a); dims=dims, average=average)
 end
 
 """
@@ -341,13 +355,6 @@ function bce(x̂,x;average=true)
     average ? -mean(l) : -sum(l)
 end
 
-"""
-    nll(model, data; dims=1, average=true, o...)
-
-Compute negative log likelihood `nll(model(x; o...), y; dims)` for `(x,y)` in `data` and
-return `(total/count)` if `average=true` or `(total,count)` if `average=false`.
-
-"""
 function nll(model, data; dims=1, average=true, o...)
     sum = cnt = 0
     for (x,y) in data
