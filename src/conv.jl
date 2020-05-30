@@ -514,13 +514,15 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
     elseif length(conv4_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc(); @dbg print('*')
+        # Knet.gc(); @dbg print('*')
         # TODO: not sure how much space to allocate here without risking OOM, will figure out later.
-        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        # workSpace, workSpaceSizeInBytes = C_NULL, 0
+        workSpace = KnetArray{UInt8}(undef, gpufree() ÷ 5) # Try with max %20 of available memory
         wd, xd, yd, cd = FD(w), TD(x), TD(y), CD(w,x;o...)
         @cudnn(cudnnFindConvolutionForwardAlgorithmEx,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
+              handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -537,12 +539,14 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
     elseif length(conv4w_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc(); @dbg print('*')
-        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        # Knet.gc(); @dbg print('*')
+        # workSpace, workSpaceSizeInBytes = C_NULL, 0
+        workSpace = KnetArray{UInt8}(undef, gpufree() ÷ 5) # Try with max %20 of available memory
         wd, xd, yd, cd = FD(dw), TD(x), TD(dy), CD(w,x;o...)
         @cudnn(cudnnFindConvolutionBackwardFilterAlgorithmEx,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
+              handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4w_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -559,12 +563,14 @@ function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetAr
     elseif length(conv4x_algos) >= CUDNN_MAX_FIND
         return (0, cudnnWorkSpace())
     else
-        Knet.gc(); @dbg print('*')
-        workSpace, workSpaceSizeInBytes = C_NULL, 0
+        # Knet.gc(); @dbg print('*')
+        # workSpace, workSpaceSizeInBytes = C_NULL, 0
+        workSpace = KnetArray{UInt8}(undef, gpufree() ÷ 5) # Try with max %20 of available memory
         wd, xd, yd, cd = FD(w), TD(dx), TD(dy), CD(w,x;o...)
         @cudnn(cudnnFindConvolutionBackwardDataAlgorithmEx,
               (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,workSpaceSizeInBytes)
+              handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4x_algos[key] = p
         return (p.algo, cudnnWorkSpace(p.memory))
@@ -590,9 +596,9 @@ function perfChoose(ps, n)
     return ps[ibest]
 end
 
-# DEPRECATED -- this assumes one workspace per gpu. What about streams?
+# This assumes one workspace per gpu. TODO: What about streams/contexts/handles etc?
 const CUDNN_WORKSPACE = []
-function cudnnWorkSpace_deprecated(len=0;dev=gpu())
+function cudnnWorkSpace(len=0;dev=gpu())
     global CUDNN_WORKSPACE
     if dev==-1; error("No cudnnWorkSpace for CPU"); end
     i = dev+2
@@ -604,4 +610,4 @@ function cudnnWorkSpace_deprecated(len=0;dev=gpu())
 end
 
 # Fresh workspace for every op is safer:
-cudnnWorkSpace(len=0)=KnetArray{UInt8}(undef,len)
+cudnnWorkSpace_safe(len=0)=KnetArray{UInt8}(undef,len)
