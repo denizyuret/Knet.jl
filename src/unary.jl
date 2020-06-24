@@ -3,7 +3,7 @@
 
 using SpecialFunctions
 import Base.Broadcast: broadcasted
-import NNlib: relu, selu, elu
+import NNlib: relu, selu, elu, gelu
 
 function unary_op(f, j=f, o...)
     J=Symbol(j)
@@ -33,25 +33,36 @@ const λ01 = (1-erfc(1/sqrt(2))*sqrt(exp(1)))*sqrt(2pi)*(2*erfc(sqrt(2))*exp(2)+
 const α01 = -sqrt(2/pi)/(erfc(1/sqrt(2))*exp(1/2)-1)
 const λα01 = λ01 * α01
 
+# Constant for gelu activation function from https://arxiv.org/pdf/1606.08415v3.pdf
+const GConstant01 = sqrt(2/pi)
+const GConstant02 = 0.044715 * sqrt(2/pi)
+const GConstant03 = GConstant01 / 2
+
 # Define some common operations as primitives for efficiency:
 # 1. Avoid creating intermediate arrays
 # 2. Avoid taking derivatives of intermediate operations
 
 for (f,g,y,dx) in
     ((:invx, :invxback, :(one(T)/xi), :(-yi*yi*dyi)),
-     (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
-     (:selu, :seluback, :(xi >= 0 ? T(λ01)*xi : T(λα01)*(exp(xi)-1)), :(yi >= 0 ? dyi * T(λ01) : dyi * (yi + T(λα01)))),
-     (:elu,  :eluback,  :(xi >= 0 ? xi : exp(xi)-1), :(yi >= 0 ? dyi : dyi * (1+yi))),
-     (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
-     (:sigm, :sigmback, 
-      # Numerically stable implementation from
-      # http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
-      :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
-      :(dyi*yi*(one(T)-yi))),
-     )
+    (:relu, :reluback, :(max(zero(T),xi)), :(ifelse(yi>0,dyi,zero(T)))),
+    (:selu, :seluback, :(xi >= 0 ? T(λ01)*xi : T(λα01)*(exp(xi)-1)), :(yi >= 0 ? dyi * T(λ01) : dyi * (yi + T(λα01)))),
+    (:elu,  :eluback,  :(xi >= 0 ? xi : exp(xi)-1), :(yi >= 0 ? dyi : dyi * (1+yi))),
+    (:tanx, :tanhback, :(tanh(xi)), :(dyi*(one(T)-yi*yi))),
+    (:sigm, :sigmback, 
+    # Numerically stable implementation from
+    # http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick
+    :(if xi>=0; z=exp(-xi); one(T)/(one(T)+z); else; z=exp(xi); z/(one(T)+z); end),
+    :(dyi*yi*(one(T)-yi))),
+    (:gelu, :geluback, 
+    # 0.5x(1+tanh(0.0356774 x^3 + 0.797885 x))
+    :(T(0.5)*xi*( one(T) + tanh( (T(GConstant02)*xi^3) + (T(GConstant01)*xi) ) )),
+    # 0.5 tanh(0.0356774 x^3 + 0.797885 x) + (0.0535161 x^3 + 0.398942 x) sech^2(0.0356774 x^3 + 0.797885 x) + 0.5
+    :(dyi*(T(0.5)*tanh(T(GConstant02)*xi^3 + T(GConstant01)*xi) + (T(0.0535161)*xi^3 + T(GConstant03)*xi)*(sech(T(GConstant02)*xi^3 + T(GConstant01)*xi))^2 + T(0.5)))),
+    )
+
     @eval begin
         $f(xi::T) where {T<:Number}=$y
-        $g(dyi::T,yi::T) where {T<:Number}=$dx
+        $g(dyi::T,yi::T,xi::T) where {T<:Number}=$dx
         function broadcasted(::typeof($f),x::Array{T}) where {T<:AbstractFloat}
             y = similar(x)
             @inbounds for i=1:length(y)
@@ -60,16 +71,17 @@ for (f,g,y,dx) in
             end
             return y
         end
-        function broadcasted(::typeof($g),dy::Array{T},y::Array{T}) where {T<:AbstractFloat}
+        function broadcasted(::typeof($g),dy::Array{T},y::Array{T},x::Array{T}) where {T<:AbstractFloat}
             dx = similar(dy)
             @inbounds for i=1:length(dx)
                 yi = y[i]
+                xi = x[i]
                 dyi = dy[i]
                 dx[i] = $dx
             end
             return dx
         end
-        @primitive $f(x),dy,y $g.(dy,y)
+        @primitive $f(x),dy,y $g.(dy,y,x)
     end
 end
 
@@ -103,6 +115,15 @@ Return `λ01 * (x > 0 ? x : α01 * (exp(x)-1))` where `λ01=1.0507009873554805` 
 Reference: Self-Normalizing Neural Networks (https://arxiv.org/abs/1706.02515).
 """
 selu
+
+"""
+    gelu(x)
+
+Return `0.5 * x * (1 + tanh( √(2/π) * (0.044715 x^3 + x) ))`
+
+Reference: Gaussian Error Linear Units (https://arxiv.org/pdf/1606.08415v3.pdf).
+"""
+gelu
 
 # To avoid conflict with AutoGrad:
 import Base: tanh

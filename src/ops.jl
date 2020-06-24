@@ -33,6 +33,7 @@ binary_ops = [
     ("seluback","seluback","(yi>0?1.0507009873554805*xi:xi*(1.7580993408473773+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
+    ("geluback","geluback","(xi*(0.5*tanh(0.035677408136300125*pow(xi,3)+0.7978845608028654*xi)+(0.0535161*pow(xi,3)+0.3989422804014327*xi)*(1-pow(tanh(0.035677408136300125*pow(xi,3)+0.7978845608028654*xi),2))+0.5))"),
     # ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar -> cuda bug #108 switching to CuArrays for pow
 ]
 
@@ -100,6 +101,7 @@ unary_ops = [
 ("relu", "relu", "(xi>0?xi:0)"),
 ("elu", "elu", "(xi>0?xi:exp(xi)-1)"),
 ("selu", "selu", "1.0507009873554805*(xi>0?xi:1.6732632423543778*(exp(xi)-1))"),
+("gelu", "gelu", "0.5*xi*(1+tanh(0.035677408136300125*pow(xi,3)+0.7978845608028654*xi))"),
 # "rint",
 "round",
 # "rsqrt",
