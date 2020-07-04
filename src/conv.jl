@@ -193,7 +193,7 @@ function pool(x::AbstractArray{T,N}; handle=nothing,
     pdims = PoolDims(x, window; padding = padding, stride = stride)
     y = (mode == 0 ? maxpool(x, pdims) :
          mode == 1 ? meanpool(x, pdims) :
-         mode == 2 ? meanpool(x, pdims) :
+         # mode == 2 ? meanpool(x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
          error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? y : lmul!(alpha, y)
 end
@@ -209,7 +209,7 @@ function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N
     pdims = PoolDims(x, window; padding = padding, stride = stride)
     dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
           mode == 1 ? ∇meanpool(dy, y, x, pdims) :
-          mode == 2 ? ∇meanpool(dy, y, x, pdims) :
+          # mode == 2 ? ∇meanpool(dy, y, x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
           error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? dx : lmul!(alpha, dx)
 end
@@ -217,7 +217,9 @@ end
 
 """
 
-Unpooling; `reverse` of pooling.
+Unpooling; `reverse` of pooling. 
+
+TODO: Does not work correctly for every window, padding, mode combination. Test before use.
 
     x == pool(unpool(x;o...); o...)
 
@@ -598,7 +600,7 @@ end
 
 # This assumes one workspace per gpu. TODO: What about streams/contexts/handles etc?
 const CUDNN_WORKSPACE = []
-function cudnnWorkSpace(len=0;dev=gpu())
+function cudnnWorkSpace_fast_but_risky(len=0;dev=gpu())
     global CUDNN_WORKSPACE
     if dev==-1; error("No cudnnWorkSpace for CPU"); end
     i = dev+2
@@ -610,4 +612,4 @@ function cudnnWorkSpace(len=0;dev=gpu())
 end
 
 # Fresh workspace for every op is safer:
-cudnnWorkSpace_safe(len=0)=KnetArray{UInt8}(undef,len)
+cudnnWorkSpace(len=0)=KnetArray{UInt8}(undef,len)

@@ -1,5 +1,33 @@
+Knet v1.3.6 Release Notes
+=========================
+
+* conv performance improvements.
+* doc fix and KnetArray method for nll, fixing #563.
+* Fix #561: Loading Knet breaks Julia's copyto! on 1.5.
+* Added update!(::Param,::Nothing) method to catch 0 gradient updates.
+* Added bessel support to GPU.
+* Further notes on GPU tools, especially for win (RocketRoss)
+* Fix #558: progress and minimize get size(x,d...) methods to support collect with Julia 1.4.
+* removed CUDAapi 1.0, 2.0 from Project.toml, not compat any more.
+* removed julia 1.0 (fails) and 1.3 (redundant) from travis testing.
+* added KnetArray(::CuArray) converter with shared pointer.
+* windows test fixes and install doc updates.
+* updated to work with CUDAapi v4.0 (iuliancioarca)
+* add gpu install docs for azure/ubuntu18.04 (Jan Weidner)
+
+Knet v1.3.5 Release Notes
+=========================
+4dd257a 2020-03-29
+
+* CI fixes.
+* cuda_visible_devices fix.
+* Warn when trying KnetArray without GPU.
+* Julia 1.4 compatibility fixes.
+
+
 Knet v1.3.4 Release Notes
 =========================
+8c50f62 2020-02-29
 
 * Tutorial notebook fixes.
 

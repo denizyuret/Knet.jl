@@ -28,8 +28,6 @@ struct M370; layer; end;
         kw5 = KnetArray(aw5)
     end
 
-    @warn "CPU convolution tests temporarily turned off."
-#=
     @testset "cpuconv" begin
         ### Default
         @test gradcheck(pool, ax)
@@ -92,11 +90,11 @@ struct M370; layer; end;
         @test gradcheck(conv41, (aw,ax); rtol=TOL, kw=[(:mode,1),(:padding,1)])
         @test gradcheck(deconv41, (ad,ax); rtol=TOL, kw=[(:mode,1),(:padding,1)])
 
-        ### mode=2 (only for pool)
-        @test gradcheck(pool, ax; kw=[(:mode,2),(:padding,1)])
-        @test gradcheck(unpool, ax; kw=[(:mode,2),(:padding,1)])
-        @test isapprox(pool(unpool(ax;mode=2);mode=2),ax)
-        @test_broken isapprox(pool(unpool(ax;mode=2,padding=1);mode=2,padding=1),ax)
+        ### mode=2 (only for pool) -- is not supported in NNlib #218
+        # @test gradcheck(pool, ax; kw=[(:mode,2),(:padding,1)])
+        # @test gradcheck(unpool, ax; kw=[(:mode,2),(:padding,1)])
+        # @test isapprox(pool(unpool(ax;mode=2);mode=2),ax)
+        # @test isapprox(pool(unpool(ax;mode=2,padding=1);mode=2,padding=1),ax)
 
         ### alpha=2 (default=1)
         @test gradcheck(pool, ax; kw=[(:alpha,2)])
@@ -109,7 +107,6 @@ struct M370; layer; end;
         @test gradcheck(conv41, (aw,ax); rtol=TOL, kw=[(:alpha,2)])
         @test gradcheck(deconv41, (ad,ax); rtol=TOL, kw=[(:alpha,2)])
     end
-=#
 
     if gpu() >= 0; @testset "gpuconv" begin
         ### Default
@@ -201,9 +198,9 @@ struct M370; layer; end;
         @test gradcheck(deconv41, (kd,kx); rtol=TOL, kw=[(:mode,1),(:padding,1)])
 
         ### mode=2 (only for pool)
-        @test_broken isapprox(pool(kx;mode=2,padding=1), pool(ax;mode=2,padding=1))
+        # @test isapprox(pool(kx;mode=2,padding=1), pool(ax;mode=2,padding=1)) ## mode=2 is not supported in NNlib #218.
         @test gradcheck(pool, kx; kw=[(:mode,2),(:padding,1)])
-        @test isapprox(unpool(kx;mode=2,padding=1), unpool(ax;mode=2,padding=1))
+        # @test isapprox(unpool(kx;mode=2,padding=1), unpool(ax;mode=2,padding=1))  ## mode=2 is not supported in NNlib #218.
         @test gradcheck(unpool, kx; kw=[(:mode,2),(:padding,1)])
 
         ### alpha=2 (default=1)
@@ -215,10 +212,12 @@ struct M370; layer; end;
         @test gradcheck(pool, kx; kw=[(:alpha,2),(:mode,1),(:padding,1)])
         @test isapprox(unpool(kx;alpha=2,mode=1,padding=1), unpool(ax;alpha=2,mode=1,padding=1))
         @test gradcheck(unpool, kx; kw=[(:alpha,2),(:mode,1),(:padding,1)])
-        @test_broken isapprox(pool(kx;alpha=2,mode=2,padding=1), pool(ax;alpha=2,mode=2,padding=1))
-        @test gradcheck(pool, kx; kw=[(:alpha,2),(:mode,2),(:padding,1)])
-        @test isapprox(unpool(kx;alpha=2,mode=2,padding=1), unpool(ax;alpha=2,mode=2,padding=1))
+
+        # @test isapprox(pool(kx;alpha=2,mode=2,padding=1), pool(ax;alpha=2,mode=2,padding=1)) ## mode=2 is not supported in NNlib #218.
+        @test gradcheck(pool, kx; kw=[(:alpha,2),(:mode,2),(:padding,1)]) 
+        # @test isapprox(unpool(kx;alpha=2,mode=2,padding=1), unpool(ax;alpha=2,mode=2,padding=1)) ## mode=2 is not supported in NNlib #218.
         @test gradcheck(unpool, kx; kw=[(:alpha,2),(:mode,2),(:padding,1)])
+
         @test isapprox(conv4(kw,kx;alpha=2), conv4(aw,ax;alpha=2))
         @test gradcheck(conv41, (kw,kx); rtol=TOL, kw=[(:alpha,2)])
         @test isapprox(deconv4(kd,kx;alpha=2), deconv4(ad,ax;alpha=2))
