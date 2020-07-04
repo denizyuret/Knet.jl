@@ -1,7 +1,7 @@
 Knet v1.3.6 Release Notes
 =========================
 
-* conv performance improvements.
+* Fix #562: conv performance improvements.
 * doc fix and KnetArray method for nll, fixing #563.
 * Fix #561: Loading Knet breaks Julia's copyto! on 1.5.
 * Added update!(::Param,::Nothing) method to catch 0 gradient updates.
