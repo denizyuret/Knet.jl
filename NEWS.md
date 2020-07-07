@@ -1,5 +1,12 @@
+Knet v1.3.7 Release Notes
+=========================
+
+* Fix #500: switch to using CUDA.jl.
+
+
 Knet v1.3.6 Release Notes
 =========================
+9b30af3 2020-07-04
 
 * Fix #562: conv performance improvements.
 * doc fix and KnetArray method for nll, fixing #563.
