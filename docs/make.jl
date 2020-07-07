@@ -50,7 +50,7 @@ makedocs(
 
 deploydocs(
     repo = "github.com/denizyuret/Knet.jl.git",
-    target = "build",
+    # target = "build",
     # julia = "1.0",
     # osname = "linux",
     # make = nothing,
