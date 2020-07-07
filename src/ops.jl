@@ -33,7 +33,7 @@ binary_ops = [
     ("seluback","seluback","(yi>0?1.0507009873554805*xi:xi*(1.7580993408473773+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
-    # ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar -> cuda bug #108 switching to CuArrays for pow
+    # ("rpow","rpow","pow(yi,xi)"),   # need this for Array.^Scalar -> cuda bug #108 switching to CUDA.jl for pow
 ]
 
 unary_ops_with_int_degree = [

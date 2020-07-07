@@ -24,7 +24,7 @@ For best results install (1) Julia, (2) a host compiler, (3) GPU tools, and (4) 
 
 3. **GPU tools:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory. 
 
-    It is expected that the `CUDAapi` package is installed in Julia. Ensure that all of its tests pass before expecting Knet to succeed in using the GPU. The extensive test list is `using Pkg; Pkg.test(["CUDAnative", "CUDAdrv", "CUDAapi", "CuArrays"])`.
+    It is expected that the `CUDA` package is installed in Julia. Ensure that all of its tests pass before expecting Knet to succeed in using the GPU. 
 
     If Knet was installed before the GPU tools, rebuild it with `using Pkg; Pkg.build("Knet")`.
     

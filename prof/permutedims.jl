@@ -1,4 +1,4 @@
-using Knet, CuArrays
+using Knet, CUDA
 
 pd_knet(y::KnetArray, x::KnetArray, perm) = permutedims!(y,x,perm)
 pd_cpux(y::KnetArray, x::KnetArray, perm) = copyto!(y, permutedims(Array(x),perm))
@@ -6,12 +6,12 @@ pd_cuxx(y::KnetArray, x::KnetArray, perm) = (permutedims!(cu(y),cu(x),perm); y)
 pd_kern(y::KnetArray, x::KnetArray, perm) = nothing # call specific kernel
 pd_tran(y::KnetArray, x::KnetArray, perm) = Knet._transpose!(y,x)
 
-function CuArrays.cu(x::KnetArray{T}) where {T}
-    p = CuArrays.CuPtr{T}(UInt(x.ptr.ptr))
+function CUDA.cu(x::KnetArray{T}) where {T}
+    p = CUDA.CuPtr{T}(UInt(x.ptr.ptr))
     Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
 end
 
-# ## best not to use CuArrays memory manager
+# ## best not to use CUDA.jl memory manager
 # function Knet.ka(x::CuArray{T,N}) where {T,N}
 #     p = Base.bitcast(Knet.Cptr, x.buf.ptr)
 #     k = Knet.KnetPtr(p, sizeof(x), gpu(), x) 

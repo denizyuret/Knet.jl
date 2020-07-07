@@ -9,9 +9,9 @@ allocates a KnetArray in the currently active device, as specified by `gpu()`.  
 and Arrays can be converted to each other as shown above, which involves copying to and from
 the GPU memory.  Only Float32/64 KnetArrays are fully supported.
 
-KnetArrays use the CuArrays package for allocation and some operations. Currently some of
+KnetArrays use the CUDA.jl package for allocation and some operations. Currently some of
 the custom CUDA kernels that implement elementwise, broadcasting, and reduction operations
-for KnetArrays work faster. Once these are improved in CuArrays, KnetArrays will be retired.
+for KnetArrays work faster. Once these are improved in CUDA.jl, KnetArrays will be retired.
 
 # Supported functions:
 
@@ -34,7 +34,7 @@ for KnetArrays work faster. Once these are improved in CuArrays, KnetArrays will
 * Binary functions with broadcasting: !=, *, +, -, /, <, <=, ==, >, >=, ^, max, min
 
 * Reduction operators: maximum, minimum, prod, sum
-    
+   
 * Statistics: mean, std, stdm, var, varm
 
 * Linear algebra: (*), axpy!, lmul!, norm, rmul!
@@ -56,8 +56,8 @@ end
 
 # TODO: Let's see if this keeps it under control:
 import Base: getindex, setindex!, iterate, IndexStyle
-# getindex(A::KnetArray,I...)=throw(MethodError(getindex,A,I...))   # CuArrays based fallback
-# setindex!(A::KnetArray,I...)=throw(MethodError(setindex!,A,I...)) # CuArrays based fallback
+# getindex(A::KnetArray,I...)=throw(MethodError(getindex,A,I...))   # CUDA.jl based fallback
+# setindex!(A::KnetArray,I...)=throw(MethodError(setindex!,A,I...)) # CUDA.jl based fallback
 iterate(A::KnetArray,I...)=throw(MethodError(iterate,A,I...))
 IndexStyle(::Type{<:KnetArray})=IndexLinear()
 # TODO: do we need more defensive methods here?  broadcasted, materialize etc?
@@ -128,9 +128,9 @@ pointer(a::KnetArray{T},i) where {T} = convert(Ptr{T}, a.ptr.ptr + (i-1)*sizeof(
 # Reshape:
 import Base: reshape, vec
 function reshape(a::KnetArray{T}, dims::Dims) where T
-    if dims==size(a) 
+    if dims==size(a)
         a
-    elseif prod(dims) != length(a) 
+    elseif prod(dims) != length(a)
         throw(DimensionMismatch())
     else
         KnetArray{T,length(dims)}(a.ptr, dims)

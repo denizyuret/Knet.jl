@@ -1,20 +1,11 @@
-using CUDAapi, TimerOutputs, Libdl
+using CUDA, TimerOutputs, Libdl
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
 const tk = find_toolkit()
-const tkver = isempty(tk) ? v"0" : parse_toolkit_version(find_cuda_binary("ptxas", tk))# v"0" because "nothing" will crash precompilation
+const tkver = isempty(tk) ? v"0" : CUDA.parse_toolkit_version(CUDA.find_cuda_binary("ptxas", tk)) # v"0" because "nothing" will crash precompilation
 const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
 const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
 function getErrorString end
-
-# 20200108: CUDAdrv 5.0 initializes to currently active device, so this is no longer needed.
-# if has_cuda()
-#     try
-#         import CUDAdrv, CUDAnative
-#     catch ex
-#         @warn "CUDA is installed, but CUDAdrv,CUDAnative fail to load" exception=(ex,catch_backtrace())
-#     end
-# end
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
@@ -26,7 +17,7 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
 	if lib == "cudnn"
 		path = find_cuda_library(lib,tk,[cudnnver])
 	elseif lib == "knet8"
-		path = libknet8 
+		path = libknet8
 	else
 		path = find_cuda_library(lib,tk,[tkver])
 	end
@@ -156,20 +147,23 @@ let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
 
     function gpu(i::Int)
         if GPU == i
-            # nothing to do 
+            # nothing to do
         elseif 0 <= i < gpuCount()
             GPU = i
             @cudart(cudaSetDevice, (Cint,), i)
 
+            # Initializing CUDAnative helps with stability problems for some devices
+            # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
+            # We find the equivalent cu number from pciBusId:
+            # https://stackoverflow.com/questions/13781738/how-does-cuda-assign-device-ids-to-gpus
+            # 20200108: CUDAdrv 5.0 initializes to currently active device, so this is no longer needed.
+            # CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
+            # 20200707: @maleadt added this:
+            CUDA.device!(cuid(i))
+
             # Initialize curand to guard against gpu memory fillup before first dropout (#181)
             curandGenerator()
             
-            # Initializing CUDAnative helps with stability problems for some devices
-            # However cuda, nvml and cu use different device numbers! (i) is the cuda device number, CUDAdrv uses cu numbers
-            # We find the equivalent cu number from pciBusId: 
-            # https://stackoverflow.com/questions/13781738/how-does-cuda-assign-device-ids-to-gpus
-            # CUDAnative.initialize(CUDAdrv.CuDevice(cuid(i)))
-            # 20200108: CUDAdrv 5.0 initializes to currently active device, so this is no longer needed.
         else
             GPU = -1
             # @cudart(cudaDeviceReset,()) # may still go back and use arrays allocated in a previous gpu

@@ -1,4 +1,4 @@
-cuallocator()=true      # set to true to use the CuArrays allocator, false to use Knet allocator
+cuallocator()=true      # set to true to use the CUDA.jl allocator, false to use Knet allocator
 
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
@@ -92,7 +92,7 @@ arraysizes = Int[]; allocs = Int[]; blocksizes = Int[]
 # This the main KnetPtr constructor.  It tries to avoid actual allocation which is slow.
 # Reusing a preallocated and garbage collected pointer is very fast.
 # Allocating a new pointer is about 0.5ms.
-# GC.gc() is about 100ms. 
+# GC.gc() is about 100ms.
 # Knet.gc() is about 250ms.
 
 gc_interval() = 2*10^8  # gc interval in ns, optimized on seq2seq model, balancing costs of alloc, GC.gc, Knet.gc
@@ -112,7 +112,7 @@ function KnetPtr(arraybytes::Int)
     if pool.nptr > 0
         ptr = reuse(mem, pool, blockbytes, 1, trygc=false) # 1. try fast gc (~0.5 ms)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)
-    end        
+    end
     if mem.bytes + blockbytes <= mem.limit # 2. allocate if within limit (~0.5 ms)
         ptr = alloc(mem, pool, blockbytes, 2)
         ptr != nothing && return KnetPtr(ptr,blockbytes,dev)

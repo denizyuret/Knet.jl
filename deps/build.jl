@@ -1,4 +1,4 @@
-using CUDAapi, Libdl
+using CUDA, Libdl
 
 NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
@@ -11,32 +11,21 @@ inforun(cmd)=(@info(cmd);run(cmd))
 # Try to find NVCC
 
 try
-    tk = CUDAapi.find_toolkit()
-    if isdefined(CUDAapi, :find_toolchain) # CUDAapi v1.x
-        tc = CUDAapi.find_toolchain(tk)
-        global NVCC = tc.cuda_compiler
-        push!(NVCCFLAGS, "--compiler-bindir", tc.host_compiler)
-    else                        # CUDAapi v2.x
-        global NVCC = CUDAapi.find_cuda_binary("nvcc")
-    end
+    cuda_dirs = find_toolkit()
+    global NVCC = find_cuda_binary("nvcc", cuda_dirs)
 catch; end
 
 push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 
-# If CUDAdrv is available add architecture optimization flags
+# If CUDA is available add architecture optimization flags
 # Uncomment this for better compiler optimization
 # We keep it commented to compile for multiple gpu types
 
-# if NVCC !== nothing && Pkg.installed("CUDAdrv") != nothing
-#     eval(Expr(:using,:CUDAdrv))
-#     try
-#         dev = CuDevice(0)
-#         cap = capability(dev)
-#         arch = CUDAapi.shader(cap)
-#         push!(NVCCFLAGS,"--gpu-architecture",arch)
-#     catch e
-#         warn("CUDAdrv failed with $e")
-#     end
+# if NVCC !== nothing && CUDA.functional()
+#     dev = CuDevice(0)
+#     cap = capability(dev)
+#     arch = "sm_$(cap.major)$(cap.minor)"
+#     push!(NVCCFLAGS,"--gpu-architecture",arch)
 # end
 
 

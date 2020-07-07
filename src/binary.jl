@@ -257,7 +257,7 @@ broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T} = max.(T(s),a)
 broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T} = min.(T(s),a)
 broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T} = min.(T(s),a)
 
-# ^ does not work with cuda, trying to solve in cuarrays.jl (Issue #108)
+# ^ does not work with cuda, trying to solve in CUDA.jl (JuliaGPU/CuArrays.jl#108)
 # broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a)
 # Pow is the one exception, we need to define a separate kernel:
 # rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
