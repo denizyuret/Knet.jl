@@ -1,5 +1,3 @@
-using Pkg; for p in ("MAT","Images"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 using MAT,Images
 export matconvnet, imgdata, make_image_grid
 

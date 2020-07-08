@@ -225,13 +225,14 @@ struct M370; layer; end;
 
         # 370-3
         m = M370(param(5,5,1,1))
-        Knet.save("foo.jld2","m",m)
+        path = tempname()*".jld2"
+        Knet.save(path,"m",m)
         gpusave = gpu()
         gpu(-1)
-        mcpu = Knet.load("foo.jld2","m")
+        mcpu = Knet.load(path,"m")
         @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
         gpu(gpusave)
-
+        rm(path)
     end
     end
 end
