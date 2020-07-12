@@ -17,18 +17,20 @@ const noresult = Result{Nothing}(nothing,nothing,nothing,nothing)
 
 # The _queue maps KnetPtrs to the first index on tape they have a reference to. We use
 # Base.Order.Reverse because we want to free the pointers with highest indices first.
-const _queue = PriorityQueue{KnetPtr,Int}(Base.Order.Reverse)
+# Using WeakRef to allow garbage collection.
+const _queue = PriorityQueue{WeakRef,Int}(Base.Order.Reverse)
     
 # During the backward step parents of a node (who have lower indices) may have their
 # outgrads modified, thus new KnetPtr references may appear. We want to keep the smallest
-# index for each KnetPtr.
-minidx!(q::PriorityQueue{KnetPtr,Int,typeof(Base.Order.Reverse)},k::KnetPtr,v::Int) =
-    if v < get(q,k,typemax(Int)); q[k]=v; end  ## 0.190μs
+# index for each KnetPtr. 
+function minidx!(q::PriorityQueue{WeakRef,Int,typeof(Base.Order.Reverse)},k::KnetPtr,v::Int)
+    if v < get(q,k,typemax(Int)); q[WeakRef(k)]=v; end  ## 0.190μs
+end
 
-const _index = IdDict{Node,Int}()
-_tape = nothing
+const _index = WeakKeyDict{Node,Int}()
+_tape = WeakRef(nothing)
 
-function knetgcinit(tape)  ## 2.35ms
+function knetgcinit(tape::Tape)  ## 2.35ms
     global _tape, _index, _queue
     _tape = WeakRef(tape)
     empty!(_index)
@@ -37,17 +39,18 @@ function knetgcinit(tape)  ## 2.35ms
     @inbounds for (i,n) in enumerate(tape.list)
         _index[n] = i
         if n.Value isa Result
-            for k in knetptrs(n.Value.value); _queue[k] = 0; end # pointers with index 0 will never get gc'ed
-            for k in knetptrs(n.outgrad);  get!(_queue,k,i); end # this only sets _queue[k] if it does not have a value
+            for k in knetptrs(n.Value.value); _queue[WeakRef(k)] = 0; end # pointers with index 0 will never get gc'ed
+            for k in knetptrs(n.outgrad);  get!(_queue,WeakRef(k),i); end # this only sets _queue[k] if it does not have a value
         else # n.Value isa Param
-            for k in knetptrs(n.Value.value); _queue[k] = 0; end
-            for k in knetptrs(n.outgrad);     _queue[k] = 0; end
+            for k in knetptrs(n.Value.value); _queue[WeakRef(k)] = 0; end
+            for k in knetptrs(n.outgrad);     _queue[WeakRef(k)] = 0; end
         end
     end
 end
 
-function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
-    tape != _tape && knetgcinit(tape) ## 2μs amortized
+function knetgcnode(n::Node, tape::Tape)  ## 16.3μs
+    global _tape, _index, _queue
+    tape !== _tape.value && knetgcinit(tape) ## 2μs amortized
     tape isa Tape || return
     ni = _index[n]
     if n.Value isa Result && n.outgrad isa KnetArray
@@ -60,11 +63,12 @@ function knetgcnode(n::Node, tape=nothing)  ## 16.3μs
             pi = _index[parent]
             for ptr in knetptrs(parent.outgrad); minidx!(_queue, ptr, pi); end
         else
-            for ptr in knetptrs(parent.outgrad); _queue[ptr] = 0; end # protect Params
+            for ptr in knetptrs(parent.outgrad); _queue[WeakRef(ptr)] = 0; end # protect Params
         end
     end
     while !isempty(_queue) && DataStructures.peek(_queue)[2] >= ni  ## 5.62μs
         (k,v) = dequeue_pair!(_queue)  ## 0.787μs
+        k = k.value
         if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
         #DBG verifypointer(tape, ni, k) 
         freeKnetPtr(k)  ## 4.06μs
