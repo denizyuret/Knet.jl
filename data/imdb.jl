@@ -2,7 +2,7 @@
 # Also see https://github.com/fchollet/keras/raw/master/examples/imdb_lstm.py
 # Also see https://github.com/ilkarman/DeepLearningFrameworks/raw/master/common/utils.py
 
-using Pkg; for p in ("PyCall","JSON","JLD2"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("PyCall","JSON","JLD2"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 using PyCall,JSON,JLD2,Random
 np = pyimport("numpy")
 

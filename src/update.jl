@@ -465,96 +465,17 @@ for each constructor and their default values are listed as well.
     update!(w, g, p)
 
 """
-update!(x::Param, g) = update!(x.value, g, x.opt)
+update!(x::Param, g) = (x.opt === nothing ? update!(x.value, g) : update!(x.value, g, x.opt))
 
-using AutoGrad: full
-
-for T in (Array{Float32},Array{Float64},KnetArray{Float32},KnetArray{Float64}); @eval begin
-
-    function update!(w::$T, g, p::SGD)
-        gclip!(g, p.gclip)
-        axpy!(-p.lr, g, w)
-    end
-
-    # Two arg defaults to SGD
-    function update!(w::$T, g; lr=SGDLR, gclip=0)
-        gclip!(g, gclip)
-        axpy!(-lr, g, w)
-    end
-
-    function update!(w::$T, g, p::Momentum)
-        gclip!(g, p.gclip)
-        if p.velocity===nothing; p.velocity=zero(w); end
-        lmul!(p.gamma, p.velocity)
-        axpy!(-p.lr, g, p.velocity)
-        axpy!(1, p.velocity, w)
-    end
-
-    # https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
-    function update!(w::$T, g, p::Nesterov)
-        gclip!(g, p.gclip)
-        p.velocity ===nothing && (p.velocity = zero(w))
-        lmul!(p.gamma, p.velocity)
-        axpy!(-1, p.velocity, w)
-        axpy!(-p.lr, g, p.velocity)
-        axpy!(1+p.gamma, p.velocity, w)
-    end
-
-    function update!(w::$T, g, p::Adagrad)
-        gclip!(g, p.gclip)
-        g = full(g)
-        if p.G===nothing; p.G=zero(w); end
-        axpy!(1, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
-    end
-
-    function update!(w::$T, g, p::Rmsprop)
-        gclip!(g, p.gclip)
-        g = full(g)
-        if p.G===nothing; p.G=zero(w); end
-        lmul!(p.rho, p.G)
-        axpy!(1-p.rho, g .* g, p.G)
-        axpy!(-p.lr, g ./ sqrt.(p.G .+ p.eps), w)
-    end
-
-    function update!(w::$T, g, p::Adadelta)
-        gclip!(g, p.gclip)
-        g = full(g)
-        if p.G===nothing; p.G=zero(w); p.delta=zero(w); end
-        lmul!(p.rho, p.G)
-        axpy!(1-p.rho, g .* g, p.G)
-        dw = g .* sqrt.(p.delta .+ p.eps) ./ sqrt.(p.G .+ p.eps)
-        lmul!(p.rho, p.delta)
-        axpy!(1-p.rho, dw .* dw , p.delta)
-        axpy!(-p.lr, dw, w)
-    end
-
-    function update!(w::$T, g, p::Adam)
-        gclip!(g, p.gclip)
-        g = full(g)
-        if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
-        p.t += 1
-        lmul!(p.beta1, p.fstm)
-        axpy!(1-p.beta1, g, p.fstm)
-        lmul!(p.beta2, p.scndm)
-        axpy!(1-p.beta2, g .* g, p.scndm)
-        fstm_corrected = p.fstm / (1 - p.beta1 ^ p.t)
-        scndm_corrected = p.scndm / (1 - p.beta2 ^ p.t)
-        axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) .+ p.eps)), w)
-    end
-
-    # AutoGrad may return Nothing for a zero gradient
-    update!(w::$T, g::Nothing, p)=w
-    update!(w::$T, g::Nothing; o...)=w
-
-end; end
+# Two arg version defaults to SGD
+update!(w, g; lr=SGDLR, gclip=0) = update!(w, g, SGD(lr, gclip))
 
 # AutoGrad may return Nothing for a zero gradient
 update!(w, g::Nothing, p)=w
 update!(w, g::Nothing; o...)=w
 update!(w::Param, g::Nothing)=w
 
-# This takes care of arrays, tuples, iterators in general.
+# This fallback takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
     if !(length(w)==length(g)==length(p))
         error("weight, gradient, and optimization parameters not the same length.")
@@ -569,34 +490,79 @@ end
 
 # We still need an extra method for Dict.
 function update!(w::AbstractDict,g::AbstractDict,p::AbstractDict)
-    # g may have some keys missing!
-    # if !(length(w)==length(g)==length(p))
-    #     error("weight, gradient, and optimization parameters not the same length.")
-    # end
-    for k in keys(g)
+    for k in keys(g)            # g may have fewer keys than w
         update!(w[k],g[k],p[k])
     end
 end
 
-# Two arg version defaults to SGD.
-function update!(w,g;lr=SGDLR,gclip=0)
-    if !(length(w)==length(g))
-        error("weight, gradient not the same length.")
-    end
-    for (wi,gi) in zip(w,g)
-        update!(wi,gi;lr=lr,gclip=gclip)
-    end
+# Generic three arg version for float arrays
+update!(w::Array{T,N}, g::Array{T,N}, p) where {T<:Number,N} = gclip_update!(w, g, p)
+update!(w::CuArray{T,N}, g::CuArray{T,N}, p) where {T,N} = gclip_update!(w, g, p)
+update!(w::KnetArray{T,N}, g::KnetArray{T,N}, p) where {T,N} = gclip_update!(w, g, p)
+
+function gclip_update!(w, g, p)
+    gclip!(g, p.gclip)          # does gclip support Sparse?
+    g = AutoGrad.full(g)
+    _update!(w, g, p)
 end
 
-# Two arg version defaults to SGD.
-function update!(w::AbstractDict,g::AbstractDict;lr=SGDLR,gclip=0)
-    # g may have some keys missing!
-    # if !(length(w)==length(g))
-    #     error("weight, gradient not the same length.")
-    # end
-    for k in keys(g)
-        update!(w[k],g[k];lr=lr,gclip=gclip)
-    end
+function _update!(w, g, p::SGD)
+    axpy!(-p.lr, g, w)
+end
+
+function _update!(w, g, p::Momentum)
+    if p.velocity===nothing; p.velocity=zero(w); end
+    lmul!(p.gamma, p.velocity)
+    axpy!(-p.lr, g, p.velocity)
+    axpy!(1, p.velocity, w)
+end
+
+# https://arxiv.org/pdf/1212.0901.pdf Eq. (7)
+function _update!(w, g, p::Nesterov)
+    p.velocity ===nothing && (p.velocity = zero(w))
+    lmul!(p.gamma, p.velocity)
+    axpy!(-1, p.velocity, w)
+    axpy!(-p.lr, g, p.velocity)
+    axpy!(1+p.gamma, p.velocity, w)
+end
+
+function _update!(w, g, p::Adagrad)
+    T = eltype(w)
+    if p.G===nothing; p.G=zero(w); end
+    axpy!(1, g .* g, p.G)
+    axpy!(-p.lr, g ./ sqrt.(p.G .+ T(p.eps)), w)
+end
+
+function _update!(w, g, p::Rmsprop)
+    T = eltype(w)
+    if p.G===nothing; p.G=zero(w); end
+    lmul!(p.rho, p.G)
+    axpy!(1-p.rho, g .* g, p.G)
+    axpy!(-p.lr, g ./ sqrt.(p.G .+ T(p.eps)), w)
+end
+
+function _update!(w, g, p::Adadelta)
+    T = eltype(w)
+    if p.G===nothing; p.G=zero(w); p.delta=zero(w); end
+    lmul!(p.rho, p.G)
+    axpy!(1-p.rho, g .* g, p.G)
+    dw = g .* sqrt.(p.delta .+ T(p.eps)) ./ sqrt.(p.G .+ T(p.eps))
+    lmul!(p.rho, p.delta)
+    axpy!(1-p.rho, dw .* dw , p.delta)
+    axpy!(-p.lr, dw, w)
+end
+
+function _update!(w, g, p::Adam)
+    T = eltype(w)
+    if p.fstm===nothing; p.fstm=zero(w); p.scndm=zero(w); end
+    p.t += 1
+    lmul!(p.beta1, p.fstm)
+    axpy!(1-p.beta1, g, p.fstm)
+    lmul!(p.beta2, p.scndm)
+    axpy!(1-p.beta2, g .* g, p.scndm)
+    fstm_corrected = p.fstm / T(1 - p.beta1 ^ p.t)
+    scndm_corrected = p.scndm / T(1 - p.beta2 ^ p.t)
+    axpy!(-p.lr, (fstm_corrected ./ (sqrt.(scndm_corrected) .+ T(p.eps))), w)
 end
 
 function gclip!(g, gclip)
@@ -630,6 +596,7 @@ function optimizers(x...; o...)
 end
 
 _optimizers(::KnetArray{<:Number},otype; o...) = otype(;o...)
+_optimizers(::CuArray{<:Number},otype; o...) = otype(;o...)
 _optimizers(::AbstractArray{<:Number},otype; o...) = otype(;o...)
 _optimizers(a::AbstractDict,otype; o...)=Dict([ k=>_optimizers(v,otype;o...) for (k,v) in a ])
 _optimizers(a::Tuple,otype; o...)=map(x->_optimizers(x,otype;o...), a)

@@ -1,7 +1,10 @@
 Knet v1.3.7 Release Notes
 =========================
+6256a7b 2020-07-12
 
-* Fix #500: switch to using CUDA.jl.
+* Fix #500: switch to using CUDA.jl instead of CuArrays, CUDAapi etc.
+* Fix #571: travis doc deployment issue solved.
+* GPU memory improvement: use weakrefs in gcnode.jl to prevent hanging on to old tapes.
 
 
 Knet v1.3.6 Release Notes
