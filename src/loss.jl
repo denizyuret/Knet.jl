@@ -133,7 +133,7 @@ function dimvec(x, dims)
 end
 
 generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
-function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}}
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}, <:CuArray, AutoGrad.Value{<:CuArray}}
     d,sz = dimvec(x,dims)
     if algo == 2 && (cudnnhandle(); cudnnVersion < 3000) # algo=2 (logsoftmax) was introduced in cudnn 3000
         fallback(x; dims=dims, algo=algo)
@@ -167,6 +167,28 @@ function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0,
     @cudnn(cudnnSoftmaxBackward,
           (Cptr, Cint, Cint, Ptr{T}, Cptr, Ptr{T}, Cptr, Ptr{T}, Ptr{T}, Cptr, Ptr{T}),
           handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
+    return dx
+end
+
+import CUDA.CUDNN
+
+function cudnnSoftmaxForward(x::CuArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
+    beta = 0 # nonzero beta does not make sense when we create y
+    y = similar(x)
+    CUDNN.cudnnSoftmaxForward(x, y; 
+                              algorithm=CUDNN.cudnnSoftmaxAlgorithm_t(algo),
+                              mode=CUDNN.cudnnSoftmaxMode_t(mode),
+                              alpha=alpha, beta=beta)
+    return y
+end
+
+function cudnnSoftmaxBackward(y::CuArray{T}, dy::CuArray{T}; algo=0, mode=0, alpha=1, handle=cudnnhandle()) where {T}
+    beta = 0
+    dx = similar(dy)
+    CUDNN.cudnnSoftmaxBackward(y, dy, dx;
+                               algorithm=CUDNN.cudnnSoftmaxAlgorithm_t(algo),
+                               mode=CUDNN.cudnnSoftmaxMode_t(mode),
+                               alpha=alpha, beta=beta)
     return dx
 end
 
