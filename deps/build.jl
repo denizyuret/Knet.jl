@@ -11,8 +11,8 @@ inforun(cmd)=(@info(cmd);run(cmd))
 # Try to find NVCC
 
 try
-    cuda_dirs = find_toolkit()
-    global NVCC = find_cuda_binary("nvcc", cuda_dirs)
+    cuda_dirs = CUDA.find_toolkit()
+    global NVCC = CUDA.find_cuda_binary("nvcc", cuda_dirs)
 catch; end
 
 push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))

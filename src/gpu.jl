@@ -1,6 +1,6 @@
 using CUDA, TimerOutputs, Libdl
 const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
-const tk = find_toolkit()
+const tk = CUDA.find_toolkit()
 const tkver = isempty(tk) ? v"0" : CUDA.parse_toolkit_version(CUDA.find_cuda_binary("ptxas", tk)) # v"0" because "nothing" will crash precompilation
 const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
 const to = TimerOutput()
@@ -15,11 +15,11 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
 	if isa(argtypes,Expr); argtypes = argtypes.args; end
     if isa(argvalues,Expr); argvalues = argvalues.args; end
 	if lib == "cudnn"
-		path = find_cuda_library(lib,tk,[cudnnver])
+		path = CUDA.find_cuda_library(lib,tk,cudnnver)
 	elseif lib == "knet8"
 		path = libknet8
 	else
-		path = find_cuda_library(lib,tk,[tkver])
+		path = CUDA.find_cuda_library(lib,tk,tkver)
 	end
     if path==nothing || path==""; return notfound; end
     fx = Expr(:call, :ccall, Expr(:tuple,fun,path), returntype, Expr(:tuple,argtypes...), argvalues...)
@@ -304,7 +304,7 @@ function cublasCreate()
 end
 
 function cudnnCreate()
-    path = find_cuda_library("cudnn",tk,[cudnnver])
+    path = CUDA.find_cuda_library("cudnn",tk,cudnnver)
     if path==nothing; error("Cannot find cudnn"); end
     handleP = Cptr[0]
     @cudnn(cudnnCreate,(Ptr{Cptr},), handleP)
@@ -355,10 +355,10 @@ const cublaserrors = Dict(
 
 function getErrorString(lib,fun,ret)
     if lib == "cudnn"
-		path = find_cuda_library(lib,tk,[cudnnver])
-	else
-		path = find_cuda_library(lib,tk,[tkver])
-	end
+	path = CUDA.find_cuda_library(lib,tk,cudnnver)
+    else
+	path = CUDA.find_cuda_library(lib,tk,tkver)
+    end
     if lib == "cudart" && path != nothing
         str = unsafe_string(@eval(ccall(("cudaGetErrorString",$path),Cstring,(UInt32,),$ret)))
     elseif lib == "cudnn" && path != nothing
