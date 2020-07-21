@@ -113,12 +113,15 @@ include("gpu.jl");              # gpu
 include("uva.jl")
 include("kptr.jl");
 include("karray.jl");           # KnetArray
-include("cuarray.jl");
+include("cuarrays/knetarray.jl");
+include("cuarrays/autograd.jl");
+include("cuarrays/getindex.jl");
 include("gcnode.jl");
 include("ops.jl");
 include("unary.jl");            # relu, sigm, invx, elu, selu
 include("binary.jl");           # elementwise broadcasting operations
 include("reduction.jl");        # sum, max, etc.
+include("cuarrays/reduction.jl");
 include("statistics.jl");       # mean, std, var, stdm, varm
 include("linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
 include("bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
