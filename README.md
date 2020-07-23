@@ -44,20 +44,21 @@ following at the julia prompt: `using Pkg; Pkg.add("Knet")`. Some starting point
 Here is a simple example where we define, train and test the
 [LeNet](http://yann.lecun.com/exdb/lenet) model for the
 [MNIST](http://yann.lecun.com/exdb/mnist) handwritten digit recognition dataset from scratch
-using 13 lines of code and 30 seconds of GPU computation.
+using 15 lines of code and 10 seconds of GPU computation.
 
 ```julia
-using Knet
+# Before first run: using Pkg; Pkg.add("Knet"); Pkg.add("IterTools")
+using Knet, IterTools
 
 # Define convolutional layer:
-struct Conv; w; b; f; end
-(c::Conv)(x) = c.f.(pool(conv4(c.w, x) .+ c.b))
-Conv(w1,w2,cx,cy,f=relu) = Conv(param(w1,w2,cx,cy), param0(1,1,cy,1), f)
+struct Conv; w; b; end
+Conv(w1,w2,nx,ny) = Conv(param(w1,w2,nx,ny), param0(1,1,ny,1))
+(c::Conv)(x) = relu.(pool(conv4(c.w, x) .+ c.b))
 
 # Define dense layer:
 struct Dense; w; b; f; end
+Dense(i,o; f=identity) = Dense(param(o,i), param0(o), f)
 (d::Dense)(x) = d.f.(d.w * mat(x) .+ d.b)
-Dense(i::Int,o::Int,f=relu) = Dense(param(o,i), param0(o), f)
 
 # Define a chain of layers and a loss function:
 struct Chain; layers; end
@@ -68,10 +69,10 @@ struct Chain; layers; end
 include(Knet.dir("data","mnist.jl"))
 dtrn, dtst = mnistdata()
 
-# Define, train and test LeNet (about 30 secs on a gpu to reach 99% accuracy)
-LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500), Dense(500,10,identity)))
-adam!(LeNet, repeat(dtrn,10))
-accuracy(LeNet, dtst)
+# Define and train LeNet (~10 secs on a GPU or ~3 mins on a CPU to reach ~99% accuracy)
+LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500,f=relu), Dense(500,10)))
+progress!(adam(LeNet, ncycle(dtrn,3)))
+accuracy(LeNet,dtst)
 ```
 
 ## Contributing

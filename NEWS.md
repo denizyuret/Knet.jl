@@ -1,3 +1,10 @@
+Knet v1.3.8 Release Notes
+=========================
+
+* Update CUDA.jl version.
+* CuArray performance improvements.
+
+
 Knet v1.3.7 Release Notes
 =========================
 6256a7b 2020-07-12
