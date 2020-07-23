@@ -47,8 +47,8 @@ Here is a simple example where we define, train and test the
 using 15 lines of code and 10 seconds of GPU computation.
 
 ```julia
-# Before first run: using Pkg; Pkg.add("Knet"); Pkg.add("IterTools")
-using Knet, IterTools
+# Install packages before first run: using Pkg; pkg"add Knet IterTools CodecZlib"
+using Knet, IterTools, CodecZlib
 
 # Define convolutional layer:
 struct Conv; w; b; end
