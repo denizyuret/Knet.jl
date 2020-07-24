@@ -3,10 +3,10 @@
 include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v6.yml'
 
-image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
+# image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
 
-variables:
-  JULIA_NUM_THREADS: '4'
+# variables:
+#   JULIA_NUM_THREADS: '2'
 
 julia:1.4:
   extends:
@@ -14,6 +14,7 @@ julia:1.4:
     - .test
   tags:
     - nvidia
+
 #   - sm_75
 # variables:
 #   CI_THOROUGH: 'true'

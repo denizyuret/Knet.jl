@@ -133,6 +133,7 @@ include("progress.jl");         # progress, progress!
 include("train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
 include("loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
 include("dropout.jl");          # dropout
+include("cuarrays/dropout.jl");
 include("update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
 include("distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
 include("random.jl");           # setseed  # TODO: deprecate setseed
