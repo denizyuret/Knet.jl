@@ -150,7 +150,7 @@ Construct a path relative to Knet root.
 # Example
 ```julia
 julia> Knet.dir("examples","mnist.jl")
-"/home/dyuret/.julia/v0.5/Knet/examples/mnist.jl"
+"/home/dyuret/.julia/dev/Knet/examples/mnist.jl"
 ```
 """
 dir(path...) = joinpath(dirname(@__DIR__),path...)

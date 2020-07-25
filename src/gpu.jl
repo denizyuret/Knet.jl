@@ -41,13 +41,13 @@ macro cudacall(lib,fun,returntype,argtypes,argvalues,errmsg=true,notfound=:(erro
     esc(fx)
 end
 
-macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues)); end
-macro cuda(fun, argtypes, argvalues...); :(@cudacall("cuda",$fun,UInt32,$argtypes,$argvalues)); end
-macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues)); end
-macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,false,-1)); end # don't throw error
-macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
-macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues)); end
-macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues)); end
+# macro cudnn(fun, argtypes, argvalues...); :(@cudacall("cudnn",$fun,UInt32,$argtypes,$argvalues)); end
+# macro cuda(fun, argtypes, argvalues...); :(@cudacall("cuda",$fun,UInt32,$argtypes,$argvalues)); end
+# macro cudart(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues)); end
+# macro cudart1(fun, argtypes, argvalues...); :(@cudacall("cudart",$fun,UInt32,$argtypes,$argvalues,false,-1)); end # don't throw error
+# macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
+# macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues)); end
+# macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues)); end
 macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues,false)); end
 macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues,false)); end # specify return type
 
@@ -77,6 +77,15 @@ on arrays of an inactive device will result in error.
 """
 function gpu end
 
+GPU = -1
+gpu() = GPU
+gpu(d::Integer) = (global GPU; GPU==d ? d : (try CUDA.device!(d); GPU=d; catch; GPU=-1; end))
+gpu(b::Bool) = (global GPU=try b ? CUDA.device().handle : (CUDA.device_reset!();-1); catch; -1; end)
+
+gpuCount() = length(CUDA.devices())
+gpufree() = Mem.info()[1] + CUDA.pool[].cached_memory()
+
+#=
 let GPU=-1, GPUCNT=-1, CUBLAS=nothing, CUDNN=nothing, CURAND=nothing
     global gpu, gpuCount, cublashandle, cudnnhandle, curandGenerator
 
@@ -375,3 +384,4 @@ function getErrorString(lib,fun,ret)
     string(fun, ": ", ret, ": ", str)
 end
 
+=#
