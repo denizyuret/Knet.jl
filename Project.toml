@@ -20,7 +20,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]			    	# last tested with:
 julia = "1.0"			    	# 1.4.2; CUDA packages no longer compatible with < 1.3
-AutoGrad = "1.2"		    	# 1.2.2
+AutoGrad = "1.2"		    	# 1.2.3
 CUDA = "1.0"			        # 1.2.0 (GPUArrays 4.0.1)
 DataStructures = "0.17"			# 0.17.19
 FileIO = "1.0"				# 1.4.0

@@ -81,7 +81,7 @@ addtoindex!(A::CuArray, X, I::AbstractArray{T}) where {T<:CartesianIndex}=addtoi
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
 
-    function addtoindex!(A::CuArray{$T}, X, I::AbstractArray{R}) where {R<:Real}
+    function addtoindex!(A::CuArray{$T}, X, I::AbstractArray{<:Real})
         I = CuArray{Int32}(I)
         X = CuArray{$T}(X)
         @knet8($("addents_$F"),(Cint,CuPtr{Int},CuPtr{$T},CuPtr{$T}),
@@ -89,7 +89,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    function addtoindex!(A::CuArray{$T}, X, ::Colon, I::AbstractArray{R}) where {R<:Real}
+    function addtoindex!(A::CuArray{$T}, X, ::Colon, I::AbstractArray{<:Real})
         I = CuArray{Int32}(I)
         X = CuArray{$T}(X)
         @knet8($("addcols_$F"),(Cint,Cint,Cint,CuPtr{Int},CuPtr{$T},CuPtr{$T}),
@@ -97,7 +97,7 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
         return A
     end
 
-    function addtoindex!(A::CuArray{$T}, X, I::AbstractArray{R}, ::Colon) where {R<:Real}
+    function addtoindex!(A::CuArray{$T}, X, I::AbstractArray{<:Real}, ::Colon)
         I = CuArray{Int32}(I)
         X = CuArray{$T}(X)
         @knet8($("addrows_$F"),(Cint,Cint,Cint,CuPtr{Int},CuPtr{$T},CuPtr{$T}),
@@ -108,5 +108,10 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     addtoindex!(A::CuArray{$T}, X, I::AbstractArray{Bool})=addtoindex!(A,X,findall(vec(I)))
     addtoindex!(A::CuArray{$T}, X, c::Colon, I::AbstractArray{Bool})=addtoindex!(A,X,c,findall(vec(I)))
     addtoindex!(A::CuArray{$T}, X, I::AbstractArray{Bool}, c::Colon)=addtoindex!(A,X,findall(vec(I)),c)
+    
+    # Fix #578: addtoindex! ambiguity:
+    addtoindex!(A::CuArray{$T}, X, I::UnitRange{<:Real})=addtoindex!(A,X,CuArray{Int32}(I))
+    addtoindex!(A::CuArray{$T}, X, c::Colon, I::UnitRange{<:Real})=addtoindex!(A,X,c,CuArray{Int32}(I))
+    addtoindex!(A::CuArray{$T}, X, I::UnitRange{<:Real}, c::Colon)=addtoindex!(A,X,CuArray{Int32}(I),c)
 
 end; end

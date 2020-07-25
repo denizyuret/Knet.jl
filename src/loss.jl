@@ -141,7 +141,7 @@ function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetAr
         x = cudnnSoftmaxForward(reshape(x, (1,1,sz[1],:)), algo=algo)
         reshape(x, sz)
     elseif d==[2] && ndims(x)==2
-        generic_softmax(x',algo,fallback;dims=1)'
+        permutedims(generic_softmax(permutedims(x),algo,fallback;dims=1))
     elseif length(d)==ndims(x);
         n = length(x)
         (n > 20000 ? fallback(x;dims=dims,algo=algo) : # see Knet/prof/softmax.jl for timing info
