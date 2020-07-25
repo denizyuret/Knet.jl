@@ -3,13 +3,17 @@ import CUDA: CuArray
 
 ### Use CuArrays kernels as fallback for undefined KnetArray operations.
 
-import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat
+import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat, unsafe_convert
 
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
 function CuArray(x::KnetArray{T}) where {T}
     p = CuPtr{T}(UInt(x.ptr.ptr))
     Base.unsafe_wrap(CuArray{T}, p, size(x); own=false)
+end
+
+function unsafe_convert(T::Type{<:CuPtr}, x::KnetArray)
+    T(UInt(x.ptr.ptr))
 end
 
 # Based on _unsafe_getindex, multidimensional.jl:679, julia 1.2.0

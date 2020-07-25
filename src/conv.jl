@@ -1,6 +1,6 @@
 using LinearAlgebra: lmul!
 using LinearAlgebra.BLAS: gemm!
-using NNlib
+using NNlib, CUDA
 
 """
 
@@ -33,56 +33,62 @@ dimension.
 * `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function conv4(w::KnetArray{T},x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+function conv4(w::KnetArray{T},x::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
                o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
     (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
-    @cudnn(cudnnConvolutionForward,
-          (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-          handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
+    # @cudnn(cudnnConvolutionForward,
+    #       (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+    #       handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
+    algo = CUDNN.cudnnConvolutionFwdAlgo_t(algo)
+    CUDNN.cudnnConvolutionForward(handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
     return y
 end
 
-function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
                    o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta = 0
     dx = similar(x)
     (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
-    if cudnnVersion >= 4000
-        @cudnn(cudnnConvolutionBackwardData,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
-    elseif cudnnVersion >= 3000
-        @cudnn(cudnnConvolutionBackwardData_v3,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
-    else
-        @cudnn(cudnnConvolutionBackwardData,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),TD(dx),dx)
-    end
+    # if cudnnVersion >= 4000
+    #     @cudnn(cudnnConvolutionBackwardData,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
+    # elseif cudnnVersion >= 3000
+    #     @cudnn(cudnnConvolutionBackwardData_v3,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
+    # else
+    #     @cudnn(cudnnConvolutionBackwardData,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),TD(dx),dx)
+    # end
+    algo = CUDNN.CUDA.CUDNN.cudnnConvolutionBwdDataAlgo_t(algo)
+    CUDNN.cudnnConvolutionBackwardData(handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     return dx
 end
 
-function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
                    o...) where {T} # padding=0, stride=1, dilation=1, mode=0
     beta = 0
     dw = similar(w)
     (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
-    if cudnnVersion >= 4000
-        @cudnn(cudnnConvolutionBackwardFilter,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
-    elseif cudnnVersion >= 3000
-        @cudnn(cudnnConvolutionBackwardFilter_v3,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
-    else
-        @cudnn(cudnnConvolutionBackwardFilter,
-              (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-              handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),FD(dw),dw)
-    end
+    # if cudnnVersion >= 4000
+    #     @cudnn(cudnnConvolutionBackwardFilter,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
+    # elseif cudnnVersion >= 3000
+    #     @cudnn(cudnnConvolutionBackwardFilter_v3,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
+    # else
+    #     @cudnn(cudnnConvolutionBackwardFilter,
+    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
+    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),FD(dw),dw)
+    # end
+    algo = CUDA.CUDNN.cudnnConvolutionBwdFilterAlgo_t(algo)
+    CUDNN.cudnnConvolutionBackwardFilter(handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     return dw
 end
 
@@ -123,23 +129,25 @@ with entries for each spatial dimension.
 * `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool(x::KnetArray{T}; handle=cudnnhandle(), alpha=1,
+function pool(x::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
                  o...) where {T} # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     y = similar(x, pdims(x; o...))
     beta = 0
-    @cudnn(cudnnPoolingForward,
-          (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
-          handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
+    # @cudnn(cudnnPoolingForward,
+    #       (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
+    #       handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
+    CUDNN.cudnnPoolingForward(handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
     return y
 end
 
-function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=cudnnhandle(), alpha=1, mode=0,
+function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1, mode=0,
                   o...) where {T} # window=2, padding=0, stride=window, maxpoolingNanOpt=0
     dx = similar(x)
     beta = 0
-    @cudnn(cudnnPoolingBackward,
-          (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
-          handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
+    # @cudnn(cudnnPoolingBackward,
+    #       (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
+    #       handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
+    CUDNN.cudnnPoolingBackward(handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
     return dx
 end
 
@@ -295,16 +303,20 @@ TD(a::KnetArray{T}) where {T} = TD(T,size(a))
 TD(T::Type, dims::Integer...) = TD(T, dims)
 function TD(T::Type, dims)
     d = Cptr[0]
-    @cudnn(cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
+    # @cudnn(cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
+    CUDNN.cudnnCreateTensorDescriptor(d)
     n = length(dims)
     sz = [Cint(dims[i]) for i=n:-1:1]
     st = similar(sz); st[n] = 1
     for i=(n-1):-1:1; st[i] = st[i+1] * sz[i+1]; end
-    @cudnn(cudnnSetTensorNdDescriptor,
-          (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-          d[1], DT(T), n, sz, st)
+    # @cudnn(cudnnSetTensorNdDescriptor,
+    #       (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
+    #       d[1], DT(T), n, sz, st)
+    dt = CUDNN.cudnnDataType_t(DT(T))
+    CUDNN.cudnnSetTensorNdDescriptor(d[1], dt, n, sz, st)
     td = TD(d[1])
-    finalizer(x->@cudnn(cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
+    #finalizer(x->@cudnn(cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
+    finalizer(x->CUDNN.cudnnDestroyTensorDescriptor(x.ptr), td)
     return td
 end
 
@@ -313,24 +325,29 @@ FD(a::KnetArray{T}) where {T}=FD(T,size(a))
 FD(T::Type, dims::Integer...) = FD(T,dims)
 function FD(T::Type, dims)
     d = Cptr[0]
-    @cudnn(cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
+    # @cudnn(cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
+    CUDNN.cudnnCreateFilterDescriptor(d)
     n = length(dims)
     sz = [Cint(dims[i]) for i=n:-1:1]
-    if cudnnVersion >= 5000
-        @cudnn(cudnnSetFilterNdDescriptor,
-              (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-              d[1], DT(T), 0,     n,   sz)
-    elseif cudnnVersion >= 4000
-        @cudnn(cudnnSetFilterNdDescriptor_v4,
-              (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-              d[1], DT(T), 0,     n,   sz)
-    else
-        @cudnn(cudnnSetFilterNdDescriptor,
-              (Cptr,UInt32,Cint,Ptr{Cint}),
-              d[1], DT(T),    n,   sz)
-    end
+    # if cudnnVersion >= 5000
+    #     @cudnn(cudnnSetFilterNdDescriptor,
+    #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+    #           d[1], DT(T), 0,     n,   sz)
+    # elseif cudnnVersion >= 4000
+    #     @cudnn(cudnnSetFilterNdDescriptor_v4,
+    #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
+    #           d[1], DT(T), 0,     n,   sz)
+    # else
+    #     @cudnn(cudnnSetFilterNdDescriptor,
+    #           (Cptr,UInt32,Cint,Ptr{Cint}),
+    #           d[1], DT(T),    n,   sz)
+    # end
+    dt = CUDNN.cudnnDataType_t(DT(T))
+    tf = CUDNN.cudnnTensorFormat_t(0)
+    CUDNN.cudnnSetFilterNdDescriptor(d[1], dt, tf, n, sz)
     fd = FD(d[1])
-    finalizer(x->@cudnn(cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
+    # finalizer(x->@cudnn(cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
+    finalizer(x->CUDNN.cudnnDestroyFilterDescriptor(x.ptr), fd)
     return fd
 end
 
@@ -338,23 +355,28 @@ mutable struct CD; ptr
     function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, dilation=1, mode=0, upscale=nothing)
         upscale !== nothing && error("upscale is deprecated, please use dilation instead.")
         d = Cptr[0]
-        @cudnn(cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
+        # @cudnn(cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
+        CUDNN.cudnnCreateConvolutionDescriptor(d)
         nd = ndims(x)-2
-        if cudnnVersion >= 4000
-            @cudnn(cudnnSetConvolutionNdDescriptor,
-                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
-        elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
-            @cudnn(cudnnSetConvolutionNdDescriptor_v3,
-                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
-        else
-            @cudnn(cudnnSetConvolutionNdDescriptor,
-                  (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
-                  d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode)
-        end
+        # if cudnnVersion >= 4000
+        #     @cudnn(cudnnSetConvolutionNdDescriptor,
+        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
+        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
+        # elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
+        #     @cudnn(cudnnSetConvolutionNdDescriptor_v3,
+        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
+        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
+        # else
+        #     @cudnn(cudnnSetConvolutionNdDescriptor,
+        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
+        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode)
+        # end
+        dt = CUDNN.cudnnDataType_t(DT(x))
+        mode = CUDNN.cudnnConvolutionMode_t(mode)
+        CUDNN.cudnnSetConvolutionNdDescriptor(d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,dt)
         cd = new(d[1])
-        finalizer(x->@cudnn(cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
+        # finalizer(x->@cudnn(cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
+        finalizer(x->CUDNN.cudnnDestroyConvolutionDescriptor(x.ptr),cd)
         return cd
     end
 end
@@ -362,23 +384,28 @@ end
 mutable struct PD; ptr
     function PD(x::KnetArray; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0)
         d = Cptr[0]
-        @cudnn(cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
+        #@cudnn(cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
+        CUDNN.cudnnCreatePoolingDescriptor(d)
         nd = ndims(x)-2
-        if cudnnVersion >= 5000
-            @cudnn(cudnnSetPoolingNdDescriptor,
-                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-                  d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        elseif cudnnVersion >= 4000
-            @cudnn(cudnnSetPoolingNdDescriptor_v4,
-                  (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-                  d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        else
-            @cudnn(cudnnSetPoolingNdDescriptor,
-                  (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-                  d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        end
+        # if cudnnVersion >= 5000
+        #     @cudnn(cudnnSetPoolingNdDescriptor,
+        #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+        #           d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        # elseif cudnnVersion >= 4000
+        #     @cudnn(cudnnSetPoolingNdDescriptor_v4,
+        #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+        #           d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        # else
+        #     @cudnn(cudnnSetPoolingNdDescriptor,
+        #           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
+        #           d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
+        # end
+        mode = CUDNN.cudnnPoolingMode_t(mode)
+        maxpoolingNanOpt = CUDNN.cudnnNanPropagation_t(maxpoolingNanOpt)
+        CUDNN.cudnnSetPoolingNdDescriptor(d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
         pd = new(d[1])
-        finalizer(x->@cudnn(cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
+        #finalizer(x->@cudnn(cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
+        finalizer(x->CUDNN.cudnnDestroyPoolingDescriptor(x.ptr), pd)
         return pd
     end
 end
@@ -511,7 +538,7 @@ bytes(x::KnetArray{T}) where {T}=length(x)*sizeof(T)
 maxWorkspaceSize(w,x,y) = min(gpufree() ÷ 10, bytes(x) * 100)
 
 const conv4_algos = Dict()
-function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
+function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
     global conv4_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4_algos, key)
@@ -522,9 +549,10 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
     else
         workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,y))
         wd, xd, yd, cd = FD(w), TD(x), TD(y), CD(w,x;o...)
-        @cudnn(cudnnFindConvolutionForwardAlgorithmEx,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        # @cudnn(cudnnFindConvolutionForwardAlgorithmEx,
+        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+        #       handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        CUDNN.cudnnFindConvolutionForwardAlgorithmEx(handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4_algos[key] = p
@@ -533,7 +561,7 @@ function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=cu
 end
 
 const conv4w_algos = Dict()
-function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
+function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
     global conv4w_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4w_algos, key)
@@ -544,9 +572,10 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
     else
         workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,dy))
         wd, xd, yd, cd = FD(dw), TD(x), TD(dy), CD(w,x;o...)
-        @cudnn(cudnnFindConvolutionBackwardFilterAlgorithmEx,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        # @cudnn(cudnnFindConvolutionBackwardFilterAlgorithmEx,
+        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+        #       handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        CUDNN.cudnnFindConvolutionBackwardFilterAlgorithmEx(handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4w_algos[key] = p
@@ -555,7 +584,7 @@ function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetAr
 end
 
 const conv4x_algos = Dict()
-function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=cudnnhandle(), o...) where {T}
+function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
     global conv4x_algos, requestedAlgoCount, returnedAlgoCount, perfResults
     key = (T,size(w),size(x),o...)
     if haskey(conv4x_algos, key)
@@ -566,9 +595,10 @@ function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetAr
     else
         workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,dy))
         wd, xd, yd, cd = FD(w), TD(dx), TD(dy), CD(w,x;o...)
-        @cudnn(cudnnFindConvolutionBackwardDataAlgorithmEx,
-              (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-              handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        # @cudnn(cudnnFindConvolutionBackwardDataAlgorithmEx,
+        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
+        #       handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
+        CUDNN.cudnnFindConvolutionBackwardDataAlgorithmEx(handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         workSpace = nothing; Knet.gc(); GC.gc()
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4x_algos[key] = p
@@ -578,7 +608,6 @@ end
 
 
 function perfChoose(ps, n)
-    global CUDNN_WORKSPACE_MAXSIZE
     if n==ps
         warn("returnedAlgoCount==requestedAlgoCount")
     end
