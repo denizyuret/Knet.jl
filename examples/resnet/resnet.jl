@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse","Images","ImageMagick")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse","Images","ImageMagick"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -17,7 +14,7 @@ Shaoqing Ren, Jian Sun, arXiv technical report 1512.03385, 2015.
 
 """
 module ResNet
-using Knet, ArgParse
+using Knet, CUDA, ArgParse
 include(Knet.dir("data","imagenet.jl"))
 
 const modelurl = "http://www.vlfeat.org/matconvnet/models/imagenet-resnet-101-dag.mat"

@@ -466,19 +466,20 @@ for each constructor and their default values are listed as well.
 
 """
 update!(x::Param, g) = (x.opt === nothing ? update!(x.value, g) : update!(x.value, g, x.opt))
+update!(w::Param, g::Nothing)=w   # AutoGrad may return Nothing for a zero gradient
+
 
 # Two arg version defaults to SGD
 update!(w, g; lr=SGDLR, gclip=0) = update!(w, g, SGD(lr, gclip))
-
-# AutoGrad may return Nothing for a zero gradient
-update!(w, g::Nothing, p)=w
 update!(w, g::Nothing; o...)=w
-update!(w::Param, g::Nothing)=w
 
 # This fallback takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
     if isbitstype(eltype(w))
         error("Bad args: $((typeof(w),typeof(g),typeof(p)))")
+    end
+    if p isa SGD  # This comes from the 2-arg version
+        p1 = p; p = (p1 for wi in w)
     end
     if !(length(w)==length(g)==length(p))
         error("weight, gradient, and optimization parameters not the same length.")
@@ -487,6 +488,8 @@ function update!(w,g,p)
         update!(wi,gi,pi)
     end
 end
+
+update!(w, g::Nothing, p)=w
 
 # We still need an extra method for Dict.
 function update!(w::AbstractDict,g::AbstractDict,p::AbstractDict)

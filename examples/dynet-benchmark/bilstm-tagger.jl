@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -20,7 +17,8 @@ for Sequence Tagging', Zhiheng Huang, Wei Xu, Kai Yu, arXiv technical report
 
 """
 module Tagger
-using Knet, ArgParse, Dates, Random, Printf
+using Knet, CUDA, ArgParse, Dates, Random, Printf
+using Knet: rnninit, rnnforw    # old interface, use RNN in new code
 
 include(Knet.dir("data","wikiner.jl"))
 t00 = now()

@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -22,7 +19,7 @@ which takes characters as input.
 
 """
 module CharTagger
-using Knet, ArgParse, Dates, Random, Printf
+using Knet, CUDA, ArgParse, Dates, Random, Printf
 
 include(Knet.dir("data","wikiner.jl"))
 const F = Float32

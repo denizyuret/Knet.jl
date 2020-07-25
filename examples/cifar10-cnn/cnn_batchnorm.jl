@@ -1,5 +1,3 @@
-using Pkg; haskey(Pkg.installed(), "Knet") || Pkg.add("Knet")
-
 #=
 This example classifies CIFAR 10(https://www.cs.toronto.edu/~kriz/cifar.html)
 dataset using a convolutional neural network with batch normalization
@@ -34,13 +32,6 @@ function loaddata()
     return (xtrn, ytrn), (xtst, ytst)
 end
 
-# The global device setting (to reduce gpu() calls)
-let at = nothing
-    global atype
-    atype() = (at == nothing) ? (at = (gpu() >= 0 ? KnetArray : Array)) : at
-end
-
-
 ##Model definition
 
 #=
@@ -63,7 +54,7 @@ function init_model(;et=Float32)
     ]
     # Initialize a moments object for each batchnorm
     m = Any[bnmoments() for i = 1:4]
-    w = map(atype(), w)
+    w = map(Knet.atype(), w)
     return w, m
 end
 
@@ -100,7 +91,7 @@ lossgrad = grad(loss)
 function epoch!(w, m, o, xtrn, ytrn;  mbatch=64)
     data = minibatch(xtrn, ytrn, mbatch;
                    shuffle=true,
-                   xtype=atype())
+                   xtype=Knet.atype())
     for (x, y) in data
         g = lossgrad(w, m, x, y)
         update!(w, g, o)
@@ -111,7 +102,7 @@ end
 function acc(w, m, xtst, ytst; mbatch=64)
     data = minibatch(xtst, ytst, mbatch;
                      partial=true,
-                     xtype=atype())
+                     xtype=Knet.atype())
     model = (w, m)
     return accuracy(model, data,
                     (model, x)->predict(model[1], model[2], x);
@@ -126,10 +117,12 @@ function train(;optim=Momentum, epochs=5,
     (xtrn, ytrn), (xtst, ytst) = loaddata()   
     for epoch = 1:epochs
         println("epoch: ", epoch)
-        epoch!(w, m, o, xtrn, ytrn)
+        @time epoch!(w, m, o, xtrn, ytrn)
         println("train accuracy: ", acc(w, m, xtrn, ytrn))
         println("test accuracy: ", acc(w, m, xtst, ytst))
     end
 end
 
 endswith(string(PROGRAM_FILE), "cnn_batchnorm.jl") && train()
+
+nothing

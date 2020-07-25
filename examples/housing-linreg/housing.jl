@@ -1,4 +1,4 @@
-using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 This example uses the
@@ -18,7 +18,7 @@ epoch and optimized parameters will be returned.
 
 """
 module Housing
-using Knet,ArgParse, Random
+using Knet, CUDA, ArgParse, Random
 include(Knet.dir("data","housing.jl"))
 
 predict(w,x)=(w[1]*x.+w[2])

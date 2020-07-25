@@ -1,4 +1,4 @@
-using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("Knet","ArgParse","Images","MAT","JLD2","FileIO"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -11,7 +11,7 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 
 """
 module DCGAN
-using Knet,ArgParse,Printf
+using Knet,CUDA,ArgParse,Printf
 #using Images,MAT,JLD2,FileIO
 include(Knet.dir("data","mnist.jl"))
 include(Knet.dir("data","imagenet.jl"))
@@ -70,7 +70,7 @@ function parse_options(args)
     s.description =
         "Deep Convolutional Generative Adversarial Networks on MNIST."
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}");
          help="array and float type to use")
         ("--batchsize"; arg_type=Int; default=100; help="batch size")

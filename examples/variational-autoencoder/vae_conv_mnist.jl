@@ -1,14 +1,11 @@
-using Pkg
-for p in ("Knet","ArgParse","Images")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse","Images"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 Train a Variational Autoencoder with convolutional layers
 on the MNIST dataset.
 """
 module VAE
-using Knet, ArgParse, Images, Random, Statistics
+using Knet, CUDA, ArgParse, Images, Random, Statistics
 import AutoGrad: getval
 
 include(Knet.dir("data","mnist.jl"))
@@ -192,7 +189,7 @@ function main(args="")
         ("--nh"; arg_type=Int; default=400; help="hidden layer dimension")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
-        ("--infotime"; arg_type=Int; default=2; help="report every infotime epochs")
+        ("--infotime"; arg_type=Int; default=1; help="report every infotime epochs")
         ("--binarize"; arg_type=Bool; default=false; help="dinamically binarize during training")
         ("--optim"; default="Adam()"; help="optimizer")
     end
@@ -227,7 +224,7 @@ function main(args="")
 
     report(0)
     @time for epoch=1:o[:epochs]
-        for x  in minibatch(xtrn, o[:batchsize]; xtype=Atype, shuffle=true)
+        @time for x  in minibatch(xtrn, o[:batchsize]; xtype=Atype, shuffle=true)
             BINARIZE && (x = binarize(x))
             dw = lossgradient(w, x)
             update!(w, dw, opt)

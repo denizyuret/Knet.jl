@@ -1,4 +1,4 @@
-using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -16,7 +16,7 @@ specify any model.
 
 """
 module VGG
-using Knet,ArgParse
+using Knet,CUDA,ArgParse
 include(Knet.dir("data","imagenet.jl"))
 
 const imgurl = "https://github.com/BVLC/caffe/raw/master/examples/images/cat.jpg"
@@ -45,15 +45,16 @@ function main(args=ARGS)
 
     global _vggcache
     if !@isdefined(_vggcache); _vggcache=Dict(); end
-    if !haskey(_vggcache,o[:model])
+    cachekey = (o[:model],o[:atype])
+    if !haskey(_vggcache,cachekey)
         vgg = matconvnet(o[:model])
         params = get_params(vgg, atype)
         convnet = get_convnet(params...)
         description = vgg["meta"]["classes"]["description"]
         averageImage = convert(Array{Float32},vgg["meta"]["normalization"]["averageImage"])
-        _vggcache[o[:model]] = vgg, params, convnet, description, averageImage
+        _vggcache[cachekey] = vgg, params, convnet, description, averageImage
     else
-        vgg, params, convnet, description, averageImage = _vggcache[o[:model]]
+        vgg, params, convnet, description, averageImage = _vggcache[cachekey]
     end
 
     image = imgdata(o[:image], averageImage)

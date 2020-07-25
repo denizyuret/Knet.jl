@@ -1,12 +1,8 @@
-using Pkg
-for p in ("Knet","ArgParse")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
-julia treenn.jl # to use with default options on CPU
-julia treenn.jl --usegpu # to use with default options on GPU
+julia treenn.jl # to use with default options
 julia treenn.jl -h # to see all options with default values
 
 This example implements a binary tree-structured LSTM networks proposed
@@ -19,7 +15,7 @@ arXiv technical report 1503.00075, 2015.
 
 """
 module TreeLSTM
-using Knet, ArgParse, Dates, Printf, Random
+using Knet, CUDA, ArgParse, Dates, Printf, Random
 
 const UNK = "_UNK_"
 t00 = now()
@@ -30,7 +26,8 @@ function main(args)
     s.description = "Tree-structured LSTM network in Knet."
 
     @add_arg_table s begin
-        ("--usegpu"; action=:store_true; help="use GPU or not")
+        # ("--usegpu"; action=:store_true; help="use GPU or not")
+        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
         ("--embed"; arg_type=Int; default=128; help="word embedding size")
         ("--hidden"; arg_type=Int; default=128; help="LSTM hidden size")
         ("--timeout"; arg_type=Int; default=600; help="max timeout (in seconds)")
@@ -42,8 +39,10 @@ function main(args)
 
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
-    o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
+    println(o)
+    o[:seed] > 0 && Knet.seed!(o[:seed])
+    # atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
+    atype = eval(Meta.parse(o[:atype]))
     datadir = abspath(joinpath(@__DIR__, "../data/trees"))
     datadir = isdir(datadir) ? datadir : TREEBANK_DIR
 
@@ -69,7 +68,7 @@ function main(args)
         closs = cwords = 0
         shuffle!(trn)
         t0 = now()
-        for k = 1:length(trn)
+        for k = progress(1:length(trn))
             sents += 1
             iter = (epoch-1)*length(trn) + k
             tree = trn[k]

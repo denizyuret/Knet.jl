@@ -1,4 +1,4 @@
-using Pkg; haskey(Pkg.installed(),"ZipFile") || Pkg.add("ZipFile")
+# using Pkg; haskey(Pkg.installed(),"ZipFile") || Pkg.add("ZipFile")
 using ZipFile
 
 "Where to download dataset from"

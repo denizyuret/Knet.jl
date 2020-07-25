@@ -72,12 +72,16 @@ zeroslike(a::CuArray)=zero(a) # Still need this because zero(::Array{!isbits}) i
 # This only works when there are no repeated indices. This is true for index types:
 # Real, (Real...), CartesianIndex, Colon, AbstractArray{Bool}, Range, EmptyArray
 # and pairs of Union{Real,AbstractUnitRange,Colon} and (Colon,Range)
-addtoindex!(A::CuArray, X, I...)=setindex!(A, getindex(A,I...) .+ X, I...)
+addtoindex!(A::CuArray, X, I::Union{Real,Colon,AbstractRange,AbstractArray{Bool}}...) =
+    setindex!(A, addto!(getindex(A,I...), X), I...)
+addtoindex!(A::CuArray, X, I...) =
+    setindex!(A, getindex(A,I...) .+ X, I...)
+
 
 # The following index types may have repeated indices:
 # AbstractArray{Real}, AbstractArray{CartesianIndex}, (Colon,AbstractVector{Real}), (AbstractVector{Real},Colon)
 
-addtoindex!(A::CuArray, X, I::AbstractArray{T}) where {T<:CartesianIndex}=addtoindex!(A,X,c2i(size(A),I))
+addtoindex!(A::CuArray, X, I::AbstractArray{<:CartesianIndex})=addtoindex!(A,X,c2i(size(A),I))
 
 for F in (32,64); T=Symbol("Float$F"); @eval begin
 

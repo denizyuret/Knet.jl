@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -14,7 +11,7 @@ optimized parameters will be returned.
 
 """
 module LinReg
-using Knet, ArgParse, Random
+using Knet, CUDA, ArgParse, Random
 
 predict(w,x)=(w*x)
 

@@ -1,4 +1,4 @@
-using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 include(Knet.dir("data","fashion-mnist.jl"))
 
 """
@@ -36,7 +36,7 @@ and optimized parameters will be returned.
 
 """
 module FashionMNIST
-using Knet,ArgParse
+using Knet,CUDA,ArgParse
 
 function predict(w,x; pdrop=0)
     x = mat(x)
@@ -111,7 +111,7 @@ function main(args="")
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
     if o[:fast]
-        (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); gpu()>=0 && Knet.cudaDeviceSynchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]

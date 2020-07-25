@@ -1,13 +1,10 @@
-using Pkg
-for p in ("Knet","ArgParse","Images")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse","Images"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 Train a Variational Autoencoder on the MNIST dataset.
 """
 module VAE
-using Knet, ArgParse, Images, Random, Statistics
+using Knet, CUDA, ArgParse, Images, Random, Statistics
 include(Knet.dir("data","mnist.jl"))
 include(Knet.dir("data","imagenet.jl"))
 
@@ -115,7 +112,7 @@ function main(args="")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
         ("--lr"; arg_type=Float64; default=1e-3; help="learning rate")
         ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
-        ("--infotime"; arg_type=Int; default=2; help="report every infotime epochs")
+        ("--infotime"; arg_type=Int; default=1; help="report every infotime epochs")
     end
     isa(args, String) && (args=split(args))
     if in("--help", args) || in("-h", args)
@@ -145,7 +142,7 @@ function main(args="")
 
     report(0)
     @time for epoch=1:o[:epochs]
-        for (x, y) in  minibatch(xtrn, ytrn, o[:batchsize], shuffle=true, xtype=atype)
+        @time for (x, y) in  minibatch(xtrn, ytrn, o[:batchsize], shuffle=true, xtype=atype)
             dw = grad(loss)(w, x, length(θ))
             update!(w, dw, opt)
         end

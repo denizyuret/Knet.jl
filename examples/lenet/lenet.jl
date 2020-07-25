@@ -1,4 +1,4 @@
-using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -21,7 +21,7 @@ will be returned.
 
 """
 module LeNet
-using Knet,ArgParse
+using Knet,CUDA,ArgParse
 include(Knet.dir("data","mnist.jl"))
 
 function predict(w,x)

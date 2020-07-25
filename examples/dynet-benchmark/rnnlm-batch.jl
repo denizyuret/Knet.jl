@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 
 """
 
@@ -16,7 +13,7 @@ This example is originally implemented for dynet-benchmark repo.
 
 """
 module RNNLM
-using Knet, ArgParse, Dates, Printf, Random
+using Knet, CUDA, ArgParse, Dates, Printf, Random
 
 const SOS = "<s>"
 include(Knet.dir("data","mikolovptb.jl"))
