@@ -1,3 +1,5 @@
+using CUDA
+
 # TODO: finish cpu implementation.
 
 ### Size chart (Julia sizes for CUDNN calls)
@@ -227,16 +229,20 @@ end
 
 Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 
-function DD(; handle=cudnnhandle(), dropout=0.0, seed=0, o...)
+function DD(; handle=CUDNN.handle(), dropout=0.0, seed=0, o...)
     if seed==0; seed=floor(Culonglong,time()); end
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
-    @cudnn(cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
-    @cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
+    #@cudnn(cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
+    CUDNN.cudnnCreateDropoutDescriptor(d)
+    #@cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
+    CUDNN.cudnnDropoutGetStatesSize(handle,s)
     states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
-    @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
-          d[1],handle,dropout,states,bytes(states),seed)
+    # @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
+    #       d[1],handle,dropout,states,bytes(states),seed)
+    CUDNN.cudnnSetDropoutDescriptor(d[1],handle,dropout,states,bytes(states),seed)
     dd = DD(d[1],states)
-    finalizer(x->@cudnn(cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
+    # finalizer(x->@cudnn(cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
+    finalizer(x->CUDNN.cudnnDestroyDropoutDescriptor(x.ptr),dd)
     return dd
 end
 
@@ -245,38 +251,48 @@ Base.unsafe_convert(::Type{Cptr}, rd::RD)=rd.ptr
 
 function RD()
     d = Cptr[0]
-    @cudnn(cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    # @cudnn(cudnnCreateRNNDescriptor,(Ptr{Cptr},),d)
+    CUDNN.cudnnCreateRNNDescriptor(d)
     rd = RD(d[1])
-    finalizer(x->@cudnn(cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
+    #finalizer(x->@cudnn(cudnnDestroyRNNDescriptor,(Cptr,),x.ptr),rd)
+    finalizer(x->CUDNN.cudnnDestroyRNNDescriptor(x.ptr),rd)
     return rd
 end
 
 function RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType; handle=gethandle())
     rnnDesc = RD()
-    if cudnnVersion >= 7000
-        @cudnn(cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 6000
-        @cudnn(cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
-              handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
-    elseif cudnnVersion >= 5000
-        @cudnn(cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
-              rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
-    else
-        error("CUDNN $cudnnVersion does not support RNNs")
-    end
+    # if cudnnVersion >= 7000
+    #     @cudnn(cudnnSetRNNDescriptor,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+    #           handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    # elseif cudnnVersion >= 6000
+    #     @cudnn(cudnnSetRNNDescriptor_v6,(Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
+    #           handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,DT(dataType))
+    # elseif cudnnVersion >= 5000
+    #     @cudnn(cudnnSetRNNDescriptor,(Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint),
+    #           rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,DT(dataType))
+    # else
+    #     error("CUDNN $cudnnVersion does not support RNNs")
+    # end
+    inputMode = CUDNN.cudnnRNNInputMode_t(inputMode)
+    direction = CUDNN.cudnnDirectionMode_t(direction)
+    mode = CUDNN.cudnnRNNMode_t(mode)
+    algo = CUDNN.cudnnRNNAlgo_t(algo)
+    dt = CUDNN.cudnnDataType_t(DT(dataType))
+    CUDNN.cudnnSetRNNDescriptor(handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dt)
     return rnnDesc
 end
 
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
 
-function cudnnGetRNNParamsSize(r::RNN; handle=cudnnhandle())
+function cudnnGetRNNParamsSize(r::RNN; handle=CUDNN.handle())
     res = Csize_t[0]
     xDesc = TD(r.dataType, 1, r.inputSize, 1)    # xDesc: (1,X,B) where X = inputSize, B is ignored, so assume 1
-    @cudnn(cudnnGetRNNParamsSize,
-           # handle, rnndesc, xdesc, result, dataType
-           (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
-           handle, r.rnnDesc, xDesc, res, DT(r.dataType))
+    # @cudnn(cudnnGetRNNParamsSize,
+    #        # handle, rnndesc, xdesc, result, dataType
+    #        (Cptr,  Cptr, Cptr, Ptr{Csize_t}, UInt32),
+    #        handle, r.rnnDesc, xDesc, res, DT(r.dataType))
+    dt = CUDNN.cudnnDataType_t(DT(r.dataType))
+    CUDNN.cudnnGetRNNParamsSize(handle, r.rnnDesc, xDesc, res, dt)
     div(res[1], sizeof(r.dataType))
 end
 
@@ -344,21 +360,23 @@ function FD3(a::KnetArray) # Treat a as a 3D array, pad from left
     end
 end
 
-function cudnnGetRNNWorkspaceSize(rd::RD, tds::TDs; handle=cudnnhandle())
+function cudnnGetRNNWorkspaceSize(rd::RD, tds::TDs; handle=CUDNN.handle())
     res = Csize_t[1]
-    @cudnn(cudnnGetRNNWorkspaceSize,
-          # handle, rnndesc, seqLength, xdesc, res        ,
-          (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
-          handle, rd, length(tds), tds, res)
+    # @cudnn(cudnnGetRNNWorkspaceSize,
+    #       # handle, rnndesc, seqLength, xdesc, res        ,
+    #       (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
+    #       handle, rd, length(tds), tds, res)
+    CUDNN.cudnnGetRNNWorkspaceSize(handle, rd, length(tds), tds, res)
     return Int(res[1])
 end
 
-function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=cudnnhandle())
+function cudnnGetRNNTrainingReserveSize(rd::RD, tds::TDs; handle=CUDNN.handle())
     res = Csize_t[1]
-    @cudnn(cudnnGetRNNTrainingReserveSize,
-          # handle, rnndesc, seqLength, xdesc, res        ,
-          (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
-          handle, rd, length(tds), tds, res)
+    # @cudnn(cudnnGetRNNTrainingReserveSize,
+    #       # handle, rnndesc, seqLength, xdesc, res        ,
+    #       (Cptr,  Cptr, Cint, Ptr{Cptr}, Ptr{Csize_t}),
+    #       handle, rd, length(tds), tds, res)
+    CUDNN.cudnnGetRNNTrainingReserveSize(handle, rd, length(tds), tds, res)
     return Int(res[1])
 end
 
@@ -368,9 +386,10 @@ function cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = 8)
     format = Cint[0]
     nbDims = Cint[0]
     filterDimA = Vector{Cint}(undef,nbDimsRequested)
-    @cudnn(cudnnGetFilterNdDescriptor,
-          (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}),
-          wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
+    # @cudnn(cudnnGetFilterNdDescriptor,
+    #       (Cptr, Cint, Ptr{UInt32}, Ptr{UInt32}, Ptr{Cint}, Ptr{Cint}),
+    #       wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
+    CUDNN.cudnnGetFilterNdDescriptor(wDesc, nbDimsRequested, dataType, format, nbDims, filterDimA)
     if nbDims[1] > nbDimsRequested
         cudnnGetFilterNdDescriptor(wDesc::FD; nbDimsRequested = nbDims[1])
     else
@@ -381,7 +400,7 @@ end
 
 
 # call gpu everytime to reflect device changes
-gethandle() = gpu() >= 0 ? cudnnhandle() : nothing
+gethandle() = gpu() >= 0 ? CUDNN.handle() : nothing
 
 
 """
@@ -437,21 +456,23 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         paramDesc = FD(T,1,1,1,1)
         param = Cptr[0]
         if par == 1 # matrix
-            @cudnn(cudnnGetRNNLinLayerMatrixParams,
-                  (Cptr, Cptr, Cint, #handle,rdesc, layer
-                   Cptr, Cptr, Cptr, #xDesc, wDesc, w
-                   Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-                  handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, w,
-                  id-1, paramDesc, param)
+            # @cudnn(cudnnGetRNNLinLayerMatrixParams,
+            #       (Cptr, Cptr, Cint, #handle,rdesc, layer
+            #        Cptr, Cptr, Cptr, #xDesc, wDesc, w
+            #        Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
+            #       handle, r.rnnDesc, layer-1,
+            #       xDesc, wDesc, w,
+            #       id-1, paramDesc, param)
+            CUDNN.cudnnGetRNNLinLayerMatrixParams(handle, r.rnnDesc, layer-1, xDesc, wDesc, w, id-1, paramDesc, param)
         else # bias
-            @cudnn(cudnnGetRNNLinLayerBiasParams,
-                  (Cptr, Cptr, Cint, #handle,rdesc, layer
-                   Cptr, Cptr, Cptr, #xDesc, wDesc, w
-                   Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
-                  handle, r.rnnDesc, layer-1,
-                  xDesc, wDesc, w,
-                  id-1, paramDesc, param)
+            # @cudnn(cudnnGetRNNLinLayerBiasParams,
+            #       (Cptr, Cptr, Cint, #handle,rdesc, layer
+            #        Cptr, Cptr, Cptr, #xDesc, wDesc, w
+            #        Cint, Cptr, Ptr{Cptr}), #lid, lmatdesc, linlayermat
+            #       handle, r.rnnDesc, layer-1,
+            #       xDesc, wDesc, w,
+            #       id-1, paramDesc, param)
+            CUDNN.cudnnGetRNNLinLayerBiasParams(handle, r.rnnDesc, layer-1, xDesc, wDesc, w, id-1, paramDesc, param)
         end
         dt,sz = cudnnGetFilterNdDescriptor(paramDesc)
         if should_return_nothing
@@ -535,7 +556,7 @@ end
 function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
                  hx::Union{KnetArray{T},Nothing}=nothing,
                  cx::Union{KnetArray{T},Nothing}=nothing;
-                 handle=cudnnhandle(),
+                 handle=CUDNN.handle(),
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
@@ -548,9 +569,9 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)
     xtds = TDs(x,batchSizes)    # (1,X,Bt) x T
-    isnothing(a) = a == nothing || a == C_NULL
-    if hx==nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
-    if cx==nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
+    isnothing(a) = a === nothing || a === C_NULL || a === CU_NULL
+    if hx==nothing; hx=CU_NULL; hxDesc=C_NULL; else; hxDesc=TD3(hx); end # (H,B,L/2L)
+    if cx==nothing || r.mode != 2; cx=CU_NULL; cxDesc=C_NULL; else; cxDesc=TD3(cx); end
 
     # Output arrays and descriptors
     ysize = collect(size(x))
@@ -559,7 +580,8 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
     ytds = TDs(y,batchSizes)    # (1,H/2H,Bt) x T
 
     # Optionally output hidden and cell of last step
-    hyout = hyDesc = cyout = cyDesc = C_NULL
+    hyout = cyout = CU_NULL
+    hyDesc = cyDesc = C_NULL
     if hy || cy
         firstBatchSize = batchSizes==nothing ? size(x,2) : batchSizes[1]
         hsize = (Int(r.hiddenSize), Int(firstBatchSize), Int(r.numLayers * (r.direction == 1 ? 2 : 1))) # (H,B,L/2L)
@@ -580,53 +602,55 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
     if training()
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
         rs = KnetArray{UInt8}(undef,rss)
-        @cudnn(cudnnRNNForwardTraining,
-              (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
-               Ptr{Cptr}, Ptr{T}, #x
-               Cptr, Ptr{T}, #hx
-               Cptr, Ptr{T}, #cx
-               Cptr, Ptr{T}, #w
-               Ptr{Cptr}, Ptr{T}, #y
-               Cptr, Ptr{T}, #hy
-               Cptr, Ptr{T}, #cy
-               Cptr, Csize_t, #ws
-               Cptr ,Csize_t#rs
-               ),
-              handle, r.rnnDesc, seqLength,
-              xtds, x,
-              hxDesc, hx,
-              cxDesc, cx,
-              wDesc, w,
-              ytds, y,
-              hyDesc, hyout,
-              cyDesc, cyout,
-              ws, wss,
-              rs, rss)
+        # @cudnn(cudnnRNNForwardTraining,
+        #       (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
+        #        Ptr{Cptr}, Ptr{T}, #x
+        #        Cptr, Ptr{T}, #hx
+        #        Cptr, Ptr{T}, #cx
+        #        Cptr, Ptr{T}, #w
+        #        Ptr{Cptr}, Ptr{T}, #y
+        #        Cptr, Ptr{T}, #hy
+        #        Cptr, Ptr{T}, #cy
+        #        Cptr, Csize_t, #ws
+        #        Cptr ,Csize_t#rs
+        #        ),
+        #       handle, r.rnnDesc, seqLength,
+        #       xtds, x,
+        #       hxDesc, hx,
+        #       cxDesc, cx,
+        #       wDesc, w,
+        #       ytds, y,
+        #       hyDesc, hyout,
+        #       cyDesc, cyout,
+        #       ws, wss,
+        #       rs, rss)
+        CUDNN.cudnnRNNForwardTraining(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w, ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss, rs, rss)
     else
         rs = nothing
-        @cudnn(cudnnRNNForwardInference,
-              (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
-               Ptr{Cptr}, Ptr{T}, #x
-               Cptr, Ptr{T}, #h
-               Cptr, Ptr{T}, #c
-               Cptr, Ptr{T}, #w
-               Ptr{Cptr}, Ptr{T}, #y
-               Cptr, Ptr{T}, #hy
-               Cptr, Ptr{T}, #cy
-               Cptr, Csize_t, #ws
-               ),
-              handle, r.rnnDesc, seqLength,
-              xtds, x,
-              hxDesc, hx,
-              cxDesc, cx,
-              wDesc, w,
-              ytds, y,
-              hyDesc, hyout,
-              cyDesc, cyout,
-              ws, wss)
+        # @cudnn(cudnnRNNForwardInference,
+        #       (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
+        #        Ptr{Cptr}, Ptr{T}, #x
+        #        Cptr, Ptr{T}, #h
+        #        Cptr, Ptr{T}, #c
+        #        Cptr, Ptr{T}, #w
+        #        Ptr{Cptr}, Ptr{T}, #y
+        #        Cptr, Ptr{T}, #hy
+        #        Cptr, Ptr{T}, #cy
+        #        Cptr, Csize_t, #ws
+        #        ),
+        #       handle, r.rnnDesc, seqLength,
+        #       xtds, x,
+        #       hxDesc, hx,
+        #       cxDesc, cx,
+        #       wDesc, w,
+        #       ytds, y,
+        #       hyDesc, hyout,
+        #       cyDesc, cyout,
+        #       ws, wss)
+        CUDNN.cudnnRNNForwardInference(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w, ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss)
     end
-    if hyout == C_NULL; hyout = nothing; end
-    if cyout == C_NULL; cyout = nothing; end
+    if hyout === CU_NULL; hyout = nothing; end
+    if cyout === CU_NULL; cyout = nothing; end
     return y, hyout, cyout, rs, ws
 end
 
@@ -647,7 +671,7 @@ function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
 end
 
 function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
-                 dy, hx, cx, dhy, dcy, rs, ws; handle=cudnnhandle(), batchSizes=nothing, o...) where {T}
+                 dy, hx, cx, dhy, dcy, rs, ws; handle=CUDNN.handle(), batchSizes=nothing, o...) where {T}
     @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
@@ -656,18 +680,18 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     ytds = TDs(y,batchSizes)    # (H/2H,B,T) -> (1,H/2H,B) x T
     # dytds = TDs(dy,batchSizes)  # we use ytds for dytds
     if dy == nothing; dy=zero(y); end
-    if hx == nothing; hx=hxDesc=C_NULL; else; hxDesc=TD3(hx); end
-    if cx == nothing || r.mode != 2; cx=cxDesc=C_NULL; else; cxDesc=TD3(cx); end
-    if dhy == nothing; dhy=dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
-    if dcy == nothing || r.mode != 2; dcy=dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
+    if hx == nothing; hx=CU_NULL; hxDesc=C_NULL; else; hxDesc=TD3(hx); end
+    if cx == nothing || r.mode != 2; cx=CU_NULL; cxDesc=C_NULL; else; cxDesc=TD3(cx); end
+    if dhy == nothing; dhy=CU_NULL; dhyDesc=C_NULL; else; dhyDesc=TD3(dhy); end
+    if dcy == nothing || r.mode != 2; dcy=CU_NULL; dcyDesc=C_NULL; else; dcyDesc=TD3(dcy); end
 
     # Output arrays and descriptors:
     dx = similar(x)             # (X,B,T) or (X,B+) with batchSizes
     # dxtds = TDs(dx,batchSizes)  # we use xtds here
     dw = zero(w)               # dw is used additively, so we need zero
     dwDesc = FD3(dw)
-    if hx == C_NULL; dhx=dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
-    if cx == C_NULL; dcx=dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
+    if hx === CU_NULL; dhx=CU_NULL; dhxDesc=C_NULL; else; dhx=similar(hx); dhxDesc=TD3(dhx); end
+    if cx === CU_NULL; dcx=CU_NULL; dcxDesc=C_NULL; else; dcx=similar(cx); dcxDesc=TD3(dcx); end
 
     # workSpace and reserveSpace
     # ws = cudnnWorkSpace()
@@ -675,53 +699,56 @@ function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
     rss = bytes(rs)
 
     # data backward
-    @cudnn(cudnnRNNBackwardData,
-          (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
-           Ptr{Cptr}, Ptr{T}, #y
-           Ptr{Cptr}, Ptr{T}, #dy
-           Cptr, Ptr{T}, #dhy
-           Cptr, Ptr{T}, #dcy
-           Cptr, Ptr{T}, #w
-           Cptr, Ptr{T}, #hx
-           Cptr, Ptr{T}, #cx
-           Ptr{Cptr}, Ptr{T}, #dx
-           Cptr, Ptr{T}, #dhx
-           Cptr, Ptr{T}, #dcx
-           Cptr, Csize_t, #ws
-           Cptr, Csize_t), #rs
-          # Use rtd with nullables
-          handle, r.rnnDesc, seqLength,
-          ytds, y,
-          ytds, dy,
-          dhyDesc, dhy,
-          dcyDesc, dcy,
-          wDesc, w,
-          hxDesc, hx,
-          cxDesc, cx,
-          xtds, dx,
-          dhxDesc, dhx,
-          dcxDesc, dcx,
-          ws, wss,
-          rs, rss)
+    # @cudnn(cudnnRNNBackwardData,
+    #       (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
+    #        Ptr{Cptr}, Ptr{T}, #y
+    #        Ptr{Cptr}, Ptr{T}, #dy
+    #        Cptr, Ptr{T}, #dhy
+    #        Cptr, Ptr{T}, #dcy
+    #        Cptr, Ptr{T}, #w
+    #        Cptr, Ptr{T}, #hx
+    #        Cptr, Ptr{T}, #cx
+    #        Ptr{Cptr}, Ptr{T}, #dx
+    #        Cptr, Ptr{T}, #dhx
+    #        Cptr, Ptr{T}, #dcx
+    #        Cptr, Csize_t, #ws
+    #        Cptr, Csize_t), #rs
+    #       # Use rtd with nullables
+    #       handle, r.rnnDesc, seqLength,
+    #       ytds, y,
+    #       ytds, dy,
+    #       dhyDesc, dhy,
+    #       dcyDesc, dcy,
+    #       wDesc, w,
+    #       hxDesc, hx,
+    #       cxDesc, cx,
+    #       xtds, dx,
+    #       dhxDesc, dhx,
+    #       dcxDesc, dcx,
+    #       ws, wss,
+    #       rs, rss)
+    CUDNN.cudnnRNNBackwardData(handle, r.rnnDesc, seqLength, ytds, y, ytds, dy, dhyDesc, dhy, dcyDesc, dcy, wDesc, w, hxDesc, hx, cxDesc, cx, xtds, dx, dhxDesc, dhx, dcxDesc, dcx, ws, wss, rs, rss)
+
     # weights backward
-    @cudnn(cudnnRNNBackwardWeights,
-          (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
-           Ptr{Cptr}, Ptr{T}, #x
-           Cptr, Ptr{T}, #hx
-           Ptr{Cptr}, Ptr{T}, #y
-           Cptr, Csize_t, #ws
-           Cptr, Ptr{T}, #dw
-           Ptr{Cptr}, Csize_t), #rs
-          handle, r.rnnDesc, seqLength,
-          xtds, x,
-          hxDesc, hx,
-          ytds, y,
-          ws, wss,
-          dwDesc, dw,
-          rs, rss)
+    # @cudnn(cudnnRNNBackwardWeights,
+    #       (Cptr, Cptr, Cint,  # handle, rnnDesc, seqLength
+    #        Ptr{Cptr}, Ptr{T}, #x
+    #        Cptr, Ptr{T}, #hx
+    #        Ptr{Cptr}, Ptr{T}, #y
+    #        Cptr, Csize_t, #ws
+    #        Cptr, Ptr{T}, #dw
+    #        Ptr{Cptr}, Csize_t), #rs
+    #       handle, r.rnnDesc, seqLength,
+    #       xtds, x,
+    #       hxDesc, hx,
+    #       ytds, y,
+    #       ws, wss,
+    #       dwDesc, dw,
+    #       rs, rss)
+    CUDNN.cudnnRNNBackwardWeights(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, ytds, y, ws, wss, dwDesc, dw, rs, rss)
     # Update the cache
-    if dhx==C_NULL; dhx=nothing; end
-    if dcx==C_NULL; dcx=nothing; end
+    if dhx===CU_NULL; dhx=nothing; end
+    if dcx===CU_NULL; dcx=nothing; end
     r.dx, r.dhx, r.dcx = dx, dhx, dcx
     return dw
 end
@@ -730,7 +757,7 @@ end
 function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
                  hx::Union{AbstractArray{T},Nothing}=nothing,
                  cx::Union{AbstractArray{T},Nothing}=nothing;
-                 # handle=cudnnhandle(), training=false,
+                 # handle=CUDNN.handle(), training=false,
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
@@ -931,7 +958,7 @@ end
 # TODO: WIP
 function rnntest_bs(batchSizes, r::RNN, w, x,
                     hx=nothing, cx=nothing;
-                    # handle=cudnnhandle(), training=false,
+                    # handle=CUDNN.handle(), training=false,
                     hy = (hx != nothing),
                     cy = (cx != nothing && r.mode == 2),
                     o...)

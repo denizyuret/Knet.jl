@@ -477,11 +477,11 @@ update!(w::Param, g::Nothing)=w
 
 # This fallback takes care of arrays, tuples, iterators in general.
 function update!(w,g,p)
-    if !(length(w)==length(g)==length(p))
-        error("weight, gradient, and optimization parameters not the same length.")
-    end
     if isbitstype(eltype(w))
         error("Bad args: $((typeof(w),typeof(g),typeof(p)))")
+    end
+    if !(length(w)==length(g)==length(p))
+        error("weight, gradient, and optimization parameters not the same length.")
     end
     for (wi,gi,pi) in zip(w,g,p)
         update!(wi,gi,pi)
@@ -496,12 +496,13 @@ function update!(w::AbstractDict,g::AbstractDict,p::AbstractDict)
 end
 
 # Generic three arg version for float arrays
-update!(w::Array{T,N}, g::Array{T,N}, p) where {T<:Number,N} = gclip_update!(w, g, p)
-update!(w::CuArray{T,N}, g::CuArray{T,N}, p) where {T,N} = gclip_update!(w, g, p)
-update!(w::KnetArray{T,N}, g::KnetArray{T,N}, p) where {T,N} = gclip_update!(w, g, p)
+# Fix #579: leave g untyped, it can be Sparse.
+update!(w::Array{T,N}, g, p) where {T<:Number,N} = gclip_update!(w, g, p)
+update!(w::CuArray{T,N}, g, p) where {T,N} = gclip_update!(w, g, p)
+update!(w::KnetArray{T,N}, g, p) where {T,N} = gclip_update!(w, g, p)
 
 function gclip_update!(w, g, p)
-    gclip!(g, p.gclip)          # does gclip support Sparse?
+    gclip!(g, p.gclip)          # gclip! supports AutoGrad.Sparse
     g = AutoGrad.full(g)
     _update!(w, g, p)
 end

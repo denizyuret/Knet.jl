@@ -1,4 +1,4 @@
-using Statistics
+using Statistics, CUDA
 
 """
 `bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used
@@ -75,7 +75,7 @@ Training and test modes are controlled by the `training` keyword argument.
 
 """
 function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing;
-                   training=nothing, o...)
+                   training=training(), o...)
     xnd = ndims(x)
     a = (x,)
     if params !== nothing
@@ -83,9 +83,9 @@ function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing
         b = reshape(_bnbias(params), _wsize(x))
         a = (g, b, x)
     end
-    if ~isa(training, Bool)
-        training = isa(x, AutoGrad.Value) || isa(params, AutoGrad.Value)
-    end
+    # if ~isa(training, Bool)
+    #     training = isa(x, AutoGrad.Value) || isa(params, AutoGrad.Value)
+    # end
     if xnd == 2
         return batchnorm2(a...; o...,
                           moments=moments,
@@ -165,12 +165,12 @@ end
 # Only spatial mode is supported
 # TODO: support per-activation mode
 function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
-                    training=true,
+                    training=training(),
                     cache=nothing,
                     moments=nothing,
                     eps=1e-5,
                     alpha=1, beta=0,
-                    handle = cudnnhandle(),
+                    handle = CUDNN.handle(),
                     cache_verbose=false, #reporting cache uses
                     o...) where {T}
     y = KnetArray{T}(undef,size(x))
@@ -191,7 +191,7 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         running_var = moments.var
         momentum = moments.momentum
     else
-        running_mean, running_var = C_NULL, C_NULL
+        running_mean, running_var = CU_NULL, CU_NULL
         momentum = .1
     end
     # The training mode
@@ -201,27 +201,30 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
             mean = KnetArray{T}(undef,weight_size)
             ivar = KnetArray{T}(undef,weight_size)
         else
-            mean = C_NULL
-            ivar = C_NULL
+            mean = CU_NULL
+            ivar = CU_NULL
         end
-        @cudnn(cudnnBatchNormalizationForwardTraining,
-              # Types
-              (Cptr, UInt32,
-               Ptr{T}, Ptr{T}, #alpha and beta
-               Cptr, Ptr{T}, #xdesc and x
-               Cptr, Ptr{T}, #ydesc and y
-               Cptr, Ptr{T}, Ptr{T}, #desc, weight and bias
-               Cdouble, Ptr{T}, Ptr{T}, #Decay factor, Running mean and Running var
-               Cdouble, # eps
-               Ptr{T}, Ptr{T}), #Cached mean and ivar
-              # Actual Arguments
-              handle, bnmode,
-              Ref(T(alpha)), Ref(T(beta)),
-              TD(x), x, #x
-              TD(y), y, #y
-              TD(g), g, b, #params
-              momentum, running_mean, running_var,
-              eps, mean, ivar)
+        # @cudnn(cudnnBatchNormalizationForwardTraining,
+        #       # Types
+        #       (Cptr, UInt32,
+        #        Ptr{T}, Ptr{T}, #alpha and beta
+        #        Cptr, Ptr{T}, #xdesc and x
+        #        Cptr, Ptr{T}, #ydesc and y
+        #        Cptr, Ptr{T}, Ptr{T}, #desc, weight and bias
+        #        Cdouble, Ptr{T}, Ptr{T}, #Decay factor, Running mean and Running var
+        #        Cdouble, # eps
+        #        Ptr{T}, Ptr{T}), #Cached mean and ivar
+        #       # Actual Arguments
+        #       handle, bnmode,
+        #       Ref(T(alpha)), Ref(T(beta)),
+        #       TD(x), x, #x
+        #       TD(y), y, #y
+        #       TD(g), g, b, #params
+        #       momentum, running_mean, running_var,
+        #       eps, mean, ivar)
+        bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
+        CUDNN.cudnnBatchNormalizationForwardTraining(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), TD(x), x, TD(y), y, TD(g), g, b, momentum, running_mean, running_var, eps, mean, ivar)
+
         # Cache the resulting mean and inverse variance
         if cache != nothing
             cache_verbose && info("mean and ivar data saved to cache")
@@ -230,22 +233,24 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         end
     else
         @assert (moments!==nothing) "You must provide moments for the test mode!"
-        @cudnn(cudnnBatchNormalizationForwardInference,
-              # Types
-              (Cptr, UInt32,
-               Ptr{T}, Ptr{T},
-               Cptr, Ptr{T}, #x
-               Cptr, Ptr{T}, #y
-               Cptr, Ptr{T}, Ptr{T}, #params
-               Ptr{T}, Ptr{T}, #rm and rf
-               Cdouble),
-              handle, bnmode,
-              Ref(T(alpha)), Ref(T(beta)), #alpha and bete
-              TD(x), x, # xdesc and x
-              TD(y), y, #ydesc and y
-              TD(g), g, b, #desc, scale and bias
-              running_mean, running_var, #estimated stuff
-              eps) #epsilon
+        # @cudnn(cudnnBatchNormalizationForwardInference,
+        #       # Types
+        #       (Cptr, UInt32,
+        #        Ptr{T}, Ptr{T},
+        #        Cptr, Ptr{T}, #x
+        #        Cptr, Ptr{T}, #y
+        #        Cptr, Ptr{T}, Ptr{T}, #params
+        #        Ptr{T}, Ptr{T}, #rm and rf
+        #        Cdouble),
+        #       handle, bnmode,
+        #       Ref(T(alpha)), Ref(T(beta)), #alpha and bete
+        #       TD(x), x, # xdesc and x
+        #       TD(y), y, #ydesc and y
+        #       TD(g), g, b, #desc, scale and bias
+        #       running_mean, running_var, #estimated stuff
+        #       eps) #epsilon
+        bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
+        CUDNN.cudnnBatchNormalizationForwardInference(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), TD(x), x, TD(y), y, TD(g), g, b, running_mean, running_var, eps)
     end
     return y
 end
@@ -261,13 +266,13 @@ end
 
 function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
                          x::KnetArray{T}, dy::KnetArray{T};
-                         training=true,
+                         training=training(),
                          cache=nothing,
                          moments=nothing,
                          grad_cache_disabled=false,
                          eps=1e-5, alpha=1, beta=0,
                          dalpha=1, dbeta=0,
-                         handle = cudnnhandle(),
+                         handle = CUDNN.handle(),
                          cache_verbose=false,
                          o...) where {T}
     if training
@@ -282,25 +287,27 @@ function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
             mean, ivar = cache.mean, cache.ivar
             cache_verbose && info("mean and ivar are fetched from the cache")
         else
-            mean, ivar = C_NULL, C_NULL
+            mean, ivar = CU_NULL, CU_NULL
         end
-        @cudnn(cudnnBatchNormalizationBackward,
-              # C Types
-              (Cptr, UInt32,
-               Ptr{T}, Ptr{T}, #data difs
-               Ptr{T}, Ptr{T}, #param difs
-               Cptr, Ptr{T}, #x
-               Cptr, Ptr{T}, #dy
-               Cptr, Ptr{T}, #dx
-               Cptr, Ptr{T}, Ptr{T}, Ptr{T}, #desc,g,dg,db
-               Cdouble, Ptr{T}, Ptr{T}),
-              # Actual arguments
-              handle, bnmode,
-              Ref(T(alpha)), Ref(T(beta)),
-              Ref(T(dalpha)), Ref(T(dbeta)),
-              TD(x), x, TD(dy), dy, TD(dx), dx,
-              TD(g), g, dg, db,
-              eps, mean, ivar)
+        # @cudnn(cudnnBatchNormalizationBackward,
+        #       # C Types
+        #       (Cptr, UInt32,
+        #        Ptr{T}, Ptr{T}, #data difs
+        #        Ptr{T}, Ptr{T}, #param difs
+        #        Cptr, Ptr{T}, #x
+        #        Cptr, Ptr{T}, #dy
+        #        Cptr, Ptr{T}, #dx
+        #        Cptr, Ptr{T}, Ptr{T}, Ptr{T}, #desc,g,dg,db
+        #        Cdouble, Ptr{T}, Ptr{T}),
+        #       # Actual arguments
+        #       handle, bnmode,
+        #       Ref(T(alpha)), Ref(T(beta)),
+        #       Ref(T(dalpha)), Ref(T(dbeta)),
+        #       TD(x), x, TD(dy), dy, TD(dx), dx,
+        #       TD(g), g, dg, db,
+        #       eps, mean, ivar)
+        bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
+        CUDNN.cudnnBatchNormalizationBackward(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), Ref(T(dalpha)), Ref(T(dbeta)), TD(x), x, TD(dy), dy, TD(dx), dx, TD(g), g, dg, db, eps, mean, ivar)
 
     else
         # At test mode, g .*( x ./ sqrt(var) - mean ./ sqrt(var)) .+ beta
@@ -370,7 +377,7 @@ function batchnorm4(x::Array{T};
 end
 
 function _batchnorm4_fused(g, b, x::Array{T};
-                           eps=1e-5, training=true,
+                           eps=1e-5, training=training(),
                            cache=nothing, moments=nothing,
                            o...) where {T}
     y = copy(x)
@@ -417,7 +424,7 @@ end
 
 # CPU backward
 function batchnorm4_back(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{T};
-                         eps=1e-5, training=true,
+                         eps=1e-5, training=training(),
                          cache=nothing, moments=nothing,  o...) where {T}
     eps = T(eps)
     dims = _reddims(x)
@@ -474,7 +481,7 @@ end
 
 # Implement batchnorm2 using batchnorm4, with autograd
 
-function batchnorm2(g, b, x; moments=nothing, training=false, o...)
+function batchnorm2(g, b, x; moments=nothing, training=training(), o...)
     # TODO: This support should be added when needed
     if training == false && (isa(g, AutoGrad.Value) || isa(x, AutoGrad.Value) || isa(b, AutoGrad.Value))
         error("Test mode backward is not supported with 2d inputs")

@@ -110,7 +110,7 @@ using AutoGrad
 # using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
 
 include("gpu.jl");              # gpu
-include("uva.jl")
+# include("uva.jl")
 include("kptr.jl");
 include("karray.jl");           # KnetArray
 include("cuarrays/knetarray.jl");
@@ -136,7 +136,7 @@ include("dropout.jl");          # dropout
 include("cuarrays/dropout.jl");
 include("update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
 include("distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
-include("random.jl");           # setseed  # TODO: deprecate setseed
+# include("random.jl");           # setseed  # TODO: deprecate setseed
 include("hyperopt.jl");         # hyperband, goldensection
 include("serialize.jl");        # gpucopy,cpucopy
 include("jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.

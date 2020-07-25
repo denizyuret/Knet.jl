@@ -1,3 +1,5 @@
+using CUDA
+
 """
     bmm(A, B ; transA=false, transB=false)
 Perform a batch matrix-matrix product of matrices stored in `A` and `B`. size(A,2) ==
@@ -28,7 +30,7 @@ function bmm(A::KnetArray{T}, B::KnetArray{T}; transA::Bool = false, transB::Boo
 end 
 
 function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
-    cublasop(c::Char)=(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
+    cublasop(c::Char)=CUBLAS.cublasOperation_t(if c==='N'; 0; elseif c==='T'; 1; elseif c==='C'; 2; else error("Unknown cublas op $c"); end)
     if ndims(A) != 3 || ndims(B) != 3
         throw(DimensionMismatch("$(map(size,(A,B,C)))"))
     end
@@ -56,9 +58,11 @@ function bmm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Knet
     alpha = T[alpha]; beta = T[beta]
     strideA, strideB, strideC = m*k, k*n, m*n
     if T<:Float64
-        @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        # @cublas(cublasDgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        CUBLAS.cublasDgemmStridedBatched(CUBLAS.handle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     elseif T<:Float32
-        @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        # @cublas(cublasSgemmStridedBatched, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Clonglong, Ptr{T}, Cint, Clonglong, Ptr{T}, Ptr{T}, Cint, Clonglong, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
+        CUBLAS.cublasSgemmStridedBatched(CUBLAS.handle(), transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, bs)
     else
         error("CUBLAS does not support $T")
     end

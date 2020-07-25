@@ -11,12 +11,14 @@ function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
     if !haskey(s,x)
         if isa(x.ptr, Cptr) && (x.dev >= 0)
             a = Array{UInt8}(undef,x.len)
-            @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
+            # @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
+            unsafe_copyto!(pointer(a), CuPtr{UInt8}(UInt(x.ptr)), x.len)
             s[x] = KnetPtr(a,x.len,-1,nothing)
         elseif isa(x.ptr, Array{UInt8,1})
             if gpu() >= 0
                 s[x] = KnetPtr(x.len)
-                @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),s[x].ptr,pointer(x.ptr),x.len,1)
+                # @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),s[x].ptr,pointer(x.ptr),x.len,1)
+                unsafe_copyto!(CuPtr{UInt8}(UInt(s[x].ptr)), pointer(x.ptr), x.len)
             else
                 s[x] = x  # Leave conversion to array to KnetArray
             end

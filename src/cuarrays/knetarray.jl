@@ -1,9 +1,9 @@
-using CUDA: CuPtr, unsafe_free!, usage_limit
-import CUDA: CuArray
-
 ### Use CuArrays kernels as fallback for undefined KnetArray operations.
 
+using CUDA: CuPtr, unsafe_free!, usage_limit, CURAND
+import CUDA: CuArray
 import Base: getindex, setindex!, permutedims, permutedims!, cat, hcat, vcat, unsafe_convert
+import Random: rand!, randn!
 
 # Extend function CuArray to create a memory shared CuArray from KnetArray:
 # Avoid the cu function as it changes eltype to Float32
@@ -141,3 +141,8 @@ function broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where T
     return b
 end
 
+# Functions from old random.jl:
+
+rand!(a::KnetArray)=(rand!(CuArray(a)); a)
+randn!(a::KnetArray)=(randn!(CuArray(a)); a)
+seed!(n::Integer)=(CURAND.seed!(n); Random.seed!(n))

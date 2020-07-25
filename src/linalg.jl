@@ -1,4 +1,4 @@
-using LinearAlgebra
+using LinearAlgebra, CUDA
 
 import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
 # import Base: A_mul_B!
@@ -45,7 +45,7 @@ At_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','T',one(T),A
 
 
 function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
-    cublasop(c::Char)=(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
+    cublasop(c::Char)=CUBLAS.cublasOperation_t(if c=='N'; 0; elseif c=='T'; 1; elseif c=='C'; 2; else error("Unknown cublas op $c"); end)
     size2(x,i)=(if ndims(x)<=2; size(x,i); elseif i==1; div(length(x),size(x,ndims(x))); elseif i==2; size(x,ndims(x)); else 1; end)
     if transA == 'N'
         m=size2(A,1); k=size2(A,2)
@@ -62,9 +62,11 @@ function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Kne
     alpha = T[alpha]; beta = T[beta]
     lda = size2(A,1); ldb = size2(B,1); ldc = size2(C,1)
     if T<:Float64
-        @cublas(cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        # @cublas(cublasDgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        CUBLAS.cublasDgemm_v2(CUBLAS.handle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     elseif T<:Float32
-        @cublas(cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        # @cublas(cublasSgemm_v2, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        CUBLAS.cublasSgemm_v2(CUBLAS.handle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     # elseif T<:Float16
     #     @cublas(cublasHgemm, (Cptr, UInt32, UInt32, Cint, Cint, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
     else
@@ -77,9 +79,11 @@ function axpy!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::Kne
     length(x) == length(y) || throw(DimensionMismatch("$(map(size,(x,y)))"))
     alpha = T[alpha]
     if T<:Float32
-        @cublas(cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        # @cublas(cublasSaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        CUBLAS.cublasSaxpy_v2(CUBLAS.handle(), n, alpha, x, incx, y, incy)
     elseif T<:Float64
-        @cublas(cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        # @cublas(cublasDaxpy_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx, y, incy)
+        CUBLAS.cublasDaxpy_v2(CUBLAS.handle(), n, alpha, x, incx, y, incy)
     else
         error("$T not supported")
     end
@@ -92,9 +96,11 @@ axpy!(alpha::Number, x::KnetArray{T}, y::KnetArray{T}) where {T} = axpy!(length(
 function scal!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer) where {T}
     alpha = T[alpha]
     if T<:Float32
-        @cublas(cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        # @cublas(cublasSscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        CUBLAS.cublasSscal_v2(CUBLAS.handle(), n, alpha, x, incx)
     elseif T<:Float64
-        @cublas(cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        # @cublas(cublasDscal_v2, (Cptr, Cint, Ptr{T}, Ptr{T}, Cint), cublashandle(), n, alpha, x, incx)
+        CUBLAS.cublasDscal_v2(CUBLAS.handle(), n, alpha, x, incx)
     else
         error("$T not supported")
     end
@@ -111,11 +117,15 @@ _transpose(x::KnetMatrix) = _transpose!(similar(x,(size(x,2),size(x,1))),x)
 
 function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
     if T<:Float32
-        @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+        # @cublas(cublasSgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+        #         cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+        op = CUBLAS.cublasOperation_t(1)
+        CUBLAS.cublasSgeam(CUBLAS.handle(),op,op,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     elseif T<:Float64
-        @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
-              cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+        # @cublas(cublasDgeam, (Cptr,UInt32,UInt32,Cint,Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Ptr{T},Cint,Ptr{T},Cint),
+        #         cublashandle(),1,1,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
+        op = CUBLAS.cublasOperation_t(1)
+        CUBLAS.cublasDgeam(CUBLAS.handle(),op,op,size(y,1),size(y,2),Ref(T(1.0)),x,size(x,1),Ref(T(0.0)),x,size(x,1),y,size(y,1))
     else
         error("CUBLAS does not support $T")
     end
