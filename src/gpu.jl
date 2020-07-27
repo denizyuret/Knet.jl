@@ -1,5 +1,5 @@
-using CUDA, TimerOutputs, Libdl
-const libknet8 = Libdl.find_library(["libknet8"], [joinpath(dirname(@__DIR__),"deps")])
+using CUDA, TimerOutputs, Libdl, Pkg.Artifacts
+const libknet8 = Libdl.find_library(["libknet8"], [artifact"libknet8"])
 const tk = CUDA.find_toolkit()
 const tkver = isempty(tk) ? v"0" : CUDA.parse_toolkit_version(CUDA.find_cuda_binary("ptxas", tk)) # v"0" because "nothing" will crash precompilation
 const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
