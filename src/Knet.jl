@@ -158,7 +158,9 @@ dir(path...) = joinpath(dirname(@__DIR__),path...)
 
 # See if we have a gpu at initialization:
 function __init__()
-    try
+    if !CUDA.functional()
+        @warn "Knet cannot use the GPU: CUDA.jl is not functional"
+    else; try
         dev = gpu(true)
         if dev >= 0
             AutoGrad.set_gc_function(Knet.knetgcnode)
@@ -169,7 +171,7 @@ function __init__()
     catch e
         gpu(false)
         @warn "Knet cannot use the GPU: $e"
-    end
+    end; end
 end
 
 
