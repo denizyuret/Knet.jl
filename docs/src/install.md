@@ -16,44 +16,15 @@ mailing list.
 
 ## Installation
 
-For best results install (1) Julia, (2) a host compiler, (3) GPU tools, and (4) Knet in that order. Steps (2) and (3) can be skipped if you do not need GPU support. An optional step (5) below describes how to interact with the Knet tutorial notebooks.
+For best results install (1) Julia, (2) CUDA.jl, (3) Knet.jl in that order. Step (2) can be skipped if you do not need GPU support. An optional step (4) below describes how to interact with the Knet tutorial notebooks.
 
-1. **Julia:** Download and install the latest version of Julia from [julialang.org](http://julialang.org/downloads). As of this writing the latest version is 1.4.1 and I have tested Knet using 64-bit Generic Linux binaries, the macOS package (10.8+ 64-bit dmg), and 64-bit Windows Self Extracting Archive (exe).
+1. **Julia:** Download and install the latest version of Julia from [julialang.org](http://julialang.org/downloads). As of this writing the latest version is 1.4.2 and I have tested Knet using 64-bit binaries for Generic Linux on x86, macOS, and Windows.
 
-2. **Host compiler:** On Linux, the gcc compiler that comes standard with all distributions is supported. On Mac you need to install [Xcode](https://developer.apple.com/xcode/) which provides the clang compiler. On Windows you need the Visual C++ compiler which comes with Visual Studio or Build Tools. I have tested on Windows 10 with [Build Tools for Visual Studio 2019](https://visualstudio.microsoft.com/downloads)  (67MB). On the setup screen I added "C++ build tools" (1.15GB) and I had to manually add the location of cl.exe to my PATH environment variable: `C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.25.28610\bin\Hostx64\x64`.
+2. **CUDA.jl:** If you are going to use an NVIDIA GPU, start Julia and install CUDA.jl with `using Pkg; Pkg.add("CUDA")` and test it with `using CUDA; CUDA.functional()`. If CUDA is not functional, Knet will not be able to use the GPU. If this is the case please see CUDA.jl documentation for troubleshooting.
 
-3. **GPU tools:** If your machine has an NVIDIA GPU, Knet will automatically discover it and compile support code if you have the required host compiler (step 2), [driver](http://www.nvidia.com/Download/index.aspx) (400MB), [toolkit](https://developer.nvidia.com/cuda-downloads) (2.5GB) and [cuDNN library](https://developer.nvidia.com/cudnn) (254MB) installed. cuDNN usually comes in a zip file -- after unzipping you may need to copy its files to the CUDA installation directory. 
+3. **Knet:** to install Knet start Julia and run `using Pkg; Pkg.add("Knet")`. If you have problems with the installation, you can get support from [knet-users](https://groups.google.com/forum/#!forum/knet-users).
 
-    It is expected that the `CUDA` package is installed in Julia. Ensure that all of its tests pass before expecting Knet to succeed in using the GPU. 
-
-    If Knet was installed before the GPU tools, rebuild it with `using Pkg; Pkg.build("Knet")`.
-    
-    Building Knet with the GPU tools on Windows requires the Visual Studio `cl.exe` to be in the path, which means adding `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.22.27905\bin\Hostx86\x64` to the environment variables (for example).
-
-4. **Knet:** to install Knet start Julia and run `using Pkg; Pkg.add("Knet")`.
-
-   (optional) If you have a gpu, you can make sure Knet is set up properly with `using Knet; include(Knet.dir("test/gpu.jl"))`. You can also run `using Pkg; Pkg.test("Knet")` for a more comprehensive set of tests that takes about 10 minutes.
-
-5. **Tutorial:** The best way to learn Knet is through the included [Jupyter notebooks](https://github.com/denizyuret/Knet.jl/tree/master/tutorial). You need the IJulia package to run the notebooks which can be installed with: `using Pkg; Pkg.add("IJulia")`. You can then interact with the tutorial notebooks with: `using IJulia, Knet; notebook(dir=Knet.dir("tutorial"))`. This should open a browser with a list of tutorial notebooks. If you have not used Jupyter before, please take a look at Jupyter notebook tutorials online. Note that the first time `notebook()` is run, there may be a long startup time for installations.
-
-### Installation problems
-
-Sometimes when Knet or CUDA libraries are updated or moved, the
-precompiled binaries get out of sync and you may get errors like:
-
-    ccall: could not find function xxx in library libknet8.so
-
-I recommend the following steps to refresh everything:
-
-    shell> rm ~/.julia/compiled/v1.*/Knet/*.ji
-    shell> cd ~/.julia/packages/Knet/*/deps
-    shell> make clean  # or remove *.cu if you don't have make
-    shell> julia
-    julia> using Pkg; Pkg.build("Knet")
-
-This refreshes all precompiled binaries and should typically solve the
-problem. If problems continue, you can get support from
-[knet-users](https://groups.google.com/forum/#!forum/knet-users).
+4. **Tutorial:** The best way to learn Knet is through the included [Jupyter notebooks](https://github.com/denizyuret/Knet.jl/tree/master/tutorial). You need the IJulia package to run the notebooks which can be installed with: `using Pkg; Pkg.add("IJulia")`. You can then interact with the tutorial notebooks with: `using IJulia, Knet; notebook(dir=Knet.dir("tutorial"))`. This should open a browser with a list of tutorial notebooks. If you have not used Jupyter before, please take a look at Jupyter notebook tutorials online. Note that the first time `notebook()` is run, there may be a long startup time for installations.
 
 ## Tips for developers
 
