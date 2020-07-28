@@ -109,37 +109,35 @@ using AutoGrad
 
 # using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
 
-include("gpu.jl");              # gpu
-# include("uva.jl")
-include("kptr.jl");
-include("karray.jl");           # KnetArray
+include("knetarrays/gpu.jl");              # gpu
+include("knetarrays/kptr.jl");
+include("knetarrays/karray.jl");           # KnetArray
 include("cuarrays/knetarray.jl");
 include("cuarrays/autograd.jl");
 include("cuarrays/getindex.jl");
-include("gcnode.jl");
-include("ops.jl");
-include("unary.jl");            # relu, sigm, invx, elu, selu
-include("binary.jl");           # elementwise broadcasting operations
-include("reduction.jl");        # sum, max, etc.
+include("knetarrays/gcnode.jl");
+include("cuda/ops.jl");
+include("knetarrays/unary.jl");            # relu, sigm, invx, elu, selu
+include("knetarrays/binary.jl");           # elementwise broadcasting operations
+include("knetarrays/reduction.jl");        # sum, max, etc.
 include("cuarrays/reduction.jl");
-include("statistics.jl");       # mean, std, var, stdm, varm
-include("linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
-include("bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
-include("conv.jl");             # conv4, pool, deconv4, unpool
-include("batchnorm.jl");        # batchnorm, bnmoments, bnparams
-include("rnn.jl");              # RNN, rnnparam, rnnparams
-include("data.jl");             # Data, minibatch
-include("progress.jl");         # progress, progress!
-include("train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
-include("loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
-include("dropout.jl");          # dropout
+include("knetarrays/statistics.jl");       # mean, std, var, stdm, varm
+include("knetarrays/linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
+include("ops/bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
+include("ops/conv.jl");             # conv4, pool, deconv4, unpool
+include("ops/batchnorm.jl");        # batchnorm, bnmoments, bnparams
+include("ops/rnn.jl");              # RNN, rnnparam, rnnparams
+include("data/data.jl");             # Data, minibatch
+include("train/progress.jl");         # progress, progress!
+include("train/train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
+include("ops/loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
+include("ops/dropout.jl");          # dropout
 include("cuarrays/dropout.jl");
-include("update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
-include("distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
-# include("random.jl");           # setseed  # TODO: deprecate setseed
-include("hyperopt.jl");         # hyperband, goldensection
-include("serialize.jl");        # gpucopy,cpucopy
-include("jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
+include("train/update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
+include("ops/distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
+include("train/hyperopt.jl");         # hyperband, goldensection
+include("knetarrays/serialize.jl");        # gpucopy,cpucopy
+include("knetarrays/jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
 
 
 """
