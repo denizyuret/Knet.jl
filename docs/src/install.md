@@ -38,10 +38,8 @@ list and follow these tips:
 -   Please get an account at [github.com](https://www.github.com).
 -   [Fork](https://help.github.com/articles/fork-a-repo) the [Knet
     repository](https://github.com/denizyuret/Knet.jl).
--   Point Julia to your fork using
-    `Pkg.clone("git@github.com:your-username/Knet.jl.git")` and
-    `Pkg.build("Knet")`. You may want to remove any old versions with
-    `Pkg.rm("Knet")` first.
+-   Point Julia to your fork with
+    `using Pkg; pkg"dev git@github.com:your-username/Knet.jl.git"`.
 -   Make sure your [fork is
     up-to-date](https://help.github.com/articles/syncing-a-fork).
 -   Retrieve the latest version of the master branch using
