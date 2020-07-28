@@ -145,4 +145,4 @@ end
 
 rand!(a::KnetArray)=(rand!(CuArray(a)); a)
 randn!(a::KnetArray)=(randn!(CuArray(a)); a)
-seed!(n::Integer)=(CURAND.seed!(n); Random.seed!(n))
+seed!(n::Integer)=(CUDA.functional() && CURAND.seed!(n); Random.seed!(n))
