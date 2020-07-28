@@ -20,7 +20,7 @@ For best results install (1) Julia, (2) CUDA.jl, (3) Knet.jl in that order. Step
 
 1. **Julia:** Download and install the latest version of Julia from [julialang.org](http://julialang.org/downloads). As of this writing the latest version is 1.4.2 and I have tested Knet using 64-bit binaries for Generic Linux on x86, macOS, and Windows.
 
-2. **CUDA.jl:** If you are going to use an NVIDIA GPU, start Julia and install CUDA.jl with `using Pkg; Pkg.add("CUDA")` and test it with `using CUDA; CUDA.functional()`. If CUDA is not functional, Knet will not be able to use the GPU. If this is the case please see CUDA.jl documentation for troubleshooting.
+2. **CUDA.jl:** If you are going to use an NVIDIA GPU, start Julia and install CUDA.jl with `using Pkg; Pkg.add("CUDA")`. The Julia CUDA stack requires users to have a functional NVIDIA driver, see [CUDA.jl installation instructions](https://juliagpu.gitlab.io/CUDA.jl/installation/overview) for detailed requirements. You can test your installation with `using CUDA; CUDA.functional()`, if CUDA is not functional, Knet will not be able to use the GPU.
 
 3. **Knet:** to install Knet start Julia and run `using Pkg; Pkg.add("Knet")`. If you have problems with the installation, you can get support from [knet-users](https://groups.google.com/forum/#!forum/knet-users).
 
