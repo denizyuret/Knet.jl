@@ -3,7 +3,10 @@ documentation, generic implementations and gradient definitions. KnetArray and C
 implementations should go to knetarrays and cuarrays folders. Some implementations may be
 imported from other packages, e.g. NNlib.
 
-    accuracy
+Functions in Ops and Base can/should have array-type specific implementations. All other
+levels (layers, models) should be generic and should work with any cpu/gpu array type
+without changing the code.
+
     batchnorm
     bce
     bilinear
@@ -15,7 +18,6 @@ imported from other packages, e.g. NNlib.
     deconv4
     dropout
     elu
-    gaussian
     invx
     logistic
     logp
@@ -33,7 +35,3 @@ imported from other packages, e.g. NNlib.
     sigm
     softmax
     unpool
-    xavier
-    xavier_uniform
-    xavier_normal
-    zeroone

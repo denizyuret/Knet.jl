@@ -109,14 +109,14 @@ using AutoGrad
 
 # using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
 
+include("cuda/ops.jl");
 include("knetarrays/gpu.jl");              # gpu
 include("knetarrays/kptr.jl");
 include("knetarrays/karray.jl");           # KnetArray
-include("cuarrays/knetarray.jl");
+include("knetarrays/cuarray.jl");
 include("cuarrays/autograd.jl");
 include("cuarrays/getindex.jl");
 include("knetarrays/gcnode.jl");
-include("cuda/ops.jl");
 include("knetarrays/unary.jl");            # relu, sigm, invx, elu, selu
 include("knetarrays/binary.jl");           # elementwise broadcasting operations
 include("knetarrays/reduction.jl");        # sum, max, etc.
@@ -134,7 +134,7 @@ include("ops/loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll,
 include("ops/dropout.jl");          # dropout
 include("cuarrays/dropout.jl");
 include("train/update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
-include("ops/distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
+include("train/distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
 include("train/hyperopt.jl");         # hyperband, goldensection
 include("knetarrays/serialize.jl");        # gpucopy,cpucopy
 include("knetarrays/jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.

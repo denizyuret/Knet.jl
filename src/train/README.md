@@ -1,3 +1,4 @@
+    accuracy
     adadelta!
     Adadelta
     adadelta
@@ -9,6 +10,7 @@
     adam
     converge!
     converge
+    gaussian
     goldensection
     hyperband
     minimize!
@@ -35,3 +37,7 @@
     #train
     training
     update!
+    xavier
+    xavier_uniform
+    xavier_normal
+    zeroone
