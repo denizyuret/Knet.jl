@@ -79,7 +79,7 @@ accuracy(LeNet,dtst)
 
 Knet is an open-source project and we are always open to new contributions: bug reports and
 fixes, feature requests and contributions, new machine learning models and operators,
-inspiring examples, benchmarking results are all welcome.
+inspiring examples, benchmarking results are all welcome. See [Tips for Developers](https://denizyuret.github.io/Knet.jl/latest/install/#Tips-for-developers) for instructions.
 
 Current contributors:
 

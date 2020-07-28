@@ -1,5 +1,13 @@
+Knet v1.3.9 Release Notes
+=========================
+
+* Replaced all @cuda calls with CUDA.jl calls, leaving no dependence on external CUDA libraries except for the ones that come with CUDA.jl.
+* Added libknet8 as an artifact for easier installation, removing the requirement to have nvcc and a host compiler.
+
+
 Knet v1.3.8 Release Notes
 =========================
+2667e29 2020-07-24
 
 * Update CUDA.jl version.
 * CuArray performance improvements.

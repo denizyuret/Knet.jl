@@ -31,6 +31,7 @@ coverage:
   extends:
     - .julia:1.4
     - .coverage
+  allow_failure: true
 
 # documentation:
 #   extends:
