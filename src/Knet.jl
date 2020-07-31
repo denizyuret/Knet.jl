@@ -28,6 +28,7 @@ export		# ref:reference.md tut:tutorial
     converge!,	# ref
     converge,	# ref, tut
     cpucopy,	# ref
+    CuArray,
     #Data,	# tut, use Knet.Data
     deconv4,	# ref
     @diff,	# ref, tut
@@ -105,39 +106,48 @@ export		# ref:reference.md tut:tutorial
     #@zerograd, # ref, use AutoGrad.@zerograd
     zeroone	# ref, tut
 
-using AutoGrad
+using AutoGrad, CUDA
+
+# This is used by dropout, batchnorm etc to have code run differently during training vs inference.
+"`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
+training() = AutoGrad.recording()
+
+include("ops/Ops20.jl")
+include("knetarrays/KnetArrays.jl")
+include("cuarrays/CuArrays.jl")
+include("train/Train.jl")
+include("data/Data.jl")
 
 # using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
-
-include("cuda/ops.jl");
-include("knetarrays/gpu.jl");              # gpu
-include("knetarrays/kptr.jl");
-include("knetarrays/karray.jl");           # KnetArray
-include("knetarrays/cuarray.jl");
-include("cuarrays/autograd.jl");
-include("cuarrays/getindex.jl");
-include("knetarrays/gcnode.jl");
-include("knetarrays/unary.jl");            # relu, sigm, invx, elu, selu
-include("knetarrays/binary.jl");           # elementwise broadcasting operations
-include("knetarrays/reduction.jl");        # sum, max, etc.
-include("cuarrays/reduction.jl");
-include("knetarrays/statistics.jl");       # mean, std, var, stdm, varm
-include("knetarrays/linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
-include("ops/bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
-include("ops/conv.jl");             # conv4, pool, deconv4, unpool
-include("ops/batchnorm.jl");        # batchnorm, bnmoments, bnparams
-include("ops/rnn.jl");              # RNN, rnnparam, rnnparams
-include("data/data.jl");             # Data, minibatch
-include("train/progress.jl");         # progress, progress!
-include("train/train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
-include("ops/loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
-include("ops/dropout.jl");          # dropout
-include("cuarrays/dropout.jl");
-include("train/update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
-include("train/distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
-include("train/hyperopt.jl");         # hyperband, goldensection
-include("knetarrays/serialize.jl");        # gpucopy,cpucopy
-include("knetarrays/jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
+# include("cuda/ops.jl");
+# include("knetarrays/gpu.jl");              # gpu
+# include("knetarrays/kptr.jl");
+# include("knetarrays/karray.jl");           # KnetArray
+# include("knetarrays/cuarray.jl");
+# include("cuarrays/autograd.jl");
+# include("cuarrays/getindex.jl");
+# include("knetarrays/gcnode.jl");
+# include("knetarrays/unary.jl");            # relu, sigm, invx, elu, selu
+# include("knetarrays/binary.jl");           # elementwise broadcasting operations
+# include("knetarrays/reduction.jl");        # sum, max, etc.
+# include("cuarrays/reduction.jl");
+# include("knetarrays/statistics.jl");       # mean, std, var, stdm, varm
+# include("knetarrays/linalg.jl");           # mat # matmul, axpy!, transpose, (i)permutedims
+# include("ops/bmm.jl");              # bmm # matmul, axpy!, transpose, (i)permutedims
+# include("ops/conv.jl");             # conv4, pool, deconv4, unpool
+# include("ops/batchnorm.jl");        # batchnorm, bnmoments, bnparams
+# include("ops/rnn.jl");              # RNN, rnnparam, rnnparams
+# include("data/data.jl");             # Data, minibatch
+# include("train/progress.jl");         # progress, progress!
+# include("train/train.jl");		# train, train!, minimize, minimize!, converge, converge!, param, param0
+# include("ops/loss.jl");             # logp, logsoftmax, logsumexp, softmax, nll, logistic, bce, accuracy, zeroone # TODO: PR
+# include("ops/dropout.jl");          # dropout
+# include("cuarrays/dropout.jl");
+# include("train/update.jl"); 		# SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adam, adam, adam!, Adagrad, adagrad, adagrad!, Adadelta, adadelta, adadelta!, Rmsprop, rmsprop, rmsprop!, update!, optimizers
+# include("train/distributions.jl"); 	# gaussian, xavier, bilinear, xavier_uniform, xavier_normal
+# include("train/hyperopt.jl");         # hyperband, goldensection
+# include("knetarrays/serialize.jl");        # gpucopy,cpucopy
+# include("knetarrays/jld.jl");              # load, save, @load, @save; not exported use with Knet. prefix.
 
 
 """

@@ -1,3 +1,5 @@
+using ..Ops20: RNN
+
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
 const CPUMODE=Val(2)

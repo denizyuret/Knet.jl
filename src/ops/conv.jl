@@ -1,6 +1,7 @@
 using LinearAlgebra: lmul!
-using LinearAlgebra.BLAS: gemm!
-using NNlib, CUDA
+import NNlib
+expand(N, i::Tuple) = i
+expand(N, i::Integer) = ntuple(_ -> i, N)
 
 """
 
@@ -30,68 +31,41 @@ dimension.
 * `dilation=1`: dilation factor for each dimension.
 * `mode=0`: 0 for convolution and 1 for cross-correlation.
 * `alpha=1`: can be used to scale the result.
-* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
+* `group=1`: can be used to perform grouped convolutions.
 
 """
-function conv4(w::KnetArray{T},x::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
-               o...) where {T} # padding=0, stride=1, dilation=1, mode=0
-    beta=0 # nonzero beta does not make sense when we create y
-    y = similar(x, cdims(w,x;o...))
-    (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
-    # @cudnn(cudnnConvolutionForward,
-    #       (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,   UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-    #       handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
-    algo = CUDNN.cudnnConvolutionFwdAlgo_t(algo)
-    CUDNN.cudnnConvolutionForward(handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
-    return y
+function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
+               padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
+    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    y = NNlib.conv(x, w, cdims)
+    alpha == 1 ? y : lmul!(alpha, y)
 end
 
-function conv4x(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
-                   o...) where {T} # padding=0, stride=1, dilation=1, mode=0
-    beta = 0
-    dx = similar(x)
-    (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
-    # if cudnnVersion >= 4000
-    #     @cudnn(cudnnConvolutionBackwardData,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
-    # elseif cudnnVersion >= 3000
-    #     @cudnn(cudnnConvolutionBackwardData_v3,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
-    # else
-    #     @cudnn(cudnnConvolutionBackwardData,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),TD(dx),dx)
-    # end
-    algo = CUDNN.CUDA.CUDNN.cudnnConvolutionBwdDataAlgo_t(algo)
-    CUDNN.cudnnConvolutionBackwardData(handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
-    return dx
+function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
+    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dw = NNlib.∇conv_filter(x, dy, cdims)
+    alpha == 1 ? dw : lmul!(alpha, dw)
 end
 
-function conv4w(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
-                   o...) where {T} # padding=0, stride=1, dilation=1, mode=0
-    beta = 0
-    dw = similar(w)
-    (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
-    # if cudnnVersion >= 4000
-    #     @cudnn(cudnnConvolutionBackwardFilter,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
-    # elseif cudnnVersion >= 3000
-    #     @cudnn(cudnnConvolutionBackwardFilter_v3,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,     UInt32,Cptr,     Csize_t,             Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
-    # else
-    #     @cudnn(cudnnConvolutionBackwardFilter,
-    #           (Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,       Ptr{T},Cptr,Ptr{T}),
-    #           handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),Ref(T(beta)),FD(dw),dw)
-    # end
-    algo = CUDA.CUDNN.cudnnConvolutionBwdFilterAlgo_t(algo)
-    CUDNN.cudnnConvolutionBackwardFilter(handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
-    return dw
+function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
+                padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
+    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    stride = expand(Val(N-2), stride)
+    padding = expand(Val(N-2), padding)
+    dilation = expand(Val(N-2), dilation)
+    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dx = NNlib.∇conv_data(dy, w, cdims)
+    alpha == 1 ? dx : lmul!(alpha, dx)
 end
-
 
 @primitive conv4(w,x; o...),dy  conv4w(w,x,dy;o...)  conv4x(w,x,dy;o...)
 @zerograd  conv4x(w,x,dy;o...)
@@ -124,110 +98,52 @@ with entries for each spatial dimension.
 * `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
 * `stride=window`: the number of elements to slide to reach the next pooling window.
 * `mode=0`: 0 for max, 1 for average including padded values, 2 for average excluding padded values.
-* `maxpoolingNanOpt=0`: Nan numbers are not propagated if 0, they are propagated if 1.
+* `maxpoolingNanOpt=1`: Nan numbers are not propagated if 0, they are propagated if 1.
 * `alpha=1`: can be used to scale the result.
-* `handle`: Handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
 
 """
-function pool(x::KnetArray{T}; handle=CUDNN.handle(), alpha=1,
-                 o...) where {T} # window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0
-    y = similar(x, pdims(x; o...))
-    beta = 0
-    # @cudnn(cudnnPoolingForward,
-    #       (Cptr, Cptr,      Ptr{T},    Cptr,Ptr{T},Ptr{T},   Cptr,Ptr{T}),
-    #       handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
-    CUDNN.cudnnPoolingForward(handle,PD(x;o...),Ref(T(alpha)),TD(x),x,    Ref(T(beta)),TD(y),y)
-    return y
-end
-
-function poolx(x::KnetArray{T},y::KnetArray{T},dy::KnetArray{T}; handle=CUDNN.handle(), alpha=1, mode=0,
-                  o...) where {T} # window=2, padding=0, stride=window, maxpoolingNanOpt=0
-    dx = similar(x)
-    beta = 0
-    # @cudnn(cudnnPoolingBackward,
-    #       (Cptr,Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Cptr,Ptr{T},Ptr{T},Cptr,Ptr{T}),
-    #       handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
-    CUDNN.cudnnPoolingBackward(handle,PD(x;mode=mode,o...),Ref(T(alpha)),TD(y),y,TD(dy),dy,TD(x),x,Ref(T(beta)),TD(dx),dx)
-    return dx
-end
-
-@primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
-@zerograd  poolx(x,y,dy;o...)
-
-
-### CPU convolution using NNlib
-
-expand(N, i::Tuple) = i
-expand(N, i::Integer) = ntuple(_ -> i, N)
-
-function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
-               padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    y = conv(x, w, cdims)
-    alpha == 1 ? y : lmul!(alpha, y)
-end
-
-function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dw = ∇conv_filter(x, dy, cdims)
-    alpha == 1 ? dw : lmul!(alpha, dw)
-end
-
-function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1) where {T,N}
-    stride = expand(Val(N-2), stride)
-    padding = expand(Val(N-2), padding)
-    dilation = expand(Val(N-2), dilation)
-    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dx = ∇conv_data(dy, w, cdims)
-    alpha == 1 ? dx : lmul!(alpha, dx)
-end
-
-# TODO: handle alpha, maxpoolingNanOpt, mode
-# TODO: pool(ka(x), stride=1) gives error
-
-function pool(x::AbstractArray{T,N}; handle=nothing,
-              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+function pool(x::AbstractArray{T,N}; 
+              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
+    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert mode==0 || mode==1 "mode=$mode not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
-    pdims = PoolDims(x, window; padding = padding, stride = stride)
-    y = (mode == 0 ? maxpool(x, pdims) :
-         mode == 1 ? meanpool(x, pdims) :
+    pdims = NNlib.PoolDims(x, window; padding = padding, stride = stride)
+    y = (mode == 0 ? NNlib.maxpool(x, pdims) :
+         mode == 1 ? NNlib.meanpool(x, pdims) :
          # mode == 2 ? meanpool(x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
          error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? y : lmul!(alpha, y)
 end
 
-function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; handle=nothing,
-               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=0) where {T,N}
+function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; 
+               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
+    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert mode==0 || mode==1 "mode=$mode not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
     if alpha != 1
         y = y ./ T(alpha)
     end
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
-    pdims = PoolDims(x, window; padding = padding, stride = stride)
-    dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
-          mode == 1 ? ∇meanpool(dy, y, x, pdims) :
+    pdims = NNlib.PoolDims(x, window; padding = padding, stride = stride)
+    dx = (mode == 0 ? NNlib.∇maxpool(dy, y, x, pdims) :
+          mode == 1 ? NNlib.∇meanpool(dy, y, x, pdims) :
           # mode == 2 ? ∇meanpool(dy, y, x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
           error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? dx : lmul!(alpha, dx)
 end
+
+@primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
+@zerograd  poolx(x,y,dy;o...)
 
 
 """
 
 Unpooling; `reverse` of pooling. 
 
-TODO: Does not work correctly for every window, padding, mode combination. Test before use.
+Warning: Does not work correctly for every window, padding, mode combination. Test before use. #TODO
 
     x == pool(unpool(x;o...); o...)
 
@@ -243,7 +159,6 @@ function unpoolx(dy; window=2, alpha=1, o...) # padding=0, stride=window, mode=0
     pool(dy; o..., window=window, mode=1, alpha=1/alpha) * w
 end
 
-# @primitive unpool(x;o...),dy,y -pool(-dy;o...)
 @primitive  unpool(x;o...),dy,y  unpoolx(dy;o...)
 
 
@@ -296,173 +211,8 @@ end
 @zerograd deconv4w(w,x,dy; o...)
 @zerograd deconv4x(w,x,dy; o...)
 
-# cudnn descriptors
 
-mutable struct TD; ptr; end
-TD(a::KnetArray{T}) where {T} = TD(T,size(a))
-TD(T::Type, dims::Integer...) = TD(T, dims)
-function TD(T::Type, dims)
-    d = Cptr[0]
-    # @cudnn(cudnnCreateTensorDescriptor,(Ptr{Cptr},),d)
-    CUDNN.cudnnCreateTensorDescriptor(d)
-    n = length(dims)
-    sz = [Cint(dims[i]) for i=n:-1:1]
-    st = similar(sz); st[n] = 1
-    for i=(n-1):-1:1; st[i] = st[i+1] * sz[i+1]; end
-    # @cudnn(cudnnSetTensorNdDescriptor,
-    #       (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint}),
-    #       d[1], DT(T), n, sz, st)
-    dt = CUDNN.cudnnDataType_t(DT(T))
-    CUDNN.cudnnSetTensorNdDescriptor(d[1], dt, n, sz, st)
-    td = TD(d[1])
-    #finalizer(x->@cudnn(cudnnDestroyTensorDescriptor,(Cptr,),x.ptr), td)
-    finalizer(x->CUDNN.cudnnDestroyTensorDescriptor(x.ptr), td)
-    return td
-end
-
-mutable struct FD; ptr; end
-FD(a::KnetArray{T}) where {T}=FD(T,size(a))
-FD(T::Type, dims::Integer...) = FD(T,dims)
-function FD(T::Type, dims)
-    d = Cptr[0]
-    # @cudnn(cudnnCreateFilterDescriptor,(Ptr{Cptr},),d)
-    CUDNN.cudnnCreateFilterDescriptor(d)
-    n = length(dims)
-    sz = [Cint(dims[i]) for i=n:-1:1]
-    # if cudnnVersion >= 5000
-    #     @cudnn(cudnnSetFilterNdDescriptor,
-    #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-    #           d[1], DT(T), 0,     n,   sz)
-    # elseif cudnnVersion >= 4000
-    #     @cudnn(cudnnSetFilterNdDescriptor_v4,
-    #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint}),
-    #           d[1], DT(T), 0,     n,   sz)
-    # else
-    #     @cudnn(cudnnSetFilterNdDescriptor,
-    #           (Cptr,UInt32,Cint,Ptr{Cint}),
-    #           d[1], DT(T),    n,   sz)
-    # end
-    dt = CUDNN.cudnnDataType_t(DT(T))
-    tf = CUDNN.cudnnTensorFormat_t(0)
-    CUDNN.cudnnSetFilterNdDescriptor(d[1], dt, tf, n, sz)
-    fd = FD(d[1])
-    # finalizer(x->@cudnn(cudnnDestroyFilterDescriptor,(Cptr,),x.ptr), fd)
-    finalizer(x->CUDNN.cudnnDestroyFilterDescriptor(x.ptr), fd)
-    return fd
-end
-
-mutable struct CD; ptr
-    function CD(w::KnetArray,x::KnetArray; padding=0, stride=1, dilation=1, mode=0, upscale=nothing)
-        upscale !== nothing && error("upscale is deprecated, please use dilation instead.")
-        d = Cptr[0]
-        # @cudnn(cudnnCreateConvolutionDescriptor,(Ptr{Cptr},),d)
-        CUDNN.cudnnCreateConvolutionDescriptor(d)
-        nd = ndims(x)-2
-        # if cudnnVersion >= 4000
-        #     @cudnn(cudnnSetConvolutionNdDescriptor,
-        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
-        # elseif cudnnVersion > 3000 # does not work when cudnnVersion==3000
-        #     @cudnn(cudnnSetConvolutionNdDescriptor_v3,
-        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32,UInt32),
-        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,DT(x))
-        # else
-        #     @cudnn(cudnnSetConvolutionNdDescriptor,
-        #           (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},UInt32),
-        #           d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode)
-        # end
-        dt = CUDNN.cudnnDataType_t(DT(x))
-        mode = CUDNN.cudnnConvolutionMode_t(mode)
-        CUDNN.cudnnSetConvolutionNdDescriptor(d[1],nd,cdsize(padding,nd),cdsize(stride,nd),cdsize(dilation,nd),mode,dt)
-        cd = new(d[1])
-        # finalizer(x->@cudnn(cudnnDestroyConvolutionDescriptor,(Cptr,),x.ptr),cd)
-        finalizer(x->CUDNN.cudnnDestroyConvolutionDescriptor(x.ptr),cd)
-        return cd
-    end
-end
-
-mutable struct PD; ptr
-    function PD(x::KnetArray; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=0)
-        d = Cptr[0]
-        #@cudnn(cudnnCreatePoolingDescriptor,(Ptr{Cptr},),d)
-        CUDNN.cudnnCreatePoolingDescriptor(d)
-        nd = ndims(x)-2
-        # if cudnnVersion >= 5000
-        #     @cudnn(cudnnSetPoolingNdDescriptor,
-        #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-        #           d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        # elseif cudnnVersion >= 4000
-        #     @cudnn(cudnnSetPoolingNdDescriptor_v4,
-        #           (Cptr,UInt32,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-        #           d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        # else
-        #     @cudnn(cudnnSetPoolingNdDescriptor,
-        #           (Cptr,UInt32,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint}),
-        #           d[1],mode,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        # end
-        mode = CUDNN.cudnnPoolingMode_t(mode)
-        maxpoolingNanOpt = CUDNN.cudnnNanPropagation_t(maxpoolingNanOpt)
-        CUDNN.cudnnSetPoolingNdDescriptor(d[1],mode,maxpoolingNanOpt,nd,cdsize(window,nd),cdsize(padding,nd),cdsize(stride,nd))
-        pd = new(d[1])
-        #finalizer(x->@cudnn(cudnnDestroyPoolingDescriptor,(Cptr,),x.ptr), pd)
-        finalizer(x->CUDNN.cudnnDestroyPoolingDescriptor(x.ptr), pd)
-        return pd
-    end
-end
-
-import Base: unsafe_convert
-unsafe_convert(::Type{Cptr}, td::TD)=td.ptr
-unsafe_convert(::Type{Cptr}, fd::FD)=fd.ptr
-unsafe_convert(::Type{Cptr}, cd::CD)=cd.ptr
-unsafe_convert(::Type{Cptr}, pd::PD)=pd.ptr
-
-# fill and reverse Cint array with padding etc. for cudnn calls
-function cdsize(w, nd)
-    if isa(w,Number)
-        fill(Cint(w),nd)
-    elseif length(w)==nd
-        [ Cint(w[nd-i+1]) for i=1:nd ]
-    else
-        throw(DimensionMismatch("$w $nd"))
-    end
-end
-
-# convert padding etc. size to an Int array of the right dimension
-function psize(p, x)
-    nd = ndims(x)-2
-    if isa(p,Number)
-        fill(Int(p),nd)
-    elseif length(p)==nd
-        collect(Int,p)
-    else
-        throw(DimensionMismatch("psize: $p $nd"))
-    end
-end
-
-DT(::KnetArray{Float32})=Cint(0)
-DT(::KnetArray{Float64})=Cint(1)
-DT(::KnetArray{Float16})=Cint(2)
-DT(::Type{Float32}) = Cint(0)
-DT(::Type{Float64}) = Cint(1)
-DT(::Type{Float16}) = Cint(2)
-
-# outputDim = 1 + ( inputDim + 2*pad - (((filterDim-1)*dilation)+1) )/convolutionStride;
-
-function cdims(w,x; padding=0, stride=1, dilation=1, o...)
-    N = ndims(x)
-    ntuple(N) do i
-        if i < N-1
-            pi = (if isa(padding,Number); padding; else padding[i]; end)
-            si = (if isa(stride,Number); stride; else stride[i]; end)
-            di = (if isa(dilation,Number); dilation; else dilation[i]; end)
-            1 + (size(x,i) + 2*pi - (((size(w,i)-1)*di)+1)) ÷ si
-        elseif i == N-1
-            size(w,N)
-        else # i == N
-            size(x,N)
-        end
-    end
-end
+## Dimension helpers:
 
 function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
     # TODO: handle dilation here
@@ -479,20 +229,6 @@ function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
             size(w,N-1)
         else
             size(x,N)
-        end
-    end
-end
-
-function pdims(x; window=2, padding=0, stride=window, o...)
-    N = ndims(x)
-    ntuple(N) do i
-        if i < N-1
-            wi = (if isa(window,Number); window; else window[i]; end)
-            pi = (if isa(padding,Number); padding; else padding[i]; end)
-            si = (if isa(stride,Number); stride; else stride[i]; end)
-            1 + div(size(x,i) + 2*pi - wi, si)
-        else
-            size(x,i)
         end
     end
 end
@@ -514,113 +250,3 @@ end
 # convolution padding size that preserves the input size when filter size is odd and stride=1
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
-
-## Utilities to find a fast algorithm
-
-struct cudnnConvolutionFwdAlgoPerf_t
-    algo::Cint
-    status::Cint
-    time::Cfloat
-    memory::Csize_t
-    determinism::Cint
-    mathType::Cint
-    r1::Cint; r2::Cint; r3::Cint
-end
-
-const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
-const requestedAlgoCount = 10
-const returnedAlgoCount = Cint[0]
-const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
-bytes(x::KnetArray{T}) where {T}=length(x)*sizeof(T)
-
-# This seems to cover a reasonable subset of the available algorithms
-# The user can set this to 0 for a more memory-tight execution
-maxWorkspaceSize(w,x,y) = min(gpufree() ÷ 10, bytes(x) * 100)
-
-const conv4_algos = Dict()
-function conv4_algo(w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
-    global conv4_algos, requestedAlgoCount, returnedAlgoCount, perfResults
-    key = (T,size(w),size(x),o...)
-    if haskey(conv4_algos, key)
-        p = conv4_algos[key]
-        return (p.algo, cudnnWorkSpace(p.memory))
-    elseif length(conv4_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace())
-    else
-        workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,y))
-        wd, xd, yd, cd = FD(w), TD(x), TD(y), CD(w,x;o...)
-        # @cudnn(cudnnFindConvolutionForwardAlgorithmEx,
-        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-        #       handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        CUDNN.cudnnFindConvolutionForwardAlgorithmEx(handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        workSpace = nothing; Knet.gc(); GC.gc()
-        p = perfChoose(perfResults, returnedAlgoCount[1])
-        conv4_algos[key] = p
-        return (p.algo, cudnnWorkSpace(p.memory))
-    end
-end
-
-const conv4w_algos = Dict()
-function conv4w_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dw::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
-    global conv4w_algos, requestedAlgoCount, returnedAlgoCount, perfResults
-    key = (T,size(w),size(x),o...)
-    if haskey(conv4w_algos, key)
-        p = conv4w_algos[key]
-        return (p.algo, cudnnWorkSpace(p.memory))
-    elseif length(conv4w_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace())
-    else
-        workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,dy))
-        wd, xd, yd, cd = FD(dw), TD(x), TD(dy), CD(w,x;o...)
-        # @cudnn(cudnnFindConvolutionBackwardFilterAlgorithmEx,
-        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-        #       handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        CUDNN.cudnnFindConvolutionBackwardFilterAlgorithmEx(handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        workSpace = nothing; Knet.gc(); GC.gc()
-        p = perfChoose(perfResults, returnedAlgoCount[1])
-        conv4w_algos[key] = p
-        return (p.algo, cudnnWorkSpace(p.memory))
-    end
-end
-
-const conv4x_algos = Dict()
-function conv4x_algo(w::KnetArray{T},x::KnetArray{T},dy::KnetArray{T},dx::KnetArray{T}; handle=CUDNN.handle(), o...) where {T}
-    global conv4x_algos, requestedAlgoCount, returnedAlgoCount, perfResults
-    key = (T,size(w),size(x),o...)
-    if haskey(conv4x_algos, key)
-        p = conv4x_algos[key]
-        return (p.algo, cudnnWorkSpace(p.memory))
-    elseif length(conv4x_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace())
-    else
-        workSpace = KnetArray{UInt8}(undef, maxWorkspaceSize(w,x,dy))
-        wd, xd, yd, cd = FD(w), TD(dx), TD(dy), CD(w,x;o...)
-        # @cudnn(cudnnFindConvolutionBackwardDataAlgorithmEx,
-        #       (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Cint},Cptr,Cptr,Csize_t),
-        #       handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        CUDNN.cudnnFindConvolutionBackwardDataAlgorithmEx(handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
-        workSpace = nothing; Knet.gc(); GC.gc()
-        p = perfChoose(perfResults, returnedAlgoCount[1])
-        conv4x_algos[key] = p
-        return (p.algo, cudnnWorkSpace(p.memory))
-    end
-end
-
-
-function perfChoose(ps, n)
-    if n==ps
-        warn("returnedAlgoCount==requestedAlgoCount")
-    end
-    (ibest,mbest,tbest) = (0,Inf,Inf)
-    for i = 1:n
-        # These metrics are written in a sorted fashion where the first element has the lowest compute time.
-        if ps[i].status == 0 && ps[i].memory < mbest && ps[i].time < tbest * 1.1
-            (ibest,mbest,tbest) = (i,ps[i].memory,ps[i].time)
-        end
-    end
-    if ibest == 0; error("No good algo found."); end
-    return ps[ibest]
-end
-
-# Fresh workspace for every op is safer:
-cudnnWorkSpace(len=0)=KnetArray{UInt8}(undef,len)

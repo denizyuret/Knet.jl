@@ -10,28 +10,28 @@ without changing the code.
     batchnorm
     bce
     bilinear
-    bmm
+*   bmm
     bnmoments
     bnparams
     cat1d
     conv4
     deconv4
     dropout
-    elu
+*   elu
     invx
     logistic
-    logp
-    logsoftmax
+*   logp
+*   logsoftmax
     logsumexp
     mat
     nll
     pool
-    relu
+*   relu
     RNN -> should go to layers, export rnnforw again
     rnninit
     rnnparam
     rnnparams
-    selu
-    sigm
+*   selu
+*   sigm
     softmax
     unpool

@@ -1,5 +1,6 @@
 import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, haslength, SizeUnknown, @propagate_inbounds, HasEltype
 
+
 # progress(minimize(f, repeat(data,10)))
 # A stream (iterator) based implementation: minimize works like map
 # taking a stream of args and generating a stream of func values

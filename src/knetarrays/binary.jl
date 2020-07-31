@@ -2,6 +2,7 @@
 # uses binary_ops from broadcast.jl.
 
 import Base.Broadcast: broadcasted
+import ..Ops20: invxback, reluback, eluback, seluback, sigmback, tanhback
 
 # binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.

@@ -32,21 +32,21 @@ push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 # Build scripts
 
 function build_nvcc()
-    SRC = [("cuda1","gamma","../knetarrays/unary","ops"),
-           ("cuda01","../knetarrays/binary","ops"),
-           ("cuda11","../knetarrays/binary","../knetarrays/unary","ops"),
-           ("cuda12","../knetarrays/binary","ops"),
-           ("cuda13","../knetarrays/binary","ops"),
-           ("cuda16","../knetarrays/binary","ops"),
-           ("cuda17","../knetarrays/binary","ops"),
-           ("cuda20","../knetarrays/reduction","ops"),
-           ("cuda21","../knetarrays/reduction","ops"),
-           ("cuda22","../knetarrays/reduction","ops"),
+    SRC = [("cuda1","gamma","../knetarrays/unary","../knetarrays/ops"),
+           ("cuda01","../knetarrays/binary","../knetarrays/ops"),
+           ("cuda11","../knetarrays/binary","../knetarrays/unary","../knetarrays/ops"),
+           ("cuda12","../knetarrays/binary","../knetarrays/ops"),
+           ("cuda13","../knetarrays/binary","../knetarrays/ops"),
+           ("cuda16","../knetarrays/binary","../knetarrays/ops"),
+           ("cuda17","../knetarrays/binary","../knetarrays/ops"),
+           ("cuda20","../knetarrays/reduction","../knetarrays/ops"),
+           ("cuda21","../knetarrays/reduction","../knetarrays/ops"),
+           ("cuda22","../knetarrays/reduction","../knetarrays/ops"),
            ]
 
     OBJ = []
 
-    include("ops.jl")
+    include("../knetarrays/ops.jl")
 
     for names in SRC
         for name in names

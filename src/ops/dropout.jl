@@ -32,10 +32,6 @@ function dropout(x,p; seed=0, drop=training())
     end
 end
 
-# Use a more meaningful name than `recording` for Knet.
-"`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
-training() = AutoGrad.recording()
-
 function dropback(dy,y,x,p)
     if 0 < p < 1
         dropback!(p,x,y,dy,similar(x))
@@ -50,24 +46,6 @@ end
 
 # Turn dropout into an AutoGrad primitive
 @primitive dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
-
-# GPU implementation
-for S in (32,64)
-    T = Symbol("Float$S")
-    forw = Symbol("dropout_$S")
-    back = Symbol("dropback_$S")
-    @eval begin
-        function dropout!(p::Number, x::KnetArray{$T}, y::KnetArray{$T})
-            rand!(y)
-            @knet8($forw,(Cint,$T,Ptr{$T},Ptr{$T}),length(y),$T(p),x,y)
-            return y
-        end
-        function dropback!(p::Number, x::KnetArray{$T}, y::KnetArray{$T}, dy::KnetArray{$T}, dx::KnetArray{$T})
-            @knet8($back,(Cint,$T,Ptr{$T},Ptr{$T},Ptr{$T},Ptr{$T}),length(dx),$T(p),x,y,dy,dx)
-            return dx
-        end
-    end
-end
 
 # CPU implementation
 function dropout!(p,x,y)
