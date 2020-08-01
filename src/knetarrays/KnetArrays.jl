@@ -1,8 +1,13 @@
+# TODO: do better with systematically showing imports, exports per file and per module
 module KnetArrays
-using AutoGrad
+import Knet, AutoGrad, ..Ops20
+using ..Ops20: mat
+using AutoGrad: @primitive, @primitive1, @zerograd, Node, Tape, Result, Value, Param, value
+using Knet: @dbg
+
 include("ops.jl")
-include("gpu.jl")
-include("kptr.jl"); export knetgc
+include("gpu.jl"); export gpu, libknet8
+include("kptr.jl"); export knetgc, gc, cuallocator
 include("karray.jl"); export KnetArray
 include("binary.jl")
 include("bmm.jl")

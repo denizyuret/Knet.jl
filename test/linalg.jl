@@ -1,6 +1,7 @@
 include("header.jl")
 include("combinatorics.jl")
 using LinearAlgebra
+using Knet.KnetArrays: A_mul_Bt, At_mul_B, At_mul_Bt
 #Random.seed!(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
@@ -18,9 +19,9 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
             @test isapprox(c, Array(kc))
             @test gradcheck(mmul, (ka,kb))
             # Issue #456: 2nd derivative for MLP
-            mmulABt(w)=Knet.A_mul_Bt(w[1],w[2])
-            mmulAtB(w)=Knet.At_mul_B(w[1],w[2])
-            mmulAtBt(w)=Knet.At_mul_Bt(w[1],w[2])
+            mmulABt(w)=A_mul_Bt(w[1],w[2])
+            mmulAtB(w)=At_mul_B(w[1],w[2])
+            mmulAtBt(w)=At_mul_Bt(w[1],w[2])
             @test gradcheck(mmulABt, (ka,kb'))
             @test gradcheck(mmulAtB, (ka',kb))
             @test gradcheck(mmulAtBt, (ka',kb'))

@@ -79,8 +79,8 @@ function gpu end
 
 GPU = -1
 gpu() = GPU
-gpu(d::Integer) = (global GPU; GPU==d ? d : (try CUDA.device!(d); GPU=d; catch; GPU=-1; end))
-gpu(b::Bool) = (global GPU=try b ? CUDA.device().handle : (CUDA.device_reset!();-1); catch; -1; end)
+gpu(d::Integer) = (global GPU; GPU==d ? d : (try CUDA.device!(d); GPU=Int(d); catch; GPU=-1; end))
+gpu(b::Bool) = (global GPU=try b ? Int(CUDA.device().handle) : (CUDA.device_reset!();-1); catch; -1; end)
 
 gpuCount() = length(CUDA.devices())
 gpufree() = Mem.info()[1] + CUDA.pool[].cached_memory()

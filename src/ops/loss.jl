@@ -1,3 +1,5 @@
+using Statistics
+
 """
 
     logp(x; dims=:)

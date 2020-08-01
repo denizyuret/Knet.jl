@@ -1,6 +1,7 @@
 include("header.jl")
 using SpecialFunctions
-using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
+using Knet.Ops20: reluback, sigmback, tanhback, invxback, eluback, seluback
+using Knet.KnetArrays: unary_ops
 
 @testset "unary" begin
 
@@ -16,7 +17,7 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
     bcast(f)=(x->broadcast(f,x))
 
     unary_fns = Any[]
-    for f in Knet.unary_ops
+    for f in unary_ops
         if isa(f,Tuple); f=f[2]; end
         push!(unary_fns, eval(Meta.parse(f)))
     end

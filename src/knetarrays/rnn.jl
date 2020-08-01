@@ -191,7 +191,7 @@ function RNN(inputSize, hiddenSize;
         end
     end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once
-    isa(r.w, atype()) || (r.w = atype()(r.w))
+    if usegpu; r.w = (atype() <: KnetArray ? KnetArray(r.w) : CuArray(r.w)); end
     r.w = Param(r.w)
     return r
 end
@@ -234,7 +234,7 @@ function show(io::IO, r::RNN)
     print(io, ')')
 end
 
-function rnnworkspace(n, type=atype())
+function rnnworkspace(n, type=Knet.atype())
     n8 = (n-1)÷sizeof(Int)+1
     if type <: KnetArray
         buf = KnetArray{Int}(undef, n8)
@@ -298,7 +298,12 @@ function RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataT
     mode = CUDNN.cudnnRNNMode_t(mode)
     algo = CUDNN.cudnnRNNAlgo_t(algo)
     dt = CUDNN.cudnnDataType_t(DT(dataType))
-    CUDNN.cudnnSetRNNDescriptor(handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dt)
+    
+    if CUDNN.version() < v"8"
+        CUDNN.cudnnSetRNNDescriptor(handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dt)
+    else
+        CUDNN.cudnnSetRNNDescriptor_v6(handle,rnnDesc,hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dt)
+    end
     return rnnDesc
 end
 
@@ -577,14 +582,32 @@ end
 
 using CUDA.CUDNN: cudnnHandle_t, cudnnRNNDescriptor_t, cudnnTensorDescriptor_t, cudnnFilterDescriptor_t
 
-function rnnforw(r::RNN, w::A, x::A,
-                 hx::Union{A,Nothing}=nothing,
-                 cx::Union{A,Nothing}=nothing;
+
+function rnnforw(r::RNN, w::KnetArray{T}, x::KnetArray{T},
+                 hx::Union{KnetArray{T},Nothing}=nothing,
+                 cx::Union{KnetArray{T},Nothing}=nothing;
                  handle=CUDNN.handle(),
                  batchSizes=nothing,
                  hy = (hx != nothing),
-                 cy = (cx != nothing && r.mode == 2),
-                 ) where {T,A<:Union{KnetArray{T},CuArray{T}}}
+                 cy = (cx != nothing && r.mode == 2)) where T
+    _rnnforw(r,w,x,hx,cx,handle=handle,batchSizes=batchSizes,hy=hy,cy=cy)
+end
+
+function rnnforw(r::RNN, w::CuArray{T}, x::CuArray{T},
+                 hx::Union{CuArray{T},Nothing}=nothing,
+                 cx::Union{CuArray{T},Nothing}=nothing;
+                 handle=CUDNN.handle(),
+                 batchSizes=nothing,
+                 hy = (hx != nothing),
+                 cy = (cx != nothing && r.mode == 2)) where T
+    _rnnforw(r,w,x,hx,cx,handle=handle,batchSizes=batchSizes,hy=hy,cy=cy)
+end
+
+function _rnnforw(r::RNN, w, x, hx=nothing, cx=nothing;
+                  handle=CUDNN.handle(),
+                  batchSizes=nothing,
+                  hy = (hx != nothing),
+                  cy = (cx != nothing && r.mode == 2))
     @assert w === value(r.w)
     # Input descriptors
     if size(x,1) != r.inputSize
@@ -686,6 +709,8 @@ function rnnforw(r::RNN, w::A, x::A,
         CUDNN.cudnnRNNForwardInference(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w,
                                        ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss)
     end
+    if hyout === CU_NULL; hyout = nothing; end
+    if cyout === CU_NULL; cyout = nothing; end
     return y, hyout, cyout, rs, ws
 end
 
@@ -705,9 +730,12 @@ function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     r.h = value(r.h); r.c = value(r.c) 
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs, ws; o...)
 end
+        
+rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T}, z...; o...) where T =_rnnback(r,w,x,y,z...;o...)
+rnnback(r::RNN, w::CuArray{T}, x::CuArray{T}, y::CuArray{T}, z...; o...) where T =_rnnback(r,w,x,y,z...;o...)
 
-function rnnback(r::RNN, w::A, x::A, y::A,
-                 dy, hx, cx, dhy, dcy, rs, ws; handle=CUDNN.handle(), batchSizes=nothing, o...) where {T,A<:Union{KnetArray{T},CuArray{T}}}
+function _rnnback(r::RNN, w, x, y, dy, hx, cx, dhy, dcy, rs, ws;
+                  handle=CUDNN.handle(), batchSizes=nothing, o...) 
     @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes

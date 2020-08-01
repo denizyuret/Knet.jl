@@ -179,10 +179,10 @@ if gpu() >= 0
 
         @testset "inplace" begin
             a0 = rand();    k0 = a0
-            a1 = rand(1);   k1 = ka(a1)
-            a2 = rand(2);   k2 = ka(a2)
-            a3 = rand(2,2); k3 = ka(a3)
-            a4 = rand(2,2); k4 = ka(a4)
+            a1 = rand(1);   k1 = KnetArray(a1)
+            a2 = rand(2);   k2 = KnetArray(a2)
+            a3 = rand(2,2); k3 = KnetArray(a3)
+            a4 = rand(2,2); k4 = KnetArray(a4)
 
             @test (a4 .+= a3) == (k4 .+= k3); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
             @test (a4 .+= a2) == (k4 .+= k2); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
@@ -211,7 +211,7 @@ if gpu() >= 0
                           (rand(3,2), rand(4,2)),
                           (rand(3,2,2), rand(4,2,2)),
                           (rand(3,2,2,2), rand(4,2,2,2)))
-                c, d = ka(a), ka(b)
+                c, d = KnetArray(a), KnetArray(b)
                 @test vcat(a, b) == vcat(c, d)
                 @test gradcheck(vcat, a, b)
                 @test gradcheck(vcat, c, d)

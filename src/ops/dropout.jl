@@ -1,13 +1,4 @@
-# Note that we tried and failed to automate the detection of "train" mode looking at the type
-# of argument.  The argument is of type Value only during training and only if it is a value
-# influenced by model weights.  However people typically apply dropout to the input which is
-# not a Value.  So we are going back to no automation, make sure to supply p=0 during testing
-# to stop dropout.
-
-# In 1.1.3 trying to automate again, this time using the @diff context: By default drop if
-# AutoGrad is recording.
-
-using Knet: training
+using Random
 
 """
     dropout(x, p; drop, seed)
@@ -19,7 +10,7 @@ non-zero `seed::Number` to set the random number seed for reproducible results. 
 [(Srivastava et al. 2014)](http://www.jmlr.org/papers/v15/srivastava14a.html) for a reference.
 
 """
-function dropout(x,p; seed=0, drop=training())
+function dropout(x,p; seed=0, drop=Knet.training())
     if !drop
         x
     elseif 0 < p < 1
@@ -47,7 +38,7 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-@primitive dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
+@primitive dropout(x,p;seed=0,drop=Knet.training()),dy,y dropback(value.((dy,y,x,p))...)
 
 # CPU implementation
 function dropout!(p,x,y)
@@ -76,4 +67,13 @@ function dropback!(p,x,y,dy,dx)
     end
     return dx
 end
+
+# Note that we tried and failed to automate the detection of "train" mode looking at the type
+# of argument.  The argument is of type Value only during training and only if it is a value
+# influenced by model weights.  However people typically apply dropout to the input which is
+# not a Value.  So we are going back to no automation, make sure to supply p=0 during testing
+# to stop dropout.
+
+# In 1.1.3 trying to automate again, this time using the @diff context: By default drop if
+# AutoGrad is recording.
 

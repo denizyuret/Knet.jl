@@ -7,8 +7,8 @@ end
 
 #                            commit ee1 c6a 0b5 e3a 9.2 8.3 8.3 6cb 6cb 8.6 6cb 6cb
 #                           machine  ci rzr  sc  sc tig ai5 ai4 tr5 tr4 aws osx os4
-#@timeinclude("kptr.jl")         #   ?   4   3   8  16   1   1   0   0  20   0   0
-#@timeinclude("gpu.jl")          #   3   1   2   2   6   1   1   0   0   2   0   0
+@timeinclude("kptr.jl")          #   ?   4   3   8  16   1   1   0   0  20   0   0
+@timeinclude("gpu.jl")           #   3   1   2   2   6   1   1   0   0   2   0   0
 @timeinclude("distributions.jl") #   1   1   1   1   2   1   1   2   1   3   3   2
 @timeinclude("dropout.jl")       #   6   1   2   8   5                   2
 @timeinclude("serialize.jl")     #  16   2  11   1

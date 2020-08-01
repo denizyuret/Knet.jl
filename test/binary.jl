@@ -5,6 +5,7 @@ time0 = time()
 date(x)=(println(round(Int,time()-time0), ':', x); flush(stdout))
 macro dbg(_x); end
 #macro dbg(_x); :(@show $(esc(_x))); end
+using Knet.KnetArrays: binary_ops
 
 @testset "binary" begin
 
@@ -22,7 +23,7 @@ macro dbg(_x); end
     exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "eluback", "seluback", "rpow")
 
     binary_fns = Any[]
-    for f in Knet.binary_ops
+    for f in binary_ops
         if isa(f,Tuple); f=f[2]; end
         in(f, exclude11) && continue
         f0 = eval(Meta.parse(lstrip(f,'.')))

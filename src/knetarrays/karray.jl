@@ -1135,7 +1135,7 @@ function ungetindex(x::KnetArray{T},dxi,i) where T
     if isbitstype(T)
         if dxi isa Value
             forw(addto!, zeroslike(x), forw(ungetindex, x, dxi, i))
-        elseif recording()
+        elseif AutoGrad.recording()
             addtoindex!(zero(x), dxi, i...)
         else
             Sparse(x,[dxi],[i])

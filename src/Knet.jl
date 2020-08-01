@@ -1,17 +1,19 @@
 module Knet
-using AutoGrad, CUDA
+using AutoGrad, CUDA, Random
 
 # To see debug output, start julia with `JULIA_DEBUG=Knet julia`
 # To perform profiling, set ENV["KNET_TIMER"] to "true" and rebuild Knet. (moved this to gpu.jl)
 # The @dbg macro below evaluates `ex` only when debugging. The @debug macro prints stuff as documented in Julia.
 macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
-"atype() gives the current default array type: by default `KnetArray{Float32}` if `gpu() >= 0`, `Array{Float32}` otherwise. The user can change the default array type using e.g. Knet.atype()=CuArray{Float32}"
+"`Knet.atype()` gives the current default array type: by default `KnetArray{Float32}` if `gpu() >= 0`, `Array{Float32}` otherwise. The user can change the default array type using e.g. Knet.atype()=CuArray{Float32}"
 atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
-# This is used by dropout, batchnorm etc to have code run differently during training vs inference.
-"`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
+"`Knet.training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model. This is used by dropout, batchnorm etc to have code run differently during training vs inference."
 training() = AutoGrad.recording()
+
+"`Knet.seed!(n)` sets the seed for both the CPU and the GPU random number generators for replicability."
+seed!(n::Integer)=(CUDA.functional() && CUDA.seed!(n); Random.seed!(n))
 
 include("ops/Ops20.jl")
 include("train/Train20.jl")

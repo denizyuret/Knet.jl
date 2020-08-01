@@ -200,7 +200,7 @@ collected. Normally Knet holds on to all garbage collected pointers for reuse. T
 you run out of GPU memory.
 """
 function gc(dev=gpu())
-    if KnetMems == nothing; return; end
+    if KnetMems == nothing; GC.gc(); return; end
     putc('+')
     mem = knetmem(dev)
     mem.knetgc += 1

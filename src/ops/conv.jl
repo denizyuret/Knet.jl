@@ -214,6 +214,18 @@ end
 
 ## Dimension helpers:
 
+# convert padding etc. size to an Int array of the right dimension
+function psize(p, x)
+    nd = ndims(x)-2
+    if isa(p,Number)
+        fill(Int(p),nd)
+    elseif length(p)==nd
+        collect(Int,p)
+    else
+        throw(DimensionMismatch("psize: $p $nd"))
+    end
+end
+
 function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
     # TODO: handle dilation here
     dilation != 1 && error("deconv4 cannot handle dilation!=1 yet.")

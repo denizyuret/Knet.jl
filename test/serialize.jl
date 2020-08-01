@@ -1,5 +1,5 @@
 include("header.jl")
-using Knet: serialize
+using Knet.KnetArrays: serialize
 struct M370; layer; end;
 
 @testset "serialize" begin

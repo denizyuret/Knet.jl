@@ -1,5 +1,4 @@
 using Statistics, CUDA
-using ..Knet: training
 
 """
 `bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used
@@ -76,7 +75,7 @@ Training and test modes are controlled by the `training` keyword argument.
 
 """
 function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing;
-                   training=training(), o...)
+                   training=Knet.training(), o...)
     xnd = ndims(x)
     a = (x,)
     if params !== nothing
@@ -166,7 +165,7 @@ end
 # Only spatial mode is supported
 # TODO: support per-activation mode
 function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
-                    training=training(),
+                    training=Knet.training(),
                     cache=nothing,
                     moments=nothing,
                     eps=1e-5,
@@ -267,7 +266,7 @@ end
 
 function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
                          x::KnetArray{T}, dy::KnetArray{T};
-                         training=training(),
+                         training=Knet.training(),
                          cache=nothing,
                          moments=nothing,
                          grad_cache_disabled=false,
@@ -378,7 +377,7 @@ function batchnorm4(x::Array{T};
 end
 
 function _batchnorm4_fused(g, b, x::Array{T};
-                           eps=1e-5, training=training(),
+                           eps=1e-5, training=Knet.training(),
                            cache=nothing, moments=nothing,
                            o...) where {T}
     y = copy(x)
@@ -425,7 +424,7 @@ end
 
 # CPU backward
 function batchnorm4_back(g::Union{Array{T}, Nothing}, x::Array{T}, dy::Array{T};
-                         eps=1e-5, training=training(),
+                         eps=1e-5, training=Knet.training(),
                          cache=nothing, moments=nothing,  o...) where {T}
     eps = T(eps)
     dims = _reddims(x)
@@ -482,7 +481,7 @@ end
 
 # Implement batchnorm2 using batchnorm4, with autograd
 
-function batchnorm2(g, b, x; moments=nothing, training=training(), o...)
+function batchnorm2(g, b, x; moments=nothing, training=Knet.training(), o...)
     # TODO: This support should be added when needed
     if training == false && (isa(g, AutoGrad.Value) || isa(x, AutoGrad.Value) || isa(b, AutoGrad.Value))
         error("Test mode backward is not supported with 2d inputs")

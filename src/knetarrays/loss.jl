@@ -1,9 +1,9 @@
 using CUDA
-import ..Ops20
+import ..Ops20: generic_softmax, nll
 
 # TODO: refactor this code, avoid repetition with cuarrays
 
-function Ops20.generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}}
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:KnetArray, AutoGrad.Value{<:KnetArray}}
     d,sz = dimvec(x,dims)
     if algo == 2 && (CUDNN.handle(); CUDNN.version() < v"3") # algo=2 (logsoftmax) was introduced in cudnn 3000
         fallback(x; dims=dims, algo=algo)
@@ -54,7 +54,7 @@ end
 @primitive cudnnSoftmaxForward(x::KnetArray;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
 @primitive cudnnSoftmaxBackward(y::KnetArray,dy::KnetArray;o...),ddx,dx csb1(y,dy,dx,ddx;o...) csb2(y,dy,dx,ddx;o...)
 
-function csb1(y::KnetArray,dy::KnetArray,dx::KnetArray,ddx;algo=0::KnetArray,mode=0,o...)
+function csb1(y,dy,dx,ddx;algo=0,mode=0,o...)
     cdim = ndims(y) - 1
     dims = (mode == 0 ? ((1:cdim)...,) : (cdim,))
     if algo==0 || algo==1
@@ -66,7 +66,7 @@ function csb1(y::KnetArray,dy::KnetArray,dx::KnetArray,ddx;algo=0::KnetArray,mod
     end
 end
 
-function csb2(y::KnetArray,dy::KnetArray,dx::KnetArray,ddx;algo=0,mode=0,o...)
+function csb2(y,dy,dx,ddx;algo=0,mode=0,o...)
     cdim = ndims(y) - 1
     dims = (mode == 0 ? ((1:cdim)...,) : (cdim,))
     if algo==0 || algo==1
@@ -90,7 +90,7 @@ function TD4(x::KnetArray)
 end
 
 
-function Ops20.nll(y,a::KnetArray{<:Integer}; dims=1, average=true)
+function nll(y,a::KnetArray{<:Integer}; dims=1, average=true)
     @warn "nll(scores, answers::KnetArray{<:Integer} is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
     nll(y, Array(a); dims=dims, average=average)
 end

@@ -65,7 +65,8 @@ include("header.jl")
     @test gradcheck(bce,a[:],a[:])
 
     # Issue 439: highorder derivatives
-    using Knet: _softmax, _softback, _logp, _logpback, cudnnSoftmaxForward, cudnnSoftmaxBackward
+    using Knet.Ops20: _softmax, _softback, _logp, _logpback
+    using Knet.KnetArrays: cudnnSoftmaxForward, cudnnSoftmaxBackward
     x = randn(3,4); y1 = _softmax(x,dims=1); y2 = _logp(x,dims=1); dy = randn(3,4)
     @test @gcheck _softmax(Param(x),dims=1)
     @test @gcheck _softback(Param(x),Param(y1),Param(dy),dims=1)

@@ -1,5 +1,6 @@
 module Ops20
-using AutoGrad
+import Knet, AutoGrad
+using AutoGrad: @primitive, @zerograd, value
 
 include("activation.jl"); export relu, selu, elu, sigm, invx
 include("dropout.jl"); export dropout

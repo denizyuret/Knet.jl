@@ -1,5 +1,7 @@
 include("header.jl")
-using Knet: KnetMems, KnetPtr, gpuCount, blocksize, initKnetMems
+# Test the Knet allocator (note that CUDA allocator is used by default, i.e. Knet.cuallocator()==true)
+
+using Knet.KnetArrays: KnetMems, KnetPtr, gpuCount, blocksize, initKnetMems
 
 function _testkptr(kptrs, navail, nfree)
     # sump = sum(p->p.nptr, values(mem.pools))
@@ -22,7 +24,9 @@ end
 
 _testingkptr = false
 
-if gpu() >= 0 && KnetMems === nothing && !Knet.cuallocator()
+if gpu() >= 0 && KnetMems === nothing
+    _cuallocator = Knet.cuallocator()
+    Knet.cuallocator()=false
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
     _testingkptr = true
@@ -34,6 +38,7 @@ if _testingkptr
     @testset "kptr:gc"      begin; _testkptr(nothing, sum(blocksize.(2 .^ (1:10))), 1); end
     @testset "kptr:realloc" begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
     _testingkptr = false
+    Knet.cuallocator()=_cuallocator
 end
 
 nothing

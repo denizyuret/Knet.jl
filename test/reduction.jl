@@ -1,6 +1,6 @@
 include("header.jl")
 include("combinatorics.jl")
-using Knet: sumabs, sumabs2, minabs, maxabs, countnz
+using Knet.KnetArrays: sumabs, sumabs2, minabs, maxabs, countnz, reduction_ops
 using LinearAlgebra: norm
 
 @testset "reduction" begin
@@ -28,7 +28,7 @@ using LinearAlgebra: norm
     # @zerograd countnz2(a,d...)
 
     reduction_fns = []
-    for f in Knet.reduction_ops
+    for f in reduction_ops
         if isa(f,Tuple); f=f[2]; end
         if f == "countnz"; continue; end # deprecated
         push!(reduction_fns, eval(Meta.parse(f)))

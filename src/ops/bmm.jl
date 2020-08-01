@@ -1,4 +1,3 @@
-using CUDA
 using Base: has_offset_axes, unsafe_convert
 using LinearAlgebra: chkstride1, BlasInt
 using LinearAlgebra.BLAS: libblas, @blasfunc
@@ -28,12 +27,12 @@ for (gemm, elty) in
      (:sgemm_,:Float32),)
     @eval begin
         function bmm!(transA::AbstractChar,
-                               transB::AbstractChar,
-                               alpha::($elty),
-                               A::AbstractArray{$elty, 3},
-                               B::AbstractArray{$elty, 3},
-                               beta::($elty),
-                               C::AbstractArray{$elty, 3})
+                      transB::AbstractChar,
+                      alpha::($elty),
+                      A::AbstractArray{$elty, 3},
+                      B::AbstractArray{$elty, 3},
+                      beta::($elty),
+                      C::AbstractArray{$elty, 3})
             @assert !has_offset_axes(A, B, C)
             @assert size(A, 3) == size(B, 3) == size(C, 3) "batch size mismatch"
             m = size(A, transA == 'N' ? 1 : 2)
