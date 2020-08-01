@@ -500,9 +500,7 @@ end
 
 # Generic three arg version for float arrays
 # Fix #579: leave g untyped, it can be Sparse.
-update!(w::Array{T,N}, g, p) where {T<:Number,N} = gclip_update!(w, g, p)
-update!(w::CuArray{T,N}, g, p) where {T,N} = gclip_update!(w, g, p)
-update!(w::KnetArray{T,N}, g, p) where {T,N} = gclip_update!(w, g, p)
+update!(w::AbstractArray{<:Number}, g, p) = gclip_update!(w, g, p)
 
 function gclip_update!(w, g, p)
     gclip!(g, p.gclip)          # gclip! supports AutoGrad.Sparse
@@ -599,8 +597,6 @@ function optimizers(x...; o...)
     _optimizers(x...; o...)
 end
 
-_optimizers(::KnetArray{<:Number},otype; o...) = otype(;o...)
-_optimizers(::CuArray{<:Number},otype; o...) = otype(;o...)
 _optimizers(::AbstractArray{<:Number},otype; o...) = otype(;o...)
 _optimizers(a::AbstractDict,otype; o...)=Dict([ k=>_optimizers(v,otype;o...) for (k,v) in a ])
 _optimizers(a::Tuple,otype; o...)=map(x->_optimizers(x,otype;o...), a)

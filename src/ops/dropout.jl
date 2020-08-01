@@ -7,6 +7,8 @@
 # In 1.1.3 trying to automate again, this time using the @diff context: By default drop if
 # AutoGrad is recording.
 
+using Knet: training
+
 """
     dropout(x, p; drop, seed)
 

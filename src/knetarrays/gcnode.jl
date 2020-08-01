@@ -13,6 +13,7 @@
 
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures
 using AutoGrad: Node, Tape, Result
+using Knet: @dbg
 const noresult = Result{Nothing}(nothing,nothing,nothing,nothing)
 
 # The _queue maps KnetPtrs to the first index on tape they have a reference to. We use

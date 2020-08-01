@@ -1,4 +1,12 @@
 using CUDA
+using ..Ops20: dropout
+using ..Train20: xavier_uniform
+using ..Knet: atype, training
+bytes(x::CuArray{T}) where T = length(x)*sizeof(T)
+
+# see CUDA/src/array.jl:238 instead
+#Base.unsafe_convert(P::Type{<:CuPtr}, x::CuArray{T,N}) where {T,N} = P(pointer(x))
+#Base.unsafe_convert(P::Type{<:Ptr}, x::CuArray{T,N}) where {F,N} = P(UInt(pointer(x)))
 
 # TODO: finish cpu implementation.
 
@@ -107,7 +115,7 @@ RNN
 mutable struct RD; ptr; end
 
 "Dropout descriptor"
-mutable struct DD; ptr; states::KnetArray{UInt8,1}; end
+mutable struct DD; ptr; states; end
 
 mutable struct RNN
     w
@@ -144,7 +152,7 @@ function RNN(inputSize, hiddenSize;
              winit=xavier_uniform,
              binit=zeros,
              finit=ones,        # forget bias for lstm
-             usegpu=(gpu()>=0 && atype() <: KnetArray),
+             usegpu=(atype() <: KnetArray || atype() <: CuArray),
              )
     w = dx = dhx = dcx = nothing
     inputSize = Cint(inputSize)
@@ -183,7 +191,8 @@ function RNN(inputSize, hiddenSize;
         end
     end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once
-    r.w = Param(usegpu ? KnetArray(r.w) : r.w)
+    isa(r.w, atype()) || (r.w = atype()(r.w))
+    r.w = Param(r.w)
     return r
 end
 
@@ -225,7 +234,17 @@ function show(io::IO, r::RNN)
     print(io, ')')
 end
 
-
+function rnnworkspace(n, type=atype())
+    n8 = (n-1)÷sizeof(Int)+1
+    if type <: KnetArray
+        buf = KnetArray{Int}(undef, n8)
+    elseif type <: CuArray
+        buf = CuArray{Int}(undef, n8)
+    else
+        error("$type not a known GPU array type.")
+    end
+    return buf
+end
 
 Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 
@@ -236,7 +255,8 @@ function DD(; handle=CUDNN.handle(), dropout=0.0, seed=0, o...)
     CUDNN.cudnnCreateDropoutDescriptor(d)
     #@cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
     CUDNN.cudnnDropoutGetStatesSize(handle,s)
-    states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
+    # states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
+    states = rnnworkspace(s[1])
     # @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
     #       d[1],handle,dropout,states,bytes(states),seed)
     CUDNN.cudnnSetDropoutDescriptor(d[1],handle,dropout,states,bytes(states),seed)
@@ -326,15 +346,17 @@ mutable struct TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc 
 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
+TD(a::CuArray{T}) where {T} = TD(T, size(a))
+FD(a::CuArray{T}) where {T} = TD(T, size(a))
 
-function TDs(x::KnetArray{A},::Nothing) where {A} # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
+function TDs(x::Union{KnetArray{A},CuArray{A}},::Nothing) where {A} # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
     xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
     pvec = Vector{Cptr}(undef, size(x,3))
     pvec[:] .= xDesc.ptr
     return TDs(pvec, [xDesc])
 end
 
-function TDs(x::KnetArray{A},batchSizes) where {A} # x: (X,B*), batchSizes gives us Bt sizes
+function TDs(x::Union{KnetArray{A},CuArray{A}},batchSizes) where {A} # x: (X,B*), batchSizes gives us Bt sizes
     @assert sum(batchSizes) == div(length(x),size(x,1))
     X = size(x,1)
     xs = [ TD(A,1,X,B) for B in batchSizes ]
@@ -342,7 +364,7 @@ function TDs(x::KnetArray{A},batchSizes) where {A} # x: (X,B*), batchSizes gives
     return TDs(ps,xs)
 end
 
-function TD3(a::KnetArray) # Treat a as a 3D array, pad from right
+function TD3(a::Union{KnetArray,CuArray}) # Treat a as a 3D array, pad from right
     n = ndims(a)
     if n==3; TD(a)
     elseif n==2; TD(reshape(a, size(a,1), size(a,2), 1))
@@ -351,7 +373,7 @@ function TD3(a::KnetArray) # Treat a as a 3D array, pad from right
     end
 end
 
-function FD3(a::KnetArray) # Treat a as a 3D array, pad from left
+function FD3(a::Union{KnetArray,CuArray}) # Treat a as a 3D array, pad from left
     n = ndims(a)
     if n==3; FD(a)
     elseif n==2; FD(reshape(a, 1, size(a,1), size(a,2)))
@@ -449,7 +471,7 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
 
     i1 = i2 = len = 0
     w = value(r.w)
-    if isa(w, KnetArray)
+    if isa(w, KnetArray) || isa(w, CuArray)
         T = eltype(w)
         xDesc = TD(T,1,r.inputSize,1)
         wDesc = FD(T,1,1,length(w))
@@ -483,7 +505,7 @@ function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; handle=geth
         len = prod(sz)
         i1 = 1 + div(Int(param[1] - pointer(w)), sizeof(T))
         i2 = i1 + len - 1
-    else # if isa(w, KnetArray)
+    else # if isa(w, KnetArray) || isa(w, CuArray)
         # guess i1,i2,len from layer,id,par and rnn specs
         ids = rnnids(r)
         if par == 1 # matrix
@@ -553,14 +575,16 @@ function rnnparams(r::RNN; handle=gethandle(), useview=false)
     return ws
 end
 
-function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
-                 hx::Union{KnetArray{T},Nothing}=nothing,
-                 cx::Union{KnetArray{T},Nothing}=nothing;
+using CUDA.CUDNN: cudnnHandle_t, cudnnRNNDescriptor_t, cudnnTensorDescriptor_t, cudnnFilterDescriptor_t
+
+function rnnforw(r::RNN, w::A, x::A,
+                 hx::Union{A,Nothing}=nothing,
+                 cx::Union{A,Nothing}=nothing;
                  handle=CUDNN.handle(),
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2),
-                 ) where {T}
+                 ) where {T,A<:Union{KnetArray{T},CuArray{T}}}
     @assert w === value(r.w)
     # Input descriptors
     if size(x,1) != r.inputSize
@@ -597,11 +621,11 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
 
     # workSpace and reserveSpace
     wss = cudnnGetRNNWorkspaceSize(r.rnnDesc, xtds; handle=handle)
-    ws = KnetArray{UInt8}(undef,wss) # cudnnWorkSpace(wss)
+    ws = rnnworkspace(wss, typeof(w)) # KnetArray{UInt8}(undef,wss) # cudnnWorkSpace(wss)
 
     if training()
         rss = cudnnGetRNNTrainingReserveSize(r.rnnDesc, xtds; handle=handle)
-        rs = KnetArray{UInt8}(undef,rss)
+        rs = rnnworkspace(rss, typeof(w)) # KnetArray{UInt8}(undef,rss)
         # @cudnn(cudnnRNNForwardTraining,
         #       (Cptr, Cptr, Cint,  # handle,rnnDesc,seqLength
         #        Ptr{Cptr}, Ptr{T}, #x
@@ -647,14 +671,26 @@ function rnnforw(r::RNN, w::KnetArray{T,3}, x::KnetArray{T},
         #       hyDesc, hyout,
         #       cyDesc, cyout,
         #       ws, wss)
-        CUDNN.cudnnRNNForwardInference(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w, ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss)
+
+        # args = (handle, r.rnnDesc, Int32(seqLength), xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w, ytds, y, hyDesc, hyout, cyDesc, cyout, ws, UInt64(wss))
+        # types = (cudnnHandle_t, cudnnRNNDescriptor_t, Cint,
+        # Ptr{cudnnTensorDescriptor_t}, CuPtr{Cvoid}, cudnnTensorDescriptor_t,
+        # CuPtr{Cvoid}, cudnnTensorDescriptor_t, CuPtr{Cvoid},
+        # cudnnFilterDescriptor_t, CuPtr{Cvoid}, Ptr{cudnnTensorDescriptor_t},
+        # CuPtr{Cvoid}, cudnnTensorDescriptor_t, CuPtr{Cvoid},
+        # cudnnTensorDescriptor_t, CuPtr{Cvoid}, CuPtr{Cvoid}, Csize_t)
+        # @show typeof.(args)
+        # @show types
+        # @show typeof.(unsafe_convert(t,x) for (t,x) in zip(types, args))
+
+        CUDNN.cudnnRNNForwardInference(handle, r.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w,
+                                       ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss)
     end
-    if hyout === CU_NULL; hyout = nothing; end
-    if cyout === CU_NULL; cyout = nothing; end
     return y, hyout, cyout, rs, ws
 end
 
 @primitive rnnforw(r::RNN, w::KnetArray, x...; o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
+@primitive rnnforw(r::RNN, w::CuArray, x...; o...),dy,y nothing rnnback2(dy,y,r,w,x...;o...) value(r).dx value(r).dhx value(r).dcx
 
 function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     @assert r.w === w
@@ -670,8 +706,8 @@ function rnnback2(dt, t, r, w, x, hx=nothing, cx=nothing; o...)
     rnnback(r, w, x, y, dy, hx, cx, dhy, dcy, rs, ws; o...)
 end
 
-function rnnback(r::RNN, w::KnetArray{T}, x::KnetArray{T}, y::KnetArray{T},
-                 dy, hx, cx, dhy, dcy, rs, ws; handle=CUDNN.handle(), batchSizes=nothing, o...) where {T}
+function rnnback(r::RNN, w::A, x::A, y::A,
+                 dy, hx, cx, dhy, dcy, rs, ws; handle=CUDNN.handle(), batchSizes=nothing, o...) where {T,A<:Union{KnetArray{T},CuArray{T}}}
     @assert value(r.w) === w
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes

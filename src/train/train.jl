@@ -88,21 +88,21 @@ end
     param(dims...; init, atype)
     param0(dims...; atype)
 
-The first form returns `Param(atype(array))` where `atype=identity` is the default.
+The first form returns `Param(atype(array))`.
 
-The second form Returns a randomly initialized `Param(atype(init(dims...)))`.  By default,
-`init` is `xavier_uniform` and `atype` is `KnetArray{Float32}` if `gpu() >= 0`,
-`Array{Float32}` otherwise.
+The second form Returns a randomly initialized `Param(atype(init(dims...)))`.  
 
 The third form `param0` is an alias for `param(dims...; init=zeros)`.
+
+By default, `init` is `xavier_uniform` and `atype` is `Knet.atype()`.
+
 """
 param,param0
 
 # TODO: Knet.Param <: AutoGrad.Tracked as a separate type?
-param(x::Union{Array,KnetArray}; atype=identity) = Param(atype(x))
+param(x::AbstractArray; atype=atype()) = Param(atype(x))
 param(d...; init=xavier_uniform, atype=atype())=Param(atype(init(d...)))
 param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
-atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
 
 ### DEPRECATED:

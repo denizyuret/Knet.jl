@@ -1,3 +1,5 @@
+using Knet: @dbg
+
 cuallocator()=true      # set to true to use the CUDA.jl allocator, false to use Knet allocator
 
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual

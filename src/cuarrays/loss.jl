@@ -1,9 +1,9 @@
 using CUDA
-import ..Ops20: generic_softmax
+import ..Ops20
 
 # TODO: refactor this code, avoid repetition with knetarrays
 
-function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:CuArray, AutoGrad.Value{<:CuArray}}
+function Ops20.generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:CuArray, AutoGrad.Value{<:CuArray}}
     d,sz = dimvec(x,dims)
     if algo == 2 && (CUDNN.handle(); CUDNN.version() < v"3") # algo=2 (logsoftmax) was introduced in cudnn 3000
         fallback(x; dims=dims, algo=algo)
@@ -19,6 +19,12 @@ function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:CuArra
     else
         fallback(x;dims=dims,algo=algo)
     end
+end
+
+function dimvec(x, dims)
+     sz = size(x)
+     dims = dims == Colon() ? sz : dims
+     sort(union(dims)),sz  # handles duplicate dimensions and integer/vector/tuple dims
 end
 
 function cudnnSoftmaxForward(x::CuArray{T}; algo=0, mode=0, alpha=1, handle=CUDNN.handle()) where {T}
@@ -68,7 +74,7 @@ function csb2(y::CuArray,dy::CuArray,dx::CuArray,ddx;algo=0,mode=0,o...)
     end
 end
 
-function nll(y,a::CuArray{<:Integer}; dims=1, average=true)
+function Ops20.nll(y,a::CuArray{<:Integer}; dims=1, average=true)
     @warn "nll(scores, answers::CuArray{<:Integer} is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
     nll(y, Array(a); dims=dims, average=average)
 end

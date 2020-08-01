@@ -1,4 +1,5 @@
 using Statistics, CUDA
+using ..Knet: training
 
 """
 `bnmoments(;momentum=0.1, mean=nothing, var=nothing, meaninit=zeros, varinit=ones)` can be used

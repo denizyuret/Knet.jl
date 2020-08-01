@@ -1,4 +1,3 @@
-    accuracy
     adadelta!
     Adadelta
     adadelta
@@ -8,6 +7,7 @@
     adam!
     Adam
     adam
+    bilinear
     converge!
     converge
     gaussian
@@ -34,10 +34,7 @@
     Sgd
     sgd
     train!
-    #train
-    training
     update!
     xavier
     xavier_uniform
     xavier_normal
-    zeroone

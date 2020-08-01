@@ -18,9 +18,9 @@ A_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('N','T',one(T),A,
 At_mul_B(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','N',one(T),A,B,zero(T),similar(A,size(A,2),size(B,2)))
 At_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','T',one(T),A,B,zero(T),similar(A,size(A,2),size(B,1)))
 @primitive1 *(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(dy,x2)  At_mul_B(x1,dy)
-@primitive1 Knet.A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(dy,x1)
-@primitive1 Knet.At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(x2,dy)  (x1*dy)
-@primitive1 Knet.At_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  At_mul_Bt(x2,dy)  At_mul_Bt(dy,x1)
+@primitive1 A_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  (dy*x2)  At_mul_B(dy,x1)
+@primitive1 At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(x2,dy)  (x1*dy)
+@primitive1 At_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  At_mul_Bt(x2,dy)  At_mul_Bt(dy,x1)
 
 # Allow 1-D vectors as (N,1) in matmul:
 (*)(A::KnetVector{T},B::KnetMatrix{T}) where {T} = reshape(A,:,1) * B
@@ -148,25 +148,6 @@ axes(A::AdjOrTransKnetMat) = reverse(axes(A.parent))
 IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
 IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 =#
-
-"""
-
-    mat(x; dims = ndims(x) - 1)
-
-Reshape `x` into a two-dimensional matrix by joining the first dims dimensions, i.e. 
-`reshape(x, prod(size(x,i) for i in 1:dims), :)`
-
-`dims=ndims(x)-1` (default) is typically used when turning the output of a 4-D convolution
-result into a 2-D input for a fully connected layer.
-
-`dims=1` is typically used when turning the 3-D output of an RNN layer into a 2-D input for
-a fully connected layer.
-
-`dims=0` will turn the input into a row vector, `dims=ndims(x)` will turn it into a column
-vector.
-
-"""
-mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:dims) : 1), :)
 
 # conv: reshape(x, (:,xn)): rowdims=ndims-1
 # rnns: reshape(x, (x1,:)): rowdims=1

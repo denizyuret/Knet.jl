@@ -1,122 +1,23 @@
 module Knet
+using AutoGrad, CUDA
 
 # To see debug output, start julia with `JULIA_DEBUG=Knet julia`
 # To perform profiling, set ENV["KNET_TIMER"] to "true" and rebuild Knet. (moved this to gpu.jl)
 # The @dbg macro below evaluates `ex` only when debugging. The @debug macro prints stuff as documented in Julia.
 macro dbg(ex); :(if Base.CoreLogging.current_logger_for_env(Base.CoreLogging.Debug,:none,Knet)!==nothing; $(esc(ex)); end); end
 
-export		# ref:reference.md tut:tutorial
-    accuracy,	# ref, tut
-    adadelta!,	# ref
-    Adadelta,	# ref
-    adadelta,	# ref
-    adagrad!,	# ref
-    Adagrad,	# ref
-    adagrad,	# ref
-    adam!,	# ref
-    Adam,	# ref
-    adam,	# ref, tut
-    AutoGrad,	# ref, tut
-    batchnorm,	# ref
-    bce,	# ref
-    bilinear,	# ref
-    bmm,	# ref
-    bnmoments,	# ref
-    bnparams,	# ref
-    cat1d,	# ref
-    conv4,	# ref, tut
-    converge!,	# ref
-    converge,	# ref, tut
-    cpucopy,	# ref
-    CuArray,
-    #Data,	# tut, use Knet.Data
-    deconv4,	# ref
-    @diff,	# ref, tut
-    #dir,	# ref, tut, use Knet.dir
-    dropout,	# ref, tut
-    elu,	# ref
-    #epochs,	# deprecated, use repeat(data,n)
-    gaussian,	# ref
-    #gc,  	# ref, tut, use Knet.gc
-    #@gheck,	# ref, use AutoGrad.@gcheck
-    goldensection, # ref
-    gpu,	# ref, tut
-    gpucopy,	# ref
-    grad,	# ref, tut
-    gradloss,	# ref
-    hyperband,	# ref
-    invx,	# ref
-    KnetArray,	# ref, tut
-    knetgc,     # deprecated, use Knet.gc
-    #load,	# ref, tut
-    #@load,	# ref
-    logistic,	# ref
-    logp,	# ref
-    logsoftmax,	# ref
-    logsumexp,	# ref
-    mat,	# ref, tut
-    minibatch,	# ref, tut
-    #minimize!,	# use sgd!, adam! etc.
-    #minimize,	# use sgd, adam etc.
-    momentum!,	# ref
-    Momentum,	# ref
-    momentum,	# ref
-    nesterov!,	# ref
-    Nesterov,	# ref
-    nesterov,	# ref
-    nll,	# ref, tut
-    optimizers,	# deprecated, use sgd etc.
-    Param,	# ref, tut
-    param,	# ref, tut
-    param0,	# ref, tut
-    params,	# ref, tut
-    pool,	# ref, tut
-    #@primitive, # ref, use AutoGrad.@primitive
-    progress!,	# ref, tut
-    progress,	# ref, tut
-    relu,	# ref, tut
-    rmsprop!,	# ref
-    Rmsprop,	# ref
-    rmsprop,	# ref
-    RNN,	# ref, tut
-    rnninit,    # deprecated, use RNN
-    rnnparam,	# ref, rnnparam(r,w,l,i,d) deprecated, use rnnparam(r,l,i,d)
-    rnnparams,	# ref, rnnparams(r,w) deprecated, use rnnparams(r)
-    #save,	# ref, tut, use Knet.save
-    #@save,	# ref, use Knet.@save
-    #seed!,	# ref, use Knet.seed!
-    selu,	# ref
-    setseed,	# deprecated, use Knet.seed!
-    sgd!,	# ref
-    SGD,	# ref
-    Sgd,	# deprecated, use SGD
-    sgd,	# ref, tut
-    sigm,	# ref
-    softmax,	# ref
-    train!,	# deprecated, use sgd, adam etc.
-    #train,	# deprecated, use sgd, adam etc.
-    training,	# ref, tut
-    unpool,	# ref
-    update!,	# ref
-    #updates,	# deprecated, use take(cycle(data),n)
-    value,	# ref, tut
-    xavier,	# ref, tut
-    xavier_uniform,	# ref
-    xavier_normal,	# ref
-    #@zerograd, # ref, use AutoGrad.@zerograd
-    zeroone	# ref, tut
-
-using AutoGrad, CUDA
+"atype() gives the current default array type: by default `KnetArray{Float32}` if `gpu() >= 0`, `Array{Float32}` otherwise. The user can change the default array type using e.g. Knet.atype()=CuArray{Float32}"
+atype()=(gpu() >= 0 ? KnetArray{Float32} : Array{Float32})
 
 # This is used by dropout, batchnorm etc to have code run differently during training vs inference.
 "`training()` returns `true` only inside a `@diff` context, e.g. during a training iteration of a model."
 training() = AutoGrad.recording()
 
 include("ops/Ops20.jl")
+include("train/Train20.jl")
+include("data/Data20.jl")
 include("knetarrays/KnetArrays.jl")
 include("cuarrays/CuArrays.jl")
-include("train/Train.jl")
-include("data/Data.jl")
 
 # using Pkg; const AUTOGRAD_VERSION = (isdefined(Pkg.API,:__installed) ? Pkg.API.__installed()["AutoGrad"] : Pkg.dependencies()[Base.UUID("6710c13c-97f1-543f-91c5-74e8f7d95b35")].version)
 # include("cuda/ops.jl");
@@ -182,6 +83,116 @@ function __init__()
     end; end
 end
 
+using CUDA; export CuArray
+using AutoGrad; export AutoGrad, cat1d, @diff, grad, gradloss, Param, params, value, @gcheck
+using .Ops20; export relu, selu, elu, sigm, invx, dropout, bmm, conv4, pool, unpool, deconv4, logp, softmax, logsoftmax, logsumexp, nll, accuracy, zeroone, logistic, bce, mat
+using .Data20; export minibatch
+using .Train20
+# TODO: remove deprecated functions
+using .KnetArrays; export KnetArray, RNN, rnninit, rnnparam, rnnparams, batchnorm, bnmoments, bnparams, gpu, gpucopy, cpucopy, knetgc, setseed
+
+
+# The rest are from Train20: TODO: make this list smaller.
+export		# ref:reference.md tut:tutorial
+#    accuracy,	# ref, tut
+    adadelta!,	# ref
+    Adadelta,	# ref
+    adadelta,	# ref
+    adagrad!,	# ref
+    Adagrad,	# ref
+    adagrad,	# ref
+    adam!,	# ref
+    Adam,	# ref
+    adam,	# ref, tut
+#    AutoGrad,	# ref, tut
+#    batchnorm,	# ref
+#    bce,	# ref
+    bilinear,	# ref
+#    bmm,	# ref
+#    bnmoments,	# ref
+#    bnparams,	# ref
+#    cat1d,	# ref
+#    conv4,	# ref, tut
+    converge!,	# ref
+    converge,	# ref, tut
+#    cpucopy,	# ref
+#    CuArray,
+    #Data,	# tut, use Knet.Data
+#    deconv4,	# ref
+#    @diff,	# ref, tut
+    #dir,	# ref, tut, use Knet.dir
+#    dropout,	# ref, tut
+#    elu,	# ref
+    #epochs,	# deprecated, use repeat(data,n)
+    gaussian,	# ref
+    #gc,  	# ref, tut, use Knet.gc
+    #@gheck,	# ref, use AutoGrad.@gcheck
+    goldensection, # ref
+#    gpu,	# ref, tut
+#    gpucopy,	# ref
+#    grad,	# ref, tut
+#    gradloss,	# ref
+    hyperband,	# ref
+#    invx,	# ref
+#    KnetArray,	# ref, tut
+#    knetgc,     # deprecated, use Knet.gc
+    #load,	# ref, tut
+    #@load,	# ref
+#    logistic,	# ref
+#    logp,	# ref
+#    logsoftmax,	# ref
+#    logsumexp,	# ref
+#    mat,	# ref, tut
+    # minibatch,	# ref, tut
+    #minimize!,	# use sgd!, adam! etc.
+    #minimize,	# use sgd, adam etc.
+    momentum!,	# ref
+    Momentum,	# ref
+    momentum,	# ref
+    nesterov!,	# ref
+    Nesterov,	# ref
+    nesterov,	# ref
+#    nll,	# ref, tut
+    optimizers,	# deprecated, use sgd etc.
+#    Param,	# ref, tut
+    param,	# ref, tut
+    param0,	# ref, tut
+#    params,	# ref, tut
+#    pool,	# ref, tut
+    #@primitive, # ref, use AutoGrad.@primitive
+    progress!,	# ref, tut
+    progress,	# ref, tut
+#    relu,	# ref, tut
+    rmsprop!,	# ref
+    Rmsprop,	# ref
+    rmsprop,	# ref
+#    RNN,	# ref, tut
+#    rnninit,    # deprecated, use RNN
+#    rnnparam,	# ref, rnnparam(r,w,l,i,d) deprecated, use rnnparam(r,l,i,d)
+#    rnnparams,	# ref, rnnparams(r,w) deprecated, use rnnparams(r)
+    #save,	# ref, tut, use Knet.save
+    #@save,	# ref, use Knet.@save
+    #seed!,	# ref, use Knet.seed!
+#    selu,	# ref
+#    setseed,	# deprecated, use Knet.seed!
+    sgd!,	# ref
+    SGD,	# ref
+    Sgd,	# deprecated, use SGD
+    sgd,	# ref, tut
+#    sigm,	# ref
+#    softmax,	# ref
+    train!,	# deprecated, use sgd, adam etc.
+    #train,	# deprecated, use sgd, adam etc.
+#    training,	# ref, tut
+#    unpool,	# ref
+    update!,	# ref
+    #updates,	# deprecated, use take(cycle(data),n)
+#    value,	# ref, tut
+    xavier,	# ref, tut
+    xavier_uniform,	# ref
+    xavier_normal,	# ref
+    #@zerograd, # ref, use AutoGrad.@zerograd
+    zeroone	# ref, tut
 
 # @use X,Y,Z calls using on packages installing them if necessary. (WIP)
 # 1. still need "using Knet"

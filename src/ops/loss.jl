@@ -110,12 +110,6 @@ end
 """
 const logsoftmax = logp
 
-function dimvec(x, dims)
-     sz = size(x)
-     dims = dims == Colon() ? sz : dims
-     sort(union(dims)),sz  # handles duplicate dimensions and integer/vector/tuple dims
-end
-
 generic_softmax(x,algo::Int,fallback;dims=:) = fallback(x;dims=dims,algo=algo)
 
 
