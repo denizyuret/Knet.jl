@@ -16,12 +16,15 @@ function unsafe_convert(T::Type{<:CuPtr}, x::KnetArray)
     T(UInt(x.ptr.ptr))
 end
 
-# Based on _unsafe_getindex, multidimensional.jl:679, julia 1.2.0
+# Based on julia-1.4.2/base: getindex@abstractarray.jl:980, _getindex@multidimensional.jl:726, _unsafe_getindex!@multidimensional.jl:738
 function getindex(A::KnetArray, I...)
-    I = Base.to_indices(A, I)
+    _A = CuArray(A)
+    I = Base.to_indices(_A, I)
+    checkbounds(_A, I...)
     shape = Base.index_shape(I...)
-    B = similar(A, length.(shape))
-    Base._unsafe_getindex!(CuArray(B), CuArray(A), I...)
+    B = similar(A, shape)
+    _B = CuArray(B)
+    Base._unsafe_getindex!(_B, _A, I...)
     return B
 end
 

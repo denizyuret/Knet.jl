@@ -251,17 +251,17 @@ Base.unsafe_convert(::Type{Cptr}, dd::DD)=dd.ptr
 function DD(; handle=CUDNN.handle(), dropout=0.0, seed=0, o...)
     if seed==0; seed=floor(Culonglong,time()); end
     d = Cptr[0]; s = Csize_t[0] # TODO: Can multiple RNNs share dropout descriptors? Can dropout probability be changed?
-    #@cudnn(cudnnCreateDropoutDescriptor,(Ptr{Cptr},),d)
     CUDNN.cudnnCreateDropoutDescriptor(d)
-    #@cudnn(cudnnDropoutGetStatesSize,(Cptr,Ptr{Csize_t}),handle,s)
     CUDNN.cudnnDropoutGetStatesSize(handle,s)
-    # states = KnetArray{UInt8}(undef,s[1]) # TODO: Can this be shared? 638976 bytes.
     states = rnnworkspace(s[1])
-    # @cudnn(cudnnSetDropoutDescriptor,(Cptr,Cptr,Cfloat,Cptr,Csize_t,Culonglong),
-    #       d[1],handle,dropout,states,bytes(states),seed)
-    CUDNN.cudnnSetDropoutDescriptor(d[1],handle,dropout,states,bytes(states),seed)
+    # CUDNN.cudnnSetDropoutDescriptor(d[1],handle,dropout,states,bytes(states),seed)
+    res = CUDNN.@retry_reclaim isequal(CUDNN.CUDNN_STATUS_EXECUTION_FAILED) begin
+        CUDNN.unsafe_cudnnSetDropoutDescriptor(d[1],handle,dropout,states,bytes(states),seed)
+    end 
+    if res != CUDNN.CUDNN_STATUS_SUCCESS
+        CUDNN.throw_api_error(res)
+    end
     dd = DD(d[1],states)
-    # finalizer(x->@cudnn(cudnnDestroyDropoutDescriptor,(Cptr,),x.ptr),dd)
     finalizer(x->CUDNN.cudnnDestroyDropoutDescriptor(x.ptr),dd)
     return dd
 end
@@ -352,7 +352,7 @@ mutable struct TDs; pvec::Vector{Cptr}; xDesc::Vector{TD}; end     # Keep xDesc 
 Base.unsafe_convert(::Type{Ptr{Cptr}}, tds::TDs)=pointer(tds.pvec)
 Base.length(tds::TDs)=length(tds.pvec)
 TD(a::CuArray{T}) where {T} = TD(T, size(a))
-FD(a::CuArray{T}) where {T} = TD(T, size(a))
+FD(a::CuArray{T}) where {T} = FD(T, size(a))
 
 function TDs(x::Union{KnetArray{A},CuArray{A}},::Nothing) where {A} # Treat x: (X,B?,T?) as a 4D array: (1,X,B,T)
     xDesc = TD(A,1,size(x,1),size(x,2)) # we can use a single xDesc
@@ -831,7 +831,7 @@ function rnnforw(r::RNN, w::AbstractArray{T}, x::AbstractArray{T},
 end
 
 # rnnforw is an AutoGrad primitive for KnetArray, but a regular function for AbstractArray:
-rnnforw(r::RNN, w::AutoGrad.Value{<:AbstractArray}, x...; o...) = rnntest(r,w,x...;o...)
+rnnforw(r::RNN, w::AutoGrad.Value{<:Array}, x...; o...) = rnntest(r,w,x...;o...)
 
 
 # non-CUDNN cpu/gpu version

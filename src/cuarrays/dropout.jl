@@ -1,4 +1,5 @@
-using CUDA
+using CUDA, Random
+import ..Ops20: dropout!, dropback!
 
 # GPU implementation
 for S in (32,64)

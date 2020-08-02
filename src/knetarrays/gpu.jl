@@ -1,11 +1,11 @@
 using CUDA, TimerOutputs, Libdl, Pkg.Artifacts
 const libknet8 = Libdl.find_library(["libknet8"], [artifact"libknet8"])
-const tk = CUDA.find_toolkit()
-const tkver = isempty(tk) ? v"0" : CUDA.parse_toolkit_version(CUDA.find_cuda_binary("ptxas", tk)) # v"0" because "nothing" will crash precompilation
-const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
+#const tk = CUDA.find_toolkit()
+#const tkver = isempty(tk) ? v"0" : CUDA.parse_toolkit_version(CUDA.find_cuda_binary("ptxas", tk)) # v"0" because "nothing" will crash precompilation
+#const cudnnver = v"7" # cudnn version not read automatically. hardcoded to v7
 const to = TimerOutput()
 const Cptr = Ptr{Cvoid}
-function getErrorString end
+#function getErrorString end
 
 # moved profiling option from Knet.jl to gpu.jl to make it self contained for testing
 const TIMER = haskey(ENV,"KNET_TIMER")
@@ -80,7 +80,7 @@ function gpu end
 GPU = -1
 gpu() = GPU
 gpu(d::Integer) = (global GPU; GPU==d ? d : (try CUDA.device!(d); GPU=Int(d); catch; GPU=-1; end))
-gpu(b::Bool) = (global GPU=try b ? Int(CUDA.device().handle) : (CUDA.device_reset!();-1); catch; -1; end)
+gpu(b::Bool) = (global GPU=try b ? Int(CUDA.device().handle) : (CUDA.device_reset!();-1); catch; -1; end) # TODO: pick gpu with most memory
 
 gpuCount() = length(CUDA.devices())
 gpufree() = Mem.info()[1] + CUDA.pool[].cached_memory()

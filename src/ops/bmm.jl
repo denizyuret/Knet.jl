@@ -28,10 +28,10 @@ for (gemm, elty) in
     @eval begin
         function bmm!(transA::AbstractChar,
                       transB::AbstractChar,
-                      alpha::($elty),
+                      alpha::Number,
                       A::AbstractArray{$elty, 3},
                       B::AbstractArray{$elty, 3},
-                      beta::($elty),
+                      beta::Number,
                       C::AbstractArray{$elty, 3})
             @assert !has_offset_axes(A, B, C)
             @assert size(A, 3) == size(B, 3) == size(C, 3) "batch size mismatch"

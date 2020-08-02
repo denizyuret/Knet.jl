@@ -1090,7 +1090,7 @@ import AutoGrad: Sparse, matches, ungetindex, addto!, addtoindex!, zeroslike
 import Base: copyto!
 import LinearAlgebra: axpy!
 
-Sparse(a::KnetArray{T,N},v,i) where {T,N} = Sparse{T,N}(a,v,i)
+Sparse(a::KnetArray{T,N},v::Vector{Any},i::Vector{Any}) where {T,N} = Sparse{T,N}(a,v,i)
 
 axpy!(a, x::Sparse, y::KnetArray) = addto!(y, a*x)
 
@@ -1138,7 +1138,7 @@ function ungetindex(x::KnetArray{T},dxi,i) where T
         elseif AutoGrad.recording()
             addtoindex!(zero(x), dxi, i...)
         else
-            Sparse(x,[dxi],[i])
+            Sparse(x,Any[dxi],Any[i])
         end
     else
         # Using addtoindex! instead of setindex! to handle repeated indices

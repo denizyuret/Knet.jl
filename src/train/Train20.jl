@@ -19,6 +19,7 @@ export
     Adam,
     adam,
     bilinear,
+    clone,
     converge!,
     converge,
     gaussian,

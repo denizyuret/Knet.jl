@@ -1,4 +1,5 @@
-import ..Ops20: dropout!
+using Random
+import ..Ops20: dropout!, dropback!
 
 for S in (32,64)
     T = Symbol("Float$S")

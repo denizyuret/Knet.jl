@@ -7,4 +7,5 @@ include("getindex.jl")
 include("reduction.jl")
 include("loss.jl")
 include("train.jl")
+include("bmm.jl")
 end
