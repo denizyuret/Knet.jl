@@ -1,6 +1,5 @@
-using Knet: @dbg
-
-cuallocator()=true      # set to true to use the CUDA.jl allocator, false to use Knet allocator
+"By default set to true to use the CUDA.jl allocator, Knet.cuallocator()=false to use Knet allocator"
+cuallocator()=true
 
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
