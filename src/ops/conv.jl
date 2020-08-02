@@ -7,29 +7,25 @@ using AutoGrad: AutoGrad, @primitive1
 """
     conv4(w, x; kwargs...)
 
-Execute convolutions or cross-correlations using filters specified
-with `w` over tensor `x`.
+Execute convolutions or cross-correlations using filters specified with `w` over tensor `x`.
 
-Currently KnetArray{Float32/64,4/5} and Array{Float32/64,4} are
-supported as `w` and `x`.  If `w` has dimensions `(W1,W2,...,I,O)` and
-`x` has dimensions `(X1,X2,...,I,N)`, the result `y` will have
-dimensions `(Y1,Y2,...,O,N)` where
+If `w` has dimensions `(W1,W2,...,Cx,Cy)` and `x` has dimensions `(X1,X2,...,Cx,N)`, the
+result `y` will have dimensions `(Y1,Y2,...,Cy,N)` where `Cx` is the number of input channels,
+`Cy` is the number of output channels, `N` is the number of instances, and `Wi,Xi,Yi` are
+spatial dimensions with `Yi` determined by:
 
-    Yi=1+floor((Xi+2*padding[i]-Wi)/stride[i])
+    Yi = 1 + floor((Xi + 2*padding[i] - ((Wi-1)*dilation[i] + 1)) / stride[i])
 
-Here `I` is the number of input channels, `O` is the number of output
-channels, `N` is the number of instances, and `Wi,Xi,Yi` are spatial
-dimensions.  `padding` and `stride` are keyword arguments that can be
-specified as a single number (in which case they apply to all
-dimensions), or an array/tuple with entries for each spatial
-dimension.
+`padding`, `stride` and `dilation` are keyword arguments that can be specified as a single
+number (in which case they apply to all dimensions), or an array/tuple with entries for each
+spatial dimension.
 
 # Keywords
 
-* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and end of each dimension.
 * `stride=1`: the number of elements to slide to reach the next filtering window.
 * `dilation=1`: dilation factor for each dimension.
-* `mode=0`: 0 for convolution and 1 for cross-correlation.
+* `mode=0`: 0 for convolution and 1 for cross-correlation (which flips the filter).
 * `alpha=1`: can be used to scale the result.
 * `group=1`: can be used to perform grouped convolutions.
 
@@ -82,10 +78,10 @@ forward pass of a convolution. Since it swaps forward and backward passes of con
 operation, padding and stride options belong to output tensor. See [this
 report](https://arxiv.org/abs/1603.07285) for further explanation.
 
-If `w` has dimensions `(W1,W2,...,Cy,Cx)` and `x` has dimensions `(X1,X2,...,Cx,N)`, the result
-`y=deconv4(w,x)` will have dimensions `(Y1,Y2,...,Cy,N)` where
+If `w` has dimensions `(W1,W2,...,Cy,Cx)` and `x` has dimensions `(X1,X2,...,Cx,N)`, the
+result `y=deconv4(w,x)` will have dimensions `(Y1,Y2,...,Cy,N)` where
 
-Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
+    Yi = (Xi - 1)*stride[i] + ((Wi-1)*dilation[i] + 1) - 2*padding[i]
 
 Here Cx is the number of x channels, Cy is the number of y channels, N is the number of
 instances, and Wi,Xi,Yi are spatial dimensions. Padding and stride are keyword arguments that
@@ -113,20 +109,17 @@ end
 """
     pool(x; kwargs...)
 
-Compute pooling of input values (i.e., the maximum or average of
-several adjacent values) to produce an output with smaller height
-and/or width.
+Compute pooling of input values (i.e., the maximum or average of several adjacent values) to
+produce an output with smaller height and/or width.
 
-Currently 4 or 5 dimensional KnetArrays with `Float32` or `Float64`
-entries are supported.  If `x` has dimensions `(X1,X2,...,I,N)`, the
-result `y` will have dimensions `(Y1,Y2,...,I,N)` where
+If `x` has dimensions `(X1,X2,...,Cx,N)`, the result `y` will have dimensions
+`(Y1,Y2,...,Cx,N)` where
 
     Yi=1+floor((Xi+2*padding[i]-window[i])/stride[i])
 
-Here `I` is the number of input channels, `N` is the number of
-instances, and `Xi,Yi` are spatial dimensions.  `window`, `padding`
-and `stride` are keyword arguments that can be specified as a single
-number (in which case they apply to all dimensions), or an array/tuple
+Here `Cx` is the number of input channels, `N` is the number of instances, and `Xi,Yi` are
+spatial dimensions.  `window`, `padding` and `stride` are keyword arguments that can be
+specified as a single number (in which case they apply to all dimensions), or an array/tuple
 with entries for each spatial dimension.
 
 # Keywords:
