@@ -1,7 +1,4 @@
-using Pkg
-for p in ("Knet","ArgParse","CodecZlib")
-    haskey(Pkg.installed(),p) || Pkg.add(p)
-end
+# using Pkg; for p in ("Knet","ArgParse","CodecZlib"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 import Knet; include(Knet.dir("data","mnist.jl"))
 
 
