@@ -22,7 +22,7 @@ function getindex(A::KnetArray, I...)
     I = Base.to_indices(_A, I)
     checkbounds(_A, I...)
     shape = Base.index_shape(I...)
-    B = similar(A, shape)
+    B = similar(A, length.(shape))
     _B = CuArray(B)
     Base._unsafe_getindex!(_B, _A, I...)
     return B
