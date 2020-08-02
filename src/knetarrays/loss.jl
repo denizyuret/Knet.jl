@@ -47,7 +47,12 @@ function cudnnSoftmaxBackward(y::KnetArray{T}, dy::KnetArray{T}; algo=0, mode=0,
     #       handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
     algo = CUDNN.cudnnSoftmaxAlgorithm_t(algo)
     mode = CUDNN.cudnnSoftmaxMode_t(mode)
-    CUDNN.cudnnSoftmaxBackward(handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
+    res = CUDNN.@retry_reclaim isequal(CUDNN.CUDNN_STATUS_EXECUTION_FAILED) begin
+        CUDNN.unsafe_cudnnSoftmaxBackward(handle, algo, mode, Ref(T(alpha)), TD4(y), y, TD4(dy), dy, Ref(T(beta)), TD4(dx), dx)
+    end
+    if res != CUDNN.CUDNN_STATUS_SUCCESS
+        CUDNN.throw_api_error(res)
+    end
     return dx
 end
 
