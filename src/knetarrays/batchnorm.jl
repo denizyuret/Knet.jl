@@ -161,19 +161,21 @@ function _lazy_init!(m::BNMoments, x)
     end
 end
 
+batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T}; o...) where T = _batchnorm4(T,g,b,x;o...)
+batchnorm4(g::CuArray{T}, b::CuArray{T}, x::CuArray{T}; o...) where T = _batchnorm4(T,g,b,x;o...)
 
 # Only spatial mode is supported
 # TODO: support per-activation mode
-function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
-                    training=Knet.training(),
-                    cache=nothing,
-                    moments=nothing,
-                    eps=1e-5,
-                    alpha=1, beta=0,
-                    handle = CUDNN.handle(),
-                    cache_verbose=false, #reporting cache uses
-                    o...) where {T}
-    y = KnetArray{T}(undef,size(x))
+function _batchnorm4(T, g, b, x; 
+                     training=Knet.training(),
+                     cache=nothing,
+                     moments=nothing,
+                     eps=1e-5,
+                     alpha=1, beta=0,
+                     handle = CUDNN.handle(),
+                     cache_verbose=false, #reporting cache uses
+                     o...)
+    y = similar(x)
     weight_size = _wsize(y)
     # TODO: implement other bn mode
     bnmode = BN_MODE_SPATIAL
@@ -198,30 +200,12 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
     if training
         # Cache the mean and ivar for later
         if cache !== nothing
-            mean = KnetArray{T}(undef,weight_size)
-            ivar = KnetArray{T}(undef,weight_size)
+            mean = similar(x,weight_size)
+            ivar = similar(x,weight_size)
         else
             mean = CU_NULL
             ivar = CU_NULL
         end
-        # @cudnn(cudnnBatchNormalizationForwardTraining,
-        #       # Types
-        #       (Cptr, UInt32,
-        #        Ptr{T}, Ptr{T}, #alpha and beta
-        #        Cptr, Ptr{T}, #xdesc and x
-        #        Cptr, Ptr{T}, #ydesc and y
-        #        Cptr, Ptr{T}, Ptr{T}, #desc, weight and bias
-        #        Cdouble, Ptr{T}, Ptr{T}, #Decay factor, Running mean and Running var
-        #        Cdouble, # eps
-        #        Ptr{T}, Ptr{T}), #Cached mean and ivar
-        #       # Actual Arguments
-        #       handle, bnmode,
-        #       Ref(T(alpha)), Ref(T(beta)),
-        #       TD(x), x, #x
-        #       TD(y), y, #y
-        #       TD(g), g, b, #params
-        #       momentum, running_mean, running_var,
-        #       eps, mean, ivar)
         bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
         CUDNN.cudnnBatchNormalizationForwardTraining(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), TD(x), x, TD(y), y, TD(g), g, b, momentum, running_mean, running_var, eps, mean, ivar)
 
@@ -233,54 +217,40 @@ function batchnorm4(g::KnetArray{T}, b::KnetArray{T}, x::KnetArray{T};
         end
     else
         @assert (moments!==nothing) "You must provide moments for the test mode!"
-        # @cudnn(cudnnBatchNormalizationForwardInference,
-        #       # Types
-        #       (Cptr, UInt32,
-        #        Ptr{T}, Ptr{T},
-        #        Cptr, Ptr{T}, #x
-        #        Cptr, Ptr{T}, #y
-        #        Cptr, Ptr{T}, Ptr{T}, #params
-        #        Ptr{T}, Ptr{T}, #rm and rf
-        #        Cdouble),
-        #       handle, bnmode,
-        #       Ref(T(alpha)), Ref(T(beta)), #alpha and bete
-        #       TD(x), x, # xdesc and x
-        #       TD(y), y, #ydesc and y
-        #       TD(g), g, b, #desc, scale and bias
-        #       running_mean, running_var, #estimated stuff
-        #       eps) #epsilon
         bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
         CUDNN.cudnnBatchNormalizationForwardInference(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), TD(x), x, TD(y), y, TD(g), g, b, running_mean, running_var, eps)
     end
     return y
 end
 
-function batchnorm4(x::KnetArray{T};o...) where {T}
+function batchnorm4(x::Union{KnetArray,CuArray};o...)
     # Dummy buffers
     #  (cudnn doesn't support bn w/o affine
     #  although it is used in many applications)
-    g = KnetArray{T}(ones(_wsize(x)...))
-    b = KnetArray{T}(zeros(_wsize(x)...))
+    g = oftype(x, ones(_wsize(x)...))
+    b = oftype(x, zeros(_wsize(x)...))
     return batchnorm4(g, b, x; o...)
 end
 
-function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
-                         x::KnetArray{T}, dy::KnetArray{T};
-                         training=Knet.training(),
-                         cache=nothing,
-                         moments=nothing,
-                         grad_cache_disabled=false,
-                         eps=1e-5, alpha=1, beta=0,
-                         dalpha=1, dbeta=0,
-                         handle = CUDNN.handle(),
-                         cache_verbose=false,
-                         o...) where {T}
+batchnorm4_back(g::Union{KnetArray{T},Nothing}, x::KnetArray{T}, dy::KnetArray{T}; o...) where T = _batchnorm4_back(T,g,x,dy;o...)
+batchnorm4_back(g::Union{CuArray{T},Nothing}, x::CuArray{T}, dy::CuArray{T}; o...) where T = _batchnorm4_back(T,g,x,dy;o...)
+
+function _batchnorm4_back(T, g, x, dy;
+                          training=Knet.training(),
+                          cache=nothing,
+                          moments=nothing,
+                          grad_cache_disabled=false,
+                          eps=1e-5, alpha=1, beta=0,
+                          dalpha=1, dbeta=0,
+                          handle = CUDNN.handle(),
+                          cache_verbose=false,
+                          o...)
     if training
-        dx = KnetArray{T}(undef,size(x))
+        dx = similar(x)
         weight_size = _wsize(dy)
-        if g==nothing; g=KnetArray{T}(ones(weight_size)); end
-        dg = KnetArray{T}(undef,weight_size)
-        db = KnetArray{T}(undef,weight_size)
+        if g==nothing; g=oftype(x, ones(weight_size)); end
+        dg = similar(x,weight_size)
+        db = similar(x,weight_size)
         # TODO: support other modes
         bnmode = BN_MODE_SPATIAL
         if cache !== nothing # (Assume cache still exists)
@@ -289,23 +259,6 @@ function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
         else
             mean, ivar = CU_NULL, CU_NULL
         end
-        # @cudnn(cudnnBatchNormalizationBackward,
-        #       # C Types
-        #       (Cptr, UInt32,
-        #        Ptr{T}, Ptr{T}, #data difs
-        #        Ptr{T}, Ptr{T}, #param difs
-        #        Cptr, Ptr{T}, #x
-        #        Cptr, Ptr{T}, #dy
-        #        Cptr, Ptr{T}, #dx
-        #        Cptr, Ptr{T}, Ptr{T}, Ptr{T}, #desc,g,dg,db
-        #        Cdouble, Ptr{T}, Ptr{T}),
-        #       # Actual arguments
-        #       handle, bnmode,
-        #       Ref(T(alpha)), Ref(T(beta)),
-        #       Ref(T(dalpha)), Ref(T(dbeta)),
-        #       TD(x), x, TD(dy), dy, TD(dx), dx,
-        #       TD(g), g, dg, db,
-        #       eps, mean, ivar)
         bnmode = CUDNN.cudnnBatchNormMode_t(bnmode)
         CUDNN.cudnnBatchNormalizationBackward(handle, bnmode, Ref(T(alpha)), Ref(T(beta)), Ref(T(dalpha)), Ref(T(dbeta)), TD(x), x, TD(dy), dy, TD(dx), dx, TD(g), g, dg, db, eps, mean, ivar)
 
@@ -328,9 +281,9 @@ function batchnorm4_back(g::Union{KnetArray{T}, Nothing},
 end
 
 
-function batchnorm4g(g::Union{KnetArray{T}, Array{T}},
-                     x::Union{KnetArray{T}, Array{T}},
-                     dy::Union{KnetArray{T}, Array{T}};
+function batchnorm4g(g::Union{KnetArray{T}, CuArray{T}, Array{T}},
+                     x::Union{KnetArray{T}, CuArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, CuArray{T}, Array{T}};
                      cache=nothing, o...) where {T}
     dg, db, dx = batchnorm4_back(g, x, dy; cache=cache, o...)
     if cache !== nothing
@@ -342,15 +295,15 @@ function batchnorm4g(g::Union{KnetArray{T}, Array{T}},
     return dg
 end
 
-function batchnorm4b(dy::Union{KnetArray{T}, Array{T}};
+function batchnorm4b(dy::Union{KnetArray{T}, CuArray{T}, Array{T}};
                      cache=nothing, o...) where {T}
     (cache == nothing || cache.db == nothing) && return sum(dy, dims=_reddims(dy))
     return cache.db
 end
 
-function batchnorm4x(g::Union{KnetArray{T}, Array{T}},
-                     x::Union{KnetArray{T}, Array{T}},
-                     dy::Union{KnetArray{T}, Array{T}};
+function batchnorm4x(g::Union{KnetArray{T}, CuArray{T}, Array{T}},
+                     x::Union{KnetArray{T}, CuArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, CuArray{T}, Array{T}};
                      cache=nothing, o...) where {T}
     if cache !== nothing && cache.dx !== nothing
         return cache.dx
@@ -358,8 +311,8 @@ function batchnorm4x(g::Union{KnetArray{T}, Array{T}},
     return batchnorm4_back(g, x, dy; cache=cache, o...)[3]
 end
 
-function batchnorm4x(x::Union{KnetArray{T}, Array{T}},
-                     dy::Union{KnetArray{T}, Array{T}}
+function batchnorm4x(x::Union{KnetArray{T}, CuArray{T}, Array{T}},
+                     dy::Union{KnetArray{T}, CuArray{T}, Array{T}}
                      ;o...) where {T}
     return batchnorm4_back(nothing, x, dy; o...)[3]
 end
