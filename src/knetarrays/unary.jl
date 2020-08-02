@@ -4,7 +4,7 @@
 using SpecialFunctions
 import Base.Broadcast: broadcasted
 # import NNlib: relu, selu, elu
-import ..Ops20: invx, relu, selu, elu, sigm
+import ..Ops20: elu, relu, selu, sigm
 
 function unary_op(f, j=f, o...)
     J=Symbol(j)
@@ -105,13 +105,7 @@ end
 # """
 # selu
 
-# To avoid conflict with AutoGrad:
-import Base: tanh
-#@primitive tanh(x::Array),dy,y     tanhback.(dy,y)
-@primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
-
-# # For 2nd derivatives:
-# @primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
+# For 2nd derivatives:
 # @primitive reluback(dy,y),ddx  ddx.*(y.>0)       nothing
 # @primitive invxback(dy,y),ddx  ddx.*(-y.*y)      ddx.*(-2 .* dy .* y)
 # @primitive sigmback(dy,y),ddx  ddx.*y.*(1 .- y)  ddx.*dy.*(1 .- 2 .* y)

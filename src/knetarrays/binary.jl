@@ -2,7 +2,7 @@
 # uses binary_ops from broadcast.jl.
 
 import Base.Broadcast: broadcasted
-import ..Ops20: invxback, reluback, eluback, seluback, sigmback, tanhback
+import ..Ops20: eluback, reluback, seluback, sigmback
 
 # binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
@@ -311,6 +311,10 @@ end
 #(/)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
 #(^)(a::KnetArray{T},s::Number) where {T} = (.^)(a,T(s)) # non-elementwise definition in linalg
 #(^)(s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a) # non-elementwise definition in linalg
+
+tanhback(dyi::T,yi::T) where {T<:Number} = dyi*(T(1)-yi*yi)
+@primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
+@primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
 
 # Define all overloaded Julia functions for KnetArrays:
 

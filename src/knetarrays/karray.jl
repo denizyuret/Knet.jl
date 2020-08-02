@@ -40,7 +40,7 @@ for KnetArrays work faster. Once these are improved in CUDA.jl, KnetArrays will 
 * Linear algebra: (*), axpy!, lmul!, norm, rmul!
 
 * Knet extras: batchnorm, bce, bmm, cat1d, conv4, cpucopy, deconv4, dropout, elu, gpucopy,
-  invx, logistic, logp, logsoftmax, logsumexp, mat, nll, pool, relu, RNN, selu, sigm,
+  logistic, logp, logsoftmax, logsumexp, mat, nll, pool, relu, RNN, selu, sigm,
   softmax, unpool (Only 4D/5D, Float32/64 KnetArrays support conv4, pool, deconv4, unpool)
 
 """

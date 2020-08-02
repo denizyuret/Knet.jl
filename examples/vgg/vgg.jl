@@ -27,7 +27,7 @@ function main(args=ARGS)
     s = ArgParseSettings()
     s.description="vgg.jl (c) Deniz Yuret, İlker Kesen, 2016. Classifying images with the VGG model from http://www.robots.ox.ac.uk/~vgg/research/very_deep."
     # s.exc_handler=ArgParse.debug_handler
-    @add_arg_table s begin
+    @add_arg_table! s begin
         ("image"; default=imgurl; help="Image file or URL.")
         ("--model"; default="imagenet-vgg-verydeep-16"; help="Model name")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")

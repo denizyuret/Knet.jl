@@ -1,10 +1,10 @@
+export conv4, deconv4, mat, pool, unpool
+using NNlib: conv, DenseConvDims, maxpool, meanpool, PoolDims, ∇conv_data, ∇conv_filter, ∇maxpool, ∇meanpool
 using LinearAlgebra: lmul!
-import NNlib
-expand(N, i::Tuple) = i
-expand(N, i::Integer) = ntuple(_ -> i, N)
+using AutoGrad: AutoGrad, @primitive1
+
 
 """
-
     conv4(w, x; kwargs...)
 
 Execute convolutions or cross-correlations using filters specified
@@ -36,44 +36,81 @@ dimension.
 """
 function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
                padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
-    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523" #TODO
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
-    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    y = NNlib.conv(x, w, cdims)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    y = conv(x, w, cdims)
     alpha == 1 ? y : lmul!(alpha, y)
 end
 
 function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
                 padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
-    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523"
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
-    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dw = NNlib.∇conv_filter(x, dy, cdims)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dw = ∇conv_filter(x, dy, cdims)
     alpha == 1 ? dw : lmul!(alpha, dw)
 end
 
 function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
                 padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
-    @assert group == 1 "Grouped convolutions not implemented for CPU yet." #TODO
+    @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523"
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
-    cdims = NNlib.DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
-    dx = NNlib.∇conv_data(dy, w, cdims)
+    cdims = DenseConvDims(x, w; stride = stride, padding = padding, dilation = dilation, flipkernel = (mode!=0))
+    dx = ∇conv_data(dy, w, cdims)
     alpha == 1 ? dx : lmul!(alpha, dx)
 end
 
-@primitive conv4(w,x; o...),dy  conv4w(w,x,dy;o...)  conv4x(w,x,dy;o...)
-@zerograd  conv4x(w,x,dy;o...)
-@zerograd  conv4w(w,x,dy;o...)
+@primitive1 conv4(w,x; o...),dy,y       conv4w(w,x,dy;o...)   conv4x(w,x,dy;o...)
+@primitive1 conv4w(w,x,dy;o...),ddw,dw  nothing               conv4x(ddw,x,dy;o...)  conv4(ddw,x;o...)
+@primitive1 conv4x(w,x,dy;o...),ddx,dx  conv4w(w,ddx,dy;o...) nothing                conv4(w,ddx;o...)
 
 
 """
+    deconv4(w, x; kwargs...)
 
+Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is
+equivalent to backward pass of a convolution (gradients with respect to input
+tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent to
+forward pass of a convolution. Since it swaps forward and backward passes of convolution
+operation, padding and stride options belong to output tensor. See [this
+report](https://arxiv.org/abs/1603.07285) for further explanation.
+
+If `w` has dimensions `(W1,W2,...,Cy,Cx)` and `x` has dimensions `(X1,X2,...,Cx,N)`, the result
+`y=deconv4(w,x)` will have dimensions `(Y1,Y2,...,Cy,N)` where
+
+Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
+
+Here Cx is the number of x channels, Cy is the number of y channels, N is the number of
+instances, and Wi,Xi,Yi are spatial dimensions. Padding and stride are keyword arguments that
+can be specified as a single number (in which case they apply to all dimensions), or an
+array/tuple with entries for each spatial dimension.
+
+# Keywords
+
+* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
+* `stride=1`: the number of elements to slide to reach the next filtering window.
+* `mode=0`: 0 for convolution and 1 for cross-correlation.
+* `alpha=1`: can be used to scale the result.
+* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
+* `group=1`: can be used to perform grouped convolutions.
+
+"""
+function deconv4(w,x; o...)
+    y = similar(x,dcdims(w,x;o...))
+    return conv4x(w,y,x;o...)
+end
+
+@primitive1 deconv4(w,x;o...),dy  conv4w(w,dy,x;o...)  conv4(w,dy;o...)
+
+
+"""
     pool(x; kwargs...)
 
 Compute pooling of input values (i.e., the maximum or average of
@@ -104,14 +141,15 @@ with entries for each spatial dimension.
 """
 function pool(x::AbstractArray{T,N}; 
               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
-    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
-    @assert mode==0 || mode==1 "mode=$mode not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218" # TODO
+    @assert mode != 2 "Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218" # TODO
+    @assert mode==0 || mode==1 "Bad pooling mode=$mode"
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
-    pdims = NNlib.PoolDims(x, window; padding = padding, stride = stride)
-    y = (mode == 0 ? NNlib.maxpool(x, pdims) :
-         mode == 1 ? NNlib.meanpool(x, pdims) :
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    y = (mode == 0 ? maxpool(x, pdims) :
+         mode == 1 ? meanpool(x, pdims) :
          # mode == 2 ? meanpool(x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
          error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? y : lmul!(alpha, y)
@@ -119,24 +157,25 @@ end
 
 function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; 
                alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
-    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
-    @assert mode==0 || mode==1 "mode=$mode not implemented for the CPU, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert mode != 2 "Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218"
+    @assert mode==0 || mode==1 "Bad pooling mode=$mode"
     if alpha != 1
         y = y ./ T(alpha)
     end
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
-    pdims = NNlib.PoolDims(x, window; padding = padding, stride = stride)
-    dx = (mode == 0 ? NNlib.∇maxpool(dy, y, x, pdims) :
-          mode == 1 ? NNlib.∇meanpool(dy, y, x, pdims) :
+    pdims = PoolDims(x, window; padding = padding, stride = stride)
+    dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
+          mode == 1 ? ∇meanpool(dy, y, x, pdims) :
           # mode == 2 ? ∇meanpool(dy, y, x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
           error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? dx : lmul!(alpha, dx)
 end
 
-@primitive pool(x;o...),dy,y  poolx(x,y,dy;o...)
-@zerograd  poolx(x,y,dy;o...)
+@primitive1 pool(x;o...),dy,y  poolx(x,y,dy;o...)
+@primitive1 poolx(x,y,dy;o...) #TODO
 
 
 """
@@ -159,60 +198,49 @@ function unpoolx(dy; window=2, alpha=1, o...) # padding=0, stride=window, mode=0
     pool(dy; o..., window=window, mode=1, alpha=1/alpha) * w
 end
 
-@primitive  unpool(x;o...),dy,y  unpoolx(dy;o...)
+@primitive1  unpool(x;o...),dy,y  unpoolx(dy;o...)
+@primitive1  unpoolx(dy;o...)  # TODO
 
 
 """
+    mat(x; dims = ndims(x) - 1)
 
-    y = deconv4(w, x; kwargs...)
+Reshape `x` into a two-dimensional matrix by joining the first dims dimensions, i.e. 
+`reshape(x, prod(size(x,i) for i in 1:dims), :)`
 
-Simulate 4-D deconvolution by using _transposed convolution_ operation. Its forward pass is
-equivalent to backward pass of a convolution (gradients with respect to input
-tensor). Likewise, its backward pass (gradients with respect to input tensor) is equivalent
-to forward pass of a convolution. Since it swaps forward and backward passes of convolution
-operation, padding and stride options belong to output tensor. See [this
-report](https://arxiv.org/abs/1603.07285) for further explanation.
+`dims=ndims(x)-1` (default) is typically used when turning the output of a 4-D convolution
+result into a 2-D input for a fully connected layer.
 
-Currently KnetArray{Float32/64,4} and Array{Float32/64,4} are supported as `w` and `x`.  If
-`w` has dimensions `(W1,W2,...,O,I)` and `x` has dimensions `(X1,X2,...,I,N)`, the result
-`y` will have dimensions `(Y1,Y2,...,O,N)` where
+`dims=1` is typically used when turning the 3-D output of an RNN layer into a 2-D input for
+a fully connected layer.
 
-Yi = Wi+stride[i]*(Xi-1)-2*padding[i]
-
-Here I is the number of input channels, O is the number of output channels, N is the number
-of instances, and Wi,Xi,Yi are spatial dimensions. padding and stride are keyword arguments
-that can be specified as a single number (in which case they apply to all dimensions), or an
-array/tuple with entries for each spatial dimension.
-
-# Keywords
-
-* `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
-* `stride=1`: the number of elements to slide to reach the next filtering window.
-* `mode=0`: 0 for convolution and 1 for cross-correlation.
-* `alpha=1`: can be used to scale the result.
-* `handle`: handle to a previously created cuDNN context. Defaults to a Knet allocated handle.
+`dims=0` will turn the input into a row vector, `dims=ndims(x)` will turn it into a column
+vector.
 
 """
-function deconv4(w,x; o...)
-    y = similar(x,dcdims(w,x;o...))
-    return conv4x(w,y,x;o...)
-end
-
-function deconv4w(w,x,dy; o...)
-    return conv4w(w,dy,x;o...)
-end
-
-function deconv4x(w,x,dy; o...)
-    return conv4(w,dy;o...)
-end
-
-
-@primitive deconv4(w,x; o...),dy,y  deconv4w(w,x,dy; o...)  deconv4x(w,x,dy; o...)
-@zerograd deconv4w(w,x,dy; o...)
-@zerograd deconv4x(w,x,dy; o...)
+mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:dims) : 1), :)
 
 
 ## Dimension helpers:
+
+# outputDim = 1 + ( inputDim + 2*pad - (((filterDim-1)*dilation)+1) )/convolutionStride;
+# inputDim = (outputDim - 1) * convolutionStride + (((filterDim-1)*dilation)+1) - 2*pad
+function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
+    N = ndims(x)
+    @assert size(x,N-1) == size(w,N)
+    ntuple(N) do i
+        if i < N-1
+            pi = (if isa(padding,Number); padding; else padding[i]; end)
+            si = (if isa(stride,Number); stride; else stride[i]; end)
+            di = (if isa(dilation,Number); dilation; else dilation[i]; end)
+            si*(size(x,i)-1) + (((size(w,i)-1)*di)+1) - 2*pi
+        elseif i == N-1
+            size(w,N-1)
+        else
+            size(x,N)
+        end
+    end
+end
 
 # convert padding etc. size to an Int array of the right dimension
 function psize(p, x)
@@ -223,25 +251,6 @@ function psize(p, x)
         collect(Int,p)
     else
         throw(DimensionMismatch("psize: $p $nd"))
-    end
-end
-
-function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
-    # TODO: handle dilation here
-    dilation != 1 && error("deconv4 cannot handle dilation!=1 yet.")
-    N = ndims(x)
-    @assert size(x,N-1) == size(w,N)
-    ntuple(N) do i
-        if i < N-1
-            pi = (if isa(padding,Number); padding; else padding[i]; end)
-            si = (if isa(stride,Number); stride; else stride[i]; end)
-            # di = (if isa(dilation,Number); dilation; else dilation[i]; end)
-            si*(size(x,i)-1) + size(w,i) - 2*pi
-        elseif i == N-1
-            size(w,N-1)
-        else
-            size(x,N)
-        end
     end
 end
 
@@ -262,20 +271,16 @@ end
 # convolution padding size that preserves the input size when filter size is odd and stride=1
 padsize(w)=ntuple(i->div(size(w,i)-1,2), ndims(w)-2)
 
-"""
-    mat(x; dims = ndims(x) - 1)
+expand(N, i::Tuple) = i
+expand(N, i::Integer) = ntuple(_ -> i, N)
 
-Reshape `x` into a two-dimensional matrix by joining the first dims dimensions, i.e. 
-`reshape(x, prod(size(x,i) for i in 1:dims), :)`
 
-`dims=ndims(x)-1` (default) is typically used when turning the output of a 4-D convolution
-result into a 2-D input for a fully connected layer.
 
-`dims=1` is typically used when turning the 3-D output of an RNN layer into a 2-D input for
-a fully connected layer.
+# TODO:
+# Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
+# Gradient for poolx, unpoolx
+# Test for pool, poolx, unpool, unpoolx
+# maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
+# Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
+# unpool Does not work correctly for every window, padding, mode combination.
 
-`dims=0` will turn the input into a row vector, `dims=ndims(x)` will turn it into a column
-vector.
-
-"""
-mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:dims) : 1), :)
