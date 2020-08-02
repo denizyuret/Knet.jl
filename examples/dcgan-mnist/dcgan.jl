@@ -38,7 +38,7 @@ function main(args)
     println("training started..."); flush(stdout)
     for epoch = 1:o[:epochs]
         dlossval = glossval = 0
-        @time for (x,y) in dtrn
+        for (x,y) in progress(dtrn)
             noise = sample_noise(o[:atype],o[:zdim],length(y))
             dlossval += train_discriminator!(wd,wg,md,mg,2x .- 1,y,noise,optd,o)
             noise = sample_noise(o[:atype],o[:zdim],length(y))
@@ -138,12 +138,14 @@ end
 
 function leaky_relu(x, alpha=0.2)
     pos = max.(0,x)
-    neg = min.(0,x) .* alpha
+    neg = min.(0,x) .* eltype(x)(alpha)
     return pos .+ neg
 end
 
 function sample_noise(atype,zdim,nsamples,mu=0.5,sigma=0.5)
     noise = convert(atype, randn(zdim,nsamples))
+    mu = eltype(noise)(mu)
+    sigma = eltype(noise)(sigma)
     normalized = (noise .- mu) ./ sigma
 end
 
@@ -180,7 +182,7 @@ function dlayer1(x0, w, m; stride=1, padding=0, alpha=0.2, training=true)
     x = conv4(w[1], x0; stride=stride, padding=padding)
     x = batchnorm(x, m, w[2]; training=training)
     x = leaky_relu(x,alpha)
-    x = pool(x; mode=2)
+    x = pool(x) #TODO: add mode=2 after it is supported by cuarrays.
 end
 
 function dlayer2(x, w, m; training=true, alpha=0.2)
@@ -289,7 +291,7 @@ function plot_generations(
     if z == nothing
         nimg = prod(gridsize)
         zdim = size(wg[1],2)
-        atype = wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
+        atype = typeof(wg[1]) # wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
         z = sample_noise(atype,zdim,nimg)
     end
     output = Array(0.5 .* (1 .+ gnet(wg,z,mg; training=false)))
