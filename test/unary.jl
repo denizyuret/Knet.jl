@@ -1,7 +1,7 @@
 include("header.jl")
 using SpecialFunctions
-using Knet.Ops20: reluback, sigmback, tanhback, invxback, eluback, seluback
-using Knet.KnetArrays: unary_ops
+using Knet.Ops20: reluback, sigmback, eluback, seluback
+using Knet.KnetArrays: unary_ops, tanhback
 
 @testset "unary" begin
 
@@ -58,7 +58,7 @@ using Knet.KnetArrays: unary_ops
         (x,y,dy) = randn.((10,10,10))
         if trygpu; (x,y,dy) = KnetArray.((x,y,dy)); end
         (x,y,dy) = Param.((x,y,dy))
-        for f in (relu,sigm,tanh,invx,selu,elu)
+        for f in (relu,sigm,tanh,selu,elu)
             f1(x) = f.(x); @test @gcheck f1(x)
             f1i(x,i) = f1(x)[i]; @test @gcheck f1i(x,1)
             g1i(x,i) = grad(f1i)(x,i); @test @gcheck g1i(x,1)
@@ -68,7 +68,6 @@ using Knet.KnetArrays: unary_ops
         @test @gcheck reluback.(dy,y)
         @test @gcheck sigmback.(dy,y)
         @test @gcheck tanhback.(dy,y)
-        @test @gcheck invxback.(dy,y)
         @test @gcheck seluback.(dy,y)
         @test @gcheck  eluback.(dy,y)
     end
