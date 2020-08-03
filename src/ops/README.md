@@ -1,7 +1,7 @@
 Knet operators circa 2020 should be collected in an Ops20 submodule. This directory has
-documentation, generic implementations and gradient definitions. KnetArray and CuArray
-implementations should go to knetarrays and cuarrays folders. Some implementations may be
-imported from other packages, e.g. NNlib.
+documentation, generic typeless implementations and gradient definitions. KnetArray and
+CuArray implementations should go to knetarrays and cuarrays folders. Some implementations may
+be imported from other packages, e.g. NNlib.
 
 Functions in Ops and Base can/should have array-type specific implementations. All other
 levels (layers, models) should be generic and should work with any cpu/gpu array type

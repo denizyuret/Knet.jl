@@ -1,5 +1,5 @@
 using CUDA
-import ..Ops20: generic_softmax, nll
+import ..Ops20: nll
 
 # TODO: refactor this code, avoid repetition with cuarrays
 

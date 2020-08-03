@@ -12,14 +12,14 @@ size(B,1) and size(A)[3:end] and size(B)[3:end] must match.  If A is a (m,n,b...
 a (n,k,b...) tensor, and the output is a (m,k,b...)  tensor.
 
 """
-function bmm(A::AbstractArray{T}, B::AbstractArray{T}; transA::Bool = false, transB::Bool = false) where T
+function bmm(A, B; transA::Bool = false, transB::Bool = false)
     sa, sb = size(A), size(B)
     m, k   = transA ? (sa[2],sa[1]) : (sa[1],sa[2])
     kb, n  = transB ? (sb[2],sb[1]) : (sb[1],sb[2])
     @assert kb == k && sa[3:end]==sb[3:end]
     a3, b3 = reshape(A,sa[1],sa[2],:), reshape(B,sb[1],sb[2],:)
     C = similar(A, m, n, size(a3,3))
-    bmm!((transA ? 'T' : 'N'), (transB ? 'T' : 'N'), one(T), a3, b3, zero(T), C)
+    bmm!((transA ? 'T' : 'N'), (transB ? 'T' : 'N'), 1, a3, b3, 0, C)
     reshape(C,m,n,sb[3:end]...)
 end
 

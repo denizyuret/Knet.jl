@@ -30,9 +30,9 @@ spatial dimension.
 * `group=1`: can be used to perform grouped convolutions.
 
 """
-function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
-               padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
-    @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523" #TODO
+function conv4(w, x; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1)
+    @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523"
+    N = ndims(x)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
@@ -41,9 +41,9 @@ function conv4(w::AbstractArray{T,N}, x::AbstractArray{T,N};
     alpha == 1 ? y : lmul!(alpha, y)
 end
 
-function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
+function conv4w(w,x,dy; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1)
     @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523"
+    N = ndims(x)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
@@ -52,9 +52,9 @@ function conv4w(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,
     alpha == 1 ? dw : lmul!(alpha, dw)
 end
 
-function conv4x(w::AbstractArray{T,N},x::AbstractArray{T,N},dy::AbstractArray{T,N};
-                padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1) where {T,N}
+function conv4x(w,x,dy; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1)
     @assert group == 1 "Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523"
+    N = ndims(x)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     dilation = expand(Val(N-2), dilation)
@@ -132,9 +132,9 @@ with entries for each spatial dimension.
 * `alpha=1`: can be used to scale the result.
 
 """
-function pool(x::AbstractArray{T,N}; 
-              window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1) where {T,N}
+function pool(x; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1)
     mode, maxpoolingNanOpt = checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha)
+    N = ndims(x)
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
@@ -147,12 +147,12 @@ function pool(x::AbstractArray{T,N};
     alpha == 1 ? y : lmul!(alpha, y)
 end
 
-function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; 
-               window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1) where {T,N}
+function poolx(x,y,dy; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1)
     mode, maxpoolingNanOpt = checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha)
     if alpha != 1
-        y = y ./ T(alpha)
+        y = y ./ eltype(y)(alpha)
     end
+    N = ndims(x)
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
@@ -274,8 +274,7 @@ expand(N, i::Integer) = ntuple(_ -> i, N)
 
 
 
-# TODO:
-# Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
-# maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
-# Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
-# unpool Does not work correctly for every window, padding, mode combination?
+# TODO: Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
+# TODO: maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
+# TODO: Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
+# TODO: unpool Does not work correctly for every window, padding, mode combination?

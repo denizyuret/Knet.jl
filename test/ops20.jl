@@ -1,5 +1,5 @@
 using Test
-using Random: randn
+using Random: randn, rand
 using AutoGrad: @gcheck, Param, value
 using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, deconv4, mat, pool, poolx, unpool
 
@@ -67,7 +67,37 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     @test size(mat(x,dims=2)) == (64,6)
     @test size(mat(x,dims=1)) == (8,48)
     @test size(mat(x,dims=0)) == (1,384)
+
+
+    function softtest(f,x)
+        ((@gcheck f(x)) &&
+         (@gcheck f(x,dims=1)) &&
+         (@gcheck f(x,dims=2)))
+    end
+    
+    scores = Param(randn(10,100))
+    @test softtest(softmax, scores)
+    @test softtest(logsoftmax, scores)
+    @test softtest(logsumexp, scores)
+
+    labels1 = rand(1:10,100)
+    labels2 = rand(1:100,10)
+    @test @gcheck nll(scores, labels1, dims=1)
+    @test @gcheck nll(scores, labels2, dims=2)
+
+    value(scores)[1,:] .+= 1000
+    @test accuracy(scores, labels1, dims=1) == sum(labels1 .== 1)/length(labels1)
+    value(scores)[:,1] .+= 10000
+    @test accuracy(scores, labels2, dims=2) == sum(labels2 .== 1)/length(labels2)
+
+    scores = Param(randn(100))
+    labels = rand(Bool,100)
+    xlabels = labels .* 2 .- 1
+    @test @gcheck bce(scores, labels)
+    @test @gcheck logistic(scores, xlabels)
+    @test bce(scores, labels) == logistic(scores, xlabels)
+    
 end
 
 # TODO:
-# test unpool, unpoolx, loss.jl, rnn.jl, batchnorm.jl
+# test rnn.jl, batchnorm.jl

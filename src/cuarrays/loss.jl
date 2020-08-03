@@ -1,9 +1,9 @@
 using CUDA
-import ..Ops20
+import ..Ops20: nll
 
 # TODO: refactor this code, avoid repetition with knetarrays
 
-function Ops20.generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:CuArray, AutoGrad.Value{<:CuArray}}
+function generic_softmax(x::T,algo::Int,fallback;dims=:) where T<:Union{<:CuArray, AutoGrad.Value{<:CuArray}}
     d,sz = dimvec(x,dims)
     if algo == 2 && (CUDNN.handle(); CUDNN.version() < v"3") # algo=2 (logsoftmax) was introduced in cudnn 3000
         fallback(x; dims=dims, algo=algo)
@@ -74,7 +74,7 @@ function csb2(y::CuArray,dy::CuArray,dx::CuArray,ddx;algo=0,mode=0,o...)
     end
 end
 
-function Ops20.nll(y,a::CuArray{<:Integer}; dims=1, average=true)
+function nll(y,a::CuArray{<:Integer}; dims=1, average=true)
     @warn "nll(scores, answers::CuArray{<:Integer} is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
     nll(y, Array(a); dims=dims, average=average)
 end
