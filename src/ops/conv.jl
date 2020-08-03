@@ -127,32 +127,29 @@ with entries for each spatial dimension.
 * `window=2`: the pooling window size for each dimension.
 * `padding=0`: the number of extra zeros implicitly concatenated at the start and at the end of each dimension.
 * `stride=window`: the number of elements to slide to reach the next pooling window.
-* `mode=0`: 0 for max, 1 for average including padded values, 2 for average excluding padded values.
+* `mode=0`: 0 for max, 1 for average including padded values, 2 for average excluding padded values, 3 for deterministic max.
 * `maxpoolingNanOpt=1`: Nan numbers are not propagated if 0, they are propagated if 1.
 * `alpha=1`: can be used to scale the result.
 
 """
 function pool(x::AbstractArray{T,N}; 
-              alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
-    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218" # TODO
-    @assert mode != 2 "Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218" # TODO
-    @assert mode==0 || mode==1 "Bad pooling mode=$mode"
+              window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1) where {T,N}
+    mode, maxpoolingNanOpt = checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha)
     window = expand(Val(N-2), window)
     stride = expand(Val(N-2), stride)
     padding = expand(Val(N-2), padding)
     pdims = PoolDims(x, window; padding = padding, stride = stride)
     y = (mode == 0 ? maxpool(x, pdims) :
          mode == 1 ? meanpool(x, pdims) :
-         # mode == 2 ? meanpool(x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
+         mode == 2 ? error("Pool mode=2 not yet implemented in NNlib. See https://github.com/FluxML/NNlib.jl/issues/218") :
+         mode == 3 ? maxpool(x, pdims) :
          error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? y : lmul!(alpha, y)
 end
 
 function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N}; 
-               alpha=1, mode=0, window=2, padding=0, stride=window, maxpoolingNanOpt=1) where {T,N}
-    @assert maxpoolingNanOpt==1 "maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218"
-    @assert mode != 2 "Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218"
-    @assert mode==0 || mode==1 "Bad pooling mode=$mode"
+               window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1) where {T,N}
+    mode, maxpoolingNanOpt = checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha)
     if alpha != 1
         y = y ./ T(alpha)
     end
@@ -162,37 +159,45 @@ function poolx(x::AbstractArray{T,N},y::AbstractArray{T,N},dy::AbstractArray{T,N
     pdims = PoolDims(x, window; padding = padding, stride = stride)
     dx = (mode == 0 ? ∇maxpool(dy, y, x, pdims) :
           mode == 1 ? ∇meanpool(dy, y, x, pdims) :
-          # mode == 2 ? ∇meanpool(dy, y, x, pdims) : ## CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING is missing in NNlib Issue #218
+          mode == 2 ? error("Pool mode=2 not yet implemented in NNlib. See https://github.com/FluxML/NNlib.jl/issues/218") :
+          mode == 3 ? ∇maxpool(dy, y, x, pdims) :
           error("mode=$mode is not supported for CPU pool."))
     alpha == 1 ? dx : lmul!(alpha, dx)
 end
 
 @primitive1 pool(x;o...),dy,y  poolx(x,y,dy;o...)
-@primitive1 poolx(x,y,dy;o...) #TODO
+@primitive1 poolx(x,y,dy;o...),ddx,dx  nothing  nothing  pool(ddx;o...)
+
+function checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha)
+    @assert mode ∈ 0:3 "Bad pooling mode=$mode"
+    if mode == 2
+        @warn "Pool mode=2 not yet implemented in NNlib, using 1 instead. See https://github.com/FluxML/NNlib.jl/issues/218" maxlog=1
+        mode = 1
+    end
+    @assert maxpoolingNanOpt ∈ (0,1) "Bad pooling maxpoolingNanOpt=$maxpoolingNanOpt"
+    if maxpoolingNanOpt == 0
+        @warn "Pool maxpoolingNanOpt=0 not yet implemented in NNlib, using 1 instead. See https://github.com/FluxML/NNlib.jl/issues/218" maxlog=1
+        maxpoolingNanOpt = 1
+    end
+    if padding != 0 && x isa Array
+        @warn "Pool padding is buggy in NNlib, use with caution. See https://github.com/FluxML/NNlib.jl/issues/229" maxlog=1
+    end
+    return (mode, maxpoolingNanOpt)
+end    
 
 
 """
+    unpool(x; o...)
 
-Unpooling; `reverse` of pooling. 
-
-Warning: Does not work correctly for every window, padding, mode combination. Test before use. #TODO
-
-    x == pool(unpool(x;o...); o...)
-
+Perform the reverse of pooling: `x == pool(unpool(x;o...); o...)`
 """
 function unpool(x; window=2, alpha=1, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
     w = prod(psize(window,x))
     y = similar(x,updims(x; window=window, o...))
+    # Leave unpool as a non-primitive, it is just a poolx call
     poolx(y,x,x.*w; o..., window=window, mode=1, alpha=1/alpha)
 end
 
-function unpoolx(dy; window=2, alpha=1, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
-    w = prod(psize(window,dy))
-    pool(dy; o..., window=window, mode=1, alpha=1/alpha) * w
-end
-
-@primitive1  unpool(x;o...),dy,y  unpoolx(dy;o...)
-@primitive1  unpoolx(dy;o...)  # TODO
 
 
 """
@@ -271,9 +276,6 @@ expand(N, i::Integer) = ntuple(_ -> i, N)
 
 # TODO:
 # Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
-# Gradient for poolx, unpoolx
-# Test for pool, poolx, unpool, unpoolx
 # maxpoolingNanOpt not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
 # Pool mode=2 not yet implemented in NNlib, see https://github.com/FluxML/NNlib.jl/issues/218
-# unpool Does not work correctly for every window, padding, mode combination.
-
+# unpool Does not work correctly for every window, padding, mode combination?

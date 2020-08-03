@@ -12,9 +12,9 @@ using Random: rand!
 include("activation.jl"); export elu, relu, selu, sigm
 include("dropout.jl");    export dropout
 include("bmm.jl");        export bmm
+include("conv.jl");       export conv4, deconv4, mat, pool, unpool
 
 # TODO:
-include("conv.jl"); export conv4, deconv4, mat, pool, unpool
 include("loss.jl"); export logp, softmax, logsoftmax, logsumexp, nll, accuracy, zeroone, logistic, bce
 #TODO: split rnn knetarray and cpu implementations.
 #TODO: split rnn functional and layer implementations.
