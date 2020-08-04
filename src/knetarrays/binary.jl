@@ -245,72 +245,72 @@ import Base: +, -, *, /, \
 # Scalar kernels are defined for scalar,array order only.
 # For array,scalar we can get most for free.
 
-broadcasted(::typeof(+),a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)
-broadcasted(::typeof(+),s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)
-broadcasted(::typeof(-),a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a)
-broadcasted(::typeof(-),s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)
-broadcasted(::typeof(*),a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
-broadcasted(::typeof(*),s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
-broadcasted(::typeof(/),a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
-broadcasted(::typeof(/),s::Number,a::KnetArray{T}) where {T} = (./)(T(s),a)
-broadcasted(::typeof(max),a::KnetArray{T},s::Number) where {T} = max.(T(s),a)
-broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T} = max.(T(s),a)
-broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T} = min.(T(s),a)
-broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T} = min.(T(s),a)
+broadcasted(::typeof(+),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(s),a)
+broadcasted(::typeof(+),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.+)(T(s),a)
+broadcasted(::typeof(-),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(-s),a)
+broadcasted(::typeof(-),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.-)(T(s),a)
+broadcasted(::typeof(*),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(s),a)
+broadcasted(::typeof(*),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(s),a)
+broadcasted(::typeof(/),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(1/s),a)
+broadcasted(::typeof(/),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (./)(T(s),a)
+broadcasted(::typeof(max),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = max.(T(s),a)
+broadcasted(::typeof(max),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = max.(T(s),a)
+broadcasted(::typeof(min),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = min.(T(s),a)
+broadcasted(::typeof(min),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = min.(T(s),a)
 
 # ^ does not work with cuda, trying to solve in CUDA.jl (JuliaGPU/CuArrays.jl#108)
-# broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a)
+# broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.^)(T(s),a)
 # Pow is the one exception, we need to define a separate kernel:
 # rpow(s,a)=a^s # only broadcast#rpow is defined above, we need rpow defined
-# broadcasted(::typeof(^),a::KnetArray{T},s::Number) where {T} = rpow.(T(s),a)
+# broadcasted(::typeof(^),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = rpow.(T(s),a)
 
 
-broadcasted(::typeof(==),a::KnetArray{T},s::Number) where {T} = (T(s).==a)
-broadcasted(::typeof(==),s::Number,a::KnetArray{T}) where {T} = (T(s).==a)
-broadcasted(::typeof(!=),a::KnetArray{T},s::Number) where {T} = (T(s).!=a)
-broadcasted(::typeof(!=),s::Number,a::KnetArray{T}) where {T} = (T(s).!=a)
-broadcasted(::typeof(>),a::KnetArray{T},s::Number) where {T} = (T(s).<a)
-broadcasted(::typeof(>),s::Number,a::KnetArray{T}) where {T} = (T(s).>a)
-broadcasted(::typeof(>=),a::KnetArray{T},s::Number) where {T} = (T(s).<=a)
-broadcasted(::typeof(>=),s::Number,a::KnetArray{T}) where {T} = (T(s).>=a)
-broadcasted(::typeof(<),a::KnetArray{T},s::Number) where {T} = (T(s).>a)
-broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T} = (T(s).<a)
-broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T} = (T(s).>=a)
-broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T} = (T(s).<=a)
+broadcasted(::typeof(==),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).==a)
+broadcasted(::typeof(==),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).==a)
+broadcasted(::typeof(!=),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).!=a)
+broadcasted(::typeof(!=),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).!=a)
+broadcasted(::typeof(>),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).<a)
+broadcasted(::typeof(>),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).>a)
+broadcasted(::typeof(>=),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).<=a)
+broadcasted(::typeof(>=),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).>=a)
+broadcasted(::typeof(<),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).>a)
+broadcasted(::typeof(<),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).<a)
+broadcasted(::typeof(<=),a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (T(s).>=a)
+broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (T(s).<=a)
 
 # Bcasted methods
 
 for f in Symbol.((+,-,*,/,max,min,^,==,!=,>,>=,<,<=))
     M = which(@__MODULE__, f)
     @eval begin
-        broadcasted(::typeof($f),s::Bcasted{<:Number},a::Bcasted{<:KnetArray}) = broadcasted($f, s.value, a.value) |> Bcasted
+        broadcasted(::typeof($f),s::Bcasted{<:Number},a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s.value, a.value) |> Bcasted
         broadcasted(::typeof($f),s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
-        broadcasted(::typeof($f),s::Number,a::Bcasted{<:KnetArray}) = broadcasted($f, s, a.value) |> Bcasted
-        broadcasted(::typeof($f),a::Bcasted{<:KnetArray},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
+        broadcasted(::typeof($f),s::Number,a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s, a.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{KnetArray{<:AbstractFloat}},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
         broadcasted(::typeof($f),a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
-        broadcasted(::typeof($f),a::Bcasted{<:KnetArray},s::Number) = broadcasted($f, a.value, s) |> Bcasted
-        ($M).$f(s::Bcasted{<:Number},a::Bcasted{<:KnetArray}) = broadcasted($f, s.value, a.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{KnetArray{<:AbstractFloat}},s::Number) = broadcasted($f, a.value, s) |> Bcasted
+        ($M).$f(s::Bcasted{<:Number},a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s.value, a.value) |> Bcasted
         ($M).$f(s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
-        ($M).$f(s::Number,a::Bcasted{<:KnetArray}) = broadcasted($f, s, a.value) |> Bcasted
-        ($M).$f(a::Bcasted{<:KnetArray},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
+        ($M).$f(s::Number,a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s, a.value) |> Bcasted
+        ($M).$f(a::Bcasted{KnetArray{<:AbstractFloat}},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
         ($M).$f(a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
-        ($M).$f(a::Bcasted{<:KnetArray},s::Number) = broadcasted($f, a.value, s) |> Bcasted
+        ($M).$f(a::Bcasted{KnetArray{<:AbstractFloat}},s::Number) = broadcasted($f, a.value, s) |> Bcasted
     end
 end
 
 # familiar aliases for broadcasting operations of array & scalar (#7226):
-# (+)(a::KnetArray{T},s::Number) where {T} = (.+)(T(s),a)  -- deprecated
-# (+)(s::Number,a::KnetArray{T}) where {T} = (.+)(T(s),a)  -- deprecated
-# (-)(a::KnetArray{T},s::Number) where {T} = (.+)(T(-s),a) -- deprecated
-# (-)(s::Number,a::KnetArray{T}) where {T} = (.-)(T(s),a)  -- deprecated
-(*)(a::KnetArray{T},s::Number) where {T} = (.*)(T(s),a)
-(*)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(s),a)
-(/)(a::KnetArray{T},s::Number) where {T} = (.*)(T(1/s),a)
-(\)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(1/s),a)
+# (+)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
+# (+)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
+# (-)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(-s),a) -- deprecated
+# (-)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.-)(T(s),a)  -- deprecated
+(*)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(s),a)
+(*)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(s),a)
+(/)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(1/s),a)
+(\)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a)
 
-#(/)(s::Number,a::KnetArray{T}) where {T} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
-#(^)(a::KnetArray{T},s::Number) where {T} = (.^)(a,T(s)) # non-elementwise definition in linalg
-#(^)(s::Number,a::KnetArray{T}) where {T} = (.^)(T(s),a) # non-elementwise definition in linalg
+#(/)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
+#(^)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.^)(a,T(s)) # non-elementwise definition in linalg
+#(^)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.^)(T(s),a) # non-elementwise definition in linalg
 
 tanhback(dyi::T,yi::T) where {T<:Number} = dyi*(T(1)-yi*yi)
 @primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
