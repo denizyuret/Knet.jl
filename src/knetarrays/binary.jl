@@ -283,18 +283,18 @@ broadcasted(::typeof(<=),s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (
 for f in Symbol.((+,-,*,/,max,min,^,==,!=,>,>=,<,<=))
     M = which(@__MODULE__, f)
     @eval begin
-        broadcasted(::typeof($f),s::Bcasted{<:Number},a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s.value, a.value) |> Bcasted
-        broadcasted(::typeof($f),s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
-        broadcasted(::typeof($f),s::Number,a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s, a.value) |> Bcasted
-        broadcasted(::typeof($f),a::Bcasted{KnetArray{<:AbstractFloat}},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
-        broadcasted(::typeof($f),a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
-        broadcasted(::typeof($f),a::Bcasted{KnetArray{<:AbstractFloat}},s::Number) = broadcasted($f, a.value, s) |> Bcasted
-        ($M).$f(s::Bcasted{<:Number},a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s.value, a.value) |> Bcasted
-        ($M).$f(s::Bcasted{<:Number},a::KnetArray) = broadcasted($f, s.value, a) |> Bcasted
-        ($M).$f(s::Number,a::Bcasted{KnetArray{<:AbstractFloat}}) = broadcasted($f, s, a.value) |> Bcasted
-        ($M).$f(a::Bcasted{KnetArray{<:AbstractFloat}},s::Bcasted{<:Number}) = broadcasted($f, a.value, s.value) |> Bcasted
-        ($M).$f(a::KnetArray,s::Bcasted{<:Number}) = broadcasted($f, a, s.value) |> Bcasted
-        ($M).$f(a::Bcasted{KnetArray{<:AbstractFloat}},s::Number) = broadcasted($f, a.value, s) |> Bcasted
+        broadcasted(::typeof($f),s::Bcasted{<:Number},a::Bcasted{KnetArray{T,N}}) where {T<:AbstractFloat,N} = broadcasted($f, s.value, a.value) |> Bcasted
+        broadcasted(::typeof($f),s::Bcasted{<:Number},a::KnetArray{T,N}) where {T<:AbstractFloat,N} = broadcasted($f, s.value, a) |> Bcasted
+        broadcasted(::typeof($f),s::Number,a::Bcasted{KnetArray{T,N}}) where {T<:AbstractFloat,N} = broadcasted($f, s, a.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{KnetArray{T,N}},s::Bcasted{<:Number}) where {T<:AbstractFloat,N} = broadcasted($f, a.value, s.value) |> Bcasted
+        broadcasted(::typeof($f),a::KnetArray{T,N},s::Bcasted{<:Number}) where {T<:AbstractFloat,N} = broadcasted($f, a, s.value) |> Bcasted
+        broadcasted(::typeof($f),a::Bcasted{KnetArray{T,N}},s::Number) where {T<:AbstractFloat,N} = broadcasted($f, a.value, s) |> Bcasted
+        ($M).$f(s::Bcasted{<:Number},a::Bcasted{KnetArray{T,N}}) where {T<:AbstractFloat,N} = broadcasted($f, s.value, a.value) |> Bcasted
+        ($M).$f(s::Bcasted{<:Number},a::KnetArray{T,N}) where {T<:AbstractFloat,N} = broadcasted($f, s.value, a) |> Bcasted
+        ($M).$f(s::Number,a::Bcasted{KnetArray{T,N}}) where {T<:AbstractFloat,N} = broadcasted($f, s, a.value) |> Bcasted
+        ($M).$f(a::Bcasted{KnetArray{T,N}},s::Bcasted{<:Number}) where {T<:AbstractFloat,N} = broadcasted($f, a.value, s.value) |> Bcasted
+        ($M).$f(a::KnetArray{T,N},s::Bcasted{<:Number}) where {T<:AbstractFloat,N} = broadcasted($f, a, s.value) |> Bcasted
+        ($M).$f(a::Bcasted{KnetArray{T,N}},s::Number) where {T<:AbstractFloat,N} = broadcasted($f, a.value, s) |> Bcasted
     end
 end
 
