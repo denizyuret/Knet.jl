@@ -1,5 +1,5 @@
 using Test
-using Random: randn, rand
+using Random: randn, rand, randn!
 using AutoGrad: @gcheck, @diff, Param, value
 using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, deconv4, mat, pool, poolx, unpool
 
@@ -114,7 +114,25 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
         @test @gcheck logistic(scores, xlabels)
         @test bce(scores, labels) == logistic(scores, xlabels)
     end    
+
+    function rnntest(;ndims=1, batchSizes=nothing, o...)
+        r = RNN(4,6;o...)
+        x = similar(value(r.w), (4:(4+ndims-1))...)
+        x = Param(randn!(x))
+        @gcheck r(x; batchSizes=batchSizes)
+    end
+
+    @testset "rnn" begin
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:gru,  numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:relu, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:tanh, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=2, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=true,  skipInput=false, ndims=1, batchSizes=nothing)
+        @test_skip rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=true,  ndims=1, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=2, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
+        @test_skip rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=true)
+    end
 end
 
-# TODO:
-# test rnn.jl
