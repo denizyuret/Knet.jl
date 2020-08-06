@@ -137,3 +137,17 @@ function findindices(y,a; dims=1)
     end
     return (nindices == ninstances ? indices : view(indices,1:nindices))
 end
+
+
+# DEPRECATE:
+
+"zeroone loss is equal to 1 - accuracy"
+zeroone(x...; o...) = 1 - accuracy(x...; o...)
+
+# We need the (model,x,y) interface to implement regularization:
+nll(f, x, y; dims=1, average=true, o...)=nll(f(x; o...), y; dims=dims, average=average)
+accuracy(f, x, y; dims=1, average=true, o...)=accuracy(f(x; o...), y; dims=dims, average=average)
+
+# We need the (weights,data,predict) interface to support the old interface:
+nll(w, data, f::Function; dims=1, average=true, o...)=nll(x->f(w,x;o...), data; dims=dims, average=average)
+accuracy(w, data, f::Function; dims=1, average=true, o...)=accuracy(x->f(w,x;o...), data; dims=dims, average=average)
