@@ -1,5 +1,5 @@
 include("header.jl")
-using Knet.KnetArrays: rnntest, rnnforw
+using Knet.Ops20: rnntest, rnnforw
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()
 Knet.seed!(2)
@@ -16,9 +16,9 @@ if gpu() >= 0; @testset "rnn" begin
         # global rnew,r,w,x1,x2,x3,hx1,cx1,hx2,cx2,hx3,cx3
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
 
-        r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform) # binit=zeros does not pass gchk
+        r = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=KnetArray{D}) # binit=zeros does not pass gchk
         w = r.w
-        rcpu = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, usegpu=false)
+        rcpu = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=Array{D})
         wcpu = rcpu.w
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
@@ -116,7 +116,7 @@ if gpu() >= 0; @testset "rnn" begin
         end
 
         ## Test new interface in 3-D
-        rnew = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform)
+        rnew = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=KnetArray{D})
         copyto!(value(rnew.w), value(w))
         # x
         rnew.c = rnew.h = nothing

@@ -10,7 +10,7 @@ using Test, Knet, CUDA, Pkg.Artifacts
 
 if CUDA.functional()
 
-    display(CUDA.device()) # Knet.gpu()
+    display(CUDA.device()); println() # Knet.gpu()
     @show length(CUDA.devices()) # Knet.gpuCount()
     @show CUDA.capability(CUDA.device())
     @show CUDA.warpsize(CUDA.device())

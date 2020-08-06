@@ -1,8 +1,6 @@
 export RNN, rnninit, rnnforw, rnnparam, rnnparams # TODO: we shouldn't export structs like RNN from ops
-using Knet: atype, training
-using Knet.Train20: xavier_uniform # TODO: ops should not initialize params
+using Knet: atype, training # TODO: ops should not initialize params
 using AutoGrad: Param, value # TODO: ops should not use Param
-using Knet.Ops20: dropout, sigm, relu # TODO: this should be available inside Ops20.
 import Base: show
 
 """
@@ -61,9 +59,10 @@ for an example.
 - `skipInput=false`: Do not multiply the input with a matrix if `true`.
 - `algo=0`: Algorithm to use, see CUDNN docs for details.
 - `seed=0`: Random number seed for dropout. Uses `time()` if 0.
-- `winit=xavier_uniform`: Weight initialization method for matrices.
+- `winit=xavier`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
 - `finit=ones`: Weight initialization method for the bias of forget gates.
+- `atype=Knet.atype()`: array type for model weights.
 
 **Formulas:** RNNs compute the output h[t] for a given iteration from the recurrent input
 h[t-1] and the previous layer input x[t] given matrices W, R and biases bW, bR from the
@@ -89,7 +88,7 @@ following equations:
     c[t] = f[t] .* c[t-1] .+ i[t] .* n[t]               # cell output
     h[t] = o[t] .* tanh(c[t])
 """
-mutable struct RNN              # TODO: ops should not use structs
+mutable struct RNN
     w
     h
     c
@@ -116,24 +115,25 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
              skipInput=false,     # CUDNN_LINEAR_INPUT = 0, CUDNN_SKIP_INPUT = 1
              numLayers=1,
              dropout=0.0,
-             winit=xavier_uniform,
+             winit=xavier,
              binit=zeros,
              finit=ones,          # forget bias for lstm
              algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
              seed=0,              # seed=0 for random init, positive integer for replicability
+             atype=atype(),
              # deprecated
              dataType=nothing,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
              usegpu=nothing,
              handle=nothing,
              )
     if handle !== nothing
-        @warn "The handle option is deprecated, GPU implementation using CUDNN.handle()"
+        @warn "The handle option is deprecated, GPU implementation using CUDNN.handle()" maxlog=1
     end
     if dataType !== nothing || usegpu !== nothing
-        @warn "dataType and usegpu options are deprecated, using Knet.atype()=$(Knet.atype())"
+        @warn "dataType and usegpu options are deprecated, using atype=$atype" maxlog=1
     end
-    dataType = eltype(atype())
-    usegpu = !(atype() <: Array)
+    dataType = eltype(atype)
+    usegpu = !(atype <: Array)
 
     w = dx = dhx = dcx = nothing
     inputSize = Cint(inputSize)
@@ -147,7 +147,7 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
     @assert mode !== nothing "RNN: Valid modes are :relu,:tanh,:lstm,:gru"
     mode = Cint(mode - 1)
     algo = Cint(algo)
-    # TODO: These should be set by the gpu implementations during first rnnforw:
+    # These should be set by the gpu implementations during first rnnforw:
     dropoutDesc = nothing # usegpu ? DD(handle=handle,dropout=dropout,seed=seed) : nothing # Need to keep dropoutDesc in RNN so it does not get gc'ed.
     rnnDesc = nothing # usegpu ? RD(hiddenSize,numLayers,dropoutDesc,inputMode,direction,mode,algo,dataType) : nothing
     r = RNN(w,h,c,inputSize,hiddenSize,numLayers,dropout,seed,inputMode,direction,mode,algo,dataType,rnnDesc,dropoutDesc,dx,dhx,dcx)
@@ -173,7 +173,7 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
         end
     end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once here.
-    r.w = convert(atype(), r.w)
+    r.w = convert(atype, r.w)
     r.w = Param(r.w)
     return r
 end
@@ -202,7 +202,7 @@ The effect of skipInput: Let I=1 for RELU/TANH, 1:3 for GRU, 1:4 for LSTM
 * For bidirectional, the same applies to rnnparam(r,2,I,1): the first back layer.
 * The input biases (par=2) are returned even if skipInput=true.
 """
-function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; useview=false)
+function rnnparam(r::RNN, layer::Integer, id::Integer, par::Integer; useview=true)
     params_are_good = 
     ((1 <= par <= 2) &&
      ((r.direction == 0 && 1 <= layer <= r.numLayers) ||
@@ -301,6 +301,8 @@ function rnnparams(r::RNN; useview=false)
     return ws
 end
 
+# TODO: instead of rnnparam, rnnparams, have the views represented inside the struct.
+
 rnnids(r) = (r.mode == 2 ? 8 : r.mode == 3 ? 6 : 2)
 
 function getRNNParamsSize(r::RNN)
@@ -315,7 +317,7 @@ function getRNNParamsSize(r::RNN)
         winput = (1 + r.direction) * whidden
         binput = bhidden
     end
-    # TODO: do this check on the gpu side
+    # TODO: do this check on unit testing
     # if r.rnnDesc != nothing
     #     @assert nparams == cudnnGetRNNParamsSize(r)
     # end
@@ -333,6 +335,8 @@ function (r::RNN)(x; batchSizes=nothing)
     @assert r.h == nothing || r.h == 0 || (vec(value(r.h)) isa WTYPE && ndims(r.h) <= 3 && (size(r.h,1),size(r.h,2),size(r.h,3)) == HSIZE)
     @assert r.c == nothing || r.c == 0 || (vec(value(r.c)) isa WTYPE && ndims(r.c) <= 3 && (size(r.c,1),size(r.c,2),size(r.c,3)) == HSIZE)
     # apply dropout to input: rnnforw only applies it between layers.
+    # TODO: the cpu implementation does not respect the seed parameter.
+    # TODO: reconsider dropout for the input in next release.
     x = dropout(x,r.dropout)
     # use hidden inputs unless nothing or 0
     hx = (r.h == 0 ? nothing : r.h)
@@ -351,8 +355,14 @@ function (r::RNN)(x; batchSizes=nothing)
 end
 
 
-# CPU version
-function rnnforw(r::RNN, ws, x, hx=nothing, cx=nothing;
+# CPU version: need to keep the name rnntest for unit testing
+rnnforw(r::RNN, x...; o...) = rnntest(r, x...; o...)
+
+# TODO: interface consistency, deprecate all r,w signatures, have r, signatures. Right now
+# rnninit, rnnparam, rnnparams have r,w deprecated. rnnforw is a more difficult case because
+# of the optional hx, cx parameters.
+
+function rnntest(r::RNN, ws, x, hx=nothing, cx=nothing;
                  batchSizes=nothing,
                  hy = (hx != nothing),
                  cy = (cx != nothing && r.mode == 2))
@@ -549,4 +559,12 @@ function rnnparam(r,w,l,i,d;o...)
     # @warn "rnnparam(r,w,l,i,d) is deprecated, use rnnparam(r,l,i,d) instead" maxlog=1
     @assert value(w)===value(r.w)
     rnnparam(r,l,i,d;o...)
+end
+
+function xavier(a...; gain=1)
+    w = rand(a...)
+    @assert ndims(w) == 2
+    fanout, fanin = size(w)
+    s = convert(eltype(w), gain*sqrt(6 / (fanin + fanout)))
+    return 2s .* w .- s
 end

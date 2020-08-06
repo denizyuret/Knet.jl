@@ -1,3 +1,5 @@
+using ..Ops20: RNN
+
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
 const CPUMODE=Val(2)
@@ -44,12 +46,16 @@ function _ser(x::RNN, s::IdDict, m::Val)
     if !haskey(s,x)
         # we need rd,dd only if there is a gpu, we are not in cpumode,
         # and if we are in jldmode we are loading, not saving
-        if (gpu() >= 0 && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
-            dd = DD(handle=gethandle(),dropout=x.dropout,seed=x.seed)
-            rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
-        else
-            rd = dd = nothing
-        end
+        # if (gpu() >= 0 && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
+        #     dd = DD(dropout=x.dropout,seed=x.seed)
+        #     rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
+        # else
+        #     rd = dd = nothing
+        # end
+
+        # 20200806: We no longer need to load/save rd/dd: rnnforw will construct as needed.
+        rd = dd = nothing
+
         # dx, dhx, dcx are temporary fields used by rnnback, they do not need to be copied
         # gcnode sets dx.ptr to C_NULL which breaks serialize, best not to try
         s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rd, dd, nothing, nothing, nothing)

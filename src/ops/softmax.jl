@@ -76,7 +76,7 @@ end
 @primitive1  logsoftmax(x;dims=:),dy,y  ∇logsoftmax(x,y,dy,dims=dims)
 @primitive1  softmax(x;dims=:),dy,y     ∇softmax(x,y,dy,dims=dims)
 @primitive1  logsumexp(x;dims=:),dy,y   ∇logsumexp(x,y,dy;dims=dims)
-@deprecate   logp(x;dims=:)  logsoftmax(x;dims=:) # also exports logp
+const logp = logsoftmax
 
 
 # Math for the softmax loss: x is unnormalized input, p is target probabilities, q is

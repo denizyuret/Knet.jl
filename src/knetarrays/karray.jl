@@ -1344,13 +1344,13 @@ Bcasted(x::Broadcasted) = Bcasted(copy(x))
 import Base: copyto!
 using Base.Broadcast: Broadcasted
 
-function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T<:Tuple{<:KnetArray}}
+function copyto!(a::KnetArray,b::Broadcasted{S,X,F,T}) where {S,X,F<:typeof(identity),T}
     b = b.args[1]
     if size(a) == size(b)
         copyto!(a,b)
     else
         fill!(a,0)
-        a .+= b
+        a .+= convert(KnetArray, b)
     end
     return a
 end

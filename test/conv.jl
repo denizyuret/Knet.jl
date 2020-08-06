@@ -28,9 +28,8 @@ struct M370; layer; end;
         kw5 = KnetArray(aw5)
     end
 
-    @warn "cpuconv tests commented out until we figure out why they are failing on gitlab-ci"
+    # @warn "cpuconv tests commented out until we figure out why they are failing on gitlab-ci"
 
-#=
     @testset "cpuconv" begin
         ### Default
         @test gradcheck(pool, ax)
@@ -110,7 +109,6 @@ struct M370; layer; end;
         @test gradcheck(conv41, (aw,ax); rtol=TOL, kw=[(:alpha,2)])
         @test gradcheck(deconv41, (ad,ax); rtol=TOL, kw=[(:alpha,2)])
     end
-=#
 
     if gpu() >= 0; @testset "gpuconv" begin
         ### Default
