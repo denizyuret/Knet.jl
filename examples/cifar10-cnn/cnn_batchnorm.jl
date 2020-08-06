@@ -103,10 +103,7 @@ function acc(w, m, xtst, ytst; mbatch=64)
     data = minibatch(xtst, ytst, mbatch;
                      partial=true,
                      xtype=Knet.atype())
-    model = (w, m)
-    return accuracy(model, data,
-                    (model, x)->predict(model[1], model[2], x);
-                    average=true)
+    accuracy(x->predict(w,m,x), data)
 end
 
 # TODO: add command line options
