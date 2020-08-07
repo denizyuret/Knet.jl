@@ -1,3 +1,20 @@
+2020-08-07  Deniz Yuret  <deniz@razer>
+
+	* TODO: for the ops20 release:
+	+ ops20 is done
+	+ test with fast cuda.jl
+	- gcnode and jld with cuarrays
+	- change all examples, tutorials to use explicit module imports (test with Knet that doesn't export anything).
+	- benchmark ops20 with knetarray and cuarray
+	- test ops20 with knetarray and cuarray
+	- refactor ops20-ka and ops20-cu?
+	- integrate layers20 from KnetLayers
+	- redesign rnn and bn for ops21
+	- get rid of dependencies jld, datastructures, timeroutput etc
+	- get rid of data/*: just use MLDatasets when you can. move data.jl into train.
+	- gpu init
+
+
 2020-01-04  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
 
 	* issue#513: downloading artifacts: DataDeps.jl vs Artifacts.toml.
