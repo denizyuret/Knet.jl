@@ -15,7 +15,7 @@ function __init__()
     else; try
         dev = gpu(true)
         if dev >= 0
-            AutoGrad.set_gc_function(Knet.knetgcnode)
+            AutoGrad.set_gc_function(cuallocator() ? Knet.CuArrays.gcnode : Knet.KnetArrays.knetgcnode)
             @debug "Knet using GPU $dev"
         else
             @debug "No GPU found, Knet using the CPU"

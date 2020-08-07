@@ -8,4 +8,6 @@ include("reduction.jl")
 include("loss.jl")
 include("train.jl")
 include("bmm.jl")
+include("cuarrays.jl")
+include("gcnode.jl")
 end
