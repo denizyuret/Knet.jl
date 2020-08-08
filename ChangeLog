@@ -3,10 +3,11 @@
 	* TODO: for the ops20 release:
 	+ ops20 is done
 	+ test with fast cuda.jl
-	- gcnode and jld with cuarrays
-	- change all examples, tutorials to use explicit module imports (test with Knet that doesn't export anything).
 	- benchmark ops20 with knetarray and cuarray
 	- test ops20 with knetarray and cuarray
+	+ gcnode with cuarrays
+	- jld with cuarrays
+	- change all examples, tutorials to use explicit module imports (test with Knet that doesn't export anything).
 	- refactor ops20-ka and ops20-cu?
 	- integrate layers20 from KnetLayers
 	- redesign rnn and bn for ops21

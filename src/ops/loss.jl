@@ -79,8 +79,8 @@ See also `bce` which computes the same loss with {0,1} labels.
 Reference: https://towardsdatascience.com/nothing-but-numpy-understanding-creating-binary-classification-neural-networks-with-e746423c8d5c
 """
 function logistic(z, y; average=true)
-    l = max.(0, z) .- ((y .+ 1) .÷ 2) .* z .+ log.(1 .+ exp.(-abs.(z)))
-    average ? (sum(l)/length(l)) : (sum(l),length(l))
+    y = ((y .+ 1) .÷ 2) # (-1,1)->(0,1)
+    bce(z,y; average=average)
 end
 
 
@@ -105,6 +105,7 @@ See also `logistic` which computes the same loss with {-1,1} labels.
 Reference: https://towardsdatascience.com/nothing-but-numpy-understanding-creating-binary-classification-neural-networks-with-e746423c8d5c
 """
 function bce(z, y; average=true) 
+    y = oftype(z,y)
     l = max.(0, z) .- y .* z .+ log.(1 .+ exp.(-abs.(z)))
     average ? (sum(l)/length(l)) : (sum(l),length(l))
 end
