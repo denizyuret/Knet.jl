@@ -1,5 +1,6 @@
 using CUDA, Random
 import ..Ops20: dropout!, dropback!
+using ..KnetArrays: @knet8
 
 # GPU implementation
 for S in (32,64)

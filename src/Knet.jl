@@ -2,11 +2,12 @@ module Knet
 using AutoGrad, CUDA, Random
 
 include("util.jl")
-include("ops/Ops20.jl")
+include("ops20/Ops20.jl")
 include("train/Train20.jl")
 include("data/Data20.jl")
 include("knetarrays/KnetArrays.jl")
 include("cuarrays/CuArrays.jl")
+include("ops20cu/Ops20cu.jl")
 
 # See if we have a gpu at initialization:
 function __init__()

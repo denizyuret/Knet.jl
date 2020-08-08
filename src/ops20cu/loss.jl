@@ -1,4 +1,5 @@
 using CUDA
+using AutoGrad: AutoGrad, @primitive1
 import ..Ops20: nll
 
 # TODO: refactor this code, avoid repetition with knetarrays
@@ -47,8 +48,8 @@ function cudnnSoftmaxBackward(y::CuArray{T}, dy::CuArray{T}; algo=0, mode=0, alp
     return dx
 end
 
-@primitive cudnnSoftmaxForward(x::CuArray;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
-@primitive cudnnSoftmaxBackward(y::CuArray,dy::CuArray;o...),ddx,dx csb1(y,dy,dx,ddx;o...) csb2(y,dy,dx,ddx;o...)
+@primitive1 cudnnSoftmaxForward(x::CuArray;o...),dy,y cudnnSoftmaxBackward(y,dy;o...)
+@primitive1 cudnnSoftmaxBackward(y::CuArray,dy::CuArray;o...),ddx,dx csb1(y,dy,dx,ddx;o...) csb2(y,dy,dx,ddx;o...)
 
 function csb1(y::CuArray,dy::CuArray,dx::CuArray,ddx;algo=0::CuArray,mode=0,o...)
     cdim = ndims(y) - 1
