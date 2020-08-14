@@ -1,7 +1,6 @@
 export RNN, rnninit, rnnforw, rnnparam, rnnparams # TODO: we shouldn't export structs like RNN from ops
-using Knet: atype, training # TODO: ops should not initialize params
-using AutoGrad: Param, value # TODO: ops should not use Param
 import Base: show
+using AutoGrad: Param, value # TODO: ops should not use Param
 
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
@@ -62,7 +61,7 @@ for an example.
 - `winit=xavier`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
 - `finit=ones`: Weight initialization method for the bias of forget gates.
-- `atype=Knet.atype()`: array type for model weights.
+- `atype=Knet.array_type[]`: array type for model weights.
 
 **Formulas:** RNNs compute the output h[t] for a given iteration from the recurrent input
 h[t-1] and the previous layer input x[t] given matrices W, R and biases bW, bR from the
@@ -120,7 +119,7 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
              finit=ones,          # forget bias for lstm
              algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
              seed=0,              # seed=0 for random init, positive integer for replicability
-             atype=atype(),
+             atype=Array{Float32},
              # deprecated
              dataType=nothing,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
              usegpu=nothing,
@@ -326,14 +325,16 @@ end
 
 function (r::RNN)(x; batchSizes=nothing)
     # Check type/dims of inputs
+    XTYPE = typeof(vec(value(x)))
     WTYPE = typeof(vec(value(r.w)))
+    # We initialize r.w to Array and then fix it during first rnnforw
+    @assert (WTYPE === XTYPE) || (r.rnnDesc === nothing && WTYPE <: Array)
     @assert length(x) > 0
-    @assert vec(value(x)) isa WTYPE
     @assert ndims(x) <= 3
     @assert size(x,1) == r.inputSize
     HSIZE = (r.hiddenSize, batchSizes == nothing ? size(x,2) : batchSizes[1], r.numLayers * (r.direction + 1))
-    @assert r.h == nothing || r.h == 0 || (vec(value(r.h)) isa WTYPE && ndims(r.h) <= 3 && (size(r.h,1),size(r.h,2),size(r.h,3)) == HSIZE)
-    @assert r.c == nothing || r.c == 0 || (vec(value(r.c)) isa WTYPE && ndims(r.c) <= 3 && (size(r.c,1),size(r.c,2),size(r.c,3)) == HSIZE)
+    @assert r.h == nothing || r.h == 0 || (vec(value(r.h)) isa XTYPE && ndims(r.h) <= 3 && (size(r.h,1),size(r.h,2),size(r.h,3)) == HSIZE)
+    @assert r.c == nothing || r.c == 0 || (vec(value(r.c)) isa XTYPE && ndims(r.c) <= 3 && (size(r.c,1),size(r.c,2),size(r.c,3)) == HSIZE)
     # apply dropout to input: rnnforw only applies it between layers.
     # TODO: the cpu implementation does not respect the seed parameter.
     # TODO: reconsider dropout for the input in next release.
@@ -356,7 +357,7 @@ end
 
 
 # CPU version: need to keep the name rnntest for unit testing
-rnnforw(r::RNN, x...; o...) = rnntest(r, x...; o...)
+rnnforw(r::RNN, w...; o...) = rnntest(r, w...; o...)
 
 # TODO: interface consistency, deprecate all r,w signatures, have r, signatures. Right now
 # rnninit, rnnparam, rnnparams have r,w deprecated. rnnforw is a more difficult case because

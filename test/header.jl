@@ -1,4 +1,4 @@
-using Test, Random, AutoGrad, Knet
+using Test, Random, AutoGrad, Knet, CUDA
 if isdefined(AutoGrad, :gradcheck); @eval begin
     using AutoGrad: gradcheck
 end; end

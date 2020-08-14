@@ -1,7 +1,9 @@
-# reduction.jl: Array->Scalar and Array->Vector reductions.
-# uses reduction_ops from ops.jl
-
 import Base: sum, prod, minimum, maximum # , countnz
+import Base: argmax, argmin, findmax, findmin
+using Knet.LibKnet8: @knet8, @knet8r, reduction_ops
+using Base: reduced_indices, OneTo
+
+# reduction.jl: Array->Scalar and Array->Vector reductions.
 
 sum(::typeof(abs), x::KnetArray; dims=:) = sumabs(x,dims=dims)
 sum(::typeof(abs2), x::KnetArray; dims=:) = sumabs2(x,dims=dims)
@@ -14,7 +16,7 @@ maxabs(x;dims=:)=maximum(abs,x;dims=dims)
 minabs(x;dims=:)=minimum(abs,x;dims=dims)
 countnz(x;dims=:)=sum(!iszero,x;dims=dims)
 
-reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+reduced_dims_compat(dims,region)=map(last, reduced_indices(map(OneTo, dims), region))
 
 function reduction_op(f, j=f, o...)
     J=Symbol(j)
@@ -78,4 +80,19 @@ for f in reduction_ops
     if !isa(f,Tuple); f=(f,); end
     reduction_op(f...)
 end
+
+# argmax, argmin etc. Fixes https://github.com/denizyuret/Knet.jl/issues/368.
+# Two options: argmax(Array(KnetArray)) vs argmax(CuArray)
+# Experiments: 10x10, 100x100, 1000x1000 with no dims, dims=1, dims=2
+# With no dims, CUDA.jl is better for 100x100, 1000x1000.
+# With all others, KnetArray is better.
+
+# TODO: try this again after https://github.com/JuliaGPU/CuArrays.jl/issues/304 is resolved
+# argmaxarray(x,d)=((d===:) && length(x) > 4096 ? CuArray(x) : Array(x))
+argmaxarray(x,d)=Array(x)
+argmax(x::KnetArray; dims=:)=argmax(argmaxarray(x,dims); dims=dims)
+argmin(x::KnetArray; dims=:)=argmin(argmaxarray(x,dims); dims=dims)
+findmax(x::KnetArray; dims=:)=findmax(argmaxarray(x,dims); dims=dims)
+findmin(x::KnetArray; dims=:)=findmin(argmaxarray(x,dims); dims=dims)
+
 

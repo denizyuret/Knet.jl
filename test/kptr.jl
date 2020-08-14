@@ -1,16 +1,18 @@
-include("header.jl")
-# Test the Knet allocator (note that CUDA allocator is used by default, i.e. Knet.cuallocator()==true)
+using Test
+using CUDA: CUDA, devices # functional, pool
+using Knet.KnetArrays: KnetMems, KnetPtr, blocksize, initKnetMems, cuallocator
+_cuallocator = cuallocator[]
 
-using Knet.KnetArrays: KnetMems, KnetPtr, gpuCount, blocksize, initKnetMems
+# gc does not work reliably inside function, module, let, if, @testset etc. so some of this code is outside.
 
 function _testkptr(kptrs, navail, nfree)
     # sump = sum(p->p.nptr, values(mem.pools))
     # @show (mem.limit, mem.bytes, mem.avail, length(mem.pools), sump)
     # klens = kptrs == nothing ? [] : (p->p.len).(kptrs)
     # @show klens
-    mem = KnetMems[gpu()+1]
+    mem = KnetMems[device().handle+1]
     blocksizes = blocksize.(2 .^ (1:10))
-    @test length(KnetMems) == gpuCount()
+    @test length(KnetMems) == length(devices())
     @test length(mem.pools) == 10
     @test sort(collect(keys(mem.pools))) == blocksizes
     @test mem.limit >= mem.bytes
@@ -22,23 +24,39 @@ function _testkptr(kptrs, navail, nfree)
     end
 end
 
-_testingkptr = false
-
-if gpu() >= 0 && KnetMems === nothing
-    _cuallocator = Knet.cuallocator()
-    Knet.cuallocator()=false
+# Test the knet allocator, this can only be done before first alloc when KnetMems is nothing
+_testingkptr = (KnetMems === nothing)
+if CUDA.functional() && _testingkptr
+    cuallocator[]=false
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
-    _testingkptr = true
 end
 
-GC.gc() # gc does not work reliably inside function, module, let, if, @testset etc.
+GC.gc(true) 
 
 if _testingkptr
     @testset "kptr:gc"      begin; _testkptr(nothing, sum(blocksize.(2 .^ (1:10))), 1); end
     @testset "kptr:realloc" begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
-    _testingkptr = false
-    Knet.cuallocator()=_cuallocator
 end
+
+# Test the cuda allocator.
+if CUDA.functional()
+    cuallocator[]=true
+    used = CUDA.used_memory()
+    @testset "kptr:cuda" begin
+        @test (p = KnetPtr(128); CUDA.used_memory() == used + 128)
+        p = nothing
+    end
+end
+
+GC.gc(true)
+
+if CUDA.functional()
+    @testset "kptr:cudagc" begin
+        @test CUDA.used_memory() == used
+    end
+end
+
+cuallocator[]=_cuallocator
 
 nothing

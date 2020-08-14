@@ -1,14 +1,9 @@
-using LinearAlgebra, CUDA
-
-import Base: *, transpose, adjoint, permutedims, size, axes, IndexStyle
-# import Base: A_mul_B!
-# import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
-# import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
-# import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
-import LinearAlgebra.BLAS: gemm!, scal!
+import Base: *, transpose, adjoint
 import LinearAlgebra: rmul!, lmul!, axpy!, norm
-# import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
-# export axpy!
+import LinearAlgebra.BLAS: gemm!, scal!
+using LinearAlgebra.BLAS: libblas, BlasInt, @blasfunc
+using AutoGrad: AutoGrad, @primitive1
+using CUDA: CUBLAS # cublasOperation_t, cublasDgemm_v2, cublasSgemm_v2, handle, cublasSaxpy_v2, cublasDaxpy_v2, cublasSscal_v2, cublasDscal_v2, cublasSgeam, cublasDgeam
 
 # AutoGrad defines: @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
 # We specialize it below to avoid transposes
@@ -22,26 +17,10 @@ At_mul_Bt(A::KnetMatrix{T}, B::KnetMatrix{T}) where {T} = gemm!('T','T',one(T),A
 @primitive1 At_mul_B(x1::KnetMatrix,x2::KnetMatrix),dy  A_mul_Bt(x2,dy)  (x1*dy)
 @primitive1 At_mul_Bt(x1::KnetMatrix,x2::KnetMatrix),dy  At_mul_Bt(x2,dy)  At_mul_Bt(dy,x1)
 
+
 # Allow 1-D vectors as (N,1) in matmul:
 (*)(A::KnetVector{T},B::KnetMatrix{T}) where {T} = reshape(A,:,1) * B
 (*)(A::KnetMatrix{T},B::KnetVector{T}) where {T} = (C = A * reshape(B,:,1); size(A,1) == 1 ? C[1] : vec(C))
-
-# deprecated:
-# A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
-# A_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
-# A_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(similar(A,(size(A,1),size(B,1))),A,B)
-# A_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(C,A,B)
-# A_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt(A,B)
-
-# At_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
-# At_mul_B{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(similar(A,(size(A,2),size(B,2))),A,B)
-# Ac_mul_B!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(C,A,B)
-# Ac_mul_B{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B(A,B)
-
-# At_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','T',one(T),A,B,zero(T),C)
-# At_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(similar(A,(size(A,2),size(B,1))),A,B)
-# Ac_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(C,A,B)
-# Ac_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt(A,B)
 
 
 function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::KnetArray{T}, B::KnetArray{T}, beta::Number, C::KnetArray{T}) where {T}
@@ -74,6 +53,7 @@ function gemm!(transA::AbstractChar, transB::AbstractChar, alpha::Number, A::Kne
     end
     return C
 end
+
 
 function axpy!(n::Integer, alpha::Number, x::KnetArray{T}, incx::Integer, y::KnetArray{T}, incy::Integer) where {T}
     length(x) == length(y) || throw(DimensionMismatch("$(map(size,(x,y)))"))
@@ -132,22 +112,21 @@ function _transpose!(y::KnetMatrix{T}, x::KnetMatrix{T}) where {T}
     return y
 end
 
-
-#= TODO: use the lazy transpose:
-using LinearAlgebra: Adjoint, Transpose, AdjOrTrans
-transpose(x::KnetArray)=Transpose(x)
-adjoint(x::KnetArray)=Adjoint(x)
-const AdjointKnetVec{T} = Adjoint{T,<:KnetVector}
-const TransposeKnetVec{T} = Transpose{T,<:KnetVector}
-const AdjOrTransKnetVec{T} = AdjOrTrans{T,<:KnetVector}
-const AdjOrTransKnetMat{T} = AdjOrTrans{T,<:KnetMatrix}
-size(v::AdjOrTransKnetVec) = (1, length(v.parent))
-size(A::AdjOrTransKnetMat) = reverse(size(A.parent))
-axes(v::AdjOrTransKnetVec) = (Base.OneTo(1), axes(v.parent)...)
-axes(A::AdjOrTransKnetMat) = reverse(axes(A.parent))
-IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
-IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
-=#
+## TODO: use the lazy transpose:
+# import Base: size, axes, IndexStyle
+# using LinearAlgebra: Adjoint, Transpose, AdjOrTrans
+# transpose(x::KnetArray)=Transpose(x)
+# adjoint(x::KnetArray)=Adjoint(x)
+# const AdjointKnetVec{T} = Adjoint{T,<:KnetVector}
+# const TransposeKnetVec{T} = Transpose{T,<:KnetVector}
+# const AdjOrTransKnetVec{T} = AdjOrTrans{T,<:KnetVector}
+# const AdjOrTransKnetMat{T} = AdjOrTrans{T,<:KnetMatrix}
+# size(v::AdjOrTransKnetVec) = (1, length(v.parent))
+# size(A::AdjOrTransKnetMat) = reverse(size(A.parent))
+# axes(v::AdjOrTransKnetVec) = (Base.OneTo(1), axes(v.parent)...)
+# axes(A::AdjOrTransKnetMat) = reverse(axes(A.parent))
+# IndexStyle(::Type{<:AdjOrTransKnetVec}) = IndexLinear()
+# IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 
 # conv: reshape(x, (:,xn)): rowdims=ndims-1
 # rnns: reshape(x, (x1,:)): rowdims=1
@@ -157,10 +136,6 @@ IndexStyle(::Type{<:AdjOrTransKnetMat}) = IndexCartesian()
 # default dims=ndims(x)-1 will turn vec into a rowvec but dims=1 will not work for conv.
 
 # Low level gemm! call with pointers: CPU conv4 uses this. Based on julia/stdlib/v1.0/LinearAlgebra/src/blas.jl:1105
-
-using LinearAlgebra
-using LinearAlgebra.BLAS: libblas, BlasInt
-using LinearAlgebra.BLAS: @blasfunc
 
 # C := alpha*op(A)*op(B) + beta*C, where:
 # op(X) is one of op(X) = X, or op(X) = XT, or op(X) = XH,
@@ -214,3 +189,31 @@ function norm(x::KnetArray{T}, p::Real=2) where {T}
         sum(abs.(x).^p)^(1/p)
     end
 end
+
+# using LinearAlgebra
+# using CUDA
+
+# import Base: A_mul_B!
+# import Base: A_mul_Bt, A_mul_Bt!, A_mul_Bc, A_mul_Bc!
+# import Base: At_mul_B, At_mul_B!, Ac_mul_B, Ac_mul_B!
+# import Base: At_mul_Bt, At_mul_Bt!, Ac_mul_Bc, Ac_mul_Bc!
+# import Base.LinAlg: scale! `scale!(a::Number, B::AbstractArray)` is deprecated, use `lmul!(a, B)` instead.
+# export axpy!
+
+# deprecated:
+# A_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','N',one(T),A,B,zero(T),C)
+# A_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('N','T',one(T),A,B,zero(T),C)
+# A_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(similar(A,(size(A,1),size(B,1))),A,B)
+# A_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt!(C,A,B)
+# A_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=A_mul_Bt(A,B)
+
+# At_mul_B!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','N',one(T),A,B,zero(T),C)
+# At_mul_B{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(similar(A,(size(A,2),size(B,2))),A,B)
+# Ac_mul_B!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B!(C,A,B)
+# Ac_mul_B{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_B(A,B)
+
+# At_mul_Bt!{T}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=gemm!('T','T',one(T),A,B,zero(T),C)
+# At_mul_Bt{T}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(similar(A,(size(A,2),size(B,1))),A,B)
+# Ac_mul_Bc!{T<:Real}(C::KnetMatrix{T}, A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt!(C,A,B)
+# Ac_mul_Bc{T<:Real}(A::KnetMatrix{T}, B::KnetMatrix{T})=At_mul_Bt(A,B)
+

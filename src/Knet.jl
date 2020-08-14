@@ -1,40 +1,36 @@
 module Knet
-using AutoGrad, CUDA, Random
+using AutoGrad, CUDA
 
-include("util.jl")
-include("ops20/Ops20.jl")
-include("train/Train20.jl")
-include("data/Data20.jl")
+include("util/Util.jl")
+include("libknet8/LibKnet8.jl")
 include("knetarrays/KnetArrays.jl")
 include("cuarrays/CuArrays.jl")
-include("ops20cu/Ops20cu.jl")
+include("autograd_gpu/AutoGrad_gpu.jl")
+include("ops20/Ops20.jl")
+include("ops20_gpu/Ops20_gpu.jl")
+# include("fileio_gpu/FileIO_gpu.jl")
+# include("train20/Train20.jl")
 
 # See if we have a gpu at initialization:
 function __init__()
-    if !CUDA.functional()
-        @warn "Knet cannot use the GPU: CUDA.jl is not functional"
-    else; try
-        dev = gpu(true)
-        if dev >= 0
-            AutoGrad.set_gc_function(cuallocator() ? Knet.CuArrays.gcnode : Knet.KnetArrays.knetgcnode)
-            @debug "Knet using GPU $dev"
-        else
-            @debug "No GPU found, Knet using the CPU"
-        end
-    catch e
-        gpu(false)
-        @warn "Knet cannot use the GPU: $e"
-    end; end
+    Knet.AutoGrad_gpu.__init__() # sets gcnode based on cuallocator
+    # if !CUDA.functional()
+    #     @warn "Knet cannot use a GPU: CUDA.jl is not functional"
+    # else                        # TODO: pick best gpu here.
+    #     AutoGrad.set_gc_function(Knet.KnetArrays.cuallocator[] ? Knet.AutoGrad_gpu.gcnode : Knet.AutoGrad_gpu.knetgcnode)
+    #     Knet.Train20.array_type[] = Knet.KnetArrays.KnetArray{Float32}
+    # end
 end
 
+#=
+
+# TODO: handle deprecated functions
 using CUDA; export CuArray
 using AutoGrad; export AutoGrad, cat1d, @diff, grad, gradloss, Param, params, value, @gcheck
-using .Ops20; export relu, selu, elu, sigm, invx, dropout, bmm, conv4, pool, unpool, deconv4, logp, softmax, logsoftmax, logsumexp, nll, accuracy, zeroone, logistic, bce, mat
-using .Data20; export minibatch
+using .Util; export gpu, gpucopy, cpucopy
+using .Ops20; export relu, selu, elu, sigm, dropout, bmm, conv4, deconv4, mat, pool, unpool, logp, softmax, logsoftmax, logsumexp, nll, accuracy, logistic, bce, batchnorm, bnmoments, bnparams, RNN, rnninit, rnnforw, rnnparam, rnnparams
+using .KnetArrays; export KnetArray
 using .Train20
-# TODO: remove deprecated functions
-using .KnetArrays; export KnetArray, RNN, rnninit, rnnforw, rnnparam, rnnparams, batchnorm, bnmoments, bnparams, gpu, gpucopy, cpucopy, knetgc, setseed
-
 
 # The rest are from Train20: TODO: make this list smaller.
 export		# ref:reference.md tut:tutorial
@@ -87,7 +83,7 @@ export		# ref:reference.md tut:tutorial
 #    logsoftmax,	# ref
 #    logsumexp,	# ref
 #    mat,	# ref, tut
-    # minibatch,	# ref, tut
+    minibatch,	# ref, tut
     #minimize!,	# use sgd!, adam! etc.
     #minimize,	# use sgd, adam etc.
     momentum!,	# ref
@@ -154,4 +150,7 @@ export		# ref:reference.md tut:tutorial
 #using  AutoGrad: @diff, Param, params, grad, gradloss, value, cat1d, @primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, AutoGrad
 #export AutoGrad, @diff, Param, params, grad, gradloss, value, cat1d #@primitive, @zerograd, @primitive1, @zerograd1, forw, back, Value, getval
 
+=#
 end # module
+
+

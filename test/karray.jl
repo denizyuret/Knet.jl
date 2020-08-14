@@ -1,4 +1,8 @@
-include("header.jl")
+using Test
+import CUDA # functional
+using AutoGrad: gradcheck
+using Knet.KnetArrays: KnetArray
+using Random: rand!, randn!
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 
@@ -7,7 +11,7 @@ include("header.jl")
 # linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
 # similar, size, stride, strides, summary, vcat, vec, zeros
 
-if gpu() >= 0
+if CUDA.functional()
     @testset "karray" begin
         a = rand(3,4)
         k = KnetArray(a)
@@ -173,7 +177,7 @@ if gpu() >= 0
         end # 3D
 
         @testset "broadcast" begin # Fixing #342
-            zelu(x) = relu(x) + (exp(min(0,x)) - 1)
+            zelu(x) = tanh(x) + (exp(min(0,x)) - 1)
             @test isa(zelu.(KnetArray(randn(Float32,5,5))), KnetArray)
         end
 
@@ -219,6 +223,6 @@ if gpu() >= 0
         end
 
     end # karray
-end # gpu() >= 0
+end # CUDA.functional() >= 0
 
 nothing

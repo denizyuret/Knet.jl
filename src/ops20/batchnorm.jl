@@ -1,6 +1,5 @@
 export batchnorm, bnmoments, bnparams
-using Knet: training
-using AutoGrad: AutoGrad, @primitive1, value
+using AutoGrad: AutoGrad, @primitive1, value, recording
 using Statistics: mean, var
 
 # dy20200804: why not have bnparams and bnmoments in a single struct?
@@ -54,7 +53,7 @@ used to initialize `params`.
 
 """
 function batchnorm(x, moments::Union{BNMoments, Nothing}=nothing, params=nothing;
-                   training=training(), o...)
+                   training=AutoGrad.recording(), o...)
     xnd = ndims(x)
     a = (x,)
     if params !== nothing
@@ -154,7 +153,7 @@ function batchnorm4(x; o...)
     return _batchnorm4_fused(nothing,nothing,x; o...)
 end
 
-function _batchnorm4_fused(g, b, x; eps=1e-5, training=training(), cache=nothing, moments=nothing, o...)
+function _batchnorm4_fused(g, b, x; eps=1e-5, training=AutoGrad.recording(), cache=nothing, moments=nothing, o...)
     T = eltype(x)
     y = copy(x)
     eps = T(eps)
@@ -215,7 +214,7 @@ end
 
 # Implement batchnorm2 using batchnorm4, with autograd
 
-function batchnorm2(g, b, x; moments=nothing, training=training(), o...)
+function batchnorm2(g, b, x; moments=nothing, training=AutoGrad.recording(), o...)
     # TODO: This support should be added when needed
     if training == false && (isa(g, AutoGrad.Value) || isa(x, AutoGrad.Value) || isa(b, AutoGrad.Value))
         error("Test mode backward is not supported with 2d inputs")
@@ -248,7 +247,7 @@ end
 batchnorm2(x;o...) = batchnorm2(nothing, nothing, x; o...)
 
 # CPU backward
-function batchnorm4_back(g, x, dy; eps=1e-5, training=training(), cache=nothing, moments=nothing,  o...)
+function batchnorm4_back(g, x, dy; eps=1e-5, training=AutoGrad.recording(), cache=nothing, moments=nothing,  o...)
     T = eltype(x)
     eps = T(eps)
     dims = _reddims(x)

@@ -1,7 +1,6 @@
 export dropout
-using Random: rand!
-using Knet: training, seed!
-using AutoGrad: AutoGrad, @primitive1, value
+using Random: Random, rand!, seed!
+using AutoGrad: AutoGrad, @primitive1, value, recording
 
 """
     dropout(x, p; drop, seed)
@@ -13,12 +12,11 @@ non-zero `seed::Number` to set the random number seed for reproducible results. 
 [(Srivastava et al. 2014)](http://www.jmlr.org/papers/v15/srivastava14a.html) for a reference.
 
 """
-function dropout(x,p; seed=0, drop=training())
+function dropout(x,p; seed=0, drop=recording())
     if !drop
         x
     elseif 0 < p < 1
-        if seed != 0; seed!(seed); end
-        dropout!(p,x,similar(x))
+        dropout!(p,x,similar(x),seed=seed)
     elseif p == 0
         x
     elseif p == 1
@@ -41,10 +39,11 @@ function dropback(dy,y,x,p)
 end
 
 # Turn dropout into an AutoGrad primitive
-@primitive1 dropout(x,p;seed=0,drop=training()),dy,y dropback(value.((dy,y,x,p))...)
+@primitive1 dropout(x,p;seed=0,drop=recording()),dy,y dropback(value.((dy,y,x,p))...)
 
 # CPU implementation
-function dropout!(p,x,y)
+function dropout!(p,x,y;seed=0)
+    if seed != 0; Random.seed!(seed); end
     rand!(y)
     p = convert(eltype(y),p)
     q = 1-p

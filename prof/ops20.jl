@@ -21,78 +21,77 @@ end
 
 B = 32
 
-x1(x)=x[1]
+getindex1(x)=x[1]
 drop(x)=dropout(x,0.5,drop=true)
-y = randn(Float32,1000,B)
-kbench(identity,y)
-kbench(x1,y)
-kbench(sum,y)
-kbench(drop,y)
+y1 = randn(Float32,1000,B)
+kbench(identity,y1)
+kbench(getindex1,y1)
+kbench(sum,y1)
+kbench(drop,y1)
 
-kbench(logp, y; dims=1)
-kbench(softmax, y; dims=1)
-kbench(logsumexp, y; dims=1)
+kbench(logp, y1; dims=1)
+kbench(softmax, y1; dims=1)
+kbench(logsumexp, y1; dims=1)
 
 nll1(x;a)=nll(x,a)
 accuracy1(x;a)=accuracy(x,a)
-a = rand(1:size(y,1),size(y,2))
-kbench(nll1,y;a=a)
-kbench(accuracy1,y;a=a)
+a1 = rand(1:size(y1,1),size(y1,2))
+kbench(nll1,y1;a=a1)
+kbench(accuracy1,y1;a=a1)
 
 bce1(t;b)=bce(t,b)
 logistic1(t;b)=logistic(t,b)
-t = randn(Float32,1000)
+t1 = randn(Float32,1000)
 t01 = rand((0,1),1000)
 t11 = rand((1,1),1000)
-kbench(bce1, t; b=t01)
-kbench(logistic1, t; b=t11)
+kbench(bce1, t1; b=t01)
+kbench(logistic1, t1; b=t11)
+
+adddot(x,y)=(x .+ y)
+x1 = rand(Float32,2048,B)
+w1 = rand(Float32,1000,size(x1,1))
+b1 = rand(Float32,size(w1,1))
+kbench(*,w1,x1)
+kbench(adddot,y1,b1)
+
+x2 = rand(Float32,14,14,256,B)
+w2 = rand(Float32,3,3,256,256)
+y2 = conv4(w2,x2;padding=1)
+z2 = pool(y2)
+kbench(conv4,w2,x2)
+kbench(deconv4,w2,y2)
+kbench(pool,y2)
+kbench(unpool,z2)
+kbench(mat,x2)
 
 eludot(x)=elu.(x)
 reludot(x)=relu.(x)
 seludot(x)=selu.(x)
 sigmdot(x)=sigm.(x)
-x = rand(Float32,2048,B)
-kbench(eludot,x)
-kbench(reludot,x)
-kbench(seludot,x)
-kbench(sigmdot,x)
+kbench(eludot,x2)
+kbench(reludot,x2)
+kbench(seludot,x2)
+kbench(sigmdot,x2)
 
-w = rand(Float32,1000,2048)
-kbench(*,w,x)
-
-adddot(x,y)=(x .+ y)
-b = rand(Float32,1000)
-kbench(adddot,y,b)
-
-x = rand(Float32,14,14,256,B)
-w = rand(Float32,3,3,256,256)
-y = conv4(w,x;padding=1)
-z = pool(y)
-kbench(conv4,w,x)
-kbench(deconv4,w,y)
-kbench(pool,y)
-kbench(unpool,z)
-kbench(mat,x)
-
-m = bnmoments()
-p = bnparams(eltype(x),size(x,3))
+m2 = bnmoments()
+p2 = bnparams(eltype(x2),size(x2,3))
 bn(x,p;m)=(m=(typeof(m.mean)===typeof(x) ? m : bnmoments()); batchnorm(x,m,p))
-kbench(bn, x, p; m=m) ## ERROR
+kbench(bn, x2, p2; m=m2)
 
-k = rand(Float32,64,256,256,B)
-q = rand(Float32,256,64,256,B)
-kbench(bmm,k,q)
+k3 = rand(Float32,64,256,256,B)
+q3 = rand(Float32,256,64,256,B)
+kbench(bmm,k3,q3)
 
-rnntest(w,x;r)=(r.w=w; r(x))
-r = RNN(256,256; atype=Array{Float32})
-x = rand(Float32,256,B,256)
-w = r.w.value
-kbench(rnntest,w,x;r=r)
+r3 = RNN(256,256; atype=Array{Float32})
+x3 = rand(Float32,256,B,256)
+w3 = r3.w.value
+rnntest(w,x;r=r3)=(r.w = w; r(x))
+kbench(rnntest,w3,x3)
 
 embed(e;s)=e[:,s]
-e = rand(Float32,256,10000)
-s = rand(1:10000,256,256)
-kbench(embed,e;s=s)
+e4 = rand(Float32,256,10000)
+s4 = rand(1:10000,256,256)
+kbench(embed,e4;s=s4)
 
 # Using resnet dims as reference for conv.
 # 224×224×3×1  = 150528 (1)
@@ -107,3 +106,4 @@ kbench(embed,e;s=s)
 # Using bert dims ÷ 4 as reference for bmm.
 # 512x1024x1024x256
 
+nothing

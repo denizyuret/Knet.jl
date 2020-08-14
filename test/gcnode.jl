@@ -1,10 +1,10 @@
 include("header.jl")
 
-if gpu() >= 0; @testset "gcnode" begin
+if CUDA.functional(); @testset "gcnode" begin
 
     # 506: knetgcnode garbage collects rnn fields
     save_gcnode = AutoGrad.gcnode
-    AutoGrad.set_gc_function(Knet.knetgcnode)
+    AutoGrad.set_gc_function(Knet.AutoGrad_gpu.knetgcnode)
     M1 = RNN(2,3)
     M1.h = M1.c = 0
     M1.dx = M1.dhx = M1.dcx = nothing

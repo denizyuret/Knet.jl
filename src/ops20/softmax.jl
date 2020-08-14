@@ -1,5 +1,5 @@
 export logsoftmax, logsumexp, softmax
-using AutoGrad: AutoGrad, @primitive1
+using AutoGrad: AutoGrad, @primitive1, value
 
 """
     softmax(x; dims=:)
@@ -33,50 +33,49 @@ matrix, `dims=1` sums columns of `x` and `dims=2` sums rows of `x`.
 logsumexp
 
 
-function logsoftmax(x; dims=:)
-    isa(value(x),Number) && return zero(x)
-    isempty(x) && return x
+# Separate user facing methods from underlying implementations
+logsoftmax(x; dims=:) = _logsoftmax(x, dims=dims)
+softmax(x; dims=:)    = _softmax(x, dims=dims)
+logsumexp(x; dims=:)  = _logsumexp(x, dims=dims)
+const logp = logsoftmax
+
+function _logsoftmax(x; dims)
+    isa(x, Number) && return zero(x)
+    isempty(x) && return similar(x)
     x = x .- maximum(x,dims=dims)
     return (x .- log.(sum(exp.(x); dims=dims)))
 end
 
 function ∇logsoftmax(x,y,dy; dims)
-    isa(value(x),Number) && return zero(x)
-    isempty(x) && return x
     return (dy - exp.(y).*sum(dy; dims=dims))
 end
 
-function softmax(x; dims=:)
-    isa(value(x),Number) && return one(x)
-    isempty(x) && return x
+function _softmax(x; dims)
+    isa(x, Number) && return one(x)
+    isempty(x) && return similar(x)
     x = x .- maximum(x; dims=dims)
     x = exp.(x)
     return (x ./ sum(x; dims=dims))
 end
 
-function ∇softmax(x,y,dy; dims=:)
-    isa(value(x),Number) && return zero(x)
-    isempty(x) && return x
+function ∇softmax(x,y,dy; dims)
     return (y .* dy .- y .* sum(y .* dy; dims=dims))
 end
 
-function logsumexp(x; dims=:)
-    isa(value(x),Number) && return x
+function _logsumexp(x; dims)
+    isa(x, Number) && return x
     isempty(x) && throw(ArgumentError("reducing over an empty collection is not allowed"))
     xmax = maximum(x,dims=dims)
-    xmax + log.(sum(exp.(x .- xmax),dims=dims))
+    return (xmax + log.(sum(exp.(x .- xmax),dims=dims)))
 end
 
 function ∇logsumexp(x,y,dy; dims)
-    isa(value(x),Number) && return one(x)
-    isempty(x) && throw(ArgumentError("reducing over an empty collection is not allowed"))
     return (dy .* exp.(x .- y))
 end    
 
-@primitive1  logsoftmax(x;dims=:),dy,y  ∇logsoftmax(x,y,dy,dims=dims)
-@primitive1  softmax(x;dims=:),dy,y     ∇softmax(x,y,dy,dims=dims)
-@primitive1  logsumexp(x;dims=:),dy,y   ∇logsumexp(x,y,dy;dims=dims)
-const logp = logsoftmax
+@primitive1 _logsoftmax(x;dims),dy,y  ∇logsoftmax(x,y,dy,dims=dims)
+@primitive1 _softmax(x;dims),dy,y     ∇softmax(x,y,dy,dims=dims)
+@primitive1 _logsumexp(x;dims),dy,y   ∇logsumexp(x,y,dy;dims=dims)
 
 
 # Math for the softmax loss: x is unnormalized input, p is target probabilities, q is

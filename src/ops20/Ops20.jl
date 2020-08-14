@@ -1,14 +1,13 @@
 module Ops20
 
+import Base: show # this will be unnecessary if we don't use structs -- only in rnn.jl
 using AutoGrad: AutoGrad, @primitive, @primitive1, value, Param # we should not need Param in ops -- only in rnn.jl
 using Base: has_offset_axes, unsafe_convert
-using Knet: training, seed!, atype # we should not need atype or xavier in ops -- only in rnn.jl
 using LinearAlgebra.BLAS: libblas, @blasfunc
 using LinearAlgebra: chkstride1, BlasInt, lmul!
 using NNlib: conv, DenseConvDims, maxpool, meanpool, PoolDims, ∇conv_data, ∇conv_filter, ∇maxpool, ∇meanpool
-using Random: rand!
+using Random: rand!, seed!
 using Statistics: mean, var
-import Base: show # this will be unnecessary if we don't use structs -- only in rnn.jl
 
 include("activation.jl"); export elu, relu, selu, sigm
 include("dropout.jl");    export dropout

@@ -1,5 +1,8 @@
-"By default set to true to use the CUDA.jl allocator, Knet.cuallocator()=false to use Knet allocator"
-cuallocator()=true
+export KnetPtr, Cptr, gc
+using CUDA: CUDA, CuArray, CuPtr, unsafe_cuMemAlloc_v2, cuMemFree_v2, device, devices, functional, unsafe_free!
+const Cptr = Ptr{Cvoid}
+const cuallocator = Ref{Bool}(true)
+dev() = Int(device().handle)
 
 # KnetPtr type holds a gpu allocated pointer.  We try to minimize the number of actual
 # allocations, which are slow, by reusing preallocated but garbage collected pointers.
@@ -14,7 +17,7 @@ end
 # This is the low level KnetPtr constructor, it adds the finalizer and sets parent to
 # nothing, which is only needed for shared pointers.
 
-function KnetPtr(ptr::Cptr,len::Int,dev::Int)
+function KnetPtr(ptr::Cptr,len::Integer,dev::Integer)
     kp = KnetPtr(ptr,len,dev,nothing)
     finalizer(freeKnetPtr, kp)
 end
@@ -22,7 +25,7 @@ end
 # This constructor is used to create a shared pointer.  We need to keep the parent field to
 # prevent premature gc of the parent.  The child does not need a special finalizer.
 
-function KnetPtr(parent::KnetPtr, offs::Int, len::Int)
+function KnetPtr(parent::KnetPtr, offs::Integer, len::Integer)
     if len < 0 || offs < 1 || offs+len-1 > parent.len; throw(BoundsError()); end
     KnetPtr(parent.ptr+offs-1, len, parent.dev, parent)
 end
@@ -34,7 +37,7 @@ function freeKnetPtr(p::KnetPtr)
     if p.ptr == C_NULL
         # already freed, do nothing
     elseif p.parent isa Nothing
-        @dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
+        #@dbg (push!(arraysizes,-p.len); push!(blocksizes,-p.len))
         mem = KnetMems[p.dev+1]
         mem.bfree += p.len
         mem.kfree += 1
@@ -74,8 +77,8 @@ KnetMem()=KnetMem(Dict{Int,KnetPool}(),KNETMEMINIT,0,0,0,0,0,0,0)
 
 # KnetMems[dev+1] holds memory information for device dev.
 KnetMems = nothing
-initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:gpuCount() ])
-knetmem(dev=gpu()) = (if KnetMems == nothing; initKnetMems(); end; KnetMems[dev+1])
+initKnetMems() = (global KnetMems = [ KnetMem() for i in 1:length(devices()) ])
+knetmem(dev=dev()) = (if KnetMems == nothing; initKnetMems(); end; KnetMems[dev+1])
 
 # Blocksize determines the actual allocation size given the array size in bytes, and can be
 # larger than what the array needs for increased reuse.
@@ -100,12 +103,12 @@ gc_interval() = 2*10^8  # gc interval in ns, optimized on seq2seq model, balanci
 putc(c)=nothing         # putc(c)=print(c) to observe GC.gc, Knet.gc and inclimit
 
 function KnetPtr(arraybytes::Int)
-    @assert gpu() >= 0 "Cannot use KnetArray without a GPU."
-    cuallocator() && return KnetPtrCu(arraybytes)
-    dev = gpu(); @assert dev >= 0 "KnetPtr: bad device id $dev."
+    @assert functional() "Cannot use KnetArray without a GPU."
+    cuallocator[] && return KnetPtrCu(arraybytes)
+    dev = dev(); @assert dev >= 0 "KnetPtr: bad device id $dev."
     mem = knetmem(dev)
     blockbytes = blocksize(arraybytes)
-    @dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
+    #@dbg (push!(arraysizes,arraybytes); push!(blocksizes,blockbytes))
     pool = get!(KnetPool,mem.pools,blockbytes)
 
     ptr = reuse(mem, pool, blockbytes, 0) # 0. best case we have one available in pool
@@ -141,7 +144,7 @@ end
 function alloc(mem, pool, blockbytes, dbg)
     ptr = knetMalloc(blockbytes)       # ~584μs
     if ptr != nothing
-        @dbg push!(allocs, dbg)
+        #@dbg push!(allocs, dbg)
         mem.bytes += blockbytes
         mem.kptrs += 1
         pool.nptr += 1
@@ -159,7 +162,7 @@ function reuse(mem, pool, blockbytes, dbg; trygc=nothing)
         end
     end
     if !isempty(pool.free)
-        @dbg push!(allocs, dbg)
+        #@dbg push!(allocs, dbg)
         mem.bfree -= blockbytes
         mem.kfree -= 1
         return pop!(pool.free)
@@ -186,19 +189,19 @@ KnetPtr(n::Integer)=KnetPtr(Int(n))
 function knetMalloc(nbytes::Int) # 584μs
     ptr = Cptr[0]
     # ret = @cudart1(cudaMalloc,(Ptr{Cptr},Csize_t),ptr,nbytes)
-    ret = CUDA.unsafe_cuMemAlloc_v2(ptr, nbytes)
+    ret = unsafe_cuMemAlloc_v2(ptr, nbytes)
     ret == 0 ? ptr[1] : nothing
 end
 
 
 """
-    Knet.gc(dev=gpu())
+    Knet.gc(dev=CUDA.device().handle)
 
 cudaFree all pointers allocated on device `dev` that were previously allocated and garbage
 collected. Normally Knet holds on to all garbage collected pointers for reuse. Try this if
 you run out of GPU memory.
 """
-function gc(dev=gpu())
+function gc(dev=dev())
     if KnetMems == nothing; GC.gc(); return; end
     putc('+')
     mem = knetmem(dev)
@@ -207,7 +210,7 @@ function gc(dev=gpu())
     for (n,v) in mem.pools
         for p in v.free
             # @cudart(cudaFree,(Cptr,),p)
-            CUDA.cuMemFree_v2(CuPtr{Nothing}(UInt(p)))
+            cuMemFree_v2(CuPtr{Nothing}(UInt(p)))
         end
         v.nptr -= length(v.free)
         mem.kptrs -= length(v.free)
@@ -224,55 +227,79 @@ function knetgc()
     Knet.gc()
 end
 
+# Testing the CUDA.jl allocator: set Knet.cuallocator[]=true to use this
+function KnetPtrCu(len::Int)
+    c = CuArray{UInt8}(undef, len)
+    p = convert(Cptr, convert(UInt, Base.unsafe_convert(CuPtr{UInt8}, Base.cconvert(CuPtr{UInt8}, c))))
+    kp = KnetPtr(p, len, dev(), c)
+    finalizer(freeKnetPtrCu, kp)
+end
+
+function freeKnetPtrCu(p::KnetPtr)
+    # GC.gc comes here directly, manual calls come through freeKnetPtr()
+    # After a manual call, GC.gc may call the finalizer again, avoid double free
+    if p.parent isa CuArray
+        unsafe_free!(p.parent)
+        p.ptr, p.parent = C_NULL, nothing
+    elseif p.parent isa Nothing
+        @assert p.ptr == C_NULL
+        # already freed, do nothing
+    elseif p.parent isa KnetPtr
+        # subarray, do nothing
+    else
+        error("Bad parent pointer $(typeof(p.parent))")
+    end
+end
+
 # Some utilities
 
-meminfo(i=gpu())=[(k,v.nptr,length(v.free)) for (k,v) in knetmem(i).pools]
-
 using Printf
-kmeminfo(i=gpu())=(m=knetmem(i); @sprintf("knetgc=%g gc=%g pools=%g kptrs=%g kfree=%g limit=%g bytes=%g bfree=%g", m.knetgc, m.gc, length(m.pools), m.kptrs, m.kfree, m.limit, m.bytes, m.bfree))
+meminfo(i=dev())=[(k,v.nptr,length(v.free)) for (k,v) in knetmem(i).pools]
+kmeminfo(i=dev())=(m=knetmem(i); @sprintf("knetgc=%g gc=%g pools=%g kptrs=%g kfree=%g limit=%g bytes=%g bfree=%g", m.knetgc, m.gc, length(m.pools), m.kptrs, m.kfree, m.limit, m.bytes, m.bfree))
 
-function gpuinfo(msg="",dev=gpu();n=10)
-    msg != "" && print("$msg ")
-    if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
-        g = nvmlDeviceGetMemoryInfo(nvmlid(dev))
-        println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
-    else
-        dev0 = gpu(); gpu(dev)
-        (free,total) = cudaMemGetInfo()
-        gpu(dev0)
-        println((:dev,dev,:total,total,:free,free,:used,total-free))
-    end
-    bytes = bfree = ptrs = k = 0
-    for (s,u,f) in sort(meminfo(dev), by=(x->x[1]*x[2]), rev=true)
-        bytes += s*u; bfree += s*f; ptrs += u; k += 1
-        if k <= n; println((:bytes,s*u,:size,s,:alloc,u,:bfree,f)); end
-    end
-    if n < k; println('⋮'); end
-    println((:totbytes,bytes,:bfree,bfree,:ptrs,ptrs))
-    if KnetMems != nothing
-        mem = KnetMems[dev+1]
-        println((:membytes,mem.bytes,:bfree,mem.bfree,:limit,mem.limit,:pools,length(mem.pools)))
-    end
-end
+# The following are deprecated, use CUDA.memory_status instead:
 
-function memdbg(msg="")
-    if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
-        m = nvmlDeviceGetMemoryInfo()
-    else
-        m = (0,0,0)
-    end
-    c = cudaMemGetInfo()
-    x = [0,0]
-    for (s,u,f) in meminfo()
-        x[1] += s*u
-        x[2] += s*f
-    end
-    println("""$msg:
-cudaMemGetInfo: ctotal: $(c[2]) cfree: $(c[1]) ctotal-cfree: $(c[2]-c[1])
-nvmlDeviceGetMemoryInfo: ntotal: $(m[1]) nfree: $(m[2]) nused: $(m[3]) nfree+used: $(m[2]+m[3])
-KnetPtr: ktotal: $(x[1]) kavail: $(x[2]) ktotal-kavail: $(x[1]-x[2])
-nused-ktotal: $(m[3]-x[1])
-""")
-end
+# function gpuinfo(msg="",dev=dev();n=10)
+#     msg != "" && print("$msg ")
+#     if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
+#         g = nvmlDeviceGetMemoryInfo(nvmlid(dev))
+#         println((:dev,dev,:total,g[1],:free,g[2],:used,g[3]))
+#     else
+#         dev0 = dev(); dev(dev)
+#         (free,total) = cudaMemGetInfo()
+#         dev(dev0)
+#         println((:dev,dev,:total,total,:free,free,:used,total-free))
+#     end
+#     bytes = bfree = ptrs = k = 0
+#     for (s,u,f) in sort(meminfo(dev), by=(x->x[1]*x[2]), rev=true)
+#         bytes += s*u; bfree += s*f; ptrs += u; k += 1
+#         if k <= n; println((:bytes,s*u,:size,s,:alloc,u,:bfree,f)); end
+#     end
+#     if n < k; println('⋮'); end
+#     println((:totbytes,bytes,:bfree,bfree,:ptrs,ptrs))
+#     if KnetMems != nothing
+#         mem = KnetMems[dev+1]
+#         println((:membytes,mem.bytes,:bfree,mem.bfree,:limit,mem.limit,:pools,length(mem.pools)))
+#     end
+# end
 
+# function memdbg(msg="")
+#     if nvmlfound # Libdl.find_library(["libnvidia-ml"],[]) != ""
+#         m = nvmlDeviceGetMemoryInfo()
+#     else
+#         m = (0,0,0)
+#     end
+#     c = cudaMemGetInfo()
+#     x = [0,0]
+#     for (s,u,f) in meminfo()
+#         x[1] += s*u
+#         x[2] += s*f
+#     end
+#     println("""$msg:
+# cudaMemGetInfo: ctotal: $(c[2]) cfree: $(c[1]) ctotal-cfree: $(c[2]-c[1])
+# nvmlDeviceGetMemoryInfo: ntotal: $(m[1]) nfree: $(m[2]) nused: $(m[3]) nfree+used: $(m[2]+m[3])
+# KnetPtr: ktotal: $(x[1]) kavail: $(x[2]) ktotal-kavail: $(x[1]-x[2])
+# nused-ktotal: $(m[3]-x[1])
+# """)
+# end
 

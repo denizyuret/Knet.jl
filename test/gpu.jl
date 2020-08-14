@@ -2,10 +2,10 @@ using Test, Knet, CUDA, Pkg.Artifacts
 
 @testset "gpu" begin
 
-    @show Knet.gpu()
-    @show Knet.atype()
+    #@show Knet.gpu()
+    #@show Knet.atype()
     @show Knet.dir()
-    @show Knet.libknet8
+    @show Knet.LibKnet8.libknet8
     @show readdir(artifact"libknet8") # readdir(Knet.dir("deps"))
 
 if CUDA.functional()
@@ -41,32 +41,29 @@ if CUDA.functional()
     @show CUDNN.version() # Knet.cudnnVersion
     #end
 
-    if gpu() >= 0
-        @test length(CUDA.devices()) > 0 # Knet.gpuCount() > 0
-        @test CUDA.device().handle >= 0  # Knet.gpu() >= 0
-        # @test !isempty(Knet.tk)
-        @test !isempty(Knet.libknet8)
-        # @test Knet.cudartfound
-        # @test Knet.cudaRuntimeVersion > 0
-        @test CUDA.version() > v"0" # Knet.cudaDriverVersion > 0
-        # @test Knet.cudaGetDeviceCount() > 0
-        # @test Knet.cudaGetDevice() >= 0
-        @test all(m->m>0, Mem.info()) # all(m->m>0, Knet.cudaMemGetInfo())
-        @test CUDA.synchronize() === nothing # Knet.cudaDeviceSynchronize() == nothing
-        #if Knet.nvmlfound
-        @test NVML.driver_version() > v"0" # !isempty(Knet.nvmlDriverVersion)
-        @test NVML.version() > v"0" #  !isempty(Knet.nvmlVersion)
-        @test all(m->m>0, NVML.memory_info(nvmldev)) # all(m->m>0, Knet.nvmlDeviceGetMemoryInfo())
-        #end
-        @test CUBLAS.handle() > Ptr{Nothing}(0) # Knet.cublashandle() > Knet.Cptr(0)
-        @test CUBLAS.version() > v"0" # Knet.cublasVersion > 0
-        @test CUDNN.handle() > Ptr{Nothing}(0) # Knet.cudnnhandle() > Knet.Cptr(0)
-        @test CUDNN.version() > v"0" # Knet.cudnnVersion > 0
-        @test isdir(Knet.dir())
-        @test isdir(artifact"libknet8")
-        @test !isempty(Knet.libknet8)
-        # @test !isempty(readdir(Knet.dir("deps")))
-    end
+    @test length(CUDA.devices()) > 0 # Knet.gpuCount() > 0
+    @test CUDA.device().handle >= 0  # Knet.gpu() >= 0
+    # @test !isempty(Knet.tk)
+    # @test Knet.cudartfound
+    # @test Knet.cudaRuntimeVersion > 0
+    @test CUDA.version() > v"0" # Knet.cudaDriverVersion > 0
+    # @test Knet.cudaGetDeviceCount() > 0
+    # @test Knet.cudaGetDevice() >= 0
+    @test all(m->m>0, Mem.info()) # all(m->m>0, Knet.cudaMemGetInfo())
+    @test CUDA.synchronize() === nothing # Knet.cudaDeviceSynchronize() == nothing
+    #if Knet.nvmlfound
+    @test NVML.driver_version() > v"0" # !isempty(Knet.nvmlDriverVersion)
+    @test NVML.version() > v"0" #  !isempty(Knet.nvmlVersion)
+    @test all(m->m>0, NVML.memory_info(nvmldev)) # all(m->m>0, Knet.nvmlDeviceGetMemoryInfo())
+    #end
+    @test CUBLAS.handle() > Ptr{Nothing}(0) # Knet.cublashandle() > Knet.Cptr(0)
+    @test CUBLAS.version() > v"0" # Knet.cublasVersion > 0
+    @test CUDNN.handle() > Ptr{Nothing}(0) # Knet.cudnnhandle() > Knet.Cptr(0)
+    @test CUDNN.version() > v"0" # Knet.cudnnVersion > 0
+    @test isdir(Knet.dir())
+    @test isdir(artifact"libknet8")
+    @test !isempty(Knet.LibKnet8.libknet8)
+    # @test !isempty(readdir(Knet.dir("deps")))
 
 end # if CUDA.functional()
 end # @testset "gpu" begin

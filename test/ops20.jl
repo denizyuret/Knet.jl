@@ -1,11 +1,17 @@
 using Test
 using Random: randn, rand, randn!
-using AutoGrad: @gcheck, @diff, Param, value
+using AutoGrad: @gcheck, @diff, Param, Tape, value
 using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, deconv4, mat, pool, poolx, unpool
+using Knet.Ops20: batchnorm, bnmoments, bnparams, softmax, logsoftmax, logsumexp, accuracy, nll, bce, logistic, RNN
+
+# Allow the user to override this:
+if !isdefined(Main, :param)
+    param(x...) = Param(randn(x...))
+end
 
 @testset "ops20" begin
 
-    x = Param(randn(8,8,2,3))
+    x = param(8,8,2,3)
     @testset "activation" begin
         @test @gcheck elu.(x)
         @test @gcheck relu.(x)
@@ -15,7 +21,7 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end
 
     @testset "bmm" begin
-        b = Param(randn(8,6,2,3))
+        b = param(8,6,2,3)
         pd(x) = permutedims(x,(2,1,3,4))
         @test @gcheck bmm(x,b)
         @test @gcheck bmm(x,pd(b),transB=true)
@@ -25,16 +31,16 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end
     
     function convtest(w,x;o...)
-        y = Param(conv4(w,x;o...))
-        dy = Param(randn(size(y)))
+        c = conv4(w,x;o...)
+        y = param(size(c)...)
         ((@gcheck conv4(w,x;o...)) &&
-         (@gcheck conv4w(w,x,dy;o...)) &&
-         (@gcheck conv4x(w,x,dy;o...)) &&
+         (@gcheck conv4w(w,x,y;o...)) &&
+         (@gcheck conv4x(w,x,y;o...)) &&
          (@gcheck deconv4(w,y;o...)))
     end
     
     @testset "conv" begin
-        w = Param(randn(3,3,2,4))
+        w = param(3,3,2,4)
         @test convtest(w, x; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=1)
         @test convtest(w, x; padding=1, stride=1, dilation=1, mode=0, alpha=1, group=1)
         @test convtest(w, x; padding=0, stride=2, dilation=1, mode=0, alpha=1, group=1)
@@ -46,8 +52,9 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end
 
     function pooltest(x; o...)
-        y = Param(pool(x; o...))
-        dy = Param(randn(size(y)))
+        p = pool(x; o...)
+        y = param(size(p)...)
+        dy = param(size(p)...)
         ((@gcheck pool(x; o...)) &&
          # @gcheck poolx(x,y,dy) misleads because NNlib gets confused when x&y don't change together.
          (@gcheck poolx(value(x), value(y), dy; o...)) &&
@@ -79,9 +86,9 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end
 
     @testset "batchnorm" begin
-        p = Param(bnparams(size(x,3)))
+        p = param(2*size(x,3))
         m = bnmoments()
-        @test (@diff sum(batchnorm(x,m,p))) isa AutoGrad.Tape
+        @test (@diff sum(batchnorm(x,m,p))) isa Tape
         @test @gcheck batchnorm(x,m,p; training=false)
     end
 
@@ -92,7 +99,7 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end
     
     @testset "softmax/loss" begin
-        scores = Param(randn(10,100))
+        scores = param(10,100)
         @test softtest(softmax, scores)
         @test softtest(logsoftmax, scores)
         @test softtest(logsumexp, scores)
@@ -107,7 +114,7 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
         value(scores)[:,1] .+= 10000
         @test accuracy(scores, labels2, dims=2) == sum(labels2 .== 1)/length(labels2)
 
-        scores = Param(randn(100))
+        scores = param(100)
         labels = rand(Bool,100)
         xlabels = labels .* 2 .- 1
         @test @gcheck bce(scores, labels)
@@ -116,9 +123,8 @@ using Knet.Ops20: elu, relu, selu, sigm, dropout, bmm, conv4, conv4w, conv4x, de
     end    
 
     function rnntest(;ndims=1, batchSizes=nothing, o...)
-        r = RNN(4,4;atype=Array{Float64},o...) # H==X for skipInput test
-        x = similar(value(r.w), (4:(4+ndims-1))...)
-        x = Param(randn!(x))
+        r = RNN(4,4;o...) # H==X for skipInput test
+        x = param(4:(4+ndims-1)...)
         @gcheck r(x; batchSizes=batchSizes)
     end
 

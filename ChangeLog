@@ -1,3 +1,14 @@
+2020-08-11  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* globals: need to decide where to put them. want modules independent of each other and of globals, eliminate cross-dependencies.
+	- training: both users and code
+	- atype: both users and code
+	- seed!: for users, not code
+	- dir: for users, not code
+	- cuallocator: can stay in KnetArrays, no need to export or publicise
+	- gpu: deprecate this
+	- libknet8, @knet8: only code, put in own module
+
 2020-08-07  Deniz Yuret  <deniz@razer>
 
 	* TODO: for the ops20 release:

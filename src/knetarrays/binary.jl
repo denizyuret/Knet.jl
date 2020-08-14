@@ -1,8 +1,12 @@
+import Base: +, -, *, /, \, ^, ==, !=, >, >=, <, <=, min, max
+import Base.Broadcast: broadcasted
+using AutoGrad: AutoGrad, @primitive
+using Knet.LibKnet8: @knet8, binary_ops
+# include("karray.jl") ## KnetArray
+# include("broadcast.jl") ## Bcasted
+
 # binary.jl: Elementwise broadcasting binary functions for arrays and scalars.
 # uses binary_ops from broadcast.jl.
-
-import Base.Broadcast: broadcasted
-import ..Ops20: eluback, reluback, seluback, sigmback
 
 # binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
@@ -227,7 +231,6 @@ function get_strides(x,y,z)
 end
 
 # Additional imports: fns in binary_ops are defined using broadcasted.
-import Base: +, -, *, /, \
 
 # Here we'll just define some functions that specifically do not have broadcasting.
 (+)(x::KnetArray{T},y::KnetArray{T}) where {T} = (size(x)==size(y)||throw(DimensionMismatch("$(map(size,(x,y)))"));(.+)(x,y))
@@ -316,12 +319,32 @@ tanhback(dyi::T,yi::T) where {T<:Number} = dyi*(T(1)-yi*yi)
 @primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
 @primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
 
+# Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result
+broadcasted(::typeof(Base.literal_pow), ::typeof(^), k::KnetArray{T}, n::Val{N}) where {T,N} = broadcasted(^, k, N)
+
+# Issue #108:Element-wise power of KnetArray give NaN results #108
+# This is a bug with CUDA giving NaN for integer powers of negative numbers (powf is broken)
+
+function broadcasted(::typeof(^),a::KnetArray{T},s::Number) where T
+    b = similar(a)
+    ca = CuArray(a)
+    cb = CuArray(b)
+    cb .= ca .^ T(s)
+    return b
+end
+
+function broadcasted(::typeof(^),s::Number,a::KnetArray{T}) where T
+    b = similar(a)
+    ca = CuArray(a)
+    cb = CuArray(b)
+    cb .= T(s) .^ ca
+    return b
+end
+
 # Define all overloaded Julia functions for KnetArrays:
 
 for f in binary_ops
     if !isa(f,Tuple); f=(f,); end
+    f[1] ∈ ("reluback","eluback","seluback","sigmback") && continue
     binary_op(f...)
 end
-
-# Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result
-broadcasted(::typeof(Base.literal_pow), ::typeof(^), k::KnetArray{T}, n::Val{N}) where {T,N} = broadcasted(^, k, N)

@@ -1,8 +1,9 @@
+import Base: sum, prod, minimum, maximum # , countnz
+using CUDA: CuArray, CuPtr
+using Knet.LibKnet8: @knet8, @knet8r, reduction_ops
+
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 # uses reduction_ops from ops.jl
-
-using CUDA
-import Base: sum, prod, minimum, maximum # , countnz
 
 sum(::typeof(abs), x::CuArray; dims=:) = sumabs(x,dims=dims)
 sum(::typeof(abs2), x::CuArray; dims=:) = sumabs2(x,dims=dims)
