@@ -1,8 +1,7 @@
-using Test
-import CUDA # functional
+using Test, Random
+using CUDA: CUDA, functional
 using AutoGrad: gradcheck
 using Knet.KnetArrays: KnetArray
-using Random: rand!, randn!
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 

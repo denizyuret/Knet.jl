@@ -1,4 +1,9 @@
-include("header.jl")
+using Test
+using CUDA: CUDA, functional
+using AutoGrad: AutoGrad, gcnode, set_gc_function
+using Knet.AutoGrad_gpu: knetgcnode
+using Knet.KnetArrays: KnetArray
+using Knet.Ops20: RNN
 
 if CUDA.functional(); @testset "gcnode" begin
 

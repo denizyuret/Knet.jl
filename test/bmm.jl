@@ -1,5 +1,7 @@
-include("header.jl")
 using Statistics, LinearAlgebra
+using Knet.Ops20: bmm
+using Knet.KnetArrays: KnetArray
+using CUDA: CUDA, functional
 
 sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
 @testset "bmm" begin
@@ -20,7 +22,7 @@ sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
             @test gradcheck(bmmul3, w)
             w = [pm(a),pm(b)]
             @test gradcheck(bmmul4, w)
-            if gpu() >= 0
+            if CUDA.functional()
                 c = bmm(a, b)
                 ka = KnetArray(a)
                 kb = KnetArray(b)
@@ -31,7 +33,7 @@ sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
             end
         end
     end
-    if gpu() >= 0
+    if CUDA.functional()
         # Issue #495: transpose support
         ϵ =  1e-9
         A  = KnetArray(rand(3,4,10))

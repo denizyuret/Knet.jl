@@ -1,5 +1,7 @@
-using Knet.KnetArrays: KnetPtr, KnetArray
+using Knet.KnetArrays: KnetPtr, KnetArray, Cptr
 using Knet.Ops20: RNN
+using AutoGrad: Param
+using CUDA: CUDA, functional, CuPtr
 
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
@@ -14,13 +16,11 @@ function _ser(x::KnetPtr,s::IdDict,::typeof(JLDMODE))
     if !haskey(s,x)
         if isa(x.ptr, Cptr) && (x.dev >= 0)
             a = Array{UInt8}(undef,x.len)
-            # @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),pointer(a),x.ptr,x.len,2)
             unsafe_copyto!(pointer(a), CuPtr{UInt8}(UInt(x.ptr)), x.len)
             s[x] = KnetPtr(a,x.len,-1,nothing)
         elseif isa(x.ptr, Array{UInt8,1})
-            if gpu() >= 0
+            if CUDA.functional()
                 s[x] = KnetPtr(x.len)
-                # @cudart(cudaMemcpy,(Cptr,Cptr,Csize_t,UInt32),s[x].ptr,pointer(x.ptr),x.len,1)
                 unsafe_copyto!(CuPtr{UInt8}(UInt(s[x].ptr)), pointer(x.ptr), x.len)
             else
                 s[x] = x  # Leave conversion to array to KnetArray
@@ -34,7 +34,7 @@ end
 
 function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     if !haskey(s,x)
-        if isa(x.ptr.ptr, Array) && gpu() < 0
+        if isa(x.ptr.ptr, Array) && !CUDA.functional()
             s[x] = copy(reshape(reinterpret(eltype(x),view(x.ptr.ptr,1:sizeof(T)*length(x))),size(x)))
         else
             s[x] = KnetArray{T,N}(_ser(x.ptr,s,m),x.dims)
@@ -47,7 +47,7 @@ function _ser(x::RNN, s::IdDict, m::Val)
     if !haskey(s,x)
         # we need rd,dd only if there is a gpu, we are not in cpumode,
         # and if we are in jldmode we are loading, not saving
-        # if (gpu() >= 0 && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
+        # if (CUDA.functional() && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
         #     dd = DD(dropout=x.dropout,seed=x.seed)
         #     rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
         # else

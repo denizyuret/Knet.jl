@@ -1,5 +1,10 @@
-include("header.jl")
-Random.seed!(42)
+using Test, Random
+using Knet.Ops20: conv4, deconv4, pool, unpool
+using CUDA: CUDA, functional, seed!
+using Knet.KnetArrays: KnetArray
+using AutoGrad: gradcheck, Param
+
+Random.seed!(42); CUDA.seed!(42)
 struct M370; layer; end;
 
 @testset "conv" begin
@@ -17,7 +22,7 @@ struct M370; layer; end;
     ad32 = convert(Array{Float32}, ad)
     ax5 = rand41(6,5,4,3,2)
     aw5 = rand41(3,3,3,3,3)
-    if gpu() >= 0
+    if CUDA.functional()
         kx = KnetArray(ax)
         kw = KnetArray(aw)
         kd = KnetArray(ad)
@@ -110,7 +115,7 @@ struct M370; layer; end;
         @test gradcheck(deconv41, (ad,ax); rtol=TOL, kw=[(:alpha,2)])
     end
 
-    if gpu() >= 0; @testset "gpuconv" begin
+    if CUDA.functional(); @testset "gpuconv" begin
         ### Default
         @test isapprox(pool(kx), pool(ax))
         @test gradcheck(pool, kx)
@@ -225,8 +230,12 @@ struct M370; layer; end;
         @test isapprox(deconv4(kd,kx;alpha=2), deconv4(ad,ax;alpha=2))
         @test gradcheck(deconv41, (kd,kx); rtol=TOL, kw=[(:alpha,2)])
 
-        # 370-3
-        m = M370(param(5,5,1,1))
+        # 370-3: This test may not be possible with CUDA.jl, once CUDA.functional() there is no way to turn it off
+        # Tim Besard: there's has_cuda and has_cuda_gpu for higher level functionality
+        # you could run julia with CUDA_VISIBLE_DEVICES=
+        # or using docker, blocking access to the GPUs
+        #= 
+        m = M370(Param(KnetArray(randn(Float32,5,5,1,1))))
         path = tempname()*".jld2"
         Knet.save(path,"m",m)
         gpusave = gpu()
@@ -235,6 +244,7 @@ struct M370; layer; end;
         @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
         gpu(gpusave)
         rm(path)
+        =#
     end
     end
 end

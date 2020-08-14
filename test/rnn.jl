@@ -1,24 +1,27 @@
-include("header.jl")
-using Knet.Ops20: rnntest, rnnforw
+using Test, Random
+using Knet.Ops20: RNN, rnntest, rnnforw, rnnparam, rnnparams
+using CUDA: CUDA, functional, seed!
+
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()
-Knet.seed!(2)
+Random.seed!(2); CUDA.seed!(2)
 
-if gpu() >= 0; @testset "rnn" begin
+if CUDA.functional(); @testset "rnn" begin
 
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a[1:3],b[1:3]))
     rxhc(r,x,h,c;o...)=(r.h=h;r.c=c;r(x;o...))
+    binit(x...)=0.01*randn(x...)
     D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
     P = Param
 
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)
-        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, xavier_uniform))
+        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, randn))
         # global rnew,r,w,x1,x2,x3,hx1,cx1,hx2,cx2,hx3,cx3
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
 
-        r = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=KnetArray{D}) # binit=zeros does not pass gchk
+        r = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=KnetArray{D}) # binit=zeros does not pass gchk
         w = r.w
-        rcpu = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=Array{D})
+        rcpu = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=Array{D})
         wcpu = rcpu.w
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
@@ -116,7 +119,7 @@ if gpu() >= 0; @testset "rnn" begin
         end
 
         ## Test new interface in 3-D
-        rnew = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, atype=KnetArray{D})
+        rnew = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=KnetArray{D})
         copyto!(value(rnew.w), value(w))
         # x
         rnew.c = rnew.h = nothing
@@ -186,6 +189,6 @@ if gpu() >= 0; @testset "rnn" begin
     @test grad(J,p) != nothing
 
 end # @testset begin
-end # if gpu() >= 0
+end # if CUDA.functional()
 
 nothing

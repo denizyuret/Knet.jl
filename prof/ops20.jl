@@ -1,4 +1,8 @@
-using BenchmarkTools, Knet, CUDA, Printf, Random
+using BenchmarkTools, Printf, Random
+using AutoGrad: @diff, Param
+using Knet.Ops20: dropout, logp, softmax, logsumexp, nll, accuracy, bce, logistic, conv4, pool, deconv4, unpool, mat, elu, relu, selu, sigm, bnmoments, bnparams, batchnorm, RNN
+using Knet.KnetArrays: KnetArray
+using CUDA: CUDA, CuArray, synchronize
 CUDA.allowscalar(true)
 CUDA.rand(10)[1] # get the warning out of the way
 pt = BenchmarkTools.prettytime

@@ -1,5 +1,10 @@
-include("header.jl")
-using Knet.KnetArrays: serialize
+using Test, Random
+using Knet.FileIO_gpu: serialize, cpucopy, gpucopy, load, save
+using Knet.KnetArrays: KnetArray, Cptr
+using Knet.Ops20: RNN
+using CUDA: CUDA, functional
+using AutoGrad: Param
+
 struct M370; layer; end;
 
 @testset "serialize" begin
@@ -8,7 +13,7 @@ struct M370; layer; end;
     @test typeof(M2.w.value) <: Array
     @test M2.w.value == M1.w.value
     @test Array{Float32} == serialize(Array{Float32})
-    if gpu() >= 0 
+    if CUDA.functional()
         M3 = M2 |> gpucopy
         @test typeof(M3.w.value) <: KnetArray
         @test M3.w.value == M2.w.value
@@ -17,10 +22,10 @@ struct M370; layer; end;
         @test first(array_of_ca) isa Array
         
         # 370-1
-        m = M370(param(5,5,1,1))
+        m = M370(Param(KnetArray(randn(Float32,5,5,1,1))))
         mcpu = m |> cpucopy
         path = tempname()*".jld2"
-        @test Knet.save(path,"mcpu",mcpu) === nothing
+        @test save(path,"mcpu",mcpu) === nothing
 
         # 370-2
         @test conv4(mcpu.layer,randn(Float32,20,20,1,1)) isa Array
@@ -28,8 +33,8 @@ struct M370; layer; end;
         # 506
         function m1test(M1,xgpu,xcpu)
             path = tempname()*".jld2"
-            Knet.save(path, "model", M1)
-            Ms = Knet.load(path, "model")
+            save(path, "model", M1)
+            Ms = load(path, "model")
             Mg = gpucopy(deepcopy(M1))
             Mc = cpucopy(M1)
             y,h,c = M1(xgpu),M1.h,M1.c

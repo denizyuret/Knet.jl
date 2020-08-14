@@ -1,7 +1,8 @@
-include("header.jl")
-include("combinatorics.jl")
+using Test
 using Knet.KnetArrays: sumabs, sumabs2, minabs, maxabs, countnz, reduction_ops
 using LinearAlgebra: norm
+using CUDA: CUDA, functional
+include("combinatorics.jl")
 
 @testset "reduction" begin
 
@@ -44,7 +45,7 @@ using LinearAlgebra: norm
                 @test gradcheck(f, ax; rtol=TOL1)
                 @test gradcheck(f, ax; kw=(:dims=>1,), rtol=TOL1)
                 @test gradcheck(f, ax; kw=(:dims=>2,), rtol=TOL1)
-                if gpu() >= 0
+                if CUDA.functional()
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx; rtol=TOL1)
                     @test gradcheck(f, gx; kw=(:dims=>1,), rtol=TOL1)
@@ -56,7 +57,7 @@ using LinearAlgebra: norm
             end
             # test for kernel bug with dims > 64K
             # gradcheck difficult to pass on large arrays due to numerical error
-            if gpu() >= 0
+            if CUDA.functional()
                 for n in ((10,100000),(100000,10))
                     #@show f,t,n
                     ax = rand21(f,t,n)
@@ -76,7 +77,7 @@ using LinearAlgebra: norm
             for p in (0,1,2,Inf,-Inf,1/pi,-1/pi,0+pi,-pi)
                 #@show f,t,n,p
                 @test gradcheck(f, ax, p; rtol=TOL1, args=1)
-                if gpu() >= 0
+                if CUDA.functional()
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx, p; rtol=TOL1, args=1)
                     @test isapprox(f(ax,p), f(gx,p); rtol=1e-6)
@@ -97,7 +98,7 @@ using LinearAlgebra: norm
     #         @test gradcheck(f, ax; rtol=TOL1)
     #         @test gradcheck(f2, ax; kw=(:dims=>1,), rtol=TOL1)
     #         @test gradcheck(f2, ax; kw=(:dims=>2,), rtol=TOL1)
-    #         if gpu() >= 0
+    #         if CUDA.functional()
     #             gx = KnetArray(ax)
     #             @test gradcheck(f, gx; rtol=TOL1)
     #             @test gradcheck(f, gx; kw=(:dims=>1,), rtol=TOL1)
@@ -120,7 +121,7 @@ using LinearAlgebra: norm
 
                 #@show f,t,dim,xsize
                 @test gradcheck(f,ax; rtol=TOL1)
-                if gpu() >= 0
+                if CUDA.functional()
                     gx = KnetArray(ax)
                     @test gradcheck(f, gx; rtol=TOL1)
                     @test isapprox(f(ax),f(gx))
@@ -130,7 +131,7 @@ using LinearAlgebra: norm
                 for c in mapreduce(i->collect(combinas(1:dim,i)), vcat, 1:dim)
                     #@show f,t,dim,xsize,c
                     @test gradcheck(f, ax; kw=(:dims=>c,), rtol=TOL1)
-                    if gpu() >= 0 && gx != nothing
+                    if CUDA.functional() && gx != nothing
                         @test gradcheck(f,gx; kw=(:dims=>c,), rtol=TOL1)
                         @test isapprox(f(ax,dims=c),Array(f(gx,dims=c)))
                     end

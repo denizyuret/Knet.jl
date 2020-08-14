@@ -4,7 +4,7 @@ using Test, Knet, CUDA, Pkg.Artifacts
 
     #@show Knet.gpu()
     #@show Knet.atype()
-    @show Knet.dir()
+    #@show Knet.dir()
     @show Knet.LibKnet8.libknet8
     @show readdir(artifact"libknet8") # readdir(Knet.dir("deps"))
 
@@ -60,7 +60,7 @@ if CUDA.functional()
     @test CUBLAS.version() > v"0" # Knet.cublasVersion > 0
     @test CUDNN.handle() > Ptr{Nothing}(0) # Knet.cudnnhandle() > Knet.Cptr(0)
     @test CUDNN.version() > v"0" # Knet.cudnnVersion > 0
-    @test isdir(Knet.dir())
+    #@test isdir(Knet.dir())
     @test isdir(artifact"libknet8")
     @test !isempty(Knet.LibKnet8.libknet8)
     # @test !isempty(readdir(Knet.dir("deps")))

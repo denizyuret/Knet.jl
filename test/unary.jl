@@ -1,7 +1,9 @@
-include("header.jl")
-using SpecialFunctions
+using Test, SpecialFunctions
 using Knet.Ops20: reluback, sigmback, eluback, seluback
-using Knet.KnetArrays: unary_ops, tanhback
+using Knet.LibKnet8: unary_ops
+using Knet.KnetArrays: KnetArray, tanhback
+using AutoGrad: gradcheck
+using CUDA: CUDA, functional
 
 @testset "unary" begin
 
@@ -41,7 +43,7 @@ using Knet.KnetArrays: unary_ops, tanhback
                 #@show f,t,n
                 ax = frand(f,t,n)
                 @test gradcheck(bf, ax)
-                if gpu() >= 0
+                if CUDA.functional()
                     gx = KnetArray(ax)
                     cy = bf(ax)
                     gy = bf(gx)
@@ -54,7 +56,7 @@ using Knet.KnetArrays: unary_ops, tanhback
 
     # Issue #456: 2nd derivative for MLP
     for trygpu in (false, true)
-        trygpu && gpu() < 0 && continue
+        trygpu && !CUDA.functional() && continue
         (x,y,dy) = randn.((10,10,10))
         if trygpu; (x,y,dy) = KnetArray.((x,y,dy)); end
         (x,y,dy) = Param.((x,y,dy))

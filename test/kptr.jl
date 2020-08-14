@@ -1,5 +1,5 @@
 using Test
-using CUDA: CUDA, devices # functional, pool
+using CUDA: CUDA, devices, device, functional
 using Knet.KnetArrays: KnetMems, KnetPtr, blocksize, initKnetMems, cuallocator
 _cuallocator = cuallocator[]
 

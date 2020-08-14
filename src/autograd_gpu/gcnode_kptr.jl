@@ -1,4 +1,4 @@
-using Knet.KnetArrays: KnetPtr, KnetArray
+using Knet.KnetArrays: KnetPtr, KnetArray, freeKnetPtr
 using AutoGrad: Result, Node, Tape
 using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures # peek
 

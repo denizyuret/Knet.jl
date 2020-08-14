@@ -1,15 +1,15 @@
 module Knet
 using AutoGrad, CUDA
 
-include("util/Util.jl")
 include("libknet8/LibKnet8.jl")
 include("knetarrays/KnetArrays.jl")
 include("cuarrays/CuArrays.jl")
 include("autograd_gpu/AutoGrad_gpu.jl")
 include("ops20/Ops20.jl")
 include("ops20_gpu/Ops20_gpu.jl")
-# include("fileio_gpu/FileIO_gpu.jl")
+include("fileio_gpu/FileIO_gpu.jl")
 # include("train20/Train20.jl")
+# include("util/Util.jl")
 
 # See if we have a gpu at initialization:
 function __init__()
