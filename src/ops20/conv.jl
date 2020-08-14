@@ -98,9 +98,9 @@ array/tuple with entries for each spatial dimension.
 * `group=1`: can be used to perform grouped convolutions.
 
 """
-function deconv4(w,x; o...)
-    y = similar(x,dcdims(w,x;o...))
-    return conv4x(w,y,x;o...)
+function deconv4(w,y; o...)
+    x = similar(y,dcdims(w,y;o...))
+    return conv4x(w,x,y;o...)
 end
 
 @primitive1 deconv4(w,x;o...),dy  conv4w(w,dy,x;o...)  conv4(w,dy;o...)
@@ -223,19 +223,19 @@ mat(x; dims::Int=ndims(x)-1)=reshape(x, (dims > 0 ? prod(size(x,i) for i in 1:di
 
 # outputDim = 1 + ( inputDim + 2*pad - (((filterDim-1)*dilation)+1) )/convolutionStride;
 # inputDim = (outputDim - 1) * convolutionStride + (((filterDim-1)*dilation)+1) - 2*pad
-function dcdims(w,x; padding=0, stride=1, dilation=1, o...)
-    N = ndims(x)
-    @assert size(x,N-1) == size(w,N)
+function dcdims(w,y; padding=0, stride=1, dilation=1, group=1, o...)
+    N = ndims(y)
+    @assert size(y,N-1) == size(w,N)
     ntuple(N) do i
         if i < N-1
             pi = (if isa(padding,Number); padding; else padding[i]; end)
             si = (if isa(stride,Number); stride; else stride[i]; end)
             di = (if isa(dilation,Number); dilation; else dilation[i]; end)
-            si*(size(x,i)-1) + (((size(w,i)-1)*di)+1) - 2*pi
+            si*(size(y,i)-1) + (((size(w,i)-1)*di)+1) - 2*pi
         elseif i == N-1
-            size(w,N-1)
+            size(w,N-1) * group
         else
-            size(x,N)
+            size(y,N)
         end
     end
 end

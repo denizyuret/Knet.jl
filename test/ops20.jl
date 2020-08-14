@@ -47,14 +47,18 @@ end
         @test convtest(w, x; padding=0, stride=1, dilation=2, mode=0, alpha=1, group=1)
         @test convtest(w, x; padding=0, stride=1, dilation=1, mode=1, alpha=1, group=1)
         @test convtest(w, x; padding=0, stride=1, dilation=1, mode=0, alpha=2, group=1)
-        # Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
-        @test_skip convtest(w, x; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=2) 
+        w1 = param(3,3,1,4)
+        if value(w) isa Array
+            # TODO: Grouped convolutions not yet implemented in NNlib, see https://github.com/JuliaGPU/CuArrays.jl/pull/523
+            @test_skip convtest(w1, x; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=2) 
+        else
+            @test convtest(w1, x; padding=0, stride=1, dilation=1, mode=0, alpha=1, group=2) 
+        end
     end
 
     function pooltest(x; o...)
-        p = pool(x; o...)
-        y = param(size(p)...)
-        dy = param(size(p)...)
+        y = Param(pool(x; o...))
+        dy = param(size(y)...)
         ((@gcheck pool(x; o...)) &&
          # @gcheck poolx(x,y,dy) misleads because NNlib gets confused when x&y don't change together.
          (@gcheck poolx(value(x), value(y), dy; o...)) &&
@@ -66,12 +70,16 @@ end
         @test pooltest(x; window=2, stride=2, padding=0, mode=0, maxpoolingNanOpt=1, alpha=1)
         @test pooltest(x; window=3, stride=2, padding=0, mode=0, maxpoolingNanOpt=1, alpha=1)
         @test pooltest(x; window=2, stride=3, padding=0, mode=0, maxpoolingNanOpt=1, alpha=1)
-        # Pool padding is buggy: https://github.com/FluxML/NNlib.jl/issues/229
-        @test_skip pooltest(x; window=2, stride=2, padding=1, mode=0, maxpoolingNanOpt=1, alpha=1)
+        if value(x) isa Array
+            # Pool padding is buggy: https://github.com/FluxML/NNlib.jl/issues/229
+            @test_skip pooltest(x; window=2, stride=2, padding=1, mode=0, maxpoolingNanOpt=1, alpha=1)
+        else
+            @test pooltest(x; window=2, stride=2, padding=1, mode=0, maxpoolingNanOpt=1, alpha=1)
+        end
         @test pooltest(x; window=2, stride=2, padding=0, mode=1, maxpoolingNanOpt=1, alpha=1)
-        @test_skip pooltest(x; window=2, stride=2, padding=0, mode=2, maxpoolingNanOpt=1, alpha=1)
+        @test pooltest(x; window=2, stride=2, padding=0, mode=2, maxpoolingNanOpt=1, alpha=1)
         @test pooltest(x; window=2, stride=2, padding=0, mode=3, maxpoolingNanOpt=1, alpha=1)
-        @test_skip pooltest(x; window=2, stride=2, padding=0, mode=0, maxpoolingNanOpt=0, alpha=1)
+        @test pooltest(x; window=2, stride=2, padding=0, mode=0, maxpoolingNanOpt=0, alpha=1)
         @test pooltest(x; window=2, stride=2, padding=0, mode=0, maxpoolingNanOpt=1, alpha=2)
     end
     
@@ -123,22 +131,27 @@ end
     end    
 
     function rnntest(;ndims=1, batchSizes=nothing, o...)
-        r = RNN(4,4;o...) # H==X for skipInput test
+        r = RNN(4,4;o...) # need H==X for skipInput test
         x = param(4:(4+ndims-1)...)
         @gcheck r(x; batchSizes=batchSizes)
     end
 
     @testset "rnn" begin
-        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:gru,  numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:relu, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:tanh, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:lstm, numLayers=2, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=true,  skipInput=false, ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=true,  ndims=1, batchSizes=nothing)
-        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=2, batchSizes=nothing)
         @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
-        @test_skip rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=true)
+        @test rnntest(rnnType=:gru,  numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:relu, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:tanh, numLayers=1, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=2, bidirectional=false, skipInput=false, ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=true,  skipInput=false, ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=true,  ndims=3, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=2, batchSizes=nothing)
+        @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=1, batchSizes=nothing)
+        if value(x) isa Array
+            # TODO: batchSizes not implemented for CPU yet
+            @test_skip rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=2, batchSizes=[2,2,1])
+        else
+            @test rnntest(rnnType=:lstm, numLayers=1, bidirectional=false, skipInput=false, ndims=2, batchSizes=[2,2,1])
+        end
     end
 end
 

@@ -1,13 +1,13 @@
 import Knet.Ops20: softmax, logsoftmax
 using Knet.Ops20: _softmax, _logsoftmax
 using Knet.KnetArrays: DevArray
-using AutoGrad: AutoGrad, @primitive1
-using CUDA.CUDNN: CUDNN, cudnnSoftmaxForward, cudnnSoftmaxBackward #, handle
+using AutoGrad: AutoGrad, @primitive1, Value
+using CUDA.CUDNN: CUDNN, unsafe_cudnnSoftmaxForward, unsafe_cudnnSoftmaxBackward #, handle
 using CUDA.CUDNN: CUDNN_SOFTMAX_FAST, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_LOG, CUDNN_SOFTMAX_MODE_INSTANCE
 #include("cudnn_retry.jl") # @cudnn_retry
 
 
-function logsoftmax(x::R; dims=:) where {T,R<:DevArray{T}}
+function logsoftmax(x::Union{DevArray,Value{<:DevArray}}; dims=:)
     if dims isa Colon || (ndims(x) === 1 && (1 in dims)) # TODO: compare speed to fallback when n>20000
         _x = reshape(x, (1,1,length(x),1))
         _y = _cudnnSoftmaxForward(_x, algo=CUDNN_SOFTMAX_LOG)
@@ -24,7 +24,7 @@ function logsoftmax(x::R; dims=:) where {T,R<:DevArray{T}}
     return y
 end
 
-function softmax(x::R; dims=:) where {T,R<:DevArray{T}}
+function softmax(x::Union{DevArray,Value{<:DevArray}}; dims=:)
     if dims isa Colon || (ndims(x) === 1 && (1 in dims)) # TODO: compare speed to fallback when n>20000
         _x = reshape(x, (1,1,length(x),1))
         _y = _cudnnSoftmaxForward(_x, algo=CUDNN_SOFTMAX_ACCURATE)

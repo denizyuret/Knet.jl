@@ -29,9 +29,7 @@ function _batchnorm4(T, g, b, x;
     # epsilon fix
     if eps < CUDNN_BN_MIN_EPS
         eps = CUDNN_BN_MIN_EPS
-        warn("eps ", eps,
-             " is too small for cudnn, so it is set to ",
-             CUDNN_BN_MIN_EPS)
+        @warn("eps $eps is too small for cudnn, so it is set to $CUDNN_BN_MIN_EPS", maxlog=1)
     end
     # moments
     if moments !== nothing

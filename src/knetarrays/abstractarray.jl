@@ -1,5 +1,6 @@
 import Base: IndexStyle, eachindex, eltype, fill!, first, isempty, iterate, lastindex, length, ndims, ones, similar, size, stride, strides, zero
 using AutoGrad: AutoGrad, @primitive1, ungetindex
+using Base: to_shape, DimOrInd
 
 # AbstractArray interface
 
@@ -18,12 +19,14 @@ length(a::KnetArray)=prod(size(a))
 
 ndims(a::KnetArray{T,N}) where {T,N}=N
 ones(a::KnetArray{T}) where {T}=fill!(similar(a),one(T))
-similar(a::KnetArray, T, dims::Dims)      = KnetArray{T}(undef,dims)
-similar(a::KnetArray, T, dims::Int...)    = similar(a, T, dims)
-similar(a::KnetArray, T)                  = similar(a, T, size(a))
-similar(a::KnetArray{T}) where {T}               = similar(a, T, size(a))
-similar(a::KnetArray{T}, dims::Dims) where {T}   = similar(a, T, dims)
-similar(a::KnetArray{T}, dims::Int...) where {T} = similar(a, T, dims)
+
+similar(a::KnetArray{T}) where {T}                             = similar(a, T)
+similar(a::KnetArray, ::Type{T}) where {T}                     = similar(a, T, size(a))
+similar(a::KnetArray{T}, dims::Tuple) where {T}                = similar(a, T, to_shape(dims))
+similar(a::KnetArray{T}, dims::DimOrInd...) where {T}          = similar(a, T, to_shape(dims))
+similar(a::KnetArray, ::Type{T}, dims::DimOrInd...) where {T}  = similar(a, T, to_shape(dims))
+similar(a::KnetArray, ::Type{T}, dims::Dims{N}) where {T,N}    = KnetArray{T,N}(undef,dims)
+
 size(a::KnetArray)=a.dims
 size(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; 1; else; size(a)[i]; end)
 stride(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; length(a); else; s=1; for n=1:(i-1); s*=size(a,n); end; s; end)

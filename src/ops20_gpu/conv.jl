@@ -7,7 +7,6 @@ function conv4(w::R,x::R; handle=CUDNN.handle(), alpha=1,
     beta=0 # nonzero beta does not make sense when we create y
     y = similar(x, cdims(w,x;o...))
     (algo,workSpace) = conv4_algo(w, x, y; handle=handle, o...)
-    algo = CUDNN.cudnnConvolutionFwdAlgo_t(algo)
     CUDNN.cudnnConvolutionForward(handle,Ref(T(alpha)),TD(x),x,FD(w),w,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(y),y)
     return y
 end
@@ -17,7 +16,6 @@ function conv4x(w::R,x::R,dy::R; handle=CUDNN.handle(), alpha=1,
     beta = 0
     dx = similar(x)
     (algo,workSpace) = conv4x_algo(w,x,dy,dx; handle=handle, o...)
-    algo = CUDNN.cudnnConvolutionBwdDataAlgo_t(algo)
     CUDNN.cudnnConvolutionBackwardData(handle,Ref(T(alpha)),FD(w),w,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),TD(dx),dx)
     return dx
 end
@@ -27,7 +25,6 @@ function conv4w(w::R,x::R,dy::R; handle=CUDNN.handle(), alpha=1,
     beta = 0
     dw = similar(w)
     (algo,workSpace) = conv4w_algo(w,x,dy,dw;handle=handle,o...)
-    algo = CUDNN.cudnnConvolutionBwdFilterAlgo_t(algo)
     CUDNN.cudnnConvolutionBackwardFilter(handle,Ref(T(alpha)),TD(x),x,TD(dy),dy,CD(w,x;o...),algo,workSpace,bytes(workSpace),Ref(T(beta)),FD(dw),dw)
     return dw
 end
@@ -151,7 +148,6 @@ end
 const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
 const requestedAlgoCount = 10
 const returnedAlgoCount = Cint[0]
-const perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
 bytes(x::DevArray{T}) where {T}=length(x)*sizeof(T)
 
 # This seems to cover a reasonable subset of the available algorithms
@@ -163,16 +159,23 @@ function conv4_algo(w::R, x::R, y::R; handle=CUDNN.handle(), o...) where {T,R<:D
     key = (T,size(w),size(x),o...)
     if haskey(conv4_algos, key)
         p = conv4_algos[key]
-        return (p.algo, cudnnWorkSpace(w,p.memory))
     elseif length(conv4_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace(w))
+        p = nothing
     else
         workSpace = similar(w, maxWorkspaceSize(w,x,y) ÷ sizeof(T))
+        perfResults = Array{CUDNN.cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
         wd, xd, yd, cd = FD(w), TD(x), TD(y), CD(w,x;o...)
         CUDNN.cudnnFindConvolutionForwardAlgorithmEx(handle,xd,x,wd,w,cd,yd,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4_algos[key] = p
-        return (p.algo, cudnnWorkSpace(w, p.memory))
+        if p === nothing
+            @warn "No good algo found for conv4$o: using default algo=0." maxlog=1
+        end
+    end
+    if p === nothing
+        return (CUDNN.cudnnConvolutionFwdAlgo_t(0), cudnnWorkSpace(w))
+    else
+        return (p.algo, cudnnWorkSpace(w,p.memory))
     end
 end
 
@@ -181,15 +184,22 @@ function conv4w_algo(w::R,x::R,dy::R,dw::R; handle=CUDNN.handle(), o...) where {
     key = (T,size(w),size(x),o...)
     if haskey(conv4w_algos, key)
         p = conv4w_algos[key]
-        return (p.algo, cudnnWorkSpace(w, p.memory))
     elseif length(conv4w_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace(w))
+        p = nothing
     else
         workSpace = similar(w, maxWorkspaceSize(w,x,dy) ÷ sizeof(T))
+        perfResults = Array{CUDNN.cudnnConvolutionBwdFilterAlgoPerf_t}(undef,requestedAlgoCount)
         wd, xd, yd, cd = FD(dw), TD(x), TD(dy), CD(w,x;o...)
         CUDNN.cudnnFindConvolutionBackwardFilterAlgorithmEx(handle,xd,x,yd,dy,cd,wd,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4w_algos[key] = p
+        if p === nothing
+            @warn "No good algo found for conv4w$o: using default algo=0." maxlog=1
+        end
+    end
+    if p === nothing
+        return (CUDNN.cudnnConvolutionBwdFilterAlgo_t(0), cudnnWorkSpace(w))
+    else
         return (p.algo, cudnnWorkSpace(w, p.memory))
     end
 end
@@ -199,23 +209,30 @@ function conv4x_algo(w::R,x::R,dy::R,dx::R; handle=CUDNN.handle(), o...) where {
     key = (T,size(w),size(x),o...)
     if haskey(conv4x_algos, key)
         p = conv4x_algos[key]
-        return (p.algo, cudnnWorkSpace(w, p.memory))
     elseif length(conv4x_algos) >= CUDNN_MAX_FIND
-        return (0, cudnnWorkSpace(w))
+        p = nothing
     else
         workSpace = similar(w, maxWorkspaceSize(w,x,dy) ÷ sizeof(T))
+        perfResults = Array{CUDNN.cudnnConvolutionBwdDataAlgoPerf_t}(undef,requestedAlgoCount)
         wd, xd, yd, cd = FD(w), TD(dx), TD(dy), CD(w,x;o...)
         CUDNN.cudnnFindConvolutionBackwardDataAlgorithmEx(handle,wd,w,yd,dy,cd,xd,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,bytes(workSpace))
         p = perfChoose(perfResults, returnedAlgoCount[1])
         conv4x_algos[key] = p
+        if p === nothing
+            @warn "No good algo found for conv4x$o: using default algo=0." maxlog=1
+        end
+    end
+    if p === nothing
+        return (CUDNN.cudnnConvolutionBwdDataAlgo_t(0), cudnnWorkSpace(w))
+    else
         return (p.algo, cudnnWorkSpace(w, p.memory))
     end
 end
 
 
 function perfChoose(ps, n)
-    if n==ps
-        warn("returnedAlgoCount==requestedAlgoCount")
+    if n==length(ps)
+        @warn "returnedAlgoCount==requestedAlgoCount" maxlog=1
     end
     (ibest,mbest,tbest) = (0,Inf,Inf)
     for i = 1:n
@@ -224,8 +241,11 @@ function perfChoose(ps, n)
             (ibest,mbest,tbest) = (i,ps[i].memory,ps[i].time)
         end
     end
-    if ibest == 0; error("No good algo found."); end
-    return ps[ibest]
+    if ibest > 0
+        return ps[ibest]
+    else
+        return nothing
+    end
 end
 
 # Fresh workspace for every op is safer:
