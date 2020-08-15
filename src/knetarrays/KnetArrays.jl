@@ -1,6 +1,6 @@
 module KnetArrays
 
-include("kptr.jl"); export KnetPtr, Cptr, gc
+include("kptr.jl"); # export KnetPtr, Cptr, gc
 include("karray.jl"); export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray
 
 include("getindex.jl")

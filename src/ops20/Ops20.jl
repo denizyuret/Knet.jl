@@ -13,7 +13,7 @@ include("activation.jl"); export elu, relu, selu, sigm
 include("dropout.jl");    export dropout
 include("bmm.jl");        export bmm
 include("conv.jl");       export conv4, deconv4, mat, pool, unpool    # rename conv/deconv, deprecate mat?
-include("softmax.jl");    export logsoftmax, logsumexp, softmax, logp # deprecate one of logp/logsoftmax?
+include("softmax.jl");    export logsoftmax, logsumexp, softmax       # deprecate one of logp/logsoftmax?
 include("loss.jl");       export accuracy, bce, logistic, nll         # deprecate one of bce/logistic, old signatures of nll/acc
 include("batchnorm.jl");  export batchnorm, bnmoments, bnparams       # rethink the interface: single struct? no struct?
 include("rnn.jl");        export RNN, rnninit, rnnforw, rnnparam, rnnparams # rethink the interface. no struct?

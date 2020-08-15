@@ -1,4 +1,4 @@
-export KnetPtr, Cptr, gc
+# export KnetPtr, Cptr, gc
 using CUDA: CUDA, CuArray, CuPtr, unsafe_cuMemAlloc_v2, cuMemFree_v2, device, devices, functional, unsafe_free!
 const Cptr = Ptr{Cvoid}
 const cuallocator = Ref{Bool}(true)
