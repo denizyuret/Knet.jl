@@ -1,12 +1,14 @@
-import Base: length, size, tail, iterate, eltype, IteratorSize, IteratorEltype, haslength, SizeUnknown, @propagate_inbounds, HasEltype
+export minimize, minimize!, converge, converge!
+import Base: IteratorSize, IteratorEltype, length, size, iterate, eltype
+using Base: haslength, tail, @propagate_inbounds, SizeUnknown
+using AutoGrad: @diff
 
-
-# progress(minimize(f, repeat(data,10)))
+# progress(minimize(f, ncycle(data,10)))
 # A stream (iterator) based implementation: minimize works like map
 # taking a stream of args and generating a stream of func values
 # except applying gradient based updates to params at each step
 
-#"Example: `minimize(f,repeat(data,10))`"
+#"Example: `minimize(f,ncycle(data,10))`"
 minimize(f,d::I,a=Adam(); params=nothing) where {I} = Minimize{I}(d,f,a,params)
 minimize!(x...; o...) = for x in minimize(x...; o...); end
 
@@ -81,28 +83,6 @@ IteratorSize(::Type{<:Converge}) = SizeUnknown()
     (item, (avgp, avgx, state))
 end
 
-
-
-"""
-    param(array; atype)
-    param(dims...; init, atype)
-    param0(dims...; atype)
-
-The first form returns `Param(atype(array))`.
-
-The second form Returns a randomly initialized `Param(atype(init(dims...)))`.  
-
-The third form `param0` is an alias for `param(dims...; init=zeros)`.
-
-By default, `init` is `xavier_uniform` and `atype` is `Knet.atype()`.
-
-"""
-param,param0
-
-# TODO: Knet.Param <: AutoGrad.Tracked as a separate type?
-param(x::AbstractArray; atype=atype()) = Param(atype(x))
-param(d...; init=xavier_uniform, atype=atype())=Param(atype(init(d...)))
-param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
 
 
 ### DEPRECATED:

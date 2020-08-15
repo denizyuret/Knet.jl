@@ -1,6 +1,8 @@
-using Random
-import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslength, @propagate_inbounds, repeat, rand, tail
-import .Iterators: cycle, Cycle
+export minibatch
+import Base: iterate, eltype, length, rand, repeat, summary, show
+using Base.Iterators: Cycle
+using Base: @propagate_inbounds, tail
+using Random: randperm
 
 mutable struct Data{T}; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
 
@@ -108,6 +110,6 @@ eltype(c::Cycle{Repeat}) = eltype(c.xs)
 end
 
 # Give length info in summary:
-Base.summary(d::Data) = "$(length(d))-element $(typeof(d))"
-Base.show(io::IO, d::Data) = print(IOContext(io,:compact=>true), summary(d))
-Base.show(io::IO, ::MIME"text/plain", d::Data) = show(io, d)
+summary(d::Data) = "$(length(d))-element $(typeof(d))"
+show(io::IO, d::Data) = print(IOContext(io,:compact=>true), summary(d))
+show(io::IO, ::MIME"text/plain", d::Data) = show(io, d)

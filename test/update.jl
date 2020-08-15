@@ -1,5 +1,8 @@
-include("header.jl")
-using Printf
+using Test, Printf, Random
+using Knet.Train20: update!, optimizers, SGD, Momentum, Nesterov, Adam, Adagrad, Adadelta, Rmsprop
+using Knet.KnetArrays: KnetArray
+using AutoGrad: gradloss, value
+using CUDA: CUDA, functional
 
 # x* = f(1, · · · , 1)
 # f(x*) = 0
@@ -57,8 +60,7 @@ end
     @test rosenopt((copy(w),copy(v)), (adam(),adam()))
     @test rosenopt(Any[copy(w),copy(v)], [adam(),adam()])
     @test rosenopt(Dict(:a=>copy(w),:b=>copy(v)), Dict(:a=>adam(),:b=>adam()))
-    if gpu() >= 0
-        Knet.gc()
+    if CUDA.functional()
         w = KnetArray(w) #GPU Tests
         @test rosenopt(copy(w),SGD(lr=0.001))
         @test rosenopt(copy(w),Momentum(lr=0.00025, gamma=0.95))

@@ -1,7 +1,8 @@
-using Test
-using Knet.KnetArrays: sumabs, sumabs2, minabs, maxabs, countnz, reduction_ops
+using Test, Random
+using Knet.KnetArrays: KnetArray, sumabs, sumabs2, minabs, maxabs, countnz, reduction_ops
 using LinearAlgebra: norm
 using CUDA: CUDA, functional
+using AutoGrad: gradcheck
 include("combinatorics.jl")
 
 @testset "reduction" begin

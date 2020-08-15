@@ -1,6 +1,8 @@
-using Statistics
+using Test, Statistics
 using Knet.Ops20: batchnorm, bnmoments, bnparams
+using Knet.KnetArrays: KnetArray
 using AutoGrad: gradcheck
+using CUDA: CUDA, functional
 
 @testset "batchnorm" begin
 

@@ -1,8 +1,8 @@
 using Test, SpecialFunctions
-using Knet.Ops20: reluback, sigmback, eluback, seluback
+using Knet.Ops20: reluback, sigmback, eluback, seluback, relu, sigm, elu, selu
 using Knet.LibKnet8: unary_ops
 using Knet.KnetArrays: KnetArray, tanhback
-using AutoGrad: gradcheck
+using AutoGrad: gradcheck, grad, @gcheck, Param
 using CUDA: CUDA, functional
 
 @testset "unary" begin

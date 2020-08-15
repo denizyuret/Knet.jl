@@ -1,3 +1,7 @@
+export update!, clone, optimizers, SGD, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adagrad, adagrad, adagrad!, RMSprop, rmsprop, rmsprop!, Adadelta, adadelta, adadelta!, Adam, adam, adam!
+using LinearAlgebra: norm, lmul!, axpy!
+using AutoGrad: Param, full
+
 # These types define per-parameter config and state for various optimization algorithms. The
 # lowercase functions create an optimization iterator and the bang versions run the iterator
 # both calling minimize. Minimize takes the given type as a global default and attaches a copy
@@ -93,8 +97,6 @@ Given a parameter `w` and its gradient `g` here are the updates applied by each 
 
 """
 minimize, minimize!, sgd, sgd!, momentum, momentum!, nesterov, nesterov!, adagrad, adagrad!, rmsprop, rmsprop!, adadelta, adadelta!, adam, adam!
-
-using LinearAlgebra
 
 """
     SGD(;lr=0.1,gclip=0)
@@ -504,7 +506,7 @@ update!(w::AbstractArray{<:Number}, g, p) = gclip_update!(w, g, p)
 
 function gclip_update!(w, g, p)
     gclip!(g, p.gclip)          # gclip! supports AutoGrad.Sparse
-    g = AutoGrad.full(g)
+    g = full(g)
     _update!(w, g, p)
 end
 

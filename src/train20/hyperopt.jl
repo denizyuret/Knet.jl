@@ -1,3 +1,5 @@
+export goldensection, hyperband
+
 """
 
     goldensection(f,n;kwargs) => (fmin,xmin)

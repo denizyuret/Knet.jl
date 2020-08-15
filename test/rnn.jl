@@ -1,6 +1,9 @@
 using Test, Random
 using Knet.Ops20: RNN, rnntest, rnnforw, rnnparam, rnnparams
+using Knet.Train20: param
+using Knet.KnetArrays: KnetArray
 using CUDA: CUDA, functional, seed!
+using AutoGrad: cat1d, @gcheck, @diff, Param, value, grad
 
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()

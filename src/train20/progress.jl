@@ -1,8 +1,10 @@
+export progress, progress!
+import Base: length, size, iterate, IteratorSize, IteratorEltype, eltype
+using Base: @propagate_inbounds, haslength
+using Printf: @sprintf
+
 # Based on https://github.com/cloud-oak/Tqdm.jl by @cloud-oak under Mozilla Public License 2.0
 # Modified for Knet by Deniz Yuret
-
-using Printf
-import Base: length, size, iterate, eltype, IteratorSize, IteratorEltype, haslength, @propagate_inbounds
 
 """
     progress(msg, itr; steps, seconds, io)
@@ -61,6 +63,7 @@ IteratorSize(::Type{Progress{I}}) where {I} = IteratorSize(I)
 IteratorEltype(::Type{Progress{I}}) where {I} = IteratorEltype(I)
 length(p::Progress) = length(p.iter)
 size(p::Progress,d...) = size(p.iter,d...)
+eltype(p::Progress) = eltype(p.iter)
 
 @propagate_inbounds function iterate(p::Progress, s...)
     if p.starttime == 0

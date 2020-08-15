@@ -1,4 +1,5 @@
-import ..Ops20: nll, accuracy
+import Knet.Ops20: nll, accuracy
+#include("data.jl") ## Data
 
 """
     nll(model, data; dims=1, average=true, o...)

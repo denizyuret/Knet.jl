@@ -1,9 +1,9 @@
 using Test, Random
 using Knet.FileIO_gpu: serialize, cpucopy, gpucopy, load, save
 using Knet.KnetArrays: KnetArray, Cptr
-using Knet.Ops20: RNN
+using Knet.Ops20: RNN, conv4
 using CUDA: CUDA, functional
-using AutoGrad: Param
+using AutoGrad: Param, params, @diff, value
 
 struct M370; layer; end;
 

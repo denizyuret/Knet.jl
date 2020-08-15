@@ -1,15 +1,15 @@
 2020-08-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* todo:
-	- finish train20
-	- test/distributions and update
+	+ finish train20
+	+ test/distributions and update
+	- update readmes
+	- check import exports, match final Knet exports to 1.3.9
 	- check prof/ops20.jl, improve cuarrays
 	- update all examples and tutorials
-	- update readmes
 	- update documentation
 	- clean deprecated directories
 	- util -> deprecate.jl: globals no longer needed
-	- check import exports, match final Knet exports to 1.3.9
 	- push 1.4.0
 	- start ops21, layers21
 

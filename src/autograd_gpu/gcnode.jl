@@ -1,6 +1,5 @@
 using CUDA: CuArray
 using AutoGrad: Result, Node, Tape
-using DataStructures: DataStructures, PriorityQueue, dequeue!, dequeue_pair! # peek
 
 # During the back pass we want to make pointers available as soon as we can to save memory
 # without waiting for gc. This is risky as we have to make sure the pointers are not going to
@@ -65,7 +64,7 @@ function gcnode(n::Node, tape::Tape)  ## 16.3μs
             for ptr in cuarrays(parent.outgrad); gcnode_queue[WeakRef(ptr)] = 0; end # protect Params
         end
     end
-    while !isempty(gcnode_queue) && DataStructures.peek(gcnode_queue)[2] >= ni  ## 5.62μs
+    while !isempty(gcnode_queue) && peek(gcnode_queue)[2] >= ni  ## 5.62μs
         (k,v) = dequeue_pair!(gcnode_queue)  ## 0.787μs
         k = k.value
         if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs

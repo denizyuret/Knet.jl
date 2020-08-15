@@ -1,7 +1,8 @@
-using LinearAlgebra, Test
+using LinearAlgebra, Test, Random
 using Knet.KnetArrays: A_mul_Bt, At_mul_B, At_mul_Bt, KnetArray
 using Knet.Ops20: mat
 using CUDA: CUDA, functional
+using AutoGrad: gradcheck
 include("combinatorics.jl")
 
 #Random.seed!(42)

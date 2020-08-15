@@ -1,3 +1,6 @@
+export gaussian, xavier, xavier_uniform, xavier_normal, bilinear
+using Random: randn, rand
+
 """
 
     gaussian(a...; mean=0.0, std=0.01)

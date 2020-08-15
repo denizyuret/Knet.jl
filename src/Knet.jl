@@ -8,18 +8,15 @@ include("autograd_gpu/AutoGrad_gpu.jl")
 include("ops20/Ops20.jl")
 include("ops20_gpu/Ops20_gpu.jl")
 include("fileio_gpu/FileIO_gpu.jl")
-# include("train20/Train20.jl")
+include("train20/Train20.jl")
 # include("util/Util.jl")
 
 # See if we have a gpu at initialization:
 function __init__()
-    Knet.AutoGrad_gpu.__init__() # sets gcnode based on cuallocator
-    # if !CUDA.functional()
-    #     @warn "Knet cannot use a GPU: CUDA.jl is not functional"
-    # else                        # TODO: pick best gpu here.
-    #     AutoGrad.set_gc_function(Knet.KnetArrays.cuallocator[] ? Knet.AutoGrad_gpu.gcnode : Knet.AutoGrad_gpu.knetgcnode)
-    #     Knet.Train20.array_type[] = Knet.KnetArrays.KnetArray{Float32}
-    # end
+    if CUDA.functional()
+        Knet.Train20.array_type[] = Knet.KnetArrays.KnetArray{Float32}
+        AutoGrad.set_gc_function(Knet.KnetArrays.cuallocator[] ? Knet.AutoGrad_gpu.gcnode : Knet.AutoGrad_gpu.knetgcnode)
+    end
 end
 
 #=

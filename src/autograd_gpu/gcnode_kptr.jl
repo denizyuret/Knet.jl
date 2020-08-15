@@ -1,6 +1,5 @@
 using Knet.KnetArrays: KnetPtr, KnetArray, freeKnetPtr
 using AutoGrad: Result, Node, Tape
-using DataStructures: PriorityQueue, dequeue!, dequeue_pair!, DataStructures # peek
 
 # During the back pass we want to make pointers available as soon as we can to save memory
 # without waiting for gc. This is risky as we have to make sure the pointers are not going
@@ -68,7 +67,7 @@ function knetgcnode(n::Node, tape::Tape)  ## 16.3μs
             for ptr in knetptrs(parent.outgrad); _queue[WeakRef(ptr)] = 0; end # protect Params
         end
     end
-    while !isempty(_queue) && DataStructures.peek(_queue)[2] >= ni  ## 5.62μs
+    while !isempty(_queue) && peek(_queue)[2] >= ni  ## 5.62μs
         (k,v) = dequeue_pair!(_queue)  ## 0.787μs
         k = k.value
         if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs

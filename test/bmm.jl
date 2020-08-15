@@ -1,7 +1,8 @@
-using Statistics, LinearAlgebra
+using Test, Statistics, LinearAlgebra
 using Knet.Ops20: bmm
 using Knet.KnetArrays: KnetArray
 using CUDA: CUDA, functional
+using AutoGrad: gradcheck
 
 sizes = [((2,4,3),(4,1,3)),((2,4,5),(4,8,5)),((2,8,4,3),(8,2,4,3))]
 @testset "bmm" begin
