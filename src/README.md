@@ -12,11 +12,11 @@ starting v1.4 to support multiple versions of multiple implementations simultane
 related goal is to freeze sets of operators / layers periodically giving long term support
 to models built with older operator / layer sets.
 
-* autograd_gpu: implementations of AutoGrad functions for GPU arrays.
-* cuarrays: implementations of Base functions for CuArrays.
-* fileio_gpu: implementations of FileIO functions for GPU arrays.
-* knetarrays: KnetArrays and their Base functions.
-* libknet8: hand-written CUDA kernels.
-* ops20: the Knet.Ops20 operator set.
-* ops20_gpu: implementations of Ops20 operators for GPU arrays.
-* train20: Knet.Train20 model training utilities.
+* **autograd_gpu:** implementations of AutoGrad functions for GPU arrays.
+* **cuarrays:** implementations of Base functions for CuArrays.
+* **fileio_gpu:** implementations of FileIO functions for GPU arrays.
+* **knetarrays:** KnetArrays and their Base functions.
+* **libknet8:** hand-written CUDA kernels.
+* **ops20:** the Knet.Ops20 operator set.
+* **ops20_gpu:** implementations of Ops20 operators for GPU arrays.
+* **train20:** Knet.Train20 model training utilities.

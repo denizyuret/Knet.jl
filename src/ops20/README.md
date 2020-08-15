@@ -22,22 +22,10 @@ The following principles guide the API design:
 
 Exported function list:
 
-* activation: elu, relu, selu, sigm
-* softmax: logsoftmax, logsumexp, softmax
-* loss: accuracy, bce, logistic, nll
-* conv: conv4, deconv4, mat, pool, unpool
-* batchnorm: batchnorm, bnmoments, bnparams
-* rnn: RNN, rnninit, rnnforw, rnnparam, rnnparams
-* misc: dropout, bmm
-
-
-* todo: batchnorm
-    bnmoments
-    bnparams
-    cat1d
-    invx
-    logp
-    RNN (should go to layers, export rnnforw again)
-    rnninit
-    rnnparam
-    rnnparams
+* **activation:** elu, relu, selu, sigm
+* **softmax:** logsoftmax, logsumexp, softmax
+* **loss:** accuracy, bce, logistic, nll
+* **conv:** conv4, deconv4, mat, pool, unpool
+* **batchnorm:** batchnorm, bnmoments, bnparams
+* **rnn:** RNN, rnninit, rnnforw, rnnparam, rnnparams
+* **misc:** dropout, bmm
