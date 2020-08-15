@@ -206,7 +206,7 @@ function gc(dev=devid())
     putc('+')
     mem = knetmem(dev)
     mem.knetgc += 1
-    GC.gc(); GC.enable(false)
+    GC.gc(true); GC.enable(false)
     for (n,v) in mem.pools
         for p in v.free
             # @cudart(cudaFree,(Cptr,),p)
@@ -219,12 +219,7 @@ function gc(dev=devid())
         mem.bytes -= n * length(v.free)
         empty!(v.free)
     end
-    GC.enable(true); GC.gc()
-end
-
-function knetgc()
-    @warn "knetgc is deprecated, use Knet.gc instead" maxlog=1
-    Knet.gc()
+    GC.enable(true); GC.gc(true)
 end
 
 # Testing the CUDA.jl allocator: set Knet.cuallocator[]=true to use this

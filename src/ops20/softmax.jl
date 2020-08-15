@@ -1,4 +1,4 @@
-export logsoftmax, logsumexp, softmax
+export logsoftmax, logsumexp, softmax, logp
 using AutoGrad: AutoGrad, @primitive1, value
 
 """

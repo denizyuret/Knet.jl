@@ -1,4 +1,4 @@
-export minimize, minimize!, converge, converge!
+export minimize, minimize!, converge, converge!, train!
 import Base: IteratorSize, IteratorEltype, length, size, iterate, eltype
 using Base: haslength, tail, @propagate_inbounds, SizeUnknown
 using AutoGrad: @diff

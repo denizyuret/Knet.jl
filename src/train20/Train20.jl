@@ -14,8 +14,8 @@ include("distributions.jl"); export gaussian, xavier, xavier_uniform, xavier_nor
 include("hyperopt.jl"); export goldensection, hyperband
 include("param.jl"); export param, param0, array_type, atype
 include("progress.jl"); export progress, progress!
-include("train.jl"); export minimize, minimize!, converge, converge!
-include("update.jl"); export update!, clone, optimizers, SGD, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adagrad, adagrad, adagrad!, RMSprop, rmsprop, rmsprop!, Adadelta, adadelta, adadelta!, Adam, adam, adam!
+include("train.jl"); export minimize, minimize!, converge, converge!, train!
+include("update.jl"); export update!, clone, optimizers, SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adagrad, adagrad, adagrad!, Rmsprop, rmsprop, rmsprop!, Adadelta, adadelta, adadelta!, Adam, adam, adam!
 include("train_ka.jl") # defines param, update!, _optimizers for KnetArray
 
 end # module

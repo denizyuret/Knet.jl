@@ -1,4 +1,4 @@
-export update!, clone, optimizers, SGD, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adagrad, adagrad, adagrad!, RMSprop, rmsprop, rmsprop!, Adadelta, adadelta, adadelta!, Adam, adam, adam!
+export update!, clone, optimizers, SGD, Sgd, sgd, sgd!, Momentum, momentum, momentum!, Nesterov, nesterov, nesterov!, Adagrad, adagrad, adagrad!, Rmsprop, rmsprop, rmsprop!, Adadelta, adadelta, adadelta!, Adam, adam, adam!
 using LinearAlgebra: norm, lmul!, axpy!
 using AutoGrad: Param, full
 
