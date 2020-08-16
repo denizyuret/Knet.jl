@@ -1,4 +1,4 @@
-export accuracy, bce, logistic, nll
+export accuracy, bce, logistic, nll, zeroone
 
 
 """

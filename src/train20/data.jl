@@ -4,9 +4,6 @@ using Base.Iterators: Cycle
 using Base: @propagate_inbounds, tail
 using Random: randperm
 
-"Default array type used by `param`, `param0`" # TODO: and `minibatch`."
-const array_type = Ref{Type}(Array{Float32})
-
 "Iterator of minibatches (x,y pairs) returned by `minibatch`."
 mutable struct Data{T}; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
 
@@ -32,7 +29,7 @@ Keyword arguments:
 - `xsize=size(x)`: Convert xi in minibatches to this shape (with last dimension adjusted for batchsize).
 - `ysize=size(y)`: Convert yi in minibatches to this shape (with last dimension adjusted for batchsize).
 """
-minibatch, Data
+minibatch
 
 function minibatch(x,y,batchsize; shuffle=false,partial=false,xsize=size(x),ysize=size(y),
                    # default xtype, ytype should be robust to ndims change:

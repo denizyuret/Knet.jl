@@ -2,6 +2,7 @@
 
 module LibKnet8
 
+export libknet8, @knet8, @knet8r, gpu
 using CUDA, Libdl, Pkg.Artifacts
 const libknet8 = Libdl.find_library(["libknet8"], [artifact"libknet8"])
 
@@ -48,6 +49,10 @@ end
 macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues,false)); end
 macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues,false)); end # specify return type
 
+function gpu(x...)
+    @warn "gpu() is deprecated, please use CUDA.device instead" maxlog=1
+    CUDA.functional() ? CUDA.device().handle : -1
+end
 
 # TODO: pick best gpu in init, deprecate gpu
 

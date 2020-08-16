@@ -1,4 +1,4 @@
-export param, param0
+export param, param0, array_type, atype
 using AutoGrad: Param
 
 """
@@ -22,4 +22,7 @@ param(x::AbstractArray; atype=array_type[]) = Param(convert(atype,x))
 param(d...; init=xavier_uniform, atype=array_type[])=Param(atype(init(d...)))
 param0(d...; atype=array_type[])=param(d...; init=zeros, atype=atype)
 
-
+"Default array type used by `param`, `param0`" # TODO: and `minibatch`?
+const array_type = Ref{Type}(Array{Float32})
+atype() = array_type[]
+atype(x) = convert(atype(),x)

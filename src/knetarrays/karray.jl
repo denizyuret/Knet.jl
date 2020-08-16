@@ -1,4 +1,4 @@
-export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray
+export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray, ka
 import CUDA: CUDA, CuArray, device
 import Base: Array, convert, unsafe_convert, pointer
 using CUDA: cuMemcpyHtoD_v2, cuMemcpyDtoH_v2, cuMemcpyDtoD_v2, CuPtr
@@ -158,12 +158,7 @@ function KnetArray(x::CuArray{T,N}) where {T,N}
     KnetArray{T,N}(k, size(x))
 end
 
-# import Base: getindex, setindex!, iterate, IndexStyle, Array, convert, unsafe_convert, pointer, reshape, vec, eachindex, eltype, lastindex, fill!, first, isempty, length, ndims, one, ones, similar, size, stride, strides, zero, (==), isapprox, hcat, vcat, cat, copy, copyto!, getindex, setindex!, unsafe_getindex, unsafe_setindex!, dotview, view, unsafe_view, copyto!, eachindex, _maybe_reshape_parent, reshape, to_shape, SubArray, compute_stride1, axes, check_parent_index_match, IndexStyle, show, summary, display, size, getindex, copyto!,
-# import Base.Broadcast: BroadcastStyle, Style, broadcastable, broadcasted, Broadcasted, materialize!
-# import AutoGrad: back
-# using Base: unalias, index_ndims, @_inline_meta, @boundscheck, ViewIndex, OneTo, rdims, viewindexing, ensure_indexable, index_dimsum, fill_to_length, dims2string
-# using Base.Broadcast: Broadcasted
-# using AutoGrad: AutoGrad, @primitive, Arg, forw, ungetindex, uncat
-# using Knet: @knet8
-
-
+function ka(x...)
+    @warn "ka() is deprecated, please use KnetArray instead" maxlog=1
+    KnetArray(x...)
+end

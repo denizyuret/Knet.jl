@@ -1,7 +1,7 @@
 module KnetArrays
 
-include("kptr.jl"); # export KnetPtr, Cptr, gc
-include("karray.jl"); export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray
+include("kptr.jl");   export KnetPtr, Cptr, gc, knetgc
+include("karray.jl"); export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray, ka
 
 include("getindex.jl")
 include("abstractarray.jl")
@@ -11,7 +11,7 @@ include("comparison.jl")
 include("copy.jl")
 include("dotview.jl")
 include("linalg.jl")
-include("random.jl")
+include("random.jl"); export setseed, seed!
 include("reshape.jl")
 include("show.jl")
 include("statistics.jl")

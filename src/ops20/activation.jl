@@ -1,4 +1,4 @@
-export elu, relu, selu, sigm
+export elu, relu, selu, sigm, invx
 using AutoGrad: AutoGrad, @primitive
 
 
@@ -56,3 +56,8 @@ sigm(x::T) where T = (x >= 0 ? T(1)/(T(1)+exp(-x)) : (z=exp(x); z/(T(1)+z)))
 sigmback(dy::T,y::T) where T = (dy*y*(T(1)-y))
 @primitive sigm(x),dy,y  sigmback.(dy,y)
 @primitive sigmback(dy,y),ddx  ddx.*y.*(1 .- y)  ddx.*dy.*(1 .- 2 .* y)
+
+function invx(x)
+    @warn "invx() is deprecated, please use 1/x instead" maxlog=1
+    1/x
+end

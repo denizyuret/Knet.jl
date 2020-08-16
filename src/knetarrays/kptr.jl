@@ -1,4 +1,4 @@
-# export KnetPtr, Cptr, gc
+export KnetPtr, Cptr, gc, knetgc
 using CUDA: CUDA, CuArray, CuPtr, unsafe_cuMemAlloc_v2, cuMemFree_v2, device, devices, functional, unsafe_free!
 const Cptr = Ptr{Cvoid}
 const cuallocator = Ref{Bool}(true)
@@ -202,6 +202,8 @@ collected. Normally Knet holds on to all garbage collected pointers for reuse. T
 you run out of GPU memory.
 """
 function gc(dev=devid())
+    # strictly speaking Knet.gc is only useful if cuallocator[] = false.
+    @warn "Knet.gc() is deprecated, please use GC.gc() instead" maxlog=1
     if KnetMems == nothing; GC.gc(); return; end
     putc('+')
     mem = knetmem(dev)
@@ -252,3 +254,7 @@ using Printf
 meminfo(i=devid())=[(k,v.nptr,length(v.free)) for (k,v) in knetmem(i).pools]
 kmeminfo(i=devid())=(m=knetmem(i); @sprintf("knetgc=%g gc=%g pools=%g kptrs=%g kfree=%g limit=%g bytes=%g bfree=%g", m.knetgc, m.gc, length(m.pools), m.kptrs, m.kfree, m.limit, m.bytes, m.bfree))
 
+function knetgc()
+    @warn "knetgc() is deprecated, please use GC.gc() instead" maxlog=1
+    gc()
+end

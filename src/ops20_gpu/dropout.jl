@@ -10,7 +10,7 @@ for (R,P) in ((CuArray,CuPtr),(KnetArray,Ptr)), T in (Float16, Float32, Float64)
     back = Symbol("dropback_$S")
     @eval begin
         function dropout!(p::Number, x::$R{$T}, y::$R{$T}; seed=0)
-            if seed !== nothing; CUDA.seed!(seed); end
+            if seed !== 0; CUDA.seed!(seed); end
             rand!(y)
             @knet8($forw,(Cint,$T,$P{$T},$P{$T}),length(y),$T(p),x,y)
             return y
