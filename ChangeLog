@@ -7,7 +7,9 @@
 	+ util -> deprecate.jl: globals no longer needed
 	+ check import exports, match final Knet exports to 1.3.9
 	+ clean deprecated directories
-	- update all examples and tutorials; get rid of data
+	- get rid of data, use MLDatasets and Artifacts
+	- update all examples and tutorials
+	-- tutorial
 	++ cifar10-cnn
 	++ dcgan-mnist
 	-- DeepLearningFrameworks

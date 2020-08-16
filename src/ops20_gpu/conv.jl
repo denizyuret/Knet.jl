@@ -149,10 +149,11 @@ const CUDNN_MAX_FIND = 100      # How many times can we call FindAlgorithm
 const requestedAlgoCount = 10
 const returnedAlgoCount = Cint[0]
 bytes(x::DevArray{T}) where {T}=length(x)*sizeof(T)
+gpufree() = Mem.info()[1] + (isdefined(CUDA,:pool) ? CUDA.pool[].cached_memory() : CUDA.cached_memory())
 
 # This seems to cover a reasonable subset of the available algorithms
 # The user can set this to 0 for a more memory-tight execution
-maxWorkspaceSize(w,x,y) = min((Mem.info()[1] + CUDA.cached_memory()) ÷ 10, bytes(x) * 100)
+maxWorkspaceSize(w,x,y) = min(gpufree() ÷ 10, bytes(x) * 100)
 
 const conv4_algos = Dict()
 function conv4_algo(w::R, x::R, y::R; handle=CUDNN.handle(), o...) where {T,R<:DevArray{T}}

@@ -19,8 +19,8 @@ param,param0
 
 # TODO: Knet.Param <: AutoGrad.Tracked as a separate type?
 param(x::AbstractArray; atype=array_type[]) = Param(convert(atype,x))
-param(d...; init=xavier_uniform, atype=atype())=Param(atype(init(d...)))
-param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
+param(d...; init=xavier_uniform, atype=array_type[])=Param(atype(init(d...)))
+param0(d...; atype=array_type[])=param(d...; init=zeros, atype=atype)
 
 "Default array type used by `param` and `param0`."
 const array_type = Ref{Type}(Array{Float32})

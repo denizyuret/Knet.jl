@@ -1,7 +1,7 @@
 export minimize, minimize!, converge, converge!, train!
 import Base: IteratorSize, IteratorEltype, length, size, iterate, eltype
 using Base: haslength, tail, @propagate_inbounds, SizeUnknown
-using AutoGrad: @diff
+using AutoGrad: @diff, params, grad, value
 
 # progress(minimize(f, ncycle(data,10)))
 # A stream (iterator) based implementation: minimize works like map
