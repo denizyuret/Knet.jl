@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 This example learns to classify hand-written digits from the
@@ -21,8 +19,7 @@ will be returned.
 
 """
 module LeNet
-using Knet,CUDA,ArgParse
-include(Knet.dir("data","mnist.jl"))
+using Knet,CUDA,MLDatasets,ArgParse
 
 function predict(w,x)
     n=length(w)-4
@@ -78,7 +75,7 @@ function main(args=ARGS)
         ("--epochs"; arg_type=Int; default=3; help="number of epochs for training")
         ("--iters"; arg_type=Int; default=typemax(Int); help="maximum number of updates for training")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
     end
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
@@ -92,14 +89,16 @@ function main(args=ARGS)
     atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; @warn("CPU conv4 support is experimental and very slow."); end
 
-    xtrn,ytrn,xtst,ytst = mnist()
-    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
-    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
+    xtrn,ytrn = MNIST.traindata(Float32)
+    xtst,ytst = MNIST.testdata(Float32)
+    xsize = (size(xtrn,1),size(xtrn,2),1,o[:batchsize])
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, xsize=xsize)
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, xsize=xsize)
     w = weights(atype=atype)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
 
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], iters=o[:iters]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], iters=o[:iters]); CUDA.functional() && CUDA.synchronize())
     else
         report(0)
         iters = o[:iters]

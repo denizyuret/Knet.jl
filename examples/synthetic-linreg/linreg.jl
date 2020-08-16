@@ -63,7 +63,7 @@ function main(args=ARGS)
     s.description="linreg.jl (c) Deniz Yuret, 2016. Linear regression example with artificial data."
     s.exc_handler=ArgParse.debug_handler
     @add_arg_table s begin
-        ("--atype"; default=(gpu()>=0 ? "KnetArray" : "Array"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--batchsize"; arg_type=Int; default=20; help="number of instances in a minibatch")
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--epochsize"; arg_type=Int; default=10000; help="number of instances per epoch")

@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse","Images","MAT","JLD2","FileIO"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia dcgan.jl --outdir ~/dcgan-out
@@ -11,10 +9,7 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 
 """
 module DCGAN
-using Knet,CUDA,ArgParse,Printf
-#using Images,MAT,JLD2,FileIO
-include(Knet.dir("data","mnist.jl"))
-include(Knet.dir("data","imagenet.jl"))
+using Knet,CUDA,MLDatasets,ArgParse,Printf
 
 function main(args)
     o = parse_options(args)
@@ -22,8 +17,9 @@ function main(args)
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
-    xtrn,ytrn,xtst,ytst = mnist()
-    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype])
+    xtrn,ytrn = MNIST.traindata()
+    xtst,ytst = MNIST.testdata()
+    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype], xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     optd = map(wi->eval(Meta.parse(o[:optim])), wd)
     optg = map(wi->eval(Meta.parse(o[:optim])), wg)
     z = sample_noise(o[:atype],o[:zdim],prod(o[:gridsize]))
@@ -71,8 +67,7 @@ function parse_options(args)
         "Deep Convolutional Generative Adversarial Networks on MNIST."
 
     @add_arg_table! s begin
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}");
-         help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
         ("--batchsize"; arg_type=Int; default=100; help="batch size")
         ("--zdim"; arg_type=Int; default=100; help="noise dimension")
         ("--epochs"; arg_type=Int; default=20; help="# of training epochs")

@@ -1,4 +1,4 @@
-export param, param0, array_type, atype
+export param, param0, array_type
 using AutoGrad: Param
 
 """
@@ -25,7 +25,3 @@ param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)
 "Default array type used by `param` and `param0`."
 const array_type = Ref{Type}(Array{Float32})
 
-# TODO: deprecate atype(), promote array_type[]
-"`Knet.atype()` gives the current default array type: by default `KnetArray{Float32}` if `gpu() >= 0`, `Array{Float32}` otherwise. The user can change the default array type using e.g. Knet.atype()=CuArray{Float32}. `Knet.atype(x)` converts `x` to `atype()`."
-atype()=array_type[]
-atype(x)=convert(atype(),x)

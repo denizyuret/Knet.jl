@@ -31,7 +31,7 @@ function main(args=ARGS)
         ("image"; default=imgurl; help="Image file or URL.")
         ("--model"; default="imagenet-vgg-verydeep-16"; help="Model name")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
     end
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)

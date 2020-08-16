@@ -1,5 +1,5 @@
 module Deprecate
-export gpu, invx, ka, knetgc, gc, setseed, seed!, zeroone, dir, training
+export gpu, invx, ka, knetgc, gc, setseed, seed!, zeroone, dir, training, atype
 import Knet, CUDA, Random
 
 function gpu(x...)
@@ -48,6 +48,16 @@ end
 
 function training()
     AutoGrad.recording()
+end
+
+function atype()
+    @warn "atype() is deprecated, please use Knet.array_type[] instead" maxlog=1
+    Knet.Train20.array_type[]
+end
+
+function atype(x)
+    @warn "atype() is deprecated, please use Knet.array_type[] instead" maxlog=1
+    convert(atype(),x)
 end
 
 end # module

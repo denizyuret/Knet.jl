@@ -1,7 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse","CodecZlib"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-import Knet; include(Knet.dir("data","mnist.jl"))
-
-
 """
 
 This example demonstrates the usage of stochastic gradient descent(sgd) based
@@ -15,7 +11,7 @@ and optimized parameters will be returned.
 
 """
 module Optimizers
-using Knet,ArgParse, Random
+using Knet,CUDA,MLDatasets,ArgParse,Random
 
 function main(args=ARGS)
     s = ArgParseSettings()
@@ -33,7 +29,7 @@ function main(args=ARGS)
         ("--epochs"; arg_type=Int; default=10; help="number of epochs for training")
         ("--iters"; arg_type=Int; default=6000; help="number of updates for training")
 	("--optim"; default="SGD"; help="optimization method (SGD, Momentum, Nesterov, Adagrad, Adadelta, Rmsprop, Adam)")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
     end
     isa(args, AbstractString) && (args=split(args))
     if in("--help", args) || in("-h", args)
@@ -47,9 +43,11 @@ function main(args=ARGS)
     atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; @warn("CPU conv4 support is experimental and very slow."); end
 
-    xtrn,ytrn,xtst,ytst = Main.mnist()
-    dtrn = minibatch(xtrn, ytrn, o[:batchsize], xtype=atype)
-    dtst = minibatch(xtst, ytst, o[:batchsize], xtype=atype)
+    xtrn,ytrn = MNIST.traindata(Float32)
+    xtst,ytst = MNIST.testdata(Float32)
+    xsize = (size(xtrn,1),size(xtrn,2),1,o[:batchsize])
+    dtrn = minibatch(xtrn, ytrn, o[:batchsize], xtype=atype, xsize=xsize)
+    dtst = minibatch(xtst, ytst, o[:batchsize], xtype=atype, xsize=xsize)
     w = weights(atype=atype)
     prms = params(w, o)
     
