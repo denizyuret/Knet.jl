@@ -97,7 +97,9 @@ function rnnforw(r::RNN, w, x::Union{DevArray{T},Value{<:DevArray{T}}}, hx=nothi
         r.dataType = eltype(x3)
         r.dropoutDesc = DD(handle=CUDNN.handle(),dropout=r.dropout,seed=r.seed,atype=typeof(x3))
         r.rnnDesc = RD(r.hiddenSize,r.numLayers,r.dropoutDesc,r.inputMode,r.direction,r.mode,r.algo,r.dataType)
-        w = r.w = Param(oftype(x3, value(w)))
+        if typeof(x3) != typeof(value(w))
+            w = r.w = Param(oftype(x3, value(w)))
+        end
     end
     _rnnforw(w,x,hx,cx; rnn=r,handle=handle,batchSizes=batchSizes,hy=hy,cy=cy)
 end

@@ -1,5 +1,3 @@
-using Pkg; haskey(Pkg.installed(),"Knet") || Pkg.add("Knet")
-
 # TODO: improve example and document metadata return type further
 # TODO: document low-level API
 """This module implements the ResNet 50,101,150 and CIFAR models from

@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse","Images","ImageMagick"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia resnet.jl image-file-or-url

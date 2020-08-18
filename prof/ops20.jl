@@ -58,6 +58,7 @@ b1 = rand(Float32,size(w1,1))
 kbench(*,w1,x1)
 kbench(adddot,y1,b1)
 
+GC.gc(true)
 x2 = rand(Float32,14,14,256,B)
 w2 = rand(Float32,3,3,256,256)
 y2 = conv4(w2,x2;padding=1)
