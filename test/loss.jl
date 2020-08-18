@@ -56,19 +56,25 @@ using AutoGrad: grad, gradcheck, @gcheck, Param
         end
     end
 
-    a = rand(10,10)
+    a = randn(10,10)
     indices = rand(1:10,10)
+    t01 = rand((0,1),100)
+    t11 = rand((-1,1),100)
     @test gradcheck(nll, a, indices, kw=(:dims=>1,), args=1)
     @test gradcheck(nll, a, indices, kw=(:dims=>2,), args=1)
+    @test gradcheck(logistic,vec(a),t11, args=1)
+    @test gradcheck(bce,vec(a),t01, args=1)
     if CUDA.functional()
         k = KnetArray(a)
         @test gradcheck(nll, k, indices, kw=(:dims=>1,), args=1)
         @test gradcheck(nll, k, indices, kw=(:dims=>2,), args=1)
+        @test gradcheck(logistic,vec(k),t11, args=1)
+        @test gradcheck(bce,vec(k),t01, args=1)
         @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
         @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
+        @test isapprox(logistic(vec(k),t11), logistic(vec(a),t11))
+        @test isapprox(bce(vec(k),t01), bce(vec(a),t01))
     end
-    @test gradcheck(logistic,a[:],a[:])
-    @test gradcheck(bce,a[:],a[:])
 
     # Issue 439: highorder derivatives
     x = randn(3,4); y1 = softmax(x,dims=1); y2 = logsoftmax(x,dims=1); dy = randn(3,4)
