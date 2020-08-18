@@ -1,7 +1,15 @@
-import Knet.Ops20: nll
-using Knet.KnetArrays: DevArray
+import Knet.Ops20: nll, accuracy
+using Knet.KnetArrays: DevArray, KnetArray
+using Knet.Ops20: findindices, logsoftmax
 
-function nll(y,a::DevArray{<:Integer}; dims=1, average=true)
-    @warn "nll(scores, answers::$(typeof(a)) is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
-    nll(y, Array(a); dims=dims, average=average)
+## Using GPU arrays for scores is inefficient
+
+function nll(scores, labels::DevArray{<:Integer}; dims=1, average=true)
+    @warn "nll(scores, answers::$(typeof(labels)) is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
+    nll(scores, Array(labels); dims=dims, average=average)
+end
+
+function accuracy(scores, labels::DevArray{<:Integer}; dims=1, average=true)
+    @warn "accuracy(scores, answers::$(typeof(labels)) is inefficient, nll(scores, answers::Array{<:Integer}) is better." maxlog=1
+    accuracy(scores, Array(labels); dims=dims, average=average)
 end

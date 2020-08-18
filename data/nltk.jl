@@ -1,5 +1,4 @@
-using Pkg; for p in ("ZipFile","JLD2","FileIO"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-using ZipFile, FileIO
+using ZipFile, FileIO, JLD2
 
 # nltkurl has subdirectories like corpora, taggers, stemmers etc.
 nltkurl = "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages"
