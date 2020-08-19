@@ -44,7 +44,7 @@ struct M370; layer; end;
         end
         xcpu = randn(Float32,2,4,8)
         xgpu = KnetArray(xcpu)
-        M1 = RNN(2,3)
+        M1 = RNN(2,3; atype=KnetArray{Float32})
         M1.h = M1.c = 0
         M1.dx = M1.dhx = M1.dcx = nothing
         m1test(M1,xgpu,xcpu)  # sets M1.h,c

@@ -10,7 +10,7 @@ if CUDA.functional(); @testset "gcnode" begin
     # 506: knetgcnode garbage collects rnn fields
     save_gcnode = AutoGrad.gcnode
     set_gc_function(knetgcnode)
-    M1 = RNN(2,3)
+    M1 = RNN(2,3; atype=KnetArray{Float32})
     M1.h = M1.c = 0
     M1.dx = M1.dhx = M1.dcx = nothing
     xcpu = randn(Float32,2,4,8)
