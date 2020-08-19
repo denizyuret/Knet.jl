@@ -92,14 +92,12 @@ function rnnforw(r::RNN, w, x::Union{DevArray{T},Value{<:DevArray{T}}}, hx=nothi
                  handle=CUDNN.handle(), batchSizes=nothing, hy = (hx != nothing), cy = (cx != nothing && r.mode == 2)) where T
     @assert value(w) === value(r.w)
     @assert size(x,1) == r.inputSize
+    x3 = reshape(value(x), size(x,1), size(x,2), size(x,3))
+    @assert typeof(x3) == typeof(value(w)) "$(typeof(value(w))) weights do not match $(typeof(x)) input. Please use RNN(;atype) option."
     if r.rnnDesc === nothing    # initialize rnn for gpu with first input
-        x3 = reshape(value(x), size(x,1), size(x,2), size(x,3))
         r.dataType = eltype(x3)
         r.dropoutDesc = DD(handle=CUDNN.handle(),dropout=r.dropout,seed=r.seed,atype=typeof(x3))
         r.rnnDesc = RD(r.hiddenSize,r.numLayers,r.dropoutDesc,r.inputMode,r.direction,r.mode,r.algo,r.dataType)
-        if typeof(x3) != typeof(value(w))
-            w = r.w = Param(oftype(x3, value(w)))
-        end
     end
     _rnnforw(w,x,hx,cx; rnn=r,handle=handle,batchSizes=batchSizes,hy=hy,cy=cy)
 end
@@ -138,11 +136,11 @@ function _rnnforw(w, x, hx, cx; rnn, handle, batchSizes, hy, cy)
 
     # workSpace and reserveSpace
     wss = cudnnGetRNNWorkspaceSize(rnn.rnnDesc, xtds; handle=handle)
-    ws = rnnworkspace(wss, typeof(w))
+    ws = rnnworkspace(wss, typeof(value(w)))
 
     if AutoGrad.recording()
         rss = cudnnGetRNNTrainingReserveSize(rnn.rnnDesc, xtds; handle=handle)
-        rs = rnnworkspace(rss, typeof(w))
+        rs = rnnworkspace(rss, typeof(value(w)))
         @cudnn_retry CUDNN.unsafe_cudnnRNNForwardTraining(handle, rnn.rnnDesc, seqLength, xtds, x, hxDesc, hx, cxDesc, cx, wDesc, w, ytds, y, hyDesc, hyout, cyDesc, cyout, ws, wss, rs, rss)
     else
         rs = nothing
@@ -154,7 +152,7 @@ function _rnnforw(w, x, hx, cx; rnn, handle, batchSizes, hy, cy)
 end
 
 function _rnnback(dt, t, w, x, hx, cx; rnn, o...)
-    @assert rnn.w === w
+    @assert value(rnn.w) === value(w)
     y,hy,cy,rs,ws = value(t)
     dy,dhy,dcy,drs,dws = value(dt)
     rnn=value(rnn); w=value(w); x=value(x); hx=value(hx); cx=value(cx)
@@ -169,7 +167,7 @@ end
         
 function _rnnback2(r, w, x, y, dy, hx, cx, dhy, dcy, rs, ws;
                    handle=CUDNN.handle(), batchSizes=nothing, o...) 
-    @assert value(r.w) === w
+    @assert value(r.w) === value(w)
     # Input descriptors:
     seqLength = batchSizes==nothing ? size(x,3) : length(batchSizes) # (X,B,T) or (X,B+) with batchSizes
     wDesc = FD3(w)              # (1,1,W)

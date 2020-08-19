@@ -547,7 +547,7 @@ end
 function rnninit(x...; o...)
     # @warn "rnninit is deprecated, use RNN instead" maxlog=1
     r=RNN(x...; o...)
-    return (r,r.w)
+    return (r,value(r.w))
 end
 
 function rnnparams(r,w;o...)

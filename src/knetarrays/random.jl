@@ -1,6 +1,7 @@
 export setseed, seed!
-import Random: rand!, randn!
+import Random: rand!, randn!, Random
 using Knet.KnetArrays: KnetArray
+
 rand!(a::KnetArray)=(rand!(CuArray(a)); a)
 randn!(a::KnetArray)=(randn!(CuArray(a)); a)
 

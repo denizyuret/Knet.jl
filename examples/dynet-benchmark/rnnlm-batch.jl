@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia rnnlm-batch.jl # to use with default options on CPU
@@ -25,7 +23,7 @@ function main(args=ARGS)
     s.exc_handler=ArgParse.debug_handler
 
     @add_arg_table s begin
-        ("--usegpu"; action=:store_true; help="use GPU or not")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type to use")
         ("--batchsize"; arg_type=Int; help="minibatch_size"; default=64)
         ("--embed"; arg_type=Int; help="word embedding size"; default=256)
         ("--hidden"; arg_type=Int; help="lstm hidden size"; default=128)
@@ -38,7 +36,7 @@ function main(args=ARGS)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = o[:usegpu] ? KnetArray{Float32} : Array{Float32}
+    atype = eval(Meta.parse(o[:atype]))
     datadir = abspath(joinpath(@__DIR__, "../data/text"))
 
     trn = dev = nothing; vocabsize = 0;
@@ -58,7 +56,7 @@ function main(args=ARGS)
     trn, dev = map(s->make_batches(s, vocabsize, o[:batchsize]), [trn, dev])
 
     # build model
-    w,srnn = initweights(atype, o[:hidden], vocabsize, o[:embed], o[:usegpu])
+    w,srnn = initweights(atype, o[:hidden], vocabsize, o[:embed])
     opt = optimizers(w, Adam)
 
     # train language model
@@ -158,7 +156,7 @@ end
 # w[1:2] => weight/bias params for LSTM network
 # w[3:4] => weight/bias params for softmax layer
 # w[5]   => word embeddings
-function initweights(atype, hidden, vocab, embed, usegpu, winit=0.01)
+function initweights(atype, hidden, vocab, embed, winit=0.01)
     w = Array{Any}(undef,4)
     input = embed
 
@@ -166,7 +164,7 @@ function initweights(atype, hidden, vocab, embed, usegpu, winit=0.01)
     # w[1] = winit*randn(4*hidden, hidden+input)
     # w[2] = zeros(4*hidden, 1)
     # w[2][1:hidden] = 1 # forget gate bias
-    srnn,wrnn = rnninit(input,hidden; usegpu=usegpu)
+    srnn,wrnn = rnninit(input,hidden; atype=atype)
     w[1] = wrnn
 
     # softmax
