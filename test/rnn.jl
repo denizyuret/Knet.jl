@@ -7,7 +7,7 @@ using AutoGrad: cat1d, @gcheck, @diff, Param, value, grad
 
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()
-Random.seed!(2); CUDA.seed!(2)
+Random.seed!(2); CUDA.functional() && CUDA.seed!(2)
 
 if CUDA.functional(); @testset "rnn" begin
 
