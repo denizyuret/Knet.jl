@@ -25,8 +25,8 @@ function _testkptr(kptrs, navail, nfree)
 end
 
 # Test the knet allocator, this can only be done before first alloc when KnetMems is nothing
-_testingkptr = (KnetMems === nothing)
-if CUDA.functional() && _testingkptr
+_testingkptr = CUDA.functional() && (KnetMems === nothing)
+if _testingkptr
     cuallocator[]=false
     initKnetMems()
     @testset "kptr:alloc"   begin; _testkptr(KnetPtr.(2 .^ (1:10)), 0, 0); end
