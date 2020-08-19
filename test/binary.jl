@@ -1,4 +1,8 @@
-include("header.jl")
+using Test
+using CUDA: CUDA, functional
+using Knet.KnetArrays: KnetArray, binary_ops
+using AutoGrad: gradcheck
+
 #using Dates
 #date(x)=(join(stdout,[Dates.format(Dates.now(),"HH:MM:SS"), x,'\n'],' '); flush(stdout))
 time0 = time()
@@ -22,7 +26,7 @@ macro dbg(_x); end
     exclude11 = ("invxback", "reluback", "sigmback", "tanhback", "eluback", "seluback", "rpow")
 
     binary_fns = Any[]
-    for f in Knet.binary_ops
+    for f in binary_ops
         if isa(f,Tuple); f=f[2]; end
         in(f, exclude11) && continue
         f0 = eval(Meta.parse(lstrip(f,'.')))
@@ -43,7 +47,7 @@ macro dbg(_x); end
                     s = rand11(f,t) .+ t(1)
                     @test gradcheck(f1, Any[a,s])
                     @test gradcheck(f1, Any[s,a])
-                    if gpu() >= 0
+                    if CUDA.functional()
                         g = KnetArray(a)
                         @test isapprox(f(a,s), f(g,s))
                         @test isapprox(f(s,a), f(s,g))
@@ -56,7 +60,7 @@ macro dbg(_x); end
     end
 
     @testset "literal-pow" begin # issue #412
-        if gpu() >= 0
+        if CUDA.functional()
             #date("binary: literal-pow")
             a = rand(3,5)
             k = KnetArray(a)
@@ -65,7 +69,7 @@ macro dbg(_x); end
     end
 
     @testset "negative-pow" begin # issue #108
-        if gpu() >= 0
+        if CUDA.functional()
             #date("binary: negative-pow")
             a = randn(Float32,3,5)
             k = KnetArray(a)
@@ -87,7 +91,7 @@ macro dbg(_x); end
                     a1 = rand11(f,t,n1)
                     a2 = rand11(f,t,n2) .+ t(1)
                     @test gradcheck(f1, Any[a1, a2])
-                    if gpu() >= 0 
+                    if CUDA.functional() 
                         g1 = KnetArray(a1) 
                         g2 = KnetArray(a2)
                         @test isapprox(f(a1,a2),f(g1,g2))
@@ -113,7 +117,7 @@ macro dbg(_x); end
                 if t == Float64 # Float32 does not have enough precision for large arrays
                     @test gradcheck(f1, Any[a1, a2]; rtol=0.01)
                 end
-                if gpu() >= 0
+                if CUDA.functional()
                     g1 = KnetArray(a1)
                     g2 = KnetArray(a2)
                     @test isapprox(f(a1,a2),f(g1,g2))
@@ -126,7 +130,7 @@ macro dbg(_x); end
     end
 
     @testset "ndims" begin # Issue #235
-        if gpu() >= 0
+        if CUDA.functional()
             #date("binary: ndims")
             a=rand(2,2,2) |> KnetArray
             b=rand(2,2) |> KnetArray

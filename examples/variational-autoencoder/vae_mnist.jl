@@ -4,8 +4,7 @@
 Train a Variational Autoencoder on the MNIST dataset.
 """
 module VAE
-using Knet, CUDA, ArgParse, Images, Random, Statistics
-include(Knet.dir("data","mnist.jl"))
+using Knet, CUDA, MLDatasets, ArgParse, Images, Random, Statistics
 include(Knet.dir("data","imagenet.jl"))
 
 const F = Float32
@@ -111,7 +110,7 @@ function main(args="")
         ("--nh"; arg_type=Int; default=400; help="hidden layer dimension")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
         ("--lr"; arg_type=Float64; default=1e-3; help="learning rate")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--infotime"; arg_type=Int; default=1; help="report every infotime epochs")
     end
     isa(args, String) && (args=split(args))
@@ -129,8 +128,10 @@ function main(args="")
     w = [θ; ϕ]
     opt = optimizers(w, Adam, lr=o[:lr])
 
-    xtrn, ytrn, xtst, ytst = mnist()
-
+    xtrn,ytrn = MNIST.traindata(Float32)
+    xtst,ytst = MNIST.testdata(Float32)
+    xsize = (size(xtrn,1),size(xtrn,2),1,:)
+    xtrn,xtst = reshape(xtrn,xsize), reshape(xtst,xsize)
 
     report(epoch) = begin
             dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)

@@ -1,10 +1,13 @@
-include("header.jl")
+using Test
+using CUDA: CUDA, functional
+using Knet.KnetArrays: KnetArray
+using AutoGrad: Param, @gcheck
 
-if gpu() >= 0; @testset "cuarray" begin
+if CUDA.functional(); @testset "cuarray" begin
     for nd in (1,2,3)
         sz = ntuple(i->8, nd)
         a0,b0 = rand(sz...),rand(sz...)
-        a1,b1 = ka(a0),ka(b0)
+        a1,b1 = KnetArray(a0),KnetArray(b0)
         a2,b2 = Param(a0),Param(b0)
         a3,b3 = Param(a1),Param(b1)
         idx = ntuple(i->2:4, nd)

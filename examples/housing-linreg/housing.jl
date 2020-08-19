@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 This example uses the
 [Boston Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing) dataset
@@ -18,8 +16,7 @@ epoch and optimized parameters will be returned.
 
 """
 module Housing
-using Knet, CUDA, ArgParse, Random
-include(Knet.dir("data","housing.jl"))
+using Knet, CUDA, ArgParse, Random, DelimitedFiles, Statistics
 
 predict(w,x)=(w[1]*x.+w[2])
 
@@ -35,6 +32,53 @@ function train(w, x, y; lr=.1, epochs=20)
     return w
 end
 
+"""
+
+    housing([test]; [url, file])
+
+Return (xtrn,ytrn,xtst,ytst) from the [UCI Boston
+Housing](https://archive.ics.uci.edu/ml/machine-learning-databases/housing)
+dataset The dataset has housing related information for 506
+neighborhoods in Boston from 1978. Each neighborhood has 14
+attributes, the goal is to use the first 13, such as average number of
+rooms per house, or distance to employment centers, to predict the
+14’th attribute: median dollar value of the houses.
+
+`test=0` by default and `xtrn` (13,506) and `ytrn` (1,506) contain the
+whole dataset. Otherwise data is shuffled and split into train and
+test portions using the ratio given in `test`. xtrn and xtst are
+always normalized by subtracting the mean and dividing into standard
+deviation.
+
+"""
+function housing(test=0.0;
+                 file=joinpath(tempdir(),"housing.data"),
+                 url="https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data")
+    if !isfile(file)
+        isdir(dirname(file)) || mkpath(dirname(file))
+        @info("Downloading $url to $file")
+        download(url, file)
+    end
+    data = readdlm(file)'
+    # @show size(data) # (14,506)
+    x = data[1:13,:]
+    y = data[14:14,:]
+    x = (x .- mean(x,dims=2)) ./ std(x,dims=2) # Data normalization
+    if test == 0
+        xtrn = xtst = x
+        ytrn = ytst = y
+    else
+        r = randperm(size(x,2))          # trn/tst split
+        n = round(Int, (1-test) * size(x,2))
+        xtrn=x[:,r[1:n]]
+        ytrn=y[:,r[1:n]]
+        xtst=x[:,r[n+1:end]]
+        ytst=y[:,r[n+1:end]]
+    end
+    return (xtrn, ytrn, xtst, ytst)
+end
+
+
 function main(args=ARGS)
     s = ArgParseSettings()
     s.description="housing.jl (c) Deniz Yuret, 2016. Linear regression model for the Housing dataset from the UCI Machine Learning
@@ -45,7 +89,7 @@ Repository."
         ("--epochs"; arg_type=Int; default=20; help="number of epochs for training")
         ("--lr"; arg_type=Float64; default=0.1; help="learning rate")
         ("--test"; arg_type=Float64; default=0.0; help="ratio of data to split for testing")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients")
     end
@@ -63,7 +107,7 @@ Repository."
     (xtrn,ytrn,xtst,ytst) = map(atype, housing(o[:test]))
     report(epoch)=println((:epoch,epoch,:trn,loss(w,xtrn,ytrn),:tst,loss(w,xtst,ytst)))
     if o[:fast]
-        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, xtrn, ytrn; lr=o[:lr], epochs=o[:epochs]); CUDA.functional() && CUDA.synchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]

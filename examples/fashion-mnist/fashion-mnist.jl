@@ -1,6 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-include(Knet.dir("data","fashion-mnist.jl"))
-
 """
 
 This example learns to classify images of fashion products(trousers, shirts, bags...) 
@@ -35,8 +32,8 @@ The accuracy for the training and test sets will be printed at every epoch
 and optimized parameters will be returned.
 
 """
-module FashionMNIST
-using Knet,CUDA,ArgParse
+module FashionMNISTMLP
+using Knet,CUDA,MLDatasets,ArgParse
 
 function predict(w,x; pdrop=0)
     x = mat(x)
@@ -86,7 +83,7 @@ function main(args="")
         ("--lr"; arg_type=Float64; default=0.15; help="learning rate")
         ("--winit"; arg_type=Float64; default=0.1; help="w initialized with winit*randn()")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
         ("--dropout"; arg_type=Float64; default=0.5; help="Dropout probability.")
         # These are to experiment with sparse arrays
@@ -106,12 +103,13 @@ function main(args="")
     o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    xtrn,ytrn,xtst,ytst = Main.fmnist()
-    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
-    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
+    xtrn,ytrn = FashionMNIST.traindata()
+    xtst,ytst = FashionMNIST.testdata()
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
     if o[:fast]
-        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); CUDA.functional() && CUDA.synchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]

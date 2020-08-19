@@ -1,11 +1,14 @@
-include("header.jl")
-using Statistics
+using Test, Statistics, Random
+using CUDA: CUDA, functional
+using Knet.KnetArrays: KnetArray
+using AutoGrad: Param, @gcheck
+
 # This is buggy in julia (missing dims arg) as of Sep 16, 2019 so fix it here:
 # https://github.com/JuliaLang/julia/issues/33280
 Statistics.stdm(A::AbstractArray, m; corrected::Bool=true, dims=:) =
     ((dims === :) ? sqrt.(varm(A, m; corrected=corrected)) : sqrt.(varm(A, m; corrected=corrected, dims=dims)))
 
-if gpu() >= 0; @testset "statistics" begin
+if CUDA.functional(); @testset "statistics" begin
     for T in (Float32,Float64)
         a = randn(T,3,4)
         k = KnetArray(a)

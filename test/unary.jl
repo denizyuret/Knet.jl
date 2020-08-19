@@ -1,6 +1,9 @@
-include("header.jl")
-using SpecialFunctions
-using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
+using Test, SpecialFunctions
+using Knet.Ops20: reluback, sigmback, eluback, seluback, relu, sigm, elu, selu
+using Knet.LibKnet8: unary_ops
+using Knet.KnetArrays: KnetArray, tanhback
+using AutoGrad: gradcheck, grad, @gcheck, Param
+using CUDA: CUDA, functional
 
 @testset "unary" begin
 
@@ -16,7 +19,7 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
     bcast(f)=(x->broadcast(f,x))
 
     unary_fns = Any[]
-    for f in Knet.unary_ops
+    for f in unary_ops
         if isa(f,Tuple); f=f[2]; end
         push!(unary_fns, eval(Meta.parse(f)))
     end
@@ -40,7 +43,7 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
                 #@show f,t,n
                 ax = frand(f,t,n)
                 @test gradcheck(bf, ax)
-                if gpu() >= 0
+                if CUDA.functional()
                     gx = KnetArray(ax)
                     cy = bf(ax)
                     gy = bf(gx)
@@ -53,11 +56,11 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
 
     # Issue #456: 2nd derivative for MLP
     for trygpu in (false, true)
-        trygpu && gpu() < 0 && continue
+        trygpu && !CUDA.functional() && continue
         (x,y,dy) = randn.((10,10,10))
         if trygpu; (x,y,dy) = KnetArray.((x,y,dy)); end
         (x,y,dy) = Param.((x,y,dy))
-        for f in (relu,sigm,tanh,invx,selu,elu)
+        for f in (relu,sigm,tanh,selu,elu)
             f1(x) = f.(x); @test @gcheck f1(x)
             f1i(x,i) = f1(x)[i]; @test @gcheck f1i(x,1)
             g1i(x,i) = grad(f1i)(x,i); @test @gcheck g1i(x,1)
@@ -67,7 +70,6 @@ using Knet: reluback, sigmback, tanhback, invxback, eluback, seluback
         @test @gcheck reluback.(dy,y)
         @test @gcheck sigmback.(dy,y)
         @test @gcheck tanhback.(dy,y)
-        @test @gcheck invxback.(dy,y)
         @test @gcheck seluback.(dy,y)
         @test @gcheck  eluback.(dy,y)
     end

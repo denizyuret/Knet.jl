@@ -1,4 +1,5 @@
-include("header.jl")
+using Test
+using Knet.Train20: gaussian, xavier_uniform, xavier_normal, bilinear
 
 @testset "distributions" begin
     @test isa(gaussian(10),Array)

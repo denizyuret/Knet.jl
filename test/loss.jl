@@ -1,4 +1,10 @@
-include("header.jl")
+using Test
+using Knet.Ops20: logp, logsumexp, softmax, ∇softmax, logsoftmax, ∇logsoftmax, nll, bce, logistic
+using Knet.Ops20_gpu: _cudnnSoftmaxForward, _cudnnSoftmaxBackward
+using Knet.KnetArrays: KnetArray
+using CUDA: CUDA, functional
+using CUDA.CUDNN: CUDNN_SOFTMAX_FAST, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_LOG
+using AutoGrad: grad, gradcheck, @gcheck, Param
 
 @testset "loss" begin
     for f in (logp, logsumexp)
@@ -6,7 +12,7 @@ include("header.jl")
         @test gradcheck(f,a)
         @test gradcheck(f,a,kw=(:dims=>1,))
         @test gradcheck(f,a,kw=(:dims=>2,))
-        if gpu() >= 0
+        if CUDA.functional()
             k = KnetArray(a)
             @test gradcheck(f,k)
             @test gradcheck(f,k,kw=(:dims=>1,))
@@ -25,7 +31,7 @@ include("header.jl")
         @test gradcheck(f,a,kw=(:dims=>(3,2),))
         @test gradcheck(f,a,kw=(:dims=>(1,3),))
         
-        if gpu() >= 0
+        if CUDA.functional()
             k = KnetArray(a)
             @test gradcheck(f,k)
             @test isapprox(f(a),f(k))
@@ -42,7 +48,7 @@ include("header.jl")
         for d in [1, 2, 3, (1,2), (1,3), [2,3], [1,2,3]]
             @test softmax(a, dims=d) ≈ exp.(logsoftmax(a, dims=d))
             @test all(sum(softmax(a, dims=d), dims=d) .≈ 1)
-            if gpu() > 0
+            if CUDA.functional()
                 k = KnetArray(a)
                 @test softmax(k, dims=d) ≈ exp.(logsoftmax(k, dims=d))
                 @test all(Array(sum(softmax(k, dims=d), dims=d)) .≈ 1)
@@ -50,41 +56,46 @@ include("header.jl")
         end
     end
 
-    a = rand(10,10)
+    a = randn(10,10)
     indices = rand(1:10,10)
+    t01 = rand((0,1),100)
+    t11 = rand((-1,1),100)
     @test gradcheck(nll, a, indices, kw=(:dims=>1,), args=1)
     @test gradcheck(nll, a, indices, kw=(:dims=>2,), args=1)
-    if gpu() >= 0
+    @test gradcheck(logistic,vec(a),t11, args=1)
+    @test gradcheck(bce,vec(a),t01, args=1)
+    if CUDA.functional()
         k = KnetArray(a)
         @test gradcheck(nll, k, indices, kw=(:dims=>1,), args=1)
         @test gradcheck(nll, k, indices, kw=(:dims=>2,), args=1)
+        @test gradcheck(logistic,vec(k),t11, args=1)
+        @test gradcheck(bce,vec(k),t01, args=1)
         @test isapprox(nll(k, indices, dims=1), nll(a, indices, dims=1))
         @test isapprox(nll(k, indices, dims=2), nll(a, indices, dims=2))
+        @test isapprox(logistic(vec(k),t11), logistic(vec(a),t11))
+        @test isapprox(bce(vec(k),t01), bce(vec(a),t01))
     end
-    @test gradcheck(logistic,a[:],a[:])
-    @test gradcheck(bce,a[:],a[:])
 
     # Issue 439: highorder derivatives
-    using Knet: _softmax, _softback, _logp, _logpback, cudnnSoftmaxForward, cudnnSoftmaxBackward
-    x = randn(3,4); y1 = _softmax(x,dims=1); y2 = _logp(x,dims=1); dy = randn(3,4)
-    @test @gcheck _softmax(Param(x),dims=1)
-    @test @gcheck _softback(Param(x),Param(y1),Param(dy),dims=1)
-    @test @gcheck _logp(Param(x),dims=1)
-    @test @gcheck _logpback(Param(x),Param(y2),Param(dy),dims=1)
-    if gpu() >= 0
+    x = randn(3,4); y1 = softmax(x,dims=1); y2 = logsoftmax(x,dims=1); dy = randn(3,4)
+    @test @gcheck softmax(Param(x),dims=1)
+    @test @gcheck ∇softmax(Param(x),Param(y1),Param(dy),dims=1)
+    @test @gcheck logsoftmax(Param(x),dims=1)
+    @test @gcheck ∇logsoftmax(Param(x),Param(y2),Param(dy),dims=1)
+    if CUDA.functional()
         x = KnetArray(x); y1 = KnetArray(y1); y2 = KnetArray(y2); dy = KnetArray(dy)
-        @test isapprox(_softmax(x,dims=1), cudnnSoftmaxForward(x,algo=0))
-        @test isapprox(_softmax(x,dims=1), cudnnSoftmaxForward(x,algo=1))
-        @test isapprox(_logp(x,dims=1), cudnnSoftmaxForward(x,algo=2))
-        @test isapprox(_softback(x,y1,dy,dims=1), cudnnSoftmaxBackward(y1,dy,algo=0))
-        @test isapprox(_softback(x,y1,dy,dims=1), cudnnSoftmaxBackward(y1,dy,algo=1))
-        @test isapprox(_logpback(x,y2,dy,dims=1), cudnnSoftmaxBackward(y2,dy,algo=2))
-        @test @gcheck cudnnSoftmaxForward(Param(x),algo=0)
-        @test @gcheck cudnnSoftmaxForward(Param(x),algo=1)
-        @test @gcheck cudnnSoftmaxForward(Param(x),algo=2)
-        @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=0)
-        @test @gcheck cudnnSoftmaxBackward(Param(y1),Param(dy),algo=1)
-        @test @gcheck cudnnSoftmaxBackward(Param(y2),Param(dy),algo=2)
+        @test isapprox(softmax(x,dims=1), _cudnnSoftmaxForward(x,algo=CUDNN_SOFTMAX_FAST))
+        @test isapprox(softmax(x,dims=1), _cudnnSoftmaxForward(x,algo=CUDNN_SOFTMAX_ACCURATE))
+        @test isapprox(logsoftmax(x,dims=1), _cudnnSoftmaxForward(x,algo=CUDNN_SOFTMAX_LOG))
+        @test isapprox(∇softmax(x,y1,dy,dims=1), _cudnnSoftmaxBackward(y1,dy,algo=CUDNN_SOFTMAX_FAST))
+        @test isapprox(∇softmax(x,y1,dy,dims=1), _cudnnSoftmaxBackward(y1,dy,algo=CUDNN_SOFTMAX_ACCURATE))
+        @test isapprox(∇logsoftmax(x,y2,dy,dims=1), _cudnnSoftmaxBackward(y2,dy,algo=CUDNN_SOFTMAX_LOG))
+        @test @gcheck _cudnnSoftmaxForward(Param(x),algo=CUDNN_SOFTMAX_FAST)
+        @test @gcheck _cudnnSoftmaxForward(Param(x),algo=CUDNN_SOFTMAX_ACCURATE)
+        @test @gcheck _cudnnSoftmaxForward(Param(x),algo=CUDNN_SOFTMAX_LOG)
+        @test @gcheck _cudnnSoftmaxBackward(Param(y1),Param(dy),algo=CUDNN_SOFTMAX_FAST)
+        @test @gcheck _cudnnSoftmaxBackward(Param(y1),Param(dy),algo=CUDNN_SOFTMAX_ACCURATE)
+        @test @gcheck _cudnnSoftmaxBackward(Param(y2),Param(dy),algo=CUDNN_SOFTMAX_LOG)
 
         # Broken example from Alkan's notebook:
         f(w,x,y) = nll(w*x,y)

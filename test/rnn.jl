@@ -1,24 +1,30 @@
-include("header.jl")
-using Knet: rnntest, rnnforw
+using Test, Random
+using Knet.Ops20: RNN, rnntest, rnnforw, rnnparam, rnnparams
+using Knet.Train20: param
+using Knet.KnetArrays: KnetArray
+using CUDA: CUDA, functional, seed!
+using AutoGrad: cat1d, @gcheck, @diff, Param, value, grad
+
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()
-Knet.seed!(2)
+Random.seed!(2); CUDA.functional() && CUDA.seed!(2)
 
-if gpu() >= 0; @testset "rnn" begin
+if CUDA.functional(); @testset "rnn" begin
 
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a[1:3],b[1:3]))
     rxhc(r,x,h,c;o...)=(r.h=h;r.c=c;r(x;o...))
+    binit(x...)=0.01*randn(x...)
     D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
     P = Param
 
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)
-        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, xavier_uniform))
+        # println((:rnninit,X,H,:dataType,D, :rnnType,M, :numLayers,L, :skipInput,I, :bidirectional,BI, :binit, randn))
         # global rnew,r,w,x1,x2,x3,hx1,cx1,hx2,cx2,hx3,cx3
         # global rcpu,wcpu,x1cpu,x2cpu,x3cpu,hx1cpu,cx1cpu,hx2cpu,cx2cpu,hx3cpu,cx3cpu
 
-        r = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform) # binit=zeros does not pass gchk
+        r = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=KnetArray{D}) # binit=zeros does not pass gchk
         w = r.w
-        rcpu = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform, usegpu=false)
+        rcpu = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=Array{D})
         wcpu = rcpu.w
         @test eltype(wcpu) == eltype(w)
         @test size(wcpu) == size(w)
@@ -34,9 +40,9 @@ if gpu() >= 0; @testset "rnn" begin
         # (r::RNN)(x...) is the new interface
 
         ## Test 1-D x
-        x1cpu = randn(D,X); x1 = ka(x1cpu)
-        hx1cpu = randn(D,H,1,HL); hx1 = ka(hx1cpu)
-        cx1cpu = randn(D,H,1,HL); cx1 = ka(cx1cpu)
+        x1cpu = randn(D,X); x1 = KnetArray(x1cpu)
+        hx1cpu = randn(D,H,1,HL); hx1 = KnetArray(hx1cpu)
+        cx1cpu = randn(D,H,1,HL); cx1 = KnetArray(cx1cpu)
         # x
         r.h = r.c = rcpu.h = rcpu.c = nothing
         @test eq(rnnforw(r,w,x1),rnntest(r,w,x1))
@@ -60,9 +66,9 @@ if gpu() >= 0; @testset "rnn" begin
         #@test @gcheck1 rxhc(rcpu,P(x1cpu),P(hx1cpu),P(cx1cpu),batchSizes=[1])
 
         ## Test 2-D x
-        x2cpu =  randn(D,X,B); x2 = ka(x2cpu)
-        hx2cpu = randn(D,H,B,HL); hx2 = ka(hx2cpu)
-        cx2cpu = randn(D,H,B,HL); cx2 = ka(cx2cpu)
+        x2cpu =  randn(D,X,B); x2 = KnetArray(x2cpu)
+        hx2cpu = randn(D,H,B,HL); hx2 = KnetArray(hx2cpu)
+        cx2cpu = randn(D,H,B,HL); cx2 = KnetArray(cx2cpu)
         # x
         r.h = r.c = rcpu.h = rcpu.c = nothing
         @test eq(rnnforw(r,w,x2),rnntest(r,w,x2))
@@ -78,8 +84,8 @@ if gpu() >= 0; @testset "rnn" begin
         @test eq(rnnforw(r,w,x2,hx2,cx2;batchSizes=[B]),rnntest(r,w,x2,hx2,cx2))
         #@test eq(rnnforw(r,w,x2,hx2,cx2;batchSizes=[B]),rnnforw(rcpu,wcpu,x2cpu,hx2cpu,cx2cpu;batchSizes=[B]))
         for b in ([B],[B÷2,B÷2],[B÷2,B÷4,B÷4])
-            hx2acpu = randn(D,H,b[1],HL); hx2a = ka(hx2acpu)
-            cx2acpu = randn(D,H,b[1],HL); cx2a = ka(cx2acpu)
+            hx2acpu = randn(D,H,b[1],HL); hx2a = KnetArray(hx2acpu)
+            cx2acpu = randn(D,H,b[1],HL); cx2a = KnetArray(cx2acpu)
             @test @gcheck1 rxhc(r,P(x2),P(hx2a),P(cx2a),batchSizes=b) 
             #@test @gcheck1 rxhc(rcpu,P(x2cpu),P(hx2acpu),P(cx2acpu),batchSizes=b) # TODO
             r.h = r.c = rcpu.h = rcpu.c = nothing
@@ -88,9 +94,9 @@ if gpu() >= 0; @testset "rnn" begin
         end
 
         ## Test 3-D x
-        x3cpu = randn(D,X,B,T); x3 = ka(x3cpu)
-        hx3cpu = randn(D,H,B,HL); hx3 = ka(hx3cpu)
-        cx3cpu = randn(D,H,B,HL); cx3 = ka(cx3cpu)
+        x3cpu = randn(D,X,B,T); x3 = KnetArray(x3cpu)
+        hx3cpu = randn(D,H,B,HL); hx3 = KnetArray(hx3cpu)
+        cx3cpu = randn(D,H,B,HL); cx3 = KnetArray(cx3cpu)
         # x
         r.h = r.c = rcpu.h = rcpu.c = nothing
         @test eq(rnnforw(r,w,x3),rnntest(r,w,x3))
@@ -106,8 +112,8 @@ if gpu() >= 0; @testset "rnn" begin
         @test eq(rnnforw(r,w,x3,hx3,cx3;batchSizes=[B for t=1:T]),rnntest(r,w,x3,hx3,cx3))
         #@test eq(rnnforw(r,w,x3,hx3,cx3;batchSizes=[B]),rnnforw(rcpu,wcpu,x3cpu,hx3cpu,cx3cpu;batchSizes=[B]))
         for b in ([BT],[BT÷2,BT÷2],[BT÷2,BT÷4,BT÷4])
-            hx3acpu = randn(D,H,b[1],HL); hx3a = ka(hx3acpu)
-            cx3acpu = randn(D,H,b[1],HL); cx3a = ka(cx3acpu)
+            hx3acpu = randn(D,H,b[1],HL); hx3a = KnetArray(hx3acpu)
+            cx3acpu = randn(D,H,b[1],HL); cx3a = KnetArray(cx3acpu)
             @test @gcheck1 rxhc(r,P(x3),P(hx3a),P(cx3a),batchSizes=b)
             #@test @gcheck1 rxhc(rcpu,P(x3cpu),P(hx3acpu),P(cx3acpu),batchSizes=b)
             r.h = r.c = rcpu.h = rcpu.c = nothing
@@ -116,7 +122,7 @@ if gpu() >= 0; @testset "rnn" begin
         end
 
         ## Test new interface in 3-D
-        rnew = RNN(X, H; dataType=D, rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=xavier_uniform)
+        rnew = RNN(X, H; rnnType=M, numLayers=L, skipInput=I, bidirectional=BI, binit=binit, atype=KnetArray{D})
         copyto!(value(rnew.w), value(w))
         # x
         rnew.c = rnew.h = nothing
@@ -179,13 +185,13 @@ if gpu() >= 0; @testset "rnn" begin
     end # for
 
     # Issue #463: rnn hidden state gradients
-    r = RNN(10,20)
+    r = RNN(10,20; atype=Knet.array_type[])
     p = param(20)
     x = param(10)
     J = @diff (r.h = p; r.c = p; y = r(x); sum(y))
     @test grad(J,p) != nothing
 
 end # @testset begin
-end # if gpu() >= 0
+end # if CUDA.functional()
 
 nothing

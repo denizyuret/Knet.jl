@@ -1,9 +1,7 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia bilstm-tagger.jl # to use with default options on CPU
-julia bilstm-tagger.jl --usegpu # to use with default options on GPU
+julia bilstm-tagger.jl --atype KnetArray{Float32} # to use with default options on GPU
 julia bilstm-tagger.jl -h # to see all options with default values
 
 This example implements a named entity tagger built on top of a BiLSTM
@@ -28,7 +26,7 @@ function main(args)
     s.description = "Bidirectional LSTM Tagger in Knet"
 
     @add_arg_table s begin
-        ("--usegpu"; action=:store_true; help="use GPU or not")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type to use")
         ("--embed"; arg_type=Int; default=128; help="word embedding size")
         ("--hidden"; arg_type=Int; default=50; help="LSTM hidden size")
         ("--mlp"; arg_type=Int; default=32; help="MLP size")
@@ -43,7 +41,7 @@ function main(args)
     isa(args, AbstractString) && (args=split(args))
     o = parse_args(args, s; as_symbols=true)
     o[:seed] > 0 && Knet.setseed(o[:seed])
-    atype = o[:atype] = !o[:usegpu] ? Array{Float32} : KnetArray{Float32}
+    atype = eval(Meta.parse(o[:atype]))
     datadir = abspath(joinpath(@__DIR__, "../data/tags"))
     datadir = isdir(datadir) ? datadir : WIKINER_DIR
 
@@ -53,7 +51,7 @@ function main(args)
     # build model
     nwords = length(data.w2i); ntags = data.ntags
     w, srnn = initweights(
-        atype, o[:hidden], nwords, ntags, o[:mlp], o[:embed], o[:usegpu])
+        atype, o[:hidden], nwords, ntags, o[:mlp], o[:embed])
     opt = optimizers(w, Adam)
 
     # train bilstm tagger
@@ -138,10 +136,10 @@ end
 # w[1]   => weight/bias params for forward LSTM network
 # w[2:5] => weight/bias params for MLP+softmax network
 # w[6]   => word embeddings
-function initweights(atype, hidden, words, tags, embed, mlp, usegpu, winit=0.01)
+function initweights(atype, hidden, words, tags, embed, mlp, winit=0.01)
     w = Array{Any}(undef,6)
     input = embed
-    srnn, wrnn = rnninit(input, hidden; bidirectional=true, usegpu=usegpu)
+    srnn, wrnn = rnninit(input, hidden; bidirectional=true, atype=atype)
     w[1] = wrnn
     w[2] = convert(atype, winit*randn(mlp, 2*hidden))
     w[3] = convert(atype, zeros(mlp, 1))

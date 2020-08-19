@@ -1,3 +1,69 @@
+2020-08-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* todo:
+	+ finish train20
+	+ test/distributions and update
+	+ update readmes
+	+ util -> deprecate.jl: globals no longer needed
+	+ check import exports, match final Knet exports to 1.3.9
+	+ clean deprecated directories
+	+ update all examples and tutorials
+	++ tutorial
+	++ cifar10-cnn
+	++ dcgan-mnist
+	++ DeepLearningFrameworks
+	++ dynet-benchmark
+	++ fashion-mnist
+	++ housing-linreg
+	xx julia-tutorial
+	++ lenet
+	++ mnist-mlp
+	++ optimizers
+	xx README.md
+	++ reinforcement-learning
+	++ resnet
+	++ rnnlm
+	xx rnn-tutorial
+	++ synthetic-linreg
+	++ variational-autoencoder
+	++ vgg
+
+	+ update documentation
+	- push 1.4.0
+
+	- start ops21, layers21
+	= get rid of data, use MLDatasets and Artifacts
+	= check prof/ops20.jl, improve cuarrays
+
+2020-08-11  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* globals: need to decide where to put them. want modules independent of each other and of globals, eliminate cross-dependencies.
+	- training: both users and code
+	- atype: both users and code
+	- seed!: for users, not code
+	- dir: for users, not code
+	- cuallocator: can stay in KnetArrays, no need to export or publicise
+	- gpu: deprecate this
+	- libknet8, @knet8: only code, put in own module
+
+2020-08-07  Deniz Yuret  <deniz@razer>
+
+	* TODO: for the ops20 release:
+	+ ops20 is done
+	+ test with fast cuda.jl
+	- benchmark ops20 with knetarray and cuarray
+	- test ops20 with knetarray and cuarray
+	+ gcnode with cuarrays
+	- jld with cuarrays
+	- change all examples, tutorials to use explicit module imports (test with Knet that doesn't export anything).
+	- refactor ops20-ka and ops20-cu?
+	- integrate layers20 from KnetLayers
+	- redesign rnn and bn for ops21
+	- get rid of dependencies jld, datastructures, timeroutput etc
+	- get rid of data/*: just use MLDatasets when you can. move data.jl into train.
+	- gpu init
+
+
 2020-01-04  dyuret  <dyuret@login02.kuacc.ku.edu.tr>
 
 	* issue#513: downloading artifacts: DataDeps.jl vs Artifacts.toml.

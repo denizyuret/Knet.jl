@@ -1,5 +1,7 @@
-using CUDA
 import Base: getindex
+using CUDA: CuArray, CuPtr
+using Knet.LibKnet8: @knet8
+using Knet.KnetArrays: checkbetween
 
 ## Indexing with Int array: used in nll.
 
@@ -22,3 +24,4 @@ for F in (32,64); T=Symbol("Float$F"); @eval begin
     end
 
 end; end
+

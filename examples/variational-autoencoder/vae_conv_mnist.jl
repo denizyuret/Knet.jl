@@ -1,20 +1,15 @@
-# using Pkg; for p in ("Knet","ArgParse","Images"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 Train a Variational Autoencoder with convolutional layers
 on the MNIST dataset.
 """
 module VAE
-using Knet, CUDA, ArgParse, Images, Random, Statistics
-import AutoGrad: getval
-
-include(Knet.dir("data","mnist.jl"))
+using Knet, CUDA, MLDatasets, ArgParse, Images, Random, Statistics
 include(Knet.dir("data","imagenet.jl"))
 
 const F = Float32
 
 # global variables reset in main
-Atype = gpu() >= 0 ? KnetArray{F} : Array{F}
+Atype = CUDA.functional() ? KnetArray{F} : Array{F}
 BINARIZE = false
 
 binarize(x) = convert(Atype, rand(F, size(x))) .< x
@@ -188,7 +183,7 @@ function main(args="")
         ("--epochs"; arg_type=Int; default=100; help="number of epochs for training")
         ("--nh"; arg_type=Int; default=400; help="hidden layer dimension")
         ("--nz"; arg_type=Int; default=40; help="encoding dimention")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{F}" : "Array{F}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--infotime"; arg_type=Int; default=1; help="report every infotime epochs")
         ("--binarize"; arg_type=Bool; default=false; help="dinamically binarize during training")
         ("--optim"; default="Adam()"; help="optimizer")
@@ -206,7 +201,11 @@ function main(args="")
     # gc(); knetgc();
     o[:seed] > 0 && Knet.seed!(o[:seed])
 
-    xtrn, ytrn, xtst, ytst = mnist()
+    xtrn,ytrn = MNIST.traindata(Float32)
+    xtst,ytst = MNIST.testdata(Float32)
+    xsize = (size(xtrn,1),size(xtrn,2),1,:)
+    xtrn = reshape(xtrn,xsize)
+    xtst = reshape(xtst,xsize)
     wdec, wenc = weights(o[:nz], o[:nh])
     w = Dict(
         :encoder => wenc,

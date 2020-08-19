@@ -1,8 +1,9 @@
+import Base: sum, prod, minimum, maximum # , countnz
+using CUDA: CuArray, CuPtr
+using Knet.LibKnet8: @knet8, @knet8r, reduction_ops
+
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 # uses reduction_ops from ops.jl
-
-using CUDA
-import Base: sum, prod, minimum, maximum # , countnz
 
 sum(::typeof(abs), x::CuArray; dims=:) = sumabs(x,dims=dims)
 sum(::typeof(abs2), x::CuArray; dims=:) = sumabs2(x,dims=dims)
@@ -10,13 +11,12 @@ sum(::typeof(!iszero), x::CuArray; dims=:) = countnz(x,dims=dims)
 maximum(::typeof(abs), x::CuArray; dims=:) = maxabs(x,dims=dims)
 minimum(::typeof(abs), x::CuArray; dims=:) = minabs(x,dims=dims)
 
-# TODO: These are currently defined in src/reduction.jl -- uncomment when we get rid of KnetArrays
-# sumabs(x;dims=:)=sum(abs,x;dims=dims)
-# sumabs2(x;dims=:)=sum(abs2,x;dims=dims)
-# maxabs(x;dims=:)=maximum(abs,x;dims=dims)
-# minabs(x;dims=:)=minimum(abs,x;dims=dims)
-# countnz(x;dims=:)=sum(!iszero,x;dims=dims)
-# reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
+sumabs(x::CuArray;dims=:)=sum(abs,x;dims=dims)
+sumabs2(x::CuArray;dims=:)=sum(abs2,x;dims=dims)
+maxabs(x::CuArray;dims=:)=maximum(abs,x;dims=dims)
+minabs(x::CuArray;dims=:)=minimum(abs,x;dims=dims)
+countnz(x::CuArray;dims=:)=sum(!iszero,x;dims=dims)
+reduced_dims_compat(dims,region)=map(last, Base.reduced_indices(map(Base.OneTo, dims), region))
 
 function reduction_op_cuarray(f, j=f, o...)
     J=Symbol(j)

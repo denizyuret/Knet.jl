@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 This example learns to classify hand-written digits from the
@@ -22,8 +20,7 @@ will be returned.
 
 """
 module MLP
-using Knet,CUDA,ArgParse
-include(Knet.dir("data","mnist.jl"))
+using Knet,CUDA,MLDatasets,ArgParse
 
 function predict(w,x)
     for i=1:2:length(w)
@@ -72,7 +69,7 @@ function main(args="")
         ("--lr"; arg_type=Float64; default=0.5; help="learning rate")
         ("--winit"; arg_type=Float64; default=0.1; help="w initialized with winit*randn()")
         ("--fast"; action=:store_true; help="skip loss printing for faster run")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--gcheck"; arg_type=Int; default=0; help="check N random gradients per parameter")
         # These are to experiment with sparse arrays
         # ("--xtype"; help="input array type: defaults to atype")
@@ -91,12 +88,14 @@ function main(args="")
     o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    xtrn,ytrn,xtst,ytst = mnist()
-    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype)
-    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype)
+    xtrn,ytrn = MNIST.traindata(Float32)
+    xtst,ytst = MNIST.testdata(Float32)
+    xsize = (size(xtrn,1),size(xtrn,2),1,o[:batchsize])
+    global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype,xsize=xsize)
+    global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype,xsize=xsize)
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
     if o[:fast]
-        (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); gpu()>=0 && Knet.cudaDeviceSynchronize())
+        @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); CUDA.functional() && CUDA.synchronize())
     else
         report(0)
         @time for epoch=1:o[:epochs]

@@ -1,5 +1,9 @@
-include("header.jl")
-using Statistics
+using Test, Statistics
+using Knet.Ops20: batchnorm, bnmoments, bnparams
+using Knet.KnetArrays: KnetArray
+using AutoGrad: gradcheck
+using CUDA: CUDA, functional
+
 @testset "batchnorm" begin
 
     # Random.seed!(42)
@@ -18,7 +22,7 @@ using Statistics
     types = (Float64,) #TODO: [Float32, Float64]
     sizes = Dict([2=>(5,10), 4=>(3,4,5,3), 5=>(4,3,4,5,2)])
     dims = [2, 4, 5]
-    gpu_av = gpu() >= 0
+    gpu_av = CUDA.functional()
 
     for d in dims
         for et in types

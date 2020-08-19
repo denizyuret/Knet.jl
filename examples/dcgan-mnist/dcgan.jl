@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse","Images","MAT","JLD2","FileIO"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia dcgan.jl --outdir ~/dcgan-out
@@ -11,10 +9,7 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 
 """
 module DCGAN
-using Knet,CUDA,ArgParse,Printf
-#using Images,MAT,JLD2,FileIO
-include(Knet.dir("data","mnist.jl"))
-include(Knet.dir("data","imagenet.jl"))
+using Knet,CUDA,MLDatasets,ArgParse,Printf
 
 function main(args)
     o = parse_options(args)
@@ -22,8 +17,9 @@ function main(args)
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
-    xtrn,ytrn,xtst,ytst = mnist()
-    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype])
+    xtrn,ytrn = MNIST.traindata()
+    xtst,ytst = MNIST.testdata()
+    dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype], xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     optd = map(wi->eval(Meta.parse(o[:optim])), wd)
     optg = map(wi->eval(Meta.parse(o[:optim])), wg)
     z = sample_noise(o[:atype],o[:zdim],prod(o[:gridsize]))
@@ -38,7 +34,7 @@ function main(args)
     println("training started..."); flush(stdout)
     for epoch = 1:o[:epochs]
         dlossval = glossval = 0
-        @time for (x,y) in dtrn
+        for (x,y) in progress(dtrn)
             noise = sample_noise(o[:atype],o[:zdim],length(y))
             dlossval += train_discriminator!(wd,wg,md,mg,2x .- 1,y,noise,optd,o)
             noise = sample_noise(o[:atype],o[:zdim],length(y))
@@ -71,8 +67,7 @@ function parse_options(args)
         "Deep Convolutional Generative Adversarial Networks on MNIST."
 
     @add_arg_table! s begin
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}");
-         help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
         ("--batchsize"; arg_type=Int; default=100; help="batch size")
         ("--zdim"; arg_type=Int; default=100; help="noise dimension")
         ("--epochs"; arg_type=Int; default=20; help="# of training epochs")
@@ -138,12 +133,14 @@ end
 
 function leaky_relu(x, alpha=0.2)
     pos = max.(0,x)
-    neg = min.(0,x) .* alpha
+    neg = min.(0,x) .* eltype(x)(alpha)
     return pos .+ neg
 end
 
 function sample_noise(atype,zdim,nsamples,mu=0.5,sigma=0.5)
     noise = convert(atype, randn(zdim,nsamples))
+    mu = eltype(noise)(mu)
+    sigma = eltype(noise)(sigma)
     normalized = (noise .- mu) ./ sigma
 end
 
@@ -180,7 +177,7 @@ function dlayer1(x0, w, m; stride=1, padding=0, alpha=0.2, training=true)
     x = conv4(w[1], x0; stride=stride, padding=padding)
     x = batchnorm(x, m, w[2]; training=training)
     x = leaky_relu(x,alpha)
-    x = pool(x; mode=2)
+    x = pool(x) #TODO: add mode=2 after it is supported by cuarrays.
 end
 
 function dlayer2(x, w, m; training=true, alpha=0.2)
@@ -289,7 +286,7 @@ function plot_generations(
     if z == nothing
         nimg = prod(gridsize)
         zdim = size(wg[1],2)
-        atype = wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
+        atype = typeof(wg[1]) # wg[1] isa KnetArray ? KnetArray{Float32} : Array{Float32}
         z = sample_noise(atype,zdim,nimg)
     end
     output = Array(0.5 .* (1 .+ gnet(wg,z,mg; training=false)))

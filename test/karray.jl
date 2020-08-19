@@ -1,4 +1,7 @@
-include("header.jl")
+using Test, Random
+using CUDA: CUDA, functional
+using AutoGrad: gradcheck
+using Knet.KnetArrays: KnetArray
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 
@@ -7,7 +10,7 @@ include("header.jl")
 # linearindexing, ndims, ones, pointer, rand!, reshape, setindex!,
 # similar, size, stride, strides, summary, vcat, vec, zeros
 
-if gpu() >= 0
+if CUDA.functional()
     @testset "karray" begin
         a = rand(3,4)
         k = KnetArray(a)
@@ -173,16 +176,16 @@ if gpu() >= 0
         end # 3D
 
         @testset "broadcast" begin # Fixing #342
-            zelu(x) = relu(x) + (exp(min(0,x)) - 1)
+            zelu(x) = tanh(x) + (exp(min(0,x)) - 1)
             @test isa(zelu.(KnetArray(randn(Float32,5,5))), KnetArray)
         end
 
         @testset "inplace" begin
             a0 = rand();    k0 = a0
-            a1 = rand(1);   k1 = ka(a1)
-            a2 = rand(2);   k2 = ka(a2)
-            a3 = rand(2,2); k3 = ka(a3)
-            a4 = rand(2,2); k4 = ka(a4)
+            a1 = rand(1);   k1 = KnetArray(a1)
+            a2 = rand(2);   k2 = KnetArray(a2)
+            a3 = rand(2,2); k3 = KnetArray(a3)
+            a4 = rand(2,2); k4 = KnetArray(a4)
 
             @test (a4 .+= a3) == (k4 .+= k3); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
             @test (a4 .+= a2) == (k4 .+= k2); @test a4 == k4 # copyto!(::KnetArray{Float64,2}, ::Base.Broadcast.Broadcasted{Base.Broadcast.Style{KnetArray},Tuple{Base.OneTo{Int64},Base.OneTo{Int64}},typeof(identity),Tuple{KnetArray{Float64,2}}})
@@ -211,7 +214,7 @@ if gpu() >= 0
                           (rand(3,2), rand(4,2)),
                           (rand(3,2,2), rand(4,2,2)),
                           (rand(3,2,2,2), rand(4,2,2,2)))
-                c, d = ka(a), ka(b)
+                c, d = KnetArray(a), KnetArray(b)
                 @test vcat(a, b) == vcat(c, d)
                 @test gradcheck(vcat, a, b)
                 @test gradcheck(vcat, c, d)
@@ -219,6 +222,6 @@ if gpu() >= 0
         end
 
     end # karray
-end # gpu() >= 0
+end # CUDA.functional() >= 0
 
 nothing

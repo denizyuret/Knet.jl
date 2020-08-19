@@ -1,5 +1,3 @@
-using Pkg; haskey(Pkg.installed(),"Knet") || Pkg.add("Knet")
-
 # TODO: improve example and document metadata return type further
 # TODO: document low-level API
 """This module implements the ResNet 50,101,150 and CIFAR models from
@@ -117,7 +115,7 @@ function resnetinit(repeats;
                     channels=bneck_channels,
                     resize=[true, true, true, true], #size changes require 1x1 conv shortcuts
                     etype=Float32,
-                    atype=(gpu() >= 0) ? KnetArray : Array,
+                    atype=Knet.array_type[],
                     trained=true,
                     blockinit=bneckinit,
                     stage=0,
@@ -337,7 +335,7 @@ end
 
 function load_params!(weights, moments, matparams;
                       first_bias=false,
-                      atype=(gpu()>=0 ? KnetArray : Array),
+                      atype=Knet.array_type[],
                       stage=0)
     et = eltype(weights[1])
     params = matparams["value"]

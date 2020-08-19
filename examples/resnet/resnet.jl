@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse","Images","ImageMagick"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia resnet.jl image-file-or-url
@@ -28,7 +26,7 @@ function main(args)
         ("image"; default=imgurl; help="Image file or URL.")
         ("--model"; default="imagenet-resnet-101-dag"; help="resnet model name")
         ("--top"; default=5; arg_type=Int; help="Display the top N classes")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array and float type to use")
+        ("--atype"; default="$(Knet.array_type[])"; help="array and float type to use")
     end
 
     isa(args, AbstractString) && (args=split(args))

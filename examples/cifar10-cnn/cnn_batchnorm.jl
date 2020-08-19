@@ -15,12 +15,14 @@ fc -> bn  -> relu -> output
 
 =#
 
-using Knet, Statistics
-include(Knet.dir("data", "cifar.jl"))
+using Knet, Statistics, MLDatasets
 
 function loaddata()
     @info("Loading CIFAR 10...")
-    xtrn, ytrn, xtst, ytst, = cifar10()
+    xtrn, ytrn = CIFAR10.traindata()
+    xtst, ytst = CIFAR10.testdata()
+    xtrn = convert(Knet.array_type[], xtrn)
+    xtst = convert(Knet.array_type[], xtst)
     #= Subtract mean of each feature
     where each channel is considered as
     a single feature following the CNN
@@ -54,7 +56,7 @@ function init_model(;et=Float32)
     ]
     # Initialize a moments object for each batchnorm
     m = Any[bnmoments() for i = 1:4]
-    w = map(Knet.atype(), w)
+    w = map(Knet.array_type[], w)
     return w, m
 end
 
@@ -91,7 +93,7 @@ lossgrad = grad(loss)
 function epoch!(w, m, o, xtrn, ytrn;  mbatch=64)
     data = minibatch(xtrn, ytrn, mbatch;
                    shuffle=true,
-                   xtype=Knet.atype())
+                   xtype=Knet.array_type[])
     for (x, y) in data
         g = lossgrad(w, m, x, y)
         update!(w, g, o)
@@ -102,11 +104,8 @@ end
 function acc(w, m, xtst, ytst; mbatch=64)
     data = minibatch(xtst, ytst, mbatch;
                      partial=true,
-                     xtype=Knet.atype())
-    model = (w, m)
-    return accuracy(model, data,
-                    (model, x)->predict(model[1], model[2], x);
-                    average=true)
+                     xtype=Knet.array_type[])
+    accuracy(x->predict(w,m,x), data)
 end
 
 # TODO: add command line options

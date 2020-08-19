@@ -1,23 +1,14 @@
-# Tests with linux with gpu.
+# Tests on linux with gpu.
 
 include:
   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v6.yml'
 
-# image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
-
-# variables:
-#   JULIA_NUM_THREADS: '2'
-
-julia:1.4:
+julia:1.5:
   extends:
-    - .julia:1.4
+    - .julia:1.5
     - .test
   tags:
     - nvidia
-
-#   - sm_75
-# variables:
-#   CI_THOROUGH: 'true'
 
 julia:nightly:
   extends:
@@ -29,13 +20,14 @@ julia:nightly:
 
 coverage:
   extends:
-    - .julia:1.4
+    - .julia:1.5
     - .coverage
   allow_failure: true
 
+
 # documentation:
 #   extends:
-#     - .julia:1.4
+#     - .julia:1.5
 #     - .documentation
 #   tags:
 #     - nvidia
@@ -50,9 +42,6 @@ coverage:
 #   only:
 #     - master
 
-# variables:
-#   CI_IMAGE_TAG: 'cuda'
-#   JULIA_NUM_THREADS: '4'
 
 # include:
 #   - 'https://raw.githubusercontent.com/JuliaGPU/gitlab-ci/master/templates/v4/common.yml'
@@ -123,4 +112,16 @@ coverage:
 #   tags:
 #     - nvidia
 #   allow_failure: true
+
+# variables:
+#   CI_IMAGE_TAG: 'cuda'
+#   JULIA_NUM_THREADS: '4'
+# image: juliagpu/cuda:10.1-cudnn7-cutensor-devel-ubuntu18.04
+
+# variables:
+#   JULIA_NUM_THREADS: '2'
+
+#   - sm_75
+# variables:
+#   CI_THOROUGH: 'true'
 

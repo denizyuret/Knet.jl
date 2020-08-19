@@ -1,5 +1,3 @@
-# using Pkg; for p in ("Knet","ArgParse"); haskey(Pkg.installed(),p) || Pkg.add(p); end
-
 """
 
 julia treenn.jl # to use with default options
@@ -26,8 +24,7 @@ function main(args)
     s.description = "Tree-structured LSTM network in Knet."
 
     @add_arg_table s begin
-        # ("--usegpu"; action=:store_true; help="use GPU or not")
-        ("--atype"; default=(gpu()>=0 ? "KnetArray{Float32}" : "Array{Float32}"); help="array type: Array for cpu, KnetArray for gpu")
+        ("--atype"; default="$(Knet.array_type[])"; help="array type: Array for cpu, KnetArray for gpu")
         ("--embed"; arg_type=Int; default=128; help="word embedding size")
         ("--hidden"; arg_type=Int; default=128; help="LSTM hidden size")
         ("--timeout"; arg_type=Int; default=600; help="max timeout (in seconds)")

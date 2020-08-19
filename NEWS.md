@@ -1,5 +1,19 @@
+Knet v1.4.0 Release Notes
+=========================
+
+* Major refactoring of code without effecting the API (hopefully).
+* CuArray support added to all ops, implemented gcnode, tested on examples and tutorial.
+* Operators collected in Knet.Ops20: #583.
+* Using @retry_reclaim on cudnn functions for stability.
+* Fix #502 StackOverflowError when broadcast between number and KnetArray{Bool}.
+* Started using MLDatasets in examples where possible.
+* Profiling KnetArrays vs CuArrays in prof/ops.jl: #588.
+* Removed deprecated directories.
+
+
 Knet v1.3.9 Release Notes
 =========================
+1243060 2020-07-28
 
 * Replaced all @cuda calls with CUDA.jl calls, leaving no dependence on external CUDA libraries except for the ones that come with CUDA.jl.
 * Added libknet8 as an artifact for easier installation, removing the requirement to have nvcc and a host compiler.

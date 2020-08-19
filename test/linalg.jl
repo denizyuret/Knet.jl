@@ -1,6 +1,10 @@
-include("header.jl")
+using LinearAlgebra, Test, Random
+using Knet.KnetArrays: A_mul_Bt, At_mul_B, At_mul_Bt, KnetArray
+using Knet.Ops20: mat
+using CUDA: CUDA, functional
+using AutoGrad: gradcheck
 include("combinatorics.jl")
-using LinearAlgebra
+
 #Random.seed!(42)
 nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
 
@@ -10,7 +14,7 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
         b = rand(t,5,2)
         mmul(w)=w[1]*w[2]
         @test gradcheck(mmul, (a,b))
-        if gpu() >= 0
+        if CUDA.functional()
             c = a * b
             ka = KnetArray(a)
             kb = KnetArray(b)
@@ -18,15 +22,15 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
             @test isapprox(c, Array(kc))
             @test gradcheck(mmul, (ka,kb))
             # Issue #456: 2nd derivative for MLP
-            mmulABt(w)=Knet.A_mul_Bt(w[1],w[2])
-            mmulAtB(w)=Knet.At_mul_B(w[1],w[2])
-            mmulAtBt(w)=Knet.At_mul_Bt(w[1],w[2])
+            mmulABt(w)=A_mul_Bt(w[1],w[2])
+            mmulAtB(w)=At_mul_B(w[1],w[2])
+            mmulAtBt(w)=At_mul_Bt(w[1],w[2])
             @test gradcheck(mmulABt, (ka,kb'))
             @test gradcheck(mmulAtB, (ka',kb))
             @test gradcheck(mmulAtBt, (ka',kb'))
         end
 
-        if gpu() >= 0
+        if CUDA.functional()
             # cannot gradcheck axpy!, scal! overwriting
             d = rand(t,3,5)
             kd = KnetArray(d)
@@ -52,7 +56,7 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
         @test gradcheck(mmul2, Any[s,b])
         @test gradcheck(mmul3, Any[a,s])
         @test gradcheck(mmul3, Any[s,b])
-        if gpu() >= 0
+        if CUDA.functional()
             kat = ka'
             kbt = kb'
             @test isapprox(at, Array(kat))
@@ -72,7 +76,7 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
         end
 
         @test gradcheck(mat, a)
-        if gpu() >= 0
+        if CUDA.functional()
             @test isapprox(mat(a), Array(mat(ka)))
             @test gradcheck(mat, ka)
         end
@@ -80,47 +84,47 @@ nsample(a,n)=collect(a)[randperm(length(a))[1:n]]
         for p in collect(permutas(1:2))
             p2(x) = permutedims(x,p)
             @test gradcheck(p2, a)
-            if gpu() >= 0
+            if CUDA.functional()
                 @test isapprox(p2(a), Array(p2(ka)))
                 @test gradcheck(p2, ka)
             end
         end
 
         a3 = rand(2,3,4)
-        if gpu() >= 0; k3 = KnetArray(a3); end
+        if CUDA.functional(); k3 = KnetArray(a3); end
         for p in collect(permutas(1:3))
             p3(x) = permutedims(x,p)
             @test gradcheck(p3, a3)
-            if gpu() >= 0
+            if CUDA.functional()
                 @test isapprox(p3(a3), Array(p3(k3)))
                 @test gradcheck(p3, k3)
             end
         end
 
         a4 = rand(2,3,4,5)
-        if gpu() >= 0; k4 = KnetArray(a4); end
+        if CUDA.functional(); k4 = KnetArray(a4); end
         for p in nsample(permutas(1:4),6)
             p4(x) = permutedims(x,p)
             @test gradcheck(p4, a4)
-            if gpu() >= 0
+            if CUDA.functional()
                 @test isapprox(p4(a4), Array(p4(k4)))
                 @test gradcheck(p4, k4)
             end
         end
 
         a5 = rand(2,3,4,5,6)
-        if gpu() >= 0; k5 = KnetArray(a5); end
+        if CUDA.functional(); k5 = KnetArray(a5); end
         for p in nsample(permutas(1:5),6)
             p5(x) = permutedims(x,p)
             @test gradcheck(p5, a5)
-            if gpu() >= 0
+            if CUDA.functional()
                 @test isapprox(p5(a5), Array(p5(k5)))
                 @test gradcheck(p5, k5)
             end
         end
         
         # transpose and matmul should work with vectors
-        if gpu() >= 0
+        if CUDA.functional()
             a6 = rand(t,3)
             b6 = rand(t,3,3)
             c6 = KnetArray(a6)
