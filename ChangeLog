@@ -28,12 +28,12 @@
 	++ variational-autoencoder
 	++ vgg
 
-	+ check prof/ops20.jl, improve cuarrays
 	+ update documentation
 	- push 1.4.0
 
 	- start ops21, layers21
-	- get rid of data, use MLDatasets and Artifacts
+	= get rid of data, use MLDatasets and Artifacts
+	= check prof/ops20.jl, improve cuarrays
 
 2020-08-11  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
