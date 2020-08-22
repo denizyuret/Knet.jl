@@ -6,6 +6,8 @@ include("cuarrays/CuArrays.jl")
 include("autograd_gpu/AutoGrad_gpu.jl")
 include("ops20/Ops20.jl")
 include("ops20_gpu/Ops20_gpu.jl")
+include("ops21/Ops21.jl")
+include("ops21_gpu/Ops21_gpu.jl")
 include("fileio_gpu/FileIO_gpu.jl")
 include("train20/Train20.jl")
 

@@ -1,11 +1,11 @@
 [[libknet8]]
 arch = "x86_64"
-git-tree-sha1 = "5e1e317677e88277f0ee67ab9e17587a8edc4f7a"
+git-tree-sha1 = "7710e2ab4c954cb5f2526ee03426a09ef2a5eb58"
 os = "linux"
 
    [[libknet8.download]]
-   sha256 = "2ef57e8bf25eb00597345bacc2ba2b4cb6182b3ace46dfbd6b6d2981e6998764"
-   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.3.8/libknet8.x86_64-linux-gnu.tar.gz"
+   sha256 = "549b1758287843c2c35e930b3d0a6f2ca3951cc27707f8513b0ec4c902d7d351"
+   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.0/libknet8.x86_64-linux-gnu.tar.gz"
 
 [[libknet8]]
 arch = "x86_64"

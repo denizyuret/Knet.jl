@@ -6,7 +6,7 @@ using Knet.LibKnet8: @knet8, binary_ops
 # include("broadcast.jl") ## Bcasted
 
 # binary.jl: Elementwise broadcasting binary functions for arrays and scalars.
-# uses binary_ops from broadcast.jl.
+# uses binary_ops from ops.jl.
 
 # binary_op defines the broadcast_func of a Julia function for KnetArrays.
 # The corresponding kernel is defined in libknet8.
@@ -301,24 +301,6 @@ for f in Symbol.((+,-,*,/,max,min,^,==,!=,>,>=,<,<=))
     end
 end
 
-# familiar aliases for broadcasting operations of array & scalar (#7226):
-# (+)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
-# (+)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
-# (-)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(-s),a) -- deprecated
-# (-)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.-)(T(s),a)  -- deprecated
-(*)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(s),a)
-(*)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(s),a)
-(/)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(1/s),a)
-(\)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a)
-
-#(/)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
-#(^)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.^)(a,T(s)) # non-elementwise definition in linalg
-#(^)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.^)(T(s),a) # non-elementwise definition in linalg
-
-tanhback(dyi::T,yi::T) where {T<:Number} = dyi*(T(1)-yi*yi)
-@primitive tanh(x::KnetArray),dy,y tanhback.(dy,y)
-@primitive tanhback(dy,y),ddx  ddx.*(1 .- y.*y)  ddx.*(-2 .* dy.*y)
-
 # Fix #412 where KnetArray(randn(Float64,4,4,4,4)).^2 gives a 1-D result
 broadcasted(::typeof(Base.literal_pow), ::typeof(^), k::KnetArray{T}, n::Val{N}) where {T,N} = broadcasted(^, k, N)
 
@@ -345,6 +327,28 @@ end
 
 for f in binary_ops
     if !isa(f,Tuple); f=(f,); end
-    f[1] ∈ ("reluback","eluback","seluback","sigmback") && continue
+    j = length(f) >= 2 ? f[2] : f[1]
+    ## Process non-Base functions in the appropriate submodule:
+    if !isdefined(@__MODULE__, Symbol(j))
+        # @warn "$j not defined in $(@__MODULE__), skipping."
+        # invxback, eluback, geluback, reluback, seluback, sigmback, tanhback
+        continue
+    end
     binary_op(f...)
 end
+
+
+# familiar aliases for broadcasting operations of array & scalar (#7226):
+# (+)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
+# (+)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.+)(T(s),a)  -- deprecated
+# (-)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.+)(T(-s),a) -- deprecated
+# (-)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.-)(T(s),a)  -- deprecated
+(*)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(s),a)
+(*)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(s),a)
+(/)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.*)(T(1/s),a)
+(\)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a)
+          
+#(/)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.*)(T(1/s),a) # TODO: non-elementwise definition in linalg
+#(^)(a::KnetArray{T},s::Number) where {T<:AbstractFloat} = (.^)(a,T(s)) # non-elementwise definition in linalg
+#(^)(s::Number,a::KnetArray{T}) where {T<:AbstractFloat} = (.^)(T(s),a) # non-elementwise definition in linalg
+
