@@ -1,9 +1,18 @@
 export LayerNorm
 using Statistics
 
-## LayerNorm: https://arxiv.org/abs/1607.06450: Layer Normalization
 # TODO: this is slow, need a kernel, maybe https://github.com/tensorflow/tensorflow/pull/6205/files
+# TODO: support other axes
 
+"""
+    LayerNorm(size::Integer; eps=1e-5)
+    LayerNorm(γ, β, ϵ)
+
+References:
+* [Ba, Kiros and Hinton 2016](https://arxiv.org/abs/1607.06450) Layer Normalization
+* torch.nn.LayerNorm
+* tf.keras.layers.LayerNormalization
+"""
 struct LayerNorm; γ; β; ϵ; end
 
 function LayerNorm(dmodel; eps=1e-5)
