@@ -74,7 +74,7 @@ end
 
 
 DT(::Type{T}) where T = get(DataTypes, T) do; error("CUDNN does not support $T"); end
-const DataTypes = Dict{Type,cudnnDataType_t}(
+DataTypes = Dict{Type,cudnnDataType_t}(
     Float32 => CUDNN_DATA_FLOAT,
     Float64 => CUDNN_DATA_DOUBLE,
     Float16 => CUDNN_DATA_HALF,

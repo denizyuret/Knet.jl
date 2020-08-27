@@ -1,12 +1,12 @@
-module CUDNN
+#module CUDNN
 
 include("cudnn_retry.jl")       # TODO: export this to Ops20_gpu, auto-add unsafe_cudnn?
 include("common.jl")
 include("activation.jl")
 include("dropout.jl")
-include("multiheadattn.jl")
+#include("multiheadattn.jl")
 
-end
+#end
 
 ## grep cudnnHandle_t
 # add8: cudnnBackendExecute

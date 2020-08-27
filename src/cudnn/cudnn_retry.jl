@@ -1,3 +1,5 @@
+import CUDA
+
 # Repeat cudnn calls that fail due to memory issues
 macro cudnn_retry(ex)
     quote

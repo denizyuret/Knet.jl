@@ -2,7 +2,7 @@ export dropoutForward
 import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
 using AutoGrad: AutoGrad, @primitive1
-using CUDA: CuArray, CuPtr, CU_NULL
+using CUDA: CuArray
 
 using CUDA.CUDNN: handle,
     cudnnDropoutForward,
@@ -17,75 +17,64 @@ using CUDA.CUDNN: handle,
         cudnnDestroyDropoutDescriptor
 
 
-@primitive1 dropoutForward(x; reserveSpace=Ref{Any}(), dropoutDesc=GLOBAL_DD, o...),dy,y  dropoutBackward(dy; reserveSpace=reserveSpace, dropoutDesc=dropoutDesc)
-@primitive1 dropoutBackward(dy;o...)  throw(MethodError(back,dropoutBackward))
+mutable struct DropoutDescriptor; ptr; end
+unsafe_convert(::Type{<:Ptr}, dd::DropoutDescriptor)=dd.ptr
+
 
 # cudnnDropoutForward() doc says:
 # "This function should not be running concurrently with another cudnnDropoutForward() function using the same states."
-# So I am going to assume using a single buffer/descriptor is fine until we have to deal with concurrency.
-# TODO: model this based on default_rng in Random
-mutable struct DropoutDescriptor; ptr; states; end
-GLOBAL_DD = Ref{DropoutDescriptor}()
+# So I am going to assume using a single buffer is fine until we have to deal with concurrency.
+# TODO: fix this based on default_rng in Random
+GLOBAL_DROPOUT_STATE = Ref{CuArray{Int,1}}()
+
+# To debug gradients set GLOBAL_DROPOUT_SEED[] >= 0 for all dropout operations
+GLOBAL_DROPOUT_SEED = Ref{Int}(-1)
+
+# cudnnSetDropoutDescriptor is expensive, so let's cache the descriptors based on dropout probability
+GLOBAL_DROPOUT_DESCRIPTORS = Dict{Cfloat,DropoutDescriptor}()
 
 
-function dropoutForward(x::R; dropout::Real=0.5, seed::Integer=-1,
-                        dropoutDesc=GLOBAL_DD, reserveSpace=Ref{Any}()
-                        ) where {T,R<:DevArray{T}}
-    y, td = similar(x), TD(T, (1,1,length(x),1))
-    if !isassigned(dropoutDesc)
-        dropoutDesc[] = DD(dropout=dropout)
-    end
-    (dd_dropout, dd_states, dd_seed) = getDropoutDescriptor(dropoutDesc[])
-    if !(dropout ≈ dd_dropout) || seed >= 0
-        #@show (dropout, dd_dropout, seed, dd_seed)
-        seed = (seed >= 0 ? Unsigned(seed) : dd_seed)
-        # This is a very expensive call (10x dropout), so rethink interface
-        @cudnn_retry unsafe_cudnnSetDropoutDescriptor(dropoutDesc[], handle(), dropout, dd_states, sizeof(dropoutDesc[].states), seed)
+@primitive1 dropoutForward(x; dropout=0.5, reserveSpace=Ref{Any}(), o...),dy,y  dropoutBackward(dy; dropout=dropout, reserveSpace=reserveSpace)
+@primitive1 dropoutBackward(dy;o...)  throw(MethodError(back,dropoutBackward))
+
+
+function dropoutForward(x::R; dropout=0.5, reserveSpace=Ref{Any}()) where {T,R<:DevArray{T}}
+    y, td, dd = similar(x), TD(T, (1,1,length(x),1)), DD(dropout)
+    if GLOBAL_DROPOUT_SEED[] >= 0
+        # This is a very expensive call (40x dropout), so only use for debugging
+        @warn "Knet.CUDNN.GLOBAL_DROPOUT_SEED >= 0: calling expensive cudnnSetDropoutDescriptor" maxlog=1
+        @cudnn_retry unsafe_cudnnSetDropoutDescriptor(dd, handle(), dropout, GLOBAL_DROPOUT_STATE[], sizeof(GLOBAL_DROPOUT_STATE[]), GLOBAL_DROPOUT_SEED[])
     end
     if !isassigned(reserveSpace)
+        # reserveSpace is 1/8 of tensor size and is specific to this one call
         rss = Csize_t[0]; cudnnDropoutGetReserveSpaceSize(td, rss)
         reserveSpace[] = CuArray{Int}(undef, (rss[1]-1)÷sizeof(Int)+1)
     end
-    cudnnDropoutForward(handle(), dropoutDesc[], td, x, td, y, reserveSpace[], sizeof(reserveSpace[]))
+    cudnnDropoutForward(handle(), dd, td, x, td, y, reserveSpace[], sizeof(reserveSpace[]))
     return y
 end
 
 
-function dropoutBackward(dy::R; dropoutDesc, reserveSpace) where {T,R<:DevArray{T}}
+function dropoutBackward(dy::R; dropout, reserveSpace) where {T,R<:DevArray{T}}
     #@show summary.((dy,dropoutDesc[],reserveSpace[]))
-    dx, td = similar(dy), TD(T, (1,1,length(dy),1))
-    cudnnDropoutBackward(handle(), dropoutDesc[], td, dy, td, dx, reserveSpace[], sizeof(reserveSpace[]))
+    dx, td, dd = similar(dy), TD(T, (1,1,length(dy),1)), DD(dropout)
+    cudnnDropoutBackward(handle(), dd, td, dy, td, dx, reserveSpace[], sizeof(reserveSpace[]))
     return dx
 end
 
 
-# TODO: rewrite when CUDA.jl fixed
-using CUDA.CUDNN: @runtime_ccall, libcudnn, cudnnStatus_t, cudnnHandle_t
-function getDropoutDescriptor(dropoutDesc::DropoutDescriptor)
-    dropout = Cfloat[0]
-    states = CuPtr{Cvoid}[CU_NULL]
-    seed = Culonglong[0]
-    # This is broken as of CUDA.jl 1.3.3
-    # cudnnGetDropoutDescriptor(dd, handle(), dropout, states, seed)
-    @runtime_ccall((:cudnnGetDropoutDescriptor, libcudnn()), cudnnStatus_t,
-                   (cudnnDropoutDescriptor_t, cudnnHandle_t, Ptr{Cfloat},
-                    Ptr{CuPtr{Cvoid}}, Ptr{Culonglong}),
-                   dropoutDesc, handle(), dropout, states, seed)
-    (dropout[1], states[1], seed[1])
+function DD(dropout::Real=0.5)
+    get!(GLOBAL_DROPOUT_DESCRIPTORS, Cfloat(dropout)) do
+        if !isassigned(GLOBAL_DROPOUT_STATE)
+            ssize = Csize_t[0]; cudnnDropoutGetStatesSize(handle(), ssize)
+            GLOBAL_DROPOUT_STATE[] = CuArray{Int}(undef, (ssize[1]-1)÷sizeof(Int)+1)
+        end
+        seed = floor(Culonglong,time())
+        ptr = cudnnDropoutDescriptor_t[C_NULL]
+        cudnnCreateDropoutDescriptor(ptr)
+        @cudnn_retry unsafe_cudnnSetDropoutDescriptor(ptr[1], handle(), dropout, GLOBAL_DROPOUT_STATE[], sizeof(GLOBAL_DROPOUT_STATE[]), seed)
+        dd = DropoutDescriptor(ptr[1])
+        finalizer(x->cudnnDestroyDropoutDescriptor(x.ptr), dd)
+        return dd
+    end
 end
-
-
-unsafe_convert(::Type{<:Ptr}, dd::DropoutDescriptor)=dd.ptr
-function DD(; dropout::Real=0.5, seed::Unsigned=floor(Culonglong,time()))
-    sptr = Csize_t[0]
-    cudnnDropoutGetStatesSize(handle(), sptr)
-    states = CuArray{Int}(undef, (sptr[1]-1)÷sizeof(Int)+1)
-    ptr = cudnnDropoutDescriptor_t[C_NULL]
-    cudnnCreateDropoutDescriptor(ptr)
-    @cudnn_retry unsafe_cudnnSetDropoutDescriptor(ptr[1], handle(), dropout, states, sizeof(states), seed)
-    dd = DropoutDescriptor(ptr[1], states)
-    finalizer(x->cudnnDestroyDropoutDescriptor(x.ptr), dd)
-    return dd
-end
-    
-

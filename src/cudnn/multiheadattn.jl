@@ -7,27 +7,45 @@ using CUDA.CUDNN: handle,
     cudnnMultiHeadAttnForward,
     cudnnMultiHeadAttnBackwardData,
     cudnnMultiHeadAttnBackwardWeights,
+    cudnnGetMultiHeadAttnBuffers,
+    cudnnGetMultiHeadAttnWeights,
     cudnnAttnDescriptor_t,
         cudnnCreateAttnDescriptor,
         cudnnDestroyAttnDescriptor,
         cudnnSetAttnDescriptor,
         cudnnGetAttnDescriptor,
-        CUDNN_ATTN_QUERYMAP_ALL_TO_ONE,
-        CUDNN_ATTN_QUERYMAP_ONE_TO_ONE,
-        CUDNN_ATTN_DISABLE_PROJ_BIASES,
-        CUDNN_ATTN_ENABLE_PROJ_BIASES,
         cudnnDataType_t,
-        cudnnMathType_t,
         cudnnDropoutDescriptor_t,
-    cudnnMathType_t,
-        CUDNN_DEFAULT_MATH,
-        CUDNN_TENSOR_OP_MATH,
-        CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION,
     cudnnSeqDataDescriptor_t,
+        cudnnCreateSeqDataDescriptor,
+        cudnnDestroySeqDataDescriptor,
+        cudnnSetSeqDataDescriptor,
+        cudnnGetSeqDataDescriptor,
+    cudnnSeqDataAxis_t,
+        CUDNN_SEQDATA_TIME_DIM,  # 0, /* index in time */
+        CUDNN_SEQDATA_BATCH_DIM, # 1, /* index in batch */
+        CUDNN_SEQDATA_BEAM_DIM,  # 2, /* index in beam */
+        CUDNN_SEQDATA_VECT_DIM,  # 3  /* index in vector */
+    cudnnAttnQueryMap_t,
+        CUDNN_ATTN_QUERYMAP_ALL_TO_ONE, # 0         /* multiple Q-s map to a single (K,V) set when beam size > 1 */
+        CUDNN_ATTN_QUERYMAP_ONE_TO_ONE, # (1U << 0) /* multiple Q-s map to multiple (K,V) sets when beam size > 1 */
+        CUDNN_ATTN_DISABLE_PROJ_BIASES, # 0         /* no biases in attention input and output projections */
+        CUDNN_ATTN_ENABLE_PROJ_BIASES,  # (1U << 1) /* use biases in attention input and output projections */
     cudnnMultiHeadAttnWeightKind_t,
-    cudnnGetMultiHeadAttnBuffers,
-    cudnnGetMultiHeadAttnWeights,
-    cudnnAttnQueryMap_t
+        CUDNN_MH_ATTN_Q_WEIGHTS, # 0, /* input projection weights for 'queries' */
+        CUDNN_MH_ATTN_K_WEIGHTS, # 1, /* input projection weights for 'keys' */
+        CUDNN_MH_ATTN_V_WEIGHTS, # 2, /* input projection weights for 'values' */
+        CUDNN_MH_ATTN_O_WEIGHTS, # 3, /* output projection weights */
+        CUDNN_MH_ATTN_Q_BIASES,  # 4, /* input projection bias tensor for 'queries' */
+        CUDNN_MH_ATTN_K_BIASES,  # 5, /* input projection bias for 'keys' */
+        CUDNN_MH_ATTN_V_BIASES,  # 6, /* input projection bias for 'values' */
+        CUDNN_MH_ATTN_O_BIASES,  # 7, /* output projection biases */
+    cudnnMathType_t,
+        CUDNN_DEFAULT_MATH,                    # 0,
+        CUDNN_TENSOR_OP_MATH,                  # 1,
+        CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION, # 2,
+        CUDNN_FMA_MATH                         # 3,
+
     
 
 @primitive1 multiHeadAttnForward(x; o...),dy,y  multiHeadAttnBackwardWeights(x,y,dy; o...)  multiHeadAttnBackwardData(x,y,dy; o...)
@@ -51,15 +69,18 @@ function MHA(; # Defaults:
              nHeads::Integer,
              smScaler::Real = 1.0,
              dataType::DataType,
-             computePrec::DataType = dataType,
+             computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
              mathType::cudnnMathType_t = (dataType === Float16 ? CUDNN_TENSOR_OP_MATH :
                                           dataType === Float32 ? CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION :
                                           CUDNN_DEFAULT_MATH),
+             attnDropout::Real = 0.0,
+             postDropout::Real = 0.0,
              
              )
     ptr = cudnnAttnDescriptor_t[C_NULL]
     cudnnCreataAttnDescriptor(ptr)
-    cudnnSetAttnDescriptor(ptr[1], mode, nHeads, DT(dataType), DT(computePrec))
+    cudnnSetAttnDescriptor(ptr[1], mode, nHeads, DT(dataType), DT(computePrec), mathType, DD(attnDropout), DD(postDropout)
+                           )
     mha = AttnDescriptor(ptr[1])
     finalizer(x->cudnnDestroyAttnDescriptor(x.ptr), mha)
     return mha
