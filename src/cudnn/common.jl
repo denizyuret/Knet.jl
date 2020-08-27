@@ -1,5 +1,6 @@
 export TD, FD
 import Base: unsafe_convert
+using Base: size_to_strides
 using Knet.KnetArrays: DevArray
 using AutoGrad: Value
 
@@ -51,7 +52,7 @@ function TD(T::Type, dims::Dims{N}) where {N}
     ptr = cudnnTensorDescriptor_t[C_NULL]
     cudnnCreateTensorDescriptor(ptr)
     sz = Cint[reverse(dims)...]
-    st = Cint[reverse(strides(x))...]
+    st = Cint[reverse(size_to_strides(1,dims...))...]
     cudnnSetTensorNdDescriptor(ptr[1], DT[T], N, sz, st)
     td = _TD(ptr[1])
     finalizer(x->cudnnDestroyTensorDescriptor(x.ptr), td)
@@ -68,7 +69,7 @@ function FD(T::Type, dims::Dims{N},format::cudnnTensorFormat_t) where N
     cudnnCreateFilterDescriptor(ptr)
     sz = Cint[reverse(dims)...]
     cudnnSetFilterNdDescriptor(ptr[1], DT[T], format, N, sz)
-    fd = FD(ptr[1])
+    fd = _FD(ptr[1])
     finalizer(x->cudnnDestroyFilterDescriptor(x.ptr), fd)
     return fd
 end
