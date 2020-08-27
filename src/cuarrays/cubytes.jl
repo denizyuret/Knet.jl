@@ -44,7 +44,7 @@ function _cuarrays(@nospecialize(x), c::Vector{CuArray}, d::IdDict{Any,Bool})
     if T.mutable
         d[x] = true
     end
-    if T === CuArray
+    if T <: CuArray
         push!(c, x)
     end
     for i in 1:nf

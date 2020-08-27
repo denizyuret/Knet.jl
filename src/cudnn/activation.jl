@@ -40,10 +40,8 @@ function activationBackward(x::R,y::R,dy::R; alpha=1, o...) where {T,R<:DevArray
 end
 
 
-"cudnnActivationDescriptor"
-mutable struct _AD; ptr; end
-unsafe_convert(::Type{<:Ptr}, ad::_AD)=ad.ptr
-
+mutable struct ActivationDescriptor; ptr; end
+unsafe_convert(::Type{<:Ptr}, ad::ActivationDescriptor)=ad.ptr
 function AD(; # Defaults:
             mode::cudnnActivationMode_t=CUDNN_ACTIVATION_RELU,
             reluNanOpt::cudnnNanPropagation_t=CUDNN_NOT_PROPAGATE_NAN,
@@ -52,7 +50,7 @@ function AD(; # Defaults:
     ptr = cudnnActivationDescriptor_t[C_NULL]
     cudnnCreateActivationDescriptor(ptr)
     cudnnSetActivationDescriptor(ptr[1], mode, reluNanOpt, coef)
-    ad = _AD(ptr[1])
+    ad = ActivationDescriptor(ptr[1])
     finalizer(x->cudnnDestroyActivationDescriptor(x.ptr), ad)
     return ad
 end

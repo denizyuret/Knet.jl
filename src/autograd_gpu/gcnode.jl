@@ -1,4 +1,5 @@
-using CUDA: CuArray
+using CUDA: CuArray, unsafe_free!
+using Knet.CuArrays: cuarrays
 using AutoGrad: Result, Node, Tape
 
 # During the back pass we want to make pointers available as soon as we can to save memory
