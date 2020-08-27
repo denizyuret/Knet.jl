@@ -11,6 +11,6 @@ References:
 """
 struct Dropout; p; end
 
-function (l::Dropout)(x)
+function (l::Dropout)(x)        # TODO: how about seed and force args?
     dropout(x, l.p) # TODO: dropout normalization does not depend on masks?
 end

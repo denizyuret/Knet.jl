@@ -1,5 +1,6 @@
 export LayerNorm
 using Statistics
+using Knet.Train20: param
 
 # TODO: this is slow, need a kernel, maybe https://github.com/tensorflow/tensorflow/pull/6205/files
 # TODO: support other axes

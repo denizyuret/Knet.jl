@@ -1,66 +1,63 @@
 export Dense
-# TODO: rething param/Param and generally parameter initialization
+using Knet.Ops21: mmul
+using Knet: atype
+using AutoGrad: Param
 
 """
-    Dense(wsize::Integer...; bias=true, activation=nothing, dims=1)
-    Dense(weights, bias=nothing; activation=nothing, dims=1)
+    Dense(wsize::Integer...; f, dims, dropout, atype, init, binit)
+    Dense(weights, bias=nothing; f, dims, dropout)
+    (d::Dense)(x)
 
-Generalizes matrix multiplication to possibly more than 2 dims with reshapes: `w(A...,B...)
-* x(B...,C...) => y(A...,C...)` where `wsize=(A...,B...)` and `dims=length(B)`. The last
-`dims` dimensions of `w` has to match the first `dims` dimensions of `x`. Optionally a bias
-of size `(A...)` is added and an elementwise activation function is applied to the
-result. The size of bias has to match the first `ndims(w)-dims` dimensions of `w`. If bias
-or activation are `nothing`, they are skipped.
+Generalizes matrix multiplication to possibly more than 2 dims with reshapes: 
+
+    w(M...,N...) * x(N...,K...) => y(M...,K...)
+
+where `wsize=size(weights)=(M...,N...)` and `dims=length(N)`. Optionally dropout is applied
+to the input and a bias of size `(M...)` is added and an elementwise activation function `f`
+is applied to the output. The last `dims` dimensions of `w` has to match the first `dims`
+dimensions of `x` and the size of bias (if there is one) has to match the first
+`ndims(w)-dims` dimensions of `w`.
+
+Keyword arguments:
+* `f=nothing`: apply activation function to output if not nothing
+* `dims=1`: number of input dimensions in the weight tensor
+* `dropout=0`: apply dropout with this probability to input if non-zero
+* `atype=Knet.atype()`: array and element type for parameter initialization
+* `init=𝑼(√(6/(fanin+fanout)))`: initialization function for weights
+* `binit=zeros`: initialization function for bias, if `nothing` do not use bias
 
 References:
 * torch.nn.Linear
 * tf.keras.layers.Dense
 """
-struct Dense; w; b; f; dims; wsize; end
+struct Dense; w; b; f; dims; dropout; end
 
-# Store 2-D weights and 1-D bias to avoid reshapes at runtime, keep layer shape in wsize, dims
-
-function Dense(weights, bias=nothing; activation=nothing, dims=1)
-    @assert dims <= ndims(weights)
-    wsize = size(weights)
-    w2 = Param(reshape(weights, prod(wsize[1:end-dims]), prod(wsize[end-dims+1:end])))
-    if bias === nothing
-        b1 = nothing
-    else
-        @assert size(bias) === wsize[1:end-dims]
-        b1 = Param(vec(bias))
-    end
-    Dense(w2, b1, activation, dims, wsize)
+function Dense(weights, bias=nothing; f=nothing, dims=1, dropout=0)
+    @assert ndims(weights) > dims "ndims(weights) must be > dims"
+    @assert bias === nothing || size(bias) === size(weights)[1:end-dims] "weights and bias do not match"
+    w = (weights isa Param ? weights : Param(weights))
+    b = (bias isa Nothing || bias isa Param ? bias : Param(bias))
+    Dense(w, b, f, dims, dropout)
 end
 
-function Dense(wsize::Integer...; bias=true, activation=nothing, dims=1)
-    @assert dims <= length(wsize)
-    w2 = param(prod(wsize[1:end-dims]), prod(wsize[end-dims+1:end]))
-    b1 = bias ? param0(prod(wsize[1:end-dims])) : nothing
-    Dense(w2, b1, activation, dims, wsize)
+function Dense(wsize::Integer...; f=nothing, dims=1, dropout=0, atype=atype(), binit=zeros,
+               init=𝑼(√(6/(densein(wsize,dims)+denseout(wsize,dims)))))
+    @assert length(wsize) > dims "ndims(weights) must be > dims"
+    w = Param(convert(atype,init(wsize...)))
+    b = binit isa Nothing ? nothing : Param(convert(atype,binit(wsize[1:end-dims]...)))
+    Dense(w, b, f, dims, dropout)
 end
-
-# Do not reshape w/x/y unnecessarily, assume trailing dims of x are 1.
 
 function (l::Dense)(x)
-    if length(l.wsize) > 2 || ndims(x) > 2 || l.dims > 1
-        @assert ntuple(i->size(x,i), l.dims) === l.wsize[end-l.dims+1:end]
-        x2 = (size(x,1) === size(l.w,2) && ndims(x) <= 2 ? x : reshape(x, size(l.w,2), :))
-        y = l.w * x2
-        if l.b !== nothing; y = y .+ l.b; end
-        if l.f !== nothing; y = l.f.(y); end
-        ysize1 = (l.dims === length(l.wsize) ? (1,) : l.wsize[1:end-l.dims])
-        ysize2 = (l.dims >= ndims(x) ? () : size(x)[l.dims+1:end])
-        ysize = (ysize1..., ysize2...)
-        y = (size(y) === ysize ? y : reshape(y, ysize))
-    else # handle common matmul case without reshapes
-        @assert size(x,1) === size(l.w,2)
-        y = l.w * x
-        if l.b !== nothing; y = y .+ l.b; end
-        if l.f !== nothing; y = l.f.(y); end
-    end
+    if l.dropout != 0; x = dropout(x, l.dropout); end
+    y = mmul(l.w, x)
+    if l.b !== nothing; y = y .+ l.b; end
+    if l.f !== nothing; y = l.f.(y); end
     return y
 end
+
+densein(w,d)=prod(w[end-d+1:end])
+denseout(w,d)=prod(w[1:end-d])
 
 # function (l::Dense)(x::MaskedArray)
 #     (a,m) = (x.array, x.mask)

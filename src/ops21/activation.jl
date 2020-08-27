@@ -1,8 +1,12 @@
-export gelu                     # new in Ops21
-export elu, relu, selu, sigm    # from Ops20
-using Knet.Ops20: elu, relu, selu, sigm
+export elu, gelu, relu, selu, sigm
+import Knet.Ops20
 using AutoGrad: AutoGrad, @primitive
+using SpecialFunctions: erf
 
+const elu  = Ops20.elu
+const relu = Ops20.relu
+const selu = Ops20.selu
+const sigm = Ops20.sigm
 
 """
     gelu(x)

@@ -1,5 +1,6 @@
-export param, param0, array_type, atype
+export param, param0
 using AutoGrad: Param
+using Knet: atype
 
 """
     param(array; atype)
@@ -18,11 +19,6 @@ By default, `init` is `xavier_uniform` and `atype` is `Knet.atype()`.
 param,param0
 
 # TODO: Knet.Param <: AutoGrad.Tracked as a separate type?
-param(x::AbstractArray; atype=array_type[]) = Param(convert(atype,x))
-param(d...; init=xavier_uniform, atype=array_type[])=Param(atype(init(d...)))
-param0(d...; atype=array_type[])=param(d...; init=zeros, atype=atype)
-
-"Default array type used by `param`, `param0`" # TODO: and `minibatch`?
-const array_type = Ref{Type}(Array{Float32})
-atype() = array_type[]
-atype(x) = convert(atype(),x)
+param(x::AbstractArray; atype=atype()) = Param(convert(atype,x))
+param(d...; init=xavier_uniform, atype=atype())=Param(atype(init(d...)))
+param0(d...; atype=atype())=param(d...; init=zeros, atype=atype)

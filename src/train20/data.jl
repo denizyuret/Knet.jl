@@ -1,8 +1,9 @@
-export minibatch, Data, array_type
+export minibatch, Data
 import Base: iterate, eltype, length, rand, repeat, summary, show
 using Base.Iterators: Cycle
 using Base: @propagate_inbounds, tail
 using Random: randperm
+using Knet: atype
 
 "Iterator of minibatches (x,y pairs) returned by `minibatch`."
 mutable struct Data{T}; x; y; batchsize; length; partial; imax; indices; shuffle; xsize; ysize; xtype; ytype; end
@@ -33,8 +34,8 @@ minibatch
 
 function minibatch(x,y,batchsize; shuffle=false,partial=false,xsize=size(x),ysize=size(y),
                    # default xtype, ytype should be robust to ndims change:
-                   xtype = (typeof(x).name.wrapper){eltype(x),length(xsize)},
-                   ytype = (typeof(y).name.wrapper){eltype(y),length(ysize)})
+                   xtype = (eltype(x) isa AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}),
+                   ytype = (eltype(y) isa AbstractFloat ? atype() : (typeof(y).name.wrapper){eltype(y)}))
     nx = size(x)[end]
     if nx != size(y)[end]; throw(DimensionMismatch()); end
     x2 = reshape(x, :, nx)
@@ -44,7 +45,7 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xsize=size(x),ysiz
 end
 
 function minibatch(x,batchsize; shuffle=false,partial=false,xsize=size(x),
-                   xtype = (typeof(x).name.wrapper){eltype(x),length(xsize)})
+                   xtype = (eltype(x) isa AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}))
     nx = size(x)[end]
     x2 = reshape(x, :, nx)
     imax = partial ? nx : nx - batchsize + 1
