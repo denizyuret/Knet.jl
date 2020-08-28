@@ -1,6 +1,7 @@
 export RNN, rnninit, rnnforw, rnnparam, rnnparams # TODO: we shouldn't export structs like RNN from ops
 import Base: show
 using AutoGrad: Param, value # TODO: ops should not use Param
+using Knet: atype
 
 """
     rnn = RNN(inputSize, hiddenSize; opts...)
@@ -61,7 +62,7 @@ for an example.
 - `winit=xavier`: Weight initialization method for matrices.
 - `binit=zeros`: Weight initialization method for bias vectors.
 - `finit=ones`: Weight initialization method for the bias of forget gates.
-- `atype=Knet.array_type[]`: array type for model weights.
+- `atype=Knet.atype()`: array type for model weights.
 
 **Formulas:** RNNs compute the output h[t] for a given iteration from the recurrent input
 h[t-1] and the previous layer input x[t] given matrices W, R and biases bW, bR from the
@@ -119,7 +120,7 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
              finit=ones,          # forget bias for lstm
              algo=0,              # CUDNN_RNN_ALGO_STANDARD = 0, CUDNN_RNN_ALGO_PERSIST_STATIC = 1, CUDNN_RNN_ALGO_PERSIST_DYNAMIC = 2
              seed=0,              # seed=0 for random init, positive integer for replicability
-             atype=Array{Float32},
+             atype=atype(),
              # deprecated
              dataType=nothing,    # CUDNN_DATA_FLOAT  = 0, CUDNN_DATA_DOUBLE = 1, CUDNN_DATA_HALF   = 2
              usegpu=nothing,
@@ -171,6 +172,8 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
             end
         end
     end
+    # get rid of dimension keeping array/element type in case someone hands us atype=typeof(x)=KnetArray{Float32,2}
+    if atype isa DataType; atype = (atype.name.wrapper){dataType}; end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once here.
     r.w = convert(atype, r.w)
     r.w = Param(r.w)

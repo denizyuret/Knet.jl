@@ -131,8 +131,8 @@ end
     end    
 
     function rnntest(;ndims=1, batchSizes=nothing, o...)
-        r = RNN(4,4;o...) # need H==X for skipInput test
         x = testparam(4:(4+ndims-1)...)
+        r = RNN(4,4;atype=typeof(value(x)),o...) # need H==X for skipInput test
         @gcheck r(x; batchSizes=batchSizes)
     end
 

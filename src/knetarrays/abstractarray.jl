@@ -1,4 +1,4 @@
-import Base: IndexStyle, eachindex, eltype, fill!, first, isempty, iterate, lastindex, length, ndims, ones, similar, size, stride, strides, zero
+import Base: IndexStyle, eachindex, eltype, fill!, first, isempty, iterate, lastindex, length, ndims, ones, similar, size, sizeof, stride, strides, zero
 using AutoGrad: AutoGrad, @primitive1, ungetindex
 using Base: to_shape, DimOrInd
 
@@ -29,6 +29,7 @@ similar(a::KnetArray, ::Type{T}, dims::Dims{N}) where {T,N}    = KnetArray{T,N}(
 
 size(a::KnetArray)=a.dims
 size(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; 1; else; size(a)[i]; end)
+sizeof(a::KnetArray{T}) where {T} = length(a) * sizeof(T)
 stride(a::KnetArray{T,N},i::Integer) where {T,N}=(if i>N; length(a); else; s=1; for n=1:(i-1); s*=size(a,n); end; s; end)
 strides(a::KnetArray{T,N}) where {T,N}=ntuple(n->stride(a,n), N)
 zero(a::KnetArray{T}) where {T}=fill!(similar(a),zero(T))

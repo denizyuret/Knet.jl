@@ -47,8 +47,8 @@ Here is a simple example where we define, train and test the
 using 15 lines of code and 10 seconds of GPU computation.
 
 ```julia
-# Install packages before first run: using Pkg; pkg"add Knet IterTools CodecZlib"
-using Knet, IterTools, CodecZlib
+# Install packages before first run: using Pkg; pkg"add Knet IterTools MLDatasets"
+using Knet, IterTools, MLDatasets
 
 # Define convolutional layer:
 struct Conv; w; b; end
@@ -66,13 +66,15 @@ struct Chain; layers; end
 (c::Chain)(x,y) = nll(c(x),y)
 
 # Load MNIST data:
-include(Knet.dir("data","mnist.jl"))
-dtrn, dtst = mnistdata()
+xtrn,ytrn = MNIST.traindata(Float32); ytrn[ytrn.==0] .= 10
+xtst,ytst = MNIST.testdata(Float32);  ytst[ytst.==0] .= 10
+dtrn = minibatch(xtrn, ytrn, 100; xsize = (28,28,1,:))
+dtst = minibatch(xtst, ytst, 100; xsize = (28,28,1,:))
 
 # Define and train LeNet (~10 secs on a GPU or ~3 mins on a CPU to reach ~99% accuracy)
 LeNet = Chain((Conv(5,5,1,20), Conv(5,5,20,50), Dense(800,500,f=relu), Dense(500,10)))
 progress!(adam(LeNet, ncycle(dtrn,3)))
-accuracy(LeNet,dtst)
+accuracy(LeNet,data=dtst)
 ```
 
 ## Contributing
@@ -81,24 +83,4 @@ Knet is an open-source project and we are always open to new contributions: bug 
 fixes, feature requests and contributions, new machine learning models and operators,
 inspiring examples, benchmarking results are all welcome. See [Tips for Developers](https://denizyuret.github.io/Knet.jl/latest/install/#Tips-for-developers) for instructions.
 
-Current contributors:
-
-  * Can Gümeli
-  * Carlo Lucibello
-  * Ekin Akyürek
-  * Ekrem Emre Yurdakul
-  * Emre Ünal
-  * Emre Yolcu
-  * Enis Berk
-  * Erenay Dayanık
-  * İlker Kesen
-  * Kai Xu
-  * Meriç Melike Softa
-  * Mike Innes
-  * Onur Kuru
-  * Ozan Arkan Can
-  * Ömer Kırnap
-  * Phuoc Nguyen
-  * Rene Donner
-  * Tim Besard
-  * Zhang Shiwei
+Contributors: Can Gümeli, Carlo Lucibello, Ekin Akyürek, Ekrem Emre Yurdakul, Emre Ünal, Emre Yolcu, Enis Berk, Erenay Dayanık, İlker Kesen, Kai Xu, Meriç Melike Softa, Mike Innes, Onur Kuru, Ozan Arkan Can, Ömer Kırnap, Phuoc Nguyen, Rene Donner, Tim Besard, Zhang Shiwei.

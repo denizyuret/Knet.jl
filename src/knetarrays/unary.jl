@@ -32,7 +32,13 @@ end
 
 for f in unary_ops
     if !isa(f,Tuple); f=(f,); end
-    f[1] ∈ ("elu","relu","selu","sigm") && continue
+    j = length(f) >= 2 ? f[2] : f[1]
+    ## Process non-Base functions in the appropriate submodule:
+    if !isdefined(@__MODULE__, Symbol(j))
+        # @warn "$j not defined in $(@__MODULE__), skipping."
+        # invx, elu, gelu, relu, selu, sigm
+        continue
+    end
     unary_op(f...)
 end
 
