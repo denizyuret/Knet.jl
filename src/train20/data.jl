@@ -34,8 +34,8 @@ minibatch
 
 function minibatch(x,y,batchsize; shuffle=false,partial=false,xsize=size(x),ysize=size(y),
                    # default xtype, ytype should be robust to ndims change:
-                   xtype = (eltype(x) isa AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}),
-                   ytype = (eltype(y) isa AbstractFloat ? atype() : (typeof(y).name.wrapper){eltype(y)}))
+                   xtype = (eltype(x) <: AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}),
+                   ytype = (eltype(y) <: AbstractFloat ? atype() : (typeof(y).name.wrapper){eltype(y)}))
     nx = size(x)[end]
     if nx != size(y)[end]; throw(DimensionMismatch()); end
     x2 = reshape(x, :, nx)
@@ -45,7 +45,7 @@ function minibatch(x,y,batchsize; shuffle=false,partial=false,xsize=size(x),ysiz
 end
 
 function minibatch(x,batchsize; shuffle=false,partial=false,xsize=size(x),
-                   xtype = (eltype(x) isa AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}))
+                   xtype = (eltype(x) <: AbstractFloat ? atype() : (typeof(x).name.wrapper){eltype(x)}))
     nx = size(x)[end]
     x2 = reshape(x, :, nx)
     imax = partial ? nx : nx - batchsize + 1
