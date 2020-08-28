@@ -1,7 +1,9 @@
 using Test, SpecialFunctions
 using Knet.Ops20: reluback, sigmback, eluback, seluback, relu, sigm, elu, selu
+using Knet.Ops20_gpu: tanhback
+using Knet.Ops21: gelu, geluback
 using Knet.LibKnet8: unary_ops
-using Knet.KnetArrays: KnetArray, tanhback
+using Knet.KnetArrays: KnetArray
 using AutoGrad: gradcheck, grad, @gcheck, Param
 using CUDA: CUDA, functional
 
@@ -72,6 +74,7 @@ using CUDA: CUDA, functional
         @test @gcheck tanhback.(dy,y)
         @test @gcheck seluback.(dy,y)
         @test @gcheck  eluback.(dy,y)
+        @test @gcheck geluback.(dy,y)
     end
 end
 
