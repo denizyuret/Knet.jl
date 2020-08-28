@@ -173,6 +173,7 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
         end
     end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once here.
+    atype = (atype.name.wrapper){dataType} # get rid of dimension
     r.w = convert(atype, r.w)
     r.w = Param(r.w)
     return r

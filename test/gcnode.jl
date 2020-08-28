@@ -8,8 +8,6 @@ using Knet.Ops20: RNN
 if CUDA.functional(); @testset "gcnode" begin
 
     # 506: knetgcnode garbage collects rnn fields
-    save_gcnode = AutoGrad.gcnode
-    set_gc_function(knetgcnode)
     M1 = RNN(2,3; atype=KnetArray{Float32})
     M1.h = M1.c = 0
     M1.dx = M1.dhx = M1.dcx = nothing
@@ -22,6 +20,5 @@ if CUDA.functional(); @testset "gcnode" begin
     @test pointer(M1.dx) != C_NULL
     @test pointer(M1.dhx) != C_NULL
     @test pointer(M1.dcx) != C_NULL
-    set_gc_function(save_gcnode)
 
 end; end

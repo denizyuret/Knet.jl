@@ -1,4 +1,4 @@
-using Knet.KnetArrays: KnetPtr, KnetArray, freeKnetPtr
+using Knet.KnetArrays: KnetPtr, KnetArray, freeKnetPtr, cuallocator
 using AutoGrad: Result, Node, Tape
 
 # During the back pass we want to make pointers available as soon as we can to save memory
@@ -50,6 +50,7 @@ function knetgcinit(tape::Tape)  ## 2.35ms
 end
 
 function knetgcnode(n::Node, tape::Tape)  ## 16.3μs
+    # cuallocator[] && return gcnode(n,tape) ## this works with both allocators
     global _tape, _index, _queue
     tape !== _tape.value && knetgcinit(tape) ## 2μs amortized
     tape isa Tape || return

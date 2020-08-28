@@ -1,5 +1,7 @@
 using CUDA: CuArray, unsafe_free!
+# Most of the time is spent in cuarrays
 using Knet.CuArrays: cuarrays
+using Knet.KnetArrays: cuallocator
 using AutoGrad: Result, Node, Tape
 
 # During the back pass we want to make pointers available as soon as we can to save memory
@@ -16,61 +18,77 @@ using AutoGrad: Result, Node, Tape
 
 # The gcnode_queue maps CuArrays to the first index on tape they have a reference to. We use
 # Base.Order.Reverse because we want to free the pointers with highest indices first.
-# Using WeakRef to allow garbage collection.
-const gcnode_queue = PriorityQueue{WeakRef,Int}(Base.Order.Reverse)
+# Using ObjectId to allow fast hashing, CuArrays are hashed slow like Arrays.
+const gcnode_queue = PriorityQueue{UInt,Int}(Base.Order.Reverse)
     
+# To call unsafe_free we need to find which CuArray belongs to an objectid.
+# Using WeakRef on CuArray values for to allow garbage collection
+const gcnode_dict = Dict{UInt,WeakRef}()
+
+# We use node indices on the tape to use as values in the priority queue
+# Using ObjectId(::Node) for keys just in case
+const gcnode_index = Dict{UInt,Int}()
+
+# Reset everything if Tape changes:
+gcnode_tape = WeakRef(nothing)
+
 # During the backward step parents of a node (who have lower indices) may have their
 # outgrads modified, thus new CuArray references may appear. We want to keep the smallest
 # index for each CuArray. 
-function gcnode_minidx!(q::PriorityQueue{WeakRef,Int,typeof(Base.Order.Reverse)},k::CuArray,v::Int)
-    if v < get(q,k,typemax(Int)); q[WeakRef(k)]=v; end  ## 0.190μs
+function gcnode_setindex!(c::CuArray,v::Int)
+    cid = objectid(c)
+    get!(gcnode_dict, cid) do; WeakRef(c); end
+    if v < get(gcnode_queue,cid,typemax(Int))
+        gcnode_queue[cid] = v
+    end
 end
 
-const gcnode_index = WeakKeyDict{Node,Int}()
-gcnode_tape = WeakRef(nothing)
-
-function gcnode_init(tape::Tape)  ## 2.35ms
-    global gcnode_tape, gcnode_index, gcnode_queue
-    gcnode_tape = WeakRef(tape)
+function gcnode_init(tape::Tape)
+    global gcnode_tape = WeakRef(tape)
     empty!(gcnode_index)
     empty!(gcnode_queue)
+    empty!(gcnode_dict)
     tape isa Tape || return
     @inbounds for (i,n) in enumerate(tape.list)
-        gcnode_index[n] = i
+        gcnode_index[objectid(n)] = i
         if n.Value isa Result
-            for k in cuarrays(n.Value.value); gcnode_queue[WeakRef(k)] = 0; end # pointers with index 0 will never get gc'ed
-            for k in cuarrays(n.outgrad);  get!(gcnode_queue,WeakRef(k),i); end # this only sets gcnode_queue[k] if it does not have a value
+            for c in cuarrays(n.Value.value); gcnode_setindex!(c,0); end # pointers with index 0 will never get gc'ed
+            for c in cuarrays(n.outgrad);     gcnode_setindex!(c,i); end # this only sets gcnode_queue[c] if it was not seen
         else # n.Value isa Param
-            for k in cuarrays(n.Value.value); gcnode_queue[WeakRef(k)] = 0; end
-            for k in cuarrays(n.outgrad);     gcnode_queue[WeakRef(k)] = 0; end
+            for c in cuarrays(n.Value.value); gcnode_setindex!(c,0); end
+            for c in cuarrays(n.outgrad);     gcnode_setindex!(c,0); end
         end
     end
 end
 
 function gcnode(n::Node, tape::Tape)  ## 16.3μs
-    global gcnode_tape, gcnode_index, gcnode_queue
-    tape !== gcnode_tape.value && gcnode_init(tape) ## 2μs amortized
+    cuallocator[] || return knetgcnode(n,tape)
+    if tape !== gcnode_tape.value
+        gcnode_init(tape)
+    end
     tape isa Tape || return
-    ni = gcnode_index[n]
+    ni = gcnode_index[objectid(n)]
     if n.Value isa Result # && n.outgrad isa KnetArray
-        for ptr in cuarrays(n.outgrad); gcnode_minidx!(gcnode_queue, ptr, ni); end
+        for c in cuarrays(n.outgrad); gcnode_setindex!(c, ni); end
     end
     @inbounds for i in 1:length(n.parents);  ## 2.43μs
         isassigned(n.parents, i) || continue
         parent = n.parents[i]
         if parent.Value isa Result
-            pi = gcnode_index[parent]
-            for ptr in cuarrays(parent.outgrad); gcnode_minidx!(gcnode_queue, ptr, pi); end
+            pi = gcnode_index[objectid(parent)]
+            for c in cuarrays(parent.outgrad); gcnode_setindex!(c, pi); end
         else
-            for ptr in cuarrays(parent.outgrad); gcnode_queue[WeakRef(ptr)] = 0; end # protect Params
+            for c in cuarrays(parent.outgrad); gcnode_setindex!(c,0); end # protect Params
         end
     end
     while !isempty(gcnode_queue) && peek(gcnode_queue)[2] >= ni  ## 5.62μs
-        (k,v) = dequeue_pair!(gcnode_queue)  ## 0.787μs
-        k = k.value
-        if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
-        #DBG verifypointer(tape, ni, k) 
-        unsafe_free!(k)  ## 4.06μs
+        (cid,v) = dequeue_pair!(gcnode_queue)  ## 0.787μs
+        c = gcnode_dict[cid].value
+        if v == ni
+            unsafe_free!(c)  ## 4.06μs
+        else
+            @warn("gcnode error: c=$(summary(c)) v=$v ni=$ni", maxlog=1)  ## 0.160μs
+        end
     end
     if n.Value isa Result
         n.Value, n.outgrad = gcnode_null, nothing
@@ -78,3 +96,6 @@ function gcnode(n::Node, tape::Tape)  ## 16.3μs
 end
 
 const gcnode_null = Result{Nothing}(nothing,nothing,nothing,nothing)
+
+
+
