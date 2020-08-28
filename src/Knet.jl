@@ -29,8 +29,10 @@ function __init__()
         end
         Knet.array_type[] = Knet.KnetArrays.KnetArray{Float32}
         AutoGrad.set_gc_function(Knet.KnetArrays.cuallocator[] ? Knet.AutoGrad_gpu.gcnode : Knet.AutoGrad_gpu.knetgcnode)
-        mem(d) = (CUDA.device!(d); m = CUDA.available_memory(); CUDA.device_reset!(); m)
-        CUDA.device!(argmax(Dict(d=>mem(d) for d in CUDA.devices())))
+        if CUDA.has_nvml() # Pick the device with highest memory
+            mem(d) = CUDA.NVML.memory_info(CUDA.NVML.Device(CUDA.uuid(d))).free
+            CUDA.device!(argmax(Dict(d=>mem(d) for d in CUDA.devices())))
+        end
     end
 end
 
