@@ -172,8 +172,9 @@ function RNN(inputSize, hiddenSize; h=nothing, c=nothing,
             end
         end
     end
+    # get rid of dimension keeping array/element type in case someone hands us atype=typeof(x)=KnetArray{Float32,2}
+    if atype isa DataType; atype = (atype.name.wrapper){dataType}; end
     # many copyto! ops to gpu is expensive (~20s), so we init on cpu and copy it over once here.
-    atype = (atype.name.wrapper){dataType} # get rid of dimension
     r.w = convert(atype, r.w)
     r.w = Param(r.w)
     return r
