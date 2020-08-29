@@ -1,5 +1,14 @@
+Knet v1.4.1 Release Notes
+=========================
+b720020 2020-08-28
+
+* Fixed gcnode issue #606.
+* Use NVML when selecting GPU.
+
+
 Knet v1.4.0 Release Notes
 =========================
+2754cd6 2020-08-19
 
 * Major refactoring of code without effecting the API (hopefully).
 * CuArray support added to all ops, implemented gcnode, tested on examples and tutorial.

@@ -1,80 +1,95 @@
-export TD, FD
+import CUDA
 import Base: unsafe_convert
-using Base: size_to_strides
-using Knet.KnetArrays: DevArray
-using AutoGrad: Value
 
-using CUDA.CUDNN: handle,
+using CUDA.CUDNN: 
     cudnnTensorDescriptor_t,
-    cudnnCreateTensorDescriptor,
-    cudnnSetTensor4dDescriptor,
-    cudnnSetTensor4dDescriptorEx,
-    cudnnGetTensor4dDescriptor,
-    cudnnSetTensorNdDescriptor,
-    cudnnSetTensorNdDescriptorEx,
-    cudnnGetTensorNdDescriptor,
-    cudnnGetTensorSizeInBytes,
-    cudnnDestroyTensorDescriptor,
-
+        cudnnCreateTensorDescriptor,
+        cudnnSetTensor4dDescriptor,
+        cudnnSetTensor4dDescriptorEx,
+        cudnnGetTensor4dDescriptor,
+        cudnnSetTensorNdDescriptor,
+        cudnnSetTensorNdDescriptorEx,
+        cudnnGetTensorNdDescriptor,
+        cudnnGetTensorSizeInBytes,
+        cudnnDestroyTensorDescriptor,
+        CUDNN_DIM_MAX,
     cudnnFilterDescriptor_t,
-    cudnnCreateFilterDescriptor,
-    cudnnSetFilter4dDescriptor,
-    cudnnGetFilter4dDescriptor,
-    cudnnSetFilterNdDescriptor,
-    cudnnGetFilterNdDescriptor,
-    cudnnGetFilterSizeInBytes,
-    cudnnDestroyFilterDescriptor,
-
+        cudnnCreateFilterDescriptor,
+        cudnnSetFilter4dDescriptor,
+        cudnnGetFilter4dDescriptor,
+        cudnnSetFilterNdDescriptor,
+        cudnnGetFilterNdDescriptor,
+        cudnnGetFilterSizeInBytes,
+        cudnnDestroyFilterDescriptor,
     cudnnDataType_t,
-        CUDNN_DATA_FLOAT,
-        CUDNN_DATA_DOUBLE,
-        CUDNN_DATA_HALF,
-        CUDNN_DATA_INT8,
-        CUDNN_DATA_INT32,
-        CUDNN_DATA_INT8x4,
-        CUDNN_DATA_UINT8,
-        CUDNN_DATA_UINT8x4,
-        CUDNN_DATA_INT8x32,
-
+        CUDNN_DATA_FLOAT,   # 0,
+        CUDNN_DATA_DOUBLE,  # 1,
+        CUDNN_DATA_HALF,    # 2,
+        CUDNN_DATA_INT8,    # 3,
+        CUDNN_DATA_INT32,   # 4,
+        CUDNN_DATA_INT8x4,  # 5,
+        CUDNN_DATA_UINT8,   # 6,
+        CUDNN_DATA_UINT8x4, # 7,
+        CUDNN_DATA_INT8x32, # 8,
     cudnnTensorFormat_t,
-        CUDNN_TENSOR_NCHW,
-        CUDNN_TENSOR_NHWC,
-        CUDNN_TENSOR_NCHW_VECT_C
+        CUDNN_TENSOR_NCHW,        # 0, /* row major (wStride = 1, hStride = w) */
+        CUDNN_TENSOR_NHWC,        # 1, /* feature maps interleaved ( cStride = 1 )*/
+        CUDNN_TENSOR_NCHW_VECT_C, # 2, /* each image point is vector of element of C, vector length in data type */
+    handle
 
 
-# cudnn tensor/filter descriptors: need to use mutable structs in order to have finalizers.
+mutable struct cudnnTensorDescriptor; ptr::cudnnTensorDescriptor_t; end # Has to be mutable to have a finalizer
+const cudnnTensorDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnTensorDescriptor}() # Dict is 3x faster than IdDict!
+unsafe_convert(::Type{<:Ptr}, td::cudnnTensorDescriptor)=td.ptr # needed for ccalls
+cudnnTensorDescriptor(a) = cudnnTensorDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
+const TD = cudnnTensorDescriptor  # short alias
 
-mutable struct TensorDescriptor; ptr::cudnnTensorDescriptor_t; end
-unsafe_convert(::Type{<:Ptr}, td::TensorDescriptor)=td.ptr
-TD(a) = TD(eltype(a),size(a))
-function TD(T::Type, dims::Dims{N}) where {N}
-    ptr = cudnnTensorDescriptor_t[C_NULL]
-    cudnnCreateTensorDescriptor(ptr)
-    sz = Cint[reverse(dims)...]
-    st = Cint[reverse(size_to_strides(1,dims...))...]
-    cudnnSetTensorNdDescriptor(ptr[1], DT(T), N, sz, st)
-    td = TensorDescriptor(ptr[1])
-    finalizer(x->cudnnDestroyTensorDescriptor(x.ptr), td)
-    return td
+function cudnnTensorDescriptor(T::Type, size::Dims{N}, format::cudnnTensorFormat_t) where N
+    get!(cudnnTensorDescriptorCache,(T,size,format)) do
+        @assert N <= CUDNN_DIM_MAX
+        if N < 3; size = pad3(size); end
+        ptr = cudnnTensorDescriptor_t[C_NULL]
+        cudnnCreateTensorDescriptor(ptr)
+        sz = Cint[reverse(size)...]
+        cudnnSetTensorNdDescriptorEx(ptr[1], format, DT(T), length(sz), sz)
+        td = cudnnTensorDescriptor(ptr[1])
+        finalizer(x->cudnnDestroyTensorDescriptor(x.ptr), td)
+        return td
+    end
+end
+
+mutable struct cudnnFilterDescriptor; ptr::cudnnFilterDescriptor_t; end
+const cudnnFilterDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnFilterDescriptor}()
+unsafe_convert(::Type{<:Ptr}, fd::cudnnFilterDescriptor)=fd.ptr
+cudnnFilterDescriptor(a) = cudnnFilterDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
+const FD = cudnnFilterDescriptor
+
+function cudnnFilterDescriptor(T::Type, size::Dims{N}, format::cudnnTensorFormat_t) where N
+    get!(cudnnFilterDescriptorCache, (T, size, format)) do
+        @assert N <= CUDNN_DIM_MAX
+        if N < 3; size = pad3(size); end
+        ptr = cudnnFilterDescriptor_t[C_NULL]
+        cudnnCreateFilterDescriptor(ptr)
+        sz = Cint[reverse(size)...]
+        cudnnSetFilterNdDescriptor(ptr[1], DT(T), format, length(sz), sz)
+        fd = cudnnFilterDescriptor(ptr[1])
+        finalizer(x->cudnnDestroyFilterDescriptor(x.ptr), fd)
+        return fd
+    end
 end
 
 
-mutable struct FilterDescriptor; ptr::cudnnFilterDescriptor_t; end
-unsafe_convert(::Type{<:Ptr}, fd::FilterDescriptor)=fd.ptr
-FD(a) = FD(eltype(a),size(a),CUDNN_TENSOR_NCHW)
-function FD(T::Type, dims::Dims{N},format::cudnnTensorFormat_t) where N
-    ptr = cudnnFilterDescriptor_t[C_NULL]
-    cudnnCreateFilterDescriptor(ptr)
-    sz = Cint[reverse(dims)...]
-    cudnnSetFilterNdDescriptor(ptr[1], DT(T), format, N, sz)
-    fd = FilterDescriptor(ptr[1])
-    finalizer(x->cudnnDestroyFilterDescriptor(x.ptr), fd)
-    return fd
-end
+# From cuDNN docs: Due to historical reasons, the minimum number of dimensions in the filter
+# descriptor is three, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h = 8).
+pad3(s::Dims{0})=(1,1,1)
+pad3(s::Dims{1})=(1,1,s...)
+pad3(s::Dims{2})=(1,s...)
 
 
-DT(::Type{T}) where T = get(DataTypes, T) do; error("CUDNN does not support $T"); end
-DataTypes = Dict{Type,cudnnDataType_t}(
+cudnnDataType(::Type{T}) where T = get(cudnnDataTypeCache, T) do; error("CUDNN does not support $T"); end
+const DT = cudnnDataType
+
+const cudnnDataTypeCache = Dict{DataType,cudnnDataType_t}(
     Float32 => CUDNN_DATA_FLOAT,
     Float64 => CUDNN_DATA_DOUBLE,
     Float16 => CUDNN_DATA_HALF,
@@ -87,4 +102,18 @@ DataTypes = Dict{Type,cudnnDataType_t}(
     # CUDNN_DATA_INT8x32,
 )
 
-nothing
+
+"Repeat low level cudnn calls that fail due to memory issues"
+macro retry(ex)
+    @assert Meta.isexpr(ex, :call)
+    @assert ex.args[1] isa Symbol
+    unsafe_ex = Expr(:call, Meta.parse("CUDA.CUDNN.unsafe_$(ex.args[1])"), ex.args[2:end]...)
+    quote
+        res = CUDA.CUDNN.@retry_reclaim x->(x ∈ (CUDA.CUDNN.CUDNN_STATUS_ALLOC_FAILED, CUDA.CUDNN.CUDNN_STATUS_EXECUTION_FAILED)) begin
+            $unsafe_ex
+        end 
+        if res != CUDA.CUDNN.CUDNN_STATUS_SUCCESS
+            CUDA.CUDNN.throw_api_error(res)
+        end
+    end |> esc
+end
