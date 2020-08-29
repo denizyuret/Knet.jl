@@ -35,19 +35,26 @@ using CUDA.CUDNN:
         CUDNN_TENSOR_NCHW,        # 0, /* row major (wStride = 1, hStride = w) */
         CUDNN_TENSOR_NHWC,        # 1, /* feature maps interleaved ( cStride = 1 )*/
         CUDNN_TENSOR_NCHW_VECT_C, # 2, /* each image point is vector of element of C, vector length in data type */
+    cudnnNanPropagation_t,
+        CUDNN_NOT_PROPAGATE_NAN, # 0,
+        CUDNN_PROPAGATE_NAN,     # 1,
     handle
 
 
 mutable struct cudnnTensorDescriptor; ptr::cudnnTensorDescriptor_t; end # Has to be mutable to have a finalizer
+
 const cudnnTensorDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnTensorDescriptor}() # Dict is 3x faster than IdDict!
+
 unsafe_convert(::Type{<:Ptr}, td::cudnnTensorDescriptor)=td.ptr # needed for ccalls
+
 cudnnTensorDescriptor(a) = cudnnTensorDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
+
 const TD = cudnnTensorDescriptor  # short alias
 
-function cudnnTensorDescriptor(T::Type, size::Dims{N}, format::cudnnTensorFormat_t) where N
+function cudnnTensorDescriptor(T::DataType, size::Dims{N}, format::cudnnTensorFormat_t) where N
     get!(cudnnTensorDescriptorCache,(T,size,format)) do
         @assert N <= CUDNN_DIM_MAX
-        if N < 3; size = pad3(size); end
+        if N < 4; size = pad4(size); end
         ptr = cudnnTensorDescriptor_t[C_NULL]
         cudnnCreateTensorDescriptor(ptr)
         sz = Cint[reverse(size)...]
@@ -58,16 +65,21 @@ function cudnnTensorDescriptor(T::Type, size::Dims{N}, format::cudnnTensorFormat
     end
 end
 
+
 mutable struct cudnnFilterDescriptor; ptr::cudnnFilterDescriptor_t; end
+
 const cudnnFilterDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnFilterDescriptor}()
+
 unsafe_convert(::Type{<:Ptr}, fd::cudnnFilterDescriptor)=fd.ptr
+
 cudnnFilterDescriptor(a) = cudnnFilterDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
+
 const FD = cudnnFilterDescriptor
 
-function cudnnFilterDescriptor(T::Type, size::Dims{N}, format::cudnnTensorFormat_t) where N
+function cudnnFilterDescriptor(T::DataType, size::Dims{N}, format::cudnnTensorFormat_t) where N
     get!(cudnnFilterDescriptorCache, (T, size, format)) do
         @assert N <= CUDNN_DIM_MAX
-        if N < 3; size = pad3(size); end
+        if N < 4; size = pad4(size); end
         ptr = cudnnFilterDescriptor_t[C_NULL]
         cudnnCreateFilterDescriptor(ptr)
         sz = Cint[reverse(size)...]
@@ -80,13 +92,16 @@ end
 
 
 # From cuDNN docs: Due to historical reasons, the minimum number of dimensions in the filter
-# descriptor is three, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h = 8).
-pad3(s::Dims{0})=(1,1,1)
-pad3(s::Dims{1})=(1,1,s...)
-pad3(s::Dims{2})=(1,s...)
+# descriptor is three, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h =
+# 8). However many operations only support 4 and 5. So we will pad dims to 4. TODO: check if this is ok with rnn and attn
+pad4(s::Dims{0})=(1,1,1,1)
+pad4(s::Dims{1})=(1,1,1,s...)
+pad4(s::Dims{2})=(1,1,s...)
+pad4(s::Dims{3})=(1,s...)
 
 
 cudnnDataType(::Type{T}) where T = get(cudnnDataTypeCache, T) do; error("CUDNN does not support $T"); end
+
 const DT = cudnnDataType
 
 const cudnnDataTypeCache = Dict{DataType,cudnnDataType_t}(

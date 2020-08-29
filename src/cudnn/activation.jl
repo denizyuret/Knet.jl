@@ -18,9 +18,6 @@ using CUDA.CUDNN:
         CUDNN_ACTIVATION_CLIPPED_RELU,
         CUDNN_ACTIVATION_ELU,
         CUDNN_ACTIVATION_IDENTITY,
-    cudnnNanPropagation_t,
-        CUDNN_NOT_PROPAGATE_NAN,
-        CUDNN_PROPAGATE_NAN,
     handle
 
 

@@ -3,6 +3,9 @@
 include("common.jl")
 include("activation.jl")
 include("dropout.jl")
+include("inplace.jl")
+include("op.jl")
+include("reduce.jl")
 #include("multiheadattn.jl")
 
 #end
@@ -24,9 +27,9 @@ include("dropout.jl")
 # add8: cudnnRNNBackwardData_v8
 # add8: cudnnRNNBackwardWeights_v8
 # add8: cudnnRNNForward
-# cudnnActivationBackward
-# cudnnActivationForward
-# cudnnAddTensor
+# +cudnnActivationBackward
+# +cudnnActivationForward
+# +cudnnAddTensor
 # cudnnBatchNormalizationBackward
 # cudnnBatchNormalizationBackwardEx
 # cudnnBatchNormalizationForwardInference
@@ -79,26 +82,26 @@ include("dropout.jl")
 # cudnnMultiHeadAttnBackwardData
 # cudnnMultiHeadAttnBackwardWeights
 # cudnnMultiHeadAttnForward
-# cudnnOpTensor
+# +cudnnOpTensor
 # cudnnPoolingBackward
 # cudnnPoolingForward
 # cudnnQueryRuntimeError
-# cudnnReduceTensor
+# +cudnnReduceTensor
 # cudnnReorderFilterAndBias
 # cudnnRestoreDropoutDescriptor
-# cudnnScaleTensor
+# +cudnnScaleTensor
 # cudnnSetDropoutDescriptor
 # cudnnSetStream
-# cudnnSetTensor
+# +cudnnSetTensor
 # cudnnSoftmaxBackward
 # cudnnSoftmaxForward
 # cudnnSpatialTfGridGeneratorBackward
 # cudnnSpatialTfGridGeneratorForward
 # cudnnSpatialTfSamplerBackward
 # cudnnSpatialTfSamplerForward
-# cudnnTransformFilter
-# cudnnTransformTensor
-# cudnnTransformTensorEx
+# -cudnnTransformFilter
+# -cudnnTransformTensor
+# -cudnnTransformTensorEx
 # dep8: cudnnFindRNNBackwardDataAlgorithmEx
 # dep8: cudnnFindRNNBackwardWeightsAlgorithmEx
 # dep8: cudnnFindRNNForwardInferenceAlgorithmEx

@@ -5,11 +5,12 @@ functions. Here are some design choices:
 
 **Naming:** We try to keep the same function, argument, and type names from the cuDNN
 library in the high level interface. The wrappers for descriptors drop the `_t` suffix,
-e.g. `cudnnDropoutDescriptor_t => cudnnDropoutDescriptor`.
+e.g. `cudnnDropoutDescriptor_t => cudnnDropoutDescriptor`. In-place operations have an `!`
+suffix added: `cudnnSetTensor!`, `cudnnScaleTensor!`, `cudnnAddTensor!`.
 
 **Output arrays:** The cuDNN functions take pre-allocated output arrays. We will have an
-optional keyword argument for the output array so the user can provide one if they want to,
-but the function will allocate a new one if none provided.
+optional keyword argument `y` for the output array so the user can provide one if they want
+to, but the function will allocate a new one if none provided.
 
 **Array descriptors:** The cuDNN functions take tensor and filter descriptors along with
 pointers to their data. These descriptors are relatively fast to create (~500 ns) so they
