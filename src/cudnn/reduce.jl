@@ -37,13 +37,13 @@ mutable struct cudnnReduceTensorDescriptor; ptr::cudnnReduceTensorDescriptor_t; 
 
 unsafe_convert(::Type{<:Ptr}, rd::cudnnReduceTensorDescriptor)=rd.ptr
 
-const cudnnReduceTensorDescriptorCache = Dict{Tuple{cudnnReduceTensorOp_t,DataType,cudnnNanPropagation_t,cudnnReduceTensorIndices_t,cudnnIndicesType_t},cudnnReduceTensorDescriptor}()
+const cudnnReduceTensorDescriptorCache = Dict{Tuple,cudnnReduceTensorDescriptor}()
 
-function cudnnReduceTensorDescriptor(reduceTensorOp::cudnnReduceTensorOp_t, reduceTensorCompType::DataType, reduceTensorNanOpt::cudnnNanPropagation_t,reduceTensorIndices::cudnnReduceTensorIndices_t,reduceTensorIndicesType::cudnnIndicesType_t)
-    get!(cudnnReduceTensorDescriptorCache, (reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType)) do
+function cudnnReduceTensorDescriptor(args...)
+    get!(cudnnReduceTensorDescriptorCache, args) do
         ptr = cudnnReduceTensorDescriptor_t[C_NULL]
         cudnnCreateReduceTensorDescriptor(ptr)
-        cudnnSetReduceTensorDescriptor(ptr[1], reduceTensorOp, DT(reduceTensorCompType), reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType)
+        cudnnSetReduceTensorDescriptor(ptr[1], args...)
         rd = cudnnReduceTensorDescriptor(ptr[1])
         finalizer(x->cudnnDestroyReduceTensorDescriptor(x.ptr), rd)
         return rd
@@ -59,7 +59,7 @@ function cudnnReduceTensor(x::R;
                            reduceTensorNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
                            reduceTensorIndices::cudnnReduceTensorIndices_t = CUDNN_REDUCE_TENSOR_NO_INDICES,
                            reduceTensorIndicesType::cudnnIndicesType_t = CUDNN_32BIT_INDICES,
-                           reduceTensorDesc::cudnnReduceTensorDescriptor = cudnnReduceTensorDescriptor(reduceTensorOp,reduceTensorCompType,reduceTensorNanOpt,reduceTensorIndices,reduceTensorIndicesType),
+                           reduceTensorDesc::cudnnReduceTensorDescriptor = cudnnReduceTensorDescriptor(reduceTensorOp, DT(reduceTensorCompType), reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType),
                            alpha::Real = 1,
                            xDesc::cudnnTensorDescriptor = TD(x),
                            beta::Real = 0,

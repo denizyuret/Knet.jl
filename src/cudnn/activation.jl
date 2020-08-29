@@ -22,13 +22,16 @@ using CUDA.CUDNN:
 
 
 mutable struct cudnnActivationDescriptor; ptr::cudnnActivationDescriptor_t; end
+
 unsafe_convert(::Type{<:Ptr}, ad::cudnnActivationDescriptor)=ad.ptr
-const cudnnActivationDescriptorCache = Dict{Tuple{cudnnActivationMode_t,cudnnNanPropagation_t,Cdouble},cudnnActivationDescriptor}()
-function cudnnActivationDescriptor(mode::cudnnActivationMode_t, reluNanOpt::cudnnNanPropagation_t, coef::Real)
-    get!(cudnnActivationDescriptorCache, (mode, reluNanOpt, Cdouble(coef))) do
+
+const cudnnActivationDescriptorCache = Dict{Tuple,cudnnActivationDescriptor}()
+
+function cudnnActivationDescriptor(args...)
+    get!(cudnnActivationDescriptorCache, args) do
         ptr = cudnnActivationDescriptor_t[C_NULL]
         cudnnCreateActivationDescriptor(ptr)
-        cudnnSetActivationDescriptor(ptr[1], mode, reluNanOpt, Cdouble(coef))
+        cudnnSetActivationDescriptor(ptr[1], args...)
         ad = cudnnActivationDescriptor(ptr[1])
         finalizer(x->cudnnDestroyActivationDescriptor(x.ptr), ad)
         return ad
@@ -40,7 +43,7 @@ function cudnnActivationForward(x::R;
                                 mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,
                                 reluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
                                 coef::Real=1,
-                                activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, coef),
+                                activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, Cdouble(coef)),
                                 alpha::Real=1,
                                 xDesc::cudnnTensorDescriptor = TD(x),
                                 beta::Real=0,

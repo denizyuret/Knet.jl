@@ -23,13 +23,13 @@ mutable struct cudnnOpTensorDescriptor; ptr::cudnnOpTensorDescriptor_t; end
 
 unsafe_convert(::Type{<:Ptr}, od::cudnnOpTensorDescriptor)=od.ptr
 
-const cudnnOpTensorDescriptorCache = Dict{Tuple{cudnnOpTensorOp_t,DataType,cudnnNanPropagation_t},cudnnOpTensorDescriptor}()
+const cudnnOpTensorDescriptorCache = Dict{Tuple,cudnnOpTensorDescriptor}()
 
-function cudnnOpTensorDescriptor(opTensorOp::cudnnOpTensorOp_t, opTensorCompType::DataType, opTensorNanOpt::cudnnNanPropagation_t)
-    get!(cudnnOpTensorDescriptorCache, (opTensorOp, opTensorCompType, opTensorNanOpt)) do
+function cudnnOpTensorDescriptor(args...)
+    get!(cudnnOpTensorDescriptorCache, args) do
         ptr = cudnnOpTensorDescriptor_t[C_NULL]
         cudnnCreateOpTensorDescriptor(ptr)
-        cudnnSetOpTensorDescriptor(ptr[1], opTensorOp, DT(opTensorCompType), opTensorNanOpt)
+        cudnnSetOpTensorDescriptor(ptr[1], args...)
         od = cudnnOpTensorDescriptor(ptr[1])
         finalizer(x->cudnnDestroyOpTensorDescriptor(x.ptr), od)
         return od
@@ -43,7 +43,7 @@ function cudnnOpTensor(x1::R, x2::R;
                        opTensorOp::cudnnOpTensorOp_t = CUDNN_OP_TENSOR_ADD,
                        opTensorCompType::DataType = (T <: Float64 ? Float64 : Float32),
                        opTensorNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-                       opTensorDesc::cudnnOpTensorDescriptor = cudnnOpTensorDescriptor(opTensorOp, opTensorCompType, opTensorNanOpt),
+                       opTensorDesc::cudnnOpTensorDescriptor = cudnnOpTensorDescriptor(opTensorOp, DT(opTensorCompType), opTensorNanOpt),
                        alpha1::Real = 1,
                        x1Desc::cudnnTensorDescriptor = TD(x1),
                        alpha2::Real = 1,

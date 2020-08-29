@@ -29,8 +29,13 @@ cudnnDropoutSeed = Ref{Int}(-1)
 
 
 mutable struct cudnnDropoutDescriptor; ptr::cudnnDropoutDescriptor_t; end
+
 unsafe_convert(::Type{<:Ptr}, dd::cudnnDropoutDescriptor)=dd.ptr
+
 const cudnnDropoutDescriptorCache = Dict{Cfloat,cudnnDropoutDescriptor}()
+
+const DD = cudnnDropoutDescriptor
+
 function cudnnDropoutDescriptor(dropout::Real)
     get!(cudnnDropoutDescriptorCache, Cfloat(dropout)) do
         if !isassigned(cudnnDropoutState)
