@@ -90,9 +90,10 @@ end
                                  dropoutDesc::cudnnDropoutDescriptor = cudnnDropoutDescriptor(dropout),
                                  xDesc::cudnnTensorDescriptor = TD(x),
                                  yDesc::cudnnTensorDescriptor = xDesc,
+                                 y = similar(x),
                                  reserveSpace::DevArray = cudnnDropoutReserveSpace(xDesc)
-                                 ),dy,y),
-            cudnnDropoutBackward(dy;
+                                 ),_dy,_y),
+            cudnnDropoutBackward(_dy;
                                  dropoutDesc = dropoutDesc,
                                  dyDesc = xDesc,
                                  dxDesc = xDesc,

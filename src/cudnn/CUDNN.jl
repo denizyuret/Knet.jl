@@ -11,7 +11,7 @@ include("reduce.jl")
 #end
 
 ## grep cudnnHandle_t
-# add8: cudnnBackendExecute
+# add8: ?cudnnBackendExecute
 # add8: cudnnBuildRNNDynamic
 # add8: cudnnCTCLoss_v8
 # add8: cudnnGetFoldedConvBackwardDataDescriptors
@@ -40,14 +40,14 @@ include("reduce.jl")
 # cudnnConvolutionBackwardFilter
 # cudnnConvolutionBiasActivationForward
 # cudnnConvolutionForward
-# cudnnCreate
+# -cudnnCreate
 # cudnnCTCLoss
-# cudnnDestroy
+# -cudnnDestroy
 # cudnnDivisiveNormalizationBackward
 # cudnnDivisiveNormalizationForward
-# cudnnDropoutBackward
-# cudnnDropoutForward
-# cudnnDropoutGetStatesSize
+# +cudnnDropoutBackward
+# +cudnnDropoutForward
+# +cudnnDropoutGetStatesSize
 # cudnnFindConvolutionBackwardDataAlgorithm
 # cudnnFindConvolutionBackwardDataAlgorithmEx
 # cudnnFindConvolutionBackwardFilterAlgorithm
@@ -69,13 +69,13 @@ include("reduce.jl")
 # cudnnGetConvolutionForwardWorkspaceSize
 # cudnnGetCTCLossWorkspaceSize
 # cudnnGetCTCLossWorkspaceSize_v8
-# cudnnGetDropoutDescriptor
+# +cudnnGetDropoutDescriptor
 # cudnnGetMultiHeadAttnBuffers
 # cudnnGetMultiHeadAttnWeights
-# cudnnGetReductionIndicesSize
-# cudnnGetReductionWorkspaceSize
-# cudnnGetStream
-# cudnnIm2Col
+# +cudnnGetReductionIndicesSize
+# +cudnnGetReductionWorkspaceSize
+# -cudnnGetStream
+# -cudnnIm2Col
 # cudnnLRNCrossChannelBackward
 # cudnnLRNCrossChannelForward
 # cudnnMakeFusedOpsPlan
@@ -85,20 +85,20 @@ include("reduce.jl")
 # +cudnnOpTensor
 # cudnnPoolingBackward
 # cudnnPoolingForward
-# cudnnQueryRuntimeError
+# -cudnnQueryRuntimeError
 # +cudnnReduceTensor
-# cudnnReorderFilterAndBias
-# cudnnRestoreDropoutDescriptor
+# ?cudnnReorderFilterAndBias
+# +cudnnRestoreDropoutDescriptor
 # +cudnnScaleTensor
-# cudnnSetDropoutDescriptor
-# cudnnSetStream
+# +cudnnSetDropoutDescriptor
+# -cudnnSetStream
 # +cudnnSetTensor
-# cudnnSoftmaxBackward
-# cudnnSoftmaxForward
-# cudnnSpatialTfGridGeneratorBackward
-# cudnnSpatialTfGridGeneratorForward
-# cudnnSpatialTfSamplerBackward
-# cudnnSpatialTfSamplerForward
+# +cudnnSoftmaxBackward
+# +cudnnSoftmaxForward
+# -cudnnSpatialTfGridGeneratorBackward
+# -cudnnSpatialTfGridGeneratorForward
+# -cudnnSpatialTfSamplerBackward
+# -cudnnSpatialTfSamplerForward
 # -cudnnTransformFilter
 # -cudnnTransformTensor
 # -cudnnTransformTensorEx

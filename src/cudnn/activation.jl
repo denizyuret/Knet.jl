@@ -75,8 +75,9 @@ end
                                     alpha::Real=1,
                                     xDesc::cudnnTensorDescriptor = TD(x),
                                     beta::Real=0,
-                                    o...),dy,y),
-            cudnnActivationBackward(x,y,dy; 
+                                    yDesc::cudnnTensorDescriptor = xDesc,
+                                    y = similar(x)),_dy,_y),
+            cudnnActivationBackward(x,_y,_dy; 
                                     activationDesc = activationDesc,
                                     alpha = alpha,
                                     beta = beta,
