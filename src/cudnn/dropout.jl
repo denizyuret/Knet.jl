@@ -1,12 +1,11 @@
 import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
-using AutoGrad: AutoGrad, @primitive1
+using AutoGrad: AutoGrad, @primitive1, recording
 using CUDA: CuArray
 
-import CUDA.CUDNN: 
-    cudnnDropoutForward,
-    cudnnDropoutBackward
 using CUDA.CUDNN: 
+   #cudnnDropoutForward,
+   #cudnnDropoutBackward,
     cudnnDropoutDescriptor_t,
         cudnnCreateDropoutDescriptor,
         cudnnSetDropoutDescriptor,
@@ -53,32 +52,35 @@ function cudnnDropoutDescriptor(dropout::Real)
 end
 
 
-function cudnnDropoutForward(x::R;
-                             dropout::Real = 0.5,
-                             dropoutDesc::cudnnDropoutDescriptor = cudnnDropoutDescriptor(dropout),
-                             xDesc::cudnnTensorDescriptor = TD(x),
-                             yDesc::cudnnTensorDescriptor = xDesc,
-                             y::R = similar(x),
-                             reserveSpace::DevArray = cudnnDropoutReserveSpace(xDesc)
-                             ) where {T,R<:DevArray{T}}
+function cudnnDropoutForward(
+    x::R, y::R = similar(x);
+    dropout::Real = 0.5,
+    dropoutDesc::cudnnDropoutDescriptor = cudnnDropoutDescriptor(dropout),
+    xDesc::cudnnTensorDescriptor = TD(x),
+    yDesc::cudnnTensorDescriptor = xDesc,
+    reserveSpace::DevArray = cudnnDropoutReserveSpace(xDesc)
+) where {T,R<:DevArray{T}}
+    if !recording()
+        @warn "cudnnDropoutForward called outside of training." maxlog=1
+    end
     if cudnnDropoutSeed[] >= 0
         # This is a very expensive call (40x dropout), so only use for debugging
         @warn "Knet.CUDNN.cudnnDropoutSeed[] >= 0: calling expensive cudnnSetDropoutDescriptor" maxlog=1
         @retry cudnnSetDropoutDescriptor(dropoutDesc, handle(), dropout, cudnnDropoutState[], sizeof(cudnnDropoutState[]), cudnnDropoutSeed[])
     end
-    cudnnDropoutForward(handle(), dropoutDesc, xDesc, x, yDesc, y, reserveSpace, sizeof(reserveSpace))
+    CUDA.CUDNN.cudnnDropoutForward(handle(), dropoutDesc, xDesc, x, yDesc, y, reserveSpace, sizeof(reserveSpace))
     return y
 end
 
 
-function cudnnDropoutBackward(dy::R;
-                              dropoutDesc::cudnnDropoutDescriptor,
-                              dyDesc::cudnnTensorDescriptor,
-                              dxDesc::cudnnTensorDescriptor,
-                              reserveSpace::DevArray,
-                              dx::R = similar(dy)
-                              ) where {T,R<:DevArray{T}}
-    cudnnDropoutBackward(handle(), dropoutDesc, dyDesc, dy, dxDesc, dx, reserveSpace, sizeof(reserveSpace))
+function cudnnDropoutBackward(
+    dy::R, dx::R = similar(dy);
+    dropoutDesc::cudnnDropoutDescriptor,
+    dyDesc::cudnnTensorDescriptor,
+    dxDesc::cudnnTensorDescriptor,
+    reserveSpace::DevArray
+) where {T,R<:DevArray{T}}
+    CUDA.CUDNN.cudnnDropoutBackward(handle(), dropoutDesc, dyDesc, dy, dxDesc, dx, reserveSpace, sizeof(reserveSpace))
     return dx
 end
 
@@ -90,19 +92,21 @@ function cudnnDropoutReserveSpace(td::cudnnTensorDescriptor)
 end
 
 
-@primitive1((cudnnDropoutForward(x;
-                                 dropout::Real = 0.5,
-                                 dropoutDesc::cudnnDropoutDescriptor = cudnnDropoutDescriptor(dropout),
-                                 xDesc::cudnnTensorDescriptor = TD(x),
-                                 yDesc::cudnnTensorDescriptor = xDesc,
-                                 y = similar(x),
-                                 reserveSpace::DevArray = cudnnDropoutReserveSpace(xDesc)
-                                 ),_dy,_y),
-            cudnnDropoutBackward(_dy;
-                                 dropoutDesc = dropoutDesc,
-                                 dyDesc = xDesc,
-                                 dxDesc = xDesc,
-                                 reserveSpace = reserveSpace))
+@primitive1(
+    (cudnnDropoutForward(
+        x, y...;
+        dropout::Real = 0.5,
+        dropoutDesc::cudnnDropoutDescriptor = cudnnDropoutDescriptor(dropout),
+        xDesc::cudnnTensorDescriptor = TD(x),
+        yDesc::cudnnTensorDescriptor = xDesc,
+        reserveSpace::DevArray = cudnnDropoutReserveSpace(xDesc)),
+     _dy, _y),
+    cudnnDropoutBackward(
+        _dy;
+        dropoutDesc = dropoutDesc,
+        dyDesc = xDesc,
+        dxDesc = xDesc,
+        reserveSpace = reserveSpace))
 
 @primitive1 dropoutBackward(dy;o...)  throw(MethodError(back,dropoutBackward))
 

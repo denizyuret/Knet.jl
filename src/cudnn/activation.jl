@@ -2,10 +2,9 @@ import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
 using AutoGrad: AutoGrad, @primitive1
 
-import CUDA.CUDNN:
-    cudnnActivationForward,
-    cudnnActivationBackward
 using CUDA.CUDNN: 
+    #cudnnActivationForward,
+    #cudnnActivationBackward,
     cudnnActivationDescriptor_t,
         cudnnCreateActivationDescriptor,
         cudnnSetActivationDescriptor,
@@ -39,52 +38,55 @@ function cudnnActivationDescriptor(args...)
 end
 
 
-function cudnnActivationForward(x::R; 
-                                mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,
-                                reluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-                                coef::Real=1,
-                                activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, Cdouble(coef)),
-                                alpha::Real=1,
-                                xDesc::cudnnTensorDescriptor = TD(x),
-                                beta::Real=0,
-                                yDesc::cudnnTensorDescriptor = xDesc,
-                                y::R = similar(x)
-                                ) where {T,R<:DevArray{T}}
-    cudnnActivationForward(handle(), activationDesc, Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
+function cudnnActivationForward(
+    x::R, y::R = similar(x);
+    mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,
+    reluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
+    coef::Real=1,
+    activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, Cdouble(coef)),
+    alpha::Real=1,
+    xDesc::cudnnTensorDescriptor = TD(x),
+    beta::Real=0,
+    yDesc::cudnnTensorDescriptor = xDesc
+) where {T,R<:DevArray{T}}
+    CUDA.CUDNN.cudnnActivationForward(handle(), activationDesc, Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
     return y
 end
 
 
-function cudnnActivationBackward(x::R,y::R,dy::R; 
-                                 activationDesc::cudnnActivationDescriptor,
-                                 alpha::Real,
-                                 beta::Real,
-                                 xDesc::cudnnTensorDescriptor,
-                                 yDesc::cudnnTensorDescriptor = xDesc,
-                                 dyDesc::cudnnTensorDescriptor = xDesc,
-                                 dxDesc::cudnnTensorDescriptor = xDesc,
-                                 dx::R = similar(x)
-                                 ) where {T,R<:DevArray{T}}
-    cudnnActivationBackward(handle(), activationDesc, Ref(T(alpha)), yDesc, y, dyDesc, dy, xDesc, x, Ref(T(beta)), dxDesc, dx)
+function cudnnActivationBackward(
+    x::R,y::R,dy::R,dx::R = similar(x);
+    activationDesc::cudnnActivationDescriptor,
+    alpha::Real,
+    beta::Real,
+    xDesc::cudnnTensorDescriptor,
+    yDesc::cudnnTensorDescriptor = xDesc,
+    dyDesc::cudnnTensorDescriptor = xDesc,
+    dxDesc::cudnnTensorDescriptor = xDesc
+) where {T,R<:DevArray{T}}
+    CUDA.CUDNN.cudnnActivationBackward(handle(), activationDesc, Ref(T(alpha)), yDesc, y, dyDesc, dy, xDesc, x, Ref(T(beta)), dxDesc, dx)
     return dx
 end
 
 
-@primitive1((cudnnActivationForward(x;
-                                    mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,
-                                    reluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-                                    coef::Real=1,
-                                    activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, coef),
-                                    alpha::Real=1,
-                                    xDesc::cudnnTensorDescriptor = TD(x),
-                                    beta::Real=0,
-                                    yDesc::cudnnTensorDescriptor = xDesc,
-                                    y = similar(x)),_dy,_y),
-            cudnnActivationBackward(x,_y,_dy; 
-                                    activationDesc = activationDesc,
-                                    alpha = alpha,
-                                    beta = beta,
-                                    xDesc = xDesc))
+@primitive1(
+    (cudnnActivationForward(
+        x,y...;
+        mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,
+        reluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
+        coef::Real=1,
+        activationDesc::cudnnActivationDescriptor = cudnnActivationDescriptor(mode, reluNanOpt, coef),
+        alpha::Real=1,
+        xDesc::cudnnTensorDescriptor = TD(x),
+        beta::Real=0,
+        yDesc::cudnnTensorDescriptor = xDesc),
+     _dy, _y),
+    cudnnActivationBackward(
+        x,_y,_dy;
+        activationDesc = activationDesc,
+        alpha = alpha,
+        beta = beta,
+        xDesc = xDesc))
 
 @primitive1 cudnnActivationBackward(x,y...;o...)  throw(MethodError(back,cudnnActivationBackward))
 

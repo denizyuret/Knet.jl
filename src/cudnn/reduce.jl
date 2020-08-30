@@ -52,23 +52,25 @@ end
 
 
 # This is unfortunately 10x slower than libknet8, 2x slower than CUDA.jl
-function cudnnReduceTensor(x::R;
-                           dims::Dims = ntuple(i->1,N),
-                           reduceTensorOp::cudnnReduceTensorOp_t = CUDNN_REDUCE_TENSOR_ADD,
-                           reduceTensorCompType::DataType = (T <: Float64 ? Float64 : Float32),
-                           reduceTensorNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-                           reduceTensorIndices::cudnnReduceTensorIndices_t = CUDNN_REDUCE_TENSOR_NO_INDICES,
-                           reduceTensorIndicesType::cudnnIndicesType_t = CUDNN_32BIT_INDICES,
-                           reduceTensorDesc::cudnnReduceTensorDescriptor = cudnnReduceTensorDescriptor(reduceTensorOp, DT(reduceTensorCompType), reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType),
-                           alpha::Real = 1,
-                           xDesc::cudnnTensorDescriptor = TD(x),
-                           beta::Real = 0,
-                           y::R = similar(x, dims),
-                           yDesc::cudnnTensorDescriptor = TD(y),
-                           indices::Union{DevArray,Ptr} = C_NULL,
-                           workspace::DevArray = cudnnReductionWorkspace(reduceTensorDesc, xDesc, yDesc),
-                           ) where {T,N,R<:DevArray{T,N}}
-    cudnnReduceTensor(handle(), reduceTensorDesc, indices, (indices === C_NULL ? 0 : sizeof(indices)), workspace, sizeof(workspace), Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
+function cudnnReduceTensor(
+    x::R, y::Union{R,Nothing} = nothing;
+    dims::Dims = ntuple(i->1,N),
+    reduceTensorOp::cudnnReduceTensorOp_t = CUDNN_REDUCE_TENSOR_ADD,
+    reduceTensorCompType::DataType = (T <: Float64 ? Float64 : Float32),
+    reduceTensorNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
+    reduceTensorIndices::cudnnReduceTensorIndices_t = CUDNN_REDUCE_TENSOR_NO_INDICES,
+    reduceTensorIndicesType::cudnnIndicesType_t = CUDNN_32BIT_INDICES,
+    reduceTensorDesc::cudnnReduceTensorDescriptor = cudnnReduceTensorDescriptor(reduceTensorOp, DT(reduceTensorCompType), reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType),
+    alpha::Real = 1,
+    xDesc::cudnnTensorDescriptor = TD(x),
+    beta::Real = 0,
+    yDesc::cudnnTensorDescriptor = TD(y),
+    indices::Union{DevArray,Nothing} = nothing,
+    workspace::DevArray = cudnnReductionWorkspace(reduceTensorDesc, xDesc, yDesc),
+) where {T,N,R<:DevArray{T,N}}
+    if y === nothing; y = similar(x, dims); end
+    _indices = (indices === nothing ? C_NULL : indices)
+    cudnnReduceTensor(handle(), reduceTensorDesc, _indices, sizeof(indices), workspace, sizeof(workspace), Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
     return y
 end
 

@@ -15,49 +15,52 @@ using CUDA.CUDNN:
     handle
 
 
-function cudnnSoftmaxForward(x::R; 
-                             algo::cudnnSoftmaxAlgorithm_t = CUDNN_SOFTMAX_FAST,
-                             mode::cudnnSoftmaxMode_t = CUDNN_SOFTMAX_MODE_INSTANCE,
-                             alpha::Real = 1,
-                             xDesc::cudnnTensorDescriptor = TD(x),
-                             beta::Real = 0,
-                             yDesc::cudnnTensorDescriptor = xDesc,
-                             y::R = similar(x)
-                             ) where {T,R<:DevArray{T}}
+function cudnnSoftmaxForward(
+    x::R, y::R = similar(x);
+    algo::cudnnSoftmaxAlgorithm_t = CUDNN_SOFTMAX_FAST,
+    mode::cudnnSoftmaxMode_t = CUDNN_SOFTMAX_MODE_INSTANCE,
+    alpha::Real = 1,
+    xDesc::cudnnTensorDescriptor = TD(x),
+    beta::Real = 0,
+    yDesc::cudnnTensorDescriptor = xDesc
+) where {T,R<:DevArray{T}}
     cudnnSoftmaxForward(handle(), algo, mode, Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
     return y
 end
 
 
-function cudnnSoftmaxBackward(y::R, dy::R;
-                              algo::cudnnSoftmaxAlgorithm_t,
-                              mode::cudnnSoftmaxMode_t,
-                              alpha::Real,
-                              yDesc::cudnnTensorDescriptor,
-                              dyDesc::cudnnTensorDescriptor,
-                              beta::Real,
-                              dxDesc::cudnnTensorDescriptor = yDesc,
-                              dx::R = similar(y)
-                              ) where {T,R<:DevArray{T}}
+function cudnnSoftmaxBackward(
+    y::R, dy::R, dx::R = similar(y);
+    algo::cudnnSoftmaxAlgorithm_t,
+    mode::cudnnSoftmaxMode_t,
+    alpha::Real,
+    yDesc::cudnnTensorDescriptor,
+    dyDesc::cudnnTensorDescriptor,
+    beta::Real,
+    dxDesc::cudnnTensorDescriptor = yDesc
+) where {T,R<:DevArray{T}}
     cudnnSoftmaxBackward(handle(), algo, mode, Ref(T(alpha)), yDesc, y, dyDesc, dy, Ref(T(beta)), dxDesc, dx)
     return dx
 end
 
 
-@primitive1((cudnnSoftmaxForward(x; 
-                                 algo::cudnnSoftmaxAlgorithm_t = CUDNN_SOFTMAX_FAST,
-                                 mode::cudnnSoftmaxMode_t = CUDNN_SOFTMAX_MODE_INSTANCE,
-                                 alpha::Real = 1,
-                                 xDesc::cudnnTensorDescriptor = TD(x),
-                                 beta::Real = 0,
-                                 yDesc::cudnnTensorDescriptor = xDesc,
-                                 y = similar(x)),_dy,_y),
-            cudnnSoftmaxBackward(_y, _dy;
-                                 algo = algo,
-                                 mode = mode,
-                                 alpha = alpha,
-                                 yDesc = xDesc,
-                                 dyDesc = xDesc,
-                                 beta = beta))
+@primitive1(
+    (cudnnSoftmaxForward(
+        x, y...;
+        algo::cudnnSoftmaxAlgorithm_t = CUDNN_SOFTMAX_FAST,
+        mode::cudnnSoftmaxMode_t = CUDNN_SOFTMAX_MODE_INSTANCE,
+        alpha::Real = 1,
+        xDesc::cudnnTensorDescriptor = TD(x),
+        beta::Real = 0,
+        yDesc::cudnnTensorDescriptor = xDesc),
+     _dy,_y),
+    cudnnSoftmaxBackward(
+        _y, _dy;
+        algo = algo,
+        mode = mode,
+        alpha = alpha,
+        yDesc = xDesc,
+        dyDesc = xDesc,
+        beta = beta))
 
 @primitive1 cudnnSoftmaxBackward(x,y...;o...)  throw(MethodError(back,cudnnSoftmaxBackward))

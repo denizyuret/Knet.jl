@@ -1,12 +1,12 @@
 import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
-using AutoGrad: AutoGrad, @primitive1
+using AutoGrad: AutoGrad, @primitive1, recording
+using CUDA: CU_NULL
 
-import CUDA.CUDNN: 
-    cudnnMultiHeadAttnForward,
-    cudnnMultiHeadAttnBackwardData,
-    cudnnMultiHeadAttnBackwardWeights
 using CUDA.CUDNN: 
+   #cudnnMultiHeadAttnForward,
+   #cudnnMultiHeadAttnBackwardData,
+   #cudnnMultiHeadAttnBackwardWeights,
     cudnnGetMultiHeadAttnBuffers,
     cudnnGetMultiHeadAttnWeights,
     cudnnAttnDescriptor_t,
@@ -44,7 +44,7 @@ using CUDA.CUDNN:
         CUDNN_DEFAULT_MATH,                    # 0,
         CUDNN_TENSOR_OP_MATH,                  # 1,
         CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION, # 2,
-        CUDNN_FMA_MATH,                        # 3,
+       #CUDNN_FMA_MATH,                        # 3,
     handle
     
 
@@ -66,29 +66,58 @@ function cudnnAttnDescriptor(args...)
 end
 
 
-function cudnnMultiHeadAttnForward(x;
-    mode, nHeads, DT(dataType), DT(computePrec), mathType, DD(attnDropout), DD(postDropout), qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize,
-             attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES,
-             nHeads::Integer,
-             smScaler::Real = 1,
-             dataType::DataType,
-             computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
-             mathType::cudnnMathType_t = (dataType === Float16 ? CUDNN_TENSOR_OP_MATH :
-                                          dataType === Float32 ? CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION :
-                                          CUDNN_DEFAULT_MATH),
-             attnDropout::Real = 0,
+mutable struct cudnnSeqDataDescriptor; ptr::cudnnSeqDataDescriptor_t; end
+
+# mode, nHeads, DT(dataType), DT(computePrec), mathType, DD(attnDropout), DD(postDropout), qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize,
+
+function cudnnMultiHeadAttnForward(
+    weights::R, queries::R, keys::R, values::R, out::R = similar(values);
+    attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES,
+    nHeads::Integer,
+    smScaler::Real = 1,
+    dataType::DataType,
+    computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
+    mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(dataType),
+    attnDropout::Real = 0,
     postDropout::Real = 0,
-                              )
-    cudnnMultiHeadAttnForward()
-    return
+
+    attnDesc::cudnnAttnDescriptor,
+    currIdx::Integer,
+    loWinIdx::Array{Cint},
+    hiWinIdx::Array{Cint},
+    devSeqLengthsQO::DevArray{Cint},
+    devSeqLengthsKV::DevArray{Cint},
+    residuals::Union{R,Nothing} = nothing,
+    workSpace::DevArray = cudnnMultiHeadAttnWorkSpace(attnDesc),
+    reserveSpace::Union{DevArray,Nothing} = (recording() ? cudnnMultiHeadAttnReserveSpace(attnDesc) : nothing),
+    qDesc::cudnnSeqDataDescriptor,
+    kDesc::cudnnSeqDataDescriptor,
+    vDesc::cudnnSeqDataDescriptor,
+    oDesc::cudnnSeqDataDescriptor
+) where {T,R<:DevArray{T}}
+    cu_null(x) = (x === nothing ? CU_NULL : x)
+    CUDA.CUDNN.cudnnMultiHeadAttnForward(handle(), attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, cu_null(residuals), kDesc, keys, vDesc, values, oDesc, out, sizeof(weights), weights, sizeof(reserveSpace), cu_null(reserveSpace))
+    return out
 end
 
-function multiHeadAttnBackwardData
+@primitive1((multiHeadAttnForward(x; o...),dy,y),  
+            multiHeadAttnBackwardData(x,y,dy; o...),
+            multiHeadAttnBackwardWeights(x,y,dy; o...))
+@primitive1 cudnnMultiHeadAttnBackwardData(x,y...;o...)     throw(MethodError(back,cudnnMultiHeadAttnBackwardData))
+@primitive1 cudnnMultiHeadAttnBackwardWeights(x,y...;o...)  throw(MethodError(back,cudnnMultiHeadAttnBackwardWeights))
+
+cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH,
+cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
+cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
+
+function cudnnMultiHeadAttnReserveSpace(attnDesc::cudnnAttnDescriptor)
+    weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
+    cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, reserveSpaceSize)
+    return CuArray{Int}(undef, (reserveSpaceSize[1]-1)÷sizeof(Int)+1)
 end
 
-function multiHeadAttnBackwardWeights
+function cudnnMultiHeadAttnWorkSpace(attnDesc::cudnnAttnDescriptor)
+    weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
+    cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, reserveSpaceSize)
+    return CuArray{Int}(undef, (workSpaceSize[1]-1)÷sizeof(Int)+1)
 end
-
-@primitive1 multiHeadAttnForward(x; o...),dy,y  multiHeadAttnBackwardWeights(x,y,dy; o...)  multiHeadAttnBackwardData(x,y,dy; o...)
-@primitive1 multiHeadAttnBackwardData(x,y...;o...)  throw(MethodError(back,multiHeadAttnBackwardData))
-@primitive1 multiHeadAttnBackwardWeights(x,y...;o...)  throw(MethodError(back,multiHeadAttnBackwardWeights))
