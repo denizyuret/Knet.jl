@@ -27,8 +27,8 @@ using CUDA.CUDNN:
         CUDNN_SEQDATA_BEAM_DIM,  # 2, /* index in beam */
         CUDNN_SEQDATA_VECT_DIM,  # 3  /* index in vector */
     cudnnAttnQueryMap_t,
-        CUDNN_ATTN_QUERYMAP_ALL_TO_ONE, # 0         /* multiple Q-s map to a single (K,V) set when beam size > 1 */
-        CUDNN_ATTN_QUERYMAP_ONE_TO_ONE, # (1U << 0) /* multiple Q-s map to multiple (K,V) sets when beam size > 1 */
+        CUDNN_ATTN_QUERYMAP_ALL_TO_ONE, # 0         /* multiple Q-s map to a single (K,V) set when beam size > 1, beam sizes for (K,V) = 1 */
+        CUDNN_ATTN_QUERYMAP_ONE_TO_ONE, # (1U << 0) /* multiple Q-s map to multiple (K,V) sets when beam size > 1, beam sizes for (K,V) = beam size for (Q) */
         CUDNN_ATTN_DISABLE_PROJ_BIASES, # 0         /* no biases in attention input and output projections */
         CUDNN_ATTN_ENABLE_PROJ_BIASES,  # (1U << 1) /* use biases in attention input and output projections */
     cudnnMultiHeadAttnWeightKind_t,
@@ -68,45 +68,69 @@ end
 
 mutable struct cudnnSeqDataDescriptor; ptr::cudnnSeqDataDescriptor_t; end
 
-# mode, nHeads, DT(dataType), DT(computePrec), mathType, DD(attnDropout), DD(postDropout), qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize,
-
 function cudnnMultiHeadAttnForward(
-    weights::R, queries::R, keys::R, values::R, out::R = similar(values);
+    weights::R, queries::R, keys::R, values::R, out::R = similar(values); # TODO: use correct output size, should residuals be here?
+
     attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES,
-    nHeads::Integer,
+    nHeads::Integer = 2,
     smScaler::Real = 1,
-    dataType::DataType,
+    dataType::DataType = T,
     computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
     mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(dataType),
-    attnDropout::Real = 0,
-    postDropout::Real = 0,
+    attnDropout::Real = 0.1,
+    postDropout::Real = 0.1,
+    #qSize::Integer = size(queries, 1), #The first dim of Q,K,V is always the vector dimension, the other 3 can be any permutation of beam, batch, and time
+    #kSize::Integer = size(keys, 1),    #So the these are not user settable:
+    #vSize::Integer = size(values, 1),
+    qProjSize::Integer = 0, # Use zero to disable the corresponding projection
+    kProjSize::Integer = 0,
+    vProjSize::Integer = 0,
+    oProjSize::Integer = 0,
+    qoMaxSeqLength::Integer = 128,
+    kvMaxSeqLength::Integer = qoMaxSeqLength,
+    maxBatchSize::Integer = 32,
+    maxBeamSize::Integer = 1,
 
-    attnDesc::cudnnAttnDescriptor,
-    currIdx::Integer,
-    loWinIdx::Array{Cint},
-    hiWinIdx::Array{Cint},
-    devSeqLengthsQO::DevArray{Cint},
-    devSeqLengthsKV::DevArray{Cint},
-    residuals::Union{R,Nothing} = nothing,
+    attnDesc::cudnnAttnDescriptor = cudnnAttnDescriptor(
+        attnMode,
+        nHeads,
+        smScaler,
+        dataType,
+        computePrec,
+        mathType,
+        attnDropout,
+        postDropout,
+        size(queries,1),
+        size(keys,1),
+        size(values,1),
+        qProjSize,
+        kProjSize,
+        vProjSize,
+        oProjSize,
+        qoMaxSeqLength,
+        kvMaxSeqLength,
+        maxBatchSize,
+        maxBeamSize
+    ),
+    currIdx::Integer = -1,
+    loWinIdx::Array{Cint} = fill(Cint(0), qoMaxSeqLength),
+    hiWinIdx::Array{Cint} = fill(typemax(Cint), qoMaxSeqLength),
+    residuals::Union{R,Nothing} = nothing, # TODO: make sure gradients pass through residuals correctly if used
     workSpace::DevArray = cudnnMultiHeadAttnWorkSpace(attnDesc),
     reserveSpace::Union{DevArray,Nothing} = (recording() ? cudnnMultiHeadAttnReserveSpace(attnDesc) : nothing),
-    qDesc::cudnnSeqDataDescriptor,
-    kDesc::cudnnSeqDataDescriptor,
-    vDesc::cudnnSeqDataDescriptor,
-    oDesc::cudnnSeqDataDescriptor
+    qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries),
+    kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys),
+    vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values),
+    oDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(out),
+    devSeqLengthsQO::DevArray{Cint} = cudnnSeqLengths(qDesc),
+    devSeqLengthsKV::DevArray{Cint} = cudnnSeqLengths(kDesc)
 ) where {T,R<:DevArray{T}}
     cu_null(x) = (x === nothing ? CU_NULL : x)
     CUDA.CUDNN.cudnnMultiHeadAttnForward(handle(), attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, cu_null(residuals), kDesc, keys, vDesc, values, oDesc, out, sizeof(weights), weights, sizeof(reserveSpace), cu_null(reserveSpace))
     return out
 end
 
-@primitive1((multiHeadAttnForward(x; o...),dy,y),  
-            multiHeadAttnBackwardData(x,y,dy; o...),
-            multiHeadAttnBackwardWeights(x,y,dy; o...))
-@primitive1 cudnnMultiHeadAttnBackwardData(x,y...;o...)     throw(MethodError(back,cudnnMultiHeadAttnBackwardData))
-@primitive1 cudnnMultiHeadAttnBackwardWeights(x,y...;o...)  throw(MethodError(back,cudnnMultiHeadAttnBackwardWeights))
-
-cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH,
+cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH
 cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
 cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
 
@@ -121,3 +145,26 @@ function cudnnMultiHeadAttnWorkSpace(attnDesc::cudnnAttnDescriptor)
     cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, reserveSpaceSize)
     return CuArray{Int}(undef, (workSpaceSize[1]-1)÷sizeof(Int)+1)
 end
+
+@primitive1((multiHeadAttnForward(x; o...),dy,y),  
+            multiHeadAttnBackwardData(x,y,dy; o...),
+            multiHeadAttnBackwardWeights(x,y,dy; o...))
+@primitive1 cudnnMultiHeadAttnBackwardData(x,y...;o...)     throw(MethodError(back,cudnnMultiHeadAttnBackwardData))
+@primitive1 cudnnMultiHeadAttnBackwardWeights(x,y...;o...)  throw(MethodError(back,cudnnMultiHeadAttnBackwardWeights))
+
+# See the following for some of the default values:
+#
+# * https://github.com/google-research/bert/blob/master/README.md
+# * https://arxiv.org/abs/1908.08962
+# * https://arxiv.org/abs/1706.03762
+# * https://huggingface.co/bert-base-uncased/models
+#
+# bert-large: nHeads=16, nLayers=24, hiddenSize=1024, intermSize=4096, maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# bert-base:  nHeads=12, nLayers=12, hiddenSize=768,  intermSize=3072, maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# bert-medium:nHeads=8,  nLayers=8,  hiddenSize=512,  intermSize=2048, maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# bert-small: nHeads=8,  nLayers=4,  hiddenSize=512,  intermSize=2048, maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# bert-mini:  nHeads=4,  nLayers=4,  hiddenSize=256,  intermSize=1024, maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# bert-tiny:  nHeads=2,  nLayers=2,  hiddenSize=128,  intermSize=512,  maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
+# vasw-base:  nHeads=8,  nLayers=6,  hiddenSize=512,  intermSize=2048
+# vasw-big:   nHeads=16, nLayers=6,  hiddenSize=1024, intermSize=4096
+
