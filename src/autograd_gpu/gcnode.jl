@@ -84,7 +84,7 @@ function gcnode(n::Node, tape::Tape)  ## 16.3μs
     while !isempty(gcnode_queue) && peek(gcnode_queue)[2] >= ni  ## 5.62μs
         (cid,v) = dequeue_pair!(gcnode_queue)  ## 0.787μs
         c = gcnode_dict[cid].value
-        if v == ni
+        if v == ni && c isa CuArray
             unsafe_free!(c)  ## 4.06μs
         else
             @warn("gcnode error: c=$(summary(c)) v=$v ni=$ni", maxlog=1)  ## 0.160μs
