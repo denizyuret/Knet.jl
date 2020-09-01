@@ -6,7 +6,7 @@ include("dropout.jl")
 include("inplace.jl")
 include("op.jl")
 include("reduce.jl")
-#include("multiheadattn.jl")
+include("multiheadattn.jl")
 
 #end
 

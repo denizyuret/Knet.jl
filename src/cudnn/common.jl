@@ -43,7 +43,7 @@ using CUDA.CUDNN:
 
 mutable struct cudnnTensorDescriptor; ptr::cudnnTensorDescriptor_t; end # Has to be mutable to have a finalizer
 
-const cudnnTensorDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnTensorDescriptor}() # Dict is 3x faster than IdDict!
+const cudnnTensorDescriptorCache = Dict{Tuple,cudnnTensorDescriptor}() # Dict is 3x faster than IdDict!
 
 unsafe_convert(::Type{<:Ptr}, td::cudnnTensorDescriptor)=td.ptr # needed for ccalls
 
@@ -68,7 +68,7 @@ end
 
 mutable struct cudnnFilterDescriptor; ptr::cudnnFilterDescriptor_t; end
 
-const cudnnFilterDescriptorCache = Dict{Tuple{DataType,Dims,cudnnTensorFormat_t},cudnnFilterDescriptor}()
+const cudnnFilterDescriptorCache = Dict{Tuple,cudnnFilterDescriptor}()
 
 unsafe_convert(::Type{<:Ptr}, fd::cudnnFilterDescriptor)=fd.ptr
 
