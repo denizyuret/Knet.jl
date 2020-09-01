@@ -18,6 +18,7 @@ include("ops21/Ops21.jl")
 include("ops21_gpu/Ops21_gpu.jl")
 include("fileio_gpu/FileIO_gpu.jl")
 include("train20/Train20.jl")
+include("layers20/Layers20.jl")
 # include("layers21/Layers21.jl")
 
 # See if we have a gpu at initialization:
