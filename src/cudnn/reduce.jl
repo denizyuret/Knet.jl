@@ -79,5 +79,5 @@ function cudnnReductionWorkspace(reduceTensorDesc::cudnnReduceTensorDescriptor, 
     sz = Csize_t[0]
     cudnnGetReductionWorkspaceSize(handle(), reduceTensorDesc, xDesc, yDesc, sz)
     @show sz[1]
-    return CuArray{Int}(undef, (sz[1]-1)÷sizeof(Int)+1)
+    return CuArray{Int128}(undef, (sz[1]-1)÷sizeof(Int128)+1)
 end

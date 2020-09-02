@@ -39,7 +39,7 @@ function cudnnDropoutDescriptor(dropout::Real)
     get!(cudnnDropoutDescriptorCache, Cfloat(dropout)) do
         if !isassigned(cudnnDropoutState)
             ssize = Csize_t[0]; cudnnDropoutGetStatesSize(handle(), ssize)
-            cudnnDropoutState[] = CuArray{Int}(undef, (ssize[1]-1)÷sizeof(Int)+1)
+            cudnnDropoutState[] = CuArray{Int128}(undef, (ssize[1]-1)÷sizeof(Int128)+1)
         end
         seed = floor(Culonglong,time())
         ptr = cudnnDropoutDescriptor_t[C_NULL]

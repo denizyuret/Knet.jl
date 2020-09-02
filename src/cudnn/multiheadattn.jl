@@ -117,9 +117,16 @@ end
 
 
 ## cudnnMultiHeadAttnForward:
+# TODO:
+# + use correct weight/output size
+# + do all arrays have the same ndims?
+# - should residuals be in main args?
+# - should weights be in keywords?
+# - allow seqLengthArrays for q,k,v
 
 function cudnnMultiHeadAttnForward(
-    weights::R, queries::R, keys::R, values::R, out::R = similar(values); # TODO: use correct weight/output size, should residuals be here? do all arrays have the same ndims?
+    weights::Union{DevArray,Nothing},
+    queries::R, keys::R, values::R;
 
     attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES |> Unsigned, # The CUDNN_ATTN_ENABLE_PROJ_BIASES option is not supported in the multi-head attention gradient functions.
     nHeads::Integer = 2,
@@ -127,19 +134,18 @@ function cudnnMultiHeadAttnForward(
     dataType::DataType = T,
     computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
     mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(dataType),
-    attnDropout::Real = 0,
+    attnDropout::Real = 0, # The dropout option is currently not supported by the multi-head attention API
     postDropout::Real = 0,
-    #qSize::Integer = size(queries, 1), #The first dim of Q,K,V is always the vector dimension, the other 3 can be any permutation of beam, batch, and time
-    #kSize::Integer = size(keys, 1),    #So the these are not user settable:
-    #vSize::Integer = size(values, 1),
     qProjSize::Integer = 0, # Use zero to disable the corresponding projection
     kProjSize::Integer = 0,
     vProjSize::Integer = 0,
     oProjSize::Integer = 0,
-    qoMaxSeqLength::Integer = 128,
-    kvMaxSeqLength::Integer = qoMaxSeqLength,
-    maxBatchSize::Integer = 32,
-    maxBeamSize::Integer = 1,
+    _qdims = sdim4(size(queries)),
+    _kdims = sdim4(size(keys)),
+    qoMaxSeqLength::Integer = _qdims[1],
+    kvMaxSeqLength::Integer = _kdims[1],
+    maxBatchSize::Integer = _qdims[2],
+    maxBeamSize::Integer = _qdims[3],
 
     attnDesc::cudnnAttnDescriptor = cudnnAttnDescriptor(
         Cuint(attnMode),
@@ -148,7 +154,7 @@ function cudnnMultiHeadAttnForward(
         DT(dataType),
         DT(computePrec),
         mathType,
-        attnDropout == 0 ? C_NULL : error("The dropout option is currently not supported by the multi-head attention API"), # cudnnDropoutDescriptor(attnDropout), # TODO: DropoutDescriptor is a bad thing to has when this option is available 
+        attnDropout == 0 ? C_NULL : error("The dropout option is currently not supported by the multi-head attention API"), # cudnnDropoutDescriptor(attnDropout), # TODO: DropoutDescriptor is a bad thing to hash? (unless cached) when this option is available 
         postDropout == 0 ? C_NULL : error("The dropout option is currently not supported by the multi-head attention API"), # cudnnDropoutDescriptor(postDropout),
         Cint(size(queries,1)),
         Cint(size(keys,1)),
@@ -162,12 +168,17 @@ function cudnnMultiHeadAttnForward(
         Cint(maxBatchSize),
         Cint(maxBeamSize)
     ),
+
     currIdx::Integer = -1,
     loWinIdx::Array{Cint} = fill(Cint(0), qoMaxSeqLength),
-    hiWinIdx::Array{Cint} = fill(typemax(Cint), qoMaxSeqLength),
-    residuals::Union{R,Nothing} = nothing, # TODO: make sure gradients pass through residuals correctly if used
-    workSpace::DevArray = cudnnMultiHeadAttnWorkSpace(attnDesc),
-    reserveSpace::Union{DevArray,Nothing} = (recording() ? cudnnMultiHeadAttnReserveSpace(attnDesc) : nothing),
+    hiWinIdx::Array{Cint} = fill(Cint(kvMaxSeqLength), qoMaxSeqLength),
+    residuals::Union{DevArray,Nothing} = nothing, # TODO: make sure gradients pass through residuals correctly if used
+    _buffers = cudnnMultiHeadAttnBuffers(attnDesc),
+    _weightcheck = (@assert sizeof(weights) = _buffers[1] "weights should be $(_buffers[1]) bytes."),
+    workSpace::Union{DevArray,Nothing}    = (_buffers[2] > 0 ? cudnnMultiHeadAttnBuffer(_buffers[2]) : nothing),
+    reserveSpace::Union{DevArray,Nothing} = (_buffers[3] > 0 ? cudnnMultiHeadAttnBuffer(_buffers[3]) : nothing),
+    _oLength = oProjSize > 0 ? oProjSize : nHeads * (vProjSize > 0 ? vProjSize : size(values,1)),
+    out::R = similar(values, _oLength, size(queries)[2:end]...), # has to be a kwarg because its size depends on other kwargs
     qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries),
     kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys),
     vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values),
@@ -175,9 +186,8 @@ function cudnnMultiHeadAttnForward(
     devSeqLengthsQO::DevArray{Cint} = cudnnSeqLengths(qDesc, maxBatchSize*maxBeamSize+1),
     devSeqLengthsKV::DevArray{Cint} = cudnnSeqLengths(kDesc, maxBatchSize*maxBeamSize+1)
 ) where {T,R<:DevArray{T}}
-    global _ad = attnDesc
     cu_null(x) = (x === nothing ? CU_NULL : x)
-    CUDA.CUDNN.cudnnMultiHeadAttnForward(handle(), attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, cu_null(residuals), kDesc, keys, vDesc, values, oDesc, out, sizeof(weights), weights, sizeof(workSpace), workSpace, sizeof(reserveSpace), cu_null(reserveSpace))
+    CUDA.CUDNN.cudnnMultiHeadAttnForward(handle(), attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, cu_null(residuals), kDesc, keys, vDesc, values, oDesc, out, sizeof(weights), cu_null(weights), sizeof(workSpace), cu_null(workSpace), sizeof(reserveSpace), cu_null(reserveSpace))
     return out
 end
 
@@ -194,18 +204,17 @@ end
 
 cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH
 cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
-cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_DEFAULT_MATH # CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
+cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_DEFAULT_MATH #TODO: CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
 
-function cudnnMultiHeadAttnReserveSpace(attnDesc::cudnnAttnDescriptor)
+function cudnnMultiHeadAttnBuffers(attnDesc::cudnnAttnDescriptor)
     weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
-    cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, reserveSpaceSize)
-    return CuArray{Int}(undef, (reserveSpaceSize[1]-1)÷sizeof(Int)+1)
+    cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, recording() ? reserveSpaceSize : C_NULL)
+    return (weightSize[1], workSpaceSize[1], reserveSpaceSize[1])
 end
 
-function cudnnMultiHeadAttnWorkSpace(attnDesc::cudnnAttnDescriptor)
-    weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
-    cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, reserveSpaceSize)
-    return CuArray{Int}(undef, (workSpaceSize[1]-1)÷sizeof(Int)+1)
+function cudnnMultiHeadAttnBuffer(bytes::Integer)
+    # The buffer addresses must be at least 16B aligned.
+    return CuArray{Int128}(undef, (bytes-1)÷sizeof(Int128)+1)
 end
 
 @primitive1((multiHeadAttnForward(x; o...),dy,y),  
@@ -229,4 +238,55 @@ end
 # bert-tiny:  nHeads=2,  nLayers=2,  hiddenSize=128,  intermSize=512,  maxSeqLen=512, attnDropout=postDropout=0.1, init=0.02
 # vasw-base:  nHeads=8,  nLayers=6,  hiddenSize=512,  intermSize=2048
 # vasw-big:   nHeads=16, nLayers=6,  hiddenSize=1024, intermSize=4096
+
+# global _ad = attnDesc #DBG TODO
+# global __sizes = _sizes
+# @assert _sizes[1] == sizeof(weights) "weights should be length=$(_sizes[1])"
+
+# @show weights |> summary
+# @show queries |> summary
+# @show keys |> summary
+# @show values |> summary
+
+# @show Cuint(attnMode)
+# @show Cint(nHeads)
+# @show Cdouble(smScaler)
+# @show DT(dataType)
+# @show DT(computePrec)
+# @show mathType
+# @show C_NULL
+# @show C_NULL
+# @show Cint(size(queries,1))
+# @show Cint(size(keys,1))
+# @show Cint(size(values,1))
+# @show Cint(qProjSize)
+# @show Cint(kProjSize)
+# @show Cint(vProjSize)
+# @show Cint(oProjSize)
+# @show Cint(qoMaxSeqLength)
+# @show Cint(kvMaxSeqLength)
+# @show Cint(maxBatchSize)
+# @show Cint(maxBeamSize)
+
+# @show attnDesc
+# @show currIdx
+# @show length(loWinIdx), loWinIdx
+# @show length(hiWinIdx), hiWinIdx
+# @show length(devSeqLengthsQO), devSeqLengthsQO
+# @show length(devSeqLengthsKV), devSeqLengthsKV
+# @show qDesc
+# @show queries |> summary
+# @show cu_null(residuals)
+# @show kDesc
+# @show keys |> summary
+# @show vDesc
+# @show values |> summary
+# @show oDesc
+# @show out |> summary
+# @show sizeof(weights)
+# @show cu_null(weights) |> summary
+# @show sizeof(workSpace)
+# @show cu_null(workSpace) |> summary
+# @show sizeof(reserveSpace)
+# @show cu_null(reserveSpace) |> summary
 
