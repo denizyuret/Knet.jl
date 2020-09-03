@@ -1,9 +1,8 @@
 import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
 
-import CUDA.CUDNN:
-    cudnnOpTensor
 using CUDA.CUDNN:
+    #cudnnOpTensor
     cudnnOpTensorDescriptor_t,
         cudnnCreateOpTensorDescriptor,
         cudnnSetOpTensorDescriptor,
@@ -19,22 +18,7 @@ using CUDA.CUDNN:
     handle
 
 
-mutable struct cudnnOpTensorDescriptor; ptr::cudnnOpTensorDescriptor_t; end
-
-unsafe_convert(::Type{<:Ptr}, od::cudnnOpTensorDescriptor)=od.ptr
-
-const cudnnOpTensorDescriptorCache = Dict{Tuple,cudnnOpTensorDescriptor}()
-
-function cudnnOpTensorDescriptor(args...)
-    get!(cudnnOpTensorDescriptorCache, args) do
-        ptr = cudnnOpTensorDescriptor_t[C_NULL]
-        cudnnCreateOpTensorDescriptor(ptr)
-        cudnnSetOpTensorDescriptor(ptr[1], args...)
-        od = cudnnOpTensorDescriptor(ptr[1])
-        finalizer(x->cudnnDestroyOpTensorDescriptor(x.ptr), od)
-        return od
-    end
-end
+@cudnnDescriptor(OpTensor)
 
 
 # Compared to cudnnAddTensor!(copy(a),b), ~50% faster on (14,14,256,32)+(1,1,256,1), ~50% slower on (1,1,100,100)+(1,1,100,1)

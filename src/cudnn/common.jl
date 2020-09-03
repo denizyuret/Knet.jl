@@ -1,5 +1,6 @@
 import CUDA
 import Base: unsafe_convert
+using CUDA: CU_NULL
 
 using CUDA.CUDNN: 
     cudnnTensorDescriptor_t,
@@ -41,66 +42,86 @@ using CUDA.CUDNN:
     handle
 
 
-mutable struct cudnnTensorDescriptor; ptr::cudnnTensorDescriptor_t; end # Has to be mutable to have a finalizer
-
-const cudnnTensorDescriptorCache = Dict{Tuple,cudnnTensorDescriptor}() # Dict is 3x faster than IdDict!
-
-unsafe_convert(::Type{<:Ptr}, td::cudnnTensorDescriptor)=td.ptr # needed for ccalls
-
-cudnnTensorDescriptor(a) = cudnnTensorDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
-
-const TD = cudnnTensorDescriptor  # short alias
-
-function cudnnTensorDescriptor(T::DataType, size::Dims{N}, format::cudnnTensorFormat_t) where N
-    get!(cudnnTensorDescriptorCache,(T,size,format)) do
-        @assert N <= CUDNN_DIM_MAX
-        if N < 4; size = pad4(size); end
-        ptr = cudnnTensorDescriptor_t[C_NULL]
-        cudnnCreateTensorDescriptor(ptr)
-        sz = Cint[reverse(size)...]
-        cudnnSetTensorNdDescriptorEx(ptr[1], format, DT(T), length(sz), sz)
-        td = cudnnTensorDescriptor(ptr[1])
-        finalizer(x->cudnnDestroyTensorDescriptor(x.ptr), td)
-        return td
-    end
+"Repeat low level cudnn calls that fail due to memory issues"
+macro retry(ex)
+    @assert Meta.isexpr(ex, :call)
+    @assert ex.args[1] isa Symbol
+    unsafe_ex = Expr(:call, Meta.parse("CUDA.CUDNN.unsafe_$(ex.args[1])"), ex.args[2:end]...)
+    quote
+        res = CUDA.CUDNN.@retry_reclaim x->(x ∈ (CUDA.CUDNN.CUDNN_STATUS_ALLOC_FAILED, CUDA.CUDNN.CUDNN_STATUS_EXECUTION_FAILED)) begin
+            $unsafe_ex
+        end 
+        if res != CUDA.CUDNN.CUDNN_STATUS_SUCCESS
+            CUDA.CUDNN.throw_api_error(res)
+        end
+    end |> esc
 end
 
 
-mutable struct cudnnFilterDescriptor; ptr::cudnnFilterDescriptor_t; end
+macro cudnnDescriptor(x, set = Symbol("cudnnSet$(x)Descriptor"))
+    sname = Symbol("cudnn$(x)Descriptor")
+    tname = Symbol("cudnn$(x)Descriptor_t")
+    cache = Symbol("cudnn$(x)DescriptorCache")
+    create = Symbol("cudnnCreate$(x)Descriptor")
+    destroy = Symbol("cudnnDestroy$(x)Descriptor")
+    return quote
+        mutable struct $sname; ptr::$tname; end
+        Base.unsafe_convert(::Type{<:Ptr}, d::$sname)=d.ptr # needed for ccalls
+        const $cache = Dict{Tuple,$sname}() # Dict is 3x faster than IdDict!
+        function $sname(args...)
+            get!($cache, args) do
+                ptr = $tname[C_NULL]
+                $create(ptr)
+                $set(ptr[1], args...)
+                d = $sname(ptr[1])
+                finalizer(x->$destroy(x.ptr), d)
+                return d
+            end
+        end
+    end |> esc
+end
 
-const cudnnFilterDescriptorCache = Dict{Tuple,cudnnFilterDescriptor}()
 
-unsafe_convert(::Type{<:Ptr}, fd::cudnnFilterDescriptor)=fd.ptr
+@cudnnDescriptor(Tensor, cudnnSetTensorNdDescriptorEx)
 
-cudnnFilterDescriptor(a) = cudnnFilterDescriptor(eltype(a),size(a),CUDNN_TENSOR_NCHW)
+const TD = cudnnTensorDescriptor  # short alias
+
+function cudnnTensorDescriptor(
+    a;
+    format::cudnnTensorFormat_t=CUDNN_TENSOR_NCHW,
+    dims::Vector{Cint}=dim4(size(a))
+)
+    @assert length(dims) <= CUDNN_DIM_MAX
+    cudnnTensorDescriptor(format, DT(eltype(a)), Cint(length(dims)), dims)
+end
+
+
+
+@cudnnDescriptor(Filter, cudnnSetFilterNdDescriptor)
 
 const FD = cudnnFilterDescriptor
 
-function cudnnFilterDescriptor(T::DataType, size::Dims{N}, format::cudnnTensorFormat_t) where N
-    get!(cudnnFilterDescriptorCache, (T, size, format)) do
-        @assert N <= CUDNN_DIM_MAX
-        if N < 4; size = pad4(size); end
-        ptr = cudnnFilterDescriptor_t[C_NULL]
-        cudnnCreateFilterDescriptor(ptr)
-        sz = Cint[reverse(size)...]
-        cudnnSetFilterNdDescriptor(ptr[1], DT(T), format, length(sz), sz)
-        fd = cudnnFilterDescriptor(ptr[1])
-        finalizer(x->cudnnDestroyFilterDescriptor(x.ptr), fd)
-        return fd
-    end
+function cudnnFilterDescriptor(
+    a;
+    format::cudnnTensorFormat_t=CUDNN_TENSOR_NCHW,
+    dims::Vector{Cint}=dim4(size(a))
+)
+    @assert length(dims) <= CUDNN_DIM_MAX
+    cudnnFilterDescriptor(DT(eltype(a)), format, Cint(length(dims)), dims)
 end
 
 
 # From cuDNN docs: Due to historical reasons, the minimum number of dimensions in the filter
 # descriptor is three, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h =
 # 8). However many operations only support 4 and 5. So we will pad dims to 4. TODO: check if this is ok with rnn and attn
-pad4(s::Dims{0})=(1,1,1,1)
-pad4(s::Dims{1})=(1,1,1,s...)
-pad4(s::Dims{2})=(1,1,s...)
-pad4(s::Dims{3})=(1,s...)
+dim4(s::Dims{0})=Cint[1,1,1,1]
+dim4(s::Dims{1})=Cint[s[1],1,1,1]
+dim4(s::Dims{2})=Cint[s[2],s[1],1,1]
+dim4(s::Dims{3})=Cint[s[3],s[2],s[1],1]
+dim4(s::Dims)   =Cint[reverse(s)...]
 
 
-cudnnDataType(::Type{T}) where T = get(cudnnDataTypeCache, T) do; error("CUDNN does not support $T"); end
+cudnnDataType(T::DataType) = get(cudnnDataTypeCache, T) do; error("CUDNN does not support $T"); end
 
 const DT = cudnnDataType
 
@@ -118,18 +139,13 @@ const cudnnDataTypeCache = Dict{DataType,cudnnDataType_t}(
 )
 
 
-"Repeat low level cudnn calls that fail due to memory issues"
-macro retry(ex)
-    @assert Meta.isexpr(ex, :call)
-    @assert ex.args[1] isa Symbol
-    unsafe_ex = Expr(:call, Meta.parse("CUDA.CUDNN.unsafe_$(ex.args[1])"), ex.args[2:end]...)
-    quote
-        res = CUDA.CUDNN.@retry_reclaim x->(x ∈ (CUDA.CUDNN.CUDNN_STATUS_ALLOC_FAILED, CUDA.CUDNN.CUDNN_STATUS_EXECUTION_FAILED)) begin
-            $unsafe_ex
-        end 
-        if res != CUDA.CUDNN.CUDNN_STATUS_SUCCESS
-            CUDA.CUDNN.throw_api_error(res)
-        end
-    end |> esc
-end
+# The scaling parameters are passed using a host memory pointer.
+# The storage data types for alpha and beta are:
+#    float for HALF and FLOAT tensors, and
+#    double for DOUBLE tensors.
+scalr(a,x)=Ref(convert(eltype(x)===Float64 ? Float64 : Float32, a))
+
+
+cu_null(x) = (x === nothing ? CU_NULL : x)
+c_null(x) = (x === nothing ? C_NULL : x)
 

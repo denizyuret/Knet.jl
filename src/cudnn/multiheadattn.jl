@@ -277,8 +277,6 @@ end
     _dvalues) # and what about residuals? what if keys==values?
 
 
-cu_null(x) = (x === nothing ? CU_NULL : x)
-
 cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH
 cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
 cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION

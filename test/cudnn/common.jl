@@ -9,13 +9,13 @@ if CUDA.functional(); @testset "cudnn/common" begin
     @test TD(C_NULL) isa TD
     @test unsafe_convert(Ptr, TD(C_NULL)) isa Ptr
     @test TD(x) isa TD
-    @test TD(eltype(x),size(x),CUDNN_TENSOR_NCHW) isa TD
+    @test TD(CUDNN_TENSOR_NCHW, DT(eltype(x)), Cint(ndims(x)), Cint[reverse(size(x))...]) isa TD
 
     @test FD === cudnnFilterDescriptor
     @test FD(C_NULL) isa FD
     @test unsafe_convert(Ptr, FD(C_NULL)) isa Ptr
     @test FD(x) isa FD
-    @test FD(eltype(x),size(x),CUDNN_TENSOR_NCHW) isa FD
+    @test FD(DT(eltype(x)),CUDNN_TENSOR_NCHW,Cint(ndims(x)),Cint[reverse(size(x))...]) isa FD
 
     @test DT === cudnnDataType
     @test DT(Float32) isa cudnnDataType_t
