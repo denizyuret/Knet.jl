@@ -1,6 +1,5 @@
 using CUDA: CuArray, unsafe_free!
-# Most of the time is spent in cuarrays
-using Knet.CuArrays: cuarrays
+using Knet.CuArrays: cuarrays  # Profiling shows most of the time is spent in cuarrays
 using Knet.KnetArrays: cuallocator
 using AutoGrad: Result, Node, Tape
 
@@ -16,25 +15,27 @@ using AutoGrad: Result, Node, Tape
 # pointers whose queue value is the current tape position. Note that tape indices go forward
 # in time from parameters to loss but are processed backward in time from loss to parameters.
 
-# The gcnode_queue maps CuArrays to the first index on tape they have a reference to. We use
-# Base.Order.Reverse because we want to free the pointers with highest indices first.
-# Using ObjectId to allow fast hashing, CuArrays are hashed slow like Arrays.
+# The gcnode_queue maps CuArrays to the first index on tape they have a reference in. We use
+# Base.Order.Reverse because we want to free the pointers with highest indices first.  Using
+# ObjectId to allow fast hashing, hashing CuArrays directly is slow like Arrays.
 const gcnode_queue = PriorityQueue{UInt,Int}(Base.Order.Reverse)
     
-# To call unsafe_free we need to find which CuArray belongs to an objectid.
-# Using WeakRef on CuArray values for to allow garbage collection
+# To call unsafe_free gcnode_dict helps us find which CuArray belongs to an objectid.  Using
+# WeakRef on CuArray values to allow garbage collection. Note that as a result sometimes
+# WeakRef.value will metamorphose from CuArray to nothing if gc gets to it earlier.
 const gcnode_dict = Dict{UInt,WeakRef}()
 
-# We use node indices on the tape to use as values in the priority queue
-# Using ObjectId(::Node) for keys just in case
+# We use node indices on the tape to use as values in the priority queue. Using
+# ObjectId(::Node) for keys to allow gc after gcnode is done.
 const gcnode_index = Dict{UInt,Int}()
 
-# Reset everything if Tape changes:
-gcnode_tape = WeakRef(nothing)
+# There is no explicit call to gcnode_init by the user. gcnode just resets everything if the
+# input Tape is different from gcnode_tape:
+const gcnode_tape = WeakRef(nothing)
 
 # During the backward step parents of a node (who have lower indices) may have their
-# outgrads modified, thus new CuArray references may appear. We want to keep the smallest
-# index for each CuArray. 
+# outgrads modified, thus new references to CuArrays that we have already indexed may
+# appear. We want to keep the smallest index for each CuArray.
 function gcnode_setindex!(c::CuArray,v::Int)
     cid = objectid(c)
     get!(gcnode_dict, cid) do; WeakRef(c); end
@@ -44,7 +45,7 @@ function gcnode_setindex!(c::CuArray,v::Int)
 end
 
 function gcnode_init(tape::Tape)
-    global gcnode_tape = WeakRef(tape)
+    gcnode_tape.value = tape
     empty!(gcnode_index)
     empty!(gcnode_queue)
     empty!(gcnode_dict)
@@ -61,17 +62,17 @@ function gcnode_init(tape::Tape)
     end
 end
 
-function gcnode(n::Node, tape::Tape)  ## 16.3μs
+function gcnode(n::Node, tape::Tape)
     cuallocator[] || return knetgcnode(n,tape)
     if tape !== gcnode_tape.value
         gcnode_init(tape)
     end
     tape isa Tape || return
     ni = gcnode_index[objectid(n)]
-    if n.Value isa Result # && n.outgrad isa KnetArray
+    if n.Value isa Result
         for c in cuarrays(n.outgrad); gcnode_setindex!(c, ni); end
     end
-    @inbounds for i in 1:length(n.parents);  ## 2.43μs
+    @inbounds for i in 1:length(n.parents);
         isassigned(n.parents, i) || continue
         parent = n.parents[i]
         if parent.Value isa Result
@@ -82,12 +83,10 @@ function gcnode(n::Node, tape::Tape)  ## 16.3μs
         end
     end
     while !isempty(gcnode_queue) && peek(gcnode_queue)[2] >= ni  ## 5.62μs
-        (cid,v) = dequeue_pair!(gcnode_queue)  ## 0.787μs
+        (cid,v) = dequeue_pair!(gcnode_queue)
         c = gcnode_dict[cid].value
-        if v == ni && c isa CuArray
-            unsafe_free!(c)  ## 4.06μs
-        else
-            @warn("gcnode error: c=$(summary(c)) v=$v ni=$ni", maxlog=1)  ## 0.160μs
+        if v == ni && c isa CuArray  ## c turns into nothing if gc'ed
+            unsafe_free!(c)
         end
     end
     if n.Value isa Result
