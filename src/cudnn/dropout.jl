@@ -108,5 +108,5 @@ end
         dxDesc = xDesc,
         reserveSpace = reserveSpace))
 
-@primitive1 dropoutBackward(dy;o...)  throw(MethodError(back,dropoutBackward))
+@primitive1 cudnnDropoutBackward(dy;o...)  throw(MethodError(back,cudnnDropoutBackward))
 

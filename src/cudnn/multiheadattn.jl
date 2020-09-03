@@ -2,11 +2,12 @@ import Base: unsafe_convert
 using Knet.KnetArrays: DevArray
 using AutoGrad: AutoGrad, @primitive1, recording
 using CUDA: CU_NULL
+AutoGrad.@zerograd sizeof(x)  # TODO: remove after fixing in AutoGrad
 
 using CUDA.CUDNN: 
    #cudnnMultiHeadAttnForward,
-   #cudnnMultiHeadAttnBackwardData,
-   #cudnnMultiHeadAttnBackwardWeights,
+    cudnnMultiHeadAttnBackwardData,
+    cudnnMultiHeadAttnBackwardWeights,
     cudnnGetMultiHeadAttnBuffers,
     cudnnGetMultiHeadAttnWeights,
     cudnnAttnDescriptor_t,
@@ -35,6 +36,9 @@ using CUDA.CUDNN:
         CUDNN_TENSOR_OP_MATH,                  # 1,
         CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION, # 2,
        #CUDNN_FMA_MATH,                        # 3,
+    cudnnWgradMode_t,
+        CUDNN_WGRAD_MODE_ADD,  # 0,
+        CUDNN_WGRAD_MODE_SET,  # 1,
     cudnnSeqDataDescriptor_t,
         cudnnCreateSeqDataDescriptor,
         cudnnDestroySeqDataDescriptor,
@@ -53,7 +57,7 @@ using CUDA.CUDNN:
 
 mutable struct cudnnSeqDataDescriptor; ptr::cudnnSeqDataDescriptor_t; end
 
-unsafe_convert(::Type{<:Ptr}, mha::cudnnSeqDataDescriptor)=mha.ptr
+unsafe_convert(::Type{<:Ptr}, d::cudnnSeqDataDescriptor)=d.ptr
 
 const cudnnSeqDataDescriptorCache = Dict{Tuple,cudnnSeqDataDescriptor}()
 
@@ -84,15 +88,18 @@ sdim4(s::Dims{3}) = Cint[s[3],s[2],1,s[1]] # assume three dims is VECT,BATCH,TIM
 sdim4(s::Dims{4}) = Cint[s[4],s[3],s[2],s[1]] # assume four dims is VECT,BEAM,BATCH,TIME
 sdim4(s::Dims{N}) where N = error("cudnnSeqDataDescriptor only supports up to 4 dims.")
 
-function cudnnSeqDataDescriptor(a)
-    dataType = DT(eltype(a))
-    nbDims = Cint(4) # cudnn-doc: The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro.
-    dimA = sdim4(size(a))
-    axes = cudnnSeqDataDefaultAxes
-    seqLengthArraySize = Csize_t(dimA[2]*dimA[3])
-    seqLengthArray = fill(dimA[1], seqLengthArraySize) # cudnn-doc: The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM].
-    paddingFill = C_NULL # cudnn-doc: Currently, the only supported value for paddingFill is NULL which means this option should be ignored.
-    cudnnSeqDataDescriptor(dataType, nbDims, dimA, axes, seqLengthArraySize, seqLengthArray, paddingFill)
+function cudnnSeqDataDescriptor(
+    array; 
+    dataType::DataType = eltype(array),
+    nbDims::Integer = 4, # cudnn-doc: The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro.
+    dimA::Vector{<:Integer} = sdim4(size(array)),
+    axes::Vector{cudnnSeqDataAxis_t} = cudnnSeqDataDefaultAxes,
+    seqLengthArray::Vector{<:Integer} = fill(dimA[1], dimA[2]*dimA[3]), # cudnn-doc: The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM].
+    seqLengthArraySize::Integer = Csize_t(length(seqLengthArray)),
+    paddingFill::Ptr{Cvoid} = C_NULL, # cudnn-doc: Currently, the only supported value for paddingFill is NULL which means this option should be ignored.
+)
+    cudnnSeqDataDescriptor(DT(dataType), Cint(nbDims), convert(Vector{Cint}, dimA), axes, 
+                           convert(Csize_t,seqLengthArraySize), convert(Vector{Cint}, seqLengthArray), paddingFill)
 end
 
 
@@ -100,7 +107,7 @@ end
 
 mutable struct cudnnAttnDescriptor; ptr::cudnnAttnDescriptor_t; end
 
-unsafe_convert(::Type{<:Ptr}, mha::cudnnAttnDescriptor)=mha.ptr
+unsafe_convert(::Type{<:Ptr}, d::cudnnAttnDescriptor)=d.ptr
 
 const cudnnAttnDescriptorCache = Dict{Tuple,cudnnAttnDescriptor}()
 
@@ -109,9 +116,9 @@ function cudnnAttnDescriptor(args...)
         ptr = cudnnAttnDescriptor_t[C_NULL]
         cudnnCreateAttnDescriptor(ptr)
         cudnnSetAttnDescriptor(ptr[1], args...)
-        mha = cudnnAttnDescriptor(ptr[1])
-        finalizer(x->cudnnDestroyAttnDescriptor(x.ptr), mha)
-        return mha
+        d = cudnnAttnDescriptor(ptr[1])
+        finalizer(x->cudnnDestroyAttnDescriptor(x.ptr), d)
+        return d
     end
 end
 
@@ -120,18 +127,25 @@ end
 # TODO:
 # + use correct weight/output size
 # + do all arrays have the same ndims?
+# + allow seqLengthArrays for q,k,v
+# + implement backward
 # - should residuals be in main args?
 # - should weights be in keywords?
-# - allow seqLengthArrays for q,k,v
 
 function cudnnMultiHeadAttnForward(
-    weights::Union{DevArray,Nothing},
-    queries::R, keys::R, values::R;
+    weights, queries, keys, values;
 
+    # Buffers for gradients
+    _dweights = (recording() && weights !== nothing ? similar(weights) : nothing),
+    _dqueries = (recording() ? similar(queries) : nothing),
+    _dkeys    = (recording() ? similar(keys) : nothing),
+    _dvalues  = (recording() ? similar(values) : nothing),
+
+    # attnDesc parameters
     attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES |> Unsigned, # The CUDNN_ATTN_ENABLE_PROJ_BIASES option is not supported in the multi-head attention gradient functions.
     nHeads::Integer = 2,
     smScaler::Real = 1,
-    dataType::DataType = T,
+    dataType::DataType = eltype(queries),
     computePrec::DataType = dataType, # There doesn't seem to be any other option in cudnn 8.0.2 docs
     mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(dataType),
     attnDropout::Real = 0, # The dropout option is currently not supported by the multi-head attention API
@@ -147,6 +161,7 @@ function cudnnMultiHeadAttnForward(
     maxBatchSize::Integer = _qdims[2],
     maxBeamSize::Integer = _qdims[3],
 
+    # initialize attnDesc
     attnDesc::cudnnAttnDescriptor = cudnnAttnDescriptor(
         Cuint(attnMode),
         Cint(nHeads),
@@ -169,42 +184,104 @@ function cudnnMultiHeadAttnForward(
         Cint(maxBeamSize)
     ),
 
+    # forw parameters
     currIdx::Integer = -1,
     loWinIdx::Array{Cint} = fill(Cint(0), qoMaxSeqLength),
     hiWinIdx::Array{Cint} = fill(Cint(kvMaxSeqLength), qoMaxSeqLength),
     residuals::Union{DevArray,Nothing} = nothing, # TODO: make sure gradients pass through residuals correctly if used
     _buffers = cudnnMultiHeadAttnBuffers(attnDesc),
-    _weightcheck = (@assert sizeof(weights) = _buffers[1] "weights should be $(_buffers[1]) bytes."),
+    _weightcheck = (@assert sizeof(weights) == _buffers[1] "weights should be $(_buffers[1]) bytes."),
     workSpace::Union{DevArray,Nothing}    = (_buffers[2] > 0 ? cudnnMultiHeadAttnBuffer(_buffers[2]) : nothing),
     reserveSpace::Union{DevArray,Nothing} = (_buffers[3] > 0 ? cudnnMultiHeadAttnBuffer(_buffers[3]) : nothing),
     _oLength = oProjSize > 0 ? oProjSize : nHeads * (vProjSize > 0 ? vProjSize : size(values,1)),
-    out::R = similar(values, _oLength, size(queries)[2:end]...), # has to be a kwarg because its size depends on other kwargs
-    qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries),
-    kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys),
-    vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values),
-    oDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(out),
-    devSeqLengthsQO::DevArray{Cint} = cudnnSeqLengths(qDesc, maxBatchSize*maxBeamSize+1),
-    devSeqLengthsKV::DevArray{Cint} = cudnnSeqLengths(kDesc, maxBatchSize*maxBeamSize+1)
+    out::R = similar(values, _oLength, size(queries)[2:end]...), # out has to be a kwarg (or arg=nothing) because its size depends on other kwargs
+    seqLengthsQO::Vector{<:Integer} = fill(_qdims[1], _qdims[2]*_qdims[3]),
+    seqLengthsKV::Vector{<:Integer} = fill(_kdims[1], _kdims[2]*_kdims[3]),
+    devSeqLengthsQO::DevArray{Cint,1} = convert(CuArray{Cint}, seqLengthsQO),
+    devSeqLengthsKV::DevArray{Cint,1} = convert(CuArray{Cint}, seqLengthsKV),
+    qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries, seqLengthArray=seqLengthsQO),
+    oDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(out,     seqLengthArray=seqLengthsQO),
+    kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys,    seqLengthArray=seqLengthsKV),
+    vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values,  seqLengthArray=seqLengthsKV),
 ) where {T,R<:DevArray{T}}
-    cu_null(x) = (x === nothing ? CU_NULL : x)
-    CUDA.CUDNN.cudnnMultiHeadAttnForward(handle(), attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, cu_null(residuals), kDesc, keys, vDesc, values, oDesc, out, sizeof(weights), cu_null(weights), sizeof(workSpace), cu_null(workSpace), sizeof(reserveSpace), cu_null(reserveSpace))
+
+    _cudnnMultiHeadAttnForward(
+        weights, queries, keys, values;
+        _dweights, _dqueries, _dkeys, _dvalues,
+        attnDesc, currIdx, loWinIdx, hiWinIdx,
+        devSeqLengthsQO, devSeqLengthsKV,
+        qDesc, kDesc, vDesc, oDesc,
+        residuals, out, workSpace, reserveSpace)
+end
+
+function _cudnnMultiHeadAttnForward(
+    weights, queries, keys, values;
+    _dweights, _dqueries, _dkeys, _dvalues,
+    attnDesc, currIdx, loWinIdx, hiWinIdx,
+    devSeqLengthsQO, devSeqLengthsKV,
+    qDesc, kDesc, vDesc, oDesc,
+    residuals, out, workSpace, reserveSpace)
+
+    CUDA.CUDNN.cudnnMultiHeadAttnForward(
+        handle(), attnDesc, currIdx,
+        loWinIdx, hiWinIdx,
+        devSeqLengthsQO, devSeqLengthsKV,
+        qDesc, queries, cu_null(residuals),
+        kDesc, keys,
+        vDesc, values,
+        oDesc, out,
+        sizeof(weights), cu_null(weights),
+        sizeof(workSpace), cu_null(workSpace),
+        sizeof(reserveSpace), cu_null(reserveSpace))
     return out
 end
 
-function cudnnSeqLengths(d::cudnnSeqDataDescriptor, seqLengthSizeRequested=128)
-    seqLengthArray = Array{Cint}(undef, seqLengthSizeRequested)
-    seqLengthArraySize = Csize_t[0]
-    cudnnGetSeqDataDescriptor(d, C_NULL, C_NULL, 0, C_NULL, C_NULL, seqLengthArraySize, seqLengthSizeRequested, seqLengthArray, C_NULL)
-    if seqLengthArraySize[1] < seqLengthSizeRequested 
-        return CuArray(seqLengthArray[1:seqLengthArraySize[1]])
-    else
-        return cudnnSeqLengths(d, 2*seqLengthSizeRequested)
-    end
-end
+
+@primitive1(
+
+    (_cudnnMultiHeadAttnForward(
+        weights, queries, keys, values;
+        _dweights, _dqueries, _dkeys, _dvalues,
+        attnDesc, currIdx, loWinIdx, hiWinIdx,
+        devSeqLengthsQO, devSeqLengthsKV,
+        qDesc, kDesc, vDesc, oDesc,
+        residuals, out, workSpace, reserveSpace),
+     _dout,_out),
+
+    (cudnnMultiHeadAttnBackwardData(
+        handle(), attnDesc,
+        loWinIdx, hiWinIdx,
+        devSeqLengthsQO, devSeqLengthsKV,
+        oDesc, _dout,
+        qDesc, _dqueries, value(queries),
+        kDesc, _dkeys, value(keys),
+        vDesc, _dvalues, value(values),
+        sizeof(weights), cu_null(value(weights)),
+        sizeof(workSpace), cu_null(workSpace),
+        sizeof(reserveSpace), cu_null(reserveSpace));
+
+     cudnnMultiHeadAttnBackwardWeights(
+         handle(), attnDesc,
+         CUDNN_WGRAD_MODE_SET,
+         qDesc, value(queries),
+         kDesc, value(keys),
+         vDesc, value(values),
+         oDesc, _dout,
+         sizeof(weights), cu_null(value(weights)), cu_null(_dweights),
+         sizeof(workSpace), cu_null(workSpace),
+         sizeof(reserveSpace), cu_null(reserveSpace));
+
+     _dweights),
+    _dqueries,
+    _dkeys,
+    _dvalues) # and what about residuals? what if keys==values?
+
+
+cu_null(x) = (x === nothing ? CU_NULL : x)
 
 cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH
 cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
-cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_DEFAULT_MATH #TODO: CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
+cudnnMultiHeadAttnMathType(::Type{Float32}) = CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
 
 function cudnnMultiHeadAttnBuffers(attnDesc::cudnnAttnDescriptor)
     weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
@@ -217,11 +294,7 @@ function cudnnMultiHeadAttnBuffer(bytes::Integer)
     return CuArray{Int128}(undef, (bytes-1)÷sizeof(Int128)+1)
 end
 
-@primitive1((multiHeadAttnForward(x; o...),dy,y),  
-            multiHeadAttnBackwardData(x,y,dy; o...),
-            multiHeadAttnBackwardWeights(x,y,dy; o...))
-@primitive1 cudnnMultiHeadAttnBackwardData(x,y...;o...)     throw(MethodError(back,cudnnMultiHeadAttnBackwardData))
-@primitive1 cudnnMultiHeadAttnBackwardWeights(x,y...;o...)  throw(MethodError(back,cudnnMultiHeadAttnBackwardWeights))
+
 
 # See the following for some of the default values:
 #
