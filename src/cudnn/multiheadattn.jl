@@ -53,77 +53,9 @@ using CUDA.CUDNN:
     handle
     
 
-## cudnnSeqDataDescriptor:
+@cudnnDescriptor(SeqData)
+@cudnnDescriptor(Attn)
 
-mutable struct cudnnSeqDataDescriptor; ptr::cudnnSeqDataDescriptor_t; end
-
-unsafe_convert(::Type{<:Ptr}, d::cudnnSeqDataDescriptor)=d.ptr
-
-const cudnnSeqDataDescriptorCache = Dict{Tuple,cudnnSeqDataDescriptor}()
-
-function cudnnSeqDataDescriptor(args...)
-    get!(cudnnSeqDataDescriptorCache, args) do
-        ptr = cudnnSeqDataDescriptor_t[C_NULL]
-        cudnnCreateSeqDataDescriptor(ptr)
-        cudnnSetSeqDataDescriptor(ptr[1], args...)
-        d = cudnnSeqDataDescriptor(ptr[1])
-        finalizer(x->cudnnDestroySeqDataDescriptor(x.ptr), d)
-        return d
-    end
-end
-
-# Note that axes and dimA are reversed in cudnn relative to Julia size(), so VECT is always Julia dim=1.
-const cudnnSeqDataDefaultAxes = cudnnSeqDataAxis_t[
-    CUDNN_SEQDATA_TIME_DIM,
-    CUDNN_SEQDATA_BATCH_DIM,
-    CUDNN_SEQDATA_BEAM_DIM,
-    CUDNN_SEQDATA_VECT_DIM
-]
-
-# For tensors with less than 4 dims we assume size=(VECT,BATCH,TIME) Julia order with BEAM=1.
-sdim4(s::Dims{0}) = Cint[1,1,1,1]
-sdim4(s::Dims{1}) = Cint[1,1,1,s[1]] # assume single dim is VECT
-sdim4(s::Dims{2}) = Cint[1,s[2],1,s[1]] # assume two dims is VECT,BATCH
-sdim4(s::Dims{3}) = Cint[s[3],s[2],1,s[1]] # assume three dims is VECT,BATCH,TIME
-sdim4(s::Dims{4}) = Cint[s[4],s[3],s[2],s[1]] # assume four dims is VECT,BEAM,BATCH,TIME
-sdim4(s::Dims{N}) where N = error("cudnnSeqDataDescriptor only supports up to 4 dims.")
-
-function cudnnSeqDataDescriptor(
-    array; 
-    dataType::DataType = eltype(array),
-    nbDims::Integer = 4, # cudnn-doc: The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro.
-    dimA::Vector{<:Integer} = sdim4(size(array)),
-    axes::Vector{cudnnSeqDataAxis_t} = cudnnSeqDataDefaultAxes,
-    seqLengthArray::Vector{<:Integer} = fill(dimA[1], dimA[2]*dimA[3]), # cudnn-doc: The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM].
-    seqLengthArraySize::Integer = Csize_t(length(seqLengthArray)),
-    paddingFill::Ptr{Cvoid} = C_NULL, # cudnn-doc: Currently, the only supported value for paddingFill is NULL which means this option should be ignored.
-)
-    cudnnSeqDataDescriptor(DT(dataType), Cint(nbDims), convert(Vector{Cint}, dimA), axes, 
-                           convert(Csize_t,seqLengthArraySize), convert(Vector{Cint}, seqLengthArray), paddingFill)
-end
-
-
-## cudnnAttnDescriptor:
-
-mutable struct cudnnAttnDescriptor; ptr::cudnnAttnDescriptor_t; end
-
-unsafe_convert(::Type{<:Ptr}, d::cudnnAttnDescriptor)=d.ptr
-
-const cudnnAttnDescriptorCache = Dict{Tuple,cudnnAttnDescriptor}()
-
-function cudnnAttnDescriptor(args...)
-    get!(cudnnAttnDescriptorCache, args) do
-        ptr = cudnnAttnDescriptor_t[C_NULL]
-        cudnnCreateAttnDescriptor(ptr)
-        cudnnSetAttnDescriptor(ptr[1], args...)
-        d = cudnnAttnDescriptor(ptr[1])
-        finalizer(x->cudnnDestroyAttnDescriptor(x.ptr), d)
-        return d
-    end
-end
-
-
-## cudnnMultiHeadAttnForward:
 
 function cudnnMultiHeadAttnForward(
     weights, queries, keys, values, residuals=nothing, out=nothing;
@@ -241,6 +173,7 @@ function cudnnMultiHeadAttnForward(
         out, workSpace, reserveSpace)
 end
 
+
 function _cudnnMultiHeadAttnForward(
     weights, queries, keys, values, residuals;
     dweights, dqueries, dkeys, dvalues,
@@ -328,3 +261,35 @@ end
 function cudnnMultiHeadAttnBuffer(bytes::Integer)
     return CuArray{Int128}(undef, (bytes-1)÷sizeof(Int128)+1)
 end
+
+
+# Note that axes and dimA are reversed in cudnn relative to Julia size(), so VECT is always Julia dim=1.
+const cudnnSeqDataDefaultAxes = cudnnSeqDataAxis_t[
+    CUDNN_SEQDATA_TIME_DIM,
+    CUDNN_SEQDATA_BATCH_DIM,
+    CUDNN_SEQDATA_BEAM_DIM,
+    CUDNN_SEQDATA_VECT_DIM
+]
+
+# For tensors with less than 4 dims we assume size=(VECT,BATCH,TIME) Julia order with BEAM=1.
+sdim4(s::Dims{0}) = Cint[1,1,1,1]
+sdim4(s::Dims{1}) = Cint[1,1,1,s[1]] # assume single dim is VECT
+sdim4(s::Dims{2}) = Cint[1,s[2],1,s[1]] # assume two dims is VECT,BATCH
+sdim4(s::Dims{3}) = Cint[s[3],s[2],1,s[1]] # assume three dims is VECT,BATCH,TIME
+sdim4(s::Dims{4}) = Cint[s[4],s[3],s[2],s[1]] # assume four dims is VECT,BEAM,BATCH,TIME
+sdim4(s::Dims{N}) where N = error("cudnnSeqDataDescriptor only supports up to 4 dims.")
+
+function cudnnSeqDataDescriptor(
+    array; 
+    dataType::DataType = eltype(array),
+    nbDims::Integer = 4, # cudnn-doc: The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro.
+    dimA::Vector{<:Integer} = sdim4(size(array)),
+    axes::Vector{cudnnSeqDataAxis_t} = cudnnSeqDataDefaultAxes,
+    seqLengthArray::Vector{<:Integer} = fill(dimA[1], dimA[2]*dimA[3]), # cudnn-doc: The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM].
+    seqLengthArraySize::Integer = Csize_t(length(seqLengthArray)),
+    paddingFill::Ptr{Cvoid} = C_NULL, # cudnn-doc: Currently, the only supported value for paddingFill is NULL which means this option should be ignored.
+)
+    cudnnSeqDataDescriptor(DT(dataType), Cint(nbDims), convert(Vector{Cint}, dimA), axes, 
+                           convert(Csize_t,seqLengthArraySize), convert(Vector{Cint}, seqLengthArray), paddingFill)
+end
+
