@@ -60,27 +60,27 @@ using CUDA.CUDNN:
 function cudnnMultiHeadAttnForward(
     weights, queries, keys, values, residuals=nothing, out=nothing;
 
-    # Buffers for gradients
+    # Buffers for gradients and tensor sizes
     dweights = (recording() && weights !== nothing ? similar(weights) : nothing),
     dqueries = (recording() ? similar(queries) : nothing),
     dkeys    = (recording() ? similar(keys) : nothing),
     dvalues  = (recording() ? similar(values) : nothing),
+    _qdims::Vector{Cint} = sdim4(size(queries)),
+    _kdims::Vector{Cint} = sdim4(size(keys)),
 
     # attnDesc parameters
     attnMode::Unsigned = CUDNN_ATTN_QUERYMAP_ALL_TO_ONE | CUDNN_ATTN_DISABLE_PROJ_BIASES |> Unsigned,
     nHeads::Integer = 2,
     smScaler::Real = 1,
-    dataType::DataType = eltype(queries),
-    computePrec::DataType = dataType,
-    mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(dataType),
-    attnDropout::Real = 0, # The dropout option is currently not supported by the multi-head attention API
-    postDropout::Real = 0,
+    # dataType::DataType = eltype(queries),
+    # computePrec::DataType = eltype(queries),  ## Only option according to 8.0.2
+    # mathType::cudnnMathType_t = cudnnMultiHeadAttnMathType(eltype(queries)),  ## Always pick tensor math if available
+    # attnDropout::Real = 0, ## The dropout option is currently not supported by the multi-head attention API
+    # postDropout::Real = 0,
     qProjSize::Integer = 0, # Use zero to disable the corresponding projection
     kProjSize::Integer = 0,
     vProjSize::Integer = 0,
     oProjSize::Integer = 0,
-    _qdims = sdim4(size(queries)),
-    _kdims = sdim4(size(keys)),
     qoMaxSeqLength::Integer = _qdims[1],
     kvMaxSeqLength::Integer = _kdims[1],
     maxBatchSize::Integer = _qdims[2],
@@ -91,14 +91,14 @@ function cudnnMultiHeadAttnForward(
         Cuint(attnMode),
         Cint(nHeads),
         Cdouble(smScaler),
-        DT(dataType),
-        DT(computePrec),
-        mathType,
-        attnDropout == 0 ? C_NULL : error("The dropout option is currently not supported by the multi-head attention API"), # cudnnDropoutDescriptor(attnDropout), # TODO: DropoutDescriptor is a bad thing to hash? (unless cached) when this option is available 
-        postDropout == 0 ? C_NULL : error("The dropout option is currently not supported by the multi-head attention API"), # cudnnDropoutDescriptor(postDropout),
-        Cint(size(queries,1)),
-        Cint(size(keys,1)),
-        Cint(size(values,1)),
+        DT(eltype(queries)),    # dataType
+        DT(eltype(queries)),    # computePrec
+        cudnnMultiHeadAttnMathType(eltype(queries)), # mathType
+        C_NULL,  # attnDropout
+        C_NULL,  # postDropout
+        Cint(size(queries,1)),  # qSize
+        Cint(size(keys,1)),     # kSize
+        Cint(size(values,1)),   # vSize
         Cint(qProjSize),
         Cint(kProjSize),
         Cint(vProjSize),
@@ -146,12 +146,13 @@ function cudnnMultiHeadAttnForward(
 
     @assert (attnMode & CUDNN_ATTN_ENABLE_PROJ_BIASES == 0) "The CUDNN_ATTN_ENABLE_PROJ_BIASES option is not supported in the multi-head attention gradient functions."
     @assert smScaler >= 0  "The user can set smScaler to any positive floating-point value or even zero."
-    @assert computePrec === dataType  "Only computePrec === dataType supported as of cuDNN 8.0.2."
-    @assert(((mathType === CUDNN_DEFAULT_MATH) ||
-             (mathType === CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION && dataType in (Float16, Float32)) ||
-             (mathType === CUDNN_TENSOR_OP_MATH && dataType === Float16)),
-            "Unsupported mathType $mathType for dataType $dataType.")
-    @assert (attnDropout == postDropout == 0) "The dropout option is not supported by the multi-head attention API as of cuDNN 8.0.2."
+    # These options are not really options in 8.0.2:
+    # @assert computePrec === dataType  "Only computePrec === dataType supported as of cuDNN 8.0.2."
+    # @assert(((mathType === CUDNN_DEFAULT_MATH) ||
+    #          (mathType === CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION && dataType in (Float16, Float32)) ||
+    #          (mathType === CUDNN_TENSOR_OP_MATH && dataType === Float16)),
+    #         "Unsupported mathType $mathType for dataType $dataType.")
+    # @assert (attnDropout == postDropout == 0) "The dropout option is not supported by the multi-head attention API as of cuDNN 8.0.2."
     @assert qoMaxSeqLength >= _qdims[1]
     @assert kvMaxSeqLength >= _kdims[1]
     @assert maxBatchSize >= _qdims[2]
