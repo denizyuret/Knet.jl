@@ -18,9 +18,6 @@ using CUDA.CUDNN:
     handle
 
 
-@cudnnDescriptor(OpTensor)
-
-
 # Compared to cudnnAddTensor!(copy(a),b), ~50% faster on (14,14,256,32)+(1,1,256,1), ~50% slower on (1,1,100,100)+(1,1,100,1)
 # Unlike cudnnAddTensor it supports all broadcasting shapes up to ndims=5 as described in the documentation
 function cudnnOpTensor(

@@ -32,9 +32,6 @@ using CUDA.CUDNN:
     handle
 
 
-@cudnnDescriptor(ReduceTensor)
-
-
 # This is unfortunately 10x slower than libknet8, 2x slower than CUDA.jl
 function cudnnReduceTensor(
     x::R;

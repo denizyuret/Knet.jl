@@ -1,6 +1,8 @@
 #module CUDNN
 
 include("common.jl")
+include("descriptors.jl")
+include("tensor.jl")
 include("activation.jl")
 include("dropout.jl")
 include("inplace.jl")

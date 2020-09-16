@@ -17,10 +17,6 @@ using CUDA.CUDNN:
         CUDNN_ACTIVATION_IDENTITY,
     handle
 
-
-@cudnnDescriptor(Activation)
-
-
 function cudnnActivationForward(
     x, y = similar(x);
     mode::cudnnActivationMode_t = CUDNN_ACTIVATION_RELU,

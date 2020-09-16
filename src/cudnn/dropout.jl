@@ -26,13 +26,11 @@ cudnnDropoutState = Ref{CuArray{Int128,1}}()
 cudnnDropoutSeed = Ref{Int}(-1)
 
 
-@cudnnDescriptor(Dropout, _cudnnSetDropoutDescriptor)
-
 const DD = cudnnDropoutDescriptor
 
-cudnnDropoutDescriptor(x) = cudnnDropoutDescriptor(convert(Cfloat,x), true) # fixes ambiguity issue
+cudnnDropoutDescriptor(x) = cudnnDropoutDescriptor(convert(Cfloat,x), nothing) # fixes ambiguity issue
 
-function _cudnnSetDropoutDescriptor(ptr::cudnnDropoutDescriptor_t, dropout::Cfloat, ignore)
+function cudnnSetDropoutDescriptorFromFloat(ptr::cudnnDropoutDescriptor_t, dropout::Cfloat, ignore::Nothing)
     if !isassigned(cudnnDropoutState)
         ssize = Csize_t[0]; cudnnDropoutGetStatesSize(handle(), ssize)
         cudnnDropoutState[] = CuArray{Int128}(undef, (ssize[1]-1)÷sizeof(Int128)+1)

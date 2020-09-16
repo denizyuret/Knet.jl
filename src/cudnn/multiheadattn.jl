@@ -53,9 +53,6 @@ using CUDA.CUDNN:
     handle
     
 
-@cudnnDescriptor(SeqData)
-@cudnnDescriptor(Attn)
-
 
 function cudnnMultiHeadAttnForward(
     weights, queries, keys, values, residuals=nothing, out=nothing;
