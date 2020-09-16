@@ -16,11 +16,11 @@ pointers to their data. These descriptors are relatively fast to create (~500 ns
 are not worth preallocating. We use caching (~100 ns) for more efficiency.
 
 **Operator descriptors:** The cuDNN functions take preinitialized descriptors such as
-cudnnActivationDescriptor_t that specify the options for the operation such as convolution
-stride or activation function. We will have keyword arguments in the forward function both
-for the individual options with reasonable defaults and a preset descriptor. This way a
-casual user can call the function with only the non-default options without worrying about
-the descriptor format, whereas a layer architect can keep a preset descriptor in the layer
+cudnnActivationDescriptor_t that specify the options for the operation such as the
+activation function. We will have keyword arguments in the forward function both for the
+individual options with reasonable defaults and a preset descriptor. This way a casual user
+can call the function without worrying about the descriptor format only specifying
+non-default options, whereas a layer architect can keep a preset descriptor in the layer
 that gets passed to the function. When both the options and the descriptor are specified in
 the forward function, the options are ignored and the descriptor is used.
 
