@@ -26,7 +26,8 @@ function cudnnActivationForward(
     alpha::Real=1,
     xDesc::cudnnTensorDescriptor = TD(x),
     beta::Real=0,
-    yDesc::cudnnTensorDescriptor = xDesc)
+    yDesc::cudnnTensorDescriptor = xDesc
+)
     alpha, beta = scalr(alpha,x), scalr(beta,x)
     _cudnnActivationForward(x; activationDesc, alpha, xDesc, beta, yDesc, y)
 end

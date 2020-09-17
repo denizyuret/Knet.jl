@@ -10,6 +10,7 @@ include("multiheadattn.jl")
 include("optensor.jl")
 include("reduce.jl")
 include("softmax.jl")
+include("pooling.jl")
 
 #end
 
