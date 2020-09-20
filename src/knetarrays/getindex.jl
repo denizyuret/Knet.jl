@@ -32,10 +32,10 @@ using Knet.LibKnet8: @knet8
 getindex(A::KnetArray, I...) = KnetArray(getindex(CuArray(A), I...))
 
 function setindex!(A::KnetArray, B, I...)
-    if B isa KnetArray || B isa AbstractArray
-        B = CuArray(B)
-    end
-    setindex!(CuArray(A), B, I...)
+    _A = CuArray(A)
+    _B = (B isa KnetArray || B isa AbstractArray ? convert(CuArray,B) : B)
+    # setindex!(CuArray(A), B, I...)  ## This only works for x[I...] = y but not for x[I...] .= y
+    Base.Broadcast.materialize!(Base.dotview(_A,I...), Base.broadcasted(Base.identity, _B))
     return A
 end
 
