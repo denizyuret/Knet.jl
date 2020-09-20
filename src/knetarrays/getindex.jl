@@ -28,18 +28,8 @@ using Knet.LibKnet8: @knet8
 ## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
 
 
-# CuArray fallbacks
-# Based on julia-1.4.2/base: getindex@abstractarray.jl:980, _getindex@multidimensional.jl:726, _unsafe_getindex!@multidimensional.jl:738
-function getindex(A::KnetArray, I...)
-    _A = CuArray(A)
-    I = Base.to_indices(_A, I)
-    checkbounds(_A, I...)
-    shape = Base.index_shape(I...)
-    B = similar(A, length.(shape))
-    _B = CuArray(B)
-    Base._unsafe_getindex!(_B, _A, I...)
-    return B
-end
+# CuArray fallbacks: these rely on KnetArray<->CuArray conversions having shared pointers.
+getindex(A::KnetArray, I...) = KnetArray(getindex(CuArray(A), I...))
 
 function setindex!(A::KnetArray, B, I...)
     if B isa KnetArray || B isa AbstractArray
@@ -48,6 +38,21 @@ function setindex!(A::KnetArray, B, I...)
     setindex!(CuArray(A), B, I...)
     return A
 end
+
+
+# The following fallback version tried to do all allocations using KnetArrays but was recently broken (Issue 618).
+# This only makes a difference if we are using the Knet allocator (i.e. cuallocator[] = false) which is not the default any more.
+# Based on julia-1.4.2/base: getindex@abstractarray.jl:980, _getindex@multidimensional.jl:726, _unsafe_getindex!@multidimensional.jl:738
+# function getindex_broken(A::KnetArray, I...)
+#     _A = CuArray(A)
+#     I = Base.to_indices(_A, I)
+#     checkbounds(_A, I...)
+#     shape = Base.index_shape(I...)
+#     B = similar(A, length.(shape))
+#     _B = CuArray(B)
+#     Base._unsafe_getindex!(_B, _A, I...)
+#     return B
+# end
 
 
 ## Indexing with Real
