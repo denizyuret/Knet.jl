@@ -148,13 +148,10 @@ function CuArray(x::KnetArray{T}) where {T}
     unsafe_wrap(CuArray{T}, p, x.dims; own=false)
 end
 
-# Must be careful with memory management, for now we will let Knet manage memory.
-# use CuArray(x) with overwriting kernels only.
-# use the following with caution.
-
+# Extend function KnetArray to create a memory shared KnetArray from CuArray:
 function KnetArray(x::CuArray{T,N}) where {T,N}
-    p = Base.bitcast(Knet.Cptr, x.ptr)
-    k = Knet.KnetPtr(p, sizeof(x), Int(CUDA.device().handle), x) 
+    p = Base.bitcast(Cptr, x.ptr)
+    k = KnetPtr(p, sizeof(x), Int(CUDA.device().handle), x) 
     KnetArray{T,N}(k, size(x))
 end
 
