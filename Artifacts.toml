@@ -9,7 +9,7 @@ os = "linux"
 
 [[libknet8]]
 arch = "x86_64"
-git-tree-sha1 = "5e1e317677e88277f0ee67ab9e17587a8edc4f7a"
+git-tree-sha1 = "9f36b4ee16e483534b1031bc272c9f4cb8443088"
 os = "windows"
 
    [[libknet8.download]]
