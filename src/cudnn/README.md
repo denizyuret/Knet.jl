@@ -28,9 +28,13 @@ version that takes a pre-allocated output array as the first argument
 (e.g. `cudnnPoolingForward!`).
 
 **Methods:** Each cuDNN forward function may have up to four methods depending on whether
-the descriptor and the output array is specified:
+the descriptor and the output array are specified:
 
     cudnnPoolingForward(x)
     cudnnPoolingForward(x, poolingDesc)
     cudnnPoolingForward!(y, x)
     cudnnPoolingForward!(y, x, poolingDesc)
+
+The conventional order of arguments is:
+
+    ([output], weights, inputs, [descriptor])

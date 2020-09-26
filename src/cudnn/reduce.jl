@@ -32,8 +32,14 @@ using CUDA.CUDNN:
     handle
 
 
+cudnnReduceTensor(x; o...)                       = cudnnReduceTensorWithDefaults(x; o...)
+cudnnReduceTensor(x, reduceTensorDesc; o...)     = cudnnReduceTensorWithDefaults(x; reduceTensorDesc, o...)
+cudnnReduceTensor!(y, x; o...)                   = cudnnReduceTensorWithDefaults(x; y, o...)
+cudnnReduceTensor!(y, x, reduceTensorDesc; o...) = cudnnReduceTensorWithDefaults(x; y, reduceTensorDesc, o...)
+
+
 # This is unfortunately 10x slower than libknet8, 2x slower than CUDA.jl
-function cudnnReduceTensor(
+function cudnnReduceTensorWithDefaults(
     x::R;
     dims::Dims = ntuple(i->1,N),
     reduceTensorOp::cudnnReduceTensorOp_t = CUDNN_REDUCE_TENSOR_ADD,
@@ -50,9 +56,18 @@ function cudnnReduceTensor(
     indices::Union{DevArray,Nothing} = nothing,
     workspace::DevArray = cudnnReductionWorkspace(reduceTensorDesc, xDesc, yDesc),
 ) where {T,N,R<:DevArray{T,N}}
-    cudnnReduceTensor(handle(), reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), Ref(T(alpha)), xDesc, x, Ref(T(beta)), yDesc, y)
+    alpha, beta = scalr(alpha,x), scalr(beta,x)
+    cudnnReduceTensorAutoGrad(x; reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, beta, yDesc, y)
+end
+
+
+function cudnnReduceTensorAutoGrad(x; reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, beta, yDesc, y)
+    CUDA.CUDNN.cudnnReduceTensor(handle(), reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, x, beta, yDesc, y)
     return y
 end
+
+
+# TODO: define backward function
 
 
 function cudnnReductionWorkspace(reduceTensorDesc::cudnnReduceTensorDescriptor, xDesc::cudnnTensorDescriptor, yDesc::cudnnTensorDescriptor)

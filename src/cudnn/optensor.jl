@@ -18,12 +18,19 @@ using CUDA.CUDNN:
     handle
 
 
+cudnnOpTensor(x1,x2; o...)                 = cudnnOpTensorWithDefaults(x1,x2; o...)
+cudnnOpTensor(x1,x2,opTensorDesc; o...)    = cudnnOpTensorWithDefaults(x1,x2; opTensorDesc, o...)
+cudnnOpTensor!(y,x1,x2; o...)              = cudnnOpTensorWithDefaults(x1,x2; y, o...)
+cudnnOpTensor!(y,x1,x2,opTensorDesc; o...) = cudnnOpTensorWithDefaults(x1,x2; y, opTensorDesc, o...)
+
+
 # Compared to cudnnAddTensor!(copy(a),b), ~50% faster on (14,14,256,32)+(1,1,256,1), ~50% slower on (1,1,100,100)+(1,1,100,1)
 # Unlike cudnnAddTensor it supports all broadcasting shapes up to ndims=5 as described in the documentation
-function cudnnOpTensor(
-    x1::R, x2::R, y::R = similar(x1);
+function cudnnOpTensorWithDefaults(
+    x1, x2;
+    y = similar(x1),
     opTensorOp::cudnnOpTensorOp_t = CUDNN_OP_TENSOR_ADD,
-    opTensorCompType::DataType = (T <: Float64 ? Float64 : Float32),
+    opTensorCompType::DataType = (eltype(x1) <: Float64 ? Float64 : Float32),
     opTensorNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
     opTensorDesc::cudnnOpTensorDescriptor = cudnnOpTensorDescriptor(opTensorOp, DT(opTensorCompType), opTensorNanOpt),
     alpha1::Real = 1,
@@ -32,8 +39,19 @@ function cudnnOpTensor(
     x2Desc::cudnnTensorDescriptor = TD(x2),
     beta::Real = 0,
     yDesc::cudnnTensorDescriptor = x1Desc
-) where {T,N,R<:DevArray{T,N}}
-    @assert N <= 5
-    cudnnOpTensor(handle(), opTensorDesc, Ref(T(alpha1)), x1Desc, x1, Ref(T(alpha2)), x2Desc, x2, Ref(T(beta)), yDesc, y)
+)
+    @assert size(x1) == size(x2) == size(y)
+    @assert eltype(x1) == eltype(x2) == eltype(y)
+    @assert ndims(x1) <= 5
+    alpha1, alpha2, beta = scalr(alpha1,x1), scalr(alpha2,x2), scalr(beta,y)
+    cudnnOpTensorAutoGrad(x1, x2; opTensorDesc, alpha1, x1Desc, alpha2, x2Desc, beta, yDesc, y)
+end
+
+
+function cudnnOpTensorAutoGrad(x1, x2; opTensorDesc, alpha1, x1Desc, alpha2, x2Desc, beta, yDesc, y)
+    CUDA.CUDNN.cudnnOpTensor(handle(), opTensorDesc, alpha1, x1Desc, x1, alpha2, x2Desc, x2, beta, yDesc, y)
     return y
 end
+
+
+# TODO: define backward function

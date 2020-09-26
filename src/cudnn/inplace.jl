@@ -24,10 +24,11 @@ end
 # CUDA.jl x .+ b is 2x slower than both
 function cudnnAddTensor(
     x::R, b::R;
+    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
     alpha::Real=1,
     beta::Real=1,
-    bDesc::cudnnTensorDescriptor = TD(b),
-    xDesc::cudnnTensorDescriptor = TD(x),
+    bDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(b; format),
+    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x; format),
 ) where {T,N,R<:DevArray{T,N}}
     @assert N === 4 || N === 5
     @assert all(size(b,i) === (i === N-1 ? size(x,i) : 1) for i in 1:N)

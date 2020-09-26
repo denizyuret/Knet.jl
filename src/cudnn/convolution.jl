@@ -56,6 +56,7 @@ cudnnConvolutionForward, cudnnConvolutionForward!
 function cudnnConvolutionForward(
     w::DevArray{T,N},           # TODO: w,x or x,w? libcudnn is x,w,y
     x::DevArray{T,N};
+    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,

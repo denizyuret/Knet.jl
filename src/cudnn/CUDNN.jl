@@ -87,8 +87,8 @@ include("pooling.jl")
 # cudnnMultiHeadAttnBackwardWeights
 # cudnnMultiHeadAttnForward
 # +cudnnOpTensor
-# cudnnPoolingBackward
-# cudnnPoolingForward
+# +cudnnPoolingBackward
+# +cudnnPoolingForward
 # -cudnnQueryRuntimeError
 # +cudnnReduceTensor
 # ?cudnnReorderFilterAndBias

@@ -54,7 +54,7 @@ function cudnnNormalizationForwardWithDefaults(
     z::Union{Nothing,DevArray} = nothing, # for residual addition to the result of the normalization operation, prior to the activation
     xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x; format),
     yDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(y; format),
-    zDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(z; format),
+    zDesc::Union{Nothing,cudnnTensorDescriptor} = cudnnTensorDescriptor(z; format),
     normScaleBiasDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(normScale; format),
     normMeanVarDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(resultRunningMean; format),
     workspace::DevArray,

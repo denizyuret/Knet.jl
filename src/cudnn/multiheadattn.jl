@@ -35,7 +35,7 @@ using CUDA.CUDNN:
         CUDNN_DEFAULT_MATH,                    # 0,
         CUDNN_TENSOR_OP_MATH,                  # 1,
         CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION, # 2,
-       #CUDNN_FMA_MATH,                        # 3,
+        CUDNN_FMA_MATH,                        # 3,
     cudnnWgradMode_t,
         CUDNN_WGRAD_MODE_ADD,  # 0,
         CUDNN_WGRAD_MODE_SET,  # 1,
@@ -54,8 +54,14 @@ using CUDA.CUDNN:
     
 
 
-function cudnnMultiHeadAttnForward(
-    weights, queries, keys, values, residuals=nothing, out=nothing;
+cudnnMultiHeadAttnForward(w,q,k,v; o...)               = cudnnMultiHeadAttnForwardWithDefaults(w,q,k,v; o...)
+cudnnMultiHeadAttnForward(w,q,k,v,attnDesc; o...)      = cudnnMultiHeadAttnForwardWithDefaults(w,q,k,v; attnDesc, o...)
+cudnnMultiHeadAttnForward!(out,w,q,k,v; o...)          = cudnnMultiHeadAttnForwardWithDefaults(w,q,k,v; out, o...)
+cudnnMultiHeadAttnForward!(out,w,q,k,v,attnDesc; o...) = cudnnMultiHeadAttnForwardWithDefaults(w,q,k,v; out, attnDesc, o...)
+
+
+function cudnnMultiHeadAttnForwardWithDefaults(
+    weights, queries, keys, values;
 
     # Buffers for gradients and tensor sizes
     dweights = (recording() && weights !== nothing ? similar(weights) : nothing),
@@ -107,6 +113,8 @@ function cudnnMultiHeadAttnForward(
     ),
 
     # forw parameters
+    out=nothing,
+    residuals = nothing,
     currIdx::Integer = -1,
     loWinIdx::Array{Cint} = fill(Cint(0), qoMaxSeqLength),
     hiWinIdx::Array{Cint} = fill(Cint(kvMaxSeqLength), qoMaxSeqLength),
@@ -116,10 +124,11 @@ function cudnnMultiHeadAttnForward(
     seqLengthsKV::Vector{<:Integer} = fill(_kdims[1], _kdims[2]*_kdims[3]),
     devSeqLengthsQO::DevArray{Cint,1} = convert(CuArray{Cint}, seqLengthsQO),
     devSeqLengthsKV::DevArray{Cint,1} = convert(CuArray{Cint}, seqLengthsKV),
-    qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries, seqLengthArray=seqLengthsQO),
-    kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys,    seqLengthArray=seqLengthsKV),
-    vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values,  seqLengthArray=seqLengthsKV),
-    oDesc::Union{cudnnSeqDataDescriptor,Nothing} = nothing
+    axes::Vector{cudnnSeqDataAxis_t} = cudnnSeqDataDefaultAxes,
+    qDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(queries; axes, seqLengthArray=seqLengthsQO),
+    kDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(keys;    axes, seqLengthArray=seqLengthsKV),
+    vDesc::cudnnSeqDataDescriptor = cudnnSeqDataDescriptor(values;  axes, seqLengthArray=seqLengthsKV),
+    oDesc::Union{cudnnSeqDataDescriptor,Nothing} = cudnnSeqDataDescriptor(out; axes, seqLengthArray=seqLengthsQO),
 )
     (wSize, wsSize, rsSize) = cudnnMultiHeadAttnBuffers(attnDesc)
     @assert sizeof(weights) == wSize  "weights should be $wSize bytes."
@@ -162,7 +171,7 @@ function cudnnMultiHeadAttnForward(
     @assert sizeof(workSpace) >= wsSize  "worksSpace should be at least $wsSize bytes"
     @assert sizeof(reserveSpace) >= rsSize  "reserveSpace should be at least $rsSize bytes"
 
-    forw(_cudnnMultiHeadAttnForward,
+    forw(cudnnMultiHeadAttnForwardAutoGrad,
          weights, queries, keys, values, residuals;
          dweights, dqueries, dkeys, dvalues, # dresiduals is equal to dout
          attnDesc, currIdx, loWinIdx, hiWinIdx,
@@ -172,7 +181,7 @@ function cudnnMultiHeadAttnForward(
 end
 
 
-function _cudnnMultiHeadAttnForward(
+function cudnnMultiHeadAttnForwardAutoGrad(
     weights, queries, keys, values, residuals;
     dweights, dqueries, dkeys, dvalues,
     attnDesc, currIdx, loWinIdx, hiWinIdx,
@@ -198,7 +207,7 @@ end
 
 # We do all the work during the backward pass for the first arg
 function back(
-    ::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{1}}, dout, _out, 
+    ::typeof(cudnnMultiHeadAttnForwardAutoGrad), ::Type{Arg{1}}, dout, _out, 
     weights, queries, keys, values, residuals;
     dweights, dqueries, dkeys, dvalues,
     attnDesc, currIdx, loWinIdx, hiWinIdx,
@@ -235,10 +244,10 @@ function back(
 end
 
 # The backward pass for the other args only return already computed gradients
-back(::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{2}}, x...; dqueries, o...) = dqueries
-back(::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{3}}, x...; dkeys, o...) = dkeys
-back(::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{4}}, x...; dvalues, o...) = dvalues
-back(::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{5}}, dout, _out, weights, queries, keys, values, residuals; o...) =
+back(::typeof(cudnnMultiHeadAttnForwardAutoGrad), ::Type{Arg{2}}, x...; dqueries, o...) = dqueries
+back(::typeof(cudnnMultiHeadAttnForwardAutoGrad), ::Type{Arg{3}}, x...; dkeys, o...) = dkeys
+back(::typeof(cudnnMultiHeadAttnForwardAutoGrad), ::Type{Arg{4}}, x...; dvalues, o...) = dvalues
+back(::typeof(cudnnMultiHeadAttnForwardAutoGrad), ::Type{Arg{5}}, dout, _out, weights, queries, keys, values, residuals; o...) =
     (residuals === nothing ? nothing : dout)
 
 
@@ -249,6 +258,8 @@ back(::typeof(_cudnnMultiHeadAttnForward), ::Type{Arg{5}}, dout, _out, weights, 
 # operation is demonstrated in the cuDNN multiHeadAttention sample code.
 # AutoGrad automatically does the addition.
 # What if q = LayerNorm(r)? In my tests dr=dout and dq=0. TODO: check this further.
+
+
 
 cudnnMultiHeadAttnMathType(::Type) = CUDNN_DEFAULT_MATH
 cudnnMultiHeadAttnMathType(::Type{Float16}) = CUDNN_TENSOR_OP_MATH
@@ -295,3 +306,4 @@ function cudnnSeqDataDescriptor(
                            convert(Csize_t,seqLengthArraySize), convert(Vector{Cint}, seqLengthArray), paddingFill)
 end
 
+cudnnSeqDataDescriptor(::Nothing; o...) = nothing

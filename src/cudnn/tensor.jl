@@ -36,7 +36,6 @@ function cudnnTensorDescriptor(   # constructor from array
 end
 
 
-
 const FD = cudnnFilterDescriptor # short alias
 
 function cudnnFilterDescriptor(  # constructor from array
@@ -58,3 +57,8 @@ dim4(s::Dims{1})=Cint[s[1],1,1,1]
 dim4(s::Dims{2})=Cint[s[2],s[1],1,1]
 dim4(s::Dims{3})=Cint[s[3],s[2],s[1],1]
 dim4(s::Dims)   =Cint[reverse(s)...]
+
+
+# If array is nothing, return nothing for descriptor
+cudnnTensorDescriptor(::Nothing; o...) = nothing
+cudnnFilterDescriptor(::Nothing; o...) = nothing
