@@ -6,7 +6,7 @@ using CUDA: CuArray
 cuarrays(x, c=CuArray[], d=IdDict{Any,Bool}()) = (_cuarrays(x,c,d); c)
 
 _cuarrays(x::CuArray, c::Vector{CuArray}, d::IdDict{Any,Bool}) =
-    if !haskey(d,x); d[x] = true; push!(c,x); x.parent === nothing || _cuarrays(x.parent,c,d); end
+    if !haskey(d,x); d[x] = true; push!(c,x); if hasfield(typeof(x),:parent) && x.parent !== nothing; _cuarrays(x.parent,c,d); end; end
 
 _cuarrays(x::Union{Module,String,Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task,Regex},
           c::Vector{CuArray}, d::IdDict{Any,Bool}) = return

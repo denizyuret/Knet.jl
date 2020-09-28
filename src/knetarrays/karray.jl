@@ -148,11 +148,19 @@ function CuArray(x::KnetArray{T}) where {T}
     unsafe_wrap(CuArray{T}, p, x.dims; own=false)
 end
 
+function convert(A::Type{<:CuArray}, x::KnetArray)
+    convert(A, CuArray(x))      # extra convert in case T,N changes
+end
+
 # Extend function KnetArray to create a memory shared KnetArray from CuArray:
 function KnetArray(x::CuArray{T,N}) where {T,N}
     p = Base.bitcast(Cptr, x.ptr)
     k = KnetPtr(p, sizeof(x), Int(CUDA.device().handle), x) 
     KnetArray{T,N}(k, size(x))
+end
+
+function convert(A::Type{<:KnetArray}, x::CuArray)
+    convert(A, KnetArray(x))    # extra convert in case T,N changes
 end
 
 function ka(x...)

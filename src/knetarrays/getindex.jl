@@ -1,4 +1,6 @@
 import Base: getindex, setindex!
+import Base.Broadcast: materialize!
+using Base.Broadcast: Broadcasted
 using CUDA: CuArray, CuPtr, cuMemcpyDtoD_v2
 using Knet.LibKnet8: @knet8
 # include("kptr.jl") ## KnetPtr, Cptr
@@ -28,16 +30,38 @@ using Knet.LibKnet8: @knet8
 ## Indexing with Pair{Union{Real,AbstractUnitRange,Colon}}
 
 
-# CuArray fallbacks: these rely on KnetArray<->CuArray conversions having shared pointers.
-getindex(A::KnetArray, I...) = KnetArray(getindex(CuArray(A), I...))
+# CuArray fallbacks: these rely on KnetArray<->CuArray conversions having shared pointers
+# and cover the cases which are not explicitly defined using kernels below.
 
+# Fallback for A[I...]  => getindex(A, I...)
+function getindex(A::KnetArray, I...)
+    _A = CuArray(A)
+    _B = getindex(_A, I...)
+    B = (_B isa CuArray ? KnetArray(_B) : _B)
+    return B
+end
+
+# Fallback for A[I...] = B  => setindex!(A, B, I...)
 function setindex!(A::KnetArray, B, I...)
     _A = CuArray(A)
-    _B = (B isa KnetArray || B isa AbstractArray ? convert(CuArray,B) : B)
-    # setindex!(CuArray(A), B, I...)  ## This only works for x[I...] = y but not for x[I...] .= y
-    Base.Broadcast.materialize!(Base.dotview(_A,I...), Base.broadcasted(Base.identity, _B))
+    _B = (B isa KnetArray || B isa AbstractArray ? CuArray(B) : B)
+    setindex!(_A, _B, I...)  ## This only works for x[I...] = y but not for x[I...] .= y
     return A
 end
+
+# Fallback for A[I...] .= B  => materialize!(dotview(A, I...), broadcasted(identity, B))
+function materialize!(A::SubArray{T,N,<:KnetArray}, B) where {T,N}
+    _A = view(CuArray(A.parent), A.indices...)
+    _B = (B isa KnetArray || B isa AbstractArray ? CuArray(B) : B)
+    materialize!(_A, _B)
+end
+
+# Ambiguity fix:
+function materialize!(A::SubArray{T,N,<:KnetArray}, B::Broadcasted{S}) where {T,N,S}
+    _A = view(CuArray(A.parent), A.indices...)
+    materialize!(_A, B)
+end
+
 
 
 # The following fallback version tried to do all allocations using KnetArrays but was recently broken (Issue 618).

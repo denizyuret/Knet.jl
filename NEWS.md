@@ -1,9 +1,23 @@
+Knet v1.4.2 Release Notes
+=========================
+
+* Fixed windows git-tree-sha1 for libknet8.
+* Tutorial fixes.
+* Fix 606: gcnode issues.
+* Fix 610: WeakRefs turn into nothing when Julia garbage collects them.
+* Fix 618: New GPUArrays indexing causes scalar indexing for some Knet operations (i.e., cat).
+* Fix 619: Error converting CuArray to KnetArray.
+* Fix 620: `k[1:2:3,:] .= 0` broken for KnetArray.
+
+
 Knet v1.4.1 Release Notes
 =========================
 b720020 2020-08-28
 
+* Tutorial, README fixes, using MLDatasets.
 * Fixed gcnode issue #606.
-* Use NVML when selecting GPU.
+* Use NVML when choosing GPU.
+* Make RNN atype robust to types with dimensions.
 
 
 Knet v1.4.0 Release Notes
