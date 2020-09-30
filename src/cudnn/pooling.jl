@@ -54,9 +54,9 @@ Arguments:
 cudnnPoolingForward, cudnnPoolingForward!
 
 
-cudnnPoolingForward(x; o...) = cudnnPoolingForwardWithDefaults(x; o...)
-cudnnPoolingForward(x, poolingDesc; o...) = cudnnPoolingForwardWithDefaults(x; poolingDesc, o...)
-cudnnPoolingForward!(y, x; o...) = cudnnPoolingForwardWithDefaults(x; y, o...)
+cudnnPoolingForward(x; o...)                  = cudnnPoolingForwardWithDefaults(x; o...)
+cudnnPoolingForward(x, poolingDesc; o...)     = cudnnPoolingForwardWithDefaults(x; poolingDesc, o...)
+cudnnPoolingForward!(y, x; o...)              = cudnnPoolingForwardWithDefaults(x; y, o...)
 cudnnPoolingForward!(y, x, poolingDesc; o...) = cudnnPoolingForwardWithDefaults(x; y, poolingDesc, o...)
 
 

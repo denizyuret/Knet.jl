@@ -11,6 +11,7 @@ include("optensor.jl")
 include("reduce.jl")
 include("softmax.jl")
 include("pooling.jl")
+include("convolution.jl")
 
 #end
 

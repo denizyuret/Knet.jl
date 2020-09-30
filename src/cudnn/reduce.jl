@@ -57,11 +57,11 @@ function cudnnReduceTensorWithDefaults(
     workspace::DevArray = cudnnReductionWorkspace(reduceTensorDesc, xDesc, yDesc),
 ) where {T,N,R<:DevArray{T,N}}
     alpha, beta = scalr(alpha,x), scalr(beta,x)
-    cudnnReduceTensorAutoGrad(x; reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, beta, yDesc, y)
+    cudnnReduceTensorAutoGrad(x; reduceTensorDesc, alpha, xDesc, beta, yDesc, y, indices, workspace)
 end
 
 
-function cudnnReduceTensorAutoGrad(x; reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, beta, yDesc, y)
+function cudnnReduceTensorAutoGrad(x; reduceTensorDesc, alpha, xDesc, beta, yDesc, y, indices, workspace)
     CUDA.CUDNN.cudnnReduceTensor(handle(), reduceTensorDesc, c_null(indices), sizeof(indices), workspace, sizeof(workspace), alpha, xDesc, x, beta, yDesc, y)
     return y
 end

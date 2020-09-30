@@ -2,157 +2,191 @@ using AutoGrad: AutoGrad, @primitive1, value
 
 using CUDA.CUDNN:
     #cudnnConvolutionForward,
-    cudnnConvolutionBackward,
+    cudnnConvolutionBackwardFilter,
+    cudnnConvolutionBackwardData,
     cudnnGetConvolutionNdForwardOutputDim,
+    cudnnSetConvolutionMathType,
+    cudnnSetConvolutionReorderType,
+    cudnnSetConvolutionGroupCount,
     cudnnConvolutionDescriptor_t,
         cudnnCreateConvolutionDescriptor,
         cudnnSetConvolutionNdDescriptor,
         cudnnDestroyConvolutionDescriptor,
-        cudnnConvolutionMode_t,
-            CUDNN_CONVOLUTION,       # 0
-            CUDNN_CROSS_CORRELATION, # 1
-        cudnnNanPropagation_t,
-            CUDNN_NOT_PROPAGATE_NAN, # 0
-            CUDNN_PROPAGATE_NAN      # 1
+    cudnnConvolutionMode_t,
+        CUDNN_CONVOLUTION,       # 0
+        CUDNN_CROSS_CORRELATION, # 1
+    cudnnNanPropagation_t,
+        CUDNN_NOT_PROPAGATE_NAN, # 0
+        CUDNN_PROPAGATE_NAN,     # 1
+    cudnnMathType_t,
+        CUDNN_DEFAULT_MATH,                    # 0
+        CUDNN_TENSOR_OP_MATH,                  # 1
+        CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION, # 2
+        CUDNN_FMA_MATH,                        # 3
+    cudnnReorderType_t,
+        CUDNN_DEFAULT_REORDER, # 0
+        CUDNN_NO_REORDER,      # 1
+    cudnnConvolutionFwdAlgo_t,
+        CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,         # 0
+        CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM, # 1
+        CUDNN_CONVOLUTION_FWD_ALGO_GEMM,                  # 2
+        CUDNN_CONVOLUTION_FWD_ALGO_DIRECT,                # 3
+        CUDNN_CONVOLUTION_FWD_ALGO_FFT,                   # 4
+        CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING,            # 5
+        CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD,              # 6
+        CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED,     # 7
+        CUDNN_CONVOLUTION_FWD_ALGO_COUNT,                 # 8
+    cudnnConvolutionBwdFilterAlgo_t,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0,                 # 0, /* non-deterministic */
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1,                 # 1,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT,               # 2,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_3,                 # 3, /* non-deterministic */
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD,          # 4, /* not implemented */
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED, # 5,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT_TILING,        # 6,
+        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT,             # 7
+    cudnnConvolutionBwdDataAlgo_t,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_0,                 # 0, /* non-deterministic */
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_1,                 # 1,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT,               # 2,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT_TILING,        # 3,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD,          # 4,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED, # 5,
+        CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT,             # 6
+    handle
 
+# TODO: convbiasact
 
 """
 TODO
-
-    cudnnConvolutionForward(x; mode, maxconvolutionNanOpt, nbDims, window, padding, stride, alpha, xDesc)
-    cudnnConvolutionForward(x, d::cudnnConvolutionDescriptor; alpha, xDesc)
-    cudnnConvolutionForward!(y, x; mode, maxconvolutionNanOpt, nbDims, window, padding, stride, alpha, beta, xDesc, yDesc)
-    cudnnConvolutionForward!(y, x, d::cudnnConvolutionDescriptor; alpha, beta, xDesc, yDesc)
-
-Return pooled `x`, overwriting `y` if provided, according to keyword arguments or the
-convolution descriptor. Please see the [cuDNN
-docs](https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnConvolutionForward) for
-details.
-
-The dimensions of `x,y` tensors that are less than 4-D are assumed to be padded on the left
-with 1's. The first `n-2` are spatial dimensions, the last two are always assumed to be
-channel and batch.
-
-The arguments `window`, `padding`, and `stride` can be specified as `n-2` dimensional
-vectors, tuples or a single integer which is assumed to be repeated `n-2` times. If any of
-the entries is larger than the corresponding `x` dimension, the `x` dimension is used
-instead.
-
-Arguments:
-* `mode = CUDNN_CONVOLUTION_MAX`
-* `maxconvolutionNanOpt = CUDNN_NOT_PROPAGATE_NAN`
-* `window = 2`
-* `padding = 0`
-* `stride = window`
-* `alpha = 1`
-* `beta = 0`
-* `xDesc = cudnnTensorDescriptor(x)`
-* `yDesc = cudnnTensorDescriptor(y)`
 
 """
 cudnnConvolutionForward, cudnnConvolutionForward!
 
 
-function cudnnConvolutionForward(
-    w::DevArray{T,N},           # TODO: w,x or x,w? libcudnn is x,w,y
-    x::DevArray{T,N};
-    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
-    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,
-    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,
-    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,
-    group::Integer = 1,         # TODO: special constructor for descriptor
+cudnnConvolutionForward(w, x; o...)               = cudnnConvolutionForwardWithDefaults(w, x; o...)
+cudnnConvolutionForward(w, x, convDesc; o...)     = cudnnConvolutionForwardWithDefaults(w, x; convDesc, o...)
+cudnnConvolutionForward!(y, w, x; o...)           = cudnnConvolutionForwardWithDefaults(w, x; y, o...)
+cudnnConvolutionForward!(y, w, x, convDesc; o...) = cudnnConvolutionForwardWithDefaults(w, x; y, convDesc, o...)
+
+
+function cudnnConvolutionForwardWithDefaults(
+    w,
+    x;
+    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,  # >= 0
+    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
+    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
     mode::cudnnConvolutionMode_t = CUDNN_CONVOLUTION,
-    dataType::cudnnDataType_t = CUDNN_DATA_FLOAT, # see cudnn docs, TODO: test with 16,32,64
-    alpha::Real = 1,
-    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x),
-    wDesc::cudnnFilterDescriptor = cudnnFilterDescriptor(w),
-    algo, workSpace # TODO: which method sets these?
-) where {T,N}
-    arrayLength = max(2, ndims(x)-2)
-    convolutionDesc = cudnnConvolutionDescriptor(mode, maxconvolutionNanOpt, Cint(nbDims), pooldims(window,size(x)), pooldims(padding,size(x)), pooldims(stride,size(x)))
-    cudnnConvolutionForward(x, convolutionDesc; alpha, xDesc)
-end
-
-
-function cudnnConvolutionForward!(
-    y::DevArray{T,N},
-    x::DevArray{T,N};
-    mode::cudnnConvolutionMode_t = CUDNN_CONVOLUTION_MAX,
-    maxconvolutionNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-    window::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 2,
-    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,
-    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = window,
+    dataType::cudnnDataType_t = cudnnConvolutionDataType(eltype(x)),
+    mathType::cudnnMathType_t = cudnnConvolutionMathType(eltype(x)),
+    reorderType::cudnnReorderType_t = cudnnConvolutionReorderType(),
+    group::Integer = 1,
+    convDesc = cudnnConvolutionDescriptor(convdims(padding,size(x)), convdims(stride,size(x)), convdims(dilation,size(x)), mode, dataType, mathType, reorderType, Cint(group)),
+    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
+    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x; format),
+    wDesc::cudnnFilterDescriptor = cudnnFilterDescriptor(w; format),
+    y = cudnnConvolutionForwardOutput(x, xDesc, wDesc, convDesc),
+    yDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(y; format),
     alpha::Real = 1,
     beta::Real = 0,
-    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x),
-    yDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(y)
-) where {T,N}
-    nbDims = max(2, ndims(x)-2)
-    convolutionDesc = cudnnConvolutionDescriptor(mode, maxconvolutionNanOpt, Cint(nbDims), pooldims(window,size(x)), pooldims(padding,size(x)), pooldims(stride,size(x)))
-    cudnnConvolutionForward!(y, x, convolutionDesc; alpha, beta, xDesc, yDesc)
-end
-
-
-function cudnnConvolutionForward(
-    x::DevArray{T,N},
-    convolutionDesc::cudnnConvolutionDescriptor;
-    alpha::Real = 1,
-    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x)
-) where {T,N}
-    d = Array{Cint}(undef, max(4, ndims(x)))
-    cudnnGetConvolutionNdForwardOutputDim(convolutionDesc, xDesc, length(d), d)
-    if length(d) > ndims(x) # This happens when x is (X,C,N), its TD is [N,C,X,1]
-        @assert all(d[ndims(x)+1:end] .== 1)
-        d = d[1:ndims(x)]
-    end
-    y = similar(x, reverse(d)...)
-    yDesc = cudnnTensorDescriptor(y)
-    beta = 0
-    cudnnConvolutionForward!(y, x, convolutionDesc; alpha, beta, xDesc, yDesc)
-end
-
-
-function cudnnConvolutionForward!(
-    y::DevArray{T,N},
-    x::DevArray{T,N},
-    convolutionDesc::cudnnConvolutionDescriptor;
-    alpha::Real = 1,
-    beta::Real = 0,
-    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x),
-    yDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(y)
-) where {T,N}
+    forwardAlgo::cudnnConvolutionFwdAlgo_t = cudnnConvolutionForwardAlgo(), #TODO
+    forwardWorkspace::Union{Nothing,DevArray} = cudnnConvolutionForwardWorkspace(), #TODO
+    backwardFilterAlgo::cudnnConvolutionBwdFilterAlgo_t = cudnnConvolutionBackwardFilterAlgo(), #TODO
+    backwardFilterWorkspace::Union{Nothing,DevArray} = cudnnConvolutionBackwardFilterWorkspace(), #TODO
+    backwardDataAlgo::cudnnConvolutionBwdDataAlgo_t = cudnnConvolutionBackwardDataAlgo(), #TODO
+    backwardDataWorkspace::Union{Nothing,DevArray} = cudnnConvolutionBackwardDataWorkspace(), #TODO
+)
     alpha, beta = scalr(alpha,x), scalr(beta,x)
-    _cudnnConvolutionForward(x; convolutionDesc, alpha, xDesc, beta, yDesc, y)
+    cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace)
 end
 
 
-# This intermediate function is designed to make gradient definition easier.
-# The only main args shoudl be the gradient targets. All kwargs are mandatory.
-# Args not used by cudnnConvolutionBackward can be dropped.
-function _cudnnConvolutionForward(x; convolutionDesc, alpha, xDesc, beta, yDesc, y)
-    CUDA.CUDNN.cudnnConvolutionForward(handle(), convolutionDesc, alpha, xDesc, x, beta, yDesc, y)
+function cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace)
+    CUDA.CUDNN.cudnnConvolutionForward(handle(), alpha, xDesc, x, wDesc, w, convDesc, forwardAlgo, cu_null(forwardWorkspace), sizeof(forwardWorkspace), beta, yDesc, y)
     return y
 end
 
 
 # Define gradients
-@primitive1((_cudnnConvolutionForward(x; convolutionDesc, alpha, xDesc, beta, yDesc, y),
+@primitive1((cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace),
              _dy,_y),
-            ((x,y,dy,dx) = (value(x),value(_y),value(_dy),similar(x));
-             cudnnConvolutionBackward(handle(), convolutionDesc, alpha, yDesc, y, yDesc, dy, xDesc, x, beta, xDesc, dx);
+            ((x,dy,dw) = (value(x),value(_dy),similar(w));
+             cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, backwardFilterAlgo, cu_null(backwardFilterWorkspace), sizeof(backwardFilterWorkspace), beta, wDesc, dw);
+             dw),
+            ((w,dy,dx) = (value(w),value(_dy),similar(x));
+             cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, backwardDataAlgo, cu_null(backwardDataWorkspace), sizeof(backwardDataWorkspace), beta, xDesc, dx);
              dx))
 
 
+function cudnnSetConvolutionDescriptor(
+    ptr::cudnnConvolutionDescriptor_t,
+    padding::Vector{Cint},
+    stride::Vector{Cint},
+    dilation::Vector{Cint},
+    mode::cudnnConvolutionMode_t,
+    dataType::cudnnDataType_t,
+    mathType::cudnnMathType_t,
+    reorderType::cudnnReorderType_t,
+    groupCount::Cint,
+)
+    cudnnSetConvolutionNdDescriptor(ptr, Cint(length(padding)), padding, stride, dilation, mode, dataType)
+    mathType != CUDNN_DEFAULT_MATH       && cudnnSetConvolutionMathType(ptr, mathType)
+    reorderType != CUDNN_DEFAULT_REORDER && cudnnSetConvolutionReorderType(ptr, reorderType)
+    groupCount != 1                      && cudnnSetConvolutionGroupCount(ptr, groupCount)
+end
+
+
+function cudnnConvolutionForwardOutput(x, xDesc, wDesc, convDesc)
+    d = Array{Cint}(undef, max(4, ndims(x)))
+    cudnnGetConvolutionNdForwardOutputDim(convDesc, xDesc, wDesc, length(d), d)
+    if length(d) > ndims(x) # This happens when x is (X,C,N), xDesc is [N,C,X,1]
+        @assert all(d[ndims(x)+1:end] .== 1)
+        d = d[1:ndims(x)]
+    end
+    return similar(x, reverse(d)...)
+end
+
+
 # Convert the integer, tuple or array to convolution dims compatible with array size
-function pooldims(d, s::Dims{N}) where N
+function convdims(d, s::Dims{N}) where N
     if d isa Integer || length(d) == N-2
         Cint[reverse(min.(d,s[1:N-2]))...]
     else
-        throw(DimensionMismatch("Cannot pool $(Base.dims2string(s)) array with $d pooldims."))
+        throw(DimensionMismatch("Cannot conv $(Base.dims2string(s)) array with $d convdims."))
     end
 end
 
-pooldims(d, s::Dims{3}) = pooldims(d, (1,s...))
-pooldims(d, s::Dims{2}) = pooldims(d, (1,1,s...))
-pooldims(d, s::Dims{1}) = pooldims(d, (1,1,1,s...))
-pooldims(d, s::Dims{0}) = pooldims(d, (1,1,1,1))
+convdims(d, s::Dims{3}) = convdims(d, (1,s...))
+convdims(d, s::Dims{2}) = convdims(d, (1,1,s...))
+convdims(d, s::Dims{1}) = convdims(d, (1,1,1,s...))
+convdims(d, s::Dims{0}) = convdims(d, (1,1,1,1))
+
+
+# datatype: Selects the data type in which the computation will be done.
+# Note:CUDNN_DATA_HALF in cudnnSetConvolutionNdDescriptor() with HALF_CONVOLUTION_BWD_FILTER is not recommended as it is known to not be useful for any practical use case for training and will be considered to be blocked in a future cuDNN release. The use of CUDNN_DATA_HALF for input tensors in cudnnSetTensorNdDescriptor() and CUDNN_DATA_FLOAT in cudnnSetConvolutionNdDescriptor() with HALF_CONVOLUTION_BWD_FILTER is recommended and is used with the automatic mixed precision (AMP) training in many well known deep learning frameworks.
+
+cudnnConvolutionDataType(::Type{Float16}) = CUDNN_DATA_FLOAT
+cudnnConvolutionDataType(::Type{Float32}) = CUDNN_DATA_FLOAT
+cudnnConvolutionDataType(::Type{Float64}) = CUDNN_DATA_DOUBLE
+
+
+# cudnnMathType_t is an enumerated type used to indicate if the use of Tensor Core operations is permitted in a given library routine.
+# CUDNN_DEFAULT_MATH: Tensor Core operations are not used on pre-NVIDIA A100 GPU devices. On A100 GPU devices, Tensor Core TF32 operation is permitted.
+# CUDNN_TENSOR_OP_MATH: The use of Tensor Core operations is permitted but will not actively perform datatype down conversion on tensors in order to utilize Tensor Cores.
+# CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION: The use of Tensor Core operations is permitted and will actively perform datatype down conversion on tensors in order to utilize Tensor Cores.
+# CUDNN_FMA_MATH: Restricted to only kernels that use FMA instructions.
+# On pre-NVIDIA A100 GPU devices, CUDNN_DEFAULT_MATH and CUDNN_FMA_MATH have the same behavior: Tensor Core kernels will not be selected. With NVIDIA Ampere GPU architecture and CUDA Toolkit 11, CUDNN_DEFAULT_MATH permits TF32 Tensor Core operation and CUDNN_FMA_MATH does not. The TF32 behavior for CUDNN_DEFAULT_MATH can be explicitly disabled by the environment variable NVIDIA_TF32_OVERRIDE=0.
+
+cudnnConvolutionMathType(::Type) = CUDNN_DEFAULT_MATH  # TODO: test different options
+
+
+cudnnConvolutionReorderType() = CUDNN_DEFAULT_REORDER, # cudnn 8.0.3 provides no meaningful documentation for this!
+
+
+#TODO
+cudnnConvolutionForwardAlgo() = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
+cudnnConvolutionForwardWorkspace() = nothing
+cudnnConvolutionBackwardFilterAlgo() = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0
+cudnnConvolutionBackwardFilterWorkspace() = nothing
+cudnnConvolutionBackwardDataAlgo() = CUDNN_CONVOLUTION_BWD_DATA_ALGO_0
+cudnnConvolutionBackwardDataWorkspace() = nothing

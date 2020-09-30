@@ -47,6 +47,9 @@ using CUDA.CUDNN:
         cudnnConvolutionMode_t,
             CUDNN_CONVOLUTION,       # 0
             CUDNN_CROSS_CORRELATION, # 1
+        cudnnReorderType_t,
+            CUDNN_DEFAULT_REORDER, # 0
+            CUDNN_NO_REORDER,      # 1
     cudnnDropoutDescriptor_t,
         cudnnCreateDropoutDescriptor,
         cudnnSetDropoutDescriptor,
@@ -246,14 +249,16 @@ end
 
 
 """
-    cudnnConvolutionDescriptor(arrayLength::Cint,
-                               padA::Vector{Cint},
-                               filterStrideA::Vector{Cint},
-                               dilationA::Vector{Cint},
-                               mode::cudnnConvolutionMode_t,
-                               computeType::cudnnDataType_t)
+cudnnConvolutionDescriptor(pad::Vector{Cint},
+                           stride::Vector{Cint},
+                           dilation::Vector{Cint},
+                           mode::cudnnConvolutionMode_t,
+                           dataType::cudnnDataType_t,
+                           groupCount::Cint,
+                           mathType::cudnnMathType_t,
+                           reorderType::cudnnReorderType_t)
 """
-@cudnnDescriptor(Convolution, cudnnSetConvolutionNdDescriptor)
+@cudnnDescriptor(Convolution, cudnnSetConvolutionDescriptor)
 
 
 """
