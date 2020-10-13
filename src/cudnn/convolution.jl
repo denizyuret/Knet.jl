@@ -1,4 +1,4 @@
-using AutoGrad: AutoGrad, @primitive1, value
+using AutoGrad: AutoGrad, @primitive1, value, recording
 
 using CUDA.CUDNN:
     #cudnnConvolutionForward,
@@ -8,6 +8,12 @@ using CUDA.CUDNN:
     cudnnSetConvolutionMathType,
     cudnnSetConvolutionReorderType,
     cudnnSetConvolutionGroupCount,
+    cudnnFindConvolutionForwardAlgorithmEx,
+        cudnnConvolutionFwdAlgoPerf_t,
+    cudnnFindConvolutionBackwardFilterAlgorithmEx,
+        cudnnConvolutionBwdFilterAlgoPerf_t,
+    cudnnFindConvolutionBackwardDataAlgorithmEx,
+        cudnnConvolutionBwdDataAlgoPerf_t,
     cudnnConvolutionDescriptor_t,
         cudnnCreateConvolutionDescriptor,
         cudnnSetConvolutionNdDescriptor,
@@ -55,7 +61,6 @@ using CUDA.CUDNN:
         CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT,             # 6
     handle
 
-# TODO: convbiasact
 
 """
 TODO
@@ -89,32 +94,32 @@ function cudnnConvolutionForwardWithDefaults(
     yDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(y; format),
     alpha::Real = 1,
     beta::Real = 0,
-    forwardAlgo::cudnnConvolutionFwdAlgo_t = cudnnConvolutionForwardAlgo(), #TODO
-    forwardWorkspace::Union{Nothing,DevArray} = cudnnConvolutionForwardWorkspace(), #TODO
-    backwardFilterAlgo::cudnnConvolutionBwdFilterAlgo_t = cudnnConvolutionBackwardFilterAlgo(), #TODO
-    backwardFilterWorkspace::Union{Nothing,DevArray} = cudnnConvolutionBackwardFilterWorkspace(), #TODO
-    backwardDataAlgo::cudnnConvolutionBwdDataAlgo_t = cudnnConvolutionBackwardDataAlgo(), #TODO
-    backwardDataWorkspace::Union{Nothing,DevArray} = cudnnConvolutionBackwardDataWorkspace(), #TODO
 )
     alpha, beta = scalr(alpha,x), scalr(beta,x)
-    cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace)
+    cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta)
 end
 
 
-function cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace)
-    CUDA.CUDNN.cudnnConvolutionForward(handle(), alpha, xDesc, x, wDesc, w, convDesc, forwardAlgo, cu_null(forwardWorkspace), sizeof(forwardWorkspace), beta, yDesc, y)
+function cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta)
+    p = cudnnConvolutionFwdAlgoPerf(xDesc, x, wDesc, w, convDesc, yDesc, y)
+    workspace = cudnnConvolutionWorkspace(p.memory)
+    CUDA.CUDNN.cudnnConvolutionForward(handle(), alpha, xDesc, x, wDesc, w, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, yDesc, y)
     return y
 end
 
 
 # Define gradients
-@primitive1((cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta, forwardAlgo, forwardWorkspace, backwardFilterAlgo, backwardFilterWorkspace, backwardDataAlgo, backwardDataWorkspace),
+@primitive1((cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta),
              _dy,_y),
             ((x,dy,dw) = (value(x),value(_dy),similar(w));
-             cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, backwardFilterAlgo, cu_null(backwardFilterWorkspace), sizeof(backwardFilterWorkspace), beta, wDesc, dw);
+             p = cudnnConvolutionBwdFilterAlgoPerf(xDesc, x, yDesc, dy, convDesc, wDesc, dw);
+             workspace = cudnnConvolutionWorkspace(p.memory);
+             cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, wDesc, dw);
              dw),
             ((w,dy,dx) = (value(w),value(_dy),similar(x));
-             cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, backwardDataAlgo, cu_null(backwardDataWorkspace), sizeof(backwardDataWorkspace), beta, xDesc, dx);
+             p = cudnnConvolutionBwdDataAlgoPerf(wDesc, w, yDesc, dy, convDesc, xDesc, dx);
+             workspace = cudnnConvolutionWorkspace(p.memory);
+             cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, xDesc, dx);
              dx))
 
 
@@ -180,13 +185,74 @@ cudnnConvolutionDataType(::Type{Float64}) = CUDNN_DATA_DOUBLE
 cudnnConvolutionMathType(::Type) = CUDNN_DEFAULT_MATH  # TODO: test different options
 
 
-cudnnConvolutionReorderType() = CUDNN_DEFAULT_REORDER, # cudnn 8.0.3 provides no meaningful documentation for this!
+cudnnConvolutionReorderType() = CUDNN_DEFAULT_REORDER  # cudnn 8.0.3 provides no meaningful documentation for this!
 
 
-#TODO
-cudnnConvolutionForwardAlgo() = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
-cudnnConvolutionForwardWorkspace() = nothing
-cudnnConvolutionBackwardFilterAlgo() = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0
-cudnnConvolutionBackwardFilterWorkspace() = nothing
-cudnnConvolutionBackwardDataAlgo() = CUDNN_CONVOLUTION_BWD_DATA_ALGO_0
-cudnnConvolutionBackwardDataWorkspace() = nothing
+## Utilities to find a fast algorithm
+
+const cudnnConvolutionFwdAlgoPerfCache = Dict{Tuple,cudnnConvolutionFwdAlgoPerf_t}()
+function cudnnConvolutionFwdAlgoPerf(xDesc, x, wDesc, w, convDesc, yDesc, y)
+    get!(cudnnConvolutionFwdAlgoPerfCache, (xDesc, wDesc, convDesc)) do 
+        requestedAlgoCount = Int(CUDNN_CONVOLUTION_FWD_ALGO_COUNT)
+        returnedAlgoCount = Cint[0]
+        perfResults = Array{cudnnConvolutionFwdAlgoPerf_t}(undef,requestedAlgoCount)
+        workSpace = cudnnFindConvolutionAlgorithmWorkspace(x)
+        cudnnFindConvolutionForwardAlgorithmEx(handle(),xDesc,x,wDesc,w,convDesc,yDesc,y,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,sizeof(workSpace))
+        perfChoose(perfResults, returnedAlgoCount[1])
+    end
+end
+
+const cudnnConvolutionBwdDataAlgoPerfCache = Dict{Tuple,cudnnConvolutionBwdDataAlgoPerf_t}()
+function cudnnConvolutionBwdDataAlgoPerf(wDesc, w, dyDesc, dy, convDesc, dxDesc, dx)
+    get!(cudnnConvolutionBwdDataAlgoPerfCache, (wDesc, dyDesc, convDesc)) do 
+        requestedAlgoCount = Int(CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT)
+        returnedAlgoCount = Cint[0]
+        perfResults = Array{cudnnConvolutionBwdDataAlgoPerf_t}(undef,requestedAlgoCount)
+        workSpace = cudnnFindConvolutionAlgorithmWorkspace(dy)
+        cudnnFindConvolutionBackwardDataAlgorithmEx(handle(),wDesc,w,dyDesc,dy,convDesc,dxDesc,dx,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,sizeof(workSpace))
+        perfChoose(perfResults, returnedAlgoCount[1])
+    end
+end
+
+const cudnnConvolutionBwdFilterAlgoPerfCache = Dict{Tuple,cudnnConvolutionBwdFilterAlgoPerf_t}()
+function cudnnConvolutionBwdFilterAlgoPerf(xDesc, x, dyDesc, dy, convDesc, dwDesc, dw)
+    get!(cudnnConvolutionBwdFilterAlgoPerfCache, (xDesc, dyDesc, convDesc)) do 
+        requestedAlgoCount = Int(CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT)
+        returnedAlgoCount = Cint[0]
+        perfResults = Array{cudnnConvolutionBwdFilterAlgoPerf_t}(undef,requestedAlgoCount)
+        workSpace = cudnnFindConvolutionAlgorithmWorkspace(x)
+        cudnnFindConvolutionBackwardFilterAlgorithmEx(handle(),xDesc,x,dyDesc,dy,convDesc,dwDesc,dw,requestedAlgoCount,returnedAlgoCount,perfResults,workSpace,sizeof(workSpace))
+        perfChoose(perfResults, returnedAlgoCount[1])
+    end
+end
+
+
+# Return algorithm with best memory that is within 10% of best time
+function perfChoose(ps, n)
+    (ibest,mbest,tbest) = (0,Inf,Inf)
+    for i = 1:n
+        # These metrics are written in a sorted fashion where the first element has the lowest compute time.
+        if ps[i].status == 0 && ps[i].memory < mbest && ps[i].time < tbest * 1.1
+            (ibest,mbest,tbest) = (i,ps[i].memory,ps[i].time)
+        end
+    end
+    @assert ibest > 0 "No valid algorithm found for convolution."
+    return ps[ibest]
+end
+
+
+# Allocate the maximum reasonable amount of memory for algorithm discovery
+function cudnnFindConvolutionAlgorithmWorkspace(x)
+    gpufree = Mem.info()[1] + (isdefined(CUDA,:pool) ? CUDA.pool[].cached_memory() : CUDA.cached_memory())
+    nbytes = min(gpufree ÷ 10, sizeof(x) * 100)
+    cudnnConvolutionWorkspace(nbytes)
+end
+
+
+# Use 128 to avoid alignment issues
+function cudnnConvolutionWorkspace(nbytes)
+    nbytes == 0 ? nothing : CuArray{Int128}(undef, (nbytes-1)÷sizeof(Int128)+1)
+end
+
+
+# TODO: convbiasact
