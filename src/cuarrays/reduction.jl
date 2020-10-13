@@ -1,6 +1,7 @@
 import Base: sum, prod, minimum, maximum # , countnz
 using CUDA: CuArray, CuPtr
 using Knet.LibKnet8: @knet8, @knet8r, reduction_ops
+using Base: ReshapedArray
 
 # reduction.jl: Array->Scalar and Array->Vector reductions.
 # uses reduction_ops from ops.jl
@@ -10,6 +11,14 @@ sum(::typeof(abs2), x::CuArray; dims=:) = sumabs2(x,dims=dims)
 sum(::typeof(!iszero), x::CuArray; dims=:) = countnz(x,dims=dims)
 maximum(::typeof(abs), x::CuArray; dims=:) = maxabs(x,dims=dims)
 minimum(::typeof(abs), x::CuArray; dims=:) = minabs(x,dims=dims)
+
+# reshape(::CuArray) gives a ReshapedArray
+for f in (:sum, :prod, :maximum, :minimum)
+    @eval begin
+        $f(a::ReshapedArray{T,N,<:CuArray}; dims=:) where {T,N} = $f(a.parent; dims)
+        $f(g, a::ReshapedArray{T,N,<:CuArray}; dims=:) where {T,N} = $f(g, a.parent; dims)
+    end
+end
 
 sumabs(x::CuArray;dims=:)=sum(abs,x;dims=dims)
 sumabs2(x::CuArray;dims=:)=sum(abs2,x;dims=dims)
