@@ -216,7 +216,7 @@ The addition, subtraction, and square norm operations work the same way as befor
 they act on each element. Moving back through the elementwise operations we see that:
 
 ```math
-\nabla_r J = \nabla_\hat{y} J = \nabla_b J = \nabla_z J = 2\vec{r}
+\nabla_r J = \nabla_{\hat{y}} J = \nabla_b J = \nabla_z J = 2\vec{r}
 ```
 
 For the operation ``z=Wx``, a little algebra will show you that:
@@ -251,7 +251,7 @@ The only complication is at the addition of the bias vector. In the batch settin
 adding ``b\in\mathbb{R}^{C\times 1}`` to ``z\in\mathbb{R}^{C\times N}``. This will be a
 broadcasting operation, i.e. the vector ``b`` will be added to each column of the matrix
 ``z`` to get ``\hat{y}``. In the backward pass, we'll need to add the columns of
-``\nabla_\hat{y} J`` to get the gradient ``\nabla_b J``.
+``\nabla_{\hat{y}} J`` to get the gradient ``\nabla_b J``.
 
 
 Stochastic Gradient Descent
