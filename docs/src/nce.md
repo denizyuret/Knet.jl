@@ -139,7 +139,7 @@ Here is the backward pass for MLE (with subscripts dropped for brevity):
 
 $$\begin{aligned}
 	&p(y) = \frac{\exp s(y)}{\sum_{y'\in\mathcal{Y}}\exp s(y')} \\
-	&L = \log p(y) = s(y) - \log\sum_{y'\in\mathcal{Y}}\exp s(y') \\\
+	&L = \log p(y) = s(y) - \log\sum_{y'\in\mathcal{Y}}\exp s(y') \\
 	&{\partial L}/{\partial s(y)} = 1 - p(y) \\
 	&{\partial L}/{\partial s(y')} = -p(y') \\
 \end{aligned}$$
