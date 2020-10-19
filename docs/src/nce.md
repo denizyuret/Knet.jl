@@ -8,43 +8,43 @@ in significant speed-up during training. To motivate NCE, let us start with the 
 equations for probabilistic models.
 
 To model the probability distribution $p(y)$ of a set of objects $y \in \mathcal{Y}$, we
-start with a score function $s_\theta(y):\mathcal{Y}\rightarrow\mathbb{R}$ with adjustable
-weights $\theta$. For example log-linear models use $s_\theta(y)=\theta^T \phi(y)$ where
+start with a score function $s_{\theta}(y):\mathcal{Y}\rightarrow\mathbb{R}$ with adjustable
+weights $\theta$. For example log-linear models use $s_{\theta}(y)=\theta^T \phi(y)$ where
 $\theta$ is a weight vector and $\phi(y):\mathcal{Y}\rightarrow\mathbb{R}^D$ is a function
 that maps an element of $\mathcal{Y}$ to a vector of real valued features.  Conditional
-models use $p(y|x)$, $s_\theta(x,y)$, and $\phi(x,y)$ instead. We will stick with
+models use $p(y|x)$, $s_{\theta}(x,y)$, and $\phi(x,y)$ instead. We will stick with
 non-conditional notation for brevity.
 
 To go from arbitrary valued scores to normalized probability estimates we use exponentiation
 and normalization (which, for some reason, is called the softmax function):
 
-$$p_\theta(y) = \frac{\exp s_\theta(y)}{\sum_{y'\in \mathcal{Y}} \exp s_\theta(y')}$$
+$$p_{\theta}(y) = \frac{\exp s_{\theta}(y)}{\sum_{y'\in \mathcal{Y}} \exp s_{\theta}(y')}$$
 
 The maximum likelihood estimate (MLE) training objective is to maximize the estimated
 probability of a given training set $Y=\{y_1,\ldots,y_n\}$. Assuming the instances in the
-training set are selected independently we have $\log p_\theta(Y) = \sum_{y\in Y} \log
-p_\theta(y)$. The contribution of an individual instance to the objective is:
+training set are selected independently we have $\log p_{\theta}(Y) = \sum_{y\in Y} \log
+p_{\theta}(y)$. The contribution of an individual instance to the objective is:
 
-$$L_{MLE}(\theta) = \log p_\theta(y) = s_\theta(y) - \log\sum_{y'\in\mathcal{Y}}\exp s_\theta(y')$$
+$$L_{MLE}(\theta) = \log p_{\theta}(y) = s_{\theta}(y) - \log\sum_{y'\in\mathcal{Y}}\exp s_{\theta}(y')$$
 
 Stochastic gradient descent (SGD) uses the gradient of this quantity with respect to the
 weights $\theta$ to find the MLE solution:
 
-$$\begin{align*}
-	\nabla L_{MLE}(\theta) &= \nabla s_\theta(y) - \nabla \log\sum_{y'\in\mathcal{Y}}\exp s_\theta(y') \\
-	&= \nabla s_\theta(y) - \frac{\sum_{y'\in\mathcal{Y}}\exp s_\theta(y') \nabla s_\theta(y')}{\sum_{y'\in\mathcal{Y}}\exp s_\theta(y')} \\
-	&= \nabla s_\theta(y) - \sum_{y'\in\mathcal{Y}} p_\theta(y') \nabla s_\theta(y') \\
-\end{align*}$$
+$$\begin{aligned}
+	\nabla L_{MLE}(\theta) &= \nabla s_{\theta}(y) - \nabla \log\sum_{y'\in\mathcal{Y}}\exp s_{\theta}(y') \\
+	&= \nabla s_{\theta}(y) - \frac{\sum_{y'\in\mathcal{Y}}\exp s_{\theta}(y') \nabla s_{\theta}(y')}{\sum_{y'\in\mathcal{Y}}\exp s_{\theta}(y')} \\
+	&= \nabla s_{\theta}(y) - \sum_{y'\in\mathcal{Y}} p_{\theta}(y') \nabla s_{\theta}(y') \\
+\end{aligned}$$
 
 Note that the second term in the final equation involves a sum over the whole $\mathcal{Y}$
 which is typically a computational nightmare. In order to avoid this sum, people have come
 up with all sorts of tricks.  One simple example is the *perceptron approximation*:
 
-$$\log\sum_{y'\in\mathcal{Y}}\exp s_\theta(y') \approx \max_{y'\in\mathcal{Y}} s_\theta(y') \\
-\nabla L(\theta) \approx \nabla s_\theta(y) - \nabla \max_{y'\in\mathcal{Y}} s_\theta(y')$$
+$$\log\sum_{y'\in\mathcal{Y}}\exp s_{\theta}(y') \approx \max_{y'\in\mathcal{Y}} s_{\theta}(y') \\
+\nabla L(\theta) \approx \nabla s_{\theta}(y) - \nabla \max_{y'\in\mathcal{Y}} s_{\theta}(y')$$
 
 Here is an example to demonstrate why this makes sense. Let's say $\mathcal{Y}$ has three
-elements and their scores, $s_\theta(y')$, are 10, 20, and 30. When we exponentiate these
+elements and their scores, $s_{\theta}(y')$, are 10, 20, and 30. When we exponentiate these
 scores we get $e^{10}$, $e^{20}$ and $e^{30}$. Note that even though 20 and 30 are not all
 that different, $e^{30}\approx 10^{13}$ is significantly larger than $e^{20}\approx 5\times
 10^9$. When we add the exponentials, $e^{10}+e^{20}+e^{30}$, the result will not be
@@ -84,43 +84,43 @@ $$p(y) = k\, q(y)\, \frac{p(d=1\mid y)}{p(d=0\mid y)}$$
 NCE suggests training the following binary classifier model for $p(d=1\mid y)$ on the
 dataset with noise samples.
 
-$$p_\theta(d=1\mid y) = \frac{\exp s_\theta(y)}{\exp s_\theta(y) + k\,q(y)}$$
+$$p_{\theta}(d=1\mid y) = \frac{\exp s_{\theta}(y)}{\exp s_{\theta}(y) + k\,q(y)}$$
 
-Using this model will give us the following for $p_\theta(y)$:
+Using this model will give us the following for $p_{\theta}(y)$:
 
-$$\begin{align*}
-	p_\theta(y) &= k\, q(y)\, \frac{p_\theta(d=1\mid y)}{p_\theta(d=0\mid y)} \\
-	&= k\,q(y)\, \frac{\exp s_\theta(y)}{k\,q(y)} \\
-	&= \exp s_\theta(y)
-\end{align*}$$
+$$\begin{aligned}
+	p_{\theta}(y) &= k\, q(y)\, \frac{p_{\theta}(d=1\mid y)}{p_{\theta}(d=0\mid y)} \\
+	&= k\,q(y)\, \frac{\exp s_{\theta}(y)}{k\,q(y)} \\
+	&= \exp s_{\theta}(y)
+\end{aligned}$$
 
 which amounts to assuming our costly normalization term $Z=\sum_{y'\in \mathcal{Y}} \exp
-s_\theta(y')$ is $1$.
+s_{\theta}(y')$ is $1$.
 
 Our new objective is to maximize the conditional probability of the NCE dataset. Consider
 the conditional log probability of a real sample $y_0$ and $k$ noise samples $y_1\ldots
 y_k$:
 
-$$\begin{align*} L_{NCE}(\theta) 
-	&= \log p_\theta(d=1\mid y_0) + \sum_{i=1}^k \log p_\theta(d=0\mid y_i) \\
-	&= s_\theta(y_0) - \log(\exp s_\theta(y_0) + k\,q(y_0)) + \sum_{i=1}^k \log(k\,q(y_i)) - \log(\exp s_\theta(y_i) + k\,q(y_i)) \\
-\end{align*}$$
+$$\begin{aligned} L_{NCE}(\theta) 
+	&= \log p_{\theta}(d=1\mid y_0) + \sum_{i=1}^k \log p_{\theta}(d=0\mid y_i) \\
+	&= s_{\theta}(y_0) - \log(\exp s_{\theta}(y_0) + k\,q(y_0)) + \sum_{i=1}^k \log(k\,q(y_i)) - \log(\exp s_{\theta}(y_i) + k\,q(y_i)) \\
+\end{aligned}$$
 
 The gradient of the new objective is:
 
-$$\begin{align*} \nabla L_{NCE}(\theta)
-	&= \nabla s_\theta(y_0) - \sum_{i=0}^k \nabla \log(\exp s_\theta(y_i) + k\,q(y_i)) \\
-	&= \nabla s_\theta(y_0) - \sum_{i=0}^k p_\theta(d=1\mid y_i) \nabla s_\theta(y_i) \\
-\end{align*}$$
+$$\begin{aligned} \nabla L_{NCE}(\theta)
+	&= \nabla s_{\theta}(y_0) - \sum_{i=0}^k \nabla \log(\exp s_{\theta}(y_i) + k\,q(y_i)) \\
+	&= \nabla s_{\theta}(y_0) - \sum_{i=0}^k p_{\theta}(d=1\mid y_i) \nabla s_{\theta}(y_i) \\
+\end{aligned}$$
 
 In the limit $k\rightarrow\infty$ we see that the NCE gradient approaches the MLE gradient:
 
-$$\begin{align*} \nabla L_{NCE}(\theta)
-	&\rightarrow \nabla s_\theta(y_0) - \sum_{y\in\mathcal{Y}} k\, q(y) p_\theta(d=1\mid y) \nabla s_\theta(y) \\
-	&= \nabla s_\theta(y_0) - \sum_{y\in\mathcal{Y}} k\, q(y) \frac{\exp s_\theta(y)}{\exp s_\theta(y) + k\,q(y)} \nabla s_\theta(y) \\
-	&\rightarrow \nabla s_\theta(y_0) - \sum_{y\in\mathcal{Y}} \exp s_\theta(y) \nabla s_\theta(y) \\
-	&= \nabla s_\theta(y_0) - \sum_{y\in\mathcal{Y}} p_\theta(y) \nabla s_\theta(y)
-\end{align*}$$
+$$\begin{aligned} \nabla L_{NCE}(\theta)
+	&\rightarrow \nabla s_{\theta}(y_0) - \sum_{y\in\mathcal{Y}} k\, q(y) p_{\theta}(d=1\mid y) \nabla s_{\theta}(y) \\
+	&= \nabla s_{\theta}(y_0) - \sum_{y\in\mathcal{Y}} k\, q(y) \frac{\exp s_{\theta}(y)}{\exp s_{\theta}(y) + k\,q(y)} \nabla s_{\theta}(y) \\
+	&\rightarrow \nabla s_{\theta}(y_0) - \sum_{y\in\mathcal{Y}} \exp s_{\theta}(y) \nabla s_{\theta}(y) \\
+	&= \nabla s_{\theta}(y_0) - \sum_{y\in\mathcal{Y}} p_{\theta}(y) \nabla s_{\theta}(y)
+\end{aligned}$$
 
 What does this all mean computationally? Let's compare the operations of MLE and NCE
 language models in their final layers. Say both models use a $D$-dimensional internal
@@ -137,22 +137,22 @@ the resulting $(K+1) \times D$ matrix and no normalization, an $O(KD)$ operation
 
 Here is the backward pass for MLE (with subscripts dropped for brevity):
 
-$$\begin{align*}
+$$\begin{aligned}
 	&p(y) = \frac{\exp s(y)}{\sum_{y'\in\mathcal{Y}}\exp s(y')} \\
-	&L = \log p(y) = s(y) - \log\sum_{y'\in\mathcal{Y}}\exp s(y') \\\
+	&L = \log p(y) = s(y) - \log\sum_{y'\in\mathcal{Y}}\exp s(y') \\
 	&{\partial L}/{\partial s(y)} = 1 - p(y) \\
 	&{\partial L}/{\partial s(y')} = -p(y') \\
-\end{align*}$$
+\end{aligned}$$
 
 Here is the backward pass for NCE:
 
-$$\begin{align*}
+$$\begin{aligned}
 	&p(d=1\mid y) = \frac{\exp s(y)}{\exp s(y) + k\,q(y)} \qquad p(d=0\mid y) = \frac{k\,q(y)}{\exp s(y) + k\,q(y)} \\
 	&L = \log p(d=1\mid y) + \sum_{i=1}^k \log p(d=0\mid y_i) \\
 	&L = s(y) - \log(\exp s(y)+k\,q(y)) + \sum_{i=1}^k \log(k\,q(y_i)) - \log(\exp s(y_i)+k\,q(y_i)) \\
 	&{\partial L}/{\partial s(y)} = 1 - p(d=1\mid y) \\
 	&{\partial L}/{\partial s(y_i)} = -p(d=1\mid y_i) \\
-\end{align*}$$
+\end{aligned}$$
 
 **Research Ideas:**
 

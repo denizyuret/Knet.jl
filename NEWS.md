@@ -1,5 +1,13 @@
+Knet v1.4.3 Release Notes
+=========================
+
+* Upgrade to CUDA 2.0.
+* Doc fixes.
+
+
 Knet v1.4.2 Release Notes
 =========================
+701ecff 2020-09-28
 
 * Fixed windows git-tree-sha1 for libknet8.
 * Tutorial fixes.

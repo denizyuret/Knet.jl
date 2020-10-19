@@ -144,14 +144,14 @@ To compute the gradient for log likelihood, we need to make the
 normalization of ``\hat{p}`` explicit:
 
 ```math
-\begin{align*}
+\begin{aligned}
 \ell &= \sum_c p_c \log \frac{\hat{p}_c}{\sum_k\hat{p}_k} \\
 &= (\sum_c p_c \log{\hat{p}_c}) - (\sum_c p_c \log \sum_k\hat{p}_k) \\
 &= (\sum_c p_c \log{\hat{p}_c}) - (\log \sum_k\hat{p}_k) \\
 \frac{\partial \ell}{\partial \hat{p}_i} &=
 \frac{p_i}{\hat{p}_i} - \frac{1}{\sum_k\hat{p}_k}
 = \frac{p_i}{\hat{p}_i} - 1
-\end{align*}
+\end{aligned}
 ```
 
 
@@ -159,14 +159,14 @@ The gradient with respect to unnormalized y scores takes a
 particularly simple form:
 
 ```math
-\begin{align*}
+\begin{aligned}
 \frac{\partial\ell}{\partial y_j}
 &= \sum_i \frac{\partial\ell}{\partial \hat{p}_i}
 \frac{\partial \hat{p}_i}{\partial y_j} \\
 &= \sum_i (\frac{p_i}{\hat{p}_i} - 1)(\,[i=j]\, \hat{p}_i - \hat{p}_i \hat{p}_j) \\
 &= \, p_j - \hat{p}_j \\
 \nabla_y \ell &= \, p - \hat{p}
-\end{align*}
+\end{aligned}
 ```
 
 
@@ -260,12 +260,12 @@ p_j`` iff ``y_i > y_j``. The boundary between two classes ``i`` and ``j`` is the
 set of inputs for which the probability of the two classes are equal:
 
 ```math
-\begin{align*}
+\begin{aligned}
 p_i &= p_j \\
 y_i &= y_j \\
 w_i x + b_i &= w_j x + b_j \\
 (w_i - w_j) x + (b_i - b_j) &= 0
-\end{align*}
+\end{aligned}
 ```
 
 
