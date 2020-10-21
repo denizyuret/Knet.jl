@@ -82,11 +82,11 @@ function cudnnConvolutionForwardWithDefaults(
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
     mode::cudnnConvolutionMode_t = CUDNN_CONVOLUTION,
-    dataType::cudnnDataType_t = cudnnConvolutionDataType(eltype(x)),
+    dataType::DataType = cudnnConvolutionDataType(eltype(x)),
     mathType::cudnnMathType_t = cudnnConvolutionMathType(eltype(x)),
     reorderType::cudnnReorderType_t = cudnnConvolutionReorderType(),
     group::Integer = 1,
-    convDesc = cudnnConvolutionDescriptor(convdims(padding,size(x)), convdims(stride,size(x)), convdims(dilation,size(x)), mode, dataType, mathType, reorderType, Cint(group)),
+    convDesc = cudnnConvolutionDescriptor(convdims(padding,size(x)), convdims(stride,size(x)), convdims(dilation,size(x)), mode, cudnnDataType(dataType), mathType, reorderType, Cint(group)),
     format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
     xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x; format),
     wDesc::cudnnFilterDescriptor = cudnnFilterDescriptor(w; format),
@@ -170,9 +170,9 @@ convdims(d, s::Dims{0}) = convdims(d, (1,1,1,1))
 # datatype: Selects the data type in which the computation will be done.
 # Note:CUDNN_DATA_HALF in cudnnSetConvolutionNdDescriptor() with HALF_CONVOLUTION_BWD_FILTER is not recommended as it is known to not be useful for any practical use case for training and will be considered to be blocked in a future cuDNN release. The use of CUDNN_DATA_HALF for input tensors in cudnnSetTensorNdDescriptor() and CUDNN_DATA_FLOAT in cudnnSetConvolutionNdDescriptor() with HALF_CONVOLUTION_BWD_FILTER is recommended and is used with the automatic mixed precision (AMP) training in many well known deep learning frameworks.
 
-cudnnConvolutionDataType(::Type{Float16}) = CUDNN_DATA_FLOAT
-cudnnConvolutionDataType(::Type{Float32}) = CUDNN_DATA_FLOAT
-cudnnConvolutionDataType(::Type{Float64}) = CUDNN_DATA_DOUBLE
+cudnnConvolutionDataType(::Type{Float16}) = Float32
+cudnnConvolutionDataType(::Type{Float32}) = Float32
+cudnnConvolutionDataType(::Type{Float64}) = Float64
 
 
 # cudnnMathType_t is an enumerated type used to indicate if the use of Tensor Core operations is permitted in a given library routine.

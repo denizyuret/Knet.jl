@@ -10,9 +10,10 @@ e.g. `cudnnPoolingDescriptor_t => cudnnPoolingDescriptor`.
 **Descriptors:** The cuDNN functions take data and operator descriptors. Most of these
 descriptors are relatively fast to create (~500 ns for a cudnnTensorDescriptor) so they may
 not be worth preallocating. We also use caching (~100 ns) to save a bit of memory and
-speed. Caching also allows us to use descriptors as hash keys for memoizing. All descriptor
-fields are `isbits` types with the exception of the `cudnnDropoutDescriptor` which points to
-a random number generator state and is used as a field of some other descriptors.
+speed. We also rely on caching to use descriptors as hash keys for memoizing, so it is not
+optional. All descriptor fields are `isbits` types with the exception of the
+`cudnnDropoutDescriptor` which points to a random number generator state and is used as a
+field of some other descriptors.
 
 **Operator descriptors:** Descriptors such as `cudnnPoolingDescriptor` specify the options
 for an operator such as stride and padding. For operators with descriptors we have one
