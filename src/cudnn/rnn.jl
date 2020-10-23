@@ -4,6 +4,8 @@ using CUDA.CUDNN:
 #cudnnRNNForward,
 cudnnRNNDescriptor_t,
 cudnnSetRNNDescriptor_v8,
+cudnnGetRNNWeightSpaceSize,
+cudnnGetRNNTempSpaceSizes,
 cudnnRNNAlgo_t,
     CUDNN_RNN_ALGO_STANDARD,        # 0, robust performance across a wide range of network parameters
     CUDNN_RNN_ALGO_PERSIST_STATIC,  # 1, fast when the first dimension of the input tensor is small (meaning, a small minibatch), cc>=6.0
@@ -90,30 +92,48 @@ function cudnnRNNForwardWithDefaults(
     cy = nothing,
     fwdMode::cudnnForwardMode_t = recording() ? CUDNN_FWD_MODE_TRAINING : CUDNN_FWD_MODE_INFERENCE,
     devSeqLengths::DevArray{Cint,1} = CuArray(seqLengthArray),
-    weightSpace = cudnnRNNWeightSpace(),
-    workSpace = cudnnRNNWorkSpace(),
-    reserveSpace = cudnnRNNReserveSpace()
+    workSpace::Union{DevArray,Nothing} = nothing,
+    reserveSpace::Union{DevArray,Nothing} = nothing
 )
-    cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, weightSpace, workSpace, reserveSpace)
+    wSize = weightSpaceSize(rnnDesc)
+    @assert sizeof(w) == wSize "RNN weights should be $wSize bytes."
+    (wsSize, rsSize) = tempSpaceSizes(rnnDesc, fwdMode, xDesc)
+    if wsSize > 0 && workSpace === nothing; workSpace = cudnnRNNTempSpace(wsSize); end
+    if rsSize > 0 && reserveSpace === nothing; reserveSpace = cudnnRNNTempSpace(rsSize); end
+    @assert sizeof(workSpace) >= wsSize  "worksSpace should be at least $wsSize bytes"
+    @assert sizeof(reserveSpace) >= rsSize  "reserveSpace should be at least $rsSize bytes"
+    cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workSpace, reserveSpace)
 end
 
+
+function weightSpaceSize(rnnDesc::cudnnRNNDescriptor)
+    ws = Csize_t[0]
+    cudnnGetRNNWeightSpaceSize(handle(), rnnDesc, ws)
+    ws[1]
+end
+
+function tempSpaceSizes(rnnDesc::cudnnRNNDescriptor, fwdMode::cudnnForwardMode_t, xDesc::cudnnRNNDataDescriptor)
+    ws = Csize_t[0]; rs = Csize_t[0]
+    cudnnGetRNNTempSpaceSizes(handle(), rnnDesc, fwdMode, xDesc, ws, rs)
+    ws[1], rs[1]
+end
 
 function cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, weightSpace, workSpace, reserveSpace)
-    CUDA.CUDNN.cudnnRNNForward(handle(), rnnDesc, fwdMode, devSeqLengths, xDesc, x, yDesc, y, hDesc, cu_null(hx), cu_null(hy), cDesc, cu_null(cx), cu_null(cy), sizeof(weightSpace), cu_null(weightSpace), sizeof(workSpace), cu_null(workSpace), sizeof(reserveSpace), cu_null(reserveSpace))
+    CUDA.CUDNN.cudnnRNNForward(handle(), rnnDesc, fwdMode, devSeqLengths, xDesc, x, yDesc, y, hDesc, cu_null(hx), cu_null(hy), cDesc, cu_null(cx), cu_null(cy), sizeof(w), w, sizeof(workSpace), cu_null(workSpace), sizeof(reserveSpace), cu_null(reserveSpace))
     return (y, hy, cy)
 end
-
-
-# we may have to do this manually like in multiheadattn
-@primitive1((cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, weightSpace, workSpace, reserveSpace),
-             _dy,_y),
-            (cudnnRNNBackwardWeights_v8()),
-            (cudnnRNNBackwardData_v8()),
-            )
 
 
 cudnnRNNMathType(::Type{Float16})=CUDNN_TENSOR_OP_MATH
 cudnnRNNMathType(::Type{Float32})=CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
 cudnnRNNMathType(::Type{Float64})=CUDNN_DEFAULT_MATH
 
-# todo workspace etc.
+
+# # we may have to do this manually like in multiheadattn
+# @primitive1((cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, weightSpace, workSpace, reserveSpace),
+#              _dy,_y),
+#             (cudnnRNNBackwardWeights_v8()),
+#             (cudnnRNNBackwardData_v8()),
+#             )
+
+
