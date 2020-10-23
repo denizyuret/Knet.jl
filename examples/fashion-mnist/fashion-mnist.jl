@@ -103,8 +103,8 @@ function main(args="")
     o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    xtrn,ytrn = FashionMNIST.traindata()
-    xtst,ytst = FashionMNIST.testdata()
+    xtrn,ytrn = FashionMNIST.traindata(); ytrn[ytrn .== 0] .= 10
+    xtst,ytst = FashionMNIST.testdata();  ytst[ytst .== 0] .= 10
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))

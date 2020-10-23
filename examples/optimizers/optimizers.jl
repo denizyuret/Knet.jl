@@ -43,8 +43,8 @@ function main(args=ARGS)
     atype = eval(Meta.parse(o[:atype]))
     if atype <: Array; @warn("CPU conv4 support is experimental and very slow."); end
 
-    xtrn,ytrn = MNIST.traindata(Float32)
-    xtst,ytst = MNIST.testdata(Float32)
+    xtrn,ytrn = MNIST.traindata(Float32); ytrn[ytrn .== 0] .= 10
+    xtst,ytst = MNIST.testdata(Float32);  ytst[ytst .== 0] .= 10
     xsize = (size(xtrn,1),size(xtrn,2),1,o[:batchsize])
     dtrn = minibatch(xtrn, ytrn, o[:batchsize], xtype=atype, xsize=xsize)
     dtst = minibatch(xtst, ytst, o[:batchsize], xtype=atype, xsize=xsize)
