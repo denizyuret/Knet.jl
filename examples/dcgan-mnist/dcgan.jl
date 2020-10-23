@@ -17,8 +17,8 @@ function main(args)
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
-    xtrn,ytrn = MNIST.traindata()
-    xtst,ytst = MNIST.testdata()
+    xtrn,ytrn = MNIST.traindata(); ytrn[ytrn .== 0] .= 10
+    xtst,ytst = MNIST.testdata();  ytst[ytst .== 0] .= 10
     dtrn = minibatch(xtrn, ytrn, o[:batchsize]; shuffle=true, xtype=o[:atype], xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     optd = map(wi->eval(Meta.parse(o[:optim])), wd)
     optg = map(wi->eval(Meta.parse(o[:optim])), wg)
