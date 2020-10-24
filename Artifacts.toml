@@ -25,4 +25,11 @@ os = "macos"
    sha256 = "c2546da8ae4f2ef87d7a239f85fe514306cec7d14fbe782e828f83d862bc2706"
    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.3.8/libknet8.x86_64-macos.tar.gz"
 
+[[libknet8]]
+arch = "powerpc64le"
+git-tree-sha1 = "40478d85ecfa6b64bc54ca18e75e477cf15ddf3a"
+os = "linux"
 
+   [[libknet8.download]]
+   sha256 = "a7f7e8783aaebae2d6379cfca340999de70bb202d776a05fba661d1c8626e7cc"
+   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.3/libknet8.ppc64le-linux-gnu.tar.gz"

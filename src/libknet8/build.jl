@@ -1,7 +1,7 @@
 using CUDA, Libdl
 
 NVCC = nothing
-CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC"]
+CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC","-std=c++11"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
