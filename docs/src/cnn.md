@@ -284,7 +284,7 @@ stride ``[S_1,\ldots,S_D]`` the resulting array will have dimensions:
 ```math
 [ W_1, \ldots, W_D, C_x, C_y ] \ast [ X_1, \ldots, X_D, C_x ] 
 \Rightarrow [ Y_1, \ldots, Y_D, C_y ] \\
-\mbox{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
+\mathrm{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
 ```
 
 As an example let's start with an input image of 256x256 pixels and 3
@@ -326,7 +326,7 @@ minibatch given above the output size would be:
 ```math
 [ W_1, \ldots, W_D, C_x, C_y ] \ast [ X_1, \ldots, X_D, C_x, N ] 
 \Rightarrow [ Y_1, \ldots, Y_D, C_y, N ] \\
-\mbox{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
+\mathrm{where } Y_i = 1 + \left\lfloor\frac{X_i+2P_i-W_i}{S_i}\right\rfloor
 ```
 
 If we used a minibatch size of 128 in the previous example with
@@ -492,12 +492,12 @@ cross correlation operation ``w'=y'\star x``.
 Here is the gradient for the input:
 
 ```math
-\begin{align*}
+\begin{aligned}
 & x_1' = w_1 y_1' \\
 & x_2' = w_2 y_1' + w_1 y_2' \\
 & x_3' = w_3 y_1' + w_2 y_2' + w_1 y_3' \\
 & \ldots
-\end{align*}
+\end{aligned}
 ```
 
 You can recognize this as a regular convolution between ``w`` and ``y'``
