@@ -1,4 +1,5 @@
 using LinearAlgebra
+using Base
 
 """
 a struct that represents a confusion matrix with all the necessary fields.
@@ -21,16 +22,46 @@ struct confusion_matrix
 end
 
 
-condition_positive(c::confusion_matrix) = c.true_positives + c.false_negatives
-condition_negative(c::confusion_matrix) = c.true_negatives + false_positives
-predicted_positive(c::confusion_matrix) = c.true_positives + c.false_positives
-predicted_negative(c::confusion_matrix) = c.true_negavites + c.false_negatives
-correctly_classified(c::confusion_matrix) = c.true_positives + c.true_negatives
-incorrectly_classified(c::confusion_matrix) = c.false_positives + c.false_negatives
-sensitivity(c::confusion_matrix) = c.true_positives / condition_positive(c)
-specificity(c::confusion_matrix) = c.true_negatives / condition_negative(c)
-precision(c::confusion_matrix) = c.true_positives / (true_positives + false_positives)
-accuracy(c::confusion_matrix) = (c.true_positives + c.true_negatives) / (condition_positives(c) + condition_negative(c))
+condition_positive(c::confusion_matrix,i) = c.true_positives[i] + c.false_negatives[i]
+condition_negative(c::confusion_matrix,i) = c.true_negatives[i] + c.false_positives[i]
+predicted_positive(c::confusion_matrix,i) = c.true_positives[i] + c.false_positives[i]
+predicted_negative(c::confusion_matrix,i) = c.true_negatives[i] + c.false_negatives[i]
+correctly_classified(c::confusion_matrix,i) = c.true_positives[i] + c.true_negatives[i]
+incorrectly_classified(c::confusion_matrix,i) = c.false_positives[i] + c.false_negatives[i]
+sensitivity(c::confusion_matrix,i) = c.true_positives[i] / condition_positive(c,i)
+specificity(c::confusion_matrix,i) = c.true_negatives[i] / condition_negative(c,i)
+precision(c::confusion_matrix,i) = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i])
+accuracy(c::confusion_matrix,i) = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
+balanced_accuracy(c::confusion_matrix,i) = (sensitivity(c,i) +  specificity(c,i)) / 2
+negative_predictive_value(c::confusion_matrix,i)  = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i])
+false_negative_rate(c::confusion_matrix,i) = c.false_negatives[i] / condition_positive(c,i)
+false_positive_rate(c::confusion_matrix,i) = c.false_positives[i] / condition_negative(c,i)
+false_discovery_rate(c::confusion_matrix,i) = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i])
+false_omission_rate(c::confusion_matrix,i) = 1 - negative_predictive_value(c,i)
+f1_score(c::confusion_matrix,i) = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i])
+
+
+
+
+function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
+    println(io, summary(c), ":")
+    tp = string(c.true_positives)
+    fp = string(c.false_positives)
+    fn = string(c.false_negatives)
+    tn = string(c.true_negatives)
+    len_p = max(maximum(map(length, (tp, fp))), 3)
+    len_n = max(maximum(map(length, (fn, tn))), 3)
+    tp = lpad(tp, len_p); fp = lpad(fp, len_p)
+    fn = lpad(fn, len_n); tn = lpad(tn, len_n)
+    pad = "  "
+    println(io, pad, " ", "Predicted")
+    println(io, pad, "  ", lpad("+",len_p), "   ", lpad("-",len_n))
+    println(io, pad, "┌", repeat("─",len_p+2), "┬", repeat("─",len_n+2), "┐")
+    println(io, pad, "│ ", tp, " │ ", fn, " │ +")
+    println(io, pad, "├", repeat("─",len_p+2), "┼", repeat("─",len_n+2), "┤   Actual")
+    println(io, pad, "│ ", fp, " │ ", tn, " │ -")
+    println(io, pad, "└", repeat("─",len_p+2), "┴", repeat("─",len_n+2), "┘")
+end
 
 """
 function init_confusion_params(matrix)
@@ -68,12 +99,12 @@ Arguments:
 """
 
 function create_confusion_matrix(expected, predicted; labels = nothing, normalize = false)
-    @assert size(expected) == size(predicted)
-    @assert sort(unique(expected)) == sort(unique(predicted))
+    @assert size(expected) == size(predicted) "Expected and predicted vectors must be the same size"
+    @assert sort(unique(expected)) == sort(unique(predicted))  "Expected and predicted vectors must have the same labels"
     if labels == nothing
         labels = sort(unique(expected))
     end
-    @assert length(unique(typeof.(labels))) == 1
+    @assert length(unique(typeof.(labels))) == 1 "Labels must be of the same data types"
     matrix = zeros(Int, size(labels)[1],size(labels)[1])
     T_values = copy(expected)
     P_values = copy(predicted)

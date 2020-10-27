@@ -18,6 +18,7 @@ include("ops21/Ops21.jl")
 include("ops21_gpu/Ops21_gpu.jl")
 include("fileio_gpu/FileIO_gpu.jl")
 include("train20/Train20.jl")
+include("utilities/utilities.jl")
 # include("layers21/Layers21.jl")
 
 # See if we have a gpu at initialization:
@@ -43,6 +44,7 @@ using Knet.KnetArrays #: KnetArray, gc, knetgc, ka, setseed, seed!
 using Knet.FileIO_gpu #: cpucopy, gpucopy
 using Knet.Ops20 #: RNN, accuracy, batchnorm, bce, bmm, bnmoments, bnparams, conv4, deconv4, dropout, elu, invx, logistic, logp, logsoftmax, logsumexp, mat, nll, pool, relu, rnnforw, rnninit, rnnparam, rnnparams, selu, sigm, softmax, unpool, zeroone
 using Knet.Train20 #: Adadelta, Adagrad, Adam, Momentum, Nesterov, Rmsprop, SGD, Sgd, adadelta, adadelta!, adagrad, adagrad!, adam, adam!, atype, bilinear, converge, converge!, gaussian, goldensection, hyperband, minibatch, momentum, momentum!, nesterov, nesterov!, optimizers, param, param0, progress, progress!, rmsprop, rmsprop!, sgd, sgd!, train!, training, update!, xavier, xavier_normal, xavier_uniform
+using Knet.utilities
 
 export @diff, Adadelta, Adagrad, Adam, AutoGrad, Knet, KnetArray, Momentum, Nesterov, Param, RNN, Rmsprop, SGD, Sgd, accuracy, adadelta, adadelta!, adagrad, adagrad!, adam, adam!, batchnorm, bce, bilinear, bmm, bnmoments, bnparams, cat1d, conv4, converge, converge!, cpucopy, deconv4, dropout, elu, gaussian, goldensection, gpu, gpucopy, grad, gradloss, hyperband, invx, ka, knetgc, logistic, logp, logsoftmax, logsumexp, mat, minibatch, momentum, momentum!, nesterov, nesterov!, nll, optimizers, param, param0, params, pool, progress, progress!, relu, rmsprop, rmsprop!, rnninit, rnnparam, rnnparams, selu, setseed, sgd, sgd!, sigm, softmax, train!, training, unpool, update!, value, xavier, xavier_normal, xavier_uniform, zeroone
 
@@ -50,5 +52,3 @@ export @diff, Adadelta, Adagrad, Adam, AutoGrad, Knet, KnetArray, Momentum, Nest
 export rnnforw
 
 end # module
-
-
