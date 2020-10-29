@@ -135,7 +135,7 @@ For more information @confusion_matrix
 """
 
 function create_confusion_matrix(matrix; normalize = false)
-    @assert size(matrix)[1] == size(matrix)[2]
+    @assert size(matrix)[1] == size(matrix)[2] "Given matrix is not n x n"
     if normalize
         normalize!(matrix)
     end
