@@ -27,11 +27,11 @@ original softmax model. The reason is simple to see if we write the
 function computed in mathematical notation and do some algebra:
 
 ```math
-\begin{align*}
-\hat{p} &= \mbox{soft}(W_2 (W_1 x + b_1) + b_2) \\
-&= \mbox{soft}((W_2 W_1)\, x + W_2 b_1 + b_2) \\
-&= \mbox{soft}(W x + b)
-\end{align*}
+\begin{aligned}
+\hat{p} &= \operatorname{softmax}(W_2 (W_1 x + b_1) + b_2) \\
+&= \operatorname{softmax}((W_2 W_1)\, x + W_2 b_1 + b_2) \\
+&= \operatorname{softmax}(W x + b)
+\end{aligned}
 ```
 
 where ``W=W_2 W_1`` and ``b=W_2 b_1 + b_2``. In other words, we still have a
@@ -59,7 +59,7 @@ by `relu(x)=max(x,0)` applied elementwise to the input array. So
 mathematically what we are computing is:
 
 ```math
-\hat{p} = \mbox{soft}(W_2\, \mbox{relu}(W_1 x + b_1) + b_2) \\
+\hat{p} = \operatorname{softmax}(W_2\, \operatorname{relu}(W_1 x + b_1) + b_2) \\
 ```
 
 This cannot be reduced to a linear function, which may not seem like a
