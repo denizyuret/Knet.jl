@@ -50,6 +50,12 @@ const DT = cudnnDataType
 scalr(a,x)=Ref(convert(eltype(x)===Float64 ? Float64 : Float32, a))
 
 
+# Convert nothing to CU_NULL or C_NULL for ccall:
 cu_null(x) = (x === nothing ? CU_NULL : x)
 c_null(x) = (x === nothing ? C_NULL : x)
 
+
+# Create temporary workspace. Use 128 to avoid alignment issues.
+function cudnnWorkspace(nbytes)
+    nbytes == 0 ? nothing : CuArray{Int128}(undef, (nbytes-1)÷sizeof(Int128)+1)
+end

@@ -59,7 +59,7 @@ end
 function cudnnDropoutReserveSpace(td::cudnnTensorDescriptor)
     # reserveSpace is ~1/8 of tensor size and passes info between forw and back
     rss = Csize_t[0]; cudnnDropoutGetReserveSpaceSize(td, rss)
-    return CuArray{Int128}(undef, (rss[1]-1)÷sizeof(Int128)+1)
+    return cudnnWorkspace(rss[1])
 end
 
 
@@ -80,7 +80,8 @@ cudnnDropoutDescriptor(x) = cudnnDropoutDescriptor(convert(Cfloat,x), nothing) #
 function cudnnSetDropoutDescriptorFromFloat(ptr::cudnnDropoutDescriptor_t, dropout::Cfloat, ignore::Nothing)
     if !isassigned(cudnnDropoutState)
         ssize = Csize_t[0]; cudnnDropoutGetStatesSize(handle(), ssize)
-        cudnnDropoutState[] = CuArray{Int128}(undef, (ssize[1]-1)÷sizeof(Int128)+1)
+        @assert ssize[1] > 0
+        cudnnDropoutState[] = cudnnWorkspace(ssize[1])
     end
     seed = floor(Culonglong,time())
     @retry cudnnSetDropoutDescriptor(ptr, handle(), dropout, cudnnDropoutState[], sizeof(cudnnDropoutState[]), seed)

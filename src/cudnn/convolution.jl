@@ -102,7 +102,7 @@ end
 
 function cudnnConvolutionForwardAutoGrad(w, x; convDesc, wDesc, xDesc, yDesc, y, alpha, beta)
     p = cudnnConvolutionFwdAlgoPerf(xDesc, x, wDesc, w, convDesc, yDesc, y)
-    workspace = cudnnConvolutionWorkspace(p.memory)
+    workspace = cudnnWorkspace(p.memory)
     CUDA.CUDNN.cudnnConvolutionForward(handle(), alpha, xDesc, x, wDesc, w, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, yDesc, y)
     return y
 end
@@ -113,12 +113,12 @@ end
              _dy,_y),
             ((x,dy,dw) = (value(x),value(_dy),similar(w));
              p = cudnnConvolutionBwdFilterAlgoPerf(xDesc, x, yDesc, dy, convDesc, wDesc, dw);
-             workspace = cudnnConvolutionWorkspace(p.memory);
+             workspace = cudnnWorkspace(p.memory);
              cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, wDesc, dw);
              dw),
             ((w,dy,dx) = (value(w),value(_dy),similar(x));
              p = cudnnConvolutionBwdDataAlgoPerf(wDesc, w, yDesc, dy, convDesc, xDesc, dx);
-             workspace = cudnnConvolutionWorkspace(p.memory);
+             workspace = cudnnWorkspace(p.memory);
              cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, p.algo, cu_null(workspace), sizeof(workspace), beta, xDesc, dx);
              dx))
 
@@ -245,13 +245,7 @@ end
 function cudnnFindConvolutionAlgorithmWorkspace(x)
     gpufree = Mem.info()[1] + (isdefined(CUDA,:pool) ? CUDA.pool[].cached_memory() : CUDA.cached_memory())
     nbytes = min(gpufree ÷ 10, sizeof(x) * 100)
-    cudnnConvolutionWorkspace(nbytes)
-end
-
-
-# Use 128 to avoid alignment issues
-function cudnnConvolutionWorkspace(nbytes)
-    nbytes == 0 ? nothing : CuArray{Int128}(undef, (nbytes-1)÷sizeof(Int128)+1)
+    cudnnWorkspace(nbytes)
 end
 
 

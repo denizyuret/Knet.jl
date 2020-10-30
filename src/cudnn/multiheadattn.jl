@@ -166,8 +166,8 @@ function cudnnMultiHeadAttnForwardWithDefaults(
     @assert _kdims[2] == _qdims[2]
     @assert _kdims[3] == (((attnMode & CUDNN_ATTN_QUERYMAP_ONE_TO_ONE) > 0) ? _qdims[3] : 1)
 
-    if wsSize > 0 && workSpace === nothing; workSpace = cudnnMultiHeadAttnBuffer(wsSize); end
-    if rsSize > 0 && reserveSpace === nothing; reserveSpace = cudnnMultiHeadAttnBuffer(rsSize); end
+    if wsSize > 0 && workSpace === nothing; workSpace = cudnnWorkspace(wsSize); end
+    if rsSize > 0 && reserveSpace === nothing; reserveSpace = cudnnWorkspace(rsSize); end
     @assert sizeof(workSpace) >= wsSize  "worksSpace should be at least $wsSize bytes"
     @assert sizeof(reserveSpace) >= rsSize  "reserveSpace should be at least $rsSize bytes"
 
@@ -269,10 +269,6 @@ function cudnnMultiHeadAttnBuffers(attnDesc::cudnnAttnDescriptor)
     weightSize, workSpaceSize, reserveSpaceSize = ntuple(i->Csize_t[0], 3)
     cudnnGetMultiHeadAttnBuffers(handle(), attnDesc, weightSize, workSpaceSize, recording() ? reserveSpaceSize : C_NULL)
     return (weightSize[1], workSpaceSize[1], reserveSpaceSize[1])
-end
-
-function cudnnMultiHeadAttnBuffer(bytes::Integer)
-    return CuArray{Int128}(undef, (bytes-1)÷sizeof(Int128)+1)
 end
 
 
