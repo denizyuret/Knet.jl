@@ -1,17 +1,21 @@
 #module CUDNN
 
-include("common.jl")
-include("descriptors.jl")
-include("tensor.jl")
+#include("common.jl")
+#include("descriptors.jl")
+#include("tensor.jl")
+#include("inplace.jl")
+#include("optensor.jl")
+#include("reduce.jl")
+
+include("autograd.jl")
 include("activation.jl")
-include("dropout.jl")
-include("inplace.jl")
-include("multiheadattn.jl")
-include("optensor.jl")
-include("reduce.jl")
-include("softmax.jl")
-include("pooling.jl")
-include("convolution.jl")
+
+# include("softmax.jl")
+# include("dropout.jl")
+# include("convolution.jl")
+# include("pooling.jl")
+# include("multiheadattn.jl")
+# include("rnn.jl")
 
 #end
 

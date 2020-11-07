@@ -1,5 +1,6 @@
 using Test, AutoGrad
-#using Knet.CUDNN: cudnnActivationDescriptor, cudnnActivationForward, CUDNN_NOT_PROPAGATE_NAN, CUDNN_ACTIVATION_SIGMOID, CUDNN_ACTIVATION_RELU, CUDNN_ACTIVATION_TANH, CUDNN_ACTIVATION_CLIPPED_RELU, CUDNN_ACTIVATION_ELU
+using Base: unsafe_convert
+using CUDA.CUDNN: cudnnActivationDescriptor, cudnnActivationForward, CUDNN_NOT_PROPAGATE_NAN, CUDNN_ACTIVATION_SIGMOID, CUDNN_ACTIVATION_RELU, CUDNN_ACTIVATION_TANH, CUDNN_ACTIVATION_CLIPPED_RELU, CUDNN_ACTIVATION_ELU
 
 if CUDA.functional(); @testset "cudnn/activation" begin
 
