@@ -1,37 +1,13 @@
-using Knet.KnetArrays: DevArray
-
-using CUDA.CUDNN:
-   #cudnnSetTensor,
-   #cudnnScaleTensor,
-   #cudnnAddTensor,
-    handle
-
-
-function cudnnSetTensor(x::R, s::Real; xDesc::cudnnTensorDescriptor = TD(x)) where {T,R<:DevArray{T}}
-    CUDA.CUDNN.cudnnSetTensor(handle(), xDesc, x, Ref(T(s)))
-    return x
-end
-                        
-
-function cudnnScaleTensor(x::R, s::Real; xDesc::cudnnTensorDescriptor = TD(x)) where {T,R<:DevArray{T}}
-    CUDA.CUDNN.cudnnScaleTensor(handle(), xDesc, x, Ref(T(s)))
-    return x
-end
-
-
-# Only supports (a,b,c,d)+(1,1,c,1) and (a,b,c,d,e)+(1,1,1,d,1), use cudnnOpTensor instead
+# Defines set, scale, add for KnetArrays
+# cudnnAddTensor only supports (a,b,c,d)+(1,1,c,1) and (a,b,c,d,e)+(1,1,1,d,1), use cudnnOpTensor instead.
 # Compared to libknet8 x .+ b it is ~2x slower for (1,1,100,100), ~30% faster for (14,14,256,32)
 # CUDA.jl x .+ b is 2x slower than both
-function cudnnAddTensor(
-    x::R, b::R;
-    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
-    alpha::Real=1,
-    beta::Real=1,
-    bDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(b; format),
-    xDesc::cudnnTensorDescriptor = cudnnTensorDescriptor(x; format),
-) where {T,N,R<:DevArray{T,N}}
-    @assert N === 4 || N === 5
-    @assert all(size(b,i) === (i === N-1 ? size(x,i) : 1) for i in 1:N)
-    CUDA.CUDNN.cudnnAddTensor(handle(), Ref(T(alpha)), bDesc, b, Ref(T(beta)), xDesc, x)
-    return x
-end
+
+import CUDA.CUDNN: cudnnSetTensor, cudnnScaleTensor, cudnnAddTensor
+
+cudnnSetTensor(x::KnetArray, s; o...) = (cudnnSetTensor(CuArray(x), s; o...); x)
+
+cudnnScaleTensor(x::KnetArray, s; o...) = (cudnnScaleTensor(CuArray(x), s; o...); x)
+
+cudnnAddTensor(x::R, b::R; o...) where {R<:KnetArray} = (cudnnAddTensor(CuArray(x), CuArray(b); o...); x)
+
