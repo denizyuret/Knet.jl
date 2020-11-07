@@ -9,11 +9,11 @@
 
 include("autograd.jl")
 include("activation.jl")
+include("softmax.jl")
+include("pooling.jl")
 
-# include("softmax.jl")
 # include("dropout.jl")
 # include("convolution.jl")
-# include("pooling.jl")
 # include("multiheadattn.jl")
 # include("rnn.jl")
 

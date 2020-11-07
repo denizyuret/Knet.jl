@@ -1,10 +1,6 @@
-import CUDA.CUDNN: cudnnActivationForward, cudnnActivationForward!, cudnnActivationForwardAutoGrad
+import CUDA.CUDNN: cudnnActivationForwardAutoGrad
 using CUDA.CUDNN: cudnnActivationBackward, handle
-using AutoGrad: AutoGrad, @primitive1
-
-cudnnActivationForward(x::KnetArray, d...; o...) = cudnnActivationForward!(similar(x), x, d...; o...)
-
-cudnnActivationForward!(y::KnetArray, x::KnetArray, d...; o...) = (cudnnActivationForward!(CuArray(y), CuArray(x), d...; o...); y)
+using AutoGrad: AutoGrad, @primitive1, value
 
 @primitive1(
     (cudnnActivationForwardAutoGrad(x; activationDesc, alpha, xDesc, beta, yDesc, y),
