@@ -13,34 +13,32 @@ Fields:
 
 """
 struct confusion_matrix
-    true_positives::Array{Int, 1}
-    true_negatives::Array{Int, 1}
-    false_positives::Array{Int, 1}
-    false_negatives::Array{Int, 1}
-    matrix::Array{Int, 2}
-    Labels::Array{Union{Int,AbstractString},1}
+    true_positives::Array{Int}
+    true_negatives::Array{Int}
+    false_positives::Array{Int}
+    false_negatives::Array{Int}
+    matrix::Array{Number,2}
+    Labels::Array{Union{Int,AbstractString}}
 end
 
 
-condition_positive(c::confusion_matrix,i) = c.true_positives[i] + c.false_negatives[i]
-condition_negative(c::confusion_matrix,i) = c.true_negatives[i] + c.false_positives[i]
-predicted_positive(c::confusion_matrix,i) = c.true_positives[i] + c.false_positives[i]
-predicted_negative(c::confusion_matrix,i) = c.true_negatives[i] + c.false_negatives[i]
-correctly_classified(c::confusion_matrix,i) = c.true_positives[i] + c.true_negatives[i]
-incorrectly_classified(c::confusion_matrix,i) = c.false_positives[i] + c.false_negatives[i]
-sensitivity(c::confusion_matrix,i) = c.true_positives[i] / condition_positive(c,i)
-specificity(c::confusion_matrix,i) = c.true_negatives[i] / condition_negative(c,i)
-precision(c::confusion_matrix,i) = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i])
-accuracy(c::confusion_matrix,i) = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
-balanced_accuracy(c::confusion_matrix,i) = (sensitivity(c,i) +  specificity(c,i)) / 2
-negative_predictive_value(c::confusion_matrix,i)  = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i])
-false_negative_rate(c::confusion_matrix,i) = c.false_negatives[i] / condition_positive(c,i)
-false_positive_rate(c::confusion_matrix,i) = c.false_positives[i] / condition_negative(c,i)
-false_discovery_rate(c::confusion_matrix,i) = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i])
-false_omission_rate(c::confusion_matrix,i) = 1 - negative_predictive_value(c,i)
-f1_score(c::confusion_matrix,i) = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i])
-
-
+condition_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_negatives[i]
+condition_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_positives[i]
+predicted_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_positives[i]
+predicted_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_negatives[i]
+correctly_classified(c::confusion_matrix,i = 1) = c.true_positives[i] + c.true_negatives[i]
+incorrectly_classified(c::confusion_matrix,i = 1) = c.false_positives[i] + c.false_negatives[i]
+sensitivity(c::confusion_matrix,i = 1) = c.true_positives[i] / condition_positive(c,i)
+specificity(c::confusion_matrix,i = 1) = c.true_negatives[i] / condition_negative(c,i)
+precision(c::confusion_matrix,i = 1) = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i])
+accuracy(c::confusion_matrix,i = 1) = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
+balanced_accuracy(c::confusion_matrix,i = 1) = (sensitivity(c,i) +  specificity(c,i)) / 2
+negative_predictive_value(c::confusion_matrix,i = 1)  = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i])
+false_negative_rate(c::confusion_matrix,i = 1) = c.false_negatives[i] / condition_positive(c,i)
+false_positive_rate(c::confusion_matrix,i = 1) = c.false_positives[i] / condition_negative(c,i)
+false_discovery_rate(c::confusion_matrix,i = 1) = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i])
+false_omission_rate(c::confusion_matrix,i = 1) = 1 - negative_predictive_value(c,i)
+f1_score(c::confusion_matrix,i = 1) = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i])
 
 
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
@@ -54,13 +52,15 @@ function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
     tp = lpad(tp, len_p); fp = lpad(fp, len_p)
     fn = lpad(fn, len_n); tn = lpad(tn, len_n)
     pad = "  "
-    println(io, pad, " ", "Predicted")
+    println(io, pad, " ", labels)
     println(io, pad, "  ", lpad("+",len_p), "   ", lpad("-",len_n))
     println(io, pad, "┌", repeat("─",len_p+2), "┬", repeat("─",len_n+2), "┐")
     println(io, pad, "│ ", tp, " │ ", fn, " │ +")
-    println(io, pad, "├", repeat("─",len_p+2), "┼", repeat("─",len_n+2), "┤   Actual")
+    println(io, pad, "├", repeat("─",len_p+2), "┼", repeat("─",len_n+2), "┤   labels")
     println(io, pad, "│ ", fp, " │ ", tn, " │ -")
     println(io, pad, "└", repeat("─",len_p+2), "┴", repeat("─",len_n+2), "┘")
+    println(io, pad, "matrix: ")
+    println(io,pad, c.matrix)
 end
 
 """
@@ -98,52 +98,21 @@ Arguments:
 
 """
 
-function create_confusion_matrix(expected, predicted; labels = nothing, normalize = false)
-    @assert size(expected) == size(predicted) "Expected and predicted vectors must be the same size"
-    @assert sort(unique(expected)) == sort(unique(predicted))  "Expected and predicted vectors must have the same labels"
-    if labels == nothing
-        labels = sort(unique(expected))
+function create_confusion_matrix(expected, predicted, labels)
+    @assert size(expected) == size(predicted) "Sizes do not match"
+    @assert size(expected)[1] == 1 && size(predicted)[1] == 1 && size(labels)[1] == 1 "Sizes of the expected, predicted and labels arrays must be 1 x n"
+    dictionary = Dict()
+    j = 1
+    for i in labels
+        dictionary[i] = j
+        j += 1
     end
-    @assert length(unique(typeof.(labels))) == 1 "Labels must be of the same data types"
-    matrix = zeros(Int, size(labels)[1],size(labels)[1])
-    T_values = copy(expected)
-    P_values = copy(predicted)
-    for i in 1:size(T_values)[1]
-        T_values[i] = findfirst(x-> x == T_values[i],labels)
-        P_values[i] = findfirst(x-> x == P_values[i],labels)
-    end
-    for i in 1:size(T_values)[1]
-        matrix[P_values[i],T_values[i]] += 1
-    end
-    if normalize
-        normalize!(matrix)
+    println(dictionary)
+    matrix = zeros(Number, size(labels)[2], size(labels)[2])
+    for i in 1:size(expected)[2]
+       println(dictionary[predicted[i]],dictionary[expected[i]])
+       matrix[dictionary[predicted[i]],dictionary[expected[i]]] += 1
     end
     tp, tn, fp, fn = init_confusion_params(matrix)
     return confusion_matrix(tp,tn,fp,fn,matrix,labels)
-end
-
-"""
-create_confusion_matrix(matrix; normalize = false)
-
-returns a confusion matrix object
-
-Arguments:
-    matrix- confusion matrix
-    normalize- if true, matrix normalization will be applied
-
-For more information @confusion_matrix
-"""
-
-function create_confusion_matrix(matrix; normalize = false)
-    @assert size(matrix)[1] == size(matrix)[2] "Given matrix is not n x n"
-    if normalize
-        normalize!(matrix)
-    end
-    tp, tn, fp, fn = init_confusion_params(matrix)
-    return confusion_matrix(tp,tn,fp,fn,matrix,labels)
-end
-
-function PCA(matrix)
-    sigma = (1/ size(matrix,1) * transpose(matrix) * matrix)
-    return svd(sigma)
 end
