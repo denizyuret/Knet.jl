@@ -28,39 +28,54 @@ predicted_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_po
 predicted_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_negatives[i]
 correctly_classified(c::confusion_matrix,i = 1) = c.true_positives[i] + c.true_negatives[i]
 incorrectly_classified(c::confusion_matrix,i = 1) = c.false_positives[i] + c.false_negatives[i]
-sensitivity(c::confusion_matrix,i = 1) = c.true_positives[i] / condition_positive(c,i)
-specificity(c::confusion_matrix,i = 1) = c.true_negatives[i] / condition_negative(c,i)
-precision(c::confusion_matrix,i = 1) = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i])
-accuracy(c::confusion_matrix,i = 1) = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
-balanced_accuracy(c::confusion_matrix,i = 1) = (sensitivity(c,i) +  specificity(c,i)) / 2
-negative_predictive_value(c::confusion_matrix,i = 1)  = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i])
-false_negative_rate(c::confusion_matrix,i = 1) = c.false_negatives[i] / condition_positive(c,i)
-false_positive_rate(c::confusion_matrix,i = 1) = c.false_positives[i] / condition_negative(c,i)
-false_discovery_rate(c::confusion_matrix,i = 1) = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i])
-false_omission_rate(c::confusion_matrix,i = 1) = 1 - negative_predictive_value(c,i)
-f1_score(c::confusion_matrix,i = 1) = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i])
+sensitivity(c::confusion_matrix,i = 1) = x = c.true_positives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
+specificity(c::confusion_matrix,i = 1) = x = c.true_negatives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
+precision(c::confusion_matrix,i = 1) = x = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i]); return isnan(x) ? 0 : x
+accuracy(c::confusion_matrix,i = 1) = x = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i)); return isnan(x) ? 0 : x
+balanced_accuracy(c::confusion_matrix,i = 1) = x = (sensitivity(c,i) +  specificity(c,i)) / 2; return isnan(x) ? 0 : x
+negative_predictive_value(c::confusion_matrix,i = 1)  = x = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+false_negative_rate(c::confusion_matrix,i = 1) = x = c.false_negatives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
+false_positive_rate(c::confusion_matrix,i = 1) = x = c.false_positives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
+false_discovery_rate(c::confusion_matrix,i = 1) = x = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i]); return isnan(x) ? 0 : x
+false_omission_rate(c::confusion_matrix,i = 1) = x = 1 - negative_predictive_value(c,i); return isnan(x) ? 0 : x
+f1_score(c::confusion_matrix,i = 1) = x = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
 
 
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
-    println(io, summary(c), ":")
-    tp = string(c.true_positives)
-    fp = string(c.false_positives)
-    fn = string(c.false_negatives)
-    tn = string(c.true_negatives)
-    len_p = max(maximum(map(length, (tp, fp))), 3)
-    len_n = max(maximum(map(length, (fn, tn))), 3)
-    tp = lpad(tp, len_p); fp = lpad(fp, len_p)
-    fn = lpad(fn, len_n); tn = lpad(tn, len_n)
-    pad = "  "
-    println(io, pad, " ", labels)
-    println(io, pad, "  ", lpad("+",len_p), "   ", lpad("-",len_n))
-    println(io, pad, "┌", repeat("─",len_p+2), "┬", repeat("─",len_n+2), "┐")
-    println(io, pad, "│ ", tp, " │ ", fn, " │ +")
-    println(io, pad, "├", repeat("─",len_p+2), "┼", repeat("─",len_n+2), "┤   labels")
-    println(io, pad, "│ ", fp, " │ ", tn, " │ -")
-    println(io, pad, "└", repeat("─",len_p+2), "┴", repeat("─",len_n+2), "┘")
-    println(io, pad, "matrix: ")
-    println(io,pad, c.matrix)
+    len = findmax([length(string(i)) for i in c.Labels])[1]
+    label_size = size(c.Labels)[2]
+    label_padding = lpad(" ", label_size * len *2)
+
+    println(io, [lpad(i,len * 2) for i in c.Labels]...)
+    println(io, repeat("_", size(c.Labels)[2] * len * 2 + len * 2))
+    for i in 1:size(c.matrix)[1]
+        println(io,  [lpad(string(i),len * 2) for i in c.matrix[i,:]]..., "   │", c.Labels[i] )
+    end
+    println(io, "Summary:\n", summary(c))
+    println(io, "True Positives: ", c.true_positives)
+    println(io, "False Positives: ", c.false_positives)
+    println(io, "True Negatives: ", c.true_negatives)
+    println(io, "False Negatives: ", c.false_negatives)
+    println(io, "\n",lpad("Overall Statistics", 50, "\n"))
+    println(io, lpad(" ", 30), [lpad(i, 7) for i in c.Labels]...)
+    println(lpad("Condition Positive:", 30), [lpad(round(condition_positive(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Condition Negative:", 30), [lpad(round(condition_negative(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Predicted Positive:", 30), [lpad(round(predicted_positive(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Predicted Negative:", 30), [lpad(round(predicted_negative(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Correctly Classified:", 30), [lpad(round(correctly_classified(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Incorrectly Classified:", 30), [lpad(round(incorrectly_classified(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
+    println(lpad("Sensitivity:", 30), [lpad(round(sensitivity(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("Specificity:", 30), [lpad(round(specificity(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("Precision:", 30) ,  [lpad(round(precision(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("Accuracy:", 30 ) ,  [lpad(round(accuracy(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("Balanced Accuracy:", 30),    [lpad(round(balanced_accuracy(c,i),digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("Negative Predictive Value:", 30),    [lpad(round(negative_predictive_value(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("False Negative Rate:", 30), [lpad(round(false_negative_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("False Positive Rate:", 30), [lpad(round(false_positive_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("False Discovery Rate:", 30), [lpad(round(false_discovery_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("False Omission Rate:", 30), [lpad(round(false_omission_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(lpad("F1 Score:", 30), [lpad(round(f1_score(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+
 end
 
 """
@@ -107,10 +122,8 @@ function create_confusion_matrix(expected, predicted, labels)
         dictionary[i] = j
         j += 1
     end
-    println(dictionary)
     matrix = zeros(Number, size(labels)[2], size(labels)[2])
     for i in 1:size(expected)[2]
-       println(dictionary[predicted[i]],dictionary[expected[i]])
        matrix[dictionary[predicted[i]],dictionary[expected[i]]] += 1
     end
     tp, tn, fp, fn = init_confusion_params(matrix)
