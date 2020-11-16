@@ -11,31 +11,31 @@ include("autograd.jl")
 include("activation.jl")
 include("softmax.jl")
 include("pooling.jl")
-
-# include("dropout.jl")
-# include("convolution.jl")
+include("dropout.jl")
+include("rnn.jl")
+include("convolution.jl")
 # include("multiheadattn.jl")
-# include("rnn.jl")
+# include("normalization.jl")
 
 #end
 
 ## grep cudnnHandle_t
-# add8: ?cudnnBackendExecute
-# add8: cudnnBuildRNNDynamic
+# ?add8: cudnnBackendExecute
+# ?add8: cudnnBuildRNNDynamic
 # add8: cudnnCTCLoss_v8
 # add8: cudnnGetFoldedConvBackwardDataDescriptors
 # add8: cudnnGetNormalizationBackwardWorkspaceSize
 # add8: cudnnGetNormalizationForwardTrainingWorkspaceSize
 # add8: cudnnGetNormalizationTrainingReserveSpaceSize
-# add8: cudnnGetRNNTempSpaceSizes
+# +add8: cudnnGetRNNTempSpaceSizes
 # add8: cudnnGetRNNWeightParams
-# add8: cudnnGetRNNWeightSpaceSize
+# +add8: cudnnGetRNNWeightSpaceSize
 # add8: cudnnNormalizationBackward
 # add8: cudnnNormalizationForwardInference
 # add8: cudnnNormalizationForwardTraining
-# add8: cudnnRNNBackwardData_v8
-# add8: cudnnRNNBackwardWeights_v8
-# add8: cudnnRNNForward
+# +add8: cudnnRNNBackwardData_v8
+# +add8: cudnnRNNBackwardWeights_v8
+# +add8: cudnnRNNForward
 # +cudnnActivationBackward
 # +cudnnActivationForward
 # +cudnnAddTensor
@@ -44,11 +44,11 @@ include("pooling.jl")
 # cudnnBatchNormalizationForwardInference
 # cudnnBatchNormalizationForwardTraining
 # cudnnBatchNormalizationForwardTrainingEx
-# cudnnConvolutionBackwardBias
-# cudnnConvolutionBackwardData
-# cudnnConvolutionBackwardFilter
-# cudnnConvolutionBiasActivationForward
-# cudnnConvolutionForward
+# +cudnnConvolutionBackwardBias
+# +cudnnConvolutionBackwardData
+# +cudnnConvolutionBackwardFilter
+# +cudnnConvolutionBiasActivationForward
+# +cudnnConvolutionForward
 # -cudnnCreate
 # cudnnCTCLoss
 # -cudnnDestroy
@@ -57,25 +57,25 @@ include("pooling.jl")
 # +cudnnDropoutBackward
 # +cudnnDropoutForward
 # +cudnnDropoutGetStatesSize
-# cudnnFindConvolutionBackwardDataAlgorithm
-# cudnnFindConvolutionBackwardDataAlgorithmEx
-# cudnnFindConvolutionBackwardFilterAlgorithm
-# cudnnFindConvolutionBackwardFilterAlgorithmEx
-# cudnnFindConvolutionForwardAlgorithm
-# cudnnFindConvolutionForwardAlgorithmEx
+# +cudnnFindConvolutionBackwardDataAlgorithm
+# +cudnnFindConvolutionBackwardDataAlgorithmEx
+# +cudnnFindConvolutionBackwardFilterAlgorithm
+# +cudnnFindConvolutionBackwardFilterAlgorithmEx
+# +cudnnFindConvolutionForwardAlgorithm
+# +cudnnFindConvolutionForwardAlgorithmEx
 # cudnnFusedOpsExecute
 # cudnnGetBatchNormalizationBackwardExWorkspaceSize
 # cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize
 # cudnnGetBatchNormalizationTrainingExReserveSpaceSize
-# cudnnGetConvolutionBackwardDataAlgorithm_v7
-# cudnnGetConvolutionBackwardDataAlgorithmMaxCount
-# cudnnGetConvolutionBackwardDataWorkspaceSize
-# cudnnGetConvolutionBackwardFilterAlgorithm_v7
-# cudnnGetConvolutionBackwardFilterAlgorithmMaxCount
-# cudnnGetConvolutionBackwardFilterWorkspaceSize
-# cudnnGetConvolutionForwardAlgorithm_v7
-# cudnnGetConvolutionForwardAlgorithmMaxCount
-# cudnnGetConvolutionForwardWorkspaceSize
+# +cudnnGetConvolutionBackwardDataAlgorithm_v7
+# +cudnnGetConvolutionBackwardDataAlgorithmMaxCount
+# +cudnnGetConvolutionBackwardDataWorkspaceSize
+# +cudnnGetConvolutionBackwardFilterAlgorithm_v7
+# +cudnnGetConvolutionBackwardFilterAlgorithmMaxCount
+# +cudnnGetConvolutionBackwardFilterWorkspaceSize
+# +cudnnGetConvolutionForwardAlgorithm_v7
+# +cudnnGetConvolutionForwardAlgorithmMaxCount
+# +cudnnGetConvolutionForwardWorkspaceSize
 # cudnnGetCTCLossWorkspaceSize
 # cudnnGetCTCLossWorkspaceSize_v8
 # +cudnnGetDropoutDescriptor
