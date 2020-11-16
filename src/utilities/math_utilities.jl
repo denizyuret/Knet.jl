@@ -28,53 +28,80 @@ predicted_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_po
 predicted_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_negatives[i]
 correctly_classified(c::confusion_matrix,i = 1) = c.true_positives[i] + c.true_negatives[i]
 incorrectly_classified(c::confusion_matrix,i = 1) = c.false_positives[i] + c.false_negatives[i]
-sensitivity(c::confusion_matrix,i = 1) = x = c.true_positives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
-specificity(c::confusion_matrix,i = 1) = x = c.true_negatives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
-precision(c::confusion_matrix,i = 1) = x = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i]); return isnan(x) ? 0 : x
-accuracy(c::confusion_matrix,i = 1) = x = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i)); return isnan(x) ? 0 : x
-balanced_accuracy(c::confusion_matrix,i = 1) = x = (sensitivity(c,i) +  specificity(c,i)) / 2; return isnan(x) ? 0 : x
-negative_predictive_value(c::confusion_matrix,i = 1)  = x = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
-false_negative_rate(c::confusion_matrix,i = 1) = x = c.false_negatives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
-false_positive_rate(c::confusion_matrix,i = 1) = x = c.false_positives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
-false_discovery_rate(c::confusion_matrix,i = 1) = x = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i]); return isnan(x) ? 0 : x
-false_omission_rate(c::confusion_matrix,i = 1) = x = 1 - negative_predictive_value(c,i); return isnan(x) ? 0 : x
-f1_score(c::confusion_matrix,i = 1) = x = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+function sensitivity(c::confusion_matrix,i = 1)
+    x = c.true_positives[i] / condition_positive(c,i)
+    return isnan(x) ? 0 : x
+end
+function specificity(c::confusion_matrix,i = 1)
+    x = c.true_negatives[i] / condition_negative(c,i)
+    return isnan(x) ? 0 : x
+end
+function precision(c::confusion_matrix,i = 1)
+   x = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i]);
+   return isnan(x) ? 0 : x
+end
+function accuracy(c::confusion_matrix,i = 1)
+    x = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
+    return isnan(x) ? 0 : x
+end
+function balanced_accuracy(c::confusion_matrix,i = 1)
+    x = (sensitivity(c,i) +  specificity(c,i)) / 2; return isnan(x) ? 0 : x
+end
+function negative_predictive_value(c::confusion_matrix,i = 1)
+    x = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+end
+function false_negative_rate(c::confusion_matrix,i = 1)
+    x = c.false_negatives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
+end
+function false_positive_rate(c::confusion_matrix,i = 1)
+    x = c.false_positives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
+end
+function false_discovery_rate(c::confusion_matrix,i = 1)
+    x = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i]);
+    return isnan(x) ? 0 : x
+end
+function false_omission_rate(c::confusion_matrix,i = 1)
+    x = 1 - negative_predictive_value(c,i); return isnan(x) ? 0 : x
+end
+function f1_score(c::confusion_matrix,i = 1)
+   x = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+end
 
 
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
     len = findmax([length(string(i)) for i in c.Labels])[1]
     label_size = size(c.Labels)[2]
     label_padding = lpad(" ", label_size * len *2)
-
+    label_len = typeof(c.Labels[1]) == String ? len +5 : 7
     println(io, [lpad(i,len * 2) for i in c.Labels]...)
     println(io, repeat("_", size(c.Labels)[2] * len * 2 + len * 2))
     for i in 1:size(c.matrix)[1]
         println(io,  [lpad(string(i),len * 2) for i in c.matrix[i,:]]..., "   │", c.Labels[i] )
     end
-    println(io, "Summary:\n", summary(c))
+    println(io, "\n\nSummary:\n", summary(c))
     println(io, "True Positives: ", c.true_positives)
     println(io, "False Positives: ", c.false_positives)
     println(io, "True Negatives: ", c.true_negatives)
     println(io, "False Negatives: ", c.false_negatives)
-    println(io, "\n",lpad("Overall Statistics", 50, "\n"))
-    println(io, lpad(" ", 30), [lpad(i, 7) for i in c.Labels]...)
-    println(lpad("Condition Positive:", 30), [lpad(round(condition_positive(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Condition Negative:", 30), [lpad(round(condition_negative(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Predicted Positive:", 30), [lpad(round(predicted_positive(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Predicted Negative:", 30), [lpad(round(predicted_negative(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Correctly Classified:", 30), [lpad(round(correctly_classified(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Incorrectly Classified:", 30), [lpad(round(incorrectly_classified(c,i), digits = 3), 7) for i in 1: (label_size-1)]...)
-    println(lpad("Sensitivity:", 30), [lpad(round(sensitivity(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("Specificity:", 30), [lpad(round(specificity(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("Precision:", 30) ,  [lpad(round(precision(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("Accuracy:", 30 ) ,  [lpad(round(accuracy(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("Balanced Accuracy:", 30),    [lpad(round(balanced_accuracy(c,i),digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("Negative Predictive Value:", 30),    [lpad(round(negative_predictive_value(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("False Negative Rate:", 30), [lpad(round(false_negative_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("False Positive Rate:", 30), [lpad(round(false_positive_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("False Discovery Rate:", 30), [lpad(round(false_discovery_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("False Omission Rate:", 30), [lpad(round(false_omission_rate(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
-    println(lpad("F1 Score:", 30), [lpad(round(f1_score(c,i), digits = 3),7) for i in 1: (label_size-1)]...)
+    println(io, "\n",lpad("Overall Statistics", 50), "\n")
+    println(io, lpad(" ", 30), [lpad(i, label_len) for i in c.Labels]...)
+    println(lpad("Condition Positive:", 30), [lpad(round(condition_positive(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Condition Negative:", 30), [lpad(round(condition_negative(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Predicted Positive:", 30), [lpad(round(predicted_positive(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Predicted Negative:", 30), [lpad(round(predicted_negative(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Correctly Classified:", 30), [lpad(round(correctly_classified(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Incorrectly Classified:", 30), [lpad(round(incorrectly_classified(c,i), digits = 3), label_len) for i in 1: (label_size)]...)
+    println(lpad("Sensitivity:", 30), [lpad(round(sensitivity(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("Specificity:", 30), [lpad(round(specificity(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("Precision:", 30) ,  [lpad(round(precision(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("Accuracy:", 30 ) ,  [lpad(round(accuracy(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("Balanced Accuracy:", 30),    [lpad(round(balanced_accuracy(c,i),digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("Negative Predictive Value:", 30),    [lpad(round(negative_predictive_value(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("False Negative Rate:", 30), [lpad(round(false_negative_rate(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("False Positive Rate:", 30), [lpad(round(false_positive_rate(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("False Discovery Rate:", 30), [lpad(round(false_discovery_rate(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("False Omission Rate:", 30), [lpad(round(false_omission_rate(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
+    println(lpad("F1 Score:", 30), [lpad(round(f1_score(c,i), digits = 3),label_len) for i in 1: (label_size)]...)
 
 end
 
