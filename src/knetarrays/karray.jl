@@ -154,7 +154,7 @@ end
 
 # Extend function KnetArray to create a memory shared KnetArray from CuArray:
 function KnetArray(x::CuArray{T,N}) where {T,N}
-    p = Base.bitcast(Cptr, x.ptr)
+    p = Base.bitcast(Cptr, pointer(x))
     k = KnetPtr(p, sizeof(x), Int(CUDA.device().handle), x) 
     KnetArray{T,N}(k, size(x))
 end
