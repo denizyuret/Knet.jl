@@ -87,7 +87,7 @@ _ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x
 function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) 
     if !isbitstype(T)
         # map(xi->_ser(xi,s,m), x) # this fails with unassigned values
-        dest = similar(x)
+        dest = similar(x,Any)   # convert eltype to Any because it may change
         # stackdict[x] = dest # we do this in the caller
         for i = 1:(length(x)::Int)
             if ccall(:jl_array_isassigned, Cint, (Any, Csize_t), x, i-1) != 0
@@ -149,14 +149,21 @@ function _ser(@nospecialize(x), stackdict::IdDict, m::Val)
     return y
 end
 
-function _ser(x::Union{Dict,IdDict}, s::IdDict, m::Val)
+function _ser(x::Union{Dict{K,V},IdDict{K,V}}, s::IdDict, m::Val) where {K,V}
     if haskey(s, x)
         return s[x] # removed ::typeof(x)
     end
-    if isbitstype(eltype(x))
+    if isbitstype(K) && isbitstype(V)
         return (s[x] = x)
     end
-    dest = empty(x)
+    # Type of key or value may change unless isbitstype
+    if isbitstype(K)
+        dest = empty(x, K, Any)
+    elseif isbitstype(V)
+        dest = empty(x, Any, V)
+    else
+        dest = empty(x, Any, Any)
+    end
     s[x] = dest
     for (k, v) in x
         dest[_ser(k, s, m)] = _ser(v, s, m)
