@@ -1,7 +1,7 @@
 name = "Knet"
 uuid = "1902f260-5fb4-5aff-8c31-6271790ab950"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.4.3"
+version = "1.4.4"
 
 [deps]
 AutoGrad = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
@@ -14,6 +14,7 @@ NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
@@ -21,9 +22,9 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 AutoGrad = "1.2"
 CUDA = "1.0, 2.0"
 FileIO = "1.0"
-JLD2 = "0.1, 0.2"
+JLD2 = "0.1, 0.2, 0.3"
 NNlib = "0.6, 0.7"
-SpecialFunctions = "0.8, 0.9, 0.10"
+SpecialFunctions = "0.8, 0.9, 0.10, 1.0"
 julia = "1.0"
 
 [extras]

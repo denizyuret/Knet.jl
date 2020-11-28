@@ -1,14 +1,13 @@
 using Knet.KnetArrays: KnetPtr, KnetArray, Cptr
-using Knet.Ops20: RNN
 using AutoGrad: Param
-using CUDA: CUDA, functional, CuPtr
+using CUDA: CUDA, functional, CuPtr, CuArray
 
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 # Do not use type asserts because type may change
-serialize(x) = _ser(x,IdDict(),JLDMODE)
+jld2serialize(x) = _ser(x,IdDict(),JLDMODE) # Regular JLD2 functions now work, this is no longer needed
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
@@ -43,38 +42,34 @@ function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     return s[x]
 end
 
-function _ser(x::RNN, s::IdDict, m::Val)
-    if !haskey(s,x)
-        # we need rd,dd only if there is a gpu, we are not in cpumode,
-        # and if we are in jldmode we are loading, not saving
-        # if (CUDA.functional() && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
-        #     dd = DD(dropout=x.dropout,seed=x.seed)
-        #     rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
-        # else
-        #     rd = dd = nothing
-        # end
+_ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
+_ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 
-        # 20200806: We no longer need to load/save rd/dd: rnnforw will construct as needed.
-        rd = dd = nothing
+_ser(x::CuArray,s::IdDict,::typeof(GPUMODE))=x
+_ser(x::CuArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 
-        # dx, dhx, dcx are temporary fields used by rnnback, they do not need to be copied
-        # gcnode sets dx.ptr to C_NULL which breaks serialize, best not to try
-        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rd, dd, nothing, nothing, nothing)
-    end
-    return s[x]
-end
 
 # Partially fixes the issue: when KA converts to A because no gpu, surrounding parametric types remain Param{KA}.
 # However other container types that include KnetArray may still have an inconsistent parametric type problem.
 _ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))
 
-_ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
-_ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 _ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
 
 function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) 
     if !isbitstype(T)
-        map(xi->_ser(xi,s,m), x)
+        # map(xi->_ser(xi,s,m), x) # this fails with unassigned values
+        dest = similar(x,Any)   # convert eltype to Any because it may change
+        # stackdict[x] = dest # we do this in the caller
+        for i = 1:(length(x)::Int)
+            if ccall(:jl_array_isassigned, Cint, (Any, Csize_t), x, i-1) != 0
+                xi = ccall(:jl_arrayref, Any, (Any, Csize_t), x, i-1)
+                if !isbits(xi)
+                    xi = _ser(xi, s, m) # deepcopy_internal(xi, stackdict)::typeof(xi)
+                end
+                ccall(:jl_arrayset, Cvoid, (Any, Any, Csize_t), dest, xi, i-1)
+            end
+        end
+        return dest
     elseif m === GPUMODE
         KnetArray(x)
     else
@@ -125,14 +120,21 @@ function _ser(@nospecialize(x), stackdict::IdDict, m::Val)
     return y
 end
 
-function _ser(x::Union{Dict,IdDict}, s::IdDict, m::Val)
+function _ser(x::Union{Dict{K,V},IdDict{K,V}}, s::IdDict, m::Val) where {K,V}
     if haskey(s, x)
         return s[x] # removed ::typeof(x)
     end
-    if isbitstype(eltype(x))
+    if isbitstype(K) && isbitstype(V)
         return (s[x] = x)
     end
-    dest = empty(x)
+    # Type of key or value may change unless isbitstype
+    if isbitstype(K)
+        dest = empty(x, K, Any)
+    elseif isbitstype(V)
+        dest = empty(x, Any, V)
+    else
+        dest = empty(x, Any, Any)
+    end
     s[x] = dest
     for (k, v) in x
         dest[_ser(k, s, m)] = _ser(v, s, m)

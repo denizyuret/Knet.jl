@@ -1,11 +1,10 @@
-using Test
-using Knet.FileIO_gpu: load, save, @load, @save
+using Test, FileIO, JLD2
 using Knet.Ops20: RNN
 
 @testset "JLD" begin
 
     #needed for load macro test: https://github.com/simonster/JLD2.jl/blob/cc56a4d6da116d6172a4ea89f4bec9d17154a0ba/test/loadsave.jl#L5L17
-    fn = joinpath(tempdir(), "test.jld2")
+    fn = tempname()*".jld2"
     save(fn,"model",RNN(1,1))
 
     @eval begin
@@ -56,4 +55,6 @@ using Knet.Ops20: RNN
     end
 
     @test collections_sl()
+
+    rm(fn)
 end

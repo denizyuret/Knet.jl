@@ -9,5 +9,6 @@ include("convert.jl")
 include("getindex.jl")
 include("reduction.jl")
 include("cubytes.jl"); export cuarrays, cubytes
+include("jld2.jl")
 
 end

@@ -14,7 +14,6 @@ to models built with older operator / layer sets.
 
 * **autograd_gpu:** implementations of AutoGrad functions for GPU arrays.
 * **cuarrays:** implementations of Base functions for CuArrays.
-* **fileio_gpu:** implementations of FileIO functions for GPU arrays.
 * **knetarrays:** KnetArrays and their Base functions.
 * **libknet8:** hand-written CUDA kernels.
 * **ops20:** the Knet.Ops20 operator set.
