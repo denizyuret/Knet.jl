@@ -4,7 +4,7 @@ using CUDA: CUDA, functional, seed!
 using Knet.KnetArrays: KnetArray
 using AutoGrad: gradcheck, Param
 
-Random.seed!(42); CUDA.functional() && CUDA.seed!(42)
+CUDA.functional() && CUDA.seed!(42); Random.seed!(42);
 struct M370; layer; end;
 
 @testset "conv" begin
