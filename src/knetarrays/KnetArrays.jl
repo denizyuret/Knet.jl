@@ -9,10 +9,13 @@ include("broadcast.jl")
 include("cat.jl")
 include("comparison.jl")
 include("copy.jl")
+include("deepcopy.jl"); export cpucopy, gpucopy
 include("dotview.jl")
+include("jld2.jl"); export save, load, @save, @load
 include("linalg.jl")
 include("random.jl"); export setseed, seed!
 include("reshape.jl")
+include("serialization.jl")
 include("show.jl")
 include("statistics.jl")
 

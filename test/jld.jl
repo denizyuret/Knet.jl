@@ -1,5 +1,4 @@
-using Test
-using Knet.FileIO_gpu: load, save, @load, @save
+using Test, FileIO, JLD2
 using Knet.Ops20: RNN
 
 @testset "JLD" begin

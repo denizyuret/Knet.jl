@@ -1,6 +1,5 @@
-using Test, Random
-using Knet.FileIO_gpu: jld2serialize, cpucopy, gpucopy, load, save
-using Knet.KnetArrays: KnetArray, Cptr
+using Test, Random, FileIO, JLD2
+using Knet.KnetArrays: KnetArray, Cptr, jld2serialize, cpucopy, gpucopy
 using Knet.Ops20: RNN, conv4
 using CUDA: CUDA, functional
 using AutoGrad: Param, params, @diff, value

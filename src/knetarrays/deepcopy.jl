@@ -1,5 +1,4 @@
 using Knet.KnetArrays: KnetPtr, KnetArray, Cptr
-using Knet.Ops20: RNN
 using AutoGrad: Param
 using CUDA: CUDA, functional, CuPtr, CuArray
 
@@ -8,7 +7,7 @@ const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 # Do not use type asserts because type may change
-jld2serialize(x) = _ser(x,IdDict(),JLDMODE)
+jld2serialize(x) = _ser(x,IdDict(),JLDMODE) # Regular JLD2 functions now work, this is no longer needed
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
@@ -46,37 +45,9 @@ end
 _ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
 _ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 
-
-#= This does not work when CuArray is included in a container type like Dict or struct:
-struct JLD2CuArray; array::Array; end
-_ser(x::CuArray, s::IdDict, m::typeof(JLDMODE)) = (haskey(s,x) ? s[x] : s[x]=JLD2CuArray(Array(x)))
-_ser(x::JLD2CuArray, s::IdDict, m::typeof(JLDMODE)) = (haskey(s,x) ? s[x] : s[x]=CuArray(x.array))
-=#
-
 _ser(x::CuArray,s::IdDict,::typeof(GPUMODE))=x
 _ser(x::CuArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 
-
-function _ser(x::RNN, s::IdDict, m::Val)
-    if !haskey(s,x)
-        # we need rd,dd only if there is a gpu, we are not in cpumode,
-        # and if we are in jldmode we are loading, not saving
-        # if (CUDA.functional() && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
-        #     dd = DD(dropout=x.dropout,seed=x.seed)
-        #     rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
-        # else
-        #     rd = dd = nothing
-        # end
-
-        # 20200806: We no longer need to load/save rd/dd: rnnforw will construct as needed.
-        rd = dd = nothing
-
-        # dx, dhx, dcx are temporary fields used by rnnback, they do not need to be copied
-        # gcnode sets dx.ptr to C_NULL which breaks serialize, best not to try
-        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rd, dd, nothing, nothing, nothing)
-    end
-    return s[x]
-end
 
 # Partially fixes the issue: when KA converts to A because no gpu, surrounding parametric types remain Param{KA}.
 # However other container types that include KnetArray may still have an inconsistent parametric type problem.
