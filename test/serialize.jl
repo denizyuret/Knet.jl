@@ -1,5 +1,5 @@
 using Test, Random
-using Knet.FileIO_gpu: serialize, cpucopy, gpucopy, load, save
+using Knet.FileIO_gpu: jld2serialize, cpucopy, gpucopy, load, save
 using Knet.KnetArrays: KnetArray, Cptr
 using Knet.Ops20: RNN, conv4
 using CUDA: CUDA, functional
@@ -7,12 +7,12 @@ using AutoGrad: Param, params, @diff, value
 
 struct M370; layer; end;
 
-@testset "serialize" begin
+@testset "jld2serialize" begin
     M1 = RNN(2,3)
     M2 = M1 |> cpucopy
     @test typeof(M2.w.value) <: Array
     @test M2.w.value == M1.w.value
-    @test Array{Float32} == serialize(Array{Float32})
+    @test Array{Float32} == jld2serialize(Array{Float32})
     if CUDA.functional()
         M3 = M2 |> gpucopy
         @test typeof(M3.w.value) <: KnetArray

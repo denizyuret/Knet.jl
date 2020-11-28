@@ -1,7 +1,7 @@
 export save, load, @save, @load
 import FileIO # save, load
 using JLD2: JLD2, JLDWriteSession, jldopen, isgroup, lookup_offset
-#include("serialize.jl") ## serialize  ## TODO: extend Base.Serialization, cover CuArrays
+#include("serialize.jl") ## jld2serialize  ## TODO: extend Base.Serialization, cover CuArrays
 
 """
     Knet.save(filename, args...; kwargs...)
@@ -15,7 +15,7 @@ format.  Example:
     Knet.save("foo.jld2", "name1", value1, "name2", value2)
 """
 function save(fname,args...;kwargs...)
-     FileIO.save(fname,serialize.(args)...;kwargs...)
+     FileIO.save(fname,jld2serialize.(args)...;kwargs...)
 end
 
 """
@@ -32,7 +32,7 @@ Example:
     Knet.load("foo.jld2", "name1", "name2")   # returns tuple (value1, value2)
 """
 function load(fname,args...;kwargs...)
-     serialize(FileIO.load(fname,args...;kwargs...))
+     jld2serialize(FileIO.load(fname,args...;kwargs...))
 end
 
 """
@@ -58,7 +58,7 @@ macro save(filename, vars...)
                             v = getfield(m, vname)
                             if !isa(v, Module)
                                 try
-                                    write(f, s, serialize(v), wsession)
+                                    write(f, s, jld2serialize(v), wsession)
                                 catch e
                                     if isa(e, PointerException)
                                         @warn("skipping $vname because it contains a pointer")
@@ -77,7 +77,7 @@ macro save(filename, vars...)
     else
         writeexprs = Vector{Expr}(undef, length(vars))
         for i = 1:length(vars)
-            writeexprs[i] = :(write(f, $(string(vars[i])), serialize($(esc(vars[i]))), wsession))
+            writeexprs[i] = :(write(f, $(string(vars[i])), jld2serialize($(esc(vars[i]))), wsession))
         end
 
         quote
@@ -118,7 +118,7 @@ macro load(filename, vars...)
     end
     return quote
         ($([esc(x) for x in vars]...),) = JLD2.jldopen($(esc(filename))) do f
-            ($([:(serialize(read(f, $(string(x))))) for x in vars]...),)
+            ($([:(jld2serialize(read(f, $(string(x))))) for x in vars]...),)
         end
         $(Symbol[v for v in vars]) # convert to Array
     end

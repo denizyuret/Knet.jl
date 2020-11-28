@@ -8,7 +8,7 @@ const GPUMODE=Val(1)
 const CPUMODE=Val(2)
 
 # Do not use type asserts because type may change
-serialize(x) = _ser(x,IdDict(),JLDMODE)
+jld2serialize(x) = _ser(x,IdDict(),JLDMODE)
 gpucopy(x)   = _ser(x,IdDict(),GPUMODE)
 cpucopy(x)   = _ser(x,IdDict(),CPUMODE)
 
