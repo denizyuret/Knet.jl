@@ -1,7 +1,7 @@
 using Knet.KnetArrays: KnetPtr, KnetArray, Cptr
 using Knet.Ops20: RNN
 using AutoGrad: Param
-using CUDA: CUDA, functional, CuPtr
+using CUDA: CUDA, functional, CuPtr, CuArray
 
 const JLDMODE=Val(0)
 const GPUMODE=Val(1)
@@ -43,6 +43,20 @@ function _ser(x::KnetArray{T,N},s::IdDict,m::typeof(JLDMODE)) where {T,N}
     return s[x]
 end
 
+_ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
+_ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
+
+
+#= This does not work when CuArray is included in a container type like Dict or struct:
+struct JLD2CuArray; array::Array; end
+_ser(x::CuArray, s::IdDict, m::typeof(JLDMODE)) = (haskey(s,x) ? s[x] : s[x]=JLD2CuArray(Array(x)))
+_ser(x::JLD2CuArray, s::IdDict, m::typeof(JLDMODE)) = (haskey(s,x) ? s[x] : s[x]=CuArray(x.array))
+=#
+
+_ser(x::CuArray,s::IdDict,::typeof(GPUMODE))=x
+_ser(x::CuArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
+
+
 function _ser(x::RNN, s::IdDict, m::Val)
     if !haskey(s,x)
         # we need rd,dd only if there is a gpu, we are not in cpumode,
@@ -68,13 +82,23 @@ end
 # However other container types that include KnetArray may still have an inconsistent parametric type problem.
 _ser(x::Param, s::IdDict, m::Val)=(haskey(s,x) ? s[x] : s[x]=Param(_ser(x.value,s,m),_ser(x.opt,s,m)))
 
-_ser(x::KnetArray,s::IdDict,::typeof(GPUMODE))=x
-_ser(x::KnetArray,s::IdDict,::typeof(CPUMODE))=(haskey(s,x) ? s[x] : s[x]=Array(x))
 _ser(x::Array, s::IdDict, m::Val) = (haskey(s, x) ? s[x] : s[x] = _ser_array_t(x, eltype(x), s, m))
 
 function _ser_array_t(@nospecialize(x), T, s::IdDict, m::Val) 
     if !isbitstype(T)
-        map(xi->_ser(xi,s,m), x)
+        # map(xi->_ser(xi,s,m), x) # this fails with unassigned values
+        dest = similar(x)
+        # stackdict[x] = dest # we do this in the caller
+        for i = 1:(length(x)::Int)
+            if ccall(:jl_array_isassigned, Cint, (Any, Csize_t), x, i-1) != 0
+                xi = ccall(:jl_arrayref, Any, (Any, Csize_t), x, i-1)
+                if !isbits(xi)
+                    xi = _ser(xi, s, m) # deepcopy_internal(xi, stackdict)::typeof(xi)
+                end
+                ccall(:jl_arrayset, Cvoid, (Any, Any, Csize_t), dest, xi, i-1)
+            end
+        end
+        return dest
     elseif m === GPUMODE
         KnetArray(x)
     else
