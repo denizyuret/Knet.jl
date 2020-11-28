@@ -83,4 +83,4 @@ Knet is an open-source project and we are always open to new contributions: bug 
 fixes, feature requests and contributions, new machine learning models and operators,
 inspiring examples, benchmarking results are all welcome. See [Tips for Developers](https://denizyuret.github.io/Knet.jl/latest/install/#Tips-for-developers) for instructions.
 
-Contributors: Can Gümeli, Carlo Lucibello, Ekin Akyürek, Ekrem Emre Yurdakul, Emre Ünal, Emre Yolcu, Enis Berk, Erenay Dayanık, İlker Kesen, Kai Xu, Meriç Melike Softa, Mike Innes, Onur Kuru, Ozan Arkan Can, Ömer Kırnap, Phuoc Nguyen, Rene Donner, Tim Besard, Zhang Shiwei.
+Contributors: Can Gümeli, Carlo Lucibello, Ege Onat, Ekin Akyürek, Ekrem Emre Yurdakul, Emre Ünal, Emre Yolcu, Enis Berk, Erenay Dayanık, İlker Kesen, Kai Xu, Meriç Melike Softa, Mike Innes, Onur Kuru, Ozan Arkan Can, Ömer Kırnap, Phuoc Nguyen, Rene Donner, Tim Besard, Zhang Shiwei.

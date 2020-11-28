@@ -1,5 +1,18 @@
+Knet v1.4.4 Release Notes
+=========================
+
+* Serialization and JLD2 support for KnetArray and RNN.
+* Change eltype to Any in container types in serialize.jl.
+* Compat fixes with CUDA 2.3 and Julia 1.6.
+* Fixed #638 causing KnetArray broadcast/materialize!/dotview issue.
+* Fixed Knet.seed! bug. (@egeonat)
+* Added powerpc support. (@jdad)
+* Fixed mnist labels in examples.
+
+
 Knet v1.4.3 Release Notes
 =========================
+8a4fdbf 2020-10-16
 
 * Upgrade to CUDA 2.0.
 * Doc fixes.

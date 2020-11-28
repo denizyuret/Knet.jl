@@ -329,3 +329,36 @@ bytes(x::CuArray{T}) where T = length(x)*sizeof(T)
 # KnetArray getindex contiguous indices already returns a view.
 # We need the following for rnnparam/rnntest to work:        
 Base.view(A::KnetArray, I::AbstractUnitRange{Int}) = getindex(A, I)
+
+# This supports cpucopy/gpucopy:
+import Knet.KnetArrays: _ser
+function _ser(x::RNN, s::IdDict, m::Val)
+    if !haskey(s,x)
+        # we need rd,dd only if there is a gpu, we are not in cpumode,
+        # and if we are in jldmode we are loading, not saving
+        # if (CUDA.functional() && m != CPUMODE && !(m == JLDMODE && x.rnnDesc != nothing))
+        #     dd = DD(dropout=x.dropout,seed=x.seed)
+        #     rd = RD(x.hiddenSize,x.numLayers,dd,x.inputMode,x.direction,x.mode,x.algo,x.dataType)
+        # else
+        #     rd = dd = nothing
+        # end
+
+        # 20200806: We no longer need to load/save rd/dd: rnnforw will construct as needed.
+        rd = dd = nothing
+
+        # dx, dhx, dcx are temporary fields used by rnnback, they do not need to be copied
+        # gcnode sets dx.ptr to C_NULL which breaks serialize, best not to try
+        s[x] = RNN(_ser(x.w,s,m), _ser(x.h,s,m), _ser(x.c,s,m), x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, rd, dd, nothing, nothing, nothing)
+    end
+    return s[x]
+end
+
+import JLD2
+
+struct JLD2RNN; w; h; c; inputSize; hiddenSize; numLayers; dropout; seed; inputMode; direction; mode; algo; dataType; end
+JLD2RNN(x::RNN) = JLD2RNN(x.w, x.h, x.c, x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType)
+RNN(x::JLD2RNN) = RNN(x.w, x.h, x.c, x.inputSize, x.hiddenSize, x.numLayers, x.dropout, x.seed, x.inputMode, x.direction, x.mode, x.algo, x.dataType, nothing, nothing, nothing, nothing, nothing)
+
+JLD2.writeas(::Type{RNN}) = JLD2RNN
+JLD2.wconvert(::Type{JLD2RNN}, x::RNN) = JLD2RNN(x)
+JLD2.rconvert(::Type{RNN}, x::JLD2RNN) = RNN(x)

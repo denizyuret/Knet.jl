@@ -7,14 +7,14 @@ using AutoGrad: cat1d, @gcheck, @diff, Param, value, grad
 
 macro gcheck1(ex); esc(:(@gcheck $ex (rtol=0.2, atol=0.05))); end
 GC.gc()
-Random.seed!(2); CUDA.functional() && CUDA.seed!(2)
+CUDA.functional() && CUDA.seed!(1); Random.seed!(1);
 
 if CUDA.functional(); @testset "rnn" begin
 
     eq(a,b)=all(map((x,y)->(x==y==nothing || isapprox(x,y)),a[1:3],b[1:3]))
     rxhc(r,x,h,c;o...)=(r.h=h;r.c=c;r(x;o...))
     binit(x...)=0.01*randn(x...)
-    D,X,H,B,T = Float64,32,32,16,8 # Keep X==H to test skipInput
+    D,X,H,B,T = Float64,4,4,4,4 # Keep X==H to test skipInput
     P = Param
 
     for M=(:relu,:tanh,:lstm,:gru), L=1:2, I=(:false,:true), BI=(:false,:true)

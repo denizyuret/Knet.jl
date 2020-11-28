@@ -1,52 +1,38 @@
-export save, load, @save, @load
-import FileIO # save, load
-using JLD2: JLD2, JLDWriteSession, jldopen, isgroup, lookup_offset
-#include("serialize.jl") ## serialize  ## TODO: extend Base.Serialization, cover CuArrays
+import JLD2, FileIO
 
-"""
-    Knet.save(filename, args...; kwargs...)
+# With the following standard FileIO.save, FileIO.load, JLD2.@save, JLD2.@load should work
+struct JLD2KnetArray{T,N}; array::Array{T,N}; end
+JLD2.writeas(::Type{KnetArray{T,N}}) where {T,N} = JLD2KnetArray{T,N}
+JLD2.wconvert(::Type{JLD2KnetArray{T,N}}, x::KnetArray{T,N}) where {T,N} = JLD2KnetArray(Array(x))
+JLD2.rconvert(::Type{KnetArray{T,N}}, x::JLD2KnetArray{T,N}) where {T,N} = KnetArray(x.array)
 
-Call `FileIO.save` after serializing Knet specific args. 
 
-File format is determined by the filename extension. JLD and JLD2 are supported. Other formats
-may work if supported by FileIO, please refer to the documentation of FileIO and the specific
-format.  Example:
+# These are deprecated functions and macros for backward compatibility and loading old files
 
-    Knet.save("foo.jld2", "name1", value1, "name2", value2)
-"""
-function save(fname,args...;kwargs...)
-     FileIO.save(fname,serialize.(args)...;kwargs...)
+function save(file, args...; options...)
+    @warn "Knet.save is deprecated, please use FileIO.save/load instead" maxlog=1
+    FileIO.save(file, jld2serialize.(args)...; options...)
 end
 
-"""
-    Knet.load(filename, args...; kwargs...)
-
-Call `FileIO.load` then deserialize Knet specific values.
-
-File format is determined by FileIO. JLD and JLD2 are supported. Other formats may work if
-supported by FileIO, please refer to the documentation of FileIO and the specific format.
-Example:
-
-    Knet.load("foo.jld2")           # returns a ("name"=>value) dictionary
-    Knet.load("foo.jld2", "name1")  # returns the value of "name1" in "foo.jld2"
-    Knet.load("foo.jld2", "name1", "name2")   # returns tuple (value1, value2)
-"""
-function load(fname,args...;kwargs...)
-     serialize(FileIO.load(fname,args...;kwargs...))
+function load(file, args...; options...)
+    @warn "Knet.load is deprecated, please use FileIO.save/load instead" maxlog=1
+    jld2serialize(FileIO.load(file, args...; options...))
 end
+
 
 """
     Knet.@save "filename" variable1 variable2...
-
 Save the values of the specified variables to filename in JLD2 format.
-
 When called with no variable arguments, write all variables in the global scope of the current
 module to filename.  See [JLD2](https://github.com/JuliaIO/JLD2.jl).
+
+This macro is deprecated, please use `JLD2.@save` instead.
 """
 macro save(filename, vars...)
     if isempty(vars)
         # Save all variables in the current module
         quote
+            @warn "Knet.@save is deprecated, please use JLD2.@save/@load instead" maxlog=1
             let
                 m = $(__module__)
                 f = JLD2.jldopen($(esc(filename)), "w")
@@ -58,7 +44,7 @@ macro save(filename, vars...)
                             v = getfield(m, vname)
                             if !isa(v, Module)
                                 try
-                                    write(f, s, serialize(v), wsession)
+                                    write(f, s, jld2serialize(v), wsession)
                                 catch e
                                     if isa(e, PointerException)
                                         @warn("skipping $vname because it contains a pointer")
@@ -77,10 +63,11 @@ macro save(filename, vars...)
     else
         writeexprs = Vector{Expr}(undef, length(vars))
         for i = 1:length(vars)
-            writeexprs[i] = :(write(f, $(string(vars[i])), serialize($(esc(vars[i]))), wsession))
+            writeexprs[i] = :(write(f, $(string(vars[i])), jld2serialize($(esc(vars[i]))), wsession))
         end
 
         quote
+            @warn "Knet.@save is deprecated, please use JLD2.@save/@load instead" maxlog=1
             JLD2.jldopen($(esc(filename)), "w") do f
                 wsession = JLD2.JLDWriteSession()
                 $(Expr(:block, writeexprs...))
@@ -91,11 +78,11 @@ end
 
 """
     Knet.@load "filename" variable1 variable2...
-
 Load the values of the specified variables from filename in JLD2 format.
-
 When called with no variable arguments, load all variables in filename.  See
 [JLD2](https://github.com/JuliaIO/JLD2.jl).
+
+This macro is deprecated, please use `JLD2.@load` instead.
 """
 macro load(filename, vars...)
     if isempty(vars)
@@ -117,8 +104,9 @@ macro load(filename, vars...)
         end
     end
     return quote
+        @warn "Knet.@load is deprecated, please use JLD2.@save/@load instead" maxlog=1
         ($([esc(x) for x in vars]...),) = JLD2.jldopen($(esc(filename))) do f
-            ($([:(serialize(read(f, $(string(x))))) for x in vars]...),)
+            ($([:(jld2serialize(read(f, $(string(x))))) for x in vars]...),)
         end
         $(Symbol[v for v in vars]) # convert to Array
     end
