@@ -1,10 +1,11 @@
-using Base
-using LinearAlgebra
-using Plots
+export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive, predicted_negative, correctly_classified, incorrectly_classified, sensitivity, specificity, precision, accuracy, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, fowlkes_mallows_index, informedness, matthews_correlation_coeff
+using Base: show, length
+using LinearAlgebra: normalize
+using Plots: heatmap
 
 function init_confusion_params(matrix)
     tp = []; tn = []; fp = []; fn = []
-    for i in 1:size(matrix)[1]
+     @inbounds for i in 1:size(matrix)[1]
         push!(tp, matrix[i,i])
         push!(fn, sum(matrix[i,:]) - tp[i] )
         push!(fp, sum(matrix[:,i]) -tp[i])
@@ -18,7 +19,7 @@ struct confusion_matrix #immutable struct
     true_negatives::Array{Int}
     false_positives::Array{Int}
     false_negatives::Array{Int}
-    matrix::Array{Real,2}
+    matrix::Array{Number,2}
     Labels::Array{Union{Int,AbstractString}}
 end
 
@@ -35,19 +36,15 @@ function confusion_matrix(expected, predicted; labels = nothing, normalize = fal
     if labels == nothing
         labels = union(sort(unique(expected)), sort(unique(predicted)))
     end
-    conv_expected = reshape(expected, (1,*(size(expected)...)))
-    conv_predicted = reshape(predicted, (1,*(size(predicted)...)))
-    conv_labels = reshape(labels, (1,*(size(labels)...)))
-
     dictionary = Dict()
     j = 1
     for i in labels
         dictionary[i] = j
         j += 1
     end
-    matrix = zeros(Number, size(conv_labels)[2], size(conv_labels)[2])
-    for i in 1:size(conv_expected)[2]
-       matrix[dictionary[conv_predicted[i]],dictionary[conv_expected[i]]] += 1
+    matrix = zeros(Number, length(labels), length(labels))
+    @inbounds for i in 1:length(expected)
+       matrix[dictionary[predicted[i]],dictionary[expected[i]]] += 1
     end
     tp, tn, fp, fn = init_confusion_params(matrix)
     if 0 in tp
@@ -65,11 +62,12 @@ function confusion_matrix(expected, predicted; labels = nothing, normalize = fal
     if normalize
        matrix = [round(i, digits = 3) for i in LinearAlgebra.normalize(matrix)]
     end
-    return confusion_matrix(tp,tn,fp,fn,matrix,conv_labels)
+    return confusion_matrix(tp,tn,fp,fn,matrix,labels)
 end
 
+
 function class_confusion(c::confusion_matrix, i::Union{Int,AbstractString})
-    index = findfirst(x -> x == i, c.Labels)[2]
+    index = findfirst(x -> x == i, c.Labels)
     return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
 end
 
@@ -84,20 +82,20 @@ end
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
     printer = Int(round(size(c.matrix)[1] / 2)) +1
     len = maximum([length(string(i)) for i in c.Labels])[1]
-    label_size = size(c.Labels)[2]
-    label_len = typeof(c.Labels[1]) == String ? len +5 : len+7
+    label_size = length(c.Labels)
+    label_len = eltype(c.Labels) == String ? len +5 : len+7
     println(io, lpad("Expected\n", printer* label_len ))
     println(io, [lpad(i,label_len) for i in c.Labels]...)
-    println(io, repeat("_", size(c.Labels)[2] * label_len))
+    println(io, repeat("_", length(c.Labels) * label_len))
     for i in 1:size(c.matrix)[1]
         println(io,  [lpad(string(i),label_len) for i in c.matrix[i,:]]..., "   │", c.Labels[i], i == printer ? "\t\tPredicted" : " ")
     end
 end
 
 function classification_report(c::confusion_matrix; io::IO = Base.stdout, return_dict = false)
-    len = maximum([length(string(i)) for i in c.Labels])[1]
-    label_size = size(c.Labels)[2]
-    label_len = typeof(c.Labels[1]) == String ? len +5 : len +7
+    len = maximum([length(string(i)) for i in c.Labels])
+    label_size = length(c.Labels)
+    label_len = eltype(c.Labels) == String ? len +5 : len +7
     println(io,"Summary:\n", summary(c))
     println(io,"True Positives: ", c.true_positives)
     println(io,"False Positives: ", c.false_positives)
@@ -161,7 +159,6 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
         result_dict["markedness"] = [ markedness(c,i)   for i in 1:size(c.matrix)[1]]
         return result_dict
     end
-
 end
 
 condition_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_negatives[i]
