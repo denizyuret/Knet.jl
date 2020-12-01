@@ -1,6 +1,5 @@
 export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive, predicted_negative, correctly_classified, incorrectly_classified, sensitivity, specificity, precision, accuracy, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, fowlkes_mallows_index, informedness, matthews_correlation_coeff
-using Base: show, length
-using LinearAlgebra: normalize
+using LinearAlgebra: normalize, dot
 using Plots: heatmap
 
 function init_confusion_params(matrix)
@@ -13,6 +12,39 @@ function init_confusion_params(matrix)
         push!(tn, (matrix_sum - tp[i] - fn[i] - fp[i]))
     end
     return tp, tn, fp, fn
+end
+
+function check_index(x, none_accepted; class_name = nothing, ith_class = nothing)
+    if !none_accepted; @assert class_name != nothing || ith_class != nothing "No class name or class indexing value provided"; end
+    if none_accepted && class_name == nothing == ith_class
+        return -1
+    elseif class_name != nothing
+        @assert class_name in x "There is no such class in the labels of the given confusion matrix"
+        index = findfirst(x -> x == class_name, x)
+        return index
+    else
+        @assert ith_class >= 0 && ith_class <= length(x) "ith_class value is not in range"
+        return ith_class
+    end
+end
+
+function clear_output(x, zero_division)
+    if NaN in X
+        if zero_division == "warn"
+            @warn "Zero division, replacing NaN with 0"
+            if length(x) > 1
+                return replace(x, NaN => 0)
+            else
+                return 0
+            end
+        else
+            if length(x) > 1
+                return replace(x, NaN => 1)
+            else
+                return 1
+            end
+        end
+    end
 end
 
 struct confusion_matrix #immutable struct
@@ -71,15 +103,8 @@ end
 
 
 function class_confusion(c::confusion_matrix; class_name = nothing, ith_class = nothing)
-    @assert class_name != nothing || ith_class != nothing "No class name or class indexing value provided"
-    if class_name != nothing
-        @assert class_name in c.Labels "There is no such class in the labels of the given confusion matrix"
-        index = findfirst(x -> x == class_name, c.Labels)
-        return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
-    else
-        @assert ith_class >= 0 && ith_class <= length(c.Labels) "ith_class value is not in range"
-        return [c.true_positives[ith_class] c.false_positives[ith_class]; c.false_negatives[ith_class] c.true_negatives[ith_class]]
-    end
+    index = check_index(c.Labels, class_name = class_name, ith_class = ith_class)
+    return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
 end
 
 function visualize(c::confusion_matrix)
@@ -171,92 +196,262 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
     end
 end
 
-condition_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_negatives[i]
-condition_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_positives[i]
-predicted_positive(c::confusion_matrix,i = 1) = c.true_positives[i] + c.false_positives[i]
-predicted_negative(c::confusion_matrix,i = 1) = c.true_negatives[i] + c.false_negatives[i]
-correctly_classified(c::confusion_matrix,i = 1) = c.true_positives[i] + c.true_negatives[i]
-incorrectly_classified(c::confusion_matrix,i = 1) = c.false_positives[i] + c.false_negatives[i]
-
-function sensitivity(c::confusion_matrix,i = 1)
-    x = c.true_positives[i] / condition_positive(c,i)
-    return isnan(x) ? 0 : x
+function condition_positive(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        return c.true_positives + c.false_negatives
+    else
+        return c.true_positives[index] + c.false_negatives[index]
+    end
 end
+
+function condition_negative(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        c.true_negatives + c.false_positives
+    else
+        return c.true_negatives[index] + c.false_positives[index]
+    end
+end
+
+function predicted_positive(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        return c.true_positives + c.false_positives
+    else
+        return c.true_positives[index] + c.false_positives[index]
+    end
+end
+
+function predicted_negative(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        return  c.true_negatives + c.false_negatives
+    else
+        return c.true_negatives[index] + c.false_negatives[index]
+    end
+end
+
+function correctly_classified(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        c.true_positives + c.true_negatives
+    else
+        c.true_positives[index] + c.true_negatives[index]
+    end
+end
+
+function incorrectly_classified(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        c.false_positives + c.false_negatives
+    else
+        c.false_positives[index] + c.false_negatives[index]
+    end
+end
+
+function sensitivity(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = c.true_positives ./ condition_positive(c)
+        return clear_output(x, c.zero_division)
+    else
+        x = true_positives[index] / condition_positive(c, ith_class = index)
+        return clear_output(x, zero_division)
+    end
+end
+
+function recall(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    sensitivity(c, ith_class = ith_class, class_name = class_name)
+end
+
 function specificity(c::confusion_matrix,i = 1)
-    x = c.true_negatives[i] / condition_negative(c,i)
-    return isnan(x) ? 0 : x
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = c.true_negatives ./ condition_negative(c)
+        return clear_output(x, c.zero_division)
+    else
+        x = c.true_negatives[index] / condition_negative(c, ith_class = index)
+        return clear_output(x, zero_division)
+    end
 end
 
-function precision(c::confusion_matrix,i = 1)
-   x = c.true_positives[i] / (c.true_positives[i] + c.false_positives[i]);
-   return isnan(x) ? 0 : x
+function precision(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = c.true_positives ./ (c.true_positives + c.false_positives)
+        return clear_output(x, c.zero_division)
+    else
+        x = c.true_positives[index] / (c.true_positives[index] + c.false_positives[index])
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function accuracy(c::confusion_matrix,i = 1)
-    x = (c.true_positives[i] + c.true_negatives[i] ) / (condition_positive(c,i) + condition_negative(c,i))
-    return isnan(x) ? 0 : x
+function positive_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+   precision(c, class_name = class_name, ith_class = ith_class)
 end
 
-function balanced_accuracy(c::confusion_matrix,i = 1)
-    x = (sensitivity(c,i) +  specificity(c,i)) / 2; return isnan(x) ? 0 : x
+function accuracy(c::confusion_matrix; ith_class = nothing, class_name = nothing, normalize = false, sample_weight = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        accuracy_array = [accuracy(c, ith_class = i) for i in length(c.true_positives)]
+        if normalize
+            x = sample_weight == nothing ? sum(accuracy_array) / length(c.true_positives) : sum(accuracy_array .* sample_weight) / length(c.true_positives)
+            return clear_output(x,c.zero_division)
+        else
+            x = sample == nothing ? sum(accuracy_array) : dot(accuracy_array, sample_weight)
+            return clear_output(x,c.zero_division)
+        end
+    else
+        x = (c.true_positives[index] + c.true_negatives[index] ) / (condition_positive(c, ith_class = index) + condition_negative(c, ith_class = index))
+        return clear_output(x, c.zero_division)
+    end
 end
 
-function positive_predictive_value(c::confusion_matrix, i = 1)
-   x = c.true_positives[i] / condition_positive(c, i); return isnan(x) ? 0 : x
+function balanced_accuracy(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [(sensitivity(c, ith_class = i) +  specificity(c, ith_class = i)) / 2 for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = (sensitivity(c,ith_class = index) +  specificity(c, ith_class = index)) / 2
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function negative_predictive_value(c::confusion_matrix,i = 1)
-    x = c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+function negative_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [c.true_negatives[i] / (c.true_negatives[i] + c.false_negatives[i]) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = c.true_negatives[index] / (c.true_negatives[index] + c.false_negatives[index])
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function false_negative_rate(c::confusion_matrix,i = 1)
-    x = c.false_negatives[i] / condition_positive(c,i); return isnan(x) ? 0 : x
+function false_negative_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [c.false_negatives[i] / condition_positive(c,ith_class = i) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = c.false_negatives[i] / condition_positive(c,ith_class = index)
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function false_positive_rate(c::confusion_matrix,i = 1)
-    x = c.false_positives[i] / condition_negative(c,i); return isnan(x) ? 0 : x
+function false_positive_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [c.false_positives[i] / condition_negative(c,ith_class = i) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = c.false_negatives[i] / condition_positive(c,ith_class = index)
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function false_discovery_rate(c::confusion_matrix,i = 1)
-    x = c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i]);
-    return isnan(x) ? 0 : x
+function false_discovery_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [c.false_positives[i] / ( c.false_positives[i]  + c.true_negatives[i]) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = c.false_positives[index] / ( c.false_positives[index]  + c.true_negatives[index])
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function false_omission_rate(c::confusion_matrix,i = 1)
-    x = 1 - negative_predictive_value(c,i); return isnan(x) ? 0 : x
+function false_omission_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [1 - negative_predictive_value(c,ith_class = i) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = 1 - negative_predictive_value(c,ith_class = index)
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function f1_score(c::confusion_matrix,i = 1)
-    x = (2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i]); return isnan(x) ? 0 : x
+function f1_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [(2* c.true_positives[i] ) / (2* c.true_positives[i] + c.false_positives[i] + c.false_negatives[i]) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = (2* c.true_positives[index] ) / (2* c.true_positives[index] + c.false_positives[index] + c.false_negatives[index])
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function prevalence_threshold(c::confusion_matrix, i = 1)
-    x = (sqrt(sensitivity(c,i) * (-specificity(c,i) +1)) + specificity(c,i) -1) / (sensitivity(c,i) + specificity(c,i) -1)
-    return isnan(x) ? 0 : x
+function prevalence_threshold(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [(sqrt(abs(sensitivity(c,ith_class = i) * (-specificity(c,ith_class = i) +1) + specificity(c,ith_class = i) -1)) / (sensitivity(c,ith_class = i) + specificity(c,ith_class = i) -1)) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = (sqrt(abs(sensitivity(c,ith_class = index) * (-specificity(c,ith_class = index) +1) + specificity(c,ith_class = index) -1)) / (sensitivity(c,ith_class = index) + specificity(c,ith_class = index) -1))
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function threat_score(c::confusion_matrix, i = 1)
-    x = c.true_positives[i] / (c.true_positives[i] + c.false_negatives[i] + c.false_positives[i])
-    return isnan(x) ? 0 : x
+function threat_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [c.true_positives[i] / (c.true_positives[i] + c.false_negatives[i] + c.false_positives[i]) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = c.true_positives[index] / (c.true_positives[index] + c.false_negatives[index] + c.false_positives[index])
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function matthews_correlation_coeff(c::confusion_matrix, i = 1)
-    x = (c.true_positives[i] * c.true_negatives[i] - c.false_positives[i] * c.false_negatives[i]) / sqrt( abs((c.true_positives[i] + c.false_positives[i]) * (c.true_positives[i] + c.false_negatives[i]) *
-        (c.true_negatives[i] + c.false_positives[i]) * (c.true_negatives[i] + c.false_negatives[i])))
-    return isnan(x) ? 0 : x
+function matthews_correlation_coeff(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [(c.true_positives[i] * c.true_negatives[i] - c.false_positives[i] * c.false_negatives[i]) / sqrt( abs((c.true_positives[i] + c.false_positives[i]) * (c.true_positives[i] + c.false_negatives[i]) *
+            (c.true_negatives[i] + c.false_positives[i]) * (c.true_negatives[i] + c.false_negatives[i])))
+         for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = (c.true_positives[index] * c.true_negatives[index] - c.false_positives[index] * c.false_negatives[index]) / sqrt( abs((c.true_positives[index] + c.false_positives[index]) * (c.true_positives[index] + c.false_negatives[index]) *
+            (c.true_negatives[index] + c.false_positives[index]) * (c.true_negatives[index] + c.false_negatives[index])))
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function fowlkes_mallows_index(c::confusion_matrix, i = 1)
-    x = sqrt(positive_predictive_value(c,i) * sensitivity(c,i))
-    return isnan(x) ? 0 : x
+function fowlkes_mallows_index(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [sqrt(positive_predictive_value(c,ith_class = i) * sensitivity(c,ith_class = i)) for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = sqrt(positive_predictive_value(c,ith_class = index) * sensitivity(c,ith_class = index))
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function informedness(c::confusion_matrix, i = 1)
-    x = specificity(c,i) + sensitivity(c,i) -1
+function informedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [specificity(c,ith_class = i) + sensitivity(c,ith_class = i) -1 for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = specificity(c,ith_class = index) + sensitivity(c,ith_class = index) -1
+        return clear_output(x,c.zero_division)
+    end
 end
 
-function markedness(c::confusion_matrix, i = 1)
-   x = precision(c,i) * negative_predictive_value(c,i) -1
+function markedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
+    if index == -1
+        x = [ precision(c,ith_class = i) * negative_predictive_value(c,ith_class = i) -1 for i in 1:length(true_positives)]
+        return clear_output(x,c.zero_division)
+    else
+        x = specificity(c,ith_class = index) + sensitivity(c,ith_class = index) -1
+        return clear_output(x,c.zero_division)
+    end
 end
 
 function cohen_kappa_score(c::confusion_matrix)
