@@ -5,11 +5,12 @@ using Plots: heatmap
 
 function init_confusion_params(matrix)
     tp = []; tn = []; fp = []; fn = []
+    matrix_sum = sum(matrix)
      @inbounds for i in 1:size(matrix)[1]
         push!(tp, matrix[i,i])
         push!(fn, sum(matrix[i,:]) - tp[i] )
         push!(fp, sum(matrix[:,i]) -tp[i])
-        push!(tn, (sum(matrix) - tp[i] - fn[i] - fp[i]))
+        push!(tn, (matrix_sum - tp[i] - fn[i] - fp[i]))
     end
     return tp, tn, fp, fn
 end
@@ -21,28 +22,31 @@ struct confusion_matrix #immutable struct
     false_negatives::Array{Int}
     matrix::Array{Number,2}
     Labels::Array{Union{Int,AbstractString}}
+    zero_division::String
 end
 
-"""
-Creates a confusion matrix using the expected and predicted values of shape either 1 x n or n x 1.
 
-labels: If no labels are provided the function will infer the labels from the union of the unique elements in expected and predicted. Given labels must be of size 1 x n or n x 1.  Only string and integers labels are accepted.
-
-normalize: If true, the final confusion matrix will be normalized
-
-"""
-function confusion_matrix(expected, predicted; labels = nothing, normalize = false)
-    @assert size(expected) == size(predicted) "Sizes do not match"
+function confusion_matrix(expected::Array{T,1}, predicted::Array{T,1}; labels = nothing, normalize = false, sample_weight = 0, zero_division = "warn") where T <: Union{Int, String}
+    @assert length(expected) == length(predicted) "Sizes of the expected and predicted values do not match"
+    @assert eltype(expected) <: Union{Int, String} &&  eltype(predicted) <: Union{Int, String} "Expected and Predicted arrays must either be integers or strings"
+    @assert eltype(expected) == eltype(predicted) "Element types of Expected and Predicted arrays do not match"
+    if labels != nothing; @assert length(labels) != 0 "Labels array must contain at least one value"; end;
+    @assert zero_division in ["warn", 0, 1] "Unknown zero division behaviour specification"
     if labels == nothing
-        labels = union(sort(unique(expected)), sort(unique(predicted)))
+        @warn "No labels provided, constructing a label set by union of the unique elements in Expected and Predicted arrays"
+        labels = union(unique(expected),unique(predicted))
+        if eltype(labels) == Int
+            sort!(labels)
+        end
     end
     dictionary = Dict()
-    j = 1
-    for i in labels
-        dictionary[i] = j
-        j += 1
+    for i in 1:length(labels)
+        dictionary[labels[i]] = i
     end
     matrix = zeros(Number, length(labels), length(labels))
+    if sample_weight != 0
+        fill!(matrix, sample_weight)
+    end
     @inbounds for i in 1:length(expected)
        matrix[dictionary[predicted[i]],dictionary[expected[i]]] += 1
     end
@@ -62,13 +66,20 @@ function confusion_matrix(expected, predicted; labels = nothing, normalize = fal
     if normalize
        matrix = [round(i, digits = 3) for i in LinearAlgebra.normalize(matrix)]
     end
-    return confusion_matrix(tp,tn,fp,fn,matrix,labels)
+    return confusion_matrix(tp,tn,fp,fn,matrix,labels, zero_division)
 end
 
 
-function class_confusion(c::confusion_matrix, i::Union{Int,AbstractString})
-    index = findfirst(x -> x == i, c.Labels)
-    return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
+function class_confusion(c::confusion_matrix; class_name = nothing, ith_class = nothing)
+    @assert class_name != nothing || ith_class != nothing "No class name or class indexing value provided"
+    if class_name != nothing
+        @assert class_name in c.Labels "There is no such class in the labels of the given confusion matrix"
+        index = findfirst(x -> x == class_name, c.Labels)
+        return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
+    else
+        @assert ith_class >= 0 && ith_class <= length(c.Labels) "ith_class value is not in range"
+        return [c.true_positives[ith_class] c.false_positives[ith_class]; c.false_negatives[ith_class] c.true_negatives[ith_class]]
+    end
 end
 
 function visualize(c::confusion_matrix)
@@ -81,18 +92,17 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
     printer = Int(round(size(c.matrix)[1] / 2)) +1
-    len = maximum([length(string(i)) for i in c.Labels])[1]
+    label_len = maximum([length(string(i)) for i in c.Labels])[1] + 4
     label_size = length(c.Labels)
-    label_len = eltype(c.Labels) == String ? len +5 : len+7
     println(io, lpad("Expected\n", printer* label_len ))
     println(io, [lpad(i,label_len) for i in c.Labels]...)
     println(io, repeat("_", length(c.Labels) * label_len))
     for i in 1:size(c.matrix)[1]
-        println(io,  [lpad(string(i),label_len) for i in c.matrix[i,:]]..., "   │", c.Labels[i], i == printer ? "\t\tPredicted" : " ")
+        println(io,  [lpad(string(i),label_len) for i in c.matrix[i,:]]..., "   │", c.Labels[i], i == printer ? "\tPredicted" : " ")
     end
 end
 
-function classification_report(c::confusion_matrix; io::IO = Base.stdout, return_dict = false)
+function classification_report(c::confusion_matrix; io::IO = Base.stdout, return_dict = false, target_names = nothing, digits = 2)
     len = maximum([length(string(i)) for i in c.Labels])
     label_size = length(c.Labels)
     label_len = eltype(c.Labels) == String ? len +5 : len +7
@@ -172,7 +182,6 @@ function sensitivity(c::confusion_matrix,i = 1)
     x = c.true_positives[i] / condition_positive(c,i)
     return isnan(x) ? 0 : x
 end
-
 function specificity(c::confusion_matrix,i = 1)
     x = c.true_negatives[i] / condition_negative(c,i)
     return isnan(x) ? 0 : x
@@ -248,4 +257,28 @@ end
 
 function markedness(c::confusion_matrix, i = 1)
    x = precision(c,i) * negative_predictive_value(c,i) -1
+end
+
+function cohen_kappa_score(c::confusion_matrix)
+
+end
+
+function jaccard_score(c::confusion_matrix)
+
+end
+
+function zero_one_loss(c::confusion_matrix)
+
+end
+
+function fbeta_score(c::confusion_matrix)
+
+end
+
+function hamming_loss(c::confusion_matrix)
+
+end
+
+function hinge_loss(c::confusion_matrix)
+
 end
