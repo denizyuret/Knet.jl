@@ -1,4 +1,4 @@
-export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive, predicted_negative, correctly_classified, incorrectly_classified, sensitivity, specificity, precision, accuracy_score , balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, fowlkes_mallows_index, informedness, matthews_correlation_coeff, markedness, cohen_kappa_score, zero_one_loss, fbeta_score, hamming_loss, hinge_loss
+export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity, recall, precision, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score
 using LinearAlgebra: normalize, dot, transpose
 using Plots: heatmap
 
@@ -31,7 +31,7 @@ end
 function clear_output(x, zero_division)
     if true in [isnan(i) || isinf(i) for i in x]
         if zero_division == "warn" || zero_division == "0"
-            if zero_division == "warn"; @warn "Zero division, replacing NaN with 0"; end;
+            if zero_division == "warn"; @warn "Zero division, replacing NaN or Inf with 0"; end;
             if length(x) > 1
                 return replace(x, NaN => 0)
             else
@@ -202,7 +202,7 @@ function condition_positive(c::confusion_matrix; ith_class = nothing, class_name
         x = c.true_positives + c.false_negatives
         return clear_output(x,c.zero_division)
     else
-        return c.true_positives[index] + c.false_negatives[index]
+        x = c.true_positives[index] + c.false_negatives[index]
         return clear_output(x,c.zero_division)
     end
 end
@@ -274,7 +274,7 @@ function sensitivity(c::confusion_matrix; ith_class = nothing, class_name = noth
 end
 
 function recall(c::confusion_matrix; ith_class = nothing, class_name = nothing)
-    sensitivity(c, ith_class = ith_class, class_name = class_name)
+    return sensitivity(c, ith_class = ith_class, class_name = class_name)
 end
 
 function specificity(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -300,7 +300,7 @@ function precision(c::confusion_matrix; ith_class = nothing, class_name = nothin
 end
 
 function positive_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
-   precision(c, class_name = class_name, ith_class = ith_class)
+   return precision(c, class_name = class_name, ith_class = ith_class)
 end
 
 function accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing, normalize = false, sample_weight = nothing)
@@ -466,18 +466,16 @@ function markedness(c::confusion_matrix; ith_class = nothing, class_name = nothi
     end
 end
 
-
 function cohen_kappa_score(c::confusion_matrix; weights = nothing)
 #reference: scikitlearn.metrics.classification.cohen_kappa_score
-    index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     @assert weights in [nothing, "quadratic", "linear"] "Unknown kappa weighting type"
     w_mat = nothing
     sum0 = sum(c.matrix, dims = 1)
     sum1 = sum(c.matrix, dims = 2)
-    expected = (sum0 .- sum1) / sum(sum0)
+    expected = (sum1 * sum0) ./ sum(sum0)
     if weights == nothing
         w_mat = ones(length(c.Labels),length(c.Labels))
-        for i in length(c.Labels)
+        for i in 1:length(c.Labels)
             w_mat[i,i] = 0
         end
     else
@@ -489,16 +487,45 @@ function cohen_kappa_score(c::confusion_matrix; weights = nothing)
             w_mat = (w_mat - transpose(w_mat)) ^2
         end
     end
-    x = sum(w_mat * c.matrix) / sum(w_mat * expected)
-    return clear_output(x,c.zero_division)
+    x = sum(w_mat .* c.matrix) / sum(w_mat .* expected)
+    return clear_output(1- x,c.zero_division)
 end
 
 function hamming_loss(c::confusion_matrix; sample_weight = nothing)
     if sample_weight == nothing
         return clear_output(sum(correctly_classified(c)) / length(c.Labels), c.zero_division)
-    end
     else
         c_classified = correctly_classified(c)
         return clear_output(sum([c_classified[i] * sample_weight[i] for i in 1:length(c.Labels)]) / length(c.Labels), c.zero_division)
+    end
+end
+
+function jaccard_score(c::confusion_matrix; average = "binary", sample_weight = nothing)
+    @assert average in [nothing, "binary", "weighted", "samples", "micro"] "Unknown averaging type"
+    @assert length(sample_weight) == length(c.true_positives) "Dimensions of given sample weight does not match the confusion matrix"
+    numerator = c.true_positives
+    denominator =  c.false_positives + c.false_negatives + c.true_negatives
+    if average = nothing
+        x = numerator ./ denominator
+        return clear_output(x, c.zero_division)
+    elseif average == "micro"
+        numerator = sum(numerator)
+        denominator = sum(denominator)
+        x = numerator ./ denominator
+        return clear_output(x, c.zero_division)
+    elseif average == "weighted" || average == "samples"
+        weights = nothing
+        if average == "weighted"
+            weights = c.false_negatives + c.true_positives
+        elseif average == "samples"
+            weights = sample_weight
+        end
+        score = numerator ./ denominator
+        x = [weights[i] * score[i] for i in 1:length(c.Labels)]
+        x / length(c.Labels)
+        return clear_output(x, c.zero_division)
+    else
+        x = [(false_negatives[i] + true_positives[i])/length(c.Labels) for i in 1:length(c.Labels)]
+        return clear_output(x, c.zero_division)
     end
 end
