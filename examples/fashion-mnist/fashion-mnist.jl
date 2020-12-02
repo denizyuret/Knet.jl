@@ -22,9 +22,9 @@ Labels and descriptions are shown below.
     10      Ankle boot
 
 You can run the demo using `julia fashion-mnist.jl` on the command line or
-by first including `julia> include("fashion-mnist.jl")` and typing `julia> FashionMNIST.main()` 
+by first including `julia> include("fashion-mnist.jl")` and typing `julia> FashionMLP.main()` 
 at the Julia prompt.  Options can be used like `julia fashion-mnist.jl --epochs 3` 
-or `julia> FashionMNIST.main("--epochs 3")`. Use `julia fashion-mnist.jl --help` 
+or `julia> FashionMLP.main("--epochs 3")`. Use `julia fashion-mnist.jl --help` 
 for a list of options.  The dataset will be automatically downloaded.  
 By default a softmax model will be trained for 10 epochs. You can also 
 train a multi-layer perceptron by specifying one or more --hidden sizes. 
@@ -32,7 +32,7 @@ The accuracy for the training and test sets will be printed at every epoch
 and optimized parameters will be returned.
 
 """
-module FashionMNISTMLP
+module FashionMLP
 using Knet,CUDA,MLDatasets,ArgParse
 
 function predict(w,x; pdrop=0)
@@ -103,11 +103,11 @@ function main(args="")
     o[:seed] > 0 && Knet.seed!(o[:seed])
     atype = eval(Meta.parse(o[:atype]))
     w = weights(o[:hidden]...; atype=atype, winit=o[:winit])
-    xtrn,ytrn = FashionMNIST.traindata(); ytrn[ytrn .== 0] .= 10
-    xtst,ytst = FashionMNIST.testdata();  ytst[ytst .== 0] .= 10
+    xtrn,ytrn = FashionMNIST.traindata(); ytrn .+= 1
+    xtst,ytst = FashionMNIST.testdata();  ytst .+= 1
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, xsize=(size(xtrn,1),size(xtrn,2),1,o[:batchsize]))
-    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(x->predict(w,x); data=dtrn),:tst,accuracy(x->predict(w,x); data=dtst)))
     if o[:fast]
         @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], pdrop=o[:dropout]); CUDA.functional() && CUDA.synchronize())
     else
@@ -124,8 +124,8 @@ function main(args="")
 end
 
 # This allows both non-interactive (shell command) and interactive calls like:
-# $ julia mnist.jl --epochs 10
-# julia> FashionMNIST.main("--epochs 10")
+# $ julia fashion-mnist.jl --epochs 10
+# julia> FashionMLP.main("--epochs 10")
 PROGRAM_FILE == "fashion-mnist.jl" && main(ARGS)
 
 end # module

@@ -9,11 +9,11 @@ This example implements a DCGAN (Deep Convolutional Generative Adversarial Netwo
 
 """
 module DCGAN
-using Knet,CUDA,MLDatasets,ArgParse,Printf
+using Knet,CUDA,MLDatasets,ArgParse,Printf,Images
 
 function main(args)
     o = parse_options(args)
-    o[:seed] > 0 && Knet.seed!(o[:seed])
+    o[:seed] > 0 && Knet.seed!(o[:seed]) 
 
     # load models, data, optimizers
     wd, wg, md, mg = load_weights(o[:atype], o[:zdim], o[:loadfile])
@@ -297,6 +297,43 @@ function plot_generations(
     else
         Knet.save(savefile, grid)
     end
+end
+
+function make_image_grid(images; gridsize=(8,8), scale=2.0, height=28, width=28)
+    shape = (height, width)
+    nchannels = size(first(images))[end]
+    @assert nchannels == 1 || nchannels == 3
+    shp = map(x->Int(round(x*scale)), shape)
+    y = map(x->Images.imresize(x,shp), images)
+    gridx, gridy = gridsize
+    outdims = (gridx*shp[1]+gridx+1,gridy*shp[2]+gridy+1)
+    out = zeros(outdims..., nchannels)
+    for k = 1:gridx+1; out[(k-1)*(shp[1]+1)+1,:,:] .= 1.0; end
+    for k = 1:gridy+1; out[:,(k-1)*(shp[2]+1)+1,:] .= 1.0; end
+
+    x0 = y0 = 2
+    for k = 1:length(y)
+        x1 = x0+shp[1]-1
+        y1 = y0+shp[2]-1
+        out[x0:x1,y0:y1,:] .= y[k]
+
+        y0 = y1+2
+        if k % gridy == 0
+            x0 = x1+2
+            y0 = 2
+        else
+            y0 = y1+2
+        end
+    end
+
+    out = convert(Array{Float64}, map(x->isnan(x) ? 0 : x, out))
+    if nchannels == 1
+        out = reshape(out, (size(out,1),size(out,2)))
+        out = permutedims(out, (2,1))
+    else
+        out = permutedims(out, (3,1,2))
+    end
+    return out
 end
 
 splitdir(PROGRAM_FILE)[end] == "dcgan.jl" && main(ARGS)

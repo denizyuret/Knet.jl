@@ -11,8 +11,8 @@ function setseed(x)
     Random.seed!(x) 
 end
 
+"Call both CUDA.seed! (if available) and Random.seed!"
 function seed!(x)
-    @warn "Knet.seed!() is deprecated, please use Random.seed!() and/or CUDA.seed!() instead" maxlog=1
      CUDA.functional() && CUDA.seed!(x)
      Random.seed!(x)
 end
