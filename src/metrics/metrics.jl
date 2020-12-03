@@ -1,7 +1,6 @@
 module Metrics
 
-import Base: show, length
-import LinearAlgebra: normalize
+import LinearAlgebra
 import Plots: heatmap
 import Statistics: mean
 include("classification_metrics.jl")

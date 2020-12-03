@@ -1,5 +1,4 @@
 export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity, recall, precision, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score, confusion_params
-using LinearAlgebra: normalize, dot, transpose
 using Plots: heatmap
 using Statistics: mean
 
@@ -60,6 +59,7 @@ function clear_output(x, zero_division)
 end
 
 """
+(Documentation is not complete yet) \n
 A struct for representing confusion matrix and related computations
 
 ## Fields
@@ -117,8 +117,6 @@ there should be a prediction and a ground truth for each classification.
     **zero_division** : "warn", "0", "1", default = "warn"
     _See:_ confusion matrix fields
 
-## Examples
-
 
 ## References
    [1] [Wikipedia entry for the Confusion matrix]
@@ -145,7 +143,7 @@ function confusion_matrix(expected::Array{T,1}, predicted::Array{T,1}; labels = 
     @assert eltype(expected) <: Union{Int, String} &&  eltype(predicted) <: Union{Int, String} "Expected and Predicted arrays must either be integers or strings"
     @assert eltype(expected) == eltype(predicted) "Element types of Expected and Predicted arrays do not match"
     if labels != nothing; @assert length(labels) != 0 "Labels array must contain at least one value"; end;
-    @assert zero_division in ["warn", 0, 1] "Unknown zero division behaviour specification"
+    @assert zero_division in ["warn", "0", "1"] "Unknown zero division behaviour specification"
     if labels == nothing
         @warn "No labels provided, constructing a label set by union of the unique elements in Expected and Predicted arrays"
         labels = union(unique(expected),unique(predicted))
@@ -185,7 +183,7 @@ end
 
 
 function class_confusion(c::confusion_matrix; class_name = nothing, ith_class = nothing)
-    index = check_index(c.Labels, class_name = class_name, ith_class = ith_class)
+    index = check_index(c.Labels, false ,class_name = class_name, ith_class = ith_class)
     return [c.true_positives[index] c.false_positives[index]; c.false_negatives[index] c.true_negatives[index]]
 end
 
@@ -199,7 +197,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
     printer = Int(round(size(c.matrix)[1] / 2)) +1
-    label_len = maximum([length(string(i)) for i in c.Labels])[1] + 4
+    label_len = maximum([length(string(i)) for i in c.Labels])[1] + 6
     label_size = length(c.Labels)
     println(io, lpad("Expected\n", printer* label_len ))
     println(io, [lpad(i,label_len) for i in c.Labels]...)
@@ -210,45 +208,6 @@ function Base.show(io::IO, ::MIME"text/plain", c::confusion_matrix)
 end
 
 function classification_report(c::confusion_matrix; io::IO = Base.stdout, return_dict = false, target_names = nothing, digits = 2)
-    len = maximum([length(string(i)) for i in c.Labels])
-    label_size = length(c.Labels)
-    label_len = len + digits + 2
-    println(io,"Summary:\n", summary(c))
-    println(io,"True Positives: ", c.true_positives)
-    println(io,"False Positives: ", c.false_positives)
-    println(io,"True Negatives: ", c.true_negatives)
-    println(io,"False Negatives: ", c.false_negatives)
-    println(io,"\n",lpad("Labelwise Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
-    println(io,lpad(" ", 30), [lpad(i, label_len) for i in c.Labels]...)
-    println(io,lpad("Condition Positive:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_positive(c)]...)
-    println(io,lpad("Condition Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_negative(c)]...)
-    println(io,lpad("Predicted Positive:", 30), [lpad(round(i, digits = digits), label_len) for i in predicted_positive(c)]...)
-    println(io,lpad("Predicted Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in predicted_negative(c)]...)
-    println(io,lpad("Correctly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in correctly_classified(c)]...)
-    println(io,lpad("Incorrectly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in incorrectly_classified(c)]...)
-    println(io,lpad("Sensitivity:", 30), [lpad(round(i, digits = digits), label_len) for i in sensitivity(c)]...)
-    println(io,lpad("Specificity:", 30), [lpad(round(i, digits = digits), label_len) for i in specificity(c)]...)
-    println(io,lpad("Precision:", 30) , [lpad(round(i, digits = digits), label_len) for i in precision(c)]...)
-    println(io,lpad("Accuracy Score:", 30 ) ,  [lpad(round(accuracy_score(c, ith_class = i), digits = digits), label_len) for i in 1:label_size]...)
-    println(io,lpad("Balanced Accuracy:", 30), [lpad(round(i, digits = digits), label_len) for i in balanced_accuracy(c)]...)
-    println(io,lpad("Negative Predictive Value:", 30), [lpad(round(i, digits = digits), label_len) for i in negative_predictive_value(c)]...)
-    println(io,lpad("False Negative Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_negative_rate(c)]...)
-    println(io,lpad("False Positive Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_positive_rate(c)]...)
-    println(io,lpad("False Discovery Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_discovery_rate(c)]...)
-    println(io,lpad("False Omission Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_omission_rate(c)]...)
-    println(io,lpad("F1 Score:", 30), [lpad(round(i, digits = digits), label_len) for i in f1_score(c)]...)
-    println(io,lpad("Jaccard Score:", 30), [lpad(round(i, digits = digits), label_len) for i in jaccard_score(c, average = nothing)]...)
-    println(io,lpad("Prevalence Threshold:", 30), [lpad(round(i, digits = digits), label_len) for i in prevalence_threshold(c)]...)
-    println(io,lpad("Threat Score:", 30), [lpad(round(i, digits = digits), label_len) for i in threat_score(c)]...)
-    println(io,lpad("Matthews Correlation Coefficient", 30), [lpad(round(i, digits = digits), label_len) for i in matthews_correlation_coeff(c)]...)
-    println(io,lpad("Fowlkes Mallows Index:", 30), [lpad(round(i, digits = digits), label_len) for i in fowlkes_mallows_index(c)]...)
-    println(io,lpad("Informedness:", 30), [lpad(round(i, digits = digits), label_len) for i in informedness(c)]...)
-    println(io,lpad("Markedness:", 30), [lpad(round(i, digits = digits), label_len) for i in markedness(c)]...)
-    println(io,"\n",lpad("General Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
-    println(io, lpad("Accuracy Score:\t",30), accuracy_score(x))
-    println(io, lpad("Cohen Kappa Score:\t", 30), cohen_kappa_score(x))
-    println(io, lpad("Hamming Loss:\t", 30), hamming_loss(x))
-    println(io, lpad("Jaccard Score:\t", 30), jaccard_score(x, average = "micro"))
     if return_dict
         result_dict = Dict()
         result_dict["true-positives"] = c.true_positives
@@ -284,6 +243,46 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
         result_dict["hamming-loss"] = jaccard_score(c)
         result_dict["cohen-kappa-score"] = cohen_kappa_score(c)
         return result_dict
+    else
+    len = maximum([length(string(i)) for i in c.Labels])
+    label_size = length(c.Labels)
+    label_len = len + digits + 2
+    println(io,"Summary:\n", summary(c))
+    println(io,"True Positives: ", c.true_positives)
+    println(io,"False Positives: ", c.false_positives)
+    println(io,"True Negatives: ", c.true_negatives)
+    println(io,"False Negatives: ", c.false_negatives)
+    println(io,"\n",lpad("Labelwise Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
+    println(io,lpad(" ", 30), [lpad(i, label_len) for i in c.Labels]...)
+    println(io,lpad("Condition Positive:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_positive(c)]...)
+    println(io,lpad("Condition Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_negative(c)]...)
+    println(io,lpad("Predicted Positive:", 30), [lpad(round(i, digits = digits), label_len) for i in predicted_positive(c)]...)
+    println(io,lpad("Predicted Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in predicted_negative(c)]...)
+    println(io,lpad("Correctly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in correctly_classified(c)]...)
+    println(io,lpad("Incorrectly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in incorrectly_classified(c)]...)
+    println(io,lpad("Sensitivity:", 30), [lpad(round(i, digits = digits), label_len) for i in sensitivity(c)]...)
+    println(io,lpad("Specificity:", 30), [lpad(round(i, digits = digits), label_len) for i in specificity(c)]...)
+    println(io,lpad("Precision:", 30) , [lpad(round(i, digits = digits), label_len) for i in precision(c)]...)
+    println(io,lpad("Accuracy Score:", 30 ) ,  [lpad(round(accuracy_score(c, ith_class = i), digits = digits), label_len) for i in 1:label_size]...)
+    println(io,lpad("Balanced Accuracy:", 30), [lpad(round(i, digits = digits), label_len) for i in balanced_accuracy(c)]...)
+    println(io,lpad("Negative Predictive Value:", 30), [lpad(round(i, digits = digits), label_len) for i in negative_predictive_value(c)]...)
+    println(io,lpad("False Negative Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_negative_rate(c)]...)
+    println(io,lpad("False Positive Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_positive_rate(c)]...)
+    println(io,lpad("False Discovery Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_discovery_rate(c)]...)
+    println(io,lpad("False Omission Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_omission_rate(c)]...)
+    println(io,lpad("F1 Score:", 30), [lpad(round(i, digits = digits), label_len) for i in f1_score(c)]...)
+    println(io,lpad("Jaccard Score:", 30), [lpad(round(i, digits = digits), label_len) for i in jaccard_score(c, average = nothing)]...)
+    println(io,lpad("Prevalence Threshold:", 30), [lpad(round(i, digits = digits), label_len) for i in prevalence_threshold(c)]...)
+    println(io,lpad("Threat Score:", 30), [lpad(round(i, digits = digits), label_len) for i in threat_score(c)]...)
+    println(io,lpad("Matthews Correlation Coefficient", 30), [lpad(round(i, digits = digits), label_len) for i in matthews_correlation_coeff(c)]...)
+    println(io,lpad("Fowlkes Mallows Index:", 30), [lpad(round(i, digits = digits), label_len) for i in fowlkes_mallows_index(c)]...)
+    println(io,lpad("Informedness:", 30), [lpad(round(i, digits = digits), label_len) for i in informedness(c)]...)
+    println(io,lpad("Markedness:", 30), [lpad(round(i, digits = digits), label_len) for i in markedness(c)]...)
+    println(io,"\n",lpad("General Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
+    println(io, lpad("Accuracy Score:\t",30), accuracy_score(c))
+    println(io, lpad("Cohen Kappa Score:\t", 30), cohen_kappa_score(c))
+    println(io, lpad("Hamming Loss:\t", 30), hamming_loss(c))
+    println(io, lpad("Jaccard Score:\t", 30), jaccard_score(c, average = "micro"))
     end
 end
 
