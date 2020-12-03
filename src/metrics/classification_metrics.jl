@@ -1,8 +1,19 @@
-export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity, recall, precision, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score
+export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity, recall, precision, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score, confusion_params
 using LinearAlgebra: normalize, dot, transpose
 using Plots: heatmap
+using Statistics: mean
 
-function init_confusion_params(matrix)
+"""
+    confusion_params(matrix::Array{Number,2})
+
+Return the true positives, true negatives, false positives, false negatives arrays
+from the given n x n matrix. If the provided matrix is not n x n, an assertion
+exception: "Given matrix is not n x n" will be raised. As a visualization for the inner
+calculation of the, the following [this source](https://devopedia.org/images/article/208/6541.1566280388.jpg) may be visited
+
+"""
+function confusion_params(matrix::Array{Number,2})
+    @assert size(matrix)[1] == size(matrix)[2] "Given matrix is not n x n "
     tp = []; tn = []; fp = []; fn = []
     matrix_sum = sum(matrix)
      @inbounds for i in 1:size(matrix)[1]
@@ -48,7 +59,78 @@ function clear_output(x, zero_division)
     end
 end
 
-struct confusion_matrix #immutable struct
+"""
+A struct for representing confusion matrix and related computations
+
+## Fields
+**true positives** : An array that contains the true positive values of each label. For binary case,
+true positives is a single value. For multiclass, ith element in the array corresponds to the
+true positives of the ith class in the labels list.
+
+**true negatives** : An array that contains the true negative values of each label. For binary case,
+true negatives is a single value. For multiclass, ith element in the array corresponds to the
+true negatives of the ith class in the labels list.
+
+**false positives** : An array that contains the false positive values of each label. For binary case,
+false positives is a single value. For multiclass, ith element in the array corresponds to the
+false positives of the ith class in the labels list.
+
+**false negatives** : An array that contains the false negative values of each label. For binary case,
+false negatives is a single value. For multiclass, ith element in the array corresponds to the
+false negatives of the ith class in the labels list.
+
+**matrix** : an n x n matrix where n is the length of labels. It represents the actual confusion matrix
+from which true positives, true negatives, false positives and false negatives are calculated.
+
+**Labels** : an array representing the labels which are used for printing and visualization purposes
+
+**zero division** :
+    \n\t"warn" => all NaN and Inf values are replaced with zeros and user is warned by @warn macro in the
+    \tprocess
+
+    \t"0" => all NaN and Inf values are replaced with zeros but the user is not warned by @warn macro in the
+    \tprocess
+
+    \t"1" => all NaN and Inf values are replaced with ones but the user is not warned by @warn macro in the
+    \tprocess
+
+## Constructors
+
+confusion_matrix(expected::Array{T,1}, predicted::Array{T,1}; <keyword arguments>) where T <: Union{Int, String}
+
+Return a confusion matrix object constructed by the expected and predicted arrays. Expected and predicted arrays
+must be of size '(n,1)' or or vector type. Lengths of the expected and predicted arrays must be equal; thus,
+there should be a prediction and a ground truth for each classification.
+
+## Arguments
+
+    **labels** : vector-like of shape '(n,1)', default = nothing
+    List of labels to index the matrix. If ``nothing`` is given, those that appear at least once
+        in ``expected`` or ``predicted`` are used in sorted order.
+
+    **normalize** : boolean, default = nothing
+    Determines whether or not the confusion matrix (matrix field of the produced confusion matrix) will be normalized.
+
+    **sample_weight** : Number, default = nothing
+    Sample weights which will be filled in the matrix before confusion params function is called
+
+    **zero_division** : "warn", "0", "1", default = "warn"
+    _See:_ confusion matrix fields
+
+## Examples
+
+
+## References
+   [1] [Wikipedia entry for the Confusion matrix]
+           (https://en.wikipedia.org/wiki/Confusion_matrix)
+           (Note: Wikipedia and other references may use a different
+           convention for axes)
+
+_See: confusion params function_ \n
+_Source:_ [script](https://github.com/emirhan422/KnetMetrics/blob/main/src/metrics/classification_metrics.jl)
+
+"""
+struct confusion_matrix
     true_positives::Array{Int}
     true_negatives::Array{Int}
     false_positives::Array{Int}
@@ -57,7 +139,6 @@ struct confusion_matrix #immutable struct
     Labels::Array{Union{Int,AbstractString}}
     zero_division::String
 end
-
 
 function confusion_matrix(expected::Array{T,1}, predicted::Array{T,1}; labels = nothing, normalize = false, sample_weight = 0, zero_division = "warn") where T <: Union{Int, String}
     @assert length(expected) == length(predicted) "Sizes of the expected and predicted values do not match"
@@ -83,7 +164,7 @@ function confusion_matrix(expected::Array{T,1}, predicted::Array{T,1}; labels = 
     @inbounds for i in 1:length(expected)
        matrix[dictionary[expected[i]],dictionary[predicted[i]]] += 1
     end
-    tp, tn, fp, fn = init_confusion_params(matrix)
+    tp, tn, fp, fn = confusion_params(matrix)
     if 0 in tp
         @warn "There are elements of value 0 in the true positives array. This may lead to false values for some functions"
     end
@@ -137,7 +218,7 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
     println(io,"False Positives: ", c.false_positives)
     println(io,"True Negatives: ", c.true_negatives)
     println(io,"False Negatives: ", c.false_negatives)
-    println(io,"\n",lpad("Overall Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
+    println(io,"\n",lpad("Labelwise Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
     println(io,lpad(" ", 30), [lpad(i, label_len) for i in c.Labels]...)
     println(io,lpad("Condition Positive:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_positive(c)]...)
     println(io,lpad("Condition Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in condition_negative(c)]...)
@@ -156,12 +237,18 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
     println(io,lpad("False Discovery Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_discovery_rate(c)]...)
     println(io,lpad("False Omission Rate:", 30), [lpad(round(i, digits = digits), label_len) for i in false_omission_rate(c)]...)
     println(io,lpad("F1 Score:", 30), [lpad(round(i, digits = digits), label_len) for i in f1_score(c)]...)
+    println(io,lpad("Jaccard Score:", 30), [lpad(round(i, digits = digits), label_len) for i in jaccard_score(c, average = nothing)]...)
     println(io,lpad("Prevalence Threshold:", 30), [lpad(round(i, digits = digits), label_len) for i in prevalence_threshold(c)]...)
     println(io,lpad("Threat Score:", 30), [lpad(round(i, digits = digits), label_len) for i in threat_score(c)]...)
     println(io,lpad("Matthews Correlation Coefficient", 30), [lpad(round(i, digits = digits), label_len) for i in matthews_correlation_coeff(c)]...)
     println(io,lpad("Fowlkes Mallows Index:", 30), [lpad(round(i, digits = digits), label_len) for i in fowlkes_mallows_index(c)]...)
     println(io,lpad("Informedness:", 30), [lpad(round(i, digits = digits), label_len) for i in informedness(c)]...)
     println(io,lpad("Markedness:", 30), [lpad(round(i, digits = digits), label_len) for i in markedness(c)]...)
+    println(io,"\n",lpad("General Statistics", label_len * Int(round(size(c.matrix)[1] / 2)+1)), "\n")
+    println(io, lpad("Accuracy Score:\t",30), accuracy_score(x))
+    println(io, lpad("Cohen Kappa Score:\t", 30), cohen_kappa_score(x))
+    println(io, lpad("Hamming Loss:\t", 30), hamming_loss(x))
+    println(io, lpad("Jaccard Score:\t", 30), jaccard_score(x, average = "micro"))
     if return_dict
         result_dict = Dict()
         result_dict["true-positives"] = c.true_positives
@@ -192,6 +279,10 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
         result_dict["fowlkes-mallows-index"] = fowlkes_mallows_index(c)
         result_dict["informedness"] = informedness(c)
         result_dict["markedness"] = markedness(c)
+        result_dict["jaccard-score-nonaverage"] = jaccard_score(c, average = nothing)
+        result_dict["jaccard-score-microaverage"] = jaccard_score(c, average = "micro")
+        result_dict["hamming-loss"] = jaccard_score(c)
+        result_dict["cohen-kappa-score"] = cohen_kappa_score(c)
         return result_dict
     end
 end
@@ -496,20 +587,17 @@ function cohen_kappa_score(c::confusion_matrix; weights = nothing)
     return clear_output(1- x,c.zero_division)
 end
 
-function hamming_loss(c::confusion_matrix; sample_weight = nothing)
-    if sample_weight == nothing
-        return clear_output(sum(correctly_classified(c)) / length(c.Labels), c.zero_division)
-    else
-        c_classified = correctly_classified(c)
-        return clear_output(sum([c_classified[i] * sample_weight[i] for i in 1:length(c.Labels)]) / length(c.Labels), c.zero_division)
-    end
+function hamming_loss(c::confusion_matrix;)
+    x = zeros(sum(c.matrix))
+    x[1] = sum(c.false_negatives)
+    return clear_output(mean(x), c.zero_division)
 end
 
 function jaccard_score(c::confusion_matrix; average = "binary", sample_weight = nothing)
-    @assert average in [nothing, "binary", "weighted", "samples", "micro"] "Unknown averaging type"
-    @assert length(sample_weight) == length(c.true_positives) "Dimensions of given sample weight does not match the confusion matrix"
+    @assert average in [nothing, "binary", "weighted", "samples", "micro", "macro"] "Unknown averaging type"
+    if sample_weight != nothing @assert length(sample_weight) == length(c.true_positives) "Dimensions of given sample weight does not match the confusion matrix"; end
     numerator = c.true_positives
-    denominator =  c.false_positives + c.false_negatives + c.true_negatives
+    denominator =  c.true_positives + c.false_negatives + c.false_positives
     if average == nothing
         x = numerator ./ denominator
         return clear_output(x, c.zero_division)
@@ -518,6 +606,11 @@ function jaccard_score(c::confusion_matrix; average = "binary", sample_weight = 
         denominator = sum(denominator)
         x = numerator ./ denominator
         return clear_output(x, c.zero_division)
+    elseif average == "macro"
+        numerator = c.true_positives
+        denominator =  c.true_positives + c.false_negatives + c.false_positives
+        x = numerator ./ denominator
+        return clear_output(mean(x), c.zero_division)
     elseif average == "weighted" || average == "samples"
         weights = nothing
         if average == "weighted"
@@ -530,7 +623,7 @@ function jaccard_score(c::confusion_matrix; average = "binary", sample_weight = 
         x / length(c.Labels)
         return clear_output(x, c.zero_division)
     else
-        x = [(false_negatives[i] + true_positives[i])/length(c.Labels) for i in 1:length(c.Labels)]
+        x = [(c.false_negatives[i] + c.true_positives[i])/length(c.Labels) for i in 1:length(c.Labels)]
         return clear_output(x, c.zero_division)
     end
 end
