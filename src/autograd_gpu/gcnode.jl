@@ -32,6 +32,7 @@ const gcnode_index = Dict{UInt,Int}()
 # There is no explicit call to gcnode_init by the user. gcnode just resets everything if the
 # input Tape is different from gcnode_tape:
 const gcnode_tape = WeakRef(nothing)
+const gcnode_tape_id = Ref(UInt(0))
 
 # During the backward step parents of a node (who have lower indices) may have their
 # outgrads modified, thus new references to CuArrays that we have already indexed may
@@ -46,10 +47,10 @@ end
 
 function gcnode_init(tape::Tape)
     gcnode_tape.value = tape
+    gcnode_tape_id[] = objectid(tape)
     empty!(gcnode_index)
     empty!(gcnode_queue)
     empty!(gcnode_dict)
-    tape isa Tape || return
     @inbounds for (i,n) in enumerate(tape.list)
         gcnode_index[objectid(n)] = i
         if n.Value isa Result
@@ -66,8 +67,9 @@ function gcnode(n::Node, tape::Tape)
     cuallocator[] || return knetgcnode(n,tape)
     if tape !== gcnode_tape.value
         gcnode_init(tape)
+    elseif objectid(tape) !== gcnode_tape_id[]
+        println("Tape inconsistency: objectid(tape)=$(objectid(tape)) gcnode_tape_id[]=$(gcnode_tape_id[]) objectid(gcnode_tape.value) = $(objectid(gcnode_tape.value))")
     end
-    tape isa Tape || return
     @inbounds for i in 1:length(n.parents);
         isassigned(n.parents, i) || continue
         parent = n.parents[i]
@@ -106,6 +108,7 @@ const gcnode_null = Result{Nothing}(nothing,nothing,nothing,nothing)
 
 function gcnode_debug_node(n, tape)
     println("WARNING: Cannot find node $(objectid(n)) in gcnode_index")
+    println("objectid(tape)=$(objectid(tape)) gcnode_tape_id[]=$(gcnode_tape_id[]) objectid(gcnode_tape.value) = $(objectid(gcnode_tape.value))")
     ni = findfirst(isequal(n), tape.list)
     if ni === nothing
         println("The node does not appear on tape.list")
@@ -132,6 +135,7 @@ end
 function gcnode_debug_parent(n, tape, i)
     parent = n.parents[i]
     println("WARNING: Cannot find parent $i of $(objectid(n)) with id $(objectid(parent)) in gcnode_index")
+    println("objectid(tape)=$(objectid(tape)) gcnode_tape_id[]=$(gcnode_tape_id[]) objectid(gcnode_tape.value) = $(objectid(gcnode_tape.value))")
     ni = findfirst(isequal(parent), tape.list)
     if ni === nothing
         println("The parent does not appear on tape.list")
