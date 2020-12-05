@@ -28,6 +28,7 @@ function cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengt
     return dw
 end
 
+# TODO: can we just use Refs instead of the following?
 
 # cudnnRNNForwardWithDefaults does not have access to AutoGrad state so may not set fwdMode and gradient buffers correctly
 # When one of the inputs to cudnnRNNForwardAutoGrad (w, x, hx, cx) is a Value, AutoGrad.forw is called
