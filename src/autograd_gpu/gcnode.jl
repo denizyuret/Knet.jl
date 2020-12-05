@@ -68,19 +68,27 @@ function gcnode(n::Node, tape::Tape)
         gcnode_init(tape)
     end
     tape isa Tape || return
-    ni = gcnode_index[objectid(n)]
-    if n.Value isa Result
-        for c in cuarrays(n.outgrad); gcnode_setindex!(c, ni); end
-    end
     @inbounds for i in 1:length(n.parents);
         isassigned(n.parents, i) || continue
         parent = n.parents[i]
         if parent.Value isa Result
-            pi = gcnode_index[objectid(parent)]
-            for c in cuarrays(parent.outgrad); gcnode_setindex!(c, pi); end
+            pi = get(gcnode_index, objectid(parent), 0)
+            if pi > 0
+                for c in cuarrays(parent.outgrad); gcnode_setindex!(c, pi); end
+            else
+                gcnode_debug_parent(n, tape, i)
+            end
         else
             for c in cuarrays(parent.outgrad); gcnode_setindex!(c,0); end # protect Params
         end
+    end
+    ni = get(gcnode_index, objectid(n), 0)
+    if ni == 0
+        gcnode_debug_node(n, tape)
+        return
+    end
+    if n.Value isa Result
+        for c in cuarrays(n.outgrad); gcnode_setindex!(c, ni); end
     end
     while !isempty(gcnode_queue) && peek(gcnode_queue)[2] >= ni  ## 5.62μs
         (cid,v) = dequeue_pair!(gcnode_queue)
@@ -96,5 +104,53 @@ end
 
 const gcnode_null = Result{Nothing}(nothing,nothing,nothing,nothing)
 
+function gcnode_debug_node(n, tape)
+    println("WARNING: Cannot find node $(objectid(n)) in gcnode_index")
+    ni = findfirst(isequal(n), tape.list)
+    if ni === nothing
+        println("The node does not appear on tape.list")
+    else
+        println("The node appears on index $ni on tape.list")
+    end
+    nj = findfirst(isequal(n), tape.dict)
+    if nj === nothing
+        println("The node does not appear on tape.dict")
+    else
+        println("The node appears on tape.dict")
+    end
+    @show sort(collect(keys(gcnode_index))) == sort(objectid.(tape.list))
+    @show sort(collect(keys(gcnode_index))) == sort(objectid.(collect(values(tape.dict))))
+    @show sort(objectid.(tape.list)) == sort(objectid.(collect(values(tape.dict))))
+    println("gcnode_index has $(length(gcnode_index)) objectid(node) keys:")
+    println(collect(keys(gcnode_index)))
+    println("tape.list has $(length(tape.list)) nodes:")
+    println(objectid.(tape.list))
+    println("tape.dict has $(length(tape.dict)) Tracked-Node pairs:")
+    println(objectid.(collect(values(tape.dict))))
+end
 
-
+function gcnode_debug_parent(n, tape, i)
+    parent = n.parents[i]
+    println("WARNING: Cannot find parent $i of $(objectid(n)) with id $(objectid(parent)) in gcnode_index")
+    ni = findfirst(isequal(parent), tape.list)
+    if ni === nothing
+        println("The parent does not appear on tape.list")
+    else
+        println("The parent appears on index $ni on tape.list")
+    end
+    nj = findfirst(isequal(parent), tape.dict)
+    if nj === nothing
+        println("The parent does not appear on tape.dict")
+    else
+        println("The parent appears on tape.dict")
+    end
+    @show sort(collect(keys(gcnode_index))) == sort(objectid.(tape.list))
+    @show sort(collect(keys(gcnode_index))) == sort(objectid.(collect(values(tape.dict))))
+    @show sort(objectid.(tape.list)) == sort(objectid.(collect(values(tape.dict))))
+    println("gcnode_index has $(length(gcnode_index)) objectid(node) keys:")
+    println(collect(keys(gcnode_index)))
+    println("tape.list has $(length(tape.list)) nodes:")
+    println(objectid.(tape.list))
+    println("tape.dict has $(length(tape.dict)) Tracked-Node pairs:")
+    println(objectid.(collect(values(tape.dict))))
+end
