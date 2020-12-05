@@ -93,7 +93,7 @@ function main(args="")
     xsize = (size(xtrn,1),size(xtrn,2),1,o[:batchsize])
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype,xsize=xsize)
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype,xsize=xsize)
-    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(x->predict(w,x); data=dtrn),:tst,accuracy(x->predict(w,x); data=dtst)))
     if o[:fast]
         @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs]); CUDA.functional() && CUDA.synchronize())
     else

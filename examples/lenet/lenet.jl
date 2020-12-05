@@ -95,7 +95,7 @@ function main(args=ARGS)
     global dtrn = minibatch(xtrn, ytrn, o[:batchsize]; xtype=atype, xsize=xsize)
     global dtst = minibatch(xtst, ytst, o[:batchsize]; xtype=atype, xsize=xsize)
     w = weights(atype=atype)
-    report(epoch)=println((:epoch,epoch,:trn,accuracy(w,dtrn,predict),:tst,accuracy(w,dtst,predict)))
+    report(epoch)=println((:epoch,epoch,:trn,accuracy(x->predict(w,x); data=dtrn),:tst,accuracy(x->predict(w,x); data=dtst)))
 
     if o[:fast]
         @time (train(w, dtrn; lr=o[:lr], epochs=o[:epochs], iters=o[:iters]); CUDA.functional() && CUDA.synchronize())
