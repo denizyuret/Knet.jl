@@ -1,4 +1,5 @@
-export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity, recall, precision, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score, confusion_params
+export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity_score, recall_score, specificity_score, precision_score, positive_predictive_value, accuracy_score, balanced_accuracy, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score, confusion_params
+
 using Plots: heatmap
 using Statistics: mean
 
@@ -282,9 +283,9 @@ Returned dictionary:
     "predicted-negative" => predicted_negative(c)
     "correctly-classified" => correctly_classified(c)
     "incorrectly-classified" => incorrectly_classified(c)
-    "sensitivity" => sensitivity(c)
-    "specificity" => specificity(c)
-    "precision" => precision(c)
+    "sensitivity" => sensitivity_score(c)
+    "specificity" => specificity_score(c)
+    "precision" => precision_score(c)
     "accuracy-score" => accuracy_score(c)
     "balanced Accuracy" => balanced_accuracy(c)
     "positive-predictive-value" =>  positive_predictive_value(c)
@@ -393,9 +394,9 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
         result_dict["predicted-negative"] = predicted_negative(c)
         result_dict["correctly-classified"] = correctly_classified(c)
         result_dict["incorrectly-classified"] = incorrectly_classified(c)
-        result_dict["sensitivity"] = sensitivity(c)
-        result_dict["specificity"] = specificity(c)
-        result_dict["precision"] = precision(c)
+        result_dict["sensitivity"] = sensitivity_score(c)
+        result_dict["specificity"] = specificity_score(c)
+        result_dict["precision"] = precision_score(c)
         result_dict["accuracy-score"] = accuracy_score(c)
         result_dict["balanced Accuracy"] = balanced_accuracy(c)
         result_dict["positive-predictive-value"] =  positive_predictive_value(c)
@@ -434,9 +435,9 @@ function classification_report(c::confusion_matrix; io::IO = Base.stdout, return
         println(io,lpad("Predicted Negative:", 30), [lpad(round(i, digits = digits), label_len) for i in predicted_negative(c)]...)
         println(io,lpad("Correctly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in correctly_classified(c)]...)
         println(io,lpad("Incorrectly Classified:", 30), [lpad(round(i, digits = digits), label_len) for i in incorrectly_classified(c)]...)
-        println(io,lpad("Sensitivity:", 30), [lpad(round(i, digits = digits), label_len) for i in sensitivity(c)]...)
-        println(io,lpad("Specificity:", 30), [lpad(round(i, digits = digits), label_len) for i in specificity(c)]...)
-        println(io,lpad("Precision:", 30) , [lpad(round(i, digits = digits), label_len) for i in precision(c)]...)
+        println(io,lpad("Sensitivity:", 30), [lpad(round(i, digits = digits), label_len) for i in sensitivity_score(c)]...)
+        println(io,lpad("Specificity:", 30), [lpad(round(i, digits = digits), label_len) for i in specificity_score(c)]...)
+        println(io,lpad("Precision:", 30) , [lpad(round(i, digits = digits), label_len) for i in precision_score(c)]...)
         println(io,lpad("Accuracy Score:", 30 ) ,  [lpad(round(accuracy_score(c, ith_class = i), digits = digits), label_len) for i in 1:label_size]...)
         println(io,lpad("Balanced Accuracy:", 30), [lpad(round(i, digits = digits), label_len) for i in balanced_accuracy(c)]...)
         println(io,lpad("Negative Predictive Value:", 30), [lpad(round(i, digits = digits), label_len) for i in negative_predictive_value(c)]...)
@@ -581,7 +582,6 @@ julia> x = confusion_matrix(y_pred, y_true, labels = [1,2,3,4]);
 
 julia> condition_negative(x, class_name = 3)
 16
-
 
 ```
 
@@ -884,11 +884,52 @@ function incorrectly_classified(c::confusion_matrix; ith_class = nothing, class_
 end
 
 """
+```sensitivity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
 
+Return sensitivity (recall) score of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+arguments.
 
+    The sensitivity (recall) is the ratio ``tp / (tp + fn)`` where ``tp`` is the number of
+    true positives and ``fn`` the number of false negatives. The recall is
+    intuitively the ability of the classifier to find all the positive samples.
+    The best value is 1 and the worst value is 0.
 
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return sensitivity(recall) score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia>  x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> sensitivity_score(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main.Metrics C:\Users\PC\Desktop\KNET\Knet.jl\src\metrics\classification_metrics.jl:44
+5-element Array{Float64,1}:
+ 0.2
+ 0.5
+ 1.0
+ 0.0
+ 0.0
+
+julia> sensitivity_score(x, class_name = 1)
+0.2
+```
+
+_See also_ : ```confusion_matrix```, ```recall_score```, ```balanced_accuracy_score```
 """
-function sensitivity(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+function sensitivity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
         x = c.true_positives ./ condition_positive(c)
@@ -899,20 +940,103 @@ function sensitivity(c::confusion_matrix; ith_class = nothing, class_name = noth
     end
 end
 
+"""
+```recall_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return recall(sensitivity) score of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+arguments.
+
+    The recall (sensitivity) is the ratio ``tp / (tp + fn)`` where ``tp`` is the number of
+    true positives and ``fn`` the number of false negatives. The recall is
+    intuitively the ability of the classifier to find all the positive samples.
+    The best value is 1 and the worst value is 0.
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return recall (sensitivity) score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia>  x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> recall_score(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main.Metrics C:\Users\PC\Desktop\KNET\Knet.jl\src\metrics\classification_metrics.jl:44
+5-element Array{Float64,1}:
+ 0.2
+ 0.5
+ 1.0
+ 0.0
+ 0.0
+
+julia> recall_score(x, class_name = 1)
+0.2
+```
+
+_See also_ : ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```
 
 """
-
-
-"""
-function recall(c::confusion_matrix; ith_class = nothing, class_name = nothing)
-    return sensitivity(c, ith_class = ith_class, class_name = class_name)
+function recall_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+    return sensitivity_score(c, ith_class = ith_class, class_name = class_name)
 end
 
 
 """
+```specificity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
 
+Return specificity score of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+arguments.
+
+    The specificity is the ratio ``tn / (tn + fp)`` where ``tn`` is the number of
+    true negatives and ``fp`` the number of false positives. The specificity is
+    intuitively the ability of the classifier to find all the negative samples.
+    The best value is 1 and the worst value is 0.
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return recall (sensitivity) score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia>  x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> specificity(x)
+5-element Array{Float64,1}:
+ 0.6
+ 1.0
+ 0.7777777777777778
+ 0.7
+ 1.0
+
+julia> specificity(x,ith_class = 2)
+1.0
+```
+
+_See also_ : ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
 """
-function specificity(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+function specificity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
         x = c.true_negatives ./ condition_negative(c)
@@ -925,10 +1049,54 @@ end
 
 
 """
+```precision_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
 
+Return precision score of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+arguments.
+
+    The precision is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
+    true positives and ``fp`` the number of false positives. The precision is
+    intuitively the ability of the classifier not to label as positive a sample
+    that is negative.
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return precision score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> precision_score(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main Path
+5-element Array{Float64,1}:
+ 0.3333333333333333
+ 1.0
+ 0.3333333333333333
+ 0.0
+ 0.0
+
+julia>  precision_score(x, class_name = 3)
+0.3333333333333333
+
+```
+
+_See also_ : ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
 
 """
-function precision(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+function precision_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
         x = c.true_positives ./ (c.true_positives + c.false_positives)
@@ -940,13 +1108,98 @@ function precision(c::confusion_matrix; ith_class = nothing, class_name = nothin
 end
 
 """
+```positive_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return  score of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+arguments.
+
+    The positive predictive value is the ratio ``tp / (tp + fp)`` where ``tp`` is the number of
+    true positives and ``fp`` the number of false positives. The positive predictive value is
+    intuitively the ability of the classifier not to label as positive a sample
+    that is negative.
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return positive predictive value for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> positive_predictive_value(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main Path
+5-element Array{Float64,1}:
+ 0.3333333333333333
+ 1.0
+ 0.3333333333333333
+ 0.0
+ 0.0
+
+julia> positive_predictive_value(x, ith_class = 3)
+0.3333333333333333
+
+```
+
+_See also_ : ```specificity_score``` ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
 
 """
 function positive_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
-   return precision(c, class_name = class_name, ith_class = ith_class)
+   return precision_score(c, class_name = class_name, ith_class = ith_class)
 end
 
 """
+```accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing, normalize = true, sample_weight = nothing) ```
+
+Return accuracy classification score.
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+**`normalize`** : bool, (default=True)
+        If ``False``, return the number of correctly classified samples.
+        Otherwise, return the fraction of correctly classified samples.
+
+**`sample_weight`** : array-like of shape (n_samples,), default=None
+        Sample weights.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return positive predictive value for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> accuracy_score(x)
+0.36
+
+julia> accuracy_score(x, normalize = false)
+3.5999999999999996
+
+```
+
+_See also_ : ```jaccard_score``` ```confusion_matrix```, ```hamming_loss```, ```balanced_accuracy_score```,```recall_score```
+
 
 """
 function accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing, normalize = true, sample_weight = nothing)
@@ -976,13 +1229,13 @@ end
 
 
 """
-function balanced_accuracy(c::confusion_matrix; ith_class = nothing, class_name = nothing)
+function balanced_accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
-        x = [(sensitivity(c, ith_class = i) +  specificity(c, ith_class = i)) / 2 for i in 1:length(c.true_positives)]
+        x = [(sensitivity_score(c, ith_class = i) +  specificity_score(c, ith_class = i)) / 2 for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = (sensitivity(c,ith_class = index) +  specificity(c, ith_class = index)) / 2
+        x = (sensitivity_score(c,ith_class = index) +  specificity_score(c, ith_class = index)) / 2
         return clear_output(x,c.zero_division)
     end
 end
@@ -1080,10 +1333,10 @@ end
 function prevalence_threshold(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
-        x = [(sqrt(abs(sensitivity(c,ith_class = i) * (-specificity(c,ith_class = i) +1) + specificity(c,ith_class = i) -1)) / (sensitivity(c,ith_class = i) + specificity(c,ith_class = i) -1)) for i in 1:length(c.true_positives)]
+        x = [(sqrt(abs(sensitivity_score(c,ith_class = i) * (-specificity_score(c,ith_class = i) +1) + specificity_score(c,ith_class = i) -1)) / (sensitivity_score(c,ith_class = i) + specificity_score(c,ith_class = i) -1)) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = (sqrt(abs(sensitivity(c,ith_class = index) * (-specificity(c,ith_class = index) +1) + specificity(c,ith_class = index) -1)) / (sensitivity(c,ith_class = index) + specificity(c,ith_class = index) -1))
+        x = (sqrt(abs(sensitivity_score(c,ith_class = index) * (-specificity_score(c,ith_class = index) +1) + specificity_score(c,ith_class = index) -1)) / (sensitivity_score(c,ith_class = index) + specificity_score(c,ith_class = index) -1))
         return clear_output(x,c.zero_division)
     end
 end
@@ -1126,10 +1379,10 @@ end
 function fowlkes_mallows_index(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
-        x = [sqrt(positive_predictive_value(c,ith_class = i) * sensitivity(c,ith_class = i)) for i in 1:length(c.true_positives)]
+        x = [sqrt(positive_predictive_value(c,ith_class = i) * sensitivity_score(c,ith_class = i)) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = sqrt(positive_predictive_value(c,ith_class = index) * sensitivity(c,ith_class = index))
+        x = sqrt(positive_predictive_value(c,ith_class = index) * sensitivity_score(c,ith_class = index))
         return clear_output(x,c.zero_division)
     end
 end
@@ -1140,10 +1393,10 @@ end
 function informedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
-        x = [ ( specificity(c,ith_class = i) + sensitivity(c,ith_class = i) -1) for i in 1:length(c.true_positives)]
+        x = [ ( specificity_score(c,ith_class = i) + sensitivity_score(c,ith_class = i) -1) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = specificity(c,ith_class = index) + sensitivity(c,ith_class = index) -1
+        x = specificity_score(c,ith_class = index) + sensitivity_score(c,ith_class = index) -1
         return clear_output(x,c.zero_division)
     end
 end
@@ -1154,10 +1407,10 @@ end
 function markedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
     if index == -1
-        x = [( precision(c,ith_class = i) * negative_predictive_value(c,ith_class = i) -1) for i in 1:length(c.true_positives)]
+        x = [( precision_score(c,ith_class = i) * negative_predictive_value(c,ith_class = i) -1) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = specificity(c,ith_class = index) + sensitivity(c,ith_class = index) -1
+        x =  specificity_score(c,ith_class = index) + sensitivity_score(c,ith_class = index) -1
         return clear_output(x,c.zero_division)
     end
 end
