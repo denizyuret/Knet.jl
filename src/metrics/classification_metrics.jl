@@ -9,7 +9,7 @@ using Statistics: mean
 Return the true positives, true negatives, false positives, false negatives arrays
 from the given n x n matrix. If the provided matrix is not n x n, an assertion
 exception: "Given matrix is not n x n" will be raised. As a visualization for the inner
-calculation of the, the following [this source](https://devopedia.org/images/article/208/6541.1566280388.jpg) may be visited
+calculation of the function, [this page](https://devopedia.org/images/article/208/6541.1566280388.jpg) may be visited
 
 """
 function confusion_params(matrix::Array{Number,2})
@@ -64,20 +64,20 @@ A struct for representing confusion matrix and related computations
 
 ## Fields
 **`true_positives`** : An array that contains the true positive values of each label. For binary case,
-true positives is a single value. For multiclass, ith element in the array corresponds to the
-true positives of the ith class in the labels list.
+`true_positives` is a single value. For multiclass, ith element in the array corresponds to the
+`true_positives` of the ith class in the labels list.
 
 **`true_negatives`** : An array that contains the true negative values of each label. For binary case,
-true negatives is a single value. For multiclass, ith element in the array corresponds to the
-true negatives of the ith class in the labels list.
+`true_negatives` is a single value. For multiclass, ith element in the array corresponds to the
+`true_negatives` of the ith class in the labels list.
 
 **`false_positives`** : An array that contains the false positive values of each label. For binary case,
-false positives is a single value. For multiclass, ith element in the array corresponds to the
-false positives of the ith class in the labels list.
+`false_positives` is a single value. For multiclass, ith element in the array corresponds to the
+`false_positives` of the ith class in the labels list.
 
 **false_negatives** : An array that contains the false negative values of each label. For binary case,
-false negatives is a single value. For multiclass, ith element in the array corresponds to the
-false negatives of the ith class in the labels list.
+`false_negatives` is a single value. For multiclass, ith element in the array corresponds to the
+`false_negatives` of the ith class in the labels list.
 
 **`matrix`** : an n x n matrix where n is the length of labels. It represents the actual confusion matrix
 from which true positives, true negatives, false positives and false negatives are calculated.
@@ -116,7 +116,7 @@ Return a confusion matrix object constructed by the expected and predicted array
 must be of size (n,1) or or vector type. Lengths of the expected and predicted arrays must be equal; thus,
 there should be a prediction and a ground truth for each classification.
 
-## Arguments
+## Keywords
 
     \n**`labels`** : vector-like of shape (n,1), default = nothing
     \nList of labels to index the matrix. If nothing is given, those that appear at least once
@@ -147,6 +147,22 @@ and Predicted arrays\n
                   3      2      2   │1
                   2      1      0   │2     Predicted
                   0      1      1   │3
+
+
+julia> y_true = ["emirhan", "knet", "metrics", "confusion", "knet", "confusion", "emirhan", "metrics", "confusion"];
+
+julia> y_pred = ["knet", "knet", "confusion", "confusion", "knet", "emirhan", "emirhan", "knet", "confusion"];
+
+julia> x = confusion_matrix(y_true, y_pred, labels = ["emirhan", "knet", "confusion", "metrics"])
+
+Expected
+
+emirhan           knet      confusion        metrics
+____________________________________________________________
+1              1              0              0   │emirhan
+0              2              0              0   │knet
+1              0              2              0   │confusion       Predicted
+0              1              1              0   │metrics
 
 ```
 ## References
@@ -207,7 +223,7 @@ end
 
 \nReturn a binary confusion matrix for the class denoted by `class_name` or `ith_class` arguments.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 \n\tReturn the binary confusion matrix of the ith class in the Labels array. This will be ignored if class_name is not `nothing`
@@ -303,13 +319,13 @@ Returned dictionary:
     "markedness" => markedness(c)
     "jaccard-score-nonaverage" => jaccard_score(c, average = nothing)
     "jaccard-score-microaverage" => jaccard_score(c, average = "micro")
-    "hamming-loss" => jaccard_score(c)
+    "hamming-loss" => hamming_loss(c)
     "cohen-kappa-score" => cohen_kappa_score(c)
 ```
 
 For a sample output to the given IO element, see Example section.
 
-## Arguments
+## Keywords
 
     \n**`io`** : ::IO, default = Base.stdout
     \n\tIO element to write to
@@ -467,9 +483,9 @@ end
 Return condition positive values of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
 arguments.
 
-    Condition Positive: True Positives + False Negatives
+    Condition Positives: True Positives + False Negatives
 
-## Arguments
+## Keyowrds
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -512,6 +528,7 @@ julia> condition_positive(x, class_name = "knet")
 3
 
 ```
+_See also_ : `confusion_matrix`, `condition_negative`, `predicted_positive`, `predicted_negative`
 
 """
 function condition_positive(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -528,12 +545,12 @@ end
 """
 ```condition_negative(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
 
-Return condition positive values of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
+Return condition negative values of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
 arguments.
 
-    Condition Negative: True Negatives + False Positives
+    Condition Negatives: True Negatives + False Positives
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -585,6 +602,8 @@ julia> condition_negative(x, class_name = 3)
 
 ```
 
+_See also_ : `confusion_matrix`, `condition_positive`, `predicted_positive`, `predicted_negative`
+
 """
 function condition_negative(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -603,9 +622,9 @@ end
 Return predicted positive values of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
 arguments.
 
-    Predicted Positive: True Positives + False Positives
+    Predicted Positives: True Positives + False Positives
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -654,9 +673,10 @@ julia> x = confusion_matrix(y_pred, y_true, labels = [2,3,4,5]);
 
 julia> predicted_positive(x, class_name = 3)
 9
-
-
 ```
+
+_See also_ : `confusion_matrix`, `condition_negative`, `predicted_positive`, `predicted_negative`
+
 """
 function predicted_positive(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -675,9 +695,9 @@ end
 Return predicted negative values of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
 arguments.
 
-    Predicted Negative: Negatives + False Negatives
+    Predicted Negatives: Negatives + False Negatives
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -728,6 +748,8 @@ julia> predicted_negative(x, class_name = 4)
 19
 
 ```
+_See also_ : `confusion_matrix`, `condition_negative`, `predicted_positive`, `condition_positive`
+
 """
 function predicted_negative(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -746,9 +768,9 @@ end
 Return number of correctly classified instances of either the whole confusion matrix or the classes specified by `class_name` or `ith_class`
 arguments.
 
-    Correctly Classified: True Positives + True Negatives
+    Correctly Classified Values: True Positives + True Negatives
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -798,6 +820,8 @@ julia> x = confusion_matrix(y_pred, y_true, labels = [2,3,4,5]);
 julia> correctly_classified(x, ith_class = 1)
 17
 ```
+
+_See also_ : `confusion_matrix`, `predicted_negative`, `predicted_positive`, `incorrectly_classified`
 
 """
 function correctly_classified(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -871,6 +895,8 @@ julia> incorrectly_classified(x, ith_class = 2)
 
 ```
 
+_See also_ : `confusion_matrix`, `predicted_negative`, `predicted_positive`, `correctly_classified`
+
 """
 function incorrectly_classified(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -894,7 +920,7 @@ arguments.
     intuitively the ability of the classifier to find all the positive samples.
     The best value is 1 and the worst value is 0.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -915,7 +941,7 @@ julia>  x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
 
 julia> sensitivity_score(x)
 ┌ Warning: Zero division, replacing NaN or Inf with 0
-└ @ Main.Metrics C:\Users\PC\Desktop\KNET\Knet.jl\src\metrics\classification_metrics.jl:44
+└ @ Path
 5-element Array{Float64,1}:
  0.2
  0.5
@@ -927,7 +953,7 @@ julia> sensitivity_score(x, class_name = 1)
 0.2
 ```
 
-_See also_ : ```confusion_matrix```, ```recall_score```, ```balanced_accuracy_score```
+_See also_ : `confusion_matrix` , `recall_score` ,  `balanced_accuracy_score`, `specificity_score`
 """
 function sensitivity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -951,7 +977,7 @@ arguments.
     intuitively the ability of the classifier to find all the positive samples.
     The best value is 1 and the worst value is 0.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -972,7 +998,7 @@ julia>  x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
 
 julia> recall_score(x)
 ┌ Warning: Zero division, replacing NaN or Inf with 0
-└ @ Main.Metrics C:\Users\PC\Desktop\KNET\Knet.jl\src\metrics\classification_metrics.jl:44
+└ @ Path
 5-element Array{Float64,1}:
  0.2
  0.5
@@ -984,7 +1010,7 @@ julia> recall_score(x, class_name = 1)
 0.2
 ```
 
-_See also_ : ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```
+_See also_ : `confusion_matrix` , `sensitivity_score` ,  `balanced_accuracy_score`, `specificity_score`
 
 """
 function recall_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1003,7 +1029,7 @@ arguments.
     intuitively the ability of the classifier to find all the negative samples.
     The best value is 1 and the worst value is 0.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -1011,7 +1037,7 @@ Return the results for the ith class in the ith label of the label list of the g
 **`class_name`** : Int/String, default = nothing
 Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
 
-If both `class_name` and `ith_class` arguments are equal to `nothing`, return recall (sensitivity) score for all the elements in the labels arrays
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return specificity score for all the elements in the labels arrays
 
 ## Examples
 
@@ -1035,6 +1061,7 @@ julia> specificity(x,ith_class = 2)
 ```
 
 _See also_ : ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
+
 """
 function specificity_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1059,7 +1086,7 @@ arguments.
     intuitively the ability of the classifier not to label as positive a sample
     that is negative.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -1118,7 +1145,7 @@ arguments.
     intuitively the ability of the classifier not to label as positive a sample
     that is negative.
 
-## Arguments
+## Keywords
 
 **`ith_class`** : Int, default = nothing
 Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
@@ -1152,7 +1179,7 @@ julia> positive_predictive_value(x, ith_class = 3)
 
 ```
 
-_See also_ : ```specificity_score``` ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
+_See also_ : ```negative_predictive_value```, ```confusion_matrix```, ```sensitivity_score```, ```balanced_accuracy_score```,```recall_score```
 
 """
 function positive_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1172,7 +1199,7 @@ Return the results for the ith class in the ith label of the label list of the g
 **`class_name`** : Int/String, default = nothing
 Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
 
-**`normalize`** : bool, (default=True)
+**`normalize`** : bool, default= true
         If ``False``, return the number of correctly classified samples.
         Otherwise, return the fraction of correctly classified samples.
 
@@ -1225,8 +1252,54 @@ function accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = n
 end
 
 """
+```balanced_accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
 
+Return balanced accuracy classification score.
 
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return balanced accuracy score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> balanced_accuracy_score(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ 0.4
+ 0.75
+ 0.8888888888888888
+ 0.35
+ 0.5
+
+julia> balanced_accuracy_score(x, ith_class = 3)
+0.8888888888888888
+
+```
+
+_See also_ : ```accuracy_score``` ```confusion_matrix```, ```hamming_loss```, ```balanced_accuracy_score```,```recall_score```
+
+[1] Brodersen, K.H.; Ong, C.S.; Stephan, K.E.; Buhmann, J.M. (2010).
+       The balanced accuracy and its posterior distribution.
+       Proceedings of the 20th International Conference on Pattern
+       Recognition, 3121-24.
+[2] John. D. Kelleher, Brian Mac Namee, Aoife D'Arcy, (2015).
+       `Fundamentals of Machine Learning for Predictive Data Analytics:
+       Algorithms, Worked Examples, and Case Studies
+       [link](https://mitpress.mit.edu/books/fundamentals-machine-learning-predictive-data-analytics)
 
 """
 function balanced_accuracy_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1242,7 +1315,42 @@ end
 
 """
 
+```negative_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
 
+Return negative predictive value for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return negative predictive value for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> negative_predictive_value(x)
+5-element Array{Float64,1}:
+ 0.42857142857142855
+ 0.8888888888888888
+ 1.0
+ 1.0
+ 0.8
+
+ julia> negative_predictive_value(x, class_name = 1)
+ 0.42857142857142855
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```positive_predictive_value```, ```balanced_accuracy_score```
 
 """
 function negative_predictive_value(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1258,6 +1366,45 @@ end
 
 """
 
+```false_negative_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
+
+Return false negative rate for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return false negative rate for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> false_negative_rate(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ 0.8
+ 0.5
+ 0.0
+ 0.0
+ 1.0
+
+ julia> false_negative_rate(x, ith_class = 3)
+ 0.0
+ ```
+
+ _See Also_ :   ```confusion_matrix```, ```false_positive_rate```, ```positive_predictive_value```, ```balanced_accuracy_score```
+
 """
 function false_negative_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1265,13 +1412,49 @@ function false_negative_rate(c::confusion_matrix; ith_class = nothing, class_nam
         x = [c.false_negatives[i] / condition_positive(c,ith_class = i) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = c.false_negatives[i] / condition_positive(c,ith_class = index)
+        x = c.false_negatives[index] / condition_positive(c,ith_class = index)
         return clear_output(x,c.zero_division)
     end
 end
 
 """
 
+```false_positive_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
+
+Return false positive rate for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return false positive rate for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> false_positive_rate(x)
+5-element Array{Float64,1}:
+ 0.4
+ 0.0
+ 0.2222222222222222
+ 0.3
+ 0.0
+
+ julia> false_positive_rate(x, ith_class = 3)
+ 0.2222222222222222
+ ```
+
+ _See Also_ :   ```confusion_matrix```, ```false_negative_rate```, ```positive_predictive_value```, ```balanced_accuracy_score```
 """
 function false_positive_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1279,13 +1462,49 @@ function false_positive_rate(c::confusion_matrix; ith_class = nothing, class_nam
         x = [c.false_positives[i] / condition_negative(c,ith_class = i) for i in 1:length(c.true_positives)]
         return clear_output(x,c.zero_division)
     else
-        x = c.false_negatives[i] / condition_positive(c,ith_class = index)
+        x = c.false_positives[index] / condition_negative(c,ith_class = index)
         return clear_output(x,c.zero_division)
     end
 end
 
 """
 
+```false_discovery_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
+
+Return false discovery rate for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return false discovery rate for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> false_discovery_rate(x)
+5-element Array{Float64,1}:
+ 0.4
+ 0.0
+ 0.2222222222222222
+ 0.3
+ 0.0
+
+julia> false_discovery_rate(x, ith_class = 3)
+0.2222222222222222
+
+```
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```positive_predictive_value```, ```false_omission_rate```
 
 """
 function false_discovery_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1300,7 +1519,42 @@ function false_discovery_rate(c::confusion_matrix; ith_class = nothing, class_na
 end
 
 """
+```false_omission_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
 
+Return false omission rate for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return false omission rate for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> false_omission_rate(x)
+5-element Array{Float64,1}:
+ 0.5714285714285714
+ 0.11111111111111116
+ 0.0
+ 0.0
+ 0.19999999999999996
+
+julia> false_omission_rate(x, ith_class = 5)
+0.19999999999999996
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```positive_predictive_value```, ```false_discovery_rate```
 """
 function false_omission_rate(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1314,6 +1568,42 @@ function false_omission_rate(c::confusion_matrix; ith_class = nothing, class_nam
 end
 
 """
+```f1_score(c::confusion_matrix; ith_class = nothing, class_name = nothing) ```
+
+Return f1 score for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return f1 score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> f1_score(x)
+5-element Array{Float64,1}:
+ 0.25
+ 0.6666666666666666
+ 0.5
+ 0.0
+ 0.0
+
+julia> f1_score(x, class_name = 2)
+0.6666666666666666
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```recall_score```, ```false_omission_rate```
 
 """
 function f1_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1329,6 +1619,49 @@ end
 
 """
 
+```prevalence_threshold(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return prevalence threshold for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return prevalence threshold for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> prevalence_threshold(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ -2.828427124746191
+  0.0
+  0.0
+ -1.8257418583505536
+  0.0
+
+julia> prevalence_threshold(x, ith_class = 1)
+-2.828427124746191
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```recall_score```, ```f1_score```
+
 """
 function prevalence_threshold(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1342,6 +1675,43 @@ function prevalence_threshold(c::confusion_matrix; ith_class = nothing, class_na
 end
 
 """
+
+```threat_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return threat score for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return threat score for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> threat_score(x)
+5-element Array{Float64,1}:
+ 0.14285714285714285
+ 0.5
+ 0.3333333333333333
+ 0.0
+ 0.0
+
+julia> threat_score(x, ith_class = 3)
+0.3333333333333333
+
+```
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```recall_score```, ```f1_score```
 
 """
 function threat_score(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1357,6 +1727,45 @@ end
 
 """
 
+```matthews_correlation_coeff(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return Matthew's Correlation Coefficient for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return Matthew's Correlation Coefficient for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> matthews_correlation_coeff(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ -0.2182178902359924
+  0.6666666666666666
+  0.5091750772173156
+  0.0
+  0.0
+
+julia> matthews_correlation_coeff(x, ith_class = 3)
+0.5091750772173156
+
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```threat_score```, ```f1_score```
 
 """
 function matthews_correlation_coeff(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1375,6 +1784,47 @@ end
 
 """
 
+```fowlkes_mallows_index(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return Fowlkes Mallows Index for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return Fowlkes Mallows Index for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> fowlkes_mallows_index(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main Path
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Main Path
+5-element Array{Float64,1}:
+ 0.2581988897471611
+ 0.7071067811865476
+ 0.5773502691896257
+ 0.0
+ 0.0
+
+julia> fowlkes_mallows_index(x, ith_class = 2)
+0.7071067811865476
+
+```
+
+_See Also_ :   ```confusion_matrix```, ```matthews_correlation_coeff```, ```threat_score```, ```f1_score```
 """
 function fowlkes_mallows_index(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1389,6 +1839,45 @@ end
 
 """
 
+```informedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return informedness value for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return informedness value for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> informedness(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ -0.19999999999999996
+  0.5
+  0.7777777777777777
+ -0.30000000000000004
+  0.0
+
+julia> informedness(x,ith_class = 3)
+0.7777777777777777
+
+```
+
+_See Also_ :   ```confusion_matrix```, ```matthews_correlation_coeff```, ```markedness```, ```f1_score```
 """
 function informedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
     index = check_index(c.Labels, true, ith_class = ith_class, class_name = class_name)
@@ -1402,6 +1891,46 @@ function informedness(c::confusion_matrix; ith_class = nothing, class_name = not
 end
 
 """
+
+```markedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)```
+
+Return markedness value for the specified class(es).
+
+## Arguments
+
+**`ith_class`** : Int, default = nothing
+Return the results for the ith class in the ith label of the label list of the given confusion matrix object.
+
+**`class_name`** : Int/String, default = nothing
+Return the results for the class of the speicifed value in the ith label of the label list of the given confusion matrix object.
+
+If both `class_name` and `ith_class` arguments are equal to `nothing`, return  markedness value for all the elements in the labels arrays
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> markedness(x)
+┌ Warning: Zero division, replacing NaN or Inf with 0
+└ @ Path
+5-element Array{Float64,1}:
+ -0.8571428571428572
+ -0.11111111111111116
+ -0.6666666666666667
+ -1.0
+ -1.0
+
+julia> markedness(x, ith_class = 1)
+-0.19999999999999996
+
+```
+
+_See Also_ :   ```confusion_matrix```, ```matthews_correlation_coeff```, ```informedness```, ```f1_score```
 
 """
 function markedness(c::confusion_matrix; ith_class = nothing, class_name = nothing)
@@ -1420,6 +1949,20 @@ end
 
 Return Cohen's Kappa (a statistic that measures inter-annotator agreement)
 
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> cohen_kappa_score(x)
+0.125
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```jaccard_score```, ```f1_score```
 
 """
 function cohen_kappa_score(c::confusion_matrix; weights = nothing)
@@ -1449,6 +1992,25 @@ end
 
 """
 
+```hamming_loss(c::confusion_matrix) ```
+
+Compute the average Hamming loss.
+    The Hamming loss is the fraction of labels that are incorrectly predicted.
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> hamming_loss(x)
+0.7
+```
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```jaccard_score```, ```f1_score```
 
 """
 function hamming_loss(c::confusion_matrix;)
@@ -1459,6 +2021,56 @@ end
 
 """
 
+```jaccard_score(c::confusion_matrix; average = "binary", sample_weight = nothing) ```
+
+Compute Jaccard similarity coefficient score
+    The Jaccard index [1], or Jaccard similarity coefficient, defined as
+    the size of the intersection divided by the size of the union of two label
+    sets, is used to compare set of predicted labels for a sample to the
+    corresponding set of labels in ``y_true``.
+
+## Keywords
+
+average : string [None, 'binary' (default), 'micro', 'macro', 'samples, 'weighted']
+    If ``None``, the scores for each class are returned. Otherwise, this
+    determines the type of averaging performed on the data:
+    ``binary``:
+        Only report results for the class specified by ``pos_label``.
+    ``micro``:
+        Calculate metrics globally by counting the total true positives,
+        false negatives and false positives.
+    ``macro``:
+        Calculate metrics for each label, and find their unweighted
+        mean.  This does not take label imbalance into account.
+    ``weighted``:
+        Calculate metrics for each label, and find their average, weighted
+        by support (the number of true instances for each label). This
+        alters 'macro' to account for label imbalance.
+    ``samples``:
+        Calculate metrics for each instance, and find their average (only
+        meaningful for multilabel classification).
+sample_weight : array-like of shape (n_samples,), default=None
+    Sample weights.
+
+## Examples
+
+```julia-repl
+julia> y_true = [3, 1, 1, 2, 1, 2, 1, 5, 1, 5];
+
+julia> y_pred = [3, 1, 4, 1, 4, 2, 3, 4, 3, 1];
+
+julia> x = confusion_matrix(y_true, y_pred, labels= [1,2,3,4,5]);
+
+julia> hamming_loss(x)
+0.7
+```
+
+## References
+
+[1] [Wikipedia entry for the Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index)
+
+
+_See Also_ :   ```confusion_matrix```, ```accuracy_score```, ```hamming_loss```, ```f1_score```
 
 """
 function jaccard_score(c::confusion_matrix; average = "binary", sample_weight = nothing)
