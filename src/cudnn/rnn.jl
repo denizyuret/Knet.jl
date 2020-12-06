@@ -40,7 +40,7 @@ end
 function forw(f::typeof(cudnnRNNForwardAutoGrad), w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workSpace, reserveSpace, dw, dx, dhx, dcx)
     args = (w, x, hx, cx)
     (f, nobcast, novalue) = forwargs(f, args)
-    @assert nobcast == args               # we shouldn't need to handle broadcasting with rnns
+    @assert nobcast === args              # we shouldn't need to handle broadcasting with rnns
     if recording() && novalue !== nobcast # we are taking gradients and there are tracked args
         fwdMode=CUDNN_FWD_MODE_TRAINING
         (workSpaceSize, reserveSpaceSize) = cudnnRNNTempSpaceSizes(rnnDesc, fwdMode, xDesc)
