@@ -16,7 +16,6 @@ function cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, 
     dx[], dscale[], dbias[] = similar.((x, scale, bias))
     dz[] = (z === CU_NULL ? z : similar(z))
     (alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff) = (a->scalingParameter(eltype(x),a)).((1,0,1,0))
-    @info "calling backward";
     cudnnNormalizationBackward(handle(), mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, x, yDesc, y, yDesc, dy, zDesc, dz[], xDesc, dx[], normScaleBiasDesc, scale, bias, dscale[], dbias[], epsilon, normMeanVarDesc, something(savedMean[],CU_NULL), something(savedInvVariance[],CU_NULL), activationDesc, something(workspace[],CU_NULL), sizeof(workspace[]), something(reserveSpace[],CU_NULL), sizeof(reserveSpace[]), groupCnt)
 end
 
@@ -37,11 +36,9 @@ function forw(f::typeof(cudnnNormalizationForwardAutoGrad), x, scale, bias, z; m
         reserveSpaceSize = Ref{Csize_t}(0)
         cudnnGetNormalizationTrainingReserveSpaceSize(handle(), mode, normOps, algo, activationDesc, xDesc, reserveSpaceSize, groupCnt)
         reserveSpace[] = cudnnTempSpace(reserveSpaceSize[])
-        @info "calling forw->Training"
         cudnnNormalizationForwardTraining(handle(), mode, normOps, algo, alpha, beta, xDesc, x, normScaleBiasDesc, scale, bias, exponentialAverageFactor, normMeanVarDesc, something(mean,CU_NULL), something(variance,CU_NULL), epsilon, something(savedMean[],CU_NULL), something(savedInvVariance[],CU_NULL), activationDesc, zDesc, z, yDesc, y, something(workspace[],CU_NULL), sizeof(workspace[]), something(reserveSpace[],CU_NULL), sizeof(reserveSpace[]), groupCnt)
         y = Result(y, f, args, (; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz))
     else                        # we are not taking gradients
-        @info "calling forw->Inference"
         cudnnNormalizationForwardInference(handle(), mode, normOps, algo, alpha, beta, xDesc, x, normScaleBiasDesc, scale, bias, normMeanVarDesc, something(mean,CU_NULL), something(variance,CU_NULL), zDesc, z, activationDesc, yDesc, y, epsilon, groupCnt)
     end
     return y
