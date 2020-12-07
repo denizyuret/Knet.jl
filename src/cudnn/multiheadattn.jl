@@ -3,15 +3,15 @@ using  CUDA.CUDNN: cudnnMultiHeadAttnBackwardWeights, cudnnMultiHeadAttnBackward
 using AutoGrad: AutoGrad, @primitive1, value
 
 
-@primitive1((cudnnMultiHeadAttnForwardAutoGrad(weights, queries, keys, values, residuals; dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace),
-             dout,_out),
-            # All work is done during gradient calc for first arg:
-            (
-             cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace);
-             dweights[]),
-            dqueries[], dkeys[], dvalues[], dout) # dresiduals is equal to dout
+@primitive1((cudnnMultiHeadAttnForwardAutoGrad(weights, queries, keys, values, residuals; dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace), dout,_out),
+            (dweights[] === nothing && cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace); dweights[]),
+            (dqueries[] === nothing && cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace); dqueries[]),
+            (dkeys[] === nothing && cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace); dkeys[]),
+            (dvalues[] === nothing && cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace); dvalues[]),
+            dout) # dresiduals is equal to dout
 
 
+# Do all the work in first call
 function cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workSpace, reserveSpace)
     weights, queries, keys, values, residuals, dout = value.((weights, queries, keys, values, residuals, dout))
     # The cudnnMultiHeadAttnBackwardData() function must be invoked after cudnnMultiHeadAttnForward(). The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the cudnnMultiHeadAttnForward() call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
