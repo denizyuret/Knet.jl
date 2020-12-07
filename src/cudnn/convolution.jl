@@ -24,7 +24,7 @@ using Knet.Ops20: reluback
 
     (db = similar(bias);
      T=eltype(db); (alpha,beta) = (scalingParameter(T,1), scalingParameter(T,0));
-     cudnnConvolutionBackwardBias(handle(), alpha, yDesc, dy[], beta, biasDesc, db); # TODO: Test if this is faster than sum(dy[],dims)
+     cudnnConvolutionBackwardBias(handle(), alpha, yDesc, dy[], beta, biasDesc, db);
      db),
 
     (beta[] * dy[]))
