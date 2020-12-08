@@ -1,11 +1,4 @@
-#module CUDNN
-
-#include("common.jl")
-#include("descriptors.jl")
-#include("tensor.jl")
-#include("inplace.jl")
-#include("optensor.jl")
-#include("reduce.jl")
+module CUDNN
 
 issimilar(x,y) = (typeof(x) === typeof(y) && (x === nothing || size(x) === size(y)))
 
@@ -19,7 +12,7 @@ include("convolution.jl")
 include("multiheadattn.jl")
 include("normalization.jl")
 
-#end
+end
 
 ## grep cudnnHandle_t
 # ?add8: cudnnBackendExecute

@@ -62,5 +62,5 @@ function forw(f::typeof(cudnnRNNForwardAutoGrad), w, x, hx, cx; rnnDesc, fwdMode
     return v
 end
 
-import Base: sizeof
-@zerograd sizeof(x) # TODO: move this to AutoGrad
+#import Base: sizeof
+#@zerograd sizeof(x) # TODO: move this to AutoGrad

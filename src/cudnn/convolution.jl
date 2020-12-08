@@ -1,7 +1,7 @@
 import CUDA.CUDNN: cudnnConvolutionForwardAutoGrad
 using CUDA.CUDNN: cudnnConvolutionBwdFilterAlgoPerf, @workspace, cudnnConvolutionBackwardFilter, cudnnConvolutionBwdDataAlgoPerf, cudnnConvolutionBackwardData, cudnnConvolutionBackwardBias, scalingParameter
 using AutoGrad: AutoGrad, @primitive1, value
-using Knet.Ops20: reluback
+#TODO: Use cudnn instead of this: using Knet.Ops20: reluback
 
 # Define gradients
 @primitive1(

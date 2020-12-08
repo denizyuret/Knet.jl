@@ -9,6 +9,7 @@ atype(x) = convert(atype(),x)
 const array_type = Ref{Type}(Array{Float32})
 
 include("libknet8/LibKnet8.jl")
+include("cudnn/CUDNN.jl")
 include("knetarrays/KnetArrays.jl")
 include("cuarrays/CuArrays.jl")
 include("autograd_gpu/AutoGrad_gpu.jl")
