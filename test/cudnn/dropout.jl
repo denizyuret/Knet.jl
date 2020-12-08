@@ -1,15 +1,31 @@
-using Test, AutoGrad
-#using Knet.CUDNN: cudnnDropoutDescriptor, cudnnDropoutSeed, cudnnDropoutForward
+using Test, CUDA, Knet, AutoGrad
+using CUDA.CUDNN: 
+    cudnnDropoutForward,
+    cudnnDropoutForward!,
+    cudnnDropoutBackward,
+    cudnnDropoutSeed,
+    cudnnDropoutDescriptor,
+        cudnnDropoutDescriptor_t,
+        cudnnCreateDropoutDescriptor,
+        cudnnSetDropoutDescriptor,
+        cudnnGetDropoutDescriptor,
+        cudnnRestoreDropoutDescriptor,
+        cudnnDestroyDropoutDescriptor,
+    cudnnDropoutGetStatesSize,
+    cudnnDropoutGetReserveSpaceSize,
+    handle
+
 
 if CUDA.functional(); @testset "cudnn/dropout" begin
 
-    @test cudnnDropoutDescriptor(C_NULL) isa cudnnDropoutDescriptor
-    @test unsafe_convert(Ptr, cudnnDropoutDescriptor(C_NULL)) isa Ptr
-    @test cudnnDropoutDescriptor(0.5) isa cudnnDropoutDescriptor
-
-    x = Param(CUDA.randn(Float64,10,10))
+    N,P = 1000, 0.7
+    x = Param(CUDA.rand(N))
+    d = cudnnDropoutDescriptor(P)
     cudnnDropoutSeed[] = 1
-    @test @gcheck cudnnDropoutForward(x)
+    @test @gcheck cudnnDropoutForward(x; dropout = P)
+    @test @gcheck cudnnDropoutForward(x, d)
+    @test @gcheck cudnnDropoutForward!(similar(x), x; dropout = P)
+    @test @gcheck cudnnDropoutForward!(similar(x), x, d)
     cudnnDropoutSeed[] = -1
 
 end; end
