@@ -7,6 +7,8 @@
 #include("optensor.jl")
 #include("reduce.jl")
 
+issimilar(x,y) = (typeof(x) === typeof(y) && (x === nothing || size(x) === size(y)))
+
 include("autograd.jl")
 include("activation.jl")
 include("softmax.jl")
@@ -14,8 +16,8 @@ include("pooling.jl")
 include("dropout.jl")
 include("rnn.jl")
 include("convolution.jl")
-# include("multiheadattn.jl")
-# include("normalization.jl")
+include("multiheadattn.jl")
+include("normalization.jl")
 
 #end
 
