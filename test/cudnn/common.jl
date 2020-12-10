@@ -3,7 +3,7 @@ using Base: unsafe_convert
 using CUDA: @retry_reclaim
 using CUDA.CUDNN: cudnnTensorDescriptor, cudnnCreateTensorDescriptor, cudnnFilterDescriptor, cudnnDataType, CUDNN_TENSOR_NCHW, CUDNN_STATUS_SUCCESS, cudnnDataType_t
 
-if CUDA.functional(); @testset "cudnn/common" begin
+@testset "cudnn/common" begin
 
     x = CUDA.rand(1,1,1,2)
 
@@ -25,4 +25,4 @@ if CUDA.functional(); @testset "cudnn/common" begin
 
     @test (@retry_reclaim(x->(x!==CUDNN_STATUS_SUCCESS),cudnnCreateTensorDescriptor(Ptr[C_NULL]))) isa Nothing
 
-end; end
+end

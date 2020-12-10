@@ -13,7 +13,7 @@ using CUDA.CUDNN:
     handle
 
 
-if CUDA.functional(); @testset "cudnn/softmax" begin
+@testset "cudnn/softmax" begin
 
     x = CUDA.randn(Float64,10,10)
     x2 = Param(x)
@@ -31,4 +31,4 @@ if CUDA.functional(); @testset "cudnn/softmax" begin
     @test @gcheck cudnnSoftmaxForward(x3, alpha=1, algo=CUDNN_SOFTMAX_LOG,      mode=CUDNN_SOFTMAX_MODE_CHANNEL)
     @test @gcheck cudnnSoftmaxForward(x3, alpha=2, algo=CUDNN_SOFTMAX_LOG,      mode=CUDNN_SOFTMAX_MODE_CHANNEL)
 
-end; end
+end

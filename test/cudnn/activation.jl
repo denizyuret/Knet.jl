@@ -22,7 +22,7 @@ using CUDA.CUDNN:
     handle
 
 
-if CUDA.functional(); @testset "cudnn/activation" begin
+@testset "cudnn/activation" begin
 
     x = Param(CUDA.randn(Float64,10))
     @test @gcheck cudnnActivationForward(x, alpha=1, coef=1, nanOpt=CUDNN_NOT_PROPAGATE_NAN, mode=CUDNN_ACTIVATION_SIGMOID)
@@ -35,4 +35,4 @@ if CUDA.functional(); @testset "cudnn/activation" begin
     @test @gcheck cudnnActivationForward(x, alpha=1, coef=2, nanOpt=CUDNN_NOT_PROPAGATE_NAN, mode=CUDNN_ACTIVATION_ELU)
     @test @gcheck cudnnActivationForward(x, alpha=1, coef=1, nanOpt=CUDNN_PROPAGATE_NAN,     mode=CUDNN_ACTIVATION_SIGMOID)
 
-end; end
+end

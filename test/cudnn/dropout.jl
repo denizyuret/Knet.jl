@@ -16,7 +16,7 @@ using CUDA.CUDNN:
     handle
 
 
-if CUDA.functional(); @testset "cudnn/dropout" begin
+@testset "cudnn/dropout" begin
 
     N,P = 1000, 0.7
     x = Param(CUDA.rand(N))
@@ -28,4 +28,4 @@ if CUDA.functional(); @testset "cudnn/dropout" begin
     @test @gcheck cudnnDropoutForward!(similar(x), x, d)
     cudnnDropoutSeed[] = -1
 
-end; end
+end
