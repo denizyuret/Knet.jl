@@ -179,9 +179,6 @@ function checkpoolopts(x, window, padding, stride, mode, maxpoolingNanOpt, alpha
         @warn "Pool maxpoolingNanOpt=0 not yet implemented in NNlib, using 1 instead. See https://github.com/FluxML/NNlib.jl/issues/218" maxlog=1
         maxpoolingNanOpt = 1
     end
-    if padding != 0 && x isa Array
-        @warn "Pool padding is buggy in NNlib, use with caution. See https://github.com/FluxML/NNlib.jl/issues/229" maxlog=1
-    end
     return (mode, maxpoolingNanOpt)
 end    
 
@@ -191,11 +188,17 @@ end
 
 Perform the reverse of pooling: `x == pool(unpool(x;o...); o...)`
 """
-function unpool(x; window=2, alpha=1, o...) # padding=0, stride=window, mode=0, maxpoolingNanOpt=0
+function unpool(x; window=2, padding=0, stride=window, mode=0, maxpoolingNanOpt=1, alpha=1)
+    if mode == 1 && x isa Array
+        @warn "unpool(mode=1), which uses poolx(mode=2) is not supported on the CPU; performing unpool(mode=2) instead, see https://github.com/FluxML/NNlib.jl/issues/218" maxlog=1
+    end
     w = prod(psize(window,x))
-    y = similar(x,updims(x; window=window, o...))
+    y = similar(x,updims(x; window, padding, stride, mode, maxpoolingNanOpt, alpha))
+    # pool0=>unpool1, pool1=>unpool2, pool2=>unpool1
+    mode = (mode==0 ? 1 : mode==1 ? 2 : mode==2 ? 1 : mode==3 ? 1 : error("Unknown unpool mode $mode"))
+    alpha = 1/alpha
     # Leave unpool as a non-primitive, it is just a poolx call
-    poolx(y,x,x.*w; o..., window=window, mode=1, alpha=1/alpha)
+    poolx(y,x,x.*w; window, padding, stride, mode, maxpoolingNanOpt, alpha)
 end
 
 
