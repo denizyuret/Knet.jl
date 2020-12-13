@@ -1,19 +1,28 @@
 import CUDA.CUDNN: cudnnRNNForwardAutoGrad
 import AutoGrad: forw
-using CUDA.CUDNN: cudnnRNNBackwardWeights_v8, cudnnRNNBackwardData_v8, handle, cudnnRNNTempSpaceSizes, cudnnTempSpace, CUDNN_FWD_MODE_TRAINING, CUDNN_WGRAD_MODE_ADD
 using AutoGrad: AutoGrad, @primitive1, value, forwargs, recording, Result, @zerograd
+using CUDA.CUDNN: 
+    cudnnRNNBackwardWeights_v8,
+    cudnnRNNBackwardData_v8,
+    cudnnRNNTempSpaceSizes,
+    cudnnTempSpace,
+    CUDNN_FWD_MODE_TRAINING,
+    CUDNN_WGRAD_MODE_ADD,
+    CUDNN_FWD_MODE_INFERENCE,
+    CUDNN_FWD_MODE_TRAINING,
+    handle
 
 
 # Define gradients for the AutoGrad method
 
 @primitive1((cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready), dout, out),
-            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dw),
-            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dx),
-            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dhx),
-            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dcx))
+            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dw[]),
+            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dx[]),
+            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dhx[]),
+            (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dcx[]))
 
 
-function cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx)
+function cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready)
     # Make sure backward gets called only once
     dready[] && return
     dready[] = true
@@ -32,7 +41,7 @@ function cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengt
     # The cudnnRNNBackwardData_v8() function must be called after cudnnRNNForward().
     # The cudnnRNNBackwardWeights_v8() function should be invoked after cudnnRNNBackwardData().
     cudnnRNNBackwardData_v8(handle(), rnnDesc, devSeqLengths, yDesc, _y, dy, xDesc, dx[], hDesc, something(hx, CU_NULL), something(dhy, CU_NULL), something(dhx[], CU_NULL), cDesc, something(cx, CU_NULL), something(dcy, CU_NULL), something(dcx[], CU_NULL), sizeof(w), w, sizeof(workspace), something(workspace, CU_NULL), sizeof(reserveSpace), something(reserveSpace, CU_NULL))
-    cudnnRNNBackwardWeights_v8(handle(), rnnDesc, addGrad, devSeqLengths, xDesc, x, hDesc, something(hx, CU_NULL), yDesc, _y, sizeof(w), dw, sizeof(workspace), something(workspace, CU_NULL), sizeof(reserveSpace), something(reserveSpace, CU_NULL))
+    cudnnRNNBackwardWeights_v8(handle(), rnnDesc, addGrad, devSeqLengths, xDesc, x, hDesc, something(hx, CU_NULL), yDesc, _y, sizeof(w), dw[], sizeof(workspace), something(workspace, CU_NULL), sizeof(reserveSpace), something(reserveSpace, CU_NULL))
 end
 
 
