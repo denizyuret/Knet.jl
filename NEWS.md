@@ -1,5 +1,15 @@
+Knet v1.4.5 Release Notes
+=========================
+5aff4be 2020-12-15
+
+* Fixed #624: gcnode "key not found" bug.
+* Fixed #647: Knet.save/load/@save/@load now call FileIO and JLD2 versions, use load143 to load old files.
+* Removed warning about NNlib pooling bug that was fixed.
+
+
 Knet v1.4.4 Release Notes
 =========================
+3b6f70a 2020-11-28
 
 * Serialization and JLD2 support for KnetArray and RNN.
 * Change eltype to Any in container types in serialize.jl.
