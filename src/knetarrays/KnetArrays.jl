@@ -22,6 +22,6 @@ include("unary.jl")
 include("reduction.jl")
 
 include("serialization.jl") # serialize and deserialize of KnetArrays
-include("jld2.jl"); export save, load, @save, @load # deprecated, use FileIO and JLD2
+include("jld2.jl"); export save, load, @save, @load, load143 # deprecated, use FileIO and JLD2
 
 end
