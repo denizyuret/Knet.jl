@@ -3,7 +3,7 @@ using  CUDA.CUDNN: cudnnMultiHeadAttnBackwardWeights, cudnnMultiHeadAttnBackward
 using AutoGrad: AutoGrad, @primitive1, value
 
 
-@primitive1((cudnnMultiHeadAttnForwardAutoGrad(weights, queries, keys, values, residuals; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace), dout, _out),
+@primitive1((cudnnMultiHeadAttnForwardAutoGrad(     weights, queries, keys, values, residuals;       dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace), dout, _out),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dweights[]),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dqueries[]),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dkeys[]),
@@ -19,14 +19,17 @@ function cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; d
     # Read all relevant inputs
     (weights, queries, keys, values, residuals, dout) = value.((weights, queries, keys, values, residuals, dout))
     # Allocate gradient buffers if necessary
-    if dqueries[] === nothing; dqueries[] = similar(queries); end; @assert issimilar(queries, dqueries[])
-    if dkeys[] === nothing; dkeys[] = similar(keys); end; @assert issimilar(keys, dkeys[])
-    if dvalues[] === nothing; dvalues[] = similar(values); end; @assert issimilar(values, dvalues[])
-    if weights !== nothing && dweights[] === nothing; dweights[] = similar(weights); end; @assert issimilar(weights, dweights[])
+    isassigned(dqueries) ? (@assert issimilar(queries, dqueries[])) : dqueries[] = similar(queries)
+    isassigned(dkeys)    ? (@assert issimilar(keys, dkeys[]))       : dkeys[] = similar(keys)
+    isassigned(dvalues)  ? (@assert issimilar(values, dvalues[]))   : dvalues[] = similar(values)
     # The cudnnMultiHeadAttnBackwardData() function must be invoked after cudnnMultiHeadAttnForward(). The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the cudnnMultiHeadAttnForward() call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
     cudnnMultiHeadAttnBackwardData(handle(), attnDesc, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, oDesc, dout, qDesc, dqueries[], queries, kDesc, dkeys[], keys, vDesc, dvalues[], values, sizeof(weights), something(weights, CU_NULL), sizeof(workspace), something(workspace, CU_NULL), sizeof(reserveSpace), something(reserveSpace, CU_NULL))
     # The cudnnMultiHeadAttnBackwardWeights() function should be invoked after cudnnMultiHeadAttnBackwardData(). The queries, keys, values, weights, and reserveSpace arguments should be the same as in cudnnMultiHeadAttnForward() and cudnnMultiHeadAttnBackwardData() calls. The dout argument should be the same as in cudnnMultiHeadAttnBackwardData(). 
-    if weights !== nothing
+    if weights === nothing
+        dweights[] = nothing
+    else
+        isassigned(dweights) ? (@assert issimilar(weights, dweights[])) : dweights[] = similar(weights)
+        dweights[] .= 0                # weights may be larger than the required weightSpace
         addGrad = CUDNN_WGRAD_MODE_SET # TODO: support add mode
         cudnnMultiHeadAttnBackwardWeights(handle(), attnDesc, addGrad, qDesc, queries, kDesc, keys, vDesc, values, oDesc, dout, sizeof(weights), weights, dweights[], sizeof(workspace), something(workspace, CU_NULL), sizeof(reserveSpace), something(reserveSpace, CU_NULL))
     end
@@ -41,20 +44,22 @@ end
 # - Alloc gradient buffers if not allocated (this is done in backward)
 
 function forw(f::typeof(cudnnMultiHeadAttnForwardAutoGrad), weights, queries, keys, values, residuals; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace)
+    (weightSize, workspaceSize, reserveSpaceSize) = cudnnMultiHeadAttnBuffers(attnDesc, training=recording())
+    # No need to compute weight gradient if weights not used
+    if weightSize == 0; weights = nothing; end
+    # The cudnn API decides training/inference based on reserveSpace
+    if !recording(); reserveSpace = nothing; end
+    # Cannot use @workspace here because it is shared between forw and back calls
+    if workspaceSize > 0 && workspace === nothing; workspace = cudnnTempSpace(workspaceSize); end
+    if recording() && reserveSpace === nothing; reserveSpace = cudnnTempSpace(max(16,reserveSpaceSize)); end # we need max because cudnnTempSpace(0) returns nothing
+    @assert sizeof(weights) >= weightSize  "weights should be at least $weightSize bytes."
+    @assert sizeof(workspace) >= workspaceSize  "worksSpace should be at least $workspaceSize bytes"
+    @assert sizeof(reserveSpace) >= reserveSpaceSize  "reserveSpace should be at least $reserveSpaceSize bytes"
+
     args = (weights, queries, keys, values, residuals)
     (f, nobcast, novalue) = forwargs(f, args)
     @assert nobcast === args    # we shouldn't need to handle broadcasting
     @assert novalue !== args    # there should be some tracked args for forw to be called
-    # Cannot use @workspace here because it is shared between forw and back calls
-    (weightSize, workspaceSize, reserveSpaceSize) = cudnnMultiHeadAttnBuffers(attnDesc, training=recording())
-    if workspaceSize > 0 && workspace === nothing; workspace = cudnnTempSpace(workspaceSize); end
-    if reserveSpaceSize > 0 && reserveSpace === nothing; reserveSpace = cudnnTempSpace(reserveSpaceSize); end
-    # The cudnn API decides training/inference based on reserveSpace
-    if !recording() && reserveSpace !== nothing; reserveSpace = nothing; end
-    if recording() && reserveSpace === nothing; reserveSpace = cudnnTempSpace(16); end
-    @assert sizeof(weights) >= weightSize  "weights should be at least $weightSize bytes."
-    @assert sizeof(workspace) >= workspaceSize  "worksSpace should be at least $workspaceSize bytes"
-    @assert sizeof(reserveSpace) >= reserveSpaceSize  "reserveSpace should be at least $reserveSpaceSize bytes"
     v = f(novalue...; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace)
     if recording()
         v = Result(v, f, nobcast, (; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace))
