@@ -46,7 +46,7 @@ using CUDA.CUDNN:
     function normtest(x,s,b; dims=(1,2,4), o...)
         m = mean(value(x);dims)
         v = var(value(x);mean=m,corrected=false,dims)
-        y = cudnnNormalizationForward(x,s,b,m,v; o...)
+        y = cudnnNormalizationForward(x,m,v,b,s; o...)
         y[1]
     end
 
