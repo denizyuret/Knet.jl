@@ -1,4 +1,4 @@
-import CUDA.CUDNN: cudnnRNNForwardAutoGrad
+import CUDA.CUDNN: cudnnRNNForwardAD
 import AutoGrad: forw
 using AutoGrad: AutoGrad, @primitive1, value, forwargs, recording, Result, @zerograd
 using CUDA.CUDNN: 
@@ -13,9 +13,9 @@ using CUDA.CUDNN:
     handle
 
 
-# Define gradients for the AutoGrad method
+# Define gradients for the AD method
 
-@primitive1((cudnnRNNForwardAutoGrad(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready), dout, out),
+@primitive1((cudnnRNNForwardAD(w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready), dout, out),
             (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dw[]),
             (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dx[]),
             (dready[] || cudnnRNNBackward(dout, out, w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready); dhx[]),
@@ -46,13 +46,13 @@ end
 
 
 # cudnnRNNForwardWithDefaults does not have access to AutoGrad state so may not set fwdMode correctly
-# When one of the inputs to cudnnRNNForwardAutoGrad (w, x, hx, cx) is a Value, AutoGrad.forw is called
+# When one of the inputs to cudnnRNNForwardAD (w, x, hx, cx) is a Value, AutoGrad.forw is called
 # If we are computing gradients we need to fix the setup:
 # - Set fwdMode to TRAINING
 # - Check if workspace and reserveSpace needs to be resized for TRAINING
 # - Alloc gradient buffers if not allocated (this is done in backward)
 
-function forw(f::typeof(cudnnRNNForwardAutoGrad), w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready)
+function forw(f::typeof(cudnnRNNForwardAD), w, x, hx, cx; rnnDesc, fwdMode, devSeqLengths, xDesc, yDesc, y, hDesc, hy, cDesc, cy, workspace, reserveSpace, dw, dx, dhx, dcx, dready)
     args = (w, x, hx, cx)
     (f, nobcast, novalue) = forwargs(f, args)
     @assert nobcast === args    # we shouldn't need to handle broadcasting with rnns

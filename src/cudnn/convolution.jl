@@ -1,5 +1,5 @@
 using AutoGrad: AutoGrad, @primitive1, value
-import CUDA.CUDNN: cudnnConvolutionForwardAutoGrad
+import CUDA.CUDNN: cudnnConvolutionForwardAD
 using CUDA.CUDNN:
     CUDNN_ACTIVATION_IDENTITY,
     CUDNN_ACTIVATION_RELU,
@@ -18,7 +18,7 @@ using CUDA.CUDNN:
 
 # Define gradients
 @primitive1(
-    (cudnnConvolutionForwardAutoGrad(w, x, bias, z; y, activation, convDesc, wDesc, xDesc, yDesc, zDesc, biasDesc, alpha, beta, dw, dx, dz, dbias, dready),_dy,_y),
+    (cudnnConvolutionForwardAD(w, x, bias, z; y, activation, convDesc, wDesc, xDesc, yDesc, zDesc, biasDesc, alpha, beta, dw, dx, dz, dbias, dready),_dy,_y),
     (dready[] || cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDesc, wDesc, xDesc, yDesc, zDesc, biasDesc, alpha, beta, dw, dx, dz, dbias, dready); dw[]),
     (dready[] || cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDesc, wDesc, xDesc, yDesc, zDesc, biasDesc, alpha, beta, dw, dx, dz, dbias, dready); dx[]),
     (dready[] || cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDesc, wDesc, xDesc, yDesc, zDesc, biasDesc, alpha, beta, dw, dx, dz, dbias, dready); dbias[]),

@@ -1,10 +1,10 @@
-import CUDA.CUDNN: cudnnNormalizationForwardAutoGrad
+import CUDA.CUDNN: cudnnNormalizationForwardAD
 import AutoGrad: forw
 using CUDA.CUDNN: handle, CU_NULL, cudnnNormalizationBackward, cudnnNormalizationForwardTraining, cudnnNormalizationForwardInference, cudnnGetNormalizationForwardTrainingWorkspaceSize, cudnnGetNormalizationTrainingReserveSpaceSize, cudnnTempSpace, scalingParameter
 using AutoGrad: AutoGrad, @primitive1, forwargs, recording, Result, value
 
 
-@primitive1((cudnnNormalizationForwardAutoGrad(x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready), dy, _y),
+@primitive1((cudnnNormalizationForwardAD(x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready), dy, _y),
             (dready[] || cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready); dx[]),
             (dready[] || cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready); dscale[]),
             (dready[] || cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready); dbias[]),
@@ -26,9 +26,9 @@ function cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, 
 end
 
 
-# This is where we specialize cudnnNormalizationForwardAutoGrad to call the Training method.
+# This is where we specialize cudnnNormalizationForwardAD to call the Training method.
 # forw is called when there are Tracked (Param or Result) arguments: either during training or during inference with Param args.
-function forw(f::typeof(cudnnNormalizationForwardAutoGrad), x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready)
+function forw(f::typeof(cudnnNormalizationForwardAD), x, scale, bias, z; mean, variance, y, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationDesc, xDesc, yDesc, zDesc, normScaleBiasDesc, normMeanVarDesc, workspace, reserveSpace, dx, dscale, dbias, dz, dready)
     args = (x, scale, bias, z)
     (f, nobcast, novalue) = forwargs(f, args)
     @assert nobcast === args    # we shouldn't need to handle broadcasting

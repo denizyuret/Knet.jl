@@ -1,9 +1,9 @@
-import CUDA.CUDNN: cudnnMultiHeadAttnForwardAutoGrad
+import CUDA.CUDNN: cudnnMultiHeadAttnForwardAD
 using  CUDA.CUDNN: cudnnMultiHeadAttnBackwardWeights, cudnnMultiHeadAttnBackwardData, cudnnMultiHeadAttnBuffers, handle, CUDNN_WGRAD_MODE_SET
 using AutoGrad: AutoGrad, @primitive1, value
 
 
-@primitive1((cudnnMultiHeadAttnForwardAutoGrad(     weights, queries, keys, values, residuals;       dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace), dout, _out),
+@primitive1((cudnnMultiHeadAttnForwardAD(     weights, queries, keys, values, residuals;       dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace), dout, _out),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dweights[]),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dqueries[]),
             (dready[] || cudnnMultiHeadAttnBackward(weights, queries, keys, values, residuals; dout, dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace); dkeys[]),
@@ -37,13 +37,13 @@ end
 
 
 # cudnnMultiHeadAttnForwardWithDefaults does not have access to AutoGrad state so may not set training mode correctly
-# When one of the main arguments to cudnnMultiHeadAttnForwardAutoGrad is a Value, AutoGrad.forw is called
+# When one of the main arguments to cudnnMultiHeadAttnForwardAD is a Value, AutoGrad.forw is called
 # If we are computing gradients we need to fix the setup:
 # - reserveSpace should be NULL in inference mode and non-NULL in the training mode. 
 # - Check if workspace and reserveSpace needs to be resized.
 # - Alloc gradient buffers if not allocated (this is done in backward)
 
-function forw(f::typeof(cudnnMultiHeadAttnForwardAutoGrad), weights, queries, keys, values, residuals; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace)
+function forw(f::typeof(cudnnMultiHeadAttnForwardAD), weights, queries, keys, values, residuals; dready, dweights, dqueries, dkeys, dvalues, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, kDesc, vDesc, oDesc, out, workspace, reserveSpace)
     (weightSize, workspaceSize, reserveSpaceSize) = cudnnMultiHeadAttnBuffers(attnDesc, training=recording())
     # No need to compute weight gradient if weights not used
     if weightSize == 0; weights = nothing; end

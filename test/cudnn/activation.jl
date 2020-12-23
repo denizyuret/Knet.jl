@@ -1,4 +1,4 @@
-using CUDA, Test, AutoGrad
+using CUDA, Test, AutoGrad, Knet
 using CUDA.CUDNN: 
     cudnnActivationForward,
     cudnnActivationForward!,
