@@ -10,7 +10,7 @@ eltype(::Type{KnetArray{T}}) where {T} = T
 eltype(::Type{KnetArray{T,n}}) where {T,n} = T
 lastindex(a::KnetArray) = length(a)
 lastindex(a::KnetArray,d) = size(a,d)
-fill!(a::KnetArray{T},x) where {T}=(a[:] .= T(x);a)
+fill!(a::KnetArray{T},x) where {T}=setindex!(a,T(x),:)
 first(a::KnetArray) = a[1]
 # AutoGrad leaves `first` as a compound proc calling start which doesn't work with KnetArrays
 @primitive1  first(x::KnetArray),dy,y  AutoGrad.ungetindex(x,dy,1)
