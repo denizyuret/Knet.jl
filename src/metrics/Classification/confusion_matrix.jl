@@ -2,6 +2,8 @@ export confusion_params, confusion_matrix, class_confusion
 
 #Confusion matrix related classes
 
+using LinearAlgebra
+
 """
     confusion_params(matrix::Array{Number,2})
 

@@ -92,30 +92,32 @@ or a single string.\n
 **`labels`** : Vector, denotes the labels that will be used for the plot. If equals to nothing, labels of the given confusion matrix will be used.
 
 """
-function visualize(c::confusion_matrix; mode = ["matrix"], seriestype::String = "heatmap", title= nothing, labels = nothing)
+function visualize(c::confusion_matrix; mode = "matrix", seriestype::String = "heatmap", title= nothing, labels = nothing)
     @assert seriestype in ["scatter", "heatmap", "line", "histogram", "bar"] "Unknown visualization format"
     labels = labels != nothing ? labels : convert(Array{typeof(c.Labels[1])}, c.Labels)
-    if title == nothing || length(title) != length(mode); title = mode; end
+    if title == nothing; title = mode isa Array ? mode : String(Base.copymutable(mode)); end
+    title = title isa Array ? title : [title]
+    mode = mode isa Array ? mode : [mode]
     plt = []
-    @inbounds for i in zip(mode, title)
-        @assert i[1] in ["matrix", "condition-positive", "condition-negative", "predicted-positive","predicted-negative", "correctly-classified", "incorrectly-classified", "sensitivity-score", "recall-score", "specificity-score", "precision-score", "positive-predictive-value", "accuracy-score", "balanced-accuracy-score", "negative-predictive-value", "false-negative-rate", "false-positive-rate", "false-discovery-rate",
+    for i in 1:length(mode)
+        @assert mode[i] in ["matrix", "condition-positive", "condition-negative", "predicted-positive","predicted-negative", "correctly-classified", "incorrectly-classified", "sensitivity-score", "recall-score", "specificity-score", "precision-score", "positive-predictive-value", "accuracy-score", "balanced-accuracy-score", "negative-predictive-value", "false-negative-rate", "false-positive-rate", "false-discovery-rate",
          "false-omission-rate", "f1-score", "prevalence-threshold", "threat-score", "matthews-correlation-coeff", "fowlkes-mallows-index",
          "informedness", "markedness", "cohen-kappa-score", "hamming-loss", "jaccard-score"] "Unknown visualization mode"
-        if i[1] != "matrix"; @assert seriestype in ["scatter", "line", "histogram", "bar"] "The given mode does not support this visualization format"; end
+        if mode[i] != "matrix"; @assert seriestype in ["scatter", "line", "histogram", "bar"] "The given mode does not support this visualization format"; end
         x = nothing
-        if i[1] == "matrix"
-            if seriestype == "histogram"; x = histogram(labels, c.matrix, labels = permutedims(labels), title = i[2])
-            elseif seriestype == "scatter"; x = scatter(labels, c.matrix, labels = permutedims(labels), title = i[2])
-            elseif seriestype == "line"; x = plot(labels, c.matrix, labels = permutedims(labels), title = i[2])
-            elseif seriestype == "bar"; x = bar(labels, c.matrix, labels = permutedims(labels), title = i[2])
-            elseif seriestype == "heatmap"; x = heatmap(labels, labels, c.matrix, labels = permutedims(labels), title = i[2])
+        if mode[i] == "matrix"
+            if seriestype == "histogram"; x = histogram(labels, c.matrix, labels = permutedims(labels), title = title[i])
+            elseif seriestype == "scatter"; x = scatter(labels, c.matrix, labels = permutedims(labels), title = title[i])
+            elseif seriestype == "line"; x = plot(labels, c.matrix, labels = permutedims(labels), title = title[i])
+            elseif seriestype == "bar"; x = bar(labels, c.matrix, labels = permutedims(labels), title = title[i])
+            elseif seriestype == "heatmap"; x = heatmap(labels, labels, c.matrix, labels = permutedims(labels), title = title[i])
             end
         else
-            if seriestype == "histogram"; x = _plot(c; func = histogram, type = i[1], title = i[2], labels = labels)
-            elseif seriestype == "scatter"; x = _plot(c; func = scatter, type = i[1], title = i[2], labels = labels)
-            elseif seriestype == "line"; x =  _plot(c; func = plot, type = i[1], title = i[2], labels = labels)
-            elseif seriestype == "bar"; x =  _plot(c; func = bar, type = i[1], title = i[2], labels = labels)
-            elseif seriestype == "heatmap"; x =  _plot(c; func = heatmap, type = i[1], title = i[2], labels = labels)
+            if seriestype == "histogram"; x = _plot(c; func = histogram, type = mode[i], title = title[i], labels = labels)
+            elseif seriestype == "scatter"; x = _plot(c; func = scatter, type = mode[i], title = title[i], labels = labels)
+            elseif seriestype == "line"; x =  _plot(c; func = plot, type = mode[i], title = title[i], labels = labels)
+            elseif seriestype == "bar"; x =  _plot(c; func = bar, type = mode[i], title = title[i], labels = labels)
+            elseif seriestype == "heatmap"; x =  _plot(c; func = heatmap, type = mode[i], title = title[i], labels = labels)
             end
         end
         push!(plt, x)
