@@ -18,7 +18,7 @@ include("ops20_gpu/Ops20_gpu.jl")
 include("ops21/Ops21.jl")
 include("ops21_gpu/Ops21_gpu.jl")
 include("train20/Train20.jl")
-# include("layers21/Layers21.jl")
+#include("layers21/Layers21.jl")
 
 # See if we have a gpu at initialization:
 import AutoGrad, CUDA

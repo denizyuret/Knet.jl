@@ -3,10 +3,11 @@ module Layers21
 #  xavier may not be optimal for embedding, should specify init options etc.
 # TODO: rethink eliminating layers without parameters: dropout, activation
 
-include("init.jl")
-include("dense.jl")
-include("dropout.jl")
-include("embed.jl")
-include("layernorm.jl")
+# include("init.jl")
+# include("dense.jl")
+# include("dropout.jl")
+# include("embed.jl")
+# include("layernorm.jl")
+# include("batchnorm.jl")
 
 end
