@@ -149,10 +149,10 @@ function BatchNorm(
     # Temporary space used in training:
     workspace = nothing,
     reserveSpace = nothing,
-    dx = Ref{Any}(),
-    dscale = Ref{Any}(),
-    dbias = Ref{Any}(),
-    dz = Ref{Any}(),
+    dx = Ref{Any}(nothing),
+    dscale = Ref{Any}(nothing),
+    dbias = Ref{Any}(nothing),
+    dz = Ref{Any}(nothing),
 )
     BatchNorm(y, mean, variance, bias, scale, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationMode, activationReluNanOpt, activationCoef, activationDesc, format, workspace, reserveSpace, dx, dscale, dbias, dz)
 end
@@ -160,30 +160,28 @@ end
 
 # Some fields can only be initialized after seeing the first input x
 
-function initBatchNorm(b::BatchNorm, x, z=nothing)
+function initBatchNorm(b::BatchNorm, x, z)
     n = ndims(x)
     bsize = (b.mode === CUDNN_NORM_PER_ACTIVATION ? ntuple(i->(i===n ? 1 : size(x,i)), n) :
              b.format === CUDNN_TENSOR_NCHW ? ntuple(i->(i===n-1 ? size(x,i) : 1), n) :
              ntuple(i->(i===1 ? size(x,i) : 1), n))
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
-    if b.y === nothing; b.y = similar(x); end; @assert issimilar(b.y, x)
-    if b.mean === nothing; b.mean = fill!(similar(x, bsize), 0); end; @assert issimilar(b.mean, x, bsize)
-    if b.variance === nothing; b.variance = fill!(similar(x, bsize), 1); end; @assert issimilar(b.variance, x, bsize)
-    if b.bias === nothing; b.bias = Param(fill!(similar(x, bsize), 0)); end; @assert issimilar(b.bias, x, bsize)
-    if b.scale === nothing; b.scale = Param(fill!(similar(x, bsize), 1)); end; @assert issimilar(b.scale, x, bsize)
+    b.y === nothing ? b.y = similar(x) : @assert issimilar(b.y, x)
+    b.mean === nothing ? b.mean = fill!(similar(x, bsize), 0) : @assert issimilar(b.mean, x, bsize)
+    b.variance === nothing ? b.variance = fill!(similar(x, bsize), 1) : @assert issimilar(b.variance, x, bsize)
+    b.bias === nothing ? b.bias = Param(fill!(similar(x, bsize), 0)) : @assert issimilar(b.bias, x, bsize)
+    b.scale === nothing ? b.scale = Param(fill!(similar(x, bsize), 1)) : @assert issimilar(b.scale, x, bsize)
     if AutoGrad.recording()
-        if b.savedMean === nothing; b.savedMean = similar(x, bsize); end; @assert issimilar(b.savedMean, x, bsize)
-        if b.savedInvVariance === nothing; b.savedInvVariance = similar(x, bsize); end; @assert issimilar(b.savedInvVariance, x, bsize)
+        b.savedMean === nothing ? b.savedMean = similar(x, bsize) : @assert issimilar(b.savedMean, x, bsize)
+        b.savedInvVariance === nothing ? b.savedInvVariance = similar(x, bsize) : @assert issimilar(b.savedInvVariance, x, bsize)
         xDesc, bDesc = (u->cudnnTensorDescriptor(value(u); b.format)).((x, b.mean))
         workspaceSize, reserveSpaceSize = Knet.CUDNN.cudnnNormalizationTempSpaceSizes(b.mode, b.normOps, b.algo, xDesc, xDesc, xDesc, bDesc, b.activationDesc, bDesc, b.groupCnt)
-        if reserveSpaceSize > 0 && reserveSpace === nothing; b.reserveSpace = cudnnTempSpace(reserveSpaceSize); end
-        @assert sizeof(b.reserveSpace) >= reserveSpaceSize  "reserveSpace should be at least $(reserveSpaceSize) bytes"
-        if workspaceSize > 0 && workspace === nothing; b.workspace = cudnnTempSpace(workspaceSize); end
-        @assert sizeof(b.workspace) >= workspaceSize  "workspace should be at least $(workspaceSize) bytes"
-        !isassigned(b.dx) ?     b.dx[]     = similar(x) :     @assert issimilar(x, b.dx[])
-        !isassigned(b.dscale) ? b.dscale[] = similar(b.scale) : @assert issimilar(b.scale, b.dscale[])
-        !isassigned(b.dbias) ?  b.dbias[]  = similar(b.bias) :  @assert issimilar(b.bias, b.dbias[])
-        z === nothing ? b.dz[] = nothing : !isassigned(b.dz) ? b.dz[] = zero(z) : (@assert issimilar(z, b.dz[]); b.dz[] .= 0) # z may not be used, dz may not be modified, should be zeroed
+        if sizeof(b.reserveSpace) < reserveSpaceSize; b.reserveSpace = cudnnTempSpace(reserveSpaceSize); end
+        if sizeof(b.workspace) < workspaceSize; b.workspace = cudnnTempSpace(workspaceSize); end
+        b.dx[] === nothing ? b.dx[]     = similar(x) : @assert issimilar(x, b.dx[])
+        b.dscale[] === nothing ? b.dscale[] = similar(b.scale) : @assert issimilar(b.scale, b.dscale[])
+        b.dbias[] === nothing ? b.dbias[]  = similar(b.bias) : @assert issimilar(b.bias, b.dbias[])
+        z === nothing ? b.dz[] = nothing : b.dz[] === nothing ? b.dz[] = zero(z) : (@assert issimilar(z, b.dz[]); b.dz[] .= 0) # z may not be used, dz may not be modified, should be zeroed
     end
 end
 

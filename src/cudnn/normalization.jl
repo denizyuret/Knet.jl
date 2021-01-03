@@ -17,10 +17,10 @@ function cudnnNormalizationBack(dy, x, scale, bias, z; mean, variance, y, mode, 
     dready[] = true
     (x, scale, bias, z) = value.((x, scale, bias, z))
     # Allocate gradient buffers if necessary
-    !isassigned(dx) ?     dx[]     = similar(x) :     @assert issimilar(x, dx[])
-    !isassigned(dscale) ? dscale[] = similar(scale) : @assert issimilar(scale, dscale[])
-    !isassigned(dbias) ?  dbias[]  = similar(bias) :  @assert issimilar(bias, dbias[])
-    z === nothing ? dz[] = nothing : !isassigned(dz) ? dz[] = zero(z) : (@assert issimilar(z, dz[]); dz[] .= 0) # z may not be used, dz may not be modified, should be zeroed
+    !isassigned(dx) || dx[]===nothing ?         dx[]     = similar(x) :     @assert issimilar(x, dx[])
+    !isassigned(dscale) || dscale[]===nothing ? dscale[] = similar(scale) : @assert issimilar(scale, dscale[])
+    !isassigned(dbias) || dbias[]===nothing ?   dbias[]  = similar(bias) :  @assert issimilar(bias, dbias[])
+    z === nothing ? dz[] = nothing : !isassigned(dz) || dz[]===nothing ? dz[] = zero(z) : (@assert issimilar(z, dz[]); dz[] .= 0) # z may not be used, dz may not be modified, should be zeroed
     s0,s1 = scalingParameter(eltype(x),0),scalingParameter(eltype(x),1)
     cudnnNormalizationBackward(handle(), mode, normOps, algo, alpha, s0, alpha, s0, xDesc, x, yDesc, y, yDesc, dy, something(zDesc,C_NULL), something(dz[],CU_NULL), xDesc, dx[], normScaleBiasDesc, scale, bias, dscale[], dbias[], epsilon, something(normMeanVarDesc,C_NULL), something(savedMean,CU_NULL), something(savedInvVariance,CU_NULL), something(activationDesc,C_NULL), something(workspace,CU_NULL), sizeof(workspace), something(reserveSpace,CU_NULL), sizeof(reserveSpace), groupCnt)
 end
