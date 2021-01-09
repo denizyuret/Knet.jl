@@ -46,7 +46,7 @@ using CUDA.CUDNN:
     function normtest(x,s,b; dims=(1,2,4), o...)
         m = mean(value(x);dims)
         v = var(value(x);mean=m,corrected=false,dims)
-        y = cudnnNormalizationForward(x,m,v,b,s; o...)
+        y = cudnnNormalizationForward(x,m,v,b,s; training=Knet.training(), o...)
         y[1]
     end
 
@@ -59,8 +59,7 @@ using CUDA.CUDNN:
     @test @gcheck normtest(x,s,b; epsilon = 0)
     @test @gcheck normtest(x,s3,b3; format = CUDNN_TENSOR_NHWC, dims=(2,3,4))
     @test @gcheck normtest(x,s,b; exponentialAverageFactor = 0.01)
-    @test @gcheck normtest(x,s,b; savedMean = similar(s))
-    @test @gcheck normtest(x,s,b; savedInvVariance = similar(s))
+    @test @gcheck normtest(x,s,b; savedMean = similar(s), savedInvVariance = similar(s))
     # cudnn-8.0.5: Currently, CUDNN_NORM_OPS_NORM_ACTIVATION and CUDNN_NORM_OPS_NORM_ADD_ACTIVATION are not supported.
     #@test_skip @gcheck normtest(x,s,b; normOps = CUDNN_NORM_OPS_NORM_ACTIVATION, activationMode = CUDNN_ACTIVATION_RELU)
     #@test_skip @gcheck normtest(x,s,b; normOps = CUDNN_NORM_OPS_NORM_ADD_ACTIVATION, activationMode = CUDNN_ACTIVATION_RELU, z)

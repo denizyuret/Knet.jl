@@ -1,4 +1,7 @@
 export BatchNorm
+import Knet
+using Knet.Ops21
+using Knet.KnetArrays: DevArray
 using AutoGrad: Param, value
 using CUDA.CUDNN:
     cudnnNormalizationForward,
@@ -6,6 +9,8 @@ using CUDA.CUDNN:
     cudnnNormalizationForwardInference,
     cudnnNormalizationForwardTraining,
     cudnnNormalizationBackward,
+    cudnnGetNormalizationForwardTrainingWorkspaceSize,
+    cudnnGetNormalizationTrainingReserveSpaceSize,
     cudnnActivationDescriptor,
     cudnnTensorDescriptor,
     cudnnNormMode_t,
@@ -37,162 +42,130 @@ using CUDA.CUDNN:
 
 """
     b = BatchNorm(; kwargs...)
-    b(x)
+    b(x; training)
 
 Return batch normalization applied to `x`:
 
-    y = [b.bias + (b.scale * (x - b.mean)/sqrt(b.epsilon + b.variance)] 
-    b.y = y * b.alpha + b.y * b.beta
+    b.bias + b.scale * (x - mean(x; b.dims)) / sqrt(b.epsilon + var(x; b.dims))  # training
+    b.bias + b.scale * (x - b.mean) / sqrt(b.epsilon + b.var)                    # inference
 
-Bias and scale are trainable parameters, mean and variance are modified to collect
-statistics during training and treated as constants during inference. Note that during
-inference the values given by mean and variance arguments are used in the formula whereas
-during training the actual mean and variance of the minibatch are used in the formula: the
-mean/variance fields are only used to collect statistics. In the original paper bias is
-referred to as beta and scale as gamma (Batch Normalization: Accelerating Deep Network
-Training by Reducing Internal Covariate Shift, S. Ioffe, C. Szegedy, 2015). `alpha` and
-`beta` can be used to scale or blend the output.
+During training, the actual mean/var of the batch are used in the normalization and to
+update the running mean/var kept in `b.mean` and `b.var`. During inference, `b.mean` and
+`b.var` are used in the normalization calculation. The training mode defaults to
+`Knet.training()` but can be overriden by the `training` keyword argument.  `b.bias` and
+`b.scale` are trainable parameters, corresponding to beta and gamma in the original
+paper. The common size of bias/scale/mean/var can be:
 
-Unless specified during construction, array fields of BatchNorm are initialized during the
-first call based on the input `x` to inherit the right array type and size. In particular
-the `bsize` used for mean, variance etc. is:
-
-    (1,1,C,1) if mode==CUDNN_NORM_PER_CHANNEL and format==CUDNN_TENSOR_NCHW and size(x)==(W,H,C,N)
-    (C,1,1,1) if mode==CUDNN_NORM_PER_CHANNEL and format==CUDNN_TENSOR_NHWC and size(x)==(C,W,H,N)
-    (W,H,C,1) if mode==CUDNN_NORM_PER_ACTIVATION and format==CUDNN_TENSOR_NCHW and size(x)==(W,H,C,N)
-    (C,W,H,1) if mode==CUDNN_NORM_PER_ACTIVATION and format==CUDNN_TENSOR_NHWC and size(x)==(C,W,H,N)
+    (1,1,C,1) if size(x)==(W,H,C,N) and b.dims==(1,2,4) (default, NCHW, per-channel)
+    (C,1,1,1) if size(x)==(C,W,H,N) and b.dims==(2,3,4) (NHWC tensor format)
+    (W,H,C,1) if size(x)==(W,H,C,N) and b.dims==4       (per-activation mode)
 
 Keyword arguments for the constructor:
-* `mean = fill!(similar(x,bsize),0)`: mean tensor
-* `variance = fill!(similar(x,bsize),1)`: variance tensor
+* `dims`: mean/var is computed over the given dimensions, by default (1,2,4) for 4D and (1,2,3,5) for 5D
+* `mean = fill!(similar(x,bsize),0)`: mean tensor where `bsize=size(mean(x; b.dims))`
+* `var = fill!(similar(x,bsize),1)`: variance tensor
 * `bias = Param(fill!(similar(x,bsize),0))`: bias parameter
 * `scale = Param(fill!(similar(x,bsize),1))`: scale parameter
-* `y = similar(x)`: optional storage for output tensor
-* `mode::cudnnNormMode_t = CUDNN_NORM_PER_CHANNEL`: Per-channel layer is based on the paper. The other alternative is `CUDNN_NORM_PER_ACTIVATION`.
-* `algo::cudnnNormAlgo_t = CUDNN_NORM_ALGO_STANDARD`: The other alternative, `CUDNN_NORM_ALGO_PERSIST`, triggers the new semi-persistent NHWC kernel when certain conditions are met (see cudnn docs).
 * `epsilon = 1e-5`: epsilon value used in the normalization formula
-* `exponentialAverageFactor = 0.1`: factor used in running mean/variance calculation: `runningMean = runningMean*(1-factor) + newMean*factor`
-* `alpha = 1; beta = 0`: scaling parameters
+* `momentum = 0.9`: momentum for the moving average, e.g. `b.mean = b.mean*momentum + mean(x; b.dims)*(1-momentum)`
+
+Reference: Batch Normalization: Accelerating Deep Network Training by Reducing Internal
+Covariate Shift, S. Ioffe, C. Szegedy, 2015.
 
 """
 mutable struct BatchNorm
-    # Inference parameters:
-    y
+    dims
     mean
-    variance
+    var
     bias
     scale
-    mode::cudnnNormMode_t
-    normOps::cudnnNormOps_t
-    algo::cudnnNormAlgo_t
-    alpha::Float64
-    beta::Float64
+    out
     epsilon::Float64
-    groupCnt::Integer
-
-    # Training-only parameters:
-    exponentialAverageFactor::Float64
-    savedMean
-    savedInvVariance
-
-    # Activation parameters:
-    activationMode::cudnnActivationMode_t
-    activationReluNanOpt::cudnnNanPropagation_t
-    activationCoef::Float64
-    activationDesc::Union{Nothing,cudnnActivationDescriptor}
-
-    # Tensor descriptors:
+    momentum::Float64
     format::cudnnTensorFormat_t
-
-    # Temporary space used in training:
+    mode::cudnnNormMode_t
+    savedMean
+    savedVar
     workspace
     reserveSpace
     dx::Ref{Any}
     dscale::Ref{Any}
     dbias::Ref{Any}
-    dz::Ref{Any}
 end
 
 
 function BatchNorm(
     ;
-    # Inference parameters:
-    # x = nothing, # input
-    # z = nothing, # for residual addition to the result of the normalization operation, prior to the activation
-    y = nothing,
+    dims = nothing,
     mean = nothing,
-    variance = nothing,
+    var = nothing,
     bias = nothing,
     scale = nothing,
-    mode::cudnnNormMode_t = CUDNN_NORM_PER_CHANNEL, # Per-channel layer is based on the paper Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift, S. Ioffe, C. Szegedy, 2015.
-    normOps::cudnnNormOps_t = CUDNN_NORM_OPS_NORM,  # Currently CUDNN_NORM_OPS_NORM_ACTIVATION and CUDNN_NORM_OPS_NORM_ADD_ACTIVATION are only supported in the NHWC layout (training,backward), not supported (inference)
-    algo::cudnnNormAlgo_t = CUDNN_NORM_ALGO_STANDARD, # trigger the new semi-persistent NHWC kernel when CUDNN_NORM_ALGO_PERSIST
-    alpha::Real = 1,
-    beta::Real = 0,
-    epsilon::Real = Cdouble(1e-5), # Has to be >= 0. Should be the same in forward and backward functions.
-    groupCnt::Integer = Cint(1),   # Place hold for future work, should be set to 1 now
-
-    # Training-only parameters:
-    exponentialAverageFactor::Real = Cdouble(0.1),
-    savedMean = nothing, # Optionally save intermediate results from the forward pass here - can be reused to speed up backward pass. NULL if unused.
-    savedInvVariance = nothing,
-
-    # Activation parameters:
-    activationMode::cudnnActivationMode_t = CUDNN_ACTIVATION_IDENTITY,
-    activationReluNanOpt::cudnnNanPropagation_t = CUDNN_NOT_PROPAGATE_NAN,
-    activationCoef::Real = 1,
-    activationDesc::Union{Nothing,cudnnActivationDescriptor} = (normOps == CUDNN_NORM_OPS_NORM ? nothing : cudnnActivationDescriptor(activationMode, activationReluNanOpt, Cdouble(activationCoef))),
-
-    # Tensor descriptors:
-    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
-
-    # Temporary space used in training:
-    workspace = nothing,
-    reserveSpace = nothing,
-    dx = Ref{Any}(nothing),
-    dscale = Ref{Any}(nothing),
-    dbias = Ref{Any}(nothing),
-    dz = Ref{Any}(nothing),
+    out = nothing,
+    epsilon::Real = Cdouble(1e-5),
+    momentum::Real = Cdouble(0.9),
 )
-    BatchNorm(y, mean, variance, bias, scale, mode, normOps, algo, alpha, beta, epsilon, groupCnt, exponentialAverageFactor, savedMean, savedInvVariance, activationMode, activationReluNanOpt, activationCoef, activationDesc, format, workspace, reserveSpace, dx, dscale, dbias, dz)
+    format = CUDNN_TENSOR_NCHW
+    mode = CUDNN_NORM_PER_CHANNEL
+    savedMean = nothing
+    savedVar = nothing
+    workspace = nothing
+    reserveSpace = nothing
+    dx = Ref{Any}(nothing)
+    dscale = Ref{Any}(nothing)
+    dbias = Ref{Any}(nothing)
+    BatchNorm(dims, mean, var, bias, scale, out, epsilon, momentum, format, mode, savedMean, savedVar, workspace, reserveSpace, dx, dscale, dbias)
 end
 
 
 # Some fields can only be initialized after seeing the first input x
 
-function initBatchNorm(b::BatchNorm, x, z)
+function initBatchNorm(b::BatchNorm, x; training)
     n = ndims(x)
-    bsize = (b.mode === CUDNN_NORM_PER_ACTIVATION ? ntuple(i->(i===n ? 1 : size(x,i)), n) :
-             b.format === CUDNN_TENSOR_NCHW ? ntuple(i->(i===n-1 ? size(x,i) : 1), n) :
-             ntuple(i->(i===1 ? size(x,i) : 1), n))
+    if b.dims === nothing || b.dims === (1:(n-2)...,n)
+        b.mode, b.format, bsize = CUDNN_NORM_PER_CHANNEL, CUDNN_TENSOR_NCHW, ntuple(i->(i===n-1 ? size(x,i) : 1), n)
+    elseif b.dims === (2:n...,)
+        b.mode, b.format, bsize = CUDNN_NORM_PER_CHANNEL, CUDNN_TENSOR_NHWC, ntuple(i->(i===1 ? size(x,i) : 1), n)
+    elseif length(b.dims) === 1 && b.dims[1] === n
+        b.mode, b.format, bsize = CUDNN_NORM_PER_ACTIVATION, CUDNN_TENSOR_NCHW, ntuple(i->(i===n ? 1 : size(x,i)), n)
+    else
+        error("x=$(size(x)) dims=$dims not supported")
+    end
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
-    b.y === nothing ? b.y = similar(x) : @assert issimilar(b.y, x)
+    b.out === nothing ? b.out = similar(x) : @assert issimilar(b.out, x)
     b.mean === nothing ? b.mean = fill!(similar(x, bsize), 0) : @assert issimilar(b.mean, x, bsize)
-    b.variance === nothing ? b.variance = fill!(similar(x, bsize), 1) : @assert issimilar(b.variance, x, bsize)
+    b.var === nothing ? b.var = fill!(similar(x, bsize), 1) : @assert issimilar(b.var, x, bsize)
     b.bias === nothing ? b.bias = Param(fill!(similar(x, bsize), 0)) : @assert issimilar(b.bias, x, bsize)
     b.scale === nothing ? b.scale = Param(fill!(similar(x, bsize), 1)) : @assert issimilar(b.scale, x, bsize)
-    if AutoGrad.recording()
+    if training && x isa DevArray
         b.savedMean === nothing ? b.savedMean = similar(x, bsize) : @assert issimilar(b.savedMean, x, bsize)
-        b.savedInvVariance === nothing ? b.savedInvVariance = similar(x, bsize) : @assert issimilar(b.savedInvVariance, x, bsize)
-        xDesc, bDesc = (u->cudnnTensorDescriptor(value(u); b.format)).((x, b.mean))
-        workspaceSize, reserveSpaceSize = Knet.CUDNN.cudnnNormalizationTempSpaceSizes(b.mode, b.normOps, b.algo, xDesc, xDesc, xDesc, bDesc, b.activationDesc, bDesc, b.groupCnt)
+        b.savedVar === nothing ? b.savedVar = similar(x, bsize) : @assert issimilar(b.savedVar, x, bsize)
+        workspaceSize, reserveSpaceSize = cudnnNormalizationTempSpaceSizes(b, x)
         if sizeof(b.reserveSpace) < reserveSpaceSize; b.reserveSpace = cudnnTempSpace(reserveSpaceSize); end
         if sizeof(b.workspace) < workspaceSize; b.workspace = cudnnTempSpace(workspaceSize); end
-        b.dx[] === nothing ? b.dx[]     = similar(x) : @assert issimilar(x, b.dx[])
+        b.dx[] === nothing ? b.dx[] = similar(x) : @assert issimilar(x, b.dx[])
         b.dscale[] === nothing ? b.dscale[] = similar(b.scale) : @assert issimilar(b.scale, b.dscale[])
-        b.dbias[] === nothing ? b.dbias[]  = similar(b.bias) : @assert issimilar(b.bias, b.dbias[])
-        z === nothing ? b.dz[] = nothing : b.dz[] === nothing ? b.dz[] = zero(z) : (@assert issimilar(z, b.dz[]); b.dz[] .= 0) # z may not be used, dz may not be modified, should be zeroed
+        b.dbias[] === nothing ? b.dbias[] = similar(b.bias) : @assert issimilar(b.bias, b.dbias[])
     end
 end
 
 
-function (b::BatchNorm)(x, z=nothing)
-    initBatchNorm(b, x, z)
-    cudnnNormalizationForward!(
-        b.y, x, b.mean, b.variance, b.bias, b.scale; z,
-        mode=b.mode, normOps=b.normOps, algo=b.algo, alpha=b.alpha, beta=b.beta,
-        epsilon=b.epsilon, groupCnt=b.groupCnt, exponentialAverageFactor=b.exponentialAverageFactor,
-        savedMean=b.savedMean, savedInvVariance=b.savedInvVariance, activationDesc=b.activationDesc,
-        format=b.format, workspace=b.workspace, reserveSpace=b.reserveSpace,
-        dx=b.dx, dscale=b.dscale, dbias=b.dbias, dz=b.dz)
+function cudnnNormalizationTempSpaceSizes(b::BatchNorm, x)
+    workspaceSize, reserveSpaceSize = Ref{Csize_t}(0), Ref{Csize_t}(0)
+    xDesc, bDesc = (u->cudnnTensorDescriptor(value(u); format=b.format)).((x, b.mean))
+    mode, normOps, algo, groupCnt = b.mode, CUDNN_NORM_OPS_NORM, CUDNN_NORM_ALGO_STANDARD, 1
+    cudnnGetNormalizationForwardTrainingWorkspaceSize(handle(), mode, normOps, algo, xDesc, C_NULL, xDesc, bDesc, C_NULL, bDesc, workspaceSize, groupCnt)
+    cudnnGetNormalizationTrainingReserveSpaceSize(handle(), mode, normOps, algo, C_NULL, xDesc, reserveSpaceSize, groupCnt)
+    workspaceSize[], reserveSpaceSize[]
 end
+
+
+function (b::BatchNorm)(x; training=Knet.training())
+    initBatchNorm(b, x; training)
+    batchnorm(x, b.mean, b.var, b.bias, b.scale; training,
+              b.out, b.epsilon, b.momentum, b.mode, b.format,
+              b.savedMean, b.savedVar, b.workspace, b.reserveSpace,
+              b.dx, b.dscale, b.dbias)
+end
+
+

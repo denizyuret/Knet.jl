@@ -1,4 +1,7 @@
 module Layers21
+
+include("batchnorm.jl")
+
 # TODO: rethink param/Param and generally parameter initialization, array_type etc.
 #  xavier may not be optimal for embedding, should specify init options etc.
 # TODO: rethink eliminating layers without parameters: dropout, activation
@@ -8,6 +11,5 @@ module Layers21
 # include("dropout.jl")
 # include("embed.jl")
 # include("layernorm.jl")
-# include("batchnorm.jl")
 
 end

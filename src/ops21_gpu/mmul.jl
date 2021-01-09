@@ -1,4 +1,4 @@
-#DBG import Knet.Ops21: mmul
+import Knet.Ops21: mmul
 using Knet.KnetArrays: DevArray
 using CUDA.CUBLAS: CUBLAS, cublasDgemm_v2, cublasSgemm_v2, cublasOperation_t
 using AutoGrad: AutoGrad, @primitive1
