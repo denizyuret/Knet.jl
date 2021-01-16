@@ -22,6 +22,9 @@ using CUDA.CUDNN:
         cudnnCreateConvolutionDescriptor,
         cudnnSetConvolutionNdDescriptor,
         cudnnDestroyConvolutionDescriptor,
+    cudnnConvolutionForwardOutput,
+    cudnnTensorDescriptor,
+    cudnnFilterDescriptor,
     cudnnConvolutionMode_t,
         CUDNN_CONVOLUTION,       # 0
         CUDNN_CROSS_CORRELATION, # 1
@@ -82,22 +85,34 @@ using CUDA.CUDNN:
 
 function conv(
     w::R, x::R;
-    activation = nothing,
-    alpha = 1,
-    beta = 0,
-    bias = nothing,
-    dilation = 1,
-    flipkernel = false,
-    group = 1,
-    padding = 0,
-    stride = 1,
     z = nothing,
+    bias = nothing,
+    activation = nothing,
+
+    alpha::Real = 1,
+    beta::Real = 0,
+
+    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,  # >= 0
+    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
+    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
+    group::Integer = 1,
+    flipkernel::Bool = false,
+
+    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
+    mode::cudnnConvolutionMode_t = flipkernel ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION,
+    mathType::cudnnMathType_t = math_mode(),
+    reorderType::cudnnReorderType_t = CUDNN_DEFAULT_REORDER,  # related to cudnnReorderFilterAndBias?
+    convDesc::cudnnConvolutionDescriptor = cudnnConvolutionDescriptor(convdims(padding,size(x),format), convdims(stride,size(x),format), convdims(dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(group)),
+    y = cudnnConvolutionForwardOutput(x, cudnnTensorDescriptor(x;format), cudnnFilterDescriptor(w;format), convDesc, format),
+
+    dw = Ref{Any}(nothing),
+    dx = Ref{Any}(nothing),
+    dz = Ref{Any}(nothing),
+    dbias = Ref{Any}(nothing),
+
 ) where {R<:Union{DevArray,Value{<:DevArray}}}
-    mode = flipkernel ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
+
     a = (activation === relu ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
-    y = cudnnConvolutionForward(w, x; bias, activation=a, mode, padding, stride, dilation, group, alpha, beta, z)
-    if !(activation ∈ (nothing, identity, relu))
-        y = activation.(y)
-    end
-    return y
+    r = cudnnConvolutionForward!(y, w, x, convDesc; activation=a, bias, z, alpha, beta, format, dw, dx, dz, dbias)
+    return (activation ∈ (nothing, identity, relu) ? r : activation.(r))
 end

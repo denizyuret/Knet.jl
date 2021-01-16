@@ -47,6 +47,7 @@ function conv(
     padding = 0,
     stride = 1,
     z = nothing,
+    o...
 )
     if group != 1; error("group != 1 is not supported on the CPU yet, see NNlib#267"); end
     N = ndims(w)
