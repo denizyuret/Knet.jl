@@ -9,5 +9,6 @@ const bmm = Ops20.bmm; export bmm
 include("activation.jl"); export elu, gelu, relu, selu, sigm
 include("mmul.jl"); export mmul
 include("batchnorm.jl"); export batchnorm
+include("conv.jl"); export conv
 
 end

@@ -29,7 +29,7 @@ Keyword arguments:
 * `alpha = 1, beta = 0`: scaling parameters
 * `bias = nothing`: add bias if provided
 * `dilation = 1`: dilation factor
-* `flipped = false`: apply cross-correlation rather than convolution if true
+* `flipkernel = false`: apply cross-correlation rather than convolution if true
 * `group = 1`: number of groups to be used
 * `padding = 0`: padding assumed around `x`
 * `stride = 1`: how far to shift the convolution window at each step
@@ -42,14 +42,19 @@ function conv(
     beta = 0,
     bias = nothing,
     dilation = 1,
-    flipped = false,
+    flipkernel = false,
     group = 1,
     padding = 0,
     stride = 1,
     z = nothing,
 )
     if group != 1; error("group != 1 is not supported on the CPU yet, see NNlib#267"); end
-    y = NNlib.conv(x, w; stride, pad=padding, dilation, flipped)
+    N = ndims(w)
+    stride = NNlib.expand(Val(N-2), stride)
+    padding = NNlib.expand(Val(N-2), padding)
+    dilation = NNlib.expand(Val(N-2), dilation)
+    cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel)
+    y = NNlib.conv(x, w, cdims)
     if alpha != 1; y = alpha * y; end
     if beta != 0 && z !== nothing; y = y + beta * z; end
     if bias !== nothing; y = y .+ bias; end
@@ -57,3 +62,7 @@ function conv(
     return y
 end
 
+
+@primitive1 NNlib.conv(x, w, cdims; o...),dy,y  NNlib.∇conv_data(dy, w, cdims; o...)  NNlib.∇conv_filter(x, dy, cdims; o...)
+@primitive1 NNlib.∇conv_data(dy, w, cdims; o...),ddx,dx  NNlib.conv(ddx, w, cdims; o...)  NNlib.∇conv_filter(ddx, dy, cdims; o...)
+@primitive1 NNlib.∇conv_filter(x, dy, cdims; o...),ddw,dw  NNlib.∇conv_data(dy, ddw, cdims; o...)  NNlib.conv(x, ddw, cdims; o...)

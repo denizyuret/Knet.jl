@@ -41,7 +41,7 @@ function cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDes
     end
     @assert issimilar(bias, dbias[])
     # Calculate pre-activation gradient if necessary, use dz[] for storage
-    @assert issimilar(z, y)
+    @assert isa(z,Nothing) || issimilar(z, y)
     if activation !== CUDNN_ACTIVATION_IDENTITY
         if dz[] === nothing; dz[] = similar(y); end; @assert issimilar(y, dz[])
         actback!(dz[],y,dy,y,activation)
@@ -55,7 +55,7 @@ function cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDes
     if bias !== nothing
         cudnnConvolutionBackwardBias(handle(), alpha1, yDesc, dy, beta0, biasDesc, dbias[])
     end
-    if beta[] == 0
+    if beta[] == 0 || z === nothing
         dz[] = nothing
     elseif dz[] === nothing
         dz[] = beta[] .* dy
