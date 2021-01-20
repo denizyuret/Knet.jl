@@ -96,12 +96,13 @@ function conv(
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
     group::Integer = 1,
-    flipkernel::Bool = false,
+    crosscorrelation::Bool = false,
+    channelmajor::Bool = false,
 
-    format::cudnnTensorFormat_t = CUDNN_TENSOR_NCHW,
-    mode::cudnnConvolutionMode_t = flipkernel ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION,
+    format::cudnnTensorFormat_t = channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW,
+    mode::cudnnConvolutionMode_t = crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION,
     mathType::cudnnMathType_t = math_mode(),
-    reorderType::cudnnReorderType_t = CUDNN_DEFAULT_REORDER,  # related to cudnnReorderFilterAndBias?
+    reorderType::cudnnReorderType_t = CUDNN_DEFAULT_REORDER,
     convDesc::cudnnConvolutionDescriptor = cudnnConvolutionDescriptor(convdims(padding,size(x),format), convdims(stride,size(x),format), convdims(dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(group)),
     y = cudnnConvolutionForwardOutput(x, cudnnTensorDescriptor(x;format), cudnnFilterDescriptor(w;format), convDesc, format),
 

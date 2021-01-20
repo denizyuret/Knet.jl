@@ -1,5 +1,6 @@
 export Conv
 using Knet.Ops21: conv
+import CUDA
 
 using CUDA.CUDNN:
     cudnnConvolutionForward,
@@ -80,112 +81,107 @@ using CUDA.CUDNN:
 
 
 """
-    c = Conv(dims...; kwargs...)
-    c = Conv(weights; kwargs...)
-    y = c(x, z=nothing)
+    c = Conv(wdims...; winit, kwargs...)
+    c = Conv(w; kwargs...)
+    y = c(x, [z=nothing])
 
-Return a convolution layer that can perform convolution and optionally bias/residual
-addition, activation and/or scaling. 
+Return a layer that can perform convolution and optionally bias/residual addition,
+activation and/or scaling. The constructor can take the convolution weight tensor `w` or its
+dimensions `wdims`. If `wdims` is used a weight tensor will be initialized using the `winit`
+function which defaults to uniform random in `±√(6/(fanin+fanout))`. The layer can be called
+with a single input `x`, or two inputs `x,z` where `z` has the same size as the output
+`y`. The computed result is:
 
     y = activation.(alpha * conv(w,x) + beta * z .+ bias) 
 
-All tensors should have the same number of dimensions. If they are less than 4-D their
-dimensions are assumed to be padded on the left with 1's. `x` has size `(X...,Cx,N)` where
-`(X...)` are the spatial dimensions, `Cx` is the number of input channels, and `N` is the
-number of instances. `y,z` have size `(Y...,Cy,N)` where `(Y...)` are the spatial dimensions
-and `Cy` is the number of output channels. Both `Cx` and `Cy` have to be an exact multiple
-of `group`.  `w` has size `(W...,Cx÷group,Cy)` where `(W...)` are the filter
-dimensions. `bias` has size `(1...,Cy,1)`.
-
-The arguments `padding`, `stride` and `dilation` can be specified as `n-2` dimensional
-vectors, tuples or a single integer which is assumed to be repeated `n-2` times. If any of
-the entries is larger than the corresponding `x` dimension, the `x` dimension is used
-instead. For a description of different types of convolution see:
-https://towardsdatascience.com/a-comprehensive-introduction-to-different-types-of-convolutions-in-deep-learning-669281e58215
-
-Keyword arguments:
-* `activation = nothing`: apply activation function if provided
-* `alpha = 1, beta = 0`: scaling parameters
-* `bias = nothing`: add bias if provided
-* `dilation = 1`: dilation factor
-* `flipkernel = false`: apply cross-correlation rather than convolution if true
-* `group = 1`: number of groups to be used
-* `padding = 0`: padding assumed around `x`
-* `stride = 1`: how far to shift the convolution window at each step
-* `z = nothing`: add `beta*z` to the result if specified
+For tensor sizes and keyword arguments with their defaults see `@doc Knet.Ops21.conv`.
 """
 mutable struct Conv
-    wdims
-    bdims
+    w  # No type here, we do not want to restrict the type of array
+    dw::Ref{Any}
+    wdims::Dims
+    winit
 
-    w
-    bias
-    y
+    bias  # Can be nothing
+    dbias::Ref{Any}
+    bdims::Dims
 
-    dw
-    dbias
-    dx
-    dz
+    # y; dx; dz; These may be overwritten if multiple calls to same layer. 
+    # TODO: check for dx,dz,dw,dbias - do they not accumulate?
 
-    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}}
-    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}}
-    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}}
+    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
+    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
+    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
     group::Integer
+    crosscorrelation::Bool
+    channelmajor::Bool
+    activation::Union{Nothing,Function}
+    convDesc::Union{Nothing,cudnnConvolutionDescriptor}
+
     alpha::Real
     beta::Real
+end
 
-    convDesc::cudnnConvolutionDescriptor
-    activation::cudnnActivationMode_t
-    format::cudnnTensorFormat_t
+
+# If the user provides size, we can't immediately initialize w because we do not know the
+# array type until we see the first input
+function Conv(
+    wdims::Integer...;
+    w = nothing,
+    bias = nothing,
+    activation::Union{Nothing,Function} = nothing,
+
+    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 0,
+    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
+    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
+    group::Integer = 1,
+    crosscorrelation::Bool = false,
+
+    channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true. TODO: test on cpu
+    winit = 𝑼(√(6/(fanin(wdims; channelmajor)+fanout(wdims; channelmajor)))),
+
+    alpha::Real = 1,
+    beta::Real = 0,
+)
+    wdims = Int.(wdims)
+    dw = Ref{Any}(nothing)
+    dbias = Ref{Any}(nothing)
+    ndims = length(wdims)
+    cdim = channelmajor ? 1 : ndims-1
+    bdims = ntuple(i->(i===cdim ? wdims[i] : 1), ndims)
+    convDesc = nothing          # To be initialized at first call
+    Conv(w, dw, wdims, winit, bias, dbias, bdims, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
 end
 
 
 Conv(w; o...) = Conv(size(w)...; w, o...)
 
-function Conv(
-    wdims::Integer...;
-    w = nothing,
-    activation = nothing,
-    alpha = 1,
-    beta = 0,
-    bias = nothing,
-    dilation = 1,
-    flipkernel = false,
-    group = 1,
-    padding = 0,
-    stride = 1,
-)
-end
 
-
+# Some of the initialization can only be done at the first call when we know the type of x
 function initconv(c::Conv, x, z)
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
     if c.w === nothing
-        # TODO: init w
+        c.w = Param(oftype(x, c.winit(c.wdims...)))
     end
-    @assert typeof(x) === typeof(c.w)
-    @assert (c.format === CUDNN_TENSOR_NHWC ? size(x,1) === size(w,1) : size(x)[end-1] === size(w)[end-1])
+    @assert issimilar(c.w, x, c.wdims)
+    @assert (c.channelmajor ? size(x,1) === size(c.w,1) : size(x)[end-1] === size(c.w)[end-1])
     if c.bias === nothing && (c.activation === relu || z !== nothing)
+        # will call cudnnConvolutionBiasActivationForward, must have bias
         c.bias = fill!(similar(c.w, c.bdims), 0)
     end
     @assert c.bias === nothing || issimilar(c.bias, c.w, c.bdims)
-    # TODO: calculate ydims: do it with Refs? what if same Conv run multiple times in an iteration? same in batchnorm?
-    if !issimilar(c.y, x, ydims)
-        c.y = similar(x, ydims)
-    end
-    @assert z === nothing || issimilar(z, c.y)
-    if c.convDesc === nothing
-        mode = flipkernel ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
+    if CUDA.functional() && c.convDesc === nothing
+        mode = c.crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
+        format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW,
         reorderType, mathType = CUDNN_DEFAULT_REORDER, math_mode()
-        c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),c.format), convdims(c.stride,size(x),c.format), convdims(c.dilation,size(x),c.format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.group))
+        c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.group))
     end
 end
 
 
 function (c::Conv)(x, z=nothing)
-    initConv(c, x, z)
-    conv(c.w, x; z, c.bias, c.y,
-         c.activation, c.alpha, c.beta,
-         c.dilation, c.flipkernel, c.group, c.padding, c.stride,
-         c.convDesc, c.format, c.dw, c.dx, c.dz, c.dbias)
+    initconv(c, x, z)
+    conv(c.w, x; z, c.bias, c.activation, c.alpha, c.beta,
+         c.channelmajor, c.crosscorrelation, c.dilation, c.group, c.padding, c.stride,
+         c.convDesc, c.dw, c.dbias)
 end
