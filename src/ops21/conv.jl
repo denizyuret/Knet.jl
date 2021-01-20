@@ -72,6 +72,7 @@ function conv(
         cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel=crosscorrelation)
         y = NNlib.conv(x, w, cdims)
     else
+        @warn "group > 1 is not implemented on the CPU yet, using slow manual implementation, see NNlib#267" maxlog=1
         @assert size(x,3) == size(w,3)*group
         @assert size(w,4) % group == 0
         ys,dx,dy = Array{Any}(undef,group), size(w,3), size(w,4)÷group

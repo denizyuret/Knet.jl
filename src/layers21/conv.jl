@@ -98,16 +98,13 @@ For tensor sizes and keyword arguments with their defaults see `@doc Knet.Ops21.
 """
 mutable struct Conv
     w  # No type here, we do not want to restrict the type of array
-    dw::Ref{Any}
     wdims::Dims
     winit
 
     bias  # Can be nothing
-    dbias::Ref{Any}
     bdims::Dims
 
-    # y; dx; dz; These may be overwritten if multiple calls to same layer. 
-    # TODO: check for dx,dz,dw,dbias - do they not accumulate?
+    # y; dw; dbias; dx; dz; These are overwritten if multiple calls to same layer. 
 
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
@@ -137,7 +134,7 @@ function Conv(
     group::Integer = 1,
     crosscorrelation::Bool = false,
 
-    channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true. TODO: test on cpu
+    channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true.
     winit = 𝑼(√(6/(fanin(wdims; channelmajor)+fanout(wdims; channelmajor)))),
 
     alpha::Real = 1,
@@ -150,7 +147,7 @@ function Conv(
     cdim = channelmajor ? 1 : ndims-1
     bdims = ntuple(i->(i===cdim ? wdims[end] : 1), ndims)
     convDesc = nothing          # To be initialized at first call
-    Conv(w, dw, wdims, winit, bias, dbias, bdims, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
+    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
 end
 
 
@@ -161,7 +158,7 @@ Conv(w; o...) = Conv(size(w)...; w, o...)
 function initconv(c::Conv, x, z)
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
     if c.w === nothing
-        c.w = Param(oftype(x, c.winit(c.wdims...)))
+        c.w = Param(oftype(value(x), c.winit(c.wdims...)))
     end
     @assert issimilar(c.w, x, c.wdims)
     @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.group : size(x)[end-1] === size(c.w)[end-1]*c.group)
@@ -181,7 +178,6 @@ end
 
 function (c::Conv)(x, z=nothing)
     initconv(c, x, z)
-    conv(c.w, x; z, c.bias, c.activation, c.alpha, c.beta,
-         c.channelmajor, c.crosscorrelation, c.dilation, c.group, c.padding, c.stride,
-         c.convDesc, c.dw, c.dbias)
+    conv(c.w, x; z, c.bias, c.activation, c.alpha, c.beta, c.channelmajor,
+         c.convDesc, c.crosscorrelation, c.dilation, c.group, c.padding, c.stride)
 end
