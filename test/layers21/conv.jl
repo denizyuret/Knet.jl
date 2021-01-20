@@ -36,7 +36,8 @@ using CUDA: CUDA, CuArray
         px,pw,pb,pz = (i->i===nothing ? nothing : Param(i)).((gx,gw,gb,gz))
         cgpu = Conv(pw; bias=pb, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, alpha, beta)
         r1 = isa(gw, Array) || gcheck_only ? true : isapprox(Array(cgpu(gx, gz)), ccpu(x, z))
-        r2 = @gcheck cgpu(px, pz)
+        tol = (eltype(pw) == Float64 ? 0.05 : 0.20)
+        r2 = @gcheck cgpu(px, pz) (;rtol=tol)
         r1 && r2
     end
 
@@ -46,14 +47,13 @@ using CUDA: CUDA, CuArray
     @test convtest(; activation=relu)
     @test convtest(; alpha=2)
     @test convtest(; beta=2, usez=true)
+    @test convtest(; channelmajor=true)
     @test convtest(; crosscorrelation=true)
     @test convtest(; dilation=2)
+    @test convtest(; group=2) 
     @test convtest(; padding=1)
     @test convtest(; stride=2)
     @test convtest(; usebias=true)
-    # TODO: when these are fixed remove gcheck_only from below
-    @test_skip convtest(; channelmajor=true)
-    @test_skip convtest(; group=2) 
 
     if CUDA.functional()
 
@@ -63,13 +63,13 @@ using CUDA: CUDA, CuArray
         @test convtest(; atype=CuArray, activation=relu)
         @test convtest(; atype=CuArray, alpha=2)
         @test convtest(; atype=CuArray, beta=2, usez=true)
+        @test convtest(; atype=CuArray{Float32}, channelmajor=true) # cudnn8 does not support Float64 with channelmajor
         @test convtest(; atype=CuArray, crosscorrelation=true)
         @test convtest(; atype=CuArray, dilation=2)
+        @test convtest(; atype=CuArray, group=2)
         @test convtest(; atype=CuArray, padding=1)
         @test convtest(; atype=CuArray, stride=2)
         @test convtest(; atype=CuArray, usebias=true)
-        @test convtest(; atype=CuArray, group=2, gcheck_only=true)
-        @test_skip convtest(; atype=CuArray, channelmajor=true, gcheck_only=true)
         
         @test convtest(; atype=KnetArray, )
         @test convtest(; atype=KnetArray, nd=3)
@@ -77,13 +77,13 @@ using CUDA: CUDA, CuArray
         @test convtest(; atype=KnetArray, activation=relu)
         @test convtest(; atype=KnetArray, alpha=2)
         @test convtest(; atype=KnetArray, beta=2, usez=true)
+        @test convtest(; atype=KnetArray{Float32}, channelmajor=true)  # cudnn8 does not support Float64 with channelmajor
         @test convtest(; atype=KnetArray, crosscorrelation=true)
         @test convtest(; atype=KnetArray, dilation=2)
+        @test convtest(; atype=KnetArray, group=2)
         @test convtest(; atype=KnetArray, padding=1)
         @test convtest(; atype=KnetArray, stride=2)
         @test convtest(; atype=KnetArray, usebias=true)
-        @test convtest(; atype=KnetArray, group=2, gcheck_only=true)
-        @test_skip convtest(; atype=KnetArray, channelmajor=true, gcheck_only=true)
 
     end
 end

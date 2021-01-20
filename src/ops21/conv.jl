@@ -60,18 +60,34 @@ function conv(
     z = nothing,
     o...
 )
-    if group != 1; error("group != 1 is not supported on the CPU yet, see NNlib#267"); end
-    if channelmajor; error("channelmajor is not supported on the CPU yet, see NNlib#267"); end
+    if channelmajor
+        @warn "channelmajor is not implemented on the CPU yet, using slow permutedims, see NNlib#267" maxlog=1
+        w,x,z,bias = (x->(x===nothing ? nothing : permutedims(x,(2,3,1,4)))).((w,x,z,bias))
+    end
     N = ndims(w)
     stride = NNlib.expand(Val(N-2), stride)
     padding = NNlib.expand(Val(N-2), padding)
     dilation = NNlib.expand(Val(N-2), dilation)
-    cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel=crosscorrelation)
-    y = NNlib.conv(x, w, cdims)
+    if group == 1
+        cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel=crosscorrelation)
+        y = NNlib.conv(x, w, cdims)
+    else
+        @assert size(x,3) == size(w,3)*group
+        @assert size(w,4) % group == 0
+        ys,dx,dy = Array{Any}(undef,group), size(w,3), size(w,4)÷group
+        for i = 1:group
+            xi = view(x, :, :, (1+(i-1)*dx):(i*dx), :)
+            wi = view(w, :, :, :, (1+(i-1)*dy):(i*dy))
+            cdims = NNlib.DenseConvDims(size(xi), size(wi); stride, padding, dilation, flipkernel=crosscorrelation)
+            ys[i] = NNlib.conv(xi, wi, cdims)
+        end
+        y = cat(ys...; dims=3)
+    end
     if alpha != 1; y = alpha * y; end
     if beta != 0 && z !== nothing; y = y + beta * z; end
     if bias !== nothing; y = y .+ bias; end
     if activation !== nothing && activation !== identity; y = activation.(y); end
+    if channelmajor; y = permutedims(y, (3,1,2,4)); end
     return y
 end
 
