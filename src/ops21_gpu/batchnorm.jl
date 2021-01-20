@@ -1,6 +1,4 @@
 import Knet.Ops21: batchnorm
-using Knet.KnetArrays: DevArray
-using AutoGrad: Value
 
 using CUDA.CUDNN:
     cudnnNormalizationForward,
@@ -40,7 +38,7 @@ using CUDA.CUDNN:
 
 
 function batchnorm(
-    x::R, xmean::R, xvar::R, bias::R, scale::R;
+    x::GPUVal, xmean::GPUVal, xvar::GPUVal, bias::GPUVal, scale::GPUVal;
     out = similar(x),
     training = Knet.training(),
     epsilon = 1e-5,
@@ -54,7 +52,7 @@ function batchnorm(
     dx = Ref{Any}(nothing),
     dscale = Ref{Any}(nothing),
     dbias = Ref{Any}(nothing),
-    o...) where {R<:Union{DevArray,Value{<:DevArray}}}
+    o...)
     cudnnNormalizationForward!(
         out, x, xmean, xvar, bias, scale;
         mode, format, epsilon, exponentialAverageFactor=1-momentum,

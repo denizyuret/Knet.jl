@@ -148,7 +148,7 @@ function Conv(
     dbias = Ref{Any}(nothing)
     ndims = length(wdims)
     cdim = channelmajor ? 1 : ndims-1
-    bdims = ntuple(i->(i===cdim ? wdims[i] : 1), ndims)
+    bdims = ntuple(i->(i===cdim ? wdims[end] : 1), ndims)
     convDesc = nothing          # To be initialized at first call
     Conv(w, dw, wdims, winit, bias, dbias, bdims, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
 end
@@ -164,7 +164,7 @@ function initconv(c::Conv, x, z)
         c.w = Param(oftype(x, c.winit(c.wdims...)))
     end
     @assert issimilar(c.w, x, c.wdims)
-    @assert (c.channelmajor ? size(x,1) === size(c.w,1) : size(x)[end-1] === size(c.w)[end-1])
+    @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.group : size(x)[end-1] === size(c.w)[end-1]*c.group)
     if c.bias === nothing && (c.activation === relu || z !== nothing)
         # will call cudnnConvolutionBiasActivationForward, must have bias
         c.bias = fill!(similar(c.w, c.bdims), 0)
@@ -172,7 +172,7 @@ function initconv(c::Conv, x, z)
     @assert c.bias === nothing || issimilar(c.bias, c.w, c.bdims)
     if CUDA.functional() && c.convDesc === nothing
         mode = c.crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
-        format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW,
+        format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW
         reorderType, mathType = CUDNN_DEFAULT_REORDER, math_mode()
         c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.group))
     end

@@ -1,6 +1,4 @@
 import Knet.Ops21: conv, relu
-using Knet.KnetArrays: DevArray
-using AutoGrad: Value
 
 using CUDA.CUDNN:
     cudnnConvolutionForward,
@@ -84,7 +82,7 @@ using CUDA.CUDNN:
 
 
 function conv(
-    w::R, x::R;
+    w::GPUVal, x::GPUVal;
     z = nothing,
     bias = nothing,
     activation = nothing,
@@ -111,7 +109,7 @@ function conv(
     dz = Ref{Any}(nothing),
     dbias = Ref{Any}(nothing),
 
-) where {R<:Union{DevArray,Value{<:DevArray}}}
+)
 
     a = (activation === relu ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
     r = cudnnConvolutionForward!(y, w, x, convDesc; activation=a, bias, z, alpha, beta, format, dw, dx, dz, dbias)
