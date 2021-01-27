@@ -109,7 +109,7 @@ mutable struct Conv
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
-    group::Integer
+    groups::Integer
     crosscorrelation::Bool
     channelmajor::Bool
     activation::Union{Nothing,Function}
@@ -131,7 +131,7 @@ function Conv(
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 0,
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
-    group::Integer = 1,
+    groups::Integer = 1,
     crosscorrelation::Bool = false,
 
     channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true.
@@ -147,7 +147,7 @@ function Conv(
     cdim = channelmajor ? 1 : ndims-1
     bdims = ntuple(i->(i===cdim ? wdims[end] : 1), ndims)
     convDesc = nothing          # To be initialized at first call
-    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, group, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
+    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, groups, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
 end
 
 
@@ -161,7 +161,7 @@ function initconv(c::Conv, x, z)
         c.w = Param(oftype(value(x), c.winit(c.wdims...)))
     end
     @assert issimilar(c.w, x, c.wdims)
-    @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.group : size(x)[end-1] === size(c.w)[end-1]*c.group)
+    @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.groups : size(x)[end-1] === size(c.w)[end-1]*c.groups)
     if c.bias === nothing && (c.activation === relu || z !== nothing)
         # will call cudnnConvolutionBiasActivationForward, must have bias
         c.bias = fill!(similar(c.w, c.bdims), 0)
@@ -171,7 +171,7 @@ function initconv(c::Conv, x, z)
         mode = c.crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
         format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW
         reorderType, mathType = CUDNN_DEFAULT_REORDER, math_mode()
-        c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.group))
+        c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.groups))
     end
 end
 
@@ -179,5 +179,5 @@ end
 function (c::Conv)(x, z=nothing)
     initconv(c, x, z)
     conv(c.w, x; z, c.bias, c.activation, c.alpha, c.beta, c.channelmajor,
-         c.convDesc, c.crosscorrelation, c.dilation, c.group, c.padding, c.stride)
+         c.convDesc, c.crosscorrelation, c.dilation, c.groups, c.padding, c.stride)
 end

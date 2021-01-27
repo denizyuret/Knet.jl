@@ -93,7 +93,7 @@ function conv(
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 0,  # >= 0
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
-    group::Integer = 1,
+    groups::Integer = 1,
     crosscorrelation::Bool = false,
     channelmajor::Bool = false,
 
@@ -101,7 +101,7 @@ function conv(
     mode::cudnnConvolutionMode_t = crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION,
     mathType::cudnnMathType_t = math_mode(),
     reorderType::cudnnReorderType_t = CUDNN_DEFAULT_REORDER,
-    convDesc::cudnnConvolutionDescriptor = cudnnConvolutionDescriptor(convdims(padding,size(x),format), convdims(stride,size(x),format), convdims(dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(group)),
+    convDesc::cudnnConvolutionDescriptor = cudnnConvolutionDescriptor(convdims(padding,size(x),format), convdims(stride,size(x),format), convdims(dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(groups)),
     y = cudnnConvolutionForwardOutput(x, cudnnTensorDescriptor(x;format), cudnnFilterDescriptor(w;format), convDesc, format),
 
     dw = Ref{Any}(nothing),

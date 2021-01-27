@@ -40,7 +40,7 @@ Keyword arguments:
 * `channelmajor = false`: assume channel-major format tensors if specified
 * `crosscorrelation = false`: apply cross-correlation rather than convolution if true
 * `dilation = 1`: dilation factor
-* `group = 1`: number of groups to be used
+* `groups = 1`: number of groups to be used
 * `padding = 0`: padding assumed around `x`
 * `stride = 1`: how far to shift the convolution window at each step
 * `z = nothing`: add `beta*z` to the result if specified
@@ -54,7 +54,7 @@ function conv(
     channelmajor = false,
     crosscorrelation = false,
     dilation = 1,
-    group = 1,
+    groups = 1,
     padding = 0,
     stride = 1,
     z = nothing,
@@ -68,15 +68,15 @@ function conv(
     stride = NNlib.expand(Val(N-2), stride)
     padding = NNlib.expand(Val(N-2), padding)
     dilation = NNlib.expand(Val(N-2), dilation)
-    if group == 1
+    if groups == 1
         cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel=crosscorrelation)
         y = NNlib.conv(x, w, cdims)
     else
-        @warn "group > 1 is not implemented on the CPU yet, using slow manual implementation, see NNlib#267" maxlog=1
-        @assert size(x,3) == size(w,3)*group
-        @assert size(w,4) % group == 0
-        ys,dx,dy = Array{Any}(undef,group), size(w,3), size(w,4)÷group
-        for i = 1:group
+        @warn "groups > 1 is not implemented on the CPU yet, using slow manual implementation, see NNlib#267" maxlog=1
+        @assert size(x,3) == size(w,3)*groups
+        @assert size(w,4) % groups == 0
+        ys,dx,dy = Array{Any}(undef,groups), size(w,3), size(w,4)÷groups
+        for i = 1:groups
             xi = view(x, :, :, (1+(i-1)*dx):(i*dx), :)
             wi = view(w, :, :, :, (1+(i-1)*dy):(i*dy))
             cdims = NNlib.DenseConvDims(size(xi), size(wi); stride, padding, dilation, flipkernel=crosscorrelation)
