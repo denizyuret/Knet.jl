@@ -32,6 +32,14 @@ copyto!(dest::KnetArray{T}, src::KnetArray{T}) where {T} = _copyto!(dest, src)
 copyto!(dest::KnetArray{T}, src::Array{T}) where {T} = _copyto!(dest, src)
 copyto!(dest::Array{T}, src::KnetArray{T}) where {T} = _copyto!(dest, src)
 
+# Changing types
+copyto!(dest::KnetArray{T}, doffs::Integer, src::KnetArray{S}, soffs::Integer, n::Integer) where {T,S} = _copyto!(dest, doffs, convert(KnetArray{T},src), soffs, n)
+copyto!(dest::KnetArray{T}, doffs::Integer, src::Array{S}, soffs::Integer, n::Integer) where {T,S} = _copyto!(dest, doffs, convert(Array{T},src), soffs, n)
+copyto!(dest::Array{T}, doffs::Integer, src::KnetArray{S}, soffs::Integer, n::Integer) where {T,S} = _copyto!(dest, doffs, convert(KnetArray{T},src), soffs, n)
+copyto!(dest::KnetArray{T}, src::KnetArray{S}) where {T,S} = _copyto!(dest, convert(KnetArray{T},src))
+copyto!(dest::KnetArray{T}, src::Array{S}) where {T,S} = _copyto!(dest, convert(Array{T},src))
+copyto!(dest::Array{T}, src::KnetArray{S}) where {T,S} = _copyto!(dest, convert(KnetArray{T},src))
+
 
 function copy(a::KnetArray)
     _unsafe_copy!(similar(a),1,a,1,length(a))

@@ -1,9 +1,13 @@
 module Layers21
 
 include("init.jl")
+include("sequential.jl")
+include("residual.jl")
 include("batchnorm.jl")
 include("conv.jl")
 include("dense.jl") # TODO: test, redesign
+include("show.jl")
+include("jld2.jl")
 
 # TODO: rethink param/Param and generally parameter initialization, array_type etc.
 #  xavier may not be optimal for embedding, should specify init options etc.

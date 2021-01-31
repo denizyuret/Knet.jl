@@ -86,6 +86,7 @@ function conv(
     z = nothing,
     bias = nothing,
     activation = nothing,
+    normalization = nothing,
 
     alpha::Real = 1,
     beta::Real = 0,
@@ -108,10 +109,10 @@ function conv(
     dx = Ref{Any}(nothing),
     dz = Ref{Any}(nothing),
     dbias = Ref{Any}(nothing),
-
 )
-
-    a = (activation === relu ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
+    a = (activation === relu && normalization ∈ (nothing, identity) ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
     r = cudnnConvolutionForward!(y, w, x, convDesc; activation=a, bias, z, alpha, beta, format, dw, dx, dz, dbias)
-    return (activation ∈ (nothing, identity, relu) ? r : activation.(r))
+    if normalization ∉ (nothing, identity); r = normalization(r); end
+    if a === CUDNN_ACTIVATION_IDENTITY && activation ∉ (nothing, identity); r = activation.(r); end
+    return r
 end

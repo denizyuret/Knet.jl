@@ -2,86 +2,52 @@ using Knet.Layers21, Knet.Ops21
 using Knet.Ops20: pool # TODO: add to ops21
 
 
-struct ResNetBlock
-    layers
-    residual
-    activation
-    function ResNetBlock(ls...; residual=nothing, activation=nothing)
-        new(ls, residual, activation)
-    end
-end
+ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 
 
-function (r::ResNetBlock)(x)
-    y = x
-    for l in r.layers
-        y = l(y)
-    end
-    if r.residual !== nothing
-        y = y + r.residual(x)
-    end
-    if r.activation !== nothing
-        y = r.activation.(y)
-    end
-    return y
-end
-
-
-function ConvBN(x...; activation=nothing, o...)
-    ResNetBlock(
-        Conv(x...; o...),
-        BatchNorm();
-        activation
-    )
-end
-
-
-function ResNetInput()
-    ResNetBlock(
+function ResNetInput() # TODO: implement Pool?
+    Sequential(
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
-        x->pool(x; window=3, stride=2, padding=1)
+        x->pool(x; window=3, stride=2, padding=1);
+        name = "Input"
     )
 end
 
 
 function ResNetOutput(xchannels, classes)
-    ResNetBlock(
+    Sequential(
         x->pool(x; mode=1, window=(size(x,1),size(x,2))),
-        Dense(classes, xchannels)
+        x->reshape(x, :, size(x,4)),
+        Dense(xchannels, classes; binit=zeros); # TODO: binit is inconsistent with Conv.bias=true
+        name = "Output"
     )
 end
 
 
-function ResNetBasicBlock(xchannels, ychannels; stride = 1, residual = identity, activation = relu)
-    ResNetBlock(
-        ConvBN(3, 3, xchannels, ychannels; stride, activation=relu),
-        ConvBN(3, 3, ychannels, ychannels);
-        residual,
-        activation
+function ResNetBasicBlock(xchannels, ychannels; activation=relu, padding=1)
+    stride = (xchannels === ychannels ? 1 : 2)
+    f1 = Sequential(
+        ConvBN(3, 3, xchannels, ychannels; stride, padding, activation),
+        ConvBN(3, 3, ychannels, ychannels; padding),
     )
+    f2 = (xchannels === ychannels ? identity :
+          ConvBN(1, 1, xchannels, ychannels; stride))
+    return Residual(f1, f2; activation)
 end
 
 
-function ResNetBasic(nlayers...; classes = 1000)
-    layers = []
-    push!(layers, ResNetInput())
-    for (layer, nblocks) in enumerate(nlayers)
-        for block in 1:nblocks
-            ychannels = 2^(5+layer)      # 64, 128, 256, 512
-            if layer > 1 && block == 1
-                xchannels = ychannels ÷ 2
-                stride = 2
-                residual = ConvBN(1, 1, xchannels, ychannels; stride)
-            else
-                xchannels = ychannels
-                stride = 1
-                residual = identity
-            end
-            push!(layers, ResNetBasicBlock(xchannels, ychannels; stride, residual))
+function ResNetBasic(nblocks...; classes = 1000, channels = 64)
+    s = Sequential(ResNetInput(); name="ResNetBasic$nblocks")
+    for (layer, nb) in enumerate(nblocks)
+        channels = layer > 1 ? 2*channels : channels # 64, 128, 256, 512
+        blocks = Sequential(; name="Blocks$channels")
+        for block in 1:nb
+            xchannels = (layer > 1 && block == 1 ? channels ÷ 2 : channels)
+            push!(blocks, ResNetBasicBlock(xchannels, channels))
         end
+        push!(s, blocks)
     end
-    push!(layers, ResNetOutput(2^(5+length(nlayers)), classes))
-    ResNetBlock(layers...)
+    push!(s, ResNetOutput(channels, classes))
 end
 
 #=
@@ -97,7 +63,7 @@ function ResNetBottleneckBlock(
 )
     expansion = 4               # ???
     width = groups * ychannels * base_width ÷ 64 # ???
-    ResNetBlock(
+    Sequential(
         ConvBN(1, 1, xchannels, width; activation=relu), 
         ConvBN(3, 3, width, width; stride, groups, dilation, activation=relu), 
         ConvBN(1, 1, xchannels, ychannels * expansion);
@@ -113,7 +79,7 @@ function ResNetLayer(xchannels, ychannels, blocks, block)
     for i in 1:blocks
         push!(layers, block(ychannels, ychannels))
     end
-    return ResNetBlock(layers...)
+    return Sequential(layers...)
 end
 
 

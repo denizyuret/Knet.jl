@@ -1,63 +1,99 @@
 export Dense
 using Knet.Ops21: mmul
-using Knet: atype
 using AutoGrad: Param
 
 """
-    Dense(wsize::Integer...; f, dims, dropout, atype, init, binit)
-    Dense(weights, bias=nothing; f, dims, dropout)
-    (d::Dense)(x)
+    Dense(inputsize, outputsize; winit, binit, activation, dropout)
+    Dense(w; bias, inputsize, outputsize, activation, dropout)
 
-Generalizes matrix multiplication to possibly more than 2 dims with reshapes: 
+Return a function that generalizes matrix multiplication to possibly more than 2 dims with
+reshapes:
 
     w(M...,N...) * x(N...,K...) => y(M...,K...)
 
-where `wsize=size(weights)=(M...,N...)` and `dims=length(N)`. Optionally dropout is applied
-to the input and a bias of size `(M...)` is added and an elementwise activation function `f`
-is applied to the output. The last `dims` dimensions of `w` has to match the first `dims`
-dimensions of `x` and the size of bias (if there is one) has to match the first
-`ndims(w)-dims` dimensions of `w`.
+where `inputsize=(N...)`, `outputsize=(M...)` each of which can be a single dimension or a
+tuple of dimensions. Optionally dropout is applied to the input, a bias of size `(M...)` is
+added to the output and an elementwise activation function `activation` is applied to the
+output.
 
-Keyword arguments:
-* `f=nothing`: apply activation function to output if not nothing
-* `dims=1`: number of input dimensions in the weight tensor
+The first form takes the sizes and initializes `w` and `bias` using the distributions given
+by `winit` and `binit` with an array type that matches the first input. The second form
+takes existing weights `w` and `bias` and performs no initialization.
+
+Arguments:
+* `w`: the linear transformation weights
+* `bias=nothing`: optional bias weights
+* `winit=𝑼(√(6/(prod(inputsize)+prod(outputsize))))`: distribution for weight initialization
+* `binit=nothing`: distribution for bias initialization, `nothing` means no bias
+* `inputsize=size(w)[end]`: size of the input tensor (excluding batch, beam etc. dimensions)
+* `outputsize=size(w)[1:end-1]`: size of the output tensor (excluding batch, beam etc. dimensions)
+* `activation=nothing`: broadcast activation function to output unless equal to `nothing`
 * `dropout=0`: apply dropout with this probability to input if non-zero
-* `atype=Knet.atype()`: array and element type for parameter initialization
-* `init=𝑼(√(6/(fanin+fanout)))`: initialization function for weights
-* `binit=zeros`: initialization function for bias, if `nothing` do not use bias
 
 References:
 * torch.nn.Linear
 * tf.keras.layers.Dense
 """
-struct Dense; w; b; f; dims; dropout; end
-
-function Dense(weights, bias=nothing; f=nothing, dims=1, dropout=0)
-    @assert ndims(weights) > dims "ndims(weights) must be > dims"
-    @assert bias === nothing || size(bias) === size(weights)[1:end-dims] "weights and bias do not match"
-    w = (weights isa Param ? weights : Param(weights))
-    b = (bias isa Nothing || bias isa Param ? bias : Param(bias))
-    Dense(w, b, f, dims, dropout)
+mutable struct Dense
+    w
+    bias
+    winit
+    binit
+    inputsize
+    outputsize
+    activation
+    dropout
 end
 
-function Dense(wsize::Integer...; f=nothing, dims=1, dropout=0, atype=atype(), binit=zeros,
-               init=𝑼(√(6/(densein(wsize,dims)+denseout(wsize,dims)))))
-    @assert length(wsize) > dims "ndims(weights) must be > dims"
-    w = Param(convert(atype,init(wsize...)))
-    b = binit isa Nothing ? nothing : Param(convert(atype,binit(wsize[1:end-dims]...)))
-    Dense(w, b, f, dims, dropout)
+
+function Dense(
+    w;
+    inputsize=size(w)[end],
+    outputsize=size(w)[1:end-1],
+    bias=nothing,
+    activation=nothing,
+    dropout=0,
+)
+    @assert size(w) == (outputsize..., inputsize...) "size(w) must be $((outputsize..., inputsize...))"
+    @assert bias === nothing || size(bias) == outputsize "size(bias) must be $(outputsize)"
+    w = (w isa Param ? w : Param(w))
+    bias = (bias isa Nothing || bias isa Param ? bias : Param(bias))
+    Dense(w, bias, nothing, nothing, inputsize, outputsize, activation, dropout)
 end
+
+
+function Dense(
+    inputsize, outputsize;
+    winit=𝑼(√(6/(prod(inputsize)+prod(outputsize)))),
+    binit=nothing,
+    activation=nothing,
+    dropout=0,
+)
+    Dense(nothing, nothing, winit, binit, inputsize, outputsize, activation, dropout)
+end
+
 
 function (l::Dense)(x)
+    initdense(l, x)
     if l.dropout != 0; x = dropout(x, l.dropout); end
     y = mmul(l.w, x)
-    if l.b !== nothing; y = y .+ l.b; end
-    if l.f !== nothing; y = l.f.(y); end
+    if l.bias !== nothing; y = y .+ l.bias; end
+    if l.activation !== nothing; y = l.activation.(y); end
     return y
 end
 
-densein(w,d)=prod(w[end-d+1:end])
-denseout(w,d)=prod(w[1:end-d])
+
+function initdense(l::Dense, x)
+    if l.w === nothing
+        wsize = (l.outputsize..., l.inputsize...)
+        l.w = Param(copyto!(similar(x, wsize...), l.winit(eltype(x), wsize...)))
+    end
+    if l.bias === nothing && l.binit !== nothing
+        bsize = l.outputsize
+        l.bias = Param(copyto!(similar(x, bsize...), l.binit(eltype(x), bsize...)))
+    end
+end
+
 
 # function (l::Dense)(x::MaskedArray)
 #     (a,m) = (x.array, x.mask)

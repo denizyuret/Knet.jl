@@ -34,7 +34,8 @@ different types of convolution see:
 https://towardsdatascience.com/a-comprehensive-introduction-to-different-types-of-convolutions-in-deep-learning-669281e58215
 
 Keyword arguments:
-* `activation = nothing`: apply activation function if provided
+* `activation = nothing`: broadcast apply activation function if provided
+* `normalization = nothing`: apply normalization function if provided
 * `alpha = 1, beta = 0`: scaling parameters
 * `bias = nothing`: add bias if provided
 * `channelmajor = false`: assume channel-major format tensors if specified
@@ -48,6 +49,7 @@ Keyword arguments:
 function conv(
     w, x;
     activation = nothing,
+    normalization = nothing,
     alpha = 1,
     beta = 0,
     bias = nothing,
@@ -87,7 +89,8 @@ function conv(
     if alpha != 1; y = alpha * y; end
     if beta != 0 && z !== nothing; y = y + beta * z; end
     if bias !== nothing; y = y .+ bias; end
-    if activation !== nothing && activation !== identity; y = activation.(y); end
+    if normalization ∉ (nothing, identity); y = normalization(y); end
+    if activation ∉ (nothing, identity); y = activation.(y); end
     if channelmajor; y = permutedims(y, (3,1,2,4)); end
     return y
 end

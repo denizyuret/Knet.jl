@@ -85,14 +85,14 @@ using CUDA.CUDNN:
     c = Conv(w; kwargs...)
     y = c(x, [z=nothing])
 
-Return a layer that can perform convolution and optionally bias/residual addition,
-activation and/or scaling. The constructor can take the convolution weight tensor `w` or its
-dimensions `wdims`. If `wdims` is used a weight tensor will be initialized using the `winit`
-function which defaults to uniform random in `±√(6/(fanin+fanout))`. The layer can be called
-with a single input `x`, or two inputs `x,z` where `z` has the same size as the output
-`y`. The computed result is:
+Return a layer that can perform convolution and optionally scaling, bias/residual addition,
+normalization and/or activation. The constructor can take the convolution weight tensor `w`
+or its dimensions `wdims`. If `wdims` is used a weight tensor will be initialized using the
+`winit` function which defaults to uniform random in `±√(6/(fanin+fanout))`. The layer can
+be called with a single input `x`, or two inputs `x,z` where `z` has the same size as the
+output `y`. The computed result is:
 
-    y = activation.(alpha * conv(w,x) + beta * z .+ bias) 
+    y = activation.(normalization(alpha * conv(w,x) + beta * z .+ bias))
 
 For tensor sizes and keyword arguments with their defaults see `@doc Knet.Ops21.conv`.
 """
@@ -113,6 +113,7 @@ mutable struct Conv
     crosscorrelation::Bool
     channelmajor::Bool
     activation::Union{Nothing,Function}
+    normalization
     convDesc::Union{Nothing,cudnnConvolutionDescriptor}
 
     alpha::Real
@@ -127,6 +128,7 @@ function Conv(
     w = nothing,
     bias = nothing,
     activation::Union{Nothing,Function} = nothing,
+    normalization = nothing,
 
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 0,
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
@@ -147,7 +149,7 @@ function Conv(
     cdim = channelmajor ? 1 : ndims-1
     bdims = ntuple(i->(i===cdim ? wdims[end] : 1), ndims)
     convDesc = nothing          # To be initialized at first call
-    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, groups, crosscorrelation, channelmajor, activation, convDesc, alpha, beta)
+    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, groups, crosscorrelation, channelmajor, activation, normalization, convDesc, alpha, beta)
 end
 
 
@@ -155,6 +157,7 @@ Conv(w; o...) = Conv(size(w)...; w, o...)
 
 
 # Some of the initialization can only be done at the first call when we know the type of x
+# TODO: are we sure about this? should we use atype() instead?
 function initconv(c::Conv, x, z)
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
     if c.w === nothing
@@ -167,7 +170,7 @@ function initconv(c::Conv, x, z)
         c.bias = fill!(similar(c.w, c.bdims), 0)
     end
     @assert c.bias === nothing || issimilar(c.bias, c.w, c.bdims)
-    if CUDA.functional() && c.convDesc === nothing
+    if CUDA.functional() && (c.convDesc === nothing || c.convDesc.ptr === C_NULL)
         mode = c.crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
         format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW
         reorderType, mathType = CUDNN_DEFAULT_REORDER, math_mode()
@@ -178,6 +181,6 @@ end
 
 function (c::Conv)(x, z=nothing)
     initconv(c, x, z)
-    conv(c.w, x; z, c.bias, c.activation, c.alpha, c.beta, c.channelmajor,
+    conv(c.w, x; z, c.bias, c.activation, c.normalization, c.alpha, c.beta, c.channelmajor,
          c.convDesc, c.crosscorrelation, c.dilation, c.groups, c.padding, c.stride)
 end

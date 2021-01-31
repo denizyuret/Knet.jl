@@ -55,7 +55,7 @@ function batchnorm(
     o...)
     cudnnNormalizationForward!(
         out, x, xmean, xvar, bias, scale;
-        mode, format, epsilon, exponentialAverageFactor=1-momentum,
+        training, mode, format, epsilon, exponentialAverageFactor=1-momentum,
         savedMean, savedInvVariance=savedVar,
         workspace, reserveSpace,
         dx, dscale, dbias)
