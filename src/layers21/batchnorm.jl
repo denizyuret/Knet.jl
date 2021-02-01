@@ -79,7 +79,6 @@ mutable struct BatchNorm
     var
     bias
     scale
-    out
     epsilon::Float64
     momentum::Float64
     format::cudnnTensorFormat_t
@@ -101,7 +100,6 @@ function BatchNorm(
     var = nothing,
     bias = nothing,
     scale = nothing,
-    out = nothing,
     epsilon::Real = Cdouble(1e-5),
     momentum::Real = Cdouble(0.9),
 )
@@ -114,7 +112,7 @@ function BatchNorm(
     dx = Ref{Any}(nothing)
     dscale = Ref{Any}(nothing)
     dbias = Ref{Any}(nothing)
-    BatchNorm(dims, mean, var, bias, scale, out, epsilon, momentum, format, mode, savedMean, savedVar, workspace, reserveSpace, dx, dscale, dbias)
+    BatchNorm(dims, mean, var, bias, scale, epsilon, momentum, format, mode, savedMean, savedVar, workspace, reserveSpace, dx, dscale, dbias)
 end
 
 
@@ -132,7 +130,6 @@ function initBatchNorm(b::BatchNorm, x; training)
         error("x=$(size(x)) dims=$dims not supported")
     end
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
-    b.out === nothing ? b.out = similar(x) : @assert issimilar(b.out, x)
     b.mean === nothing ? b.mean = fill!(similar(x, bsize), 0) : @assert issimilar(b.mean, x, bsize)
     b.var === nothing ? b.var = fill!(similar(x, bsize), 1) : @assert issimilar(b.var, x, bsize)
     b.bias === nothing ? b.bias = Param(fill!(similar(x, bsize), 0)) : @assert issimilar(b.bias, x, bsize)
@@ -163,7 +160,7 @@ end
 function (b::BatchNorm)(x; training=Knet.training())
     initBatchNorm(b, x; training)
     batchnorm(x, b.mean, b.var, b.bias, b.scale; training,
-              b.out, b.epsilon, b.momentum, b.mode, b.format,
+              b.epsilon, b.momentum, b.mode, b.format,
               b.savedMean, b.savedVar, b.workspace, b.reserveSpace,
               b.dx, b.dscale, b.dbias)
 end

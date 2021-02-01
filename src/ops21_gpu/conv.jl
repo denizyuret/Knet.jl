@@ -111,8 +111,14 @@ function conv(
     dbias = Ref{Any}(nothing),
 )
     a = (activation === relu && normalization ∈ (nothing, identity) ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
+    y .= 0
+    global _preconv_gpux = deepcopy(x)
+    global _preconv_gpuy = deepcopy(y)
     r = cudnnConvolutionForward!(y, w, x, convDesc; activation=a, bias, z, alpha, beta, format, dw, dx, dz, dbias)
+    global _prenorm_gpu = deepcopy(r)
     if normalization ∉ (nothing, identity); r = normalization(r); end
+    global _postnorm_gpu = deepcopy(r)
     if a === CUDNN_ACTIVATION_IDENTITY && activation ∉ (nothing, identity); r = activation.(r); end
+    global _postact_gpu = deepcopy(r)
     return r
 end

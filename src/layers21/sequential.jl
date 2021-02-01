@@ -18,7 +18,15 @@ end
 
 
 # AbstractArray interface
-getindex(s::Sequential, i) = Sequential(getindex(s.layers, i), name=(s.name === nothing ? nothing : "$s.name[$i]"))
+function getindex(s::Sequential, i)
+    if length(i) == 1
+        getindex(s.layers, i)
+    else
+        name=(s.name === nothing ? nothing : "$(s.name)[$i]")
+        Sequential(getindex(s.layers, i)...; name)
+    end
+end
+
 setindex!(s::Sequential, v, i) = setindex!(s.layers, v, i)
 length(s::Sequential) = length(s.layers)
 size(s::Sequential) = size(x.layers)

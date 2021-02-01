@@ -55,7 +55,7 @@ function Dense(
     dropout=0,
 )
     @assert size(w) == (outputsize..., inputsize...) "size(w) must be $((outputsize..., inputsize...))"
-    @assert bias === nothing || size(bias) == outputsize "size(bias) must be $(outputsize)"
+    @assert bias === nothing || bsimilar(size(bias), outputsize) "size(bias) must be $(outputsize) not $(size(bias))"
     w = (w isa Param ? w : Param(w))
     bias = (bias isa Nothing || bias isa Param ? bias : Param(bias))
     Dense(w, bias, nothing, nothing, inputsize, outputsize, activation, dropout)
@@ -92,6 +92,15 @@ function initdense(l::Dense, x)
         bsize = l.outputsize
         l.bias = Param(copyto!(similar(x, bsize...), l.binit(eltype(x), bsize...)))
     end
+end
+
+
+function bsimilar(a,b)          # compare dimensions ignoring trailing ones
+    dimpair(d) = (d isa Integer ? (d,()) : d === () ? (1,()) : (d[1],d[2:end]))
+    a === () && b === () && return true
+    a1,a2 = dimpair(a)
+    b1,b2 = dimpair(b)
+    a1 == b1 && bsimilar(a2,b2)
 end
 
 

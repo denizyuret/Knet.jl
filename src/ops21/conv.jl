@@ -70,6 +70,7 @@ function conv(
     stride = NNlib.expand(Val(N-2), stride)
     padding = NNlib.expand(Val(N-2), padding)
     dilation = NNlib.expand(Val(N-2), dilation)
+    global _preconv_cpux = deepcopy(x)
     if groups == 1
         cdims = NNlib.DenseConvDims(size(x), size(w); stride, padding, dilation, flipkernel=crosscorrelation)
         y = NNlib.conv(x, w, cdims)
@@ -89,8 +90,11 @@ function conv(
     if alpha != 1; y = alpha * y; end
     if beta != 0 && z !== nothing; y = y + beta * z; end
     if bias !== nothing; y = y .+ bias; end
+    global _prenorm_cpu = deepcopy(y)
     if normalization ∉ (nothing, identity); y = normalization(y); end
+    global _postnorm_cpu = deepcopy(y)
     if activation ∉ (nothing, identity); y = activation.(y); end
+    global _postact_cpu = deepcopy(y)
     if channelmajor; y = permutedims(y, (3,1,2,4)); end
     return y
 end

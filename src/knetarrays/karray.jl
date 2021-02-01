@@ -159,10 +159,6 @@ function KnetArray(x::CuArray{T,N}) where {T,N}
     KnetArray{T,N}(k, size(x))
 end
 
-function convert(A::Type{<:KnetArray}, x::CuArray)
-    convert(A, KnetArray(x))    # extra convert in case T,N changes
-end
-
 function ka(x...)
     @warn "ka() is deprecated, please use KnetArray instead" maxlog=1
     KnetArray(x...)
