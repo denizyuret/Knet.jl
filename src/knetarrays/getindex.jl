@@ -95,13 +95,13 @@ end
 function getindex(A::KnetArray{T}, I::Real) where {T}
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
-    _unsafe_copy!(T[0], 1, A, J, 1)[1]
+    copyto!(T[0], 1, A, J, 1)[1]
 end
 
 function setindex!(A::KnetArray{T}, v, I::Real) where {T}
     J = Int(I)
     if !(1 <= J <= length(A)); throw(BoundsError(A,J)); end
-    _unsafe_copy!(A, J, T[v], 1, 1)
+    copyto!(A, J, T[v], 1, 1)
     return A
 end
 
@@ -116,7 +116,7 @@ function getindex(A::KnetArray{T}, I::Real...) where {T}
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = (LinearIndices(size(A)))[J...]
-    _unsafe_copy!(T[0], 1, A, i, 1)[1]
+    copyto!(T[0], 1, A, i, 1)[1]
 end
 
 function setindex!(A::KnetArray{T}, v, I::Real...) where {T}
@@ -125,7 +125,7 @@ function setindex!(A::KnetArray{T}, v, I::Real...) where {T}
         if !(1 <= J[j] <= size(A,j)); throw(BoundsError(A,J)); end
     end
     i = (LinearIndices(size(A)))[J...]
-    _unsafe_copy!(A, i, T[v], 1, 1)
+    copyto!(A, i, T[v], 1, 1)
     return A
 end
 
@@ -181,7 +181,7 @@ function setindex!(A::KnetArray{T}, v, I::AbstractUnitRange) where {T}
     if length(v)!=length(I); throw(DimensionMismatch()); end
     if length(I)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
-    _unsafe_copy!(A,first(I),v,1,length(I))
+    copyto!(A,first(I),v,1,length(I))
     return A
 end
 
@@ -202,7 +202,7 @@ function setindex!(A::KnetArray{T}, v, I::Colon) where {T}
     if length(v)!=length(A); throw(DimensionMismatch()); end
     if length(v)==0; return A; end
     if eltype(v)!=T; v = convert(Array{T},v); end
-    _unsafe_copy!(A,1,v,1,length(A))
+    copyto!(A,1,v,1,length(A))
     return A
 end
 
@@ -736,8 +736,8 @@ end
 
 # These two are not sufficient in spite of what the documentation says:
 # display goes into an infinite loop!
-# getindex{T}(A::KnetArray{T}, i::Int)=_unsafe_copy!(T[0], 1, A, i, 1)[1]
-# setindex!{T}(A::KnetArray{T}, v, i::Int)=_unsafe_copy!(A, i, T[v], 1, 1)
+# getindex{T}(A::KnetArray{T}, i::Int)=copyto!(T[0], 1, A, i, 1)[1]
+# setindex!{T}(A::KnetArray{T}, v, i::Int)=copyto!(A, i, T[v], 1, 1)
 
 
 # We need x[:,:,t] and hx[:,:,l] for RNNs

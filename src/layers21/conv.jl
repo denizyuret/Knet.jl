@@ -165,7 +165,7 @@ function initconv(c::Conv, x, z)
     end
     @assert issimilar(c.w, x, c.wdims)
     @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.groups : size(x)[end-1] === size(c.w)[end-1]*c.groups)
-    if c.bias === nothing && (c.activation === relu || z !== nothing)
+    if c.bias === nothing && ((c.activation === relu && c.normalization ∈ (nothing, identity)) || (z !== nothing && c.beta != 0))
         # will call cudnnConvolutionBiasActivationForward, must have bias
         c.bias = fill!(similar(c.w, c.bdims), 0)
     end
