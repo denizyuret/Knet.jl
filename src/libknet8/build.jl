@@ -2,7 +2,7 @@ using CUDA, Libdl
 
 NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC","-std=c++11"]
-NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
+NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--default-stream", "per-thread"]
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = Sys.iswindows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations

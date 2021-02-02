@@ -1,11 +1,17 @@
 import Knet.Layers21: Conv, BatchNorm
-using AutoGrad, CUDA, PyCall, Knet
+import Knet.Train20: param
+import CUDA: CuArray
+import NNlib, Knet, AutoGrad
+using PyCall
 
 include("resnet.jl")
 torch = pyimport("torch")
 nn = pyimport("torch.nn")
 models = pyimport("torchvision.models")
 t2a(x) = x.cpu().detach().numpy()
+Base.isapprox(a::Array,b::CuArray)=isapprox(a,Array(b))
+Base.isapprox(a::AutoGrad.Value,b::AutoGrad.Value)=isapprox(a.value,b.value)
+chkparams(a,b)=all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
 
 
 function ResNetBasic(p::PyObject)
@@ -26,7 +32,7 @@ end
 function ResNetBasicBlock(p::PyObject)
     bn1 = BatchNorm(p.bn1)
     bn2 = BatchNorm(p.bn2)
-    conv1 = Conv(p.conv1; normalization=bn1, activation=relu)
+    conv1 = Conv(p.conv1; normalization=bn1, activation=NNlib.relu)
     conv2 = Conv(p.conv2; normalization=bn2)
     f1 = Sequential(conv1, conv2)
     if p.downsample === nothing
@@ -35,15 +41,15 @@ function ResNetBasicBlock(p::PyObject)
         bn3 = BatchNorm(p.downsample[2])
         f2 = Conv(p.downsample[1]; normalization=bn3)
     end
-    return Residual(f1, f2; activation=relu)
+    return Residual(f1, f2; activation=NNlib.relu)
 end
 
 
 function ResNetInput(conv1::PyObject, bn1::PyObject)
     bn1 = BatchNorm(bn1)
     Sequential(
-        Conv(conv1; normalization=bn1, activation=relu),
-        x->pool(x; window=3, stride=2, padding=1);
+        Conv(conv1; normalization=bn1, activation=NNlib.relu),
+        x->NNlib.maxpool(x, (3,3); stride=2, pad=1);
         name = "Input"
     )
 end
@@ -53,7 +59,7 @@ function ResNetOutput(fc::PyObject)
     w = param(t2a(fc.weight))
     bias = param(t2a(fc.bias))
     Sequential(
-        x->pool(x; mode=1, window=(size(x,1),size(x,2))),
+        x->NNlib.meanpool(x, (size(x,1),size(x,2))),
         x->reshape(x, :, size(x,4)),
         Dense(w; bias);
         name = "Output"
@@ -75,8 +81,8 @@ function BatchNorm(b::PyObject)
     BatchNorm(
         ; epsilon = b.eps,
         momentum = 1 - b.momentum,
-        mean = bnweight(b.running_mean) |> value,
-        var = bnweight(b.running_var) |> value,
+        mean = bnweight(b.running_mean).value,
+        var = bnweight(b.running_var).value,
         bias = bnweight(b.bias),
         scale = bnweight(b.weight),
     )
@@ -93,17 +99,33 @@ a18 = ResNetBasic(p18)
 ax = Knet.atype(permutedims(px, (4,3,2,1)))
 ay = a18(ax)
 
-Knet.atype() = KnetArray{Float32}
-k18 = ResNetBasic(p18)
-kx = Knet.atype(permutedims(px, (4,3,2,1)))
-ky = k18(kx)
+# Knet.atype() = KnetArray{Float32}
+# k18 = ResNetBasic(p18)
+# kx = Knet.atype(permutedims(px, (4,3,2,1)))
+# ky = k18(kx)
 
 Knet.atype() = CuArray{Float32}
 c18 = ResNetBasic(p18)
 cx = Knet.atype(permutedims(px, (4,3,2,1)))
-cy = c18(cx)
 
-@show isapprox(Array(ay), Array(py)')
+@show chkparams(a18,c18)
+
+cx5 = c18[1:5](cx)
+
+@show chkparams(a18,c18)
+
+cx6 = c18[6](cx5)
+
+@show chkparams(a18,c18)
+
+
+# @show isapprox(Array(ay), Array(py)')
+# @show isapprox(Array(ay), Array(cy))
+# @show isapprox(a18[1](ax), c18[1](cx))
+# @show isapprox(a18[1:2](ax), c18[1:2](cx))
+# @show isapprox(a18[1:3](ax), c18[1:3](cx))
+# @show isapprox(a18[1:4](ax), c18[1:4](cx))
+# @show isapprox(a18[1:5](ax), c18[1:5](cx))
 
 
 # 1. write a torchimport.jl with Conv, Dense, BatchNorm, ResNetInput etc. constructors from PyObjects
