@@ -43,8 +43,8 @@ function batchnorm(
     training = Knet.training(),
     epsilon = 1e-5,
     momentum = 0.9,
-    mode = CUDNN_NORM_PER_CHANNEL,
-    format = CUDNN_TENSOR_NCHW,
+    mode = nothing,
+    format = nothing,
     savedMean = nothing,
     savedVar = nothing,
     workspace = nothing,
@@ -53,6 +53,20 @@ function batchnorm(
     dscale = Ref{Any}(nothing),
     dbias = Ref{Any}(nothing),
     o...)
+    @assert size(xmean) == size(xvar) == size(bias) == size(scale)
+    n = ndims(x)
+    if size(xmean) == ntuple(i->(i===n-1 ? size(x,i) : 1), n)
+        mode === nothing ? mode = CUDNN_NORM_PER_CHANNEL : @assert mode === CUDNN_NORM_PER_CHANNEL
+        format === nothing ? format = CUDNN_TENSOR_NCHW : @assert format === CUDNN_TENSOR_NCHW
+    elseif size(xmean) == ntuple(i->(i===1 ? size(x,i) : 1), n)
+        mode === nothing ? mode = CUDNN_NORM_PER_CHANNEL : @assert mode === CUDNN_NORM_PER_CHANNEL
+        format === nothing ? format = CUDNN_TENSOR_NHWC : @assert format === CUDNN_TENSOR_NHWC
+    elseif size(xmean) == ntuple(i->(i===n ? 1 : size(x,i)), n)
+        mode === nothing ? mode = CUDNN_NORM_PER_ACTIVATION : @assert mode === CUDNN_NORM_PER_ACTIVATION
+        format === nothing ? format = CUDNN_TENSOR_NCHW : @assert format === CUDNN_TENSOR_NCHW
+    else
+        error("Unsupported batchnorm size x=$(size(x)) m=$(size(m))")
+    end
     cudnnNormalizationForward!(
         out, x, xmean, xvar, bias, scale;
         training, mode, format, epsilon, exponentialAverageFactor=1-momentum,
