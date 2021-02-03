@@ -1,84 +1,70 @@
 import Knet.Ops21: mmul
 using Knet.KnetArrays: DevArray
-using CUDA.CUBLAS: CUBLAS, cublasDgemm_v2, cublasSgemm_v2, cublasOperation_t
+using CUDA.CUBLAS: CUBLAS, cublasDgemm_v2, cublasSgemm_v2, CUBLAS_OP_T, CUBLAS_OP_N
 using AutoGrad: AutoGrad, @primitive1
 
-function mmul(x1::R, x2::R; dims=1) where {T,R<:DevArray{T}}
-    @assert ndims(x1) > dims "ndims(w) must be > dims"
-    ntuple(i->size(x1,ndims(x1)-dims+i),dims) === ntuple(i->size(x2,i),dims) || throw(DimensionMismatch("mmul: w=$(size(x1)) x=$(size(x2)) dims=$dims"))
-    t1,t2 = cublasOperation_t.((0,0))
-    msize = (size(x1,i) for i in 1:ndims(x1)-dims)
-    nsize = (size(x2,i) for i in 1:dims)
-    ksize = (size(x2,i) for i in dims+1:ndims(x2))
-    m,n,k = prod.((msize, nsize, ksize))
-    y = similar(x1, (msize..., ksize...))
-    if T<:Float64
-        cublasDgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    elseif T<:Float32
-        cublasSgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    else
-        error("CUBLAS does not support $T")
-    end
-    return y
-end
+# op(A) m × k , op(B) k × n and C m × n; lda, ldb, ldc leading dimensions
 
-function _mmul1(x1::R, x2::R; dims=1) where {T,R<:DevArray{T}} # x1 transposed
-    @assert ntuple(i->size(x1,i),dims) === ntuple(i->size(x2,i),dims)
-    t1,t2 = cublasOperation_t.((1,0))
-    msize = (size(x1,i) for i in dims+1:ndims(x1))
-    nsize = (size(x1,i) for i in 1:dims)
-    ksize = (size(x2,i) for i in dims+1:ndims(x2))
-    m,n,k = prod.((msize, nsize, ksize))
-    y = similar(x1, (msize..., ksize...))
-    if T<:Float64
-        cublasDgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    elseif T<:Float32
-        cublasSgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    else
-        error("CUBLAS does not support $T")
-    end
-    return y
-end
+for (T,F) in ((Float32,cublasSgemm_v2), (Float64,cublasDgemm_v2)); @eval begin
 
-function _mmul2(x1::R, x2::R; dims=1) where {T,R<:DevArray{T}} # x2 transposed
-    @assert ndims(x1) > dims && ndims(x2) > dims
-    @assert ntuple(i->size(x1,ndims(x1)-dims+i),dims) === ntuple(i->size(x2,ndims(x2)-dims+i),dims)
-    t1,t2 = cublasOperation_t.((0,1))
-    msize = (size(x1,i) for i in 1:ndims(x1)-dims)
-    nsize = (size(x1,i) for i in 1+ndims(x1)-dims:ndims(x1))
-    ksize = (size(x2,i) for i in 1:ndims(x2)-dims)
-    m,n,k = prod.((msize, nsize, ksize))
-    y = similar(x1, (msize..., ksize...))
-    if T<:Float64
-        cublasDgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    elseif T<:Float32
-        cublasSgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    else
-        error("CUBLAS does not support $T")
+    function mmul(A::DevArray{$T}, B::DevArray{$T}; dims=1)
+        @assert ndims(A) > dims "ndims(A) must be > dims"
+        ntuple(i->size(A,ndims(A)-dims+i),dims) === ntuple(i->size(B,i),dims) || throw(DimensionMismatch("mmul: w=$(size(A)) x=$(size(B)) dims=$dims"))
+        transa,transb = (CUBLAS_OP_N,CUBLAS_OP_N)
+        msize = (size(A,i) for i in 1:ndims(A)-dims)
+        ksize = (size(B,i) for i in 1:dims)
+        nsize = (size(B,i) for i in dims+1:ndims(B))
+        m,n,k = prod.((msize, nsize, ksize))
+        lda,ldb,ldc = m,k,m
+        C = similar(A, (msize..., nsize...))
+        $F(CUBLAS.handle(), transa, transb, m, n, k, 1, A, lda, B, ldb, 0, C, ldc)
+        return C
     end
-    return y
-end
 
-function _mmul3(x1::R, x2::R; dims=1) where {T,R<:DevArray{T}} # x1,x2 transposed
-    @assert ndims(x2) > dims
-    @assert ntuple(i->size(x1,i),dims) === ntuple(i->size(x2,ndims(x2)-dims+i),dims)
-    t1,t2 = cublasOperation_t.((1,1))
-    msize = (size(x1,i) for i in dims+1:ndims(x1))
-    nsize = (size(x1,i) for i in 1:dims)
-    ksize = (size(x2,i) for i in 1:ndims(x2)-dims)
-    m,n,k = prod.((msize, nsize, ksize))
-    y = similar(x1, (msize..., ksize...))
-    if T<:Float64
-        cublasDgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    elseif T<:Float32
-        cublasSgemm_v2(CUBLAS.handle(), t1, t2, m, n, k, 1, x1, m, x2, n, 0, y, m)
-    else
-        error("CUBLAS does not support $T")
+    function _mmul1(A::DevArray{$T}, B::DevArray{$T}; dims)  # A transposed
+        @assert ntuple(i->size(A,i),dims) === ntuple(i->size(B,i),dims)
+        transa,transb = (CUBLAS_OP_T,CUBLAS_OP_N)
+        msize = (size(A,i) for i in dims+1:ndims(A))
+        ksize = (size(B,i) for i in 1:dims)
+        nsize = (size(B,i) for i in dims+1:ndims(B))
+        m,n,k = prod.((msize, nsize, ksize))
+        lda,ldb,ldc = k,k,m
+        C = similar(A, (msize..., nsize...))
+        $F(CUBLAS.handle(), transa, transb, m, n, k, 1, A, lda, B, ldb, 0, C, ldc)
+        return C
     end
-    return y
-end
 
-@primitive1   mmul(x1,x2;dims=1),dy  _mmul2(dy,x2; dims=ndims(x2)-dims)  _mmul1(x1,dy; dims=ndims(x1)-dims)
-@primitive1 _mmul1(x1,x2;dims=1),dy  _mmul2(x2,dy; dims=ndims(x2)-dims)    mmul(x1,dy; dims=ndims(x1)-dims)
-@primitive1 _mmul2(x1,x2;dims=1),dy    mmul(dy,x2; dims=ndims(x2)-dims)  _mmul1(dy,x1; dims=ndims(x1)-dims)
-@primitive1 _mmul3(x1,x2;dims=1),dy  _mmul3(x2,dy; dims=ndims(x2)-dims)  _mmul3(dy,x1; dims=ndims(x1)-dims)
+    function _mmul2(A::DevArray{$T}, B::DevArray{$T}; dims)  # B transposed
+        @assert ndims(A) > dims && ndims(B) > dims
+        @assert ntuple(i->size(A,ndims(A)-dims+i),dims) === ntuple(i->size(B,ndims(B)-dims+i),dims)
+        transa,transb = (CUBLAS_OP_N,CUBLAS_OP_T)
+        msize = (size(A,i) for i in 1:ndims(A)-dims)
+        ksize = (size(A,i) for i in 1+ndims(A)-dims:ndims(A))
+        nsize = (size(B,i) for i in 1:ndims(B)-dims)
+        m,n,k = prod.((msize, nsize, ksize))
+        lda,ldb,ldc = m,n,m
+        C = similar(A, (msize..., nsize...))
+        $F(CUBLAS.handle(), transa, transb, m, n, k, 1, A, lda, B, ldb, 0, C, ldc)
+        return C
+    end
+
+    function _mmul3(A::DevArray{$T}, B::DevArray{$T}; dims)  # A,B transposed
+        @assert ndims(B) > dims
+        @assert ntuple(i->size(A,i),dims) === ntuple(i->size(B,ndims(B)-dims+i),dims)
+        transa,transb = (CUBLAS_OP_T,CUBLAS_OP_T)
+        msize = (size(A,i) for i in dims+1:ndims(A))
+        ksize = (size(A,i) for i in 1:dims)
+        nsize = (size(B,i) for i in 1:ndims(B)-dims)
+        m,n,k = prod.((msize, nsize, ksize))
+        lda,ldb,ldc = k,n,m
+        C = similar(A, (msize..., nsize...))
+        $F(CUBLAS.handle(), transa, transb, m, n, k, 1, A, lda, B, ldb, 0, C, ldc)
+        return C
+    end
+end; end
+
+
+@primitive1   mmul(A::DevArray,B::DevArray;dims=1),dy  _mmul2(dy,B; dims=ndims(B)-dims)  _mmul1(A,dy; dims=ndims(A)-dims)
+@primitive1 _mmul1(A::DevArray,B::DevArray;dims=1),dy  _mmul2(B,dy; dims=ndims(B)-dims)    mmul(A,dy; dims=ndims(A)-dims)
+@primitive1 _mmul2(A::DevArray,B::DevArray;dims=1),dy    mmul(dy,B; dims=ndims(B)-dims)  _mmul1(dy,A; dims=ndims(A)-dims)
+@primitive1 _mmul3(A::DevArray,B::DevArray;dims=1),dy  _mmul3(B,dy; dims=ndims(B)-dims)  _mmul3(dy,A; dims=ndims(A)-dims)

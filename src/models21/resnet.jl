@@ -1,7 +1,10 @@
-using Knet.Layers21
-#using Knet.Ops21
-import NNlib # TODO: add pool to ops21
-
+import Knet, AutoGrad
+using Knet.Layers21: Conv, BatchNorm, Dense, Sequential, Residual
+using Knet.Ops20: pool # TODO: add pool to ops21
+import NNlib: relu
+AutoGrad.@primitive  relu(x::Knet.DevArray),dy,y  (dy .* (y .> 0))
+#using Knet.Ops21: relu
+#include("foo-relu.jl")
 
 ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 
@@ -9,7 +12,7 @@ ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 function ResNetInput() # TODO: implement Pool?
     Sequential(
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
-        x->NNlib.maxpool(x, (3,3); stride=2, pad=1);
+        x->pool(x; window=3, stride=2, padding=1);
         name = "Input"
     )
 end
@@ -17,9 +20,9 @@ end
 
 function ResNetOutput(xchannels, classes)
     Sequential(
-        x->NNlib.meanpool(x, (size(x,1),size(x,2))),
+        x->pool(x; mode=1, window=(size(x,1),size(x,2))),
         x->reshape(x, :, size(x,4)),
-        Dense(xchannels, classes; binit=zeros); # TODO: binit is inconsistent with Conv.bias=true
+        Dense(xchannels, classes; binit=zeros); # TODO: binit is inconsistent with Conv.bias=true, rename Linear?, remove dropout option?
         name = "Output"
     )
 end

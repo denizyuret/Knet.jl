@@ -38,11 +38,10 @@ using CUDA.CUDNN:
 
 
 function batchnorm(
-    x::GPUVal, xmean::GPUVal, xvar::GPUVal, bias::GPUVal, scale::GPUVal;
-    out = similar(x),
-    training = Knet.training(),
+    x::GPUVal, mean_estimate::GPUVal, var_estimate::GPUVal, bias::GPUVal, scale::GPUVal;
+    use_estimates = !Knet.training(),
+    update = Knet.training() ? 0.1 : 0.0,
     epsilon = 1e-5,
-    momentum = 0.9,
     mode = nothing,
     format = nothing,
     savedMean = nothing,
@@ -53,25 +52,50 @@ function batchnorm(
     dscale = Ref{Any}(nothing),
     dbias = Ref{Any}(nothing),
     o...)
-    @assert size(xmean) == size(xvar) == size(bias) == size(scale)
+    @assert size(mean_estimate) == size(var_estimate) == size(bias) == size(scale)
     n = ndims(x)
-    if size(xmean) == ntuple(i->(i===n-1 ? size(x,i) : 1), n)
+    if size(mean_estimate) == ntuple(i->(i===n-1 ? size(x,i) : 1), n)
         mode === nothing ? mode = CUDNN_NORM_PER_CHANNEL : @assert mode === CUDNN_NORM_PER_CHANNEL
         format === nothing ? format = CUDNN_TENSOR_NCHW : @assert format === CUDNN_TENSOR_NCHW
-    elseif size(xmean) == ntuple(i->(i===1 ? size(x,i) : 1), n)
+    elseif size(mean_estimate) == ntuple(i->(i===1 ? size(x,i) : 1), n)
         mode === nothing ? mode = CUDNN_NORM_PER_CHANNEL : @assert mode === CUDNN_NORM_PER_CHANNEL
         format === nothing ? format = CUDNN_TENSOR_NHWC : @assert format === CUDNN_TENSOR_NHWC
-    elseif size(xmean) == ntuple(i->(i===n ? 1 : size(x,i)), n)
+    elseif size(mean_estimate) == ntuple(i->(i===n ? 1 : size(x,i)), n)
         mode === nothing ? mode = CUDNN_NORM_PER_ACTIVATION : @assert mode === CUDNN_NORM_PER_ACTIVATION
         format === nothing ? format = CUDNN_TENSOR_NCHW : @assert format === CUDNN_TENSOR_NCHW
     else
         error("Unsupported batchnorm size x=$(size(x)) m=$(size(m))")
     end
-    cudnnNormalizationForward!(
-        out, x, xmean, xvar, bias, scale;
-        training, mode, format, epsilon, exponentialAverageFactor=1-momentum,
-        savedMean, savedInvVariance=savedVar,
-        workspace, reserveSpace,
-        dx, dscale, dbias)
+    # default training  => update > 0, use_estimates=false, gradients calculated
+    # default inference => update = 0, use_estimates=true,  gradients not calculated
+    # Other combinations must be manually implemented
+    kw = (; mode, format, epsilon, savedMean, savedInvVariance=savedVar, workspace, reserveSpace, dx, dscale, dbias)
+    if Knet.training() && !use_estimates && update == 0
+        cudnnNormalizationForward(x, nothing, nothing, bias, scale; training=true, exponentialAverageFactor=0, kw...)
+    elseif Knet.training() && !use_estimates && update > 0
+        cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=true, exponentialAverageFactor=update, kw...)
+    elseif Knet.training() && use_estimates && update == 0
+        ((x .- mean_estimate) ./ sqrt.(epsilon .+ var_estimate)) .* scale .+ bias
+    elseif Knet.training() && use_estimates && update > 0
+        update_estimates!(x, mean_estimate, var_estimate, update)
+        ((x .- mean_estimate) ./ sqrt.(epsilon .+ var_estimate)) .* scale .+ bias
+    elseif !Knet.training() && !use_estimates && update == 0
+        cudnnNormalizationForward(x, nothing, nothing, bias, scale; training=true, exponentialAverageFactor=0, kw...)
+    elseif !Knet.training() && !use_estimates && update > 0
+        cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=true, exponentialAverageFactor=update, kw...)
+    elseif !Knet.training() && use_estimates && update == 0
+        cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=false, kw...)
+    elseif !Knet.training() && use_estimates && update > 0
+        update_estimates!(x, mean_estimate, var_estimate, update)
+        cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=false, kw...)
+    end
 end
 
+function update_estimates!(x, mean_estimate, var_estimate, update)
+    dims = findall(size(mean_estimate) .== 1)
+    xmean = mean(x; dims)
+    xvar  = var(x; dims, mean=xmean, corrected=false)
+    update = eltype(x)(update)
+    mean_estimate .= value(xmean) * update + mean_estimate * (1-update)
+    var_estimate  .= value(xvar)  * update + var_estimate  * (1-update)
+end

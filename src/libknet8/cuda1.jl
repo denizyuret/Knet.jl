@@ -28,6 +28,9 @@ extern "C" {
   $DLLEXPORT void $F(int n, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,x,y);
   }
+  $DLLEXPORT void $(F)_stream(int n, $T *x, $T *y, cudaStream_t STR) {
+    if (n>0) _$F<<<$BLK,$THR,0,STR>>>(n,x,y);
+  }
 }
 """)
         end

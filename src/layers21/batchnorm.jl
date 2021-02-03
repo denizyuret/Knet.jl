@@ -42,36 +42,7 @@ using CUDA.CUDNN:
 
 """
     b = BatchNorm(; kwargs...)
-    b(x; training)
-
-Return batch normalization applied to `x`:
-
-    b.bias + b.scale * (x - mean(x; b.dims)) / sqrt(b.epsilon + var(x; b.dims))  # training
-    b.bias + b.scale * (x - b.mean) / sqrt(b.epsilon + b.var)                    # inference
-
-During training, the actual mean/var of the batch are used in the normalization and to
-update the running mean/var kept in `b.mean` and `b.var`. During inference, `b.mean` and
-`b.var` are used in the normalization calculation. The training mode defaults to
-`Knet.training()` but can be overriden by the `training` keyword argument.  `b.bias` and
-`b.scale` are trainable parameters, corresponding to beta and gamma in the original
-paper. The common size of bias/scale/mean/var can be:
-
-    (1,1,C,1) if size(x)==(W,H,C,N) and b.dims==(1,2,4) (default, NCHW, per-channel)
-    (C,1,1,1) if size(x)==(C,W,H,N) and b.dims==(2,3,4) (NHWC tensor format)
-    (W,H,C,1) if size(x)==(W,H,C,N) and b.dims==4       (per-activation mode)
-
-Keyword arguments for the constructor:
-* `dims`: mean/var is computed over the given dimensions, by default (1,2,4) for 4D and (1,2,3,5) for 5D
-* `mean = fill!(similar(x,bsize),0)`: mean tensor where `bsize=size(mean(x; b.dims))`
-* `var = fill!(similar(x,bsize),1)`: variance tensor
-* `bias = Param(fill!(similar(x,bsize),0))`: bias parameter
-* `scale = Param(fill!(similar(x,bsize),1))`: scale parameter
-* `epsilon = 1e-5`: epsilon value used in the normalization formula
-* `momentum = 0.9`: momentum for the moving average, e.g. `b.mean = b.mean*momentum + mean(x; b.dims)*(1-momentum)`
-
-Reference: Batch Normalization: Accelerating Deep Network Training by Reducing Internal
-Covariate Shift, S. Ioffe, C. Szegedy, 2015.
-
+    b(x)
 """
 mutable struct BatchNorm
     dims
@@ -79,8 +50,9 @@ mutable struct BatchNorm
     var
     bias
     scale
+    use_estimates
+    update::Float64
     epsilon::Float64
-    momentum::Float64
     format::cudnnTensorFormat_t
     mode::cudnnNormMode_t
     savedMean
@@ -100,8 +72,9 @@ function BatchNorm(
     var = nothing,
     bias = nothing,
     scale = nothing,
+    use_estimates = nothing,
+    update::Real = Cdouble(0.1),
     epsilon::Real = Cdouble(1e-5),
-    momentum::Real = Cdouble(0.9),
 )
     format = CUDNN_TENSOR_NCHW
     mode = CUDNN_NORM_PER_CHANNEL
@@ -112,13 +85,13 @@ function BatchNorm(
     dx = Ref{Any}(nothing)
     dscale = Ref{Any}(nothing)
     dbias = Ref{Any}(nothing)
-    BatchNorm(dims, mean, var, bias, scale, epsilon, momentum, format, mode, savedMean, savedVar, workspace, reserveSpace, dx, dscale, dbias)
+    BatchNorm(dims, mean, var, bias, scale, use_estimates, update, epsilon, format, mode, savedMean, savedVar, workspace, reserveSpace, dx, dscale, dbias)
 end
 
 
 # Some fields can only be initialized after seeing the first input x
 
-function initBatchNorm(b::BatchNorm, x; training)
+function initBatchNorm(b::BatchNorm, x; use_estimates)
     n = ndims(x)
     if b.dims === nothing || b.dims === (1:(n-2)...,n)
         b.mode, b.format, bsize = CUDNN_NORM_PER_CHANNEL, CUDNN_TENSOR_NCHW, ntuple(i->(i===n-1 ? size(x,i) : 1), n)
@@ -134,7 +107,7 @@ function initBatchNorm(b::BatchNorm, x; training)
     b.var === nothing ? b.var = fill!(similar(x, bsize), 1) : @assert issimilar(b.var, x, bsize)
     b.bias === nothing ? b.bias = Param(fill!(similar(x, bsize), 0)) : @assert issimilar(b.bias, x, bsize)
     b.scale === nothing ? b.scale = Param(fill!(similar(x, bsize), 1)) : @assert issimilar(b.scale, x, bsize)
-    if training && x isa DevArray
+    if !use_estimates && x isa DevArray # cudnnNormalizationForwardTraining will be called
         b.savedMean === nothing ? b.savedMean = similar(x, bsize) : @assert issimilar(b.savedMean, x, bsize)
         b.savedVar === nothing ? b.savedVar = similar(x, bsize) : @assert issimilar(b.savedVar, x, bsize)
         workspaceSize, reserveSpaceSize = cudnnNormalizationTempSpaceSizes(b, x)
@@ -157,12 +130,10 @@ function cudnnNormalizationTempSpaceSizes(b::BatchNorm, x)
 end
 
 
-function (b::BatchNorm)(x; training=Knet.training())
-    initBatchNorm(b, x; training)
-    batchnorm(x, b.mean, b.var, b.bias, b.scale; training,
-              b.epsilon, b.momentum, b.mode, b.format,
-              b.savedMean, b.savedVar, b.workspace, b.reserveSpace,
-              b.dx, b.dscale, b.dbias)
+function (b::BatchNorm)(x)
+    use_estimates = (b.use_estimates === nothing ? !Knet.training() : b.use_estimates)
+    update = Knet.training() ? b.update : 0
+    initBatchNorm(b, x; use_estimates)
+    batchnorm(x, b.mean, b.var, b.bias, b.scale; use_estimates, update,
+              b.epsilon, b.mode, b.format, b.savedMean, b.savedVar, b.workspace, b.reserveSpace, b.dx, b.dscale, b.dbias)
 end
-
-
