@@ -1,10 +1,8 @@
 import Knet, AutoGrad
 using Knet.Layers21: Conv, BatchNorm, Dense, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
-import NNlib: relu
-AutoGrad.@primitive  relu(x::Knet.DevArray),dy,y  (dy .* (y .> 0))
-#using Knet.Ops21: relu
-#include("foo-relu.jl")
+using Knet.Ops21: relu # TODO: define layer?
+
 
 ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 

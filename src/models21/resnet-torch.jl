@@ -119,60 +119,25 @@ a18 = ResNetBasic(p18)
 ax = Knet.atype(permutedims(px,(4,3,2,1)))
 ay = a18(ax)
 @show isapprox(Array(ay), Array(py)')
-
-Knet.atype() = CuArray{T}
-c18 = ResNetBasic(p18)
-@show chkparams(c18,a18)
-cx = Knet.atype(ax)
-cy = c18(cx)
-@show isapprox(Array(ay), Array(cy))
+ap = Param(ax)
+@show @gcheck a18(ap) (nsample=3,)
 
 Knet.atype() = KnetArray{T}
 k18 = ResNetBasic(p18)
 @show chkparams(k18,a18)
-kx = Knet.atype(ax)
+kx = Knet.atype(permutedims(px,(4,3,2,1)))
 ky = k18(kx)
 @show isapprox(Array(ay), Array(ky))
+kp = Param(kx)
+@show @gcheck k18(kp) (nsample=3,)
 
-
-# 1. write a torchimport.jl with Conv, Dense, BatchNorm, ResNetInput etc. constructors from PyObjects
-#    pros: more robust
-#    cons: model structure may resemble pytorch
-# 2. try to simply transfer weights, need correspondence of layers, non-parameters like bn.mean
-#    pros: flexibility in model definition
-#    cons: each time we change model, import code will be invalid.
-
-# One can get the list of parameters in torch with:
-# for name, param in m.named_parameters(): # or m.parameters()
-#   print(name, param)
-
-# a18 = models.resnet18(pretrained=true)
-# b18 = ResNetBasic(2,2,2,2)
-# bx = rand(Float32, 224, 224, 3, 1)
-# by = b18(bx)
-
-
-# rx = rand(Float32, 1, 3, 224, 224)
-# tx = torch.tensor(rx)
-
-# ty = t18(tx)
-# @show(ty.shape, ty.dtype, ty.device)
-# ry = ty.detach().numpy()
-
-# kx = permutedims(rx, (4,3,2,1))
-# ky = r18(kx)
-
-
-# xs = pyimport("torchvision.transforms")
-# xform = xs.Compose(
-#     [ xs.Resize(256),
-#       xs.CenterCrop(224),
-#       xs.ToTensor(),
-#       xs.Normalize(mean=[0.485, 0.456, 0.406],
-#                    std =[0.229, 0.224, 0.225]),
-#       ]
-# )
-
-# img = load("/datasets/ImageNet/ILSVRC2015/Data/CLS-LOC/train/n01440764/n01440764_10026.JPEG")
+Knet.atype() = CuArray{T}
+c18 = ResNetBasic(p18)
+@show chkparams(c18,a18)
+cx = Knet.atype(permutedims(px,(4,3,2,1)))
+cy = c18(cx)
+@show isapprox(Array(ay), Array(cy))
+cp = Param(cx)
+@show @gcheck c18(cp) (nsample=3,)
 
 nothing
