@@ -3,8 +3,8 @@ include("resnet.jl")
 using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
-using PyCall
-import NNlib, Knet, AutoGrad
+using PyCall, AutoGrad
+import NNlib, Knet
 
 torch = pyimport("torch")
 nn = pyimport("torch.nn")
@@ -81,17 +81,17 @@ end
 function BatchNorm(b::PyObject)
     bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
     BatchNorm(
-        ; use_estimates = true,
-        update = b.momentum,
-        mean = bnweight(b.running_mean).value,
-        var = bnweight(b.running_var).value,
+        ; use_estimates = true, #DBG
+        update = 0, #DBG b.momentum,
+        mean = bnweight(b.running_mean).value, #DBG .value,
+        var = bnweight(b.running_var).value, #DBG .value,
         bias = bnweight(b.bias),
         scale = bnweight(b.weight),
         epsilon = b.eps,
     )
 end
 
-T = Float32
+T = Float64
 
 #isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
 download("https://www.ilikeorchids.com/media/qlcdv53x/iap-levoplant-low-res-141.jpg?center=0.47460844803037494,0.54166666666666663&mode=crop&width=960&height=1080&rnd=132344581373430000","dog.jpg")

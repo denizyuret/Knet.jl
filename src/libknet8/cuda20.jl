@@ -92,14 +92,14 @@ $DLLEXPORT $T $(F)_20(int n, $T *x) {
   return r;
 }
 $DLLEXPORT $T $(F)_20_stream(int n, $T *x, cudaStream_t STR) {
-  $T r;
-  static $T *y;
-  static $T *z;
-  if (y == NULL) cudaMalloc(&y, $BLK*sizeof($T)); // sum for each block
-  if (z == NULL) cudaMalloc(&z, sizeof($T));      // final sum
+  $T r, *y, *z;
+  cudaMalloc(&y, $BLK*sizeof($T)); // sum for each block
+  cudaMalloc(&z, sizeof($T));      // final sum
   _$(F)_20_1<<<$BLK,$THR,0,STR>>>(n,x,y);
   _$(F)_20_2<<<1,$BLK,0,STR>>>(y,z);                  
+  cudaFree(y);
   cudaMemcpy(&r,z,sizeof($T),cudaMemcpyDeviceToHost);
+  cudaFree(z);
   return r;
 }
 }

@@ -94,9 +94,9 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
               print(s,
                     """Nz);
                 }
-              }
               """)
         end
+        print(s,"}\n")
       end
     end
   end
