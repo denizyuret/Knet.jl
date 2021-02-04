@@ -47,8 +47,20 @@ end
 # macro cublas(fun, argtypes, argvalues...); :(@cudacall("cublas",$fun,UInt32,$argtypes,$argvalues)); end
 # macro curand(fun, argtypes, argvalues...); :(@cudacall("curand",$fun,UInt32,$argtypes,$argvalues)); end
 # macro nvml(fun, argtypes, argvalues...); :(@cudacall("nvml",$fun,UInt32,$argtypes,$argvalues)); end
-macro knet8(fun, argtypes, argvalues...); :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues,false)); end
-macro knet8r(fun, returntype, argtypes, argvalues...); :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues,false)); end # specify return type
+
+macro knet8(fun, argtypes, argvalues...)
+    fun = "$(fun)_stream"
+    push!(argtypes.args, :(CUDA.cudaStream_t))
+    argvalues = (argvalues..., :(CUDA.stream()))
+    :(@cudacall("knet8",$fun,Nothing,$argtypes,$argvalues,false))
+end
+
+macro knet8r(fun, returntype, argtypes, argvalues...)  # specify return type
+    fun = "$(fun)_stream"
+    push!(argtypes.args, :(CUDA.cudaStream_t))
+    argvalues = (argvalues..., :(CUDA.stream()))
+    :(@cudacall("knet8",$fun,$returntype,$argtypes,$argvalues,false))
+end
 
 function gpu(x...)
     @warn "gpu() is deprecated, please use CUDA.device instead" maxlog=1

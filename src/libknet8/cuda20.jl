@@ -79,7 +79,8 @@ __global__ void _$(F)_20_2($T *y,$T *z) {   // sum block results in y
   }
 }
 
-extern "C" { $DLLEXPORT $T $(F)_20(int n, $T *x) {
+extern "C" { 
+$DLLEXPORT $T $(F)_20(int n, $T *x) {
   $T r;
   static $T *y;
   static $T *z;
@@ -89,9 +90,22 @@ extern "C" { $DLLEXPORT $T $(F)_20(int n, $T *x) {
   _$(F)_20_2<<<1,$BLK>>>(y,z);                  
   cudaMemcpy(&r,z,sizeof($T),cudaMemcpyDeviceToHost);
   return r;
-}}
+}
+$DLLEXPORT $T $(F)_20_stream(int n, $T *x, cudaStream_t STR) {
+  $T r;
+  static $T *y;
+  static $T *z;
+  if (y == NULL) cudaMalloc(&y, $BLK*sizeof($T)); // sum for each block
+  if (z == NULL) cudaMalloc(&z, sizeof($T));      // final sum
+  _$(F)_20_1<<<$BLK,$THR,0,STR>>>(n,x,y);
+  _$(F)_20_2<<<1,$BLK,0,STR>>>(y,z);                  
+  cudaMemcpy(&r,z,sizeof($T),cudaMemcpyDeviceToHost);
+  return r;
+}
+}
 
 """)
+# TODO: test reduction, has static variables and cudaMalloc
         end
     end
 end

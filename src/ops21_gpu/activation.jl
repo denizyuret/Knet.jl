@@ -2,7 +2,7 @@ import Knet.Ops21: gelu, geluback
 import Base.Broadcast: broadcasted
 import Knet
 using Knet.KnetArrays: KnetArray, Bcasted
-using CUDA: CuArray, CuPtr
+using CUDA: CUDA, CuArray, CuPtr
 using Knet.LibKnet8: @knet8
 
 

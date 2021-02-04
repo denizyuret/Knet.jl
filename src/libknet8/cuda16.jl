@@ -57,8 +57,13 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
                   }
               }
 
-              extern "C" {
-                $DLLEXPORT void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,""")
+              extern "C" {\n""")
+              for stream in (false,true)
+              if stream
+                  print(s, "$DLLEXPORT void $(F)_16_$(dim_count)_stream($T *x,$T *y,$T *z,")
+              else
+                  print(s, "$DLLEXPORT void $(F)_16_$(dim_count)($T *x,$T *y,$T *z,")
+              end
               for counter=0:dim_count-1
                 print(s,"int stridex_$counter,")
               end
@@ -68,11 +73,15 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
               for counter=0:dim_count-1
                 print(s,"int stridez_$counter,")
               end
-
+              if stream
+              print(s,
+                """int Nz, cudaStream_t STR) {
+                  _$(F)_16_$(dim_count)<<<256,256,0,STR>>>(x,y,z,""")
+              else
               print(s,
                 """int Nz) {
-
                   _$(F)_16_$(dim_count)<<<256,256>>>(x,y,z,""")
+              end
               for counter=0:dim_count-1
                 print(s,"stridex_$counter,")
               end
@@ -87,6 +96,7 @@ function cuda16src(f, j=f, ex="$f(xi,yi)")
                 }
               }
               """)
+        end
       end
     end
   end

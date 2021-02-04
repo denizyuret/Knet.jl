@@ -22,6 +22,9 @@ extern "C" {
   $DLLEXPORT void $(F)_11(int n, $T *x, $T *y, $T *z) {
     _$(F)_11<<<$BLK,$THR>>>(n,x,y,z);
   }    
+  $DLLEXPORT void $(F)_11_stream(int n, $T *x, $T *y, $T *z, cudaStream_t STR) {
+    _$(F)_11<<<$BLK,$THR,0,STR>>>(n,x,y,z);
+  }    
 }
 """)
     end

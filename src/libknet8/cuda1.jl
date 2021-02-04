@@ -63,6 +63,9 @@ extern "C" {
   $DLLEXPORT void $F(int n, int d, $T *x, $T *y) {
     if (n>0) _$F<<<$BLK,$THR>>>(n,d,x,y);
   }
+  $DLLEXPORT void $(F)_stream(int n, int d, $T *x, $T *y, cudaStream_t STR) {
+    if (n>0) _$F<<<$BLK,$THR,0,STR>>>(n,d,x,y);
+  }
 }
 """)
         end
@@ -91,6 +94,9 @@ __global__ void _fill_$F(int n, $T x, $T *y) {
 extern "C" {
   $DLLEXPORT void fill_$F(int n, $T x, $T *y) {
     if (n>0) _fill_$F<<<$BLK,$THR>>>(n,x,y);
+  }
+  $DLLEXPORT void fill_$(F)_stream(int n, $T x, $T *y, cudaStream_t STR) {
+    if (n>0) _fill_$F<<<$BLK,$THR,0,STR>>>(n,x,y);
   }
 }
 """)
@@ -121,6 +127,9 @@ extern "C" {
   $DLLEXPORT void xfill_$F(int nrows, int ncols, $T x, $T *y, int incy) {
     if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR>>>(nrows, ncols, x, y, incy);
   }
+  $DLLEXPORT void xfill_$(F)_stream(int nrows, int ncols, $T x, $T *y, int incy, cudaStream_t STR) {
+    if (nrows>0 && ncols>0) _xfill_$F<<<$BLK,$THR,0,STR>>>(nrows, ncols, x, y, incy);
+  }
 }
 """)
         end
@@ -147,6 +156,9 @@ __global__ void _xcopy(int nrows, int ncols, const char *x, int incx, char *y, i
 extern "C" {
   $DLLEXPORT void xcopy(int nrows, int ncols, const void *x, int incx, void *y, int incy) {
     if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
+  }
+  $DLLEXPORT void xcopy_stream(int nrows, int ncols, const void *x, int incx, void *y, int incy, cudaStream_t STR) {
+    if (nrows>0 && ncols>0) _xcopy<<<$BLK,$THR,0,STR>>>(nrows,ncols,(char*)x,incx,(char*)y,incy);
   }
 }
 """
@@ -183,8 +195,19 @@ extern "C" {
       cudaFree(xx);
     }
   }
+  $DLLEXPORT void icat_$(F)_stream(int nrows, int ncols, $T **x, $T *y, cudaStream_t STR) {
+    $T **xx;
+    if (nrows>0 && ncols>0) {
+      size_t s = ncols * sizeof($T *);
+      cudaMalloc(&xx, s);
+      cudaMemcpy(xx, x, s, cudaMemcpyHostToDevice);
+      _icat_$F<<<$BLK,$THR,0,STR>>>(nrows, ncols, xx, y);
+      cudaFree(xx);
+    }
+  }
 }
 """)
+# TODO: test icat with streams, it should probably take a preallocated xx
         end
     end
 end
@@ -345,30 +368,78 @@ __global__ void _setent1_$F(int n, int *ents, $T *x, $T y) {
   }
 }
 extern "C" {
-$DLLEXPORT void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
-{ if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
-{ if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y)
-{ if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y)
-{ if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); }
-$DLLEXPORT void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
-{ if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
-{ if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y)
-{ if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y)
-{ if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); }
-$DLLEXPORT void getents_$F(int n, int *ents, $T *x, $T *y)
-{ if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void setents_$F(int n, int *ents, $T *x, $T *y)
-{ if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void addents_$F(int n, int *ents, $T *x, $T *y)
-{ if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); }
-$DLLEXPORT void setent1_$F(int n, int *ents, $T *x, $T  y)
-{ if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); }
+$DLLEXPORT void getcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) { 
+  if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void getcols_$(F)_stream(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y, cudaStream_t STR) { 
+  if (ncols>0 && xrows>0 && xcols>0) _getcols_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void setcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
+  if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void setcols_$(F)_stream(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y, cudaStream_t STR) {
+  if (ncols>0 && xrows>0 && xcols>0) _setcols_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void addcols_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y) {
+  if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void addcols_$(F)_stream(int xrows, int xcols, int ncols, int *cols, $T *x, $T *y, cudaStream_t STR) {
+  if (ncols>0 && xrows>0 && xcols>0) _addcols_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void setcol1_$F(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y) {
+  if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void setcol1_$(F)_stream(int xrows, int xcols, int ncols, int *cols, $T *x, $T  y, cudaStream_t STR) {
+  if (ncols>0 && xrows>0 && xcols>0) _setcol1_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,ncols,cols,x,y); 
+}
+$DLLEXPORT void getrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void getrows_$(F)_stream(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y, cudaStream_t STR) {
+  if (nrows>0 && xrows>0 && xcols>0) _getrows_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void setrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void setrows_$(F)_stream(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y, cudaStream_t STR) {
+  if (nrows>0 && xrows>0 && xcols>0) _setrows_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void addrows_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y) {
+  if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void addrows_$(F)_stream(int xrows, int xcols, int nrows, int *rows, $T *x, $T *y, cudaStream_t STR) {
+  if (nrows>0 && xrows>0 && xcols>0) _addrows_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void setrow1_$F(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y) {
+  if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void setrow1_$(F)_stream(int xrows, int xcols, int nrows, int *rows, $T *x, $T  y, cudaStream_t STR) {
+  if (nrows>0 && xrows>0 && xcols>0) _setrow1_$F<<<$BLK,$THR,0,STR>>>(xrows,xcols,nrows,rows,x,y); 
+}
+$DLLEXPORT void getents_$F(int n, int *ents, $T *x, $T *y) {
+  if (n>0) _getents_$F<<<$BLK,$THR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void getents_$(F)_stream(int n, int *ents, $T *x, $T *y, cudaStream_t STR) {
+  if (n>0) _getents_$F<<<$BLK,$THR,0,STR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void setents_$F(int n, int *ents, $T *x, $T *y) {
+  if (n>0) _setents_$F<<<$BLK,$THR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void setents_$(F)_stream(int n, int *ents, $T *x, $T *y, cudaStream_t STR) {
+  if (n>0) _setents_$F<<<$BLK,$THR,0,STR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void addents_$F(int n, int *ents, $T *x, $T *y) {
+  if (n>0) _addents_$F<<<$BLK,$THR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void addents_$(F)_stream(int n, int *ents, $T *x, $T *y, cudaStream_t STR) {
+  if (n>0) _addents_$F<<<$BLK,$THR,0,STR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void setent1_$F(int n, int *ents, $T *x, $T  y) {
+  if (n>0) _setent1_$F<<<$BLK,$THR>>>(n,ents,x,y); 
+}
+$DLLEXPORT void setent1_$(F)_stream(int n, int *ents, $T *x, $T  y, cudaStream_t STR) {
+  if (n>0) _setent1_$F<<<$BLK,$THR,0,STR>>>(n,ents,x,y); 
+}
 }
 """)
         end
@@ -411,8 +482,14 @@ extern "C" {
   $DLLEXPORT void dropout_$F(int n, $T p, $T *x, $T *y) {
     if (n>0) _dropout_$F<<<$BLK,$THR>>>(n,p,1.0/(1.0-p),x,y);
   }
+  $DLLEXPORT void dropout_$(F)_stream(int n, $T p, $T *x, $T *y, cudaStream_t STR) {
+    if (n>0) _dropout_$F<<<$BLK,$THR,0,STR>>>(n,p,1.0/(1.0-p),x,y);
+  }
   $DLLEXPORT void dropback_$F(int n, $T p, $T *x, $T *y, $T *dy, $T *dx) {
     if (n>0) _dropback_$F<<<$BLK,$THR>>>(n,1.0/(1.0-p),y,dy,dx);
+  }
+ $DLLEXPORT void dropback_$(F)_stream(int n, $T p, $T *x, $T *y, $T *dy, $T *dx, cudaStream_t STR) {
+    if (n>0) _dropback_$F<<<$BLK,$THR,0,STR>>>(n,1.0/(1.0-p),y,dy,dx);
   }
 }
 """)
@@ -441,6 +518,9 @@ extern "C" {
   // julia is responsible for copying args to gpu
   $DLLEXPORT void concat_$F(int narrays, int *starts, int *lengths, $T **x, $T *y) {
     _concat_$F<<<narrays,$THR>>>(narrays, starts, lengths, x, y);
+  }
+  $DLLEXPORT void concat_$(F)_stream(int narrays, int *starts, int *lengths, $T **x, $T *y, cudaStream_t STR) {
+    _concat_$F<<<narrays,$THR,0,STR>>>(narrays, starts, lengths, x, y);
   }
 }
 """)
