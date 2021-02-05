@@ -1,0 +1,26 @@
+2021-02-05  Deniz Yuret  <dyuret@WS001>
+
+	* conv: both tf and pytorch seems to perform cross-correlation by default:
+	https://www.tensorflow.org/api_docs/python/tf/nn/convolution
+	https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
+
+	* shape: tensorflow vs pytorch weights seem transposed:
+	>>> p50 = torchvision.models.resnet50(pretrained=True)
+	>>> r50=tf.keras.applications.ResNet50(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+	>>> pw = p50.conv1.weight.detach().numpy()
+	>>> tw = t50.weights[0]
+	>>> tw.shape
+	(7, 7, 3, 64)
+	>>> pw.shape
+	(64, 3, 7, 7)
+
+	* images: Julia.Images vs python.PIL.Image
+	cudnn:nchw => julia:whcn
+	cudnn:nhwc => julia:cwhn
+	i1=python-image, j1=julia-image
+	size(j1) => h,w
+	channelview(j1) => c,h,w
+	reinterpretc(N0f8,j1) => c,h,w
+	np.asarray(i1).shape => h,w,c (python array)
+	np.array(i1) => h,w,c Array
+	transforms.ToTensor()(i1).numpy() => c,h,w (same as channelview)
