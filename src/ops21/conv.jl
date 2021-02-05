@@ -39,7 +39,7 @@ Keyword arguments:
 * `alpha = 1, beta = 0`: scaling parameters
 * `bias = nothing`: add bias if provided
 * `channelmajor = false`: assume channel-major format tensors if specified
-* `crosscorrelation = false`: apply cross-correlation rather than convolution if true
+* `crosscorrelation = true`: if true apply cross-correlation rather than convolution (flipped kernel)
 * `dilation = 1`: dilation factor
 * `groups = 1`: number of groups to be used
 * `padding = 0`: padding assumed around `x`
@@ -54,7 +54,7 @@ function conv(
     beta = 0,
     bias = nothing,
     channelmajor = false,
-    crosscorrelation = false,
+    crosscorrelation = true,
     dilation = 1,
     groups = 1,
     padding = 0,

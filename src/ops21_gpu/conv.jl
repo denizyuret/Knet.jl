@@ -95,7 +95,7 @@ function conv(
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1,   # >= 1
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Int}}} = 1, # >= 1
     groups::Integer = 1,
-    crosscorrelation::Bool = false,
+    crosscorrelation::Bool = true,
     channelmajor::Bool = false,
 
     format::cudnnTensorFormat_t = channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW,

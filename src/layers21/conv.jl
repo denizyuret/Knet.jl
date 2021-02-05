@@ -134,7 +134,7 @@ function Conv(
     stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
     dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
     groups::Integer = 1,
-    crosscorrelation::Bool = false,
+    crosscorrelation::Bool = true,
 
     channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true.
     winit = 𝑼(√(6/(fanin(wdims; channelmajor)+fanout(wdims; channelmajor)))),

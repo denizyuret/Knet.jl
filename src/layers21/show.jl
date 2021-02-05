@@ -56,7 +56,7 @@ function show(io::IO, c::Conv)
     if c.stride != 1; print(io, ", stride=$(c.stride)"); end
     if c.dilation != 1; print(io, ", dilation=$(c.dilation)"); end
     if c.groups != 1; print(io, ", groups=$(c.groups)"); end
-    if c.crosscorrelation; print(io, ", crosscorrelation"); end
+    if !c.crosscorrelation; print(io, ", flipkernel"); end
     if c.channelmajor; print(io, ", channelmajor"); end
     if c.alpha != 1; print(io, ", alpha=$(c.alpha)"); end
     if c.beta != 0; print(io, ", beta=$(c.beta)"); end

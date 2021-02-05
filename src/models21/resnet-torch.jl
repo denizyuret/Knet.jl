@@ -1,4 +1,5 @@
 include("resnet.jl")
+include("deepmap.jl")
 
 using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
@@ -13,7 +14,8 @@ t2a(x) = x.cpu().detach().numpy()
 Base.isapprox(a::Array,b::CuArray)=isapprox(a,Array(b))
 Base.isapprox(a::CuArray,b::Array)=isapprox(Array(a),b)
 Base.isapprox(a::AutoGrad.Value,b::AutoGrad.Value)=isapprox(a.value,b.value)
-chkparams(a,b)=all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
+chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
+#all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
 
 
 function ResNetBasic(p::PyObject)
@@ -69,11 +71,11 @@ function ResNetOutput(fc::PyObject)
 end
 
 
-function Conv(p::PyObject; normalization=nothing, activation=nothing, crosscorrelation=true)
+function Conv(p::PyObject; normalization=nothing, activation=nothing)
     w = param(permutedims(t2a(p.weight), (4,3,2,1)))
     bias = (p.bias === nothing ? nothing :
             param(reshape(t2a(p.bias), (1,1,:,1))))
-    Conv(w; bias, normalization, activation, crosscorrelation,
+    Conv(w; bias, normalization, activation,
          p.padding, p.stride, p.dilation, p.groups)
 end
 
@@ -152,12 +154,27 @@ j6 = permutedims(reshape(j5,(1,size(j5)...)),(4,3,2,1))
 
 nothing
 
-# nchw => whcn ***
-# nhwc => cwhn
-# i1=python-image, j1=julia-image
-# size(j1) => h,w
-# channelview(j1) => c,h,w
-# reinterpretc(N0f8,j1) => c,h,w
-# np.asarray(i1).shape => h,w,c (python array)
-# np.array(i1) => h,w,c Array
-# transforms.ToTensor()(i1).numpy() => c,h,w (same as channelview)
+
+
+# How to save/load weights in a way that is robust to code change (except the order of weights ;)
+
+function getweights(model;atype=Knet.atype())
+    # Can't just to Params: there are non-Param weights in BatchNorm, should we call these Const?
+    # On the other hand we don't want to save param.opt variables, or do it optionally
+    # We could make bn mean/var Params with lr=0, but an optimizer may change that. Add a freeze flag to Param?
+    w = []
+    deepmap(atype, model) do a
+        push!(w, convert(Array,a))
+    end
+    return w
+end
+
+function setweights!(model, weights; atype=Knet.atype())
+    # The trouble is a newly initialized model does not have weights until first input
+    n = 0
+    deepmap(atype, model) do w
+        n += 1
+        @assert size(w) == size(weights[n])
+        copyto!(w, weights[n])
+    end
+end
