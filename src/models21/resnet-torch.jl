@@ -63,7 +63,7 @@ function ResNetOutput(fc::PyObject)
     Sequential(
         x->pool(x; mode=1, window=(size(x,1),size(x,2))),
         x->reshape(x, :, size(x,4)),
-        Dense(w; bias);
+        Linear(w; bias);
         name = "Output"
     )
 end
@@ -93,8 +93,7 @@ end
 
 T = Float64
 
-#isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
-download("https://www.ilikeorchids.com/media/qlcdv53x/iap-levoplant-low-res-141.jpg?center=0.47460844803037494,0.54166666666666663&mode=crop&width=960&height=1080&rnd=132344581373430000","dog.jpg")
+isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
 isfile("imagenet_classes.txt") || download("https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt", "imagenet_classes.txt")
 classes = readlines("imagenet_classes.txt")
 
@@ -140,4 +139,25 @@ cy = c18(cx)
 cp = Param(cx)
 @show @gcheck c18(cp) (nsample=3,)
 
+using Images, FileIO
+j1 = load("dog.jpg")
+j2 = imresize(j1, ratio=256/minimum(size(j1)))
+h,w = size(j2) .÷ 2
+j3 = j2[h-111:h+112, w-111:w+112] # h,w=224,224
+j4 = T.(channelview(j3))                  # c,h,w=3,224,224
+jmean=reshape([0.485, 0.456, 0.406], (3,1,1))
+jstd=reshape([0.229, 0.224, 0.225], (3,1,1))
+j5 = (j4 .- jmean) ./ jstd
+j6 = permutedims(reshape(j5,(1,size(j5)...)),(4,3,2,1))
+
 nothing
+
+# nchw => whcn ***
+# nhwc => cwhn
+# i1=python-image, j1=julia-image
+# size(j1) => h,w
+# channelview(j1) => c,h,w
+# reinterpretc(N0f8,j1) => c,h,w
+# np.asarray(i1).shape => h,w,c (python array)
+# np.array(i1) => h,w,c Array
+# transforms.ToTensor()(i1).numpy() => c,h,w (same as channelview)

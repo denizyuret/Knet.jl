@@ -1,13 +1,13 @@
 import Knet, AutoGrad
-using Knet.Layers21: Conv, BatchNorm, Dense, Sequential, Residual
+using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
-using Knet.Ops21: relu # TODO: define layer?
+using Knet.Ops21: relu # TODO: define activation layer?
 
 
 ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 
 
-function ResNetInput() # TODO: implement Pool?
+function ResNetInput()
     Sequential(
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
         x->pool(x; window=3, stride=2, padding=1);
@@ -20,7 +20,7 @@ function ResNetOutput(xchannels, classes)
     Sequential(
         x->pool(x; mode=1, window=(size(x,1),size(x,2))),
         x->reshape(x, :, size(x,4)),
-        Dense(xchannels, classes; binit=zeros); # TODO: binit is inconsistent with Conv.bias=true, rename Linear?, remove dropout option?
+        Linear(xchannels, classes; binit=zeros); # TODO: rethink how to specify bias in Linear/Conv
         name = "Output"
     )
 end
@@ -51,6 +51,20 @@ function ResNetBasic(nblocks...; classes = 1000, channels = 64)
     end
     push!(s, ResNetOutput(channels, classes))
 end
+
+
+function ResNetBottleneckBlock(xchannels, ychannels; activation=relu, padding=1)
+    stride = (xchannels === ychannels ? 1 : 2)
+    f1 = Sequential(
+        ConvBN(3, 3, xchannels, ychannels; stride, padding, activation),
+        ConvBN(3, 3, ychannels, ychannels; padding),
+    )
+    f2 = (xchannels === ychannels ? identity :
+          ConvBN(1, 1, xchannels, ychannels; stride))
+    return Residual(f1, f2; activation)
+end
+
+
 
 #=
 

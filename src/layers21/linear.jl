@@ -1,10 +1,10 @@
-export Dense
-using Knet.Ops21: mmul
+export Linear
+using Knet.Ops21: linear
 using AutoGrad: Param
 
 """
-    Dense(inputsize, outputsize; winit, binit, activation, dropout)
-    Dense(w; bias, inputsize, outputsize, activation, dropout)
+    Linear(inputsize, outputsize; winit, binit, activation, dropout)
+    Linear(w; bias, inputsize, outputsize, activation, dropout)
 
 Return a function that generalizes matrix multiplication to possibly more than 2 dims with
 reshapes:
@@ -34,7 +34,7 @@ References:
 * torch.nn.Linear
 * tf.keras.layers.Dense
 """
-mutable struct Dense
+mutable struct Linear
     w
     bias
     winit
@@ -46,7 +46,7 @@ mutable struct Dense
 end
 
 
-function Dense(
+function Linear(
     w;
     inputsize=size(w)[end],
     outputsize=size(w)[1:end-1],
@@ -58,32 +58,32 @@ function Dense(
     @assert bias === nothing || bsimilar(size(bias), outputsize) "size(bias) must be $(outputsize) not $(size(bias))"
     w = (w isa Param ? w : Param(w))
     bias = (bias isa Nothing || bias isa Param ? bias : Param(bias))
-    Dense(w, bias, nothing, nothing, inputsize, outputsize, activation, dropout)
+    Linear(w, bias, nothing, nothing, inputsize, outputsize, activation, dropout)
 end
 
 
-function Dense(
+function Linear(
     inputsize, outputsize;
     winit=𝑼(√(6/(prod(inputsize)+prod(outputsize)))),
     binit=nothing,
     activation=nothing,
     dropout=0,
 )
-    Dense(nothing, nothing, winit, binit, inputsize, outputsize, activation, dropout)
+    Linear(nothing, nothing, winit, binit, inputsize, outputsize, activation, dropout)
 end
 
 
-function (l::Dense)(x)
-    initdense(l, x)
+function (l::Linear)(x)
+    initlinear(l, x)
     if l.dropout != 0; x = dropout(x, l.dropout); end
-    y = mmul(l.w, x)
+    y = linear(l.w, x)
     if l.bias !== nothing; y = y .+ l.bias; end
     if l.activation !== nothing; y = l.activation.(y); end
     return y
 end
 
 
-function initdense(l::Dense, x)
+function initlinear(l::Linear, x)
     if l.w === nothing
         wsize = (l.outputsize..., l.inputsize...)
         l.w = Param(copyto!(similar(x, wsize...), l.winit(eltype(x), wsize...)))
@@ -104,7 +104,7 @@ function bsimilar(a,b)          # compare dimensions ignoring trailing ones
 end
 
 
-# function (l::Dense)(x::MaskedArray)
+# function (l::Linear)(x::MaskedArray)
 #     (a,m) = (x.array, x.mask)
 #     @assert m===nothing || all(size(m,i) == 1 || size(m,i) == size(a,i) for i in 1:ndims(a))
 #     if m === nothing

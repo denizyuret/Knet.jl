@@ -5,7 +5,7 @@ include("sequential.jl")
 include("residual.jl")
 include("batchnorm.jl")
 include("conv.jl")
-include("dense.jl") # TODO: test, redesign
+include("linear.jl") # TODO: test, redesign
 include("show.jl")
 include("jld2.jl")
 

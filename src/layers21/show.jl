@@ -67,9 +67,9 @@ function show(io::IO, c::Conv)
 end
 
 
-show(io::IO, ::MIME"text/plain", d::Dense) = show(io, d)
-function show(io::IO, d::Dense)
-    print(io, "Dense($(d.inputsize)=>$(d.outputsize)")
+show(io::IO, ::MIME"text/plain", d::Linear) = show(io, d)
+function show(io::IO, d::Linear)
+    print(io, "Linear($(d.inputsize)=>$(d.outputsize)")
     if d.w !== nothing && eltype(d.w) !== Float32; print(io, ", ", eltype(d.w)); end
     if d.bias !== nothing; print(io, ", bias"); end
     if d.activation !== nothing; print(io, ", $(d.activation)"); end
