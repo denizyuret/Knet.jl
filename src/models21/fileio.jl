@@ -1,3 +1,4 @@
+using FileIO
 import Knet
 
 # How to save/load weights in a way that is robust to code change (except the order of weights ;)
@@ -13,6 +14,7 @@ function getweights(model; atype=Knet.atype())
     return w
 end
 
+
 function setweights!(model, weights; atype=Knet.atype())
     # The trouble is a newly initialized model does not have weights until first input
     n = 0
@@ -21,4 +23,15 @@ function setweights!(model, weights; atype=Knet.atype())
         @assert size(w) == size(weights[n])
         copyto!(w, weights[n])
     end
+    return model
+end
+
+
+function saveweights(file::String, model; atype=Knet.atype())
+    save(file, "weights", getweights(model; atype))
+end
+
+
+function loadweights(file::String, model; atype=Knet.atype())
+    setweights!(model, load(file, "weights"); atype)
 end

@@ -1,7 +1,8 @@
-import Knet, AutoGrad, Images, FileIO
+import Knet, AutoGrad
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
 using Knet.Ops21: relu # TODO: define activation layer?
+using Images, FileIO, Artifacts
 
 
 ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
@@ -65,7 +66,9 @@ function ResNetBottleneckBlock(xchannels, ychannels; activation=relu, padding=1)
 end
 
 
-ResNetPreprocess(file::String)=ResNetPreprocess(load(file))
+ResNetPreprocess(x) = x
+
+ResNetPreprocess(file::String) = ResNetPreprocess(load(file))
 
 function ResNetPreprocess(img::Matrix{<:RGB})
     img = imresize(img, ratio=256/minimum(size(img))) # min(h,w)=256
@@ -78,6 +81,10 @@ function ResNetPreprocess(img::Matrix{<:RGB})
     img = reshape(img, (size(img)..., 1)) # 224,224,3,1
     Knet.atype(img)
 end
+
+resnetinit(m) = (m(convert(Knet.atype(),zeros(Float32,224,224,3,1))); m)
+
+resnet18() = loadweights(joinpath(artifact"resnet18","resnet18.jld2"), resnetinit(ResNetBasic(2,2,2,2)))
 
 #=
 

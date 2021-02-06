@@ -82,6 +82,20 @@ function BatchNorm(b::PyObject)
 end
 
 
+function BatchNorm2(b::PyObject) # use this for @gcheck
+    bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
+    BatchNorm(
+        ; use_estimates = true, ###
+        update = 0, ###
+        mean = bnweight(b.running_mean).value,
+        var = bnweight(b.running_var).value,
+        bias = bnweight(b.bias),
+        scale = bnweight(b.weight),
+        epsilon = b.eps,
+    )
+end
+
+
 torch = pyimport("torch")
 nn = pyimport("torch.nn")
 models = pyimport("torchvision.models")
@@ -89,19 +103,20 @@ t2a(x) = x.cpu().detach().numpy()
 chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
 #all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
 
+
 p18 = models.resnet18(pretrained=true).eval()
-px = t2a(input_batch)
+px = randn(Float32, 1, 3, 224, 224)
 py = t2a(p18(torch.tensor(px)))
 
-T = Float64
+T = Float32 # Float64 ## use Float64 for @gcheck
 
 Knet.atype() = Array{T}
 a18 = ResNetBasic(p18)
 ax = Knet.atype(permutedims(px,(4,3,2,1)))
 ay = a18(ax)
 @show isapprox(Array(ay), Array(py)')
-ap = Param(ax)
-@show @gcheck a18(ap) (nsample=3,)
+#ap = Param(ax)
+#@show @gcheck a18(ap) (nsample=3,)
 
 Knet.atype() = KnetArray{T}
 k18 = ResNetBasic(p18)
@@ -109,8 +124,8 @@ k18 = ResNetBasic(p18)
 kx = Knet.atype(permutedims(px,(4,3,2,1)))
 ky = k18(kx)
 @show isapprox(Array(ay), Array(ky))
-kp = Param(kx)
-@show @gcheck k18(kp) (nsample=3,)
+#kp = Param(kx)
+#@show @gcheck k18(kp) (nsample=3,)
 
 Knet.atype() = CuArray{T}
 c18 = ResNetBasic(p18)
@@ -118,8 +133,8 @@ c18 = ResNetBasic(p18)
 cx = Knet.atype(permutedims(px,(4,3,2,1)))
 cy = c18(cx)
 @show isapprox(Array(ay), Array(cy))
-cp = Param(cx)
-@show @gcheck c18(cp) (nsample=3,)
+#cp = Param(cx)
+#@show @gcheck c18(cp) (nsample=3,)
 
 nothing
 
@@ -140,6 +155,7 @@ preprocess = transforms.Compose([
 ])
 input_tensor = preprocess(input_image)
 input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+px = t2a(input_batch)
 
 ### Julia preprocess
 using Images, FileIO
