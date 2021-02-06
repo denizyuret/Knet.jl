@@ -1,4 +1,5 @@
 import Knet.Ops21: batchnorm
+using AutoGrad: value
 
 using CUDA.CUDNN:
     cudnnNormalizationForward,
@@ -73,6 +74,7 @@ function batchnorm(
     if Knet.training() && !use_estimates && update == 0
         cudnnNormalizationForward(x, nothing, nothing, bias, scale; training=true, exponentialAverageFactor=0, kw...)
     elseif Knet.training() && !use_estimates && update > 0
+        (mean_estimate, var_estimate) = value.((mean_estimate, var_estimate))
         cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=true, exponentialAverageFactor=update, kw...)
     elseif Knet.training() && use_estimates && update == 0
         ((x .- mean_estimate) ./ sqrt.(epsilon .+ var_estimate)) .* scale .+ bias
@@ -82,20 +84,24 @@ function batchnorm(
     elseif !Knet.training() && !use_estimates && update == 0
         cudnnNormalizationForward(x, nothing, nothing, bias, scale; training=true, exponentialAverageFactor=0, kw...)
     elseif !Knet.training() && !use_estimates && update > 0
+        (mean_estimate, var_estimate) = value.((mean_estimate, var_estimate))
         cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=true, exponentialAverageFactor=update, kw...)
     elseif !Knet.training() && use_estimates && update == 0
+        (mean_estimate, var_estimate) = value.((mean_estimate, var_estimate))
         cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=false, kw...)
     elseif !Knet.training() && use_estimates && update > 0
+        (mean_estimate, var_estimate) = value.((mean_estimate, var_estimate))
         update_estimates!(x, mean_estimate, var_estimate, update)
         cudnnNormalizationForward(x, mean_estimate, var_estimate, bias, scale; training=false, kw...)
     end
 end
 
 function update_estimates!(x, mean_estimate, var_estimate, update)
+    (x, mean_estimate, var_estimate, update) = value.((x, mean_estimate, var_estimate, update))
     dims = findall(size(mean_estimate) .== 1)
     xmean = mean(x; dims)
     xvar  = var(x; dims, mean=xmean, corrected=false)
     update = eltype(x)(update)
-    mean_estimate .= value(xmean) * update + mean_estimate * (1-update)
-    var_estimate  .= value(xvar)  * update + var_estimate  * (1-update)
+    mean_estimate .= xmean * update + mean_estimate * (1-update)
+    var_estimate  .= xvar  * update + var_estimate  * (1-update)
 end

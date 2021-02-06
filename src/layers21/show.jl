@@ -23,10 +23,11 @@ show(io::IO, s::Residual) = sshow(io, s, 0)
 function sshow(io::IO, r::Residual, indent::Int)
     a = r.activation === nothing ? "" : "($(r.activation))"
     sshow(io, "Residual$a", indent)
-    sshow(io, r.f1, indent+2)
-    sshow(io, '+', indent+2)
-    sshow(io, r.f2, indent+2)
-    #sshow(io, "end", indent)
+    sshow(io, r.layers[1], indent+2)
+    for i in 2:length(r.layers)
+        sshow(io, '+', indent+2)
+        sshow(io, r.layers[i], indent+2)
+    end
 end
 
 
@@ -52,9 +53,9 @@ function show(io::IO, c::Conv)
     @printf(io, "Conv(%d×%d, %d=>%d", c.wdims...)
     # Only print non-defaults
     if c.w !== nothing && eltype(c.w) !== Float32; print(io, ", ", eltype(c.w)); end
-    if c.padding != 0; print(io, ", padding=$(c.padding)"); end
-    if c.stride != 1; print(io, ", stride=$(c.stride)"); end
-    if c.dilation != 1; print(io, ", dilation=$(c.dilation)"); end
+    if any(c.padding .!= 0); print(io, ", padding=$(c.padding)"); end
+    if any(c.stride .!= 1); print(io, ", stride=$(c.stride)"); end
+    if any(c.dilation .!= 1); print(io, ", dilation=$(c.dilation)"); end
     if c.groups != 1; print(io, ", groups=$(c.groups)"); end
     if !c.crosscorrelation; print(io, ", flipkernel"); end
     if c.channelmajor; print(io, ", channelmajor"); end

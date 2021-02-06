@@ -1,10 +1,10 @@
 [[libknet8]]
 arch = "x86_64"
-git-tree-sha1 = "74bd0ec7a3b5e3030c47f995f6ffc174bb762176" # Tar.tree_hash("libknet8-1.4.6-linux-x86_64.tar")
+git-tree-sha1 = "74bd0ec7a3b5e3030c47f995f6ffc174bb762176" # Tar.tree_hash("file.tar")
 os = "linux"
    
     [[libknet8.download]]
-    sha256 = "74e7dc7c45f301313950abbbb50e5474833ab305ff32d6f871ac418190989092" # sha256sum libknet8-1.4.6-linux-x86_64.tar.gz
+    sha256 = "74e7dc7c45f301313950abbbb50e5474833ab305ff32d6f871ac418190989092" # using SHA; open("file.tar.gz") do f; bytes2hex(sha256(f)); end
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/libknet8-1.4.6-linux-x86_64.tar.gz"
 
 [[libknet8]]
@@ -42,3 +42,36 @@ lazy = true
     [[resnet18.download]]
     sha256 = "939003089f11ac0d88fe4072e9e3d7605a24845001777995e34325057c1452ff"
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet18.tar.gz"
+
+[resnet34]
+git-tree-sha1 = "52759b572da9c8e07b6421388e4ea92cce345d44"
+lazy = true
+
+    [[resnet34.download]]
+    sha256 = "a40aef72ef558b18f22d3695af59ecff2f742979ad67a32d956a0a7bb8571241"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet34.tar.gz"
+
+[resnet50]
+git-tree-sha1 = "2b00a5b4f4b47f4885ccc79d1eaeaa65c7728f0a"
+lazy = true
+
+    [[resnet50.download]]
+    sha256 = "2ff77bc80bd7fd32da9854bf63405b5e40647d251bc85a37283bf94bb93421b2"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet50.tar.gz"
+
+[resnet101]
+git-tree-sha1 = "90212e25c29a8a08d62b69d5e54b2bc055f64db4"
+lazy = true
+
+    [[resnet101.download]]
+    sha256 = "04ae71ea235800b50de80d183201e530fbee7d8cba146f4e0883744ddb16a586"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet101.tar.gz"
+
+[resnet152]
+git-tree-sha1 = "285ccc3cd6a53e98351499660fb2d9fa58de39be"
+lazy = true
+
+    [[resnet152.download]]
+    sha256 = "62cc6b86fb1adadc303783e6eb8a26b73aa9498e6652f76bb6d2e312dc6eafe9"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet152.tar.gz"
+

@@ -20,10 +20,15 @@ function setweights!(model, weights; atype=Knet.atype())
     n = 0
     deepmap(atype, model) do w
         n += 1
-        @assert size(w) == size(weights[n])
+        @assert size(w) == size(weights[n]) "$(size(w)) != $(size(weights[n]))"
         copyto!(w, weights[n])
     end
     return model
+end
+
+
+function setweights!(model, file::String; atype=Knet.atype())
+    setweights!(model, load(file, "weights"); atype)
 end
 
 
@@ -32,6 +37,3 @@ function saveweights(file::String, model; atype=Knet.atype())
 end
 
 
-function loadweights(file::String, model; atype=Knet.atype())
-    setweights!(model, load(file, "weights"); atype)
-end

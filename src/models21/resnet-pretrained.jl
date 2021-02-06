@@ -1,19 +1,18 @@
-include("resnet.jl")
+include("Models21.jl")
 using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
-using PyCall, AutoGrad
-import NNlib, Knet
+using PyCall, AutoGrad, SHA
+import NNlib, Knet, Tar
 
 
-function ResNetBasic(p::PyObject)
+function ResNetTorch(p::PyObject)
     layers = (p.layer1, p.layer2, p.layer3, p.layer4)
-    s = Sequential(ResNetInput(p.conv1, p.bn1); name="ResNetBasic$(length.(layers))")
+    s = Sequential(ResNetInput(p.conv1, p.bn1); name="ResNet$(length.(layers))")
     for (i, layer) in enumerate(layers)
-        channels = 2^(i+5)
-        blocks = Sequential(; name="Blocks$channels")
+        blocks = Sequential(; name="Layer$layer")
         for block in layer
-            push!(blocks, ResNetBasicBlock(block))
+            push!(blocks, ResNetBlock(block))
         end
         push!(s, blocks)
     end
@@ -21,19 +20,18 @@ function ResNetBasic(p::PyObject)
 end
 
 
-function ResNetBasicBlock(p::PyObject)
-    bn1 = BatchNorm(p.bn1)
-    bn2 = BatchNorm(p.bn2)
-    conv1 = Conv(p.conv1; normalization=bn1, activation=relu)
-    conv2 = Conv(p.conv2; normalization=bn2)
-    f1 = Sequential(conv1, conv2)
-    if p.downsample === nothing
-        f2 = identity
-    else
-        bn3 = BatchNorm(p.downsample[2])
-        f2 = Conv(p.downsample[1]; normalization=bn3)
+function ResNetBlock(p::PyObject)
+    i, layers = 1, []
+    while haskey(p, "conv$i")
+        convi = getproperty(p, "conv$i")
+        bni = getproperty(p, "bn$i")
+        push!(layers, Conv(convi; normalization=BatchNorm(bni), activation=relu))
+        i += 1
     end
-    return Residual(f1, f2; activation=relu)
+    layers[end].activation = nothing
+    r = (p.downsample === nothing ? identity :
+         Conv(p.downsample[1]; normalization=BatchNorm(p.downsample[2])))
+    Residual(Sequential(layers...), r; activation=relu)
 end
 
 
@@ -82,13 +80,13 @@ function BatchNorm(b::PyObject)
 end
 
 
-function BatchNorm2(b::PyObject) # use this for @gcheck
+function BatchNorm2(b::PyObject) # use this for @gcheck, defaults will be fixed when weights loaded from file
     bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
     BatchNorm(
-        ; use_estimates = true, ###
-        update = 0, ###
-        mean = bnweight(b.running_mean).value,
-        var = bnweight(b.running_var).value,
+        ; use_estimates = true, ### nothing,
+        update = 0, ### b.momentum,
+        mean = bnweight(b.running_mean), ### .value,
+        var = bnweight(b.running_var), ### .value,
         bias = bnweight(b.bias),
         scale = bnweight(b.weight),
         epsilon = b.eps,
@@ -101,42 +99,64 @@ nn = pyimport("torch.nn")
 models = pyimport("torchvision.models")
 t2a(x) = x.cpu().detach().numpy()
 chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
-#all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
+rdims(a)=permutedims(a, ((ndims(a):-1:1)...,))
 
 
-p18 = models.resnet18(pretrained=true).eval()
-px = randn(Float32, 1, 3, 224, 224)
-py = t2a(p18(torch.tensor(px)))
+function resnetsave(model)
+    @assert haskey(models, model) 
+    pm = getproperty(models, model)(pretrained=true).eval()
+    px = randn(Float32, 224, 224, 3, 1)
+    py = px |> rdims |> torch.tensor |> pm |> t2a |> rdims
 
-T = Float32 # Float64 ## use Float64 for @gcheck
+    T = Float32 ## use Float64 for @gcheck
 
-Knet.atype() = Array{T}
-a18 = ResNetBasic(p18)
-ax = Knet.atype(permutedims(px,(4,3,2,1)))
-ay = a18(ax)
-@show isapprox(Array(ay), Array(py)')
-#ap = Param(ax)
-#@show @gcheck a18(ap) (nsample=3,)
+    Knet.array_type[] = Array{T}
+    am = ResNetTorch(pm)
+    ax = Knet.atype(px)
+    ay = am(ax)
+    @show ay ≈ py
+    #ap = Param(ax)
+    #@show @gcheck am(ap) (nsample=3,)
 
-Knet.atype() = KnetArray{T}
-k18 = ResNetBasic(p18)
-@show chkparams(k18,a18)
-kx = Knet.atype(permutedims(px,(4,3,2,1)))
-ky = k18(kx)
-@show isapprox(Array(ay), Array(ky))
-#kp = Param(kx)
-#@show @gcheck k18(kp) (nsample=3,)
+    Knet.array_type[] = KnetArray{T}
+    km = ResNetTorch(pm)
+    @show chkparams(km,am)
+    kx = Knet.atype(px)
+    ky = km(kx)
+    @show ky ≈ py
+    #kp = Param(kx)
+    #@show @gcheck km(kp) (nsample=3,)
 
-Knet.atype() = CuArray{T}
-c18 = ResNetBasic(p18)
-@show chkparams(c18,a18)
-cx = Knet.atype(permutedims(px,(4,3,2,1)))
-cy = c18(cx)
-@show isapprox(Array(ay), Array(cy))
-#cp = Param(cx)
-#@show @gcheck c18(cp) (nsample=3,)
+    Knet.array_type[] = CuArray{T}
+    cm = ResNetTorch(pm)
+    @show chkparams(cm,am)
+    cx = Knet.atype(px)
+    cy = cm(cx)
+    @show cy ≈ py
+    #cp = Param(cx)
+    #@show @gcheck cm(cp) (nsample=3,)
 
-nothing
+    @info "Saving $(model).jld2"
+    saveweights("$(model).jld2", cm; atype=CuArray)
+
+    @info "Loading $(model).jld2"
+    setweights!(cm, "$(model).jld2")
+    @show chkparams(cm,am)
+    cx = Knet.atype(px)
+    cy = cm(cx)
+    @show cy ≈ py
+    #cp = Param(cx)
+    #@show @gcheck cm(cp) (nsample=3,)
+
+    run(`tar cf $(model).tar $(model).jld2`)
+    sha1 = Tar.tree_hash("$(model).tar")
+    @info "git-tree-sha1 = \"$sha1\""
+
+    run(`gzip $(model).tar`)
+    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    @info "sha256 = \"$sha2\""
+end
+
 
 #=
 ### Python preprocess

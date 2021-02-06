@@ -52,9 +52,9 @@ function batchnorm(
         xvar  = var(x; dims, mean=xmean, corrected=false)
     end
     if update > 0
-        # x and therefore xmean,xvar may be AutoGrad.Value, mean_estimate/var_estimate are regular arrays
-        mean_estimate .= value(xmean) * update + mean_estimate * (1-update)
-        var_estimate  .= value(xvar)  * update + var_estimate  * (1-update)
+        (m, v, xm, xv) = value.((mean_estimate, var_estimate, xmean, xvar))
+        m .= xm * update + m * (1-update)
+        v .= xv * update + v * (1-update)
     end        
     if use_estimates
         y = ((x .- mean_estimate) ./ sqrt.(epsilon .+ var_estimate)) .* scale .+ bias
