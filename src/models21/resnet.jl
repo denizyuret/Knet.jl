@@ -1,4 +1,4 @@
-import Knet, AutoGrad
+import Knet, AutoGrad, Images, FileIO
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
 using Knet.Ops21: relu # TODO: define activation layer?
@@ -65,6 +65,19 @@ function ResNetBottleneckBlock(xchannels, ychannels; activation=relu, padding=1)
 end
 
 
+ResNetPreprocess(file::String)=ResNetPreprocess(load(file))
+
+function ResNetPreprocess(img::Matrix{<:RGB})
+    img = imresize(img, ratio=256/minimum(size(img))) # min(h,w)=256
+    hcenter,vcenter = size(img) .>> 1
+    img = img[hcenter-111:hcenter+112, wcenter-111:wcenter+112] # h,w=224,224
+    img = channelview(img)                                      # c,h,w=3,224,224
+    μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+    img = (img .- μ) ./ σ
+    img = permutedims(img, (3,2,1)) # 224,224,3
+    img = reshape(img, (size(img)..., 1)) # 224,224,3,1
+    Knet.atype(img)
+end
 
 #=
 

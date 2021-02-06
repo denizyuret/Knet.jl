@@ -1,21 +1,9 @@
 include("resnet.jl")
-include("deepmap.jl")
-
 using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
 using PyCall, AutoGrad
 import NNlib, Knet
-
-torch = pyimport("torch")
-nn = pyimport("torch.nn")
-models = pyimport("torchvision.models")
-t2a(x) = x.cpu().detach().numpy()
-Base.isapprox(a::Array,b::CuArray)=isapprox(a,Array(b))
-Base.isapprox(a::CuArray,b::Array)=isapprox(Array(a),b)
-Base.isapprox(a::AutoGrad.Value,b::AutoGrad.Value)=isapprox(a.value,b.value)
-chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
-#all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
 
 
 function ResNetBasic(p::PyObject)
@@ -83,37 +71,29 @@ end
 function BatchNorm(b::PyObject)
     bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
     BatchNorm(
-        ; use_estimates = true, #DBG
-        update = 0, #DBG b.momentum,
-        mean = bnweight(b.running_mean).value, #DBG .value,
-        var = bnweight(b.running_var).value, #DBG .value,
+        ; use_estimates = nothing,
+        update = b.momentum,
+        mean = bnweight(b.running_mean).value,
+        var = bnweight(b.running_var).value,
         bias = bnweight(b.bias),
         scale = bnweight(b.weight),
         epsilon = b.eps,
     )
 end
 
-T = Float64
 
-isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
-isfile("imagenet_classes.txt") || download("https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt", "imagenet_classes.txt")
-classes = readlines("imagenet_classes.txt")
-
-Image = pyimport("PIL.Image")
-transforms = pyimport("torchvision.transforms")
-input_image = Image.open("dog.jpg")
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-input_tensor = preprocess(input_image)
-input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+torch = pyimport("torch")
+nn = pyimport("torch.nn")
+models = pyimport("torchvision.models")
+t2a(x) = x.cpu().detach().numpy()
+chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
+#all(isapprox(pa,pb) for (pa,pb) in zip(AutoGrad.params(a),AutoGrad.params(b)))
 
 p18 = models.resnet18(pretrained=true).eval()
 px = t2a(input_batch)
 py = t2a(p18(torch.tensor(px)))
+
+T = Float64
 
 Knet.atype() = Array{T}
 a18 = ResNetBasic(p18)
@@ -141,6 +121,27 @@ cy = c18(cx)
 cp = Param(cx)
 @show @gcheck c18(cp) (nsample=3,)
 
+nothing
+
+#=
+### Python preprocess
+isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
+isfile("imagenet_classes.txt") || download("https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt", "imagenet_classes.txt")
+classes = readlines("imagenet_classes.txt")
+
+Image = pyimport("PIL.Image")
+transforms = pyimport("torchvision.transforms")
+input_image = Image.open("dog.jpg")
+preprocess = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+input_tensor = preprocess(input_image)
+input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+
+### Julia preprocess
 using Images, FileIO
 j1 = load("dog.jpg")
 j2 = imresize(j1, ratio=256/minimum(size(j1)))
@@ -152,29 +153,4 @@ jstd=reshape([0.229, 0.224, 0.225], (3,1,1))
 j5 = (j4 .- jmean) ./ jstd
 j6 = permutedims(reshape(j5,(1,size(j5)...)),(4,3,2,1))
 
-nothing
-
-
-
-# How to save/load weights in a way that is robust to code change (except the order of weights ;)
-
-function getweights(model;atype=Knet.atype())
-    # Can't just to Params: there are non-Param weights in BatchNorm, should we call these Const?
-    # On the other hand we don't want to save param.opt variables, or do it optionally
-    # We could make bn mean/var Params with lr=0, but an optimizer may change that. Add a freeze flag to Param?
-    w = []
-    deepmap(atype, model) do a
-        push!(w, convert(Array,a))
-    end
-    return w
-end
-
-function setweights!(model, weights; atype=Knet.atype())
-    # The trouble is a newly initialized model does not have weights until first input
-    n = 0
-    deepmap(atype, model) do w
-        n += 1
-        @assert size(w) == size(weights[n])
-        copyto!(w, weights[n])
-    end
-end
+=#

@@ -8,6 +8,7 @@ using Knet.KnetArrays: checkbetween
 include("convert.jl")
 include("getindex.jl")
 include("reduction.jl")
+include("isapprox.jl")
 include("cubytes.jl"); export cuarrays, cubytes
 include("jld2.jl")
 
