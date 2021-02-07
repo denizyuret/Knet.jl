@@ -1,3 +1,4 @@
+export ResNet
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool, softmax # TODO: add pool to ops21
@@ -5,23 +6,7 @@ using Knet.Ops21: relu # TODO: define activation layer?
 using Artifacts
 
 
-# torchvision models:
-
-resnet18() = setweights!(ResNet(2,2,2,2; block=ResNetBasic), joinpath(artifact"resnet18","resnet18.jld2"))
-resnet34() = setweights!(ResNet(3,4,6,3; block=ResNetBasic), joinpath(artifact"resnet34","resnet34.jld2"))
-
-resnet50() = setweights!(ResNet(3,4,6,3; bottleneck=4), joinpath(artifact"resnet50","resnet50.jld2"))
-resnet101() = setweights!(ResNet(3,4,23,3; bottleneck=4), joinpath(artifact"resnet101","resnet101.jld2"))
-resnet152() = setweights!(ResNet(3,8,36,3; bottleneck=4), joinpath(artifact"resnet152","resnet152.jld2"))
-
-resnext50_32x4d() = setweights!(ResNet(3,4,6,3; groups=32, bottleneck=2), joinpath(artifact"resnext50_32x4d","resnext50_32x4d.jld2"))
-resnext101_32x8d() = setweights!(ResNet(3,4,23,3; groups=32), joinpath(artifact"resnext101_32x8d","resnext101_32x8d.jld2"))
-
-wide_resnet50_2() = setweights!(ResNet(3,4,6,3; bottleneck=2), joinpath(artifact"wide_resnet50_2","wide_resnet50_2.jld2"))
-wide_resnet101_2() = setweights!(ResNet(3,4,23,3; bottleneck=2), joinpath(artifact"wide_resnet101_2","wide_resnet101_2.jld2"))
-
-
-function ResNet(nblocks...; block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
+function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
     s = Sequential(ResNetInput(); name="$block$nblocks")
     x, y = 64, (block === ResNetBasic ? 64 : 256)
     for (layer, nblock) in enumerate(nblocks)
@@ -93,3 +78,25 @@ resnetinit(m) = (m(Knet.atype(zeros(Float32,224,224,3,1))); m)
 
 # Preprocessing - override this to handle image, file, url etc. as input
 resnetprep(x) = Knet.atype(x)
+
+
+# Pretrained models from torchvision
+const resnetmodels = Dict{String,NamedTuple}(
+    "resnet18" => (nblocks=(2,2,2,2), block=ResNetBasic),
+    "resnet34" => (nblocks=(3,4,6,3), block=ResNetBasic),
+    "resnet50" => (nblocks=(3,4,6,3), bottleneck=4),
+    "resnet101" => (nblocks=(3,4,23,3), bottleneck=4),
+    "resnet152" => (nblocks=(3,8,36,3), bottleneck=4),
+    "wide_resnet50_2" => (nblocks=(3,4,6,3), bottleneck=2),
+    "wide_resnet101_2" => (nblocks=(3,4,23,3), bottleneck=2),
+    "resnext50_32x4d" => (nblocks=(3,4,6,3), groups=32, bottleneck=2),
+    "resnext101_32x8d" => (nblocks=(3,4,23,3), groups=32),
+)
+
+function ResNet(s::String; pretrained=true)
+    @assert haskey(resnetmodels, s)  "Unknown ResNet model $s"
+    kwargs = resnetmodels[s]
+    model = ResNet(; kwargs...)
+    pretrained && setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
+    return model
+end
