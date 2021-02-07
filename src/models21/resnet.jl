@@ -2,7 +2,7 @@ import Knet, AutoGrad
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool, softmax # TODO: add pool to ops21
 using Knet.Ops21: relu # TODO: define activation layer?
-using Images, FileIO, Artifacts
+using Images, FileIO, Artifacts, Base.Threads
 
 
 resnet18() = setweights!(ResNet(2,2,2,2; block=ResNetBasic),
