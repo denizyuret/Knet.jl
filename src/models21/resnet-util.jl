@@ -162,20 +162,20 @@ end
 
 # https://www.adeveloperdiary.com/data-science/computer-vision/how-to-prepare-imagenet-dataset-for-image-classification/
 
-function resnetprep(file::String)
+function resnetinput(file::String)
     img = occursin(r"^http", file) ? mktemp() do fn,io
         load(download(file,fn))
     end : load(file)
-    resnetprep(img)
+    resnetinput(img)
 end
 
 
-function resnetprep(img::Matrix{<:Gray})
-    resnetprep(RGB.(img))
+function resnetinput(img::Matrix{<:Gray})
+    resnetinput(RGB.(img))
 end
 
 
-function resnetprep(img::Matrix{<:RGB})
+function resnetinput(img::Matrix{<:RGB})
     img = imresize(img, ratio=256/minimum(size(img))) # min(h,w)=256
     hcenter,vcenter = size(img) .>> 1
     img = img[hcenter-111:hcenter+112, vcenter-111:vcenter+112] # h,w=224,224
@@ -216,7 +216,7 @@ function resnetdir(model, dir; n=typemax(Int), b=32)
     for i in Knet.progress(1:b:n)
         j = min(n, i+b-1)
         @threads for k in 0:j-i
-            images[1+k] = resnetprep(files[i+k])
+            images[1+k] = resnetinput(files[i+k])
         end
         batch = cat(images[1:j-i+1]...; dims=4)
         p = convert(Array, model(batch))

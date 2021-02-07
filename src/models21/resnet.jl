@@ -17,7 +17,7 @@ A ResNet model consists of an input block, four layers, and an output block. The
 output blocks are the same for every model:
 
     Input:
-    resnetprep
+    resnetinput
     Conv(7×7, 3=>64, padding=3, stride=2, BatchNorm(), relu)
     x->pool(x; window=3, stride=2, padding=1)
 
@@ -26,7 +26,7 @@ output blocks are the same for every model:
     x->reshape(x, :, size(x,4))
     Linear(classes, bias)
     
-The `resnetprep` function performs preprocessing on the input, the user can define their own
+The `resnetinput` function performs preprocessing on the input, the user can define their own
 methods to handle different types of input (images, files, etc.) with resizing,
 normalization etc.
 
@@ -49,19 +49,24 @@ expected size of the input is (224,224,3,N) with pixel values should be normaliz
 Other sizes will work but may not give good classification accuracy. The number of classes
 is 1000. The class labels, as well as training, validation and test sets can be found at
 [Kaggle](https://www.kaggle.com/c/imagenet-object-localization-challenge). Here are all the
-predefined model names, settings, and performance metrics:
+predefined models with name, settings, size in bytes, runtime compared to resnet18, top-1
+validation error.
 
-    name              settings                                      size  time  top1-err
-    ----              --------                                      ----  ----  --------
-    resnet18          (nblocks=(2,2,2,2), block=ResNetBasic)         45M  
-    resnet34          (nblocks=(3,4,6,3), block=ResNetBasic)         84M
-    resnet50          (nblocks=(3,4,6,3), bottleneck=4)              98M
-    resnet101         (nblocks=(3,4,23,3), bottleneck=4)            171M
-    resnet152         (nblocks=(3,8,36,3), bottleneck=4)            231M
-    wide_resnet50_2   (nblocks=(3,4,6,3), bottleneck=2)             264M
-    wide_resnet101_2  (nblocks=(3,4,23,3), bottleneck=2)            485M
-    resnext50_32x4d   (nblocks=(3,4,6,3), groups=32, bottleneck=2)   96M
-    resnext101_32x8d  (nblocks=(3,4,23,3), groups=32)               340M
+    name              settings                                      size  time  top1
+    ----              --------                                      ----  ----  ----
+    resnet18          (nblocks=(2,2,2,2), block=ResNetBasic)         45M  1.00  .3106
+    resnet34          (nblocks=(3,4,6,3), block=ResNetBasic)         84M  1.38  .2724
+    resnet50          (nblocks=(3,4,6,3), bottleneck=4)              98M  2.44  .2472
+    resnet101         (nblocks=(3,4,23,3), bottleneck=4)            171M  3.85  .2317
+    resnet152         (nblocks=(3,8,36,3), bottleneck=4)            231M  5.35  .2220
+    wide_resnet50_2   (nblocks=(3,4,6,3), bottleneck=2)             264M  5.14  .2225
+    wide_resnet101_2  (nblocks=(3,4,23,3), bottleneck=2)            485M  7.33  .2181
+    resnext50_32x4d   (nblocks=(3,4,6,3), groups=32, bottleneck=2)   96M  3.26  .2294
+    resnext101_32x8d  (nblocks=(3,4,23,3), groups=32)               340M  8.41  .2131
+
+Note: The errors are slightly different from the ones given by torchvision, which is
+probably due to the differences in preprocessing, in particular `imresize` in Julia gives
+slightly different results compared to `torchvision.transforms`.
 
 References:
 * He, Kaiming et al. "Deep Residual Learning for Image Recognition." 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2016): 770-778.
@@ -113,7 +118,7 @@ end
 
 function ResNetInput()
     Sequential(
-        resnetprep,
+        resnetinput,
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
         x->pool(x; window=3, stride=2, padding=1);
         name = "Input"
@@ -140,7 +145,7 @@ resnetinit(m) = (m(Knet.atype(zeros(Float32,224,224,3,1))); m)
 
 
 # Preprocessing - override this to handle image, file, url etc. as input
-resnetprep(x) = Knet.atype(x)
+resnetinput(x) = Knet.atype(x)
 
 
 # Pretrained models from torchvision
