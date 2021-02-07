@@ -2,7 +2,7 @@ include("Models21.jl")
 using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
-using PyCall, AutoGrad, SHA
+using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
 import NNlib, Knet, Tar
 
 
@@ -158,6 +158,21 @@ function resnetsave(model)
 end
 
 
+# https://www.adeveloperdiary.com/data-science/computer-vision/how-to-prepare-imagenet-dataset-for-image-classification/
+
+function resneteval()
+    global imagenet_classes, map_clsloc
+    imagenet_classes_url = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
+    map_clsloc_url = ""
+    @isdefined(imagenet_classes) || mktemp() do fn,io
+        imagenet_classes = readlines(download(imagenet_classes_url,fn))
+    end
+    @isdefined(map_clsloc) || mktemp do fn, io
+        map_clsloc = readdlm(download(map_clsloc_url, fn))
+    end
+end
+
+  
 #=
 ### Python preprocess
 isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")

@@ -89,7 +89,7 @@ resnetinit(m) = (m(convert(Knet.atype(),zeros(Float32,224,224,3,1))); m)
 
 
 # Preprocessing - accept image, file or url as input, pass any other input through assuming tensor
-resnetprep(x) = x
+resnetprep(x) = Knet.atype(x)
 
 function resnetprep(file::String)
     img = occursin(r"^http", file) ? mktemp() do fn,io
@@ -97,6 +97,12 @@ function resnetprep(file::String)
     end : load(file)
     resnetprep(img)
 end
+
+
+function resnetprep(img::Matrix{<:Gray})
+    resnetprep(RGB.(img))
+end
+
 
 function resnetprep(img::Matrix{<:RGB})
     img = imresize(img, ratio=256/minimum(size(img))) # min(h,w)=256
@@ -113,12 +119,31 @@ end
 
 # Human readable predictions
 function resnetpred(model, img)
-    global imagenet_classes
-    imagenet_classes_url = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
-    @isdefined(imagenet_classes) || mktemp() do fn,io
-        imagenet_classes = readlines(download(imagenet_classes_url,fn))
+    global imagenet_labels
+    if !@isdefined(imagenet_labels)
+        imagenet_labels = [ replace(x, r"\S+ ([^,]+).*"=>s"\1") for x in
+                            readlines(joinpath(artifact"imagenet_labels","LOC_synset_mapping.txt")) ]
     end
     cls = convert(Array, softmax(vec(model(img))))
     idx = sortperm(cls, rev=true)
-    [ cls[idx] imagenet_classes[idx] ]
+    [ idx cls[idx] imagenet_labels[idx] ]
+end
+
+
+# Apply model to all images in a directory and return top-1 predictions
+function resnetdir(model, dir; n=Inf, b=32)
+    files = readdir(dir, join=true)
+    n = min(n, length(files))
+    images = Array{Any}(undef, b)
+    preds = []
+    for i in 1:b:n
+        j = min(n, i+b-1)
+        @threads for k in 0:j-i
+            images[1+k] = resnetprep(files[i+k])
+        end
+        batch = cat(images[1:j-i+1]...; dims=4)
+        p = convert(Array, model(batch))
+        append!(preds, vec((i->i[1]).(argmax(p; dims=1))))
+    end
+    preds
 end
