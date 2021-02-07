@@ -6,6 +6,69 @@ using Knet.Ops21: relu # TODO: define activation layer?
 using Artifacts
 
 
+"""
+    ResNet(; nblocks=(2,2,2,2), block=ResNetBottleneck, groups=1, bottleneck=1, classes=1000)
+    ResNet(name::String; pretrained=true)
+
+Return a ResNet model based on keyword arguments or a name specifying a predefined
+structure. Load pretrained weights if `pretrained=true`.
+
+A ResNet model consists of an input block, four layers, and an output block. The input and
+output blocks are the same for every model:
+
+    Input:
+    resnetprep
+    Conv(7×7, 3=>64, padding=3, stride=2, BatchNorm(), relu)
+    x->pool(x; window=3, stride=2, padding=1)
+
+    Output:
+    x->pool(x; mode=1, window=size(x)[1:2])
+    x->reshape(x, :, size(x,4))
+    Linear(classes, bias)
+    
+The `resnetprep` function performs preprocessing on the input, the user can define their own
+methods to handle different types of input (images, files, etc.) with resizing,
+normalization etc.
+
+Of the four layers, layer `i` contains `nblocks[i]` blocks of type `block` which can be
+`ResNetBottleneck` (default) or `ResNetBasic`. `ResNetBasic` is a residual block with two
+3×3 convolutions. `ResNetBottleneck` is a residual block with a 1×1 convolution that brings
+the number of channels down, a 3×3 convolution (possibly grouped if `groups > 1`), and
+another 1×1 convolution that brings the number of channels up. The keyword argument
+`bottleneck` controls the ratio of the output channels to the intermediate channels. The
+blocks in layer `i` have `2^(i+5)` output channels in `ResNetBasic` and `2^(i+7)` output
+channels in `ResNetBottleneck`.  The 3×3 convolution of each layer except the first has
+`stride=2` which brings the spatial resolution down.
+
+The pretrained models come from
+[torchvision](https://pytorch.org/vision/stable/models.html).  For pretrained models, the
+expected size of the input is (224,224,3,N) with pixel values should be normalized using:
+
+    (rgb_pixel_0_1 .- [0.485, 0.456, 0.406]) ./ [0.229, 0.224, 0.225]
+
+Other sizes will work but may not give good classification accuracy. The number of classes
+is 1000. The class labels, as well as training, validation and test sets can be found at
+[Kaggle](https://www.kaggle.com/c/imagenet-object-localization-challenge). Here are all the
+predefined model names, settings, and performance metrics:
+
+    name              settings                                      size  time  top1-err
+    ----              --------                                      ----  ----  --------
+    resnet18          (nblocks=(2,2,2,2), block=ResNetBasic)         45M  
+    resnet34          (nblocks=(3,4,6,3), block=ResNetBasic)         84M
+    resnet50          (nblocks=(3,4,6,3), bottleneck=4)              98M
+    resnet101         (nblocks=(3,4,23,3), bottleneck=4)            171M
+    resnet152         (nblocks=(3,8,36,3), bottleneck=4)            231M
+    wide_resnet50_2   (nblocks=(3,4,6,3), bottleneck=2)             264M
+    wide_resnet101_2  (nblocks=(3,4,23,3), bottleneck=2)            485M
+    resnext50_32x4d   (nblocks=(3,4,6,3), groups=32, bottleneck=2)   96M
+    resnext101_32x8d  (nblocks=(3,4,23,3), groups=32)               340M
+
+References:
+* He, Kaiming et al. "Deep Residual Learning for Image Recognition." 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2016): 770-778.
+* Zagoruyko, Sergey and Nikos Komodakis. "Wide Residual Networks." ArXiv abs/1605.07146 (2016)
+* Xie, Saining et al. "Aggregated Residual Transformations for Deep Neural Networks." 2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2017): 5987-5995.
+
+"""
 function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
     s = Sequential(ResNetInput(); name="$block$nblocks")
     x, y = 64, (block === ResNetBasic ? 64 : 256)
@@ -60,7 +123,7 @@ end
 
 function ResNetOutput(xchannels, classes)
     Sequential(
-        x->pool(x; mode=1, window=(size(x,1),size(x,2))),
+        x->pool(x; mode=1, window=size(x)[1:2]),
         x->reshape(x, :, size(x,4)),
         Linear(xchannels, classes; binit=zeros); # TODO: rethink how to specify bias in Linear/Conv
         name = "Output"
@@ -81,7 +144,7 @@ resnetprep(x) = Knet.atype(x)
 
 
 # Pretrained models from torchvision
-const resnetmodels = Dict{String,NamedTuple}(
+resnetmodels = Dict{String,NamedTuple}(
     "resnet18" => (nblocks=(2,2,2,2), block=ResNetBasic),
     "resnet34" => (nblocks=(3,4,6,3), block=ResNetBasic),
     "resnet50" => (nblocks=(3,4,6,3), bottleneck=4),
