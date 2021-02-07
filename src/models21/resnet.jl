@@ -117,26 +117,32 @@ function resnetprep(img::Matrix{<:RGB})
 end
 
 
-# Human readable predictions
-function resnetpred(model, img)
-    global imagenet_labels
-    if !@isdefined(imagenet_labels)
-        imagenet_labels = [ replace(x, r"\S+ ([^,]+).*"=>s"\1") for x in
-                            readlines(joinpath(artifact"imagenet_labels","LOC_synset_mapping.txt")) ]
-    end
-    cls = convert(Array, softmax(vec(model(img))))
+# Apply model to all images in a directory and return top-1 predictions
+# TODO: join with resnetpred, recursive directory walk, output filenames and classnames as well
+
+
+# Human readable predictions from tensors, images, files, directories
+function resnetpred(model, path; o...)
+    isdir(path) && return resnetdir(model, path; o...)
+    cls = convert(Array, softmax(vec(model(path))))
     idx = sortperm(cls, rev=true)
-    [ idx cls[idx] imagenet_labels[idx] ]
+    [ idx cls[idx] imagenet_labels()[idx] ]
 end
 
 
-# Apply model to all images in a directory and return top-1 predictions
-function resnetdir(model, dir; n=Inf, b=32)
-    files = readdir(dir, join=true)
+function resnetdir(model, dir; n=typemax(Int), b=32)
+    files = []
+    for (root, dirs, fs) in walkdir(dir)
+        for f in fs
+            push!(files, joinpath(root, f))
+            length(files) > n && break
+        end
+        length(files) > n && break
+    end
     n = min(n, length(files))
     images = Array{Any}(undef, b)
     preds = []
-    for i in 1:b:n
+    for i in Knet.progress(1:b:n)
         j = min(n, i+b-1)
         @threads for k in 0:j-i
             images[1+k] = resnetprep(files[i+k])
@@ -145,5 +151,48 @@ function resnetdir(model, dir; n=Inf, b=32)
         p = convert(Array, model(batch))
         append!(preds, vec((i->i[1]).(argmax(p; dims=1))))
     end
-    preds
+    [ preds imagenet_labels()[preds] files[1:n] ]
 end
+
+
+function resnettop1(model, path; o...)
+    pred = resnetpred(model, path; o...)
+    error = 0
+    for i in 1:size(pred,1)
+        image = match(r"ILSVRC2012_val_\d+", pred[i,3]).match
+        if pred[i,1] != imagenet_val()[image]
+            error += 1
+        end
+    end
+    return error / size(pred,1)
+end
+
+
+function imagenet_labels()
+    global _imagenet_labels
+    if !@isdefined(_imagenet_labels)
+        _imagenet_labels = [ replace(x, r"\S+ ([^,]+).*"=>s"\1") for x in
+                             readlines(joinpath(artifact"imagenet_labels","LOC_synset_mapping.txt")) ]
+    end
+    _imagenet_labels
+end
+
+function imagenet_synsets()
+    global _imagenet_synsets
+    if !@isdefined(_imagenet_synsets)
+        _imagenet_synsets = [ split(s)[1] for s in
+                              readlines(joinpath(artifact"imagenet_labels", "LOC_synset_mapping.txt")) ]
+    end
+    _imagenet_synsets
+end
+
+function imagenet_val()
+    global _imagenet_val
+    if !@isdefined(_imagenet_val)
+        synset2index = Dict(s=>i for (i,s) in enumerate(imagenet_synsets()))
+        _imagenet_val = Dict(x=>synset2index[y] for (x,y) in (z->split(z,[',',' '])[1:2]).(
+            readlines(joinpath(artifact"imagenet_labels", "LOC_val_solution.csv"))[2:end]))
+    end
+    _imagenet_val
+end
+
