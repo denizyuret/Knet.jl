@@ -79,6 +79,38 @@ lazy = true
     sha256 = "62cc6b86fb1adadc303783e6eb8a26b73aa9498e6652f76bb6d2e312dc6eafe9"
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet152.tar.gz"
 
+[resnext50_32x4d]
+git-tree-sha1 = "5e1ad632523525fed22d3810c15984f7e8ce5765"
+lazy = true
+
+    [[resnext50_32x4d.download]]
+    sha256 = "7fd478d7cd63298f11d66362b9ebd96390557d7125c7f1142c4a37730fc5fbae"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnext50_32x4d.tar.gz"
+
+[resnext101_32x8d]
+git-tree-sha1 = "a812752347056706e97ed79d1dde297cce2ef298"
+lazy = true
+
+    [[resnext101_32x8d.download]]
+    sha256 = "a3abe1b8f22b5a39ac7eb186cdf5ebfbe275acfdf0bc92e9f1f27274a32426cb"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnext101_32x8d.tar.gz"
+
+[wide_resnet50_2]
+git-tree-sha1 = "b2356511530aabf972d2f2ccc09549132bd191ce"
+lazy = true
+
+    [[wide_resnet50_2.download]]
+    sha256 = "c2d2a8706419fdc80a1e38d0b5f4114c3a237cae960421255a917dcc35ae1fe4"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/wide_resnet50_2.tar.gz"
+
+[wide_resnet101_2]
+git-tree-sha1 = "5f6102ebf78cb838db44caced41e664b4b89925c"
+lazy = true
+
+    [[wide_resnet101_2.download]]
+    sha256 = "a86a554cf77a66ba77a7fe9c2be673be33b4ac18b056b91675affae37169c2c0"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/wide_resnet101_2.tar.gz"
+
 [imagenet_labels]
 git-tree-sha1 = "b0d97ecb27796e02f3204ebf992d22662a7d5c4f"
 lazy = true

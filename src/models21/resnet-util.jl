@@ -19,7 +19,7 @@ function ResNetTorch(p::PyObject)
     layers = (p.layer1, p.layer2, p.layer3, p.layer4)
     s = Sequential(ResNetInput(p.conv1, p.bn1); name="ResNet$(length.(layers))")
     for (i, layer) in enumerate(layers)
-        blocks = Sequential(; name="Layer$layer")
+        blocks = Sequential(; name="Layer$i")
         for block in layer
             push!(blocks, ResNetBlock(block))
         end
@@ -104,6 +104,7 @@ end
 
 
 function resnetimport(model)
+    # saves pytorch model to /home/dyuret/.cache/torch/hub/checkpoints/resnext50_32x4d-7cdf4587.pth
     @assert haskey(models, model) 
     pm = getproperty(models, model)(pretrained=true).eval()
     px = randn(Float32, 224, 224, 3, 1)
