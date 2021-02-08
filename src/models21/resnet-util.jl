@@ -6,10 +6,12 @@ using CUDA: CuArray
 using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
 using Images, FileIO, Artifacts, Base.Threads
 
-
 torch = pyimport("torch")
 nn = pyimport("torch.nn")
 models = pyimport("torchvision.models")
+transforms = pyimport("torchvision.transforms")
+PIL = pyimport("PIL")
+
 t2a(x) = x.cpu().detach().numpy()
 chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
 rdims(a)=permutedims(a, ((ndims(a):-1:1)...,))
@@ -160,7 +162,8 @@ function resnetimport(model)
 end
 
 
-# https://www.adeveloperdiary.com/data-science/computer-vision/how-to-prepare-imagenet-dataset-for-image-classification/
+# Preprocessing for pretrained models:
+resnetinput(x) = Knet.atype(x)
 
 function resnetinput(file::String)
     img = occursin(r"^http", file) ? mktemp() do fn,io
@@ -188,19 +191,32 @@ function resnetinput(img::Matrix{<:RGB})
 end
 
 
-# Apply model to all images in a directory and return top-1 predictions
-# TODO: join with resnetpred, recursive directory walk, output filenames and classnames as well
+function resnetinput_python(file::String)
+    global _resinput_python
+    if !(@defined _resinput_python)
+        _resinput_python = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+    end
+    input_image = PIL.Image.open(file)
+    input_tensor = _resinput_python(input_image)
+    input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+    return t2a(input_batch)
+end
 
 
-# Human readable predictions from tensors, images, files, directories
-function resnetpred(model, path; o...)
-    isdir(path) && return resnetdir(model, path; o...)
-    cls = convert(Array, softmax(vec(model(path))))
+# Human readable predictions from tensors, images, files
+function resnetpred(model, img)
+    cls = convert(Array, softmax(vec(model(resnetinput(img)))))
     idx = sortperm(cls, rev=true)
     [ idx cls[idx] imagenet_labels()[idx] ]
 end
 
 
+# Recursive walk and predict each image in a directory
 function resnetdir(model, dir; n=typemax(Int), b=32)
     files = []
     for (root, dirs, fs) in walkdir(dir)
@@ -226,8 +242,9 @@ function resnetdir(model, dir; n=typemax(Int), b=32)
 end
 
 
-function resnettop1(model, path; o...)
-    pred = resnetpred(model, path; o...)
+# Top-1 error in validation set
+function resnettop1(model, valdir; o...)
+    pred = resnetdir(model, valdir; o...)
     error = 0
     for i in 1:size(pred,1)
         image = match(r"ILSVRC2012_val_\d+", pred[i,3]).match
@@ -239,6 +256,7 @@ function resnettop1(model, path; o...)
 end
 
 
+# ImageNet meta-information
 function imagenet_labels()
     global _imagenet_labels
     if !@isdefined(_imagenet_labels)
@@ -266,37 +284,3 @@ function imagenet_val()
     end
     _imagenet_val
 end
-
-  
-#=
-### Python preprocess
-isfile("dog.jpg") || download("https://github.com/pytorch/hub/raw/master/images/dog.jpg", "dog.jpg")
-isfile("imagenet_classes.txt") || download("https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt", "imagenet_classes.txt")
-classes = readlines("imagenet_classes.txt")
-
-Image = pyimport("PIL.Image")
-transforms = pyimport("torchvision.transforms")
-input_image = Image.open("dog.jpg")
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
-input_tensor = preprocess(input_image)
-input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
-px = t2a(input_batch)
-
-### Julia preprocess
-using Images, FileIO
-j1 = load("dog.jpg")
-j2 = imresize(j1, ratio=256/minimum(size(j1)))
-h,w = size(j2) .÷ 2
-j3 = j2[h-111:h+112, w-111:w+112] # h,w=224,224
-j4 = T.(channelview(j3))                  # c,h,w=3,224,224
-jmean=reshape([0.485, 0.456, 0.406], (3,1,1))
-jstd=reshape([0.229, 0.224, 0.225], (3,1,1))
-j5 = (j4 .- jmean) ./ jstd
-j6 = permutedims(reshape(j5,(1,size(j5)...)),(4,3,2,1))
-
-=#
