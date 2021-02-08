@@ -1,4 +1,4 @@
-export elu, gelu, relu, selu, sigm
+export elu, gelu, relu, selu, sigm, swish
 import Knet.Ops20
 using AutoGrad: AutoGrad, @primitive
 using SpecialFunctions: erf
@@ -26,3 +26,15 @@ geluback(x::T,dy::T) where T = dy * ((1 + erf(x/T(sqrt(2)))) / 2 + x*exp(-x^2/2)
 # Other possible approximations given in the paper:
 # gelu(x::T) where T = 0.5*x*(1 + tanh(T(sqrt(2/pi))*(x + T(0.044715)*x^3)))
 # gelu(x::T) where T = x*sigm(T(1.702)*x)
+
+
+"""
+    swish(x)
+
+Return `x * sigm(x)`.
+
+References:
+* Ramachandran, P., Zoph, B., & Le, Q. V. (2017). Searching for activation functions. arXiv preprint arXiv:1710.05941.
+"""
+swish(x::T) where T = x * sigm(x)
+swishback(x::T,dy::T) where T = dy * (x >= 0 ? (z=exp(-x);(z*x+z+1)/((z+1)^2)) : (z=exp(x);(z*(x+z+1)/((z+1)^2))))

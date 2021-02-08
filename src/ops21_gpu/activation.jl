@@ -1,4 +1,4 @@
-import Knet.Ops21: gelu, geluback
+import Knet.Ops21: gelu, geluback, swish, swishback
 import Base.Broadcast: broadcasted
 import Knet
 using Knet.KnetArrays: KnetArray, Bcasted
@@ -7,7 +7,7 @@ using Knet.LibKnet8: @knet8
 
 
 for (R,P) in ((KnetArray,Ptr), (CuArray,CuPtr)), T in (Float32,Float64); S = sizeof(T) * 8
-    for f in ("gelu",)
+    for f in ("gelu","swish")
         J, F = Symbol(f), "$(f)_$S"; M = which(@__MODULE__,J)
         @eval begin
             function broadcasted(::typeof($J),x::$R{$T})
@@ -20,7 +20,7 @@ for (R,P) in ((KnetArray,Ptr), (CuArray,CuPtr)), T in (Float32,Float64); S = siz
             broadcasted(::typeof($J),x::Bcasted{<:$R{$T}}) = broadcasted($J, x.value) |> Bcasted
         end
     end
-    for f in ("geluback",)
+    for f in ("geluback","swishback")
         J, F = Symbol(f), "$(f)_$(S)_11"; M = which(@__MODULE__,J)
         @eval begin
             function broadcasted(::typeof($J),x::$R{$T},y::$R{$T})

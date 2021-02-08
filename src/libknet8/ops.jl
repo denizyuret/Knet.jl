@@ -74,6 +74,7 @@ unary_ops = [
     ("relu", "relu", "(xi>0?xi:0)"),
     ("selu", "selu", "1.0507009873554805*(xi>0?xi:1.6732632423543778*(exp(xi)-1))"),
     ("sigm", "sigm", "(xi>=0?1/(1+exp(-xi)):(exp(xi)/(1+exp(xi))))"),
+    ("swish", "swish", "(xi>=0?(xi/(1+exp(-xi))):(xi*exp(xi)/(1+exp(xi))))"),
 ]
 
 # The entry format is (cudaname, julianame, kernelcode)
@@ -115,6 +116,7 @@ binary_ops = [
     ("seluback","seluback","(yi>0?1.0507009873554805*xi:xi*(1.7580993408473773+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
+    ("swishback","swishback","(yi*(xi>=0?((xi*exp(-xi)+exp(-xi)+1)/((exp(-xi)+1)*(exp(-xi)+1))):(exp(xi)*(exp(xi)+xi+1)/((exp(xi)+1)*(exp(xi)+1)))))"), # xi=x, yi=dy
 ]
 
 unary_ops_with_int_degree = [
