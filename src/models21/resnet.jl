@@ -71,7 +71,7 @@ validation error.
 
 Note: The errors are slightly different from the ones given by torchvision, which is
 probably due to the differences in preprocessing, in particular `imresize` in Julia gives
-slightly different results compared to `Resize` in `torchvision.transforms`.
+different results compared to `Resize` in `torchvision.transforms`.
 
 References:
 * He, Kaiming et al. "Deep Residual Learning for Image Recognition." 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2016): 770-778.

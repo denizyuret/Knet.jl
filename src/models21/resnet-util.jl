@@ -191,9 +191,9 @@ function resnetinput(img::Matrix{<:RGB})
 end
 
 
-function resnetinput_python(file::String)
+function resnetinput_python(file::String) # note that this crashes when used with @threads
     global _resinput_python
-    if !(@defined _resinput_python)
+    if !(@isdefined _resinput_python)
         _resinput_python = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -201,10 +201,12 @@ function resnetinput_python(file::String)
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     end
-    input_image = PIL.Image.open(file)
-    input_tensor = _resinput_python(input_image)
+    input_tensor = nothing
+    @pywith PIL.Image.open(file) as input_image begin
+        input_tensor = _resinput_python(input_image.convert("RGB"))
+    end
     input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
-    return t2a(input_batch)
+    return Knet.atype(permutedims(t2a(input_batch), (4,3,2,1)))
 end
 
 
