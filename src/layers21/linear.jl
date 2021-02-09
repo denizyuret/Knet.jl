@@ -49,7 +49,7 @@ end
 function Linear(
     w;
     inputsize=size(w)[end],
-    outputsize=size(w)[1:end-1],
+    outputsize=(ndims(w)==2 ? size(w,1) : size(w)[1:end-1]),
     bias=nothing,
     activation=nothing,
     dropout=0,

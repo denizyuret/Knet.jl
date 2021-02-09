@@ -4,7 +4,7 @@ using Knet.Train20: param
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
 using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
-using Images, FileIO, Artifacts, Base.Threads
+using ImageCore, ImageTransformations, FileIO, Artifacts, Base.Threads
 
 torch = pyimport("torch")
 nn = pyimport("torch.nn")

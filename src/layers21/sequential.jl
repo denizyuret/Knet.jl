@@ -1,5 +1,5 @@
 export Sequential
-import Base: getindex, setindex!, length, size, push!, pop!, pushfirst!, popfirst!, append!, prepend!
+import Base: getindex, setindex!, length, size, firstindex, lastindex, push!, pop!, pushfirst!, popfirst!, append!, prepend!
 
 
 struct Sequential
@@ -30,7 +30,8 @@ end
 setindex!(s::Sequential, v, i) = setindex!(s.layers, v, i)
 length(s::Sequential) = length(s.layers)
 size(s::Sequential) = size(x.layers)
-
+firstindex(s::Sequential) = 1
+lastindex(s::Sequential) = length(s)
 
 # Dequeue interface
 push!(s::Sequential, x...) = (push!(s.layers, x...); s)
