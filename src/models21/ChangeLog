@@ -1,3 +1,10 @@
+2021-02-10  Deniz Yuret  <dyuret@WS001>
+
+	* keras:
+	# channels_last (default) corresponds to inputs with shape (batch_size, height, width, channels) while
+	# channels_first corresponds to inputs with shape (batch_size, channels, height, width)
+	knet default is (w,h,c,n), reverse of channels_first, permutedims(3,2,4,1) of channels last
+
 2021-02-05  Deniz Yuret  <dyuret@WS001>
 
 	* conv: both tf and pytorch seems to perform cross-correlation by default:
