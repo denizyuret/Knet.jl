@@ -1,7 +1,7 @@
 export ResNet
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
-using Knet.Ops20: pool, softmax # TODO: add pool to ops21
+using Knet.Ops20: pool # TODO: add pool to ops21
 using Knet.Ops21: relu # TODO: define activation layer?
 using Artifacts
 

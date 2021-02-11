@@ -1,6 +1,8 @@
 include("Models21.jl")
 import Knet
+using Knet.Layers21, Knet.Ops21
 using Knet.Train20: param
+using Knet.Ops20: pool, softmax
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
 using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
