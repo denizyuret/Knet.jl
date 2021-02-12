@@ -6,50 +6,17 @@ using Knet.Ops20: pool, softmax
 Knet.atype() = Array{Float32}
 typename(p::PyObject) = pytypeof(p).__name__
 tf = pyimport("tensorflow")
+include("imagenet.jl")
 
 
 function kerastest(img="fooval/ILSVRC2012_val_00000001.JPEG")
     pf = tf.keras.applications.MobileNet()
     jf = keras2knet(pf)
-    px = keras_imagenet_preprocess_input(img) # 1,224,224,3
+    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}) # 1,224,224,3
     jx = Knet.atype(permutedims(px,(2,3,4,1))) # 224,224,3,1
     @time py = pf(px).numpy()
     @time jy = jf(jx)
     isapprox(Array(jy), permutedims(py, (2,1)))
-end
-
-
-# tf.keras.applications.imagenet_utils.preprocess_input
-function keras_imagenet_preprocess_input(file::String; o...)
-    img = occursin(r"^http", file) ? mktemp() do fn,io
-        load(download(file,fn))
-    end : load(file)
-    keras_imagenet_preprocess_input(img; o...)
-end
-
-function keras_imagenet_preprocess_input(img::Matrix{<:Gray}; o...)
-    keras_imagenet_preprocess_input(RGB.(img); o...)
-end
-
-function keras_imagenet_preprocess_input(img::Matrix{<:RGB}; mode="tf")
-    img = imresize(img, ratio=256/minimum(size(img)))           # min(h,w)=256
-    hcenter,vcenter = size(img) .>> 1
-    img = img[hcenter-111:hcenter+112, vcenter-111:vcenter+112] # h,w=224,224
-    img = channelview(img)                                      # c,h,w=3,224,224
-    img = permutedims(img, (2,3,1))                             # h,w,c=224,224,3
-    img = reshape(img, (1, size(img)...))                       # n,h,w,c=1,224,224,3
-    img = Float32.(img)
-    if mode == "tf"
-        img = img .* 2 .- 1
-    elseif mode == "torch"
-        μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-        img = (img .- μ) ./ σ
-    elseif mode == "caffe"
-        error("Caffe mode not implemented yet")
-    else
-        error("Unknown mode: $mode")
-    end
-    return img
 end
 
 
@@ -78,7 +45,7 @@ keras_InputLayer(l, layers) = nothing
 
 function keras_ZeroPadding2D(l, layers)
     @assert l.padding == ((0, 1), (0, 1)) "padding=$(l.padding) not implemented yet"
-    x->begin
+    x->begin #ZeroPadding2D
         w = oftype(x, reshape(Float32[0,0,0,1], 2, 2, 1, 1))
         y = conv(w, reshape(x, size(x,1), size(x,2), 1, :); padding=1)
         reshape(y, size(y,1), size(y,2), size(x,3), size(x,4))
@@ -154,7 +121,7 @@ end
 
 
 function keras_GlobalAveragePooling2D(l, layers)
-    x->begin
+    x->begin #GlobalAveragePooling2D
         y = pool(x; mode=1, window=size(x)[1:2])
         reshape(y, size(y,3), size(y,4))
     end
@@ -162,7 +129,7 @@ end
 
 
 function keras_Reshape(l, layers)
-    x->begin
+    x->begin #Reshape
         t = (l.target_shape..., size(x)[end])
         reshape(x, t)
     end

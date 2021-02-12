@@ -116,6 +116,7 @@ function resnetimport(model)
 
     T = Float32 ## use Float64 for @gcheck
 
+    save_type = Knet.array_type[]
     Knet.array_type[] = Array{T}
     am = ResNetTorch(pm)
     ax = Knet.atype(px)
@@ -161,6 +162,9 @@ function resnetimport(model)
     run(`gzip $(model).tar`)
     sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
     @info "sha256 = \"$sha2\""
+
+    Knet.array_type[] = save_type
+    am
 end
 
 
