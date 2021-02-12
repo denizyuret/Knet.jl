@@ -1,4 +1,5 @@
-import Knet.Ops21: gelu, geluback, swish, swishback
+import Knet.Ops21: elu, gelu, relu, selu, sigm, swish, tanh_
+import Knet.Ops21: eluback, geluback, reluback, seluback, sigmback, swishback, tanh_back
 import Base.Broadcast: broadcasted
 import Knet
 using Knet.KnetArrays: KnetArray, Bcasted
@@ -6,35 +7,44 @@ using CUDA: CUDA, CuArray, CuPtr
 using Knet.LibKnet8: @knet8
 
 
-for (R,P) in ((KnetArray,Ptr), (CuArray,CuPtr)), T in (Float32,Float64); S = sizeof(T) * 8
-    for f in ("gelu","swish")
-        J, F = Symbol(f), "$(f)_$S"; M = which(@__MODULE__,J)
+for (A,P) in ((KnetArray,Ptr), (CuArray,CuPtr)), T in (Float32,Float64); S = sizeof(T) * 8
+    for f in ("elu", "gelu", "selu", "sigm", "swish", "tanh_")
+        J, Jback = Symbol(f), Symbol("$(f)back")
+        M, Mback = which(@__MODULE__,J), which(@__MODULE__,Jback)
+        F, Fback = "$(f)_$S", "$(f)back_$(S)_111"
         @eval begin
-            function broadcasted(::typeof($J),x::$R{$T})
+
+            function ($M).$J(x::$A{$T})
                 y = similar(x)
                 @knet8($F,(Cint,$P{$T},$P{$T}),length(y),x,y)
                 return y
             end
-            # Bcasted methods -- only needed for KnetArray
-            ($M).$J(x::Bcasted{<:$R{$T}}) = broadcasted($J, x.value) |> Bcasted
-            broadcasted(::typeof($J),x::Bcasted{<:$R{$T}}) = broadcasted($J, x.value) |> Bcasted
+
+            function ($Mback).$Jback(x::X, y::X, dy::X) where {X<:$A{$T}}
+                dx = similar(x)
+                @knet8($Fback,(Cint,$P{$T},$P{$T},$P{$T},$P{$T}),length(dx),x,y,dy,dx)
+                return dx
+            end
         end
     end
-    for f in ("geluback","swishback")
-        J, F = Symbol(f), "$(f)_$(S)_11"; M = which(@__MODULE__,J)
+
+    for f in ("relu",)
+        J, Jback = Symbol(f), Symbol("$(f)back")
+        M, Mback = which(@__MODULE__,J), which(@__MODULE__,Jback)
+        F, Fback = "$(f)_$(S)_1", "$(f)back_$(S)_1"
         @eval begin
-            function broadcasted(::typeof($J),x::$R{$T},y::$R{$T})
-                z = similar(x)
-                @knet8($F,(Cint,$P{$T},$P{$T},$P{$T}),length(z),x,y,z)
-                return z
+
+            function ($M).$J(x::$A{$T}; max_value=Inf, negative_slope=0, threshold=0)
+                y = similar(x)
+                @knet8($F,(Cint,$T,$T,$T,$P{$T},$P{$T}),length(y),max_value,negative_slope,threshold,x,y)
+                return y
             end
-            # Bcasted methods -- only needed for KnetArray
-            ($M).$J(x::Bcasted{<:$R{$T}}, y::Bcasted{<:$R{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
-            ($M).$J(x::$R{$T}, y::Bcasted{<:$R{$T}}) = broadcasted($J, x, y.value) |> Bcasted
-            ($M).$J(x::Bcasted{<:$R{$T}}, y::$R{$T}) = broadcasted($J, x.value, y) |> Bcasted
-            broadcasted(::typeof($J),x::Bcasted{<:$R{$T}}, y::Bcasted{<:$R{$T}}) = broadcasted($J, x.value, y.value) |> Bcasted
-            broadcasted(::typeof($J),x::$R{$T}, y::Bcasted{<:$R{$T}}) = broadcasted($J, x, y.value) |> Bcasted
-            broadcasted(::typeof($J),x::Bcasted{<:$R{$T}}, y::$R{$T}) = broadcasted($J, x.value, y) |> Bcasted
+
+            function ($Mback).$Jback(x::X, y::X, dy::X; max_value=Inf, negative_slope=0, threshold=0) where {X<:$A{$T}}
+                dx = similar(x)
+                @knet8($Fback,(Cint,$T,$T,$T,$P{$T},$P{$T},$P{$T},$P{$T}),length(dx),max_value,negative_slope,threshold,x,y,dy,dx)
+                return dx
+            end
         end
     end
 end

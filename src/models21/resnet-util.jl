@@ -108,7 +108,7 @@ end
 
 
 function resnetimport(model)
-    # saves pytorch model to /home/dyuret/.cache/torch/hub/checkpoints/resnext50_32x4d-7cdf4587.pth
+    # saves pytorch model to e.g. /home/dyuret/.cache/torch/hub/checkpoints/resnext50_32x4d-7cdf4587.pth
     @assert haskey(models, model) 
     pm = getproperty(models, model)(pretrained=true).eval()
     px = randn(Float32, 224, 224, 3, 1)

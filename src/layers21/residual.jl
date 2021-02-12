@@ -22,5 +22,5 @@ function (r::Residual)(x)
     for i in 2:length(r.layers)
         y = y + r.layers[i](x)
     end
-    r.activation === nothing ? y : r.activation.(y)
+    r.activation === nothing ? y : r.activation(y)
 end

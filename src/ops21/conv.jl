@@ -8,7 +8,7 @@ using AutoGrad
 Return the convolution of filter `w` with tensor `x`, optionally with bias/residual
 addition, activation and/or scaling:
 
-    y = activation.(alpha * conv(w,x) + beta * z .+ bias) 
+    y = activation(alpha * conv(w,x) + beta * z .+ bias) 
 
 All tensors should have the same number of dimensions. 3-5 dimensional tensors are
 supported. The sizes should be:
@@ -34,7 +34,7 @@ different types of convolution see:
 https://towardsdatascience.com/a-comprehensive-introduction-to-different-types-of-convolutions-in-deep-learning-669281e58215
 
 Keyword arguments:
-* `activation = nothing`: broadcast apply activation function if provided
+* `activation = nothing`: apply activation function if provided
 * `normalization = nothing`: apply normalization function if provided
 * `alpha = 1, beta = 0`: scaling parameters
 * `bias = nothing`: add bias if provided
@@ -90,7 +90,7 @@ function conv(
     if beta != 0 && z !== nothing; y = y + beta * z; end
     if bias !== nothing; y = y .+ bias; end
     if normalization ∉ (nothing, identity); y = normalization(y); end
-    if activation ∉ (nothing, identity); y = activation.(y); end
+    if activation ∉ (nothing, identity); y = activation(y); end
     if channelmajor; y = permutedims(y, (3,1,2,4)); end
     return y
 end

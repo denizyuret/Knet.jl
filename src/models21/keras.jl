@@ -1,18 +1,68 @@
-using PyCall
+using PyCall, FileIO, ImageCore, ImageTransformations, CUDA
+import Knet
 using Knet.Layers21, Knet.Ops21
 using Knet.Train20: param
 using Knet.Ops20: pool, softmax
+Knet.atype() = Array{Float32}
 typename(p::PyObject) = pytypeof(p).__name__
+tf = pyimport("tensorflow")
 
 
+function kerastest(img="fooval/ILSVRC2012_val_00000001.JPEG")
+    pf = tf.keras.applications.MobileNet()
+    jf = keras2knet(pf)
+    px = keras_imagenet_preprocess_input(img) # 1,224,224,3
+    jx = Knet.atype(permutedims(px,(2,3,4,1))) # 224,224,3,1
+    @time py = pf(px).numpy()
+    @time jy = jf(jx)
+    isapprox(Array(jy), permutedims(py, (2,1)))
+end
+
+
+# tf.keras.applications.imagenet_utils.preprocess_input
+function keras_imagenet_preprocess_input(file::String; o...)
+    img = occursin(r"^http", file) ? mktemp() do fn,io
+        load(download(file,fn))
+    end : load(file)
+    keras_imagenet_preprocess_input(img; o...)
+end
+
+function keras_imagenet_preprocess_input(img::Matrix{<:Gray}; o...)
+    keras_imagenet_preprocess_input(RGB.(img); o...)
+end
+
+function keras_imagenet_preprocess_input(img::Matrix{<:RGB}; mode="tf")
+    img = imresize(img, ratio=256/minimum(size(img)))           # min(h,w)=256
+    hcenter,vcenter = size(img) .>> 1
+    img = img[hcenter-111:hcenter+112, vcenter-111:vcenter+112] # h,w=224,224
+    img = channelview(img)                                      # c,h,w=3,224,224
+    img = permutedims(img, (2,3,1))                             # h,w,c=224,224,3
+    img = reshape(img, (1, size(img)...))                       # n,h,w,c=1,224,224,3
+    img = Float32.(img)
+    if mode == "tf"
+        img = img .* 2 .- 1
+    elseif mode == "torch"
+        μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+        img = (img .- μ) ./ σ
+    elseif mode == "caffe"
+        error("Caffe mode not implemented yet")
+    else
+        error("Unknown mode: $mode")
+    end
+    return img
+end
+
+
+# Model translator
 function keras2knet(p::PyObject; xtest = nothing, nlayers = -1)
     layers = nlayers >= 1 ? p.layers[1:nlayers] : copy(p.layers)
     model = Sequential(; name=p.name)
     while !isempty(layers)
-        @show ltype = typename(layers[1])
-        # This should also pop one or more layers:
-        layer21 = eval(Meta.parse("$(ltype)_keras"))(layers)
-        layer21 !== nothing && push!(model, layer21)
+        layer1 = popfirst!(layers)
+        ltype = typename(layer1)
+        # This could also pop one or more layers:
+        layer2 = eval(Meta.parse("keras_$ltype"))(layer1, layers)
+        layer2 !== nothing && push!(model, layer2)
     end
     if xtest !== nothing # x = rand(Float32,1,224,224,3)
         y1 = p.predict(xtest)
@@ -23,16 +73,11 @@ function keras2knet(p::PyObject; xtest = nothing, nlayers = -1)
 end
 
 
-function InputLayer_keras(layers)
-    l = popfirst!(layers)
-    nothing
-end
+keras_InputLayer(l, layers) = nothing
 
 
-function ZeroPadding2D_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "ZeroPadding2D"
-    @assert l.padding == ((0, 1), (0, 1))
+function keras_ZeroPadding2D(l, layers)
+    @assert l.padding == ((0, 1), (0, 1)) "padding=$(l.padding) not implemented yet"
     x->begin
         w = oftype(x, reshape(Float32[0,0,0,1], 2, 2, 1, 1))
         y = conv(w, reshape(x, size(x,1), size(x,2), 1, :); padding=1)
@@ -41,14 +86,12 @@ function ZeroPadding2D_keras(layers)
 end
 
 
-function Conv2D_keras(layers)
+function keras_Conv2D(l, layers)
     # channels_last corresponds to inputs with shape (batch_size, height, width, channels) while 
     # channels_first corresponds to inputs with shape (batch_size, channels, height, width)
-    l = popfirst!(layers)
-    w = l.weights[1].numpy() |> param
+    w = param(l.weights[1].numpy())
     bias = (l.bias === nothing ? nothing : param(reshape(l.bias.numpy(), (1,1,:,1))))
-    normalization = (!isempty(layers) && typename(layers[1]) == "BatchNormalization" ? BatchNormalization_keras(layers) : nothing)
-    activation = (!isempty(layers) && typename(layers[1]) == "ReLU" ? ReLU_keras(layers) : nothing)
+    normalization, activation = keras_normact(layers)
     channelmajor = false
     crosscorrelation = true
     dilation = l.dilation_rate
@@ -59,14 +102,27 @@ function Conv2D_keras(layers)
 end
 
 
-function DepthwiseConv2D_keras(layers)
-    l = popfirst!(layers)
+function keras_normact(layers)
+    if !isempty(layers) && typename(layers[1]) == "BatchNormalization"
+        normalization = keras_BatchNormalization(popfirst!(layers), layers)
+    else
+        normalization = nothing
+    end
+    if !isempty(layers) && typename(layers[1]) == "ReLU"
+        activation = keras_ReLU(popfirst!(layers), layers)
+    else
+        activation = nothing
+    end
+    normalization, activation
+end    
+
+
+function keras_DepthwiseConv2D(l, layers)
     w = l.weights[1].numpy()
     @assert size(w,4) == 1
-    w = param(permutedims(w, (1,2,4,3))) ###
+    w = param(permutedims(w, (1,2,4,3))) ### (3,3,32,1) => (3,3,1,32)
     bias = (l.bias === nothing ? nothing : param(reshape(l.bias.numpy(), (1,1,:,1))))
-    normalization = (!isempty(layers) && typename(layers[1]) == "BatchNormalization" ? BatchNormalization_keras(layers) : nothing)
-    activation = (!isempty(layers) && typename(layers[1]) == "ReLU" ? ReLU_keras(layers) : nothing)
+    normalization, activation = keras_normact(layers)
     channelmajor = false
     crosscorrelation = true
     dilation = l.dilation_rate
@@ -77,32 +133,27 @@ function DepthwiseConv2D_keras(layers)
 end
 
 
-function ReLU_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "ReLU"
-    x->(x >= l.max_value[] ? l.max_value[] :
-        x >= l.threshold[] ? x :
-        l.negative_slope[] * (x - l.threshold[]))
+function keras_ReLU(l, layers)
+    max_value = (l.max_value[] === nothing ? Inf : l.max_value[])
+    threshold = l.threshold[]
+    negative_slope = l.negative_slope[]
+    x->relu(x; max_value, threshold, negative_slope)
 end
 
 
-function BatchNormalization_keras(layers)
+function keras_BatchNormalization(l, layers)
     bparam(x) = param(reshape(x.numpy(), (1,1,:,1)))
-    b = popfirst!(layers)
-    @assert typename(b) == "BatchNormalization"
-    mean = bparam(b.moving_mean).value
-    var = bparam(b.moving_variance).value
-    bias = bparam(b.beta)
-    scale = bparam(b.gamma)
-    epsilon = b.epsilon
-    update = 1-b.momentum
+    mean = bparam(l.moving_mean).value
+    var = bparam(l.moving_variance).value
+    bias = bparam(l.beta)
+    scale = bparam(l.gamma)
+    epsilon = l.epsilon
+    update = 1-l.momentum
     BatchNorm(; mean, var, bias, scale, epsilon, update)
 end
 
 
-function GlobalAveragePooling2D_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "GlobalAveragePooling2D"
+function keras_GlobalAveragePooling2D(l, layers)
     x->begin
         y = pool(x; mode=1, window=size(x)[1:2])
         reshape(y, size(y,3), size(y,4))
@@ -110,9 +161,7 @@ function GlobalAveragePooling2D_keras(layers)
 end
 
 
-function Reshape_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "Reshape"
+function keras_Reshape(l, layers)
     x->begin
         t = (l.target_shape..., size(x)[end])
         reshape(x, t)
@@ -120,16 +169,14 @@ function Reshape_keras(layers)
 end
 
 
-function Dropout_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "Dropout"
+function keras_Dropout(l, layers)
     x->dropout(x, l.rate)
 end
 
 
-function Activation_keras(layers)
-    l = popfirst!(layers)
-    @assert typename(l) == "Activation"
-    @assert l.activation.__name__ == "softmax"
+function keras_Activation(l, layers)
+    @assert l.activation.__name__ == "softmax"  "Activation $(l.activation.__name__) not yet implemented."
     x->softmax(x; dims=1)
 end
+
+

@@ -35,6 +35,7 @@ function build_nvcc()
     SRC = [("cuda1","gamma","../knetarrays/unary","ops"),
            ("cuda01","../knetarrays/binary","ops"),
            ("cuda11","../knetarrays/binary","../knetarrays/unary","ops"),
+           ("cuda111","../knetarrays/binary","../knetarrays/unary","ops"),
            ("cuda12","../knetarrays/binary","ops"),
            ("cuda13","../knetarrays/binary","ops"),
            ("cuda16","../knetarrays/binary","ops"),
@@ -42,6 +43,7 @@ function build_nvcc()
            ("cuda20","../knetarrays/reduction","ops"),
            ("cuda21","../knetarrays/reduction","ops"),
            ("cuda22","../knetarrays/reduction","ops"),
+           ("relu","ops"),
            ]
 
     OBJ = []

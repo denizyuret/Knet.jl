@@ -113,6 +113,6 @@ function conv(
     a = (activation === relu && normalization ∈ (nothing, identity) ? CUDNN_ACTIVATION_RELU : CUDNN_ACTIVATION_IDENTITY)
     r = cudnnConvolutionForward!(y, w, x, convDesc; activation=a, bias, z, alpha, beta, format, dw, dx, dz, dbias)
     if normalization ∉ (nothing, identity); r = normalization(r); end
-    if a === CUDNN_ACTIVATION_IDENTITY && activation ∉ (nothing, identity); r = activation.(r); end
+    if a === CUDNN_ACTIVATION_IDENTITY && activation ∉ (nothing, identity); r = activation(r); end
     return r
 end

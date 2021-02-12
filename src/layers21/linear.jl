@@ -13,7 +13,7 @@ reshapes:
 
 where `inputsize=(N...)`, `outputsize=(M...)` each of which can be a single dimension or a
 tuple of dimensions. Optionally dropout is applied to the input, a bias of size `(M...)` is
-added to the output and an elementwise activation function `activation` is applied to the
+added to the output and an activation function `activation` is applied to the
 output.
 
 The first form takes the sizes and initializes `w` and `bias` using the distributions given
@@ -27,7 +27,7 @@ Arguments:
 * `binit=nothing`: distribution for bias initialization, `nothing` means no bias
 * `inputsize=size(w)[end]`: size of the input tensor (excluding batch, beam etc. dimensions)
 * `outputsize=size(w)[1:end-1]`: size of the output tensor (excluding batch, beam etc. dimensions)
-* `activation=nothing`: broadcast activation function to output unless equal to `nothing`
+* `activation=nothing`: apply activation function to output unless equal to `nothing`
 * `dropout=0`: apply dropout with this probability to input if non-zero
 
 References:
@@ -78,7 +78,7 @@ function (l::Linear)(x)
     if l.dropout != 0; x = dropout(x, l.dropout); end
     y = linear(l.w, x)
     if l.bias !== nothing; y = y .+ l.bias; end
-    if l.activation !== nothing; y = l.activation.(y); end
+    if l.activation !== nothing; y = l.activation(y); end
     return y
 end
 

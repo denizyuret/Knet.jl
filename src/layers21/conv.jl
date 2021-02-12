@@ -92,7 +92,7 @@ or its dimensions `wdims`. If `wdims` is used a weight tensor will be initialize
 be called with a single input `x`, or two inputs `x,z` where `z` has the same size as the
 output `y`. The computed result is:
 
-    y = activation.(normalization(alpha * conv(w,x) + beta * z .+ bias))
+    y = activation(normalization(alpha * conv(w,x) + beta * z .+ bias))
 
 For tensor sizes and keyword arguments with their defaults see `@doc Knet.Ops21.conv`.
 """

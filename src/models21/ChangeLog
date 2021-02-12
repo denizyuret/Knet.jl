@@ -1,3 +1,11 @@
+2021-02-12  Deniz Yuret  <dyuret@WS001>
+
+	* tf.keras.applications.mobilenet.preprocess_input:
+	Takes a (1,224,224,3) image with pixel values in 0:255 Float32.
+	Returns a (1,224,224,3) image with pixel values in -1:1 Float32.
+	Calls tf.keras.applications.imagenet_utils.preprocess_input(mode='tf')
+	tf: will scale pixels between -1 and 1, sample-wise. (means per-image)
+
 2021-02-10  Deniz Yuret  <dyuret@WS001>
 
 	* keras:
