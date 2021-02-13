@@ -18,7 +18,7 @@ __global__ void _$(Fback)(int n, $T max_value, $T negative_slope, $T threshold, 
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
     $T x=x_[i];
-    dx_[i] = (x >= max_value ? 0 : x >= threshold ? 1 : negative_slope);
+    dx_[i] = dy_[i] * (x >= max_value ? 0 : x >= threshold ? 1 : negative_slope);
     i += blockDim.x * gridDim.x;
   }
 }
