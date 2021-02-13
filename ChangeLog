@@ -1,3 +1,8 @@
+2021-02-10  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* cudnn-debug:
+	this is using CUDNN_LOGINFO_DBG=1 CUDNN_LOGDEST_DBG=stdout (normally JULIA_CUDA=CUDNN accomplishes the same, but there's a bug in CUDNN's logging)
+
 2020-08-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* todo:
