@@ -45,7 +45,7 @@ end
 
 
 show(io::IO, ::MIME"text/plain", b::BatchNorm) = show(io, b)
-show(io::IO, b::BatchNorm) = print(io, "BatchNorm()")
+show(io::IO, b::BatchNorm) = print(io, BatchNorm)
 
 
 show(io::IO, ::MIME"text/plain", c::Conv) = show(io, c)
@@ -76,4 +76,12 @@ function show(io::IO, d::Linear)
     if d.activation !== nothing; print(io, ", $(d.activation)"); end
     if d.dropout !== 0; print(io, ", dropout=$(d.dropout)"); end
     print(io, ")")
+end
+
+
+show(io::IO, ::MIME"text/plain", o::Op) = show(io, o)
+function show(io::IO, o::Op)
+    print(io, o.f)
+    !isempty(o.args) && print(io, o.args)
+    !isempty(o.kwargs) && print(io, (; o.kwargs...))
 end

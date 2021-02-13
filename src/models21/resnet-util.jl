@@ -1,4 +1,5 @@
 include("Models21.jl")
+include("imagenet.jl")
 import Knet
 using Knet.Layers21, Knet.Ops21
 using Knet.Train20: param
@@ -260,35 +261,6 @@ function resnettop1(model, valdir; o...)
             error += 1
         end
     end
-    return error / size(pred,1)
-end
-
-
-# ImageNet meta-information
-function imagenet_labels()
-    global _imagenet_labels
-    if !@isdefined(_imagenet_labels)
-        _imagenet_labels = [ replace(x, r"\S+ ([^,]+).*"=>s"\1") for x in
-                             readlines(joinpath(artifact"imagenet_labels","LOC_synset_mapping.txt")) ]
-    end
-    _imagenet_labels
-end
-
-function imagenet_synsets()
-    global _imagenet_synsets
-    if !@isdefined(_imagenet_synsets)
-        _imagenet_synsets = [ split(s)[1] for s in
-                              readlines(joinpath(artifact"imagenet_labels", "LOC_synset_mapping.txt")) ]
-    end
-    _imagenet_synsets
-end
-
-function imagenet_val()
-    global _imagenet_val
-    if !@isdefined(_imagenet_val)
-        synset2index = Dict(s=>i for (i,s) in enumerate(imagenet_synsets()))
-        _imagenet_val = Dict(x=>synset2index[y] for (x,y) in (z->split(z,[',',' '])[1:2]).(
-            readlines(joinpath(artifact"imagenet_labels", "LOC_val_solution.csv"))[2:end]))
-    end
-    _imagenet_val
+    error = error / size(pred,1)
+    (accuracy = 1-error, error = error)
 end

@@ -124,7 +124,7 @@ end
 function ResNetInput()
     Sequential(
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
-        x->pool(x; window=3, stride=2, padding=1);
+        Op(pool; window=3, stride=2, padding=1);
         name = "Input"
     )
 end

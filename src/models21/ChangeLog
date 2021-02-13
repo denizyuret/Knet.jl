@@ -1,3 +1,48 @@
+2021-02-13  Deniz Yuret  <dyuret@WS001>
+
+	* tf.ZeroPadding2D:
+
+	function zeropad1(x)            # 16ms
+	    w,h,c,n = size(x)
+	    f = oftype(x, reshape([0 0 0 1], 2, 2, 1, 1))
+	    x = reshape(x, (w, h, 1, :))
+	    x = conv(f, x; padding = 1)
+	    x = reshape(x, (size(x,1), size(x,2), c, n))
+	end
+
+	function zeropad2(x)            # 5ms
+	    w,h,c,n = size(x)
+	    x = cat(x, fill!(similar(x, (1,h,c,n)), 0); dims=1)
+	    x = cat(x, fill!(similar(x, (w+1,1,c,n)), 0); dims=2)
+	end
+
+	_f = nothing
+
+	function zeropad3(x)            # 1ms
+	    global _f
+	    w,h,c,n = size(x)
+	    if typeof(_f) != typeof(x) || size(_f) != (2,2,1,c)
+	        _f = oftype(x, zeros(Float32, 2, 2, 1, c))
+	        _f[2,2,1,:] .= 1
+	    end
+	    x = conv(_f, x; padding = 1, groups = c)
+	end
+
+	_x = nothing
+
+	function zeropad4(x) # 3.4ms
+	    global _x
+	    w,h,c,n = size(x)
+	    if typeof(_x) != typeof(x) || size(_x) != (w+1,h+1,c,n)
+	        _x = fill!(similar(x, (w+1,h+1,c,n)), 0)
+	    end
+	    _x[1:w,1:h,:,:] .= x
+	    _x
+	end
+
+	conv(w, zeropad3(x); groups=128, stride=2) # min=0.2 med=1.4 mean=6.4ms
+	conv(w, x; groups=128, stride=2, padding=2)[2:end,2:end,:,:] # min=0.02 med=2.1 mean=1.9ms
+
 2021-02-12  Deniz Yuret  <dyuret@WS001>
 
 	* tf.keras.applications.mobilenet.preprocess_input:
@@ -30,6 +75,8 @@
 	(64, 3, 7, 7)
 
 	* images: Julia.Images vs python.PIL.Image
+        CUDNN_TENSOR_NCHW,        # 0, /* row major (wStride = 1, hStride = w) */
+        CUDNN_TENSOR_NHWC,        # 1, /* feature maps interleaved ( cStride = 1 )*/
 	cudnn:nchw => julia:whcn
 	cudnn:nhwc => julia:cwhn
 	i1=python-image, j1=julia-image

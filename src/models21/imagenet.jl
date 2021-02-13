@@ -1,4 +1,4 @@
-using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall
+using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall, Artifacts, Base.Threads
 import Knet
 
 # tf.keras.applications.imagenet_utils.preprocess_input
@@ -18,8 +18,10 @@ function imagenet_preprocess(img::Matrix{<:RGB}; normalization="torch", format="
     hcenter,vcenter = size(img) .>> 1
     img = img[hcenter-111:hcenter+112, vcenter-111:vcenter+112] # h,w=224,224
     img = channelview(img)                                      # c,h,w=3,224,224
+    img = Float32.(img)
     if normalization == "tf"
-        img = img .* 2 .- 1
+        xmin, xmax = extrema(img)
+        img = img .* (2/(xmax-xmin)) .- ((xmax+xmin)/(xmax-xmin))
     elseif normalization == "torch"
         μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
         img = (img .- μ) ./ σ
@@ -33,6 +35,9 @@ function imagenet_preprocess(img::Matrix{<:RGB}; normalization="torch", format="
     img = permutedims(img, (perm...,))
     return atype(img)
 end
+
+# fallback
+imagenet_preprocess(x; o...) = x
 
 # ImageNet meta-information
 function imagenet_labels()
@@ -69,10 +74,13 @@ function imagenet_predict(model, img; mode=nothing, normalization="torch", forma
         normalization, format = "torch", "nchw"
         atype = x->pyimport("torch").tensor(convert(Array{Float32},x))
     end
+    if mode == "tf"
+        normalization, format = "tf", "nhwc"
+    end
     img = imagenet_preprocess(img; normalization, format, atype)
     cls = model(img)
-    if mode == "torch"; cls = cls.detach().cpu().numpy(); end
-    cls = convert(Array, softmax(vec(cls)))
+    if cls isa PyObject; cls = cls.cpu().numpy(); end
+    cls = convert(Array, vec(cls))
     idx = sortperm(cls, rev=true)
     [ idx cls[idx] imagenet_labels()[idx] ]
 end
@@ -107,12 +115,13 @@ end
 function imagenet_top1(model, valdir; o...)
     pred = imagenet_walkdir(model, valdir; o...)
     gold = imagenet_val()
-    error = 0
-    for i in 1:size(pred,1)
+    error, count = 0, size(pred, 1)
+    for i in 1:count
         image = match(r"ILSVRC2012_val_\d+", pred[i,3]).match
-        if pred[i,1] != gold()[image]
+        if pred[i,1] != gold[image]
             error += 1
         end
     end
-    return error / size(pred,1)
+    error = error / count
+    (accuracy = 1-error, error = error)
 end

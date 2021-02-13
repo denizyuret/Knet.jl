@@ -42,3 +42,5 @@ append!(s::Sequential, t::Sequential) = (append!(s.layers, t.layers); s)
 append!(s::Sequential, t) = (append!(s.layers, t); s)
 prepend!(s::Sequential, t::Sequential) = (prepend!(s.layers, t.layers); s)
 prepend!(s::Sequential, t) = (prepend!(s.layers, t); s)
+
+# TODO: iterator interface

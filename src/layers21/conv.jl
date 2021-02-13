@@ -112,7 +112,7 @@ mutable struct Conv
     groups::Integer
     crosscorrelation::Bool
     channelmajor::Bool
-    activation::Union{Nothing,Function}
+    activation
     normalization
     convDesc::Union{Nothing,cudnnConvolutionDescriptor}
 
@@ -127,7 +127,7 @@ function Conv(
     wdims::Integer...;
     w = nothing,
     bias = nothing,
-    activation::Union{Nothing,Function} = nothing,
+    activation = nothing,
     normalization = nothing,
 
     padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 0,
