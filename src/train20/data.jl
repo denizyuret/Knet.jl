@@ -62,7 +62,7 @@ end
     nexti = min(i + d.batchsize, d.length)
     ids = d.indices[i+1:nexti]
     xbatch = try convert(d.xtype, reshape(d.x[:,ids],d.xsize[1:end-1]...,length(ids)))
-    catch; throw(DimensionMismatch("X tensor not compatible with size=$(d.xsize) and type=$(d.xtype)")); end
+    catch e; throw(DimensionMismatch("Error converting batch from $(summary(d.x)) to $(d.xtype): $e")); end
     if d.y == nothing
         return (xbatch,nexti)
     else
