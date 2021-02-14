@@ -13,10 +13,19 @@ function imagenet_preprocess(img::Matrix{<:Gray}; o...)
     imagenet_preprocess(RGB.(img); o...)
 end
 
-function imagenet_preprocess(img::Matrix{<:RGB}; normalization="torch", format="whcn", atype=Knet.atype)
-    img = imresize(img, ratio=256/minimum(size(img)))           # min(h,w)=256
+function imagenet_preprocess(img::Matrix{<:RGB}; mode="nothing", normalization="torch", format="whcn", atype=Knet.atype, resolution=224)
+    if mode == "torch"
+        normalization, format = "torch", "nchw"
+        atype = x->pyimport("torch").tensor(convert(Array{Float32},x))
+    end
+    if mode == "tf"
+        normalization, format = "tf", "nhwc"
+    end
+    minsize = resolution * 8 ÷ 7
+    img = imresize(img, ratio=minsize/minimum(size(img)))           # min(h,w)=256
     hcenter,vcenter = size(img) .>> 1
-    img = img[hcenter-111:hcenter+112, vcenter-111:vcenter+112] # h,w=224,224
+    half = resolution ÷ 2
+    img = img[hcenter-half+1:hcenter+half, vcenter-half+1:vcenter+half] # h,w=224,224
     img = channelview(img)                                      # c,h,w=3,224,224
     img = Float32.(img)
     if normalization == "tf"
@@ -69,18 +78,12 @@ function imagenet_val()
 end
 
 # Human readable predictions from tensors, images, files
-function imagenet_predict(model, img; mode=nothing, normalization="torch", format="whcn", atype=Knet.atype)
-    if mode == "torch"
-        normalization, format = "torch", "nchw"
-        atype = x->pyimport("torch").tensor(convert(Array{Float32},x))
-    end
-    if mode == "tf"
-        normalization, format = "tf", "nhwc"
-    end
-    img = imagenet_preprocess(img; normalization, format, atype)
+function imagenet_predict(model, img="ILSVRC2012_val_00000001.JPEG"; preprocess=identity)
+    img = preprocess(img)
     cls = model(img)
     if cls isa PyObject; cls = cls.cpu().numpy(); end
     cls = convert(Array, vec(cls))
+    cls = softmax(cls)
     idx = sortperm(cls, rev=true)
     [ idx cls[idx] imagenet_labels()[idx] ]
 end

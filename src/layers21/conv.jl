@@ -1,5 +1,5 @@
 export Conv
-using Knet.Ops21: conv
+using Knet.Ops21: conv, zeropad, symmetric
 import CUDA
 
 using CUDA.CUDNN:
@@ -103,12 +103,13 @@ mutable struct Conv
 
     bias  # Can be nothing
     bdims::Dims
+    binit
 
     # y; dw; dbias; dx; dz; These are overwritten if multiple calls to same layer. 
 
-    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
-    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
-    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{Integer}}}
+    padding::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}},Tuple{Vararg{NTuple{2,<:Integer}}}}
+    stride::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}}}
+    dilation::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}}}
     groups::Integer
     crosscorrelation::Bool
     channelmajor::Bool
@@ -127,18 +128,16 @@ function Conv(
     wdims::Integer...;
     w = nothing,
     bias = nothing,
-    activation = nothing,
-    normalization = nothing,
-
-    padding::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 0,
-    stride::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
-    dilation::Union{Integer,Vector{<:Integer},Tuple{<:Integer,Vararg{<:Integer}}} = 1,
-    groups::Integer = 1,
     crosscorrelation::Bool = true,
-
     channelmajor::Bool = false, # CUDNN_TENSOR_NHWC if true.
     winit = 𝑼(√(6/(fanin(wdims; channelmajor)+fanout(wdims; channelmajor)))),
-
+    binit = nothing,
+    activation = nothing,
+    normalization = nothing,
+    padding::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}},Tuple{Vararg{NTuple{2,<:Integer}}}} = 0,
+    stride::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}}} = 1,
+    dilation::Union{Integer,Vector{<:Integer},Tuple{Vararg{<:Integer}}} = 1,
+    groups::Integer = 1,
     alpha::Real = 1,
     beta::Real = 0,
 )
@@ -149,7 +148,7 @@ function Conv(
     cdim = channelmajor ? 1 : ndims-1
     bdims = ntuple(i->(i===cdim ? wdims[end] : 1), ndims)
     convDesc = nothing          # To be initialized at first call
-    Conv(w, wdims, winit, bias, bdims, padding, stride, dilation, groups, crosscorrelation, channelmajor, activation, normalization, convDesc, alpha, beta)
+    Conv(w, wdims, winit, bias, bdims, binit, padding, stride, dilation, groups, crosscorrelation, channelmajor, activation, normalization, convDesc, alpha, beta)
 end
 
 
@@ -158,13 +157,16 @@ Conv(w; o...) = Conv(size(w)...; w, o...)
 
 # Some of the initialization can only be done at the first call when we know the type of x
 # TODO: are we sure about this? should we use atype() instead?
-function initconv(c::Conv, x, z)
+function initconv(c::Conv, x, z, padding)
     issimilar(u,v,s=size(v))=(typeof(value(u)) === typeof(value(v)) && size(u) === s)
     if c.w === nothing
         c.w = Param(oftype(value(x), c.winit(c.wdims...)))
     end
     @assert issimilar(c.w, x, c.wdims)
     @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.groups : size(x)[end-1] === size(c.w)[end-1]*c.groups)
+    if c.bias === nothing && c.binit !== nothing
+        c.bias = Param(oftype(value(x), c.binit(c.bdims...)))
+    end
     if c.bias === nothing && ((c.activation === relu && c.normalization ∈ (nothing, identity)) || (z !== nothing && c.beta != 0))
         # will call cudnnConvolutionBiasActivationForward, must have bias
         c.bias = fill!(similar(c.w, c.bdims), 0)
@@ -174,13 +176,19 @@ function initconv(c::Conv, x, z)
         mode = c.crosscorrelation ? CUDNN_CROSS_CORRELATION : CUDNN_CONVOLUTION
         format = c.channelmajor ? CUDNN_TENSOR_NHWC : CUDNN_TENSOR_NCHW
         reorderType, mathType = CUDNN_DEFAULT_REORDER, math_mode()
-        c.convDesc = cudnnConvolutionDescriptor(convdims(c.padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.groups))
+        c.convDesc = cudnnConvolutionDescriptor(convdims(padding,size(x),format), convdims(c.stride,size(x),format), convdims(c.dilation,size(x),format), mode, cudnnDataType(eltype(x)), mathType, reorderType, Cint(c.groups))
     end
 end
 
 
 function (c::Conv)(x, z=nothing)
-    initconv(c, x, z)
+    if symmetric(c.padding)
+        padding = c.padding
+    else
+        x = zeropad(x, c.padding)
+        padding = 0
+    end
+    initconv(c, x, z, padding)
     conv(c.w, x; z, c.bias, c.activation, c.normalization, c.alpha, c.beta, c.channelmajor,
-         c.convDesc, c.crosscorrelation, c.dilation, c.groups, c.padding, c.stride)
+         c.convDesc, c.crosscorrelation, c.dilation, c.groups, padding, c.stride)
 end

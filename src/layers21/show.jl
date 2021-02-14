@@ -85,3 +85,7 @@ function show(io::IO, o::Op)
     !isempty(o.args) && print(io, o.args)
     !isempty(o.kwargs) && print(io, (; o.kwargs...))
 end
+
+
+show(io::IO, ::MIME"text/plain", z::ZeroPad) = show(io, z)
+show(io::IO, z::ZeroPad) = print(io, "ZeroPad$(z.padding)")

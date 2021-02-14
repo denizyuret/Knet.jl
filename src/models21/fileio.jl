@@ -23,6 +23,7 @@ function setweights!(model, weights; atype=Knet.atype())
         @assert size(w) == size(weights[n]) "$(size(w)) != $(size(weights[n]))"
         copyto!(w, weights[n])
     end
+    @assert n == length(weights)  "The number of weights do not match: $n != $(length(weights))"
     return model
 end
 

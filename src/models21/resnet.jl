@@ -1,9 +1,11 @@
+#module ResNetModule
 export ResNet
+
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
 using Knet.Ops21: relu # TODO: define activation layer?
-using Artifacts
+using LazyArtifacts
 
 
 """
@@ -123,6 +125,7 @@ end
 
 function ResNetInput()
     Sequential(
+        Op(imagenet_preprocess; normalization="torch", format="whcn"),
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
         Op(pool; window=3, stride=2, padding=1);
         name = "Input"
@@ -168,3 +171,5 @@ function ResNet(s::String; pretrained=true)
     pretrained && setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
     return model
 end
+
+#end # ResNetModule

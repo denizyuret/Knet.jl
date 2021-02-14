@@ -10,5 +10,6 @@ include("activation.jl"); export elu, gelu, relu, selu, sigm, swish
 include("linear.jl"); export linear
 include("batchnorm.jl"); export batchnorm
 include("conv.jl"); export conv
+include("zeropad.jl"); export zeropad
 
 end
