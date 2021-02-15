@@ -162,8 +162,8 @@ function initconv(c::Conv, x, z, padding)
     if c.w === nothing
         c.w = Param(oftype(value(x), c.winit(c.wdims...)))
     end
-    @assert issimilar(c.w, x, c.wdims)
-    @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.groups : size(x)[end-1] === size(c.w)[end-1]*c.groups)
+    @assert issimilar(c.w, x, c.wdims)  "w=$(summary(c.w)) x=$(summary(x)) wdims=$(c.wdims)"
+    @assert (c.channelmajor ? size(x,1) === size(c.w,1)*c.groups : size(x)[end-1] === size(c.w)[end-1]*c.groups)  "x=$(size(x)) w=$(size(c.w)) grp=$(c.groups)"
     if c.bias === nothing && c.binit !== nothing
         c.bias = Param(oftype(value(x), c.binit(c.bdims...)))
     end

@@ -56,23 +56,23 @@ the (0,1) range to:
 
 The class labels, as well as training, validation and test sets can be found at
 [Kaggle](https://www.kaggle.com/c/imagenet-object-localization-challenge). Here are all the
-pretrained models with name, settings, size in bytes, flops compared to resnet18, and top-1
-validation error.
+pretrained models with name, settings, size in bytes, flops compared to resnet50, and top-1
+validation accuracy.
 
-    name              settings                                      size  flops  top1
-    ----              --------                                      ----  -----  ----
-    resnet18          (nblocks=(2,2,2,2), block=ResNetBasic)         45M   1.00  .3106
-    resnet34          (nblocks=(3,4,6,3), block=ResNetBasic)         84M   1.38  .2724
-    resnet50          (nblocks=(3,4,6,3), bottleneck=4)              98M   2.44  .2472
-    resnet101         (nblocks=(3,4,23,3), bottleneck=4)            171M   3.85  .2317
-    resnet152         (nblocks=(3,8,36,3), bottleneck=4)            231M   5.35  .2220
-    wide_resnet50_2   (nblocks=(3,4,6,3), bottleneck=2)             264M   5.14  .2225
-    wide_resnet101_2  (nblocks=(3,4,23,3), bottleneck=2)            485M   7.33  .2181
-    resnext50_32x4d   (nblocks=(3,4,6,3), groups=32, bottleneck=2)   96M   3.26  .2294
-    resnext101_32x8d  (nblocks=(3,4,23,3), groups=32)               340M   8.41  .2131
+    name              size  flops  top1   settings                                      
+    ----              ----  -----  ----   --------                                      
+    resnet18           45M   0.41  .6894  (nblocks=(2,2,2,2), block=ResNetBasic)        
+    resnet34           84M   0.57  .7276  (nblocks=(3,4,6,3), block=ResNetBasic)        
+    resnet50           98M   1.00  .7528  (nblocks=(3,4,6,3), bottleneck=4)             
+    resnet101         171M   1.58  .7683  (nblocks=(3,4,23,3), bottleneck=4)            
+    resnet152         231M   2.19  .7780  (nblocks=(3,8,36,3), bottleneck=4)            
+    wide_resnet50_2   264M   2.11  .7775  (nblocks=(3,4,6,3), bottleneck=2)             
+    wide_resnet101_2  485M   3.00  .7819  (nblocks=(3,4,23,3), bottleneck=2)            
+    resnext50_32x4d    96M   1.34  .7706  (nblocks=(3,4,6,3), groups=32, bottleneck=2)  
+    resnext101_32x8d  340M   3.45  .7869  (nblocks=(3,4,23,3), groups=32)               
 
-Note: The errors are slightly different from the ones given by torchvision, which is
-probably due to the differences in preprocessing, in particular `imresize` in Julia gives
+Note: The top1 accuracy may be slightly different from the ones given by torchvision, which
+is probably due to the differences in preprocessing, in particular `imresize` in Julia gives
 different results compared to `Resize` in `torchvision.transforms`.
 
 References:

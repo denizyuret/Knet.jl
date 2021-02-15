@@ -19,7 +19,7 @@ function imagenet_preprocess(img::Matrix{<:RGB}; mode="nothing", normalization="
         atype = x->pyimport("torch").tensor(convert(Array{Float32},x))
     end
     if mode == "tf"
-        normalization, format = "tf", "nhwc"
+        normalization, format, atype = "tf", "nhwc", Array{Float32}
     end
     minsize = resolution * 8 ÷ 7
     img = imresize(img, ratio=minsize/minimum(size(img)))           # min(h,w)=256
@@ -78,12 +78,12 @@ function imagenet_val()
 end
 
 # Human readable predictions from tensors, images, files
-function imagenet_predict(model, img="ILSVRC2012_val_00000001.JPEG"; preprocess=identity)
+function imagenet_predict(model, img="ILSVRC2012_val_00000001.JPEG"; preprocess=identity, apply_softmax=true)
     img = preprocess(img)
     cls = model(img)
     if cls isa PyObject; cls = cls.cpu().numpy(); end
     cls = convert(Array, vec(cls))
-    cls = softmax(cls)
+    cls = apply_softmax ? softmax(cls) : cls
     idx = sortperm(cls, rev=true)
     [ idx cls[idx] imagenet_labels()[idx] ]
 end

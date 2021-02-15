@@ -119,11 +119,18 @@ lazy = true
     sha256 = "7826b4ce9753377b5445879c28a621f581d9599865bfc78dd3fa4240f42253bb"
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/imagenet_labels.tar.gz"
 
-[mobilenet_100_224]
-git-tree-sha1 = "bbbcd4adc73c7c0117549aac3f5a21779410810d"
+[mobilenet_v1_100_224]
+git-tree-sha1 = "2d886c71f01ec0d858bdc88d7c97ed004c4763e5"
 lazy = true
 
-    [[mobilenet_100_224.download]]
-    sha256 = "7c054cc3f5dc65a3c116f28ab4f04dd8d341b5791937183df65985a386cfaa95"
-    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_100_224.tar.gz"
+    [[mobilenet_v1_100_224.download]]
+    sha256 = "2c33c7184dd4a0cd8d7c5a5498f4735875533a31d5da994eca2b39a02c02c4aa"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v1_100_224.tar.gz"
 
+[mobilenet_v2_100_224]
+git-tree-sha1 = "253f2ddd2b57b00433c3fec694c2ab1b1466bc9b"
+lazy = true
+
+    [[mobilenet_v2_100_224.download]]
+    sha256 = "78d55e48c9edb6a191cbed1f50c7c551ce48658eda672b4ae198b24b31e9ec80"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v2_100_224.tar.gz"

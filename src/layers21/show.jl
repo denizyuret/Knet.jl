@@ -50,7 +50,7 @@ show(io::IO, b::BatchNorm) = print(io, BatchNorm)
 
 show(io::IO, ::MIME"text/plain", c::Conv) = show(io, c)
 function show(io::IO, c::Conv)
-    @printf(io, "Conv(%d×%d, %d=>%d", c.wdims...)
+    @printf(io, "Conv(%d×%d, %d⇒%d", c.wdims...)
     # Only print non-defaults
     if c.w !== nothing && eltype(c.w) !== Float32; print(io, ", ", eltype(c.w)); end
     if any(c.padding .!= 0); print(io, ", padding=$(c.padding)"); end
