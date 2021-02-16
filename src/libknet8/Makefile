@@ -58,6 +58,6 @@ cuda22.cu: cuda22.jl reduction.jl
 	julia $< > $@
 
 clean:
-	-rm *.o *.cu libknet8.so
+	-rm *.o *.cu *.obj libknet8.*
 
 .PRECIOUS: %.cu
