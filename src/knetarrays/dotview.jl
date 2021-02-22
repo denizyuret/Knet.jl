@@ -1,4 +1,4 @@
-import Base: dotview, view, unsafe_view, copyto!, eachindex, _maybe_reshape_parent, reshape, to_shape, SubArray, compute_stride1, axes, check_parent_index_match, IndexStyle
+import Base: dotview, view, unsafe_view, copyto!, eachindex, _maybe_reshape_parent, reshape, to_shape, SubArray, compute_stride1, axes, check_parent_index_match, IndexStyle, LinearIndices
 using Base: unalias, index_ndims, @_inline_meta, @boundscheck, ViewIndex, OneTo, rdims, viewindexing, ensure_indexable, index_dimsum, fill_to_length
 using Base.Broadcast: Broadcasted
 
@@ -22,6 +22,7 @@ function unsafe_view(A::KnetArray, I::Vararg{ViewIndex,N}) where {N}
 end
 
 eachindex(::IndexLinear, A::KnetArray) = (@_inline_meta; OneTo(length(A)))
+LinearIndices(A::KnetArray) = LinearIndices(axes(A))
 
 _maybe_reshape_parent(A::KnetArray, ::NTuple{1, Bool}) = reshape(A, Val(1))
 _maybe_reshape_parent(A::KnetArray{<:Any,1}, ::NTuple{1, Bool}) = reshape(A, Val(1))
