@@ -36,6 +36,8 @@ function imagenet_preprocess(img::Matrix{<:RGB}; mode="nothing", normalization="
         img = (img .- μ) ./ σ
     elseif normalization == "caffe"
         error("Caffe mode not implemented yet")
+    elseif normalization === nothing
+        # do nothing
     else
         error("Unknown normalization: $normalization")
     end

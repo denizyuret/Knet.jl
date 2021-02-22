@@ -85,7 +85,7 @@ end
 
 
 function keras_ReLU(l, layers)
-    max_value = (l.max_value[] === nothing ? Inf : l.max_value[])
+    max_value = (l.max_value === nothing || l.max_value[] === nothing ? Inf : l.max_value[])
     threshold = l.threshold[]
     negative_slope = l.negative_slope[]
     if threshold == negative_slope == 0
@@ -132,17 +132,41 @@ function keras_Activation(l, layers)
 end
 
 
-function keras_Add(l, layers)
-    nothing
-end
-
-
 function keras_Dense(l, layers)
     w = param(permutedims(l.weights[1].numpy()))
     bias = param(l.bias.numpy())
     activation = keras_Activation(l, layers)
     Linear(w; bias, activation)
 end
+
+
+function keras_Add(l, layers)
+    @warn "Add not defined" maxlog=1
+    Op("Add")
+end
+
+function keras_Rescaling(l, layers)
+    @warn "Rescaling not defined" maxlog=1
+    Op("Rescaling")
+end
+
+function keras_TFOpLambda(l, layers)
+    @warn "TFOpLambda not defined" maxlog=1
+    Op("TFOpLambda")
+end
+
+
+function keras_Multiply(l, layers)
+    @warn "Multiply not defined" maxlog=1
+    Op("Multiply")
+end
+
+
+function keras_Flatten(l, layers)
+    @warn "Flatten not defined" maxlog=1
+    Op("Flatten")
+end
+
 
 
 ### Test and import utils
@@ -158,44 +182,6 @@ function kerastest(img="fooval/ILSVRC2012_val_00000001.JPEG")
     @show jy ≈ py
     idx = sortperm(jy, rev=true)
     [ idx jy[idx] imagenet_labels()[idx] ]
-end
-
-
-function import_mobilenet_v2(
-    ; tfmodel = tf.keras.applications.mobilenet_v2.MobileNetV2,
-    img="ILSVRC2012_val_00000001.JPEG",
-    width=1,
-    resolution=224)
-    global pf, jf0, jf, jx, jy, px, py
-    save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
-    @assert width in (1, 0.75, 0.5, 0.25)
-    @assert resolution in (224, 192, 160, 128)
-    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
-    jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
-    pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
-    jf0 = keras2knet(pf)
-    w = getweights(jf0)
-    # MobileNetV1 ends with conv instead of linear
-    # w[end] = reshape(w[end],1000)
-    # w[end-1] = permutedims(reshape(w[end-1],(:,1000)))
-    jf = MobileNet2(; width, resolution)
-    jf(jx) # init weights
-    setweights!(jf, w)
-    @time py = pf(px).numpy() |> vec
-    @time jy = jf(jx) |> vec |> softmax
-    @assert jy ≈ py
-    alpha = round(Int, 100*width)
-    model = "mobilenet_v2_$(alpha)_$(resolution)"
-    saveweights("$(model).jld2", jf) 
-    run(`tar cf $(model).tar $(model).jld2`)
-    sha1 = Tar.tree_hash("$(model).tar")
-    run(`gzip $(model).tar`)
-    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
-    idx = sortperm(py, rev=true)
-    @info "git-tree-sha1 = \"$sha1\""
-    @info "sha256 = \"$sha2\""
-    Knet.array_type[] = save_atype
-    [ idx py[idx] imagenet_labels()[idx] ]
 end
 
 
@@ -221,3 +207,135 @@ function test_mobilenet_v2(file="mobilenet_v2_100_224.jld2", img="ILSVRC2012_val
     setweights!(jf, file)
     isapprox(vec(pf(px).numpy()), softmax(vec(jf(jx))))
 end
+
+
+function import_mobilenet_tf(
+    ; width=1, resolution=224, version=1,
+    img="ILSVRC2012_val_00000001.JPEG",
+)
+    # global pf, jf0, jf, jx, jy, px, py, w
+    @assert width in (1, 0.75, 0.5, 0.25)
+    @assert resolution in (224, 192, 160, 128)
+    alpha = width
+    input_shape = (resolution, resolution, 3)
+
+    if version == 1
+        pf == tf.keras.applications.MobileNet(; alpha, input_shape)
+        block=DWConv
+        layout=mobilenet_v1_layout
+        output=1024
+    elseif version == 2
+        pf == tf.keras.applications.MobileNetV2() # TODO: (; alpha, input_shape)
+        block=MBConv
+        layout=mobilenet_v2_layout
+        output=1280
+    end
+
+    save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
+    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
+
+    jf = MobileNet(; width, resolution, block, layout, output)
+    jf(jx) # init weights
+    jf0 = keras2knet(pf)
+    w = getweights(jf0)
+    if version == 1
+        # MobileNetV1 ends with conv instead of linear
+        w[end] = reshape(w[end],1000)
+        w[end-1] = permutedims(reshape(w[end-1],(:,1000)))
+    end        
+    setweights!(jf, w)
+
+    @time py = pf(px).numpy() |> vec
+    @time jy = jf(jx) |> vec |> softmax
+    @assert @show jy ≈ py       # TODO: this does not match python script, preprocessing?
+    Knet.array_type[] = save_atype
+
+    alpha100 = round(Int, 100*width)
+    model = "mobilenet_v$(version)_$(alpha100)_$(resolution)"
+    saveweights("$(model).jld2", jf) 
+    run(`tar cf $(model).tar $(model).jld2`)
+    sha1 = Tar.tree_hash("$(model).tar")
+    run(`gzip $(model).tar`)
+    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    idx = sortperm(py, rev=true)
+    pred = [ idx py[idx] imagenet_labels()[idx] ]
+    display(pred[1:5,:]); println()
+    @info "git-tree-sha1 = \"$sha1\""
+    @info "sha256 = \"$sha2\""
+end
+
+function import_mobilenet_v2(
+    ; width=1, resolution=224,
+    tfmodel = tf.keras.applications.MobileNetV2,
+    img="ILSVRC2012_val_00000001.JPEG",
+)
+    # global pf, jf0, jf, jx, jy, px, py, w
+    save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
+    @assert width in (1, 0.75, 0.5, 0.25)
+    @assert resolution in (224, 192, 160, 128)
+    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
+    pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
+    jf0 = keras2knet(pf)
+    w = getweights(jf0)
+    jf = MobileNet(; width, resolution, block=MBConv, layout=mobilenet_v2_layout, output=1280)
+    jf(jx) # init weights
+    setweights!(jf, w)
+    @time py = pf(px).numpy() |> vec
+    @time jy = jf(jx) |> vec |> softmax
+    @assert @show jy ≈ py
+    alpha = round(Int, 100*width)
+    model = "mobilenet_v2_$(alpha)_$(resolution)"
+    saveweights("$(model).jld2", jf) 
+    run(`tar cf $(model).tar $(model).jld2`)
+    sha1 = Tar.tree_hash("$(model).tar")
+    run(`gzip $(model).tar`)
+    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    idx = sortperm(py, rev=true)
+    @info "git-tree-sha1 = \"$sha1\""
+    @info "sha256 = \"$sha2\""
+    Knet.array_type[] = save_atype
+    [ idx py[idx] imagenet_labels()[idx] ]
+end
+
+
+function import_mobilenet_v3(
+    ; tfmodel = tf.keras.applications.MobileNetV3Small,
+    img="ILSVRC2012_val_00000001.JPEG",
+    width=1,
+    resolution=224)
+    global pf, jf0, jf, jx, jy, px, py
+    save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
+    @assert width in (1, 0.75, 0.5, 0.25)
+    @assert resolution in (224, 192, 160, 128)
+    # px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    px = imagenet_preprocess(img; normalization=nothing, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
+    pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
+    jf0 = keras2knet(pf)
+    # w = getweights(jf0)
+    # # MobileNetV1 ends with conv instead of linear
+    # # w[end] = reshape(w[end],1000)
+    # # w[end-1] = permutedims(reshape(w[end-1],(:,1000)))
+    # jf = MobileNet2(; width, resolution)
+    # jf(jx) # init weights
+    # setweights!(jf, w)
+    @time py = pf(px).numpy() |> vec
+    # @time jy = jf(jx) |> vec |> softmax
+    # @assert jy ≈ py
+    # alpha = round(Int, 100*width)
+    # model = "mobilenet_v2_$(alpha)_$(resolution)"
+    # saveweights("$(model).jld2", jf) 
+    # run(`tar cf $(model).tar $(model).jld2`)
+    # sha1 = Tar.tree_hash("$(model).tar")
+    # run(`gzip $(model).tar`)
+    # sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    idx = sortperm(py, rev=true)
+    # @info "git-tree-sha1 = \"$sha1\""
+    # @info "sha256 = \"$sha2\""
+    Knet.array_type[] = save_atype
+    [ idx py[idx] imagenet_labels()[idx] ]
+end
+
+
