@@ -1,4 +1,4 @@
-using CUDA, Libdl
+using CUDA, Libdl, Tar, SHA
 
 NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC","-std=c++11"]
@@ -74,11 +74,14 @@ function build_nvcc()
 end
 
 function build()
-    if NVCC !== nothing
-        build_nvcc()
-    else
-        @warn("no compilers found, libknet8 will not be built.")
-    end
+    @assert NVCC !== nothing "no compilers found, libknet8 will not be built."
+    build_nvcc()
+    run(`tar cf libknet8.tar $LIBKNET8`)
+    sha1 = Tar.tree_hash("libknet8.tar")
+    run(`gzip libknet8.tar`)
+    sha2 = open("libknet8.tar.gz") do f; bytes2hex(sha256(f)); end
+    @info "git-tree-sha1 = \"$sha1\""
+    @info "sha256 = \"$sha2\""
 end
 
 build()
