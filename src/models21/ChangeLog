@@ -1,8 +1,71 @@
+2021-02-26  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* tf-keras-preprocessing:
+	tf.keras.preprocessing.image.img_to_array(img)
+
+	* tf-load-images:
+	https://www.tensorflow.org/tutorials/load_data/images
+
+	train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+	data_dir,
+	validation_split=0.2,
+	subset="training",
+	seed=123,
+	image_size=(img_height, img_width),
+	batch_size=batch_size)
+
+	* tf-imagenet-preprocessing:
+	https://github.com/tensorflow/models/blob/master/official/vision/image_classification/resnet/imagenet_preprocessing.py
+
+	Training images are sampled using the provided bounding boxes, and subsequently
+	cropped to the sampled bounding box. Images are additionally flipped randomly,
+	then resized to the target output size (without aspect-ratio preservation).
+
+	Images used during evaluation are resized (with aspect-ratio preservation) and
+	centrally cropped.
+
+	All images undergo mean color subtraction.
+
+	Note that these steps are colloquially referred to as "ResNet preprocessing,"
+	and they differ from "VGG preprocessing," which does not use bounding boxes
+	and instead does an aspect-preserving resize followed by random crop during
+	training. (These both differ from "Inception preprocessing," which introduces
+	color distortion steps.)
+
+	CODE:
+	# For validation, we want to decode, resize, then just crop the middle.
+	image = tf.image.decode_jpeg(image_buffer, channels=num_channels)
+	image = _aspect_preserving_resize(image, _RESIZE_MIN)
+	image = _central_crop(image, output_height, output_width)
+	image.set_shape([output_height, output_width, num_channels])
+	return _mean_image_subtraction(image, CHANNEL_MEANS, num_channels)
+
+	RESIZE calls:
+	return tf.compat.v1.image.resize(
+	image, [height, width],
+	method=tf.image.ResizeMethod.BILINEAR,
+	align_corners=False)
+
+
+	* resize:
+	torchvision.transforms.Resize works for both tensors and images but gives different results.
+
+	ImageTransformations.imresize gives different results.
+
+	https://legacy.imagemagick.org/Usage/resize/ -- ImageMagick has its own resize.
+
+	tf.image.resize: https://www.tensorflow.org/api_docs/python/tf/image/resize
+	tf.keras.applications.mobilenet_v2.preprocess_input => imagenet_utils.preprocess_input(data_format=None, mode='tf'): scale pixels to [-1:1]
+	tf.image.resize_with_crop_or_pad(i, 224, 224) used by the medium article.
+
 2021-02-24  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* tensorflow-eval:
 	https://medium.com/analytics-vidhya/how-to-train-a-neural-network-classifier-on-imagenet-using-tensorflow-2-ede0ea3a35ff
 	https://stackoverflow.com/questions/37340129/tensorflow-training-on-my-own-image
+	https://towardsdatascience.com/hands-on-tensorflow-tutorial-train-resnet-50-from-scratch-using-the-imagenet-dataset-850aa31a39c0
+	official resnet script:
+	  https://github.com/tensorflow/models/blob/master/official/vision/image_classification/resnet/imagenet_preprocessing.py
 
 	* torchvision-eval:
 	official eval script:
