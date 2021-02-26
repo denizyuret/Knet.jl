@@ -1,6 +1,29 @@
 using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall, Artifacts, Base.Threads
 import Knet
 
+function torchvision_preprocess(file::String; atype=Knet.atype, resolution=224, format="whcn")
+    transforms = pyimport("torchvision.transforms")
+    torchvision_transform = transforms.Compose([
+        transforms.Resize(resolution * 8 ÷ 7),
+        transforms.CenterCrop(resolution),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    PIL = pyimport("PIL")
+    img = nothing
+    @pywith PIL.Image.open(file) as f begin
+        img = torchvision_transform(f.convert("RGB"))
+    end
+    img = img.numpy()
+    img = reshape(img, (1, size(img)...)) # n,c,h,w=1,3,224,224
+    if format != "nchw"
+        perm = findfirst.(collect(format), "nchw")
+        img = permutedims(img, (perm...,))
+    end
+    return atype(img)
+end
+
+
 # tf.keras.applications.imagenet_utils.preprocess_input
 function imagenet_preprocess(file::String; o...)
     img = occursin(r"^http", file) ? mktemp() do fn,io
@@ -91,7 +114,17 @@ function imagenet_predict(model, img="ILSVRC2012_val_00000001.JPEG"; preprocess=
 end
 
 # Recursive walk and predict each image in a directory
-function imagenet_walkdir(model, dir; n=typemax(Int), b=32, o...)
+function imagenet_walkdir(
+    model, dir;
+    n=typemax(Int),
+    b=32,
+    preprocess=imagenet_preprocess,
+    format="whcn",
+    batchinput = identity,
+    batchoutput = (x->convert(Array,x)),
+    usethreads = true,
+    o...
+)
     files = []
     for (root, dirs, fs) in walkdir(dir)
         for f in fs
@@ -105,11 +138,17 @@ function imagenet_walkdir(model, dir; n=typemax(Int), b=32, o...)
     preds = []
     for i in Knet.progress(1:b:n)
         j = min(n, i+b-1)
-        @threads for k in 0:j-i
-            images[1+k] = imagenet_preprocess(files[i+k]; o...)
+        if usethreads
+            @threads for k in 0:j-i
+                images[1+k] = preprocess(files[i+k]; format, o...)
+            end
+        else
+            for k in 0:j-i
+                images[1+k] = preprocess(files[i+k]; format, o...)
+            end
         end
-        batch = cat(images[1:j-i+1]...; dims=4)
-        p = convert(Array, model(batch))
+        batch = cat(images[1:j-i+1]...; dims=findfirst('n', format))
+        p = (batch |> batchinput |> model |> batchoutput)
         append!(preds, vec((i->i[1]).(argmax(p; dims=1))))
     end
     [ preds imagenet_labels()[preds] files[1:n] ]
@@ -130,3 +169,8 @@ function imagenet_top1(model, valdir; o...)
     error = error / count
     (accuracy = 1-error, error = error)
 end
+
+
+# torch model top-1 example: 
+# r18a = models.resnet18(pretrained=true).eval()
+# imagenet_top1(r18a, val; n=1000, preprocess=torchvision_preprocess, format="nchw", batchinput=torch.tensor, batchoutput=(x->permutedims(x.detach().cpu().numpy())), atype=Array{Float32}, usethreads=false)

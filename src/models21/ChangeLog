@@ -1,3 +1,24 @@
+2021-02-24  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* tensorflow-eval:
+	https://medium.com/analytics-vidhya/how-to-train-a-neural-network-classifier-on-imagenet-using-tensorflow-2-ede0ea3a35ff
+	https://stackoverflow.com/questions/37340129/tensorflow-training-on-my-own-image
+
+	* torchvision-eval:
+	official eval script:
+	  https://github.com/pytorch/examples/tree/master/imagenet
+	Normalization for all torchvision models:
+	transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])),
+	eval command:
+	  python main.py --pretrained -e -a mobilenet_v2 /datasets/ImageNet/ILSVRC/Data/CLS-LOC
+	  mobilenet_v2: Acc@1 71.850 Acc@5 90.334
+	  resnet18: Acc@1 69.644 Acc@5 88.982
+
 2021-02-13  Deniz Yuret  <dyuret@WS001>
 
 	* tf.ZeroPadding2D:
