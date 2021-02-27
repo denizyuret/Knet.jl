@@ -7,7 +7,7 @@ using Knet.Ops20: pool, softmax
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
 using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
-using ImageCore, ImageTransformations, FileIO, Artifacts, Base.Threads
+using ImageCore, ImageTransformations, FileIO, Artifacts, Base.Threads, Base.Iterators
 
 torch = pyimport("torch")
 nn = pyimport("torch.nn")
@@ -263,4 +263,100 @@ function resnettop1(model, valdir; o...)
     end
     error = error / size(pred,1)
     (accuracy = 1-error, error = error)
+end
+
+
+function MobileNetV2Torch(pm)
+    typename(p::PyObject) = pytypeof(p).__name__
+    s = Sequential()
+    for ltorch in Iterators.flatten((pm.features, pm.classifier))
+        converter = Symbol("torch_$(typename(ltorch))")
+        if isdefined(@__MODULE__, converter)
+            lknet = eval(converter)(ltorch)
+            push!(s, lknet)
+        else
+            @warn "$converter not defined"
+        end
+    end
+    return s
+end
+
+
+function torch_Dropout(p)
+    Op(dropout, p.p)
+end
+
+function torch_Linear(p)
+    w = p.weight.detach().cpu().numpy()
+    bias = p.bias === nothing ? nothing : p.bias.detach().cpu().numpy()
+    Linear(w; bias)
+end
+
+function torch_InvertedResidual(p)
+    nothing
+end
+
+function torch_ConvBNReLU(p)
+    nothing
+end
+
+
+function mobilenet2import(model)
+    # saves pytorch model to e.g. /home/dyuret/.cache/torch/hub/checkpoints/resnext50_32x4d-7cdf4587.pth
+    @assert haskey(models, model) 
+    pm = getproperty(models, model)(pretrained=true).eval()
+    px = randn(Float32, 224, 224, 3, 1)
+    py = px |> rdims |> torch.tensor |> pm |> t2a |> rdims
+
+    T = Float32 ## use Float64 for @gcheck
+
+    save_type = Knet.array_type[]
+    Knet.array_type[] = Array{T}
+    am = MobileNetV2Torch(pm)
+    ax = Knet.atype(px)
+    ay = am(ax)
+    @show ay ≈ py
+    #ap = Param(ax)
+    #@show @gcheck am(ap) (nsample=3,)
+
+    Knet.array_type[] = KnetArray{T}
+    km = MobileNetV2Torch(pm)
+    @show chkparams(km,am)
+    kx = Knet.atype(px)
+    ky = km(kx)
+    @show ky ≈ py
+    #kp = Param(kx)
+    #@show @gcheck km(kp) (nsample=3,)
+
+    Knet.array_type[] = CuArray{T}
+    cm = MobileNetV2Torch(pm)
+    @show chkparams(cm,am)
+    cx = Knet.atype(px)
+    cy = cm(cx)
+    @show cy ≈ py
+    #cp = Param(cx)
+    #@show @gcheck cm(cp) (nsample=3,)
+
+    @info "Saving $(model).jld2"
+    saveweights("$(model).jld2", cm; atype=CuArray)
+
+    @info "Loading $(model).jld2"
+    setweights!(cm, "$(model).jld2")
+    @show chkparams(cm,am)
+    cx = Knet.atype(px)
+    cy = cm(cx)
+    @show cy ≈ py
+    #cp = Param(cx)
+    #@show @gcheck cm(cp) (nsample=3,)
+
+    run(`tar cf $(model).tar $(model).jld2`)
+    sha1 = Tar.tree_hash("$(model).tar")
+    @info "git-tree-sha1 = \"$sha1\""
+
+    run(`gzip $(model).tar`)
+    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    @info "sha256 = \"$sha2\""
+
+    Knet.array_type[] = save_type
+    am
 end
