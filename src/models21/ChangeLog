@@ -1,3 +1,52 @@
+2021-02-27  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* tf-eval.py: script that evaluates a keras model on imagenet val.
+	50K images 4 GPUs 8 mins accuracy=0.7063
+	tensorflow/python/keras/applications/mobilenet_v2.py claims 71.8 ???
+	https://keras.io/api/applications/ claims 71.3 ???
+
+	Classification Checkpoint|MACs (M)|Parameters (M)|Top 1 Accuracy|Top 5 Accuracy
+	--------------------------|------------|---------------|---------|----|---------
+	| [mobilenet_v2_1.4_224]  | 582 | 6.06 |          75.0 | 92.5 |
+	| [mobilenet_v2_1.3_224]  | 509 | 5.34 |          74.4 | 92.1 |
+	| [mobilenet_v2_1.0_224]  | 300 | 3.47 |          71.8 | 91.0 |
+	| [mobilenet_v2_1.0_192]  | 221 | 3.47 |          70.7 | 90.1 |
+	| [mobilenet_v2_1.0_160]  | 154 | 3.47 |          68.8 | 89.0 |
+	| [mobilenet_v2_1.0_128]  | 99  | 3.47 |          65.3 | 86.9 |
+	| [mobilenet_v2_1.0_96]   | 56  | 3.47 |          60.3 | 83.2 |
+	| [mobilenet_v2_0.75_224] | 209 | 2.61 |          69.8 | 89.6 |
+	| [mobilenet_v2_0.75_192] | 153 | 2.61 |          68.7 | 88.9 |
+	| [mobilenet_v2_0.75_160] | 107 | 2.61 |          66.4 | 87.3 |
+	| [mobilenet_v2_0.75_128] | 69  | 2.61 |          63.2 | 85.3 |
+	| [mobilenet_v2_0.75_96]  | 39  | 2.61 |          58.8 | 81.6 |
+	| [mobilenet_v2_0.5_224]  | 97  | 1.95 |          65.4 | 86.4 |
+	| [mobilenet_v2_0.5_192]  | 71  | 1.95 |          63.9 | 85.4 |
+	| [mobilenet_v2_0.5_160]  | 50  | 1.95 |          61.0 | 83.2 |
+	| [mobilenet_v2_0.5_128]  | 32  | 1.95 |          57.7 | 80.8 |
+	| [mobilenet_v2_0.5_96]   | 18  | 1.95 |          51.2 | 75.8 |
+	| [mobilenet_v2_0.35_224] | 59  | 1.66 |          60.3 | 82.9 |
+	| [mobilenet_v2_0.35_192] | 43  | 1.66 |          58.2 | 81.2 |
+	| [mobilenet_v2_0.35_160] | 30  | 1.66 |          55.7 | 79.1 |
+	| [mobilenet_v2_0.35_128] | 20  | 1.66 |          50.8 | 75.0 |
+	| [mobilenet_v2_0.35_96]  | 11  | 1.66 |          45.5 | 70.4 |
+	|Classification Checkpoint|MACs(M)|Parameters(M)|Top1 Accuracy|Pixel1 CPU(ms)|
+	|---|---|---|---|---|
+	| mobilenet_v3_large_1.0_224              | 217 | 5.4 |   75.6   |   51.2  |
+	| mobilenet_v3_large_0.75_224             | 155 | 4.0 |   73.3   |   39.8  |
+	| mobilenet_v3_large_minimalistic_1.0_224 | 209 | 3.9 |   72.3   |   44.1  |
+	| mobilenet_v3_small_1.0_224              | 66  | 2.9 |   68.1   |   15.8  |
+	| mobilenet_v3_small_0.75_224             | 44  | 2.4 |   65.4   |   12.8  |
+	| mobilenet_v3_small_minimalistic_1.0_224 | 65  | 2.0 |   61.9   |   12.2  |
+
+	* pt-eval.py: pytorch evaluation script copied from
+	https://github.com/pytorch/examples/tree/master/imagenet/main.py
+	mobilenet_v2: Acc@1 71.850 Acc@5 90.334
+	Official repo claims 71.878
+
+	MobileNet V2                      71.878          90.286
+	MobileNet V3 Large                74.042          91.340
+	MobileNet V3 Small                67.668          87.402
+
 2021-02-26  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* tf-keras-preprocessing:
@@ -79,7 +128,7 @@
         ])),
 	eval command:
 	  python main.py --pretrained -e -a mobilenet_v2 /datasets/ImageNet/ILSVRC/Data/CLS-LOC
-	  mobilenet_v2: Acc@1 71.850 Acc@5 90.334
+	  mobilenet_v2: Acc@1 71.850 Acc@5 90.334 (keras version claims Acc@1=71.8 Acc@5=91.0)
 	  resnet18: Acc@1 69.644 Acc@5 88.982
 
 2021-02-13  Deniz Yuret  <dyuret@WS001>
