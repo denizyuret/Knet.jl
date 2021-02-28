@@ -114,7 +114,7 @@ function MobileNet(s::String; pretrained=true)
     kwargs = mobilenetmodels[s]
     model = MobileNet(; kwargs...)
     model(Knet.atype(zeros(Float32,224,224,3,1)))
-    pretrained && setweights!(model, "$s.jld2") # joinpath(@artifact_str(s), "$s.jld2")) ##DBG
+    pretrained && setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
     return model
 end
 

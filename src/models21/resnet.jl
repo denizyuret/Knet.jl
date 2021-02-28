@@ -56,11 +56,11 @@ the (0,1) range to:
 
 The class labels, as well as training, validation and test sets can be found at
 [Kaggle](https://www.kaggle.com/c/imagenet-object-localization-challenge). Here are all the
-pretrained models with name, settings, size in bytes, flops compared to resnet50, and top-1
-validation accuracy.
+pretrained models with name, settings, size in bytes, inference time compared to resnet50,
+and top-1 validation accuracy.
 
-    name              size  flops  top1   settings                                      
-    ----              ----  -----  ----   --------                                      
+    name              size   time  top1   settings                                      
+    ----              ----   ----  ----   --------                                      
     resnet18           45M   0.41  .6894  (nblocks=(2,2,2,2), block=ResNetBasic)        
     resnet34           84M   0.57  .7276  (nblocks=(3,4,6,3), block=ResNetBasic)        
     resnet50           98M   1.00  .7528  (nblocks=(3,4,6,3), bottleneck=4)             
@@ -82,7 +82,9 @@ References:
 
 """
 function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
-    s = Sequential(ResNetInput(); name="$block$nblocks")
+    s = Sequential(; name="$block$nblocks")
+    push!(s, Op(imagenet_preprocess; normalization="torch", format="whcn"))
+    push!(s, ResNetInput())
     x, y = 64, (block === ResNetBasic ? 64 : 256)
     for (stage, nblock) in enumerate(nblocks)
         if stage > 1; y *= 2; end
@@ -125,7 +127,6 @@ end
 
 function ResNetInput()
     Sequential(
-        Op(imagenet_preprocess; normalization="torch", format="whcn"),
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
         Op(pool; window=3, stride=2, padding=1);
         name = "Input"
@@ -165,7 +166,7 @@ resnetmodels = Dict{String,NamedTuple}(
 )
 
 function ResNet(s::String; pretrained=true)
-    @assert haskey(resnetmodels, s)  "Unknown ResNet model $s"
+    @assert haskey(resnetmodels, s)  "Please choose from known ResNet models:\n$(collect(keys(resnetmodels)))"
     kwargs = resnetmodels[s]
     model = ResNet(; kwargs...)
     pretrained && setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
