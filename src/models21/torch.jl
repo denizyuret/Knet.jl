@@ -18,6 +18,7 @@ PIL = pyimport("PIL")
 t2a(x) = x.cpu().detach().numpy()
 chkparams(a,b)=((pa,pb)=params.((a,b)); length(pa)==length(pb) && all(isapprox.(pa,pb)))
 rdims(a)=permutedims(a, ((ndims(a):-1:1)...,))
+typename(p::PyObject) = pytypeof(p).__name__
 
 
 function ResNetTorch(p::PyObject)
@@ -39,20 +40,20 @@ function ResNetBlock(p::PyObject)
     while haskey(p, "conv$i")
         convi = getproperty(p, "conv$i")
         bni = getproperty(p, "bn$i")
-        push!(layers, Conv(convi; normalization=BatchNorm(bni), activation=relu))
+        push!(layers, Conv2d(convi; normalization=BatchNorm2d(bni), activation=relu))
         i += 1
     end
     layers[end].activation = nothing
     r = (p.downsample === nothing ? identity :
-         Conv(p.downsample[1]; normalization=BatchNorm(p.downsample[2])))
+         Conv2d(p.downsample[1]; normalization=BatchNorm2d(p.downsample[2])))
     Residual(Sequential(layers...), r; activation=relu)
 end
 
 
 function ResNetInput(conv1::PyObject, bn1::PyObject)
-    bn1 = BatchNorm(bn1)
+    bn1 = BatchNorm2d(bn1)
     Sequential(
-        Conv(conv1; normalization=bn1, activation=relu),
+        Conv2d(conv1; normalization=bn1, activation=relu),
         x->pool(x; window=3, stride=2, padding=1);
         name = "Input"
     )
@@ -71,7 +72,7 @@ function ResNetOutput(fc::PyObject)
 end
 
 
-function Conv(p::PyObject; normalization=nothing, activation=nothing)
+function Conv2d(p::PyObject; normalization=nothing, activation=nothing)
     w = param(permutedims(t2a(p.weight), (4,3,2,1)))
     bias = (p.bias === nothing ? nothing :
             param(reshape(t2a(p.bias), (1,1,:,1))))
@@ -80,7 +81,7 @@ function Conv(p::PyObject; normalization=nothing, activation=nothing)
 end
 
 
-function BatchNorm(b::PyObject)
+function BatchNorm2d(b::PyObject)
     bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
     BatchNorm(
         ; use_estimates = nothing,
@@ -94,7 +95,7 @@ function BatchNorm(b::PyObject)
 end
 
 
-function BatchNorm2(b::PyObject) # use this for @gcheck, defaults will be fixed when weights loaded from file
+function BatchNorm2d2(b::PyObject) # use this for @gcheck, defaults will be fixed when weights loaded from file
     bnweight(x) = param(reshape(t2a(x), (1,1,:,1)))
     BatchNorm(
         ; use_estimates = true, ### nothing,
@@ -266,45 +267,75 @@ function resnettop1(model, valdir; o...)
 end
 
 
-function MobileNetV2Torch(pm)
-    typename(p::PyObject) = pytypeof(p).__name__
-    s = Sequential()
-    for ltorch in Iterators.flatten((pm.features, pm.classifier))
-        converter = Symbol("torch_$(typename(ltorch))")
-        if isdefined(@__MODULE__, converter)
-            lknet = eval(converter)(ltorch)
-            push!(s, lknet)
-        else
-            @warn "$converter not defined"
-        end
+##### MobileNetV2 ##################################################################
+
+function torch2knet(p::PyObject; o...)
+    converter = Symbol(pytypeof(p).__name__)
+    if isdefined(@__MODULE__, converter)
+        eval(converter)(p; o...)
+    else
+        @warn "$converter not defined"
     end
+end
+
+function adaptive_avg_pool2d(x)
+    y = pool(x; mode=1, window=size(x)[1:2])
+    reshape(y, size(y,3), size(y,4))
+end
+
+function MobileNetV2(p::PyObject)
+    s = Sequential()
+    for l in p.features
+        push!(s, torch2knet(l))
+    end
+    push!(s, adaptive_avg_pool2d)
+    dropout = p.classifier[1].p
+    push!(s, Linear(p.classifier[2]; dropout))
     return s
 end
 
-
-function torch_Dropout(p)
+function Dropout(p::PyObject)
     Op(dropout, p.p)
 end
 
-function torch_Linear(p)
-    w = p.weight.detach().cpu().numpy()
-    bias = p.bias === nothing ? nothing : p.bias.detach().cpu().numpy()
-    Linear(w; bias)
+function Linear(p::PyObject; dropout=0, activation=nothing)
+    w = param(t2a(p.weight))
+    bias = p.bias === nothing ? nothing : param(t2a(p.bias))
+    Linear(w; bias, dropout, activation)
 end
 
-function torch_InvertedResidual(p)
-    nothing
+function ConvBNReLU(p::PyObject)
+    activation = torch2knet(p[3])
+    normalization = torch2knet(p[2])
+    Conv2d(p[1]; activation, normalization)
 end
 
-function torch_ConvBNReLU(p)
-    nothing
+function ReLU6(p::PyObject)
+    Op(relu; max_value=6)
+end
+
+function InvertedResidual(p::PyObject)
+    s = Sequential()
+    for l in p.conv
+        if l == p.conv[end]
+            @assert typename(l) == "BatchNorm2d"
+            s[end].normalization = torch2knet(l)
+        else
+            push!(s, torch2knet(l))
+        end
+    end
+    if s[2].stride == (1,1) && size(s[1].w,3) == size(s[end].w,4)
+        return Residual(s)
+    else
+        return s
+    end
 end
 
 
-function mobilenet2import(model)
+function mobilenet2import()
     # saves pytorch model to e.g. /home/dyuret/.cache/torch/hub/checkpoints/resnext50_32x4d-7cdf4587.pth
-    @assert haskey(models, model) 
-    pm = getproperty(models, model)(pretrained=true).eval()
+    model = "mobilenet_v2_100_224_pt"
+    pm = models.mobilenet_v2(pretrained=true).eval()
     px = randn(Float32, 224, 224, 3, 1)
     py = px |> rdims |> torch.tensor |> pm |> t2a |> rdims
 
@@ -312,7 +343,7 @@ function mobilenet2import(model)
 
     save_type = Knet.array_type[]
     Knet.array_type[] = Array{T}
-    am = MobileNetV2Torch(pm)
+    am = torch2knet(pm)
     ax = Knet.atype(px)
     ay = am(ax)
     @show ay ≈ py
@@ -320,7 +351,7 @@ function mobilenet2import(model)
     #@show @gcheck am(ap) (nsample=3,)
 
     Knet.array_type[] = KnetArray{T}
-    km = MobileNetV2Torch(pm)
+    km = torch2knet(pm)
     @show chkparams(km,am)
     kx = Knet.atype(px)
     ky = km(kx)
@@ -329,7 +360,7 @@ function mobilenet2import(model)
     #@show @gcheck km(kp) (nsample=3,)
 
     Knet.array_type[] = CuArray{T}
-    cm = MobileNetV2Torch(pm)
+    cm = torch2knet(pm)
     @show chkparams(cm,am)
     cx = Knet.atype(px)
     cy = cm(cx)
@@ -341,13 +372,14 @@ function mobilenet2import(model)
     saveweights("$(model).jld2", cm; atype=CuArray)
 
     @info "Loading $(model).jld2"
-    setweights!(cm, "$(model).jld2")
-    @show chkparams(cm,am)
-    cx = Knet.atype(px)
-    cy = cm(cx)
-    @show cy ≈ py
-    #cp = Param(cx)
-    #@show @gcheck cm(cp) (nsample=3,)
+    dm = MobileNet(model; pretrained=false)
+    setweights!(dm, "$(model).jld2")
+    @show chkparams(dm,am)
+    dx = Knet.atype(px)
+    dy = dm(dx)
+    @show dy ≈ py
+    #dp = Param(dx)
+    #@show @gcheck dm(dp) (nsample=3,)
 
     run(`tar cf $(model).tar $(model).jld2`)
     sha1 = Tar.tree_hash("$(model).tar")

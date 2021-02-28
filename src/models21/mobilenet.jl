@@ -7,6 +7,8 @@ using Knet.Ops21: relu
 
 
 """
+--DRAFT--
+
     MobileNet(; kwargs...)
     MobileNet(name::String; pretrained=true)
 
@@ -21,11 +23,13 @@ Return a MobileNet model. Pretrained models:
 Keyword arguments:
 * `layout = mobilenet_v2_layout`
 * `block = MBConv`
+* `preprocess = torch_mobilenet_preprocess`
 * `width = 1`
 * `resolution = 224`
 * `input = 32`
 * `output = 1280`
 * `classes = 1000`
+* `padding = 1`
 
 References:
 * https://arxiv.org/abs/1704.04861
@@ -33,49 +37,65 @@ References:
 * https://arxiv.org/abs/1905.02244
 
 """
-function MobileNet(; width = 1, resolution = 224, input = 32, output = 1280, classes = 1000,
-                     block = MBConv, layout = mobilenet_v2_layout)
+function MobileNet(
+    ;
+    width = 1,
+    resolution = 224,
+    input = 32,
+    output = 1280,
+    classes = 1000,
+    block = MBConv,
+    layout = mobilenet_v2_layout,
+    preprocess = torch_mobilenet_preprocess, # keras_mobilenet_preprocess for keras models
+    padding = 1,                # ((0,1),(0,1)) for keras models
+    bnupdate = 0.1,             # torch:0.1, keras.MobileNetV1:0.01, keras.MobileNetV2:0.001
+    bnepsilon = 1e-5,           # torch:1e-5, keras:0.001
+)
     α(x) = round(Int, width*x)
-    s = Sequential(MobileNetInput(resolution, α(input)))
+    s = Sequential(MobileNetInput(preprocess(resolution), α(input); padding, bnupdate, bnepsilon))
     channels = input
     for (repeat, outchannels, stride, expansion) in layout
         for r in 1:repeat
-            push!(s, block(α(channels), α(outchannels); stride, expansion))
+            push!(s, block(α(channels), α(outchannels); stride, expansion, padding, bnupdate, bnepsilon))
             channels = outchannels
             stride = 1
         end
     end
-    channels != output && push!(s, ConvBN6(1, 1, α(channels),  α(output)))
+    channels != output && push!(s, ConvBN6(1, 1, α(channels),  α(output); padding, bnupdate, bnepsilon))
     push!(s, MobileNetOutput(α(output), classes))
     return s
 end    
 
 
-function MBConv(x, y; stride = 1, expansion = 6)
+torch_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="torch", format="whcn", resolution)
+keras_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="tf", format="whcn", resolution)
+
+
+function MobileNetInput(preprocess, input; o...)
+    Sequential(
+        preprocess,
+        ConvBN6(3, 3, 3, input; stride = 2, o...)
+    )
+end    
+
+
+function MBConv(x, y; stride = 1, expansion = 6, o...)
     b = expansion * x
     s = Sequential(
-        ConvBN6(3, 3, 1, b; groups=b, stride),
-        ConvBN6(1, 1, b, y; activation=nothing),
+        ConvBN6(3, 3, 1, b; groups=b, stride, o...),
+        ConvBN6(1, 1, b, y; activation=nothing, o...),
     )
-    b != x && pushfirst!(s, ConvBN6(1, 1, x, b))
+    b != x && pushfirst!(s, ConvBN6(1, 1, x, b; o...))
     x == y ? Residual(s) : s
 end
 
 
-function DWConv(x, y; stride = 1, o...)
+function DWConv(x, y; stride = 1, expansion = 1, o...)
     Sequential(
-        ConvBN6(3, 3, 1, x; groups=x, stride),
-        ConvBN6(1, 1, x, y),
+        ConvBN6(3, 3, 1, x; groups=x, stride, o...),
+        ConvBN6(1, 1, x, y; o...),
     )
 end
-
-
-function MobileNetInput(resolution, input)
-    Sequential(
-        Op(imagenet_preprocess; normalization="tf", format="whcn", resolution),
-        ConvBN6(3, 3, 3, input; stride = 2)
-    )
-end    
 
 
 function MobileNetOutput(output, classes)
@@ -87,11 +107,21 @@ function MobileNetOutput(output, classes)
 end
 
 
-function ConvBN6(w,h,x,y; stride = 1, activation=Op(relu; max_value=6), o...)
-    padding = (w == 1 ? 0 : stride == 1 ? 1 : ((0,1),(0,1)))
-    #Conv(w,h,x,y; normalization=BatchNorm(; update=0.01, epsilon=0.001), # MobileNetV1
-    Conv(w,h,x,y; normalization=BatchNorm(; update=0.001, epsilon=0.001), # MobileNetV2
-         stride, padding, activation, o...)
+function ConvBN6(w,h,x,y; groups = 1, stride = 1, padding = 1, bnupdate=0.1, bnepsilon=1e-5,
+                 activation=Op(relu; max_value=6))
+    padding = (w == 1 ? 0 : stride == 1 ? 1 : padding)
+    normalization=BatchNorm(; update=bnupdate, epsilon=bnepsilon)
+    Conv(w,h,x,y; normalization, groups, stride, padding, activation)
+end
+
+
+function MobileNet(s::String; pretrained=true)
+    @assert haskey(mobilenetmodels, s)  "Unknown MobileNet model $s"
+    kwargs = mobilenetmodels[s]
+    model = MobileNet(; kwargs...)
+    model(Knet.atype(zeros(Float32,224,224,3,1)))
+    pretrained && setweights!(model, "$s.jld2") # joinpath(@artifact_str(s), "$s.jld2")) ##DBG
+    return model
 end
 
 
@@ -115,22 +145,15 @@ const mobilenet_v2_layout = (
 )
 
 
-# mobilenet models from keras.applications
+# mobilenet models from keras.applications and torchvision.models
 mobilenetmodels = Dict{String,NamedTuple}(
-    "mobilenet_v1_100_224" => (block=DWConv, layout=mobilenet_v1_layout, output=1024),
-    "mobilenet_v2_100_224" => (block=MBConv, layout=mobilenet_v2_layout, output=1280),
+    "mobilenet_v1_100_224_tf" => (block=DWConv, layout=mobilenet_v1_layout, output=1024, preprocess=keras_mobilenet_preprocess, padding=((0,1),(0,1)), bnupdate=0.01, bnepsilon=0.001),
+    "mobilenet_v2_100_224_tf" => (block=MBConv, layout=mobilenet_v2_layout, output=1280, preprocess=keras_mobilenet_preprocess, padding=((0,1),(0,1)), bnupdate=0.001, bnepsilon=0.001),
+    "mobilenet_v2_100_224_pt" => (block=MBConv, layout=mobilenet_v2_layout, output=1280, preprocess=torch_mobilenet_preprocess, padding=1, bnupdate=0.1, bnepsilon=1e-5),
 )
 
 
-function MobileNet(s::String; pretrained=true)
-    @assert haskey(mobilenetmodels, s)  "Unknown MobileNet model $s"
-    kwargs = mobilenetmodels[s]
-    model = MobileNet(; kwargs...)
-    model(Knet.atype(zeros(Float32,224,224,3,1)))
-    pretrained && setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
-    return model
-end
-
+### DEPRECATED:
 
 function MobileNetV1(; width = 1, resolution = 224)
     α(x) = round(Int, width*x)

@@ -171,9 +171,9 @@ end
 
 ### Test and import utils
 
-function kerastest(img="fooval/ILSVRC2012_val_00000001.JPEG")
+function kerastest(img="ILSVRC2012_val_00000001.JPEG")
     global pf, jf, px, jx
-    pf = tf.keras.applications.mobilenet_v2.MobileNetV2()
+    pf = tf.keras.applications.MobileNet()
     jf = keras2knet(pf)
     px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}) # 1,224,224,3
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1

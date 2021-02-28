@@ -1,5 +1,6 @@
-using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall, Artifacts, Base.Threads
 import Knet
+using Knet.Ops20: softmax
+using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall, Artifacts, Base.Threads
 
 function torchvision_preprocess(file::String; atype=Knet.atype, resolution=224, format="whcn")
     transforms = pyimport("torchvision.transforms")
