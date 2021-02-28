@@ -2,10 +2,13 @@ import tensorflow as tf
 validation_dir="fooval/val" #"/datasets/ImageNet/ILSVRC/Data/CLS-LOC/val" #"val"
 BATCH_SIZE = 32
 IMG_SIZE = (224,224)
+
 #model = tf.keras.applications.mobilenet
 #pretrained = tf.keras.applications.MobileNet
+
 model = tf.keras.applications.mobilenet_v2
 pretrained = tf.keras.applications.MobileNetV2
+
 #model = tf.keras.applications.mobilenet_v3
 #pretrained = tf.keras.applications.MobileNetV3Small
 #pretrained = tf.keras.applications.MobileNetV3Large

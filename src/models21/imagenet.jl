@@ -2,7 +2,7 @@ import Knet
 using Knet.Ops20: softmax
 using FileIO, ImageCore, ImageMagick, ImageTransformations, PyCall, Artifacts, Base.Threads
 
-function torchvision_preprocess(file::String; atype=Knet.atype, resolution=224, format="whcn")
+function torch_preprocess(file::String; atype=Knet.atype, resolution=224, format="whcn")
     transforms = pyimport("torchvision.transforms")
     torchvision_transform = transforms.Compose([
         transforms.Resize(resolution * 8 ÷ 7),
@@ -25,7 +25,23 @@ function torchvision_preprocess(file::String; atype=Knet.atype, resolution=224, 
 end
 
 
-# tf.keras.applications.imagenet_utils.preprocess_input
+function keras_preprocess_buggy(file::String; atype=Knet.atype, resolution=224, format="whcn")
+    tf = pyimport("tensorflow")
+    img = tf.io.read_file(file)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.cast(img, tf.float32)
+    img = tf.image.resize_with_crop_or_pad(img, resolution, resolution)
+    img = tf.keras.applications.imagenet_utils.preprocess_input(img, mode="tf")    
+    img = img.numpy() # hwc
+    img = reshape(img, (1, size(img)...)) # nhwc
+    if format != "nhwc"
+        perm = findfirst.(collect(format), "nhwc")
+        img = permutedims(img, (perm...,))
+    end
+    return atype(img)
+end
+
+
 function imagenet_preprocess(file::String; o...)
     img = occursin(r"^http", file) ? mktemp() do fn,io
         load(download(file,fn))
@@ -119,11 +135,11 @@ function imagenet_walkdir(
     model, dir;
     n=typemax(Int),
     b=32,
-    preprocess=imagenet_preprocess,
+    preprocess=model[1],
     format="whcn",
     batchinput = identity,
     batchoutput = (x->convert(Array,x)),
-    usethreads = true,
+    usethreads = false,
     o...
 )
     files = []
@@ -141,11 +157,11 @@ function imagenet_walkdir(
         j = min(n, i+b-1)
         if usethreads
             @threads for k in 0:j-i
-                images[1+k] = preprocess(files[i+k]; format, o...)
+                images[1+k] = preprocess(files[i+k])
             end
         else
             for k in 0:j-i
-                images[1+k] = preprocess(files[i+k]; format, o...)
+                images[1+k] = preprocess(files[i+k])
             end
         end
         batch = cat(images[1:j-i+1]...; dims=findfirst('n', format))
@@ -174,4 +190,4 @@ end
 
 # torch model top-1 example: 
 # r18a = models.resnet18(pretrained=true).eval()
-# imagenet_top1(r18a, val; n=1000, preprocess=torchvision_preprocess, format="nchw", batchinput=torch.tensor, batchoutput=(x->permutedims(x.detach().cpu().numpy())), atype=Array{Float32}, usethreads=false)
+# imagenet_top1(r18a, val; n=1000, preprocess=torch_preprocess, format="nchw", batchinput=torch.tensor, batchoutput=(x->permutedims(x.detach().cpu().numpy())), atype=Array{Float32}, usethreads=false)

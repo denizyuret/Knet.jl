@@ -294,6 +294,18 @@ function MobileNetV2(p::PyObject)
     return s
 end
 
+function MobileNetV3(p::PyObject)
+    s = Sequential()
+    for l in p.features
+        push!(s, torch2knet(l))
+    end
+    push!(s, torch2knet(p.avgpool))
+    push!(s, Linear(p.classifier[1]; activation=torch2knet(p.classifier[2])))
+    dropout = p.classifier[3].p
+    push!(s, Linear(p.classifier[4]; dropout))
+    return s
+end
+
 function Dropout(p::PyObject)
     Op(dropout, p.p)
 end
@@ -315,6 +327,10 @@ function ReLU6(p::PyObject)
 end
 
 function InvertedResidual(p::PyObject)
+    haskey(p, :conv) ? InvertedResidualV2(p) : InvertedResidualV3(p)
+end
+
+function InvertedResidualV2(p::PyObject)
     s = Sequential()
     for l in p.conv
         if l == p.conv[end]
@@ -324,11 +340,27 @@ function InvertedResidual(p::PyObject)
             push!(s, torch2knet(l))
         end
     end
-    if s[2].stride == (1,1) && size(s[1].w,3) == size(s[end].w,4)
+    if p.use_res_connect # s[2].stride == (1,1) && size(s[1].w,3) == size(s[end].w,4)
         return Residual(s)
     else
         return s
     end
+end
+
+function InvertedResidualV3(p::PyObject)
+    nothing
+end
+
+function ConvBNActivation(p::PyObject)
+
+end
+
+function AdaptiveAvgPool2d(p::PyObject)
+
+end
+
+function Hardswish(p::PyObject)
+
 end
 
 

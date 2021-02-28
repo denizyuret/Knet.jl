@@ -198,10 +198,10 @@ function tf_layer_outputs(model, img="ILSVRC2012_val_00000001.JPEG")
 end
 
 
-function test_mobilenet_v2(file="mobilenet_v2_100_224.jld2", img="ILSVRC2012_val_00000001.JPEG")
-    pf = tf.keras.applications.mobilenet_v2.MobileNetV2()
+function test_mobilenet_v2(file="mobilenet_v2_100_224_tf.jld2", img="ILSVRC2012_val_00000001.JPEG")
+    pf = tf.keras.applications.MobileNetV2() # tf.keras.applications.mobilenet_v2.MobileNetV2()
     px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution=224) # 1,224,224,3
-    jf = MobileNet2()
+    jf = MobileNet("mobilenet_v2_100_224_tf")
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
     jf(jx)
     setweights!(jf, file)
