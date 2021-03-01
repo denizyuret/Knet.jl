@@ -23,6 +23,8 @@ using Knet.Ops21
 
     @test acttest(elu)
     @test acttest(gelu)
+    @test acttest(hardsigmoid)
+    @test acttest(hardswish)
     @test acttest(relu)
     @test acttest(relu; max_value=1)
     @test acttest(relu; negative_slope=0.5)
@@ -35,6 +37,8 @@ using Knet.Ops21
     if CUDA.functional()
         @test acttest(elu; atype=CuArray)
         @test acttest(gelu; atype=CuArray)
+        @test acttest(hardsigmoid; atype=CuArray)
+        @test acttest(hardswish; atype=CuArray)
         @test acttest(relu; atype=CuArray)
         @test acttest(relu; atype=CuArray, max_value=1)
         @test acttest(relu; atype=CuArray, negative_slope=0.5)
@@ -46,6 +50,8 @@ using Knet.Ops21
 
         @test acttest(elu; atype=KnetArray)
         @test acttest(gelu; atype=KnetArray)
+        @test acttest(hardsigmoid; atype=KnetArray)
+        @test acttest(hardswish; atype=KnetArray)
         @test acttest(relu; atype=KnetArray)
         @test acttest(relu; atype=KnetArray, max_value=1)
         @test acttest(relu; atype=KnetArray, negative_slope=0.5)

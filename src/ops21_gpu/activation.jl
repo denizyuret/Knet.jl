@@ -1,5 +1,5 @@
-import Knet.Ops21: elu, gelu, relu, selu, sigm, swish, tanh_
-import Knet.Ops21: eluback, geluback, reluback, seluback, sigmback, swishback, tanh_back
+import Knet.Ops21: elu, gelu, hardsigmoid, hardswish, relu, selu, sigm, swish, tanh_
+import Knet.Ops21: eluback, geluback, hardsigmoidback, hardswishback, reluback, seluback, sigmback, swishback, tanh_back
 import Base.Broadcast: broadcasted
 import Knet
 using Knet.KnetArrays: KnetArray, Bcasted
@@ -8,7 +8,7 @@ using Knet.LibKnet8: @knet8
 
 
 for (A,P) in ((KnetArray,Ptr), (CuArray,CuPtr)), T in (Float32,Float64); S = sizeof(T) * 8
-    for f in ("elu", "gelu", "selu", "sigm", "swish", "tanh_")
+    for f in ("elu", "gelu", "hardsigmoid", "hardswish", "selu", "sigm", "swish", "tanh_")
         J, Jback = Symbol(f), Symbol("$(f)back")
         M, Mback = which(@__MODULE__,J), which(@__MODULE__,Jback)
         F, Fback = "$(f)_$S", "$(f)back_$(S)_111"

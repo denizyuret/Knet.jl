@@ -1,1 +1,4 @@
 *.JPEG
+*.tar
+*.tar.gz
+*.jld2

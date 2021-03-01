@@ -1,4 +1,4 @@
-export elu, gelu, relu, selu, sigm, swish, tanh_
+export elu, gelu, hardsigmoid, hardswish, relu, selu, sigm, swish, tanh_
 using AutoGrad: AutoGrad, @primitive1, @zerograd
 using SpecialFunctions: erf
 
@@ -47,6 +47,46 @@ geluback(x::T, y::T, dy::T) where {T<:Array} = geluback.(x, y, dy)
 # Other possible approximations given in the paper:
 # gelu(x::T) where T = 0.5*x*(1 + tanh(T(sqrt(2/pi))*(x + T(0.044715)*x^3)))
 # gelu(x::T) where T = x*sigm(T(1.702)*x)
+
+
+"""
+    hardsigmoid(x)
+
+Return `(x <= -3 ? 0 : x >= 3 ? 1 : (x+3)/6)`.
+
+References:
+* [Howard+ 2019](https://arxiv.org/abs/1905.02244) Searching for MobileNetV3
+
+"""
+hardsigmoid(x::T) where {T<:Real} = (x <= T(-3) ? T(0) : x >= T(3) ? T(1) : (x+3)/6)
+hardsigmoidback(x::T,y::T,dy::T) where {T<:Real} = dy * (x <= T(-3) ? T(0) : x >= T(3) ? T(0) : T(1/6))
+
+hardsigmoid(x::T) where {T<:Array} = hardsigmoid.(x)
+hardsigmoidback(x::T, y::T, dy::T) where {T<:Array} = hardsigmoidback.(x, y, dy)
+
+@primitive1 hardsigmoid(x),dy,y  hardsigmoidback(x,y,dy)
+# @primitive1 hardsigmoidback(x::Real,y::Real,dy::Real),ddx,dx  ??
+@zerograd hardsigmoidback(x,y,dy)
+
+
+"""
+    hardswish(x)
+
+Return `(x <= -3 ? 0 : x >= 3 ? x : x*(x+3)/6)`.
+
+References:
+* [Howard+ 2019](https://arxiv.org/abs/1905.02244) Searching for MobileNetV3
+
+"""
+hardswish(x::T) where {T<:Real} = (x <= T(-3) ? T(0) : x >= T(3) ? x : x*(x+3)/6)
+hardswishback(x::T,y::T,dy::T) where {T<:Real} = dy * (x <= T(-3) ? T(0) : x >= T(3) ? T(1) : (2x+3)/6)
+
+hardswish(x::T) where {T<:Array} = hardswish.(x)
+hardswishback(x::T, y::T, dy::T) where {T<:Array} = hardswishback.(x, y, dy)
+
+@primitive1 hardswish(x),dy,y  hardswishback(x,y,dy)
+# @primitive1 hardswishback(x::Real,y::Real,dy::Real),ddx,dx  ??
+@zerograd hardswishback(x,y,dy)
 
 
 """

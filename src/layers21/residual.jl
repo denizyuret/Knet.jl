@@ -2,25 +2,25 @@ export Residual
 
 
 struct Residual
-    layers
+    blocks
     activation
-    function Residual(layers...; activation=nothing)
-        if length(layers) == 0
+    function Residual(blocks...; activation=nothing)
+        if length(blocks) == 0
             error("Usage: Residual(l1, [l2=identity, ls...]; activation)")
-        elseif length(layers) == 1
-            layers = Any[layers[1], identity]
+        elseif length(blocks) == 1
+            blocks = Any[blocks[1], identity]
         else
-            layers = Any[layers...]
+            blocks = Any[blocks...]
         end
-        new(layers, activation)
+        new(blocks, activation)
     end
 end
 
 
 function (r::Residual)(x)
-    y = r.layers[1](x)
-    for i in 2:length(r.layers)
-        y = y + r.layers[i](x)
+    y = r.blocks[1](x)
+    for i in 2:length(r.blocks)
+        y = y + r.blocks[i](x)
     end
     r.activation === nothing ? y : r.activation(y)
 end

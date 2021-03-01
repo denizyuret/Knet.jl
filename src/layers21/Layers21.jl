@@ -3,6 +3,7 @@ module Layers21
 include("init.jl")
 include("sequential.jl")
 include("residual.jl")
+include("squeezeexcitation.jl")
 include("batchnorm.jl")
 include("conv.jl")
 include("linear.jl") # TODO: test, redesign

@@ -23,11 +23,24 @@ show(io::IO, s::Residual) = sshow(io, s, 0)
 function sshow(io::IO, r::Residual, indent::Int)
     a = r.activation === nothing ? "" : "($(r.activation))"
     sshow(io, "Residual$a", indent)
-    sshow(io, r.layers[1], indent+2)
-    for i in 2:length(r.layers)
-        sshow(io, '+', indent+2)
-        sshow(io, r.layers[i], indent+2)
+    sshow(io, r.blocks[1], indent+2)
+    for i in 2:length(r.blocks)
+        if r.blocks[i] == identity
+            sshow(io, ".+ identity", indent+2)
+        else
+            sshow(io, ".+", indent+2)
+            sshow(io, r.blocks[i], indent+2)
+        end
     end
+end
+
+
+show(io::IO, ::MIME"text/plain", s::SqueezeExcitation) = show(io, s)
+show(io::IO, s::SqueezeExcitation) = sshow(io, s, 0)
+function sshow(io::IO, r::SqueezeExcitation, indent::Int)
+    sshow(io, "SqueezeExcitation", indent)
+    sshow(io, r.block, indent+2)
+    sshow(io, ".* identity", indent+2)
 end
 
 
