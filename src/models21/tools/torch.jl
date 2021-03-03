@@ -23,9 +23,11 @@ typename(p::PyObject) = pytypeof(p).__name__
 
 """
     torchimport("resnet18", "resnet18", ResNet)
-    torchimport("mobilenet_v2", "mobilenet_v2_100_224_pt", MobileNet)
+    torchimport("mobilenet_v2", "mobilenet_v2_100_224_pt", MobileNetV2)
+    torchimport("mobilenet_v3_large", "mobilenet_v3_large_100_224_pt", MobileNetV3)
 """
 function torchimport(model, file=nothing, testmodel=nothing)
+    global pm, am, km, cm, dm, ax, ay
     @assert haskey(models, model) 
     pm = getproperty(models,model)(pretrained=true).eval()
     px = randn(Float32, 224, 224, 3, 1)

@@ -74,7 +74,7 @@ function show(io::IO, c::Conv)
     if c.channelmajor; print(io, ", channelmajor"); end
     if c.alpha != 1; print(io, ", alpha=$(c.alpha)"); end
     if c.beta != 0; print(io, ", beta=$(c.beta)"); end
-    if c.bias !== nothing; print(io, ", bias"); end
+    if c.bias !== nothing || c.binit !== nothing; print(io, ", bias"); end
     if c.normalization !== nothing; print(io, ", $(c.normalization)"); end
     if c.activation !== nothing; print(io, ", $(c.activation)"); end
     print(io, ")")
@@ -85,7 +85,7 @@ show(io::IO, ::MIME"text/plain", d::Linear) = show(io, d)
 function show(io::IO, d::Linear)
     print(io, "Linear($(d.inputsize)=>$(d.outputsize)")
     if d.w !== nothing && eltype(d.w) !== Float32; print(io, ", ", eltype(d.w)); end
-    if d.bias !== nothing; print(io, ", bias"); end
+    if d.bias !== nothing || d.binit !== nothing; print(io, ", bias"); end
     if d.activation !== nothing; print(io, ", $(d.activation)"); end
     if d.dropout !== 0; print(io, ", dropout=$(d.dropout)"); end
     print(io, ")")

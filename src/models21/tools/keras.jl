@@ -5,8 +5,7 @@ using Knet.Train20: param
 using Knet.Ops20: pool, softmax
 typename(p::PyObject) = pytypeof(p).__name__
 tf = pyimport("tensorflow")
-include("Models21.jl")
-include("imagenet.jl")
+include("../Models21.jl")
 
 
 # Model translator
