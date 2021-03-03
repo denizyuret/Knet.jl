@@ -142,3 +142,19 @@ lazy = true
     [[mobilenet_v2_100_224_pt.download]]
     sha256 = "6fe09e3a13efe8233f07a053b190a73eabbd9c6b6f7beb02ab5aa0c042e8a5e6"
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v2_100_224_pt.tar.gz"
+
+[mobilenet_v3_small_100_224_pt]
+git-tree-sha1 = "077fd7128c996f8d5b45ad14cb8eb3bbc8e12ac6"
+lazy = true
+
+    [[mobilenet_v3_small_100_224_pt.download]]
+    sha256 = "8567ba8e680e6a370ef4911166002a7b03bc7a152cdecbc431553f2f4b50c258"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v3_small_100_224_pt.tar.gz"
+
+[mobilenet_v3_large_100_224_pt]
+git-tree-sha1 = "1b75a07447f8c4737878fcd055ac468beb762f48"
+lazy = true
+
+    [[mobilenet_v3_large_100_224_pt.download]]
+    sha256 = "4ce15b1ae9c3c540c0c800301f6eae3f01cf5fa9d022654c6a0f2fda789c55bc"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v3_large_100_224_pt.tar.gz"
