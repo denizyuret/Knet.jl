@@ -4,8 +4,8 @@ export ResNet
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
 using Knet.Ops20: pool # TODO: add pool to ops21
-using Knet.Ops21: relu # TODO: define activation layer?
-using LazyArtifacts
+using Knet.Ops21: relu
+using Artifacts
 
 
 """
@@ -13,7 +13,9 @@ using LazyArtifacts
     ResNet(name::String; pretrained=true)
 
 Return a ResNet model based on keyword arguments or a name specifying a predefined
-structure. Load pretrained weights if `pretrained=true`, randomly initialize otherwise.
+structure. Load pretrained weights if `pretrained=true`, randomly initialize otherwise. The
+models satisfy the indexing interface, e.g. model[1] is the preprocessing layer and
+model[1:end-1] omits the imagenet classification top.
 
 A ResNet model `r` applied to an input of size `(width,height,channels=3,images)` returns a
 `(classes,1)` vector of class scores. The model is a sequence of 6 functions: `r[1]` is the
@@ -59,26 +61,27 @@ The class labels, as well as training, validation and test sets can be found at
 pretrained models with name, settings, size in bytes, inference time compared to resnet50,
 and top-1 validation accuracy.
 
-    name              size   time  top1   settings                                      
-    ----              ----   ----  ----   --------                                      
-    resnet18           45M   0.41  .6894  (nblocks=(2,2,2,2), block=ResNetBasic)        
-    resnet34           84M   0.57  .7276  (nblocks=(3,4,6,3), block=ResNetBasic)        
-    resnet50           98M   1.00  .7528  (nblocks=(3,4,6,3), bottleneck=4)             
-    resnet101         171M   1.58  .7683  (nblocks=(3,4,23,3), bottleneck=4)            
-    resnet152         231M   2.19  .7780  (nblocks=(3,8,36,3), bottleneck=4)            
-    wide_resnet50_2   264M   2.11  .7775  (nblocks=(3,4,6,3), bottleneck=2)             
-    wide_resnet101_2  485M   3.00  .7819  (nblocks=(3,4,23,3), bottleneck=2)            
-    resnext50_32x4d    96M   1.34  .7706  (nblocks=(3,4,6,3), groups=32, bottleneck=2)  
-    resnext101_32x8d  340M   3.45  .7869  (nblocks=(3,4,23,3), groups=32)               
+    name              size   time  top1   ref1    settings                                      
+    ----              ----   ----  ----   ----    --------                                      
+    resnet18           45M   0.41  68.94  69.758  (nblocks=(2,2,2,2), block=ResNetBasic)        
+    resnet34           84M   0.57  72.76  73.314  (nblocks=(3,4,6,3), block=ResNetBasic)        
+    resnet50           98M   1.00  75.28  76.130  (nblocks=(3,4,6,3), bottleneck=4)             
+    resnet101         171M   1.58  76.83  77.374  (nblocks=(3,4,23,3), bottleneck=4)            
+    resnet152         231M   2.19  77.80  78.312  (nblocks=(3,8,36,3), bottleneck=4)            
+    wide_resnet50_2   264M   2.11  77.75  78.468  (nblocks=(3,4,6,3), bottleneck=2)             
+    wide_resnet101_2  485M   3.00  78.19  78.848  (nblocks=(3,4,23,3), bottleneck=2)            
+    resnext50_32x4d    96M   1.34  77.06  77.618  (nblocks=(3,4,6,3), groups=32, bottleneck=2)  
+    resnext101_32x8d  340M   3.45  78.69  79.312  (nblocks=(3,4,23,3), groups=32)               
 
-Note: The top1 accuracy may be slightly different from the ones given by torchvision, which
-is probably due to the differences in preprocessing, in particular `imresize` in Julia gives
-different results compared to `Resize` in `torchvision.transforms`.
+Note: The top1 accuracy figures are slightly different from the ones given by torchvision
+(ref1), which is probably due to the differences in preprocessing, in particular `imresize`
+in Julia gives different results compared to `Resize` in `torchvision.transforms`.
 
 References:
 * He, Kaiming et al. "Deep Residual Learning for Image Recognition." 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2016): 770-778.
 * Zagoruyko, Sergey and Nikos Komodakis. "Wide Residual Networks." ArXiv abs/1605.07146 (2016)
 * Xie, Saining et al. "Aggregated Residual Transformations for Deep Neural Networks." 2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (2017): 5987-5995.
+* https://pytorch.org/vision/master/models.html
 
 """
 function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)

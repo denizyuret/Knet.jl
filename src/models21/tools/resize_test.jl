@@ -34,3 +34,13 @@ jlresize = imresize(img2, (224,298)) |> channelview |> Array{Float32}
 @show display(pttensor[1,101:105,101:105])
 @show display(tfresize[1,101:105,101:105])
 @show display(jlresize[1,101:105,101:105])
+
+# resize variants using ImageMagick don't seem to work as well :(
+# mobilenet_v2_100_224_pt: 0.7070 (using torchvision.transforms.Resize)
+# mobilenet_v2_100_224_pt: 0.7010 (using imresize)
+# for i in */*; do convert -resize 256x256^ $i foo.jpg; mv foo.jpg $i; done
+# mobilenet_v2_100_224_pt: 0.6930
+# for i in */*; do convert -adaptive-resize 256x256^ $i foo.jpg; mv foo.jpg $i; done
+# mobilenet_v2_100_224_pt: 0.6920
+# for i in */*; do convert -interpolative-resize 256x256^ $i foo.jpg; mv foo.jpg $i; done
+# mobilenet_v2_100_224_pt: 0.69

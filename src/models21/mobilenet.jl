@@ -14,17 +14,18 @@ using Artifacts
     MobileNet(name::String; pretrained=true)
 
 Return a MobileNet model. The first call above returns a randomly initialized model, the
-second loads a pretrained model.
+second loads a pretrained model. The models satisfy the indexing interface, e.g. model[1] is
+the preprocessing layer and model[1:end-1] omits the imagenet classification top.
 
 Pretrained models:
 
-    name                           size  time  top1  settings
-    ----                           ----  ----  ----  --------
-    mobilenet_v1_100_224_tf
-    mobilenet_v2_100_224_tf
-    mobilenet_v2_100_224_pt
-    mobilenet_v3_large_100_224_pt
-    mobilenet_v3_small_100_224_pt
+    name                           top1   ref1   size  time  settings
+    ----                           -----  -----  ----  ----  --------
+    mobilenet_v1_100_224_tf        70.59  70.6   17M
+    mobilenet_v2_100_224_tf        71.88  71.8   14M
+    mobilenet_v2_100_224_pt        70.76  71.88  14M
+    mobilenet_v3_small_100_224_pt  66.78  67.67  10M
+    mobilenet_v3_large_100_224_pt  73.48  74.04  22M
 
 Keyword arguments:
 
@@ -33,6 +34,8 @@ References:
 * https://arxiv.org/abs/1704.04861
 * https://arxiv.org/abs/1801.04381
 * https://arxiv.org/abs/1905.02244
+* https://pytorch.org/vision/master/models.html
+* https://keras.io/api/applications
 
 """
 function MobileNet(
@@ -42,7 +45,7 @@ function MobileNet(
     input = 32,
     output = (),
     classes = 1000,
-    activation = relu6,
+    activation = relu6,         # TODO: fix defaults, document kwargs
     tfpadding = false,          # torch:1 keras:((0,1),(0,1)); torch:2, keras:((1,2),(1,2))
     bnupdate = 0.1,             # torch:0.1, keras.MobileNetV1:0.01, keras.MobileNetV2:0.001
     bnepsilon = 1e-5,           # torch:1e-5, keras:0.001
@@ -63,17 +66,19 @@ function MobileNet(
             channels = l.output
         end
     end
+    top = Sequential()
     if isempty(output)
-        push!(s, adaptive_avg_pool)
-        push!(s, Linear(α(channels), classes; binit=zeros, dropout))
+        push!(top, adaptive_avg_pool)
+        push!(top, Linear(α(channels), classes; binit=zeros, dropout))
     else
-        push!(s, conv_bn(1, 1, α(channels), α(output[1]); activation))
-        push!(s, adaptive_avg_pool)
+        push!(top, conv_bn(1, 1, α(channels), α(output[1]); activation))
+        push!(top, adaptive_avg_pool)
         for o in 2:length(output)
-            push!(s, Linear(α(output[o-1]), α(output[o]); binit=zeros, activation))
+            push!(top, Linear(α(output[o-1]), α(output[o]); binit=zeros, activation))
         end
-        push!(s, Linear(α(output[end]), classes; binit=zeros, dropout))
+        push!(top, Linear(α(output[end]), classes; binit=zeros, dropout))
     end
+    push!(s, top)
     return s
 end    
 
