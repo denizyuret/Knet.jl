@@ -7,10 +7,10 @@ using Printf
 # show with indent:
 sshow(io::IO, x, indent) = print(io, repeat(' ', indent), x, '\n')
 
-show(io::IO, ::MIME"text/plain", s::Sequential) = show(io, s)
-show(io::IO, s::Sequential) = sshow(io, s, 0)
-function sshow(io::IO, s::Sequential, indent::Int)
-    sshow(io, (s.name === nothing ? "Sequential" : "$(s.name)"), indent)
+show(io::IO, ::MIME"text/plain", s::Block) = show(io, s)
+show(io::IO, s::Block) = sshow(io, s, 0)
+function sshow(io::IO, s::Block, indent::Int)
+    sshow(io, (s.name === nothing ? "Block" : "$(s.name)"), indent)
     for l in s.layers
         sshow(io, l, indent+2)
     end
@@ -18,11 +18,11 @@ function sshow(io::IO, s::Sequential, indent::Int)
 end
 
 
-show(io::IO, ::MIME"text/plain", s::Residual) = show(io, s)
-show(io::IO, s::Residual) = sshow(io, s, 0)
-function sshow(io::IO, r::Residual, indent::Int)
+show(io::IO, ::MIME"text/plain", s::Add) = show(io, s)
+show(io::IO, s::Add) = sshow(io, s, 0)
+function sshow(io::IO, r::Add, indent::Int)
     a = r.activation === nothing ? "" : "($(r.activation))"
-    sshow(io, "Residual$a", indent)
+    sshow(io, "Add$a", indent)
     sshow(io, r.blocks[1], indent+2)
     for i in 2:length(r.blocks)
         if r.blocks[i] == identity
@@ -35,12 +35,20 @@ function sshow(io::IO, r::Residual, indent::Int)
 end
 
 
-show(io::IO, ::MIME"text/plain", s::SqueezeExcitation) = show(io, s)
-show(io::IO, s::SqueezeExcitation) = sshow(io, s, 0)
-function sshow(io::IO, r::SqueezeExcitation, indent::Int)
-    sshow(io, "SqueezeExcitation", indent)
-    sshow(io, r.block, indent+2)
-    sshow(io, ".* identity", indent+2)
+show(io::IO, ::MIME"text/plain", s::Mul) = show(io, s)
+show(io::IO, s::Mul) = sshow(io, s, 0)
+function sshow(io::IO, r::Mul, indent::Int)
+    a = r.activation === nothing ? "" : "($(r.activation))"
+    sshow(io, "Mul$a", indent)
+    sshow(io, r.blocks[1], indent+2)
+    for i in 2:length(r.blocks)
+        if r.blocks[i] == identity
+            sshow(io, ".* identity", indent+2)
+        else
+            sshow(io, ".*", indent+2)
+            sshow(io, r.blocks[i], indent+2)
+        end
+    end
 end
 
 

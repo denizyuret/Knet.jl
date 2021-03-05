@@ -1,13 +1,13 @@
 module Layers21
 
 include("init.jl")
-include("sequential.jl")
-include("residual.jl")
-include("squeezeexcitation.jl")
-include("batchnorm.jl")
+include("block.jl")
+include("add.jl")
+include("mul.jl")
+include("op.jl")
 include("conv.jl")
 include("linear.jl") # TODO: test, redesign
-include("op.jl")
+include("batchnorm.jl")
 include("zeropad.jl")
 include("show.jl")
 include("jld2.jl")

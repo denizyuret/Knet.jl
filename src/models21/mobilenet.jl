@@ -1,7 +1,7 @@
 export MobileNet
 
 import Knet
-using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Op, Residual, SqueezeExcitation
+using Knet.Layers21: Conv, BatchNorm, Linear, Block, Op, Add, Mul
 using Knet.Ops21: relu, hardswish, hardsigmoid
 using Knet.Ops20: pool
 using Artifacts
@@ -56,9 +56,9 @@ function MobileNet(
 )
     global _mobilenet_config = (; tfpadding, bnupdate, bnepsilon)
     α(x) = round(Int, width*x)
-    s = Sequential()
+    s = Block()
     push!(s, preprocess(resolution))
-    push!(s, conv_bn(3, 3, 3, α(input); stride=2, activation))
+    push!(s, mobilenet_conv_bn(3, 3, 3, α(input); stride=2, activation))
     channels = input
     for l in layout
         for r in 1:l.repeat
@@ -66,12 +66,12 @@ function MobileNet(
             channels = l.output
         end
     end
-    top = Sequential()
+    top = Block()
     if isempty(output)
         push!(top, adaptive_avg_pool)
         push!(top, Linear(α(channels), classes; binit=zeros, dropout))
     else
-        push!(top, conv_bn(1, 1, α(channels), α(output[1]); activation))
+        push!(top, mobilenet_conv_bn(1, 1, α(channels), α(output[1]); activation))
         push!(top, adaptive_avg_pool)
         for o in 2:length(output)
             push!(top, Linear(α(output[o-1]), α(output[o]); binit=zeros, activation))
@@ -87,7 +87,7 @@ torch_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="
 keras_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="tf", format="whcn", resolution)
 
 
-function conv_bn(w,h,x,y; groups=1, stride=1, activation=nothing)
+function mobilenet_conv_bn(w,h,x,y; groups=1, stride=1, activation=nothing)
     c = _mobilenet_config
     p = (w-1)÷2
     padding = (w > 1 && stride > 1 && c.tfpadding ? ((p-1,p),(p-1,p)) : p)
@@ -111,9 +111,9 @@ function mobilenet_v1_block(x, y; layout, repeat, width)
     stride = (repeat == 1 ? layout.stride : 1)
     activation = relu6
     x, y = round(Int,width*x), round(Int,width*y)
-    Sequential(
-        conv_bn(3, 3, 1, x; groups=x, stride, activation),
-        conv_bn(1, 1, x, y; activation),
+    Block(
+        mobilenet_conv_bn(3, 3, 1, x; groups=x, stride, activation),
+        mobilenet_conv_bn(1, 1, x, y; activation),
     )
 end
 
@@ -132,11 +132,11 @@ function mobilenet_v2_block(x, y; layout, repeat, width)
     activation = relu6
     x, y = round(Int,width*x), round(Int,width*y)
     b = layout.expansion * x
-    s = Sequential()
-    b != x && push!(s, conv_bn(1, 1, x, b; activation))
-    push!(s, conv_bn(3, 3, 1, b; groups=b, stride, activation))
-    push!(s, conv_bn(1, 1, b, y))
-    x == y ? Residual(s) : s
+    s = Block()
+    b != x && push!(s, mobilenet_conv_bn(1, 1, x, b; activation))
+    push!(s, mobilenet_conv_bn(3, 3, 1, b; groups=b, stride, activation))
+    push!(s, mobilenet_conv_bn(1, 1, b, y))
+    x == y ? Add(s, identity) : s
 end
 
 
@@ -155,21 +155,22 @@ function mobilenet_v3_block(input, output; layout, repeat, width)
     stride = (repeat == 1 ? layout.stride : 1)
     kernel, activation = layout.kernel, layout.activation
     input, output, expand, squeeze = (x->round(Int,width*x)).((input, output, layout.expand, layout.squeeze))
-    s = Sequential()
+    s = Block()
     channels = input
     if expand > 0
-        push!(s, conv_bn(1, 1, channels, expand; activation))
+        push!(s, mobilenet_conv_bn(1, 1, channels, expand; activation))
         channels = expand
     end
-    push!(s, conv_bn(kernel, kernel, 1, channels; activation, groups=channels, stride))
+    push!(s, mobilenet_conv_bn(kernel, kernel, 1, channels; activation, groups=channels, stride))
     if squeeze > 0
-        push!(s, SqueezeExcitation(
+        push!(s, Mul(Block(                     
+            x->pool(x; mode=1, window=size(x)[1:2]),
             Conv(1, 1, channels, squeeze; binit=zeros, activation=relu),
             Conv(1, 1, squeeze, channels; binit=zeros, activation=hardsigmoid),
-        ))
+        ), identity))
     end
-    push!(s, conv_bn(1, 1, channels, output))
-    return input == output && stride == 1 ? Residual(s) : s
+    push!(s, mobilenet_conv_bn(1, 1, channels, output))
+    return input == output && stride == 1 ? Add(s, identity) : s
 end
 
 

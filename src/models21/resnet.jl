@@ -2,7 +2,7 @@
 export ResNet
 
 import Knet
-using Knet.Layers21: Conv, BatchNorm, Linear, Sequential, Residual
+using Knet.Layers21: Conv, BatchNorm, Linear, Block, Add
 using Knet.Ops20: pool # TODO: add pool to ops21
 using Knet.Ops21: relu
 using Artifacts
@@ -85,14 +85,14 @@ References:
 
 """
 function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
-    s = Sequential(; name="$block$nblocks")
+    s = Block(; name="$block$nblocks")
     push!(s, Op(imagenet_preprocess; normalization="torch", format="whcn"))
     push!(s, ResNetInput())
     x, y = 64, (block === ResNetBasic ? 64 : 256)
     for (stage, nblock) in enumerate(nblocks)
         if stage > 1; y *= 2; end
         b = y ÷ bottleneck
-        blocks = Sequential(; name="Stage$stage")
+        blocks = Block(; name="Stage$stage")
         for iblock in 1:nblock
             stride = (stage > 1 && iblock == 1) ? 2 : 1
             push!(blocks, block(x, b, y; stride, groups))
@@ -106,8 +106,8 @@ end
 
 
 function ResNetBottleneck(x, b, y; activation=relu, groups=1, padding=1, stride=1, o...)
-    Residual(
-        Sequential(
+    Add(
+        Block(
             ConvBN(1, 1, x, b; activation),
             ConvBN(3, 3, b÷groups, b; activation, groups, padding, stride),
             ConvBN(1, 1, b, y),
@@ -118,8 +118,8 @@ end
 
 
 function ResNetBasic(x, b, y; stride=1, padding=1, activation=relu, o...)
-    Residual(
-        Sequential(
+    Add(
+        Block(
             ConvBN(3, 3, x, b; activation, padding, stride),
             ConvBN(3, 3, b, y; padding),
         ),
@@ -129,7 +129,7 @@ end
 
 
 function ResNetInput()
-    Sequential(
+    Block(
         ConvBN(7, 7, 3, 64; stride=2, padding=3, activation=relu),
         Op(pool; window=3, stride=2, padding=1);
         name = "Input"
@@ -138,7 +138,7 @@ end
 
 
 function ResNetOutput(xchannels, classes)
-    Sequential(
+    Block(
         x->pool(x; mode=1, window=size(x)[1:2]),
         x->reshape(x, :, size(x,4)),
         Linear(xchannels, classes; binit=zeros); # TODO: rethink how to specify bias in Linear/Conv
