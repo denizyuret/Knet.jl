@@ -3,8 +3,7 @@ export ResNet
 
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Block, Add
-using Knet.Ops20: pool # TODO: add pool to ops21
-using Knet.Ops21: relu
+using Knet.Ops21: relu, pool, mean
 using Artifacts
 
 
@@ -28,11 +27,11 @@ The input and output blocks are the same for every ResNet model:
 
     Input:
         Conv(7×7, 3=>64, padding=3, stride=2, BatchNorm(), relu)
-        x->pool(x; window=3, stride=2, padding=1)
+        Op(pool; window=3, stride=2, padding=1)
 
     Output:
-        x->pool(x; mode=1, window=size(x)[1:2])
-        x->reshape(x, :, size(x,4))
+        Op(pool; op=mean, window=typemax(Int))
+        reshape2d
         Linear(classes, bias)
     
 Stage i in 1:4 consists of `nblocks[i]` blocks of type `block` which can be
@@ -139,9 +138,9 @@ end
 
 function ResNetOutput(xchannels, classes)
     Block(
-        x->pool(x; mode=1, window=size(x)[1:2]),
-        x->reshape(x, :, size(x,4)),
-        Linear(xchannels, classes; binit=zeros); # TODO: rethink how to specify bias in Linear/Conv
+        Op(pool; op=mean, window=typemax(Int)),
+        reshape2d,
+        Linear(xchannels, classes; binit=zeros);
         name = "Output"
     )
 end

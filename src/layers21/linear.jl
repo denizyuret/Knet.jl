@@ -14,7 +14,7 @@ reshapes:
 where `inputsize=(N...)`, `outputsize=(M...)` each of which can be a single dimension or a
 tuple of dimensions. Optionally dropout is applied to the input, a bias of size `(M...)` is
 added to the output and an activation function `activation` is applied to the
-output.
+output. No bias will be used unless `bias` or `binit` are specified.
 
 The first form takes the sizes and initializes `w` and `bias` using the distributions given
 by `winit` and `binit` with an array type that matches the first input. The second form

@@ -9,5 +9,6 @@ include("activation.jl")
 include("linear.jl")
 include("batchnorm.jl")
 include("conv.jl")
+include("pool.jl")
 
 end

@@ -81,16 +81,17 @@ using CUDA.CUDNN:
 
 
 """
-    c = Conv(wdims...; winit, kwargs...)
-    c = Conv(w; kwargs...)
+    c = Conv(wdims...; winit, binit, kwargs...)
+    c = Conv(w; bias, kwargs...)
     y = c(x, [z=nothing])
 
 Return a layer that can perform convolution and optionally scaling, bias/residual addition,
 normalization and/or activation. The constructor can take the convolution weight tensor `w`
 or its dimensions `wdims`. If `wdims` is used a weight tensor will be initialized using the
-`winit` function which defaults to uniform random in `±√(6/(fanin+fanout))`. The layer can
-be called with a single input `x`, or two inputs `x,z` where `z` has the same size as the
-output `y`. The computed result is:
+`winit` function which defaults to uniform random in `±√(6/(fanin+fanout))` and a bias will
+be initialized using the `binit` function if provided. No bias will be used unless either
+`bias` or `binit` is specified.  The layer can be called with a single input `x`, or two
+inputs `x,z` where `z` has the same size as the output `y`. The computed result is:
 
     y = activation(normalization(alpha * conv(w,x) + beta * z .+ bias))
 

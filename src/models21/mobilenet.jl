@@ -2,8 +2,7 @@ export MobileNet
 
 import Knet
 using Knet.Layers21: Conv, BatchNorm, Linear, Block, Op, Add, Mul
-using Knet.Ops21: relu, hardswish, hardsigmoid
-using Knet.Ops20: pool
+using Knet.Ops21: relu, hardswish, hardsigmoid, pool, mean, reshape2d
 using Artifacts
 
 
@@ -29,6 +28,19 @@ Pretrained models:
 
 Keyword arguments:
 
+* `width = 1`
+* `resolution = 224`
+* `input = 16`
+* `output = (960,1280)`
+* `classes = 1000`
+* `activation = hardswish`
+* `tfpadding = false`
+* `bnupdate = 0.01`
+* `bnepsilon = 0.001`
+* `dropout = 0.2`
+* `block = mobilenet_v3_block`
+* `layout = mobilenet_v3_large_layout`
+* `preprocess = torch_mobilenet_preprocess`
 
 References:
 * https://arxiv.org/abs/1704.04861
@@ -42,14 +54,14 @@ function MobileNet(
     ;
     width = 1,
     resolution = 224,
-    input = 32,
-    output = (),
+    input = 16,
+    output = (960,1280),
     classes = 1000,
-    activation = relu6,         # TODO: fix defaults, document kwargs
-    tfpadding = false,          # torch:1 keras:((0,1),(0,1)); torch:2, keras:((1,2),(1,2))
-    bnupdate = 0.1,             # torch:0.1, keras.MobileNetV1:0.01, keras.MobileNetV2:0.001
-    bnepsilon = 1e-5,           # torch:1e-5, keras:0.001
-    dropout = 0.001,
+    activation = hardswish,      # TODO: document kwargs
+    tfpadding = false,           # torch:1 keras:((0,1),(0,1)); torch:2, keras:((1,2),(1,2))
+    bnupdate = 0.01,             # torchV2:0.1, torchV3:0.01, kerasV1:0.01, kerasV2:0.001
+    bnepsilon = 0.001,           # torchV2:1e-5, torchV3:0.001, keras:0.001
+    dropout = 0.2,               # kerasV1:0.001, others:0.2
     block = mobilenet_v3_block,
     layout = mobilenet_v3_large_layout,
     preprocess = torch_mobilenet_preprocess, # (keras|torch)_mobilenet_preprocess
@@ -68,11 +80,13 @@ function MobileNet(
     end
     top = Block()
     if isempty(output)
-        push!(top, adaptive_avg_pool)
+        push!(top, Op(pool; op=mean, window=typemax(Int)))
+        push!(top, reshape2d)
         push!(top, Linear(α(channels), classes; binit=zeros, dropout))
     else
         push!(top, mobilenet_conv_bn(1, 1, α(channels), α(output[1]); activation))
-        push!(top, adaptive_avg_pool)
+        push!(top, Op(pool; op=mean, window=typemax(Int)))
+        push!(top, reshape2d)
         for o in 2:length(output)
             push!(top, Linear(α(output[o-1]), α(output[o]); binit=zeros, activation))
         end
@@ -93,12 +107,6 @@ function mobilenet_conv_bn(w,h,x,y; groups=1, stride=1, activation=nothing)
     padding = (w > 1 && stride > 1 && c.tfpadding ? ((p-1,p),(p-1,p)) : p)
     normalization=BatchNorm(; update=c.bnupdate, epsilon=c.bnepsilon)
     Conv(w,h,x,y; normalization, groups, stride, padding, activation)
-end
-
-
-function adaptive_avg_pool(x)
-    y = pool(x; mode=1, window=size(x)[1:end-2])
-    reshape(y, size(y,3), size(y,4))
 end
 
 
@@ -164,7 +172,7 @@ function mobilenet_v3_block(input, output; layout, repeat, width)
     push!(s, mobilenet_conv_bn(kernel, kernel, 1, channels; activation, groups=channels, stride))
     if squeeze > 0
         push!(s, Mul(Block(                     
-            x->pool(x; mode=1, window=size(x)[1:2]),
+            Op(pool; op=mean, window=typemax(Int)),
             Conv(1, 1, channels, squeeze; binit=zeros, activation=relu),
             Conv(1, 1, squeeze, channels; binit=zeros, activation=hardsigmoid),
         ), identity))
