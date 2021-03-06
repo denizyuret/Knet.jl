@@ -71,6 +71,8 @@ function imagenet_preprocess(img::Matrix{<:RGB}; mode="nothing", normalization="
     if normalization == "tf"
         xmin, xmax = extrema(img)
         img = img .* (2/(xmax-xmin)) .- ((xmax+xmin)/(xmax-xmin))
+    elseif normalization == "tf2"
+        img = img .* 2 .- 1
     elseif normalization == "torch"
         μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
         img = (img .- μ) ./ σ

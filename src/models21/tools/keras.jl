@@ -2,7 +2,7 @@ using PyCall, FileIO, ImageCore, ImageTransformations, CUDA, Tar, SHA
 import Knet
 using Knet.Layers21, Knet.Ops21
 using Knet.Train20: param
-using Knet.Ops20: pool, softmax
+using Knet.Ops20: softmax
 typename(p::PyObject) = pytypeof(p).__name__
 tf = pyimport("tensorflow")
 include("../Models21.jl")
@@ -11,7 +11,7 @@ include("../Models21.jl")
 # Model translator
 function keras2knet(p::PyObject; xtest = nothing, nlayers = -1)
     layers = nlayers >= 1 ? p.layers[1:nlayers] : copy(p.layers)
-    model = Sequential(; name=p.name)
+    model = Block(; name=p.name)
     while !isempty(layers)
         layer1 = popfirst!(layers)
         ltype = typename(layer1)
@@ -109,8 +109,8 @@ end
 
 function keras_GlobalAveragePooling2D(l, layers)
     x->begin #GlobalAveragePooling2D
-        y = pool(x; mode=1, window=size(x)[1:2])
-        reshape(y, size(y,3), size(y,4))
+        y = pool(x; mode=mean, window=typemax(Int))
+        reshape2d(y)
     end
 end
 
@@ -299,30 +299,39 @@ function import_mobilenet_v2(
 end
 
 
-function import_mobilenet_v3(
-    ; tfmodel = tf.keras.applications.MobileNetV3Small,
+function import_mobilenet_v3(   # WIP
+    ; 
+    tfmodel = tf.keras.applications.MobileNetV3Small,
+    layout = mobilenet_v3_small_layout,
     img="ILSVRC2012_val_00000001.JPEG",
     width=1,
     resolution=224)
-    global pf, jf0, jf, jx, jy, px, py
+    global pf, jf0, jf, jx, jy, px, py, w0
     save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
     @assert width in (1, 0.75, 0.5, 0.25)
     @assert resolution in (224, 192, 160, 128)
     # px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     px = imagenet_preprocess(img; normalization=nothing, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
-    jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
+    px = 255 .* px #   x = layers.Rescaling(scale=1. / 127.5, offset=-1.)(x)
+    # jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
+    jx = imagenet_preprocess(img; normalization=nothing, format="whcn", atype=Array{Float32}, resolution) # 224,224,3,1
+    jx = 2 .* jx .- 1
     pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
     jf0 = keras2knet(pf)
-    # w = getweights(jf0)
-    # # MobileNetV1 ends with conv instead of linear
-    # # w[end] = reshape(w[end],1000)
-    # # w[end-1] = permutedims(reshape(w[end-1],(:,1000)))
-    # jf = MobileNet2(; width, resolution)
-    # jf(jx) # init weights
-    # setweights!(jf, w)
+    w0 = getweights(jf0)
+    # MobileNet_tf ends with conv instead of linear
+    w0[end-3] = permutedims(reshape2d(w0[end-3]))
+    w0[end-2] = vec(w0[end-2])
+    w0[end-1] = permutedims(reshape2d(w0[end-1]))
+    w0[end] = vec(w0[end])
+    # preprocess = (resolution->Op(imagenet_preprocess; normalization="tf2", format="whcn", resolution))
+    preprocess = (resolution->identity)
+    jf = MobileNet(; width=1, resolution=224, input=16, output=(576,1024), classes=1000, activation=hardswish, tfpadding=true, bnupdate=0.001, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout, preprocess)
+    jf(jx) # init weights
+    setweights!(jf, w0)
     @time py = pf(px).numpy() |> vec
-    # @time jy = jf(jx) |> vec |> softmax
-    # @assert jy ≈ py
+    @time jy = jf(jx) |> vec |> softmax
+    @show jy ≈ py
     # alpha = round(Int, 100*width)
     # model = "mobilenet_v2_$(alpha)_$(resolution)"
     # saveweights("$(model).jld2", jf) 
@@ -330,11 +339,12 @@ function import_mobilenet_v3(
     # sha1 = Tar.tree_hash("$(model).tar")
     # run(`gzip $(model).tar`)
     # sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
-    idx = sortperm(py, rev=true)
     # @info "git-tree-sha1 = \"$sha1\""
     # @info "sha256 = \"$sha2\""
+    pidx = sortperm(py, rev=true)
+    jidx = sortperm(jy, rev=true)
     Knet.array_type[] = save_atype
-    [ idx py[idx] imagenet_labels()[idx] ]
+    [ pidx py[pidx] imagenet_labels()[pidx] jidx jy[jidx] imagenet_labels()[jidx] ]
 end
 
 

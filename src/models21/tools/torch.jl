@@ -2,7 +2,7 @@ include("../Models21.jl")
 import Knet
 using Knet.Layers21, Knet.Ops21
 using Knet.Train20: param
-using Knet.Ops20: pool, softmax
+using Knet.Ops20: softmax
 using Knet.KnetArrays: KnetArray
 using CUDA: CuArray
 using PyCall, AutoGrad, SHA, Tar, DelimitedFiles
@@ -106,9 +106,9 @@ end
 
 function ResNet_pt(p::PyObject)
     layers = (p.layer1, p.layer2, p.layer3, p.layer4)
-    s = Sequential(ResNetInput_pt(p.conv1, p.bn1); name="ResNet$(length.(layers))")
+    s = Block(ResNetInput_pt(p.conv1, p.bn1); name="ResNet$(length.(layers))")
     for (i, layer) in enumerate(layers)
-        blocks = Sequential(; name="Layer$i")
+        blocks = Block(; name="Layer$i")
         for block in layer
             push!(blocks, ResNetBlock_pt(block))
         end
@@ -129,14 +129,14 @@ function ResNetBlock_pt(p::PyObject)
     layers[end].activation = nothing
     r = (p.downsample === nothing ? identity :
          Conv2d_pt(p.downsample[1]; normalization=torch2knet(p.downsample[2])))
-    Residual(Sequential(layers...), r; activation=relu)
+    Add(Block(layers...), r; activation=relu)
 end
 
 
 function ResNetInput_pt(conv1::PyObject, bn1::PyObject)
-    Sequential(
+    Block(
         Conv2d_pt(conv1; normalization=torch2knet(bn1), activation=relu),
-        x->pool(x; window=3, stride=2, padding=1);
+        Op(pool; window=3, stride=2, padding=1);
         name = "Input"
     )
 end
@@ -145,9 +145,9 @@ end
 function ResNetOutput_pt(fc::PyObject)
     w = param(t2a(fc.weight))
     bias = param(t2a(fc.bias))
-    Sequential(
-        x->pool(x; mode=1, window=size(x)[1:end-2]),
-        x->reshape(x, :, size(x,4)),
+    Block(
+        Op(pool; op=mean, window=typemax(Int)),
+        reshape2d,
         Linear(w; bias);
         name = "Output"
     )
@@ -194,12 +194,12 @@ end
 ##### MobileNetV2 ##################################################################
 
 function adaptive_avg_pool2d(x)
-    y = pool(x; mode=1, window=size(x)[1:end-2])
-    reshape(y, size(y,3), size(y,4))
+    y = pool(x; op=mean, window=typemax(Int))
+    reshape2d(y)
 end
 
 function MobileNetV2_pt(p::PyObject)
-    s = Sequential()
+    s = Block()
     for l in p.features
         push!(s, torch2knet(l))
     end
@@ -210,7 +210,7 @@ function MobileNetV2_pt(p::PyObject)
 end
 
 function MobileNetV3_pt(p::PyObject)
-    s = Sequential()
+    s = Block()
     for l in p.features
         push!(s, torch2knet(l))
     end
@@ -246,7 +246,7 @@ function InvertedResidual_pt(p::PyObject)
 end
 
 function InvertedResidualV2(p::PyObject)
-    s = Sequential()
+    s = Block()
     for l in p.conv
         if l == p.conv[end]
             @assert typename(l) == "BatchNorm2d"
@@ -256,29 +256,29 @@ function InvertedResidualV2(p::PyObject)
         end
     end
     if p.use_res_connect # s[2].stride == (1,1) && size(s[1].w,3) == size(s[end].w,4)
-        return Residual(s)
+        return Add(s, identity)
     else
         return s
     end
 end
 
 function InvertedResidualV3(p::PyObject)
-    s = Sequential()
+    s = Block()
     for l in p.block
         push!(s, torch2knet(l))
     end
     if p.use_res_connect # s[2].stride == (1,1) && size(s[1].w,3) == size(s[end].w,4)
-        return Residual(s)
+        return Add(s, identity)
     else
         return s
     end
 end
 
 function SqueezeExcitation_pt(p::PyObject)
-    SqueezeExcitation(
+    Mul(Block(
         torch2knet(p.fc1; activation=relu),
         torch2knet(p.fc2; activation=hardsigmoid),
-    )
+    ), identity)
 end
 
 function ConvBNActivation_pt(p::PyObject)

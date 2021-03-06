@@ -97,6 +97,7 @@ function MobileNet(
 end    
 
 
+# TODO: Find a better way to represent types of preprocessing
 torch_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="torch", format="whcn", resolution)
 keras_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="tf", format="whcn", resolution)
 
