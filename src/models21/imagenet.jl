@@ -53,39 +53,19 @@ function imagenet_preprocess(img::Matrix{<:Gray}; o...)
     imagenet_preprocess(RGB.(img); o...)
 end
 
-function imagenet_preprocess(img::Matrix{<:RGB}; mode="nothing", normalization="torch", format="whcn", atype=Knet.atype, resolution=224)
-    if mode == "torch"
-        normalization, format = "torch", "nchw"
-        atype = x->pyimport("torch").tensor(convert(Array{Float32},x))
-    end
-    if mode == "tf"
-        normalization, format, atype = "tf", "nhwc", Array{Float32}
-    end
-    minsize = resolution * 8 ÷ 7
-    img = imresize(img, ratio=minsize/minimum(size(img)))           # min(h,w)=256
-    hcenter,vcenter = size(img) .>> 1
+function imagenet_preprocess(img::Matrix{<:RGB}; normalize=identity, resolution=224, format="whcn", atype=Knet.atype)
+    minsize = resolution * 8 ÷ 7                          # 224 => 256
+    img = imresize(img, ratio=minsize/minimum(size(img))) # min(h,w)=256
+    hcenter,vcenter = size(img) .>> 1                     # h÷2, w÷2
     half = resolution ÷ 2
-    img = img[hcenter-half+1:hcenter+half, vcenter-half+1:vcenter+half] # h,w=224,224
-    img = channelview(img)                                      # c,h,w=3,224,224
-    img = Float32.(img)
-    if normalization == "tf"
-        xmin, xmax = extrema(img)
-        img = img .* (2/(xmax-xmin)) .- ((xmax+xmin)/(xmax-xmin))
-    elseif normalization == "tf2"
-        img = img .* 2 .- 1
-    elseif normalization == "torch"
-        μ,σ = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-        img = (img .- μ) ./ σ
-    elseif normalization == "caffe"
-        error("Caffe mode not implemented yet")
-    elseif normalization === nothing
-        # do nothing
-    else
-        error("Unknown normalization: $normalization")
+    img = img[hcenter-half+1:hcenter+half, vcenter-half+1:vcenter+half] # hw=224,224
+    img = Float32.(channelview(img))                                    # chw=3,224,224
+    img = normalize(img)
+    img = reshape(img, (1, size(img)...)) # nchw=1,3,224,224
+    if format != "nchw"
+        perm = findfirst.(collect(format), "nchw")
+        img = permutedims(img, (perm...,))
     end
-    img = reshape(img, (1, size(img)...))                       # n,c,h,w=1,3,224,224
-    perm = findfirst.(collect(format), "nchw")
-    img = permutedims(img, (perm...,))
     return atype(img)
 end
 

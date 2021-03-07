@@ -40,7 +40,7 @@ Keyword arguments:
 * `dropout = 0.2`
 * `block = mobilenet_v3_block`
 * `layout = mobilenet_v3_large_layout`
-* `preprocess = torch_mobilenet_preprocess`
+* `normalize = mobilenet_normalize_pt`
 
 References:
 * https://arxiv.org/abs/1704.04861
@@ -64,12 +64,12 @@ function MobileNet(
     dropout = 0.2,               # kerasV1:0.001, others:0.2
     block = mobilenet_v3_block,
     layout = mobilenet_v3_large_layout,
-    preprocess = torch_mobilenet_preprocess, # (keras|torch)_mobilenet_preprocess
+    normalize = mobilenet_normalize_pt,
 )
     global _mobilenet_config = (; tfpadding, bnupdate, bnepsilon)
     α(x) = round(Int, width*x)
     s = Block()
-    push!(s, preprocess(resolution))
+    push!(s, Op(imagenet_preprocess; normalize, resolution))
     push!(s, mobilenet_conv_bn(3, 3, 3, α(input); stride=2, activation))
     channels = input
     for l in layout
@@ -97,9 +97,8 @@ function MobileNet(
 end    
 
 
-# TODO: Find a better way to represent types of preprocessing
-torch_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="torch", format="whcn", resolution)
-keras_mobilenet_preprocess(resolution) = Op(imagenet_preprocess; normalization="tf", format="whcn", resolution)
+mobilenet_normalize_pt(x) = (x .- [0.485, 0.456, 0.406]) ./ [0.229, 0.224, 0.225]
+mobilenet_normalize_tf(x) = ((a,b)=extrema(x); x .* (2/(b-a)) .- ((b+a)/(b-a)))
 
 
 function mobilenet_conv_bn(w,h,x,y; groups=1, stride=1, activation=nothing)
@@ -217,11 +216,11 @@ mobilenet_v3_small_layout = (
 ## Pretrained models
 
 mobilenet_models = Dict{String,NamedTuple}(
-    "mobilenet_v1_100_224_tf" => (width=1, resolution=224, input=32, output=(), classes=1000, activation=relu6, tfpadding=true, bnupdate=0.01, bnepsilon=0.001, dropout=0.001, block=mobilenet_v1_block, layout=mobilenet_v1_layout, preprocess=keras_mobilenet_preprocess),
-    "mobilenet_v2_100_224_tf" => (width=1, resolution=224, input=32, output=1280, classes=1000, activation=relu6, tfpadding=true, bnupdate=0.001, bnepsilon=0.001, dropout=0.2, block=mobilenet_v2_block, layout=mobilenet_v2_layout, preprocess=keras_mobilenet_preprocess),
-    "mobilenet_v2_100_224_pt" => (width=1, resolution=224, input=32, output=1280, classes=1000, activation=relu6, tfpadding=false, bnupdate=0.1, bnepsilon=1e-5, dropout=0.2, block=mobilenet_v2_block, layout=mobilenet_v2_layout, preprocess=torch_mobilenet_preprocess),
-    "mobilenet_v3_large_100_224_pt" => (width=1, resolution=224, input=16, output=(960,1280), classes=1000, activation=hardswish, tfpadding=false, bnupdate=0.01, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout=mobilenet_v3_large_layout, preprocess=torch_mobilenet_preprocess),
-    "mobilenet_v3_small_100_224_pt" => (width=1, resolution=224, input=16, output=(576,1024), classes=1000, activation=hardswish, tfpadding=false, bnupdate=0.01, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout=mobilenet_v3_small_layout, preprocess=torch_mobilenet_preprocess),
+    "mobilenet_v1_100_224_tf" => (width=1, resolution=224, input=32, output=(), classes=1000, activation=relu6, tfpadding=true, bnupdate=0.01, bnepsilon=0.001, dropout=0.001, block=mobilenet_v1_block, layout=mobilenet_v1_layout, normalize=mobilenet_normalize_tf),
+    "mobilenet_v2_100_224_tf" => (width=1, resolution=224, input=32, output=1280, classes=1000, activation=relu6, tfpadding=true, bnupdate=0.001, bnepsilon=0.001, dropout=0.2, block=mobilenet_v2_block, layout=mobilenet_v2_layout, normalize=mobilenet_normalize_tf),
+    "mobilenet_v2_100_224_pt" => (width=1, resolution=224, input=32, output=1280, classes=1000, activation=relu6, tfpadding=false, bnupdate=0.1, bnepsilon=1e-5, dropout=0.2, block=mobilenet_v2_block, layout=mobilenet_v2_layout, normalize=mobilenet_normalize_pt),
+    "mobilenet_v3_large_100_224_pt" => (width=1, resolution=224, input=16, output=(960,1280), classes=1000, activation=hardswish, tfpadding=false, bnupdate=0.01, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout=mobilenet_v3_large_layout, normalize=mobilenet_normalize_pt),
+    "mobilenet_v3_small_100_224_pt" => (width=1, resolution=224, input=16, output=(576,1024), classes=1000, activation=hardswish, tfpadding=false, bnupdate=0.01, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout=mobilenet_v3_small_layout, normalize=mobilenet_normalize_pt),
 )
 
 function MobileNet(s::String; pretrained=true)

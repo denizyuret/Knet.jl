@@ -85,7 +85,7 @@ References:
 """
 function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bottleneck = 1, classes = 1000)
     s = Block(; name="$block$nblocks")
-    push!(s, Op(imagenet_preprocess; normalization="torch", format="whcn"))
+    push!(s, Op(imagenet_preprocess; normalize=resnet_pt_normalize))
     push!(s, ResNetInput())
     x, y = 64, (block === ResNetBasic ? 64 : 256)
     for (stage, nblock) in enumerate(nblocks)
@@ -100,7 +100,7 @@ function ResNet(; nblocks = (2,2,2,2), block = ResNetBottleneck, groups = 1, bot
         push!(s, blocks)
     end
     push!(s, ResNetOutput(y, classes))
-    resnetinit(s)
+    resnet_init(s)
 end
 
 
@@ -150,8 +150,12 @@ end
 ConvBN(x...; o...) = Conv(x...; o..., normalization=BatchNorm())
 
 
+# Torchvision normalization
+resnet_pt_normalize(x) = (x .- [0.485, 0.456, 0.406]) ./ [0.229, 0.224, 0.225]
+
+
 # Run a single image so weights get initialized
-resnetinit(m) = (m(Knet.atype(zeros(Float32,224,224,3,1))); m)
+resnet_init(m) = (m(Knet.atype(zeros(Float32,224,224,3,1))); m)
 
 
 # Pretrained models from torchvision

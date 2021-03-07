@@ -126,8 +126,13 @@ end
 
 
 function keras_Activation(l, layers)
-    @assert l.activation.__name__ == "softmax"  "Activation $(l.activation.__name__) not yet implemented."
-    Op(softmax; dims=1)
+    if l.activation.__name__ == "softmax"
+        Op(softmax; dims=1)
+    elseif l.activation.__name__ == "swish"
+        swish
+    else
+        error("Activation $(l.activation.__name__) not yet implemented.")
+    end
 end
 
 
@@ -167,6 +172,12 @@ function keras_Flatten(l, layers)
 end
 
 
+function keras_Normalization(l, layers)
+    @warn "Normalization not defined" maxlog=1
+    Op("Normalization")
+end
+
+
 
 ### Test and import utils
 
@@ -174,7 +185,7 @@ function kerastest(img="ILSVRC2012_val_00000001.JPEG")
     global pf, jf, px, jx
     pf = tf.keras.applications.MobileNet()
     jf = keras2knet(pf)
-    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}) # 1,224,224,3
+    px = imagenet_preprocess(img; normalize=mobilenet_normalize_tf, format="nhwc", atype=Array{Float32}) # 1,224,224,3
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
     @time py = pf(px).numpy() |> vec
     @time jy = jf(jx) |> Array |> vec
@@ -184,22 +195,37 @@ function kerastest(img="ILSVRC2012_val_00000001.JPEG")
 end
 
 
-function tf_layer_outputs(model, img="ILSVRC2012_val_00000001.JPEG")
+function tf_layer_outputs(model, img="ILSVRC2012_val_00000001.JPEG"; normalize=identity, resolution=224)
     model.trainable = false
-    input = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution=224) # 1,224,224,3
+    input = imagenet_preprocess(img; normalize, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     # layer_output = base_model.get_layer(layer_name).output
-    models = map(model.layers) do l
-        tf.keras.models.Model(model.input, outputs=[l.output])
+    models = []
+    for l in Knet.progress(model.layers)
+        push!(models, tf.keras.models.Model(model.input, outputs=[l.output]))
     end
-    outputs = map(models) do m
-        m.predict(input)
+    outputs = []
+    for m in Knet.progress(models)
+        try 
+            push!(outputs, m.predict(input))
+        catch e
+            push!(outputs, nothing)
+        end
     end
+    return outputs
+end
+
+
+function tf_layer_output(model, layer=length(model.layers), img="ILSVRC2012_val_00000001.JPEG"; normalize=identity, resolution=224)
+    model.trainable = false
+    input = imagenet_preprocess(img; normalize, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    m = tf.keras.models.Model(model.input, outputs=[model.layers[layer].output])
+    m.predict(input)
 end
 
 
 function test_mobilenet_v2(file="mobilenet_v2_100_224_tf.jld2", img="ILSVRC2012_val_00000001.JPEG")
     pf = tf.keras.applications.MobileNetV2() # tf.keras.applications.mobilenet_v2.MobileNetV2()
-    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution=224) # 1,224,224,3
+    px = imagenet_preprocess(img; normalize=mobilenet_normalize_tf, format="nhwc", atype=Array{Float32}, resolution=224) # 1,224,224,3
     jf = MobileNet("mobilenet_v2_100_224_tf")
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
     jf(jx)
@@ -231,7 +257,7 @@ function import_mobilenet_tf(
     end
 
     save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
-    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    px = imagenet_preprocess(img; normalize=mobilenet_normalize_tf, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
 
     jf = MobileNet(; width, resolution, block, layout, output)
@@ -273,7 +299,7 @@ function import_mobilenet_v2(
     save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
     @assert width in (1, 0.75, 0.5, 0.25)
     @assert resolution in (224, 192, 160, 128)
-    px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    px = imagenet_preprocess(img; normalize=mobilenet_normalize_tf, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
     pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
     jf0 = keras2knet(pf)
@@ -311,10 +337,10 @@ function import_mobilenet_v3(   # WIP
     @assert width in (1, 0.75, 0.5, 0.25)
     @assert resolution in (224, 192, 160, 128)
     # px = imagenet_preprocess(img; normalization="tf", format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
-    px = imagenet_preprocess(img; normalization=nothing, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    px = imagenet_preprocess(img; format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     px = 255 .* px #   x = layers.Rescaling(scale=1. / 127.5, offset=-1.)(x)
     # jx = Knet.atype(permutedims(px,(3,2,4,1))) # 224,224,3,1
-    jx = imagenet_preprocess(img; normalization=nothing, format="whcn", atype=Array{Float32}, resolution) # 224,224,3,1
+    jx = imagenet_preprocess(img; format="whcn", atype=Array{Float32}, resolution) # 224,224,3,1
     jx = 2 .* jx .- 1
     pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
     jf0 = keras2knet(pf)
@@ -324,9 +350,7 @@ function import_mobilenet_v3(   # WIP
     w0[end-2] = vec(w0[end-2])
     w0[end-1] = permutedims(reshape2d(w0[end-1]))
     w0[end] = vec(w0[end])
-    # preprocess = (resolution->Op(imagenet_preprocess; normalization="tf2", format="whcn", resolution))
-    preprocess = (resolution->identity)
-    jf = MobileNet(; width=1, resolution=224, input=16, output=(576,1024), classes=1000, activation=hardswish, tfpadding=true, bnupdate=0.001, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout, preprocess)
+    jf = MobileNet(; width=1, resolution=224, input=16, output=(576,1024), classes=1000, activation=hardswish, tfpadding=true, bnupdate=0.001, bnepsilon=0.001, dropout=0.2, block=mobilenet_v3_block, layout)
     jf(jx) # init weights
     setweights!(jf, w0)
     @time py = pf(px).numpy() |> vec
@@ -341,6 +365,41 @@ function import_mobilenet_v3(   # WIP
     # sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
     # @info "git-tree-sha1 = \"$sha1\""
     # @info "sha256 = \"$sha2\""
+    pidx = sortperm(py, rev=true)
+    jidx = sortperm(jy, rev=true)
+    Knet.array_type[] = save_atype
+    [ pidx py[pidx] imagenet_labels()[pidx] jidx jy[jidx] imagenet_labels()[jidx] ]
+end
+
+
+function import_efficientnet(n=0)
+    # to test with outs = tf_layer_outputs(pf; normalize=(x->(255 .* x)), resolution=240)
+    tfmodel = getproperty(tf.keras.applications, "EfficientNetB$n")
+    img="ILSVRC2012_val_00000001.JPEG"
+    global pf, jf0, jf, jx, jy, px, py, w0
+    model = lowercase(tfmodel.__name__)
+    opts = efficientnet_models[model]
+    save_atype = Knet.array_type[]; Knet.array_type[] = Array{Float32}
+    px = imagenet_preprocess(img; normalize=(x->(255*x)), format="nhwc", atype=Array{Float32}, opts.resolution) # 1,224,224,3
+    jx = imagenet_preprocess(img; normalize=efficientnet_normalize, format="whcn", atype=Array{Float32}, opts.resolution) # 224,224,3,1
+    pf = tfmodel()  # ; alpha=width, input_shape=(resolution,resolution,3))
+    jf0 = keras2knet(pf)
+    w0 = getweights(jf0)
+    jf = EfficientNet(; opts...)
+    jf(jx) # init weights
+    setweights!(jf, w0)
+    @info "Calling tf model"
+    @time py = pf(px).numpy() |> vec
+    @info "Calling julia model"
+    @time jy = jf(jx) |> vec |> softmax
+    @show jy ≈ py
+    saveweights("$(model).jld2", jf) 
+    run(`tar cf $(model).tar $(model).jld2`)
+    sha1 = Tar.tree_hash("$(model).tar")
+    run(`gzip $(model).tar`)
+    sha2 = open("$(model).tar.gz") do f; bytes2hex(sha256(f)); end
+    @info "git-tree-sha1 = \"$sha1\""
+    @info "sha256 = \"$sha2\""
     pidx = sortperm(py, rev=true)
     jidx = sortperm(jy, rev=true)
     Knet.array_type[] = save_atype
