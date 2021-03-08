@@ -197,6 +197,26 @@ end
 
 function tf_layer_outputs(model, img="ILSVRC2012_val_00000001.JPEG"; normalize=identity, resolution=224)
     model.trainable = false
+    x = imagenet_preprocess(img; normalize, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
+    outputnames = string.(l.output for l in model.layers)
+    outputs = []
+    for l in Knet.progress(model.layers)
+        if l.input isa PyObject
+            x = l(x)
+        else
+            xs = map(string.(l.input)) do s
+                outputs[findfirst(isequal(s), outputnames)]
+            end
+            x = l(xs)
+        end
+        push!(outputs, x)
+    end
+    (x->x.numpy()).(outputs)
+end
+
+
+function tf_layer_outputs_slow(model, img="ILSVRC2012_val_00000001.JPEG"; normalize=identity, resolution=224)
+    model.trainable = false
     input = imagenet_preprocess(img; normalize, format="nhwc", atype=Array{Float32}, resolution) # 1,224,224,3
     # layer_output = base_model.get_layer(layer_name).output
     models = []

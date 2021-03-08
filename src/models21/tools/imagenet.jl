@@ -53,7 +53,8 @@ function imagenet_preprocess(img::Matrix{<:Gray}; o...)
     imagenet_preprocess(RGB.(img); o...)
 end
 
-function imagenet_preprocess(img::Matrix{<:RGB}; normalize=identity, resolution=224, format="whcn", atype=Knet.atype)
+function imagenet_preprocess(img::Matrix{<:RGB}; normalize=nothing, resolution=224, format="whcn", atype=Knet.atype)
+    if normalize === nothing; normalize = identity; end
     minsize = resolution * 8 ÷ 7                          # 224 => 256
     img = imresize(img, ratio=minsize/minimum(size(img))) # min(h,w)=256
     hcenter,vcenter = size(img) .>> 1                     # h÷2, w÷2
@@ -70,7 +71,7 @@ function imagenet_preprocess(img::Matrix{<:RGB}; normalize=identity, resolution=
 end
 
 # fallback
-imagenet_preprocess(x; o...) = x
+imagenet_preprocess(x; atype=Knet.atype, o...) = atype(x)
 
 # ImageNet meta-information
 function imagenet_labels()

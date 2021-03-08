@@ -1,21 +1,29 @@
-#= NOTES:
+export EfficientNet
 
-ϕ = scale coefficient
-α^ϕ = depth (layers)
-β^ϕ = width (channels)
-γ^ϕ = resolution (spatial dims)
-s.t. α⋅β²⋅γ² ≈ 2
+import Knet
+using Knet.Layers21: Conv, BatchNorm, Linear, Block, Op, Add, Mul
+using Knet.Ops21: swish, sigm, pool, mean, reshape2d
+using Artifacts
 
-EfficientNet-B0: α = 1.2, β = 1.1, γ = 1.15
-
-=#
-
-# TODO: stem and top
 # TODO: drop_connect_rate * b / blocks
 
-
-
 """
+    EfficientNet(; kwargs...)
+    EfficientNet(name::String; pretrained=true)
+
+Pretrained models:
+
+    name            top1   ref1   size
+    ----            -----  -----  ----
+    efficientnetb0  77.04  77.1    21M
+    efficientnetb1  79.03  79.1    31M
+    efficientnetb2  79.97  80.1    36M
+    efficientnetb3         81.6    48M
+    efficientnetb4         82.9    75M
+    efficientnetb5         83.6   118M
+    efficientnetb6         84.0   166M
+    efficientnetb7         84.3   256M
+                               
 References:
 * [Tan & Le 2019](https://arxiv.org/abs/1905.11946) EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks. (ICML 2019)
 * [Tensorflow](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/keras/applications/efficientnet.py)
@@ -35,15 +43,17 @@ function EfficientNet(
     normalize = efficientnet_normalize,
 )
     α(x) = ceil(Int, depth * x)
-    β(x) = max(8, floor(Int, width * x + 4) ÷ 8 * 8)
+    β(x) = (wx = width*x; qx = max(8, floor(Int, wx + 4) ÷ 8 * 8); qx < 0.9 * wx ? qx+8 : qx)
     global efficientnet_config = (; tfpadding, bnupdate, bnepsilon)
     b = Block()
     push!(b, Op(imagenet_preprocess; resolution, normalize))
-    push!(b, efficientnet_conv(3, β(input); kernel=3, stride=2))
+    push!(b, efficientnet_conv(3, β(input); kernel=3, stride=2, resolution))
+    resolution = (1+resolution) ÷ 2
     for l in efficientnet_layout
         stride = l.stride
         for r in 1:α(l.repeat)
-            push!(b, efficientnet_block(β(input), β(l.output); stride, l.kernel, l.expand, l.squeeze))
+            push!(b, efficientnet_block(β(input), β(l.output); stride, resolution, l.kernel, l.expand, l.squeeze))
+            resolution = (stride == 2 ? (1+resolution) ÷ 2 : resolution)
             stride, input = 1, l.output
         end
     end
@@ -55,13 +65,13 @@ function EfficientNet(
 end
 
 
-function efficientnet_block(input, output; kernel, stride, expand, squeeze)
+function efficientnet_block(input, output; stride, resolution, kernel, expand, squeeze)
     b = Block()
     c = input * expand
     if expand != 1
         push!(b, efficientnet_conv(input, c; kernel=1))
     end
-    push!(b, efficientnet_conv(1, c; groups=c, stride, kernel))
+    push!(b, efficientnet_conv(1, c; groups=c, stride, kernel, resolution))
     if squeeze != 1
         push!(b, efficientnet_se(c, max(1, input÷squeeze)))
     end
@@ -70,10 +80,10 @@ function efficientnet_block(input, output; kernel, stride, expand, squeeze)
 end
 
 
-function efficientnet_conv(input, output; kernel=1, groups=1, stride=1, activation=swish)
+function efficientnet_conv(input, output; kernel=1, groups=1, stride=1, activation=swish, resolution=0)
     c = efficientnet_config
-    p = (kernel-1)÷2
-    padding = (c.tfpadding && kernel > 1 && stride > 1 ? ((p-1,p),(p-1,p)) : p)
+    p,q = (kernel-1)÷2, 1-resolution%2
+    padding = (c.tfpadding && q > 0 && kernel > 1 && stride > 1 ? ((p-q,p),(p-q,p)) : p)
     normalization=BatchNorm(; update=c.bnupdate, epsilon=c.bnepsilon)
     Conv(kernel,kernel,input,output; normalization, groups, stride, padding, activation)
 end
@@ -88,7 +98,11 @@ function efficientnet_se(input, squeeze; activation=swish)
 end
 
 
-efficientnet_normalize(x) = (x .- [0.485, 0.456, 0.406]) ./ sqrt.([0.229, 0.224, 0.225])
+# Use this to replicate the currently buggy implementation in tf.keras.applications
+efficientnet_normalize_buggy(x) = (x .- [0.485, 0.456, 0.406]) ./ sqrt.([0.229, 0.224, 0.225])
+
+# Use this to get better results
+efficientnet_normalize(x) = (x .- [0.485, 0.456, 0.406]) ./ [0.229, 0.224, 0.225]
 
 
 efficientnet_layout = (
@@ -119,8 +133,10 @@ function EfficientNet(s::String; pretrained=true)
     kwargs = efficientnet_models[s]
     model = EfficientNet(; kwargs...)
     res = kwargs.resolution
-    model(Knet.atype(zeros(Float32,res,res,3,1)))
-    pretrained && setweights!(model, "$s.jld2") # joinpath(@artifact_str(s), "$s.jld2"))
+    if pretrained
+        model(Knet.atype(zeros(Float32,res,res,3,1)))
+        setweights!(model, joinpath(@artifact_str(s), "$s.jld2"))
+    end
     return model
 end
 

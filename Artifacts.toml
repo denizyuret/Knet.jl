@@ -158,3 +158,67 @@ lazy = true
     [[mobilenet_v3_large_100_224_pt.download]]
     sha256 = "4ce15b1ae9c3c540c0c800301f6eae3f01cf5fa9d022654c6a0f2fda789c55bc"
     url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v3_large_100_224_pt.tar.gz"
+
+[efficientnetb0]
+git-tree-sha1 = "321257e159382b323057477d9ec0a8b0686eb3b6"
+lazy = true
+
+    [[efficientnetb0.download]]
+    sha256 = "fb629132c8b38caa6bc91bb2e5bad1470c2c65c570c430140c1b8679cbe62b3b"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb0.tar.gz"
+
+[efficientnetb1]
+git-tree-sha1 = "97c72b9700149e5e7e29d8b43e2ba1e2edc899a4"
+lazy = true
+
+    [[efficientnetb1.download]]
+    sha256 = "9cabe8ee4b91139f78f7b7e5936ff4e12edfb7bbe73f022d8f35d9efa6a7702d"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb1.tar.gz"
+
+[efficientnetb2]
+git-tree-sha1 = "542d2c06eaf20f58edd5b222e82539e8d18a6908"
+lazy = true
+
+    [[efficientnetb2.download]]
+    sha256 = "793cca08f6ef7d1d3d00505c2d5b63147dd6ddaf0f4cac10dfc7d9d51d50943e"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb2.tar.gz"
+
+[efficientnetb3]
+git-tree-sha1 = "068c1663816e20df65f825f640cf819fc35fc0a8"
+lazy = true
+
+    [[efficientnetb3.download]]
+    sha256 = "727c61cd1301dbc94472aebc1d194578b655e6d21aeffaf5d5721a63436bcc8b"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb3.tar.gz"
+
+[efficientnetb4]
+git-tree-sha1 = "e20585695e4a981356a897c761df3e108230d83c"
+lazy = true
+
+    [[efficientnetb4.download]]
+    sha256 = "b210d59669cf7bdee76374b94053210414075be5d05a30f799abe4272e148ecf"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb4.tar.gz"
+
+[efficientnetb5]
+git-tree-sha1 = "4f64458a1de9a3856b9c7de7e09b98fde40f7a9d"
+lazy = true
+
+    [[efficientnetb5.download]]
+    sha256 = "3303cd78e430b013df31e94e385848b8cb0414759bf5daf387b63fb19852bb96"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb5.tar.gz"
+
+[efficientnetb6]
+git-tree-sha1 = "f1639c13e22ecbf16ee623c5ca7d112350cce829"
+lazy = true
+
+    [[efficientnetb6.download]]
+    sha256 = "f9fedc5d3ed41633f052012df2df99ac4131cf739bf2e2ca6f8580da5fa18aaf"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb6.tar.gz"
+
+[efficientnetb7]
+git-tree-sha1 = "af6e831bf57f389cf831c496c4a4520bb4e1bbdd"
+lazy = true
+
+    [[efficientnetb7.download]]
+    sha256 = "62d257df3e71ba635fe0340288c8c0d2272b212f318c8006b8ce3d6145caf152"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb7.tar.gz"
