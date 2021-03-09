@@ -18,11 +18,11 @@ Pretrained models:
     efficientnetb0  77.04  77.1    21M
     efficientnetb1  79.03  79.1    31M
     efficientnetb2  79.97  80.1    36M
-    efficientnetb3         81.6    48M
-    efficientnetb4         82.9    75M
-    efficientnetb5         83.6   118M
-    efficientnetb6         84.0   166M
-    efficientnetb7         84.3   256M
+    efficientnetb3  81.30  81.6    48M
+    efficientnetb4  82.56  82.9    75M
+    efficientnetb5  83.52  83.6   118M
+    efficientnetb6  83.80  84.0   166M
+    efficientnetb7  84.02  84.3   256M
                                
 References:
 * [Tan & Le 2019](https://arxiv.org/abs/1905.11946) EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks. (ICML 2019)
@@ -37,7 +37,7 @@ function EfficientNet(
     output = 1280,
     classes = 1000,
     dropout = 0.2,
-    tfpadding = true,
+    tfpadding = true, # wrong padding costs ~1%
     bnupdate = 0.01,
     bnepsilon = 0.001,
     normalize = efficientnet_normalize,
