@@ -1,3 +1,12 @@
+2021-03-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* xnor-lenet:
+	- There is a strange state where grad is close to 0 but accuracy is 0.1?
+
+	* training:
+	- Not initializing weights is an inconvenience.
+	- Still need Train20 and accuracy/nll from Ops20.
+
 2021-02-27  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* tf-eval.py: script that evaluates a keras model on imagenet val.
