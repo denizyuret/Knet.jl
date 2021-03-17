@@ -1,3 +1,12 @@
+Knet v1.4.6 Release Notes
+=========================
+
+* Improve fill! performance
+* Fix #653: Knet.@save macro
+* Fix #658 LinearIndices(::KnetArray)
+* Use load->load143 for tutorials
+
+
 Knet v1.4.5 Release Notes
 =========================
 5aff4be 2020-12-15
