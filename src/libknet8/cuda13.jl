@@ -102,6 +102,12 @@ extern "C" {
     dim3 dimGrid(n_block);
     _$(F)_13_x_y<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
   }
+  $DLLEXPORT void $(F)_13_x_y_stream($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N, cudaStream_t STR) {
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
+    dim3 dimGrid(n_block);
+    _$(F)_13_x_y<<<dimGrid,dimBlock,0,STR>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
+  }
 }
 """)
     end
@@ -168,6 +174,12 @@ extern "C" {
     int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
     dim3 dimGrid(n_block);
     _$(F)_13_y_x<<<dimGrid,dimBlock>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
+  }
+  $DLLEXPORT void $(F)_13_y_x_stream($T *x,$T *y,$T *z, int brdcastdimstride, int brdcastnextstride,int multidimsize,int A_N, int B_N, cudaStream_t STR) {
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    int n_block = (B_N+half_BLOCK_SIZE_y-1)/half_BLOCK_SIZE_y;
+    dim3 dimGrid(n_block);
+    _$(F)_13_y_x<<<dimGrid,dimBlock,0,STR>>>(x,y,z,brdcastdimstride,brdcastnextstride,multidimsize,A_N);
   }
 }
 """)

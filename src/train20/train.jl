@@ -1,7 +1,7 @@
-export minimize, minimize!, converge, converge!, train!, training
+export minimize, minimize!, converge, converge!, train!
 import Base: IteratorSize, IteratorEltype, length, size, iterate, eltype
 using Base: haslength, tail, @propagate_inbounds, SizeUnknown
-using AutoGrad: AutoGrad, @diff, params, grad, value, recording
+using AutoGrad: AutoGrad, @diff, params, grad, value
 
 # progress(minimize(f, ncycle(data,10)))
 # A stream (iterator) based implementation: minimize works like map
@@ -81,10 +81,6 @@ IteratorSize(::Type{<:Converge}) = SizeUnknown()
     avgp = c.alpha * p + (1-c.alpha) * avgp
     avgp > 0.0 && return nothing
     (item, (avgp, avgx, state))
-end
-
-function training()
-    AutoGrad.recording()
 end
 
 ### DEPRECATED:

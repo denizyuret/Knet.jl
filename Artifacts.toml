@@ -1,35 +1,224 @@
+# git-tree-sha1 = Tar.tree_hash("file.tar")
+# sha256 = using SHA; open("file.tar.gz") do f; bytes2hex(sha256(f)); end
+
+
 [[libknet8]]
 arch = "x86_64"
-git-tree-sha1 = "172aab1c490da4e9f26ed08c3b8e99cd86e8d7e7"
+git-tree-sha1 = "672d091cec9838612ebc6ffdba49c8b4add7aff1"
 os = "linux"
-
-   [[libknet8.download]]
-   sha256 = "84a33826b8dd45451852be25bdc84a070f9bc418b09ab093cce5682abb54377a"
-   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.0/libknet8.x86_64-linux-gnu.tar.gz"
+   
+    [[libknet8.download]]
+    sha256 = "5ebe32dabf109a71d16cceebe1cb849416292e469b1f01c56be2fef23ce464b2"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/libknet8-1.4.5-linux-x86_64.tar.gz"
 
 [[libknet8]]
 arch = "x86_64"
-git-tree-sha1 = "9f36b4ee16e483534b1031bc272c9f4cb8443088"
+git-tree-sha1 = "6288cea1470da82d08e713de2d0af45e99405d46"
 os = "windows"
 
-   [[libknet8.download]]
-   sha256 = "04175385bb0c06a4efccd4a09b5c66fc832097b15a5e0316647d4c66a1cc2b7e"
-   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.3.8/libknet8.x86_64-windows.tar.gz"
+    [[libknet8.download]]
+    sha256 = "32b28e6395d5339c79359635538f6ac3a25ff3a362c304e50fdb18490f584e54"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/libknet8-1.4.5-win64.tar.gz"
 
 [[libknet8]]
 arch = "x86_64"
 git-tree-sha1 = "de5d5055f7f4258582ca67420d9dbcc944e65b50"
 os = "macos"
 
-   [[libknet8.download]]
-   sha256 = "c2546da8ae4f2ef87d7a239f85fe514306cec7d14fbe782e828f83d862bc2706"
-   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.3.8/libknet8.x86_64-macos.tar.gz"
+    [[libknet8.download]]
+    sha256 = "c2546da8ae4f2ef87d7a239f85fe514306cec7d14fbe782e828f83d862bc2706"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.3.8/libknet8.x86_64-macos.tar.gz"
 
 [[libknet8]]
 arch = "powerpc64le"
 git-tree-sha1 = "40478d85ecfa6b64bc54ca18e75e477cf15ddf3a"
 os = "linux"
 
-   [[libknet8.download]]
-   sha256 = "a7f7e8783aaebae2d6379cfca340999de70bb202d776a05fba661d1c8626e7cc"
-   url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.3/libknet8.ppc64le-linux-gnu.tar.gz"
+    [[libknet8.download]]
+    sha256 = "a7f7e8783aaebae2d6379cfca340999de70bb202d776a05fba661d1c8626e7cc"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.3/libknet8.ppc64le-linux-gnu.tar.gz"
+
+
+[resnet18]
+git-tree-sha1 = "b051b904643fcd69a26cc7cccb5c035d917afaff"
+lazy = true
+
+    [[resnet18.download]]
+    sha256 = "939003089f11ac0d88fe4072e9e3d7605a24845001777995e34325057c1452ff"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet18.tar.gz"
+
+[resnet34]
+git-tree-sha1 = "52759b572da9c8e07b6421388e4ea92cce345d44"
+lazy = true
+
+    [[resnet34.download]]
+    sha256 = "a40aef72ef558b18f22d3695af59ecff2f742979ad67a32d956a0a7bb8571241"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet34.tar.gz"
+
+[resnet50]
+git-tree-sha1 = "2b00a5b4f4b47f4885ccc79d1eaeaa65c7728f0a"
+lazy = true
+
+    [[resnet50.download]]
+    sha256 = "2ff77bc80bd7fd32da9854bf63405b5e40647d251bc85a37283bf94bb93421b2"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet50.tar.gz"
+
+[resnet101]
+git-tree-sha1 = "90212e25c29a8a08d62b69d5e54b2bc055f64db4"
+lazy = true
+
+    [[resnet101.download]]
+    sha256 = "04ae71ea235800b50de80d183201e530fbee7d8cba146f4e0883744ddb16a586"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet101.tar.gz"
+
+[resnet152]
+git-tree-sha1 = "285ccc3cd6a53e98351499660fb2d9fa58de39be"
+lazy = true
+
+    [[resnet152.download]]
+    sha256 = "62cc6b86fb1adadc303783e6eb8a26b73aa9498e6652f76bb6d2e312dc6eafe9"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnet152.tar.gz"
+
+[resnext50_32x4d]
+git-tree-sha1 = "5e1ad632523525fed22d3810c15984f7e8ce5765"
+lazy = true
+
+    [[resnext50_32x4d.download]]
+    sha256 = "7fd478d7cd63298f11d66362b9ebd96390557d7125c7f1142c4a37730fc5fbae"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnext50_32x4d.tar.gz"
+
+[resnext101_32x8d]
+git-tree-sha1 = "a812752347056706e97ed79d1dde297cce2ef298"
+lazy = true
+
+    [[resnext101_32x8d.download]]
+    sha256 = "a3abe1b8f22b5a39ac7eb186cdf5ebfbe275acfdf0bc92e9f1f27274a32426cb"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/resnext101_32x8d.tar.gz"
+
+[wide_resnet50_2]
+git-tree-sha1 = "b2356511530aabf972d2f2ccc09549132bd191ce"
+lazy = true
+
+    [[wide_resnet50_2.download]]
+    sha256 = "c2d2a8706419fdc80a1e38d0b5f4114c3a237cae960421255a917dcc35ae1fe4"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/wide_resnet50_2.tar.gz"
+
+[wide_resnet101_2]
+git-tree-sha1 = "5f6102ebf78cb838db44caced41e664b4b89925c"
+lazy = true
+
+    [[wide_resnet101_2.download]]
+    sha256 = "a86a554cf77a66ba77a7fe9c2be673be33b4ac18b056b91675affae37169c2c0"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/wide_resnet101_2.tar.gz"
+
+[imagenet_labels]
+git-tree-sha1 = "b0d97ecb27796e02f3204ebf992d22662a7d5c4f"
+lazy = true
+
+    [[imagenet_labels.download]]
+    sha256 = "7826b4ce9753377b5445879c28a621f581d9599865bfc78dd3fa4240f42253bb"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/imagenet_labels.tar.gz"
+
+[mobilenet_v1_100_224_tf]
+git-tree-sha1 = "a71bd8f24ded79e6072b98fed3cb888579ba44d8"
+lazy = true
+
+    [[mobilenet_v1_100_224_tf.download]]
+    sha256 = "d08196b5a6a441c2d9af63f0226126ee4f1cce5446176bd2ce196506aebc42a7"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v1_100_224_tf.tar.gz"
+
+[mobilenet_v2_100_224_tf]
+git-tree-sha1 = "b735a4044c70b7c39d7637f55259d276362f4303"
+lazy = true
+
+    [[mobilenet_v2_100_224_tf.download]]
+    sha256 = "708befbf04073554fc6b2d007c943d80c647fdfde22c89aaf7511eed10fdbb81"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v2_100_224_tf.tar.gz"
+
+[mobilenet_v2_100_224_pt]
+git-tree-sha1 = "cc1aaa84fb2712ce164ecf20eee943e5e0c6050a"
+lazy = true
+
+    [[mobilenet_v2_100_224_pt.download]]
+    sha256 = "6fe09e3a13efe8233f07a053b190a73eabbd9c6b6f7beb02ab5aa0c042e8a5e6"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v2_100_224_pt.tar.gz"
+
+[mobilenet_v3_small_100_224_pt]
+git-tree-sha1 = "077fd7128c996f8d5b45ad14cb8eb3bbc8e12ac6"
+lazy = true
+
+    [[mobilenet_v3_small_100_224_pt.download]]
+    sha256 = "8567ba8e680e6a370ef4911166002a7b03bc7a152cdecbc431553f2f4b50c258"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v3_small_100_224_pt.tar.gz"
+
+[mobilenet_v3_large_100_224_pt]
+git-tree-sha1 = "1b75a07447f8c4737878fcd055ac468beb762f48"
+lazy = true
+
+    [[mobilenet_v3_large_100_224_pt.download]]
+    sha256 = "4ce15b1ae9c3c540c0c800301f6eae3f01cf5fa9d022654c6a0f2fda789c55bc"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/mobilenet_v3_large_100_224_pt.tar.gz"
+
+[efficientnetb0]
+git-tree-sha1 = "321257e159382b323057477d9ec0a8b0686eb3b6"
+lazy = true
+
+    [[efficientnetb0.download]]
+    sha256 = "fb629132c8b38caa6bc91bb2e5bad1470c2c65c570c430140c1b8679cbe62b3b"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb0.tar.gz"
+
+[efficientnetb1]
+git-tree-sha1 = "97c72b9700149e5e7e29d8b43e2ba1e2edc899a4"
+lazy = true
+
+    [[efficientnetb1.download]]
+    sha256 = "9cabe8ee4b91139f78f7b7e5936ff4e12edfb7bbe73f022d8f35d9efa6a7702d"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb1.tar.gz"
+
+[efficientnetb2]
+git-tree-sha1 = "542d2c06eaf20f58edd5b222e82539e8d18a6908"
+lazy = true
+
+    [[efficientnetb2.download]]
+    sha256 = "793cca08f6ef7d1d3d00505c2d5b63147dd6ddaf0f4cac10dfc7d9d51d50943e"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb2.tar.gz"
+
+[efficientnetb3]
+git-tree-sha1 = "068c1663816e20df65f825f640cf819fc35fc0a8"
+lazy = true
+
+    [[efficientnetb3.download]]
+    sha256 = "727c61cd1301dbc94472aebc1d194578b655e6d21aeffaf5d5721a63436bcc8b"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb3.tar.gz"
+
+[efficientnetb4]
+git-tree-sha1 = "e20585695e4a981356a897c761df3e108230d83c"
+lazy = true
+
+    [[efficientnetb4.download]]
+    sha256 = "b210d59669cf7bdee76374b94053210414075be5d05a30f799abe4272e148ecf"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb4.tar.gz"
+
+[efficientnetb5]
+git-tree-sha1 = "4f64458a1de9a3856b9c7de7e09b98fde40f7a9d"
+lazy = true
+
+    [[efficientnetb5.download]]
+    sha256 = "3303cd78e430b013df31e94e385848b8cb0414759bf5daf387b63fb19852bb96"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb5.tar.gz"
+
+[efficientnetb6]
+git-tree-sha1 = "f1639c13e22ecbf16ee623c5ca7d112350cce829"
+lazy = true
+
+    [[efficientnetb6.download]]
+    sha256 = "f9fedc5d3ed41633f052012df2df99ac4131cf739bf2e2ca6f8580da5fa18aaf"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb6.tar.gz"
+
+[efficientnetb7]
+git-tree-sha1 = "af6e831bf57f389cf831c496c4a4520bb4e1bbdd"
+lazy = true
+
+    [[efficientnetb7.download]]
+    sha256 = "62d257df3e71ba635fe0340288c8c0d2272b212f318c8006b8ce3d6145caf152"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.5/efficientnetb7.tar.gz"

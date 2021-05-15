@@ -94,6 +94,25 @@ extern "C" {
     //firstdimsize is size of y
     _$(F)_14_x_y<<<dimGrid,dimBlock>>>(x,y,z,firstdimsize,x_N,sf);
   }
+
+  $DLLEXPORT void $(F)_14_x_y_stream($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims, cudaStream_t STR) {
+    //int flat_dims=x_N/firstdimsize;
+    int sf;
+    if(flat_dims<129)
+      {sf=4;}
+    else if(flat_dims<513)
+      {sf=8;}
+    else
+      {sf=16;}
+    int thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    int thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    int thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
+    dim3 dimGrid(thread_block_number4cover_x, thread_blockwsliding);
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    //x_N size of the x
+    //firstdimsize is size of y
+    _$(F)_14_x_y<<<dimGrid,dimBlock,0,STR>>>(x,y,z,firstdimsize,x_N,sf);
+  }
 }
 """)
     end
@@ -159,6 +178,25 @@ extern "C" {
     //x_N size of the x
     //firstdimsize is size of y
     _$(F)_14_y_x<<<dimGrid,dimBlock>>>(x,y,z,firstdimsize,x_N,sf);
+  }
+
+  $DLLEXPORT void $(F)_14_y_x_stream($T *x,$T *y,$T *z, int firstdimsize, int x_N,int flat_dims, cudaStream_t STR) {
+    //int flat_dims=x_N/firstdimsize;
+    int sf;
+    if(flat_dims<129)
+      {sf=4;}
+    else if(flat_dims<513)
+      {sf=8;}
+    else
+      {sf=16;}
+    int thread_block_number4cover_x = (firstdimsize+BLOCK_SIZE_x-1)/BLOCK_SIZE_x;
+    int thread_block_number4cover_y = (flat_dims+BLOCK_SIZE_y-1)/BLOCK_SIZE_y;
+    int thread_blockwsliding = (thread_block_number4cover_y+(sf)-1)/(sf);
+    dim3 dimGrid(thread_block_number4cover_x, thread_blockwsliding);
+    dim3 dimBlock(BLOCK_SIZE_x, BLOCK_SIZE_y);
+    //x_N size of the x
+    //firstdimsize is size of y
+    _$(F)_14_y_x<<<dimGrid,dimBlock,0,STR>>>(x,y,z,firstdimsize,x_N,sf);
   }
 }
 """)

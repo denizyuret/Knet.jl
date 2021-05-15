@@ -61,6 +61,7 @@ unary_ops = [
     "sqrt",
     "tan",
     "tanh",
+    ("tanh_","tanh_","tanh(xi)"),
     # "tgamma",
     "trunc",
     ("y0","bessely0"),
@@ -71,9 +72,12 @@ unary_ops = [
     ("invx", "invx", "1/xi"),
     ("elu", "elu", "(xi>0?xi:exp(xi)-1)"),
     ("gelu", "gelu", "0.5*xi*(1.0+erf(xi/1.4142135623730951))"),
+    ("hardsigmoid", "hardsigmoid", "(xi<=-3 ? 0 : xi>=3 ? 1 : (xi+3)/6)"),
+    ("hardswish", "hardswish", "(xi<=-3 ? 0 : xi>=3 ? xi : xi*(xi+3)/6)"),
     ("relu", "relu", "(xi>0?xi:0)"),
     ("selu", "selu", "1.0507009873554805*(xi>0?xi:1.6732632423543778*(exp(xi)-1))"),
     ("sigm", "sigm", "(xi>=0?1/(1+exp(-xi)):(exp(xi)/(1+exp(xi))))"),
+    ("swish", "swish", "(xi>=0?(xi/(1+exp(-xi))):(xi*exp(xi)/(1+exp(xi))))"),
 ]
 
 # The entry format is (cudaname, julianame, kernelcode)
@@ -115,6 +119,20 @@ binary_ops = [
     ("seluback","seluback","(yi>0?1.0507009873554805*xi:xi*(1.7580993408473773+yi))"),
     ("sigmback","sigmback","(xi*yi*(1-yi))"),
     ("tanhback","tanhback","(xi*(1-yi*yi))"),
+    ("swishback","swishback","(yi*(xi>=0?((xi*exp(-xi)+exp(-xi)+1)/((exp(-xi)+1)*(exp(-xi)+1))):(exp(xi)*(exp(xi)+xi+1)/((exp(xi)+1)*(exp(xi)+1)))))"), # xi=x, yi=dy
+]
+
+actback_ops = [
+    ("eluback","eluback","(y > 0 ? dy : dy * (1+y))"),
+    ("geluback","geluback","dy*(0.5*(1+erf(x/1.4142135623730951))+(x*exp(-x*x/2)/2.5066282746310002))"),
+    ("hardsigmoidback", "hardsigmoidback", "dy*(x<=-3 ? 0 : x>=3 ? 0 : 1.0/6.0)"),
+    ("hardswishback", "hardswishback", "dy*(x<=-3 ? 0 : x>=3 ? 1 : (x/3.0+0.5))"),
+# relu with kwargs needs special treatment, see cuda111.jl
+#   ("reluback","reluback","(y > 0 ? dy : 0)"),
+    ("seluback","seluback","(y > 0 ? 1.0507009873554805 * dy : dy * (1.7580993408473773 + y))"),
+    ("sigmback","sigmback","(dy * y * (1-y))"),
+    ("tanh_back","tanh_back","(dy*(1-y*y))"),
+    ("swishback","swishback","(dy*(x>=0?((x*exp(-x)+exp(-x)+1)/((exp(-x)+1)*(exp(-x)+1))):(exp(x)*(exp(x)+x+1)/((exp(x)+1)*(exp(x)+1)))))"),
 ]
 
 unary_ops_with_int_degree = [

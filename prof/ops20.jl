@@ -2,7 +2,7 @@ using BenchmarkTools, Printf, Random
 using AutoGrad: @diff, Param
 using Knet.Ops20: dropout, logp, softmax, logsumexp, nll, accuracy, bce, logistic, conv4, pool, deconv4, unpool, mat, elu, relu, selu, sigm, bnmoments, bnparams, batchnorm, RNN
 using Knet.KnetArrays: KnetArray
-using CUDA: CUDA, CuArray, synchronize
+using CUDA: CUDA, CuArray, @sync
 CUDA.allowscalar(true)
 CUDA.rand(10)[1] # get the warning out of the way
 pt = BenchmarkTools.prettytime
@@ -14,12 +14,12 @@ function kbench(f,x...; o...)
     global os = o
     global ns = []
     global ds = Base.dims2string.(size.(x)); fn = @sprintf("%s(%s)", ff, join(ds,",")); @printf("%-34s", fn); flush(stdout); ds = nothing; GC.gc(true);
-    global xs = Param.(x); ff(xs...;os...); pr("a1",@benchmark(ff(xs...;os...); seconds=seconds)); xs = nothing; GC.gc(true);
-    global ks = Param.(KnetArray.(x)); ff(ks...;os...); pr("k1",@benchmark((ff(ks...;os...); synchronize()), seconds=seconds)); ks = nothing; GC.gc(true);
-    global cs = Param.(CuArray.(x)); ff(cs...;os...); pr("c1",@benchmark((ff(cs...;os...); synchronize()), seconds=seconds)); cs = nothing; GC.gc(true);
-    global xs = Param.(x); @diff ff(xs...;os...)[1]; pr("a2",@benchmark((@diff (ff(xs...;os...)[1])), seconds=seconds)); xs = nothing; GC.gc(true);
-    global ks = Param.(KnetArray.(x)); @diff ff(ks...;os...)[1]; pr("k2",@benchmark((@diff (ff(ks...;os...)[1])), seconds=seconds)); ks = nothing; GC.gc(true);
-    global cs = Param.(CuArray.(x)); @diff ff(cs...;os...)[1]; pr("c2",@benchmark((@diff (ff(cs...;os...)[1])), seconds=seconds)); cs = nothing; GC.gc(true);
+    global xs = Param.(x); ff(xs...;os...); pr("a1",@benchmark(@sync(ff(xs...;os...)); seconds=seconds)); xs = nothing; GC.gc(true);
+    global ks = Param.(KnetArray.(x)); ff(ks...;os...); pr("k1",@benchmark(@sync(ff(ks...;os...)), seconds=seconds)); ks = nothing; GC.gc(true);
+    global cs = Param.(CuArray.(x)); ff(cs...;os...); pr("c1",@benchmark(@sync(ff(cs...;os...)), seconds=seconds)); cs = nothing; GC.gc(true);
+    global xs = Param.(x); @diff ff(xs...;os...)[1]; pr("a2",@benchmark(@sync(@diff(ff(xs...;os...)[1])), seconds=seconds)); xs = nothing; GC.gc(true);
+    global ks = Param.(KnetArray.(x)); @diff ff(ks...;os...)[1]; pr("k2",@benchmark(@sync(@diff(ff(ks...;os...)[1])), seconds=seconds)); ks = nothing; GC.gc(true);
+    global cs = Param.(CuArray.(x)); @diff ff(cs...;os...)[1]; pr("c2",@benchmark(@sync(@diff(ff(cs...;os...)[1])), seconds=seconds)); cs = nothing; GC.gc(true);
     @printf("n=%d-%d\n",minimum(ns),maximum(ns)); flush(stdout); ns = nothing; GC.gc(true);
 end
 

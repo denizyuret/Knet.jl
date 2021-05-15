@@ -1,3 +1,4 @@
+using CUDA: CUDA, cudaStream_t
 import Base: +, -, abs, abs2, acos, acosh, asin, asinh, atan, atanh, ceil, cos, cosh, exp, exp10, exp2, expm1, floor, log, log10, log1p, log2, one, round, sign, sin, sinh, sqrt, tan, tanh, trunc, zero
 import Base.Math: cbrt, cospi, sinpi
 import SpecialFunctions: besselj, besselj0, besselj1, bessely, bessely0, bessely1, digamma, erf, erfc, erfcinv, erfcx, erfinv, gamma, lgamma, trigamma

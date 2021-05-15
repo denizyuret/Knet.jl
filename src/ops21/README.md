@@ -22,4 +22,4 @@ The following principles guide the API design:
 
 Exported function list:
 
-* **activation:** elu, gelu, relu, selu, sigm
+* **activation:** elu, gelu, hardsigmoid, hardswish, relu, selu, sigm, swish

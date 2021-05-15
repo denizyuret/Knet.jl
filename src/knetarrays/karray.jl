@@ -1,7 +1,6 @@
 export KnetArray, KnetMatrix, KnetVector, KnetVecOrMat, DevArray, ka
 import CUDA: CUDA, CuArray, device
-import Base: Array, convert, unsafe_convert, pointer
-using CUDA: cuMemcpyHtoD_v2, cuMemcpyDtoH_v2, cuMemcpyDtoD_v2, CuPtr
+import Base: Array, convert, unsafe_convert, pointer, copyto!
 using Base: unsafe_wrap
 # include("kptr.jl") ## KnetPtr
 
@@ -85,51 +84,37 @@ KnetArray{T}(::UndefInitializer, d::NTuple{N,Integer}) where {T,N} = KnetArray{T
 # KnetArray(::KnetArray) creates a copy, convert returns an alias if possible
 KnetArray(A::KnetArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::KnetArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
-KnetArray{T,N}(x::KnetArray{T,N}) where {T,N} = _unsafe_copy!(KnetArray{T}(undef,x.dims), 1, x, 1, prod(x.dims))
-KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,x.dims), 1, convert(Array{T,N},x), 1, prod(x.dims))
+KnetArray{T,N}(x::KnetArray{T,N}) where {T,N} = copyto!(KnetArray{T}(undef,x.dims), 1, x, 1, prod(x.dims))
+KnetArray{T,N}(x::KnetArray{S,N}) where {T,N,S} = copyto!(KnetArray{T}(undef,x.dims), 1, convert(Array{T,N},x), 1, prod(x.dims))
 
 # KnetArray(::AbstractArray)
 KnetArray(A::AbstractArray{T,N})    where {T,N}   = KnetArray{T,N}(A)
 KnetArray{T}(A::AbstractArray{S,N}) where {T,N,S} = KnetArray{T,N}(A)
-KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
-
-# _unsafe_copy! does no bounds checking, the callers must. TODO: use a more standard method for this.
-function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::Array{T}, soffs::Int, n::Int) where {T}
-    cuMemcpyHtoD_v2(CuPtr{Nothing}(UInt(pointer(dest,doffs))), pointer(src,soffs), n*sizeof(T))
-    return dest
-end
-function _unsafe_copy!(dest::Array{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    cuMemcpyDtoH_v2(pointer(dest,doffs),CuPtr{Nothing}(UInt(pointer(src,soffs))), n*sizeof(T))
-    return dest
-end
-function _unsafe_copy!(dest::KnetArray{T}, doffs::Int, src::KnetArray{T}, soffs::Int, n::Int) where {T}
-    cuMemcpyDtoD_v2(CuPtr{Nothing}(UInt(pointer(dest,doffs))),CuPtr{Nothing}(UInt(pointer(src,soffs))), n*sizeof(T))
-    return dest
-end
+KnetArray{T,N}(x::AbstractArray{S,N}) where {T,N,S} = copyto!(KnetArray{T}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Conversions:
 
 # Array(::KnetArray)
 Array(A::KnetArray{T,N})    where {T,N}   = Array{T,N}(A)
 Array{T}(A::KnetArray{S,N}) where {T,N,S} = Array{T,N}(A)
-Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, _unsafe_copy!(Array{S}(undef,x.dims), 1, x, 1, prod(x.dims)))
+Array{T,N}(x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, copyto!(Array{S}(undef,x.dims), 1, x, 1, prod(x.dims)))
 
 # KnetArray <- KnetArray
 convert(::Type{KnetArray}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T,N}}, x::KnetArray{T,N}) where {T,N} = x
 convert(::Type{KnetArray{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},_unsafe_copy!(Array{S,N}(undef,x.dims), 1, x, 1, prod(x.dims)))
+convert(::Type{KnetArray{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(KnetArray{T,N},copyto!(Array{S,N}(undef,x.dims), 1, x, 1, prod(x.dims)))
 
 # KnetArray <- AbstractArray
 convert(::Type{KnetArray}, x::AbstractArray{T,N}) where {T,N} = convert(KnetArray{T,N}, x)
 convert(::Type{KnetArray{T}}, x::AbstractArray{S,N}) where {T,N,S} = convert(KnetArray{T,N}, x)
-convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = _unsafe_copy!(KnetArray{T,N}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
+convert(::Type{KnetArray{T,N}}, x::AbstractArray{S,N}) where {T,N,S} = copyto!(KnetArray{T,N}(undef,size(x)), 1, convert(Array{T,N},x), 1, length(x))
 
 # Array <- KnetArray
 convert(::Type{Array}, x::KnetArray{T,N}) where {T,N} = convert(Array{T,N}, x)
 convert(::Type{Array{T}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N}, x)
-convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},_unsafe_copy!(Array{S}(undef,x.dims), 1, x, 1, prod(x.dims)))
+convert(::Type{Array{T,N}}, x::KnetArray{S,N}) where {T,N,S} = convert(Array{T,N},copyto!(Array{S}(undef,x.dims), 1, x, 1, prod(x.dims)))
 
 # Ptr <- KnetArray
 
@@ -148,19 +133,11 @@ function CuArray(x::KnetArray{T}) where {T}
     unsafe_wrap(CuArray{T}, p, x.dims; own=false)
 end
 
-function convert(A::Type{<:CuArray}, x::KnetArray)
-    convert(A, CuArray(x))      # extra convert in case T,N changes
-end
-
 # Extend function KnetArray to create a memory shared KnetArray from CuArray:
 function KnetArray(x::CuArray{T,N}) where {T,N}
     p = Base.bitcast(Cptr, pointer(x))
     k = KnetPtr(p, sizeof(x), Int(CUDA.device().handle), x) 
     KnetArray{T,N}(k, size(x))
-end
-
-function convert(A::Type{<:KnetArray}, x::CuArray)
-    convert(A, KnetArray(x))    # extra convert in case T,N changes
 end
 
 function ka(x...)

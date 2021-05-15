@@ -72,7 +72,7 @@ function knetgcnode(n::Node, tape::Tape)  ## 16.3μs
         (k,v) = dequeue_pair!(_queue)  ## 0.787μs
         k = k.value
         if v != ni; @warn("k=$((k.ptr,k.len)) v=$v ni=$ni", maxlog=1); end  ## 0.160μs
-        #DBG verifypointer(tape, ni, k) 
+        #@dbg verifypointer(tape, ni, k) 
         freeKnetPtr(k)  ## 4.06μs
     end
     if n.Value isa Result
@@ -146,26 +146,26 @@ end
 maybefree(x,n,t)=false
 
 function maybefree(x::KnetArray, n::Node, tape::Tape)
-    # cp = countpointer(x, tape) #DBG
+    #@dbg cp = countpointer(x, tape)
     @inbounds for i in 1:length(n.parents)
         isassigned(n.parents, i) || continue
         p = n.parents[i]
         if maysharepointer(x, p.outgrad) || maysharepointer(x, p.Value.value) # need to check both outgrad and value
-            # gcpointers[cp > 1 ? 2 : 3] += 1 #DBG
-            # gcpointers[2] += x.ptr.len #DBG
+            #@dbg gcpointers[cp > 1 ? 2 : 3] += 1
+            #@dbg gcpointers[2] += x.ptr.len
             return false
         end
     end
     @inbounds for r in n.children
         if maysharepointer(x, r.outgrad) || maysharepointer(x, r.Value.value)
-            # gcpointers[cp > 1 ? 2 : 3] += 1 #DBG
-            # gcpointers[2] += x.ptr.len #DBG
+            #@dbg gcpointers[cp > 1 ? 2 : 3] += 1
+            #@dbg gcpointers[2] += x.ptr.len
             return false
         end
     end
     #@dbg (push!(arraysizes,0); push!(blocksizes,0))
-    # gcpointers[cp > 1 ? 4 : 1] += 1 #DBG
-    # gcpointers[1] += x.ptr.len #DBG
+    #@dbg gcpointers[cp > 1 ? 4 : 1] += 1
+    #@dbg gcpointers[1] += x.ptr.len
     freeKnetPtr(x.ptr)
     return true
 end
@@ -197,10 +197,9 @@ end
 
 ## Debugging utilities
 
-gcpointers = [ 0., 0., 0., 0. ]     #DBG
+#@dbg gcpointers = [ 0., 0., 0., 0. ]
 
 function verifypointer(tape::Tape, ni::Int, k::KnetPtr) # for debugging
-    @show ni
     gcpointers[1] += k.len
     findk = false
     for n in tape.list

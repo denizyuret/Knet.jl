@@ -55,7 +55,7 @@ Knet v1.4.1 Release Notes
 b720020 2020-08-28
 
 * Tutorial, README fixes, using MLDatasets.
-* Fixed gcnode issues.
+* Fixed gcnode issue #606.
 * Use NVML when choosing GPU.
 * Make RNN atype robust to types with dimensions.
 

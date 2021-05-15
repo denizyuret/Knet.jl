@@ -56,9 +56,10 @@ __global__ void _$(F)_17($T *x,$T *y, $T *z,
 
 extern "C" {
   $DLLEXPORT void $(F)_17($T *x,$T *y,$T *z, int *stride_x, int *stride_y,int *stride_z,int N_z,int dimlen_z) {
-
     _$(F)_17<<<256,256>>>(x,y,z,stride_x,stride_y,stride_z,N_z,dimlen_z);
-
+  }
+  $DLLEXPORT void $(F)_17_stream($T *x,$T *y,$T *z, int *stride_x, int *stride_y,int *stride_z,int N_z,int dimlen_z, cudaStream_t STR) {
+    _$(F)_17<<<256,256,0,STR>>>(x,y,z,stride_x,stride_y,stride_z,N_z,dimlen_z);
   }
 }
 """)

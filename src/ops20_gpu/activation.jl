@@ -3,7 +3,7 @@ import Base.Broadcast: broadcasted
 import Knet
 using Knet.KnetArrays: KnetArray, DevArray, Bcasted
 using Knet.LibKnet8: @knet8
-using CUDA: CuArray, CuPtr
+using CUDA: CUDA, CuArray, CuPtr
 using AutoGrad: AutoGrad, @primitive
 
 

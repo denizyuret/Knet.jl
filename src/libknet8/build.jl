@@ -1,8 +1,8 @@
-using CUDA, Libdl
+using CUDA, Libdl, Tar, SHA
 
 NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC","-std=c++11"]
-NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets"]
+NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--default-stream", "per-thread"]
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = Sys.iswindows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
@@ -35,6 +35,7 @@ function build_nvcc()
     SRC = [("cuda1","gamma","../knetarrays/unary","ops"),
            ("cuda01","../knetarrays/binary","ops"),
            ("cuda11","../knetarrays/binary","../knetarrays/unary","ops"),
+           ("cuda111","../knetarrays/binary","../knetarrays/unary","ops"),
            ("cuda12","../knetarrays/binary","ops"),
            ("cuda13","../knetarrays/binary","ops"),
            ("cuda16","../knetarrays/binary","ops"),
@@ -42,6 +43,7 @@ function build_nvcc()
            ("cuda20","../knetarrays/reduction","ops"),
            ("cuda21","../knetarrays/reduction","ops"),
            ("cuda22","../knetarrays/reduction","ops"),
+           ("relu","ops"),
            ]
 
     OBJ = []
@@ -72,11 +74,14 @@ function build_nvcc()
 end
 
 function build()
-    if NVCC !== nothing
-        build_nvcc()
-    else
-        @warn("no compilers found, libknet8 will not be built.")
-    end
+    @assert NVCC !== nothing "no compilers found, libknet8 will not be built."
+    build_nvcc()
+    run(`tar cf libknet8.tar $LIBKNET8`)
+    sha1 = Tar.tree_hash("libknet8.tar")
+    run(`gzip libknet8.tar`)
+    sha2 = open("libknet8.tar.gz") do f; bytes2hex(sha256(f)); end
+    @info "git-tree-sha1 = \"$sha1\""
+    @info "sha256 = \"$sha2\""
 end
 
 build()
