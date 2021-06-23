@@ -17,6 +17,7 @@ include("ops20_gpu/Ops20_gpu.jl")
 include("ops21/Ops21.jl")
 include("ops21_gpu/Ops21_gpu.jl")
 include("train20/Train20.jl")
+include("metrics/Metrics.jl")
 # include("layers21/Layers21.jl")
 
 # See if we have a gpu at initialization:
@@ -41,12 +42,15 @@ using Knet.LibKnet8 #: libknet8, @knet8, @knet8r, gpu
 using Knet.KnetArrays #: KnetArray, gc, knetgc, ka, setseed, seed!
 using Knet.Ops20 #: RNN, accuracy, batchnorm, bce, bmm, bnmoments, bnparams, conv4, deconv4, dropout, elu, invx, logistic, logp, logsoftmax, logsumexp, mat, nll, pool, relu, rnnforw, rnninit, rnnparam, rnnparams, selu, sigm, softmax, unpool, zeroone
 using Knet.Train20 #: Adadelta, Adagrad, Adam, Momentum, Nesterov, Rmsprop, SGD, Sgd, adadelta, adadelta!, adagrad, adagrad!, adam, adam!, atype, bilinear, converge, converge!, gaussian, goldensection, hyperband, minibatch, momentum, momentum!, nesterov, nesterov!, optimizers, param, param0, progress, progress!, rmsprop, rmsprop!, sgd, sgd!, train!, training, update!, xavier, xavier_normal, xavier_uniform
+using Knet.Metrics #: confusion_matrix, class_confusion, confusion_params, visualize, classification_report, condition_positive, condition_negative, predicted_positive, predicted_negative, correctly_classified, incorrectly_classified, sensitivity_score, specificity_score, precision_score, accuracy_score, balanced_accuracy_score, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, fowlkes_mallows_index, informedness, matthews_correlation_coeff
 
 export @diff, Adadelta, Adagrad, Adam, AutoGrad, Knet, KnetArray, Momentum, Nesterov, Param, RNN, Rmsprop, SGD, Sgd, accuracy, adadelta, adadelta!, adagrad, adagrad!, adam, adam!, batchnorm, bce, bilinear, bmm, bnmoments, bnparams, cat1d, conv4, converge, converge!, cpucopy, deconv4, dropout, elu, gaussian, goldensection, gpu, gpucopy, grad, gradloss, hyperband, invx, ka, knetgc, logistic, logp, logsoftmax, logsumexp, mat, minibatch, momentum, momentum!, nesterov, nesterov!, nll, optimizers, param, param0, params, pool, progress, progress!, relu, rmsprop, rmsprop!, rnninit, rnnparam, rnnparams, selu, setseed, sgd, sgd!, sigm, softmax, train!, training, unpool, update!, value, xavier, xavier_normal, xavier_uniform, zeroone
+
+#metrics
+export confusion_matrix, class_confusion, visualize, classification_report, condition_positive, condition_negative, predicted_positive,predicted_negative, correctly_classified, incorrectly_classified, sensitivity_score, recall_score, specificity_score, precision_score, positive_predictive_value, accuracy_score, balanced_accuracy_score, negative_predictive_value, false_negative_rate, false_positive_rate, false_discovery_rate, false_omission_rate, f1_score, prevalence_threshold, threat_score, matthews_correlation_coeff, fowlkes_mallows_index, informedness, markedness, cohen_kappa_score, hamming_loss, jaccard_score, confusion_params
+
 
 # This is assumed by some old scripts:
 export rnnforw
 
 end # module
-
-
