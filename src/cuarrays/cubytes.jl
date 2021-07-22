@@ -41,7 +41,7 @@ function _cuarrays(@nospecialize(x), c::Vector{CuArray}, d::IdDict{Any,Bool})
     if haskey(d, x)
         return
     end
-    if T.mutable
+    if ismutable(x)
         d[x] = true
     end
     for i in 1:nf

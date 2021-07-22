@@ -1,5 +1,13 @@
+Knet v1.4.7 Release Notes
+=========================
+
+* Compatibility fixes for Julia 1.6/1.7 and CUDA 3.x.
+* Starting ops21, layers21, models21.
+
+
 Knet v1.4.6 Release Notes
 =========================
+1492e2b 2021-03-17
 
 * Improve fill! performance
 * Fix #653: Knet.@save macro

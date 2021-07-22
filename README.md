@@ -2,10 +2,6 @@
 
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) 
 [![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) 
-[![](https://gitlab.com/JuliaGPU/Knet.jl/badges/master/pipeline.svg)](https://gitlab.com/JuliaGPU/Knet.jl/pipelines)
-[![](https://ci.appveyor.com/api/projects/status/mqn07e5a4xoo6ua5?svg=true)](https://ci.appveyor.com/project/denizyuret/knet-jl)
-[![](https://cloud.drone.io/api/badges/denizyuret/Knet.jl/status.svg)](https://cloud.drone.io/denizyuret/Knet.jl)
-[![](https://api.cirrus-ci.com/github/denizyuret/Knet.jl.svg)](https://cirrus-ci.com/github/denizyuret/Knet.jl)
 [![](https://coveralls.io/repos/github/denizyuret/Knet.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/Knet.jl?branch=master)
 [![](https://codecov.io/gh/denizyuret/Knet.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/Knet.jl)
 

@@ -88,7 +88,7 @@ _ser(x::String, s::IdDict,::Val) = (haskey(s, x) ? s[x] : s[x] = (GC.@preserve x
 function _ser(@nospecialize(x), stackdict::IdDict, m::Val)
     T = typeof(x)::DataType
     nf = nfields(x)
-    if T.mutable
+    if ismutable(x)
         if haskey(stackdict, x)
             return stackdict[x]
         end

@@ -133,7 +133,7 @@ hcat(X::KnetArray...)=cat(X...; dims=Val(2))   # This should only kick in for di
 function cat(X::KnetArray{T}...; dims) where {T}
     catdims = dims2cat(dims)
     # catdims == (true,) && return vcat_old(X...) # 10-30% faster
-    shape = cat_shape(catdims, (), map(size, X)...)
+    shape = cat_shape(catdims, map(size, X))      # julia-1.6.2: `cat_shape(dims, shape::Tuple{}, shapes::Tuple...)` is deprecated, use `cat_shape(dims, shapes)` instead.
     # length(shape) <= 2 && catdims == (false,true) && return hcat_old(X...) # 50% faster
     A = similar(X[1], T, shape) # cat_similar(X[1], T, shape)
     if T <: Number && count(!iszero, catdims) > 1

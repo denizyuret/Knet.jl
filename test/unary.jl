@@ -1,7 +1,7 @@
 using Test, SpecialFunctions
-using Knet.Ops20: reluback, sigmback, eluback, seluback, relu, sigm, elu, selu
+using Knet.Ops20: reluback, sigmback, eluback, seluback, relu, sigm, elu, selu, invx
 using Knet.Ops20_gpu: tanhback
-using Knet.Ops21: gelu, geluback
+using Knet.Ops21: gelu, geluback, tanh_, hardsigmoid, hardswish, swish
 using Knet.LibKnet8: unary_ops
 using Knet.KnetArrays: KnetArray
 using AutoGrad: gradcheck, grad, @gcheck, Param
@@ -23,6 +23,7 @@ using CUDA: CUDA, functional
     unary_fns = Any[]
     for f in unary_ops
         if isa(f,Tuple); f=f[2]; end
+        if f ∈ ("tanh_","gelu","hardsigmoid","hardswish","swish"); continue; end # these specifically do not support broadcasting
         push!(unary_fns, eval(Meta.parse(f)))
     end
 
@@ -74,7 +75,7 @@ using CUDA: CUDA, functional
         @test @gcheck tanhback.(dy,y)
         @test @gcheck seluback.(dy,y)
         @test @gcheck  eluback.(dy,y)
-        @test @gcheck geluback.(dy,y)
+        #@test @gcheck geluback.(dy,y)
     end
 end
 

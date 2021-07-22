@@ -10,7 +10,7 @@ if CUDA.functional()
     @test length(CUDA.devices()) > 0 # Knet.gpuCount() > 0
     @show CUDA.capability(CUDA.device())
     @show CUDA.warpsize(CUDA.device())
-    @show CUDA.find_toolkit() # Knet.tk
+    @show CUDA.toolkit() # Knet.tk
     @show CUDA.version() # Knet.cudaDriverVersion
     @test CUDA.version() > v"0" # Knet.cudaDriverVersion > 0
     @show Mem.info() # Knet.cudaMemGetInfo()

@@ -12,7 +12,7 @@ using CUDA.CUDNN:
     cudnnConvolutionBwdDataAlgoPerf,
     cudnnConvolutionBwdFilterAlgoPerf,
     scalingParameter,
-    @workspace,
+    with_workspace,
     handle
   
 
@@ -49,9 +49,13 @@ function cudnnConvolutionBackward(_dy, _y, w, x, bias, z; y, activation, convDes
     end
     beta0, alpha1 = (a->scalingParameter(eltype(x),a)).((0,1))
     p = cudnnConvolutionBwdFilterAlgoPerf(xDesc, x, yDesc, dy, convDesc, wDesc, dw[]);
-    @workspace size=p.memory workspace->cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, p.algo, workspace, sizeof(workspace), beta0, wDesc, dw[])
+    with_workspace(p.memory) do workspace
+        cudnnConvolutionBackwardFilter(handle(), alpha, xDesc, x, yDesc, dy, convDesc, p.algo, workspace, sizeof(workspace), beta0, wDesc, dw[])
+    end
     p = cudnnConvolutionBwdDataAlgoPerf(wDesc, w, yDesc, dy, convDesc, xDesc, dx[]);
-    @workspace size=p.memory workspace->cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, p.algo, workspace, sizeof(workspace), beta0, xDesc, dx[])
+    with_workspace(p.memory) do workspace
+        cudnnConvolutionBackwardData(handle(), alpha, wDesc, w, yDesc, dy, convDesc, p.algo, workspace, sizeof(workspace), beta0, xDesc, dx[])
+    end
     if bias !== nothing
         cudnnConvolutionBackwardBias(handle(), alpha1, yDesc, dy, beta0, biasDesc, dbias[])
     end
