@@ -34,7 +34,6 @@ setup.sh
 *.log
 *.prof
 *.gz
-Manifest.toml
 .ipynb_checkpoints
 *-Copy*ipynb
 Untitled*.ipynb
