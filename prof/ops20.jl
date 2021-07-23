@@ -2,10 +2,9 @@ using BenchmarkTools, Printf, Random
 using AutoGrad: @diff, Param
 using Knet.Ops20: dropout, logp, softmax, logsumexp, nll, accuracy, bce, logistic, conv4, pool, deconv4, unpool, mat, elu, relu, selu, sigm, bnmoments, bnparams, batchnorm, bmm, RNN
 using Knet.KnetArrays: KnetArray
-using CUDA: CUDA, CuArray, @sync
-CUDA.allowscalar(true)
-CUDA.rand(10)[1] # get the warning out of the way
-pt = BenchmarkTools.prettytime
+using CUDA: CUDA, CuArray, @sync, @allowscalar
+
+
 
 function kbench(f,x...; o...)
     pr(b) = (@printf("%11d", minimum(b.times)); flush(stdout); push!(ns,length(b.times)))
@@ -17,9 +16,9 @@ function kbench(f,x...; o...)
     global xs = Param.(x); ff(xs...;os...); pr(@benchmark(@sync(ff(xs...;os...)); seconds=seconds)); xs = nothing; GC.gc(true);
     global ks = Param.(KnetArray.(x)); ff(ks...;os...); pr(@benchmark(@sync(ff(ks...;os...)), seconds=seconds)); ks = nothing; GC.gc(true);
     global cs = Param.(CuArray.(x)); ff(cs...;os...); pr(@benchmark(@sync(ff(cs...;os...)), seconds=seconds)); cs = nothing; GC.gc(true);
-    global xs = Param.(x); @diff ff(xs...;os...)[1]; pr(@benchmark(@sync(@diff(ff(xs...;os...)[1])), seconds=seconds)); xs = nothing; GC.gc(true);
-    global ks = Param.(KnetArray.(x)); @diff ff(ks...;os...)[1]; pr(@benchmark(@sync(@diff(ff(ks...;os...)[1])), seconds=seconds)); ks = nothing; GC.gc(true);
-    global cs = Param.(CuArray.(x)); @diff ff(cs...;os...)[1]; pr(@benchmark(@sync(@diff(ff(cs...;os...)[1])), seconds=seconds)); cs = nothing; GC.gc(true);
+    global xs = Param.(x); @diff sum(ff(xs...;os...)); pr(@benchmark(@sync(@diff(sum(ff(xs...;os...)))), seconds=seconds)); xs = nothing; GC.gc(true);
+    global ks = Param.(KnetArray.(x)); @diff sum(ff(ks...;os...)); pr(@benchmark(@sync(@diff(sum(ff(ks...;os...)))), seconds=seconds)); ks = nothing; GC.gc(true);
+    global cs = Param.(CuArray.(x)); @diff sum(ff(cs...;os...)); pr(@benchmark(@sync(@diff(sum(ff(cs...;os...)))), seconds=seconds)); cs = nothing; GC.gc(true);
     @printf("%7d%7d\n",minimum(ns),maximum(ns)); flush(stdout); ns = nothing; GC.gc(true);
 end
 
@@ -27,7 +26,7 @@ print("op(dims)                            arrayforw   knetforw   cudaforw  arra
 
 B = 32
 
-getindex1(x)=x[1]
+getindex1(x)=(@allowscalar x[1])
 drop(x)=dropout(x,0.5,drop=true)
 y1 = randn(Float32,1000,B)
 kbench(identity,y1)
