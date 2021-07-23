@@ -54,6 +54,7 @@ function materialize!(A::SubArray{T,N,<:KnetArray}, B) where {T,N}
     _A = view(CuArray(A.parent), A.indices...)
     _B = (B isa KnetArray || B isa AbstractArray ? CuArray(B) : B)
     materialize!(_A, _B)
+    return A
 end
 
 # For contiguous I, dotview(A, I...) gives a shared-memory KnetArray rather than a view
@@ -61,17 +62,20 @@ function materialize!(A::KnetArray, B) where {T,N}
     _A = CuArray(A)
     _B = (B isa KnetArray || B isa AbstractArray ? CuArray(B) : B)
     materialize!(_A, _B)
+    return A
 end
 
 # Ambiguity fixes:
 function materialize!(A::SubArray{T,N,<:KnetArray}, B::Broadcasted{S}) where {T,N,S}
     _A = view(CuArray(A.parent), A.indices...)
     materialize!(_A, B)
+    return A
 end
 
 function materialize!(A::KnetArray{T,N}, B::Broadcasted{S}) where {T,N,S}
     _A = CuArray(A)
     materialize!(_A, B)
+    return A
 end
 
 
