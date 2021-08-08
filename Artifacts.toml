@@ -9,7 +9,7 @@ os = "linux"
    
     [[libknet8.download]]
     sha256 = "6e17a06be51418447dcea7c9c3c0ba43b3cf7d643a1843e8cab2db859a1b0362"
-    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.8/libknet8-1.4.8-linux-x86_64.tar.gz"
+    url = "https://github.com/denizyuret/Knet.jl/releases/download/v1.4.7/libknet8-1.4.8-linux-x86_64.tar.gz"
 
 [[libknet8]]
 arch = "x86_64"
