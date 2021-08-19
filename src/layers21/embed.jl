@@ -3,7 +3,7 @@ using Knet: atype
 using AutoGrad: Param
 
 """
-    Embed(embedsize, vocabsize; atype, init)
+    Embed(vocabsize, embedsize; atype, init)
     Embed(weights)
 
 References:
@@ -14,7 +14,7 @@ struct Embed; w;
     Embed(w)=new(w isa Param ? w : Param(w))
 end
 
-function Embed(embedsize::Integer, vocabsize::Integer; atype=atype(), init=𝑵(1))
+function Embed(vocabsize::Integer, embedsize::Integer; atype=atype(), init=𝑵(1))
     Embed(convert(atype, init(embedsize,vocabsize)))
 end
 

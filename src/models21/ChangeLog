@@ -1,3 +1,14 @@
+2021-08-17  Deniz Yuret  <dyuret@WS001>
+
+	* TODO:
+	- RNNs: ops, layers
+	- Transformers: ops, layers
+	- Image and text preprocessing layers
+	- Huggingface models
+	- Checkout pytorch/tf ops and layers for rnns and transformers
+	- Get deepmap its own package
+
+
 2021-03-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
 
 	* xnor-lenet:

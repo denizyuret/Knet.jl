@@ -11,6 +11,7 @@ include("batchnorm.jl")
 include("zeropad.jl")
 include("show.jl")
 include("jld2.jl")
+include("embed.jl")
 
 # TODO: rethink param/Param and generally parameter initialization, array_type etc.
 #  xavier may not be optimal for embedding, should specify init options etc.
@@ -19,7 +20,6 @@ include("jld2.jl")
 # 
 # 
 # include("dropout.jl")
-# include("embed.jl")
 # include("layernorm.jl")
 
 end

@@ -1,6 +1,11 @@
 using FileIO
 import Knet
 
+# BUGS:
+# After optimization arrays in x.opt (adam statistics) get saved as well.
+# RNNs have r.c, r.h etc arrays that are not Params.
+# If we do Params only we miss BatchNorm parameters.
+
 # How to save/load weights in a way that is robust to code change (except the order of weights ;)
 
 function getweights(model; atype=Knet.atype())

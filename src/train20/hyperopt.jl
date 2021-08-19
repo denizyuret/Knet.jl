@@ -58,7 +58,7 @@ function goldensection(f,n; dxmin=0.1, accel=1.618033988749895, history=[], verb
         i = argmax(df)
         x1 = setindex(x0,x0[i]+dx[i],i)
         f1 = feval(x1)
-        if verbose; println((:f0,f0,:x0,x0,:f1,f1,:x1,x1,:dx,dx,:df,df)); end
+        if verbose; println((; f0,x0,f1,x1,dx,df)); end
         isnan(f1) && (f1=f0+df[i])
         if f1 < f0
             dx[i] = accel * dx[i]
