@@ -12,7 +12,7 @@ Pages = [
 ]
 ```
 
-## Textbook
+## Textbook Draft
 
 ```@contents
 Pages = [
@@ -24,6 +24,8 @@ Pages = [
  "rl.md",
  "opt.md",
  "gen.md",
+ "nce.md",
+ "vae.md",
 ]
 Depth = 1
 ```
