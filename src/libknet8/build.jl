@@ -8,13 +8,15 @@ const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = Sys.iswindows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
 inforun(cmd)=(@info(cmd);run(cmd))
 
-# Try to find NVCC
+# NVCC must be on the path:
 
 try
-    cuda_dirs = CUDA.find_toolkit()
-    global NVCC = CUDA.find_cuda_binary("nvcc", cuda_dirs)
-catch; end
+    run(`nvcc -V`)
+catch
+    error("nvcc not found, libknet8 will not be built.")
+end
 
+NVCC = "nvcc"
 push!(NVCCFLAGS,"--compiler-options",join(CFLAGS,' '))
 
 # If CUDA is available add architecture optimization flags
@@ -76,7 +78,11 @@ end
 function build()
     @assert NVCC !== nothing "no compilers found, libknet8 will not be built."
     build_nvcc()
-    run(`tar cf libknet8.tar $LIBKNET8`)
+    if Sys.iswindows()
+        run(`tar cf libknet8.tar libknet8.dll libknet8.lib libknet8.exp`)
+    else
+        run(`tar cf libknet8.tar $LIBKNET8`)
+    end
     sha1 = Tar.tree_hash("libknet8.tar")
     run(`gzip libknet8.tar`)
     sha2 = open("libknet8.tar.gz") do f; bytes2hex(sha256(f)); end
