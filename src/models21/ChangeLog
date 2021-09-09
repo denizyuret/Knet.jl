@@ -7,6 +7,8 @@
 	- Huggingface models
 	- Checkout pytorch/tf ops and layers for rnns and transformers
 	- Get deepmap its own package
+	- fileio.jl: needs more work with including bn weights and excluding adam weights.
+	- fileio.jl: layers like Linear do not get initialized which makes loading difficult.
 
 
 2021-03-14  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
