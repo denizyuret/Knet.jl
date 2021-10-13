@@ -3,6 +3,12 @@ using CUDA, Libdl, Tar, SHA
 NVCC = nothing
 CFLAGS = Sys.iswindows() ? ["/Ox","/LD"] : ["-O3","-Wall","-fPIC","-std=c++11"]
 NVCCFLAGS = ["-O3","--use_fast_math","-Wno-deprecated-gpu-targets","--default-stream", "per-thread"]
+
+# For compatibility with older chips, from NVIDIA samples Makefiles:
+SMS = [35, 37, 50, 52, 53, 60, 61, 62, 70, 72, 75, 80]
+for sm in SMS; push!(NVCCFLAGS,"-gencode=arch=compute_$sm,code=sm_$sm"); end
+push!(NVCCFLAGS,"-gencode=arch=compute_$(SMS[end]),code=compute_$(SMS[end])")
+
 const OBJEXT = Sys.iswindows() ? ".obj" : ".o"
 const LIBKNET8 = "libknet8."*Libdl.dlext
 const DLLEXPORT = Sys.iswindows() ? "__declspec(dllexport)" : "" # this needs to go before function declarations
