@@ -4,8 +4,8 @@ module LibKnet8
 
 export libknet8, @knet8, @knet8r, gpu
 using CUDA, Libdl, Pkg.Artifacts
-const libknet8 = Libdl.find_library(["libknet8"], [artifact"libknet8"])
-#DBG const libknet8 = Libdl.find_library(["libknet8"], [@__DIR__])
+#DBG const libknet8 = Libdl.find_library(["libknet8"], [artifact"libknet8"])
+const libknet8 = Libdl.find_library(["libknet8"], [@__DIR__])
 
 include("ops.jl")
 
