@@ -53,6 +53,10 @@ export @diff, Adadelta, Adagrad, Adam, AutoGrad, Knet, KnetArray, Momentum, Nest
 # This is assumed by some old scripts:
 export rnnforw
 
+# Slowly switch to CuArrays:
+using CUDA: CuArray
+export CuArray
+
 end # module
 
 
