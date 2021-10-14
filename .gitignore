@@ -38,3 +38,5 @@ setup.sh
 *-Copy*ipynb
 Untitled*.ipynb
 tutorial/words
+tutorial/Manifest.toml
+tutorial/Project.toml
