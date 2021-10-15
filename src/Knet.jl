@@ -32,7 +32,7 @@ function __init__()
         if isempty(Knet.LibKnet8.libknet8)
             @warn "libknet8 library not found, some GPU functionality may not be available, try reinstalling Knet."
         end
-        Knet.array_type[] = Knet.KnetArrays.KnetArray{Float32}
+        Knet.array_type[] = CUDA.CuArray{Float32}
         AutoGrad.set_gc_function(Knet.KnetArrays.cuallocator[] ? Knet.AutoGrad_gpu.gcnode : Knet.AutoGrad_gpu.knetgcnode)
         if CUDA.has_nvml() # Pick the device with highest memory
             mem(d) = CUDA.NVML.memory_info(CUDA.NVML.Device(CUDA.uuid(d))).free
