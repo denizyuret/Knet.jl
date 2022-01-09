@@ -31,7 +31,7 @@ makedocs(
 #           "examples.md",
             "reference.md",
         ],
-        "Textbook" => Any[
+        "Textbook Draft" => Any[
             "backprop.md",
             "softmax.md",
             "mlp.md",
@@ -41,6 +41,7 @@ makedocs(
             "opt.md",
             "gen.md",
             "nce.md",
+            "vae.md",
         ],
     ],
 #    doctest = true,

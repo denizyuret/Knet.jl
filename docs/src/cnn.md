@@ -895,3 +895,9 @@ and ResNet [(He et al. 2015)](http://arxiv.org/abs/1512.03385).
 -   [A Simple Guide to the Versions of the Inception Network](https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202)
 
 
+## TODO
+- Describe the group option
+- Describe what is meant by (1,1), pointwise, depthwise convolutions, uses of the group option
+- Describe batch normalization, other normalization options?
+- Describe modern architectural innovations: MobileNet, EfficientNet
+- Describe dilation, deconvolution, unpool: ops in the expanding branch of U-net

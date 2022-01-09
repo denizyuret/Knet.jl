@@ -16,15 +16,12 @@ julia> using IJulia, Knet
 julia> notebook(dir=Knet.dir("tutorial"))
 ```
 
-To run the notebooks in the cloud you can use [JuliaBox](), [Google
+To run the notebooks in the cloud you can use [Google
 Colab](https://colab.research.google.com/notebooks/welcome.ipynb), or services like
-[AWS](http://aws.amazon.com). To run on JuliaBox, click the Git button in the Dashboard and
-clone `https://github.com/denizyuret/Knet.jl.git`. The tutorial should be available under
-`Knet/tutorial` on the Jupyter screen.  To run on Colab add Julia support first using the
-[JuliaOnColab.ipynb](JuliaOnColab.ipynb) notebook, then open the notebooks in
-[Google
-Drive](https://drive.google.com/drive/folders/19D-R31unxZV_PUYYYpCfd-gnbdUiZfNb?usp=sharing).
-To run on AWS follow the instructions in the [Knet Installation
+[AWS](http://aws.amazon.com). To run on Colab copy the notebooks to the "Colab Notebooks"
+folder in your Google Drive, then open and follow the instructions in the
+[JuliaOnColab.ipynb](JuliaOnColab.ipynb) notebook.  To run on AWS follow the instructions in
+the [Knet Installation
 Section](http://denizyuret.github.io/Knet.jl/latest/install.html#Using-Amazon-AWS-1).
 
 **Contents:**
