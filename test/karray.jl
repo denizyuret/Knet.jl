@@ -33,10 +33,10 @@ if CUDA.functional()
                       ([1,3],:), (:,[1,3]),             # Vector{Int},Colon
                       ([2,2],:), (:,[2,2]),             # Repeated index
                       # ([],),                          # Empty Array: fails with CuArray
-                      ((a.>0.5),),                      # BitArray
+                      (trues(size(a)),),                # BitArray: may fail when using (a.>0.5) as index if all false.
                       ([1 3; 2 4],),                    # Array{Int}
                       (CartesianIndex(3,),), (CartesianIndex(2,3),), # CartesianIndex
-                      (:,a[1,:].>0.5),(a[:,1].>0.5,:),  # BitArray2 # FAIL for julia4
+                      (:,trues(size(a[1,:]))),(trues(size(a[:,1])),:),  # BitArray2 # FAIL for julia4
                       ([CartesianIndex(2,2), CartesianIndex(2,1)],), # Array{CartesianIndex} # FAIL for julia4
                       )
                 #@show i
@@ -144,7 +144,7 @@ if CUDA.functional()
                       (:,:,2),                          # Colon, Colon, Int
                       (:,:,1:2),                        # Colon, Colon, UnitRange
                       # ([],),                          # Empty Array fails with CuArray
-                      ((a.>0.5),),                      # BitArray
+                      (trues(size(a)),),                # BitArray
                       )
                 #@show i
                 k = KnetArray(a)

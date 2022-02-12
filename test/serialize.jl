@@ -1,7 +1,7 @@
 using Test, Random, FileIO, JLD2
 using Knet.KnetArrays: KnetArray, Cptr, jld2serialize, cpucopy, gpucopy
 using Knet.Ops20: RNN, conv4
-using CUDA: CUDA, functional
+using CUDA: CUDA, functional, @allowscalar
 using AutoGrad: Param, params, @diff, value
 
 struct M370; layer; end;
@@ -10,12 +10,12 @@ struct M370; layer; end;
     M1 = RNN(2,3)
     M2 = M1 |> cpucopy
     @test typeof(M2.w.value) <: Array
-    @test M2.w.value == M1.w.value
+    @test @allowscalar M2.w.value == M1.w.value
     @test Array{Float32} == jld2serialize(Array{Float32})
     if CUDA.functional()
         M3 = M2 |> gpucopy
         @test typeof(M3.w.value) <: KnetArray
-        @test M3.w.value == M2.w.value
+        @test @allowscalar M3.w.value == M2.w.value
         array_of_ka = map(value,params(M3))
         array_of_ca = array_of_ka |> cpucopy
         @test first(array_of_ca) isa Array

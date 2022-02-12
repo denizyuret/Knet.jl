@@ -42,11 +42,9 @@ end
 # Test the cuda allocator.
 if CUDA.functional()
     cuallocator[]=true
-    cxt = CUDA.context()
-    usedmem() = CUDA.usage(cxt)[] - CUDA.cached_memory()
-    used = usedmem()
+    used = CUDA.used_memory()
     @testset "kptr:cuda" begin
-        @test (p = KnetPtr(128); usedmem() == used + 128)
+        @test (p = KnetPtr(128); CUDA.used_memory() == used + 128)
         p = nothing
     end
 end
@@ -55,7 +53,7 @@ GC.gc(true)
 
 if CUDA.functional()
     @testset "kptr:cudagc" begin
-        @test usedmem() == used
+        @test CUDA.used_memory() == used
     end
 end
 

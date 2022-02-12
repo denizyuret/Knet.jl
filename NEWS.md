@@ -1,5 +1,34 @@
+Knet v1.4.10 Release Notes
+=========================
+
+* switch default GPU array type from KnetArray to CuArray
+* allow loading on Apple M1
+* support SpecialFunctions 2.x
+* fix674: libknet8 compile error on unknown architectures
+* tutorial updates
+* minor test fixes
+
+
+Knet v1.4.9 Release Notes
+=========================
+4720782 2021-10-13
+
+* progress on layers21
+* added vae chapter to docs
+* updated libknet8 for windows
+* made tutorial colab compatible
+
+
+Knet v1.4.8 Release Notes
+=========================
+13fea96 2021-08-08
+
+* fixed libknet8 path
+
+
 Knet v1.4.7 Release Notes
 =========================
+d4af838 2021-07-23
 
 * Compatibility fixes for Julia 1.6/1.7 and CUDA 3.x.
 * Starting ops21, layers21, models21.
