@@ -1,7 +1,7 @@
 # Knet
 
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://denizyuret.github.io/Knet.jl/latest) 
-[![](https://travis-ci.org/denizyuret/Knet.jl.svg?branch=master)](https://travis-ci.org/denizyuret/Knet.jl) 
+[![](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/denizyuret/Knet.jl/actions) 
 [![](https://coveralls.io/repos/github/denizyuret/Knet.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/Knet.jl?branch=master)
 [![](https://codecov.io/gh/denizyuret/Knet.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/Knet.jl)
 
