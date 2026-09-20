@@ -35,7 +35,7 @@ end
 function imagenet_preprocess(file::String; o...)
     if occursin(r"^https?://", file)
         mktemp() do fn,io
-            imagenet_preprocess(load(download(url,fn)); o...)
+            imagenet_preprocess(load(download(file,fn)); o...)
         end
     else
         imagenet_preprocess(load(file); o...)
